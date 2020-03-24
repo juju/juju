@@ -4,6 +4,8 @@
 package provider
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -36,20 +38,9 @@ func (k *kubernetesClient) configureStatefulSet(
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	existing := err == nil
-
-	var randPrefix string
-	// Include a random snippet in the pvc name so that if the same app
-	// is deleted and redeployed again, the pvc retains a unique name.
-	// Only generate it once, and record it on the stateful set.
-	if existing {
-		randPrefix = existingStatefulSet.Annotations[labelApplicationUUID]
-	}
-	if randPrefix == "" {
-		randPrefix, err = k.randomPrefix()
-		if err != nil {
-			return errors.Trace(err)
-		}
+	randPrefix, err := k.getStorageUniqPrefix(existingStatefulSet)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	statefulSet := &apps.StatefulSet{
@@ -58,7 +49,7 @@ func (k *kubernetesClient) configureStatefulSet(
 			Labels: k.getStatefulSetLabels(appName),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
-				Add(labelApplicationUUID, randPrefix).ToMap(),
+				Add(annotationKeyApplicationUUID, randPrefix).ToMap(),
 		},
 		Spec: apps.StatefulSetSpec{
 			Replicas: replicas,
@@ -83,9 +74,39 @@ func (k *kubernetesClient) configureStatefulSet(
 	existingPodSpec := podSpec
 
 	// Create a new stateful set with the necessary storage config.
-	legacy := isLegacyName(deploymentName)
-	if err := k.configureStorage(&podSpec, &statefulSet.Spec, appName, randPrefix, legacy, filesystems); err != nil {
-		return errors.Annotatef(err, "configuring storage for %s", appName)
+	pvcNameGetter := func(i int, storageName string) string {
+		legacy := isLegacyName(deploymentName)
+		s := fmt.Sprintf("%s-%s", storageName, randPrefix)
+		// TODO: double check if storage name is uniq in []FS!!!!!!!!!!
+		if legacy {
+			s = fmt.Sprintf("juju-%s-%d", storageName, i)
+		}
+		return s
+	}
+	// if err := k.configureStorage(appName, &podSpec, &statefulSet.Spec, pvcNameGetter, filesystems); err != nil {
+	// 	return errors.Annotatef(err, "configuring storage for %s", appName)
+	// }
+	for i, fs := range filesystems {
+		vol, pvc, err := k.filesystemToVolumeInfo(i, fs, pvcNameGetter)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		mountPath := getMountPathForFilesystem(i, appName, fs)
+		if vol != nil {
+			podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
+				Name:      vol.Name,
+				MountPath: mountPath,
+			})
+			pushUniqVolume(&podSpec, *vol)
+		}
+		if pvc != nil {
+			logger.Debugf("using persistent volume claim for %s filesystem %s: %+v", appName, fs.StorageName, *pvc)
+			statefulSet.Spec.VolumeClaimTemplates = append(statefulSet.Spec.VolumeClaimTemplates, *pvc)
+			podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
+				Name:      pvc.Name,
+				MountPath: mountPath,
+			})
+		}
 	}
 	statefulSet.Spec.Template.Spec = podSpec
 	return k.ensureStatefulSet(statefulSet, existingPodSpec)

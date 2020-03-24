@@ -22,6 +22,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
+	"github.com/kr/pretty"
 	"gopkg.in/juju/names.v3"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	apps "k8s.io/api/apps/v1"
@@ -65,12 +66,14 @@ import (
 var logger = loggo.GetLogger("juju.kubernetes.provider")
 
 const (
-	labelOperator        = "juju-operator"
-	labelStorage         = "juju-storage"
-	labelVersion         = "juju-version"
-	labelApplication     = "juju-app"
-	labelApplicationUUID = "juju-app-uuid"
-	labelModel           = "juju-model"
+	labelOperator    = "juju-operator"
+	labelStorage     = "juju-storage"
+	labelVersion     = "juju-version"
+	labelApplication = "juju-app"
+	labelModel       = "juju-model"
+
+	// annotationKeyApplicationUUID is the key of annotation for recording pvc unique ID.
+	annotationKeyApplicationUUID = "juju-app-uuid"
 
 	// labelResourceLifeCycleKey defines the label key for lifecycle of the global resources.
 	labelResourceLifeCycleKey             = "juju-resource-lifecycle"
@@ -963,6 +966,7 @@ func (k *kubernetesClient) EnsureService(
 	numUnits int,
 	config application.ConfigAttributes,
 ) (err error) {
+	logger.Criticalf("EnsureService -> params: %s", pretty.Sprint(params))
 	defer func() {
 		if err != nil {
 			_ = statusCallback(appName, status.Error, err.Error(), nil)
@@ -1285,103 +1289,189 @@ func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) configureStorage(
-	podSpec *core.PodSpec,
-	statefulSet *apps.StatefulSetSpec,
-	appName,
-	randPrefix string,
-	legacy bool,
-	filesystems []storage.KubernetesFilesystemParams,
-) error {
-	baseDir, err := paths.StorageDir(CAASProviderType)
+func (k *kubernetesClient) filesystemToVolumeInfo(
+	i int, fs storage.KubernetesFilesystemParams,
+	pvcNameGetter func(int, string) string,
+) (
+	vol *core.Volume, pvc *core.PersistentVolumeClaim, err error,
+) {
+	fsSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", fs.Size))
 	if err != nil {
-		return errors.Trace(err)
+		return nil, nil, errors.Annotatef(err, "invalid volume size %v", fs.Size)
 	}
-	logger.Debugf("configuring pod filesystems: %+v with rand %v", filesystems, randPrefix)
-	for i, fs := range filesystems {
-		var mountPath string
-		if fs.Attachment != nil {
-			mountPath = fs.Attachment.Path
-		}
-		if mountPath == "" {
-			mountPath = fmt.Sprintf("%s/fs/%s/%s/%d", baseDir, appName, fs.StorageName, i)
-		}
-		fsSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", fs.Size))
-		if err != nil {
-			return errors.Annotatef(err, "invalid volume size %v", fs.Size)
-		}
 
-		var volumeSource *core.VolumeSource
-		switch fs.Provider {
-		case K8s_ProviderType:
-		case provider.RootfsProviderType:
-			volumeSource = &core.VolumeSource{
-				EmptyDir: &core.EmptyDirVolumeSource{
-					SizeLimit: &fsSize,
-				},
-			}
-		case provider.TmpfsProviderType:
-			medium, ok := fs.Attributes[storageMedium]
-			if !ok {
-				medium = core.StorageMediumMemory
-			}
-			volumeSource = &core.VolumeSource{
-				EmptyDir: &core.EmptyDirVolumeSource{
-					Medium:    core.StorageMedium(fmt.Sprintf("%v", medium)),
-					SizeLimit: &fsSize,
-				},
-			}
-		default:
-			return errors.NotValidf("charm storage provider type %q for %v", fs.Provider, fs.StorageName)
-		}
-		if volumeSource != nil {
-			logger.Debugf("using emptyDir for %s filesystem %s", appName, fs.StorageName)
-			volName := fmt.Sprintf("%s-%d", fs.StorageName, i)
-			podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
-				Name:      volName,
-				MountPath: mountPath,
-			})
-			podSpec.Volumes = append(podSpec.Volumes, core.Volume{
-				Name:         volName,
-				VolumeSource: *volumeSource,
-			})
-			continue
-		}
-
-		pvcNamePrefix := fmt.Sprintf("%s-%s", fs.StorageName, randPrefix)
-		if legacy {
-			pvcNamePrefix = fmt.Sprintf("juju-%s-%d", fs.StorageName, i)
-		}
-		params := volumeParams{
-			pvcName:             pvcNamePrefix,
-			requestedVolumeSize: fsSize,
-		}
-		params.storageConfig, err = newStorageConfig(fs.Attributes)
-		if err != nil {
-			return errors.Annotatef(err, "invalid storage configuration for %v", fs.StorageName)
-		}
-		pvcSpec, err := k.maybeGetVolumeClaimSpec(params)
-		if err != nil {
-			return errors.Annotatef(err, "finding volume for %s", fs.StorageName)
-		}
-
-		pvc := core.PersistentVolumeClaim{
-			ObjectMeta: v1.ObjectMeta{
-				Name: params.pvcName,
-				Annotations: resourceTagsToAnnotations(fs.ResourceTags).
-					Add(labelStorage, fs.StorageName).ToMap(),
+	var volumeSource *core.VolumeSource
+	switch fs.Provider {
+	case K8s_ProviderType:
+	case provider.RootfsProviderType:
+		volumeSource = &core.VolumeSource{
+			EmptyDir: &core.EmptyDirVolumeSource{
+				SizeLimit: &fsSize,
 			},
-			Spec: *pvcSpec,
 		}
-		logger.Debugf("using persistent volume claim for %s filesystem %s: %+v", appName, fs.StorageName, pvc)
-		statefulSet.VolumeClaimTemplates = append(statefulSet.VolumeClaimTemplates, pvc)
-		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
-			Name:      pvc.Name,
-			MountPath: mountPath,
-		})
+	case provider.TmpfsProviderType:
+		medium, ok := fs.Attributes[storageMedium]
+		if !ok {
+			medium = core.StorageMediumMemory
+		}
+		volumeSource = &core.VolumeSource{
+			EmptyDir: &core.EmptyDirVolumeSource{
+				Medium:    core.StorageMedium(fmt.Sprintf("%v", medium)),
+				SizeLimit: &fsSize,
+			},
+		}
+	default:
+		return nil, nil, errors.NotValidf("charm storage provider type %q for %v", fs.Provider, fs.StorageName)
 	}
-	return nil
+	if volumeSource != nil {
+		volName := fmt.Sprintf("%s-%d", fs.StorageName, i)
+		vol = &core.Volume{
+			Name:         volName,
+			VolumeSource: *volumeSource,
+		}
+	}
+	params := volumeParams{
+		pvcName:             pvcNameGetter(i, fs.StorageName),
+		requestedVolumeSize: fsSize,
+	}
+	params.storageConfig, err = newStorageConfig(fs.Attributes)
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "invalid storage configuration for %v", fs.StorageName)
+	}
+	pvcSpec, err := k.maybeGetVolumeClaimSpec(params)
+	// TODO: deploy pvc for non stateful app !!!!!!!!!
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "finding volume for %s", fs.StorageName)
+	}
+
+	pvc = &core.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{
+			Name: params.pvcName,
+			Annotations: resourceTagsToAnnotations(fs.ResourceTags).
+				Add(labelStorage, fs.StorageName).ToMap(),
+		},
+		Spec: *pvcSpec,
+	}
+	return vol, pvc, nil
 }
+
+func getMountPathForFilesystem(i int, appName string, fs storage.KubernetesFilesystemParams) string {
+	if fs.Attachment != nil {
+		return fs.Attachment.Path
+	}
+	return fmt.Sprintf("%s/fs/%s/%s/%d", k8sStorageBaseDir, appName, fs.StorageName, i)
+}
+
+type annotationGetter interface {
+	GetAnnotations() map[string]string
+}
+
+// This random snippet will be included to the pvc name so that if the same app
+// is deleted and redeployed again, the pvc retains a unique name.
+// Only generate it once, and record it on the workload resource annotations .
+func (k *kubernetesClient) getStorageUniqPrefix(r annotationGetter) (string, error) {
+	if r == nil {
+		return k.randomPrefix()
+	}
+	annotation := r.GetAnnotations()
+	if annotation == nil || annotation[annotationKeyApplicationUUID] == "" {
+		return k.randomPrefix()
+	}
+	return annotation[annotationKeyApplicationUUID], nil
+}
+
+// func (k *kubernetesClient) configureStorage(
+// 	appName string,
+// 	podSpec *core.PodSpec,
+// 	statefulSet *apps.StatefulSetSpec,
+// 	pvcNameGetter func(int, string) string,
+// 	filesystems []storage.KubernetesFilesystemParams,
+// ) error {
+// 	baseDir, err := paths.StorageDir(CAASProviderType)
+// 	if err != nil {
+// 		return errors.Trace(err)
+// 	}
+// 	logger.Debugf("configuring pod filesystems for app %q: %+v", appName, filesystems)
+// 	for i, fs := range filesystems {
+// 		var mountPath string
+// 		if fs.Attachment != nil {
+// 			mountPath = fs.Attachment.Path
+// 		}
+// 		if mountPath == "" {
+// 			mountPath = fmt.Sprintf("%s/fs/%s/%s/%d", baseDir, appName, fs.StorageName, i)
+// 		}
+// 		fsSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", fs.Size))
+// 		if err != nil {
+// 			return errors.Annotatef(err, "invalid volume size %v", fs.Size)
+// 		}
+
+// 		var volumeSource *core.VolumeSource
+// 		switch fs.Provider {
+// 		case K8s_ProviderType:
+// 		case provider.RootfsProviderType:
+// 			volumeSource = &core.VolumeSource{
+// 				EmptyDir: &core.EmptyDirVolumeSource{
+// 					SizeLimit: &fsSize,
+// 				},
+// 			}
+// 		case provider.TmpfsProviderType:
+// 			medium, ok := fs.Attributes[storageMedium]
+// 			if !ok {
+// 				medium = core.StorageMediumMemory
+// 			}
+// 			volumeSource = &core.VolumeSource{
+// 				EmptyDir: &core.EmptyDirVolumeSource{
+// 					Medium:    core.StorageMedium(fmt.Sprintf("%v", medium)),
+// 					SizeLimit: &fsSize,
+// 				},
+// 			}
+// 		default:
+// 			return errors.NotValidf("charm storage provider type %q for %v", fs.Provider, fs.StorageName)
+// 		}
+// 		if volumeSource != nil {
+// 			logger.Debugf("using emptyDir for %s filesystem %s", appName, fs.StorageName)
+// 			volName := fmt.Sprintf("%s-%d", fs.StorageName, i)
+// 			podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
+// 				Name:      volName,
+// 				MountPath: mountPath,
+// 			})
+// 			podSpec.Volumes = append(podSpec.Volumes, core.Volume{
+// 				Name:         volName,
+// 				VolumeSource: *volumeSource,
+// 			})
+// 			continue
+// 		}
+
+// 		params := volumeParams{
+// 			pvcName:             pvcNameGetter(i, fs.StorageName),
+// 			requestedVolumeSize: fsSize,
+// 		}
+// 		params.storageConfig, err = newStorageConfig(fs.Attributes)
+// 		if err != nil {
+// 			return errors.Annotatef(err, "invalid storage configuration for %v", fs.StorageName)
+// 		}
+// 		pvcSpec, err := k.maybeGetVolumeClaimSpec(params)
+// 		if err != nil {
+// 			return errors.Annotatef(err, "finding volume for %s", fs.StorageName)
+// 		}
+
+// 		pvc := core.PersistentVolumeClaim{
+// 			ObjectMeta: v1.ObjectMeta{
+// 				Name: params.pvcName,
+// 				Annotations: resourceTagsToAnnotations(fs.ResourceTags).
+// 					Add(labelStorage, fs.StorageName).ToMap(),
+// 			},
+// 			Spec: *pvcSpec,
+// 		}
+// 		logger.Debugf("using persistent volume claim for %s filesystem %s: %+v", appName, fs.StorageName, pvc)
+// 		statefulSet.VolumeClaimTemplates = append(statefulSet.VolumeClaimTemplates, pvc)
+// 		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
+// 			Name:      pvc.Name,
+// 			MountPath: mountPath,
+// 		})
+// 	}
+// 	return nil
+// }
 
 func (k *kubernetesClient) configureDevices(unitSpec *workloadSpec, devices []devices.KubernetesDeviceParams) error {
 	for i := range unitSpec.Pod.Containers {
@@ -1442,7 +1532,7 @@ func (k *kubernetesClient) configurePodFiles(
 	return nil
 }
 
-// pushUniqVolume ensures to only add unique volumes because k8s will not schedule pods if it has deplucated volumes.
+// pushUniqVolume ensures to only add unique volumes because k8s will not schedule pods if it has duplicated volumes.
 func pushUniqVolume(podSpec *core.PodSpec, vol core.Volume) {
 	for _, v := range podSpec.Volumes {
 		if reflect.DeepEqual(v, vol) {
