@@ -54,6 +54,8 @@ type InstanceAPI interface {
 // oracle IAAS api
 type Authenticater interface {
 	Authenticate() error
+	// Identify returns the identity name of the oracle cloud account.
+	Identify() string
 }
 
 // Shaper used to retrieve all shapes from the oracle cloud

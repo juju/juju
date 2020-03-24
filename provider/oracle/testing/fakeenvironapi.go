@@ -48,6 +48,10 @@ func (f FakeAuthenticater) Authenticate() error {
 	return f.AuthenticateErr
 }
 
+func (f FakeAuthenticater) Identify() string {
+	return "oci-identity"
+}
+
 type FakeShaper struct {
 	All    response.AllShapes
 	AllErr error

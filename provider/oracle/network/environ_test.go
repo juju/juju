@@ -89,6 +89,10 @@ func (f fakeNetworkingAPI) AllAcls(filter []api.Filter) (response.AllAcls, error
 	return response.AllAcls{}, nil
 }
 
+func (f fakeNetworkingAPI) Identify() string {
+	return "oci-identity"
+}
+
 func (f fakeNetworkingAPI) IpAssociationDetails(name string) (resp response.IpAssociation, err error) {
 	return response.IpAssociation{
 		Ip: "73.37.0.1",
@@ -216,4 +220,10 @@ func (e *environSuite) TestSpaces(c *gc.C) {
 	info, err := e.netEnv.Spaces(e.callCtx)
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, jc.DeepEquals, []corenetwork.SpaceInfo{})
+}
+
+func (e *environSuite) TestSpaceSetID(c *gc.C) {
+	id, err := e.netEnv.SpaceSetID(e.callCtx)
+	c.Assert(err, gc.IsNil)
+	c.Assert(id, gc.Equals, "oci-identity")
 }

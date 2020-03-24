@@ -40,6 +40,9 @@ type NetworkingAPI interface {
 
 	// IpAssociationDetails retrieves details of an IP associations.
 	IpAssociationDetails(name string) (resp response.IpAssociation, err error)
+
+	// Identify returns the identity name of the oracle cloud account.
+	Identify() string
 }
 
 // Environ implements the environs.Networking interface
@@ -388,6 +391,13 @@ func (e Environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceInf
 
 	logger.Infof("returning spaces: %v", ret)
 	return ret, nil
+}
+
+// SpaceSetID (environs.Networking) returns a grouping key for use in
+// space/subnet definitions.
+// Here, it is the user identity for the Oracle cloud account.
+func (e *Environ) SpaceSetID(_ context.ProviderCallContext) (string, error) {
+	return e.client.Identify(), nil
 }
 
 // ProviderSpaceInfo is defined on the environs.NetworkingEnviron interface.
