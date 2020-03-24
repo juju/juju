@@ -453,10 +453,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage subnets
 	r.Register(subnet.NewAddCommand())
 	r.Register(subnet.NewListCommand())
-	if featureflag.Enabled(feature.PostNetCLIMVP) {
-		r.Register(subnet.NewCreateCommand())
-		r.Register(subnet.NewRemoveCommand())
-	}
 
 	// Manage controllers
 	r.Register(controller.NewAddModelCommand())

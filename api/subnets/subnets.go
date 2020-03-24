@@ -60,22 +60,11 @@ func (api *API) CreateSubnet(subnet names.SubnetTag, space names.SpaceTag, zones
 	// facade on the the other end.  It's in the list to be audited
 	// for updates as part of current networking improvements.  Fix
 	// names.v2 SubnetTag at that time.
+	//
+	// TODO (stickupkid): This should be safe to remove, as it's behind a
+	// feature that's been removed and there is no api-server implementation
+	// that handles this call?
 	return errors.NewNotImplemented(nil, "CreateSubnet")
-
-	//var response params.ErrorResults
-	//params := params.CreateSubnetsParams{
-	//	Subnets: []params.CreateSubnetParams{{
-	//		SubnetTag: subnet.String(),
-	//		SpaceTag:  space.String(),
-	//		Zones:     zones,
-	//		IsPublic:  isPublic,
-	//	}},
-	//}
-	//err := api.facade.FacadeCall("CreateSubnets", params, &response)
-	//if err != nil {
-	//	return errors.Trace(err)
-	//}
-	//return response.OneError()
 }
 
 // ListSubnets fetches all the subnets known by the model.

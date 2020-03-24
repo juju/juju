@@ -11,7 +11,6 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -52,15 +50,8 @@ func (s *BaseSpaceSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *BaseSpaceSuite) SetUpTest(c *gc.C) {
-	// If any post-MVP command suite enabled the flag, keep it.
-	hasFeatureFlag := featureflag.Enabled(feature.PostNetCLIMVP)
-
 	s.BaseSuite.SetUpTest(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-
-	if hasFeatureFlag {
-		s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
-	}
 
 	s.api = NewStubAPI()
 	c.Assert(s.api, gc.NotNil)
