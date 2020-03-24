@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/paths"
 )
 
 const volBindModeWaitFirstConsumer = "WaitForFirstConsumer"
@@ -22,6 +23,8 @@ var (
 
 	// LifecycleModelTeardownSelector is the label selector for removing global resources for model teardown.
 	lifecycleModelTeardownSelector k8slabels.Selector
+
+	k8sStorageBaseDir string
 )
 
 func init() {
@@ -72,6 +75,8 @@ func init() {
 
 	lifecycleApplicationRemovalSelector = compileLifecycleApplicationRemovalSelector()
 	lifecycleModelTeardownSelector = compileLifecycleModelTeardownSelector()
+
+	k8sStorageBaseDir = getK8sStorageBaseDir()
 }
 
 // compileK8sCloudCheckers compiles/validates the collection of
@@ -136,4 +141,12 @@ func compileLifecycleModelTeardownSelector() k8slabels.Selector {
 				labelResourceLifeCycleValuePersistent,
 			}},
 	)
+}
+
+func getK8sStorageBaseDir() string {
+	s, err := paths.StorageDir(CAASProviderType)
+	if err != nil {
+		panic(err)
+	}
+	return s
 }
