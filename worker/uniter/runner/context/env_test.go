@@ -110,20 +110,21 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 	// It doesn't make sense that we set both legacy and juju proxy
 	// settings, but by setting both to different values, we can see
 	// what the environment values are.
-	return context.NewModelHookContext(
-		"some-context-id",
-		"some-hook-name",
-		"model-uuid-deadbeef",
-		"some-model-name",
-		"this-unit/123",
-		"PURPLE",
-		"proceed with care",
-		"essential",
-		"some-zone",
-		[]string{"he.re:12345", "the.re:23456"},
-		legacyProxy, jujuProxy,
-		names.NewMachineTag("42"),
-	), expected
+	return context.NewModelHookContext(context.ModelHookContextParams{
+		ID:                  "some-context-id",
+		HookName:            "some-hook-name",
+		ModelUUID:           "model-uuid-deadbeef",
+		ModelName:           "some-model-name",
+		UnitName:            "this-unit/123",
+		MeterCode:           "PURPLE",
+		MeterInfo:           "proceed with care",
+		SLALevel:            "essential",
+		AvailZone:           "some-zone",
+		APIAddresses:        []string{"he.re:12345", "the.re:23456"},
+		LegacyProxySettings: legacyProxy,
+		JujuProxySettings:   jujuProxy,
+		MachineTag:          names.NewMachineTag("42"),
+	}), expected
 }
 
 func (s *EnvSuite) setRelation(ctx *context.HookContext) (expectVars []string) {
