@@ -197,44 +197,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		}
 	}
 
-	// Set up the parameters for creating charm storage.
-	operatorVolumeClaim := "charm"
-	if isLegacyName(operatorName) {
-		operatorVolumeClaim = fmt.Sprintf("%v-operator-volume", appName)
-	}
-
-	fsSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", config.CharmStorage.Size))
-	if err != nil {
-		return errors.Annotatef(err, "invalid volume size %v", config.CharmStorage.Size)
-	}
-	params := volumeParams{
-		storageConfig:       &storageConfig{},
-		pvcName:             operatorVolumeClaim,
-		requestedVolumeSize: fsSize,
-	}
-	if config.CharmStorage.Provider != K8s_ProviderType {
-		return errors.Errorf("expected charm storage provider %q, got %q", K8s_ProviderType, config.CharmStorage.Provider)
-	}
-	params.storageConfig, err = newStorageConfig(config.CharmStorage.Attributes)
-	if err != nil {
-		return errors.Annotatef(err, "invalid storage configuration for %v operator", appName)
-	}
-	// We want operator storage to be deleted when the operator goes away.
-	params.storageConfig.reclaimPolicy = core.PersistentVolumeReclaimDelete
-	logger.Debugf("operator storage config %#v", *params.storageConfig)
-
-	// Attempt to get a persistent volume to store charm state etc.
-	pvcSpec, err := k.maybeGetVolumeClaimSpec(params)
-	if err != nil {
-		return errors.Annotate(err, "finding operator volume claim")
-	}
-
-	pvc := &core.PersistentVolumeClaim{
-		ObjectMeta: v1.ObjectMeta{
-			Name:        params.pvcName,
-			Annotations: resourceTagsToAnnotations(config.CharmStorage.ResourceTags).ToMap()},
-		Spec: *pvcSpec,
-	}
+	// Set up the parameters for creating charm storage (if required).
 	pod, err := operatorPod(
 		operatorName,
 		appName,
@@ -252,7 +215,6 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	podWithoutStorage := pod
 
 	numPods := int32(1)
-	logger.Debugf("using persistent volume claim for operator %s: %+v", appName, pvc)
 	statefulset := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        operatorName,
@@ -269,18 +231,78 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 					Annotations: pod.Annotations,
 				},
 			},
-			PodManagementPolicy:  apps.ParallelPodManagement,
-			VolumeClaimTemplates: []core.PersistentVolumeClaim{*pvc},
+			PodManagementPolicy: apps.ParallelPodManagement,
 		},
 	}
-	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, core.VolumeMount{
-		Name:      pvc.Name,
-		MountPath: agent.BaseDir(agentPath),
-	})
+	operatorPvc, err := k.operatorVolumeClaim(appName, operatorName, config.CharmStorage)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if operatorPvc != nil {
+		logger.Debugf("using persistent volume claim for operator %s: %+v", appName, operatorPvc)
+		statefulset.Spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{*operatorPvc}
+		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, core.VolumeMount{
+			Name:      operatorPvc.Name,
+			MountPath: agent.BaseDir(agentPath),
+		})
+	}
 
 	statefulset.Spec.Template.Spec = pod.Spec
 	err = k.ensureStatefulSet(statefulset, podWithoutStorage.Spec)
 	return errors.Annotatef(err, "creating or updating %v operator StatefulSet", appName)
+}
+
+func (k *kubernetesClient) operatorVolumeClaim(appName, operatorName string, storageParams *caas.CharmStorageParams) (*core.PersistentVolumeClaim, error) {
+	// We may no longer need storage for charms, but if the charm has previously been deployed
+	// with storage, we need to retain that.
+	operatorVolumeClaim := "charm"
+	if isLegacyName(operatorName) {
+		operatorVolumeClaim = fmt.Sprintf("%v-operator-volume", appName)
+	}
+	if storageParams == nil {
+		existingClaim, err := k.getPVC(operatorVolumeClaim)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		if err != nil {
+			return nil, nil
+		}
+		return existingClaim, errors.Trace(err)
+	}
+
+	// Charm needs storage so set it up.
+	fsSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", storageParams.Size))
+	if err != nil {
+		return nil, errors.Annotatef(err, "invalid volume size %v", storageParams.Size)
+	}
+	params := volumeParams{
+		storageConfig:       &storageConfig{},
+		pvcName:             operatorVolumeClaim,
+		requestedVolumeSize: fsSize,
+	}
+	if storageParams.Provider != K8s_ProviderType {
+		return nil, errors.Errorf("expected charm storage provider %q, got %q", K8s_ProviderType, storageParams.Provider)
+	}
+	params.storageConfig, err = newStorageConfig(storageParams.Attributes)
+	if err != nil {
+		return nil, errors.Annotatef(err, "invalid storage configuration for %v operator", appName)
+	}
+	// We want operator storage to be deleted when the operator goes away.
+	params.storageConfig.reclaimPolicy = core.PersistentVolumeReclaimDelete
+	logger.Debugf("operator storage config %#v", *params.storageConfig)
+
+	// Attempt to get a persistent volume to store charm state etc.
+	pvcSpec, err := k.maybeGetVolumeClaimSpec(params)
+	if err != nil {
+		return nil, errors.Annotate(err, "finding operator volume claim")
+	}
+
+	return &core.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        params.pvcName,
+			Annotations: resourceTagsToAnnotations(storageParams.ResourceTags).ToMap()},
+		Spec: *pvcSpec,
+	}, nil
 }
 
 func (k *kubernetesClient) validateOperatorStorage() (string, error) {
