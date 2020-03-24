@@ -974,6 +974,9 @@ type MovedSubnet struct {
 	// OldSpaceTag identifies the space that the subnet was in before being
 	// successfully moved.
 	OldSpaceTag string `json:"old-space"`
+
+	// CIDR identifies the moved CIDR in the subnet move.
+	CIDR string `json:"cidr"`
 }
 
 // MoveSubnetsResult contains the result of moving
