@@ -54,7 +54,7 @@ func (s *SpaceRenameSuite) TestBuildSuccess(c *gc.C) {
 	}}
 	s.settings.EXPECT().DeltaOps(state.ControllerSettingsGlobalKey, expectedConfigDelta).Return([]txn.Op{{}}, nil)
 
-	op := spaces.NewRenameSpaceModelOp(true, s.settings, s.state, s.space, toName)
+	op := spaces.NewRenameSpaceOp(true, s.settings, s.state, s.space, toName)
 	ops, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.HasLen, 4)
@@ -70,7 +70,7 @@ func (s *SpaceRenameSuite) TestBuildNotControllerModelSuccess(c *gc.C) {
 	s.cons1.EXPECT().ChangeSpaceNameOps(s.spaceName, toName).Return([]txn.Op{{}})
 	s.cons2.EXPECT().ChangeSpaceNameOps(s.spaceName, toName).Return([]txn.Op{{}})
 
-	op := spaces.NewRenameSpaceModelOp(false, s.settings, s.state, s.space, toName)
+	op := spaces.NewRenameSpaceOp(false, s.settings, s.state, s.space, toName)
 	ops, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.HasLen, 3)
@@ -87,7 +87,7 @@ func (s *SpaceRenameSuite) TestBuildSettingsChangesError(c *gc.C) {
 	bamErr := errors.New("bam")
 	s.state.EXPECT().ControllerConfig().Return(nil, bamErr)
 
-	op := spaces.NewRenameSpaceModelOp(true, s.settings, s.state, s.space, toName)
+	op := spaces.NewRenameSpaceOp(true, s.settings, s.state, s.space, toName)
 	_, err := op.Build(0)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("retrieving settings changes: %v", bamErr.Error()))
 }
@@ -101,7 +101,7 @@ func (s *SpaceRenameSuite) TestBuildConstraintsRetrievalError(c *gc.C) {
 	s.space.EXPECT().RenameSpaceOps(toName).Return([]txn.Op{{}})
 	s.state.EXPECT().ConstraintsBySpaceName(s.spaceName).Return(nil, bamErr)
 
-	op := spaces.NewRenameSpaceModelOp(true, s.settings, s.state, s.space, toName)
+	op := spaces.NewRenameSpaceOp(true, s.settings, s.state, s.space, toName)
 	_, err := op.Build(0)
 	c.Assert(err, gc.ErrorMatches, bamErr.Error())
 }

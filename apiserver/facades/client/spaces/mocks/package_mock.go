@@ -5,6 +5,8 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	networkingcommon "github.com/juju/juju/apiserver/common/networkingcommon"
@@ -18,7 +20,6 @@ import (
 	state "github.com/juju/juju/state"
 	names "gopkg.in/juju/names.v3"
 	txn "gopkg.in/mgo.v2/txn"
-	reflect "reflect"
 )
 
 // MockBacking is a mock of Backing interface
@@ -606,34 +607,34 @@ func (mr *MockOpFactoryMockRecorder) NewMoveSubnetsOp(arg0, arg1 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewMoveSubnetsOp", reflect.TypeOf((*MockOpFactory)(nil).NewMoveSubnetsOp), arg0, arg1)
 }
 
-// NewRemoveSpaceModelOp mocks base method
-func (m *MockOpFactory) NewRemoveSpaceModelOp(arg0 string) (state.ModelOperation, error) {
+// NewRemoveSpaceOp mocks base method
+func (m *MockOpFactory) NewRemoveSpaceOp(arg0 string) (state.ModelOperation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewRemoveSpaceModelOp", arg0)
+	ret := m.ctrl.Call(m, "NewRemoveSpaceOp", arg0)
 	ret0, _ := ret[0].(state.ModelOperation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// NewRemoveSpaceModelOp indicates an expected call of NewRemoveSpaceModelOp
+// NewRemoveSpaceOp indicates an expected call of NewRemoveSpaceOp
 func (mr *MockOpFactoryMockRecorder) NewRemoveSpaceModelOp(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewRemoveSpaceModelOp", reflect.TypeOf((*MockOpFactory)(nil).NewRemoveSpaceModelOp), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewRemoveSpaceOp", reflect.TypeOf((*MockOpFactory)(nil).NewRemoveSpaceOp), arg0)
 }
 
-// NewRenameSpaceModelOp mocks base method
-func (m *MockOpFactory) NewRenameSpaceModelOp(arg0, arg1 string) (state.ModelOperation, error) {
+// NewRenameSpaceOp mocks base method
+func (m *MockOpFactory) NewRenameSpaceOp(arg0, arg1 string) (state.ModelOperation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewRenameSpaceModelOp", arg0, arg1)
+	ret := m.ctrl.Call(m, "NewRenameSpaceOp", arg0, arg1)
 	ret0, _ := ret[0].(state.ModelOperation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// NewRenameSpaceModelOp indicates an expected call of NewRenameSpaceModelOp
+// NewRenameSpaceOp indicates an expected call of NewRenameSpaceOp
 func (mr *MockOpFactoryMockRecorder) NewRenameSpaceModelOp(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewRenameSpaceModelOp", reflect.TypeOf((*MockOpFactory)(nil).NewRenameSpaceModelOp), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewRenameSpaceOp", reflect.TypeOf((*MockOpFactory)(nil).NewRenameSpaceOp), arg0, arg1)
 }
 
 // MockRemoveSpace is a mock of RemoveSpace interface
