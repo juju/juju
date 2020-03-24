@@ -1178,6 +1178,7 @@ func (u *Unit) relations(predicate relationPredicate) ([]*Relation, error) {
 
 // DeployerTag returns the tag of the agent responsible for deploying
 // the unit. If no such entity can be determined, false is returned.
+// XXX: this method is only used in tests, we should probably kill it.
 func (u *Unit) DeployerTag() (names.Tag, bool) {
 	if u.doc.Principal != "" {
 		return names.NewUnitTag(u.doc.Principal), true
@@ -1839,30 +1840,10 @@ func unitNotAssignedError(u *Unit) error {
 
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (id string, err error) {
-	// c.f allWatcherContext.assignedMachineID.
-	// While it is unlikely that this logic will change,
-	// if it does, we need to make sure the allwatcher implementation matches.
-	if u.IsPrincipal() {
-		if u.doc.MachineId == "" {
-			return "", unitNotAssignedError(u)
-		}
-		return u.doc.MachineId, nil
-	}
-
-	units, closer := u.st.db().GetCollection(unitsC)
-	defer closer()
-
-	pudoc := unitDoc{}
-	err = units.FindId(u.doc.Principal).One(&pudoc)
-	if err == mgo.ErrNotFound {
-		return "", errors.NotFoundf("principal unit %q of %q", u.doc.Principal, u)
-	} else if err != nil {
-		return "", err
-	}
-	if pudoc.MachineId == "" {
+	if u.doc.MachineId == "" {
 		return "", unitNotAssignedError(u)
 	}
-	return pudoc.MachineId, nil
+	return u.doc.MachineId, nil
 }
 
 var (
@@ -2162,6 +2143,9 @@ func assignContextf(err *error, unitName string, target string) {
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	defer assignContextf(&err, u.Name(), fmt.Sprintf("machine %s", m))
+	if u.doc.Principal != "" {
+		return fmt.Errorf("unit is a subordinate")
+	}
 	return u.assignToMachine(m, false)
 }
 
@@ -2768,7 +2752,18 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 
 // assignToCleanMaybeEmptyMachine implements AssignToCleanMachine and AssignToCleanEmptyMachine.
 // A 'machine' may be a machine instance or container depending on the application constraints.
-func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (*Machine, error) {
+func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (_ *Machine, err error) {
+	context := "clean"
+	if requireEmpty {
+		context += ", empty"
+	}
+	context += " machine"
+	defer assignContextf(&err, u.Name(), context)
+
+	if u.doc.Principal != "" {
+		err = fmt.Errorf("unit is a subordinate")
+		return nil, err
+	}
 	var m *Machine
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var err error
@@ -2796,21 +2791,8 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		return nil, nil, err
 	}
 
-	context := "clean"
-	if requireEmpty {
-		context += ", empty"
-	}
-	context += " machine"
-
-	if u.doc.Principal != "" {
-		err = fmt.Errorf("unit is a subordinate")
-		assignContextf(&err, u.Name(), context)
-		return failure(err)
-	}
-
 	sb, err := NewStorageBackend(u.st)
 	if err != nil {
-		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 
@@ -2818,31 +2800,26 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 	// to a new machine is required.
 	storageParams, err := u.storageParams()
 	if err != nil {
-		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 	storagePools, err := storagePools(sb, storageParams)
 	if err != nil {
-		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 	if err := validateDynamicStoragePools(sb, storagePools); err != nil {
 		if errors.IsNotSupported(err) {
 			return failure(noCleanMachines)
 		}
-		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 
 	// Get the unit constraints to see what deployment requirements we have to adhere to.
 	cons, err := u.Constraints()
 	if err != nil {
-		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 	query, err := u.findCleanMachineQuery(requireEmpty, cons)
 	if err != nil {
-		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 
@@ -2854,7 +2831,6 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 	defer closer()
 	var mdocs []*machineDoc
 	if err := machinesCollection.Find(query).All(&mdocs); err != nil {
-		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 	var unprovisioned []*Machine
@@ -2866,7 +2842,6 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		if errors.IsNotProvisioned(err) {
 			unprovisioned = append(unprovisioned, m)
 		} else if err != nil {
-			assignContextf(&err, u.Name(), context)
 			return failure(err)
 		} else {
 			instances = append(instances, inst)
@@ -2886,7 +2861,6 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		limitZones = *cons.Zones
 	}
 	if instances, err = distributeUnit(u, instances, limitZones); err != nil {
-		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 	machines := make([]*Machine, len(instances), len(instances)+len(unprovisioned))
@@ -2894,7 +2868,6 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		m, ok := instanceMachines[inst]
 		if !ok {
 			err := fmt.Errorf("invalid instance returned: %v", inst)
-			assignContextf(&err, u.Name(), context)
 			return failure(err)
 		}
 		machines[i] = m
@@ -2915,7 +2888,6 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 			if errors.IsNotSupported(err) {
 				continue
 			}
-			assignContextf(&err, u.Name(), context)
 			return failure(err)
 		}
 		ops, err := u.assignToMachineOps(m, true)
@@ -2925,7 +2897,6 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		switch errors.Cause(err) {
 		case inUseErr, machineNotAliveErr:
 		default:
-			assignContextf(&err, u.Name(), context)
 			return failure(err)
 		}
 	}
