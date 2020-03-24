@@ -449,9 +449,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(space.NewShowSpaceCommand())
 	r.Register(space.NewRemoveCommand())
 	r.Register(space.NewRenameCommand())
-	if featureflag.Enabled(feature.PostNetCLIMVP) {
-		r.Register(space.NewUpdateCommand())
-	}
 
 	// Manage subnets
 	r.Register(subnet.NewAddCommand())

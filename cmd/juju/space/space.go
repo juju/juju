@@ -42,10 +42,6 @@ type SpaceAPI interface {
 	// any associated subnets to the default space.
 	RemoveSpace(name string, force bool, dryRun bool) (network.RemoveSpace, error)
 
-	// UpdateSpace changes the associated subnets for an existing space with
-	// the given name. The list of subnets must contain at least one entry.
-	UpdateSpace(name string, subnetIds []string) error
-
 	// RenameSpace changes the name of the space.
 	RenameSpace(name, newName string) error
 
