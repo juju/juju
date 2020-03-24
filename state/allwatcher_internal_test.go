@@ -88,6 +88,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	credential, _ := model.CloudCredentialTag()
 	add(&multiwatcher.ModelInfo{
 		ModelUUID:       model.UUID(),
+		Type:            coremodel.ModelType(model.Type()),
 		Name:            model.Name(),
 		Life:            life.Alive,
 		Owner:           model.Owner().Id(),
@@ -138,9 +139,9 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	// Add a space and an address on the space.
 	space, err := st.AddSpace("test-space", "provider-space", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	addr := network.NewSpaceAddress("example.com")
-	addr.SpaceID = space.Id()
-	err = m.SetProviderAddresses(addr)
+	providerAddr := network.NewSpaceAddress("example.com")
+	providerAddr.SpaceID = space.Id()
+	err = m.SetProviderAddresses(providerAddr)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var addresses []network.ProviderAddress
@@ -178,6 +179,8 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		CharmProfiles:           cp,
 		HasVote:                 needController,
 		WantsVote:               needController,
+		PreferredPublicAddress:  providerAddr,
+		PreferredPrivateAddress: providerAddr,
 	})
 
 	wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
@@ -362,6 +365,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			Application: "logging",
 			Series:      "quantal",
 			Life:        life.Alive,
+			MachineID:   m.Id(),
 			Ports:       []network.Port{},
 			Principal:   unitName,
 			Subordinate: true,
@@ -807,16 +811,17 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	publicAddress := network.NewScopedSpaceAddress("1.2.3.4", network.ScopePublic)
 	privateAddress := network.NewScopedSpaceAddress("4.3.2.1", network.ScopeCloudLocal)
-	err = m.SetProviderAddresses(publicAddress, privateAddress)
-	c.Assert(err, jc.ErrorIsNil)
 	s.AssertOpenUnitPort(c, u, emptySubnet, "tcp", 12345)
 	// Create all watcher state backing.
 	b := NewAllWatcherBacking(s.pool)
 	all := multiwatcher.NewStore(loggo.GetLogger("test"))
-	all.Update(&multiwatcher.MachineInfo{
-		ModelUUID: s.state.ModelUUID(),
-		ID:        "0",
-	})
+	machineInfo := &multiwatcher.MachineInfo{
+		ModelUUID:               s.state.ModelUUID(),
+		ID:                      "0",
+		PreferredPublicAddress:  publicAddress,
+		PreferredPrivateAddress: privateAddress,
+	}
+	all.Update(machineInfo)
 	// Check opened ports.
 	err = b.Changed(all, watcher.Change{
 		C:  "units",
@@ -849,10 +854,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 				Since:   &now,
 			},
 		},
-		&multiwatcher.MachineInfo{
-			ModelUUID: s.state.ModelUUID(),
-			ID:        "0",
-		},
+		machineInfo,
 	})
 	// Close the ports.
 	s.AssertCloseUnitPort(c, u, emptySubnet, "tcp", 12345)
@@ -886,10 +888,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 				Since:   &now,
 			},
 		},
-		&multiwatcher.MachineInfo{
-			ModelUUID: s.state.ModelUUID(),
-			ID:        "0",
-		},
+		machineInfo,
 	})
 }
 
@@ -1095,6 +1094,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ModelInfo{
 						ModelUUID:       model.UUID(),
+						Type:            coremodel.ModelType(model.Type()),
 						Name:            model.Name(),
 						Life:            life.Alive,
 						Owner:           model.Owner().Id(),
@@ -1160,6 +1160,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ModelInfo{
 						ModelUUID:       model.UUID(),
+						Type:            coremodel.ModelType(model.Type()),
 						Name:            model.Name(),
 						Life:            life.Alive,
 						Owner:           model.Owner().Id(),
@@ -1297,6 +1298,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 				},
 				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID:       st.ModelUUID(),
+					Type:            coremodel.ModelType(model.Type()),
 					Name:            model.Name(),
 					Life:            "alive",
 					Owner:           model.Owner().Id(),
@@ -2555,8 +2557,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			fw.AssertOpenUnitPort(c, u, emptySubnet, "tcp", 12345)
 			publicAddress := network.NewScopedSpaceAddress("public", network.ScopePublic)
 			privateAddress := network.NewScopedSpaceAddress("private", network.ScopeCloudLocal)
-			err = m.SetProviderAddresses(publicAddress, privateAddress)
-			c.Assert(err, jc.ErrorIsNil)
+			//err = m.SetProviderAddresses(publicAddress, privateAddress)
+			//c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
 				Status:  status.Error,
@@ -2568,6 +2570,14 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 
 			return changeTestCase{
 				about: "unit addresses are read from the assigned machine for recent Juju releases",
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.MachineInfo{
+						ModelUUID:               st.ModelUUID(),
+						ID:                      "0",
+						PreferredPublicAddress:  publicAddress,
+						PreferredPrivateAddress: privateAddress,
+					},
+				},
 				change: watcher.Change{
 					C:  "units",
 					Id: st.docID("wordpress/0"),
@@ -2596,7 +2606,15 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 							Data:    map[string]interface{}{},
 							Since:   &now,
 						},
-					}}}
+					},
+					&multiwatcher.MachineInfo{
+						ModelUUID:               st.ModelUUID(),
+						ID:                      "0",
+						PreferredPublicAddress:  publicAddress,
+						PreferredPrivateAddress: privateAddress,
+					},
+				},
+			}
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
@@ -3008,16 +3026,14 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID:      st.ModelUUID(),
-						Name:           "wordpress/0",
-						Application:    "wordpress",
-						Series:         "quantal",
-						Life:           life.Alive,
-						MachineID:      "0",
-						PublicAddress:  "1.2.3.4",
-						PrivateAddress: "4.3.2.1",
-						Ports:          []network.Port{{"tcp", 12345}},
-						PortRanges:     []network.PortRange{{12345, 12345, "tcp"}},
+						ModelUUID:   st.ModelUUID(),
+						Name:        "wordpress/0",
+						Application: "wordpress",
+						Series:      "quantal",
+						Life:        life.Alive,
+						MachineID:   "0",
+						Ports:       []network.Port{{"tcp", 12345}},
+						PortRanges:  []network.PortRange{{12345, 12345, "tcp"}},
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "waiting",
 							Message: "waiting for machine",
@@ -3044,16 +3060,14 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID:      st.ModelUUID(),
-						Name:           "wordpress/0",
-						Application:    "wordpress",
-						Series:         "quantal",
-						Life:           life.Alive,
-						MachineID:      "0",
-						PublicAddress:  "1.2.3.4",
-						PrivateAddress: "4.3.2.1",
-						Ports:          []network.Port{},
-						PortRanges:     []network.PortRange{},
+						ModelUUID:   st.ModelUUID(),
+						Name:        "wordpress/0",
+						Application: "wordpress",
+						Series:      "quantal",
+						Life:        life.Alive,
+						MachineID:   "0",
+						Ports:       []network.Port{},
+						PortRanges:  []network.PortRange{},
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "waiting",
 							Message: "waiting for machine",

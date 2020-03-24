@@ -15,9 +15,9 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -143,6 +143,7 @@ func (e *backingModel) updated(ctx *allWatcherContext) error {
 	ctx.modelType_ = e.Type
 	info := &multiwatcher.ModelInfo{
 		ModelUUID:       e.UUID,
+		Type:            model.ModelType(e.Type),
 		Name:            e.Name,
 		Life:            life.Value(e.Life.String()),
 		Owner:           e.Owner,
@@ -254,21 +255,15 @@ func (e *backingPermission) updated(ctx *allWatcherContext) error {
 		return nil
 	}
 
-	storeKey := &multiwatcher.ModelInfo{
-		ModelUUID: modelUUID,
-	}
-
-	info0 := ctx.store.Get(storeKey.EntityID())
-	switch info := info0.(type) {
-	case nil:
-		// The parent info doesn't exist. Ignore the permission until it does.
+	info := e.getModelInfo(ctx, modelUUID)
+	if info == nil {
 		return nil
-	case *multiwatcher.ModelInfo:
-		// Set the access for the user in the permission map of the model.
-		info.UserPermissions[user] = permission.Access(e.Access)
 	}
 
-	ctx.store.Update(info0)
+	// Set the access for the user in the permission map of the model.
+	info.UserPermissions[user] = permission.Access(e.Access)
+
+	ctx.store.Update(info)
 	return nil
 }
 
@@ -281,21 +276,29 @@ func (e *backingPermission) removed(ctx *allWatcherContext) error {
 		return nil
 	}
 
+	info := e.getModelInfo(ctx, modelUUID)
+	if info == nil {
+		return nil
+	}
+
+	delete(info.UserPermissions, user)
+
+	ctx.store.Update(info)
+	return nil
+}
+
+func (e *backingPermission) getModelInfo(ctx *allWatcherContext, modelUUID string) *multiwatcher.ModelInfo {
+	// NOTE: we can't use the modelUUID from the ctx here because it is the
+	// modelUUID of the system state.
 	storeKey := &multiwatcher.ModelInfo{
 		ModelUUID: modelUUID,
 	}
-
 	info0 := ctx.store.Get(storeKey.EntityID())
 	switch info := info0.(type) {
-	case nil:
-		// The parent info doesn't exist. Nothing to remove from.
-		return nil
 	case *multiwatcher.ModelInfo:
-		// Remove the user from the permission map.
-		delete(info.UserPermissions, user)
+		return info
 	}
-
-	ctx.store.Update(info0)
+	// In all other cases, which really should be never, return nil.
 	return nil
 }
 
@@ -337,6 +340,8 @@ func (m *backingMachine) updated(ctx *allWatcherContext) error {
 		SupportedContainersKnown: m.SupportedContainersKnown,
 		HasVote:                  hasVote,
 		WantsVote:                wantsVote,
+		PreferredPublicAddress:   m.PreferredPublicAddress.networkAddress(),
+		PreferredPrivateAddress:  m.PreferredPrivateAddress.networkAddress(),
 	}
 	addresses := network.MergedAddresses(networkAddresses(m.MachineAddresses), networkAddresses(m.Addresses))
 	for _, addr := range addresses {
@@ -581,7 +586,7 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 	// Can't optimize this yet.
 	// TODO: deprecate this ASAP and remove ASAP. It is only there for backwards
 	// compatibility to 1.18.
-	publicAddress, privateAddress, err := getUnitAddresses(unit)
+	publicAddress, privateAddress, err := ctx.getUnitAddresses(unit)
 	if err != nil {
 		return errors.Annotatef(err, "get addresses for %q", u.Name)
 	}
@@ -594,16 +599,43 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 // getUnitAddresses returns the public and private addresses on a given unit.
 // As of 1.18, the addresses are stored on the assigned machine but we retain
 // this approach for backwards compatibility.
-func getUnitAddresses(u *Unit) (string, string, error) {
-	publicAddress, err := u.PublicAddress()
+func (ctx *allWatcherContext) getUnitAddresses(u *Unit) (string, string, error) {
+	// If we are dealing with a CAAS unit, use the unit methods, they
+	// are complicated and not yet mirrored in the allwatcher. Also there
+	// are entities in CAAS models that should probably be exposed up to the
+	// model cache, but haven't yet.
+	modelType, err := ctx.modelType()
 	if err != nil {
-		logger.Tracef("getting a public address for unit %q failed: %q", u.Name(), err)
+		return "", "", errors.Annotatef(err, "get model type for %q", ctx.modelUUID)
 	}
-	privateAddress, err := u.PrivateAddress()
-	if err != nil {
-		logger.Tracef("getting a private address for unit %q failed: %q", u.Name(), err)
+	if modelType == ModelTypeCAAS {
+		publicAddress, err := u.PublicAddress()
+		if err != nil {
+			logger.Tracef("getting a public address for unit %q failed: %q", u.Name(), err)
+		}
+		privateAddress, err := u.PrivateAddress()
+		if err != nil {
+			logger.Tracef("getting a private address for unit %q failed: %q", u.Name(), err)
+		}
+		return publicAddress.Value, privateAddress.Value, nil
 	}
-	return publicAddress.Value, privateAddress.Value, nil
+
+	machineID, _ := u.AssignedMachineId()
+	if machineID == "" {
+		return "", "", nil
+	}
+	// Get the machine out of the store and use the preferred public and
+	// preferred private addresses out of that.
+	machineInfo := ctx.getMachineInfo(machineID)
+	if machineInfo == nil {
+		// We know that the machines are processed before the units, so they
+		// will always be there when we are looking. Except for the case where
+		// we are in the process of deleting the machine or units as they are
+		// being destroyed. If this is the case, we don't really care about
+		// the addresses, so returning empty values is fine.
+		return "", "", nil
+	}
+	return machineInfo.PreferredPublicAddress.Value, machineInfo.PreferredPrivateAddress.Value, nil
 }
 
 func (u *backingUnit) removed(ctx *allWatcherContext) error {
@@ -2000,37 +2032,6 @@ func (ctx *allWatcherContext) getInstanceData(id string) (instanceData, error) {
 	return getInstanceData(ctx.state, id)
 }
 
-func (ctx *allWatcherContext) assignedMachineID(u *Unit) (string, error) {
-	// c.f. unit.AssignedMachineId.
-	// While it is unlikely that the assigned machine method for a unit will change,
-	// if it does, we need to make sure the implementation matches here.
-	principalName := u.doc.Principal
-	if principalName == "" {
-		if u.doc.MachineId == "" {
-			return "", unitNotAssignedError(u)
-		}
-		return u.doc.MachineId, nil
-	}
-
-	principal := &multiwatcher.UnitInfo{
-		ModelUUID: ctx.modelUUID,
-		Name:      principalName,
-	}
-	stored := ctx.store.Get(principal.EntityID())
-	switch info := stored.(type) {
-	case *multiwatcher.UnitInfo:
-		if info.MachineID == "" {
-			return "", unitNotAssignedError(u)
-		}
-		return info.MachineID, nil
-
-	default:
-		// This should never happen as the principal should always be in the
-		// store while the subordinate exists.
-		return "", errors.NotFoundf("unit %s", principalName)
-	}
-}
-
 func (ctx *allWatcherContext) permissionsForModel(uuid string) (map[string]permission.Access, error) {
 	if ctx.userAccess != nil {
 		return ctx.userAccess[uuid], nil
@@ -2051,14 +2052,14 @@ func (ctx *allWatcherContext) permissionsForModel(uuid string) (map[string]permi
 	return result, nil
 }
 
-func (ctx *allWatcherContext) getOpenedPorts(unit *Unit) ([]corenetwork.PortRange, error) {
+func (ctx *allWatcherContext) getOpenedPorts(unit *Unit) ([]network.PortRange, error) {
 	// NOTE: as we open ports on other networks, this code needs to be updated
 	// to look at more than just the default empty string subnet id.
 	// This is what the unit.OpenedPorts returns (which is the existing functionality).
 	if ctx.openPorts == nil {
 		return unit.OpenedPorts()
 	}
-	machineID, err := ctx.assignedMachineID(unit)
+	machineID, err := unit.AssignedMachineId()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2066,18 +2067,18 @@ func (ctx *allWatcherContext) getOpenedPorts(unit *Unit) ([]corenetwork.PortRang
 	// An empty doc is fine to process.
 	doc := ctx.openPorts[key]
 	unitName := unit.Name()
-	var result []corenetwork.PortRange
+	var result []network.PortRange
 
 	for _, port := range doc.Ports {
 		if port.UnitName == unitName {
-			result = append(result, corenetwork.PortRange{
+			result = append(result, network.PortRange{
 				Protocol: port.Protocol,
 				FromPort: port.FromPort,
 				ToPort:   port.ToPort,
 			})
 		}
 	}
-	corenetwork.SortPortRanges(result)
+	network.SortPortRanges(result)
 	return result, nil
 }
 
@@ -2133,7 +2134,8 @@ func (ctx *allWatcherContext) modelType() (ModelType, error) {
 	if err != nil {
 		return modelTypeNone, errors.Trace(err)
 	}
-	return model.Type(), nil
+	ctx.modelType_ = model.Type()
+	return ctx.modelType_, nil
 }
 
 // entityIDForSettingsKey returns the entity id for the given
@@ -2166,4 +2168,18 @@ func (ctx *allWatcherContext) entityIDForOpenedPortsKey(key string) (multiwatche
 		return multiwatcher.EntityID{}, false
 	}
 	return ctx.entityIDForGlobalKey(machineGlobalKey(parts[1]))
+}
+
+func (ctx *allWatcherContext) getMachineInfo(machineID string) *multiwatcher.MachineInfo {
+	storeKey := &multiwatcher.MachineInfo{
+		ModelUUID: ctx.modelUUID,
+		ID:        machineID,
+	}
+	info0 := ctx.store.Get(storeKey.EntityID())
+	switch info := info0.(type) {
+	case *multiwatcher.MachineInfo:
+		return info
+	}
+	// In all other cases, which really should be never, return nil.
+	return nil
 }
