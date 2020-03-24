@@ -102,10 +102,6 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8ssp
 			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
-			Return(nil, nil),
 	}...)
 	gomock.InOrder(assertCalls...)
 
@@ -427,10 +423,6 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
 			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
-			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
 			Return(nil, nil),
 	}...)
 	gomock.InOrder(assertCalls...)

@@ -342,10 +342,6 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "test-operator-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
 			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Get("test-operator", v1.GetOptions{}).
-			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
-			Return(nil, nil),
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
@@ -458,10 +454,6 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "test-operator-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
 			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Get("test-operator", v1.GetOptions{}).
-			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
-			Return(nil, nil),
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
@@ -492,6 +484,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 			Name:        "test-operator-config",
 			Labels:      map[string]string{"juju-app": "test"},
 			Annotations: operatorAnnotations,
+			Generation:  1234,
 		},
 		Data: map[string]string{
 			"test-agent.conf": "agent-conf-data",
@@ -584,7 +577,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 		s.mockStorageClass.EXPECT().Get("test-operator-storage", v1.GetOptions{}).
 			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "test-operator-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
-			Return(statefulSetArg, nil),
+			Return(nil, s.k8sAlreadyExistsError()),
 		s.mockStatefulSets.EXPECT().Get("test-operator", v1.GetOptions{}).
 			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
@@ -608,6 +601,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 				Attributes:   map[string]interface{}{"storage-class": "operator-storage"},
 				ResourceTags: map[string]string{"foo": "bar"},
 			},
+			ConfigMapGeneration: 1234,
 		})
 	}()
 	err := s.clock.WaitAdvance(2*time.Second, testing.ShortWait, 1)
@@ -861,4 +855,120 @@ func (s *K8sBrokerSuite) TestUpgradeOperator(c *gc.C) {
 
 	err := s.broker.Upgrade("test-app", version.MustParse("6.6.6"))
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestOperatorExists(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(&apps.StatefulSet{}, nil),
+	)
+
+	exists, err := s.broker.OperatorExists("test-app")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.DeepEquals, caas.OperatorState{
+		Exists:      true,
+		Terminating: false,
+	})
+}
+
+func (s *K8sBrokerSuite) TestOperatorExistsTerminating(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(&apps.StatefulSet{
+				ObjectMeta: v1.ObjectMeta{
+					DeletionTimestamp: &v1.Time{time.Now()},
+				},
+			}, nil),
+	)
+
+	exists, err := s.broker.OperatorExists("test-app")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.DeepEquals, caas.OperatorState{
+		Exists:      true,
+		Terminating: true,
+	})
+}
+
+func (s *K8sBrokerSuite) TestOperatorExistsTerminated(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServiceAccounts.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockRoles.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockRoleBindings.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockConfigMaps.EXPECT().Get("test-app-operator-config", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockConfigMaps.EXPECT().Get("test-app-configurations-config", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Get("test-app-juju-operator-secret", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockPods.EXPECT().List(v1.ListOptions{
+			LabelSelector: "juju-operator=test-app",
+		}).
+			Return(&core.PodList{}, nil),
+	)
+
+	exists, err := s.broker.OperatorExists("test-app")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.DeepEquals, caas.OperatorState{
+		Exists:      false,
+		Terminating: false,
+	})
+}
+
+func (s *K8sBrokerSuite) TestOperatorExistsTerminatedMostly(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServiceAccounts.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockRoles.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockRoleBindings.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockConfigMaps.EXPECT().Get("test-app-operator-config", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockConfigMaps.EXPECT().Get("test-app-configurations-config", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Get("test-app-juju-operator-secret", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(&appsv1.Deployment{}, nil),
+	)
+
+	exists, err := s.broker.OperatorExists("test-app")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.DeepEquals, caas.OperatorState{
+		Exists:      true,
+		Terminating: true,
+	})
 }

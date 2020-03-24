@@ -383,4 +383,9 @@ type OperatorConfig struct {
 
 	// ResourceTags is a set of tags to set on the operator pod.
 	ResourceTags map[string]string
+
+	// ConfigMapGeneration is set when updating the operator config
+	// map for consistency in Read after Write and Write after Write.
+	// A value of 0 is ignored.
+	ConfigMapGeneration int64
 }

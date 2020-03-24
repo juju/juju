@@ -146,8 +146,11 @@ type OperatorCertificate struct {
 
 // IssueOperatorCertificate issues an x509 certificate for use by the specified application operator.
 func (c *Client) IssueOperatorCertificate(applicationName string) (OperatorCertificate, error) {
+	if !names.IsValidApplication(applicationName) {
+		return OperatorCertificate{}, errors.NotValidf("application name %q", applicationName)
+	}
 	args := params.Entities{[]params.Entity{
-		{Tag: applicationName},
+		{Tag: names.NewApplicationTag(applicationName).String()},
 	}}
 	var result params.IssueOperatorCertificateResults
 	if err := c.facade.FacadeCall("IssueOperatorCertificate", args, &result); err != nil {
