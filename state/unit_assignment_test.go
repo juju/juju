@@ -237,7 +237,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitCleanMachineUpgradeSeriesLockError(c
 
 	unit := units[0]
 	_, err = unit.AssignToCleanEmptyMachine()
-	c.Assert(err, gc.ErrorMatches, "all eligible machines in use")
+	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
 }
 
 func (s *UnitAssignmentSuite) TestAssignUnitMachinePlacementUpgradeSeriesLockError(c *gc.C) {

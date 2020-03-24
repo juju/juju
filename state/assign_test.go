@@ -159,11 +159,16 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *gc.C) {
 	// Check that assigning a principal unit assigns its subordinates too.
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
+	// Units need to be assigned to a machine before the subordinates
+	// are created in order for the subordinate to get the machine ID.
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+
 	subUnit := s.addSubordinate(c, unit)
 
 	// None of the direct unit assign methods work on subordinates.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
 	err = subUnit.AssignToMachine(machine)
 	c.Assert(err, gc.ErrorMatches, `cannot assign unit "logging/0" to machine 0: unit is a subordinate`)
 	_, err = subUnit.AssignToCleanMachine()
@@ -174,17 +179,9 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot assign unit "logging/0" to new machine: unit is a subordinate`)
 
 	// Subordinates know the machine they're indirectly assigned to.
-	err = unit.AssignToMachine(machine)
-	c.Assert(err, jc.ErrorIsNil)
 	id, err := subUnit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(id, gc.Equals, machine.Id())
-
-	// Unassigning the principal unassigns the subordinates too.
-	err = unit.UnassignFromMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = subUnit.AssignedMachineId()
-	c.Assert(err, gc.ErrorMatches, `unit "logging/0" is not assigned to a machine`)
 }
 
 func (s *AssignSuite) TestDeployerTag(c *gc.C) {
@@ -797,7 +794,7 @@ func (s *assignCleanSuite) TestAssignUnitTwiceFails(c *gc.C) {
 	c.Assert(m.Remove(), gc.IsNil)
 }
 
-const eligibleMachinesInUse = "all eligible machines in use"
+const eligibleMachinesInUse = ".*: all eligible machines in use"
 
 func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *gc.C) {
 	// Try to assign a unit to a clean (maybe empty) machine and check that we can't.

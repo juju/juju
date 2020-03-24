@@ -1117,6 +1117,26 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
+
+	// Principals must be assigned to a machine before then
+	// enter scope to create subordinates.
+	assignments := []struct {
+		machine      *state.Machine
+		units        []*state.Unit
+		subordinates []*state.Unit
+	}{
+		{m1, []*state.Unit{units[0][0]}, nil},
+		{m2, []*state.Unit{units[0][1], units[1][0], units[1][1], units[2][0]}, nil},
+		{m3, []*state.Unit{units[2][2]}, nil},
+	}
+
+	for _, a := range assignments {
+		for _, u := range a.units {
+			err := u.AssignToMachine(a.machine)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
+
 	// Add the logging units subordinate to the s2 units.
 	eps, err := s.State.InferEndpoints("s2", "s3")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1131,23 +1151,8 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 	units[3], err = s3.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sortedUnitNames(units[3]), jc.DeepEquals, []string{"s3/0", "s3/1", "s3/2"})
-
-	assignments := []struct {
-		machine      *state.Machine
-		units        []*state.Unit
-		subordinates []*state.Unit
-	}{
-		{m1, []*state.Unit{units[0][0]}, nil},
-		{m2, []*state.Unit{units[0][1], units[1][0], units[1][1], units[2][0]}, []*state.Unit{units[3][0]}},
-		{m3, []*state.Unit{units[2][2]}, []*state.Unit{units[3][2]}},
-	}
-
-	for _, a := range assignments {
-		for _, u := range a.units {
-			err := u.AssignToMachine(a.machine)
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
+	assignments[1].subordinates = []*state.Unit{units[3][0]}
+	assignments[2].subordinates = []*state.Unit{units[3][2]}
 
 	for i, a := range assignments {
 		c.Logf("test %d", i)

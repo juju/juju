@@ -993,7 +993,7 @@ func preventProReqUnitsDestroyRemove(c *gc.C, prr *ProReqRelation) {
 	preventUnitDestroyRemove(c, prr.ru1)
 }
 
-func newProReqRelation(c *gc.C, s *ConnSuite, scope charm.RelationScope) *ProReqRelation {
+func newProReqRelation(c *gc.C, s *ConnSuite, scope charm.RelationScope, assignedMachines ...*state.Machine) *ProReqRelation {
 	papp := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	var rapp *state.Application
 	if scope == charm.ScopeGlobal {
@@ -1001,20 +1001,32 @@ func newProReqRelation(c *gc.C, s *ConnSuite, scope charm.RelationScope) *ProReq
 	} else {
 		rapp = s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	}
-	return newProReqRelationForApps(c, s.State, papp, rapp)
+	return newProReqRelationForApps(c, s.State, papp, rapp, assignedMachines...)
 }
 
-func newProReqRelationForApps(c *gc.C, st *state.State, proApp, reqApp *state.Application) *ProReqRelation {
+func newProReqRelationForApps(c *gc.C, st *state.State, proApp, reqApp *state.Application, assignedMachines ...*state.Machine) *ProReqRelation {
 	eps, err := st.InferEndpoints(proApp.Name(), reqApp.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	prr := &ProReqRelation{rel: rel, papp: proApp, rapp: reqApp}
+	assignToMachine := func(unit *state.Unit) {
+		if len(assignedMachines) == 0 {
+			return
+		}
+		var machine *state.Machine
+		machine, assignedMachines = assignedMachines[0], assignedMachines[1:]
+		c.Assert(unit.AssignToMachine(machine), jc.ErrorIsNil)
+	}
 	prr.pu0, prr.pru0 = addRU(c, proApp, rel, nil)
+	assignToMachine(prr.pu0)
 	prr.pu1, prr.pru1 = addRU(c, proApp, rel, nil)
+	assignToMachine(prr.pu1)
 	if eps[0].Scope == charm.ScopeGlobal {
 		prr.ru0, prr.rru0 = addRU(c, reqApp, rel, nil)
+		assignToMachine(prr.ru0)
 		prr.ru1, prr.rru1 = addRU(c, reqApp, rel, nil)
+		assignToMachine(prr.ru1)
 	} else {
 		prr.ru0, prr.rru0 = addRU(c, reqApp, rel, prr.pu0)
 		prr.ru1, prr.rru1 = addRU(c, reqApp, rel, prr.pu1)

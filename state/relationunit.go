@@ -244,17 +244,31 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 		return nil, "", err
 	}
 	if len(related) != 1 {
-		return nil, "", fmt.Errorf("expected single related endpoint, got %v", related)
+		return nil, "", errors.Errorf("expected single related endpoint, got %v", related)
 	}
+	// Find the machine ID that the principal unit is deployed on, and use
+	// that for the subordinate. It is worthwhile noting that if the unit is
+	// in a CAAS model, there are no machines.
+	principal, err := ru.st.Unit(ru.unitName)
+	if err != nil {
+		return nil, "", errors.Annotate(err, "unable to load principal unit")
+	}
+	// We dont care just now if the machine isn't assigned, as CAAS models
+	// will return that error. For IAAS models, the machine *should* always
+	// be assigned before it is able to enter scope.
+	principalMachineID, _ := principal.AssignedMachineId()
 	applicationname, unitName := related[0].ApplicationName, ru.unitName
 	selSubordinate := bson.D{{"application", applicationname}, {"principal", unitName}}
 	var lDoc lifeDoc
 	if err := units.Find(selSubordinate).One(&lDoc); err == mgo.ErrNotFound {
+		logger.Criticalf("ru.unitName: %s, principleMachineID: %q", ru.unitName, principalMachineID)
 		application, err := ru.st.Application(applicationname)
 		if err != nil {
 			return nil, "", err
 		}
-		_, ops, err := application.addUnitOps(unitName, AddUnitParams{}, nil)
+		_, ops, err := application.addUnitOps(unitName, AddUnitParams{
+			machineID: principalMachineID,
+		}, nil)
 		return ops, "", err
 	} else if err != nil {
 		return nil, "", err
