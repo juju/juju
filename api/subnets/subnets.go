@@ -53,20 +53,6 @@ func (api *API) AddSubnet(cidr string, providerId network.Id, space names.SpaceT
 	return response.OneError()
 }
 
-// CreateSubnet creates a new subnet with the provider.
-func (api *API) CreateSubnet(subnet names.SubnetTag, space names.SpaceTag, zones []string, isPublic bool) error {
-	// TODO (hml) 2019-08-23
-	// This call is behind a feature flag and panics due to lack of
-	// facade on the the other end.  It's in the list to be audited
-	// for updates as part of current networking improvements.  Fix
-	// names.v2 SubnetTag at that time.
-	//
-	// TODO (stickupkid): This should be safe to remove, as it's behind a
-	// feature that's been removed and there is no api-server implementation
-	// that handles this call?
-	return errors.NewNotImplemented(nil, "CreateSubnet")
-}
-
 // ListSubnets fetches all the subnets known by the model.
 func (api *API) ListSubnets(spaceTag *names.SpaceTag, zone string) ([]params.Subnet, error) {
 	var response params.ListSubnetsResults
