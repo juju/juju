@@ -10,19 +10,16 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/facades/client/spaces"
-	"github.com/juju/juju/apiserver/facades/client/spaces/mocks"
 	"github.com/juju/juju/core/network"
 )
 
 type SpaceRemoveSuite struct {
-	space  *mocks.MockRemoveSpace
-	subnet *mocks.MockSubnet
+	space  *spaces.MockRemoveSpace
+	subnet *spaces.MockSubnet
 }
 
 var _ = gc.Suite(&SpaceRemoveSuite{})
 
-func (s *SpaceRemoveSuite) TearDownTest(c *gc.C) {
-}
 func (s *SpaceRemoveSuite) TestSuccess(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -40,7 +37,7 @@ func (s *SpaceRemoveSuite) TestSuccess(c *gc.C) {
 
 	s.space.EXPECT().RemoveSpaceOps().Return(removeSpaceOps)
 	s.subnet.EXPECT().UpdateSpaceOps(network.AlphaSpaceId).Return(moveSubnetOps)
-	op := spaces.NewRemoveSpaceModelOp(s.space, []spaces.Subnet{s.subnet})
+	op := spaces.NewRemoveSpaceOp(s.space, []spaces.Subnet{s.subnet})
 
 	ops, err := op.Build(0)
 
@@ -51,8 +48,8 @@ func (s *SpaceRemoveSuite) TestSuccess(c *gc.C) {
 func (s *SpaceRemoveSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.space = mocks.NewMockRemoveSpace(ctrl)
-	s.subnet = mocks.NewMockSubnet(ctrl)
+	s.space = spaces.NewMockRemoveSpace(ctrl)
+	s.subnet = spaces.NewMockSubnet(ctrl)
 
 	return ctrl
 }

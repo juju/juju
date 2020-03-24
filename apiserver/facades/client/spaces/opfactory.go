@@ -13,14 +13,12 @@ import (
 // OpFactory describes a source of model operations
 // required by the spaces API.
 type OpFactory interface {
-	// NewRemoveSpaceModelOp returns an operation for removing a space.
-	NewRemoveSpaceModelOp(fromName string) (state.ModelOperation, error)
+	// NewRemoveSpaceOp returns an operation for removing a space.
+	NewRemoveSpaceOp(fromName string) (state.ModelOperation, error)
 
-	// NewRenameSpaceModelOp returns an operation for renaming a space.
-	NewRenameSpaceModelOp(spaceName, toName string) (state.ModelOperation, error)
+	// NewRenameSpaceOp returns an operation for renaming a space.
+	NewRenameSpaceOp(spaceName, toName string) (state.ModelOperation, error)
 
-	// TODO (manadart 2020-03-19): Rename the methods above for consistency.
-	// We know they are are ModelOps; we can be brief without redundancy.
 	// NewMoveSubnetsOp returns an operation for updating a space with new CIDRs.
 	NewMoveSubnetsOp(spaceID string, subnets []MovingSubnet) (MoveSubnetsOp, error)
 }
@@ -33,9 +31,9 @@ func newOpFactory(st *state.State) OpFactory {
 	return &opFactory{st: st}
 }
 
-// NewRemoveSpaceModelOp (OpFactory) returns an operation
+// NewRemoveSpaceOp (OpFactory) returns an operation
 // for removing a space.
-func (f *opFactory) NewRemoveSpaceModelOp(spaceName string) (state.ModelOperation, error) {
+func (f *opFactory) NewRemoveSpaceOp(spaceName string) (state.ModelOperation, error) {
 	space, err := f.st.SpaceByName(spaceName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -48,17 +46,17 @@ func (f *opFactory) NewRemoveSpaceModelOp(spaceName string) (state.ModelOperatio
 	for i, subnet := range subnets {
 		n[i] = subnet
 	}
-	return NewRemoveSpaceModelOp(space, n), nil
+	return NewRemoveSpaceOp(space, n), nil
 }
 
-// NewRenameSpaceModelOp (OpFactory) returns an operation
+// NewRenameSpaceOp (OpFactory) returns an operation
 // for renaming a space.
-func (f *opFactory) NewRenameSpaceModelOp(fromName, toName string) (state.ModelOperation, error) {
+func (f *opFactory) NewRenameSpaceOp(fromName, toName string) (state.ModelOperation, error) {
 	space, err := f.st.SpaceByName(fromName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewRenameSpaceModelOp(
+	return NewRenameSpaceOp(
 		f.st.IsController(), f.st.NewControllerSettings(), &renameSpaceState{f.st}, space, toName), nil
 }
 

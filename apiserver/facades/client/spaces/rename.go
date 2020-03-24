@@ -66,7 +66,7 @@ type spaceRenameModelOp struct {
 	toName       string
 }
 
-func NewRenameSpaceModelOp(
+func NewRenameSpaceOp(
 	isController bool, settings Settings, st RenameSpaceState, space RenameSpace, toName string,
 ) *spaceRenameModelOp {
 	return &spaceRenameModelOp{
@@ -170,7 +170,7 @@ func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults
 			result.Results[i].Error = common.ServerError(errors.Trace(newErr))
 			continue
 		}
-		operation, err := api.opFactory.NewRenameSpaceModelOp(fromTag.Id(), toTag.Id())
+		operation, err := api.opFactory.NewRenameSpaceOp(fromTag.Id(), toTag.Id())
 		if err != nil {
 			result.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
