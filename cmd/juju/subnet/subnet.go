@@ -36,15 +36,6 @@ type SubnetAPI interface {
 
 	// AllSpaces returns all Juju network spaces.
 	AllSpaces() ([]names.Tag, error)
-
-	// CreateSubnet creates a new Juju subnet.
-	CreateSubnet(subnetCIDR string, spaceTag names.SpaceTag, zones []string, isPublic bool) error
-
-	// RemoveSubnet marks an existing subnet as no longer used, which
-	// will cause it to get removed at some point after all its
-	// related entites are cleaned up. It will fail if the subnet is
-	// still in use by any machines.
-	RemoveSubnet(subnetCIDR string) error
 }
 
 // mvpAPIShim forwards SubnetAPI methods to the real API facade for
