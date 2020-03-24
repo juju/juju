@@ -108,7 +108,7 @@ func (c *RemoveCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
+	return c.RunWithSpaceAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		if !c.assumeYes && c.force {
 			if err := c.handleForceOption(api, currentModel, ctx); err != nil {
 				return errors.Annotatef(err, "cannot remove space %q", c.name)

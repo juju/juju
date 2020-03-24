@@ -12,6 +12,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/space"
@@ -22,7 +23,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate mockgen -package mocks -destination mocks/spacesapi_mock.go github.com/juju/juju/cmd/juju/space SpaceAPI
+//go:generate mockgen -package mocks -destination mocks/spacesapi_mock.go github.com/juju/juju/cmd/juju/space SpaceAPI,SubnetAPI,API
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
@@ -88,7 +89,7 @@ func (s *BaseSpaceSuite) newCommandForTest() modelcmd.ModelCommand {
 	// out to make sure.
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	cmd1 := modelcmd.InnerCommand(cmd).(interface {
-		SetAPI(space.SpaceAPI)
+		SetAPI(space.API)
 	})
 	cmd1.SetAPI(s.api)
 	return cmd
@@ -150,7 +151,7 @@ type StubAPI struct {
 	Subnets []params.Subnet
 }
 
-var _ space.SpaceAPI = (*StubAPI)(nil)
+var _ space.API = (*StubAPI)(nil)
 
 // NewStubAPI creates a StubAPI suitable for passing to
 // space.New*Command().
@@ -242,4 +243,14 @@ func (sa *StubAPI) ShowSpace(name string) (network.ShowSpace, error) {
 		return network.ShowSpace{}, err
 	}
 	return network.ShowSpace{}, nil
+}
+
+func (sa *StubAPI) MoveSubnets(name names.SpaceTag, tags []names.SubnetTag, force bool) (params.MoveSubnetsResult, error) {
+	sa.MethodCall(sa, "MoveSubnets", name, tags, force)
+	return params.MoveSubnetsResult{}, sa.NextErr()
+}
+
+func (sa *StubAPI) SubnetsByCIDR(cidrs []string) ([]params.SubnetsResult, error) {
+	sa.MethodCall(sa, "SubnetsByCIDR", cidrs)
+	return []params.SubnetsResult{}, sa.NextErr()
 }

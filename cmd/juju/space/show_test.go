@@ -68,7 +68,7 @@ machine-count: 4
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedStdout)
 
 }
-func (s *ShowSuite) runCommand(c *gc.C, api space.SpaceAPI, name string) (*cmd.Context, error) {
+func (s *ShowSuite) runCommand(c *gc.C, api space.API, name string) (*cmd.Context, error) {
 	base := space.NewSpaceCommandBase(api)
 	command := space.ShowSpaceCommand{
 		SpaceCommandBase: base,

@@ -16,10 +16,12 @@ type SpaceCommandSuite struct {
 	BaseSpaceSuite
 }
 
-func setUpMocks(c *gc.C) (*gomock.Controller, *mocks.MockSpaceAPI) {
+func setUpMocks(c *gc.C) (*gomock.Controller, *mocks.MockAPI) {
 	ctrl := gomock.NewController(c)
-	api := mocks.NewMockSpaceAPI(ctrl)
+
+	api := mocks.NewMockAPI(ctrl)
 	api.EXPECT().Close()
+
 	return ctrl, api
 }
 

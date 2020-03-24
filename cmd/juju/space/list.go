@@ -88,7 +88,7 @@ func (c *ListCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *ListCommand) Run(ctx *cmd.Context) error {
-	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
+	return c.RunWithSpaceAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		spaces, err := api.ListSpaces()
 		if err != nil {
 			if errors.IsNotSupported(err) {
