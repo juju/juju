@@ -5,12 +5,11 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	v1beta1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	discovery "k8s.io/client-go/discovery"
+	reflect "reflect"
 )
 
 // MockApiExtensionsClientInterface is a mock of Interface interface
@@ -38,6 +37,7 @@ func (m *MockApiExtensionsClientInterface) EXPECT() *MockApiExtensionsClientInte
 
 // ApiextensionsV1 mocks base method
 func (m *MockApiExtensionsClientInterface) ApiextensionsV1() v1.ApiextensionsV1Interface {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApiextensionsV1")
 	ret0, _ := ret[0].(v1.ApiextensionsV1Interface)
 	return ret0
@@ -45,11 +45,13 @@ func (m *MockApiExtensionsClientInterface) ApiextensionsV1() v1.ApiextensionsV1I
 
 // ApiextensionsV1 indicates an expected call of ApiextensionsV1
 func (mr *MockApiExtensionsClientInterfaceMockRecorder) ApiextensionsV1() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApiextensionsV1", reflect.TypeOf((*MockApiExtensionsClientInterface)(nil).ApiextensionsV1))
 }
 
 // ApiextensionsV1beta1 mocks base method
 func (m *MockApiExtensionsClientInterface) ApiextensionsV1beta1() v1beta1.ApiextensionsV1beta1Interface {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApiextensionsV1beta1")
 	ret0, _ := ret[0].(v1beta1.ApiextensionsV1beta1Interface)
 	return ret0
@@ -57,11 +59,13 @@ func (m *MockApiExtensionsClientInterface) ApiextensionsV1beta1() v1beta1.Apiext
 
 // ApiextensionsV1beta1 indicates an expected call of ApiextensionsV1beta1
 func (mr *MockApiExtensionsClientInterfaceMockRecorder) ApiextensionsV1beta1() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApiextensionsV1beta1", reflect.TypeOf((*MockApiExtensionsClientInterface)(nil).ApiextensionsV1beta1))
 }
 
 // Discovery mocks base method
 func (m *MockApiExtensionsClientInterface) Discovery() discovery.DiscoveryInterface {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Discovery")
 	ret0, _ := ret[0].(discovery.DiscoveryInterface)
 	return ret0
@@ -69,5 +73,6 @@ func (m *MockApiExtensionsClientInterface) Discovery() discovery.DiscoveryInterf
 
 // Discovery indicates an expected call of Discovery
 func (mr *MockApiExtensionsClientInterfaceMockRecorder) Discovery() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Discovery", reflect.TypeOf((*MockApiExtensionsClientInterface)(nil).Discovery))
 }

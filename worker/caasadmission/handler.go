@@ -1,0 +1,201 @@
+// Copyright 2020 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package caasadmission
+
+import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strings"
+
+	"github.com/juju/errors"
+	admission "k8s.io/api/admission/v1beta1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/juju/juju/caas/kubernetes/provider"
+)
+
+type patchOperation struct {
+	Op    string      `json:"op"`
+	Path  string      `json:"path"`
+	Value interface{} `json:"value,omitempty"`
+}
+
+type RBACMapper interface {
+	// AppNameForServiceAccount fetches the juju application name associated
+	// with a given kubernetes service account UID. If no result is found
+	// errors.NotFound is returned. All other errors should be considered
+	// internal to the interface operation.
+	AppNameForServiceAccount(types.UID) (string, error)
+}
+
+const (
+	ExpectedContentType = "application/json"
+	HeaderContentType   = "Content-Type"
+	addOp               = "add"
+	replaceOp           = "replace"
+)
+
+var (
+	AdmissionGVK = schema.GroupVersionKind{
+		Group:   admission.SchemeGroupVersion.Group,
+		Version: admission.SchemeGroupVersion.Version,
+		Kind:    "AdmissionReview",
+	}
+)
+
+func admissionHandler(logger Logger, rbacMapper RBACMapper) http.Handler {
+	codecFactory := serializer.NewCodecFactory(runtime.NewScheme())
+
+	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		data, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			logger.Errorf("digesting admission request body: %v", err)
+			http.Error(res, fmt.Sprintf("%s: reading request body",
+				http.StatusText(http.StatusInternalServerError)), http.StatusInternalServerError)
+			return
+		}
+
+		if len(data) == 0 {
+			http.Error(res, fmt.Sprintf("%s: empty request body",
+				http.StatusText(http.StatusBadRequest)), http.StatusBadRequest)
+			return
+		}
+
+		if req.Header.Get(HeaderContentType) != ExpectedContentType {
+			http.Error(res, fmt.Sprintf("%s: supported content types = [%s]",
+				http.StatusText(http.StatusUnsupportedMediaType),
+				ExpectedContentType), http.StatusUnsupportedMediaType)
+			return
+		}
+
+		finalise := func(review *admission.AdmissionReview, response *admission.AdmissionResponse) {
+			var uid types.UID
+			if review != nil && review.Request != nil {
+				uid = review.Request.UID
+			}
+			response.UID = uid
+
+			body, err := json.Marshal(admission.AdmissionReview{
+				Response: response,
+			})
+			if err != nil {
+				logger.Errorf("marshaling admission request response body: %v", err)
+				http.Error(res, fmt.Sprintf("%s: building response body",
+					http.StatusText(http.StatusInternalServerError)), http.StatusInternalServerError)
+			}
+			if _, err := res.Write(body); err != nil {
+				logger.Errorf("writing admission request response body: %v", err)
+			}
+		}
+
+		admissionReview := &admission.AdmissionReview{}
+		obj, _, err := codecFactory.UniversalDecoder().Decode(data, nil, admissionReview)
+		if err != nil {
+			finalise(admissionReview, errToAdmissionResponse(err))
+			return
+		}
+
+		var ok bool
+		if admissionReview, ok = obj.(*admission.AdmissionReview); !ok {
+			finalise(admissionReview,
+				errToAdmissionResponse(errors.NewNotValid(nil, "converting admission request")))
+			return
+		}
+
+		reviewResponse := &admission.AdmissionResponse{
+			Allowed: true,
+		}
+
+		appName, err := rbacMapper.AppNameForServiceAccount(
+			types.UID(admissionReview.Request.UserInfo.UID))
+		if err != nil && !errors.IsNotFound(err) {
+			http.Error(res, fmt.Sprintf(
+				"could not determine if admission request belongs to juju: %v", err,
+			),
+				http.StatusInternalServerError)
+			return
+		} else if errors.IsNotFound(err) {
+			finalise(admissionReview, reviewResponse)
+			return
+		}
+
+		metaObj := struct {
+			meta.ObjectMeta `json:"metadata,omitempty"`
+		}{}
+
+		err = json.Unmarshal(admissionReview.Request.Object.Raw, &metaObj)
+		if err != nil {
+			http.Error(res,
+				fmt.Sprintf("unmarshalling admission object from json: %v", err),
+				http.StatusInternalServerError)
+			return
+		}
+
+		patchJSON, err := json.Marshal(
+			patchForLabels(metaObj.Labels, appName))
+		if err != nil {
+			http.Error(res,
+				fmt.Sprintf("marshalling patch object to json: %v", err),
+				http.StatusInternalServerError)
+			return
+		}
+
+		patchType := admission.PatchTypeJSONPatch
+		reviewResponse.Patch = patchJSON
+		reviewResponse.PatchType = &patchType
+		finalise(admissionReview, reviewResponse)
+	})
+}
+
+func compareGroupVersionKind(a, b *schema.GroupVersionKind) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return a.Group == b.Group && a.Version == b.Version && a.Kind == b.Kind
+}
+
+func errToAdmissionResponse(err error) *admission.AdmissionResponse {
+	return &admission.AdmissionResponse{
+		Allowed: false,
+		Result: &meta.Status{
+			Message: err.Error(),
+		},
+	}
+}
+
+func patchEscape(s string) string {
+	r := strings.Replace(s, "/", "~1", -1)
+	r = strings.Replace(r, "~", "~0", -1)
+	return r
+}
+
+func patchForLabels(labels map[string]string, appName string) []patchOperation {
+	patches := []patchOperation{}
+
+	neededLabels := provider.LabelsForApp(appName)
+
+	for k, v := range neededLabels {
+		if extVal, found := labels[k]; found && extVal != v {
+			patches = append(patches, patchOperation{
+				Op:    replaceOp,
+				Path:  fmt.Sprintf("/metadata/labels/%s", patchEscape(k)),
+				Value: patchEscape(v),
+			})
+		} else if !found {
+			patches = append(patches, patchOperation{
+				Op:    addOp,
+				Path:  fmt.Sprintf("/metadata/labels/%s", patchEscape(k)),
+				Value: patchEscape(v),
+			})
+		}
+	}
+
+	return patches
+}

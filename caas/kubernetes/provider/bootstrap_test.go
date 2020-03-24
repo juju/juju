@@ -231,7 +231,12 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	}
 
 	APIPort := s.controllerCfg.APIPort()
-	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: s.getNamespace()}}
+	ns := &core.Namespace{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   s.getNamespace(),
+			Labels: provider.LabelsForModel("controller-1"),
+		},
+	}
 	ns.Name = s.getNamespace()
 	s.ensureJujuNamespaceAnnotations(true, ns)
 	svcNotProvisioned := &core.Service{
