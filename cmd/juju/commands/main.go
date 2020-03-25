@@ -6,6 +6,7 @@ package commands
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -492,6 +493,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// CAAS commands
 	r.Register(caas.NewAddCAASCommand(&cloudToCommandAdapter{}))
+	r.Register(caas.NewUpdateCAASCommand(&cloudToCommandAdapter{}))
 	r.Register(caas.NewRemoveCAASCommand(&cloudToCommandAdapter{}))
 	r.Register(application.NewScaleApplicationCommand())
 
@@ -540,8 +542,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 type cloudToCommandAdapter struct{}
 
-func (cloudToCommandAdapter) ParseCloudMetadataFile(path string) (map[string]cloudfile.Cloud, error) {
-	return cloudfile.ParseCloudMetadataFile(path)
+func (cloudToCommandAdapter) ReadCloudData(path string) ([]byte, error) {
+	return ioutil.ReadFile(path)
 }
 func (cloudToCommandAdapter) ParseOneCloud(data []byte) (cloudfile.Cloud, error) {
 	return cloudfile.ParseOneCloud(data)

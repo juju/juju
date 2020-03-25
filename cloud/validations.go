@@ -52,6 +52,7 @@ var cloudSchema = map[string]interface{}{
 			"type":  "array",
 			"items": map[string]interface{}{"type": "string"},
 		},
+		"host-cloud-region": map[string]interface{}{"type": "string"},
 		"endpoint":          map[string]interface{}{"type": "string"},
 		"identity-endpoint": map[string]interface{}{"type": "string"},
 		"storage-endpoint":  map[string]interface{}{"type": "string"},

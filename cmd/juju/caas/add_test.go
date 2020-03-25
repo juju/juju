@@ -73,9 +73,12 @@ type fakeCloudMetadataStore struct {
 	*jujutesting.CallMocker
 }
 
-func (f *fakeCloudMetadataStore) ParseCloudMetadataFile(path string) (map[string]cloud.Cloud, error) {
-	results := f.MethodCall(f, "ParseCloudMetadataFile", path)
-	return results[0].(map[string]cloud.Cloud), jujutesting.TypeAssertError(results[1])
+func (f *fakeCloudMetadataStore) ReadCloudData(path string) ([]byte, error) {
+	results := f.MethodCall(f, "ReadCloudData", path)
+	if results[0] == nil {
+		return nil, jujutesting.TypeAssertError(results[1])
+	}
+	return []byte(results[0].(string)), jujutesting.TypeAssertError(results[1])
 }
 
 func (f *fakeCloudMetadataStore) ParseOneCloud(data []byte) (cloud.Cloud, error) {

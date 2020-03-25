@@ -5,7 +5,6 @@ package cloud_test
 
 import (
 	"io/ioutil"
-	"os"
 	"strings"
 
 	"github.com/juju/cmd/cmdtesting"
@@ -60,21 +59,17 @@ func (s *updateCloudSuite) TestBadArgs(c *gc.C) {
 }
 
 func (s *updateCloudSuite) setupCloudFileScenario(c *gc.C, apiFunc func() (cloud.UpdateCloudAPI, error)) (*cloud.UpdateCloudCommand, string) {
-	cloudfile := prepareTestCloudYaml(c, garageMaasYamlFile)
-	s.AddCleanup(func(_ *gc.C) {
-		defer cloudfile.Close()
-		defer os.Remove(cloudfile.Name())
-	})
-	mockCloud, err := jujucloud.ParseCloudMetadataFile(cloudfile.Name())
+	clouds, err := jujucloud.ParseCloudMetadata([]byte(garageMaasYamlFile))
 	c.Assert(err, jc.ErrorIsNil)
+
 	fake := newFakeCloudMetadataStore()
-	fake.Call("ParseCloudMetadataFile", cloudfile.Name()).Returns(mockCloud, nil)
+	fake.Call("ReadCloudData", "mycloud.yaml").Returns(garageMaasYamlFile, nil)
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(map[string]jujucloud.Cloud{}, nil)
-	fake.Call("WritePersonalCloudMetadata", mockCloud).Returns(nil)
+	fake.Call("WritePersonalCloudMetadata", clouds).Returns(nil)
 	command := cloud.NewUpdateCloudCommandForTest(fake, s.store, apiFunc)
 
-	return command, cloudfile.Name()
+	return command, "mycloud.yaml"
 }
 
 func (s *updateCloudSuite) createLocalCacheFile(c *gc.C) {
@@ -126,7 +121,7 @@ func (s *updateCloudSuite) TestUpdateControllerFromFile(c *gc.C) {
 
 func (s *updateCloudSuite) TestUpdateControllerLocalCacheBadFile(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
-	fake.Call("ParseCloudMetadataFile", "somefile.yaml").Returns(map[string]jujucloud.Cloud{}, errors.New("kaboom"))
+	fake.Call("ReadCloudData", "somefile.yaml").Returns(nil, errors.New("kaboom"))
 
 	addCmd := cloud.NewUpdateCloudCommandForTest(fake, s.store, nil)
 	_, err := cmdtesting.RunCommand(c, addCmd, "cloud", "-f", "somefile.yaml", "--controller", "mycontroller")

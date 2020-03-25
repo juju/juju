@@ -521,7 +521,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	var hostedModel *jujuclient.ModelDetails
 	defer func() {
 		resultErr = handleChooseCloudRegionError(ctx, resultErr)
-		if resultErr == nil {
+		if !c.showClouds && resultErr == nil {
 			var msg string
 			if hostedModel == nil {
 				msg = `

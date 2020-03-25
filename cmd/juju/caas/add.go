@@ -35,7 +35,7 @@ import (
 var logger = loggo.GetLogger("juju.cmd.juju.k8s")
 
 type CloudMetadataStore interface {
-	ParseCloudMetadataFile(path string) (map[string]jujucloud.Cloud, error)
+	ReadCloudData(path string) ([]byte, error)
 	ParseOneCloud(data []byte) (jujucloud.Cloud, error)
 	PublicCloudMetadata(searchPaths ...string) (result map[string]jujucloud.Cloud, fallbackUsed bool, _ error)
 	PersonalCloudMetadata() (map[string]jujucloud.Cloud, error)
