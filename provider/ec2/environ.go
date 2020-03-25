@@ -1245,6 +1245,22 @@ func (e *environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceIn
 	return nil, errors.NotSupportedf("Spaces")
 }
 
+// SpaceSetID (environs.Networking) returns a grouping key for use in
+// space/subnet definitions.
+// Here we return the default VPC ID if we can; otherwise, the credential.
+func (e *environ) SpaceSetID(ctx context.ProviderCallContext) (string, error) {
+	vpcId := e.ecfg().vpcID()
+	if !isVPCIDSet(vpcId) {
+		if hasDefaultVPC, err := e.hasDefaultVPC(ctx); err == nil && hasDefaultVPC {
+			vpcId = e.defaultVPC.Id
+		}
+	}
+	if isVPCIDSet(vpcId) {
+		return vpcId, nil
+	}
+	return e.cloud.Credential.Attributes()["access-key"], nil
+}
+
 // Subnets returns basic information about the specified subnets known
 // by the provider for the specified instance or list of ids. subnetIds can be
 // empty, in which case all known are returned. Implements

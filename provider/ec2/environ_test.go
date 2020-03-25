@@ -5,10 +5,12 @@ package ec2
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	amzec2 "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -25,9 +27,11 @@ var (
 	_ context.Distributor        = (*environ)(nil)
 )
 
-type Suite struct{}
+type environSuite struct {
+	testing.IsolationSuite
+}
 
-var _ = gc.Suite(&Suite{})
+var _ = gc.Suite(&environSuite{})
 
 type RootDiskTest struct {
 	series     string
@@ -50,7 +54,7 @@ var commonInstanceStoreDisks = []amzec2.BlockDeviceMapping{{
 	VirtualName: "ephemeral3",
 }}
 
-func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
+func (*environSuite) TestRootDiskBlockDeviceMapping(c *gc.C) {
 	var rootDiskTests = []RootDiskTest{{
 		"trusty",
 		"nil constraint ubuntu",
@@ -106,7 +110,7 @@ func pInt(i uint64) *uint64 {
 	return &i
 }
 
-func (*Suite) TestPortsToIPPerms(c *gc.C) {
+func (*environSuite) TestPortsToIPPerms(c *gc.C) {
 	testCases := []struct {
 		about    string
 		rules    []network.IngressRule
@@ -167,13 +171,13 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 // These Support checks are currently valid with a 'nil' environ pointer. If
 // that changes, the tests will need to be updated. (we know statically what is
 // supported.)
-func (*Suite) TestSupportsNetworking(c *gc.C) {
+func (*environSuite) TestSupportsNetworking(c *gc.C) {
 	var env *environ
 	_, supported := environs.SupportsNetworking(env)
 	c.Assert(supported, jc.IsTrue)
 }
 
-func (*Suite) TestSupportsSpaces(c *gc.C) {
+func (*environSuite) TestSupportsSpaces(c *gc.C) {
 	callCtx := context.NewCloudCallContext()
 	var env *environ
 	supported, err := env.SupportsSpaces(callCtx)
@@ -182,7 +186,7 @@ func (*Suite) TestSupportsSpaces(c *gc.C) {
 	c.Check(environs.SupportsSpaces(callCtx, env), jc.IsTrue)
 }
 
-func (*Suite) TestSupportsSpaceDiscovery(c *gc.C) {
+func (*environSuite) TestSupportsSpaceDiscovery(c *gc.C) {
 	var env *environ
 	supported, err := env.SupportsSpaceDiscovery(context.NewCloudCallContext())
 	// TODO(jam): 2016-02-01 the comment on the interface says the error should
@@ -192,11 +196,56 @@ func (*Suite) TestSupportsSpaceDiscovery(c *gc.C) {
 	c.Assert(supported, jc.IsFalse)
 }
 
-func (*Suite) TestSupportsContainerAddresses(c *gc.C) {
+func (*environSuite) TestSupportsContainerAddresses(c *gc.C) {
 	callCtx := context.NewCloudCallContext()
 	var env *environ
 	supported, err := env.SupportsContainerAddresses(callCtx)
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 	c.Assert(supported, jc.IsFalse)
 	c.Check(environs.SupportsContainerAddresses(callCtx, env), jc.IsFalse)
+}
+
+func (*environSuite) TestSpaceSetIDReturnsVPCIfSet(c *gc.C) {
+	vpcID := "vpc-123"
+
+	env := &environ{
+		ecfgUnlocked: &environConfig{
+			attrs: map[string]interface{}{
+				"vpc-id": "vpc-123",
+			},
+		},
+		defaultVPCChecked: true,
+		defaultVPC: &amzec2.VPC{
+			Id: vpcID,
+		},
+	}
+
+	spaceSetID, err := env.SpaceSetID(context.NewCloudCallContext())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spaceSetID, gc.Equals, vpcID)
+}
+
+func (*environSuite) TestSpaceSetIDReturnsCredentialIfVPCNotSet(c *gc.C) {
+	vpcID := ""
+	accessKey := "access-123"
+	cred := cloud.NewCredential("whatever", map[string]string{"access-key": accessKey})
+
+	env := &environ{
+		ecfgUnlocked: &environConfig{
+			attrs: map[string]interface{}{
+				"vpc-id": "",
+			},
+		},
+		defaultVPCChecked: true,
+		defaultVPC: &amzec2.VPC{
+			Id: vpcID,
+		},
+		cloud: environs.CloudSpec{
+			Credential: &cred,
+		},
+	}
+
+	spaceSetID, err := env.SpaceSetID(context.NewCloudCallContext())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spaceSetID, gc.Equals, accessKey)
 }
