@@ -4,8 +4,6 @@
 package provider
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -73,40 +71,22 @@ func (k *kubernetesClient) configureStatefulSet(
 	podSpec := workloadSpec.Pod
 	existingPodSpec := podSpec
 
-	// Create a new stateful set with the necessary storage config.
-	pvcNameGetter := func(i int, storageName string) string {
-		legacy := isLegacyName(deploymentName)
-		s := fmt.Sprintf("%s-%s", storageName, randPrefix)
-		// TODO: double check if storage name is uniq in []FS!!!!!!!!!!
-		if legacy {
-			s = fmt.Sprintf("juju-%s-%d", storageName, i)
-		}
-		return s
-	}
-	// if err := k.configureStorage(appName, &podSpec, &statefulSet.Spec, pvcNameGetter, filesystems); err != nil {
-	// 	return errors.Annotatef(err, "configuring storage for %s", appName)
-	// }
-	for i, fs := range filesystems {
-		vol, pvc, err := k.filesystemToVolumeInfo(i, fs, pvcNameGetter)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		mountPath := getMountPathForFilesystem(i, appName, fs)
-		if vol != nil {
-			podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
-				Name:      vol.Name,
-				MountPath: mountPath,
-			})
-			pushUniqVolume(&podSpec, *vol)
-		}
-		if pvc != nil {
-			logger.Debugf("using persistent volume claim for %s filesystem %s: %+v", appName, fs.StorageName, *pvc)
-			statefulSet.Spec.VolumeClaimTemplates = append(statefulSet.Spec.VolumeClaimTemplates, *pvc)
-			podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
-				Name:      pvc.Name,
-				MountPath: mountPath,
-			})
-		}
+	if err = k.configureStorage(appName, isLegacyName(deploymentName), randPrefix, filesystems, &podSpec,
+		func(pvc *core.PersistentVolumeClaim, mountPath string) error {
+			if pvc != nil {
+				statefulSet.Spec.VolumeClaimTemplates = append(statefulSet.Spec.VolumeClaimTemplates, *pvc)
+				if err := pushUniqVolumeClaimTemplate(&statefulSet.Spec, *pvc); err != nil {
+					return errors.Trace(err)
+				}
+				podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
+					Name:      pvc.Name,
+					MountPath: mountPath,
+				})
+			}
+			return nil
+		},
+	); err != nil {
+		return errors.Trace(err)
 	}
 	statefulSet.Spec.Template.Spec = podSpec
 	return k.ensureStatefulSet(statefulSet, existingPodSpec)
