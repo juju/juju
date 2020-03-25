@@ -10,8 +10,6 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/juju/juju/core/firewall"
-
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -28,6 +26,7 @@ import (
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
@@ -759,9 +758,9 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 		err = unit.SetWorkloadVersion(version)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	err = unit.SetState(map[string]string{
-		"payload": "b4dc0ffee",
-	})
+	us := state.NewUnitState()
+	us.SetState(map[string]string{"payload": "b4dc0ffee"})
+	err = unit.SetState(us)
 	c.Assert(err, jc.ErrorIsNil)
 
 	dbModel, err := st.Model()
@@ -812,10 +811,10 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	c.Assert(exported.WorkloadVersion(), gc.Equals, "steven")
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 	c.Assert(exported.State(), jc.DeepEquals, map[string]string{"payload": "b4dc0ffee"})
-	constraints := exported.Constraints()
-	c.Assert(constraints, gc.NotNil)
-	c.Assert(constraints.Architecture(), gc.Equals, "amd64")
-	c.Assert(constraints.Memory(), gc.Equals, 8*gig)
+	obtainedConstraints := exported.Constraints()
+	c.Assert(obtainedConstraints, gc.NotNil)
+	c.Assert(obtainedConstraints.Architecture(), gc.Equals, "amd64")
+	c.Assert(obtainedConstraints.Memory(), gc.Equals, 8*gig)
 
 	workloadHistory := exported.WorkloadStatusHistory()
 	if dbModel.Type() == state.ModelTypeCAAS {
@@ -838,8 +837,8 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	// There are extra entries at the start that we don't care about.
 	c.Assert(len(versionHistory) >= 4, jc.IsTrue)
 	versions := make([]string, 4)
-	for i, status := range versionHistory[:4] {
-		versions[i] = status.Message()
+	for i, s := range versionHistory[:4] {
+		versions[i] = s.Message()
 	}
 	// The exporter reads history in reverse time order.
 	c.Assert(versions, gc.DeepEquals, []string{"steven", "pearl", "amethyst", "garnet"})

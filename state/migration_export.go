@@ -918,10 +918,15 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		if cloudContainer, found := ctx.cloudContainers[unit.globalKey()]; found {
 			args.CloudContainer = e.cloudContainer(cloudContainer)
 		}
-		if args.State, err = unit.State(); err != nil {
+		// TODO: hml 18-mar-2020
+		// add the rest of unit.State() to model migration
+		unitState, err := unit.State()
+		if err != nil {
 			return errors.Trace(err)
 		}
-
+		if us, found := unitState.State(); found {
+			args.State = us
+		}
 		exUnit := exApplication.AddUnit(args)
 
 		e.setUnitResources(exUnit, ctx.resources.UnitResources)

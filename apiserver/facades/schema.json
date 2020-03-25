@@ -35894,6 +35894,17 @@
                         }
                     }
                 },
+                "SetState": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SetUnitStateArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
                 "SetStatus": {
                     "type": "object",
                     "properties": {
@@ -37947,6 +37958,14 @@
                 "SetUnitStateArg": {
                     "type": "object",
                     "properties": {
+                        "relation-state": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
                         "state": {
                             "type": "object",
                             "patternProperties": {
@@ -37955,14 +37974,34 @@
                                 }
                             }
                         },
+                        "storage-state": {
+                            "type": "string"
+                        },
                         "tag": {
+                            "type": "string"
+                        },
+                        "uniter-state": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "tag",
-                        "state"
+                        "tag"
+                    ]
+                },
+                "SetUnitStateArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SetUnitStateArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
                     ]
                 },
                 "SettingsResult": {
@@ -38395,6 +38434,14 @@
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
+                        "relation-state": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
                         "state": {
                             "type": "object",
                             "patternProperties": {
@@ -38402,12 +38449,15 @@
                                     "type": "string"
                                 }
                             }
+                        },
+                        "storage-state": {
+                            "type": "string"
+                        },
+                        "uniter-state": {
+                            "type": "string"
                         }
                     },
-                    "additionalProperties": false,
-                    "required": [
-                        "state"
-                    ]
+                    "additionalProperties": false
                 },
                 "UnitStateResults": {
                     "type": "object",

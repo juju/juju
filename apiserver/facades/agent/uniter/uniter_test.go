@@ -134,10 +134,10 @@ func (s *uniterSuiteBase) facadeContext() facadetest.Context {
 }
 
 func (s *uniterSuiteBase) newUniterAPI(c *gc.C, st *state.State, auth facade.Authorizer) *uniter.UniterAPI {
-	context := s.facadeContext()
-	context.State_ = st
-	context.Auth_ = auth
-	uniterAPI, err := uniter.NewUniterAPI(context)
+	facadeContext := s.facadeContext()
+	facadeContext.State_ = st
+	facadeContext.Auth_ = auth
+	uniterAPI, err := uniter.NewUniterAPI(facadeContext)
 	c.Assert(err, jc.ErrorIsNil)
 	return uniterAPI
 }
@@ -267,7 +267,19 @@ func (s *uniterSuite) TestState(c *gc.C) {
 		"foo.bar":  "baz",
 		"payload$": "enc0d3d",
 	}
-	err := s.wordpressUnit.SetState(expState)
+	expUniterState := "testing"
+	expRelationState := map[int]string{
+		1: "one",
+		2: "two",
+	}
+	expStorageState := "storage testing"
+
+	unitState := state.NewUnitState()
+	unitState.SetState(expState)
+	unitState.SetUniterState(expUniterState)
+	unitState.SetRelationState(expRelationState)
+	unitState.SetStorageState(expStorageState)
+	err := s.wordpressUnit.SetState(unitState)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{
@@ -283,11 +295,87 @@ func (s *uniterSuite) TestState(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.UnitStateResults{
 		Results: []params.UnitStateResult{
 			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
-			{State: expState},
+			{
+				Error:         nil,
+				State:         expState,
+				UniterState:   expUniterState,
+				RelationState: expRelationState,
+				StorageState:  expStorageState,
+			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
+}
+
+func (s *uniterSuite) TestSetStateUniterState(c *gc.C) {
+	expUniterState := "testing"
+	args := params.SetUnitStateArgs{
+		Args: []params.SetUnitStateArg{
+			{Tag: "not-a-unit-tag", UniterState: &expUniterState},
+			{Tag: "unit-wordpress-0", UniterState: &expUniterState},
+			{Tag: "unit-mysql-0", UniterState: &expUniterState}, // not accessible by current user
+			{Tag: "unit-notfound-0", UniterState: &expUniterState},
+		},
+	}
+
+	result, err := s.uniter.SetState(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	wpUnitState, err := s.wordpressUnit.State()
+	c.Assert(err, jc.ErrorIsNil)
+	us, _ := wpUnitState.UniterState()
+	c.Assert(us, gc.Equals, expUniterState)
+
+	// Ensure other values aren't set
+	uState, found := wpUnitState.State()
+	c.Assert(found, jc.IsFalse)
+	c.Assert(uState, gc.IsNil)
+	sState, found := wpUnitState.StorageState()
+	c.Assert(sState, gc.Equals, "")
+	rState, found := wpUnitState.RelationState()
+	c.Assert(found, jc.IsFalse)
+	c.Assert(rState, gc.IsNil)
+}
+
+func (s *uniterSuite) TestSetStateState(c *gc.C) {
+	expState := map[string]string{"foo": "bar"}
+	args := params.SetUnitStateArgs{
+		Args: []params.SetUnitStateArg{
+			{Tag: "unit-wordpress-0", State: &expState},
+		},
+	}
+
+	result, err := s.uniter.SetState(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	wpUnitState, err := s.wordpressUnit.State()
+	c.Assert(err, jc.ErrorIsNil)
+	us, found := wpUnitState.State()
+	c.Assert(found, jc.IsTrue)
+	c.Assert(us, gc.DeepEquals, expState)
+
+	// Ensure other values aren't set
+	sState, found := wpUnitState.StorageState()
+	c.Assert(sState, gc.Equals, "")
+	uState, found := wpUnitState.UniterState()
+	c.Assert(uState, gc.Equals, "")
+	rState, found := wpUnitState.RelationState()
+	c.Assert(found, jc.IsFalse)
+	c.Assert(rState, gc.IsNil)
 }
 
 func (s *uniterSuite) TestSetAgentStatus(c *gc.C) {
@@ -4781,7 +4869,8 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 
 	unitState, err := s.wordpressUnit.State()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
+	uState, _ := unitState.State()
+	c.Assert(uState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
 
 	appCfg, err := relList[0].ApplicationSettings(s.wordpress.Name())
 	c.Assert(err, jc.ErrorIsNil)
@@ -4866,7 +4955,8 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 
 	unitState, err := unit.State()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
+	uState, _ := unitState.State()
+	c.Assert(uState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
 
 	newVolumeAttachments, err := machine.VolumeAttachments()
 	c.Assert(err, jc.ErrorIsNil)
@@ -4905,7 +4995,8 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAAS(c *gc.C) {
 
 	unitState, err := gitlabUnit.State()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
+	uState, _ := unitState.State()
+	c.Assert(uState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
 }
 
 func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASNotLeader(c *gc.C) {

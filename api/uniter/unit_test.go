@@ -1021,18 +1021,21 @@ func (s *unitSuite) TestStateSingleResult(c *gc.C) {
 		"one":   "two",
 		"three": "four",
 	}
+	expectedUniterState := "testing"
 	uniter.PatchUnitResponse(s, s.apiUnit, "State",
 		func(results interface{}) error {
 			result := results.(*params.UnitStateResults)
 			result.Results = make([]params.UnitStateResult, 1)
 			result.Results[0].State = expectedUnitState
+			result.Results[0].UniterState = expectedUniterState
 			return nil
 		},
 	)
 
 	obtainedUnitState, err := s.apiUnit.State()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(expectedUnitState, gc.DeepEquals, obtainedUnitState)
+	c.Assert(expectedUnitState, gc.DeepEquals, obtainedUnitState.State)
+	c.Assert(expectedUniterState, gc.DeepEquals, obtainedUnitState.UniterState)
 }
 
 func (s *unitSuite) TestStateMultipleReturnsError(c *gc.C) {
@@ -1045,6 +1048,37 @@ func (s *unitSuite) TestStateMultipleReturnsError(c *gc.C) {
 	)
 
 	_, err := s.apiUnit.State()
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+}
+
+func (s *unitSuite) TestSetStateSingleResult(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "SetState",
+		func(results interface{}) error {
+			result := results.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 1)
+			return nil
+		},
+	)
+
+	err := s.apiUnit.SetState(params.SetUnitStateArg{
+		State: &map[string]string{"one": "two"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+}
+
+func (s *unitSuite) TestSetStateMultipleReturnsError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "SetState",
+		func(results interface{}) error {
+			result := results.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 2)
+			return nil
+		},
+	)
+
+	err := s.apiUnit.SetState(params.SetUnitStateArg{
+		State: &map[string]string{"one": "two"},
+	})
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 

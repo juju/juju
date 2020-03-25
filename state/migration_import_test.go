@@ -1015,7 +1015,9 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 	c.Assert(err, jc.ErrorIsNil)
 	err = testModel.SetAnnotations(exported, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	err = exported.SetState(map[string]string{"payload": "0xb4c0ffee"})
+	us := state.NewUnitState()
+	us.SetState(map[string]string{"payload": "0xb4c0ffee"})
+	err = exported.SetState(us)
 	c.Assert(err, jc.ErrorIsNil)
 
 	if testModel.Type() == state.ModelTypeCAAS {
@@ -1091,7 +1093,8 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 
 	unitState, err := imported.State()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitState, jc.DeepEquals, map[string]string{"payload": "0xb4c0ffee"}, gc.Commentf("persisted charm state not migrated"))
+	uState, _ := unitState.State()
+	c.Assert(uState, jc.DeepEquals, map[string]string{"payload": "0xb4c0ffee"}, gc.Commentf("persisted charm state not migrated"))
 
 	newCons, err := imported.Constraints()
 	c.Assert(err, jc.ErrorIsNil)

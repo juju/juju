@@ -1149,7 +1149,9 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 		return errors.Trace(err)
 	}
 	if unitState := u.State(); len(unitState) != 0 {
-		if err := unit.SetState(unitState); err != nil {
+		us := NewUnitState()
+		us.SetState(unitState)
+		if err := unit.SetState(us); err != nil {
 			return errors.Trace(err)
 		}
 	}

@@ -129,7 +129,7 @@ type HookUnit interface {
 	OpenPorts(protocol string, fromPort, toPort int) error
 	RequestReboot() error
 	SetUnitStatus(unitStatus status.Status, info string, data map[string]interface{}) error
-	State() (map[string]string, error)
+	State() (params.UnitStateResult, error)
 	Tag() names.UnitTag
 	UnitStatus() (params.StatusResult, error)
 	UpdateNetworkInfo() error
@@ -375,11 +375,15 @@ func (ctx *HookContext) ensureStateValuesLoaded() error {
 	}
 
 	// Load from controller
-	state, err := ctx.unit.State()
+	var state map[string]string
+	unitState, err := ctx.unit.State()
 	if err != nil {
 		return errors.Annotate(err, "loading unit state from database")
-	} else if state == nil {
+	}
+	if unitState.State == nil {
 		state = make(map[string]string)
+	} else {
+		state = unitState.State
 	}
 	ctx.cacheValues = state
 	return nil
