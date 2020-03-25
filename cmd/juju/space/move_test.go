@@ -97,7 +97,7 @@ func (s *MoveSuite) TestInit(c *gc.C) {
 
 func (s *MoveSuite) TestOutput(c *gc.C) {
 	assertAPICalls := func() {
-		s.api.CheckCallNames(c, "ShowSpace", "SubnetsByCIDR", "MoveSubnets", "Close")
+		s.api.CheckCallNames(c, "SubnetsByCIDR", "MoveSubnets", "Close")
 		s.api.ResetCalls()
 	}
 	makeArgs := func(format string, extraArgs ...string) []string {
@@ -162,14 +162,14 @@ func (s *MoveSuite) TestWithNoSubnetTags(c *gc.C) {
 	expected := "error getting subnet tags for 2001:db8::/32"
 	s.AssertRunFails(c, expected, []string{"public", "2001:db8::/32"}...)
 
-	s.api.CheckCallNames(c, "ShowSpace", "SubnetsByCIDR", "Close")
+	s.api.CheckCallNames(c, "SubnetsByCIDR", "Close")
 }
 
 func (s *MoveSuite) TestWhenAPIFails(c *gc.C) {
 	s.api.SetErrors(errors.New("boom"))
 
-	expected := "failed to get space \"public\": boom"
+	expected := "failed to get subnets by CIDR: boom"
 	s.AssertRunFails(c, expected, []string{"public", "2001:db8::/32"}...)
 
-	s.api.CheckCallNames(c, "ShowSpace", "Close")
+	s.api.CheckCallNames(c, "SubnetsByCIDR", "Close")
 }

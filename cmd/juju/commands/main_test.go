@@ -570,6 +570,7 @@ var commandNames = []string{
 	"model-default",
 	"model-defaults",
 	"models",
+	"move-to-space",
 	"offer",
 	"offers",
 	"payloads",

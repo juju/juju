@@ -54,7 +54,7 @@ type SpaceAPI interface {
 	MoveSubnets(names.SpaceTag, []names.SubnetTag, bool) (params.MoveSubnetsResult, error)
 }
 
-// SubnetAPI defines the nes
+// SubnetAPI defines the necessary API methods needed by the subnet subcommands.
 type SubnetAPI interface {
 
 	// SubnetsByCIDR returns the collection of subnets matching each CIDR in the input.

@@ -234,13 +234,13 @@ func (api *API) RemoveSpace(name string, force bool, dryRun bool) (network.Remov
 func (api *API) MoveSubnets(space names.SpaceTag, subnets []names.SubnetTag, force bool) (params.MoveSubnetsResult, error) {
 	subnetTags := make([]string, len(subnets))
 	for k, subnet := range subnets {
-		subnetTags[k] = subnet.Id()
+		subnetTags[k] = subnet.String()
 	}
 
 	args := params.MoveSubnetsParams{
 		Args: []params.MoveSubnetsParam{{
 			SubnetTags: subnetTags,
-			SpaceTag:   space.Id(),
+			SpaceTag:   space.String(),
 			Force:      force,
 		}},
 	}

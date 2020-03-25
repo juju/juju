@@ -84,25 +84,25 @@ func (c *MoveCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *MoveCommand) Init(args []string) error {
 	var err error
 	c.Name, c.CIDRs, err = ParseNameAndCIDRs(args, false)
-	return errors.Trace(err)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // Run implements Command.Run.
 func (c *MoveCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api API, ctx *cmd.Context) error {
-		spaceTag, err := c.getSpaceTag(api, c.Name)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
 		subnetTags, err := c.getSubnetTags(ctx, api, c.CIDRs)
 		if err != nil {
 			return errors.Trace(err)
 		}
 
+		// Name here is checked to be a valid space name in ParseNameAndCIDRs.
+		spaceTag := names.NewSpaceTag(c.Name)
 		moved, err := api.MoveSubnets(spaceTag, subnetTags, c.Force)
 		if err != nil {
-			return errors.Annotatef(err, "cannot update space %q", c.Name)
+			return errors.Annotatef(err, "cannot update space %q", spaceTag.Id())
 		}
 
 		changes, err := extractMovementChangeLog(api, subnetTags, moved)
@@ -198,9 +198,18 @@ func (c *MoveCommand) printTabular(writer io.Writer, value interface{}) error {
 func extractMovementChangeLog(api SpaceAPI, tags []names.SubnetTag, result params.MoveSubnetsResult) ([]MovedSpace, error) {
 	var changes []MovedSpace
 	for _, moved := range result.MovedSubnets {
+		oldSpaceTag, err := names.ParseSpaceTag(moved.OldSpaceTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		newSpaceTag, err := names.ParseSpaceTag(result.NewSpaceTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		changes = append(changes, MovedSpace{
-			SpaceFrom: moved.OldSpaceTag,
-			SpaceTo:   result.NewSpaceTag,
+			SpaceFrom: oldSpaceTag.Id(),
+			SpaceTo:   newSpaceTag.Id(),
 			CIDR:      moved.CIDR,
 		})
 	}
