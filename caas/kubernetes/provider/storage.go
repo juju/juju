@@ -15,6 +15,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
@@ -98,6 +99,44 @@ func (k *kubernetesClient) listStorageClasses(selector k8slabels.Selector) ([]st
 		return nil, errors.NotFoundf("storage classes with selector %q", selector)
 	}
 	return list.Items, nil
+}
+
+func (k *kubernetesClient) ensurePVC(pvc *core.PersistentVolumeClaim) (*core.PersistentVolumeClaim, func(), error) {
+	cleanUp := func() {}
+	out, err := k.createPVC(pvc)
+	if err == nil {
+		cleanUp = func() { k.deletePVC(out.GetName(), out.GetUID()) }
+		return out, cleanUp, nil
+	}
+	if !errors.IsAlreadyExists(err) {
+		return nil, cleanUp, errors.Trace(err)
+	}
+	out, err = k.updatePVC(pvc)
+	return out, cleanUp, errors.Trace(err)
+}
+
+func (k *kubernetesClient) createPVC(pvc *core.PersistentVolumeClaim) (*core.PersistentVolumeClaim, error) {
+	out, err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Create(pvc)
+	if k8serrors.IsAlreadyExists(err) {
+		return nil, errors.AlreadyExistsf("PVC %q", pvc.GetName())
+	}
+	return out, errors.Trace(err)
+}
+
+func (k *kubernetesClient) updatePVC(pvc *core.PersistentVolumeClaim) (*core.PersistentVolumeClaim, error) {
+	out, err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Update(pvc)
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NotFoundf("PVC %q", pvc.GetName())
+	}
+	return out, errors.Trace(err)
+}
+
+func (k *kubernetesClient) deletePVC(name string, uid types.UID) error {
+	err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Delete(name, newPreconditionDeleteOptions(uid))
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
 }
 
 type storageProvider struct {

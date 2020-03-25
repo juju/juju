@@ -1929,6 +1929,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 			Annotations: map[string]string{
 				"fred":               "mary",
 				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":      "appuuid",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -1988,6 +1989,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(serviceArg).
 			Return(nil, nil),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Update(deploymentArg).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(deploymentArg).
@@ -2154,6 +2157,7 @@ password: shhhh`[1:],
 			Annotations: map[string]string{
 				"juju.io/controller": testing.ControllerTag.Id(),
 				"fred":               "mary",
+				"juju-app-uuid":      "appuuid",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -2279,6 +2283,8 @@ password: shhhh`[1:],
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(serviceArg).
 			Return(nil, nil),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Update(deploymentArg).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(deploymentArg).
@@ -2642,6 +2648,7 @@ password: shhhh`[1:],
 			Annotations: map[string]string{
 				"juju.io/controller": testing.ControllerTag.Id(),
 				"fred":               "mary",
+				"juju-app-uuid":      "appuuid",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -2779,6 +2786,8 @@ password: shhhh`[1:],
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(serviceArg).
 			Return(nil, nil),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Update(deploymentArg).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(deploymentArg).
@@ -3042,6 +3051,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 			Annotations: map[string]string{
 				"fred":               "mary",
 				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":      "appuuid",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -3158,6 +3168,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(serviceArg).
 			Return(nil, nil),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Update(deploymentArg).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(deploymentArg).
@@ -3199,6 +3211,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 			Annotations: map[string]string{
 				"fred":               "mary",
 				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":      "appuuid",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -3325,6 +3338,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(serviceArg).
 			Return(nil, nil),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Update(deploymentArg).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(deploymentArg).
@@ -3394,6 +3409,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			Annotations: map[string]string{
 				"fred":               "mary",
 				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":      "appuuid",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -3510,6 +3526,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(serviceArg).
 			Return(nil, nil),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Update(deploymentArg).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(deploymentArg).
@@ -3567,6 +3585,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			Annotations: map[string]string{
 				"fred":               "mary",
 				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":      "appuuid",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -3693,6 +3712,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(serviceArg).
 			Return(nil, nil),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Update(deploymentArg).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(deploymentArg).
@@ -3774,6 +3795,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Annotations: map[string]string{
 				"fred":               "mary",
 				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":      "appuuid",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -3951,6 +3973,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(serviceArg).
 			Return(nil, nil),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Update(deploymentArg).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(deploymentArg).
@@ -4030,6 +4054,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Annotations: map[string]string{
 				"juju.io/controller": testing.ControllerTag.Id(),
 				"fred":               "mary",
+				"juju-app-uuid":      "appuuid",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -4218,6 +4243,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(serviceArg).
 			Return(nil, nil),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Update(deploymentArg).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(deploymentArg).
@@ -4305,6 +4332,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Annotations: map[string]string{
 				"juju.io/controller": testing.ControllerTag.Id(),
 				"fred":               "mary",
+				"juju-app-uuid":      "appuuid",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -4537,6 +4565,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(serviceArg).
 			Return(nil, nil),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Update(deploymentArg).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(deploymentArg).
@@ -4673,9 +4703,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "app-name",
-			Labels:      map[string]string{"juju-app": "app-name"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()}},
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":      "appuuid",
+			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
@@ -4710,10 +4743,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(basicServiceArg).
 			Return(nil, nil),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Update(deploymentArg).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(deploymentArg).
-			Return(nil, nil),
+			Return(deploymentArg, nil),
 	)
 
 	params := &caas.ServiceParams{
@@ -4781,9 +4816,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsC
 
 	daemonSetArg := &appsv1.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "app-name",
-			Labels:      map[string]string{"juju-app": "app-name"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()}},
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":      "appuuid",
+			}},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{"juju-app": "app-name"},
@@ -4818,6 +4856,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsC
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(basicServiceArg).
 			Return(nil, nil),
+		s.mockDaemonSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockDaemonSets.EXPECT().Create(daemonSetArg).
 			Return(daemonSetArg, nil),
 	)
@@ -4891,9 +4931,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 
 	daemonSetArg := &appsv1.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "app-name",
-			Labels:      map[string]string{"juju-app": "app-name"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()}},
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":      "appuuid",
+			}},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{"juju-app": "app-name"},
@@ -4928,6 +4971,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(basicServiceArg).
 			Return(nil, nil),
+		s.mockDaemonSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(daemonSetArg, nil),
 		s.mockDaemonSets.EXPECT().Create(daemonSetArg).
 			Return(nil, s.k8sAlreadyExistsError()),
 		s.mockDaemonSets.EXPECT().List(v1.ListOptions{

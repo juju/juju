@@ -5,6 +5,7 @@ package provider
 
 import (
 	"github.com/juju/errors"
+	"github.com/kr/pretty"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,7 +25,7 @@ func (k *kubernetesClient) getStatefulSetLabels(appName string) map[string]strin
 func (k *kubernetesClient) configureStatefulSet(
 	appName, deploymentName string, annotations k8sannotations.Annotation, workloadSpec *workloadSpec,
 	containers []specs.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
-) error {
+) (err error) {
 	logger.Debugf("creating/updating stateful set for %s", appName)
 
 	// Add the specified file to the pod spec.
@@ -32,11 +33,9 @@ func (k *kubernetesClient) configureStatefulSet(
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
 
-	existingStatefulSet, err := k.getStatefulSet(deploymentName)
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-	randPrefix, err := k.getStorageUniqPrefix(existingStatefulSet)
+	randPrefix, err := k.getStorageUniqPrefix(func() (annotationGetter, error) {
+		return k.getStatefulSet(deploymentName)
+	})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -71,24 +70,24 @@ func (k *kubernetesClient) configureStatefulSet(
 	podSpec := workloadSpec.Pod
 	existingPodSpec := podSpec
 
-	if err = k.configureStorage(appName, isLegacyName(deploymentName), randPrefix, filesystems, &podSpec,
-		func(pvc *core.PersistentVolumeClaim, mountPath string) error {
-			if pvc != nil {
-				statefulSet.Spec.VolumeClaimTemplates = append(statefulSet.Spec.VolumeClaimTemplates, *pvc)
-				if err := pushUniqVolumeClaimTemplate(&statefulSet.Spec, *pvc); err != nil {
-					return errors.Trace(err)
-				}
-				podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
-					Name:      pvc.Name,
-					MountPath: mountPath,
-				})
+	handelPVC := func(pvc *core.PersistentVolumeClaim, mountPath string) error {
+		if pvc != nil {
+			logger.Criticalf("statefulSet pvc -> %s", pretty.Sprint(pvc))
+			if err := pushUniqVolumeClaimTemplate(&statefulSet.Spec, *pvc); err != nil {
+				return errors.Trace(err)
 			}
-			return nil
-		},
-	); err != nil {
+			podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
+				Name:      pvc.Name,
+				MountPath: mountPath,
+			})
+		}
+		return nil
+	}
+	if err = k.configureStorage(appName, isLegacyName(deploymentName), randPrefix, filesystems, &podSpec, handelPVC); err != nil {
 		return errors.Trace(err)
 	}
 	statefulSet.Spec.Template.Spec = podSpec
+	logger.Criticalf("statefulSet  -> %s", pretty.Sprint(statefulSet))
 	return k.ensureStatefulSet(statefulSet, existingPodSpec)
 }
 
