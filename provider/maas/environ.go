@@ -4,6 +4,8 @@
 package maas
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -107,6 +109,10 @@ type maasEnviron struct {
 	// GetCapabilities is a function that connects to MAAS to return its set of
 	// capabilities.
 	GetCapabilities MaasCapabilities
+
+	// spaceSetID is used to groups space/subnet definitions.
+	// We set it as a hash of the parsed MAAS endpoint.
+	spaceSetID string
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
@@ -281,6 +287,11 @@ func (env *maasEnviron) SetCloudSpec(spec environs.CloudSpec) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// Hash the endpoint as the space set ID.
+	sum := sha1.Sum([]byte(maasServer))
+	env.spaceSetID = hex.EncodeToString(sum[:])
+
 	maasOAuth, err := parseOAuthToken(*spec.Credential)
 	if err != nil {
 		return errors.Trace(err)
@@ -333,23 +344,30 @@ func (env *maasEnviron) getSupportedArchitectures(ctx context.ProviderCallContex
 }
 
 // SupportsSpaces is specified on environs.Networking.
-func (env *maasEnviron) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
+func (env *maasEnviron) SupportsSpaces(_ context.ProviderCallContext) (bool, error) {
 	return true, nil
 }
 
 // SupportsProviderSpaces is specified on environs.Networking.
-func (env *maasEnviron) SupportsProviderSpaces(ctx context.ProviderCallContext) (bool, error) {
+func (env *maasEnviron) SupportsProviderSpaces(_ context.ProviderCallContext) (bool, error) {
 	return true, nil
 }
 
 // SupportsSpaceDiscovery is specified on environs.Networking.
-func (env *maasEnviron) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool, error) {
+func (env *maasEnviron) SupportsSpaceDiscovery(_ context.ProviderCallContext) (bool, error) {
 	return true, nil
 }
 
 // SupportsContainerAddresses is specified on environs.Networking.
-func (env *maasEnviron) SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error) {
+func (env *maasEnviron) SupportsContainerAddresses(_ context.ProviderCallContext) (bool, error) {
 	return true, nil
+}
+
+// SpaceSetID (environs.Networking) returns a grouping key for use in
+// space/subnet definitions.
+// It is unique to the MAAS endpoint.
+func (env *maasEnviron) SpaceSetID(_ context.ProviderCallContext) (string, error) {
+	return env.spaceSetID, nil
 }
 
 // allArchitectures2 uses the MAAS2 controller to get architectures from boot

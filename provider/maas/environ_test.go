@@ -4,6 +4,8 @@
 package maas_test
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -18,6 +20,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/maas"
 	coretesting "github.com/juju/juju/testing"
@@ -151,6 +154,18 @@ func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, script)
+}
+
+func (*environSuite) TestSpaceSetID(c *gc.C) {
+	spec := getSimpleCloudSpec()
+	env, err := maas.NewEnviron(getSimpleCloudSpec(), getSimpleTestConfig(c, nil), fakeGetCapabilities)
+	c.Assert(err, jc.ErrorIsNil)
+
+	spaceSetID, err := env.SpaceSetID(context.NewCloudCallContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	sum := sha1.Sum([]byte(spec.Endpoint))
+	c.Assert(spaceSetID, gc.Equals, hex.EncodeToString(sum[:]))
 }
 
 type badEndpointSuite struct {
