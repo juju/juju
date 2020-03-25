@@ -547,7 +547,7 @@ func tryImplicitUpload(agentVersion version.Number) (bool, error) {
 	if newerAgent || agentVersion.Build > 0 || jujuversion.Current.Build > 0 {
 		return true, nil
 	}
-	jujudPath, err := tools.ExistingJujudLocation()
+	jujudPath, err := tools.ExistingJujuLocation()
 	if err != nil {
 		return false, errors.Trace(err)
 	}

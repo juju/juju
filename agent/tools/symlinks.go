@@ -40,13 +40,19 @@ func EnsureSymlinks(jujuDir, dir string, commands []string) (err error) {
 		logger.Infof("was a symlink, now looking at %s", jujuDir)
 	}
 
-	jujudPath := filepath.Join(jujuDir, names.Jujud)
-	logger.Debugf("jujud path %s", jujudPath)
+	jujucPath := filepath.Join(jujuDir, names.Jujuc)
+	targetPath := jujucPath
+	if _, err := os.Stat(jujucPath); os.IsNotExist(err) {
+		jujudPath := filepath.Join(jujuDir, names.Jujud)
+		logger.Debugf("jujuc not found at %s using jujud path %s", jujucPath, jujudPath)
+		targetPath = jujudPath
+	}
+	logger.Debugf("target tools path %s", targetPath)
 	for _, name := range commands {
 		// The link operation fails when the target already exists,
 		// so this is a no-op when the command names already
 		// exist.
-		err := symlink.New(jujudPath, filepath.Join(dir, name))
+		err := symlink.New(targetPath, filepath.Join(dir, name))
 		if err != nil && !os.IsExist(err) {
 			return err
 		}

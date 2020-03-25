@@ -57,15 +57,19 @@ func (s *SymlinksSuite) TestEnsureSymlinksSymlinkedDir(c *gc.C) {
 }
 
 func (s *SymlinksSuite) testEnsureSymlinks(c *gc.C, dir string) {
+	// If we have both 'jujuc' and 'jujud' prefer 'jujuc'
+	jujucPath := filepath.Join(s.toolsDir, names.Jujuc)
 	jujudPath := filepath.Join(s.toolsDir, names.Jujud)
-	err := ioutil.WriteFile(jujudPath, []byte("assume sane"), 0755)
+	err := ioutil.WriteFile(jujucPath, []byte("first pick"), 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(jujudPath, []byte("assume sane"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertLink := func(path string) time.Time {
 		target, err := symlink.Read(path)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(target, jc.SamePath, jujudPath)
-		c.Check(filepath.Dir(target), gc.Equals, filepath.Dir(jujudPath))
+		c.Check(target, jc.SamePath, jujucPath)
+		c.Check(filepath.Dir(target), gc.Equals, filepath.Dir(jujucPath))
 		fi, err := os.Lstat(path)
 		c.Assert(err, jc.ErrorIsNil)
 		return fi.ModTime()
