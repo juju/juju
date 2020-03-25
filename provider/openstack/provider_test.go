@@ -26,12 +26,12 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// localTests contains tests which do not require a live service or test double to run.
-type localTests struct {
+// localTestSuite contains tests which do not require a live service or test double to run.
+type localTestSuite struct {
 	gitjujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&localTests{})
+var _ = gc.Suite(&localTestSuite{})
 
 // ported from lp:juju/juju/providers/openstack/tests/test_machine.py
 var addressTests = []struct {
@@ -175,7 +175,7 @@ var addressTests = []struct {
 	expected:   "8.8.4.4",
 }}
 
-func (t *localTests) TestGetServerAddresses(c *gc.C) {
+func (s *localTestSuite) TestGetServerAddresses(c *gc.C) {
 	for i, t := range addressTests {
 		c.Logf("#%d. %s -> %s (%v)", i, t.summary, t.expected, t.failure)
 		addresses := make(map[string][]nova.IPAddress)
@@ -198,7 +198,7 @@ func (t *localTests) TestGetServerAddresses(c *gc.C) {
 	}
 }
 
-func (*localTests) TestPortsToRuleInfo(c *gc.C) {
+func (*localTestSuite) TestPortsToRuleInfo(c *gc.C) {
 	groupId := "groupid"
 	testCases := []struct {
 		about    string
@@ -276,11 +276,11 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 	}
 }
 
-func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
-	proto_tcp := "tcp"
-	proto_udp := "udp"
-	port_80 := 80
-	port_85 := 85
+func (*localTestSuite) TestSecGroupMatchesIngressRule(c *gc.C) {
+	protoTcp := "tcp"
+	protoUdp := "udp"
+	port80 := 80
+	port85 := 85
 
 	testCases := []struct {
 		about        string
@@ -289,25 +289,25 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 		expected     bool
 	}{{
 		about: "single port",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 80),
+		rule:  network.MustNewIngressRule(protoTcp, 80, 80),
 		secGroupRule: neutron.SecurityGroupRuleV2{
-			IPProtocol:   &proto_tcp,
-			PortRangeMin: &port_80,
-			PortRangeMax: &port_80,
+			IPProtocol:   &protoTcp,
+			PortRangeMin: &port80,
+			PortRangeMax: &port80,
 		},
 		expected: true,
 	}, {
 		about: "multiple port",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 85),
+		rule:  network.MustNewIngressRule(protoTcp, 80, 85),
 		secGroupRule: neutron.SecurityGroupRuleV2{
-			IPProtocol:   &proto_tcp,
-			PortRangeMin: &port_80,
-			PortRangeMax: &port_85,
+			IPProtocol:   &protoTcp,
+			PortRangeMin: &port80,
+			PortRangeMax: &port85,
 		},
 		expected: true,
 	}, {
 		about: "nil rule components",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 85),
+		rule:  network.MustNewIngressRule(protoTcp, 80, 85),
 		secGroupRule: neutron.SecurityGroupRuleV2{
 			IPProtocol:   nil,
 			PortRangeMin: nil,
@@ -316,60 +316,60 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 		expected: false,
 	}, {
 		about: "nil rule component: PortRangeMin",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
+		rule:  network.MustNewIngressRule(protoTcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
 		secGroupRule: neutron.SecurityGroupRuleV2{
-			IPProtocol:     &proto_tcp,
+			IPProtocol:     &protoTcp,
 			PortRangeMin:   nil,
-			PortRangeMax:   &port_85,
+			PortRangeMax:   &port85,
 			RemoteIPPrefix: "192.168.100.0/24",
 		},
 		expected: false,
 	}, {
 		about: "nil rule component: PortRangeMax",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
+		rule:  network.MustNewIngressRule(protoTcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
 		secGroupRule: neutron.SecurityGroupRuleV2{
-			IPProtocol:     &proto_tcp,
-			PortRangeMin:   &port_85,
+			IPProtocol:     &protoTcp,
+			PortRangeMin:   &port85,
 			PortRangeMax:   nil,
 			RemoteIPPrefix: "192.168.100.0/24",
 		},
 		expected: false,
 	}, {
 		about: "mismatched port range and rule",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 85),
+		rule:  network.MustNewIngressRule(protoTcp, 80, 85),
 		secGroupRule: neutron.SecurityGroupRuleV2{
-			IPProtocol:   &proto_udp,
-			PortRangeMin: &port_80,
-			PortRangeMax: &port_80,
+			IPProtocol:   &protoUdp,
+			PortRangeMin: &port80,
+			PortRangeMax: &port80,
 		},
 		expected: false,
 	}, {
 		about: "default RemoteIPPrefix",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 85),
+		rule:  network.MustNewIngressRule(protoTcp, 80, 85),
 		secGroupRule: neutron.SecurityGroupRuleV2{
-			IPProtocol:     &proto_tcp,
-			PortRangeMin:   &port_80,
-			PortRangeMax:   &port_85,
+			IPProtocol:     &protoTcp,
+			PortRangeMin:   &port80,
+			PortRangeMax:   &port85,
 			RemoteIPPrefix: "0.0.0.0/0",
 		},
 		expected: true,
 	}, {
 		about: "matching RemoteIPPrefix",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
+		rule:  network.MustNewIngressRule(protoTcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
 		secGroupRule: neutron.SecurityGroupRuleV2{
-			IPProtocol:     &proto_tcp,
-			PortRangeMin:   &port_80,
-			PortRangeMax:   &port_85,
+			IPProtocol:     &protoTcp,
+			PortRangeMin:   &port80,
+			PortRangeMax:   &port85,
 			RemoteIPPrefix: "192.168.1.0/24",
 		},
 		expected: true,
 	}, {
 		about: "non-matching RemoteIPPrefix",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
+		rule:  network.MustNewIngressRule(protoTcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
 		secGroupRule: neutron.SecurityGroupRuleV2{
-			IPProtocol:     &proto_tcp,
-			PortRangeMin:   &port_80,
-			PortRangeMax:   &port_85,
+			IPProtocol:     &protoTcp,
+			PortRangeMin:   &port80,
+			PortRangeMax:   &port85,
 			RemoteIPPrefix: "192.168.100.0/24",
 		},
 		expected: false,
@@ -380,18 +380,18 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 	}
 }
 
-func (s *localTests) TestDetectRegionsNoRegionName(c *gc.C) {
+func (s *localTestSuite) TestDetectRegionsNoRegionName(c *gc.C) {
 	_, err := s.detectRegions(c)
 	c.Assert(err, gc.ErrorMatches, "OS_REGION_NAME environment variable not set")
 }
 
-func (s *localTests) TestDetectRegionsNoAuthURL(c *gc.C) {
+func (s *localTestSuite) TestDetectRegionsNoAuthURL(c *gc.C) {
 	s.PatchEnvironment("OS_REGION_NAME", "oceania")
 	_, err := s.detectRegions(c)
 	c.Assert(err, gc.ErrorMatches, "OS_AUTH_URL environment variable not set")
 }
 
-func (s *localTests) TestDetectRegions(c *gc.C) {
+func (s *localTestSuite) TestDetectRegions(c *gc.C) {
 	s.PatchEnvironment("OS_REGION_NAME", "oceania")
 	s.PatchEnvironment("OS_AUTH_URL", "http://keystone.internal")
 	regions, err := s.detectRegions(c)
@@ -401,14 +401,14 @@ func (s *localTests) TestDetectRegions(c *gc.C) {
 	})
 }
 
-func (s *localTests) detectRegions(c *gc.C) ([]cloud.Region, error) {
+func (s *localTestSuite) detectRegions(c *gc.C) ([]cloud.Region, error) {
 	provider, err := environs.Provider("openstack")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider, gc.Implements, new(environs.CloudRegionDetector))
 	return provider.(environs.CloudRegionDetector).DetectRegions()
 }
 
-func (s *localTests) TestSchema(c *gc.C) {
+func (s *localTestSuite) TestSchema(c *gc.C) {
 	y := []byte(`
 auth-types: [userpass, access-key]
 endpoint: http://foo.com/openstack
@@ -430,7 +430,7 @@ regions:
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (localTests) TestPingInvalidHost(c *gc.C) {
+func (localTestSuite) TestPingInvalidHost(c *gc.C) {
 	tests := []string{
 		"foo.com",
 		"http://IHopeNoOneEverBuysThisVerySpecificJujuDomainName.com",
@@ -452,7 +452,7 @@ func (localTests) TestPingInvalidHost(c *gc.C) {
 		}
 	}
 }
-func (localTests) TestPingNoEndpoint(c *gc.C) {
+func (localTestSuite) TestPingNoEndpoint(c *gc.C) {
 	server := httptest.NewServer(http.HandlerFunc(http.NotFound))
 	defer server.Close()
 	p, err := environs.Provider("openstack")
@@ -461,9 +461,9 @@ func (localTests) TestPingNoEndpoint(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "No Openstack server running at "+server.URL)
 }
 
-func (localTests) TestPingInvalidResponse(c *gc.C) {
+func (localTestSuite) TestPingInvalidResponse(c *gc.C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "Hi!")
+		_, _ = fmt.Fprint(w, "Hi!")
 	}))
 	defer server.Close()
 	p, err := environs.Provider("openstack")
@@ -472,13 +472,13 @@ func (localTests) TestPingInvalidResponse(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "No Openstack server running at "+server.URL)
 }
 
-func (localTests) TestPingOKCACertificate(c *gc.C) {
+func (localTestSuite) TestPingOKCACertificate(c *gc.C) {
 	server := httptest.NewTLSServer(handlerFunc)
 	defer server.Close()
 	pingOk(c, server)
 }
 
-func (localTests) TestPingOK(c *gc.C) {
+func (localTestSuite) TestPingOK(c *gc.C) {
 	server := httptest.NewServer(handlerFunc)
 	defer server.Close()
 	pingOk(c, server)
@@ -495,7 +495,7 @@ var handlerFunc = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) 
 	// This line is critical, the openstack provider will reject the message
 	// if you return 200 like a mere mortal.
 	w.WriteHeader(http.StatusMultipleChoices)
-	fmt.Fprint(w, `
+	_, _ = fmt.Fprint(w, `
 {
   "versions": {
     "values": [
@@ -607,14 +607,14 @@ func (s *providerUnitTests) TestNewCredentialsWithVersion3(c *gc.C) {
 		"tenant-name": "someTenant",
 		"tenant-id":   "someID",
 	})
-	clouldSpec := environs.CloudSpec{
+	cloudSpec := environs.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
 		Name:       "openstack",
 		Endpoint:   "http://endpoint",
 		Credential: &creds,
 	}
-	cred, authmode, err := newCredentials(clouldSpec)
+	cred, authmode, err := newCredentials(cloudSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cred, gc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
@@ -639,14 +639,14 @@ func (s *providerUnitTests) TestNewCredentialsWithFaultVersion(c *gc.C) {
 		"tenant-name": "someTenant",
 		"tenant-id":   "someID",
 	})
-	clouldSpec := environs.CloudSpec{
+	cloudSpec := environs.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
 		Name:       "openstack",
 		Endpoint:   "http://endpoint",
 		Credential: &creds,
 	}
-	_, _, err := newCredentials(clouldSpec)
+	_, _, err := newCredentials(cloudSpec)
 	c.Assert(err, gc.ErrorMatches,
 		"cred.Version is not a valid integer type : strconv.Atoi: parsing \"abc\": invalid syntax")
 }
@@ -658,14 +658,14 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersion(c *gc.C) {
 		"tenant-name": "someTenant",
 		"tenant-id":   "someID",
 	})
-	clouldSpec := environs.CloudSpec{
+	cloudSpec := environs.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
 		Name:       "openstack",
 		Endpoint:   "http://endpoint",
 		Credential: &creds,
 	}
-	cred, authmode, err := newCredentials(clouldSpec)
+	cred, authmode, err := newCredentials(cloudSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cred, gc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
@@ -681,7 +681,7 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersion(c *gc.C) {
 	c.Check(authmode, gc.Equals, identity.AuthUserPass)
 }
 
-func (s *providerUnitTests) TestNewCredentialsWithFaultVersionandProjectDomainName(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithFaultVersionAndProjectDomainName(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":             "abc",
 		"username":            "user",
@@ -690,19 +690,19 @@ func (s *providerUnitTests) TestNewCredentialsWithFaultVersionandProjectDomainNa
 		"tenant-id":           "someID",
 		"project-domain-name": "openstack_projectdomain",
 	})
-	clouldSpec := environs.CloudSpec{
+	cloudSpec := environs.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
 		Name:       "openstack",
 		Endpoint:   "http://endpoint",
 		Credential: &creds,
 	}
-	_, _, err := newCredentials(clouldSpec)
+	_, _, err := newCredentials(cloudSpec)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches,
 		"cred.Version is not a valid integer type : strconv.Atoi: parsing \"abc\": invalid syntax")
 }
-func (s *providerUnitTests) TestNewCredentialsWithoutVersionwithProjectDomain(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithoutVersionWithProjectDomain(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":            "user",
 		"password":            "secret",
@@ -710,14 +710,14 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersionwithProjectDomain(c 
 		"tenant-id":           "someID",
 		"project-domain-name": "openstack_projectdomain",
 	})
-	clouldSpec := environs.CloudSpec{
+	cloudSpec := environs.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
 		Name:       "openstack",
 		Endpoint:   "http://endpoint",
 		Credential: &creds,
 	}
-	cred, authmode, err := newCredentials(clouldSpec)
+	cred, authmode, err := newCredentials(cloudSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cred, gc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
@@ -733,7 +733,7 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersionwithProjectDomain(c 
 	c.Check(authmode, gc.Equals, identity.AuthUserPassV3)
 }
 
-func (s *providerUnitTests) TestNewCredentialsWithoutVersionwithUserDomain(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithoutVersionWithUserDomain(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":         "user",
 		"password":         "secret",
@@ -741,14 +741,14 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersionwithUserDomain(c *gc
 		"tenant-id":        "someID",
 		"user-domain-name": "openstack_userdomain",
 	})
-	clouldSpec := environs.CloudSpec{
+	cloudSpec := environs.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
 		Name:       "openstack",
 		Endpoint:   "http://endpoint",
 		Credential: &creds,
 	}
-	cred, authmode, err := newCredentials(clouldSpec)
+	cred, authmode, err := newCredentials(cloudSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cred, gc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
@@ -773,14 +773,14 @@ func (s *providerUnitTests) TestNewCredentialsWithVersion2(c *gc.C) {
 		"tenant-name": "someTenant",
 		"tenant-id":   "someID",
 	})
-	clouldSpec := environs.CloudSpec{
+	cloudSpec := environs.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
 		Name:       "openstack",
 		Endpoint:   "http://endpoint",
 		Credential: &creds,
 	}
-	cred, authmode, err := newCredentials(clouldSpec)
+	cred, authmode, err := newCredentials(cloudSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cred, gc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
@@ -806,14 +806,14 @@ func (s *providerUnitTests) TestNewCredentialsWithVersion2AndDomain(c *gc.C) {
 		"tenant-id":           "someID",
 		"project-domain-name": "openstack_projectdomain",
 	})
-	clouldSpec := environs.CloudSpec{
+	cloudSpec := environs.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
 		Name:       "openstack",
 		Endpoint:   "http://endpoint",
 		Credential: &creds,
 	}
-	cred, authmode, err := newCredentials(clouldSpec)
+	cred, authmode, err := newCredentials(cloudSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cred, gc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
@@ -828,6 +828,39 @@ func (s *providerUnitTests) TestNewCredentialsWithVersion2AndDomain(c *gc.C) {
 		ProjectDomain: "openstack_projectdomain",
 	})
 	c.Check(authmode, gc.Equals, identity.AuthUserPass)
+}
+
+func (s *providerUnitTests) TestSpaceSetIDTenantID(c *gc.C) {
+	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"tenant-name": "someTenant",
+		"tenant-id":   "someID",
+	})
+	cloudSpec := environs.CloudSpec{
+		Credential: &creds,
+	}
+	env := &Environ{
+		cloudUnlocked: cloudSpec,
+	}
+
+	spaceSetID, err := env.SpaceSetID(context.NewCloudCallContext())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spaceSetID, gc.Equals, "someID")
+}
+
+func (s *providerUnitTests) TestSpaceSetIDTenantName(c *gc.C) {
+	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"tenant-name": "someTenant",
+	})
+	cloudSpec := environs.CloudSpec{
+		Credential: &creds,
+	}
+	env := &Environ{
+		cloudUnlocked: cloudSpec,
+	}
+
+	spaceSetID, err := env.SpaceSetID(context.NewCloudCallContext())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spaceSetID, gc.Equals, "someTenant")
 }
 
 func (s *providerUnitTests) TestNetworksForInstance(c *gc.C) {

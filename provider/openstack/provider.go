@@ -2271,6 +2271,19 @@ func (e *Environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceIn
 	return nil, errors.NotSupportedf("spaces")
 }
 
+// SpaceSetID (environs.Networking) returns a grouping key for use in
+// space/subnet definitions by returning the OpenStack tenant.
+func (e *Environ) SpaceSetID(_ context.ProviderCallContext) (string, error) {
+	attrs := e.cloud().Credential.Attributes()
+
+	tenant := attrs[CredAttrTenantID]
+	if tenant == "" {
+		tenant = attrs[CredAttrTenantName]
+	}
+
+	return tenant, nil
+}
+
 // SupportsContainerAddresses is specified on environs.Networking.
 func (e *Environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error) {
 	return false, errors.NotSupportedf("container address")
