@@ -31426,6 +31426,9 @@
                 "MovedSubnet": {
                     "type": "object",
                     "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
                         "old-space": {
                             "type": "string"
                         },
@@ -31436,7 +31439,8 @@
                     "additionalProperties": false,
                     "required": [
                         "subnet",
-                        "old-space"
+                        "old-space",
+                        "cidr"
                     ]
                 },
                 "RemoveSpaceParam": {
