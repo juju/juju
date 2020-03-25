@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type clientSuite struct {
@@ -330,7 +331,7 @@ func (s *clientSuite) TestMinVersionLocalCharm(c *gc.C) {
 		{"1.25.0", "1.25.1", false, false},
 		{"1.25.0", "1.25.0", false, true},
 		{"1.25.0", "1.25-alpha1", false, true},
-		{"1.25-alpha1", "1.25.0", false, false},
+		{"1.25-alpha1", "1.25.0", false, true},
 		{"2.0.0", "1.0.0", true, true},
 		{"1.0.0", "2.0.0", true, false},
 		{"1.25.0", "1.24.0", true, true},
@@ -339,7 +340,7 @@ func (s *clientSuite) TestMinVersionLocalCharm(c *gc.C) {
 		{"1.25.0", "1.25.1", true, false},
 		{"1.25.0", "1.25.0", true, true},
 		{"1.25.0", "1.25-alpha1", true, true},
-		{"1.25-alpha1", "1.25.0", true, false},
+		{"1.25-alpha1", "1.25.0", true, true},
 	}
 	client := s.APIState.Client()
 	for _, t := range tests {
@@ -387,7 +388,7 @@ func testMinVer(client *api.Client, t minverTest, c *gc.C) {
 	} else {
 		if err == nil {
 			c.Errorf("Unexpected nil error for jujuver %v, minver %v", t.juju, t.charm)
-		} else if !api.IsMinVersionError(err) {
+		} else if !jujuversion.IsMinVersionError(err) {
 			c.Errorf("Wrong error for jujuver %v, minver %v: expected minVersionError, got: %#v", t.juju, t.charm, err)
 		}
 	}

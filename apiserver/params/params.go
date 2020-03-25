@@ -310,13 +310,19 @@ type ConfigResult struct {
 	Error  *Error                 `json:"error,omitempty"`
 }
 
+// OperatorProvisioningInfoResults holds OperatorProvisioningInfo results.
+type OperatorProvisioningInfoResults struct {
+	Results []OperatorProvisioningInfo `json:"results"`
+}
+
 // OperatorProvisioningInfo holds info need to provision an operator.
 type OperatorProvisioningInfo struct {
-	ImagePath    string                     `json:"image-path"`
-	Version      version.Number             `json:"version"`
-	APIAddresses []string                   `json:"api-addresses"`
-	Tags         map[string]string          `json:"tags,omitempty"`
-	CharmStorage KubernetesFilesystemParams `json:"charm-storage"`
+	ImagePath    string                      `json:"image-path"`
+	Version      version.Number              `json:"version"`
+	APIAddresses []string                    `json:"api-addresses"`
+	Tags         map[string]string           `json:"tags,omitempty"`
+	CharmStorage *KubernetesFilesystemParams `json:"charm-storage,omitempty"`
+	Error        *Error                      `json:"error,omitempty"`
 }
 
 // IssueOperatorCertificateResult contains an x509 certificate

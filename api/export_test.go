@@ -149,13 +149,6 @@ func (f *resultCaller) RawAPICaller() base.APICaller {
 	return &rawAPICaller{}
 }
 
-// IsMinVersionError returns true if the given error was caused by the charm
-// having a minjujuversion higher than the juju model's version.
-func IsMinVersionError(err error) bool {
-	_, ok := errors.Cause(err).(minJujuVersionErr)
-	return ok
-}
-
 func ExtractMacaroons(conn Connection) ([]macaroon.Slice, error) {
 	st, ok := conn.(*state)
 	if !ok {

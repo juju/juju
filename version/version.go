@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/errors"
 	semversion "github.com/juju/version"
 )
 
@@ -93,4 +94,37 @@ func mustParseBuildInt(buildInt string) int {
 		panic(err)
 	}
 	return i
+}
+
+// CheckJujuMinVersion returns an error if the specified version to check is
+// less than the current Juju version.
+func CheckJujuMinVersion(toCheck semversion.Number, jujuVersion semversion.Number) (err error) {
+	// It only makes sense to allow charms to specify they depend
+	// on a released version of Juju. If this is a beta or rc version
+	// of Juju, treat it like it's the released version to allow
+	// charms to be tested prior to release.
+	jujuVersion.Tag = ""
+	jujuVersion.Build = 0
+	if toCheck != semversion.Zero && toCheck.Compare(jujuVersion) > 0 {
+		return minVersionError(toCheck, jujuVersion)
+	}
+	return nil
+}
+
+func minVersionError(minver, jujuver semversion.Number) error {
+	err := errors.NewErr("charm's min version (%s) is higher than this juju model's version (%s)",
+		minver, jujuver)
+	err.SetLocation(1)
+	return minJujuVersionErr{&err}
+}
+
+type minJujuVersionErr struct {
+	*errors.Err
+}
+
+// IsMinVersionError returns true if the given error was caused by the charm
+// having a minjujuversion higher than the juju model's version.
+func IsMinVersionError(err error) bool {
+	_, ok := errors.Cause(err).(minJujuVersionErr)
+	return ok
 }

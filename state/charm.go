@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2"
@@ -608,7 +607,7 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
-	if err := validateCharmVersion(info.Charm); err != nil {
+	if err := jujuversion.CheckJujuMinVersion(info.Charm.Meta().MinJujuVersion, jujuversion.Current); err != nil {
 		return nil, errors.Trace(err)
 	}
 	model, err := st.Model()
@@ -652,16 +651,6 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 
 type hasMeta interface {
 	Meta() *charm.Meta
-}
-
-func validateCharmVersion(ch hasMeta) error {
-	minver := ch.Meta().MinJujuVersion
-	if minver != version.Zero {
-		if minver.Compare(jujuversion.Current) > 0 {
-			return errors.Errorf("Charm's min version (%s) is higher than this juju model's version (%s)", minver, jujuversion.Current)
-		}
-	}
-	return nil
 }
 
 func validateCharmSeries(modelType ModelType, series string, ch hasMeta) error {

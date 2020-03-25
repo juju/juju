@@ -337,21 +337,21 @@ func filesystemParams(
 	modelConfig *config.Config,
 	poolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
-) (params.KubernetesFilesystemParams, error) {
+) (*params.KubernetesFilesystemParams, error) {
 
 	filesystemTags, err := storagecommon.StorageTags(nil, modelConfig.UUID(), controllerUUID, modelConfig)
 	if err != nil {
-		return params.KubernetesFilesystemParams{}, errors.Annotate(err, "computing storage tags")
+		return nil, errors.Annotate(err, "computing storage tags")
 	}
 	filesystemTags[tags.JujuStorageOwner] = app.Name()
 
 	storageClassName, _ := modelConfig.AllAttrs()[provider.WorkloadStorageKey].(string)
 	if cons.Pool == "" && storageClassName == "" {
-		return params.KubernetesFilesystemParams{}, errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
+		return nil, errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
 	}
 	fsParams, err := caasoperatorprovisioner.CharmStorageParams(controllerUUID, storageClassName, modelConfig, cons.Pool, poolManager, registry)
 	if err != nil {
-		return params.KubernetesFilesystemParams{}, errors.Maskf(err, "getting filesystem storage parameters")
+		return nil, errors.Maskf(err, "getting filesystem storage parameters")
 	}
 
 	fsParams.Size = cons.Size
@@ -409,7 +409,7 @@ func (f *Facade) applicationFilesystemParams(
 				ReadOnly:   charmStorage.ReadOnly,
 			}
 			fsParams.Attachment = &filesystemAttachmentParams
-			allFilesystemParams = append(allFilesystemParams, fsParams)
+			allFilesystemParams = append(allFilesystemParams, *fsParams)
 		}
 	}
 	return allFilesystemParams, nil

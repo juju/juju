@@ -371,9 +371,9 @@ type OperatorConfig struct {
 	// Version is the Juju version of the operator image.
 	Version version.Number
 
-	// CharmStorage defines parameters used to create storage
-	// for operators to use for charm state.
-	CharmStorage CharmStorageParams
+	// CharmStorage defines parameters used to optionally
+	// create storage for operators to use for charm state.
+	CharmStorage *CharmStorageParams
 
 	// AgentConf is the contents of the agent.conf file.
 	AgentConf []byte

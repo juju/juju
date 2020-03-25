@@ -434,7 +434,9 @@ func (s *applicationSuite) TestMinJujuVersionTooHigh(c *gc.C) {
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
-	match := fmt.Sprintf(`charm's min version (999.999.999) is higher than this juju model's version (%s)`, jujuversion.Current)
+	vers := jujuversion.Current
+	vers.Tag = ""
+	match := fmt.Sprintf(`charm's min version (999.999.999) is higher than this juju model's version (%s)`, vers)
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(match))
 }
 

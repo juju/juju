@@ -6690,8 +6690,11 @@
                 "OperatorProvisioningInfo": {
                     "type": "object",
                     "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
                         "Result": {
-                            "$ref": "#/definitions/OperatorProvisioningInfo"
+                            "$ref": "#/definitions/OperatorProvisioningInfoResults"
                         }
                     }
                 },
@@ -7090,6 +7093,9 @@
                         "charm-storage": {
                             "$ref": "#/definitions/KubernetesFilesystemParams"
                         },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
                         "image-path": {
                             "type": "string"
                         },
@@ -7109,8 +7115,22 @@
                     "required": [
                         "image-path",
                         "version",
-                        "api-addresses",
-                        "charm-storage"
+                        "api-addresses"
+                    ]
+                },
+                "OperatorProvisioningInfoResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/OperatorProvisioningInfo"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "StringResult": {

@@ -7,15 +7,33 @@ import (
 	"fmt"
 
 	"github.com/juju/schema"
+	"github.com/juju/version"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs/config"
 )
 
 const (
+	// WorkloadStorageKey is the model config attribute used to specify
+	// the storage class for provisioning workload storage.
 	WorkloadStorageKey = "workload-storage"
+
+	// OperatorStorageKey is the model config attribute used to specify
+	// the storage class for provisioning operator storage.
 	OperatorStorageKey = "operator-storage"
 )
+
+var (
+	// jujuVersionForControllerStorage is the Juju version which first
+	// added the ability to store charm state in the controller.
+	jujuVersionForControllerStorage = version.MustParse("2.8.0")
+)
+
+// RequireOperatorStorage returns true if the specified min-juju-version
+// defined by a charm is such that the charm requires operator storage.
+func RequireOperatorStorage(charmMinJujuVersion version.Number) bool {
+	return charmMinJujuVersion.Compare(jujuVersionForControllerStorage) < 0
+}
 
 var configSchema = environschema.Fields{
 	WorkloadStorageKey: {
