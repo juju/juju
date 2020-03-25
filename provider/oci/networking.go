@@ -1132,6 +1132,12 @@ func (e *Environ) Spaces(ctx envcontext.ProviderCallContext) ([]corenetwork.Spac
 	return nil, errors.NotSupportedf("Spaces")
 }
 
+// SpaceSetID (environs.Networking) returns a grouping key for use in
+// space/subnet definitions, not yet supported for this provider.
+func (e *Environ) SpaceSetID(_ envcontext.ProviderCallContext) (string, error) {
+	return "", errors.NotSupportedf("space sets")
+}
+
 func (e *Environ) ProviderSpaceInfo(
 	ctx envcontext.ProviderCallContext, space *corenetwork.SpaceInfo,
 ) (*environs.ProviderSpaceInfo, error) {
