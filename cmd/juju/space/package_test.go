@@ -149,6 +149,10 @@ type StubAPI struct {
 
 	Spaces  []params.Space
 	Subnets []params.Subnet
+
+	ShowSpaceResp     network.ShowSpace
+	MoveSubnetsResp   params.MoveSubnetsResult
+	SubnetsByCIDRResp []params.SubnetsResult
 }
 
 var _ space.API = (*StubAPI)(nil)
@@ -197,10 +201,41 @@ func NewStubAPI() *StubAPI {
 		Name:    "space2",
 		Subnets: append([]params.Subnet{}, subnets[2:]...),
 	}}
+	showSpace := network.ShowSpace{
+		Space: network.SpaceInfo{
+			ID:   spaces[1].Id,
+			Name: network.SpaceName(spaces[1].Name),
+			Subnets: []network.SubnetInfo{{
+				CIDR: subnets[0].CIDR,
+			}, {
+				CIDR: subnets[2].CIDR,
+			}},
+		},
+	}
+	moveSubnets := params.MoveSubnetsResult{
+		MovedSubnets: []params.MovedSubnet{{
+			SubnetTag:   "1",
+			OldSpaceTag: "internal",
+			CIDR:        subnets[0].CIDR,
+		}},
+		NewSpaceTag: "public",
+	}
+	subnetsByCIDR := []params.SubnetsResult{{
+		Subnets: []params.SubnetV2{{
+			ID:     "1",
+			Subnet: subnets[0],
+		}, {
+			ID:     "2",
+			Subnet: subnets[2],
+		}},
+	}}
 	return &StubAPI{
-		Stub:    &testing.Stub{},
-		Spaces:  spaces,
-		Subnets: subnets,
+		Stub:              &testing.Stub{},
+		Spaces:            spaces,
+		Subnets:           subnets,
+		ShowSpaceResp:     showSpace,
+		MoveSubnetsResp:   moveSubnets,
+		SubnetsByCIDRResp: subnetsByCIDR,
 	}
 }
 
@@ -242,15 +277,15 @@ func (sa *StubAPI) ShowSpace(name string) (network.ShowSpace, error) {
 	if err := sa.NextErr(); err != nil {
 		return network.ShowSpace{}, err
 	}
-	return network.ShowSpace{}, nil
+	return sa.ShowSpaceResp, nil
 }
 
 func (sa *StubAPI) MoveSubnets(name names.SpaceTag, tags []names.SubnetTag, force bool) (params.MoveSubnetsResult, error) {
 	sa.MethodCall(sa, "MoveSubnets", name, tags, force)
-	return params.MoveSubnetsResult{}, sa.NextErr()
+	return sa.MoveSubnetsResp, sa.NextErr()
 }
 
 func (sa *StubAPI) SubnetsByCIDR(cidrs []string) ([]params.SubnetsResult, error) {
 	sa.MethodCall(sa, "SubnetsByCIDR", cidrs)
-	return []params.SubnetsResult{}, sa.NextErr()
+	return sa.SubnetsByCIDRResp, sa.NextErr()
 }

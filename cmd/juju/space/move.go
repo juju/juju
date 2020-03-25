@@ -4,24 +4,34 @@
 package space
 
 import (
+	"fmt"
+	"io"
 	"strings"
 
+	"github.com/gosuri/uitable"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v3"
+
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 // NewMoveCommand returns a command used to move an existing space to a
 // different subnet.
+func NewMoveCommand() modelcmd.ModelCommand {
+	return modelcmd.Wrap(&MoveCommand{})
+}
 
 // MoveCommand calls the API to attempt to move an existing space to a different
 // subnet.
 type MoveCommand struct {
 	SpaceCommandBase
+	out cmd.Output
 
 	Name  string
 	CIDRs set.Strings
@@ -52,7 +62,7 @@ See also:
 func (c *MoveCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "move-to-space",
-		Args:    "<name> <CIDR1> [ <CIDR2> ...]",
+		Args:    "[--format yaml|json] <name> <CIDR1> [ <CIDR2> ...]",
 		Purpose: "Update a network space's CIDR.",
 		Doc:     strings.TrimSpace(moveCommandDoc),
 	})
@@ -61,6 +71,12 @@ func (c *MoveCommand) Info() *cmd.Info {
 // SetFlags defines the move command flags it wants to offer.
 func (c *MoveCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Force, "force", false, "Allow to force a move of subnets to a space even if they are in use on another machine.")
+	c.out.AddFlags(f, "human", map[string]cmd.Formatter{
+		"yaml":    cmd.FormatYaml,
+		"json":    cmd.FormatJson,
+		"tabular": c.printTabular,
+		"human":   c.printHuman,
+	})
 }
 
 // Init checks the arguments for valid arguments and sets up the command to run.
@@ -73,36 +89,41 @@ func (c *MoveCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *MoveCommand) Run(ctx *cmd.Context) error {
-	name, err := names.ParseSpaceTag(c.Name)
-	if err != nil {
-		return errors.Annotatef(err, "expected valid space tag")
-	}
-
 	return c.RunWithAPI(ctx, func(api API, ctx *cmd.Context) error {
-		subnetTags, err := c.gatherSubnetTags(api)
+		spaceTag, err := c.getSpaceTag(api, c.Name)
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		moved, err := api.MoveSubnets(name, subnetTags, c.Force)
+		subnetTags, err := c.getSubnetTags(ctx, api, c.CIDRs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		moved, err := api.MoveSubnets(spaceTag, subnetTags, c.Force)
 		if err != nil {
 			return errors.Annotatef(err, "cannot update space %q", c.Name)
 		}
 
-		changes, err := extractMovementChangeLog(subnetTags, moved)
+		changes, err := extractMovementChangeLog(api, subnetTags, moved)
 		if err != nil {
 			return errors.Annotatef(err, "failed to parse the changes")
 		}
-		for _, change := range changes {
-			ctx.Infof("Subnet %s moved from %s to %s", change.CIDR, change.SpaceFrom, change.SpaceTo)
-		}
-
-		return nil
+		return c.out.Write(ctx, changes)
 	})
 }
 
-func (c *MoveCommand) gatherSubnetTags(api API) ([]names.SubnetTag, error) {
-	sortedCIDRs := c.CIDRs.SortedValues()
+func (c *MoveCommand) getSpaceTag(api SpaceAPI, name string) (names.SpaceTag, error) {
+	space, err := api.ShowSpace(name)
+	if err != nil {
+		return names.SpaceTag{}, errors.Annotatef(err, "failed to get space %q", name)
+	}
+
+	return names.NewSpaceTag(space.Space.ID), nil
+}
+
+func (c *MoveCommand) getSubnetTags(ctx *cmd.Context, api SubnetAPI, cidrs set.Strings) ([]names.SubnetTag, error) {
+	sortedCIDRs := cidrs.SortedValues()
 
 	subnetResults, err := api.SubnetsByCIDR(sortedCIDRs)
 	if err != nil {
@@ -120,30 +141,66 @@ func (c *MoveCommand) gatherSubnetTags(api API) ([]names.SubnetTag, error) {
 			// The changelog results should highlight that this was a problem,
 			// i.e. it wasn't changed.
 			if !c.CIDRs.Contains(subnet.CIDR) {
+				// This should never happen, but considering that we're using
+				// CIDRs as IDs, then we should at least tripple check.
+				ctx.Warningf("Subnet CIDR %q was not one supplied %v", subnet.CIDR, c.CIDRs.SortedValues())
 				continue
 			}
 
 			tags = append(tags, names.NewSubnetTag(subnet.ID))
 		}
 	}
+
+	if len(tags) != cidrs.Size() {
+		return nil, errors.Errorf("error getting subnet tags for %s", strings.Join(cidrs.SortedValues(), ","))
+	}
+
 	return tags, nil
 }
 
-func extractMovementChangeLog(tags []names.SubnetTag, result params.MoveSubnetsResult) ([]MovedSpace, error) {
+func (c *MoveCommand) printHuman(writer io.Writer, value interface{}) error {
+	list, ok := value.([]MovedSpace)
+	if !ok {
+		return errors.New("unexpected value")
+	}
+
+	for _, change := range list {
+		_, _ = fmt.Fprintf(writer, "Subnet %s moved from %s to %s", change.CIDR, change.SpaceFrom, change.SpaceTo)
+	}
+
+	return nil
+}
+
+// printTabular prints the list of spaces in tabular format
+func (c *MoveCommand) printTabular(writer io.Writer, value interface{}) error {
+	tw := output.TabWriter(writer)
+
+	list, ok := value.([]MovedSpace)
+	if !ok {
+		return errors.New("unexpected value")
+	}
+
+	table := uitable.New()
+	table.MaxColWidth = 50
+	table.Wrap = true
+
+	table.AddRow("Space From", "Space To", "CIDR")
+	for _, s := range list {
+		table.AddRow(s.SpaceFrom, s.SpaceTo, s.CIDR)
+	}
+
+	table.AddRow("", "", "")
+	_, _ = fmt.Fprint(writer, table)
+
+	return errors.Trace(tw.Flush())
+}
+
+func extractMovementChangeLog(api SpaceAPI, tags []names.SubnetTag, result params.MoveSubnetsResult) ([]MovedSpace, error) {
 	var changes []MovedSpace
 	for _, moved := range result.MovedSubnets {
-		tagFrom, err := names.ParseSpaceTag(moved.OldSpaceTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		tagTo, err := names.ParseSpaceTag(moved.SubnetTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
 		changes = append(changes, MovedSpace{
-			SpaceFrom: tagFrom.Id(),
-			SpaceTo:   tagTo.Id(),
+			SpaceFrom: moved.OldSpaceTag,
+			SpaceTo:   result.NewSpaceTag,
 			CIDR:      moved.CIDR,
 		})
 	}
@@ -154,11 +211,11 @@ func extractMovementChangeLog(tags []names.SubnetTag, result params.MoveSubnetsR
 // MovedSpace represents a CIDR movement from space `a` to space `b`
 type MovedSpace struct {
 	// SpaceFrom is the name of the space which the CIDR left.
-	SpaceFrom string
-
-	// CIDR of the subnet that is moving.
-	CIDR string
+	SpaceFrom string `json:"from" yaml:"from"`
 
 	// SpaceTo is the name of the space which the CIDR goes to.
-	SpaceTo string
+	SpaceTo string `json:"to" yaml:"to"`
+
+	// CIDR of the subnet that is moving.
+	CIDR string `json:"cidr" yaml:"cidr"`
 }
