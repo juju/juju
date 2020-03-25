@@ -215,12 +215,47 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	podWithoutStorage := pod
 
 	numPods := int32(1)
-	statefulset := &apps.StatefulSet{
+	operatorPvc, err := k.operatorVolumeClaim(appName, operatorName, config.CharmStorage)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if operatorPvc != nil {
+		logger.Debugf("using persistent volume claim for operator %s: %+v", appName, operatorPvc)
+		statefulset := &apps.StatefulSet{
+			ObjectMeta: v1.ObjectMeta{
+				Name:        operatorName,
+				Labels:      labels,
+				Annotations: annotations.ToMap()},
+			Spec: apps.StatefulSetSpec{
+				Replicas: &numPods,
+				Selector: &v1.LabelSelector{
+					MatchLabels: labels,
+				},
+				Template: core.PodTemplateSpec{
+					ObjectMeta: v1.ObjectMeta{
+						Labels:      labels,
+						Annotations: pod.Annotations,
+					},
+				},
+				PodManagementPolicy: apps.ParallelPodManagement,
+			},
+		}
+		statefulset.Spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{*operatorPvc}
+		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, core.VolumeMount{
+			Name:      operatorPvc.Name,
+			MountPath: agent.BaseDir(agentPath),
+		})
+		statefulset.Spec.Template.Spec = pod.Spec
+		err = k.ensureStatefulSet(statefulset, podWithoutStorage.Spec)
+		return errors.Annotatef(err, "creating or updating %v operator StatefulSet", appName)
+	}
+	// We have an operator that doesn't need storage so use a deployment controller.
+	deployment := &apps.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        operatorName,
 			Labels:      labels,
 			Annotations: annotations.ToMap()},
-		Spec: apps.StatefulSetSpec{
+		Spec: apps.DeploymentSpec{
 			Replicas: &numPods,
 			Selector: &v1.LabelSelector{
 				MatchLabels: labels,
@@ -230,26 +265,12 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 					Labels:      labels,
 					Annotations: pod.Annotations,
 				},
+				Spec: pod.Spec,
 			},
-			PodManagementPolicy: apps.ParallelPodManagement,
 		},
 	}
-	operatorPvc, err := k.operatorVolumeClaim(appName, operatorName, config.CharmStorage)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if operatorPvc != nil {
-		logger.Debugf("using persistent volume claim for operator %s: %+v", appName, operatorPvc)
-		statefulset.Spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{*operatorPvc}
-		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, core.VolumeMount{
-			Name:      operatorPvc.Name,
-			MountPath: agent.BaseDir(agentPath),
-		})
-	}
-
-	statefulset.Spec.Template.Spec = pod.Spec
-	err = k.ensureStatefulSet(statefulset, podWithoutStorage.Spec)
-	return errors.Annotatef(err, "creating or updating %v operator StatefulSet", appName)
+	err = k.ensureDeployment(deployment)
+	return errors.Annotatef(err, "creating or updating %v operator Deployment", appName)
 }
 
 func (k *kubernetesClient) operatorVolumeClaim(appName, operatorName string, storageParams *caas.CharmStorageParams) (*core.PersistentVolumeClaim, error) {
@@ -261,13 +282,13 @@ func (k *kubernetesClient) operatorVolumeClaim(appName, operatorName string, sto
 	}
 	if storageParams == nil {
 		existingClaim, err := k.getPVC(operatorVolumeClaim)
-		if err != nil && !errors.IsNotFound(err) {
-			return nil, errors.Trace(err)
-		}
-		if err != nil {
+		if errors.IsNotFound(err) {
+			logger.Debugf("no existing volume claim for operator %s", operatorName)
 			return nil, nil
+		} else if err != nil {
+			return nil, errors.Annotatef(err, "getting operator volume claim")
 		}
-		return existingClaim, errors.Trace(err)
+		return existingClaim, nil
 	}
 
 	// Charm needs storage so set it up.
@@ -318,9 +339,17 @@ func (k *kubernetesClient) validateOperatorStorage() (string, error) {
 // application exists, and whether the operator is terminating.
 func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, error) {
 	operatorName := k.operatorName(appName)
-	exists, terminating, err := k.operatorStatefulSetExists(appName, operatorName)
+	// Operator may be deployed as either a statefulset or deployment.
+	// Check for deployment first as new charms will use a deployment.
+	exists, terminating, err := k.operatorDeploymentExists(appName, operatorName)
 	if err != nil {
 		return caas.OperatorState{}, errors.Trace(err)
+	}
+	if !exists {
+		exists, terminating, err = k.operatorStatefulSetExists(appName, operatorName)
+		if err != nil {
+			return caas.OperatorState{}, errors.Trace(err)
+		}
 	}
 	if exists || terminating {
 		if terminating {
@@ -332,7 +361,7 @@ func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, e
 	}
 	checks := []struct {
 		label string
-		check func(appName string, operatorName string) (bool, error)
+		check func(appName string, operatorName string) (bool, bool, error)
 	}{
 		{"rbac", k.operatorRBACResourcesRemaining},
 		{"config map", k.operatorConfigMapExists},
@@ -340,14 +369,17 @@ func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, e
 		{"service", k.operatorServiceExists},
 		{"secret", k.operatorSecretExists},
 		{"deployment", k.operatorDeploymentExists},
+		{"statefulset", k.operatorStatefulSetExists},
 		{"pods", k.operatorPodExists},
 	}
 	for _, c := range checks {
-		exists, err := c.check(appName, operatorName)
+		exists, _, err := c.check(appName, operatorName)
 		if err != nil {
 			return caas.OperatorState{}, errors.Annotatef(err, "%s resource check", c.label)
 		}
 		if exists {
+			// Terminating is always set to true regardless of whether the resource is falled as terminating
+			// since it's the overall state that is reported back.
 			logger.Debugf("operator %q exists and is terminating due to dangling %s resource(s)", c.label)
 			return caas.OperatorState{Exists: true, Terminating: true}, nil
 		}
@@ -367,109 +399,109 @@ func (k *kubernetesClient) operatorStatefulSetExists(appName string, operatorNam
 	return true, operator.DeletionTimestamp != nil, nil
 }
 
-func (k *kubernetesClient) operatorRBACResourcesRemaining(appName string, operatorName string) (bool, error) {
-	_, err := k.getServiceAccount(operatorName)
+func (k *kubernetesClient) operatorRBACResourcesRemaining(appName string, operatorName string) (exists bool, terminating bool, err error) {
+	sa, err := k.getServiceAccount(operatorName)
 	if errors.IsNotFound(err) {
 		// continue
 	} else if err != nil {
-		return false, errors.Trace(err)
+		return false, false, errors.Trace(err)
 	} else {
-		return true, nil
+		return true, sa.DeletionTimestamp != nil, nil
 	}
-	_, err = k.getRole(operatorName)
+	r, err := k.getRole(operatorName)
 	if errors.IsNotFound(err) {
 		// continue
 	} else if err != nil {
-		return false, errors.Trace(err)
+		return false, false, errors.Trace(err)
 	} else {
-		return true, nil
+		return true, r.DeletionTimestamp != nil, nil
 	}
-	_, err = k.getRoleBinding(operatorName)
+	rb, err := k.getRoleBinding(operatorName)
 	if errors.IsNotFound(err) {
 		// continue
 	} else if err != nil {
-		return false, errors.Trace(err)
+		return false, false, errors.Trace(err)
 	} else {
-		return true, nil
+		return true, rb.DeletionTimestamp != nil, nil
 	}
-	return false, nil
+	return false, false, nil
 }
 
-func (k *kubernetesClient) operatorConfigMapExists(appName string, operatorName string) (bool, error) {
+func (k *kubernetesClient) operatorConfigMapExists(appName string, operatorName string) (exists bool, terminating bool, err error) {
 	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
 	configMapName := operatorConfigMapName(operatorName)
-	_, err := configMaps.Get(configMapName, v1.GetOptions{})
+	cm, err := configMaps.Get(configMapName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
-		return false, nil
+		return false, false, nil
 	} else if err != nil {
-		return false, errors.Trace(err)
+		return false, false, errors.Trace(err)
 	}
-	return true, nil
+	return true, cm.DeletionTimestamp != nil, nil
 }
 
-func (k *kubernetesClient) operatorConfigurationsConfigMapExists(appName string, operatorName string) (bool, error) {
+func (k *kubernetesClient) operatorConfigurationsConfigMapExists(appName string, operatorName string) (exists bool, terminating bool, err error) {
 	legacy := isLegacyName(operatorName)
 	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
 	configMapName := appName + "-configurations-config"
 	if legacy {
 		configMapName = "juju-" + configMapName
 	}
-	_, err := configMaps.Get(configMapName, v1.GetOptions{})
+	cm, err := configMaps.Get(configMapName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
-		return false, nil
+		return false, false, nil
 	} else if err != nil {
-		return false, errors.Trace(err)
+		return false, false, errors.Trace(err)
 	}
-	return true, nil
+	return true, cm.DeletionTimestamp != nil, nil
 }
 
-func (k *kubernetesClient) operatorServiceExists(appName string, operatorName string) (bool, error) {
+func (k *kubernetesClient) operatorServiceExists(appName string, operatorName string) (exists bool, terminating bool, err error) {
 	services := k.client().CoreV1().Services(k.namespace)
-	_, err := services.Get(operatorName, v1.GetOptions{})
+	s, err := services.Get(operatorName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
-		return false, nil
+		return false, false, nil
 	} else if err != nil {
-		return false, errors.Trace(err)
+		return false, false, errors.Trace(err)
 	}
-	return true, nil
+	return true, s.DeletionTimestamp != nil, nil
 }
 
-func (k *kubernetesClient) operatorSecretExists(appName string, operatorName string) (bool, error) {
+func (k *kubernetesClient) operatorSecretExists(appName string, operatorName string) (exists bool, terminating bool, err error) {
 	legacy := isLegacyName(operatorName)
 	deploymentName := appName
 	if legacy {
 		deploymentName = "juju-" + appName
 	}
 	secretName := appSecretName(deploymentName, operatorContainerName)
-	_, err := k.getSecret(secretName)
+	s, err := k.getSecret(secretName)
 	if errors.IsNotFound(err) {
-		return false, nil
+		return false, false, nil
 	} else if err != nil {
-		return false, errors.Trace(err)
+		return false, false, errors.Trace(err)
 	}
-	return true, nil
+	return true, s.DeletionTimestamp != nil, nil
 }
 
-func (k *kubernetesClient) operatorDeploymentExists(appName string, operatorName string) (bool, error) {
+func (k *kubernetesClient) operatorDeploymentExists(appName string, operatorName string) (exists bool, terminating bool, err error) {
 	deployments := k.client().AppsV1().Deployments(k.namespace)
-	_, err := deployments.Get(operatorName, v1.GetOptions{})
+	operator, err := deployments.Get(operatorName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
-		return false, nil
+		return false, false, nil
 	} else if err != nil {
-		return false, errors.Trace(err)
+		return false, false, errors.Trace(err)
 	}
-	return true, nil
+	return true, operator.DeletionTimestamp != nil, nil
 }
 
-func (k *kubernetesClient) operatorPodExists(appName string, operatorName string) (bool, error) {
+func (k *kubernetesClient) operatorPodExists(appName string, operatorName string) (exists bool, terminating bool, err error) {
 	pods := k.client().CoreV1().Pods(k.namespace)
 	podList, err := pods.List(v1.ListOptions{
 		LabelSelector: operatorSelector(appName),
 	})
 	if err != nil {
-		return false, errors.Trace(err)
+		return false, false, errors.Trace(err)
 	}
-	return len(podList.Items) != 0, nil
+	return len(podList.Items) != 0, false, nil
 }
 
 // DeleteOperator deletes the specified operator.

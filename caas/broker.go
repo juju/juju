@@ -372,7 +372,7 @@ type OperatorConfig struct {
 	Version version.Number
 
 	// CharmStorage defines parameters used to optionally
-	//create storage for operators to use for charm state.
+	// create storage for operators to use for charm state.
 	CharmStorage *CharmStorageParams
 
 	// AgentConf is the contents of the agent.conf file.
