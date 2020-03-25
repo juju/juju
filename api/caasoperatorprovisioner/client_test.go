@@ -200,7 +200,7 @@ func (s *provisionerSuite) TestIssueOperatorCertificate(c *gc.C) {
 		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
 		c.Check(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "IssueOperatorCertificate")
-		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "appymcappface"}}})
+		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-appymcappface"}}})
 		c.Assert(result, gc.FitsTypeOf, &params.IssueOperatorCertificateResults{})
 		*(result.(*params.IssueOperatorCertificateResults)) = params.IssueOperatorCertificateResults{
 			Results: []params.IssueOperatorCertificateResult{{
@@ -225,7 +225,7 @@ func (s *provisionerSuite) TestIssueOperatorCertificateArity(c *gc.C) {
 		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
 		c.Check(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "IssueOperatorCertificate")
-		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "appymcappface"}}})
+		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-appymcappface"}}})
 		c.Assert(result, gc.FitsTypeOf, &params.IssueOperatorCertificateResults{})
 		return nil
 	})

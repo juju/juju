@@ -2880,10 +2880,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
-			Return(nil, nil),
 	)
 
 	params := &caas.ServiceParams{
@@ -2967,10 +2963,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
 			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
-			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
 			Return(nil, nil),
 	)
 
@@ -4621,10 +4613,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
-			Return(nil, nil),
 	)
 
 	params := &caas.ServiceParams{
@@ -5023,10 +5011,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
 			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
-			Return(statefulSetArg, nil),
 	)
 
 	params := &caas.ServiceParams{
@@ -5107,10 +5091,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{}).
 			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
-			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
 			Return(nil, nil),
 	)
 
@@ -5200,10 +5180,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
-			Return(nil, nil),
 	)
 
 	params := &caas.ServiceParams{
@@ -5283,10 +5259,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{}).
 			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
-			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
 			Return(nil, nil),
 	)
 

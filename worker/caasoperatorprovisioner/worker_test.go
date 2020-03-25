@@ -142,6 +142,11 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, terminatin
 		ResourceTags: map[string]string{"foo": "bar"},
 		Attributes:   map[string]interface{}{"key": "value"},
 	})
+	if updateCerts {
+		c.Assert(config.ConfigMapGeneration, gc.Equals, int64(1))
+	} else {
+		c.Assert(config.ConfigMapGeneration, gc.Equals, int64(0))
+	}
 
 	agentFile := filepath.Join(c.MkDir(), "agent.config")
 	err := ioutil.WriteFile(agentFile, config.AgentConf, 0644)
@@ -247,6 +252,7 @@ oldpassword: dxKwhgZPrNzXVTrZSxY1VLHA
 values: {}
 mongoversion: "0.0"
 `[1:], strconv.Quote(coretesting.CACert))),
+		ConfigMapGeneration: 1,
 	}
 
 	w := s.assertWorker(c)

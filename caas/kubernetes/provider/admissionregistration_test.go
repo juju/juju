@@ -101,7 +101,7 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs map[s
 		s.mockStatefulSets.EXPECT().Get("app-name", metav1.GetOptions{}).
 			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
-			Return(nil, nil),
+			Return(nil, s.k8sAlreadyExistsError()),
 		s.mockStatefulSets.EXPECT().Get("app-name", metav1.GetOptions{}).
 			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
@@ -324,10 +324,6 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs map
 		s.mockStatefulSets.EXPECT().Get("app-name", metav1.GetOptions{}).
 			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
-			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", metav1.GetOptions{}).
-			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
 			Return(nil, nil),
 	}...)
 	gomock.InOrder(assertCalls...)

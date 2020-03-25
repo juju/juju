@@ -247,7 +247,7 @@ func (p *provisioner) ensureOperator(app string, config *caas.OperatorConfig) er
 func (p *provisioner) updateOperatorConfig(appName, password string, prevCfg caas.OperatorConfig) (*caas.OperatorConfig, error) {
 	info, err := p.provisionerFacade.OperatorProvisioningInfo()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "fetching operator provisioning info")
 	}
 	// All operators must have storage configured because charms
 	// have persistent state which must be preserved between any
@@ -262,20 +262,21 @@ func (p *provisioner) updateOperatorConfig(appName, password string, prevCfg caa
 	p.logger.Debugf("using caas operator info %+v", info)
 
 	cfg := &caas.OperatorConfig{
-		OperatorImagePath: info.ImagePath,
-		Version:           info.Version,
-		ResourceTags:      info.Tags,
-		CharmStorage:      charmStorageParams(info.CharmStorage),
+		OperatorImagePath:   info.ImagePath,
+		Version:             info.Version,
+		ResourceTags:        info.Tags,
+		CharmStorage:        charmStorageParams(info.CharmStorage),
+		ConfigMapGeneration: prevCfg.ConfigMapGeneration,
 	}
 
 	cfg.AgentConf, err = p.updateAgentConf(appName, password, info, prevCfg.AgentConf)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "updating agent config")
 	}
 
 	cfg.OperatorInfo, err = p.updateOperatorInfo(appName, prevCfg.OperatorInfo)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "updating operator info")
 	}
 
 	return cfg, nil
@@ -308,7 +309,7 @@ func (p *provisioner) updateAgentConf(appName, password string,
 		},
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "creating new agent config")
 	}
 
 	return conf.Render()
@@ -319,7 +320,7 @@ func (p *provisioner) updateOperatorInfo(appName string, prevOperatorInfoData []
 	if prevOperatorInfoData != nil {
 		prevOperatorInfo, err := caas.UnmarshalOperatorInfo(prevOperatorInfoData)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "unmarshalling operator info")
 		}
 		operatorInfo = *prevOperatorInfo
 	}
@@ -329,7 +330,7 @@ func (p *provisioner) updateOperatorInfo(appName string, prevOperatorInfoData []
 		operatorInfo.CACert == "" {
 		cert, err := p.provisionerFacade.IssueOperatorCertificate(appName)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "issuing certificate")
 		}
 		operatorInfo.Cert = cert.Cert
 		operatorInfo.PrivateKey = cert.PrivateKey
