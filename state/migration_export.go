@@ -1621,14 +1621,10 @@ func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
 		return nil, errors.Annotate(err, "cannot get all units")
 	}
 	e.logger.Debugf("found %d unit docs", len(docs))
-	model, err := e.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	result := make(map[string][]*Unit)
 	for _, doc := range docs {
 		units := result[doc.Application]
-		result[doc.Application] = append(units, newUnit(e.st, model.Type(), &doc))
+		result[doc.Application] = append(units, newUnit(e.st, e.dbModel.Type(), &doc))
 	}
 	return result, nil
 }

@@ -1735,19 +1735,23 @@ func (a *Application) addUnitOps(
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}
+		if args.machineID != "" {
+			return "", nil, errors.NotSupportedf("non-empty machineID")
+		}
 	}
 	storageCons, err := a.StorageConstraints()
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
 	uNames, ops, err := a.addUnitOpsWithCons(applicationAddUnitOpsArgs{
-		cons:          cons,
-		principalName: principalName,
-		storageCons:   storageCons,
-		attachStorage: args.AttachStorage,
-		providerId:    args.ProviderId,
-		address:       args.Address,
-		ports:         args.Ports,
+		cons:               cons,
+		principalName:      principalName,
+		principalMachineID: args.machineID,
+		storageCons:        storageCons,
+		attachStorage:      args.AttachStorage,
+		providerId:         args.ProviderId,
+		address:            args.Address,
+		ports:              args.Ports,
 	})
 	if err != nil {
 		return uNames, ops, errors.Trace(err)
@@ -1759,7 +1763,9 @@ func (a *Application) addUnitOps(
 }
 
 type applicationAddUnitOpsArgs struct {
-	principalName string
+	principalName      string
+	principalMachineID string
+
 	cons          constraints.Value
 	storageCons   map[string]StorageConstraints
 	attachStorage []names.StorageTag
@@ -1814,6 +1820,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		Series:                 a.doc.Series,
 		Life:                   Alive,
 		Principal:              args.principalName,
+		MachineId:              args.principalMachineID,
 		StorageAttachmentCount: numStorageAttachments,
 	}
 	now := a.st.clock().Now()
@@ -2060,6 +2067,10 @@ type AddUnitParams struct {
 
 	// Ports are the open ports on the container.
 	Ports *[]string
+
+	// machineID is only passed in if the unit being created is
+	// a subordinate and refers to the machine that is hosting the principal.
+	machineID string
 }
 
 // AddUnit adds a new principal unit to the application.

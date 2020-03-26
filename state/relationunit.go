@@ -244,8 +244,26 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 		return nil, "", err
 	}
 	if len(related) != 1 {
-		return nil, "", fmt.Errorf("expected single related endpoint, got %v", related)
+		return nil, "", errors.Errorf("expected single related endpoint, got %v", related)
 	}
+	// Find the machine ID that the principal unit is deployed on, and use
+	// that for the subordinate. It is worthwhile noting that if the unit is
+	// in a CAAS model, there are no machines.
+	principal, err := ru.st.Unit(ru.unitName)
+	if err != nil {
+		return nil, "", errors.Annotate(err, "unable to load principal unit")
+	}
+	var principalMachineID string
+	if principal.ShouldBeAssigned() {
+		// We don't care just now if the machine isn't assigned, as CAAS models
+		// will return that error. For IAAS models, the machine *should* always
+		// be assigned before it is able to enter scope.
+		// We don't check the error here now because it'll cause *huge* test
+		// fallout as many tests don't follow reality, particularly when
+		// relations are being tested.
+		principalMachineID, _ = principal.AssignedMachineId()
+	}
+
 	applicationname, unitName := related[0].ApplicationName, ru.unitName
 	selSubordinate := bson.D{{"application", applicationname}, {"principal", unitName}}
 	var lDoc lifeDoc
@@ -254,7 +272,9 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 		if err != nil {
 			return nil, "", err
 		}
-		_, ops, err := application.addUnitOps(unitName, AddUnitParams{}, nil)
+		_, ops, err := application.addUnitOps(unitName, AddUnitParams{
+			machineID: principalMachineID,
+		}, nil)
 		return ops, "", err
 	} else if err != nil {
 		return nil, "", err

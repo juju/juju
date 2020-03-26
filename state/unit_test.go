@@ -619,13 +619,11 @@ func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
 }
 
 func (s *UnitSuite) TestPublicAddressSubordinate(c *gc.C) {
+	// A subordinate unit will never be created without the principal
+	// being assigned to a machine.
+	s.setAssignedMachineAddresses(c, s.unit)
 	subUnit := s.addSubordinateUnit(c)
 	address, err := subUnit.PublicAddress()
-	c.Assert(err, gc.Not(gc.IsNil))
-	c.Assert(address.Value, gc.Equals, "")
-
-	s.setAssignedMachineAddresses(c, s.unit)
-	address, err = subUnit.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(address.Value, gc.Equals, "public.address.example.com")
 }
@@ -723,13 +721,11 @@ func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
 }
 
 func (s *UnitSuite) TestPrivateAddressSubordinate(c *gc.C) {
+	// A subordinate unit will never be created without the principal
+	// being assigned to a machine.
+	s.setAssignedMachineAddresses(c, s.unit)
 	subUnit := s.addSubordinateUnit(c)
 	address, err := subUnit.PrivateAddress()
-	c.Assert(err, gc.Not(gc.IsNil))
-	c.Assert(address.Value, gc.Equals, "")
-
-	s.setAssignedMachineAddresses(c, s.unit)
-	address, err = subUnit.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(address.Value, gc.Equals, "private.address.example.com")
 }
