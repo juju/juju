@@ -31537,7 +31537,7 @@
                 "RenameSpacesParams": {
                     "type": "object",
                     "properties": {
-                        "rename-spaces": {
+                        "changes": {
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/RenameSpaceParams"
@@ -31546,7 +31546,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "rename-spaces"
+                        "changes"
                     ]
                 },
                 "ShowSpaceResult": {
