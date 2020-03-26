@@ -1120,10 +1120,6 @@ func (e *Environ) SupportsSpaces(ctx envcontext.ProviderCallContext) (bool, erro
 	return false, nil
 }
 
-func (e *Environ) SupportsProviderSpaces(ctx envcontext.ProviderCallContext) (bool, error) {
-	return false, nil
-}
-
 func (e *Environ) SupportsSpaceDiscovery(ctx envcontext.ProviderCallContext) (bool, error) {
 	return false, nil
 }
