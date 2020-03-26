@@ -130,8 +130,8 @@ $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 	return spec
 }
 
-func operatorStatefulSetArg(numUnits int32, scName, serviceAccountName string) *appsv1.StatefulSet {
-	return &appsv1.StatefulSet{
+func operatorStatefulSetArg(numUnits int32, scName, serviceAccountName string, withStorage bool) *appsv1.StatefulSet {
+	ss := &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-operator",
 			Labels: map[string]string{
@@ -157,60 +157,30 @@ func operatorStatefulSetArg(numUnits int32, scName, serviceAccountName string) *
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 					},
 				},
-				Spec: operatorPodSpec(serviceAccountName, true),
+				Spec: operatorPodSpec(serviceAccountName, withStorage),
 			},
-			VolumeClaimTemplates: []core.PersistentVolumeClaim{{
-				ObjectMeta: v1.ObjectMeta{
-					Name: "charm",
-					Annotations: map[string]string{
-						"foo": "bar",
-					}},
-				Spec: core.PersistentVolumeClaimSpec{
-					StorageClassName: &scName,
-					AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
-					Resources: core.ResourceRequirements{
-						Requests: core.ResourceList{
-							core.ResourceStorage: resource.MustParse("10Mi"),
-						},
-					},
-				},
-			}},
 			PodManagementPolicy: apps.ParallelPodManagement,
 		},
 	}
-}
-
-func operatorDeploymentArg(numUnits int32, serviceAccountName string) *appsv1.Deployment {
-	return &appsv1.Deployment{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "test-operator",
-			Labels: map[string]string{
-				"juju-operator": "test",
-			},
-			Annotations: operatorAnnotations,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: &numUnits,
-			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-operator": "test"},
-			},
-			Template: core.PodTemplateSpec{
-				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{
-						"juju-operator": "test",
-					},
-					Annotations: map[string]string{
-						"fred":               "mary",
-						"juju-version":       "2.99.0",
-						"juju.io/controller": testing.ControllerTag.Id(),
-						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
-						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+	if withStorage {
+		ss.Spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "charm",
+				Annotations: map[string]string{
+					"foo": "bar",
+				}},
+			Spec: core.PersistentVolumeClaimSpec{
+				StorageClassName: &scName,
+				AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
+				Resources: core.ResourceRequirements{
+					Requests: core.ResourceList{
+						core.ResourceStorage: resource.MustParse("10Mi"),
 					},
 				},
-				Spec: operatorPodSpec(serviceAccountName, false),
 			},
-		},
+		}}
 	}
+	return ss
 }
 
 func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
@@ -356,7 +326,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 			},
 		},
 	}
-	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage", "test-operator")
+	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage", "test-operator", true)
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
@@ -465,7 +435,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 			},
 		},
 	}
-	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage", "test-operator")
+	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage", "test-operator", true)
 
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{}).
@@ -582,7 +552,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 	}
 	rbUID := rb.GetUID()
 
-	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage", "test-operator")
+	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage", "test-operator", true)
 
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{}).
@@ -720,7 +690,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
 		},
 	}
 	scName := "test-operator-storage"
-	statefulSetArg := operatorStatefulSetArg(1, scName, "test-operator")
+	statefulSetArg := operatorStatefulSetArg(1, scName, "test-operator", true)
 
 	existingCharmPvc := &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
@@ -851,7 +821,8 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
 			},
 		},
 	}
-	deploymentArg := operatorDeploymentArg(1, "test-operator")
+
+	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage", "test-operator", false)
 
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{}).
@@ -880,9 +851,11 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
 		s.mockPersistentVolumeClaims.EXPECT().Get("charm", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 
-		s.mockDeployments.EXPECT().Update(deploymentArg).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Create(deploymentArg).
+		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
+			Return(nil, s.k8sAlreadyExistsError()),
+		s.mockStatefulSets.EXPECT().Get("test-operator", v1.GetOptions{}).
+			Return(statefulSetArg, nil),
+		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
 			Return(nil, nil),
 	)
 
@@ -1148,8 +1121,6 @@ func (s *K8sBrokerSuite) TestOperatorExists(c *gc.C) {
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Get("test-app-operator", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{}).
 			Return(&apps.StatefulSet{}, nil),
 	)
@@ -1168,8 +1139,6 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminating(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Get("test-app-operator", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{}).
 			Return(&apps.StatefulSet{
@@ -1194,8 +1163,6 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminated(c *gc.C) {
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Get("test-app-operator", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Get("test-app-operator", v1.GetOptions{}).
@@ -1213,8 +1180,6 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminated(c *gc.C) {
 		s.mockSecrets.EXPECT().Get("test-app-juju-operator-secret", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Get("test-app-operator", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockPods.EXPECT().List(v1.ListOptions{
 			LabelSelector: "juju-operator=test-app",
@@ -1236,8 +1201,6 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminatedMostly(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Get("test-app-operator", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
