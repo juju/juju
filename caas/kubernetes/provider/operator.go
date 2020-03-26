@@ -219,43 +219,12 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if operatorPvc != nil {
-		logger.Debugf("using persistent volume claim for operator %s: %+v", appName, operatorPvc)
-		statefulset := &apps.StatefulSet{
-			ObjectMeta: v1.ObjectMeta{
-				Name:        operatorName,
-				Labels:      labels,
-				Annotations: annotations.ToMap()},
-			Spec: apps.StatefulSetSpec{
-				Replicas: &numPods,
-				Selector: &v1.LabelSelector{
-					MatchLabels: labels,
-				},
-				Template: core.PodTemplateSpec{
-					ObjectMeta: v1.ObjectMeta{
-						Labels:      labels,
-						Annotations: pod.Annotations,
-					},
-				},
-				PodManagementPolicy: apps.ParallelPodManagement,
-			},
-		}
-		statefulset.Spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{*operatorPvc}
-		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, core.VolumeMount{
-			Name:      operatorPvc.Name,
-			MountPath: agent.BaseDir(agentPath),
-		})
-		statefulset.Spec.Template.Spec = pod.Spec
-		err = k.ensureStatefulSet(statefulset, podWithoutStorage.Spec)
-		return errors.Annotatef(err, "creating or updating %v operator StatefulSet", appName)
-	}
-	// We have an operator that doesn't need storage so use a deployment controller.
-	deployment := &apps.Deployment{
+	statefulset := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        operatorName,
 			Labels:      labels,
 			Annotations: annotations.ToMap()},
-		Spec: apps.DeploymentSpec{
+		Spec: apps.StatefulSetSpec{
 			Replicas: &numPods,
 			Selector: &v1.LabelSelector{
 				MatchLabels: labels,
@@ -265,12 +234,21 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 					Labels:      labels,
 					Annotations: pod.Annotations,
 				},
-				Spec: pod.Spec,
 			},
+			PodManagementPolicy: apps.ParallelPodManagement,
 		},
 	}
-	err = k.ensureDeployment(deployment)
-	return errors.Annotatef(err, "creating or updating %v operator Deployment", appName)
+	if operatorPvc != nil {
+		logger.Debugf("using persistent volume claim for operator %s: %+v", appName, operatorPvc)
+		statefulset.Spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{*operatorPvc}
+		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, core.VolumeMount{
+			Name:      operatorPvc.Name,
+			MountPath: agent.BaseDir(agentPath),
+		})
+	}
+	statefulset.Spec.Template.Spec = pod.Spec
+	err = k.ensureStatefulSet(statefulset, podWithoutStorage.Spec)
+	return errors.Annotatef(err, "creating or updating %v operator StatefulSet", appName)
 }
 
 func (k *kubernetesClient) operatorVolumeClaim(appName, operatorName string, storageParams *caas.CharmStorageParams) (*core.PersistentVolumeClaim, error) {
@@ -339,17 +317,9 @@ func (k *kubernetesClient) validateOperatorStorage() (string, error) {
 // application exists, and whether the operator is terminating.
 func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, error) {
 	operatorName := k.operatorName(appName)
-	// Operator may be deployed as either a statefulset or deployment.
-	// Check for deployment first as new charms will use a deployment.
-	exists, terminating, err := k.operatorDeploymentExists(appName, operatorName)
+	exists, terminating, err := k.operatorStatefulSetExists(appName, operatorName)
 	if err != nil {
 		return caas.OperatorState{}, errors.Trace(err)
-	}
-	if !exists {
-		exists, terminating, err = k.operatorStatefulSetExists(appName, operatorName)
-		if err != nil {
-			return caas.OperatorState{}, errors.Trace(err)
-		}
 	}
 	if exists || terminating {
 		if terminating {
@@ -369,7 +339,6 @@ func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, e
 		{"service", k.operatorServiceExists},
 		{"secret", k.operatorSecretExists},
 		{"deployment", k.operatorDeploymentExists},
-		{"statefulset", k.operatorStatefulSetExists},
 		{"pods", k.operatorPodExists},
 	}
 	for _, c := range checks {
@@ -592,7 +561,7 @@ func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher,
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
 		informers.WithTweakListOptions(func(o *v1.ListOptions) {
-			o.LabelSelector = applicationSelector(appName)
+			o.LabelSelector = operatorSelector(appName)
 		}),
 	)
 	return k.newWatcher(factory.Core().V1().Pods().Informer(), appName, k.clock)
