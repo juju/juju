@@ -1332,7 +1332,6 @@ func (k *kubernetesClient) filesystemToVolumeInfo(
 		return nil, nil, errors.Annotatef(err, "invalid storage configuration for %v", fs.StorageName)
 	}
 	pvcSpec, err := k.maybeGetVolumeClaimSpec(params)
-	// TODO: deploy pvc for non stateful app !!!!!!!!!
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "finding volume for %s", fs.StorageName)
 	}
@@ -1810,7 +1809,8 @@ func (k *kubernetesClient) configurePVCForStatelessResource(spec core.Persistent
 		VolumeSource: core.VolumeSource{
 			PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
 				ClaimName: pvc.GetName(),
-				ReadOnly:  false, // TODO(caas): support readonly????????????
+				// TODO(caas): support readonly.
+				ReadOnly: false,
 			},
 		},
 	}

@@ -5,7 +5,6 @@ package provider
 
 import (
 	"github.com/juju/errors"
-	"github.com/kr/pretty"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,7 +24,7 @@ func (k *kubernetesClient) getStatefulSetLabels(appName string) map[string]strin
 func (k *kubernetesClient) configureStatefulSet(
 	appName, deploymentName string, annotations k8sannotations.Annotation, workloadSpec *workloadSpec,
 	containers []specs.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
-) (err error) {
+) error {
 	logger.Debugf("creating/updating stateful set for %s", appName)
 
 	// Add the specified file to the pod spec.
@@ -102,9 +101,9 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(caas) - allow extra storage to be added
 	existing.Spec.Replicas = spec.Spec.Replicas
-	existing.Spec.VolumeClaimTemplates = spec.Spec.VolumeClaimTemplates // ??????? check
+	// TODO(caas) - allow storage `request` configurable - currently we only allow `limit`.
+	existing.Spec.VolumeClaimTemplates = spec.Spec.VolumeClaimTemplates
 	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
 	existing.Spec.Template.Spec.ServiceAccountName = existingPodSpec.ServiceAccountName
 	existing.Spec.Template.Spec.AutomountServiceAccountToken = existingPodSpec.AutomountServiceAccountToken
