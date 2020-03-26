@@ -916,7 +916,7 @@ type RenameSpaceParams struct {
 
 // RenameSpacesParams holds the arguments of the RenameSpaces API call.
 type RenameSpacesParams struct {
-	SpacesRenames []RenameSpaceParams `json:"rename-spaces"`
+	Changes []RenameSpaceParams `json:"changes"`
 }
 
 // CreateSpacesParams holds the arguments of the AddSpaces API call.

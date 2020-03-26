@@ -209,7 +209,7 @@ func (s *spacesSuite) TestRenameSpace(c *gc.C) {
 	from, to := "from", "to"
 	resultSource := params.ErrorResults{}
 	args := params.RenameSpacesParams{
-		SpacesRenames: []params.RenameSpaceParams{{
+		Changes: []params.RenameSpaceParams{{
 			FromSpaceTag: names.NewSpaceTag(from).String(),
 			ToSpaceTag:   names.NewSpaceTag(to).String(),
 		}},
@@ -230,7 +230,7 @@ func (s *spacesSuite) TestRenameSpaceError(c *gc.C) {
 		},
 	}}}
 	args := params.RenameSpacesParams{
-		SpacesRenames: []params.RenameSpaceParams{{
+		Changes: []params.RenameSpaceParams{{
 			FromSpaceTag: names.NewSpaceTag(from).String(),
 			ToSpaceTag:   names.NewSpaceTag(to).String(),
 		}},

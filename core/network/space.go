@@ -23,31 +23,6 @@ const (
 	AlphaSpaceName = "alpha"
 )
 
-// ShowSpace represents space information output by the CLI client.
-type ShowSpace struct {
-	// Information about a given space.
-	Space SpaceInfo
-	// Application names which are bound to a given space.
-	Applications []string
-	// MachineCount is the number of machines connected to a given space.
-	MachineCount int
-}
-
-// RemoveSpace represents space information why a space could not be removed.
-type RemoveSpace struct {
-	// The space which cannot be removed. Only with --force.
-	Space string
-	// HasModelConstraint is the model constraint.
-	HasModelConstraint bool
-	// Constraints are the constraints which blocks the remove. Blocking Constraints are: Application.
-	Constraints []string
-	// Bindings are the application bindings which blocks the remove.
-	Bindings []string
-	// ControllerConfig are the config settings of the controller model which are using the space.
-	// This is only valid if the current model is a controller model.
-	ControllerConfig []string
-}
-
 // SpaceLookup describes methods for acquiring SpaceInfos
 // to translate space IDs to space names and vice versa.
 type SpaceLookup interface {

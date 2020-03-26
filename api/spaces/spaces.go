@@ -138,7 +138,7 @@ func (api *API) RenameSpace(oldName string, newName string) error {
 		ToSpaceTag:   names.NewSpaceTag(newName).String(),
 	}
 	spaceRenameParams[0] = spaceRename
-	args := params.RenameSpacesParams{SpacesRenames: spaceRenameParams}
+	args := params.RenameSpacesParams{Changes: spaceRenameParams}
 	err := api.facade.FacadeCall("RenameSpace", args, &response)
 	if err != nil {
 		if params.IsCodeNotSupported(err) {

@@ -556,12 +556,12 @@ func (s *APISuite) expectMachines(ctrl *gomock.Controller, addresses set.Strings
 func (s *APISuite) getRenameArgs(from, to string) params.RenameSpacesParams {
 	spaceTagFrom := names.NewSpaceTag(from)
 	spaceTagTo := names.NewSpaceTag(to)
-	args := params.RenameSpacesParams{SpacesRenames: []params.RenameSpaceParams{
-		{
+	args := params.RenameSpacesParams{
+		Changes: []params.RenameSpaceParams{{
 			FromSpaceTag: spaceTagFrom.String(),
 			ToSpaceTag:   spaceTagTo.String(),
-		},
-	}}
+		}},
+	}
 	return args
 }
 
