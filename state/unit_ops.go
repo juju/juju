@@ -33,7 +33,10 @@ func (op *unitSetStateOperation) buildTxn(attempt int) ([]txn.Op, error) {
 		}
 	}
 
-	if op.u.Life() != Alive {
+	// Normally this would be if Life() != Alive.  However the uniter
+	// needs to write its state during the Dying period to complete
+	// operations such as resigning leadership.
+	if op.u.Life() == Dead {
 		return nil, errors.Annotatef(errors.NotFoundf("unit %s", op.u.Name()), "cannot persist state for unit %q", op.u)
 	}
 
@@ -41,10 +44,10 @@ func (op *unitSetStateOperation) buildTxn(attempt int) ([]txn.Op, error) {
 	defer closer()
 
 	// The state of a unit can only be updated if it is currently alive.
-	unitAliveOp := txn.Op{
+	unitNotDeadOp := txn.Op{
 		C:      unitsC,
 		Id:     op.u.doc.DocID,
-		Assert: isAliveDoc,
+		Assert: notDeadDoc,
 	}
 
 	var stDoc unitStateDoc
@@ -54,7 +57,7 @@ func (op *unitSetStateOperation) buildTxn(attempt int) ([]txn.Op, error) {
 			return nil, errors.Annotatef(err, "cannot persist state for unit %q", op.u)
 		}
 
-		return []txn.Op{unitAliveOp, {
+		return []txn.Op{unitNotDeadOp, {
 			C:      unitStatesC,
 			Id:     unitGlobalKey,
 			Assert: txn.DocMissing,
@@ -74,7 +77,7 @@ func (op *unitSetStateOperation) buildTxn(attempt int) ([]txn.Op, error) {
 	if len(unsetFields) > 0 {
 		updateFields = append(updateFields, bson.DocElem{"$unset", unsetFields})
 	}
-	return []txn.Op{unitAliveOp, {
+	return []txn.Op{unitNotDeadOp, {
 		C:  unitStatesC,
 		Id: unitGlobalKey,
 		Assert: bson.D{
