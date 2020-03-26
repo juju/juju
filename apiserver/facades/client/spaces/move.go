@@ -34,6 +34,7 @@ type MovingSubnet interface {
 type MovedSubnet struct {
 	ID        string
 	FromSpace string
+	CIDR      string
 }
 
 // MoveSubnetsOp describes a model operation for moving subnets to a new space.
@@ -90,6 +91,7 @@ func (o *moveSubnetsOp) Done(err error) error {
 			mc := MovedSubnet{
 				ID:        subnet.ID(),
 				FromSpace: subnet.SpaceName(),
+				CIDR:      subnet.CIDR(),
 			}
 			o.results[i] = mc
 		}
@@ -292,6 +294,7 @@ func paramsFromMovedSubnet(movedSubnets []MovedSubnet) []params.MovedSubnet {
 		results[i] = params.MovedSubnet{
 			SubnetTag:   names.NewSubnetTag(v.ID).String(),
 			OldSpaceTag: names.NewSpaceTag(v.FromSpace).String(),
+			CIDR:        v.CIDR,
 		}
 	}
 	return results

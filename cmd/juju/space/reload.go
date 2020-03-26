@@ -39,7 +39,7 @@ func (c *ReloadCommand) Info() *cmd.Info {
 
 // Run implements Command.Run.
 func (c *ReloadCommand) Run(ctx *cmd.Context) error {
-	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
+	return c.RunWithSpaceAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		err := api.ReloadSpaces()
 		if err != nil {
 			if errors.IsNotSupported(err) {

@@ -45,7 +45,7 @@ func (s *RemoveSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RemoveSuite) runCommand(c *gc.C, api space.SpaceAPI, args ...string) (*cmd.Context, *space.RemoveCommand, error) {
+func (s *RemoveSuite) runCommand(c *gc.C, api space.API, args ...string) (*cmd.Context, *space.RemoveCommand, error) {
 	spaceCmd := &space.RemoveCommand{
 		SpaceCommandBase: space.NewSpaceCommandBase(api),
 	}

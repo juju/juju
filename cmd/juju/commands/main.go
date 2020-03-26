@@ -446,6 +446,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage spaces
 	r.Register(space.NewAddCommand())
 	r.Register(space.NewListCommand())
+	r.Register(space.NewMoveCommand())
 	r.Register(space.NewReloadCommand())
 	r.Register(space.NewShowSpaceCommand())
 	r.Register(space.NewRemoveCommand())

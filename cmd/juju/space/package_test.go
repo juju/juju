@@ -12,6 +12,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/space"
@@ -22,7 +23,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate mockgen -package mocks -destination mocks/spacesapi_mock.go github.com/juju/juju/cmd/juju/space SpaceAPI
+//go:generate mockgen -package mocks -destination mocks/spacesapi_mock.go github.com/juju/juju/cmd/juju/space SpaceAPI,SubnetAPI,API
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
@@ -88,7 +89,7 @@ func (s *BaseSpaceSuite) newCommandForTest() modelcmd.ModelCommand {
 	// out to make sure.
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	cmd1 := modelcmd.InnerCommand(cmd).(interface {
-		SetAPI(space.SpaceAPI)
+		SetAPI(space.API)
 	})
 	cmd1.SetAPI(s.api)
 	return cmd
@@ -148,9 +149,13 @@ type StubAPI struct {
 
 	Spaces  []params.Space
 	Subnets []params.Subnet
+
+	ShowSpaceResp     network.ShowSpace
+	MoveSubnetsResp   params.MoveSubnetsResult
+	SubnetsByCIDRResp []params.SubnetsResult
 }
 
-var _ space.SpaceAPI = (*StubAPI)(nil)
+var _ space.API = (*StubAPI)(nil)
 
 // NewStubAPI creates a StubAPI suitable for passing to
 // space.New*Command().
@@ -196,10 +201,41 @@ func NewStubAPI() *StubAPI {
 		Name:    "space2",
 		Subnets: append([]params.Subnet{}, subnets[2:]...),
 	}}
+	showSpace := network.ShowSpace{
+		Space: network.SpaceInfo{
+			ID:   spaces[1].Id,
+			Name: network.SpaceName(spaces[1].Name),
+			Subnets: []network.SubnetInfo{{
+				CIDR: subnets[0].CIDR,
+			}, {
+				CIDR: subnets[2].CIDR,
+			}},
+		},
+	}
+	moveSubnets := params.MoveSubnetsResult{
+		MovedSubnets: []params.MovedSubnet{{
+			SubnetTag:   "1",
+			OldSpaceTag: "space-internal",
+			CIDR:        subnets[0].CIDR,
+		}},
+		NewSpaceTag: "space-public",
+	}
+	subnetsByCIDR := []params.SubnetsResult{{
+		Subnets: []params.SubnetV2{{
+			ID:     "1",
+			Subnet: subnets[0],
+		}, {
+			ID:     "2",
+			Subnet: subnets[2],
+		}},
+	}}
 	return &StubAPI{
-		Stub:    &testing.Stub{},
-		Spaces:  spaces,
-		Subnets: subnets,
+		Stub:              &testing.Stub{},
+		Spaces:            spaces,
+		Subnets:           subnets,
+		ShowSpaceResp:     showSpace,
+		MoveSubnetsResp:   moveSubnets,
+		SubnetsByCIDRResp: subnetsByCIDR,
 	}
 }
 
@@ -241,5 +277,15 @@ func (sa *StubAPI) ShowSpace(name string) (network.ShowSpace, error) {
 	if err := sa.NextErr(); err != nil {
 		return network.ShowSpace{}, err
 	}
-	return network.ShowSpace{}, nil
+	return sa.ShowSpaceResp, nil
+}
+
+func (sa *StubAPI) MoveSubnets(name names.SpaceTag, tags []names.SubnetTag, force bool) (params.MoveSubnetsResult, error) {
+	sa.MethodCall(sa, "MoveSubnets", name, tags, force)
+	return sa.MoveSubnetsResp, sa.NextErr()
+}
+
+func (sa *StubAPI) SubnetsByCIDR(cidrs []string) ([]params.SubnetsResult, error) {
+	sa.MethodCall(sa, "SubnetsByCIDR", cidrs)
+	return sa.SubnetsByCIDRResp, sa.NextErr()
 }

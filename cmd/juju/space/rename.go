@@ -87,7 +87,7 @@ func (c *RenameCommand) Init(args []string) (err error) {
 
 // Run implements Command.Run.
 func (c *RenameCommand) Run(ctx *cmd.Context) error {
-	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
+	return c.RunWithSpaceAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		err := api.RenameSpace(c.Name, c.NewName)
 		if err != nil {
 			return errors.Annotatef(err, "cannot rename space %q", c.Name)
