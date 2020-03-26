@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 )
 
@@ -21,12 +22,13 @@ import (
 type UnitStateBackend interface {
 	ApplyOperation(state.ModelOperation) error
 	Unit(string) (UnitStateUnit, error)
+	ControllerConfig() (controller.Config, error)
 }
 
 // UnitStateUnit describes unit-receiver state methods required
 // for UnitStateAPI.
 type UnitStateUnit interface {
-	SetStateOperation(*state.UnitState) state.ModelOperation
+	SetStateOperation(*state.UnitState, state.UnitStateSizeLimits) state.ModelOperation
 	State() (*state.UnitState, error)
 }
 
@@ -42,6 +44,10 @@ func (s UnitStateState) ApplyOperation(op state.ModelOperation) error {
 
 func (s UnitStateState) Unit(name string) (UnitStateUnit, error) {
 	return s.St.Unit(name)
+}
+
+func (s UnitStateState) ControllerConfig() (controller.Config, error) {
+	return s.St.ControllerConfig()
 }
 
 type UnitStateAPI struct {
@@ -135,6 +141,11 @@ func (u *UnitStateAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResul
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
+	ctrlCfg, err := u.backend.ControllerConfig()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
 	res := make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
 		unitTag, err := names.ParseUnitTag(arg.Tag)
@@ -168,8 +179,18 @@ func (u *UnitStateAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResul
 			unitState.SetStorageState(*arg.StorageState)
 		}
 
-		ops := unit.SetStateOperation(unitState)
+		ops := unit.SetStateOperation(
+			unitState,
+			state.UnitStateSizeLimits{
+				MaxCharmStateSize:  ctrlCfg.MaxCharmStateSize(),
+				MaxUniterStateSize: ctrlCfg.MaxUniterStateSize(),
+			},
+		)
 		if err = u.backend.ApplyOperation(ops); err != nil {
+			// Log quota-related errors to aid operators
+			if errors.IsQuotaLimitExceeded(err) {
+				logger.Errorf("%s: %v", unitTag, err)
+			}
 			res[i].Error = ServerError(err)
 		}
 	}

@@ -7,6 +7,7 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	common "github.com/juju/juju/apiserver/common"
+	controller "github.com/juju/juju/controller"
 	state "github.com/juju/juju/state"
 	reflect "reflect"
 )
@@ -36,6 +37,7 @@ func (m *MockUnitStateBackend) EXPECT() *MockUnitStateBackendMockRecorder {
 
 // ApplyOperation mocks base method
 func (m *MockUnitStateBackend) ApplyOperation(arg0 state.ModelOperation) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplyOperation", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -43,11 +45,28 @@ func (m *MockUnitStateBackend) ApplyOperation(arg0 state.ModelOperation) error {
 
 // ApplyOperation indicates an expected call of ApplyOperation
 func (mr *MockUnitStateBackendMockRecorder) ApplyOperation(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyOperation", reflect.TypeOf((*MockUnitStateBackend)(nil).ApplyOperation), arg0)
+}
+
+// ControllerConfig mocks base method
+func (m *MockUnitStateBackend) ControllerConfig() (controller.Config, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret0, _ := ret[0].(controller.Config)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerConfig indicates an expected call of ControllerConfig
+func (mr *MockUnitStateBackendMockRecorder) ControllerConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockUnitStateBackend)(nil).ControllerConfig))
 }
 
 // Unit mocks base method
 func (m *MockUnitStateBackend) Unit(arg0 string) (common.UnitStateUnit, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Unit", arg0)
 	ret0, _ := ret[0].(common.UnitStateUnit)
 	ret1, _ := ret[1].(error)
@@ -56,6 +75,7 @@ func (m *MockUnitStateBackend) Unit(arg0 string) (common.UnitStateUnit, error) {
 
 // Unit indicates an expected call of Unit
 func (mr *MockUnitStateBackendMockRecorder) Unit(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockUnitStateBackend)(nil).Unit), arg0)
 }
 
@@ -83,19 +103,22 @@ func (m *MockUnitStateUnit) EXPECT() *MockUnitStateUnitMockRecorder {
 }
 
 // SetStateOperation mocks base method
-func (m *MockUnitStateUnit) SetStateOperation(arg0 *state.UnitState) state.ModelOperation {
-	ret := m.ctrl.Call(m, "SetStateOperation", arg0)
+func (m *MockUnitStateUnit) SetStateOperation(arg0 *state.UnitState, arg1 state.UnitStateSizeLimits) state.ModelOperation {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetStateOperation", arg0, arg1)
 	ret0, _ := ret[0].(state.ModelOperation)
 	return ret0
 }
 
 // SetStateOperation indicates an expected call of SetStateOperation
-func (mr *MockUnitStateUnitMockRecorder) SetStateOperation(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStateOperation", reflect.TypeOf((*MockUnitStateUnit)(nil).SetStateOperation), arg0)
+func (mr *MockUnitStateUnitMockRecorder) SetStateOperation(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStateOperation", reflect.TypeOf((*MockUnitStateUnit)(nil).SetStateOperation), arg0, arg1)
 }
 
 // State mocks base method
 func (m *MockUnitStateUnit) State() (*state.UnitState, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "State")
 	ret0, _ := ret[0].(*state.UnitState)
 	ret1, _ := ret[1].(error)
@@ -104,5 +127,6 @@ func (m *MockUnitStateUnit) State() (*state.UnitState, error) {
 
 // State indicates an expected call of State
 func (mr *MockUnitStateUnitMockRecorder) State() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockUnitStateUnit)(nil).State))
 }

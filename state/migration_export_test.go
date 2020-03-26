@@ -760,7 +760,7 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	}
 	us := state.NewUnitState()
 	us.SetState(map[string]string{"payload": "b4dc0ffee"})
-	err = unit.SetState(us)
+	err = unit.SetState(us, state.UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	dbModel, err := st.Model()

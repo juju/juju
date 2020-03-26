@@ -1150,7 +1150,7 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	if unitState := u.State(); len(unitState) != 0 {
 		us := NewUnitState()
 		us.SetState(unitState)
-		if err := unit.SetState(us); err != nil {
+		if err := unit.SetState(us, UnitStateSizeLimits{}); err != nil {
 			return errors.Trace(err)
 		}
 	}
