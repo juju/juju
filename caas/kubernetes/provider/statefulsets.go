@@ -71,7 +71,6 @@ func (k *kubernetesClient) configureStatefulSet(
 	existingPodSpec := podSpec
 
 	handelPVC := func(pvc core.PersistentVolumeClaim, mountPath string) error {
-		logger.Criticalf("statefulSet pvc -> %s", pretty.Sprint(pvc))
 		if err := pushUniqVolumeClaimTemplate(&statefulSet.Spec, pvc); err != nil {
 			return errors.Trace(err)
 		}
@@ -85,12 +84,10 @@ func (k *kubernetesClient) configureStatefulSet(
 		return errors.Trace(err)
 	}
 	statefulSet.Spec.Template.Spec = podSpec
-	logger.Criticalf("statefulSet  -> %s", pretty.Sprint(statefulSet))
 	return k.ensureStatefulSet(statefulSet, existingPodSpec)
 }
 
 func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPodSpec core.PodSpec) error {
-	logger.Criticalf("createStatefulSet spec -> %s", pretty.Sprint(spec))
 	_, err := k.createStatefulSet(spec)
 	if errors.IsNotValid(err) {
 		return errors.Annotatef(err, "ensuring stateful set %q", spec.GetName())

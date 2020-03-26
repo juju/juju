@@ -117,6 +117,7 @@ func (k *kubernetesClient) ensurePVC(pvc *core.PersistentVolumeClaim) (*core.Per
 		return nil, cleanUp, errors.Trace(err)
 	}
 	// PVC is immutable after creation except resources.requests for bound claims.
+	// TODO(caas): support requests - currently we only support limits which means updating here is a no ops for now.
 	existing.Spec.Resources.Requests = pvc.Spec.Resources.Requests
 	out, err = k.updatePVC(existing)
 	return out, cleanUp, errors.Trace(err)

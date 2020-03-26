@@ -966,7 +966,6 @@ func (k *kubernetesClient) EnsureService(
 	numUnits int,
 	config application.ConfigAttributes,
 ) (err error) {
-	logger.Criticalf("EnsureService -> params: %s", pretty.Sprint(params))
 	defer func() {
 		if err != nil {
 			_ = statusCallback(appName, status.Error, err.Error(), nil)
@@ -995,7 +994,6 @@ func (k *kubernetesClient) EnsureService(
 		if err == nil {
 			return
 		}
-		logger.Criticalf("err -> %v", err)
 		for _, f := range cleanups {
 			f()
 		}
@@ -1118,7 +1116,8 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 	if params.Deployment.DeploymentType != caas.DeploymentStateful {
-		// TODO(caas): remove this check once `params.Deployment` is changed to be required.
+		// TODO(caas): either not found or params.Deployment.DeploymentType == existing resource type!!!!!!
+		// deployment type should be immutable!!!!
 		_, err := k.getStatefulSet(deploymentName)
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
@@ -1289,7 +1288,6 @@ func (k *kubernetesClient) filesystemToVolumeInfo(
 	pvcNameGetter func(int, string) string,
 ) (vol *core.Volume, pvc *core.PersistentVolumeClaim, err error) {
 	fsSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", fs.Size))
-	logger.Criticalf("fs.Size -> %#v, str -> %q, fsSize -> %s, err -> %v", fs.Size, fmt.Sprintf("%dMi", fs.Size), pretty.Sprint(fsSize), err)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "invalid volume size %v", fs.Size)
 	}
@@ -1794,7 +1792,6 @@ func (k *kubernetesClient) configureDeployment(
 	if err := k.configureStorage(appName, legacy, randPrefix, filesystems, &deployment.Spec.Template.Spec, handelPVC); err != nil {
 		return cleanUps, errors.Trace(err)
 	}
-	logger.Criticalf("deployment -> %s", pretty.Sprint(deployment))
 	if err = k.ensureDeployment(deployment); err != nil {
 		return cleanUps, errors.Trace(err)
 	}
