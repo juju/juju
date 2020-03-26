@@ -337,11 +337,6 @@ func (env *maasEnviron) SupportsSpaces(ctx context.ProviderCallContext) (bool, e
 	return true, nil
 }
 
-// SupportsProviderSpaces is specified on environs.Networking.
-func (env *maasEnviron) SupportsProviderSpaces(ctx context.ProviderCallContext) (bool, error) {
-	return true, nil
-}
-
 // SupportsSpaceDiscovery is specified on environs.Networking.
 func (env *maasEnviron) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool, error) {
 	return true, nil
