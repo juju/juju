@@ -1176,18 +1176,6 @@ func (u *Unit) relations(predicate relationPredicate) ([]*Relation, error) {
 	return filtered, nil
 }
 
-// DeployerTag returns the tag of the agent responsible for deploying
-// the unit. If no such entity can be determined, false is returned.
-// XXX: this method is only used in tests, we should probably kill it.
-func (u *Unit) DeployerTag() (names.Tag, bool) {
-	if u.doc.Principal != "" {
-		return names.NewUnitTag(u.doc.Principal), true
-	} else if u.doc.MachineId != "" {
-		return names.NewMachineTag(u.doc.MachineId), true
-	}
-	return nil, false
-}
-
 // PrincipalName returns the name of the unit's principal.
 // If the unit is not a subordinate, false is returned.
 func (u *Unit) PrincipalName() (string, bool) {
@@ -1368,7 +1356,7 @@ func (u *Unit) Refresh() error {
 		return errors.NotFoundf("unit %q", u)
 	}
 	if err != nil {
-		return fmt.Errorf("cannot refresh unit %q: %v", u, err)
+		return errors.Annotatef(err, "cannot refresh unit %q", u)
 	}
 	return nil
 }
@@ -1644,7 +1632,7 @@ func (u *Unit) CharmURL() (*charm.URL, bool) {
 // An error will be returned if the unit is dead, or the charm URL not known.
 func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	if curl == nil {
-		return fmt.Errorf("cannot set nil charm url")
+		return errors.Errorf("cannot set nil charm url")
 	}
 
 	db, closer := u.st.newDB()

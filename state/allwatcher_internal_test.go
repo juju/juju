@@ -340,10 +340,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		err = wu.AssignToMachine(m)
 		c.Assert(err, jc.ErrorIsNil)
 
-		deployer, ok := wu.DeployerTag()
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(deployer, gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
-
 		wru, err := rel.Unit(wu)
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -355,10 +351,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		lu, err := st.Unit(fmt.Sprintf("logging/%d", i))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(lu.IsPrincipal(), jc.IsFalse)
-		deployer, ok = lu.DeployerTag()
-		c.Assert(ok, jc.IsTrue)
 		unitName := fmt.Sprintf("wordpress/%d", i)
-		c.Assert(deployer, gc.Equals, names.NewUnitTag(unitName))
 		add(&multiwatcher.UnitInfo{
 			ModelUUID:   modelUUID,
 			Name:        fmt.Sprintf("logging/%d", i),
@@ -2557,8 +2550,6 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			fw.AssertOpenUnitPort(c, u, emptySubnet, "tcp", 12345)
 			publicAddress := network.NewScopedSpaceAddress("public", network.ScopePublic)
 			privateAddress := network.NewScopedSpaceAddress("private", network.ScopeCloudLocal)
-			//err = m.SetProviderAddresses(publicAddress, privateAddress)
-			//c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
 				Status:  status.Error,

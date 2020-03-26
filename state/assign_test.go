@@ -184,38 +184,6 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *gc.C) {
 	c.Check(id, gc.Equals, machine.Id())
 }
 
-func (s *AssignSuite) TestDeployerTag(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	principal, err := s.wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	subordinate := s.addSubordinate(c, principal)
-
-	assertDeployer := func(u *state.Unit, d state.Entity) {
-		err := u.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		name, ok := u.DeployerTag()
-		if d == nil {
-			c.Assert(ok, jc.IsFalse)
-		} else {
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(name, gc.Equals, d.Tag())
-		}
-	}
-	assertDeployer(subordinate, principal)
-	assertDeployer(principal, nil)
-
-	err = principal.AssignToMachine(machine)
-	c.Assert(err, jc.ErrorIsNil)
-	assertDeployer(subordinate, principal)
-	assertDeployer(principal, machine)
-
-	err = principal.UnassignFromMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	assertDeployer(subordinate, principal)
-	assertDeployer(principal, nil)
-}
-
 func (s *AssignSuite) TestDirectAssignIgnoresConstraints(c *gc.C) {
 	// Set up constraints.
 	scons := constraints.MustParse("mem=2G cpu-power=400")

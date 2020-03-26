@@ -1735,6 +1735,9 @@ func (a *Application) addUnitOps(
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}
+		if args.machineID != "" {
+			return "", nil, errors.NotSupportedf("non-empty machineID")
+		}
 	}
 	storageCons, err := a.StorageConstraints()
 	if err != nil {

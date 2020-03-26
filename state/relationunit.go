@@ -253,15 +253,21 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 	if err != nil {
 		return nil, "", errors.Annotate(err, "unable to load principal unit")
 	}
-	// We dont care just now if the machine isn't assigned, as CAAS models
-	// will return that error. For IAAS models, the machine *should* always
-	// be assigned before it is able to enter scope.
-	principalMachineID, _ := principal.AssignedMachineId()
+	var principalMachineID string
+	if principal.ShouldBeAssigned() {
+		// We don't care just now if the machine isn't assigned, as CAAS models
+		// will return that error. For IAAS models, the machine *should* always
+		// be assigned before it is able to enter scope.
+		// We don't check the error here now because it'll cause *huge* test
+		// fallout as many tests don't follow reality, particularly when
+		// relations are being tested.
+		principalMachineID, _ = principal.AssignedMachineId()
+	}
+
 	applicationname, unitName := related[0].ApplicationName, ru.unitName
 	selSubordinate := bson.D{{"application", applicationname}, {"principal", unitName}}
 	var lDoc lifeDoc
 	if err := units.Find(selSubordinate).One(&lDoc); err == mgo.ErrNotFound {
-		logger.Criticalf("ru.unitName: %s, principleMachineID: %q", ru.unitName, principalMachineID)
 		application, err := ru.st.Application(applicationname)
 		if err != nil {
 			return nil, "", err

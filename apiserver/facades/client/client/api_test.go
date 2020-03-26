@@ -486,10 +486,6 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		err = wu.AssignToMachine(m)
 		c.Assert(err, jc.ErrorIsNil)
 
-		deployer, ok := wu.DeployerTag()
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(deployer, gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
-
 		wru, err := rel.Unit(wu)
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -521,9 +517,6 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		lu, err := s.State.Unit(fmt.Sprintf("logging/%d", i))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(lu.IsPrincipal(), jc.IsFalse)
-		deployer, ok = lu.DeployerTag()
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(deployer, gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		setDefaultPassword(c, lu)
 		s.setAgentPresence(c, wu)
 		add(lu)

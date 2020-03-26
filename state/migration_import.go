@@ -1235,6 +1235,7 @@ func (i *importer) getPrincipalMachineID(principal names.UnitTag) string {
 	}
 	// We should never get here, but if we do, just return an empty
 	// machine ID.
+	i.logger.Warningf("unable to find principal %q", principal.Id())
 	return ""
 }
 
