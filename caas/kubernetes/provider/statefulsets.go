@@ -70,17 +70,15 @@ func (k *kubernetesClient) configureStatefulSet(
 	podSpec := workloadSpec.Pod
 	existingPodSpec := podSpec
 
-	handelPVC := func(pvc *core.PersistentVolumeClaim, mountPath string) error {
-		if pvc != nil {
-			logger.Criticalf("statefulSet pvc -> %s", pretty.Sprint(pvc))
-			if err := pushUniqVolumeClaimTemplate(&statefulSet.Spec, *pvc); err != nil {
-				return errors.Trace(err)
-			}
-			podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
-				Name:      pvc.Name,
-				MountPath: mountPath,
-			})
+	handelPVC := func(pvc core.PersistentVolumeClaim, mountPath string) error {
+		logger.Criticalf("statefulSet pvc -> %s", pretty.Sprint(pvc))
+		if err := pushUniqVolumeClaimTemplate(&statefulSet.Spec, pvc); err != nil {
+			return errors.Trace(err)
 		}
+		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
+			Name:      pvc.Name,
+			MountPath: mountPath,
+		})
 		return nil
 	}
 	if err = k.configureStorage(appName, isLegacyName(deploymentName), randPrefix, filesystems, &podSpec, handelPVC); err != nil {
@@ -92,6 +90,7 @@ func (k *kubernetesClient) configureStatefulSet(
 }
 
 func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPodSpec core.PodSpec) error {
+	logger.Criticalf("createStatefulSet spec -> %s", pretty.Sprint(spec))
 	_, err := k.createStatefulSet(spec)
 	if errors.IsNotValid(err) {
 		return errors.Annotatef(err, "ensuring stateful set %q", spec.GetName())
@@ -108,6 +107,7 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 	}
 	// TODO(caas) - allow extra storage to be added
 	existing.Spec.Replicas = spec.Spec.Replicas
+	existing.Spec.VolumeClaimTemplates = spec.Spec.VolumeClaimTemplates // ??????? check
 	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
 	existing.Spec.Template.Spec.ServiceAccountName = existingPodSpec.ServiceAccountName
 	existing.Spec.Template.Spec.AutomountServiceAccountToken = existingPodSpec.AutomountServiceAccountToken

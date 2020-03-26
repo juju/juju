@@ -105,13 +105,20 @@ func (k *kubernetesClient) ensurePVC(pvc *core.PersistentVolumeClaim) (*core.Per
 	cleanUp := func() {}
 	out, err := k.createPVC(pvc)
 	if err == nil {
+		// Only do cleanup for the first time!
 		cleanUp = func() { k.deletePVC(out.GetName(), out.GetUID()) }
 		return out, cleanUp, nil
 	}
 	if !errors.IsAlreadyExists(err) {
 		return nil, cleanUp, errors.Trace(err)
 	}
-	out, err = k.updatePVC(pvc)
+	existing, err := k.getPVC(pvc.GetName())
+	if err != nil {
+		return nil, cleanUp, errors.Trace(err)
+	}
+	// PVC is immutable after creation except resources.requests for bound claims.
+	existing.Spec.Resources.Requests = pvc.Spec.Resources.Requests
+	out, err = k.updatePVC(existing)
 	return out, cleanUp, errors.Trace(err)
 }
 

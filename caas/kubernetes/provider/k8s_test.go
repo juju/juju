@@ -4,6 +4,7 @@
 package provider_test
 
 import (
+	"github.com/kr/pretty"
 	"strings"
 	"time"
 
@@ -2051,62 +2052,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceStatelessWithScalePolicyInvalid(c *gc.
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
 	c.Assert(err, gc.ErrorMatches, `ScalePolicy is only supported for stateful applications`)
-}
-
-func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageInvalid(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	basicPodSpec := getBasicPodspec()
-
-	ociImageSecret := s.getOCIImageSecret(c, map[string]string{"fred": "mary"})
-	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockSecrets.EXPECT().Create(ociImageSecret).
-			Return(ociImageSecret, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockSecrets.EXPECT().Delete(ociImageSecret.GetName(), s.deleteOptions(v1.DeletePropagationForeground, "")).
-			Return(nil),
-	)
-
-	params := &caas.ServiceParams{
-		PodSpec: basicPodSpec,
-		Deployment: caas.DeploymentParams{
-			DeploymentType: caas.DeploymentDaemon,
-		},
-		Filesystems: []storage.KubernetesFilesystemParams{{
-			StorageName: "database",
-			Size:        100,
-			Provider:    "kubernetes",
-			Attributes:  map[string]interface{}{"storage-class": "workload-storage"},
-			Attachment: &storage.KubernetesFilesystemAttachmentParams{
-				Path: "path/to/here",
-			},
-			ResourceTags: map[string]string{"foo": "bar"},
-		}, {
-			StorageName: "logs",
-			Size:        200,
-			Provider:    "tmpfs",
-			Attributes:  map[string]interface{}{"storage-medium": "Memory"},
-			Attachment: &storage.KubernetesFilesystemAttachmentParams{
-				Path: "path/to/there",
-			},
-		}},
-		OperatorImagePath: "operator/image-path",
-		ResourceTags: map[string]string{
-			"juju-controller-uuid": testing.ControllerTag.Id(),
-			"fred":                 "mary",
-		},
-	}
-	err := s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
-		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
-		"kubernetes-service-externalname":    "ext-name",
-		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
-	})
-	c.Assert(err, gc.ErrorMatches, `charm defined storage is only supported for deployment type "stateful", please instead define storage using volumeConfig in containers`)
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceWithConfigMapAndSecretsCreate(c *gc.C) {
@@ -4640,7 +4585,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{}).
 			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
-			Return(nil, nil),
+			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
 			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
@@ -4764,6 +4709,296 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
+	}
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	numUnits := int32(2)
+	basicPodSpec := getBasicPodspec()
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.PodSpec(workloadSpec)
+	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
+		Name:      "database-appuuid",
+		MountPath: "path/to/here",
+	}, core.VolumeMount{
+		Name:      "logs-1",
+		MountPath: "path/to/there",
+	})
+
+	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
+		Name: "database-appuuid",
+		VolumeSource: core.VolumeSource{
+			PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
+				ClaimName: "database-appuuid",
+			}},
+	})
+	pvc := &core.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "database-appuuid",
+			Annotations: map[string]string{
+				"foo":          "bar",
+				"juju-storage": "database",
+			},
+		},
+		Spec: core.PersistentVolumeClaimSpec{
+			StorageClassName: strPtr("workload-storage"),
+			Resources: core.ResourceRequirements{
+				Requests: core.ResourceList{
+					core.ResourceStorage: resource.MustParse("100Mi"),
+				},
+			},
+			AccessModes: []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
+		},
+	}
+	size, err := resource.ParseQuantity("200Mi")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
+		Name: "logs-1",
+		VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{
+			SizeLimit: &size,
+			Medium:    "Memory",
+		}},
+	})
+
+	deploymentArg := &appsv1.Deployment{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":      "appuuid",
+			}},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &numUnits,
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{"juju-app": "app-name"},
+			},
+			RevisionHistoryLimit: int32Ptr(0),
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					GenerateName: "app-name-",
+					Labels:       map[string]string{"juju-app": "app-name"},
+					Annotations: map[string]string{
+						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
+						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"juju.io/controller":                       testing.ControllerTag.Id(),
+					},
+				},
+				Spec: podSpec,
+			},
+		},
+	}
+	c.Logf("deploymentArg -> %s", pretty.Sprint(deploymentArg))
+	ociImageSecret := s.getOCIImageSecret(c, nil)
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Create(ociImageSecret).
+			Return(ociImageSecret, nil),
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicServiceArg).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicServiceArg).
+			Return(nil, nil),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{}).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
+		s.mockPersistentVolumeClaims.EXPECT().Create(pvc).
+			Return(pvc, nil),
+		s.mockDeployments.EXPECT().Update(deploymentArg).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Create(deploymentArg).
+			Return(deploymentArg, nil),
+	)
+
+	params := &caas.ServiceParams{
+		Deployment: caas.DeploymentParams{
+			DeploymentType: caas.DeploymentStateless,
+		},
+		PodSpec:           basicPodSpec,
+		OperatorImagePath: "operator/image-path",
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "database",
+			Size:        100,
+			Provider:    "kubernetes",
+			Attributes:  map[string]interface{}{"storage-class": "workload-storage"},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/here",
+			},
+			ResourceTags: map[string]string{"foo": "bar"},
+		}, {
+			StorageName: "logs",
+			Size:        200,
+			Provider:    "tmpfs",
+			Attributes:  map[string]interface{}{"storage-medium": "Memory"},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/there",
+			},
+		}},
+	}
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	numUnits := int32(2)
+	basicPodSpec := getBasicPodspec()
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.PodSpec(workloadSpec)
+	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
+		Name:      "database-appuuid",
+		MountPath: "path/to/here",
+	}, core.VolumeMount{
+		Name:      "logs-1",
+		MountPath: "path/to/there",
+	})
+
+	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
+		Name: "database-appuuid",
+		VolumeSource: core.VolumeSource{
+			PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
+				ClaimName: "database-appuuid",
+			}},
+	})
+	pvc := &core.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "database-appuuid",
+			Annotations: map[string]string{
+				"foo":          "bar",
+				"juju-storage": "database",
+			},
+		},
+		Spec: core.PersistentVolumeClaimSpec{
+			StorageClassName: strPtr("workload-storage"),
+			Resources: core.ResourceRequirements{
+				Requests: core.ResourceList{
+					core.ResourceStorage: resource.MustParse("100Mi"),
+				},
+			},
+			AccessModes: []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
+		},
+	}
+	size, err := resource.ParseQuantity("200Mi")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
+		Name: "logs-1",
+		VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{
+			SizeLimit: &size,
+			Medium:    "Memory",
+		}},
+	})
+
+	deploymentArg := &appsv1.Deployment{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":      "appuuid",
+			}},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &numUnits,
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{"juju-app": "app-name"},
+			},
+			RevisionHistoryLimit: int32Ptr(0),
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					GenerateName: "app-name-",
+					Labels:       map[string]string{"juju-app": "app-name"},
+					Annotations: map[string]string{
+						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
+						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"juju.io/controller":                       testing.ControllerTag.Id(),
+					},
+				},
+				Spec: podSpec,
+			},
+		},
+	}
+	c.Logf("deploymentArg -> %s", pretty.Sprint(deploymentArg))
+	ociImageSecret := s.getOCIImageSecret(c, nil)
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Create(ociImageSecret).
+			Return(ociImageSecret, nil),
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicServiceArg).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicServiceArg).
+			Return(nil, nil),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(deploymentArg, nil),
+		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{}).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
+		s.mockPersistentVolumeClaims.EXPECT().Create(pvc).
+			Return(nil, s.k8sAlreadyExistsError()),
+		s.mockPersistentVolumeClaims.EXPECT().Update(pvc).
+			Return(pvc, nil),
+		s.mockDeployments.EXPECT().Update(deploymentArg).
+			Return(deploymentArg, nil),
+	)
+
+	params := &caas.ServiceParams{
+		Deployment: caas.DeploymentParams{
+			DeploymentType: caas.DeploymentStateless,
+		},
+		PodSpec:           basicPodSpec,
+		OperatorImagePath: "operator/image-path",
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "database",
+			Size:        100,
+			Provider:    "kubernetes",
+			Attributes:  map[string]interface{}{"storage-class": "workload-storage"},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/here",
+			},
+			ResourceTags: map[string]string{"foo": "bar"},
+		}, {
+			StorageName: "logs",
+			Size:        200,
+			Provider:    "tmpfs",
+			Attributes:  map[string]interface{}{"storage-medium": "Memory"},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/there",
+			},
+		}},
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
