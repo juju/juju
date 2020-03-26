@@ -1157,7 +1157,11 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]Machine
 				}},
 			}}
 		}
-		results[corenetwork.AlphaSpaceId] = r
+		if err != nil {
+			r.Error = err
+		} else {
+			results[corenetwork.AlphaSpaceId] = r
+		}
 	}
 
 	for _, id := range spaces.Values() {
