@@ -47,7 +47,7 @@ The best we can do for now is to stub out the facade caller and
 return curated values for each API call.
 */
 
-type relationsSuite struct {
+type relationResolverSuite struct {
 	coretesting.BaseSuite
 
 	stateDir              string
@@ -55,7 +55,10 @@ type relationsSuite struct {
 	leadershipContextFunc relation.LeadershipContextFunc
 }
 
-var _ = gc.Suite(&relationsSuite{})
+var (
+	_ = gc.Suite(&relationResolverSuite{})
+	_ = gc.Suite(&relationCreatedResolverSuite{})
+)
 
 type apiCall struct {
 	request string
@@ -116,7 +119,7 @@ requires:
   mysql: db
 `[1:]
 
-func (s *relationsSuite) SetUpTest(c *gc.C) {
+func (s *relationResolverSuite) SetUpTest(c *gc.C) {
 	s.stateDir = filepath.Join(c.MkDir(), "charm")
 	err := os.MkdirAll(s.stateDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
@@ -133,7 +136,7 @@ func assertNumCalls(c *gc.C, numCalls *int32, expected int32) {
 	c.Assert(v, gc.Equals, expected)
 }
 
-func (s *relationsSuite) setupRelations(c *gc.C) relation.RelationStateTracker {
+func (s *relationResolverSuite) setupRelations(c *gc.C) relation.RelationStateTracker {
 	unitTag := names.NewUnitTag("wordpress/0")
 	abort := make(chan struct{})
 
@@ -159,13 +162,13 @@ func (s *relationsSuite) setupRelations(c *gc.C) relation.RelationStateTracker {
 	return r
 }
 
-func (s *relationsSuite) TestNewRelationsNoRelations(c *gc.C) {
+func (s *relationResolverSuite) TestNewRelationsNoRelations(c *gc.C) {
 	r := s.setupRelations(c)
 	//No relations created.
 	c.Assert(r.GetInfo(), gc.HasLen, 0)
 }
 
-func (s *relationsSuite) assertNewRelationsWithExistingRelations(c *gc.C, isLeader bool) {
+func (s *relationResolverSuite) assertNewRelationsWithExistingRelations(c *gc.C, isLeader bool) {
 	unitTag := names.NewUnitTag("wordpress/0")
 	abort := make(chan struct{})
 	s.leadershipContextFunc = func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker, unitName string) context.LeadershipContext {
@@ -234,15 +237,15 @@ func (s *relationsSuite) assertNewRelationsWithExistingRelations(c *gc.C, isLead
 	c.Assert(oneInfo.MemberNames, gc.HasLen, 0)
 }
 
-func (s *relationsSuite) TestNewRelationsWithExistingRelationsLeader(c *gc.C) {
+func (s *relationResolverSuite) TestNewRelationsWithExistingRelationsLeader(c *gc.C) {
 	s.assertNewRelationsWithExistingRelations(c, true)
 }
 
-func (s *relationsSuite) TestNewRelationsWithExistingRelationsNotLeader(c *gc.C) {
+func (s *relationResolverSuite) TestNewRelationsWithExistingRelationsNotLeader(c *gc.C) {
 	s.assertNewRelationsWithExistingRelations(c, false)
 }
 
-func (s *relationsSuite) TestNextOpNothing(c *gc.C) {
+func (s *relationResolverSuite) TestNextOpNothing(c *gc.C) {
 	unitTag := names.NewUnitTag("wordpress/0")
 	abort := make(chan struct{})
 
@@ -313,7 +316,7 @@ func relationJoinedAPICalls() []apiCall {
 	return apiCalls
 }
 
-func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiCalls ...apiCall) relation.RelationStateTracker {
+func (s *relationResolverSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiCalls ...apiCall) relation.RelationStateTracker {
 	unitTag := names.NewUnitTag("wordpress/0")
 	abort := make(chan struct{})
 
@@ -363,12 +366,12 @@ func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiC
 	return r
 }
 
-func (s *relationsSuite) TestHookRelationJoined(c *gc.C) {
+func (s *relationResolverSuite) TestHookRelationJoined(c *gc.C) {
 	var numCalls int32
 	s.assertHookRelationJoined(c, &numCalls, relationJoinedAPICalls()...)
 }
 
-func (s *relationsSuite) assertHookRelationChanged(
+func (s *relationResolverSuite) assertHookRelationChanged(
 	c *gc.C, r relation.RelationStateTracker,
 	remoteRelationSnapshot remotestate.RelationSnapshot,
 	numCalls *int32,
@@ -397,7 +400,7 @@ func (s *relationsSuite) assertHookRelationChanged(
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationsSuite) TestHookRelationChanged(c *gc.C) {
+func (s *relationResolverSuite) TestHookRelationChanged(c *gc.C) {
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls()
 	r := s.assertHookRelationJoined(c, &numCalls, apiCalls...)
@@ -434,7 +437,7 @@ func (s *relationsSuite) TestHookRelationChanged(c *gc.C) {
 	}, &numCalls)
 }
 
-func (s *relationsSuite) TestHookRelationChangedApplication(c *gc.C) {
+func (s *relationResolverSuite) TestHookRelationChangedApplication(c *gc.C) {
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls()
 	r := s.assertHookRelationJoined(c, &numCalls, apiCalls...)
@@ -478,7 +481,7 @@ func (s *relationsSuite) TestHookRelationChangedApplication(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, "run hook relation-changed on app wordpress with relation 1")
 }
 
-func (s *relationsSuite) TestHookRelationChangedSuspended(c *gc.C) {
+func (s *relationResolverSuite) TestHookRelationChangedSuspended(c *gc.C) {
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls()
 	r := s.assertHookRelationJoined(c, &numCalls, apiCalls...)
@@ -515,7 +518,7 @@ func (s *relationsSuite) TestHookRelationChangedSuspended(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, "run hook relation-departed on unit wordpress/0 with relation 1")
 }
 
-func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int32, apiCalls ...apiCall) relation.RelationStateTracker {
+func (s *relationResolverSuite) assertHookRelationDeparted(c *gc.C, numCalls *int32, apiCalls ...apiCall) relation.RelationStateTracker {
 	r := s.assertHookRelationJoined(c, numCalls, apiCalls...)
 	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
 		Life:      life.Alive,
@@ -552,14 +555,14 @@ func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int32, ap
 	return r
 }
 
-func (s *relationsSuite) TestHookRelationDeparted(c *gc.C) {
+func (s *relationResolverSuite) TestHookRelationDeparted(c *gc.C) {
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls()
 
 	s.assertHookRelationDeparted(c, &numCalls, apiCalls...)
 }
 
-func (s *relationsSuite) TestHookRelationBroken(c *gc.C) {
+func (s *relationResolverSuite) TestHookRelationBroken(c *gc.C) {
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls()
 
@@ -584,7 +587,7 @@ func (s *relationsSuite) TestHookRelationBroken(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, "run hook relation-broken with relation 1")
 }
 
-func (s *relationsSuite) TestHookRelationBrokenWhenSuspended(c *gc.C) {
+func (s *relationResolverSuite) TestHookRelationBrokenWhenSuspended(c *gc.C) {
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls()
 
@@ -610,7 +613,7 @@ func (s *relationsSuite) TestHookRelationBrokenWhenSuspended(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, "run hook relation-broken with relation 1")
 }
 
-func (s *relationsSuite) TestHookRelationBrokenOnlyOnce(c *gc.C) {
+func (s *relationResolverSuite) TestHookRelationBrokenOnlyOnce(c *gc.C) {
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls()
 	relationUnits := params.RelationUnits{RelationUnits: []params.RelationUnit{
@@ -644,7 +647,7 @@ func (s *relationsSuite) TestHookRelationBrokenOnlyOnce(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, resolver.ErrNoOperation)
 }
 
-func (s *relationsSuite) TestCommitHook(c *gc.C) {
+func (s *relationResolverSuite) TestCommitHook(c *gc.C) {
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls()
 	relationUnits := params.RelationUnits{RelationUnits: []params.RelationUnit{
@@ -683,7 +686,7 @@ func (s *relationsSuite) TestCommitHook(c *gc.C) {
 	c.Assert(stateFile, jc.DoesNotExist)
 }
 
-func (s *relationsSuite) TestImplicitRelationNoHooks(c *gc.C) {
+func (s *relationResolverSuite) TestImplicitRelationNoHooks(c *gc.C) {
 	unitTag := names.NewUnitTag("wordpress/0")
 	abort := make(chan struct{})
 
@@ -838,7 +841,7 @@ func subSubRelationAPICalls() []apiCall {
 	}
 }
 
-func (s *relationsSuite) TestSubSubPrincipalRelationDyingDestroysUnit(c *gc.C) {
+func (s *relationResolverSuite) TestSubSubPrincipalRelationDyingDestroysUnit(c *gc.C) {
 	// When two subordinate units are related on a principal unit's
 	// machine, the sub-sub relation shouldn't keep them alive if the
 	// relation to the principal dies.
@@ -899,7 +902,7 @@ func (s *relationsSuite) TestSubSubPrincipalRelationDyingDestroysUnit(c *gc.C) {
 	assertNumCalls(c, &numCalls, callsAfterDestroy)
 }
 
-func (s *relationsSuite) TestSubSubOtherRelationDyingNotDestroyed(c *gc.C) {
+func (s *relationResolverSuite) TestSubSubOtherRelationDyingNotDestroyed(c *gc.C) {
 	var numCalls int32
 	apiCalls := subSubRelationAPICalls()
 	// Sanity check: there shouldn't be a destroy at the end.
@@ -1002,7 +1005,7 @@ func principalWithSubordinateAPICalls() []apiCall {
 	}
 }
 
-func (s *relationsSuite) TestPrincipalDyingDestroysSubordinates(c *gc.C) {
+func (s *relationResolverSuite) TestPrincipalDyingDestroysSubordinates(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1058,7 +1061,9 @@ func (s *relationsSuite) TestPrincipalDyingDestroysSubordinates(c *gc.C) {
 	assertNumCalls(c, &numCalls, callsAfterDestroy)
 }
 
-func (s *relationsSuite) TestCreatedRelationResolverForRelationInScope(c *gc.C) {
+type relationCreatedResolverSuite struct{}
+
+func (s *relationCreatedResolverSuite) TestCreatedRelationResolverForRelationInScope(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1102,7 +1107,7 @@ func (s *relationsSuite) TestCreatedRelationResolverForRelationInScope(c *gc.C) 
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation, gc.Commentf("unexpected hook from created relations resolver for already joined relation"))
 }
 
-func (s *relationsSuite) TestCreatedRelationResolverFordRelationNotInScope(c *gc.C) {
+func (s *relationCreatedResolverSuite) TestCreatedRelationResolverFordRelationNotInScope(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
