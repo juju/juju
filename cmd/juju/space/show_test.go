@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/space"
-	"github.com/juju/juju/core/network"
 )
 
 type ShowSuite struct {
@@ -29,12 +28,12 @@ func (s *ShowSuite) SetUpTest(c *gc.C) {
 	s.newCommand = space.NewShowSpaceCommand
 }
 
-func (s *ShowSuite) getDefaultSpace() network.ShowSpace {
-	result := network.ShowSpace{
-		Space: network.SpaceInfo{
-			ID:   "1",
+func (s *ShowSuite) getDefaultSpace() params.ShowSpaceResult {
+	return params.ShowSpaceResult{
+		Space: params.Space{
+			Id:   "1",
 			Name: "default",
-			Subnets: []network.SubnetInfo{{
+			Subnets: []params.Subnet{{
 				CIDR:       "4.3.2.0/28",
 				ProviderId: "abc",
 				VLANTag:    0,
@@ -43,7 +42,6 @@ func (s *ShowSuite) getDefaultSpace() network.ShowSpace {
 		Applications: []string{"ubuntu,mysql"},
 		MachineCount: 4,
 	}
-	return result
 }
 
 func (s *ShowSuite) TestRunShowSpaceSucceeds(c *gc.C) {
@@ -83,7 +81,7 @@ func (s *ShowSuite) TestRunWhenShowSpacesNotSupported(c *gc.C) {
 	spaceName := "default"
 
 	expectedErr := errors.NewNotSupported(nil, "spaces not supported")
-	api.EXPECT().ShowSpace(spaceName).Return(network.ShowSpace{}, expectedErr)
+	api.EXPECT().ShowSpace(spaceName).Return(params.ShowSpaceResult{}, expectedErr)
 
 	_, err := s.runCommand(c, api, spaceName)
 
@@ -96,7 +94,7 @@ func (s *ShowSuite) TestRunWhenShowSpacesAPIFails(c *gc.C) {
 	spaceName := "default"
 
 	apiErr := errors.New("API error")
-	api.EXPECT().ShowSpace(spaceName).Return(network.ShowSpace{}, apiErr)
+	api.EXPECT().ShowSpace(spaceName).Return(params.ShowSpaceResult{}, apiErr)
 
 	_, err := s.runCommand(c, api, spaceName)
 	expectedMsg := fmt.Sprintf("cannot retrieve space %q: API error", spaceName)
@@ -112,7 +110,7 @@ func (s *ShowSuite) TestRunUnauthorizedMentionsJujuGrant(c *gc.C) {
 	ctrl, api := setUpMocks(c)
 	defer ctrl.Finish()
 	spaceName := "default"
-	api.EXPECT().ShowSpace(spaceName).Return(network.ShowSpace{}, apiErr)
+	api.EXPECT().ShowSpace(spaceName).Return(params.ShowSpaceResult{}, apiErr)
 
 	_, err := s.runCommand(c, api, spaceName)
 	expectedErrMsg := fmt.Sprintf("cannot retrieve space %q: permission denied", spaceName)
@@ -126,7 +124,7 @@ func (s *ShowSuite) TestRunWhenSpacesBlocked(c *gc.C) {
 	defer ctrl.Finish()
 
 	spaceName := "default"
-	api.EXPECT().ShowSpace(spaceName).Return(network.ShowSpace{}, apiErr)
+	api.EXPECT().ShowSpace(spaceName).Return(params.ShowSpaceResult{}, apiErr)
 	ctx, err := s.runCommand(c, api, spaceName)
 
 	c.Assert(err, gc.ErrorMatches, `

@@ -150,7 +150,7 @@ type StubAPI struct {
 	Spaces  []params.Space
 	Subnets []params.Subnet
 
-	ShowSpaceResp     network.ShowSpace
+	ShowSpaceResp     params.ShowSpaceResult
 	MoveSubnetsResp   params.MoveSubnetsResult
 	SubnetsByCIDRResp []params.SubnetsResult
 }
@@ -201,11 +201,11 @@ func NewStubAPI() *StubAPI {
 		Name:    "space2",
 		Subnets: append([]params.Subnet{}, subnets[2:]...),
 	}}
-	showSpace := network.ShowSpace{
-		Space: network.SpaceInfo{
-			ID:   spaces[1].Id,
-			Name: network.SpaceName(spaces[1].Name),
-			Subnets: []network.SubnetInfo{{
+	showSpace := params.ShowSpaceResult{
+		Space: params.Space{
+			Id:   spaces[1].Id,
+			Name: spaces[1].Name,
+			Subnets: []params.Subnet{{
 				CIDR: subnets[0].CIDR,
 			}, {
 				CIDR: subnets[2].CIDR,
@@ -257,9 +257,9 @@ func (sa *StubAPI) AddSpace(name string, subnetIds []string, public bool) error 
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) RemoveSpace(name string, force bool, dryRun bool) (network.RemoveSpace, error) {
+func (sa *StubAPI) RemoveSpace(name string, force bool, dryRun bool) (params.RemoveSpaceResult, error) {
 	sa.MethodCall(sa, "RemoveSpace", name)
-	return network.RemoveSpace{}, sa.NextErr()
+	return params.RemoveSpaceResult{}, sa.NextErr()
 }
 
 func (sa *StubAPI) RenameSpace(name, newName string) error {
@@ -272,10 +272,10 @@ func (sa *StubAPI) ReloadSpaces() error {
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) ShowSpace(name string) (network.ShowSpace, error) {
+func (sa *StubAPI) ShowSpace(name string) (params.ShowSpaceResult, error) {
 	sa.MethodCall(sa, "ShowSpace", name)
 	if err := sa.NextErr(); err != nil {
-		return network.ShowSpace{}, err
+		return params.ShowSpaceResult{}, err
 	}
 	return sa.ShowSpaceResp, nil
 }

@@ -7,7 +7,6 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/apiserver/params"
-	network "github.com/juju/juju/core/network"
 	names_v3 "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
@@ -94,10 +93,10 @@ func (mr *MockSpaceAPIMockRecorder) ReloadSpaces() *gomock.Call {
 }
 
 // RemoveSpace mocks base method
-func (m *MockSpaceAPI) RemoveSpace(arg0 string, arg1, arg2 bool) (network.RemoveSpace, error) {
+func (m *MockSpaceAPI) RemoveSpace(arg0 string, arg1, arg2 bool) (params.RemoveSpaceResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveSpace", arg0, arg1, arg2)
-	ret0, _ := ret[0].(network.RemoveSpace)
+	ret0, _ := ret[0].(params.RemoveSpaceResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -123,10 +122,10 @@ func (mr *MockSpaceAPIMockRecorder) RenameSpace(arg0, arg1 interface{}) *gomock.
 }
 
 // ShowSpace mocks base method
-func (m *MockSpaceAPI) ShowSpace(arg0 string) (network.ShowSpace, error) {
+func (m *MockSpaceAPI) ShowSpace(arg0 string) (params.ShowSpaceResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ShowSpace", arg0)
-	ret0, _ := ret[0].(network.ShowSpace)
+	ret0, _ := ret[0].(params.ShowSpaceResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -271,10 +270,10 @@ func (mr *MockAPIMockRecorder) ReloadSpaces() *gomock.Call {
 }
 
 // RemoveSpace mocks base method
-func (m *MockAPI) RemoveSpace(arg0 string, arg1, arg2 bool) (network.RemoveSpace, error) {
+func (m *MockAPI) RemoveSpace(arg0 string, arg1, arg2 bool) (params.RemoveSpaceResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveSpace", arg0, arg1, arg2)
-	ret0, _ := ret[0].(network.RemoveSpace)
+	ret0, _ := ret[0].(params.RemoveSpaceResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -300,10 +299,10 @@ func (mr *MockAPIMockRecorder) RenameSpace(arg0, arg1 interface{}) *gomock.Call 
 }
 
 // ShowSpace mocks base method
-func (m *MockAPI) ShowSpace(arg0 string) (network.ShowSpace, error) {
+func (m *MockAPI) ShowSpace(arg0 string) (params.ShowSpaceResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ShowSpace", arg0)
-	ret0, _ := ret[0].(network.ShowSpace)
+	ret0, _ := ret[0].(params.ShowSpaceResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/network"
 )
 
 const spacesFacade = "Spaces"
@@ -84,9 +83,8 @@ func (api *API) CreateSpace(name string, cidrs []string, public bool) error {
 
 // ShowSpace shows details about a space.
 // Containing subnets, applications and machines count associated with it.
-func (api *API) ShowSpace(name string) (network.ShowSpace, error) {
+func (api *API) ShowSpace(name string) (params.ShowSpaceResult, error) {
 	var response params.ShowSpaceResults
-	var result network.ShowSpace
 	var args interface{}
 	args = params.Entities{
 		Entities: []params.Entity{{Tag: names.NewSpaceTag(name).String()}},
@@ -94,42 +92,19 @@ func (api *API) ShowSpace(name string) (network.ShowSpace, error) {
 	err := api.facade.FacadeCall("ShowSpace", args, &response)
 	if err != nil {
 		if params.IsCodeNotSupported(err) {
-			return result, errors.NewNotSupported(nil, err.Error())
+			return params.ShowSpaceResult{}, errors.NewNotSupported(nil, err.Error())
 		}
-		return result, errors.Trace(err)
+		return params.ShowSpaceResult{}, errors.Trace(err)
 	}
 	if len(response.Results) != 1 {
-		return result, errors.Errorf("expected 1 result, got %d", len(response.Results))
+		return params.ShowSpaceResult{}, errors.Errorf("expected 1 result, got %d", len(response.Results))
 	}
-	if err := response.Results[0].Error; err != nil {
-		return result, err
-	}
-	convertedSpaceResult := ShowSpaceFromResult(response.Results[0])
-	return convertedSpaceResult, err
-}
 
-// ShowSpaceFromResult converts params.ShowSpaceResult to network.ShowSpace
-func ShowSpaceFromResult(result params.ShowSpaceResult) network.ShowSpace {
-	s := result.Space
-	subnets := make([]network.SubnetInfo, len(s.Subnets))
-	for i, value := range s.Subnets {
-		subnets[i].AvailabilityZones = value.Zones
-		subnets[i].ProviderId = network.Id(value.ProviderId)
-		subnets[i].VLANTag = value.VLANTag
-		subnets[i].CIDR = value.CIDR
-		subnets[i].ProviderNetworkId = network.Id(value.ProviderNetworkId)
-		subnets[i].ProviderSpaceId = network.Id(value.ProviderSpaceId)
+	result := response.Results[0]
+	if err := result.Error; err != nil {
+		return params.ShowSpaceResult{}, errors.Trace(err)
 	}
-	space := network.ShowSpace{
-		Space: network.SpaceInfo{
-			ID:      s.Id,
-			Name:    network.SpaceName(s.Name),
-			Subnets: subnets,
-		},
-		Applications: result.Applications,
-		MachineCount: result.MachineCount,
-	}
-	return space
+	return result, err
 }
 
 // ListSpaces lists all available spaces and their associated subnets.
@@ -154,6 +129,7 @@ func (api *API) ReloadSpaces() error {
 	return err
 }
 
+// RenameSpace attempts to rename a space from the old name to a new name.
 func (api *API) RenameSpace(oldName string, newName string) error {
 	var response params.ErrorResults
 	spaceRenameParams := make([]params.RenameSpaceParams, 1)
@@ -177,7 +153,7 @@ func (api *API) RenameSpace(oldName string, newName string) error {
 }
 
 // RemoveSpace removes a space.
-func (api *API) RemoveSpace(name string, force bool, dryRun bool) (network.RemoveSpace, error) {
+func (api *API) RemoveSpace(name string, force bool, dryRun bool) (params.RemoveSpaceResult, error) {
 	var response params.RemoveSpaceResults
 	args := params.RemoveSpaceParams{
 		SpaceParams: []params.RemoveSpaceParam{{
@@ -189,45 +165,19 @@ func (api *API) RemoveSpace(name string, force bool, dryRun bool) (network.Remov
 	err := api.facade.FacadeCall("RemoveSpace", args, &response)
 	if err != nil {
 		if params.IsCodeNotSupported(err) {
-			return network.RemoveSpace{}, errors.NewNotSupported(nil, err.Error())
+			return params.RemoveSpaceResult{}, errors.NewNotSupported(nil, err.Error())
 		}
-		return network.RemoveSpace{}, errors.Trace(err)
+		return params.RemoveSpaceResult{}, errors.Trace(err)
 	}
-	if len(response.Results) == 0 {
-		return network.RemoveSpace{}, nil
-	}
-	if len(response.Results) > 1 {
-		return network.RemoveSpace{}, errors.Errorf("%d results, expected 0 or 1", len(response.Results))
-	}
-
-	for _, result := range response.Results {
-		if result.Error != nil {
-			return network.RemoveSpace{}, result.Error
-		}
+	if len(response.Results) != 1 {
+		return params.RemoveSpaceResult{}, errors.Errorf("%d results, expected 1", len(response.Results))
 	}
 
 	result := response.Results[0]
-
-	constraints, err := convertEntitiesToStringAndSkipModel(result.Constraints)
-	if err != nil {
-		return network.RemoveSpace{}, err
+	if result.Error != nil {
+		return params.RemoveSpaceResult{}, result.Error
 	}
-	hasModel, err := hasModelConstraint(result.Constraints)
-	if err != nil {
-		return network.RemoveSpace{}, err
-	}
-	bindings, err := convertEntitiesToStringAndSkipModel(result.Bindings)
-	if err != nil {
-		return network.RemoveSpace{}, err
-	}
-
-	return network.RemoveSpace{
-		HasModelConstraint: hasModel,
-		Space:              name,
-		Constraints:        constraints,
-		Bindings:           bindings,
-		ControllerConfig:   result.ControllerSettings,
-	}, nil
+	return result, nil
 }
 
 // MoveSubnets ensures that the input subnets are in the input space.
@@ -263,34 +213,4 @@ func (api *API) MoveSubnets(space names.SpaceTag, subnets []names.SubnetTag, for
 	}
 
 	return result, nil
-}
-
-// convertEntitiesToStringAndSkipModel skips the modelTag as this will be used on another place.
-func convertEntitiesToStringAndSkipModel(entities []params.Entity) ([]string, error) {
-	var outputString []string
-	for _, ent := range entities {
-		tag, err := names.ParseTag(ent.Tag)
-		if err != nil {
-			return nil, err
-		}
-		if tag.Kind() == names.ModelTagKind {
-			continue
-		} else {
-			outputString = append(outputString, tag.Id())
-		}
-	}
-	return outputString, nil
-}
-
-func hasModelConstraint(entities []params.Entity) (bool, error) {
-	for _, entity := range entities {
-		tag, err := names.ParseTag(entity.Tag)
-		if err != nil {
-			return false, err
-		}
-		if tag.Kind() == names.ModelTagKind {
-			return true, nil
-		}
-	}
-	return false, nil
 }
