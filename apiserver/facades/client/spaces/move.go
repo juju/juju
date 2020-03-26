@@ -22,10 +22,12 @@ import (
 type MovingSubnet interface {
 	ID() string
 	CIDR() string
-	UpdateSpaceOps(spaceID string) []txn.Op
-	Refresh() error
 	SpaceName() string
 	SpaceID() string
+	FanLocalUnderlay() string
+
+	UpdateSpaceOps(spaceID string) []txn.Op
+	Refresh() error
 }
 
 // MovedSubnet identifies a subnet and the space it was move from.
@@ -127,7 +129,7 @@ func (api *API) MoveSubnets(args params.MoveSubnetsParams) (params.MoveSubnetsRe
 			continue
 		}
 
-		if err := api.ensureSubnetCanBeMoved(subnets, spaceName, toSpaceParams.Force); err != nil {
+		if err := api.ensureSubnetsCanBeMoved(subnets, spaceName, toSpaceParams.Force); err != nil {
 			results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
@@ -173,7 +175,14 @@ func (api *API) getMovingSubnets(tags []string) ([]MovingSubnet, error) {
 // based on application space constraints.
 // We need to handle the scenario where applications are *bound* to spaces
 // that would mutate as a result of moving subnets.
-func (api *API) ensureSubnetCanBeMoved(subnets []MovingSubnet, spaceName string, force bool) error {
+func (api *API) ensureSubnetsCanBeMoved(subnets []MovingSubnet, spaceName string, force bool) error {
+	for _, subnet := range subnets {
+		if subnet.FanLocalUnderlay() != "" {
+			return errors.Errorf("subnet %q is a fan overlay of %q and cannot be moved; move the underlay instead",
+				subnet.CIDR(), subnet.FanLocalUnderlay())
+		}
+	}
+
 	appsByCIDR, err := api.applicationsByMovingCIDR(subnets)
 	if err != nil {
 		return errors.Trace(err)

@@ -25,6 +25,11 @@ func (s *steps28Suite) TestIncrementTasksSequence(c *gc.C) {
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
 
+func (s *steps28Suite) TestAddMachineIDToSubordinates(c *gc.C) {
+	step := findStateStep(c, v280, "add machine ID to subordinate units")
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
+
 func (s *steps28Suite) TestPopulateRebootHandledFlagsForDeployedUnits(c *gc.C) {
 	step := findStep(c, v280, "ensure currently running units do not fire start hooks thinking a reboot has occurred")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.HostMachine})

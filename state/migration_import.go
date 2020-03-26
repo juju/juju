@@ -771,10 +771,6 @@ func (i *importer) loadUnits() error {
 		return errors.Annotate(err, "cannot get all units")
 	}
 
-	model, err := i.st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	result := make(map[string]map[string]*Unit)
 	for _, doc := range docs {
 		units, found := result[doc.Application]
@@ -782,7 +778,7 @@ func (i *importer) loadUnits() error {
 			units = make(map[string]*Unit)
 			result[doc.Application] = units
 		}
-		units[doc.Name] = newUnit(i.st, model.Type(), &doc)
+		units[doc.Name] = newUnit(i.st, i.dbModel.Type(), &doc)
 	}
 	i.applicationUnits = result
 	return nil
@@ -1149,7 +1145,9 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 		return errors.Trace(err)
 	}
 	if unitState := u.State(); len(unitState) != 0 {
-		if err := unit.SetState(unitState); err != nil {
+		us := NewUnitState()
+		us.SetState(unitState)
+		if err := unit.SetState(us); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1225,6 +1223,24 @@ func (i *importer) relationCount(application string) int {
 	return count
 }
 
+func (i *importer) getPrincipalMachineID(principal names.UnitTag) string {
+	// We know this is a valid unit name, so we don't care about the error.
+	appName, _ := names.UnitApplication(principal.Id())
+	for _, app := range i.model.Applications() {
+		if app.Name() == appName {
+			for _, unit := range app.Units() {
+				if unit.Tag() == principal {
+					return unit.Machine().Id()
+				}
+			}
+		}
+	}
+	// We should never get here, but if we do, just return an empty
+	// machine ID.
+	i.logger.Warningf("unable to find principal %q", principal.Id())
+	return ""
+}
+
 func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*unitDoc, error) {
 	// NOTE: if we want to support units having different charms deployed
 	// than the application recommends and migrate that, then we should serialize
@@ -1243,6 +1259,13 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 		}
 	}
 
+	machineID := u.Machine().Id()
+	if s.Subordinate() && machineID == "" && i.dbModel.Type() != ModelTypeCAAS {
+		// If we don't have a machine ID and we should, go get the
+		// machine ID from the principal.
+		machineID = i.getPrincipalMachineID(u.Principal())
+	}
+
 	return &unitDoc{
 		Name:                   u.Name(),
 		Application:            s.Name(),
@@ -1251,7 +1274,7 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 		Principal:              u.Principal().Id(),
 		Subordinates:           subordinates,
 		StorageAttachmentCount: i.unitStorageAttachmentCount(u.Tag()),
-		MachineId:              u.Machine().Id(),
+		MachineId:              machineID,
 		Tools:                  i.makeTools(u.Tools()),
 		Life:                   Alive,
 		PasswordHash:           u.PasswordHash(),

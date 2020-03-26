@@ -69,34 +69,216 @@ func (s *UnitSuite) TestApplication(c *gc.C) {
 	c.Assert(app.Name(), gc.Equals, s.unit.ApplicationName())
 }
 
-func (s *UnitSuite) TestUnitStateMutation(c *gc.C) {
+func (s *UnitSuite) TestUnitStateNotSet(c *gc.C) {
 	// Try fetching the state without a state doc present
-	ust, err := s.unit.State()
+	uState, err := s.unit.State()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ust, gc.IsNil, gc.Commentf("expected to receive a nil map when no state doc is present"))
+	st, found := uState.State()
+	c.Assert(st, gc.IsNil, gc.Commentf("expected to receive a nil map when no state doc is present"))
+	c.Assert(found, jc.IsFalse)
+	ust, found := uState.UniterState()
+	c.Assert(ust, gc.Equals, "")
+	c.Assert(found, jc.IsFalse)
+	rst, found := uState.RelationState()
+	c.Assert(rst, gc.IsNil, gc.Commentf("expected to receive a nil map when no state doc is present"))
+	c.Assert(found, jc.IsFalse)
+	sst, found := uState.StorageState()
+	c.Assert(sst, gc.Equals, "")
+	c.Assert(found, jc.IsFalse)
+}
 
+func (s *UnitSuite) TestUnitStateMutateState(c *gc.C) {
+	// Set initial state; this should create a new unitstate doc
+	_, initialUniterState, initialRelationState, initialStorageState := s.testUnitSuite(c)
+
+	// Mutate state again with an existing state doc
+	newState := map[string]string{"foo": "42"}
+	newUS := state.NewUnitState()
+	newUS.SetState(newState)
+	err := s.unit.SetState(newUS)
+	c.Assert(err, gc.IsNil)
+
+	// Ensure state changed
+	uState, err := s.unit.State()
+	c.Assert(err, gc.IsNil)
+	assertUnitStateState(c, uState, newState)
+
+	// Ensure the other state did not.
+	assertUnitStateUniterState(c, uState, initialUniterState)
+	assertUnitStateRelationState(c, uState, initialRelationState)
+	assertUnitStateStorageState(c, uState, initialStorageState)
+}
+
+func (s *UnitSuite) TestUnitStateMutateUniterState(c *gc.C) {
+	// Set initial state; this should create a new unitstate doc
+	initialState, _, initialRelationState, initialStorageState := s.testUnitSuite(c)
+
+	// Mutate uniter state again with an existing state doc
+	newUniterState := "new"
+	newUS := state.NewUnitState()
+	newUS.SetUniterState(newUniterState)
+	err := s.unit.SetState(newUS)
+	c.Assert(err, gc.IsNil)
+
+	// Ensure uniter state changed
+	uState, err := s.unit.State()
+	c.Assert(err, gc.IsNil)
+	assertUnitStateUniterState(c, uState, newUniterState)
+
+	// Ensure the other state did not.
+	assertUnitStateState(c, uState, initialState)
+	assertUnitStateRelationState(c, uState, initialRelationState)
+	assertUnitStateStorageState(c, uState, initialStorageState)
+}
+
+func (s *UnitSuite) TestUnitStateMutateRelationState(c *gc.C) {
+	// Set initial state; this should create a new unitstate doc
+	initialState, initialUniterState, _, initialStorageState := s.testUnitSuite(c)
+
+	// Mutate relation state again with an existing state doc
+	newRelationState := map[int]string{3: "three"}
+	newUS := state.NewUnitState()
+	newUS.SetRelationState(newRelationState)
+	err := s.unit.SetState(newUS)
+	c.Assert(err, gc.IsNil)
+
+	// Ensure relation state changed
+	uState, err := s.unit.State()
+	c.Assert(err, gc.IsNil)
+	assertUnitStateRelationState(c, uState, newRelationState)
+
+	// Ensure the other state did not.
+	assertUnitStateState(c, uState, initialState)
+	assertUnitStateUniterState(c, uState, initialUniterState)
+	assertUnitStateStorageState(c, uState, initialStorageState)
+}
+
+func (s *UnitSuite) TestUnitStateMutateStorageState(c *gc.C) {
+	// Set initial state; this should create a new unitstate doc
+	initialState, initialUniterState, initialRelationState, _ := s.testUnitSuite(c)
+
+	// Mutate storage state again with an existing state doc
+	newStorageState := "state"
+	newUS := state.NewUnitState()
+	newUS.SetStorageState(newStorageState)
+	err := s.unit.SetState(newUS)
+	c.Assert(err, gc.IsNil)
+
+	// Ensure storage state changed
+	uState, err := s.unit.State()
+	c.Assert(err, gc.IsNil)
+	assertUnitStateStorageState(c, uState, newStorageState)
+
+	// Ensure the other state did not.
+	assertUnitStateState(c, uState, initialState)
+	assertUnitStateUniterState(c, uState, initialUniterState)
+	assertUnitStateRelationState(c, uState, initialRelationState)
+}
+
+func (s *UnitSuite) TestUnitStateDeleteState(c *gc.C) {
+	// Set initial state; this should create a new unitstate doc
+	_, initialUniterState, initialRelationState, initialStorageState := s.testUnitSuite(c)
+
+	// Mutate state again with an existing state doc
+	newUS := state.NewUnitState()
+	newUS.SetState(map[string]string{})
+	err := s.unit.SetState(newUS)
+	c.Assert(err, gc.IsNil)
+
+	// Ensure state changed
+	uState, err := s.unit.State()
+	st, _ := uState.State()
+	c.Assert(st, gc.IsNil, gc.Commentf("expected to receive a nil map when no state doc is present"))
+
+	// Ensure the other state did not.
+	assertUnitStateUniterState(c, uState, initialUniterState)
+	assertUnitStateRelationState(c, uState, initialRelationState)
+	assertUnitStateStorageState(c, uState, initialStorageState)
+}
+
+func (s *UnitSuite) TestUnitStateDeleteRelationState(c *gc.C) {
+	// Set initial state; this should create a new unitstate doc
+	initialState, initialUniterState, _, initialStorageState := s.testUnitSuite(c)
+
+	// Mutate state again with an existing state doc
+	newUS := state.NewUnitState()
+	newUS.SetRelationState(map[int]string{})
+	err := s.unit.SetState(newUS)
+	c.Assert(err, gc.IsNil)
+
+	// Ensure state changed
+	uState, err := s.unit.State()
+	st, _ := uState.RelationState()
+	c.Assert(st, gc.IsNil, gc.Commentf("expected to receive a nil map when no state doc is present"))
+
+	// Ensure the other state did not.
+	assertUnitStateState(c, uState, initialState)
+	assertUnitStateUniterState(c, uState, initialUniterState)
+	assertUnitStateStorageState(c, uState, initialStorageState)
+}
+
+func (s *UnitSuite) testUnitSuite(c *gc.C) (map[string]string, string, map[int]string, string) {
 	// Set initial state; this should create a new unitstate doc
 	initialState := map[string]string{
 		"foo":          "bar",
 		"key.with.dot": "must work",
 		"key.with.$":   "must work to",
 	}
-	err = s.unit.SetState(initialState)
+	initialUniterState := "testing"
+	initialRelationState := map[int]string{
+		1: "one",
+		2: "two",
+	}
+	initialStorageState := "gnitset"
+	us := state.NewUnitState()
+	us.SetState(initialState)
+	us.SetUniterState(initialUniterState)
+	us.SetRelationState(initialRelationState)
+	us.SetStorageState(initialStorageState)
+	err := s.unit.SetState(us)
 	c.Assert(err, gc.IsNil)
 
 	// Read back initial state
-	ust, err = s.unit.State()
+	uState, err := s.unit.State()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ust, gc.DeepEquals, initialState)
+	obtainedState, found := uState.State()
+	c.Assert(found, jc.IsTrue)
+	c.Assert(obtainedState, gc.DeepEquals, initialState)
+	obtainedUniterState, found := uState.UniterState()
+	c.Assert(found, jc.IsTrue)
+	c.Assert(obtainedUniterState, gc.Equals, initialUniterState)
+	obtainedRelationState, found := uState.RelationState()
+	c.Assert(found, jc.IsTrue)
+	c.Assert(obtainedRelationState, gc.DeepEquals, initialRelationState)
+	obtainedStorageState, found := uState.StorageState()
+	c.Assert(found, jc.IsTrue)
+	c.Assert(obtainedStorageState, gc.Equals, initialStorageState)
 
-	// Mutate state again with an existing state doc
-	newState := map[string]string{"foo": "42"}
-	err = s.unit.SetState(newState)
-	c.Assert(err, gc.IsNil)
+	return initialState, initialUniterState, initialRelationState, initialStorageState
+}
 
-	ust, err = s.unit.State()
-	c.Assert(err, gc.IsNil)
-	c.Assert(ust, gc.DeepEquals, newState)
+func assertUnitStateState(c *gc.C, uState *state.UnitState, expected map[string]string) {
+	obtained, found := uState.State()
+	c.Assert(found, jc.IsTrue)
+	c.Assert(obtained, gc.DeepEquals, expected)
+}
+
+func assertUnitStateUniterState(c *gc.C, uState *state.UnitState, expected string) {
+	obtained, found := uState.UniterState()
+	c.Assert(found, jc.IsTrue)
+	c.Assert(obtained, gc.Equals, expected)
+}
+
+func assertUnitStateRelationState(c *gc.C, uState *state.UnitState, expected map[int]string) {
+	obtained, found := uState.RelationState()
+	c.Assert(found, jc.IsTrue)
+	c.Assert(obtained, gc.DeepEquals, expected)
+}
+
+func assertUnitStateStorageState(c *gc.C, uState *state.UnitState, expected string) {
+	obtained, found := uState.StorageState()
+	c.Assert(found, jc.IsTrue)
+	c.Assert(obtained, gc.Equals, expected)
 }
 
 func (s *UnitSuite) TestUnitStateNopMutation(c *gc.C) {
@@ -106,7 +288,19 @@ func (s *UnitSuite) TestUnitStateNopMutation(c *gc.C) {
 		"key.with.dot": "must work",
 		"key.with.$":   "must work to",
 	}
-	err := s.unit.SetState(initialState)
+	initialUniterState := "unit state"
+	initialRelationState := map[int]string{
+		1: "one",
+		2: "two",
+		3: "three",
+	}
+	initialStorageState := "storage state"
+	iUnitState := state.NewUnitState()
+	iUnitState.SetState(initialState)
+	iUnitState.SetUniterState(initialUniterState)
+	iUnitState.SetRelationState(initialRelationState)
+	iUnitState.SetStorageState(initialStorageState)
+	err := s.unit.SetState(iUnitState)
 	c.Assert(err, gc.IsNil)
 
 	// Read revno
@@ -119,7 +313,7 @@ func (s *UnitSuite) TestUnitStateNopMutation(c *gc.C) {
 	curRevNo := txnDoc.TxnRevno
 
 	// Set state using the same KV pairs; this should be a no-op
-	err = s.unit.SetState(initialState)
+	err = s.unit.SetState(iUnitState)
 	c.Assert(err, gc.IsNil)
 
 	err = coll.Find(nil).One(&txnDoc)
@@ -127,7 +321,9 @@ func (s *UnitSuite) TestUnitStateNopMutation(c *gc.C) {
 	c.Assert(txnDoc.TxnRevno, gc.Equals, curRevNo, gc.Commentf("expected state doc revno to remain the same"))
 
 	// Set state using a different set of KV pairs
-	err = s.unit.SetState(map[string]string{"something": "else"})
+	sUnitState := state.NewUnitState()
+	sUnitState.SetState(map[string]string{"something": "else"})
+	err = s.unit.SetState(sUnitState)
 	c.Assert(err, gc.IsNil)
 
 	err = coll.Find(nil).One(&txnDoc)
@@ -423,13 +619,11 @@ func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
 }
 
 func (s *UnitSuite) TestPublicAddressSubordinate(c *gc.C) {
+	// A subordinate unit will never be created without the principal
+	// being assigned to a machine.
+	s.setAssignedMachineAddresses(c, s.unit)
 	subUnit := s.addSubordinateUnit(c)
 	address, err := subUnit.PublicAddress()
-	c.Assert(err, gc.Not(gc.IsNil))
-	c.Assert(address.Value, gc.Equals, "")
-
-	s.setAssignedMachineAddresses(c, s.unit)
-	address, err = subUnit.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(address.Value, gc.Equals, "public.address.example.com")
 }
@@ -527,13 +721,11 @@ func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
 }
 
 func (s *UnitSuite) TestPrivateAddressSubordinate(c *gc.C) {
+	// A subordinate unit will never be created without the principal
+	// being assigned to a machine.
+	s.setAssignedMachineAddresses(c, s.unit)
 	subUnit := s.addSubordinateUnit(c)
 	address, err := subUnit.PrivateAddress()
-	c.Assert(err, gc.Not(gc.IsNil))
-	c.Assert(address.Value, gc.Equals, "")
-
-	s.setAssignedMachineAddresses(c, s.unit)
-	address, err = subUnit.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(address.Value, gc.Equals, "private.address.example.com")
 }
@@ -1713,7 +1905,9 @@ func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
 
 func (s *UnitSuite) TestRemoveUnitDeletesUnitState(c *gc.C) {
 	// Create unit state document
-	err := s.unit.SetState(map[string]string{"speed": "ludicrous"})
+	us := state.NewUnitState()
+	us.SetState(map[string]string{"speed": "ludicrous"})
+	err := s.unit.SetState(us)
 	c.Assert(err, jc.ErrorIsNil)
 
 	coll := s.Session.DB("juju").C("unitstates")
@@ -1735,7 +1929,9 @@ func (s *UnitSuite) TestRemoveUnitDeletesUnitState(c *gc.C) {
 	_, err = s.unit.State()
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 
-	err = s.unit.SetState(map[string]string{"foo": "bar"})
+	newUS := state.NewUnitState()
+	newUS.SetState(map[string]string{"foo": "bar"})
+	err = s.unit.SetState(newUS)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 

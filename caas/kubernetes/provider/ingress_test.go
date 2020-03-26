@@ -98,10 +98,6 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, IngressResources []k8ss
 				Return(statefulSetArg, nil),
 			s.mockStatefulSets.EXPECT().Create(statefulSetArg).
 				Return(nil, nil),
-			s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
-				Return(statefulSetArg, nil),
-			s.mockStatefulSets.EXPECT().Update(statefulSetArg).
-				Return(nil, nil),
 		}...)
 	}
 	gomock.InOrder(assertCalls...)

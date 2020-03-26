@@ -80,32 +80,6 @@ func makeAddSubnetsArgs(cidr, providerId, space string, zones []string) apitesti
 	return args
 }
 
-func makeCreateSubnetsArgs(cidr, space string, zones []string, isPublic bool) apitesting.APICall {
-	spaceTag := names.NewSpaceTag(space).String()
-	subnetTag := names.NewSubnetTag(cidr).String()
-
-	expectArgs := params.CreateSubnetsParams{
-		Subnets: []params.CreateSubnetParams{{
-			SpaceTag:  spaceTag,
-			SubnetTag: subnetTag,
-			Zones:     zones,
-			IsPublic:  isPublic,
-		}}}
-
-	expectResults := params.ErrorResults{
-		Results: []params.ErrorResult{{}},
-	}
-
-	args := apitesting.APICall{
-		Facade:  "Subnets",
-		Method:  "CreateSubnets",
-		Args:    expectArgs,
-		Results: expectResults,
-	}
-
-	return args
-}
-
 func makeListSubnetsArgs(space *names.SpaceTag, zone string) apitesting.APICall {
 	expectResults := params.ListSubnetsResults{}
 	expectArgs := params.SubnetsFilters{
@@ -187,43 +161,6 @@ func (s *SubnetsSuite) TestAddSubnetV2(c *gc.C) {
 	err := apiv2.AddSubnet("1.1.1.0/24", "", names.NewSpaceTag("testv2"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
-}
-
-func (s *SubnetsSuite) TestCreateSubnet(c *gc.C) {
-	c.Skip("CreateSubnet to be audited")
-	cidr := "1.1.1.0/24"
-	space := "bar"
-	zones := []string{"foo", "bar"}
-	isPublic := true
-	args := makeCreateSubnetsArgs(cidr, space, zones, isPublic)
-	s.prepareAPICall(c, args)
-	err := s.api.CreateSubnet(
-		names.NewSubnetTag(cidr),
-		names.NewSpaceTag(space),
-		zones,
-		isPublic,
-	)
-	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *SubnetsSuite) TestCreateSubnetFails(c *gc.C) {
-	c.Skip("CreateSubnet to be audited ")
-	cidr := "1.1.1.0/24"
-	isPublic := true
-	space := "bar"
-	zones := []string{"foo", "bar"}
-	args := makeCreateSubnetsArgs(cidr, space, zones, isPublic)
-	args.Error = errors.New("bang")
-	s.prepareAPICall(c, args)
-	err := s.api.CreateSubnet(
-		names.NewSubnetTag(cidr),
-		names.NewSpaceTag(space),
-		zones,
-		isPublic,
-	)
-	c.Check(s.apiCaller.CallCount, gc.Equals, 1)
-	c.Assert(err, gc.ErrorMatches, "bang")
 }
 
 func (s *SubnetsSuite) TestListSubnetsNoResults(c *gc.C) {

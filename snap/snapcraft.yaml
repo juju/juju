@@ -45,6 +45,7 @@ parts:
       - github.com/juju/juju/cmd/juju
       # If you are releasing a build with public streams, you don't need to build the agent
       # Instead, you should use the released agent
+      - github.com/juju/juju/cmd/jujuc
       - github.com/juju/juju/cmd/jujud
       - github.com/juju/juju/cmd/plugins/juju-metadata
     go-external-strings:

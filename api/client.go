@@ -18,6 +18,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
@@ -420,17 +421,6 @@ func (c *Client) UploadCharm(curl *charm.URL, content io.ReadSeeker) (*charm.URL
 	return curl, nil
 }
 
-type minJujuVersionErr struct {
-	*errors.Err
-}
-
-func minVersionError(minver, jujuver version.Number) error {
-	err := errors.NewErr("charm's min version (%s) is higher than this juju model's version (%s)",
-		minver, jujuver)
-	err.SetLocation(1)
-	return minJujuVersionErr{&err}
-}
-
 func (c *Client) validateCharmVersion(ch charm.Charm) error {
 	minver := ch.Meta().MinJujuVersion
 	if minver != version.Zero {
@@ -439,9 +429,7 @@ func (c *Client) validateCharmVersion(ch charm.Charm) error {
 			return errors.Trace(err)
 		}
 
-		if minver.Compare(agentver) > 0 {
-			return minVersionError(minver, agentver)
-		}
+		return jujuversion.CheckJujuMinVersion(minver, agentver)
 	}
 	return nil
 }

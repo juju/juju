@@ -34,7 +34,7 @@ func (o *spaceRemoveModelOp) Done(err error) error {
 	return err
 }
 
-func NewRemoveSpaceModelOp(space RemoveSpace, subnets []Subnet) *spaceRemoveModelOp {
+func NewRemoveSpaceOp(space RemoveSpace, subnets []Subnet) *spaceRemoveModelOp {
 	return &spaceRemoveModelOp{
 		space:   space,
 		subnets: subnets,
@@ -80,7 +80,7 @@ func (api *API) RemoveSpace(spaceParams params.RemoveSpaceParams) (params.Remove
 			continue
 		}
 
-		operation, err := api.opFactory.NewRemoveSpaceModelOp(spacesTag.Id())
+		operation, err := api.opFactory.NewRemoveSpaceOp(spacesTag.Id())
 		if err != nil {
 			result.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue

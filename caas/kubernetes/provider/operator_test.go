@@ -50,8 +50,8 @@ var operatorServiceArg = &core.Service{
 	},
 }
 
-func operatorStatefulSetArg(numUnits int32, scName, serviceAccountName string) *appsv1.StatefulSet {
-	operatorPodspec := core.PodSpec{
+func operatorPodSpec(serviceAccountName string, withStorage bool) core.PodSpec {
+	spec := core.PodSpec{
 		ServiceAccountName:           serviceAccountName,
 		AutomountServiceAccountToken: boolPtr(true),
 		Containers: []core.Container{{
@@ -101,9 +101,6 @@ $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 				Name:      "test-operator-config",
 				MountPath: "path/to/agent/agents/application-test/operator.yaml",
 				SubPath:   "operator.yaml",
-			}, {
-				Name:      "charm",
-				MountPath: "path/to/agent/agents",
 			}},
 		}},
 		Volumes: []core.Volume{{
@@ -124,7 +121,17 @@ $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 			},
 		}},
 	}
-	return &appsv1.StatefulSet{
+	if withStorage {
+		spec.Containers[0].VolumeMounts = append(spec.Containers[0].VolumeMounts, core.VolumeMount{
+			Name:      "charm",
+			MountPath: "path/to/agent/agents",
+		})
+	}
+	return spec
+}
+
+func operatorStatefulSetArg(numUnits int32, scName, serviceAccountName string, withStorage bool) *appsv1.StatefulSet {
+	ss := &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-operator",
 			Labels: map[string]string{
@@ -150,27 +157,30 @@ $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 					},
 				},
-				Spec: operatorPodspec,
+				Spec: operatorPodSpec(serviceAccountName, withStorage),
 			},
-			VolumeClaimTemplates: []core.PersistentVolumeClaim{{
-				ObjectMeta: v1.ObjectMeta{
-					Name: "charm",
-					Annotations: map[string]string{
-						"foo": "bar",
-					}},
-				Spec: core.PersistentVolumeClaimSpec{
-					StorageClassName: &scName,
-					AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
-					Resources: core.ResourceRequirements{
-						Requests: core.ResourceList{
-							core.ResourceStorage: resource.MustParse("10Mi"),
-						},
-					},
-				},
-			}},
 			PodManagementPolicy: apps.ParallelPodManagement,
 		},
 	}
+	if withStorage {
+		ss.Spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "charm",
+				Annotations: map[string]string{
+					"foo": "bar",
+				}},
+			Spec: core.PersistentVolumeClaimSpec{
+				StorageClassName: &scName,
+				AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
+				Resources: core.ResourceRequirements{
+					Requests: core.ResourceList{
+						core.ResourceStorage: resource.MustParse("10Mi"),
+					},
+				},
+			},
+		}}
+	}
+	return ss
 }
 
 func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
@@ -316,7 +326,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 			},
 		},
 	}
-	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage", "test-operator")
+	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage", "test-operator", true)
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
@@ -342,10 +352,6 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "test-operator-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
 			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Get("test-operator", v1.GetOptions{}).
-			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
-			Return(nil, nil),
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
@@ -355,7 +361,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 			"fred":                 "mary",
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
-		CharmStorage: caas.CharmStorageParams{
+		CharmStorage: &caas.CharmStorageParams{
 			Size:         uint64(10),
 			Provider:     "kubernetes",
 			Attributes:   map[string]interface{}{"storage-class": "operator-storage"},
@@ -429,7 +435,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 			},
 		},
 	}
-	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage", "test-operator")
+	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage", "test-operator", true)
 
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{}).
@@ -458,10 +464,6 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "test-operator-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
 			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Get("test-operator", v1.GetOptions{}).
-			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
-			Return(nil, nil),
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
@@ -473,7 +475,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 			"fred":                 "mary",
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
-		CharmStorage: caas.CharmStorageParams{
+		CharmStorage: &caas.CharmStorageParams{
 			Size:         uint64(10),
 			Provider:     "kubernetes",
 			Attributes:   map[string]interface{}{"storage-class": "operator-storage"},
@@ -484,6 +486,146 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	configMapArg := &core.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "test-operator-config",
+			Labels:      map[string]string{"juju-app": "test"},
+			Annotations: operatorAnnotations,
+			Generation:  1234,
+		},
+		Data: map[string]string{
+			"test-agent.conf": "agent-conf-data",
+			"operator.yaml":   "operator-info-data",
+		},
+	}
+
+	svcAccount := &core.ServiceAccount{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
+		},
+		AutomountServiceAccountToken: boolPtr(true),
+	}
+	role := &rbacv1.Role{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"pods"},
+				Verbs:     []string{"get", "list"},
+			},
+			{
+				APIGroups: []string{""},
+				Resources: []string{"pods/exec"},
+				Verbs:     []string{"create"},
+			},
+		},
+	}
+	rb := &rbacv1.RoleBinding{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
+		},
+		RoleRef: rbacv1.RoleRef{
+			Name: "test-operator",
+			Kind: "Role",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      "test-operator",
+				Namespace: "test",
+			},
+		},
+	}
+	rbUID := rb.GetUID()
+
+	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage", "test-operator", true)
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get("test-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(operatorServiceArg).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(operatorServiceArg).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("test-operator", v1.GetOptions{}).
+			Return(&core.Service{Spec: core.ServiceSpec{ClusterIP: "10.1.2.3"}}, nil),
+
+		// ensure RBAC resources.
+		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(nil, s.k8sAlreadyExistsError()),
+		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
+			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{*svcAccount}}, nil),
+		s.mockServiceAccounts.EXPECT().Update(svcAccount).Return(svcAccount, nil),
+		s.mockRoles.EXPECT().Create(role).Return(nil, s.k8sAlreadyExistsError()),
+		s.mockRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
+			Return(&rbacv1.RoleList{Items: []rbacv1.Role{*role}}, nil),
+		s.mockRoles.EXPECT().Update(role).Return(role, nil),
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
+			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb}}, nil),
+		s.mockRoleBindings.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, rbUID)).Return(nil),
+		s.mockRoleBindings.EXPECT().Get("test-operator", v1.GetOptions{}).Return(rb, nil),
+		s.mockRoleBindings.EXPECT().Get("test-operator", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
+		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
+
+		s.mockConfigMaps.EXPECT().Update(configMapArg).
+			Return(configMapArg, nil),
+		s.mockStorageClass.EXPECT().Get("test-operator-storage", v1.GetOptions{}).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "test-operator-storage"}}, nil),
+		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
+			Return(nil, s.k8sAlreadyExistsError()),
+		s.mockStatefulSets.EXPECT().Get("test-operator", v1.GetOptions{}).
+			Return(statefulSetArg, nil),
+		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
+			Return(nil, nil),
+	)
+
+	errChan := make(chan error)
+	go func() {
+		errChan <- s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
+			OperatorImagePath: "/path/to/image",
+			Version:           version.MustParse("2.99.0"),
+			AgentConf:         []byte("agent-conf-data"),
+			OperatorInfo:      []byte("operator-info-data"),
+			ResourceTags: map[string]string{
+				"fred":                 "mary",
+				"juju-controller-uuid": testing.ControllerTag.Id(),
+			},
+			CharmStorage: &caas.CharmStorageParams{
+				Size:         uint64(10),
+				Provider:     "kubernetes",
+				Attributes:   map[string]interface{}{"storage-class": "operator-storage"},
+				ResourceTags: map[string]string{"foo": "bar"},
+			},
+			ConfigMapGeneration: 1234,
+		})
+	}()
+	err := s.clock.WaitAdvance(2*time.Second, testing.ShortWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case err := <-errChan:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for EnsureOperator return")
+	}
+}
+
+func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -547,9 +689,25 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 			},
 		},
 	}
-	rbUID := rb.GetUID()
+	scName := "test-operator-storage"
+	statefulSetArg := operatorStatefulSetArg(1, scName, "test-operator", true)
 
-	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage", "test-operator")
+	existingCharmPvc := &core.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "charm",
+			Annotations: map[string]string{
+				"foo": "bar",
+			}},
+		Spec: core.PersistentVolumeClaimSpec{
+			StorageClassName: &scName,
+			AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
+			Resources: core.ResourceRequirements{
+				Requests: core.ResourceList{
+					core.ResourceStorage: resource.MustParse("10Mi"),
+				},
+			},
+		},
+	}
 
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{}).
@@ -564,61 +722,154 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 			Return(&core.Service{Spec: core.ServiceSpec{ClusterIP: "10.1.2.3"}}, nil),
 
 		// ensure RBAC resources.
-		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
-			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{*svcAccount}}, nil),
-		s.mockServiceAccounts.EXPECT().Update(svcAccount).Return(svcAccount, nil),
-		s.mockRoles.EXPECT().Create(role).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
-			Return(&rbacv1.RoleList{Items: []rbacv1.Role{*role}}, nil),
-		s.mockRoles.EXPECT().Update(role).Return(role, nil),
+		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(svcAccount, nil),
+		s.mockRoles.EXPECT().Create(role).Return(role, nil),
 		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
-			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb}}, nil),
-		s.mockRoleBindings.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, rbUID)).Return(nil),
-		s.mockRoleBindings.EXPECT().Get("test-operator", v1.GetOptions{}).Return(rb, nil),
-		s.mockRoleBindings.EXPECT().Get("test-operator", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
+			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
-
 		s.mockConfigMaps.EXPECT().Update(configMapArg).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockConfigMaps.EXPECT().Create(configMapArg).
 			Return(configMapArg, nil),
-		s.mockStorageClass.EXPECT().Get("test-operator-storage", v1.GetOptions{}).
-			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "test-operator-storage"}}, nil),
+
+		// check for existing PVC in case of charm upgrade
+		s.mockPersistentVolumeClaims.EXPECT().Get("charm", v1.GetOptions{}).
+			Return(existingCharmPvc, nil),
+
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
-			Return(statefulSetArg, nil),
+			Return(nil, s.k8sAlreadyExistsError()),
 		s.mockStatefulSets.EXPECT().Get("test-operator", v1.GetOptions{}).
 			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
 			Return(nil, nil),
 	)
 
-	errChan := make(chan error)
-	go func() {
-		errChan <- s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-			OperatorImagePath: "/path/to/image",
-			Version:           version.MustParse("2.99.0"),
-			AgentConf:         []byte("agent-conf-data"),
-			OperatorInfo:      []byte("operator-info-data"),
-			ResourceTags: map[string]string{
-				"fred":                 "mary",
-				"juju-controller-uuid": testing.ControllerTag.Id(),
-			},
-			CharmStorage: caas.CharmStorageParams{
-				Size:         uint64(10),
-				Provider:     "kubernetes",
-				Attributes:   map[string]interface{}{"storage-class": "operator-storage"},
-				ResourceTags: map[string]string{"foo": "bar"},
-			},
-		})
-	}()
-	err := s.clock.WaitAdvance(2*time.Second, testing.ShortWait, 1)
+	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
+		OperatorImagePath: "/path/to/image",
+		Version:           version.MustParse("2.99.0"),
+		AgentConf:         []byte("agent-conf-data"),
+		OperatorInfo:      []byte("operator-info-data"),
+		ResourceTags: map[string]string{
+			"fred":                 "mary",
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
+}
 
-	select {
-	case err := <-errChan:
-		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out waiting for EnsureOperator return")
+func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	configMapArg := &core.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "test-operator-config",
+			Labels:      map[string]string{"juju-app": "test"},
+			Annotations: operatorAnnotations,
+		},
+		Data: map[string]string{
+			"test-agent.conf": "agent-conf-data",
+			"operator.yaml":   "operator-info-data",
+		},
 	}
+
+	svcAccount := &core.ServiceAccount{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
+		},
+		AutomountServiceAccountToken: boolPtr(true),
+	}
+	role := &rbacv1.Role{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"pods"},
+				Verbs:     []string{"get", "list"},
+			},
+			{
+				APIGroups: []string{""},
+				Resources: []string{"pods/exec"},
+				Verbs:     []string{"create"},
+			},
+		},
+	}
+	rb := &rbacv1.RoleBinding{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
+		},
+		RoleRef: rbacv1.RoleRef{
+			Name: "test-operator",
+			Kind: "Role",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      "test-operator",
+				Namespace: "test",
+			},
+		},
+	}
+
+	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage", "test-operator", false)
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get("test-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(operatorServiceArg).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(operatorServiceArg).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("test-operator", v1.GetOptions{}).
+			Return(&core.Service{Spec: core.ServiceSpec{ClusterIP: "10.1.2.3"}}, nil),
+
+		// ensure RBAC resources.
+		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(svcAccount, nil),
+		s.mockRoles.EXPECT().Create(role).Return(role, nil),
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
+			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
+		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
+		s.mockConfigMaps.EXPECT().Update(configMapArg).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockConfigMaps.EXPECT().Create(configMapArg).
+			Return(configMapArg, nil),
+
+		// check for existing PVC in case of charm upgrade
+		s.mockPersistentVolumeClaims.EXPECT().Get("charm", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+
+		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
+			Return(nil, s.k8sAlreadyExistsError()),
+		s.mockStatefulSets.EXPECT().Get("test-operator", v1.GetOptions{}).
+			Return(statefulSetArg, nil),
+		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
+			Return(nil, nil),
+	)
+
+	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
+		OperatorImagePath: "/path/to/image",
+		Version:           version.MustParse("2.99.0"),
+		AgentConf:         []byte("agent-conf-data"),
+		OperatorInfo:      []byte("operator-info-data"),
+		ResourceTags: map[string]string{
+			"fred":                 "mary",
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C) {
@@ -715,7 +966,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 			"fred":                 "mary",
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
-		CharmStorage: caas.CharmStorageParams{
+		CharmStorage: &caas.CharmStorageParams{
 			Size:     uint64(10),
 			Provider: "kubernetes",
 		},
@@ -861,4 +1112,120 @@ func (s *K8sBrokerSuite) TestUpgradeOperator(c *gc.C) {
 
 	err := s.broker.Upgrade("test-app", version.MustParse("6.6.6"))
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestOperatorExists(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(&apps.StatefulSet{}, nil),
+	)
+
+	exists, err := s.broker.OperatorExists("test-app")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.DeepEquals, caas.OperatorState{
+		Exists:      true,
+		Terminating: false,
+	})
+}
+
+func (s *K8sBrokerSuite) TestOperatorExistsTerminating(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(&apps.StatefulSet{
+				ObjectMeta: v1.ObjectMeta{
+					DeletionTimestamp: &v1.Time{time.Now()},
+				},
+			}, nil),
+	)
+
+	exists, err := s.broker.OperatorExists("test-app")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.DeepEquals, caas.OperatorState{
+		Exists:      true,
+		Terminating: true,
+	})
+}
+
+func (s *K8sBrokerSuite) TestOperatorExistsTerminated(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServiceAccounts.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockRoles.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockRoleBindings.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockConfigMaps.EXPECT().Get("test-app-operator-config", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockConfigMaps.EXPECT().Get("test-app-configurations-config", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Get("test-app-juju-operator-secret", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockPods.EXPECT().List(v1.ListOptions{
+			LabelSelector: "juju-operator=test-app",
+		}).
+			Return(&core.PodList{}, nil),
+	)
+
+	exists, err := s.broker.OperatorExists("test-app")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.DeepEquals, caas.OperatorState{
+		Exists:      false,
+		Terminating: false,
+	})
+}
+
+func (s *K8sBrokerSuite) TestOperatorExistsTerminatedMostly(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServiceAccounts.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockRoles.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockRoleBindings.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockConfigMaps.EXPECT().Get("test-app-operator-config", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockConfigMaps.EXPECT().Get("test-app-configurations-config", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Get("test-app-juju-operator-secret", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+			Return(&appsv1.Deployment{}, nil),
+	)
+
+	exists, err := s.broker.OperatorExists("test-app")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.DeepEquals, caas.OperatorState{
+		Exists:      true,
+		Terminating: true,
+	})
 }

@@ -321,82 +321,6 @@ func (u *Unit) PasswordValid(password string) bool {
 	return false
 }
 
-// unitStateDoc records the state persisted by the charm executing in the unit.
-type unitStateDoc struct {
-	// DocID is always the same as a unit's global key.
-	DocID string `bson:"_id"`
-
-	// State encodes the unit's persisted state as a list of key-value pairs.
-	State map[string]string `bson:"state,omitempty"`
-
-	TxnRevno int64 `bson:"txn-revno"`
-}
-
-// stateMatches returns true if the State map within the unitStateDoc matches
-// the provided st argument.
-func (d *unitStateDoc) stateMatches(st bson.M) bool {
-	if len(st) != len(d.State) {
-		return false
-	}
-
-	for k, v := range d.State {
-		if st[k] != v {
-			return false
-		}
-	}
-
-	return true
-}
-
-// removeUnitStateOp returns the operation needed to remove the unit state
-// document associated with the given globalKey.
-func removeUnitStateOp(mb modelBackend, globalKey string) txn.Op {
-	return txn.Op{
-		C:      unitStatesC,
-		Id:     mb.docID(globalKey),
-		Remove: true,
-	}
-}
-
-// SetState replaces the currently stored state for a unit with the contents
-// of the provided unitState parameter.
-func (u *Unit) SetState(unitState map[string]string) error {
-	modelOp := u.SetStateOperation(unitState)
-	return u.st.ApplyOperation(modelOp)
-}
-
-// SetStateOperation returns a ModelOperation for replacing the currently
-// stored state for a unit with the contents of the provided unitState
-// parameter.
-func (u *Unit) SetStateOperation(unitState map[string]string) ModelOperation {
-	return &unitSetStateOperation{u: u, newState: unitState}
-}
-
-// State returns the persisted state for a unit.
-func (u *Unit) State() (map[string]string, error) {
-	if u.Life() != Alive {
-		return nil, errors.NotFoundf("unit %s", u.Name())
-	}
-
-	coll, closer := u.st.db().GetCollection(unitStatesC)
-	defer closer()
-
-	var stDoc unitStateDoc
-	if err := coll.FindId(u.globalKey()).One(&stDoc); err != nil {
-		if err == mgo.ErrNotFound {
-			return nil, nil
-		}
-		return nil, errors.Trace(err)
-	}
-
-	unitState := make(map[string]string, len(stDoc.State))
-	for k, v := range stDoc.State {
-		unitState[mgoutils.UnescapeKey(k)] = v
-	}
-
-	return unitState, nil
-}
-
 // UpdateOperation returns a model operation that will update a unit.
 func (u *Unit) UpdateOperation(props UnitUpdateProperties) *UpdateUnitOperation {
 	return &UpdateUnitOperation{
@@ -1176,17 +1100,6 @@ func (u *Unit) relations(predicate relationPredicate) ([]*Relation, error) {
 	return filtered, nil
 }
 
-// DeployerTag returns the tag of the agent responsible for deploying
-// the unit. If no such entity can be determined, false is returned.
-func (u *Unit) DeployerTag() (names.Tag, bool) {
-	if u.doc.Principal != "" {
-		return names.NewUnitTag(u.doc.Principal), true
-	} else if u.doc.MachineId != "" {
-		return names.NewMachineTag(u.doc.MachineId), true
-	}
-	return nil, false
-}
-
 // PrincipalName returns the name of the unit's principal.
 // If the unit is not a subordinate, false is returned.
 func (u *Unit) PrincipalName() (string, bool) {
@@ -1367,7 +1280,7 @@ func (u *Unit) Refresh() error {
 		return errors.NotFoundf("unit %q", u)
 	}
 	if err != nil {
-		return fmt.Errorf("cannot refresh unit %q: %v", u, err)
+		return errors.Annotatef(err, "cannot refresh unit %q", u)
 	}
 	return nil
 }
@@ -1643,7 +1556,7 @@ func (u *Unit) CharmURL() (*charm.URL, bool) {
 // An error will be returned if the unit is dead, or the charm URL not known.
 func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	if curl == nil {
-		return fmt.Errorf("cannot set nil charm url")
+		return errors.Errorf("cannot set nil charm url")
 	}
 
 	db, closer := u.st.newDB()
@@ -1839,30 +1752,10 @@ func unitNotAssignedError(u *Unit) error {
 
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (id string, err error) {
-	// c.f allWatcherContext.assignedMachineID.
-	// While it is unlikely that this logic will change,
-	// if it does, we need to make sure the allwatcher implementation matches.
-	if u.IsPrincipal() {
-		if u.doc.MachineId == "" {
-			return "", unitNotAssignedError(u)
-		}
-		return u.doc.MachineId, nil
-	}
-
-	units, closer := u.st.db().GetCollection(unitsC)
-	defer closer()
-
-	pudoc := unitDoc{}
-	err = units.FindId(u.doc.Principal).One(&pudoc)
-	if err == mgo.ErrNotFound {
-		return "", errors.NotFoundf("principal unit %q of %q", u.doc.Principal, u)
-	} else if err != nil {
-		return "", err
-	}
-	if pudoc.MachineId == "" {
+	if u.doc.MachineId == "" {
 		return "", unitNotAssignedError(u)
 	}
-	return pudoc.MachineId, nil
+	return u.doc.MachineId, nil
 }
 
 var (
@@ -2162,6 +2055,9 @@ func assignContextf(err *error, unitName string, target string) {
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	defer assignContextf(&err, u.Name(), fmt.Sprintf("machine %s", m))
+	if u.doc.Principal != "" {
+		return fmt.Errorf("unit is a subordinate")
+	}
 	return u.assignToMachine(m, false)
 }
 
@@ -2768,7 +2664,18 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 
 // assignToCleanMaybeEmptyMachine implements AssignToCleanMachine and AssignToCleanEmptyMachine.
 // A 'machine' may be a machine instance or container depending on the application constraints.
-func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (*Machine, error) {
+func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (_ *Machine, err error) {
+	context := "clean"
+	if requireEmpty {
+		context += ", empty"
+	}
+	context += " machine"
+	defer assignContextf(&err, u.Name(), context)
+
+	if u.doc.Principal != "" {
+		err = fmt.Errorf("unit is a subordinate")
+		return nil, err
+	}
 	var m *Machine
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var err error
@@ -2796,21 +2703,8 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		return nil, nil, err
 	}
 
-	context := "clean"
-	if requireEmpty {
-		context += ", empty"
-	}
-	context += " machine"
-
-	if u.doc.Principal != "" {
-		err = fmt.Errorf("unit is a subordinate")
-		assignContextf(&err, u.Name(), context)
-		return failure(err)
-	}
-
 	sb, err := NewStorageBackend(u.st)
 	if err != nil {
-		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 
@@ -2818,31 +2712,26 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 	// to a new machine is required.
 	storageParams, err := u.storageParams()
 	if err != nil {
-		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 	storagePools, err := storagePools(sb, storageParams)
 	if err != nil {
-		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 	if err := validateDynamicStoragePools(sb, storagePools); err != nil {
 		if errors.IsNotSupported(err) {
 			return failure(noCleanMachines)
 		}
-		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 
 	// Get the unit constraints to see what deployment requirements we have to adhere to.
 	cons, err := u.Constraints()
 	if err != nil {
-		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 	query, err := u.findCleanMachineQuery(requireEmpty, cons)
 	if err != nil {
-		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 
@@ -2854,7 +2743,6 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 	defer closer()
 	var mdocs []*machineDoc
 	if err := machinesCollection.Find(query).All(&mdocs); err != nil {
-		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 	var unprovisioned []*Machine
@@ -2866,7 +2754,6 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		if errors.IsNotProvisioned(err) {
 			unprovisioned = append(unprovisioned, m)
 		} else if err != nil {
-			assignContextf(&err, u.Name(), context)
 			return failure(err)
 		} else {
 			instances = append(instances, inst)
@@ -2886,7 +2773,6 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		limitZones = *cons.Zones
 	}
 	if instances, err = distributeUnit(u, instances, limitZones); err != nil {
-		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
 	machines := make([]*Machine, len(instances), len(instances)+len(unprovisioned))
@@ -2894,7 +2780,6 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		m, ok := instanceMachines[inst]
 		if !ok {
 			err := fmt.Errorf("invalid instance returned: %v", inst)
-			assignContextf(&err, u.Name(), context)
 			return failure(err)
 		}
 		machines[i] = m
@@ -2915,7 +2800,6 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 			if errors.IsNotSupported(err) {
 				continue
 			}
-			assignContextf(&err, u.Name(), context)
 			return failure(err)
 		}
 		ops, err := u.assignToMachineOps(m, true)
@@ -2925,7 +2809,6 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		switch errors.Cause(err) {
 		case inUseErr, machineNotAliveErr:
 		default:
-			assignContextf(&err, u.Name(), context)
 			return failure(err)
 		}
 	}

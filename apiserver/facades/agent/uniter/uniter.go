@@ -3297,7 +3297,8 @@ func (u *UniterAPI) updateUnitNetworkInfoOperation(unitTag names.UnitTag, unit *
 // State isn't on the v14 API.
 func (u *UniterAPIV14) State(_ struct{}) {}
 
-// State returns the state persisted by the charm running in this unit.
+// State returns the state persisted by the charm running in this unit
+// and the state internal to the uniter for this unit.
 func (u *UniterAPI) State(args params.Entities) (params.UnitStateResults, error) {
 	canAccess, err := u.accessUnit()
 	if err != nil {
@@ -3322,13 +3323,75 @@ func (u *UniterAPI) State(args params.Entities) (params.UnitStateResults, error)
 			res[i].Error = common.ServerError(err)
 			continue
 		}
+		unitState, err := unit.State()
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+		uState, _ := unitState.State()
+		res[i].State = uState
+		uUState, _ := unitState.UniterState()
+		res[i].UniterState = uUState
+		rState, _ := unitState.RelationState()
+		res[i].RelationState = rState
+		sState, _ := unitState.StorageState()
+		res[i].StorageState = sState
+	}
 
-		if res[i].State, err = unit.State(); err != nil {
+	return params.UnitStateResults{Results: res}, nil
+}
+
+// SetState isn't on the v14 API.
+func (u *UniterAPIV14) SetState(_ struct{}) {}
+
+// SetState sets the state persisted by the charm running in this unit
+// and the state internal to the uniter for this unit.
+func (u *UniterAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResults, error) {
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	res := make([]params.ErrorResult, len(args.Args))
+	for i, arg := range args.Args {
+		unitTag, err := names.ParseUnitTag(arg.Tag)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if !canAccess(unitTag) {
+			res[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		unit, err := u.getUnit(unitTag)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+
+		unitState := state.NewUnitState()
+		if arg.State != nil {
+			unitState.SetState(*arg.State)
+		}
+		if arg.UniterState != nil {
+			unitState.SetUniterState(*arg.UniterState)
+		}
+		if arg.RelationState != nil {
+			unitState.SetRelationState(*arg.RelationState)
+		}
+		if arg.StorageState != nil {
+			unitState.SetStorageState(*arg.StorageState)
+		}
+
+		ops := unit.SetStateOperation(unitState)
+		if err = u.st.ApplyOperation(ops); err != nil {
 			res[i].Error = common.ServerError(err)
 		}
 	}
 
-	return params.UnitStateResults{Results: res}, nil
+	return params.ErrorResults{Results: res}, nil
 }
 
 // CommitHookChanges isn't on the v14 API.
@@ -3438,8 +3501,12 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		if changes.SetUnitState.Tag != changes.Tag {
 			return common.ErrPerm
 		}
-		modelOp := unit.SetStateOperation(changes.SetUnitState.State)
-		modelOps = append(modelOps, modelOp)
+		if changes.SetUnitState.State != nil {
+			newUS := state.NewUnitState()
+			newUS.SetState(*changes.SetUnitState.State)
+			modelOp := unit.SetStateOperation(newUS)
+			modelOps = append(modelOps, modelOp)
+		}
 	}
 
 	for _, addParams := range changes.AddStorage {
@@ -3448,7 +3515,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			return common.ErrPerm
 		}
 
-		curCons, err := unitStorageConstraints(u.backend, unitTag)
+		curCons, err := unitStorageConstraints(u.StorageAPI.backend, unitTag)
 		if err != nil {
 			return errors.Trace(err)
 		}

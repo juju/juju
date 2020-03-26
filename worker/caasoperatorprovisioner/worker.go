@@ -32,7 +32,7 @@ var logger interface{}
 
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.
 type CAASProvisionerFacade interface {
-	OperatorProvisioningInfo() (apicaasprovisioner.OperatorProvisioningInfo, error)
+	OperatorProvisioningInfo(string) (apicaasprovisioner.OperatorProvisioningInfo, error)
 	WatchApplications() (watcher.StringsWatcher, error)
 	SetPasswords([]apicaasprovisioner.ApplicationPassword) (params.ErrorResults, error)
 	Life(string) (life.Value, error)
@@ -245,14 +245,14 @@ func (p *provisioner) ensureOperator(app string, config *caas.OperatorConfig) er
 }
 
 func (p *provisioner) updateOperatorConfig(appName, password string, prevCfg caas.OperatorConfig) (*caas.OperatorConfig, error) {
-	info, err := p.provisionerFacade.OperatorProvisioningInfo()
+	info, err := p.provisionerFacade.OperatorProvisioningInfo(appName)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "fetching operator provisioning info")
 	}
-	// All operators must have storage configured because charms
+	// Operators may have storage configured because charms
 	// have persistent state which must be preserved between any
-	// operator restarts.
-	if info.CharmStorage.Provider != provider.K8s_ProviderType {
+	// operator restarts. Newer charms though store state in the controller.
+	if info.CharmStorage != nil && info.CharmStorage.Provider != provider.K8s_ProviderType {
 		if spType := info.CharmStorage.Provider; spType == "" {
 			return nil, errors.NotValidf("missing operator storage provider")
 		} else {
@@ -262,20 +262,21 @@ func (p *provisioner) updateOperatorConfig(appName, password string, prevCfg caa
 	p.logger.Debugf("using caas operator info %+v", info)
 
 	cfg := &caas.OperatorConfig{
-		OperatorImagePath: info.ImagePath,
-		Version:           info.Version,
-		ResourceTags:      info.Tags,
-		CharmStorage:      charmStorageParams(info.CharmStorage),
+		OperatorImagePath:   info.ImagePath,
+		Version:             info.Version,
+		ResourceTags:        info.Tags,
+		CharmStorage:        charmStorageParams(info.CharmStorage),
+		ConfigMapGeneration: prevCfg.ConfigMapGeneration,
 	}
 
 	cfg.AgentConf, err = p.updateAgentConf(appName, password, info, prevCfg.AgentConf)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "updating agent config")
 	}
 
 	cfg.OperatorInfo, err = p.updateOperatorInfo(appName, prevCfg.OperatorInfo)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "updating operator info")
 	}
 
 	return cfg, nil
@@ -308,7 +309,7 @@ func (p *provisioner) updateAgentConf(appName, password string,
 		},
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "creating new agent config")
 	}
 
 	return conf.Render()
@@ -319,7 +320,7 @@ func (p *provisioner) updateOperatorInfo(appName string, prevOperatorInfoData []
 	if prevOperatorInfoData != nil {
 		prevOperatorInfo, err := caas.UnmarshalOperatorInfo(prevOperatorInfoData)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "unmarshalling operator info")
 		}
 		operatorInfo = *prevOperatorInfo
 	}
@@ -329,7 +330,7 @@ func (p *provisioner) updateOperatorInfo(appName string, prevOperatorInfoData []
 		operatorInfo.CACert == "" {
 		cert, err := p.provisionerFacade.IssueOperatorCertificate(appName)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "issuing certificate")
 		}
 		operatorInfo.Cert = cert.Cert
 		operatorInfo.PrivateKey = cert.PrivateKey
@@ -339,8 +340,11 @@ func (p *provisioner) updateOperatorInfo(appName string, prevOperatorInfoData []
 	return operatorInfo.Marshal()
 }
 
-func charmStorageParams(in storage.KubernetesFilesystemParams) caas.CharmStorageParams {
-	return caas.CharmStorageParams{
+func charmStorageParams(in *storage.KubernetesFilesystemParams) *caas.CharmStorageParams {
+	if in == nil {
+		return nil
+	}
+	return &caas.CharmStorageParams{
 		Provider:     in.Provider,
 		Size:         in.Size,
 		Attributes:   in.Attributes,

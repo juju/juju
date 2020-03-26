@@ -90,9 +90,12 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 	_, err := k.createStatefulSet(spec)
 	if errors.IsNotValid(err) {
 		return errors.Annotatef(err, "ensuring stateful set %q", spec.GetName())
-	}
-	if err != nil && !errors.IsAlreadyExists(err) {
+	} else if errors.IsAlreadyExists(err) {
+		// continue
+	} else if err != nil {
 		return errors.Trace(err)
+	} else {
+		return nil
 	}
 	// The statefulset already exists so all we are allowed to update is replicas,
 	// template, update strategy. Juju may hand out info with a slightly different

@@ -36,6 +36,7 @@ func ModelChange(c *gc.C, model *state.Model) cache.ModelChange {
 	c.Assert(err, jc.ErrorIsNil)
 
 	users, err := model.Users()
+	c.Assert(err, jc.ErrorIsNil)
 	permissions := make(map[string]permission.Access)
 	for _, user := range users {
 		// Cache permission map is always lower case.

@@ -776,6 +776,12 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 
 	"model-worker-manager": {
 		"agent",
+		"central-hub",
+		"certificate-watcher",
+		"clock",
+		"controller-port",
+		"http-server-args",
+		"is-controller-flag",
 		"state",
 		"state-config-watcher",
 		"upgrade-check-flag",

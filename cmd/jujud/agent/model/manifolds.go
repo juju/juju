@@ -4,6 +4,7 @@
 package model
 
 import (
+	"crypto/tls"
 	"time"
 
 	"github.com/juju/clock"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/api/base"
 	caasfirewallerapi "github.com/juju/juju/api/caasfirewaller"
 	caasunitprovisionerapi "github.com/juju/juju/api/caasunitprovisioner"
+	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
@@ -27,10 +29,12 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/applicationscaler"
+	"github.com/juju/juju/worker/caasadmission"
 	"github.com/juju/juju/worker/caasbroker"
 	"github.com/juju/juju/worker/caasenvironupgrader"
 	"github.com/juju/juju/worker/caasfirewaller"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
+	"github.com/juju/juju/worker/caasrbacmapper"
 	"github.com/juju/juju/worker/caasunitprovisioner"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
@@ -78,6 +82,8 @@ type ManifoldsConfig struct {
 	// is updated
 	AgentConfigChanged *voyeur.Value
 
+	CertGetter func() *tls.Certificate
+
 	// Clock supplies timing services to any manifolds that need them.
 	// Only a few workers have been converted to use them fo far.
 	Clock clock.Clock
@@ -86,6 +92,9 @@ type ManifoldsConfig struct {
 	// for the workers running on behalf of other models get their logs
 	// written into the model's logging collection rather than the controller's.
 	LoggingContext *loggo.Context
+
+	// HTTP server mux for registering caas admission controllers
+	Mux *apiserverhttp.Mux
 
 	// RunFlagDuration defines for how long this controller will ask
 	// for model administration rights; most of the workers controlled
@@ -469,6 +478,16 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewContainerBrokerFunc: config.NewContainerBrokerFunc,
 			Logger:                 config.LoggingContext.GetLogger("juju.worker.caas"),
 		})),
+
+		caasAdmissionName: ifResponsible(caasadmission.Manifold(caasadmission.ManifoldConfig{
+			AgentName:      agentName,
+			BrokerName:     caasBrokerTrackerName,
+			CertGetter:     config.CertGetter,
+			Logger:         loggo.GetLogger("juju.worker.caasadmission"),
+			Mux:            config.Mux,
+			RBACMapperName: caasRBACMapperName,
+		})),
+
 		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
 			caasfirewaller.ManifoldConfig{
 				APICallerName:  apiCallerName,
@@ -492,6 +511,14 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 				Logger:        config.LoggingContext.GetLogger("juju.worker.caasprovisioner"),
 			},
 		)),
+
+		caasRBACMapperName: ifResponsible(caasrbacmapper.Manifold(
+			caasrbacmapper.ManifoldConfig{
+				BrokerName: caasBrokerTrackerName,
+				Logger:     loggo.GetLogger("juju.worker.caasrbacmapper"),
+			},
+		)),
+
 		caasUnitProvisionerName: ifNotMigrating(caasunitprovisioner.Manifold(
 			caasunitprovisioner.ManifoldConfig{
 				APICallerName: apiCallerName,
@@ -642,8 +669,10 @@ const (
 	loggingConfigUpdaterName = "logging-config-updater"
 	instanceMutaterName      = "instance-mutater"
 
+	caasAdmissionName           = "caas-admission"
 	caasFirewallerName          = "caas-firewaller"
 	caasOperatorProvisionerName = "caas-operator-provisioner"
+	caasRBACMapperName          = "caas-rbac-mapper"
 	caasUnitProvisionerName     = "caas-unit-provisioner"
 	caasStorageProvisionerName  = "caas-storage-provisioner"
 	caasBrokerTrackerName       = "caas-broker-tracker"

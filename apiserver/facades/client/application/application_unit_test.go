@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ApplicationSuite struct {
@@ -818,6 +819,29 @@ func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, 1)
 	msg := result.OneError().Error()
 	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `deploying a Kubernetes application requires a suitable storage class.*`)
+}
+
+func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.C) {
+	s.model.modelType = state.ModelTypeCAAS
+	delete(s.model.cfg, "operator-storage")
+	s.PatchValue(&jujuversion.Current, version.MustParse("2.8-beta1"))
+	s.backend.charm = &mockCharm{
+		meta: &charm.Meta{
+			MinJujuVersion: version.MustParse("2.8.0"),
+		},
+	}
+
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+		}},
+	}
+	result, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
 }
 
 func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.C) {

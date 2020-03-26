@@ -30,6 +30,7 @@ type mockProvisionerFacade struct {
 	applicationsWatcher *mockStringsWatcher
 	apiWatcher          *mockNotifyWatcher
 	life                life.Value
+	withStorage         bool
 }
 
 func newMockProvisionerFacade(stub *testing.Stub) *mockProvisionerFacade {
@@ -37,6 +38,7 @@ func newMockProvisionerFacade(stub *testing.Stub) *mockProvisionerFacade {
 		stub:                stub,
 		applicationsWatcher: newMockStringsWatcher(),
 		apiWatcher:          newMockNotifyWatcher(),
+		withStorage:         true,
 	}
 }
 
@@ -50,25 +52,28 @@ func (m *mockProvisionerFacade) WatchApplications() (watcher.StringsWatcher, err
 	return m.applicationsWatcher, nil
 }
 
-func (m *mockProvisionerFacade) OperatorProvisioningInfo() (apicaasprovisioner.OperatorProvisioningInfo, error) {
+func (m *mockProvisionerFacade) OperatorProvisioningInfo(appName string) (apicaasprovisioner.OperatorProvisioningInfo, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.stub.MethodCall(m, "OperatorProvisioningInfo")
+	m.stub.MethodCall(m, "OperatorProvisioningInfo", appName)
 	if err := m.stub.NextErr(); err != nil {
 		return apicaasprovisioner.OperatorProvisioningInfo{}, err
 	}
-	return apicaasprovisioner.OperatorProvisioningInfo{
+	result := apicaasprovisioner.OperatorProvisioningInfo{
 		ImagePath:    "juju-operator-image",
 		Version:      version.MustParse("2.99.0"),
 		APIAddresses: []string{"10.0.0.1:17070", "192.18.1.1:17070"},
 		Tags:         map[string]string{"fred": "mary"},
-		CharmStorage: storage.KubernetesFilesystemParams{
+	}
+	if m.withStorage {
+		result.CharmStorage = &storage.KubernetesFilesystemParams{
 			Provider:     "kubernetes",
 			Size:         uint64(1024),
 			ResourceTags: map[string]string{"foo": "bar"},
 			Attributes:   map[string]interface{}{"key": "value"},
-		},
-	}, nil
+		}
+	}
+	return result, nil
 }
 
 func (m *mockProvisionerFacade) IssueOperatorCertificate(string) (apicaasprovisioner.OperatorCertificate, error) {

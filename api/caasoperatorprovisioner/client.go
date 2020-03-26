@@ -107,27 +107,39 @@ type OperatorProvisioningInfo struct {
 	Version      version.Number
 	APIAddresses []string
 	Tags         map[string]string
-	CharmStorage storage.KubernetesFilesystemParams
+	CharmStorage *storage.KubernetesFilesystemParams
 }
 
-// OperatorProvisioningInfo returns the info needed to provision an operator.
-func (c *Client) OperatorProvisioningInfo() (OperatorProvisioningInfo, error) {
-	var result params.OperatorProvisioningInfo
-	if err := c.facade.FacadeCall("OperatorProvisioningInfo", nil, &result); err != nil {
+// OperatorProvisioningInfo returns the info needed to provision an operator for an application.
+func (c *Client) OperatorProvisioningInfo(applicationName string) (OperatorProvisioningInfo, error) {
+	args := params.Entities{[]params.Entity{
+		{Tag: names.NewApplicationTag(applicationName).String()},
+	}}
+	var result params.OperatorProvisioningInfoResults
+	if err := c.facade.FacadeCall("OperatorProvisioningInfo", args, &result); err != nil {
 		return OperatorProvisioningInfo{}, err
 	}
-	info := OperatorProvisioningInfo{
-		ImagePath:    result.ImagePath,
-		Version:      result.Version,
-		APIAddresses: result.APIAddresses,
-		Tags:         result.Tags,
-		CharmStorage: filesystemFromParams(result.CharmStorage),
+	if len(result.Results) != 1 {
+		return OperatorProvisioningInfo{}, errors.Errorf("expected one result, got %d", len(result.Results))
 	}
-	return info, nil
+	info := result.Results[0]
+	if err := info.Error; err != nil {
+		return OperatorProvisioningInfo{}, errors.Trace(err)
+	}
+	return OperatorProvisioningInfo{
+		ImagePath:    info.ImagePath,
+		Version:      info.Version,
+		APIAddresses: info.APIAddresses,
+		Tags:         info.Tags,
+		CharmStorage: filesystemFromParams(info.CharmStorage),
+	}, nil
 }
 
-func filesystemFromParams(in params.KubernetesFilesystemParams) storage.KubernetesFilesystemParams {
-	return storage.KubernetesFilesystemParams{
+func filesystemFromParams(in *params.KubernetesFilesystemParams) *storage.KubernetesFilesystemParams {
+	if in == nil {
+		return nil
+	}
+	return &storage.KubernetesFilesystemParams{
 		StorageName:  in.StorageName,
 		Provider:     storage.ProviderType(in.Provider),
 		Size:         in.Size,
@@ -146,8 +158,11 @@ type OperatorCertificate struct {
 
 // IssueOperatorCertificate issues an x509 certificate for use by the specified application operator.
 func (c *Client) IssueOperatorCertificate(applicationName string) (OperatorCertificate, error) {
+	if !names.IsValidApplication(applicationName) {
+		return OperatorCertificate{}, errors.NotValidf("application name %q", applicationName)
+	}
 	args := params.Entities{[]params.Entity{
-		{Tag: applicationName},
+		{Tag: names.NewApplicationTag(applicationName).String()},
 	}}
 	var result params.IssueOperatorCertificateResults
 	if err := c.facade.FacadeCall("IssueOperatorCertificate", args, &result); err != nil {

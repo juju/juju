@@ -155,11 +155,14 @@ func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 			return errors.Annotate(err, "cannot write relation settings")
 		}
 		settings, err = r.ApplicationSettings()
+		if err != nil {
+			return errors.Annotate(err, "cannot read relation application settings")
+		}
 	} else {
 		settings, err = r.Settings()
-	}
-	if err != nil {
-		return errors.Annotate(err, "cannot read relation settings")
+		if err != nil {
+			return errors.Annotate(err, "cannot read relation settings")
+		}
 	}
 	for k, v := range c.Settings {
 		if v != "" {

@@ -251,10 +251,17 @@ type ConfigSettingsResults struct {
 	Results []ConfigSettingsResult `json:"results"`
 }
 
-// UnitStateResult holds a unit state map or an error.
+// UnitStateResult holds a unit's state map or an error.
 type UnitStateResult struct {
-	Error *Error            `json:"error,omitempty"`
-	State map[string]string `json:"state"`
+	Error *Error `json:"error,omitempty"`
+	// Specific state set by the unit via hook tool.
+	State map[string]string `json:"state,omitempty"`
+	// Uniter internal state for this unit.
+	UniterState string `json:"uniter-state,omitempty"`
+	// RelationState is a internal relation state for this unit.
+	RelationState map[int]string `json:"relation-state,omitempty"`
+	// StorageState is a internal storage state for this unit.
+	StorageState string `json:"storage-state,omitempty"`
 }
 
 // UnitStateResults holds multiple unit state maps or errors.
@@ -267,11 +274,20 @@ type SetUnitStateArgs struct {
 	Args []SetUnitStateArg `json:"args"`
 }
 
-// SetUnitStateArg holds a unit tag and a map with KV-pairs that represent a local
-// charm state to be persisted by the controller
+// SetUnitStateArg holds a unit tag and pointers to data persisted from
+// or via the uniter. State is a map with KV-pairs that represent a
+// local charm state to be persisted by the controller.  The other fields
+// represent uniter internal data.
+//
+// Each field with omitempty is optional, setting it will cause the field
+// to be evaluated for changes to the persisted data.  A pointer to nil or
+// empty data will cause the persisted data to be deleted.
 type SetUnitStateArg struct {
-	Tag   string            `json:"tag"`
-	State map[string]string `json:"state"`
+	Tag           string             `json:"tag"`
+	State         *map[string]string `json:"state,omitempty"`
+	UniterState   *string            `json:"uniter-state,omitempty"`
+	RelationState *map[int]string    `json:"relation-state,omitempty"`
+	StorageState  *string            `json:"storage-state,omitempty"`
 }
 
 // CommitHookChangesArgs serves as a container for CommitHookChangesArg objects

@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/worker/caasadmission"
+	"github.com/juju/juju/worker/caasrbacmapper"
 )
 
 // Logger represents the methods used by the worker to log details.
@@ -68,6 +70,10 @@ func manifoldOutput(in worker.Worker, out interface{}) error {
 	switch result := out.(type) {
 	case *caas.Broker:
 		*result = inTracker.Broker()
+	case *caasadmission.K8sBroker:
+		*result = inTracker.Broker().(caasadmission.K8sBroker)
+	case *caasrbacmapper.K8sBroker:
+		*result = inTracker.Broker().(caasrbacmapper.K8sBroker)
 	case *environs.CloudDestroyer:
 		*result = inTracker.Broker()
 	case *storage.ProviderRegistry:

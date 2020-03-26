@@ -6,6 +6,7 @@ package commands
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -449,17 +450,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(space.NewShowSpaceCommand())
 	r.Register(space.NewRemoveCommand())
 	r.Register(space.NewRenameCommand())
-	if featureflag.Enabled(feature.PostNetCLIMVP) {
-		r.Register(space.NewUpdateCommand())
-	}
 
 	// Manage subnets
 	r.Register(subnet.NewAddCommand())
 	r.Register(subnet.NewListCommand())
-	if featureflag.Enabled(feature.PostNetCLIMVP) {
-		r.Register(subnet.NewCreateCommand())
-		r.Register(subnet.NewRemoveCommand())
-	}
 
 	// Manage controllers
 	r.Register(controller.NewAddModelCommand())
@@ -499,6 +493,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// CAAS commands
 	r.Register(caas.NewAddCAASCommand(&cloudToCommandAdapter{}))
+	r.Register(caas.NewUpdateCAASCommand(&cloudToCommandAdapter{}))
 	r.Register(caas.NewRemoveCAASCommand(&cloudToCommandAdapter{}))
 	r.Register(application.NewScaleApplicationCommand())
 
@@ -547,8 +542,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 type cloudToCommandAdapter struct{}
 
-func (cloudToCommandAdapter) ParseCloudMetadataFile(path string) (map[string]cloudfile.Cloud, error) {
-	return cloudfile.ParseCloudMetadataFile(path)
+func (cloudToCommandAdapter) ReadCloudData(path string) ([]byte, error) {
+	return ioutil.ReadFile(path)
 }
 func (cloudToCommandAdapter) ParseOneCloud(data []byte) (cloudfile.Cloud, error) {
 	return cloudfile.ParseOneCloud(data)

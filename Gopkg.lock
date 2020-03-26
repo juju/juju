@@ -1507,6 +1507,7 @@
   digest = "1:b89da004785adaae71e99583bb8f68f70b6a34840673990d9bcebfd24b7a49ea"
   name = "k8s.io/api"
   packages = [
+    "admission/v1beta1",
     "admissionregistration/v1",
     "admissionregistration/v1beta1",
     "apps/v1",
@@ -1788,6 +1789,7 @@
     "util/jsonpath",
     "util/keyutil",
     "util/retry",
+    "util/workqueue",
   ]
   pruneopts = ""
   revision = "19522ff2880261a5116cf35985e08de6c6dfb681"
@@ -2049,6 +2051,7 @@
     "gopkg.in/retry.v1",
     "gopkg.in/tomb.v2",
     "gopkg.in/yaml.v2",
+    "k8s.io/api/admission/v1beta1",
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
     "k8s.io/api/authentication/v1",
@@ -2071,16 +2074,19 @@
     "k8s.io/apimachinery/pkg/labels",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
+    "k8s.io/apimachinery/pkg/runtime/serializer",
     "k8s.io/apimachinery/pkg/selection",
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/apimachinery/pkg/util/validation",
+    "k8s.io/apimachinery/pkg/util/wait",
     "k8s.io/apimachinery/pkg/util/yaml",
     "k8s.io/apimachinery/pkg/version",
     "k8s.io/apimachinery/pkg/watch",
     "k8s.io/client-go/discovery",
     "k8s.io/client-go/dynamic",
     "k8s.io/client-go/informers",
+    "k8s.io/client-go/informers/core/v1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/kubernetes/typed/admissionregistration/v1",
@@ -2123,6 +2129,7 @@
     "k8s.io/client-go/kubernetes/typed/storage/v1",
     "k8s.io/client-go/kubernetes/typed/storage/v1alpha1",
     "k8s.io/client-go/kubernetes/typed/storage/v1beta1",
+    "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/rest",
     "k8s.io/client-go/tools/cache",
@@ -2131,6 +2138,7 @@
     "k8s.io/client-go/tools/remotecommand",
     "k8s.io/client-go/util/exec",
     "k8s.io/client-go/util/flowcontrol",
+    "k8s.io/client-go/util/workqueue",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

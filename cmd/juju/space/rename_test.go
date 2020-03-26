@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
-	"github.com/juju/juju/feature"
 )
 
 type RenameSuite struct {
@@ -19,7 +18,6 @@ type RenameSuite struct {
 var _ = gc.Suite(&RenameSuite{})
 
 func (s *RenameSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewRenameCommand
 }

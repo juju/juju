@@ -6,6 +6,7 @@ package caasoperatorprovisioner_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/tomb.v2"
 
@@ -60,6 +61,14 @@ func (st *mockState) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
 	return []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1, "10.0.0.1"),
 	}, nil
+}
+
+func (st *mockState) Application(appName string) (caasoperatorprovisioner.Application, error) {
+	st.MethodCall(st, "Application", appName)
+	if appName != "gitlab" {
+		return nil, errors.NotFoundf("app %v", appName)
+	}
+	return st.app, nil
 }
 
 func (st *mockState) Model() (caasoperatorprovisioner.Model, error) {
@@ -119,6 +128,7 @@ type mockApplication struct {
 	state.Authenticator
 	tag      names.Tag
 	password string
+	charm    caasoperatorprovisioner.Charm
 }
 
 func (m *mockApplication) Tag() names.Tag {
@@ -132,6 +142,18 @@ func (m *mockApplication) SetPassword(password string) error {
 
 func (a *mockApplication) Life() state.Life {
 	return state.Alive
+}
+
+func (a *mockApplication) Charm() (caasoperatorprovisioner.Charm, bool, error) {
+	return a.charm, false, nil
+}
+
+type mockCharm struct {
+	meta *charm.Meta
+}
+
+func (ch *mockCharm) Meta() *charm.Meta {
+	return ch.meta
 }
 
 type mockWatcher struct {

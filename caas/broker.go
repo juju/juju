@@ -371,9 +371,9 @@ type OperatorConfig struct {
 	// Version is the Juju version of the operator image.
 	Version version.Number
 
-	// CharmStorage defines parameters used to create storage
-	// for operators to use for charm state.
-	CharmStorage CharmStorageParams
+	// CharmStorage defines parameters used to optionally
+	// create storage for operators to use for charm state.
+	CharmStorage *CharmStorageParams
 
 	// AgentConf is the contents of the agent.conf file.
 	AgentConf []byte
@@ -383,4 +383,9 @@ type OperatorConfig struct {
 
 	// ResourceTags is a set of tags to set on the operator pod.
 	ResourceTags map[string]string
+
+	// ConfigMapGeneration is set when updating the operator config
+	// map for consistency in Read after Write and Write after Write.
+	// A value of 0 is ignored.
+	ConfigMapGeneration int64
 }

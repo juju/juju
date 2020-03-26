@@ -165,9 +165,9 @@ func copyFileWithMode(from, to string, mode os.FileMode) error {
 	return nil
 }
 
-// ExistingJujudLocation returns the directory to
-// a jujud executable in the path.
-func ExistingJujudLocation() (string, error) {
+// ExistingJujuLocation returns the directory where 'juju' is running, and where
+// we expect to find 'jujuc' and 'jujud'.
+func ExistingJujuLocation() (string, error) {
 	jujuLocation, err := findExecutable(os.Args[0])
 	if err != nil {
 		logger.Infof("%v", err)
@@ -183,9 +183,9 @@ func ExistingJujudLocation() (string, error) {
 // tests.)
 var VersionFileFallbackDir = "/usr/lib/juju"
 
-func copyExistingJujud(dir string) error {
+func copyExistingJujus(dir string) error {
 	// Assume that the user is running juju.
-	jujuDir, err := ExistingJujudLocation()
+	jujuDir, err := ExistingJujuLocation()
 	if err != nil {
 		logger.Infof("couldn't find existing jujud: %v", err)
 		return errors.Trace(err)
@@ -203,6 +203,19 @@ func copyExistingJujud(dir string) error {
 	err = copyFileWithMode(jujudLocation, target, info.Mode())
 	if err != nil {
 		return errors.Trace(err)
+	}
+	jujucLocation := filepath.Join(jujuDir, names.Jujuc)
+	jujucTarget := filepath.Join(dir, names.Jujuc)
+	if os.Stat(jujucLocation); os.IsNotExist(err) {
+		logger.Infof("jujuc not found at %s, not including", jujucLocation)
+	} else if err != nil {
+		return errors.Trace(err)
+	} else {
+		logger.Infof("target jujuc: %v", jujucTarget)
+		err = copyFileWithMode(jujucLocation, jujucTarget, info.Mode())
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	// If there's a version file beside the jujud binary or in the
 	// fallback location, include that.
@@ -225,10 +238,13 @@ func copyExistingJujud(dir string) error {
 	return nil
 }
 
-func buildJujud(dir string) error {
+func buildJujus(dir string) error {
 	logger.Infof("building jujud")
 	cmds := [][]string{
+		// TODO: jam 2020-03-12 do we want to also default to stripping the binary?
+		//       -ldflags "-s -w"
 		{"go", "build", "-gccgoflags=-static-libgo", "-o", filepath.Join(dir, names.Jujud), "github.com/juju/juju/cmd/jujud"},
+		{"go", "build", "-gccgoflags=-static-libgo", "-o", filepath.Join(dir, names.Jujuc), "github.com/juju/juju/cmd/jujuc"},
 	}
 	for _, args := range cmds {
 		cmd := exec.Command(args[0], args[1:]...)
@@ -242,13 +258,13 @@ func buildJujud(dir string) error {
 
 func packageLocalTools(toolsDir string, buildAgent bool) error {
 	if !buildAgent {
-		if err := copyExistingJujud(toolsDir); err != nil {
+		if err := copyExistingJujus(toolsDir); err != nil {
 			return errors.New("no prepackaged agent available and no jujud binary can be found")
 		}
 		return nil
 	}
 	logger.Infof("Building agent binary to upload (%s)", jujuversion.Current.String())
-	if err := buildJujud(toolsDir); err != nil {
+	if err := buildJujus(toolsDir); err != nil {
 		return errors.Annotate(err, "cannot build jujud agent binary from source")
 	}
 	return nil

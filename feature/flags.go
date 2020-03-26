@@ -23,11 +23,6 @@ const LogErrorStack = "log-error-stack"
 // instead of systemd for vivid and newer.
 const LegacyUpstart = "legacy-upstart"
 
-// PostNetCLIMVP is used to indicate that additional networking
-// commands will be available in addition to the networking MVP ones
-// (space list|create, subnet list|add).
-const PostNetCLIMVP = "post-net-cli-mvp"
-
 // ImageMetadata allows custom image metadata to be recorded in state.
 const ImageMetadata = "image-metadata"
 

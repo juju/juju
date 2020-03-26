@@ -13,7 +13,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/facades/client/spaces"
-	"github.com/juju/juju/apiserver/facades/client/spaces/mocks"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/state"
@@ -23,11 +22,11 @@ import (
 type SpaceRenameSuite struct {
 	spaceName string
 
-	state    *mocks.MockRenameSpaceState
-	space    *mocks.MockRenameSpace
-	settings *mocks.MockSettings
-	cons1    *mocks.MockConstraints
-	cons2    *mocks.MockConstraints
+	state    *spaces.MockRenameSpaceState
+	space    *spaces.MockRenameSpace
+	settings *spaces.MockSettings
+	cons1    *spaces.MockConstraints
+	cons2    *spaces.MockConstraints
 }
 
 var _ = gc.Suite(&SpaceRenameSuite{})
@@ -54,7 +53,7 @@ func (s *SpaceRenameSuite) TestBuildSuccess(c *gc.C) {
 	}}
 	s.settings.EXPECT().DeltaOps(state.ControllerSettingsGlobalKey, expectedConfigDelta).Return([]txn.Op{{}}, nil)
 
-	op := spaces.NewRenameSpaceModelOp(true, s.settings, s.state, s.space, toName)
+	op := spaces.NewRenameSpaceOp(true, s.settings, s.state, s.space, toName)
 	ops, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.HasLen, 4)
@@ -70,7 +69,7 @@ func (s *SpaceRenameSuite) TestBuildNotControllerModelSuccess(c *gc.C) {
 	s.cons1.EXPECT().ChangeSpaceNameOps(s.spaceName, toName).Return([]txn.Op{{}})
 	s.cons2.EXPECT().ChangeSpaceNameOps(s.spaceName, toName).Return([]txn.Op{{}})
 
-	op := spaces.NewRenameSpaceModelOp(false, s.settings, s.state, s.space, toName)
+	op := spaces.NewRenameSpaceOp(false, s.settings, s.state, s.space, toName)
 	ops, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.HasLen, 3)
@@ -87,7 +86,7 @@ func (s *SpaceRenameSuite) TestBuildSettingsChangesError(c *gc.C) {
 	bamErr := errors.New("bam")
 	s.state.EXPECT().ControllerConfig().Return(nil, bamErr)
 
-	op := spaces.NewRenameSpaceModelOp(true, s.settings, s.state, s.space, toName)
+	op := spaces.NewRenameSpaceOp(true, s.settings, s.state, s.space, toName)
 	_, err := op.Build(0)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("retrieving settings changes: %v", bamErr.Error()))
 }
@@ -101,7 +100,7 @@ func (s *SpaceRenameSuite) TestBuildConstraintsRetrievalError(c *gc.C) {
 	s.space.EXPECT().RenameSpaceOps(toName).Return([]txn.Op{{}})
 	s.state.EXPECT().ConstraintsBySpaceName(s.spaceName).Return(nil, bamErr)
 
-	op := spaces.NewRenameSpaceModelOp(true, s.settings, s.state, s.space, toName)
+	op := spaces.NewRenameSpaceOp(true, s.settings, s.state, s.space, toName)
 	_, err := op.Build(0)
 	c.Assert(err, gc.ErrorMatches, bamErr.Error())
 }
@@ -116,13 +115,13 @@ func (s *SpaceRenameSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.spaceName = "db"
-	s.space = mocks.NewMockRenameSpace(ctrl)
+	s.space = spaces.NewMockRenameSpace(ctrl)
 	s.space.EXPECT().Name().Return(s.spaceName).AnyTimes()
 
-	s.state = mocks.NewMockRenameSpaceState(ctrl)
-	s.settings = mocks.NewMockSettings(ctrl)
-	s.cons1 = mocks.NewMockConstraints(ctrl)
-	s.cons2 = mocks.NewMockConstraints(ctrl)
+	s.state = spaces.NewMockRenameSpaceState(ctrl)
+	s.settings = spaces.NewMockSettings(ctrl)
+	s.cons1 = spaces.NewMockConstraints(ctrl)
+	s.cons2 = spaces.NewMockConstraints(ctrl)
 
 	return ctrl
 }

@@ -136,12 +136,21 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, terminatin
 	c.Assert(config.OperatorImagePath, gc.Equals, "juju-operator-image")
 	c.Assert(config.Version, gc.Equals, version.MustParse("2.99.0"))
 	c.Assert(config.ResourceTags, jc.DeepEquals, map[string]string{"fred": "mary"})
-	c.Assert(config.CharmStorage, jc.DeepEquals, caas.CharmStorageParams{
-		Provider:     "kubernetes",
-		Size:         uint64(1024),
-		ResourceTags: map[string]string{"foo": "bar"},
-		Attributes:   map[string]interface{}{"key": "value"},
-	})
+	if s.provisionerFacade.withStorage {
+		c.Assert(config.CharmStorage, jc.DeepEquals, &caas.CharmStorageParams{
+			Provider:     "kubernetes",
+			Size:         uint64(1024),
+			ResourceTags: map[string]string{"foo": "bar"},
+			Attributes:   map[string]interface{}{"key": "value"},
+		})
+	} else {
+		c.Assert(config.CharmStorage, gc.IsNil)
+	}
+	if updateCerts {
+		c.Assert(config.ConfigMapGeneration, gc.Equals, int64(1))
+	} else {
+		c.Assert(config.ConfigMapGeneration, gc.Equals, int64(0))
+	}
 
 	agentFile := filepath.Join(c.MkDir(), "agent.config")
 	err := ioutil.WriteFile(agentFile, config.AgentConf, 0644)
@@ -172,6 +181,7 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, terminatin
 		}
 		s.provisionerFacade.stub.CheckCallNames(c, callNames...)
 		c.Assert(s.provisionerFacade.stub.Calls()[0].Args[0], gc.Equals, "myapp")
+		c.Assert(s.provisionerFacade.stub.Calls()[1].Args[0], gc.Equals, "myapp")
 		return
 	}
 
@@ -185,6 +195,14 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, terminatin
 }
 
 func (s *CAASProvisionerSuite) TestNewApplicationCreatesNewOperator(c *gc.C) {
+	w := s.assertWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.assertOperatorCreated(c, false, false, false)
+}
+
+func (s *CAASProvisionerSuite) TestNewApplicationNoStorage(c *gc.C) {
+	s.provisionerFacade.withStorage = false
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
 
@@ -247,6 +265,7 @@ oldpassword: dxKwhgZPrNzXVTrZSxY1VLHA
 values: {}
 mongoversion: "0.0"
 `[1:], strconv.Quote(coretesting.CACert))),
+		ConfigMapGeneration: 1,
 	}
 
 	w := s.assertWorker(c)

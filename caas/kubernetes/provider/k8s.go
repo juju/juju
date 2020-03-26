@@ -66,6 +66,10 @@ import (
 var logger = loggo.GetLogger("juju.kubernetes.provider")
 
 const (
+	// Domain is the primary TLD for juju when giving resource domains to
+	// Kubernetes
+	Domain = "juju.is"
+
 	labelOperator    = "juju-operator"
 	labelStorage     = "juju-storage"
 	labelVersion     = "juju-version"
@@ -87,6 +91,9 @@ const (
 	operatorContainerName = "juju-operator"
 
 	dataDirVolumeName = "juju-data-dir"
+
+	// InformerResyncPeriod is the default resync period set on IndexInformers
+	InformerResyncPeriod = time.Minute * 5
 
 	// OperatorPodIPEnvName is the environment name for operator pod IP.
 	OperatorPodIPEnvName = "JUJU_OPERATOR_POD_IP"
@@ -148,6 +155,9 @@ type kubernetesClient struct {
 	newWatcher        NewK8sWatcherFunc
 	newStringsWatcher NewK8sStringsWatcherFunc
 
+	// informerFactoryUnlocked informer factory setup for tracking this model
+	informerFactoryUnlocked informers.SharedInformerFactory
+
 	// randomPrefix generates an annotation for stateful sets.
 	randomPrefix RandomPrefixFunc
 }
@@ -165,6 +175,9 @@ type kubernetesClient struct {
 //go:generate mockgen -package mocks -destination mocks/discovery_mock.go k8s.io/client-go/discovery DiscoveryInterface
 //go:generate mockgen -package mocks -destination mocks/dynamic_mock.go -mock_names=Interface=MockDynamicInterface k8s.io/client-go/dynamic Interface,ResourceInterface,NamespaceableResourceInterface
 //go:generate mockgen -package mocks -destination mocks/admissionregistration_mock.go k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1  AdmissionregistrationV1beta1Interface,MutatingWebhookConfigurationInterface,ValidatingWebhookConfigurationInterface
+//go:generate mockgen -package mocks -destination mocks/serviceaccountinformer_mock.go k8s.io/client-go/informers/core/v1 ServiceAccountInformer
+//go:generate mockgen -package mocks -destination mocks/serviceaccountlister_mock.go k8s.io/client-go/listers/core/v1 ServiceAccountLister,ServiceAccountNamespaceLister
+//go:generate mockgen -package mocks -destination mocks/sharedindexinformer_mock.go k8s.io/client-go/tools/cache SharedIndexInformer
 
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error)
@@ -202,12 +215,17 @@ func newK8sBroker(
 		apiextensionsClientUnlocked: apiextensionsClient,
 		dynamicClientUnlocked:       dynamicClient,
 		envCfgUnlocked:              newCfg.Config,
-		namespace:                   newCfg.Name(),
-		modelUUID:                   modelUUID,
-		newWatcher:                  newWatcher,
-		newStringsWatcher:           newStringsWatcher,
-		newClient:                   newClient,
-		randomPrefix:                randomPrefix,
+		informerFactoryUnlocked: informers.NewSharedInformerFactoryWithOptions(
+			k8sClient,
+			InformerResyncPeriod,
+			informers.WithNamespace(newCfg.Name()),
+		),
+		namespace:         newCfg.Name(),
+		modelUUID:         modelUUID,
+		newWatcher:        newWatcher,
+		newStringsWatcher: newStringsWatcher,
+		newClient:         newClient,
+		randomPrefix:      randomPrefix,
 		annotations: k8sannotations.New(nil).
 			Add(annotationModelUUIDKey, modelUUID),
 	}
@@ -224,6 +242,12 @@ func (k *kubernetesClient) GetAnnotations() k8sannotations.Annotation {
 }
 
 var k8sversionNumberExtractor = regexp.MustCompile("[0-9]+")
+
+// MakeK8sDomain builds and returns a Kubernetes resource domain for the
+// provided components. Func is idempotent
+func MakeK8sDomain(components ...string) string {
+	return fmt.Sprintf("%s.%s", strings.Join(components, "."), Domain)
+}
 
 // Version returns cluster version information.
 func (k *kubernetesClient) Version() (ver *version.Number, err error) {
@@ -315,6 +339,12 @@ func (k *kubernetesClient) SetCloudSpec(spec environs.CloudSpec) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot set cloud spec")
 	}
+
+	k.informerFactoryUnlocked = informers.NewSharedInformerFactoryWithOptions(
+		k.clientUnlocked,
+		InformerResyncPeriod,
+		informers.WithNamespace(k.namespace),
+	)
 	return nil
 }
 
@@ -454,6 +484,18 @@ func (k *kubernetesClient) DestroyController(ctx envcontext.ProviderCallContext,
 			Add(annotationControllerIsControllerKey, "true"),
 	)
 	return k.Destroy(ctx)
+}
+
+// SharedInformerFactory returns the default k8s SharedInformerFactory used by
+// this broker.
+func (k *kubernetesClient) SharedInformerFactory() informers.SharedInformerFactory {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	return k.informerFactoryUnlocked
+}
+
+func (k *kubernetesClient) CurrentModel() string {
+	return k.namespace
 }
 
 // Provider is part of the Broker interface.

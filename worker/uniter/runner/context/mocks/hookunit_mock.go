@@ -37,18 +37,6 @@ func (m *MockHookUnit) EXPECT() *MockHookUnitMockRecorder {
 	return m.recorder
 }
 
-// AddStorage mocks base method
-func (m *MockHookUnit) AddStorage(arg0 map[string][]params.StorageConstraints) error {
-	ret := m.ctrl.Call(m, "AddStorage", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddStorage indicates an expected call of AddStorage
-func (mr *MockHookUnitMockRecorder) AddStorage(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddStorage", reflect.TypeOf((*MockHookUnit)(nil).AddStorage), arg0)
-}
-
 // Application mocks base method
 func (m *MockHookUnit) Application() (*uniter.Application, error) {
 	ret := m.ctrl.Call(m, "Application")
@@ -172,18 +160,6 @@ func (mr *MockHookUnitMockRecorder) RequestReboot() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestReboot", reflect.TypeOf((*MockHookUnit)(nil).RequestReboot))
 }
 
-// SetState mocks base method
-func (m *MockHookUnit) SetState(arg0 map[string]string) error {
-	ret := m.ctrl.Call(m, "SetState", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetState indicates an expected call of SetState
-func (mr *MockHookUnitMockRecorder) SetState(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetState", reflect.TypeOf((*MockHookUnit)(nil).SetState), arg0)
-}
-
 // SetUnitStatus mocks base method
 func (m *MockHookUnit) SetUnitStatus(arg0 status.Status, arg1 string, arg2 map[string]interface{}) error {
 	ret := m.ctrl.Call(m, "SetUnitStatus", arg0, arg1, arg2)
@@ -197,9 +173,9 @@ func (mr *MockHookUnitMockRecorder) SetUnitStatus(arg0, arg1, arg2 interface{}) 
 }
 
 // State mocks base method
-func (m *MockHookUnit) State() (map[string]string, error) {
+func (m *MockHookUnit) State() (params.UnitStateResult, error) {
 	ret := m.ctrl.Call(m, "State")
-	ret0, _ := ret[0].(map[string]string)
+	ret0, _ := ret[0].(params.UnitStateResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

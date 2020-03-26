@@ -10,7 +10,6 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -47,14 +45,7 @@ func (s *BaseSubnetSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *BaseSubnetSuite) SetUpTest(c *gc.C) {
-	// If any post-MVP command suite enabled the flag, keep it.
-	hasFeatureFlag := featureflag.Enabled(feature.PostNetCLIMVP)
-
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-
-	if hasFeatureFlag {
-		s.FakeJujuXDGDataHomeSuite.SetFeatureFlags(feature.PostNetCLIMVP)
-	}
 
 	s.api = NewStubAPI()
 	c.Assert(s.api, gc.NotNil)
@@ -193,18 +184,8 @@ func (sa *StubAPI) AllSpaces() ([]names.Tag, error) {
 	return sa.Spaces, nil
 }
 
-func (sa *StubAPI) CreateSubnet(subnetCIDR string, spaceTag names.SpaceTag, zones []string, isPublic bool) error {
-	sa.MethodCall(sa, "CreateSubnet", subnetCIDR, spaceTag, zones, isPublic)
-	return sa.NextErr()
-}
-
 func (sa *StubAPI) AddSubnet(cidr string, id network.Id, spaceTag names.SpaceTag, zones []string) error {
 	sa.MethodCall(sa, "AddSubnet", cidr, id, spaceTag, zones)
-	return sa.NextErr()
-}
-
-func (sa *StubAPI) RemoveSubnet(subnetCIDR string) error {
-	sa.MethodCall(sa, "RemoveSubnet", subnetCIDR)
 	return sa.NextErr()
 }
 

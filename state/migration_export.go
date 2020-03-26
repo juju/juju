@@ -918,10 +918,15 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		if cloudContainer, found := ctx.cloudContainers[unit.globalKey()]; found {
 			args.CloudContainer = e.cloudContainer(cloudContainer)
 		}
-		if args.State, err = unit.State(); err != nil {
+		// TODO: hml 18-mar-2020
+		// add the rest of unit.State() to model migration
+		unitState, err := unit.State()
+		if err != nil {
 			return errors.Trace(err)
 		}
-
+		if us, found := unitState.State(); found {
+			args.State = us
+		}
 		exUnit := exApplication.AddUnit(args)
 
 		e.setUnitResources(exUnit, ctx.resources.UnitResources)
@@ -1616,14 +1621,10 @@ func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
 		return nil, errors.Annotate(err, "cannot get all units")
 	}
 	e.logger.Debugf("found %d unit docs", len(docs))
-	model, err := e.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	result := make(map[string][]*Unit)
 	for _, doc := range docs {
 		units := result[doc.Application]
-		result[doc.Application] = append(units, newUnit(e.st, model.Type(), &doc))
+		result[doc.Application] = append(units, newUnit(e.st, e.dbModel.Type(), &doc))
 	}
 	return result, nil
 }

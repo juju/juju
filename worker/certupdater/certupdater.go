@@ -147,6 +147,9 @@ func (c *CertificateUpdater) updateCertificate(addresses network.SpaceAddresses)
 	// for serving MongoDB and API server connections).  We also
 	// explicitly include localhost.
 	serverAddrs := []string{"localhost", "juju-apiserver", "juju-mongodb", "anything"}
+	// TODO remove this line. Currently a quick hack to test admission workers
+	// in microk8s.
+	serverAddrs = append(serverAddrs, "controller-service.controller-microk8s-localhost.svc")
 	for _, addr := range addresses {
 		if addr.Value == "localhost" {
 			continue

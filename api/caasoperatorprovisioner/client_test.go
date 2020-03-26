@@ -155,37 +155,38 @@ func (s *provisionerSuite) TestLifeCount(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `expected 1 result, got 2`)
 }
 
-func (s *provisionerSuite) OperatorProvisioningInfo(c *gc.C) {
+func (s *provisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 	vers := version.MustParse("2.99.0")
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
 		c.Check(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "OperatorProvisioningInfo")
-		c.Assert(a, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.OperatorProvisioningInfo{})
-		*(result.(*params.OperatorProvisioningInfo)) = params.OperatorProvisioningInfo{
-			ImagePath:    "juju-operator-image",
-			Version:      vers,
-			APIAddresses: []string{"10.0.0.1:1"},
-			Tags:         map[string]string{"foo": "bar"},
-			CharmStorage: params.KubernetesFilesystemParams{
-				Size:        10,
-				Provider:    "kubernetes",
-				StorageName: "stor",
-				Tags:        map[string]string{"model": "model-tag"},
-				Attributes:  map[string]interface{}{"key": "value"},
-			},
-		}
+		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.OperatorProvisioningInfoResults{})
+		*(result.(*params.OperatorProvisioningInfoResults)) = params.OperatorProvisioningInfoResults{
+			Results: []params.OperatorProvisioningInfo{{
+				ImagePath:    "juju-operator-image",
+				Version:      vers,
+				APIAddresses: []string{"10.0.0.1:1"},
+				Tags:         map[string]string{"foo": "bar"},
+				CharmStorage: &params.KubernetesFilesystemParams{
+					Size:        10,
+					Provider:    "kubernetes",
+					StorageName: "stor",
+					Tags:        map[string]string{"model": "model-tag"},
+					Attributes:  map[string]interface{}{"key": "value"},
+				},
+			}}}
 		return nil
 	})
-	info, err := client.OperatorProvisioningInfo()
+	info, err := client.OperatorProvisioningInfo("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, caasoperatorprovisioner.OperatorProvisioningInfo{
 		ImagePath:    "juju-operator-image",
 		Version:      vers,
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags:         map[string]string{"foo": "bar"},
-		CharmStorage: storage.KubernetesFilesystemParams{
+		CharmStorage: &storage.KubernetesFilesystemParams{
 			Size:         10,
 			Provider:     "kubernetes",
 			StorageName:  "stor",
@@ -195,12 +196,28 @@ func (s *provisionerSuite) OperatorProvisioningInfo(c *gc.C) {
 	})
 }
 
+func (s *provisionerSuite) TestOperatorProvisioningInfoArity(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "OperatorProvisioningInfo")
+		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.OperatorProvisioningInfoResults{})
+		*(result.(*params.OperatorProvisioningInfoResults)) = params.OperatorProvisioningInfoResults{
+			Results: []params.OperatorProvisioningInfo{{}, {}},
+		}
+		return nil
+	})
+	_, err := client.OperatorProvisioningInfo("gitlab")
+	c.Assert(err, gc.ErrorMatches, "expected one result, got 2")
+}
+
 func (s *provisionerSuite) TestIssueOperatorCertificate(c *gc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
 		c.Check(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "IssueOperatorCertificate")
-		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "appymcappface"}}})
+		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-appymcappface"}}})
 		c.Assert(result, gc.FitsTypeOf, &params.IssueOperatorCertificateResults{})
 		*(result.(*params.IssueOperatorCertificateResults)) = params.IssueOperatorCertificateResults{
 			Results: []params.IssueOperatorCertificateResult{{
@@ -225,7 +242,7 @@ func (s *provisionerSuite) TestIssueOperatorCertificateArity(c *gc.C) {
 		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
 		c.Check(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "IssueOperatorCertificate")
-		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "appymcappface"}}})
+		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-appymcappface"}}})
 		c.Assert(result, gc.FitsTypeOf, &params.IssueOperatorCertificateResults{})
 		return nil
 	})

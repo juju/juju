@@ -123,9 +123,11 @@ func (k *kubernetesClient) ensureNamespaceAnnotations(ns *core.Namespace) error 
 // createNamespace creates a named namespace.
 func (k *kubernetesClient) createNamespace(name string) error {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
+	ns.SetLabels(AppendLabels(ns.GetLabels(), LabelsForModel(k.CurrentModel())))
 	if err := k.ensureNamespaceAnnotations(ns); err != nil {
 		return errors.Trace(err)
 	}
+
 	_, err := k.client().CoreV1().Namespaces().Create(ns)
 	if k8serrors.IsAlreadyExists(err) {
 		return errors.AlreadyExistsf("namespace %q", name)
