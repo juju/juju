@@ -5,10 +5,9 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	common "github.com/juju/juju/apiserver/common"
+	reflect "reflect"
 )
 
 // MockLeadershipPinningBackend is a mock of LeadershipPinningBackend interface
@@ -36,6 +35,7 @@ func (m *MockLeadershipPinningBackend) EXPECT() *MockLeadershipPinningBackendMoc
 
 // Machine mocks base method
 func (m *MockLeadershipPinningBackend) Machine(arg0 string) (common.LeadershipMachine, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Machine", arg0)
 	ret0, _ := ret[0].(common.LeadershipMachine)
 	ret1, _ := ret[1].(error)
@@ -44,6 +44,7 @@ func (m *MockLeadershipPinningBackend) Machine(arg0 string) (common.LeadershipMa
 
 // Machine indicates an expected call of Machine
 func (mr *MockLeadershipPinningBackendMockRecorder) Machine(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockLeadershipPinningBackend)(nil).Machine), arg0)
 }
 
@@ -72,6 +73,7 @@ func (m *MockLeadershipMachine) EXPECT() *MockLeadershipMachineMockRecorder {
 
 // ApplicationNames mocks base method
 func (m *MockLeadershipMachine) ApplicationNames() ([]string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplicationNames")
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
@@ -80,5 +82,6 @@ func (m *MockLeadershipMachine) ApplicationNames() ([]string, error) {
 
 // ApplicationNames indicates an expected call of ApplicationNames
 func (mr *MockLeadershipMachineMockRecorder) ApplicationNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationNames", reflect.TypeOf((*MockLeadershipMachine)(nil).ApplicationNames))
 }

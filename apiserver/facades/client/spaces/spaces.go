@@ -83,9 +83,6 @@ type Backing interface {
 	// SpaceByName returns the Juju network space given by name.
 	SpaceByName(name string) (networkingcommon.BackingSpace, error)
 
-	// ReloadSpaces loads spaces from backing environ.
-	ReloadSpaces(environ environs.BootstrapEnviron) error
-
 	// AllEndpointBindings loads all endpointBindings.
 	AllEndpointBindings() ([]ApplicationEndpointBindingsShim, error)
 
@@ -103,6 +100,12 @@ type Backing interface {
 
 	// ConstraintsBySpaceName returns constraints found by spaceName.
 	ConstraintsBySpaceName(name string) ([]Constraints, error)
+
+	// SaveSpacesFromProvider loads providerSpaces into state.
+	SaveSpacesFromProvider([]network.SpaceInfo) error
+
+	// SaveSubnetsFromProvider loads subnets into state.
+	SaveSubnetsFromProvider([]network.SubnetInfo, string) error
 
 	// IsController returns true if this state instance has the bootstrap
 	// model UUID.
@@ -454,7 +457,7 @@ func (api *API) ReloadSpaces() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(api.backing.ReloadSpaces(env))
+	return errors.Trace(common.ReloadSpaces(api.context, api.backing, env))
 }
 
 // checkSupportsSpaces checks if the environment implements NetworkingEnviron

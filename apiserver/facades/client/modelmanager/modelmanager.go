@@ -685,7 +685,8 @@ func (m *ModelManagerAPI) newModel(
 			return nil, errors.Annotate(err, "Failed to perform container networking autoconfiguration")
 		}
 	}
-	if err = st.ReloadSpaces(env); err != nil {
+
+	if err = common.ReloadSpaces(m.callContext, st, env); err != nil {
 		if errors.IsNotSupported(err) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {

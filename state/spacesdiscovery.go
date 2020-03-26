@@ -10,10 +10,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 )
 
@@ -27,35 +24,6 @@ func (st *State) getModelSubnets() (set.Strings, error) {
 		modelSubnetIds.Add(string(subnet.ProviderId()))
 	}
 	return modelSubnetIds, nil
-}
-
-// ReloadSpaces loads spaces and subnets from provider specified by environ into state.
-// Currently it's an append-only operation, no spaces/subnets are deleted.
-func (st *State) ReloadSpaces(environ environs.BootstrapEnviron) error {
-	netEnviron, ok := environs.SupportsNetworking(environ)
-	if !ok {
-		return errors.NotSupportedf("spaces discovery in a non-networking environ")
-	}
-
-	ctx := context.CallContext(st)
-	canDiscoverSpaces, err := netEnviron.SupportsSpaceDiscovery(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if canDiscoverSpaces {
-		spaces, err := netEnviron.Spaces(ctx)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return errors.Trace(st.SaveSpacesFromProvider(spaces))
-	} else {
-		logger.Debugf("environ does not support space discovery, falling back to subnet discovery")
-		subnets, err := netEnviron.Subnets(ctx, instance.UnknownId, nil)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return errors.Trace(st.SaveSubnetsFromProvider(subnets, ""))
-	}
 }
 
 // SaveSubnetsFromProvider loads subnets into state.
