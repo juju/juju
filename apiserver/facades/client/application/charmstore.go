@@ -351,11 +351,14 @@ func ResolveCharms(st State, args params.ResolveCharms, openCSRepo OpenCSRepoFun
 
 	controllerCfg, err := st.ControllerConfig()
 	if err != nil {
-		return params.ResolveCharmResults{}, err
+		return params.ResolveCharmResults{}, errors.Trace(err)
 	}
 	repo, err := openCSRepo(OpenCSRepoParams{
 		CSURL: controllerCfg.CharmStoreURL(),
 	})
+	if err != nil {
+		return params.ResolveCharmResults{}, errors.Trace(err)
+	}
 
 	for _, ref := range args.References {
 		result := params.ResolveCharmResult{}

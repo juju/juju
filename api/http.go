@@ -215,7 +215,9 @@ func bakeryError(err error) error {
 		dcMac := info.BakeryMacaroon
 		if dcMac == nil {
 			dcMac, err = bakery.NewLegacyMacaroon(info.Macaroon)
-			return errors.Annotate(err, "unable to create legacy macaroon details from discharge-required response error")
+			if err != nil {
+				return errors.Annotate(err, "unable to create legacy macaroon details from discharge-required response error")
+			}
 		}
 		bakeryErr.Info.Macaroon = dcMac
 	}
