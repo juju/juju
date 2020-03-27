@@ -1728,7 +1728,7 @@ func (k *kubernetesClient) configureDaemonSet(
 		return cleanUps, errors.Trace(err)
 	}
 
-	randPrefix, err := k.getStorageUniqPrefix(func() (annotationGetter, error) {
+	storageUniqueID, err := k.getStorageUniqPrefix(func() (annotationGetter, error) {
 		return k.getDaemonSet(deploymentName)
 	})
 	if err != nil {
@@ -1740,7 +1740,7 @@ func (k *kubernetesClient) configureDaemonSet(
 			Labels: k.getDaemonSetLabels(appName),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
-				Add(annotationKeyApplicationUUID, randPrefix).ToMap(),
+				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
 		},
 		Spec: apps.DaemonSetSpec{
 			// TODO(caas): DaemonSetUpdateStrategy support.
@@ -1765,7 +1765,7 @@ func (k *kubernetesClient) configureDaemonSet(
 	}
 	// Storage support for daemonset is new.
 	legacy := false
-	if err := k.configureStorage(appName, legacy, randPrefix, filesystems, &daemonSet.Spec.Template.Spec, handelPVC); err != nil {
+	if err := k.configureStorage(appName, legacy, storageUniqueID, filesystems, &daemonSet.Spec.Template.Spec, handelPVC); err != nil {
 		return cleanUps, errors.Trace(err)
 	}
 
@@ -1792,7 +1792,7 @@ func (k *kubernetesClient) configureDeployment(
 		return cleanUps, errors.Trace(err)
 	}
 
-	randPrefix, err := k.getStorageUniqPrefix(func() (annotationGetter, error) {
+	storageUniqueID, err := k.getStorageUniqPrefix(func() (annotationGetter, error) {
 		return k.getDeployment(deploymentName)
 	})
 	if err != nil {
@@ -1804,7 +1804,7 @@ func (k *kubernetesClient) configureDeployment(
 			Labels: map[string]string{labelApplication: appName},
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
-				Add(annotationKeyApplicationUUID, randPrefix).ToMap(),
+				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
 		},
 		Spec: apps.DeploymentSpec{
 			// TODO(caas): DeploymentStrategy support.
@@ -1830,7 +1830,7 @@ func (k *kubernetesClient) configureDeployment(
 	}
 	// Storage support for deployment is new.
 	legacy := false
-	if err := k.configureStorage(appName, legacy, randPrefix, filesystems, &deployment.Spec.Template.Spec, handelPVC); err != nil {
+	if err := k.configureStorage(appName, legacy, storageUniqueID, filesystems, &deployment.Spec.Template.Spec, handelPVC); err != nil {
 		return cleanUps, errors.Trace(err)
 	}
 	if err = k.ensureDeployment(deployment); err != nil {

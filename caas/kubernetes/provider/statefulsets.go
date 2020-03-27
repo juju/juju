@@ -32,7 +32,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
 
-	randPrefix, err := k.getStorageUniqPrefix(func() (annotationGetter, error) {
+	storageUniqueID, err := k.getStorageUniqPrefix(func() (annotationGetter, error) {
 		return k.getStatefulSet(deploymentName)
 	})
 	if err != nil {
@@ -45,7 +45,7 @@ func (k *kubernetesClient) configureStatefulSet(
 			Labels: k.getStatefulSetLabels(appName),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
-				Add(annotationKeyApplicationUUID, randPrefix).ToMap(),
+				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
 		},
 		Spec: apps.StatefulSetSpec{
 			Replicas: replicas,
@@ -79,7 +79,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		})
 		return nil
 	}
-	if err = k.configureStorage(appName, isLegacyName(deploymentName), randPrefix, filesystems, &podSpec, handelPVC); err != nil {
+	if err = k.configureStorage(appName, isLegacyName(deploymentName), storageUniqueID, filesystems, &podSpec, handelPVC); err != nil {
 		return errors.Trace(err)
 	}
 	statefulSet.Spec.Template.Spec = podSpec
@@ -106,7 +106,6 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 	}
 	existing.Spec.Replicas = spec.Spec.Replicas
 	// TODO(caas) - allow storage `request` configurable - currently we only allow `limit`.
-	existing.Spec.VolumeClaimTemplates = spec.Spec.VolumeClaimTemplates
 	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
 	existing.Spec.Template.Spec.ServiceAccountName = existingPodSpec.ServiceAccountName
 	existing.Spec.Template.Spec.AutomountServiceAccountToken = existingPodSpec.AutomountServiceAccountToken
