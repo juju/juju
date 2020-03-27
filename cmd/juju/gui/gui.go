@@ -91,12 +91,22 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 	}
 	defer conn.Close()
 
+<<<<<<< HEAD
 	addr := guiAddr(conn)
 	rawURL := fmt.Sprintf("https://%s/dashboard", addr)
 
 	// Check that the Juju Dashboard is available.
 	var dashboardURL string
 	if dashboardURL, err = c.checkAvailable(rawURL, conn); err != nil {
+=======
+	// Make 2 URLs to try - the old and the new.
+	addr := guiAddr(conn)
+	rawURL := fmt.Sprintf("https://%s/dashboard", addr)
+
+	// Check that the Juju GUI is available.
+	var guiURL string
+	if guiURL, err = c.checkAvailable(rawURL, conn); err != nil {
+>>>>>>> Check for the new dashboard not the gui when running the command.
 		return errors.Trace(err)
 	}
 
