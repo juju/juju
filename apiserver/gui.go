@@ -1,4 +1,4 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package apiserver
@@ -30,30 +30,25 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
-	jujuversion "github.com/juju/juju/version"
 )
 
 const (
 	bzMimeType       = "application/x-tar-bzip2"
-	guiURLPathPrefix = "/gui/"
+	guiURLPathPrefix = "/dashboard/"
 )
 
 var (
 	jsMimeType = mime.TypeByExtension(".js")
-	spritePath = filepath.FromSlash("static/gui/build/app/assets/stack/svg/sprite.css.svg")
 )
 
-// guiRouter serves the Juju GUI routes.
-// Serving the Juju GUI is done with the following assumptions:
+// guiRouter serves the Juju Dashboard routes.
+// Serving the Juju Dashboard is done with the following assumptions:
 // - the archive is compressed in tar.bz2 format;
 // - the archive includes a top directory named "jujugui-{version}" where
 //   version is semver (like "2.0.1"). This directory includes another
 //   "jujugui" directory where the actual Juju GUI files live;
 // - the "jujugui" directory includes a "static" subdirectory with the Juju
 //   GUI assets to be served statically;
-// - the "jujugui" directory specifically includes a
-//   "static/gui/build/app/assets/stack/svg/sprite.css.svg" file, which is
-//   required to render the Juju GUI index file;
 // - the "jujugui" directory includes a "templates/index.html.go" file which is
 //   used to render the Juju GUI index. The template receives at least the
 //   following variables in its context: "staticURL", comboURL", "configURL",
@@ -91,10 +86,8 @@ func guiEndpoints(pattern, dataDir string, ctxt httpContext) []apihttp.Endpoint 
 			})
 		}
 	}
-	hashedPattern := pattern + ":hash"
-	add(hashedPattern+"/config.js", (*guiHandler).serveConfig)
-	add(hashedPattern+"/combo", (*guiHandler).serveCombo)
-	add(hashedPattern+"/static/", (*guiHandler).serveStatic)
+	add("/config.js", (*guiHandler).serveConfig)
+	add("/static/", (*guiHandler).serveStatic)
 	// The index is served when all remaining URLs are requested, so that
 	// the single page JavaScript application can properly handles its routes.
 	add(pattern, (*guiHandler).serveIndex)
@@ -130,10 +123,10 @@ func (gr *guiRouter) ensureFileHandler(h func(gh *guiHandler, w http.ResponseWri
 	})
 }
 
-// ensureFiles checks that the GUI files are available on disk.
-// If they are not, it means this is the first time this Juju GUI version is
-// accessed. In this case, retrieve the Juju GUI archive from the storage and
-// uncompress it to disk. This function returns the current GUI root directory
+// ensureFiles checks that the Dashboard files are available on disk.
+// If they are not, it means this is the first time this Juju Dashboard version is
+// accessed. In this case, retrieve the Juju Dashboard archive from the storage and
+// uncompress it to disk. This function returns the current Dashboard root directory
 // and archive hash.
 func (gr *guiRouter) ensureFiles(req *http.Request) (rootDir string, hash string, err error) {
 	// Retrieve the Juju GUI info from the GUI storage.
@@ -255,36 +248,7 @@ func (h *guiHandler) serveStatic(w http.ResponseWriter, req *http.Request) {
 	logger.Debugf("serving Juju GUI static files")
 	staticDir := filepath.Join(h.rootDir, "static")
 	fs := http.FileServer(http.Dir(staticDir))
-	http.StripPrefix(h.hashedPath("static/"), fs).ServeHTTP(w, req)
-}
-
-// serveCombo serves the GUI JavaScript and CSS files, dynamically combined.
-func (h *guiHandler) serveCombo(w http.ResponseWriter, req *http.Request) {
-	logger.Debugf("serving Juju GUI combined files")
-	ctype := ""
-	// The combo query is like /combo/?path/to/file1&path/to/file2 ...
-	parts := strings.Split(req.URL.RawQuery, "&")
-	paths := make([]string, 0, len(parts))
-	for _, p := range parts {
-		fpath, err := getGUIComboPath(h.rootDir, p)
-		if err != nil {
-			writeError(w, errors.Annotate(err, "cannot combine files"))
-			return
-		}
-		if fpath == "" {
-			continue
-		}
-		paths = append(paths, fpath)
-		// Assume the Juju GUI does not mix different content types when
-		// combining contents.
-		if ctype == "" {
-			ctype = mime.TypeByExtension(filepath.Ext(fpath))
-		}
-	}
-	w.Header().Set("Content-Type", ctype)
-	for _, fpath := range paths {
-		sendGUIComboFile(w, fpath)
-	}
+	http.StripPrefix("/static/", fs).ServeHTTP(w, req)
 }
 
 func getGUIComboPath(rootDir, query string) (string, error) {
@@ -322,26 +286,13 @@ func sendGUIComboFile(w io.Writer, fpath string) {
 
 // serveIndex serves the GUI index file.
 func (h *guiHandler) serveIndex(w http.ResponseWriter, req *http.Request) {
-	logger.Debugf("serving Juju GUI index")
-	spriteFile := filepath.Join(h.rootDir, spritePath)
-	spriteContent, err := ioutil.ReadFile(spriteFile)
+	logger.Debugf("serving Juju Dashboard index")
+	indexFile := filepath.Join(h.rootDir, "index.html")
+	t, err := template.ParseFiles(indexFile)
 	if err != nil {
-		writeError(w, errors.Annotate(err, "cannot read sprite file"))
-		return
+		writeError(w, errors.Annotate(err, "cannot parse index file"))
 	}
-	tmpl := filepath.Join(h.rootDir, "templates", "index.html.go")
-	if err := renderGUITemplate(w, tmpl, map[string]interface{}{
-		// staticURL holds the root of the static hierarchy, hence why the
-		// empty string is used here.
-		"staticURL": h.hashedPath(""),
-		"comboURL":  h.hashedPath("combo"),
-		"configURL": h.hashedPath(getConfigPath(req.URL.Path, h.ctxt)),
-		// TODO frankban: make it possible to enable debug.
-		"debug":         false,
-		"spriteContent": string(spriteContent),
-	}); err != nil {
-		writeError(w, err)
-	}
+	writeError(w, errors.Annotate(t.Execute(w, nil), "cannot render index file"))
 }
 
 // getConfigPath returns the appropriate GUI config path for the given request
@@ -440,19 +391,10 @@ func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 	if uuid != "" {
 		base += req.URL.Query().Get("base-postfix")
 	}
-	tmpl := filepath.Join(h.rootDir, "templates", "config.js.go")
+	tmpl := filepath.Join(h.rootDir, "config.js.go")
 	if err := renderGUITemplate(w, tmpl, map[string]interface{}{
-		"base":             base,
-		"bakeryEnabled":    ctrl.IdentityURL() != "",
-		"controllerSocket": "/api",
-		"charmstoreURL":    ctrl.CharmStoreURL(),
-		"host":             req.Host,
-		"socket":           "/model/$uuid/api",
-		// staticURL holds the root of the static hierarchy, hence why the
-		// empty string is used here.
-		"staticURL": h.hashedPath(""),
-		"uuid":      uuid,
-		"version":   jujuversion.Current.String(),
+		"baseAppURL":                guiURLPathPrefix,
+		"identityProviderAvailable": ctrl.IdentityURL() != "",
 	}); err != nil {
 		writeError(w, err)
 	}
