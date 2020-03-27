@@ -1,4 +1,4 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package gui
@@ -27,12 +27,12 @@ import (
 	"github.com/juju/juju/environs/gui"
 )
 
-// NewUpgradeGUICommand creates and returns a new upgrade-gui command.
+// NewUpgradeGUICommand creates and returns a new upgrade-dashboard command.
 func NewUpgradeGUICommand() cmd.Command {
 	return modelcmd.WrapController(&upgradeGUICommand{})
 }
 
-// upgradeGUICommand upgrades to a new Juju GUI version in the controller.
+// upgradeGUICommand upgrades to a new Juju Dashboard version in the controller.
 type upgradeGUICommand struct {
 	modelcmd.ControllerCommandBase
 
@@ -41,36 +41,37 @@ type upgradeGUICommand struct {
 }
 
 const upgradeGUIDoc = `
-Upgrade to the latest Juju GUI released version:
+Upgrade to the latest Juju Dashboard released version:
 
-	juju upgrade-gui
+	juju upgrade-dashboard
 
-Upgrade to a specific Juju GUI released version:
+Upgrade to a specific Juju Dashboard released version:
 
-	juju upgrade-gui 2.2.0
+	juju upgrade-dashboard 2.2.0
 
-Upgrade to a Juju GUI version present in a local tar.bz2 GUI release file:
+Upgrade to a Juju Dashboard version present in a local tar.bz2 Dashboard release file:
 
-	juju upgrade-gui /path/to/jujugui-2.2.0.tar.bz2
+	juju upgrade-dashboard /path/to/jujugui-2.2.0.tar.bz2
 
-List available Juju GUI releases without upgrading:
+List available Juju Dashboard releases without upgrading:
 
-	juju upgrade-gui --list
+	juju upgrade-dashboard --list
 `
 
 // Info implements the cmd.Command interface.
 func (c *upgradeGUICommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "upgrade-gui",
-		Purpose: "Upgrade to a new Juju GUI version.",
+		Name:    "upgrade-dashboard",
+		Purpose: "Upgrade to a new Juju Dashboard version.",
 		Doc:     upgradeGUIDoc,
+		Aliases: []string{"upgrade-gui"},
 	})
 }
 
 // SetFlags implements the cmd.Command interface.
 func (c *upgradeGUICommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	f.BoolVar(&c.list, "list", false, "List available Juju GUI release versions without upgrading")
+	f.BoolVar(&c.list, "list", false, "List available Juju Dashboard release versions without upgrading")
 }
 
 // Init implements the cmd.Command interface.
@@ -91,14 +92,14 @@ func (c *upgradeGUICommand) Run(ctx *cmd.Context) error {
 		// List available Juju GUI archive versions.
 		allMeta, err := remoteArchiveMetadata()
 		if err != nil {
-			return errors.Annotate(err, "cannot list Juju GUI release versions")
+			return errors.Annotate(err, "cannot list Juju Dashboard release versions")
 		}
 		for _, metadata := range allMeta {
 			ctx.Infof(metadata.Version.String())
 		}
 		return nil
 	}
-	// Retrieve the GUI archive and its related info.
+	// Retrieve the dashboard archive and its related info.
 	archive, err := openArchive(c.versOrPath)
 	if err != nil {
 		return errors.Trace(err)
@@ -112,7 +113,7 @@ func (c *upgradeGUICommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	// Check currently uploaded GUI version.
+	// Check currently uploaded dashboard version.
 	existingHash, isCurrent, err := existingVersionInfo(client, archive.vers)
 	if err != nil {
 		return errors.Trace(err)
@@ -121,31 +122,31 @@ func (c *upgradeGUICommand) Run(ctx *cmd.Context) error {
 	// Upload the release file if required.
 	if archive.hash != existingHash {
 		if archive.local {
-			ctx.Infof("using local Juju GUI archive")
+			ctx.Infof("using local Juju Dashboard archive")
 		} else {
-			ctx.Infof("fetching Juju GUI archive")
+			ctx.Infof("fetching Juju Dashboard archive")
 		}
 		f, err := storeArchive(archive.r)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		defer f.Close()
-		ctx.Infof("uploading Juju GUI %s", archive.vers)
+		ctx.Infof("uploading Juju Dashboard %s", archive.vers)
 		isCurrent, err = clientUploadGUIArchive(client, f, archive.hash, archive.size, archive.vers)
 		if err != nil {
-			return errors.Annotate(err, "cannot upload Juju GUI")
+			return errors.Annotate(err, "cannot upload Juju Dashboard")
 		}
 		ctx.Infof("upload completed")
 	}
 	// Switch to the new version if not already at the desired one.
 	if isCurrent {
-		ctx.Infof("Juju GUI at version %s", archive.vers)
+		ctx.Infof("Juju Dashboard at version %s", archive.vers)
 		return nil
 	}
 	if err = clientSelectGUIVersion(client, archive.vers); err != nil {
-		return errors.Annotate(err, "cannot switch to new Juju GUI version")
+		return errors.Annotate(err, "cannot switch to new Juju Dashboard version")
 	}
-	ctx.Infof("Juju GUI switched to version %s", archive.vers)
+	ctx.Infof("Juju Dashboard switched to version %s", archive.vers)
 	return nil
 }
 
@@ -158,7 +159,7 @@ type openedArchive struct {
 	local bool
 }
 
-// openArchive opens a Juju GUI archive from the given version or file path.
+// openArchive opens a Juju Dashboard archive from the given version or file path.
 // The readSeekCloser returned in openedArchive.r must be closed by callers.
 func openArchive(versOrPath string) (openedArchive, error) {
 	if versOrPath == "" {
