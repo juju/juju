@@ -1158,8 +1158,8 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 	if params.Deployment.DeploymentType != caas.DeploymentStateful {
-		// TODO(caas): either not found or params.Deployment.DeploymentType == existing resource type!!!!!!
-		// deployment type should be immutable!!!!
+		// TODO(caas): make sure deployment type is immutable.
+		// Either not found or params.Deployment.DeploymentType == existing resource type.
 		_, err := k.getStatefulSet(deploymentName)
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
