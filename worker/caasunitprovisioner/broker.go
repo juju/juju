@@ -13,18 +13,20 @@ import (
 
 type ContainerBroker interface {
 	Provider() caas.ContainerEnvironProvider
-	WatchUnits(appName string) (watcher.NotifyWatcher, error)
-	Units(appName string) ([]caas.Unit, error)
 	WatchOperator(string) (watcher.NotifyWatcher, error)
 	Operator(string) (*caas.Operator, error)
-	AnnotateUnit(appName, podName string, unit names.UnitTag) error
+
+	WatchUnits(appName string, mode caas.DeploymentMode) (watcher.NotifyWatcher, error)
+	Units(appName string, mode caas.DeploymentMode) ([]caas.Unit, error)
+	AnnotateUnit(appName string, mode caas.DeploymentMode, podName string, unit names.UnitTag) error
 }
 
 type ServiceBroker interface {
 	Provider() caas.ContainerEnvironProvider
 	EnsureService(appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error
-	GetService(appName string, includeClusterIP bool) (*caas.Service, error)
 	DeleteService(appName string) error
 	UnexposeService(appName string) error
-	WatchService(appName string) (watcher.NotifyWatcher, error)
+
+	GetService(appName string, mode caas.DeploymentMode, includeClusterIP bool) (*caas.Service, error)
+	WatchService(appName string, mode caas.DeploymentMode) (watcher.NotifyWatcher, error)
 }

@@ -291,6 +291,33 @@ func (s *CAASProvisionerSuite) TestApplicationScale(c *gc.C) {
 	s.st.CheckCallNames(c, "Application")
 }
 
+func (s *CAASProvisionerSuite) TestDeploymentMode(c *gc.C) {
+	s.st.application.charm = &mockCharm{
+		meta: charm.Meta{
+			Deployment: &charm.Deployment{
+				DeploymentMode: charm.ModeWorkload,
+			},
+		},
+	}
+	results, err := s.facade.DeploymentMode(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-gitlab"},
+			{Tag: "unit-gitlab-0"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{{
+			Result: "workload",
+		}, {
+			Error: &params.Error{
+				Message: `"unit-gitlab-0" is not a valid application tag`,
+			},
+		}},
+	})
+	s.st.CheckCallNames(c, "Application")
+}
+
 func (s *CAASProvisionerSuite) TestLife(c *gc.C) {
 	results, err := s.facade.Life(params.Entities{
 		Entities: []params.Entity{

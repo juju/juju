@@ -752,10 +752,10 @@ func getSvcAddresses(svc *core.Service, includeClusterIP bool) []network.Provide
 }
 
 // GetService returns the service for the specified application.
-func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*caas.Service, error) {
+func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, includeClusterIP bool) (*caas.Service, error) {
 	services := k.client().CoreV1().Services(k.namespace)
 	servicesList, err := services.List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
+		LabelSelector: applicationSelector(appName, mode),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -768,6 +768,9 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 		result.Addresses = getSvcAddresses(&service, includeClusterIP)
 	}
 
+	if mode == caas.ModeOperator {
+		appName = k.operatorName(appName)
+	}
 	deploymentName := k.deploymentName(appName)
 	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
 	ss, err := statefulsets.Get(deploymentName, v1.GetOptions{})
@@ -2008,14 +2011,17 @@ func operatorSelector(appName string) string {
 	}).String()
 }
 
-func applicationSelector(appName string) string {
+func applicationSelector(appName string, mode caas.DeploymentMode) string {
+	if mode == caas.ModeOperator {
+		return operatorSelector(appName)
+	}
 	return labelSetToSelector(map[string]string{
 		labelApplication: appName,
 	}).String()
 }
 
 // AnnotateUnit annotates the specified pod (name or uid) with a unit tag.
-func (k *kubernetesClient) AnnotateUnit(appName, podName string, unit names.UnitTag) error {
+func (k *kubernetesClient) AnnotateUnit(appName string, mode caas.DeploymentMode, podName string, unit names.UnitTag) error {
 	pods := k.client().CoreV1().Pods(k.namespace)
 
 	pod, err := pods.Get(podName, v1.GetOptions{})
@@ -2024,7 +2030,7 @@ func (k *kubernetesClient) AnnotateUnit(appName, podName string, unit names.Unit
 			return errors.Trace(err)
 		}
 		pods, err := pods.List(v1.ListOptions{
-			LabelSelector: applicationSelector(appName),
+			LabelSelector: applicationSelector(appName, mode),
 		})
 		// TODO(caas): remove getting pod by Id (a bit expensive) once we started to store podName in cloudContainer doc.
 		if err != nil {
@@ -2060,8 +2066,8 @@ func (k *kubernetesClient) AnnotateUnit(appName, podName string, unit names.Unit
 
 // WatchUnits returns a watcher which notifies when there
 // are changes to units of the specified application.
-func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, error) {
-	selector := applicationSelector(appName)
+func (k *kubernetesClient) WatchUnits(appName string, mode caas.DeploymentMode) (watcher.NotifyWatcher, error) {
+	selector := applicationSelector(appName, mode)
 	logger.Debugf("selecting units %q to watch", selector)
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
@@ -2078,7 +2084,7 @@ func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, er
 // is used.
 func (k *kubernetesClient) WatchContainerStart(appName string, containerName string) (watcher.StringsWatcher, error) {
 	pods := k.client().CoreV1().Pods(k.namespace)
-	selector := applicationSelector(appName)
+	selector := applicationSelector(appName, caas.ModeWorkload)
 	logger.Debugf("selecting units %q to watch", selector)
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
@@ -2088,7 +2094,7 @@ func (k *kubernetesClient) WatchContainerStart(appName string, containerName str
 	)
 
 	podsList, err := pods.List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
+		LabelSelector: selector,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -2153,14 +2159,14 @@ func (k *kubernetesClient) WatchContainerStart(appName string, containerName str
 
 // WatchService returns a watcher which notifies when there
 // are changes to the deployment of the specified application.
-func (k *kubernetesClient) WatchService(appName string) (watcher.NotifyWatcher, error) {
+func (k *kubernetesClient) WatchService(appName string, mode caas.DeploymentMode) (watcher.NotifyWatcher, error) {
 	// Application may be a statefulset or deployment. It may not have
 	// been set up when the watcher is started so we don't know which it
 	// is ahead of time. So use a multi-watcher to cover both cases.
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
 		informers.WithTweakListOptions(func(o *v1.ListOptions) {
-			o.LabelSelector = applicationSelector(appName)
+			o.LabelSelector = applicationSelector(appName, mode)
 		}),
 	)
 
@@ -2186,10 +2192,10 @@ var jujuPVNameRegexp = regexp.MustCompile(`^(?P<storageName>\D+)-\w+$`)
 
 // Units returns all units and any associated filesystems of the specified application.
 // Filesystems are mounted via volumes bound to the unit.
-func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
+func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]caas.Unit, error) {
 	pods := k.client().CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
+		LabelSelector: applicationSelector(appName, mode),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

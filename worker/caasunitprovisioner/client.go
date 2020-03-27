@@ -6,6 +6,7 @@ package caasunitprovisioner
 import (
 	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
@@ -31,6 +32,7 @@ type Client interface {
 type ApplicationGetter interface {
 	WatchApplications() (watcher.StringsWatcher, error)
 	ApplicationConfig(string) (application.ConfigAttributes, error)
+	DeploymentMode(string) (caas.DeploymentMode, error)
 	WatchApplicationScale(string) (watcher.NotifyWatcher, error)
 	ApplicationScale(string) (int, error)
 }

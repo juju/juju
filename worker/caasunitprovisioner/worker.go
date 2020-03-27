@@ -176,8 +176,13 @@ func (p *provisioner) loop() error {
 					// not yet watching it and it's dead.
 					continue
 				}
+				mode, err := p.config.ApplicationGetter.DeploymentMode(appId)
+				if err != nil {
+					return errors.Trace(err)
+				}
 				w, err := newApplicationWorker(
 					appId,
+					mode,
 					p.config.ServiceBroker,
 					p.config.ContainerBroker,
 					p.config.ProvisioningStatusSetter,

@@ -57,16 +57,16 @@ func (m *mockServiceBroker) EnsureService(appName string, statusCallback caas.St
 	return m.NextErr()
 }
 
-func (m *mockServiceBroker) GetService(appName string, includeClusterIP bool) (*caas.Service, error) {
-	m.MethodCall(m, "GetService", appName)
+func (m *mockServiceBroker) GetService(appName string, mode caas.DeploymentMode, includeClusterIP bool) (*caas.Service, error) {
+	m.MethodCall(m, "GetService", appName, mode)
 	scale := 4
 	return &caas.Service{
 		Id: "id", Scale: &scale, Addresses: network.NewProviderAddresses("10.0.0.1"), Status: m.serviceStatus,
 	}, m.NextErr()
 }
 
-func (m *mockServiceBroker) WatchService(appName string) (watcher.NotifyWatcher, error) {
-	m.MethodCall(m, "WatchService", appName)
+func (m *mockServiceBroker) WatchService(appName string, mode caas.DeploymentMode) (watcher.NotifyWatcher, error) {
+	m.MethodCall(m, "WatchService", appName, mode)
 	return m.serviceWatcher, m.NextErr()
 }
 
@@ -94,13 +94,13 @@ func (m *mockContainerBroker) Provider() caas.ContainerEnvironProvider {
 	return m
 }
 
-func (m *mockContainerBroker) WatchUnits(appName string) (watcher.NotifyWatcher, error) {
-	m.MethodCall(m, "WatchUnits", appName)
+func (m *mockContainerBroker) WatchUnits(appName string, mode caas.DeploymentMode) (watcher.NotifyWatcher, error) {
+	m.MethodCall(m, "WatchUnits", appName, mode)
 	return m.unitsWatcher, m.NextErr()
 }
 
-func (m *mockContainerBroker) Units(appName string) ([]caas.Unit, error) {
-	m.MethodCall(m, "Units", appName)
+func (m *mockContainerBroker) Units(appName string, mode caas.DeploymentMode) ([]caas.Unit, error) {
+	m.MethodCall(m, "Units", appName, mode)
 	return []caas.Unit{
 			{
 				Id:       "u1",
@@ -140,8 +140,8 @@ func (m *mockContainerBroker) WatchOperator(appName string) (watcher.NotifyWatch
 	return m.operatorWatcher, m.NextErr()
 }
 
-func (m *mockContainerBroker) AnnotateUnit(appName string, podName string, unit names.UnitTag) error {
-	m.MethodCall(m, "AnnotateUnit", appName, podName, unit)
+func (m *mockContainerBroker) AnnotateUnit(appName string, mode caas.DeploymentMode, podName string, unit names.UnitTag) error {
+	m.MethodCall(m, "AnnotateUnit", appName, mode, podName, unit)
 	return m.NextErr()
 }
 
@@ -165,6 +165,11 @@ func (a *mockApplicationGetter) ApplicationConfig(appName string) (application.C
 	return application.ConfigAttributes{
 		"juju-external-hostname": "exthost",
 	}, a.NextErr()
+}
+
+func (a *mockApplicationGetter) DeploymentMode(appName string) (caas.DeploymentMode, error) {
+	a.MethodCall(a, "DeploymentMode", appName)
+	return caas.ModeWorkload, a.NextErr()
 }
 
 func (a *mockApplicationGetter) WatchApplicationScale(application string) (watcher.NotifyWatcher, error) {

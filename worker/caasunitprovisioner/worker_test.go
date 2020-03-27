@@ -288,7 +288,7 @@ func (s *WorkerSuite) TestScaleChangedInJuju(c *gc.C) {
 	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
-	s.applicationGetter.CheckCallNames(c, "WatchApplications", "WatchApplicationScale", "ApplicationScale", "ApplicationConfig")
+	s.applicationGetter.CheckCallNames(c, "WatchApplications", "DeploymentMode", "WatchApplicationScale", "ApplicationScale", "ApplicationConfig")
 	s.podSpecGetter.CheckCallNames(c, "WatchPodSpec", "ProvisioningInfo", "ProvisioningInfo")
 	s.podSpecGetter.CheckCall(c, 0, "WatchPodSpec", "gitlab")
 	s.podSpecGetter.CheckCall(c, 1, "ProvisioningInfo", "gitlab") // not found
@@ -298,7 +298,7 @@ func (s *WorkerSuite) TestScaleChangedInJuju(c *gc.C) {
 	s.serviceBroker.CheckCallNames(c, "WatchService", "EnsureService", "GetService")
 	s.serviceBroker.CheckCall(c, 1, "EnsureService",
 		"gitlab", getExpectedServiceParams(), 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
-	s.serviceBroker.CheckCall(c, 2, "GetService", "gitlab")
+	s.serviceBroker.CheckCall(c, 2, "GetService", "gitlab", caas.ModeWorkload)
 
 	s.serviceBroker.ResetCalls()
 	// Add another unit.
@@ -374,7 +374,7 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 		}
 	}
 	s.serviceBroker.CheckCallNames(c, "GetService")
-	c.Assert(s.serviceBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
+	c.Assert(s.serviceBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab", caas.ModeWorkload})
 
 	select {
 	case <-s.serviceUpdated:
@@ -399,8 +399,8 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 	if !s.containerBroker.CheckCallNames(c, "Units", "AnnotateUnit") {
 		return
 	}
-	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
-	c.Assert(s.containerBroker.Calls()[1].Args, jc.DeepEquals, []interface{}{"gitlab", "u1", names.NewUnitTag("gitlab/0")})
+	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab", caas.ModeWorkload})
+	c.Assert(s.containerBroker.Calls()[1].Args, jc.DeepEquals, []interface{}{"gitlab", caas.ModeWorkload, "u1", names.NewUnitTag("gitlab/0")})
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if len(s.unitUpdater.Calls()) > 0 {
@@ -823,7 +823,7 @@ func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expectedUnitStatus sta
 		}
 	}
 	s.containerBroker.CheckCallNames(c, "Units")
-	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
+	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab", caas.ModeWorkload})
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if len(s.unitUpdater.Calls()) > 0 {

@@ -4,6 +4,7 @@
 package provider_test
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -2346,23 +2347,31 @@ func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 	)
 
-	caasSvc, err := s.broker.GetService("app-name", false)
+	caasSvc, err := s.broker.GetService("app-name", caas.ModeWorkload, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(caasSvc, gc.DeepEquals, &caas.Service{})
 }
 
-func (s *K8sBrokerSuite) assertGetService(c *gc.C, expectedSvcResult *caas.Service, assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertGetService(c *gc.C, mode caas.DeploymentMode, expectedSvcResult *caas.Service, assertCalls ...*gomock.Call) {
+	appName := "juju-operator-app-name"
+	labels := map[string]string{"juju-app": "app-name"}
+	selector := "juju-app=app-name"
+	if mode == caas.ModeOperator {
+		appName += "-operator"
+		labels = map[string]string{"juju-operator": "app-name"}
+		selector = "juju-operator=app-name"
+	}
 	svc := core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: labels,
 			Annotations: map[string]string{
 				"juju.io/controller": testing.ControllerTag.Id(),
 				"fred":               "mary",
 				"a":                  "b",
 			}},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-app": "app-name"},
+			Selector: labels,
 			Type:     core.ServiceTypeLoadBalancer,
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -2376,7 +2385,7 @@ func (s *K8sBrokerSuite) assertGetService(c *gc.C, expectedSvcResult *caas.Servi
 
 	gomock.InOrder(
 		append([]*gomock.Call{
-			s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+			s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: selector}).
 				Return(&core.ServiceList{Items: []core.Service{svc}}, nil),
 
 			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
@@ -2384,7 +2393,7 @@ func (s *K8sBrokerSuite) assertGetService(c *gc.C, expectedSvcResult *caas.Servi
 		}, assertCalls...)...,
 	)
 
-	caasSvc, err := s.broker.GetService("app-name", false)
+	caasSvc, err := s.broker.GetService("app-name", mode, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(caasSvc, gc.DeepEquals, expectedSvcResult)
 }
@@ -2393,6 +2402,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundNoWorkload(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 	s.assertGetService(c,
+		caas.ModeWorkload,
 		&caas.Service{
 			Id: "uid-xxxxx",
 			Addresses: network.ProviderAddresses{
@@ -2409,6 +2419,12 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundNoWorkload(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithStatefulSet(c *gc.C) {
+	for _, mode := range []caas.DeploymentMode{caas.ModeOperator, caas.ModeWorkload} {
+		s.assertGetServiceSvcFoundWithStatefulSet(c, mode)
+	}
+}
+
+func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithStatefulSet(c *gc.C, mode caas.DeploymentMode) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -2416,14 +2432,20 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithStatefulSet(c *gc.C) {
 	basicPodSpec.Service = &specs.ServiceSpec{
 		ScalePolicy: "serial",
 	}
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+
+	appName := "app-name"
+	if mode == caas.ModeOperator {
+		appName += "-operator"
+	}
+
+	workloadSpec, err := provider.PrepareWorkloadSpec(appName, "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.PodSpec(workloadSpec)
 
 	numUnits := int32(2)
 	workload := &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   "app-name",
+			Name:   appName,
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
 				"juju-app-uuid":      "appuuid",
@@ -2452,7 +2474,23 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithStatefulSet(c *gc.C) {
 	}
 	workload.SetGeneration(1)
 
+	var expectedCalls []*gomock.Call
+	if mode == caas.ModeOperator {
+		expectedCalls = append(expectedCalls,
+			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name-operator", v1.GetOptions{}).
+				Return(nil, s.k8sNotFoundError()),
+		)
+	}
+	expectedCalls = append(expectedCalls,
+		s.mockStatefulSets.EXPECT().Get(appName, v1.GetOptions{}).
+			Return(workload, nil),
+		s.mockEvents.EXPECT().List(
+			listOptionsFieldSelectorMatcher(fmt.Sprintf("involvedObject.name=%s,involvedObject.kind=StatefulSet", appName)),
+		).Return(&core.EventList{}, nil),
+	)
+
 	s.assertGetService(c,
+		mode,
 		&caas.Service{
 			Id: "uid-xxxxx",
 			Addresses: network.ProviderAddresses{
@@ -2464,15 +2502,17 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithStatefulSet(c *gc.C) {
 				Status: status.Active,
 			},
 		},
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(workload, nil),
-		s.mockEvents.EXPECT().List(
-			listOptionsFieldSelectorMatcher("involvedObject.name=app-name,involvedObject.kind=StatefulSet"),
-		).Return(&core.EventList{}, nil),
+		expectedCalls...,
 	)
 }
 
 func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDeployment(c *gc.C) {
+	for _, mode := range []caas.DeploymentMode{caas.ModeOperator, caas.ModeWorkload} {
+		s.assertGetServiceSvcFoundWithDeployment(c, mode)
+	}
+}
+
+func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithDeployment(c *gc.C, mode caas.DeploymentMode) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -2480,14 +2520,20 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDeployment(c *gc.C) {
 	basicPodSpec.Service = &specs.ServiceSpec{
 		ScalePolicy: "serial",
 	}
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+
+	appName := "app-name"
+	if mode == caas.ModeOperator {
+		appName += "-operator"
+	}
+
+	workloadSpec, err := provider.PrepareWorkloadSpec(appName, "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.PodSpec(workloadSpec)
 
 	numUnits := int32(2)
 	workload := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   "app-name",
+			Name:   appName,
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
 				"juju.io/controller": testing.ControllerTag.Id(),
@@ -2517,7 +2563,25 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDeployment(c *gc.C) {
 	}
 	workload.SetGeneration(1)
 
+	var expectedCalls []*gomock.Call
+	if mode == caas.ModeOperator {
+		expectedCalls = append(expectedCalls,
+			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name-operator", v1.GetOptions{}).
+				Return(nil, s.k8sNotFoundError()),
+		)
+	}
+	expectedCalls = append(expectedCalls,
+		s.mockStatefulSets.EXPECT().Get(appName, v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Get(appName, v1.GetOptions{}).
+			Return(workload, nil),
+		s.mockEvents.EXPECT().List(
+			listOptionsFieldSelectorMatcher(fmt.Sprintf("involvedObject.name=%s,involvedObject.kind=Deployment", appName)),
+		).Return(&core.EventList{}, nil),
+	)
+
 	s.assertGetService(c,
+		mode,
 		&caas.Service{
 			Id: "uid-xxxxx",
 			Addresses: network.ProviderAddresses{
@@ -2529,13 +2593,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDeployment(c *gc.C) {
 				Status: status.Active,
 			},
 		},
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(workload, nil),
-		s.mockEvents.EXPECT().List(
-			listOptionsFieldSelectorMatcher("involvedObject.name=app-name,involvedObject.kind=Deployment"),
-		).Return(&core.EventList{}, nil),
+		expectedCalls...,
 	)
 }
 
@@ -2581,6 +2639,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDaemonSet(c *gc.C) {
 	workload.SetGeneration(1)
 
 	s.assertGetService(c,
+		caas.ModeWorkload,
 		&caas.Service{
 			Id: "uid-xxxxx",
 			Addresses: network.ProviderAddresses{
@@ -5292,12 +5351,12 @@ func (s *K8sBrokerSuite) TestWatchService(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	s.k8sWatcherFn = provider.NewK8sWatcherFunc(func(_ cache.SharedIndexInformer, _ string, _ jujuclock.Clock) (provider.KubernetesNotifyWatcher, error) {
+	s.k8sWatcherFn = func(_ cache.SharedIndexInformer, _ string, _ jujuclock.Clock) (provider.KubernetesNotifyWatcher, error) {
 		w, _ := newKubernetesTestWatcher()
 		return w, nil
-	})
+	}
 
-	w, err := s.broker.WatchService("test")
+	w, err := s.broker.WatchService("test", caas.ModeWorkload)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
@@ -5330,11 +5389,17 @@ func (s *K8sBrokerSuite) TestAnnotateUnit(c *gc.C) {
 		s.mockPods.EXPECT().Update(updatePod).Return(updatePod, nil),
 	)
 
-	err := s.broker.AnnotateUnit("appname", "pod-name", names.NewUnitTag("appname/0"))
+	err := s.broker.AnnotateUnit("appname", caas.ModeWorkload, "pod-name", names.NewUnitTag("appname/0"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *K8sBrokerSuite) TestAnnotateUnitByUID(c *gc.C) {
+	for _, mode := range []caas.DeploymentMode{caas.ModeOperator, caas.ModeWorkload} {
+		s.assertAnnotateUnitByUID(c, mode)
+	}
+}
+
+func (s *K8sBrokerSuite) assertAnnotateUnitByUID(c *gc.C, mode caas.DeploymentMode) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -5353,13 +5418,17 @@ func (s *K8sBrokerSuite) TestAnnotateUnitByUID(c *gc.C) {
 		},
 	}
 
+	labelSelector := "juju-app=appname"
+	if mode == caas.ModeOperator {
+		labelSelector = "juju-operator=appname"
+	}
 	gomock.InOrder(
 		s.mockPods.EXPECT().Get("uuid", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
-		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=appname"}).Return(podList, nil),
+		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: labelSelector}).Return(podList, nil),
 		s.mockPods.EXPECT().Update(updatePod).Return(updatePod, nil),
 	)
 
-	err := s.broker.AnnotateUnit("appname", "uuid", names.NewUnitTag("appname/0"))
+	err := s.broker.AnnotateUnit("appname", mode, "uuid", names.NewUnitTag("appname/0"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
