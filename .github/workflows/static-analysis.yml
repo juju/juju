@@ -35,6 +35,7 @@ jobs:
     - name: Install Dependencies
       working-directory: src/github.com/juju/juju
       run: |
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/4958e50dfe8c95bebab5eaf360a3bc1fdc9574fe/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.24.0
         go get -u github.com/client9/misspell/cmd/misspell
         go get -u github.com/tsenart/deadcode
         go get -u golang.org/x/lint/golint

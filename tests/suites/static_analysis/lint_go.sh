@@ -96,6 +96,17 @@ run_go_fmt() {
   fi
 }
 
+run_errcheck() {
+  FILES=${2}
+  OUT=$(echo "${FILES}" | golangci-lint run --no-config --disable-all --enable errcheck 2>&1 || true)
+  if [ -n "${OUT}" ]; then
+    echo ""
+    echo "$(red 'Found some issues:')"
+    echo "${OUT}"
+    exit 1
+  fi
+}
+
 test_static_analysis_go() {
   if [ "$(skip 'test_static_analysis_go')" ]; then
       echo "==> TEST SKIPPED: static go analysis"
@@ -109,6 +120,16 @@ test_static_analysis_go() {
 
     FILES=$(find ./* -name '*.go' -not -name '.#*' -not -name '*_mock.go' | grep -v vendor/ | grep -v acceptancetests/)
     FOLDERS=$(echo "${FILES}" | sed s/^\.//g | xargs dirname | awk -F "/" '{print $2}' | uniq | sort)
+
+
+    ## errcheck
+    if which golangci-lint >/dev/null 2>&1; then
+      run "run_errcheck" "${FILES}"
+    else
+      echo "golangci-lint not found, errcheck static analysis disabled"
+    fi
+
+    exit 1
 
     ## Functions starting by empty line
     # turned off until we get approval of test suite
@@ -168,6 +189,13 @@ test_static_analysis_go() {
       run "run_ineffassign"
     else
       echo "ineffassign not found, ineffassign static analysis disabled"
+    fi
+
+    ## errcheck
+    if which golangci-lint >/dev/null 2>&1; then
+      run "run_errcheck" "${FILES}"
+    else
+      echo "golangci-lint not found, errcheck static analysis disabled"
     fi
 
     ## go fmt
