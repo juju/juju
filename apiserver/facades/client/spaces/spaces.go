@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/spaces"
 	"github.com/juju/juju/state"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -457,7 +458,7 @@ func (api *API) ReloadSpaces() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(common.ReloadSpaces(api.context, api.backing, env))
+	return errors.Trace(spaces.ReloadSpaces(api.context, api.backing, env))
 }
 
 // checkSupportsSpaces checks if the environment implements NetworkingEnviron

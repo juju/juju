@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common
+package spaces
 
 import (
 	"github.com/juju/errors"
@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/lxc/lxd/shared/logger"
 )
 
 // ReloadSpacesState defines an in situ point of use type for ReloadSpaces
@@ -24,7 +25,7 @@ type ReloadSpacesState interface {
 // Currently it's an append-only operation, no spaces/subnets are deleted.
 func ReloadSpaces(ctx context.ProviderCallContext, state ReloadSpacesState, environ environs.BootstrapEnviron) error {
 	netEnviron, ok := environs.SupportsNetworking(environ)
-	if !ok {
+	if !ok || netEnviron == nil {
 		return errors.NotSupportedf("spaces discovery in a non-networking environ")
 	}
 

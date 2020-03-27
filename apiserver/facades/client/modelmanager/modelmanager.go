@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/spaces"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
@@ -686,7 +687,7 @@ func (m *ModelManagerAPI) newModel(
 		}
 	}
 
-	if err = common.ReloadSpaces(m.callContext, st, env); err != nil {
+	if err = spaces.ReloadSpaces(m.callContext, st, env); err != nil {
 		if errors.IsNotSupported(err) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {
