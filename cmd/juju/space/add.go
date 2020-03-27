@@ -54,7 +54,7 @@ func (c *AddCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *AddCommand) Run(ctx *cmd.Context) error {
-	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
+	return c.RunWithSpaceAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		// Prepare a nicer message and proper arguments to use in case
 		// there are not CIDRs given.
 		var subnetIds []string

@@ -189,3 +189,60 @@ func (s *SubnetsSuite) TestListSubnetsFails(c *gc.C) {
 	var expectedResults []params.Subnet
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
+
+func (s *SubnetsSuite) testSubnetsByCIDR(c *gc.C,
+	cidrs []string,
+	results []params.SubnetsResult,
+	err error, expectErr string,
+) {
+	var expectedResults params.SubnetsResults
+	if results != nil {
+		expectedResults.Results = results
+	}
+
+	s.prepareAPICall(c, apitesting.APICall{
+		Facade:  "Subnets",
+		Method:  "SubnetsByCIDR",
+		Results: expectedResults,
+		Error:   err,
+	})
+	gotResult, gotErr := s.api.SubnetsByCIDR(cidrs)
+	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
+	c.Assert(gotResult, jc.DeepEquals, results)
+
+	if expectErr != "" {
+		c.Assert(gotErr, gc.ErrorMatches, expectErr)
+		return
+	}
+
+	if err != nil {
+		c.Assert(gotErr, jc.DeepEquals, err)
+	} else {
+		c.Assert(gotErr, jc.ErrorIsNil)
+	}
+}
+
+func (s *SubnetsSuite) TestSubnetsByCIDRWithNoCIDRs(c *gc.C) {
+	var cidrs []string
+
+	s.testSubnetsByCIDR(c, cidrs, []params.SubnetsResult{}, nil, "")
+}
+
+func (s *SubnetsSuite) TestSubnetsByCIDRWithNoResults(c *gc.C) {
+	cidrs := []string{"10.0.1.10/24"}
+
+	s.testSubnetsByCIDR(c, cidrs, []params.SubnetsResult{}, nil, "")
+}
+
+func (s *SubnetsSuite) TestSubnetsByCIDRWithResults(c *gc.C) {
+	cidrs := []string{"10.0.1.10/24"}
+
+	s.testSubnetsByCIDR(c, cidrs, []params.SubnetsResult{{
+		Subnets: []params.SubnetV2{{
+			ID: "aaabbb",
+			Subnet: params.Subnet{
+				CIDR: "10.0.1.10/24",
+			},
+		}},
+	}}, nil, "")
+}

@@ -228,7 +228,41 @@ func (api *API) RemoveSpace(name string, force bool, dryRun bool) (network.Remov
 		Bindings:           bindings,
 		ControllerConfig:   result.ControllerSettings,
 	}, nil
+}
 
+// MoveSubnets ensures that the input subnets are in the input space.
+func (api *API) MoveSubnets(space names.SpaceTag, subnets []names.SubnetTag, force bool) (params.MoveSubnetsResult, error) {
+	subnetTags := make([]string, len(subnets))
+	for k, subnet := range subnets {
+		subnetTags[k] = subnet.String()
+	}
+
+	args := params.MoveSubnetsParams{
+		Args: []params.MoveSubnetsParam{{
+			SubnetTags: subnetTags,
+			SpaceTag:   space.String(),
+			Force:      force,
+		}},
+	}
+
+	var results params.MoveSubnetsResults
+	if err := api.facade.FacadeCall("MoveSubnets", args, &results); err != nil {
+		if params.IsCodeNotSupported(err) {
+			return params.MoveSubnetsResult{}, errors.NewNotSupported(nil, err.Error())
+		}
+		return params.MoveSubnetsResult{}, errors.Trace(err)
+	}
+
+	if len(results.Results) != 1 {
+		return params.MoveSubnetsResult{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+
+	result := results.Results[0]
+	if result.Error != nil {
+		return result, errors.Trace(result.Error)
+	}
+
+	return result, nil
 }
 
 // convertEntitiesToStringAndSkipModel skips the modelTag as this will be used on another place.

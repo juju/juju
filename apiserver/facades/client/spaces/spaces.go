@@ -531,9 +531,20 @@ func (api *API) ensureSpacesAreMutable() error {
 func (api *API) ensureSpacesNotProviderSourced() error {
 	env, err := environs.GetEnviron(api.backing, environs.New)
 	if err != nil {
-		return errors.Annotate(err, "getting environ")
+		return errors.Annotate(err, "retrieving environ")
 	}
-	if environs.SupportsProviderSpaces(api.context, env) {
+
+	netEnv, ok := env.(environs.NetworkingEnviron)
+	if !ok {
+		return errors.NotSupportedf("provider networking")
+	}
+
+	providerSourced, err := netEnv.SupportsSpaceDiscovery(api.context)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if providerSourced {
 		return errors.NotSupportedf("modifying provider-sourced spaces")
 	}
 	return nil

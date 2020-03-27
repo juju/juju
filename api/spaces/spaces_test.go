@@ -512,3 +512,68 @@ func (s *SpacesSuite) TestListSpacesManyResults(c *gc.C) {
 func (s *SpacesSuite) TestListSpacesServerError(c *gc.C) {
 	s.testListSpaces(c, nil, errors.New("boom"), "boom")
 }
+
+func (s *SpacesSuite) testMoveSubnets(c *gc.C,
+	space names.SpaceTag,
+	subnets []names.SubnetTag,
+	results []params.MoveSubnetsResult,
+	err error, expectErr string,
+) {
+	var expectedResults params.MoveSubnetsResults
+	if results != nil {
+		expectedResults.Results = results
+	}
+
+	s.init(c, apitesting.APICall{
+		Facade:  "Spaces",
+		Method:  "MoveSubnets",
+		Results: expectedResults,
+		Error:   err,
+	})
+
+	gotResult, gotErr := s.api.MoveSubnets(space, subnets, false)
+	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
+	if len(results) > 0 {
+		c.Assert(gotResult, jc.DeepEquals, results[0])
+	} else {
+		c.Assert(gotResult, jc.DeepEquals, params.MoveSubnetsResult{})
+	}
+
+	if expectErr != "" {
+		c.Assert(gotErr, gc.ErrorMatches, expectErr)
+		return
+	}
+
+	if err != nil {
+		c.Assert(gotErr, jc.DeepEquals, err)
+	} else {
+		c.Assert(gotErr, jc.ErrorIsNil)
+	}
+}
+
+func (s *SpacesSuite) TestMoveSubnetsEmptyResults(c *gc.C) {
+	space := names.NewSpaceTag("aaabbb")
+	subnets := []names.SubnetTag{names.NewSubnetTag("1")}
+
+	s.testMoveSubnets(c, space, subnets, []params.MoveSubnetsResult{}, nil, "expected 1 result, got 0")
+}
+
+func (s *SpacesSuite) TestMoveSubnets(c *gc.C) {
+	space := names.NewSpaceTag("aaabbb")
+	subnets := []names.SubnetTag{names.NewSubnetTag("1")}
+
+	s.testMoveSubnets(c, space, subnets, []params.MoveSubnetsResult{{
+		MovedSubnets: []params.MovedSubnet{{
+			SubnetTag:   "2",
+			OldSpaceTag: "aaabbb",
+		}},
+		NewSpaceTag: "xxxyyy",
+	}}, nil, "")
+}
+
+func (s *SpacesSuite) TestMoveSubnetsServerError(c *gc.C) {
+	space := names.NewSpaceTag("aaabbb")
+	subnets := []names.SubnetTag{names.NewSubnetTag("1")}
+
+	s.testMoveSubnets(c, space, subnets, nil, errors.New("boom"), "boom")
+}

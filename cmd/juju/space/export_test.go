@@ -7,7 +7,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func (base *SpaceCommandBase) SetAPI(api SpaceAPI) {
+func (base *SpaceCommandBase) SetAPI(api API) {
 	base.api = api
 }
 
@@ -19,7 +19,7 @@ func (c *ListCommand) ListFormat() string {
 	return c.out.Name()
 }
 
-func NewSpaceCommandBase(api SpaceAPI) SpaceCommandBase {
+func NewSpaceCommandBase(api API) SpaceCommandBase {
 	base := SpaceCommandBase{
 		ModelCommandBase: modelcmd.ModelCommandBase{},
 		IAASOnlyCommand:  nil,

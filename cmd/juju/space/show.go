@@ -77,7 +77,7 @@ func (c *ShowSpaceCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *ShowSpaceCommand) Run(ctx *cmd.Context) error {
-	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
+	return c.RunWithSpaceAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		// Add the new space.
 		spaceInformation, err := api.ShowSpace(c.Name)
 		if err != nil {

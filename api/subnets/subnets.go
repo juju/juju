@@ -71,6 +71,28 @@ func (api *API) ListSubnets(spaceTag *names.SpaceTag, zone string) ([]params.Sub
 	return response.Results, nil
 }
 
+// SubnetsByCIDR returns the collection of subnets matching each CIDR in the
+// input.
+func (api *API) SubnetsByCIDR(cidrs []string) ([]params.SubnetsResult, error) {
+	args := params.CIDRParams{CIDRS: cidrs}
+
+	var result params.SubnetsResults
+	if err := api.facade.FacadeCall("SubnetsByCIDR", args, &result); err != nil {
+		if params.IsCodeNotSupported(err) {
+			return nil, errors.NewNotSupported(nil, err.Error())
+		}
+		return nil, errors.Trace(err)
+	}
+
+	for _, result := range result.Results {
+		if result.Error != nil {
+			return nil, errors.Trace(result.Error)
+		}
+	}
+
+	return result.Results, nil
+}
+
 func makeAddSubnetsParamsV2(cidr string, providerId network.Id, space names.SpaceTag, zones []string) params.AddSubnetsParamsV2 {
 	var subnetTag string
 	if cidr != "" {

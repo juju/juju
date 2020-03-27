@@ -76,7 +76,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 
 	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
 	mockNetworkEnviron.EXPECT().SupportsSpaces(gomock.Any()).Return(supportSpaces, nil).AnyTimes()
-	mockNetworkEnviron.EXPECT().SupportsProviderSpaces(gomock.Any()).Return(providerSpaces, nil).AnyTimes()
+	mockNetworkEnviron.EXPECT().SupportsSpaceDiscovery(gomock.Any()).Return(providerSpaces, nil).AnyTimes()
 
 	mockProvider := environmocks.NewMockCloudEnvironProvider(ctrl)
 	mockProvider.EXPECT().Open(gomock.Any()).Return(mockNetworkEnviron, nil).AnyTimes()

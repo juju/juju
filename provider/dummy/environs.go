@@ -1380,14 +1380,6 @@ func (env *environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error
 	return true, nil
 }
 
-// TODO: might want to write proper code for stubs
-func (env *environ) SupportsProviderSpaces(ctx context.ProviderCallContext) (bool, error) {
-	if err := env.checkBroken("SupportsProviderSpaces"); err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
 // SupportsSpaceDiscovery is specified on environs.Networking.
 func (env *environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool, error) {
 	if err := env.checkBroken("SupportsSpaceDiscovery"); err != nil {

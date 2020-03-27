@@ -48,19 +48,23 @@ func (s *moveSubnetsOpSuite) TestSuccess(c *gc.C) {
 	// Now test that we get the correct return for GetMovedSubnets.
 	sub1.EXPECT().ID().Return("1")
 	sub1.EXPECT().SpaceName().Return("space-1")
+	sub1.EXPECT().CIDR().Return("10.0.0.10/24")
 
 	sub2.EXPECT().ID().Return("2")
 	sub2.EXPECT().SpaceName().Return("space-2")
+	sub2.EXPECT().CIDR().Return("10.0.1.10/16")
 
 	c.Assert(op.Done(err), jc.ErrorIsNil)
 	c.Check(op.GetMovedSubnets(), gc.DeepEquals, []spaces.MovedSubnet{
 		{
 			ID:        "1",
 			FromSpace: "space-1",
+			CIDR:      "10.0.0.10/24",
 		},
 		{
 			ID:        "2",
 			FromSpace: "space-2",
+			CIDR:      "10.0.1.10/16",
 		},
 	})
 }
