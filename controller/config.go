@@ -180,6 +180,18 @@ const (
 	// to not sleep at all.
 	PruneTxnSleepTime = "prune-txn-sleep-time"
 
+	// MaxCharmStateSize is the maximum allowed size of charm-specific
+	// per-unit state data that charms can store to the controller in
+	// bytes. A value of 0 disables the quota checks although in
+	// principle, mongo imposes a hard (but configurable) limit of 16M.
+	MaxCharmStateSize = "max-charm-state-size"
+
+	// MaxUniterStateSize is the maximum allowed size of internal uniter
+	// data that units can store to the controller in bytes. A value of 0
+	// disables the quota checks although in principle, mongo imposes a
+	// hard (but configurable) limit of 16M.
+	MaxUniterStateSize = "max-uniter-state-size"
+
 	// Attribute Defaults
 
 	// DefaultAgentRateLimitMax allows the first 10 agents to connect without any
@@ -257,6 +269,14 @@ const (
 	// other systems to operate concurrently.
 	DefaultPruneTxnSleepTime = "10ms"
 
+	// DefaultMaxCharmStateSize is the maximum size (in bytes) of charm
+	// state data that each unit can store to the controller.
+	DefaultMaxCharmStateSize = 2 * 1024 * 1024
+
+	// DefaultMaxUniterStateSize is the maximum size (in bytes) of internal
+	// uniter state data that each unit can store to the controller.
+	DefaultMaxUniterStateSize = 512 * 1024
+
 	// JujuHASpace is the network space within which the MongoDB replica-set
 	// should communicate.
 	JujuHASpace = "juju-ha-space"
@@ -322,6 +342,8 @@ var (
 		CAASImageRepo,
 		Features,
 		MeteringURL,
+		MaxCharmStateSize,
+		MaxUniterStateSize,
 	}
 
 	// AllowedUpdateConfigAttributes contains all of the controller
@@ -352,6 +374,8 @@ var (
 		CAASOperatorImagePath,
 		CAASImageRepo,
 		Features,
+		MaxCharmStateSize,
+		MaxUniterStateSize,
 	)
 
 	// DefaultAuditLogExcludeMethods is the default list of methods to
@@ -762,6 +786,20 @@ func (c Config) MeteringURL() string {
 	return url
 }
 
+// MaxCharmStateSize returns the max size (in bytes) of charm-specific state
+// that each unit can store to the controller. A value of zero indicates no
+// limit.
+func (c Config) MaxCharmStateSize() int {
+	return c.intOrDefault(MaxCharmStateSize, DefaultMaxCharmStateSize)
+}
+
+// MaxUniterStateSize returns the max size (in bytes) of internal uniter state
+// that each unit can store to the controller. A value of zero indicates no
+// limit.
+func (c Config) MaxUniterStateSize() int {
+	return c.intOrDefault(MaxUniterStateSize, DefaultMaxUniterStateSize)
+}
+
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
@@ -937,6 +975,32 @@ func Validate(c Config) error {
 		}
 	}
 
+	// Each unit stores the charm and uniter state in a single document.
+	// Given that mongo by default enforces a 16M limit for documents we
+	// should also verify that the combined limits don't exceed 16M.
+	var maxUnitStateSize int
+	if v, ok := c[MaxCharmStateSize].(int); ok {
+		if v < 0 {
+			return errors.Errorf("invalid max charm state size: should be a number of bytes (or 0 to disable limit), got %d", v)
+		}
+		maxUnitStateSize += v
+	} else {
+		maxUnitStateSize += DefaultMaxCharmStateSize
+	}
+
+	if v, ok := c[MaxUniterStateSize].(int); ok {
+		if v < 0 {
+			return errors.Errorf("invalid max uniter state size: should be a number of bytes (or 0 to disable limit), got %d", v)
+		}
+		maxUnitStateSize += v
+	} else {
+		maxUnitStateSize += DefaultMaxUniterStateSize
+	}
+
+	if mongoMax := 16 * 1024 * 1024; maxUnitStateSize > mongoMax {
+		return errors.Errorf("invalid max charm/uniter state sizes: combined value should not exceed mongo's 16M per-document limit, got %d", maxUnitStateSize)
+	}
+
 	return nil
 }
 
@@ -1031,6 +1095,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	Features:                schema.List(schema.String()),
 	CharmStoreURL:           schema.String(),
 	MeteringURL:             schema.String(),
+	MaxCharmStateSize:       schema.ForceInt(),
+	MaxUniterStateSize:      schema.ForceInt(),
 }, schema.Defaults{
 	AgentRateLimitMax:       schema.Omit,
 	AgentRateLimitRate:      schema.Omit,
@@ -1067,6 +1133,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	Features:                schema.Omit,
 	CharmStoreURL:           csclient.ServerURL,
 	MeteringURL:             romulus.DefaultAPIRoot,
+	MaxCharmStateSize:       DefaultMaxCharmStateSize,
+	MaxUniterStateSize:      DefaultMaxUniterStateSize,
 })
 
 // ConfigSchema holds information on all the fields defined by
@@ -1218,5 +1286,13 @@ Use "caas-image-repo" instead.`,
 	MeteringURL: {
 		Type:        environschema.Tstring,
 		Description: `The url for metrics`,
+	},
+	MaxCharmStateSize: {
+		Type:        environschema.Tint,
+		Description: `The maximum size (in bytes) of charm-specific state that units can store to the controller`,
+	},
+	MaxUniterStateSize: {
+		Type:        environschema.Tint,
+		Description: `The maximum size (in bytes) of internal uniter state that units can store to the controller`,
 	},
 }
