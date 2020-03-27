@@ -18,6 +18,7 @@ import (
 	"time"
 
 	jujuclock "github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
@@ -1484,13 +1485,18 @@ func (k *kubernetesClient) configureStorage(
 ) error {
 	pvcNameGetter := func(i int, storageName string) string {
 		s := fmt.Sprintf("%s-%s", storageName, uniquePrefix)
-		// TODO: double check if storage name is uniq in []FS!!!!!!!!!!
 		if legacy {
 			s = fmt.Sprintf("juju-%s-%d", storageName, i)
 		}
 		return s
 	}
+	fsNames := set.NewStrings()
 	for i, fs := range filesystems {
+		if fsNames.Contains(fs.StorageName) {
+			return errors.NotValidf("duplicated storage name %q for %q", fs.StorageName, appName)
+		}
+		fsNames.Add(fs.StorageName)
+
 		vol, pvc, err := k.filesystemToVolumeInfo(i, fs, pvcNameGetter)
 		if err != nil {
 			return errors.Trace(err)
