@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/environs/context"
 )
 
 // distributeUnit takes a unit and set of clean, possibly empty, instances
@@ -41,7 +42,7 @@ func distributeUnit(u *Unit, candidates []instance.Id, limitZones []string) ([]i
 	if len(distributionGroup) == 0 {
 		return candidates, nil
 	}
-	return distributor.DistributeInstances(CallContext(u.st), candidates, distributionGroup, limitZones)
+	return distributor.DistributeInstances(context.CallContext(u.st), candidates, distributionGroup, limitZones)
 }
 
 // ApplicationInstances returns the instance IDs of provisioned

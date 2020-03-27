@@ -128,7 +128,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 
 	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
-	callCtx := state.CallContext(st)
+	callCtx := context.CallContext(st)
 	api := &ProvisionerAPI{
 		Remover:                 common.NewRemover(st, false, getAuthFunc),
 		StatusSetter:            common.NewStatusSetter(st, getAuthFunc),

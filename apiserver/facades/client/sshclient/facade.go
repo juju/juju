@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -36,7 +35,7 @@ func NewFacade(ctx facade.Context) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return internalFacade(&backend{m.ModelTag(), st, stateenvirons.EnvironConfigGetter{Model: m}}, ctx.Auth(), state.CallContext(st))
+	return internalFacade(&backend{m.ModelTag(), st, stateenvirons.EnvironConfigGetter{Model: m}}, ctx.Auth(), context.CallContext(st))
 }
 
 func internalFacade(backend Backend, auth facade.Authorizer, callCtx context.ProviderCallContext) (*Facade, error) {

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -202,7 +203,7 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 		return nil, errors.Trace(err)
 	}
 
-	interfaceInfos, err := netEnviron.NetworkInterfaces(state.CallContext(api.st), []instance.Id{instId})
+	interfaceInfos, err := netEnviron.NetworkInterfaces(context.CallContext(api.st), []instance.Id{instId})
 	if errors.IsNotSupported(err) {
 		// It's possible to have a networking environ, but not support
 		// NetworkInterfaces(). In leiu of adding SupportsNetworkInterfaces():

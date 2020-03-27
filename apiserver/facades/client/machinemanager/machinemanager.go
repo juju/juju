@@ -54,7 +54,7 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	pool := &poolShim{ctx.StatePool()}
-	return NewMachineManagerAPI(backend, storageAccess, pool, ctx.Auth(), model.ModelTag(), state.CallContext(st), ctx.Resources())
+	return NewMachineManagerAPI(backend, storageAccess, pool, ctx.Auth(), model.ModelTag(), context.CallContext(st), ctx.Resources())
 }
 
 // Version 4 of MachineManagerAPI

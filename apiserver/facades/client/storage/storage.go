@@ -57,8 +57,8 @@ type StorageAPIv3 struct {
 }
 
 // NewStorageAPI returns a new storage API facade.
-func NewStorageAPI(context facade.Context) (*StorageAPI, error) {
-	st := context.State()
+func NewStorageAPI(ctx facade.Context) (*StorageAPI, error) {
+	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -77,11 +77,11 @@ func NewStorageAPI(context facade.Context) (*StorageAPI, error) {
 		return nil, errors.Annotate(err, "getting backend")
 	}
 
-	authorizer := context.Auth()
+	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	return newStorageAPI(stateShim{st}, model.Type(), storageAccessor, registry, pm, authorizer, state.CallContext(st)), nil
+	return newStorageAPI(stateShim{st}, model.Type(), storageAccessor, registry, pm, authorizer, context.CallContext(st)), nil
 }
 
 func newStorageAPI(
