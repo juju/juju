@@ -40,7 +40,7 @@ type Networking interface {
 	Subnets(instance.Id, []corenetwork.Id) ([]corenetwork.SubnetInfo, error)
 
 	// CreatePort creates a port for a given network id with a subnet ID.
-	CreatePort(string, string, corenetwork.Id) (string, error)
+	CreatePort(string, string, corenetwork.Id) (*neutron.PortV2, error)
 
 	// DeletePortByID attempts to remove a port using the given port ID.
 	DeletePortByID(string) error
@@ -211,7 +211,7 @@ func (n *NeutronNetworking) DefaultNetworks() ([]nova.ServerNetworks, error) {
 }
 
 // CreatePort creates a port for a given network id with a subnet ID.
-func (n *NeutronNetworking) CreatePort(name, networkID string, subnetID corenetwork.Id) (string, error) {
+func (n *NeutronNetworking) CreatePort(name, networkID string, subnetID corenetwork.Id) (*neutron.PortV2, error) {
 	client := n.env.neutron()
 
 	// To prevent name clashes to existing ports, generate a unique one from a
@@ -229,9 +229,9 @@ func (n *NeutronNetworking) CreatePort(name, networkID string, subnetID corenetw
 		},
 	})
 	if err != nil {
-		return "", errors.Annotate(err, "unable to create port")
+		return nil, errors.Annotate(err, "unable to create port")
 	}
-	return port.Id, nil
+	return port, nil
 }
 
 // DeletePortByID attempts to remove a port using the given port ID.
