@@ -142,8 +142,8 @@ func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults
 		return result, err
 	}
 
-	result.Results = make([]params.ErrorResult, len(args.SpacesRenames))
-	for i, spaceRename := range args.SpacesRenames {
+	result.Results = make([]params.ErrorResult, len(args.Changes))
+	for i, spaceRename := range args.Changes {
 		fromTag, err := names.ParseSpaceTag(spaceRename.FromSpaceTag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(errors.Trace(err))

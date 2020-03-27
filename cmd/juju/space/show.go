@@ -79,7 +79,7 @@ func (c *ShowSpaceCommand) Init(args []string) error {
 func (c *ShowSpaceCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithSpaceAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		// Add the new space.
-		spaceInformation, err := api.ShowSpace(c.Name)
+		space, err := api.ShowSpace(c.Name)
 		if err != nil {
 			if errors.IsNotSupported(err) {
 				ctx.Infof("cannot retrieve space %q: %v", c.Name, err)
@@ -89,6 +89,41 @@ func (c *ShowSpaceCommand) Run(ctx *cmd.Context) error {
 			}
 			return block.ProcessBlockedError(errors.Annotatef(err, "cannot retrieve space %q", c.Name), block.BlockChange)
 		}
-		return errors.Trace(c.out.Write(ctx, spaceInformation))
+
+		formatted := showSpaceFromResult(space)
+		return errors.Trace(c.out.Write(ctx, formatted))
 	})
+}
+
+// showSpaceFromResult converts params.ShowSpaceResult to ShowSpace
+func showSpaceFromResult(result params.ShowSpaceResult) ShowSpace {
+	s := result.Space
+	subnets := make([]SubnetInfo, len(s.Subnets))
+	for i, value := range s.Subnets {
+		subnets[i].AvailabilityZones = value.Zones
+		subnets[i].ProviderId = value.ProviderId
+		subnets[i].VLANTag = value.VLANTag
+		subnets[i].CIDR = value.CIDR
+		subnets[i].ProviderNetworkId = value.ProviderNetworkId
+		subnets[i].ProviderSpaceId = value.ProviderSpaceId
+	}
+	return ShowSpace{
+		Space: SpaceInfo{
+			ID:      s.Id,
+			Name:    s.Name,
+			Subnets: subnets,
+		},
+		Applications: result.Applications,
+		MachineCount: result.MachineCount,
+	}
+}
+
+// ShowSpace represents space information output by the CLI client.
+type ShowSpace struct {
+	// Information about a given space.
+	Space SpaceInfo `json:"space" yaml:"space"`
+	// Application names which are bound to a given space.
+	Applications []string `json:"applications" yaml:"applications"`
+	// MachineCount is the number of machines connected to a given space.
+	MachineCount int `json:"machine-count" yaml:"machine-count"`
 }

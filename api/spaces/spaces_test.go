@@ -17,7 +17,6 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -59,8 +58,8 @@ func (s *spacesSuite) TestRemoveSpace(c *gc.C) {
 	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
 	bounds, err := s.API.RemoveSpace(name, false, false)
-	c.Assert(err, gc.IsNil)
-	c.Assert(bounds, gc.DeepEquals, network.RemoveSpace{})
+	c.Assert(err, gc.ErrorMatches, "0 results, expected 1")
+	c.Assert(bounds, gc.DeepEquals, params.RemoveSpaceResult{})
 }
 
 func (s *spacesSuite) TestRemoveSpaceUnexpectedError(c *gc.C) {
@@ -83,7 +82,7 @@ func (s *spacesSuite) TestRemoveSpaceUnexpectedError(c *gc.C) {
 
 	bounds, err := s.API.RemoveSpace(name, false, false)
 	c.Assert(err, gc.ErrorMatches, "bam")
-	c.Assert(bounds, gc.DeepEquals, network.RemoveSpace{})
+	c.Assert(bounds, gc.DeepEquals, params.RemoveSpaceResult{})
 }
 
 func (s *spacesSuite) TestRemoveSpaceUnexpectedErrorAPICall(c *gc.C) {
@@ -98,7 +97,7 @@ func (s *spacesSuite) TestRemoveSpaceUnexpectedErrorAPICall(c *gc.C) {
 
 	bounds, err := s.API.RemoveSpace(name, false, false)
 	c.Assert(err, gc.ErrorMatches, bam.Error())
-	c.Assert(bounds, gc.DeepEquals, network.RemoveSpace{})
+	c.Assert(bounds, gc.DeepEquals, params.RemoveSpaceResult{})
 }
 
 func (s *spacesSuite) TestRemoveSpaceUnexpectedErrorAPICallNotSupported(c *gc.C) {
@@ -117,7 +116,7 @@ func (s *spacesSuite) TestRemoveSpaceUnexpectedErrorAPICallNotSupported(c *gc.C)
 
 	bounds, err := s.API.RemoveSpace(name, false, false)
 	c.Assert(err, gc.ErrorMatches, bam.Error())
-	c.Assert(bounds, gc.DeepEquals, network.RemoveSpace{})
+	c.Assert(bounds, gc.DeepEquals, params.RemoveSpaceResult{})
 }
 
 func (s *spacesSuite) TestRemoveSpaceConstraintsBindings(c *gc.C) {
@@ -126,20 +125,12 @@ func (s *spacesSuite) TestRemoveSpaceConstraintsBindings(c *gc.C) {
 	resultSource := params.RemoveSpaceResults{
 		Results: []params.RemoveSpaceResult{{
 			Constraints: []params.Entity{
-				{
-					Tag: "model-42c4f770-86ed-4fcc-8e39-697063d082bc:e",
-				},
-				{
-					Tag: "application-mysql",
-				},
+				{Tag: "model-42c4f770-86ed-4fcc-8e39-697063d082bc:e"},
+				{Tag: "application-mysql"},
 			},
 			Bindings: []params.Entity{
-				{
-					Tag: "application-mysql",
-				},
-				{
-					Tag: "application-mediawiki",
-				},
+				{Tag: "application-mysql"},
+				{Tag: "application-mediawiki"},
 			},
 			ControllerSettings: []string{"jujuhaspace", "juuuu-space"},
 			Error:              nil,
@@ -150,12 +141,16 @@ func (s *spacesSuite) TestRemoveSpaceConstraintsBindings(c *gc.C) {
 
 	bounds, err := s.API.RemoveSpace(name, false, false)
 
-	expectedBounds := network.RemoveSpace{
-		HasModelConstraint: true,
-		Space:              name,
-		Constraints:        []string{"mysql"},
-		Bindings:           []string{"mysql", "mediawiki"},
-		ControllerConfig:   []string{"jujuhaspace", "juuuu-space"},
+	expectedBounds := params.RemoveSpaceResult{
+		Constraints: []params.Entity{
+			{Tag: "model-42c4f770-86ed-4fcc-8e39-697063d082bc:e"},
+			{Tag: "application-mysql"},
+		},
+		Bindings: []params.Entity{
+			{Tag: "application-mysql"},
+			{Tag: "application-mediawiki"},
+		},
+		ControllerSettings: []string{"jujuhaspace", "juuuu-space"},
 	}
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bounds, jc.DeepEquals, expectedBounds)
@@ -166,11 +161,8 @@ func (s *spacesSuite) TestRemoveSpaceConstraints(c *gc.C) {
 	resultSource := params.RemoveSpaceResults{
 		Results: []params.RemoveSpaceResult{{
 			Constraints: []params.Entity{
-				{
-					Tag: "model-42c4f770-86ed-4fcc-8e39-697063d082bc:e",
-				}, {
-					Tag: "application-mysql",
-				},
+				{Tag: "model-42c4f770-86ed-4fcc-8e39-697063d082bc:e"},
+				{Tag: "application-mysql"},
 			},
 			Error: nil,
 		}}}
@@ -178,10 +170,11 @@ func (s *spacesSuite) TestRemoveSpaceConstraints(c *gc.C) {
 	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
 	bounds, err := s.API.RemoveSpace(name, false, false)
-	expectedBounds := network.RemoveSpace{
-		HasModelConstraint: true,
-		Space:              name,
-		Constraints:        []string{"mysql"},
+	expectedBounds := params.RemoveSpaceResult{
+		Constraints: []params.Entity{
+			{Tag: "model-42c4f770-86ed-4fcc-8e39-697063d082bc:e"},
+			{Tag: "application-mysql"},
+		},
 	}
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bounds, jc.DeepEquals, expectedBounds)
@@ -198,7 +191,7 @@ func (s *spacesSuite) TestRemoveSpaceForce(c *gc.C) {
 	bounds, err := s.API.RemoveSpace(name, true, false)
 
 	c.Assert(err, gc.IsNil)
-	c.Assert(bounds, gc.DeepEquals, network.RemoveSpace{Space: name})
+	c.Assert(bounds, gc.DeepEquals, params.RemoveSpaceResult{})
 }
 
 func getRemoveSpaceArgs(spaceName string, force, dryRun bool) params.RemoveSpaceParams {
@@ -215,10 +208,12 @@ func (s *spacesSuite) TestRenameSpace(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	from, to := "from", "to"
 	resultSource := params.ErrorResults{}
-	args := params.RenameSpacesParams{SpacesRenames: []params.RenameSpaceParams{{
-		FromSpaceTag: names.NewSpaceTag(from).String(),
-		ToSpaceTag:   names.NewSpaceTag(to).String(),
-	}}}
+	args := params.RenameSpacesParams{
+		Changes: []params.RenameSpaceParams{{
+			FromSpaceTag: names.NewSpaceTag(from).String(),
+			ToSpaceTag:   names.NewSpaceTag(to).String(),
+		}},
+	}
 	s.fCaller.EXPECT().FacadeCall("RenameSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
 	err := s.API.RenameSpace(from, to)
@@ -234,10 +229,12 @@ func (s *spacesSuite) TestRenameSpaceError(c *gc.C) {
 			Code:    "500",
 		},
 	}}}
-	args := params.RenameSpacesParams{SpacesRenames: []params.RenameSpaceParams{{
-		FromSpaceTag: names.NewSpaceTag(from).String(),
-		ToSpaceTag:   names.NewSpaceTag(to).String(),
-	}}}
+	args := params.RenameSpacesParams{
+		Changes: []params.RenameSpaceParams{{
+			FromSpaceTag: names.NewSpaceTag(from).String(),
+			ToSpaceTag:   names.NewSpaceTag(to).String(),
+		}},
+	}
 	s.fCaller.EXPECT().FacadeCall("RenameSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
 	err := s.API.RenameSpace(from, to)
@@ -374,13 +371,11 @@ func (s *SpacesSuite) testShowSpaces(c *gc.C, spaceName string, results []params
 	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
 	if expectErr != "" {
 		c.Assert(gotErr, gc.ErrorMatches, expectErr)
-		c.Assert(gotResults, jc.DeepEquals, network.ShowSpace{})
 		return
 	} else {
 		c.Assert(results, gc.NotNil)
 		c.Assert(len(results), gc.Equals, 1)
-		converted := spaces.ShowSpaceFromResult(results[0])
-		c.Assert(gotResults, jc.DeepEquals, converted)
+		c.Assert(gotResults, jc.DeepEquals, results[0])
 	}
 	if err != nil {
 		c.Assert(gotErr, jc.DeepEquals, err)

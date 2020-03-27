@@ -4,7 +4,6 @@
 package space
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
 
@@ -13,9 +12,9 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v3"
 
+	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/network"
 )
 
 // NewRemoveCommand returns a command used to remove a space.
@@ -103,38 +102,59 @@ func (c *RemoveCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	store := c.ClientStore()
 	currentModel, err := store.CurrentModel(controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	return c.RunWithSpaceAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		if !c.assumeYes && c.force {
 			if err := c.handleForceOption(api, currentModel, ctx); err != nil {
 				return errors.Annotatef(err, "cannot remove space %q", c.name)
 			}
 		}
-		if bounds, err := api.RemoveSpace(c.name, c.force, false); err != nil || buildRemoveErrorMsg(bounds, currentModel) != nil {
+
+		space, err := api.RemoveSpace(c.name, c.force, false)
+		if err != nil {
 			return errors.Annotatef(err, "cannot remove space %q", c.name)
 		}
+
+		result, err := removeSpaceFromResult(c.name, space)
+		if err != nil {
+			return errors.Annotatef(err, "failed to parse space %q", c.name)
+		}
+		errorList := buildRemoveErrorList(result, currentModel)
+		if len(errorList) > 0 {
+			return errors.Errorf("Cannot remove space %q\n\n%s\n\nUse --force to remove space\n", c.name, strings.Join(errorList, "\n"))
+		}
+
 		ctx.Infof("removed space %q", c.name)
 		return nil
 	})
 }
 
 func (c *RemoveCommand) handleForceOption(api SpaceAPI, currentModel string, ctx *cmd.Context) error {
-	bounds, err := api.RemoveSpace(c.name, false, true)
+	space, err := api.RemoveSpace(c.name, false, true)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	if buildRemoveErrorMsg(bounds, currentModel) == nil {
+
+	result, err := removeSpaceFromResult(c.name, space)
+	if err != nil {
+		return errors.Annotatef(err, "failed to parse space %q", c.name)
+	}
+
+	errorList := buildRemoveErrorList(result, currentModel)
+	if len(errorList) == 0 {
 		fmt.Fprintf(ctx.Stdout, removeSpaceMsgNoBounds)
 	} else {
 		removeSpaceMsg := fmt.Sprintf(""+
 			"WARNING! This command will remove the space"+
 			" with the following existing boundaries:"+
 			"\n\n%v\n\n\n"+
-			"Continue [y/N]?", buildRemoveErrorMsg(bounds, currentModel))
+			"Continue [y/N]?", strings.Join(errorList, "\n"))
 		fmt.Fprintf(ctx.Stdout, removeSpaceMsg)
 	}
 	if err := jujucmd.UserConfirmYes(ctx); err != nil {
@@ -143,33 +163,69 @@ func (c *RemoveCommand) handleForceOption(api SpaceAPI, currentModel string, ctx
 	return nil
 }
 
-func buildRemoveErrorMsg(removeSpace network.RemoveSpace, currentModel string) error {
-	var errMsg bytes.Buffer
+func removeSpaceFromResult(name string, result params.RemoveSpaceResult) (RemoveSpace, error) {
+	constraints, err := convertEntitiesToStringAndSkipModel(result.Constraints)
+	if err != nil {
+		return RemoveSpace{}, err
+	}
+	hasModel, err := hasModelConstraint(result.Constraints)
+	if err != nil {
+		return RemoveSpace{}, err
+	}
+	bindings, err := convertEntitiesToStringAndSkipModel(result.Bindings)
+	if err != nil {
+		return RemoveSpace{}, err
+	}
+
+	return RemoveSpace{
+		HasModelConstraint: hasModel,
+		Space:              name,
+		Constraints:        constraints,
+		Bindings:           bindings,
+		ControllerConfig:   result.ControllerSettings,
+	}, nil
+}
+
+func buildRemoveErrorList(removeSpace RemoveSpace, currentModel string) []string {
 	constraints := removeSpace.Constraints
 	bindings := removeSpace.Bindings
 	config := removeSpace.ControllerConfig
 	spaceName := removeSpace.Space
 
+	var list []string
+	var msg string
 	if len(removeSpace.Constraints) > 0 {
-		fmt.Fprintf(&errMsg, "\n- %q is used as a "+
-			"constraint on: %v", spaceName, strings.Join(constraints, ", "))
+		msg = "- %q is used as a constraint on: %v"
+		list = append(list, fmt.Sprintf(msg, spaceName, strings.Join(constraints, ", ")))
 
 		if removeSpace.HasModelConstraint {
-			fmt.Fprintf(&errMsg, "\n- %q is used as a "+
-				"model constraint: %v", spaceName, currentModel)
+			msg = "- %q is used as a model constraint: %v"
+			list = append(list, fmt.Sprintf(msg, spaceName, currentModel))
 		}
 	}
 	if len(removeSpace.Bindings) > 0 {
-		fmt.Fprintf(&errMsg, "\n- %q is used as a "+
-			"binding on: %v", spaceName, strings.Join(bindings, ", "))
+		msg = "- %q is used as a binding on: %v"
+		list = append(list, fmt.Sprintf(msg, spaceName, strings.Join(bindings, ", ")))
 	}
 	if len(removeSpace.ControllerConfig) > 0 {
-		fmt.Fprintf(&errMsg, "\n- %q is used for controller "+
-			"config(s): %v", spaceName, strings.Join(config, ", "))
+		msg = "- %q is used for controller config(s): %v"
+		list = append(list, fmt.Sprintf(msg, spaceName, strings.Join(config, ", ")))
 	}
 
-	if errMsg.String() == "" {
-		return nil
-	}
-	return errors.New(strings.Trim(errMsg.String(), "[]"))
+	return list
+}
+
+// RemoveSpace represents space information why a space could not be removed.
+type RemoveSpace struct {
+	// The space which cannot be removed. Only with --force.
+	Space string `json:"space" yaml:"space"`
+	// HasModelConstraint is the model constraint.
+	HasModelConstraint bool `json:"has-model-constraint" yaml:"has-model-constraint"`
+	// Constraints are the constraints which blocks the remove. Blocking Constraints are: Application.
+	Constraints []string `json:"constraints,omitempty" yaml:"constraints,omitempty"`
+	// Bindings are the application bindings which blocks the remove.
+	Bindings []string `json:"bindings,omitempty" yaml:"bindings,omitempty"`
+	// ControllerConfig are the config settings of the controller model which are using the space.
+	// This is only valid if the current model is a controller model.
+	ControllerConfig []string `json:"controller-settings,omitempty" yaml:"controller-settings,omitempty"`
 }

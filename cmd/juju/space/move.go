@@ -119,7 +119,7 @@ func (c *MoveCommand) getSpaceTag(api SpaceAPI, name string) (names.SpaceTag, er
 		return names.SpaceTag{}, errors.Annotatef(err, "failed to get space %q", name)
 	}
 
-	return names.NewSpaceTag(space.Space.ID), nil
+	return names.NewSpaceTag(space.Space.Id), nil
 }
 
 func (c *MoveCommand) getSubnetTags(ctx *cmd.Context, api SubnetAPI, cidrs set.Strings) ([]names.SubnetTag, error) {

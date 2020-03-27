@@ -23,31 +23,6 @@ const (
 	AlphaSpaceName = "alpha"
 )
 
-// ShowSpace represents space information output by the CLI client.
-type ShowSpace struct {
-	// Information about a given space.
-	Space SpaceInfo `json:"space" yaml:"space"`
-	// Application names which are bound to a given space.
-	Applications []string `json:"applications" yaml:"applications"`
-	// MachineCount is the number of machines connected to a given space.
-	MachineCount int `json:"machine-count" yaml:"machine-count"`
-}
-
-// RemoveSpace represents space information why a space could not be removed.
-type RemoveSpace struct {
-	// The space which cannot be removed. Only with --force.
-	Space string
-	// HasModelConstraint is the model constraint.
-	HasModelConstraint bool
-	// Constraints are the constraints which blocks the remove. Blocking Constraints are: Application.
-	Constraints []string `json:"constraints,omitempty"`
-	// Bindings are the application bindings which blocks the remove.
-	Bindings []string `json:"bindings,omitempty"`
-	// ControllerConfig are the config settings of the controller model which are using the space.
-	// This is only valid if the current model is a controller model.
-	ControllerConfig []string `json:"controller-settings,omitempty"`
-}
-
 // SpaceLookup describes methods for acquiring SpaceInfos
 // to translate space IDs to space names and vice versa.
 type SpaceLookup interface {
@@ -68,7 +43,7 @@ type SpaceInfo struct {
 
 	// ProviderId is the provider's unique identifier for the space,
 	// such as used by MAAS.
-	ProviderId Id `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
+	ProviderId Id
 
 	// Subnets are the subnets that have been grouped into this network space.
 	Subnets []SubnetInfo
