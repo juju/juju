@@ -152,7 +152,7 @@ func (c *guiCommand) openBrowser(ctx *cmd.Context, rawURL string, vers *version.
 	if err != nil {
 		return errors.Annotate(err, "cannot parse Juju Dashboard URL")
 	}
-	if c.noBrowser && !c.browser {
+	if !c.browser {
 		versInfo := ""
 		if vers != nil {
 			versInfo = fmt.Sprintf("%v", vers)
@@ -179,7 +179,7 @@ func (c *guiCommand) openBrowser(ctx *cmd.Context, rawURL string, vers *version.
 
 // showCredentials shows the admin username and password.
 func (c *guiCommand) showCredentials(ctx *cmd.Context) error {
-	if c.hideCreds || !c.showCreds {
+	if c.hideCreds {
 		return nil
 	}
 	// TODO(wallyworld) - what to do if we are using a macaroon.
