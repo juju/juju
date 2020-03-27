@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -40,6 +41,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage"
@@ -502,12 +504,20 @@ func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, a
 
 func caasPrecheck(
 	ch Charm,
+	controllerCfg controller.Config,
 	model Model,
 	args params.ApplicationDeploy,
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	caasBroker caasBrokerInterface,
 ) error {
+	if ch.Meta().Deployment != nil && ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
+		if !controllerCfg.Features().Contains(feature.K8sOperators) {
+			return errors.Errorf(
+				"feature flag %q is required for deploying k8s operator charms", feature.K8sOperators,
+			)
+		}
+	}
 	if len(args.AttachStorage) > 0 {
 		return errors.Errorf(
 			"AttachStorage may not be specified for k8s models",
@@ -610,7 +620,11 @@ func deployApplication(
 
 	modelType := model.Type()
 	if modelType != state.ModelTypeIAAS {
-		if err := caasPrecheck(ch, model, args, storagePoolManager, registry, caasBroker); err != nil {
+		cfg, err := backend.ControllerConfig()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := caasPrecheck(ch, cfg, model, args, storagePoolManager, registry, caasBroker); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1728,6 +1742,14 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
+		ch, _, err := app.Charm()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if ch.Meta().Deployment != nil && ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
+			return nil, errors.New("cannot scale an operator charm")
+		}
+
 		var info params.ScaleApplicationInfo
 		if arg.ScaleChange != 0 {
 			newScale, err := app.ChangeScale(arg.ScaleChange)

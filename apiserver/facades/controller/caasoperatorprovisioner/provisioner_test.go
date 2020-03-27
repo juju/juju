@@ -249,7 +249,7 @@ func (s *CAASProvisionerSuite) TestAddresses(c *gc.C) {
 
 func (s *CAASProvisionerSuite) TestIssueOperatorCertificate(c *gc.C) {
 	res, err := s.api.IssueOperatorCertificate(params.Entities{
-		Entities: []params.Entity{{Tag: "appname"}},
+		Entities: []params.Entity{{Tag: "application-appname"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "StateServingInfo")

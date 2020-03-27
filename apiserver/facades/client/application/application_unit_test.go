@@ -331,6 +331,31 @@ func (s *ApplicationSuite) TestSetCAASCharmInvalid(c *gc.C) {
 	c.Assert(msg, gc.Matches, "Juju on k8s does not support updating deployment info.*")
 }
 
+func (s *ApplicationSuite) TestDeployCAASOperatorProtectedByFlag(c *gc.C) {
+	s.model.modelType = state.ModelTypeCAAS
+	s.setAPIUser(c, names.NewUserTag("admin"))
+	s.backend.charm = &mockCharm{
+		meta: &charm.Meta{
+			Deployment: &charm.Deployment{
+				DeploymentMode: charm.ModeOperator,
+			},
+		},
+	}
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+		}},
+	}
+	result, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	err = result.OneError()
+	c.Assert(err, gc.NotNil)
+	msg := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(msg, gc.Matches, `feature flag "k8s-operators" is required for deploying k8s operator charms`)
+}
+
 func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
@@ -970,7 +995,31 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModel(c *gc.C) {
 		}},
 	})
 	app := s.backend.applications["postgresql"]
-	app.CheckCall(c, 0, "Scale", 5)
+	app.CheckCall(c, 1, "Scale", 5)
+}
+
+func (s *ApplicationSuite) TestScaleApplicationsNotAllowedForOperator(c *gc.C) {
+	s.model.modelType = state.ModelTypeCAAS
+	s.setAPIUser(c, names.NewUserTag("admin"))
+	s.backend.applications["postgresql"].charm = &mockCharm{
+		meta: &charm.Meta{
+			Deployment: &charm.Deployment{
+				DeploymentMode: charm.ModeOperator,
+			},
+		},
+	}
+	args := params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			Scale:          5,
+		}},
+	}
+	result, err := s.api.ScaleApplications(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.NotNil)
+	msg := strings.Replace(result.Results[0].Error.Error(), "\n", "", -1)
+	c.Assert(msg, gc.Matches, `cannot scale an operator charm`)
 }
 
 func (s *ApplicationSuite) TestScaleApplicationsBlocked(c *gc.C) {
@@ -1001,7 +1050,7 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleChange(c *gc.C) {
 		}},
 	})
 	app := s.backend.applications["postgresql"]
-	app.CheckCall(c, 0, "ChangeScale", 5)
+	app.CheckCall(c, 1, "ChangeScale", 5)
 }
 
 func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleArgCheck(c *gc.C) {

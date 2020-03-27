@@ -8,12 +8,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/caas"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -21,6 +21,7 @@ import (
 type applicationWorker struct {
 	catacomb        catacomb.Catacomb
 	application     string
+	mode            caas.DeploymentMode
 	serviceBroker   ServiceBroker
 	containerBroker ContainerBroker
 
@@ -35,6 +36,7 @@ type applicationWorker struct {
 
 func newApplicationWorker(
 	application string,
+	mode caas.DeploymentMode,
 	serviceBroker ServiceBroker,
 	containerBroker ContainerBroker,
 	provisioningStatusSetter ProvisioningStatusSetter,
@@ -46,6 +48,7 @@ func newApplicationWorker(
 ) (*applicationWorker, error) {
 	w := &applicationWorker{
 		application:              application,
+		mode:                     mode,
 		serviceBroker:            serviceBroker,
 		containerBroker:          containerBroker,
 		provisioningStatusSetter: provisioningStatusSetter,
@@ -75,24 +78,31 @@ func (aw *applicationWorker) Wait() error {
 }
 
 func (aw *applicationWorker) loop() error {
-	deploymentWorker, err := newDeploymentWorker(
-		aw.application,
-		aw.provisioningStatusSetter,
-		aw.serviceBroker,
-		aw.provisioningInfoGetter,
-		aw.applicationGetter,
-		aw.applicationUpdater,
-		aw.logger,
-	)
-	if err != nil {
-		return errors.Trace(err)
+	if aw.mode == caas.ModeWorkload {
+		deploymentWorker, err := newDeploymentWorker(
+			aw.application,
+			aw.provisioningStatusSetter,
+			aw.serviceBroker,
+			aw.provisioningInfoGetter,
+			aw.applicationGetter,
+			aw.applicationUpdater,
+			aw.logger,
+		)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		aw.catacomb.Add(deploymentWorker)
 	}
-	aw.catacomb.Add(deploymentWorker)
 
 	var (
-		brokerUnitsWatcher   watcher.NotifyWatcher
-		appOperatorWatcher   watcher.NotifyWatcher
+		brokerUnitsWatcher watcher.NotifyWatcher
+		brokerUnitsChannel watcher.NotifyChannel
+
+		appOperatorWatcher  watcher.NotifyWatcher
+		appOpertatorChannel watcher.NotifyChannel
+
 		appDeploymentWatcher watcher.NotifyWatcher
+		appDeploymentChannel watcher.NotifyChannel
 	)
 	// The caas watcher can just die from underneath hence it needs to be
 	// restarted all the time. So we don't abuse the catacomb by adding new
@@ -116,18 +126,20 @@ func (aw *applicationWorker) loop() error {
 	initialOperatorEvent := true
 	logger := aw.logger
 	for {
+		var err error
 		// The caas watcher can just die from underneath so recreate if needed.
 		if brokerUnitsWatcher == nil {
-			brokerUnitsWatcher, err = aw.containerBroker.WatchUnits(aw.application)
+			brokerUnitsWatcher, err = aw.containerBroker.WatchUnits(aw.application, aw.mode)
 			if err != nil {
 				if strings.Contains(err.Error(), "unexpected EOF") {
-					logger.Warningf("k8s cloud hosting %q has disappeared", aw.application)
+					logger.Warningf("k8s cloud hosting %q has disappeared", aw.application, aw.mode)
 					return nil
 				}
 				return errors.Annotatef(err, "failed to start unit watcher for %q", aw.application)
 			}
+			brokerUnitsChannel = brokerUnitsWatcher.Changes()
 		}
-		if appOperatorWatcher == nil {
+		if appOperatorWatcher == nil && aw.mode == caas.ModeWorkload {
 			appOperatorWatcher, err = aw.containerBroker.WatchOperator(aw.application)
 			if err != nil {
 				if strings.Contains(err.Error(), "unexpected EOF") {
@@ -136,16 +148,18 @@ func (aw *applicationWorker) loop() error {
 				}
 				return errors.Annotatef(err, "failed to start operator watcher for %q", aw.application)
 			}
+			appOpertatorChannel = appOperatorWatcher.Changes()
 		}
 		if appDeploymentWatcher == nil {
-			appDeploymentWatcher, err = aw.serviceBroker.WatchService(aw.application)
+			appDeploymentWatcher, err = aw.serviceBroker.WatchService(aw.application, aw.mode)
 			if err != nil {
 				if strings.Contains(err.Error(), "unexpected EOF") {
-					logger.Warningf("k8s cloud hosting %q has disappeared", aw.application)
+					logger.Warningf("k8s cloud hosting %q has disappeared", aw.application, aw.mode)
 					return nil
 				}
 				return errors.Annotatef(err, "failed to start deployment watcher for %q", aw.application)
 			}
+			appDeploymentChannel = appDeploymentWatcher.Changes()
 		}
 
 		select {
@@ -153,7 +167,7 @@ func (aw *applicationWorker) loop() error {
 		// to shutdown so that we don't leave stuff running in the cloud.
 		case <-aw.catacomb.Dying():
 			return aw.catacomb.ErrDying()
-		case _, ok := <-brokerUnitsWatcher.Changes():
+		case _, ok := <-brokerUnitsChannel:
 			logger.Debugf("units changed: %#v", ok)
 			if !ok {
 				logger.Debugf("%v", brokerUnitsWatcher.Wait())
@@ -161,16 +175,16 @@ func (aw *applicationWorker) loop() error {
 				brokerUnitsWatcher = nil
 				continue
 			}
-			service, err := aw.serviceBroker.GetService(aw.application, false)
+			service, err := aw.serviceBroker.GetService(aw.application, aw.mode, false)
 			if err != nil && !errors.IsNotFound(err) {
 				return errors.Trace(err)
 			}
-			logger.Debugf("service for %v: %+v", aw.application, service)
+			logger.Debugf("service for %v(%v): %+v", aw.application, aw.mode, service)
 			if err := aw.clusterChanged(service, lastReportedStatus, true); err != nil {
 				// TODO(caas): change the shouldSetScale to false here once appDeploymentWatcher can get all events from k8s.
 				return errors.Trace(err)
 			}
-		case _, ok := <-appDeploymentWatcher.Changes():
+		case _, ok := <-appDeploymentChannel:
 			logger.Debugf("deployment changed: %#v", ok)
 			if !ok {
 				logger.Debugf("%v", appDeploymentWatcher.Wait())
@@ -178,7 +192,7 @@ func (aw *applicationWorker) loop() error {
 				appDeploymentWatcher = nil
 				continue
 			}
-			service, err := aw.serviceBroker.GetService(aw.application, false)
+			service, err := aw.serviceBroker.GetService(aw.application, aw.mode, false)
 			if err != nil && !errors.IsNotFound(err) {
 				return errors.Trace(err)
 			}
@@ -216,7 +230,7 @@ func (aw *applicationWorker) loop() error {
 			if err := aw.clusterChanged(service, lastReportedStatus, true); err != nil {
 				return errors.Trace(err)
 			}
-		case _, ok := <-appOperatorWatcher.Changes():
+		case _, ok := <-appOpertatorChannel:
 			if !ok {
 				logger.Debugf("%v", appOperatorWatcher.Wait())
 				worker.Stop(appOperatorWatcher)
@@ -250,7 +264,7 @@ func (aw *applicationWorker) clusterChanged(
 	lastReportedStatus map[string]status.StatusInfo,
 	shouldSetScale bool,
 ) error {
-	units, err := aw.containerBroker.Units(aw.application)
+	units, err := aw.containerBroker.Units(aw.application, aw.mode)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -340,7 +354,7 @@ func (aw *applicationWorker) clusterChanged(
 			if err != nil {
 				return errors.Trace(err)
 			}
-			err = aw.containerBroker.AnnotateUnit(aw.application, unitInfo.ProviderId, unit)
+			err = aw.containerBroker.AnnotateUnit(aw.application, aw.mode, unitInfo.ProviderId, unit)
 			if errors.IsNotFound(err) {
 				continue
 			} else if err != nil {

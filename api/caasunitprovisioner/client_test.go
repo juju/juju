@@ -13,6 +13,7 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -263,6 +264,32 @@ func (s *unitprovisionerSuite) TestApplicationScale(c *gc.C) {
 	scale, err := client.ApplicationScale("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(scale, gc.Equals, 5)
+}
+
+func (s *unitprovisionerSuite) TestDeploymentMode(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "DeploymentMode")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: "application-gitlab",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		*(result.(*params.StringResults)) = params.StringResults{
+			Results: []params.StringResult{{
+				Result: "workload",
+			}},
+		}
+		return nil
+	})
+
+	client := caasunitprovisioner.NewClient(apiCaller)
+	mode, err := client.DeploymentMode("gitlab")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mode, gc.Equals, caas.ModeWorkload)
 }
 
 func (s *unitprovisionerSuite) TestWatchPodSpec(c *gc.C) {

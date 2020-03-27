@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -56,6 +57,16 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 			errors.Errorf("application %s not alive", app.String()),
 			"setting pod spec",
 		)
+	}
+	// The app's charm may not be there yet (as is the case when migrating).
+	// This check is for checking the k8s-spec-set call.
+	ch, _, err := app.Charm()
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	} else if err == nil {
+		if ch.Meta().Deployment != nil && ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
+			return nil, errors.New("cannot set k8s spec on an operator charm")
+		}
 	}
 	prereqOps = append(prereqOps, txn.Op{
 		C:      applicationsC,

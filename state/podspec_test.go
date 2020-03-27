@@ -56,6 +56,14 @@ func (s *PodSpecSuite) TestSetPodSpecApplication(c *gc.C) {
 	s.assertPodSpec(c, s.application.ApplicationTag(), "foo")
 }
 
+func (s *PodSpecSuite) TestSetPodSpecApplicationOperator(c *gc.C) {
+	ch := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "elastic-operator", Series: "kubernetes"})
+	s.application = s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
+
+	err := s.Model.SetPodSpec(nil, s.application.ApplicationTag(), strPtr("foo"))
+	c.Assert(err, gc.ErrorMatches, "cannot set k8s spec on an operator charm")
+}
+
 func (s *PodSpecSuite) TestSetPodSpecApplicationDying(c *gc.C) {
 	// create a unit to prevent app from being removed
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application})

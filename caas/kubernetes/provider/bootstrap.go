@@ -421,7 +421,7 @@ func (c *controllerStack) createControllerService() error {
 
 	publicAddressPoller := func() error {
 		// get the service by app name;
-		svc, err := c.broker.GetService(c.stackName, false)
+		svc, err := c.broker.GetService(c.stackName, caas.ModeWorkload, false)
 		if err != nil {
 			return errors.Annotate(err, "getting controller service")
 		}
@@ -587,7 +587,7 @@ func (c *controllerStack) createControllerStatefulset() error {
 		logger.Debugf("deleting %q statefulset", spec.Name)
 		c.broker.deleteStatefulSet(spec.Name)
 	})
-	w, err := c.broker.WatchUnits(c.resourceNameStatefulSet)
+	w, err := c.broker.WatchUnits(c.resourceNameStatefulSet, caas.ModeWorkload)
 	if err != nil {
 		return errors.Trace(err)
 	}

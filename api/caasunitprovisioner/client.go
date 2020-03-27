@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -117,6 +118,22 @@ func (c *Client) ApplicationScale(applicationName string) (int, error) {
 		return 0, errors.Errorf("expected %d result(s), got %d", len(args.Entities), len(results.Results))
 	}
 	return results.Results[0].Result, nil
+}
+
+// DeploymentMode returns the deployment mode for the specified application's charm.
+func (c *Client) DeploymentMode(applicationName string) (caas.DeploymentMode, error) {
+	var results params.StringResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewApplicationTag(applicationName).String()}},
+	}
+	err := c.facade.FacadeCall("DeploymentMode", args, &results)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(results.Results) != len(args.Entities) {
+		return "", errors.Errorf("expected %d result(s), got %d", len(args.Entities), len(results.Results))
+	}
+	return caas.DeploymentMode(results.Results[0].Result), nil
 }
 
 // WatchPodSpec returns a NotifyWatcher that notifies of

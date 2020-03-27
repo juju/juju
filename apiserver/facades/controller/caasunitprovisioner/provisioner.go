@@ -12,6 +12,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
@@ -210,7 +211,7 @@ func (f *Facade) ApplicationsScale(args params.Entities) (params.IntResults, err
 		}
 		results.Results[i].Result = scale
 	}
-	logger.Debugf("provisioning info result: %#v", results)
+	logger.Debugf("application scale result: %#v", results)
 	return results, nil
 }
 
@@ -224,6 +225,45 @@ func (f *Facade) applicationScale(tagString string) (int, error) {
 		return 0, errors.Trace(err)
 	}
 	return app.GetScale(), nil
+}
+
+// DeploymentMode returns the deployment mode of the given applications' charms.
+func (f *Facade) DeploymentMode(args params.Entities) (params.StringResults, error) {
+	results := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		mode, err := f.applicationDeploymentMode(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = mode
+	}
+	return results, nil
+}
+
+func (f *Facade) applicationDeploymentMode(tagString string) (string, error) {
+	appTag, err := names.ParseApplicationTag(tagString)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	app, err := f.state.Application(appTag.Id())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	ch, _, err := app.Charm()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	var mode charm.DeploymentMode
+	if d := ch.Meta().Deployment; d != nil {
+		mode = d.DeploymentMode
+	}
+	if mode == "" {
+		mode = charm.ModeWorkload
+	}
+	return string(mode), nil
 }
 
 // ProvisioningInfo returns the provisioning info for specified applications in this model.

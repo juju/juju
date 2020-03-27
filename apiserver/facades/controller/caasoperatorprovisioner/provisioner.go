@@ -205,10 +205,16 @@ func (a *API) IssueOperatorCertificate(args params.Entities) (params.IssueOperat
 		Results: make([]params.IssueOperatorCertificateResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		applicationName := entity.Tag
+		appTag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			res.Results[i] = params.IssueOperatorCertificateResult{
+				Error: common.ServerError(err),
+			}
+			continue
+		}
 
 		hostnames := []string{
-			applicationName,
+			appTag.Name,
 		}
 		cert, privateKey, err := cert.NewDefaultServer(caCert, si.CAPrivateKey, hostnames)
 		if err != nil {

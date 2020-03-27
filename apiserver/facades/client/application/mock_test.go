@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -383,6 +384,10 @@ func (m *mockBackend) ControllerTag() names.ControllerTag {
 
 func (m *mockBackend) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
 	return nil, false, nil
+}
+
+func (m *mockBackend) ControllerConfig() (controller.Config, error) {
+	return controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{})
 }
 
 func (m *mockBackend) Charm(curl *charm.URL) (application.Charm, error) {
