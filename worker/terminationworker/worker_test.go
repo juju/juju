@@ -42,7 +42,7 @@ func (s *TerminationWorkerSuite) TestSignal(c *gc.C) {
 	w := terminationworker.NewWorker()
 	proc, err := os.FindProcess(os.Getpid())
 	c.Assert(err, jc.ErrorIsNil)
-	defer proc.Release()
+	defer func() { _ = proc.Release() }()
 	err = proc.Signal(terminationworker.TerminationSignal)
 	c.Assert(err, jc.ErrorIsNil)
 	err = w.Wait()

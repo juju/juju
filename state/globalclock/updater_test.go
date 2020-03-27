@@ -33,7 +33,8 @@ var globalEpoch = time.Unix(0, 0)
 
 func (s *UpdaterSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
-	s.Session.DB(database).DropDatabase()
+	err := s.Session.DB(database).DropDatabase()
+	c.Assert(err, jc.ErrorIsNil)
 	s.config = globalclock.UpdaterConfig{
 		globalclock.Config{
 			Collection: collection,

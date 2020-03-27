@@ -103,8 +103,10 @@ func (s *Suite) TestInstall(c *gc.C) {
 	}()
 
 	pc := proxyconfig.ProxyConfig{}
-	pc.Set(normal)
-	pc.InstallInDefaultTransport()
+	err := pc.Set(normal)
+	c.Assert(err, jc.ErrorIsNil)
+	err = pc.InstallInDefaultTransport()
+	c.Assert(err, jc.ErrorIsNil)
 
 	transport, ok := http.DefaultTransport.(*http.Transport)
 	c.Assert(ok, jc.IsTrue)

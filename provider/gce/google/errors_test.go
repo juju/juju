@@ -43,7 +43,7 @@ func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
 	ctx.InvalidateCredentialFunc = func(msg string) error {
 		return errors.New("kaboom")
 	}
-	google.HandleCredentialError(s.googleError, ctx)
+	_ = google.HandleCredentialError(s.googleError, ctx)
 	c.Assert(c.GetTestLog(), jc.Contains, "could not invalidate stored google cloud credential on the controller")
 }
 
@@ -58,14 +58,14 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 
 	// First test another status code.
 	s.internalError.SetMessage(http.StatusAccepted, "Accepted")
-	google.HandleCredentialError(s.googleError, ctx)
+	_ = google.HandleCredentialError(s.googleError, ctx)
 	c.Assert(called, jc.IsFalse)
 
 	for code, descs := range google.AuthorisationFailureStatusCodes {
 		for _, desc := range descs {
 			called = false
 			s.internalError.SetMessage(code, desc)
-			google.HandleCredentialError(s.googleError, ctx)
+			_ = google.HandleCredentialError(s.googleError, ctx)
 			c.Assert(called, jc.IsTrue)
 		}
 	}
@@ -73,7 +73,7 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 	called = false
 	for code := range google.AuthorisationFailureStatusCodes {
 		s.internalError.SetMessage(code, "Some strange error")
-		google.HandleCredentialError(s.googleError, ctx)
+		_ = google.HandleCredentialError(s.googleError, ctx)
 		c.Assert(called, jc.IsFalse)
 	}
 }

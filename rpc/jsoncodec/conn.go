@@ -59,7 +59,7 @@ func (conn *wsJSONConn) Receive(msg interface{}) error {
 func (conn *wsJSONConn) Close() error {
 	// Tell the other end we are closing.
 	conn.writeMutex.Lock()
-	conn.conn.WriteMessage(websocket.CloseMessage, []byte{})
+	_ = conn.conn.WriteMessage(websocket.CloseMessage, []byte{})
 	conn.writeMutex.Unlock()
 	return conn.conn.Close()
 }

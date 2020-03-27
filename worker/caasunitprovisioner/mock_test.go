@@ -52,7 +52,7 @@ func (m *mockServiceBroker) Provider() caas.ContainerEnvironProvider {
 
 func (m *mockServiceBroker) EnsureService(appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error {
 	m.MethodCall(m, "EnsureService", appName, params, numUnits, config)
-	statusCallback(appName, status.Waiting, "ensuring", map[string]interface{}{"foo": "bar"})
+	_ = statusCallback(appName, status.Waiting, "ensuring", map[string]interface{}{"foo": "bar"})
 	m.ensured <- struct{}{}
 	return m.NextErr()
 }

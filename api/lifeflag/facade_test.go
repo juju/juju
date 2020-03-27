@@ -36,7 +36,8 @@ func (*FacadeSuite) TestLifeCall(c *gc.C) {
 	})
 	facade := lifeflag.NewFacade(caller, nil)
 
-	facade.Life(names.NewApplicationTag("blah"))
+	_, err := facade.Life(names.NewApplicationTag("blah"))
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
 }
 
@@ -140,7 +141,8 @@ func (*FacadeSuite) TestWatchCall(c *gc.C) {
 	})
 	facade := lifeflag.NewFacade(caller, nil)
 
-	facade.Watch(names.NewApplicationTag("blah"))
+	_, err := facade.Watch(names.NewApplicationTag("blah"))
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
 }
 

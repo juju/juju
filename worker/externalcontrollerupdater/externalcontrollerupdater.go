@@ -110,7 +110,10 @@ func (w *updaterWorker) loop() error {
 	if err != nil {
 		return errors.Annotate(err, "watching external controllers")
 	}
-	w.catacomb.Add(watcher)
+	err = w.catacomb.Add(watcher)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	for {
 		select {
@@ -141,7 +144,7 @@ func (w *updaterWorker) loop() error {
 				// is added or removed, so treat as a toggle.
 				if watchers.Contains(tag) {
 					logger.Infof("stopping watcher for external controller %q", tag.Id())
-					w.runner.StopWorker(tag.Id())
+					_ = w.runner.StopWorker(tag.Id())
 					watchers.Remove(tag)
 					continue
 				}
@@ -222,7 +225,10 @@ func (w *controllerWatcher) loop() error {
 			if err != nil {
 				return errors.Annotate(err, "watching external controller")
 			}
-			w.catacomb.Add(nw)
+			err = w.catacomb.Add(nw)
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 
 		select {

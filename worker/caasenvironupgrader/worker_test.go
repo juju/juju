@@ -35,7 +35,7 @@ func (*WorkerSuite) TestNewWorker(c *gc.C) {
 		ModelTag:     coretesting.ModelTag,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	workertest.CheckKill(c, w)
+	_ = workertest.CheckKill(c, w)
 	mockFacade.CheckCalls(c, []testing.StubCall{
 		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Available, "", nilData}},
 	})

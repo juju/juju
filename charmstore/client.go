@@ -203,7 +203,7 @@ func (c Client) GetResource(req ResourceRequest) (data ResourceData, err error) 
 	if err := c.jar.Activate(req.Charm); err != nil {
 		return ResourceData{}, errors.Trace(err)
 	}
-	defer c.jar.Deactivate()
+	defer func() { _ = c.jar.Deactivate() }()
 	meta, err := c.csWrapper.ResourceMeta(req.Channel, req.Charm, req.Name, req.Revision)
 
 	if err != nil {
@@ -238,7 +238,7 @@ func (c Client) ResourceInfo(req ResourceRequest) (resource.Resource, error) {
 	if err := c.jar.Activate(req.Charm); err != nil {
 		return resource.Resource{}, errors.Trace(err)
 	}
-	defer c.jar.Deactivate()
+	defer func() { _ = c.jar.Deactivate() }()
 	meta, err := c.csWrapper.ResourceMeta(req.Channel, req.Charm, req.Name, req.Revision)
 	if err != nil {
 		return resource.Resource{}, errors.Trace(err)
@@ -272,7 +272,7 @@ func (c Client) listResources(ch CharmID) ([]resource.Resource, error) {
 	if err := c.jar.Activate(ch.URL); err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer c.jar.Deactivate()
+	defer func() { _ = c.jar.Deactivate() }()
 	resources, err := c.csWrapper.ListResources(ch.Channel, ch.URL)
 	if err != nil {
 		return nil, errors.Trace(err)

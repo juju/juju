@@ -47,7 +47,7 @@ func (s *ExternalControllerUpdaterSuite) SetUpTest(c *gc.C) {
 			CACert:        "baz",
 		},
 	}
-	s.AddCleanup(func(*gc.C) { s.updater.watcher.Stop() })
+	s.AddCleanup(func(*gc.C) { _ = s.updater.watcher.Stop() })
 
 	s.watcher = mockExternalControllerWatcherClient{
 		watcher: newMockNotifyWatcher(),
@@ -56,7 +56,7 @@ func (s *ExternalControllerUpdaterSuite) SetUpTest(c *gc.C) {
 			CACert: "bar",
 		},
 	}
-	s.AddCleanup(func(*gc.C) { s.watcher.watcher.Stop() })
+	s.AddCleanup(func(*gc.C) { _ = s.watcher.watcher.Stop() })
 
 	s.clock = testclock.NewClock(time.Time{})
 
@@ -176,8 +176,10 @@ func (s *ExternalControllerUpdaterSuite) TestWatchExternalControllersErrorsConta
 	// connect to the API, and should abort. The runner should
 	// then be waiting for a minute to restart the controller
 	// worker.
-	s.clock.WaitAdvance(time.Second, coretesting.LongWait, 1)
-	s.clock.WaitAdvance(59*time.Second, coretesting.LongWait, 1)
+	err = s.clock.WaitAdvance(time.Second, coretesting.LongWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.clock.WaitAdvance(59*time.Second, coretesting.LongWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// The controller worker should have been restarted now.
 	select {

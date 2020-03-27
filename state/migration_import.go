@@ -292,7 +292,10 @@ func (i *importer) modelExtras() error {
 		if !ok {
 			return errors.Errorf("unknown block type: %q", blockName)
 		}
-		i.st.SwitchBlockOn(block, message)
+		err := i.st.SwitchBlockOn(block, message)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	if err := i.importStatusHistory(modelGlobalKey, i.model.StatusHistory()); err != nil {

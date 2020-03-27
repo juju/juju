@@ -35,7 +35,7 @@ func Occupy(fortress Guest, start StartFunc, abort Abort) (worker.Worker, error)
 			failed <- err
 		} else {
 			started <- worker
-			worker.Wait() // ignore error: worker is SEP now.
+			_ = worker.Wait() // ignore error: worker is SEP now.
 		}
 		return nil
 	}

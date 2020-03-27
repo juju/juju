@@ -55,7 +55,7 @@ func (st *State) suspendCredentialModels(tag names.CloudCredentialTag) error {
 			logger.Warningf("model %v error: %v", m.UUID, err)
 			continue
 		}
-		defer closer()
+		defer func() { _ = closer() }()
 		if _, err = probablyUpdateStatusHistory(one.st.db(), one.globalKey(), doc); err != nil {
 			// We do not want to stop processing the rest of the models.
 			logger.Warningf("%v", err)

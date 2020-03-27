@@ -168,7 +168,7 @@ func (*UtilsSuite) TestParseInterfaceType(c *gc.C) {
 	result = network.ParseInterfaceType(fakeSysPath, "eth0.42")
 	c.Check(result, gc.Equals, corenetwork.VLAN_8021QInterface)
 
-	os.Chmod(fakeUEventPath, 0000) // permission denied error is OK
+	_ = os.Chmod(fakeUEventPath, 0000) // permission denied error is OK
 	result = network.ParseInterfaceType(fakeSysPath, "eth0.42")
 	c.Check(result, gc.Equals, corenetwork.UnknownInterface)
 

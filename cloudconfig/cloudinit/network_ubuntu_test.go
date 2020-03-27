@@ -598,7 +598,8 @@ func (s *NetworkUbuntuSuite) runENIScript(c *gc.C, pythonBinary, ipCommand, inpu
 
 func (s *NetworkUbuntuSuite) createMockCommand(c *gc.C, outputs []string) string {
 	randBytes := make([]byte, 16)
-	rand.Read(randBytes)
+	_, err := rand.Read(randBytes)
+	c.Assert(err, jc.ErrorIsNil)
 	baseName := hex.EncodeToString(randBytes)
 	basePath := filepath.Join(s.tempFolder, fmt.Sprintf("%s.%d", baseName, 0))
 	script := fmt.Sprintf("#!/bin/bash\ncat %s\n", basePath)
@@ -615,7 +616,7 @@ func (s *NetworkUbuntuSuite) createMockCommand(c *gc.C, outputs []string) string
 	}
 
 	scriptPath := filepath.Join(s.tempFolder, fmt.Sprintf("%s.sh", baseName))
-	err := ioutil.WriteFile(scriptPath, []byte(script), 0755)
+	err = ioutil.WriteFile(scriptPath, []byte(script), 0755)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("can't write script file"))
 	return scriptPath
 }

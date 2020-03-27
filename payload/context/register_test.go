@@ -146,7 +146,8 @@ func (f *stubRegisterContext) Flush() error {
 func setupMetadata(c *gc.C) *cmd.Context {
 	dir := c.MkDir()
 	path := filepath.Join(dir, "metadata.yaml")
-	ioutil.WriteFile(path, []byte(metadataContents), 0660)
+	err := ioutil.WriteFile(path, []byte(metadataContents), 0660)
+	c.Assert(err, jc.ErrorIsNil)
 	return &cmd.Context{Dir: dir}
 }
 

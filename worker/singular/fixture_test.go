@@ -46,7 +46,7 @@ func (fix *fixture) Run(c *gc.C, test testFunc) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		defer worker.Stop(flagWorker)
+		defer func() { _ = worker.Stop(flagWorker) }()
 		defer facade.unblock()
 		test(flagWorker, clock, facade.unblock)
 	}()

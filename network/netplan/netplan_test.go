@@ -1506,7 +1506,8 @@ func (s *NetplanSuite) TestWritePermissionDenied(c *gc.C) {
 	tempDir := c.MkDir()
 	np, err := netplan.ReadDirectory(tempDir)
 	c.Assert(err, jc.ErrorIsNil)
-	os.Chmod(tempDir, 00000)
+	err = os.Chmod(tempDir, 00000)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = np.Write(path.Join(tempDir, "99-juju-netplan.yaml"))
 	c.Check(err, gc.ErrorMatches, "open .* permission denied")
 }
@@ -1515,7 +1516,8 @@ func (s *NetplanSuite) TestWriteCantGenerateName(c *gc.C) {
 	tempDir := c.MkDir()
 	for i := 0; i < 100; i++ {
 		filePath := path.Join(tempDir, fmt.Sprintf("%0.2d-juju.yaml", i))
-		ioutil.WriteFile(filePath, []byte{}, 0644)
+		err := ioutil.WriteFile(filePath, []byte{}, 0644)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	np, err := netplan.ReadDirectory(tempDir)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1541,7 +1543,8 @@ network:
 		for i := 0; i < (100 - n); i++ {
 			content += fmt.Sprintf(template, i, i, n)
 		}
-		ioutil.WriteFile(path.Join(tempDir, fmt.Sprintf("%0.2d-test.yaml", n)), []byte(content), 0644)
+		err := ioutil.WriteFile(path.Join(tempDir, fmt.Sprintf("%0.2d-test.yaml", n)), []byte(content), 0644)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	np, err := netplan.ReadDirectory(tempDir)

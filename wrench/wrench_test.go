@@ -40,11 +40,13 @@ func (s *wrenchSuite) SetUpTest(c *gc.C) {
 	oldLevel := logger.LogLevel()
 	logger.SetLogLevel(loggo.TRACE)
 
-	c.Assert(loggo.RegisterWriter("wrench-tests", &s.logWriter), gc.IsNil)
+	err := loggo.RegisterWriter("wrench-tests", &s.logWriter)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) {
 		s.logWriter.Clear()
 		logger.SetLogLevel(oldLevel)
-		loggo.RemoveWriter("wrench-tests")
+		_, err := loggo.RemoveWriter("wrench-tests")
+		c.Assert(err, jc.ErrorIsNil)
 		// Ensure the wrench is turned off when these tests are done.
 		wrench.SetEnabled(false)
 	})

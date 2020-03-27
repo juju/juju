@@ -80,7 +80,8 @@ func (s *MgoStatsCollectorSuite) TestCollect(c *gc.C) {
 	}
 
 	registry := prometheus.NewPedanticRegistry()
-	registry.Register(s.collector)
+	err := registry.Register(s.collector)
+	c.Assert(err, jc.ErrorIsNil)
 	metricFamilies, err := registry.Gather()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricFamilies, gc.HasLen, 9)
@@ -159,7 +160,8 @@ func (s *MgoStatsCollectorSuite) TestCollectCounterDelta(c *gc.C) {
 		return &v
 	}
 	registry := prometheus.NewPedanticRegistry()
-	registry.Register(s.collector)
+	err := registry.Register(s.collector)
+	c.Assert(err, jc.ErrorIsNil)
 
 	sentOps = 1
 	metricFamilies, err := registry.Gather()

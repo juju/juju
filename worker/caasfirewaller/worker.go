@@ -128,7 +128,10 @@ func (p *firewaller) loop() error {
 					return errors.Trace(err)
 				}
 				appWorkers[appId] = w
-				p.catacomb.Add(w)
+				err = p.catacomb.Add(w)
+				if err != nil {
+					return errors.Trace(err)
+				}
 			}
 		}
 	}

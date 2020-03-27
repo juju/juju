@@ -50,12 +50,16 @@ func main() {
 	contextData := fmt.Sprintf("%s", string(data))
 	// Quote any ` in the data.
 	contextData = strings.Replace(contextData, "`", "`+\"`\"+`", -1)
-	t.Execute(&buf, content{
+	err = t.Execute(&buf, content{
 		ConstName:     os.Args[1],
 		Content:       fmt.Sprintf("`%s`", contextData),
 		CopyrightYear: os.Args[4],
 		Pkgname:       os.Args[5],
 	})
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
 	err = ioutil.WriteFile(os.Args[3], buf.Bytes(), 0644)
 	if err != nil {

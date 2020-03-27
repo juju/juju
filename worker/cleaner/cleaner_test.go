@@ -82,9 +82,11 @@ func (s *CleanerSuite) TestCleanerPeriodic(c *gc.C) {
 	// each call to Cleanup, regardless of whether the previous call
 	// to Cleanup was triggered by the watcher or a timer.
 	for i := 0; i < 2; i++ {
-		s.mockClock.WaitAdvance(29*time.Second, coretesting.LongWait, 1)
+		err := s.mockClock.WaitAdvance(29*time.Second, coretesting.LongWait, 1)
+		c.Assert(err, jc.ErrorIsNil)
 		s.AssertEmpty(c)
-		s.mockClock.WaitAdvance(1*time.Second, coretesting.LongWait, 1)
+		err = s.mockClock.WaitAdvance(1*time.Second, coretesting.LongWait, 1)
+		c.Assert(err, jc.ErrorIsNil)
 		s.AssertReceived(c, "Cleanup")
 		s.AssertEmpty(c)
 	}

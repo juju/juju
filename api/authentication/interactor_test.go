@@ -55,7 +55,8 @@ func (s *InteractorSuite) TestLegacyInteract(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	var formUser, formPassword string
 	s.handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.ParseForm()
+		err := r.ParseForm()
+		c.Assert(err, jc.ErrorIsNil)
 		formUser = r.Form.Get("user")
 		formPassword = r.Form.Get("password")
 	})
@@ -106,7 +107,8 @@ func (s *InteractorSuite) TestInteract(c *gc.C) {
 				Value: []byte("token"),
 			},
 		}
-		httprequest.WriteJSON(w, http.StatusOK, loginResponse)
+		err = httprequest.WriteJSON(w, http.StatusOK, loginResponse)
+		c.Assert(err, jc.ErrorIsNil)
 	})
 	info := form.InteractionInfo{
 		URL: s.server.URL,

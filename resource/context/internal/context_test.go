@@ -109,21 +109,21 @@ type stubContext struct {
 
 func (s *stubContext) Resolve(path ...string) string {
 	s.AddCall("Resolve", path)
-	s.NextErr() // Pop one off.
+	_ = s.NextErr() // Pop one off.
 
 	return s.ReturnResolve
 }
 
 func (s *stubContext) Info() resource.Resource {
 	s.AddCall("Info")
-	s.NextErr() // Pop one off.
+	_ = s.NextErr() // Pop one off.
 
 	return s.ReturnInfo
 }
 
 func (s *stubContext) Content() internal.Content {
 	s.AddCall("Content")
-	s.NextErr() // Pop one off.
+	_ = s.NextErr() // Pop one off.
 
 	return s.ReturnContent
 }

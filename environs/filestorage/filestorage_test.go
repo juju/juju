@@ -235,7 +235,10 @@ func (s *filestorageSuite) TestRelativePath(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = os.Chdir(filepath.Join(dir, "a", "b", "c"))
 	c.Assert(err, jc.ErrorIsNil)
-	defer os.Chdir(cwd)
+	defer func() {
+		err := os.Chdir(cwd)
+		c.Assert(err, jc.ErrorIsNil)
+	}()
 	reader, err := filestorage.NewFileStorageReader("../..")
 	c.Assert(err, jc.ErrorIsNil)
 	url, err := reader.URL("")

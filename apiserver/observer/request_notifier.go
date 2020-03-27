@@ -95,7 +95,7 @@ func (n *RequestObserver) Login(entity names.Tag, model names.ModelTag, fromCont
 		if !n.state.fromController {
 			n.connLogger.Infof("agent login: %s for %s", n.state.tag, n.state.model)
 		}
-		n.hub.Publish(apiserver.ConnectTopic, apiserver.APIConnection{
+		_, _ = n.hub.Publish(apiserver.ConnectTopic, apiserver.APIConnection{
 			AgentTag:        n.state.tag,
 			ControllerAgent: fromController,
 			ModelUUID:       model.Id(),
@@ -124,7 +124,7 @@ func (n *RequestObserver) Leave() {
 		if !n.state.fromController {
 			n.connLogger.Infof("agent disconnected: %s for %s", n.state.tag, n.state.model)
 		}
-		n.hub.Publish(apiserver.DisconnectTopic, apiserver.APIConnection{
+		_, _ = n.hub.Publish(apiserver.DisconnectTopic, apiserver.APIConnection{
 			AgentTag:        n.state.tag,
 			ControllerAgent: n.state.fromController,
 			ModelUUID:       n.state.model,

@@ -35,7 +35,7 @@ func NewMultiNotifyWatcher(w ...NotifyWatcher) *MultiNotifyWatcher {
 		<-w.Changes()
 		go func(wCopy NotifyWatcher) {
 			defer wg.Done()
-			wCopy.Wait()
+			_ = wCopy.Wait()
 		}(w)
 		// Copy events from the watcher to the staging channel.
 		go copyEvents(staging, w.Changes(), &m.tomb)

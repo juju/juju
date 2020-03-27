@@ -43,7 +43,8 @@ func (s *HubWatcherSuite) SetUpTest(c *gc.C) {
 	var started <-chan struct{}
 	s.w, started = watcher.NewTestHubWatcher(s.hub, s.clock, "model-uuid", logger)
 	s.AddCleanup(func(c *gc.C) {
-		worker.Stop(s.w)
+		err := worker.Stop(s.w)
+		c.Assert(err, jc.ErrorIsNil)
 	})
 	select {
 	case <-started:

@@ -51,10 +51,11 @@ func (s *TxnWatcherSuite) SetUpTest(c *gc.C) {
 
 	db := s.MgoSuite.Session.DB("juju")
 	s.log = db.C("txnlog")
-	s.log.Create(&mgo.CollectionInfo{
+	err := s.log.Create(&mgo.CollectionInfo{
 		Capped:   true,
 		MaxBytes: 1000000,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.stash = db.C("txn.stash")
 	s.runner = txn.NewRunner(db.C("txn"))
 	s.runner.ChangeLog(s.log)

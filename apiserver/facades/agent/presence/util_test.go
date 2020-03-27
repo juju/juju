@@ -148,7 +148,7 @@ func (context *context) checkCleanedUp() {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	if context.current != nil {
-		workertest.CheckKilled(context.c, context.current)
+		_ = workertest.CheckKilled(context.c, context.current)
 	}
 }
 

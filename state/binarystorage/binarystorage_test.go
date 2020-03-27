@@ -46,9 +46,9 @@ var _ = gc.Suite(&binaryStorageSuite{})
 func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mongo = &gitjujutesting.MgoInstance{}
-	s.mongo.Start(nil)
+	err := s.mongo.Start(nil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	var err error
 	var closer func()
 	s.session, err = s.mongo.Dial()
 	c.Assert(err, jc.ErrorIsNil)

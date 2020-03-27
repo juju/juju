@@ -3146,10 +3146,13 @@ func (a *Application) SetAgentPresence() (*presence.Pinger, error) {
 		func() presence.PingRecorder { return a.st.getPingBatcher() })
 	err = p.Start()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	// Make sure this Agent status is written to the database before returning.
-	recorder.Sync()
+	err = recorder.Sync()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return p, nil
 }
 

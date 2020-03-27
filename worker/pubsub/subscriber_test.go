@@ -422,12 +422,13 @@ func (s *SubscriberSuite) TestReport(c *gc.C) {
 
 func (s *SubscriberSuite) TestRequestsDetailsOnceSubscribed(c *gc.C) {
 	subscribed := make(chan apiserver.DetailsRequest)
-	s.config.Hub.Subscribe(apiserver.DetailsRequestTopic,
+	_, err := s.config.Hub.Subscribe(apiserver.DetailsRequestTopic,
 		func(_ string, req apiserver.DetailsRequest, err error) {
 			c.Check(err, jc.ErrorIsNil)
 			subscribed <- req
 		},
 	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.newHAWorker(c)
 

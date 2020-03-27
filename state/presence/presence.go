@@ -911,7 +911,7 @@ func (p *Pinger) ping() (err error) {
 		return nil
 	}
 	p.lastSlot = slot
-	p.recorderFunc().Ping(p.modelUUID, slot, p.fieldKey, p.fieldBit)
+	err = p.recorderFunc().Ping(p.modelUUID, slot, p.fieldKey, p.fieldBit)
 	return errors.Trace(err)
 }
 

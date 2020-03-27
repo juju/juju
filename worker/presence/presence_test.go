@@ -49,7 +49,8 @@ func (s *PresenceSuite) SetUpTest(c *gc.C) {
 		Recorder: s.recorder,
 		Logger:   loggo.GetLogger("test"),
 	}
-	loggo.ConfigureLoggers("<root>=trace")
+	err := loggo.ConfigureLoggers("<root>=trace")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *PresenceSuite) worker(c *gc.C) worker.Worker {

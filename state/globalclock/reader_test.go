@@ -24,7 +24,8 @@ var _ = gc.Suite(&ReaderSuite{})
 
 func (s *ReaderSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
-	s.Session.DB(database).DropDatabase()
+	err := s.Session.DB(database).DropDatabase()
+	c.Assert(err, jc.ErrorIsNil)
 	s.config = globalclock.ReaderConfig{
 		Config: globalclock.Config{
 			Collection: collection,

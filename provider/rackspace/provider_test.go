@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -37,9 +38,9 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 		"controller-uuid": coretesting.ControllerTag.Id(),
 		"authorized-keys": "key",
 	})
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	_, err = s.provider.Validate(cfg, nil)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	s.innerProvider.CheckCallNames(c, "Validate")
 }
 
@@ -49,7 +50,8 @@ func (s *providerSuite) TestPrepareConfig(c *gc.C) {
 			Region: "dfw",
 		},
 	}
-	s.provider.PrepareConfig(args)
+	_, err := s.provider.PrepareConfig(args)
+	c.Check(err, jc.ErrorIsNil)
 
 	expect := args
 	expect.Cloud.Region = "DFW"

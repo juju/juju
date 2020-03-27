@@ -28,7 +28,7 @@ func (s *Stub) GetVersion() version.Binary {
 	s.AddCall("GetVersion")
 
 	// Pop the next error off the queue, even though we don't use it.
-	s.NextErr()
+	_ = s.NextErr()
 	return s.Version
 }
 

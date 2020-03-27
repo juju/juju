@@ -194,7 +194,7 @@ func (w *Worker) waitPinger(pinger Pinger) {
 		case <-done:
 		case <-w.catacomb.Dying():
 			w.logger.Tracef("stopping pinger")
-			pinger.Stop()
+			_ = pinger.Stop()
 		}
 	}()
 

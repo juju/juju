@@ -42,7 +42,7 @@ func (fix *fixture) Run(c *gc.C, test func(worker.Worker)) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		defer worker.Stop(scaler)
+		defer func() { _ = worker.Stop(scaler) }()
 		test(scaler)
 	}()
 	select {

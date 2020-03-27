@@ -90,7 +90,7 @@ func (m *MapperSuite) TestMapperAdditionSync(c *gc.C) {
 	waitGroup.Wait()
 
 	mapper.Kill()
-	mapper.Wait()
+	_ = mapper.Wait()
 
 	time.Sleep(jujutest.ShortWait)
 	rAppName, err := mapper.AppNameForServiceAccount(uid)
@@ -158,7 +158,7 @@ func (m *MapperSuite) TestRBACMapperUpdateSync(c *gc.C) {
 	waitGroup.Wait()
 
 	mapper.Kill()
-	mapper.Wait()
+	_ = mapper.Wait()
 
 	time.Sleep(jujutest.ShortWait)
 	rAppName, err = mapper.AppNameForServiceAccount(uid)
@@ -223,7 +223,7 @@ func (m *MapperSuite) TestRBACMapperDeleteSync(c *gc.C) {
 	waitGroup.Wait()
 
 	mapper.Kill()
-	mapper.Wait()
+	_ = mapper.Wait()
 
 	time.Sleep(jujutest.ShortWait)
 	_, err = mapper.AppNameForServiceAccount(uid)

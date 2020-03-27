@@ -699,7 +699,7 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplicationScale(c *gc.C
 		}
 	}
 	c.Assert(running, jc.IsFalse)
-	workertest.CheckKilled(c, s.applicationGetter.scaleWatcher)
+	_ = workertest.CheckKilled(c, s.applicationGetter.scaleWatcher)
 }
 
 func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
@@ -721,8 +721,8 @@ func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
 	}
 
 	s.podSpecGetter.watcher.KillErr(errors.New("splat"))
-	workertest.CheckKilled(c, s.podSpecGetter.watcher)
-	workertest.CheckKilled(c, s.applicationGetter.watcher)
+	_ = workertest.CheckKilled(c, s.podSpecGetter.watcher)
+	_ = workertest.CheckKilled(c, s.applicationGetter.watcher)
 	err = workertest.CheckKilled(c, w)
 	c.Assert(err, gc.ErrorMatches, "splat")
 }

@@ -254,7 +254,7 @@ type stubContent struct {
 
 func (s *stubContent) WrapReader(reader io.Reader) io.Reader {
 	s.Stub.AddCall("WrapReader", reader)
-	s.Stub.NextErr() // Pop one off.
+	_ = s.Stub.NextErr() // Pop one off.
 
 	return s.ReturnWrapReader
 }
@@ -278,14 +278,14 @@ type stubChecker struct {
 
 func (s *stubChecker) Size() int64 {
 	s.stub.AddCall("Size")
-	s.stub.NextErr() // Pop one off.
+	_ = s.stub.NextErr() // Pop one off.
 
 	return s.ReturnSize
 }
 
 func (s *stubChecker) Fingerprint() charmresource.Fingerprint {
 	s.stub.AddCall("Fingerprint")
-	s.stub.NextErr() // Pop one off.
+	_ = s.stub.NextErr() // Pop one off.
 
 	return s.ReturnFingerprint
 }

@@ -45,7 +45,7 @@ func (s *internalStub) GetResource(name string) (resource.Resource, io.ReadClose
 
 func (s *internalStub) NewContextDirectorySpec() internal.ContextDirectorySpec {
 	s.Stub.AddCall("NewContextDirectorySpec")
-	s.Stub.NextErr() // Pop one off.
+	_ = s.Stub.NextErr() // Pop one off.
 
 	return s.ReturnNewContextDirectorySpec
 }
@@ -88,7 +88,7 @@ func (s *internalStub) ReplaceDirectory(tgt, src string) error {
 
 func (s *internalStub) NewChecker(content internal.Content) internal.ContentChecker {
 	s.Stub.AddCall("NewChecker", content)
-	s.Stub.NextErr() // Pop one off.
+	_ = s.Stub.NextErr() // Pop one off.
 
 	return s.ReturnNewChecker
 }
@@ -104,7 +104,7 @@ func (s *internalStub) WriteContent(target io.Writer, content internal.Content) 
 
 func (s *internalStub) CloseAndLog(closer io.Closer, label string) {
 	s.Stub.AddCall("CloseAndLog", closer, label)
-	s.Stub.NextErr() // Pop one off.
+	_ = s.Stub.NextErr() // Pop one off.
 }
 
 func (s *internalStub) MkdirAll(dirname string) error {
@@ -162,7 +162,7 @@ func (s *internalStub) FingerprintMatches(filename string, fp charmresource.Fing
 
 func (s *internalStub) Join(pth ...string) string {
 	s.Stub.AddCall("Join", pth)
-	s.Stub.NextErr() // Pop one off.
+	_ = s.Stub.NextErr() // Pop one off.
 
 	return path.Join(pth...)
 }

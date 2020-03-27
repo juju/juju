@@ -174,7 +174,7 @@ func OpenStatePool(args OpenParams) (*StatePool, error) {
 		RestartDelay: time.Second,
 		Clock:        args.Clock,
 	})
-	pool.watcherRunner.StartWorker(txnLogWorker, func() (worker.Worker, error) {
+	err = pool.watcherRunner.StartWorker(txnLogWorker, func() (worker.Worker, error) {
 		return watcher.NewTxnWatcher(
 			watcher.TxnWatcherConfig{
 				ChangeLog: st.getTxnLogCollection(),
@@ -183,6 +183,9 @@ func OpenStatePool(args OpenParams) (*StatePool, error) {
 				Logger:    loggo.GetLogger("juju.state.pool.txnwatcher"),
 			})
 	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return pool, nil
 }
 
@@ -411,7 +414,7 @@ func (p *StatePool) Close() error {
 	}
 	p.mu.Lock()
 	if p.watcherRunner != nil {
-		worker.Stop(p.watcherRunner)
+		_ = worker.Stop(p.watcherRunner)
 	}
 	p.mu.Unlock()
 	// As with above and the other watchers. Unlock while releas

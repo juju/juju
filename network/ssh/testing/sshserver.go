@@ -66,7 +66,11 @@ func CreateTCPServer(c *gc.C, callback func(net.Conn)) (string, chan struct{}) {
 			}
 			// Don't get hung on Accept, set a deadline
 			if tcpListener, ok := listener.(*net.TCPListener); ok {
-				tcpListener.SetDeadline(time.Now().Add(1 * time.Second))
+				err := tcpListener.SetDeadline(time.Now().Add(1 * time.Second))
+				if err != nil {
+					c.Logf("failed to set deadline on listener: %v", err)
+					continue
+				}
 			}
 			tcpConn, err := listener.Accept()
 			if err != nil {

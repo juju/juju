@@ -42,10 +42,19 @@ func init() {
 			Name: file.Name,
 			Size: int64(len(file.Body)),
 		}
-		tw.WriteHeader(hdr)
-		tw.Write([]byte(file.Body))
+		err := tw.WriteHeader(hdr)
+		if err != nil {
+			panic(err)
+		}
+		_, err = tw.Write([]byte(file.Body))
+		if err != nil {
+			panic(err)
+		}
 	}
-	tw.Close()
+	err := tw.Close()
+	if err != nil {
+		panic(err)
+	}
 	fakeOva = buf.Bytes()
 	fakeOvaSha256 = fmt.Sprintf("%x", hash.Sum(nil))
 }

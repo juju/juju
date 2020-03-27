@@ -82,7 +82,7 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 
 	err = netplan.MoveYamlsToBak()
 	if err != nil {
-		netplan.Rollback()
+		_ = netplan.Rollback()
 		return nil, err
 	}
 
@@ -102,11 +102,11 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 	logger.Debugf("Netplan activation result %q %q %d", result.Stderr, result.Stdout, result.Code)
 
 	if err != nil {
-		netplan.Rollback()
+		_ = netplan.Rollback()
 		return &activationResult, errors.Errorf("bridge activation error: %s", err)
 	}
 	if result.Code != 0 {
-		netplan.Rollback()
+		_ = netplan.Rollback()
 		return &activationResult, errors.Errorf("bridge activation error code %d", result.Code)
 	}
 	return nil, nil

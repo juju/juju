@@ -76,7 +76,7 @@ func (s *stubDownload) Write(source internal.ContentSource) error {
 
 func (s *stubDownload) Resolve(path ...string) string {
 	s.Stub.AddCall("Resolve", path)
-	s.Stub.NextErr() // Pop one off.
+	_ = s.Stub.NextErr() // Pop one off.
 
 	resolved := s.ReturnResolve[0]
 	s.ReturnResolve = s.ReturnResolve[1:]

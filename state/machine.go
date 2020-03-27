@@ -1179,7 +1179,10 @@ func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 		return nil, err
 	}
 	// Make sure this Agent status is written to the database before returning.
-	recorder.Sync()
+	err = recorder.Sync()
+	if err != nil {
+		return nil, err
+	}
 	// We preform a manual sync here so that the
 	// presence pinger has the most up-to-date information when it
 	// starts. This ensures that commands run immediately after bootstrap

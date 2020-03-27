@@ -63,7 +63,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.PatchValue(rackspace.Bootstrap, func(ctx environs.BootstrapContext, env environs.Environ, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 		return s.innerEnviron.Bootstrap(ctx, callCtx, args)
 	})
-	s.environ.Bootstrap(nil, s.callCtx, environs.BootstrapParams{
+	_, _ = s.environ.Bootstrap(nil, s.callCtx, environs.BootstrapParams{
 		ControllerConfig: testing.FakeControllerConfig(),
 	})
 	c.Check(s.innerEnviron.Pop().name, gc.Equals, "Bootstrap")

@@ -201,7 +201,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.JujuOSEnvSuite.SetUpTest(c)
 	c.Assert(utils.OutgoingAccessAllowed, gc.Equals, false)
 	if s.InitialLoggingConfig != "" {
-		loggo.ConfigureLoggers(s.InitialLoggingConfig)
+		err := loggo.ConfigureLoggers(s.InitialLoggingConfig)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	// We do this to isolate invocations of bash from pulling in the

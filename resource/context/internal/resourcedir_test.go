@@ -249,14 +249,14 @@ type stubDirectory struct {
 
 func (s *stubDirectory) Info() resource.Resource {
 	s.AddCall("Info")
-	s.NextErr() // Pop one off.
+	_ = s.NextErr() // Pop one off.
 
 	return s.ReturnInfo
 }
 
 func (s *stubDirectory) Content() internal.Content {
 	s.AddCall("Content")
-	s.NextErr() // Pop one off.
+	_ = s.NextErr() // Pop one off.
 
 	return s.ReturnContent
 }

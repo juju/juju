@@ -147,7 +147,8 @@ func (s *RemoteServerSuite) TestConnectErrorRetryDelay(c *gc.C) {
 	defer workertest.CleanKill(c, server)
 
 	for i := 0; i < 1200; i++ {
-		s.clock.WaitAdvance(time.Second, coretesting.ShortWait, 1)
+		err = s.clock.WaitAdvance(time.Second, coretesting.ShortWait, 1)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	// Starts immediately, with a one second delay doubling each failure
 	// up to a max wait time of 5 minutes.

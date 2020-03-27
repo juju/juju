@@ -31,7 +31,8 @@ func (s *APISuite) TestRescaleMethodName(c *gc.C) {
 	})
 	api := applicationscaler.NewAPI(caller, nil)
 
-	api.Rescale(nil)
+	err := api.Rescale(nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
 }
 
@@ -61,7 +62,8 @@ func (s *APISuite) TestRescaleConvertArgs(c *gc.C) {
 	})
 	api := applicationscaler.NewAPI(caller, nil)
 
-	api.Rescale([]string{"foo", "bar-baz"})
+	err := api.Rescale([]string{"foo", "bar-baz"})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
 }
 
@@ -115,7 +117,8 @@ func (s *APISuite) TestWatchMethodName(c *gc.C) {
 	})
 	api := applicationscaler.NewAPI(caller, nil)
 
-	api.Watch()
+	_, err := api.Watch()
+	c.Check(err, gc.ErrorMatches, "irrelevant")
 	c.Check(called, jc.IsTrue)
 }
 

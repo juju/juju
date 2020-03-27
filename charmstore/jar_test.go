@@ -32,7 +32,8 @@ func (MacaroonJarSuite) TestActivate(c *gc.C) {
 	m, err := macaroon.New([]byte("key"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	ms := macaroon.Slice{m}
-	httpbakery.SetCookie(jar, u, MacaroonNamespace, ms)
+	err = httpbakery.SetCookie(jar, u, MacaroonNamespace, ms)
+	c.Assert(err, jc.ErrorIsNil)
 	// c.Assert(cache[ch], gc.DeepEquals, ms)
 	MacaroonEquals(c, cache[ch][0], ms[0])
 }
@@ -51,7 +52,8 @@ func (MacaroonJarSuite) TestDeactivate(c *gc.C) {
 	ms := macaroon.Slice{m}
 	err = jar.Deactivate()
 	c.Assert(err, jc.ErrorIsNil)
-	httpbakery.SetCookie(jar, u, MacaroonNamespace, ms)
+	err = httpbakery.SetCookie(jar, u, MacaroonNamespace, ms)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cache, gc.HasLen, 0)
 	c.Assert(jar.Cookies(u), gc.HasLen, 1)
 }

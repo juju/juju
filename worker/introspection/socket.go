@@ -106,12 +106,12 @@ func NewWorker(config Config) (worker.Worker, error) {
 		presence:           config.Presence,
 		done:               make(chan struct{}),
 	}
-	go w.serve()
+	w.tomb.Go(w.serve)
 	w.tomb.Go(w.run)
 	return w, nil
 }
 
-func (w *socketListener) serve() {
+func (w *socketListener) serve() error {
 	mux := http.NewServeMux()
 	RegisterHTTPHandlers(
 		ReportSources{
@@ -127,7 +127,8 @@ func (w *socketListener) serve() {
 	logger.Debugf("stats worker now serving")
 	defer logger.Debugf("stats worker serving finished")
 	defer close(w.done)
-	srv.Serve(w.listener)
+	err := srv.Serve(w.listener)
+	return errors.Trace(err)
 }
 
 func (w *socketListener) run() error {
@@ -212,7 +213,7 @@ func (h depengineHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	fmt.Fprint(w, "Dependency Engine Report\n\n")
-	w.Write(bytes)
+	_, _ = w.Write(bytes)
 }
 
 type machineLockHandler struct {
@@ -276,7 +277,7 @@ type presenceHandler struct {
 func (h presenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.presence == nil || !h.presence.IsEnabled() {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("agent is not an apiserver\n"))
+		_, _ = w.Write([]byte("agent is not an apiserver\n"))
 		return
 	}
 

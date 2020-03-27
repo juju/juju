@@ -39,7 +39,7 @@ func (s *DiskManagerWorkerSuite) TestWorker(c *gc.C) {
 	}
 
 	w := diskmanager.NewWorker(listDevices, setDevices)
-	defer w.Wait()
+	defer func() { _ = w.Wait() }()
 	defer w.Kill()
 
 	select {

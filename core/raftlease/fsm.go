@@ -479,7 +479,7 @@ type Snapshot struct {
 func (s *Snapshot) Persist(sink raft.SnapshotSink) (err error) {
 	defer func() {
 		if err != nil {
-			sink.Cancel()
+			_ = sink.Cancel()
 		}
 	}()
 

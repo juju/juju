@@ -43,11 +43,11 @@ type ImageSuite struct {
 func (s *ImageSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mongo = &gitjujutesting.MgoInstance{}
-	s.mongo.Start(nil)
+	err := s.mongo.Start(nil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	var err error
 	s.session, err = s.mongo.Dial()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.storage = imagestorage.NewStorage(s.session, "my-uuid")
 	s.metadataCollection = imagestorage.MetadataCollection(s.storage)
 	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: s.metadataCollection.Database})

@@ -323,8 +323,11 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	}
 	// Logs and presence are in separate databases so don't get caught by that
 	// loop.
-	removeModelLogs(st.MongoSession(), modelUUID)
-	err := presence.RemovePresenceForModel(st.getPresenceCollection(), st.modelTag)
+	err := removeModelLogs(st.MongoSession(), modelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = presence.RemovePresenceForModel(st.getPresenceCollection(), st.modelTag)
 	if err != nil {
 		return errors.Trace(err)
 	}

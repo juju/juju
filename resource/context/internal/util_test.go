@@ -57,7 +57,7 @@ type stubLogger struct {
 
 func (s *stubLogger) Errorf(msg string, args ...interface{}) {
 	s.AddCall("Errorf", msg, args)
-	s.NextErr() // Pop one off.
+	_ = s.NextErr() // Pop one off.
 
 	s.logged = fmt.Sprintf(msg, args...)
 }
