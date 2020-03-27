@@ -4,7 +4,6 @@
 package provider_test
 
 import (
-	"github.com/kr/pretty"
 	"strings"
 	"time"
 
@@ -4797,7 +4796,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C
 			},
 		},
 	}
-	c.Logf("deploymentArg -> %s", pretty.Sprint(deploymentArg))
 	ociImageSecret := s.getOCIImageSecret(c, nil)
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
@@ -4943,7 +4941,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C
 			},
 		},
 	}
-	c.Logf("deploymentArg -> %s", pretty.Sprint(deploymentArg))
 	ociImageSecret := s.getOCIImageSecret(c, nil)
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
