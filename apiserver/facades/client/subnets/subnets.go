@@ -100,7 +100,7 @@ func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*API
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newAPIWithBacking(stateShim, state.CallContext(st), res, auth)
+	return newAPIWithBacking(stateShim, context.CallContext(st), res, auth)
 }
 
 func (api *API) checkCanRead() error {

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 )
 
@@ -36,7 +37,7 @@ func (st *State) ReloadSpaces(environ environs.BootstrapEnviron) error {
 		return errors.NotSupportedf("spaces discovery in a non-networking environ")
 	}
 
-	ctx := CallContext(st)
+	ctx := context.CallContext(st)
 	canDiscoverSpaces, err := netEnviron.SupportsSpaceDiscovery(ctx)
 	if err != nil {
 		return errors.Trace(err)

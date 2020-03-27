@@ -111,7 +111,7 @@ func (s *stateShim) Model() (Model, error) {
 }
 
 func (s *stateShim) GetModelCallContext() context.ProviderCallContext {
-	return state.CallContext(s.st)
+	return context.CallContext(s.st)
 }
 
 type stateCharmShim struct {

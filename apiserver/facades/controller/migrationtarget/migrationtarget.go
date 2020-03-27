@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -247,7 +248,7 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(ra.AdoptResources(state.CallContext(m.State()), st.ControllerUUID(), args.SourceControllerVersion))
+	return errors.Trace(ra.AdoptResources(context.CallContext(m.State()), st.ControllerUUID(), args.SourceControllerVersion))
 }
 
 // CheckMachines compares the machines in state with the ones reported
@@ -265,7 +266,7 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 
 	return credentialcommon.ValidateExistingModelCredential(
 		credentialcommon.NewPersistentBackend(st.State),
-		state.CallContext(st.State),
+		context.CallContext(st.State),
 		true,
 	)
 }

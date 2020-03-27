@@ -29,6 +29,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -330,7 +331,7 @@ func ensureHostedModel(
 	}
 
 	if err := hostedModelEnv.Create(
-		state.CallContext(st),
+		context.CallContext(st),
 		environs.CreateParams{
 			ControllerUUID: controllerUUID,
 		}); err != nil {

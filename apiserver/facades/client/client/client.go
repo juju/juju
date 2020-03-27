@@ -193,7 +193,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 		toolsFinder,
 		newEnviron,
 		blockChecker,
-		state.CallContext(st),
+		context.CallContext(st),
 		leadershipReader,
 		modelCache,
 		factory,
