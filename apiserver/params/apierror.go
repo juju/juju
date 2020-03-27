@@ -185,6 +185,7 @@ const (
 	CodeIncompatibleSeries        = "incompatible series"
 	CodeCloudRegionRequired       = "cloud region required"
 	CodeIncompatibleClouds        = "incompatible clouds"
+	CodeQuotaLimitExceeded        = "quota limit exceeded"
 )
 
 // ErrCode returns the error code associated with
@@ -357,4 +358,10 @@ func IsCodeForbidden(err error) bool {
 
 func IsCodeCloudRegionRequired(err error) bool {
 	return ErrCode(err) == CodeCloudRegionRequired
+}
+
+// IsCodeQuotaLimitExceeded returns true if err includes a QuotaLimitExceeded
+// error code.
+func IsCodeQuotaLimitExceeded(err error) bool {
+	return ErrCode(err) == CodeQuotaLimitExceeded
 }
