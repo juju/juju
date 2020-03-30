@@ -212,6 +212,10 @@ type HookContext struct {
 	// of, keyed on relation id.
 	relations map[int]*ContextRelation
 
+	// departingUnitName identifies the unit that goes away from the relation.
+	// It is only populated when running a RelationDeparted hook.
+	departingUnitName string
+
 	// apiAddrs contains the API server addresses.
 	apiAddrs []string
 
@@ -937,6 +941,12 @@ func (ctx *HookContext) HookVars(paths Paths, remote bool) ([]string, error) {
 			"JUJU_REMOTE_UNIT="+ctx.remoteUnitName,
 			"JUJU_REMOTE_APP="+ctx.remoteApplicationName,
 		)
+
+		if ctx.departingUnitName != "" {
+			vars = append(vars,
+				"JUJU_DEPARTING_UNIT="+ctx.departingUnitName,
+			)
+		}
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}

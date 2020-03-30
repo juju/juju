@@ -110,29 +110,41 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 	// It doesn't make sense that we set both legacy and juju proxy
 	// settings, but by setting both to different values, we can see
 	// what the environment values are.
-	return context.NewModelHookContext(
-		"some-context-id",
-		"some-hook-name",
-		"model-uuid-deadbeef",
-		"some-model-name",
-		"this-unit/123",
-		"PURPLE",
-		"proceed with care",
-		"essential",
-		"some-zone",
-		[]string{"he.re:12345", "the.re:23456"},
-		legacyProxy, jujuProxy,
-		names.NewMachineTag("42"),
-	), expected
+	return context.NewModelHookContext(context.ModelHookContextParams{
+		ID:                  "some-context-id",
+		HookName:            "some-hook-name",
+		ModelUUID:           "model-uuid-deadbeef",
+		ModelName:           "some-model-name",
+		UnitName:            "this-unit/123",
+		MeterCode:           "PURPLE",
+		MeterInfo:           "proceed with care",
+		SLALevel:            "essential",
+		AvailZone:           "some-zone",
+		APIAddresses:        []string{"he.re:12345", "the.re:23456"},
+		LegacyProxySettings: legacyProxy,
+		JujuProxySettings:   jujuProxy,
+		MachineTag:          names.NewMachineTag("42"),
+	}), expected
 }
 
 func (s *EnvSuite) setRelation(ctx *context.HookContext) (expectVars []string) {
-	context.SetEnvironmentHookContextRelation(ctx, 22, "an-endpoint", "that-unit/456", "that-app")
+	context.SetEnvironmentHookContextRelation(ctx, 22, "an-endpoint", "that-unit/456", "that-app", "")
 	return []string{
 		"JUJU_RELATION=an-endpoint",
 		"JUJU_RELATION_ID=an-endpoint:22",
 		"JUJU_REMOTE_UNIT=that-unit/456",
 		"JUJU_REMOTE_APP=that-app",
+	}
+}
+
+func (s *EnvSuite) setDepartingRelation(ctx *context.HookContext) (expectVars []string) {
+	context.SetEnvironmentHookContextRelation(ctx, 22, "an-endpoint", "that-unit/456", "that-app", "that-unit/456")
+	return []string{
+		"JUJU_RELATION=an-endpoint",
+		"JUJU_RELATION_ID=an-endpoint:22",
+		"JUJU_REMOTE_UNIT=that-unit/456",
+		"JUJU_REMOTE_APP=that-app",
+		"JUJU_DEPARTING_UNIT=that-unit/456",
 	}
 }
 
@@ -197,7 +209,7 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
 
-		relationVars := s.setRelation(ctx)
+		relationVars := s.setDepartingRelation(ctx)
 		actualVars, err = ctx.HookVars(paths, false)
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars)

@@ -6,6 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	life "github.com/juju/juju/core/life"
 	hook "github.com/juju/juju/worker/uniter/hook"
 	relation "github.com/juju/juju/worker/uniter/relation"
 	remotestate "github.com/juju/juju/worker/uniter/remotestate"
@@ -121,6 +122,36 @@ func (m *MockRelationStateTracker) IsPeerRelation(arg0 int) (bool, error) {
 func (mr *MockRelationStateTrackerMockRecorder) IsPeerRelation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsPeerRelation", reflect.TypeOf((*MockRelationStateTracker)(nil).IsPeerRelation), arg0)
+}
+
+// LocalUnitAndApplicationLife mocks base method
+func (m *MockRelationStateTracker) LocalUnitAndApplicationLife() (life.Value, life.Value, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LocalUnitAndApplicationLife")
+	ret0, _ := ret[0].(life.Value)
+	ret1, _ := ret[1].(life.Value)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// LocalUnitAndApplicationLife indicates an expected call of LocalUnitAndApplicationLife
+func (mr *MockRelationStateTrackerMockRecorder) LocalUnitAndApplicationLife() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalUnitAndApplicationLife", reflect.TypeOf((*MockRelationStateTracker)(nil).LocalUnitAndApplicationLife))
+}
+
+// LocalUnitName mocks base method
+func (m *MockRelationStateTracker) LocalUnitName() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LocalUnitName")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// LocalUnitName indicates an expected call of LocalUnitName
+func (mr *MockRelationStateTrackerMockRecorder) LocalUnitName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalUnitName", reflect.TypeOf((*MockRelationStateTracker)(nil).LocalUnitName))
 }
 
 // Name mocks base method

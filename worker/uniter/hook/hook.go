@@ -41,6 +41,10 @@ type Info struct {
 
 	// StorageId is the ID of the storage instance relevant to the hook.
 	StorageId string `yaml:"storage-id,omitempty"`
+
+	// DepartingUnit is the name of the unit that goes away. It is only set
+	// when Kind indicates a relation-departed hook.
+	DepartingUnit string `yaml:"departee,omitempty"`
 }
 
 // Validate returns an error if the info is not valid.

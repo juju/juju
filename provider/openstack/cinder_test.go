@@ -916,7 +916,9 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointBadURL(c *gc.C) {
 		"north": map[string]string{"volumev2": "some %4"},
 	}}
 	url, err := openstack.GetVolumeEndpointURL(client, "north")
-	c.Assert(err, gc.ErrorMatches, `parse some %4: .*`)
+	// NOTE(achilleasa): go1.14 quotes malformed URLs in error messages
+	// hence the optional quotes in the regex below.
+	c.Assert(err, gc.ErrorMatches, `parse "?some %4"?: .*`)
 	c.Assert(url, gc.IsNil)
 }
 

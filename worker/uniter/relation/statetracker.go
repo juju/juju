@@ -70,6 +70,13 @@ type RelationStateTracker interface {
 	// Name returns the name of the relation with the supplied id, or an error
 	// if the relation is unknown.
 	Name(id int) (string, error)
+
+	// LocalUnitName returns the name for the local unit.
+	LocalUnitName() string
+
+	// LocalUnitAndApplicationLife returns the life values for the local
+	// unit and application.
+	LocalUnitAndApplicationLife() (life.Value, life.Value, error)
 }
 
 // LeadershipContextFunc is a function that returns a leadership context.
@@ -480,4 +487,24 @@ func (r *relationStateTracker) Name(id int) (string, error) {
 		return "", errors.Errorf("unknown relation: %d", id)
 	}
 	return relationer.ru.Endpoint().Name, nil
+}
+
+// LocalUnitName returns the name for the local unit.
+func (r *relationStateTracker) LocalUnitName() string {
+	return r.unit.Name()
+}
+
+// LocalUnitAndApplicationLife returns the life values for the local unit and
+// application.
+func (r *relationStateTracker) LocalUnitAndApplicationLife() (life.Value, life.Value, error) {
+	if err := r.unit.Refresh(); err != nil {
+		return life.Value(""), life.Value(""), errors.Trace(err)
+	}
+
+	app, err := r.unit.Application()
+	if err != nil {
+		return life.Value(""), life.Value(""), errors.Trace(err)
+	}
+
+	return r.unit.Life(), app.Life(), nil
 }

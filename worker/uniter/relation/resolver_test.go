@@ -316,6 +316,31 @@ func relationJoinedAPICalls() []apiCall {
 	return apiCalls
 }
 
+func relationJoinedAndDepartedAPICalls() []apiCall {
+	apiCalls := relationJoinedAPICalls()
+
+	// Resolver calls Refresh to check the life for the local unit and Life
+	// to check the app life before emitting a relation-departed hook
+	refreshReq := params.Entities{Entities: []params.Entity{{Tag: "unit-wordpress-0"}}}
+	refreshRes := params.UnitRefreshResults{
+		Results: []params.UnitRefreshResult{
+			{Life: life.Alive},
+		},
+	}
+
+	lifeReq := params.Entities{Entities: []params.Entity{{Tag: "application-wordpress"}}}
+	lifeRes := params.LifeResults{
+		Results: []params.LifeResult{
+			{Life: life.Alive},
+		},
+	}
+
+	return append(apiCalls,
+		uniterAPICall("Refresh", refreshReq, refreshRes, nil),
+		uniterAPICall("Life", lifeReq, lifeRes, nil),
+	)
+}
+
 func (s *relationResolverSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiCalls ...apiCall) relation.RelationStateTracker {
 	unitTag := names.NewUnitTag("wordpress/0")
 	abort := make(chan struct{})
@@ -483,7 +508,7 @@ func (s *relationResolverSuite) TestHookRelationChangedApplication(c *gc.C) {
 
 func (s *relationResolverSuite) TestHookRelationChangedSuspended(c *gc.C) {
 	var numCalls int32
-	apiCalls := relationJoinedAPICalls()
+	apiCalls := relationJoinedAndDepartedAPICalls()
 	r := s.assertHookRelationJoined(c, &numCalls, apiCalls...)
 
 	// There will be an initial relation-changed regardless of
@@ -514,7 +539,7 @@ func (s *relationResolverSuite) TestHookRelationChangedSuspended(c *gc.C) {
 	relationsResolver := relation.NewRelationResolver(r, nil)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, &numCalls, numCallsBefore)
+	assertNumCalls(c, &numCalls, numCallsBefore+2) // Refresh/Life calls made by the resolver prior to emitting a RelationDeparted hook
 	c.Assert(op.String(), gc.Equals, "run hook relation-departed on unit wordpress/0 with relation 1")
 }
 
@@ -544,7 +569,7 @@ func (s *relationResolverSuite) assertHookRelationDeparted(c *gc.C, numCalls *in
 	relationsResolver := relation.NewRelationResolver(r, nil)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, numCalls, numCallsBefore)
+	assertNumCalls(c, numCalls, numCallsBefore+2) // Refresh/Life calls made by the resolver prior to emitting a RelationDeparted hook
 	c.Assert(op.String(), gc.Equals, "run hook relation-departed on unit wordpress/0 with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
@@ -557,14 +582,14 @@ func (s *relationResolverSuite) assertHookRelationDeparted(c *gc.C, numCalls *in
 
 func (s *relationResolverSuite) TestHookRelationDeparted(c *gc.C) {
 	var numCalls int32
-	apiCalls := relationJoinedAPICalls()
+	apiCalls := relationJoinedAndDepartedAPICalls()
 
 	s.assertHookRelationDeparted(c, &numCalls, apiCalls...)
 }
 
 func (s *relationResolverSuite) TestHookRelationBroken(c *gc.C) {
 	var numCalls int32
-	apiCalls := relationJoinedAPICalls()
+	apiCalls := relationJoinedAndDepartedAPICalls()
 
 	r := s.assertHookRelationDeparted(c, &numCalls, apiCalls...)
 
@@ -583,13 +608,13 @@ func (s *relationResolverSuite) TestHookRelationBroken(c *gc.C) {
 	relationsResolver := relation.NewRelationResolver(r, nil)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, &numCalls, 9)
+	assertNumCalls(c, &numCalls, 11)
 	c.Assert(op.String(), gc.Equals, "run hook relation-broken with relation 1")
 }
 
 func (s *relationResolverSuite) TestHookRelationBrokenWhenSuspended(c *gc.C) {
 	var numCalls int32
-	apiCalls := relationJoinedAPICalls()
+	apiCalls := relationJoinedAndDepartedAPICalls()
 
 	r := s.assertHookRelationDeparted(c, &numCalls, apiCalls...)
 
@@ -609,13 +634,13 @@ func (s *relationResolverSuite) TestHookRelationBrokenWhenSuspended(c *gc.C) {
 	relationsResolver := relation.NewRelationResolver(r, nil)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, &numCalls, 9)
+	assertNumCalls(c, &numCalls, 11)
 	c.Assert(op.String(), gc.Equals, "run hook relation-broken with relation 1")
 }
 
 func (s *relationResolverSuite) TestHookRelationBrokenOnlyOnce(c *gc.C) {
 	var numCalls int32
-	apiCalls := relationJoinedAPICalls()
+	apiCalls := relationJoinedAndDepartedAPICalls()
 	relationUnits := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-wordpress.db#mysql.db", Unit: "unit-wordpress-0"},
 	}}

@@ -106,7 +106,7 @@ func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter
 
 // SetEnvironmentHookContextRelation exists purely to set the fields used in hookVars.
 // It makes no assumptions about the validity of context.
-func SetEnvironmentHookContextRelation(context *HookContext, relationId int, endpointName, remoteUnitName string, remoteAppName string) {
+func SetEnvironmentHookContextRelation(context *HookContext, relationId int, endpointName, remoteUnitName, remoteAppName, departingUnitName string) {
 	context.relationId = relationId
 	context.remoteUnitName = remoteUnitName
 	context.remoteApplicationName = remoteAppName
@@ -116,6 +116,7 @@ func SetEnvironmentHookContextRelation(context *HookContext, relationId int, end
 			relationId:   relationId,
 		},
 	}
+	context.departingUnitName = departingUnitName
 }
 
 func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]interface{}) func() {
@@ -151,31 +152,48 @@ func StorageAddConstraints(ctx *HookContext) map[string][]params.StorageConstrai
 	return ctx.storageAddConstraints
 }
 
+// ModelHookContextParams encapsulates the parameters for a NewModelHookContext call.
+type ModelHookContextParams struct {
+	ID        string
+	HookName  string
+	ModelUUID string
+	ModelName string
+	UnitName  string
+
+	MeterCode string
+	MeterInfo string
+	SLALevel  string
+
+	AvailZone    string
+	APIAddresses []string
+
+	LegacyProxySettings proxy.Settings
+	JujuProxySettings   proxy.Settings
+
+	MachineTag names.MachineTag
+}
+
 // NewModelHookContext exists purely to set the fields used in rs.
 // The returned value is not otherwise valid.
-func NewModelHookContext(
-	id, hookName, modelUUID, modelName, unitName, meterCode, meterInfo, slaLevel, availZone string,
-	apiAddresses []string, legacyProxySettings proxy.Settings, jujuProxySettings proxy.Settings,
-	machineTag names.MachineTag,
-) *HookContext {
+func NewModelHookContext(p ModelHookContextParams) *HookContext {
 	return &HookContext{
-		id:                  id,
-		hookName:            hookName,
-		unitName:            unitName,
-		uuid:                modelUUID,
-		modelName:           modelName,
-		apiAddrs:            apiAddresses,
-		legacyProxySettings: legacyProxySettings,
-		jujuProxySettings:   jujuProxySettings,
+		id:                  p.ID,
+		hookName:            p.HookName,
+		unitName:            p.UnitName,
+		uuid:                p.ModelUUID,
+		modelName:           p.ModelName,
+		apiAddrs:            p.APIAddresses,
+		legacyProxySettings: p.LegacyProxySettings,
+		jujuProxySettings:   p.JujuProxySettings,
 		meterStatus: &meterStatus{
-			code: meterCode,
-			info: meterInfo,
+			code: p.MeterCode,
+			info: p.MeterInfo,
 		},
 		relationId:         -1,
-		assignedMachineTag: machineTag,
-		availabilityzone:   availZone,
-		slaLevel:           slaLevel,
-		principal:          unitName,
+		assignedMachineTag: p.MachineTag,
+		availabilityzone:   p.AvailZone,
+		slaLevel:           p.SLALevel,
+		principal:          p.UnitName,
 		cloudAPIVersion:    "6.66",
 	}
 }
