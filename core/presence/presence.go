@@ -281,10 +281,17 @@ func (r *recorder) UpdateServer(server string, connections []Value) error {
 		return errors.New("recorder not enabled")
 	}
 
+	// Alive is a map of connection IDs for connections that are alive
+	// to an index into the entries slice.
+	alive := make(map[uint64]int)
 	entries := make([]Value, 0, len(r.entries))
 	for _, value := range r.entries {
 		if value.Server != server {
 			entries = append(entries, value)
+		} else if value.Status == Alive {
+			pos := len(entries)
+			entries = append(entries, value)
+			alive[value.ConnectionID] = pos
 		}
 	}
 
@@ -292,9 +299,15 @@ func (r *recorder) UpdateServer(server string, connections []Value) error {
 		if value.Server != server {
 			return errors.Errorf("connection server mismatch, got %q expected %q", value.Server, server)
 		}
-		value.Status = Alive
-		value.LastSeen = r.clock.Now()
-		entries = append(entries, value)
+		// If the connection has already been recorded as alive,
+		// just update the timestamp, otherwise add it in.
+		if i, found := alive[value.ConnectionID]; found {
+			entries[i].LastSeen = r.clock.Now()
+		} else {
+			value.Status = Alive
+			value.LastSeen = r.clock.Now()
+			entries = append(entries, value)
+		}
 	}
 
 	r.entries = entries
