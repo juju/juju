@@ -95,7 +95,7 @@ func (k *kubernetesClient) ensureSecret(sec *core.Secret) (func(), error) {
 	out, err := k.createSecret(sec)
 	if err == nil {
 		logger.Debugf("secret %q created", out.GetName())
-		cleanUp = func() {  _ = k.deleteSecret(out.GetName(), out.GetUID()) }
+		cleanUp = func() { _ = k.deleteSecret(out.GetName(), out.GetUID()) }
 		return cleanUp, nil
 	}
 	if !errors.IsAlreadyExists(err) {

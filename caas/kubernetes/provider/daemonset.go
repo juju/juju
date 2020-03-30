@@ -22,7 +22,7 @@ func (k *kubernetesClient) ensureDaemonSet(spec *apps.DaemonSet) (func(), error)
 	out, err := k.createDaemonSet(spec)
 	if err == nil {
 		logger.Debugf("daemon set %q created", out.GetName())
-		cleanUp = func() {  _ = k.deleteDaemonSet(out.GetName(), out.GetUID()) }
+		cleanUp = func() { _ = k.deleteDaemonSet(out.GetName(), out.GetUID()) }
 		return cleanUp, nil
 	}
 	if !errors.IsAlreadyExists(err) {

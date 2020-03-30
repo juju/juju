@@ -53,7 +53,7 @@ func (k *kubernetesClient) ensureConfigMapLegacy(cm *core.ConfigMap) (cleanUp fu
 		var out *core.ConfigMap
 		if out, err = api.Create(cm); err == nil {
 			logger.Debugf("configmap %q created", out.GetName())
-			cleanUp = func() {  _ = k.deleteConfigMap(out.GetName(), out.GetUID()) }
+			cleanUp = func() { _ = k.deleteConfigMap(out.GetName(), out.GetUID()) }
 			return cleanUp, nil
 		}
 	}
@@ -66,7 +66,7 @@ func (k *kubernetesClient) ensureConfigMap(cm *core.ConfigMap) (func(), error) {
 	out, err := k.createConfigMap(cm)
 	if err == nil {
 		logger.Debugf("configmap %q created", out.GetName())
-		cleanUp = func() {  _ = k.deleteConfigMap(out.GetName(), out.GetUID()) }
+		cleanUp = func() { _ = k.deleteConfigMap(out.GetName(), out.GetUID()) }
 		return cleanUp, nil
 	}
 	if !errors.IsAlreadyExists(err) {

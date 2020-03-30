@@ -167,7 +167,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	if err := k.ensureK8sService(service); err != nil {
 		return errors.Annotatef(err, "creating or updating service for %v operator", appName)
 	}
-	cleanups = append(cleanups, func() {  _ = k.deleteService(operatorName) })
+	cleanups = append(cleanups, func() { _ = k.deleteService(operatorName) })
 	services := k.client().CoreV1().Services(k.namespace)
 	svc, err := services.Get(operatorName, v1.GetOptions{})
 	if err != nil {
@@ -347,7 +347,7 @@ func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, e
 			return caas.OperatorState{}, errors.Annotatef(err, "%s resource check", c.label)
 		}
 		if exists {
-			// Terminating is always set to true regardless of whether the resource is falled as terminating
+			// Terminating is always set to true regardless of whether the resource is failed as terminating
 			// since it's the overall state that is reported back.
 			logger.Debugf("operator %q exists and is terminating due to dangling %s resource(s)", c.label)
 			return caas.OperatorState{Exists: true, Terminating: true}, nil
