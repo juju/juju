@@ -456,10 +456,6 @@ func (ctx *facadeContext) Presence() facade.Presence {
 
 // ModelPresence implements facade.ModelPresence.
 func (ctx *facadeContext) ModelPresence(modelUUID string) facade.ModelPresence {
-	if ctx.r.shared.featureEnabled(feature.OldPresence) {
-		// Used in common/presence.go to determine which code path to follow.
-		return nil
-	}
 	return ctx.r.shared.presence.Connections().ForModel(modelUUID)
 }
 

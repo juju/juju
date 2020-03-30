@@ -47,7 +47,6 @@ import (
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/globalclock"
 	statelease "github.com/juju/juju/state/lease"
-	"github.com/juju/juju/state/presence"
 	raftleasestore "github.com/juju/juju/state/raftlease"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
@@ -59,10 +58,6 @@ var logger = loggo.GetLogger("juju.state")
 const (
 	// jujuDB is the name of the main juju database.
 	jujuDB = "juju"
-
-	// presenceDB is the name of the database used to hold presence pinger data.
-	presenceDB = "presence"
-	presenceC  = "presence"
 
 	// blobstoreDB is the name of the blobstore GridFS database.
 	blobstoreDB = "blobstore"
@@ -321,13 +316,12 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 			}
 		}
 	}
-	// Logs and presence are in separate databases so don't get caught by that
+
+	// Logs are in a separate database so don't get caught by that
 	// loop.
 	removeModelLogs(st.MongoSession(), modelUUID)
-	err := presence.RemovePresenceForModel(st.getPresenceCollection(), st.modelTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
+
+	// TODO: upgrade step to drop presence db.
 
 	// Remove all user permissions for the model.
 	permPattern := bson.M{
@@ -603,18 +597,6 @@ func (st *State) EnsureModelRemoved() error {
 		return errors.New(errMessage)
 	}
 	return nil
-}
-
-// getPresenceCollection returns the raw mongodb presence collection,
-// which is needed to interact with the state/presence package.
-func (st *State) getPresenceCollection() *mgo.Collection {
-	return st.session.DB(presenceDB).C(presenceC)
-}
-
-// getPingBatcher returns the implementation of how we serialize Ping requests
-// for agents to the database.
-func (st *State) getPingBatcher() *presence.PingBatcher {
-	return st.workers.pingBatcherWorker()
 }
 
 // getTxnLogCollection returns the raw mongodb txns collection, which is
@@ -2455,8 +2437,6 @@ func (st *State) StartSync() {
 	if syncable, ok := st.workers.txnLogWatcher().(hasStartSync); ok {
 		syncable.StartSync()
 	}
-	st.workers.pingBatcherWorker().Sync()
-	st.workers.presenceWatcher().Sync()
 }
 
 // SetAdminMongoPassword sets the administrative password

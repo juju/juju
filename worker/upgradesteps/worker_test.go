@@ -478,6 +478,8 @@ func (s *UpgradeSuite) setMachineProvisioned(c *gc.C, id string) {
 }
 
 func (s *UpgradeSuite) setMachineAlive(c *gc.C, id string) {
+	// XXX: remove me
+
 	machine, err := s.State.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 	pinger, err := machine.SetAgentPresence()

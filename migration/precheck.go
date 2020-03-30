@@ -62,7 +62,6 @@ type PrecheckMachine interface {
 	AgentTools() (*tools.Tools, error)
 	Life() state.Life
 	Status() (status.StatusInfo, error)
-	AgentPresence() (bool, error)
 	InstanceStatus() (status.StatusInfo, error)
 	ShouldRebootOrShutdown() (state.RebootAction, error)
 }
@@ -86,7 +85,6 @@ type PrecheckUnit interface {
 	CharmURL() (*charm.URL, bool)
 	AgentStatus() (status.StatusInfo, error)
 	Status() (status.StatusInfo, error)
-	AgentPresence() (bool, error)
 	ShouldBeAssigned() bool
 }
 

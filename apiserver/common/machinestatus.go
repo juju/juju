@@ -12,7 +12,6 @@ import (
 // required to status.
 type MachineStatusGetter interface {
 	Status() (status.StatusInfo, error)
-	AgentPresence() (bool, error)
 	Id() string
 	Life() state.Life
 }

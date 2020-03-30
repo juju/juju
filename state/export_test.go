@@ -96,7 +96,6 @@ func EnsureWorkersStarted(st *State) {
 	// Note: we don't start the all-watcher workers, as
 	// they're started on demand anyway.
 	st.workers.txnLogWatcher()
-	st.workers.presenceWatcher()
 	st.workers.leadershipManager()
 	st.workers.singularManager()
 }

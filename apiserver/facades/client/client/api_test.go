@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -25,7 +24,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -527,22 +525,4 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		s.setAgentPresence(c, m)
 	}
 	return
-}
-
-type presenceEntity interface {
-	SetAgentPresence() (*presence.Pinger, error)
-	WaitAgentPresence(timeout time.Duration) (err error)
-}
-
-func (s *baseSuite) setAgentPresence(c *gc.C, e presenceEntity) {
-	pinger, err := e.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
-		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
-	})
-
-	s.State.StartSync()
-	s.BackingState.StartSync()
-	err = e.WaitAgentPresence(coretesting.LongWait)
-	c.Assert(err, jc.ErrorIsNil)
 }

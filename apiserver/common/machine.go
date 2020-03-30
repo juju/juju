@@ -72,7 +72,6 @@ type Machine interface {
 	Life() state.Life
 	ForceDestroy(time.Duration) error
 	Destroy() error
-	AgentPresence() (bool, error)
 	IsManager() bool
 }
 

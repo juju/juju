@@ -25,18 +25,12 @@ type ModelPresenceContext struct {
 }
 
 func (c *ModelPresenceContext) machinePresence(machine MachineStatusGetter) (bool, error) {
-	if c.Presence == nil {
-		return machine.AgentPresence()
-	}
 	agent := names.NewMachineTag(machine.Id())
 	status, err := c.Presence.AgentStatus(agent.String())
 	return status == presence.Alive, err
 }
 
 func (c *ModelPresenceContext) unitPresence(unit UnitStatusGetter) (bool, error) {
-	if c.Presence == nil {
-		return unit.AgentPresence()
-	}
 	agent := names.NewUnitTag(unit.Name()).String()
 	if !unit.ShouldBeAssigned() {
 		// Units in CAAS models rely on the operator pings.

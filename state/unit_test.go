@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
@@ -1525,52 +1524,6 @@ func (s *UnitSuite) TestSetPassword(c *gc.C) {
 	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.Unit(s.unit.Name())
 	})
-}
-
-func (s *UnitSuite) TestUnitSetAgentPresence(c *gc.C) {
-	alive, err := s.unit.AgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, jc.IsFalse)
-
-	pinger, err := s.unit.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pinger, gc.NotNil)
-	defer func() {
-		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
-	}()
-	s.State.StartSync()
-	alive, err = s.unit.AgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, jc.IsTrue)
-}
-
-func (s *UnitSuite) TestUnitWaitAgentPresence(c *gc.C) {
-	alive, err := s.unit.AgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, jc.IsFalse)
-
-	err = s.unit.WaitAgentPresence(coretesting.ShortWait)
-	c.Assert(err, gc.ErrorMatches, `waiting for agent of unit "wordpress/0": still not alive after timeout`)
-
-	pinger, err := s.unit.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.State.StartSync()
-	err = s.unit.WaitAgentPresence(coretesting.LongWait)
-	c.Assert(err, jc.ErrorIsNil)
-
-	alive, err = s.unit.AgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, jc.IsTrue)
-
-	err = pinger.KillForTesting()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.State.StartSync()
-
-	alive, err = s.unit.AgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, jc.IsFalse)
 }
 
 func (s *UnitSuite) TestResolve(c *gc.C) {

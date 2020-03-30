@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 )
 
@@ -1665,25 +1664,6 @@ func (u *Unit) assertCharmOps(ch *Charm) []txn.Op {
 	return ops
 }
 
-// AgentPresence returns whether the respective remote agent is alive.
-func (u *Unit) AgentPresence() (bool, error) {
-	pwatcher := u.st.workers.presenceWatcher()
-	if u.ShouldBeAssigned() {
-		return pwatcher.Alive(u.globalAgentKey())
-	}
-	// Units in CAAS models rely on the operator pings.
-	// These are for the application itself.
-	app, err := u.Application()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	appAlive, err := pwatcher.Alive(app.globalKey())
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return appAlive, nil
-}
-
 // Tag returns a name identifying the unit.
 // The returned name will be different from other Tag values returned by any
 // other entities from the same state.
@@ -1695,54 +1675,6 @@ func (u *Unit) Tag() names.Tag {
 // unit Name is invalid, in which case it will panic
 func (u *Unit) UnitTag() names.UnitTag {
 	return names.NewUnitTag(u.Name())
-}
-
-// WaitAgentPresence blocks until the respective agent is alive.
-// This should really only be used in the test suite.
-func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
-	defer errors.DeferredAnnotatef(&err, "waiting for agent of unit %q", u)
-	ch := make(chan presence.Change)
-	pwatcher := u.st.workers.presenceWatcher()
-	pwatcher.Watch(u.globalAgentKey(), ch)
-	defer pwatcher.Unwatch(u.globalAgentKey(), ch)
-	pingBatcher := u.st.getPingBatcher()
-	if err := pingBatcher.Sync(); err != nil {
-		return err
-	}
-	for i := 0; i < 2; i++ {
-		select {
-		case change := <-ch:
-			if change.Alive {
-				return nil
-			}
-		case <-time.After(timeout):
-			// TODO(fwereade): 2016-03-17 lp:1558657
-			return fmt.Errorf("still not alive after timeout")
-		case <-pwatcher.Dead():
-			return pwatcher.Err()
-		}
-	}
-	panic(fmt.Sprintf("presence reported dead status twice in a row for unit %q", u))
-}
-
-// SetAgentPresence signals that the agent for unit u is alive.
-// It returns the started pinger.
-func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
-	presenceCollection := u.st.getPresenceCollection()
-	recorder := u.st.getPingBatcher()
-	m, err := u.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	p := presence.NewPinger(presenceCollection, m.ModelTag(), u.globalAgentKey(),
-		func() presence.PingRecorder { return u.st.getPingBatcher() })
-	err = p.Start()
-	if err != nil {
-		return nil, err
-	}
-	// Make sure this Agent status is written to the database before returning.
-	recorder.Sync()
-	return p, nil
 }
 
 func unitNotAssignedError(u *Unit) error {

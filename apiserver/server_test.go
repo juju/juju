@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/apiserver/testserver"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
@@ -45,11 +44,9 @@ type serverSuite struct {
 var _ = gc.Suite(&serverSuite{})
 
 func (s *serverSuite) SetUpTest(c *gc.C) {
+	// TODO: fix tests that require pingers...
 	// Tests here check that pingers are started. We need to inject
 	// the feature flags into the controller very early.
-	s.ControllerConfigAttrs = map[string]interface{}{
-		"features": []string{feature.OldPresence},
-	}
 	s.JujuConnSuite.SetUpTest(c)
 }
 

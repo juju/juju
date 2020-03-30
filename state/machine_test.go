@@ -16,7 +16,6 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -580,24 +579,6 @@ func (s *MachineSuite) TestRemoveAbort(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MachineSuite) TestMachineSetAgentPresence(c *gc.C) {
-	alive, err := s.machine.AgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, jc.IsFalse)
-
-	pinger, err := s.machine.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pinger, gc.NotNil)
-	defer func() {
-		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
-	}()
-
-	s.State.StartSync()
-	alive, err = s.machine.AgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, jc.IsTrue)
-}
-
 func (s *MachineSuite) TestTag(c *gc.C) {
 	tag := s.machine.MachineTag()
 	c.Assert(tag.Kind(), gc.Equals, names.MachineTagKind)
@@ -705,35 +686,6 @@ func (s *MachineSuite) TestSetPassword(c *gc.C) {
 	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.Machine(s.machine.Id())
 	})
-}
-
-func (s *MachineSuite) TestMachineWaitAgentPresence(c *gc.C) {
-	alive, err := s.machine.AgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, jc.IsFalse)
-
-	s.State.StartSync()
-	err = s.machine.WaitAgentPresence(coretesting.ShortWait)
-	c.Assert(err, gc.ErrorMatches, `waiting for agent of machine 1: still not alive after timeout`)
-
-	pinger, err := s.machine.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.State.StartSync()
-	err = s.machine.WaitAgentPresence(coretesting.LongWait)
-	c.Assert(err, jc.ErrorIsNil)
-
-	alive, err = s.machine.AgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, jc.IsTrue)
-
-	err = pinger.KillForTesting()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.State.StartSync()
-	alive, err = s.machine.AgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, jc.IsFalse)
 }
 
 func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *gc.C) {
