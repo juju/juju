@@ -200,10 +200,6 @@ func (u *fakeStatusUnit) Status() (status.StatusInfo, error) {
 	return u.status, u.statusErr
 }
 
-func (u *fakeStatusUnit) AgentPresence() (bool, error) {
-	return u.presence, u.presenceErr
-}
-
 func (u *fakeStatusUnit) Life() state.Life {
 	return u.life
 }

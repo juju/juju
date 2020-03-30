@@ -387,10 +387,6 @@ func (m *mockMachine) HardwareCharacteristics() (*instance.HardwareCharacteristi
 	return m.hw, nil
 }
 
-func (m *mockMachine) AgentPresence() (bool, error) {
-	return !m.agentDead, m.presenceErr
-}
-
 func (m *mockMachine) ForceDestroy(time.Duration) error {
 	m.forceDestroyCalled = true
 	if m.forceDestroyErr != nil {
