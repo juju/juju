@@ -57,6 +57,7 @@ class K8sProviderType(Enum):
     MICROK8S = 1
     K8S_CORE = 2
     GKE = 3
+    AKS = 4
 
     @classmethod
     def keys(cls):
@@ -124,7 +125,7 @@ class Base(object):
 
         self.timeout = timeout
         old_environment = bs_manager.client.env.environment
-    
+
         bs_manager.client.env.environment = bs_manager.temp_env_name
         with temp_bootstrap_env(bs_manager.client.env.juju_home, bs_manager.client) as tm_h:
             self.client.env.juju_home = tm_h
