@@ -781,28 +781,6 @@ func (s *MachineLegacyLeasesSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C)
 	s.waitStopped(c, state.JobManageModel, a, done)
 }
 
-func (s *MachineLegacyLeasesSuite) TestMachineAgentUninstall(c *gc.C) {
-	c.Skip("test takes over 30s to complete; we need to investigate why it takes so long for the agent to appear as alive")
-
-	m, ac, _ := s.primeAgent(c, state.JobHostUnits)
-	a := s.newAgent(c, m)
-
-	// Wait for the agent to become alive, then run EnsureDead and wait
-	// for the agent to exit
-	err := s.WithAliveAgent(c, m, a, m.EnsureDead)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// juju-* symlinks should have been removed on termination.
-	for _, link := range []string{jujuRun, jujuDumpLogs, jujuIntrospect} {
-		_, err = os.Stat(utils.EnsureBaseDir(a.rootDir, link))
-		c.Assert(err, jc.Satisfies, os.IsNotExist)
-	}
-
-	// data-dir should have been removed on termination
-	_, err = os.Stat(ac.DataDir())
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-}
-
 func (s *MachineLegacyLeasesSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)

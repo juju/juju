@@ -317,8 +317,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		}
 	}
 
-	// Logs are in a separate database so don't get caught by that
-	// loop.
+	// Logs are in a separate database so don't get caught by that loop.
 	removeModelLogs(st.MongoSession(), modelUUID)
 
 	// TODO: upgrade step to drop presence db.
