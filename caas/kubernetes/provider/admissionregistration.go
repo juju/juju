@@ -54,7 +54,7 @@ func (k *kubernetesClient) EnsureMutatingWebhookConfiguration(cfg *admissionregi
 	out, err := k.createMutatingWebhookConfiguration(cfg)
 	if err == nil {
 		logger.Debugf("MutatingWebhookConfiguration %q created", out.GetName())
-		cleanUp = func() { k.deleteMutatingWebhookConfiguration(out.GetName(), out.GetUID()) }
+		cleanUp = func() { _ = k.deleteMutatingWebhookConfiguration(out.GetName(), out.GetUID()) }
 		return cleanUp, nil
 	}
 	if !errors.IsAlreadyExists(err) {
@@ -172,7 +172,7 @@ func (k *kubernetesClient) ensureValidatingWebhookConfiguration(cfg *admissionre
 	out, err := k.createValidatingWebhookConfiguration(cfg)
 	if err == nil {
 		logger.Debugf("ValidatingWebhookConfiguration %q created", out.GetName())
-		cleanUp = func() { k.deleteValidatingWebhookConfiguration(out.GetName(), out.GetUID()) }
+		cleanUp = func() { _ = k.deleteValidatingWebhookConfiguration(out.GetName(), out.GetUID()) }
 		return cleanUp, nil
 	}
 	if !errors.IsAlreadyExists(err) {

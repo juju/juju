@@ -18,10 +18,12 @@ import (
 	"time"
 
 	jujuclock "github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
+	"github.com/kr/pretty"
 	"gopkg.in/juju/names.v3"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	apps "k8s.io/api/apps/v1"
@@ -69,12 +71,14 @@ const (
 	// Kubernetes
 	Domain = "juju.is"
 
-	labelOperator        = "juju-operator"
-	labelStorage         = "juju-storage"
-	labelVersion         = "juju-version"
-	labelApplication     = "juju-app"
-	labelApplicationUUID = "juju-app-uuid"
-	labelModel           = "juju-model"
+	labelOperator    = "juju-operator"
+	labelStorage     = "juju-storage"
+	labelVersion     = "juju-version"
+	labelApplication = "juju-app"
+	labelModel       = "juju-model"
+
+	// annotationKeyApplicationUUID is the key of annotation for recording pvc unique ID.
+	annotationKeyApplicationUUID = "juju-app-uuid"
 
 	// labelResourceLifeCycleKey defines the label key for lifecycle of the global resources.
 	labelResourceLifeCycleKey             = "juju-resource-lifecycle"
@@ -1146,7 +1150,7 @@ func (k *kubernetesClient) EnsureService(
 		if err := k.ensureOCIImageSecret(imageSecretName, appName, &c.ImageDetails, annotations.Copy()); err != nil {
 			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
 		}
-		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName, "") })
+		cleanups = append(cleanups, func() { _ = k.deleteSecret(imageSecretName, "") })
 	}
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
 	// Defensively check to see if a stateful set is already used.
@@ -1158,7 +1162,8 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 	if params.Deployment.DeploymentType != caas.DeploymentStateful {
-		// TODO(caas): remove this check once `params.Deployment` is changed to be required.
+		// TODO(caas): make sure deployment type is immutable.
+		// Either not found or params.Deployment.DeploymentType == existing resource type.
 		_, err := k.getStatefulSet(deploymentName)
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
@@ -1212,22 +1217,23 @@ func (k *kubernetesClient) EnsureService(
 		if err := k.configureHeadlessService(appName, deploymentName, annotations.Copy()); err != nil {
 			return errors.Annotate(err, "creating or updating headless service")
 		}
-		cleanups = append(cleanups, func() { k.deleteService(headlessServiceName(deploymentName)) })
+		cleanups = append(cleanups, func() { _ = k.deleteService(headlessServiceName(deploymentName)) })
 		if err := k.configureStatefulSet(appName, deploymentName, annotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
 		}
-		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
+		cleanups = append(cleanups, func() { _ = k.deleteDeployment(appName) })
 	case caas.DeploymentStateless:
-		if err := k.configureDeployment(appName, deploymentName, annotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods); err != nil {
+		cleanUpDeployment, err := k.configureDeployment(appName, deploymentName, annotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems)
+		cleanups = append(cleanups, cleanUpDeployment...)
+		if err != nil {
 			return errors.Annotate(err, "creating or updating Deployment")
 		}
-		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
 	case caas.DeploymentDaemon:
-		cleanUpDaemonSet, err := k.configureDaemonSet(appName, deploymentName, annotations.Copy(), workloadSpec, params.PodSpec.Containers)
+		cleanUpDaemonSet, err := k.configureDaemonSet(appName, deploymentName, annotations.Copy(), workloadSpec, params.PodSpec.Containers, params.Filesystems)
+		cleanups = append(cleanups, cleanUpDaemonSet...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating DaemonSet")
 		}
-		cleanups = append(cleanups, cleanUpDaemonSet)
 	default:
 		// This should never happend because we have validated both in this method and in `charm.v6`.
 		return errors.NotSupportedf("deployment type %q", params.Deployment.DeploymentType)
@@ -1240,13 +1246,6 @@ func validateDeploymentType(t caas.DeploymentType, params *caas.ServiceParams, w
 		if workloadSpec.Service != nil && workloadSpec.Service.ScalePolicy != "" {
 			return errors.NewNotValid(nil, fmt.Sprintf("ScalePolicy is only supported for %s applications", caas.DeploymentStateful))
 		}
-	}
-
-	if t != caas.DeploymentStateful && len(params.Filesystems) > 0 {
-		return errors.NewNotValid(nil, fmt.Sprintf(
-			"charm defined storage is only supported for deployment type %q, please instead define storage using volumeConfig in containers",
-			caas.DeploymentStateful,
-		))
 	}
 	return nil
 }
@@ -1330,102 +1329,94 @@ func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) configureStorage(
-	podSpec *core.PodSpec,
-	statefulSet *apps.StatefulSetSpec,
-	appName,
-	randPrefix string,
-	legacy bool,
-	filesystems []storage.KubernetesFilesystemParams,
-) error {
-	baseDir, err := paths.StorageDir(CAASProviderType)
+func (k *kubernetesClient) filesystemToVolumeInfo(
+	i int, fs storage.KubernetesFilesystemParams,
+	pvcNameGetter func(int, string) string,
+) (vol *core.Volume, pvc *core.PersistentVolumeClaim, err error) {
+	fsSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", fs.Size))
 	if err != nil {
-		return errors.Trace(err)
+		return nil, nil, errors.Annotatef(err, "invalid volume size %v", fs.Size)
 	}
-	logger.Debugf("configuring pod filesystems: %+v with rand %v", filesystems, randPrefix)
-	for i, fs := range filesystems {
-		var mountPath string
-		if fs.Attachment != nil {
-			mountPath = fs.Attachment.Path
-		}
-		if mountPath == "" {
-			mountPath = fmt.Sprintf("%s/fs/%s/%s/%d", baseDir, appName, fs.StorageName, i)
-		}
-		fsSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", fs.Size))
-		if err != nil {
-			return errors.Annotatef(err, "invalid volume size %v", fs.Size)
-		}
 
-		var volumeSource *core.VolumeSource
-		switch fs.Provider {
-		case K8s_ProviderType:
-		case provider.RootfsProviderType:
-			volumeSource = &core.VolumeSource{
-				EmptyDir: &core.EmptyDirVolumeSource{
-					SizeLimit: &fsSize,
-				},
-			}
-		case provider.TmpfsProviderType:
-			medium, ok := fs.Attributes[storageMedium]
-			if !ok {
-				medium = core.StorageMediumMemory
-			}
-			volumeSource = &core.VolumeSource{
-				EmptyDir: &core.EmptyDirVolumeSource{
-					Medium:    core.StorageMedium(fmt.Sprintf("%v", medium)),
-					SizeLimit: &fsSize,
-				},
-			}
-		default:
-			return errors.NotValidf("charm storage provider type %q for %v", fs.Provider, fs.StorageName)
-		}
-		if volumeSource != nil {
-			logger.Debugf("using emptyDir for %s filesystem %s", appName, fs.StorageName)
-			volName := fmt.Sprintf("%s-%d", fs.StorageName, i)
-			podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
-				Name:      volName,
-				MountPath: mountPath,
-			})
-			podSpec.Volumes = append(podSpec.Volumes, core.Volume{
-				Name:         volName,
-				VolumeSource: *volumeSource,
-			})
-			continue
-		}
-
-		pvcNamePrefix := fmt.Sprintf("%s-%s", fs.StorageName, randPrefix)
-		if legacy {
-			pvcNamePrefix = fmt.Sprintf("juju-%s-%d", fs.StorageName, i)
-		}
-		params := volumeParams{
-			pvcName:             pvcNamePrefix,
-			requestedVolumeSize: fsSize,
-		}
-		params.storageConfig, err = newStorageConfig(fs.Attributes)
-		if err != nil {
-			return errors.Annotatef(err, "invalid storage configuration for %v", fs.StorageName)
-		}
-		pvcSpec, err := k.maybeGetVolumeClaimSpec(params)
-		if err != nil {
-			return errors.Annotatef(err, "finding volume for %s", fs.StorageName)
-		}
-
-		pvc := core.PersistentVolumeClaim{
-			ObjectMeta: v1.ObjectMeta{
-				Name: params.pvcName,
-				Annotations: resourceTagsToAnnotations(fs.ResourceTags).
-					Add(labelStorage, fs.StorageName).ToMap(),
+	var volumeSource *core.VolumeSource
+	switch fs.Provider {
+	case K8s_ProviderType:
+	case provider.RootfsProviderType:
+		volumeSource = &core.VolumeSource{
+			EmptyDir: &core.EmptyDirVolumeSource{
+				SizeLimit: &fsSize,
 			},
-			Spec: *pvcSpec,
 		}
-		logger.Debugf("using persistent volume claim for %s filesystem %s: %+v", appName, fs.StorageName, pvc)
-		statefulSet.VolumeClaimTemplates = append(statefulSet.VolumeClaimTemplates, pvc)
-		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
-			Name:      pvc.Name,
-			MountPath: mountPath,
-		})
+	case provider.TmpfsProviderType:
+		medium, ok := fs.Attributes[storageMedium]
+		if !ok {
+			medium = core.StorageMediumMemory
+		}
+		volumeSource = &core.VolumeSource{
+			EmptyDir: &core.EmptyDirVolumeSource{
+				Medium:    core.StorageMedium(fmt.Sprintf("%v", medium)),
+				SizeLimit: &fsSize,
+			},
+		}
+	default:
+		return nil, nil, errors.NotValidf("charm storage provider type %q for %v", fs.Provider, fs.StorageName)
 	}
-	return nil
+	if volumeSource != nil {
+		volName := fmt.Sprintf("%s-%d", fs.StorageName, i)
+		vol = &core.Volume{
+			Name:         volName,
+			VolumeSource: *volumeSource,
+		}
+		return
+	}
+	params := volumeParams{
+		pvcName:             pvcNameGetter(i, fs.StorageName),
+		requestedVolumeSize: fsSize,
+	}
+	params.storageConfig, err = newStorageConfig(fs.Attributes)
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "invalid storage configuration for %v", fs.StorageName)
+	}
+	pvcSpec, err := k.maybeGetVolumeClaimSpec(params)
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "finding volume for %s", fs.StorageName)
+	}
+
+	pvc = &core.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{
+			Name: params.pvcName,
+			Annotations: resourceTagsToAnnotations(fs.ResourceTags).
+				Add(labelStorage, fs.StorageName).ToMap(),
+		},
+		Spec: *pvcSpec,
+	}
+	return vol, pvc, nil
+}
+
+func getMountPathForFilesystem(i int, appName string, fs storage.KubernetesFilesystemParams) string {
+	if fs.Attachment != nil {
+		return fs.Attachment.Path
+	}
+	return fmt.Sprintf("%s/fs/%s/%s/%d", k8sStorageBaseDir, appName, fs.StorageName, i)
+}
+
+type annotationGetter interface {
+	GetAnnotations() map[string]string
+}
+
+// This random snippet will be included to the pvc name so that if the same app
+// is deleted and redeployed again, the pvc retains a unique name.
+// Only generate it once, and record it on the workload resource annotations .
+func (k *kubernetesClient) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (string, error) {
+	r, err := getMeta()
+	if err == nil {
+		if uniqID := r.GetAnnotations()[annotationKeyApplicationUUID]; uniqID != "" {
+			return uniqID, nil
+		}
+	} else if !errors.IsNotFound(err) {
+		return "", errors.Trace(err)
+	}
+	return k.randomPrefix()
 }
 
 func (k *kubernetesClient) configureDevices(unitSpec *workloadSpec, devices []devices.KubernetesDeviceParams) error {
@@ -1476,7 +1467,9 @@ func (k *kubernetesClient) configurePodFiles(
 			if err != nil {
 				return errors.Trace(err)
 			}
-			pushUniqVolume(&workloadSpec.Pod, vol)
+			if err = pushUniqueVolume(&workloadSpec.Pod, vol); err != nil {
+				return errors.Trace(err)
+			}
 			workloadSpec.Pod.Containers[i].VolumeMounts = append(workloadSpec.Pod.Containers[i].VolumeMounts, core.VolumeMount{
 				// TODO(caas): add more config fields support(SubPath, ReadOnly, etc).
 				Name:      vol.Name,
@@ -1487,14 +1480,79 @@ func (k *kubernetesClient) configurePodFiles(
 	return nil
 }
 
-// pushUniqVolume ensures to only add unique volumes because k8s will not schedule pods if it has deplucated volumes.
-func pushUniqVolume(podSpec *core.PodSpec, vol core.Volume) {
+func (k *kubernetesClient) configureStorage(
+	appName string, legacy bool, uniquePrefix string,
+	filesystems []storage.KubernetesFilesystemParams,
+	podSpec *core.PodSpec,
+	handlePVC func(core.PersistentVolumeClaim, string, bool) error,
+) error {
+	pvcNameGetter := func(i int, storageName string) string {
+		s := fmt.Sprintf("%s-%s", storageName, uniquePrefix)
+		if legacy {
+			s = fmt.Sprintf("juju-%s-%d", storageName, i)
+		}
+		return s
+	}
+	fsNames := set.NewStrings()
+	for i, fs := range filesystems {
+		if fsNames.Contains(fs.StorageName) {
+			return errors.NotValidf("duplicated storage name %q for %q", fs.StorageName, appName)
+		}
+		fsNames.Add(fs.StorageName)
+
+		readOnly := false
+		if fs.Attachment != nil {
+			readOnly = fs.Attachment.ReadOnly
+		}
+
+		vol, pvc, err := k.filesystemToVolumeInfo(i, fs, pvcNameGetter)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		mountPath := getMountPathForFilesystem(i, appName, fs)
+		if vol != nil {
+			logger.Debugf("using volume for %s filesystem %s: %s", appName, fs.StorageName, pretty.Sprint(*vol))
+			if err = pushUniqueVolume(podSpec, *vol); err != nil {
+				return errors.Trace(err)
+			}
+			podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
+				Name:      vol.Name,
+				MountPath: mountPath,
+			})
+		}
+		if pvc != nil && handlePVC != nil {
+			logger.Debugf("using persistent volume claim for %s filesystem %s: %s", appName, fs.StorageName, pretty.Sprint(*pvc))
+			if err = handlePVC(*pvc, mountPath, readOnly); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+	return nil
+}
+
+// pushUniqueVolume ensures to only add unique volumes because k8s will not schedule pods if it has duplicated volumes.
+func pushUniqueVolume(podSpec *core.PodSpec, vol core.Volume) error {
 	for _, v := range podSpec.Volumes {
-		if reflect.DeepEqual(v, vol) {
-			return
+		if v.Name == vol.Name {
+			if reflect.DeepEqual(v, vol) {
+				return nil
+			}
+			return errors.NotValidf("duplicated volume %q", vol.Name)
 		}
 	}
 	podSpec.Volumes = append(podSpec.Volumes, vol)
+	return nil
+}
+
+func pushUniqueVolumeClaimTemplate(spec *apps.StatefulSetSpec, pvc core.PersistentVolumeClaim) error {
+	for _, v := range spec.VolumeClaimTemplates {
+		if v.Name == pvc.Name {
+			// PVC name has to be unique.
+			return errors.NotValidf("duplicated PVC %q", pvc.Name)
+		}
+	}
+	spec.VolumeClaimTemplates = append(spec.VolumeClaimTemplates, pvc)
+	return nil
 }
 
 func (k *kubernetesClient) fileSetToVolume(
@@ -1672,22 +1730,32 @@ func (k *kubernetesClient) configureDaemonSet(
 	annotations k8sannotations.Annotation,
 	workloadSpec *workloadSpec,
 	containers []specs.ContainerSpec,
-) (func(), error) {
+	filesystems []storage.KubernetesFilesystemParams,
+) (cleanUps []func(), err error) {
 	logger.Debugf("creating/updating daemon set for %s", appName)
-	cleanUp := func() {}
 
 	// Add the specified file to the pod spec.
 	cfgName := func(fileSetName string) string {
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
 	if err := k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgName); err != nil {
-		return cleanUp, errors.Trace(err)
+		return cleanUps, errors.Trace(err)
+	}
+
+	storageUniqueID, err := k.getStorageUniqPrefix(func() (annotationGetter, error) {
+		return k.getDaemonSet(deploymentName)
+	})
+	if err != nil {
+		return cleanUps, errors.Trace(err)
 	}
 	daemonSet := &apps.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        deploymentName,
-			Labels:      k.getDaemonSetLabels(appName),
-			Annotations: annotations.ToMap()},
+			Name:   deploymentName,
+			Labels: k.getDaemonSetLabels(appName),
+			Annotations: k8sannotations.New(nil).
+				Merge(annotations).
+				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
+		},
 		Spec: apps.DaemonSetSpec{
 			// TODO(caas): DaemonSetUpdateStrategy support.
 			Selector: &v1.LabelSelector{
@@ -1704,7 +1772,20 @@ func (k *kubernetesClient) configureDaemonSet(
 			},
 		},
 	}
-	return k.ensureDaemonSet(daemonSet)
+	handlePVC := func(pvc core.PersistentVolumeClaim, mountPath string, readOnly bool) error {
+		cs, err := k.configurePVCForStatelessResource(pvc, mountPath, readOnly, &daemonSet.Spec.Template.Spec)
+		cleanUps = append(cleanUps, cs...)
+		return errors.Trace(err)
+	}
+	// Storage support for daemonset is new.
+	legacy := false
+	if err := k.configureStorage(appName, legacy, storageUniqueID, filesystems, &daemonSet.Spec.Template.Spec, handlePVC); err != nil {
+		return cleanUps, errors.Trace(err)
+	}
+
+	cU, err := k.ensureDaemonSet(daemonSet)
+	cleanUps = append(cleanUps, cU)
+	return cleanUps, errors.Trace(err)
 }
 
 func (k *kubernetesClient) configureDeployment(
@@ -1713,7 +1794,8 @@ func (k *kubernetesClient) configureDeployment(
 	workloadSpec *workloadSpec,
 	containers []specs.ContainerSpec,
 	replicas *int32,
-) error {
+	filesystems []storage.KubernetesFilesystemParams,
+) (cleanUps []func(), err error) {
 	logger.Debugf("creating/updating deployment for %s", appName)
 
 	// Add the specified file to the pod spec.
@@ -1721,13 +1803,23 @@ func (k *kubernetesClient) configureDeployment(
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
 	if err := k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgName); err != nil {
-		return errors.Trace(err)
+		return cleanUps, errors.Trace(err)
+	}
+
+	storageUniqueID, err := k.getStorageUniqPrefix(func() (annotationGetter, error) {
+		return k.getDeployment(deploymentName)
+	})
+	if err != nil {
+		return cleanUps, errors.Trace(err)
 	}
 	deployment := &apps.Deployment{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        deploymentName,
-			Labels:      map[string]string{labelApplication: appName},
-			Annotations: annotations.ToMap()},
+			Name:   deploymentName,
+			Labels: map[string]string{labelApplication: appName},
+			Annotations: k8sannotations.New(nil).
+				Merge(annotations).
+				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
+		},
 		Spec: apps.DeploymentSpec{
 			// TODO(caas): DeploymentStrategy support.
 			Replicas:             replicas,
@@ -1745,7 +1837,48 @@ func (k *kubernetesClient) configureDeployment(
 			},
 		},
 	}
-	return k.ensureDeployment(deployment)
+	handlePVC := func(pvc core.PersistentVolumeClaim, mountPath string, readOnly bool) error {
+		cs, err := k.configurePVCForStatelessResource(pvc, mountPath, readOnly, &deployment.Spec.Template.Spec)
+		cleanUps = append(cleanUps, cs...)
+		return errors.Trace(err)
+	}
+	// Storage support for deployment is new.
+	legacy := false
+	if err := k.configureStorage(appName, legacy, storageUniqueID, filesystems, &deployment.Spec.Template.Spec, handlePVC); err != nil {
+		return cleanUps, errors.Trace(err)
+	}
+	if err = k.ensureDeployment(deployment); err != nil {
+		return cleanUps, errors.Trace(err)
+	}
+	cleanUps = append(cleanUps, func() { _ = k.deleteDeployment(appName) })
+	return cleanUps, nil
+}
+
+func (k *kubernetesClient) configurePVCForStatelessResource(
+	spec core.PersistentVolumeClaim, mountPath string, readOnly bool, podSpec *core.PodSpec,
+) (cleanUps []func(), err error) {
+	pvc, pvcCleanUp, err := k.ensurePVC(&spec)
+	cleanUps = append(cleanUps, pvcCleanUp)
+	if err != nil {
+		return cleanUps, errors.Annotatef(err, "ensuring PVC %q", spec.GetName())
+	}
+	vol := core.Volume{
+		Name: pvc.GetName(),
+		VolumeSource: core.VolumeSource{
+			PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
+				ClaimName: pvc.GetName(),
+				ReadOnly:  readOnly,
+			},
+		},
+	}
+	if err = pushUniqueVolume(podSpec, vol); err != nil {
+		return cleanUps, errors.Trace(err)
+	}
+	podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
+		Name:      vol.Name,
+		MountPath: mountPath,
+	})
+	return cleanUps, nil
 }
 
 func (k *kubernetesClient) ensureDeployment(spec *apps.Deployment) error {
@@ -1755,6 +1888,14 @@ func (k *kubernetesClient) ensureDeployment(spec *apps.Deployment) error {
 		_, err = deployments.Create(spec)
 	}
 	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) getDeployment(name string) (*apps.Deployment, error) {
+	out, err := k.client().AppsV1().Deployments(k.namespace).Get(name, v1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NotFoundf("deployment %q", name)
+	}
+	return out, errors.Trace(err)
 }
 
 func (k *kubernetesClient) deleteDeployment(name string) error {

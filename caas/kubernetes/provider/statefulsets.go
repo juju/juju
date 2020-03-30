@@ -32,24 +32,11 @@ func (k *kubernetesClient) configureStatefulSet(
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
 
-	existingStatefulSet, err := k.getStatefulSet(deploymentName)
-	if err != nil && !errors.IsNotFound(err) {
+	storageUniqueID, err := k.getStorageUniqPrefix(func() (annotationGetter, error) {
+		return k.getStatefulSet(deploymentName)
+	})
+	if err != nil {
 		return errors.Trace(err)
-	}
-	existing := err == nil
-
-	var randPrefix string
-	// Include a random snippet in the pvc name so that if the same app
-	// is deleted and redeployed again, the pvc retains a unique name.
-	// Only generate it once, and record it on the stateful set.
-	if existing {
-		randPrefix = existingStatefulSet.Annotations[labelApplicationUUID]
-	}
-	if randPrefix == "" {
-		randPrefix, err = k.randomPrefix()
-		if err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	statefulSet := &apps.StatefulSet{
@@ -58,7 +45,7 @@ func (k *kubernetesClient) configureStatefulSet(
 			Labels: k.getStatefulSetLabels(appName),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
-				Add(labelApplicationUUID, randPrefix).ToMap(),
+				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
 		},
 		Spec: apps.StatefulSetSpec{
 			Replicas: replicas,
@@ -82,10 +69,21 @@ func (k *kubernetesClient) configureStatefulSet(
 	podSpec := workloadSpec.Pod
 	existingPodSpec := podSpec
 
-	// Create a new stateful set with the necessary storage config.
-	legacy := isLegacyName(deploymentName)
-	if err := k.configureStorage(&podSpec, &statefulSet.Spec, appName, randPrefix, legacy, filesystems); err != nil {
-		return errors.Annotatef(err, "configuring storage for %s", appName)
+	handlePVC := func(pvc core.PersistentVolumeClaim, mountPath string, readOnly bool) error {
+		if readOnly {
+			logger.Warningf("set storage mode to ReadOnlyMany if read only storage is needed")
+		}
+		if err := pushUniqueVolumeClaimTemplate(&statefulSet.Spec, pvc); err != nil {
+			return errors.Trace(err)
+		}
+		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
+			Name:      pvc.Name,
+			MountPath: mountPath,
+		})
+		return nil
+	}
+	if err = k.configureStorage(appName, isLegacyName(deploymentName), storageUniqueID, filesystems, &podSpec, handlePVC); err != nil {
+		return errors.Trace(err)
 	}
 	statefulSet.Spec.Template.Spec = podSpec
 	return k.ensureStatefulSet(statefulSet, existingPodSpec)
@@ -109,8 +107,8 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(caas) - allow extra storage to be added
 	existing.Spec.Replicas = spec.Spec.Replicas
+	// TODO(caas) - allow storage `request` configurable - currently we only allow `limit`.
 	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
 	existing.Spec.Template.Spec.ServiceAccountName = existingPodSpec.ServiceAccountName
 	existing.Spec.Template.Spec.AutomountServiceAccountToken = existingPodSpec.AutomountServiceAccountToken
