@@ -1,5 +1,5 @@
 run_shellcheck() {
-  OUT=$(shellcheck --shell sh tests/*.sh tests/includes/*.sh tests/suites/**/*.sh 2>&1 || true)
+  OUT=$(shellcheck --shell sh tests/main.sh tests/includes/*.sh tests/suites/**/*.sh 2>&1 || true)
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues:')"
@@ -9,7 +9,8 @@ run_shellcheck() {
 }
 
 run_whitespace() {
-  OUT=$(grep -Pr '\t' tests/ | grep '\.sh:' || true)
+  # shellcheck disable=SC2063
+  OUT=$(grep -n -r --include "*.sh" "$(printf '\t')" tests/ | grep -oP "^.*:\d+" || true)
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues:')"
@@ -20,7 +21,8 @@ run_whitespace() {
 }
 
 run_trailing_whitespace() {
-  OUT=$(grep -nr " $" tests/ | grep '\.sh:' || true)
+  # shellcheck disable=SC2063
+  OUT=$(grep -n -r --include "*.sh" " $" tests/ | grep -oP "^.*:\d+" || true)
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues:')"
