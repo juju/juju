@@ -700,7 +700,7 @@ type RelationStatus struct {
 	InScope bool
 }
 
-// RelationsInScope returns the tags of the relations the unit has joined
+// RelationStatus returns the tags of the relations the unit has joined
 // and entered scope, or the relation is suspended.
 func (u *Unit) RelationsStatus() ([]RelationStatus, error) {
 	args := params.Entities{

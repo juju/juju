@@ -31,7 +31,7 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 	switch {
 	case hi.Kind.IsRelation():
 		var err error
-		name, err = opc.u.relations.PrepareHook(hi)
+		name, err = opc.u.relationStateTracker.PrepareHook(hi)
 		if err != nil {
 			return "", err
 		}
@@ -60,7 +60,7 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 	switch {
 	case hi.Kind.IsRelation():
-		return opc.u.relations.CommitHook(hi)
+		return opc.u.relationStateTracker.CommitHook(hi)
 	case hi.Kind.IsStorage():
 		return opc.u.storage.CommitHook(hi)
 	}

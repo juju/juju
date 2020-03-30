@@ -208,7 +208,7 @@ func (s *FactorySuite) TestNewHookString_Skip(c *gc.C) {
 		RelationId:        123,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(op.String(), gc.Equals, "skip run relation-joined (123; foo/22) hook")
+	c.Check(op.String(), gc.Equals, "skip run relation-joined (123; unit: foo/22) hook")
 }
 
 func (s *FactorySuite) TestNewAcceptLeadershipString(c *gc.C) {

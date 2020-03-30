@@ -28,6 +28,7 @@ type ResolverConfig struct {
 	UpgradeSeries       resolver.Resolver
 	Leadership          resolver.Resolver
 	Actions             resolver.Resolver
+	CreatedRelations    resolver.Resolver
 	Relations           resolver.Resolver
 	Storage             resolver.Resolver
 	Commands            resolver.Resolver
@@ -98,6 +99,11 @@ func (s *uniterResolver) NextOp(
 		// timer now to reset the backoff state.
 		s.config.StopRetryHookTimer()
 		s.retryHookTimerStarted = false
+	}
+
+	op, err = s.config.CreatedRelations.NextOp(localState, remoteState, opFactory)
+	if errors.Cause(err) != resolver.ErrNoOperation {
+		return op, err
 	}
 
 	op, err = s.config.Leadership.NextOp(localState, remoteState, opFactory)

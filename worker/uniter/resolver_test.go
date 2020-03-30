@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/leadership"
 	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/storage"
@@ -91,7 +90,8 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 		UpgradeSeries:       upgradeseries.NewResolver(),
 		Leadership:          leadership.NewResolver(),
 		Actions:             uniteractions.NewResolver(),
-		Relations:           relation.NewRelationsResolver(&dummyRelations{}),
+		CreatedRelations:    nopResolver{},
+		Relations:           nopResolver{},
 		Storage:             storage.NewResolver(attachments, s.modelType),
 		Commands:            nopResolver{},
 		ModelType:           s.modelType,

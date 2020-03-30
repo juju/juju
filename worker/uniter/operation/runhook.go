@@ -40,9 +40,9 @@ func (rh *runHook) String() string {
 	switch {
 	case rh.info.Kind.IsRelation():
 		if rh.info.RemoteUnit == "" {
-			suffix = fmt.Sprintf(" (%d)", rh.info.RelationId)
+			suffix = fmt.Sprintf(" (%d; app: %s)", rh.info.RelationId, rh.info.RemoteApplication)
 		} else {
-			suffix = fmt.Sprintf(" (%d; %s)", rh.info.RelationId, rh.info.RemoteUnit)
+			suffix = fmt.Sprintf(" (%d; unit: %s)", rh.info.RelationId, rh.info.RemoteUnit)
 		}
 	case rh.info.Kind.IsStorage():
 		suffix = fmt.Sprintf(" (%s)", rh.info.StorageId)

@@ -78,9 +78,10 @@ type Uniter struct {
 	paths     Paths
 	unit      *uniter.Unit
 	modelType model.ModelType
-	relations relation.Relations
 	storage   *storage.Attachments
 	clock     clock.Clock
+
+	relationStateTracker relation.RelationStateTracker
 
 	// Cache the last reported status information
 	// so we don't make unnecessary api calls.
@@ -407,7 +408,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			Actions:             actions.NewResolver(),
 			UpgradeSeries:       upgradeseries.NewResolver(),
 			Leadership:          uniterleadership.NewResolver(),
-			Relations:           relation.NewRelationsResolver(u.relations),
+			CreatedRelations:    relation.NewCreatedRelationResolver(u.relationStateTracker),
+			Relations:           relation.NewRelationResolver(u.relationStateTracker, u.unit),
 			Storage:             storage.NewResolver(u.storage, u.modelType),
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
@@ -575,8 +577,8 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err := os.MkdirAll(u.paths.State.RelationsDir, 0755); err != nil {
 		return errors.Trace(err)
 	}
-	relations, err := relation.NewRelations(
-		relation.RelationsConfig{
+	relStateTracker, err := relation.NewRelationStateTracker(
+		relation.RelationStateTrackerConfig{
 			State:                u.st,
 			UnitTag:              unitTag,
 			Tracker:              u.leadershipTracker,
@@ -586,9 +588,9 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 			Abort:                u.catacomb.Dying(),
 		})
 	if err != nil {
-		return errors.Annotatef(err, "cannot create relations")
+		return errors.Annotatef(err, "cannot create relation state tracker")
 	}
-	u.relations = relations
+	u.relationStateTracker = relStateTracker
 	u.commands = runcommands.NewCommands()
 	u.commandChannel = make(chan string)
 
@@ -620,7 +622,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		State:            u.st,
 		Unit:             u.unit,
 		Tracker:          u.leadershipTracker,
-		GetRelationInfos: u.relations.GetInfo,
+		GetRelationInfos: u.relationStateTracker.GetInfo,
 		Storage:          u.storage,
 		Paths:            u.paths,
 		Clock:            u.clock,
@@ -756,7 +758,7 @@ func (u *Uniter) reportHookError(hookInfo hook.Info) error {
 		if hookInfo.RemoteUnit != "" {
 			statusData["remote-unit"] = hookInfo.RemoteUnit
 		}
-		relationName, err := u.relations.Name(hookInfo.RelationId)
+		relationName, err := u.relationStateTracker.Name(hookInfo.RelationId)
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -7,21 +7,11 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/storage"
 )
-
-type dummyRelations struct {
-	relation.Relations
-}
-
-func (*dummyRelations) NextHook(_ resolver.LocalState, _ remotestate.Snapshot) (hook.Info, error) {
-	return hook.Info{}, resolver.ErrNoOperation
-}
 
 type dummyStorageAccessor struct {
 	storage.StorageAccessor
