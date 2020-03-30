@@ -73,7 +73,7 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
-func (s *K8sSuite) TestPushUniqVolume(c *gc.C) {
+func (s *K8sSuite) TestPushUniqueVolume(c *gc.C) {
 	podSpec := &core.PodSpec{}
 
 	vol1 := core.Volume{
@@ -90,15 +90,15 @@ func (s *K8sSuite) TestPushUniqVolume(c *gc.C) {
 			},
 		},
 	}
-	provider.PushUniqVolume(podSpec, vol1)
+	provider.PushUniqueVolume(podSpec, vol1)
 	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
 		vol1,
 	})
-	provider.PushUniqVolume(podSpec, vol1)
+	provider.PushUniqueVolume(podSpec, vol1)
 	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
 		vol1,
 	})
-	provider.PushUniqVolume(podSpec, vol2)
+	provider.PushUniqueVolume(podSpec, vol2)
 	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
 		vol1, vol2,
 	})

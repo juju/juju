@@ -77,7 +77,7 @@ func (k *kubernetesClient) ensureCustomResourceDefinition(crd *apiextensionsv1be
 	api := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions()
 	logger.Debugf("creating custom resource definition %q", crd.GetName())
 	if out, err = api.Create(crd); err == nil {
-		cleanUps = append(cleanUps, func() { k.deleteCustomResourceDefinition(out.GetName(), out.GetUID()) })
+		cleanUps = append(cleanUps, func() {  _ = k.deleteCustomResourceDefinition(out.GetName(), out.GetUID()) })
 		return out, cleanUps, nil
 
 	}

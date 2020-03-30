@@ -1147,7 +1147,7 @@ func (k *kubernetesClient) EnsureService(
 		if err := k.ensureOCIImageSecret(imageSecretName, appName, &c.ImageDetails, annotations.Copy()); err != nil {
 			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
 		}
-		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName, "") })
+		cleanups = append(cleanups, func() { _ = k.deleteSecret(imageSecretName, "") })
 	}
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
 	// Defensively check to see if a stateful set is already used.
@@ -1214,11 +1214,11 @@ func (k *kubernetesClient) EnsureService(
 		if err := k.configureHeadlessService(appName, deploymentName, annotations.Copy()); err != nil {
 			return errors.Annotate(err, "creating or updating headless service")
 		}
-		cleanups = append(cleanups, func() { k.deleteService(headlessServiceName(deploymentName)) })
+		cleanups = append(cleanups, func() { _ = k.deleteService(headlessServiceName(deploymentName)) })
 		if err := k.configureStatefulSet(appName, deploymentName, annotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
 		}
-		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
+		cleanups = append(cleanups, func() { _ = k.deleteDeployment(appName) })
 	case caas.DeploymentStateless:
 		cleanUpDeployment, err := k.configureDeployment(appName, deploymentName, annotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems)
 		cleanups = append(cleanups, cleanUpDeployment...)
@@ -1404,8 +1404,8 @@ type annotationGetter interface {
 // This random snippet will be included to the pvc name so that if the same app
 // is deleted and redeployed again, the pvc retains a unique name.
 // Only generate it once, and record it on the workload resource annotations .
-func (k *kubernetesClient) getStorageUniqPrefix(f func() (annotationGetter, error)) (string, error) {
-	r, err := f()
+func (k *kubernetesClient) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (string, error) {
+	r, err := getMeta()
 	if err == nil {
 		if uniqID := r.GetAnnotations()[annotationKeyApplicationUUID]; uniqID != "" {
 			return uniqID, nil
@@ -1464,7 +1464,7 @@ func (k *kubernetesClient) configurePodFiles(
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if err = pushUniqVolume(&workloadSpec.Pod, vol); err != nil {
+			if err = pushUniqueVolume(&workloadSpec.Pod, vol); err != nil {
 				return errors.Trace(err)
 			}
 			workloadSpec.Pod.Containers[i].VolumeMounts = append(workloadSpec.Pod.Containers[i].VolumeMounts, core.VolumeMount{
@@ -1481,7 +1481,7 @@ func (k *kubernetesClient) configureStorage(
 	appName string, legacy bool, uniquePrefix string,
 	filesystems []storage.KubernetesFilesystemParams,
 	podSpec *core.PodSpec,
-	handlePVC func(core.PersistentVolumeClaim, string) error,
+	handlePVC func(core.PersistentVolumeClaim, string, bool) error,
 ) error {
 	pvcNameGetter := func(i int, storageName string) string {
 		s := fmt.Sprintf("%s-%s", storageName, uniquePrefix)
@@ -1497,6 +1497,11 @@ func (k *kubernetesClient) configureStorage(
 		}
 		fsNames.Add(fs.StorageName)
 
+		readOnly := false
+		if fs.Attachment != nil {
+			readOnly = fs.Attachment.ReadOnly
+		}
+
 		vol, pvc, err := k.filesystemToVolumeInfo(i, fs, pvcNameGetter)
 		if err != nil {
 			return errors.Trace(err)
@@ -1504,7 +1509,7 @@ func (k *kubernetesClient) configureStorage(
 		mountPath := getMountPathForFilesystem(i, appName, fs)
 		if vol != nil {
 			logger.Debugf("using volume for %s filesystem %s: %s", appName, fs.StorageName, pretty.Sprint(*vol))
-			if err = pushUniqVolume(podSpec, *vol); err != nil {
+			if err = pushUniqueVolume(podSpec, *vol); err != nil {
 				return errors.Trace(err)
 			}
 			podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
@@ -1514,7 +1519,7 @@ func (k *kubernetesClient) configureStorage(
 		}
 		if pvc != nil && handlePVC != nil {
 			logger.Debugf("using persistent volume claim for %s filesystem %s: %s", appName, fs.StorageName, pretty.Sprint(*pvc))
-			if err = handlePVC(*pvc, mountPath); err != nil {
+			if err = handlePVC(*pvc, mountPath, readOnly); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -1522,8 +1527,8 @@ func (k *kubernetesClient) configureStorage(
 	return nil
 }
 
-// pushUniqVolume ensures to only add unique volumes because k8s will not schedule pods if it has duplicated volumes.
-func pushUniqVolume(podSpec *core.PodSpec, vol core.Volume) error {
+// pushUniqueVolume ensures to only add unique volumes because k8s will not schedule pods if it has duplicated volumes.
+func pushUniqueVolume(podSpec *core.PodSpec, vol core.Volume) error {
 	for _, v := range podSpec.Volumes {
 		if v.Name == vol.Name {
 			if reflect.DeepEqual(v, vol) {
@@ -1536,7 +1541,7 @@ func pushUniqVolume(podSpec *core.PodSpec, vol core.Volume) error {
 	return nil
 }
 
-func pushUniqVolumeClaimTemplate(spec *apps.StatefulSetSpec, pvc core.PersistentVolumeClaim) error {
+func pushUniqueVolumeClaimTemplate(spec *apps.StatefulSetSpec, pvc core.PersistentVolumeClaim) error {
 	for _, v := range spec.VolumeClaimTemplates {
 		if v.Name == pvc.Name {
 			// PVC name has to be unique.
@@ -1764,14 +1769,14 @@ func (k *kubernetesClient) configureDaemonSet(
 			},
 		},
 	}
-	handelPVC := func(pvc core.PersistentVolumeClaim, mountPath string) error {
-		cs, err := k.configurePVCForStatelessResource(pvc, mountPath, &daemonSet.Spec.Template.Spec)
+	handlePVC := func(pvc core.PersistentVolumeClaim, mountPath string, readOnly bool) error {
+		cs, err := k.configurePVCForStatelessResource(pvc, mountPath, readOnly, &daemonSet.Spec.Template.Spec)
 		cleanUps = append(cleanUps, cs...)
 		return errors.Trace(err)
 	}
 	// Storage support for daemonset is new.
 	legacy := false
-	if err := k.configureStorage(appName, legacy, storageUniqueID, filesystems, &daemonSet.Spec.Template.Spec, handelPVC); err != nil {
+	if err := k.configureStorage(appName, legacy, storageUniqueID, filesystems, &daemonSet.Spec.Template.Spec, handlePVC); err != nil {
 		return cleanUps, errors.Trace(err)
 	}
 
@@ -1829,24 +1834,26 @@ func (k *kubernetesClient) configureDeployment(
 			},
 		},
 	}
-	handelPVC := func(pvc core.PersistentVolumeClaim, mountPath string) error {
-		cs, err := k.configurePVCForStatelessResource(pvc, mountPath, &deployment.Spec.Template.Spec)
+	handlePVC := func(pvc core.PersistentVolumeClaim, mountPath string, readOnly bool) error {
+		cs, err := k.configurePVCForStatelessResource(pvc, mountPath, readOnly, &deployment.Spec.Template.Spec)
 		cleanUps = append(cleanUps, cs...)
 		return errors.Trace(err)
 	}
 	// Storage support for deployment is new.
 	legacy := false
-	if err := k.configureStorage(appName, legacy, storageUniqueID, filesystems, &deployment.Spec.Template.Spec, handelPVC); err != nil {
+	if err := k.configureStorage(appName, legacy, storageUniqueID, filesystems, &deployment.Spec.Template.Spec, handlePVC); err != nil {
 		return cleanUps, errors.Trace(err)
 	}
 	if err = k.ensureDeployment(deployment); err != nil {
 		return cleanUps, errors.Trace(err)
 	}
-	cleanUps = append(cleanUps, func() { k.deleteDeployment(appName) })
+	cleanUps = append(cleanUps, func() { _ = k.deleteDeployment(appName) })
 	return cleanUps, nil
 }
 
-func (k *kubernetesClient) configurePVCForStatelessResource(spec core.PersistentVolumeClaim, mountPath string, podSpec *core.PodSpec) (cleanUps []func(), err error) {
+func (k *kubernetesClient) configurePVCForStatelessResource(
+	spec core.PersistentVolumeClaim, mountPath string, readOnly bool, podSpec *core.PodSpec,
+) (cleanUps []func(), err error) {
 	pvc, pvcCleanUp, err := k.ensurePVC(&spec)
 	cleanUps = append(cleanUps, pvcCleanUp)
 	if err != nil {
@@ -1857,12 +1864,11 @@ func (k *kubernetesClient) configurePVCForStatelessResource(spec core.Persistent
 		VolumeSource: core.VolumeSource{
 			PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
 				ClaimName: pvc.GetName(),
-				// TODO(caas): support readonly.
-				ReadOnly: false,
+				ReadOnly:  readOnly,
 			},
 		},
 	}
-	if err = pushUniqVolume(podSpec, vol); err != nil {
+	if err = pushUniqueVolume(podSpec, vol); err != nil {
 		return cleanUps, errors.Trace(err)
 	}
 	podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{

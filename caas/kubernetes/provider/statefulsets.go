@@ -69,8 +69,11 @@ func (k *kubernetesClient) configureStatefulSet(
 	podSpec := workloadSpec.Pod
 	existingPodSpec := podSpec
 
-	handelPVC := func(pvc core.PersistentVolumeClaim, mountPath string) error {
-		if err := pushUniqVolumeClaimTemplate(&statefulSet.Spec, pvc); err != nil {
+	handlePVC := func(pvc core.PersistentVolumeClaim, mountPath string, readOnly bool) error {
+		if readOnly {
+			logger.Warningf("set storage mode to ReadOnlyMany if read only storage is needed")
+		}
+		if err := pushUniqueVolumeClaimTemplate(&statefulSet.Spec, pvc); err != nil {
 			return errors.Trace(err)
 		}
 		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
@@ -79,7 +82,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		})
 		return nil
 	}
-	if err = k.configureStorage(appName, isLegacyName(deploymentName), storageUniqueID, filesystems, &podSpec, handelPVC); err != nil {
+	if err = k.configureStorage(appName, isLegacyName(deploymentName), storageUniqueID, filesystems, &podSpec, handlePVC); err != nil {
 		return errors.Trace(err)
 	}
 	statefulSet.Spec.Template.Spec = podSpec

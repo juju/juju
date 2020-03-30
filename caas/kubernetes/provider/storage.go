@@ -106,7 +106,7 @@ func (k *kubernetesClient) ensurePVC(pvc *core.PersistentVolumeClaim) (*core.Per
 	out, err := k.createPVC(pvc)
 	if err == nil {
 		// Only do cleanup for the first time!
-		cleanUp = func() { k.deletePVC(out.GetName(), out.GetUID()) }
+		cleanUp = func() { _ = k.deletePVC(out.GetName(), out.GetUID()) }
 		return out, cleanUp, nil
 	}
 	if !errors.IsAlreadyExists(err) {

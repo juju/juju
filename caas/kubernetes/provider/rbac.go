@@ -213,7 +213,7 @@ func (k *kubernetesClient) ensureServiceAccount(sa *core.ServiceAccount) (out *c
 	out, err = k.createServiceAccount(sa)
 	if err == nil {
 		logger.Debugf("service account %q created", out.GetName())
-		cleanups = append(cleanups, func() { k.deleteServiceAccount(out.GetName(), out.GetUID()) })
+		cleanups = append(cleanups, func() {  _ = k.deleteServiceAccount(out.GetName(), out.GetUID()) })
 		return out, cleanups, nil
 	}
 	if !errors.IsAlreadyExists(err) {
@@ -295,7 +295,7 @@ func (k *kubernetesClient) ensureRole(role *rbacv1.Role) (out *rbacv1.Role, clea
 	out, err = k.createRole(role)
 	if err == nil {
 		logger.Debugf("role %q created", out.GetName())
-		cleanups = append(cleanups, func() { k.deleteRole(out.GetName(), out.GetUID()) })
+		cleanups = append(cleanups, func() {  _ = k.deleteRole(out.GetName(), out.GetUID()) })
 		return out, cleanups, nil
 	}
 	if !errors.IsAlreadyExists(err) {
@@ -377,7 +377,7 @@ func (k *kubernetesClient) ensureClusterRole(cRole *rbacv1.ClusterRole) (out *rb
 	out, err = k.createClusterRole(cRole)
 	if err == nil {
 		logger.Debugf("cluster role %q created", out.GetName())
-		cleanups = append(cleanups, func() { k.deleteClusterRole(out.GetName(), out.GetUID()) })
+		cleanups = append(cleanups, func() {  _ = k.deleteClusterRole(out.GetName(), out.GetUID()) })
 		return out, cleanups, nil
 	}
 	if !errors.IsAlreadyExists(err) {
@@ -520,7 +520,7 @@ func (k *kubernetesClient) ensureRoleBinding(rb *rbacv1.RoleBinding) (out *rbacv
 	}
 	if isFirstDeploy {
 		// only do cleanup for the first time, don't do this for existing deployments.
-		cleanups = append(cleanups, func() { k.deleteRoleBinding(out.GetName(), out.GetUID()) })
+		cleanups = append(cleanups, func() {  _ = k.deleteRoleBinding(out.GetName(), out.GetUID()) })
 	}
 	logger.Debugf("role binding %q created", rb.GetName())
 	return out, cleanups, nil
@@ -619,7 +619,7 @@ func (k *kubernetesClient) ensureClusterRoleBinding(crb *rbacv1.ClusterRoleBindi
 		return nil, cleanups, errors.Trace(err)
 	}
 	if isFirstDeploy {
-		cleanups = append(cleanups, func() { k.deleteClusterRoleBinding(out.GetName(), out.GetUID()) })
+		cleanups = append(cleanups, func() {  _ = k.deleteClusterRoleBinding(out.GetName(), out.GetUID()) })
 	}
 	logger.Debugf("cluster role binding %q created", crb.GetName())
 	return out, cleanups, nil
