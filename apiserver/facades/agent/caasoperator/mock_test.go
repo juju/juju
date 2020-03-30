@@ -232,6 +232,10 @@ func (ch *mockCharm) BundleSha256() string {
 	return ch.sha256
 }
 
+func (ch *mockCharm) Meta() *charm.Meta {
+	return &charm.Meta{Deployment: &charm.Deployment{DeploymentMode: charm.ModeOperator}}
+}
+
 type mockBroker struct {
 	testing.Stub
 	watcher corewatcher.StringsWatcher

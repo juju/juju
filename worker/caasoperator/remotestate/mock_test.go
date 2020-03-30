@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
 
+	caasoperatorapi "github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -79,6 +80,11 @@ type mockCharmGetter struct {
 	version int
 }
 
-func (m *mockCharmGetter) Charm(application string) (_ *charm.URL, force bool, sha256 string, vers int, _ error) {
-	return m.curl, m.force, m.sha256, m.version, nil
+func (m *mockCharmGetter) Charm(application string) (*caasoperatorapi.CharmInfo, error) {
+	return &caasoperatorapi.CharmInfo{
+		URL:                  m.curl,
+		ForceUpgrade:         m.force,
+		SHA256:               m.sha256,
+		CharmModifiedVersion: m.version,
+	}, nil
 }

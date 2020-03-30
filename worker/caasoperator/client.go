@@ -7,6 +7,7 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 
+	caasoperatorapi "github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
@@ -31,7 +32,7 @@ type Client interface {
 // the URL and SHA256 hash of the charm currently
 // assigned to the application.
 type CharmGetter interface {
-	Charm(application string) (_ *charm.URL, force bool, sha256 string, vers int, _ error)
+	Charm(application string) (*caasoperatorapi.CharmInfo, error)
 }
 
 // UnitGetter provides an interface for watching for

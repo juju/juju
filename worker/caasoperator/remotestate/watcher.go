@@ -143,14 +143,14 @@ func (w *RemoteStateWatcher) loop() (err error) {
 
 // applicationChanged responds to changes in the application.
 func (w *RemoteStateWatcher) applicationChanged() error {
-	url, force, _, ver, err := w.config.CharmGetter.Charm(w.application)
+	info, err := w.config.CharmGetter.Charm(w.application)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	w.mu.Lock()
-	w.current.CharmURL = url
-	w.current.ForceCharmUpgrade = force
-	w.current.CharmModifiedVersion = ver
+	w.current.CharmURL = info.URL
+	w.current.ForceCharmUpgrade = info.ForceUpgrade
+	w.current.CharmModifiedVersion = info.CharmModifiedVersion
 	w.mu.Unlock()
 	return nil
 }

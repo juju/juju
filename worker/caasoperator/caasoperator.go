@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
 	jujuversion "github.com/juju/juju/version"
@@ -59,12 +60,13 @@ var (
 // delegated to Mode values, which are expected to react to events and direct
 // the caasoperator's responses to them.
 type caasOperator struct {
-	catacomb  catacomb.Catacomb
-	config    Config
-	paths     Paths
-	runner    *worker.Runner
-	deployer  jujucharm.Deployer
-	stateFile *StateFile
+	catacomb       catacomb.Catacomb
+	config         Config
+	paths          Paths
+	runner         *worker.Runner
+	deployer       jujucharm.Deployer
+	stateFile      *StateFile
+	deploymentMode caas.DeploymentMode
 }
 
 // Config hold the configuration for a caasoperator worker.
@@ -378,20 +380,20 @@ func (op *caasOperator) loop() (err error) {
 	}
 
 	var (
-		watcher   remotestate.Watcher
-		watcherMu sync.Mutex
+		remoteWatcher remotestate.Watcher
+		watcherMu     sync.Mutex
 	)
 
 	restartWatcher := func() error {
 		watcherMu.Lock()
 		defer watcherMu.Unlock()
 
-		if watcher != nil {
+		if remoteWatcher != nil {
 			// watcher added to catacomb, will kill operator if there's an error.
-			_ = worker.Stop(watcher)
+			_ = worker.Stop(remoteWatcher)
 		}
 		var err error
-		watcher, err = remotestate.NewWatcher(
+		remoteWatcher, err = remotestate.NewWatcher(
 			remotestate.WatcherConfig{
 				CharmGetter:        op.config.CharmGetter,
 				Application:        op.config.Application,
@@ -400,7 +402,7 @@ func (op *caasOperator) loop() (err error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if err := op.catacomb.Add(watcher); err != nil {
+		if err := op.catacomb.Add(remoteWatcher); err != nil {
 			return errors.Trace(err)
 		}
 		return nil
@@ -414,12 +416,16 @@ func (op *caasOperator) loop() (err error) {
 		return errors.Trace(err)
 	}
 
-	containerStartWatcher, err := op.config.ContainerStartWatcher.WatchContainerStart(op.config.Application, "")
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := op.catacomb.Add(containerStartWatcher); err != nil {
-		return errors.Trace(err)
+	var containerStartChan watcher.StringsChannel
+	if op.deploymentMode != caas.ModeOperator {
+		containerStartWatcher, err := op.config.ContainerStartWatcher.WatchContainerStart(op.config.Application, "")
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := op.catacomb.Add(containerStartWatcher); err != nil {
+			return errors.Trace(err)
+		}
+		containerStartChan = containerStartWatcher.Changes()
 	}
 
 	if err := op.setStatus(status.Active, ""); err != nil {
@@ -445,15 +451,15 @@ func (op *caasOperator) loop() (err error) {
 	select {
 	case <-op.catacomb.Dying():
 		return op.catacomb.ErrDying()
-	case <-watcher.RemoteStateChanged():
+	case <-remoteWatcher.RemoteStateChanged():
 	}
 
 	for {
 		select {
 		case <-op.catacomb.Dying():
 			return op.catacomb.ErrDying()
-		case <-watcher.RemoteStateChanged():
-			snap := watcher.Snapshot()
+		case <-remoteWatcher.RemoteStateChanged():
+			snap := remoteWatcher.Snapshot()
 			if charmModified(localState, snap) {
 				// Charm changed so download and install the new version.
 				err := op.ensureCharm(localState)
@@ -474,7 +480,7 @@ func (op *caasOperator) loop() (err error) {
 					}
 				}
 			}
-		case units, ok := <-containerStartWatcher.Changes():
+		case units, ok := <-containerStartChan:
 			if !ok {
 				return errors.New("container start watcher closed channel")
 			}
@@ -519,7 +525,7 @@ func (op *caasOperator) loop() (err error) {
 					if _, ok := aliveUnits[unitID]; !ok {
 						aliveUnits[unitID] = make(chan struct{})
 					}
-					if _, ok := unitRunningChannels[unitID]; !ok {
+					if _, ok := unitRunningChannels[unitID]; !ok && op.deploymentMode != caas.ModeOperator {
 						unitRunningChannels[unitID] = make(chan struct{})
 					}
 				}
@@ -542,9 +548,11 @@ func (op *caasOperator) loop() (err error) {
 				params.LeadershipTracker = op.config.LeadershipTrackerFunc(unitTag)
 				params.ApplicationChannel = aliveUnits[unitID]
 				params.RunningStatusChannel = unitRunningChannels[unitID]
-				params.RunningStatusFunc = func() (bool, error) {
-					// TODO(caas): call off to k8s to check container status.
-					return unitRunning.Contains(unitID), nil
+				if op.deploymentMode != caas.ModeOperator {
+					params.RunningStatusFunc = func() (bool, error) {
+						// TODO(caas): call off to k8s to check container status.
+						return unitRunning.Contains(unitID), nil
+					}
 				}
 				if err := op.config.StartUniterFunc(op.runner, params); err != nil {
 					return errors.Trace(err)

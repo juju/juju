@@ -33,11 +33,13 @@ func (c *charmInfo) ArchiveSha256() (string, error) {
 }
 
 func (op *caasOperator) ensureCharm(localState *LocalState) error {
-	curl, _, sha256, vers, err := op.config.CharmGetter.Charm(op.config.Application)
+	dbCharmInfo, err := op.config.CharmGetter.Charm(op.config.Application)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	localState.CharmModifiedVersion = vers
+	op.deploymentMode = dbCharmInfo.DeploymentMode
+	localState.CharmModifiedVersion = dbCharmInfo.CharmModifiedVersion
+	curl := dbCharmInfo.URL
 	if localState.CharmURL == curl {
 		logger.Debugf("charm %s already downloaded", curl)
 		return nil
@@ -46,7 +48,7 @@ func (op *caasOperator) ensureCharm(localState *LocalState) error {
 		return errors.Trace(err)
 	}
 
-	info := &charmInfo{curl: curl, sha256: sha256}
+	info := &charmInfo{curl: curl, sha256: dbCharmInfo.SHA256}
 	if err := op.deployer.Stage(info, op.catacomb.Dying()); err != nil {
 		return errors.Trace(err)
 	}

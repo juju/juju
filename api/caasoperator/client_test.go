@@ -14,6 +14,7 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 )
@@ -81,6 +82,7 @@ func (s *operatorSuite) TestCharm(c *gc.C) {
 					ForceUpgrade:         true,
 					SHA256:               "fake-sha256",
 					CharmModifiedVersion: 666,
+					DeploymentMode:       "workload",
 				},
 			}},
 		}
@@ -88,13 +90,14 @@ func (s *operatorSuite) TestCharm(c *gc.C) {
 	})
 
 	client := caasoperator.NewClient(apiCaller)
-	curl, force, sha256, vers, err := client.Charm("gitlab")
+	info, err := client.Charm("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.NotNil)
-	c.Assert(curl.String(), gc.Equals, "cs:foo/bar-1")
-	c.Assert(sha256, gc.Equals, "fake-sha256")
-	c.Assert(force, jc.IsTrue)
-	c.Assert(vers, gc.Equals, 666)
+	c.Assert(info.URL, gc.NotNil)
+	c.Assert(info.URL.String(), gc.Equals, "cs:foo/bar-1")
+	c.Assert(info.SHA256, gc.Equals, "fake-sha256")
+	c.Assert(info.ForceUpgrade, jc.IsTrue)
+	c.Assert(info.CharmModifiedVersion, gc.Equals, 666)
+	c.Assert(info.DeploymentMode, gc.Equals, caas.ModeWorkload)
 }
 
 func (s *operatorSuite) TestCharmError(c *gc.C) {
@@ -105,7 +108,7 @@ func (s *operatorSuite) TestCharmError(c *gc.C) {
 		return nil
 	})
 	client := caasoperator.NewClient(apiCaller)
-	_, _, _, _, err := client.Charm("gitlab")
+	_, err := client.Charm("gitlab")
 	c.Assert(err, gc.ErrorMatches, "bletch")
 }
 
@@ -113,7 +116,7 @@ func (s *operatorSuite) TestCharmInvalidApplicationName(c *gc.C) {
 	client := caasoperator.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")
 	}))
-	_, _, _, _, err := client.Charm("")
+	_, err := client.Charm("")
 	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }
 

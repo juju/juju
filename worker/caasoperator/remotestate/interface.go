@@ -4,9 +4,9 @@
 package remotestate
 
 import (
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/worker.v1"
 
+	caasoperatorapi "github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -22,7 +22,7 @@ type Watcher interface {
 }
 
 type charmGetter interface {
-	Charm(application string) (_ *charm.URL, force bool, sha256 string, vers int, _ error)
+	Charm(application string) (*caasoperatorapi.CharmInfo, error)
 }
 
 type applicationWatcher interface {

@@ -6112,6 +6112,9 @@
                         "charm-modified-version": {
                             "type": "integer"
                         },
+                        "deployment-mode": {
+                            "type": "string"
+                        },
                         "force-upgrade": {
                             "type": "boolean"
                         },

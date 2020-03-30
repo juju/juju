@@ -16,6 +16,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	caasoperatorapi "github.com/juju/juju/api/caasoperator"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -73,6 +75,7 @@ type fakeClient struct {
 	applicationWatched chan struct{}
 	unitRemoved        chan struct{}
 	life               life.Value
+	mode               caas.DeploymentMode
 }
 
 func (c *fakeClient) SetStatus(application string, status status.Status, message string, data map[string]interface{}) error {
@@ -80,12 +83,18 @@ func (c *fakeClient) SetStatus(application string, status status.Status, message
 	return c.NextErr()
 }
 
-func (c *fakeClient) Charm(application string) (*charm.URL, bool, string, int, error) {
+func (c *fakeClient) Charm(application string) (*caasoperatorapi.CharmInfo, error) {
 	c.MethodCall(c, "Charm", application)
 	if err := c.NextErr(); err != nil {
-		return nil, false, "", 0, err
+		return nil, err
 	}
-	return gitlabCharmURL, true, fakeCharmSHA256, fakeModifiedVersion, nil
+	return &caasoperatorapi.CharmInfo{
+		URL:                  gitlabCharmURL,
+		ForceUpgrade:         true,
+		SHA256:               fakeCharmSHA256,
+		CharmModifiedVersion: fakeModifiedVersion,
+		DeploymentMode:       c.mode,
+	}, nil
 }
 
 func (c *fakeClient) CharmConfig(application string) (charm.Settings, error) {

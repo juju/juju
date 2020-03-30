@@ -2643,6 +2643,7 @@ type CAASUnitSuite struct {
 	ConnSuite
 	charm       *state.Charm
 	application *state.Application
+	operatorApp *state.Application
 }
 
 var _ = gc.Suite(&CAASUnitSuite{})
@@ -2652,9 +2653,23 @@ func (s *CAASUnitSuite) SetUpTest(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { st.Close() })
 
+	var err error
+	s.Model, err = st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	s.application = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+
+	basicActions := `
+snapshot:
+  params:
+    outfile:
+      type: string
+      default: "abcd"
+`[1:]
+	ch = state.AddCustomCharm(c, st, "elastic-operator", "actions.yaml", basicActions, "kubernetes", 1)
+	s.operatorApp = f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 }
 
 func (s *CAASUnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
@@ -2980,4 +2995,16 @@ func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
 		c.Fatalf("watcher not closed")
 	}
 	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CAASUnitSuite) TestOperatorAddAction(c *gc.C) {
+	unit, err := s.operatorApp.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	action, err := unit.AddAction(operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(action.Parameters(), jc.DeepEquals, map[string]interface{}{
+		"outfile": "abcd", "workload-context": false,
+	})
 }
