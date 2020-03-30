@@ -155,8 +155,11 @@ func (api *UpgradeStepsAPI) WriteUniterState(args params.SetUnitStateArgs) (para
 			us.SetUniterState(*data.UniterState)
 		} else {
 			logger.Warningf("no uniter state provided for %q", uTag)
-			continue
 		}
+		if data.StorageState != nil {
+			us.SetStorageState(*data.StorageState)
+		}
+
 		err = u.SetState(us)
 		results.Results[i].Error = common.ServerError(err)
 	}

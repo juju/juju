@@ -67,12 +67,10 @@ func (s *upgradeStepsSuite) TestWriteUniterState(c *gc.C) {
 	s.expectWriteUniterStateSuccess(c, args)
 
 	client := upgradesteps.NewClientFromFacade(s.fCaller)
-	err := client.WriteUniterState(
-		map[names.Tag]string{
-			uTag0: str0,
-			uTag1: str1,
-		},
-	)
+	err := client.WriteUniterState([]params.SetUnitStateArg{
+		{Tag: uTag0.String(), UniterState: &str0},
+		{Tag: uTag1.String(), UniterState: &str1},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -87,11 +85,9 @@ func (s *upgradeStepsSuite) TestWriteUniterStateError(c *gc.C) {
 	s.expectWriteUniterStateError(c, args)
 
 	client := upgradesteps.NewClientFromFacade(s.fCaller)
-	err := client.WriteUniterState(
-		map[names.Tag]string{
-			uTag0: str0,
-		},
-	)
+	err := client.WriteUniterState([]params.SetUnitStateArg{
+		{Tag: uTag0.String(), UniterState: &str0},
+	})
 	c.Assert(err, gc.ErrorMatches, "did not find")
 }
 
