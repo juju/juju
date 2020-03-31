@@ -302,6 +302,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			NewFacade:     retrystrategy.NewFacade,
 			NewWorker:     retrystrategy.NewRetryStrategyWorker,
+			Logger:        loggo.GetLogger("juju.worker.retrystrategy"),
 		})),
 
 		// The uniter installs charms; manages the unit's presence in its

@@ -255,6 +255,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			NewFacade:     retrystrategy.NewFacade,
 			NewWorker:     retrystrategy.NewRetryStrategyWorker,
+			Logger:        loggo.GetLogger("juju.worker.retrystrategy"),
 		})),
 
 		// The operator installs and deploys charm containers;

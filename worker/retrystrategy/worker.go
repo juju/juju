@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher"
@@ -24,6 +25,7 @@ type WorkerConfig struct {
 	Facade        Facade
 	AgentTag      names.Tag
 	RetryStrategy params.RetryStrategy
+	Logger        Logger
 }
 
 // Validate returns an error if the configuration is not complete.
@@ -87,7 +89,8 @@ func (h retryStrategyHandler) Handle(_ <-chan struct{}) error {
 		return errors.Trace(err)
 	}
 	if newRetryStrategy != h.config.RetryStrategy {
-		return errors.Errorf("bouncing retrystrategy worker to get new values")
+		h.config.Logger.Debugf("bouncing retrystrategy worker to get new values")
+		return dependency.ErrBounce
 	}
 	return nil
 }

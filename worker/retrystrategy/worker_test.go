@@ -73,7 +73,7 @@ func (s WorkerSuite) TestBounce(c *gc.C) {
 	fix := newFixture(c, nil, nil, nil)
 	fix.Run(c, func(w worker.Worker) {
 		err := w.Wait()
-		c.Assert(err, gc.ErrorMatches, "bouncing retrystrategy worker to get new values")
+		c.Assert(err, gc.ErrorMatches, "restart immediately")
 	})
 	fix.CheckCallNames(c, "WatchRetryStrategy", "RetryStrategy", "RetryStrategy")
 }

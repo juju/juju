@@ -7,6 +7,7 @@ package retrystrategy_test
 import (
 	"time"
 
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -41,6 +42,7 @@ func (fix *fixture) Run(c *gc.C, test func(worker.Worker)) {
 		Facade:        stubFacade,
 		AgentTag:      stubTag,
 		RetryStrategy: stubRetryStrategy,
+		Logger:        loggo.GetLogger("test"),
 	}
 
 	w, err := retrystrategy.NewRetryStrategyWorker(stubConfig)
