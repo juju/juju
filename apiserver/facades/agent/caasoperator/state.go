@@ -52,6 +52,7 @@ type Application interface {
 type Charm interface {
 	URL() *charm.URL
 	BundleSha256() string
+	Meta() *charm.Meta
 }
 
 type stateShim struct {

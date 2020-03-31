@@ -2807,6 +2807,21 @@ func (u *Unit) AddAction(operationID, name string, payload map[string]interface{
 		return nil, err
 	}
 
+	// For k8s operators, we run the action on the operator pod by default.
+	if _, ok := payloadWithDefaults["workload-context"]; !ok {
+		app, err := u.Application()
+		if err != nil {
+			return nil, err
+		}
+		ch, _, err := app.Charm()
+		if err != nil {
+			return nil, err
+		}
+		if ch.Meta().Deployment != nil && ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
+			payloadWithDefaults["workload-context"] = false
+		}
+	}
+
 	m, err := u.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)

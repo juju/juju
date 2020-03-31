@@ -118,6 +118,7 @@ func (s *CAASOperatorSuite) TestCharm(c *gc.C) {
 				ForceUpgrade:         false,
 				SHA256:               "fake-sha256",
 				CharmModifiedVersion: 666,
+				DeploymentMode:       "operator",
 			},
 		}, {
 			Error: &params.Error{

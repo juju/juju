@@ -26,6 +26,7 @@ import (
 
 	agenttools "github.com/juju/juju/agent/tools"
 	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
@@ -168,10 +169,6 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.UniterFacadeFunc = nil
 	}, `missing UniterFacadeFunc not valid`)
-
-	s.testValidateConfig(c, func(config *caasoperator.Config) {
-		config.RunListenerSocketFunc = nil
-	}, `missing RunListenerSocketFunc not valid`)
 
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.UniterParams = nil
@@ -494,4 +491,52 @@ func (s *WorkerSuite) TestContainerStart(c *gc.C) {
 	s.client.CheckCall(c, 3, "WatchUnits", "gitlab")
 	s.client.CheckCall(c, 4, "WatchContainerStart", "gitlab", "")
 	s.client.CheckCall(c, 6, "Watch", "gitlab")
+}
+
+func (s *WorkerSuite) TestOperatorNoWaitContainerStart(c *gc.C) {
+	uniterStarted := make(chan struct{})
+	s.config.StartUniterFunc = func(runner *worker.Runner, params *uniter.UniterParams) error {
+		go func() {
+			close(uniterStarted)
+			c.Assert(params.UnitTag.Id(), gc.Equals, "gitlab/0")
+			c.Assert(params.RunningStatusChannel, gc.IsNil)
+		}()
+		return nil
+	}
+	s.client.mode = caas.ModeOperator
+
+	w, err := caasoperator.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	select {
+	case s.appChanges <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending application change")
+	}
+	select {
+	case s.unitsChanges <- []string{"gitlab/0"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending unit change")
+	}
+	select {
+	case <-s.appWatched:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for application to be watched")
+	}
+	select {
+	case <-uniterStarted:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for uniter to start")
+	}
+
+	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetVersion", "WatchUnits", "SetStatus", "Watch", "Charm", "Life")
+	s.client.CheckCall(c, 0, "Charm", "gitlab")
+	s.client.CheckCall(c, 2, "SetVersion", "gitlab", version.Binary{
+		Number: jujuversion.Current,
+		Series: series.MustHostSeries(),
+		Arch:   arch.HostArch(),
+	})
+	s.client.CheckCall(c, 3, "WatchUnits", "gitlab")
+	s.client.CheckCall(c, 5, "Watch", "gitlab")
 }

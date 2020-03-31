@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
@@ -95,32 +96,63 @@ func convertNotFound(err error) error {
 	return err
 }
 
+// CharmInfo holds info about the charm for an application.
+type CharmInfo struct {
+	// URL holds the URL of the charm assigned to the
+	// application.
+	URL *charm.URL
+
+	// ForceUpgrade indicates whether or not application
+	// units should upgrade to the charm even if they
+	// are in an error state.
+	ForceUpgrade bool
+
+	// SHA256 holds the SHA256 hash of the charm archive.
+	SHA256 string
+
+	// CharmModifiedVersion increases when the charm changes in some way.
+	CharmModifiedVersion int
+
+	// DeploymentMode is either "operator" or "workload"
+	DeploymentMode caas.DeploymentMode
+}
+
 // Charm returns information about the charm currently assigned
 // to the application, including url, force upgrade and sha etc.
-func (c *Client) Charm(application string) (_ *charm.URL, forceUpgrade bool, sha256 string, vers int, _ error) {
+func (c *Client) Charm(application string) (*CharmInfo, error) {
 	tag, err := c.appTag(application)
 	if err != nil {
-		return nil, false, "", 0, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	var results params.ApplicationCharmResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	if err := c.facade.FacadeCall("Charm", args, &results); err != nil {
-		return nil, false, "", 0, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if n := len(results.Results); n != 1 {
-		return nil, false, "", 0, errors.Errorf("expected 1 result, got %d", n)
+		return nil, errors.Trace(err)
 	}
 	if err := results.Results[0].Error; err != nil {
-		return nil, false, "", 0, errors.Trace(convertNotFound(err))
+		return nil, errors.Trace(err)
 	}
 	result := results.Results[0].Result
 	curl, err := charm.ParseURL(result.URL)
 	if err != nil {
-		return nil, false, "", 0, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return curl, result.ForceUpgrade, result.SHA256, result.CharmModifiedVersion, nil
+	// Older controllers don't set DeploymentMode, all charms are workload charms.
+	if result.DeploymentMode == "" {
+		result.DeploymentMode = string(caas.ModeWorkload)
+	}
+	return &CharmInfo{
+		URL:                  curl,
+		ForceUpgrade:         result.ForceUpgrade,
+		SHA256:               result.SHA256,
+		CharmModifiedVersion: result.CharmModifiedVersion,
+		DeploymentMode:       caas.DeploymentMode(result.DeploymentMode),
+	}, nil
 }
 
 func applicationTag(application string) (names.ApplicationTag, error) {

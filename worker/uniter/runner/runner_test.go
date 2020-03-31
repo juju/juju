@@ -75,7 +75,6 @@ const lineBufferSize = 4096
 var runHookTests = []struct {
 	summary  string
 	relid    int
-	remote   string
 	spec     hookSpec
 	err      string
 	hookType runner.HookHandlerType
@@ -560,4 +559,35 @@ func (s *RunMockContextSuite) TestRunActionOnWorkloadIgnoredIAAS(c *gc.C) {
 	c.Assert(ctx.actionResults["Code"], gc.Equals, "0")
 	c.Assert(strings.TrimRight(ctx.actionResults["Stdout"].(string), "\r\n"), gc.Equals, "1")
 	c.Assert(ctx.actionResults["Stderr"], gc.Equals, nil)
+}
+
+func (s *RunMockContextSuite) TestOperatorActionCAASSuccess(c *gc.C) {
+	expectErr := errors.New("pew pew pew")
+	params := map[string]interface{}{
+		"workload-context": false,
+	}
+	ctx := &MockContext{
+		modelType: model.CAAS,
+		actionData: &context.ActionData{
+			Params: params,
+		},
+		actionParams:  params,
+		actionResults: map[string]interface{}{},
+		flushResult:   expectErr}
+	makeCharm(c, hookSpec{
+		dir:    "actions",
+		name:   hookName,
+		perm:   0700,
+		stdout: "hello",
+		stderr: "world",
+	}, s.paths.GetCharmDir())
+	hookType, actualErr := runner.NewRunner(ctx, s.paths, nil).RunAction("something-happened")
+	c.Assert(actualErr, gc.Equals, expectErr)
+	c.Assert(hookType, gc.Equals, runner.ExplicitHookHandler)
+	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
+	c.Assert(ctx.flushFailure, gc.IsNil)
+	s.assertRecordedPid(c, ctx.expectPid)
+	c.Assert(ctx.actionResults, jc.DeepEquals, map[string]interface{}{
+		"Code": "0", "Stderr": "world\n", "Stdout": "hello\n",
+	})
 }

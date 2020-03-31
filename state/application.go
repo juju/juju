@@ -1243,9 +1243,14 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		return errors.Trace(err)
 	}
 	if cfg.Charm.Meta().Deployment != currentCharm.Meta().Deployment {
-		if currentCharm.Meta().Deployment == nil ||
-			cfg.Charm.Meta().Deployment.DeploymentType != currentCharm.Meta().Deployment.DeploymentType {
+		if currentCharm.Meta().Deployment == nil || currentCharm.Meta().Deployment == nil {
+			return errors.New("cannot change a charm's deployment info")
+		}
+		if cfg.Charm.Meta().Deployment.DeploymentType != currentCharm.Meta().Deployment.DeploymentType {
 			return errors.New("cannot change a charm's deployment type")
+		}
+		if cfg.Charm.Meta().Deployment.DeploymentMode != currentCharm.Meta().Deployment.DeploymentMode {
+			return errors.New("cannot change a charm's deployment mode")
 		}
 	}
 	// For old style charms written for only one series, we still retain

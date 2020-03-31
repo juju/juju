@@ -74,11 +74,10 @@ func (w WatcherConfig) validate() error {
 		if w.ApplicationChannel == nil {
 			return errors.NotValidf("watcher config for CAAS model with nil application channel")
 		}
-		if w.RunningStatusChannel == nil {
-			return errors.NotValidf("watcher config for CAAS model with nil running status channel")
-		}
-		if w.RunningStatusFunc == nil {
-			return errors.NotValidf("watcher config for CAAS model with nil running status func")
+		if w.RunningStatusFunc != nil {
+			if w.RunningStatusChannel == nil {
+				return errors.NotValidf("watcher config for CAAS model with nil running status channel")
+			}
 		}
 	}
 	return nil

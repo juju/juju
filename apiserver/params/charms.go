@@ -31,6 +31,9 @@ type ApplicationCharm struct {
 
 	// CharmModifiedVersion increases when the charm changes in some way.
 	CharmModifiedVersion int `json:"charm-modified-version"`
+
+	// DeploymentMode is either "operator" or "workload"
+	DeploymentMode string `json:"deployment-mode,omitempty"`
 }
 
 // CharmsList stores parameters for a charms.List call

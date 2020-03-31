@@ -313,7 +313,8 @@ func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error 
 
 // RunAction exists to satisfy the Runner interface.
 func (runner *runner) RunAction(actionName string) (HookHandlerType, error) {
-	if _, err := runner.context.ActionData(); err != nil {
+	data, err := runner.context.ActionData()
+	if err != nil {
 		return InvalidHookHandler, errors.Trace(err)
 	}
 	if actionName == actions.JujuRunActionName {
@@ -321,9 +322,11 @@ func (runner *runner) RunAction(actionName string) (HookHandlerType, error) {
 	}
 	rMode := runOnLocal
 	if runner.context.ModelType() == model.CAAS {
-		// run actions on remote workload pod if it's caas model.
-		rMode = runOnRemote
+		if workloadContext, ok := data.Params["workload-context"].(bool); !ok || workloadContext {
+			rMode = runOnRemote
+		}
 	}
+	logger.Debugf("running action %q on %v", actionName, rMode)
 	return runner.runCharmHookWithLocation(actionName, "actions", rMode)
 }
 
