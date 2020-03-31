@@ -27,27 +27,43 @@ var (
 )
 
 type executor struct {
-	file               *StateFile
+	stateOps           *StateOps
 	state              *State
 	acquireMachineLock func(string) (func(), error)
 }
 
-// NewExecutor returns an Executor which takes its starting state from the
-// supplied path, and records state changes there. If no state file exists,
-// the executor's starting state will include a queued Install hook, for
-// the charm identified by the supplied func.
-func NewExecutor(stateFilePath string, initialState State, acquireLock func(string) (func(), error)) (Executor, error) {
-	file := NewStateFile(stateFilePath)
-	state, err := file.Read()
-	if err == ErrNoStateFile {
-		state = &initialState
+// ExecutorConfig defines configuration for an Executor.
+type ExecutorConfig struct {
+	StateReadWriter UnitStateReadWriter
+	InitialState    State
+	AcquireLock     func(string) (func(), error)
+}
+
+func (e ExecutorConfig) validate() error {
+	if e.StateReadWriter == nil {
+		return errors.NotValidf("executor config with nil state ops")
+	}
+	return nil
+}
+
+// NewExecutor returns an Executor which takes its starting state from
+// the controller, and records state changes there. If no saved state
+// exists, the executor's starting state will be the supplied InitialState.
+func NewExecutor(cfg ExecutorConfig) (Executor, error) {
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
+	stateOps := NewStateOps(cfg.StateReadWriter)
+	state, err := stateOps.Read()
+	if err == ErrNoSavedState {
+		state = &cfg.InitialState
 	} else if err != nil {
 		return nil, err
 	}
 	return &executor{
-		file:               file,
+		stateOps:           stateOps,
 		state:              state,
-		acquireMachineLock: acquireLock,
+		acquireMachineLock: cfg.AcquireLock,
 	}, nil
 }
 
@@ -119,10 +135,13 @@ func (x *executor) do(op Operation, step executorStep) (err error) {
 }
 
 func (x *executor) writeState(newState State) error {
-	if err := newState.validate(); err != nil {
+	if err := newState.Validate(); err != nil {
 		return err
 	}
-	if err := x.file.Write(&newState); err != nil {
+	if x.state != nil && x.state.match(newState) {
+		return nil
+	}
+	if err := x.stateOps.Write(&newState); err != nil {
 		return errors.Annotatef(err, "writing state")
 	}
 	x.state = &newState

@@ -19,3 +19,8 @@ type Machine interface {
 	ModificationStatus() (status.StatusInfo, error)
 	SetModificationStatus(status.StatusInfo) error
 }
+
+// Unit represents point of use methods from the state unit object
+type Unit interface {
+	SetState(*state.UnitState) error
+}

@@ -205,7 +205,13 @@ func (u *Unit) SetStateOperation(unitState *UnitState) ModelOperation {
 // State returns the persisted state for a unit.
 func (u *Unit) State() (*UnitState, error) {
 	us := NewUnitState()
-	if u.Life() != Alive {
+
+	// Normally this would be if Life() != Alive.  However the uniter
+	// needs to read its state during the Dying period for the case of
+	// hook failures just before dying.  It's unclear whether this is
+	// an actual scenario or just part of the UniterSuite unit tests.
+	// See TestUniterDyingReaction.
+	if u.Life() == Dead {
 		return us, errors.NotFoundf("unit %s", u.Name())
 	}
 

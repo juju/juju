@@ -4,12 +4,11 @@
 package operation
 
 import (
-	"os"
-
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
@@ -113,8 +112,8 @@ type State struct {
 	AddressesHash string `yaml:"addresses-hash,omitempty"`
 }
 
-// validate returns an error if the state violates expectations.
-func (st State) validate() (err error) {
+// Validate returns an error if the state violates expectations.
+func (st State) Validate() (err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid operation state")
 	hasHook := st.Hook != nil
 	hasActionId := st.ActionId != nil
@@ -175,6 +174,12 @@ func (st State) validate() (err error) {
 	return nil
 }
 
+func (st State) match(otherState State) bool {
+	stateYaml, _ := yaml.Marshal(st)
+	otherStateYaml, _ := yaml.Marshal(otherState)
+	return string(stateYaml) == string(otherStateYaml)
+}
+
 // stateChange is useful for a variety of Operation implementations.
 type stateChange struct {
 	Kind            Kind
@@ -195,35 +200,53 @@ func (change stateChange) apply(state State) *State {
 	return &state
 }
 
-// StateFile holds the disk state for a uniter.
-type StateFile struct {
-	path string
+// StateReadWriter reads and writes uniter state from/to the controller.
+type StateOps struct {
+	unitStateRW UnitStateReadWriter
 }
 
-// NewStateFile returns a new StateFile using path.
-func NewStateFile(path string) *StateFile {
-	return &StateFile{path}
+// NewStateOps returns a new StateOps.
+func NewStateOps(readwriter UnitStateReadWriter) *StateOps {
+	return &StateOps{unitStateRW: readwriter}
 }
 
-// Read reads a State from the file. If the file does not exist it returns
-// ErrNoStateFile.
-func (f *StateFile) Read() (*State, error) {
+// UnitStateReadWriter encapsulates the methods from a state.Unit
+// required to set and get unit state.
+//go:generate mockgen -package mocks -destination mocks/uniterstaterw_mock.go github.com/juju/juju/worker/uniter/operation UnitStateReadWriter
+type UnitStateReadWriter interface {
+	State() (params.UnitStateResult, error)
+	SetState(unitState params.SetUnitStateArg) error
+}
+
+// Read a State from the controller. If the saved state does not exist
+// it returns ErrNoSavedState.
+func (f *StateOps) Read() (*State, error) {
 	var st State
-	if err := utils.ReadYaml(f.path, &st); err != nil {
-		if os.IsNotExist(err) {
-			return nil, ErrNoStateFile
-		}
+	unitState, err := f.unitStateRW.State()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	if err := st.validate(); err != nil {
-		return nil, errors.Errorf("cannot read %q: %v", f.path, err)
+	if unitState.UniterState == "" {
+		return nil, ErrNoSavedState
+	}
+	if yaml.Unmarshal([]byte(unitState.UniterState), &st) != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := st.Validate(); err != nil {
+		return nil, errors.Errorf("validation of uniter state: %v", err)
 	}
 	return &st, nil
 }
 
-// Write stores the supplied state to the file.
-func (f *StateFile) Write(st *State) error {
-	if err := st.validate(); err != nil {
+// Write stores the supplied state on the controller.
+func (f *StateOps) Write(st *State) error {
+	if err := st.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	return utils.WriteYaml(f.path, st)
+	data, err := yaml.Marshal(st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	s := string(data)
+	return f.unitStateRW.SetState(params.SetUnitStateArg{UniterState: &s})
 }
