@@ -29,6 +29,7 @@ type State struct {
 	*common.ModelWatcher
 	*common.APIAddresser
 	*common.UpgradeSeriesAPI
+	*common.UnitStateAPI
 	*StorageAccessor
 
 	LeadershipSettings *LeadershipSettingsAccessor
@@ -50,6 +51,7 @@ func NewState(
 		ModelWatcher:     common.NewModelWatcher(facadeCaller),
 		APIAddresser:     common.NewAPIAddresser(facadeCaller),
 		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(facadeCaller, authTag),
+		UnitStateAPI:     common.NewUniterStateAPI(facadeCaller, authTag),
 		StorageAccessor:  NewStorageAccessor(facadeCaller),
 		facade:           facadeCaller,
 		unitTag:          authTag,

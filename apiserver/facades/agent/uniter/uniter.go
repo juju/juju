@@ -48,6 +48,7 @@ type UniterAPI struct {
 	*common.ModelWatcher
 	*common.RebootRequester
 	*common.UpgradeSeriesAPI
+	*common.UnitStateAPI
 	*leadershipapiserver.LeadershipSettingsAccessor
 	meterstatus.MeterStatus
 	m                   *state.Model
@@ -76,7 +77,7 @@ type UniterAPI struct {
 }
 
 // UniterAPIV14 implements version (v14) of the Uniter API,
-// which adds GetPodSpec
+// which adds GetPodSpec, SetState and State.
 type UniterAPIV14 struct {
 	UniterAPI
 }
@@ -212,6 +213,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		ModelWatcher:               common.NewModelWatcher(m, resources, authorizer),
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
 		UpgradeSeriesAPI:           common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
+		UnitStateAPI:               common.NewExternalUnitStateAPI(st, resources, authorizer, accessUnit, logger),
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
 		MeterStatus:                msAPI,
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
@@ -3297,102 +3299,8 @@ func (u *UniterAPI) updateUnitNetworkInfoOperation(unitTag names.UnitTag, unit *
 // State isn't on the v14 API.
 func (u *UniterAPIV14) State(_ struct{}) {}
 
-// State returns the state persisted by the charm running in this unit
-// and the state internal to the uniter for this unit.
-func (u *UniterAPI) State(args params.Entities) (params.UnitStateResults, error) {
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.UnitStateResults{}, errors.Trace(err)
-	}
-
-	res := make([]params.UnitStateResult, len(args.Entities))
-	for i, entity := range args.Entities {
-		unitTag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			res[i].Error = common.ServerError(err)
-			continue
-		}
-
-		if !canAccess(unitTag) {
-			res[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-
-		unit, err := u.getUnit(unitTag)
-		if err != nil {
-			res[i].Error = common.ServerError(err)
-			continue
-		}
-		unitState, err := unit.State()
-		if err != nil {
-			res[i].Error = common.ServerError(err)
-			continue
-		}
-		uState, _ := unitState.State()
-		res[i].State = uState
-		uUState, _ := unitState.UniterState()
-		res[i].UniterState = uUState
-		rState, _ := unitState.RelationState()
-		res[i].RelationState = rState
-		sState, _ := unitState.StorageState()
-		res[i].StorageState = sState
-	}
-
-	return params.UnitStateResults{Results: res}, nil
-}
-
 // SetState isn't on the v14 API.
 func (u *UniterAPIV14) SetState(_ struct{}) {}
-
-// SetState sets the state persisted by the charm running in this unit
-// and the state internal to the uniter for this unit.
-func (u *UniterAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResults, error) {
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-
-	res := make([]params.ErrorResult, len(args.Args))
-	for i, arg := range args.Args {
-		unitTag, err := names.ParseUnitTag(arg.Tag)
-		if err != nil {
-			res[i].Error = common.ServerError(err)
-			continue
-		}
-
-		if !canAccess(unitTag) {
-			res[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-
-		unit, err := u.getUnit(unitTag)
-		if err != nil {
-			res[i].Error = common.ServerError(err)
-			continue
-		}
-
-		unitState := state.NewUnitState()
-		if arg.State != nil {
-			unitState.SetState(*arg.State)
-		}
-		if arg.UniterState != nil {
-			unitState.SetUniterState(*arg.UniterState)
-		}
-		if arg.RelationState != nil {
-			unitState.SetRelationState(*arg.RelationState)
-		}
-		if arg.StorageState != nil {
-			unitState.SetStorageState(*arg.StorageState)
-		}
-
-		ops := unit.SetStateOperation(unitState)
-		if err = u.st.ApplyOperation(ops); err != nil {
-			res[i].Error = common.ServerError(err)
-		}
-	}
-
-	return params.ErrorResults{Results: res}, nil
-}
 
 // CommitHookChanges isn't on the v14 API.
 func (u *UniterAPIV14) CommitHookChanges(_ struct{}) {}
