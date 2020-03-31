@@ -36,7 +36,7 @@ func (s *spacesSuite) TestReloadSpaces(c *gc.C) {
 	environ.EXPECT().Spaces(context).Return(spaces, nil)
 
 	state := NewMockReloadSpacesState(ctrl)
-	state.EXPECT().SaveSpacesFromProvider(spaces)
+	state.EXPECT().SaveProviderSpaces(spaces)
 
 	err := ReloadSpaces(context, state, environ)
 	c.Assert(err, jc.ErrorIsNil)
@@ -58,7 +58,7 @@ func (s *spacesSuite) TestReloadSpacesFailsOnSave(c *gc.C) {
 	environ.EXPECT().Spaces(context).Return(spaces, nil)
 
 	state := NewMockReloadSpacesState(ctrl)
-	state.EXPECT().SaveSpacesFromProvider(spaces).Return(errors.New("boom"))
+	state.EXPECT().SaveProviderSpaces(spaces).Return(errors.New("boom"))
 
 	err := ReloadSpaces(context, state, environ)
 	c.Assert(err, gc.ErrorMatches, "boom")
@@ -80,7 +80,7 @@ func (s *spacesSuite) TestReloadSpacesUsingSubnets(c *gc.C) {
 	environ.EXPECT().Subnets(context, instance.UnknownId, nil).Return(subnets, nil)
 
 	state := NewMockReloadSpacesState(ctrl)
-	state.EXPECT().SaveSubnetsFromProvider(subnets, "")
+	state.EXPECT().SaveProviderSubnets(subnets, "")
 
 	err := ReloadSpaces(context, state, environ)
 	c.Assert(err, jc.ErrorIsNil)
@@ -102,7 +102,7 @@ func (s *spacesSuite) TestReloadSpacesUsingSubnetsFailsOnSave(c *gc.C) {
 	environ.EXPECT().Subnets(context, instance.UnknownId, nil).Return(subnets, nil)
 
 	state := NewMockReloadSpacesState(ctrl)
-	state.EXPECT().SaveSubnetsFromProvider(subnets, "").Return(errors.New("boom"))
+	state.EXPECT().SaveProviderSubnets(subnets, "").Return(errors.New("boom"))
 
 	err := ReloadSpaces(context, state, environ)
 	c.Assert(err, gc.ErrorMatches, "boom")

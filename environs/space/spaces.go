@@ -14,11 +14,11 @@ import (
 
 // ReloadSpacesState defines an in situ point of use type for ReloadSpaces
 type ReloadSpacesState interface {
-	// SaveSpacesFromProvider loads providerSpaces into state.
-	SaveSpacesFromProvider([]network.SpaceInfo) error
+	// SaveProviderSpaces loads providerSpaces into state.
+	SaveProviderSpaces([]network.SpaceInfo) error
 
-	// SaveSubnetsFromProvider loads subnets into state.
-	SaveSubnetsFromProvider([]network.SubnetInfo, string) error
+	// SaveProviderSubnets loads subnets into state.
+	SaveProviderSubnets([]network.SubnetInfo, string) error
 }
 
 // ReloadSpaces loads spaces and subnets from provider specified by environ into state.
@@ -38,7 +38,7 @@ func ReloadSpaces(ctx context.ProviderCallContext, state ReloadSpacesState, envi
 		if err != nil {
 			return errors.Trace(err)
 		}
-		return errors.Trace(state.SaveSpacesFromProvider(spaces))
+		return errors.Trace(state.SaveProviderSpaces(spaces))
 	}
 
 	logger.Debugf("environ does not support space discovery, falling back to subnet discovery")
@@ -46,5 +46,5 @@ func ReloadSpaces(ctx context.ProviderCallContext, state ReloadSpacesState, envi
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(state.SaveSubnetsFromProvider(subnets, ""))
+	return errors.Trace(state.SaveProviderSubnets(subnets, ""))
 }

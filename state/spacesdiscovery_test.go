@@ -188,8 +188,8 @@ func checkSpacesEqual(c *gc.C, spaces []*state.Space, spaceInfos []network.Space
 	}
 }
 
-func (s *SpacesDiscoverySuite) TestSaveSubnetsFromProvider(c *gc.C) {
-	err := s.State.SaveSubnetsFromProvider(twoSubnets, "")
+func (s *SpacesDiscoverySuite) TestSaveProviderSubnets(c *gc.C) {
+	err := s.State.SaveProviderSubnets(twoSubnets, "")
 	c.Check(err, jc.ErrorIsNil)
 
 	subnets, err := s.State.AllSubnets()
@@ -198,11 +198,11 @@ func (s *SpacesDiscoverySuite) TestSaveSubnetsFromProvider(c *gc.C) {
 }
 
 // TODO(wpk) 2017-05-24 this test will have to be rewritten when we support removing spaces/subnets in discovery.
-func (s *SpacesDiscoverySuite) TestSaveSubnetsFromProviderOnlyAddsSubnets(c *gc.C) {
-	err := s.State.SaveSubnetsFromProvider(twoSubnets, "")
+func (s *SpacesDiscoverySuite) TestSaveProviderSubnetsOnlyAddsSubnets(c *gc.C) {
+	err := s.State.SaveProviderSubnets(twoSubnets, "")
 	c.Check(err, jc.ErrorIsNil)
 
-	err = s.State.SaveSubnetsFromProvider(anotherTwoSubnets, "")
+	err = s.State.SaveProviderSubnets(anotherTwoSubnets, "")
 	c.Check(err, jc.ErrorIsNil)
 
 	subnets, err := s.State.AllSubnets()
@@ -210,11 +210,11 @@ func (s *SpacesDiscoverySuite) TestSaveSubnetsFromProviderOnlyAddsSubnets(c *gc.
 	checkSubnetsEqual(c, subnets, fourSubnets)
 }
 
-func (s *SpacesDiscoverySuite) TestSaveSubnetsFromProviderUpdatesSubnets(c *gc.C) {
-	err := s.State.SaveSubnetsFromProvider(twoSubnets, "")
+func (s *SpacesDiscoverySuite) TestSaveProviderSubnetsUpdatesSubnets(c *gc.C) {
+	err := s.State.SaveProviderSubnets(twoSubnets, "")
 	c.Check(err, jc.ErrorIsNil)
 
-	err = s.State.SaveSpacesFromProvider(spaceOne)
+	err = s.State.SaveProviderSpaces(spaceOne)
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnets, err := s.State.AllSubnets()
@@ -225,14 +225,14 @@ func (s *SpacesDiscoverySuite) TestSaveSubnetsFromProviderUpdatesSubnets(c *gc.C
 	checkSubnetsEqual(c, subnets, twoSubnetsWithSpace)
 }
 
-func (s *SpacesDiscoverySuite) TestSaveSubnetsFromProviderOnlyIdempotent(c *gc.C) {
-	err := s.State.SaveSubnetsFromProvider(twoSubnets, "")
+func (s *SpacesDiscoverySuite) TestSaveProviderSubnetsOnlyIdempotent(c *gc.C) {
+	err := s.State.SaveProviderSubnets(twoSubnets, "")
 	c.Check(err, jc.ErrorIsNil)
 
 	subnets1, err := s.State.AllSubnets()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SaveSubnetsFromProvider(twoSubnets, "")
+	err = s.State.SaveProviderSubnets(twoSubnets, "")
 	c.Check(err, jc.ErrorIsNil)
 
 	subnets2, err := s.State.AllSubnets()
@@ -240,11 +240,11 @@ func (s *SpacesDiscoverySuite) TestSaveSubnetsFromProviderOnlyIdempotent(c *gc.C
 	c.Check(subnets1, jc.DeepEquals, subnets2)
 }
 
-func (s *SpacesDiscoverySuite) TestSaveSubnetsFromProviderWithFAN(c *gc.C) {
+func (s *SpacesDiscoverySuite) TestSaveProviderSubnetsWithFAN(c *gc.C) {
 	err := s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SaveSubnetsFromProvider(twoSubnets, "")
+	err = s.State.SaveProviderSubnets(twoSubnets, "")
 	c.Check(err, jc.ErrorIsNil)
 
 	subnets, err := s.State.AllSubnets()
@@ -253,7 +253,7 @@ func (s *SpacesDiscoverySuite) TestSaveSubnetsFromProviderWithFAN(c *gc.C) {
 	checkSubnetsEqual(c, subnets, twoSubnetsAfterFAN)
 }
 
-func (s *SpacesDiscoverySuite) TestSaveSubnetsFromProviderIgnoredWithFAN(c *gc.C) {
+func (s *SpacesDiscoverySuite) TestSaveProviderSubnetsIgnoredWithFAN(c *gc.C) {
 	// This is just a test configuration. This configuration may be
 	// considered invalid in the future. Here we show that this
 	// configuration is ignored.
@@ -261,7 +261,7 @@ func (s *SpacesDiscoverySuite) TestSaveSubnetsFromProviderIgnoredWithFAN(c *gc.C
 		map[string]interface{}{"fan-config": "fe80:dead:beef::/48=fe80:dead:beef::/24"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SaveSubnetsFromProvider(twoSubnetsAndIgnored, "")
+	err = s.State.SaveProviderSubnets(twoSubnetsAndIgnored, "")
 	c.Check(err, jc.ErrorIsNil)
 
 	subnets, err := s.State.AllSubnets()
@@ -270,8 +270,8 @@ func (s *SpacesDiscoverySuite) TestSaveSubnetsFromProviderIgnoredWithFAN(c *gc.C
 	checkSubnetsEqual(c, subnets, twoSubnets)
 }
 
-func (s *SpacesDiscoverySuite) TestSaveSubnetsFromProviderIgnored(c *gc.C) {
-	err := s.State.SaveSubnetsFromProvider(twoSubnetsAndIgnored, "")
+func (s *SpacesDiscoverySuite) TestSaveProviderSubnetsIgnored(c *gc.C) {
+	err := s.State.SaveProviderSubnets(twoSubnetsAndIgnored, "")
 	c.Check(err, jc.ErrorIsNil)
 
 	subnets, err := s.State.AllSubnets()
@@ -280,8 +280,8 @@ func (s *SpacesDiscoverySuite) TestSaveSubnetsFromProviderIgnored(c *gc.C) {
 	checkSubnetsEqual(c, subnets, twoSubnets)
 }
 
-func (s *SpacesDiscoverySuite) TestSaveSpacesFromProvider(c *gc.C) {
-	err := s.State.SaveSpacesFromProvider(spaceOne)
+func (s *SpacesDiscoverySuite) TestSaveProviderSpaces(c *gc.C) {
+	err := s.State.SaveProviderSpaces(spaceOne)
 	c.Check(err, jc.ErrorIsNil)
 
 	spaces, err := s.State.AllSpaces()
@@ -290,11 +290,11 @@ func (s *SpacesDiscoverySuite) TestSaveSpacesFromProvider(c *gc.C) {
 }
 
 // TODO(wpk) 2017-05-24 this test will have to be rewritten when we support removing spaces/subnets in discovery.
-func (s *SpacesDiscoverySuite) TestSaveSpacesFromProviderAddsSpaces(c *gc.C) {
-	err := s.State.SaveSpacesFromProvider(spaceOne)
+func (s *SpacesDiscoverySuite) TestSaveProviderSpacesAddsSpaces(c *gc.C) {
+	err := s.State.SaveProviderSpaces(spaceOne)
 	c.Check(err, jc.ErrorIsNil)
 
-	err = s.State.SaveSpacesFromProvider(spaceTwo)
+	err = s.State.SaveProviderSpaces(spaceTwo)
 	c.Check(err, jc.ErrorIsNil)
 
 	spaces, err := s.State.AllSpaces()
@@ -302,14 +302,14 @@ func (s *SpacesDiscoverySuite) TestSaveSpacesFromProviderAddsSpaces(c *gc.C) {
 	checkSpacesEqual(c, spaces, twoSpaces)
 }
 
-func (s *SpacesDiscoverySuite) TestSaveSpacesFromProviderIdempotent(c *gc.C) {
-	err := s.State.SaveSpacesFromProvider(twoSpaces)
+func (s *SpacesDiscoverySuite) TestSaveProviderSpacesIdempotent(c *gc.C) {
+	err := s.State.SaveProviderSpaces(twoSpaces)
 	c.Check(err, jc.ErrorIsNil)
 
 	spaces1, err := s.State.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SaveSpacesFromProvider(twoSpaces)
+	err = s.State.SaveProviderSpaces(twoSpaces)
 	c.Check(err, jc.ErrorIsNil)
 
 	spaces2, err := s.State.AllSpaces()
@@ -317,11 +317,11 @@ func (s *SpacesDiscoverySuite) TestSaveSpacesFromProviderIdempotent(c *gc.C) {
 	c.Check(spaces1, gc.DeepEquals, spaces2)
 }
 
-func (s *SpacesDiscoverySuite) TestSaveSpacesFromProviderWithFAN(c *gc.C) {
+func (s *SpacesDiscoverySuite) TestSaveProviderSpacesWithFAN(c *gc.C) {
 	err := s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SaveSpacesFromProvider(spaceOne)
+	err = s.State.SaveProviderSpaces(spaceOne)
 	c.Check(err, jc.ErrorIsNil)
 
 	spaces, err := s.State.AllSpaces()
@@ -330,7 +330,7 @@ func (s *SpacesDiscoverySuite) TestSaveSpacesFromProviderWithFAN(c *gc.C) {
 }
 
 func (s *SpacesDiscoverySuite) TestReloadSpacesIgnored(c *gc.C) {
-	err := s.State.SaveSpacesFromProvider(spaceOneAndIgnored)
+	err := s.State.SaveProviderSpaces(spaceOneAndIgnored)
 	c.Check(err, jc.ErrorIsNil)
 
 	spaces, err := s.State.AllSpaces()

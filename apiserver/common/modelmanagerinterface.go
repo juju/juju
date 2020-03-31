@@ -67,8 +67,8 @@ type ModelManagerBackend interface {
 	ExportPartial(state.ExportConfig) (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
 	SetModelMeterStatus(string, string) error
-	SaveSpacesFromProvider([]network.SpaceInfo) error
-	SaveSubnetsFromProvider([]network.SubnetInfo, string) error
+	SaveProviderSpaces([]network.SpaceInfo) error
+	SaveProviderSubnets([]network.SubnetInfo, string) error
 	LatestMigration() (state.ModelMigration, error)
 	DumpAll() (map[string]interface{}, error)
 	Close() error

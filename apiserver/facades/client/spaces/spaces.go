@@ -102,11 +102,11 @@ type Backing interface {
 	// ConstraintsBySpaceName returns constraints found by spaceName.
 	ConstraintsBySpaceName(name string) ([]Constraints, error)
 
-	// SaveSpacesFromProvider loads providerSpaces into state.
-	SaveSpacesFromProvider([]network.SpaceInfo) error
+	// SaveProviderSpaces loads providerSpaces into state.
+	SaveProviderSpaces([]network.SpaceInfo) error
 
-	// SaveSubnetsFromProvider loads subnets into state.
-	SaveSubnetsFromProvider([]network.SubnetInfo, string) error
+	// SaveProviderSubnets loads subnets into state.
+	SaveProviderSubnets([]network.SubnetInfo, string) error
 
 	// IsController returns true if this state instance has the bootstrap
 	// model UUID.
@@ -458,7 +458,7 @@ func (api *API) ReloadSpaces() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(spaces.ReloadSpaces(api.context, api.backing, env))
+	return errors.Trace(space.ReloadSpaces(api.context, api.backing, env))
 }
 
 // checkSupportsSpaces checks if the environment implements NetworkingEnviron

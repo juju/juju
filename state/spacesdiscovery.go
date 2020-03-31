@@ -26,9 +26,9 @@ func (st *State) getModelSubnets() (set.Strings, error) {
 	return modelSubnetIds, nil
 }
 
-// SaveSubnetsFromProvider loads subnets into state.
+// SaveProviderSubnets loads subnets into state.
 // Currently it does not delete removed subnets.
-func (st *State) SaveSubnetsFromProvider(subnets []corenetwork.SubnetInfo, spaceID string) error {
+func (st *State) SaveProviderSubnets(subnets []corenetwork.SubnetInfo, spaceID string) error {
 	modelSubnetIds, err := st.getModelSubnets()
 	if err != nil {
 		return errors.Trace(err)
@@ -108,9 +108,9 @@ func (st *State) SaveSubnetsFromProvider(subnets []corenetwork.SubnetInfo, space
 	return nil
 }
 
-// SaveSpacesFromProvider loads providerSpaces into state.
+// SaveProviderSpaces loads providerSpaces into state.
 // Currently it does not delete removed spaces.
-func (st *State) SaveSpacesFromProvider(providerSpaces []corenetwork.SpaceInfo) error {
+func (st *State) SaveProviderSpaces(providerSpaces []corenetwork.SpaceInfo) error {
 	stateSpaces, err := st.AllSpaces()
 	if err != nil {
 		return errors.Trace(err)
@@ -146,7 +146,7 @@ func (st *State) SaveSpacesFromProvider(providerSpaces []corenetwork.SpaceInfo) 
 			spaceId = space.Id()
 		}
 
-		err = st.SaveSubnetsFromProvider(spaceInfo.Subnets, spaceId)
+		err = st.SaveProviderSubnets(spaceInfo.Subnets, spaceId)
 		if err != nil {
 			return errors.Trace(err)
 		}

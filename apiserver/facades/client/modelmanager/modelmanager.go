@@ -687,7 +687,7 @@ func (m *ModelManagerAPI) newModel(
 		}
 	}
 
-	if err = spaces.ReloadSpaces(m.callContext, st, env); err != nil {
+	if err = space.ReloadSpaces(m.callContext, st, env); err != nil {
 		if errors.IsNotSupported(err) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {

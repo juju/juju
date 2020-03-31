@@ -922,13 +922,13 @@ func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, erro
 	}
 }
 
-func (st *mockState) SaveSubnetsFromProvider(subnets []network.SubnetInfo, spaceID string) error {
-	st.MethodCall(st, "SaveSubnetsFromProvider", subnets, spaceID)
+func (st *mockState) SaveProviderSubnets(subnets []network.SubnetInfo, spaceID string) error {
+	st.MethodCall(st, "SaveProviderSubnets", subnets, spaceID)
 	return st.NextErr()
 }
 
-func (st *mockState) SaveSpacesFromProvider(providerSpaces []network.SpaceInfo) error {
-	st.MethodCall(st, "SaveSpacesFromProvider", providerSpaces)
+func (st *mockState) SaveProviderSpaces(providerSpaces []network.SpaceInfo) error {
+	st.MethodCall(st, "SaveProviderSpaces", providerSpaces)
 	return st.NextErr()
 }
 

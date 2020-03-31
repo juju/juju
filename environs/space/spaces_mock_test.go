@@ -33,30 +33,30 @@ func (m *MockReloadSpacesState) EXPECT() *MockReloadSpacesStateMockRecorder {
 	return m.recorder
 }
 
-// SaveSpacesFromProvider mocks base method
-func (m *MockReloadSpacesState) SaveSpacesFromProvider(arg0 []network.SpaceInfo) error {
+// SaveProviderSpaces mocks base method
+func (m *MockReloadSpacesState) SaveProviderSpaces(arg0 []network.SpaceInfo) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveSpacesFromProvider", arg0)
+	ret := m.ctrl.Call(m, "SaveProviderSpaces", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SaveSpacesFromProvider indicates an expected call of SaveSpacesFromProvider
-func (mr *MockReloadSpacesStateMockRecorder) SaveSpacesFromProvider(arg0 interface{}) *gomock.Call {
+// SaveProviderSpaces indicates an expected call of SaveProviderSpaces
+func (mr *MockReloadSpacesStateMockRecorder) SaveProviderSpaces(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSpacesFromProvider", reflect.TypeOf((*MockReloadSpacesState)(nil).SaveSpacesFromProvider), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveProviderSpaces", reflect.TypeOf((*MockReloadSpacesState)(nil).SaveProviderSpaces), arg0)
 }
 
-// SaveSubnetsFromProvider mocks base method
-func (m *MockReloadSpacesState) SaveSubnetsFromProvider(arg0 []network.SubnetInfo, arg1 string) error {
+// SaveProviderSubnets mocks base method
+func (m *MockReloadSpacesState) SaveProviderSubnets(arg0 []network.SubnetInfo, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveSubnetsFromProvider", arg0, arg1)
+	ret := m.ctrl.Call(m, "SaveProviderSubnets", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SaveSubnetsFromProvider indicates an expected call of SaveSubnetsFromProvider
-func (mr *MockReloadSpacesStateMockRecorder) SaveSubnetsFromProvider(arg0, arg1 interface{}) *gomock.Call {
+// SaveProviderSubnets indicates an expected call of SaveProviderSubnets
+func (mr *MockReloadSpacesStateMockRecorder) SaveProviderSubnets(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSubnetsFromProvider", reflect.TypeOf((*MockReloadSpacesState)(nil).SaveSubnetsFromProvider), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveProviderSubnets", reflect.TypeOf((*MockReloadSpacesState)(nil).SaveProviderSubnets), arg0, arg1)
 }

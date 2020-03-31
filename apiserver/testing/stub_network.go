@@ -590,16 +590,16 @@ func (sb *StubBacking) AddSpace(name string, providerId network.Id, subnets []st
 	return nil
 }
 
-func (sb *StubBacking) SaveSubnetsFromProvider(subnets []network.SubnetInfo, spaceID string) error {
-	sb.MethodCall(sb, "SaveSubnetsFromProvider", subnets, spaceID)
+func (sb *StubBacking) SaveProviderSubnets(subnets []network.SubnetInfo, spaceID string) error {
+	sb.MethodCall(sb, "SaveProviderSubnets", subnets, spaceID)
 	if err := sb.NextErr(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (sb *StubBacking) SaveSpacesFromProvider(providerSpaces []network.SpaceInfo) error {
-	sb.MethodCall(sb, "SaveSpacesFromProvider", providerSpaces)
+func (sb *StubBacking) SaveProviderSpaces(providerSpaces []network.SpaceInfo) error {
+	sb.MethodCall(sb, "SaveProviderSpaces", providerSpaces)
 	if err := sb.NextErr(); err != nil {
 		return err
 	}

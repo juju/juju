@@ -234,32 +234,32 @@ func (mr *MockBackingMockRecorder) MovingSubnet(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MovingSubnet", reflect.TypeOf((*MockBacking)(nil).MovingSubnet), arg0)
 }
 
-// SaveSpacesFromProvider mocks base method
-func (m *MockBacking) SaveSpacesFromProvider(arg0 []network.SpaceInfo) error {
+// SaveProviderSpaces mocks base method
+func (m *MockBacking) SaveProviderSpaces(arg0 []network.SpaceInfo) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveSpacesFromProvider", arg0)
+	ret := m.ctrl.Call(m, "SaveProviderSpaces", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SaveSpacesFromProvider indicates an expected call of SaveSpacesFromProvider
-func (mr *MockBackingMockRecorder) SaveSpacesFromProvider(arg0 interface{}) *gomock.Call {
+// SaveProviderSpaces indicates an expected call of SaveProviderSpaces
+func (mr *MockBackingMockRecorder) SaveProviderSpaces(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSpacesFromProvider", reflect.TypeOf((*MockBacking)(nil).SaveSpacesFromProvider), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveProviderSpaces", reflect.TypeOf((*MockBacking)(nil).SaveProviderSpaces), arg0)
 }
 
-// SaveSubnetsFromProvider mocks base method
-func (m *MockBacking) SaveSubnetsFromProvider(arg0 []network.SubnetInfo, arg1 string) error {
+// SaveProviderSubnets mocks base method
+func (m *MockBacking) SaveProviderSubnets(arg0 []network.SubnetInfo, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveSubnetsFromProvider", arg0, arg1)
+	ret := m.ctrl.Call(m, "SaveProviderSubnets", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SaveSubnetsFromProvider indicates an expected call of SaveSubnetsFromProvider
-func (mr *MockBackingMockRecorder) SaveSubnetsFromProvider(arg0, arg1 interface{}) *gomock.Call {
+// SaveProviderSubnets indicates an expected call of SaveProviderSubnets
+func (mr *MockBackingMockRecorder) SaveProviderSubnets(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSubnetsFromProvider", reflect.TypeOf((*MockBacking)(nil).SaveSubnetsFromProvider), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveProviderSubnets", reflect.TypeOf((*MockBacking)(nil).SaveProviderSubnets), arg0, arg1)
 }
 
 // SpaceByName mocks base method
