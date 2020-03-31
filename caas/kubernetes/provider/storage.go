@@ -33,6 +33,7 @@ const (
 	StorageClass       = "storage-class"
 	storageProvisioner = "storage-provisioner"
 	storageMedium      = "storage-medium"
+	storageMode        = "storage-mode"
 )
 
 //ValidateStorageProvider returns an error if the storage type and config is not valid
@@ -55,9 +56,19 @@ func ValidateStorageProvider(providerType storage.ProviderType, attributes map[s
 		}
 	}
 	if providerType == K8s_ProviderType {
-		if _, err := newStorageConfig(attributes); err != nil {
+		if err := validateStorageAttributes(attributes); err != nil {
 			return errors.Trace(err)
 		}
+	}
+	return nil
+}
+
+func validateStorageAttributes(attributes map[string]interface{}) error {
+	if _, err := newStorageConfig(attributes); err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := getStorageMode(attributes); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -183,6 +194,10 @@ type storageConfig struct {
 	reclaimPolicy core.PersistentVolumeReclaimPolicy
 }
 
+const (
+	storageConfigParameterPrefix = "parameters."
+)
+
 func newStorageConfig(attrs map[string]interface{}) (*storageConfig, error) {
 	out, err := storageConfigChecker.Coerce(attrs, nil)
 	if err != nil {
@@ -203,19 +218,54 @@ func newStorageConfig(attrs map[string]interface{}) (*storageConfig, error) {
 	storageConfig.reclaimPolicy = core.PersistentVolumeReclaimRetain
 	storageConfig.parameters = make(map[string]string)
 	for k, v := range attrs {
-		k = strings.TrimPrefix(k, "parameters.")
+		if !strings.HasPrefix(k, storageConfigParameterPrefix) {
+			continue
+		}
+		k = strings.TrimPrefix(k, storageConfigParameterPrefix)
 		storageConfig.parameters[k] = fmt.Sprintf("%v", v)
 	}
-	delete(storageConfig.parameters, StorageClass)
-	delete(storageConfig.parameters, storageProvisioner)
-
 	return storageConfig, nil
+}
+
+var storageModeFields = schema.Fields{
+	storageMode: schema.String(),
+}
+
+var storageModeChecker = schema.FieldMap(
+	storageModeFields,
+	schema.Defaults{
+		// RWO/ReadWriteOnce is the default default.
+		storageMode: "ReadWriteOnce",
+	},
+)
+
+func getStorageMode(attrs map[string]interface{}) (*core.PersistentVolumeAccessMode, error) {
+	parseMode := func(m string) (*core.PersistentVolumeAccessMode, error) {
+		var out core.PersistentVolumeAccessMode
+		switch m {
+		case "ReadOnlyMany", "ROM":
+			out = core.ReadOnlyMany
+		case "ReadWriteMany", "RWM":
+			out = core.ReadWriteMany
+		case "ReadWriteOnce", "RWO":
+			out = core.ReadWriteOnce
+		default:
+			return &out, errors.NotValidf("storage mode %q", m)
+		}
+		return &out, nil
+	}
+
+	out, err := storageModeChecker.Coerce(attrs, nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "validating storage mode")
+	}
+	coerced := out.(map[string]interface{})
+	return parseMode(coerced[storageMode].(string))
 }
 
 // ValidateConfig is defined on the storage.Provider interface.
 func (g *storageProvider) ValidateConfig(cfg *storage.Config) error {
-	_, err := newStorageConfig(cfg.Attrs())
-	return errors.Trace(err)
+	return errors.Trace(validateStorageAttributes(cfg.Attrs()))
 }
 
 // Supports is defined on the storage.Provider interface.
@@ -234,7 +284,7 @@ func (g *storageProvider) Dynamic() bool {
 }
 
 // Releasable is defined on the storage.Provider interface.
-func (e *storageProvider) Releasable() bool {
+func (g *storageProvider) Releasable() bool {
 	return true
 }
 

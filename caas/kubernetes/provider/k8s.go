@@ -581,6 +581,23 @@ type volumeParams struct {
 	accessMode          core.PersistentVolumeAccessMode
 }
 
+func newVolumeParams(pvcName string, size resource.Quantity, storageAttr map[string]interface{}) (params volumeParams, err error) {
+	storageConfig, err := newStorageConfig(storageAttr)
+	if err != nil {
+		return params, errors.Annotatef(err, "invalid storage configuration for %v", pvcName)
+	}
+	accessMode, err := getStorageMode(storageAttr)
+	if err != nil {
+		return params, errors.Annotatef(err, "invalid storage mode for %v", pvcName)
+	}
+	return volumeParams{
+		pvcName:             pvcName,
+		requestedVolumeSize: size,
+		storageConfig:       storageConfig,
+		accessMode:          *accessMode,
+	}, nil
+}
+
 // maybeGetVolumeClaimSpec returns a persistent volume claim spec for the given
 // parameters. If no suitable storage class is available, return a NotFound error.
 func (k *kubernetesClient) maybeGetVolumeClaimSpec(params volumeParams) (*core.PersistentVolumeClaimSpec, error) {
@@ -619,10 +636,6 @@ func (k *kubernetesClient) maybeGetVolumeClaimSpec(params volumeParams) (*core.P
 		return nil, errors.NewNotFound(nil, fmt.Sprintf(
 			"cannot create persistent volume as storage class %q cannot be found", storageClassName))
 	}
-	accessMode := params.accessMode
-	if accessMode == "" {
-		accessMode = core.ReadWriteOnce
-	}
 	return &core.PersistentVolumeClaimSpec{
 		StorageClassName: &storageClassName,
 		Resources: core.ResourceRequirements{
@@ -630,7 +643,7 @@ func (k *kubernetesClient) maybeGetVolumeClaimSpec(params volumeParams) (*core.P
 				core.ResourceStorage: params.requestedVolumeSize,
 			},
 		},
-		AccessModes: []core.PersistentVolumeAccessMode{accessMode},
+		AccessModes: []core.PersistentVolumeAccessMode{params.accessMode},
 	}, nil
 }
 
@@ -1367,16 +1380,13 @@ func (k *kubernetesClient) filesystemToVolumeInfo(
 			Name:         volName,
 			VolumeSource: *volumeSource,
 		}
-		return
+		return vol, pvc, nil
 	}
-	params := volumeParams{
-		pvcName:             pvcNameGetter(i, fs.StorageName),
-		requestedVolumeSize: fsSize,
-	}
-	params.storageConfig, err = newStorageConfig(fs.Attributes)
+	params, err := newVolumeParams(pvcNameGetter(i, fs.StorageName), fsSize, fs.Attributes)
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "invalid storage configuration for %v", fs.StorageName)
+		return nil, nil, errors.Annotatef(err, "getting volume params for %s", fs.StorageName)
 	}
+	logger.Criticalf("params -> %s", pretty.Sprint(params))
 	pvcSpec, err := k.maybeGetVolumeClaimSpec(params)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "finding volume for %s", fs.StorageName)

@@ -268,23 +268,19 @@ func (k *kubernetesClient) operatorVolumeClaim(appName, operatorName string, sto
 		}
 		return existingClaim, nil
 	}
+	if storageParams.Provider != K8s_ProviderType {
+		return nil, errors.Errorf("expected charm storage provider %q, got %q", K8s_ProviderType, storageParams.Provider)
+	}
 
 	// Charm needs storage so set it up.
 	fsSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", storageParams.Size))
 	if err != nil {
 		return nil, errors.Annotatef(err, "invalid volume size %v", storageParams.Size)
 	}
-	params := volumeParams{
-		storageConfig:       &storageConfig{},
-		pvcName:             operatorVolumeClaim,
-		requestedVolumeSize: fsSize,
-	}
-	if storageParams.Provider != K8s_ProviderType {
-		return nil, errors.Errorf("expected charm storage provider %q, got %q", K8s_ProviderType, storageParams.Provider)
-	}
-	params.storageConfig, err = newStorageConfig(storageParams.Attributes)
+
+	params, err := newVolumeParams(operatorVolumeClaim, fsSize, storageParams.Attributes)
 	if err != nil {
-		return nil, errors.Annotatef(err, "invalid storage configuration for %v operator", appName)
+		return nil, errors.Trace(err)
 	}
 	// We want operator storage to be deleted when the operator goes away.
 	params.storageConfig.reclaimPolicy = core.PersistentVolumeReclaimDelete
