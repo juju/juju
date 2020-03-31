@@ -260,7 +260,78 @@ deployment:
 		ForceUnits: true,
 	}
 	err := app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "gitlab" to charm "local:kubernetes/kubernetes-gitlab-2": cannot change a charm's deployment type`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "gitlab" to charm "local:kubernetes/kubernetes-gitlab-2": cannot change a charm's deployment info`)
+}
+
+func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentTypeFails(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS,
+	})
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "elastic-operator", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "elastic-operator", Charm: ch})
+
+	// Create a charm with new deployment info in metadata.
+	metaYaml := `
+name: elastic-operator
+summary: test
+description: test
+provides:
+  website:
+    interface: http
+requires:
+  db:
+    interface: mysql
+series:
+  - kubernetes
+deployment:
+  type: stateful
+  service: loadbalancer
+`[1:]
+	newCh := state.AddCustomCharm(c, st, "elastic-operator", "metadata.yaml", metaYaml, "kubernetes", 2)
+	cfg := state.SetCharmConfig{
+		Charm:      newCh,
+		ForceUnits: true,
+	}
+	err := app.SetCharm(cfg)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "elastic-operator" to charm "local:kubernetes/kubernetes-elastic-operator-2": cannot change a charm's deployment type`)
+}
+
+func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentModeFails(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS,
+	})
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "elastic-operator", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "elastic-operator", Charm: ch})
+
+	// Create a charm with new deployment info in metadata.
+	metaYaml := `
+name: elastic-operator
+summary: test
+description: test
+provides:
+  website:
+    interface: http
+requires:
+  db:
+    interface: mysql
+series:
+  - kubernetes
+deployment:
+  mode: workload
+`[1:]
+	newCh := state.AddCustomCharm(c, st, "elastic-operator", "metadata.yaml", metaYaml, "kubernetes", 2)
+	cfg := state.SetCharmConfig{
+		Charm:      newCh,
+		ForceUnits: true,
+	}
+	err := app.SetCharm(cfg)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "elastic-operator" to charm "local:kubernetes/kubernetes-elastic-operator-2": cannot change a charm's deployment mode`)
 }
 
 func (s *ApplicationSuite) TestSetCharmWithNewBindings(c *gc.C) {

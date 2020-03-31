@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/caas"
 	"github.com/juju/os/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -27,6 +26,7 @@ import (
 
 	agenttools "github.com/juju/juju/agent/tools"
 	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
