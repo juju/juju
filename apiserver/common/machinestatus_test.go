@@ -51,17 +51,6 @@ func (s *MachineStatusSuite) TestErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "status error")
 }
 
-func (s *MachineStatusSuite) TestDownLegacy(c *gc.C) {
-	s.ctx.Presence = nil
-	s.machine.agentDead = true
-	agent, err := s.ctx.MachineStatus(s.machine)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(agent, jc.DeepEquals, status.StatusInfo{
-		Status:  status.Down,
-		Message: "agent is not communicating with the server",
-	})
-}
-
 func (s *MachineStatusSuite) TestDown(c *gc.C) {
 	s.ctx.Presence = agentDown(names.NewMachineTag(s.machine.Id()).String())
 	agent, err := s.ctx.MachineStatus(s.machine)
@@ -72,14 +61,6 @@ func (s *MachineStatusSuite) TestDown(c *gc.C) {
 	})
 }
 
-func (s *MachineStatusSuite) TestDownAndDeadLegacy(c *gc.C) {
-	s.ctx.Presence = nil
-	s.machine.agentDead = true
-	s.machine.life = state.Dead
-	// Status is untouched if unit is Dead.
-	s.checkUntouched(c)
-}
-
 func (s *MachineStatusSuite) TestDownAndDead(c *gc.C) {
 	s.ctx.Presence = agentDown(names.NewMachineTag(s.machine.Id()).String())
 	s.machine.life = state.Dead
@@ -87,24 +68,9 @@ func (s *MachineStatusSuite) TestDownAndDead(c *gc.C) {
 	s.checkUntouched(c)
 }
 
-func (s *MachineStatusSuite) TestPresenceErrorLegacy(c *gc.C) {
-	s.ctx.Presence = nil
-	s.machine.agentDead = true
-	s.machine.presenceErr = errors.New("boom")
-	// Presence error gets ignored, so no output is unchanged.
-	s.checkUntouched(c)
-}
-
 func (s *MachineStatusSuite) TestPresenceError(c *gc.C) {
 	s.ctx.Presence = presenceError(names.NewMachineTag(s.machine.Id()).String())
 	// Presence error gets ignored, so no output is unchanged.
-	s.checkUntouched(c)
-}
-
-func (s *MachineStatusSuite) TestNotDownIfPendingLegacy(c *gc.C) {
-	s.ctx.Presence = nil
-	s.machine.agentDead = true
-	s.machine.status = status.Pending
 	s.checkUntouched(c)
 }
 

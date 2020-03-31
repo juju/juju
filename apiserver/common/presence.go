@@ -20,7 +20,6 @@ type ModelPresence interface {
 // entire model.
 type ModelPresenceContext struct {
 	// Presence represents the API server connections for a model.
-	// If this is non-nil it is used in preference to the state AgentPresence method.
 	Presence ModelPresence
 }
 

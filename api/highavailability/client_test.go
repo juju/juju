@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -36,24 +35,9 @@ func assertKill(c *gc.C, killer KillerForTesting) {
 	c.Assert(killer.KillForTesting(), gc.IsNil)
 }
 
-func setAgentPresence(c *gc.C, s *jujutesting.JujuConnSuite, machineId string) *presence.Pinger {
-	m, err := s.BackingState.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
-	pinger, err := m.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
-	err = m.WaitAgentPresence(coretesting.LongWait)
-	c.Assert(err, jc.ErrorIsNil)
-	return pinger
-}
-
 func assertEnableHA(c *gc.C, s *jujutesting.JujuConnSuite) {
 	m, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	// We have to ensure the agents are alive, or EnableHA will
-	// create more to replace them.
-	pingerA := setAgentPresence(c, s, "0")
-	defer assertKill(c, pingerA)
 
 	err = m.SetMachineAddresses(
 		network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),

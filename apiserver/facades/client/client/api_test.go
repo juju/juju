@@ -513,7 +513,5 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		setDefaultPassword(c, lu)
 		add(lu)
 	}
-	allMachines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
 	return
 }

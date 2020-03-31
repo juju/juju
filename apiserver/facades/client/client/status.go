@@ -1532,7 +1532,6 @@ type lifer interface {
 
 // contextUnit overloads the AgentStatus and Status calls to use the cached
 // status values, and delegates everything else to the Unit.
-// TODO: cache presence as well.
 type contextUnit struct {
 	*state.Unit
 	expectWorkload bool
@@ -1577,7 +1576,6 @@ func populateStatusFromStatusInfoAndErr(agent *params.DetailedStatus, statusInfo
 
 // contextMachine overloads the Status call to use the cached status values,
 // and delegates everything else to the Machine.
-// TODO: cache presence as well.
 type contextMachine struct {
 	*state.Machine
 	context *statusContext
