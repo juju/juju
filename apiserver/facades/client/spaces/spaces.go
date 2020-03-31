@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/state"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -83,9 +84,6 @@ type Backing interface {
 	// SpaceByName returns the Juju network space given by name.
 	SpaceByName(name string) (networkingcommon.BackingSpace, error)
 
-	// ReloadSpaces loads spaces from backing environ.
-	ReloadSpaces(environ environs.BootstrapEnviron) error
-
 	// AllEndpointBindings loads all endpointBindings.
 	AllEndpointBindings() ([]ApplicationEndpointBindingsShim, error)
 
@@ -103,6 +101,12 @@ type Backing interface {
 
 	// ConstraintsBySpaceName returns constraints found by spaceName.
 	ConstraintsBySpaceName(name string) ([]Constraints, error)
+
+	// SaveProviderSpaces loads providerSpaces into state.
+	SaveProviderSpaces([]network.SpaceInfo) error
+
+	// SaveProviderSubnets loads subnets into state.
+	SaveProviderSubnets([]network.SubnetInfo, string) error
 
 	// IsController returns true if this state instance has the bootstrap
 	// model UUID.
@@ -454,7 +458,7 @@ func (api *API) ReloadSpaces() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(api.backing.ReloadSpaces(env))
+	return errors.Trace(space.ReloadSpaces(api.context, api.backing, env))
 }
 
 // checkSupportsSpaces checks if the environment implements NetworkingEnviron

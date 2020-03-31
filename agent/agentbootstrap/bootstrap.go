@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -170,7 +171,8 @@ func InitializeState(
 	// We need to do this before setting the API host-ports,
 	// because any space names in the bootstrap machine addresses must be
 	// reconcilable with space IDs at that point.
-	if err = st.ReloadSpaces(env); err != nil {
+	ctx := context.CallContext(st)
+	if err = space.ReloadSpaces(ctx, st, env); err != nil {
 		if errors.IsNotSupported(err) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {
@@ -364,7 +366,8 @@ func ensureHostedModel(
 	}
 
 	// TODO(wpk) 2017-05-24 Copy subnets/spaces from controller model
-	if err = hostedModelState.ReloadSpaces(hostedModelEnv); err != nil {
+	ctx := context.CallContext(hostedModelState)
+	if err = space.ReloadSpaces(ctx, hostedModelState, hostedModelEnv); err != nil {
 		if errors.IsNotSupported(err) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {

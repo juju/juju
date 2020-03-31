@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
@@ -685,7 +686,8 @@ func (m *ModelManagerAPI) newModel(
 			return nil, errors.Annotate(err, "Failed to perform container networking autoconfiguration")
 		}
 	}
-	if err = st.ReloadSpaces(env); err != nil {
+
+	if err = space.ReloadSpaces(m.callContext, st, env); err != nil {
 		if errors.IsNotSupported(err) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {

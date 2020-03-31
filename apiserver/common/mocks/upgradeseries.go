@@ -5,13 +5,12 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	common "github.com/juju/juju/apiserver/common"
 	model "github.com/juju/juju/core/model"
 	state "github.com/juju/juju/state"
 	names_v3 "gopkg.in/juju/names.v3"
+	reflect "reflect"
 )
 
 // MockUpgradeSeriesBackend is a mock of UpgradeSeriesBackend interface
@@ -39,6 +38,7 @@ func (m *MockUpgradeSeriesBackend) EXPECT() *MockUpgradeSeriesBackendMockRecorde
 
 // Machine mocks base method
 func (m *MockUpgradeSeriesBackend) Machine(arg0 string) (common.UpgradeSeriesMachine, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Machine", arg0)
 	ret0, _ := ret[0].(common.UpgradeSeriesMachine)
 	ret1, _ := ret[1].(error)
@@ -47,11 +47,13 @@ func (m *MockUpgradeSeriesBackend) Machine(arg0 string) (common.UpgradeSeriesMac
 
 // Machine indicates an expected call of Machine
 func (mr *MockUpgradeSeriesBackendMockRecorder) Machine(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockUpgradeSeriesBackend)(nil).Machine), arg0)
 }
 
 // Unit mocks base method
 func (m *MockUpgradeSeriesBackend) Unit(arg0 string) (common.UpgradeSeriesUnit, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Unit", arg0)
 	ret0, _ := ret[0].(common.UpgradeSeriesUnit)
 	ret1, _ := ret[1].(error)
@@ -60,6 +62,7 @@ func (m *MockUpgradeSeriesBackend) Unit(arg0 string) (common.UpgradeSeriesUnit, 
 
 // Unit indicates an expected call of Unit
 func (mr *MockUpgradeSeriesBackendMockRecorder) Unit(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockUpgradeSeriesBackend)(nil).Unit), arg0)
 }
 
@@ -88,6 +91,7 @@ func (m *MockUpgradeSeriesMachine) EXPECT() *MockUpgradeSeriesMachineMockRecorde
 
 // RemoveUpgradeSeriesLock mocks base method
 func (m *MockUpgradeSeriesMachine) RemoveUpgradeSeriesLock() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveUpgradeSeriesLock")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -95,11 +99,13 @@ func (m *MockUpgradeSeriesMachine) RemoveUpgradeSeriesLock() error {
 
 // RemoveUpgradeSeriesLock indicates an expected call of RemoveUpgradeSeriesLock
 func (mr *MockUpgradeSeriesMachineMockRecorder) RemoveUpgradeSeriesLock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUpgradeSeriesLock", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).RemoveUpgradeSeriesLock))
 }
 
 // Series mocks base method
 func (m *MockUpgradeSeriesMachine) Series() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Series")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -107,11 +113,13 @@ func (m *MockUpgradeSeriesMachine) Series() string {
 
 // Series indicates an expected call of Series
 func (mr *MockUpgradeSeriesMachineMockRecorder) Series() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Series", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).Series))
 }
 
 // SetUpgradeSeriesStatus mocks base method
 func (m *MockUpgradeSeriesMachine) SetUpgradeSeriesStatus(arg0 model.UpgradeSeriesStatus, arg1 string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetUpgradeSeriesStatus", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -119,11 +127,13 @@ func (m *MockUpgradeSeriesMachine) SetUpgradeSeriesStatus(arg0 model.UpgradeSeri
 
 // SetUpgradeSeriesStatus indicates an expected call of SetUpgradeSeriesStatus
 func (mr *MockUpgradeSeriesMachineMockRecorder) SetUpgradeSeriesStatus(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUpgradeSeriesStatus", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).SetUpgradeSeriesStatus), arg0, arg1)
 }
 
 // StartUpgradeSeriesUnitCompletion mocks base method
 func (m *MockUpgradeSeriesMachine) StartUpgradeSeriesUnitCompletion(arg0 string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartUpgradeSeriesUnitCompletion", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -131,11 +141,13 @@ func (m *MockUpgradeSeriesMachine) StartUpgradeSeriesUnitCompletion(arg0 string)
 
 // StartUpgradeSeriesUnitCompletion indicates an expected call of StartUpgradeSeriesUnitCompletion
 func (mr *MockUpgradeSeriesMachineMockRecorder) StartUpgradeSeriesUnitCompletion(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUpgradeSeriesUnitCompletion", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).StartUpgradeSeriesUnitCompletion), arg0)
 }
 
 // Units mocks base method
 func (m *MockUpgradeSeriesMachine) Units() ([]common.UpgradeSeriesUnit, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Units")
 	ret0, _ := ret[0].([]common.UpgradeSeriesUnit)
 	ret1, _ := ret[1].(error)
@@ -144,11 +156,13 @@ func (m *MockUpgradeSeriesMachine) Units() ([]common.UpgradeSeriesUnit, error) {
 
 // Units indicates an expected call of Units
 func (mr *MockUpgradeSeriesMachineMockRecorder) Units() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).Units))
 }
 
 // UpdateMachineSeries mocks base method
 func (m *MockUpgradeSeriesMachine) UpdateMachineSeries(arg0 string, arg1 bool) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateMachineSeries", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -156,11 +170,13 @@ func (m *MockUpgradeSeriesMachine) UpdateMachineSeries(arg0 string, arg1 bool) e
 
 // UpdateMachineSeries indicates an expected call of UpdateMachineSeries
 func (mr *MockUpgradeSeriesMachineMockRecorder) UpdateMachineSeries(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMachineSeries", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).UpdateMachineSeries), arg0, arg1)
 }
 
 // UpgradeSeriesStatus mocks base method
 func (m *MockUpgradeSeriesMachine) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpgradeSeriesStatus")
 	ret0, _ := ret[0].(model.UpgradeSeriesStatus)
 	ret1, _ := ret[1].(error)
@@ -169,11 +185,13 @@ func (m *MockUpgradeSeriesMachine) UpgradeSeriesStatus() (model.UpgradeSeriesSta
 
 // UpgradeSeriesStatus indicates an expected call of UpgradeSeriesStatus
 func (mr *MockUpgradeSeriesMachineMockRecorder) UpgradeSeriesStatus() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesStatus", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).UpgradeSeriesStatus))
 }
 
 // UpgradeSeriesTarget mocks base method
 func (m *MockUpgradeSeriesMachine) UpgradeSeriesTarget() (string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpgradeSeriesTarget")
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
@@ -182,11 +200,13 @@ func (m *MockUpgradeSeriesMachine) UpgradeSeriesTarget() (string, error) {
 
 // UpgradeSeriesTarget indicates an expected call of UpgradeSeriesTarget
 func (mr *MockUpgradeSeriesMachineMockRecorder) UpgradeSeriesTarget() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesTarget", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).UpgradeSeriesTarget))
 }
 
 // UpgradeSeriesUnitStatuses mocks base method
 func (m *MockUpgradeSeriesMachine) UpgradeSeriesUnitStatuses() (map[string]state.UpgradeSeriesUnitStatus, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpgradeSeriesUnitStatuses")
 	ret0, _ := ret[0].(map[string]state.UpgradeSeriesUnitStatus)
 	ret1, _ := ret[1].(error)
@@ -195,11 +215,13 @@ func (m *MockUpgradeSeriesMachine) UpgradeSeriesUnitStatuses() (map[string]state
 
 // UpgradeSeriesUnitStatuses indicates an expected call of UpgradeSeriesUnitStatuses
 func (mr *MockUpgradeSeriesMachineMockRecorder) UpgradeSeriesUnitStatuses() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesUnitStatuses", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).UpgradeSeriesUnitStatuses))
 }
 
 // WatchUpgradeSeriesNotifications mocks base method
 func (m *MockUpgradeSeriesMachine) WatchUpgradeSeriesNotifications() (state.NotifyWatcher, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchUpgradeSeriesNotifications")
 	ret0, _ := ret[0].(state.NotifyWatcher)
 	ret1, _ := ret[1].(error)
@@ -208,6 +230,7 @@ func (m *MockUpgradeSeriesMachine) WatchUpgradeSeriesNotifications() (state.Noti
 
 // WatchUpgradeSeriesNotifications indicates an expected call of WatchUpgradeSeriesNotifications
 func (mr *MockUpgradeSeriesMachineMockRecorder) WatchUpgradeSeriesNotifications() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUpgradeSeriesNotifications", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).WatchUpgradeSeriesNotifications))
 }
 
@@ -236,6 +259,7 @@ func (m *MockUpgradeSeriesUnit) EXPECT() *MockUpgradeSeriesUnitMockRecorder {
 
 // AssignedMachineId mocks base method
 func (m *MockUpgradeSeriesUnit) AssignedMachineId() (string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AssignedMachineId")
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
@@ -244,11 +268,13 @@ func (m *MockUpgradeSeriesUnit) AssignedMachineId() (string, error) {
 
 // AssignedMachineId indicates an expected call of AssignedMachineId
 func (mr *MockUpgradeSeriesUnitMockRecorder) AssignedMachineId() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignedMachineId", reflect.TypeOf((*MockUpgradeSeriesUnit)(nil).AssignedMachineId))
 }
 
 // SetUpgradeSeriesStatus mocks base method
 func (m *MockUpgradeSeriesUnit) SetUpgradeSeriesStatus(arg0 model.UpgradeSeriesStatus, arg1 string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetUpgradeSeriesStatus", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -256,11 +282,13 @@ func (m *MockUpgradeSeriesUnit) SetUpgradeSeriesStatus(arg0 model.UpgradeSeriesS
 
 // SetUpgradeSeriesStatus indicates an expected call of SetUpgradeSeriesStatus
 func (mr *MockUpgradeSeriesUnitMockRecorder) SetUpgradeSeriesStatus(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUpgradeSeriesStatus", reflect.TypeOf((*MockUpgradeSeriesUnit)(nil).SetUpgradeSeriesStatus), arg0, arg1)
 }
 
 // Tag mocks base method
 func (m *MockUpgradeSeriesUnit) Tag() names_v3.Tag {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
 	ret0, _ := ret[0].(names_v3.Tag)
 	return ret0
@@ -268,11 +296,13 @@ func (m *MockUpgradeSeriesUnit) Tag() names_v3.Tag {
 
 // Tag indicates an expected call of Tag
 func (mr *MockUpgradeSeriesUnitMockRecorder) Tag() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockUpgradeSeriesUnit)(nil).Tag))
 }
 
 // UpgradeSeriesStatus mocks base method
 func (m *MockUpgradeSeriesUnit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpgradeSeriesStatus")
 	ret0, _ := ret[0].(model.UpgradeSeriesStatus)
 	ret1, _ := ret[1].(error)
@@ -281,5 +311,6 @@ func (m *MockUpgradeSeriesUnit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus
 
 // UpgradeSeriesStatus indicates an expected call of UpgradeSeriesStatus
 func (mr *MockUpgradeSeriesUnitMockRecorder) UpgradeSeriesStatus() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesStatus", reflect.TypeOf((*MockUpgradeSeriesUnit)(nil).UpgradeSeriesStatus))
 }

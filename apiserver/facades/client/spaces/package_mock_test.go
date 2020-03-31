@@ -15,7 +15,7 @@ import (
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
-	names "gopkg.in/juju/names.v3"
+	names_v3 "gopkg.in/juju/names.v3"
 	txn "gopkg.in/mgo.v2/txn"
 	reflect "reflect"
 )
@@ -206,10 +206,10 @@ func (mr *MockBackingMockRecorder) ModelConfig() *gomock.Call {
 }
 
 // ModelTag mocks base method
-func (m *MockBacking) ModelTag() names.ModelTag {
+func (m *MockBacking) ModelTag() names_v3.ModelTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(names.ModelTag)
+	ret0, _ := ret[0].(names_v3.ModelTag)
 	return ret0
 }
 
@@ -234,18 +234,32 @@ func (mr *MockBackingMockRecorder) MovingSubnet(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MovingSubnet", reflect.TypeOf((*MockBacking)(nil).MovingSubnet), arg0)
 }
 
-// ReloadSpaces mocks base method
-func (m *MockBacking) ReloadSpaces(arg0 environs.BootstrapEnviron) error {
+// SaveProviderSpaces mocks base method
+func (m *MockBacking) SaveProviderSpaces(arg0 []network.SpaceInfo) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReloadSpaces", arg0)
+	ret := m.ctrl.Call(m, "SaveProviderSpaces", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ReloadSpaces indicates an expected call of ReloadSpaces
-func (mr *MockBackingMockRecorder) ReloadSpaces(arg0 interface{}) *gomock.Call {
+// SaveProviderSpaces indicates an expected call of SaveProviderSpaces
+func (mr *MockBackingMockRecorder) SaveProviderSpaces(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReloadSpaces", reflect.TypeOf((*MockBacking)(nil).ReloadSpaces), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveProviderSpaces", reflect.TypeOf((*MockBacking)(nil).SaveProviderSpaces), arg0)
+}
+
+// SaveProviderSubnets mocks base method
+func (m *MockBacking) SaveProviderSubnets(arg0 []network.SubnetInfo, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveProviderSubnets", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveProviderSubnets indicates an expected call of SaveProviderSubnets
+func (mr *MockBackingMockRecorder) SaveProviderSubnets(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveProviderSubnets", reflect.TypeOf((*MockBacking)(nil).SaveProviderSubnets), arg0, arg1)
 }
 
 // SpaceByName mocks base method

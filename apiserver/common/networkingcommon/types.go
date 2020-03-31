@@ -130,8 +130,13 @@ type NetworkBacking interface {
 	// ModelTag returns the tag of the model this state is associated to.
 	ModelTag() names.ModelTag
 
-	// ReloadSpaces loads spaces from backing environ
-	ReloadSpaces(environ environs.BootstrapEnviron) error
+	// SaveProviderSubnets loads subnets into state.
+	// Currently it does not delete removed subnets.
+	SaveProviderSubnets(subnets []corenetwork.SubnetInfo, spaceID string) error
+
+	// SaveProviderSpaces loads providerSpaces into state.
+	// Currently it does not delete removed spaces.
+	SaveProviderSpaces(providerSpaces []corenetwork.SpaceInfo) error
 }
 
 // BackingSubnetToParamsSubnetV2 converts a network backing subnet to the new

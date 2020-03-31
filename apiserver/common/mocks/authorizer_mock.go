@@ -5,10 +5,9 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	names_v3 "gopkg.in/juju/names.v3"
+	reflect "reflect"
 )
 
 // MockAuthorizer is a mock of Authorizer interface
@@ -36,6 +35,7 @@ func (m *MockAuthorizer) EXPECT() *MockAuthorizerMockRecorder {
 
 // AuthController mocks base method
 func (m *MockAuthorizer) AuthController() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AuthController")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -43,11 +43,13 @@ func (m *MockAuthorizer) AuthController() bool {
 
 // AuthController indicates an expected call of AuthController
 func (mr *MockAuthorizerMockRecorder) AuthController() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthController", reflect.TypeOf((*MockAuthorizer)(nil).AuthController))
 }
 
 // AuthMachineAgent mocks base method
 func (m *MockAuthorizer) AuthMachineAgent() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AuthMachineAgent")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -55,11 +57,13 @@ func (m *MockAuthorizer) AuthMachineAgent() bool {
 
 // AuthMachineAgent indicates an expected call of AuthMachineAgent
 func (mr *MockAuthorizerMockRecorder) AuthMachineAgent() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthMachineAgent", reflect.TypeOf((*MockAuthorizer)(nil).AuthMachineAgent))
 }
 
 // GetAuthTag mocks base method
 func (m *MockAuthorizer) GetAuthTag() names_v3.Tag {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAuthTag")
 	ret0, _ := ret[0].(names_v3.Tag)
 	return ret0
@@ -67,5 +71,6 @@ func (m *MockAuthorizer) GetAuthTag() names_v3.Tag {
 
 // GetAuthTag indicates an expected call of GetAuthTag
 func (mr *MockAuthorizerMockRecorder) GetAuthTag() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAuthTag", reflect.TypeOf((*MockAuthorizer)(nil).GetAuthTag))
 }

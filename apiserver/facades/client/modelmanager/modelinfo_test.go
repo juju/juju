@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -921,8 +922,13 @@ func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, erro
 	}
 }
 
-func (st *mockState) ReloadSpaces(environ environs.BootstrapEnviron) error {
-	st.MethodCall(st, "ReloadSpaces", environ)
+func (st *mockState) SaveProviderSubnets(subnets []network.SubnetInfo, spaceID string) error {
+	st.MethodCall(st, "SaveProviderSubnets", subnets, spaceID)
+	return st.NextErr()
+}
+
+func (st *mockState) SaveProviderSpaces(providerSpaces []network.SpaceInfo) error {
+	st.MethodCall(st, "SaveProviderSpaces", providerSpaces)
 	return st.NextErr()
 }
 
