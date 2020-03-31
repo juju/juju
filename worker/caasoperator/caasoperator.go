@@ -165,9 +165,6 @@ func (config Config) Validate() error {
 	if config.UniterFacadeFunc == nil {
 		return errors.NotValidf("missing UniterFacadeFunc")
 	}
-	if config.RunListenerSocketFunc == nil {
-		return errors.NotValidf("missing RunListenerSocketFunc")
-	}
 	if config.UniterParams == nil {
 		return errors.NotValidf("missing UniterParams")
 	}
@@ -322,22 +319,6 @@ func (op *caasOperator) init() (*LocalState, error) {
 		logger.Errorf("failed to write profile funcs: %v", err)
 	}
 
-	// Set up a single remote juju run listener to be used by all units.
-	socket, err := op.config.RunListenerSocketFunc(op.config.UniterParams.SocketConfig)
-	if err != nil {
-		return nil, errors.Annotate(err, "creating juju run socket")
-	}
-	logger.Debugf("starting caas operator juju-run listener on %v", socket)
-	runListener, err := uniter.NewRunListener(*socket)
-	if err != nil {
-		return nil, errors.Annotate(err, "creating juju run listener")
-	}
-	rlw := uniter.NewRunListenerWrapper(runListener)
-	if err := op.catacomb.Add(rlw); err != nil {
-		return nil, errors.Trace(err)
-	}
-	op.config.UniterParams.RunListener = runListener
-
 	if err := jujucharm.ClearDownloads(op.paths.State.BundlesDir); err != nil {
 		logger.Warningf(err.Error())
 	}
@@ -356,6 +337,29 @@ func (op *caasOperator) init() (*LocalState, error) {
 			"failed to initialize caasoperator for %q",
 			op.config.Application,
 		)
+	}
+
+	// Set up a single remote juju run listener to be used by all workload units.
+	if op.deploymentMode != caas.ModeOperator {
+		if op.config.RunListenerSocketFunc == nil {
+			return nil, errors.New("missing RunListenerSocketFunc")
+		}
+		if op.config.RunListenerSocketFunc != nil {
+			socket, err := op.config.RunListenerSocketFunc(op.config.UniterParams.SocketConfig)
+			if err != nil {
+				return nil, errors.Annotate(err, "creating juju run socket")
+			}
+			logger.Debugf("starting caas operator juju-run listener on %v", socket)
+			runListener, err := uniter.NewRunListener(*socket)
+			if err != nil {
+				return nil, errors.Annotate(err, "creating juju run listener")
+			}
+			rlw := uniter.NewRunListenerWrapper(runListener)
+			if err := op.catacomb.Add(rlw); err != nil {
+				return nil, errors.Trace(err)
+			}
+			op.config.UniterParams.RunListener = runListener
+		}
 	}
 	return localState, nil
 }

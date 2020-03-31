@@ -171,10 +171,6 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	}, `missing UniterFacadeFunc not valid`)
 
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
-		config.RunListenerSocketFunc = nil
-	}, `missing RunListenerSocketFunc not valid`)
-
-	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.UniterParams = nil
 	}, `missing UniterParams not valid`)
 
