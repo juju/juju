@@ -202,6 +202,26 @@ func (s *suite) TestServerDownFollowedByConnections(c *gc.C) {
 		values(alive(ha2), alive(modelMachine1)))
 }
 
+func (s *suite) TestServerDownRaceConnections(c *gc.C) {
+	r, _ := bootstrap()
+	enableHA(r)
+	deployModel(r)
+
+	// Deal with the situation where machine-0 was marked as
+	// down, but before an update for the server comes it, some
+	// connections are updated, but the update from the server
+	// hadn't processed all the connections yet.
+	r.ServerDown("machine-0")
+	connect(r, ha0)
+	connect(r, modelUnit1)
+	err := r.UpdateServer("machine-0", values(ha0))
+	c.Assert(err, jc.ErrorIsNil)
+
+	connections := r.Connections()
+	s.assertConnections(c, connections.ForServer(ha0.Server),
+		values(alive(ha0), alive(modelUnit1)))
+}
+
 func (s *suite) TestUpdateServer(c *gc.C) {
 	r, _ := bootstrap()
 	enableHA(r)
@@ -209,6 +229,7 @@ func (s *suite) TestUpdateServer(c *gc.C) {
 
 	// Replace machine-0 values with just the ha node.
 	// The values need to include the status of the connection.
+	r.ServerDown("machine-0")
 	err := r.UpdateServer("machine-0", values(ha0))
 	c.Assert(err, jc.ErrorIsNil)
 

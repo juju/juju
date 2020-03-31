@@ -489,7 +489,8 @@
 
 [[constraint]]
   name = "gopkg.in/natefinch/lumberjack.v2"
-  revision = "df99d62fd42d8b3752c8a42c6723555372c02a03"
+  revision = "e80968ade4d7ef955830d81a62a07eaf4d7d0b40"
+  source = "github.com/juju/lumberjack"
 
 [[constraint]]
   name = "gopkg.in/tomb.v2"
