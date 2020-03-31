@@ -4304,6 +4304,33 @@ func (s *upgradesSuite) TestAddMachineIDToSubordinates(c *gc.C) {
 	s.assertUpgradedData(c, AddMachineIDToSubordinates, upgradedData(col, expected))
 }
 
+func (s *upgradesSuite) TestDropPresenceDatabase(c *gc.C) {
+	presenceDBName := "presence"
+	db := s.state.session.DB(presenceDBName)
+	col := db.C("presence")
+
+	err := col.Insert(bson.M{"test": "foo"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	presenceDBExists := func() bool {
+		names, err := s.state.session.DatabaseNames()
+		c.Assert(err, jc.ErrorIsNil)
+		dbNames := set.NewStrings(names...)
+		return dbNames.Contains(presenceDBName)
+	}
+
+	c.Assert(presenceDBExists(), jc.IsTrue)
+
+	err = DropPresenceDatabase(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(presenceDBExists(), jc.IsFalse)
+
+	// Running again is no error.
+	err = DropPresenceDatabase(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(presenceDBExists(), jc.IsFalse)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }
