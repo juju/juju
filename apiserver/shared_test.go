@@ -18,7 +18,6 @@ import (
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -188,61 +187,6 @@ func (s *sharedServerContextSuite) TestControllerConfigChanged(c *gc.C) {
 	c.Check(ctx.featureEnabled("bar"), jc.IsTrue)
 	c.Check(ctx.featureEnabled("baz"), jc.IsFalse)
 	c.Check(stub.published, gc.HasLen, 0)
-}
-
-func (s *sharedServerContextSuite) TestAddingOldPresenceFeature(c *gc.C) {
-	// Adding the feature.OldPresence to the feature list will cause
-	// a message to be published on the hub to request an apiserver restart.
-	stub := &stubHub{StructuredHub: s.hub}
-	s.config.centralHub = stub
-	s.newContext(c)
-
-	msg := controller.ConfigChangedMessage{
-		Config: corecontroller.Config{
-			corecontroller.Features: []string{"foo", "bar", feature.OldPresence},
-		},
-	}
-	done, err := s.hub.Publish(controller.ConfigChanged, msg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	select {
-	case <-done:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("handler didn't")
-	}
-
-	c.Check(stub.published, jc.DeepEquals, []string{"apiserver.restart"})
-}
-
-func (s *sharedServerContextSuite) TestRemovingOldPresenceFeature(c *gc.C) {
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		"features": []string{feature.OldPresence},
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	// Removing the feature.OldPresence to the feature list will cause
-	// a message to be published on the hub to request an apiserver restart.
-	stub := &stubHub{StructuredHub: s.hub}
-	s.config.centralHub = stub
-	s.config.controllerConfig = controllerConfig
-	s.newContext(c)
-
-	msg := controller.ConfigChangedMessage{
-		Config: corecontroller.Config{
-			corecontroller.Features: []string{"foo", "bar"},
-		},
-	}
-	done, err := s.hub.Publish(controller.ConfigChanged, msg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	select {
-	case <-done:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("handler didn't")
-	}
-
-	c.Check(stub.published, jc.DeepEquals, []string{"apiserver.restart"})
 }
 
 type noopRegisterer struct {

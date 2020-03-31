@@ -17,7 +17,6 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -453,7 +452,6 @@ func (s *UpgradeSuite) create3Controllers(c *gc.C) (machineIdA, machineIdB, mach
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 	machineIdA = machine0.Id()
-	s.setMachineAlive(c, machineIdA)
 
 	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -461,11 +459,9 @@ func (s *UpgradeSuite) create3Controllers(c *gc.C) (machineIdA, machineIdB, mach
 
 	machineIdB = changes.Added[0]
 	s.setMachineProvisioned(c, machineIdB)
-	s.setMachineAlive(c, machineIdB)
 
 	machineIdC = changes.Added[1]
 	s.setMachineProvisioned(c, machineIdC)
-	s.setMachineAlive(c, machineIdC)
 
 	return
 }
@@ -475,16 +471,6 @@ func (s *UpgradeSuite) setMachineProvisioned(c *gc.C, id string) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned(instance.Id(id+"-inst"), "", "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *UpgradeSuite) setMachineAlive(c *gc.C, id string) {
-	machine, err := s.State.Machine(id)
-	c.Assert(err, jc.ErrorIsNil)
-	pinger, err := machine.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
-		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
-	})
 }
 
 const maxUpgradeRetries = 3

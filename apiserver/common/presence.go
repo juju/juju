@@ -20,23 +20,16 @@ type ModelPresence interface {
 // entire model.
 type ModelPresenceContext struct {
 	// Presence represents the API server connections for a model.
-	// If this is non-nil it is used in preference to the state AgentPresence method.
 	Presence ModelPresence
 }
 
 func (c *ModelPresenceContext) machinePresence(machine MachineStatusGetter) (bool, error) {
-	if c.Presence == nil {
-		return machine.AgentPresence()
-	}
 	agent := names.NewMachineTag(machine.Id())
 	status, err := c.Presence.AgentStatus(agent.String())
 	return status == presence.Alive, err
 }
 
 func (c *ModelPresenceContext) unitPresence(unit UnitStatusGetter) (bool, error) {
-	if c.Presence == nil {
-		return unit.AgentPresence()
-	}
 	agent := names.NewUnitTag(unit.Name()).String()
 	if !unit.ShouldBeAssigned() {
 		// Units in CAAS models rely on the operator pings.

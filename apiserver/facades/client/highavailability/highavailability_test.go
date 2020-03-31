@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -22,7 +21,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -34,10 +32,9 @@ func TestAll(t *stdtesting.T) {
 type clientSuite struct {
 	testing.JujuConnSuite
 
-	resources      *common.Resources
-	authoriser     apiservertesting.FakeAuthorizer
-	haServer       *highavailability.HighAvailabilityAPI
-	machine0Pinger *presence.Pinger
+	resources  *common.Resources
+	authoriser apiservertesting.FakeAuthorizer
+	haServer   *highavailability.HighAvailabilityAPI
 
 	commontesting.BlockHelper
 }
@@ -79,24 +76,8 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 
 	// We have to ensure the agents are alive, or EnableHA will
 	// create more to replace them.
-	s.machine0Pinger = s.setAgentPresence(c, "0")
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
-}
-
-func (s *clientSuite) setAgentPresence(c *gc.C, machineId string) *presence.Pinger {
-	m, err := s.State.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
-	pinger, err := m.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
-		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
-	})
-
-	s.State.StartSync()
-	err = m.WaitAgentPresence(coretesting.LongWait)
-	c.Assert(err, jc.ErrorIsNil)
-	return pinger
 }
 
 func (s *clientSuite) setMachineAddresses(c *gc.C, machineId string) {
@@ -164,8 +145,6 @@ func (s *clientSuite) TestEnableHASeries(c *gc.C) {
 	c.Assert(machines[1].Series(), gc.Equals, "quantal")
 	c.Assert(machines[2].Series(), gc.Equals, "quantal")
 
-	s.setAgentPresence(c, "1")
-	s.setAgentPresence(c, "2")
 	s.setMachineAddresses(c, "1")
 	s.setMachineAddresses(c, "2")
 
@@ -382,11 +361,9 @@ func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 		Constraints: machine1Cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.setAgentPresence(c, "1")
 
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	s.setAgentPresence(c, "2")
 
 	placement := []string{"1", "2"}
 	enableHAResult, err := s.enableHA(c, 3, emptyCons, defaultSeries, placement)
@@ -424,7 +401,6 @@ func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
 
 	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	s.setAgentPresence(c, "1")
 	a1 := network.NewSpaceAddress("192.168.6.6")
 	a1.SpaceID = sp.Id()
 	err = m1.SetProviderAddresses(a1)
@@ -432,7 +408,6 @@ func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
 
 	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	s.setAgentPresence(c, "2")
 	a2 := network.NewSpaceAddress("192.168.6.7")
 	a2.SpaceID = sp.Id()
 	err = m2.SetProviderAddresses(a1)
@@ -454,7 +429,6 @@ func (s *clientSuite) TestEnableHAPlacementToErrorForInaccessibleSpace(c *gc.C) 
 
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	s.setAgentPresence(c, "1")
 
 	placement := []string{"1", "2"}
 	_, err = s.enableHA(c, 3, emptyCons, defaultSeries, placement)
@@ -475,7 +449,6 @@ func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 
-	s.setAgentPresence(c, "1")
 	s.setMachineAddresses(c, "1")
 	s.setMachineAddresses(c, "2")
 
@@ -608,8 +581,6 @@ func (s *clientSuite) TestEnableHANoSpecs(c *gc.C) {
 
 func (s *clientSuite) TestEnableHABootstrap(c *gc.C) {
 	// Testing based on lp:1748275 - Juju HA fails due to demotion of Machine 0
-	s.machine0Pinger.KillForTesting()
-
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)

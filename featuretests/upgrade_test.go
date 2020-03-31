@@ -281,11 +281,6 @@ func (s *upgradeSuite) configureMachine(c *gc.C, machineId string, vers version.
 		c.Assert(m.SetProvisioned(inst.Id(), "", agent.BootstrapNonce, md), jc.ErrorIsNil)
 	}
 
-	// Make the machine live
-	pinger, err := m.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { pinger.Stop() })
-
 	// Set up the new machine.
 	err = m.SetAgentVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)

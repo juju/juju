@@ -17,16 +17,13 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/agent/presence"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
-	statepresence "github.com/juju/juju/state/presence"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -295,15 +292,7 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 	a.loggedIn = true
 
 	if startPinger {
-		// TODO(axw) we shouldn't have to run pingers for
-		// other controller machines; all controllers should
-		// be connecting to at least their own API server
-		// instance, but that isn't currently guaranteed.
-		//
-		// When we move the API server to the dependency
-		// engine, each controller agent should run its own
-		// presence pinger in the dependency engine also.
-		if err := startPingerIfAgent(a.srv.pingClock, a.root, a.root.entity); err != nil {
+		if err := setupPingTimeoutDisconnect(a.srv.pingClock, a.root, a.root.entity); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -506,51 +495,10 @@ func (a *admin) maintenanceInProgress() bool {
 	return false
 }
 
-// presenceShim exists to represent a statepresence.Agent in a form
-// convenient to the apiserver/presence package, which exists to work
-// around the common.Resources infrastructure's lack of handling for
-// failed resources.
-type presenceShim struct {
-	agent statepresence.Agent
-}
-
-// Start starts and returns a running presence.Pinger. The caller is
-// responsible for stopping it when no longer required, and for handling
-// any errors returned from Wait.
-func (shim presenceShim) Start() (presence.Pinger, error) {
-	pinger, err := shim.agent.SetAgentPresence()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return pinger, nil
-}
-
-func startPingerIfAgent(clock clock.Clock, root *apiHandler, entity state.Entity) error {
+func setupPingTimeoutDisconnect(clock clock.Clock, root *apiHandler, entity state.Entity) error {
 	tag := entity.Tag()
 	if tag.Kind() == names.UserTagKind {
 		return nil
-	}
-	if root.shared.featureEnabled(feature.OldPresence) {
-		// worker runs presence.Pingers -- absence of which will cause
-		// embarrassing "agent is lost" messages to show up in status --
-		// until it's stopped. It's stored in resources purely for the
-		// side effects: we don't record its id, and nobody else
-		// retrieves it -- we just expect it to be stopped when the
-		// connection is shut down.
-		agent, ok := entity.(statepresence.Agent)
-		if !ok {
-			return nil
-		}
-		worker, err := presence.New(presence.Config{
-			Identity:   tag,
-			Start:      presenceShim{agent}.Start,
-			Clock:      clock,
-			RetryDelay: 3 * time.Second,
-		})
-		if err != nil {
-			return err
-		}
-		root.getResources().Register(worker)
 	}
 
 	// pingTimeout, by contrast, *is* used by the Pinger facade to

@@ -15,7 +15,6 @@ import (
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/lease"
@@ -23,12 +22,10 @@ import (
 
 const (
 	txnLogWorker          = "txnlog"
-	presenceWorker        = "presence"
 	leadershipWorker      = "leadership"
 	singularWorker        = "singular"
 	allManagerWorker      = "allmanager"
 	allModelManagerWorker = "allmodelmanager"
-	pingBatcherWorker     = "pingbatcher"
 )
 
 // workers runs the workers that a State instance requires.
@@ -66,12 +63,6 @@ func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
 			ModelUUID: st.modelUUID(),
 			Logger:    loggo.GetLogger("juju.state.watcher"),
 		})
-	})
-	ws.StartWorker(presenceWorker, func() (worker.Worker, error) {
-		return presence.NewWatcher(st.getPresenceCollection(), st.modelTag), nil
-	})
-	ws.StartWorker(pingBatcherWorker, func() (worker.Worker, error) {
-		return presence.NewPingBatcher(st.getPresenceCollection(), pingFlushInterval), nil
 	})
 	ws.StartWorker(leadershipWorker, func() (worker.Worker, error) {
 		manager, err := st.newLeaseManager(st.getLeadershipLeaseStore, lease.LeadershipSecretary{}, st.ModelUUID())
@@ -135,22 +126,6 @@ func (ws *workers) txnLogWatcher() watcher.BaseWatcher {
 		return watcher.NewDead(errors.Trace(err))
 	}
 	return w.(watcher.BaseWatcher)
-}
-
-func (ws *workers) presenceWatcher() *presence.Watcher {
-	w, err := ws.Worker(presenceWorker, nil)
-	if err != nil {
-		return presence.NewDeadWatcher(errors.Trace(err))
-	}
-	return w.(*presence.Watcher)
-}
-
-func (ws *workers) pingBatcherWorker() *presence.PingBatcher {
-	w, err := ws.Worker(pingBatcherWorker, nil)
-	if err != nil {
-		return presence.NewDeadPingBatcher(errors.Trace(err))
-	}
-	return w.(*presence.PingBatcher)
 }
 
 func (ws *workers) leadershipManager() *lease.Manager {

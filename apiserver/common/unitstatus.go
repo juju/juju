@@ -25,7 +25,6 @@ type StatusAndErr struct {
 type UnitStatusGetter interface {
 	AgentStatus() (status.StatusInfo, error)
 	Status() (status.StatusInfo, error)
-	AgentPresence() (bool, error)
 	ShouldBeAssigned() bool
 	Name() string
 	Life() state.Life

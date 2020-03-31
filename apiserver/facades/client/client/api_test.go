@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -25,7 +24,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -94,11 +92,6 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 
 // scenarioStatus describes the expected state
 // of the juju model set up by setUpScenario.
-//
-// NOTE: AgentState: "down", AgentStateInfo: "(started)" here is due
-// to the scenario not calling SetAgentPresence on the respective entities,
-// but this behavior is already tested in cmd/juju/status_test.go and
-// also tested live and it works.
 var scenarioStatus = &params.FullStatus{
 	Model: params.ModelStatusInfo{
 		Name:        "controller",
@@ -518,31 +511,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(lu.IsPrincipal(), jc.IsFalse)
 		setDefaultPassword(c, lu)
-		s.setAgentPresence(c, wu)
 		add(lu)
 	}
-	allMachines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	for _, m := range allMachines {
-		s.setAgentPresence(c, m)
-	}
 	return
-}
-
-type presenceEntity interface {
-	SetAgentPresence() (*presence.Pinger, error)
-	WaitAgentPresence(timeout time.Duration) (err error)
-}
-
-func (s *baseSuite) setAgentPresence(c *gc.C, e presenceEntity) {
-	pinger, err := e.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
-		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
-	})
-
-	s.State.StartSync()
-	s.BackingState.StartSync()
-	err = e.WaitAgentPresence(coretesting.LongWait)
-	c.Assert(err, jc.ErrorIsNil)
 }

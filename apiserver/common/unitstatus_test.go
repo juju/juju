@@ -84,12 +84,6 @@ func (s *UnitStatusSuite) TestErrors(c *gc.C) {
 	c.Check(workload.Err, gc.ErrorMatches, "status error")
 }
 
-func (s *UnitStatusSuite) TestLostLegacy(c *gc.C) {
-	s.ctx.Presence = nil
-	s.unit.presence = false
-	s.checkLost(c)
-}
-
 func (s *UnitStatusSuite) TestLost(c *gc.C) {
 	s.ctx.Presence = agentDown(s.unit.Tag().String())
 	s.checkLost(c)
@@ -101,26 +95,10 @@ func (s *UnitStatusSuite) TestCAASLost(c *gc.C) {
 	s.checkLost(c)
 }
 
-func (s *UnitStatusSuite) TestLostAndDeadLegacy(c *gc.C) {
-	s.ctx.Presence = nil
-	s.unit.presence = false
-	s.unit.life = state.Dead
-	// Status is untouched if unit is Dead.
-	s.checkUntouched(c)
-}
-
 func (s *UnitStatusSuite) TestLostAndDead(c *gc.C) {
 	s.ctx.Presence = agentDown(s.unit.Tag().String())
 	s.unit.life = state.Dead
 	// Status is untouched if unit is Dead.
-	s.checkUntouched(c)
-}
-
-func (s *UnitStatusSuite) TestPresenceErrorLegacy(c *gc.C) {
-	s.ctx.Presence = nil
-	s.unit.presence = false
-	s.unit.presenceErr = errors.New("boom")
-	// Presence error gets ignored, so no output is unchanged.
 	s.checkUntouched(c)
 }
 
@@ -130,24 +108,9 @@ func (s *UnitStatusSuite) TestPresenceError(c *gc.C) {
 	s.checkUntouched(c)
 }
 
-func (s *UnitStatusSuite) TestNotLostIfAllocatingLegacy(c *gc.C) {
-	s.ctx.Presence = nil
-	s.unit.presence = false
-	s.unit.agentStatus.Status = status.Allocating
-	s.checkUntouched(c)
-}
-
 func (s *UnitStatusSuite) TestNotLostIfAllocating(c *gc.C) {
 	s.ctx.Presence = agentDown(s.unit.Tag().String())
 	s.unit.agentStatus.Status = status.Allocating
-	s.checkUntouched(c)
-}
-
-func (s *UnitStatusSuite) TestCantBeLostDuringInstallLegacy(c *gc.C) {
-	s.ctx.Presence = nil
-	s.unit.presence = false
-	s.unit.agentStatus.Status = status.Executing
-	s.unit.agentStatus.Message = "running install hook"
 	s.checkUntouched(c)
 }
 
@@ -158,13 +121,6 @@ func (s *UnitStatusSuite) TestCantBeLostDuringInstall(c *gc.C) {
 	s.checkUntouched(c)
 }
 
-func (s *UnitStatusSuite) TestCantBeLostDuringWorkloadInstallLegacy(c *gc.C) {
-	s.ctx.Presence = nil
-	s.unit.presence = false
-	s.unit.status.Status = status.Maintenance
-	s.unit.status.Message = "installing charm software"
-	s.checkUntouched(c)
-}
 func (s *UnitStatusSuite) TestCantBeLostDuringWorkloadInstall(c *gc.C) {
 	s.ctx.Presence = agentDown(s.unit.Tag().String())
 	s.unit.status.Status = status.Maintenance
@@ -198,10 +154,6 @@ func (u *fakeStatusUnit) AgentStatus() (status.StatusInfo, error) {
 
 func (u *fakeStatusUnit) Status() (status.StatusInfo, error) {
 	return u.status, u.statusErr
-}
-
-func (u *fakeStatusUnit) AgentPresence() (bool, error) {
-	return u.presence, u.presenceErr
 }
 
 func (u *fakeStatusUnit) Life() state.Life {

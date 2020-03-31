@@ -28,10 +28,8 @@ import (
 	"github.com/juju/juju/apiserver/testserver"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -43,15 +41,6 @@ type serverSuite struct {
 }
 
 var _ = gc.Suite(&serverSuite{})
-
-func (s *serverSuite) SetUpTest(c *gc.C) {
-	// Tests here check that pingers are started. We need to inject
-	// the feature flags into the controller very early.
-	s.ControllerConfigAttrs = map[string]interface{}{
-		"features": []string{feature.OldPresence},
-	}
-	s.JujuConnSuite.SetUpTest(c)
-}
 
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
@@ -181,52 +170,6 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	st, err = api.Open(info, fastDialOpts)
 	assertNotProvisioned(err)
 	c.Assert(st, gc.IsNil)
-}
-
-func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
-	// This is the same steps as OpenAPIAsNewMachine but we need to assert
-	// the agent is not alive before we actually open the API.
-	// Create a new machine to verify "agent alive" behavior.
-	machine, password := s.Factory.MakeMachineReturningPassword(
-		c, &factory.MachineParams{Nonce: "fake_nonce"})
-
-	// Not alive yet.
-	s.assertAlive(c, machine, false)
-
-	// Login as the machine agent of the created machine.
-	st := s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
-	defer func() {
-		err := st.Close()
-		c.Check(err, jc.ErrorIsNil)
-	}()
-
-	// Make sure the pinger has started.
-	s.assertAlive(c, machine, true)
-}
-
-func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
-	// Create a new application and unit to verify "agent alive" behavior.
-	unit, password := s.Factory.MakeUnitReturningPassword(c, nil)
-
-	// Not alive yet.
-	s.assertAlive(c, unit, false)
-
-	// Login as the unit agent of the created unit.
-	st := s.OpenAPIAs(c, unit.Tag(), password)
-	defer func() {
-		err := st.Close()
-		c.Check(err, jc.ErrorIsNil)
-	}()
-
-	// Make sure the pinger has started.
-	s.assertAlive(c, unit, true)
-}
-
-func (s *serverSuite) assertAlive(c *gc.C, entity presence.Agent, expectAlive bool) {
-	s.State.StartSync()
-	alive, err := entity.AgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, gc.Equals, expectAlive)
 }
 
 func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {

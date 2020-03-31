@@ -78,6 +78,7 @@ type StateBackend interface {
 	RemoveControllerConfigMaxLogAgeAndSize() error
 	IncrementTasksSequence() error
 	AddMachineIDToSubordinates() error
+	DropPresenceDatabase() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -317,4 +318,8 @@ func (s stateBackend) IncrementTasksSequence() error {
 
 func (s stateBackend) AddMachineIDToSubordinates() error {
 	return state.AddMachineIDToSubordinates(s.pool)
+}
+
+func (s stateBackend) DropPresenceDatabase() error {
+	return state.DropPresenceDatabase(s.pool)
 }

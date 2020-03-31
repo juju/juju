@@ -33,11 +33,6 @@ const DeveloperMode = "developer-mode"
 // values for annotations, status, status history, or settings.
 const StrictMigration = "strict-migration"
 
-// OldPresence indicates that the old database presence implementation
-// should be used by the API server to determine agent presence.
-// This value is only checked using the controller config "features" attribute.
-const OldPresence = "old-presence"
-
 // LegacyLeases will switch all lease management to be handled by the
 // Mongo-based lease store, rather than by the Raft FSM.
 const LegacyLeases = "legacy-leases"

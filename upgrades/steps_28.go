@@ -15,6 +15,13 @@ import (
 func stateStepsFor28() []Step {
 	return []Step{
 		&upgradeStep{
+			description: "drop old presence database",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().DropPresenceDatabase()
+			},
+		},
+		&upgradeStep{
 			description: "increment tasks sequence by 1",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {

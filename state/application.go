@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -33,7 +32,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 )
 
@@ -3097,60 +3095,6 @@ func (op *AddUnitOperation) Done(err error) error {
 	}
 
 	return nil
-}
-
-// AgentPresence returns whether the respective remote agent is alive.
-func (a *Application) AgentPresence() (bool, error) {
-	pwatcher := a.st.workers.presenceWatcher()
-	return pwatcher.Alive(a.globalKey())
-}
-
-// WaitAgentPresence blocks until the respective agent is alive.
-// This should really only be used in the test suite.
-func (a *Application) WaitAgentPresence(timeout time.Duration) (err error) {
-	defer errors.DeferredAnnotatef(&err, "waiting for agent of application %q", a)
-	ch := make(chan presence.Change)
-	pwatcher := a.st.workers.presenceWatcher()
-	pwatcher.Watch(a.globalKey(), ch)
-	defer pwatcher.Unwatch(a.globalKey(), ch)
-	pingBatcher := a.st.getPingBatcher()
-	if err := pingBatcher.Sync(); err != nil {
-		return err
-	}
-	for i := 0; i < 2; i++ {
-		select {
-		case change := <-ch:
-			if change.Alive {
-				return nil
-			}
-		case <-time.After(timeout):
-			// TODO(fwereade): 2016-03-17 lp:1558657
-			return fmt.Errorf("still not alive after timeout")
-		case <-pwatcher.Dead():
-			return pwatcher.Err()
-		}
-	}
-	panic(fmt.Sprintf("presence reported dead status twice in a row for application %q", a))
-}
-
-// SetAgentPresence signals that the agent for application a is alive.
-// It returns the started pinger.
-func (a *Application) SetAgentPresence() (*presence.Pinger, error) {
-	presenceCollection := a.st.getPresenceCollection()
-	recorder := a.st.getPingBatcher()
-	m, err := a.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	p := presence.NewPinger(presenceCollection, m.ModelTag(), a.globalKey(),
-		func() presence.PingRecorder { return a.st.getPingBatcher() })
-	err = p.Start()
-	if err != nil {
-		return nil, err
-	}
-	// Make sure this Agent status is written to the database before returning.
-	recorder.Sync()
-	return p, nil
 }
 
 // UpdateCloudService updates the cloud service details for the application.

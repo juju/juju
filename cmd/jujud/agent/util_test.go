@@ -135,11 +135,6 @@ func (s *commonMachineSuite) primeAgentVersion(c *gc.C, vers version.Binary, job
 }
 
 func (s *commonMachineSuite) primeAgentWithMachine(c *gc.C, m *state.Machine, vers version.Binary) (*state.Machine, agent.ConfigSetterWriter, *tools.Tools) {
-	pinger, err := m.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
-		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
-	})
 	return s.configureMachine(c, m.Id(), vers)
 }
 
@@ -235,45 +230,6 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 	dummy.SetInstanceAddresses(insts[0], network.NewProviderAddresses("0.1.2.3"))
-}
-
-// WithAliveAgent starts the agent, wait till it becomes alive and then invokes
-// the provided cb. Once the callback returns, WithAliveAgent will block until
-// the agent either exits or exceeds its run timeout. In both cases, any error
-// returned by the agent's Run method will be captured and returned to the
-// caller.
-func (s *commonMachineSuite) WithAliveAgent(c *gc.C, m *state.Machine, a *MachineAgent, cb func() error) error {
-	// achilleasa: the agent usually takes a around 30 seconds
-	waitTime := coretesting.LongWait * 3
-
-	ctx := cmdtesting.Context(c)
-	errCh := make(chan error, 1)
-	go func() {
-		select {
-		case errCh <- a.Run(ctx):
-		case <-time.After(waitTime):
-			errCh <- fmt.Errorf("time out waiting for agent to complete its run")
-		}
-		a.Stop()
-		close(errCh)
-	}()
-
-	if err := m.WaitAgentPresence(waitTime); err != nil {
-		return err
-	}
-
-	if cb != nil {
-		if err := cb(); err != nil {
-			return err
-		}
-	}
-
-	// Wait for agent to exit or timeout
-	for err := range errCh {
-		return err
-	}
-
-	return nil
 }
 
 // opRecvTimeout waits for any of the given kinds of operation to

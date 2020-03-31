@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 )
 
@@ -1131,66 +1130,6 @@ func (m *Machine) Refresh() error {
 	}
 	m.doc = *mdoc
 	return nil
-}
-
-// AgentPresence returns whether the respective remote agent is alive.
-func (m *Machine) AgentPresence() (bool, error) {
-	pwatcher := m.st.workers.presenceWatcher()
-	return pwatcher.Alive(m.globalKey())
-}
-
-// WaitAgentPresence blocks until the respective agent is alive.
-// This should really only be used in the test suite.
-func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
-	defer errors.DeferredAnnotatef(&err, "waiting for agent of machine %v", m)
-	ch := make(chan presence.Change)
-	pwatcher := m.st.workers.presenceWatcher()
-	pwatcher.Watch(m.globalKey(), ch)
-	defer pwatcher.Unwatch(m.globalKey(), ch)
-	pingBatcher := m.st.getPingBatcher()
-	if err := pingBatcher.Sync(); err != nil {
-		return err
-	}
-	for i := 0; i < 2; i++ {
-		select {
-		case change := <-ch:
-			if change.Alive {
-				return nil
-			}
-		case <-time.After(timeout):
-			// TODO(fwereade): 2016-03-17 lp:1558657
-			return fmt.Errorf("still not alive after timeout")
-		case <-pwatcher.Dead():
-			return pwatcher.Err()
-		}
-	}
-	panic(fmt.Sprintf("presence reported dead status twice in a row for machine %v", m))
-}
-
-// SetAgentPresence signals that the agent for machine m is alive.
-// It returns the started pinger.
-func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
-	presenceCollection := m.st.getPresenceCollection()
-	recorder := m.st.getPingBatcher()
-	p := presence.NewPinger(presenceCollection, m.st.modelTag, m.globalKey(),
-		func() presence.PingRecorder { return m.st.getPingBatcher() })
-	err := p.Start()
-	if err != nil {
-		return nil, err
-	}
-	// Make sure this Agent status is written to the database before returning.
-	recorder.Sync()
-	// We preform a manual sync here so that the
-	// presence pinger has the most up-to-date information when it
-	// starts. This ensures that commands run immediately after bootstrap
-	// like status or enable-ha will have an accurate values
-	// for agent-state.
-	//
-	// TODO: Does not work for multiple controllers. Trigger a sync across all controllers.
-	if m.IsManager() {
-		m.st.workers.presenceWatcher().Sync()
-	}
-	return p, nil
 }
 
 // InstanceId returns the provider specific instance id for this

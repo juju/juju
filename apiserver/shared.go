@@ -16,8 +16,6 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
 )
@@ -140,17 +138,6 @@ func (c *sharedServerContext) onConfigChanged(topic string, data controller.Conf
 
 	if removed.Size() != 0 || added.Size() != 0 {
 		c.logger.Infof("updating features to %v", values)
-	}
-	// If the presence implementation changes we need to restart
-	// the apiserver. So if the old presence feature flag is in either
-	// added or removed, we need to publish the restart message.
-	if removed.Contains(feature.OldPresence) || added.Contains(feature.OldPresence) {
-		_, err := c.centralHub.Publish(apiserver.RestartTopic, apiserver.Restart{
-			LocalOnly: true,
-		})
-		if err != nil {
-			c.logger.Errorf("unable to publish restart message: %v", err)
-		}
 	}
 }
 

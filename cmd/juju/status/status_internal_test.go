@@ -42,7 +42,6 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -112,17 +111,9 @@ type context struct {
 	env           environs.Environ
 	statusSetter  agentStatusSetter
 	charms        map[string]*state.Charm
-	pingers       map[string]*presence.Pinger
 	adminUserTag  string // A string repr of the tag.
 	expectIsoTime bool
 	skipTest      bool
-}
-
-func (ctx *context) reset(c *gc.C) {
-	for _, up := range ctx.pingers {
-		err := up.KillForTesting()
-		c.Check(err, jc.ErrorIsNil)
-	}
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
@@ -135,18 +126,6 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 		c.Logf("%#v", s)
 		s.step(c, ctx)
 	}
-}
-
-func (ctx *context) setAgentPresence(c *gc.C, p presence.Agent) *presence.Pinger {
-	pinger, err := p.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx.st.StartSync()
-	err = p.WaitAgentPresence(coretesting.LongWait)
-	c.Assert(err, jc.ErrorIsNil)
-	agentPresence, err := p.AgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(agentPresence, jc.IsTrue)
-	return pinger
 }
 
 func (s *StatusSuite) newContext(c *gc.C) *context {
@@ -165,13 +144,11 @@ func (s *StatusSuite) newContext(c *gc.C) *context {
 		env:          s.Environ,
 		statusSetter: s.Environ.(agentStatusSetter),
 		charms:       make(map[string]*state.Charm),
-		pingers:      make(map[string]*presence.Pinger),
 		adminUserTag: s.AdminUserTag(c).String(),
 	}
 }
 
 func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
-	ctx.reset(c)
 	s.JujuConnSuite.Reset(c)
 }
 
@@ -2111,7 +2088,6 @@ var statusTests = []testCase{
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
 
-		setUnitsAlive{"logging"},
 		setAgentStatus{"logging/0", status.Idle, "", nil},
 		setUnitStatus{"logging/0", status.Active, "", nil},
 		setAgentStatus{"logging/1", status.Error, "somehow lost in all those logs", nil},
@@ -3859,7 +3835,6 @@ type startAliveMachine struct {
 func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sam.machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	pinger := ctx.setAgentPresence(c, m)
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := ctx.st.ControllerConfig()
@@ -3867,7 +3842,6 @@ func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, environscontext.NewCloudCallContext(), cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), sam.displayName, "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.pingers[m.Id()] = pinger
 }
 
 type startMachineWithHardware struct {
@@ -3878,7 +3852,6 @@ type startMachineWithHardware struct {
 func (sm startMachineWithHardware) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	pinger := ctx.setAgentPresence(c, m)
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := ctx.st.ControllerConfig()
@@ -3886,7 +3859,6 @@ func (sm startMachineWithHardware) step(c *gc.C, ctx *context) {
 	inst, _ := testing.AssertStartInstanceWithConstraints(c, ctx.env, environscontext.NewCloudCallContext(), cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "", "fake_nonce", &sm.hc)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.pingers[m.Id()] = pinger
 }
 
 type startAliveMachineWithDisplayName struct {
@@ -3897,7 +3869,6 @@ type startAliveMachineWithDisplayName struct {
 func (sm startAliveMachineWithDisplayName) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	pinger := ctx.setAgentPresence(c, m)
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := ctx.st.ControllerConfig()
@@ -3905,7 +3876,6 @@ func (sm startAliveMachineWithDisplayName) step(c *gc.C, ctx *context) {
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, environscontext.NewCloudCallContext(), cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), sm.displayName, "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.pingers[m.Id()] = pinger
 	_, displayName, err := m.InstanceNames()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(displayName, gc.Equals, sm.displayName)
@@ -4227,26 +4197,10 @@ func (aau addAliveUnit) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := s.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	pinger := ctx.setAgentPresence(c, u)
 	m, err := ctx.st.Machine(aau.machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.pingers[u.Name()] = pinger
-}
-
-type setUnitsAlive struct {
-	applicationName string
-}
-
-func (sua setUnitsAlive) step(c *gc.C, ctx *context) {
-	s, err := ctx.st.Application(sua.applicationName)
-	c.Assert(err, jc.ErrorIsNil)
-	us, err := s.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	for _, u := range us {
-		ctx.pingers[u.Name()] = ctx.setAgentPresence(c, u)
-	}
 }
 
 type setUnitMeterStatus struct {
@@ -4845,7 +4799,6 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		relateApplications{"mysql", "logging", ""},
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
-		setUnitsAlive{"logging"},
 		setAgentStatus{"logging/0", status.Idle, "", nil},
 		setUnitStatus{"logging/0", status.Active, "", nil},
 		setAgentStatus{"logging/1", status.Error, "somehow lost in all those logs", nil},
@@ -4918,7 +4871,6 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
 
-		setUnitsAlive{"logging"},
 		setAgentStatus{"logging/0", status.Idle, "", nil},
 		setUnitStatus{"logging/0", status.Active, "", nil},
 		setAgentStatus{"logging/1", status.Error, "somehow lost in all those logs", nil},
@@ -5003,7 +4955,6 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		relateApplications{"mysql", "logging", ""},
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
-		setUnitsAlive{"logging"},
 		setAgentStatus{"logging/0", status.Idle, "", nil},
 		setUnitStatus{"logging/0", status.Active, "", nil},
 		setAgentStatus{"logging/1", status.Error, "somehow lost in all those logs", nil},
@@ -5433,7 +5384,6 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		addSubordinate{"mysql/0", "logging"},
 		setAgentStatus{"logging/1", status.Idle, "", nil},
 		setUnitStatus{"logging/1", status.Active, "", nil},
-		setUnitsAlive{"logging"},
 	}
 
 	ctx.run(c, steps)
