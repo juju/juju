@@ -2912,3 +2912,9 @@ func AddMachineIDToSubordinates(pool *StatePool) error {
 	}
 	return st.runRawTransaction(ops)
 }
+
+// DropPresenceDatabase removes the legacy presence database.
+func DropPresenceDatabase(pool *StatePool) error {
+	st := pool.SystemState()
+	return st.session.DB("presence").DropDatabase()
+}
