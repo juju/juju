@@ -2847,12 +2847,22 @@ func IncrementTasksSequence(pool *StatePool) error {
 	// a request to get a task id.
 	sequenceColl, closer := st.db().GetRawCollection(sequenceC)
 	defer closer()
-	n, err := sequenceColl.FindId(st.docID("tasks")).Count()
-	if err != nil || n == 0 {
-		return errors.Trace(err)
+
+	var seq struct {
+		DocId   string `bson:"_id"`
+		Counter int    `bson:"counter"`
 	}
-	_, err = sequence(st, "tasks")
-	return errors.Trace(err)
+	iter := sequenceColl.Find(bson.M{"_id": bson.M{"$regex": ".*:tasks$"}}).Iter()
+	defer iter.Close()
+
+	for iter.Next(&seq) {
+		if err := sequenceColl.UpdateId(seq.DocId, bson.M{
+			"$set": bson.M{"counter": seq.Counter + 1},
+		}); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // AddMachineIDToSubordinates ensures that the subordinate units
