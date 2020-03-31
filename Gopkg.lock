@@ -1451,11 +1451,12 @@
   source = "github.com/juju/mgo"
 
 [[projects]]
-  digest = "1:b3754795e3fee393109402432c80f9771e13118efa63da5a022028ca68fc1887"
+  digest = "1:230bdde674032e4e361bb928a661502b7154e8d12e6a6e8dee213574ecf8612d"
   name = "gopkg.in/natefinch/lumberjack.v2"
   packages = ["."]
   pruneopts = ""
-  revision = "df99d62fd42d8b3752c8a42c6723555372c02a03"
+  revision = "e80968ade4d7ef955830d81a62a07eaf4d7d0b40"
+  source = "github.com/juju/lumberjack"
 
 [[projects]]
   digest = "1:4f830ee018eb8c56d0def653ad7c9a1d2a053f0cef2ac6b2200f73b98fa6a681"
