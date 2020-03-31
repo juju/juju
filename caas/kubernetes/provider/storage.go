@@ -234,7 +234,6 @@ var storageModeFields = schema.Fields{
 var storageModeChecker = schema.FieldMap(
 	storageModeFields,
 	schema.Defaults{
-		// RWO/ReadWriteOnce is the default default.
 		storageMode: "ReadWriteOnce",
 	},
 )
@@ -243,14 +242,14 @@ func getStorageMode(attrs map[string]interface{}) (*core.PersistentVolumeAccessM
 	parseMode := func(m string) (*core.PersistentVolumeAccessMode, error) {
 		var out core.PersistentVolumeAccessMode
 		switch m {
-		case "ReadOnlyMany", "ROM":
+		case "ReadOnlyMany", "ROX":
 			out = core.ReadOnlyMany
-		case "ReadWriteMany", "RWM":
+		case "ReadWriteMany", "RWX":
 			out = core.ReadWriteMany
 		case "ReadWriteOnce", "RWO":
 			out = core.ReadWriteOnce
 		default:
-			return &out, errors.NotValidf("storage mode %q", m)
+			return &out, errors.NotSupportedf("storage mode %q", m)
 		}
 		return &out, nil
 	}

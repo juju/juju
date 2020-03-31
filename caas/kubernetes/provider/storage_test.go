@@ -214,3 +214,65 @@ func (s *storageSuite) TestValidateStorageProvider(c *gc.C) {
 		}
 	}
 }
+
+func (s *storageSuite) TestGetStorageMode(c *gc.C) {
+	type testCase struct {
+		attrs map[string]interface{}
+		mode  core.PersistentVolumeAccessMode
+		err   string
+	}
+
+	for i, t := range []testCase{
+		{
+			attrs: map[string]interface{}{
+				"storage-mode": "RWO",
+			},
+			mode: core.ReadWriteOnce,
+		},
+		{
+			attrs: map[string]interface{}{
+				"storage-mode": "ReadWriteOnce",
+			},
+			mode: core.ReadWriteOnce,
+		},
+		{
+			attrs: map[string]interface{}{
+				"storage-mode": "RWX",
+			},
+			mode: core.ReadWriteMany,
+		},
+		{
+			attrs: map[string]interface{}{
+				"storage-mode": "ReadWriteMany",
+			},
+			mode: core.ReadWriteMany,
+		},
+		{
+			attrs: map[string]interface{}{
+				"storage-mode": "ROX",
+			},
+			mode: core.ReadOnlyMany,
+		},
+		{
+			attrs: map[string]interface{}{
+				"storage-mode": "ReadOnlyMany",
+			},
+			mode: core.ReadOnlyMany,
+		},
+		{
+			attrs: map[string]interface{}{
+				"storage-mode": "bad-mode",
+			},
+			err: `storage mode "bad-mode" not supported`,
+		},
+	} {
+		c.Logf("testing get storage mode %d", i)
+		mode, err := provider.GetStorageMode(t.attrs)
+		if t.err == "" {
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(*mode, jc.DeepEquals, t.mode)
+		} else {
+			c.Check(err, gc.ErrorMatches, t.err)
+		}
+	}
+}
