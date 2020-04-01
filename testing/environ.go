@@ -37,7 +37,7 @@ var (
 )
 
 // FakeVersionNumber is a valid version number that can be used in testing.
-var FakeVersionNumber = version.MustParse("1.99.0")
+var FakeVersionNumber = version.MustParse("2.99.0")
 
 // ModelTag is a defined known valid UUID that can be used in testing.
 var ModelTag = names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")

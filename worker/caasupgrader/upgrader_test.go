@@ -121,6 +121,23 @@ func (s *UpgraderSuite) TestUpgraderDowngradePatch(c *gc.C) {
 	s.operatorUpgrader.CheckCall(c, 0, "Upgrade", "machine-0", s.upgraderClient.desired)
 }
 
+func (s *UpgraderSuite) TestUpgraderDowngradeMinor(c *gc.C) {
+	// We'll allow this for the case of restoring a backup from a
+	// previous juju version.
+	vers := version.MustParse("6.6.7")
+	s.PatchValue(&jujuversion.Current, vers)
+	s.upgraderClient.desired = version.MustParse("6.5.10")
+
+	u := s.makeUpgrader(c, names.NewMachineTag("0"))
+	workertest.CleanKill(c, u)
+
+	s.expectInitialUpgradeCheckNotDone(c)
+	c.Assert(s.upgraderClient.actual.Number, gc.DeepEquals, vers)
+	s.upgraderClient.CheckCallNames(c, "SetVersion", "DesiredVersion")
+	s.operatorUpgrader.CheckCallNames(c, "Upgrade")
+	s.operatorUpgrader.CheckCall(c, 0, "Upgrade", "machine-0", s.upgraderClient.desired)
+}
+
 func (s *UpgraderSuite) expectInitialUpgradeCheckDone(c *gc.C) {
 	c.Assert(s.initialCheckComplete.IsUnlocked(), jc.IsTrue)
 }
