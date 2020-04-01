@@ -47,6 +47,7 @@ var (
 
 	LabelSetToRequirements = labelSetToRequirements
 	MergeSelectors         = mergeSelectors
+	GetStorageMode         = getStorageMode
 )
 
 type (

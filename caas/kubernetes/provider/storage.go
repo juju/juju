@@ -11,11 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	core "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8slabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
@@ -33,6 +30,7 @@ const (
 	StorageClass       = "storage-class"
 	storageProvisioner = "storage-provisioner"
 	storageMedium      = "storage-medium"
+	storageMode        = "storage-mode"
 )
 
 //ValidateStorageProvider returns an error if the storage type and config is not valid
@@ -55,96 +53,21 @@ func ValidateStorageProvider(providerType storage.ProviderType, attributes map[s
 		}
 	}
 	if providerType == K8s_ProviderType {
-		if _, err := newStorageConfig(attributes); err != nil {
+		if err := validateStorageAttributes(attributes); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-// StorageProviderTypes is defined on the storage.ProviderRegistry interface.
-func (k *kubernetesClient) StorageProviderTypes() ([]storage.ProviderType, error) {
-	return []storage.ProviderType{K8s_ProviderType}, nil
-}
-
-// StorageProvider is defined on the storage.ProviderRegistry interface.
-func (k *kubernetesClient) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
-	if t == K8s_ProviderType {
-		return &storageProvider{k}, nil
+func validateStorageAttributes(attributes map[string]interface{}) error {
+	if _, err := newStorageConfig(attributes); err != nil {
+		return errors.Trace(err)
 	}
-	return nil, errors.NotFoundf("storage provider %q", t)
-}
-
-func (k *kubernetesClient) deleteStorageClasses(selector k8slabels.Selector) error {
-	err := k.client().StorageV1().StorageClasses().DeleteCollection(&v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	}, v1.ListOptions{
-		LabelSelector: selector.String(),
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
+	if _, err := getStorageMode(attributes); err != nil {
+		return errors.Trace(err)
 	}
-	return errors.Annotate(err, "deleting model storage classes")
-}
-
-func (k *kubernetesClient) listStorageClasses(selector k8slabels.Selector) ([]storagev1.StorageClass, error) {
-	listOps := v1.ListOptions{
-		LabelSelector: selector.String(),
-	}
-	list, err := k.client().StorageV1().StorageClasses().List(listOps)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(list.Items) == 0 {
-		return nil, errors.NotFoundf("storage classes with selector %q", selector)
-	}
-	return list.Items, nil
-}
-
-func (k *kubernetesClient) ensurePVC(pvc *core.PersistentVolumeClaim) (*core.PersistentVolumeClaim, func(), error) {
-	cleanUp := func() {}
-	out, err := k.createPVC(pvc)
-	if err == nil {
-		// Only do cleanup for the first time!
-		cleanUp = func() { _ = k.deletePVC(out.GetName(), out.GetUID()) }
-		return out, cleanUp, nil
-	}
-	if !errors.IsAlreadyExists(err) {
-		return nil, cleanUp, errors.Trace(err)
-	}
-	existing, err := k.getPVC(pvc.GetName())
-	if err != nil {
-		return nil, cleanUp, errors.Trace(err)
-	}
-	// PVC is immutable after creation except resources.requests for bound claims.
-	// TODO(caas): support requests - currently we only support limits which means updating here is a no ops for now.
-	existing.Spec.Resources.Requests = pvc.Spec.Resources.Requests
-	out, err = k.updatePVC(existing)
-	return out, cleanUp, errors.Trace(err)
-}
-
-func (k *kubernetesClient) createPVC(pvc *core.PersistentVolumeClaim) (*core.PersistentVolumeClaim, error) {
-	out, err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Create(pvc)
-	if k8serrors.IsAlreadyExists(err) {
-		return nil, errors.AlreadyExistsf("PVC %q", pvc.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) updatePVC(pvc *core.PersistentVolumeClaim) (*core.PersistentVolumeClaim, error) {
-	out, err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Update(pvc)
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("PVC %q", pvc.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) deletePVC(name string, uid types.UID) error {
-	err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Delete(name, newPreconditionDeleteOptions(uid))
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
+	return nil
 }
 
 type storageProvider struct {
@@ -183,6 +106,10 @@ type storageConfig struct {
 	reclaimPolicy core.PersistentVolumeReclaimPolicy
 }
 
+const (
+	storageConfigParameterPrefix = "parameters."
+)
+
 func newStorageConfig(attrs map[string]interface{}) (*storageConfig, error) {
 	out, err := storageConfigChecker.Coerce(attrs, nil)
 	if err != nil {
@@ -203,19 +130,53 @@ func newStorageConfig(attrs map[string]interface{}) (*storageConfig, error) {
 	storageConfig.reclaimPolicy = core.PersistentVolumeReclaimRetain
 	storageConfig.parameters = make(map[string]string)
 	for k, v := range attrs {
-		k = strings.TrimPrefix(k, "parameters.")
+		if !strings.HasPrefix(k, storageConfigParameterPrefix) {
+			continue
+		}
+		k = strings.TrimPrefix(k, storageConfigParameterPrefix)
 		storageConfig.parameters[k] = fmt.Sprintf("%v", v)
 	}
-	delete(storageConfig.parameters, StorageClass)
-	delete(storageConfig.parameters, storageProvisioner)
-
 	return storageConfig, nil
+}
+
+var storageModeFields = schema.Fields{
+	storageMode: schema.String(),
+}
+
+var storageModeChecker = schema.FieldMap(
+	storageModeFields,
+	schema.Defaults{
+		storageMode: "ReadWriteOnce",
+	},
+)
+
+func getStorageMode(attrs map[string]interface{}) (*core.PersistentVolumeAccessMode, error) {
+	parseMode := func(m string) (*core.PersistentVolumeAccessMode, error) {
+		var out core.PersistentVolumeAccessMode
+		switch m {
+		case "ReadOnlyMany", "ROX":
+			out = core.ReadOnlyMany
+		case "ReadWriteMany", "RWX":
+			out = core.ReadWriteMany
+		case "ReadWriteOnce", "RWO":
+			out = core.ReadWriteOnce
+		default:
+			return nil, errors.NotSupportedf("storage mode %q", m)
+		}
+		return &out, nil
+	}
+
+	out, err := storageModeChecker.Coerce(attrs, nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "validating storage mode")
+	}
+	coerced := out.(map[string]interface{})
+	return parseMode(coerced[storageMode].(string))
 }
 
 // ValidateConfig is defined on the storage.Provider interface.
 func (g *storageProvider) ValidateConfig(cfg *storage.Config) error {
-	_, err := newStorageConfig(cfg.Attrs())
-	return errors.Trace(err)
+	return errors.Trace(validateStorageAttributes(cfg.Attrs()))
 }
 
 // Supports is defined on the storage.Provider interface.
@@ -234,7 +195,7 @@ func (g *storageProvider) Dynamic() bool {
 }
 
 // Releasable is defined on the storage.Provider interface.
-func (e *storageProvider) Releasable() bool {
+func (g *storageProvider) Releasable() bool {
 	return true
 }
 

@@ -48,7 +48,7 @@ unless otherwise specified.
 Examples:
 
     juju create-storage-pool ebsrotary ebs volume-type=standard
-    juju create-storage-pool gcepd storage-provisioner=kubernetes.io/gce-pd parameters.type=pd-standard
+    juju create-storage-pool gcepd storage-provisioner=kubernetes.io/gce-pd [storage-mode=RWX|RWO|ROX] parameters.type=pd-standard
 
 See also:
     remove-storage-pool
