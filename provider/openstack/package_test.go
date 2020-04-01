@@ -12,6 +12,7 @@ import (
 )
 
 //go:generate mockgen -package openstack -destination network_mock_test.go github.com/juju/juju/provider/openstack Networking
+//go:generate mockgen -package openstack -destination cloud_mock_test.go github.com/juju/juju/cloudconfig/cloudinit NetworkingConfig
 
 var live = flag.Bool("live", false, "Include live OpenStack tests")
 

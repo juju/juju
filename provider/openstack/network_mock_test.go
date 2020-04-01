@@ -8,6 +8,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
+	neutron "gopkg.in/goose.v2/neutron"
 	nova "gopkg.in/goose.v2/nova"
 	reflect "reflect"
 )
@@ -51,10 +52,10 @@ func (mr *MockNetworkingMockRecorder) AllocatePublicIP(arg0 interface{}) *gomock
 }
 
 // CreatePort mocks base method
-func (m *MockNetworking) CreatePort(arg0, arg1 string, arg2 network.Id) (string, error) {
+func (m *MockNetworking) CreatePort(arg0, arg1 string, arg2 network.Id) (*neutron.PortV2, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreatePort", arg0, arg1, arg2)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(*neutron.PortV2)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

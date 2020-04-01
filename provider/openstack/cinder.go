@@ -69,9 +69,9 @@ func newCinderConfig(attrs map[string]interface{}) (*cinderConfig, error) {
 }
 
 // StorageProviderTypes implements storage.ProviderRegistry.
-func (env *Environ) StorageProviderTypes() ([]storage.ProviderType, error) {
+func (e *Environ) StorageProviderTypes() ([]storage.ProviderType, error) {
 	var types []storage.ProviderType
-	if _, err := env.cinderProvider(); err == nil {
+	if _, err := e.cinderProvider(); err == nil {
 		types = append(types, CinderProviderType)
 	} else if !errors.IsNotSupported(err) {
 		return nil, errors.Trace(err)
@@ -80,24 +80,24 @@ func (env *Environ) StorageProviderTypes() ([]storage.ProviderType, error) {
 }
 
 // StorageProvider implements storage.ProviderRegistry.
-func (env *Environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
+func (e *Environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
 	if t != CinderProviderType {
 		return nil, errors.NotFoundf("storage provider %q", t)
 	}
-	return env.cinderProvider()
+	return e.cinderProvider()
 }
 
-func (env *Environ) cinderProvider() (*cinderProvider, error) {
-	storageAdapter, err := newOpenstackStorage(env)
+func (e *Environ) cinderProvider() (*cinderProvider, error) {
+	storageAdapter, err := newOpenstackStorage(e)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &cinderProvider{
 		storageAdapter: storageAdapter,
-		envName:        env.name,
-		modelUUID:      env.uuid,
-		namespace:      env.namespace,
-		zonedEnv:       env,
+		envName:        e.name,
+		modelUUID:      e.uuid,
+		namespace:      e.namespace,
+		zonedEnv:       e,
 	}, nil
 }
 

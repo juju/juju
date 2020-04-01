@@ -35,6 +35,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/cmd/juju/interact"
@@ -1157,16 +1158,17 @@ func (e *Environ) startInstance(
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}
+
+	networks, err := e.networksForInstance(args, cloudCfg)
+	if err != nil {
+		return nil, common.ZoneIndependentError(err)
+	}
+
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudCfg, OpenstackRenderer{})
 	if err != nil {
 		return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot make user data"))
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
-
-	networks, err := e.networksForInstance(args)
-	if err != nil {
-		return nil, common.ZoneIndependentError(err)
-	}
 
 	machineName := resourceName(
 		e.namespace,
@@ -1212,7 +1214,7 @@ func (e *Environ) startInstance(
 		}
 	}
 
-	var novaGroupNames = []nova.SecurityGroupName{}
+	var novaGroupNames []nova.SecurityGroupName
 	if createSecurityGroups {
 		var apiPort int
 		if args.InstanceConfig.Controller != nil {
@@ -1404,7 +1406,13 @@ func (e *Environ) validateAvailabilityZone(ctx context.ProviderCallContext, args
 
 // networksForInstance returns networks that will be attached
 // to a new Openstack instance.
-func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova.ServerNetworks, error) {
+// Network info for all ports created is represented in the input cloud-config
+// reference.
+// This is necessary so that the correct Netplan representation for the
+// associated NICs is rendered in the instance that they will be attached to.
+func (e *Environ) networksForInstance(
+	args environs.StartInstanceParams, cloudCfg cloudinit.NetworkingConfig,
+) ([]nova.ServerNetworks, error) {
 	networks, err := e.networksForModel()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1459,19 +1467,36 @@ func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova
 	// Set the subnetID on the network for all networks.
 	// For each of the subnetIDs selected, create a port for each one.
 	subnetNetworks := make([]nova.ServerNetworks, 0, len(subnetIDForZone))
-	for _, subnetID := range subnetIDForZone {
-		var portID string
-		portID, err = e.networking.CreatePort(e.uuid, networkID, subnetID)
+	netInfo := make([]corenetwork.InterfaceInfo, len(subnetIDsForZone))
+	for i, subnetID := range subnetIDForZone {
+		var port *neutron.PortV2
+		port, err = e.networking.CreatePort(e.uuid, networkID, subnetID)
 		if err != nil {
 			break
 		}
 
-		logger.Infof("created new port %q connected to Openstack subnet %q", portID, subnetID)
+		logger.Infof("created new port %q connected to Openstack subnet %q", port.Id, subnetID)
 		subnetNetworks = append(subnetNetworks, nova.ServerNetworks{
 			NetworkId: networkID,
-			PortId:    portID,
+			PortId:    port.Id,
 		})
+
+		// We expect a single address,
+		// but for correctness we add all from the created port.
+		ips := make([]string, len(port.FixedIPs))
+		for j, fixedIP := range port.FixedIPs {
+			ips[j] = fixedIP.IPAddress
+		}
+
+		netInfo[i] = corenetwork.InterfaceInfo{
+			InterfaceName: fmt.Sprintf("eth%d", i),
+			MACAddress:    port.MACAddress,
+			Addresses:     corenetwork.NewProviderAddresses(ips...),
+			ConfigType:    corenetwork.ConfigDHCP,
+		}
 	}
+
+	err = cloudCfg.AddNetworkConfig(netInfo)
 
 	if err != nil {
 		err1 := e.DeletePorts(subnetNetworks)

@@ -681,7 +681,7 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersion(c *gc.C) {
 	c.Check(authmode, gc.Equals, identity.AuthUserPass)
 }
 
-func (s *providerUnitTests) TestNewCredentialsWithFaultVersionandProjectDomainName(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithFaultVersionAndProjectDomainName(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":             "abc",
 		"username":            "user",
@@ -702,7 +702,7 @@ func (s *providerUnitTests) TestNewCredentialsWithFaultVersionandProjectDomainNa
 	c.Assert(err, gc.ErrorMatches,
 		"cred.Version is not a valid integer type : strconv.Atoi: parsing \"abc\": invalid syntax")
 }
-func (s *providerUnitTests) TestNewCredentialsWithoutVersionwithProjectDomain(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithoutVersionWithProjectDomain(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":            "user",
 		"password":            "secret",
@@ -733,7 +733,7 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersionwithProjectDomain(c 
 	c.Check(authmode, gc.Equals, identity.AuthUserPassV3)
 }
 
-func (s *providerUnitTests) TestNewCredentialsWithoutVersionwithUserDomain(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithoutVersionWithUserDomain(c *gc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":         "user",
 		"password":         "secret",
@@ -835,21 +835,16 @@ func (s *providerUnitTests) TestNetworksForInstance(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockNetworking := NewMockNetworking(ctrl)
-	expectDefaultNetworks(mockNetworking)
 	mockNetworking.EXPECT().ResolveNetwork("", false).Return("network-id-foo", nil)
+	expectDefaultNetworks(mockNetworking)
 
-	environ := Environ{
-		ecfgUnlocked: &environConfig{
-			attrs: map[string]interface{}{
-				NetworkKey: "",
-			},
-		},
-		networking: mockNetworking,
+	netCfg := NewMockNetworkingConfig(ctrl)
+
+	siParams := environs.StartInstanceParams{
+		AvailabilityZone: "eu-west-az",
 	}
 
-	result, err := environ.networksForInstance(environs.StartInstanceParams{
-		AvailabilityZone: "eu-west-az",
-	})
+	result, err := envWithNetworking(mockNetworking).networksForInstance(siParams, netCfg)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
@@ -866,32 +861,37 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockNetworking := NewMockNetworking(ctrl)
-	expectDefaultNetworks(mockNetworking)
 	mockNetworking.EXPECT().ResolveNetwork("", false).Return("network-id-foo", nil)
-	mockNetworking.EXPECT().CreatePort("", "network-id-foo", corenetwork.Id("subnet-foo")).Return("port-id", nil)
+	mockNetworking.EXPECT().CreatePort("", "network-id-foo", corenetwork.Id("subnet-foo")).Return(
+		&neutron.PortV2{
+			FixedIPs: []neutron.PortFixedIPsV2{{
+				IPAddress: "10.10.10.1",
+				SubnetID:  "subnet-id",
+			}},
+			Id:         "port-id",
+			MACAddress: "mac-address",
+		}, nil)
+	expectDefaultNetworks(mockNetworking)
 
-	environ := Environ{
-		ecfgUnlocked: &environConfig{
-			attrs: map[string]interface{}{
-				NetworkKey: "",
-			},
-		},
-		networking: mockNetworking,
-	}
+	netCfg := NewMockNetworkingConfig(ctrl)
+	netCfg.EXPECT().AddNetworkConfig([]corenetwork.InterfaceInfo{{
+		InterfaceName: "eth0",
+		MACAddress:    "mac-address",
+		Addresses:     corenetwork.NewProviderAddresses("10.10.10.1"),
+		ConfigType:    corenetwork.ConfigDHCP,
+	}}).Return(nil)
 
-	result, err := environ.networksForInstance(environs.StartInstanceParams{
+	siParams := environs.StartInstanceParams{
 		AvailabilityZone: "eu-west-az",
-		SubnetsToZones: []map[corenetwork.Id][]string{
-			{
-				"subnet-foo": {"eu-west-az", "eu-east-az"},
-			},
-		},
+		SubnetsToZones:   []map[corenetwork.Id][]string{{"subnet-foo": {"eu-west-az", "eu-east-az"}}},
 		Constraints: constraints.Value{
 			Spaces: &[]string{
 				"eu-west-az",
 			},
 		},
-	})
+	}
+
+	result, err := envWithNetworking(mockNetworking).networksForInstance(siParams, netCfg)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
@@ -908,33 +908,30 @@ func (s *providerUnitTests) TestNetworksForInstanceWithNoMatchingAZ(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockNetworking := NewMockNetworking(ctrl)
-	expectDefaultNetworks(mockNetworking)
 	mockNetworking.EXPECT().ResolveNetwork("", false).Return("network-id-foo", nil)
+	expectDefaultNetworks(mockNetworking)
 
-	environ := Environ{
-		ecfgUnlocked: &environConfig{
-			attrs: map[string]interface{}{
-				NetworkKey: "",
-			},
+	netCfg := NewMockNetworkingConfig(ctrl)
+
+	siParams := environs.StartInstanceParams{
+		AvailabilityZone: "us-east-az",
+		SubnetsToZones:   []map[corenetwork.Id][]string{{"subnet-foo": {"eu-west-az", "eu-east-az"}}},
+		Constraints: constraints.Value{
+			Spaces: &[]string{"eu-west-az"},
 		},
-		networking: mockNetworking,
 	}
 
-	_, err := environ.networksForInstance(environs.StartInstanceParams{
-		AvailabilityZone: "us-east-az",
-		SubnetsToZones: []map[corenetwork.Id][]string{
-			{
-				"subnet-foo": {"eu-west-az", "eu-east-az"},
-			},
-		},
-		Constraints: constraints.Value{
-			Spaces: &[]string{
-				"eu-west-az",
-			},
-		},
-	})
-
+	_, err := envWithNetworking(mockNetworking).networksForInstance(siParams, netCfg)
 	c.Assert(err, gc.ErrorMatches, "getting subnets in zone \"us-east-az\": subnets in AZ \"us-east-az\" not found")
+}
+
+func envWithNetworking(net Networking) *Environ {
+	return &Environ{
+		ecfgUnlocked: &environConfig{
+			attrs: map[string]interface{}{NetworkKey: ""},
+		},
+		networking: net,
+	}
 }
 
 // expectDefaultNetworks will always return an empty slice as that's the current
