@@ -280,7 +280,7 @@ func (k *kubernetesClient) operatorVolumeClaim(appName, operatorName string, sto
 
 	params, err := newVolumeParams(operatorVolumeClaim, fsSize, storageParams.Attributes)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "invalid storage configuration for %q operator", appName)
 	}
 	// We want operator storage to be deleted when the operator goes away.
 	params.storageConfig.reclaimPolicy = core.PersistentVolumeReclaimDelete
