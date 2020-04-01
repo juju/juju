@@ -22,7 +22,8 @@ import (
 // ServerSession represents a "juju debug-hooks" session.
 type ServerSession struct {
 	*HooksContext
-	hooks set.Strings
+	hooks      set.Strings
+	breakpoint string
 
 	output io.Writer
 }
@@ -52,11 +53,14 @@ func (s *ServerSession) RunHook(hookName, charmDir string, env []string, hookRun
 	}
 	defer func() { _ = os.RemoveAll(debugDir) }()
 	help := buildRunHookCmd(hookName, hookRunner)
-	if err := s.writeDebugFiles(debugDir, help); err != nil {
+	if err := s.writeDebugFiles(debugDir, help, hookRunner); err != nil {
 		return errors.Trace(err)
 	}
 
 	env = utils.Setenv(env, "JUJU_DEBUG="+debugDir)
+	if s.breakpoint != "" {
+		env = utils.Setenv(env, "JUJU_BREAKPOINT="+s.breakpoint)
+	}
 
 	cmd := exec.Command("/bin/bash", "-s")
 	cmd.Env = env
@@ -80,20 +84,20 @@ func (s *ServerSession) RunHook(hookName, charmDir string, env []string, hookRun
 }
 
 func buildRunHookCmd(hookName, hookRunner string) string {
-	if hookName == hookRunner {
+	if hookName == filepath.Base(hookRunner) {
 		return "./$JUJU_DISPATCH_PATH"
 	}
 	return "./" + hookRunner
 }
 
-func (s *ServerSession) writeDebugFiles(debugDir, help string) error {
+func (s *ServerSession) writeDebugFiles(debugDir, help, hookRunner string) error {
 	// hook.sh does not inherit environment variables,
 	// so we must insert the path to the directory
 	// containing env.sh for it to source.
-	debugHooksHookScript := strings.Replace(
+	debugHooksHookScript := strings.Replace(strings.Replace(
 		debugHooksHookScript,
 		"__JUJU_DEBUG__", debugDir, -1,
-	)
+	), "__JUJU_HOOK_RUNNER__", hookRunner, -1)
 
 	type file struct {
 		filename string
@@ -140,7 +144,7 @@ func (c *HooksContext) FindSession() (*ServerSession, error) {
 		return nil, err
 	}
 	hooks := set.NewStrings(args.Hooks...)
-	session := &ServerSession{HooksContext: c, hooks: hooks}
+	session := &ServerSession{HooksContext: c, hooks: hooks, breakpoint: args.Breakpoint}
 	return session, nil
 }
 
@@ -148,13 +152,18 @@ const debugHooksServerScript = `set -e
 exec > $JUJU_DEBUG/debug.log >&1
 
 # Set a useful prompt.
-export PS1="$JUJU_UNIT_NAME:$JUJU_HOOK_NAME % "
+export PS1="$JUJU_UNIT_NAME:$JUJU_DISPATCH_PATH % "
 
 # Save environment variables and export them for sourcing.
 FILTER='^\(LS_COLORS\|LESSOPEN\|LESSCLOSE\|PWD\)='
 export | grep -v $FILTER > $JUJU_DEBUG/env.sh
 
-tmux new-window -t $JUJU_UNIT_NAME -n $JUJU_HOOK_NAME "$JUJU_DEBUG/hook.sh"
+if [ -z "$JUJU_HOOK_NAME" ] ; then
+  window_name="$JUJU_DISPATCH_PATH"
+else
+  window_name="$JUJU_HOOK_NAME"
+fi
+tmux new-window -t $JUJU_UNIT_NAME -n $window_name "$JUJU_DEBUG/hook.sh"
 
 # If we exit for whatever reason, kill the hook shell.
 exit_handler() {
@@ -200,5 +209,9 @@ trap 'echo $? > $JUJU_DEBUG/hook_exit_status' EXIT
 const debugHooksHookScript = `#!/bin/bash
 . __JUJU_DEBUG__/env.sh
 echo $$ > $JUJU_DEBUG/hook.pid
-exec /bin/bash --noprofile --init-file $JUJU_DEBUG/init.sh
+if [ -z "$JUJU_BREAKPOINT" ] ; then
+	exec /bin/bash --noprofile --init-file $JUJU_DEBUG/init.sh
+else
+	exec /bin/bash --noprofile --init-file $JUJU_DEBUG/init.sh -c __JUJU_HOOK_RUNNER__
+fi
 `

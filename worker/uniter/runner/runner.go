@@ -373,7 +373,7 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 		// Note: hookScript might be relative but the debug session only requires its name
 		hookHandlerType, hookScript, _ := runner.discoverHookHandler(hookName, runner.paths.GetCharmDir(), charmLocation)
 		logger.Infof("executing %s via debug-hooks; %s", hookName, hookHandlerType)
-		return hookHandlerType, session.RunHook(hookName, runner.paths.GetCharmDir(), env, filepath.Base(hookScript))
+		return hookHandlerType, session.RunHook(hookName, runner.paths.GetCharmDir(), env, hookScript)
 	}
 
 	charmDir := runner.paths.GetCharmDir()

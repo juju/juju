@@ -10,6 +10,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v3"
 
@@ -32,13 +33,17 @@ func newDebugHooksCommand(hostChecker ssh.ReachableChecker) cmd.Command {
 // debugHooksCommand is responsible for launching a ssh shell on a given unit or machine.
 type debugHooksCommand struct {
 	sshCommand
-	hooks []string
+	hooks      []string
+	Breakpoint string
 
 	getActionAPI func() (ActionsAPI, error)
 }
 
 const debugHooksDoc = `
 Interactively debug hooks or actions remotely on an application unit.
+
+For charms that support it, you can use "--breakpoint" to drop into a
+debugger inside the charm instead of into a shell ready to execute the hook.
 
 See the "juju help ssh" for information about SSH related options
 accepted by the debug-hooks command.
@@ -72,6 +77,13 @@ func (c *debugHooksCommand) Init(args []string) error {
 		}
 	}
 	return nil
+}
+
+func (c *debugHooksCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.sshCommand.SetFlags(f)
+	f.StringVar(&c.Breakpoint, "breakpoint", "",
+		"If set, rather than dropping into a command line, "+
+			"the hook will be fired with JUJU_BREAKPOINT set.")
 }
 
 type charmRelationsAPI interface {
@@ -191,8 +203,9 @@ func (c *debugHooksCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	debugctx := unitdebug.NewHooksContext(c.Target)
-	script := base64.StdEncoding.EncodeToString([]byte(unitdebug.ClientScript(debugctx, c.hooks)))
-	innercmd := fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, script)
+	clientScript := unitdebug.ClientScript(debugctx, c.hooks, c.Breakpoint)
+	b64Script := base64.StdEncoding.EncodeToString([]byte(clientScript))
+	innercmd := fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, b64Script)
 	args := []string{fmt.Sprintf("sudo /bin/bash -c '%s'", innercmd)}
 	c.Args = args
 	return c.sshCommand.Run(ctx)
