@@ -18,6 +18,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/collections/set"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
@@ -1418,6 +1420,11 @@ func (e *Environ) networksForInstance(
 		return nil, errors.Trace(err)
 	}
 
+	// REMOVE ME
+	// Create a random port to make testing of port deletion easy.
+	portID, err := e.networking.CreatePort(e.uuid, "43a023a7-efa0-45ac-b329-96aef4422430", "86f29884-a2fa-42c7-ac47-8c377fb6f5ba")
+	logger.Criticalf("CREATE A RANDOM PORT %v %v", portID, err)
+
 	if !args.Constraints.HasSpaces() {
 		return networks, nil
 	}
@@ -2161,18 +2168,50 @@ func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
 	}
 
 	client := e.neutron()
+	ports, err := client.ListPortsV2()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// Unfortunately we're unable to bulk delete these ports, so we have to go
 	// over them, one by one.
-	var errs []error
+	changes := set.NewStrings()
+	for _, port := range ports {
+		if !strings.HasPrefix(port.Name, fmt.Sprintf("juju-%s", e.uuid)) {
+			continue
+		}
+		changes.Add(port.Id)
+	}
+
 	for _, osInterface := range osInterfaces {
 		if osInterface.PortID == "" {
 			continue
 		}
 
+		// Ensure we created the port by first checking the name.
+		port, err := client.PortByIdV2(osInterface.PortID)
+		if err != nil || !strings.HasPrefix(port.Name, "juju-") {
+			continue
+		}
+
+		changes.Add(osInterface.PortID)
+	}
+
+	var errs []error
+	for _, change := range changes.SortedValues() {
+		// TODO (stickupkid): This shouldn't be required at all.
+		_, err := client.UpdatePortV2(change, neutron.PortV2{
+			AdminStateUp:        false,
+			DeviceOwner:         "None",
+			FixedIPs:            make([]neutron.PortFixedIPsV2, 0),
+			PortSecurityEnabled: false,
+		})
+		if err != nil {
+			errs = append(errs, err)
+		}
 		// Delete a port. If we encounter an error add it to the list of errors
 		// and continue until we've exhausted all the ports to delete.
-		if err := client.DeletePortV2(osInterface.PortID); err != nil {
+		if err := client.DeletePortV2(change); err != nil {
 			errs = append(errs, err)
 			continue
 		}
