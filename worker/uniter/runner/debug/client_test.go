@@ -69,37 +69,36 @@ func (*DebugHooksClientSuite) TestClientScript(c *gc.C) {
 
 func (*DebugHooksClientSuite) TestBase64HookArgsNoValues(c *gc.C) {
 	// Tests of how we encode parameters for how debug-hooks will operate
-	base64Args := debug.Base64HookArgs(nil, "")
-	args := decodeArgs(c, base64Args)
-	c.Check(args, gc.DeepEquals, map[string]interface{}{})
+	testEncodeRoundTrips(c, nil, "", map[string]interface{}{})
 }
 
 func (*DebugHooksClientSuite) TestBase64HookArgsHookList(c *gc.C) {
 	// Tests of how we encode parameters for how debug-hooks will operate
-	base64Args := debug.Base64HookArgs([]string{"install", "start"}, "")
-	args := decodeArgs(c, base64Args)
-	c.Check(args, gc.DeepEquals, map[string]interface{}{
+	testEncodeRoundTrips(c, []string{"install", "start"}, "", map[string]interface{}{
 		"hooks": []interface{}{"install", "start"},
 	})
 }
 
 func (*DebugHooksClientSuite) TestBase64HookArgsBreakpoint(c *gc.C) {
 	// Tests of how we encode parameters for how debug-hooks will operate
-	base64Args := debug.Base64HookArgs([]string{}, "all,broken")
-	args := decodeArgs(c, base64Args)
-	c.Check(args, gc.DeepEquals, map[string]interface{}{
+	testEncodeRoundTrips(c, nil, "all,broken", map[string]interface{}{
 		"breakpoint": "all,broken",
 	})
 }
 
 func (*DebugHooksClientSuite) TestBase64HookArgsBoth(c *gc.C) {
 	// Tests of how we encode parameters for how debug-hooks will operate
-	base64Args := debug.Base64HookArgs([]string{"db-relation-changed", "stop"}, "brokepoint")
+	testEncodeRoundTrips(c, []string{"db-relation-changed", "stop"}, "brokepoint",
+		map[string]interface{}{
+			"hooks":      []interface{}{"db-relation-changed", "stop"},
+			"breakpoint": "brokepoint",
+		})
+}
+
+func testEncodeRoundTrips(c *gc.C, match []string, breakpoint string, decoded map[string]interface{}) {
+	base64Args := debug.Base64HookArgs(match, breakpoint)
 	args := decodeArgs(c, base64Args)
-	c.Check(args, gc.DeepEquals, map[string]interface{}{
-		"hooks":      []interface{}{"db-relation-changed", "stop"},
-		"breakpoint": "brokepoint",
-	})
+	c.Check(args, gc.DeepEquals, decoded)
 }
 
 func decodeArgs(c *gc.C, base64Args string) map[string]interface{} {
