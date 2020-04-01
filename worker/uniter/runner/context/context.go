@@ -1109,6 +1109,14 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 		}
 	}
 
+	// If the action completed without an error but we failed to flush the
+	// charm state changes due to a quota limit, we should attach the error
+	// to the action.
+	if err == nil && errors.IsQuotaLimitExceeded(unhandledErr) {
+		err = unhandledErr
+		unhandledErr = nil
+	}
+
 	// If we had an action error, we'll simply encapsulate it in the response
 	// and discard the error state.  Actions should not error the uniter.
 	if err != nil {

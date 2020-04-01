@@ -57,5 +57,18 @@ func (u *UnitStateAPI) SetState(unitState params.SetUnitStateArg) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return results.OneError()
+	// Make sure we correctly decode quota-related errors.
+	return maybeRestoreQuotaLimitError(results.OneError())
+}
+
+// maybeRestoreQuotaLimitError checks if the server emitted a quota limit
+// exceeded error and restores it back to a typed error from juju/errors.
+// Ideally, we would use apiserver/common.RestoreError but apparently, that
+// package imports worker/uniter/{operation, remotestate} causing an import
+// cycle when api/common is imported by api/uniter.
+func maybeRestoreQuotaLimitError(err error) error {
+	if params.IsCodeQuotaLimitExceeded(err) {
+		return errors.NewQuotaLimitExceeded(nil, err.Error())
+	}
+	return err
 }
