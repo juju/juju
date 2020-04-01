@@ -4,43 +4,43 @@
 package relation_test
 
 import (
-	"strconv"
 	"strings"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/api"
 	jc "github.com/juju/testing/checkers"
-	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v3"
 
-	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/operation/mocks"
 	"github.com/juju/juju/worker/uniter/relation"
 )
 
-type RelationerSuite struct {
+type relationerSuite struct {
 	jujutesting.JujuConnSuite
-	hooks   chan hook.Info
-	app     *state.Application
-	rel     *state.Relation
-	dir     *relation.StateDir
-	dirPath string
+	hooks chan hook.Info
+	app   *state.Application
+	rel   *state.Relation
+	mgr   relation.StateManager
 
 	st         api.Connection
 	uniter     *apiuniter.State
 	apiRelUnit *apiuniter.RelationUnit
 }
 
-var _ = gc.Suite(&RelationerSuite{})
+var _ = gc.Suite(&relationerSuite{})
 
-func (s *RelationerSuite) SetUpTest(c *gc.C) {
+func (s *relationerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
 	s.app = s.AddTestingApplication(c, "u", s.AddTestingCharm(c, "riak"))
@@ -50,9 +50,6 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	c.Assert(rels, gc.HasLen, 1)
 	s.rel = rels[0]
 	_, unit := s.AddRelationUnit(c, "u/0")
-	s.dirPath = c.MkDir()
-	s.dir, err = relation.ReadStateDir(s.dirPath, s.rel.Id())
-	c.Assert(err, jc.ErrorIsNil)
 	s.hooks = make(chan hook.Info)
 
 	password, err := utils.RandomPassword()
@@ -70,9 +67,12 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.apiRelUnit, err = apiRel.Unit(apiUnit)
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.mgr, err = relation.NewStateManager(apiUnit)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) (*state.RelationUnit, *state.Unit) {
+func (s *relationerSuite) AddRelationUnit(c *gc.C, name string) (*state.RelationUnit, *state.Unit) {
 	u, err := s.app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(u.Name(), gc.Equals, name)
@@ -90,33 +90,10 @@ func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) (*state.Relation
 	return ru, u
 }
 
-func (s *RelationerSuite) TestStateDir(c *gc.C) {
-	// Create the relationer; check its state dir is not created.
-	r := relation.NewRelationer(s.apiRelUnit, s.dir)
-	path := strconv.Itoa(s.rel.Id())
-	ft.Removed{path}.Check(c, s.dirPath)
-
-	// Join the relation; check the dir was created.
-	err := r.Join()
-	c.Assert(err, jc.ErrorIsNil)
-	ft.Dir{path, 0755}.Check(c, s.dirPath)
-
-	// Prepare to depart the relation; check the dir is still there.
-	hi := hook.Info{Kind: hooks.RelationBroken}
-	_, err = r.PrepareHook(hi)
-	c.Assert(err, jc.ErrorIsNil)
-	ft.Dir{path, 0755}.Check(c, s.dirPath)
-
-	// Actually depart it; check the dir is removed.
-	err = r.CommitHook(hi)
-	c.Assert(err, jc.ErrorIsNil)
-	ft.Removed{path}.Check(c, s.dirPath)
-}
-
-func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
+func (s *relationerSuite) TestEnterLeaveScope(c *gc.C) {
 	ru1, _ := s.AddRelationUnit(c, "u/1")
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-	r := relation.NewRelationer(s.apiRelUnit, s.dir)
+	r := relation.NewRelationer(s.apiRelUnit, s.mgr)
 
 	w := ru1.Watch()
 	// u/1 does not consider u/0 to be alive.
@@ -144,13 +121,15 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
 	rc.AssertChange(nil, nil, []string{"u/0"})
 }
 
-func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
-	r := relation.NewRelationer(s.apiRelUnit, s.dir)
+func (s *relationerSuite) TestPrepareCommitHooks(c *gc.C) {
+	r := relation.NewRelationer(s.apiRelUnit, s.mgr)
 	err := r.Join()
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertMembers := func(expect map[string]int64) {
-		c.Assert(s.dir.State().Members, jc.DeepEquals, expect)
+		st, err := s.mgr.Relation(s.apiRelUnit.Relation().Id())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(st.Members, jc.DeepEquals, expect)
 		expectNames := make([]string, 0, len(expect))
 		for name := range expect {
 			expectNames = append(expectNames, name)
@@ -219,12 +198,12 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	assertMembers(map[string]int64{"u/1": 7, "u/2": 3})
 }
 
-func (s *RelationerSuite) TestSetDying(c *gc.C) {
+func (s *relationerSuite) TestSetDying(c *gc.C) {
 	ru1, u := s.AddRelationUnit(c, "u/1")
 	settings := map[string]interface{}{"unit": "settings"}
 	err := ru1.EnterScope(settings)
 	c.Assert(err, jc.ErrorIsNil)
-	r := relation.NewRelationer(s.apiRelUnit, s.dir)
+	r := relation.NewRelationer(s.apiRelUnit, s.mgr)
 	err = r.Join()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -233,16 +212,15 @@ func (s *RelationerSuite) TestSetDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we cannot rejoin the relation.
-	f := func() { r.Join() }
+	f := func() { _ = r.Join() }
 	c.Assert(f, gc.PanicMatches, "dying relationer must not join!")
 
 	// Simulate a RelationBroken hook.
 	err = r.CommitHook(hook.Info{Kind: hooks.RelationBroken})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check that the relation state has been broken.
-	err = s.dir.State().Validate(hook.Info{Kind: hooks.RelationBroken})
-	c.Assert(err, gc.ErrorMatches, ".*: relation is broken and cannot be changed further")
+	// Check that the relation state has been removed by die.
+	c.Assert(s.mgr.RelationFound(s.apiRelUnit.Relation().Id()), jc.IsFalse)
 
 	// Check that it left scope, by leaving scope on the other side and destroying
 	// the relation.
@@ -262,13 +240,15 @@ func stop(c *gc.C, s stopper) {
 	c.Assert(s.Stop(), gc.IsNil)
 }
 
-type RelationerImplicitSuite struct {
+type relationerImplicitSuite struct {
 	jujutesting.JujuConnSuite
+
+	mockUnitRW *mocks.MockUnitStateReadWriter
 }
 
-var _ = gc.Suite(&RelationerImplicitSuite{})
+var _ = gc.Suite(&relationerImplicitSuite{})
 
-func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
+func (s *relationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	// Create a relationer for an implicit endpoint (mysql:juju-info).
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	u, err := mysql.AddUnit(state.AddUnitParams{})
@@ -284,8 +264,9 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	relsDir := c.MkDir()
-	dir, err := relation.ReadStateDir(relsDir, rel.Id())
+
+	defer s.setupRWMock(c).Finish()
+	mgr, err := relation.NewStateManager(s.mockUnitRW)
 	c.Assert(err, jc.ErrorIsNil)
 
 	password, err := utils.RandomPassword()
@@ -304,23 +285,30 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	apiRelUnit, err := apiRel.Unit(apiUnit)
 	c.Assert(err, jc.ErrorIsNil)
 
-	r := relation.NewRelationer(apiRelUnit, dir)
+	r := relation.NewRelationer(apiRelUnit, mgr)
 	c.Assert(r, jc.Satisfies, (*relation.Relationer).IsImplicit)
 
 	// Hooks are not allowed.
-	f := func() { r.PrepareHook(hook.Info{}) }
+	f := func() { _, _ = r.PrepareHook(hook.Info{}) }
 	c.Assert(f, gc.PanicMatches, "implicit relations must not run hooks")
-	f = func() { r.CommitHook(hook.Info{}) }
+	f = func() { _ = r.CommitHook(hook.Info{}) }
 	c.Assert(f, gc.PanicMatches, "implicit relations must not run hooks")
 
-	// Set it to Dying; check that the dir is removed immediately.
+	// Set it to Dying; check that the ops is removed immediately.
 	err = r.SetDying()
 	c.Assert(err, jc.ErrorIsNil)
-	path := strconv.Itoa(rel.Id())
-	ft.Removed{path}.Check(c, relsDir)
 
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *relationerImplicitSuite) setupRWMock(c *gc.C) *gomock.Controller {
+	ctlr := gomock.NewController(c)
+	s.mockUnitRW = mocks.NewMockUnitStateReadWriter(ctlr)
+	exp := s.mockUnitRW.EXPECT()
+	exp.State().Return(params.UnitStateResult{RelationState: map[int]string{0: ""}}, nil)
+	exp.SetState(unitStateMatcher{c: c, expected: map[int]string{}}).Return(nil)
+	return ctlr
 }

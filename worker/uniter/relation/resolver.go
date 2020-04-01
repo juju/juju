@@ -1,4 +1,4 @@
-// Copyright 2012-2015 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package relation
@@ -75,15 +75,16 @@ func (r *relationsResolver) NextOp(localState resolver.LocalState, remoteState r
 
 		// Examine local/remote states and figure out if a hook needs
 		// to be fired for this relation.
-		stateDir, err := r.stateTracker.StateDir(relationId)
+		relState, err := r.stateTracker.State(relationId)
 		if err != nil {
-			return nil, errors.Trace(err)
+			//
+			relState = NewState(relationId)
 		}
-		hook, err := r.nextHookForRelation(stateDir, relationSnapshot, remoteBroken)
+		hInfo, err := r.nextHookForRelation(relState, relationSnapshot, remoteBroken)
 		if err == resolver.ErrNoOperation {
 			continue
 		}
-		return opFactory.NewRunHook(hook)
+		return opFactory.NewRunHook(hInfo)
 	}
 
 	return nil, resolver.ErrNoOperation
@@ -118,15 +119,14 @@ func (r *relationsResolver) maybeDestroySubordinates(remoteState remotestate.Sna
 	return nil
 }
 
-func (r *relationsResolver) nextHookForRelation(localStateDir *StateDir, remote remotestate.RelationSnapshot, remoteBroken bool) (hook.Info, error) {
+func (r *relationsResolver) nextHookForRelation(localState *State, remote remotestate.RelationSnapshot, remoteBroken bool) (hook.Info, error) {
 	// If there's a guaranteed next hook, return that.
-	local := localStateDir.State()
-	relationId := local.RelationId
-	if local.ChangedPending != "" {
+	relationId := localState.RelationId
+	if localState.ChangedPending != "" {
 		// ChangedPending should only happen for a unit (not an app). It is a side effect that if we call 'relation-joined'
 		// for a unit, we immediately queue up relation-changed for that unit, before we run any other hooks
 		// Applications never see "relation-joined".
-		unitName := local.ChangedPending
+		unitName := localState.ChangedPending
 		appName, err := names.UnitApplication(unitName)
 		if err != nil {
 			return hook.Info{}, errors.Annotate(err, "changed pending held an invalid unit name")
@@ -142,7 +142,7 @@ func (r *relationsResolver) nextHookForRelation(localStateDir *StateDir, remote 
 
 	// Get related app names, trigger all app hooks first
 	allAppNames := set.NewStrings()
-	for appName := range local.ApplicationMembers {
+	for appName := range localState.ApplicationMembers {
 		allAppNames.Add(appName)
 	}
 	for app := range remote.ApplicationMembers {
@@ -153,7 +153,7 @@ func (r *relationsResolver) nextHookForRelation(localStateDir *StateDir, remote 
 	// Get the union of all relevant units, and sort them, so we produce events
 	// in a consistent order (largely for the convenience of the tests).
 	allUnitNames := set.NewStrings()
-	for unitName := range local.Members {
+	for unitName := range localState.Members {
 		allUnitNames.Add(unitName)
 	}
 	for unitName := range remote.Members {
@@ -161,13 +161,13 @@ func (r *relationsResolver) nextHookForRelation(localStateDir *StateDir, remote 
 	}
 	sortedUnitNames := allUnitNames.SortedValues()
 	if allUnitNames.Contains("") {
-		return hook.Info{}, errors.Errorf("somehow we got the empty unit. local: %v, remote: %v", local.Members, remote.Members)
+		return hook.Info{}, errors.Errorf("somehow we got the empty unit. localState: %v, remote: %v", localState.Members, remote.Members)
 	}
 
 	// If there are any locally known units that are no longer reflected in
 	// remote state, depart them.
 	for _, unitName := range sortedUnitNames {
-		changeVersion, found := local.Members[unitName]
+		changeVersion, found := localState.Members[unitName]
 		if !found {
 			continue
 		}
@@ -177,8 +177,8 @@ func (r *relationsResolver) nextHookForRelation(localStateDir *StateDir, remote 
 				return hook.Info{}, errors.Trace(err)
 			}
 
-			// Consult the life of the local unit and/or app to
-			// figure out if its the local or the remote unit going
+			// Consult the life of the localState unit and/or app to
+			// figure out if its the localState or the remote unit going
 			// away. Note that if the app is removed, the unit will
 			// still be alive but its parent app will by dying.
 			localUnitLife, localAppLife, err := r.stateTracker.LocalUnitAndApplicationLife()
@@ -208,7 +208,7 @@ func (r *relationsResolver) nextHookForRelation(localStateDir *StateDir, remote 
 	// peer relations we can safely ignore this hook.
 	isPeer, _ := r.stateTracker.IsPeerRelation(relationId)
 	if remoteBroken && !isPeer {
-		if !localStateDir.Exists() {
+		if !r.stateTracker.StateFound(relationId) {
 			// The relation may have been suspended and then
 			// removed, so we don't want to run the hook twice.
 			return hook.Info{}, resolver.ErrNoOperation
@@ -228,12 +228,12 @@ func (r *relationsResolver) nextHookForRelation(localStateDir *StateDir, remote 
 			continue
 		}
 		// Note(jam): 2019-10-23 For compatibility purposes, we don't trigger a hook if
-		//  local.ApplicationMembers doesn't contain the app and the changeVersion == 0.
+		//  localState.ApplicationMembers doesn't contain the app and the changeVersion == 0.
 		//  This is because otherwise all charms always get a hook with the app
 		//  as the context, and that is likely to expose them to something they
 		//  may not be ready for. Also, since no app content has been set, there
 		//  is nothing for them to respond to.
-		if oldVersion := local.ApplicationMembers[appName]; oldVersion != changeVersion {
+		if oldVersion := localState.ApplicationMembers[appName]; oldVersion != changeVersion {
 			return hook.Info{
 				Kind:              hooks.RelationChanged,
 				RelationId:        relationId,
@@ -250,7 +250,7 @@ func (r *relationsResolver) nextHookForRelation(localStateDir *StateDir, remote 
 		if !found {
 			continue
 		}
-		if _, found := local.Members[unitName]; !found {
+		if _, found := localState.Members[unitName]; !found {
 			appName, err := names.UnitApplication(unitName)
 			if err != nil {
 				return hook.Info{}, errors.Trace(err)
@@ -266,13 +266,13 @@ func (r *relationsResolver) nextHookForRelation(localStateDir *StateDir, remote 
 	}
 
 	// Finally scan for remote units whose latest version is not reflected
-	// in local state.
+	// in localState state.
 	for _, unitName := range sortedUnitNames {
 		remoteChangeVersion, found := remote.Members[unitName]
 		if !found {
 			continue
 		}
-		localChangeVersion, found := local.Members[unitName]
+		localChangeVersion, found := localState.Members[unitName]
 		if !found {
 			continue
 		}
@@ -312,7 +312,11 @@ type createdRelationsResolver struct {
 }
 
 // NextOp implements resolver.Resolver.
-func (r *createdRelationsResolver) NextOp(localState resolver.LocalState, remoteState remotestate.Snapshot, opFactory operation.Factory) (operation.Operation, error) {
+func (r *createdRelationsResolver) NextOp(
+	localState resolver.LocalState,
+	remoteState remotestate.Snapshot,
+	opFactory operation.Factory,
+) (operation.Operation, error) {
 	// Nothing to do if not yet installed or if the unit is dying.
 	if !localState.Installed || remoteState.Life == life.Dying {
 		return nil, resolver.ErrNoOperation

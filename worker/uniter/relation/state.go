@@ -7,15 +7,10 @@ package relation
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6/hooks"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/worker/uniter/hook"
 )
@@ -23,40 +18,31 @@ import (
 // State describes the state of a relation.
 type State struct {
 	// RelationId identifies the relation.
-	RelationId int
+	// Do not use omitempty, 0 is a valid id.
+	RelationId int `yaml:"id"`
 
 	// Members is a map from unit name to the last change version
 	// for which a hook.Info was delivered on the output channel.
-	Members map[string]int64
+	// keys must be in the form <application name>-<unit number>
+	// to match RemoteUnits in HookInfo.
+	Members map[string]int64 `yaml:"members,omitempty"`
 
 	// ApplicationMembers is a map from application name to the last change
 	// version for which a hook.Info was delivered
-	ApplicationMembers map[string]int64
+	ApplicationMembers map[string]int64 `yaml:"application-members,omitempty"`
 
 	// ChangedPending indicates that a "relation-changed" hook for the given
 	// unit name must be the first hook.Info to be sent to the output channel.
-	ChangedPending string
+	ChangedPending string `yaml:"changed-pending,omitempty"`
 }
 
-// copy returns an independent copy of the state.
-func (s *State) copy() *State {
-	copy := &State{
-		RelationId:     s.RelationId,
-		ChangedPending: s.ChangedPending,
+// NewState returns an initial State for relationId.
+func NewState(relationId int) *State {
+	return &State{
+		RelationId:         relationId,
+		Members:            map[string]int64{},
+		ApplicationMembers: map[string]int64{},
 	}
-	if s.Members != nil {
-		copy.Members = make(map[string]int64, len(s.Members))
-		for m, v := range s.Members {
-			copy.Members[m] = v
-		}
-	}
-	if s.ApplicationMembers != nil {
-		copy.ApplicationMembers = make(map[string]int64, len(s.ApplicationMembers))
-		for m, v := range s.ApplicationMembers {
-			copy.ApplicationMembers[m] = v
-		}
-	}
-	return copy
 }
 
 // Validate returns an error if the supplied hook.Info does not represent
@@ -108,200 +94,66 @@ func (s *State) Validate(hi hook.Info) (err error) {
 	return nil
 }
 
-// StateDir is a filesystem-backed representation of the state of a
-// relation. Concurrent modifications to the underlying state directory
-// will have undefined consequences.
-type StateDir struct {
-	// path identifies the directory holding persistent state.
-	path string
-
-	// state is the cached state of the directory, which is guaranteed
-	// to be synchronized with the true state so long as no concurrent
-	// changes are made to the directory.
-	state State
-}
-
-// State returns the current state of the relation.
-func (d *StateDir) State() *State {
-	return d.state.copy()
-}
-
-// ReadStateDir loads a StateDir from the subdirectory of dirPath named
-// for the supplied RelationId. If the directory does not exist, no error
-// is returned,
-func ReadStateDir(dirPath string, relationId int) (d *StateDir, err error) {
-	d = &StateDir{
-		filepath.Join(dirPath, strconv.Itoa(relationId)),
-		State{
-			RelationId:         relationId,
-			Members:            map[string]int64{},
-			ApplicationMembers: map[string]int64{},
-			ChangedPending:     "",
-		},
-	}
-	defer errors.DeferredAnnotatef(&err, "cannot load relation state from %q", d.path)
-	if _, err := os.Stat(d.path); os.IsNotExist(err) {
-		return d, nil
-	} else if err != nil {
-		return nil, err
-	}
-	fis, err := ioutil.ReadDir(d.path)
-	if err != nil {
-		return nil, err
-	}
-	for _, fi := range fis {
-		// Entries with names ending in "-" followed by an integer must be
-		// files containing valid unit data; all other names are ignored.
-		name := fi.Name()
-		i := strings.LastIndex(name, "-")
-		if i == -1 {
-			continue
-		}
-		svcName := name[:i]
-		unitId := name[i+1:]
-		isApp := false
-		unitOrAppName := ""
-		if unitId == "app" {
-			isApp = true
-			unitOrAppName = svcName
-		} else {
-			if _, err := strconv.Atoi(unitId); err != nil {
-				continue
-			}
-			unitOrAppName = svcName + "/" + unitId
-		}
-		var info diskInfo
-		if err = utils.ReadYaml(filepath.Join(d.path, name), &info); err != nil {
-			return nil, fmt.Errorf("invalid unit file %q: %v", name, err)
-		}
-		if info.ChangeVersion == nil {
-			return nil, fmt.Errorf(`invalid unit file %q: "changed-version" not set`, name)
-		}
-		if isApp {
-			d.state.ApplicationMembers[unitOrAppName] = *info.ChangeVersion
-		} else {
-			d.state.Members[unitOrAppName] = *info.ChangeVersion
-		}
-		if info.ChangedPending {
-			if d.state.ChangedPending != "" {
-				return nil, fmt.Errorf("%q and %q both have pending changed hooks", d.state.ChangedPending, unitOrAppName)
-			}
-			d.state.ChangedPending = unitOrAppName
-		}
-	}
-	return d, nil
-}
-
-// ReadAllStateDirs loads and returns every StateDir persisted directly inside
-// the supplied dirPath. If dirPath does not exist, no error is returned.
-func ReadAllStateDirs(dirPath string) (dirs map[int]*StateDir, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot load relations state from %q", dirPath)
-	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
-	}
-	fis, err := ioutil.ReadDir(dirPath)
-	if err != nil {
-		return nil, err
-	}
-	dirs = map[int]*StateDir{}
-	for _, fi := range fis {
-		// Entries with integer names must be directories containing StateDir
-		// data; all other names will be ignored.
-		relationId, err := strconv.Atoi(fi.Name())
-		if err != nil {
-			// This doesn't look like a relation.
-			continue
-		}
-		dir, err := ReadStateDir(dirPath, relationId)
-		if err != nil {
-			return nil, err
-		}
-		dirs[relationId] = dir
-	}
-	return dirs, nil
-}
-
-// Ensure creates the directory if it does not already exist.
-func (d *StateDir) Ensure() error {
-	return os.MkdirAll(d.path, 0755)
-}
-
-// Exists returns true if the directory for this state exists.
-func (d *StateDir) Exists() bool {
-	_, err := os.Stat(d.path)
-	return err == nil
-}
-
-// Write atomically writes to disk the relation state change in hi.
+// UpdateStateForHook updates the current relation state with changes in hi.
 // It must be called after the respective hook was executed successfully.
-// Write doesn't validate hi but guarantees that successive writes of
-// the same hi are idempotent.
-func (d *StateDir) Write(hi hook.Info) (err error) {
-	defer errors.DeferredAnnotatef(&err, "failed to write %q hook info for %q on state directory", hi.Kind, hi.RemoteUnit)
+// UpdateStateForHook doesn't validate hi but guarantees that successive
+// changes of the same hi are idempotent.
+func (s *State) UpdateStateForHook(hi hook.Info) (err error) {
+	defer errors.DeferredAnnotatef(&err, "failed to write %q hook info for %q in state", hi.Kind, hi.RemoteUnit)
 	if hi.Kind == hooks.RelationBroken {
-		return d.Remove()
+		return errors.New("broken relation, remove")
 	}
-	name := strings.Replace(hi.RemoteUnit, "/", "-", 1)
-	isApp := false
-	if hi.RemoteUnit == "" {
-		isApp = true
-		name = hi.RemoteApplication + "-app"
-	}
-	path := filepath.Join(d.path, name)
+	isApp := hi.RemoteUnit == ""
+	// Get a copy of current state to modify, so we only update current
+	// state if the new state was written successfully.
 	if hi.Kind == hooks.RelationDeparted {
-		if err = os.Remove(path); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-		// If atomic delete succeeded, update own state.
+		// Update own state.
 		if isApp {
-			delete(d.state.ApplicationMembers, hi.RemoteApplication)
+			delete(s.ApplicationMembers, hi.RemoteApplication)
 		} else {
-			delete(d.state.Members, hi.RemoteUnit)
+			delete(s.Members, hi.RemoteUnit)
 		}
 		return nil
 	}
-	di := diskInfo{&hi.ChangeVersion, hi.Kind == hooks.RelationJoined}
-	if err := utils.WriteYaml(path, &di); err != nil {
-		return err
-	}
-	// If write was successful, update own state.
+	// Update own state.
 	if isApp {
-		d.state.ApplicationMembers[hi.RemoteApplication] = hi.ChangeVersion
+		s.ApplicationMembers[hi.RemoteApplication] = hi.ChangeVersion
 	} else {
-		d.state.Members[hi.RemoteUnit] = hi.ChangeVersion
+		s.Members[hi.RemoteUnit] = hi.ChangeVersion
 	}
 	if hi.Kind == hooks.RelationJoined {
-		d.state.ChangedPending = hi.RemoteUnit
+		s.ChangedPending = hi.RemoteUnit
 	} else {
-		d.state.ChangedPending = ""
+		s.ChangedPending = ""
 	}
 	return nil
 }
 
-// Remove removes the directory if it exists and is empty.
-func (d *StateDir) Remove() error {
-	// Note(jam): 2019-10-22 os.Remove() requires the directory to be empty, but
-	//  we added "foo-app" but we won't call RelationDeparted for "foo" and thus won't
-	//  delete "foo-app". Instead, during relation-broken, we cleanup all related applications.
-	for appMember := range d.state.ApplicationMembers {
-		path := filepath.Join(d.path, appMember+"-app")
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-			return errors.Trace(err)
+func (s *State) YamlString() (string, error) {
+	data, err := yaml.Marshal(*s)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return string(data), nil
+}
+
+// copy returns an independent copy of the state.
+func (s *State) copy() *State {
+	stCopy := &State{
+		RelationId:     s.RelationId,
+		ChangedPending: s.ChangedPending,
+	}
+	if s.Members != nil {
+		stCopy.Members = make(map[string]int64, len(s.Members))
+		for m, v := range s.Members {
+			stCopy.Members[m] = v
 		}
 	}
-	if err := os.Remove(d.path); err != nil && !os.IsNotExist(err) {
-		return errors.Trace(err)
+	if s.ApplicationMembers != nil {
+		stCopy.ApplicationMembers = make(map[string]int64, len(s.ApplicationMembers))
+		for m, v := range s.ApplicationMembers {
+			stCopy.ApplicationMembers[m] = v
+		}
 	}
-	// If atomic delete succeeded, update own state.
-	d.state.Members = nil
-	d.state.ApplicationMembers = nil
-	return nil
-}
-
-// diskInfo defines the relation unit data serialization.
-type diskInfo struct {
-	ChangeVersion  *int64 `yaml:"change-version"`
-	ChangedPending bool   `yaml:"changed-pending,omitempty"`
+	return stCopy
 }

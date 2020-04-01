@@ -138,13 +138,6 @@ func (s *UniterSuite) TestUniterStartup(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		// Check conditions that can cause the uniter to fail to start.
 		ut(
-			"unable to create state dir",
-			writeFile{"state", 0644},
-			createCharm{},
-			createApplicationAndUnit{},
-			startUniter{},
-			waitUniterDead{err: `failed to initialize uniter for "unit-u-0": .*` + errNotDir},
-		), ut(
 			"unknown unit",
 			// We still need to create a unit, because that's when we also
 			// connect to the API, but here we use a different application
@@ -1058,9 +1051,6 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			"unknown local relation dir is removed",
 			quickStartRelation{},
 			stopUniter{},
-			custom{func(c *gc.C, ctx *context) {
-				ft.Dir{"state/relations/90210", 0755}.Create(c, ctx.path)
-			}},
 			startUniter{},
 			// We need some synchronisation point here to ensure that the uniter
 			// has entered the correct place in the resolving loop. Now that we are
@@ -1068,9 +1058,6 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			// we can get the event to give us the synchronisation point.
 			changeConfig{"blog-title": "Goodness Gracious Me"},
 			waitHooks{"config-changed"},
-			custom{func(c *gc.C, ctx *context) {
-				ft.Removed{"state/relations/90210"}.Check(c, ctx.path)
-			}},
 		), ut(
 			"all relations are available to config-changed on bounce, even if state dir is missing",
 			createCharm{
@@ -1092,11 +1079,6 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			addRelation{waitJoin: true},
 			stopUniter{},
 			custom{func(c *gc.C, ctx *context) {
-				// Check the state dir was created, and remove it.
-				path := fmt.Sprintf("state/relations/%d", ctx.relation.Id())
-				ft.Dir{path, 0755}.Check(c, ctx.path)
-				ft.Removed{path}.Create(c, ctx.path)
-
 				// Check that config-changed didn't record any relations, because
 				// they shouldn't been available until after the start hook.
 				ft.File{"charm/relations.out", "", 0644}.Check(c, ctx.path)
@@ -1108,10 +1090,6 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			startUniter{},
 			waitHooks{"config-changed"},
 			custom{func(c *gc.C, ctx *context) {
-				// Check the state dir was recreated.
-				path := fmt.Sprintf("state/relations/%d", ctx.relation.Id())
-				ft.Dir{path, 0755}.Check(c, ctx.path)
-
 				// Check that config-changed did record the joined relations.
 				data := fmt.Sprintf("db:%d\n", ctx.relation.Id())
 				ft.File{"charm/relations.out", data, 0644}.Check(c, ctx.path)
