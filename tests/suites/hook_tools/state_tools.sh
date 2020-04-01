@@ -29,7 +29,7 @@ run_state_delete_get_set() {
 run_state_set_clash_uniter_state() {
     echo
 
-    model_name="test-state_set_clash_uniter_state"
+    model_name="test-state-set-clash-uniter-state"
     file="${TEST_DIR}/${model_name}.txt"
 
     ensure "${model_name}" "${file}"
