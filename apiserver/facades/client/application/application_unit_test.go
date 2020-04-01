@@ -1019,7 +1019,31 @@ func (s *ApplicationSuite) TestScaleApplicationsNotAllowedForOperator(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.NotNil)
 	msg := strings.Replace(result.Results[0].Error.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Matches, `cannot scale an operator charm`)
+	c.Assert(msg, gc.Matches, `scale an "operator" application not supported`)
+}
+
+func (s *ApplicationSuite) TestScaleApplicationsNotAllowedForDaemonSet(c *gc.C) {
+	s.model.modelType = state.ModelTypeCAAS
+	s.setAPIUser(c, names.NewUserTag("admin"))
+	s.backend.applications["postgresql"].charm = &mockCharm{
+		meta: &charm.Meta{
+			Deployment: &charm.Deployment{
+				DeploymentType: charm.DeploymentDaemon,
+			},
+		},
+	}
+	args := params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			Scale:          5,
+		}},
+	}
+	result, err := s.api.ScaleApplications(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.NotNil)
+	msg := strings.Replace(result.Results[0].Error.Error(), "\n", "", -1)
+	c.Assert(msg, gc.Matches, `scale a "daemon" application not supported`)
 }
 
 func (s *ApplicationSuite) TestScaleApplicationsBlocked(c *gc.C) {

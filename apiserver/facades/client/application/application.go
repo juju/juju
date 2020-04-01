@@ -1746,8 +1746,13 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if ch.Meta().Deployment != nil && ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
-			return nil, errors.New("cannot scale an operator charm")
+		if ch.Meta().Deployment != nil {
+			if ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
+				return nil, errors.NotSupportedf("scale an %q application", charm.ModeOperator)
+			}
+			if ch.Meta().Deployment.DeploymentType == charm.DeploymentDaemon {
+				return nil, errors.NotSupportedf("scale a %q application", charm.DeploymentDaemon)
+			}
 		}
 
 		var info params.ScaleApplicationInfo

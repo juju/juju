@@ -275,6 +275,15 @@ func (s *AddUnitSuite) TestCAASAllowsNumUnitsOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *AddUnitSuite) TestCAASAddUnitNotSupported(c *gc.C) {
+	m := s.store.Models["arthur"].Models["king/sword"]
+	m.ModelType = model.CAAS
+	s.store.Models["arthur"].Models["king/sword"] = m
+
+	s.fake.err = common.ServerError(errors.NotSupportedf(`scale a "daemon" charm`))
+	err := s.runAddUnit(c, "some-application-name")
+	c.Check(err, gc.ErrorMatches, `can not add unit: scale a "daemon" charm not supported`)
+}
 func (s *AddUnitSuite) TestUnknownModelCallsRefresh(c *gc.C) {
 	called := false
 	refresh := func(jujuclient.ClientStore, string) error {
