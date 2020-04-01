@@ -12,8 +12,6 @@ import (
 const (
 	apiserverMetricsNamespace   = "juju"
 	apiserverSubsystemNamespace = "apiserver"
-	// TODO (stickupkid): remove this deprecated subsystem in 2.6+
-	deprecatedSubsystemNamespace = "api"
 )
 
 // MetricLabelEndpoint defines a constant for the APIConnections abd
@@ -58,10 +56,6 @@ type Collector struct {
 	PingFailureCount   *prometheus.CounterVec
 	LogWriteCount      *prometheus.CounterVec
 	LogReadCount       *prometheus.CounterVec
-
-	DeprecatedAPIConnections     prometheus.Gauge
-	DeprecatedAPIRequestsTotal   *prometheus.CounterVec
-	DeprecatedAPIRequestDuration *prometheus.SummaryVec
 }
 
 // NewMetricsCollector returns a new Collector.
@@ -110,26 +104,6 @@ func NewMetricsCollector() *Collector {
 			Name:      "log_read_count",
 			Help:      "Current number of log reads",
 		}, MetricLogLabelNames),
-
-		// TODO (stickupkid): remove post 2.6 release
-		DeprecatedAPIConnections: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: apiserverMetricsNamespace,
-			Subsystem: apiserverSubsystemNamespace,
-			Name:      "connection_count",
-			Help:      "Current number of active apiserver connections",
-		}),
-		DeprecatedAPIRequestsTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: apiserverMetricsNamespace,
-			Subsystem: deprecatedSubsystemNamespace,
-			Name:      "requests_total",
-			Help:      "Number of Juju API requests served.",
-		}, metricobserver.MetricLabelNames),
-		DeprecatedAPIRequestDuration: prometheus.NewSummaryVec(prometheus.SummaryOpts{
-			Namespace: apiserverMetricsNamespace,
-			Subsystem: deprecatedSubsystemNamespace,
-			Name:      "request_duration_seconds",
-			Help:      "Latency of Juju API requests in seconds.",
-		}, metricobserver.MetricLabelNames),
 	}
 }
 
@@ -142,11 +116,6 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	c.PingFailureCount.Describe(ch)
 	c.LogWriteCount.Describe(ch)
 	c.LogReadCount.Describe(ch)
-
-	// TODO (stickupkid): remove post 2.6 release
-	c.DeprecatedAPIConnections.Describe(ch)
-	c.DeprecatedAPIRequestsTotal.Describe(ch)
-	c.DeprecatedAPIRequestDuration.Describe(ch)
 }
 
 // Collect is part of the prometheus.Collector interface.
@@ -158,9 +127,4 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.PingFailureCount.Collect(ch)
 	c.LogWriteCount.Collect(ch)
 	c.LogReadCount.Collect(ch)
-
-	// TODO (stickupkid): remove post 2.6 release
-	c.DeprecatedAPIConnections.Collect(ch)
-	c.DeprecatedAPIRequestsTotal.Collect(ch)
-	c.DeprecatedAPIRequestDuration.Collect(ch)
 }
