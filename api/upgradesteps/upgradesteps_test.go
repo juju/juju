@@ -146,7 +146,19 @@ func (m unitStateMatcher) Matches(x interface{}) bool {
 		return false
 	}
 
-	m.c.Assert(obtained.Args, jc.DeepEquals, m.expected.Args)
+	m.c.Assert(obtained.Args, gc.HasLen, len(m.expected.Args))
+
+	for _, obt := range obtained.Args {
+		var found bool
+		for _, exp := range m.expected.Args {
+			if obt.Tag == exp.Tag {
+				m.c.Assert(obt, jc.DeepEquals, exp)
+				found = true
+			}
+		}
+		m.c.Assert(found, jc.IsTrue, gc.Commentf("obtained tag %s, not found in expected data", obt.Tag))
+	}
+
 	return true
 }
 
