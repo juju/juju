@@ -206,12 +206,20 @@ envsubst < $JUJU_DEBUG/welcome.msg
 trap 'echo $? > $JUJU_DEBUG/hook_exit_status' EXIT
 `
 
+// debugHooksHookScript is the shell script that tmux spawns instead of running the normal hook.
+// In a debug session, we bring in the environment and record our scripts PID as the
+// hook.pid that the rest of the server is waiting for. Without BREAKPOINT, we then exec an
+// interactive shell with an init.sh that displays a welcome message and traps its exit code into
+// hook_exit_status.
+// With JUJU_BREAKPOINT, we just exec the hook directly, and record its exit status before exit.
+// It is the responsibility of the code handling JUJU_BREAKPOINT to handle prompting.
 const debugHooksHookScript = `#!/bin/bash
 . __JUJU_DEBUG__/env.sh
 echo $$ > $JUJU_DEBUG/hook.pid
 if [ -z "$JUJU_BREAKPOINT" ] ; then
 	exec /bin/bash --noprofile --init-file $JUJU_DEBUG/init.sh
 else
-	exec /bin/bash --noprofile --init-file $JUJU_DEBUG/init.sh -c __JUJU_HOOK_RUNNER__
+	__JUJU_HOOK_RUNNER__
+	echo $? > $JUJU_DEBUG/hook_exit_status
 fi
 `
