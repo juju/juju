@@ -255,6 +255,12 @@ func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 			ApplicationName: c.ApplicationName,
 			ScaleChange:     c.NumUnits,
 		})
+		if err == nil {
+			return nil
+		}
+		if params.IsCodeNotSupported(err) {
+			return errors.Annotate(err, "can not add unit")
+		}
 		if params.IsCodeUnauthorized(err) {
 			common.PermissionsMessage(ctx.Stderr, "scale an application")
 		}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -174,6 +175,17 @@ func (s *RemoveUnitSuite) TestCAASRemoveUnit(c *gc.C) {
 	c.Assert(stderr, gc.Equals, `
 scaling down to 3 units
 `[1:])
+}
+
+func (s *RemoveUnitSuite) TestCAASRemoveUnitNotSupported(c *gc.C) {
+	m := s.store.Models["arthur"].Models["king/sword"]
+	m.ModelType = model.CAAS
+	s.store.Models["arthur"].Models["king/sword"] = m
+
+	s.fake.err = common.ServerError(errors.NotSupportedf(`scale a "daemon" charm`))
+
+	_, err := s.runRemoveUnit(c, "some-application-name", "--num-units", "2")
+	c.Assert(err, gc.ErrorMatches, `can not remove unit: scale a "daemon" charm not supported`)
 }
 
 func (s *RemoveUnitSuite) TestCAASAllowsNumUnitsOnly(c *gc.C) {
