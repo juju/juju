@@ -154,8 +154,7 @@ func (s *introspectionSuite) TestPrometheusMetricsMachineAgent(c *gc.C) {
 func (s *introspectionSuite) assertPrometheusMetrics(c *gc.C, socketPath string, extra ...string) {
 	expected := []string{
 		"juju_logsender_capacity 1000",
-		"juju_api_requests_total",
-		"juju_api_requests_total",
+		"juju_apiserver_connections",
 		"juju_mgo_txn_ops_total",
 	}
 	expected = append(expected, extra...)

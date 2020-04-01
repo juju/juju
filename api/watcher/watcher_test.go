@@ -50,6 +50,7 @@ var _ = gc.Suite(&watcherSuite{})
 func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c, state.JobManageModel, state.JobHostUnits)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
 
 func (s *watcherSuite) TestWatchInitialEventConsumed(c *gc.C) {
