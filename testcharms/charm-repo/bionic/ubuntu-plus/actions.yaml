@@ -16,3 +16,15 @@
     "filename":
       "type": "string"
       "description": "Filename of old dispatch file."
+"write-charm-state":
+  "description": "Set a CLOB of size n as the charm state"
+  "params":
+    "num-entries":
+      "type": "number"
+      "description": "Number of key/value pairs to write."
+    "key-len":
+      "type": "number"
+      "description": "Size of each key."
+    "value-len":
+      "type": "number"
+      "description": "Size of each value."
