@@ -31,10 +31,16 @@ func ClientScript(c *HooksContext, match []string, breakpoint string) string {
 	s = strings.Replace(s, "{entry_flock}", c.ClientFileLock(), -1)
 	s = strings.Replace(s, "{exit_flock}", c.ClientExitFileLock(), -1)
 
-	yamlArgs := encodeArgs(match, breakpoint)
-	base64Args := base64.StdEncoding.EncodeToString(yamlArgs)
+	base64Args := Base64HookArgs(match, breakpoint)
 	s = strings.Replace(s, "{hook_args}", base64Args, 1)
 	return s
+}
+
+// Base64HookArgs returns the encoded arguments for defining debug-hook behavior.
+// This is a base64 encoded yaml blob containing serialized arguments.
+func Base64HookArgs(match []string, breakpoint string) string {
+	yamlArgs := encodeArgs(match, breakpoint)
+	return base64.StdEncoding.EncodeToString(yamlArgs)
 }
 
 func encodeArgs(args []string, breakpoint string) []byte {

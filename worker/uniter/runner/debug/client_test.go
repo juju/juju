@@ -4,10 +4,13 @@
 package debug_test
 
 import (
+	"encoding/base64"
 	"fmt"
+	jc "github.com/juju/testing/checkers"
 	"regexp"
 
 	gc "gopkg.in/check.v1"
+	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/worker/uniter/runner/debug"
 )
@@ -20,7 +23,7 @@ func (*DebugHooksClientSuite) TestClientScript(c *gc.C) {
 	ctx := debug.NewHooksContext("foo/8")
 
 	// Test the variable substitutions.
-	result := debug.ClientScript(ctx, nil)
+	result := debug.ClientScript(ctx, nil, "")
 	// No variables left behind.
 	c.Assert(result, gc.Not(gc.Matches), "(.|\n)*{unit_name}(.|\n)*")
 	c.Assert(result, gc.Not(gc.Matches), "(.|\n)*{tmux_conf}(.|\n)*")
@@ -36,15 +39,74 @@ func (*DebugHooksClientSuite) TestClientScript(c *gc.C) {
 	// nil is the same as empty slice is the same as "*".
 	// Also, if "*" is present as well as a named hook,
 	// it is equivalent to "*".
-	c.Assert(debug.ClientScript(ctx, nil), gc.Equals, debug.ClientScript(ctx, []string{}))
-	c.Assert(debug.ClientScript(ctx, []string{"*"}), gc.Equals, debug.ClientScript(ctx, nil))
-	c.Assert(debug.ClientScript(ctx, []string{"*", "something"}), gc.Equals, debug.ClientScript(ctx, []string{"*"}))
+	c.Check(debug.ClientScript(ctx, nil, ""),
+		gc.Equals, debug.ClientScript(ctx, []string{}, ""))
+	c.Check(debug.ClientScript(ctx, []string{"*"}, ""),
+		gc.Equals, debug.ClientScript(ctx, nil, ""))
+	c.Check(debug.ClientScript(ctx, []string{"*", "something"}, ""),
+		gc.Equals, debug.ClientScript(ctx, []string{"*"}, ""))
 
 	// debug.ClientScript does not validate hook names, as it doesn't have
 	// a full state API connection to determine valid relation hooks.
+	// Note: jam 2020-04-01, This is a very easy to get wrong test.
+	//  Without escaping the '|' it was actually just asserting that 'base64 -d' existed in the
+	//  file.
+	c.Check(debug.Base64HookArgs([]string{"something somethingelse"}, ""),
+		gc.Equals, "aG9va3M6Ci0gc29tZXRoaW5nIHNvbWV0aGluZ2Vsc2UK")
 	expected := fmt.Sprintf(
-		`(.|\n)*echo "aG9va3M6Ci0gc29tZXRoaW5nIHNvbWV0aGluZ2Vsc2UK" | base64 -d > %s(.|\n)*`,
+		`(.|\n)*echo "aG9va3M6Ci0gc29tZXRoaW5nIHNvbWV0aGluZ2Vsc2UK" \| base64 -d > %s(.|\n)*`,
 		regexp.QuoteMeta(ctx.ClientFileLock()),
 	)
-	c.Assert(debug.ClientScript(ctx, []string{"something somethingelse"}), gc.Matches, expected)
+	c.Assert(debug.ClientScript(ctx, []string{"something somethingelse"}, ""), gc.Matches, expected)
+	expected = fmt.Sprintf(
+		`(.|\n)*echo "%s" \| base64 -d > %s(.|\n)*`,
+		debug.Base64HookArgs(nil, "breakpoint-string"),
+		regexp.QuoteMeta(ctx.ClientFileLock()),
+	)
+	c.Assert(debug.ClientScript(ctx, []string{}, "breakpoint-string"),
+		gc.Matches, expected)
+}
+
+func (*DebugHooksClientSuite) TestBase64HookArgsNoValues(c *gc.C) {
+	// Tests of how we encode parameters for how debug-hooks will operate
+	base64Args := debug.Base64HookArgs(nil, "")
+	args := decodeArgs(c, base64Args)
+	c.Check(args, gc.DeepEquals, map[string]interface{}{})
+}
+
+func (*DebugHooksClientSuite) TestBase64HookArgsHookList(c *gc.C) {
+	// Tests of how we encode parameters for how debug-hooks will operate
+	base64Args := debug.Base64HookArgs([]string{"install", "start"}, "")
+	args := decodeArgs(c, base64Args)
+	c.Check(args, gc.DeepEquals, map[string]interface{}{
+		"hooks": []interface{}{"install", "start"},
+	})
+}
+
+func (*DebugHooksClientSuite) TestBase64HookArgsBreakpoint(c *gc.C) {
+	// Tests of how we encode parameters for how debug-hooks will operate
+	base64Args := debug.Base64HookArgs([]string{}, "all,broken")
+	args := decodeArgs(c, base64Args)
+	c.Check(args, gc.DeepEquals, map[string]interface{}{
+		"breakpoint": "all,broken",
+	})
+}
+
+func (*DebugHooksClientSuite) TestBase64HookArgsBoth(c *gc.C) {
+	// Tests of how we encode parameters for how debug-hooks will operate
+	base64Args := debug.Base64HookArgs([]string{"db-relation-changed", "stop"}, "brokepoint")
+	args := decodeArgs(c, base64Args)
+	c.Check(args, gc.DeepEquals, map[string]interface{}{
+		"hooks":      []interface{}{"db-relation-changed", "stop"},
+		"breakpoint": "brokepoint",
+	})
+}
+
+func decodeArgs(c *gc.C, base64Args string) map[string]interface{} {
+	c.Assert(base64Args, gc.Not(gc.Equals), "")
+	yamlArgs, err := base64.StdEncoding.DecodeString(base64Args)
+	c.Assert(err, jc.ErrorIsNil)
+	var decoded map[string]interface{}
+	c.Assert(goyaml.Unmarshal(yamlArgs, &decoded), jc.ErrorIsNil)
+	return decoded
 }
