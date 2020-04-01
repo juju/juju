@@ -159,6 +159,9 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	if err := restore.actions(); err != nil {
 		return nil, nil, errors.Annotate(err, "actions")
 	}
+	if err := restore.operations(); err != nil {
+		return nil, nil, errors.Annotate(err, "operations")
+	}
 
 	if err := restore.modelUsers(); err != nil {
 		return nil, nil, errors.Annotate(err, "modelUsers")
@@ -1872,6 +1875,7 @@ func (i *importer) addAction(action description.Action) error {
 		ModelUUID:  modelUUID,
 		Receiver:   action.Receiver(),
 		Name:       action.Name(),
+		Operation:  action.Operation(),
 		Parameters: action.Parameters(),
 		Enqueued:   action.Enqueued(),
 		Results:    action.Results(),
@@ -1895,6 +1899,43 @@ func (i *importer) addAction(action description.Action) error {
 		C:      actionNotificationsC,
 		Id:     notificationDoc.DocId,
 		Insert: notificationDoc,
+	}}
+
+	if err := i.st.db().RunTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (i *importer) operations() error {
+	i.logger.Debugf("importing operations")
+	for _, op := range i.model.Operations() {
+		err := i.addOperation(op)
+		if err != nil {
+			i.logger.Errorf("error importing operation %v: %s", op, err)
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing operations succeeded")
+	return nil
+}
+
+func (i *importer) addOperation(op description.Operation) error {
+	modelUUID := i.st.ModelUUID()
+	newDoc := &operationDoc{
+		DocId:             i.st.docID(op.Id()),
+		ModelUUID:         modelUUID,
+		Summary:           op.Summary(),
+		Enqueued:          op.Enqueued(),
+		Started:           op.Started(),
+		Completed:         op.Completed(),
+		Status:            ActionStatus(op.Status()),
+		CompleteTaskCount: op.CompleteTaskCount(),
+	}
+	ops := []txn.Op{{
+		C:      operationsC,
+		Id:     newDoc.DocId,
+		Insert: newDoc,
 	}}
 
 	if err := i.st.db().RunTransaction(ops); err != nil {

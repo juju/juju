@@ -1680,7 +1680,28 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	action := actions[0]
 	c.Check(action.Receiver(), gc.Equals, machine.Id())
 	c.Check(action.Name(), gc.Equals, "foo")
+	c.Check(state.ActionOperationId(action), gc.Equals, operationID)
 	c.Check(action.Status(), gc.Equals, state.ActionPending)
+}
+
+func (s *MigrationImportSuite) TestOperation(c *gc.C) {
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	operationID, err := m.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+
+	newModel, newState := s.importModel(c, s.State)
+	defer func() {
+		c.Assert(newState.Close(), jc.ErrorIsNil)
+	}()
+
+	operations, _ := newModel.AllOperations()
+	c.Assert(operations, gc.HasLen, 1)
+	op := operations[0]
+	c.Check(op.Summary(), gc.Equals, "a test")
+	c.Check(op.Id(), gc.Equals, operationID)
+	c.Check(op.Status(), gc.Equals, state.ActionPending)
 }
 
 func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
