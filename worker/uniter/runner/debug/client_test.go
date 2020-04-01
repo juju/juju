@@ -6,9 +6,9 @@ package debug_test
 import (
 	"encoding/base64"
 	"fmt"
-	jc "github.com/juju/testing/checkers"
 	"regexp"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 

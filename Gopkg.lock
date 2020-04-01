@@ -1351,7 +1351,7 @@
   revision = "c390a4cc19a3efac72d6fcce80ab2984d54f1f3f"
 
 [[projects]]
-  digest = "1:f432835a8eb23aa21056c9ac8f38092b4de9d6f06671d588161d6c301dfaee68"
+  digest = "1:d4d2d7e40d11f43c095a6d1fa0b32f290f627e3b707b8e7f877eeb84aceb3640"
   name = "gopkg.in/juju/charmrepo.v4"
   packages = [
     ".",
