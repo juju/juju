@@ -34,13 +34,6 @@ var MetricLabelNames = []string{
 	MetricLabelErrorCode,
 }
 
-// CounterVec is a Collector that bundles a set of Counters that all share the
-// same description.
-type CounterVec interface {
-	// With returns a Counter for a given labels slice
-	With(prometheus.Labels) prometheus.Counter
-}
-
 // SummaryVec is a Collector that bundles a set of Summaries that all share the
 // same description.
 type SummaryVec interface {
@@ -50,22 +43,12 @@ type SummaryVec interface {
 
 // MetricsCollector represents a bundle of metrics that is used by the observer
 // factory.
-//go:generate mockgen -package mocks -destination mocks/metrics_collector_mock.go github.com/juju/juju/apiserver/observer/metricobserver MetricsCollector,CounterVec,SummaryVec
-//go:generate mockgen -package mocks -destination mocks/metrics_mock.go github.com/prometheus/client_golang/prometheus Counter,Summary
+//go:generate mockgen -package mocks -destination mocks/metrics_collector_mock.go github.com/juju/juju/apiserver/observer/metricobserver MetricsCollector,SummaryVec
+//go:generate mockgen -package mocks -destination mocks/metrics_mock.go github.com/prometheus/client_golang/prometheus Summary
 type MetricsCollector interface {
 	// APIRequestDuration returns a SummaryVec for updating the duration of
 	// api request duration.
 	APIRequestDuration() SummaryVec
-
-	// DeprecatedAPIRequestsTotal returns a CounterVec for updating the number of
-	// api requests total.
-	// The following is obsolete and should be removed for 2.6 release
-	DeprecatedAPIRequestsTotal() CounterVec
-
-	// DeprecatedAPIRequestDuration returns a SummaryVec for updating the duration of
-	// api request duration.
-	// The following is obsolete and should be removed for 2.6 release
-	DeprecatedAPIRequestDuration() SummaryVec
 }
 
 // Config contains the configuration for an Observer.
@@ -102,9 +85,7 @@ func NewObserverFactory(config Config) (observer.ObserverFactory, error) {
 	o := &Observer{
 		clock: config.Clock,
 		metrics: metrics{
-			apiRequestDuration:           config.MetricsCollector.APIRequestDuration(),
-			deprecatedAPIRequestsTotal:   config.MetricsCollector.DeprecatedAPIRequestsTotal(),
-			deprecatedAPIRequestDuration: config.MetricsCollector.DeprecatedAPIRequestDuration(),
+			apiRequestDuration: config.MetricsCollector.APIRequestDuration(),
 		},
 	}
 	return func() observer.Observer {
@@ -119,9 +100,7 @@ type Observer struct {
 }
 
 type metrics struct {
-	apiRequestDuration           SummaryVec
-	deprecatedAPIRequestDuration SummaryVec
-	deprecatedAPIRequestsTotal   CounterVec
+	apiRequestDuration SummaryVec
 }
 
 // Login is part of the observer.Observer interface.
@@ -162,8 +141,4 @@ func (o *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interfa
 	}
 	duration := o.clock.Now().Sub(o.requestStart)
 	o.metrics.apiRequestDuration.With(labels).Observe(duration.Seconds())
-
-	// The following is obsolete and should be removed for 2.6 release
-	o.metrics.deprecatedAPIRequestDuration.With(labels).Observe(duration.Seconds())
-	o.metrics.deprecatedAPIRequestsTotal.With(labels).Inc()
 }

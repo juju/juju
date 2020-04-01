@@ -57,15 +57,3 @@ type metricCollectorWrapper struct {
 func (o metricCollectorWrapper) APIRequestDuration() metricobserver.SummaryVec {
 	return o.collector.APIRequestDuration
 }
-
-// TODO (stickupkid): Remove this in 2.6+ as DeprecatedAPIRequestsTotal will become
-// obsolete
-func (o metricCollectorWrapper) DeprecatedAPIRequestsTotal() metricobserver.CounterVec {
-	return o.collector.DeprecatedAPIRequestsTotal
-}
-
-// TODO (stickupkid): Remove this in 2.6+ as DeprecatedAPIRequestDuration will become
-// obsolete
-func (o metricCollectorWrapper) DeprecatedAPIRequestDuration() metricobserver.SummaryVec {
-	return o.collector.DeprecatedAPIRequestDuration
-}

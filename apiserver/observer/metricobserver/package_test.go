@@ -19,12 +19,6 @@ func Test(t *testing.T) {
 func createMockMetrics(c *gc.C, labels interface{}) (*mocks.MockMetricsCollector, func()) {
 	ctrl := gomock.NewController(c)
 
-	counter := mocks.NewMockCounter(ctrl)
-	counter.EXPECT().Inc().AnyTimes()
-
-	counterVec := mocks.NewMockCounterVec(ctrl)
-	counterVec.EXPECT().With(labels).Return(counter).AnyTimes()
-
 	summary := mocks.NewMockSummary(ctrl)
 	summary.EXPECT().Observe(gomock.Any()).AnyTimes()
 
@@ -33,9 +27,6 @@ func createMockMetrics(c *gc.C, labels interface{}) (*mocks.MockMetricsCollector
 
 	metricsCollector := mocks.NewMockMetricsCollector(ctrl)
 	metricsCollector.EXPECT().APIRequestDuration().Return(summaryVec).AnyTimes()
-
-	metricsCollector.EXPECT().DeprecatedAPIRequestsTotal().Return(counterVec).AnyTimes()
-	metricsCollector.EXPECT().DeprecatedAPIRequestDuration().Return(summaryVec).AnyTimes()
 
 	return metricsCollector, ctrl.Finish
 }
