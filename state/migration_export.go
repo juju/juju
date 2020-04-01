@@ -205,6 +205,9 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	if err := export.actions(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.operations(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := export.cloudimagemetadata(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1569,26 +1572,57 @@ func (e *exporter) actions() error {
 		return errors.Trace(err)
 	}
 	e.logger.Debugf("read %d actions", len(actions))
-	for _, action := range actions {
-		results, message := action.Results()
+	for _, a := range actions {
+		results, message := a.Results()
 		arg := description.ActionArgs{
-			Receiver:   action.Receiver(),
-			Name:       action.Name(),
-			Parameters: action.Parameters(),
-			Enqueued:   action.Enqueued(),
-			Started:    action.Started(),
-			Completed:  action.Completed(),
-			Status:     string(action.Status()),
+			Receiver:   a.Receiver(),
+			Name:       a.Name(),
+			Operation:  a.(*action).doc.Operation,
+			Parameters: a.Parameters(),
+			Enqueued:   a.Enqueued(),
+			Started:    a.Started(),
+			Completed:  a.Completed(),
+			Status:     string(a.Status()),
 			Results:    results,
 			Message:    message,
-			Id:         action.Id(),
+			Id:         a.Id(),
 		}
-		messages := action.Messages()
+		messages := a.Messages()
 		arg.Messages = make([]description.ActionMessage, len(messages))
 		for i, m := range messages {
 			arg.Messages[i] = m
 		}
 		e.model.AddAction(arg)
+	}
+	return nil
+}
+
+func (e *exporter) operations() error {
+	if e.cfg.SkipActions {
+		return nil
+	}
+
+	m, err := e.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	operations, err := m.AllOperations()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d operations", len(operations))
+	for _, op := range operations {
+		arg := description.OperationArgs{
+			Summary:           op.Summary(),
+			Enqueued:          op.Enqueued(),
+			Started:           op.Started(),
+			Completed:         op.Completed(),
+			Status:            string(op.Status()),
+			CompleteTaskCount: op.(*operation).doc.CompleteTaskCount,
+			Id:                op.Id(),
+		}
+		e.model.AddOperation(arg)
 	}
 	return nil
 }
