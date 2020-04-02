@@ -76,8 +76,8 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 		Arch:   arch.HostArch(),
 		Series: series.MustHostSeries(),
 	}
-	s.oldVersion.Major = 1
-	s.oldVersion.Minor = 16
+	s.oldVersion.Major = 2
+	s.oldVersion.Minor = 1
 
 	// Don't wait so long in tests.
 	s.PatchValue(&upgradesteps.UpgradeStartTimeoutMaster, time.Millisecond*50)

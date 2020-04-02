@@ -155,7 +155,6 @@ func (u *Upgrader) loop() error {
 		} else if !upgrader.AllowedTargetVersion(
 			u.config.OrigAgentVersion,
 			jujuversion.Current,
-			!u.config.UpgradeStepsWaiter.IsUnlocked(),
 			wantVersion,
 		) {
 			logger.Warningf("desired agent binary version: %s is older than current %s, refusing to downgrade",
@@ -163,7 +162,11 @@ func (u *Upgrader) loop() error {
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		}
-		logger.Debugf("upgrade requested for %v from %v to %v", u.tag, jujuversion.Current, wantVersion)
+		direction := "upgrade"
+		if wantVersion.Compare(jujuversion.Current) == -1 {
+			direction = "downgrade"
+		}
+		logger.Debugf("%s requested for %v from %v to %v", direction, u.tag, jujuversion.Current, wantVersion)
 		err = u.operatorUpgrader.Upgrade(u.tag.String(), wantVersion)
 		if err != nil {
 			return errors.Annotatef(err, "requesting upgrade for %f from %v to %v", u.tag, jujuversion.Current, wantVersion)

@@ -410,9 +410,9 @@ func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
-	// bootstrap with 1.99.1 but there will be no tools so version will be reset.
+	// bootstrap with 2.99.1 but there will be no tools so version will be reset.
 	cfg, err := s.bootstrapParams.ControllerModelConfig.Apply(map[string]interface{}{
-		"agent-version": "1.99.1",
+		"agent-version": "2.99.1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.bootstrapParams.ControllerModelConfig = cfg
@@ -433,7 +433,7 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	vers, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(vers.String(), gc.Equals, "1.99.0")
+	c.Assert(vers.String(), gc.Equals, "2.99.0")
 }
 
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {

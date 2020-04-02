@@ -115,16 +115,10 @@ func (u *Upgrader) Stop() error {
 func AllowedTargetVersion(
 	origAgentVersion version.Number,
 	curVersion version.Number,
-	upgradeStepsRunning bool,
 	targetVersion version.Number,
 ) bool {
-	if upgradeStepsRunning && targetVersion == origAgentVersion {
-		return true
-	}
-	if targetVersion.Major < curVersion.Major {
-		return false
-	}
-	if targetVersion.Major == curVersion.Major && targetVersion.Minor < curVersion.Minor {
+	// Don't allow downgrading from higher versions to version 1.x
+	if curVersion.Major >= 2 && targetVersion.Major == 1 {
 		return false
 	}
 	return true
@@ -208,20 +202,20 @@ func (u *Upgrader) loop() error {
 		} else if !AllowedTargetVersion(
 			u.config.OrigAgentVersion,
 			haveVersion,
-			!u.config.UpgradeStepsWaiter.IsUnlocked(),
 			wantVersion,
 		) {
-			// See also bug #1299802 where when upgrading from
-			// 1.16 to 1.18 there is a race condition that can
-			// cause the unit agent to upgrade, and then want to
-			// downgrade when its associate machine agent has not
-			// finished upgrading.
-			logger.Infof("desired agent binary version: %s is older than current %s, refusing to downgrade",
-				wantVersion, haveVersion)
+			// Don't allow downgrading to v1.x - we don't support
+			// restoring from a 1.x backup.
+			logger.Infof("desired agent binary version: %s is older than 2.0.0, refusing to downgrade",
+				wantVersion)
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		}
-		logger.Infof("upgrade requested from %v to %v", haveVersion, wantVersion)
+		direction := "upgrade"
+		if wantVersion.Compare(haveVersion) == -1 {
+			direction = "downgrade"
+		}
+		logger.Infof("%s requested from %v to %v", direction, haveVersion, wantVersion)
 
 		// Check if tools have already been downloaded.
 		wantVersionBinary := toBinaryVersion(wantVersion)
