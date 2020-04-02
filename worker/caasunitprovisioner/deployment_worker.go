@@ -129,6 +129,14 @@ func (w *deploymentWorker) loop() error {
 		} else if err != nil {
 			return errors.Trace(err)
 		}
+		// !!!!!
+		if info.RawK8sSpec != "" {
+			logger.Warningf("ApplyRawK8sSpec info.RawK8sSpec -> %s", info.RawK8sSpec)
+			if err := w.broker.ApplyRawK8sSpec(info.RawK8sSpec); err != nil {
+				return errors.Trace(err)
+			}
+			continue
+		}
 		if desiredScale == 0 {
 			if pw != nil {
 				worker.Stop(pw)

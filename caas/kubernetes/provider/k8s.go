@@ -877,6 +877,16 @@ func processConstraints(pod *core.PodSpec, appName string, cons constraints.Valu
 	return nil
 }
 
+func (k *kubernetesClient) ApplyRawK8sSpec(str string) error {
+	spec, err := k8sspecs.ParseRawK8sSpec(str)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Criticalf("ApplyRawK8sSpec strSpec-> \n%s", str)
+	logger.Criticalf("ApplyRawK8sSpec spec -> %s", pretty.Sprint(spec))
+	return nil
+}
+
 // EnsureService creates or updates a service for pods with the given params.
 func (k *kubernetesClient) EnsureService(
 	appName string,

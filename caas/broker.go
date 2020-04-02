@@ -168,6 +168,9 @@ type Broker interface {
 	// a charm for the specified application.
 	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
 
+	// ApplyRawK8sSpec deploys raw k8s spec.
+	ApplyRawK8sSpec(string) error
+
 	// OperatorExists indicates if the operator for the specified
 	// application exists, and whether the operator is terminating.
 	OperatorExists(appName string) (OperatorState, error)

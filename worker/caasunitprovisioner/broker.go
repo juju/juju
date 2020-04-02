@@ -24,6 +24,7 @@ type ContainerBroker interface {
 type ServiceBroker interface {
 	Provider() caas.ContainerEnvironProvider
 	EnsureService(appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error
+	ApplyRawK8sSpec(string) error
 	DeleteService(appName string) error
 	UnexposeService(appName string) error
 
