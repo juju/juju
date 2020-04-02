@@ -12,10 +12,8 @@ import (
 	"github.com/juju/os/series"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/upgrader"
 )
@@ -230,18 +228,4 @@ func NewEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		MemoryProfile: agentConfig.MongoMemoryProfile(),
 	}
 	return params, nil
-}
-
-// ParamsStateServingInfoToStateStateServingInfo converts a
-// params.StateServingInfo to a state.StateServingInfo.
-func ParamsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {
-	return state.StateServingInfo{
-		APIPort:        i.APIPort,
-		StatePort:      i.StatePort,
-		Cert:           i.Cert,
-		PrivateKey:     i.PrivateKey,
-		CAPrivateKey:   i.CAPrivateKey,
-		SharedSecret:   i.SharedSecret,
-		SystemIdentity: i.SystemIdentity,
-	}
 }

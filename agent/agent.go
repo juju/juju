@@ -23,7 +23,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -241,7 +241,7 @@ type Config interface {
 	// StateServingInfo returns the details needed to run
 	// a controller and reports whether those details
 	// are available
-	StateServingInfo() (params.StateServingInfo, bool)
+	StateServingInfo() (controller.StateServingInfo, bool)
 
 	// APIInfo returns details for connecting to the API server and
 	// reports whether the details are available.
@@ -317,7 +317,7 @@ type configSetterOnly interface {
 
 	// SetStateServingInfo sets the information needed
 	// to run a controller
-	SetStateServingInfo(info params.StateServingInfo)
+	SetStateServingInfo(info controller.StateServingInfo)
 
 	// SetControllerAPIPort sets the controller API port in the config.
 	SetControllerAPIPort(port int)
@@ -399,7 +399,7 @@ type configInternal struct {
 	apiDetails         *apiDetails
 	statePassword      string
 	oldPassword        string
-	servingInfo        *params.StateServingInfo
+	servingInfo        *controller.StateServingInfo
 	loggingConfig      string
 	values             map[string]string
 	mongoVersion       string
@@ -497,7 +497,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 
 // NewStateMachineConfig returns a configuration suitable for
 // a machine running the controller.
-func NewStateMachineConfig(configParams AgentConfigParams, serverInfo params.StateServingInfo) (ConfigSetterWriter, error) {
+func NewStateMachineConfig(configParams AgentConfigParams, serverInfo controller.StateServingInfo) (ConfigSetterWriter, error) {
 	if serverInfo.Cert == "" {
 		return nil, errors.Trace(requiredError("controller cert"))
 	}
@@ -692,14 +692,14 @@ func (c *configInternal) Value(key string) string {
 	return c.values[key]
 }
 
-func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
+func (c *configInternal) StateServingInfo() (controller.StateServingInfo, bool) {
 	if c.servingInfo == nil {
-		return params.StateServingInfo{}, false
+		return controller.StateServingInfo{}, false
 	}
 	return *c.servingInfo, true
 }
 
-func (c *configInternal) SetStateServingInfo(info params.StateServingInfo) {
+func (c *configInternal) SetStateServingInfo(info controller.StateServingInfo) {
 	c.servingInfo = &info
 	if c.statePassword == "" && c.apiDetails != nil {
 		c.statePassword = c.apiDetails.password

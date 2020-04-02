@@ -25,7 +25,6 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -649,7 +648,7 @@ func finalizeInstanceBootstrapConfig(
 	if err != nil {
 		return errors.Annotate(err, "cannot generate controller certificate")
 	}
-	icfg.Bootstrap.StateServingInfo = params.StateServingInfo{
+	icfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
 		StatePort:    controllerCfg.StatePort(),
 		APIPort:      controllerCfg.APIPort(),
 		Cert:         cert,
@@ -712,7 +711,7 @@ func finalizePodBootstrapConfig(
 	if err != nil {
 		return errors.Annotate(err, "cannot generate controller certificate")
 	}
-	pcfg.Bootstrap.StateServingInfo = params.StateServingInfo{
+	pcfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
 		StatePort:    controllerCfg.StatePort(),
 		APIPort:      controllerCfg.APIPort(),
 		Cert:         cert,

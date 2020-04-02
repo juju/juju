@@ -25,12 +25,12 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	jujucmd "github.com/juju/juju/cmd"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -404,7 +404,7 @@ func getAddressesForMongo(
 func ensureKeys(
 	isCAAS bool,
 	args instancecfg.StateInitializationParams,
-	info *params.StateServingInfo,
+	info *controller.StateServingInfo,
 	newConfigAttrs map[string]interface{},
 ) error {
 	if isCAAS {

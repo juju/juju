@@ -13,8 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -91,7 +91,7 @@ func (*formatSuite) TestRead(c *gc.C) {
 }
 
 func (*formatSuite) TestReadWriteStateConfig(c *gc.C) {
-	servingInfo := params.StateServingInfo{
+	servingInfo := controller.StateServingInfo{
 		Cert:         "some special cert",
 		PrivateKey:   "a special key",
 		CAPrivateKey: "ca special key",

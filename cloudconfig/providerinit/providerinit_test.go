@@ -18,11 +18,11 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/config"
@@ -191,7 +191,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 				ControllerConfig:      controllerCfg,
 				ControllerModelConfig: envConfig,
 			},
-			StateServingInfo: params.StateServingInfo{
+			StateServingInfo: controller.StateServingInfo{
 				StatePort:    controllerCfg.StatePort(),
 				APIPort:      controllerCfg.APIPort(),
 				Cert:         testing.ServerCert,

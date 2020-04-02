@@ -23,7 +23,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/apiserver/params"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
@@ -64,7 +63,7 @@ type FakeEnsureMongo struct {
 	InitiateCount    int
 	DataDir          string
 	OplogSize        int
-	Info             state.StateServingInfo
+	Info             controller.StateServingInfo
 	InitiateParams   peergrouper.InitiateMongoParams
 	Err              error
 	ServiceInstalled bool
@@ -85,7 +84,7 @@ func (f *FakeEnsureMongo) CurrentConfig(*mgo.Session) (*replicaset.Config, error
 func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) (mongo.Version, error) {
 	f.EnsureCount++
 	f.DataDir, f.OplogSize = args.DataDir, args.OplogSize
-	f.Info = state.StateServingInfo{
+	f.Info = controller.StateServingInfo{
 		APIPort:        args.APIPort,
 		StatePort:      args.StatePort,
 		Cert:           args.Cert,
@@ -230,7 +229,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			Model:              modelTag,
 			MongoMemoryProfile: controller.DefaultMongoMemoryProfile,
 		},
-		params.StateServingInfo{
+		controller.StateServingInfo{
 			Cert:         coretesting.ServerCert,
 			PrivateKey:   coretesting.ServerKey,
 			CAPrivateKey: coretesting.CAKey,

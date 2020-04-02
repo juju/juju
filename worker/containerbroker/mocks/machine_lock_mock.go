@@ -35,7 +35,6 @@ func (m *MockLock) EXPECT() *MockLockMockRecorder {
 
 // Acquire mocks base method
 func (m *MockLock) Acquire(arg0 machinelock.Spec) (func(), error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Acquire", arg0)
 	ret0, _ := ret[0].(func())
 	ret1, _ := ret[1].(error)
@@ -44,13 +43,11 @@ func (m *MockLock) Acquire(arg0 machinelock.Spec) (func(), error) {
 
 // Acquire indicates an expected call of Acquire
 func (mr *MockLockMockRecorder) Acquire(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Acquire", reflect.TypeOf((*MockLock)(nil).Acquire), arg0)
 }
 
 // Report mocks base method
 func (m *MockLock) Report(arg0 ...machinelock.ReportOption) (string, error) {
-	m.ctrl.T.Helper()
 	varargs := []interface{}{}
 	for _, a := range arg0 {
 		varargs = append(varargs, a)
@@ -63,6 +60,5 @@ func (m *MockLock) Report(arg0 ...machinelock.ReportOption) (string, error) {
 
 // Report indicates an expected call of Report
 func (mr *MockLockMockRecorder) Report(arg0 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Report", reflect.TypeOf((*MockLock)(nil).Report), arg0...)
 }

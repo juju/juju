@@ -24,7 +24,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -148,7 +148,7 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 		}
 		statePort := 12345
 		privateAddress := "dummyPrivateAddress"
-		servingInfo := params.StateServingInfo{
+		servingInfo := controller.StateServingInfo{
 			APIPort:        1234,
 			StatePort:      statePort,
 			Cert:           coretesting.CACert,

@@ -8,8 +8,8 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	base "github.com/juju/juju/api/base"
-	httprequest "gopkg.in/httprequest.v1"
-	names "gopkg.in/juju/names.v3"
+	httprequest_v1 "gopkg.in/httprequest.v1"
+	names_v3 "gopkg.in/juju/names.v3"
 	http "net/http"
 	url "net/url"
 	reflect "reflect"
@@ -40,7 +40,6 @@ func (m *MockAPICaller) EXPECT() *MockAPICallerMockRecorder {
 
 // APICall mocks base method
 func (m *MockAPICaller) APICall(arg0 string, arg1 int, arg2, arg3 string, arg4, arg5 interface{}) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "APICall", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -48,13 +47,11 @@ func (m *MockAPICaller) APICall(arg0 string, arg1 int, arg2, arg3 string, arg4, 
 
 // APICall indicates an expected call of APICall
 func (mr *MockAPICallerMockRecorder) APICall(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APICall", reflect.TypeOf((*MockAPICaller)(nil).APICall), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // BakeryClient mocks base method
 func (m *MockAPICaller) BakeryClient() base.MacaroonDischarger {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BakeryClient")
 	ret0, _ := ret[0].(base.MacaroonDischarger)
 	return ret0
@@ -62,13 +59,11 @@ func (m *MockAPICaller) BakeryClient() base.MacaroonDischarger {
 
 // BakeryClient indicates an expected call of BakeryClient
 func (mr *MockAPICallerMockRecorder) BakeryClient() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BakeryClient", reflect.TypeOf((*MockAPICaller)(nil).BakeryClient))
 }
 
 // BestFacadeVersion mocks base method
 func (m *MockAPICaller) BestFacadeVersion(arg0 string) int {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BestFacadeVersion", arg0)
 	ret0, _ := ret[0].(int)
 	return ret0
@@ -76,13 +71,11 @@ func (m *MockAPICaller) BestFacadeVersion(arg0 string) int {
 
 // BestFacadeVersion indicates an expected call of BestFacadeVersion
 func (mr *MockAPICallerMockRecorder) BestFacadeVersion(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BestFacadeVersion", reflect.TypeOf((*MockAPICaller)(nil).BestFacadeVersion), arg0)
 }
 
 // ConnectControllerStream mocks base method
 func (m *MockAPICaller) ConnectControllerStream(arg0 string, arg1 url.Values, arg2 http.Header) (base.Stream, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConnectControllerStream", arg0, arg1, arg2)
 	ret0, _ := ret[0].(base.Stream)
 	ret1, _ := ret[1].(error)
@@ -91,13 +84,11 @@ func (m *MockAPICaller) ConnectControllerStream(arg0 string, arg1 url.Values, ar
 
 // ConnectControllerStream indicates an expected call of ConnectControllerStream
 func (mr *MockAPICallerMockRecorder) ConnectControllerStream(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectControllerStream", reflect.TypeOf((*MockAPICaller)(nil).ConnectControllerStream), arg0, arg1, arg2)
 }
 
 // ConnectStream mocks base method
 func (m *MockAPICaller) ConnectStream(arg0 string, arg1 url.Values) (base.Stream, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConnectStream", arg0, arg1)
 	ret0, _ := ret[0].(base.Stream)
 	ret1, _ := ret[1].(error)
@@ -106,13 +97,11 @@ func (m *MockAPICaller) ConnectStream(arg0 string, arg1 url.Values) (base.Stream
 
 // ConnectStream indicates an expected call of ConnectStream
 func (mr *MockAPICallerMockRecorder) ConnectStream(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectStream", reflect.TypeOf((*MockAPICaller)(nil).ConnectStream), arg0, arg1)
 }
 
 // Context mocks base method
 func (m *MockAPICaller) Context() context.Context {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Context")
 	ret0, _ := ret[0].(context.Context)
 	return ret0
@@ -120,36 +109,31 @@ func (m *MockAPICaller) Context() context.Context {
 
 // Context indicates an expected call of Context
 func (mr *MockAPICallerMockRecorder) Context() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockAPICaller)(nil).Context))
 }
 
 // HTTPClient mocks base method
-func (m *MockAPICaller) HTTPClient() (*httprequest.Client, error) {
-	m.ctrl.T.Helper()
+func (m *MockAPICaller) HTTPClient() (*httprequest_v1.Client, error) {
 	ret := m.ctrl.Call(m, "HTTPClient")
-	ret0, _ := ret[0].(*httprequest.Client)
+	ret0, _ := ret[0].(*httprequest_v1.Client)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // HTTPClient indicates an expected call of HTTPClient
 func (mr *MockAPICallerMockRecorder) HTTPClient() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HTTPClient", reflect.TypeOf((*MockAPICaller)(nil).HTTPClient))
 }
 
 // ModelTag mocks base method
-func (m *MockAPICaller) ModelTag() (names.ModelTag, bool) {
-	m.ctrl.T.Helper()
+func (m *MockAPICaller) ModelTag() (names_v3.ModelTag, bool) {
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(names.ModelTag)
+	ret0, _ := ret[0].(names_v3.ModelTag)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
 
 // ModelTag indicates an expected call of ModelTag
 func (mr *MockAPICallerMockRecorder) ModelTag() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelTag", reflect.TypeOf((*MockAPICaller)(nil).ModelTag))
 }

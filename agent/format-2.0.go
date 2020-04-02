@@ -12,7 +12,7 @@ import (
 	"gopkg.in/juju/names.v3"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 )
 
@@ -115,7 +115,7 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		}
 	}
 	if len(format.ControllerKey) != 0 {
-		config.servingInfo = &params.StateServingInfo{
+		config.servingInfo = &controller.StateServingInfo{
 			Cert:              format.ControllerCert,
 			PrivateKey:        format.ControllerKey,
 			CAPrivateKey:      format.CAPrivateKey,

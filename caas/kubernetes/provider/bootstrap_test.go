@@ -22,7 +22,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
@@ -80,14 +79,14 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	pcfg.Bootstrap.HostedModelConfig = map[string]interface{}{
 		"name": "hosted-model",
 	}
-	pcfg.Bootstrap.StateServingInfo = params.StateServingInfo{
+	pcfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
 		Cert:         testing.ServerCert,
 		PrivateKey:   testing.ServerKey,
 		CAPrivateKey: testing.CAKey,
 		StatePort:    123,
 		APIPort:      456,
 	}
-	pcfg.Bootstrap.StateServingInfo = params.StateServingInfo{
+	pcfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
 		Cert:         testing.ServerCert,
 		PrivateKey:   testing.ServerKey,
 		CAPrivateKey: testing.CAKey,

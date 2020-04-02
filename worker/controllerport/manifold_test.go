@@ -16,7 +16,6 @@ import (
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/controllerport"
@@ -214,6 +213,6 @@ type mockAgentConfig struct {
 	port int
 }
 
-func (c *mockAgentConfig) StateServingInfo() (params.StateServingInfo, bool) {
-	return params.StateServingInfo{ControllerAPIPort: c.port}, true
+func (c *mockAgentConfig) StateServingInfo() (controller.StateServingInfo, bool) {
+	return controller.StateServingInfo{ControllerAPIPort: c.port}, true
 }

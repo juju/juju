@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
@@ -279,8 +279,8 @@ func (*suite) TestNewAgentConfig(c *gc.C) {
 	}
 }
 
-func stateServingInfo() params.StateServingInfo {
-	return params.StateServingInfo{
+func stateServingInfo() controller.StateServingInfo {
+	return controller.StateServingInfo{
 		Cert:              "cert",
 		PrivateKey:        "key",
 		CAPrivateKey:      "ca key",
@@ -296,7 +296,7 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 	type testStruct struct {
 		about         string
 		params        agent.AgentConfigParams
-		servingInfo   params.StateServingInfo
+		servingInfo   controller.StateServingInfo
 		checkErr      string
 		inspectConfig func(*gc.C, agent.Config)
 	}
@@ -305,20 +305,20 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 		checkErr: "controller cert not found in configuration",
 	}, {
 		about: "missing controller key",
-		servingInfo: params.StateServingInfo{
+		servingInfo: controller.StateServingInfo{
 			Cert: "server cert",
 		},
 		checkErr: "controller key not found in configuration",
 	}, {
 		about: "missing ca cert key",
-		servingInfo: params.StateServingInfo{
+		servingInfo: controller.StateServingInfo{
 			Cert:       "server cert",
 			PrivateKey: "server key",
 		},
 		checkErr: "ca cert key not found in configuration",
 	}, {
 		about: "missing state port",
-		servingInfo: params.StateServingInfo{
+		servingInfo: controller.StateServingInfo{
 			Cert:         "server cert",
 			PrivateKey:   "server key",
 			CAPrivateKey: "ca key",
@@ -326,7 +326,7 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 		checkErr: "state port not found in configuration",
 	}, {
 		about: "params api port",
-		servingInfo: params.StateServingInfo{
+		servingInfo: controller.StateServingInfo{
 			Cert:         "server cert",
 			PrivateKey:   "server key",
 			CAPrivateKey: "ca key",
@@ -391,7 +391,7 @@ func (*suite) TestStateServingInfo(c *gc.C) {
 	gotInfo, ok := conf.StateServingInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(gotInfo, jc.DeepEquals, servingInfo)
-	newInfo := params.StateServingInfo{
+	newInfo := controller.StateServingInfo{
 		APIPort:           147,
 		ControllerAPIPort: 148,
 		StatePort:         169,
