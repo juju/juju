@@ -296,6 +296,10 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	rawSpec, err := model.RawK8sSpec(appTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// Now get any required storage. We need to provision storage
 	// at the same time as the pod as it can't be attached later.
@@ -353,6 +357,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 
 	info := &params.KubernetesProvisioningInfo{
 		PodSpec:           podSpec,
+		RawK8sSpec:        rawSpec,
 		Filesystems:       filesystemParams,
 		Devices:           devices,
 		Constraints:       mergedCons,

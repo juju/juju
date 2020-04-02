@@ -2698,7 +2698,7 @@ func networkInfoResultsToV6(v7Results params.NetworkInfoResults) params.NetworkI
 	return params.NetworkInfoResultsV6{Results: results}
 }
 
-// Network Info implements UniterAPIV6 version of NetworkInfo by constructing an API V6 compatible result.
+// NetworkInfo implements UniterAPIV6 version of NetworkInfo by constructing an API V6 compatible result.
 func (u *UniterAPIV6) NetworkInfo(args params.NetworkInfoParams) (params.NetworkInfoResultsV6, error) {
 	v6Results, err := u.UniterAPI.NetworkInfo(args)
 	if err != nil {
@@ -2792,6 +2792,32 @@ func (u *UniterAPI) setPodSpecOperation(appTag string, spec *string, unitTag nam
 	return cm.SetPodSpecOperation(token, parsedAppTag, spec), nil
 }
 
+func (u *UniterAPI) setRawK8sSpecOperation(appTag string, spec *string, unitTag names.Tag, canAccessApp common.AuthFunc) (state.ModelOperation, error) {
+	parsedAppTag, err := names.ParseApplicationTag(appTag)
+	if err != nil {
+		return nil, err
+	}
+	if !canAccessApp(parsedAppTag) {
+		return nil, common.ErrPerm
+	}
+	if spec != nil {
+		if _, err := k8sspecs.ParseRawK8sSpec(*spec); err != nil {
+			return nil, errors.Annotate(err, "invalid raw k8s spec")
+		}
+	}
+
+	cm, err := u.m.CAASModel()
+	if err != nil {
+		return nil, err
+	}
+
+	var token leadership.Token
+	if unitTag != nil {
+		token = u.leadershipChecker.LeadershipCheck(parsedAppTag.Id(), unitTag.Id())
+	}
+	return cm.SetRawK8sSpecOperation(token, parsedAppTag, spec), nil
+}
+
 // Mask the GetPodSpec method from the v13 API. The API reflection code
 // in rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so
 // this removes the method as far as the RPC machinery is concerned.
@@ -2801,6 +2827,34 @@ func (u *UniterAPIV13) GetPodSpec(_, _ struct{}) {}
 
 // GetPodSpec gets the pod specs for a set of applications.
 func (u *UniterAPI) GetPodSpec(args params.Entities) (params.StringResults, error) {
+	return u.getContainerSpec(args, func(m caasSpecGetter) getSpecFunc {
+		return m.PodSpec
+	})
+}
+
+// Mask the GetRawK8sSpec method from the v13 API. The API reflection code
+// in rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so
+// this removes the method as far as the RPC machinery is concerned.
+
+// GetRawK8sSpec isn't on the v13 API.
+func (u *UniterAPIV13) GetRawK8sSpec(_, _ struct{}) {}
+
+// GetRawK8sSpec gets the raw k8s specs for a set of applications.
+func (u *UniterAPI) GetRawK8sSpec(args params.Entities) (params.StringResults, error) {
+	return u.getContainerSpec(args, func(m caasSpecGetter) getSpecFunc {
+		return m.RawK8sSpec
+	})
+}
+
+type caasSpecGetter interface {
+	PodSpec(names.ApplicationTag) (string, error)
+	RawK8sSpec(names.ApplicationTag) (string, error)
+}
+
+type getSpecFunc func(names.ApplicationTag) (string, error)
+type getSpecFuncGetter func(caasSpecGetter) getSpecFunc
+
+func (u *UniterAPI) getContainerSpec(args params.Entities, getSpec getSpecFuncGetter) (params.StringResults, error) {
 	results := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
@@ -2833,7 +2887,7 @@ func (u *UniterAPI) GetPodSpec(args params.Entities) (params.StringResults, erro
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		spec, err := cm.PodSpec(tag)
+		spec, err := getSpec(cm)(tag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -3442,6 +3496,19 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			return errors.BadRequestf("application tag %q in SetPodSpec payload does not match the application for unit %q", changes.SetPodSpec.Tag, changes.Tag)
 		}
 		modelOp, err := u.setPodSpecOperation(changes.SetPodSpec.Tag, changes.SetPodSpec.Spec, unitTag, canAccessApp)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		modelOps = append(modelOps, modelOp)
+	}
+
+	if changes.RawK8sSpec != nil {
+		// Ensure the application tag for the unit in the change arg
+		// matches the one specified in the RawK8sSpec payload
+		if changes.RawK8sSpec.Tag != appTag {
+			return errors.BadRequestf("application tag %q in RawK8sSpec payload does not match the application for unit %q", changes.RawK8sSpec.Tag, changes.Tag)
+		}
+		modelOp, err := u.setRawK8sSpecOperation(changes.RawK8sSpec.Tag, changes.RawK8sSpec.Spec, unitTag, canAccessApp)
 		if err != nil {
 			return errors.Trace(err)
 		}
