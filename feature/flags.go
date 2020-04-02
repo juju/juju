@@ -48,7 +48,7 @@ const Generations = "generations"
 // it from APT.
 const MongoDbSnap = "mongodb-snap"
 
-// MongoDbSnap tells Juju to use server-side transactions. It does nothing if
+// MongoDbSSTXN tells Juju to use server-side transactions. It does nothing if
 // MongoDbSnap is not also enabled.
 const MongoDbSSTXN = "mongodb-sstxn"
 
@@ -57,3 +57,6 @@ const JujuV3 = "juju-v3"
 
 // K8sOperators indicates that it's allowed to deploy charms with mode=operator
 const K8sOperators = "k8s-operators"
+
+// RawK8sSpec indicates that it's allowed to set k8s spec using raw yaml format.
+const RawK8sSpec = "raw-k8s-spec"
