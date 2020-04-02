@@ -876,6 +876,7 @@ func (i *importer) application(a description.Application) error {
 			return errors.Trace(err)
 		}
 	}
+	// TODO(caas): Add raw k8s spec to juju/description for model migration!
 
 	if cs := a.CloudService(); cs != nil {
 		app, err := i.st.Application(a.Name())

@@ -14,14 +14,15 @@ import (
 )
 
 type setPodSpecOperation struct {
-	m      *CAASModel
-	appTag names.ApplicationTag
-	spec   *string
+	m       *CAASModel
+	appTag  names.ApplicationTag
+	spec    *string
+	rawSpec *string
 
 	tokenAwareTxnBuilder func(int) ([]txn.Op, error)
 }
 
-// newSetPodSpecOperation returns a ModelOperation for updating the PodSpec
+// newSetPodSpecOperation returns a ModelOperation for updating the PodSpec or
 // for a particular application. A nil token can be specified to bypass the
 // leadership check.
 func newSetPodSpecOperation(model *CAASModel, token leadership.Token, appTag names.ApplicationTag, spec *string) *setPodSpecOperation {
@@ -29,6 +30,22 @@ func newSetPodSpecOperation(model *CAASModel, token leadership.Token, appTag nam
 		m:      model,
 		appTag: appTag,
 		spec:   spec,
+	}
+
+	if token != nil {
+		op.tokenAwareTxnBuilder = buildTxnWithLeadership(op.buildTxn, token)
+	}
+	return op
+}
+
+// newSetRawK8sSpecOperation returns a ModelOperation for updating the raw k8s spec
+// for a particular application. A nil token can be specified to bypass the
+// leadership check.
+func newSetRawK8sSpecOperation(model *CAASModel, token leadership.Token, appTag names.ApplicationTag, rawSpec *string) *setPodSpecOperation {
+	op := &setPodSpecOperation{
+		m:       model,
+		appTag:  appTag,
+		rawSpec: rawSpec,
 	}
 
 	if token != nil {
@@ -59,7 +76,7 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 		)
 	}
 	// The app's charm may not be there yet (as is the case when migrating).
-	// This check is for checking the k8s-spec-set call.
+	// This check is for checking the k8s-spec-set/k8s-raw-set call.
 	ch, _, err := app.Charm()
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
@@ -84,15 +101,21 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 		if op.spec != nil {
 			updates = append(updates, bson.DocElem{"$set", bson.D{{"spec", *op.spec}}})
 		}
+		if op.rawSpec != nil {
+			updates = append(updates, bson.DocElem{"$set", bson.D{{"raw-spec", *op.rawSpec}}})
+		}
 		sop.Assert = bson.D{{"upgrade-counter", existing.UpgradeCounter}}
 		sop.Update = updates
 	} else if errors.IsNotFound(err) {
 		sop.Assert = txn.DocMissing
-		var specStr string
+		newDoc := containerSpecDoc{}
 		if op.spec != nil {
-			specStr = *op.spec
+			newDoc.Spec = *op.spec
 		}
-		sop.Insert = containerSpecDoc{Spec: specStr}
+		if op.rawSpec != nil {
+			newDoc.RawSpec = *op.rawSpec
+		}
+		sop.Insert = newDoc
 	} else {
 		return nil, errors.Annotate(err, "setting pod spec")
 	}
