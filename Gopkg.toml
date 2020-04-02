@@ -468,7 +468,7 @@
 
 [[constraint]]
   name = "gopkg.in/goose.v2"
-  revision = "a8af6f1548c35c82ef61b3f3d60ceb2bc1a591c0"
+  revision = "97fbb7d298bfd7dd9d5c80d697171c54045c1b5c"
   source = "github.com/SimonRichardson/goose"
 
 [[override]]
