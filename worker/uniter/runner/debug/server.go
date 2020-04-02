@@ -211,12 +211,12 @@ trap 'echo $? > $JUJU_DEBUG/hook_exit_status' EXIT
 // hook.pid that the rest of the server is waiting for. Without BREAKPOINT, we then exec an
 // interactive shell with an init.sh that displays a welcome message and traps its exit code into
 // hook_exit_status.
-// With JUJU_BREAKPOINT, we just exec the hook directly, and record its exit status before exit.
-// It is the responsibility of the code handling JUJU_BREAKPOINT to handle prompting.
+// With JUJU_DEBUG_AT, we just exec the hook directly, and record its exit status before exit.
+// It is the responsibility of the code handling JUJU_DEBUG_AT to handle prompting.
 const debugHooksHookScript = `#!/bin/bash
 . __JUJU_DEBUG__/env.sh
 echo $$ > $JUJU_DEBUG/hook.pid
-if [ -z "$JUJU_BREAKPOINT" ] ; then
+if [ -z "$JUJU_DEBUG_AT" ] ; then
 	exec /bin/bash --noprofile --init-file $JUJU_DEBUG/init.sh
 else
 	__JUJU_HOOK_RUNNER__
