@@ -4,9 +4,6 @@
 package commands
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -74,7 +71,6 @@ func (c *debugCodeCommand) Init(args []string) error {
 }
 func (c *debugCodeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.debugHooksCommand.SetFlags(f)
-	fmt.Fprintf(os.Stderr, "run away\n")
 	f.StringVar(&c.debugAt, "at", "all",
 		"interpreted by the charm for where you want to stop, defaults to 'all'")
 }
