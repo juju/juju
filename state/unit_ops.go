@@ -66,7 +66,6 @@ func (op *unitSetStateOperation) buildTxn(attempt int) ([]txn.Op, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
 		return []txn.Op{unitNotDeadOp, {
 			C:      unitStatesC,
 			Id:     unitGlobalKey,
@@ -82,6 +81,7 @@ func (op *unitSetStateOperation) buildTxn(attempt int) ([]txn.Op, error) {
 	} else if len(setFields) <= 0 && len(unsetFields) <= 0 {
 		return nil, jujutxn.ErrNoOperations
 	}
+
 	updateFields := bson.D{}
 	if len(setFields) > 0 {
 		updateFields = append(updateFields, bson.DocElem{"$set", setFields})
@@ -193,8 +193,9 @@ func (op *unitSetStateOperation) fields(currentDoc unitStateDoc) (bson.D, bson.D
 		if len(rState) == 0 {
 			unsetFields = append(unsetFields, bson.DocElem{Name: "relation-state"})
 		} else if matches := currentDoc.relationStateMatches(rState); !matches {
-			setFields = append(setFields, bson.DocElem{"relation-state", rState})
-			quotaChecker.Check(rState)
+			newRState := mergeRelations(currentDoc.RelationState, rState)
+			setFields = append(setFields, bson.DocElem{"relation-state", newRState})
+			quotaChecker.Check(newRState)
 		}
 	} else {
 		quotaChecker.Check(currentDoc.RelationState)
@@ -241,6 +242,26 @@ func (op *unitSetStateOperation) getUniterStateQuotaChecker() quota.Checker {
 	return quota.NewMultiChecker(
 		quota.NewBSONTotalSizeChecker(op.limits.MaxAgentStateSize),
 	)
+}
+
+func mergeRelations(currentRelations map[string]string, newRelations map[string]string) map[string]string {
+	// For keys in newRelations:
+	// if key not in currentDoc, add key/value
+	// if key in currentDoc, if value == "", remove
+	// if key in currentDoc, if value != "", replace
+	for id, newValue := range newRelations {
+		_, found := currentRelations[id]
+		switch {
+		case found && newValue == "":
+			delete(currentRelations, id)
+		default:
+			if currentRelations == nil {
+				currentRelations = make(map[string]string)
+			}
+			currentRelations[id] = newValue
+		}
+	}
+	return currentRelations
 }
 
 // Done implements ModelOperation.
