@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	names_v3 "gopkg.in/juju/names.v3"
+	params "github.com/juju/juju/apiserver/params"
 	reflect "reflect"
 )
 
@@ -34,7 +34,7 @@ func (m *MockUpgradeStepsClient) EXPECT() *MockUpgradeStepsClientMockRecorder {
 }
 
 // WriteUniterState mocks base method
-func (m *MockUpgradeStepsClient) WriteUniterState(arg0 map[names_v3.Tag]string) error {
+func (m *MockUpgradeStepsClient) WriteUniterState(arg0 []params.SetUnitStateArg) error {
 	ret := m.ctrl.Call(m, "WriteUniterState", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0

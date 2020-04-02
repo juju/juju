@@ -70,7 +70,7 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 	}
 	s.opFactory = operation.NewFactory(operation.FactoryParams{})
 
-	attachments, err := storage.NewAttachments(&dummyStorageAccessor{}, names.NewUnitTag("u/0"), c.MkDir(), nil)
+	attachments, err := storage.NewAttachments(&dummyStorageAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.clearResolved = func() error {
@@ -424,4 +424,18 @@ func (s *resolverSuite) TestNoOperationIfHashesAllMatch(c *gc.C) {
 
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+}
+
+// fakeRW implements the storage.UnitStateReadWriter interface
+// so SetUpTests can call storage.NewAttachments.  It doesn't
+// need to do anything.
+type fakeRW struct {
+}
+
+func (m *fakeRW) State() (params.UnitStateResult, error) {
+	return params.UnitStateResult{}, nil
+}
+
+func (m *fakeRW) SetState(_ params.SetUnitStateArg) error {
+	return nil
 }

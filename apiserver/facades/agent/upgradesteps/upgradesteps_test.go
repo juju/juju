@@ -121,14 +121,14 @@ func (s *unitUpgradeStepsSuite) SetUpTest(c *gc.C) {
 func (s *unitUpgradeStepsSuite) TestWriteUniterState(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.expectUnitState(nil, nil)
+	s.expectSetState(nil, nil)
 	s.setupFacadeAPI(c)
 
 	str1 := "foo"
 	str2 := "bar"
 	args := params.SetUnitStateArgs{
 		Args: []params.SetUnitStateArg{
-			{Tag: s.tag1.String(), UniterState: &str1},
+			{Tag: s.tag1.String(), UniterState: &str1, StorageState: &str2},
 			{Tag: s.tag2.String(), UniterState: &str2},
 		},
 	}
@@ -141,14 +141,14 @@ func (s *unitUpgradeStepsSuite) TestWriteUniterState(c *gc.C) {
 func (s *unitUpgradeStepsSuite) TestWriteUniterStateError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.expectUnitState(nil, errors.NotFoundf("testing"))
+	s.expectSetState(nil, errors.NotFoundf("testing"))
 	s.setupFacadeAPI(c)
 
 	str1 := "foo"
 	str2 := "bar"
 	args := params.SetUnitStateArgs{
 		Args: []params.SetUnitStateArg{
-			{Tag: s.tag1.String(), UniterState: &str1},
+			{Tag: s.tag1.String(), UniterState: &str1, StorageState: &str2},
 			{Tag: s.tag2.String(), UniterState: &str2},
 		},
 	}
@@ -263,9 +263,10 @@ func (s *unitUpgradeStepsSuite) expectFindEntityUnits() {
 	s.state.EXPECT().FindEntity(s.tag2.(names.UnitTag)).Return(u2Entity, nil)
 }
 
-func (s *unitUpgradeStepsSuite) expectUnitState(err1, err2 error) {
+func (s *unitUpgradeStepsSuite) expectSetState(err1, err2 error) {
 	us := state.NewUnitState()
 	us.SetUniterState("foo")
+	us.SetStorageState("bar")
 	s.unit1.EXPECT().SetState(us).Return(err1)
 
 	us = state.NewUnitState()

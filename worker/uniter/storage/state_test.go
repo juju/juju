@@ -4,197 +4,161 @@
 package storage_test
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v3"
 
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/storage"
 )
 
 type stateSuite struct {
-	testing.BaseSuite
+	tag1 names.StorageTag
+	st   *storage.State
 }
 
 var _ = gc.Suite(&stateSuite{})
 
-func writeFile(c *gc.C, path string, content string) {
-	err := ioutil.WriteFile(path, []byte(content), 0644)
+func (s *stateSuite) SetUpTest(c *gc.C) {
+	s.tag1 = names.NewStorageTag("test/1")
+	s.st = storage.NewState()
+}
+
+func (s *stateSuite) TestAttached(c *gc.C) {
+	_, found := s.st.Attached(s.tag1.Id())
+	c.Assert(found, jc.IsFalse)
+	s.st.Attach(s.tag1.Id())
+	attached, found := s.st.Attached(s.tag1.Id())
+	c.Assert(found, jc.IsTrue)
+	c.Assert(attached, jc.IsTrue)
+}
+
+func (s *stateSuite) TestAttachedDetached(c *gc.C) {
+	s.st.Attach(s.tag1.Id())
+	err := s.st.Detach(s.tag1.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	attached, found := s.st.Attached(s.tag1.Id())
+	c.Assert(found, jc.IsTrue)
+	c.Assert(attached, jc.IsFalse)
+}
+
+func (s *stateSuite) TestDetach(c *gc.C) {
+	s.st.Attach(s.tag1.Id())
+	attached, found := s.st.Attached(s.tag1.Id())
+	c.Assert(found, jc.IsTrue)
+	c.Assert(attached, jc.IsTrue)
+	err := s.st.Detach(s.tag1.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestReadAllStateFiles(c *gc.C) {
-	dir := c.MkDir()
-	writeFile(c, filepath.Join(dir, "data-0"), "attached: true")
-	// We don't currently ever write a file with attached=false,
-	// but test it for coverage in case of required changes.
-	writeFile(c, filepath.Join(dir, "data-1"), "attached: false")
-
-	states, err := storage.ReadAllStateFiles(dir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(states, gc.HasLen, 2)
-
-	state, ok := states[names.NewStorageTag("data/0")]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(storage.StateAttached(state), jc.IsTrue)
-
-	state, ok = states[names.NewStorageTag("data/1")]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(storage.StateAttached(state), jc.IsFalse)
+func (s *stateSuite) TestDetachErr(c *gc.C) {
+	err := s.st.Detach(s.tag1.Id())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *stateSuite) TestReadAllStateFilesJunk(c *gc.C) {
-	dir := c.MkDir()
-	writeFile(c, filepath.Join(dir, "data-0"), "attached: true")
-	writeFile(c, filepath.Join(dir, "data-hyphen-1"), "attached: true")
-	// data_underscore-2 is not a valid storage ID, so it will
-	// be ignored by ReadAllStateFiles.
-	writeFile(c, filepath.Join(dir, "data_underscore-2"), "attached: false")
-	// subdirs are ignored.
-	err := os.Mkdir(filepath.Join(dir, "data-1"), 0755)
-	c.Assert(err, jc.ErrorIsNil)
-
-	states, err := storage.ReadAllStateFiles(dir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(states, gc.HasLen, 2)
-	_, ok := states[names.NewStorageTag("data/0")]
-	c.Assert(ok, jc.IsTrue)
-	_, ok = states[names.NewStorageTag("data-hyphen/1")]
-	c.Assert(ok, jc.IsTrue)
+func (s *stateSuite) TestEmpty(c *gc.C) {
+	c.Assert(s.st.Empty(), jc.IsTrue)
 }
 
-func (s *stateSuite) TestReadAllStateFilesOneBadApple(c *gc.C) {
-	dir := c.MkDir()
-	writeFile(c, filepath.Join(dir, "data-0"), "rubbish")
-	_, err := storage.ReadAllStateFiles(dir)
-	c.Assert(err, gc.ErrorMatches, `cannot load storage state from ".*": cannot load storage "data/0" state from ".*": invalid storage state file ".*": yaml: unmarshal errors:
-`+"  line 1: cannot unmarshal !!str `rubbish` into storage.diskInfo")
+func (s *stateSuite) TestNotEmpty(c *gc.C) {
+	s.st.Attach(s.tag1.Id())
+	c.Assert(s.st.Empty(), jc.IsFalse)
 }
 
-func (s *stateSuite) TestReadAllStateFilesDirNotExist(c *gc.C) {
-	dir := filepath.Join(c.MkDir(), "doesnotexist")
-	states, err := storage.ReadAllStateFiles(dir)
+func (s *stateSuite) TestValidateHookStorageDetaching(c *gc.C) {
+	s.st.Attach(s.tag1.Id())
+	hi := hook.Info{Kind: hooks.StorageDetaching, StorageId: s.tag1.Id()}
+	err := s.st.ValidateHook(hi)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(states, gc.HasLen, 0)
+
 }
 
-func (s *stateSuite) TestReadAllStateFilesDirEmpty(c *gc.C) {
-	dir := c.MkDir()
-	states, err := storage.ReadAllStateFiles(dir)
+func (s *stateSuite) TestValidateHookStorageDetachingError(c *gc.C) {
+	s.st.Attach(s.tag1.Id())
+	err := s.st.Detach(s.tag1.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(states, gc.HasLen, 0)
+	hi := hook.Info{Kind: hooks.StorageDetaching, StorageId: s.tag1.Id()}
+	err = s.st.ValidateHook(hi)
+	c.Assert(err, gc.NotNil)
+
 }
 
-func (s *stateSuite) TestReadStateFileFileNotExist(c *gc.C) {
-	dir := c.MkDir()
-	state, err := storage.ReadStateFile(dir, names.NewStorageTag("data/0"))
+func (s *stateSuite) TestValidateHookStorageAttached(c *gc.C) {
+	hi := hook.Info{Kind: hooks.StorageAttached, StorageId: s.tag1.Id()}
+	err := s.st.ValidateHook(hi)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(state, gc.NotNil)
-
-	_, err = ioutil.ReadFile(filepath.Join(dir, "data-0"))
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-
-	err = state.CommitHook(hook.Info{
-		Kind:      hooks.StorageAttached,
-		StorageId: "data-0",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	data, err := ioutil.ReadFile(filepath.Join(dir, "data-0"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, "attached: true\n")
 }
 
-func (s *stateSuite) TestReadStateFileDirNotExist(c *gc.C) {
-	dir := filepath.Join(c.MkDir(), "doesnotexist")
-	state, err := storage.ReadStateFile(dir, names.NewStorageTag("data/0"))
+func (s *stateSuite) TestValidateHookStorageAttachedError(c *gc.C) {
+	s.st.Attach(s.tag1.Id())
+	hi := hook.Info{Kind: hooks.StorageAttached, StorageId: s.tag1.Id()}
+	err := s.st.ValidateHook(hi)
+	c.Assert(err, gc.NotNil)
+}
+
+type stateOpsSuite struct {
+	mockStateOpsSuite
+
+	tag1 names.StorageTag
+	tag2 names.StorageTag
+	tag3 names.StorageTag
+}
+
+var _ = gc.Suite(&stateOpsSuite{})
+
+func (s *stateOpsSuite) SetUpSuite(c *gc.C) {
+	s.tag1 = names.NewStorageTag("test/1")
+	s.tag2 = names.NewStorageTag("test/2")
+	s.tag3 = names.NewStorageTag("test/3")
+}
+
+func (s *stateOpsSuite) SetUpTest(c *gc.C) {
+	s.storSt = storage.NewState()
+	s.storSt.Attach(s.tag1.Id())
+	s.storSt.Attach(s.tag2.Id())
+	c.Assert(s.storSt.Detach(s.tag2.Id()), jc.ErrorIsNil)
+	s.storSt.Attach(s.tag3.Id())
+}
+
+func (s *stateOpsSuite) TestRead(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectState(c)
+	ops := storage.NewStateOps(s.mockStateOps)
+	obtainedSt, err := ops.Read()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(state, gc.NotNil)
-
-	// CommitHook will fail if the directory does not exist. The uniter
-	// must ensure the directory is created before committing any hooks
-	// to the storage state.
-	err = state.CommitHook(hook.Info{
-		Kind:      hooks.StorageAttached,
-		StorageId: "data-0",
-	})
-	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
+	c.Assert(storage.Storage(obtainedSt), gc.DeepEquals, storage.Storage(s.storSt))
 }
 
-func (s *stateSuite) TestReadStateFileBadFormat(c *gc.C) {
-	dir := c.MkDir()
-	writeFile(c, filepath.Join(dir, "data-0"), "!@#")
-	_, err := storage.ReadStateFile(dir, names.NewStorageTag("data/0"))
-	c.Assert(err, gc.ErrorMatches, `cannot load storage "data/0" state from ".*": invalid storage state file ".*": yaml: did not find expected whitespace or line break`)
-
-	writeFile(c, filepath.Join(dir, "data-0"), "icantbelieveitsnotattached: true\n")
-	_, err = storage.ReadStateFile(dir, names.NewStorageTag("data/0"))
-	c.Assert(err, gc.ErrorMatches, `cannot load storage "data/0" state from ".*": invalid storage state file ".*": missing 'attached'`)
+func (s *stateOpsSuite) TestReadNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectStateNotFound()
+	ops := storage.NewStateOps(s.mockStateOps)
+	obtainedSt, err := ops.Read()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(obtainedSt, gc.NotNil)
 }
 
-func (s *stateSuite) TestCommitHook(c *gc.C) {
-	dir := c.MkDir()
-	state, err := storage.ReadStateFile(dir, names.NewStorageTag("data/0"))
+func (s *stateOpsSuite) TestWrite(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectSetState(c, "")
+	ops := storage.NewStateOps(s.mockStateOps)
+	err := ops.Write(s.storSt)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(state, gc.NotNil)
-	stateFile := filepath.Join(dir, "data-0")
-
-	// CommitHook must be idempotent, so test each operation
-	// twice in a row.
-
-	for i := 0; i < 2; i++ {
-		err := state.CommitHook(hook.Info{
-			Kind:      hooks.StorageAttached,
-			StorageId: "data-0",
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(stateFile, jc.IsNonEmptyFile)
-	}
-
-	for i := 0; i < 2; i++ {
-		err := state.CommitHook(hook.Info{
-			Kind:      hooks.StorageDetaching,
-			StorageId: "data-0",
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(stateFile, jc.DoesNotExist)
-	}
 }
 
-func (s *stateSuite) TestValidateHook(c *gc.C) {
-	const unattached = false
-	const attached = true
+func (s *stateOpsSuite) TestWriteEmpty(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectSetStateEmpty(c)
+	ops := storage.NewStateOps(s.mockStateOps)
+	err := ops.Write(storage.NewState())
+	c.Assert(err, jc.ErrorIsNil)
+}
 
-	err := storage.ValidateHook(
-		names.NewStorageTag("data/0"), unattached,
-		hook.Info{Kind: hooks.StorageAttached, StorageId: "data/1"},
-	)
-	c.Assert(err, gc.ErrorMatches, `inappropriate "storage-attached" hook for storage "data/0": expected storage "data/0", got storage "data/1"`)
-
-	validate := func(attached bool, kind hooks.Kind) error {
-		return storage.ValidateHook(
-			names.NewStorageTag("data/0"), attached,
-			hook.Info{Kind: kind, StorageId: "data/0"},
-		)
-	}
-	assertValidates := func(attached bool, kind hooks.Kind) {
-		err := validate(attached, kind)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	assertValidateFails := func(attached bool, kind hooks.Kind, expect string) {
-		err := validate(attached, kind)
-		c.Assert(err, gc.ErrorMatches, expect)
-	}
-
-	assertValidates(false, hooks.StorageAttached)
-	assertValidates(true, hooks.StorageDetaching)
-	assertValidateFails(false, hooks.StorageDetaching, `inappropriate "storage-detaching" hook for storage "data/0": storage not attached`)
-	assertValidateFails(true, hooks.StorageAttached, `inappropriate "storage-attached" hook for storage "data/0": storage already attached`)
+func (s *stateOpsSuite) TestWriteNilState(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	ops := storage.NewStateOps(s.mockStateOps)
+	err := ops.Write(nil)
+	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }

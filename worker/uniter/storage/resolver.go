@@ -94,7 +94,7 @@ func (s *storageResolver) NextOp(
 			// install->leader-elected->config-changed->started
 			// This chain is activated by each preceding hook queuing the next.
 			// If we allow a storage-attached hook to run before the start hook, we
-			// will potentially overwrite the state to initiate the next hook.
+			// will potentially overwrite the State to initiate the next hook.
 			// So we need to get to at least started. This means that any charm logic
 			// that needs storage cannot be in install or start and if in config-changed,
 			// needs to be deferred until storage is available.
@@ -139,8 +139,8 @@ func (s *storageResolver) NextOp(
 // and has not had a storage-attached hook committed.
 func (s *storageResolver) maybeShortCircuitRemoval(remote map[names.StorageTag]remotestate.StorageSnapshot) error {
 	for tag, snap := range remote {
-		local, ok := s.storage.storageAttachments[tag]
-		if (ok && local.attached) || snap.Life == life.Alive {
+		attached, ok := s.storage.storageState.Attached(tag.Id())
+		if (ok && attached) || snap.Life == life.Alive {
 			continue
 		}
 		if err := s.storage.removeStorageAttachment(tag); err != nil {
@@ -168,10 +168,10 @@ func (s *storageResolver) nextHookOp(
 	hookInfo := hook.Info{StorageId: tag.Id()}
 	switch snap.Life {
 	case life.Alive:
-		storageAttachment, ok := s.storage.storageAttachments[tag]
-		if ok && storageAttachment.attached {
+		attached, ok := s.storage.storageState.Attached(tag.Id())
+		if ok && attached {
 			// Once the storage is attached, we only care about
-			// lifecycle state changes.
+			// lifecycle State changes.
 			return nil, resolver.ErrNoOperation
 		}
 		// The storage-attached hook has not been committed, so add the
@@ -187,8 +187,8 @@ func (s *storageResolver) nextHookOp(
 		// "storage-attached" hook. Do so now.
 		hookInfo.Kind = hooks.StorageAttached
 	case life.Dying:
-		storageAttachment, ok := s.storage.storageAttachments[tag]
-		if !ok || !storageAttachment.attached {
+		attached, ok := s.storage.storageState.Attached(tag.Id())
+		if !ok || !attached {
 			// Nothing to do: attachment is dying, but
 			// the storage-attached hook has not been
 			// issued.
@@ -199,18 +199,12 @@ func (s *storageResolver) nextHookOp(
 		hookInfo.Kind = hooks.StorageDetaching
 	}
 
-	// Update the local state to reflect what we're about to report
+	// Update the local State to reflect what we're about to report
 	// to a hook.
-	stateFile, err := readStateFile(s.storage.storageStateDir, tag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	s.storage.storageAttachments[tag] = storageAttachment{
-		stateFile, &contextStorage{
-			tag:      tag,
-			kind:     storage.StorageKind(snap.Kind),
-			location: snap.Location,
-		},
+	s.storage.storageAttachments[tag] = &contextStorage{
+		tag:      tag,
+		kind:     storage.StorageKind(snap.Kind),
+		location: snap.Location,
 	}
 
 	return opFactory.NewRunHook(hookInfo)

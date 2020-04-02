@@ -4,158 +4,115 @@
 package storage
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
-
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v3"
+	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
-// state describes the state of a storage attachment.
-type state struct {
-	// storage is the tag of the storage attachment.
-	storage names.StorageTag
+// State describes the State of storage attachments.
+type State struct {
+	// storage is map of storage attachments.  The
+	// key is the storage tag id, the value is attached
+	// or not.
+	storage map[string]bool
+}
 
-	// attached records the uniter's knowledge of the
-	// storage attachment state.
-	attached bool
+func (s *State) Detach(storageID string) error {
+	if _, ok := s.storage[storageID]; !ok {
+		return errors.NotFoundf("storage %q", storageID)
+	}
+	s.storage[storageID] = false
+	return nil
+}
+
+func (s *State) Attach(storageID string) {
+	s.storage[storageID] = true
+}
+
+func (s *State) Attached(storageID string) (bool, bool) {
+	attached, ok := s.storage[storageID]
+	return attached, ok
+}
+
+func (s *State) Empty() bool {
+	return len(s.storage) == 0
+}
+
+func NewState() *State {
+	return &State{storage: make(map[string]bool)}
 }
 
 // ValidateHook returns an error if the supplied hook.Info does not represent
-// a valid change to the storage state. Hooks must always be validated
-// against the current state before they are run, to ensure that the system
+// a valid change to the storage State. Hooks must always be validated
+// against the current State before they are run, to ensure that the system
 // meets its guarantees about hook execution order.
-func (s *state) ValidateHook(hi hook.Info) (err error) {
-	defer errors.DeferredAnnotatef(&err, "inappropriate %q hook for storage %q", hi.Kind, s.storage.Id())
-	if hi.StorageId != s.storage.Id() {
-		return errors.Errorf("expected storage %q, got storage %q", s.storage.Id(), hi.StorageId)
-	}
+func (s *State) ValidateHook(hi hook.Info) (err error) {
+	defer errors.DeferredAnnotatef(&err, "inappropriate %q hook for storage %q", hi.Kind, hi.StorageId)
+
+	attached, _ := s.Attached(hi.StorageId)
 	switch hi.Kind {
 	case hooks.StorageAttached:
-		if s.attached {
+		if attached {
 			return errors.New("storage already attached")
 		}
 	case hooks.StorageDetaching:
-		if !s.attached {
+		if !attached {
 			return errors.New("storage not attached")
 		}
 	}
 	return nil
 }
 
-// stateFile is a filesystem-backed representation of the state of a
-// storage attachment. Concurrent modifications to the underlying state
-// file will have undefined consequences.
-type stateFile struct {
-	// path identifies the directory holding persistent state.
-	path string
-
-	// state is the cached state of the directory, which is guaranteed
-	// to be synchronized with the true state so long as no concurrent
-	// changes are made to the directory.
-	state
+// stateOps reads and writes storage state from/to the controller.
+type stateOps struct {
+	unitStateRW UnitStateReadWriter
 }
 
-// readStateFile loads a stateFile from the subdirectory of dirPath named
-// for the supplied storage tag. If the directory does not exist, no error
-// is returned.
-func readStateFile(dirPath string, tag names.StorageTag) (d *stateFile, err error) {
-	filename := strings.Replace(tag.Id(), "/", "-", -1)
-	d = &stateFile{
-		filepath.Join(dirPath, filename),
-		state{storage: tag},
-	}
-	defer errors.DeferredAnnotatef(&err, "cannot load storage %q state from %q", tag.Id(), d.path)
-	if _, err := os.Stat(d.path); os.IsNotExist(err) {
-		return d, nil
-	} else if err != nil {
-		return nil, err
-	}
-	var info diskInfo
-	if err := utils.ReadYaml(d.path, &info); err != nil {
-		return nil, errors.Errorf("invalid storage state file %q: %v", d.path, err)
-	}
-	if info.Attached == nil {
-		return nil, errors.Errorf("invalid storage state file %q: missing 'attached'", d.path)
-	}
-	d.state.attached = *info.Attached
-	return d, nil
+// UnitStateReadWriter encapsulates the methods from a state.Unit
+// required to set and get unit state.
+type UnitStateReadWriter interface {
+	State() (params.UnitStateResult, error)
+	SetState(unitState params.SetUnitStateArg) error
 }
 
-// readAllStateFiles loads and returns every stateFile persisted inside
-// the supplied dirPath. If dirPath does not exist, no error is returned.
-func readAllStateFiles(dirPath string) (files map[names.StorageTag]*stateFile, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot load storage state from %q", dirPath)
-	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
-	}
-	fis, err := ioutil.ReadDir(dirPath)
+// NewStateOps returns a new StateOps.
+func NewStateOps(rw UnitStateReadWriter) *stateOps {
+	return &stateOps{unitStateRW: rw}
+}
+
+// Read reads a storage State from the controller. If the saved State
+// does not exist it returns NotFound and a new state.
+func (f *stateOps) Read() (*State, error) {
+	var stor map[string]bool
+	unitState, err := f.unitStateRW.State()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	files = make(map[names.StorageTag]*stateFile)
-	for _, fi := range fis {
-		if fi.IsDir() {
-			continue
-		}
-		storageId := fi.Name()
-		if i := strings.LastIndex(storageId, "-"); i > 0 {
-			storageId = storageId[:i] + "/" + storageId[i+1:]
-			if !names.IsValidStorage(storageId) {
-				continue
-			}
-		} else {
-			// Lack of "-" means it's not a valid storage ID.
-			continue
-		}
-		tag := names.NewStorageTag(storageId)
-		f, err := readStateFile(dirPath, tag)
+	if unitState.StorageState == "" {
+		return NewState(), errors.NotFoundf("storage State")
+	}
+	if err = yaml.Unmarshal([]byte(unitState.StorageState), &stor); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &State{storage: stor}, nil
+}
+
+// Write stores the supplied State storage map on the controller.  If
+// the storage map is empty, all data will be removed.
+func (f *stateOps) Write(st *State) error {
+	if st == nil {
+		return errors.Trace(errors.BadRequestf("arg is nil"))
+	}
+	var str string
+	if len(st.storage) > 0 {
+		data, err := yaml.Marshal(st.storage)
 		if err != nil {
-			return nil, err
+			return errors.Trace(err)
 		}
-		files[tag] = f
+		str = string(data)
 	}
-	return files, nil
-}
-
-// CommitHook atomically writes to disk the storage state change in hi.
-// It must be called after the respective hook was executed successfully.
-// CommitHook doesn't validate hi but guarantees that successive writes
-// of the same hi are idempotent.
-func (d *stateFile) CommitHook(hi hook.Info) (err error) {
-	defer errors.DeferredAnnotatef(&err, "failed to write %q hook info for %q on state directory", hi.Kind, hi.StorageId)
-	if hi.Kind == hooks.StorageDetaching {
-		return d.Remove()
-	}
-	attached := true
-	di := diskInfo{&attached}
-	if err := utils.WriteYaml(d.path, &di); err != nil {
-		return err
-	}
-	// If write was successful, update own state.
-	d.state.attached = true
-	return nil
-}
-
-// Remove removes the directory if it exists and is empty.
-func (d *stateFile) Remove() error {
-	if err := os.Remove(d.path); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	// If atomic delete succeeded, update own state.
-	d.state.attached = false
-	return nil
-}
-
-// diskInfo defines the storage attachment data serialization.
-type diskInfo struct {
-	Attached *bool `yaml:"attached,omitempty"`
+	return f.unitStateRW.SetState(params.SetUnitStateArg{StorageState: &str})
 }

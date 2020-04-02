@@ -200,7 +200,7 @@ func (change stateChange) apply(state State) *State {
 	return &state
 }
 
-// StateReadWriter reads and writes uniter state from/to the controller.
+// StateOps reads and writes uniter state from/to the controller.
 type StateOps struct {
 	unitStateRW UnitStateReadWriter
 }

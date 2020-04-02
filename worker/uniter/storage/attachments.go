@@ -7,8 +7,6 @@
 package storage
 
 import (
-	"os"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6/hooks"
@@ -44,41 +42,41 @@ type StorageAccessor interface {
 	RemoveStorageAttachment(names.StorageTag, names.UnitTag) error
 }
 
-type storageAttachment struct {
-	*stateFile
-	jujuc.ContextStorageAttachment
-}
-
 // Attachments generates storage hooks in response to changes to
 // storage attachments, and provides access to information about
 // storage attachments to hooks.
 type Attachments struct {
-	st              StorageAccessor
-	unitTag         names.UnitTag
-	abort           <-chan struct{}
-	storageStateDir string
+	st      StorageAccessor
+	unitTag names.UnitTag
+	abort   <-chan struct{}
+	stateRW UnitStateReadWriter
 
 	// pending is the set of tags for storage attachments
 	// for which no hooks have been run.
 	pending names.Set
 
+	stateOps *stateOps
+
+	// TODO: hml
+	// Can this be a names.Set?
+	storageState *State
 	// current storage attachments
-	storageAttachments map[names.StorageTag]storageAttachment
+	storageAttachments map[names.StorageTag]*contextStorage
 }
 
 // NewAttachments returns a new Attachments.
 func NewAttachments(
 	st StorageAccessor,
 	tag names.UnitTag,
-	storageStateDir string,
+	rw UnitStateReadWriter,
 	abort <-chan struct{},
 ) (*Attachments, error) {
 	a := &Attachments{
 		st:                 st,
 		unitTag:            tag,
 		abort:              abort,
-		storageAttachments: make(map[names.StorageTag]storageAttachment),
-		storageStateDir:    storageStateDir,
+		stateOps:           NewStateOps(rw),
+		storageAttachments: make(map[names.StorageTag]*contextStorage),
 		pending:            names.NewSet(),
 	}
 	if err := a.init(); err != nil {
@@ -87,40 +85,40 @@ func NewAttachments(
 	return a, nil
 }
 
-// init processes the storage state directory and creates storagers
-// for the state files found.
+// init processes the storage State directory and creates storagers
+// for the State files found.
 func (a *Attachments) init() error {
-	if err := os.MkdirAll(a.storageStateDir, 0755); err != nil {
-		return errors.Annotate(err, "creating storage state dir")
-	}
 	// Query all remote, known storage attachments for the unit,
-	// so we can cull state files, and store current context.
+	// so we can store current context, and find pending storage.
 	attachmentIds, err := a.st.UnitStorageAttachments(a.unitTag)
 	if err != nil {
 		return errors.Annotate(err, "getting unit attachments")
 	}
-	attachmentsByTag := make(map[names.StorageTag]struct{})
+	attachmentsByTag := names.NewSet()
 	for _, attachmentId := range attachmentIds {
 		storageTag, err := names.ParseStorageTag(attachmentId.StorageTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		attachmentsByTag[storageTag] = struct{}{}
+		attachmentsByTag.Add(storageTag)
 	}
-	stateFiles, err := readAllStateFiles(a.storageStateDir)
-	if err != nil {
-		return errors.Annotate(err, "reading storage state dirs")
+	existingStorageState, err := a.stateOps.Read()
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Annotate(err, "reading storage State")
 	}
-	for storageTag, stateFile := range stateFiles {
-		if _, ok := attachmentsByTag[storageTag]; !ok {
-			// We have previously removed the storage from state,
-			// but did not remove the state file. Remove the file.
-			if err := stateFile.Remove(); err != nil {
-				return errors.Trace(err)
-			}
+	newStateStorage := NewState()
+	for _, tag := range attachmentsByTag.Values() {
+		storageTag := tag.(names.StorageTag)
+		attached, ok := existingStorageState.Attached(storageTag.Id())
+		if !ok {
+			// There is no State for the attachment, so no
+			// hooks have been committed for it.
+			a.pending.Add(storageTag)
+		}
+		if !attached {
 			continue
 		}
-		// Since there's a state file, we must previously have handled
+		// Since there's a saved record, we must previously have handled
 		// at least "storage-attached", so there is no possibility of
 		// short-circuiting the storage's removal.
 		attachment, err := a.st.StorageAttachment(storageTag, a.unitTag)
@@ -130,29 +128,27 @@ func (a *Attachments) init() error {
 				storageTag.Id(),
 			)
 		}
-		a.storageAttachments[storageTag] = storageAttachment{
-			stateFile,
+		a.storageAttachments[storageTag] =
 			&contextStorage{
 				tag:      storageTag,
 				kind:     storage.StorageKind(attachment.Kind),
 				location: attachment.Location,
-			},
-		}
+			}
+		newStateStorage.Attach(storageTag.Id())
 	}
-	for storageTag := range attachmentsByTag {
-		if _, ok := stateFiles[storageTag]; !ok {
-			// There is no state file for the attachment, so no
-			// hooks have been committed for it.
-			a.pending.Add(storageTag)
-		}
-		// Non-locally recorded attachments will be further handled
-		// by the resolver.
+	a.storageState = newStateStorage
+	if a.storageState.Empty() {
+		return nil
 	}
+	if err := a.stateOps.Write(newStateStorage); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 // SetDying ensures that any unprovisioned storage attachments are removed
-// from state.
+// from State.
 func (a *Attachments) SetDying() error {
 	if err := a.st.DestroyUnitStorageAttachments(a.unitTag); err != nil {
 		return errors.Trace(err)
@@ -193,25 +189,29 @@ func (a *Attachments) StorageTags() ([]names.StorageTag, error) {
 	return storageTags, nil
 }
 
-// ValidateHook validates the hook against the current state.
+// ValidateHook validates the hook against the current State.
 func (a *Attachments) ValidateHook(hi hook.Info) error {
-	storageState, err := a.storageStateForHook(hi)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return storageState.ValidateHook(hi)
+	return a.storageState.ValidateHook(hi)
 }
 
-// CommitHook persists the state change encoded in the supplied storage
-// hook, or returns an error if the hook is invalid given current state.
+// CommitHook persists the State change encoded in the supplied storage
+// hook, or returns an error if the hook is invalid given current State.
 func (a *Attachments) CommitHook(hi hook.Info) error {
-	storageState, err := a.storageStateForHook(hi)
-	if err != nil {
-		return errors.Trace(err)
+	if !hi.Kind.IsStorage() {
+		return errors.Errorf("not a storage hook: %#v", hi)
 	}
-	if err := storageState.CommitHook(hi); err != nil {
+	if hi.Kind == hooks.StorageDetaching {
+		err := a.storageState.Detach(hi.StorageId)
+		if err != nil {
+			return errors.Errorf("unknown storage %q", hi.StorageId)
+		}
+	} else {
+		a.storageState.Attach(hi.StorageId)
+	}
+	if err := a.stateOps.Write(a.storageState); err != nil {
 		return err
 	}
+
 	storageTag := names.NewStorageTag(hi.StorageId)
 	switch hi.Kind {
 	case hooks.StorageAttached:
@@ -231,15 +231,4 @@ func (a *Attachments) removeStorageAttachment(tag names.StorageTag) error {
 	a.pending.Remove(tag)
 	delete(a.storageAttachments, tag)
 	return nil
-}
-
-func (a *Attachments) storageStateForHook(hi hook.Info) (*stateFile, error) {
-	if !hi.Kind.IsStorage() {
-		return nil, errors.Errorf("not a storage hook: %#v", hi)
-	}
-	storageAttachment, ok := a.storageAttachments[names.NewStorageTag(hi.StorageId)]
-	if !ok {
-		return nil, errors.Errorf("unknown storage %q", hi.StorageId)
-	}
-	return storageAttachment.stateFile, nil
 }
