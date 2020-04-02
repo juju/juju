@@ -164,7 +164,7 @@ func (s *DebugHooksSuite) TestDebugHooksArgFormatting(c *gc.C) {
 	s.setupModel(c)
 	s.setHostChecker(validAddresses("0.public"))
 	ctx, err := cmdtesting.RunCommand(c, newDebugHooksCommand(s.hostChecker),
-		"--breakpoint=foo,bar", "mysql/0", "install", "start")
+		"mysql/0", "install", "start")
 	c.Check(err, jc.ErrorIsNil)
 	base64Regex := regexp.MustCompile("echo ([A-Za-z0-9+/]+=*) \\| base64")
 	c.Check(err, jc.ErrorIsNil)
@@ -187,7 +187,6 @@ func (s *DebugHooksSuite) TestDebugHooksArgFormatting(c *gc.C) {
 	err = goyaml.Unmarshal(yamlContent, &args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(args, gc.DeepEquals, map[string]interface{}{
-		"hooks":      []interface{}{"install", "start"},
-		"breakpoint": "foo,bar",
+		"hooks": []interface{}{"install", "start"},
 	})
 }

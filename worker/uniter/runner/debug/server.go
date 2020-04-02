@@ -22,8 +22,8 @@ import (
 // ServerSession represents a "juju debug-hooks" session.
 type ServerSession struct {
 	*HooksContext
-	hooks      set.Strings
-	breakpoint string
+	hooks   set.Strings
+	debugAt string
 
 	output io.Writer
 }
@@ -58,8 +58,8 @@ func (s *ServerSession) RunHook(hookName, charmDir string, env []string, hookRun
 	}
 
 	env = utils.Setenv(env, "JUJU_DEBUG="+debugDir)
-	if s.breakpoint != "" {
-		env = utils.Setenv(env, "JUJU_BREAKPOINT="+s.breakpoint)
+	if s.debugAt != "" {
+		env = utils.Setenv(env, "JUJU_DEBUG_AT="+s.debugAt)
 	}
 
 	cmd := exec.Command("/bin/bash", "-s")
@@ -144,7 +144,7 @@ func (c *HooksContext) FindSession() (*ServerSession, error) {
 		return nil, err
 	}
 	hooks := set.NewStrings(args.Hooks...)
-	session := &ServerSession{HooksContext: c, hooks: hooks, breakpoint: args.Breakpoint}
+	session := &ServerSession{HooksContext: c, hooks: hooks, debugAt: args.DebugAt}
 	return session, nil
 }
 

@@ -79,10 +79,10 @@ func (*DebugHooksClientSuite) TestBase64HookArgsHookList(c *gc.C) {
 	})
 }
 
-func (*DebugHooksClientSuite) TestBase64HookArgsBreakpoint(c *gc.C) {
+func (*DebugHooksClientSuite) TestBase64HookArgsDebugAt(c *gc.C) {
 	// Tests of how we encode parameters for how debug-hooks will operate
 	testEncodeRoundTrips(c, nil, "all,broken", map[string]interface{}{
-		"breakpoint": "all,broken",
+		"debug-at": "all,broken",
 	})
 }
 
@@ -90,13 +90,13 @@ func (*DebugHooksClientSuite) TestBase64HookArgsBoth(c *gc.C) {
 	// Tests of how we encode parameters for how debug-hooks will operate
 	testEncodeRoundTrips(c, []string{"db-relation-changed", "stop"}, "brokepoint",
 		map[string]interface{}{
-			"hooks":      []interface{}{"db-relation-changed", "stop"},
-			"breakpoint": "brokepoint",
+			"hooks":    []interface{}{"db-relation-changed", "stop"},
+			"debug-at": "brokepoint",
 		})
 }
 
-func testEncodeRoundTrips(c *gc.C, match []string, breakpoint string, decoded map[string]interface{}) {
-	base64Args := debug.Base64HookArgs(match, breakpoint)
+func testEncodeRoundTrips(c *gc.C, match []string, debugAt string, decoded map[string]interface{}) {
+	base64Args := debug.Base64HookArgs(match, debugAt)
 	args := decodeArgs(c, base64Args)
 	c.Check(args, gc.DeepEquals, decoded)
 }
