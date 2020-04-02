@@ -70,6 +70,23 @@ func (c *ContextUnit) GetPodSpec() (string, error) {
 	return c.info.K8sSpec, nil
 }
 
+func (c *ContextUnit) SetRawK8sSpec(specYaml string) error {
+	c.stub.AddCall("SetRawK8sSpec", specYaml)
+	if err := c.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+	c.info.K8sSpec = specYaml
+	return nil
+}
+
+func (c *ContextUnit) GetRawK8sSpec() (string, error) {
+	c.stub.AddCall("GetRawK8sSpec")
+	if err := c.stub.NextErr(); err != nil {
+		return c.info.K8sSpec, errors.Trace(err)
+	}
+	return c.info.K8sSpec, nil
+}
+
 func (c *ContextUnit) CloudSpec() (*params.CloudSpec, error) {
 	c.stub.AddCall("CloudSpec")
 	if err := c.stub.NextErr(); err != nil {

@@ -66,6 +66,17 @@ func (c *RestrictedContext) GetPodSpec() (string, error) {
 	return "", ErrRestrictedContext
 }
 
+// SetRawK8sSpec implements hooks.Context.
+func (c *RestrictedContext) SetRawK8sSpec(specYaml string) error {
+	return ErrRestrictedContext
+}
+
+// GetRawK8sSpec implements hooks.Context.
+func (c *RestrictedContext) GetRawK8sSpec() (string, error) {
+	return "", ErrRestrictedContext
+}
+
+// CloudSpec implements hooks.Context.
 func (c *RestrictedContext) CloudSpec() (*params.CloudSpec, error) {
 	return nil, ErrRestrictedContext
 }
