@@ -63,6 +63,8 @@ var baseCommands = map[string]creator{
 	"application-version-set" + cmdSuffix: NewApplicationVersionSetCommand,
 	"k8s-spec-set" + cmdSuffix:            constructCommandCreator("k8s-spec-set", NewK8sSpecSetCommand),
 	"k8s-spec-get" + cmdSuffix:            constructCommandCreator("k8s-spec-get", NewK8sSpecGetCommand),
+	"k8s-raw-set" + cmdSuffix:             NewK8sRawSetCommand,
+	"k8s-raw-get" + cmdSuffix:             NewK8sRawGetCommand,
 	// "pod" variants are deprecated.
 	"pod-spec-set" + cmdSuffix: constructCommandCreator("pod-spec-set", NewK8sSpecSetCommand),
 	"pod-spec-get" + cmdSuffix: constructCommandCreator("pod-spec-get", NewK8sSpecGetCommand),
