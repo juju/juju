@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -24,6 +25,7 @@ import (
 	jujuos "github.com/juju/os"
 	"github.com/juju/utils"
 	utilexec "github.com/juju/utils/exec"
+	"github.com/kballard/go-shellquote"
 
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/model"
@@ -95,7 +97,7 @@ type Runner interface {
 type Context interface {
 	jujuc.Context
 	Id() string
-	HookVars(paths context.Paths, remote bool) ([]string, error)
+	HookVars(paths context.Paths, remote bool, getEnvFunc context.GetEnvFunc) ([]string, error)
 	ActionData() (*context.ActionData, error)
 	SetProcess(process context.HookProcess)
 	HasExecutionSetUnitStatus() bool
@@ -199,7 +201,18 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 	}
 	defer srv.Close()
 
-	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote)
+	getEnv := os.Getenv
+	if rMode == runOnRemote {
+		env, err := runner.getRemoteEnviron(abort)
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting remote environ")
+		}
+		getEnv = func(k string) string {
+			v, _ := env[k]
+			return v
+		}
+	}
+	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote, getEnv)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -349,7 +362,24 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 	}
 	defer srv.Close()
 
-	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote)
+	getEnv := os.Getenv
+	if rMode == runOnRemote {
+		var cancel <-chan struct{}
+		actionData, err := runner.context.ActionData()
+		if err == nil && actionData != nil {
+			cancel = actionData.Cancel
+		}
+		env, err := runner.getRemoteEnviron(cancel)
+		if err != nil {
+			return InvalidHookHandler, errors.Annotatef(err, "getting remote environ")
+		}
+		getEnv = func(k string) string {
+			v, _ := env[k]
+			return v
+		}
+	}
+
+	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote, getEnv)
 	if err != nil {
 		return InvalidHookHandler, errors.Trace(err)
 	}
@@ -641,6 +671,46 @@ func (runner *runner) startJujucServer(token string, rMode runMode) (*jujuc.Serv
 
 func (runner *runner) getLogger(hookName string) loggo.Logger {
 	return loggo.GetLogger(fmt.Sprintf("unit.%s.%s", runner.context.UnitName(), hookName))
+}
+
+var exportLineRegexp = regexp.MustCompile("(?m)^export ([^=]+)=(.*)$")
+
+func (runner *runner) getRemoteEnviron(abort <-chan struct{}) (map[string]string, error) {
+	remoteExecutor, err := runner.getRemoteExecutor(runOnRemote)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	res, err := remoteExecutor(ExecParams{
+		Commands: []string{"unset _; export"},
+		Cancel:   abort,
+		Stdout:   &stdout,
+		Stderr:   &stderr,
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "stdout: %q stderr: %q", string(res.Stdout), string(res.Stderr))
+	}
+	matches := exportLineRegexp.FindAllStringSubmatch(string(res.Stdout), -1)
+	env := map[string]string{}
+	for _, values := range matches {
+		if len(values) != 3 {
+			return nil, errors.Errorf("regex returned incorrect submatch count")
+		}
+		key := values[1]
+		value := values[2]
+		unquoted, err := shellquote.Split(value)
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to unquote %s", value)
+		}
+		if len(unquoted) != 1 {
+			return nil, errors.Errorf("shellquote returned too many strings")
+		}
+		unquotedValue := unquoted[0]
+		env[key] = unquotedValue
+	}
+	logger.Debugf("fetched remote env %+q", env)
+	return env, nil
 }
 
 type hookProcess struct {
