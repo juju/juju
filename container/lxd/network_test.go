@@ -136,7 +136,7 @@ func (s *networkSuite) TestVerifyNetworkDevicePresentValid(c *gc.C) {
 	net := &lxdapi.Network{
 		Name:    network.DefaultLXDBridge,
 		Managed: true,
-		Type:    "bridged",
+		Type:    "bridge",
 	}
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(net, "", nil)
 
