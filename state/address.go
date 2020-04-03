@@ -301,12 +301,14 @@ func (st *State) apiHostPortsForCAAS(public bool) (addresses []network.SpaceHost
 	}
 
 	// select public address.
+	publicAddr, _ := addrs.OneMatchingScope(network.ScopeMatchPublic)
 	if public {
-		addr, _ := addrs.OneMatchingScope(network.ScopeMatchPublic)
-		return addrsToHostPorts(addr), nil
+		return addrsToHostPorts(publicAddr), nil
 	}
-	// select internal address.
-	return addrsToHostPorts(addrs.AllMatchingScope(network.ScopeMatchCloudLocal)...), nil
+
+	// TODO(wallyworld) - for now, return all addresses for agents to try, public last
+	result := addrsToHostPorts(addrs.AllMatchingScope(network.ScopeMatchCloudLocal)...)
+	return append(result, addrsToHostPorts(publicAddr)...), nil
 }
 
 // apiHostPortsForKey returns API addresses extracted from the document
