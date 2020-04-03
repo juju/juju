@@ -368,3 +368,139 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
 }
+
+type CAASAddressesSuite struct {
+	statetesting.StateSuite
+}
+
+var _ = gc.Suite(&CAASAddressesSuite{})
+
+func (s *CAASAddressesSuite) SetUpTest(c *gc.C) {
+	s.StateSuite.SetUpTest(c)
+	state.SetModelTypeToCAAS(c, s.State, s.Model)
+}
+
+func (s *CAASAddressesSuite) TestAPIHostPortsCloudLocalOnly(c *gc.C) {
+	machineAddr := network.MachineAddress{
+		Value: "10.10.10.10",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeCloudLocal,
+	}
+
+	_, err := s.State.SaveCloudService(state.SaveCloudServiceArgs{
+		Id:         s.Model.ControllerUUID(),
+		ProviderId: "whatever",
+		Addresses:  network.SpaceAddresses{{MachineAddress: machineAddr}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	exp := []network.SpaceHostPorts{{{
+		SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr},
+		NetPort:      17777,
+	}}}
+
+	addrs, err := s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.DeepEquals, exp)
+
+	addrs, err = s.State.APIHostPortsForClients()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.DeepEquals, exp)
+}
+
+func (s *CAASAddressesSuite) TestAPIHostPortsPublicOnly(c *gc.C) {
+	machineAddr := network.MachineAddress{
+		Value: "10.10.10.10",
+		Type:  network.IPv4Address,
+		Scope: network.ScopePublic,
+	}
+
+	_, err := s.State.SaveCloudService(state.SaveCloudServiceArgs{
+		Id:         s.Model.ControllerUUID(),
+		ProviderId: "whatever",
+		Addresses:  network.SpaceAddresses{{MachineAddress: machineAddr}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	exp := []network.SpaceHostPorts{{{
+		SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr},
+		NetPort:      17777,
+	}}}
+
+	addrs, err := s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.DeepEquals, exp)
+
+	addrs, err = s.State.APIHostPortsForClients()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.DeepEquals, exp)
+}
+
+func (s *CAASAddressesSuite) TestAPIHostPortsMultiple(c *gc.C) {
+	machineAddr1 := network.MachineAddress{
+		Value: "10.10.10.1",
+		Type:  network.IPv4Address,
+		Scope: network.ScopePublic,
+	}
+	machineAddr2 := network.MachineAddress{
+		Value: "10.10.10.2",
+		Type:  network.IPv4Address,
+		Scope: network.ScopePublic,
+	}
+	machineAddr3 := network.MachineAddress{
+		Value: "100.10.10.1",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeCloudLocal,
+	}
+	machineAddr4 := network.MachineAddress{
+		Value: "100.10.10.2",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeCloudLocal,
+	}
+
+	_, err := s.State.SaveCloudService(state.SaveCloudServiceArgs{
+		Id:         s.Model.ControllerUUID(),
+		ProviderId: "whatever",
+		Addresses: network.SpaceAddresses{
+			{MachineAddress: machineAddr1},
+			{MachineAddress: machineAddr2},
+			{MachineAddress: machineAddr3},
+			{MachineAddress: machineAddr4},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrs, err := s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Local-cloud addresses must come first.
+	c.Assert(addrs[0][:2], jc.SameContents, network.SpaceHostPorts{
+		{
+			SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr3},
+			NetPort:      17777,
+		},
+		{
+			SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr4},
+			NetPort:      17777,
+		},
+	})
+
+	exp := network.SpaceHostPorts{
+		{
+			SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr1},
+			NetPort:      17777,
+		},
+		{
+			SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr2},
+			NetPort:      17777,
+		},
+	}
+
+	// Public ones should also follow.
+	c.Assert(addrs[0][2:], jc.SameContents, exp)
+
+	// Only the public ones should be returned.
+	addrs, err = s.State.APIHostPortsForClients()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.DeepEquals, []network.SpaceHostPorts{exp})
+}
