@@ -18,8 +18,8 @@ type UnitStateAPI struct {
 	tag    names.UnitTag
 }
 
-// NewUpgradeSeriesAPI creates a UpgradeSeriesAPI on the specified facade,
-// and uses this name when calling through the caller.
+// NewUniterStateAPI creates a UnitStateAPI that uses the provided FacadeCaller
+// for making calls.
 func NewUniterStateAPI(facade base.FacadeCaller, tag names.UnitTag) *UnitStateAPI {
 	return &UnitStateAPI{facade: facade, tag: tag}
 }
