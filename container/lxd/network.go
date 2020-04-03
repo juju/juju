@@ -22,6 +22,7 @@ const (
 	nic            = "nic"
 	nicTypeBridged = "bridged"
 	nicTypeMACVLAN = "macvlan"
+	netTypeBridge  = "bridge"
 )
 
 // device is a type alias for profile devices.
@@ -88,8 +89,8 @@ func (s *Server) EnsureIPv4(netName string) (bool, error) {
 
 // GetNICsFromProfile returns all NIC devices in the profile with the input
 // name. All returned devices have a MAC address; generated if required.
-func (s *Server) GetNICsFromProfile(profName string) (map[string]device, error) {
-	profile, _, err := s.GetProfile(lxdDefaultProfileName)
+func (s *Server) GetNICsFromProfile(profileName string) (map[string]device, error) {
+	profile, _, err := s.GetProfile(profileName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -138,7 +139,7 @@ func (s *Server) ensureDefaultNetworking(profile *api.Profile, eTag string) erro
 		}
 		req := api.NetworksPost{
 			Name:    network.DefaultLXDBridge,
-			Type:    "bridge",
+			Type:    netTypeBridge,
 			Managed: true,
 			NetworkPut: api.NetworkPut{Config: map[string]string{
 				"ipv4.address": "auto",
@@ -170,7 +171,7 @@ func (s *Server) ensureDefaultNetworking(profile *api.Profile, eTag string) erro
 
 	// Add the new device with the bridge as its parent.
 	nicType := nicTypeMACVLAN
-	if net.Type == "bridge" {
+	if net.Type == netTypeBridge {
 		nicType = nicTypeBridged
 	}
 	profile.Devices[nicName] = device{
@@ -331,7 +332,7 @@ func isValidNICType(nic device) bool {
 }
 
 func isValidNetworkType(net *api.Network) bool {
-	return net.Type == nicTypeBridged || net.Type == nicTypeMACVLAN
+	return net.Type == netTypeBridge || net.Type == nicTypeMACVLAN
 }
 
 const BridgeConfigFile = "/etc/default/lxd-bridge"
@@ -500,7 +501,7 @@ func DevicesFromInterfaceInfo(interfaces []network.InterfaceInfo) (map[string]de
 func newNICDevice(deviceName, parentDevice, hwAddr string, mtu int) device {
 	device := map[string]string{
 		"type":    "nic",
-		"nictype": "bridged",
+		"nictype": nicTypeBridged,
 		"name":    deviceName,
 		"parent":  parentDevice,
 	}
