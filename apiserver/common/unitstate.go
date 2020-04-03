@@ -120,14 +120,11 @@ func (u *UnitStateAPI) State(args params.Entities) (params.UnitStateResults, err
 			res[i].Error = ServerError(err)
 			continue
 		}
-		uState, _ := unitState.State()
-		res[i].State = uState
-		uUState, _ := unitState.UniterState()
-		res[i].UniterState = uUState
-		rState, _ := unitState.RelationState()
-		res[i].RelationState = rState
-		sState, _ := unitState.StorageState()
-		res[i].StorageState = sState
+		res[i].State, _ = unitState.State()
+		res[i].UniterState, _ = unitState.UniterState()
+		res[i].RelationState, _ = unitState.RelationState()
+		res[i].StorageState, _ = unitState.StorageState()
+		res[i].MeterStatusState, _ = unitState.MeterStatusState()
 	}
 
 	return params.UnitStateResults{Results: res}, nil
@@ -177,6 +174,9 @@ func (u *UnitStateAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResul
 		}
 		if arg.StorageState != nil {
 			unitState.SetStorageState(*arg.StorageState)
+		}
+		if arg.MeterStatusState != nil {
+			unitState.SetMeterStatusState(*arg.MeterStatusState)
 		}
 
 		ops := unit.SetStateOperation(

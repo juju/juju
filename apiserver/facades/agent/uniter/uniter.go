@@ -3420,18 +3420,38 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		if changes.SetUnitState.Tag != changes.Tag {
 			return common.ErrPerm
 		}
+
+		newUS := state.NewUnitState()
 		if changes.SetUnitState.State != nil {
-			newUS := state.NewUnitState()
 			newUS.SetState(*changes.SetUnitState.State)
-			modelOp := unit.SetStateOperation(
-				newUS,
-				state.UnitStateSizeLimits{
-					MaxCharmStateSize: ctrlCfg.MaxCharmStateSize(),
-					MaxAgentStateSize: ctrlCfg.MaxAgentStateSize(),
-				},
-			)
-			modelOps = append(modelOps, modelOp)
 		}
+
+		// NOTE(achilleasa): The following state fields are not
+		// presently populated by the uniter calls to this API as they
+		// get persisted after the hook changes get committed. However,
+		// they are still checked here for future use and for ensuring
+		// symmetry with the SetState call (see apiserver/common).
+		if changes.SetUnitState.UniterState != nil {
+			newUS.SetUniterState(*changes.SetUnitState.UniterState)
+		}
+		if changes.SetUnitState.RelationState != nil {
+			newUS.SetRelationState(*changes.SetUnitState.RelationState)
+		}
+		if changes.SetUnitState.StorageState != nil {
+			newUS.SetStorageState(*changes.SetUnitState.StorageState)
+		}
+		if changes.SetUnitState.MeterStatusState != nil {
+			newUS.SetMeterStatusState(*changes.SetUnitState.MeterStatusState)
+		}
+
+		modelOp := unit.SetStateOperation(
+			newUS,
+			state.UnitStateSizeLimits{
+				MaxCharmStateSize: ctrlCfg.MaxCharmStateSize(),
+				MaxAgentStateSize: ctrlCfg.MaxAgentStateSize(),
+			},
+		)
+		modelOps = append(modelOps, modelOp)
 	}
 
 	for _, addParams := range changes.AddStorage {
