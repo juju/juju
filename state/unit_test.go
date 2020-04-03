@@ -123,7 +123,7 @@ func (s *UnitSuite) TestCombinedUnitStateQuotaLimit(c *gc.C) {
 	newState.SetStorageState("storage is cheap")
 
 	err := s.unit.SetState(newState, state.UnitStateSizeLimits{
-		MaxUniterStateSize: 640000,
+		MaxAgentStateSize: 640000,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -132,7 +132,7 @@ func (s *UnitSuite) TestCombinedUnitStateQuotaLimit(c *gc.C) {
 	newState.SetRelationState(map[int]string{42: "a fresh serialized blob"})
 	newState.SetStorageState("storage")
 	err = s.unit.SetState(newState, state.UnitStateSizeLimits{
-		MaxUniterStateSize: 42,
+		MaxAgentStateSize: 42,
 	})
 	c.Assert(errors.IsQuotaLimitExceeded(err), jc.IsTrue)
 }
@@ -149,8 +149,8 @@ func (s *UnitSuite) TestUnitStateWithDualQuotaLimits(c *gc.C) {
 	})
 
 	err := s.unit.SetState(newState, state.UnitStateSizeLimits{
-		MaxCharmStateSize:  4096,
-		MaxUniterStateSize: 128,
+		MaxCharmStateSize: 4096,
+		MaxAgentStateSize: 128,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

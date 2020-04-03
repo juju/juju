@@ -182,8 +182,8 @@ func (u *UnitStateAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResul
 		ops := unit.SetStateOperation(
 			unitState,
 			state.UnitStateSizeLimits{
-				MaxCharmStateSize:  ctrlCfg.MaxCharmStateSize(),
-				MaxUniterStateSize: ctrlCfg.MaxUniterStateSize(),
+				MaxCharmStateSize: ctrlCfg.MaxCharmStateSize(),
+				MaxAgentStateSize: ctrlCfg.MaxAgentStateSize(),
 			},
 		)
 		if err = u.backend.ApplyOperation(ops); err != nil {

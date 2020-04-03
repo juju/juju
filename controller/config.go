@@ -186,11 +186,11 @@ const (
 	// principle, mongo imposes a hard (but configurable) limit of 16M.
 	MaxCharmStateSize = "max-charm-state-size"
 
-	// MaxUniterStateSize is the maximum allowed size of internal uniter
-	// data that units can store to the controller in bytes. A value of 0
+	// MaxAgentStateSize is the maximum allowed size of internal state
+	// data that agents can store to the controller in bytes. A value of 0
 	// disables the quota checks although in principle, mongo imposes a
 	// hard (but configurable) limit of 16M.
-	MaxUniterStateSize = "max-uniter-state-size"
+	MaxAgentStateSize = "max-agent-state-size"
 
 	// Attribute Defaults
 
@@ -273,9 +273,9 @@ const (
 	// state data that each unit can store to the controller.
 	DefaultMaxCharmStateSize = 2 * 1024 * 1024
 
-	// DefaultMaxUniterStateSize is the maximum size (in bytes) of internal
-	// uniter state data that each unit can store to the controller.
-	DefaultMaxUniterStateSize = 512 * 1024
+	// DefaultMaxAgentStateSize is the maximum size (in bytes) of internal
+	// state data that agents can store to the controller.
+	DefaultMaxAgentStateSize = 512 * 1024
 
 	// JujuHASpace is the network space within which the MongoDB replica-set
 	// should communicate.
@@ -343,7 +343,7 @@ var (
 		Features,
 		MeteringURL,
 		MaxCharmStateSize,
-		MaxUniterStateSize,
+		MaxAgentStateSize,
 	}
 
 	// AllowedUpdateConfigAttributes contains all of the controller
@@ -375,7 +375,7 @@ var (
 		CAASImageRepo,
 		Features,
 		MaxCharmStateSize,
-		MaxUniterStateSize,
+		MaxAgentStateSize,
 	)
 
 	// DefaultAuditLogExcludeMethods is the default list of methods to
@@ -793,11 +793,10 @@ func (c Config) MaxCharmStateSize() int {
 	return c.intOrDefault(MaxCharmStateSize, DefaultMaxCharmStateSize)
 }
 
-// MaxUniterStateSize returns the max size (in bytes) of internal uniter state
-// that each unit can store to the controller. A value of zero indicates no
-// limit.
-func (c Config) MaxUniterStateSize() int {
-	return c.intOrDefault(MaxUniterStateSize, DefaultMaxUniterStateSize)
+// MaxAgentStateSize returns the max size (in bytes) of state data that agents
+// can store to the controller. A value of zero indicates no limit.
+func (c Config) MaxAgentStateSize() int {
+	return c.intOrDefault(MaxAgentStateSize, DefaultMaxAgentStateSize)
 }
 
 // Validate ensures that config is a valid configuration.
@@ -988,17 +987,17 @@ func Validate(c Config) error {
 		maxUnitStateSize += DefaultMaxCharmStateSize
 	}
 
-	if v, ok := c[MaxUniterStateSize].(int); ok {
+	if v, ok := c[MaxAgentStateSize].(int); ok {
 		if v < 0 {
-			return errors.Errorf("invalid max uniter state size: should be a number of bytes (or 0 to disable limit), got %d", v)
+			return errors.Errorf("invalid max agent state size: should be a number of bytes (or 0 to disable limit), got %d", v)
 		}
 		maxUnitStateSize += v
 	} else {
-		maxUnitStateSize += DefaultMaxUniterStateSize
+		maxUnitStateSize += DefaultMaxAgentStateSize
 	}
 
 	if mongoMax := 16 * 1024 * 1024; maxUnitStateSize > mongoMax {
-		return errors.Errorf("invalid max charm/uniter state sizes: combined value should not exceed mongo's 16M per-document limit, got %d", maxUnitStateSize)
+		return errors.Errorf("invalid max charm/agent state sizes: combined value should not exceed mongo's 16M per-document limit, got %d", maxUnitStateSize)
 	}
 
 	return nil
@@ -1096,7 +1095,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CharmStoreURL:           schema.String(),
 	MeteringURL:             schema.String(),
 	MaxCharmStateSize:       schema.ForceInt(),
-	MaxUniterStateSize:      schema.ForceInt(),
+	MaxAgentStateSize:       schema.ForceInt(),
 }, schema.Defaults{
 	AgentRateLimitMax:       schema.Omit,
 	AgentRateLimitRate:      schema.Omit,
@@ -1134,7 +1133,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CharmStoreURL:           csclient.ServerURL,
 	MeteringURL:             romulus.DefaultAPIRoot,
 	MaxCharmStateSize:       DefaultMaxCharmStateSize,
-	MaxUniterStateSize:      DefaultMaxUniterStateSize,
+	MaxAgentStateSize:       DefaultMaxAgentStateSize,
 })
 
 // ConfigSchema holds information on all the fields defined by
@@ -1291,8 +1290,8 @@ Use "caas-image-repo" instead.`,
 		Type:        environschema.Tint,
 		Description: `The maximum size (in bytes) of charm-specific state that units can store to the controller`,
 	},
-	MaxUniterStateSize: {
+	MaxAgentStateSize: {
 		Type:        environschema.Tint,
-		Description: `The maximum size (in bytes) of internal uniter state that units can store to the controller`,
+		Description: `The maximum size (in bytes) of internal state data that agents can store to the controller`,
 	},
 }

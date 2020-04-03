@@ -258,5 +258,5 @@ type UnitStateSizeLimits struct {
 
 	// The maximum allowed size for the uniter's state. It can be set to
 	// zero to bypass the uniter state quota checks.
-	MaxUniterStateSize int
+	MaxAgentStateSize int
 }

@@ -1157,8 +1157,8 @@ func (i *importer) unit(s description.Application, u description.Unit, ctrlCfg c
 		us := NewUnitState()
 		us.SetState(unitState)
 		limits := UnitStateSizeLimits{
-			MaxCharmStateSize:  ctrlCfg.MaxCharmStateSize(),
-			MaxUniterStateSize: ctrlCfg.MaxUniterStateSize(),
+			MaxCharmStateSize: ctrlCfg.MaxCharmStateSize(),
+			MaxAgentStateSize: ctrlCfg.MaxAgentStateSize(),
 		}
 		if err := unit.SetState(us, limits); err != nil {
 			return errors.Trace(err)
