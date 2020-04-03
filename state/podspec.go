@@ -76,7 +76,7 @@ func (m *CAASModel) podInfo(appTag names.ApplicationTag) (*containerSpecDoc, err
 	if err := coll.FindId(applicationGlobalKey(appTag.Id())).One(&doc); err != nil {
 		if err == mgo.ErrNotFound {
 			return nil, errors.NotFoundf(
-				"pod spec for %s",
+				"k8s spec for %s",
 				names.ReadableString(appTag),
 			)
 		}

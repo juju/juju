@@ -4,16 +4,11 @@
 package jujuc
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/featureflag"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 )
 
 // K8sRawSetCommand implements the k8s-raw-set command.
@@ -22,15 +17,6 @@ type K8sRawSetCommand struct {
 	ctx Context
 
 	specFile cmd.FileVar
-}
-
-func checkK8sRawSpecEnabled(cmdName string) error {
-	if featureflag.Enabled(feature.RawK8sSpec) {
-		return nil
-	}
-	return errors.NewNotSupported(nil,
-		fmt.Sprintf("%q command is under feature flag. To use it, please set %q=%q", cmdName, osenv.JujuFeatureFlagEnvKey, feature.RawK8sSpec),
-	)
 }
 
 // NewK8sRawSetCommand makes a k8s-raw-set command.

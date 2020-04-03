@@ -9,8 +9,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -21,10 +19,14 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -44,6 +46,10 @@ type ContextFactorySuite struct {
 var _ = gc.Suite(&ContextFactorySuite{})
 
 func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
+	s.ControllerConfigAttrs = map[string]interface{}{
+		controller.Features: []string{feature.RawK8sSpec},
+	}
+
 	s.HookContextSuite.SetUpTest(c)
 	s.paths = runnertesting.NewRealPaths(c)
 	s.membership = map[int][]string{}
@@ -279,6 +285,30 @@ containers:
       foo: bar
 `[1:]
 
+var rawK8sSpec = `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+`[1:]
+
 func (s *ContextFactorySuite) setupPodSpec(c *gc.C) (*state.State, context.ContextFactory, string) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	f := factory.NewFactory(st, s.StatePool)
@@ -331,6 +361,7 @@ func (s *ContextFactorySuite) setupPodSpec(c *gc.C) (*state.State, context.Conte
 func (s *ContextFactorySuite) TestHookContextCAASDeferredSetPodSpec(c *gc.C) {
 	st, cf, appName := s.setupPodSpec(c)
 	defer st.Close()
+	appTag := names.NewApplicationTag(appName)
 
 	ctx, err := cf.HookContext(hook.Info{
 		Kind: hooks.ConfigChanged,
@@ -345,9 +376,10 @@ func (s *ContextFactorySuite) TestHookContextCAASDeferredSetPodSpec(c *gc.C) {
 	err = ctx.SetPodSpec(podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
-	appTag := names.NewApplicationTag(appName)
 	_, err = cm.PodSpec(appTag)
-	c.Assert(err, gc.ErrorMatches, "pod spec for application gitlab not found")
+	c.Assert(err, gc.ErrorMatches, "k8s spec for application gitlab not found")
+	_, err = cm.RawK8sSpec(appTag)
+	c.Assert(err, gc.ErrorMatches, "k8s spec for application gitlab not found")
 
 	err = ctx.Flush("", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -355,6 +387,74 @@ func (s *ContextFactorySuite) TestHookContextCAASDeferredSetPodSpec(c *gc.C) {
 	ps, err := cm.PodSpec(appTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ps, gc.Equals, podSpec)
+
+	rps, err := cm.RawK8sSpec(appTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rps, gc.Equals, "")
+}
+
+func (s *ContextFactorySuite) TestHookContextCAASDeferredSetRawK8sSpec(c *gc.C) {
+	st, cf, appName := s.setupPodSpec(c)
+	defer st.Close()
+	appTag := names.NewApplicationTag(appName)
+
+	ctx, err := cf.HookContext(hook.Info{
+		Kind: hooks.ConfigChanged,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	sm, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cm, err := sm.CAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ctx.SetRawK8sSpec(rawK8sSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = cm.PodSpec(appTag)
+	c.Assert(err, gc.ErrorMatches, "k8s spec for application gitlab not found")
+	_, err = cm.RawK8sSpec(appTag)
+	c.Assert(err, gc.ErrorMatches, "k8s spec for application gitlab not found")
+
+	err = ctx.Flush("", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	rps, err := cm.RawK8sSpec(appTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rps, gc.Equals, rawK8sSpec)
+
+	ps, err := cm.PodSpec(appTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ps, gc.Equals, "")
+}
+
+func (s *ContextFactorySuite) TestHookContextCAASDeferredSetPodSpecSetRawK8sSpecNotAllowed(c *gc.C) {
+	st, cf, appName := s.setupPodSpec(c)
+	defer st.Close()
+	appTag := names.NewApplicationTag(appName)
+
+	ctx, err := cf.HookContext(hook.Info{
+		Kind: hooks.ConfigChanged,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	sm, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cm, err := sm.CAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ctx.SetPodSpec(podSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = cm.PodSpec(appTag)
+	c.Assert(err, gc.ErrorMatches, "k8s spec for application gitlab not found")
+
+	err = ctx.SetRawK8sSpec(rawK8sSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = cm.RawK8sSpec(appTag)
+	c.Assert(err, gc.ErrorMatches, "k8s spec for application gitlab not found")
+
+	err = ctx.Flush("", nil)
+	c.Assert(err, gc.ErrorMatches, `either k8s-spec-set or k8s-raw-set can be run for each application`)
 }
 
 func (s *ContextFactorySuite) TestHookContextCAASNilPodSpec(c *gc.C) {
@@ -382,13 +482,50 @@ func (s *ContextFactorySuite) TestHookContextCAASNilPodSpec(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
+	err = ctx.Flush(string(hooks.UpgradeCharm), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	// both k8s spec and raw k8s spec are nil, so no change here now. !!!!!
+	wc.AssertNoChange()
+
+	_, err = cm.PodSpec(appTag)
+	c.Assert(err, gc.ErrorMatches, `k8s spec for application gitlab not found`)
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *ContextFactorySuite) TestHookContextCAASNilRawK8sSpec(c *gc.C) {
+	st, cf, appName := s.setupPodSpec(c)
+	defer st.Close()
+
+	ctx, err := cf.HookContext(hook.Info{
+		Kind: hooks.UpgradeCharm,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	sm, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cm, err := sm.CAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	appTag := names.NewApplicationTag(appName)
+	w, err := cm.WatchPodSpec(appTag)
+	c.Assert(err, jc.ErrorIsNil)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange() // initial event.
+
+	// No change for non upgrade-hook.
+	err = ctx.Flush("", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
 	err = ctx.Flush("upgrade-charm", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
+	// both k8s spec and raw k8s spec are nil, so no change here now. !!!!!
+	wc.AssertNoChange()
 
-	ps, err := cm.PodSpec(appTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ps, gc.Equals, "")
+	_, err = cm.RawK8sSpec(appTag)
+	c.Assert(err, gc.ErrorMatches, `k8s spec for application gitlab not found`)
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
