@@ -80,7 +80,6 @@ func NewUnitStateAPI(
 	accessUnit GetAuthFunc,
 	logger loggo.Logger,
 ) *UnitStateAPI {
-	logger.Tracef("NewUnitStateAPI called with %s", authorizer.GetAuthTag())
 	return &UnitStateAPI{
 		backend:    backend,
 		resources:  resources,
