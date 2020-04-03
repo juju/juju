@@ -36,6 +36,10 @@ type unitStateDoc struct {
 	// StorageState is a serialized yaml string containing storage internal
 	// state for this unit from the uniter.
 	StorageState string `bson:"storage-state,omitempty"`
+
+	// MeterStatusState is a serialized yaml string containing the internal
+	// state for this unit's meter status worker.
+	MeterStatusState string `bson:"meter-status-state,omitempty"`
 }
 
 // stateMatches returns true if the State map within the unitStateDoc matches
@@ -117,6 +121,11 @@ type UnitState struct {
 	// state for this unit from the uniter.
 	storageState    string
 	storageStateSet bool
+
+	// meterStatusState is a serialized yaml string containing the internal
+	// state for the meter status worker for this unit.
+	meterStatusState    string
+	meterStatusStateSet bool
 }
 
 // NewUnitState returns a new UnitState struct.
@@ -126,7 +135,11 @@ func NewUnitState() *UnitState {
 
 // Modified returns true if any of the struct have been set.
 func (u *UnitState) Modified() bool {
-	return u.relationStateSet || u.storageStateSet || u.stateSet || u.uniterStateSet
+	return u.relationStateSet ||
+		u.storageStateSet ||
+		u.stateSet ||
+		u.uniterStateSet ||
+		u.meterStatusStateSet
 }
 
 // SetState sets the state value.
@@ -187,6 +200,18 @@ func (u *UnitState) StorageState() (string, bool) {
 	return u.storageState, u.storageStateSet
 }
 
+// SetMeterStatusState sets the state value for meter state.
+func (u *UnitState) SetMeterStatusState(state string) {
+	u.meterStatusStateSet = true
+	u.meterStatusState = state
+}
+
+// MeterStatusState returns the meter status state and a bool to indicate
+// whether the data was set.
+func (u *UnitState) MeterStatusState() (string, bool) {
+	return u.meterStatusState, u.meterStatusStateSet
+}
+
 // SetState replaces the currently stored state for a unit with the contents
 // of the provided UnitState.
 //
@@ -244,6 +269,7 @@ func (u *Unit) State() (*UnitState, error) {
 
 	us.SetUniterState(stDoc.UniterState)
 	us.SetStorageState(stDoc.StorageState)
+	us.SetMeterStatusState(stDoc.MeterStatusState)
 
 	return us, nil
 }
