@@ -97,15 +97,15 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 	}
 	existing, err := op.m.podInfo(op.appTag)
 	if err == nil {
-		asserts := bson.D{{"upgrade-counter", existing.UpgradeCounter}}
-		updates := bson.D{{"$inc", bson.D{{"upgrade-counter", 1}}}}
+		asserts := bson.D{{Name: "upgrade-counter", Value: existing.UpgradeCounter}}
+		updates := bson.D{{Name: "$inc", Value: bson.D{{"upgrade-counter", 1}}}}
 		// Either "spec" or "raw-spec" can be set for each application.
 		if op.spec != nil {
-			updates = append(updates, bson.DocElem{"$set", bson.D{{"spec", *op.spec}}})
+			updates = append(updates, bson.DocElem{Name: "$set", Value: bson.D{{"spec", *op.spec}}})
 			asserts = append(asserts, getEmptyFieldAssert("raw-spec"))
 		}
 		if op.rawSpec != nil {
-			updates = append(updates, bson.DocElem{"$set", bson.D{{"raw-spec", *op.rawSpec}}})
+			updates = append(updates, bson.DocElem{Name: "$set", Value: bson.D{{"raw-spec", *op.rawSpec}}})
 			asserts = append(asserts, getEmptyFieldAssert("spec"))
 		}
 		sop.Assert = asserts

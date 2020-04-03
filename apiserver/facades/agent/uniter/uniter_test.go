@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -38,6 +39,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -67,6 +69,10 @@ type uniterSuiteBase struct {
 }
 
 func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
+	s.ControllerConfigAttrs = map[string]interface{}{
+		controller.Features: []string{feature.RawK8sSpec},
+	}
+
 	s.JujuConnSuite.SetUpTest(c)
 
 	s.setupState(c)
@@ -3600,6 +3606,105 @@ containers:
       attr: foo=bar; fred=blogs
       foo: bar
 `[1:]
+
+var rawK8sSpec = `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+`[1:]
+
+func (s *uniterSuite) TestSetRawK8sSpec(c *gc.C) {
+	u, cm, app, unit := s.setupCAASModel(c)
+
+	err := cm.State().LeadershipClaimer().ClaimLeadership(app.ApplicationTag().Id(), unit.UnitTag().Id(), time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.State = cm.State()
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
+	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+
+	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
+	b.SetRawK8sSpec(app.ApplicationTag(), &rawK8sSpec)
+	req, _ := b.Build()
+
+	result, err := uniterAPI.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	spec, err := cm.RawK8sSpec(app.ApplicationTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec, gc.Equals, rawK8sSpec)
+
+	spec, err = u.GetRawK8sSpec(app.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec, gc.Equals, rawK8sSpec)
+}
+
+func (s *uniterSuite) TestSetRawK8sSpecNil(c *gc.C) {
+	_, cm, app, unit := s.setupCAASModel(c)
+
+	err := cm.State().LeadershipClaimer().ClaimLeadership(app.ApplicationTag().Id(), unit.UnitTag().Id(), time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.State = cm.State()
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
+	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+
+	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
+	b.SetRawK8sSpec(app.ApplicationTag(), &rawK8sSpec)
+	req, _ := b.Build()
+
+	result, err := uniterAPI.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	// Spec doesn't change when setting with nil.
+	b = apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
+	b.SetRawK8sSpec(app.ApplicationTag(), nil)
+	req, _ = b.Build()
+
+	result, err = uniterAPI.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	getSpecRes, err := uniterAPI.GetRawK8sSpec(params.Entities{
+		Entities: []params.Entity{{Tag: app.ApplicationTag().String()}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(getSpecRes, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{{Result: rawK8sSpec}},
+	})
+}
 
 func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
 	_, cm, app, unit := s.setupCAASModel(c)

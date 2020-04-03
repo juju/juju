@@ -300,6 +300,10 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if podSpec != "" && rawSpec != "" {
+		// This should never happen.
+		return nil, errors.New("both k8s spec and raw k8s spec were set")
+	}
 
 	// Now get any required storage. We need to provision storage
 	// at the same time as the pod as it can't be attached later.

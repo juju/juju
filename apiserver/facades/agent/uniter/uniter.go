@@ -3513,13 +3513,13 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		modelOps = append(modelOps, modelOp)
 	}
 
-	if changes.RawK8sSpec != nil {
+	if changes.SetRawK8sSpec != nil {
 		// Ensure the application tag for the unit in the change arg
 		// matches the one specified in the RawK8sSpec payload
-		if changes.RawK8sSpec.Tag != appTag {
-			return errors.BadRequestf("application tag %q in RawK8sSpec payload does not match the application for unit %q", changes.RawK8sSpec.Tag, changes.Tag)
+		if changes.SetRawK8sSpec.Tag != appTag {
+			return errors.BadRequestf("application tag %q in SetRawK8sSpec payload does not match the application for unit %q", changes.SetRawK8sSpec.Tag, changes.Tag)
 		}
-		modelOp, err := u.setRawK8sSpecOperation(changes.RawK8sSpec.Tag, changes.RawK8sSpec.Spec, unitTag, canAccessApp)
+		modelOp, err := u.setRawK8sSpecOperation(changes.SetRawK8sSpec.Tag, changes.SetRawK8sSpec.Spec, unitTag, canAccessApp)
 		if err != nil {
 			return errors.Trace(err)
 		}

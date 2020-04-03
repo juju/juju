@@ -961,7 +961,7 @@ func (b *CommitHookParamsBuilder) SetPodSpec(appTag names.ApplicationTag, spec *
 
 // SetRawK8sSpec records a request to update the PodSpec for an application.
 func (b *CommitHookParamsBuilder) SetRawK8sSpec(appTag names.ApplicationTag, spec *string) {
-	b.arg.RawK8sSpec = &params.PodSpec{
+	b.arg.SetRawK8sSpec = &params.PodSpec{
 		Tag:  appTag.String(),
 		Spec: spec,
 	}
@@ -990,7 +990,7 @@ func (b *CommitHookParamsBuilder) changeCount() int {
 	if b.arg.SetPodSpec != nil {
 		count++
 	}
-	if b.arg.RawK8sSpec != nil {
+	if b.arg.SetRawK8sSpec != nil {
 		count++
 	}
 
