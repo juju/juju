@@ -8,16 +8,17 @@ import (
 	"path"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/common/charmrunner"
+	"github.com/juju/juju/worker/meterstatus"
+	"github.com/juju/juju/worker/meterstatus/mocks"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
-
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/common/charmrunner"
-	"github.com/juju/juju/worker/meterstatus"
 )
 
 const (
@@ -42,19 +43,22 @@ func (s *IsolatedWorkerConfigSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *IsolatedWorkerConfigSuite) TestConfigValidation(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	tests := []struct {
 		cfg      meterstatus.IsolatedConfig
 		expected string
 	}{{
 		cfg: meterstatus.IsolatedConfig{
-			Runner:    &stubRunner{stub: s.stub},
-			StateFile: meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
+			Runner:          &stubRunner{stub: s.stub},
+			StateReadWriter: mocks.NewMockStateReadWriter(ctrl),
 		},
 		expected: "clock not provided",
 	}, {
 		cfg: meterstatus.IsolatedConfig{
-			Clock:     testclock.NewClock(time.Now()),
-			StateFile: meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
+			Clock:           testclock.NewClock(time.Now()),
+			StateReadWriter: mocks.NewMockStateReadWriter(ctrl),
 		},
 		expected: "hook runner not provided",
 	}, {
@@ -62,7 +66,7 @@ func (s *IsolatedWorkerConfigSuite) TestConfigValidation(c *gc.C) {
 			Clock:  testclock.NewClock(time.Now()),
 			Runner: &stubRunner{stub: s.stub},
 		},
-		expected: "state file not provided",
+		expected: "state read/writer not provided",
 	}}
 	for i, test := range tests {
 		c.Logf("running test %d", i)
@@ -109,7 +113,7 @@ func (s *IsolatedWorkerSuite) SetUpTest(c *gc.C) {
 	wrk, err := meterstatus.NewIsolatedStatusWorker(
 		meterstatus.IsolatedConfig{
 			Runner:           &stubRunner{stub: s.stub, ran: s.hookRan},
-			StateFile:        meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
+			StateReadWriter:  meterstatus.NewDiskBackedState(path.Join(s.dataDir, "meter-status.yaml")),
 			Clock:            s.clk,
 			AmberGracePeriod: AmberGracePeriod,
 			RedGracePeriod:   RedGracePeriod,
