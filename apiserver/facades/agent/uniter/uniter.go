@@ -3426,8 +3426,8 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			modelOp := unit.SetStateOperation(
 				newUS,
 				state.UnitStateSizeLimits{
-					MaxCharmStateSize:  ctrlCfg.MaxCharmStateSize(),
-					MaxUniterStateSize: ctrlCfg.MaxUniterStateSize(),
+					MaxCharmStateSize: ctrlCfg.MaxCharmStateSize(),
+					MaxAgentStateSize: ctrlCfg.MaxAgentStateSize(),
 				},
 			)
 			modelOps = append(modelOps, modelOp)

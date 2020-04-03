@@ -226,7 +226,7 @@ func (op *unitSetStateOperation) getCharmStateQuotaChecker() quota.Checker {
 
 func (op *unitSetStateOperation) getUniterStateQuotaChecker() quota.Checker {
 	return quota.NewMultiChecker(
-		quota.NewBSONTotalSizeChecker(op.limits.MaxUniterStateSize),
+		quota.NewBSONTotalSizeChecker(op.limits.MaxAgentStateSize),
 	)
 }
 

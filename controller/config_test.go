@@ -356,24 +356,24 @@ var newConfigTests = []struct {
 	},
 	expectError: `invalid max charm state size: should be a number of bytes \(or 0 to disable limit\), got -42`,
 }, {
-	about: "max-uniter-state-size non-int",
+	about: "max-agent-state-size non-int",
 	config: controller.Config{
-		controller.MaxUniterStateSize: "ten",
+		controller.MaxAgentStateSize: "ten",
 	},
-	expectError: `max-uniter-state-size: expected number, got string\("ten"\)`,
+	expectError: `max-agent-state-size: expected number, got string\("ten"\)`,
 }, {
-	about: "max-uniter-state-size cannot be negative",
+	about: "max-agent-state-size cannot be negative",
 	config: controller.Config{
-		controller.MaxUniterStateSize: "-42",
+		controller.MaxAgentStateSize: "-42",
 	},
-	expectError: `invalid max uniter state size: should be a number of bytes \(or 0 to disable limit\), got -42`,
+	expectError: `invalid max agent state size: should be a number of bytes \(or 0 to disable limit\), got -42`,
 }, {
-	about: "combined charm/unit state cannot exceed mongo's 16M limit/doc",
+	about: "combined charm/agent state cannot exceed mongo's 16M limit/doc",
 	config: controller.Config{
-		controller.MaxCharmStateSize:  "14000000",
-		controller.MaxUniterStateSize: "3000000",
+		controller.MaxCharmStateSize: "14000000",
+		controller.MaxAgentStateSize: "3000000",
 	},
-	expectError: `invalid max charm/uniter state sizes: combined value should not exceed mongo's 16M per-document limit, got 17000000`,
+	expectError: `invalid max charm/agent state sizes: combined value should not exceed mongo's 16M per-document limit, got 17000000`,
 }, {}}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {
