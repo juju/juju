@@ -30,7 +30,8 @@ func MetadataStorage(e environs.Environ) envstorage.Storage {
 	ecfg := env.ecfg()
 	container := "juju-dist-test"
 
-	newClient, err := getClientState(env.cloud(), ecfg)
+	factory := NewClientFactory(env.cloud(), ecfg)
+	newClient, err := factory.getClientState()
 	if err != nil {
 		panic(fmt.Errorf("cannot create %s container: %v", container, err))
 	}

@@ -909,14 +909,15 @@ func (e *Environ) SetCloudSpec(spec environs.CloudSpec) error {
 	// In theory we should be able to create one client factory and then every
 	// time openstack wants a goose client, we should be just get one from
 	// the factory.
-	factory, err := NewClientFactory(spec, e.ecfgUnlocked)
-	if err != nil {
+	factory := NewClientFactory(spec, e.ecfgUnlocked)
+	if err := factory.Init(); err != nil {
 		return errors.Trace(err)
 	}
 	e.clientUnlocked = factory.AuthClient()
 
 	// The following uses different clients for the different openstack clients
 	// and we create them in the factory.
+	var err error
 	e.novaUnlocked, err = factory.Nova()
 	if err != nil {
 		return errors.Trace(err)
@@ -1313,6 +1314,7 @@ func (e *Environ) startInstance(
 			publicIP = fip
 			logger.Infof("allocated public IP %s", *publicIP)
 		}
+
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
 			if err := e.terminateInstances(ctx, []instance.Id{inst.Id()}); err != nil {
 				// ignore the failure at this stage, just log it
@@ -2075,6 +2077,14 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	var firstErr error
 	novaClient := e.nova()
 	for _, id := range ids {
+		// Attempt to destroy the ports that could have been created when using
+		// spaces.
+		if err := e.terminateInstanceNetworkPorts(id); err != nil {
+			logger.Errorf("error attempting to remove ports associated with instance %q: %v", id, err)
+			// Unfortunately there is nothing we can do here, there could be
+			// orphan ports left.
+		}
+
 		// Once ports have been deleted, attempt to delete the server.
 		err := novaClient.DeleteServer(string(id))
 		if IsNotFoundError(err) {
@@ -2087,14 +2097,6 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 				// We'll 100% fail all subsequent calls if we have an invalid credential.
 				break
 			}
-		}
-
-		// Attempt to destroy the ports that could have been created when using
-		// spaces.
-		if err := e.terminateInstanceNetworkPorts(id); err != nil {
-			logger.Errorf("error attempting to remove ports associated with instance %q: %v", id, err)
-			// Unfortunately there is nothing we can do here, there could be
-			// orphan ports left.
 		}
 	}
 	return firstErr

@@ -5,43 +5,66 @@ package openstack
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs"
 	"github.com/juju/loggo"
 	"gopkg.in/goose.v2/client"
 	"gopkg.in/goose.v2/identity"
 	gooselogging "gopkg.in/goose.v2/logging"
 	"gopkg.in/goose.v2/neutron"
 	"gopkg.in/goose.v2/nova"
+
+	"github.com/juju/juju/environs"
 )
+
+// SSLHostnameConfig defines the options for host name verification
+type SSLHostnameConfig interface {
+	SSLHostnameVerification() bool
+}
+
+// ClientFunc is used to create a goose client.
+type ClientFunc = func(cred identity.Credentials,
+	authMode identity.AuthMode,
+	gooseLogger gooselogging.CompatLogger,
+	sslHostnameVerification bool,
+	certs []string,
+	options ...client.Option) (client.AuthenticatingClient, error)
 
 // ClientFactory creates various goose (openstack) clients.
 // TODO (stickupkid): This should be moved into goose and the factory should
 // accept a configuration returning back goose clients.
 type ClientFactory struct {
-	spec environs.CloudSpec
-	ecfg *environConfig
+	spec              environs.CloudSpec
+	sslHostnameConfig SSLHostnameConfig
 
 	// We store the auth client, so nova can reuse it.
 	authClient client.AuthenticatingClient
+
+	// clientFunc is used to create a client from a set of arguments.
+	clientFunc ClientFunc
 }
 
 // NewClientFactory creates a new ClientFactory from the CloudSpec and environ
 // config arguments.
-func NewClientFactory(spec environs.CloudSpec, ecfg *environConfig) (*ClientFactory, error) {
-	// This is an wanted side effect of the previous implementation only calling
-	// AuthClient once. To prevent the regression of calling it three times, one
-	// for checking which auth client to use, then for nova and then for
-	// neutron. We get the auth client for the factory and reuse it for nova.
-	authClient, err := getClientState(spec, ecfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+func NewClientFactory(spec environs.CloudSpec, sslHostnameConfig SSLHostnameConfig) *ClientFactory {
 	return &ClientFactory{
-		spec:       spec,
-		ecfg:       ecfg,
-		authClient: authClient,
-	}, nil
+		spec:              spec,
+		sslHostnameConfig: sslHostnameConfig,
+		clientFunc:        newClientByType,
+	}
+}
+
+// Init the client factory, returns an error if the initialization fails.
+func (c *ClientFactory) Init() error {
+	// This is an unwanted side effect of the previous implementation only
+	// calling AuthClient once.
+	// To prevent the regression of calling it three times, one for checking,
+	// which auth client to use, then for nova and then for neutron.
+	// We get the auth client for the factory and reuse it for nova.
+	authClient, err := c.getClientState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.authClient = authClient
+	return nil
 }
 
 // AuthClient returns an goose AuthenticatingClient.
@@ -62,25 +85,25 @@ func (c *ClientFactory) Nova() (*nova.Client, error) {
 func (c *ClientFactory) Neutron() (*neutron.Client, error) {
 	httpOption := client.WithHTTPHeadersFunc(neutron.NeutronHeaders)
 
-	client, err := getClientState(c.spec, c.ecfg, httpOption)
+	client, err := c.getClientState(httpOption)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return neutron.New(client), nil
 }
 
-func getClientState(spec environs.CloudSpec, ecfg *environConfig, options ...client.Option) (client.AuthenticatingClient, error) {
-	identityClientVersion, err := identityClientVersion(spec.Endpoint)
+func (c *ClientFactory) getClientState(options ...client.Option) (client.AuthenticatingClient, error) {
+	identityClientVersion, err := identityClientVersion(c.spec.Endpoint)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create a client")
 	}
-	cred, authMode, err := newCredentials(spec)
+	cred, authMode, err := newCredentials(c.spec)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create credential")
 	}
 
 	// Create a new fallback client using the existing authMode.
-	newClient, _ := getClientByAuthModel(authMode, cred, spec, ecfg, options...)
+	newClient, _ := c.getClientByAuthMode(authMode, cred, options...)
 
 	// Before returning, lets make sure that we want to have AuthMode
 	// AuthUserPass instead of its V3 counterpart.
@@ -111,7 +134,7 @@ func getClientState(spec environs.CloudSpec, ecfg *environConfig, options ...cli
 		newCreds := &cred
 		newCreds.URL = authOption.Endpoint
 
-		newClientV3, err := getClientByAuthModel(identity.AuthUserPassV3, *newCreds, spec, ecfg, options...)
+		newClientV3, err := c.getClientByAuthMode(identity.AuthUserPassV3, *newCreds, options...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -125,13 +148,13 @@ func getClientState(spec environs.CloudSpec, ecfg *environConfig, options ...cli
 	return newClient, nil
 }
 
-// getClientByAuthModel creates a new client for the given AuthMode.
-func getClientByAuthModel(authMode identity.AuthMode, cred identity.Credentials, spec environs.CloudSpec, ecfg *environConfig, options ...client.Option) (client.AuthenticatingClient, error) {
+// getClientByAuthMode creates a new client for the given AuthMode.
+func (c *ClientFactory) getClientByAuthMode(authMode identity.AuthMode, cred identity.Credentials, options ...client.Option) (client.AuthenticatingClient, error) {
 	gooseLogger := gooselogging.LoggoLogger{
 		Logger: loggo.GetLogger("goose"),
 	}
 
-	newClient, err := newClientByType(cred, authMode, gooseLogger, ecfg.SSLHostnameVerification(), spec.CACertificates, options...)
+	newClient, err := c.clientFunc(cred, authMode, gooseLogger, c.sslHostnameConfig.SSLHostnameVerification(), c.spec.CACertificates, options...)
 	if err != nil {
 		return nil, errors.NewNotValid(err, "cannot create a new client")
 	}
