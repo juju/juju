@@ -21497,6 +21497,28 @@
                         }
                     }
                 },
+                "SetState": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SetUnitStateArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
+                "State": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/UnitStateResults"
+                        }
+                    }
+                },
                 "WatchMeterStatus": {
                     "type": "object",
                     "properties": {
@@ -21562,6 +21584,30 @@
                         "code"
                     ]
                 },
+                "ErrorResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "ErrorResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ErrorResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
                 "MeterStatusResult": {
                     "type": "object",
                     "properties": {
@@ -21618,6 +21664,107 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/NotifyWatchResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "SetUnitStateArg": {
+                    "type": "object",
+                    "properties": {
+                        "meter-status-state": {
+                            "type": "string"
+                        },
+                        "relation-state": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "state": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "storage-state": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        },
+                        "uniter-state": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
+                    ]
+                },
+                "SetUnitStateArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SetUnitStateArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
+                },
+                "UnitStateResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "meter-status-state": {
+                            "type": "string"
+                        },
+                        "relation-state": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "state": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "storage-state": {
+                            "type": "string"
+                        },
+                        "uniter-state": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "UnitStateResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/UnitStateResult"
                             }
                         }
                     },
@@ -38006,6 +38153,9 @@
                 "SetUnitStateArg": {
                     "type": "object",
                     "properties": {
+                        "meter-status-state": {
+                            "type": "string"
+                        },
                         "relation-state": {
                             "type": "object",
                             "patternProperties": {
@@ -38481,6 +38631,9 @@
                     "properties": {
                         "error": {
                             "$ref": "#/definitions/Error"
+                        },
+                        "meter-status-state": {
+                            "type": "string"
                         },
                         "relation-state": {
                             "type": "object",
@@ -39152,6 +39305,9 @@
                 "SetUnitStateArg": {
                     "type": "object",
                     "properties": {
+                        "meter-status-state": {
+                            "type": "string"
+                        },
                         "relation-state": {
                             "type": "object",
                             "patternProperties": {
