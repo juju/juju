@@ -1094,7 +1094,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	// ensure any other charm changes (eg storage) are acted on.
 	if ctx.modelType == model.CAAS && (ctx.podSpecYaml != nil || ctx.k8sRawSpecYaml != nil || process == string(hooks.UpgradeCharm)) {
 		if ctx.podSpecYaml != nil && ctx.k8sRawSpecYaml != nil {
-			return errors.NewForbidden(nil, "either k8s-spec-set or k8s-raw-set can be run")
+			return errors.NewForbidden(nil, "either k8s-spec-set or k8s-raw-set can be run for each application")
 		}
 
 		isLeader, err := ctx.IsLeader()
