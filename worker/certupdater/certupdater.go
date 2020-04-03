@@ -12,7 +12,6 @@ import (
 	"github.com/juju/utils/cert"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
@@ -51,12 +50,12 @@ type ControllerConfigGetter interface {
 // StateServingInfoGetter is an interface that is provided to NewCertificateUpdater
 // whose StateServingInfo method will be invoked to get state serving info.
 type StateServingInfoGetter interface {
-	StateServingInfo() (params.StateServingInfo, bool)
+	StateServingInfo() (controller.StateServingInfo, bool)
 }
 
 // StateServingInfoSetter defines a function that is called to set a
 // StateServingInfo value with a newly generated certificate.
-type StateServingInfoSetter func(info params.StateServingInfo) error
+type StateServingInfoSetter func(info controller.StateServingInfo) error
 
 // APIHostPortsGetter is an interface that is provided to NewCertificateUpdater.
 // It returns all known API addresses.

@@ -17,6 +17,7 @@ import (
 	apiagent "github.com/juju/juju/api/agent"
 	apiserveragent "github.com/juju/juju/apiserver/facades/agent/agent"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/juju/testing"
@@ -40,19 +41,12 @@ var _ = gc.Suite(&servingInfoSuite{})
 func (s *servingInfoSuite) TestStateServingInfo(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 
-	ssi := state.StateServingInfo{
+	ssi := controller.StateServingInfo{
 		PrivateKey:   "some key",
 		Cert:         "Some cert",
 		SharedSecret: "really, really secret",
 		APIPort:      33,
 		StatePort:    44,
-	}
-	expected := params.StateServingInfo{
-		PrivateKey:   ssi.PrivateKey,
-		Cert:         ssi.Cert,
-		SharedSecret: ssi.SharedSecret,
-		APIPort:      ssi.APIPort,
-		StatePort:    ssi.StatePort,
 	}
 	err := s.State.SetStateServingInfo(ssi)
 	c.Assert(err, jc.ErrorIsNil)
@@ -60,7 +54,7 @@ func (s *servingInfoSuite) TestStateServingInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info, err := apiSt.StateServingInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, expected)
+	c.Assert(info, jc.DeepEquals, ssi)
 }
 
 func (s *servingInfoSuite) TestStateServingInfoPermission(c *gc.C) {

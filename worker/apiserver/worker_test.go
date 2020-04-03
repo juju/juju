@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/agent"
 	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
@@ -49,7 +49,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.agentConfig = mockAgentConfig{
 		dataDir: c.MkDir(),
 		logDir:  c.MkDir(),
-		info: &params.StateServingInfo{
+		info: &controller.StateServingInfo{
 			APIPort: 0, // listen on any port
 		},
 	}

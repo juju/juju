@@ -9,8 +9,8 @@ import (
 	instancemutater "github.com/juju/juju/api/instancemutater"
 	environs "github.com/juju/juju/environs"
 	instancemutater0 "github.com/juju/juju/worker/instancemutater"
-	names "gopkg.in/juju/names.v3"
-	worker "gopkg.in/juju/worker.v1"
+	names_v3 "gopkg.in/juju/names.v3"
+	worker_v1 "gopkg.in/juju/worker.v1"
 	reflect "reflect"
 )
 
@@ -39,19 +39,16 @@ func (m *MockMutaterContext) EXPECT() *MockMutaterContextMockRecorder {
 
 // KillWithError mocks base method
 func (m *MockMutaterContext) KillWithError(arg0 error) {
-	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "KillWithError", arg0)
 }
 
 // KillWithError indicates an expected call of KillWithError
 func (mr *MockMutaterContextMockRecorder) KillWithError(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KillWithError", reflect.TypeOf((*MockMutaterContext)(nil).KillWithError), arg0)
 }
 
 // add mocks base method
-func (m *MockMutaterContext) add(arg0 worker.Worker) error {
-	m.ctrl.T.Helper()
+func (m *MockMutaterContext) add(arg0 worker_v1.Worker) error {
 	ret := m.ctrl.Call(m, "add", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -59,13 +56,11 @@ func (m *MockMutaterContext) add(arg0 worker.Worker) error {
 
 // add indicates an expected call of add
 func (mr *MockMutaterContextMockRecorder) add(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "add", reflect.TypeOf((*MockMutaterContext)(nil).add), arg0)
 }
 
 // dying mocks base method
 func (m *MockMutaterContext) dying() <-chan struct{} {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "dying")
 	ret0, _ := ret[0].(<-chan struct{})
 	return ret0
@@ -73,13 +68,11 @@ func (m *MockMutaterContext) dying() <-chan struct{} {
 
 // dying indicates an expected call of dying
 func (mr *MockMutaterContextMockRecorder) dying() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "dying", reflect.TypeOf((*MockMutaterContext)(nil).dying))
 }
 
 // errDying mocks base method
 func (m *MockMutaterContext) errDying() error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "errDying")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -87,13 +80,11 @@ func (m *MockMutaterContext) errDying() error {
 
 // errDying indicates an expected call of errDying
 func (mr *MockMutaterContextMockRecorder) errDying() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "errDying", reflect.TypeOf((*MockMutaterContext)(nil).errDying))
 }
 
 // getBroker mocks base method
 func (m *MockMutaterContext) getBroker() environs.LXDProfiler {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "getBroker")
 	ret0, _ := ret[0].(environs.LXDProfiler)
 	return ret0
@@ -101,13 +92,11 @@ func (m *MockMutaterContext) getBroker() environs.LXDProfiler {
 
 // getBroker indicates an expected call of getBroker
 func (mr *MockMutaterContextMockRecorder) getBroker() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "getBroker", reflect.TypeOf((*MockMutaterContext)(nil).getBroker))
 }
 
 // getMachine mocks base method
-func (m *MockMutaterContext) getMachine(arg0 names.MachineTag) (instancemutater.MutaterMachine, error) {
-	m.ctrl.T.Helper()
+func (m *MockMutaterContext) getMachine(arg0 names_v3.MachineTag) (instancemutater.MutaterMachine, error) {
 	ret := m.ctrl.Call(m, "getMachine", arg0)
 	ret0, _ := ret[0].(instancemutater.MutaterMachine)
 	ret1, _ := ret[1].(error)
@@ -116,13 +105,11 @@ func (m *MockMutaterContext) getMachine(arg0 names.MachineTag) (instancemutater.
 
 // getMachine indicates an expected call of getMachine
 func (mr *MockMutaterContextMockRecorder) getMachine(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "getMachine", reflect.TypeOf((*MockMutaterContext)(nil).getMachine), arg0)
 }
 
 // getRequiredLXDProfiles mocks base method
 func (m *MockMutaterContext) getRequiredLXDProfiles(arg0 string) []string {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "getRequiredLXDProfiles", arg0)
 	ret0, _ := ret[0].([]string)
 	return ret0
@@ -130,13 +117,11 @@ func (m *MockMutaterContext) getRequiredLXDProfiles(arg0 string) []string {
 
 // getRequiredLXDProfiles indicates an expected call of getRequiredLXDProfiles
 func (mr *MockMutaterContextMockRecorder) getRequiredLXDProfiles(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "getRequiredLXDProfiles", reflect.TypeOf((*MockMutaterContext)(nil).getRequiredLXDProfiles), arg0)
 }
 
 // newMachineContext mocks base method
 func (m *MockMutaterContext) newMachineContext() instancemutater0.MachineContext {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "newMachineContext")
 	ret0, _ := ret[0].(instancemutater0.MachineContext)
 	return ret0
@@ -144,6 +129,5 @@ func (m *MockMutaterContext) newMachineContext() instancemutater0.MachineContext
 
 // newMachineContext indicates an expected call of newMachineContext
 func (mr *MockMutaterContextMockRecorder) newMachineContext() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "newMachineContext", reflect.TypeOf((*MockMutaterContext)(nil).newMachineContext))
 }

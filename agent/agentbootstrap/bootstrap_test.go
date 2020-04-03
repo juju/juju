@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller"
@@ -105,7 +104,7 @@ LXC_BRIDGE="ignored"`[1:])
 		Controller:        testing.ControllerTag,
 		Model:             testing.ModelTag,
 	}
-	servingInfo := params.StateServingInfo{
+	servingInfo := controller.StateServingInfo{
 		Cert:           testing.ServerCert,
 		PrivateKey:     testing.ServerKey,
 		CAPrivateKey:   testing.CAKey,
@@ -302,7 +301,7 @@ LXC_BRIDGE="ignored"`[1:])
 	// Check that the state serving info is initialised correctly.
 	stateServingInfo, err := st.StateServingInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateServingInfo, jc.DeepEquals, state.StateServingInfo{
+	c.Assert(stateServingInfo, jc.DeepEquals, controller.StateServingInfo{
 		APIPort:        1234,
 		StatePort:      s.mgoInst.Port(),
 		Cert:           testing.ServerCert,
@@ -393,7 +392,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, jc.ErrorIsNil)
-	cfg.SetStateServingInfo(params.StateServingInfo{
+	cfg.SetStateServingInfo(controller.StateServingInfo{
 		APIPort:        5555,
 		StatePort:      s.mgoInst.Port(),
 		Cert:           "foo",

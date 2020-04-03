@@ -638,10 +638,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the controller store has the controller api endpoint address set
-	controller, err := s.ControllerStore.ControllerByName(ControllerName)
+	ctrl, err := s.ControllerStore.ControllerByName(ControllerName)
 	c.Assert(err, jc.ErrorIsNil)
-	controller.APIEndpoints = []string{s.APIState.APIHostPorts()[0][0].String()}
-	err = s.ControllerStore.UpdateController(ControllerName, *controller)
+	ctrl.APIEndpoints = []string{s.APIState.APIHostPorts()[0][0].String()}
+	err = s.ControllerStore.UpdateController(ControllerName, *ctrl)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.ControllerStore.SetCurrentController(ControllerName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -649,7 +649,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.Environ = environ
 
 	// Insert expected values...
-	servingInfo := state.StateServingInfo{
+	servingInfo := controller.StateServingInfo{
 		PrivateKey:   testing.ServerKey,
 		Cert:         testing.ServerCert,
 		CAPrivateKey: testing.CAKey,

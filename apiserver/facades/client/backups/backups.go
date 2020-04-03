@@ -35,7 +35,7 @@ type Backend interface {
 	ControllerTag() names.ControllerTag
 	ModelConfig() (*config.Config, error)
 	ControllerConfig() (controller.Config, error)
-	StateServingInfo() (state.StateServingInfo, error)
+	StateServingInfo() (controller.StateServingInfo, error)
 	RestoreInfo() *state.RestoreInfo
 	ControllerNodes() ([]state.ControllerNode, error)
 }

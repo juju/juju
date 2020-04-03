@@ -32,12 +32,11 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -317,7 +316,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []model.MachineJob, 
 			agent.MongoOplogSize: s.mongoOplogSize,
 		},
 	}
-	servingInfo := params.StateServingInfo{
+	servingInfo := controller.StateServingInfo{
 		Cert:         "some cert",
 		PrivateKey:   "some key",
 		CAPrivateKey: "another key",
@@ -360,8 +359,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(len(servingInfo.SystemIdentity), gc.Not(gc.Equals), 0)
 	servingInfo.SharedSecret = ""
 	servingInfo.SystemIdentity = ""
-	expect := cmdutil.ParamsStateServingInfoToStateStateServingInfo(expectInfo)
-	c.Assert(servingInfo, jc.DeepEquals, expect)
+	c.Assert(servingInfo, jc.DeepEquals, expectInfo)
 	expectDialAddrs := []string{fmt.Sprintf("localhost:%d", expectInfo.StatePort)}
 	gotDialAddrs := s.fakeEnsureMongo.InitiateParams.DialInfo.Addrs
 	c.Assert(gotDialAddrs, gc.DeepEquals, expectDialAddrs)

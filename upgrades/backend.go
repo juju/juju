@@ -22,7 +22,7 @@ import (
 // StateBackend provides an interface for upgrading the global state database.
 type StateBackend interface {
 	ControllerUUID() string
-	StateServingInfo() (state.StateServingInfo, error)
+	StateServingInfo() (controller.StateServingInfo, error)
 	ControllerConfig() (controller.Config, error)
 	LeaseNotifyTarget(io.Writer, raftleasestore.Logger) raftlease.NotifyTarget
 
@@ -101,7 +101,7 @@ func (s stateBackend) ControllerUUID() string {
 	return s.pool.SystemState().ControllerUUID()
 }
 
-func (s stateBackend) StateServingInfo() (state.StateServingInfo, error) {
+func (s stateBackend) StateServingInfo() (controller.StateServingInfo, error) {
 	return s.pool.SystemState().StateServingInfo()
 }
 

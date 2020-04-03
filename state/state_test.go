@@ -31,6 +31,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -4075,7 +4076,7 @@ func (s *StateSuite) TestStateServingInfo(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "state serving info not found")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	data := state.StateServingInfo{
+	data := controller.StateServingInfo{
 		APIPort:      69,
 		StatePort:    80,
 		Cert:         "Some cert",

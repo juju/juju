@@ -14,9 +14,9 @@ import (
 	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/testing"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apicaller"
@@ -1121,7 +1121,7 @@ type mockConfig struct {
 	agent.ConfigSetter
 	tag      names.Tag
 	ssiSet   bool
-	ssi      params.StateServingInfo
+	ssi      controller.StateServingInfo
 	dataPath string
 }
 
@@ -1136,11 +1136,11 @@ func (mc *mockConfig) Controller() names.ControllerTag {
 	return testing.ControllerTag
 }
 
-func (mc *mockConfig) StateServingInfo() (params.StateServingInfo, bool) {
+func (mc *mockConfig) StateServingInfo() (controller.StateServingInfo, bool) {
 	return mc.ssi, mc.ssiSet
 }
 
-func (mc *mockConfig) SetStateServingInfo(info params.StateServingInfo) {
+func (mc *mockConfig) SetStateServingInfo(info controller.StateServingInfo) {
 	mc.ssiSet = true
 	mc.ssi = info
 }

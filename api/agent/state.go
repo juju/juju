@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -60,10 +61,22 @@ func (st *State) getEntity(tag names.Tag) (*params.AgentGetEntitiesResult, error
 	return &results.Entities[0], nil
 }
 
-func (st *State) StateServingInfo() (params.StateServingInfo, error) {
+func (st *State) StateServingInfo() (controller.StateServingInfo, error) {
 	var results params.StateServingInfo
 	err := st.facade.FacadeCall("StateServingInfo", nil, &results)
-	return results, err
+	if err != nil {
+		return controller.StateServingInfo{}, errors.Trace(err)
+	}
+	return controller.StateServingInfo{
+		APIPort:           results.APIPort,
+		ControllerAPIPort: results.ControllerAPIPort,
+		StatePort:         results.StatePort,
+		Cert:              results.Cert,
+		PrivateKey:        results.PrivateKey,
+		CAPrivateKey:      results.CAPrivateKey,
+		SharedSecret:      results.SharedSecret,
+		SystemIdentity:    results.SystemIdentity,
+	}, nil
 }
 
 // IsMaster reports whether the connected machine

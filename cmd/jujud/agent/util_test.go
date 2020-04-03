@@ -164,8 +164,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 		agentConfig, tools = s.PrimeStateAgentVersion(c, tag, initialMachinePassword, vers)
 		info, ok := agentConfig.StateServingInfo()
 		c.Assert(ok, jc.IsTrue)
-		ssi := cmdutil.ParamsStateServingInfoToStateStateServingInfo(info)
-		err = s.State.SetStateServingInfo(ssi)
+		err = s.State.SetStateServingInfo(info)
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		agentConfig, tools = s.PrimeAgentVersion(c, tag, initialMachinePassword, vers)

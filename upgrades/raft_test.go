@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/state"
 	raftleasestore "github.com/juju/juju/state/raftlease"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
@@ -108,7 +107,7 @@ func makeContext(dataDir string) *mockContext {
 				Tags:    map[string]string{"juju-machine-id": "7"},
 				Votes:   &noVotes,
 			}},
-			info: state.StateServingInfo{APIPort: 1234},
+			info: controller.StateServingInfo{APIPort: 1234},
 		},
 	}
 }
@@ -179,7 +178,7 @@ func (s *raftSuite) TestMigrateLegacyLeases(c *gc.C) {
 				Address: "somewhere.else:37012",
 				Tags:    map[string]string{"juju-machine-id": "42"},
 			}},
-			info: state.StateServingInfo{APIPort: 1234},
+			info: controller.StateServingInfo{APIPort: 1234},
 		},
 	}
 	err := upgrades.BootstrapRaft(context)
@@ -285,7 +284,7 @@ func (s *raftSuite) TestIgnoresBlankLeaseOrHolder(c *gc.C) {
 				Address: "somewhere.else:37012",
 				Tags:    map[string]string{"juju-machine-id": "42"},
 			}},
-			info: state.StateServingInfo{APIPort: 1234},
+			info: controller.StateServingInfo{APIPort: 1234},
 		},
 	}
 	err := upgrades.BootstrapRaft(context)
@@ -364,7 +363,7 @@ func (s *raftSuite) TestMigrateLegacyLeasesWithSnapshotAndLogs(c *gc.C) {
 				Address: "somewhere.else:37012",
 				Tags:    map[string]string{"juju-machine-id": "42"},
 			}},
-			info:   state.StateServingInfo{APIPort: 1234},
+			info:   controller.StateServingInfo{APIPort: 1234},
 			config: config,
 			leases: map[lease.Key]lease.Info{
 				{"nonagon", "m1", "gamma"}: {
@@ -467,7 +466,7 @@ func (s *raftSuite) TestMigrateLegacyLeasesBootstrapsIfNeeded(c *gc.C) {
 				Address: "somewhere.else:37012",
 				Tags:    map[string]string{"juju-machine-id": "42"},
 			}},
-			info:   state.StateServingInfo{APIPort: 1234},
+			info:   controller.StateServingInfo{APIPort: 1234},
 			config: config,
 			leases: map[lease.Key]lease.Info{
 				{"nonagon", "m1", "gamma"}: {
@@ -518,7 +517,7 @@ type mockState struct {
 	upgrades.StateBackend
 	stub    testing.Stub
 	members []replicaset.Member
-	info    state.StateServingInfo
+	info    controller.StateServingInfo
 	config  controller.Config
 	leases  map[lease.Key]lease.Info
 	target  *mockTarget
@@ -528,7 +527,7 @@ func (s *mockState) ReplicaSetMembers() ([]replicaset.Member, error) {
 	return s.members, s.stub.NextErr()
 }
 
-func (s *mockState) StateServingInfo() (state.StateServingInfo, error) {
+func (s *mockState) StateServingInfo() (controller.StateServingInfo, error) {
 	return s.info, s.stub.NextErr()
 }
 

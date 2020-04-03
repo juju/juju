@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
-	"github.com/juju/juju/apiserver/params"
 	jujucert "github.com/juju/juju/cert"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
@@ -29,7 +28,7 @@ func TestPackage(t *stdtesting.T) {
 
 type CertUpdaterSuite struct {
 	coretesting.BaseSuite
-	stateServingInfo params.StateServingInfo
+	stateServingInfo jujucontroller.StateServingInfo
 }
 
 var _ = gc.Suite(&CertUpdaterSuite{})
@@ -38,7 +37,7 @@ func (s *CertUpdaterSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&jujucert.NewLeafKeyBits, 1024)
 
-	s.stateServingInfo = params.StateServingInfo{
+	s.stateServingInfo = jujucontroller.StateServingInfo{
 		Cert:         coretesting.ServerCert,
 		PrivateKey:   coretesting.ServerKey,
 		CAPrivateKey: coretesting.CAKey,
@@ -85,7 +84,7 @@ func (m *mockMachine) Addresses() (addresses network.SpaceAddresses) {
 	return network.NewSpaceAddresses("0.1.2.3")
 }
 
-func (s *CertUpdaterSuite) StateServingInfo() (params.StateServingInfo, bool) {
+func (s *CertUpdaterSuite) StateServingInfo() (jujucontroller.StateServingInfo, bool) {
 	return s.stateServingInfo, true
 }
 
@@ -108,7 +107,7 @@ func (g *mockAPIHostGetter) APIHostPortsForClients() ([]network.SpaceHostPorts, 
 
 func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 	var initialAddresses []string
-	setter := func(info params.StateServingInfo) error {
+	setter := func(info jujucontroller.StateServingInfo) error {
 		// Only care about first time called.
 		if len(initialAddresses) > 0 {
 			return nil
@@ -137,7 +136,7 @@ func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 	var srvCert *x509.Certificate
 	updated := make(chan struct{})
-	setter := func(info params.StateServingInfo) error {
+	setter := func(info jujucontroller.StateServingInfo) error {
 		s.stateServingInfo = info
 		var err error
 		srvCert, err = cert.ParseCert(info.Cert)
@@ -180,8 +179,8 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 
 type mockStateServingGetterNoCAKey struct{}
 
-func (g *mockStateServingGetterNoCAKey) StateServingInfo() (params.StateServingInfo, bool) {
-	return params.StateServingInfo{
+func (g *mockStateServingGetterNoCAKey) StateServingInfo() (jujucontroller.StateServingInfo, bool) {
+	return jujucontroller.StateServingInfo{
 		Cert:       coretesting.ServerCert,
 		PrivateKey: coretesting.ServerKey,
 		StatePort:  123,
@@ -192,7 +191,7 @@ func (g *mockStateServingGetterNoCAKey) StateServingInfo() (params.StateServingI
 
 func (s *CertUpdaterSuite) TestAddressChangeNoCAKey(c *gc.C) {
 	updated := make(chan struct{})
-	setter := func(info params.StateServingInfo) error {
+	setter := func(info jujucontroller.StateServingInfo) error {
 		close(updated)
 		return nil
 	}

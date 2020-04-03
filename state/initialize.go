@@ -247,7 +247,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 			C:      controllersC,
 			Id:     stateServingInfoKey,
 			Assert: txn.DocMissing,
-			Insert: &StateServingInfo{},
+			Insert: &stateServingInfo{},
 		},
 		txn.Op{
 			C:      controllersC,

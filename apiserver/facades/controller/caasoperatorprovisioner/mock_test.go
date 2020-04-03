@@ -79,9 +79,9 @@ func (st *mockState) Model() (caasoperatorprovisioner.Model, error) {
 	return st.model, nil
 }
 
-func (st *mockState) StateServingInfo() (state.StateServingInfo, error) {
+func (st *mockState) StateServingInfo() (controller.StateServingInfo, error) {
 	st.MethodCall(st, "StateServingInfo")
-	return state.StateServingInfo{
+	return controller.StateServingInfo{
 		CAPrivateKey: coretesting.CAKey,
 	}, nil
 }

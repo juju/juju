@@ -18,7 +18,7 @@ import (
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiservercertwatcher"
 )
@@ -39,7 +39,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.agent = &mockAgent{
 		conf: mockConfig{
-			info: &params.StateServingInfo{
+			info: &controller.StateServingInfo{
 				Cert:       coretesting.ServerCert,
 				PrivateKey: coretesting.ServerKey,
 			},
@@ -184,7 +184,7 @@ type mockConfig struct {
 	agent.Config
 
 	mu     sync.Mutex
-	info   *params.StateServingInfo
+	info   *controller.StateServingInfo
 	addrs  []string
 	caCert string
 }
@@ -193,7 +193,7 @@ func (mc *mockConfig) setCert(cert, key string) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 	if mc.info == nil {
-		mc.info = &params.StateServingInfo{}
+		mc.info = &controller.StateServingInfo{}
 	}
 	mc.info.Cert = cert
 	mc.info.PrivateKey = key
@@ -211,11 +211,11 @@ func (mc *mockConfig) CACert() string {
 	return mc.caCert
 }
 
-func (mc *mockConfig) StateServingInfo() (params.StateServingInfo, bool) {
+func (mc *mockConfig) StateServingInfo() (controller.StateServingInfo, bool) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 	if mc.info != nil {
 		return *mc.info, true
 	}
-	return params.StateServingInfo{}, false
+	return controller.StateServingInfo{}, false
 }

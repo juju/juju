@@ -11,7 +11,7 @@ import (
 	environs "github.com/juju/juju/environs"
 	context "github.com/juju/juju/environs/context"
 	instances "github.com/juju/juju/environs/instances"
-	charm "gopkg.in/juju/charm.v6"
+	charm_v6 "gopkg.in/juju/charm.v6"
 	reflect "reflect"
 )
 
@@ -40,7 +40,6 @@ func (m *MockLXDProfiler) EXPECT() *MockLXDProfilerMockRecorder {
 
 // AssignLXDProfiles mocks base method
 func (m *MockLXDProfiler) AssignLXDProfiles(arg0 string, arg1 []string, arg2 []lxdprofile.ProfilePost) ([]string, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AssignLXDProfiles", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
@@ -49,13 +48,11 @@ func (m *MockLXDProfiler) AssignLXDProfiles(arg0 string, arg1 []string, arg2 []l
 
 // AssignLXDProfiles indicates an expected call of AssignLXDProfiles
 func (mr *MockLXDProfilerMockRecorder) AssignLXDProfiles(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignLXDProfiles", reflect.TypeOf((*MockLXDProfiler)(nil).AssignLXDProfiles), arg0, arg1, arg2)
 }
 
 // LXDProfileNames mocks base method
 func (m *MockLXDProfiler) LXDProfileNames(arg0 string) ([]string, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LXDProfileNames", arg0)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
@@ -64,13 +61,11 @@ func (m *MockLXDProfiler) LXDProfileNames(arg0 string) ([]string, error) {
 
 // LXDProfileNames indicates an expected call of LXDProfileNames
 func (mr *MockLXDProfilerMockRecorder) LXDProfileNames(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfileNames", reflect.TypeOf((*MockLXDProfiler)(nil).LXDProfileNames), arg0)
 }
 
 // MaybeWriteLXDProfile mocks base method
-func (m *MockLXDProfiler) MaybeWriteLXDProfile(arg0 string, arg1 *charm.LXDProfile) error {
-	m.ctrl.T.Helper()
+func (m *MockLXDProfiler) MaybeWriteLXDProfile(arg0 string, arg1 *charm_v6.LXDProfile) error {
 	ret := m.ctrl.Call(m, "MaybeWriteLXDProfile", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -78,7 +73,6 @@ func (m *MockLXDProfiler) MaybeWriteLXDProfile(arg0 string, arg1 *charm.LXDProfi
 
 // MaybeWriteLXDProfile indicates an expected call of MaybeWriteLXDProfile
 func (mr *MockLXDProfilerMockRecorder) MaybeWriteLXDProfile(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MaybeWriteLXDProfile", reflect.TypeOf((*MockLXDProfiler)(nil).MaybeWriteLXDProfile), arg0, arg1)
 }
 
@@ -107,7 +101,6 @@ func (m *MockInstanceBroker) EXPECT() *MockInstanceBrokerMockRecorder {
 
 // AllInstances mocks base method
 func (m *MockInstanceBroker) AllInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllInstances", arg0)
 	ret0, _ := ret[0].([]instances.Instance)
 	ret1, _ := ret[1].(error)
@@ -116,13 +109,11 @@ func (m *MockInstanceBroker) AllInstances(arg0 context.ProviderCallContext) ([]i
 
 // AllInstances indicates an expected call of AllInstances
 func (mr *MockInstanceBrokerMockRecorder) AllInstances(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllInstances", reflect.TypeOf((*MockInstanceBroker)(nil).AllInstances), arg0)
 }
 
 // AllRunningInstances mocks base method
 func (m *MockInstanceBroker) AllRunningInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllRunningInstances", arg0)
 	ret0, _ := ret[0].([]instances.Instance)
 	ret1, _ := ret[1].(error)
@@ -131,13 +122,11 @@ func (m *MockInstanceBroker) AllRunningInstances(arg0 context.ProviderCallContex
 
 // AllRunningInstances indicates an expected call of AllRunningInstances
 func (mr *MockInstanceBrokerMockRecorder) AllRunningInstances(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRunningInstances", reflect.TypeOf((*MockInstanceBroker)(nil).AllRunningInstances), arg0)
 }
 
 // MaintainInstance mocks base method
 func (m *MockInstanceBroker) MaintainInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MaintainInstance", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -145,13 +134,11 @@ func (m *MockInstanceBroker) MaintainInstance(arg0 context.ProviderCallContext, 
 
 // MaintainInstance indicates an expected call of MaintainInstance
 func (mr *MockInstanceBrokerMockRecorder) MaintainInstance(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MaintainInstance", reflect.TypeOf((*MockInstanceBroker)(nil).MaintainInstance), arg0, arg1)
 }
 
 // StartInstance mocks base method
 func (m *MockInstanceBroker) StartInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartInstance", arg0, arg1)
 	ret0, _ := ret[0].(*environs.StartInstanceResult)
 	ret1, _ := ret[1].(error)
@@ -160,13 +147,11 @@ func (m *MockInstanceBroker) StartInstance(arg0 context.ProviderCallContext, arg
 
 // StartInstance indicates an expected call of StartInstance
 func (mr *MockInstanceBrokerMockRecorder) StartInstance(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartInstance", reflect.TypeOf((*MockInstanceBroker)(nil).StartInstance), arg0, arg1)
 }
 
 // StopInstances mocks base method
 func (m *MockInstanceBroker) StopInstances(arg0 context.ProviderCallContext, arg1 ...instance.Id) error {
-	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
@@ -178,7 +163,6 @@ func (m *MockInstanceBroker) StopInstances(arg0 context.ProviderCallContext, arg
 
 // StopInstances indicates an expected call of StopInstances
 func (mr *MockInstanceBrokerMockRecorder) StopInstances(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopInstances", reflect.TypeOf((*MockInstanceBroker)(nil).StopInstances), varargs...)
 }

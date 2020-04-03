@@ -245,24 +245,43 @@ func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 
 const stateServingInfoKey = "stateServingInfo"
 
+type stateServingInfo struct {
+	APIPort      int    `bson:"apiport"`
+	StatePort    int    `bson:"stateport"`
+	Cert         string `bson:"cert"`
+	PrivateKey   string `bson:"privatekey"`
+	CAPrivateKey string `bson:"caprivatekey"`
+	// this will be passed as the KeyFile argument to MongoDB
+	SharedSecret   string `bson:"sharedsecret"`
+	SystemIdentity string `bson:"systemidentity"`
+}
+
 // StateServingInfo returns information for running a controller machine
-func (st *State) StateServingInfo() (StateServingInfo, error) {
+func (st *State) StateServingInfo() (jujucontroller.StateServingInfo, error) {
 	controllers, closer := st.db().GetCollection(controllersC)
 	defer closer()
 
-	var info StateServingInfo
+	var info stateServingInfo
 	err := controllers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
 	if err != nil {
-		return info, errors.Trace(err)
+		return jujucontroller.StateServingInfo{}, errors.Trace(err)
 	}
 	if info.StatePort == 0 {
-		return StateServingInfo{}, errors.NotFoundf("state serving info")
+		return jujucontroller.StateServingInfo{}, errors.NotFoundf("state serving info")
 	}
-	return info, nil
+	return jujucontroller.StateServingInfo{
+		APIPort:        info.APIPort,
+		StatePort:      info.StatePort,
+		Cert:           info.Cert,
+		PrivateKey:     info.PrivateKey,
+		CAPrivateKey:   info.CAPrivateKey,
+		SharedSecret:   info.SharedSecret,
+		SystemIdentity: info.SystemIdentity,
+	}, nil
 }
 
 // SetStateServingInfo stores information needed for running a controller
-func (st *State) SetStateServingInfo(info StateServingInfo) error {
+func (st *State) SetStateServingInfo(info jujucontroller.StateServingInfo) error {
 	if info.StatePort == 0 || info.APIPort == 0 ||
 		info.Cert == "" || info.PrivateKey == "" {
 		return errors.Errorf("incomplete state serving info set in state")
@@ -276,9 +295,17 @@ func (st *State) SetStateServingInfo(info StateServingInfo) error {
 		logger.Warningf("state serving info has no CA certificate key")
 	}
 	ops := []txn.Op{{
-		C:      controllersC,
-		Id:     stateServingInfoKey,
-		Update: bson.D{{"$set", info}},
+		C:  controllersC,
+		Id: stateServingInfoKey,
+		Update: bson.D{{"$set", stateServingInfo{
+			APIPort:        info.APIPort,
+			StatePort:      info.StatePort,
+			Cert:           info.Cert,
+			PrivateKey:     info.PrivateKey,
+			CAPrivateKey:   info.CAPrivateKey,
+			SharedSecret:   info.SharedSecret,
+			SystemIdentity: info.SystemIdentity,
+		}}},
 	}}
 	if err := st.db().RunTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set state serving info")

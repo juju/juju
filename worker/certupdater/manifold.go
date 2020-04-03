@@ -9,7 +9,7 @@ import (
 	"gopkg.in/juju/worker.v1/dependency"
 
 	jujuagent "github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
@@ -73,7 +73,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	agentConfig := agent.CurrentConfig()
-	setStateServingInfo := func(info params.StateServingInfo) error {
+	setStateServingInfo := func(info controller.StateServingInfo) error {
 		return agent.ChangeConfig(func(config jujuagent.ConfigSetter) error {
 			config.SetStateServingInfo(info)
 			return nil

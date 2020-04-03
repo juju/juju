@@ -34,7 +34,6 @@ func (m *MockContext) EXPECT() *MockContextMockRecorder {
 
 // Abort mocks base method
 func (m *MockContext) Abort() <-chan struct{} {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Abort")
 	ret0, _ := ret[0].(<-chan struct{})
 	return ret0
@@ -42,13 +41,11 @@ func (m *MockContext) Abort() <-chan struct{} {
 
 // Abort indicates an expected call of Abort
 func (mr *MockContextMockRecorder) Abort() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Abort", reflect.TypeOf((*MockContext)(nil).Abort))
 }
 
 // Get mocks base method
 func (m *MockContext) Get(arg0 string, arg1 interface{}) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -56,6 +53,5 @@ func (m *MockContext) Get(arg0 string, arg1 interface{}) error {
 
 // Get indicates an expected call of Get
 func (mr *MockContextMockRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockContext)(nil).Get), arg0, arg1)
 }
