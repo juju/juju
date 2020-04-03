@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
@@ -29,7 +30,6 @@ import (
 	"gopkg.in/goose.v2/client"
 	gooseerrors "gopkg.in/goose.v2/errors"
 	"gopkg.in/goose.v2/identity"
-	gooselogging "gopkg.in/goose.v2/logging"
 	"gopkg.in/goose.v2/neutron"
 	"gopkg.in/goose.v2/nova"
 	"gopkg.in/juju/names.v3"
@@ -847,74 +847,6 @@ func newCredentials(spec environs.CloudSpec) (identity.Credentials, identity.Aut
 	return cred, authMode, nil
 }
 
-func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.AuthenticatingClient, error) {
-	identityClientVersion, err := identityClientVersion(spec.Endpoint)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot create a client")
-	}
-	cred, authMode, err := newCredentials(spec)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot create credential")
-	}
-	gooseLogger := gooselogging.LoggoLogger{loggo.GetLogger("goose")}
-
-	cl, _ := newClientByType(cred, authMode, gooseLogger, ecfg.SSLHostnameVerification(), spec.CACertificates)
-
-	// before returning, lets make sure that we want to have AuthMode
-	// AuthUserPass instead of its V3 counterpart.
-	if authMode == identity.AuthUserPass && (identityClientVersion == -1 || identityClientVersion == 3) {
-		options, err := cl.IdentityAuthOptions()
-		if err != nil {
-			logger.Errorf("cannot determine available auth versions %v", err)
-		}
-		for _, option := range options {
-			if option.Mode != identity.AuthUserPassV3 {
-				continue
-			}
-			cred.URL = option.Endpoint
-			v3Cl, err := newClientByType(cred, identity.AuthUserPassV3, gooseLogger, ecfg.SSLHostnameVerification(), spec.CACertificates)
-			if err != nil {
-				return nil, err
-			}
-			// if the v3 client can authenticate, use it, otherwise fallback to the v2 client.
-			if err = v3Cl.Authenticate(); err == nil {
-				cl = v3Cl
-				break
-			}
-		}
-	}
-
-	// Juju requires "compute" at a minimum. We'll use "network" if it's
-	// available in preference to the Neutron network APIs; and "volume" or
-	// "volume2" for storage if either one is available.
-	cl.SetRequiredServiceTypes([]string{"compute"})
-	return cl, nil
-}
-
-// newClientByType returns an authenticating client to talk to the
-// OpenStack cloud.  CACertificate and SSLHostnameVerification == false
-// config options are mutually exclusive here.
-func newClientByType(
-	cred identity.Credentials,
-	authMode identity.AuthMode,
-	gooseLogger gooselogging.CompatLogger,
-	sslHostnameVerification bool,
-	certs []string,
-) (client.AuthenticatingClient, error) {
-	switch {
-	case len(certs) > 0:
-		tlsConfig := tlsConfig(certs)
-		logger.Tracef("using NewClientTLSConfig")
-		return client.NewClientTLSConfig(&cred, authMode, gooseLogger, tlsConfig), nil
-	case sslHostnameVerification == false:
-		logger.Tracef("using NewNonValidatingClient")
-		return client.NewNonValidatingClient(&cred, authMode, gooseLogger), nil
-	default:
-		logger.Tracef("using NewClient")
-		return client.NewClient(&cred, authMode, gooseLogger), nil
-	}
-}
-
 func tlsConfig(certStrs []string) *tls.Config {
 	pool := x509.NewCertPool()
 	for _, cert := range certStrs {
@@ -941,9 +873,8 @@ var authenticateClient = func(auth authenticator) error {
 				"Please ensure the credentials are correct. A common mistake is\n"+
 				"to specify the wrong tenant. Use the OpenStack project name\n"+
 				"for tenant-name in your model configuration. \n", err)
-		} else {
-			return errors.Annotate(err, "authentication failed.")
 		}
+		return errors.Annotate(err, "authentication failed.")
 	}
 	return nil
 }
@@ -971,13 +902,30 @@ func (e *Environ) SetCloudSpec(spec environs.CloudSpec) error {
 		return errors.Annotate(err, "validating cloud spec")
 	}
 	e.cloudUnlocked = spec
-	client, err := authClient(e.cloudUnlocked, e.ecfgUnlocked)
-	if err != nil {
-		return errors.Annotate(err, "cannot set config")
+
+	// Create a new client factory, that creates the clients according to the
+	// auth client version, cloudspec and configuration.
+	//
+	// In theory we should be able to create one client factory and then every
+	// time openstack wants a goose client, we should be just get one from
+	// the factory.
+	factory := NewClientFactory(spec, e.ecfgUnlocked)
+	if err := factory.Init(); err != nil {
+		return errors.Trace(err)
 	}
-	e.clientUnlocked = client
-	e.novaUnlocked = nova.New(e.clientUnlocked)
-	e.neutronUnlocked = neutron.New(e.clientUnlocked)
+	e.clientUnlocked = factory.AuthClient()
+
+	// The following uses different clients for the different openstack clients
+	// and we create them in the factory.
+	var err error
+	e.novaUnlocked, err = factory.Nova()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.neutronUnlocked, err = factory.Neutron()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -1366,6 +1314,7 @@ func (e *Environ) startInstance(
 			publicIP = fip
 			logger.Infof("allocated public IP %s", *publicIP)
 		}
+
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
 			if err := e.terminateInstances(ctx, []instance.Id{inst.Id()}); err != nil {
 				// ignore the failure at this stage, just log it
@@ -2161,18 +2110,40 @@ func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
 	}
 
 	client := e.neutron()
+	ports, err := client.ListPortsV2()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// Unfortunately we're unable to bulk delete these ports, so we have to go
 	// over them, one by one.
-	var errs []error
+	changes := set.NewStrings()
+	for _, port := range ports {
+		if !strings.HasPrefix(port.Name, fmt.Sprintf("juju-%s", e.uuid)) {
+			continue
+		}
+		changes.Add(port.Id)
+	}
+
 	for _, osInterface := range osInterfaces {
 		if osInterface.PortID == "" {
 			continue
 		}
 
+		// Ensure we created the port by first checking the name.
+		port, err := client.PortByIdV2(osInterface.PortID)
+		if err != nil || !strings.HasPrefix(port.Name, "juju-") {
+			continue
+		}
+
+		changes.Add(osInterface.PortID)
+	}
+
+	var errs []error
+	for _, change := range changes.SortedValues() {
 		// Delete a port. If we encounter an error add it to the list of errors
 		// and continue until we've exhausted all the ports to delete.
-		if err := client.DeletePortV2(osInterface.PortID); err != nil {
+		if err := client.DeletePortV2(change); err != nil {
 			errs = append(errs, err)
 			continue
 		}
