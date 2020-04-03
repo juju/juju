@@ -191,15 +191,15 @@ func (u *UnitState) StorageState() (string, bool) {
 // of the provided UnitState.
 //
 // Use this for testing, otherwise use SetStateOperation.
-func (u *Unit) SetState(unitState *UnitState) error {
-	modelOp := u.SetStateOperation(unitState)
+func (u *Unit) SetState(unitState *UnitState, limits UnitStateSizeLimits) error {
+	modelOp := u.SetStateOperation(unitState, limits)
 	return u.st.ApplyOperation(modelOp)
 }
 
 // SetStateOperation returns a ModelOperation for replacing the currently
 // stored state for a unit with the contents of the provided UnitState.
-func (u *Unit) SetStateOperation(unitState *UnitState) ModelOperation {
-	return &unitSetStateOperation{u: u, newState: unitState}
+func (u *Unit) SetStateOperation(unitState *UnitState, limits UnitStateSizeLimits) ModelOperation {
+	return &unitSetStateOperation{u: u, newState: unitState, limits: limits}
 }
 
 // State returns the persisted state for a unit.
@@ -246,4 +246,17 @@ func (u *Unit) State() (*UnitState, error) {
 	us.SetStorageState(stDoc.StorageState)
 
 	return us, nil
+}
+
+// UnitStateSizeLimits defines the quota limits that are enforced when updating
+// the state (charm and uniter) of a unit.
+type UnitStateSizeLimits struct {
+	// The maximum allowed size for the charm state. It can be set to zero
+	// to bypass the charm state quota checks.
+	// quota checks will be
+	MaxCharmStateSize int
+
+	// The maximum allowed size for the uniter's state. It can be set to
+	// zero to bypass the uniter state quota checks.
+	MaxUniterStateSize int
 }

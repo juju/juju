@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -11,6 +12,7 @@ import (
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/common"
+	srvcommon "github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -44,6 +46,24 @@ func (s *unitStateSuite) TestSetStateSingleResult(c *gc.C) {
 		State: &map[string]string{"one": "two"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitStateSuite) TestSetStateReturnsQuotaExceededError(c *gc.C) {
+	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
+	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
+		result := response.(*params.ErrorResults)
+		result.Results = []params.ErrorResult{{
+			Error: srvcommon.ServerError(errors.NewQuotaLimitExceeded(nil, "cake slice limit exceeded; try again later")),
+		}}
+		return nil
+	}
+
+	// The client should reconstruct the quota error from the server response
+	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
+	err := api.SetState(params.SetUnitStateArg{
+		State: &map[string]string{"one": "two"},
+	})
+	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded, gc.Commentf("expected the client to reconstruct QuotaLimitExceeded error from server response"))
 }
 
 func (s *unitStateSuite) TestSetStateMultipleReturnsError(c *gc.C) {

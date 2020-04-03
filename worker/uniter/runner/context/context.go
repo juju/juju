@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/quota"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/version"
@@ -339,6 +340,13 @@ func (ctx *HookContext) SetCacheValue(key, value string) error {
 	defer ctx.mu.Unlock()
 	if err := ctx.ensureStateValuesLoaded(); err != nil {
 		return err
+	}
+
+	// Enforce fixed quota limit for key/value sizes. Performing this check
+	// as early as possible allows us to provide feedback to charm authors
+	// who might be tempted to exploit this feature for storing CLOBs/BLOBs.
+	if err := quota.CheckTupleSize(key, value, quota.MaxCharmStateKeySize, quota.MaxCharmStateValueSize); err != nil {
+		return errors.Trace(err)
 	}
 
 	curValue, exists := ctx.cacheValues[key]
@@ -1107,6 +1115,14 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 		default:
 			actionStatus = params.ActionFailed
 		}
+	}
+
+	// If the action completed without an error but we failed to flush the
+	// charm state changes due to a quota limit, we should attach the error
+	// to the action.
+	if err == nil && errors.IsQuotaLimitExceeded(unhandledErr) {
+		err = unhandledErr
+		unhandledErr = nil
 	}
 
 	// If we had an action error, we'll simply encapsulate it in the response

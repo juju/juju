@@ -210,6 +210,11 @@ var errorTransformTests = []struct {
 		return true
 	},
 }, {
+	err:        errors.QuotaLimitExceededf("mailbox full"),
+	code:       params.CodeQuotaLimitExceeded,
+	status:     http.StatusInternalServerError,
+	helperFunc: params.IsCodeQuotaLimitExceeded,
+}, {
 	err:    nil,
 	code:   "",
 	status: http.StatusOK,

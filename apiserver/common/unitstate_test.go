@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -94,8 +95,21 @@ func (s *unitStateSuite) expectSetStateOperation() string {
 	expUniterState := "testing"
 	unitState.SetUniterState(expUniterState)
 
+	// Mock controller config which provides the limits passed to SetStateOperation.
+	s.mockBackend.EXPECT().ControllerConfig().Return(
+		controller.Config{
+			"max-charm-state-size":  123,
+			"max-uniter-state-size": 456,
+		}, nil)
+
 	exp := s.mockUnit.EXPECT()
-	exp.SetStateOperation(unitState).Return(s.mockOp)
+	exp.SetStateOperation(
+		unitState,
+		state.UnitStateSizeLimits{
+			MaxCharmStateSize:  123,
+			MaxUniterStateSize: 456,
+		},
+	).Return(s.mockOp)
 	return expUniterState
 }
 

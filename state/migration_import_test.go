@@ -1017,7 +1017,7 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 	c.Assert(err, jc.ErrorIsNil)
 	us := state.NewUnitState()
 	us.SetState(map[string]string{"payload": "0xb4c0ffee"})
-	err = exported.SetState(us)
+	err = exported.SetState(us, state.UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	if testModel.Type() == state.ModelTypeCAAS {

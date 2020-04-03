@@ -3329,7 +3329,13 @@ func (u *UniterAPI) CommitHookChanges(args params.CommitHookChangesArgs) (params
 			continue
 		}
 
-		res[i].Error = common.ServerError(u.commitHookChangesForOneUnit(unitTag, arg, canAccessUnit, canAccessApp))
+		if err := u.commitHookChangesForOneUnit(unitTag, arg, canAccessUnit, canAccessApp); err != nil {
+			// Log quota-related errors to aid operators
+			if errors.IsQuotaLimitExceeded(err) {
+				logger.Errorf("%s: %v", unitTag, err)
+			}
+			res[i].Error = common.ServerError(err)
+		}
 	}
 
 	return params.ErrorResults{Results: res}, nil
@@ -3337,6 +3343,11 @@ func (u *UniterAPI) CommitHookChanges(args params.CommitHookChangesArgs) (params
 
 func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes params.CommitHookChangesArg, canAccessUnit, canAccessApp common.AuthFunc) error {
 	unit, err := u.getUnit(unitTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ctrlCfg, err := u.st.ControllerConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -3412,7 +3423,13 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		if changes.SetUnitState.State != nil {
 			newUS := state.NewUnitState()
 			newUS.SetState(*changes.SetUnitState.State)
-			modelOp := unit.SetStateOperation(newUS)
+			modelOp := unit.SetStateOperation(
+				newUS,
+				state.UnitStateSizeLimits{
+					MaxCharmStateSize:  ctrlCfg.MaxCharmStateSize(),
+					MaxUniterStateSize: ctrlCfg.MaxUniterStateSize(),
+				},
+			)
 			modelOps = append(modelOps, modelOp)
 		}
 	}

@@ -310,6 +310,8 @@ func ServerError(err error) *params.Error {
 			ControllerTag:   controllerTag,
 			ControllerAlias: redirErr.ControllerAlias,
 		}.AsMap()
+	case errors.IsQuotaLimitExceeded(err):
+		code = params.CodeQuotaLimitExceeded
 	default:
 		code = params.ErrCode(err)
 	}
@@ -406,6 +408,8 @@ func RestoreError(err error) error {
 	case params.ErrCode(err) == params.CodeDischargeRequired:
 		// TODO(ericsnow) Handle DischargeRequiredError here.
 		return err
+	case params.IsCodeQuotaLimitExceeded(err):
+		return errors.NewQuotaLimitExceeded(nil, msg)
 	default:
 		return err
 	}

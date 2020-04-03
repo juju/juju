@@ -49,6 +49,10 @@ the settings as strings.  Settings in the file will be overridden
 by any duplicate key-value arguments. A value of "-" for the filename
 means <stdin>.
 
+The following fixed size limits apply:
+- Length of stored keys cannot exceed 256 bytes.
+- Length of stored values cannot exceed 65536 bytes.
+
 See also:
     state-delete
     state-get

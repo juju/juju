@@ -4,6 +4,7 @@
 package context_test
 
 import (
+	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/quota"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -649,11 +651,34 @@ func (s *mockHookContextSuite) TestGetSingleCacheValueStateErr(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
 }
 
-func (s *mockHookContextSuite) TestSetCache(c *gc.C) {
+func (s *mockHookContextSuite) TestSetCacheQuotaLimits(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
 	s.testSetCache(c)
+}
+
+func (s *mockHookContextSuite) TestSetCache(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectStateValues()
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+
+	// Test key len limit
+	err := hookContext.SetCacheValue(
+		strings.Repeat("a", quota.MaxCharmStateKeySize+1),
+		"lol",
+	)
+	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded)
+	c.Assert(err, gc.ErrorMatches, ".*max allowed key.*")
+
+	// Test value len limit
+	err = hookContext.SetCacheValue(
+		"lol",
+		strings.Repeat("a", quota.MaxCharmStateValueSize+1),
+	)
+	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded)
+	c.Assert(err, gc.ErrorMatches, ".*max allowed value.*")
 }
 
 func (s *mockHookContextSuite) TestSetCacheEmptyStartState(c *gc.C) {

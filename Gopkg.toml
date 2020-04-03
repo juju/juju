@@ -154,7 +154,7 @@
   name = "gopkg.in/juju/environschema.v1"
 
 [[constraint]]
-  revision = "139ecaca454cb9101eed8ea76374ddc0be8cc8e8"
+  revision = "2c9a102df21118f159a298d9419997bbe2ddab58"
   name = "gopkg.in/juju/names.v3"
 
 [[constraint]]
@@ -292,7 +292,7 @@
 
 [[constraint]]
   name = "github.com/juju/errors"
-  revision = "22422dad46e14561a0854ad42497a75af9b61909"
+  revision = "3fe23663418fc1d724868c84f21b7519bbac7441"
 
 [[constraint]]
   name = "github.com/juju/go-oracle-cloud"
@@ -328,7 +328,7 @@
 
 [[constraint]]
   name = "github.com/juju/terms-client"
-  revision = "d29f8efe0af6f5ed0e8d5bff8bccbecb16e653d1"
+  revision = "fab45ea044ae143a8ebb93e965de1341466bdac2"
 
 [[constraint]]
   revision = "5f348e78887d8757a402c7bb81e707c3b244c6da"
