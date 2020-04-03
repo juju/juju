@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -2793,6 +2794,16 @@ func (u *UniterAPI) setPodSpecOperation(appTag string, spec *string, unitTag nam
 }
 
 func (u *UniterAPI) setRawK8sSpecOperation(appTag string, spec *string, unitTag names.Tag, canAccessApp common.AuthFunc) (state.ModelOperation, error) {
+	controllerCfg, err := u.st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !controllerCfg.Features().Contains(feature.RawK8sSpec) {
+		return nil, errors.NewNotSupported(nil,
+			fmt.Sprintf("feature flag %q is required for setting raw k8s spec", feature.RawK8sSpec),
+		)
+	}
+
 	parsedAppTag, err := names.ParseApplicationTag(appTag)
 	if err != nil {
 		return nil, err
@@ -2832,12 +2843,12 @@ func (u *UniterAPI) GetPodSpec(args params.Entities) (params.StringResults, erro
 	})
 }
 
-// Mask the GetRawK8sSpec method from the v13 API. The API reflection code
+// Mask the GetRawK8sSpec method from the v14 API. The API reflection code
 // in rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so
 // this removes the method as far as the RPC machinery is concerned.
 
-// GetRawK8sSpec isn't on the v13 API.
-func (u *UniterAPIV13) GetRawK8sSpec(_, _ struct{}) {}
+// GetRawK8sSpec isn't on the v14 API.
+func (u *UniterAPIV14) GetRawK8sSpec(_, _ struct{}) {}
 
 // GetRawK8sSpec gets the raw k8s specs for a set of applications.
 func (u *UniterAPI) GetRawK8sSpec(args params.Entities) (params.StringResults, error) {

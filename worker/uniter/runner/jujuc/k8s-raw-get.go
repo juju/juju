@@ -35,10 +35,6 @@ Gets configuration data used to set up k8s resources.
 }
 
 func (c *K8sRawGetCommand) Run(ctx *cmd.Context) error {
-	if err := checkK8sRawSpecEnabled(c.Info().Name); err != nil {
-		return errors.Trace(err)
-	}
-
 	spec, err := c.ctx.GetRawK8sSpec()
 	if err != nil {
 		return errors.Trace(err)

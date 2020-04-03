@@ -24,8 +24,6 @@ type K8sRawSetCommand struct {
 	specFile cmd.FileVar
 }
 
-var isK8sRawSpecEnabled = featureflag.Enabled(feature.RawK8sSpec)
-
 func checkK8sRawSpecEnabled(cmdName string) error {
 	if featureflag.Enabled(feature.RawK8sSpec) {
 		return nil
@@ -64,9 +62,6 @@ func (c *K8sRawSetCommand) Init(args []string) error {
 }
 
 func (c *K8sRawSetCommand) Run(ctx *cmd.Context) error {
-	if err := checkK8sRawSpecEnabled(c.Info().Name); err != nil {
-		return errors.Trace(err)
-	}
 	specData, err := c.handleSpecFile(ctx)
 	if err != nil {
 		return errors.Trace(err)

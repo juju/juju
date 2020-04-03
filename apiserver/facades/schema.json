@@ -7890,6 +7890,9 @@
                         "pod-spec": {
                             "type": "string"
                         },
+                        "raw-k8s-spec": {
+                            "type": "string"
+                        },
                         "tags": {
                             "type": "object",
                             "patternProperties": {
@@ -7908,6 +7911,7 @@
                     "additionalProperties": false,
                     "required": [
                         "pod-spec",
+                        "raw-k8s-spec",
                         "constraints"
                     ]
                 },
@@ -35646,6 +35650,17 @@
                         }
                     }
                 },
+                "GetRawK8sSpec": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResults"
+                        }
+                    }
+                },
                 "GoalStates": {
                     "type": "object",
                     "properties": {
@@ -36673,6 +36688,9 @@
                             }
                         },
                         "pod-spec": {
+                            "$ref": "#/definitions/PodSpec"
+                        },
+                        "raw-k8s-spec": {
                             "$ref": "#/definitions/PodSpec"
                         },
                         "relation-unit-settings": {
