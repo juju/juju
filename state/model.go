@@ -1409,7 +1409,7 @@ func checkModelEntityRefsEmpty(doc *modelEntityRefsDoc) ([]txn.Op, error) {
 	isEmpty := func(attribute string) bson.DocElem {
 		// We consider it empty if the array has no entries, or if the attribute doesn't exist
 		return bson.DocElem{
-			"$or", []bson.M{{
+			Name: "$or", Value: []bson.M{{
 				attribute: bson.M{"$exists": false},
 			}, {
 				attribute: bson.M{"$size": 0},
@@ -1512,7 +1512,7 @@ func noNewStorageModelEntityRefs(doc *modelEntityRefsDoc) []txn.Op {
 		// is a subset of the previously known set.
 	}
 	noNewFilesystems := bson.DocElem{
-		"filesystems", bson.D{{
+		Name: "filesystems", Value: bson.D{{
 			"$not", bson.D{{
 				"$elemMatch", bson.D{{
 					"$nin", doc.Filesystems,
