@@ -127,7 +127,7 @@ func (ep *ExecParams) validate(podGetter typedcorev1.PodInterface) (err error) {
 }
 
 // Exec runs commands on a pod in the cluster.
-func (c client) Exec(params ExecParams, cancel <-chan struct{}) (outErr error) {
+func (c client) Exec(params ExecParams, cancel <-chan struct{}) error {
 	if err := params.validate(c.podGetter); err != nil {
 		return errors.Trace(err)
 	}
@@ -139,7 +139,7 @@ func processEnv(env []string) (string, error) {
 	for _, s := range env {
 		values := strings.SplitN(s, "=", 2)
 		if len(values) != 2 {
-			return "", errors.NotValidf("env %q is not valid", s)
+			return "", errors.NotValidf("env %q", s)
 		}
 		key := values[0]
 		value := values[1]

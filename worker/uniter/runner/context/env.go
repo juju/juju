@@ -10,6 +10,9 @@ import (
 	"github.com/juju/os/series"
 )
 
+// GetEnvFunc is passed to OSDependentEnvVars and called
+// when environment variables need to be appended or otherwise
+// based off existing variables.
 type GetEnvFunc func(key string) string
 
 // OSDependentEnvVars returns the OS-dependent environment variables that

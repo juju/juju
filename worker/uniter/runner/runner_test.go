@@ -595,11 +595,12 @@ func (s *RunMockContextSuite) TestRunActionCAASCorrectEnv(c *gc.C) {
 		switch execCount {
 		case 1:
 			c.Assert(params.Commands, gc.DeepEquals, []string{"unset _; export"})
-			fmt.Fprintf(params.Stdout, `
+			return &exec.ExecResponse{
+				Stdout: []byte(`
 export BLA='bla'
 export PATH='important-path'
-`[1:])
-			return &exec.ExecResponse{}, nil
+`[1:]),
+			}, nil
 		case 2:
 			path := ""
 			for _, v := range params.Env {
