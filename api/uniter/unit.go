@@ -926,13 +926,13 @@ func (b *CommitHookParamsBuilder) UpdateNetworkInfo() {
 	b.arg.UpdateNetworkInfo = true
 }
 
-// UpdateUnitState records a request to update the server-persisted charm state.
-func (b *CommitHookParamsBuilder) UpdateUnitState(state map[string]string) {
+// UpdateCharmState records a request to update the server-persisted charm state.
+func (b *CommitHookParamsBuilder) UpdateCharmState(state map[string]string) {
 	b.arg.SetUnitState = &params.SetUnitStateArg{
 		// The Tag is optional as the call uses the Tag from the
 		// CommitHookChangesArg; it is included here for consistency.
-		Tag:   b.arg.Tag,
-		State: &state,
+		Tag:        b.arg.Tag,
+		CharmState: &state,
 	}
 }
 

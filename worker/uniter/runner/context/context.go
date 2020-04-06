@@ -389,17 +389,17 @@ func (ctx *HookContext) ensureStateValuesLoaded() error {
 	}
 
 	// Load from controller
-	var state map[string]string
+	var charmState map[string]string
 	unitState, err := ctx.unit.State()
 	if err != nil {
 		return errors.Annotate(err, "loading unit state from database")
 	}
-	if unitState.State == nil {
-		state = make(map[string]string)
+	if unitState.CharmState == nil {
+		charmState = make(map[string]string)
 	} else {
-		state = unitState.State
+		charmState = unitState.CharmState
 	}
-	ctx.cacheValues = state
+	ctx.cacheValues = charmState
 	return nil
 }
 
@@ -1057,7 +1057,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	}
 
 	if ctx.cacheDirty {
-		b.UpdateUnitState(ctx.cacheValues)
+		b.UpdateCharmState(ctx.cacheValues)
 	}
 
 	for _, rctx := range ctx.relations {

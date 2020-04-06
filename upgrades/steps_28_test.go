@@ -302,11 +302,11 @@ func (m unitStateMatcher) Matches(x interface{}) bool {
 }
 
 func assertSetUnitStateArg(c *gc.C, expectedArg, obtainedArg params.SetUnitStateArg) {
-	if expectedArg.State != nil {
-		c.Assert(obtainedArg.State, gc.NotNil)
-		c.Assert(*obtainedArg.State, gc.DeepEquals, *expectedArg.State)
+	if expectedArg.CharmState != nil {
+		c.Assert(obtainedArg.CharmState, gc.NotNil)
+		c.Assert(*obtainedArg.CharmState, gc.DeepEquals, *expectedArg.CharmState)
 	} else {
-		c.Assert(obtainedArg.State, gc.IsNil)
+		c.Assert(obtainedArg.CharmState, gc.IsNil)
 	}
 	if expectedArg.UniterState != nil {
 		c.Assert(*obtainedArg.UniterState, gc.Equals, *expectedArg.UniterState)
@@ -316,7 +316,7 @@ func assertSetUnitStateArg(c *gc.C, expectedArg, obtainedArg params.SetUnitState
 	if expectedArg.RelationState != nil {
 		c.Assert(*obtainedArg.RelationState, gc.DeepEquals, *expectedArg.RelationState)
 	} else {
-		c.Assert(obtainedArg.State, gc.IsNil)
+		c.Assert(obtainedArg.RelationState, gc.IsNil)
 	}
 	if expectedArg.StorageState != nil {
 		c.Assert(*obtainedArg.StorageState, gc.Equals, *expectedArg.StorageState)

@@ -121,7 +121,7 @@ func (s *unitStateSuite) expectApplyOperation() {
 func (s *unitStateSuite) TestState(c *gc.C) {
 	defer s.assertBackendApi(c).Finish()
 	s.expectUnit()
-	expState, expUniterState, expRelationState, expStorageState := s.expectState()
+	expCharmState, expUniterState, expRelationState, expStorageState := s.expectState()
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -138,7 +138,7 @@ func (s *unitStateSuite) TestState(c *gc.C) {
 			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
 			{
 				Error:         nil,
-				State:         expState,
+				CharmState:    expCharmState,
 				UniterState:   expUniterState,
 				RelationState: expRelationState,
 				StorageState:  expStorageState,

@@ -581,7 +581,7 @@ func (s *mockHookContextSuite) TestDeleteCacheValue(c *gc.C) {
 
 	obtainedCache, err := hookContext.GetCache()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedCache, gc.DeepEquals, s.mockCache.State)
+	c.Assert(obtainedCache, gc.DeepEquals, s.mockCache.CharmState)
 }
 
 func (s *mockHookContextSuite) TestDeleteCacheStateErr(c *gc.C) {
@@ -600,7 +600,7 @@ func (s *mockHookContextSuite) TestGetCache(c *gc.C) {
 	hookContext := context.NewMockUnitHookContext(s.mockUnit)
 	obtainedCache, err := hookContext.GetCache()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedCache, gc.DeepEquals, s.mockCache.State)
+	c.Assert(obtainedCache, gc.DeepEquals, s.mockCache.CharmState)
 }
 
 func (s *mockHookContextSuite) TestGetCacheStateErr(c *gc.C) {
@@ -739,7 +739,7 @@ func (s *mockHookContextSuite) TestSequentialFlushOfCacheValues(c *gc.C) {
 				Tag: "unit-wordpress-0",
 				SetUnitState: &params.SetUnitStateArg{
 					Tag: "unit-wordpress-0",
-					State: &map[string]string{
+					CharmState: &map[string]string{
 						"one":   "two",
 						"three": "four",
 						"lorem": "ipsum",
@@ -770,7 +770,7 @@ func (s *mockHookContextSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *mockHookContextSuite) expectStateValues() {
 	s.mockCache = params.UnitStateResult{
-		State: map[string]string{
+		CharmState: map[string]string{
 			"one":   "two",
 			"three": "four",
 			"seven": "",

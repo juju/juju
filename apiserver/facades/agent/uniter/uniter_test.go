@@ -4706,7 +4706,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	b.OpenPortRange("tcp", 80, 81)
 	b.OpenPortRange("tcp", 7337, 7337) // same port closed below; this should be a no-op
 	b.ClosePortRange("tcp", 7337, 7337)
-	b.UpdateUnitState(map[string]string{"charm-key": "charm-value"})
+	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
 	req, _ := b.Build()
 
 	// Add some extra args to test error handling
@@ -4810,7 +4810,7 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	b.OpenPortRange("tcp", 80, 81)
 	b.OpenPortRange("tcp", 7337, 7337) // same port closed below; this should be a no-op
 	b.ClosePortRange("tcp", 7337, 7337)
-	b.UpdateUnitState(map[string]string{"charm-key": "charm-value"})
+	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
 	b.AddStorage(map[string][]params.StorageConstraints{
 		"multi1to10": {{Count: &stCount}},
 	})
@@ -4855,7 +4855,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAAS(c *gc.C) {
 
 	b := apiuniter.NewCommitHookParamsBuilder(gitlabUnit.UnitTag())
 	b.UpdateNetworkInfo()
-	b.UpdateUnitState(map[string]string{"charm-key": "charm-value"})
+	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
 	b.SetPodSpec(gitlab.ApplicationTag(), &podSpec)
 	req, _ := b.Build()
 
@@ -4897,7 +4897,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASNotLeader(c *gc.C) {
 
 	b := apiuniter.NewCommitHookParamsBuilder(gitlabUnit.UnitTag())
 	b.UpdateNetworkInfo()
-	b.UpdateUnitState(map[string]string{"charm-key": "charm-value"})
+	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
 	b.SetPodSpec(gitlab.ApplicationTag(), &podSpec)
 	req, _ := b.Build()
 
