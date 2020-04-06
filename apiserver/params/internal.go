@@ -262,6 +262,8 @@ type UnitStateResult struct {
 	RelationState map[int]string `json:"relation-state,omitempty"`
 	// StorageState is a internal storage state for this unit.
 	StorageState string `json:"storage-state,omitempty"`
+	// MeterStatusState encodes the meter status state for this unit.
+	MeterStatusState string `json:"meter-status-state,omitempty"`
 }
 
 // UnitStateResults holds multiple unit state maps or errors.
@@ -283,11 +285,12 @@ type SetUnitStateArgs struct {
 // to be evaluated for changes to the persisted data.  A pointer to nil or
 // empty data will cause the persisted data to be deleted.
 type SetUnitStateArg struct {
-	Tag           string             `json:"tag"`
-	State         *map[string]string `json:"state,omitempty"`
-	UniterState   *string            `json:"uniter-state,omitempty"`
-	RelationState *map[int]string    `json:"relation-state,omitempty"`
-	StorageState  *string            `json:"storage-state,omitempty"`
+	Tag              string             `json:"tag"`
+	State            *map[string]string `json:"state,omitempty"`
+	UniterState      *string            `json:"uniter-state,omitempty"`
+	RelationState    *map[int]string    `json:"relation-state,omitempty"`
+	StorageState     *string            `json:"storage-state,omitempty"`
+	MeterStatusState *string            `json:"meter-status-state,omitempty"`
 }
 
 // CommitHookChangesArgs serves as a container for CommitHookChangesArg objects

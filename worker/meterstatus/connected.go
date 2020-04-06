@@ -15,15 +15,14 @@ import (
 type connectedStatusHandler struct {
 	config ConnectedConfig
 
-	code string
-	info string
+	st *State
 }
 
 // ConnectedConfig contains all the dependencies required to create a new connected status worker.
 type ConnectedConfig struct {
-	Runner    HookRunner
-	StateFile *StateFile
-	Status    meterstatus.MeterStatusClient
+	Runner          HookRunner
+	Status          meterstatus.MeterStatusClient
+	StateReadWriter StateReadWriter
 }
 
 // Validate validates the config structure and returns an error on failure.
@@ -31,8 +30,8 @@ func (c ConnectedConfig) Validate() error {
 	if c.Runner == nil {
 		return errors.New("hook runner not provided")
 	}
-	if c.StateFile == nil {
-		return errors.New("state file not provided")
+	if c.StateReadWriter == nil {
+		return errors.New("state read/writer not provided")
 	}
 	if c.Status == nil {
 		return errors.New("meter status API client not provided")
@@ -68,9 +67,13 @@ func NewConnectedStatusHandler(cfg ConnectedConfig) (watcher.NotifyHandler, erro
 // SetUp is part of the worker.NotifyWatchHandler interface.
 func (w *connectedStatusHandler) SetUp() (watcher.NotifyWatcher, error) {
 	var err error
-	w.code, w.info, _, err = w.config.StateFile.Read()
-	if err != nil {
-		return nil, errors.Trace(err)
+	if w.st, err = w.config.StateReadWriter.Read(); err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+
+		// Start with blank state
+		w.st = new(State)
 	}
 
 	return w.config.Status.WatchMeterStatus()
@@ -88,14 +91,13 @@ func (w *connectedStatusHandler) Handle(abort <-chan struct{}) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if currentCode == w.code && currentInfo == w.info {
-		logger.Tracef("meter status (%q, %q) matches stored information (%q, %q), skipping", currentCode, currentInfo, w.code, w.info)
+	if currentCode == w.st.Code && currentInfo == w.st.Info {
+		logger.Tracef("meter status (%q, %q) matches stored information (%q, %q), skipping", currentCode, currentInfo, w.st.Code, w.st.Info)
 		return nil
 	}
 	w.applyStatus(currentCode, currentInfo, abort)
-	w.code, w.info = currentCode, currentInfo
-	err = w.config.StateFile.Write(w.code, w.info, nil)
-	if err != nil {
+	w.st.Code, w.st.Info = currentCode, currentInfo
+	if err = w.config.StateReadWriter.Write(w.st); err != nil {
 		return errors.Annotate(err, "failed to record meter status worker state")
 	}
 	return nil
