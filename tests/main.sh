@@ -234,6 +234,7 @@ cleanup() {
 
     echo "==> Cleaning up"
 
+    cleanup_funcs
     cleanup_jujus
     cleanup_funcs
     cleanup_multipasses
