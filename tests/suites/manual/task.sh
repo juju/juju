@@ -7,7 +7,7 @@ test_manual() {
     set_verbosity
 
     echo "==> Checking for dependencies"
-    check_dependencies juju lxd petname
+    check_dependencies juju petname
 
     test_deploy_manual
 }
