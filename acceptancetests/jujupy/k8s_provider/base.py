@@ -32,10 +32,7 @@ from jujupy.utility import (
     ensure_dir,
     until_timeout,
 )
-from jujupy.client import (
-    temp_bootstrap_env,
-    JujuData,
-)
+from jujupy.client import temp_bootstrap_env
 
 
 logger = logging.getLogger(__name__)
@@ -177,6 +174,7 @@ class Base(object):
             args += (
                 '--controller', self.client.env.controller.name,
             )
+        logger.info("running add-k8s %s", args)
         self.client._backend.juju(
             'add-k8s', args,
             used_feature_flags=self.client.used_feature_flags, juju_home=juju_home,

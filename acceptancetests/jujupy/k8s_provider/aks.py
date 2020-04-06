@@ -21,6 +21,8 @@ from __future__ import print_function
 
 import logging
 import os
+import yaml
+from pprint import pformat
 
 from azure.common.client_factory import get_client_from_json_dict
 from azure.mgmt import containerservice
@@ -41,26 +43,24 @@ class AKS(Base):
 
     name = K8sProviderType.AKS
 
-    ake_cluster_name = None
-
     cfg = None
-    credential = None
     location = None
     resource_group = None
 
-    client = None
+    driver = None
+    cluster_name = None
     parameters = None
 
     def __init__(self, bs_manager, timeout=1800):
         super().__init__(bs_manager, timeout)
 
-        self.ake_cluster_name = self.client.env.controller.name  # use controller name for cluster name
+        self.cluster_name = self.client.env.controller.name  # use controller name for cluster name
         self.default_storage_class_name = ''
         self.__init_client(bs_manager.client.env)
 
     def __init_client(self, env):
         self.cfg = {k: v for k, v in env._config.items()}
-        self.credential = {
+        credential = {
             'clientId': self.cfg['application-id'],
             'clientSecret': self.cfg['application-password'],
             'subscriptionId': self.cfg['subscription-id'],
@@ -74,11 +74,11 @@ class AKS(Base):
         }
         self.location = self.cfg['location']
         self.resource_group = self.cfg['resource-group']
-        self.client = get_client_from_json_dict(containerservice.ContainerServiceClient, self.credential)
+        self.driver = get_client_from_json_dict(containerservice.ContainerServiceClient, credential)
         self.parameters = self.get_parameters(
             location=self.location,
-            client_id=self.credential['clientId'],
-            client_secret=self.credential['clientSecret']
+            client_id=credential['clientId'],
+            client_secret=credential['clientSecret']
         )
 
         # list all running clusters
@@ -91,14 +91,14 @@ class AKS(Base):
         self.provision_aks()
 
     def _tear_down_substrate(self):
-        print("Deleting the AKS instance {0}".format(self.ake_cluster_name))
+        logger.info("Deleting the AKS instance {0}".format(self.cluster_name))
         try:
-            poller = self.client.managed_clusters.delete(self.resource_group, self.ake_cluster_name)
+            poller = self.driver.managed_clusters.delete(self.resource_group, self.cluster_name)
             r = get_poller_result(poller)
             if r is not None:
-                logger.info("cluster has been deleted -> %s", r.as_dict())
-        except Exception as e:
-            print(e)
+                logger.info("cluster has been deleted -> \n%s", pformat(r.as_dict()))
+        except azure_exceptions.CloudError as e:
+            logger.error(e)
             raise
 
     def get_parameters(
@@ -106,10 +106,11 @@ class AKS(Base):
         kubernetes_version=None,
         pub_ssh_key_path=os.path.expanduser('~/.ssh/id_rsa.pub'),
     ):
-        m = self.client.managed_clusters.models
+        m = self.driver.managed_clusters.models
 
         service_principal_profile = m.ManagedClusterServicePrincipalProfile(
-            client_id=client_id, secret=client_secret)
+            client_id=client_id, secret=client_secret,
+        )
 
         agentpool_default = m.ManagedClusterAgentPoolProfile(
             name='default',
@@ -119,15 +120,16 @@ class AKS(Base):
 
         with open(pub_ssh_key_path, 'r') as pub_ssh_file_fd:
             pub_ssh_file_fd = pub_ssh_file_fd.read()
-        ssh_ = self.client.managed_clusters.models.ContainerServiceSshConfiguration(
-            public_keys=[m.ContainerServiceSshPublicKey(key_data=pub_ssh_file_fd)]
+        ssh_ = self.driver.managed_clusters.models.ContainerServiceSshConfiguration(
+            public_keys=[m.ContainerServiceSshPublicKey(key_data=pub_ssh_file_fd)],
         )
         linux_profile = m.ContainerServiceLinuxProfile(
-            admin_username='azureuser', ssh=ssh_)
+            admin_username='azureuser', ssh=ssh_,
+        )
 
         return m.ManagedCluster(
             location=location,
-            dns_prefix=self.ake_cluster_name,  # use cluster name as dns prefix.
+            dns_prefix=self.cluster_name,  # use cluster name as dns prefix.
             kubernetes_version=kubernetes_version or self.get_k8s_version(location),
             service_principal_profile=service_principal_profile,
             agent_pool_profiles=[agentpool_default],
@@ -136,54 +138,55 @@ class AKS(Base):
         )
 
     def list_clusters(self, resource_group):
-        return self.client.managed_clusters.list_by_resource_group(resource_group)
+        return self.driver.managed_clusters.list_by_resource_group(resource_group)
 
     def _ensure_kube_dir(self):
-        ...
-
-    def _ensure_cluster_config(self):
-        access_profile = self.client.managed_clusters.get_access_profile(
+        access_profile = self.driver.managed_clusters.get_access_profile(
             resource_group_name=self.resource_group,
-            resource_name=self.ake_cluster_name,
+            resource_name=self.cluster_name,
             role_name="clusterUser",
         )
         kubeconfig_content = access_profile.kube_config.decode('utf-8')
-
+        self.kubeconfig_cluster_name = yaml.load(kubeconfig_content)['current-context']
         with open(self.kube_config_path, 'w') as f:
             logger.debug('writing kubeconfig to %s\n%s', self.kube_config_path, kubeconfig_content)
             f.write(kubeconfig_content)
 
+    def _ensure_cluster_config(self):
+        ...
+
     def _node_address_getter(self, node):
-        return [addr['address'] for addr in node['status']['addresses'] if addr['type'] == 'ExternalIP'][0]
+        raise NotImplementedError()
 
     def _get_cluster(self, name):
-        return self.client.managed_clusters.get(self.resource_group, name)
+        return self.driver.managed_clusters.get(self.resource_group, name)
 
     def provision_aks(self):
         # do pre cleanup;
         self._tear_down_substrate()
 
         # provision cluster.
-        logger.info('creating cluster -> %s', self.ake_cluster_name)
+        logger.info('creating cluster -> %s', self.cluster_name)
         try:
-            poller = self.client.managed_clusters.create_or_update(
+            poller = self.driver.managed_clusters.create_or_update(
                 self.resource_group,
-                self.ake_cluster_name,
+                self.cluster_name,
                 self.parameters,
             )
-            result = get_poller_result(poller)
+            # It takes a few minutes to provision the cluster, so check less often.
+            result = get_poller_result(poller, wait=15)
             logger.info(
                 "cluster %s has been successfully provisioned -> \n%s",
-                self.ake_cluster_name, result.as_dict(),
+                self.cluster_name, pformat(result.as_dict()),
             )
         except azure_exceptions.CloudError as e:
-            print('Error attempting to create the AKS instance.', e.message)
+            logger.error('Error attempting to create the AKS instance.', e.message)
             raise e
 
     def get_k8s_version(self, location):
-        orchestrators = self.client.container_services.list_orchestrators(
+        orchestrators = self.driver.container_services.list_orchestrators(
             location, resource_type='managedClusters',
-        )
+        ).orchestrators
         if len(orchestrators) == 0:
             return ""
         for o in orchestrators:
@@ -199,6 +202,6 @@ def get_poller_result(poller, wait=5):
             logger.info("current status: %s, waiting for %s sec", poller.status(), delay)
             poller.wait(timeout=delay)
         return poller.result()
-    except Exception as e:
-        print(str(e))
+    except azure_exceptions.CloudError as e:
+        logger.error(str(e))
         raise e
