@@ -4,9 +4,11 @@
 package upgrades
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -128,16 +130,6 @@ func moveUnitAgentStateToController(ctx Context) error {
 
 	// Saving uniter state in the controller succeeded, now clean up
 	// the now unused state files.
-	//
-	// TODO: hml 30-mar-2020
-	// Once the final piece of the upgrade is done, this can be changed to
-	// remove:
-	//     /var/lib/juju/agents/unit-ubuntu-0/state/uniter
-	//     /var/lib/juju/agents/unit-ubuntu-0/state/storage
-	//     /var/lib/juju/agents/unit-ubuntu-0/state/relations
-	//     /var/lib/juju/agents/unit-ubuntu-0/state/metrics
-	// and the caas operator file.  Any not found is fine.
-	// Keep /var/lib/juju/agents/unit-ubuntu-0/state for non persistent needs.
 	for _, name := range fileNames {
 		if err = os.RemoveAll(name); err != nil {
 			// Log the error, but no need to fail the upgrade.  Juju
@@ -188,16 +180,22 @@ func iaasUniterState(ctx Context, unitNames []string) ([]string, error) {
 			uniterStates[i].UniterState = &uniterSt
 		}
 
-		// TODO(achilleasa): migrate relation data.
-
 		storageData, err := readStorageState(uniterStateDir)
-		if err != nil && !os.IsNotExist(err) && !errors.IsNotFound(err) {
+		if err != nil && !errors.IsNotFound(err) {
 			return nil, err
 		} else if err == nil {
 			uniterStates[i].StorageState = &storageData.dataString
 		}
 		if storageData.filename != "" {
 			fileNames.Add(storageData.filename)
+		}
+
+		relationData, err := readRelationState(uniterStateDir)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, err
+		} else if err == nil && len(relationData.data) > 0 {
+			uniterStates[i].RelationState = &relationData.data
+			fileNames.Add(relationData.filename)
 		}
 
 		// NOTE(achilleasa): meter status is transparently migrated to
@@ -249,30 +247,33 @@ func caasOperatorLocalState(ctx Context, unitNames []string) ([]string, error) {
 	return nil, nil
 }
 
-type data struct {
+type storageData struct {
 	dataString string
 	filename   string
 }
 
-func readStorageState(uniterStateDir string) (data, error) {
+func readStorageState(uniterStateDir string) (storageData, error) {
 	storageStateDir := filepath.Join(uniterStateDir, "storage")
 	storage, err := readAllStorageStateFiles(storageStateDir)
 	if err != nil {
-		return data{}, err
+		return storageData{}, err
 	}
 	if len(storage) < 1 {
-		return data{filename: storageStateDir}, errors.NotFoundf("storage state")
+		return storageData{filename: storageStateDir}, errors.NotFoundf("storage state")
 	}
 	dataYaml, err := yaml.Marshal(storage)
 	if err != nil {
-		return data{}, errors.Annotatef(err, "failed to unmarshal storage state from %q", storageStateDir)
+		return storageData{}, errors.Annotatef(err, "failed to unmarshal storage state from %q", storageStateDir)
 	}
-	return data{dataString: string(dataYaml), filename: storageStateDir}, nil
+	return storageData{dataString: string(dataYaml), filename: storageStateDir}, nil
 }
 
 // readAllStorageStateFiles loads and returns every storage stateFile persisted inside
 func readAllStorageStateFiles(dirPath string) (map[string]bool, error) {
 	if _, err := os.Stat(dirPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil, errors.NotFoundf("storage state file")
+		}
 		return nil, err
 	}
 	fis, err := ioutil.ReadDir(dirPath)
@@ -313,6 +314,9 @@ func readStorageStateFile(dirPath string, tag names.StorageTag) (bool, error) {
 
 	var info storageDiskInfo
 	if err := utils.ReadYaml(filePath, &info); err != nil {
+		if os.IsNotExist(err) {
+			return false, errors.NotFoundf("storage state file %q", filePath)
+		}
 		return false, errors.Annotatef(err, "cannot read from storage state file %q", filePath)
 	}
 	if info.Attached == nil {
@@ -321,6 +325,137 @@ func readStorageStateFile(dirPath string, tag names.StorageTag) (bool, error) {
 	return *info.Attached, nil
 }
 
+// storageDiskInfo defines the storage unit storageData serialization.
 type storageDiskInfo struct {
 	Attached *bool `yaml:"attached,omitempty"`
+}
+
+type relationData struct {
+	data     map[int]string
+	filename string
+}
+
+func readRelationState(uniterStateDir string) (relationData, error) {
+	relationStateDir := filepath.Join(uniterStateDir, "relations")
+
+	rSt, err := readAllRelationStateDirs(relationStateDir)
+	if err != nil {
+		return relationData{}, err
+	}
+	retData := relationData{data: make(map[int]string, len(rSt)), filename: relationStateDir}
+	for k, v := range rSt {
+		dataYaml, err := yaml.Marshal(v)
+		if err != nil {
+			return relationData{}, errors.Annotatef(err, "failed to unmarshal relation state from %q", relationStateDir)
+		}
+		retData.data[k] = string(dataYaml)
+	}
+	return retData, nil
+}
+
+// readAllRelationStateDirs loads and returns every relationState persisted directly inside
+// the supplied dirPath. If dirPath does not exist, no error is returned.
+func readAllRelationStateDirs(dirPath string) (dirs map[int]*relationState, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot load relations state from %q", dirPath)
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	fis, err := ioutil.ReadDir(dirPath)
+	if err != nil {
+		return nil, err
+	}
+	dirs = map[int]*relationState{}
+	for _, fi := range fis {
+		// Entries with integer names must be directories containing StateDir
+		// storageData; all other names will be ignored.
+		relationId, err := strconv.Atoi(fi.Name())
+		if err != nil {
+			// This doesn't look like a relation.
+			continue
+		}
+		rState, err := readRelationStateDir(filepath.Join(dirPath, fi.Name()), relationId)
+		if err != nil {
+			return nil, err
+		}
+		dirs[relationId] = rState
+	}
+	return dirs, nil
+}
+
+// readRelationStateDir loads a relationState from the subdirectory of dirPath named
+// for the supplied RelationId. If the directory does not exist, no error
+// is returned,
+func readRelationStateDir(dirPath string, relationId int) (d *relationState, err error) {
+	d = &relationState{
+		RelationId:         relationId,
+		Members:            map[string]int64{},
+		ApplicationMembers: map[string]int64{},
+		ChangedPending:     "",
+	}
+	defer errors.DeferredAnnotatef(&err, "cannot load relation state from %q", dirPath)
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		return d, nil
+	} else if err != nil {
+		return nil, err
+	}
+	fis, err := ioutil.ReadDir(dirPath)
+	if err != nil {
+		return nil, err
+	}
+	for _, fi := range fis {
+		// Entries with names ending in "-" followed by an integer must be
+		// files containing valid unit data; all other names are ignored.
+		name := fi.Name()
+		i := strings.LastIndex(name, "-")
+		if i == -1 {
+			continue
+		}
+		svcName := name[:i]
+		unitId := name[i+1:]
+		isApp := false
+		unitOrAppName := ""
+		if unitId == "app" {
+			isApp = true
+			unitOrAppName = svcName
+		} else {
+			if _, err := strconv.Atoi(unitId); err != nil {
+				continue
+			}
+			unitOrAppName = svcName + "/" + unitId
+		}
+		var info relationDiskInfo
+		if err = utils.ReadYaml(filepath.Join(dirPath, name), &info); err != nil {
+			return nil, fmt.Errorf("invalid unit file %q: %v", name, err)
+		}
+		if info.ChangeVersion == nil {
+			return nil, fmt.Errorf(`invalid unit file %q: "changed-version" not set`, name)
+		}
+		if isApp {
+			d.ApplicationMembers[unitOrAppName] = *info.ChangeVersion
+		} else {
+			d.Members[unitOrAppName] = *info.ChangeVersion
+		}
+		if info.ChangedPending {
+			if d.ChangedPending != "" {
+				return nil, fmt.Errorf("%q and %q both have pending changed hooks", d.ChangedPending, unitOrAppName)
+			}
+			d.ChangedPending = unitOrAppName
+		}
+	}
+	return d, nil
+}
+
+type relationState struct {
+	RelationId         int              `yaml:"id"`
+	Members            map[string]int64 `yaml:"members,omitempty"`
+	ApplicationMembers map[string]int64 `yaml:"application-members,omitempty"`
+	ChangedPending     string           `yaml:"changed-pending,omitempty"`
+}
+
+// relationDiskInfo defines the relation unit storageData serialization.
+type relationDiskInfo struct {
+	ChangeVersion  *int64 `yaml:"change-version"`
+	ChangedPending bool   `yaml:"changed-pending,omitempty"`
 }
