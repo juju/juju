@@ -22,6 +22,7 @@ from __future__ import print_function
 import logging
 import os
 import shutil
+import sys
 import yaml
 from pprint import pformat
 
@@ -186,7 +187,7 @@ class AKS(Base):
                 self.parameters,
             )
             # It takes a few minutes to provision the cluster, so check less often.
-            result = get_poller_result(poller, wait=15)
+            result = get_poller_result(poller, wait=5)
             logger.info(
                 "cluster %s has been successfully provisioned -> \n%s",
                 self.cluster_name, pformat(result.as_dict()),
@@ -210,9 +211,13 @@ class AKS(Base):
 def get_poller_result(poller, wait=5):
     try:
         delay = wait
+        n = 0
         while not poller.done():
-            logger.info("current status: %s, waiting for %s sec", poller.status(), delay)
+            n += 1
+            sys.stdout.write("\r\tCurrent status: {}, waiting for {} sec{}".format(poller.status(), delay, n * '.'))
+            sys.stdout.flush()
             poller.wait(timeout=delay)
+        sys.stdout.write('\n')
         return poller.result()
     except azure_exceptions.CloudError as e:
         logger.error(str(e))
