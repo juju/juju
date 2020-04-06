@@ -39,8 +39,10 @@ type MeterStatusState interface {
 	Unit(id string) (*state.Unit, error)
 }
 
-// MeterStatusAPI implements the MeterStatus interface and is the concrete implementation
-// of the API endpoint.
+// MeterStatusAPI implements the MeterStatus interface and is the concrete
+// implementation of the API endpoint. Additionally, it embeds
+// common.UnitStateAPI to allow meter status workers to access their
+// controller-backed internal state.
 type MeterStatusAPI struct {
 	*common.UnitStateAPI
 
@@ -49,11 +51,29 @@ type MeterStatusAPI struct {
 	resources  facade.Resources
 }
 
+// MeterStatusAPIV1 implements V1 of the Meter Status API.
+type MeterStatusAPIV1 struct {
+	MeterStatusAPI
+}
+
+// SetState isn't on the v1 API.
+func (u *MeterStatusAPIV1) SetState(_ struct{}) {}
+
+// State isn't on the v1 API.
+func (u *MeterStatusAPIV1) State(_ struct{}) {}
+
 // NewMeterStatusFacade provides the signature required for facade registration.
 func NewMeterStatusFacade(ctx facade.Context) (*MeterStatusAPI, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 	return NewMeterStatusAPI(ctx.State(), resources, authorizer)
+}
+
+// NewMeterStatusFacadeV1 provides the signature required for the V1 facade registration.
+func NewMeterStatusFacadeV1(ctx facade.Context) (*MeterStatusAPIV1, error) {
+	authorizer := ctx.Auth()
+	resources := ctx.Resources()
+	return NewMeterStatusAPIV1(ctx.State(), resources, authorizer)
 }
 
 // NewMeterStatusAPI creates a new API endpoint for dealing with unit meter status.
@@ -107,6 +127,22 @@ func NewMeterStatusAPI(
 			accessCheckerFn,
 			logger,
 		),
+	}, nil
+}
+
+// NewMeterStatusAPIV1 creates an instance of the V1 MeterStatus API.
+func NewMeterStatusAPIV1(
+	st MeterStatusState,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+) (*MeterStatusAPIV1, error) {
+	meterStatusAPI, err := NewMeterStatusAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &MeterStatusAPIV1{
+		MeterStatusAPI: *meterStatusAPI,
 	}, nil
 }
 
