@@ -3423,7 +3423,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 
 		newUS := state.NewUnitState()
 		if changes.SetUnitState.State != nil {
-			newUS.SetState(*changes.SetUnitState.State)
+			newUS.SetCharmState(*changes.SetUnitState.State)
 		}
 
 		// NOTE(achilleasa): The following state fields are not

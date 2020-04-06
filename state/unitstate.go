@@ -22,8 +22,8 @@ type unitStateDoc struct {
 
 	// The following maps to UnitState:
 
-	// State encodes the unit's persisted state as a list of key-value pairs.
-	State map[string]string `bson:"state,omitempty"`
+	// State encodes the unit's persisted charm state as a list of key-value pairs.
+	CharmState map[string]string `bson:"charm-state,omitempty"`
 
 	// UniterState is a serialized yaml string containing the uniters internal
 	// state for this unit.
@@ -42,14 +42,14 @@ type unitStateDoc struct {
 	MeterStatusState string `bson:"meter-status-state,omitempty"`
 }
 
-// stateMatches returns true if the State map within the unitStateDoc matches
+// charmStateMatches returns true if the State map within the unitStateDoc matches
 // the provided st argument.
-func (d *unitStateDoc) stateMatches(st bson.M) bool {
-	if len(st) != len(d.State) {
+func (d *unitStateDoc) charmStateMatches(st bson.M) bool {
+	if len(st) != len(d.CharmState) {
 		return false
 	}
 
-	for k, v := range d.State {
+	for k, v := range d.CharmState {
 		if st[k] != v {
 			return false
 		}
@@ -103,9 +103,10 @@ func removeUnitStateOp(mb modelBackend, globalKey string) txn.Op {
 // UnitState contains the various state saved for this unit,
 // including from the charm itself and the uniter.
 type UnitState struct {
-	// state encodes the unit's persisted state as a list of key-value pairs.
-	state    map[string]string
-	stateSet bool
+	// charmState encodes the unit's persisted charm state as a list of
+	// key-value pairs.
+	charmState    map[string]string
+	charmStateSet bool
 
 	// uniterState is a serialized yaml string containing the uniters internal
 	// state for this unit.
@@ -137,21 +138,21 @@ func NewUnitState() *UnitState {
 func (u *UnitState) Modified() bool {
 	return u.relationStateSet ||
 		u.storageStateSet ||
-		u.stateSet ||
+		u.charmStateSet ||
 		u.uniterStateSet ||
 		u.meterStatusStateSet
 }
 
-// SetState sets the state value.
-func (u *UnitState) SetState(state map[string]string) {
-	u.stateSet = true
-	u.state = state
+// SetCharmState sets the charm state value.
+func (u *UnitState) SetCharmState(state map[string]string) {
+	u.charmStateSet = true
+	u.charmState = state
 }
 
-// State returns the unit's state and bool indicating
+// CharmState returns the unit's stored charm state and bool indicating
 // whether the data was set.
-func (u *UnitState) State() (map[string]string, bool) {
-	return u.state, u.stateSet
+func (u *UnitState) CharmState() (map[string]string, bool) {
+	return u.charmState, u.charmStateSet
 }
 
 // SetUniterState sets the uniter state value.
@@ -259,12 +260,12 @@ func (u *Unit) State() (*UnitState, error) {
 		us.SetRelationState(rState)
 	}
 
-	if stDoc.State != nil {
-		unitState := make(map[string]string, len(stDoc.State))
-		for k, v := range stDoc.State {
-			unitState[mgoutils.UnescapeKey(k)] = v
+	if stDoc.CharmState != nil {
+		charmState := make(map[string]string, len(stDoc.CharmState))
+		for k, v := range stDoc.CharmState {
+			charmState[mgoutils.UnescapeKey(k)] = v
 		}
-		us.SetState(unitState)
+		us.SetCharmState(charmState)
 	}
 
 	us.SetUniterState(stDoc.UniterState)

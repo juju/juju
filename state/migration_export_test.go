@@ -759,7 +759,7 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	us := state.NewUnitState()
-	us.SetState(map[string]string{"payload": "b4dc0ffee"})
+	us.SetCharmState(map[string]string{"payload": "b4dc0ffee"})
 	err = unit.SetState(us, state.UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
 
