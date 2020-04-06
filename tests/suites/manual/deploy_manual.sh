@@ -163,7 +163,7 @@ EOF
 
     juju deploy percona-cluster
 
-    wait_for "percona-cluster" "$(idle_condition "percona-cluster")"
+    wait_for "percona-cluster" "$(idle_condition "percona-cluster" 0 0)"
 
     juju remove-application percona-cluster
 
