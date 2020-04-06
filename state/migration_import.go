@@ -1153,18 +1153,8 @@ func (i *importer) unit(s description.Application, u description.Unit, ctrlCfg c
 	if err := i.importStatusHistory(unit.globalWorkloadVersionKey(), u.WorkloadVersionHistory()); err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(achilleasa): rename u.State in juju/description to CharmState
-	// and import the rest of the uniter state bits.
-	if charmState := u.State(); len(charmState) != 0 {
-		us := NewUnitState()
-		us.SetCharmState(charmState)
-		limits := UnitStateSizeLimits{
-			MaxCharmStateSize: ctrlCfg.MaxCharmStateSize(),
-			MaxAgentStateSize: ctrlCfg.MaxAgentStateSize(),
-		}
-		if err := unit.SetState(us, limits); err != nil {
-			return errors.Trace(err)
-		}
+	if err := i.importUnitState(unit, u, ctrlCfg); err != nil {
+		return errors.Trace(err)
 	}
 	if i.dbModel.Type() == ModelTypeIAAS {
 		if err := i.importUnitPayloads(unit, u.Payloads()); err != nil {
@@ -1172,6 +1162,36 @@ func (i *importer) unit(s description.Application, u description.Unit, ctrlCfg c
 		}
 	}
 	return nil
+}
+
+func (i *importer) importUnitState(unit *Unit, u description.Unit, ctrlCfg controller.Config) error {
+	us := NewUnitState()
+
+	if charmState := u.CharmState(); len(charmState) != 0 {
+		us.SetCharmState(charmState)
+	}
+	if relationState := u.RelationState(); len(relationState) != 0 {
+		us.SetRelationState(relationState)
+	}
+	if uniterState := u.UniterState(); uniterState != "" {
+		us.SetUniterState(uniterState)
+	}
+	if storageState := u.StorageState(); storageState != "" {
+		us.SetStorageState(storageState)
+	}
+	if meterStatusState := u.MeterStatusState(); meterStatusState != "" {
+		us.SetMeterStatusState(meterStatusState)
+	}
+
+	// No state to persist.
+	if !us.Modified() {
+		return nil
+	}
+
+	return unit.SetState(us, UnitStateSizeLimits{
+		MaxCharmStateSize: ctrlCfg.MaxCharmStateSize(),
+		MaxAgentStateSize: ctrlCfg.MaxAgentStateSize(),
+	})
 }
 
 func (i *importer) importUnitPayloads(unit *Unit, payloads []description.Payload) error {
