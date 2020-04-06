@@ -32,10 +32,7 @@ from jujupy.utility import (
     ensure_dir,
     until_timeout,
 )
-from jujupy.client import (
-    temp_bootstrap_env,
-    JujuData,
-)
+from jujupy.client import temp_bootstrap_env
 
 
 logger = logging.getLogger(__name__)
@@ -57,6 +54,7 @@ class K8sProviderType(Enum):
     MICROK8S = 1
     K8S_CORE = 2
     GKE = 3
+    AKS = 4
 
     @classmethod
     def keys(cls):
@@ -124,7 +122,7 @@ class Base(object):
 
         self.timeout = timeout
         old_environment = bs_manager.client.env.environment
-    
+
         bs_manager.client.env.environment = bs_manager.temp_env_name
         with temp_bootstrap_env(bs_manager.client.env.juju_home, bs_manager.client) as tm_h:
             self.client.env.juju_home = tm_h
@@ -176,6 +174,7 @@ class Base(object):
             args += (
                 '--controller', self.client.env.controller.name,
             )
+        logger.info("running add-k8s %s", args)
         self.client._backend.juju(
             'add-k8s', args,
             used_feature_flags=self.client.used_feature_flags, juju_home=juju_home,
