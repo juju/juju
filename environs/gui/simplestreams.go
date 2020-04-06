@@ -57,6 +57,7 @@ func FetchMetadata(stream string, sources ...simplestreams.DataSource) ([]*Metad
 		LookupConstraint: &constraint{
 			LookupParams: simplestreams.LookupParams{Stream: stream},
 			majorVersion: jujuversion.Current.Major,
+			minorVersion: jujuversion.Current.Minor,
 		},
 		ValueParams: simplestreams.ValueParams{
 			DataType:        downloadType,
@@ -84,8 +85,8 @@ type Metadata struct {
 	SHA256 string `json:"sha256"`
 	Path   string `json:"path"`
 
-	JujuMajorVersion int    `json:"juju-version"`
-	StringVersion    string `json:"version"`
+	SupportedJujuVersion string `json:"supported-juju-version"`
+	DashboardVersion     string `json:"version"`
 
 	Version  version.Number           `json:"-"`
 	FullPath string                   `json:"-"`
@@ -109,6 +110,7 @@ func (b byVersion) Less(i, j int) bool { return b[i].Version.Compare(b[j].Versio
 type constraint struct {
 	simplestreams.LookupParams
 	majorVersion int
+	minorVersion int
 }
 
 // IndexIds generates a string array representing index ids formed similarly to
@@ -136,20 +138,28 @@ func appendArchives(
 	cons simplestreams.LookupConstraint,
 ) ([]interface{}, error) {
 	var majorVersion int
+	var minorVersion int
 	if guiConstraint, ok := cons.(*constraint); ok {
 		majorVersion = guiConstraint.majorVersion
+		minorVersion = guiConstraint.minorVersion
 	}
 	for _, item := range items {
 		meta := item.(*Metadata)
-		if majorVersion != 0 && majorVersion != meta.JujuMajorVersion {
+		supportedVersion, err := version.Parse(meta.SupportedJujuVersion)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot parse supported juju version")
+		}
+		if majorVersion == supportedVersion.Major &&
+			minorVersion == supportedVersion.Minor {
 			continue
 		}
+
 		fullPath, err := source.URL(meta.Path)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot retrieve metadata full path")
 		}
 		meta.FullPath = fullPath
-		vers, err := version.Parse(meta.StringVersion)
+		vers, err := version.Parse(meta.DashboardVersion)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot parse metadata version")
 		}
