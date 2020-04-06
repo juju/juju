@@ -289,58 +289,58 @@ type HookContext struct {
 	// podSpecYaml is the pending pod spec to be committed.
 	podSpecYaml *string
 
-	// A cached view of the unit's state that gets persisted by juju once
-	// the context is flushed.
-	cacheValues map[string]string
+	// A cached view of the unit's charm state that gets persisted by juju
+	// once the context is flushed.
+	cachedCharmState map[string]string
 
 	// A flag that keeps track of whether the unit's state has been mutated.
-	cacheDirty bool
+	charmStateCacheDirty bool
 
 	mu sync.Mutex
 }
 
-// GetCache returns a copy of the cache.
-// Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
-func (ctx *HookContext) GetCache() (map[string]string, error) {
+// GetCharmState returns a copy of the cached charm state.
+// Implements jujuc.HookContext.unitCharmStateContext, part of runner.Context.
+func (ctx *HookContext) GetCharmState() (map[string]string, error) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-	if err := ctx.ensureStateValuesLoaded(); err != nil {
+	if err := ctx.ensureCharmStateLoaded(); err != nil {
 		return nil, err
 	}
 
-	if len(ctx.cacheValues) == 0 {
+	if len(ctx.cachedCharmState) == 0 {
 		return nil, nil
 	}
 
-	retVal := make(map[string]string, len(ctx.cacheValues))
-	for k, v := range ctx.cacheValues {
+	retVal := make(map[string]string, len(ctx.cachedCharmState))
+	for k, v := range ctx.cachedCharmState {
 		retVal[k] = v
 	}
 	return retVal, nil
 }
 
-// GetSingleCacheValue returns the value of the given key.
-// Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
-func (ctx *HookContext) GetSingleCacheValue(key string) (string, error) {
+// GetCharmStateValue returns the value of the given key.
+// Implements jujuc.HookContext.unitCharmStateContext, part of runner.Context.
+func (ctx *HookContext) GetCharmStateValue(key string) (string, error) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-	if err := ctx.ensureStateValuesLoaded(); err != nil {
+	if err := ctx.ensureCharmStateLoaded(); err != nil {
 		return "", err
 	}
 
-	value, ok := ctx.cacheValues[key]
+	value, ok := ctx.cachedCharmState[key]
 	if !ok {
 		return "", errors.NotFoundf("%q", key)
 	}
 	return value, nil
 }
 
-// SetCacheValue sets the key/value pair provided in the cache.
-// Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
-func (ctx *HookContext) SetCacheValue(key, value string) error {
+// SetCharmStateValue sets the key/value pair provided in the cache.
+// Implements jujuc.HookContext.unitCharmStateContext, part of runner.Context.
+func (ctx *HookContext) SetCharmStateValue(key, value string) error {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-	if err := ctx.ensureStateValuesLoaded(); err != nil {
+	if err := ctx.ensureCharmStateLoaded(); err != nil {
 		return err
 	}
 
@@ -351,40 +351,40 @@ func (ctx *HookContext) SetCacheValue(key, value string) error {
 		return errors.Trace(err)
 	}
 
-	curValue, exists := ctx.cacheValues[key]
+	curValue, exists := ctx.cachedCharmState[key]
 	if exists && curValue == value {
 		return nil // no-op
 	}
 
-	ctx.cacheValues[key] = value
-	ctx.cacheDirty = true
+	ctx.cachedCharmState[key] = value
+	ctx.charmStateCacheDirty = true
 	return nil
 }
 
-// DeleteCacheValue deletes the key/value pair for the given key from
+// DeleteCharmStateValue deletes the key/value pair for the given key from
 // the cache.
-// Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
-func (ctx *HookContext) DeleteCacheValue(key string) error {
+// Implements jujuc.HookContext.unitCharmStateContext, part of runner.Context.
+func (ctx *HookContext) DeleteCharmStateValue(key string) error {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-	if err := ctx.ensureStateValuesLoaded(); err != nil {
+	if err := ctx.ensureCharmStateLoaded(); err != nil {
 		return err
 	}
 
-	if _, exists := ctx.cacheValues[key]; !exists {
+	if _, exists := ctx.cachedCharmState[key]; !exists {
 		return nil // no-op
 	}
 
-	delete(ctx.cacheValues, key)
-	ctx.cacheDirty = true
+	delete(ctx.cachedCharmState, key)
+	ctx.charmStateCacheDirty = true
 	return nil
 }
 
-// ensureStateValuesLoaded retrieves and caches the unit's state from the
+// ensureCharmStateLoaded retrieves and caches the unit's charm state from the
 // controller. The caller of this method must be holding the ctx mutex.
-func (ctx *HookContext) ensureStateValuesLoaded() error {
+func (ctx *HookContext) ensureCharmStateLoaded() error {
 	// NOTE: Assuming lock to be held!
-	if ctx.cacheValues != nil {
+	if ctx.cachedCharmState != nil {
 		return nil
 	}
 
@@ -399,7 +399,9 @@ func (ctx *HookContext) ensureStateValuesLoaded() error {
 	} else {
 		charmState = unitState.CharmState
 	}
-	ctx.cacheValues = charmState
+
+	ctx.cachedCharmState = charmState
+	ctx.charmStateCacheDirty = false
 	return nil
 }
 
@@ -1056,8 +1058,8 @@ func (ctx *HookContext) doFlush(process string) error {
 		b.UpdateNetworkInfo()
 	}
 
-	if ctx.cacheDirty {
-		b.UpdateCharmState(ctx.cacheValues)
+	if ctx.charmStateCacheDirty {
+		b.UpdateCharmState(ctx.cachedCharmState)
 	}
 
 	for _, rctx := range ctx.relations {
@@ -1108,7 +1110,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	}
 
 	// Call completed successfully; update local state
-	ctx.cacheDirty = false
+	ctx.charmStateCacheDirty = false
 	return nil
 }
 

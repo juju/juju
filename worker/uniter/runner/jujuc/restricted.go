@@ -31,23 +31,23 @@ func (*RestrictedContext) GoalState() (*application.GoalState, error) {
 	return &application.GoalState{}, ErrRestrictedContext
 }
 
-// GetCache implements jujuc.unitCacheContext.
-func (*RestrictedContext) GetCache() (map[string]string, error) {
+// GetCharmState implements jujuc.unitCharmStateContext.
+func (*RestrictedContext) GetCharmState() (map[string]string, error) {
 	return nil, ErrRestrictedContext
 }
 
-// GetSingleCacheValue implements jujuc.unitCacheContext.
-func (*RestrictedContext) GetSingleCacheValue(string) (string, error) {
+// GetSingleCharmStateValue implements jujuc.unitCharmStateContext.
+func (*RestrictedContext) GetCharmStateValue(string) (string, error) {
 	return "", ErrRestrictedContext
 }
 
-// DeleteCacheValue implements jujuc.unitCacheContext.
-func (*RestrictedContext) DeleteCacheValue(string) error {
+// DeleteCharmStateValue implements jujuc.unitCharmStateContext.
+func (*RestrictedContext) DeleteCharmStateValue(string) error {
 	return ErrRestrictedContext
 }
 
-// SetCacheValue implements jujuc.unitCacheContext.
-func (*RestrictedContext) SetCacheValue(string, string) error {
+// SetCharmStateValue implements jujuc.unitCharmStateContext.
+func (*RestrictedContext) SetCharmStateValue(string, string) error {
 	return ErrRestrictedContext
 }
 
