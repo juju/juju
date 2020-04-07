@@ -19,7 +19,7 @@ type containerSpecDoc struct {
 	Id string `bson:"_id"`
 
 	Spec string `bson:"spec"`
-	// RawSpec is raw format of k8s spec.
+	// RawSpec is the raw format of k8s spec.
 	RawSpec string `bson:"raw-spec"`
 
 	UpgradeCounter int `bson:"upgrade-counter"`

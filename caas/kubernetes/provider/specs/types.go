@@ -146,7 +146,7 @@ func parseContainers(in string, containerSpec k8sContainersInterface) error {
 // configure a CAAS pod. We allow for generic container
 // set up plus k8s select specific features.
 func ParseRawK8sSpec(in string) ([]unstructured.Unstructured, error) {
-	// TODO !!!!!!!!!
+	// TODO(caas): implement raw k8s spec parser.
 	return nil, nil
 }
 

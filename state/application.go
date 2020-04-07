@@ -2653,26 +2653,12 @@ func CheckApplicationExpectWorkload(m *Model, appTag names.ApplicationTag) (bool
 		// IAAS models alway have a unit workload.
 		return true, nil
 	}
-	spec, err := cm.PodSpec(appTag)
-	if errors.IsNotFound(err) {
-		return false, nil
-	}
+	_, err = cm.PodSpec(appTag)
 	if err != nil && !errors.IsNotFound(err) {
 		return false, errors.Trace(err)
 	}
-	rawSpec, err := cm.RawK8sSpec(appTag)
-	if errors.IsNotFound(err) {
-		// This should not happen.
-		return false, nil
-	}
-	if err != nil && !errors.IsNotFound(err) {
-		return false, errors.Trace(err)
-	}
-	// ?????????? is workload expected if neither k8s spec nor raw k8s spec???????
-	if spec == "" && rawSpec == "" {
-		return false, nil
-	}
-	return true, nil
+	// ?????????? is workload expected if neither k8s spec nor raw k8s spec was set???
+	return err == nil, nil
 }
 
 // SetStatus sets the status for the application.
