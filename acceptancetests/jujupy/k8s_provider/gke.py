@@ -137,15 +137,7 @@ class GKE(Base):
             f.write(kubeconfig_content)
 
         # ensure kubectl
-        kubectl_bin_path = shutil.which('kubectl')
-        if kubectl_bin_path is not None:
-            self.kubectl_path = kubectl_bin_path
-        else:
-            self.sh(
-                'curl', 'https://storage.googleapis.com/kubernetes-release/release/v1.14.0/bin/linux/amd64/kubectl',
-                '-o', self.kubectl_path
-            )
-            os.chmod(self.kubectl_path, 0o774)
+        self._ensure_kubectl_bin()
 
     def _ensure_cluster_config(self):
         ...

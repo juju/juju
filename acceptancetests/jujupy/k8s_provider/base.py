@@ -23,6 +23,7 @@ import os
 from time import sleep
 import json
 import logging
+import shutil
 import subprocess
 from pprint import pformat
 from enum import Enum
@@ -221,6 +222,17 @@ class Base(object):
             args,
             stderr=subprocess.STDOUT,
         ).decode('UTF-8').strip()
+
+    def _ensure_kubectl_bin(self):
+        kubectl_bin_path = shutil.which('kubectl')
+        if kubectl_bin_path is not None:
+            self.kubectl_path = kubectl_bin_path
+        else:
+            self.sh(
+                'curl', 'https://storage.googleapis.com/kubernetes-release/release/v1.14.0/bin/linux/amd64/kubectl',
+                '-o', self.kubectl_path
+            )
+            os.chmod(self.kubectl_path, 0o774)
 
     @property
     def _kubectl_bin(self):
