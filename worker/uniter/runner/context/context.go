@@ -179,6 +179,8 @@ type HookContext struct {
 	// actionData contains the values relevant to the run of an Action:
 	// its tag, its parameters, and its results.
 	actionData *ActionData
+	// actionDataMu protects against concurrent access to actionData.
+	actionDataMu sync.Mutex
 
 	// uuid is the universally unique identifier of the environment.
 	uuid string
@@ -776,6 +778,8 @@ func (ctx *HookContext) CloudSpec() (*params.CloudSpec, error) {
 // ActionParams simply returns the arguments to the Action.
 // Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
 func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
+	ctx.actionDataMu.Lock()
+	defer ctx.actionDataMu.Unlock()
 	if ctx.actionData == nil {
 		return nil, errors.New("not running an action")
 	}
@@ -785,6 +789,8 @@ func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
 // LogActionMessage logs a progress message for the Action.
 // Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
 func (ctx *HookContext) LogActionMessage(message string) error {
+	ctx.actionDataMu.Lock()
+	defer ctx.actionDataMu.Unlock()
 	if ctx.actionData == nil {
 		return errors.New("not running an action")
 	}
@@ -794,6 +800,8 @@ func (ctx *HookContext) LogActionMessage(message string) error {
 // SetActionMessage sets a message for the Action, usually an error message.
 // Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
 func (ctx *HookContext) SetActionMessage(message string) error {
+	ctx.actionDataMu.Lock()
+	defer ctx.actionDataMu.Unlock()
 	if ctx.actionData == nil {
 		return errors.New("not running an action")
 	}
@@ -804,6 +812,8 @@ func (ctx *HookContext) SetActionMessage(message string) error {
 // SetActionFailed sets the fail state of the action.
 // Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
 func (ctx *HookContext) SetActionFailed() error {
+	ctx.actionDataMu.Lock()
+	defer ctx.actionDataMu.Unlock()
 	if ctx.actionData == nil {
 		return errors.New("not running an action")
 	}
@@ -817,6 +827,8 @@ func (ctx *HookContext) SetActionFailed() error {
 // Action-containing HookContext.
 // Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
 func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
+	ctx.actionDataMu.Lock()
+	defer ctx.actionDataMu.Unlock()
 	if ctx.actionData == nil {
 		return errors.New("not running an action")
 	}
@@ -892,6 +904,8 @@ func (ctx *HookContext) AddMetricLabels(key, value string, created time.Time, la
 // it did; it should be considered deprecated, and not used by new clients.
 // Implements runner.Context.
 func (ctx *HookContext) ActionData() (*ActionData, error) {
+	ctx.actionDataMu.Lock()
+	defer ctx.actionDataMu.Unlock()
 	if ctx.actionData == nil {
 		return nil, errors.New("not running an action")
 	}
@@ -1104,6 +1118,8 @@ func (ctx *HookContext) doFlush(process string) error {
 // only errors passed in unhandledErr will be returned.
 func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 	// TODO (binary132): synchronize with gsamfira's reboot logic
+	ctx.actionDataMu.Lock()
+	defer ctx.actionDataMu.Unlock()
 	message := ctx.actionData.ResultsMessage
 	results := ctx.actionData.ResultsMap
 	tag := ctx.actionData.Tag
