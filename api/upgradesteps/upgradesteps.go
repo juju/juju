@@ -45,12 +45,12 @@ func (c *Client) ResetKVMMachineModificationStatusIdle(tag names.Tag) error {
 	return nil
 }
 
-// WriteUniterState writes the given internal state of the uniter for the
-// provided units.
-func (c *Client) WriteUniterState(args []params.SetUnitStateArg) error {
+// WriteAgentState writes the given internal agent state for the provided
+// units. Currently this call only handles the uniter's state.
+func (c *Client) WriteAgentState(args []params.SetUnitStateArg) error {
 	var result params.ErrorResults
 	arg := params.SetUnitStateArgs{Args: args}
-	err := c.facade.FacadeCall("WriteUniterState", arg, &result)
+	err := c.facade.FacadeCall("WriteAgentState", arg, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}

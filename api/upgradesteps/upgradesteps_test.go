@@ -53,7 +53,7 @@ func (s *upgradeStepsSuite) TestResetKVMMachineModificationStatusIdleError(c *gc
 	c.Assert(err, gc.ErrorMatches, "did not find")
 }
 
-func (s *upgradeStepsSuite) TestWriteUniterState(c *gc.C) {
+func (s *upgradeStepsSuite) TestWriteAgentState(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uTag0 := names.NewUnitTag("test/0")
@@ -64,17 +64,17 @@ func (s *upgradeStepsSuite) TestWriteUniterState(c *gc.C) {
 		{Tag: uTag0.String(), UniterState: &str0},
 		{Tag: uTag1.String(), UniterState: &str1},
 	}}
-	s.expectWriteUniterStateSuccess(c, args)
+	s.expectWriteAgentStateSuccess(c, args)
 
 	client := upgradesteps.NewClientFromFacade(s.fCaller)
-	err := client.WriteUniterState([]params.SetUnitStateArg{
+	err := client.WriteAgentState([]params.SetUnitStateArg{
 		{Tag: uTag0.String(), UniterState: &str0},
 		{Tag: uTag1.String(), UniterState: &str1},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *upgradeStepsSuite) TestWriteUniterStateError(c *gc.C) {
+func (s *upgradeStepsSuite) TestWriteAgentStateError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uTag0 := names.NewUnitTag("test/0")
@@ -82,10 +82,10 @@ func (s *upgradeStepsSuite) TestWriteUniterStateError(c *gc.C) {
 	args := params.SetUnitStateArgs{[]params.SetUnitStateArg{
 		{Tag: uTag0.String(), UniterState: &str0},
 	}}
-	s.expectWriteUniterStateError(c, args)
+	s.expectWriteAgentStateError(c, args)
 
 	client := upgradesteps.NewClientFromFacade(s.fCaller)
-	err := client.WriteUniterState([]params.SetUnitStateArg{
+	err := client.WriteAgentState([]params.SetUnitStateArg{
 		{Tag: uTag0.String(), UniterState: &str0},
 	})
 	c.Assert(err, gc.ErrorMatches, "did not find")
@@ -114,13 +114,13 @@ func (s *upgradeStepsSuite) expectResetKVMMachineModificationStatusIdleError(res
 	fExp.FacadeCall("ResetKVMMachineModificationStatusIdle", resetArg, gomock.Any()).SetArg(2, resultSource)
 }
 
-func (s *upgradeStepsSuite) expectWriteUniterStateSuccess(c *gc.C, args params.SetUnitStateArgs) {
+func (s *upgradeStepsSuite) expectWriteAgentStateSuccess(c *gc.C, args params.SetUnitStateArgs) {
 	fExp := s.fCaller.EXPECT()
 	resultSource := params.ErrorResults{}
-	fExp.FacadeCall("WriteUniterState", unitStateMatcher{c, args}, gomock.Any()).SetArg(2, resultSource)
+	fExp.FacadeCall("WriteAgentState", unitStateMatcher{c, args}, gomock.Any()).SetArg(2, resultSource)
 }
 
-func (s *upgradeStepsSuite) expectWriteUniterStateError(c *gc.C, args params.SetUnitStateArgs) {
+func (s *upgradeStepsSuite) expectWriteAgentStateError(c *gc.C, args params.SetUnitStateArgs) {
 	fExp := s.fCaller.EXPECT()
 	resultSource := params.ErrorResults{Results: []params.ErrorResult{{
 		Error: &params.Error{
@@ -128,7 +128,7 @@ func (s *upgradeStepsSuite) expectWriteUniterStateError(c *gc.C, args params.Set
 			Message: "did not find",
 		},
 	}}}
-	fExp.FacadeCall("WriteUniterState", unitStateMatcher{c, args}, gomock.Any()).SetArg(2, resultSource)
+	fExp.FacadeCall("WriteAgentState", unitStateMatcher{c, args}, gomock.Any()).SetArg(2, resultSource)
 }
 
 type unitStateMatcher struct {

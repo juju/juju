@@ -53,8 +53,8 @@ func (s *steps28Suite) TestPopulateRebootHandledFlagsForDeployedUnits(c *gc.C) {
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.HostMachine})
 }
 
-func (s *steps28Suite) TestMoveUniterStateToControllerStep(c *gc.C) {
-	step := findStep(c, v280, "write uniter state to controller for all running units and remove files")
+func (s *steps28Suite) TestMoveUnitAgentStateToControllerStep(c *gc.C) {
+	step := findStep(c, v280, "write unit agent state to controller for all running units and remove files")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.HostMachine})
 }
 
@@ -164,23 +164,23 @@ type diskInfo struct {
 	Attached *bool `yaml:"attached,omitempty"`
 }
 
-func (s *mockSteps28Suite) TestMoveUniterStateToControllerNotMachine(c *gc.C) {
+func (s *mockSteps28Suite) TestMoveUnitAgentStateToControllerNotMachine(c *gc.C) {
 	defer s.setup(c).Finish()
 	s.expectAPIState()
 	s.expectAgentConfigUnitTag()
 	s.patchClient()
-	err := upgrades.MoveUniterStateToController(s.mockCtx)
+	err := upgrades.MoveUnitAgentStateToController(s.mockCtx)
 	c.Assert(err, jc.ErrorIsNil)
 }
-func (s *mockSteps28Suite) TestMoveUniterStateToControllerIAAS(c *gc.C) {
+func (s *mockSteps28Suite) TestMoveUnitAgentStateToControllerIAAS(c *gc.C) {
 	defer s.setup(c).Finish()
 	s.expectAPIState()
 	s.expectAgentConfigMachineTag()
 	s.expectAgentConfigValueIAAS()
-	s.expectWriteTwoUniterState(c)
+	s.expectWriteTwoAgentState(c)
 	s.patchClient()
 
-	err := upgrades.MoveUniterStateToController(s.mockCtx)
+	err := upgrades.MoveUnitAgentStateToController(s.mockCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = os.Stat(s.opStateOneFileName)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
@@ -190,11 +190,11 @@ func (s *mockSteps28Suite) TestMoveUniterStateToControllerIAAS(c *gc.C) {
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	// Check idempotent
-	err = upgrades.MoveUniterStateToController(s.mockCtx)
+	err = upgrades.MoveUnitAgentStateToController(s.mockCtx)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *mockSteps28Suite) TestMoveUniterStateToControllerCAASDoesNothing(c *gc.C) {
+func (s *mockSteps28Suite) TestMoveUnitAgentStateToControllerCAASDoesNothing(c *gc.C) {
 	// TODO: (hml) 27-03-2020
 	// remove when uniterstate moved for CAAS units and/or relations etc
 	// added to move.
@@ -206,7 +206,7 @@ func (s *mockSteps28Suite) TestMoveUniterStateToControllerCAASDoesNothing(c *gc.
 	// Check idempotent
 	for i := 0; i < 2; i += 1 {
 		c.Logf("round %d", i)
-		err := upgrades.MoveUniterStateToController(s.mockCtx)
+		err := upgrades.MoveUnitAgentStateToController(s.mockCtx)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -259,7 +259,7 @@ func (s *mockSteps28Suite) patchClient() {
 	})
 }
 
-func (s *mockSteps28Suite) expectWriteTwoUniterState(c *gc.C) {
+func (s *mockSteps28Suite) expectWriteTwoAgentState(c *gc.C) {
 	args := []params.SetUnitStateArg{{
 		Tag:          s.tagOne.String(),
 		UniterState:  &s.opStateOneYaml,
@@ -270,7 +270,7 @@ func (s *mockSteps28Suite) expectWriteTwoUniterState(c *gc.C) {
 	},
 	}
 	cExp := s.mockClient.EXPECT()
-	cExp.WriteUniterState(unitStateMatcher{c, args}).Return(nil)
+	cExp.WriteAgentState(unitStateMatcher{c, args}).Return(nil)
 }
 
 type unitStateMatcher struct {
@@ -322,6 +322,11 @@ func assertSetUnitStateArg(c *gc.C, expectedArg, obtainedArg params.SetUnitState
 		c.Assert(*obtainedArg.StorageState, gc.Equals, *expectedArg.StorageState)
 	} else {
 		c.Assert(obtainedArg.StorageState, gc.IsNil)
+	}
+	if expectedArg.MeterStatusState != nil {
+		c.Assert(*obtainedArg.MeterStatusState, gc.Equals, *expectedArg.MeterStatusState)
+	} else {
+		c.Assert(obtainedArg.MeterStatusState, gc.IsNil)
 	}
 }
 

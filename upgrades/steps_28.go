@@ -64,9 +64,9 @@ func stepsFor28() []Step {
 			run:         prepopulateRebootHandledFlagsForDeployedUnits,
 		},
 		&upgradeStep{
-			description: "write uniter state to controller for all running units and remove files",
+			description: "write unit agent state to controller for all running units and remove files",
 			targets:     []Target{HostMachine},
-			run:         moveUniterStateToController,
+			run:         moveUnitAgentStateToController,
 		},
 	}
 }
@@ -99,7 +99,7 @@ func prepopulateRebootHandledFlagsForDeployedUnits(ctx Context) error {
 	return nil
 }
 
-func moveUniterStateToController(ctx Context) error {
+func moveUnitAgentStateToController(ctx Context) error {
 	// Lookup the names of all unit agents installed on this machine.
 	agentConf := ctx.AgentConfig()
 	ctxTag := agentConf.Tag()
@@ -156,7 +156,7 @@ var getUpgradeStepsClient = func(caller base.APICaller) UpgradeStepsClient {
 
 //go:generate mockgen -package mocks -destination mocks/upgradestepsclient_mock.go github.com/juju/juju/upgrades UpgradeStepsClient
 type UpgradeStepsClient interface {
-	WriteUniterState([]params.SetUnitStateArg) error
+	WriteAgentState([]params.SetUnitStateArg) error
 }
 
 func iaasUniterState(ctx Context, unitNames []string) ([]string, error) {
@@ -188,6 +188,8 @@ func iaasUniterState(ctx Context, unitNames []string) ([]string, error) {
 			uniterStates[i].UniterState = &uniterSt
 		}
 
+		// TODO(achilleasa): migrate relation data.
+
 		storageData, err := readStorageState(uniterStateDir)
 		if err != nil && !os.IsNotExist(err) && !errors.IsNotFound(err) {
 			return nil, err
@@ -197,6 +199,10 @@ func iaasUniterState(ctx Context, unitNames []string) ([]string, error) {
 		if storageData.filename != "" {
 			fileNames.Add(storageData.filename)
 		}
+
+		// NOTE(achilleasa): meter status is transparently migrated to
+		// the controller by the meterstatus worker so we don't need
+		// to do anything special here.
 	}
 
 	// No state files, nothing to do.
@@ -205,7 +211,7 @@ func iaasUniterState(ctx Context, unitNames []string) ([]string, error) {
 	}
 
 	client := getUpgradeStepsClient(ctx.APIState())
-	if err := client.WriteUniterState(uniterStates); err != nil {
+	if err := client.WriteAgentState(uniterStates); err != nil {
 		return nil, errors.Annotatef(err, "unable to set state for units %q", strings.Join(unitNames, ", "))
 	}
 	return fileNames.Values(), nil

@@ -33,14 +33,16 @@ func (m *MockUpgradeStepsClient) EXPECT() *MockUpgradeStepsClientMockRecorder {
 	return m.recorder
 }
 
-// WriteUniterState mocks base method
-func (m *MockUpgradeStepsClient) WriteUniterState(arg0 []params.SetUnitStateArg) error {
-	ret := m.ctrl.Call(m, "WriteUniterState", arg0)
+// WriteAgentState mocks base method
+func (m *MockUpgradeStepsClient) WriteAgentState(arg0 []params.SetUnitStateArg) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteAgentState", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// WriteUniterState indicates an expected call of WriteUniterState
-func (mr *MockUpgradeStepsClientMockRecorder) WriteUniterState(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteUniterState", reflect.TypeOf((*MockUpgradeStepsClient)(nil).WriteUniterState), arg0)
+// WriteAgentState indicates an expected call of WriteAgentState
+func (mr *MockUpgradeStepsClientMockRecorder) WriteAgentState(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteAgentState", reflect.TypeOf((*MockUpgradeStepsClient)(nil).WriteAgentState), arg0)
 }

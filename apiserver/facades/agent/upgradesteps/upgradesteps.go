@@ -25,7 +25,7 @@ var logger = loggo.GetLogger("juju.apiserver.upgradesteps")
 // upgrade steps API endpoint.
 type UpgradeStepsV2 interface {
 	UpgradeStepsV1
-	WriteUniterState(params.SetUnitStateArgs) (params.ErrorResults, error)
+	WriteAgentState(params.SetUnitStateArgs) (params.ErrorResults, error)
 }
 
 // UpgradeStepsV1 defines the methods on the version 2 facade for the
@@ -126,12 +126,17 @@ func (api *UpgradeStepsAPI) ResetKVMMachineModificationStatusIdle(arg params.Ent
 	return result, nil
 }
 
-// WriteUniterState did not exist prior to v2.
-func (*UpgradeStepsAPIV1) WriteUniterState(_, _ struct{}) {}
+// WriteAgentState did not exist prior to v2.
+func (*UpgradeStepsAPIV1) WriteAgentState(_, _ struct{}) {}
 
-// WriteUniterState write the uniter state for the set of units provided.
-// Related to the move of the uniter state from a local file to the controller.
-func (api *UpgradeStepsAPI) WriteUniterState(args params.SetUnitStateArgs) (params.ErrorResults, error) {
+// WriteAgentState writes the agent state for the set of units provided. This
+// call presently deals with the state for the unit agent.
+func (api *UpgradeStepsAPI) WriteAgentState(args params.SetUnitStateArgs) (params.ErrorResults, error) {
+	ctrlCfg, err := api.st.ControllerConfig()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -156,12 +161,24 @@ func (api *UpgradeStepsAPI) WriteUniterState(args params.SetUnitStateArgs) (para
 		} else {
 			logger.Warningf("no uniter state provided for %q", uTag)
 		}
+		if data.RelationState != nil {
+			us.SetRelationState(*data.RelationState)
+		}
 		if data.StorageState != nil {
 			us.SetStorageState(*data.StorageState)
 		}
+		if data.MeterStatusState != nil {
+			us.SetMeterStatusState(*data.MeterStatusState)
+		}
 
-		err = u.SetState(us)
-		results.Results[i].Error = common.ServerError(err)
+		op := u.SetStateOperation(
+			us,
+			state.UnitStateSizeLimits{
+				MaxCharmStateSize: ctrlCfg.MaxCharmStateSize(),
+				MaxAgentStateSize: ctrlCfg.MaxAgentStateSize(),
+			},
+		)
+		results.Results[i].Error = common.ServerError(api.st.ApplyOperation(op))
 	}
 
 	return results, nil
