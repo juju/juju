@@ -457,44 +457,7 @@ func (s *ContextFactorySuite) TestHookContextCAASDeferredSetPodSpecSetRawK8sSpec
 	c.Assert(err, gc.ErrorMatches, `either k8s-spec-set or k8s-raw-set can be run for each application`)
 }
 
-func (s *ContextFactorySuite) TestHookContextCAASNilPodSpec(c *gc.C) {
-	st, cf, appName := s.setupPodSpec(c)
-	defer st.Close()
-
-	ctx, err := cf.HookContext(hook.Info{
-		Kind: hooks.UpgradeCharm,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	sm, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	cm, err := sm.CAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-
-	appTag := names.NewApplicationTag(appName)
-	w, err := cm.WatchPodSpec(appTag)
-	c.Assert(err, jc.ErrorIsNil)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
-	wc.AssertOneChange() // initial event.
-
-	// No change for non upgrade-hook.
-	err = ctx.Flush("", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	err = ctx.Flush(string(hooks.UpgradeCharm), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	// both k8s spec and raw k8s spec are nil, so no change here now. !!!!!
-	wc.AssertNoChange()
-
-	_, err = cm.PodSpec(appTag)
-	c.Assert(err, gc.ErrorMatches, `k8s spec for application gitlab not found`)
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
-}
-
-func (s *ContextFactorySuite) TestHookContextCAASNilRawK8sSpec(c *gc.C) {
+func (s *ContextFactorySuite) TestHookContextCAASNilPodSpecNilRawPodSpecButUpgradeCharmHookRan(c *gc.C) {
 	st, cf, appName := s.setupPodSpec(c)
 	defer st.Close()
 
@@ -521,11 +484,16 @@ func (s *ContextFactorySuite) TestHookContextCAASNilRawK8sSpec(c *gc.C) {
 
 	err = ctx.Flush("upgrade-charm", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	// both k8s spec and raw k8s spec are nil, so no change here now. !!!!!
-	wc.AssertNoChange()
+	// both k8s spec and raw k8s spec are nil, but "upgrade-charm" hook will trigger a change to update "upgrade-counter".
+	wc.AssertOneChange()
 
-	_, err = cm.RawK8sSpec(appTag)
-	c.Assert(err, gc.ErrorMatches, `k8s spec for application gitlab not found`)
+	ps, err := cm.PodSpec(appTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ps, gc.Equals, "")
+
+	rps, err := cm.RawK8sSpec(appTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rps, gc.Equals, "")
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
