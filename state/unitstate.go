@@ -78,12 +78,14 @@ func (d *unitStateDoc) relationData() (map[int]string, error) {
 }
 
 // relationStateMatches returns true if the RelationState map within the
-// unitStateDoc matches the provided newRS argument.  Assumes that
-// IgnoreRelationsState has been called first, therefore if arg is empty,
-// returns a nil map to be set.
+// unitStateDoc contains all of the provided newRS map.  Assumes that
+// relationStateBSONFriendly has been called first.
 func (d *unitStateDoc) relationStateMatches(newRS map[string]string) bool {
-	for k, v := range d.RelationState {
-		if newRS[k] != v {
+	if len(d.RelationState) != len(newRS) {
+		return false
+	}
+	for k, v := range newRS {
+		if d.RelationState[k] != v {
 			return false
 		}
 	}
