@@ -6,9 +6,11 @@ package storage_test
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
 	_ "github.com/juju/juju/provider/dummy"
 )
@@ -56,14 +58,23 @@ func (s *PoolRemoveSuite) TestPoolRemoveUnsupportedAPIVersion(c *gc.C) {
 	c.Assert(len(s.mockAPI.RemovedPools), gc.Equals, 0)
 }
 
+func (s *PoolRemoveSuite) TestPoolRemoveNotFound(c *gc.C) {
+	s.mockAPI.err = params.Error{
+		Code: params.CodeNotFound,
+	}
+	_, err := s.runPoolRemove(c, []string{"sunshine"})
+	c.Assert(errors.Cause(err), gc.Equals, cmd.ErrSilent)
+}
+
 type mockPoolRemoveAPI struct {
 	APIVersion   int
 	RemovedPools []string
+	err          error
 }
 
 func (s *mockPoolRemoveAPI) RemovePool(pname string) error {
 	s.RemovedPools = append(s.RemovedPools, pname)
-	return nil
+	return s.err
 }
 
 func (s mockPoolRemoveAPI) Close() error {

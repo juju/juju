@@ -519,7 +519,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		if series == "" {
 			series = h.data.Series
 		}
-		ch, curl, err := charmrepo.NewCharmAtPath(charmPath, series)
+		ch, curl, err := charmrepo.NewCharmAtPathForceSeries(charmPath, series, h.force)
 		if err != nil && !os.IsNotExist(err) {
 			return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 		}
