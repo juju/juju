@@ -4,39 +4,43 @@
 package context
 
 import (
-	"os"
 	"path/filepath"
 
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
 )
 
+// GetEnvFunc is passed to OSDependentEnvVars and called
+// when environment variables need to be appended or otherwise
+// based off existing variables.
+type GetEnvFunc func(key string) string
+
 // OSDependentEnvVars returns the OS-dependent environment variables that
 // should be set for a hook context.
-func OSDependentEnvVars(paths Paths) []string {
+func OSDependentEnvVars(paths Paths, getEnv GetEnvFunc) []string {
 	switch jujuos.HostOS() {
 	case jujuos.Windows:
-		return windowsEnv(paths)
+		return windowsEnv(paths, getEnv)
 	case jujuos.Ubuntu:
-		return ubuntuEnv(paths)
+		return ubuntuEnv(paths, getEnv)
 	case jujuos.CentOS:
-		return centosEnv(paths)
+		return centosEnv(paths, getEnv)
 	case jujuos.OpenSUSE:
-		return opensuseEnv(paths)
+		return opensuseEnv(paths, getEnv)
 	case jujuos.GenericLinux:
-		return genericLinuxEnv(paths)
+		return genericLinuxEnv(paths, getEnv)
 	}
 	return nil
 }
 
-func appendPath(paths Paths) []string {
+func appendPath(paths Paths, getEnv GetEnvFunc) []string {
 	return []string{
-		"PATH=" + paths.GetToolsDir() + ":" + os.Getenv("PATH"),
+		"PATH=" + paths.GetToolsDir() + ":" + getEnv("PATH"),
 	}
 }
 
-func ubuntuEnv(paths Paths) []string {
-	path := appendPath(paths)
+func ubuntuEnv(paths Paths, getEnv GetEnvFunc) []string {
+	path := appendPath(paths, getEnv)
 	env := []string{
 		"APT_LISTCHANGES_FRONTEND=none",
 		"DEBIAN_FRONTEND=noninteractive",
@@ -56,8 +60,8 @@ func ubuntuEnv(paths Paths) []string {
 	return env
 }
 
-func centosEnv(paths Paths) []string {
-	path := appendPath(paths)
+func centosEnv(paths Paths, getEnv GetEnvFunc) []string {
+	path := appendPath(paths, getEnv)
 
 	env := []string{
 		"LANG=C.UTF-8",
@@ -76,8 +80,8 @@ func centosEnv(paths Paths) []string {
 	return env
 }
 
-func opensuseEnv(paths Paths) []string {
-	path := appendPath(paths)
+func opensuseEnv(paths Paths, getEnv GetEnvFunc) []string {
+	path := appendPath(paths, getEnv)
 
 	env := []string{
 		"LANG=C.UTF-8",
@@ -96,8 +100,8 @@ func opensuseEnv(paths Paths) []string {
 	return env
 }
 
-func genericLinuxEnv(paths Paths) []string {
-	path := appendPath(paths)
+func genericLinuxEnv(paths Paths, getEnv GetEnvFunc) []string {
+	path := appendPath(paths, getEnv)
 
 	env := []string{
 		"LANG=C.UTF-8",
@@ -116,11 +120,11 @@ func genericLinuxEnv(paths Paths) []string {
 // helps hooks use normal imports instead of dot sourcing modules
 // its a convenience variable. The PATH variable delimiter is
 // a semicolon instead of a colon
-func windowsEnv(paths Paths) []string {
+func windowsEnv(paths Paths, getEnv GetEnvFunc) []string {
 	charmDir := paths.GetCharmDir()
 	charmModules := filepath.Join(charmDir, "lib", "Modules")
 	return []string{
-		"Path=" + paths.GetToolsDir() + ";" + os.Getenv("Path"),
-		"PSModulePath=" + os.Getenv("PSModulePath") + ";" + charmModules,
+		"Path=" + paths.GetToolsDir() + ";" + getEnv("Path"),
+		"PSModulePath=" + getEnv("PSModulePath") + ";" + charmModules,
 	}
 }

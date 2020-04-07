@@ -200,8 +200,16 @@ func (ctx *MockContext) UnitName() string {
 	return "some-unit/999"
 }
 
-func (ctx *MockContext) HookVars(paths context.Paths, _ bool) ([]string, error) {
-	return []string{"VAR=value"}, nil
+func (ctx *MockContext) HookVars(paths context.Paths, _ bool, getEnv context.GetEnvFunc) ([]string, error) {
+	pathKey := ""
+	if runtime.GOOS == "windows" {
+		pathKey = "Path"
+	} else {
+		pathKey = "PATH"
+	}
+	path := getEnv(pathKey)
+	newPath := fmt.Sprintf("%s=pathypathpath;%s", pathKey, path)
+	return []string{"VAR=value", newPath}, nil
 }
 
 func (ctx *MockContext) ActionData() (*context.ActionData, error) {
@@ -357,17 +365,23 @@ func (s *RunMockContextSuite) TestRunActionFlushCharmActionsCAASSuccess(c *gc.C)
 		perm: 0700,
 	}, s.paths.GetCharmDir())
 
-	execFuncCalled := false
-	c.Assert(execFuncCalled, jc.IsFalse)
+	execCount := 0
 	execFunc := func(params runner.ExecParams) (*exec.ExecResponse, error) {
-		execFuncCalled = true
-		return &exec.ExecResponse{
-			Stdout: bytes.NewBufferString("hello").Bytes(),
-			Stderr: bytes.NewBufferString("world").Bytes(),
-		}, nil
+		execCount++
+		switch execCount {
+		case 1:
+			return &exec.ExecResponse{}, nil
+		case 2:
+			return &exec.ExecResponse{
+				Stdout: bytes.NewBufferString("hello").Bytes(),
+				Stderr: bytes.NewBufferString("world").Bytes(),
+			}, nil
+		}
+		c.Fatal("invalid count")
+		return nil, nil
 	}
 	_, actualErr := runner.NewRunner(ctx, s.paths, execFunc).RunAction("something-happened")
-	c.Assert(execFuncCalled, jc.IsTrue)
+	c.Assert(execCount, gc.Equals, 2)
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
 	c.Assert(ctx.flushFailure, gc.IsNil)
@@ -387,10 +401,23 @@ func (s *RunMockContextSuite) TestRunActionFlushCharmActionsCAASFailed(c *gc.C) 
 		name: hookName,
 		perm: 0700,
 	}, s.paths.GetCharmDir())
-	_, actualErr := runner.NewRunner(ctx, s.paths, nil).RunAction("something-happened")
+	execCount := 0
+	execFunc := func(params runner.ExecParams) (*exec.ExecResponse, error) {
+		execCount++
+		switch execCount {
+		case 1:
+			return &exec.ExecResponse{}, nil
+		case 2:
+			return nil, errors.Errorf("failed exec")
+		}
+		c.Fatal("invalid count")
+		return nil, nil
+	}
+	_, actualErr := runner.NewRunner(ctx, s.paths, execFunc).RunAction("something-happened")
+	c.Assert(execCount, gc.Equals, 2)
 	c.Assert(actualErr, gc.Equals, ctx.flushResult)
 	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
-	c.Assert(ctx.flushFailure, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(ctx.flushFailure, gc.ErrorMatches, "failed exec")
 }
 
 func (s *RunMockContextSuite) TestRunActionFlushFailure(c *gc.C) {
@@ -525,12 +552,72 @@ func (s *RunMockContextSuite) TestRunActionCAASSuccess(c *gc.C) {
 		actionParams:  params,
 		actionResults: map[string]interface{}{},
 	}
+	execCount := 0
 	execFunc := func(params runner.ExecParams) (*exec.ExecResponse, error) {
-		return &exec.ExecResponse{
-			Stdout: bytes.NewBufferString("1").Bytes(),
-		}, nil
+		execCount++
+		switch execCount {
+		case 1:
+			return &exec.ExecResponse{}, nil
+		case 2:
+			return &exec.ExecResponse{
+				Stdout: bytes.NewBufferString("1").Bytes(),
+			}, nil
+		}
+		c.Fatal("invalid count")
+		return nil, nil
 	}
 	_, err := runner.NewRunner(ctx, s.paths, execFunc).RunAction("juju-run")
+	c.Assert(execCount, gc.Equals, 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
+	c.Assert(ctx.actionResults["Code"], gc.Equals, "0")
+	c.Assert(strings.TrimRight(ctx.actionResults["Stdout"].(string), "\r\n"), gc.Equals, "1")
+	c.Assert(ctx.actionResults["Stderr"], gc.Equals, nil)
+}
+
+func (s *RunMockContextSuite) TestRunActionCAASCorrectEnv(c *gc.C) {
+	params := map[string]interface{}{
+		"command":          "echo 1",
+		"timeout":          0,
+		"workload-context": true,
+	}
+	ctx := &MockContext{
+		modelType: model.CAAS,
+		actionData: &context.ActionData{
+			Params: params,
+		},
+		actionParams:  params,
+		actionResults: map[string]interface{}{},
+	}
+	execCount := 0
+	execFunc := func(params runner.ExecParams) (*exec.ExecResponse, error) {
+		execCount++
+		switch execCount {
+		case 1:
+			c.Assert(params.Commands, gc.DeepEquals, []string{"unset _; export"})
+			return &exec.ExecResponse{
+				Stdout: []byte(`
+export BLA='bla'
+export PATH='important-path'
+`[1:]),
+			}, nil
+		case 2:
+			path := ""
+			for _, v := range params.Env {
+				if strings.HasPrefix(v, "PATH=") {
+					path = v
+				}
+			}
+			c.Assert(path, gc.Equals, "PATH=pathypathpath;important-path")
+			return &exec.ExecResponse{
+				Stdout: bytes.NewBufferString("1").Bytes(),
+			}, nil
+		}
+		c.Fatal("invalid count")
+		return nil, nil
+	}
+	_, err := runner.NewRunner(ctx, s.paths, execFunc).RunAction("juju-run")
+	c.Assert(execCount, gc.Equals, 2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
 	c.Assert(ctx.actionResults["Code"], gc.Equals, "0")

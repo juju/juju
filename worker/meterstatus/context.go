@@ -35,7 +35,7 @@ func NewLimitedContext(unitName string) *limitedContext {
 }
 
 // HookVars implements runner.Context.
-func (ctx *limitedContext) HookVars(paths context.Paths, remote bool) ([]string, error) {
+func (ctx *limitedContext) HookVars(paths context.Paths, remote bool, getEnv context.GetEnvFunc) ([]string, error) {
 	vars := []string{
 		"CHARM_DIR=" + paths.GetCharmDir(), // legacy
 		"JUJU_CHARM_DIR=" + paths.GetCharmDir(),
@@ -52,7 +52,7 @@ func (ctx *limitedContext) HookVars(paths context.Paths, remote bool) ([]string,
 	for key, val := range ctx.env {
 		vars = append(vars, fmt.Sprintf("%s=%s", key, val))
 	}
-	return append(vars, context.OSDependentEnvVars(paths)...), nil
+	return append(vars, context.OSDependentEnvVars(paths, getEnv)...), nil
 }
 
 // SetEnvVars sets additional environment variables to be exported by the context.

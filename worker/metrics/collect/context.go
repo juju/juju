@@ -33,7 +33,7 @@ func newHookContext(unitName string, recorder spool.MetricRecorder) *hookContext
 }
 
 // HookVars implements runner.Context.
-func (ctx *hookContext) HookVars(paths context.Paths, remote bool) ([]string, error) {
+func (ctx *hookContext) HookVars(paths context.Paths, remote bool, getEnv context.GetEnvFunc) ([]string, error) {
 	vars := []string{
 		"CHARM_DIR=" + paths.GetCharmDir(), // legacy
 		"JUJU_CHARM_DIR=" + paths.GetCharmDir(),
@@ -47,7 +47,7 @@ func (ctx *hookContext) HookVars(paths context.Paths, remote bool) ([]string, er
 			"JUJU_AGENT_CA_CERT="+path.Join(paths.GetBaseDir(), caas.CACertFile),
 		)
 	}
-	return append(vars, context.OSDependentEnvVars(paths)...), nil
+	return append(vars, context.OSDependentEnvVars(paths, getEnv)...), nil
 }
 
 // UnitName implements runner.Context.

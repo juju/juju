@@ -916,7 +916,7 @@ func (ctx *HookContext) ActionData() (*ActionData, error) {
 // such that it can know what environment it's operating in, and can call back
 // into context.
 // Implements runner.Context.
-func (ctx *HookContext) HookVars(paths Paths, remote bool) ([]string, error) {
+func (ctx *HookContext) HookVars(paths Paths, remote bool, getEnv GetEnvFunc) ([]string, error) {
 	vars := ctx.legacyProxySettings.AsEnvironmentValues()
 	// TODO(thumper): as work on proxies progress, there will be additional
 	// proxy settings to be added.
@@ -979,8 +979,7 @@ func (ctx *HookContext) HookVars(paths Paths, remote bool) ([]string, error) {
 			"JUJU_ACTION_TAG="+ctx.actionData.Tag.String(),
 		)
 	}
-
-	return append(vars, OSDependentEnvVars(paths)...), nil
+	return append(vars, OSDependentEnvVars(paths, getEnv)...), nil
 }
 
 func (ctx *HookContext) handleReboot(ctxErr error) error {
