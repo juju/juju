@@ -24,3 +24,12 @@ type Machine interface {
 type Unit interface {
 	SetState(*state.UnitState) error
 }
+
+var (
+	// NOTE(achilleasa): If the above interface definitions are not
+	// compatible to the equivalent implementations in state, upgrades can
+	// break due to failed cast checks. The following compile-time checks
+	// allow us to catch such issues.
+	_ Unit    = (*state.Unit)(nil)
+	_ Machine = (*state.Machine)(nil)
+)
