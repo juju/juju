@@ -361,11 +361,11 @@ type address struct {
 type Origin string
 
 const (
-	// Address origin unknown.
+	// OriginUnknown address origin unknown.
 	OriginUnknown Origin = ""
-	// Address comes from a provider.
+	// OriginProvider address comes from a provider.
 	OriginProvider Origin = "provider"
-	// Address comes from a machine.
+	// OriginMachine address comes from a machine.
 	OriginMachine Origin = "machine"
 )
 

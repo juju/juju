@@ -217,10 +217,10 @@ func ConvertSpaceName(name string, existing set.Strings) string {
 	// If this name is in use add a numerical suffix.
 	if existing.Contains(name) {
 		counter := 2
-		for existing.Contains(name + fmt.Sprintf("-%d", counter)) {
-			counter += 1
+		for existing.Contains(fmt.Sprintf("%s-%d", name, counter)) {
+			counter++
 		}
-		name = name + fmt.Sprintf("-%d", counter)
+		name = fmt.Sprintf("%s-%d", name, counter)
 	}
 
 	return name

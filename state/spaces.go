@@ -367,7 +367,7 @@ func (s *Space) Remove() (err error) {
 	return onAbort(txnErr, errors.New("not found or not dead"))
 }
 
-// Refresh: refreshes the contents of the Space from the underlying state. It
+// Refresh refreshes the contents of the Space from the underlying state. It
 // returns an error that satisfies errors.IsNotFound if the Space has been
 // removed.
 func (s *Space) Refresh() error {
@@ -502,7 +502,7 @@ func (st *State) SaveProviderSpaces(providerSpaces []network.SpaceInfo) error {
 		return errors.Trace(err)
 	}
 	modelSpaceMap := make(map[network.Id]*Space)
-	spaceNames := make(set.Strings)
+	spaceNames := set.NewStrings()
 	for _, space := range stateSpaces {
 		modelSpaceMap[space.ProviderId()] = space
 		spaceNames.Add(space.Name())
@@ -510,13 +510,14 @@ func (st *State) SaveProviderSpaces(providerSpaces []network.SpaceInfo) error {
 
 	// TODO(mfoord): we need to delete spaces and subnets that no longer
 	// exist, so long as they're not in use.
+	updatedSpaces := network.MakeSubnetSet()
 	for _, spaceInfo := range providerSpaces {
 		// Check if the space is already in state,
 		// in which case we know its name.
 		stateSpace, ok := modelSpaceMap[spaceInfo.ProviderId]
-		var spaceId string
+		var spaceID string
 		if ok {
-			spaceId = stateSpace.Id()
+			spaceID = stateSpace.Id()
 		} else {
 			// The space is new, we need to create a valid name for it in state.
 			// Convert the name into a valid name that is not already in use.
@@ -529,13 +530,44 @@ func (st *State) SaveProviderSpaces(providerSpaces []network.SpaceInfo) error {
 			}
 
 			spaceNames.Add(spaceName)
-			spaceId = space.Id()
+			spaceID = space.Id()
+
+			// To ensure that we can remove spaces, we backfill the new spaces
+			// onto the modelSpaceMap.
+			modelSpaceMap[space.ProviderId()] = space
 		}
 
-		err = st.SaveProviderSubnets(spaceInfo.Subnets, spaceId)
+		err = st.SaveProviderSubnets(spaceInfo.Subnets, spaceID)
 		if err != nil {
 			return errors.Trace(err)
 		}
+
+		updatedSpaces.Add(spaceInfo.ProviderId)
 	}
+
+	// Workout the difference between all the current spaces vs what was
+	// actually changed.
+	allStateSpaces := network.MakeSubnetSet()
+	for providerID := range modelSpaceMap {
+		allStateSpaces.Add(providerID)
+	}
+
+	remnantSpaces := allStateSpaces.Difference(updatedSpaces)
+	for _, providerID := range remnantSpaces.SortedValues() {
+		// If the space is not in state or the name is not in space names, then
+		// we can ignore it.
+		space, ok := modelSpaceMap[providerID]
+		if !ok || space.Name() == network.AlphaSpaceName {
+			continue
+		}
+
+		// Attempt to remove the space, if the space is not dead it will be
+		// skipped. We could force the removal by ensuring the space is dead
+		// first.
+		if err := space.Remove(); err != nil {
+			logger.Infof("unable to remove space: %v", err)
+		}
+	}
+
 	return nil
 }

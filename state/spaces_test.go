@@ -798,6 +798,14 @@ var spaceTwo = []network.SpaceInfo{
 	},
 }
 
+var spaceThree = []network.SpaceInfo{
+	{
+		Name:       "space3",
+		ProviderId: "3",
+		Subnets:    []network.SubnetInfo{},
+	},
+}
+
 var twoSpaces = []network.SpaceInfo{spaceOne[0], spaceTwo[0]}
 
 var twoSubnetsAfterFAN = []network.SubnetInfo{
@@ -838,17 +846,17 @@ func checkSubnetsEqual(c *gc.C, subnets []*state.Subnet, subnetInfos []network.S
 	}
 }
 
-func checkSpacesEqual(c *gc.C, spaces []*state.Space, spaceInfos []network.SpaceInfo) {
+func checkSpacesEqual(c *gc.C, actual []*state.Space, expected []network.SpaceInfo) {
 	// Filter out the default space for comparisons.
-	filtered := spaces[:0]
-	for _, s := range spaces {
+	filtered := actual[:0]
+	for _, s := range actual {
 		if s.Name() != network.AlphaSpaceName {
 			filtered = append(filtered, s)
 		}
 	}
 
-	c.Assert(len(spaceInfos), gc.Equals, len(filtered))
-	for i, spaceInfo := range spaceInfos {
+	c.Assert(len(filtered), gc.Equals, len(expected))
+	for i, spaceInfo := range expected {
 		space := filtered[i]
 		c.Check(string(spaceInfo.Name), gc.Equals, space.Name())
 		c.Check(spaceInfo.ProviderId, gc.Equals, space.ProviderId())
@@ -968,6 +976,29 @@ func (s *SpacesDiscoverySuite) TestSaveProviderSpacesAddsSpaces(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	spaces, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	checkSpacesEqual(c, spaces, twoSpaces)
+}
+
+func (s *SpacesDiscoverySuite) TestSaveProviderSpacesRemovesEmptySpaces(c *gc.C) {
+	threeSpaces := append(twoSpaces, spaceThree...)
+	err := s.State.SaveProviderSpaces(threeSpaces)
+	c.Check(err, jc.ErrorIsNil)
+
+	space, err := s.State.SpaceByName("space3")
+	c.Check(err, jc.ErrorIsNil)
+
+	err = space.EnsureDead()
+	c.Check(err, jc.ErrorIsNil)
+
+	spaces, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	checkSpacesEqual(c, spaces, threeSpaces)
+
+	err = s.State.SaveProviderSpaces(twoSpaces)
+	c.Check(err, jc.ErrorIsNil)
+
+	spaces, err = s.State.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	checkSpacesEqual(c, spaces, twoSpaces)
 }
