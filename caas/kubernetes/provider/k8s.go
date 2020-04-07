@@ -883,8 +883,8 @@ func (k *kubernetesClient) ApplyRawK8sSpec(specStr string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Warningf("specStr -> %s", specStr)
-	logger.Warningf("spec -> %s", pretty.Sprint(spec))
+	logger.Debugf("specStr -> %s", specStr)
+	logger.Debugf("spec -> %s", pretty.Sprint(spec))
 	return errors.NotImplementedf("raw k8s spec")
 }
 

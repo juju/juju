@@ -74,7 +74,7 @@ func (s *rawK8sSpecSetSuite) TestHelp(c *gc.C) {
 Usage: k8s-raw-set [options] --file <core spec file>
 
 Summary:
-set k8s spec information
+set k8s raw spec information
 
 Options:
 --file  (= -)

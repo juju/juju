@@ -76,6 +76,11 @@ func (m *mockServiceBroker) DeleteService(appName string) error {
 	return m.NextErr()
 }
 
+func (m *mockServiceBroker) ApplyRawK8sSpec(spec string) error {
+	m.MethodCall(m, "ApplyRawK8sSpec", spec)
+	return m.NextErr()
+}
+
 func (m *mockServiceBroker) UnexposeService(appName string) error {
 	m.MethodCall(m, "UnexposeService", appName)
 	return m.NextErr()

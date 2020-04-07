@@ -2657,7 +2657,6 @@ func CheckApplicationExpectWorkload(m *Model, appTag names.ApplicationTag) (bool
 	if err != nil && !errors.IsNotFound(err) {
 		return false, errors.Trace(err)
 	}
-	// ?????????? is workload expected if neither k8s spec nor raw k8s spec was set???
 	return err == nil, nil
 }
 
