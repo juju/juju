@@ -39,6 +39,7 @@ func (m *MockHookUnit) EXPECT() *MockHookUnitMockRecorder {
 
 // Application mocks base method
 func (m *MockHookUnit) Application() (*uniter.Application, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Application")
 	ret0, _ := ret[0].(*uniter.Application)
 	ret1, _ := ret[1].(error)
@@ -47,11 +48,13 @@ func (m *MockHookUnit) Application() (*uniter.Application, error) {
 
 // Application indicates an expected call of Application
 func (mr *MockHookUnitMockRecorder) Application() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockHookUnit)(nil).Application))
 }
 
 // ApplicationName mocks base method
 func (m *MockHookUnit) ApplicationName() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplicationName")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -59,11 +62,13 @@ func (m *MockHookUnit) ApplicationName() string {
 
 // ApplicationName indicates an expected call of ApplicationName
 func (mr *MockHookUnitMockRecorder) ApplicationName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationName", reflect.TypeOf((*MockHookUnit)(nil).ApplicationName))
 }
 
 // ClosePorts mocks base method
 func (m *MockHookUnit) ClosePorts(arg0 string, arg1, arg2 int) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClosePorts", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -71,11 +76,13 @@ func (m *MockHookUnit) ClosePorts(arg0 string, arg1, arg2 int) error {
 
 // ClosePorts indicates an expected call of ClosePorts
 func (mr *MockHookUnitMockRecorder) ClosePorts(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClosePorts", reflect.TypeOf((*MockHookUnit)(nil).ClosePorts), arg0, arg1, arg2)
 }
 
 // CommitHookChanges mocks base method
 func (m *MockHookUnit) CommitHookChanges(arg0 params.CommitHookChangesArgs) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CommitHookChanges", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -83,11 +90,13 @@ func (m *MockHookUnit) CommitHookChanges(arg0 params.CommitHookChangesArgs) erro
 
 // CommitHookChanges indicates an expected call of CommitHookChanges
 func (mr *MockHookUnitMockRecorder) CommitHookChanges(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitHookChanges", reflect.TypeOf((*MockHookUnit)(nil).CommitHookChanges), arg0)
 }
 
 // ConfigSettings mocks base method
 func (m *MockHookUnit) ConfigSettings() (charm_v6.Settings, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConfigSettings")
 	ret0, _ := ret[0].(charm_v6.Settings)
 	ret1, _ := ret[1].(error)
@@ -96,11 +105,13 @@ func (m *MockHookUnit) ConfigSettings() (charm_v6.Settings, error) {
 
 // ConfigSettings indicates an expected call of ConfigSettings
 func (mr *MockHookUnitMockRecorder) ConfigSettings() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigSettings", reflect.TypeOf((*MockHookUnit)(nil).ConfigSettings))
 }
 
 // LogActionMessage mocks base method
 func (m *MockHookUnit) LogActionMessage(arg0 names_v3.ActionTag, arg1 string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LogActionMessage", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -108,11 +119,13 @@ func (m *MockHookUnit) LogActionMessage(arg0 names_v3.ActionTag, arg1 string) er
 
 // LogActionMessage indicates an expected call of LogActionMessage
 func (mr *MockHookUnitMockRecorder) LogActionMessage(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogActionMessage", reflect.TypeOf((*MockHookUnit)(nil).LogActionMessage), arg0, arg1)
 }
 
 // Name mocks base method
 func (m *MockHookUnit) Name() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Name")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -120,11 +133,13 @@ func (m *MockHookUnit) Name() string {
 
 // Name indicates an expected call of Name
 func (mr *MockHookUnitMockRecorder) Name() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockHookUnit)(nil).Name))
 }
 
 // NetworkInfo mocks base method
 func (m *MockHookUnit) NetworkInfo(arg0 []string, arg1 *int) (map[string]params.NetworkInfoResult, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NetworkInfo", arg0, arg1)
 	ret0, _ := ret[0].(map[string]params.NetworkInfoResult)
 	ret1, _ := ret[1].(error)
@@ -133,11 +148,13 @@ func (m *MockHookUnit) NetworkInfo(arg0 []string, arg1 *int) (map[string]params.
 
 // NetworkInfo indicates an expected call of NetworkInfo
 func (mr *MockHookUnitMockRecorder) NetworkInfo(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkInfo", reflect.TypeOf((*MockHookUnit)(nil).NetworkInfo), arg0, arg1)
 }
 
 // OpenPorts mocks base method
 func (m *MockHookUnit) OpenPorts(arg0 string, arg1, arg2 int) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenPorts", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -145,11 +162,13 @@ func (m *MockHookUnit) OpenPorts(arg0 string, arg1, arg2 int) error {
 
 // OpenPorts indicates an expected call of OpenPorts
 func (mr *MockHookUnitMockRecorder) OpenPorts(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenPorts", reflect.TypeOf((*MockHookUnit)(nil).OpenPorts), arg0, arg1, arg2)
 }
 
 // RequestReboot mocks base method
 func (m *MockHookUnit) RequestReboot() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RequestReboot")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -157,11 +176,13 @@ func (m *MockHookUnit) RequestReboot() error {
 
 // RequestReboot indicates an expected call of RequestReboot
 func (mr *MockHookUnitMockRecorder) RequestReboot() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestReboot", reflect.TypeOf((*MockHookUnit)(nil).RequestReboot))
 }
 
 // SetUnitStatus mocks base method
 func (m *MockHookUnit) SetUnitStatus(arg0 status.Status, arg1 string, arg2 map[string]interface{}) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetUnitStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -169,11 +190,13 @@ func (m *MockHookUnit) SetUnitStatus(arg0 status.Status, arg1 string, arg2 map[s
 
 // SetUnitStatus indicates an expected call of SetUnitStatus
 func (mr *MockHookUnitMockRecorder) SetUnitStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitStatus", reflect.TypeOf((*MockHookUnit)(nil).SetUnitStatus), arg0, arg1, arg2)
 }
 
 // State mocks base method
 func (m *MockHookUnit) State() (params.UnitStateResult, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "State")
 	ret0, _ := ret[0].(params.UnitStateResult)
 	ret1, _ := ret[1].(error)
@@ -182,11 +205,13 @@ func (m *MockHookUnit) State() (params.UnitStateResult, error) {
 
 // State indicates an expected call of State
 func (mr *MockHookUnitMockRecorder) State() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockHookUnit)(nil).State))
 }
 
 // Tag mocks base method
 func (m *MockHookUnit) Tag() names_v3.UnitTag {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
 	ret0, _ := ret[0].(names_v3.UnitTag)
 	return ret0
@@ -194,11 +219,13 @@ func (m *MockHookUnit) Tag() names_v3.UnitTag {
 
 // Tag indicates an expected call of Tag
 func (mr *MockHookUnitMockRecorder) Tag() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockHookUnit)(nil).Tag))
 }
 
 // UnitStatus mocks base method
 func (m *MockHookUnit) UnitStatus() (params.StatusResult, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnitStatus")
 	ret0, _ := ret[0].(params.StatusResult)
 	ret1, _ := ret[1].(error)
@@ -207,11 +234,13 @@ func (m *MockHookUnit) UnitStatus() (params.StatusResult, error) {
 
 // UnitStatus indicates an expected call of UnitStatus
 func (mr *MockHookUnitMockRecorder) UnitStatus() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitStatus", reflect.TypeOf((*MockHookUnit)(nil).UnitStatus))
 }
 
 // UpdateNetworkInfo mocks base method
 func (m *MockHookUnit) UpdateNetworkInfo() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateNetworkInfo")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -219,5 +248,6 @@ func (m *MockHookUnit) UpdateNetworkInfo() error {
 
 // UpdateNetworkInfo indicates an expected call of UpdateNetworkInfo
 func (mr *MockHookUnitMockRecorder) UpdateNetworkInfo() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateNetworkInfo", reflect.TypeOf((*MockHookUnit)(nil).UpdateNetworkInfo))
 }

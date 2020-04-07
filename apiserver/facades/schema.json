@@ -36690,14 +36690,14 @@
                         "pod-spec": {
                             "$ref": "#/definitions/PodSpec"
                         },
-                        "raw-k8s-spec": {
-                            "$ref": "#/definitions/PodSpec"
-                        },
                         "relation-unit-settings": {
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/RelationUnitSettings"
                             }
+                        },
+                        "set-raw-k8s-spec": {
+                            "$ref": "#/definitions/PodSpec"
                         },
                         "tag": {
                             "type": "string"
