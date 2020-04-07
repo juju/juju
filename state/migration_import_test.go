@@ -1001,6 +1001,55 @@ func (s *MigrationImportSuite) TestUnitsWithVirtConstraint(c *gc.C) {
 	s.assertUnitsMigrated(c, s.State, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
 }
 
+func (s *MigrationImportSuite) TestUnitWithoutAnyPersistedState(c *gc.C) {
+	f := factory.NewFactory(s.State, s.StatePool)
+
+	// Export unit without any controller-persisted state
+	exported := f.MakeUnit(c, &factory.UnitParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+
+	exportedState, err := exported.State()
+	c.Assert(err, jc.ErrorIsNil)
+	_, isSet := exportedState.CharmState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("expected charm state to be empty"))
+	_, isSet = exportedState.RelationState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("expected uniter relation state to be empty"))
+	_, isSet = exportedState.UniterState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("expected uniter state to be empty"))
+	_, isSet = exportedState.StorageState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("expected uniter storage state to be empty"))
+	_, isSet = exportedState.MeterStatusState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("expected meter status state to be empty"))
+
+	// Import model and ensure that its UnitState was not mutated.
+	_, newSt := s.importModel(c, s.State)
+
+	importedApplications, err := newSt.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedApplications, gc.HasLen, 1)
+
+	importedUnits, err := importedApplications[0].AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedUnits, gc.HasLen, 1)
+	imported := importedUnits[0]
+
+	c.Assert(imported.UnitTag(), gc.Equals, exported.UnitTag())
+
+	unitState, err := imported.State()
+	c.Assert(err, jc.ErrorIsNil)
+	_, isSet = unitState.CharmState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("unexpected charm state after import; SetState should not have been called"))
+	_, isSet = unitState.RelationState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("unexpected uniter relation state after import; SetState should not have been called"))
+	_, isSet = unitState.UniterState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("unexpected uniter state after import; SetState should not have been called"))
+	_, isSet = unitState.StorageState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("unexpected uniter storage state after import; SetState should not have been called"))
+	_, isSet = unitState.MeterStatusState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("unexpected meter status state after import; SetState should not have been called"))
+}
+
 func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, cons constraints.Value) {
 	f := factory.NewFactory(st, s.StatePool)
 
