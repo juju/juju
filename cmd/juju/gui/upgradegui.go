@@ -89,7 +89,7 @@ func (c *upgradeGUICommand) Init(args []string) error {
 // Run implements the cmd.Command interface.
 func (c *upgradeGUICommand) Run(ctx *cmd.Context) error {
 	if c.list {
-		// List available Juju GUI archive versions.
+		// List available Juju Dashboard archive versions.
 		allMeta, err := remoteArchiveMetadata()
 		if err != nil {
 			return errors.Annotate(err, "cannot list Juju Dashboard release versions")
@@ -163,16 +163,16 @@ type openedArchive struct {
 // The readSeekCloser returned in openedArchive.r must be closed by callers.
 func openArchive(versOrPath string) (openedArchive, error) {
 	if versOrPath == "" {
-		// Return the most recent Juju GUI from simplestreams.
+		// Return the most recent Juju Dashboard from simplestreams.
 		allMeta, err := remoteArchiveMetadata()
 		if err != nil {
 			return openedArchive{}, errors.Annotate(err, "cannot upgrade to most recent release")
 		}
-		// The most recent Juju GUI release is the first on the list.
+		// The most recent Juju Dashboard release is the first on the list.
 		metadata := allMeta[0]
 		r, _, err := metadata.Source.Fetch(metadata.Path)
 		if err != nil {
-			return openedArchive{}, errors.Annotatef(err, "cannot open Juju GUI archive at %q", metadata.FullPath)
+			return openedArchive{}, errors.Annotatef(err, "cannot open Juju Dashboard archive at %q", metadata.FullPath)
 		}
 		return openedArchive{
 			r:    r,
@@ -184,11 +184,11 @@ func openArchive(versOrPath string) (openedArchive, error) {
 	f, err := os.Open(versOrPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			return openedArchive{}, errors.Annotate(err, "cannot open GUI archive")
+			return openedArchive{}, errors.Annotate(err, "cannot open Dashboard archive")
 		}
 		vers, err := version.Parse(versOrPath)
 		if err != nil {
-			return openedArchive{}, errors.Errorf("invalid GUI release version or local path %q", versOrPath)
+			return openedArchive{}, errors.Errorf("invalid Dashboard release version or local path %q", versOrPath)
 		}
 		// Return a specific release version from simplestreams.
 		allMeta, err := remoteArchiveMetadata()
@@ -201,7 +201,7 @@ func openArchive(versOrPath string) (openedArchive, error) {
 		}
 		r, _, err := metadata.Source.Fetch(metadata.Path)
 		if err != nil {
-			return openedArchive{}, errors.Annotatef(err, "cannot open Juju GUI archive at %q", metadata.FullPath)
+			return openedArchive{}, errors.Annotatef(err, "cannot open Juju Dashboard archive at %q", metadata.FullPath)
 		}
 		return openedArchive{
 			r:    r,
@@ -210,7 +210,7 @@ func openArchive(versOrPath string) (openedArchive, error) {
 			vers: metadata.Version,
 		}, nil
 	}
-	// This is a local Juju GUI release.
+	// This is a local Juju Dashboard release.
 	defer func() {
 		if err != nil {
 			f.Close()
@@ -218,14 +218,14 @@ func openArchive(versOrPath string) (openedArchive, error) {
 	}()
 	vers, err := archiveVersion(f)
 	if err != nil {
-		return openedArchive{}, errors.Annotatef(err, "cannot upgrade Juju GUI using %q", versOrPath)
+		return openedArchive{}, errors.Annotatef(err, "cannot upgrade Juju Dashboard using %q", versOrPath)
 	}
 	if _, err := f.Seek(0, 0); err != nil {
 		return openedArchive{}, errors.Annotate(err, "cannot seek archive")
 	}
 	hash, size, err := hashAndSize(f)
 	if err != nil {
-		return openedArchive{}, errors.Annotatef(err, "cannot upgrade Juju GUI using %q", versOrPath)
+		return openedArchive{}, errors.Annotatef(err, "cannot upgrade Juju Dashboard using %q", versOrPath)
 	}
 	if _, err := f.Seek(0, 0); err != nil {
 		return openedArchive{}, errors.Annotate(err, "cannot seek archive")
@@ -239,15 +239,15 @@ func openArchive(versOrPath string) (openedArchive, error) {
 	}, nil
 }
 
-// remoteArchiveMetadata returns Juju GUI archive metadata from simplestreams.
+// remoteArchiveMetadata returns Juju Dashboard archive metadata from simplestreams.
 func remoteArchiveMetadata() ([]*gui.Metadata, error) {
 	source := gui.NewDataSource(common.GUIDataSourceBaseURL())
 	allMeta, err := guiFetchMetadata(gui.ReleasedStream, source)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot retrieve Juju GUI archive info")
+		return nil, errors.Annotate(err, "cannot retrieve Juju Dashboard archive info")
 	}
 	if len(allMeta) == 0 {
-		return nil, errors.New("no available Juju GUI archives found")
+		return nil, errors.New("no available Juju Dashboard archives found")
 	}
 	return allMeta, nil
 }
@@ -259,10 +259,10 @@ func findMetadataVersion(allMeta []*gui.Metadata, vers version.Number) (*gui.Met
 			return metadata, nil
 		}
 	}
-	return nil, errors.NotFoundf("Juju GUI release version %s", vers)
+	return nil, errors.NotFoundf("Juju Dashboard release version %s", vers)
 }
 
-// archiveVersion retrieves the GUI version from the juju-gui-* directory
+// archiveVersion retrieves the Dashboard version from the juju-gui-* directory
 // included in the given tar.bz2 archive reader.
 func archiveVersion(r io.Reader) (version.Number, error) {
 	var vers version.Number
@@ -274,7 +274,7 @@ func archiveVersion(r io.Reader) (version.Number, error) {
 			break
 		}
 		if err != nil {
-			return vers, errors.New("cannot read Juju GUI archive")
+			return vers, errors.New("cannot read Juju Dashboard archive")
 		}
 		info := hdr.FileInfo()
 		if !info.IsDir() || !strings.HasPrefix(hdr.Name, prefix) {
@@ -287,7 +287,7 @@ func archiveVersion(r io.Reader) (version.Number, error) {
 		}
 		return vers, nil
 	}
-	return vers, errors.New("cannot find Juju GUI version in archive")
+	return vers, errors.New("cannot find Juju Dashboard version in archive")
 }
 
 // hashAndSize returns the SHA256 hash and size of the data included in r.
@@ -300,14 +300,14 @@ func hashAndSize(r io.Reader) (hash string, size int64, err error) {
 	return fmt.Sprintf("%x", h.Sum(nil)), size, nil
 }
 
-// existingVersionInfo returns the hash of the existing GUI archive at the
+// existingVersionInfo returns the hash of the existing Dashboard archive at the
 // given version and reports whether that's the current version served by the
 // controller. If the given version is not present in the server, an empty
 // hash is returned.
 func existingVersionInfo(client *controller.Client, vers version.Number) (hash string, current bool, err error) {
 	versions, err := clientGUIArchives(client)
 	if err != nil {
-		return "", false, errors.Annotate(err, "cannot retrieve GUI versions from the controller")
+		return "", false, errors.Annotate(err, "cannot retrieve Dashboard versions from the controller")
 	}
 	for _, v := range versions {
 		if v.Version == vers {
@@ -317,15 +317,15 @@ func existingVersionInfo(client *controller.Client, vers version.Number) (hash s
 	return "", false, nil
 }
 
-// storeArchive saves the Juju GUI archive in the given reader in a temporary
+// storeArchive saves the Juju Dashboard archive in the given reader in a temporary
 // file. The resulting returned readSeekCloser is deleted when closed.
 func storeArchive(r io.Reader) (readSeekCloser, error) {
 	f, err := ioutil.TempFile("", "gui-archive")
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot create a temporary file to save the Juju GUI archive")
+		return nil, errors.Annotate(err, "cannot create a temporary file to save the Juju Dashboard archive")
 	}
 	if _, err = io.Copy(f, r); err != nil {
-		return nil, errors.Annotate(err, "cannot retrieve Juju GUI archive")
+		return nil, errors.Annotate(err, "cannot retrieve Juju Dashboard archive")
 	}
 	if _, err = f.Seek(0, 0); err != nil {
 		return nil, errors.Annotate(err, "cannot seek temporary archive file")

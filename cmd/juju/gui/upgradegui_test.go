@@ -115,7 +115,7 @@ var upgradeGUIInputErrorsTests = []struct {
 }, {
 	about:         "archive path not found",
 	args:          []string{"no-such-file"},
-	expectedError: `invalid GUI release version or local path "no-such-file"`,
+	expectedError: `invalid Dashboard release version or local path "no-such-file"`,
 }}
 
 func (s *upgradeGUISuite) TestUpgradeGUIInputErrors(c *gc.C) {
@@ -137,7 +137,7 @@ func (s *upgradeGUISuite) TestUpgradeGUIListSuccess(c *gc.C) {
 	uploadCalled := s.patchClientUploadGUIArchive(c, "", 0, "", false, nil)
 	selectCalled := s.patchClientSelectGUIVersion(c, "", nil)
 
-	// Run the command to list available Juju GUI archive versions.
+	// Run the command to list available Juju Dashboard archive versions.
 	out, err := s.run(c, "--list")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, "2.2.0\n2.1.1\n2.1.0")
@@ -150,14 +150,14 @@ func (s *upgradeGUISuite) TestUpgradeGUIListSuccess(c *gc.C) {
 func (s *upgradeGUISuite) TestUpgradeGUIListNoReleases(c *gc.C) {
 	s.patchGUIFetchMetadata(c, nil, nil)
 	out, err := s.run(c, "--list")
-	c.Assert(err, gc.ErrorMatches, "cannot list Juju GUI release versions: no available Juju GUI archives found")
+	c.Assert(err, gc.ErrorMatches, "cannot list Juju Dashboard release versions: no available Juju Dashboard archives found")
 	c.Assert(out, gc.Equals, "")
 }
 
 func (s *upgradeGUISuite) TestUpgradeGUIListError(c *gc.C) {
 	s.patchGUIFetchMetadata(c, nil, errors.New("bad wolf"))
 	out, err := s.run(c, "--list")
-	c.Assert(err, gc.ErrorMatches, "cannot list Juju GUI release versions: cannot retrieve Juju GUI archive info: bad wolf")
+	c.Assert(err, gc.ErrorMatches, "cannot list Juju Dashboard release versions: cannot retrieve Juju Dashboard archive info: bad wolf")
 	c.Assert(out, gc.Equals, "")
 }
 
@@ -167,21 +167,21 @@ func (s *upgradeGUISuite) TestUpgradeGUIFileError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer os.Chmod(path, 0600)
 	out, err := s.run(c, path)
-	c.Assert(err, gc.ErrorMatches, "cannot open GUI archive: .*")
+	c.Assert(err, gc.ErrorMatches, "cannot open Dashboard archive: .*")
 	c.Assert(out, gc.Equals, "")
 }
 
 func (s *upgradeGUISuite) TestUpgradeGUIArchiveVersionNotValid(c *gc.C) {
 	path, _, _ := saveGUIArchive(c, "bad-wolf")
 	out, err := s.run(c, path)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade Juju GUI using ".*": invalid version "bad-wolf" in archive`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade Juju Dashboard using ".*": invalid version "bad-wolf" in archive`)
 	c.Assert(out, gc.Equals, "")
 }
 
 func (s *upgradeGUISuite) TestUpgradeGUIArchiveVersionNotFound(c *gc.C) {
 	path, _, _ := saveGUIArchive(c, "")
 	out, err := s.run(c, path)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade Juju GUI using ".*": cannot find Juju GUI version in archive`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade Juju Dashboard using ".*": cannot find Juju Dashboard version in archive`)
 	c.Assert(out, gc.Equals, "")
 }
 
@@ -189,7 +189,7 @@ func (s *upgradeGUISuite) TestUpgradeGUIGUIArchivesError(c *gc.C) {
 	path, _, _ := saveGUIArchive(c, "2.1.0")
 	s.patchClientGUIArchives(c, nil, errors.New("bad wolf"))
 	out, err := s.run(c, path)
-	c.Assert(err, gc.ErrorMatches, "cannot retrieve GUI versions from the controller: bad wolf")
+	c.Assert(err, gc.ErrorMatches, "cannot retrieve Dashboard versions from the controller: bad wolf")
 	c.Assert(out, gc.Equals, "")
 }
 
@@ -198,8 +198,8 @@ func (s *upgradeGUISuite) TestUpgradeGUIUploadGUIArchiveError(c *gc.C) {
 	s.patchClientGUIArchives(c, nil, nil)
 	s.patchClientUploadGUIArchive(c, hash, size, "2.2.0", false, errors.New("bad wolf"))
 	out, err := s.run(c, path)
-	c.Assert(err, gc.ErrorMatches, "cannot upload Juju GUI: bad wolf")
-	c.Assert(out, gc.Equals, "using local Juju GUI archive\nuploading Juju GUI 2.2.0")
+	c.Assert(err, gc.ErrorMatches, "cannot upload Juju Dashboard: bad wolf")
+	c.Assert(out, gc.Equals, "using local Juju Dashboard archive\nuploading Juju Dashboard 2.2.0")
 }
 
 func (s *upgradeGUISuite) TestUpgradeGUISelectGUIVersionError(c *gc.C) {
@@ -208,8 +208,8 @@ func (s *upgradeGUISuite) TestUpgradeGUISelectGUIVersionError(c *gc.C) {
 	s.patchClientUploadGUIArchive(c, hash, size, "2.3.0", false, nil)
 	s.patchClientSelectGUIVersion(c, "2.3.0", errors.New("bad wolf"))
 	out, err := s.run(c, path)
-	c.Assert(err, gc.ErrorMatches, "cannot switch to new Juju GUI version: bad wolf")
-	c.Assert(out, gc.Equals, "using local Juju GUI archive\nuploading Juju GUI 2.3.0\nupload completed")
+	c.Assert(err, gc.ErrorMatches, "cannot switch to new Juju Dashboard version: bad wolf")
+	c.Assert(out, gc.Equals, "using local Juju Dashboard archive\nuploading Juju Dashboard 2.3.0\nupload completed")
 }
 
 func (s *upgradeGUISuite) TestUpgradeGUIFromSimplestreamsReleaseErrors(c *gc.C) {
@@ -221,27 +221,27 @@ func (s *upgradeGUISuite) TestUpgradeGUIFromSimplestreamsReleaseErrors(c *gc.C) 
 		expectedErr      string
 	}{{
 		about:       "last release: no releases found",
-		expectedErr: "cannot upgrade to most recent release: no available Juju GUI archives found",
+		expectedErr: "cannot upgrade to most recent release: no available Juju Dashboard archives found",
 	}, {
 		about:       "specific release: no releases found",
 		arg:         "2.0.42",
-		expectedErr: "cannot upgrade to release 2.0.42: no available Juju GUI archives found",
+		expectedErr: "cannot upgrade to release 2.0.42: no available Juju Dashboard archives found",
 	}, {
 		about:       "last release: error while fetching releases list",
 		returnedErr: errors.New("bad wolf"),
-		expectedErr: "cannot upgrade to most recent release: cannot retrieve Juju GUI archive info: bad wolf",
+		expectedErr: "cannot upgrade to most recent release: cannot retrieve Juju Dashboard archive info: bad wolf",
 	}, {
 		about:       "specific release: error while fetching releases list",
 		arg:         "2.0.47",
 		returnedErr: errors.New("bad wolf"),
-		expectedErr: "cannot upgrade to release 2.0.47: cannot retrieve Juju GUI archive info: bad wolf",
+		expectedErr: "cannot upgrade to release 2.0.47: cannot retrieve Juju Dashboard archive info: bad wolf",
 	}, {
 		about: "last release: error while opening the remote release resource",
 		returnedMetadata: []*envgui.Metadata{
 			makeGUIMetadata(c, "2.2.0", "exterminate"),
 			makeGUIMetadata(c, "2.1.0", ""),
 		},
-		expectedErr: `cannot open Juju GUI archive at "https://1.2.3.4/path/to/gui/2.2.0": exterminate`,
+		expectedErr: `cannot open Juju Dashboard archive at "https://1.2.3.4/path/to/gui/2.2.0": exterminate`,
 	}, {
 		about: "specific release: error while opening the remote release resource",
 		arg:   "2.1.0",
@@ -250,7 +250,7 @@ func (s *upgradeGUISuite) TestUpgradeGUIFromSimplestreamsReleaseErrors(c *gc.C) 
 			makeGUIMetadata(c, "2.1.0", "boo"),
 			makeGUIMetadata(c, "2.0.0", ""),
 		},
-		expectedErr: `cannot open Juju GUI archive at "https://1.2.3.4/path/to/gui/2.1.0": boo`,
+		expectedErr: `cannot open Juju Dashboard archive at "https://1.2.3.4/path/to/gui/2.1.0": boo`,
 	}, {
 		about: "specific release: not found in available releases",
 		arg:   "2.1.0",
@@ -258,7 +258,7 @@ func (s *upgradeGUISuite) TestUpgradeGUIFromSimplestreamsReleaseErrors(c *gc.C) 
 			makeGUIMetadata(c, "2.2.0", ""),
 			makeGUIMetadata(c, "2.0.0", ""),
 		},
-		expectedErr: "Juju GUI release version 2.1.0 not found",
+		expectedErr: "Juju Dashboard release version 2.1.0 not found",
 	}}
 
 	for i, test := range tests {
@@ -279,26 +279,26 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 		returnedMetadata *envgui.Metadata
 		// archiveVersion is the version of the archive to be uploaded.
 		archiveVersion string
-		// existingVersions is a function returning a list of GUI archive versions
+		// existingVersions is a function returning a list of Dashboard archive versions
 		// already included in the controller.
 		existingVersions func(hash string) []params.GUIArchiveVersion
-		// opened holds whether Juju GUI metadata information in simplestreams
+		// opened holds whether Juju Dashboard metadata information in simplestreams
 		// has been opened.
 		opened bool
 		// uploaded holds whether the archive has been actually uploaded. If an
 		// archive with the same hash and version is already present in the
 		// controller, the upload is not performed again.
 		uploaded bool
-		// selected holds whether a new GUI version must be selected. If the upload
+		// selected holds whether a new Dashboard version must be selected. If the upload
 		// upgraded the currently served version there is no need to perform
-		// the API call to switch GUI version.
+		// the API call to switch Dashboard version.
 		selected bool
 		// expectedOutput holds the expected upgrade-gui command output.
 		expectedOutput string
 	}{{
 		about:          "archive: first archive",
 		archiveVersion: "2.0.0",
-		expectedOutput: "using local Juju GUI archive\nuploading Juju GUI 2.0.0\nupload completed\nJuju GUI switched to version 2.0.0",
+		expectedOutput: "using local Juju Dashboard archive\nuploading Juju Dashboard 2.0.0\nupload completed\nJuju Dashboard switched to version 2.0.0",
 		uploaded:       true,
 		selected:       true,
 	}, {
@@ -313,7 +313,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 		},
 		uploaded:       true,
 		selected:       true,
-		expectedOutput: "using local Juju GUI archive\nuploading Juju GUI 2.1.0\nupload completed\nJuju GUI switched to version 2.1.0",
+		expectedOutput: "using local Juju Dashboard archive\nuploading Juju Dashboard 2.1.0\nupload completed\nJuju Dashboard switched to version 2.1.0",
 	}, {
 		about:          "archive: new archive, existing non-current version",
 		archiveVersion: "2.0.42",
@@ -330,7 +330,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 		},
 		uploaded:       true,
 		selected:       true,
-		expectedOutput: "using local Juju GUI archive\nuploading Juju GUI 2.0.42\nupload completed\nJuju GUI switched to version 2.0.42",
+		expectedOutput: "using local Juju Dashboard archive\nuploading Juju Dashboard 2.0.42\nupload completed\nJuju Dashboard switched to version 2.0.42",
 	}, {
 		about:          "archive: new archive, existing current version",
 		archiveVersion: "2.0.47",
@@ -342,7 +342,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 			}}
 		},
 		uploaded:       true,
-		expectedOutput: "using local Juju GUI archive\nuploading Juju GUI 2.0.47\nupload completed\nJuju GUI at version 2.0.47",
+		expectedOutput: "using local Juju Dashboard archive\nuploading Juju Dashboard 2.0.47\nupload completed\nJuju Dashboard at version 2.0.47",
 	}, {
 		about:          "archive: existing archive, existing non-current version",
 		archiveVersion: "2.0.42",
@@ -358,7 +358,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 			}}
 		},
 		selected:       true,
-		expectedOutput: "Juju GUI switched to version 2.0.42",
+		expectedOutput: "Juju Dashboard switched to version 2.0.42",
 	}, {
 		about:          "archive: existing archive, existing current version",
 		archiveVersion: "1.47.0",
@@ -369,7 +369,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 				Current: true,
 			}}
 		},
-		expectedOutput: "Juju GUI at version 1.47.0",
+		expectedOutput: "Juju Dashboard at version 1.47.0",
 	}, {
 		about:          "archive: existing archive, different existing version",
 		archiveVersion: "2.0.42",
@@ -386,12 +386,12 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 		},
 		uploaded:       true,
 		selected:       true,
-		expectedOutput: "using local Juju GUI archive\nuploading Juju GUI 2.0.42\nupload completed\nJuju GUI switched to version 2.0.42",
+		expectedOutput: "using local Juju Dashboard archive\nuploading Juju Dashboard 2.0.42\nupload completed\nJuju Dashboard switched to version 2.0.42",
 	}, {
 		about:            "stream: first archive",
 		archiveVersion:   "2.0.0",
 		returnedMetadata: makeGUIMetadata(c, "2.0.0", ""),
-		expectedOutput:   "fetching Juju GUI archive\nuploading Juju GUI 2.0.0\nupload completed\nJuju GUI switched to version 2.0.0",
+		expectedOutput:   "fetching Juju Dashboard archive\nuploading Juju Dashboard 2.0.0\nupload completed\nJuju Dashboard switched to version 2.0.0",
 		opened:           true,
 		uploaded:         true,
 		selected:         true,
@@ -409,7 +409,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 		opened:         true,
 		uploaded:       true,
 		selected:       true,
-		expectedOutput: "fetching Juju GUI archive\nuploading Juju GUI 2.1.0\nupload completed\nJuju GUI switched to version 2.1.0",
+		expectedOutput: "fetching Juju Dashboard archive\nuploading Juju Dashboard 2.1.0\nupload completed\nJuju Dashboard switched to version 2.1.0",
 	}, {
 		about:            "stream: new archive, existing non-current version",
 		archiveVersion:   "2.0.42",
@@ -428,7 +428,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 		opened:         true,
 		uploaded:       true,
 		selected:       true,
-		expectedOutput: "fetching Juju GUI archive\nuploading Juju GUI 2.0.42\nupload completed\nJuju GUI switched to version 2.0.42",
+		expectedOutput: "fetching Juju Dashboard archive\nuploading Juju Dashboard 2.0.42\nupload completed\nJuju Dashboard switched to version 2.0.42",
 	}, {
 		about:            "stream: new archive, existing current version",
 		archiveVersion:   "2.0.47",
@@ -442,7 +442,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 		},
 		opened:         true,
 		uploaded:       true,
-		expectedOutput: "fetching Juju GUI archive\nuploading Juju GUI 2.0.47\nupload completed\nJuju GUI at version 2.0.47",
+		expectedOutput: "fetching Juju Dashboard archive\nuploading Juju Dashboard 2.0.47\nupload completed\nJuju Dashboard at version 2.0.47",
 	}, {
 		about:            "stream: existing archive, existing non-current version",
 		archiveVersion:   "2.0.42",
@@ -460,7 +460,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 		},
 		opened:         true,
 		selected:       true,
-		expectedOutput: "Juju GUI switched to version 2.0.42",
+		expectedOutput: "Juju Dashboard switched to version 2.0.42",
 	}, {
 		about:            "stream: existing archive, existing current version",
 		archiveVersion:   "1.47.0",
@@ -473,7 +473,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 			}}
 		},
 		opened:         true,
-		expectedOutput: "Juju GUI at version 1.47.0",
+		expectedOutput: "Juju Dashboard at version 1.47.0",
 	}, {
 		about:            "stream: existing archive, different existing version",
 		archiveVersion:   "2.0.42",
@@ -492,7 +492,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 		opened:         true,
 		uploaded:       true,
 		selected:       true,
-		expectedOutput: "fetching Juju GUI archive\nuploading Juju GUI 2.0.42\nupload completed\nJuju GUI switched to version 2.0.42",
+		expectedOutput: "fetching Juju Dashboard archive\nuploading Juju Dashboard 2.0.42\nupload completed\nJuju Dashboard switched to version 2.0.42",
 	}}
 
 	for i, test := range tests {
@@ -503,7 +503,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 		var size int64
 
 		if test.returnedMetadata == nil {
-			// Create an fake Juju GUI local archive.
+			// Create an fake Juju Dashboard local archive.
 			arg, hash, size = saveGUIArchive(c, test.archiveVersion)
 		} else {
 			// Use the remote metadata information.
@@ -538,15 +538,15 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 }
 
 func (s *upgradeGUISuite) TestUpgradeGUIIntegration(c *gc.C) {
-	// Prepare a GUI archive.
+	// Prepare a Dashboard archive.
 	path, hash, size := saveGUIArchive(c, "2.42.0")
 
 	// Upload the archive from command line.
 	out, err := s.run(c, path)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.Equals, "using local Juju GUI archive\nuploading Juju GUI 2.42.0\nupload completed\nJuju GUI switched to version 2.42.0")
+	c.Assert(out, gc.Equals, "using local Juju Dashboard archive\nuploading Juju Dashboard 2.42.0\nupload completed\nJuju Dashboard switched to version 2.42.0")
 
-	// Check that the archive is present in the GUI storage server side.
+	// Check that the archive is present in the Dashboard storage server side.
 	storage, err := s.State.GUIStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
@@ -561,7 +561,7 @@ func (s *upgradeGUISuite) TestUpgradeGUIIntegration(c *gc.C) {
 	c.Assert(vers.String(), gc.Equals, "2.42.0")
 }
 
-// makeGUIArchive creates a Juju GUI tar.bz2 archive in memory, and returns a
+// makeGUIArchive creates a Juju Dashboard tar.bz2 archive in memory, and returns a
 // reader for the archive, its SHA256 hash and size.
 func makeGUIArchive(c *gc.C, vers string) (r io.Reader, hash string, size int64) {
 	if runtime.GOOS == "windows" {
@@ -602,7 +602,7 @@ func makeGUIArchive(c *gc.C, vers string) (r io.Reader, hash string, size int64)
 	return bytes.NewReader(b), fmt.Sprintf("%x", h.Sum(nil)), int64(len(b))
 }
 
-// saveGUIArchive creates a Juju GUI tar.bz2 archive with the given version on
+// saveGUIArchive creates a Juju Dashboard tar.bz2 archive with the given version on
 // disk, and return its path, SHA256 hash and size.
 func saveGUIArchive(c *gc.C, vers string) (path, hash string, size int64) {
 	r, hash, size := makeGUIArchive(c, vers)
@@ -614,7 +614,7 @@ func saveGUIArchive(c *gc.C, vers string) (path, hash string, size int64) {
 	return path, hash, size
 }
 
-// makeGUIMetadata creates and return a Juju GUI archive metadata with the
+// makeGUIMetadata creates and return a Juju Dashboard archive metadata with the
 // given version. If fetchError is not empty, trying to fetch the corresponding
 // archive will return the given error.
 func makeGUIMetadata(c *gc.C, vers, fetchError string) *envgui.Metadata {

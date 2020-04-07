@@ -70,8 +70,8 @@ func (c *guiCommand) Info() *cmd.Info {
 // SetFlags implements the cmd.Command interface.
 func (c *guiCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.hideCreds, "hide-credential", false, "Do not show admin credential to use for logging into the Juju GUI")
-	f.BoolVar(&c.browser, "browser", false, "Open the web browser, instead of just printing the Juju GUI URL")
+	f.BoolVar(&c.hideCreds, "hide-credential", false, "Do not show admin credential to use for logging into the Juju Dashboard")
+	f.BoolVar(&c.browser, "browser", false, "Open the web browser, instead of just printing the Juju Dashboard URL")
 }
 
 func (c *guiCommand) guiVersions(conn api.Connection) ([]params.GUIArchiveVersion, error) {
@@ -125,7 +125,7 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-// guiAddr returns an address where the GUI is available.
+// guiAddr returns an address where the Dashboard is available.
 func guiAddr(conn api.Connection) string {
 	if dnsName := conn.PublicDNSName(); dnsName != "" {
 		return dnsName

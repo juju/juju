@@ -149,8 +149,8 @@ func appendArchives(
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot parse supported juju version")
 		}
-		if majorVersion == supportedVersion.Major &&
-			minorVersion == supportedVersion.Minor {
+		if majorVersion != supportedVersion.Major ||
+			minorVersion != supportedVersion.Minor {
 			continue
 		}
 

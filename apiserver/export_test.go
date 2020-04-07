@@ -26,7 +26,6 @@ var (
 	BZMimeType            = bzMimeType
 	JSMimeType            = jsMimeType
 	GUIURLPathPrefix      = guiURLPathPrefix
-	SpritePath            = spritePath
 )
 
 func APIHandlerWithEntity(entity state.Entity) *apiHandler {

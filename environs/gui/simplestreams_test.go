@@ -63,84 +63,51 @@ var fetchMetadataTests = []struct {
 	jujuVersion string
 	// expectedMetadata holds the list of metadata information returned.
 	// The following fields are automatically pre-populated by the test:
-	// "FullPath", "Source", "StringVersion" and "JujuMajorVersion"
+	// "FullPath", "Source", "DashboardVersion" and "SupportedJujuVersion"
 	expectedMetadata []*gui.Metadata
 	// expectedError optionally holds the expected error returned while trying
 	// to retrieve GUI metadata information.
 	expectedError string
 }{{
-	about:       "released version 2",
+	about:       "released version 2.8.2",
 	stream:      gui.ReleasedStream,
-	jujuVersion: "2.0.0",
+	jujuVersion: "2.8.2",
 	expectedMetadata: []*gui.Metadata{{
-		Version: version.MustParse("2.1.1"),
-		Path:    "gui/2.1.1/jujugui-2.1.1.tar.bz2",
-		Size:    6140774,
-		SHA256:  "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
-	}, {
-		Version: version.MustParse("2.1.0"),
-		Path:    "gui/2.1.0/jujugui-2.1.0.tar.bz2",
-		Size:    6098111,
-		SHA256:  "6cec58b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
-	}},
-}, {
-	about:       "released version 2 beta",
-	stream:      gui.ReleasedStream,
-	jujuVersion: "2.0-beta1",
-	expectedMetadata: []*gui.Metadata{{
-		Version: version.MustParse("2.1.1"),
-		Path:    "gui/2.1.1/jujugui-2.1.1.tar.bz2",
-		Size:    6140774,
-		SHA256:  "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
-	}, {
-		Version: version.MustParse("2.1.0"),
-		Path:    "gui/2.1.0/jujugui-2.1.0.tar.bz2",
-		Size:    6098111,
-		SHA256:  "6cec58b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
+		Version:              version.MustParse("2.1.1"),
+		SupportedJujuVersion: "2.8.0",
+		Path:                 "gui/2.1.1/jujugui-2.1.1.tar.bz2",
+		Size:                 6140774,
+		SHA256:               "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
 	}},
 }, {
 	about:       "released version 2.42",
 	stream:      gui.ReleasedStream,
 	jujuVersion: "2.42.0",
-	expectedMetadata: []*gui.Metadata{{
-		Version: version.MustParse("2.1.1"),
-		Path:    "gui/2.1.1/jujugui-2.1.1.tar.bz2",
-		Size:    6140774,
-		SHA256:  "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
-	}, {
-		Version: version.MustParse("2.1.0"),
-		Path:    "gui/2.1.0/jujugui-2.1.0.tar.bz2",
-		Size:    6098111,
-		SHA256:  "6cec58b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
-	}},
-}, {
-	about:       "released version 3",
-	stream:      gui.ReleasedStream,
-	jujuVersion: "3.0.0",
-	expectedMetadata: []*gui.Metadata{{
-		Version: version.MustParse("3.0.0"),
-		Path:    "gui/3.0.0/jujugui-3.0.0.tar.bz2",
-		Size:    42424242,
-		SHA256:  "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
-	}},
 }, {
 	about:       "released version 47",
 	stream:      gui.ReleasedStream,
 	jujuVersion: "47.0.0",
 }, {
-	about:       "devel version 2",
+	about:       "devel version 2.8.0",
 	stream:      gui.DevelStream,
-	jujuVersion: "2.0.0",
+	jujuVersion: "2.8.0",
 	expectedMetadata: []*gui.Metadata{{
-		Version: version.MustParse("2.4.0"),
-		Path:    "gui/2.4.0/jujugui-2.4.0.tar.bz2",
-		Size:    6098111,
-		SHA256:  "6cec58b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
-	}, {
-		Version: version.MustParse("2.1.1"),
-		Path:    "gui/2.1.1/jujugui-2.1.1.tar.bz2",
-		Size:    474747,
-		SHA256:  "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
+		Version:              version.MustParse("2.4.0"),
+		SupportedJujuVersion: "2.8.0",
+		Path:                 "gui/2.4.0/jujugui-2.4.0.tar.bz2",
+		Size:                 6098111,
+		SHA256:               "6cec58b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
+	}},
+}, {
+	about:       "devel version 2.9.0",
+	stream:      gui.DevelStream,
+	jujuVersion: "2.9.0",
+	expectedMetadata: []*gui.Metadata{{
+		Version:              version.MustParse("2.5.0"),
+		SupportedJujuVersion: "2.9.0",
+		Path:                 "gui/2.5.0/jujugui-2.5.0.tar.bz2",
+		Size:                 6198111,
+		SHA256:               "123458b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
 	}},
 }, {
 	about:       "devel version 42",
@@ -185,20 +152,19 @@ func (s *simplestreamsSuite) TestFetchMetadata(c *gc.C) {
 			c.Logf("metadata %d:\n%#v", i, meta)
 		}
 		if test.expectedError != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectedError)
-			c.Assert(allMeta, gc.IsNil)
+			c.Check(err, gc.ErrorMatches, test.expectedError)
+			c.Check(allMeta, gc.IsNil)
 			continue
 		}
 
 		// Populate the expected metadata with missing fields.
 		for _, meta := range test.expectedMetadata {
-			meta.JujuMajorVersion = jujuVersion.Major
 			meta.FullPath = "test:/" + meta.Path
 			meta.Source = s.Source
-			meta.StringVersion = meta.Version.String()
+			meta.DashboardVersion = meta.Version.String()
 		}
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(allMeta, jc.DeepEquals, test.expectedMetadata)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(allMeta, jc.DeepEquals, test.expectedMetadata)
 	}
 }
 
@@ -281,8 +247,19 @@ var guiData = map[string]string{
                 "versions": {
                     "20160404": {
                         "items": {
+                            "2.5.0": {
+                                "juju-version": 2,
+                                "supported-juju-version": "2.9.0",
+                                "md5": "5af3cb9f2625afbaff904cbd5c65772f",
+                                "path": "gui/2.5.0/jujugui-2.5.0.tar.bz2",
+                                "sha1": "1234a4236a132c75241a75d6ab1c96788c6f38b0",
+                                "sha256": "123458b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
+                                "size": 6198111,
+                                "version": "2.5.0"
+                            },
                             "2.4.0": {
                                 "juju-version": 2,
+                                "supported-juju-version": "2.8.0",
                                 "md5": "5af3cb9f2625afbaff904cbd5c65772f",
                                 "path": "gui/2.4.0/jujugui-2.4.0.tar.bz2",
                                 "sha1": "b364a4236a132c75241a75d6ab1c96788c6f38b0",
@@ -292,6 +269,7 @@ var guiData = map[string]string{
                             },
                             "2.1.1": {
                                 "juju-version": 2,
+                                "supported-juju-version": "2.7.0",
                                 "md5": "c49f1707078347cab31b0ff98bfb8dca",
                                 "path": "gui/2.1.1/jujugui-2.1.1.tar.bz2",
                                 "sha1": "1300d555f79b3de3bf334702d027701f69563849",
@@ -319,6 +297,7 @@ var guiData = map[string]string{
                         "items": {
                             "2.1.0": {
                                 "juju-version": 2,
+                                "supported-juju-version": "2.7.0",
                                 "md5": "5af3cb9f2625afbaff904cbd5c65772f",
                                 "path": "gui/2.1.0/jujugui-2.1.0.tar.bz2",
                                 "sha1": "b364a4236a132c75241a75d6ab1c96788c6f38b0",
@@ -328,21 +307,13 @@ var guiData = map[string]string{
                             },
                             "2.1.1": {
                                 "juju-version": 2,
+                                "supported-juju-version": "2.8.0",
                                 "md5": "c49f1707078347cab31b0ff98bfb8dca",
                                 "path": "gui/2.1.1/jujugui-2.1.1.tar.bz2",
                                 "sha1": "1300d555f79b3de3bf334702d027701f69563849",
                                 "sha256": "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
                                 "size": 6140774,
                                 "version": "2.1.1"
-                            },
-                            "3.0.0": {
-                                "juju-version": 3,
-                                "md5": "c49f1707078347cab31b0ff98bfb8dca",
-                                "path": "gui/3.0.0/jujugui-3.0.0.tar.bz2",
-                                "sha1": "1300d555f79b3de3bf334702d027701f69563849",
-                                "sha256": "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
-                                "size": 42424242,
-                                "version": "3.0.0"
                             }
                         }
                     }
@@ -367,6 +338,7 @@ var guiData = map[string]string{
                         "items": {
                             "2.0.0": {
                                 "juju-version": 2,
+                                "supported-juju-version": "2.0.0",
                                 "md5": "5af3cb9f2625afbaff904cbd5c65772f",
                                 "path": "gui/2.0.0/jujugui-2.0.0.tar.bz2",
                                 "sha1": "b364a4236a132c75241a75d6ab1c96788c6f38b0",

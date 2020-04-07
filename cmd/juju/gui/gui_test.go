@@ -70,7 +70,7 @@ var _ = gc.Suite(&guiSuite{})
 
 func (s *guiSuite) guiURL(c *gc.C) string {
 	info := s.APIInfo(c)
-	return fmt.Sprintf("https://%s/gui/u/%s/%s", info.Addrs[0], "admin", "controller")
+	return fmt.Sprintf("https://%s/dashboard", info.Addrs[0])
 }
 
 func (s *guiSuite) guiOldURL(c *gc.C) string {
@@ -91,7 +91,7 @@ func (s *guiSuite) TestGUISuccessWithBrowser(c *gc.C) {
 	out, err := s.run(c, "--browser", "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
 	guiURL := s.guiURL(c)
-	expectOut := "Opening the Juju GUI in your browser.\nIf it does not open, open this URL:\n" + guiURL
+	expectOut := "Opening the Juju Dashboard in your browser.\nIf it does not open, open this URL:\n" + guiURL
 	c.Assert(out, gc.Equals, expectOut)
 	c.Assert(clientURL, gc.Equals, guiURL)
 	c.Assert(browserURL, gc.Equals, guiURL)
@@ -103,7 +103,7 @@ func (s *guiSuite) TestGUISuccessWithCredential(c *gc.C) {
 	out, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.Contains, `
-Your login credential is:
+Your login credentials are:
   username: admin
   password: dummy-secret`[1:])
 }
@@ -122,32 +122,7 @@ func (s *guiSuite) TestGUISuccessNoBrowser(c *gc.C) {
 	out, err := s.run(c, "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
-GUI 4.5.6 for model "controller" is enabled at:
-  %s`[1:], s.guiURL(c)))
-}
-
-func (s *guiSuite) TestGUISuccessOldGUI(c *gc.C) {
-	s.patchClient(func(_ context.Context, client *httprequest.Client, u string) error {
-		if strings.Contains(u, "/u/") {
-			return errors.New("bad wolf")
-		}
-		return nil
-	})
-	// There is no need to patch the browser open function here.
-	out, err := s.run(c, "--hide-credential")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.Equals, fmt.Sprintf(`
-GUI 4.5.6 for model "controller" is enabled at:
-  %s`[1:], s.guiOldURL(c)))
-}
-
-func (s *guiSuite) TestGUISuccessNoBrowserDeprecated(c *gc.C) {
-	s.patchClient(nil)
-	// There is no need to patch the browser open function here.
-	out, err := s.run(c, "--no-browser", "--hide-credential")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.Equals, fmt.Sprintf(`
-GUI 4.5.6 for model "controller" is enabled at:
+Dashboard 4.5.6 for controller "kontroll" is enabled at:
   %s`[1:], s.guiURL(c)))
 }
 
@@ -177,7 +152,7 @@ func (s *guiSuite) TestGUIErrorUnavailable(c *gc.C) {
 		return errors.New("bad wolf")
 	})
 	out, err := s.run(c, "--browser")
-	c.Assert(err, gc.ErrorMatches, "Juju GUI is not available: bad wolf")
+	c.Assert(err, gc.ErrorMatches, "Juju Dashboard is not available: bad wolf")
 	c.Assert(out, gc.Equals, "")
 }
 
@@ -202,6 +177,6 @@ func (s *guiDNSSuite) TestGUISuccess(c *gc.C) {
 	out, err := s.run(c, "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, `
-GUI 4.5.6 for model "controller" is enabled at:
-  https://example.com/gui/u/admin/controller`[1:])
+Dashboard 4.5.6 for controller "kontroll" is enabled at:
+  https://example.com/dashboard`[1:])
 }

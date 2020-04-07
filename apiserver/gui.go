@@ -49,15 +49,11 @@ var (
 //   "jujugui" directory where the actual Juju GUI files live;
 // - the "jujugui" directory includes a "static" subdirectory with the Juju
 //   GUI assets to be served statically;
-// - the "jujugui" directory includes a "templates/index.html.go" file which is
-//   used to render the Juju GUI index. The template receives at least the
-//   following variables in its context: "staticURL", comboURL", "configURL",
-//   "debug" and "spriteContent". It might receive more variables but cannot
-//   assume them to be always provided;
-// - the "jujugui" directory includes a "templates/config.js.go" file which is
+// - the "jujugui" directory includes a "index.html" file which is
+//   used to render the Juju GUI index.
+// - the "jujugui" directory includes a "config.js.go" file which is
 //   used to render the Juju GUI configuration file. The template receives at
-//   least the following variables in its context: "base", "host", "socket",
-//   "controllerSocket", "staticURL" and "version". It might receive more
+//   least the following variables in its context: "baseAppURL", "identityProviderAvailable",. It might receive more
 //   variables but cannot assume them to be always provided.
 type guiRouter struct {
 	dataDir string
@@ -86,8 +82,8 @@ func guiEndpoints(pattern, dataDir string, ctxt httpContext) []apihttp.Endpoint 
 			})
 		}
 	}
-	add("/config.js", (*guiHandler).serveConfig)
-	add("/static/", (*guiHandler).serveStatic)
+	add(pattern+"config.js", (*guiHandler).serveConfig)
+	add(pattern+"static/", (*guiHandler).serveStatic)
 	// The index is served when all remaining URLs are requested, so that
 	// the single page JavaScript application can properly handles its routes.
 	add(pattern, (*guiHandler).serveIndex)
@@ -140,9 +136,9 @@ func (gr *guiRouter) ensureFiles(req *http.Request) (rootDir string, hash string
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
-	logger.Debugf("serving Juju GUI version %s", vers)
+	logger.Tracef("serving Juju Dashboard version %s", vers)
 
-	// Check if the current Juju GUI archive has been already expanded on disk.
+	// Check if the current Juju Dashboard archive has been already expanded on disk.
 	baseDir := agenttools.SharedGUIDir(gr.dataDir)
 	// Note that we include the hash in the root directory so that when the GUI
 	// archive changes we can be sure that clients will not use files from
@@ -153,24 +149,24 @@ func (gr *guiRouter) ensureFiles(req *http.Request) (rootDir string, hash string
 		if info.IsDir() {
 			return rootDir, hash, nil
 		}
-		return "", "", errors.Errorf("cannot use Juju GUI root directory %q: not a directory", rootDir)
+		return "", "", errors.Errorf("cannot use Juju Dashboard root directory %q: not a directory", rootDir)
 	}
 	if !os.IsNotExist(err) {
-		return "", "", errors.Annotate(err, "cannot stat Juju GUI root directory")
+		return "", "", errors.Annotate(err, "cannot stat Juju Dashboard root directory")
 	}
 
-	// Fetch the Juju GUI archive from the GUI storage and expand it.
+	// Fetch the Juju Dashboard archive from the GUI storage and expand it.
 	_, r, err := storage.Open(vers)
 	if err != nil {
-		return "", "", errors.Annotatef(err, "cannot find GUI archive version %q", vers)
+		return "", "", errors.Annotatef(err, "cannot find Dashboard archive version %q", vers)
 	}
 	defer r.Close()
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
-		return "", "", errors.Annotate(err, "cannot create Juju GUI base directory")
+		return "", "", errors.Annotate(err, "cannot create Juju Dashboard base directory")
 	}
 	guiDir := "jujugui-" + vers + "/jujugui"
 	if err := uncompressGUI(r, guiDir, rootDir); err != nil {
-		return "", "", errors.Annotate(err, "cannot uncompress Juju GUI archive")
+		return "", "", errors.Annotate(err, "cannot uncompress Juju Dashboard archive")
 	}
 	return rootDir, hash, nil
 }
@@ -180,14 +176,14 @@ func (gr *guiRouter) ensureFiles(req *http.Request) (rootDir string, hash string
 func guiVersionAndHash(st *state.State, storage binarystorage.Storage) (vers, hash string, err error) {
 	currentVers, err := st.GUIVersion()
 	if errors.IsNotFound(err) {
-		return "", "", errors.NotFoundf("Juju GUI")
+		return "", "", errors.NotFoundf("Juju Dashboard")
 	}
 	if err != nil {
-		return "", "", errors.Annotate(err, "cannot retrieve current GUI version")
+		return "", "", errors.Annotate(err, "cannot retrieve current Dashboard version")
 	}
 	metadata, err := storage.Metadata(currentVers.String())
 	if err != nil {
-		return "", "", errors.Annotate(err, "cannot retrieve GUI metadata")
+		return "", "", errors.Annotate(err, "cannot retrieve Dashboard metadata")
 	}
 	return metadata.Version, metadata.SHA256, nil
 }
@@ -197,7 +193,7 @@ func guiVersionAndHash(st *state.State, storage binarystorage.Storage) (vers, ha
 func uncompressGUI(r io.Reader, sourceDir, targetDir string) error {
 	tempDir, err := ioutil.TempDir(filepath.Join(targetDir, ".."), "gui")
 	if err != nil {
-		return errors.Annotate(err, "cannot create Juju GUI temporary directory")
+		return errors.Annotate(err, "cannot create Juju Dashboard temporary directory")
 	}
 	defer os.Remove(tempDir)
 	tr := tar.NewReader(bzip2.NewReader(r))
@@ -213,6 +209,7 @@ func uncompressGUI(r io.Reader, sourceDir, targetDir string) error {
 			continue
 		}
 		path := filepath.Join(tempDir, hdr.Name)
+		logger.Tracef("writing file %q", path)
 		info := hdr.FileInfo()
 		if info.IsDir() {
 			if err := os.MkdirAll(path, info.Mode()); err != nil {
@@ -229,8 +226,9 @@ func uncompressGUI(r io.Reader, sourceDir, targetDir string) error {
 			return errors.Annotate(err, "cannot copy file content")
 		}
 	}
+	logger.Tracef("renaming %q to %q", filepath.Join(tempDir, sourceDir), targetDir)
 	if err := os.Rename(filepath.Join(tempDir, sourceDir), targetDir); err != nil {
-		return errors.Annotate(err, "cannot rename Juju GUI root directory")
+		return errors.Annotate(err, "cannot rename Juju Dashboard root directory")
 	}
 	return nil
 }
@@ -245,10 +243,11 @@ type guiHandler struct {
 
 // serveStatic serves the GUI static files.
 func (h *guiHandler) serveStatic(w http.ResponseWriter, req *http.Request) {
-	logger.Debugf("serving Juju GUI static files")
 	staticDir := filepath.Join(h.rootDir, "static")
+	logger.Tracef("serving Juju Dashboard static files from %q", staticDir)
 	fs := http.FileServer(http.Dir(staticDir))
-	http.StripPrefix("/static/", fs).ServeHTTP(w, req)
+	prefix := path.Join(h.basePath, "static")
+	http.StripPrefix(prefix, fs).ServeHTTP(w, req)
 }
 
 func getGUIComboPath(rootDir, query string) (string, error) {
@@ -286,13 +285,17 @@ func sendGUIComboFile(w io.Writer, fpath string) {
 
 // serveIndex serves the GUI index file.
 func (h *guiHandler) serveIndex(w http.ResponseWriter, req *http.Request) {
-	logger.Debugf("serving Juju Dashboard index")
+	logger.Tracef("serving Juju Dashboard index")
 	indexFile := filepath.Join(h.rootDir, "index.html")
-	t, err := template.ParseFiles(indexFile)
+
+	b, err := ioutil.ReadFile(indexFile)
 	if err != nil {
-		writeError(w, errors.Annotate(err, "cannot parse index file"))
+		writeError(w, errors.Annotate(err, "cannot read index file"))
+		return
 	}
-	writeError(w, errors.Annotate(t.Execute(w, nil), "cannot render index file"))
+	if _, err := w.Write(b); err != nil {
+		writeError(w, errors.Annotate(err, "cannot write index file"))
+	}
 }
 
 // getConfigPath returns the appropriate GUI config path for the given request
@@ -371,9 +374,9 @@ func isNewGUI(st *state.State) bool {
 	return vers.Major > 2 || (vers.Major == 2 && vers.Minor >= 3)
 }
 
-// serveConfig serves the Juju GUI JavaScript configuration file.
+// serveConfig serves the Juju Dashboard JavaScript configuration file.
 func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
-	logger.Debugf("serving Juju GUI configuration")
+	logger.Tracef("serving Juju Dashboard configuration")
 	st, err := h.ctxt.stateForRequestUnauthenticated(req)
 	if err != nil {
 		writeError(w, errors.Annotate(err, "cannot open state"))
@@ -404,12 +407,6 @@ func writeError(w http.ResponseWriter, err error) {
 	if err2 := sendError(w, err); err2 != nil {
 		logger.Errorf("%v", errors.Annotatef(err2, "gui handler: cannot send %q error to client", err))
 	}
-}
-
-// hashedPath returns the full path (including the GUI archive hash) to the
-// given path, that must not start with a slash.
-func (h *guiHandler) hashedPath(p string) string {
-	return path.Join(h.basePath, h.hash, p)
 }
 
 func renderGUITemplate(w http.ResponseWriter, tmpl string, ctx map[string]interface{}) error {
