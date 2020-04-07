@@ -310,11 +310,11 @@ func (s *caasAttachmentsSuite) TestAttachmentsStorageNotStarted(c *gc.C) {
 		Started:   false,
 	}}
 	_, err = r.NextOp(localState, remotestate.Snapshot{
-		Life: life.Alive,
+		Life: params.Alive,
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag: {
 				Kind:     params.StorageKindBlock,
-				Life:     life.Alive,
+				Life:     params.Alive,
 				Location: "/dev/sdb",
 				Attached: true,
 			},
