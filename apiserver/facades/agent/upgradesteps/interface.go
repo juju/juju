@@ -4,6 +4,7 @@
 package upgradesteps
 
 import (
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -11,6 +12,8 @@ import (
 
 type UpgradeStepsState interface {
 	state.EntityFinder
+	ControllerConfig() (controller.Config, error)
+	ApplyOperation(state.ModelOperation) error
 }
 
 // Machine represents point of use methods from the state machine object
@@ -22,7 +25,7 @@ type Machine interface {
 
 // Unit represents point of use methods from the state unit object
 type Unit interface {
-	SetState(*state.UnitState) error
+	SetStateOperation(*state.UnitState, state.UnitStateSizeLimits) state.ModelOperation
 }
 
 var (
