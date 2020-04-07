@@ -1001,6 +1001,55 @@ func (s *MigrationImportSuite) TestUnitsWithVirtConstraint(c *gc.C) {
 	s.assertUnitsMigrated(c, s.State, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
 }
 
+func (s *MigrationImportSuite) TestUnitWithoutAnyPersistedState(c *gc.C) {
+	f := factory.NewFactory(s.State, s.StatePool)
+
+	// Export unit without any controller-persisted state
+	exported := f.MakeUnit(c, &factory.UnitParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+
+	exportedState, err := exported.State()
+	c.Assert(err, jc.ErrorIsNil)
+	_, isSet := exportedState.CharmState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("expected charm state to be empty"))
+	_, isSet = exportedState.RelationState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("expected uniter relation state to be empty"))
+	_, isSet = exportedState.UniterState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("expected uniter state to be empty"))
+	_, isSet = exportedState.StorageState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("expected uniter storage state to be empty"))
+	_, isSet = exportedState.MeterStatusState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("expected meter status state to be empty"))
+
+	// Import model and ensure that its UnitState was not mutated.
+	_, newSt := s.importModel(c, s.State)
+
+	importedApplications, err := newSt.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedApplications, gc.HasLen, 1)
+
+	importedUnits, err := importedApplications[0].AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedUnits, gc.HasLen, 1)
+	imported := importedUnits[0]
+
+	c.Assert(imported.UnitTag(), gc.Equals, exported.UnitTag())
+
+	unitState, err := imported.State()
+	c.Assert(err, jc.ErrorIsNil)
+	_, isSet = unitState.CharmState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("unexpected charm state after import; SetState should not have been called"))
+	_, isSet = unitState.RelationState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("unexpected uniter relation state after import; SetState should not have been called"))
+	_, isSet = unitState.UniterState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("unexpected uniter state after import; SetState should not have been called"))
+	_, isSet = unitState.StorageState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("unexpected uniter storage state after import; SetState should not have been called"))
+	_, isSet = unitState.MeterStatusState()
+	c.Assert(isSet, jc.IsFalse, gc.Commentf("unexpected meter status state after import; SetState should not have been called"))
+}
+
 func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, cons constraints.Value) {
 	f := factory.NewFactory(st, s.StatePool)
 
@@ -1017,6 +1066,10 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 	c.Assert(err, jc.ErrorIsNil)
 	us := state.NewUnitState()
 	us.SetCharmState(map[string]string{"payload": "0xb4c0ffee"})
+	us.SetRelationState(map[int]string{42: "magic"})
+	us.SetUniterState("uniter state")
+	us.SetStorageState("storage state")
+	us.SetMeterStatusState("meter status state")
 	err = exported.SetState(us, state.UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1095,6 +1148,14 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 	c.Assert(err, jc.ErrorIsNil)
 	charmState, _ := unitState.CharmState()
 	c.Assert(charmState, jc.DeepEquals, map[string]string{"payload": "0xb4c0ffee"}, gc.Commentf("persisted charm state not migrated"))
+	relationState, _ := unitState.RelationState()
+	c.Assert(relationState, jc.DeepEquals, map[int]string{42: "magic"}, gc.Commentf("persisted relation state not migrated"))
+	uniterState, _ := unitState.UniterState()
+	c.Assert(uniterState, gc.Equals, "uniter state", gc.Commentf("persisted uniter state not migrated"))
+	storageState, _ := unitState.StorageState()
+	c.Assert(storageState, gc.Equals, "storage state", gc.Commentf("persisted uniter storage state not migrated"))
+	meterStatusState, _ := unitState.MeterStatusState()
+	c.Assert(meterStatusState, gc.Equals, "meter status state", gc.Commentf("persisted meter status state not migrated"))
 
 	newCons, err := imported.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
