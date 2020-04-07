@@ -1114,7 +1114,7 @@ func (s *MigrationImportSuite) TestRelationsMissingStatusNoUnits(c *gc.C) {
 func (s *MigrationImportSuite) TestEndpointBindings(c *gc.C) {
 	// Endpoint bindings need both valid charms, applications, and spaces.
 	space := s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+		Name: "one", ProviderID: "provider", IsPublic: true})
 	state.AddTestingApplicationWithBindings(
 		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": space.Id()})
@@ -1130,6 +1130,24 @@ func (s *MigrationImportSuite) TestEndpointBindings(c *gc.C) {
 	// should have the AlphaSpaceId
 	c.Assert(bindings.Map()["db"], gc.Equals, space.Id())
 	c.Assert(bindings.Map()[""], gc.Equals, network.AlphaSpaceId)
+}
+
+func (s *MigrationImportSuite) TestNilEndpointBindings(c *gc.C) {
+	app := state.AddTestingApplicationWithEmptyBindings(
+		c, s.State, "dummy", state.AddTestingCharm(c, s.State, "dummy"))
+
+	bindings, err := app.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bindings.Map(), gc.HasLen, 0)
+
+	_, newSt := s.importModel(c, s.State)
+
+	newApp, err := newSt.Application("dummy")
+	c.Assert(err, jc.ErrorIsNil)
+
+	newBindings, err := newApp.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newBindings.Map()[""], gc.Equals, network.AlphaSpaceId)
 }
 
 func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {

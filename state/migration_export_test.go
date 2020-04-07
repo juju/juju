@@ -86,12 +86,12 @@ func (s *MigrationBaseSuite) primeStatusHistory(c *gc.C, entity statusSetter, st
 	}, 0, "")
 }
 
-func (s *MigrationBaseSuite) makeApplicationWithUnits(c *gc.C, applicationname string, count int) {
+func (s *MigrationBaseSuite) makeApplicationWithUnits(c *gc.C, applicationName string, count int) {
 	units := make([]*state.Unit, count)
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Name: applicationname,
+		Name: applicationName,
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
-			Name: applicationname,
+			Name: applicationName,
 		}),
 	})
 	for i := 0; i < count; i++ {
@@ -107,7 +107,7 @@ func (s *MigrationBaseSuite) makeUnitApplicationLeader(c *gc.C, unitName, applic
 		loggo.GetLogger("migration_export_test"),
 	)
 	target.Claimed(
-		lease.Key{"application-leadership", s.State.ModelUUID(), applicationName},
+		lease.Key{Namespace: "application-leadership", ModelUUID: s.State.ModelUUID(), Lease: applicationName},
 		unitName,
 	)
 }
