@@ -618,24 +618,25 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Trace(err)
 	}
 
-	var initialState operation.State
-	if u.modelType == model.IAAS {
+	initialState := operation.State{
+		Kind:     operation.Install,
+		Step:     operation.Queued,
+		CharmURL: charmURL,
+	}
+
+	if u.modelType == model.CAAS {
+		// For CAAS, run the install hook, but not the
+		// full install operation.
 		initialState = operation.State{
-			Kind:     operation.Install,
-			Step:     operation.Queued,
-			CharmURL: charmURL,
-		}
-	} else {
-		initialState = operation.State{
-			Hook:      &hook.Info{Kind: hooks.Start},
-			Kind:      operation.RunHook,
-			Step:      operation.Queued,
-			Installed: true,
+			Hook: &hook.Info{Kind: hooks.Install},
+			Kind: operation.RunHook,
+			Step: operation.Queued,
 		}
 		if err := u.unit.SetCharmURL(charmURL); err != nil {
 			return errors.Trace(err)
 		}
 	}
+
 	operationExecutor, err := u.newOperationExecutor(u.paths.State.OperationsFile, initialState, u.acquireExecutionLock)
 	if err != nil {
 		return errors.Trace(err)
