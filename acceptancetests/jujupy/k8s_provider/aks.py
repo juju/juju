@@ -21,7 +21,6 @@ from __future__ import print_function
 
 import logging
 import os
-import shutil
 import sys
 import yaml
 from pprint import pformat
@@ -45,7 +44,6 @@ class AKS(Base):
 
     name = K8sProviderType.AKS
 
-    cfg = None
     location = None
     resource_group = None
 
@@ -61,12 +59,11 @@ class AKS(Base):
         self.__init_client(bs_manager.client.env)
 
     def __init_client(self, env):
-        self.cfg = {k: v for k, v in env._config.items()}
         credential = {
-            'clientId': self.cfg['application-id'],
-            'clientSecret': self.cfg['application-password'],
-            'subscriptionId': self.cfg['subscription-id'],
-            'tenantId': self.cfg['tenant-id'],
+            'clientId': env._config['application-id'],
+            'clientSecret': env._config['application-password'],
+            'subscriptionId': env._config['subscription-id'],
+            'tenantId': env._config['tenant-id'],
             'activeDirectoryEndpointUrl': 'https://login.microsoftonline.com',
             'resourceManagerEndpointUrl': 'https://management.azure.com/',
             'activeDirectoryGraphResourceId': 'https://graph.windows.net/',
@@ -74,8 +71,8 @@ class AKS(Base):
             'galleryEndpointUrl': 'https://gallery.azure.com/',
             'managementEndpointUrl': 'https://management.core.windows.net/',
         }
-        self.location = self.cfg['location']
-        self.resource_group = self.cfg['resource-group']
+        self.location = env._config['location']
+        self.resource_group = env._config.pop('resource-group')  # pop for unknown config for juju.
         self.driver = get_client_from_json_dict(containerservice.ContainerServiceClient, credential)
         self.parameters = self.get_parameters(
             location=self.location,
@@ -149,21 +146,13 @@ class AKS(Base):
             role_name="clusterUser",
         )
         kubeconfig_content = access_profile.kube_config.decode('utf-8')
-        self.kubeconfig_cluster_name = yaml.load(kubeconfig_content)['current-context']
+        self.kubeconfig_cluster_name = yaml.load(kubeconfig_content, yaml.SafeLoader)['current-context']
         with open(self.kube_config_path, 'w') as f:
             logger.debug('writing kubeconfig to %s\n%s', self.kube_config_path, kubeconfig_content)
             f.write(kubeconfig_content)
 
         # ensure kubectl
-        kubectl_bin_path = shutil.which('kubectl')
-        if kubectl_bin_path is not None:
-            self.kubectl_path = kubectl_bin_path
-        else:
-            self.sh(
-                'curl', 'https://storage.googleapis.com/kubernetes-release/release/v1.14.0/bin/linux/amd64/kubectl',
-                '-o', self.kubectl_path
-            )
-            os.chmod(self.kubectl_path, 0o774)
+        self._ensure_kubectl_bin()
 
     def _ensure_cluster_config(self):
         ...
@@ -186,8 +175,7 @@ class AKS(Base):
                 self.cluster_name,
                 self.parameters,
             )
-            # It takes a few minutes to provision the cluster, so check less often.
-            result = get_poller_result(poller, wait=5)
+            result = get_poller_result(poller)
             logger.info(
                 "cluster %s has been successfully provisioned -> \n%s",
                 self.cluster_name, pformat(result.as_dict()),
@@ -214,10 +202,12 @@ def get_poller_result(poller, wait=5):
         n = 0
         while not poller.done():
             n += 1
-            sys.stdout.write("\r\tCurrent status: {}, waiting for {} sec{}".format(poller.status(), delay, n * '.'))
-            sys.stdout.flush()
+            print(
+                "\r\t=> Current status: {}, waiting for {} sec{}".format(poller.status(), delay, n * '.'),
+                end='', flush=True,
+            )
             poller.wait(timeout=delay)
-        sys.stdout.write('\n')
+        print()
         return poller.result()
     except azure_exceptions.CloudError as e:
         logger.error(str(e))
