@@ -231,6 +231,10 @@ def ensure_api_login_redirects(source_client, dest_client):
         migrated_model_client,
         expected_controller=dest_client.env.controller.name)
 
+    # Release the model machines back to the cloud since there are more tests
+    # after this part.
+    migrated_model_client.destroy_model()
+
 
 def assert_data_file_lists_correct_controller_for_model(
         client, expected_controller):
@@ -320,6 +324,8 @@ def ensure_superuser_can_migrate_other_user_models(
         migration_client, user_qualified_model_name)
     migration_client.wait_for_started()
     wait_until_model_disappears(source_client, user_qualified_model_name)
+
+    migration_client.destroy_model()
 
 
 def migrate_model_to_controller(
@@ -433,6 +439,9 @@ def ensure_model_logs_are_migrated(source_client, dest_client, timeout=600):
 
     assert_logs_appear_in_client_model(
         migrated_model, before_migration_logs, timeout)
+    # Destroy the model, on the more resource-constrained clouds we could do
+    # with the machines going away.
+    migrated_model.destroy_model()
 
 
 def assert_logs_appear_in_client_model(client, expected_logs, timeout):
@@ -479,6 +488,8 @@ def ensure_migration_rolls_back_on_failure(source_client, dest_client):
     test_model.remove_application(application)
     log.info('SUCCESS: migration rolled back.')
 
+    test_model.destroy_model()
+
 
 @contextmanager
 def disable_apiserver(admin_client, machine_number='0'):
@@ -520,6 +531,8 @@ def ensure_migrating_with_insufficient_user_permissions_fails(
         user_source_client, 'user-fail')
     log.info('Attempting migration process')
     expect_migration_attempt_to_fail(user_new_model, user_dest_client)
+    # Migration fails, so destroy the source model to clean up.
+    user_new_model.destroy_model()
 
 
 def ensure_migrating_with_superuser_user_permissions_succeeds(
@@ -533,9 +546,10 @@ def ensure_migrating_with_superuser_user_permissions_succeeds(
     user_new_model = deploy_dummy_source_to_new_model(
         user_source_client, 'super-permissions')
     log.info('Attempting migration process')
-    migrate_model_to_controller(
+    migrated_client = migrate_model_to_controller(
         user_new_model, user_dest_client, include_user_name=True)
     log.info('SUCCESS: superuser migrated other user model.')
+    migrated_client.destroy_model()
 
 
 def create_user_on_controllers(source_client, dest_client,
