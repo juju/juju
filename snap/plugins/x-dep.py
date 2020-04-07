@@ -69,6 +69,10 @@ class DepPlugin(snapcraft.BasePlugin):
             "additionalProperties": {"type": "string"},
             "default": {},
         }
+        schema["properties"]["go-static"] = {
+            "type": "boolean",
+            "default": False,
+        }
 
         # The import path must be specified.
         schema["required"] = ["go-importpath"]
@@ -79,7 +83,7 @@ class DepPlugin(snapcraft.BasePlugin):
     def get_build_properties(cls):
         # Inform Snapcraft of the properties associated with building. If these
         # change in the YAML Snapcraft will consider the build step dirty.
-        return ["go-packages", "go-external-strings", "go-channel"]
+        return ["go-packages", "go-external-strings", "go-channel", "go-static"]
 
     @classmethod
     def get_pull_properties(cls):
@@ -133,12 +137,15 @@ class DepPlugin(snapcraft.BasePlugin):
         super().build()
 
         cmd = ["go", "install"]
+        cmd.append("-ldflags")
+        flags = ""
+        if self.options.go_static:
+            flags = '-extldflags "-static"'
+
         if len(self.options.go_external_strings) > 0:
-            cmd.append("-ldflags")
-            flags = ""
             for k, v in self.options.go_external_strings.items():
                 flags += " -X {}={}".format(k, v)
-            cmd.append(flags)
+        cmd.append(flags)
 
         for go_package in self.options.go_packages:
             cmd.append(go_package)
@@ -190,15 +197,17 @@ class DepPlugin(snapcraft.BasePlugin):
             os.path.join(self._gopath, "bin"), env.get("PATH", "")
         )
 
-        include_paths = []
-        for root in [self.installdir, self.project.stage_dir]:
-            include_paths.extend(
-                common.get_library_paths(root, self.project.arch_triplet)
+        if self.options.go_static:
+            env["CGO_ENABLED"] = "0"
+        else:
+            include_paths = []
+            for root in [self.installdir, self.project.stage_dir]:
+                include_paths.extend(
+                    common.get_library_paths(root, self.project.arch_triplet)
+                )
+            flags = common.combine_paths(include_paths, "-L", " ")
+            env["CGO_LDFLAGS"] = "{} {} {}".format(
+                env.get("CGO_LDFLAGS", ""), flags, env.get("LDFLAGS", "")
             )
-
-        flags = common.combine_paths(include_paths, "-L", " ")
-        env["CGO_LDFLAGS"] = "{} {} {}".format(
-            env.get("CGO_LDFLAGS", ""), flags, env.get("LDFLAGS", "")
-        )
 
         return env
