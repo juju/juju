@@ -180,7 +180,6 @@ func (s *poolSuite) TestDelete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.poolManager.Get("testpool")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	// Delete again, no error.
 	err = s.poolManager.Delete("testpool")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

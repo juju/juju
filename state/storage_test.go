@@ -697,13 +697,10 @@ func (s *StorageStateSuite) TestRemoveStoragePoolInUse(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pool.Name(), gc.Equals, poolName)
 
-	// pool does not exist at all, poolmanager swallows NotFound errors.
 	_, err = s.pm.Get("nope-pool")
 	c.Assert(err, gc.ErrorMatches, `pool "nope-pool" not found`)
 	err = s.storageBackend.RemoveStoragePool("nope-pool")
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.pm.Get("nope-pool")
-	c.Assert(err, gc.ErrorMatches, `pool "nope-pool" not found`)
+	c.Assert(err, gc.ErrorMatches, `storage pool "nope-pool" not found`)
 }
 
 func (s *StorageStateSuite) TestStorageAttachments(c *gc.C) {

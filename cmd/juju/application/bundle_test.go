@@ -475,6 +475,45 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 	})
 }
 
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C) {
+	s.assertDeployBundleLocalPathInvalidSeriesWithForce(c, true)
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPathInvalidSeriesWithoutForce(c *gc.C) {
+	s.assertDeployBundleLocalPathInvalidSeriesWithForce(c, false)
+}
+
+func (s *BundleDeployCharmStoreSuite) assertDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C, force bool) {
+	dir := c.MkDir()
+	testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy")
+	path := filepath.Join(dir, "mybundle")
+	data := `
+        series: focal
+        applications:
+            dummy:
+                charm: ./dummy
+                num_units: 1
+    `
+	err := ioutil.WriteFile(path, []byte(data), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	args := []string{path}
+	if force {
+		args = append(args, "--force")
+	}
+	err = s.runDeploy(c, args...)
+	if !force {
+		c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: dummy is not available on the following series: focal not supported")
+		return
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCharmsUploaded(c, "local:focal/dummy-1")
+	ch, err := s.State.Charm(charm.MustParseURL("local:focal/dummy-1"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"dummy": {charm: "local:focal/dummy-1", config: ch.Config().DefaultSettings()},
+	})
+}
+
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *gc.C) {
 	data := `
         series: bionic
