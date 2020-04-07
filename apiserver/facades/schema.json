@@ -21675,10 +21675,7 @@
                 "SetUnitStateArg": {
                     "type": "object",
                     "properties": {
-                        "meter-status-state": {
-                            "type": "string"
-                        },
-                        "relation-state": {
+                        "charm-state": {
                             "type": "object",
                             "patternProperties": {
                                 ".*": {
@@ -21686,7 +21683,10 @@
                                 }
                             }
                         },
-                        "state": {
+                        "meter-status-state": {
+                            "type": "string"
+                        },
+                        "relation-state": {
                             "type": "object",
                             "patternProperties": {
                                 ".*": {
@@ -21727,13 +21727,7 @@
                 "UnitStateResult": {
                     "type": "object",
                     "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "meter-status-state": {
-                            "type": "string"
-                        },
-                        "relation-state": {
+                        "charm-state": {
                             "type": "object",
                             "patternProperties": {
                                 ".*": {
@@ -21741,7 +21735,13 @@
                                 }
                             }
                         },
-                        "state": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "meter-status-state": {
+                            "type": "string"
+                        },
+                        "relation-state": {
                             "type": "object",
                             "patternProperties": {
                                 ".*": {
@@ -38153,10 +38153,7 @@
                 "SetUnitStateArg": {
                     "type": "object",
                     "properties": {
-                        "meter-status-state": {
-                            "type": "string"
-                        },
-                        "relation-state": {
+                        "charm-state": {
                             "type": "object",
                             "patternProperties": {
                                 ".*": {
@@ -38164,7 +38161,10 @@
                                 }
                             }
                         },
-                        "state": {
+                        "meter-status-state": {
+                            "type": "string"
+                        },
+                        "relation-state": {
                             "type": "object",
                             "patternProperties": {
                                 ".*": {
@@ -38629,13 +38629,7 @@
                 "UnitStateResult": {
                     "type": "object",
                     "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "meter-status-state": {
-                            "type": "string"
-                        },
-                        "relation-state": {
+                        "charm-state": {
                             "type": "object",
                             "patternProperties": {
                                 ".*": {
@@ -38643,7 +38637,13 @@
                                 }
                             }
                         },
-                        "state": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "meter-status-state": {
+                            "type": "string"
+                        },
+                        "relation-state": {
                             "type": "object",
                             "patternProperties": {
                                 ".*": {
@@ -39305,10 +39305,7 @@
                 "SetUnitStateArg": {
                     "type": "object",
                     "properties": {
-                        "meter-status-state": {
-                            "type": "string"
-                        },
-                        "relation-state": {
+                        "charm-state": {
                             "type": "object",
                             "patternProperties": {
                                 ".*": {
@@ -39316,7 +39313,10 @@
                                 }
                             }
                         },
-                        "state": {
+                        "meter-status-state": {
+                            "type": "string"
+                        },
+                        "relation-state": {
                             "type": "object",
                             "patternProperties": {
                                 ".*": {

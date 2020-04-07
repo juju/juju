@@ -923,11 +923,13 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		}
 		// TODO: hml 18-mar-2020
 		// add the rest of unit.State() to model migration
+		// TODO(achilleasa): rename args.State to args.CharmState
+		// while resolving previous TODO.
 		unitState, err := unit.State()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if us, found := unitState.State(); found {
+		if us, found := unitState.CharmState(); found {
 			args.State = us
 		}
 		exUnit := exApplication.AddUnit(args)

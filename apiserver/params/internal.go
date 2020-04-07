@@ -254,8 +254,8 @@ type ConfigSettingsResults struct {
 // UnitStateResult holds a unit's state map or an error.
 type UnitStateResult struct {
 	Error *Error `json:"error,omitempty"`
-	// Specific state set by the unit via hook tool.
-	State map[string]string `json:"state,omitempty"`
+	// Charm state set by the unit via hook tool.
+	CharmState map[string]string `json:"charm-state,omitempty"`
 	// Uniter internal state for this unit.
 	UniterState string `json:"uniter-state,omitempty"`
 	// RelationState is a internal relation state for this unit.
@@ -286,7 +286,7 @@ type SetUnitStateArgs struct {
 // empty data will cause the persisted data to be deleted.
 type SetUnitStateArg struct {
 	Tag              string             `json:"tag"`
-	State            *map[string]string `json:"state,omitempty"`
+	CharmState       *map[string]string `json:"charm-state,omitempty"`
 	UniterState      *string            `json:"uniter-state,omitempty"`
 	RelationState    *map[int]string    `json:"relation-state,omitempty"`
 	StorageState     *string            `json:"storage-state,omitempty"`

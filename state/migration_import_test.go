@@ -1016,7 +1016,7 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 	err = testModel.SetAnnotations(exported, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	us := state.NewUnitState()
-	us.SetState(map[string]string{"payload": "0xb4c0ffee"})
+	us.SetCharmState(map[string]string{"payload": "0xb4c0ffee"})
 	err = exported.SetState(us, state.UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1093,8 +1093,8 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 
 	unitState, err := imported.State()
 	c.Assert(err, jc.ErrorIsNil)
-	uState, _ := unitState.State()
-	c.Assert(uState, jc.DeepEquals, map[string]string{"payload": "0xb4c0ffee"}, gc.Commentf("persisted charm state not migrated"))
+	charmState, _ := unitState.CharmState()
+	c.Assert(charmState, jc.DeepEquals, map[string]string{"payload": "0xb4c0ffee"}, gc.Commentf("persisted charm state not migrated"))
 
 	newCons, err := imported.Constraints()
 	c.Assert(err, jc.ErrorIsNil)

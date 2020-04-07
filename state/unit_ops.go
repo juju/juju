@@ -103,15 +103,15 @@ func (op *unitSetStateOperation) newUnitStateDoc(unitGlobalKey string) (unitStat
 	newStDoc := unitStateDoc{
 		DocID: unitGlobalKey,
 	}
-	if uState, found := op.newState.State(); found {
-		escapedState := make(map[string]string, len(uState))
-		for k, v := range uState {
-			escapedState[mgoutils.EscapeKey(k)] = v
+	if chState, found := op.newState.CharmState(); found {
+		escapedCharmState := make(map[string]string, len(chState))
+		for k, v := range chState {
+			escapedCharmState[mgoutils.EscapeKey(k)] = v
 		}
-		newStDoc.State = escapedState
+		newStDoc.CharmState = escapedCharmState
 
 		quotaChecker := op.getCharmStateQuotaChecker()
-		quotaChecker.Check(newStDoc.State)
+		quotaChecker.Check(newStDoc.CharmState)
 		if err := quotaChecker.Outcome(); err != nil {
 			return unitStateDoc{}, errors.Annotatef(err, "persisting charm state")
 		}
@@ -151,20 +151,20 @@ func (op *unitSetStateOperation) fields(currentDoc unitStateDoc) (bson.D, bson.D
 	unsetFields := bson.D{}
 
 	// Check if we need to update the charm state
-	if uState, found := op.newState.State(); found {
-		if len(uState) == 0 {
-			unsetFields = append(unsetFields, bson.DocElem{Name: "state"})
+	if chState, found := op.newState.CharmState(); found {
+		if len(chState) == 0 {
+			unsetFields = append(unsetFields, bson.DocElem{Name: "charm-state"})
 		} else {
 			// State keys may contain dots or dollar chars which need to be escaped.
-			escapedState := make(bson.M, len(uState))
-			for k, v := range uState {
-				escapedState[mgoutils.EscapeKey(k)] = v
+			escapedCharmState := make(bson.M, len(chState))
+			for k, v := range chState {
+				escapedCharmState[mgoutils.EscapeKey(k)] = v
 			}
-			if !currentDoc.stateMatches(escapedState) {
-				setFields = append(setFields, bson.DocElem{"state", escapedState})
+			if !currentDoc.charmStateMatches(escapedCharmState) {
+				setFields = append(setFields, bson.DocElem{"charm-state", escapedCharmState})
 
 				quotaChecker := op.getCharmStateQuotaChecker()
-				quotaChecker.Check(uState)
+				quotaChecker.Check(escapedCharmState)
 				if err := quotaChecker.Outcome(); err != nil {
 					if errors.IsQuotaLimitExceeded(err) {
 						return nil, nil, errors.Annotatef(err, "persisting charm state")

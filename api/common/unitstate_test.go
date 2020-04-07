@@ -33,7 +33,7 @@ func (s *unitStateSuite) TestSetStateSingleResult(c *gc.C) {
 		c.Assert(name, gc.Equals, "SetState")
 		c.Assert(args.(params.SetUnitStateArgs).Args, gc.HasLen, 1)
 		c.Assert(args.(params.SetUnitStateArgs).Args[0].Tag, gc.Equals, s.tag.String())
-		c.Assert(*args.(params.SetUnitStateArgs).Args[0].State, jc.DeepEquals, map[string]string{"one": "two"})
+		c.Assert(*args.(params.SetUnitStateArgs).Args[0].CharmState, jc.DeepEquals, map[string]string{"one": "two"})
 		*(response.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{
 				Error: nil,
@@ -43,7 +43,7 @@ func (s *unitStateSuite) TestSetStateSingleResult(c *gc.C) {
 	}
 	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
 	err := api.SetState(params.SetUnitStateArg{
-		State: &map[string]string{"one": "two"},
+		CharmState: &map[string]string{"one": "two"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -61,7 +61,7 @@ func (s *unitStateSuite) TestSetStateReturnsQuotaExceededError(c *gc.C) {
 	// The client should reconstruct the quota error from the server response
 	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
 	err := api.SetState(params.SetUnitStateArg{
-		State: &map[string]string{"one": "two"},
+		CharmState: &map[string]string{"one": "two"},
 	})
 	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded, gc.Commentf("expected the client to reconstruct QuotaLimitExceeded error from server response"))
 }
@@ -72,7 +72,7 @@ func (s *unitStateSuite) TestSetStateMultipleReturnsError(c *gc.C) {
 		c.Assert(name, gc.Equals, "SetState")
 		c.Assert(args.(params.SetUnitStateArgs).Args, gc.HasLen, 1)
 		c.Assert(args.(params.SetUnitStateArgs).Args[0].Tag, gc.Equals, s.tag.String())
-		c.Assert(*args.(params.SetUnitStateArgs).Args[0].State, jc.DeepEquals, map[string]string{"one": "two"})
+		c.Assert(*args.(params.SetUnitStateArgs).Args[0].CharmState, jc.DeepEquals, map[string]string{"one": "two"})
 		*(response.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{
 				{Error: nil},
@@ -84,13 +84,13 @@ func (s *unitStateSuite) TestSetStateMultipleReturnsError(c *gc.C) {
 
 	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
 	err := api.SetState(params.SetUnitStateArg{
-		State: &map[string]string{"one": "two"},
+		CharmState: &map[string]string{"one": "two"},
 	})
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
 func (s *unitStateSuite) TestStateSingleResult(c *gc.C) {
-	expectedUnitState := map[string]string{
+	expectedCharmState := map[string]string{
 		"one":   "two",
 		"three": "four",
 	}
@@ -102,7 +102,7 @@ func (s *unitStateSuite) TestStateSingleResult(c *gc.C) {
 		*(response.(*params.UnitStateResults)) = params.UnitStateResults{
 			Results: []params.UnitStateResult{{
 				UniterState: expectedUniterState,
-				State:       expectedUnitState,
+				CharmState:  expectedCharmState,
 			}}}
 		return nil
 	}
@@ -110,7 +110,7 @@ func (s *unitStateSuite) TestStateSingleResult(c *gc.C) {
 	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
 	obtainedUnitState, err := api.State()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(expectedUnitState, gc.DeepEquals, obtainedUnitState.State)
+	c.Assert(expectedCharmState, gc.DeepEquals, obtainedUnitState.CharmState)
 	c.Assert(expectedUniterState, gc.DeepEquals, obtainedUnitState.UniterState)
 }
 

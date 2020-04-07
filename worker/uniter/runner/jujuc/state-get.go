@@ -73,14 +73,14 @@ func (c *StateGetCommand) Init(args []string) error {
 // Run implements part of the cmd.Command interface.
 func (c *StateGetCommand) Run(ctx *cmd.Context) error {
 	if c.key == "" {
-		cache, err := c.ctx.GetCache()
+		cache, err := c.ctx.GetCharmState()
 		if err != nil {
 			return err
 		}
 		return c.out.Write(ctx, cache)
 	}
 
-	value, err := c.ctx.GetSingleCacheValue(c.key)
+	value, err := c.ctx.GetCharmStateValue(c.key)
 	notFound := errors.IsNotFound(err)
 	if err != nil && (!notFound || (notFound && c.strict)) {
 		return err

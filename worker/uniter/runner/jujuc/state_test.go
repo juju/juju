@@ -22,20 +22,20 @@ func (s *stateSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *stateSuite) expectStateSetOne() {
-	s.mockContext.EXPECT().SetCacheValue("one", "two").Return(nil)
+	s.mockContext.EXPECT().SetCharmStateValue("one", "two").Return(nil)
 }
 
 func (s *stateSuite) expectStateSetOneEmpty() {
-	s.mockContext.EXPECT().SetCacheValue("one", "").Return(nil)
+	s.mockContext.EXPECT().SetCharmStateValue("one", "").Return(nil)
 }
 
 func (s *stateSuite) expectStateSetTwo() {
 	s.expectStateSetOne()
-	s.mockContext.EXPECT().SetCacheValue("three", "four").Return(nil)
+	s.mockContext.EXPECT().SetCharmStateValue("three", "four").Return(nil)
 }
 
 func (s *stateSuite) expectStateDeleteOne() {
-	s.mockContext.EXPECT().DeleteCacheValue("five").Return(nil)
+	s.mockContext.EXPECT().DeleteCharmStateValue("five").Return(nil)
 }
 
 func (s *stateSuite) expectStateGetTwo() {
@@ -43,17 +43,17 @@ func (s *stateSuite) expectStateGetTwo() {
 		"one":   "two",
 		"three": "four",
 	}
-	s.mockContext.EXPECT().GetCache().Return(setupCache, nil)
+	s.mockContext.EXPECT().GetCharmState().Return(setupCache, nil)
 }
 
 func (s *stateSuite) expectStateGetValueOne() {
-	s.mockContext.EXPECT().GetSingleCacheValue("one").Return("two", nil)
+	s.mockContext.EXPECT().GetCharmStateValue("one").Return("two", nil)
 }
 
 func (s *stateSuite) expectStateGetValueNotFound() {
-	s.mockContext.EXPECT().GetSingleCacheValue("five").Return("", errors.NotFoundf("%q", "five"))
+	s.mockContext.EXPECT().GetCharmStateValue("five").Return("", errors.NotFoundf("%q", "five"))
 }
 
 func (s *stateSuite) expectStateGetValueEmpty() {
-	s.mockContext.EXPECT().GetSingleCacheValue("five").Return("", nil)
+	s.mockContext.EXPECT().GetCharmStateValue("five").Return("", nil)
 }

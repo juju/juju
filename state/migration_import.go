@@ -1153,9 +1153,11 @@ func (i *importer) unit(s description.Application, u description.Unit, ctrlCfg c
 	if err := i.importStatusHistory(unit.globalWorkloadVersionKey(), u.WorkloadVersionHistory()); err != nil {
 		return errors.Trace(err)
 	}
-	if unitState := u.State(); len(unitState) != 0 {
+	// TODO(achilleasa): rename u.State in juju/description to CharmState
+	// and import the rest of the uniter state bits.
+	if charmState := u.State(); len(charmState) != 0 {
 		us := NewUnitState()
-		us.SetState(unitState)
+		us.SetCharmState(charmState)
 		limits := UnitStateSizeLimits{
 			MaxCharmStateSize: ctrlCfg.MaxCharmStateSize(),
 			MaxAgentStateSize: ctrlCfg.MaxAgentStateSize(),

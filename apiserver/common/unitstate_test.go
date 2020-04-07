@@ -62,7 +62,7 @@ func (s *unitStateSuite) assertBackendApi(c *gc.C) *gomock.Controller {
 }
 
 func (s *unitStateSuite) expectState() (map[string]string, string, map[int]string, string) {
-	expState := map[string]string{
+	expCharmState := map[string]string{
 		"foo.bar":  "baz",
 		"payload$": "enc0d3d",
 	}
@@ -74,7 +74,7 @@ func (s *unitStateSuite) expectState() (map[string]string, string, map[int]strin
 	expStorageState := "storage testing"
 
 	unitState := state.NewUnitState()
-	unitState.SetState(expState)
+	unitState.SetCharmState(expCharmState)
 	unitState.SetUniterState(expUniterState)
 	unitState.SetRelationState(expRelationState)
 	unitState.SetStorageState(expStorageState)
@@ -82,7 +82,7 @@ func (s *unitStateSuite) expectState() (map[string]string, string, map[int]strin
 	exp := s.mockUnit.EXPECT()
 	exp.State().Return(unitState, nil)
 
-	return expState, expUniterState, expRelationState, expStorageState
+	return expCharmState, expUniterState, expRelationState, expStorageState
 }
 
 func (s *unitStateSuite) expectUnit() {
@@ -121,7 +121,7 @@ func (s *unitStateSuite) expectApplyOperation() {
 func (s *unitStateSuite) TestState(c *gc.C) {
 	defer s.assertBackendApi(c).Finish()
 	s.expectUnit()
-	expState, expUniterState, expRelationState, expStorageState := s.expectState()
+	expCharmState, expUniterState, expRelationState, expStorageState := s.expectState()
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -138,7 +138,7 @@ func (s *unitStateSuite) TestState(c *gc.C) {
 			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
 			{
 				Error:         nil,
-				State:         expState,
+				CharmState:    expCharmState,
 				UniterState:   expUniterState,
 				RelationState: expRelationState,
 				StorageState:  expStorageState,

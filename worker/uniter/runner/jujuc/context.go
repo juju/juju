@@ -27,7 +27,7 @@ type Context interface {
 	HookContext
 	relationHookContext
 	actionHookContext
-	unitCacheContext
+	unitCharmStateContext
 }
 
 // HookContext represents the information and functionality that is
@@ -97,20 +97,20 @@ type actionHookContext interface {
 	LogActionMessage(string) error
 }
 
-// unitCacheContext is cache for charm state to be held in the context.
-type unitCacheContext interface {
-	// GetCache returns a copy of the cache.
-	GetCache() (map[string]string, error)
+// unitCharmStateContext provides helper for interacting with the charm state
+// that is stored within the context.
+type unitCharmStateContext interface {
+	// GetCharmState returns a copy of the charm state.
+	GetCharmState() (map[string]string, error)
 
-	// GetSingleCacheValue returns the value of the given key.
-	GetSingleCacheValue(string) (string, error)
+	// GetCharmStateValue returns the value of the given key.
+	GetCharmStateValue(string) (string, error)
 
-	// DeleteCacheValue deletes the key/value pair for the given key from
-	// the cache.
-	DeleteCacheValue(string) error
+	// DeleteCharmStateValue deletes the key/value pair for the given key.
+	DeleteCharmStateValue(string) error
 
-	// SetCacheValue sets the key/value pair provided in the cache.
-	SetCacheValue(string, string) error
+	// SetCharmStateValue sets the key to the specified value.
+	SetCharmStateValue(string, string) error
 }
 
 // ContextUnit is the part of a hook context related to the unit.

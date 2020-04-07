@@ -119,7 +119,8 @@ func (u *UnitStateAPI) State(args params.Entities) (params.UnitStateResults, err
 			res[i].Error = ServerError(err)
 			continue
 		}
-		res[i].State, _ = unitState.State()
+
+		res[i].CharmState, _ = unitState.CharmState()
 		res[i].UniterState, _ = unitState.UniterState()
 		res[i].RelationState, _ = unitState.RelationState()
 		res[i].StorageState, _ = unitState.StorageState()
@@ -162,8 +163,8 @@ func (u *UnitStateAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResul
 		}
 
 		unitState := state.NewUnitState()
-		if arg.State != nil {
-			unitState.SetState(*arg.State)
+		if arg.CharmState != nil {
+			unitState.SetCharmState(*arg.CharmState)
 		}
 		if arg.UniterState != nil {
 			unitState.SetUniterState(*arg.UniterState)
