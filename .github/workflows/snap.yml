@@ -1,0 +1,35 @@
+name: "Snapcraft"
+on: [push, pull_request]
+jobs:
+  snap:
+    name: linux-amd64
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install Dependencies
+      shell: bash
+      run: |
+        set -euxo pipefail
+        sudo apt-get remove lxd lxd-client
+        sudo snap install snapcraft --classic
+        sudo snap install lxd
+        sudo lxd waitready
+        sudo lxd init --auto
+        sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Build snap
+      shell: bash
+      run: |
+        set -euxo pipefail
+        snapcraft --use-lxd
+    - name: Install snap
+      shell: bash
+      run: |
+        set -euxo pipefail
+        sudo snap install *.snap --dangerous --classic
+    - name: Test bootstrap
+      shell: bash
+      run: |
+        set -euxo pipefail
+        lxc network set lxdbr0 ipv6.address none
+        juju bootstrap localhost
