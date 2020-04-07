@@ -39228,7 +39228,7 @@
                         }
                     }
                 },
-                "WriteUniterState": {
+                "WriteAgentState": {
                     "type": "object",
                     "properties": {
                         "Params": {
