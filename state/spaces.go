@@ -561,11 +561,24 @@ func (st *State) SaveProviderSpaces(providerSpaces []network.SpaceInfo) error {
 			continue
 		}
 
-		// Attempt to remove the space, if the space is not dead it will be
-		// skipped. We could force the removal by ensuring the space is dead
-		// first.
+		// Check to see if the space is still alive. If the space is still alive
+		// we should ensure it is dead before we remove the space.
+		// Note: we currently don't test for Life in any space usage, so that
+		// means that we have to be very careful in the usage of this. Currently
+		// MAAS is the only usage of this, but when others follow we should take
+		// a long hard look at this.
+		// The real fix for this is to call ensure dead, but not remove the
+		// space until all remnants of the topology of that space are
+		// terminated.
+		if space.Life() == Alive {
+			if err := space.EnsureDead(); err != nil {
+				return errors.Trace(err)
+			}
+		}
+
+		// Finally remove the space.
 		if err := space.Remove(); err != nil {
-			logger.Infof("unable to remove space: %v", err)
+			return errors.Trace(err)
 		}
 	}
 

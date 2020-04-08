@@ -967,8 +967,7 @@ func (s *SpacesDiscoverySuite) TestSaveProviderSpaces(c *gc.C) {
 	checkSpacesEqual(c, spaces, spaceOne)
 }
 
-// TODO(wpk) 2017-05-24 this test will have to be rewritten when we support removing spaces/subnets in discovery.
-func (s *SpacesDiscoverySuite) TestSaveProviderSpacesAddsSpaces(c *gc.C) {
+func (s *SpacesDiscoverySuite) TestSaveProviderSpacesRemovesOldSpaces(c *gc.C) {
 	err := s.State.SaveProviderSpaces(spaceOne)
 	c.Check(err, jc.ErrorIsNil)
 
@@ -977,7 +976,7 @@ func (s *SpacesDiscoverySuite) TestSaveProviderSpacesAddsSpaces(c *gc.C) {
 
 	spaces, err := s.State.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	checkSpacesEqual(c, spaces, twoSpaces)
+	checkSpacesEqual(c, spaces, spaceTwo)
 }
 
 func (s *SpacesDiscoverySuite) TestSaveProviderSpacesRemovesEmptySpaces(c *gc.C) {
