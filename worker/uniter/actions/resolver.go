@@ -42,8 +42,9 @@ func (r *actionsResolver) NextOp(
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
 	// During CAAS unit initialization action operations are
-	// deferred until the unit is running.
-	if remoteState.ActionsBlocked {
+	// deferred until the unit is running. If the remote charm needs
+	// updating, hold off on action running.
+	if remoteState.ActionsBlocked || localState.OutdatedRemoteCharm {
 		return nil, resolver.ErrNoOperation
 	}
 	// If there are no operation left to be run, then we cannot return the

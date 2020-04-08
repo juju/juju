@@ -95,4 +95,11 @@ type LocalState struct {
 	// UpgradeSeriesStatus is the current state of any currently running
 	// upgrade series.
 	UpgradeSeriesStatus model.UpgradeSeriesStatus
+
+	// ContainerRunningStatus is the current state of remote containers for CAAS.
+	ContainerRunningStatus *remotestate.ContainerRunningStatus
+
+	// OutdatedRemoteCharm is true when an upgrade has happened but the remotestate
+	// needs an update.
+	OutdatedRemoteCharm bool
 }

@@ -48,6 +48,7 @@ type client struct {
 
 // Executor provides the API to exec or cp on a pod inside the cluster.
 type Executor interface {
+	Status(params StatusParams) (*Status, error)
 	Exec(params ExecParams, cancel <-chan struct{}) error
 	Copy(params CopyParams, cancel <-chan struct{}) error
 }
@@ -301,25 +302,23 @@ func parsePodName(podName string) (string, error) {
 	return podName, nil
 }
 
-func getValidatedPodContainer(
-	podGetter typedcorev1.PodInterface, podName, containerName string,
-) (string, string, error) {
+func getValidatedPod(podGetter typedcorev1.PodInterface, podName string) (*core.Pod, error) {
 	var err error
 	if podName, err = parsePodName(podName); err != nil {
-		return "", "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	var pod *core.Pod
 	pod, err = podGetter.Get(podName, metav1.GetOptions{})
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
-			return "", "", errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		logger.Debugf("no pod named %q found", podName)
 		logger.Debugf("try get pod by UID for %q", podName)
 		pods, err := podGetter.List(metav1.ListOptions{})
 		// TODO(caas): remove getting pod by Id (a bit expensive) once we started to store podName in cloudContainer doc.
 		if err != nil {
-			return "", "", errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		for _, v := range pods.Items {
 			if string(v.GetUID()) == podName {
@@ -331,7 +330,17 @@ func getValidatedPodContainer(
 		}
 	}
 	if pod == nil {
-		return "", "", podNotFoundError(podName)
+		return nil, errors.NotFoundf("pod %q", podName)
+	}
+	return pod, nil
+}
+
+func getValidatedPodContainer(
+	podGetter typedcorev1.PodInterface, podName, containerName string,
+) (string, string, error) {
+	pod, err := getValidatedPod(podGetter, podName)
+	if err != nil {
+		return "", "", errors.Trace(err)
 	}
 
 	checkContainerExists := func(name string) error {
@@ -386,5 +395,5 @@ func getValidatedPodContainer(
 		return "", "", containerNotRunningError(containerName)
 	}
 
-	return podName, containerName, nil
+	return pod.Name, containerName, nil
 }

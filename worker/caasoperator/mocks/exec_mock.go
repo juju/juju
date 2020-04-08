@@ -57,3 +57,16 @@ func (m *MockExecutor) Exec(arg0 exec.ExecParams, arg1 <-chan struct{}) error {
 func (mr *MockExecutorMockRecorder) Exec(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exec", reflect.TypeOf((*MockExecutor)(nil).Exec), arg0, arg1)
 }
+
+// Status mocks base method
+func (m *MockExecutor) Status(arg0 exec.StatusParams) (*exec.Status, error) {
+	ret := m.ctrl.Call(m, "Status", arg0)
+	ret0, _ := ret[0].(*exec.Status)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Status indicates an expected call of Status
+func (mr *MockExecutorMockRecorder) Status(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockExecutor)(nil).Exec), arg0)
+}

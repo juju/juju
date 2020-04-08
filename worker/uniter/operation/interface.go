@@ -80,13 +80,11 @@ type Factory interface {
 	// NewUpgrade creates an upgrade operation for the supplied charm.
 	NewUpgrade(charmURL *corecharm.URL) (Operation, error)
 
-	// NewNoOpUpgrade creates a noop upgrade operation for the supplied charm.
-	// The purpose is to go through the machinations so that in the commit phase,
-	// the uniter records the current charm url and modified version in local state
-	// so it knows the upgraded charm has been unpacked and it can run the upgrade-charm hook.
-	// For a caas uniter, the operator is the thing that does the charm upgrade,
-	// so we just plug in a no op into the uniter state machine.
-	NewNoOpUpgrade(charmURL *corecharm.URL) (Operation, error)
+	// NewRemoteInit inits the remote charm on CAAS pod.
+	NewRemoteInit(runningStatus remotestate.ContainerRunningStatus) (Operation, error)
+
+	// NewSkipRemoteInit skips a remote-init operation.
+	NewSkipRemoteInit(retry bool) (Operation, error)
 
 	// NewNoOpFinishUpgradeSeries creates a noop which simply resets the
 	// status of a units upgrade series.
@@ -190,6 +188,9 @@ type Callbacks interface {
 	// upgrade series hook code completes and, for display purposes, to
 	// supply a reason as to why it is making the change.
 	SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason string) error
+
+	// RemoteInit copies the charm to the remote instance. CAAS only.
+	RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error
 }
 
 // StorageUpdater is an interface used for updating local knowledge of storage

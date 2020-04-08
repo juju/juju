@@ -73,10 +73,6 @@ func (s *FactorySuite) TestNewUpgradeString(c *gc.C) {
 	s.testNewDeployString(c, (operation.Factory).NewUpgrade, "upgrade to")
 }
 
-func (s *FactorySuite) TestNOOpUpgradeString(c *gc.C) {
-	s.testNewDeployString(c, (operation.Factory).NewNoOpUpgrade, "skip no-op upgrade operation to")
-}
-
 func (s *FactorySuite) TestNewRevertUpgradeString(c *gc.C) {
 	s.testNewDeployString(c,
 		(operation.Factory).NewRevertUpgrade,

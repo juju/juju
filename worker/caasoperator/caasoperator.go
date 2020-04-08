@@ -5,13 +5,13 @@ package caasoperator
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
@@ -25,6 +25,7 @@ import (
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -39,11 +40,14 @@ import (
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/uniter"
 	jujucharm "github.com/juju/juju/worker/uniter/charm"
+	uniterremotestate "github.com/juju/juju/worker/uniter/remotestate"
 )
 
-var (
-	logger = loggo.GetLogger("juju.worker.caasoperator")
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead pass one through as config to the worker.
+var logger interface{}
 
+var (
 	jujuRun        = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
 	jujuDumpLogs   = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
 	jujuIntrospect = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
@@ -71,6 +75,8 @@ type caasOperator struct {
 
 // Config hold the configuration for a caasoperator worker.
 type Config struct {
+	Logger Logger
+
 	// ModelUUID is the UUID of the model.
 	ModelUUID string
 
@@ -138,6 +144,9 @@ type Config struct {
 
 	// OperatorInfo contains serving information such as Certs and PrivateKeys.
 	OperatorInfo caas.OperatorInfo
+
+	// ExecClient for initilizing caas units.
+	ExecClient exec.Executor
 }
 
 func (config Config) Validate() error {
@@ -185,6 +194,9 @@ func (config Config) Validate() error {
 	}
 	if config.VersionSetter == nil {
 		return errors.NotValidf("missing VersionSetter")
+	}
+	if config.ExecClient == nil {
+		return errors.NotValidf("missing ExecClient")
 	}
 	return nil
 }
@@ -274,19 +286,6 @@ func (op *caasOperator) makeAgentSymlinks(unitTag names.UnitTag) error {
 		}
 	}
 
-	// Second the charm directory.
-	unitAgentDir := filepath.Join(op.config.DataDir, "agents", unitTag.String())
-	err = os.MkdirAll(unitAgentDir, 0600)
-	if err != nil && !os.IsExist(err) {
-		return errors.Trace(err)
-	}
-	agentCharmDir := op.paths.GetCharmDir()
-	err = jujusymlink.New(agentCharmDir, filepath.Join(unitAgentDir, "charm"))
-	// Ignore permission denied as this won't happen in production
-	// but may happen in testing depending on setup of /tmp
-	if err != nil && !os.IsExist(err) && !os.IsPermission(err) {
-		return errors.Trace(err)
-	}
 	return nil
 }
 
@@ -316,11 +315,11 @@ func runListenerSocket(sc *uniter.SocketConfig) (*sockets.Socket, error) {
 func (op *caasOperator) init() (*LocalState, error) {
 	if err := introspection.WriteProfileFunctions(op.config.ProfileDir); err != nil {
 		// This isn't fatal, just annoying.
-		logger.Errorf("failed to write profile funcs: %v", err)
+		op.config.Logger.Errorf("failed to write profile funcs: %v", err)
 	}
 
 	if err := jujucharm.ClearDownloads(op.paths.State.BundlesDir); err != nil {
-		logger.Warningf(err.Error())
+		op.config.Logger.Warningf(err.Error())
 	}
 
 	op.stateFile = NewStateFile(op.paths.State.OperationsFile)
@@ -349,7 +348,7 @@ func (op *caasOperator) init() (*LocalState, error) {
 			if err != nil {
 				return nil, errors.Annotate(err, "creating juju run socket")
 			}
-			logger.Debugf("starting caas operator juju-run listener on %v", socket)
+			op.config.Logger.Debugf("starting caas operator juju-run listener on %v", socket)
 			runListener, err := uniter.NewRunListener(*socket)
 			if err != nil {
 				return nil, errors.Annotate(err, "creating juju run listener")
@@ -375,7 +374,7 @@ func (op *caasOperator) loop() (err error) {
 	if err != nil {
 		return err
 	}
-	logger.Infof("operator %q started", op.config.Application)
+	op.config.Logger.Infof("operator %q started", op.config.Application)
 
 	// Start by reporting current tools (which includes arch/series).
 	if err := op.config.VersionSetter.SetVersion(
@@ -399,6 +398,7 @@ func (op *caasOperator) loop() (err error) {
 		var err error
 		remoteWatcher, err = remotestate.NewWatcher(
 			remotestate.WatcherConfig{
+				Logger:             loggo.GetLogger("juju.worker.caasoperator.remotestate"),
 				CharmGetter:        op.config.CharmGetter,
 				Application:        op.config.Application,
 				ApplicationWatcher: op.config.ApplicationWatcher,
@@ -422,7 +422,10 @@ func (op *caasOperator) loop() (err error) {
 
 	var containerStartChan watcher.StringsChannel
 	if op.deploymentMode != caas.ModeOperator {
-		containerStartWatcher, err := op.config.ContainerStartWatcher.WatchContainerStart(op.config.Application, "")
+		// Match the init container and the default container.
+		containerRegex := fmt.Sprintf("(?:%s|)", caas.InitContainerName)
+		containerStartWatcher, err := op.config.ContainerStartWatcher.WatchContainerStart(
+			op.config.Application, containerRegex)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -442,7 +445,6 @@ func (op *caasOperator) loop() (err error) {
 	// Channels used to notify uniter worker that the workload container
 	// is running.
 	unitRunningChannels := make(map[string]chan struct{})
-	unitRunning := set.NewStrings()
 
 	if err = restartWatcher(); err != nil {
 		err = errors.Annotate(err, "(re)starting watcher")
@@ -464,7 +466,7 @@ func (op *caasOperator) loop() (err error) {
 			return op.catacomb.ErrDying()
 		case <-remoteWatcher.RemoteStateChanged():
 			snap := remoteWatcher.Snapshot()
-			if charmModified(localState, snap) {
+			if op.charmModified(localState, snap) {
 				// Charm changed so download and install the new version.
 				err := op.ensureCharm(localState)
 				if err != nil {
@@ -476,7 +478,7 @@ func (op *caasOperator) loop() (err error) {
 				}
 				// Notify all uniters of the change so they run the upgrade-charm hook.
 				for unitID, changedChan := range aliveUnits {
-					logger.Debugf("trigger upgrade charm for caas unit %v", unitID)
+					op.config.Logger.Debugf("trigger upgrade charm for caas unit %v", unitID)
 					select {
 					case <-op.catacomb.Dying():
 						return op.catacomb.ErrDying()
@@ -490,8 +492,7 @@ func (op *caasOperator) loop() (err error) {
 			}
 			for _, unitID := range units {
 				if runningChan, ok := unitRunningChannels[unitID]; ok {
-					logger.Debugf("trigger running status for caas unit %v", unitID)
-					unitRunning.Add(unitID)
+					op.config.Logger.Debugf("trigger running status for caas unit %v", unitID)
 					select {
 					case <-op.catacomb.Dying():
 						return op.catacomb.ErrDying()
@@ -513,7 +514,6 @@ func (op *caasOperator) loop() (err error) {
 				if errors.IsNotFound(err) || unitLife == life.Dead {
 					delete(aliveUnits, unitID)
 					delete(unitRunningChannels, unitID)
-					unitRunning.Remove(unitID)
 					if err := op.runner.StopWorker(unitID); err != nil {
 						return err
 					}
@@ -548,14 +548,17 @@ func (op *caasOperator) loop() (err error) {
 				params := op.config.UniterParams
 				params.ModelType = model.CAAS
 				params.UnitTag = unitTag
+				params.Downloader = op.config.Downloader // TODO(caas): write a cache downloader
 				params.UniterFacade = op.config.UniterFacadeFunc(unitTag)
 				params.LeadershipTracker = op.config.LeadershipTrackerFunc(unitTag)
 				params.ApplicationChannel = aliveUnits[unitID]
-				params.RunningStatusChannel = unitRunningChannels[unitID]
+				params.ContainerRunningStatusChannel = unitRunningChannels[unitID]
 				if op.deploymentMode != caas.ModeOperator {
-					params.RunningStatusFunc = func() (bool, error) {
-						// TODO(caas): call off to k8s to check container status.
-						return unitRunning.Contains(unitID), nil
+					params.ContainerRunningStatusFunc = func(providerID string) (*uniterremotestate.ContainerRunningStatus, error) {
+						return op.runningStatus(unitTag, providerID)
+					}
+					params.RemoteInitFunc = func(runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
+						return op.remoteInit(unitTag, runningStatus, cancel)
 					}
 				}
 				if err := op.config.StartUniterFunc(op.runner, params); err != nil {
@@ -566,26 +569,84 @@ func (op *caasOperator) loop() (err error) {
 	}
 }
 
-func charmModified(local *LocalState, remote remotestate.Snapshot) bool {
+func (op *caasOperator) runningStatus(unit names.UnitTag, providerID string) (*uniterremotestate.ContainerRunningStatus, error) {
+	op.config.Logger.Debugf("request running status for %v %s", unit, providerID)
+	params := exec.StatusParams{
+		PodName: providerID,
+	}
+	status, err := op.config.ExecClient.Status(params)
+	if errors.IsNotFound(err) {
+		op.config.Logger.Errorf("could not find pod %v %s %v", unit, providerID, err)
+		return nil, nil
+	} else if err != nil {
+		op.config.Logger.Errorf("could not get pod %v %s %v", unit, providerID, err)
+		return nil, errors.Trace(err)
+	}
+	result := &uniterremotestate.ContainerRunningStatus{
+		PodName: status.PodName,
+	}
+	once := true
+	for _, cs := range status.ContainerStatus {
+		if cs.InitContainer && cs.Name == caas.InitContainerName {
+			result.Initialising = cs.Running
+			result.InitialisingTime = cs.StartedAt
+		}
+		// Only check the default container
+		if !cs.InitContainer && !cs.EphemeralContainer && once {
+			result.Running = cs.Running
+			once = false
+		}
+	}
+	return result, nil
+}
+
+func (op *caasOperator) remoteInit(unit names.UnitTag, runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
+	op.config.Logger.Debugf("remote init for %v %+v", unit, runningStatus)
+	params := InitializeUnitParams{
+		ExecClient:   op.config.ExecClient,
+		Logger:       op.config.Logger,
+		OperatorInfo: op.config.OperatorInfo,
+		Paths:        op.paths,
+		UnitTag:      unit,
+		ProviderID:   runningStatus.PodName,
+		WriteFile:    ioutil.WriteFile,
+		TempDir:      ioutil.TempDir,
+	}
+	switch {
+	case runningStatus.Initialising:
+		params.InitType = UnitInit
+	case runningStatus.Running:
+		params.InitType = UnitUpgrade
+	default:
+		return errors.NotFoundf("container not running")
+	}
+	err := InitializeUnit(params, cancel)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (op *caasOperator) charmModified(local *LocalState, remote remotestate.Snapshot) bool {
 	// CAAS models may not yet have read the charm url from state.
 	if remote.CharmURL == nil {
 		return false
 	}
 	if local == nil || local.CharmURL == nil {
-		logger.Warningf("unexpected nil local charm URL")
+		op.config.Logger.Warningf("unexpected nil local charm URL")
 		return true
 	}
 	if *local.CharmURL != *remote.CharmURL {
-		logger.Debugf("upgrade from %v to %v", local.CharmURL, remote.CharmURL)
+		op.config.Logger.Debugf("upgrade from %v to %v", local.CharmURL, remote.CharmURL)
 		return true
 	}
 
 	if local.CharmModifiedVersion != remote.CharmModifiedVersion {
-		logger.Debugf("upgrade from CharmModifiedVersion %v to %v", local.CharmModifiedVersion, remote.CharmModifiedVersion)
+		op.config.Logger.Debugf("upgrade from CharmModifiedVersion %v to %v", local.CharmModifiedVersion, remote.CharmModifiedVersion)
 		return true
 	}
 	if remote.ForceCharmUpgrade {
-		logger.Debugf("force charm upgrade to %v", remote.CharmURL)
+		op.config.Logger.Debugf("force charm upgrade to %v", remote.CharmURL)
 		return true
 	}
 	return false

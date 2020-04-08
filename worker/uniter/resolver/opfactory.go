@@ -69,12 +69,23 @@ func (s *resolverOpFactory) NewUpgrade(charmURL *charm.URL) (operation.Operation
 	return s.wrapUpgradeOp(op, charmURL), nil
 }
 
-func (s *resolverOpFactory) NewNoOpUpgrade(charmURL *charm.URL) (operation.Operation, error) {
-	op, err := s.Factory.NewNoOpUpgrade(charmURL)
+func (s *resolverOpFactory) NewRemoteInit(runningStatus remotestate.ContainerRunningStatus) (operation.Operation, error) {
+	op, err := s.Factory.NewRemoteInit(runningStatus)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return s.wrapUpgradeOp(op, charmURL), nil
+	return onCommitWrapper{op, func(*operation.State) {
+		s.LocalState.ContainerRunningStatus = &runningStatus
+		s.LocalState.OutdatedRemoteCharm = false
+	}}, nil
+}
+
+func (s *resolverOpFactory) NewSkipRemoteInit(retry bool) (operation.Operation, error) {
+	op, err := s.Factory.NewSkipRemoteInit(retry)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return op, nil
 }
 
 func (s *resolverOpFactory) NewRevertUpgrade(charmURL *charm.URL) (operation.Operation, error) {

@@ -31,6 +31,10 @@ const (
 	// Continue indicates that the uniter should run ModeContinue
 	// to determine the next operation.
 	Continue Kind = "continue"
+
+	// RemoteInit indicates the CAAS uniter is installing/upgrading the
+	// charm on the remote instance.
+	RemoteInit Kind = "remote-init"
 )
 
 // Step describes the recorded progression of an operation.
@@ -160,6 +164,8 @@ func (st State) Validate() (err error) {
 		case hasActionId:
 			return errors.New("unexpected action id")
 		}
+	case RemoteInit:
+		// Nothing to check for.
 	default:
 		return errors.Errorf("unknown operation %q", st.Kind)
 	}
