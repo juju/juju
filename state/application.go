@@ -1861,7 +1861,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 			}
 			if args.address != nil {
 				networkAddr := network.NewScopedSpaceAddress(*args.address, network.ScopeMachineLocal)
-				addr := fromNetworkAddress(networkAddr, OriginProvider)
+				addr := fromNetworkAddress(networkAddr, network.OriginProvider)
 				containerDoc.Address = &addr
 			}
 			if args.ports != nil {

@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/core/status"
@@ -1108,7 +1109,7 @@ func (st *State) SaveCloudService(args SaveCloudServiceArgs) (_ *CloudService, e
 	doc := cloudServiceDoc{
 		DocID:                 applicationGlobalKey(args.Id),
 		ProviderId:            args.ProviderId,
-		Addresses:             fromNetworkAddresses(args.Addresses, OriginProvider),
+		Addresses:             fromNetworkAddresses(args.Addresses, corenetwork.OriginProvider),
 		Generation:            args.Generation,
 		DesiredScaleProtected: args.DesiredScaleProtected,
 	}
