@@ -557,6 +557,26 @@ func (st *State) SaveProviderSpaces(providerSpaces []network.SpaceInfo) error {
 		return errors.Trace(err)
 	}
 
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	allEndpointBindings, err := model.AllEndpointBindings()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	allEndpointBindingsSpaces := set.NewStrings()
+	for _, binding := range allEndpointBindings {
+		bindingSpaceNames, err := binding.Bindings.MapWithSpaceNames()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, spaceName := range bindingSpaceNames {
+			allEndpointBindingsSpaces.Add(spaceName)
+		}
+	}
+
 	remnantSpaces := allStateSpaces.Difference(updatedSpaces)
 	for _, providerID := range remnantSpaces.SortedValues() {
 		// If the space is not in state or the name is not in space names, then
@@ -565,6 +585,12 @@ func (st *State) SaveProviderSpaces(providerSpaces []network.SpaceInfo) error {
 		if !ok ||
 			space.Name() == network.AlphaSpaceName ||
 			space.Id() == defaultEndpointBinding {
+			continue
+		}
+
+		// Check all endpoint bindings found within a model. If they reference
+		// a space name, then ignore then space for removal.
+		if allEndpointBindingsSpaces.Contains(space.Name()) {
 			continue
 		}
 

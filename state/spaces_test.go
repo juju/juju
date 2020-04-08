@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 )
 
 type SpacesSuite struct {
@@ -1084,4 +1085,31 @@ func (s *SpacesDiscoverySuite) TestSaveProviderSpacesRemovesSpacesWithConstraint
 	spaces, err = s.State.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	checkSpacesEqual(c, spaces, twoSpaces)
+}
+
+func (s *SpacesDiscoverySuite) TestSaveProviderSpacesIngoreSpacesWithBindings(c *gc.C) {
+	err := s.State.SaveProviderSpaces(twoSpaces)
+	c.Check(err, jc.ErrorIsNil)
+
+	newSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
+		Name: "space3", ProviderID: network.Id("3"), IsPublic: true})
+	state.AddTestingApplicationWithBindings(
+		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
+		map[string]string{"db": newSpace.Id()})
+
+	_, err = s.State.SpaceByName("space3")
+	c.Check(err, jc.ErrorIsNil)
+
+	threeSpaces := append(twoSpaces, spaceThree...)
+
+	spaces, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	checkSpacesEqual(c, spaces, threeSpaces)
+
+	err = s.State.SaveProviderSpaces(twoSpaces)
+	c.Check(err, jc.ErrorIsNil)
+
+	spaces, err = s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	checkSpacesEqual(c, spaces, threeSpaces)
 }
