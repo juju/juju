@@ -399,11 +399,16 @@ func (s *CAASAddressesSuite) TestAPIHostPortsCloudLocalOnly(c *gc.C) {
 		NetPort:      17777,
 	}}}
 
-	addrs, err := s.State.APIHostPortsForAgents()
+	// Make a new non-system state to ensure everything
+	//works from any model.
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer func() { st.Close() }()
+
+	addrs, err := st.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, exp)
 
-	addrs, err = s.State.APIHostPortsForClients()
+	addrs, err = st.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, exp)
 }
@@ -427,11 +432,16 @@ func (s *CAASAddressesSuite) TestAPIHostPortsPublicOnly(c *gc.C) {
 		NetPort:      17777,
 	}}}
 
-	addrs, err := s.State.APIHostPortsForAgents()
+	// Make a new non-system state to ensure everything
+	//works from any model.
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer func() { st.Close() }()
+
+	addrs, err := st.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, exp)
 
-	addrs, err = s.State.APIHostPortsForClients()
+	addrs, err = st.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, exp)
 }
@@ -470,7 +480,12 @@ func (s *CAASAddressesSuite) TestAPIHostPortsMultiple(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	addrs, err := s.State.APIHostPortsForAgents()
+	// Make a new non-system state to ensure everything
+	//works from any model.
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer func() { st.Close() }()
+
+	addrs, err := st.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Local-cloud addresses must come first.
@@ -500,7 +515,7 @@ func (s *CAASAddressesSuite) TestAPIHostPortsMultiple(c *gc.C) {
 	c.Assert(addrs[0][2:], jc.SameContents, exp)
 
 	// Only the public ones should be returned.
-	addrs, err = s.State.APIHostPortsForClients()
+	addrs, err = st.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, []network.SpaceHostPorts{exp})
 }
