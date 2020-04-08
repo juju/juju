@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
@@ -984,10 +985,7 @@ func (s *SpacesDiscoverySuite) TestSaveProviderSpacesRemovesEmptySpaces(c *gc.C)
 	err := s.State.SaveProviderSpaces(threeSpaces)
 	c.Check(err, jc.ErrorIsNil)
 
-	space, err := s.State.SpaceByName("space3")
-	c.Check(err, jc.ErrorIsNil)
-
-	err = space.EnsureDead()
+	_, err = s.State.SpaceByName("space3")
 	c.Check(err, jc.ErrorIsNil)
 
 	spaces, err := s.State.AllSpaces()
@@ -1036,4 +1034,54 @@ func (s *SpacesDiscoverySuite) TestReloadSpacesIgnored(c *gc.C) {
 	spaces, err := s.State.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	checkSpacesEqual(c, spaces, spaceOne)
+}
+
+func (s *SpacesDiscoverySuite) TestSaveProviderSpacesIngoreSpacesWithConstraints(c *gc.C) {
+	threeSpaces := append(twoSpaces, spaceThree...)
+	err := s.State.SaveProviderSpaces(threeSpaces)
+	c.Check(err, jc.ErrorIsNil)
+
+	err = s.State.SetModelConstraints(constraints.Value{
+		Spaces: &[]string{"space3"},
+	})
+	c.Check(err, jc.ErrorIsNil)
+
+	_, err = s.State.SpaceByName("space3")
+	c.Check(err, jc.ErrorIsNil)
+
+	spaces, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	checkSpacesEqual(c, spaces, threeSpaces)
+
+	err = s.State.SaveProviderSpaces(twoSpaces)
+	c.Check(err, jc.ErrorIsNil)
+
+	spaces, err = s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	checkSpacesEqual(c, spaces, threeSpaces)
+}
+
+func (s *SpacesDiscoverySuite) TestSaveProviderSpacesRemovesSpacesWithConstraints(c *gc.C) {
+	threeSpaces := append(twoSpaces, spaceThree...)
+	err := s.State.SaveProviderSpaces(threeSpaces)
+	c.Check(err, jc.ErrorIsNil)
+
+	err = s.State.SetModelConstraints(constraints.Value{
+		Spaces: &[]string{"xxx"},
+	})
+	c.Check(err, jc.ErrorIsNil)
+
+	_, err = s.State.SpaceByName("space3")
+	c.Check(err, jc.ErrorIsNil)
+
+	spaces, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	checkSpacesEqual(c, spaces, threeSpaces)
+
+	err = s.State.SaveProviderSpaces(twoSpaces)
+	c.Check(err, jc.ErrorIsNil)
+
+	spaces, err = s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	checkSpacesEqual(c, spaces, twoSpaces)
 }

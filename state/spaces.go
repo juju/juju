@@ -552,12 +552,25 @@ func (st *State) SaveProviderSpaces(providerSpaces []network.SpaceInfo) error {
 		allStateSpaces.Add(providerID)
 	}
 
+	defaultEndpointBinding, err := st.DefaultEndpointBindingSpace()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	remnantSpaces := allStateSpaces.Difference(updatedSpaces)
 	for _, providerID := range remnantSpaces.SortedValues() {
 		// If the space is not in state or the name is not in space names, then
 		// we can ignore it.
 		space, ok := modelSpaceMap[providerID]
-		if !ok || space.Name() == network.AlphaSpaceName {
+		if !ok ||
+			space.Name() == network.AlphaSpaceName ||
+			space.Id() == defaultEndpointBinding {
+			continue
+		}
+
+		// Check to see if any space is within any constraints, if they are,
+		// ignore them for now.
+		if constraints, err := st.ConstraintsBySpaceName(space.Name()); err != nil || len(constraints) > 0 {
 			continue
 		}
 
