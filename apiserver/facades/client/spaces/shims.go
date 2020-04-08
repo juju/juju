@@ -45,6 +45,13 @@ type stateShim struct {
 	model *state.Model
 }
 
+// ApplicationEndpointBindingsShim is a shim interface for
+// stateless access to ApplicationEndpointBindings.
+type ApplicationEndpointBindingsShim struct {
+	AppName  string
+	Bindings map[string]string
+}
+
 // NewStateShim returns a new state shim.
 func NewStateShim(st *state.State) (*stateShim, error) {
 	m, err := st.Model()
