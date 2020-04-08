@@ -454,7 +454,7 @@ func (s *ContextFactorySuite) TestHookContextCAASDeferredSetPodSpecSetRawK8sSpec
 	c.Assert(err, gc.ErrorMatches, "k8s spec for application gitlab not found")
 
 	err = ctx.Flush("", nil)
-	c.Assert(err, gc.ErrorMatches, `either k8s-spec-set or k8s-raw-set can be run for each application`)
+	c.Assert(err, gc.ErrorMatches, `either k8s-spec-set or k8s-raw-set can be run for each application, but not both`)
 }
 
 func (s *ContextFactorySuite) TestHookContextCAASNilPodSpecNilRawPodSpecButUpgradeCharmHookRan(c *gc.C) {

@@ -7911,7 +7911,6 @@
                     "additionalProperties": false,
                     "required": [
                         "pod-spec",
-                        "raw-k8s-spec",
                         "constraints"
                     ]
                 },
