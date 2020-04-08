@@ -63,6 +63,10 @@ func (op *setPodSpecOperation) Build(attempt int) ([]txn.Op, error) {
 }
 
 func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
+	if op.spec != nil && op.rawSpec != nil {
+		return nil, errors.NewForbidden(nil, "either spec or raw k8s spec can be set for each application, but not both")
+	}
+
 	var prereqOps []txn.Op
 	appTagID := op.appTag.Id()
 	app, err := op.m.State().Application(appTagID)

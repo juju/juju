@@ -1377,7 +1377,7 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		expectWorkload, err := CheckApplicationExpectWorkload(model, names.NewApplicationTag(u.ApplicationName()))
+		expectWorkload, err := CheckApplicationExpectsWorkload(model, u.ApplicationName())
 		if err != nil {
 			return errors.Trace(err)
 		}

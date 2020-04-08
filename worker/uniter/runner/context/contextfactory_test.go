@@ -285,30 +285,6 @@ containers:
       foo: bar
 `[1:]
 
-var rawK8sSpec = `
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nginx-deployment
-  labels:
-    app: nginx
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-      - name: nginx
-        image: nginx:1.14.2
-        ports:
-        - containerPort: 80
-`[1:]
-
 func (s *ContextFactorySuite) setupPodSpec(c *gc.C) (*state.State, context.ContextFactory, string) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	f := factory.NewFactory(st, s.StatePool)
@@ -392,6 +368,30 @@ func (s *ContextFactorySuite) TestHookContextCAASDeferredSetPodSpec(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rps, gc.Equals, "")
 }
+
+var rawK8sSpec = `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+`[1:]
 
 func (s *ContextFactorySuite) TestHookContextCAASDeferredSetRawK8sSpec(c *gc.C) {
 	st, cf, appName := s.setupPodSpec(c)

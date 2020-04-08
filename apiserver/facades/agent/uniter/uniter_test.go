@@ -3594,19 +3594,6 @@ func (s *uniterSuite) TestRefreshNoArgs(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.UnitRefreshResults{Results: []params.UnitRefreshResult{}})
 }
 
-var podSpec = `
-containers:
-  - name: gitlab
-    image: gitlab/latest
-    ports:
-    - containerPort: 80
-      protocol: TCP
-    - containerPort: 443
-    config:
-      attr: foo=bar; fred=blogs
-      foo: bar
-`[1:]
-
 var rawK8sSpec = `
 apiVersion: apps/v1
 kind: Deployment
@@ -3705,6 +3692,31 @@ func (s *uniterSuite) TestSetRawK8sSpecNil(c *gc.C) {
 		Results: []params.StringResult{{Result: rawK8sSpec}},
 	})
 }
+
+func (s *uniterSuite) TestGetRawPodSpec(c *gc.C) {
+	u, cm, app, _ := s.setupCAASModel(c)
+
+	modelOp := cm.SetRawK8sSpecOperation(nil, app.ApplicationTag(), &rawK8sSpec)
+	err := cm.State().ApplyOperation(modelOp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	spec, err := u.GetRawK8sSpec(app.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec, gc.Equals, rawK8sSpec)
+}
+
+var podSpec = `
+containers:
+  - name: gitlab
+    image: gitlab/latest
+    ports:
+    - containerPort: 80
+      protocol: TCP
+    - containerPort: 443
+    config:
+      attr: foo=bar; fred=blogs
+      foo: bar
+`[1:]
 
 func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
 	_, cm, app, unit := s.setupCAASModel(c)
@@ -4179,6 +4191,10 @@ type uniterNetworkInfoSuite struct {
 var _ = gc.Suite(&uniterNetworkInfoSuite{})
 
 func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
+	s.ControllerConfigAttrs = map[string]interface{}{
+		controller.Features: []string{feature.RawK8sSpec},
+	}
+
 	s.uniterSuiteBase.JujuConnSuite.SetUpTest(c)
 
 	net := map[string][]string{
@@ -4952,7 +4968,7 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	c.Assert(newVolumeAttachments, gc.HasLen, len(oldVolumeAttachments)+1, gc.Commentf("expected an additional instance of block storage to be added"))
 }
 
-func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAAS(c *gc.C) {
+func (s *uniterNetworkInfoSuite) assertCommitHookChangesCAAS(c *gc.C, isRaw bool) {
 	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
 
 	err := cm.State().LeadershipClaimer().ClaimLeadership(gitlab.ApplicationTag().Id(), gitlabUnit.UnitTag().Id(), time.Minute)
@@ -4961,7 +4977,11 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAAS(c *gc.C) {
 	b := apiuniter.NewCommitHookParamsBuilder(gitlabUnit.UnitTag())
 	b.UpdateNetworkInfo()
 	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
-	b.SetPodSpec(gitlab.ApplicationTag(), &podSpec)
+	if isRaw {
+		b.SetRawK8sSpec(gitlab.ApplicationTag(), &rawK8sSpec)
+	} else {
+		b.SetPodSpec(gitlab.ApplicationTag(), &podSpec)
+	}
 	req, _ := b.Build()
 
 	s.State = cm.State()
@@ -4977,15 +4997,36 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAAS(c *gc.C) {
 		},
 	})
 
-	// Verify expected unit state
-	spec, err := cm.PodSpec(gitlab.ApplicationTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spec, gc.Equals, podSpec)
+	if isRaw {
+		spec, err := cm.PodSpec(gitlab.ApplicationTag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(spec, gc.Equals, "")
 
+		spec, err = cm.RawK8sSpec(gitlab.ApplicationTag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(spec, gc.Equals, rawK8sSpec)
+	} else {
+		spec, err := cm.PodSpec(gitlab.ApplicationTag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(spec, gc.Equals, podSpec)
+
+		spec, err = cm.RawK8sSpec(gitlab.ApplicationTag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(spec, gc.Equals, "")
+	}
+	// Verify expected unit state
 	unitState, err := gitlabUnit.State()
 	c.Assert(err, jc.ErrorIsNil)
 	charmState, _ := unitState.CharmState()
 	c.Assert(charmState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
+}
+
+func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASPodSpec(c *gc.C) {
+	s.assertCommitHookChangesCAAS(c, false)
+}
+
+func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASRawK8sSpec(c *gc.C) {
+	s.assertCommitHookChangesCAAS(c, true)
 }
 
 func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASNotLeader(c *gc.C) {
@@ -5016,6 +5057,38 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASNotLeader(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: &params.Error{Message: `prerequisites failed: "` + gitlabUnit.Tag().Id() + `" is not leader of "` + gitlab.Name() + `"`}},
+		},
+	})
+}
+
+func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASNotAllowSetPodSpecAndSetRawK8sSpec(c *gc.C) {
+	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
+
+	err := cm.State().LeadershipClaimer().ClaimLeadership(gitlab.ApplicationTag().Id(), gitlabUnit.UnitTag().Id(), time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	b := apiuniter.NewCommitHookParamsBuilder(gitlabUnit.UnitTag())
+	b.UpdateNetworkInfo()
+	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
+
+	// Not allowed to set both.
+	b.SetPodSpec(gitlab.ApplicationTag(), &podSpec)
+	b.SetRawK8sSpec(gitlab.ApplicationTag(), &rawK8sSpec)
+	req, _ := b.Build()
+
+	s.State = cm.State()
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: gitlabUnit.Tag()}
+	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := uniterAPI.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{
+				Message: `either SetPodSpec or SetRawK8sSpec can be set for each application, but not both`,
+				Code:    params.CodeForbidden,
+			}},
 		},
 	})
 }

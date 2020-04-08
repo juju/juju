@@ -44,7 +44,7 @@ func (m *CAASModel) SetPodSpecOperation(token leadership.Token, appTag names.App
 	return newSetPodSpecOperation(m, token, appTag, spec)
 }
 
-// SetRawK8sSpecOperation returns a ModelOperation for updating a PodSpec. For
+// SetRawK8sSpecOperation returns a ModelOperation for updating a raw k8s spec. For
 // cases where leadership checks are not important (e.g. migrations), a nil
 // Token can be provided to bypass the leadership checks.
 func (m *CAASModel) SetRawK8sSpecOperation(token leadership.Token, appTag names.ApplicationTag, spec *string) ModelOperation {

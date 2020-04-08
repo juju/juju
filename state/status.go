@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -88,7 +87,7 @@ func (m *ModelStatus) Application(appName string, unitNames []string) (status.St
 		return status.StatusInfo{}, err
 	}
 	appStatus := doc.asStatusInfo()
-	expectWorkload, err := CheckApplicationExpectWorkload(m.model, names.NewApplicationTag(appName))
+	expectWorkload, err := CheckApplicationExpectsWorkload(m.model, appName)
 	if err != nil {
 		return status.StatusInfo{}, errors.Trace(err)
 	}

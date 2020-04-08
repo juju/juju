@@ -1140,7 +1140,7 @@ func (ctx *HookContext) addCommitHookChangesForCAAS(builder *uniter.CommitHookPa
 		return nil
 	}
 	if ctx.podSpecYaml != nil && ctx.k8sRawSpecYaml != nil {
-		return errors.NewForbidden(nil, "either k8s-spec-set or k8s-raw-set can be run for each application")
+		return errors.NewForbidden(nil, "either k8s-spec-set or k8s-raw-set can be run for each application, but not both")
 	}
 
 	isLeader, err := ctx.IsLeader()

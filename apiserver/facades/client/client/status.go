@@ -1188,7 +1188,7 @@ func (context *statusContext) processApplication(application *state.Application)
 	}
 	units := context.allAppsUnitsCharmBindings.units[application.Name()]
 	if application.IsPrincipal() {
-		expectWorkload, err := state.CheckApplicationExpectWorkload(context.model, application.ApplicationTag())
+		expectWorkload, err := state.CheckApplicationExpectsWorkload(context.model, application.Name())
 		if err != nil {
 			return params.ApplicationStatus{Err: common.ServerError(err)}
 		}

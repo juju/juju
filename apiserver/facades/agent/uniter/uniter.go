@@ -3520,7 +3520,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	}
 
 	for _, addParams := range changes.AddStorage {
-		// Ensure the tag in the request matches the root unit name
+		// Ensure the tag in the request matches the root unit name.
 		if addParams.UnitTag != changes.Tag {
 			return common.ErrPerm
 		}
@@ -3537,9 +3537,13 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		modelOps = append(modelOps, modelOp)
 	}
 
+	if changes.SetPodSpec != nil && changes.SetRawK8sSpec != nil {
+		return errors.NewForbidden(nil, "either SetPodSpec or SetRawK8sSpec can be set for each application, but not both")
+	}
+
 	if changes.SetPodSpec != nil {
 		// Ensure the application tag for the unit in the change arg
-		// matches the one specified in the SetPodSpec payload
+		// matches the one specified in the SetPodSpec payload.
 		if changes.SetPodSpec.Tag != appTag {
 			return errors.BadRequestf("application tag %q in SetPodSpec payload does not match the application for unit %q", changes.SetPodSpec.Tag, changes.Tag)
 		}
@@ -3552,7 +3556,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 
 	if changes.SetRawK8sSpec != nil {
 		// Ensure the application tag for the unit in the change arg
-		// matches the one specified in the RawK8sSpec payload
+		// matches the one specified in the SetRawK8sSpec payload.
 		if changes.SetRawK8sSpec.Tag != appTag {
 			return errors.BadRequestf("application tag %q in SetRawK8sSpec payload does not match the application for unit %q", changes.SetRawK8sSpec.Tag, changes.Tag)
 		}
