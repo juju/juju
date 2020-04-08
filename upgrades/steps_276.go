@@ -4,6 +4,7 @@
 package upgrades
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/juju/errors"
@@ -37,7 +38,7 @@ func AddRemoteApplicationToRunningHooks(pattern string) func(Context) error {
 		}
 		for _, path := range matches {
 			// First, check whether the file needs rewriting.
-			stateFile := operation.NewStateFile(path)
+			stateFile := newStateFile(path)
 			_, err := stateFile.Read()
 			if err == nil {
 				// This one's fine, leave it alone.
@@ -103,4 +104,35 @@ func AddRemoteApplicationToHook(path string) error {
 	hook["remote-application"] = appName
 	return errors.Annotatef(utils.WriteYaml(path, uniterState),
 		"writing updated state to %q", path)
+}
+
+// The uniter state file was removed in 2.8, the data stored in the controller.
+// stateFile allows, AddRemoteApplicationToRunningHooks to run.  It's copied
+// from the removed operation.StateFile
+
+// stateFile holds the disk state for a uniter.
+type stateFile struct {
+	path string
+}
+
+// newStateFile returns a new StateFile using path.
+func newStateFile(path string) *stateFile {
+	return &stateFile{path}
+}
+
+var errNoStateFile = errors.New("uniter state file does not exist")
+
+// Read reads a State from the file. If the file does not exist it returns
+// errNoStateFile.
+func (f *stateFile) Read() (*operation.State, error) {
+	var st operation.State
+	if err := utils.ReadYaml(f.path, &st); err != nil {
+		if os.IsNotExist(err) {
+			return nil, errNoStateFile
+		}
+	}
+	if err := st.Validate(); err != nil {
+		return nil, errors.Errorf("cannot read %q: %v", f.path, err)
+	}
+	return &st, nil
 }
