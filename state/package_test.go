@@ -34,6 +34,9 @@ func TestPackage(t *testing.T) {
 	coretesting.MgoTestPackage(t)
 }
 
+// SetModelTypeToCAAS can be called after SetUpTest for state suites.
+// It crudely just sets the model type to CAAS so that certain functionality
+// relying on the model type can be tested.
 func SetModelTypeToCAAS(c *gc.C, st *State, m *Model) {
 	ops := []txn.Op{{
 		C:      modelsC,
@@ -43,4 +46,17 @@ func SetModelTypeToCAAS(c *gc.C, st *State, m *Model) {
 
 	c.Assert(st.db().RunTransaction(ops), jc.ErrorIsNil)
 	c.Assert(m.refresh(m.UUID()), jc.ErrorIsNil)
+}
+
+// AddTestingApplicationWithEmptyBindings mimics an application
+// from an old version of Juju, with no bindings entry.
+func AddTestingApplicationWithEmptyBindings(c *gc.C, st *State, name string, ch *Charm) *Application {
+	app := addTestingApplication(c, addTestingApplicationParams{
+		st:   st,
+		name: name,
+		ch:   ch,
+	})
+
+	c.Assert(st.db().RunTransaction([]txn.Op{removeEndpointBindingsOp(app.globalKey())}), jc.ErrorIsNil)
+	return app
 }

@@ -56,6 +56,7 @@ var upgradeOperations = func() []Operation {
 		upgradeToVersion{version.MustParse("2.6.3"), stepsFor263()},
 		upgradeToVersion{version.MustParse("2.7.0"), stepsFor27()},
 		upgradeToVersion{version.MustParse("2.7.2"), stepsFor272()},
+		upgradeToVersion{version.MustParse("2.7.6"), stepsFor276()},
 		upgradeToVersion{version.MustParse("2.8.0"), stepsFor28()},
 	}
 	return steps

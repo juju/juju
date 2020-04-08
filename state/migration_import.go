@@ -966,6 +966,11 @@ func (i *importer) parseBindings(bindingsMap map[string]string) (*Bindings, erro
 
 	// 2.6 controllers only populate the default space key if set to the
 	// non-default space whereas 2.7 controllers always set it.
+	// The application implementation in the description package has
+	// `omitempty` for bindings, so we need to create it if nil.
+	if bindingsMap == nil {
+		bindingsMap = make(map[string]string, 1)
+	}
 	if _, exists := bindingsMap[defaultEndpointName]; !exists {
 		bindingsMap[defaultEndpointName] = network.AlphaSpaceName
 	}
