@@ -7,26 +7,26 @@ import (
 	"sync"
 )
 
-type UnitCache struct {
+type UnitCharmState struct {
 	values map[string]string
 	mu     sync.Mutex
 }
 
-// ContextUnitCache is a test double for jujuc.unitCacheContext.
-type ContextUnitCache struct {
+// ContextUnitCharmState is a test double for jujuc.unitCharmStateContext.
+type ContextUnitCharmState struct {
 	contextBase
-	info *UnitCache
+	info *UnitCharmState
 }
 
-func (u *UnitCache) SetCache(newCache map[string]string) {
+func (u *UnitCharmState) SetCharmState(newCharmState map[string]string) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	u.values = newCache
+	u.values = newCharmState
 }
 
-// GetCache implements jujuc.unitCacheContext.
-func (c *ContextUnitCache) GetCache() (map[string]string, error) {
-	c.stub.AddCall("GetCache")
+// GetCharmState implements jujuc.unitCharmStateContext.
+func (c *ContextUnitCharmState) GetCharmState() (map[string]string, error) {
+	c.stub.AddCall("GetCharmState")
 	_ = c.stub.NextErr()
 	c.info.mu.Lock()
 	defer c.info.mu.Unlock()
@@ -42,9 +42,9 @@ func (c *ContextUnitCache) GetCache() (map[string]string, error) {
 	return retVal, nil
 }
 
-// Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
-func (c *ContextUnitCache) GetSingleCacheValue(key string) (string, error) {
-	c.stub.AddCall("GetSingleCacheValue")
+// GetCharmStateValue implements jujuc.unitCharmStateContext.
+func (c *ContextUnitCharmState) GetCharmStateValue(key string) (string, error) {
+	c.stub.AddCall("GetSCharmStateValue")
 	c.info.mu.Lock()
 	defer c.info.mu.Unlock()
 
@@ -52,9 +52,9 @@ func (c *ContextUnitCache) GetSingleCacheValue(key string) (string, error) {
 	return c.info.values[key], nil
 }
 
-// GetCache implements jujuc.unitCacheContext.
-func (c *ContextUnitCache) DeleteCacheValue(key string) error {
-	c.stub.AddCall("DeleteCacheValue")
+// DeleteCharmStateValue implements jujuc.unitCharmStateContext.
+func (c *ContextUnitCharmState) DeleteCharmStateValue(key string) error {
+	c.stub.AddCall("DeleteCharmStateValue")
 	_ = c.stub.NextErr()
 	c.info.mu.Lock()
 	defer c.info.mu.Unlock()
@@ -64,9 +64,9 @@ func (c *ContextUnitCache) DeleteCacheValue(key string) error {
 	return nil
 }
 
-// GetCache implements jujuc.unitCacheContext.
-func (c *ContextUnitCache) SetCacheValue(key string, value string) error {
-	c.stub.AddCall("SetCacheValue")
+// SetCharmStateValue implements jujuc.unitCharmStateContext.
+func (c *ContextUnitCharmState) SetCharmStateValue(key string, value string) error {
+	c.stub.AddCall("SetCharmStateValue")
 	_ = c.stub.NextErr()
 	c.info.mu.Lock()
 	defer c.info.mu.Unlock()
@@ -76,7 +76,7 @@ func (c *ContextUnitCache) SetCacheValue(key string, value string) error {
 	return nil
 }
 
-func (c *ContextUnitCache) ensureValues() {
+func (c *ContextUnitCharmState) ensureValues() {
 	if c.info.values == nil {
 		c.info.values = make(map[string]string)
 	}

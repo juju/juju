@@ -288,8 +288,12 @@ func allCollections() CollectionSchema {
 				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
-		unitStatesC: {},
-		minUnitsC:   {},
+		unitStatesC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
+		minUnitsC: {},
 
 		// This collection holds documents that indicate units which are queued
 		// to be assigned to machines. It is used exclusively by the

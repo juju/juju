@@ -24,7 +24,7 @@ import (
 	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/multiwatcher"
@@ -269,7 +269,7 @@ type mockAgentConfig struct {
 	agent.Config
 	dataDir string
 	logDir  string
-	info    *params.StateServingInfo
+	info    *controller.StateServingInfo
 	values  map[string]string
 }
 
@@ -285,11 +285,11 @@ func (c *mockAgentConfig) DataDir() string {
 	return c.dataDir
 }
 
-func (c *mockAgentConfig) StateServingInfo() (params.StateServingInfo, bool) {
+func (c *mockAgentConfig) StateServingInfo() (controller.StateServingInfo, bool) {
 	if c.info != nil {
 		return *c.info, true
 	}
-	return params.StateServingInfo{}, false
+	return controller.StateServingInfo{}, false
 }
 
 func (c *mockAgentConfig) Value(key string) string {

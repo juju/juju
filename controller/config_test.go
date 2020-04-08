@@ -343,7 +343,38 @@ var newConfigTests = []struct {
 		controller.AgentRateLimitRate: "4h",
 	},
 	expectError: `agent-ratelimit-rate must be between 0..1m`,
-}}
+}, {
+	about: "max-charm-state-size non-int",
+	config: controller.Config{
+		controller.MaxCharmStateSize: "ten",
+	},
+	expectError: `max-charm-state-size: expected number, got string\("ten"\)`,
+}, {
+	about: "max-charm-state-size cannot be negative",
+	config: controller.Config{
+		controller.MaxCharmStateSize: "-42",
+	},
+	expectError: `invalid max charm state size: should be a number of bytes \(or 0 to disable limit\), got -42`,
+}, {
+	about: "max-agent-state-size non-int",
+	config: controller.Config{
+		controller.MaxAgentStateSize: "ten",
+	},
+	expectError: `max-agent-state-size: expected number, got string\("ten"\)`,
+}, {
+	about: "max-agent-state-size cannot be negative",
+	config: controller.Config{
+		controller.MaxAgentStateSize: "-42",
+	},
+	expectError: `invalid max agent state size: should be a number of bytes \(or 0 to disable limit\), got -42`,
+}, {
+	about: "combined charm/agent state cannot exceed mongo's 16M limit/doc",
+	config: controller.Config{
+		controller.MaxCharmStateSize: "14000000",
+		controller.MaxAgentStateSize: "3000000",
+	},
+	expectError: `invalid max charm/agent state sizes: combined value should not exceed mongo's 16M per-document limit, got 17000000`,
+}, {}}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {
 	for i, test := range newConfigTests {

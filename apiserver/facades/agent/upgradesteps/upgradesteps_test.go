@@ -6,10 +6,12 @@ package upgradesteps_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/controller"
 	jujutesting "github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/mgo.v2/txn"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/upgradesteps"
@@ -118,42 +120,42 @@ func (s *unitUpgradeStepsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *unitUpgradeStepsSuite) TestWriteUniterState(c *gc.C) {
+func (s *unitUpgradeStepsSuite) TestWriteAgentState(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.expectUnitState(nil, nil)
+	s.expectSetAndApplyStateOperation(nil, nil)
 	s.setupFacadeAPI(c)
 
 	str1 := "foo"
 	str2 := "bar"
 	args := params.SetUnitStateArgs{
 		Args: []params.SetUnitStateArg{
-			{Tag: s.tag1.String(), UniterState: &str1},
+			{Tag: s.tag1.String(), UniterState: &str1, StorageState: &str2},
 			{Tag: s.tag2.String(), UniterState: &str2},
 		},
 	}
 
-	results, err := s.api.WriteUniterState(args)
+	results, err := s.api.WriteAgentState(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}, {}}})
 }
 
-func (s *unitUpgradeStepsSuite) TestWriteUniterStateError(c *gc.C) {
+func (s *unitUpgradeStepsSuite) TestWriteAgentStateError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.expectUnitState(nil, errors.NotFoundf("testing"))
+	s.expectSetAndApplyStateOperation(nil, errors.NotFoundf("testing"))
 	s.setupFacadeAPI(c)
 
 	str1 := "foo"
 	str2 := "bar"
 	args := params.SetUnitStateArgs{
 		Args: []params.SetUnitStateArg{
-			{Tag: s.tag1.String(), UniterState: &str1},
+			{Tag: s.tag1.String(), UniterState: &str1, StorageState: &str2},
 			{Tag: s.tag2.String(), UniterState: &str2},
 		},
 	}
 
-	results, err := s.api.WriteUniterState(args)
+	results, err := s.api.WriteAgentState(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{
 		{},
@@ -263,14 +265,32 @@ func (s *unitUpgradeStepsSuite) expectFindEntityUnits() {
 	s.state.EXPECT().FindEntity(s.tag2.(names.UnitTag)).Return(u2Entity, nil)
 }
 
-func (s *unitUpgradeStepsSuite) expectUnitState(err1, err2 error) {
+func (s *unitUpgradeStepsSuite) expectSetAndApplyStateOperation(err1, err2 error) {
+	ctrlCfg := controller.Config{
+		controller.MaxCharmStateSize: 123,
+		controller.MaxAgentStateSize: 456,
+	}
+
+	s.state.EXPECT().ControllerConfig().Return(ctrlCfg, nil)
+
+	expLimits := state.UnitStateSizeLimits{
+		MaxCharmStateSize: 123,
+		MaxAgentStateSize: 456,
+	}
+
 	us := state.NewUnitState()
 	us.SetUniterState("foo")
-	s.unit1.EXPECT().SetState(us).Return(err1)
+	us.SetStorageState("bar")
+
+	op1 := dummyOp{}
+	s.unit1.EXPECT().SetStateOperation(us, expLimits).Return(op1)
+	s.state.EXPECT().ApplyOperation(op1).Return(err1)
 
 	us = state.NewUnitState()
 	us.SetUniterState("bar")
-	s.unit2.EXPECT().SetState(us).Return(err2)
+	op2 := dummyOp{}
+	s.unit2.EXPECT().SetStateOperation(us, expLimits).Return(op2)
+	s.state.EXPECT().ApplyOperation(op2).Return(err2)
 }
 
 type machineEntityShim struct {
@@ -282,3 +302,9 @@ type unitEntityShim struct {
 	upgradesteps.Unit
 	state.Entity
 }
+
+type dummyOp struct {
+}
+
+func (d dummyOp) Build(attempt int) ([]txn.Op, error) { return nil, nil }
+func (d dummyOp) Done(_ error) error                  { return nil }

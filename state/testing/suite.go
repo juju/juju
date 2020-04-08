@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
-	retry "gopkg.in/retry.v1"
+	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
@@ -98,7 +98,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 		Clock:                     s.Clock,
 	})
 	s.AddCleanup(func(*gc.C) {
-		s.Controller.Close()
+		_ = s.Controller.Close()
 		close(s.txnSyncNotify)
 	})
 	s.StatePool = s.Controller.StatePool()
@@ -120,7 +120,7 @@ func (s *StateSuite) txnNotifyFunc() {
 	case s.txnSyncNotify <- struct{}{}:
 		// Try to send something down the channel.
 	default:
-		// However don't get stressed if noone is listening.
+		// However don't get stressed if no one is listening.
 	}
 }
 

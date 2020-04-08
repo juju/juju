@@ -4,12 +4,15 @@
 package jujuc
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/keyvalues"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/core/quota"
 )
 
 // StateSetCommand implements the state-set command.
@@ -38,6 +41,10 @@ the settings as strings.  Settings in the file will be overridden
 by any duplicate key-value arguments. A value of "-" for the filename
 means <stdin>.
 
+The following fixed size limits apply:
+- Length of stored keys cannot exceed %d bytes.
+- Length of stored values cannot exceed %d bytes.
+
 See also:
     state-delete
     state-get
@@ -46,7 +53,11 @@ See also:
 		Name:    "state-set",
 		Args:    "key=value [key=value ...]",
 		Purpose: "set server-side-state values",
-		Doc:     doc,
+		Doc: fmt.Sprintf(
+			doc,
+			quota.MaxCharmStateKeySize,
+			quota.MaxCharmStateValueSize,
+		),
 	})
 }
 
@@ -82,7 +93,7 @@ func (c *StateSetCommand) Run(ctx *cmd.Context) error {
 	}
 
 	for k, v := range c.StateValues {
-		if err := c.ctx.SetCacheValue(k, v); err != nil {
+		if err := c.ctx.SetCharmStateValue(k, v); err != nil {
 			return err
 		}
 	}

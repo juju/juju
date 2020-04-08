@@ -149,9 +149,9 @@ func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
 
 func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	const hookName = "myhook"
-	// JUJU_HOOK_NAME is written in context.HookVars and not part of
+	// JUJU_DISPATCH_PATH is written in context.HookVars and not part of
 	// what's being tested here.
-	s.PatchEnvironment("JUJU_HOOK_NAME", hookName)
+	s.PatchEnvironment("JUJU_DISPATCH_PATH", "hooks/"+hookName)
 	err := ioutil.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	var output bytes.Buffer
@@ -241,5 +241,5 @@ func (s *DebugHooksServerSuite) verifyEnvshFile(c *gc.C, envshPath string, hookN
 	c.Assert(err, jc.ErrorIsNil)
 	contents := string(data)
 	c.Assert(contents, jc.Contains, fmt.Sprintf("JUJU_UNIT_NAME=%q", s.ctx.Unit))
-	c.Assert(contents, jc.Contains, fmt.Sprintf(`PS1="%s:%s %% "`, s.ctx.Unit, hookName))
+	c.Assert(contents, jc.Contains, fmt.Sprintf(`PS1="%s:hooks/%s %% "`, s.ctx.Unit, hookName))
 }

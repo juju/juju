@@ -118,6 +118,8 @@ var newOpenstackStorage = func(env *Environ) (OpenstackStorage, error) {
 		logger.Debugf("volume URL: %v", url)
 	}
 
+	// TODO (stickupkid): Move this to the ClientFactory.
+	// We shouldn't have another wrapper around an existing client.
 	cinderCl := cinderClient{cinder.Basic(env.volumeURL, client.TenantId(), client.Token)}
 
 	cloudSpec := env.cloudUnlocked

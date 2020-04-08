@@ -5,9 +5,10 @@ package meterstatus_test
 
 import (
 	"fmt"
-	"path"
 	"time"
 
+	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,6 +16,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/meterstatus"
+	"github.com/juju/juju/worker/meterstatus/mocks"
 )
 
 type ConnectedWorkerSuite struct {
@@ -22,7 +24,6 @@ type ConnectedWorkerSuite struct {
 
 	stub *testing.Stub
 
-	dataDir  string
 	msClient *stubMeterStatusClient
 }
 
@@ -31,8 +32,6 @@ var _ = gc.Suite(&ConnectedWorkerSuite{})
 func (s *ConnectedWorkerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.stub = &testing.Stub{}
-
-	s.dataDir = c.MkDir()
 
 	s.msClient = newStubMeterStatusClient(s.stub)
 }
@@ -46,19 +45,22 @@ func assertSignal(c *gc.C, signal <-chan struct{}) {
 }
 
 func (s *ConnectedWorkerSuite) TestConfigValidation(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
 	tests := []struct {
 		cfg      meterstatus.ConnectedConfig
 		expected string
 	}{{
 		cfg: meterstatus.ConnectedConfig{
-			Status:    s.msClient,
-			StateFile: meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
+			Status:          s.msClient,
+			StateReadWriter: mocks.NewMockStateReadWriter(ctrl),
 		},
 		expected: "hook runner not provided",
 	}, {
 		cfg: meterstatus.ConnectedConfig{
-			StateFile: meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
-			Runner:    &stubRunner{stub: s.stub},
+			StateReadWriter: mocks.NewMockStateReadWriter(ctrl),
+			Runner:          &stubRunner{stub: s.stub},
 		},
 		expected: "meter status API client not provided",
 	}, {
@@ -66,7 +68,7 @@ func (s *ConnectedWorkerSuite) TestConfigValidation(c *gc.C) {
 			Status: s.msClient,
 			Runner: &stubRunner{stub: s.stub},
 		},
-		expected: "state file not provided",
+		expected: "state read/writer not provided",
 	}}
 	for i, test := range tests {
 		c.Logf("running test %d", i)
@@ -78,11 +80,22 @@ func (s *ConnectedWorkerSuite) TestConfigValidation(c *gc.C) {
 // TestStatusHandlerDoesNotRerunNoChange ensures that the handler does not execute the hook if it
 // detects no actual meter status change.
 func (s *ConnectedWorkerSuite) TestStatusHandlerDoesNotRerunNoChange(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	stateReadWriter := mocks.NewMockStateReadWriter(ctrl)
+	gomock.InOrder(
+		stateReadWriter.EXPECT().Read().Return(nil, errors.NotFoundf("no state")),
+		stateReadWriter.EXPECT().Write(&meterstatus.State{
+			Code: "GREEN",
+		}).Return(nil),
+	)
+
 	handler, err := meterstatus.NewConnectedStatusHandler(
 		meterstatus.ConnectedConfig{
-			Runner:    &stubRunner{stub: s.stub},
-			StateFile: meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
-			Status:    s.msClient,
+			Runner:          &stubRunner{stub: s.stub},
+			StateReadWriter: stateReadWriter,
+			Status:          s.msClient,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
@@ -100,11 +113,27 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerDoesNotRerunNoChange(c *gc.C) {
 // TestStatusHandlerRunsHookOnChanges ensures that the handler runs the meter-status-changed hook
 // if an actual meter status change is detected.
 func (s *ConnectedWorkerSuite) TestStatusHandlerRunsHookOnChanges(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	stateReadWriter := mocks.NewMockStateReadWriter(ctrl)
+	gomock.InOrder(
+		stateReadWriter.EXPECT().Read().Return(nil, errors.NotFoundf("no state")),
+		// First Handle() invocation
+		stateReadWriter.EXPECT().Write(&meterstatus.State{
+			Code: "GREEN",
+		}).Return(nil),
+		// Second Handle() invocation
+		stateReadWriter.EXPECT().Write(&meterstatus.State{
+			Code: "RED",
+		}).Return(nil),
+	)
+
 	handler, err := meterstatus.NewConnectedStatusHandler(
 		meterstatus.ConnectedConfig{
-			Runner:    &stubRunner{stub: s.stub},
-			StateFile: meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
-			Status:    s.msClient,
+			Runner:          &stubRunner{stub: s.stub},
+			StateReadWriter: stateReadWriter,
+			Status:          s.msClient,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
@@ -122,12 +151,23 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerRunsHookOnChanges(c *gc.C) {
 // TestStatusHandlerHandlesHookMissingError tests that the handler does not report errors
 // caused by a missing meter-status-changed hook.
 func (s *ConnectedWorkerSuite) TestStatusHandlerHandlesHookMissingError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	stateReadWriter := mocks.NewMockStateReadWriter(ctrl)
+	gomock.InOrder(
+		stateReadWriter.EXPECT().Read().Return(nil, errors.NotFoundf("no state")),
+		stateReadWriter.EXPECT().Write(&meterstatus.State{
+			Code: "GREEN",
+		}).Return(nil),
+	)
+
 	s.stub.SetErrors(charmrunner.NewMissingHookError("meter-status-changed"))
 	handler, err := meterstatus.NewConnectedStatusHandler(
 		meterstatus.ConnectedConfig{
-			Runner:    &stubRunner{stub: s.stub},
-			StateFile: meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
-			Status:    s.msClient,
+			Runner:          &stubRunner{stub: s.stub},
+			StateReadWriter: stateReadWriter,
+			Status:          s.msClient,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
@@ -142,12 +182,23 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerHandlesHookMissingError(c *gc.C)
 // TestStatusHandlerHandlesRandomHookError tests that the meter status handler does not return
 // errors encountered while executing the hook.
 func (s *ConnectedWorkerSuite) TestStatusHandlerHandlesRandomHookError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	stateReadWriter := mocks.NewMockStateReadWriter(ctrl)
+	gomock.InOrder(
+		stateReadWriter.EXPECT().Read().Return(nil, errors.NotFoundf("no state")),
+		stateReadWriter.EXPECT().Write(&meterstatus.State{
+			Code: "GREEN",
+		}).Return(nil),
+	)
+
 	s.stub.SetErrors(fmt.Errorf("blah"))
 	handler, err := meterstatus.NewConnectedStatusHandler(
 		meterstatus.ConnectedConfig{
-			Runner:    &stubRunner{stub: s.stub},
-			StateFile: meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
-			Status:    s.msClient,
+			Runner:          &stubRunner{stub: s.stub},
+			StateReadWriter: stateReadWriter,
+			Status:          s.msClient,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
@@ -163,11 +214,28 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerHandlesRandomHookError(c *gc.C) 
 // TestStatusHandlerDoesNotRerunAfterRestart tests that the status handler will not rerun a meter-status-changed
 // hook if it is restarted, but no actual changes are recorded.
 func (s *ConnectedWorkerSuite) TestStatusHandlerDoesNotRerunAfterRestart(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	stateReadWriter := mocks.NewMockStateReadWriter(ctrl)
+	gomock.InOrder(
+		// First run
+		stateReadWriter.EXPECT().Read().Return(nil, errors.NotFoundf("no state")),
+		stateReadWriter.EXPECT().Write(&meterstatus.State{
+			Code: "GREEN",
+		}).Return(nil),
+
+		// Second run
+		stateReadWriter.EXPECT().Read().Return(&meterstatus.State{
+			Code: "GREEN",
+		}, nil),
+	)
+
 	handler, err := meterstatus.NewConnectedStatusHandler(
 		meterstatus.ConnectedConfig{
-			Runner:    &stubRunner{stub: s.stub},
-			StateFile: meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
-			Status:    s.msClient,
+			Runner:          &stubRunner{stub: s.stub},
+			StateReadWriter: stateReadWriter,
+			Status:          s.msClient,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
@@ -183,9 +251,9 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerDoesNotRerunAfterRestart(c *gc.C
 	// Create a new handler (imitating worker restart).
 	handler, err = meterstatus.NewConnectedStatusHandler(
 		meterstatus.ConnectedConfig{
-			Runner:    &stubRunner{stub: s.stub},
-			StateFile: meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
-			Status:    s.msClient})
+			Runner:          &stubRunner{stub: s.stub},
+			StateReadWriter: stateReadWriter,
+			Status:          s.msClient})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
 	_, err = handler.SetUp()

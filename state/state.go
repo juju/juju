@@ -32,7 +32,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	coreglobalclock "github.com/juju/juju/core/globalclock"
@@ -101,26 +100,6 @@ type State struct {
 
 	// TODO(anastasiamac 2015-07-16) As state gets broken up, remove this.
 	CloudImageMetadataStorage cloudimagemetadata.Storage
-}
-
-// StateServingInfo holds information needed by a controller.
-// This type is a copy of the type of the same name from the api/params package.
-// It is replicated here to avoid the state package depending on api/params.
-//
-// NOTE(fwereade): the api/params type exists *purely* for representing
-// this data over the wire, and has a legitimate reason to exist. This
-// type does not: it's non-implementation-specific and should be defined
-// under core/ somewhere, so it can be used both here and in the agent
-// without dragging unnecessary/irrelevant packages into scope.
-type StateServingInfo struct {
-	APIPort      int
-	StatePort    int
-	Cert         string
-	PrivateKey   string
-	CAPrivateKey string
-	// this will be passed as the KeyFile argument to MongoDB
-	SharedSecret   string
-	SystemIdentity string
 }
 
 func (st *State) newStateNoWorkers(modelUUID string) (*State, error) {
@@ -318,7 +297,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	}
 
 	// Logs are in a separate database so don't get caught by that loop.
-	removeModelLogs(st.MongoSession(), modelUUID)
+	_ = removeModelLogs(st.MongoSession(), modelUUID)
 
 	// Remove all user permissions for the model.
 	permPattern := bson.M{
@@ -735,7 +714,7 @@ func (st *State) checkCanUpgradeIAAS(currentVersion, newVersion string) error {
 	return nil
 }
 
-var errUpgradeInProgress = errors.New(params.CodeUpgradeInProgress)
+var errUpgradeInProgress = errors.New("upgrade in progress")
 
 // IsUpgradeInProgressError returns true if the error is caused by an
 // in-progress upgrade.

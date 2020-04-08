@@ -11,12 +11,13 @@ import (
 )
 
 type hookArgs struct {
-	Hooks []string `yaml:"hooks,omitempty"`
+	Hooks   []string `yaml:"hooks,omitempty"`
+	DebugAt string   `yaml:"debug-at,omitempty"`
 }
 
 // ClientScript returns a bash script suitable for executing
 // on the unit system to intercept matching hooks or actions via tmux shell.
-func ClientScript(c *HooksContext, match []string) string {
+func ClientScript(c *HooksContext, match []string, debugAt string) string {
 	// If any argument is "*", then the client is interested in all.
 	for _, m := range match {
 		if m == "*" {
@@ -30,15 +31,21 @@ func ClientScript(c *HooksContext, match []string) string {
 	s = strings.Replace(s, "{entry_flock}", c.ClientFileLock(), -1)
 	s = strings.Replace(s, "{exit_flock}", c.ClientExitFileLock(), -1)
 
-	yamlArgs := encodeArgs(match)
-	base64Args := base64.StdEncoding.EncodeToString(yamlArgs)
+	base64Args := Base64HookArgs(match, debugAt)
 	s = strings.Replace(s, "{hook_args}", base64Args, 1)
 	return s
 }
 
-func encodeArgs(args []string) []byte {
+// Base64HookArgs returns the encoded arguments for defining debug-hook behavior.
+// This is a base64 encoded yaml blob containing serialized arguments.
+func Base64HookArgs(match []string, debugAt string) string {
+	yamlArgs := encodeArgs(match, debugAt)
+	return base64.StdEncoding.EncodeToString(yamlArgs)
+}
+
+func encodeArgs(args []string, debugAt string) []byte {
 	// Marshal to YAML, then encode in base64 to avoid shell escapes.
-	yamlArgs, err := goyaml.Marshal(hookArgs{Hooks: args})
+	yamlArgs, err := goyaml.Marshal(hookArgs{Hooks: args, DebugAt: debugAt})
 	if err != nil {
 		// This should not happen: we're in full control.
 		panic(err)

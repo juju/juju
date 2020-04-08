@@ -15,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/kballard/go-shellquote"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -133,12 +134,18 @@ func (c client) Exec(params ExecParams, cancel <-chan struct{}) error {
 	return errors.Trace(c.exec(params, cancel))
 }
 
-func processEnv(env []string) string {
+func processEnv(env []string) (string, error) {
 	out := ""
-	for _, v := range env {
-		out += fmt.Sprintf("export %s; ", v)
+	for _, s := range env {
+		values := strings.SplitN(s, "=", 2)
+		if len(values) != 2 {
+			return "", errors.NotValidf("env %q", s)
+		}
+		key := values[0]
+		value := values[1]
+		out += fmt.Sprintf("export %s=%s; ", key, shellquote.Join(value))
 	}
-	return out
+	return out, nil
 }
 
 func (c client) exec(opts ExecParams, cancel <-chan struct{}) error {
@@ -148,12 +155,16 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) error {
 		cmd += fmt.Sprintf("cd %s; ", opts.WorkingDir)
 	}
 	if len(opts.Env) > 0 {
-		cmd += processEnv(opts.Env)
+		env, err := processEnv(opts.Env)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		cmd += env
 	}
 	cmd += fmt.Sprintf("mkdir -p /tmp; echo $$ > %s; ", pidFile)
-	cmd += fmt.Sprintf("exec %s; ", strings.Join(opts.Commands, " "))
+	cmd += fmt.Sprintf("exec sh -c %s; ", shellquote.Join(strings.Join(opts.Commands, " ")))
 	cmdArgs := []string{"sh", "-c", cmd}
-	logger.Debugf("exec on pod %q for cmd %v", opts.PodName, cmdArgs)
+	logger.Debugf("exec on pod %q for cmd %+q", opts.PodName, cmdArgs)
 	req := c.clientset.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(opts.PodName).

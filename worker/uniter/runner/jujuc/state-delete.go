@@ -56,7 +56,7 @@ func (c *StateDeleteCommand) Run(ctx *cmd.Context) error {
 	if c.Key == "" {
 		return nil
 	}
-	err := c.ctx.DeleteCacheValue(c.Key)
+	err := c.ctx.DeleteCharmStateValue(c.Key)
 	if err != nil {
 		return err
 	}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 )
 
@@ -21,12 +22,13 @@ import (
 type UnitStateBackend interface {
 	ApplyOperation(state.ModelOperation) error
 	Unit(string) (UnitStateUnit, error)
+	ControllerConfig() (controller.Config, error)
 }
 
 // UnitStateUnit describes unit-receiver state methods required
 // for UnitStateAPI.
 type UnitStateUnit interface {
-	SetStateOperation(*state.UnitState) state.ModelOperation
+	SetStateOperation(*state.UnitState, state.UnitStateSizeLimits) state.ModelOperation
 	State() (*state.UnitState, error)
 }
 
@@ -42,6 +44,10 @@ func (s UnitStateState) ApplyOperation(op state.ModelOperation) error {
 
 func (s UnitStateState) Unit(name string) (UnitStateUnit, error) {
 	return s.St.Unit(name)
+}
+
+func (s UnitStateState) ControllerConfig() (controller.Config, error) {
+	return s.St.ControllerConfig()
 }
 
 type UnitStateAPI struct {
@@ -74,7 +80,6 @@ func NewUnitStateAPI(
 	accessUnit GetAuthFunc,
 	logger loggo.Logger,
 ) *UnitStateAPI {
-	logger.Tracef("NewUnitStateAPI called with %s", authorizer.GetAuthTag())
 	return &UnitStateAPI{
 		backend:    backend,
 		resources:  resources,
@@ -114,14 +119,12 @@ func (u *UnitStateAPI) State(args params.Entities) (params.UnitStateResults, err
 			res[i].Error = ServerError(err)
 			continue
 		}
-		uState, _ := unitState.State()
-		res[i].State = uState
-		uUState, _ := unitState.UniterState()
-		res[i].UniterState = uUState
-		rState, _ := unitState.RelationState()
-		res[i].RelationState = rState
-		sState, _ := unitState.StorageState()
-		res[i].StorageState = sState
+
+		res[i].CharmState, _ = unitState.CharmState()
+		res[i].UniterState, _ = unitState.UniterState()
+		res[i].RelationState, _ = unitState.RelationState()
+		res[i].StorageState, _ = unitState.StorageState()
+		res[i].MeterStatusState, _ = unitState.MeterStatusState()
 	}
 
 	return params.UnitStateResults{Results: res}, nil
@@ -131,6 +134,11 @@ func (u *UnitStateAPI) State(args params.Entities) (params.UnitStateResults, err
 // and the state internal to the uniter for this unit.
 func (u *UnitStateAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResults, error) {
 	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	ctrlCfg, err := u.backend.ControllerConfig()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -155,8 +163,8 @@ func (u *UnitStateAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResul
 		}
 
 		unitState := state.NewUnitState()
-		if arg.State != nil {
-			unitState.SetState(*arg.State)
+		if arg.CharmState != nil {
+			unitState.SetCharmState(*arg.CharmState)
 		}
 		if arg.UniterState != nil {
 			unitState.SetUniterState(*arg.UniterState)
@@ -167,9 +175,22 @@ func (u *UnitStateAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResul
 		if arg.StorageState != nil {
 			unitState.SetStorageState(*arg.StorageState)
 		}
+		if arg.MeterStatusState != nil {
+			unitState.SetMeterStatusState(*arg.MeterStatusState)
+		}
 
-		ops := unit.SetStateOperation(unitState)
+		ops := unit.SetStateOperation(
+			unitState,
+			state.UnitStateSizeLimits{
+				MaxCharmStateSize: ctrlCfg.MaxCharmStateSize(),
+				MaxAgentStateSize: ctrlCfg.MaxAgentStateSize(),
+			},
+		)
 		if err = u.backend.ApplyOperation(ops); err != nil {
+			// Log quota-related errors to aid operators
+			if errors.IsQuotaLimitExceeded(err) {
+				logger.Errorf("%s: %v", unitTag, err)
+			}
 			res[i].Error = ServerError(err)
 		}
 	}

@@ -596,7 +596,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	u.commandChannel = make(chan string)
 
 	storageAttachments, err := storage.NewAttachments(
-		u.st, unitTag, u.paths.State.StorageDir, u.catacomb.Dying(),
+		u.st, unitTag, u.unit, u.catacomb.Dying(),
 	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create storage hook source")

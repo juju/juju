@@ -10,8 +10,8 @@ var (
 	StateUpgradeOperations = &stateUpgradeOperations
 	GetUpgradeStepsClient  = &getUpgradeStepsClient
 
-	SetJujuFolderPermissionsToAdm = setJujuFolderPermissionsToAdm
-	MoveUniterStateToController   = moveUniterStateToController
+	SetJujuFolderPermissionsToAdm  = setJujuFolderPermissionsToAdm
+	MoveUnitAgentStateToController = moveUnitAgentStateToController
 )
 
 type ModelConfigUpdater environConfigUpdater

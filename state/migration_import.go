@@ -20,6 +20,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -739,6 +740,11 @@ func (i *importer) makeAddresses(addrs []description.Address) []address {
 func (i *importer) applications() error {
 	i.logger.Debugf("importing applications")
 
+	ctrlCfg, err := i.st.ControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// Ensure we import principal applications first, so that
 	// subordinate units can refer to the principal ones.
 	var principals, subordinates []description.Application
@@ -751,7 +757,7 @@ func (i *importer) applications() error {
 	}
 
 	for _, s := range append(principals, subordinates...) {
-		if err := i.application(s); err != nil {
+		if err := i.application(s, ctrlCfg); err != nil {
 			i.logger.Errorf("error importing application %s: %s", s.Name(), err)
 			return errors.Annotate(err, s.Name())
 		}
@@ -799,7 +805,7 @@ func (i *importer) makeStatusDoc(statusVal description.Status) statusDoc {
 	}
 }
 
-func (i *importer) application(a description.Application) error {
+func (i *importer) application(a description.Application, ctrlCfg controller.Config) error {
 	// Import this application, then its units.
 	i.logger.Debugf("importing application %s", a.Name())
 
@@ -899,7 +905,7 @@ func (i *importer) application(a description.Application) error {
 	}
 
 	for _, unit := range a.Units() {
-		if err := i.unit(a, unit); err != nil {
+		if err := i.unit(a, unit, ctrlCfg); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1038,7 +1044,7 @@ func (i *importer) storageConstraints(cons map[string]description.StorageConstra
 	return result
 }
 
-func (i *importer) unit(s description.Application, u description.Unit) error {
+func (i *importer) unit(s description.Application, u description.Unit, ctrlCfg controller.Config) error {
 	i.logger.Debugf("importing unit %s", u.Name())
 
 	// 1. construct a unitDoc
@@ -1148,12 +1154,8 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	if err := i.importStatusHistory(unit.globalWorkloadVersionKey(), u.WorkloadVersionHistory()); err != nil {
 		return errors.Trace(err)
 	}
-	if unitState := u.State(); len(unitState) != 0 {
-		us := NewUnitState()
-		us.SetState(unitState)
-		if err := unit.SetState(us); err != nil {
-			return errors.Trace(err)
-		}
+	if err := i.importUnitState(unit, u, ctrlCfg); err != nil {
+		return errors.Trace(err)
 	}
 	if i.dbModel.Type() == ModelTypeIAAS {
 		if err := i.importUnitPayloads(unit, u.Payloads()); err != nil {
@@ -1161,6 +1163,36 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 		}
 	}
 	return nil
+}
+
+func (i *importer) importUnitState(unit *Unit, u description.Unit, ctrlCfg controller.Config) error {
+	us := NewUnitState()
+
+	if charmState := u.CharmState(); len(charmState) != 0 {
+		us.SetCharmState(charmState)
+	}
+	if relationState := u.RelationState(); len(relationState) != 0 {
+		us.SetRelationState(relationState)
+	}
+	if uniterState := u.UniterState(); uniterState != "" {
+		us.SetUniterState(uniterState)
+	}
+	if storageState := u.StorageState(); storageState != "" {
+		us.SetStorageState(storageState)
+	}
+	if meterStatusState := u.MeterStatusState(); meterStatusState != "" {
+		us.SetMeterStatusState(meterStatusState)
+	}
+
+	// No state to persist.
+	if !us.Modified() {
+		return nil
+	}
+
+	return unit.SetState(us, UnitStateSizeLimits{
+		MaxCharmStateSize: ctrlCfg.MaxCharmStateSize(),
+		MaxAgentStateSize: ctrlCfg.MaxAgentStateSize(),
+	})
 }
 
 func (i *importer) importUnitPayloads(unit *Unit, payloads []description.Payload) error {

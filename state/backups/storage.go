@@ -20,7 +20,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
 )
 
 // backupIDTimstamp is used to format the timestamp from a backup
@@ -552,7 +551,7 @@ type DB interface {
 	ControllerConfig() (controller.Config, error)
 
 	// StateServingInfo is the secrets of the controller.
-	StateServingInfo() (state.StateServingInfo, error)
+	StateServingInfo() (controller.StateServingInfo, error)
 }
 
 // NewStorage returns a new FileStorage to use for storing backup

@@ -82,11 +82,13 @@ func (s *execSuite) TestProcessEnv(c *gc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
-	c.Assert(exec.ProcessEnv(
+	res, err := exec.ProcessEnv(
 		[]string{
-			"AAA=1", "BBB=1", "CCC=1", "DDD=1", "EEE=1",
+			"AAA=1", "BBB=1 2", "CCC=1\n2", "DDD=1='2'", "EEE=1;2;\"foo\"",
 		},
-	), gc.Equals, "export AAA=1; export BBB=1; export CCC=1; export DDD=1; export EEE=1; ")
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.Equals, "export AAA=1; export BBB='1 2'; export CCC='1\n2'; export DDD=1=\\'2\\'; export EEE=1\\;2\\;\\\"foo\\\"; ")
 }
 
 func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
@@ -405,7 +407,7 @@ func (s *execSuite) TestExecCancel(c *gc.C) {
 	callNum := 0
 
 	urls := []string{
-		"/path/namespaces/test/pods/gitlab-k8s-0/exec?command=sh&command=-c&command=mkdir+-p+%2Ftmp%3B+echo+%24%24+%3E+%2Ftmp%2Frandom.pid%3B+exec+echo+%27hello+world%27%3B+&container=gitlab-container&container=gitlab-container&stderr=true&stdin=true&stdout=true",
+		"/path/namespaces/test/pods/gitlab-k8s-0/exec?command=sh&command=-c&command=mkdir+-p+%2Ftmp%3B+echo+%24%24+%3E+%2Ftmp%2Frandom.pid%3B+exec+sh+-c+%27echo+%27%5C%27%27hello+world%27%5C%27%3B+&container=gitlab-container&container=gitlab-container&stderr=true&stdin=true&stdout=true",
 		"/path/namespaces/test/pods/gitlab-k8s-0/exec?command=sh&command=-c&command=kill+-15+%24%28cat+%2Ftmp%2Frandom.pid%29&container=gitlab-container&container=gitlab-container&stderr=true&stdout=true",
 		"/path/namespaces/test/pods/gitlab-k8s-0/exec?command=sh&command=-c&command=kill+-9+-%24%28cat+%2Ftmp%2Frandom.pid%29&container=gitlab-container&container=gitlab-container&stderr=true&stdout=true",
 		"/path/namespaces/test/pods/gitlab-k8s-0/exec?command=sh&command=-c&command=kill+-9+-%24%28cat+%2Ftmp%2Frandom.pid%29&container=gitlab-container&container=gitlab-container&stderr=true&stdout=true",

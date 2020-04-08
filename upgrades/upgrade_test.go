@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/mongo"
 	coretesting "github.com/juju/juju/testing"
@@ -150,7 +150,7 @@ type mockAgentConfig struct {
 	apiAddresses []string
 	values       map[string]string
 	mongoInfo    *mongo.MongoInfo
-	servingInfo  params.StateServingInfo
+	servingInfo  controller.StateServingInfo
 	modelTag     names.ModelTag
 }
 
@@ -190,11 +190,11 @@ func (mock *mockAgentConfig) MongoInfo() (*mongo.MongoInfo, bool) {
 	return mock.mongoInfo, true
 }
 
-func (mock *mockAgentConfig) StateServingInfo() (params.StateServingInfo, bool) {
+func (mock *mockAgentConfig) StateServingInfo() (controller.StateServingInfo, bool) {
 	return mock.servingInfo, true
 }
 
-func (mock *mockAgentConfig) SetStateServingInfo(info params.StateServingInfo) {
+func (mock *mockAgentConfig) SetStateServingInfo(info controller.StateServingInfo) {
 	mock.servingInfo = info
 }
 

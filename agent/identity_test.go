@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -37,7 +37,7 @@ var attributeParams = AgentConfigParams{
 	Model:             testing.ModelTag,
 }
 
-var servingInfo = params.StateServingInfo{
+var servingInfo = controller.StateServingInfo{
 	Cert:           "old cert",
 	PrivateKey:     "old key",
 	CAPrivateKey:   "old ca key",

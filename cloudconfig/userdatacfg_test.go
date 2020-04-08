@@ -27,10 +27,10 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
@@ -89,7 +89,7 @@ func must(s string, err error) string {
 	return s
 }
 
-var stateServingInfo = params.StateServingInfo{
+var stateServingInfo = controller.StateServingInfo{
 	Cert:         string(serverCert),
 	PrivateKey:   string(serverKey),
 	CAPrivateKey: "ca-private-key",

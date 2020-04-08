@@ -185,33 +185,48 @@ func (mr *MockContextMockRecorder) ConfigSettings() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigSettings", reflect.TypeOf((*MockContext)(nil).ConfigSettings))
 }
 
-// DeleteCacheValue mocks base method
-func (m *MockContext) DeleteCacheValue(arg0 string) error {
+// DeleteCharmStateValue mocks base method
+func (m *MockContext) DeleteCharmStateValue(arg0 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteCacheValue", arg0)
+	ret := m.ctrl.Call(m, "DeleteCharmStateValue", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// DeleteCacheValue indicates an expected call of DeleteCacheValue
-func (mr *MockContextMockRecorder) DeleteCacheValue(arg0 interface{}) *gomock.Call {
+// DeleteCharmStateValue indicates an expected call of DeleteCharmStateValue
+func (mr *MockContextMockRecorder) DeleteCharmStateValue(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCacheValue", reflect.TypeOf((*MockContext)(nil).DeleteCacheValue), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCharmStateValue", reflect.TypeOf((*MockContext)(nil).DeleteCharmStateValue), arg0)
 }
 
-// GetCache mocks base method
-func (m *MockContext) GetCache() (map[string]string, error) {
+// GetCharmState mocks base method
+func (m *MockContext) GetCharmState() (map[string]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCache")
+	ret := m.ctrl.Call(m, "GetCharmState")
 	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetCache indicates an expected call of GetCache
-func (mr *MockContextMockRecorder) GetCache() *gomock.Call {
+// GetCharmState indicates an expected call of GetCharmState
+func (mr *MockContextMockRecorder) GetCharmState() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCache", reflect.TypeOf((*MockContext)(nil).GetCache))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmState", reflect.TypeOf((*MockContext)(nil).GetCharmState))
+}
+
+// GetCharmStateValue mocks base method
+func (m *MockContext) GetCharmStateValue(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmStateValue", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCharmStateValue indicates an expected call of GetCharmStateValue
+func (mr *MockContextMockRecorder) GetCharmStateValue(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmStateValue", reflect.TypeOf((*MockContext)(nil).GetCharmStateValue), arg0)
 }
 
 // GetPodSpec mocks base method
@@ -242,21 +257,6 @@ func (m *MockContext) GetRawK8sSpec() (string, error) {
 func (mr *MockContextMockRecorder) GetRawK8sSpec() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRawK8sSpec", reflect.TypeOf((*MockContext)(nil).GetRawK8sSpec))
-}
-
-// GetSingleCacheValue mocks base method
-func (m *MockContext) GetSingleCacheValue(arg0 string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSingleCacheValue", arg0)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetSingleCacheValue indicates an expected call of GetSingleCacheValue
-func (mr *MockContextMockRecorder) GetSingleCacheValue(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSingleCacheValue", reflect.TypeOf((*MockContext)(nil).GetSingleCacheValue), arg0)
 }
 
 // GoalState mocks base method
@@ -537,18 +537,18 @@ func (mr *MockContextMockRecorder) SetApplicationStatus(arg0 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationStatus", reflect.TypeOf((*MockContext)(nil).SetApplicationStatus), arg0)
 }
 
-// SetCacheValue mocks base method
-func (m *MockContext) SetCacheValue(arg0, arg1 string) error {
+// SetCharmStateValue mocks base method
+func (m *MockContext) SetCharmStateValue(arg0, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetCacheValue", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetCharmStateValue", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SetCacheValue indicates an expected call of SetCacheValue
-func (mr *MockContextMockRecorder) SetCacheValue(arg0, arg1 interface{}) *gomock.Call {
+// SetCharmStateValue indicates an expected call of SetCharmStateValue
+func (mr *MockContextMockRecorder) SetCharmStateValue(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCacheValue", reflect.TypeOf((*MockContext)(nil).SetCacheValue), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmStateValue", reflect.TypeOf((*MockContext)(nil).SetCharmStateValue), arg0, arg1)
 }
 
 // SetPodSpec mocks base method

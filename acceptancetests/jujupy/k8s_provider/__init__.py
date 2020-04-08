@@ -19,8 +19,7 @@
 
 from .base import K8sProviderType  # noqa
 from .factory import providers  # noqa
-# below imports are for model load to trigger provider registering,
-# it's not for outside to use, so alias them to _.
-from .kubernetes_core import KubernetesCore as _  # noqa
+# load supported providers.
 from .microk8s import MicroK8s as _  # noqa
 from .gke import GKE as _  # noqa
+from .aks import AKS as _  # noqa

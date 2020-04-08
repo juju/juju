@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
@@ -238,7 +237,7 @@ type BootstrapConfig struct {
 	// This is only specified for bootstrap; controllers started
 	// subsequently will acquire their serving info from another
 	// server.
-	StateServingInfo params.StateServingInfo
+	StateServingInfo controller.StateServingInfo
 
 	// JujuDbSnapPath is the path to a .snap file that will be used as the juju-db
 	// service.

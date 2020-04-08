@@ -4,9 +4,7 @@
 package storage_test
 
 import (
-	"io/ioutil"
-	"path/filepath"
-
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -27,6 +25,7 @@ import (
 
 type attachmentsSuite struct {
 	testing.BaseSuite
+	mockStateOpsSuite
 
 	modelType model.ModelType
 }
@@ -41,6 +40,11 @@ type iaasAttachmentsSuite struct {
 
 var _ = gc.Suite(&caasAttachmentsSuite{})
 var _ = gc.Suite(&iaasAttachmentsSuite{})
+
+func (s *attachmentsSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.storSt = storage.NewState()
+}
 
 func (s *caasAttachmentsSuite) SetUpTest(c *gc.C) {
 	s.modelType = model.CAAS
@@ -58,8 +62,15 @@ func assertStorageTags(c *gc.C, a *storage.Attachments, tags ...names.StorageTag
 	c.Assert(sTags, jc.SameContents, tags)
 }
 
+func (s *attachmentsSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctlr := s.mockStateOpsSuite.setupMocks(c)
+	s.expectState(c)
+	return ctlr
+}
+
 func (s *attachmentsSuite) TestNewAttachments(c *gc.C) {
-	stateDir := filepath.Join(c.MkDir(), "nonexistent")
+	defer s.setupMocks(c).Finish()
+
 	unitTag := names.NewUnitTag("mysql/0")
 	abort := make(chan struct{})
 	st := &mockStorageAccessor{
@@ -69,19 +80,16 @@ func (s *attachmentsSuite) TestNewAttachments(c *gc.C) {
 		},
 	}
 
-	_, err := storage.NewAttachments(st, unitTag, stateDir, abort)
+	_, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	// state dir should have been created.
-	c.Assert(stateDir, jc.IsDirectory)
 }
 
-func (s *attachmentsSuite) TestNewAttachmentsInit(c *gc.C) {
-	stateDir := c.MkDir()
+func (s *attachmentsSuite) assertNewAttachments(c *gc.C, storageTag names.StorageTag) *storage.Attachments {
 	unitTag := names.NewUnitTag("mysql/0")
 	abort := make(chan struct{})
 
-	// Simulate remote state returning a single Alive storage attachment.
-	storageTag := names.NewStorageTag("data/0")
+	// Simulate remote State returning a single Alive storage attachment.
+
 	attachmentIds := []params.StorageAttachmentId{{
 		StorageTag: storageTag.String(),
 		UnitTag:    unitTag.String(),
@@ -94,7 +102,7 @@ func (s *attachmentsSuite) TestNewAttachmentsInit(c *gc.C) {
 		Location:   "/dev/sdb",
 	}
 
-	st := &mockStorageAccessor{
+	storSt := &mockStorageAccessor{
 		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachmentId, error) {
 			c.Assert(u, gc.Equals, unitTag)
 			return attachmentIds, nil
@@ -105,76 +113,60 @@ func (s *attachmentsSuite) TestNewAttachmentsInit(c *gc.C) {
 		},
 	}
 
-	withAttachments := func(f func(*storage.Attachments)) {
-		att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
-		c.Assert(err, jc.ErrorIsNil)
-		f(att)
-	}
+	att, err := storage.NewAttachments(storSt, unitTag, s.mockStateOps, abort)
+	c.Assert(err, jc.ErrorIsNil)
+	return att
+}
 
-	// No state files, so no storagers will be started.
-	var called int
-	withAttachments(func(att *storage.Attachments) {
-		called++
-		c.Assert(att.Pending(), gc.Equals, 1)
-		err := att.ValidateHook(hook.Info{
-			Kind:      hooks.StorageAttached,
-			StorageId: storageTag.Id(),
-		})
-		c.Assert(err, gc.ErrorMatches, `unknown storage "data/0"`)
-		assertStorageTags(c, att) // no active attachment
+func (s *attachmentsSuite) TestNewAttachmentsInitHavePending(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	storageTag := names.NewStorageTag("data/0")
+
+	// No initial storage State, so no storagers will be started.
+	att := s.assertNewAttachments(c, storageTag)
+	c.Assert(att.Pending(), gc.Equals, 1)
+	err := att.ValidateHook(hook.Info{
+		Kind:      hooks.StorageAttached,
+		StorageId: storageTag.Id(),
 	})
-	c.Assert(called, gc.Equals, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	assertStorageTags(c, att) // no active attachment
+}
 
-	// Commit a storage-attached to local state and try again.
-	state0, err := storage.ReadStateFile(stateDir, storageTag)
+func (s *attachmentsSuite) TestNewAttachmentsInit(c *gc.C) {
+	defer s.mockStateOpsSuite.setupMocks(c).Finish()
+	storageTag := names.NewStorageTag("data/0")
+	s.storSt.Attach(storageTag.Id())
+	s.expectSetState(c, "")
+	// Setup a storage tag which should be ignored by init.
+	s.storSt.Attach("data/3")
+	err := s.storSt.Detach("data/3")
 	c.Assert(err, jc.ErrorIsNil)
-	err = state0.CommitHook(hook.Info{Kind: hooks.StorageAttached, StorageId: "data/0"})
-	c.Assert(err, jc.ErrorIsNil)
-	// Create an extra one so we can make sure it gets removed.
-	state1, err := storage.ReadStateFile(stateDir, names.NewStorageTag("data/1"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = state1.CommitHook(hook.Info{Kind: hooks.StorageAttached, StorageId: "data/1"})
-	c.Assert(err, jc.ErrorIsNil)
+	s.expectState(c)
 
-	withAttachments(func(att *storage.Attachments) {
-		// We should be able to get the initial storage context
-		// for existing storage immediately, without having to
-		// wait for any hooks to fire.
-		ctx, err := att.Storage(storageTag)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ctx, gc.NotNil)
-		c.Assert(ctx.Tag(), gc.Equals, storageTag)
-		c.Assert(ctx.Tag(), gc.Equals, storageTag)
-		c.Assert(ctx.Kind(), gc.Equals, corestorage.StorageKindBlock)
-		c.Assert(ctx.Location(), gc.Equals, "/dev/sdb")
+	att := s.assertNewAttachments(c, storageTag)
+	// We should be able to get the initial storage context
+	// for existing storage immediately, without having to
+	// wait for any hooks to fire.
+	ctx, err := att.Storage(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx, gc.NotNil)
+	c.Assert(ctx.Tag(), gc.Equals, storageTag)
+	c.Assert(ctx.Tag(), gc.Equals, storageTag)
+	c.Assert(ctx.Kind(), gc.Equals, corestorage.StorageKindBlock)
+	c.Assert(ctx.Location(), gc.Equals, "/dev/sdb")
 
-		called++
-		c.Assert(att.Pending(), gc.Equals, 0)
-		err = att.ValidateHook(hook.Info{
-			Kind:      hooks.StorageDetaching,
-			StorageId: storageTag.Id(),
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		err = att.ValidateHook(hook.Info{
-			Kind:      hooks.StorageAttached,
-			StorageId: "data/1",
-		})
-		c.Assert(err, gc.ErrorMatches, `unknown storage "data/1"`)
-		assertStorageTags(c, att, storageTag)
-	})
-	c.Assert(called, gc.Equals, 2)
-	c.Assert(filepath.Join(stateDir, "data-0"), jc.IsNonEmptyFile)
-	c.Assert(filepath.Join(stateDir, "data-1"), jc.DoesNotExist)
+	c.Assert(att.Pending(), gc.Equals, 0)
+	assertStorageTags(c, att, storageTag)
 }
 
 func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
-	stateDir := c.MkDir()
-	unitTag := names.NewUnitTag("mysql/0")
+	defer s.setupMocks(c).Finish()
+
 	abort := make(chan struct{})
 
-	storageTag0 := names.NewStorageTag("data/0")
-	storageTag1 := names.NewStorageTag("data/1")
-
+	unitTag := names.NewUnitTag("mysql/0")
 	removed := names.NewSet()
 	st := &mockStorageAccessor{
 		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachmentId, error) {
@@ -187,7 +179,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 		},
 	}
 
-	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
+	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
 	r := storage.NewResolver(att, s.modelType)
 
@@ -197,6 +189,8 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 	localState := resolver.LocalState{State: operation.State{
 		Kind: operation.Continue,
 	}}
+	storageTag0 := names.NewStorageTag("data/0")
+	storageTag1 := names.NewStorageTag("data/1")
 	_, err = r.NextOp(localState, remotestate.Snapshot{
 		Life: life.Alive,
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
@@ -239,7 +233,8 @@ func (s *caasAttachmentsSuite) TestAttachmentsStorageStarted(c *gc.C) {
 }
 
 func (s *attachmentsSuite) testAttachmentsStorage(c *gc.C, opState operation.State) {
-	stateDir := c.MkDir()
+	defer s.setupMocks(c).Finish()
+
 	unitTag := names.NewUnitTag("mysql/0")
 	abort := make(chan struct{})
 
@@ -249,7 +244,7 @@ func (s *attachmentsSuite) testAttachmentsStorage(c *gc.C, opState operation.Sta
 		},
 	}
 
-	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
+	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
 	r := storage.NewResolver(att, s.modelType)
 
@@ -284,7 +279,8 @@ func (s *attachmentsSuite) testAttachmentsStorage(c *gc.C, opState operation.Sta
 }
 
 func (s *caasAttachmentsSuite) TestAttachmentsStorageNotStarted(c *gc.C) {
-	stateDir := c.MkDir()
+	defer s.setupMocks(c).Finish()
+
 	unitTag := names.NewUnitTag("mysql/0")
 	abort := make(chan struct{})
 
@@ -294,7 +290,7 @@ func (s *caasAttachmentsSuite) TestAttachmentsStorageNotStarted(c *gc.C) {
 		},
 	}
 
-	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
+	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
 	r := storage.NewResolver(att, s.modelType)
 
@@ -325,7 +321,8 @@ func (s *caasAttachmentsSuite) TestAttachmentsStorageNotStarted(c *gc.C) {
 }
 
 func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
-	stateDir := c.MkDir()
+	defer s.setupMocks(c).Finish()
+
 	unitTag := names.NewUnitTag("mysql/0")
 	abort := make(chan struct{})
 
@@ -342,7 +339,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 		},
 	}
 
-	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
+	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
 	r := storage.NewResolver(att, s.modelType)
 
@@ -364,32 +361,29 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(att.Pending(), gc.Equals, 1)
 
-	// No file exists until storage-attached is committed.
-	stateFile := filepath.Join(stateDir, "data-0")
-	c.Assert(stateFile, jc.DoesNotExist)
-
+	s.storSt.Attach(storageTag.Id())
+	s.expectSetState(c, "")
 	err = att.CommitHook(hook.Info{
 		Kind:      hooks.StorageAttached,
 		StorageId: storageTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadFile(stateFile)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, "attached: true\n")
-	c.Assert(att.Pending(), gc.Equals, 0)
 
+	err = s.storSt.Detach(storageTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectSetState(c, "")
 	c.Assert(removed, jc.IsFalse)
 	err = att.CommitHook(hook.Info{
 		Kind:      hooks.StorageDetaching,
 		StorageId: storageTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateFile, jc.DoesNotExist)
 	c.Assert(removed, jc.IsTrue)
 }
 
 func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
-	stateDir := c.MkDir()
+	defer s.setupMocks(c).Finish()
+
 	unitTag := names.NewUnitTag("mysql/0")
 	abort := make(chan struct{})
 
@@ -425,7 +419,7 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 		},
 	}
 
-	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
+	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(att.Pending(), gc.Equals, 1)
 	r := storage.NewResolver(att, s.modelType)
@@ -454,7 +448,8 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 }
 
 func (s *attachmentsSuite) TestAttachmentsWaitPending(c *gc.C) {
-	stateDir := c.MkDir()
+	defer s.setupMocks(c).Finish()
+
 	unitTag := names.NewUnitTag("mysql/0")
 	abort := make(chan struct{})
 
@@ -465,7 +460,7 @@ func (s *attachmentsSuite) TestAttachmentsWaitPending(c *gc.C) {
 		},
 	}
 
-	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
+	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
 	r := storage.NewResolver(att, s.modelType)
 

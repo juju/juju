@@ -921,14 +921,26 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		if cloudContainer, found := ctx.cloudContainers[unit.globalKey()]; found {
 			args.CloudContainer = e.cloudContainer(cloudContainer)
 		}
-		// TODO: hml 18-mar-2020
-		// add the rest of unit.State() to model migration
+
+		// Export charm and agent state stored to the controller.
 		unitState, err := unit.State()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if us, found := unitState.State(); found {
-			args.State = us
+		if charmState, found := unitState.CharmState(); found {
+			args.CharmState = charmState
+		}
+		if relationState, found := unitState.RelationState(); found {
+			args.RelationState = relationState
+		}
+		if uniterState, found := unitState.UniterState(); found {
+			args.UniterState = uniterState
+		}
+		if storageState, found := unitState.StorageState(); found {
+			args.StorageState = storageState
+		}
+		if meterStatusState, found := unitState.MeterStatusState(); found {
+			args.MeterStatusState = meterStatusState
 		}
 		exUnit := exApplication.AddUnit(args)
 

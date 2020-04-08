@@ -215,7 +215,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 
 	// Find a local credential to use with the new model.
 	// If credential was found on the controller, it will be nil in return.
-	credential, credentialTag, cloudRegion, err := c.findCredential(ctx, cloudClient, &findCredentialParams{
+	credential, credentialTag, credentialRegion, err := c.findCredential(ctx, cloudClient, &findCredentialParams{
 		cloudTag:    cloudTag,
 		cloudRegion: cloudRegion,
 		cloud:       cloud,
@@ -228,6 +228,12 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 			"* 'juju add-model --credential' to use a local credential.\n" +
 			"Use 'juju credentials' to list all available credentials.\n")
 		return cmd.ErrSilent
+	}
+
+	// If the use has not specified an explicit cloud region,
+	// use any default region from the credential.
+	if cloudRegion == "" {
+		cloudRegion = credentialRegion
 	}
 
 	// Upload the credential if it was explicitly set and we have found it locally.

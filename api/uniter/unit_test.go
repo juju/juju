@@ -1018,14 +1018,14 @@ func (s *unitSuite) TestUpgradeSeriesStatusSingleResult(c *gc.C) {
 
 func (s *unitSuite) TestUnitState(c *gc.C) {
 	err := s.apiUnit.SetState(params.SetUnitStateArg{
-		State: &map[string]string{"one": "two"},
+		CharmState: &map[string]string{"one": "two"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedUnitState, err := s.apiUnit.State()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedUnitState.State, gc.HasLen, 1)
-	c.Assert(obtainedUnitState.State, jc.DeepEquals, map[string]string{"one": "two"})
+	c.Assert(obtainedUnitState.CharmState, gc.HasLen, 1)
+	c.Assert(obtainedUnitState.CharmState, jc.DeepEquals, map[string]string{"one": "two"})
 	c.Assert(obtainedUnitState.UniterState, gc.Equals, "")
 }
 

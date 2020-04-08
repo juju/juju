@@ -52,6 +52,7 @@ parts:
       github.com/juju/juju/version.GitCommit: ""
       github.com/juju/juju/version.GitTreeState: ""
       github.com/juju/juju/version.build: ""
+    go-static: true
     override-build: |
       snapcraftctl build
 

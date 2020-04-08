@@ -313,6 +313,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(application.NewResolvedCommand())
 	r.Register(newDebugLogCommand(nil))
 	r.Register(newDebugHooksCommand(nil))
+	r.Register(newDebugCodeCommand(nil))
 
 	// Configuration commands.
 	r.Register(model.NewModelGetConstraintsCommand())

@@ -6,10 +6,11 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	controller "github.com/juju/juju/controller"
 	instance "github.com/juju/juju/core/instance"
 	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
-	names_v3 "gopkg.in/juju/names.v3"
+	names "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
 
@@ -36,8 +37,38 @@ func (m *MockUpgradeStepsState) EXPECT() *MockUpgradeStepsStateMockRecorder {
 	return m.recorder
 }
 
+// ApplyOperation mocks base method
+func (m *MockUpgradeStepsState) ApplyOperation(arg0 state.ModelOperation) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplyOperation", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ApplyOperation indicates an expected call of ApplyOperation
+func (mr *MockUpgradeStepsStateMockRecorder) ApplyOperation(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyOperation", reflect.TypeOf((*MockUpgradeStepsState)(nil).ApplyOperation), arg0)
+}
+
+// ControllerConfig mocks base method
+func (m *MockUpgradeStepsState) ControllerConfig() (controller.Config, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret0, _ := ret[0].(controller.Config)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerConfig indicates an expected call of ControllerConfig
+func (mr *MockUpgradeStepsStateMockRecorder) ControllerConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockUpgradeStepsState)(nil).ControllerConfig))
+}
+
 // FindEntity mocks base method
-func (m *MockUpgradeStepsState) FindEntity(arg0 names_v3.Tag) (state.Entity, error) {
+func (m *MockUpgradeStepsState) FindEntity(arg0 names.Tag) (state.Entity, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindEntity", arg0)
 	ret0, _ := ret[0].(state.Entity)
 	ret1, _ := ret[1].(error)
@@ -46,6 +77,7 @@ func (m *MockUpgradeStepsState) FindEntity(arg0 names_v3.Tag) (state.Entity, err
 
 // FindEntity indicates an expected call of FindEntity
 func (mr *MockUpgradeStepsStateMockRecorder) FindEntity(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindEntity", reflect.TypeOf((*MockUpgradeStepsState)(nil).FindEntity), arg0)
 }
 
@@ -74,6 +106,7 @@ func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 
 // ContainerType mocks base method
 func (m *MockMachine) ContainerType() instance.ContainerType {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerType")
 	ret0, _ := ret[0].(instance.ContainerType)
 	return ret0
@@ -81,11 +114,13 @@ func (m *MockMachine) ContainerType() instance.ContainerType {
 
 // ContainerType indicates an expected call of ContainerType
 func (mr *MockMachineMockRecorder) ContainerType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerType", reflect.TypeOf((*MockMachine)(nil).ContainerType))
 }
 
 // ModificationStatus mocks base method
 func (m *MockMachine) ModificationStatus() (status.StatusInfo, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModificationStatus")
 	ret0, _ := ret[0].(status.StatusInfo)
 	ret1, _ := ret[1].(error)
@@ -94,11 +129,13 @@ func (m *MockMachine) ModificationStatus() (status.StatusInfo, error) {
 
 // ModificationStatus indicates an expected call of ModificationStatus
 func (mr *MockMachineMockRecorder) ModificationStatus() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModificationStatus", reflect.TypeOf((*MockMachine)(nil).ModificationStatus))
 }
 
 // SetModificationStatus mocks base method
 func (m *MockMachine) SetModificationStatus(arg0 status.StatusInfo) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetModificationStatus", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -106,6 +143,7 @@ func (m *MockMachine) SetModificationStatus(arg0 status.StatusInfo) error {
 
 // SetModificationStatus indicates an expected call of SetModificationStatus
 func (mr *MockMachineMockRecorder) SetModificationStatus(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModificationStatus", reflect.TypeOf((*MockMachine)(nil).SetModificationStatus), arg0)
 }
 
@@ -132,14 +170,16 @@ func (m *MockUnit) EXPECT() *MockUnitMockRecorder {
 	return m.recorder
 }
 
-// SetState mocks base method
-func (m *MockUnit) SetState(arg0 *state.UnitState) error {
-	ret := m.ctrl.Call(m, "SetState", arg0)
-	ret0, _ := ret[0].(error)
+// SetStateOperation mocks base method
+func (m *MockUnit) SetStateOperation(arg0 *state.UnitState, arg1 state.UnitStateSizeLimits) state.ModelOperation {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetStateOperation", arg0, arg1)
+	ret0, _ := ret[0].(state.ModelOperation)
 	return ret0
 }
 
-// SetState indicates an expected call of SetState
-func (mr *MockUnitMockRecorder) SetState(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetState", reflect.TypeOf((*MockUnit)(nil).SetState), arg0)
+// SetStateOperation indicates an expected call of SetStateOperation
+func (mr *MockUnitMockRecorder) SetStateOperation(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStateOperation", reflect.TypeOf((*MockUnit)(nil).SetStateOperation), arg0, arg1)
 }

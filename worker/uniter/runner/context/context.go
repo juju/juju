@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/quota"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/version"
@@ -178,6 +179,8 @@ type HookContext struct {
 	// actionData contains the values relevant to the run of an Action:
 	// its tag, its parameters, and its results.
 	actionData *ActionData
+	// actionDataMu protects against concurrent access to actionData.
+	actionDataMu sync.Mutex
 
 	// uuid is the universally unique identifier of the environment.
 	uuid string
@@ -289,110 +292,119 @@ type HookContext struct {
 	// k8sRawSpecYaml is the pending raw k8s spec to be committed.
 	k8sRawSpecYaml *string
 
-	// A cached view of the unit's state that gets persisted by juju once
-	// the context is flushed.
-	cacheValues map[string]string
+	// A cached view of the unit's charm state that gets persisted by juju
+	// once the context is flushed.
+	cachedCharmState map[string]string
 
 	// A flag that keeps track of whether the unit's state has been mutated.
-	cacheDirty bool
+	charmStateCacheDirty bool
 
 	mu sync.Mutex
 }
 
-// GetCache returns a copy of the cache.
-// Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
-func (ctx *HookContext) GetCache() (map[string]string, error) {
+// GetCharmState returns a copy of the cached charm state.
+// Implements jujuc.HookContext.unitCharmStateContext, part of runner.Context.
+func (ctx *HookContext) GetCharmState() (map[string]string, error) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-	if err := ctx.ensureStateValuesLoaded(); err != nil {
+	if err := ctx.ensureCharmStateLoaded(); err != nil {
 		return nil, err
 	}
 
-	if len(ctx.cacheValues) == 0 {
+	if len(ctx.cachedCharmState) == 0 {
 		return nil, nil
 	}
 
-	retVal := make(map[string]string, len(ctx.cacheValues))
-	for k, v := range ctx.cacheValues {
+	retVal := make(map[string]string, len(ctx.cachedCharmState))
+	for k, v := range ctx.cachedCharmState {
 		retVal[k] = v
 	}
 	return retVal, nil
 }
 
-// GetSingleCacheValue returns the value of the given key.
-// Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
-func (ctx *HookContext) GetSingleCacheValue(key string) (string, error) {
+// GetCharmStateValue returns the value of the given key.
+// Implements jujuc.HookContext.unitCharmStateContext, part of runner.Context.
+func (ctx *HookContext) GetCharmStateValue(key string) (string, error) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-	if err := ctx.ensureStateValuesLoaded(); err != nil {
+	if err := ctx.ensureCharmStateLoaded(); err != nil {
 		return "", err
 	}
 
-	value, ok := ctx.cacheValues[key]
+	value, ok := ctx.cachedCharmState[key]
 	if !ok {
 		return "", errors.NotFoundf("%q", key)
 	}
 	return value, nil
 }
 
-// SetCacheValue sets the key/value pair provided in the cache.
-// Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
-func (ctx *HookContext) SetCacheValue(key, value string) error {
+// SetCharmStateValue sets the key/value pair provided in the cache.
+// Implements jujuc.HookContext.unitCharmStateContext, part of runner.Context.
+func (ctx *HookContext) SetCharmStateValue(key, value string) error {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-	if err := ctx.ensureStateValuesLoaded(); err != nil {
+	if err := ctx.ensureCharmStateLoaded(); err != nil {
 		return err
 	}
 
-	curValue, exists := ctx.cacheValues[key]
+	// Enforce fixed quota limit for key/value sizes. Performing this check
+	// as early as possible allows us to provide feedback to charm authors
+	// who might be tempted to exploit this feature for storing CLOBs/BLOBs.
+	if err := quota.CheckTupleSize(key, value, quota.MaxCharmStateKeySize, quota.MaxCharmStateValueSize); err != nil {
+		return errors.Trace(err)
+	}
+
+	curValue, exists := ctx.cachedCharmState[key]
 	if exists && curValue == value {
 		return nil // no-op
 	}
 
-	ctx.cacheValues[key] = value
-	ctx.cacheDirty = true
+	ctx.cachedCharmState[key] = value
+	ctx.charmStateCacheDirty = true
 	return nil
 }
 
-// DeleteCacheValue deletes the key/value pair for the given key from
+// DeleteCharmStateValue deletes the key/value pair for the given key from
 // the cache.
-// Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
-func (ctx *HookContext) DeleteCacheValue(key string) error {
+// Implements jujuc.HookContext.unitCharmStateContext, part of runner.Context.
+func (ctx *HookContext) DeleteCharmStateValue(key string) error {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-	if err := ctx.ensureStateValuesLoaded(); err != nil {
+	if err := ctx.ensureCharmStateLoaded(); err != nil {
 		return err
 	}
 
-	if _, exists := ctx.cacheValues[key]; !exists {
+	if _, exists := ctx.cachedCharmState[key]; !exists {
 		return nil // no-op
 	}
 
-	delete(ctx.cacheValues, key)
-	ctx.cacheDirty = true
+	delete(ctx.cachedCharmState, key)
+	ctx.charmStateCacheDirty = true
 	return nil
 }
 
-// ensureStateValuesLoaded retrieves and caches the unit's state from the
+// ensureCharmStateLoaded retrieves and caches the unit's charm state from the
 // controller. The caller of this method must be holding the ctx mutex.
-func (ctx *HookContext) ensureStateValuesLoaded() error {
+func (ctx *HookContext) ensureCharmStateLoaded() error {
 	// NOTE: Assuming lock to be held!
-	if ctx.cacheValues != nil {
+	if ctx.cachedCharmState != nil {
 		return nil
 	}
 
 	// Load from controller
-	var state map[string]string
+	var charmState map[string]string
 	unitState, err := ctx.unit.State()
 	if err != nil {
 		return errors.Annotate(err, "loading unit state from database")
 	}
-	if unitState.State == nil {
-		state = make(map[string]string)
+	if unitState.CharmState == nil {
+		charmState = make(map[string]string)
 	} else {
-		state = unitState.State
+		charmState = unitState.CharmState
 	}
-	ctx.cacheValues = state
+
+	ctx.cachedCharmState = charmState
+	ctx.charmStateCacheDirty = false
 	return nil
 }
 
@@ -796,6 +808,8 @@ func (ctx *HookContext) CloudSpec() (*params.CloudSpec, error) {
 // ActionParams simply returns the arguments to the Action.
 // Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
 func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
+	ctx.actionDataMu.Lock()
+	defer ctx.actionDataMu.Unlock()
 	if ctx.actionData == nil {
 		return nil, errors.New("not running an action")
 	}
@@ -805,6 +819,8 @@ func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
 // LogActionMessage logs a progress message for the Action.
 // Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
 func (ctx *HookContext) LogActionMessage(message string) error {
+	ctx.actionDataMu.Lock()
+	defer ctx.actionDataMu.Unlock()
 	if ctx.actionData == nil {
 		return errors.New("not running an action")
 	}
@@ -814,6 +830,8 @@ func (ctx *HookContext) LogActionMessage(message string) error {
 // SetActionMessage sets a message for the Action, usually an error message.
 // Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
 func (ctx *HookContext) SetActionMessage(message string) error {
+	ctx.actionDataMu.Lock()
+	defer ctx.actionDataMu.Unlock()
 	if ctx.actionData == nil {
 		return errors.New("not running an action")
 	}
@@ -824,6 +842,8 @@ func (ctx *HookContext) SetActionMessage(message string) error {
 // SetActionFailed sets the fail state of the action.
 // Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
 func (ctx *HookContext) SetActionFailed() error {
+	ctx.actionDataMu.Lock()
+	defer ctx.actionDataMu.Unlock()
 	if ctx.actionData == nil {
 		return errors.New("not running an action")
 	}
@@ -837,6 +857,8 @@ func (ctx *HookContext) SetActionFailed() error {
 // Action-containing HookContext.
 // Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
 func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
+	ctx.actionDataMu.Lock()
+	defer ctx.actionDataMu.Unlock()
 	if ctx.actionData == nil {
 		return errors.New("not running an action")
 	}
@@ -912,6 +934,8 @@ func (ctx *HookContext) AddMetricLabels(key, value string, created time.Time, la
 // it did; it should be considered deprecated, and not used by new clients.
 // Implements runner.Context.
 func (ctx *HookContext) ActionData() (*ActionData, error) {
+	ctx.actionDataMu.Lock()
+	defer ctx.actionDataMu.Unlock()
 	if ctx.actionData == nil {
 		return nil, errors.New("not running an action")
 	}
@@ -922,7 +946,7 @@ func (ctx *HookContext) ActionData() (*ActionData, error) {
 // such that it can know what environment it's operating in, and can call back
 // into context.
 // Implements runner.Context.
-func (ctx *HookContext) HookVars(paths Paths, remote bool) ([]string, error) {
+func (ctx *HookContext) HookVars(paths Paths, remote bool, getEnv GetEnvFunc) ([]string, error) {
 	vars := ctx.legacyProxySettings.AsEnvironmentValues()
 	// TODO(thumper): as work on proxies progress, there will be additional
 	// proxy settings to be added.
@@ -985,8 +1009,7 @@ func (ctx *HookContext) HookVars(paths Paths, remote bool) ([]string, error) {
 			"JUJU_ACTION_TAG="+ctx.actionData.Tag.String(),
 		)
 	}
-
-	return append(vars, OSDependentEnvVars(paths)...), nil
+	return append(vars, OSDependentEnvVars(paths, getEnv)...), nil
 }
 
 func (ctx *HookContext) handleReboot(ctxErr error) error {
@@ -1063,8 +1086,8 @@ func (ctx *HookContext) doFlush(process string) error {
 		b.UpdateNetworkInfo()
 	}
 
-	if ctx.cacheDirty {
-		b.UpdateUnitState(ctx.cacheValues)
+	if ctx.charmStateCacheDirty {
+		b.UpdateCharmState(ctx.cachedCharmState)
 	}
 
 	for _, rctx := range ctx.relations {
@@ -1104,7 +1127,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	}
 
 	// Call completed successfully; update local state
-	ctx.cacheDirty = false
+	ctx.charmStateCacheDirty = false
 	return nil
 }
 
@@ -1143,6 +1166,8 @@ func (ctx *HookContext) addCommitHookChangesForCAAS(builder *uniter.CommitHookPa
 // only errors passed in unhandledErr will be returned.
 func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 	// TODO (binary132): synchronize with gsamfira's reboot logic
+	ctx.actionDataMu.Lock()
+	defer ctx.actionDataMu.Unlock()
 	message := ctx.actionData.ResultsMessage
 	results := ctx.actionData.ResultsMap
 	tag := ctx.actionData.Tag
@@ -1154,6 +1179,14 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 		default:
 			actionStatus = params.ActionFailed
 		}
+	}
+
+	// If the action completed without an error but we failed to flush the
+	// charm state changes due to a quota limit, we should attach the error
+	// to the action.
+	if err == nil && errors.IsQuotaLimitExceeded(unhandledErr) {
+		err = unhandledErr
+		unhandledErr = nil
 	}
 
 	// If we had an action error, we'll simply encapsulate it in the response

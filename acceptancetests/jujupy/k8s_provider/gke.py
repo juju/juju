@@ -47,17 +47,15 @@ CLUSTER_STATUS = container_v1.enums.Cluster.Status
 class GKE(Base):
 
     name = K8sProviderType.GKE
+    cluster_name = None
 
     driver = None
-    gke_cluster_name = None
-    gke_cluster = None
-
     default_params = None
 
     def __init__(self, bs_manager, timeout=1800):
         super().__init__(bs_manager, timeout)
 
-        self.gke_cluster_name = self.client.env.controller.name  # use controller name for cluster name
+        self.cluster_name = self.client.env.controller.name  # use controller name for cluster name
         self.default_storage_class_name = ''
         self.__init_driver(bs_manager.client.env)
 
@@ -72,7 +70,7 @@ class GKE(Base):
         self.driver = container_v1.ClusterManagerClient(
             credentials=service_account.Credentials.from_service_account_info(cfg)
         )
-        
+
         self.__ensure_gcloud(cfg)
 
         # list all running clusters
@@ -81,7 +79,7 @@ class GKE(Base):
 
     def _ensure_cluster_stack(self):
         self.provision_gke()
-        
+
     def __ensure_gcloud(self, cfg):
         gcloud_bin = shutil.which('gcloud')
         if gcloud_bin is None:
@@ -89,17 +87,17 @@ class GKE(Base):
             self.sh('sudo', 'snap', 'install', 'google-cloud-sdk', '--classic')
             logger.debug("gcloud installed successfully")
             gcloud_bin = shutil.which('gcloud')
-        
+
         cred = {
             k: cfg[k] for k in (
-                'project_id', 
-                'private_key_id', 
-                'private_key', 
-                'client_email', 
-                'client_id', 
-                'auth_uri', 
-                'token_uri', 
-                'auth_provider_x509_cert_url', 
+                'project_id',
+                'private_key_id',
+                'private_key',
+                'client_email',
+                'client_id',
+                'auth_uri',
+                'token_uri',
+                'auth_provider_x509_cert_url',
                 'client_x509_cert_url',
             )
         }
@@ -108,7 +106,7 @@ class GKE(Base):
         try:
             with open(cred_file.name, 'w') as f:
                 json.dump(cred, f)
-                
+
             # set credential;
             o = self.sh(gcloud_bin, 'auth', 'activate-service-account', '--key-file', cred_file.name)
             logger.debug(o)
@@ -121,13 +119,13 @@ class GKE(Base):
     def _tear_down_substrate(self):
         try:
             self.driver.delete_cluster(
-                cluster_id=self.gke_cluster_name, **self.default_params,
+                cluster_id=self.cluster_name, **self.default_params,
             )
         except exceptions.NotFound:
             pass
 
     def _ensure_kube_dir(self):
-        cluster = self._get_cluster(self.gke_cluster_name)
+        cluster = self._get_cluster(self.cluster_name)
         cluster_config = ClusterConfig(
             project_id=self.default_params['project_id'],
             cluster=cluster,
@@ -139,15 +137,7 @@ class GKE(Base):
             f.write(kubeconfig_content)
 
         # ensure kubectl
-        kubectl_bin_path = shutil.which('kubectl')
-        if kubectl_bin_path is not None:
-            self.kubectl_path = kubectl_bin_path
-        else:
-            self.sh(
-                'curl', 'https://storage.googleapis.com/kubernetes-release/release/v1.14.0/bin/linux/amd64/kubectl',
-                '-o', self.kubectl_path
-            )
-            os.chmod(self.kubectl_path, 0o774)
+        self._ensure_kubectl_bin()
 
     def _ensure_cluster_config(self):
         ...
@@ -157,7 +147,7 @@ class GKE(Base):
 
     def _get_cluster(self, name):
         return self.driver.get_cluster(
-            cluster_id=self.gke_cluster_name, **self.default_params,
+            cluster_id=self.cluster_name, **self.default_params,
         )
 
     def provision_gke(self):
@@ -172,7 +162,7 @@ class GKE(Base):
         for remaining in until_timeout(600):
             # wait for the old cluster to be deleted.
             try:
-                self._get_cluster(self.gke_cluster_name)
+                self._get_cluster(self.cluster_name)
             except exceptions.NotFound:
                 break
             finally:
@@ -180,7 +170,7 @@ class GKE(Base):
 
         # provision cluster.
         cluster = dict(
-            name=self.gke_cluster_name,
+            name=self.cluster_name,
             node_pools=[dict(
                 name='default-pool',
                 initial_node_count=1,
@@ -204,10 +194,10 @@ class GKE(Base):
         logger.info('waiting for cluster fully provisioned.')
         for remaining in until_timeout(600):
             try:
-                cluster = self._get_cluster(self.gke_cluster_name)
+                cluster = self._get_cluster(self.cluster_name)
                 if cluster.status == CLUSTER_STATUS.RUNNING:
                     return
-            except Exception as e: # noqa
+            except Exception as e:  # noqa
                 logger.info(e)
             finally:
                 log_remaining(remaining)

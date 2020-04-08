@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	backupsAPI "github.com/juju/juju/apiserver/facades/client/backups"
-	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
@@ -44,7 +44,7 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	ssInfo, err := s.State.StateServingInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	agentConfig := s.AgentConfigForTag(c, s.machineTag)
-	agentConfig.SetStateServingInfo(params.StateServingInfo{
+	agentConfig.SetStateServingInfo(controller.StateServingInfo{
 		PrivateKey:   ssInfo.PrivateKey,
 		Cert:         ssInfo.Cert,
 		CAPrivateKey: ssInfo.CAPrivateKey,

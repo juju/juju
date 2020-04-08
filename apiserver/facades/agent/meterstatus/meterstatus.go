@@ -8,12 +8,17 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.meterstatus")
 
 // MeterStatus defines the methods exported by the meter status API facade.
 type MeterStatus interface {
@@ -24,6 +29,8 @@ type MeterStatus interface {
 // MeterStatusState represents the state of an model required by the MeterStatus.
 //go:generate mockgen -package mocks -destination mocks/meterstatus_mock.go github.com/juju/juju/apiserver/facades/agent/meterstatus MeterStatusState
 type MeterStatusState interface {
+	ApplyOperation(state.ModelOperation) error
+	ControllerConfig() (controller.Config, error)
 
 	// Application returns a application state by name.
 	Application(name string) (*state.Application, error)
@@ -32,19 +39,41 @@ type MeterStatusState interface {
 	Unit(id string) (*state.Unit, error)
 }
 
-// MeterStatusAPI implements the MeterStatus interface and is the concrete implementation
-// of the API endpoint.
+// MeterStatusAPI implements the MeterStatus interface and is the concrete
+// implementation of the API endpoint. Additionally, it embeds
+// common.UnitStateAPI to allow meter status workers to access their
+// controller-backed internal state.
 type MeterStatusAPI struct {
+	*common.UnitStateAPI
+
 	state      MeterStatusState
 	accessUnit common.GetAuthFunc
 	resources  facade.Resources
 }
+
+// MeterStatusAPIV1 implements V1 of the Meter Status API.
+type MeterStatusAPIV1 struct {
+	MeterStatusAPI
+}
+
+// SetState isn't on the v1 API.
+func (u *MeterStatusAPIV1) SetState(_ struct{}) {}
+
+// State isn't on the v1 API.
+func (u *MeterStatusAPIV1) State(_ struct{}) {}
 
 // NewMeterStatusFacade provides the signature required for facade registration.
 func NewMeterStatusFacade(ctx facade.Context) (*MeterStatusAPI, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 	return NewMeterStatusAPI(ctx.State(), resources, authorizer)
+}
+
+// NewMeterStatusFacadeV1 provides the signature required for the V1 facade registration.
+func NewMeterStatusFacadeV1(ctx facade.Context) (*MeterStatusAPIV1, error) {
+	authorizer := ctx.Auth()
+	resources := ctx.Resources()
+	return NewMeterStatusAPIV1(ctx.State(), resources, authorizer)
 }
 
 // NewMeterStatusAPI creates a new API endpoint for dealing with unit meter status.
@@ -56,38 +85,64 @@ func NewMeterStatusAPI(
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, common.ErrPerm
 	}
-	return &MeterStatusAPI{
-		state: st,
-		accessUnit: func() (common.AuthFunc, error) {
-			switch tag := authorizer.GetAuthTag().(type) {
-			case names.ApplicationTag:
-				// If called by an application agent, any of the units
-				// belonging to that application can be accessed.
-				app, err := st.Application(tag.Name)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				allUnits, err := app.AllUnits()
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				return func(tag names.Tag) bool {
-					for _, u := range allUnits {
-						if u.Tag() == tag {
-							return true
-						}
-					}
-					return false
-				}, nil
-			case names.UnitTag:
-				return func(tag names.Tag) bool {
-					return authorizer.AuthOwner(tag)
-				}, nil
-			default:
-				return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
+
+	var accessCheckerFn = func() (common.AuthFunc, error) {
+		switch tag := authorizer.GetAuthTag().(type) {
+		case names.ApplicationTag:
+			// If called by an application agent, any of the units
+			// belonging to that application can be accessed.
+			app, err := st.Application(tag.Name)
+			if err != nil {
+				return nil, errors.Trace(err)
 			}
-		},
-		resources: resources,
+			allUnits, err := app.AllUnits()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return func(tag names.Tag) bool {
+				for _, u := range allUnits {
+					if u.Tag() == tag {
+						return true
+					}
+				}
+				return false
+			}, nil
+		case names.UnitTag:
+			return func(tag names.Tag) bool {
+				return authorizer.AuthOwner(tag)
+			}, nil
+		default:
+			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
+		}
+	}
+
+	return &MeterStatusAPI{
+		state:      st,
+		accessUnit: accessCheckerFn,
+		resources:  resources,
+		UnitStateAPI: common.NewUnitStateAPI(
+			unitStateShim{st},
+			resources,
+			authorizer,
+			accessCheckerFn,
+			logger,
+		),
+	}, nil
+}
+
+// NewMeterStatusAPIV1 creates an instance of the V1 MeterStatus API.
+func NewMeterStatusAPIV1(
+	st MeterStatusState,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+) (*MeterStatusAPIV1, error) {
+	meterStatusAPI, err := NewMeterStatusAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &MeterStatusAPIV1{
+		MeterStatusAPI: *meterStatusAPI,
 	}, nil
 }
 
@@ -159,4 +214,22 @@ func (m *MeterStatusAPI) GetMeterStatus(args params.Entities) (params.MeterStatu
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// unitStateShim adapts the state backend for this facade to make it compatible
+// with common.UnitStateAPI.
+type unitStateShim struct {
+	st MeterStatusState
+}
+
+func (s unitStateShim) ApplyOperation(op state.ModelOperation) error {
+	return s.st.ApplyOperation(op)
+}
+
+func (s unitStateShim) ControllerConfig() (controller.Config, error) {
+	return s.st.ControllerConfig()
+}
+
+func (s unitStateShim) Unit(name string) (common.UnitStateUnit, error) {
+	return s.st.Unit(name)
 }

@@ -18,7 +18,7 @@ import (
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/peergrouper"
@@ -45,7 +45,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.clock = testclock.NewClock(time.Time{})
 	s.agent = &mockAgent{conf: mockAgentConfig{
-		info: &params.StateServingInfo{
+		info: &controller.StateServingInfo{
 			StatePort: 1234,
 			APIPort:   5678,
 		},
@@ -179,14 +179,14 @@ func (ma *mockAgent) CurrentConfig() agent.Config {
 
 type mockAgentConfig struct {
 	agent.Config
-	info *params.StateServingInfo
+	info *controller.StateServingInfo
 }
 
-func (c *mockAgentConfig) StateServingInfo() (params.StateServingInfo, bool) {
+func (c *mockAgentConfig) StateServingInfo() (controller.StateServingInfo, bool) {
 	if c.info != nil {
 		return *c.info, true
 	}
-	return params.StateServingInfo{}, false
+	return controller.StateServingInfo{}, false
 }
 
 type mockHub struct {

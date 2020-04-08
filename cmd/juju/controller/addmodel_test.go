@@ -499,6 +499,21 @@ func (s *AddModelSuite) TestCloudDefaultRegionUsedIfSet(c *gc.C) {
 	c.Assert(s.fakeAddModelAPI.cloudRegion, gc.Equals, "us-west-1")
 }
 
+func (s *AddModelSuite) TestExplicitCloudRegionUsed(c *gc.C) {
+	// When a controller credential is used, any explicit region is honoured.
+
+	// Delete all local credentials, so we don't choose
+	// any of them to upload. This will force a credential
+	// to be retrieved from the controller.
+	delete(s.store.Credentials, "aws")
+
+	_, err := s.run(c, "test", "aws/us-east-1", "--credential", "other/secrets")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.fakeAddModelAPI.cloudName, gc.Equals, "aws")
+	c.Assert(s.fakeAddModelAPI.cloudRegion, gc.Equals, "us-east-1")
+}
+
 func (s *AddModelSuite) TestInvalidCloudOrRegionName(c *gc.C) {
 	ctx, err := s.run(c, "test", "oro")
 	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)

@@ -17,7 +17,7 @@ import (
 	dt "gopkg.in/juju/worker.v1/dependency/testing"
 
 	coreagent "github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/stateconfigwatcher"
 )
@@ -243,10 +243,10 @@ func (mc *mockConfig) setStateServingInfo(isSet bool) {
 	mc.ssInfoIsSet = isSet
 }
 
-func (mc *mockConfig) StateServingInfo() (params.StateServingInfo, bool) {
+func (mc *mockConfig) StateServingInfo() (controller.StateServingInfo, bool) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	return params.StateServingInfo{}, mc.ssInfoIsSet
+	return controller.StateServingInfo{}, mc.ssInfoIsSet
 }
 
 type dummyWorker struct {

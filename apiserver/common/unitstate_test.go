@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -61,7 +62,7 @@ func (s *unitStateSuite) assertBackendApi(c *gc.C) *gomock.Controller {
 }
 
 func (s *unitStateSuite) expectState() (map[string]string, string, map[int]string, string) {
-	expState := map[string]string{
+	expCharmState := map[string]string{
 		"foo.bar":  "baz",
 		"payload$": "enc0d3d",
 	}
@@ -73,7 +74,7 @@ func (s *unitStateSuite) expectState() (map[string]string, string, map[int]strin
 	expStorageState := "storage testing"
 
 	unitState := state.NewUnitState()
-	unitState.SetState(expState)
+	unitState.SetCharmState(expCharmState)
 	unitState.SetUniterState(expUniterState)
 	unitState.SetRelationState(expRelationState)
 	unitState.SetStorageState(expStorageState)
@@ -81,7 +82,7 @@ func (s *unitStateSuite) expectState() (map[string]string, string, map[int]strin
 	exp := s.mockUnit.EXPECT()
 	exp.State().Return(unitState, nil)
 
-	return expState, expUniterState, expRelationState, expStorageState
+	return expCharmState, expUniterState, expRelationState, expStorageState
 }
 
 func (s *unitStateSuite) expectUnit() {
@@ -94,8 +95,21 @@ func (s *unitStateSuite) expectSetStateOperation() string {
 	expUniterState := "testing"
 	unitState.SetUniterState(expUniterState)
 
+	// Mock controller config which provides the limits passed to SetStateOperation.
+	s.mockBackend.EXPECT().ControllerConfig().Return(
+		controller.Config{
+			"max-charm-state-size": 123,
+			"max-agent-state-size": 456,
+		}, nil)
+
 	exp := s.mockUnit.EXPECT()
-	exp.SetStateOperation(unitState).Return(s.mockOp)
+	exp.SetStateOperation(
+		unitState,
+		state.UnitStateSizeLimits{
+			MaxCharmStateSize: 123,
+			MaxAgentStateSize: 456,
+		},
+	).Return(s.mockOp)
 	return expUniterState
 }
 
@@ -107,7 +121,7 @@ func (s *unitStateSuite) expectApplyOperation() {
 func (s *unitStateSuite) TestState(c *gc.C) {
 	defer s.assertBackendApi(c).Finish()
 	s.expectUnit()
-	expState, expUniterState, expRelationState, expStorageState := s.expectState()
+	expCharmState, expUniterState, expRelationState, expStorageState := s.expectState()
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -124,7 +138,7 @@ func (s *unitStateSuite) TestState(c *gc.C) {
 			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
 			{
 				Error:         nil,
-				State:         expState,
+				CharmState:    expCharmState,
 				UniterState:   expUniterState,
 				RelationState: expRelationState,
 				StorageState:  expStorageState,

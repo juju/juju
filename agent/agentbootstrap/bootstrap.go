@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
@@ -191,8 +190,7 @@ func InitializeState(
 	if err = initAPIHostPorts(st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
 		return nil, err
 	}
-	ssi := paramsStateServingInfoToStateStateServingInfo(servingInfo)
-	if err := st.SetStateServingInfo(ssi); err != nil {
+	if err := st.SetStateServingInfo(servingInfo); err != nil {
 		return nil, errors.Errorf("cannot set state serving info: %v", err)
 	}
 
@@ -392,18 +390,6 @@ func getEnviron(
 		return caas.Open(provider, openParams)
 	}
 	return environs.Open(provider, openParams)
-}
-
-func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {
-	return state.StateServingInfo{
-		APIPort:        i.APIPort,
-		StatePort:      i.StatePort,
-		Cert:           i.Cert,
-		PrivateKey:     i.PrivateKey,
-		CAPrivateKey:   i.CAPrivateKey,
-		SharedSecret:   i.SharedSecret,
-		SystemIdentity: i.SystemIdentity,
-	}
 }
 
 func initRaft(agentConfig agent.Config) error {

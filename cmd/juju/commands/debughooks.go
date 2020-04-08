@@ -177,10 +177,14 @@ func (c *debugHooksCommand) getValidHooks(appName string) (set.Strings, error) {
 	return validHooks, nil
 }
 
-// Run ensures c.Target is a unit, and resolves its address,
-// and connects to it via SSH to execute the debug-hooks
-// script.
-func (c *debugHooksCommand) Run(ctx *cmd.Context) error {
+// commonRun is shared between debugHooks and debugCode
+func (c *debugHooksCommand) commonRun(
+	ctx *cmd.Context,
+	target string,
+	hooks []string,
+	debugAt string,
+) error {
+
 	err := c.initRun()
 	if err != nil {
 		return err
@@ -190,10 +194,18 @@ func (c *debugHooksCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	debugctx := unitdebug.NewHooksContext(c.Target)
-	script := base64.StdEncoding.EncodeToString([]byte(unitdebug.ClientScript(debugctx, c.hooks)))
-	innercmd := fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, script)
+	debugctx := unitdebug.NewHooksContext(target)
+	clientScript := unitdebug.ClientScript(debugctx, hooks, debugAt)
+	b64Script := base64.StdEncoding.EncodeToString([]byte(clientScript))
+	innercmd := fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, b64Script)
 	args := []string{fmt.Sprintf("sudo /bin/bash -c '%s'", innercmd)}
 	c.Args = args
 	return c.sshCommand.Run(ctx)
+}
+
+// Run ensures c.Target is a unit, and resolves its address,
+// and connects to it via SSH to execute the debug-hooks
+// script.
+func (c *debugHooksCommand) Run(ctx *cmd.Context) error {
+	return c.commonRun(ctx, c.Target, c.hooks, "")
 }

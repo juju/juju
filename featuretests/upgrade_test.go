@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -76,8 +75,8 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 		Arch:   arch.HostArch(),
 		Series: series.MustHostSeries(),
 	}
-	s.oldVersion.Major = 1
-	s.oldVersion.Minor = 16
+	s.oldVersion.Major = 2
+	s.oldVersion.Minor = 1
 
 	// Don't wait so long in tests.
 	s.PatchValue(&upgradesteps.UpgradeStartTimeoutMaster, time.Millisecond*50)
@@ -293,8 +292,7 @@ func (s *upgradeSuite) configureMachine(c *gc.C, machineId string, vers version.
 		agentConfig, tools = s.PrimeStateAgentVersion(c, tag, initialMachinePassword, vers)
 		info, ok := agentConfig.StateServingInfo()
 		c.Assert(ok, jc.IsTrue)
-		ssi := cmdutil.ParamsStateServingInfoToStateStateServingInfo(info)
-		err = s.State.SetStateServingInfo(ssi)
+		err = s.State.SetStateServingInfo(info)
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		agentConfig, tools = s.PrimeAgentVersion(c, tag, initialMachinePassword, vers)

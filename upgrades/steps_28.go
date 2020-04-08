@@ -4,6 +4,7 @@
 package upgrades
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,9 +14,11 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/upgradesteps"
+	"github.com/juju/juju/apiserver/params"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/worker/common/reboot"
@@ -61,9 +64,9 @@ func stepsFor28() []Step {
 			run:         prepopulateRebootHandledFlagsForDeployedUnits,
 		},
 		&upgradeStep{
-			description: "write uniter state to controller for all running units and remove files",
+			description: "write unit agent state to controller for all running units and remove files",
 			targets:     []Target{HostMachine},
-			run:         moveUniterStateToController,
+			run:         moveUnitAgentStateToController,
 		},
 	}
 }
@@ -96,9 +99,13 @@ func prepopulateRebootHandledFlagsForDeployedUnits(ctx Context) error {
 	return nil
 }
 
-func moveUniterStateToController(ctx Context) error {
+func moveUnitAgentStateToController(ctx Context) error {
 	// Lookup the names of all unit agents installed on this machine.
 	agentConf := ctx.AgentConfig()
+	ctxTag := agentConf.Tag()
+	if ctxTag.Kind() != names.MachineTagKind {
+		return nil
+	}
 	_, unitNames, _, err := service.FindAgents(agentConf.DataDir())
 	if err != nil {
 		return errors.Annotate(err, "looking up unit agents")
@@ -121,6 +128,16 @@ func moveUniterStateToController(ctx Context) error {
 
 	// Saving uniter state in the controller succeeded, now clean up
 	// the now unused state files.
+	//
+	// TODO: hml 30-mar-2020
+	// Once the final piece of the upgrade is done, this can be changed to
+	// remove:
+	//     /var/lib/juju/agents/unit-ubuntu-0/state/uniter
+	//     /var/lib/juju/agents/unit-ubuntu-0/state/storage
+	//     /var/lib/juju/agents/unit-ubuntu-0/state/relations
+	//     /var/lib/juju/agents/unit-ubuntu-0/state/metrics
+	// and the caas operator file.  Any not found is fine.
+	// Keep /var/lib/juju/agents/unit-ubuntu-0/state for non persistent needs.
 	for _, name := range fileNames {
 		if err = os.RemoveAll(name); err != nil {
 			// Log the error, but no need to fail the upgrade.  Juju
@@ -139,59 +156,171 @@ var getUpgradeStepsClient = func(caller base.APICaller) UpgradeStepsClient {
 
 //go:generate mockgen -package mocks -destination mocks/upgradestepsclient_mock.go github.com/juju/juju/upgrades UpgradeStepsClient
 type UpgradeStepsClient interface {
-	WriteUniterState(uniterStates map[names.Tag]string) error
+	WriteAgentState([]params.SetUnitStateArg) error
 }
 
 func iaasUniterState(ctx Context, unitNames []string) ([]string, error) {
 	// Read the uniter state for each unit on this machine.
 	// Leave in yaml format as a string to push to the controller.
-	fileNames := []string{}
-	uniterStates := make(map[names.Tag]string, len(unitNames))
+	fileNames := set.NewStrings()
+	uniterStates := make([]params.SetUnitStateArg, len(unitNames))
 	dataDir := ctx.AgentConfig().DataDir()
-	for _, unitName := range unitNames {
+	for i, unitName := range unitNames {
 		tag, err := names.ParseUnitTag(unitName)
 		if err != nil {
 			return nil, errors.Annotatef(err, "unable to parse unit agent tag %q", unitName)
 		}
 
+		uniterStates[i].Tag = tag.String()
 		// e.g. /var/lib/juju/agents/unit-ubuntu-0/state/uniter
-		uniterStateFile := filepath.Join(agent.BaseDir(dataDir), unitName, "state", "uniter")
+		uniterStateDir := filepath.Join(agent.BaseDir(dataDir), unitName, "state")
 
-		// Read into a State as we can validate the data.
-		var st operation.State
-		if err = utils.ReadYaml(uniterStateFile, &st); err != nil {
-			// No file available, move on.
-			if os.IsNotExist(err) {
-				continue
-			}
-			return nil, errors.Annotatef(err, "failed to read uniter state from %q", uniterStateFile)
-		}
-		fileNames = append(fileNames, uniterStateFile)
-		if err = st.Validate(); err != nil {
-			return nil, errors.Annotatef(err, "failed to validate uniter state from %q", uniterStateFile)
+		uniterSt, filename, err := readUniterState(uniterStateDir)
+		if err != nil && !os.IsNotExist(err) {
+			// Note: we may want to error on NotExist.  Something is very
+			// broken if the uniter state files does not exist.  On the
+			// other hand, all that will happen is that the uniter will act
+			// like the unit is just starting with regards to hook execution.
+			// With properly written idempotent charms, this is not an issue.
+			return nil, err
+		} else if err == nil {
+			fileNames.Add(filename)
+			uniterStates[i].UniterState = &uniterSt
 		}
 
-		data, err := yaml.Marshal(st)
-		if err != nil {
-			return nil, errors.Annotatef(err, "failed to unmarshal uniter state from %q", uniterStateFile)
+		// TODO(achilleasa): migrate relation data.
+
+		storageData, err := readStorageState(uniterStateDir)
+		if err != nil && !os.IsNotExist(err) && !errors.IsNotFound(err) {
+			return nil, err
+		} else if err == nil {
+			uniterStates[i].StorageState = &storageData.dataString
 		}
-		uniterStates[tag] = string(data)
+		if storageData.filename != "" {
+			fileNames.Add(storageData.filename)
+		}
+
+		// NOTE(achilleasa): meter status is transparently migrated to
+		// the controller by the meterstatus worker so we don't need
+		// to do anything special here.
 	}
 
 	// No state files, nothing to do.
-	if len(fileNames) == 0 {
+	if fileNames.IsEmpty() {
 		return nil, nil
 	}
 
 	client := getUpgradeStepsClient(ctx.APIState())
-	if err := client.WriteUniterState(uniterStates); err != nil {
+	if err := client.WriteAgentState(uniterStates); err != nil {
 		return nil, errors.Annotatef(err, "unable to set state for units %q", strings.Join(unitNames, ", "))
 	}
-	return fileNames, nil
+	return fileNames.Values(), nil
+}
+
+// readUniterState reads uniter state, validates it, then returns a
+// yaml string of the dataString and the filename.  If no error is returned,
+// the yaml string is valid and non empty.
+func readUniterState(uniterStateDir string) (string, string, error) {
+	uniterStateFile := filepath.Join(uniterStateDir, "uniter")
+	// Read into a State so we can validate the dataString.
+	var st operation.State
+	if err := utils.ReadYaml(uniterStateFile, &st); err != nil {
+		// No file available, move on.
+		if os.IsNotExist(err) {
+			return "", "", err
+		}
+		return "", "", errors.Annotatef(err, "failed to read uniter state from %q", uniterStateFile)
+	}
+	if err := st.Validate(); err != nil {
+		return "", "", errors.Annotatef(err, "failed to validate uniter state from %q", uniterStateFile)
+	}
+
+	data, err := yaml.Marshal(st)
+	if err != nil {
+		return "", "", errors.Annotatef(err, "failed to unmarshal uniter state from %q", uniterStateFile)
+	}
+
+	return string(data), uniterStateFile, nil
 }
 
 func caasOperatorLocalState(ctx Context, unitNames []string) ([]string, error) {
 	// TODO: (hml) 27-Mar-2020.
 	// Implement when relations, storage, metrics and the operator state are moved.
 	return nil, nil
+}
+
+type data struct {
+	dataString string
+	filename   string
+}
+
+func readStorageState(uniterStateDir string) (data, error) {
+	storageStateDir := filepath.Join(uniterStateDir, "storage")
+	storage, err := readAllStorageStateFiles(storageStateDir)
+	if err != nil {
+		return data{}, err
+	}
+	if len(storage) < 1 {
+		return data{filename: storageStateDir}, errors.NotFoundf("storage state")
+	}
+	dataYaml, err := yaml.Marshal(storage)
+	if err != nil {
+		return data{}, errors.Annotatef(err, "failed to unmarshal storage state from %q", storageStateDir)
+	}
+	return data{dataString: string(dataYaml), filename: storageStateDir}, nil
+}
+
+// readAllStorageStateFiles loads and returns every storage stateFile persisted inside
+func readAllStorageStateFiles(dirPath string) (map[string]bool, error) {
+	if _, err := os.Stat(dirPath); err != nil {
+		return nil, err
+	}
+	fis, err := ioutil.ReadDir(dirPath)
+	if err != nil {
+		return nil, err
+	}
+	files := make(map[string]bool)
+	for _, fi := range fis {
+		if fi.IsDir() {
+			continue
+		}
+		storageId := fi.Name()
+		i := strings.LastIndex(storageId, "-")
+		if i <= 0 {
+			// Lack of "-" means it's not a valid storage ID.
+			continue
+		}
+		storageId = storageId[:i] + "/" + storageId[i+1:]
+		if !names.IsValidStorage(storageId) {
+			logger.Warningf("ignoring storage file with invalid name %q", filepath.Join(dirPath, fi.Name()))
+			continue
+		}
+		tag := names.NewStorageTag(storageId)
+		f, err := readStorageStateFile(dirPath, tag)
+		if err != nil {
+			return nil, err
+		}
+		files[tag.Id()] = f
+	}
+	return files, nil
+}
+
+// readStorageStateFile loads a storage stateFile from the subdirectory of dirPath named
+// is returned.
+func readStorageStateFile(dirPath string, tag names.StorageTag) (bool, error) {
+	filename := strings.Replace(tag.Id(), "/", "-", -1)
+	filePath := filepath.Join(dirPath, filename)
+
+	var info storageDiskInfo
+	if err := utils.ReadYaml(filePath, &info); err != nil {
+		return false, errors.Annotatef(err, "cannot read from storage state file %q", filePath)
+	}
+	if info.Attached == nil {
+		return false, errors.Errorf("invalid storage state file %q: missing 'attached'", filePath)
+	}
+	return *info.Attached, nil
+}
+
+type storageDiskInfo struct {
+	Attached *bool `yaml:"attached,omitempty"`
 }

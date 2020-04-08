@@ -485,18 +485,18 @@
   revision = "9be91dc79b7c185fa8b08e7ceceee40562055c83"
 
 [[projects]]
-  digest = "1:8835d6bbeb647a441c134c3c41881a59ea21527bddd016195847a6fb9fbab909"
+  digest = "1:c6afb3b8e5f596b1f88e5e604d8afb951cfb4553ef4008c976c8bf3a7e805e98"
   name = "github.com/juju/description"
   packages = ["."]
   pruneopts = ""
-  revision = "2e2cf381eb0406ff5edd1976dc24d3846176552b"
+  revision = "cb183d728f9d6dc45b78ad38cbbf39e06144f9b6"
 
 [[projects]]
-  digest = "1:594030c0f0ed3842773b68708d4f9716d809556b9c631460051f99b15057512d"
+  digest = "1:e0275dd405fa814d870a8039712ca66c110718b653e864e2e96c65acb481d8a1"
   name = "github.com/juju/errors"
   packages = ["."]
   pruneopts = ""
-  revision = "22422dad46e14561a0854ad42497a75af9b61909"
+  revision = "3fe23663418fc1d724868c84f21b7519bbac7441"
 
 [[projects]]
   digest = "1:6ea4e90d9fc387ca27c25348e40dbe38c3606eec7f283bf98a39db59b37ed5bb"
@@ -713,14 +713,14 @@
   revision = "1f8aaeef09898fcee40fe43b8de422533b0cac2b"
 
 [[projects]]
-  digest = "1:61fdcd5ca2dcd80cd6951a72e7b291e3d40afbb3a38b02cd17d71d2859b2ed98"
+  digest = "1:b11e7ad5436035dc6d120b2877b3753d727b4111de7b437a92d46383f39b0a70"
   name = "github.com/juju/terms-client"
   packages = [
     "api",
     "api/wireformat",
   ]
   pruneopts = ""
-  revision = "d29f8efe0af6f5ed0e8d5bff8bccbecb16e653d1"
+  revision = "fab45ea044ae143a8ebb93e965de1341466bdac2"
 
 [[projects]]
   digest = "1:0eec58cdcfcc6f4a561e68d779dd136700575148459d4d435c60483a8f721d27"
@@ -804,6 +804,14 @@
   packages = ["."]
   pruneopts = ""
   revision = "77a895ad01ebc98a4dc95d8355bc825ce80a56f6"
+
+[[projects]]
+  branch = "master"
+  digest = "1:63e7368fcf6b54804076eaec26fd9cf0c4466166b272393db4b93102e1e962df"
+  name = "github.com/kballard/go-shellquote"
+  packages = ["."]
+  pruneopts = ""
+  revision = "95032a82bc518f77982ea72343cc1ade730072f0"
 
 [[projects]]
   digest = "1:591a2778aa6e896980757ea87e659b3aa13d8c0e790310614028463a31c0998b"
@@ -1282,7 +1290,7 @@
   version = "v0.2.3"
 
 [[projects]]
-  digest = "1:0582aa7819126c12ab062ef6a2896e4808a3b4153ee877b2c28fb09079e4fbe4"
+  digest = "1:ed2fa6312971e5c69b98e801db3fec8dca09a72476707dfa1f1205eff4516fdb"
   name = "gopkg.in/goose.v2"
   packages = [
     ".",
@@ -1308,7 +1316,7 @@
     "testservices/swiftservice",
   ]
   pruneopts = ""
-  revision = "a893cd52739886b22f14dd4b2ac66f105458967a"
+  revision = "0c829f62c42a124f510394e506a967c9d11d9b52"
 
 [[projects]]
   digest = "1:445becf3878aa9bd50dfa972bd65f974ed2468c09350ab9ce28b1e4adce464df"
@@ -1389,11 +1397,11 @@
   revision = "e057c73bd1beb18e9634151a2410c422bd2057f2"
 
 [[projects]]
-  digest = "1:941d40c0b44b5e362c762047a191ba90c439b4df492ea8a106d964155e1f3f86"
+  digest = "1:5eb58b30693186bc49635567ebd7c7e6770caa6316c141ab182345608ea129ac"
   name = "gopkg.in/juju/names.v3"
   packages = ["."]
   pruneopts = ""
-  revision = "139ecaca454cb9101eed8ea76374ddc0be8cc8e8"
+  revision = "2c9a102df21118f159a298d9419997bbe2ddab58"
 
 [[projects]]
   digest = "1:2041c73bbc755e07a90e03f149933b8ecfce5233a5afbe6b04230386a75f8fda"
@@ -1953,6 +1961,7 @@
     "github.com/juju/utils/zip",
     "github.com/juju/version",
     "github.com/juju/webbrowser",
+    "github.com/kballard/go-shellquote",
     "github.com/kr/pretty",
     "github.com/lxc/lxd/client",
     "github.com/lxc/lxd/shared",
@@ -2005,6 +2014,7 @@
     "gopkg.in/goose.v2/cinder",
     "gopkg.in/goose.v2/client",
     "gopkg.in/goose.v2/errors",
+    "gopkg.in/goose.v2/http",
     "gopkg.in/goose.v2/identity",
     "gopkg.in/goose.v2/logging",
     "gopkg.in/goose.v2/neutron",

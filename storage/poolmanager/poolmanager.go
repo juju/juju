@@ -81,8 +81,8 @@ func (pm *poolManager) validatedConfig(name string, providerType storage.Provide
 // Delete is defined on PoolManager interface.
 func (pm *poolManager) Delete(name string) error {
 	err := pm.settings.RemoveSettings(globalKey(name))
-	if err == nil || errors.IsNotFound(err) {
-		return nil
+	if errors.IsNotFound(err) {
+		return errors.NotFoundf("storage pool %q", name)
 	}
 	return errors.Annotatef(err, "deleting pool %q", name)
 }

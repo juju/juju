@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time" // Only used for time types.
 
 	"github.com/juju/errors"
@@ -68,11 +69,97 @@ func (s *UnitSuite) TestApplication(c *gc.C) {
 	c.Assert(app.Name(), gc.Equals, s.unit.ApplicationName())
 }
 
+func (s *UnitSuite) TestCharmStateQuotaLimitWithMissingStateDocument(c *gc.C) {
+	// Set initial state with a restrictive limit. Since the state document
+	// does not exist yet, this test checks that the insert new document
+	// codepath correctly enforces the quota limits.
+	newState := new(state.UnitState)
+	newState.SetCharmState(map[string]string{
+		"answer": "42",
+		"data":   "encrypted",
+	})
+
+	err := s.unit.SetState(newState, state.UnitStateSizeLimits{
+		MaxCharmStateSize: 16,
+	})
+	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded)
+
+	// Try again with a more generous quota limit
+	err = s.unit.SetState(newState, state.UnitStateSizeLimits{
+		MaxCharmStateSize: 640,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *UnitSuite) TestCharmStateQuotaLimit(c *gc.C) {
+	// Set initial state with a generous limit
+	newState := new(state.UnitState)
+	newState.SetCharmState(map[string]string{
+		"answer": "42",
+		"data":   "encrypted",
+	})
+
+	err := s.unit.SetState(newState, state.UnitStateSizeLimits{
+		MaxCharmStateSize: 640000,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Try to set a new state with a tight limit
+	newState.SetCharmState(map[string]string{
+		"answer": "unknown",
+		"data":   "decrypted",
+	})
+	err = s.unit.SetState(newState, state.UnitStateSizeLimits{
+		MaxCharmStateSize: 10,
+	})
+	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded)
+}
+
+func (s *UnitSuite) TestCombinedUnitStateQuotaLimit(c *gc.C) {
+	// Set initial state with a generous limit
+	newState := new(state.UnitState)
+	newState.SetUniterState("my state is legendary")
+	newState.SetRelationState(map[int]string{42: "some serialized blob"})
+	newState.SetStorageState("storage is cheap")
+
+	err := s.unit.SetState(newState, state.UnitStateSizeLimits{
+		MaxAgentStateSize: 640000,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Try to set a new uniter state where the combined data will trip the quota limit check
+	newState.SetUniterState("state")
+	newState.SetRelationState(map[int]string{42: "a fresh serialized blob"})
+	newState.SetStorageState("storage")
+	err = s.unit.SetState(newState, state.UnitStateSizeLimits{
+		MaxAgentStateSize: 42,
+	})
+	c.Assert(errors.IsQuotaLimitExceeded(err), jc.IsTrue)
+}
+
+func (s *UnitSuite) TestUnitStateWithDualQuotaLimits(c *gc.C) {
+	// Set state with dual quota limits and check that both limits are
+	// correctly enforced and do not interfere with each other.
+	newState := new(state.UnitState)
+	newState.SetUniterState("my state is legendary")
+	newState.SetRelationState(map[int]string{42: "some serialized blob"})
+	newState.SetStorageState("storage is cheap")
+	newState.SetCharmState(map[string]string{
+		"charm-data": strings.Repeat("lol", 1024),
+	})
+
+	err := s.unit.SetState(newState, state.UnitStateSizeLimits{
+		MaxCharmStateSize: 4096,
+		MaxAgentStateSize: 128,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *UnitSuite) TestUnitStateNotSet(c *gc.C) {
 	// Try fetching the state without a state doc present
 	uState, err := s.unit.State()
 	c.Assert(err, gc.IsNil)
-	st, found := uState.State()
+	st, found := uState.CharmState()
 	c.Assert(st, gc.IsNil, gc.Commentf("expected to receive a nil map when no state doc is present"))
 	c.Assert(found, jc.IsFalse)
 	ust, found := uState.UniterState()
@@ -84,39 +171,57 @@ func (s *UnitSuite) TestUnitStateNotSet(c *gc.C) {
 	sst, found := uState.StorageState()
 	c.Assert(sst, gc.Equals, "")
 	c.Assert(found, jc.IsFalse)
+	mst, found := uState.MeterStatusState()
+	c.Assert(mst, gc.Equals, "")
+	c.Assert(found, jc.IsFalse)
+}
+
+func (s *UnitSuite) TestUnitStateExistingDocAddNewRelationData(c *gc.C) {
+	initialUniterState := "testing"
+	us := state.NewUnitState()
+	us.SetUniterState(initialUniterState)
+	err := s.unit.SetState(us, state.UnitStateSizeLimits{})
+	c.Assert(err, gc.IsNil)
+
+	newRelationState := map[int]string{3: "three"}
+	newUS := state.NewUnitState()
+	newUS.SetRelationState(newRelationState)
+	err = s.unit.SetState(newUS, state.UnitStateSizeLimits{})
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *UnitSuite) TestUnitStateMutateState(c *gc.C) {
 	// Set initial state; this should create a new unitstate doc
-	_, initialUniterState, initialRelationState, initialStorageState := s.testUnitSuite(c)
+	initState := s.testUnitSuite(c)
 
 	// Mutate state again with an existing state doc
-	newState := map[string]string{"foo": "42"}
+	newCharmState := map[string]string{"foo": "42"}
 	newUS := state.NewUnitState()
-	newUS.SetState(newState)
-	err := s.unit.SetState(newUS)
+	newUS.SetCharmState(newCharmState)
+	err := s.unit.SetState(newUS, state.UnitStateSizeLimits{})
 	c.Assert(err, gc.IsNil)
 
 	// Ensure state changed
 	uState, err := s.unit.State()
 	c.Assert(err, gc.IsNil)
-	assertUnitStateState(c, uState, newState)
+	assertUnitStateCharmState(c, uState, newCharmState)
 
 	// Ensure the other state did not.
-	assertUnitStateUniterState(c, uState, initialUniterState)
-	assertUnitStateRelationState(c, uState, initialRelationState)
-	assertUnitStateStorageState(c, uState, initialStorageState)
+	assertUnitStateUniterState(c, uState, initState.uniterState)
+	assertUnitStateRelationState(c, uState, initState.relationState)
+	assertUnitStateStorageState(c, uState, initState.storageState)
+	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
 }
 
 func (s *UnitSuite) TestUnitStateMutateUniterState(c *gc.C) {
 	// Set initial state; this should create a new unitstate doc
-	initialState, _, initialRelationState, initialStorageState := s.testUnitSuite(c)
+	initState := s.testUnitSuite(c)
 
 	// Mutate uniter state again with an existing state doc
 	newUniterState := "new"
 	newUS := state.NewUnitState()
 	newUS.SetUniterState(newUniterState)
-	err := s.unit.SetState(newUS)
+	err := s.unit.SetState(newUS, state.UnitStateSizeLimits{})
 	c.Assert(err, gc.IsNil)
 
 	// Ensure uniter state changed
@@ -125,42 +230,97 @@ func (s *UnitSuite) TestUnitStateMutateUniterState(c *gc.C) {
 	assertUnitStateUniterState(c, uState, newUniterState)
 
 	// Ensure the other state did not.
-	assertUnitStateState(c, uState, initialState)
-	assertUnitStateRelationState(c, uState, initialRelationState)
-	assertUnitStateStorageState(c, uState, initialStorageState)
+	assertUnitStateCharmState(c, uState, initState.charmState)
+	assertUnitStateRelationState(c, uState, initState.relationState)
+	assertUnitStateStorageState(c, uState, initState.storageState)
+	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
 }
 
-func (s *UnitSuite) TestUnitStateMutateRelationState(c *gc.C) {
+func (s *UnitSuite) TestUnitStateMutateAddRelationState(c *gc.C) {
 	// Set initial state; this should create a new unitstate doc
-	initialState, initialUniterState, _, initialStorageState := s.testUnitSuite(c)
+	initState := s.testUnitSuite(c)
 
 	// Mutate relation state again with an existing state doc
+	// by adding a new value.
 	newRelationState := map[int]string{3: "three"}
 	newUS := state.NewUnitState()
 	newUS.SetRelationState(newRelationState)
-	err := s.unit.SetState(newUS)
+	err := s.unit.SetState(newUS, state.UnitStateSizeLimits{})
 	c.Assert(err, gc.IsNil)
 
+	expectedRelationState := initState.relationState
+	expectedRelationState[3] = "three"
 	// Ensure relation state changed
 	uState, err := s.unit.State()
 	c.Assert(err, gc.IsNil)
-	assertUnitStateRelationState(c, uState, newRelationState)
+	assertUnitStateRelationState(c, uState, expectedRelationState)
 
 	// Ensure the other state did not.
-	assertUnitStateState(c, uState, initialState)
-	assertUnitStateUniterState(c, uState, initialUniterState)
-	assertUnitStateStorageState(c, uState, initialStorageState)
+	assertUnitStateCharmState(c, uState, initState.charmState)
+	assertUnitStateUniterState(c, uState, initState.uniterState)
+	assertUnitStateStorageState(c, uState, initState.storageState)
+}
+
+func (s *UnitSuite) TestUnitStateMutateChangeRelationState(c *gc.C) {
+	// Set initial state; this should create a new unitstate doc
+	initState := s.testUnitSuite(c)
+
+	// Mutate relation state again with an existing state doc
+	// by changing a value.
+	newRelationState := map[int]string{1: "five"}
+	newUS := state.NewUnitState()
+	newUS.SetRelationState(newRelationState)
+	err := s.unit.SetState(newUS, state.UnitStateSizeLimits{})
+	c.Assert(err, gc.IsNil)
+
+	expectedRelationState := initState.relationState
+	expectedRelationState[1] = "five"
+	// Ensure relation state changed
+	uState, err := s.unit.State()
+	c.Assert(err, gc.IsNil)
+	assertUnitStateRelationState(c, uState, expectedRelationState)
+
+	// Ensure the other state did not.
+	assertUnitStateCharmState(c, uState, initState.charmState)
+	assertUnitStateUniterState(c, uState, initState.uniterState)
+	assertUnitStateStorageState(c, uState, initState.storageState)
+}
+
+func (s *UnitSuite) TestUnitStateMutateDeleteRelationState(c *gc.C) {
+	// Set initial state; this should create a new unitstate doc
+	initState := s.testUnitSuite(c)
+
+	// Mutate relation state again with an existing state doc
+	// by deleting value.
+	newRelationState := map[int]string{2: ""}
+	newUS := state.NewUnitState()
+	newUS.SetRelationState(newRelationState)
+	err := s.unit.SetState(newUS, state.UnitStateSizeLimits{})
+	c.Assert(err, gc.IsNil)
+
+	expectedRelationState := initState.relationState
+	delete(expectedRelationState, 2)
+	// Ensure relation state changed
+	uState, err := s.unit.State()
+	c.Assert(err, gc.IsNil)
+	assertUnitStateRelationState(c, uState, expectedRelationState)
+
+	// Ensure the other state did not.
+	assertUnitStateCharmState(c, uState, initState.charmState)
+	assertUnitStateUniterState(c, uState, initState.uniterState)
+	assertUnitStateStorageState(c, uState, initState.storageState)
+	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
 }
 
 func (s *UnitSuite) TestUnitStateMutateStorageState(c *gc.C) {
 	// Set initial state; this should create a new unitstate doc
-	initialState, initialUniterState, initialRelationState, _ := s.testUnitSuite(c)
+	initState := s.testUnitSuite(c)
 
 	// Mutate storage state again with an existing state doc
 	newStorageState := "state"
 	newUS := state.NewUnitState()
 	newUS.SetStorageState(newStorageState)
-	err := s.unit.SetState(newUS)
+	err := s.unit.SetState(newUS, state.UnitStateSizeLimits{})
 	c.Assert(err, gc.IsNil)
 
 	// Ensure storage state changed
@@ -169,40 +329,65 @@ func (s *UnitSuite) TestUnitStateMutateStorageState(c *gc.C) {
 	assertUnitStateStorageState(c, uState, newStorageState)
 
 	// Ensure the other state did not.
-	assertUnitStateState(c, uState, initialState)
-	assertUnitStateUniterState(c, uState, initialUniterState)
-	assertUnitStateRelationState(c, uState, initialRelationState)
+	assertUnitStateCharmState(c, uState, initState.charmState)
+	assertUnitStateUniterState(c, uState, initState.uniterState)
+	assertUnitStateRelationState(c, uState, initState.relationState)
+	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
+}
+
+func (s *UnitSuite) TestUnitStateMutateMeterStatusState(c *gc.C) {
+	// Set initial state; this should create a new unitstate doc
+	initState := s.testUnitSuite(c)
+
+	// Mutate meter status state again with an existing state doc
+	newMeterStatusState := "GREEN"
+	newUS := state.NewUnitState()
+	newUS.SetMeterStatusState(newMeterStatusState)
+	err := s.unit.SetState(newUS, state.UnitStateSizeLimits{})
+	c.Assert(err, gc.IsNil)
+
+	// Ensure meter status state changed
+	uState, err := s.unit.State()
+	c.Assert(err, gc.IsNil)
+	assertUnitStateMeterStatusState(c, uState, newMeterStatusState)
+
+	// Ensure the other state did not.
+	assertUnitStateCharmState(c, uState, initState.charmState)
+	assertUnitStateUniterState(c, uState, initState.uniterState)
+	assertUnitStateRelationState(c, uState, initState.relationState)
+	assertUnitStateStorageState(c, uState, initState.storageState)
 }
 
 func (s *UnitSuite) TestUnitStateDeleteState(c *gc.C) {
 	// Set initial state; this should create a new unitstate doc
-	_, initialUniterState, initialRelationState, initialStorageState := s.testUnitSuite(c)
+	initState := s.testUnitSuite(c)
 
 	// Mutate state again with an existing state doc
 	newUS := state.NewUnitState()
-	newUS.SetState(map[string]string{})
-	err := s.unit.SetState(newUS)
+	newUS.SetCharmState(map[string]string{})
+	err := s.unit.SetState(newUS, state.UnitStateSizeLimits{})
 	c.Assert(err, gc.IsNil)
 
 	// Ensure state changed
 	uState, err := s.unit.State()
-	st, _ := uState.State()
+	st, _ := uState.CharmState()
 	c.Assert(st, gc.IsNil, gc.Commentf("expected to receive a nil map when no state doc is present"))
 
 	// Ensure the other state did not.
-	assertUnitStateUniterState(c, uState, initialUniterState)
-	assertUnitStateRelationState(c, uState, initialRelationState)
-	assertUnitStateStorageState(c, uState, initialStorageState)
+	assertUnitStateUniterState(c, uState, initState.uniterState)
+	assertUnitStateRelationState(c, uState, initState.relationState)
+	assertUnitStateStorageState(c, uState, initState.storageState)
+	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
 }
 
 func (s *UnitSuite) TestUnitStateDeleteRelationState(c *gc.C) {
 	// Set initial state; this should create a new unitstate doc
-	initialState, initialUniterState, _, initialStorageState := s.testUnitSuite(c)
+	initState := s.testUnitSuite(c)
 
 	// Mutate state again with an existing state doc
 	newUS := state.NewUnitState()
 	newUS.SetRelationState(map[int]string{})
-	err := s.unit.SetState(newUS)
+	err := s.unit.SetState(newUS, state.UnitStateSizeLimits{})
 	c.Assert(err, gc.IsNil)
 
 	// Ensure state changed
@@ -211,14 +396,23 @@ func (s *UnitSuite) TestUnitStateDeleteRelationState(c *gc.C) {
 	c.Assert(st, gc.IsNil, gc.Commentf("expected to receive a nil map when no state doc is present"))
 
 	// Ensure the other state did not.
-	assertUnitStateState(c, uState, initialState)
-	assertUnitStateUniterState(c, uState, initialUniterState)
-	assertUnitStateStorageState(c, uState, initialStorageState)
+	assertUnitStateCharmState(c, uState, initState.charmState)
+	assertUnitStateUniterState(c, uState, initState.uniterState)
+	assertUnitStateStorageState(c, uState, initState.storageState)
+	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
 }
 
-func (s *UnitSuite) testUnitSuite(c *gc.C) (map[string]string, string, map[int]string, string) {
+type initialUnitState struct {
+	charmState       map[string]string
+	uniterState      string
+	relationState    map[int]string
+	storageState     string
+	meterStatusState string
+}
+
+func (s *UnitSuite) testUnitSuite(c *gc.C) initialUnitState {
 	// Set initial state; this should create a new unitstate doc
-	initialState := map[string]string{
+	initialCharmState := map[string]string{
 		"foo":          "bar",
 		"key.with.dot": "must work",
 		"key.with.$":   "must work to",
@@ -229,20 +423,23 @@ func (s *UnitSuite) testUnitSuite(c *gc.C) (map[string]string, string, map[int]s
 		2: "two",
 	}
 	initialStorageState := "gnitset"
+	initialMeterStatusState := "RED"
+
 	us := state.NewUnitState()
-	us.SetState(initialState)
+	us.SetCharmState(initialCharmState)
 	us.SetUniterState(initialUniterState)
 	us.SetRelationState(initialRelationState)
 	us.SetStorageState(initialStorageState)
-	err := s.unit.SetState(us)
+	us.SetMeterStatusState(initialMeterStatusState)
+	err := s.unit.SetState(us, state.UnitStateSizeLimits{})
 	c.Assert(err, gc.IsNil)
 
 	// Read back initial state
 	uState, err := s.unit.State()
 	c.Assert(err, gc.IsNil)
-	obtainedState, found := uState.State()
+	obtainedCharmState, found := uState.CharmState()
 	c.Assert(found, jc.IsTrue)
-	c.Assert(obtainedState, gc.DeepEquals, initialState)
+	c.Assert(obtainedCharmState, gc.DeepEquals, initialCharmState)
 	obtainedUniterState, found := uState.UniterState()
 	c.Assert(found, jc.IsTrue)
 	c.Assert(obtainedUniterState, gc.Equals, initialUniterState)
@@ -252,12 +449,21 @@ func (s *UnitSuite) testUnitSuite(c *gc.C) (map[string]string, string, map[int]s
 	obtainedStorageState, found := uState.StorageState()
 	c.Assert(found, jc.IsTrue)
 	c.Assert(obtainedStorageState, gc.Equals, initialStorageState)
+	obtainedMeterStatusState, found := uState.MeterStatusState()
+	c.Assert(found, jc.IsTrue)
+	c.Assert(obtainedMeterStatusState, gc.Equals, initialMeterStatusState)
 
-	return initialState, initialUniterState, initialRelationState, initialStorageState
+	return initialUnitState{
+		charmState:       initialCharmState,
+		uniterState:      initialUniterState,
+		relationState:    initialRelationState,
+		storageState:     initialStorageState,
+		meterStatusState: initialMeterStatusState,
+	}
 }
 
-func assertUnitStateState(c *gc.C, uState *state.UnitState, expected map[string]string) {
-	obtained, found := uState.State()
+func assertUnitStateCharmState(c *gc.C, uState *state.UnitState, expected map[string]string) {
+	obtained, found := uState.CharmState()
 	c.Assert(found, jc.IsTrue)
 	c.Assert(obtained, gc.DeepEquals, expected)
 }
@@ -280,9 +486,15 @@ func assertUnitStateStorageState(c *gc.C, uState *state.UnitState, expected stri
 	c.Assert(obtained, gc.Equals, expected)
 }
 
+func assertUnitStateMeterStatusState(c *gc.C, uState *state.UnitState, expected string) {
+	obtained, found := uState.MeterStatusState()
+	c.Assert(found, jc.IsTrue)
+	c.Assert(obtained, gc.Equals, expected)
+}
+
 func (s *UnitSuite) TestUnitStateNopMutation(c *gc.C) {
 	// Set initial state; this should create a new unitstate doc
-	initialState := map[string]string{
+	initialCharmState := map[string]string{
 		"foo":          "bar",
 		"key.with.dot": "must work",
 		"key.with.$":   "must work to",
@@ -295,11 +507,11 @@ func (s *UnitSuite) TestUnitStateNopMutation(c *gc.C) {
 	}
 	initialStorageState := "storage state"
 	iUnitState := state.NewUnitState()
-	iUnitState.SetState(initialState)
+	iUnitState.SetCharmState(initialCharmState)
 	iUnitState.SetUniterState(initialUniterState)
 	iUnitState.SetRelationState(initialRelationState)
 	iUnitState.SetStorageState(initialStorageState)
-	err := s.unit.SetState(iUnitState)
+	err := s.unit.SetState(iUnitState, state.UnitStateSizeLimits{})
 	c.Assert(err, gc.IsNil)
 
 	// Read revno
@@ -312,7 +524,7 @@ func (s *UnitSuite) TestUnitStateNopMutation(c *gc.C) {
 	curRevNo := txnDoc.TxnRevno
 
 	// Set state using the same KV pairs; this should be a no-op
-	err = s.unit.SetState(iUnitState)
+	err = s.unit.SetState(iUnitState, state.UnitStateSizeLimits{})
 	c.Assert(err, gc.IsNil)
 
 	err = coll.Find(nil).One(&txnDoc)
@@ -321,8 +533,8 @@ func (s *UnitSuite) TestUnitStateNopMutation(c *gc.C) {
 
 	// Set state using a different set of KV pairs
 	sUnitState := state.NewUnitState()
-	sUnitState.SetState(map[string]string{"something": "else"})
-	err = s.unit.SetState(sUnitState)
+	sUnitState.SetCharmState(map[string]string{"something": "else"})
+	err = s.unit.SetState(sUnitState, state.UnitStateSizeLimits{})
 	c.Assert(err, gc.IsNil)
 
 	err = coll.Find(nil).One(&txnDoc)
@@ -1859,8 +2071,8 @@ func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitDeletesUnitState(c *gc.C) {
 	// Create unit state document
 	us := state.NewUnitState()
-	us.SetState(map[string]string{"speed": "ludicrous"})
-	err := s.unit.SetState(us)
+	us.SetCharmState(map[string]string{"speed": "ludicrous"})
+	err := s.unit.SetState(us, state.UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	coll := s.Session.DB("juju").C("unitstates")
@@ -1883,8 +2095,8 @@ func (s *UnitSuite) TestRemoveUnitDeletesUnitState(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 
 	newUS := state.NewUnitState()
-	newUS.SetState(map[string]string{"foo": "bar"})
-	err = s.unit.SetState(newUS)
+	newUS.SetCharmState(map[string]string{"foo": "bar"})
+	err = s.unit.SetState(newUS, state.UnitStateSizeLimits{})
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 

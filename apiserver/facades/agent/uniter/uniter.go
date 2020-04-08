@@ -3394,7 +3394,13 @@ func (u *UniterAPI) CommitHookChanges(args params.CommitHookChangesArgs) (params
 			continue
 		}
 
-		res[i].Error = common.ServerError(u.commitHookChangesForOneUnit(unitTag, arg, canAccessUnit, canAccessApp))
+		if err := u.commitHookChangesForOneUnit(unitTag, arg, canAccessUnit, canAccessApp); err != nil {
+			// Log quota-related errors to aid operators
+			if errors.IsQuotaLimitExceeded(err) {
+				logger.Errorf("%s: %v", unitTag, err)
+			}
+			res[i].Error = common.ServerError(err)
+		}
 	}
 
 	return params.ErrorResults{Results: res}, nil
@@ -3402,6 +3408,11 @@ func (u *UniterAPI) CommitHookChanges(args params.CommitHookChangesArgs) (params
 
 func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes params.CommitHookChangesArg, canAccessUnit, canAccessApp common.AuthFunc) error {
 	unit, err := u.getUnit(unitTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ctrlCfg, err := u.st.ControllerConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -3474,12 +3485,38 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		if changes.SetUnitState.Tag != changes.Tag {
 			return common.ErrPerm
 		}
-		if changes.SetUnitState.State != nil {
-			newUS := state.NewUnitState()
-			newUS.SetState(*changes.SetUnitState.State)
-			modelOp := unit.SetStateOperation(newUS)
-			modelOps = append(modelOps, modelOp)
+
+		newUS := state.NewUnitState()
+		if changes.SetUnitState.CharmState != nil {
+			newUS.SetCharmState(*changes.SetUnitState.CharmState)
 		}
+
+		// NOTE(achilleasa): The following state fields are not
+		// presently populated by the uniter calls to this API as they
+		// get persisted after the hook changes get committed. However,
+		// they are still checked here for future use and for ensuring
+		// symmetry with the SetState call (see apiserver/common).
+		if changes.SetUnitState.UniterState != nil {
+			newUS.SetUniterState(*changes.SetUnitState.UniterState)
+		}
+		if changes.SetUnitState.RelationState != nil {
+			newUS.SetRelationState(*changes.SetUnitState.RelationState)
+		}
+		if changes.SetUnitState.StorageState != nil {
+			newUS.SetStorageState(*changes.SetUnitState.StorageState)
+		}
+		if changes.SetUnitState.MeterStatusState != nil {
+			newUS.SetMeterStatusState(*changes.SetUnitState.MeterStatusState)
+		}
+
+		modelOp := unit.SetStateOperation(
+			newUS,
+			state.UnitStateSizeLimits{
+				MaxCharmStateSize: ctrlCfg.MaxCharmStateSize(),
+				MaxAgentStateSize: ctrlCfg.MaxAgentStateSize(),
+			},
+		)
+		modelOps = append(modelOps, modelOp)
 	}
 
 	for _, addParams := range changes.AddStorage {

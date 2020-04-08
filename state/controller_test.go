@@ -55,6 +55,8 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.MongoMemoryProfile,
 		controller.PruneTxnQueryCount,
 		controller.PruneTxnSleepTime,
+		controller.MaxCharmStateSize,
+		controller.MaxAgentStateSize,
 	)
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)
@@ -243,7 +245,7 @@ func (s *ControllerSuite) TestStateServingInfo(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "state serving info not found")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	data := state.StateServingInfo{
+	data := controller.StateServingInfo{
 		APIPort:      69,
 		StatePort:    80,
 		Cert:         "Some cert",
@@ -258,15 +260,15 @@ func (s *ControllerSuite) TestStateServingInfo(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, data)
 }
 
-var setStateServingInfoWithInvalidInfoTests = []func(info *state.StateServingInfo){
-	func(info *state.StateServingInfo) { info.APIPort = 0 },
-	func(info *state.StateServingInfo) { info.StatePort = 0 },
-	func(info *state.StateServingInfo) { info.Cert = "" },
-	func(info *state.StateServingInfo) { info.PrivateKey = "" },
+var setStateServingInfoWithInvalidInfoTests = []func(info *controller.StateServingInfo){
+	func(info *controller.StateServingInfo) { info.APIPort = 0 },
+	func(info *controller.StateServingInfo) { info.StatePort = 0 },
+	func(info *controller.StateServingInfo) { info.Cert = "" },
+	func(info *controller.StateServingInfo) { info.PrivateKey = "" },
 }
 
 func (s *ControllerSuite) TestSetStateServingInfoWithInvalidInfo(c *gc.C) {
-	origData := state.StateServingInfo{
+	origData := controller.StateServingInfo{
 		APIPort:      69,
 		StatePort:    80,
 		Cert:         "Some cert",
