@@ -5,12 +5,15 @@ package space
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/lxc/lxd/shared/logger"
 )
+
+var logger = loggo.GetLogger("juju.environs.space")
 
 // ReloadSpacesState defines an in situ point of use type for ReloadSpaces
 type ReloadSpacesState interface {
