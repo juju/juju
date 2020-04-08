@@ -5,13 +5,13 @@ package upgrades_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os/exec"
 	"path/filepath"
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -45,38 +45,39 @@ func (s *steps276Suite) TestStepRegistered(c *gc.C) {
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.HostMachine})
 }
 
-func (s *steps276Suite) readStateFile(c *gc.C, dir, file string) string {
-	contents, err := ioutil.ReadFile(filepath.Join(dir, fmt.Sprintf("uniter-state-%s.yaml", file)))
+func (s *steps276Suite) readStateFile(c *gc.C, dir, file string) map[string]interface{} {
+	var result map[string]interface{}
+	err := utils.ReadYaml(filepath.Join(dir, fmt.Sprintf("uniter-state-%s.yaml", file)), &result)
 	c.Assert(err, jc.ErrorIsNil)
-	return string(contents)
+	return result
 }
 
 func (s *steps276Suite) TestAddRemoteApplicationToHookSuccess(c *gc.C) {
 	err := upgrades.AddRemoteApplicationToHook(filepath.Join(s.dir, "uniter-state-no-app.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 	// The no-app file should now be identical to the app file.
-	c.Assert(s.readStateFile(c, s.dir, "no-app"), gc.Equals, s.readStateFile(c, s.dir, "app"))
+	c.Assert(s.readStateFile(c, s.dir, "no-app"), gc.DeepEquals, s.readStateFile(c, s.dir, "app"))
 }
 
 func (s *steps276Suite) TestAddRemoteApplicationToHookNoHook(c *gc.C) {
 	err := upgrades.AddRemoteApplicationToHook(filepath.Join(s.dir, "uniter-state-no-hook.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 	// The no-hook file hasn't changed from the original.
-	c.Assert(s.readStateFile(c, s.dir, "no-hook"), gc.Equals, s.readStateFile(c, "testdata", "no-hook"))
+	c.Assert(s.readStateFile(c, s.dir, "no-hook"), gc.DeepEquals, s.readStateFile(c, "testdata", "no-hook"))
 }
 
 func (s *steps276Suite) TestAddRemoteApplicationToHookRemoteApplicationSet(c *gc.C) {
 	err := upgrades.AddRemoteApplicationToHook(filepath.Join(s.dir, "uniter-state-app.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 	// The app file hasn't changed from the original.
-	c.Assert(s.readStateFile(c, s.dir, "app"), gc.Equals, s.readStateFile(c, "testdata", "app"))
+	c.Assert(s.readStateFile(c, s.dir, "app"), gc.DeepEquals, s.readStateFile(c, "testdata", "app"))
 }
 
 func (s *steps276Suite) TestAddRemoteApplicationToRunningHooks(c *gc.C) {
 	err := upgrades.AddRemoteApplicationToRunningHooks(filepath.Join(s.dir, "uniter-state-*.yaml"))(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// The no-app file's been updated but the others have been left alone.
-	c.Assert(s.readStateFile(c, s.dir, "no-app"), gc.Equals, s.readStateFile(c, s.dir, "app"))
-	c.Assert(s.readStateFile(c, s.dir, "no-hook"), gc.Equals, s.readStateFile(c, "testdata", "no-hook"))
-	c.Assert(s.readStateFile(c, s.dir, "app"), gc.Equals, s.readStateFile(c, "testdata", "app"))
+	c.Assert(s.readStateFile(c, s.dir, "no-app"), gc.DeepEquals, s.readStateFile(c, s.dir, "app"))
+	c.Assert(s.readStateFile(c, s.dir, "no-hook"), gc.DeepEquals, s.readStateFile(c, "testdata", "no-hook"))
+	c.Assert(s.readStateFile(c, s.dir, "app"), gc.DeepEquals, s.readStateFile(c, "testdata", "app"))
 }

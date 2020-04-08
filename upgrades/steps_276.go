@@ -59,30 +59,48 @@ func AddRemoteApplicationToRunningHooks(pattern string) func(Context) error {
 // remote application so that it does. (If it doesn't validate for
 // some other reason we won't change the file.)
 func AddRemoteApplicationToHook(path string) error {
-	var uniterState operation.State
+	var uniterState map[string]interface{}
 	err := utils.ReadYaml(path, &uniterState)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if uniterState.Hook == nil {
-		logger.Debugf("no hook found in %q, unable to fix", path)
+	hookUnconverted, found := uniterState["hook"]
+	if !found {
+		logger.Warningf("no hook found in %q, unable to fix", path)
 		return nil
 	}
 
-	if uniterState.Hook.RemoteApplication != "" {
-		logger.Debugf("remote-application in %q set to %q already", path,
-			uniterState.Hook.RemoteApplication)
+	hook, ok := hookUnconverted.(map[interface{}]interface{})
+	if !ok {
+		logger.Warningf("fixing %q: expected hook to be a map[interface{}]interface{}, got %T", path, hookUnconverted)
 		return nil
 	}
 
-	appName, err := names.UnitApplication(uniterState.Hook.RemoteUnit)
+	if val, found := hook["remote-application"]; found {
+		logger.Debugf("remote-application in %q set to %v already", path, val)
+		return nil
+	}
+
+	unitUnconverted, found := hook["remote-unit"]
+	if !found {
+		logger.Warningf("fixing %q: remote-unit not found")
+		return nil
+	}
+
+	unit, ok := unitUnconverted.(string)
+	if !ok {
+		logger.Warningf("fixing %q: expected remote-unit to be string, got %T", path, unitUnconverted)
+		return nil
+	}
+
+	appName, err := names.UnitApplication(unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	logger.Debugf("setting remote-application to %q in %q", appName, path)
-	uniterState.Hook.RemoteApplication = appName
-	return errors.Annotatef(operation.NewStateFile(path).Write(&uniterState),
+	hook["remote-application"] = appName
+	return errors.Annotatef(utils.WriteYaml(path, uniterState),
 		"writing updated state to %q", path)
 }
