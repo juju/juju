@@ -82,8 +82,8 @@ func guiEndpoints(pattern, dataDir string, ctxt httpContext) []apihttp.Endpoint 
 			})
 		}
 	}
-	add(pattern+"config.js", (*guiHandler).serveConfig)
-	add(pattern+"static/", (*guiHandler).serveStatic)
+	add("/config.js", (*guiHandler).serveConfig)
+	add("/static/", (*guiHandler).serveStatic)
 	// The index is served when all remaining URLs are requested, so that
 	// the single page JavaScript application can properly handles its routes.
 	add(pattern, (*guiHandler).serveIndex)
@@ -388,12 +388,7 @@ func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", jsMimeType)
-	base := h.basePath
 	// These query parameters may be set by the index handler.
-	uuid := req.URL.Query().Get("model-uuid")
-	if uuid != "" {
-		base += req.URL.Query().Get("base-postfix")
-	}
 	tmpl := filepath.Join(h.rootDir, "config.js.go")
 	if err := renderGUITemplate(w, tmpl, map[string]interface{}{
 		"baseAppURL":                guiURLPathPrefix,
