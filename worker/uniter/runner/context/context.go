@@ -689,7 +689,7 @@ func (c *HookContext) ActionData() (*ActionData, error) {
 // HookVars returns an os.Environ-style list of strings necessary to run a hook
 // such that it can know what environment it's operating in, and can call back
 // into context.
-func (context *HookContext) HookVars(paths Paths, remote bool) ([]string, error) {
+func (context *HookContext) HookVars(paths Paths, remote bool, getEnv GetEnvFunc) ([]string, error) {
 	vars := context.legacyProxySettings.AsEnvironmentValues()
 	// TODO(thumper): as work on proxies progress, there will be additional
 	// proxy settings to be added.
@@ -751,8 +751,7 @@ func (context *HookContext) HookVars(paths Paths, remote bool) ([]string, error)
 			"JUJU_ACTION_TAG="+context.actionData.Tag.String(),
 		)
 	}
-
-	return append(vars, OSDependentEnvVars(paths)...), nil
+	return append(vars, OSDependentEnvVars(paths, getEnv)...), nil
 }
 
 func (ctx *HookContext) handleReboot(err *error) {

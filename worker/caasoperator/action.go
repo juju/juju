@@ -34,7 +34,7 @@ func remoteExecute(execClient exec.Executor,
 	}
 	providerID := providerIDGetter.ProviderID()
 	unitName := providerIDGetter.Name()
-	logger.Debugf("exec on pod %q for unit %q, cmd %v", providerID, unitName, params.Commands)
+	logger.Debugf("exec on pod %q for unit %q, cmd %+q", providerID, unitName, params.Commands)
 	if providerID == "" {
 		return nil, errors.NotFoundf("pod for %q", unitName)
 	}

@@ -65,7 +65,15 @@ func (*dummyPaths) ComponentDir(name string) string { return "/dummy/" + name }
 func (s *ContextSuite) TestHookContextEnv(c *gc.C) {
 	ctx := collect.NewHookContext("u/0", s.recorder)
 	paths := &dummyPaths{}
-	vars, err := ctx.HookVars(paths, false)
+	vars, err := ctx.HookVars(paths, false, func(k string) string {
+		switch k {
+		case "PATH", "Path":
+			return "pathy"
+		default:
+			c.Errorf("unexpected get env call for %q", k)
+		}
+		return ""
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	varMap, err := keyvalues.Parse(vars, true)
 	c.Assert(err, jc.ErrorIsNil)
