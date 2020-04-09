@@ -117,7 +117,6 @@ func (s *SpacesSuite) TestAddSpaceWithNoSubnetsAndEmptyProviderId(c *gc.C) {
 	space, err := s.addSpaceWithSubnets(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSpaceMatchesArgs(c, space, args)
-
 }
 
 func (s *SpacesSuite) TestAddSpaceWithNoSubnetsAndNonEmptyProviderId(c *gc.C) {
@@ -655,6 +654,7 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 				CIDR:              "1.1.1.0/24",
 				VLANTag:           79,
 				AvailabilityZones: []string{"AvailabilityZone"},
+				ProviderSpaceId:   "some id 2",
 			},
 			{
 				SpaceID:           space.Id(),
@@ -666,6 +666,7 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 					FanLocalUnderlay: "1.1.1.0/24",
 					FanOverlay:       "253.0.0.0/8",
 				},
+				ProviderSpaceId: "some id 2",
 			},
 			{
 				SpaceID:           space.Id(),
@@ -673,6 +674,7 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 				CIDR:              "2001:cbd0::/32",
 				VLANTag:           79,
 				AvailabilityZones: []string{"AvailabilityZone"},
+				ProviderSpaceId:   "some id 2",
 			},
 		},
 	}

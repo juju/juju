@@ -322,8 +322,8 @@ func (s *Subnet) updateSpaceName(spaceName string) (bool, error) {
 	return spaceNameChange && spaceName != "" && s.doc.FanLocalUnderlay == "", nil
 }
 
-// networkSubnet maps the subnet fields into a network.SubnetInfo.
-func (s *Subnet) networkSubnet() network.SubnetInfo {
+// NetworkSubnet maps the subnet fields into a network.SubnetInfo.
+func (s *Subnet) NetworkSubnet() network.SubnetInfo {
 	var fanInfo *network.FanCIDRs
 	if s.doc.FanLocalUnderlay != "" || s.doc.FanOverlay != "" {
 		fanInfo = &network.FanCIDRs{
@@ -357,6 +357,20 @@ func (s *Subnet) networkSubnet() network.SubnetInfo {
 	}
 
 	return sInfo
+}
+
+// AllSubnetInfos returns SubnetInfos for all subnets in the model.
+func (st *State) AllSubnetInfos() (network.SubnetInfos, error) {
+	subs, err := st.AllSubnets()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result := make(network.SubnetInfos, len(subs))
+	for i, sub := range subs {
+		result[i] = sub.NetworkSubnet()
+	}
+	return result, nil
 }
 
 // SubnetUpdate adds new info to the subnet based on provided info.
