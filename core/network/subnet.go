@@ -5,7 +5,6 @@ package network
 
 import (
 	"net"
-	"sort"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -163,62 +162,6 @@ func FindSubnetIDsForAvailabilityZone(zoneName string, subnetsToZones map[Id][]s
 	}
 
 	return sorted, nil
-}
-
-// SubnetSet represents the classic "set" data structure, and contains Id.
-// SubnetSet is used as a typed version to prevent string -> Id -> string
-// conversion when using set.Strings
-type SubnetSet map[Id]struct{}
-
-// MakeSubnetSet creates and initializes a SubnetSet and populates it with
-// initial values as specified in the parameters.
-func MakeSubnetSet(values ...Id) SubnetSet {
-	set := make(map[Id]struct{}, len(values))
-	for _, id := range values {
-		set[id] = struct{}{}
-	}
-	return set
-}
-
-// Add puts a value into the set.
-func (s SubnetSet) Add(value Id) {
-	s[value] = struct{}{}
-}
-
-// Size returns the number of elements in the set.
-func (s SubnetSet) Size() int {
-	return len(s)
-}
-
-// IsEmpty is true for empty or uninitialized sets.
-func (s SubnetSet) IsEmpty() bool {
-	return len(s) == 0
-}
-
-// Contains returns true if the value is in the set, and false otherwise.
-func (s SubnetSet) Contains(id Id) bool {
-	_, exists := s[id]
-	return exists
-}
-
-// Values returns an unordered slice containing all the values in the set.
-func (s SubnetSet) Values() []Id {
-	result := make([]Id, len(s))
-	i := 0
-	for key := range s {
-		result[i] = key
-		i++
-	}
-	return result
-}
-
-// SortedValues returns an ordered slice containing all the values in the set.
-func (s SubnetSet) SortedValues() []Id {
-	values := s.Values()
-	sort.Slice(values, func(i, j int) bool {
-		return values[i] < values[j]
-	})
-	return values
 }
 
 // InFan describes a network fan type.

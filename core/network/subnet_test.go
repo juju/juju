@@ -4,8 +4,6 @@
 package network_test
 
 import (
-	"sort"
-
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/testing"
@@ -73,76 +71,6 @@ func (*subnetSuite) TestFindSubnetIDsForAZ(c *gc.C) {
 			c.Check(res, gc.DeepEquals, t.expected)
 		}
 	}
-}
-
-func (subnetSuite) TestSubnetSetSize(c *gc.C) {
-	// Empty sets are empty.
-	s := network.MakeSubnetSet()
-	c.Assert(s.Size(), gc.Equals, 0)
-
-	// Size returns number of unique values.
-	s = network.MakeSubnetSet("foo", "foo", "bar")
-	c.Assert(s.Size(), gc.Equals, 2)
-}
-
-func (subnetSuite) TestSubnetSetEmpty(c *gc.C) {
-	s := network.MakeSubnetSet()
-	assertValues(c, s)
-}
-
-func (subnetSuite) TestSubnetSetInitialValues(c *gc.C) {
-	values := []network.Id{"foo", "bar", "baz"}
-	s := network.MakeSubnetSet(values...)
-	assertValues(c, s, values...)
-}
-
-func (subnetSuite) TestSubnetSetIsEmpty(c *gc.C) {
-	// Empty sets are empty.
-	s := network.MakeSubnetSet()
-	c.Assert(s.IsEmpty(), gc.Equals, true)
-
-	// Non-empty sets are not empty.
-	s = network.MakeSubnetSet("foo")
-	c.Assert(s.IsEmpty(), gc.Equals, false)
-}
-
-func (subnetSuite) TestSubnetSetAdd(c *gc.C) {
-	s := network.MakeSubnetSet()
-	s.Add("foo")
-	s.Add("foo")
-	s.Add("bar")
-	assertValues(c, s, "foo", "bar")
-}
-
-func (subnetSuite) TestSubnetSetContains(c *gc.C) {
-	s := network.MakeSubnetSet("foo", "bar")
-	c.Assert(s.Contains("foo"), gc.Equals, true)
-	c.Assert(s.Contains("bar"), gc.Equals, true)
-	c.Assert(s.Contains("baz"), gc.Equals, false)
-}
-
-// Helper methods for the tests.
-func assertValues(c *gc.C, s network.SubnetSet, expected ...network.Id) {
-	values := s.Values()
-
-	// Expect an empty slice, not a nil slice for values.
-	if expected == nil {
-		expected = make([]network.Id, 0)
-	}
-
-	sort.Slice(expected, func(i, j int) bool {
-		return expected[i] < expected[j]
-	})
-	sort.Slice(values, func(i, j int) bool {
-		return values[i] < values[j]
-	})
-
-	c.Assert(values, gc.DeepEquals, expected)
-	c.Assert(s.Size(), gc.Equals, len(expected))
-
-	// Check the sorted values too.
-	sorted := s.SortedValues()
-	c.Assert(sorted, gc.DeepEquals, expected)
 }
 
 func (*subnetSuite) TestFilterInFanNetwork(c *gc.C) {

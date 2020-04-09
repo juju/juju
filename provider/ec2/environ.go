@@ -592,7 +592,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 			corenetwork.FindSubnetIDsForAvailabilityZone(availabilityZone, subnetZones)
 
 		if subnetErr == nil && placementSubnetID != "" {
-			asSet := corenetwork.MakeSubnetSet(subnetIDsForZone...)
+			asSet := corenetwork.MakeIDSet(subnetIDsForZone...)
 			if asSet.Contains(placementSubnetID) {
 				subnetIDsForZone = []corenetwork.Id{placementSubnetID}
 			} else {
