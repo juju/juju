@@ -38,7 +38,6 @@ func (s *PathsSuite) TestPaths(c *gc.C) {
 		State: caasoperator.StatePaths{
 			BaseDir:         relAgent(),
 			CharmDir:        relAgent("charm"),
-			RelationsDir:    relAgent("state", "relations"),
 			BundlesDir:      relAgent("state", "bundles"),
 			DeployerDir:     relAgent("state", "deployer"),
 			OperationsFile:  relAgent("state", "operator"),

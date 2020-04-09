@@ -90,10 +90,6 @@ type StatePaths struct {
 	// been installed.
 	DeployerDir string
 
-	// RelationsDir holds relation-specific information about what the
-	// operator is doing and/or has done.
-	RelationsDir string
-
 	// MetricsSpoolDir acts as temporary storage for metrics being sent from
 	// the operator to state.
 	MetricsSpoolDir string
@@ -114,7 +110,6 @@ func NewPaths(dataDir string, applicationTag names.ApplicationTag) Paths {
 			CharmDir:        join(baseDir, "charm"),
 			BundlesDir:      join(stateDir, "bundles"),
 			DeployerDir:     join(stateDir, "deployer"),
-			RelationsDir:    join(stateDir, "relations"),
 			OperationsFile:  join(stateDir, "operator"),
 			MetricsSpoolDir: join(stateDir, "spool", "metrics"),
 		},
