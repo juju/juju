@@ -181,6 +181,15 @@
   name = "k8s.io/client-go"  # release-14.0
   revision = "19522ff2880261a5116cf35985e08de6c6dfb681"
 
+[[constraint]]
+  name = "k8s.io/kubectl"  # release-1.17
+  revision = "fa62e3c3993e1500b493040317362f759b510026"
+
+[[constraint]]
+  # REMOVE once implement builder!!
+  name = "k8s.io/cli-runtime"  # release-1.17
+  revision = "f801c5a50d41bf0b1576ac70bae4fc2f4c04ae7e"
+  
 [[override]]
   name = "github.com/masterzen/xmlpath"
   revision = "13f4951698adc0fa9c1dda3e275d489a24201161"
