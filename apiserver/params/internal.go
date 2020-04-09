@@ -311,6 +311,7 @@ type CommitHookChangesArg struct {
 	SetUnitState         *SetUnitStateArg       `json:"unit-state,omitempty"`
 	AddStorage           []StorageAddParams     `json:"add-storage,omitempty"`
 	SetPodSpec           *PodSpec               `json:"pod-spec,omitempty"`
+	SetRawK8sSpec        *PodSpec               `json:"set-raw-k8s-spec,omitempty"`
 }
 
 // ModelConfig holds a model configuration.

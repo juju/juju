@@ -94,6 +94,7 @@ type mockModel struct {
 	testing.Stub
 	podSpecWatcher *statetesting.MockNotifyWatcher
 	containers     []state.CloudContainer
+	isRawK8sSpec   *bool
 }
 
 func (m *mockModel) ModelConfig() (*config.Config, error) {
@@ -109,7 +110,21 @@ func (m *mockModel) PodSpec(tag names.ApplicationTag) (string, error) {
 	if err := m.NextErr(); err != nil {
 		return "", err
 	}
+	if *m.isRawK8sSpec {
+		return "", nil
+	}
 	return "spec(" + tag.Id() + ")", nil
+}
+
+func (m *mockModel) RawK8sSpec(tag names.ApplicationTag) (string, error) {
+	m.MethodCall(m, "RawK8sSpec", tag)
+	if err := m.NextErr(); err != nil {
+		return "", err
+	}
+	if *m.isRawK8sSpec {
+		return "raw spec(" + tag.Id() + ")", nil
+	}
+	return "", nil
 }
 
 func (m *mockModel) WatchPodSpec(tag names.ApplicationTag) (state.NotifyWatcher, error) {
@@ -228,9 +243,9 @@ func (m *mockApplication) Constraints() (constraints.Value, error) {
 	return constraints.MustParse("mem=64G"), nil
 }
 
-func (m *mockApplication) UpdateCloudService(providerId string, addreses []network.SpaceAddress) error {
+func (m *mockApplication) UpdateCloudService(providerId string, addresses []network.SpaceAddress) error {
 	m.providerId = providerId
-	m.addresses = addreses
+	m.addresses = addresses
 	return nil
 }
 

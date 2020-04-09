@@ -64,6 +64,7 @@ type DeviceBackend interface {
 type Model interface {
 	ModelConfig() (*config.Config, error)
 	PodSpec(tag names.ApplicationTag) (string, error)
+	RawK8sSpec(tag names.ApplicationTag) (string, error)
 	WatchPodSpec(tag names.ApplicationTag) (state.NotifyWatcher, error)
 	Containers(providerIds ...string) ([]state.CloudContainer, error)
 }

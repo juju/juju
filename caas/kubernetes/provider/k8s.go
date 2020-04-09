@@ -877,6 +877,17 @@ func processConstraints(pod *core.PodSpec, appName string, cons constraints.Valu
 	return nil
 }
 
+// ApplyRawK8sSpec applies raw k8s spec to the k8s cluster.
+func (k *kubernetesClient) ApplyRawK8sSpec(specStr string) error {
+	spec, err := k8sspecs.ParseRawK8sSpec(specStr)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Debugf("specStr -> %s", specStr)
+	logger.Debugf("spec -> %s", pretty.Sprint(spec))
+	return errors.NotImplementedf("raw k8s spec")
+}
+
 // EnsureService creates or updates a service for pods with the given params.
 func (k *kubernetesClient) EnsureService(
 	appName string,

@@ -87,7 +87,7 @@ func (m *ModelStatus) Application(appName string, unitNames []string) (status.St
 		return status.StatusInfo{}, err
 	}
 	appStatus := doc.asStatusInfo()
-	expectWorkload, err := expectWorkload(m.model.st, appName)
+	expectWorkload, err := CheckApplicationExpectsWorkload(m.model, appName)
 	if err != nil {
 		return status.StatusInfo{}, errors.Trace(err)
 	}

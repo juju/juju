@@ -19,6 +19,7 @@ type KubernetesDeploymentInfo struct {
 type KubernetesProvisioningInfo struct {
 	DeploymentInfo    *KubernetesDeploymentInfo    `json:"deployment-info,omitempty"`
 	PodSpec           string                       `json:"pod-spec"`
+	RawK8sSpec        string                       `json:"raw-k8s-spec,omitempty"`
 	Constraints       constraints.Value            `json:"constraints"`
 	Tags              map[string]string            `json:"tags,omitempty"`
 	Filesystems       []KubernetesFilesystemParams `json:"filesystems,omitempty"`

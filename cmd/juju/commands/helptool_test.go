@@ -58,6 +58,8 @@ Currently available charm hook tools are:
     is-leader                print application leadership status
     juju-log                 write a message to the juju log
     juju-reboot              Reboot the host machine
+    k8s-raw-get              get k8s raw spec information
+    k8s-raw-set              set k8s raw spec information
     k8s-spec-get             get k8s spec information
     k8s-spec-set             set k8s spec information
     leader-get               print application leadership settings
@@ -105,6 +107,8 @@ var expectedCommands = []string{
 	"is-leader",
 	"juju-log",
 	"juju-reboot",
+	"k8s-raw-get",
+	"k8s-raw-set",
 	"k8s-spec-get",
 	"k8s-spec-set",
 	"leader-get",

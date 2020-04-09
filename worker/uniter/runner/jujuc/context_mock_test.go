@@ -5,11 +5,10 @@
 package jujuc
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/apiserver/params"
 	relation "github.com/juju/juju/core/relation"
+	reflect "reflect"
 )
 
 // MockContextRelation is a mock of ContextRelation interface
@@ -37,6 +36,7 @@ func (m *MockContextRelation) EXPECT() *MockContextRelationMockRecorder {
 
 // ApplicationSettings mocks base method
 func (m *MockContextRelation) ApplicationSettings() (Settings, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplicationSettings")
 	ret0, _ := ret[0].(Settings)
 	ret1, _ := ret[1].(error)
@@ -45,11 +45,13 @@ func (m *MockContextRelation) ApplicationSettings() (Settings, error) {
 
 // ApplicationSettings indicates an expected call of ApplicationSettings
 func (mr *MockContextRelationMockRecorder) ApplicationSettings() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationSettings", reflect.TypeOf((*MockContextRelation)(nil).ApplicationSettings))
 }
 
 // FakeId mocks base method
 func (m *MockContextRelation) FakeId() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FakeId")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -57,11 +59,13 @@ func (m *MockContextRelation) FakeId() string {
 
 // FakeId indicates an expected call of FakeId
 func (mr *MockContextRelationMockRecorder) FakeId() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FakeId", reflect.TypeOf((*MockContextRelation)(nil).FakeId))
 }
 
 // Id mocks base method
 func (m *MockContextRelation) Id() int {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Id")
 	ret0, _ := ret[0].(int)
 	return ret0
@@ -69,11 +73,13 @@ func (m *MockContextRelation) Id() int {
 
 // Id indicates an expected call of Id
 func (mr *MockContextRelationMockRecorder) Id() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Id", reflect.TypeOf((*MockContextRelation)(nil).Id))
 }
 
 // Name mocks base method
 func (m *MockContextRelation) Name() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Name")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -81,11 +87,13 @@ func (m *MockContextRelation) Name() string {
 
 // Name indicates an expected call of Name
 func (mr *MockContextRelationMockRecorder) Name() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockContextRelation)(nil).Name))
 }
 
 // ReadApplicationSettings mocks base method
 func (m *MockContextRelation) ReadApplicationSettings(arg0 string) (params.Settings, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadApplicationSettings", arg0)
 	ret0, _ := ret[0].(params.Settings)
 	ret1, _ := ret[1].(error)
@@ -94,11 +102,13 @@ func (m *MockContextRelation) ReadApplicationSettings(arg0 string) (params.Setti
 
 // ReadApplicationSettings indicates an expected call of ReadApplicationSettings
 func (mr *MockContextRelationMockRecorder) ReadApplicationSettings(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadApplicationSettings", reflect.TypeOf((*MockContextRelation)(nil).ReadApplicationSettings), arg0)
 }
 
 // ReadSettings mocks base method
 func (m *MockContextRelation) ReadSettings(arg0 string) (params.Settings, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadSettings", arg0)
 	ret0, _ := ret[0].(params.Settings)
 	ret1, _ := ret[1].(error)
@@ -107,11 +117,13 @@ func (m *MockContextRelation) ReadSettings(arg0 string) (params.Settings, error)
 
 // ReadSettings indicates an expected call of ReadSettings
 func (mr *MockContextRelationMockRecorder) ReadSettings(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSettings", reflect.TypeOf((*MockContextRelation)(nil).ReadSettings), arg0)
 }
 
 // SetStatus mocks base method
 func (m *MockContextRelation) SetStatus(arg0 relation.Status) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetStatus", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -119,11 +131,13 @@ func (m *MockContextRelation) SetStatus(arg0 relation.Status) error {
 
 // SetStatus indicates an expected call of SetStatus
 func (mr *MockContextRelationMockRecorder) SetStatus(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockContextRelation)(nil).SetStatus), arg0)
 }
 
 // Settings mocks base method
 func (m *MockContextRelation) Settings() (Settings, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Settings")
 	ret0, _ := ret[0].(Settings)
 	ret1, _ := ret[1].(error)
@@ -132,11 +146,13 @@ func (m *MockContextRelation) Settings() (Settings, error) {
 
 // Settings indicates an expected call of Settings
 func (mr *MockContextRelationMockRecorder) Settings() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Settings", reflect.TypeOf((*MockContextRelation)(nil).Settings))
 }
 
 // Suspended mocks base method
 func (m *MockContextRelation) Suspended() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Suspended")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -144,11 +160,13 @@ func (m *MockContextRelation) Suspended() bool {
 
 // Suspended indicates an expected call of Suspended
 func (mr *MockContextRelationMockRecorder) Suspended() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Suspended", reflect.TypeOf((*MockContextRelation)(nil).Suspended))
 }
 
 // UnitNames mocks base method
 func (m *MockContextRelation) UnitNames() []string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnitNames")
 	ret0, _ := ret[0].([]string)
 	return ret0
@@ -156,5 +174,6 @@ func (m *MockContextRelation) UnitNames() []string {
 
 // UnitNames indicates an expected call of UnitNames
 func (mr *MockContextRelationMockRecorder) UnitNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitNames", reflect.TypeOf((*MockContextRelation)(nil).UnitNames))
 }

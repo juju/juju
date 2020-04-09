@@ -157,7 +157,7 @@ func (u *Unit) AddMetrics(metrics []params.Metric) error {
 	return result.OneError()
 }
 
-// AddMetricsBatches makes an api call to the uniter requesting it to store metrics batches in state.
+// AddMetricBatches makes an api call to the uniter requesting it to store metrics batches in state.
 func (u *Unit) AddMetricBatches(batches []params.MetricBatch) (map[string]error, error) {
 	p := params.MetricBatchParams{
 		Batches: make([]params.MetricBatchParam, len(batches)),
@@ -700,7 +700,7 @@ type RelationStatus struct {
 	InScope bool
 }
 
-// RelationStatus returns the tags of the relations the unit has joined
+// RelationsStatus returns the tags of the relations the unit has joined
 // and entered scope, or the relation is suspended.
 func (u *Unit) RelationsStatus() ([]RelationStatus, error) {
 	args := params.Entities{
@@ -920,7 +920,7 @@ func (b *CommitHookParamsBuilder) UpdateRelationUnitSettings(relName string, uni
 	})
 }
 
-// UpdateRelationUnitSettings records a request to update the network information
+// UpdateNetworkInfo records a request to update the network information
 // settings for each joined relation.
 func (b *CommitHookParamsBuilder) UpdateNetworkInfo() {
 	b.arg.UpdateNetworkInfo = true
@@ -960,6 +960,14 @@ func (b *CommitHookParamsBuilder) SetPodSpec(appTag names.ApplicationTag, spec *
 	}
 }
 
+// SetRawK8sSpec records a request to update the PodSpec for an application.
+func (b *CommitHookParamsBuilder) SetRawK8sSpec(appTag names.ApplicationTag, spec *string) {
+	b.arg.SetRawK8sSpec = &params.PodSpec{
+		Tag:  appTag.String(),
+		Spec: spec,
+	}
+}
+
 // Build assembles the recorded change requests into a CommitHookChangesArgs
 // instance that can be passed as an argument to the CommitHookChanges API
 // call.
@@ -981,6 +989,9 @@ func (b *CommitHookParamsBuilder) changeCount() int {
 		count++
 	}
 	if b.arg.SetPodSpec != nil {
+		count++
+	}
+	if b.arg.SetRawK8sSpec != nil {
 		count++
 	}
 

@@ -10,8 +10,8 @@ import (
 	application "github.com/juju/juju/core/application"
 	network "github.com/juju/juju/core/network"
 	jujuc "github.com/juju/juju/worker/uniter/runner/jujuc"
-	charm "gopkg.in/juju/charm.v6"
-	names "gopkg.in/juju/names.v3"
+	charm_v6 "gopkg.in/juju/charm.v6"
+	names_v3 "gopkg.in/juju/names.v3"
 	reflect "reflect"
 	time "time"
 )
@@ -171,10 +171,10 @@ func (mr *MockContextMockRecorder) Component(arg0 interface{}) *gomock.Call {
 }
 
 // ConfigSettings mocks base method
-func (m *MockContext) ConfigSettings() (charm.Settings, error) {
+func (m *MockContext) ConfigSettings() (charm_v6.Settings, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConfigSettings")
-	ret0, _ := ret[0].(charm.Settings)
+	ret0, _ := ret[0].(charm_v6.Settings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -242,6 +242,21 @@ func (m *MockContext) GetPodSpec() (string, error) {
 func (mr *MockContextMockRecorder) GetPodSpec() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPodSpec", reflect.TypeOf((*MockContext)(nil).GetPodSpec))
+}
+
+// GetRawK8sSpec mocks base method
+func (m *MockContext) GetRawK8sSpec() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRawK8sSpec")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRawK8sSpec indicates an expected call of GetRawK8sSpec
+func (mr *MockContextMockRecorder) GetRawK8sSpec() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRawK8sSpec", reflect.TypeOf((*MockContext)(nil).GetRawK8sSpec))
 }
 
 // GoalState mocks base method
@@ -550,6 +565,20 @@ func (mr *MockContextMockRecorder) SetPodSpec(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPodSpec", reflect.TypeOf((*MockContext)(nil).SetPodSpec), arg0)
 }
 
+// SetRawK8sSpec mocks base method
+func (m *MockContext) SetRawK8sSpec(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRawK8sSpec", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRawK8sSpec indicates an expected call of SetRawK8sSpec
+func (mr *MockContextMockRecorder) SetRawK8sSpec(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRawK8sSpec", reflect.TypeOf((*MockContext)(nil).SetRawK8sSpec), arg0)
+}
+
 // SetUnitStatus mocks base method
 func (m *MockContext) SetUnitStatus(arg0 jujuc.StatusInfo) error {
 	m.ctrl.T.Helper()
@@ -579,7 +608,7 @@ func (mr *MockContextMockRecorder) SetUnitWorkloadVersion(arg0 interface{}) *gom
 }
 
 // Storage mocks base method
-func (m *MockContext) Storage(arg0 names.StorageTag) (jujuc.ContextStorageAttachment, error) {
+func (m *MockContext) Storage(arg0 names_v3.StorageTag) (jujuc.ContextStorageAttachment, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Storage", arg0)
 	ret0, _ := ret[0].(jujuc.ContextStorageAttachment)
@@ -594,10 +623,10 @@ func (mr *MockContextMockRecorder) Storage(arg0 interface{}) *gomock.Call {
 }
 
 // StorageTags mocks base method
-func (m *MockContext) StorageTags() ([]names.StorageTag, error) {
+func (m *MockContext) StorageTags() ([]names_v3.StorageTag, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StorageTags")
-	ret0, _ := ret[0].([]names.StorageTag)
+	ret0, _ := ret[0].([]names_v3.StorageTag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

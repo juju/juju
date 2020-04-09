@@ -49,6 +49,12 @@ type CAASProvisionerSuite struct {
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 	facade     *caasunitprovisioner.Facade
+
+	isRawK8sSpec *bool
+}
+
+func boolptr(i bool) *bool {
+	return &i
 }
 
 func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
@@ -57,6 +63,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.applicationsChanges = make(chan []string, 1)
 	s.podSpecChanges = make(chan struct{}, 1)
 	s.scaleChanges = make(chan struct{}, 1)
+	s.isRawK8sSpec = boolptr(false)
 	s.st = &mockState{
 		application: mockApplication{
 			tag:          names.NewApplicationTag("gitlab"),
@@ -67,6 +74,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 		applicationsWatcher: statetesting.NewMockStringsWatcher(s.applicationsChanges),
 		model: mockModel{
 			podSpecWatcher: statetesting.NewMockNotifyWatcher(s.podSpecChanges),
+			isRawK8sSpec:   s.isRawK8sSpec,
 		},
 		unit: mockUnit{
 			life: state.Dying,
@@ -162,7 +170,7 @@ func (s *CAASProvisionerSuite) TestWatchApplicationsScale(c *gc.C) {
 	c.Assert(resource, gc.Equals, s.st.application.scaleWatcher)
 }
 
-func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
+func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool) {
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", life: state.Dying},
 		&mockUnit{name: "gitlab/1", life: state.Alive},
@@ -186,7 +194,7 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 			},
 		},
 	}
-
+	*s.isRawK8sSpec = isRawK8sSpec
 	results, err := s.facade.ProvisioningInfo(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -197,7 +205,6 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	// Maps are harder to check...
 	// http://ci.jujucharms.com/job/make-check-juju/4853/testReport/junit/github/com_juju_juju_apiserver_facades_controller_caasunitprovisioner/TestAll/
 	expectedResult := &params.KubernetesProvisioningInfo{
-		PodSpec: "spec(gitlab)",
 		DeploymentInfo: &params.KubernetesDeploymentInfo{
 			DeploymentType: "stateful",
 			ServiceType:    "loadbalancer",
@@ -214,6 +221,11 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 		Tags: map[string]string{
 			"juju-model-uuid":      coretesting.ModelTag.Id(),
 			"juju-controller-uuid": coretesting.ControllerTag.Id()},
+	}
+	if isRawK8sSpec {
+		expectedResult.RawK8sSpec = "raw spec(gitlab)"
+	} else {
+		expectedResult.PodSpec = "spec(gitlab)"
 	}
 	expectedFileSystems := map[string]params.KubernetesFilesystemParams{
 		"data": {
@@ -252,6 +264,7 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	obtained := results.Results[0].Result
 	c.Assert(obtained, gc.NotNil)
 	c.Assert(obtained.PodSpec, jc.DeepEquals, expectedResult.PodSpec)
+	c.Assert(obtained.RawK8sSpec, jc.DeepEquals, expectedResult.RawK8sSpec)
 	c.Assert(obtained.DeploymentInfo, jc.DeepEquals, expectedResult.DeploymentInfo)
 	c.Assert(obtained.OperatorImagePath, gc.Equals, expectedResult.OperatorImagePath)
 	c.Assert(len(obtained.Filesystems), gc.Equals, len(expectedFileSystems))
@@ -269,6 +282,13 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	s.st.CheckCallNames(c, "Model", "Application", "ControllerConfig", "ResolveConstraints")
 	s.st.CheckCall(c, 3, "ResolveConstraints", constraints.MustParse("mem=64G"))
 	s.storagePoolManager.CheckCallNames(c, "Get", "Get")
+}
+
+func (s *CAASProvisionerSuite) TestProvisioningInfoK8sSpec(c *gc.C) {
+	s.assertProvisioningInfo(c, false)
+}
+func (s *CAASProvisionerSuite) TestProvisioningInfoRawK8sSpec(c *gc.C) {
+	s.assertProvisioningInfo(c, true)
 }
 
 func (s *CAASProvisionerSuite) TestApplicationScale(c *gc.C) {

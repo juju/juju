@@ -2646,11 +2646,8 @@ func (a *Application) Status() (status.StatusInfo, error) {
 	return getStatus(a.st.db(), a.globalKey(), "application")
 }
 
-func expectWorkload(st *State, appName string) (bool, error) {
-	m, err := st.Model()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
+// CheckApplicationExpectsWorkload checks if the application expects workload or not.
+func CheckApplicationExpectsWorkload(m *Model, appName string) (bool, error) {
 	cm, err := m.CAASModel()
 	if err != nil {
 		// IAAS models alway have a unit workload.
@@ -2678,7 +2675,7 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 		// Application status for a caas model needs to consider status
 		// info coming from the operator pod as well; It may need to
 		// override what is set here.
-		expectWorkload, err := expectWorkload(a.st, a.Name())
+		expectWorkload, err := CheckApplicationExpectsWorkload(m, a.Name())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -2730,7 +2727,7 @@ func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	expectWorkload, err := expectWorkload(a.st, a.Name())
+	expectWorkload, err := CheckApplicationExpectsWorkload(m, a.Name())
 	if err != nil {
 		return errors.Trace(err)
 	}

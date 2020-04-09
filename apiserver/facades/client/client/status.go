@@ -1188,13 +1188,9 @@ func (context *statusContext) processApplication(application *state.Application)
 	}
 	units := context.allAppsUnitsCharmBindings.units[application.Name()]
 	if application.IsPrincipal() {
-		expectWorkload := true
-		if cm, err := context.model.CAASModel(); err == nil {
-			_, err = cm.PodSpec(application.ApplicationTag())
-			if err != nil && !errors.IsNotFound(err) {
-				return params.ApplicationStatus{Err: common.ServerError(err)}
-			}
-			expectWorkload = err == nil
+		expectWorkload, err := state.CheckApplicationExpectsWorkload(context.model, application.Name())
+		if err != nil {
+			return params.ApplicationStatus{Err: common.ServerError(err)}
 		}
 		processedStatus.Units = context.processUnits(units, applicationCharm.URL().String(), expectWorkload)
 	}
@@ -1243,6 +1239,7 @@ func (context *statusContext) processApplication(application *state.Application)
 		if err != nil && !errors.IsNotFound(err) {
 			return params.ApplicationStatus{Err: common.ServerError(err)}
 		}
+		// TODO(caas): get WorkloadVersion from rawSpec once `ParseRawK8sSpec` is implemented.
 		if specStr != "" {
 			spec, err := k8sspecs.ParsePodSpec(specStr)
 			if err != nil {

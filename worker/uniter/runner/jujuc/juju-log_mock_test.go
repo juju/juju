@@ -5,10 +5,9 @@
 package jujuc
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	loggo "github.com/juju/loggo"
+	reflect "reflect"
 )
 
 // MockJujuLogCommandLogger is a mock of JujuLogCommandLogger interface
@@ -36,6 +35,7 @@ func (m *MockJujuLogCommandLogger) EXPECT() *MockJujuLogCommandLoggerMockRecorde
 
 // Logf mocks base method
 func (m *MockJujuLogCommandLogger) Logf(arg0 loggo.Level, arg1 string, arg2 ...interface{}) {
+	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
 		varargs = append(varargs, a)
@@ -45,12 +45,14 @@ func (m *MockJujuLogCommandLogger) Logf(arg0 loggo.Level, arg1 string, arg2 ...i
 
 // Logf indicates an expected call of Logf
 func (mr *MockJujuLogCommandLoggerMockRecorder) Logf(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Logf", reflect.TypeOf((*MockJujuLogCommandLogger)(nil).Logf), varargs...)
 }
 
 // Warningf mocks base method
 func (m *MockJujuLogCommandLogger) Warningf(arg0 string, arg1 ...interface{}) {
+	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
@@ -60,6 +62,7 @@ func (m *MockJujuLogCommandLogger) Warningf(arg0 string, arg1 ...interface{}) {
 
 // Warningf indicates an expected call of Warningf
 func (mr *MockJujuLogCommandLoggerMockRecorder) Warningf(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Warningf", reflect.TypeOf((*MockJujuLogCommandLogger)(nil).Warningf), varargs...)
 }
@@ -89,6 +92,7 @@ func (m *MockJujuLogCommandLoggerFactory) EXPECT() *MockJujuLogCommandLoggerFact
 
 // GetLogger mocks base method
 func (m *MockJujuLogCommandLoggerFactory) GetLogger(arg0 string) JujuLogCommandLogger {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetLogger", arg0)
 	ret0, _ := ret[0].(JujuLogCommandLogger)
 	return ret0
@@ -96,6 +100,7 @@ func (m *MockJujuLogCommandLoggerFactory) GetLogger(arg0 string) JujuLogCommandL
 
 // GetLogger indicates an expected call of GetLogger
 func (mr *MockJujuLogCommandLoggerFactoryMockRecorder) GetLogger(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLogger", reflect.TypeOf((*MockJujuLogCommandLoggerFactory)(nil).GetLogger), arg0)
 }
 
@@ -124,6 +129,7 @@ func (m *MockJujuLogContext) EXPECT() *MockJujuLogContextMockRecorder {
 
 // HookRelation mocks base method
 func (m *MockJujuLogContext) HookRelation() (ContextRelation, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HookRelation")
 	ret0, _ := ret[0].(ContextRelation)
 	ret1, _ := ret[1].(error)
@@ -132,11 +138,13 @@ func (m *MockJujuLogContext) HookRelation() (ContextRelation, error) {
 
 // HookRelation indicates an expected call of HookRelation
 func (mr *MockJujuLogContextMockRecorder) HookRelation() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HookRelation", reflect.TypeOf((*MockJujuLogContext)(nil).HookRelation))
 }
 
 // UnitName mocks base method
 func (m *MockJujuLogContext) UnitName() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnitName")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -144,5 +152,6 @@ func (m *MockJujuLogContext) UnitName() string {
 
 // UnitName indicates an expected call of UnitName
 func (mr *MockJujuLogContextMockRecorder) UnitName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitName", reflect.TypeOf((*MockJujuLogContext)(nil).UnitName))
 }

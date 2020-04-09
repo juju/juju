@@ -34,6 +34,12 @@ func (dummyHookContext) SetPodSpec(specYaml string) error {
 func (dummyHookContext) GetPodSpec() (string, error) {
 	return "", nil
 }
+func (dummyHookContext) SetRawK8sSpec(specYaml string) error {
+	return nil
+}
+func (dummyHookContext) GetRawK8sSpec() (string, error) {
+	return "", nil
+}
 func (dummyHookContext) PublicAddress() (string, error) {
 	return "", errors.NotFoundf("PublicAddress")
 }

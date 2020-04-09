@@ -132,6 +132,12 @@ type ContextUnit interface {
 	// TODO(wallyworld) - rename to GetK8sSpec (here and elsewhere)
 	GetPodSpec() (string, error)
 
+	// SetRawK8sSpec updates the raw yaml spec used to create a pod.
+	SetRawK8sSpec(specYaml string) error
+
+	// GetRawK8sSpec returns the raw yaml spec used to create a pod.
+	GetRawK8sSpec() (string, error)
+
 	// CloudSpec returns the unit's cloud specification
 	CloudSpec() (*params.CloudSpec, error)
 }
