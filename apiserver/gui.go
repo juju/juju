@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -246,8 +245,7 @@ func (h *guiHandler) serveStatic(w http.ResponseWriter, req *http.Request) {
 	staticDir := filepath.Join(h.rootDir, "static")
 	logger.Tracef("serving Juju Dashboard static files from %q", staticDir)
 	fs := http.FileServer(http.Dir(staticDir))
-	prefix := path.Join(h.basePath, "static")
-	http.StripPrefix(prefix, fs).ServeHTTP(w, req)
+	http.StripPrefix("/static/", fs).ServeHTTP(w, req)
 }
 
 func getGUIComboPath(rootDir, query string) (string, error) {

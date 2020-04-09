@@ -100,6 +100,6 @@ func AssertResponse(c *gc.C, resp *http.Response, expHTTPStatus int, expContentT
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(resp.StatusCode, gc.Equals, expHTTPStatus, gc.Commentf("body: %s", body))
 	ctype := resp.Header.Get("Content-Type")
-	c.Assert(ctype, gc.Equals, expContentType)
+	c.Check(ctype, gc.Equals, expContentType)
 	return body
 }

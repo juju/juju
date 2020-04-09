@@ -44,21 +44,28 @@ type guiSuite struct {
 var _ = gc.Suite(&guiSuite{})
 
 // guiURL returns the complete URL where the Juju GUI can be found, including
-// the given hash and pathAndquery.
-func (s *guiSuite) guiURL(hash, pathAndquery string) string {
-	return s.urlFromBase(apiserver.GUIURLPathPrefix, "", pathAndquery)
+// the given hash and pathAndQuery.
+func (s *guiSuite) guiURL(hash, pathAndQuery string) string {
+	if pathAndQuery == "" {
+		return s.URL(apiserver.GUIURLPathPrefix, nil).String()
+	}
+	prefix := apiserver.GUIURLPathPrefix
+	if strings.HasPrefix(pathAndQuery, "static/") || pathAndQuery == "config.js" {
+		prefix = ""
+	}
+	return s.urlFromBase(prefix, "", pathAndQuery)
 }
 
-func (s *guiSuite) guiOldURL(hash, pathAndquery string) string {
+func (s *guiSuite) guiOldURL(hash, pathAndQuery string) string {
 	base := apiserver.GUIURLPathPrefix + s.State.ModelUUID() + "/"
-	return s.urlFromBase(base, hash, pathAndquery)
+	return s.urlFromBase(base, hash, pathAndQuery)
 }
 
-func (s *guiSuite) urlFromBase(base, hash, pathAndquery string) string {
+func (s *guiSuite) urlFromBase(base, hash, pathAndQuery string) string {
 	if hash != "" {
 		base += hash + "/"
 	}
-	parts := strings.SplitN(pathAndquery, "?", 2)
+	parts := strings.SplitN(pathAndQuery, "?", 2)
 	u := s.URL(base+parts[0], nil)
 	if len(parts) == 2 {
 		u.RawQuery = parts[1]
@@ -79,9 +86,9 @@ var guiHandlerTests = []struct {
 	// currentVersion optionally holds the GUI version that must be set as
 	// current right after setup is called and before the test is run.
 	currentVersion string
-	// pathAndquery holds the optional path and query for the request, for
+	// pathAndQuery holds the optional path and query for the request, for
 	// instance "/combo?file". If not provided, the "/" path is used.
-	pathAndquery string
+	pathAndQuery string
 	// expectedStatus holds the expected response HTTP status.
 	// A 200 OK status is used by default.
 	expectedStatus int
@@ -169,7 +176,7 @@ var guiHandlerTests = []struct {
 		return setupGUIArchive(c, storage, "2.0.42", nil)
 	},
 	currentVersion: "2.0.42",
-	pathAndquery:   "config.js",
+	pathAndQuery:   "config.js",
 	expectedStatus: http.StatusInternalServerError,
 	expectedError:  "cannot parse template: .*: no such file or directory",
 }, {
@@ -180,7 +187,7 @@ var guiHandlerTests = []struct {
 		})
 	},
 	currentVersion: "2.0.47",
-	pathAndquery:   "config.js",
+	pathAndQuery:   "config.js",
 	expectedStatus: http.StatusInternalServerError,
 	expectedError:  `cannot parse template: template: config.js.go:1: unexpected ".47" .*`,
 }, {
@@ -191,7 +198,7 @@ var guiHandlerTests = []struct {
 		})
 	},
 	currentVersion:      "1.0.0",
-	pathAndquery:        "static/file.js",
+	pathAndQuery:        "static/file.js",
 	expectedStatus:      http.StatusOK,
 	expectedContentType: apiserver.JSMimeType,
 	expectedBody:        "static file content",
@@ -203,7 +210,7 @@ func (s *guiSuite) TestGUIHandler(c *gc.C) {
 		// only served from Linux machines.
 		c.Skip("bzip2 command not available")
 	}
-	sendRequest := func(setup guiSetupFunc, currentVersion, pathAndquery string) *http.Response {
+	sendRequest := func(setup guiSetupFunc, currentVersion, pathAndQuery string) *http.Response {
 		// Set up the GUI base directory.
 		datadir := filepath.ToSlash(s.config.DataDir)
 		baseDir := filepath.FromSlash(agenttools.SharedGUIDir(datadir))
@@ -235,7 +242,7 @@ func (s *guiSuite) TestGUIHandler(c *gc.C) {
 
 		// Send a request to the test path.
 		return apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
-			URL: s.guiURL(hash, pathAndquery),
+			URL: s.guiURL(hash, pathAndQuery),
 		})
 	}
 
@@ -247,7 +254,7 @@ func (s *guiSuite) TestGUIHandler(c *gc.C) {
 		s.SetUpTest(c)
 
 		// Perform the request.
-		resp := sendRequest(test.setup, test.currentVersion, test.pathAndquery)
+		resp := sendRequest(test.setup, test.currentVersion, test.pathAndQuery)
 
 		// Check the response.
 		if test.expectedStatus == 0 {
@@ -275,7 +282,7 @@ func (s *guiSuite) TestGUIIndex(c *gc.C) {
 		about               string
 		guiVersion          string
 		path                string
-		getURL              func(hash, pathAndquery string) string
+		getURL              func(hash, pathAndQuery string) string
 		expectedConfigQuery string
 	}{{
 		about:      "new GUI, new URL, root",
@@ -518,7 +525,7 @@ var config = {
 };`
 	// Make a request for the Juju GUI config.
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
-		URL: s.URL(apiserver.GUIURLPathPrefix+"config.js", nil).String(),
+		URL: s.URL("/config.js", nil).String(),
 	})
 	body := apitesting.AssertResponse(c, resp, http.StatusOK, apiserver.JSMimeType)
 	c.Assert(string(body), gc.Equals, expectedConfigContent)
