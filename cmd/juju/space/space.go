@@ -150,10 +150,10 @@ func (m *APIShim) Close() error {
 	return m.apiState.Close()
 }
 
-// AddSpace adds a new Juju network space, associating the
+// CreateSpace adds a new Juju network space, associating the
 // specified subnets with it (optional; can be empty), setting the
 // space and subnets access to public or private.
-func (m *APIShim) AddSpace(name string, subnetIds []string, public bool) error {
+func (m *APIShim) CreateSpace(name string, subnetIds []string, public bool) error {
 	return m.spaceAPI.CreateSpace(name, subnetIds, public)
 }
 

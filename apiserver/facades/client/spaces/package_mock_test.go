@@ -44,11 +44,12 @@ func (m *MockBacking) EXPECT() *MockBackingMockRecorder {
 }
 
 // AddSpace mocks base method
-func (m *MockBacking) AddSpace(arg0 string, arg1 network.Id, arg2 []string, arg3 bool) error {
+func (m *MockBacking) AddSpace(arg0 string, arg1 network.Id, arg2 []string, arg3 bool) (networkingcommon.BackingSpace, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddSpace", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(networkingcommon.BackingSpace)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // AddSpace indicates an expected call of AddSpace
@@ -85,6 +86,21 @@ func (m *MockBacking) AllEndpointBindings() ([]ApplicationEndpointBindingsShim, 
 func (mr *MockBackingMockRecorder) AllEndpointBindings() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllEndpointBindings", reflect.TypeOf((*MockBacking)(nil).AllEndpointBindings))
+}
+
+// AllEndpointBindingsSpaceNames mocks base method
+func (m *MockBacking) AllEndpointBindingsSpaceNames() (set.Strings, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllEndpointBindingsSpaceNames")
+	ret0, _ := ret[0].(set.Strings)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllEndpointBindingsSpaceNames indicates an expected call of AllEndpointBindingsSpaceNames
+func (mr *MockBackingMockRecorder) AllEndpointBindingsSpaceNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllEndpointBindingsSpaceNames", reflect.TypeOf((*MockBacking)(nil).AllEndpointBindingsSpaceNames))
 }
 
 // AllMachines mocks base method
@@ -176,6 +192,21 @@ func (mr *MockBackingMockRecorder) ControllerConfig() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockBacking)(nil).ControllerConfig))
 }
 
+// DefaultEndpointBindingSpace mocks base method
+func (m *MockBacking) DefaultEndpointBindingSpace() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DefaultEndpointBindingSpace")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DefaultEndpointBindingSpace indicates an expected call of DefaultEndpointBindingSpace
+func (mr *MockBackingMockRecorder) DefaultEndpointBindingSpace() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultEndpointBindingSpace", reflect.TypeOf((*MockBacking)(nil).DefaultEndpointBindingSpace))
+}
+
 // IsController mocks base method
 func (m *MockBacking) IsController() bool {
 	m.ctrl.T.Helper()
@@ -232,20 +263,6 @@ func (m *MockBacking) MovingSubnet(arg0 string) (MovingSubnet, error) {
 func (mr *MockBackingMockRecorder) MovingSubnet(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MovingSubnet", reflect.TypeOf((*MockBacking)(nil).MovingSubnet), arg0)
-}
-
-// SaveProviderSpaces mocks base method
-func (m *MockBacking) SaveProviderSpaces(arg0 []network.SpaceInfo) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveProviderSpaces", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SaveProviderSpaces indicates an expected call of SaveProviderSpaces
-func (mr *MockBackingMockRecorder) SaveProviderSpaces(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveProviderSpaces", reflect.TypeOf((*MockBacking)(nil).SaveProviderSpaces), arg0)
 }
 
 // SaveProviderSubnets mocks base method

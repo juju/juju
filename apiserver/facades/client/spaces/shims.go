@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -58,9 +59,13 @@ func NewStateShim(st *state.State) (*stateShim, error) {
 	}, nil
 }
 
-func (s *stateShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) error {
-	_, err := s.State.AddSpace(name, providerId, subnetIds, public)
-	return err
+func (s *stateShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) (networkingcommon.BackingSpace, error) {
+	result, err := s.State.AddSpace(name, providerId, subnetIds, public)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	space := networkingcommon.NewSpaceShim(result)
+	return space, nil
 }
 
 func (s *stateShim) SpaceByName(name string) (networkingcommon.BackingSpace, error) {
@@ -153,4 +158,54 @@ func (s *stateShim) ConstraintsBySpaceName(spaceName string) ([]Constraints, err
 		cons[i] = v
 	}
 	return cons, nil
+}
+
+type backingReloadSpacesShim struct {
+	Backing
+}
+
+func (b backingReloadSpacesShim) AllSpaces() ([]space.Space, error) {
+	spaces, err := b.Backing.AllSpaces()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result := make([]space.Space, len(spaces))
+	for i, space := range spaces {
+		result[i] = backingSpaceShim{
+			BackingSpace: space,
+		}
+	}
+	return result, nil
+}
+
+func (b backingReloadSpacesShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) (space.Space, error) {
+	space, err := b.Backing.AddSpace(name, providerId, subnetIds, public)
+	if err != nil {
+		return backingSpaceShim{}, errors.Trace(err)
+	}
+	return backingSpaceShim{
+		BackingSpace: space,
+	}, nil
+}
+
+func (b backingReloadSpacesShim) ConstraintsBySpaceName(spaceName string) ([]space.Constraints, error) {
+	constraints, err := b.Backing.ConstraintsBySpaceName(spaceName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result := make([]space.Constraints, len(constraints))
+	for i, constraint := range constraints {
+		result[i] = constraint
+	}
+	return result, nil
+}
+
+type backingSpaceShim struct {
+	networkingcommon.BackingSpace
+}
+
+func (b backingSpaceShim) Life() state.Life {
+	return state.LifeFromValue(b.BackingSpace.Life())
 }

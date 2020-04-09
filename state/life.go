@@ -49,6 +49,20 @@ func (l Life) Value() life.Value {
 	}
 }
 
+// LifeFromValue returns the Life type from core.life.Value.
+func LifeFromValue(v life.Value) Life {
+	switch v {
+	case life.Alive:
+		return Alive
+	case life.Dying:
+		return Dying
+	case life.Dead:
+		return Dead
+	default:
+		return Life(-1)
+	}
+}
+
 var (
 	isAliveDoc = bson.D{{"life", Alive}}
 	isDyingDoc = bson.D{{"life", Dying}}

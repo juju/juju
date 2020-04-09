@@ -61,7 +61,7 @@ type ApplicationEndpointBindingsShim struct {
 	Bindings map[string]string
 }
 
-// Backend contains the state methods used in this package.
+// Backing contains the state methods used in this package.
 type Backing interface {
 	environs.EnvironConfigGetter
 
@@ -76,7 +76,7 @@ type Backing interface {
 	MovingSubnet(id string) (MovingSubnet, error)
 
 	// AddSpace creates a space.
-	AddSpace(Name string, ProviderId network.Id, Subnets []string, Public bool) error
+	AddSpace(name string, ProviderId network.Id, Subnets []string, Public bool) (networkingcommon.BackingSpace, error)
 
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]networkingcommon.BackingSpace, error)
@@ -84,8 +84,16 @@ type Backing interface {
 	// SpaceByName returns the Juju network space given by name.
 	SpaceByName(name string) (networkingcommon.BackingSpace, error)
 
+	// DefaultEndpointBindingSpace returns the current space ID to be used for
+	// the default endpoint binding.
+	DefaultEndpointBindingSpace() (string, error)
+
 	// AllEndpointBindings loads all endpointBindings.
 	AllEndpointBindings() ([]ApplicationEndpointBindingsShim, error)
+
+	// AllEndpointBindingsSpaceNames loads all the endpoint bindings space name
+	// into a set.Strings
+	AllEndpointBindingsSpaceNames() (set.Strings, error)
 
 	// AllMachines loads all machines.
 	AllMachines() ([]Machine, error)
@@ -101,9 +109,6 @@ type Backing interface {
 
 	// ConstraintsBySpaceName returns constraints found by spaceName.
 	ConstraintsBySpaceName(name string) ([]Constraints, error)
-
-	// SaveProviderSpaces loads providerSpaces into state.
-	SaveProviderSpaces([]network.SpaceInfo) error
 
 	// SaveProviderSubnets loads subnets into state.
 	SaveProviderSubnets([]network.SubnetInfo, string) error
@@ -309,7 +314,7 @@ func (api *API) createOneSpace(args params.CreateSpaceParams) error {
 	}
 
 	// Add the validated space.
-	err = api.backing.AddSpace(spaceTag.Id(), network.Id(args.ProviderId), subnetIDs, args.Public)
+	_, err = api.backing.AddSpace(spaceTag.Id(), network.Id(args.ProviderId), subnetIDs, args.Public)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -458,7 +463,10 @@ func (api *API) ReloadSpaces() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(space.ReloadSpaces(api.context, api.backing, env))
+	backingShim := backingReloadSpacesShim{
+		Backing: api.backing,
+	}
+	return errors.Trace(space.ReloadSpaces(api.context, backingShim, env))
 }
 
 // checkSupportsSpaces checks if the environment implements NetworkingEnviron

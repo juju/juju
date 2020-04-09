@@ -97,6 +97,15 @@ type BackingSpace interface {
 
 	// ProviderId returns the network ID of the provider
 	ProviderId() corenetwork.Id
+
+	// Live holds the life of the space
+	Life() life.Value
+
+	// EnsureDead ensures that the backing space is dead.
+	EnsureDead() error
+
+	// Remove will attempt to remove the space if it's dead.
+	Remove() error
 }
 
 // NetworkBacking defines the methods needed by the API facade to store and
@@ -114,7 +123,7 @@ type NetworkBacking interface {
 	SetAvailabilityZones([]providercommon.AvailabilityZone) error
 
 	// AddSpace creates a space
-	AddSpace(Name string, ProviderId corenetwork.Id, Subnets []string, Public bool) error
+	AddSpace(string, corenetwork.Id, []string, bool) (BackingSpace, error)
 
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]BackingSpace, error)
@@ -133,10 +142,6 @@ type NetworkBacking interface {
 	// SaveProviderSubnets loads subnets into state.
 	// Currently it does not delete removed subnets.
 	SaveProviderSubnets(subnets []corenetwork.SubnetInfo, spaceID string) error
-
-	// SaveProviderSpaces loads providerSpaces into state.
-	// Currently it does not delete removed spaces.
-	SaveProviderSpaces(providerSpaces []corenetwork.SpaceInfo) error
 }
 
 // BackingSubnetToParamsSubnetV2 converts a network backing subnet to the new

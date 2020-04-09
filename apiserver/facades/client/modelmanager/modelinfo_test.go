@@ -927,11 +927,6 @@ func (st *mockState) SaveProviderSubnets(subnets []network.SubnetInfo, spaceID s
 	return st.NextErr()
 }
 
-func (st *mockState) SaveProviderSpaces(providerSpaces []network.SpaceInfo) error {
-	st.MethodCall(st, "SaveProviderSpaces", providerSpaces)
-	return st.NextErr()
-}
-
 func (st *mockState) DumpAll() (map[string]interface{}, error) {
 	st.MethodCall(st, "DumpAll")
 	return map[string]interface{}{

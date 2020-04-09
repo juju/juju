@@ -35,6 +35,20 @@ func (m *MockBackingSpace) EXPECT() *MockBackingSpaceMockRecorder {
 	return m.recorder
 }
 
+// EnsureDead mocks base method
+func (m *MockBackingSpace) EnsureDead() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureDead")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureDead indicates an expected call of EnsureDead
+func (mr *MockBackingSpaceMockRecorder) EnsureDead() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureDead", reflect.TypeOf((*MockBackingSpace)(nil).EnsureDead))
+}
+
 // Id mocks base method
 func (m *MockBackingSpace) Id() string {
 	m.ctrl.T.Helper()
@@ -47,6 +61,20 @@ func (m *MockBackingSpace) Id() string {
 func (mr *MockBackingSpaceMockRecorder) Id() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Id", reflect.TypeOf((*MockBackingSpace)(nil).Id))
+}
+
+// Life mocks base method
+func (m *MockBackingSpace) Life() life.Value {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Life")
+	ret0, _ := ret[0].(life.Value)
+	return ret0
+}
+
+// Life indicates an expected call of Life
+func (mr *MockBackingSpaceMockRecorder) Life() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Life", reflect.TypeOf((*MockBackingSpace)(nil).Life))
 }
 
 // Name mocks base method
@@ -75,6 +103,20 @@ func (m *MockBackingSpace) ProviderId() network.Id {
 func (mr *MockBackingSpaceMockRecorder) ProviderId() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProviderId", reflect.TypeOf((*MockBackingSpace)(nil).ProviderId))
+}
+
+// Remove mocks base method
+func (m *MockBackingSpace) Remove() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Remove")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Remove indicates an expected call of Remove
+func (mr *MockBackingSpaceMockRecorder) Remove() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockBackingSpace)(nil).Remove))
 }
 
 // Subnets mocks base method

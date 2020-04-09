@@ -12,11 +12,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
 )
 
 type SpacesSuite struct {
@@ -890,21 +888,6 @@ func (s *SpacesDiscoverySuite) TestSaveProviderSubnetsOnlyAddsSubnets(c *gc.C) {
 	checkSubnetsEqual(c, subnets, fourSubnets)
 }
 
-func (s *SpacesDiscoverySuite) TestSaveProviderSubnetsUpdatesSubnets(c *gc.C) {
-	err := s.State.SaveProviderSubnets(twoSubnets, "")
-	c.Check(err, jc.ErrorIsNil)
-
-	err = s.State.SaveProviderSpaces(spaceOne)
-	c.Assert(err, jc.ErrorIsNil)
-
-	subnets, err := s.State.AllSubnets()
-	c.Assert(err, jc.ErrorIsNil)
-	twoSubnetsWithSpace := twoSubnets
-	twoSubnetsWithSpace[0].ProviderSpaceId = spaceOne[0].ProviderId
-	twoSubnetsWithSpace[1].ProviderSpaceId = spaceOne[0].ProviderId
-	checkSubnetsEqual(c, subnets, twoSubnetsWithSpace)
-}
-
 func (s *SpacesDiscoverySuite) TestSaveProviderSubnetsOnlyIdempotent(c *gc.C) {
 	err := s.State.SaveProviderSubnets(twoSubnets, "")
 	c.Check(err, jc.ErrorIsNil)
@@ -958,158 +941,4 @@ func (s *SpacesDiscoverySuite) TestSaveProviderSubnetsIgnored(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkSubnetsEqual(c, subnets, twoSubnets)
-}
-
-func (s *SpacesDiscoverySuite) TestSaveProviderSpaces(c *gc.C) {
-	err := s.State.SaveProviderSpaces(spaceOne)
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces, err := s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	checkSpacesEqual(c, spaces, spaceOne)
-}
-
-func (s *SpacesDiscoverySuite) TestSaveProviderSpacesRemovesOldSpaces(c *gc.C) {
-	err := s.State.SaveProviderSpaces(spaceOne)
-	c.Check(err, jc.ErrorIsNil)
-
-	err = s.State.SaveProviderSpaces(spaceTwo)
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces, err := s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	checkSpacesEqual(c, spaces, spaceTwo)
-}
-
-func (s *SpacesDiscoverySuite) TestSaveProviderSpacesRemovesEmptySpaces(c *gc.C) {
-	threeSpaces := append(twoSpaces, spaceThree...)
-	err := s.State.SaveProviderSpaces(threeSpaces)
-	c.Check(err, jc.ErrorIsNil)
-
-	_, err = s.State.SpaceByName("space3")
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces, err := s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	checkSpacesEqual(c, spaces, threeSpaces)
-
-	err = s.State.SaveProviderSpaces(twoSpaces)
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces, err = s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	checkSpacesEqual(c, spaces, twoSpaces)
-}
-
-func (s *SpacesDiscoverySuite) TestSaveProviderSpacesIdempotent(c *gc.C) {
-	err := s.State.SaveProviderSpaces(twoSpaces)
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces1, err := s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.State.SaveProviderSpaces(twoSpaces)
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces2, err := s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces1, gc.DeepEquals, spaces2)
-}
-
-func (s *SpacesDiscoverySuite) TestSaveProviderSpacesWithFAN(c *gc.C) {
-	err := s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.State.SaveProviderSpaces(spaceOne)
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces, err := s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	checkSpacesEqual(c, spaces, spaceOneAfterFAN)
-}
-
-func (s *SpacesDiscoverySuite) TestReloadSpacesIgnored(c *gc.C) {
-	err := s.State.SaveProviderSpaces(spaceOneAndIgnored)
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces, err := s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	checkSpacesEqual(c, spaces, spaceOne)
-}
-
-func (s *SpacesDiscoverySuite) TestSaveProviderSpacesIngoreSpacesWithConstraints(c *gc.C) {
-	threeSpaces := append(twoSpaces, spaceThree...)
-	err := s.State.SaveProviderSpaces(threeSpaces)
-	c.Check(err, jc.ErrorIsNil)
-
-	err = s.State.SetModelConstraints(constraints.Value{
-		Spaces: &[]string{"space3"},
-	})
-	c.Check(err, jc.ErrorIsNil)
-
-	_, err = s.State.SpaceByName("space3")
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces, err := s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	checkSpacesEqual(c, spaces, threeSpaces)
-
-	err = s.State.SaveProviderSpaces(twoSpaces)
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces, err = s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	checkSpacesEqual(c, spaces, threeSpaces)
-}
-
-func (s *SpacesDiscoverySuite) TestSaveProviderSpacesRemovesSpacesWithConstraints(c *gc.C) {
-	threeSpaces := append(twoSpaces, spaceThree...)
-	err := s.State.SaveProviderSpaces(threeSpaces)
-	c.Check(err, jc.ErrorIsNil)
-
-	err = s.State.SetModelConstraints(constraints.Value{
-		Spaces: &[]string{"xxx"},
-	})
-	c.Check(err, jc.ErrorIsNil)
-
-	_, err = s.State.SpaceByName("space3")
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces, err := s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	checkSpacesEqual(c, spaces, threeSpaces)
-
-	err = s.State.SaveProviderSpaces(twoSpaces)
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces, err = s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	checkSpacesEqual(c, spaces, twoSpaces)
-}
-
-func (s *SpacesDiscoverySuite) TestSaveProviderSpacesIngoreSpacesWithBindings(c *gc.C) {
-	err := s.State.SaveProviderSpaces(twoSpaces)
-	c.Check(err, jc.ErrorIsNil)
-
-	newSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "space3", ProviderID: network.Id("3"), IsPublic: true})
-	state.AddTestingApplicationWithBindings(
-		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
-		map[string]string{"db": newSpace.Id()})
-
-	_, err = s.State.SpaceByName("space3")
-	c.Check(err, jc.ErrorIsNil)
-
-	threeSpaces := append(twoSpaces, spaceThree...)
-
-	spaces, err := s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	checkSpacesEqual(c, spaces, threeSpaces)
-
-	err = s.State.SaveProviderSpaces(twoSpaces)
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces, err = s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	checkSpacesEqual(c, spaces, threeSpaces)
 }
