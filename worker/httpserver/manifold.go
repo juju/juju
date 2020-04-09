@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/pki"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
@@ -24,10 +25,10 @@ import (
 // ManifoldConfig holds the information necessary to run an HTTP server
 // in a dependency.Engine.
 type ManifoldConfig struct {
-	CertWatcherName string
-	HubName         string
-	MuxName         string
-	StateName       string
+	AuthorityName string
+	HubName       string
+	MuxName       string
+	StateName     string
 
 	// We don't use these in the worker, but we want to prevent the
 	// httpserver from starting until they're running so that all of
@@ -42,14 +43,14 @@ type ManifoldConfig struct {
 	PrometheusRegisterer prometheus.Registerer
 
 	GetControllerConfig func(*state.State) (controller.Config, error)
-	NewTLSConfig        func(*state.State, func() *tls.Certificate) (*tls.Config, error)
+	NewTLSConfig        func(*state.State, SNIGetter) (*tls.Config, error)
 	NewWorker           func(Config) (worker.Worker, error)
 }
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.CertWatcherName == "" {
-		return errors.NotValidf("empty CertWatcherName")
+	if config.AuthorityName == "" {
+		return errors.NotValidf("empty AuthorityName")
 	}
 	if config.HubName == "" {
 		return errors.NotValidf("empty HubName")
@@ -99,7 +100,7 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.CertWatcherName,
+			config.AuthorityName,
 			config.HubName,
 			config.StateName,
 			config.MuxName,
@@ -116,13 +117,13 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		return nil, errors.Trace(err)
 	}
 
-	var hub *pubsub.StructuredHub
-	if err := context.Get(config.HubName, &hub); err != nil {
+	var authority pki.Authority
+	if err := context.Get(config.AuthorityName, &authority); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var getCertificate func() *tls.Certificate
-	if err := context.Get(config.CertWatcherName, &getCertificate); err != nil {
+	var hub *pubsub.StructuredHub
+	if err := context.Get(config.HubName, &hub); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -155,7 +156,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	}()
 
 	systemState := statePool.SystemState()
-	tlsConfig, err := config.NewTLSConfig(systemState, getCertificate)
+	tlsConfig, err := config.NewTLSConfig(systemState, authoritySNIGetter(authority))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

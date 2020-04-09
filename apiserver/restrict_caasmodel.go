@@ -69,6 +69,7 @@ var commonModelFacadeNames = set.NewStrings(
 // caasModelFacadeNames lists facades that are only used with CAAS
 // models.
 var caasModelFacadeNames = set.NewStrings(
+	"CAASAdmission",
 	"CAASAgent",
 	"CAASFirewaller",
 	"CAASOperator",

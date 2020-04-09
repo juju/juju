@@ -24,13 +24,13 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/pki"
 )
 
 var errNoNameSpecified = errors.New("no name specified")
@@ -53,7 +53,10 @@ To access it run 'juju switch %s:%s'.`, modelName, existingName, existingName, m
 	}
 
 	// CACerts are always valid so no error checking is required here.
-	fingerprint, _ := cert.Fingerprint(redirErr.CACert)
+	fingerprint, _, err := pki.Fingerprint([]byte(redirErr.CACert))
+	if err != nil {
+		return err
+	}
 
 	ctrlAlias := "new-controller"
 	if redirErr.ControllerAlias != "" {

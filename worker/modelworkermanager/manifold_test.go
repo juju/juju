@@ -4,8 +4,6 @@
 package modelworkermanager_test
 
 import (
-	"crypto/tls"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -19,6 +17,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/pki"
+	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	jworker "github.com/juju/juju/worker"
@@ -28,6 +28,7 @@ import (
 type ManifoldSuite struct {
 	statetesting.StateSuite
 
+	authority    pki.Authority
 	manifold     dependency.Manifold
 	context      dependency.Context
 	stateTracker stubStateTracker
@@ -35,11 +36,13 @@ type ManifoldSuite struct {
 	stub testing.Stub
 }
 
-type TestCertGetter func() *tls.Certificate
-
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+	var err error
+	s.authority, err = pkitest.NewTestAuthority()
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.StateSuite.SetUpTest(c)
 
 	s.stateTracker = stubStateTracker{pool: s.StatePool}
@@ -48,7 +51,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.context = s.newContext(nil)
 	s.manifold = modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 		AgentName:      "agent",
-		CertGetterName: "certgetter",
+		AuthorityName:  "authority",
 		StateName:      "state",
 		MuxName:        "mux",
 		NewWorker:      s.newWorker,
@@ -61,10 +64,10 @@ var mux = apiserverhttp.NewMux()
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"agent":      &fakeAgent{},
-		"certgetter": func() *tls.Certificate { return nil },
-		"mux":        mux,
-		"state":      &s.stateTracker}
+		"agent":     &fakeAgent{},
+		"authority": s.authority,
+		"mux":       mux,
+		"state":     &s.stateTracker}
 	for k, v := range overlay {
 		resources[k] = v
 	}
@@ -87,7 +90,7 @@ func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig)
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"agent", "certgetter", "mux", "state"}
+var expectedInputs = []string{"agent", "authority", "mux", "state"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -112,9 +115,11 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.FitsTypeOf, modelworkermanager.Config{})
 	config := args[0].(modelworkermanager.Config)
+	config.Authority = s.authority
 
 	c.Assert(config.NewModelWorker, gc.NotNil)
 	modelConfig := modelworkermanager.NewModelConfig{
+		Authority: s.authority,
 		ModelUUID: "foo",
 		ModelType: state.ModelTypeIAAS,
 	}
@@ -124,9 +129,9 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	s.stub.CheckCallNames(c, "NewWorker", "NewModelWorker")
 	s.stub.CheckCall(c, 1, "NewModelWorker", modelConfig)
 	config.NewModelWorker = nil
-	config.CertGetter = nil
 
 	c.Assert(config, jc.DeepEquals, modelworkermanager.Config{
+		Authority:    s.authority,
 		ModelWatcher: s.State,
 		Mux:          mux,
 		Controller:   modelworkermanager.StatePoolController{s.StatePool},

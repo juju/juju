@@ -25,13 +25,13 @@ import (
 	apibase "github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
-	certutil "github.com/juju/juju/cert"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/pki"
 )
 
 const loginDoc = `
@@ -569,7 +569,7 @@ func (c *loginCommand) promptUserToTrustCA(ctx *cmd.Context, ctrlDetails *jujucl
 			Bytes: caCert.Raw,
 		})
 
-		fingerprint, err := certutil.Fingerprint(buf.String())
+		fingerprint, _, err := pki.Fingerprint(buf.Bytes())
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -8,14 +8,13 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cert"
+	"github.com/juju/juju/pki"
 	"github.com/juju/juju/testing"
 )
 
@@ -126,10 +125,17 @@ func (s *certPoolSuite) TestCreateCertPoolLogsBadCerts(c *gc.C) {
 }
 
 func (s *certPoolSuite) addCert(c *gc.C, filename string) {
-	expiry := time.Now().UTC().AddDate(10, 0, 0)
-	pem, _, err := cert.NewCA("random model name", "1", expiry)
+	signer, err := pki.DefaultKeyProfile()
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filename, []byte(pem), 0644)
+
+	caCert, err := pki.NewCA("random model name", signer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	caCertPem, err := pki.CertificateToPemString(pki.DefaultPemHeaders, caCert)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filename, []byte(caCertPem), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

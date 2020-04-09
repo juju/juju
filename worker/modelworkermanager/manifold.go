@@ -4,8 +4,6 @@
 package modelworkermanager
 
 import (
-	"crypto/tls"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
@@ -13,6 +11,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/pki"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
@@ -28,7 +27,7 @@ type Logger interface {
 // in a dependency.Engine.
 type ManifoldConfig struct {
 	AgentName      string
-	CertGetterName string
+	AuthorityName  string
 	StateName      string
 	Clock          clock.Clock
 	MuxName        string
@@ -42,8 +41,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
-	if config.CertGetterName == "" {
-		return errors.NotValidf("empty CertGetterName")
+	if config.AuthorityName == "" {
+		return errors.NotValidf("empty AuthorityName")
 	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
@@ -68,7 +67,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.CertGetterName,
+			config.AuthorityName,
 			config.MuxName,
 			config.StateName,
 		},
@@ -86,8 +85,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var certWatcher func() *tls.Certificate
-	if err := context.Get(config.CertGetterName, &certWatcher); err != nil {
+	var authority pki.Authority
+	if err := context.Get(config.AuthorityName, &authority); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -108,7 +107,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	machineID := agent.CurrentConfig().Tag().Id()
 
 	w, err := config.NewWorker(Config{
-		CertGetter:     certWatcher,
+		Authority:      authority,
 		Clock:          config.Clock,
 		Logger:         config.Logger,
 		MachineID:      machineID,

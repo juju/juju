@@ -31,7 +31,6 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -94,8 +93,6 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-	s.PatchValue(&cert.NewCA, coretesting.NewCA)
-	s.PatchValue(&cert.NewLeafKeyBits, 1024)
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {

@@ -18,6 +18,8 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/pki"
+	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/modelworkermanager"
@@ -26,11 +28,15 @@ import (
 var _ = gc.Suite(&suite{})
 
 type suite struct {
+	authority pki.Authority
 	testing.IsolationSuite
 	workerC chan *mockWorker
 }
 
 func (s *suite) SetUpTest(c *gc.C) {
+	authority, err := pkitest.NewTestAuthority()
+	c.Assert(err, jc.ErrorIsNil)
+	s.authority = authority
 	s.IsolationSuite.SetUpTest(c)
 	s.workerC = make(chan *mockWorker, 100)
 }
@@ -181,6 +187,7 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	watcher := newMockModelWatcher()
 	controller := newMockController()
 	config := modelworkermanager.Config{
+		Authority:      s.authority,
 		Clock:          clock.WallClock,
 		Logger:         loggo.GetLogger("test"),
 		MachineID:      "1",

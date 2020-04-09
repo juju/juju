@@ -4,7 +4,6 @@
 package modelworkermanager
 
 import (
-	"crypto/tls"
 	"fmt"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/pki"
 	"github.com/juju/juju/state"
 )
 
@@ -61,7 +61,7 @@ type ModelLogger interface {
 // NewModelConfig holds the information required by the NewModelWorkerFunc
 // to start the workers for the specified model
 type NewModelConfig struct {
-	CertGetter       func() *tls.Certificate
+	Authority        pki.Authority
 	ModelName        string // Use a fully qualified name "<namespace>-<name>"
 	ModelUUID        string
 	ModelType        state.ModelType
@@ -78,7 +78,7 @@ type NewModelWorkerFunc func(config NewModelConfig) (worker.Worker, error)
 // Config holds the dependencies and configuration necessary to run
 // a model worker manager.
 type Config struct {
-	CertGetter     func() *tls.Certificate
+	Authority      pki.Authority
 	Clock          clock.Clock
 	Logger         Logger
 	MachineID      string
@@ -92,6 +92,9 @@ type Config struct {
 // Validate returns an error if config cannot be expected to drive
 // a functional model worker manager.
 func (config Config) Validate() error {
+	if config.Authority == nil {
+		return errors.NotValidf("nil authority")
+	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
@@ -194,7 +197,7 @@ func (m *modelWorkerManager) loop() error {
 			return nil
 		}
 		cfg := NewModelConfig{
-			CertGetter:       m.config.CertGetter,
+			Authority:        m.config.Authority,
 			ModelName:        fmt.Sprintf("%s-%s", model.Owner().Id(), model.Name()),
 			ModelUUID:        modelUUID,
 			ModelType:        model.Type(),

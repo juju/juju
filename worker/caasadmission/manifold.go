@@ -4,7 +4,7 @@
 package caasadmission
 
 import (
-	"crypto/tls"
+	"fmt"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
@@ -12,7 +12,10 @@ import (
 	admission "k8s.io/api/admissionregistration/v1beta1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/base"
+	admissionapi "github.com/juju/juju/api/caasadmission"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/pki"
 	"github.com/juju/juju/worker/caasrbacmapper"
 )
 
@@ -43,10 +46,10 @@ type Logger interface {
 
 // ManifoldConfig describes the resources used by the admission worker
 type ManifoldConfig struct {
-	AgentName  string
-	BrokerName string
-	CertGetter func() *tls.Certificate
-	CertificateBroker
+	AgentName      string
+	APICallerName  string
+	Authority      pki.Authority
+	BrokerName     string
 	Logger         Logger
 	Mux            *apiserverhttp.Mux
 	RBACMapperName string
@@ -58,6 +61,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
+			config.APICallerName,
 			config.BrokerName,
 			config.RBACMapperName,
 		},
@@ -78,6 +82,16 @@ func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
+	var apiCaller base.APICaller
+	if err := context.Get(c.APICallerName, &apiCaller); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	api, err := admissionapi.NewClient(apiCaller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var broker K8sBroker
 	if err := context.Get(c.BrokerName, &broker); err != nil {
 		return nil, errors.Trace(err)
@@ -88,16 +102,20 @@ func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
+	ctrlCfg, err := api.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "fetching controller configuration for name")
+	}
+
 	currentConfig := agent.CurrentConfig()
 	admissionPath := AdmissionPathForModel(currentConfig.Model().Id())
 	port := int32(17070)
-	certBroker := &CertWatcherBroker{c.CertGetter}
-	admissionCreator, err := NewAdmissionCreator(certBroker,
+	admissionCreator, err := NewAdmissionCreator(c.Authority,
 		broker.GetCurrentNamespace(), broker.CurrentModel(),
 		broker.EnsureMutatingWebhookConfiguration,
 		&admission.ServiceReference{
 			Name:      "controller-service",
-			Namespace: "controller-microk8s-localhost",
+			Namespace: fmt.Sprintf("controller-%s", ctrlCfg.ControllerName()),
 			Path:      &admissionPath,
 			Port:      &port,
 		},
@@ -120,14 +138,14 @@ func (c ManifoldConfig) Validate() error {
 	if c.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
+	if c.APICallerName == "" {
+		return errors.NotValidf("empty APICallerName ")
+	}
+	if c.Authority == nil {
+		return errors.NotValidf("nil Authority")
+	}
 	if c.BrokerName == "" {
 		return errors.NotValidf("empty BrokerName")
-	}
-	//if c.CertificateBroker == nil {
-	//	return errors.NotValidf("nil certificate broker")
-	//}
-	if c.CertGetter == nil {
-		return errors.NotValidf("nil CertGetter")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")

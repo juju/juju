@@ -6,19 +6,24 @@ package certupdater
 import (
 	"reflect"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/cert"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/pki"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/watcher/legacy"
 )
 
-var logger = loggo.GetLogger("juju.worker.certupdater")
+const (
+	ControllerIPLeafGroup = "controllerip"
+)
+
+var (
+	logger = loggo.GetLogger("juju.worker.certupdater")
+)
 
 // CertificateUpdater is responsible for generating controller certificates.
 //
@@ -27,9 +32,7 @@ var logger = loggo.GetLogger("juju.worker.certupdater")
 // agent's config file.
 type CertificateUpdater struct {
 	addressWatcher  AddressWatcher
-	getter          StateServingInfoGetter
-	setter          StateServingInfoSetter
-	configGetter    ControllerConfigGetter
+	authority       pki.Authority
 	hostPortsGetter APIHostPortsGetter
 	addresses       network.SpaceAddresses
 }
@@ -41,21 +44,11 @@ type AddressWatcher interface {
 	Addresses() (addresses network.SpaceAddresses)
 }
 
-// ControllerConfigGetter is an interface that is provided to NewCertificateUpdater
-// which can be used to get the controller config.
-type ControllerConfigGetter interface {
-	ControllerConfig() (controller.Config, error)
-}
-
 // StateServingInfoGetter is an interface that is provided to NewCertificateUpdater
 // whose StateServingInfo method will be invoked to get state serving info.
 type StateServingInfoGetter interface {
 	StateServingInfo() (controller.StateServingInfo, bool)
 }
-
-// StateServingInfoSetter defines a function that is called to set a
-// StateServingInfo value with a newly generated certificate.
-type StateServingInfoSetter func(info controller.StateServingInfo) error
 
 // APIHostPortsGetter is an interface that is provided to NewCertificateUpdater.
 // It returns all known API addresses.
@@ -65,11 +58,9 @@ type APIHostPortsGetter interface {
 
 // Config holds the configuration for the certificate updater worker.
 type Config struct {
-	AddressWatcher         AddressWatcher
-	StateServingInfoGetter StateServingInfoGetter
-	StateServingInfoSetter StateServingInfoSetter
-	ControllerConfigGetter ControllerConfigGetter
-	APIHostPortsGetter     APIHostPortsGetter
+	AddressWatcher     AddressWatcher
+	Authority          pki.Authority
+	APIHostPortsGetter APIHostPortsGetter
 }
 
 // NewCertificateUpdater returns a worker.Worker that watches for changes to
@@ -78,10 +69,8 @@ type Config struct {
 func NewCertificateUpdater(config Config) worker.Worker {
 	return legacy.NewNotifyWorker(&CertificateUpdater{
 		addressWatcher:  config.AddressWatcher,
-		configGetter:    config.ControllerConfigGetter,
+		authority:       config.Authority,
 		hostPortsGetter: config.APIHostPortsGetter,
-		getter:          config.StateServingInfoGetter,
-		setter:          config.StateServingInfoSetter,
 	})
 }
 
@@ -123,84 +112,42 @@ func (c *CertificateUpdater) updateCertificate(addresses network.SpaceAddresses)
 	logger.Debugf("new machine addresses: %#v", addresses)
 	c.addresses = addresses
 
-	// Older Juju deployments will not have the CA cert private key
-	// available.
-	stateInfo, ok := c.getter.StateServingInfo()
-	if !ok {
-		return errors.New("no state serving info, cannot regenerate server certificate")
-	}
-	caPrivateKey := stateInfo.CAPrivateKey
-	if caPrivateKey == "" {
-		logger.Errorf("no CA cert private key, cannot regenerate server certificate")
-		return nil
-	}
+	request := c.authority.LeafRequestForGroup(ControllerIPLeafGroup)
 
-	cfg, err := c.configGetter.ControllerConfig()
-	if err != nil {
-		return errors.Annotate(err, "cannot read controller config")
-	}
-
-	// For backwards compatibility, we must include "anything", "juju-apiserver"
-	// and "juju-mongodb" as hostnames as that is what clients specify
-	// as the hostname for verification (this certificate is used both
-	// for serving MongoDB and API server connections).  We also
-	// explicitly include localhost.
-	serverAddrs := []string{"localhost", "juju-apiserver", "juju-mongodb", "anything"}
-	// TODO remove this line. Currently a quick hack to test admission workers
-	// in microk8s.
-	serverAddrs = append(serverAddrs, "controller-service.controller-microk8s-localhost.svc")
 	for _, addr := range addresses {
 		if addr.Value == "localhost" {
 			continue
 		}
-		serverAddrs = append(serverAddrs, addr.Value)
-	}
-	newServerAddrs, update, err := updateRequired(stateInfo.Cert, serverAddrs)
-	if err != nil {
-		return errors.Annotate(err, "cannot determine if cert update needed")
-	}
-	if !update {
-		logger.Debugf("no certificate update required")
-		return nil
+
+		switch addr.Type {
+		case network.HostName:
+			request.AddDNSNames(addr.Value)
+		case network.IPv4Address:
+			ip := addr.IP()
+			if ip == nil {
+				return errors.Errorf(
+					"value %s is not a valid ip address", addr.Value)
+			}
+			request.AddIPAddresses(ip)
+		case network.IPv6Address:
+			ip := addr.IP()
+			if ip == nil {
+				return errors.Errorf(
+					"value %s is not a valid ip address", addr.Value)
+			}
+			request.AddIPAddresses(ip)
+		default:
+			logger.Warningf(
+				"unsupported space address type %s for controller certificate",
+				addr.Type)
+		}
+
 	}
 
-	// Generate a new controller certificate with the machine addresses in the SAN value.
-	caCert, hasCACert := cfg.CACert()
-	if !hasCACert {
-		return errors.New("configuration has no ca-cert")
+	if _, err := request.Commit(); err != nil {
+		return errors.Annotate(err, "generating default controller ip certificate")
 	}
-	newCert, newKey, err := controller.GenerateControllerCertAndKey(caCert, caPrivateKey, newServerAddrs)
-	if err != nil {
-		return errors.Annotate(err, "cannot generate controller certificate")
-	}
-	stateInfo.Cert = newCert
-	stateInfo.PrivateKey = newKey
-	err = c.setter(stateInfo)
-	if err != nil {
-		return errors.Annotate(err, "cannot write agent config")
-	}
-	logger.Infof("controller certificate addresses updated to %q", newServerAddrs)
 	return nil
-}
-
-// updateRequired returns true and a list of merged addresses if any of the
-// new addresses are not yet contained in the server cert SAN list.
-func updateRequired(serverCert string, newAddrs []string) ([]string, bool, error) {
-	x509Cert, err := cert.ParseCert(serverCert)
-	if err != nil {
-		return nil, false, errors.Annotate(err, "cannot parse existing TLS certificate")
-	}
-	existingAddr := set.NewStrings()
-	for _, ip := range x509Cert.IPAddresses {
-		existingAddr.Add(ip.String())
-	}
-	logger.Debugf("existing cert addresses %v", existingAddr)
-	logger.Debugf("new addresses %v", newAddrs)
-	// Does newAddr contain any that are not already in existingAddr?
-	newAddrSet := set.NewStrings(newAddrs...)
-	update := newAddrSet.Difference(existingAddr).Size() > 0
-	newAddrSet = newAddrSet.Union(existingAddr)
-	return newAddrSet.SortedValues(), update, nil
 }
 
 // TearDown is defined on the NotifyWatchHandler interface.

@@ -16,13 +16,13 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/pki"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -127,7 +127,9 @@ func (s *BaseCommandSuite) TestMigratedModelErrorHandling(c *gc.C) {
 
 	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), jc.ErrorIsNil)
 
-	fingerprint, _ := cert.Fingerprint(coretesting.CACert)
+	fingerprint, _, err := pki.Fingerprint([]byte(coretesting.CACert))
+	c.Assert(err, jc.ErrorIsNil)
+
 	specs := []struct {
 		descr   string
 		expErr  string
