@@ -1147,7 +1147,9 @@ func (ctx *HookContext) addCommitHookChangesForCAAS(builder *uniter.CommitHookPa
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
 	}
-	if !isLeader {
+	// isLeader check only applies if the yaml has been set,
+	// not if just reacting to an upgrade-charm hook.
+	if !isLeader && (ctx.k8sRawSpecYaml != nil || ctx.podSpecYaml != nil) {
 		logger.Errorf("%v is not the leader but is setting application k8s spec", ctx.unitName)
 		return ErrIsNotLeader
 	}

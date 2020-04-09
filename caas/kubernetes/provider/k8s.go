@@ -2035,7 +2035,7 @@ func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]ca
 	}
 
 	var units []caas.Unit
-	now := time.Now()
+	now := k.clock.Now()
 	for _, p := range podsList.Items {
 		var ports []string
 		for _, c := range p.Spec.Containers {
@@ -2048,13 +2048,12 @@ func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]ca
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		stateful := false
 		unitInfo := caas.Unit{
 			Id:       providerID(&p),
 			Address:  p.Status.PodIP,
 			Ports:    ports,
 			Dying:    terminated,
-			Stateful: stateful,
+			Stateful: isStateful(&p),
 			Status: status.StatusInfo{
 				Status:  unitStatus,
 				Message: statusMessage,
@@ -2559,10 +2558,17 @@ func headlessServiceName(deploymentName string) string {
 func providerID(pod *core.Pod) string {
 	// Pods managed by a stateful set use the pod name
 	// as the provider id as this is stable across pod restarts.
-	for _, ref := range pod.OwnerReferences {
-		if ref.Kind == "StatefulSet" {
-			return pod.Name
-		}
+	if isStateful(pod) {
+		return pod.Name
 	}
 	return string(pod.GetUID())
+}
+
+func isStateful(pod *core.Pod) bool {
+	for _, ref := range pod.OwnerReferences {
+		if ref.Kind == "StatefulSet" {
+			return true
+		}
+	}
+	return false
 }

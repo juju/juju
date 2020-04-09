@@ -5965,6 +5965,139 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *K8sBrokerSuite) TestUnits(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	podWithStorage := core.Pod{
+		TypeMeta: v1.TypeMeta{},
+		ObjectMeta: v1.ObjectMeta{
+			Name:              "pod-name",
+			UID:               types.UID("uuid"),
+			DeletionTimestamp: &v1.Time{},
+			OwnerReferences:   []v1.OwnerReference{{Kind: "StatefulSet"}},
+		},
+		Status: core.PodStatus{
+			Message: "running",
+			PodIP:   "10.0.0.1",
+		},
+		Spec: core.PodSpec{
+			Containers: []core.Container{{
+				Ports: []core.ContainerPort{{
+					ContainerPort: 666,
+					Protocol:      "TCP",
+				}},
+				VolumeMounts: []core.VolumeMount{{
+					Name:      "v1",
+					MountPath: "/path/to/here",
+					ReadOnly:  true,
+				}},
+			}},
+			Volumes: []core.Volume{{
+				Name: "v1",
+				VolumeSource: core.VolumeSource{
+					PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
+						ClaimName: "v1-claim",
+					},
+				},
+			}},
+		},
+	}
+	podList := &core.PodList{
+		Items: []core.Pod{{
+			TypeMeta: v1.TypeMeta{},
+			ObjectMeta: v1.ObjectMeta{
+				Name: "pod-name",
+				UID:  types.UID("uuid"),
+			},
+			Status: core.PodStatus{
+				Message: "running",
+			},
+			Spec: core.PodSpec{
+				Containers: []core.Container{{}},
+			},
+		}, podWithStorage},
+	}
+
+	pvc := &core.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{
+			UID:    "pvc-uuid",
+			Labels: map[string]string{"juju-storage": "database"},
+		},
+		Spec: core.PersistentVolumeClaimSpec{VolumeName: "v1"},
+		Status: core.PersistentVolumeClaimStatus{
+			Conditions: []core.PersistentVolumeClaimCondition{{Message: "mounted"}},
+			Phase:      core.ClaimBound,
+		},
+	}
+	pv := &core.PersistentVolume{
+		Spec: core.PersistentVolumeSpec{
+			Capacity: core.ResourceList{
+				"size": resource.MustParse("10Mi"),
+			},
+		},
+		Status: core.PersistentVolumeStatus{
+			Message: "vol-mounted",
+			Phase:   core.VolumeBound,
+		},
+	}
+	gomock.InOrder(
+		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).Return(podList, nil),
+		s.mockPersistentVolumeClaims.EXPECT().Get("v1-claim", v1.GetOptions{}).
+			Return(pvc, nil),
+		s.mockPersistentVolumes.EXPECT().Get("v1", v1.GetOptions{}).
+			Return(pv, nil),
+	)
+
+	units, err := s.broker.Units("app-name", caas.ModeWorkload)
+	c.Assert(err, jc.ErrorIsNil)
+	now := s.clock.Now()
+	c.Assert(units, jc.DeepEquals, []caas.Unit{{
+		Id:       "uuid",
+		Address:  "",
+		Ports:    nil,
+		Dying:    false,
+		Stateful: false,
+		Status: status.StatusInfo{
+			Status:  "unknown",
+			Message: "running",
+			Since:   &now,
+		},
+		FilesystemInfo: nil,
+	}, {
+		Id:       "pod-name",
+		Address:  "10.0.0.1",
+		Ports:    []string{"666/TCP"},
+		Dying:    true,
+		Stateful: true,
+		Status: status.StatusInfo{
+			Status:  "terminated",
+			Message: "running",
+			Since:   &now,
+		},
+		FilesystemInfo: []caas.FilesystemInfo{{
+			StorageName:  "database",
+			FilesystemId: "pvc-uuid",
+			Size:         uint64(podWithStorage.Spec.Volumes[0].PersistentVolumeClaim.Size()),
+			MountPoint:   "/path/to/here",
+			ReadOnly:     true,
+			Status: status.StatusInfo{
+				Status:  "attached",
+				Message: "mounted",
+				Since:   &now,
+			},
+			Volume: caas.VolumeInfo{
+				Size: uint64(pv.Size()),
+				Status: status.StatusInfo{
+					Status:  "attached",
+					Message: "vol-mounted",
+					Since:   &now,
+				},
+			},
+		}},
+	}})
+}
+
 func (s *K8sBrokerSuite) TestWatchService(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
