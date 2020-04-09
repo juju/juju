@@ -33,19 +33,8 @@ func newKubernetesTestStringsWatcher() (provider.KubernetesStringsWatcher, func(
 	}
 }
 
-func newK8sStringWatcherFunc(w provider.KubernetesStringsWatcher) provider.NewK8sStringsWatcherFunc {
-	return provider.NewK8sStringsWatcherFunc(func(
-		_ cache.SharedIndexInformer,
-		_ string,
-		_ jujuclock.Clock,
-		_ []string,
-		_ provider.K8sStringsWatcherFilterFunc) (provider.KubernetesStringsWatcher, error) {
-		return w, nil
-	})
-}
-
 func newK8sWatcherFunc(w provider.KubernetesNotifyWatcher) provider.NewK8sWatcherFunc {
-	return provider.NewK8sWatcherFunc(func(_ cache.SharedIndexInformer, _ string, _ jujuclock.Clock) (provider.KubernetesNotifyWatcher, error) {
+	return func(_ cache.SharedIndexInformer, _ string, _ jujuclock.Clock) (provider.KubernetesNotifyWatcher, error) {
 		return w, nil
-	})
+	}
 }
