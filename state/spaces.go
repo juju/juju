@@ -104,9 +104,10 @@ func (s *Space) NetworkSpace() (network.SpaceInfo, error) {
 
 	mappedSubnets := make([]network.SubnetInfo, len(subnets))
 	for i, subnet := range subnets {
-		mappedSubnet := subnet.networkSubnet()
+		mappedSubnet := subnet.NetworkSubnet()
 		mappedSubnet.SpaceID = s.Id()
 		mappedSubnet.SpaceName = s.Name()
+		mappedSubnet.ProviderSpaceId = s.ProviderId()
 		mappedSubnets[i] = mappedSubnet
 	}
 
@@ -284,7 +285,12 @@ func (st *State) SpaceByName(name string) (*Space, error) {
 	return &Space{st, doc}, nil
 }
 
-// AllSpaceInfos return SpaceInfos for all spaces in the model.
+// AllSpaceInfos returns SpaceInfos for all spaces in the model.
+// TODO (manadart 2020-04-09): Instead of calling NetworkSpace here,
+// load all the SubnetInfos once and retrieve the space subnets and
+// overlays from there.
+// This method is inefficient in that it hits the DB 1-2 times for
+// each space to retrieve subnets.
 func (st *State) AllSpaceInfos() (network.SpaceInfos, error) {
 	spaces, err := st.AllSpaces()
 	if err != nil {

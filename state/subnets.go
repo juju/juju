@@ -322,8 +322,8 @@ func (s *Subnet) updateSpaceName(spaceName string) (bool, error) {
 	return spaceNameChange && spaceName != "" && s.doc.FanLocalUnderlay == "", nil
 }
 
-// networkSubnet maps the subnet fields into a network.SubnetInfo.
-func (s *Subnet) networkSubnet() network.SubnetInfo {
+// NetworkSubnet maps the subnet fields into a network.SubnetInfo.
+func (s *Subnet) NetworkSubnet() network.SubnetInfo {
 	var fanInfo *network.FanCIDRs
 	if s.doc.FanLocalUnderlay != "" || s.doc.FanOverlay != "" {
 		fanInfo = &network.FanCIDRs{
@@ -332,16 +332,45 @@ func (s *Subnet) networkSubnet() network.SubnetInfo {
 		}
 	}
 
-	return network.SubnetInfo{
+	sInfo := network.SubnetInfo{
 		CIDR:              s.doc.CIDR,
 		ProviderId:        network.Id(s.doc.ProviderId),
 		ProviderNetworkId: network.Id(s.doc.ProviderNetworkId),
 		VLANTag:           s.doc.VLANTag,
 		AvailabilityZones: s.doc.AvailabilityZones,
-		// SpaceName and ID will be populated by space.NetworkSpace
-		FanInfo:  fanInfo,
-		IsPublic: s.doc.IsPublic,
+		FanInfo:           fanInfo,
+		IsPublic:          s.doc.IsPublic,
+		SpaceID:           s.doc.SpaceID,
+		// SpaceName and ProviderSpaceID are populated by Space.NetworkSpace().
+		// For now, we do not look them up here.
 	}
+
+	// If this is a fan overlay, it will have a (numeric) space ID of 0.
+	// This is because it inherits the space of its underlay.
+	// In this case we replace it with an empty string so as not to cause
+	// confusion.
+	// Space.NetworkSpace() sets this correctly as expected.
+	// TODO (manadart 2020-04-09): We will probably need to populate this at
+	// some point.
+	if sInfo.FanLocalUnderlay() != "" {
+		sInfo.SpaceID = ""
+	}
+
+	return sInfo
+}
+
+// AllSubnetInfos returns SubnetInfos for all subnets in the model.
+func (st *State) AllSubnetInfos() (network.SubnetInfos, error) {
+	subs, err := st.AllSubnets()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result := make(network.SubnetInfos, len(subs))
+	for i, sub := range subs {
+		result[i] = sub.NetworkSubnet()
+	}
+	return result, nil
 }
 
 // SubnetUpdate adds new info to the subnet based on provided info.

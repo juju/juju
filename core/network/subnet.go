@@ -130,6 +130,8 @@ func (s *SubnetInfo) ParsedCIDRNetwork() (*net.IPNet, error) {
 	return s.parsedCIDRNetwork, nil
 }
 
+type SubnetInfos []SubnetInfo
+
 // IsValidCidr returns whether cidr is a valid subnet CIDR.
 func IsValidCidr(cidr string) bool {
 	_, ipNet, err := net.ParseCIDR(cidr)
