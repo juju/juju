@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6/hooks"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -62,7 +63,7 @@ func (r *Relationer) RelationUnit() *apiuniter.RelationUnit {
 // changes.
 func (r *Relationer) Join() error {
 	if r.dying {
-		panic("dying relationer must not join!")
+		return errors.New("dying relationer must not join!")
 	}
 	// We need to make sure the state is persisted inState before we join
 	// the relation, lest a subsequent restart of the unit agent report
@@ -106,7 +107,10 @@ func (r *Relationer) die() error {
 // returns the name of the hook that must be run.
 func (r *Relationer) PrepareHook(hi hook.Info) (string, error) {
 	if r.IsImplicit() {
-		panic("implicit relations must not run hooks")
+		// Implicit relations always return ErrNoOperation from
+		// NextOp.  Something broken if we reach here.
+		logger.Errorf("implicit relations must not run hooks")
+		return "", dependency.ErrBounce
 	}
 	st, err := r.stateMgr.Relation(hi.RelationId)
 	if err != nil {
@@ -122,7 +126,10 @@ func (r *Relationer) PrepareHook(hi hook.Info) (string, error) {
 // CommitHook persists the fact of the supplied hook's completion.
 func (r *Relationer) CommitHook(hi hook.Info) error {
 	if r.IsImplicit() {
-		panic("implicit relations must not run hooks")
+		// Implicit relations always return ErrNoOperation from
+		// NextOp.  Something broken if we reach here.
+		logger.Errorf("implicit relations must not run hooks")
+		return dependency.ErrBounce
 	}
 	if hi.Kind == hooks.RelationBroken {
 		return r.die()
