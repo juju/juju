@@ -575,17 +575,13 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err := tools.EnsureSymlinks(u.paths.ToolsDir, u.paths.ToolsDir, jujuc.CommandNames()); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(u.paths.State.RelationsDir, 0755); err != nil {
-		return errors.Trace(err)
-	}
 	relStateTracker, err := relation.NewRelationStateTracker(
 		relation.RelationStateTrackerConfig{
 			State:                u.st,
-			UnitTag:              unitTag,
+			Unit:                 u.unit,
 			Tracker:              u.leadershipTracker,
 			NewLeadershipContext: context.NewLeadershipContext,
 			CharmDir:             u.paths.State.CharmDir,
-			RelationsDir:         u.paths.State.RelationsDir,
 			Abort:                u.catacomb.Dying(),
 		})
 	if err != nil {
@@ -683,6 +679,10 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	u.operationExecutor = operationExecutor
 
+	// Ensure we have an agent directory to to write the socket.
+	if err := os.MkdirAll(u.paths.State.BaseDir, 0755); err != nil {
+		return errors.Trace(err)
+	}
 	socket := u.paths.Runtime.LocalJujuRunSocket.Server
 	logger.Debugf("starting local juju-run listener on %v", socket)
 	u.localRunListener, err = NewRunListener(socket)

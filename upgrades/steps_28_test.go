@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6/hooks"
@@ -77,6 +78,9 @@ type mockSteps28Suite struct {
 	opStorOneYaml     string
 	opStorOneFileName string
 
+	opRelationYaml     map[int]string
+	opRelationFileName string
+
 	mockCtx         *mocks.MockContext
 	mockClient      *mocks.MockUpgradeStepsClient
 	mockAgentConfig *configsettermocks.MockConfigSetter
@@ -116,6 +120,8 @@ func (s *mockSteps28Suite) SetUpTest(c *gc.C) {
 
 	s.opStorOneYaml, s.opStorOneFileName = writeStorageState(c, unitOneStateDir, s.storTagOne, s.opStorOne)
 
+	s.opRelationYaml, s.opRelationFileName = setupRelationState(c, unitOneStateDir)
+
 	unitTwoStateDir := filepath.Join(agentDir, s.tagTwo.String(), "state")
 	err = os.MkdirAll(unitTwoStateDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,7 +129,7 @@ func (s *mockSteps28Suite) SetUpTest(c *gc.C) {
 }
 
 // writeUnitStateFile writes the operation.State in yaml format to the
-// path/uniter/state file.  It returns the yaml in string form and the
+// path/state/uniter file.  It returns the yaml in string form and the
 // full path to the file written.
 func writeUnitStateFile(c *gc.C, path string, st operation.State) (string, string) {
 	filePath := filepath.Join(path, "uniter")
@@ -147,7 +153,7 @@ func writeStorageState(c *gc.C, path string, storTag names.Tag, attached bool) (
 	storFileName := strings.Replace(storTag.Id(), "/", "-", -1)
 	filePath := filepath.Join(storDir, storFileName)
 
-	data := diskInfo{Attached: &attached}
+	data := storDiskInfo{Attached: &attached}
 	content, err := yaml.Marshal(data)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -160,8 +166,65 @@ func writeStorageState(c *gc.C, path string, storTag names.Tag, attached bool) (
 	return string(expectedYaml), filePath
 }
 
-type diskInfo struct {
+type storDiskInfo struct {
 	Attached *bool `yaml:"attached,omitempty"`
+}
+
+func setupRelationState(c *gc.C, path string) (map[int]string, string) {
+	data := map[int]string{
+		0: "id: 0\napplication-members:\n  keystone: 0\n",
+		2: "id: 2\nmembers:\n  mysql/0: 1\napplication-members:\n  mysql: 0\n",
+	}
+	relationsDir := filepath.Join(path, "relations")
+	keystoneCfg := relationConfig{
+		relationsDir: relationsDir,
+		relId:        "0",
+		changeVer:    int64(0),
+		kind:         hooks.RelationCreated,
+		remoteUnit:   "",
+		remoteApp:    "keystone",
+	}
+	writeRelationState(c, keystoneCfg)
+	keystoneCfg.relId = "2"
+	keystoneCfg.remoteApp = "mysql"
+	writeRelationState(c, keystoneCfg)
+	keystoneCfg.remoteApp = ""
+	keystoneCfg.changeVer = int64(1)
+	keystoneCfg.remoteUnit = "mysql/0"
+	writeRelationState(c, keystoneCfg)
+
+	return data, relationsDir
+}
+
+type relationConfig struct {
+	relationsDir          string
+	relId                 string
+	changeVer             int64
+	kind                  hooks.Kind
+	remoteUnit, remoteApp string
+}
+
+// writeRelationState writes relation data in yaml format to the
+// path/state/relations dir.  It returns the yaml in string form and the
+// full path to the file written.
+func writeRelationState(c *gc.C, cfg relationConfig) {
+	relDir := filepath.Join(cfg.relationsDir, cfg.relId)
+	err := os.MkdirAll(relDir, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+
+	name := strings.Replace(cfg.remoteUnit, "/", "-", 1)
+	if cfg.remoteUnit == "" {
+		name = cfg.remoteApp + "-app"
+	}
+
+	di := relDiskInfo{ChangeVersion: &cfg.changeVer, ChangedPending: cfg.kind == hooks.RelationJoined}
+	err = utils.WriteYaml(filepath.Join(relDir, name), &di)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type relDiskInfo struct {
+	ChangeVersion  *int64 `yaml:"change-version"`
+	ChangedPending bool   `yaml:"changed-pending,omitempty"`
 }
 
 func (s *mockSteps28Suite) TestMoveUnitAgentStateToControllerNotMachine(c *gc.C) {
@@ -172,6 +235,7 @@ func (s *mockSteps28Suite) TestMoveUnitAgentStateToControllerNotMachine(c *gc.C)
 	err := upgrades.MoveUnitAgentStateToController(s.mockCtx)
 	c.Assert(err, jc.ErrorIsNil)
 }
+
 func (s *mockSteps28Suite) TestMoveUnitAgentStateToControllerIAAS(c *gc.C) {
 	defer s.setup(c).Finish()
 	s.expectAPIState()
@@ -187,6 +251,8 @@ func (s *mockSteps28Suite) TestMoveUnitAgentStateToControllerIAAS(c *gc.C) {
 	_, err = os.Stat(s.opStateTwoFileName)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	_, err = os.Stat(s.opStorOneFileName)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	_, err = os.Stat(s.opRelationFileName)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	// Check idempotent
@@ -261,14 +327,14 @@ func (s *mockSteps28Suite) patchClient() {
 
 func (s *mockSteps28Suite) expectWriteTwoAgentState(c *gc.C) {
 	args := []params.SetUnitStateArg{{
-		Tag:          s.tagOne.String(),
-		UniterState:  &s.opStateOneYaml,
-		StorageState: &s.opStorOneYaml,
+		Tag:           s.tagOne.String(),
+		UniterState:   &s.opStateOneYaml,
+		StorageState:  &s.opStorOneYaml,
+		RelationState: &s.opRelationYaml,
 	}, {
 		Tag:         s.tagTwo.String(),
 		UniterState: &s.opStateTwoYaml,
-	},
-	}
+	}}
 	cExp := s.mockClient.EXPECT()
 	cExp.WriteAgentState(unitStateMatcher{c, args}).Return(nil)
 }

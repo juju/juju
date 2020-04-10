@@ -16,23 +16,29 @@ import (
 
 // Relationer manages a unit's presence in a relation.
 type Relationer struct {
-	ru    *apiuniter.RelationUnit
-	dir   *StateDir
-	dying bool
+	relationId int
+	ru         *apiuniter.RelationUnit
+	stateMgr   StateManager
+	dying      bool
 }
 
 // NewRelationer creates a new Relationer. The unit will not join the
 // relation until explicitly requested.
-func NewRelationer(ru *apiuniter.RelationUnit, dir *StateDir) *Relationer {
+func NewRelationer(ru *apiuniter.RelationUnit, stateMgr StateManager) *Relationer {
 	return &Relationer{
-		ru:  ru,
-		dir: dir,
+		relationId: ru.Relation().Id(),
+		ru:         ru,
+		stateMgr:   stateMgr,
 	}
 }
 
 // ContextInfo returns a representation of the Relationer's current state.
 func (r *Relationer) ContextInfo() *context.RelationInfo {
-	members := r.dir.State().Members
+	st, err := r.stateMgr.Relation(r.relationId)
+	if errors.IsNotFound(err) {
+		st = NewState(r.relationId)
+	}
+	members := st.Members
 	memberNames := make([]string, 0, len(members))
 	for memberName := range members {
 		memberNames = append(memberNames, memberName)
@@ -53,16 +59,20 @@ func (r *Relationer) RelationUnit() *apiuniter.RelationUnit {
 
 // Join initializes local state and causes the unit to enter its relation
 // scope, allowing its counterpart units to detect its presence and settings
-// changes. Local state directory is not created until needed.
+// changes.
 func (r *Relationer) Join() error {
 	if r.dying {
 		panic("dying relationer must not join!")
 	}
-	// We need to make sure the state directory exists before we join the
-	// relation, lest a subsequent ReadAllStateDirs report local state that
-	// doesn't include relations recorded in remote state.
-	if err := r.dir.Ensure(); err != nil {
-		return err
+	// We need to make sure the state is persisted inState before we join
+	// the relation, lest a subsequent restart of the unit agent report
+	// local state that doesn't include relations recorded in remote state.
+	if !r.stateMgr.RelationFound(r.relationId) {
+		// Add a state for the new relation to the state manager.
+		st := NewState(r.relationId)
+		if err := r.stateMgr.SetRelation(st); err != nil {
+			return err
+		}
 	}
 	// uniter.RelationUnit.EnterScope() sets the unit's private address
 	// internally automatically, so no need to set it here.
@@ -82,24 +92,28 @@ func (r *Relationer) SetDying() error {
 }
 
 // die is run when the relationer has no further responsibilities; it leaves
-// relation scope, and removes the local relation state directory.
+// relation scope, and removes relation state.
 func (r *Relationer) die() error {
 	if err := r.ru.LeaveScope(); err != nil {
 		return errors.Annotatef(err, "leaving scope of relation %q", r.ru.Relation())
 	}
-	return r.dir.Remove()
+	return r.stateMgr.RemoveRelation(r.relationId)
 }
 
 // PrepareHook checks that the relation is in a state such that it makes
 // sense to execute the supplied hook, and ensures that the relation context
 // contains the latest relation state as communicated in the hook.Info. It
 // returns the name of the hook that must be run.
-func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
+func (r *Relationer) PrepareHook(hi hook.Info) (string, error) {
 	if r.IsImplicit() {
 		panic("implicit relations must not run hooks")
 	}
-	if err = r.dir.State().Validate(hi); err != nil {
-		return
+	st, err := r.stateMgr.Relation(hi.RelationId)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if err = st.Validate(hi); err != nil {
+		return "", errors.Trace(err)
 	}
 	name := r.ru.Endpoint().Name
 	return fmt.Sprintf("%s-%s", name, hi.Kind), nil
@@ -113,5 +127,13 @@ func (r *Relationer) CommitHook(hi hook.Info) error {
 	if hi.Kind == hooks.RelationBroken {
 		return r.die()
 	}
-	return r.dir.Write(hi)
+	st, err := r.stateMgr.Relation(hi.RelationId)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = st.UpdateStateForHook(hi)
+	if err != nil {
+		return r.stateMgr.RemoveRelation(st.RelationId)
+	}
+	return r.stateMgr.SetRelation(st)
 }
