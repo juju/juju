@@ -6,6 +6,7 @@ package spaces_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -107,9 +108,8 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsSuccess(c *gc.C) {
 
 	spaceName := "destination"
 	subnetID := "3"
-	cidr := "10.0.0.0/24"
 
-	subnet := expectMovingSubnet(ctrl, cidr, "")
+	subnet := expectMovingSubnet(ctrl, subnetID, "")
 
 	moveSubnetsOp := spaces.NewMockMoveSubnetsOp(ctrl)
 	moveSubnetsOp.EXPECT().GetMovedSubnets().Return([]spaces.MovedSubnet{{
@@ -124,7 +124,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsSuccess(c *gc.C) {
 	bExp.ApplyOperation(moveSubnetsOp).Return(nil)
 
 	// Using different subnet - triggers no constraint violation.
-	s.expectMachinesAndAddresses(ctrl, "10.11.12.12/14")
+	s.expectMachinesAndAddresses(ctrl, "2")
 
 	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
 	c.Assert(err, jc.ErrorIsNil)
@@ -154,23 +154,22 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsSubnetNotFoundError(c *gc.C) {
 	c.Assert(res.Results[0].Error.Message, gc.Equals, "subnet 3 not found")
 }
 
-func (s *moveSubnetsAPISuite) TestMoveSubnetsConstraintsViolatedNoForceError(c *gc.C) {
+func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceError(c *gc.C) {
 	ctrl, unReg := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unReg()
 
 	spaceName := "destination"
 	subnetID := "3"
-	cidr := "10.0.0.0/24"
 
-	subnet := expectMovingSubnet(ctrl, cidr, "")
+	subnet := expectMovingSubnet(ctrl, subnetID, "")
 
 	// MySQL is constrained to be in a different space.
 	cons := spaces.NewMockConstraints(ctrl)
 	cons.EXPECT().ID().Return("c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql")
-	cons.EXPECT().Value().Return(constraints.MustParse("spaces=a-different-space"))
+	cons.EXPECT().Value().Return(constraints.MustParse("spaces=^destination"))
 
-	s.expectMachinesAndAddresses(ctrl, cidr, "mysql")
+	s.expectMachinesAndAddresses(ctrl, subnetID, "mysql")
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return([]spaces.Constraints{cons}, nil)
@@ -180,27 +179,25 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsConstraintsViolatedNoForceError(c *
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
 	c.Assert(res.Results[0].Error.Message, gc.Equals,
-		`moving subnet "10.0.0.0/24" to space "destination" violates space constraints for application `+
-			`"mysql": a-different-space`)
+		`moving subnet(s) to space "destination" violates space constraints for application "mysql": ^destination`)
 }
 
-func (s *moveSubnetsAPISuite) TestSubnetsConstraintsViolatedForceSuccess(c *gc.C) {
+func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess(c *gc.C) {
 	ctrl, unReg := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unReg()
 
 	spaceName := "destination"
 	subnetID := "3"
-	cidr := "10.0.0.0/24"
 
-	subnet := expectMovingSubnet(ctrl, cidr, "")
+	subnet := expectMovingSubnet(ctrl, subnetID, "")
 
 	// MySQL is constrained to be in a different space.
 	cons := spaces.NewMockConstraints(ctrl)
 	cons.EXPECT().ID().Return("c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql")
-	cons.EXPECT().Value().Return(constraints.MustParse("spaces=a-different-space"))
+	cons.EXPECT().Value().Return(constraints.MustParse("spaces=^destination"))
 
-	s.expectMachinesAndAddresses(ctrl, cidr, "mysql")
+	s.expectMachinesAndAddresses(ctrl, subnetID, "mysql")
 
 	moveSubnetsOp := spaces.NewMockMoveSubnetsOp(ctrl)
 	moveSubnetsOp.EXPECT().GetMovedSubnets().Return([]spaces.MovedSubnet{{
@@ -234,9 +231,8 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsHasUnderlayError(c *gc.C) {
 
 	spaceName := "destination"
 	subnetID := "3"
-	cidr := "10.0.0.0/8"
 
-	subnet := expectMovingSubnet(ctrl, cidr, "20.0.0.0/24")
+	subnet := expectMovingSubnet(ctrl, subnetID, "20.0.0.0/24")
 
 	bExp := s.Backing.EXPECT()
 	bExp.MovingSubnet(subnetID).Return(subnet, nil)
@@ -249,24 +245,39 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsHasUnderlayError(c *gc.C) {
 		`subnet "10.0.0.0/8" is a fan overlay of "20.0.0.0/24" and cannot be moved; move the underlay instead`)
 }
 
-func expectMovingSubnet(ctrl *gomock.Controller, cidr, underlay string) *spaces.MockMovingSubnet {
+func expectMovingSubnet(ctrl *gomock.Controller, subnetID, underlay string) *spaces.MockMovingSubnet {
 	subnetMock := spaces.NewMockMovingSubnet(ctrl)
 
-	subnetMock.EXPECT().CIDR().Return(cidr).MinTimes(1)
+	subnetMock.EXPECT().ID().Return(subnetID).AnyTimes()
 	subnetMock.EXPECT().FanLocalUnderlay().Return(underlay).MinTimes(1)
+
+	// This is only for the error message.
+	// We don't care about the particular value.
+	if underlay != "" {
+		subnetMock.EXPECT().CIDR().Return("10.0.0.0/8")
+	}
 
 	return subnetMock
 }
 
-func (s *moveSubnetsAPISuite) expectMachinesAndAddresses(ctrl *gomock.Controller, subnetCIDR string, apps ...string) {
+func (s *moveSubnetsAPISuite) expectMachinesAndAddresses(ctrl *gomock.Controller, subnetID string, apps ...string) {
 	address := spaces.NewMockAddress(ctrl)
-	address.EXPECT().SubnetCIDR().Return(subnetCIDR)
+	address.EXPECT().Subnet().Return(network.SubnetInfo{ID: network.Id(subnetID)}, nil)
 
 	machine := spaces.NewMockMachine(ctrl)
 	machine.EXPECT().AllAddresses().Return([]spaces.Address{address}, nil)
 
 	if len(apps) > 0 {
-		machine.EXPECT().ApplicationNames().Return(apps, nil)
+		// TODO (manadart 2020-04-10): Need to vary this for multiple topologies.
+		units := make([]spaces.Unit, len(apps))
+		for i, app := range apps {
+			unit := spaces.NewMockUnit(ctrl)
+			unit.EXPECT().Name().Return(app + "/0")
+			unit.EXPECT().ApplicationName().Return(app)
+			units[i] = unit
+		}
+
+		machine.EXPECT().Units().Return(units, nil)
 	}
 
 	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{machine}, nil)

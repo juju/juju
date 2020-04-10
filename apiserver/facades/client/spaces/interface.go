@@ -25,13 +25,19 @@ type BlockChecker interface {
 
 // Address is an indirection for state.Address.
 type Address interface {
-	SubnetCIDR() string
+	Subnet() (network.SubnetInfo, error)
+}
+
+// Unit is an indirection for state.Unit.
+type Unit interface {
+	Name() string
+	ApplicationName() string
 }
 
 // Machine defines the methods supported by a machine used in the space context.
 type Machine interface {
-	ApplicationNames() ([]string, error)
 	AllAddresses() ([]Address, error)
+	Units() ([]Unit, error)
 	AllSpaces() (set.Strings, error)
 }
 
