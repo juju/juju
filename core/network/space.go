@@ -35,6 +35,7 @@ type SpaceName string
 // SpaceInfo defines a network space.
 type SpaceInfo struct {
 	// ID is the unique identifier for the space.
+	// TODO (manadart 2020-04-10): This should be a typed ID.
 	ID string
 
 	// Name is the name of the space.
@@ -125,8 +126,8 @@ func (s SpaceInfos) ContainsName(name string) bool {
 }
 
 // Minus returns a new SpaceInfos representing all the
-// values in the target that are not in the parameter. Value
-// matching is done by ID.
+// values in the target that are not in the parameter.
+// Value matching is done by ID.
 func (s SpaceInfos) Minus(other SpaceInfos) SpaceInfos {
 	result := make(SpaceInfos, 0)
 	for _, value := range s {

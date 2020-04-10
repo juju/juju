@@ -116,3 +116,20 @@ func (*subnetSuite) TestFilterInFanNetwork(c *gc.C) {
 		c.Check(res, gc.DeepEquals, t.expected)
 	}
 }
+
+func (*subnetSuite) TestSubnetInfosEquality(c *gc.C) {
+	s1 := network.SubnetInfos{
+		{ID: network.Id(1)},
+		{ID: network.Id(2)},
+	}
+
+	s2 := network.SubnetInfos{
+		{ID: network.Id(2)},
+		{ID: network.Id(1)},
+	}
+
+	s3 := append(s2, network.SubnetInfo{ID: network.Id(3)})
+
+	c.Check(s1.EqualTo(s2), jc.IsTrue)
+	c.Check(s1.EqualTo(s3), jc.IsFalse)
+}

@@ -649,6 +649,7 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 		ProviderId: args.ProviderId,
 		Subnets: []network.SubnetInfo{
 			{
+				ID:                "0",
 				SpaceID:           space.Id(),
 				SpaceName:         "space1",
 				CIDR:              "1.1.1.0/24",
@@ -657,6 +658,7 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 				ProviderSpaceId:   "some id 2",
 			},
 			{
+				ID:                "2",
 				SpaceID:           space.Id(),
 				SpaceName:         "space1",
 				CIDR:              "253.1.0.0/16",
@@ -669,6 +671,7 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 				ProviderSpaceId: "some id 2",
 			},
 			{
+				ID:                "1",
 				SpaceID:           space.Id(),
 				SpaceName:         "space1",
 				CIDR:              "2001:cbd0::/32",

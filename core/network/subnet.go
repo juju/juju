@@ -5,6 +5,7 @@ package network
 
 import (
 	"net"
+	"sort"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -31,6 +32,9 @@ func newFanCIDRs(overlay, underlay string) *FanCIDRs {
 // SubnetInfo is a source-agnostic representation of a subnet.
 // It may originate from state, or from a provider.
 type SubnetInfo struct {
+	// ID is the unique ID of the subnet.
+	ID Id
+
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
 
@@ -130,7 +134,36 @@ func (s *SubnetInfo) ParsedCIDRNetwork() (*net.IPNet, error) {
 	return s.parsedCIDRNetwork, nil
 }
 
+// SubnetInfos is a collection of subnets.
 type SubnetInfos []SubnetInfo
+
+// EqualTo returns true if this slice of SubnetInfo is equal to the input.
+func (s SubnetInfos) EqualTo(other SubnetInfos) bool {
+	if len(s) != len(other) {
+		return false
+	}
+
+	SortSubnetInfos(s)
+	SortSubnetInfos(other)
+	for i := 0; i < len(s); i++ {
+		if s[i].ID != other[i].ID {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (s SubnetInfos) Len() int      { return len(s) }
+func (s SubnetInfos) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s SubnetInfos) Less(i, j int) bool {
+	return s[i].ID < s[j].ID
+}
+
+// SortSubnetInfos sorts subnets by ID.
+func SortSubnetInfos(s SubnetInfos) {
+	sort.Sort(s)
+}
 
 // IsValidCidr returns whether cidr is a valid subnet CIDR.
 func IsValidCidr(cidr string) bool {
