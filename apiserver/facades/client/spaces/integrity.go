@@ -32,14 +32,18 @@ func (n *unitNetwork) hasSameConnectivity(subnets network.SubnetInfos) bool {
 // constraints and endpoint bindings.
 type affectedNetworks struct {
 	appNetworks map[string][]unitNetwork
+	force       bool
 }
 
-func newAffectedNetworks() *affectedNetworks {
+func newAffectedNetworks(force bool) *affectedNetworks {
 	return &affectedNetworks{
 		appNetworks: make(map[string][]unitNetwork),
+		force:       force,
 	}
 }
 
+// includeMachine ensures that the units on the machine and their collection
+// of subnet connectedness are included as affectedNetworks to be validated.
 func (n *affectedNetworks) includeMachine(machine Machine, subnets network.SubnetInfos) error {
 	units, err := machine.Units()
 	if err != nil {
@@ -73,9 +77,7 @@ func (n *affectedNetworks) includeMachine(machine Machine, subnets network.Subne
 	return nil
 }
 
-func (n *affectedNetworks) ensureSpaceConstraintIntegrity(
-	cons map[string]set.Strings, spaceName string, force bool,
-) error {
+func (n *affectedNetworks) ensureSpaceConstraintIntegrity(cons map[string]set.Strings, spaceName string) error {
 	for appName, _ := range n.appNetworks {
 		if spaces, ok := cons[appName]; ok {
 			// If the application has a negative space constraint for the
@@ -84,11 +86,15 @@ func (n *affectedNetworks) ensureSpaceConstraintIntegrity(
 				msg := fmt.Sprintf("moving subnet(s) to space %q violates space constraints "+
 					"for application %q: %s", spaceName, appName, strings.Join(spaces.SortedValues(), ", "))
 
-				if !force {
+				if !n.force {
 					return errors.New(msg)
 				}
 				logger.Warningf(msg)
 			}
+
+			// Now remove any negative space constraints from the set.
+			// It is impossible for them to be violated by this move if they
+			// were not already.
 
 			// For each unique set of connected subnets for units in the application,
 			// Check that that positive space constraints remain satisfied by relocating
