@@ -50,11 +50,8 @@ func (s *PathsSuite) TestWindows(c *gc.C) {
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
 			CharmDir:        relAgent("charm"),
-			OperationsFile:  relAgent("state", "uniter"),
-			RelationsDir:    relAgent("state", "relations"),
 			BundlesDir:      relAgent("state", "bundles"),
 			DeployerDir:     relAgent("state", "deployer"),
-			StorageDir:      relAgent("state", "storage"),
 			MetricsSpoolDir: relAgent("state", "spool", "metrics"),
 		},
 	})
@@ -82,11 +79,8 @@ func (s *PathsSuite) TestWorkerPathsWindows(c *gc.C) {
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
 			CharmDir:        relAgent("charm"),
-			OperationsFile:  relAgent("state", "uniter"),
-			RelationsDir:    relAgent("state", "relations"),
 			BundlesDir:      relAgent("state", "bundles"),
 			DeployerDir:     relAgent("state", "deployer"),
-			StorageDir:      relAgent("state", "storage"),
 			MetricsSpoolDir: relAgent("state", "spool", "metrics"),
 		},
 	})
@@ -114,11 +108,8 @@ func (s *PathsSuite) TestOther(c *gc.C) {
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
 			CharmDir:        relAgent("charm"),
-			OperationsFile:  relAgent("state", "uniter"),
-			RelationsDir:    relAgent("state", "relations"),
 			BundlesDir:      relAgent("state", "bundles"),
 			DeployerDir:     relAgent("state", "deployer"),
-			StorageDir:      relAgent("state", "storage"),
 			MetricsSpoolDir: relAgent("state", "spool", "metrics"),
 		},
 	})
@@ -157,11 +148,8 @@ func (s *PathsSuite) TestTCPRemote(c *gc.C) {
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
 			CharmDir:        relAgent("charm"),
-			OperationsFile:  relAgent("state", "uniter"),
-			RelationsDir:    relAgent("state", "relations"),
 			BundlesDir:      relAgent("state", "bundles"),
 			DeployerDir:     relAgent("state", "deployer"),
-			StorageDir:      relAgent("state", "storage"),
 			MetricsSpoolDir: relAgent("state", "spool", "metrics"),
 		},
 	})
@@ -188,11 +176,8 @@ func (s *PathsSuite) TestWorkerPaths(c *gc.C) {
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
 			CharmDir:        relAgent("charm"),
-			OperationsFile:  relAgent("state", "uniter"),
-			RelationsDir:    relAgent("state", "relations"),
 			BundlesDir:      relAgent("state", "bundles"),
 			DeployerDir:     relAgent("state", "deployer"),
-			StorageDir:      relAgent("state", "storage"),
 			MetricsSpoolDir: relAgent("state", "spool", "metrics"),
 		},
 	})
