@@ -99,7 +99,6 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	s.dialStub.CheckCallNames(c, "Dial")
 	s.client.CheckCallNames(c,
 		"DestroyVMFolder", "RemoveVirtualMachines", "DestroyVMFolder",
-		"Datastores", "DeleteDatastoreFile", "DeleteDatastoreFile",
 		"Close",
 	)
 
@@ -121,16 +120,6 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	c.Assert(destroyControllerVMFolderCall.Args, gc.HasLen, 2)
 	c.Assert(destroyControllerVMFolderCall.Args[0], gc.Implements, new(context.Context))
 	c.Assert(destroyControllerVMFolderCall.Args[1], gc.Equals, `Juju Controller (foo)`)
-
-	deleteDatastoreFileCall1 := s.client.Calls()[4]
-	c.Assert(deleteDatastoreFileCall1.Args, gc.HasLen, 2)
-	c.Assert(deleteDatastoreFileCall1.Args[0], gc.Implements, new(context.Context))
-	c.Assert(deleteDatastoreFileCall1.Args[1], gc.Equals, "[bar] foo/templates")
-
-	deleteDatastoreFileCall2 := s.client.Calls()[5]
-	c.Assert(deleteDatastoreFileCall2.Args, gc.HasLen, 2)
-	c.Assert(deleteDatastoreFileCall2.Args[0], gc.Implements, new(context.Context))
-	c.Assert(deleteDatastoreFileCall2.Args[1], gc.Equals, "[baz] foo/templates")
 }
 
 func (s *environSuite) TestAdoptResources(c *gc.C) {
