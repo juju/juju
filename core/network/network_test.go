@@ -69,6 +69,16 @@ func (NetworkSuite) TestIDSetContains(c *gc.C) {
 	c.Assert(s.Contains("baz"), gc.Equals, false)
 }
 
+func (NetworkSuite) TestDifference(c *gc.C) {
+	s1 := network.MakeIDSet("foo", "bar")
+	s2 := network.MakeIDSet("foo", "baz", "bang")
+	diff1 := s1.Difference(s2)
+	diff2 := s2.Difference(s1)
+
+	assertValues(c, diff1, "bar")
+	assertValues(c, diff2, "baz", "bang")
+}
+
 // Helper methods for the tests.
 func assertValues(c *gc.C, s network.IDSet, expected ...network.Id) {
 	values := s.Values()
