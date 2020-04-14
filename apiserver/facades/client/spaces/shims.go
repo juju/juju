@@ -160,37 +160,37 @@ func (s *stateShim) ConstraintsBySpaceName(spaceName string) ([]Constraints, err
 	return cons, nil
 }
 
-type backingReloadSpacesShim struct {
-	Backing
+type reloadSpacesShim struct {
+	*state.State
 }
 
-func (b backingReloadSpacesShim) AllSpaces() ([]space.Space, error) {
-	spaces, err := b.Backing.AllSpaces()
+func newReloadSpacesShim(st *state.State) reloadSpacesShim {
+	return reloadSpacesShim{State: st}
+}
+
+func (b reloadSpacesShim) AllSpaces() ([]space.Space, error) {
+	spaces, err := b.State.AllSpaces()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	result := make([]space.Space, len(spaces))
 	for i, space := range spaces {
-		result[i] = backingSpaceShim{
-			BackingSpace: space,
-		}
+		result[i] = space
 	}
 	return result, nil
 }
 
-func (b backingReloadSpacesShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) (space.Space, error) {
-	space, err := b.Backing.AddSpace(name, providerId, subnetIds, public)
+func (b reloadSpacesShim) AddSpace(name string, providerID network.Id, subnetIds []string, public bool) (space.Space, error) {
+	space, err := b.State.AddSpace(name, providerID, subnetIds, public)
 	if err != nil {
-		return backingSpaceShim{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return backingSpaceShim{
-		BackingSpace: space,
-	}, nil
+	return space, nil
 }
 
-func (b backingReloadSpacesShim) ConstraintsBySpaceName(spaceName string) ([]space.Constraints, error) {
-	constraints, err := b.Backing.ConstraintsBySpaceName(spaceName)
+func (b reloadSpacesShim) ConstraintsBySpaceName(spaceName string) ([]space.Constraints, error) {
+	constraints, err := b.State.ConstraintsBySpaceName(spaceName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -200,12 +200,4 @@ func (b backingReloadSpacesShim) ConstraintsBySpaceName(spaceName string) ([]spa
 		result[i] = constraint
 	}
 	return result, nil
-}
-
-type backingSpaceShim struct {
-	networkingcommon.BackingSpace
-}
-
-func (b backingSpaceShim) Life() state.Life {
-	return state.LifeFromValue(b.BackingSpace.Life())
 }

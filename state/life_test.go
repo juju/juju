@@ -8,7 +8,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/state"
 )
 
@@ -175,22 +174,6 @@ func (s *LifeSuite) TestLifeString(c *gc.C) {
 	}
 	for _, test := range tests {
 		got := test.life.String()
-		c.Assert(got, gc.Equals, test.want)
-	}
-}
-
-func (s *LifeSuite) TestLifeFromValue(c *gc.C) {
-	var tests = []struct {
-		life life.Value
-		want state.Life
-	}{
-		{life.Alive, state.Alive},
-		{life.Dying, state.Dying},
-		{life.Dead, state.Dead},
-		{life.Value("unknown"), state.Life(-1)},
-	}
-	for _, test := range tests {
-		got := state.LifeFromValue(test.life)
 		c.Assert(got, gc.Equals, test.want)
 	}
 }

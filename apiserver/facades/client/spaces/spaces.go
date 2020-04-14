@@ -22,12 +22,17 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/state"
 	"gopkg.in/mgo.v2/txn"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.spaces")
+
+// ReloadSpaces offers a version 1 of the ReloadSpacesAPI.
+type ReloadSpaces interface {
+	// ReloadSpaces refreshes spaces from the substrate.
+	ReloadSpaces() error
+}
 
 // BlockChecker defines the block-checking functionality required by
 // the spaces facade. This is implemented by apiserver/common.BlockChecker.
@@ -76,7 +81,7 @@ type Backing interface {
 	MovingSubnet(id string) (MovingSubnet, error)
 
 	// AddSpace creates a space.
-	AddSpace(name string, ProviderId network.Id, Subnets []string, Public bool) (networkingcommon.BackingSpace, error)
+	AddSpace(name string, providerID network.Id, subnets []string, public bool) (networkingcommon.BackingSpace, error)
 
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]networkingcommon.BackingSpace, error)
@@ -84,16 +89,8 @@ type Backing interface {
 	// SpaceByName returns the Juju network space given by name.
 	SpaceByName(name string) (networkingcommon.BackingSpace, error)
 
-	// DefaultEndpointBindingSpace returns the current space ID to be used for
-	// the default endpoint binding.
-	DefaultEndpointBindingSpace() (string, error)
-
 	// AllEndpointBindings loads all endpointBindings.
 	AllEndpointBindings() ([]ApplicationEndpointBindingsShim, error)
-
-	// AllEndpointBindingsSpaceNames loads all the endpoint bindings space name
-	// into a set.Strings
-	AllEndpointBindingsSpaceNames() (set.Strings, error)
 
 	// AllMachines loads all machines.
 	AllMachines() ([]Machine, error)
@@ -140,6 +137,8 @@ type APIv5 struct {
 
 // API provides the spaces API facade for version 6.
 type API struct {
+	reloadSpacesAPI ReloadSpaces
+
 	backing   Backing
 	resources facade.Resources
 	auth      facade.Authorizer
@@ -176,7 +175,7 @@ func NewAPIv4(st *state.State, res facade.Resources, auth facade.Authorizer) (*A
 	return &APIv4{api}, nil
 }
 
-// NewAPIv4 is a wrapper that creates a V4 spaces API.
+// NewAPIv5 is a wrapper that creates a V4 spaces API.
 func NewAPIv5(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv5, error) {
 	api, err := NewAPI(st, res, auth)
 	if err != nil {
@@ -192,30 +191,54 @@ func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*API
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newAPIWithBacking(stateShim, common.NewBlockChecker(st), context.CallContext(st), res, auth, newOpFactory(st))
+
+	check := common.NewBlockChecker(st)
+	ctx := context.CallContext(st)
+
+	reloadSpacesEnvirons, err := DefaultReloadSpacesEnvirons(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	reloadSpacesAuth := DefaultReloadSpacesAuthorizer(auth, check, stateShim)
+	reloadSpacesAPI := NewReloadSpacesAPI(newReloadSpacesShim(st), reloadSpacesEnvirons, ctx, reloadSpacesAuth)
+
+	return newAPIWithBacking(apiConfig{
+		ReloadSpacesAPI: reloadSpacesAPI,
+		Backing:         stateShim,
+		Check:           check,
+		Context:         ctx,
+		Resources:       res,
+		Authorizer:      auth,
+		Factory:         newOpFactory(st),
+	})
+}
+
+type apiConfig struct {
+	ReloadSpacesAPI ReloadSpaces
+	Backing         Backing
+	Check           BlockChecker
+	Context         context.ProviderCallContext
+	Resources       facade.Resources
+	Authorizer      facade.Authorizer
+	Factory         OpFactory
 }
 
 // newAPIWithBacking creates a new server-side Spaces API facade with
 // the given Backing.
-func newAPIWithBacking(
-	backing Backing,
-	check BlockChecker,
-	ctx context.ProviderCallContext,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-	factory OpFactory,
-) (*API, error) {
+func newAPIWithBacking(cfg apiConfig) (*API, error) {
 	// Only clients can access the Spaces facade.
-	if !authorizer.AuthClient() {
+	if !cfg.Authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
+
 	return &API{
-		backing:   backing,
-		resources: resources,
-		auth:      authorizer,
-		context:   ctx,
-		check:     check,
-		opFactory: factory,
+		reloadSpacesAPI: cfg.ReloadSpacesAPI,
+		backing:         cfg.Backing,
+		resources:       cfg.Resources,
+		auth:            cfg.Authorizer,
+		context:         cfg.Context,
+		check:           cfg.Check,
+		opFactory:       cfg.Factory,
 	}, nil
 }
 
@@ -380,7 +403,7 @@ func (api *API) ListSpaces() (results params.ListSpacesResults, err error) {
 
 func (api *APIv5) ShowSpace(_, _ struct{}) {}
 
-// ListSpaces lists all the available spaces and their associated subnets.
+// ShowSpace shows the spaces for a set of given entities.
 func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, error) {
 	canRead, err := api.auth.HasPermission(permission.ReadAccess, api.backing.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
@@ -449,24 +472,7 @@ func (u *APIv2) ReloadSpaces(_, _ struct{}) {}
 
 // ReloadSpaces refreshes spaces from substrate
 func (api *API) ReloadSpaces() error {
-	canWrite, err := api.auth.HasPermission(permission.WriteAccess, api.backing.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-	if !canWrite {
-		return common.ServerError(common.ErrPerm)
-	}
-	if err := api.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	env, err := environs.GetEnviron(api.backing, environs.New)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	backingShim := backingReloadSpacesShim{
-		Backing: api.backing,
-	}
-	return errors.Trace(space.ReloadSpaces(api.context, backingShim, env))
+	return api.reloadSpacesAPI.ReloadSpaces()
 }
 
 // checkSupportsSpaces checks if the environment implements NetworkingEnviron

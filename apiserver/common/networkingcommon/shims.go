@@ -53,7 +53,3 @@ func (s *spaceShim) Subnets() ([]BackingSubnet, error) {
 	}
 	return subnets, nil
 }
-
-func (s *spaceShim) Life() life.Value {
-	return life.Value(s.Space.Life().String())
-}

@@ -97,15 +97,6 @@ type BackingSpace interface {
 
 	// ProviderId returns the network ID of the provider
 	ProviderId() corenetwork.Id
-
-	// Live holds the life of the space
-	Life() life.Value
-
-	// EnsureDead ensures that the backing space is dead.
-	EnsureDead() error
-
-	// Remove will attempt to remove the space if it's dead.
-	Remove() error
 }
 
 // NetworkBacking defines the methods needed by the API facade to store and
