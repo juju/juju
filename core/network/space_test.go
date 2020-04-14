@@ -22,9 +22,9 @@ var _ = gc.Suite(&spaceSuite{})
 
 func (s *spaceSuite) SetUpTest(c *gc.C) {
 	s.spaces = network.SpaceInfos{
-		{ID: "1", Name: "space1"},
-		{ID: "2", Name: "space2"},
-		{ID: "3", Name: "space3"},
+		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{ID: "11", CIDR: "10.0.0.0/24"}}},
+		{ID: "2", Name: "space2", Subnets: []network.SubnetInfo{{ID: "12", CIDR: "10.0.1.0/24"}}},
+		{ID: "3", Name: "space3", Subnets: []network.SubnetInfo{{ID: "13", CIDR: "10.0.2.0/24"}}},
 	}
 }
 
@@ -54,10 +54,10 @@ func (s *spaceSuite) TestMinus(c *gc.C) {
 		{ID: "3", Name: "space3"},
 	}
 	result := s.spaces.Minus(infos)
-	c.Assert(result, gc.DeepEquals, network.SpaceInfos{{ID: "1", Name: "space1"}})
+	c.Assert(result, gc.DeepEquals, network.SpaceInfos{s.spaces[0]})
 }
 
-func (s *spaceSuite) TestMinuxNoDiff(c *gc.C) {
+func (s *spaceSuite) TestMinusNoDiff(c *gc.C) {
 	infos := network.SpaceInfos{
 		{ID: "1", Name: "space1"},
 		{ID: "2", Name: "space2"},
@@ -68,12 +68,6 @@ func (s *spaceSuite) TestMinuxNoDiff(c *gc.C) {
 }
 
 func (s *spaceSuite) TestInferSpaceFromAddress(c *gc.C) {
-	infos := network.SpaceInfos{
-		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{CIDR: "10.0.0.0/24"}}},
-		{ID: "2", Name: "space2", Subnets: []network.SubnetInfo{{CIDR: "10.0.1.0/24"}}},
-		{ID: "3", Name: "space3", Subnets: []network.SubnetInfo{{CIDR: "10.0.2.0/24"}}},
-	}
-
 	queries := map[string]network.SpaceName{
 		"10.0.0.42": "space1",
 		"10.0.1.1":  "space2",
@@ -81,22 +75,22 @@ func (s *spaceSuite) TestInferSpaceFromAddress(c *gc.C) {
 	}
 
 	for addr, expSpaceName := range queries {
-		si, err := infos.InferSpaceFromAddress(addr)
+		si, err := s.spaces.InferSpaceFromAddress(addr)
 		c.Assert(err, jc.ErrorIsNil, gc.Commentf("infer space for address %q", addr))
 		c.Assert(si.Name, gc.Equals, expSpaceName, gc.Commentf("infer space for address %q", addr))
 	}
 
 	// Check that CIDR collisions are detected
-	infos = append(
-		infos,
+	s.spaces = append(
+		s.spaces,
 		network.SpaceInfo{ID: "-3", Name: "inverse", Subnets: []network.SubnetInfo{{CIDR: "10.0.2.0/24"}}},
 	)
 
-	_, err := infos.InferSpaceFromAddress("10.0.2.255")
+	_, err := s.spaces.InferSpaceFromAddress("10.0.2.255")
 	c.Assert(err, gc.ErrorMatches, ".*address matches the same CIDR in multiple spaces")
 
 	// Check for no-match-found
-	_, err = infos.InferSpaceFromAddress("99.99.99.99")
+	_, err = s.spaces.InferSpaceFromAddress("99.99.99.99")
 	c.Assert(err, gc.ErrorMatches, ".*unable to infer space for address.*")
 }
 
@@ -113,7 +107,11 @@ func (s *spaceSuite) TestInferSpaceFromCIDRAndSubnetID(c *gc.C) {
 	// Check for same CIDR/different provider
 	infos = append(
 		infos,
-		network.SpaceInfo{ID: "-2", Name: "inverse", Subnets: []network.SubnetInfo{{CIDR: "10.0.1.0/24", ProviderId: "3"}}},
+		network.SpaceInfo{
+			ID:      "-2",
+			Name:    "inverse",
+			Subnets: []network.SubnetInfo{{CIDR: "10.0.1.0/24", ProviderId: "3"}},
+		},
 	)
 
 	si, err = infos.InferSpaceFromCIDRAndSubnetID("10.0.1.0/24", "2")
@@ -155,4 +153,15 @@ func (s *spaceSuite) TestConvertSpaceName(c *gc.C) {
 		result := network.ConvertSpaceName(test.name, test.existing)
 		c.Check(result, gc.Equals, test.expected)
 	}
+}
+
+func (s *spaceSuite) TestAllSubnetInfos(c *gc.C) {
+	subnets, err := s.spaces.AllSubnetInfos()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(subnets, gc.DeepEquals, network.SubnetInfos{
+		{ID: "11", CIDR: "10.0.0.0/24"},
+		{ID: "12", CIDR: "10.0.1.0/24"},
+		{ID: "13", CIDR: "10.0.2.0/24"},
+	})
 }

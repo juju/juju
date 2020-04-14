@@ -333,6 +333,7 @@ func (s *Subnet) NetworkSubnet() network.SubnetInfo {
 	}
 
 	sInfo := network.SubnetInfo{
+		ID:                network.Id(s.doc.ID),
 		CIDR:              s.doc.CIDR,
 		ProviderId:        network.Id(s.doc.ProviderId),
 		ProviderNetworkId: network.Id(s.doc.ProviderNetworkId),
