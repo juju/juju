@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/api/base"
 	apicallermocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/apiserver/params"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/upgrades/mocks"
@@ -236,11 +235,10 @@ func (s *mockSteps28Suite) TestMoveUnitAgentStateToControllerNotMachine(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *mockSteps28Suite) TestMoveUnitAgentStateToControllerIAAS(c *gc.C) {
+func (s *mockSteps28Suite) TestMoveUnitAgentStateToController(c *gc.C) {
 	defer s.setup(c).Finish()
 	s.expectAPIState()
 	s.expectAgentConfigMachineTag()
-	s.expectAgentConfigValueIAAS()
 	s.expectWriteTwoAgentState(c)
 	s.patchClient()
 
@@ -258,23 +256,6 @@ func (s *mockSteps28Suite) TestMoveUnitAgentStateToControllerIAAS(c *gc.C) {
 	// Check idempotent
 	err = upgrades.MoveUnitAgentStateToController(s.mockCtx)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *mockSteps28Suite) TestMoveUnitAgentStateToControllerCAASDoesNothing(c *gc.C) {
-	// TODO: (hml) 27-03-2020
-	// remove when uniterstate moved for CAAS units and/or relations etc
-	// added to move.
-	defer s.setup(c).Finish()
-	s.expectAgentConfigMachineTag()
-	s.expectAgentConfigValueCAAS()
-	s.patchClient()
-
-	// Check idempotent
-	for i := 0; i < 2; i += 1 {
-		c.Logf("round %d", i)
-		err := upgrades.MoveUnitAgentStateToController(s.mockCtx)
-		c.Assert(err, jc.ErrorIsNil)
-	}
 }
 
 func (s *mockSteps28Suite) setup(c *gc.C) *gomock.Controller {
@@ -301,14 +282,6 @@ func (s *mockSteps28Suite) expectAPIState() {
 
 func (s *mockSteps28Suite) expectDataDir() {
 	s.mockAgentConfig.EXPECT().DataDir().Return(s.dataDir).AnyTimes()
-}
-
-func (s *mockSteps28Suite) expectAgentConfigValueCAAS() {
-	s.mockAgentConfig.EXPECT().Value(agent.ProviderType).Return(k8sprovider.CAASProviderType).AnyTimes()
-}
-
-func (s *mockSteps28Suite) expectAgentConfigValueIAAS() {
-	s.mockAgentConfig.EXPECT().Value(agent.ProviderType).Return("IAAS").AnyTimes()
 }
 
 func (s *mockSteps28Suite) expectAgentConfigMachineTag() {

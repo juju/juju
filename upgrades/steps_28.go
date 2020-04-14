@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/upgradesteps"
 	"github.com/juju/juju/apiserver/params"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/worker/common/reboot"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -106,6 +105,7 @@ func moveUnitAgentStateToController(ctx Context) error {
 	agentConf := ctx.AgentConfig()
 	ctxTag := agentConf.Tag()
 	if ctxTag.Kind() != names.MachineTagKind {
+		logger.Infof("skipping agent %q, not a machine", ctxTag.String())
 		return nil
 	}
 	_, unitNames, _, err := service.FindAgents(agentConf.DataDir())
@@ -117,15 +117,9 @@ func moveUnitAgentStateToController(ctx Context) error {
 		return nil
 	}
 
-	var fileNames []string
-	if ctx.AgentConfig().Value(agent.ProviderType) == k8sprovider.CAASProviderType {
-		if fileNames, err = caasOperatorLocalState(ctx, unitNames); err != nil {
-			return err
-		}
-	} else {
-		if fileNames, err = iaasUniterState(ctx, unitNames); err != nil {
-			return err
-		}
+	fileNames, err := uniterState(ctx, unitNames)
+	if err != nil {
+		return err
 	}
 
 	// Saving uniter state in the controller succeeded, now clean up
@@ -151,7 +145,7 @@ type UpgradeStepsClient interface {
 	WriteAgentState([]params.SetUnitStateArg) error
 }
 
-func iaasUniterState(ctx Context, unitNames []string) ([]string, error) {
+func uniterState(ctx Context, unitNames []string) ([]string, error) {
 	// Read the uniter state for each unit on this machine.
 	// Leave in yaml format as a string to push to the controller.
 	fileNames := set.NewStrings()
@@ -239,12 +233,6 @@ func readUniterState(uniterStateDir string) (string, string, error) {
 	}
 
 	return string(data), uniterStateFile, nil
-}
-
-func caasOperatorLocalState(ctx Context, unitNames []string) ([]string, error) {
-	// TODO: (hml) 27-Mar-2020.
-	// Implement when relations, storage, metrics and the operator state are moved.
-	return nil, nil
 }
 
 type storageData struct {
