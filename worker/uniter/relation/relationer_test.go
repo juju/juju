@@ -212,8 +212,8 @@ func (s *relationerSuite) TestSetDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we cannot rejoin the relation.
-	f := func() { _ = r.Join() }
-	c.Assert(f, gc.PanicMatches, "dying relationer must not join!")
+	err = r.Join()
+	c.Assert(err, gc.ErrorMatches, "dying relationer must not join!")
 
 	// Simulate a RelationBroken hook.
 	err = r.CommitHook(hook.Info{Kind: hooks.RelationBroken})
@@ -289,10 +289,10 @@ func (s *relationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(r, jc.Satisfies, (*relation.Relationer).IsImplicit)
 
 	// Hooks are not allowed.
-	f := func() { _, _ = r.PrepareHook(hook.Info{}) }
-	c.Assert(f, gc.PanicMatches, "implicit relations must not run hooks")
-	f = func() { _ = r.CommitHook(hook.Info{}) }
-	c.Assert(f, gc.PanicMatches, "implicit relations must not run hooks")
+	_, err = r.PrepareHook(hook.Info{})
+	c.Assert(err, gc.ErrorMatches, `restart immediately`)
+	err = r.CommitHook(hook.Info{})
+	c.Assert(err, gc.ErrorMatches, `restart immediately`)
 
 	// Set it to Dying; check that the ops is removed immediately.
 	err = r.SetDying()
