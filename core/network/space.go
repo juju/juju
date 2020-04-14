@@ -23,10 +23,15 @@ const (
 	AlphaSpaceName = "alpha"
 )
 
-// SpaceLookup describes methods for acquiring SpaceInfos
-// to translate space IDs to space names and vice versa.
+// SpaceLookup describes the ability to get a complete
+// network topology, as understood by Juju.
 type SpaceLookup interface {
 	AllSpaceInfos() (SpaceInfos, error)
+}
+
+// SubnetLookup describes retrieving all subnets within a known set of spaces.
+type SubnetLookup interface {
+	AllSubnetInfos() (SubnetInfos, error)
 }
 
 // SpaceName is the name of a network space.
@@ -58,6 +63,21 @@ type SpaceInfos []SpaceInfo
 // materialised and don't need to pull them from the DB again.
 func (s SpaceInfos) AllSpaceInfos() (SpaceInfos, error) {
 	return s, nil
+}
+
+// AllSubnetInfos returns all subnets contained in this collection of spaces.
+// Since a subnet can only be in one space, we can simply accrue them all
+// with the need for duplicate checking.
+// As with AllSpaceInfos, it implements an interface that can be used to
+// indirect state.
+func (s SpaceInfos) AllSubnetInfos() (SubnetInfos, error) {
+	subs := make(SubnetInfos, 0)
+	for _, space := range s {
+		for _, sub := range space.Subnets {
+			subs = append(subs, sub)
+		}
+	}
+	return subs, nil
 }
 
 // String returns returns a quoted, comma-delimited names of the spaces in the
@@ -163,7 +183,8 @@ nextSpace:
 					continue nextSpace
 				}
 
-				return nil, errors.Errorf("unable to infer space for address %q: address matches the same CIDR in multiple spaces", addr)
+				return nil, errors.Errorf(
+					"unable to infer space for address %q: address matches the same CIDR in multiple spaces", addr)
 			}
 		}
 	}
@@ -183,7 +204,8 @@ func (s SpaceInfos) InferSpaceFromCIDRAndSubnetID(cidr, providerSubnetID string)
 		}
 	}
 
-	return nil, errors.NewNotFound(nil, fmt.Sprintf("unable to infer space for CIDR %q and provider subnet ID %q", cidr, providerSubnetID))
+	return nil, errors.NewNotFound(
+		nil, fmt.Sprintf("unable to infer space for CIDR %q and provider subnet ID %q", cidr, providerSubnetID))
 }
 
 var (
