@@ -64,7 +64,19 @@ function Get-Arch {
 }
 
 function Get-Ram {
-   return (gcim win32_physicalmemory).Capacity
+   # The comma is not a typo. It forces $capacity to be an array.
+   # On machines with multiple slots of memory, the return value
+   # of gcim win32_physicalmemory, may be an array. On a machine
+   # with a single slot of memory, it will be a win32_physicalmemory
+   # object. Forcing an array here, makes a common case out of
+   # both situations and saves us the trouble of testing the
+   # return type.
+   $capacity = ,(gcim win32_physicalmemory).Capacity
+   $ram = 0
+   foreach($i in $capacity){
+      $ram += $i
+   }
+   return $ram
 }
 
 function Get-OSName {
@@ -183,12 +195,6 @@ func enableCertAuth(args *manual.ProvisionMachineArgs) (manual.WinrmClientAPI, e
 		err = args.WinRM.Client.Run(script, args.Stdout, &stderr)
 		if err != nil {
 			return nil, errors.Trace(err)
-		}
-		if stderr.Len() > 0 {
-			return nil, errors.Errorf(
-				"encountered error executing cert auth script: %s",
-				stderr.String(),
-			)
 		}
 	}
 
@@ -364,10 +370,6 @@ func checkProvisioned(host string, cli manual.WinrmClientAPI) (bool, error) {
 	}
 
 	provisioned := strings.Contains(stdout.String(), "Yes")
-	if stderr.Len() != 0 {
-		err = errors.Annotate(err, strings.TrimSpace(stderr.String()))
-	}
-
 	// if the script said yes
 	if provisioned {
 		logger.Infof("%s is already provisioned", host)
@@ -393,10 +395,6 @@ func DetectSeriesAndHardwareCharacteristics(host string, cli manual.WinrmClientA
 	// send the script to the windows machine
 	if err = cli.Run(script, &stdout, &stderr); err != nil {
 		return hc, "", errors.Trace(err)
-	}
-
-	if stderr.Len() != 0 {
-		return hc, "", fmt.Errorf("%v (%v)", err, strings.TrimSpace(stderr.String()))
 	}
 
 	info, err := splitHardWareScript(stdout.String())
@@ -514,16 +512,16 @@ func runProvisionScript(script string, cli manual.WinrmClientAPI, stdin, stderr 
 		return errors.Trace(err)
 	}
 
-	if outerr.Len() != 0 {
-		return fmt.Errorf("%v ", strings.TrimSpace(outerr.String()))
-	}
-
 	return err
 }
 
 // initChunk creates or clears the file that the userdata will be appendend.
 const initChunk = `
-$provisionPath= [io.path]::Combine($ENV:APPDATA, 'Juju', 'provision.ps1')
+$provisioningDir = [io.path]::Combine($ENV:APPDATA, 'Juju')
+if (-not (Test-Path $provisioningDir)){
+    mkdir $provisioningDir | Out-Null
+}
+$provisionPath = [io.path]::Combine($provisioningDir, 'provision.ps1')
 if (-Not (Test-Path $provisionPath)) {
 	New-Item $provisionPath -Type file
 } else {
