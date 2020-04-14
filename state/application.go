@@ -1410,6 +1410,30 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	return nil
 }
 
+
+// establishedRelationCount returns the number of already established relations
+// for appName and the endpoint specified in the provided relation details.
+func establishedRelationCount(existingRelList []*Relation, appName string, rel charm.Relation) int {
+	var establishedCount int
+	for _, existingRel := range existingRelList {
+		// Suspended relations don't count
+		if existingRel.Suspended() {
+			continue
+		}
+
+		for _, existingRelEp := range existingRel.Endpoints() {
+			if existingRelEp.ApplicationName == appName &&
+				existingRelEp.Relation.Name == rel.Name &&
+				existingRelEp.Relation.Interface == rel.Interface {
+				establishedCount++
+				break
+			}
+		}
+	}
+
+	return establishedCount
+}
+
 // MergeBindings merges the provided bindings map with the existing application
 // bindings.
 func (a *Application) MergeBindings(operatorBindings *Bindings, force bool) error {
