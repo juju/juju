@@ -66,7 +66,12 @@ type Backing interface {
 	AddSpace(Name string, ProviderId network.Id, Subnets []string, Public bool) error
 
 	// AllSpaces returns all known Juju network spaces.
+	// TODO (manadart 2020-04-14): This should be removed in favour of
+	// AllSpaceInfos below, reducing the reliance on networkingcommon.
 	AllSpaces() ([]networkingcommon.BackingSpace, error)
+
+	// AllSpaceInfos returns SpaceInfos for all spaces in the model.
+	AllSpaceInfos() (network.SpaceInfos, error)
 
 	// SpaceByName returns the Juju network space given by name.
 	SpaceByName(name string) (networkingcommon.BackingSpace, error)

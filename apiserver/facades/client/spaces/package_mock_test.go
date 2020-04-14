@@ -107,6 +107,21 @@ func (mr *MockBackingMockRecorder) AllMachines() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllMachines", reflect.TypeOf((*MockBacking)(nil).AllMachines))
 }
 
+// AllSpaceInfos mocks base method
+func (m *MockBacking) AllSpaceInfos() (network.SpaceInfos, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllSpaceInfos")
+	ret0, _ := ret[0].(network.SpaceInfos)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllSpaceInfos indicates an expected call of AllSpaceInfos
+func (mr *MockBackingMockRecorder) AllSpaceInfos() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaceInfos", reflect.TypeOf((*MockBacking)(nil).AllSpaceInfos))
+}
+
 // AllSpaces mocks base method
 func (m *MockBacking) AllSpaces() ([]networkingcommon.BackingSpace, error) {
 	m.ctrl.T.Helper()

@@ -6,13 +6,13 @@ package spaces
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/names/v4"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -205,12 +205,17 @@ func (api *API) getAffectedNetworks(subnets []MovingSubnet, force bool) (*affect
 		// include *their* overlays as being affected by a move.
 	}
 
-	machines, err := api.backing.AllMachines()
+	allSpaces, err := api.backing.AllSpaceInfos()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	affected := newAffectedNetworks(force)
+	affected := newAffectedNetworks(allSpaces, force)
+
+	machines, err := api.backing.AllMachines()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	for _, machine := range machines {
 		addresses, err := machine.AllAddresses()
@@ -266,8 +271,8 @@ func (api *API) ensureSpaceConstraintIntegrity(affected *affectedNetworks, space
 			return errors.Errorf("unable to determine an entity to which constraint %q applies", cons.ID())
 		}
 
-		// We don't care unless we are dealing with an
-		// application constraint that includes spaces.
+		// We only care if this is an application constraint,
+		// and it includes spaces.
 		val := cons.Value()
 		if tag.Kind() == names.ApplicationTagKind && val.HasSpaces() {
 			spaceCons := val.Spaces

@@ -31,12 +31,15 @@ func (n *unitNetwork) hasSameConnectivity(subnets network.SubnetInfos) bool {
 // is able to honour changing space topology based on application
 // constraints and endpoint bindings.
 type affectedNetworks struct {
+	// spaces is a cache of model's complete space topology.
+	spaces      network.SpaceInfos
 	appNetworks map[string][]unitNetwork
 	force       bool
 }
 
-func newAffectedNetworks(force bool) *affectedNetworks {
+func newAffectedNetworks(spaces network.SpaceInfos, force bool) *affectedNetworks {
 	return &affectedNetworks{
+		spaces:      spaces,
 		appNetworks: make(map[string][]unitNetwork),
 		force:       force,
 	}
@@ -79,26 +82,22 @@ func (n *affectedNetworks) includeMachine(machine Machine, subnets network.Subne
 
 func (n *affectedNetworks) ensureSpaceConstraintIntegrity(cons map[string]set.Strings, spaceName string) error {
 	for appName, _ := range n.appNetworks {
-		if spaces, ok := cons[appName]; ok {
-			// If the application has a negative space constraint for the
-			// destination, the proposed subnet relocation violates it.
-			if spaces.Contains("^" + spaceName) {
-				msg := fmt.Sprintf("moving subnet(s) to space %q violates space constraints "+
-					"for application %q: %s", spaceName, appName, strings.Join(spaces.SortedValues(), ", "))
+		spaces, ok := cons[appName]
+		if !ok {
+			// If the application has no space constraints, we are done.
+			continue
+		}
 
-				if !n.force {
-					return errors.New(msg)
-				}
-				logger.Warningf(msg)
+		// If the application has a negative space constraint for the
+		// destination, the proposed subnet relocation violates it.
+		if spaces.Contains("^" + spaceName) {
+			msg := fmt.Sprintf("moving subnet(s) to space %q violates space constraints "+
+				"for application %q: %s", spaceName, appName, strings.Join(spaces.SortedValues(), ", "))
+
+			if !n.force {
+				return errors.New(msg)
 			}
-
-			// Now remove any negative space constraints from the set.
-			// It is impossible for them to be violated by this move if they
-			// were not already.
-
-			// For each unique set of connected subnets for units in the application,
-			// Check that that positive space constraints remain satisfied by relocating
-			// subnets to the input space.
+			logger.Warningf(msg)
 		}
 	}
 
