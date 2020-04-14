@@ -119,17 +119,27 @@ func (*subnetSuite) TestFilterInFanNetwork(c *gc.C) {
 
 func (*subnetSuite) TestSubnetInfosEquality(c *gc.C) {
 	s1 := network.SubnetInfos{
-		{ID: network.Id(1)},
-		{ID: network.Id(2)},
+		{ID: "1"},
+		{ID: "2"},
 	}
 
 	s2 := network.SubnetInfos{
-		{ID: network.Id(2)},
-		{ID: network.Id(1)},
+		{ID: "2"},
+		{ID: "1"},
 	}
 
-	s3 := append(s2, network.SubnetInfo{ID: network.Id(3)})
+	s3 := append(s2, network.SubnetInfo{ID: "3"})
 
 	c.Check(s1.EqualTo(s2), jc.IsTrue)
 	c.Check(s1.EqualTo(s3), jc.IsFalse)
+}
+
+func (*subnetSuite) TestSubnetInfosSpaceIDs(c *gc.C) {
+	s := network.SubnetInfos{
+		{ID: "1", SpaceID: network.AlphaSpaceId},
+		{ID: "2", SpaceID: network.AlphaSpaceId},
+		{ID: "3", SpaceID: "666"},
+	}
+
+	c.Check(s.SpaceIDs().SortedValues(), jc.DeepEquals, []string{network.AlphaSpaceId, "666"})
 }

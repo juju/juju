@@ -137,6 +137,15 @@ func (s *SubnetInfo) ParsedCIDRNetwork() (*net.IPNet, error) {
 // SubnetInfos is a collection of subnets.
 type SubnetInfos []SubnetInfo
 
+// SpaceIDs returns the set of space IDs that these subnets are in.
+func (s SubnetInfos) SpaceIDs() set.Strings {
+	spaceIDs := set.NewStrings()
+	for _, sub := range s {
+		spaceIDs.Add(sub.SpaceID)
+	}
+	return spaceIDs
+}
+
 // EqualTo returns true if this slice of SubnetInfo is equal to the input.
 func (s SubnetInfos) EqualTo(other SubnetInfos) bool {
 	if len(s) != len(other) {
