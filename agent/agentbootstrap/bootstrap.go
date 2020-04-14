@@ -171,7 +171,9 @@ func InitializeState(
 	// because any space names in the bootstrap machine addresses must be
 	// reconcilable with space IDs at that point.
 	ctx := context.CallContext(st)
-	if err = space.ReloadSpaces(ctx, st, env); err != nil {
+	if err = space.ReloadSpaces(ctx, spaceStateShim{
+		State: st,
+	}, env); err != nil {
 		if errors.IsNotSupported(err) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {
@@ -365,7 +367,9 @@ func ensureHostedModel(
 
 	// TODO(wpk) 2017-05-24 Copy subnets/spaces from controller model
 	ctx := context.CallContext(hostedModelState)
-	if err = space.ReloadSpaces(ctx, hostedModelState, hostedModelEnv); err != nil {
+	if err = space.ReloadSpaces(ctx, spaceStateShim{
+		State: hostedModelState,
+	}, hostedModelEnv); err != nil {
 		if errors.IsNotSupported(err) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {
@@ -550,4 +554,42 @@ func machineJobFromParams(job model.MachineJob) (state.MachineJob, error) {
 	default:
 		return -1, errors.Errorf("invalid machine job %q", job)
 	}
+}
+
+type spaceStateShim struct {
+	*state.State
+}
+
+func (s spaceStateShim) AllSpaces() ([]space.Space, error) {
+	spaces, err := s.State.AllSpaces()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	results := make([]space.Space, len(spaces))
+	for i, space := range spaces {
+		results[i] = space
+	}
+	return results, nil
+}
+
+func (s spaceStateShim) AddSpace(name string, providerId corenetwork.Id, subnetIds []string, public bool) (space.Space, error) {
+	result, err := s.State.AddSpace(name, providerId, subnetIds, public)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return result, nil
+}
+
+func (s spaceStateShim) ConstraintsBySpaceName(name string) ([]space.Constraints, error) {
+	constraints, err := s.State.ConstraintsBySpaceName(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	results := make([]space.Constraints, len(constraints))
+	for i, constraint := range constraints {
+		results[i] = constraint
+	}
+	return results, nil
 }
