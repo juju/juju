@@ -6270,6 +6270,129 @@ func (s *K8sBrokerSuite) TestWatchContainerStart(c *gc.C) {
 	}
 }
 
+func (s *K8sBrokerSuite) TestWatchContainerStartRegex(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	podWatcher, podFirer := newKubernetesTestStringsWatcher()
+	var filter provider.K8sStringsWatcherFilterFunc
+	s.k8sStringsWatcherFn = provider.NewK8sStringsWatcherFunc(
+		func(_ cache.SharedIndexInformer,
+			_ string,
+			_ jujuclock.Clock,
+			_ []string,
+			ff provider.K8sStringsWatcherFilterFunc) (provider.KubernetesStringsWatcher, error) {
+			filter = ff
+			return podWatcher, nil
+		},
+	)
+
+	pod := core.Pod{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "test-0",
+			OwnerReferences: []v1.OwnerReference{
+				{Kind: "StatefulSet"},
+			},
+			Annotations: map[string]string{
+				"juju.io/unit": "test-0",
+			},
+		},
+		Status: core.PodStatus{
+			ContainerStatuses: []core.ContainerStatus{
+				{Name: "first-container", State: core.ContainerState{Waiting: &core.ContainerStateWaiting{}}},
+				{Name: "second-container", State: core.ContainerState{Waiting: &core.ContainerStateWaiting{}}},
+				{Name: "third-container", State: core.ContainerState{Waiting: &core.ContainerStateWaiting{}}},
+			},
+			Phase: core.PodPending,
+		},
+	}
+	copyPod := func(pod core.Pod) *core.Pod {
+		return &pod
+	}
+
+	podList := &core.PodList{
+		Items: []core.Pod{pod},
+	}
+
+	gomock.InOrder(
+		s.mockPods.EXPECT().List(
+			listOptionsLabelSelectorMatcher("juju-app=test"),
+		).Return(podList, nil),
+	)
+
+	w, err := s.broker.WatchContainerStart("test", "(?:first|third)-container")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Send an event to one of the watchers; multi-watcher should fire.
+	select {
+	case v, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(v, gc.HasLen, 0)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for event")
+	}
+
+	// test first-container fires
+	pod.Status = core.PodStatus{
+		ContainerStatuses: []core.ContainerStatus{
+			{Name: "first-container", State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+			{Name: "second-container", State: core.ContainerState{Waiting: &core.ContainerStateWaiting{}}},
+			{Name: "third-container", State: core.ContainerState{Waiting: &core.ContainerStateWaiting{}}},
+		},
+		Phase: core.PodPending,
+	}
+	evt, ok := filter(provider.WatchEventUpdate, copyPod(pod))
+	c.Assert(ok, jc.IsTrue)
+	podFirer([]string{evt})
+
+	select {
+	case v, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(v, gc.DeepEquals, []string{"test-0"})
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for event")
+	}
+
+	// test second-container does not fire
+	pod.Status = core.PodStatus{
+		ContainerStatuses: []core.ContainerStatus{
+			{Name: "first-container", State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+			{Name: "second-container", State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+			{Name: "third-container", State: core.ContainerState{Waiting: &core.ContainerStateWaiting{}}},
+		},
+		Phase: core.PodPending,
+	}
+	evt, ok = filter(provider.WatchEventUpdate, copyPod(pod))
+	c.Assert(ok, jc.IsFalse)
+
+	select {
+	case <-w.Changes():
+		c.Fatal("unexpected event")
+	case <-time.After(testing.ShortWait):
+	}
+
+	// test third-container fires
+	pod.Status = core.PodStatus{
+		ContainerStatuses: []core.ContainerStatus{
+			{Name: "first-container", State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+			{Name: "second-container", State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+			{Name: "third-container", State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+		},
+		Phase: core.PodPending,
+	}
+	evt, ok = filter(provider.WatchEventUpdate, copyPod(pod))
+	c.Assert(ok, jc.IsTrue)
+	podFirer([]string{evt})
+
+	select {
+	case v, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(v, gc.DeepEquals, []string{"test-0"})
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for event")
+	}
+}
+
 func (s *K8sBrokerSuite) TestWatchContainerStartDefault(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()

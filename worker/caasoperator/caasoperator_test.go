@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -27,6 +28,7 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
@@ -39,6 +41,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniter/remotestate"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
 )
 
@@ -59,6 +62,7 @@ type WorkerSuite struct {
 	leadershipTrackerFunc func(unitTag names.UnitTag) leadership.TrackerWorker
 	uniterFacadeFunc      func(unitTag names.UnitTag) *apiuniter.State
 	runListenerSocketFunc func(*uniter.SocketConfig) (*sockets.Socket, error)
+	mockExecutor          *mockExecutor
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -113,6 +117,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		socket := sockPath(c)
 		return &socket, nil
 	}
+	s.mockExecutor = &mockExecutor{}
 
 	s.config = caasoperator.Config{
 		Application:           "gitlab",
@@ -132,6 +137,8 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		UniterFacadeFunc:      s.uniterFacadeFunc,
 		RunListenerSocketFunc: s.runListenerSocketFunc,
 		StartUniterFunc:       func(runner *worker.Runner, params *uniter.UniterParams) error { return nil },
+		ExecClient:            s.mockExecutor,
+		Logger:                loggo.GetLogger("test"),
 	}
 
 	agentBinaryDir := agenttools.ToolsDir(s.config.DataDir, "application-gitlab")
@@ -273,7 +280,7 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 		Arch:   arch.HostArch(),
 	})
 	s.client.CheckCall(c, 3, "WatchUnits", "gitlab")
-	s.client.CheckCall(c, 4, "WatchContainerStart", "gitlab", "")
+	s.client.CheckCall(c, 4, "WatchContainerStart", "gitlab", "(?:juju-pod-init|)")
 	s.client.CheckCall(c, 6, "Watch", "gitlab")
 
 	s.charmDownloader.CheckCallNames(c, "Download")
@@ -429,18 +436,29 @@ func (s *WorkerSuite) TestRemovedApplication(c *gc.C) {
 func (s *WorkerSuite) TestContainerStart(c *gc.C) {
 	uniterStarted := make(chan struct{})
 	uniterGotRunning := make(chan struct{})
+	s.mockExecutor.status = exec.Status{
+		PodName: "gitlab-ffff",
+		ContainerStatus: []exec.ContainerStatus{{
+			Name:    "default",
+			Running: true,
+		}},
+	}
+
 	s.config.StartUniterFunc = func(runner *worker.Runner, params *uniter.UniterParams) error {
 		go func() {
 			close(uniterStarted)
 			c.Assert(params.UnitTag.Id(), gc.Equals, "gitlab/0")
 			select {
-			case <-params.RunningStatusChannel:
+			case <-params.ContainerRunningStatusChannel:
 			case <-time.After(coretesting.LongWait):
 				c.Fatal("timed out sending application change")
 			}
-			running, err := params.RunningStatusFunc()
+			running, err := params.ContainerRunningStatusFunc("gitlab-ffff")
 			c.Assert(err, gc.IsNil)
-			c.Assert(running, jc.IsTrue)
+			c.Assert(running, jc.DeepEquals, &remotestate.ContainerRunningStatus{
+				PodName: "gitlab-ffff",
+				Running: true,
+			})
 			close(uniterGotRunning)
 		}()
 		return nil
@@ -489,7 +507,7 @@ func (s *WorkerSuite) TestContainerStart(c *gc.C) {
 		Arch:   arch.HostArch(),
 	})
 	s.client.CheckCall(c, 3, "WatchUnits", "gitlab")
-	s.client.CheckCall(c, 4, "WatchContainerStart", "gitlab", "")
+	s.client.CheckCall(c, 4, "WatchContainerStart", "gitlab", "(?:juju-pod-init|)")
 	s.client.CheckCall(c, 6, "Watch", "gitlab")
 }
 
@@ -499,7 +517,7 @@ func (s *WorkerSuite) TestOperatorNoWaitContainerStart(c *gc.C) {
 		go func() {
 			close(uniterStarted)
 			c.Assert(params.UnitTag.Id(), gc.Equals, "gitlab/0")
-			c.Assert(params.RunningStatusChannel, gc.IsNil)
+			c.Assert(params.ContainerRunningStatusChannel, gc.IsNil)
 		}()
 		return nil
 	}

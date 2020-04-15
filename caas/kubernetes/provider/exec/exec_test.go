@@ -29,7 +29,7 @@ type execSuite struct {
 
 var _ = gc.Suite(&execSuite{})
 
-func (s *execSuite) TestExecParamsValidateComandsAndPodName(c *gc.C) {
+func (s *execSuite) TestExecParamsValidateCommandsAndPodName(c *gc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 

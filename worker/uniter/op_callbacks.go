@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
@@ -138,4 +139,15 @@ func (opc *operationCallbacks) SetExecutingStatus(message string) error {
 // SetUpgradeSeriesStatus is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) SetUpgradeSeriesStatus(upgradeSeriesStatus model.UpgradeSeriesStatus, reason string) error {
 	return setUpgradeSeriesStatus(opc.u, upgradeSeriesStatus, reason)
+}
+
+// RemoteInit is part of the operation.Callbacks interface.
+func (opc *operationCallbacks) RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error {
+	if opc.u.modelType != model.CAAS {
+		return nil
+	}
+	if opc.u.remoteInitFunc == nil {
+		return nil
+	}
+	return opc.u.remoteInitFunc(runningStatus, abort)
 }

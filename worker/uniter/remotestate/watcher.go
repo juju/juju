@@ -27,21 +27,21 @@ var logger = loggo.GetLogger("juju.worker.uniter.remotestate")
 // from separate state watchers, and updates a Snapshot which is sent on a
 // channel upon change.
 type RemoteStateWatcher struct {
-	st                        State
-	unit                      Unit
-	application               Application
-	modelType                 model.ModelType
-	relations                 map[names.RelationTag]*wrappedRelationUnitsWatcher
-	relationUnitsChanges      chan relationUnitsChange
-	storageAttachmentWatchers map[names.StorageTag]*storageAttachmentWatcher
-	storageAttachmentChanges  chan storageAttachmentChange
-	leadershipTracker         leadership.Tracker
-	updateStatusChannel       UpdateStatusTimerFunc
-	commandChannel            <-chan string
-	retryHookChannel          watcher.NotifyChannel
-	applicationChannel        watcher.NotifyChannel
-	runningStatusChannel      watcher.NotifyChannel
-	runningStatusFunc         RunningStatusFunc
+	st                            State
+	unit                          Unit
+	application                   Application
+	modelType                     model.ModelType
+	relations                     map[names.RelationTag]*wrappedRelationUnitsWatcher
+	relationUnitsChanges          chan relationUnitsChange
+	storageAttachmentWatchers     map[names.StorageTag]*storageAttachmentWatcher
+	storageAttachmentChanges      chan storageAttachmentChange
+	leadershipTracker             leadership.Tracker
+	updateStatusChannel           UpdateStatusTimerFunc
+	commandChannel                <-chan string
+	retryHookChannel              watcher.NotifyChannel
+	applicationChannel            watcher.NotifyChannel
+	containerRunningStatusChannel watcher.NotifyChannel
+	containerRunningStatusFunc    ContainerRunningStatusFunc
 
 	catacomb catacomb.Catacomb
 
@@ -50,23 +50,31 @@ type RemoteStateWatcher struct {
 	current Snapshot
 }
 
-// RunningStatusFunc is used by the RemoteStateWatcher in a CAAS
+// ContainerRunningStatus is used on CAAS models to upgrade charms/block actions.
+type ContainerRunningStatus struct {
+	PodName          string
+	Initialising     bool
+	InitialisingTime time.Time
+	Running          bool
+}
+
+// ContainerRunningStatusFunc is used by the RemoteStateWatcher in a CAAS
 // model to determine if the unit is running and ready to execute actions.
-type RunningStatusFunc func() (bool, error)
+type ContainerRunningStatusFunc func(providerID string) (*ContainerRunningStatus, error)
 
 // WatcherConfig holds configuration parameters for the
 // remote state watcher.
 type WatcherConfig struct {
-	State                State
-	LeadershipTracker    leadership.Tracker
-	UpdateStatusChannel  UpdateStatusTimerFunc
-	CommandChannel       <-chan string
-	RetryHookChannel     watcher.NotifyChannel
-	ApplicationChannel   watcher.NotifyChannel
-	RunningStatusChannel watcher.NotifyChannel
-	RunningStatusFunc    RunningStatusFunc
-	UnitTag              names.UnitTag
-	ModelType            model.ModelType
+	State                         State
+	LeadershipTracker             leadership.Tracker
+	UpdateStatusChannel           UpdateStatusTimerFunc
+	CommandChannel                <-chan string
+	RetryHookChannel              watcher.NotifyChannel
+	ApplicationChannel            watcher.NotifyChannel
+	ContainerRunningStatusChannel watcher.NotifyChannel
+	ContainerRunningStatusFunc    ContainerRunningStatusFunc
+	UnitTag                       names.UnitTag
+	ModelType                     model.ModelType
 }
 
 func (w WatcherConfig) validate() error {
@@ -74,9 +82,9 @@ func (w WatcherConfig) validate() error {
 		if w.ApplicationChannel == nil {
 			return errors.NotValidf("watcher config for CAAS model with nil application channel")
 		}
-		if w.RunningStatusFunc != nil {
-			if w.RunningStatusChannel == nil {
-				return errors.NotValidf("watcher config for CAAS model with nil running status channel")
+		if w.ContainerRunningStatusFunc != nil {
+			if w.ContainerRunningStatusChannel == nil {
+				return errors.NotValidf("watcher config for CAAS model with nil container running status channel")
 			}
 		}
 	}
@@ -90,19 +98,19 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		return nil, errors.Trace(err)
 	}
 	w := &RemoteStateWatcher{
-		st:                        config.State,
-		relations:                 make(map[names.RelationTag]*wrappedRelationUnitsWatcher),
-		relationUnitsChanges:      make(chan relationUnitsChange),
-		storageAttachmentWatchers: make(map[names.StorageTag]*storageAttachmentWatcher),
-		storageAttachmentChanges:  make(chan storageAttachmentChange),
-		leadershipTracker:         config.LeadershipTracker,
-		updateStatusChannel:       config.UpdateStatusChannel,
-		commandChannel:            config.CommandChannel,
-		retryHookChannel:          config.RetryHookChannel,
-		applicationChannel:        config.ApplicationChannel,
-		runningStatusChannel:      config.RunningStatusChannel,
-		runningStatusFunc:         config.RunningStatusFunc,
-		modelType:                 config.ModelType,
+		st:                            config.State,
+		relations:                     make(map[names.RelationTag]*wrappedRelationUnitsWatcher),
+		relationUnitsChanges:          make(chan relationUnitsChange),
+		storageAttachmentWatchers:     make(map[names.StorageTag]*storageAttachmentWatcher),
+		storageAttachmentChanges:      make(chan storageAttachmentChange),
+		leadershipTracker:             config.LeadershipTracker,
+		updateStatusChannel:           config.UpdateStatusChannel,
+		commandChannel:                config.CommandChannel,
+		retryHookChannel:              config.RetryHookChannel,
+		applicationChannel:            config.ApplicationChannel,
+		containerRunningStatusChannel: config.ContainerRunningStatusChannel,
+		containerRunningStatusFunc:    config.ContainerRunningStatusFunc,
+		modelType:                     config.ModelType,
 		// Note: it is important that the out channel be buffered!
 		// The remote state watcher will perform a non-blocking send
 		// on the channel to wake up the observer. It is non-blocking
@@ -111,7 +119,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		current: Snapshot{
 			Relations:      make(map[int]RelationSnapshot),
 			Storage:        make(map[names.StorageTag]StorageSnapshot),
-			ActionsBlocked: config.RunningStatusFunc != nil,
+			ActionsBlocked: config.ContainerRunningStatusFunc != nil,
 			ActionChanged:  make(map[string]int),
 		},
 	}
@@ -216,12 +224,15 @@ func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if w.runningStatusFunc != nil {
-		running, err := w.runningStatusFunc()
-		if err != nil {
-			return errors.Trace(err)
+	if w.containerRunningStatusFunc != nil {
+		providerID := w.unit.ProviderID()
+		if providerID != "" {
+			running, err := w.containerRunningStatusFunc(providerID)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			w.containerRunningStatus(*running)
 		}
-		w.actionsBlocked(!running)
 	}
 	return nil
 }
@@ -438,16 +449,26 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenApplicationChange)
 
-		case _, ok := <-w.runningStatusChannel:
+		case _, ok := <-w.containerRunningStatusChannel:
 			logger.Debugf("got running status change")
 			if !ok {
 				return errors.New("running status watcher closed")
 			}
-			running, err := w.runningStatusFunc()
+			if w.current.ProviderID == "" {
+				if err := w.unitChanged(); err != nil {
+					return errors.Trace(err)
+				}
+				if w.current.ProviderID == "" {
+					// This shouldn't happen.
+					logger.Warningf("we should already be assigned a provider id but got an empty id")
+					return nil
+				}
+			}
+			runningStatus, err := w.containerRunningStatusFunc(w.current.ProviderID)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			w.actionsBlocked(!running)
+			w.containerRunningStatus(*runningStatus)
 
 		case hashes, ok := <-charmConfigw.Changes():
 			logger.Debugf("got config change: ok=%t, hashes=%v", ok, hashes)
@@ -869,9 +890,10 @@ func (w *RemoteStateWatcher) actionsChanged(actions []string) {
 	}
 }
 
-func (w *RemoteStateWatcher) actionsBlocked(blocked bool) {
+func (w *RemoteStateWatcher) containerRunningStatus(runningStatus ContainerRunningStatus) {
 	w.mu.Lock()
-	w.current.ActionsBlocked = blocked
+	w.current.ActionsBlocked = !runningStatus.Running
+	w.current.ContainerRunningStatus = &runningStatus
 	w.mu.Unlock()
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -559,4 +560,25 @@ var someCommandArgs = operation.CommandArgs{
 	RelationId:      123,
 	RemoteUnitName:  "foo/456",
 	ForceRemoteUnit: true,
+}
+
+type RemoteInitCallbacks struct {
+	operation.Callbacks
+	MockRemoteInit *MockRemoteInit
+}
+
+func (cb *RemoteInitCallbacks) RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error {
+	return cb.MockRemoteInit.Call(runningStatus, abort)
+}
+
+type MockRemoteInit struct {
+	gotRunningStatus *remotestate.ContainerRunningStatus
+	gotAbort         <-chan struct{}
+	err              error
+}
+
+func (mock *MockRemoteInit) Call(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error {
+	mock.gotRunningStatus = &runningStatus
+	mock.gotAbort = abort
+	return mock.err
 }

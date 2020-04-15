@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/actions"
 	"github.com/juju/juju/worker/uniter/charm"
+	"github.com/juju/juju/worker/uniter/container"
 	"github.com/juju/juju/worker/uniter/hook"
 	uniterleadership "github.com/juju/juju/worker/uniter/leadership"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -67,6 +68,9 @@ type UniterExecutionObserver interface {
 type RebootQuerier interface {
 	Query(tag names.Tag) (bool, error)
 }
+
+// RemoteInitFunc is used to init remote state
+type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) error
 
 // Uniter implements the capabilities of the unit agent. It is not intended to
 // implement the actual *behaviour* of the unit agent; that responsibility is
@@ -120,12 +124,15 @@ type Uniter struct {
 	// application's charm. It is passed to the remote state watcher.
 	applicationChannel watcher.NotifyChannel
 
-	// runningStatusChannel, if set, is used to signal a change in the
+	// containerRunningStatusChannel, if set, is used to signal a change in the
 	// unit's status. It is passed to the remote state watcher.
-	runningStatusChannel watcher.NotifyChannel
+	containerRunningStatusChannel watcher.NotifyChannel
 
-	// runningStatusFunc used to determine the unit's running status.
-	runningStatusFunc remotestate.RunningStatusFunc
+	// containerRunningStatusFunc is used to determine the unit's running status.
+	containerRunningStatusFunc remotestate.ContainerRunningStatusFunc
+
+	// remoteInitFunc is used to init remote charm state.
+	remoteInitFunc RemoteInitFunc
 
 	// hookRetryStrategy represents configuration for hook retries
 	hookRetryStrategy params.RetryStrategy
@@ -141,25 +148,26 @@ type Uniter struct {
 
 // UniterParams hold all the necessary parameters for a new Uniter.
 type UniterParams struct {
-	UniterFacade            *uniter.State
-	UnitTag                 names.UnitTag
-	ModelType               model.ModelType
-	LeadershipTracker       leadership.TrackerWorker
-	DataDir                 string
-	Downloader              charm.Downloader
-	MachineLock             machinelock.Lock
-	CharmDirGuard           fortress.Guard
-	UpdateStatusSignal      remotestate.UpdateStatusTimerFunc
-	HookRetryStrategy       params.RetryStrategy
-	NewOperationExecutor    NewOperationExecutorFunc
-	NewRemoteRunnerExecutor NewRunnerExecutorFunc
-	RunListener             *RunListener
-	TranslateResolverErr    func(error) error
-	Clock                   clock.Clock
-	ApplicationChannel      watcher.NotifyChannel
-	RunningStatusChannel    watcher.NotifyChannel
-	RunningStatusFunc       remotestate.RunningStatusFunc
-	SocketConfig            *SocketConfig
+	UniterFacade                  *uniter.State
+	UnitTag                       names.UnitTag
+	ModelType                     model.ModelType
+	LeadershipTracker             leadership.TrackerWorker
+	DataDir                       string
+	Downloader                    charm.Downloader
+	MachineLock                   machinelock.Lock
+	CharmDirGuard                 fortress.Guard
+	UpdateStatusSignal            remotestate.UpdateStatusTimerFunc
+	HookRetryStrategy             params.RetryStrategy
+	NewOperationExecutor          NewOperationExecutorFunc
+	NewRemoteRunnerExecutor       NewRunnerExecutorFunc
+	RemoteInitFunc                RemoteInitFunc
+	RunListener                   *RunListener
+	TranslateResolverErr          func(error) error
+	Clock                         clock.Clock
+	ApplicationChannel            watcher.NotifyChannel
+	ContainerRunningStatusChannel watcher.NotifyChannel
+	ContainerRunningStatusFunc    remotestate.ContainerRunningStatusFunc
+	SocketConfig                  *SocketConfig
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
 	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
 	// that write to files, and have the tests watch the output to know that hooks have finished.
@@ -204,25 +212,26 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 		translateResolverErr = func(err error) error { return err }
 	}
 	u := &Uniter{
-		st:                      uniterParams.UniterFacade,
-		paths:                   NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
-		modelType:               uniterParams.ModelType,
-		hookLock:                uniterParams.MachineLock,
-		leadershipTracker:       uniterParams.LeadershipTracker,
-		charmDirGuard:           uniterParams.CharmDirGuard,
-		updateStatusAt:          uniterParams.UpdateStatusSignal,
-		hookRetryStrategy:       uniterParams.HookRetryStrategy,
-		newOperationExecutor:    uniterParams.NewOperationExecutor,
-		newRemoteRunnerExecutor: uniterParams.NewRemoteRunnerExecutor,
-		translateResolverErr:    translateResolverErr,
-		observer:                uniterParams.Observer,
-		clock:                   uniterParams.Clock,
-		downloader:              uniterParams.Downloader,
-		applicationChannel:      uniterParams.ApplicationChannel,
-		runningStatusChannel:    uniterParams.RunningStatusChannel,
-		runningStatusFunc:       uniterParams.RunningStatusFunc,
-		runListener:             uniterParams.RunListener,
-		rebootQuerier:           uniterParams.RebootQuerier,
+		st:                            uniterParams.UniterFacade,
+		paths:                         NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
+		modelType:                     uniterParams.ModelType,
+		hookLock:                      uniterParams.MachineLock,
+		leadershipTracker:             uniterParams.LeadershipTracker,
+		charmDirGuard:                 uniterParams.CharmDirGuard,
+		updateStatusAt:                uniterParams.UpdateStatusSignal,
+		hookRetryStrategy:             uniterParams.HookRetryStrategy,
+		newOperationExecutor:          uniterParams.NewOperationExecutor,
+		newRemoteRunnerExecutor:       uniterParams.NewRemoteRunnerExecutor,
+		remoteInitFunc:                uniterParams.RemoteInitFunc,
+		translateResolverErr:          translateResolverErr,
+		observer:                      uniterParams.Observer,
+		clock:                         uniterParams.Clock,
+		downloader:                    uniterParams.Downloader,
+		applicationChannel:            uniterParams.ApplicationChannel,
+		containerRunningStatusChannel: uniterParams.ContainerRunningStatusChannel,
+		containerRunningStatusFunc:    uniterParams.ContainerRunningStatusFunc,
+		runListener:                   uniterParams.RunListener,
+		rebootQuerier:                 uniterParams.RebootQuerier,
 	}
 	startFunc := func() (worker.Worker, error) {
 		plan := catacomb.Plan{
@@ -333,16 +342,16 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		var err error
 		watcher, err = remotestate.NewWatcher(
 			remotestate.WatcherConfig{
-				State:                remotestate.NewAPIState(u.st),
-				LeadershipTracker:    u.leadershipTracker,
-				UnitTag:              unitTag,
-				UpdateStatusChannel:  u.updateStatusAt,
-				CommandChannel:       u.commandChannel,
-				RetryHookChannel:     retryHookChan,
-				ApplicationChannel:   u.applicationChannel,
-				RunningStatusChannel: u.runningStatusChannel,
-				RunningStatusFunc:    u.runningStatusFunc,
-				ModelType:            u.modelType,
+				State:                         remotestate.NewAPIState(u.st),
+				LeadershipTracker:             u.leadershipTracker,
+				UnitTag:                       unitTag,
+				UpdateStatusChannel:           u.updateStatusAt,
+				CommandChannel:                u.commandChannel,
+				RetryHookChannel:              retryHookChan,
+				ApplicationChannel:            u.applicationChannel,
+				ContainerRunningStatusChannel: u.containerRunningStatusChannel,
+				ContainerRunningStatusFunc:    u.containerRunningStatusFunc,
+				ModelType:                     u.modelType,
 			})
 		if err != nil {
 			return errors.Trace(err)
@@ -416,6 +425,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				u.commands, watcher.CommandCompleted,
 			),
 		}
+		if u.modelType == model.CAAS {
+			cfg.Container = container.NewResolver()
+		}
 		uniterResolver := NewUniterResolver(cfg)
 
 		// We should not do anything until there has been a change
@@ -431,6 +443,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			CharmURL:             charmURL,
 			CharmModifiedVersion: charmModifiedVersion,
 			UpgradeSeriesStatus:  model.UpgradeSeriesNotStarted,
+			// CAAS models should trigger remote update of the charm every start.
+			OutdatedRemoteCharm: u.modelType == model.CAAS,
 		}
 		for err == nil {
 			err = resolver.Loop(resolver.LoopConfig{
@@ -599,21 +613,16 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	u.storage = storageAttachments
 
-	// Only IAAS models require the uniter to install charms.
-	// For CAAS models this is done by the operator.
-	var deployer charm.Deployer
-	if u.modelType == model.IAAS {
-		if err := charm.ClearDownloads(u.paths.State.BundlesDir); err != nil {
-			logger.Warningf(err.Error())
-		}
-		deployer, err = charm.NewDeployer(
-			u.paths.State.CharmDir,
-			u.paths.State.DeployerDir,
-			charm.NewBundlesDir(u.paths.State.BundlesDir, u.downloader),
-		)
-		if err != nil {
-			return errors.Annotatef(err, "cannot create deployer")
-		}
+	if err := charm.ClearDownloads(u.paths.State.BundlesDir); err != nil {
+		logger.Warningf(err.Error())
+	}
+	deployer, err := charm.NewDeployer(
+		u.paths.State.CharmDir,
+		u.paths.State.DeployerDir,
+		charm.NewBundlesDir(u.paths.State.BundlesDir, u.downloader),
+	)
+	if err != nil {
+		return errors.Annotatef(err, "cannot create deployer")
 	}
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
 		State:            u.st,
@@ -654,19 +663,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		Kind:     operation.Install,
 		Step:     operation.Queued,
 		CharmURL: charmURL,
-	}
-
-	if u.modelType == model.CAAS {
-		// For CAAS, run the install hook, but not the
-		// full install operation.
-		initialState = operation.State{
-			Hook: &hook.Info{Kind: hooks.Install},
-			Kind: operation.RunHook,
-			Step: operation.Queued,
-		}
-		if err := u.unit.SetCharmURL(charmURL); err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	operationExecutor, err := u.newOperationExecutor(operation.ExecutorConfig{
