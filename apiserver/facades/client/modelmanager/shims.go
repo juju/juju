@@ -5,6 +5,7 @@ package modelmanager
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/space"

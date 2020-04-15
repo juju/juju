@@ -624,9 +624,9 @@ type LegacySuite struct {
 	testing.BaseSuite
 	apiservertesting.StubNetwork
 
-	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
-	facade     *spaces.API
+	resources *common.Resources
+	auth      apiservertesting.FakeAuthorizer
+	facade    *spaces.API
 
 	callContext  context.ProviderCallContext
 	blockChecker mockBlockChecker
@@ -654,7 +654,7 @@ func (s *LegacySuite) SetUpTest(c *gc.C) {
 	)
 
 	s.resources = common.NewResources()
-	s.authorizer = apiservertesting.FakeAuthorizer{
+	s.auth = apiservertesting.FakeAuthorizer{
 		Tag:        names.NewUserTag("admin"),
 		Controller: false,
 	}
@@ -667,7 +667,7 @@ func (s *LegacySuite) SetUpTest(c *gc.C) {
 		Check:      &s.blockChecker,
 		Context:    s.callContext,
 		Resources:  s.resources,
-		Authorizer: s.authorizer,
+		Authorizer: s.auth,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.facade, gc.NotNil)
@@ -687,7 +687,7 @@ func (s *LegacySuite) TestNewAPIWithBacking(c *gc.C) {
 		Check:      &s.blockChecker,
 		Context:    s.callContext,
 		Resources:  s.resources,
-		Authorizer: s.authorizer,
+		Authorizer: s.auth,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(facade, gc.NotNil)
@@ -695,7 +695,7 @@ func (s *LegacySuite) TestNewAPIWithBacking(c *gc.C) {
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
 
 	// Agents are not allowed
-	agentAuthorizer := s.authorizer
+	agentAuthorizer := s.auth
 	agentAuthorizer.Tag = names.NewMachineTag("42")
 	facade, err = spaces.NewAPIWithBacking(spaces.APIConfig{
 		Backing:    &stubBacking{apiservertesting.BackingInstance},

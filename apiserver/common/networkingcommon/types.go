@@ -129,10 +129,6 @@ type NetworkBacking interface {
 
 	// ModelTag returns the tag of the model this state is associated to.
 	ModelTag() names.ModelTag
-
-	// SaveProviderSubnets loads subnets into state.
-	// Currently it does not delete removed subnets.
-	SaveProviderSubnets(subnets []corenetwork.SubnetInfo, spaceID string) error
 }
 
 // BackingSubnetToParamsSubnetV2 converts a network backing subnet to the new

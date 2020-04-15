@@ -108,9 +108,6 @@ type Backing interface {
 	// ConstraintsBySpaceName returns constraints found by spaceName.
 	ConstraintsBySpaceName(name string) ([]Constraints, error)
 
-	// SaveProviderSubnets loads subnets into state.
-	SaveProviderSubnets([]network.SubnetInfo, string) error
-
 	// IsController returns true if this state instance has the bootstrap
 	// model UUID.
 	IsController() bool

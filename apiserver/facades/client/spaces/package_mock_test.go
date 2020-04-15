@@ -237,20 +237,6 @@ func (mr *MockBackingMockRecorder) MovingSubnet(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MovingSubnet", reflect.TypeOf((*MockBacking)(nil).MovingSubnet), arg0)
 }
 
-// SaveProviderSubnets mocks base method
-func (m *MockBacking) SaveProviderSubnets(arg0 []network.SubnetInfo, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveProviderSubnets", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SaveProviderSubnets indicates an expected call of SaveProviderSubnets
-func (mr *MockBackingMockRecorder) SaveProviderSubnets(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveProviderSubnets", reflect.TypeOf((*MockBacking)(nil).SaveProviderSubnets), arg0, arg1)
-}
-
 // SpaceByName mocks base method
 func (m *MockBacking) SpaceByName(arg0 string) (networkingcommon.BackingSpace, error) {
 	m.ctrl.T.Helper()
