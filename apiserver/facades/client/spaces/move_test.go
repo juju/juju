@@ -111,6 +111,8 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsSuccess(c *gc.C) {
 
 	subnet := expectMovingSubnet(ctrl, subnetID, "")
 
+	s.Backing.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil)
+
 	moveSubnetsOp := spaces.NewMockMoveSubnetsOp(ctrl)
 	moveSubnetsOp.EXPECT().GetMovedSubnets().Return([]spaces.MovedSubnet{{
 		ID:        subnetID,
@@ -164,12 +166,66 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceE
 
 	subnet := expectMovingSubnet(ctrl, subnetID, "")
 
+	s.Backing.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil)
+
 	// MySQL is constrained to be in a different space.
 	cons := spaces.NewMockConstraints(ctrl)
 	cons.EXPECT().ID().Return("c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql")
 	cons.EXPECT().Value().Return(constraints.MustParse("spaces=^destination"))
 
 	s.expectMachinesAndAddresses(ctrl, subnetID, "mysql")
+
+	bExp := s.Backing.EXPECT()
+	bExp.AllConstraints().Return([]spaces.Constraints{cons}, nil)
+	bExp.MovingSubnet(subnetID).Return(subnet, nil)
+
+	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error.Message, gc.Equals,
+		`moving subnet(s) to space "destination" violates space constraints for application "mysql": ^destination`)
+}
+
+func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedForOverlayNoForceError(c *gc.C) {
+	ctrl, unReg := s.SetupMocks(c, true, false)
+	defer ctrl.Finish()
+	defer unReg()
+
+	spaceName := "destination"
+	subnetID := "3"
+	fanSubnetID := "666"
+
+	subnet := expectMovingSubnet(ctrl, subnetID, "")
+
+	// The network topology indicates that the moving subnet has a fan overlay,
+	// which will also move the the new space implicitly.
+	s.Backing.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{
+		{
+			ID:   "1",
+			Name: "old-space",
+			Subnets: network.SubnetInfos{
+				{
+					ID:   network.Id(subnetID),
+					CIDR: "10.10.10.0/24",
+				},
+				{
+					ID:   network.Id(fanSubnetID),
+					CIDR: "10.0.0.0/8",
+					FanInfo: &network.FanCIDRs{
+						FanLocalUnderlay: "10.10.10.0/24",
+					},
+				},
+			},
+		},
+	}, nil)
+
+	// MySQL is constrained to be in a different space.
+	cons := spaces.NewMockConstraints(ctrl)
+	cons.EXPECT().ID().Return("c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql")
+	cons.EXPECT().Value().Return(constraints.MustParse("spaces=^destination"))
+
+	// We are connected to the overlay of a moving subnet.
+	s.expectMachinesAndAddresses(ctrl, fanSubnetID, "mysql")
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return([]spaces.Constraints{cons}, nil)
@@ -191,6 +247,8 @@ func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess
 	subnetID := "3"
 
 	subnet := expectMovingSubnet(ctrl, subnetID, "")
+
+	s.Backing.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{}, nil)
 
 	// MySQL is constrained to be in a different space.
 	cons := spaces.NewMockConstraints(ctrl)

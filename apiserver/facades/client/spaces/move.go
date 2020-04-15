@@ -196,18 +196,25 @@ func (api *API) ensureSubnetsCanBeMoved(subnets []MovingSubnet, spaceName string
 // From these it generates lists of common unit/subnet-topologies,
 // grouped by application.
 func (api *API) getAffectedNetworks(subnets []MovingSubnet, force bool) (*affectedNetworks, error) {
-	movingSubnetIDs := network.MakeIDSet()
-	for _, subnet := range subnets {
-		movingSubnetIDs.Add(network.Id(subnet.ID()))
-
-		// TODO (manadart 2020-04-10): After having verified that we are not
-		// moving a fan overlay, we need to indicate that any moving underlays
-		// include *their* overlays as being affected by a move.
-	}
-
 	allSpaces, err := api.backing.AllSpaceInfos()
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	movingSubnetIDs := network.MakeIDSet()
+	for _, subnet := range subnets {
+		movingSubnetIDs.Add(network.Id(subnet.ID()))
+	}
+
+	// After having verified that we are not moving any fan overlays,
+	// we need to indicate that any moving underlays include *their*
+	// overlays as being affected by a move.
+	movingOverlays, err := allSpaces.FanOverlaysFor(movingSubnetIDs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, overlay := range movingOverlays {
+		movingSubnetIDs.Add(overlay.ID)
 	}
 
 	affected := newAffectedNetworks(allSpaces, force)
@@ -237,8 +244,8 @@ func (api *API) getAffectedNetworks(subnets []MovingSubnet, force bool) (*affect
 			}
 		}
 
-		// Ignore this machine unless one of its addresses
-		// are in one of the moving subnets.
+		// We only consider this machine if it has an
+		// address in one of the moving subnets.
 		if includesMover {
 			if err = affected.includeMachine(machine, machineSubnets); err != nil {
 				return nil, errors.Trace(err)
