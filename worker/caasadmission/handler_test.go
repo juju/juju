@@ -213,8 +213,23 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *gc.C) {
 	err = json.Unmarshal(outReview.Response.Patch, &patchOperations)
 	c.Assert(err, jc.ErrorIsNil)
 
+	c.Assert(len(patchOperations), gc.Equals, 2)
+	c.Assert(patchOperations[0].Op, gc.Equals, "add")
+	c.Assert(patchOperations[0].Path, gc.Equals, "/metadata/labels")
+
 	expectedLabels := provider.LabelsForApp(appName)
-	c.Assert(len(expectedLabels), gc.Equals, len(patchOperations))
+	for k, v := range expectedLabels {
+		found := false
+		for _, patchOp := range patchOperations[1:] {
+			if patchOp.Path == fmt.Sprintf("/metadata/labels/%s", k) {
+				c.Assert(patchOp.Op, gc.Equals, "add")
+				c.Assert(patchOp.Value, jc.DeepEquals, v)
+				found = true
+				break
+			}
+		}
+		c.Assert(found, gc.Equals, true)
+	}
 
 	for k, v := range expectedLabels {
 		found := false
@@ -281,9 +296,21 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *gc.C) {
 	patchOperations := []patchOperation{}
 	err = json.Unmarshal(outReview.Response.Patch, &patchOperations)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(patchOperations), gc.Equals, 1)
 
 	expectedLabels := provider.LabelsForApp(appName)
-	c.Assert(len(expectedLabels), gc.Equals, len(patchOperations))
+	for k, v := range expectedLabels {
+		found := false
+		for _, patchOp := range patchOperations {
+			if patchOp.Path == fmt.Sprintf("/metadata/labels/%s", k) {
+				c.Assert(patchOp.Op, gc.Equals, "replace")
+				c.Assert(patchOp.Value, jc.DeepEquals, v)
+				found = true
+				break
+			}
+		}
+		c.Assert(found, gc.Equals, true)
+	}
 
 	for k, v := range expectedLabels {
 		found := false
