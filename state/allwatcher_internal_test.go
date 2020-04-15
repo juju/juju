@@ -256,7 +256,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		Key:       "logging:logging-directory wordpress:logging-dir",
 		ID:        rel.Id(),
 		Endpoints: []multiwatcher.Endpoint{
-			{ApplicationName: "logging", Relation: multiwatcher.CharmRelation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
+			{ApplicationName: "logging", Relation: multiwatcher.CharmRelation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}},
 			{ApplicationName: "wordpress", Relation: multiwatcher.CharmRelation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
 	})
 
@@ -1831,7 +1831,7 @@ func testChangeRelations(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C
 						ModelUUID: st.ModelUUID(),
 						Key:       "logging:logging-directory wordpress:logging-dir",
 						Endpoints: []multiwatcher.Endpoint{
-							{ApplicationName: "logging", Relation: multiwatcher.CharmRelation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
+							{ApplicationName: "logging", Relation: multiwatcher.CharmRelation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}},
 							{ApplicationName: "wordpress", Relation: multiwatcher.CharmRelation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
 					}}}
 		},

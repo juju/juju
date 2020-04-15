@@ -66,7 +66,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	// reset
 	s.machine = nil
 
-	sch := s.AddTestingCharm(c, "wordpress")
+	sch := s.AddTestingCharm(c, "wordpress-nolimit")
 	s.application = s.AddTestingApplication(c, "u", sch)
 	s.unit = s.AddUnit(c, s.application)
 

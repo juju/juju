@@ -2068,7 +2068,6 @@ func (s *ApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 			Name:      "metrics-client",
 			Role:      charm.RoleRequirer,
 			Scope:     charm.ScopeGlobal,
-			Limit:     1,
 		},
 	})
 
@@ -2096,7 +2095,6 @@ func (s *ApplicationSuite) TestRiakEndpoints(c *gc.C) {
 			Name:      "ring",
 			Role:      charm.RolePeer,
 			Scope:     charm.ScopeGlobal,
-			Limit:     1,
 		},
 	})
 
