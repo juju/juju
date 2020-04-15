@@ -298,7 +298,7 @@ func (api *API) createOneSpace(args params.CreateSpaceParams) error {
 
 	subnetIDs := make([]string, len(args.CIDRs))
 	for i, cidr := range args.CIDRs {
-		if !network.IsValidCidr(cidr) {
+		if !network.IsValidCIDR(cidr) {
 			return errors.New(fmt.Sprintf("%q is not a valid CIDR", cidr))
 		}
 		subnet, err := api.backing.SubnetByCIDR(cidr)

@@ -2507,7 +2507,7 @@ func ReplacePortsDocSubnetIDCIDR(pool *StatePool) (err error) {
 		var ops []txn.Op
 		for _, oldDoc := range docs {
 			// A doc with a subnet ID has already been upgraded.
-			if !network.IsValidCidr(oldDoc.SubnetID) {
+			if !network.IsValidCIDR(oldDoc.SubnetID) {
 				continue
 			}
 

@@ -52,7 +52,7 @@ type SpaceInfo struct {
 	ProviderId Id
 
 	// Subnets are the subnets that have been grouped into this network space.
-	Subnets []SubnetInfo
+	Subnets SubnetInfos
 }
 
 // SpaceInfos is a collection of spaces.
@@ -78,6 +78,37 @@ func (s SpaceInfos) AllSubnetInfos() (SubnetInfos, error) {
 		}
 	}
 	return subs, nil
+}
+
+// FanOverlaysFor returns any subnets in this network topology that are
+// fan overlays for the input subnet IDs.
+func (s SpaceInfos) FanOverlaysFor(subnetIDs IDSet) (SubnetInfos, error) {
+	if len(subnetIDs) == 0 {
+		return nil, nil
+	}
+
+	var located int
+	var allOverlays SubnetInfos
+
+	for _, space := range s {
+		for _, sub := range space.Subnets {
+			if subnetIDs.Contains(sub.ID) {
+				overlays, err := space.Subnets.GetByUnderlayCIDR(sub.CIDR)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				allOverlays = append(allOverlays, overlays...)
+
+				// If we have tested all of the inputs, we can exit early.
+				located++
+				if located >= len(subnetIDs) {
+					return allOverlays, nil
+				}
+			}
+		}
+	}
+
+	return allOverlays, nil
 }
 
 // String returns returns a quoted, comma-delimited names of the spaces in the

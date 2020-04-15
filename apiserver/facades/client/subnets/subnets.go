@@ -275,7 +275,7 @@ func (api *API) SubnetsByCIDR(arg params.CIDRParams) (params.SubnetsResults, err
 
 	results := make([]params.SubnetsResult, len(arg.CIDRS))
 	for i, cidr := range arg.CIDRS {
-		if !network.IsValidCidr(cidr) {
+		if !network.IsValidCIDR(cidr) {
 			results[i].Error = common.ServerError(errors.NotValidf("CIDR %q", cidr))
 			continue
 		}
