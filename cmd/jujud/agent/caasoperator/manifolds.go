@@ -241,6 +241,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		apiAddressUpdaterName: ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+			Logger:        loggo.GetLogger("juju.worker.apiaddressupdater"),
 		})),
 
 		// The charmdir resource coordinates whether the charm directory is

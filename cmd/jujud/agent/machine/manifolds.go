@@ -909,6 +909,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		apiAddressUpdaterName: ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+			Logger:        loggo.GetLogger("juju.worker.apiaddressupdater"),
 		})),
 
 		machineActionName: ifNotMigrating(machineactions.Manifold(machineactions.ManifoldConfig{
