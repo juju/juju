@@ -234,6 +234,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
+			// No Logger defined in migrationflag package.
 		}),
 		migrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
 			AgentName:         agentName,
@@ -244,6 +245,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
+			Logger:            loggo.GetLogger("juju.worker.migrationminion"),
 		}),
 
 		// The logging config updater is a leaf worker that indirectly

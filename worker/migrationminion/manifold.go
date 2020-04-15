@@ -15,6 +15,13 @@ import (
 	"github.com/juju/juju/worker/fortress"
 )
 
+// Logger represents the methods used for logging messages.
+type Logger interface {
+	Errorf(string, ...interface{})
+	Infof(string, ...interface{})
+	Debugf(string, ...interface{})
+}
+
 // ManifoldConfig defines the names of the manifolds on which a
 // Worker manifold will depend.
 type ManifoldConfig struct {
@@ -27,9 +34,10 @@ type ManifoldConfig struct {
 
 	NewFacade func(base.APICaller) (Facade, error)
 	NewWorker func(Config) (worker.Worker, error)
+	Logger    Logger
 }
 
-// validate is called by start to check for bad configuration.
+// Validate is called by start to check for bad configuration.
 func (config ManifoldConfig) Validate() error {
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
@@ -54,6 +62,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	return nil
 }
@@ -87,6 +98,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Clock:             config.Clock,
 		APIOpen:           config.APIOpen,
 		ValidateMigration: config.ValidateMigration,
+		Logger:            config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
