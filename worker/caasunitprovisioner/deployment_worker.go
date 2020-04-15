@@ -133,6 +133,7 @@ func (w *deploymentWorker) loop() error {
 			// TODO(caas): nothing we can do here before k8s provider can handle raw spec.
 			logger.Debugf("ApplyRawK8sSpec info.RawK8sSpec -> %s", info.RawK8sSpec)
 			if err := w.broker.ApplyRawK8sSpec(info.RawK8sSpec); err != nil {
+				logger.Warningf("ApplyRawK8sSpec err -> %#v", err)
 				return errors.Trace(err)
 			}
 			continue

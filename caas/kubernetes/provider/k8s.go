@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -317,8 +318,7 @@ func (k *kubernetesClient) Config() *config.Config {
 func (k *kubernetesClient) k8sConfig() *rest.Config {
 	k.lock.Lock()
 	defer k.lock.Unlock()
-	cfg := *k.k8sCfgUnlocked
-	return &cfg
+	return rest.CopyConfig(k.k8sCfgUnlocked)
 }
 
 // SetConfig is specified in the Environ interface.
@@ -347,7 +347,7 @@ func (k *kubernetesClient) SetCloudSpec(spec environs.CloudSpec) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot set cloud spec")
 	}
-	k.k8sCfgUnlocked = k8sRestConfig
+	k.k8sCfgUnlocked = rest.CopyConfig(k8sRestConfig)
 
 	k.informerFactoryUnlocked = informers.NewSharedInformerFactoryWithOptions(
 		k.clientUnlocked,
@@ -893,15 +893,39 @@ func (k *kubernetesClient) ApplyRawK8sSpec(specStr string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("specStr -> %s", specStr)
-	logger.Debugf("spec -> %s", pretty.Sprint(spec))
-
+	logger.Criticalf("specStr -> %s", specStr)
+	logger.Criticalf("spec -> %s", pretty.Sprint(spec))
+	logger.Criticalf("k.k8sConfig() -> %s", pretty.Sprint(k.k8sConfig()))
 	b := k8sspecs.NewDeployer(
-		k.namespace, k.k8sConfig(), func(cfg *rest.Config) (rest.Interface, error) {
-			return rest.RESTClientFor(cfg)
+		k.namespace, k.k8sConfig(),
+		func(cfg *rest.Config) (c rest.Interface, err error) {
+			logger.Criticalf("ApplyRawK8sSpec 1 err -> %#v, c -> %s", err, pretty.Sprint(c))
+			defer func() {
+				if err := recover(); err != nil {
+					logger.Criticalf("ApplyRawK8sSpec err -> %#v", err)
+					logger.Criticalf("ApplyRawK8sSpec stacktrace from panic: %s", string(debug.Stack()))
+				}
+			}()
+			// c, err = rest.RESTClientFor(cfg)
+			// c = kubernetes.NewForConfigOrDie(cfg).RESTClient()
+			chanC := make(chan rest.Interface, 1)
+			chanE := make(chan error, 1)
+			go func() {
+				// c, err := k.client().CoreV1().RESTClient()
+				// c, err := rest.RESTClientFor(cfg)
+				c, err := kubernetes.NewForConfig(k.k8sConfig())
+				logger.Criticalf("ApplyRawK8sSpec 4 err -> %#v, c -> %s", err, pretty.Sprint(c))
+				chanC <- c.CoreV1().RESTClient()
+				chanE <- err
+			}()
+			logger.Criticalf("ApplyRawK8sSpec 2 err -> %#v, c -> %s", err, pretty.Sprint(c))
+			c = <-chanC
+			err = <-chanE
+			logger.Criticalf("ApplyRawK8sSpec 3 err -> %#v, c -> %s", err, pretty.Sprint(c))
+			return c, errors.Trace(err)
 		}, specStr,
 	)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*6) // TODO: timeout from worker
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10) // TODO: timeout from worker
 	defer cancel()
 	return b.Deploy(ctx, true)
 }

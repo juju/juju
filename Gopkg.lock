@@ -290,12 +290,12 @@
   version = "v0.19.7"
 
 [[projects]]
-  digest = "1:980d9bf64b794c3c77320336504cb7b5a0bc034ba4fcee1c085be5ba28cc3a5d"
+  digest = "1:7f89974c92a751207c7b0eac0a728dc86f2d1e004c40a18554065d058d21a122"
   name = "github.com/go-openapi/swag"
   packages = ["."]
   pruneopts = ""
-  revision = "59a9232e9392613952a0a4c90523c40c99140043"
-  version = "v0.19.8"
+  revision = "ab98f8e6456407f6afd63e441c5304d6ef60cb7f"
+  version = "v0.19.9"
 
 [[projects]]
   digest = "1:9ab1b1c637d7c8f49e39d8538a650d7eb2137b076790cff69d160823b505964c"
@@ -1768,6 +1768,7 @@
   name = "k8s.io/client-go"
   packages = [
     "discovery",
+    "discovery/cached/memory",
     "dynamic",
     "informers",
     "informers/admissionregistration",
@@ -2272,6 +2273,7 @@
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/runtime/serializer",
+    "k8s.io/apimachinery/pkg/runtime/serializer/json",
     "k8s.io/apimachinery/pkg/selection",
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/intstr",
@@ -2282,6 +2284,7 @@
     "k8s.io/apimachinery/pkg/watch",
     "k8s.io/cli-runtime/pkg/resource",
     "k8s.io/client-go/discovery",
+    "k8s.io/client-go/discovery/cached/memory",
     "k8s.io/client-go/dynamic",
     "k8s.io/client-go/informers",
     "k8s.io/client-go/informers/core/v1",
@@ -2330,6 +2333,7 @@
     "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/rest",
+    "k8s.io/client-go/restmapper",
     "k8s.io/client-go/tools/cache",
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
