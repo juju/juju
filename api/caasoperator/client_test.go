@@ -103,13 +103,13 @@ func (s *operatorSuite) TestCharm(c *gc.C) {
 func (s *operatorSuite) TestCharmError(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.ApplicationCharmResults)) = params.ApplicationCharmResults{
-			Results: []params.ApplicationCharmResult{{Error: &params.Error{Message: "bletch"}}},
+			Results: []params.ApplicationCharmResult{{Error: &params.Error{Code: params.CodeNotFound}}},
 		}
 		return nil
 	})
 	client := caasoperator.NewClient(apiCaller)
 	_, err := client.Charm("gitlab")
-	c.Assert(err, gc.ErrorMatches, "bletch")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *operatorSuite) TestCharmInvalidApplicationName(c *gc.C) {

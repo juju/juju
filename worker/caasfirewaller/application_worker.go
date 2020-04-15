@@ -77,6 +77,9 @@ func (w *applicationWorker) loop() (err error) {
 		}
 	}()
 	appWatcher, err := w.applicationGetter.WatchApplication(w.application)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if err := w.catacomb.Add(appWatcher); err != nil {
 		return errors.Trace(err)
 	}
@@ -101,8 +104,15 @@ func (w *applicationWorker) loop() (err error) {
 
 func (w *applicationWorker) processApplicationChange() (err error) {
 	defer func() {
+		// Not found could be because the app got removed or there's
+		// no container service created yet as the app is still being set up.
 		if errors.IsNotFound(err) {
-			// ignore not found error because the ip could be not ready yet at this stage.
+			// Perhaps the app got removed while we were processing.
+			if _, err2 := w.lifeGetter.Life(w.application); err2 != nil {
+				err = err2
+				return
+			}
+			// Ignore not found error because the ip could be not ready yet at this stage.
 			w.logger.Warningf("processing change for application %q, %v", w.application, err)
 			err = nil
 		}
