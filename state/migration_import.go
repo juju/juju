@@ -530,7 +530,7 @@ func (i *importer) machinePortsOps(m description.Machine) ([]txn.Op, error) {
 
 	for _, ports := range m.OpenedPorts() {
 		subnetID := ports.SubnetID()
-		if network.IsValidCidr(subnetID) {
+		if network.IsValidCIDR(subnetID) {
 			// If we're migrating from a controller which has cidrs for
 			// subnetIDs, there can be only 1 of that cidr in the model.
 			subnet, err := i.st.SubnetByCIDR(subnetID)

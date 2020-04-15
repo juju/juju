@@ -146,6 +146,25 @@ func (s SubnetInfos) SpaceIDs() set.Strings {
 	return spaceIDs
 }
 
+// GetByUnderlayCIDR returns any subnets in this collection that are fan
+// overlays for the input CIDR.
+// An error is returned if the input is not a valid CIDR.
+// TODO (manadart 2020-04-15): Consider storing subnet IDs in FanInfo,
+// so we can ensure uniqueness in multi-network deployments.
+func (s SubnetInfos) GetByUnderlayCIDR(cidr string) (SubnetInfos, error) {
+	if !IsValidCIDR(cidr) {
+		return nil, errors.NotValidf("CIDR %q", cidr)
+	}
+
+	var overlays SubnetInfos
+	for _, sub := range s {
+		if sub.FanLocalUnderlay() == cidr {
+			overlays = append(overlays, sub)
+		}
+	}
+	return overlays, nil
+}
+
 // EqualTo returns true if this slice of SubnetInfo is equal to the input.
 func (s SubnetInfos) EqualTo(other SubnetInfos) bool {
 	if len(s) != len(other) {
@@ -174,8 +193,8 @@ func SortSubnetInfos(s SubnetInfos) {
 	sort.Sort(s)
 }
 
-// IsValidCidr returns whether cidr is a valid subnet CIDR.
-func IsValidCidr(cidr string) bool {
+// IsValidCIDR returns whether cidr is a valid subnet CIDR.
+func IsValidCIDR(cidr string) bool {
 	_, ipNet, err := net.ParseCIDR(cidr)
 	if err == nil && ipNet.String() == cidr {
 		return true
