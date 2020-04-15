@@ -2147,6 +2147,11 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 					Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
 				})
 			}
+
+			// Enforce max-relation limits for the app:ep combination
+			if err := enforceMaxRelationLimit(app, ep); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 		if compatibleSeries && len(appSeries) > 1 {
 			// We need to ensure that there's intersection between the supported
@@ -2201,6 +2206,30 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		return &Relation{st, *doc}, nil
 	}
 	return nil, errors.Trace(err)
+}
+
+// enforceMaxRelationLimit returns an error if adding an additional relation
+// from app:ep exceeds the maximum allowed relation limit as specified in the
+// charm metadata.
+func enforceMaxRelationLimit(app ApplicationEntity, ep Endpoint) error {
+	// No limit defined
+	if ep.Relation.Limit == 0 {
+		return nil
+	}
+
+	// Count the number of already established relations for this app:endpoint
+	existingRels, err := app.Relations()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Adding a new relation would bump the already established limit by 1
+	establishedCount := establishedRelationCount(existingRels, ep.ApplicationName, ep.Relation)
+	if establishedCount+1 > ep.Relation.Limit {
+		return errors.QuotaLimitExceededf("establishing a new relation for %s:%s would exceed its maximum relation limit of %d", ep.ApplicationName, ep.Relation.Name, ep.Relation.Limit)
+	}
+
+	return nil
 }
 
 func aliveApplication(st *State, name string) (ApplicationEntity, error) {

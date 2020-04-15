@@ -1348,7 +1348,7 @@
   revision = "51fa6e26128d74e445c72d3a91af555151cc3654"
 
 [[projects]]
-  digest = "1:08f8e44d78b1b263b73449c616363551fb9703fbc0663e586924c6ca1706641d"
+  digest = "1:e3e71675960c877e8eaa83b2f81766b7b9fcdfe5b28169c3dc1fc77e034076f2"
   name = "gopkg.in/juju/charm.v6"
   packages = [
     ".",
@@ -1356,7 +1356,7 @@
     "resource",
   ]
   pruneopts = ""
-  revision = "c390a4cc19a3efac72d6fcce80ab2984d54f1f3f"
+  revision = "ad2e04a67e7b41ffd875ea7b131d0f027057309a"
 
 [[projects]]
   digest = "1:f432835a8eb23aa21056c9ac8f38092b4de9d6f06671d588161d6c301dfaee68"

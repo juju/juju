@@ -89,6 +89,25 @@ func (s *RelationSuite) TestAddRelationErrors(c *gc.C) {
 	assertNoRelations(c, mysql)
 }
 
+func (s *StateSuite) TestAddRelationWithMaxLimit(c *gc.C) {
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "mariadb", s.AddTestingCharm(c, "mariadb"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	// First relation should be established without an issue
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Attempting to add a new relation between wordpress and mariadb
+	// should fail because wordpress:db specifies a max relation limit of 1
+	eps, err = s.State.InferEndpoints("wordpress", "mariadb")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded, gc.Commentf("expected second add-relation attempt to fail due to the limit:1 entry in the wordpress charm's metadata.yaml"))
+}
+
 func (s *RelationSuite) TestRetrieveSuccess(c *gc.C) {
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
