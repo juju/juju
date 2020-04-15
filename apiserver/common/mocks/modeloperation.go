@@ -35,6 +35,7 @@ func (m *MockModelOperation) EXPECT() *MockModelOperationMockRecorder {
 
 // Build mocks base method
 func (m *MockModelOperation) Build(arg0 int) ([]txn.Op, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Build", arg0)
 	ret0, _ := ret[0].([]txn.Op)
 	ret1, _ := ret[1].(error)
@@ -43,11 +44,13 @@ func (m *MockModelOperation) Build(arg0 int) ([]txn.Op, error) {
 
 // Build indicates an expected call of Build
 func (mr *MockModelOperationMockRecorder) Build(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Build", reflect.TypeOf((*MockModelOperation)(nil).Build), arg0)
 }
 
 // Done mocks base method
 func (m *MockModelOperation) Done(arg0 error) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Done", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -55,5 +58,6 @@ func (m *MockModelOperation) Done(arg0 error) error {
 
 // Done indicates an expected call of Done
 func (mr *MockModelOperationMockRecorder) Done(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Done", reflect.TypeOf((*MockModelOperation)(nil).Done), arg0)
 }

@@ -367,7 +367,7 @@ func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
 	}
 	if op.props.Address != nil {
 		networkAddr := corenetwork.NewScopedSpaceAddress(*op.props.Address, corenetwork.ScopeMachineLocal)
-		addr := fromNetworkAddress(networkAddr, OriginProvider)
+		addr := fromNetworkAddress(networkAddr, corenetwork.OriginProvider)
 		containerInfo.Address = &addr
 	}
 	if op.props.Ports != nil {

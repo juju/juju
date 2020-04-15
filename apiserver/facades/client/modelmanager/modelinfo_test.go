@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
@@ -927,11 +928,6 @@ func (st *mockState) SaveProviderSubnets(subnets []network.SubnetInfo, spaceID s
 	return st.NextErr()
 }
 
-func (st *mockState) SaveProviderSpaces(providerSpaces []network.SpaceInfo) error {
-	st.MethodCall(st, "SaveProviderSpaces", providerSpaces)
-	return st.NextErr()
-}
-
 func (st *mockState) DumpAll() (map[string]interface{}, error) {
 	st.MethodCall(st, "DumpAll")
 	return map[string]interface{}{
@@ -967,6 +963,31 @@ func (st *mockState) MetricsManager() (*state.MetricsManager, error) {
 func (st *mockState) HAPrimaryMachine() (names.MachineTag, error) {
 	st.MethodCall(st, "HAPrimaryMachine")
 	return names.MachineTag{}, nil
+}
+
+func (st *mockState) AddSpace(name string, provider network.Id, subnetIds []string, public bool) (*state.Space, error) {
+	st.MethodCall(st, "AddSpace", name, provider, subnetIds, public)
+	return nil, st.NextErr()
+}
+
+func (st *mockState) AllEndpointBindingsSpaceNames() (set.Strings, error) {
+	st.MethodCall(st, "AllEndpointBindingsSpaceNames")
+	return set.NewStrings(), nil
+}
+
+func (st *mockState) DefaultEndpointBindingSpace() (string, error) {
+	st.MethodCall(st, "DefaultEndpointBindingSpace")
+	return "alpha", nil
+}
+
+func (st *mockState) AllSpaces() ([]*state.Space, error) {
+	st.MethodCall(st, "AllSpaces")
+	return nil, st.NextErr()
+}
+
+func (st *mockState) ConstraintsBySpaceName(spaceName string) ([]*state.Constraints, error) {
+	st.MethodCall(st, "ConstraintsBySpaceName", spaceName)
+	return nil, st.NextErr()
 }
 
 type mockBlock struct {

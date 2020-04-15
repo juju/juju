@@ -58,9 +58,13 @@ func NewStateShim(st *state.State) (*stateShim, error) {
 	}, nil
 }
 
-func (s *stateShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) error {
-	_, err := s.State.AddSpace(name, providerId, subnetIds, public)
-	return err
+func (s *stateShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) (networkingcommon.BackingSpace, error) {
+	result, err := s.State.AddSpace(name, providerId, subnetIds, public)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	space := networkingcommon.NewSpaceShim(result)
+	return space, nil
 }
 
 func (s *stateShim) SpaceByName(name string) (networkingcommon.BackingSpace, error) {
