@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/state"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -200,7 +201,13 @@ func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*API
 		return nil, errors.Trace(err)
 	}
 	reloadSpacesAuth := DefaultReloadSpacesAuthorizer(auth, check, stateShim)
-	reloadSpacesAPI := NewReloadSpacesAPI(newReloadSpacesShim(st), reloadSpacesEnvirons, ctx, reloadSpacesAuth)
+	reloadSpacesAPI := NewReloadSpacesAPI(
+		space.NewState(st),
+		reloadSpacesEnvirons,
+		EnvironSpacesAdapter{},
+		ctx,
+		reloadSpacesAuth,
+	)
 
 	return newAPIWithBacking(apiConfig{
 		ReloadSpacesAPI: reloadSpacesAPI,

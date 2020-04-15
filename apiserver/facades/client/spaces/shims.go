@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -158,46 +157,4 @@ func (s *stateShim) ConstraintsBySpaceName(spaceName string) ([]Constraints, err
 		cons[i] = v
 	}
 	return cons, nil
-}
-
-type reloadSpacesShim struct {
-	*state.State
-}
-
-func newReloadSpacesShim(st *state.State) reloadSpacesShim {
-	return reloadSpacesShim{State: st}
-}
-
-func (b reloadSpacesShim) AllSpaces() ([]space.Space, error) {
-	spaces, err := b.State.AllSpaces()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	result := make([]space.Space, len(spaces))
-	for i, space := range spaces {
-		result[i] = space
-	}
-	return result, nil
-}
-
-func (b reloadSpacesShim) AddSpace(name string, providerID network.Id, subnetIds []string, public bool) (space.Space, error) {
-	space, err := b.State.AddSpace(name, providerID, subnetIds, public)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return space, nil
-}
-
-func (b reloadSpacesShim) ConstraintsBySpaceName(spaceName string) ([]space.Constraints, error) {
-	constraints, err := b.State.ConstraintsBySpaceName(spaceName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	result := make([]space.Constraints, len(constraints))
-	for i, constraint := range constraints {
-		result[i] = constraint
-	}
-	return result, nil
 }
