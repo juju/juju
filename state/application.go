@@ -1362,6 +1362,19 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				}}},
 			})
 		} else {
+			// Check if the new charm specifies a relation max limit
+			// that cannot be satisfied by the currently established
+			// relation count.
+			quotaErr := a.preUpgradeRelationLimitCheck(cfg.Charm)
+
+			// If the operator specified --force, we still allow
+			// the ugprade to continue with a warning.
+			if errors.IsQuotaLimitExceeded(quotaErr) && cfg.Force {
+				logger.Warningf("%v; allowing upgrade to proceed as the operator specified --force", quotaErr)
+			} else if quotaErr != nil {
+				return nil, errors.Trace(quotaErr)
+			}
+
 			chng, err := a.changeCharmOps(
 				cfg.Charm,
 				channel,
@@ -1410,6 +1423,36 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	return nil
 }
 
+// preUpgradeRelationLimitCheck ensures that the already established relation
+// counts do not violate the max relation limits specified by the charm version
+// we are attempting to upgrade to.
+func (a *Application) preUpgradeRelationLimitCheck(newCharm *Charm) error {
+	var (
+		existingRels []*Relation
+		err          error
+	)
+
+	for relName, relSpec := range newCharm.Meta().CombinedRelations() {
+		if relSpec.Limit == 0 {
+			continue
+		}
+
+		// Load and memoize relation list
+		if existingRels == nil {
+			if existingRels, err = a.Relations(); err != nil {
+				return errors.Trace(err)
+			}
+
+		}
+
+		establishedCount := establishedRelationCount(existingRels, a.Name(), relSpec)
+		if establishedCount > relSpec.Limit {
+			return errors.QuotaLimitExceededf("new charm version imposes a maximum relation limit of %d for %s:%s which cannot be satisfied by the number of already established relations (%d)", relSpec.Limit, a.Name(), relName, establishedCount)
+		}
+	}
+
+	return nil
+}
 
 // establishedRelationCount returns the number of already established relations
 // for appName and the endpoint specified in the provided relation details.

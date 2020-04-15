@@ -1330,6 +1330,53 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ApplicationSuite) TestSetCharmViolatesMaxRelationCount(c *gc.C) {
+	wp0Charm := `
+name: wordpress
+description: foo
+summary: foo
+requires:
+  db:
+    interface: mysql
+    limit: 99
+`
+
+	wp1Charm := `
+name: wordpress
+description: bar
+summary: foo
+requires:
+  db:
+    interface: mysql
+    limit: 1
+`
+
+	// wp0Charm allows up to 99 relations for the db endpoint
+	wpApp := s.AddTestingApplication(c, "wordpress", s.AddMetaCharm(c, "wordpress", wp0Charm, 1))
+
+	// Establish 2 relations (note: mysql is already added by the suite setup code)
+	s.AddTestingApplication(c, "some-mariadb", s.AddTestingCharm(c, "mariadb"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	eps, err = s.State.InferEndpoints("wordpress", "some-mariadb")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Try to update wordpress to a new version with max 1 relation for the db endpoint
+	wpCharmWithRelLimit := s.AddMetaCharm(c, "wordpress", wp1Charm, 2)
+	cfg := state.SetCharmConfig{Charm: wpCharmWithRelLimit}
+	err = wpApp.SetCharm(cfg)
+	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded, gc.Commentf("expected quota limit error due to max relation mismatch"))
+
+	// Try again with --force
+	cfg.Force = true
+	err = wpApp.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 var applicationUpdateCharmConfigTests = []struct {
 	about   string
 	initial charm.Settings
