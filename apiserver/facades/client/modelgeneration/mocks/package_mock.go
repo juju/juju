@@ -5,8 +5,6 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	modelgeneration "github.com/juju/juju/apiserver/facades/client/modelgeneration"
 	cache "github.com/juju/juju/core/cache"
@@ -14,6 +12,7 @@ import (
 	state "github.com/juju/juju/state"
 	charm_v6 "gopkg.in/juju/charm.v6"
 	names_v3 "gopkg.in/juju/names.v3"
+	reflect "reflect"
 )
 
 // MockState is a mock of State interface
@@ -56,6 +55,7 @@ func (mr *MockStateMockRecorder) Application(arg0 interface{}) *gomock.Call {
 
 // ApplyOperation mocks base method
 func (m *MockState) ApplyOperation(arg0 state.ModelOperation) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplyOperation", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -63,6 +63,7 @@ func (m *MockState) ApplyOperation(arg0 state.ModelOperation) error {
 
 // ApplyOperation indicates an expected call of ApplyOperation
 func (mr *MockStateMockRecorder) ApplyOperation(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyOperation", reflect.TypeOf((*MockState)(nil).ApplyOperation), arg0)
 }
 
@@ -172,7 +173,7 @@ func (m *MockModel) Generation(arg0 int) (modelgeneration.Generation, error) {
 }
 
 // Generation indicates an expected call of Generation
-func (mr *MockModelMockRecorder) CommittedBranch(arg0 interface{}) *gomock.Call {
+func (mr *MockModelMockRecorder) Generation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Generation", reflect.TypeOf((*MockModel)(nil).Generation), arg0)
 }
@@ -187,7 +188,7 @@ func (m *MockModel) Generations() ([]modelgeneration.Generation, error) {
 }
 
 // Generations indicates an expected call of Generations
-func (mr *MockModelMockRecorder) CommittedBranches() *gomock.Call {
+func (mr *MockModelMockRecorder) Generations() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Generations", reflect.TypeOf((*MockModel)(nil).Generations))
 }
@@ -311,21 +312,6 @@ func (m *MockGeneration) BranchName() string {
 func (mr *MockGenerationMockRecorder) BranchName() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BranchName", reflect.TypeOf((*MockGeneration)(nil).BranchName))
-}
-
-// Commit mocks base method
-func (m *MockGeneration) Commit(arg0 string) (int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Commit", arg0)
-	ret0, _ := ret[0].(int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Commit indicates an expected call of Commit
-func (mr *MockGenerationMockRecorder) Commit(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockGeneration)(nil).Commit), arg0)
 }
 
 // Completed mocks base method

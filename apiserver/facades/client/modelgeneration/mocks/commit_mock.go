@@ -38,6 +38,7 @@ func (m *MockCommitBranchModelOp) EXPECT() *MockCommitBranchModelOpMockRecorder 
 
 // Build mocks base method
 func (m *MockCommitBranchModelOp) Build(arg0 int) ([]txn.Op, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Build", arg0)
 	ret0, _ := ret[0].([]txn.Op)
 	ret1, _ := ret[1].(error)
@@ -46,11 +47,13 @@ func (m *MockCommitBranchModelOp) Build(arg0 int) ([]txn.Op, error) {
 
 // Build indicates an expected call of Build
 func (mr *MockCommitBranchModelOpMockRecorder) Build(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Build", reflect.TypeOf((*MockCommitBranchModelOp)(nil).Build), arg0)
 }
 
 // Done mocks base method
 func (m *MockCommitBranchModelOp) Done(arg0 error) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Done", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -58,11 +61,13 @@ func (m *MockCommitBranchModelOp) Done(arg0 error) error {
 
 // Done indicates an expected call of Done
 func (mr *MockCommitBranchModelOpMockRecorder) Done(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Done", reflect.TypeOf((*MockCommitBranchModelOp)(nil).Done), arg0)
 }
 
 // GetModelGen mocks base method
 func (m *MockCommitBranchModelOp) GetModelGen() int {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModelGen")
 	ret0, _ := ret[0].(int)
 	return ret0
@@ -70,6 +75,7 @@ func (m *MockCommitBranchModelOp) GetModelGen() int {
 
 // GetModelGen indicates an expected call of GetModelGen
 func (mr *MockCommitBranchModelOpMockRecorder) GetModelGen() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelGen", reflect.TypeOf((*MockCommitBranchModelOp)(nil).GetModelGen))
 }
 
@@ -98,6 +104,7 @@ func (m *MockCommitBranchState) EXPECT() *MockCommitBranchStateMockRecorder {
 
 // Application mocks base method
 func (m *MockCommitBranchState) Application(arg0 string) (modelgeneration.CommitBranchApp, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Application", arg0)
 	ret0, _ := ret[0].(modelgeneration.CommitBranchApp)
 	ret1, _ := ret[1].(error)
@@ -106,11 +113,13 @@ func (m *MockCommitBranchState) Application(arg0 string) (modelgeneration.Commit
 
 // Application indicates an expected call of Application
 func (mr *MockCommitBranchStateMockRecorder) Application(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockCommitBranchState)(nil).Application), arg0)
 }
 
 // ControllerTimestamp mocks base method
 func (m *MockCommitBranchState) ControllerTimestamp() (*time.Time, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerTimestamp")
 	ret0, _ := ret[0].(*time.Time)
 	ret1, _ := ret[1].(error)
@@ -119,6 +128,7 @@ func (m *MockCommitBranchState) ControllerTimestamp() (*time.Time, error) {
 
 // ControllerTimestamp indicates an expected call of ControllerTimestamp
 func (mr *MockCommitBranchStateMockRecorder) ControllerTimestamp() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerTimestamp", reflect.TypeOf((*MockCommitBranchState)(nil).ControllerTimestamp))
 }
 
@@ -147,6 +157,7 @@ func (m *MockSettings) EXPECT() *MockSettingsMockRecorder {
 
 // DeltaOps mocks base method
 func (m *MockSettings) DeltaOps(arg0 string, arg1 settings.ItemChanges) ([]txn.Op, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeltaOps", arg0, arg1)
 	ret0, _ := ret[0].([]txn.Op)
 	ret1, _ := ret[1].(error)
@@ -155,6 +166,7 @@ func (m *MockSettings) DeltaOps(arg0 string, arg1 settings.ItemChanges) ([]txn.O
 
 // DeltaOps indicates an expected call of DeltaOps
 func (mr *MockSettingsMockRecorder) DeltaOps(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeltaOps", reflect.TypeOf((*MockSettings)(nil).DeltaOps), arg0, arg1)
 }
 
@@ -183,6 +195,7 @@ func (m *MockOpFactory) EXPECT() *MockOpFactoryMockRecorder {
 
 // NewCommitBranchModelOp mocks base method
 func (m *MockOpFactory) NewCommitBranchModelOp(arg0, arg1 string) (modelgeneration.CommitBranchModelOp, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewCommitBranchModelOp", arg0, arg1)
 	ret0, _ := ret[0].(modelgeneration.CommitBranchModelOp)
 	ret1, _ := ret[1].(error)
@@ -191,6 +204,7 @@ func (m *MockOpFactory) NewCommitBranchModelOp(arg0, arg1 string) (modelgenerati
 
 // NewCommitBranchModelOp indicates an expected call of NewCommitBranchModelOp
 func (mr *MockOpFactoryMockRecorder) NewCommitBranchModelOp(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewCommitBranchModelOp", reflect.TypeOf((*MockOpFactory)(nil).NewCommitBranchModelOp), arg0, arg1)
 }
 
@@ -219,6 +233,7 @@ func (m *MockCommitBranchGen) EXPECT() *MockCommitBranchGenMockRecorder {
 
 // AssignedUnits mocks base method
 func (m *MockCommitBranchGen) AssignedUnits() map[string][]string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AssignedUnits")
 	ret0, _ := ret[0].(map[string][]string)
 	return ret0
@@ -226,11 +241,13 @@ func (m *MockCommitBranchGen) AssignedUnits() map[string][]string {
 
 // AssignedUnits indicates an expected call of AssignedUnits
 func (mr *MockCommitBranchGenMockRecorder) AssignedUnits() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignedUnits", reflect.TypeOf((*MockCommitBranchGen)(nil).AssignedUnits))
 }
 
 // CompleteOps mocks base method
 func (m *MockCommitBranchGen) CompleteOps(arg0 map[string][]string, arg1 *time.Time, arg2 string) ([]txn.Op, int, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CompleteOps", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]txn.Op)
 	ret1, _ := ret[1].(int)
@@ -240,11 +257,13 @@ func (m *MockCommitBranchGen) CompleteOps(arg0 map[string][]string, arg1 *time.T
 
 // CompleteOps indicates an expected call of CompleteOps
 func (mr *MockCommitBranchGenMockRecorder) CompleteOps(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompleteOps", reflect.TypeOf((*MockCommitBranchGen)(nil).CompleteOps), arg0, arg1, arg2)
 }
 
 // Config mocks base method
 func (m *MockCommitBranchGen) Config() map[string]settings.ItemChanges {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Config")
 	ret0, _ := ret[0].(map[string]settings.ItemChanges)
 	return ret0
@@ -252,11 +271,13 @@ func (m *MockCommitBranchGen) Config() map[string]settings.ItemChanges {
 
 // Config indicates an expected call of Config
 func (mr *MockCommitBranchGenMockRecorder) Config() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockCommitBranchGen)(nil).Config))
 }
 
 // Refresh mocks base method
 func (m *MockCommitBranchGen) Refresh() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Refresh")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -264,11 +285,13 @@ func (m *MockCommitBranchGen) Refresh() error {
 
 // Refresh indicates an expected call of Refresh
 func (mr *MockCommitBranchGenMockRecorder) Refresh() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockCommitBranchGen)(nil).Refresh))
 }
 
 // ValidateForCompletion mocks base method
 func (m *MockCommitBranchGen) ValidateForCompletion() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidateForCompletion")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -276,6 +299,7 @@ func (m *MockCommitBranchGen) ValidateForCompletion() error {
 
 // ValidateForCompletion indicates an expected call of ValidateForCompletion
 func (mr *MockCommitBranchGenMockRecorder) ValidateForCompletion() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateForCompletion", reflect.TypeOf((*MockCommitBranchGen)(nil).ValidateForCompletion))
 }
 
@@ -304,6 +328,7 @@ func (m *MockCommitBranchApp) EXPECT() *MockCommitBranchAppMockRecorder {
 
 // CharmConfigKey mocks base method
 func (m *MockCommitBranchApp) CharmConfigKey() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CharmConfigKey")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -311,11 +336,13 @@ func (m *MockCommitBranchApp) CharmConfigKey() string {
 
 // CharmConfigKey indicates an expected call of CharmConfigKey
 func (mr *MockCommitBranchAppMockRecorder) CharmConfigKey() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmConfigKey", reflect.TypeOf((*MockCommitBranchApp)(nil).CharmConfigKey))
 }
 
 // UnitNames mocks base method
 func (m *MockCommitBranchApp) UnitNames() ([]string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnitNames")
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
@@ -324,5 +351,6 @@ func (m *MockCommitBranchApp) UnitNames() ([]string, error) {
 
 // UnitNames indicates an expected call of UnitNames
 func (mr *MockCommitBranchAppMockRecorder) UnitNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitNames", reflect.TypeOf((*MockCommitBranchApp)(nil).UnitNames))
 }
