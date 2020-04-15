@@ -141,6 +141,7 @@ type kubernetesClient struct {
 
 	lock                        sync.Mutex
 	envCfgUnlocked              *config.Config
+	k8sCfgUnlocked              *rest.Config
 	clientUnlocked              kubernetes.Interface
 	apiextensionsClientUnlocked apiextensionsclientset.Interface
 	dynamicClientUnlocked       dynamic.Interface
@@ -214,6 +215,7 @@ func newK8sBroker(
 		apiextensionsClientUnlocked: apiextensionsClient,
 		dynamicClientUnlocked:       dynamicClient,
 		envCfgUnlocked:              newCfg.Config,
+		k8sCfgUnlocked:              k8sRestConfig,
 		informerFactoryUnlocked: informers.NewSharedInformerFactoryWithOptions(
 			k8sClient,
 			InformerResyncPeriod,
@@ -312,6 +314,13 @@ func (k *kubernetesClient) Config() *config.Config {
 	return cfg
 }
 
+func (k *kubernetesClient) k8sConfig() *rest.Config {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	cfg := *k.k8sCfgUnlocked
+	return &cfg
+}
+
 // SetConfig is specified in the Environ interface.
 func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
 	k.lock.Lock()
@@ -338,6 +347,7 @@ func (k *kubernetesClient) SetCloudSpec(spec environs.CloudSpec) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot set cloud spec")
 	}
+	k.k8sCfgUnlocked = k8sRestConfig
 
 	k.informerFactoryUnlocked = informers.NewSharedInformerFactoryWithOptions(
 		k.clientUnlocked,
@@ -885,7 +895,15 @@ func (k *kubernetesClient) ApplyRawK8sSpec(specStr string) error {
 	}
 	logger.Debugf("specStr -> %s", specStr)
 	logger.Debugf("spec -> %s", pretty.Sprint(spec))
-	return errors.NotImplementedf("raw k8s spec")
+
+	b := k8sspecs.NewDeployer(
+		k.namespace, k.k8sConfig(), func(cfg *rest.Config) (rest.Interface, error) {
+			return rest.RESTClientFor(cfg)
+		}, specStr,
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*6) // TODO: timeout from worker
+	defer cancel()
+	return b.Deploy(ctx, true)
 }
 
 // EnsureService creates or updates a service for pods with the given params.
