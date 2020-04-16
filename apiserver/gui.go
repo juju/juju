@@ -391,6 +391,7 @@ func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 	if err := renderGUITemplate(w, tmpl, map[string]interface{}{
 		"baseAppURL":                guiURLPathPrefix,
 		"identityProviderAvailable": ctrl.IdentityURL() != "",
+		"isJuju":                    true,
 	}); err != nil {
 		writeError(w, err)
 	}
