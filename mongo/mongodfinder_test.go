@@ -42,6 +42,7 @@ func (s *MongodFinderSuite) TestFindSystemMongo36(c *gc.C) {
 	defer s.ctrl.Finish()
 	exp := s.search.EXPECT()
 	gomock.InOrder(
+		exp.Exists("/snap/bin/juju-db.mongod").Return(false),
 		exp.Exists("/usr/bin/mongod").Return(true),
 		exp.GetCommandOutput("/usr/bin/mongod", "--version").Return(mongodb36Version, nil),
 	)
@@ -61,6 +62,7 @@ func (s *MongodFinderSuite) TestFindSystemMongo34(c *gc.C) {
 	defer s.ctrl.Finish()
 	exp := s.search.EXPECT()
 	gomock.InOrder(
+		exp.Exists("/snap/bin/juju-db.mongod").Return(false),
 		exp.Exists("/usr/bin/mongod").Return(true),
 		exp.GetCommandOutput("/usr/bin/mongod", "--version").Return(mongodb34Version, nil),
 	)
@@ -80,6 +82,7 @@ func (s *MongodFinderSuite) TestFindJujuMongodb(c *gc.C) {
 	defer s.ctrl.Finish()
 	exp := s.search.EXPECT()
 	gomock.InOrder(
+		exp.Exists("/snap/bin/juju-db.mongod").Return(false),
 		exp.Exists("/usr/bin/mongod").Return(false),
 		exp.Exists("/usr/lib/juju/mongo3.2/bin/mongod").Return(false),
 		exp.Exists("/usr/lib/juju/bin/mongod").Return(true),
@@ -103,6 +106,7 @@ func (s *MongodFinderSuite) TestFindJujuMongodbIgnoringSystemMongodb(c *gc.C) {
 	// However, we don't use the system mongod. It might not have --ssl, an it probably also has the Javascript engine
 	exp := s.search.EXPECT()
 	gomock.InOrder(
+		exp.Exists("/snap/bin/juju-db.mongod").Return(false),
 		exp.Exists("/usr/bin/mongod").Return(true),
 		exp.GetCommandOutput("/usr/bin/mongod", "--version").Return(mongodb24Version, nil),
 		exp.Exists("/usr/lib/juju/mongo3.2/bin/mongod").Return(false),
@@ -125,6 +129,7 @@ func (s *MongodFinderSuite) TestFindJujuMongodb32(c *gc.C) {
 	defer s.ctrl.Finish()
 	exp := s.search.EXPECT()
 	gomock.InOrder(
+		exp.Exists("/snap/bin/juju-db.mongod").Return(false),
 		exp.Exists("/usr/bin/mongod").Return(false),
 		exp.Exists("/usr/lib/juju/mongo3.2/bin/mongod").Return(true),
 		exp.GetCommandOutput("/usr/lib/juju/mongo3.2/bin/mongod", "--version").Return(mongodb32Version, nil),
@@ -145,6 +150,7 @@ func (s *MongodFinderSuite) TestFindJujuMongodb32IgnoringFailedVersion(c *gc.C) 
 	defer s.ctrl.Finish()
 	exp := s.search.EXPECT()
 	gomock.InOrder(
+		exp.Exists("/snap/bin/juju-db.mongod").Return(false),
 		exp.Exists("/usr/bin/mongod").Return(false),
 		exp.Exists("/usr/lib/juju/mongo3.2/bin/mongod").Return(true),
 		exp.GetCommandOutput("/usr/lib/juju/mongo3.2/bin/mongod", "--version").Return("bad version string", nil),
@@ -164,6 +170,7 @@ func (s *MongodFinderSuite) TestFindJujuMongodb32IgnoringSystemMongo(c *gc.C) {
 	defer s.ctrl.Finish()
 	exp := s.search.EXPECT()
 	gomock.InOrder(
+		exp.Exists("/snap/bin/juju-db.mongod").Return(false),
 		exp.Exists("/usr/bin/mongod").Return(true),
 		exp.GetCommandOutput("/usr/bin/mongod", "--version").Return(mongodb26Version, nil),
 		exp.Exists("/usr/lib/juju/mongo3.2/bin/mongod").Return(true),
@@ -185,6 +192,7 @@ func (s *MongodFinderSuite) TestStatButNoExecSystemMongo(c *gc.C) {
 	defer s.ctrl.Finish()
 	exp := s.search.EXPECT()
 	gomock.InOrder(
+		exp.Exists("/snap/bin/juju-db.mongod").Return(false),
 		exp.Exists("/usr/bin/mongod").Return(true),
 		exp.GetCommandOutput("/usr/bin/mongod", "--version").Return(
 			"bad result", errors.Errorf("unknown error"), // would be an exec.ExitError
@@ -196,6 +204,25 @@ func (s *MongodFinderSuite) TestStatButNoExecSystemMongo(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(path, gc.Equals, "")
 	c.Check(version, gc.Equals, mongo.Version{})
+}
+
+func (s *MongodFinderSuite) TestFindJujuMongodbFromSnap(c *gc.C) {
+	s.setUpMock(c)
+	defer s.ctrl.Finish()
+	exp := s.search.EXPECT()
+	gomock.InOrder(
+		exp.Exists("/snap/bin/juju-db.mongod").Return(true),
+		exp.GetCommandOutput("/snap/bin/juju-db.mongod", "--version").Return(mongodb409Version, nil),
+	)
+	path, version, err := s.finder.FindBest()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(path, gc.Equals, "/snap/bin/juju-db.mongod")
+	c.Check(version, gc.Equals, mongo.Version{
+		Major:         4,
+		Minor:         0,
+		Point:         9,
+		StorageEngine: mongo.WiredTiger,
+	})
 }
 
 func (s *MongodFinderSuite) TestParseMongoVersion(c *gc.C) {
@@ -263,6 +290,17 @@ build environment:
 // mongodb36Version is the ouptut of 'mongodb --version' as taken from Robie's ppa
 const mongodb36Version = `db version v3.6.3
 git version: 9586e557d54ef70f9ca4b43c26892cd55257e1a5
+OpenSSL version: OpenSSL 1.1.0g  2 Nov 2017
+allocator: tcmalloc
+modules: none
+build environment:
+    distarch: x86_64
+    target_arch: x86_64
+`
+
+// mongodb409Version is the output of 'mongodb --version' from the 4.0/stable snap.
+const mongodb409Version = `db version v4.0.9
+git version: fc525e2d9b0e4bceff5c2201457e564362909765
 OpenSSL version: OpenSSL 1.1.0g  2 Nov 2017
 allocator: tcmalloc
 modules: none

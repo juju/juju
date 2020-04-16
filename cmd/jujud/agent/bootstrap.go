@@ -270,6 +270,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		} else {
 			agentConfig.SetMongoMemoryProfile(mmprof)
 		}
+		agentConfig.SetMongoSnapChannel(args.ControllerConfig.MongoSnapChannel())
 		return nil
 	}); err != nil {
 		return fmt.Errorf("cannot write agent config: %v", err)
