@@ -156,7 +156,19 @@ test_deploy_bundles() {
         run "run_deploy_cmr_bundle"
         run "run_deploy_exported_bundle"
         run "run_deploy_trusted_bundle"
-        run "run_deploy_lxd_profile_bundle_openstack"
-        run "run_deploy_lxd_profile_bundle"
+        case "${BOOTSTRAP_PROVIDER:-}" in
+            "lxd")
+                run "run_deploy_lxd_profile_bundle_openstack"
+                run "run_deploy_lxd_profile_bundle"
+                ;;
+            "localhost")
+                run "run_deploy_lxd_profile_bundle_openstack"
+                run "run_deploy_lxd_profile_bundle"
+                ;;
+            *)
+                echo "==> TEST SKIPPED: deploy_lxd_profile_bundle_openstack - tests for LXD only"
+                echo "==> TEST SKIPPED: deploy_lxd_profile_bundle - tests for LXD only"
+                ;;
+        esac
     )
 }
