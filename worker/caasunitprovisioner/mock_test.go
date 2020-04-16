@@ -1,6 +1,11 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// TODO (manadart 2020-04-16): The hand-rolled mocks here make for brittle
+// tests and are hard to reason about.
+// Replace them with generated mocks as has been done with
+// ProvisioningStatusSetter.
+
 package caasunitprovisioner_test
 
 import (
@@ -293,29 +298,4 @@ func (m *mockUnitUpdater) UpdateUnits(arg params.UpdateApplicationUnits) (*param
 		return nil, err
 	}
 	return m.unitsInfo, nil
-}
-
-type mockProvisioningStatusSetter struct {
-	testing.Stub
-	statusSet chan struct{}
-}
-
-func (m *mockProvisioningStatusSetter) SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error {
-	m.MethodCall(m, "SetOperatorStatus", appName, status, message, data)
-	select {
-	case m.statusSet <- struct{}{}:
-	default:
-	}
-	if err := m.NextErr(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *mockProvisioningStatusSetter) assertStatusSet(c *gc.C) {
-	select {
-	case <-m.statusSet:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for status to be set")
-	}
 }
