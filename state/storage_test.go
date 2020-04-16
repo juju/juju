@@ -766,6 +766,43 @@ func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *StorageStateSuite) TestUnitStorageProvisionerError(c *gc.C) {
+	if s.series == "kubernetes" {
+		c.Skip("volumes on kubernetes not supported")
+	}
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+	s.provisionStorageVolume(c, u, storageTag)
+
+	err := u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	// until all storage attachments are removed, the unit cannot be
+	// marked as being dead.
+	assertUnitEnsureDeadError := func() {
+		err = u.EnsureDead()
+		c.Assert(err, gc.ErrorMatches, "unit has storage attachments")
+	}
+	assertUnitEnsureDeadError()
+	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+	assertUnitEnsureDeadError()
+	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false, dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+	assertUnitEnsureDeadError()
+	err = s.storageBackend.RemoveStorageAttachment(storageTag, u.UnitTag(), false)
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Removing a unit will still succeed even if the storage provisioner is broken.
+	s.policy = testing.MockPolicy{
+		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
+			return nil, errors.New("boom")
+		},
+	}
+	err = u.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *gc.C) {
 	if s.series == "kubernetes" {
 		c.Skip("volumes on kubernetes not supported")
