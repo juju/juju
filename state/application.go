@@ -2208,32 +2208,30 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	ops = append(ops, hostOps...)
 
 	m, err := a.st.Model()
-	if op.FatalError(err) {
+	if err != nil {
 		return nil, errors.Trace(err)
-	} else {
-		if m.Type() == ModelTypeCAAS {
-			ops = append(ops, u.removeCloudContainerOps()...)
-		}
-		branchOps, err := unassignUnitFromBranchOp(u.doc.Name, a.doc.Name, m)
-		if err != nil {
-			if !op.Force {
-				return nil, errors.Trace(err)
-			}
-			op.AddError(err)
-		}
-		ops = append(ops, branchOps...)
 	}
-
-	sb, err := NewStorageBackend(a.st)
-	if op.FatalError(err) {
-		return nil, errors.Trace(err)
-	} else {
-		storageInstanceOps, err := removeStorageInstancesOps(sb, u.Tag(), op.Force)
-		if op.FatalError(err) {
+	if m.Type() == ModelTypeCAAS {
+		ops = append(ops, u.removeCloudContainerOps()...)
+	}
+	branchOps, err := unassignUnitFromBranchOp(u.doc.Name, a.doc.Name, m)
+	if err != nil {
+		if !op.Force {
 			return nil, errors.Trace(err)
 		}
-		ops = append(ops, storageInstanceOps...)
+		op.AddError(err)
 	}
+	ops = append(ops, branchOps...)
+
+	sb, err := NewStorageBackend(a.st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	storageInstanceOps, err := removeStorageInstancesOps(sb, u.Tag(), op.Force)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, storageInstanceOps...)
 
 	if u.doc.CharmURL != nil {
 		// If the unit has a different URL to the application, allow any final
