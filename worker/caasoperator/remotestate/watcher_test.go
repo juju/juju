@@ -30,21 +30,6 @@ type WatcherSuite struct {
 
 var _ = gc.Suite(&WatcherSuite{})
 
-func (s *WatcherSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.clock = testclock.NewClock(time.Now())
-	s.appWatcher = newMockNotifyWatcher()
-	s.charmGetter = &mockCharmGetter{}
-	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
-		Application:        "gitlab",
-		ApplicationWatcher: &mockApplicationWatcher{s.appWatcher},
-		CharmGetter:        s.charmGetter,
-		Logger:             loggo.GetLogger("test"),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.watcher = w
-}
-
 func (s *WatcherSuite) TearDownTest(c *gc.C) {
 	if s.watcher != nil {
 		s.watcher.Kill()
@@ -54,11 +39,13 @@ func (s *WatcherSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestInitialSnapshot(c *gc.C) {
+	s.setupWatcher(c, nil)
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{})
 }
 
 func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
+	s.setupWatcher(c, nil)
 	s.appWatcher.changes <- struct{}{}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 }
@@ -68,6 +55,8 @@ func (s *WatcherSuite) signalAll() {
 }
 
 func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
+	s.setupWatcher(c, nil)
+
 	assertOneChange := func() {
 		assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 		assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
@@ -90,7 +79,22 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestApplicationRemovalTerminatesAgent(c *gc.C) {
-	s.appWatcher.SetErr(errors.NotFoundf("app"))
+	s.setupWatcher(c, errors.NotFoundf("app"))
+	err := workertest.CheckKilled(c, s.watcher)
+	c.Assert(err, gc.Equals, jworker.ErrTerminateAgent)
+
+	// We killed the watcher. Set it to nil
+	// so TearDownTest does not reattempt.
+	s.watcher = nil
+}
+
+func (s *WatcherSuite) setupWatcher(c *gc.C, appWatcherError error) {
+	s.clock = testclock.NewClock(time.Now())
+
+	s.appWatcher = newMockNotifyWatcher()
+	s.appWatcher.err = appWatcherError
+	s.charmGetter = &mockCharmGetter{}
+
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
 		Application:        "gitlab",
 		ApplicationWatcher: &mockApplicationWatcher{s.appWatcher},
@@ -98,6 +102,5 @@ func (s *WatcherSuite) TestApplicationRemovalTerminatesAgent(c *gc.C) {
 		Logger:             loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = workertest.CheckKilled(c, w)
-	c.Assert(err, gc.Equals, jworker.ErrTerminateAgent)
+	s.watcher = w
 }
