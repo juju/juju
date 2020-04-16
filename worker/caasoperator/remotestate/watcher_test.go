@@ -90,7 +90,7 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestApplicationRemovalTerminatesAgent(c *gc.C) {
-	s.appWatcher.err = errors.NotFoundf("app")
+	s.appWatcher.SetErr(errors.NotFoundf("app"))
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
 		Application:        "gitlab",
 		ApplicationWatcher: &mockApplicationWatcher{s.appWatcher},
