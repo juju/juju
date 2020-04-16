@@ -2923,6 +2923,49 @@ func AddMachineIDToSubordinates(pool *StatePool) error {
 	return st.runRawTransaction(ops)
 }
 
+// AddOriginToIPAddresses ensures that all ip address have an origin associated
+// with them.
+func AddOriginToIPAddresses(pool *StatePool) error {
+	st := pool.SystemState()
+	coll, closer := st.db().GetRawCollection(ipAddressesC)
+	defer closer()
+
+	// Load all the ip addresses into a map, based on the full ID.
+	// This should prevent duplicates ever showing up.
+	ipAddresses := make(map[string]*ipAddressDoc)
+	iter := coll.Find(nil).Iter()
+
+	var doc ipAddressDoc
+	for iter.Next(&doc) {
+		// Make a copy of the ipAddressDoc and put the copy into the map.
+		ipAddress := doc
+		ipAddresses[doc.DocID] = &ipAddress
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+
+	var ops []txn.Op
+	for _, ipAddress := range ipAddresses {
+		// Potentially we should check if it's a valid Origin and if it's not
+		// set it to the default origin.
+		if ipAddress.Origin != "" {
+			continue
+		}
+
+		ops = append(ops, txn.Op{
+			C:      ipAddressesC,
+			Id:     ipAddress.DocID,
+			Update: bson.M{"$set": bson.M{"origin": network.OriginProvider}},
+		})
+	}
+
+	if len(ops) == 0 {
+		return nil
+	}
+	return st.runRawTransaction(ops)
+}
+
 // DropPresenceDatabase removes the legacy presence database.
 func DropPresenceDatabase(pool *StatePool) error {
 	st := pool.SystemState()

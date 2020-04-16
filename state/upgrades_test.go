@@ -4314,6 +4314,56 @@ func (s *upgradesSuite) TestAddMachineIDToSubordinates(c *gc.C) {
 	s.assertUpgradedData(c, AddMachineIDToSubordinates, upgradedData(col, expected))
 }
 
+func (s *upgradesSuite) TestAddOriginToIPAddresses(c *gc.C) {
+	col, closer := s.state.db().GetRawCollection(ipAddressesC)
+	defer closer()
+
+	uuid1 := utils.MustNewUUID().String()
+	uuid2 := utils.MustNewUUID().String()
+	uuid3 := utils.MustNewUUID().String()
+
+	err := col.Insert(bson.M{
+		"_id":        uuid1 + ":principal/1",
+		"model-uuid": uuid1,
+		"origin":     "",
+	}, bson.M{
+		"_id":        uuid1 + ":telegraf/1",
+		"model-uuid": uuid1,
+		"origin":     "machine",
+	}, bson.M{
+		"_id":        uuid2 + ":telegraf/0",
+		"model-uuid": uuid2,
+		"origin":     "provider",
+	}, bson.M{
+		"_id":        uuid3 + ":base/0",
+		"model-uuid": uuid3,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id":        uuid1 + ":principal/1",
+			"model-uuid": uuid1,
+			"origin":     "provider",
+		}, {
+			"_id":        uuid1 + ":telegraf/1",
+			"model-uuid": uuid1,
+			"origin":     "machine",
+		}, {
+			"_id":        uuid2 + ":telegraf/0",
+			"model-uuid": uuid2,
+			"origin":     "provider",
+		}, {
+			"_id":        uuid3 + ":base/0",
+			"model-uuid": uuid3,
+			"origin":     "provider",
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, AddOriginToIPAddresses, upgradedData(col, expected))
+}
+
 func (s *upgradesSuite) TestDropPresenceDatabase(c *gc.C) {
 	presenceDBName := "presence"
 	db := s.state.session.DB(presenceDBName)
