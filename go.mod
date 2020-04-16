@@ -57,7 +57,7 @@ require (
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
 	github.com/juju/os v0.0.0-20200323101341-8e16ce76f45e
-	github.com/juju/packaging v0.0.0-20190830112352-cfc61ec3a3e9
+	github.com/juju/packaging v0.0.0-20200421095529-970596d2622a
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
 	github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4
 	github.com/juju/pubsub v0.0.0-20190419131051-c1f7536b9cc6

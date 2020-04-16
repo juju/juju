@@ -335,6 +335,8 @@ github.com/juju/os v0.0.0-20200323101341-8e16ce76f45e h1:atxWn8Xx0oEjyYxd6RmV0O2
 github.com/juju/os v0.0.0-20200323101341-8e16ce76f45e/go.mod h1:buR1fIbfLx3neIA/TKE8ZlS/nRR3keo+hjVqV+VR4ns=
 github.com/juju/packaging v0.0.0-20190830112352-cfc61ec3a3e9 h1:32vASWaTHapSb4BeD68DZoD8FpX2zVVgDyVzNaBiC4U=
 github.com/juju/packaging v0.0.0-20190830112352-cfc61ec3a3e9/go.mod h1:Brg98KsCnaxL6UxQ4pbVFlT4MoQO7x0kSzwnuvRbUy8=
+github.com/juju/packaging v0.0.0-20200421095529-970596d2622a h1:dMBYD9gIFbskcksH9ib+OvmOwwkJTS5ldwvZq3axlbY=
+github.com/juju/packaging v0.0.0-20200421095529-970596d2622a/go.mod h1:Brg98KsCnaxL6UxQ4pbVFlT4MoQO7x0kSzwnuvRbUy8=
 github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93 h1:nlmpG1/Pv5elsi69wXhLkBhefGPE19bOCJ/xVwovl7A=
 github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93/go.mod h1:zrbmo4nBKaiP/Ez3F67ewkMbzGYfXyMvRtbOfuAwG0w=
 github.com/juju/postgrestest v1.0.1/go.mod h1:/n17Y2T6iFozzXwSCO0JYJ5gSiz2caEtSwAjh/uLXDM=
