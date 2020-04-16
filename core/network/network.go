@@ -75,6 +75,20 @@ func (s IDSet) Contains(id Id) bool {
 	return exists
 }
 
+// Difference returns a new IDSet representing all the values in the
+// target that are not in the parameter.
+func (s IDSet) Difference(other IDSet) IDSet {
+	result := make(IDSet)
+	// Use the internal map rather than going through the friendlier functions
+	// to avoid extra allocation of slices.
+	for value := range s {
+		if !other.Contains(value) {
+			result[value] = struct{}{}
+		}
+	}
+	return result
+}
+
 // Values returns an unordered slice containing all the values in the set.
 func (s IDSet) Values() []Id {
 	result := make([]Id, len(s))
@@ -93,18 +107,4 @@ func (s IDSet) SortedValues() []Id {
 		return values[i] < values[j]
 	})
 	return values
-}
-
-// Difference returns a new IDSet representing all the values in the
-// target that are not in the parameter.
-func (s IDSet) Difference(other IDSet) IDSet {
-	result := make(IDSet)
-	// Use the internal map rather than going through the friendlier functions
-	// to avoid extra allocation of slices.
-	for value := range s {
-		if !other.Contains(value) {
-			result[value] = struct{}{}
-		}
-	}
-	return result
 }
