@@ -2953,6 +2953,17 @@ func AddOriginToIPAddresses(pool *StatePool) error {
 			continue
 		}
 
+		// Set the origin to OriginProvider as the default ip address origin.
+		// The expectation is that the instancepoller will set all ip addresses
+		// that it knows about as a OriginProvier and anything it doesn't as a
+		// OriginMachine.
+		// The instancepoller will quiesce on the right value after the first
+		// run.
+		//
+		// The state of the network.Origin is a statemachine as follows:
+		//
+		//     OriginProvier -> OriginMachine -> Dead
+		//
 		ops = append(ops, txn.Op{
 			C:      ipAddressesC,
 			Id:     ipAddress.DocID,

@@ -64,7 +64,7 @@ type ipAddressDoc struct {
 	// IsDefaultGateway is set to true if that device/subnet is the default gw for the machine
 	IsDefaultGateway bool `bson:"is-default-gateway,omitempty"`
 
-	// Origin represents whom owns or identifies with this ipAddress.
+	// Origin represents the authoritative source of the ipAddress.
 	// It is expected that either the provider gave us this address or the
 	// machine gave us this address.
 	// Giving us this information allows us to reason about when a ipAddress is
@@ -211,7 +211,7 @@ func (addr *Address) IsDefaultGateway() bool {
 	return addr.doc.IsDefaultGateway
 }
 
-// Origin represents whom owns or identifies with this ipAddress.
+// Origin represents the authoritative source of the ipAddress.
 // It is expected that either the provider gave us this address or the
 // machine gave us this address.
 // Giving us this information allows us to reason about when a ipAddress is
