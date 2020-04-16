@@ -8,6 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1/catacomb"
+
+	jworker "github.com/juju/juju/worker"
 )
 
 // logger is here to stop the desire of creating a package level logger.
@@ -89,8 +91,8 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 func (w *RemoteStateWatcher) loop() (err error) {
 	defer func() {
 		if errors.IsNotFound(err) {
-			w.config.Logger.Debugf("ignoring error %v and exit", err)
-			err = nil
+			w.config.Logger.Debugf("application %q removed, terminating agent", w.application)
+			err = jworker.ErrTerminateAgent
 		}
 	}()
 

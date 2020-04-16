@@ -56,6 +56,7 @@ func newMockNotifyWatcher() *mockNotifyWatcher {
 type mockNotifyWatcher struct {
 	*mockWatcher
 	changes chan struct{}
+	err     error
 }
 
 func (w *mockNotifyWatcher) Changes() watcher.NotifyChannel {
@@ -70,7 +71,7 @@ func (s *mockApplicationWatcher) Watch(application string) (watcher.NotifyWatche
 	if application != "gitlab" {
 		return nil, errors.NotFoundf(application)
 	}
-	return s.watcher, nil
+	return s.watcher, s.watcher.err
 }
 
 type mockCharmGetter struct {

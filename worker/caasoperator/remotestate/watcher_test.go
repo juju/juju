@@ -7,12 +7,15 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	coretesting "github.com/juju/juju/testing"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/caasoperator/remotestate"
 )
 
@@ -84,4 +87,17 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 		CharmURL:             curl,
 		ForceCharmUpgrade:    true,
 	})
+}
+
+func (s *WatcherSuite) TestApplicationRemovalTerminatesAgent(c *gc.C) {
+	s.appWatcher.err = errors.NotFoundf("app")
+	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
+		Application:        "gitlab",
+		ApplicationWatcher: &mockApplicationWatcher{s.appWatcher},
+		CharmGetter:        s.charmGetter,
+		Logger:             loggo.GetLogger("test"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = workertest.CheckKilled(c, w)
+	c.Assert(err, gc.Equals, jworker.ErrTerminateAgent)
 }
