@@ -53,6 +53,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.ModelLogfileMaxBackups,
 		controller.ModelLogfileMaxSize,
 		controller.MongoMemoryProfile,
+		controller.MongoSnapChannel,
 		controller.PruneTxnQueryCount,
 		controller.PruneTxnSleepTime,
 		controller.MaxCharmStateSize,
