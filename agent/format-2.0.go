@@ -60,6 +60,7 @@ type format_2_0Serialization struct {
 	SystemIdentity     string `yaml:"systemidentity,omitempty"`
 	MongoVersion       string `yaml:"mongoversion,omitempty"`
 	MongoMemoryProfile string `yaml:"mongomemoryprofile,omitempty"`
+	MongoSnapChannel   string `yaml:"mongosnapchannel,omitempty"`
 }
 
 func init() {
@@ -156,6 +157,9 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 	if format.MongoMemoryProfile != "" {
 		config.mongoMemoryProfile = format.MongoMemoryProfile
 	}
+	if format.MongoSnapChannel != "" {
+		config.mongoSnapChannel = format.MongoSnapChannel
+	}
 	return config, nil
 }
 
@@ -198,6 +202,9 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 	}
 	if config.mongoMemoryProfile != "" {
 		format.MongoMemoryProfile = config.mongoMemoryProfile
+	}
+	if config.mongoSnapChannel != "" {
+		format.MongoSnapChannel = config.mongoSnapChannel
 	}
 	return goyaml.Marshal(format)
 }
