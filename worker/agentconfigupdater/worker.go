@@ -20,10 +20,11 @@ import (
 // WorkerConfig contains the information necessary to run
 // the agent config updater worker.
 type WorkerConfig struct {
-	Agent        coreagent.Agent
-	Hub          *pubsub.StructuredHub
-	MongoProfile mongo.MemoryProfile
-	Logger       Logger
+	Agent            coreagent.Agent
+	Hub              *pubsub.StructuredHub
+	MongoProfile     mongo.MemoryProfile
+	MongoSnapChannel string
+	Logger           Logger
 }
 
 // Validate ensures that the required values are set in the structure.
@@ -43,8 +44,9 @@ func (c *WorkerConfig) Validate() error {
 type agentConfigUpdater struct {
 	config WorkerConfig
 
-	tomb         tomb.Tomb
-	mongoProfile mongo.MemoryProfile
+	tomb             tomb.Tomb
+	mongoProfile     mongo.MemoryProfile
+	mongoSnapChannel string
 }
 
 // NewWorker creates a new agent config updater worker.
@@ -55,8 +57,9 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 
 	started := make(chan struct{})
 	w := &agentConfigUpdater{
-		config:       config,
-		mongoProfile: config.MongoProfile,
+		config:           config,
+		mongoProfile:     config.MongoProfile,
+		mongoSnapChannel: config.MongoSnapChannel,
 	}
 	w.tomb.Go(func() error {
 		return w.loop(started)
@@ -91,14 +94,25 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 	}
 
 	mongoProfile := mongo.MemoryProfile(data.Config.MongoMemoryProfile())
-	if mongoProfile == w.mongoProfile {
+	mongoProfileChanged := mongoProfile != w.mongoProfile
+
+	mongoSnapChannel := data.Config.MongoSnapChannel()
+	mongoSnapChannelChanged := mongoSnapChannel != w.mongoSnapChannel
+
+	if !mongoProfileChanged && !mongoSnapChannelChanged {
 		// Nothing to do, all good.
 		return
 	}
 
 	err = w.config.Agent.ChangeConfig(func(setter coreagent.ConfigSetter) error {
-		w.config.Logger.Debugf("setting agent config mongo memory profile: %q => %q", w.mongoProfile, mongoProfile)
-		setter.SetMongoMemoryProfile(mongoProfile)
+		if mongoProfileChanged {
+			w.config.Logger.Debugf("setting agent config mongo memory profile: %q => %q", w.mongoProfile, mongoProfile)
+			setter.SetMongoMemoryProfile(mongoProfile)
+		}
+		if mongoSnapChannelChanged {
+			w.config.Logger.Debugf("setting agent config mongo snap channel: %q => %q", w.mongoSnapChannel, mongoSnapChannel)
+			setter.SetMongoSnapChannel(mongoSnapChannel)
+		}
 		return nil
 	})
 	if err != nil {

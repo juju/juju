@@ -139,6 +139,7 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *gc.C) {
 				*result = params.ControllerConfigResult{
 					Config: map[string]interface{}{
 						"mongo-memory-profile": "default",
+						"mongo-snap-channel":   controller.DefaultMongoSnapChannel,
 					},
 				}
 			default:
@@ -223,6 +224,7 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 				*result = params.ControllerConfigResult{
 					Config: map[string]interface{}{
 						"mongo-memory-profile": "default",
+						"mongo-snap-channel":   controller.DefaultMongoSnapChannel,
 					},
 				}
 			default:
@@ -349,6 +351,9 @@ type mockConfig struct {
 
 	profile    string
 	profileSet bool
+
+	snapChannel    string
+	snapChannelSet bool
 }
 
 func (mc *mockConfig) Tag() names.Tag {
@@ -381,6 +386,18 @@ func (mc *mockConfig) MongoMemoryProfile() mongo.MemoryProfile {
 func (mc *mockConfig) SetMongoMemoryProfile(profile mongo.MemoryProfile) {
 	mc.profile = string(profile)
 	mc.profileSet = true
+}
+
+func (mc *mockConfig) MongoSnapChannel() string {
+	if mc.snapChannel == "" {
+		return controller.DefaultMongoSnapChannel
+	}
+	return mc.snapChannel
+}
+
+func (mc *mockConfig) SetMongoSnapChannel(snapChannel string) {
+	mc.snapChannel = snapChannel
+	mc.snapChannelSet = true
 }
 
 func (mc *mockConfig) LogDir() string {
