@@ -41,6 +41,12 @@ jobs:
       if: (matrix.os == 'ubuntu-latest')
       working-directory: src/github.com/juju/juju
       run: |
+        # Remove the default mongo
+        sudo rm /etc/apt/sources.list.d/mongodb-org-4.2.list
+        sudo DEBIAN_FRONTEND=noninteractive apt-get purge -y mongodb-org
+        sudo DEBIAN_FRONTEND=noninteractive apt autoremove
+        sudo rm -rf /usr/bin/mongo* || true
+
         make install-mongo-dependencies
 
     - name: "Install Mongo Dependencies: macOS-latest"
