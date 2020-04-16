@@ -13,6 +13,7 @@ test_hooks() {
 
     bootstrap "test-hooks" "${file}"
 
+    test_dispatching_script
     test_start_hook_fires_after_reboot
 
     destroy_controller "test-hooks"
