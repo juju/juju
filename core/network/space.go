@@ -114,18 +114,26 @@ func (s SpaceInfos) FanOverlaysFor(subnetIDs IDSet) (SubnetInfos, error) {
 // MoveSubnets returns a new topology representing
 // the movement of subnets to a new network space.
 func (s SpaceInfos) MoveSubnets(subnetIDs IDSet, spaceName string) (SpaceInfos, error) {
-	var movers SubnetInfos
-
 	newSpace := s.GetByName(spaceName)
 	if newSpace == nil {
 		return nil, errors.NotFoundf("space with name %q", spaceName)
 	}
 
+	var movers SubnetInfos
+	found := MakeIDSet()
+
 	// First accrue the moving subnets and remove them from their old spaces.
 	for i, space := range s {
 		subs := space.Subnets
 		for j, sub := range subs {
-			if subnetIDs.Contains(sub.ID) && string(space.Name) != spaceName {
+			if subnetIDs.Contains(sub.ID) {
+				// Indicate that we found the subnet,
+				// but don't do anything if it is already in the space.
+				found.Add(sub.ID)
+				if string(space.Name) == spaceName {
+					continue
+				}
+
 				sub.SpaceID = newSpace.ID
 				sub.SpaceName = spaceName
 				sub.ProviderSpaceId = newSpace.ProviderId
@@ -136,12 +144,18 @@ func (s SpaceInfos) MoveSubnets(subnetIDs IDSet, spaceName string) (SpaceInfos, 
 		}
 	}
 
+	// Ensure that the input did not include subnets not in this collection.
+	if diff := subnetIDs.Difference(found); len(diff) != 0 {
+		return nil, errors.NotFoundf("subnet IDs %v", diff.SortedValues())
+	}
+
 	// Then put them against the new one.
 	// We have to find the space again in this collection,
 	// because newSpace was returned from a copy.
 	for i, space := range s {
 		if string(space.Name) == spaceName {
 			s[i].Subnets = append(space.Subnets, movers...)
+			break
 		}
 	}
 	return s, nil

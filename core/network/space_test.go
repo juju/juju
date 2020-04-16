@@ -174,6 +174,9 @@ func (s *spaceSuite) TestMoveSubnets(c *gc.C) {
 	_, err := s.spaces.MoveSubnets(network.MakeIDSet("11", "12"), "space4")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 
+	_, err = s.spaces.MoveSubnets(network.MakeIDSet("666"), "space3")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+
 	spaces, err := s.spaces.MoveSubnets(network.MakeIDSet("11", "12"), "space3")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spaces, gc.DeepEquals, network.SpaceInfos{
