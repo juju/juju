@@ -570,11 +570,11 @@
   revision = "a0ef8b74ebcffeeff9fc374854deb4af388f037e"
 
 [[projects]]
-  digest = "1:c87397413d99514620284ec0eced142321b3e64e38895aeecb07606c6fe82546"
+  digest = "1:38da81828144a4c0739e61cdd2a88428b83f8fa1e92527c94d935292fa874ba0"
   name = "github.com/juju/jsonschema-gen"
   packages = ["."]
   pruneopts = ""
-  revision = "11507d258058ffaeee6efa39e97655e934778c99"
+  revision = "d924343d72b25839f69e353ae7a1880e718a4110"
 
 [[projects]]
   digest = "1:e460f07bec03866640127c47aae303167e9c79ee426c5fab03c180001eb4a39f"
@@ -699,11 +699,11 @@
   revision = "fd7cab26ac5f36f7780f7bae4e9331e07dd44802"
 
 [[projects]]
-  digest = "1:49b61a2d186cbe71f1e72021b7bba7012b9433af2215f7ef07456344216efeff"
+  digest = "1:1e0ede92d5d52918ce7ff306b6979bedc3e1b86b078a97df13a3beff4c652490"
   name = "github.com/juju/rpcreflect"
   packages = ["."]
   pruneopts = ""
-  revision = "cca922e065df403dc5088294f7f546e838d13708"
+  revision = "bb46e9ba1476d7b637cb956362dc568858c0d177"
 
 [[projects]]
   digest = "1:db82eb6a66dc5e2608a5769dbaa2f874dfc036953cbe7681e6987fe10c27235c"
@@ -953,11 +953,11 @@
   revision = "66b8e73f3f5cda9f96b69efd03dd3d7fc4a5cdb8"
 
 [[projects]]
-  digest = "1:2764f99b9b85a9191c10d06395de997612575fbdd1ef060a252262607d4316c8"
+  digest = "1:59794624db141f0f0a893d110111b962984c9844cf565efa91c35bedb882c9ff"
   name = "github.com/mattn/go-runewidth"
   packages = ["."]
   pruneopts = ""
-  revision = "d96d1bd051f2bd9e7e43d602782b37b93b1b5666"
+  revision = "14e809f6d78fcf9f48ff9b70981472b64c05f754"
 
 [[projects]]
   digest = "1:63722a4b1e1717be7b98fc686e0b30d5e7f734b9e93d7dee86293b6deab7ea28"

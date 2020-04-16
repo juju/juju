@@ -424,7 +424,7 @@
 
 [[override]]
   name = "github.com/mattn/go-runewidth"
-  revision = "d96d1bd051f2bd9e7e43d602782b37b93b1b5666"
+  revision = "14e809f6d78fcf9f48ff9b70981472b64c05f754"
 
 [[constraint]]
   name = "github.com/pkg/errors"
@@ -502,11 +502,11 @@
   source = "github.com/juju/yaml"
 
 [[constraint]]
-  revision = "11507d258058ffaeee6efa39e97655e934778c99"
+  revision = "d924343d72b25839f69e353ae7a1880e718a4110"
   name = "github.com/juju/jsonschema-gen"
 
 [[constraint]]
-  revision = "cca922e065df403dc5088294f7f546e838d13708"
+  revision = "bb46e9ba1476d7b637cb956362dc568858c0d177"
   name = "github.com/juju/rpcreflect"
 
 [[constraint]]
