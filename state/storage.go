@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -90,14 +91,8 @@ func NewStorageBackend(st *State) (*storageBackend, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	registry, err := st.storageProviderRegistry()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting storage provider registry")
-	}
-
-	return &storageBackend{
+	sb := &storageBackend{
 		mb:              st,
-		registry:        registry,
 		settings:        NewStateSettings(st),
 		modelType:       m.Type(),
 		config:          m.ModelConfig,
@@ -105,7 +100,11 @@ func NewStorageBackend(st *State) (*storageBackend, error) {
 		allApplications: st.AllApplications,
 		unit:            st.Unit,
 		machine:         st.Machine,
-	}, nil
+	}
+	sb.registryInit = func() {
+		sb.spRegistry, sb.spRegistryErr = st.storageProviderRegistry()
+	}
+	return sb, nil
 }
 
 type storageBackend struct {
@@ -117,8 +116,12 @@ type storageBackend struct {
 	machine         func(string) (*Machine, error)
 
 	modelType ModelType
-	registry  storage.ProviderRegistry
 	settings  *StateSettings
+
+	spRegistry    storage.ProviderRegistry
+	spRegistryErr error
+	registryOnce  sync.Once
+	registryInit  func()
 }
 
 type storageInstance struct {
@@ -264,6 +267,11 @@ func storageAttachmentId(unit string, storageInstanceId string) string {
 	return fmt.Sprintf("%s#%s", unitGlobalKey(unit), storageInstanceId)
 }
 
+func (sb *storageBackend) registry() (storage.ProviderRegistry, error) {
+	sb.registryOnce.Do(sb.registryInit)
+	return sb.spRegistry, sb.spRegistryErr
+}
+
 // StorageInstance returns the StorageInstance with the specified tag.
 func (sb *storageBackend) StorageInstance(tag names.StorageTag) (StorageInstance, error) {
 	s, err := sb.storageInstance(tag)
@@ -329,7 +337,11 @@ func (sb *storageBackend) RemoveStoragePool(poolName string) error {
 		return errors.Errorf("storage pool %q in use", poolName)
 	}
 
-	pm := poolmanager.New(sb.settings, sb.registry)
+	registry, err := sb.registry()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	pm := poolmanager.New(sb.settings, registry)
 	return pm.Delete(poolName)
 }
 
@@ -1883,13 +1895,17 @@ func validateStoragePool(
 }
 
 func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderType, storage.Provider, map[string]interface{}, error) {
-	poolManager := poolmanager.New(sb.settings, sb.registry)
+	registry, err := sb.registry()
+	if err != nil {
+		return "", nil, nil, errors.Trace(err)
+	}
+	poolManager := poolmanager.New(sb.settings, registry)
 	pool, err := poolManager.Get(poolName)
 	if errors.IsNotFound(err) {
 		// If there's no pool called poolName, maybe a provider type
 		// has been specified directly.
 		providerType := storage.ProviderType(poolName)
-		aProvider, err1 := sb.registry.StorageProvider(providerType)
+		aProvider, err1 := registry.StorageProvider(providerType)
 		if err1 != nil {
 			// The name can't be resolved as a storage provider type,
 			// so return the original "pool not found" error.
@@ -1900,7 +1916,7 @@ func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderT
 		return "", nil, nil, errors.Trace(err)
 	}
 	providerType := pool.Provider()
-	aProvider, err := sb.registry.StorageProvider(providerType)
+	aProvider, err := registry.StorageProvider(providerType)
 	if err != nil {
 		return "", nil, nil, errors.Trace(err)
 	}
