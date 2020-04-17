@@ -8,6 +8,7 @@ import (
 	"context"
 	// "fmt"
 	"io"
+	"sync"
 	// "runtime/debug"
 
 	"github.com/juju/errors"
@@ -118,6 +119,9 @@ func (ri *resourceInfo) ensureLabels(labels map[string]string) error {
 	providedLabels, err := metadataAccessor.Labels(ri.object)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	if len(providedLabels) == 0 {
+		providedLabels = make(map[string]string)
 	}
 	for k, v := range labels {
 		providedLabels[k] = v
@@ -251,57 +255,88 @@ func (d *deployer) load() (err error) {
 	}
 }
 
-func (d deployer) apply(ctx context.Context, r resourceInfo, force bool) (runtime.Object, error) {
-	// Ensures namespace are correctly set.
-	_ = r.withNamespace(d.namespace)
+func (d deployer) apply(ctx context.Context, wg *sync.WaitGroup, info resourceInfo, force bool, errChan chan<- error) (err error) {
+	defer wg.Done()
 
-	isNameSpaced := r.mapping.Scope.Name() == meta.RESTScopeNameNamespace
-	if err := r.ensureLabels(d.labelGetter(isNameSpaced)); err != nil {
-		return nil, errors.Trace(err)
+	defer func() {
+		if err != nil {
+			select {
+			case errChan <- err:
+			default:
+			}
+		}
+	}()
+
+	// Ensures namespace are correctly set.
+	_ = info.withNamespace(d.namespace)
+
+	isNameSpaced := info.mapping.Scope.Name() == meta.RESTScopeNameNamespace
+	if err = info.ensureLabels(d.labelGetter(isNameSpaced)); err != nil {
+		return errors.Trace(err)
 	}
 
-	logger.Criticalf("apply namespace -> %q, r -> %#v", d.namespace, r)
+	logger.Criticalf("apply namespace -> %q, r -> %#v", d.namespace, info)
 
-	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, r.object)
+	var data []byte
+	data, err = runtime.Encode(unstructured.UnstructuredJSONScheme, info.object)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	options := &metav1.PatchOptions{
 		Force:        &force,
 		FieldManager: "juju",
 	}
 
-	o, err := r.client.Patch(types.ApplyPatchType).
+	_, err = info.client.Patch(types.ApplyPatchType).
 		Context(ctx).
-		NamespaceIfScoped(r.namespace, isNameSpaced).
-		Resource(r.mapping.Resource.Resource).
-		Name(r.name).
+		NamespaceIfScoped(info.namespace, isNameSpaced).
+		Resource(info.mapping.Resource.Resource).
+		Name(info.name).
 		VersionedParams(options, metav1.ParameterCodec).
 		Body(data).
 		Do().
 		Get()
 	if k8serrors.IsNotFound(err) {
-		o, err = r.client.Post().
+		_, err = info.client.Post().
 			Context(ctx).
-			NamespaceIfScoped(r.namespace, isNameSpaced).
-			Resource(r.mapping.Resource.Resource).
-			Name(r.name).
+			NamespaceIfScoped(info.namespace, isNameSpaced).
+			Resource(info.mapping.Resource.Resource).
+			Name(info.name).
 			VersionedParams(options, metav1.ParameterCodec).
 			Body(data).
 			Do().
 			Get()
 	}
-	return o, errors.Trace(err)
+	return errors.Trace(err)
 }
 
 func (d deployer) Deploy(ctx context.Context, force bool) error {
 	if err := d.validate(); err != nil {
 		return errors.Trace(err)
 	}
+	var wg sync.WaitGroup
+	wg.Add(len(d.resources))
+
+	errChan := make(chan error)
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
 	for _, r := range d.resources {
-		if _, err := d.apply(ctx, r, force); err != nil {
-			return errors.Trace(err)
+		info := r
+		go func() { _ = d.apply(ctx, &wg, info, force, errChan) }()
+	}
+
+	for {
+		select {
+		case err := <-errChan:
+			if err != nil {
+				return errors.Trace(err)
+			}
+		case <-done:
+			return nil
 		}
 	}
-	return nil
 }
