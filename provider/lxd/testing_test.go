@@ -770,6 +770,34 @@ func (s *EnvironSuite) NewEnviron(c *gc.C, svr Server, cfgEdit map[string]interf
 	}
 }
 
+func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C, svr ServerFactory, cfgEdit map[string]interface{}) environs.Environ {
+	cfg, err := testing.ModelConfig(c).Apply(ConfigAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	if cfgEdit != nil {
+		var err error
+		cfg, err = cfg.Apply(cfgEdit)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	eCfg, err := newValidConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	namespace, err := instance.NewNamespace(cfg.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	provid := environProvider{
+		serverFactory: svr,
+	}
+
+	return &environ{
+		name:         "controller",
+		provider:     &provid,
+		ecfgUnlocked: eCfg,
+		namespace:    namespace,
+	}
+}
+
 func (s *EnvironSuite) GetStartInstanceArgs(c *gc.C, series string) environs.StartInstanceParams {
 	tools := []*coretools.Tools{
 		{
