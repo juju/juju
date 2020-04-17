@@ -23,15 +23,15 @@ func (f *mockRunnerFactory) NewCommandRunner(info context.CommandInfo) (runner.R
 
 type mockRunner struct {
 	runner.Runner
-	runCommands func(string) (*exec.ExecResponse, error)
+	runCommands func(string, runner.RunLocation) (*exec.ExecResponse, error)
 }
 
 func (r *mockRunner) Context() runner.Context {
 	return &mockRunnerContext{}
 }
 
-func (r *mockRunner) RunCommands(commands string) (*exec.ExecResponse, error) {
-	return r.runCommands(commands)
+func (r *mockRunner) RunCommands(commands string, runLocation runner.RunLocation) (*exec.ExecResponse, error) {
+	return r.runCommands(commands, runLocation)
 }
 
 type mockRunnerContext struct {

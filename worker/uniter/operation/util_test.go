@@ -387,13 +387,15 @@ func (mock *MockRunAction) Call(actionName string) error {
 }
 
 type MockRunCommands struct {
-	gotCommands *string
-	response    *utilexec.ExecResponse
-	err         error
+	gotCommands    *string
+	gotRunLocation *runner.RunLocation
+	response       *utilexec.ExecResponse
+	err            error
 }
 
-func (mock *MockRunCommands) Call(commands string) (*utilexec.ExecResponse, error) {
+func (mock *MockRunCommands) Call(commands string, runLocation runner.RunLocation) (*utilexec.ExecResponse, error) {
 	mock.gotCommands = &commands
+	mock.gotRunLocation = &runLocation
 	return mock.response, mock.err
 }
 
@@ -423,8 +425,8 @@ func (r *MockRunner) RunAction(actionName string) (runner.HookHandlerType, error
 	return runner.ExplicitHookHandler, r.MockRunAction.Call(actionName)
 }
 
-func (r *MockRunner) RunCommands(commands string) (*utilexec.ExecResponse, error) {
-	return r.MockRunCommands.Call(commands)
+func (r *MockRunner) RunCommands(commands string, runLocation runner.RunLocation) (*utilexec.ExecResponse, error) {
+	return r.MockRunCommands.Call(commands, runLocation)
 }
 
 func (r *MockRunner) RunHook(hookName string) (runner.HookHandlerType, error) {
@@ -560,6 +562,7 @@ var someCommandArgs = operation.CommandArgs{
 	RelationId:      123,
 	RemoteUnitName:  "foo/456",
 	ForceRemoteUnit: true,
+	RunLocation:     runner.Workload,
 }
 
 type RemoteInitCallbacks struct {
