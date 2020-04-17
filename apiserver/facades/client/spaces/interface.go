@@ -16,6 +16,12 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// ReloadSpaces offers a version 1 of the ReloadSpacesAPI.
+type ReloadSpaces interface {
+	// ReloadSpaces refreshes spaces from the substrate.
+	ReloadSpaces() error
+}
+
 // BlockChecker defines the block-checking functionality required by
 // the spaces facade. This is implemented by apiserver/common.BlockChecker.
 type BlockChecker interface {
@@ -63,7 +69,7 @@ type Backing interface {
 	MovingSubnet(id string) (MovingSubnet, error)
 
 	// AddSpace creates a space.
-	AddSpace(Name string, ProviderId network.Id, Subnets []string, Public bool) error
+	AddSpace(name string, providerID network.Id, subnets []string, public bool) (networkingcommon.BackingSpace, error)
 
 	// AllSpaces returns all known Juju network spaces.
 	// TODO (manadart 2020-04-14): This should be removed in favour of
@@ -93,12 +99,6 @@ type Backing interface {
 
 	// ConstraintsBySpaceName returns constraints found by spaceName.
 	ConstraintsBySpaceName(name string) ([]Constraints, error)
-
-	// SaveProviderSpaces loads providerSpaces into state.
-	SaveProviderSpaces([]network.SpaceInfo) error
-
-	// SaveProviderSubnets loads subnets into state.
-	SaveProviderSubnets([]network.SubnetInfo, string) error
 
 	// IsController returns true if this state instance
 	// is for the controller model.

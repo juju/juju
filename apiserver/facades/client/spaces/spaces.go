@@ -26,12 +26,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.spaces")
 
-// ReloadSpaces offers a version 1 of the ReloadSpacesAPI.
-type ReloadSpaces interface {
-	// ReloadSpaces refreshes spaces from the substrate.
-	ReloadSpaces() error
-}
-
 // APIv2 provides the spaces API facade for versions < 3.
 type APIv2 struct {
 	*APIv3
