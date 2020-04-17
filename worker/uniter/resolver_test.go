@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -89,12 +90,13 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 		ShouldRetryHooks:    true,
 		UpgradeSeries:       upgradeseries.NewResolver(),
 		Leadership:          leadership.NewResolver(),
-		Actions:             uniteractions.NewResolver(),
+		Actions:             uniteractions.NewResolver(loggo.GetLogger("test.actions")),
 		CreatedRelations:    nopResolver{},
 		Relations:           nopResolver{},
 		Storage:             storage.NewResolver(attachments, s.modelType),
 		Commands:            nopResolver{},
 		ModelType:           s.modelType,
+		Logger:              loggo.GetLogger("test"),
 	}
 
 	s.resolver = uniter.NewUniterResolver(s.resolverConfig)

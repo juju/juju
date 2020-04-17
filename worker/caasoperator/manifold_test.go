@@ -11,6 +11,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -214,6 +215,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 				ServiceAddress:  "127.0.0.1",
 				OperatorAddress: "127.0.0.2",
 			},
+			Logger: loggo.GetLogger("test"),
 		},
 		OperatorInfo: caas.OperatorInfo{
 			CACert:     coretesting.CACert,

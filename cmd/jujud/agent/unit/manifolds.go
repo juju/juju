@@ -323,6 +323,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			CharmDirName:          charmDirName,
 			HookRetryStrategyName: hookRetryStrategyName,
 			TranslateResolverErr:  uniter.TranslateFortressErrors,
+			Logger:                loggo.GetLogger("juju.worker.uniter"),
 		})),
 
 		// TODO (mattyw) should be added to machine agent.

@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/mutex"
 	"github.com/juju/proxy"
 	gt "github.com/juju/testing"
@@ -514,6 +515,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		// appropriately.
 		Clock:         clock.WallClock,
 		RebootQuerier: s.rebootQuerier,
+		Logger:        loggo.GetLogger("test"),
 	}
 	ctx.uniter, err = uniter.NewUniter(&uniterParams)
 	c.Assert(err, jc.ErrorIsNil)

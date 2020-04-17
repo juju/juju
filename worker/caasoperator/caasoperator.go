@@ -350,11 +350,11 @@ func (op *caasOperator) init() (*LocalState, error) {
 				return nil, errors.Annotate(err, "creating juju run socket")
 			}
 			logger.Debugf("starting caas operator juju-run listener on %v", socket)
-			runListener, err := uniter.NewRunListener(*socket)
+			runListener, err := uniter.NewRunListener(*socket, loggo.GetLogger("juju.worker.uniter"))
 			if err != nil {
 				return nil, errors.Annotate(err, "creating juju run listener")
 			}
-			rlw := uniter.NewRunListenerWrapper(runListener)
+			rlw := uniter.NewRunListenerWrapper(runListener, logger)
 			if err := op.catacomb.Add(rlw); err != nil {
 				return nil, errors.Trace(err)
 			}
