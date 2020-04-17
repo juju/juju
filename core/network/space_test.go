@@ -5,6 +5,7 @@ package network_test
 
 import (
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -167,6 +168,30 @@ func (s *spaceSuite) TestFanOverlaysFor(c *gc.C) {
 	overlays, err = s.spaces.FanOverlaysFor(network.MakeIDSet("14"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(overlays, gc.DeepEquals, network.SubnetInfos{overlay})
+}
+
+func (s *spaceSuite) TestMoveSubnets(c *gc.C) {
+	_, err := s.spaces.MoveSubnets(network.MakeIDSet("11", "12"), "space4")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+
+	_, err = s.spaces.MoveSubnets(network.MakeIDSet("666"), "space3")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+
+	spaces, err := s.spaces.MoveSubnets(network.MakeIDSet("11", "12"), "space3")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spaces, gc.DeepEquals, network.SpaceInfos{
+		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{}},
+		{ID: "2", Name: "space2", Subnets: []network.SubnetInfo{}},
+		{
+			ID:   "3",
+			Name: "space3",
+			Subnets: network.SubnetInfos{
+				{ID: "13", CIDR: "10.0.2.0/24"},
+				{ID: "11", CIDR: "10.0.0.0/24", SpaceID: "3", SpaceName: "space3"},
+				{ID: "12", CIDR: "10.0.1.0/24", SpaceID: "3", SpaceName: "space3"},
+			},
+		},
+	})
 }
 
 func (s *spaceSuite) TestConvertSpaceName(c *gc.C) {
