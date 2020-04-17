@@ -50,6 +50,13 @@ func stateStepsFor28() []Step {
 				return context.State().AddMachineIDToSubordinates()
 			},
 		},
+		&upgradeStep{
+			description: "add origin to ip addresses",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().AddOriginToIPAddresses()
+			},
+		},
 	}
 }
 
