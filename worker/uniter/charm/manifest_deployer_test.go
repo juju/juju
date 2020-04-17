@@ -9,6 +9,7 @@ import (
 	"runtime"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
@@ -35,7 +36,7 @@ func (s *ManifestDeployerSuite) SetUpTest(c *gc.C) {
 	s.bundles = &bundleReader{}
 	s.targetPath = filepath.Join(c.MkDir(), "target")
 	deployerPath := filepath.Join(c.MkDir(), "deployer")
-	s.deployer = charm.NewManifestDeployer(s.targetPath, deployerPath, s.bundles)
+	s.deployer = charm.NewManifestDeployer(s.targetPath, deployerPath, s.bundles, loggo.GetLogger("test"))
 }
 
 func (s *ManifestDeployerSuite) addMockCharm(c *gc.C, revision int, bundle charm.Bundle) charm.BundleInfo {

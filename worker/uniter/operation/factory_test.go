@@ -4,6 +4,7 @@
 package operation_test
 
 import (
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	utilexec "github.com/juju/utils/exec"
@@ -34,6 +35,7 @@ func (s *FactorySuite) SetUpTest(c *gc.C) {
 	}
 	s.factory = operation.NewFactory(operation.FactoryParams{
 		Deployer: deployer,
+		Logger:   loggo.GetLogger("test"),
 	})
 }
 

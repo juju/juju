@@ -21,6 +21,7 @@ type runCommands struct {
 	runnerFactory runner.Factory
 
 	runner runner.Runner
+	logger Logger
 
 	RequiresMachineLock
 }
@@ -63,7 +64,7 @@ func (rc *runCommands) Prepare(state State) (*State, error) {
 // state change.
 // Execute is part of the Operation interface.
 func (rc *runCommands) Execute(state State) (*State, error) {
-	logger.Tracef("run commands: %s", rc)
+	rc.logger.Tracef("run commands: %s", rc)
 	if err := rc.callbacks.SetExecutingStatus("running commands"); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -71,7 +72,7 @@ func (rc *runCommands) Execute(state State) (*State, error) {
 	response, err := rc.runner.RunCommands(rc.args.Commands)
 	switch err {
 	case context.ErrRequeueAndReboot:
-		logger.Warningf("cannot requeue external commands")
+		rc.logger.Warningf("cannot requeue external commands")
 		fallthrough
 	case context.ErrReboot:
 		rc.sendResponse(response, nil)

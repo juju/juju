@@ -201,10 +201,15 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	paths := config.getPaths()
+	logger := loggo.GetLogger("juju.worker.uniter.charm")
 	deployer, err := jujucharm.NewDeployer(
 		paths.State.CharmDir,
 		paths.State.DeployerDir,
-		jujucharm.NewBundlesDir(paths.State.BundlesDir, config.Downloader),
+		jujucharm.NewBundlesDir(
+			paths.State.BundlesDir,
+			config.Downloader,
+			logger),
+		logger,
 	)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot create deployer")

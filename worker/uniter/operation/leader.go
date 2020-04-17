@@ -69,6 +69,7 @@ func (al *acceptLeadership) checkState(state State) error {
 
 type resignLeadership struct {
 	DoesNotRequireMachineLock
+	logger Logger
 }
 
 // String is part of the Operation interface.
@@ -119,7 +120,7 @@ func (rl *resignLeadership) Execute(state State) (*State, error) {
 	// I *think* it will stay, because the state-writing behaviour will stay
 	// very different (ie just write `.Leader = false` and don't step on pre-
 	// queued hooks).
-	logger.Warningf("we should run a leader-deposed hook here, but we can't yet")
+	rl.logger.Warningf("we should run a leader-deposed hook here, but we can't yet")
 	return nil, nil
 }
 

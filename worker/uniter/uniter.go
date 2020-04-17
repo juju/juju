@@ -410,8 +410,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			Actions: actions.NewResolver(
 				u.logger.Child("actions"),
 			),
-			UpgradeSeries:    upgradeseries.NewResolver(),
-			Leadership:       uniterleadership.NewResolver(),
+			UpgradeSeries: upgradeseries.NewResolver(),
+			Leadership: uniterleadership.NewResolver(
+				u.logger.Child("leadership"),
+			),
 			CreatedRelations: relation.NewCreatedRelationResolver(u.relationStateTracker),
 			Relations:        relation.NewRelationResolver(u.relationStateTracker, u.unit),
 			Storage:          storage.NewResolver(u.storage, u.modelType),
@@ -610,10 +612,15 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		if err := charm.ClearDownloads(u.paths.State.BundlesDir); err != nil {
 			u.logger.Warningf(err.Error())
 		}
+		logger := u.logger.Child("charm")
 		deployer, err = charm.NewDeployer(
 			u.paths.State.CharmDir,
 			u.paths.State.DeployerDir,
-			charm.NewBundlesDir(u.paths.State.BundlesDir, u.downloader),
+			charm.NewBundlesDir(
+				u.paths.State.BundlesDir,
+				u.downloader,
+				logger),
+			logger,
 		)
 		if err != nil {
 			return errors.Annotatef(err, "cannot create deployer")
@@ -647,6 +654,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		Callbacks:      &operationCallbacks{u},
 		Abort:          u.catacomb.Dying(),
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
+		Logger:         u.logger.Child("operation"),
 	})
 
 	charmURL, err := u.getApplicationCharmURL()
@@ -677,6 +685,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		StateReadWriter: u.unit,
 		InitialState:    initialState,
 		AcquireLock:     u.acquireExecutionLock,
+		Logger:          u.logger.Child("operation"),
 	})
 	if err != nil {
 		return errors.Trace(err)

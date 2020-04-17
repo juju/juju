@@ -69,8 +69,9 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 		CharmModifiedVersion: s.charmModifiedVersion,
 		CharmURL:             s.charmURL,
 	}
-	s.opFactory = operation.NewFactory(operation.FactoryParams{})
-
+	s.opFactory = operation.NewFactory(operation.FactoryParams{
+		Logger: loggo.GetLogger("test"),
+	})
 	attachments, err := storage.NewAttachments(&dummyStorageAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -89,7 +90,7 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 		StopRetryHookTimer:  func() { s.stub.AddCall("StopRetryHookTimer") },
 		ShouldRetryHooks:    true,
 		UpgradeSeries:       upgradeseries.NewResolver(),
-		Leadership:          leadership.NewResolver(),
+		Leadership:          leadership.NewResolver(loggo.GetLogger("test.leadership")),
 		Actions:             uniteractions.NewResolver(loggo.GetLogger("test.actions")),
 		CreatedRelations:    nopResolver{},
 		Relations:           nopResolver{},

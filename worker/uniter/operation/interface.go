@@ -4,7 +4,6 @@
 package operation
 
 import (
-	"github.com/juju/loggo"
 	utilexec "github.com/juju/utils/exec"
 	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
@@ -18,7 +17,14 @@ import (
 
 //go:generate mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/juju/worker/uniter/operation Operation,Factory
 
-var logger = loggo.GetLogger("juju.worker.uniter.operation")
+// Logger determines the logging methods used by the operations package.
+type Logger interface {
+	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Infof(string, ...interface{})
+	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
+}
 
 // Operation encapsulates the stages of the various things the uniter can do,
 // and the state changes that need to be recorded as they happen. Operations
