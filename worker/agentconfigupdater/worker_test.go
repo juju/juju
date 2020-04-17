@@ -38,14 +38,16 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	})
 	s.agent = &mockAgent{
 		conf: mockConfig{
-			profile: controller.DefaultMongoMemoryProfile,
+			profile:     controller.DefaultMongoMemoryProfile,
+			snapChannel: controller.DefaultMongoSnapChannel,
 		},
 	}
 	s.config = agentconfigupdater.WorkerConfig{
-		Agent:        s.agent,
-		Hub:          s.hub,
-		MongoProfile: controller.DefaultMongoMemoryProfile,
-		Logger:       s.logger,
+		Agent:            s.agent,
+		Hub:              s.hub,
+		MongoProfile:     controller.DefaultMongoMemoryProfile,
+		MongoSnapChannel: controller.DefaultMongoSnapChannel,
+		Logger:           s.logger,
 	}
 }
 
@@ -119,6 +121,7 @@ func (s *WorkerSuite) TestUpdateMongoProfile(c *gc.C) {
 	newConfig := controllermsg.ConfigChangedMessage{
 		Config: controller.Config{
 			controller.MongoMemoryProfile: controller.DefaultMongoMemoryProfile,
+			controller.MongoSnapChannel:   controller.DefaultMongoSnapChannel,
 		},
 	}
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
@@ -133,6 +136,41 @@ func (s *WorkerSuite) TestUpdateMongoProfile(c *gc.C) {
 	workertest.CheckAlive(c, w)
 
 	newConfig.Config[controller.MongoMemoryProfile] = "new-value"
+	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-handled:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	err = workertest.CheckKilled(c, w)
+
+	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+}
+
+func (s *WorkerSuite) TestUpdateMongoSnapChannel(c *gc.C) {
+	w, err := agentconfigupdater.NewWorker(s.config)
+	c.Assert(w, gc.NotNil)
+	c.Check(err, jc.ErrorIsNil)
+
+	newConfig := controllermsg.ConfigChangedMessage{
+		Config: controller.Config{
+			controller.MongoSnapChannel: controller.DefaultMongoSnapChannel,
+		},
+	}
+	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-handled:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	// Snap channel is the same, worker still alive.
+	workertest.CheckAlive(c, w)
+
+	newConfig.Config[controller.MongoSnapChannel] = "latest/candidate"
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	select {

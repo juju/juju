@@ -285,6 +285,10 @@ type Config interface {
 	// MongoMemoryProfile returns the profile to be used when setting
 	// mongo memory usage.
 	MongoMemoryProfile() mongo.MemoryProfile
+
+	// MongoSnapChannel returns the channel for installing mongo snaps in
+	// focal or later.
+	MongoSnapChannel() string
 }
 
 type configSetterOnly interface {
@@ -328,6 +332,10 @@ type configSetterOnly interface {
 	// SetMongoMemoryProfile sets the passed policy as the one to be
 	// used.
 	SetMongoMemoryProfile(mongo.MemoryProfile)
+
+	// SetMongoSnapChannel sets the channel for installing mongo snaps
+	// when bootstrapping focal or later.
+	SetMongoSnapChannel(string)
 
 	// SetLoggingConfig sets the logging config value for the agent.
 	SetLoggingConfig(string)
@@ -404,6 +412,7 @@ type configInternal struct {
 	values             map[string]string
 	mongoVersion       string
 	mongoMemoryProfile string
+	mongoSnapChannel   string
 }
 
 // AgentConfigParams holds the parameters required to create
@@ -422,6 +431,7 @@ type AgentConfigParams struct {
 	Values             map[string]string
 	MongoVersion       mongo.Version
 	MongoMemoryProfile mongo.MemoryProfile
+	MongoSnapChannel   string
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -479,6 +489,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		values:             configParams.Values,
 		mongoVersion:       configParams.MongoVersion.String(),
 		mongoMemoryProfile: configParams.MongoMemoryProfile.String(),
+		mongoSnapChannel:   configParams.MongoSnapChannel,
 	}
 	if len(configParams.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
@@ -777,6 +788,16 @@ func (c *configInternal) SetMongoVersion(v mongo.Version) {
 // SetMongoMemoryProfile implements configSetterOnly.
 func (c *configInternal) SetMongoMemoryProfile(v mongo.MemoryProfile) {
 	c.mongoMemoryProfile = v.String()
+}
+
+// MongoSnapChannel implements Config.
+func (c *configInternal) MongoSnapChannel() string {
+	return c.mongoSnapChannel
+}
+
+// SetMongoSnapChannel implements configSetterOnly.
+func (c *configInternal) SetMongoSnapChannel(snapChannel string) {
+	c.mongoSnapChannel = snapChannel
 }
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")

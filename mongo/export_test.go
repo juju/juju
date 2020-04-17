@@ -38,7 +38,7 @@ func PatchService(patchValue func(interface{}, interface{}), data *svctesting.Fa
 		svc.FakeServiceData = data
 		return svc, nil
 	})
-	patchValue(&newService, func(name string, conf common.Conf) (mongoService, error) {
+	patchValue(&newService, func(name string, _ bool, conf common.Conf) (mongoService, error) {
 		svc := svctesting.NewFakeService(name, conf)
 		svc.FakeServiceData = data
 		return svc, nil
