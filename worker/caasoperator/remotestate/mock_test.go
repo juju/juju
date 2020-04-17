@@ -57,23 +57,10 @@ type mockNotifyWatcher struct {
 	*mockWatcher
 	changes chan struct{}
 	err     error
-	mu      sync.Mutex
 }
 
 func (w *mockNotifyWatcher) Changes() watcher.NotifyChannel {
 	return w.changes
-}
-
-func (w *mockNotifyWatcher) Err() error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.err
-}
-
-func (w *mockNotifyWatcher) SetErr(err error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.err = err
 }
 
 type mockApplicationWatcher struct {
@@ -84,7 +71,7 @@ func (s *mockApplicationWatcher) Watch(application string) (watcher.NotifyWatche
 	if application != "gitlab" {
 		return nil, errors.NotFoundf(application)
 	}
-	return s.watcher, s.watcher.Err()
+	return s.watcher, s.watcher.err
 }
 
 type mockCharmGetter struct {
