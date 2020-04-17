@@ -38,10 +38,13 @@ func (s *ListenerSuite) SetUpTest(c *gc.C) {
 }
 
 // Mirror the params to uniter.NewRunListener, but add cleanup to close it.
-func (s *ListenerSuite) NewRunListener(c *gc.C) *uniter.RunListener {
+func (s *ListenerSuite) NewRunListener(c *gc.C, operator bool) *uniter.RunListener {
 	listener, err := uniter.NewRunListener(s.socketPath)
 	c.Assert(err, jc.ErrorIsNil)
-	listener.RegisterRunner("test/0", &mockRunner{c})
+	listener.RegisterRunner("test/0", &mockRunner{
+		c:        c,
+		operator: operator,
+	})
 	s.AddCleanup(func(*gc.C) {
 		c.Assert(listener.Close(), jc.ErrorIsNil)
 	})
@@ -52,12 +55,12 @@ func (s *ListenerSuite) TestNewRunListenerOnExistingSocketRemovesItAndSucceeds(c
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: Current named pipes implementation does not support this")
 	}
-	s.NewRunListener(c)
-	s.NewRunListener(c)
+	s.NewRunListener(c, false)
+	s.NewRunListener(c, false)
 }
 
 func (s *ListenerSuite) TestClientCall(c *gc.C) {
-	s.NewRunListener(c)
+	s.NewRunListener(c, false)
 
 	client, err := sockets.Dial(s.socketPath)
 	c.Assert(err, jc.ErrorIsNil)
@@ -80,7 +83,7 @@ func (s *ListenerSuite) TestClientCall(c *gc.C) {
 }
 
 func (s *ListenerSuite) TestUnregisterRunner(c *gc.C) {
-	listener := s.NewRunListener(c)
+	listener := s.NewRunListener(c, false)
 	listener.UnregisterRunner("test/0")
 
 	client, err := sockets.Dial(s.socketPath)
@@ -97,6 +100,30 @@ func (s *ListenerSuite) TestUnregisterRunner(c *gc.C) {
 	}
 	err = client.Call(uniter.JujuRunEndpoint, args, &result)
 	c.Assert(err, gc.ErrorMatches, ".*no runner is registered for unit test/0")
+}
+
+func (s *ListenerSuite) TestOperatorFlag(c *gc.C) {
+	s.NewRunListener(c, true)
+
+	client, err := sockets.Dial(s.socketPath)
+	c.Assert(err, jc.ErrorIsNil)
+	defer client.Close()
+
+	var result exec.ExecResponse
+	args := uniter.RunCommandsArgs{
+		Commands:        "some-command",
+		RelationId:      -1,
+		RemoteUnitName:  "",
+		ForceRemoteUnit: false,
+		UnitName:        "test/0",
+		Operator:        true,
+	}
+	err = client.Call(uniter.JujuRunEndpoint, args, &result)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(string(result.Stdout), gc.Equals, "some-command stdout")
+	c.Assert(string(result.Stderr), gc.Equals, "some-command stderr")
+	c.Assert(result.Code, gc.Equals, 42)
 }
 
 type ChannelCommandRunnerSuite struct {
@@ -132,13 +159,15 @@ func (s *ChannelCommandRunnerSuite) TestCommandsAborted(c *gc.C) {
 }
 
 type mockRunner struct {
-	c *gc.C
+	c        *gc.C
+	operator bool
 }
 
 var _ uniter.CommandRunner = (*mockRunner)(nil)
 
 func (r *mockRunner) RunCommands(args uniter.RunCommandsArgs) (results *exec.ExecResponse, err error) {
 	r.c.Log("mock runner: " + args.Commands)
+	r.c.Assert(args.Operator, gc.Equals, r.operator)
 	return &exec.ExecResponse{
 		Code:   42,
 		Stdout: []byte(args.Commands + " stdout"),

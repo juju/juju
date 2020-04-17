@@ -138,6 +138,8 @@ type CommandArgs struct {
 	// TODO(jam): 2019-10-24 Include RemoteAppName
 	// ForceRemoteUnit skips unit inference and existence validation.
 	ForceRemoteUnit bool
+	// RunLocation describes where the command must run.
+	RunLocation runner.RunLocation
 }
 
 // CommandResponseFunc is for marshalling command responses back to the source

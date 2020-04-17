@@ -40,8 +40,19 @@ var logger = loggo.GetLogger("juju.worker.uniter.runner")
 type runMode int
 
 const (
-	runOnLocal runMode = iota
+	runOnUnknown runMode = iota
+	runOnLocal
 	runOnRemote
+)
+
+// RunLocation dictates where to execute commands.
+type RunLocation string
+
+const (
+	// Operator runs where the operator/uniter is running.
+	Operator = RunLocation("operator")
+	// Workload runs where the workload is running.
+	Workload = RunLocation("workload")
 )
 
 // HookHandlerType is used to indicate the type of script used for handling a
@@ -77,7 +88,6 @@ const (
 
 // Runner is responsible for invoking commands in a context.
 type Runner interface {
-
 	// Context returns the context against which the runner executes.
 	Context() Context
 
@@ -90,7 +100,7 @@ type Runner interface {
 	RunAction(name string) (HookHandlerType, error)
 
 	// RunCommands executes the supplied script.
-	RunCommands(commands string) (*utilexec.ExecResponse, error)
+	RunCommands(commands string, runLocation RunLocation) (*utilexec.ExecResponse, error)
 }
 
 // Context exposes hooks.Context, and additional methods needed by Runner.
@@ -162,7 +172,7 @@ func (runner *runner) Context() Context {
 	return runner.context
 }
 
-func (runner *runner) getRemoteExecutor(rMode runMode) (ExecFunc, error) {
+func (runner *runner) getExecutor(rMode runMode) (ExecFunc, error) {
 	switch rMode {
 	case runOnLocal:
 		return execOnMachine, nil
@@ -174,13 +184,27 @@ func (runner *runner) getRemoteExecutor(rMode runMode) (ExecFunc, error) {
 	return nil, errors.NotSupportedf("run command mode %q", rMode)
 }
 
-// RunCommands exists to satisfy the Runner interface.
-func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, error) {
-	runMode := runOnLocal
-	if runner.context.ModelType() == model.CAAS {
-		runMode = runOnRemote
+func (runner *runner) runLocationToMode(runLocation RunLocation) (runMode, error) {
+	switch runLocation {
+	case Operator:
+		return runOnLocal, nil
+	case Workload:
+		if runner.context.ModelType() == model.CAAS && runner.remoteExecutor != nil {
+			return runOnRemote, nil
+		}
+		return runOnLocal, nil
+	default:
+		return runOnUnknown, errors.NotValidf("RunLocation %q", runLocation)
 	}
-	result, err := runner.runCommandsWithTimeout(commands, 0, clock.WallClock, runMode, nil)
+}
+
+// RunCommands exists to satisfy the Runner interface.
+func (runner *runner) RunCommands(commands string, runLocation RunLocation) (*utilexec.ExecResponse, error) {
+	rMode, err := runner.runLocationToMode(runLocation)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result, err := runner.runCommandsWithTimeout(commands, 0, clock.WallClock, rMode, nil)
 	return result, runner.context.Flush("run commands", err)
 }
 
@@ -229,7 +253,7 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 		}()
 	}
 
-	executor, err := runner.getRemoteExecutor(rMode)
+	executor, err := runner.getExecutor(rMode)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -266,12 +290,15 @@ func (runner *runner) runJujuRunAction() (err error) {
 		logger.Debugf("unable to read juju-run action timeout, will continue running action without one")
 	}
 
-	rMode := runOnLocal
-	if runner.context.ModelType() == model.CAAS {
-		if workloadContext, _ := params["workload-context"].(bool); workloadContext {
-			rMode = runOnRemote
-		}
+	runLocation := Operator
+	if workloadContext, _ := params["workload-context"].(bool); workloadContext {
+		runLocation = Workload
 	}
+	rMode, err := runner.runLocationToMode(runLocation)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock, rMode, data.Cancel)
 	if results != nil {
 		if err := runner.updateActionResults(results); err != nil {
@@ -333,11 +360,13 @@ func (runner *runner) RunAction(actionName string) (HookHandlerType, error) {
 	if actionName == actions.JujuRunActionName {
 		return InvalidHookHandler, runner.runJujuRunAction()
 	}
-	rMode := runOnLocal
-	if runner.context.ModelType() == model.CAAS {
-		if workloadContext, ok := data.Params["workload-context"].(bool); !ok || workloadContext {
-			rMode = runOnRemote
-		}
+	runLocation := Operator
+	if workloadContext, ok := data.Params["workload-context"].(bool); !ok || workloadContext {
+		runLocation = Workload
+	}
+	rMode, err := runner.runLocationToMode(runLocation)
+	if err != nil {
+		return InvalidHookHandler, errors.Trace(err)
 	}
 	logger.Debugf("running action %q on %v", actionName, rMode)
 	return runner.runCharmHookWithLocation(actionName, "actions", rMode)
@@ -498,7 +527,7 @@ func (runner *runner) runCharmProcessOnRemote(hook, hookName, charmDir string, e
 		go hookErrLogger.Run()
 	}
 
-	executor, err := runner.getRemoteExecutor(runOnRemote)
+	executor, err := runner.getExecutor(runOnRemote)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -676,7 +705,7 @@ func (runner *runner) getLogger(hookName string) loggo.Logger {
 var exportLineRegexp = regexp.MustCompile("(?m)^export ([^=]+)=(.*)$")
 
 func (runner *runner) getRemoteEnviron(abort <-chan struct{}) (map[string]string, error) {
-	remoteExecutor, err := runner.getRemoteExecutor(runOnRemote)
+	remoteExecutor, err := runner.getExecutor(runOnRemote)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -448,6 +448,7 @@ func (s *WorkerSuite) TestContainerStart(c *gc.C) {
 		go func() {
 			close(uniterStarted)
 			c.Assert(params.UnitTag.Id(), gc.Equals, "gitlab/0")
+			c.Assert(params.NewRemoteRunnerExecutor, gc.NotNil)
 			select {
 			case <-params.ContainerRunningStatusChannel:
 			case <-time.After(coretesting.LongWait):

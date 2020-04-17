@@ -560,6 +560,7 @@ func (op *caasOperator) loop() (err error) {
 					params.RemoteInitFunc = func(runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
 						return op.remoteInit(unitTag, runningStatus, cancel)
 					}
+					params.NewRemoteRunnerExecutor = getNewRunnerExecutor(op.config.Logger, op.config.ExecClient)
 				}
 				if err := op.config.StartUniterFunc(op.runner, params); err != nil {
 					return errors.Trace(err)

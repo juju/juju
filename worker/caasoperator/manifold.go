@@ -225,15 +225,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			wCfg.OperatorInfo = *operatorInfo
 			wCfg.UniterParams = &uniter.UniterParams{
-				NewOperationExecutor:    operation.NewExecutor,
-				NewRemoteRunnerExecutor: getNewRunnerExecutor(config.Logger, execClient),
-				DataDir:                 agentConfig.DataDir(),
-				Clock:                   clock,
-				MachineLock:             config.MachineLock,
-				CharmDirGuard:           charmDirGuard,
-				UpdateStatusSignal:      uniter.NewUpdateStatusTimer(),
-				HookRetryStrategy:       hookRetryStrategy,
-				TranslateResolverErr:    config.TranslateResolverErr,
+				NewOperationExecutor: operation.NewExecutor,
+				DataDir:              agentConfig.DataDir(),
+				Clock:                clock,
+				MachineLock:          config.MachineLock,
+				CharmDirGuard:        charmDirGuard,
+				UpdateStatusSignal:   uniter.NewUpdateStatusTimer(),
+				HookRetryStrategy:    hookRetryStrategy,
+				TranslateResolverErr: config.TranslateResolverErr,
 			}
 			wCfg.UniterParams.SocketConfig, err = socketConfig(operatorInfo)
 			if err != nil {
