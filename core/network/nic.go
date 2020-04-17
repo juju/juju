@@ -76,6 +76,9 @@ func (r Route) Validate() error {
 	return nil
 }
 
+// InterfaceInfos defines a series of InterfaceInfo types.
+type InterfaceInfos []InterfaceInfo
+
 // InterfaceInfo describes a single network interface available on an
 // instance.
 type InterfaceInfo struct {
@@ -163,7 +166,7 @@ type InterfaceInfo struct {
 	DNSServers ProviderAddresses
 
 	// MTU is the Maximum Transmission Unit controlling the maximum size of the
-	// protocol packats that the interface can pass through. It is only used
+	// protocol packets that the interface can pass through. It is only used
 	// when > 0.
 	MTU int
 
