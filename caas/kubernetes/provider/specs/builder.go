@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -88,7 +89,6 @@ type resourceInfo struct {
 	mapping *meta.RESTMapping
 	schema  contentValidator
 	client  rest.Interface
-	cfg     *rest.Config
 }
 
 func validateSchema(data []byte, validate contentValidator) error {
@@ -114,31 +114,41 @@ func (ri *resourceInfo) withNamespace(namespace string) *resourceInfo {
 	return ri
 }
 
+func (ri *resourceInfo) ensureLabels(labels map[string]string) error {
+	providedLabels, err := metadataAccessor.Labels(ri.object)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for k, v := range labels {
+		providedLabels[k] = v
+	}
+	return metadataAccessor.SetLabels(ri.object, providedLabels)
+}
+
 type deployer struct {
-	namespace     string
-	spec          string
-	cfg           *rest.Config
-	newRestClient NewRestClient
+	namespace string
+	spec      string
+	cfg       *rest.Config
 	// TODO implement builder then remove ""k8s.io/cli-runtime" dep!!
 	// builder *runtimeresource.Builder
 
 	resources []resourceInfo
 	sources   []string
+
+	labelGetter func(isNamespaced bool) map[string]string
 }
 
-type NewRestClient func(config *rest.Config) (rest.Interface, error)
-
 func NewDeployer(
-	namespace string, // TODO: force set namespace for all resources!!!
+	namespace string,
 	cfg *rest.Config,
-	newRestClient NewRestClient,
 	spec string,
+	labelGetter func(isNamespaced bool) map[string]string,
 ) DeployerInterface {
 	return &deployer{
-		namespace:     namespace,
-		spec:          spec,
-		cfg:           cfg,
-		newRestClient: newRestClient,
+		namespace:   namespace,
+		cfg:         cfg,
+		spec:        spec,
+		labelGetter: labelGetter,
 	}
 }
 
@@ -156,51 +166,43 @@ func (d *deployer) validate() error {
 
 func setConfigDefaults(config *rest.Config) {
 	// gv := metav1.SchemeGroupVersion
-	gv := schema.GroupVersion{Group: "", Version: "v1"}
-	config.GroupVersion = &gv
-	config.APIPath = "/api"
-	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
-
-	if config.UserAgent == "" {
+	// gv := schema.GroupVersion{Group: "", Version: "v1"}
+	// config.GroupVersion = &gv
+	// config.APIPath = "/api"
+	// config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	if config.ContentConfig.NegotiatedSerializer == nil {
+		config.ContentConfig.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	}
+	if len(config.UserAgent) == 0 {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
 	}
 }
 
 func (d *deployer) clientWithGroupVersion(gv schema.GroupVersion) (c rest.Interface, err error) {
-	// cfg := rest.CopyConfig(d.cfg)
-	cfg, _ := rest.InClusterConfig()
+	cfg := rest.CopyConfig(d.cfg)
+	// cfg, _ := rest.InClusterConfig()
 	setConfigDefaults(cfg)
 
-	// cfg.GroupVersion = &gv
-	// cfg.APIPath = "/apis"
-	// if len(gv.Group) == 0 {
-	// 	cfg.APIPath = "/api"
-	// }
-	// if cfg.ContentConfig.NegotiatedSerializer == nil {
-	// 	cfg.ContentConfig.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
-	// }
-	// if len(cfg.UserAgent) == 0 {
-	// 	cfg.UserAgent = rest.DefaultKubernetesUserAgent()
-	// }
-	logger.Criticalf("clientWithGroupVersion 0 err -> %#v, c -> %s, cfg.GroupVersion -> %s", err, pretty.Sprint(c), pretty.Sprint(cfg.GroupVersion))
-	if c, err = rest.RESTClientFor(cfg); err != nil {
-		logger.Criticalf("clientWithGroupVersion 1 err -> %#v, c -> %s", err, pretty.Sprint(c))
-		panic(err)
-		// return nil, errors.Trace(err)
+	cfg.GroupVersion = &gv
+	cfg.APIPath = "/apis"
+	if len(gv.Group) == 0 {
+		cfg.APIPath = "/api"
 	}
-	logger.Criticalf("clientWithGroupVersion 2 c -> %s", pretty.Sprint(c))
+
+	logger.Criticalf("clientWithGroupVersion 0 err -> %#v, c -> %#v, cfg.GroupVersion -> %s", err, c, pretty.Sprint(cfg.GroupVersion))
+	if c, err = rest.RESTClientFor(cfg); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return c, nil
 }
 
 func (d *deployer) load() (err error) {
 	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewBufferString(d.spec), len(d.spec))
 	defer func() {
-		logger.Criticalf("load d.resources -> %s, err -> %#v", pretty.Sprint(d.resources), err)
+		logger.Criticalf("load len(d.resources) -> %d, err -> %#v", len(d.resources), err)
 	}()
 	for {
-		cfg := *d.cfg
 		item := resourceInfo{
-			cfg: &cfg,
 			// TODO: schema: xxxx for validation
 		}
 		ext := runtime.RawExtension{}
@@ -238,13 +240,10 @@ func (d *deployer) load() (err error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		logger.Criticalf("load 3 gvk.GroupVersion() -> %s", pretty.Sprint(gvk.GroupVersion()))
 		if item.client, err = d.clientWithGroupVersion(gvk.GroupVersion()); err != nil {
 			return errors.Trace(err)
 		}
-		logger.Criticalf("load 4 item -> %s, err -> %#v", pretty.Sprint(item), err)
 		item.mapping, err = item.restMapper().RESTMapping(gvk.GroupKind(), gvk.Version)
-		logger.Criticalf("load 5 item -> %s, err -> %#v", pretty.Sprint(item), err)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -252,11 +251,16 @@ func (d *deployer) load() (err error) {
 	}
 }
 
-func apply(ctx context.Context, namespace string, r resourceInfo, force bool) (runtime.Object, error) {
+func (d deployer) apply(ctx context.Context, r resourceInfo, force bool) (runtime.Object, error) {
 	// Ensures namespace are correctly set.
-	_ = r.withNamespace(namespace)
+	_ = r.withNamespace(d.namespace)
 
-	logger.Criticalf("apply namespace -> %q, r -> %s", namespace, pretty.Sprint(r))
+	isNameSpaced := r.mapping.Scope.Name() == meta.RESTScopeNameNamespace
+	if err := r.ensureLabels(d.labelGetter(isNameSpaced)); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	logger.Criticalf("apply namespace -> %q, r -> %#v", d.namespace, r)
 
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, r.object)
 	if err != nil {
@@ -269,14 +273,24 @@ func apply(ctx context.Context, namespace string, r resourceInfo, force bool) (r
 
 	o, err := r.client.Patch(types.ApplyPatchType).
 		Context(ctx).
-		NamespaceIfScoped(r.namespace, r.mapping.Scope.Name() == meta.RESTScopeNameNamespace).
+		NamespaceIfScoped(r.namespace, isNameSpaced).
 		Resource(r.mapping.Resource.Resource).
 		Name(r.name).
 		VersionedParams(options, metav1.ParameterCodec).
 		Body(data).
 		Do().
 		Get()
-	logger.Criticalf("apply o -> %s, err -> %#v", pretty.Sprint(o), err)
+	if k8serrors.IsNotFound(err) {
+		o, err = r.client.Post().
+			Context(ctx).
+			NamespaceIfScoped(r.namespace, isNameSpaced).
+			Resource(r.mapping.Resource.Resource).
+			Name(r.name).
+			VersionedParams(options, metav1.ParameterCodec).
+			Body(data).
+			Do().
+			Get()
+	}
 	return o, errors.Trace(err)
 }
 
@@ -285,7 +299,7 @@ func (d deployer) Deploy(ctx context.Context, force bool) error {
 		return errors.Trace(err)
 	}
 	for _, r := range d.resources {
-		if _, err := apply(ctx, d.namespace, r, force); err != nil {
+		if _, err := d.apply(ctx, r, force); err != nil {
 			return errors.Trace(err)
 		}
 	}

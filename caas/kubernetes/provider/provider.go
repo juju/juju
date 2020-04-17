@@ -80,7 +80,7 @@ func newK8sClient(c *rest.Config) (
 	return k8sClient, apiextensionsclient, dynamicClient, nil
 }
 
-// CloudSpecToK8sRestConfig tranlates cloudspec to k8s rest config.
+// CloudSpecToK8sRestConfig translates cloudspec to k8s rest config.
 func CloudSpecToK8sRestConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 	if cloudSpec.Credential == nil {
 		return nil, errors.Errorf("cloud %v has no credential", cloudSpec.Name)

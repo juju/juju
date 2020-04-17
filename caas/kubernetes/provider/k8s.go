@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
-	"runtime/debug"
+	// "runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -887,45 +887,27 @@ func processConstraints(pod *core.PodSpec, appName string, cons constraints.Valu
 	return nil
 }
 
+const applyRawSpecTimeoutSeconds = 6
+
 // ApplyRawK8sSpec applies raw k8s spec to the k8s cluster.
-func (k *kubernetesClient) ApplyRawK8sSpec(specStr string) error {
-	spec, err := k8sspecs.ParseRawK8sSpec(specStr)
-	if err != nil {
-		return errors.Trace(err)
-	}
+func (k *kubernetesClient) ApplyRawK8sSpec(
+	appName string, numUnits int, specStr string,
+) error {
 	logger.Criticalf("specStr -> %s", specStr)
-	logger.Criticalf("spec -> %s", pretty.Sprint(spec))
-	logger.Criticalf("k.k8sConfig() -> %s", pretty.Sprint(k.k8sConfig()))
+	labelGetter := func(isNamespaced bool) map[string]string {
+		labels := LabelsForApp(appName)
+		if !isNamespaced {
+			labels = AppendLabels(labels, LabelsForModel(k.CurrentModel()))
+		}
+		return labels
+	}
+
 	b := k8sspecs.NewDeployer(
 		k.namespace, k.k8sConfig(),
-		func(cfg *rest.Config) (c rest.Interface, err error) {
-			logger.Criticalf("ApplyRawK8sSpec 1 err -> %#v, c -> %s", err, pretty.Sprint(c))
-			defer func() {
-				if err := recover(); err != nil {
-					logger.Criticalf("ApplyRawK8sSpec err -> %#v", err)
-					logger.Criticalf("ApplyRawK8sSpec stacktrace from panic: %s", string(debug.Stack()))
-				}
-			}()
-			// c, err = rest.RESTClientFor(cfg)
-			// c = kubernetes.NewForConfigOrDie(cfg).RESTClient()
-			chanC := make(chan rest.Interface, 1)
-			chanE := make(chan error, 1)
-			go func() {
-				// c, err := k.client().CoreV1().RESTClient()
-				// c, err := rest.RESTClientFor(cfg)
-				c, err := kubernetes.NewForConfig(k.k8sConfig())
-				logger.Criticalf("ApplyRawK8sSpec 4 err -> %#v, c -> %s", err, pretty.Sprint(c))
-				chanC <- c.CoreV1().RESTClient()
-				chanE <- err
-			}()
-			logger.Criticalf("ApplyRawK8sSpec 2 err -> %#v, c -> %s", err, pretty.Sprint(c))
-			c = <-chanC
-			err = <-chanE
-			logger.Criticalf("ApplyRawK8sSpec 3 err -> %#v, c -> %s", err, pretty.Sprint(c))
-			return c, errors.Trace(err)
-		}, specStr,
+		specStr,
+		labelGetter,
 	)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10) // TODO: timeout from worker
+	ctx, cancel := context.WithTimeout(context.Background(), applyRawSpecTimeoutSeconds*time.Second)
 	defer cancel()
 	return b.Deploy(ctx, true)
 }
