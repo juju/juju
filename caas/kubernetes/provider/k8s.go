@@ -887,7 +887,7 @@ func processConstraints(pod *core.PodSpec, appName string, cons constraints.Valu
 	return nil
 }
 
-const applyRawSpecTimeoutSeconds = 6
+const applyRawSpecTimeoutSeconds = 20
 
 // ApplyRawK8sSpec applies raw k8s spec to the k8s cluster.
 func (k *kubernetesClient) ApplyRawK8sSpec(
