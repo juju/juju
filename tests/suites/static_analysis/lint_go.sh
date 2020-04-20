@@ -1,6 +1,6 @@
 run_go_vet() {
   PACKAGES="${2}"
-  # shellcheck disable=SC2046
+  # shellcheck disable=SC2086
   OUT=$(go vet -composites=false ${PACKAGES} 2>&1 || true)
   if [ -n "${OUT}" ]; then
     echo ""
@@ -12,7 +12,7 @@ run_go_vet() {
 
 run_go_lint() {
   PACKAGES="${2}"
-  # shellcheck disable=SC2046
+  # shellcheck disable=SC2086
   OUT=$(golint -set_exit_status ${PACKAGES} 2>&1 || true)
   if [ -n "${OUT}" ]; then
     echo ""
@@ -38,7 +38,7 @@ run_go_imports() {
 
 run_deadcode() {
   FOLDERS="${2}"
-  # shellcheck disable=SC2046
+  # shellcheck disable=SC2086
   OUT=$(deadcode ${FOLDERS} 2>&1 || true)
   if [ -n "${OUT}" ]; then
     echo ""
@@ -50,7 +50,7 @@ run_deadcode() {
 
 run_misspell() {
   FILES="${2}"
-  # shellcheck disable=SC2046
+  # shellcheck disable=SC2086
   OUT=$(misspell -source=go 2>/dev/null ${FILES} || true)
   if [ -n "${OUT}" ]; then
     echo ""
@@ -62,7 +62,7 @@ run_misspell() {
 
 run_unconvert() {
   PACKAGES="${2}"
-  # shellcheck disable=SC2046
+  # shellcheck disable=SC2086
   OUT=$(unconvert ${PACKAGES} 2>&1 || true)
   if [ -n "${OUT}" ]; then
     echo ""
@@ -74,7 +74,7 @@ run_unconvert() {
 
 run_ineffassign() {
   FOLDERS="${2}"
-  # shellcheck disable=SC2046
+  # shellcheck disable=SC2086
   OUT=$(ineffassign ${FOLDERS} | grep -v "_test.go" | grep "github.com/juju/juju" | sed -E "s/^(.+src\\/github\\.com\\/juju\\/juju\\/)(.+)/\2/")
   if [ -n "${OUT}" ]; then
     echo ""
