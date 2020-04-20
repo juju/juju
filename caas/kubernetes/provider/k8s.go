@@ -658,7 +658,7 @@ func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, 
 	if mode == caas.ModeOperator {
 		appName = k.operatorName(appName)
 	}
-	deploymentName := k.deploymentName(appName)
+	deploymentName := k.deploymentName(appName, true)
 	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
 	ss, err := statefulsets.Get(deploymentName, v1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
@@ -733,7 +733,7 @@ func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, 
 func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	logger.Debugf("deleting application %s", appName)
 
-	deploymentName := k.deploymentName(appName)
+	deploymentName := k.deploymentName(appName, true)
 	if err := k.deleteService(deploymentName); err != nil {
 		return errors.Trace(err)
 	}
@@ -889,11 +889,56 @@ func processConstraints(pod *core.PodSpec, appName string, cons constraints.Valu
 
 const applyRawSpecTimeoutSeconds = 20
 
-// ApplyRawK8sSpec applies raw k8s spec to the k8s cluster.
-func (k *kubernetesClient) ApplyRawK8sSpec(
-	appName string, numUnits int, specStr string,
-) error {
-	logger.Criticalf("specStr -> %s", specStr)
+func (k *kubernetesClient) applyRawK8sSpec(
+	appName string,
+	statusCallback caas.StatusCallbackFunc,
+	params *caas.ServiceParams,
+	numUnits int,
+	config application.ConfigAttributes,
+) (err error) {
+	defer func() {
+		if err != nil {
+			_ = statusCallback(appName, status.Error, err.Error(), nil)
+		}
+	}()
+
+	if params == nil || len(params.RawK8sSpec) == 0 {
+		return errors.Errorf("missing raw pod spec")
+	}
+
+	if params.Deployment.DeploymentType == "" {
+		params.Deployment.DeploymentType = caas.DeploymentStateless
+		if len(params.Filesystems) > 0 {
+			params.Deployment.DeploymentType = caas.DeploymentStateful
+		}
+	}
+
+	// TODO(caas): support Constraints, FileSystems, Devices, InitContainer for actions, etc.
+	if err := params.Deployment.DeploymentType.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+
+	logger.Debugf("creating/updating application %s", appName)
+	deploymentName := k.deploymentName(appName, false)
+
+	if numUnits < 0 {
+		return errors.Errorf("number of units must be >= 0")
+	}
+	if numUnits == 0 {
+		return k.deleteAllPods(appName, deploymentName)
+	}
+
+	var cleanups []func()
+	defer func() {
+		if err == nil {
+			return
+		}
+		for _, f := range cleanups {
+			f()
+		}
+	}()
+
+	logger.Criticalf("params.RawK8sSpec -> %s", params.RawK8sSpec)
 	labelGetter := func(isNamespaced bool) map[string]string {
 		labels := LabelsForApp(appName)
 		if !isNamespaced {
@@ -901,11 +946,16 @@ func (k *kubernetesClient) ApplyRawK8sSpec(
 		}
 		return labels
 	}
+	annotations := resourceTagsToAnnotations(params.ResourceTags)
 
 	b := k8sspecs.NewDeployer(
-		k.namespace, k.k8sConfig(),
-		specStr,
+		deploymentName,
+		k.namespace,
+		params.RawK8sSpec,
+		params.Deployment,
+		k.k8sConfig(),
 		labelGetter,
+		annotations,
 	)
 	ctx, cancel := context.WithTimeout(context.Background(), applyRawSpecTimeoutSeconds*time.Second)
 	defer cancel()
@@ -919,6 +969,21 @@ func (k *kubernetesClient) EnsureService(
 	params *caas.ServiceParams,
 	numUnits int,
 	config application.ConfigAttributes,
+) error {
+	if params.PodSpec != nil {
+		return k.ensureService(appName, statusCallback, params, numUnits, config)
+	} else if len(params.RawK8sSpec) > 0 {
+		return k.applyRawK8sSpec(appName, statusCallback, params, numUnits, config)
+	}
+	return errors.NewNotSupported(nil, "current only k8s-raw-set and k8s-spec-set are supported")
+}
+
+func (k *kubernetesClient) ensureService(
+	appName string,
+	statusCallback caas.StatusCallbackFunc,
+	params *caas.ServiceParams,
+	numUnits int,
+	config application.ConfigAttributes,
 ) (err error) {
 	defer func() {
 		if err != nil {
@@ -926,21 +991,22 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}()
 
+	if params == nil || params.PodSpec == nil {
+		return errors.Errorf("missing pod spec")
+	}
+
 	if err := params.Deployment.DeploymentType.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 
 	logger.Debugf("creating/updating application %s", appName)
-	deploymentName := k.deploymentName(appName)
+	deploymentName := k.deploymentName(appName, true)
 
 	if numUnits < 0 {
 		return errors.Errorf("number of units must be >= 0")
 	}
 	if numUnits == 0 {
 		return k.deleteAllPods(appName, deploymentName)
-	}
-	if params == nil || params.PodSpec == nil {
-		return errors.Errorf("missing pod spec")
 	}
 
 	var cleanups []func()
@@ -1816,7 +1882,7 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 		httpPath = "/" + httpPath
 	}
 
-	deploymentName := k.deploymentName(appName)
+	deploymentName := k.deploymentName(appName, true)
 	svc, err := k.client().CoreV1().Services(k.namespace).Get(deploymentName, v1.GetOptions{})
 	if err != nil {
 		return errors.Trace(err)
@@ -1858,7 +1924,7 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 // UnexposeService removes external access to the specified service.
 func (k *kubernetesClient) UnexposeService(appName string) error {
 	logger.Debugf("deleting ingress resource for %s", appName)
-	deploymentName := k.deploymentName(appName)
+	deploymentName := k.deploymentName(appName, true)
 	return errors.Trace(k.deleteIngress(deploymentName, ""))
 }
 
@@ -2468,7 +2534,11 @@ func (k *kubernetesClient) operatorName(appName string) string {
 	return appName + "-operator"
 }
 
-func (k *kubernetesClient) deploymentName(appName string) string {
+func (k *kubernetesClient) deploymentName(appName string, legacySupport bool) string {
+	if !legacySupport {
+		// No need to check old operator statefulset for brand new features like raw k8s spec.
+		return appName
+	}
 	if k.legacyAppName(appName) {
 		return "juju-" + appName
 	}
