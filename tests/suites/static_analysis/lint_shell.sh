@@ -12,7 +12,7 @@ run_whitespace() {
   # Ensure we capture filename.sh and linenumber and nothing else.
   # filename.sh:<linenumber>:filename.sh<error>
   # shellcheck disable=SC2063
-  OUT=$(grep -n -r --include "*.sh" "$(printf '\t')" tests/ | grep -oP "^.*:\d+" || true)
+  OUT=$(grep -n -r --include "*.sh" "$(printf '\t')" tests/ | grep -v "tmp\.*" | grep -oP "^.*:\d+" || true)
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues:')"
@@ -26,7 +26,7 @@ run_trailing_whitespace() {
   # Ensure we capture filename.sh and linenumber and nothing else.
   # filename.sh:<linenumber>:filename.sh<error>
   # shellcheck disable=SC2063
-  OUT=$(grep -n -r --include "*.sh" " $" tests/ | grep -oP "^.*:\d+" || true)
+  OUT=$(grep -n -r --include "*.sh" " $" tests/ | grep -v "tmp\.*" | grep -oP "^.*:\d+" || true)
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues:')"
