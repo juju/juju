@@ -146,6 +146,9 @@ type Authorizer interface {
 	// AuthApplicationAgent returns true if the entity is an application operator.
 	AuthApplicationAgent() bool
 
+	// AuthModelAgent returns true if the entity is a model operator.
+	AuthModelAgent() bool
+
 	// AuthUnitAgent returns true if the entity is a unit agent.
 	AuthUnitAgent() bool
 

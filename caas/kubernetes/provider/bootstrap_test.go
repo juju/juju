@@ -52,7 +52,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
-		config.NameKey:              "controller",
+		config.NameKey:              "controller-1",
 		provider.OperatorStorageKey: "",
 		provider.WorkloadStorageKey: "",
 	}))

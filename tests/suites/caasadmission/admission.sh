@@ -57,7 +57,7 @@ EOF
 
 
   # Short sleep to let juju controller watchers catch up.
-  sleep 3
+  sleep 15
 
  kubectl --kubeconfig "${TEST_DIR}"/kube-sa.json apply -f - <<EOF
 apiVersion: v1

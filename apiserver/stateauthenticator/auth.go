@@ -32,6 +32,7 @@ var AgentTags = []string{
 	names.ControllerAgentTagKind,
 	names.UnitTagKind,
 	names.ApplicationTagKind,
+	names.ModelTagKind,
 }
 
 // Authenticator is an implementation of httpcontext.Authenticator,

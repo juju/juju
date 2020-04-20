@@ -22,7 +22,7 @@ type Facade struct {
 // NewStateFacade provides the signature required for facade registration.
 func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
-	if !authorizer.AuthMachineAgent() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthModelAgent() {
 		return nil, common.ErrPerm
 	}
 
