@@ -6,10 +6,8 @@ package specs
 import (
 	"bytes"
 	"context"
-	// "fmt"
 	"io"
 	"sync"
-	// "runtime/debug"
 
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
@@ -25,13 +23,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
-	// "k8s.io/client-go/kubernetes"
-	// runtimeresource "k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
-	"k8s.io/kubectl/pkg/validation"
-	// "github.com/juju/collections/set"
 
 	"github.com/juju/juju/caas"
 	k8sannotations "github.com/juju/juju/core/annotations"
@@ -42,23 +36,6 @@ var (
 	decoder          = unstructured.UnstructuredJSONScheme
 	metadataAccessor = meta.NewAccessor()
 )
-
-func getValidator(c discovery.CachedDiscoveryInterface) (validation.Schema, error) {
-	// TODO: get schema for validation
-
-	_, err := c.OpenAPISchema()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return nil, nil
-}
-
-func validateSchema(data []byte, schema validation.Schema) error {
-	if schema == nil {
-		return nil
-	}
-	return schema.ValidateBytes(data)
-}
 
 type metadataOnlyObject struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -96,34 +73,24 @@ type resourceInfo struct {
 	resourceVersion string
 	content         *runtime.RawExtension
 
-	mapping         *meta.RESTMapping
-	schema          validation.Schema
-	client          rest.Interface
-	discoveryClient discovery.CachedDiscoveryInterface
+	mapping *meta.RESTMapping
+	client  rest.Interface
 }
 
 func (ri *resourceInfo) restMapper() meta.RESTMapper {
 	discoveryClient := discovery.NewDiscoveryClient(ri.client)
-	ri.discoveryClient = memory.NewMemCacheClient(discoveryClient)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(
-		ri.discoveryClient,
+		memory.NewMemCacheClient(discoveryClient),
 	)
 	return restmapper.NewShortcutExpander(mapper, discoveryClient)
 }
 
-func (ri *resourceInfo) validateSchema() error {
-	schema, err := getValidator(ri.discoveryClient)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return validateSchema(ri.content.Raw, schema)
-}
-
 func (ri *resourceInfo) withNamespace(namespace string) *resourceInfo {
 	if ri.namespace != "" && ri.namespace != namespace {
-		logger.Criticalf("namespace is force set from %q to %q", ri.namespace, namespace)
+		logger.Debugf("namespace is force set from %q to %q", ri.namespace, namespace)
 	}
 	ri.namespace = namespace
+	metadataAccessor.SetNamespace(ri.content.Object, ri.namespace)
 	return ri
 }
 
@@ -151,39 +118,6 @@ func (ri *resourceInfo) ensureAnnotations(annoations k8sannotations.Annotation) 
 	)
 }
 
-type deployer struct {
-	deploymentName       string
-	namespace            string
-	spec                 string
-	workloadResourceType string
-	cfg                  *rest.Config
-	labelGetter          func(isNamespaced bool) map[string]string
-	annotations          k8sannotations.Annotation
-
-	resources []resourceInfo
-	sources   []string
-}
-
-func NewDeployer(
-	deploymentName string,
-	namespace string,
-	spec string,
-	deploymentParams caas.DeploymentParams,
-	cfg *rest.Config,
-	labelGetter func(isNamespaced bool) map[string]string,
-	annotations k8sannotations.Annotation,
-) DeployerInterface {
-	return &deployer{
-		deploymentName:       deploymentName,
-		namespace:            namespace,
-		spec:                 spec,
-		workloadResourceType: getWorkloadResourceType(deploymentParams.DeploymentType),
-		cfg:                  cfg,
-		labelGetter:          labelGetter,
-		annotations:          annotations,
-	}
-}
-
 func getWorkloadResourceType(t caas.DeploymentType) string {
 	switch t {
 	case caas.DeploymentDaemon:
@@ -197,10 +131,45 @@ func getWorkloadResourceType(t caas.DeploymentType) string {
 	}
 }
 
+type deployer struct {
+	deploymentName       string
+	namespace            string
+	spec                 string
+	workloadResourceType string
+	cfg                  *rest.Config
+	labelGetter          func(isNamespaced bool) map[string]string
+	annotations          k8sannotations.Annotation
+
+	resources []resourceInfo
+}
+
+func NewDeployer(
+	deploymentName string,
+	namespace string,
+	spec string,
+	deploymentParams caas.DeploymentParams,
+	cfg *rest.Config,
+	labelGetter func(isNamespaced bool) map[string]string,
+	annotations k8sannotations.Annotation,
+) DeployerInterface {
+	// TODO(caas): disable scale or find a way to set workload resource replica.
+	return &deployer{
+		deploymentName:       deploymentName,
+		namespace:            namespace,
+		spec:                 spec,
+		workloadResourceType: getWorkloadResourceType(deploymentParams.DeploymentType),
+		cfg:                  cfg,
+		labelGetter:          labelGetter,
+		annotations:          annotations,
+	}
+}
+
 func (d *deployer) validate() error {
-	// TODO: validate!!
 	if d.cfg == nil {
 		return errors.NotValidf("empty k8s config")
+	}
+	if d.labelGetter == nil {
+		return errors.NotValidf("labelGetter is required")
 	}
 
 	if err := d.load(); err != nil {
@@ -209,8 +178,7 @@ func (d *deployer) validate() error {
 	if err := d.validateWorkload(); err != nil {
 		return errors.Trace(err)
 	}
-
-	// TODO: do we need to check if service resource type matches the raw service spec?
+	// TODO(caas): check if service resource type matches the raw service spec.
 	return nil
 }
 
@@ -243,7 +211,7 @@ func (d *deployer) clientWithGroupVersion(gv schema.GroupVersion) (c rest.Interf
 	}
 	cfg.GroupVersion = &gv
 
-	logger.Criticalf("clientWithGroupVersion 0 err -> %#v, c -> %#v, cfg.GroupVersion -> %s", err, c, pretty.Sprint(cfg.GroupVersion))
+	logger.Debugf("constructing rest client for resource %s for %q", pretty.Sprint(cfg.GroupVersion), d.deploymentName)
 	if c, err = rest.RESTClientFor(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -253,7 +221,7 @@ func (d *deployer) clientWithGroupVersion(gv schema.GroupVersion) (c rest.Interf
 func (d *deployer) load() (err error) {
 	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewBufferString(d.spec), len(d.spec))
 	defer func() {
-		logger.Criticalf("load len(d.resources) -> %d, err -> %#v", len(d.resources), err)
+		logger.Debugf("processing %d resources for %q, err -> %#v", len(d.resources), d.deploymentName, err)
 	}()
 	for {
 		ext := &runtime.RawExtension{}
@@ -302,10 +270,6 @@ func (d *deployer) load() (err error) {
 			return errors.Trace(err)
 		}
 
-		if err = item.validateSchema(); err != nil {
-			return errors.Trace(err)
-		}
-
 		d.resources = append(d.resources, item)
 	}
 }
@@ -334,8 +298,6 @@ func (d deployer) apply(ctx context.Context, wg *sync.WaitGroup, info resourceIn
 	if err = info.ensureAnnotations(d.annotations); err != nil {
 		return errors.Trace(err)
 	}
-
-	logger.Criticalf("apply namespace -> %q, r -> %#v", d.namespace, info)
 
 	var data []byte
 	data, err = runtime.Encode(unstructured.UnstructuredJSONScheme, info.content.Object)

@@ -896,11 +896,6 @@ func (k *kubernetesClient) applyRawK8sSpec(
 	numUnits int,
 	config application.ConfigAttributes,
 ) (err error) {
-	defer func() {
-		if err != nil {
-			_ = statusCallback(appName, status.Error, err.Error(), nil)
-		}
-	}()
 
 	if params == nil || len(params.RawK8sSpec) == 0 {
 		return errors.Errorf("missing raw pod spec")
@@ -928,17 +923,6 @@ func (k *kubernetesClient) applyRawK8sSpec(
 		return k.deleteAllPods(appName, deploymentName)
 	}
 
-	var cleanups []func()
-	defer func() {
-		if err == nil {
-			return
-		}
-		for _, f := range cleanups {
-			f()
-		}
-	}()
-
-	logger.Criticalf("params.RawK8sSpec -> %s", params.RawK8sSpec)
 	labelGetter := func(isNamespaced bool) map[string]string {
 		labels := LabelsForApp(appName)
 		if !isNamespaced {
@@ -969,7 +953,13 @@ func (k *kubernetesClient) EnsureService(
 	params *caas.ServiceParams,
 	numUnits int,
 	config application.ConfigAttributes,
-) error {
+) (err error) {
+	defer func() {
+		if err != nil {
+			_ = statusCallback(appName, status.Error, err.Error(), nil)
+		}
+	}()
+
 	if params.PodSpec != nil {
 		return k.ensureService(appName, statusCallback, params, numUnits, config)
 	} else if len(params.RawK8sSpec) > 0 {
@@ -985,11 +975,6 @@ func (k *kubernetesClient) ensureService(
 	numUnits int,
 	config application.ConfigAttributes,
 ) (err error) {
-	defer func() {
-		if err != nil {
-			_ = statusCallback(appName, status.Error, err.Error(), nil)
-		}
-	}()
 
 	if params == nil || params.PodSpec == nil {
 		return errors.Errorf("missing pod spec")
