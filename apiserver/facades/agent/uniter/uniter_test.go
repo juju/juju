@@ -1286,11 +1286,20 @@ func (s *uniterSuite) TestWatchActionNotificationsPermissionDenied(c *gc.C) {
 }
 
 func (s *uniterSuite) TestConfigSettings(c *gc.C) {
-	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
+	// We must set the unit's charm URL via the API in order to ensure that the
+	// cache is synchronised. WaitForModelWatchersIdle is not sufficient.
+	res, err := s.uniter.SetCharmURL(params.EntitiesCharmURL{
+		Entities: []params.EntityCharmURL{
+			{
+				Tag:      s.wordpressUnit.Tag().String(),
+				CharmURL: s.wpCharm.URL().String(),
+			},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.OneError(), jc.ErrorIsNil)
 
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-
+	c.Assert(s.wordpressUnit.Refresh(), jc.ErrorIsNil)
 	settings, err := s.wordpressUnit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
