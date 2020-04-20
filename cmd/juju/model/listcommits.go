@@ -62,7 +62,7 @@ type CommitsCommand struct {
 }
 
 // CommitsCommandAPI defines an API interface to be used during testing.
-//go:generate mockgen -package mocks -destination ./mocks/commits_mock.go github.com/juju/juju/cmd/juju/model CommitsCommandAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/commits_mock.go github.com/juju/juju/cmd/juju/model CommitsCommandAPI
 type CommitsCommandAPI interface {
 	Close() error
 

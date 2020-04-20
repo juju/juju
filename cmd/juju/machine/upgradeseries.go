@@ -60,7 +60,7 @@ func NewUpgradeSeriesCommand() cmd.Command {
 	return modelcmd.Wrap(&upgradeSeriesCommand{})
 }
 
-//go:generate mockgen -package mocks -destination mocks/upgradeMachineSeriesAPI_mock.go github.com/juju/juju/cmd/juju/machine UpgradeMachineSeriesAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/upgradeMachineSeriesAPI_mock.go github.com/juju/juju/cmd/juju/machine UpgradeMachineSeriesAPI
 type UpgradeMachineSeriesAPI interface {
 	BestAPIVersion() int
 	Close() error

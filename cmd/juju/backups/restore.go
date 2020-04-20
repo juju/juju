@@ -57,7 +57,7 @@ type RestoreAPI interface {
 // ModelStatusAPI is used to invoke common.ModelStatus
 // The interface is used to facilitate testing.
 //
-//go:generate mockgen -package backups_test -destination modelstatusapi_mock_test.go github.com/juju/juju/cmd/juju/backups ModelStatusAPI
+//go:generate go run github.com/golang/mock/mockgen -package backups_test -destination modelstatusapi_mock_test.go github.com/juju/juju/cmd/juju/backups ModelStatusAPI
 type ModelStatusAPI interface {
 	Close() error
 	ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error)

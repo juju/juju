@@ -42,7 +42,7 @@ type CloudMetadataStore interface {
 	WritePersonalCloudMetadata(cloudsMap map[string]jujucloud.Cloud) error
 }
 
-//go:generate mockgen -package mocks -destination mocks/storeapi_mock.go github.com/juju/juju/cmd/juju/caas CredentialStoreAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/storeapi_mock.go github.com/juju/juju/cmd/juju/caas CredentialStoreAPI
 type CredentialStoreAPI interface {
 	UpdateCredential(cloudName string, details jujucloud.CloudCredential) error
 }

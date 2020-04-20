@@ -19,7 +19,7 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter.relation")
 
-//go:generate mockgen -package mocks -destination mocks/mock_subordinate_destroyer.go github.com/juju/juju/worker/uniter/relation SubordinateDestroyer
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_subordinate_destroyer.go github.com/juju/juju/worker/uniter/relation SubordinateDestroyer
 
 // SubordinateDestroyer destroys all subordinates of a unit.
 type SubordinateDestroyer interface {

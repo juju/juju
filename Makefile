@@ -5,6 +5,10 @@ ifndef GOPATH
 $(warning You need to set up a GOPATH.  See the README file.)
 endif
 
+# Always go mod vendor because if the vendored directory is not up to date
+# all other go commands fail.
+$(shell go mod vendor)
+
 PROJECT := github.com/juju/juju
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 PROJECT_PACKAGES := $(shell go list $(PROJECT)/... | grep -v /vendor/ | grep -v /acceptancetests/ | grep -v mocks)
@@ -71,26 +75,13 @@ help:
 # and will only work - when this tree is found on the GOPATH.
 ifeq ($(CURDIR),$(PROJECT_DIR))
 
-ifeq ($(JUJU_SKIP_DEP),true)
-dep:
-	@echo "skipping dep"
-else
-$(GOPATH)/bin/dep:
-	go get -u github.com/golang/dep/cmd/dep
-
-# populate vendor/ from Gopkg.lock without updating it first (lock file is the single source of truth for machine).
-dep: $(GOPATH)/bin/dep
-## dep: Installs go dependencies
-	$(GOPATH)/bin/dep ensure -vendor-only $(verbose)
-endif
-
-build: dep rebuild-schema go-build
+build: rebuild-schema go-build
 ## build: Create Juju binaries
 
-release-build: dep go-build
+release-build: go-build
 ## release-build: Construct Juju binaries, without building schema
 
-release-install: dep go-install
+release-install: go-install
 ## release-install: Install Juju binaries
 
 pre-check:
@@ -98,10 +89,10 @@ pre-check:
 	@echo running pre-test checks
 	@INCLUDE_GOLINTERS=1 $(PROJECT_DIR)/scripts/verify.bash
 
-check: dep pre-check run-tests
+check: pre-check run-tests
 ## check: Verify Juju code using static analysis and unit tests
 
-test: dep run-tests
+test: run-tests
 ## test: Verify Juju code using unit tests
 
 # Can't make the length of the TMP dir too long or it hits socket name length issues.
@@ -112,7 +103,7 @@ run-tests:
 	@TMPDIR=$(TMP) go test --tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
 	@rm -r $(TMP)
 
-install: dep rebuild-schema go-install
+install: rebuild-schema go-install
 ## install: Install Juju binaries
 
 clean:
@@ -121,12 +112,12 @@ clean:
 
 go-install:
 ## go-install: Install Juju binaries without updating dependencies
-	@echo 'go install -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$PROJECT_PACKAGES'
-	@go install -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(PROJECT_PACKAGES)
+	@echo 'go install -mod=vendor -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$PROJECT_PACKAGES'
+	@go install -mod=vendor -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(PROJECT_PACKAGES)
 
 go-build:
 ## go-build: Build Juju binaries without updating dependencies
-	@go build -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(PROJECT_PACKAGES)
+	@go build -mod=vendor -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(PROJECT_PACKAGES)
 
 else # --------------------------------
 
@@ -154,11 +145,6 @@ format:
 simplify:
 ## simplify: Format and simplify the go source code
 	gofmt -w -l -s .
-
-# update Gopkg.lock (if needed), but do not update `vendor/`.
-rebuild-dependencies:
-## rebuild-dependencies: Update the dependencies
-	dep ensure -v -no-vendor $(dep-update)
 
 rebuild-schema:
 ## rebuild-schema: Rebuild the schema for clients with the latest facades
@@ -286,5 +272,4 @@ static-analysis:
 .PHONY: build check install release-install release-build go-build go-install
 .PHONY: clean format simplify test run-tests
 .PHONY: install-dependencies
-.PHONY: rebuild-dependencies
-.PHONY: dep check-deps
+.PHONY: check-deps

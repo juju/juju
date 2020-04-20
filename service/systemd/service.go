@@ -8,8 +8,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/coreos/go-systemd/dbus"
-	"github.com/coreos/go-systemd/util"
+	"github.com/coreos/go-systemd/v22/dbus"
+	"github.com/coreos/go-systemd/v22/util"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/shell"

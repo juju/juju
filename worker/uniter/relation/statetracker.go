@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
-//go:generate mockgen -package mocks -destination mocks/mock_statetracker.go github.com/juju/juju/worker/uniter/relation RelationStateTracker
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_statetracker.go github.com/juju/juju/worker/uniter/relation RelationStateTracker
 
 type RelationStateTracker interface {
 	// PrepareHook returns the name of the supplied relation hook, or an error

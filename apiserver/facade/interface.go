@@ -123,7 +123,7 @@ type Context interface {
 	SingularClaimer() (lease.Claimer, error)
 }
 
-//go:generate mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Resources,Authorizer
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Resources,Authorizer
 
 // Authorizer represents the authenticated entity using the API server.
 type Authorizer interface {

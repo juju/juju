@@ -6,4 +6,4 @@
 
 package testing
 
-//go:generate mockgen -package testing -destination lxd_mock.go github.com/lxc/lxd/client Operation,RemoteOperation,Server,ImageServer,ContainerServer
+//go:generate go run github.com/golang/mock/mockgen -package testing -destination lxd_mock.go github.com/lxc/lxd/client Operation,RemoteOperation,Server,ImageServer,ContainerServer

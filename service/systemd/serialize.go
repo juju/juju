@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/coreos/go-systemd/unit"
+	"github.com/coreos/go-systemd/v22/unit"
 )
 
 // UnitSerialize encodes all of the given UnitOption objects into a unit file.

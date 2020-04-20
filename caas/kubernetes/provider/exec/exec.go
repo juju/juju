@@ -36,7 +36,7 @@ const (
 
 var randomString = utils.RandomString
 
-//go:generate mockgen -package mocks -destination mocks/remotecommand_mock.go k8s.io/client-go/tools/remotecommand Executor
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/remotecommand_mock.go k8s.io/client-go/tools/remotecommand Executor
 type client struct {
 	namespace               string
 	clientset               kubernetes.Interface

@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
-//go:generate mockgen -package mocks -destination mocks/exec_mock.go github.com/juju/juju/caas/kubernetes/provider/exec Executor
-//go:generate mockgen -package mocks -destination mocks/uniter_mock.go github.com/juju/juju/worker/uniter ProviderIDGetter
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/exec_mock.go github.com/juju/juju/caas/kubernetes/provider/exec Executor
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/uniter_mock.go github.com/juju/juju/worker/uniter ProviderIDGetter
 func getNewRunnerExecutor(logger Logger, execClient exec.Executor) uniter.NewRunnerExecutorFunc {
 	return func(providerIDGetter uniter.ProviderIDGetter, unitPaths uniter.Paths) runner.ExecFunc {
 		return func(params runner.ExecParams) (*utilexec.ExecResponse, error) {

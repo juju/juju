@@ -147,7 +147,7 @@ var getUpgradeStepsClient = func(caller base.APICaller) UpgradeStepsClient {
 	return upgradesteps.NewClient(caller)
 }
 
-//go:generate mockgen -package mocks -destination mocks/upgradestepsclient_mock.go github.com/juju/juju/upgrades UpgradeStepsClient
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/upgradestepsclient_mock.go github.com/juju/juju/upgrades UpgradeStepsClient
 type UpgradeStepsClient interface {
 	WriteAgentState([]params.SetUnitStateArg) error
 }

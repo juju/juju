@@ -30,7 +30,7 @@ import (
 
 // Server defines an interface of all localized methods that the environment
 // and provider utilizes.
-//go:generate mockgen -package lxd -destination server_mock_test.go github.com/juju/juju/provider/lxd Server,ServerFactory,InterfaceAddress
+//go:generate go run github.com/golang/mock/mockgen -package lxd -destination server_mock_test.go github.com/juju/juju/provider/lxd Server,ServerFactory,InterfaceAddress
 type Server interface {
 	FindImage(string, string, []lxd.ServerSpec, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
 	GetServer() (server *lxdapi.Server, ETag string, err error)

@@ -9,7 +9,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/coreos/go-systemd/dbus"
+	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils/exec"
 )
 
-//go:generate mockgen -package mocks -destination mocks/runner_mock.go github.com/juju/juju/cmd/juju/caas CommandRunner
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/runner_mock.go github.com/juju/juju/cmd/juju/caas CommandRunner
 
 type CommandRunner interface {
 	RunCommands(run exec.RunParams) (*exec.ExecResponse, error)

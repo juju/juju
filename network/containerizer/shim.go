@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate mockgen -package containerizer -destination bridgepolicy_mock_test.go github.com/juju/juju/network/containerizer Container,Address,Subnet,LinkLayerDevice
+//go:generate go run github.com/golang/mock/mockgen -package containerizer -destination bridgepolicy_mock_test.go github.com/juju/juju/network/containerizer Container,Address,Subnet,LinkLayerDevice
 
 // SpaceBacking describes the retrieval of all spaces from the DB.
 type SpaceBacking interface {

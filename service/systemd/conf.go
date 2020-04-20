@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/core/paths"
 
-	"github.com/coreos/go-systemd/unit"
+	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/juju/errors"
 	"github.com/juju/utils/shell"
 
