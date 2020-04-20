@@ -225,6 +225,7 @@ cleanup() {
     echo "==> Cleaning up"
 
     cleanup_jujus
+    cleanup_funcs
 
     echo ""
     if [ "${TEST_RESULT}" != "success" ]; then

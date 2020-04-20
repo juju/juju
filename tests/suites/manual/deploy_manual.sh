@@ -37,7 +37,7 @@ manual_deploy() {
     cloud_name=${1}
     name=${2}
     addr_m1=${3}
-    addr_m2=${3}
+    addr_m2=${4}
 
     juju add-cloud --client "${cloud_name}" "${TEST_DIR}/cloud_name.yaml" >"${TEST_DIR}/add-cloud.log" 2>&1
 

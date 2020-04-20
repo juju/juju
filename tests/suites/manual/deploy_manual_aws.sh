@@ -5,12 +5,6 @@ run_deploy_manual_aws() {
     check_dependencies aws
 
     name="tests-$(petname)"
-
-    ssh-keygen -f "${TEST_DIR}/${name}" \
-        -t rsa \
-        -C "ubuntu@${name}.com" \
-        -N ""
-    
     series="bionic"
 
     controller="${name}-controller"
@@ -19,9 +13,13 @@ run_deploy_manual_aws() {
 
     set -eux
 
+    add_clean_func "run_cleanup_deploy_manual_aws"
+
     vpc_id=$(aws ec2 create-vpc --cidr-block 10.0.0.0/28 --query 'Vpc.VpcId' --output text)
     aws ec2 modify-vpc-attribute --vpc-id "${vpc_id}" --enable-dns-support "{\"Value\":true}"
     aws ec2 modify-vpc-attribute --vpc-id "${vpc_id}" --enable-dns-hostnames "{\"Value\":true}"
+
+    echo "${vpc_id}" >> "${TEST_DIR}/ec2-vpcs"
 
     igw_id=$(aws ec2 create-internet-gateway --query 'InternetGateway.InternetGatewayId' --output text)
     aws ec2 attach-internet-gateway --internet-gateway-id "${igw_id}" --vpc-id "${vpc_id}"
@@ -34,6 +32,10 @@ run_deploy_manual_aws() {
 
     sg_id=$(aws ec2 create-security-group --group-name "ci-manual-deploy" --description "run_deploy_manual_aws" --vpc-id "${vpc_id}" --query 'GroupId' --output text)
     aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 22 --cidr 0.0.0.0/0
+    aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 0-65535 --cidr 0.0.0.0/0
+    aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol udp --port 0-65535 --cidr 0.0.0.0/0
+    aws ec2 authorize-security-group-egress --group-id "${sg_id}" --protocol tcp --port 0-65535 --cidr 0.0.0.0/0
+    aws ec2 authorize-security-group-egress --group-id "${sg_id}" --protocol udp --port 0-65535 --cidr 0.0.0.0/0
 
     aws ec2 create-key-pair --key-name "${name}" --query 'KeyMaterial' --output text > ~/.ssh/"${name}".pem
     chmod 400 ~/.ssh/"${name}".pem
@@ -57,6 +59,8 @@ run_deploy_manual_aws() {
             --query 'Instances[0].InstanceId' \
             --output text)
 
+        echo "${instance_id}" >> "${TEST_DIR}/ec2-instances"
+
         aws ec2 wait instance-running --instance-ids "${instance_id}"
         sleep 10
 
@@ -76,7 +80,7 @@ run_deploy_manual_aws() {
 
         attempt=0
         while [ ${attempt} -lt 10 ]; do
-            OUT=$(ssh -T -n -i "${TEST_DIR}/${name}" \
+            OUT=$(ssh -T -n -i ~/.ssh/"${name}".pem \
                 -o IdentitiesOnly=yes \
                 -o StrictHostKeyChecking=no \
                 -o AddKeysToAgent=yes \
@@ -113,4 +117,57 @@ EOF
     echo "${CLOUD}" > "${TEST_DIR}/cloud_name.yaml"
 
     manual_deploy "${cloud_name}" "${name}" "${addr_m1}" "${addr_m2}"
+}
+
+run_cleanup_deploy_manual_aws() {
+    set +e
+
+    if [ -f "${TEST_DIR}/ec2-instances" ]; then
+        echo "====> Cleaning up ec2-instances"
+        while read -r ec2_instance; do
+            aws ec2 terminate-instances --instance-ids="${ec2_instance}" >>"${TEST_DIR}/aws_cleanup"
+        done < "${TEST_DIR}/ec2-instances"
+    fi
+
+    if [ -f "${TEST_DIR}/ec2-vpcs" ]; then
+        echo "====> Cleaning up ec2-vpcs"
+        while read -r vpc_id; do
+            delete_vpc "${vpc_id}" >>"${TEST_DIR}/aws_cleanup"
+        done < "${TEST_DIR}/ec2-vpcs"
+    fi
+
+    set_verbosity
+
+    echo "====> Completed cleaning up aws"
+}
+
+delete_vpc() {
+    local vpc_id
+
+    vpc_id=${1}
+
+    echo "====> Cleaning up ec2-vpc (${vpc_id})"
+
+    aws ec2 describe-internet-gateways --filter Name=attachment.vpc-id,Values="${vpc_id}" | jq -r '.InternetGateways[].InternetGatewayId' | 
+      while read igw_id; do
+          aws ec2 detach-internet-gateway --internet-gateway-id="${igw_id}" --vpc-id="${vpc_id}" >>"${TEST_DIR}/aws_cleanup"
+          aws ec2 delete-internet-gateway --internet-gateway-id="${igw_id}" >>"${TEST_DIR}/aws_cleanup"
+      done
+    
+    aws ec2 describe-subnets --filters Name=vpc-id,Values=${vpc_id} | jq -r '.Subnets[].SubnetId' |
+      while read subnet_id; do
+          aws ec2 delete-subnet --subnet-id "${subnet_id}" >>"${TEST_DIR}/aws_cleanup"
+      done
+
+    aws ec2 describe-security-groups --filter Name=vpc-id,Values="${vpc_id}" | jq -r '.SecurityGroups[] | select(.GroupName != "default") | .GroupId' | 
+      while read sg_id; do
+          aws ec2 delete-security-group --group-id "${sg_id}" >>"${TEST_DIR}/aws_cleanup"
+      done
+
+    aws ec2 describe-route-tables --filter Name=vpc-id,Values="${vpc_id}" | jq -r '.RouteTables[].RouteTableId' |
+      while read route_id; do
+          aws ec2 delete-route-table --route-table-id "${route_id}" >>"${TEST_DIR}/aws_cleanup"
+      done
+
+    aws ec2 delete-vpc --vpc-id ${vpc_id} >>"${TEST_DIR}/aws_cleanup"
 }
