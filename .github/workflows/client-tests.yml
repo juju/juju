@@ -19,10 +19,10 @@ jobs:
 
     steps:
 
-    - name: Set up Go 1.12
+    - name: Set up Go 1.14
       uses: actions/setup-go@v1
       with:
-        go-version: 1.12
+        go-version: 1.14
       id: go
 
     - name: Set GOPATH
@@ -60,12 +60,6 @@ jobs:
         sudo mv mongodb-osx-x86_64-3.6.14/bin/* /usr/local/mongodb
         sudo mkdir -p /user/local/bin
         sudo ln -s /usr/local/mongodb/mongod /usr/local/bin/mongod
-      shell: bash
-
-    - name: Install Vendor Dependencies
-      working-directory: src/github.com/juju/juju
-      run: |
-        make dep
       shell: bash
 
     - name: Test client
