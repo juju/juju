@@ -6,6 +6,7 @@ package specs
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"sync"
 
@@ -15,9 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured/unstructuredscheme"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	apischema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -32,8 +32,7 @@ import (
 )
 
 var (
-	objectTyper      = unstructuredscheme.NewUnstructuredObjectTyper()
-	decoder          = unstructured.UnstructuredJSONScheme
+	codec            = unstructured.UnstructuredJSONScheme
 	metadataAccessor = meta.NewAccessor()
 )
 
@@ -42,10 +41,8 @@ type metadataOnlyObject struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 }
 
-func processRawData(data []byte, defaults *schema.GroupVersionKind, into runtime.Object) (obj runtime.Object, gvk *schema.GroupVersionKind, err error) {
-	logger.Criticalf("processRawData data -> %s", string(data))
-	obj, gvk, err = decoder.Decode(data, defaults, into)
-	logger.Criticalf("processRawData 1 err -> %#v obj -> %s, gvk -> %s", err, pretty.Sprint(obj), pretty.Sprint(gvk))
+func processRawData(data []byte, defaults *apischema.GroupVersionKind, into runtime.Object) (obj runtime.Object, gvk *apischema.GroupVersionKind, err error) {
+	obj, gvk, err = codec.Decode(data, defaults, into)
 	if err != nil {
 		return obj, gvk, errors.Trace(err)
 	}
@@ -59,12 +56,7 @@ func processRawData(data []byte, defaults *schema.GroupVersionKind, into runtime
 	if err = json.CaseSensitiveJsonIterator().Unmarshal(data, v); err != nil {
 		return obj, gvk, errors.Trace(err)
 	}
-	logger.Criticalf("processRawData 2 err -> %#v obj -> %s, gvk -> %s", err, pretty.Sprint(obj), pretty.Sprint(gvk))
 	return obj, gvk, nil
-}
-
-type DeployerInterface interface {
-	Deploy(context.Context, bool) error
 }
 
 type resourceInfo struct {
@@ -77,8 +69,9 @@ type resourceInfo struct {
 	client  rest.Interface
 }
 
-func (ri *resourceInfo) restMapper() meta.RESTMapper {
-	discoveryClient := discovery.NewDiscoveryClient(ri.client)
+//go:generate mockgen -package mocks -destination mocks/meta_mock.go k8s.io/apimachinery/pkg/api/meta RESTMapper
+func getRestMapper(c rest.Interface) meta.RESTMapper {
+	discoveryClient := discovery.NewDiscoveryClient(c)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(
 		memory.NewMemCacheClient(discoveryClient),
 	)
@@ -139,37 +132,76 @@ type deployer struct {
 	cfg                  *rest.Config
 	labelGetter          func(isNamespaced bool) map[string]string
 	annotations          k8sannotations.Annotation
+	newRestClient        NewK8sRestClientFunc
 
 	resources []resourceInfo
+
+	restMapperGetter func(c rest.Interface) meta.RESTMapper
 }
 
-func NewDeployer(
+// DeployerInterface defines method to deploy a raw k8s spec.
+type DeployerInterface interface {
+	Deploy(context.Context, string, bool) error
+}
+
+// NewK8sRestClientFunc defines a function which returns a k8s rest client based on the supplied config.
+type NewK8sRestClientFunc func(c *rest.Config) (rest.Interface, error)
+
+// New constructs deployer interface.
+func New(
 	deploymentName string,
 	namespace string,
-	spec string,
 	deploymentParams caas.DeploymentParams,
 	cfg *rest.Config,
 	labelGetter func(isNamespaced bool) map[string]string,
 	annotations k8sannotations.Annotation,
+	newRestClient NewK8sRestClientFunc,
 ) DeployerInterface {
-	// TODO(caas): disable scale or find a way to set workload resource replica.
+	// TODO(caas): disable scale or parse the unstructuredJSON further to set workload resource replicas.
+	return newDeployer(
+		deploymentName, namespace,
+		deploymentParams, cfg, labelGetter, annotations,
+		newRestClient, getRestMapper,
+	)
+}
+
+func newDeployer(
+	deploymentName string,
+	namespace string,
+	deploymentParams caas.DeploymentParams,
+	cfg *rest.Config,
+	labelGetter func(isNamespaced bool) map[string]string,
+	annotations k8sannotations.Annotation,
+	newRestClient NewK8sRestClientFunc,
+	restMapperGetter func(c rest.Interface) meta.RESTMapper,
+) DeployerInterface {
 	return &deployer{
 		deploymentName:       deploymentName,
 		namespace:            namespace,
-		spec:                 spec,
 		workloadResourceType: getWorkloadResourceType(deploymentParams.DeploymentType),
 		cfg:                  cfg,
 		labelGetter:          labelGetter,
 		annotations:          annotations,
+		newRestClient:        newRestClient,
+		restMapperGetter:     restMapperGetter,
 	}
 }
 
 func (d *deployer) validate() error {
+	if len(d.namespace) == 0 {
+		return errors.NotValidf("namespace is required")
+	}
+	if len(d.workloadResourceType) == 0 {
+		return errors.NotValidf("workloadResourceType is required")
+	}
 	if d.cfg == nil {
 		return errors.NotValidf("empty k8s config")
 	}
 	if d.labelGetter == nil {
 		return errors.NotValidf("labelGetter is required")
+	}
+	if d.newRestClient == nil {
+		return errors.NotValidf("newRestClient is required")
 	}
 
 	if err := d.load(); err != nil {
@@ -179,7 +211,41 @@ func (d *deployer) validate() error {
 		return errors.Trace(err)
 	}
 	// TODO(caas): check if service resource type matches the raw service spec.
+	// TODO(caas): get the API scheme and do validation further.
 	return nil
+}
+
+func (d *deployer) Deploy(ctx context.Context, spec string, force bool) error {
+	d.spec = spec
+
+	if err := d.validate(); err != nil {
+		return errors.Trace(err)
+	}
+	var wg sync.WaitGroup
+	wg.Add(len(d.resources))
+
+	errChan := make(chan error)
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	for _, r := range d.resources {
+		info := r
+		go func() { _ = d.apply(ctx, &wg, info, force, errChan) }()
+	}
+
+	for {
+		select {
+		case err := <-errChan:
+			if err != nil {
+				return errors.Trace(err)
+			}
+		case <-done:
+			return nil
+		}
+	}
 }
 
 func (d *deployer) validateWorkload() error {
@@ -200,9 +266,8 @@ func setConfigDefaults(config *rest.Config) {
 	}
 }
 
-func (d *deployer) clientWithGroupVersion(gv schema.GroupVersion) (c rest.Interface, err error) {
+func (d *deployer) clientWithGroupVersion(gv apischema.GroupVersion) (rest.Interface, error) {
 	cfg := rest.CopyConfig(d.cfg)
-	// cfg, _ := rest.InClusterConfig()
 	setConfigDefaults(cfg)
 
 	cfg.APIPath = "/apis"
@@ -212,17 +277,17 @@ func (d *deployer) clientWithGroupVersion(gv schema.GroupVersion) (c rest.Interf
 	cfg.GroupVersion = &gv
 
 	logger.Debugf("constructing rest client for resource %s for %q", pretty.Sprint(cfg.GroupVersion), d.deploymentName)
-	if c, err = rest.RESTClientFor(cfg); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return c, nil
+	return d.newRestClient(cfg)
 }
 
 func (d *deployer) load() (err error) {
-	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewBufferString(d.spec), len(d.spec))
 	defer func() {
 		logger.Debugf("processing %d resources for %q, err -> %#v", len(d.resources), d.deploymentName, err)
 	}()
+
+	d.resources = []resourceInfo{}
+
+	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewBufferString(d.spec), len(d.spec))
 	for {
 		ext := &runtime.RawExtension{}
 		if err = decoder.Decode(ext); err != nil {
@@ -236,7 +301,7 @@ func (d *deployer) load() (err error) {
 			continue
 		}
 
-		var gvk *schema.GroupVersionKind
+		var gvk *apischema.GroupVersionKind
 		ext.Object, gvk, err = processRawData(ext.Raw, nil, nil)
 		if err != nil {
 			return errors.Trace(err)
@@ -264,8 +329,8 @@ func (d *deployer) load() (err error) {
 		if item.client, err = d.clientWithGroupVersion(gvk.GroupVersion()); err != nil {
 			return errors.Trace(err)
 		}
-
-		item.mapping, err = item.restMapper().RESTMapping(gvk.GroupKind(), gvk.Version)
+		item.mapping, err = d.restMapperGetter(item.client).RESTMapping(gvk.GroupKind(), gvk.Version)
+		logger.Tracef("gvk.GroupKind() %s, gvk.Version %q, item.mapping %s", pretty.Sprint(gvk.GroupKind()), gvk.Version, pretty.Sprint(item.mapping))
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -300,7 +365,7 @@ func (d deployer) apply(ctx context.Context, wg *sync.WaitGroup, info resourceIn
 	}
 
 	var data []byte
-	data, err = runtime.Encode(unstructured.UnstructuredJSONScheme, info.content.Object)
+	data, err = runtime.Encode(codec, info.content.Object)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -310,51 +375,27 @@ func (d deployer) apply(ctx context.Context, wg *sync.WaitGroup, info resourceIn
 	}
 
 	doRequest := func(r *rest.Request) error {
-		_, err := r.Context(ctx).
+		err := r.Context(ctx).
 			NamespaceIfScoped(info.namespace, isNameSpaced).
 			Resource(info.mapping.Resource.Resource).
 			Name(info.name).
 			VersionedParams(options, metav1.ParameterCodec).
 			Body(data).
 			Do().
-			Get()
+			Error()
+		errMsg := fmt.Sprintf("resource %s/%s in namespace %q", info.mapping.GroupVersionKind.Kind, info.name, d.namespace)
+		if k8serrors.IsNotFound(err) {
+			return errors.NotFoundf(errMsg)
+		}
+		if k8serrors.IsAlreadyExists(err) {
+			return errors.AlreadyExistsf(errMsg)
+		}
 		return errors.Trace(err)
 	}
 
 	err = doRequest(info.client.Patch(types.ApplyPatchType))
-	if k8serrors.IsNotFound(err) {
+	if errors.IsNotFound(err) {
 		err = doRequest(info.client.Post())
 	}
 	return errors.Trace(err)
-}
-
-func (d deployer) Deploy(ctx context.Context, force bool) error {
-	if err := d.validate(); err != nil {
-		return errors.Trace(err)
-	}
-	var wg sync.WaitGroup
-	wg.Add(len(d.resources))
-
-	errChan := make(chan error)
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
-	for _, r := range d.resources {
-		info := r
-		go func() { _ = d.apply(ctx, &wg, info, force, errChan) }()
-	}
-
-	for {
-		select {
-		case err := <-errChan:
-			if err != nil {
-				return errors.Trace(err)
-			}
-		case <-done:
-			return nil
-		}
-	}
 }

@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"regexp"
-	// "runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -147,7 +146,8 @@ type kubernetesClient struct {
 	apiextensionsClientUnlocked apiextensionsclientset.Interface
 	dynamicClientUnlocked       dynamic.Interface
 
-	newClient NewK8sClientFunc
+	newClient     NewK8sClientFunc
+	newRestClient k8sspecs.NewK8sRestClientFunc
 
 	// modelUUID is the UUID of the model this client acts on.
 	modelUUID string
@@ -192,6 +192,7 @@ func newK8sBroker(
 	k8sRestConfig *rest.Config,
 	cfg *config.Config,
 	newClient NewK8sClientFunc,
+	newRestClient k8sspecs.NewK8sRestClientFunc,
 	newWatcher NewK8sWatcherFunc,
 	newStringsWatcher NewK8sStringsWatcherFunc,
 	randomPrefix RandomPrefixFunc,
@@ -227,6 +228,7 @@ func newK8sBroker(
 		newWatcher:        newWatcher,
 		newStringsWatcher: newStringsWatcher,
 		newClient:         newClient,
+		newRestClient:     newRestClient,
 		randomPrefix:      randomPrefix,
 		annotations: k8sannotations.New(nil).
 			Add(annotationModelUUIDKey, modelUUID),
@@ -924,26 +926,17 @@ func (k *kubernetesClient) applyRawK8sSpec(
 	}
 
 	labelGetter := func(isNamespaced bool) map[string]string {
-		labels := LabelsForApp(appName)
-		if !isNamespaced {
-			labels = AppendLabels(labels, LabelsForModel(k.CurrentModel()))
-		}
-		return labels
+		return k.getlabelsForApp(appName, isNamespaced)
 	}
 	annotations := resourceTagsToAnnotations(params.ResourceTags)
 
-	b := k8sspecs.NewDeployer(
-		deploymentName,
-		k.namespace,
-		params.RawK8sSpec,
-		params.Deployment,
-		k.k8sConfig(),
-		labelGetter,
-		annotations,
+	builder := k8sspecs.New(
+		deploymentName, k.namespace, params.Deployment, k.k8sConfig(),
+		labelGetter, annotations, k.newRestClient,
 	)
 	ctx, cancel := context.WithTimeout(context.Background(), applyRawSpecTimeoutSeconds*time.Second)
 	defer cancel()
-	return b.Deploy(ctx, true)
+	return builder.Deploy(ctx, params.RawK8sSpec, true)
 }
 
 // EnsureService creates or updates a service for pods with the given params.
@@ -965,7 +958,7 @@ func (k *kubernetesClient) EnsureService(
 	} else if len(params.RawK8sSpec) > 0 {
 		return k.applyRawK8sSpec(appName, statusCallback, params, numUnits, config)
 	}
-	return errors.NewNotSupported(nil, "current only k8s-raw-set and k8s-spec-set are supported")
+	return errors.NewNotSupported(nil, "currently only k8s-raw-set and k8s-spec-set are supported")
 }
 
 func (k *kubernetesClient) ensureService(

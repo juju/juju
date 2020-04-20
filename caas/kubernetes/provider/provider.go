@@ -105,6 +105,10 @@ func CloudSpecToK8sRestConfig(cloudSpec environs.CloudSpec) (*rest.Config, error
 	}, nil
 }
 
+func newRestClient(cfg *rest.Config) (rest.Interface, error) {
+	return rest.RESTClientFor(cfg)
+}
+
 // Open is part of the ContainerEnvironProvider interface.
 func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, error) {
 	logger.Debugf("opening model %q.", args.Config.Name())
@@ -116,7 +120,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 		return nil, errors.Trace(err)
 	}
 	broker, err := newK8sBroker(
-		args.ControllerUUID, k8sRestConfig, args.Config, newK8sClient,
+		args.ControllerUUID, k8sRestConfig, args.Config, newK8sClient, newRestClient,
 		newKubernetesNotifyWatcher, newKubernetesStringsWatcher, randomPrefix,
 		jujuclock.WallClock)
 	if err != nil {

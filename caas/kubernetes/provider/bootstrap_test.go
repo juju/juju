@@ -185,11 +185,11 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	defer ctrl.Finish()
 	// Eventually the namespace wil be set to controllerName.
 	// So we have to specify the final namespace(controllerName) for later use.
-	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl, s.pcfg.ControllerName)
+	newK8sClientFunc, newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl, s.pcfg.ControllerName)
 	randomPrefixFunc := func() (string, error) {
 		return "appuuid", nil
 	}
-	s.setupBroker(c, ctrl, newK8sRestClientFunc, randomPrefixFunc)
+	s.setupBroker(c, ctrl, newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc)
 	// Broker's namespace is "controller" now - controllerModelConfig.Name()
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller")
 	c.Assert(

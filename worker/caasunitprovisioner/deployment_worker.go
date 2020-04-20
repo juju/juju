@@ -239,7 +239,9 @@ func provisionInfoToServiceParams(info *apicaasunitprovisioner.ProvisioningInfo)
 			return nil, errors.Annotate(err, "cannot parse pod spec")
 		}
 	} else if len(info.RawK8sSpec) > 0 {
-		serviceParams.RawK8sSpec = info.RawK8sSpec
+		if serviceParams.RawK8sSpec, err = k8sspecs.ParseRawK8sSpec(info.RawK8sSpec); err != nil {
+			return nil, errors.Annotate(err, "cannot parse raw pod spec")
+		}
 	}
 	return serviceParams, nil
 }

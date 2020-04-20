@@ -1918,7 +1918,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoUnits(c *gc.C) {
 			Return(nil, nil),
 	)
 
-	params := &caas.ServiceParams{}
+	params := &caas.ServiceParams{
+		PodSpec: getBasicPodspec(),
+	}
 	err := s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 0, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
