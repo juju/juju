@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -584,7 +583,7 @@ func (w *relationStatusWatcher) loop(initialChanges []params.RelationLifeSuspend
 		for i, ch := range changes {
 			result[i] = watcher.RelationStatusChange{
 				Key:             ch.Key,
-				Life:            life.Value(ch.Life),
+				Life:            ch.Life,
 				Suspended:       ch.Suspended,
 				SuspendedReason: ch.SuspendedReason,
 			}

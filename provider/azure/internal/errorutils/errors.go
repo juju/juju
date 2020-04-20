@@ -105,7 +105,7 @@ func CheckForGraphError(r autorest.Responder) autorest.Responder {
 	})
 }
 
-// GraphError is a go error that wraps the graphrbac.GraphError reponse
+// GraphError is a go error that wraps the graphrbac.GraphError response
 // type, which doesn't implement the error interface.
 type GraphError struct {
 	graphrbac.GraphError

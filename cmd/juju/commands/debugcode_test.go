@@ -46,7 +46,7 @@ func (s *DebugCodeSuite) TestArgFormatting(c *gc.C) {
 	debugArgsRegex := regexp.MustCompile(`echo "([A-Z-a-z0-9+/]+=*)" \| base64.*-debug-hooks`)
 	debugArgsCommand := debugArgsRegex.FindString(string(scriptContent))
 	debugArgsB64 := debugArgsCommand[len(`echo "`):strings.Index(debugArgsCommand, `" | base64`)]
-	yamlContent, err := base64.StdEncoding.DecodeString(string(debugArgsB64))
+	yamlContent, err := base64.StdEncoding.DecodeString(debugArgsB64)
 	var args map[string]interface{}
 	err = goyaml.Unmarshal(yamlContent, &args)
 	c.Assert(err, jc.ErrorIsNil)

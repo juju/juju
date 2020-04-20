@@ -22,7 +22,7 @@ import (
 // K8sBroker describes a Kubernetes broker interface this worker needs to
 // function.
 type K8sBroker interface {
-	// CurrentModel returns the current model the broker is targetting
+	// CurrentModel returns the current model the broker is targeting
 	CurrentModel() string
 
 	// GetCurrentNamespace returns the current namespace being targeted on the

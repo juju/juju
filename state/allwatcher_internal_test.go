@@ -1278,8 +1278,8 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 				about: "model update keeps permissions",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
-					// Existance doesn't care about the other values, and they are
-					// not entirely relevent to this test.
+					// Existence doesn't care about the other values, and they are
+					// not entirely relevant to this test.
 					UserPermissions: map[string]permission.Access{
 						"bob":  permission.ReadAccess,
 						"mary": permission.AdminAccess,
@@ -1324,8 +1324,8 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
-					// Existance doesn't care about the other values, and they are
-					// not entirely relevent to this test.
+					// Existence doesn't care about the other values, and they are
+					// not entirely relevant to this test.
 					UserPermissions: map[string]permission.Access{
 						"bob":  permission.ReadAccess,
 						"mary": permission.AdminAccess,
@@ -1356,8 +1356,8 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
-					// Existance doesn't care about the other values, and they are
-					// not entirely relevent to this test.
+					// Existence doesn't care about the other values, and they are
+					// not entirely relevant to this test.
 					UserPermissions: map[string]permission.Access{
 						"bob":  permission.ReadAccess,
 						"mary": permission.AdminAccess,
@@ -1403,8 +1403,8 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
-					// Existance doesn't care about the other values, and they are
-					// not entirely relevent to this test.
+					// Existence doesn't care about the other values, and they are
+					// not entirely relevant to this test.
 					UserPermissions: map[string]permission.Access{
 						"bob":  permission.ReadAccess,
 						"mary": permission.AdminAccess,

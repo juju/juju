@@ -98,7 +98,7 @@ func (c *Client) Life(appName string) (life.Value, error) {
 	if err := results.Results[0].Error; err != nil {
 		return "", maybeNotFound(err)
 	}
-	return life.Value(results.Results[0].Life), nil
+	return results.Results[0].Life, nil
 }
 
 // OperatorProvisioningInfo holds the info needed to provision an operator.

@@ -357,7 +357,7 @@ func (m *backingMachine) updated(ctx *allWatcherContext) error {
 				return errors.Annotatef(err, "retrieving space for ID %q", spaceID)
 			}
 			mAddr.SpaceName = network.SpaceName(space.Name())
-			mAddr.ProviderSpaceID = network.Id(space.ProviderId())
+			mAddr.ProviderSpaceID = space.ProviderId()
 		}
 
 		info.Addresses = append(info.Addresses, mAddr)

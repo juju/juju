@@ -422,7 +422,7 @@ func locationToRegion(loc string) (string, bool) {
 		"US West (N. California)": "us-west-1",
 		"US West (Oregon)":        "us-west-2",
 		// LA is a local zone, we currently don't support them.
-		// It is a AZ in us-west-2, but for pricing it is a seperate region.
+		// It is a AZ in us-west-2, but for pricing it is a separate region.
 		"US West (Los Angeles)":      ignoreRegion,
 		"Canada (Central)":           "ca-central-1",
 		"EU (Frankfurt)":             "eu-central-1",

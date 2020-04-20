@@ -35,7 +35,7 @@ type Authority interface {
 
 	// LeafGroupFromPemCertKey loads an already existing certificate key pair as
 	// a new leaf at the given group. Returns error if a leaf for the given
-	// group already exists or an error occured loading the pem data.
+	// group already exists or an error occurred loading the pem data.
 	LeafGroupFromPemCertKey(group string, certPem, key []byte) (Leaf, error)
 
 	// LeafRequestForGroup starts a new leaf request for the given group. If a

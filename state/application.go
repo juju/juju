@@ -1409,7 +1409,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			quotaErr := a.preUpgradeRelationLimitCheck(cfg.Charm)
 
 			// If the operator specified --force, we still allow
-			// the ugprade to continue with a warning.
+			// the upgrade to continue with a warning.
 			if errors.IsQuotaLimitExceeded(quotaErr) && cfg.Force {
 				logger.Warningf("%v; allowing upgrade to proceed as the operator specified --force", quotaErr)
 			} else if quotaErr != nil {

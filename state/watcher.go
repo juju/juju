@@ -3240,13 +3240,13 @@ type actionNotificationWatcher struct {
 	sink   chan []string
 	filter func(interface{}) bool
 	// notifyPending when true will notify all pending and running actions as
-	// initial events, but therafter only notify on pending actions.
+	// initial events, but thereafter only notify on pending actions.
 	notifyPending bool
 }
 
 // newActionNotificationWatcher starts and returns a new StringsWatcher configured
 // with the given collection and filter function. notifyPending when true will notify all pending and running actions as
-// initial events, but therafter only notify on pending actions.
+// initial events, but thereafter only notify on pending actions.
 func newActionNotificationWatcher(backend modelBackend, notifyPending bool, receivers ...ActionReceiver) StringsWatcher {
 	w := &actionNotificationWatcher{
 		commonWatcher: newCommonWatcher(backend),

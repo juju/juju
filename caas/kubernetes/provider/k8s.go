@@ -1203,7 +1203,7 @@ func (k *kubernetesClient) ensureService(
 			return errors.Annotate(err, "creating or updating DaemonSet")
 		}
 	default:
-		// This should never happend because we have validated both in this method and in `charm.v6`.
+		// This should never happened because we have validated both in this method and in `charm.v6`.
 		return errors.NotSupportedf("deployment type %q", params.Deployment.DeploymentType)
 	}
 	return nil
