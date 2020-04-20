@@ -9,24 +9,32 @@ jobs:
       shell: bash
       run: |
         set -euxo pipefail
-        sudo apt-get remove lxd lxd-client
+        sudo apt-get remove --purge lxd lxd-client
+
         sudo snap install snapcraft --classic
         sudo snap install lxd
-        sudo lxd waitready
+
         sudo lxd init --auto
+        sudo lxd waitready
+
         sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
+
     - name: Checkout
       uses: actions/checkout@v2
+
     - name: Build snap
       shell: bash
       run: |
         set -euxo pipefail
+        export PATH=/snap/bin:$PATH
         snapcraft --use-lxd
+
     - name: Install snap
       shell: bash
       run: |
         set -euxo pipefail
         sudo snap install *.snap --dangerous --classic
+
     - name: Test bootstrap
       shell: bash
       run: |

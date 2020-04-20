@@ -101,4 +101,3 @@ jobs:
       run: |
         STATIC_ANALYSIS_JOB=test_schema make static-analysis
       shell: bash
-

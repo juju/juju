@@ -1,0 +1,39 @@
+name: "Go Vet Static Analysis"
+on: [push, pull_request]
+jobs:
+
+  lint-vet:
+    name: Lint Vet
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go 1.12
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.12
+      id: go
+
+    - name: Set GOPATH
+      # temporary fix
+      # see https://github.com/actions/setup-go/issues/14
+      run: |
+        echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
+        echo "##[add-path]$GITHUB_WORKSPACE/bin"
+      shell: bash
+
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        path: src/github.com/juju/juju
+
+    - name: Install Vendor dependencies
+      working-directory: src/github.com/juju/juju
+      run: |
+        make dep
+      shell: bash
+
+    - name: "Static Analysis: Go Check"
+      working-directory: src/github.com/juju/juju
+      run: |
+        STATIC_ANALYSIS_JOB=test_static_analysis_go_vet make static-analysis
+      shell: bash
