@@ -17,43 +17,58 @@ run_deploy_manual_aws() {
     model1="${name}-m1"
     model2="${name}-m2"
 
-    launch_and_wait_addr() {
-        local instance_name addr_result
+    set -eux
 
-        instance_name=${1}
-        addr_result=${2}
+    vpc_id=$(aws ec2 create-vpc --cidr-block 10.0.0.0/28 --query 'Vpc.VpcId' --output text)
+    aws ec2 modify-vpc-attribute --vpc-id "${vpc_id}" --enable-dns-support "{\"Value\":true}"
+    aws ec2 modify-vpc-attribute --vpc-id "${vpc_id}" --enable-dns-hostnames "{\"Value\":true}"
+
+    igw_id=$(aws ec2 create-internet-gateway --query 'InternetGateway.InternetGatewayId' --output text)
+    aws ec2 attach-internet-gateway --internet-gateway-id "${igw_id}" --vpc-id "${vpc_id}"
+
+    subnet_id=$(aws ec2 create-subnet --vpc-id "${vpc_id}" --cidr-block 10.0.0.0/28 --query 'Subnet.SubnetId' --output text)
+    routetable_id=$(aws ec2 create-route-table --vpc-id "${vpc_id}" --query 'RouteTable.RouteTableId' --output text)
+
+    aws ec2 associate-route-table --route-table-id "${routetable_id}" --subnet-id "${subnet_id}"
+    aws ec2 create-route --route-table-id "${routetable_id}" --destination-cidr-block 0.0.0.0/0 --gateway-id "${igw_id}"
+
+    sg_id=$(aws ec2 create-security-group --group-name "ci-manual-deploy" --description "run_deploy_manual_aws" --vpc-id "${vpc_id}" --query 'GroupId' --output text)
+    aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 22 --cidr 0.0.0.0/0
+
+    aws ec2 create-key-pair --key-name "${name}" --query 'KeyMaterial' --output text > ~/.ssh/"${name}".pem
+    chmod 400 ~/.ssh/"${name}".pem
+
+    launch_and_wait_addr() {
+        local name instance_name addr_result
+
+        name=${1}
+        instance_name=${2}
+        addr_result=${3}
 
         tags="ResourceType=instance,Tags=[{Key=Name,Value=${instance_name}}]"
-        reservation_id=$(aws ec2 run-instances --image-id ami-03d8261f577d71b6a \
+        instance_id=$(aws ec2 run-instances --image-id ami-03d8261f577d71b6a \
             --count 1 \
             --instance-type t2.medium \
             --associate-public-ip-address \
-            --tag-specifications "${tags}" | \
-            jq -r ".ReservationId")
+            --tag-specifications "${tags}" \
+            --key-name "${name}" \
+            --security-group-ids "${sg_id}" \
+            --subnet-id "${subnet_id}" \
+            --query 'Instances[0].InstanceId' \
+            --output text)
 
-        local address=""
+        aws ec2 wait instance-running --instance-ids "${instance_id}"
+        sleep 10
 
-        attempt=0
-        while [ ${attempt} -lt 30 ]; do
-            address=$(aws ec2 describe-instances \
-                --query "Reservations[?ReservationId=='${reservation_id}'].Instances[*].{Instance:PublicIpAddress}" | \
-                jq -r ".[] | .[] | .Instance" || true)
-
-            if echo "${address}" | grep -q '^[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+$'; then
-                echo "Using instance address ${address}"
-                break
-            fi
-            sleep 1
-            attempt=$((attempt+1))
-        done
+        address=$(aws ec2 describe-instances --instance-ids "${instance_id}" --query 'Reservations[0].Instances[0].PublicDnsName' --output text)
 
         # shellcheck disable=SC2086
         eval $addr_result="'${address}'"
     }
 
-    launch_and_wait_addr "${controller}" addr_c
-    launch_and_wait_addr "${model1}" addr_m1
-    launch_and_wait_addr "${model2}" addr_m2
+    launch_and_wait_addr "${name}" "${controller}" addr_c
+    launch_and_wait_addr "${name}" "${model1}" addr_m1
+    launch_and_wait_addr "${name}" "${model2}" addr_m2
 
     # shellcheck disable=SC2154
     for addr in "${addr_c}" "${addr_m1}" "${addr_m2}"; do
