@@ -11,7 +11,9 @@ $(shell go mod vendor)
 
 PROJECT := github.com/juju/juju
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
-PROJECT_PACKAGES := $(shell go list $(PROJECT)/... | grep -v /vendor/ | grep -v /acceptancetests/ | grep -v mocks)
+BUILD_DIR ?= $(PROJECT_DIR)/_build
+MAIN_PACKAGES := $(shell go list -f '{{if eq .Name "main" }}{{.ImportPath}}{{end}}' $(PROJECT)/... | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks)
+PROJECT_PACKAGES := $(shell go list $(PROJECT)/... | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks)
 
 # Allow the tests to take longer on arm platforms.
 ifeq ($(shell uname -p | sed -E 's/.*(armel|armhf|aarch64|ppc64le|ppc64|s390x).*/golang/'), golang)
@@ -99,8 +101,8 @@ test: run-tests
 run-tests:
 ## run-tests: Run the unit tests
 	$(eval TMP := $(shell mktemp -d jj-XXX --tmpdir))
-	@echo 'go test --tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$PROJECT_PACKAGES -check.v'
-	@TMPDIR=$(TMP) go test --tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
+	@echo 'go test -tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$PROJECT_PACKAGES -check.v'
+	@TMPDIR=$(TMP) go test -tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
 	@rm -r $(TMP)
 
 install: rebuild-schema go-install
@@ -112,12 +114,14 @@ clean:
 
 go-install:
 ## go-install: Install Juju binaries without updating dependencies
-	@echo 'go install -mod=vendor -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$PROJECT_PACKAGES'
-	@go install -mod=vendor -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(PROJECT_PACKAGES)
+	@echo 'go install -mod=vendor -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
+	@go install -mod=vendor -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(MAIN_PACKAGES)
 
 go-build:
 ## go-build: Build Juju binaries without updating dependencies
-	@go build -mod=vendor -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(PROJECT_PACKAGES)
+	@mkdir -p $(BUILD_DIR)
+	@echo 'go build -mod=vendor -o $(BUILD_DIR) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
+	@go build -mod=vendor -o $(BUILD_DIR) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(MAIN_PACKAGES)
 
 else # --------------------------------
 
@@ -150,9 +154,9 @@ rebuild-schema:
 ## rebuild-schema: Rebuild the schema for clients with the latest facades
 	@echo "Generating facade schema..."
 ifdef SCHEMA_PATH
-	@go run ./generate/schemagen/schemagen.go "$(SCHEMA_PATH)"
+	@go run $(PROJECT)/generate/schemagen "$(SCHEMA_PATH)"
 else
-	@go run ./generate/schemagen/schemagen.go \
+	@go run $(PROJECT)/generate/schemagen \
 		./apiserver/facades/schema.json
 endif
 
@@ -195,7 +199,7 @@ else
 endif
 
 
-GOCHECK_COUNT="$(shell go list -f '{{join .Deps "\n"}}' github.com/juju/juju/... | grep -c "gopkg.in/check.v*")"
+GOCHECK_COUNT="$(shell go list -f '{{join .Deps "\n"}}' ${PROJECT}/... | grep -c "gopkg.in/check.v*")"
 check-deps:
 ## check-deps: Check dependencies are correct versions
 	@echo "$(GOCHECK_COUNT) instances of gocheck not in test code"

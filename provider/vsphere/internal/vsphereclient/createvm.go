@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/provider/common"
 )
 
-//go:generate go run ../../../../generate/filetoconst/filetoconst.go UbuntuOVF ubuntu.ovf ovf_ubuntu.go 2017 vsphereclient
+//go:generate go run github.com/juju/juju/generate/filetoconst UbuntuOVF ubuntu.ovf ovf_ubuntu.go 2017 vsphereclient
 
 // NetworkDevice defines a single network device attached to a newly created VM.
 type NetworkDevice struct {
