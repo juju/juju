@@ -25,22 +25,11 @@ jobs:
         go-version: 1.14
       id: go
 
-    - name: Set GOPATH
-      # temporary fix
-      # see https://github.com/actions/setup-go/issues/14
-      run: |
-        echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
-        echo "##[add-path]$GITHUB_WORKSPACE/bin"
-      shell: bash
-
     - name: Checkout
       uses: actions/checkout@v2
-      with:
-        path: src/github.com/juju/juju
 
     - name: "Install Mongo Dependencies: ubuntu-latest"
       if: (matrix.os == 'ubuntu-latest')
-      working-directory: src/github.com/juju/juju
       run: |
         # Remove the default mongo
         sudo rm /etc/apt/sources.list.d/mongodb-org-4.2.list
@@ -52,7 +41,6 @@ jobs:
 
     - name: "Install Mongo Dependencies: macOS-latest"
       if: (matrix.os == 'macOS-latest')
-      working-directory: src/github.com/juju/juju
       run: |
         curl -o mongodb-3.6.14.tgz https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-3.6.14.tgz
         tar xzvf mongodb-3.6.14.tgz
@@ -63,7 +51,6 @@ jobs:
       shell: bash
 
     - name: Test client
-      working-directory: src/github.com/juju/juju
       run: |
         # Jenkins can perform the full jujud testing.
         go test -v ./cmd/juju/... -check.v

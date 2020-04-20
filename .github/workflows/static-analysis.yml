@@ -14,21 +14,7 @@ jobs:
         go-version: 1.14
       id: go
 
-    - name: Set GOPATH
-      # temporary fix
-      # see https://github.com/actions/setup-go/issues/14
-      run: |
-        echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
-        echo "##[add-path]$GITHUB_WORKSPACE/bin"
-      shell: bash
-
-    - name: Checkout
-      uses: actions/checkout@v2
-      with:
-        path: src/github.com/juju/juju
-
     - name: Install Dependencies
-      working-directory: src/github.com/juju/juju
       run: |
         go get -u github.com/client9/misspell/cmd/misspell
         go get -u github.com/tsenart/deadcode
@@ -37,26 +23,28 @@ jobs:
         go get -u github.com/mdempsky/unconvert
         go get -u github.com/gordonklaus/ineffassign
 
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Downloand Dependencies
+      run: go mod download
+
     - name: "Static Analysis: Copyright"
-      working-directory: src/github.com/juju/juju
       run: |
         STATIC_ANALYSIS_JOB=test_copyright make static-analysis
       shell: bash
 
     - name: "Static Analysis: Shell Check"
-      working-directory: src/github.com/juju/juju
       run: |
         STATIC_ANALYSIS_JOB=test_static_analysis_shell make static-analysis
       shell: bash
 
     - name: "Static Analysis: Go Check"
-      working-directory: src/github.com/juju/juju
       run: |
         STATIC_ANALYSIS_JOB=test_static_analysis_go make static-analysis
       shell: bash
 
     - name: "Static Analysis: Python Check"
-      working-directory: src/github.com/juju/juju
       run: |
         STATIC_ANALYSIS_JOB=test_static_analysis_python make static-analysis
       shell: bash
@@ -73,21 +61,10 @@ jobs:
         go-version: 1.14
       id: go
 
-    - name: Set GOPATH
-      # temporary fix
-      # see https://github.com/actions/setup-go/issues/14
-      run: |
-        echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
-        echo "##[add-path]$GITHUB_WORKSPACE/bin"
-      shell: bash
-
     - name: Checkout
       uses: actions/checkout@v2
-      with:
-        path: src/github.com/juju/juju
 
     - name: Schema Check
-      working-directory: src/github.com/juju/juju
       run: |
         STATIC_ANALYSIS_JOB=test_schema make static-analysis
       shell: bash

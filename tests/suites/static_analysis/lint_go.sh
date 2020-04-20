@@ -9,7 +9,8 @@ run_dep_check() {
 }
 
 run_go_vet() {
-  OUT=$(go vet -composites=false ./... 2>&1 || true)
+  PACKAGES="${2}"
+  OUT=$(go vet -composites=false "${PACKAGES}" 2>&1 || true)
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues:')"
@@ -53,7 +54,7 @@ run_deadcode() {
 }
 
 run_misspell() {
-  FILES=${2}
+  FILES="${2}"
   OUT=$(misspell -source=go 2>/dev/null "${FILES}" || true)
   if [ -n "${OUT}" ]; then
     echo ""
@@ -110,6 +111,7 @@ test_static_analysis_go() {
 
     FILES=$(find ./* -name '*.go' -not -name '.#*' -not -name '*_mock.go' | grep -v vendor/ | grep -v acceptancetests/)
     FOLDERS=$(echo "${FILES}" | sed s/^\.//g | xargs dirname | awk -F "/" '{print $2}' | uniq | sort)
+    PACKAGES=$(go list ./... | grep -v github.com/juju/juju\$ | grep -v github.com/juju/juju/vendor/ | grep -v github.com/juju/juju/acceptancetests/)
 
     ## Functions starting by empty line
     # turned off until we get approval of test suite
@@ -124,7 +126,7 @@ test_static_analysis_go() {
 
     ## go vet, if it exists
     if go help vet >/dev/null 2>&1; then
-      run "run_go_vet" "${FOLDERS}"
+      run "run_go_vet" "${PACKAGES}"
     else
       echo "vet not found, vet static analysis disabled"
     fi
