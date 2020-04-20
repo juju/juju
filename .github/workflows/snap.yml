@@ -33,11 +33,13 @@ jobs:
       shell: bash
       run: |
         set -euxo pipefail
+        export PATH=/snap/bin:$PATH
         sudo snap install *.snap --dangerous --classic
 
     - name: Test bootstrap
       shell: bash
       run: |
         set -euxo pipefail
+        export PATH=/snap/bin:$PATH
         lxc network set lxdbr0 ipv6.address none
         juju bootstrap localhost
