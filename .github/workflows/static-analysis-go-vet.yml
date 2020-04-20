@@ -1,9 +1,9 @@
-name: "Go Vet Static Analysis"
+name: "Static Analysis: Go Vet"
 on: [push, pull_request]
 jobs:
 
-  lint-vet:
-    name: Lint Vet
+  lint-go-vet:
+    name: "Lint: Go Vet"
     runs-on: ubuntu-latest
     steps:
 
