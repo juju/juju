@@ -31,6 +31,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/kubectl/pkg/validation"
+	// "github.com/juju/collections/set"
+
+	"github.com/juju/juju/caas"
+	k8sannotations "github.com/juju/juju/core/annotations"
 )
 
 var (
@@ -39,12 +43,21 @@ var (
 	metadataAccessor = meta.NewAccessor()
 )
 
-func validator(c discovery.CachedDiscoveryInterface) (validation.Schema, error) {
+func getValidator(c discovery.CachedDiscoveryInterface) (validation.Schema, error) {
+	// TODO: get schema for validation
+
 	_, err := c.OpenAPISchema()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return nil, nil
+}
+
+func validateSchema(data []byte, schema validation.Schema) error {
+	if schema == nil {
+		return nil
+	}
+	return schema.ValidateBytes(data)
 }
 
 type metadataOnlyObject struct {
@@ -77,34 +90,33 @@ type DeployerInterface interface {
 	Deploy(context.Context, bool) error
 }
 
-type contentValidator interface {
-	ValidateBytes(data []byte) error
-}
-
 type resourceInfo struct {
 	name            string
 	namespace       string
 	resourceVersion string
-	object          runtime.Object
+	content         *runtime.RawExtension
 
-	mapping *meta.RESTMapping
-	schema  contentValidator
-	client  rest.Interface
-}
-
-func validateSchema(data []byte, validate contentValidator) error {
-	if validate == nil {
-		return nil
-	}
-	return validate.ValidateBytes(data)
+	mapping         *meta.RESTMapping
+	schema          validation.Schema
+	client          rest.Interface
+	discoveryClient discovery.CachedDiscoveryInterface
 }
 
 func (ri *resourceInfo) restMapper() meta.RESTMapper {
 	discoveryClient := discovery.NewDiscoveryClient(ri.client)
+	ri.discoveryClient = memory.NewMemCacheClient(discoveryClient)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(
-		memory.NewMemCacheClient(discoveryClient),
+		ri.discoveryClient,
 	)
 	return restmapper.NewShortcutExpander(mapper, discoveryClient)
+}
+
+func (ri *resourceInfo) validateSchema() error {
+	schema, err := getValidator(ri.discoveryClient)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return validateSchema(ri.content.Raw, schema)
 }
 
 func (ri *resourceInfo) withNamespace(namespace string) *resourceInfo {
@@ -116,7 +128,7 @@ func (ri *resourceInfo) withNamespace(namespace string) *resourceInfo {
 }
 
 func (ri *resourceInfo) ensureLabels(labels map[string]string) error {
-	providedLabels, err := metadataAccessor.Labels(ri.object)
+	providedLabels, err := metadataAccessor.Labels(ri.content.Object)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -126,33 +138,62 @@ func (ri *resourceInfo) ensureLabels(labels map[string]string) error {
 	for k, v := range labels {
 		providedLabels[k] = v
 	}
-	return metadataAccessor.SetLabels(ri.object, providedLabels)
+	return metadataAccessor.SetLabels(ri.content.Object, providedLabels)
+}
+
+func (ri *resourceInfo) ensureAnnotations(annoations k8sannotations.Annotation) error {
+	providedAnnoations, err := metadataAccessor.Annotations(ri.content.Object)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return metadataAccessor.SetAnnotations(
+		ri.content.Object, k8sannotations.New(providedAnnoations).Merge(annoations).ToMap(),
+	)
 }
 
 type deployer struct {
-	namespace string
-	spec      string
-	cfg       *rest.Config
-	// TODO implement builder then remove ""k8s.io/cli-runtime" dep!!
-	// builder *runtimeresource.Builder
+	deploymentName       string
+	namespace            string
+	spec                 string
+	workloadResourceType string
+	cfg                  *rest.Config
+	labelGetter          func(isNamespaced bool) map[string]string
+	annotations          k8sannotations.Annotation
 
 	resources []resourceInfo
 	sources   []string
-
-	labelGetter func(isNamespaced bool) map[string]string
 }
 
 func NewDeployer(
+	deploymentName string,
 	namespace string,
-	cfg *rest.Config,
 	spec string,
+	deploymentParams caas.DeploymentParams,
+	cfg *rest.Config,
 	labelGetter func(isNamespaced bool) map[string]string,
+	annotations k8sannotations.Annotation,
 ) DeployerInterface {
 	return &deployer{
-		namespace:   namespace,
-		cfg:         cfg,
-		spec:        spec,
-		labelGetter: labelGetter,
+		deploymentName:       deploymentName,
+		namespace:            namespace,
+		spec:                 spec,
+		workloadResourceType: getWorkloadResourceType(deploymentParams.DeploymentType),
+		cfg:                  cfg,
+		labelGetter:          labelGetter,
+		annotations:          annotations,
+	}
+}
+
+func getWorkloadResourceType(t caas.DeploymentType) string {
+	switch t {
+	case caas.DeploymentDaemon:
+		return "daemonsets"
+	case caas.DeploymentStateless:
+		return "deployments"
+	case caas.DeploymentStateful:
+		return "statefulsets"
+	default:
+		return "deployments"
 	}
 }
 
@@ -165,15 +206,24 @@ func (d *deployer) validate() error {
 	if err := d.load(); err != nil {
 		return errors.Trace(err)
 	}
+	if err := d.validateWorkload(); err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO: do we need to check if service resource type matches the raw service spec?
 	return nil
 }
 
+func (d *deployer) validateWorkload() error {
+	for _, resource := range d.resources {
+		if resource.mapping.Resource.Resource == d.workloadResourceType {
+			return nil
+		}
+	}
+	return errors.NotValidf("empty %q resource definition", d.workloadResourceType)
+}
+
 func setConfigDefaults(config *rest.Config) {
-	// gv := metav1.SchemeGroupVersion
-	// gv := schema.GroupVersion{Group: "", Version: "v1"}
-	// config.GroupVersion = &gv
-	// config.APIPath = "/api"
-	// config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 	if config.ContentConfig.NegotiatedSerializer == nil {
 		config.ContentConfig.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 	}
@@ -187,11 +237,11 @@ func (d *deployer) clientWithGroupVersion(gv schema.GroupVersion) (c rest.Interf
 	// cfg, _ := rest.InClusterConfig()
 	setConfigDefaults(cfg)
 
-	cfg.GroupVersion = &gv
 	cfg.APIPath = "/apis"
 	if len(gv.Group) == 0 {
 		cfg.APIPath = "/api"
 	}
+	cfg.GroupVersion = &gv
 
 	logger.Criticalf("clientWithGroupVersion 0 err -> %#v, c -> %#v, cfg.GroupVersion -> %s", err, c, pretty.Sprint(cfg.GroupVersion))
 	if c, err = rest.RESTClientFor(cfg); err != nil {
@@ -206,11 +256,8 @@ func (d *deployer) load() (err error) {
 		logger.Criticalf("load len(d.resources) -> %d, err -> %#v", len(d.resources), err)
 	}()
 	for {
-		item := resourceInfo{
-			// TODO: schema: xxxx for validation
-		}
-		ext := runtime.RawExtension{}
-		if err = decoder.Decode(&ext); err != nil {
+		ext := &runtime.RawExtension{}
+		if err = decoder.Decode(ext); err != nil {
 			if err == io.EOF {
 				return nil
 			}
@@ -220,37 +267,45 @@ func (d *deployer) load() (err error) {
 		if len(ext.Raw) == 0 || bytes.Equal(ext.Raw, []byte("null")) {
 			continue
 		}
-		if err = validateSchema(ext.Raw, item.schema); err != nil {
-			return errors.Trace(err)
-		}
 
 		var gvk *schema.GroupVersionKind
-		item.object, gvk, err = processRawData(ext.Raw, nil, nil)
+		ext.Object, gvk, err = processRawData(ext.Raw, nil, nil)
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		item.name, err = metadataAccessor.Name(item.object)
+		item := resourceInfo{
+			content: ext,
+		}
+
+		item.name, err = metadataAccessor.Name(item.content.Object)
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		item.namespace, err = metadataAccessor.Namespace(item.object)
+		item.namespace, err = metadataAccessor.Namespace(item.content.Object)
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		item.resourceVersion, err = metadataAccessor.ResourceVersion(item.object)
+		item.resourceVersion, err = metadataAccessor.ResourceVersion(item.content.Object)
 		if err != nil {
 			return errors.Trace(err)
 		}
+
 		if item.client, err = d.clientWithGroupVersion(gvk.GroupVersion()); err != nil {
 			return errors.Trace(err)
 		}
+
 		item.mapping, err = item.restMapper().RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
 			return errors.Trace(err)
 		}
+
+		if err = item.validateSchema(); err != nil {
+			return errors.Trace(err)
+		}
+
 		d.resources = append(d.resources, item)
 	}
 }
@@ -267,18 +322,23 @@ func (d deployer) apply(ctx context.Context, wg *sync.WaitGroup, info resourceIn
 		}
 	}()
 
-	// Ensures namespace are correctly set.
-	_ = info.withNamespace(d.namespace)
-
 	isNameSpaced := info.mapping.Scope.Name() == meta.RESTScopeNameNamespace
+
+	// Ensures namespace is set.
+	_ = info.withNamespace(d.namespace)
+	// Ensure Juju labels are set.
 	if err = info.ensureLabels(d.labelGetter(isNameSpaced)); err != nil {
+		return errors.Trace(err)
+	}
+	// Ensure annotations are set.
+	if err = info.ensureAnnotations(d.annotations); err != nil {
 		return errors.Trace(err)
 	}
 
 	logger.Criticalf("apply namespace -> %q, r -> %#v", d.namespace, info)
 
 	var data []byte
-	data, err = runtime.Encode(unstructured.UnstructuredJSONScheme, info.object)
+	data, err = runtime.Encode(unstructured.UnstructuredJSONScheme, info.content.Object)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -287,18 +347,8 @@ func (d deployer) apply(ctx context.Context, wg *sync.WaitGroup, info resourceIn
 		FieldManager: "juju",
 	}
 
-	_, err = info.client.Patch(types.ApplyPatchType).
-		Context(ctx).
-		NamespaceIfScoped(info.namespace, isNameSpaced).
-		Resource(info.mapping.Resource.Resource).
-		Name(info.name).
-		VersionedParams(options, metav1.ParameterCodec).
-		Body(data).
-		Do().
-		Get()
-	if k8serrors.IsNotFound(err) {
-		_, err = info.client.Post().
-			Context(ctx).
+	doRequest := func(r *rest.Request) error {
+		_, err := r.Context(ctx).
 			NamespaceIfScoped(info.namespace, isNameSpaced).
 			Resource(info.mapping.Resource.Resource).
 			Name(info.name).
@@ -306,6 +356,12 @@ func (d deployer) apply(ctx context.Context, wg *sync.WaitGroup, info resourceIn
 			Body(data).
 			Do().
 			Get()
+		return errors.Trace(err)
+	}
+
+	err = doRequest(info.client.Patch(types.ApplyPatchType))
+	if k8serrors.IsNotFound(err) {
+		err = doRequest(info.client.Post())
 	}
 	return errors.Trace(err)
 }
