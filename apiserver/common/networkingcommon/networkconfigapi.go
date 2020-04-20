@@ -226,6 +226,16 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 func (api *NetworkConfigAPI) setLinkLayerDevicesAndAddresses(
 	m *state.Machine, ifaces []network.InterfaceInfo,
 ) error {
+	linkLayerDevices, err := m.AllLinkLayerDevices()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	_, err = network.NewLocusFromLinkLayerDevices(linkLayerShims(linkLayerDevices))
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	devicesArgs, devicesAddrs := NetworkInterfacesToStateArgs(ifaces)
 
 	logger.Debugf("setting devices: %+v", devicesArgs)
@@ -240,4 +250,32 @@ func (api *NetworkConfigAPI) setLinkLayerDevicesAndAddresses(
 
 	logger.Debugf("updated machine %q network config", m.Id())
 	return nil
+}
+
+func linkLayerShims(devices []*state.LinkLayerDevice) []network.LinkLayerDevice {
+	result := make([]network.LinkLayerDevice, len(devices))
+	for i, device := range devices {
+		result[i] = linkLayerShim{
+			LinkLayerDevice: device,
+		}
+	}
+
+	return result
+}
+
+type linkLayerShim struct {
+	*state.LinkLayerDevice
+}
+
+func (s linkLayerShim) Addresses() ([]network.LinkLayerDeviceAddress, error) {
+	addresses, err := s.LinkLayerDevice.Addresses()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result := make([]network.LinkLayerDeviceAddress, len(addresses))
+	for i, address := range addresses {
+		result[i] = address
+	}
+	return result, nil
 }

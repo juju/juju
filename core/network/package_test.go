@@ -12,6 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
+//go:generate mockgen -package network -destination package_mock_test.go github.com/juju/juju/core/network LinkLayerDevice,LinkLayerDeviceAddress
+
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
