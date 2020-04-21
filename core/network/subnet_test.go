@@ -176,3 +176,22 @@ func (*subnetSuite) TestSubnetInfosGetByUnderLayCIDR(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(overlays, gc.HasLen, 0)
 }
+
+func (*subnetSuite) TestSubnetInfosGetByCIDR(c *gc.C) {
+	s := network.SubnetInfos{
+		{ID: "1", CIDR: "10.10.10.0/24", ProviderId: "1"},
+		{ID: "2", CIDR: "10.10.10.0/24", ProviderId: "2"},
+		{ID: "3", CIDR: "20.20.20.0/24"},
+	}
+
+	_, err := s.GetByCIDR("invalid")
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+
+	subs, err := s.GetByCIDR("30.30.30.0/24")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(subs, gc.HasLen, 0)
+
+	subs, err = s.GetByCIDR("10.10.10.0/24")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(subs, gc.DeepEquals, s[:2])
+}

@@ -165,6 +165,22 @@ func (s SubnetInfos) GetByUnderlayCIDR(cidr string) (SubnetInfos, error) {
 	return overlays, nil
 }
 
+// GetByCIDR returns all subnets in the collection
+// with a CIDR matching the input.
+func (s SubnetInfos) GetByCIDR(cidr string) (SubnetInfos, error) {
+	if !IsValidCIDR(cidr) {
+		return nil, errors.NotValidf("CIDR %q", cidr)
+	}
+
+	var matching SubnetInfos
+	for _, sub := range s {
+		if sub.CIDR == cidr {
+			matching = append(matching, sub)
+		}
+	}
+	return matching, nil
+}
+
 // EqualTo returns true if this slice of SubnetInfo is equal to the input.
 func (s SubnetInfos) EqualTo(other SubnetInfos) bool {
 	if len(s) != len(other) {
