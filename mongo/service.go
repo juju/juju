@@ -502,8 +502,8 @@ func generateConfig(mongoPath string, oplogSizeMB int, version Version, usingMon
 
 // newConf returns the init system config for the mongo state service.
 func newConf(args *ConfigArgs) common.Conf {
-	usingMongoSnap := args.DataDir == dataPathForJujuDbSnap
-	return args.asServiceConf(usingMongoSnap)
+	usingJujuDBSnap := args.DataDir == dataPathForJujuDbSnap
+	return args.asServiceConf(usingJujuDBSnap)
 }
 
 func ensureDirectoriesMade(dataDir string) error {

@@ -731,22 +731,22 @@ func (s *ConfigSuite) TestAgentRateLimitRate(c *gc.C) {
 	c.Assert(cfg.AgentRateLimitRate(), gc.Equals, 500*time.Millisecond)
 }
 
-func (s *ConfigSuite) TestMongoSnapChannel(c *gc.C) {
+func (s *ConfigSuite) TestJujuDBSnapChannel(c *gc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
 		map[string]interface{}{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.MongoSnapChannel(), gc.Equals, controller.DefaultMongoSnapChannel)
+	c.Assert(cfg.JujuDBSnapChannel(), gc.Equals, controller.DefaultJujuDBSnapChannel)
 
 	cfg, err = controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
 		map[string]interface{}{
-			"mongo-snap-channel": "latest/candidate",
+			"juju-db-snap-channel": "latest/candidate",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.MongoSnapChannel(), gc.Equals, "latest/candidate")
+	c.Assert(cfg.JujuDBSnapChannel(), gc.Equals, "latest/candidate")
 }

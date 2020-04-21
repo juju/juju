@@ -139,7 +139,7 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *gc.C) {
 				*result = params.ControllerConfigResult{
 					Config: map[string]interface{}{
 						"mongo-memory-profile": "default",
-						"mongo-snap-channel":   controller.DefaultMongoSnapChannel,
+						"juju-db-snap-channel": controller.DefaultJujuDBSnapChannel,
 					},
 				}
 			default:
@@ -224,7 +224,7 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 				*result = params.ControllerConfigResult{
 					Config: map[string]interface{}{
 						"mongo-memory-profile": "default",
-						"mongo-snap-channel":   controller.DefaultMongoSnapChannel,
+						"juju-db-snap-channel": controller.DefaultJujuDBSnapChannel,
 					},
 				}
 			default:
@@ -388,14 +388,14 @@ func (mc *mockConfig) SetMongoMemoryProfile(profile mongo.MemoryProfile) {
 	mc.profileSet = true
 }
 
-func (mc *mockConfig) MongoSnapChannel() string {
+func (mc *mockConfig) JujuDBSnapChannel() string {
 	if mc.snapChannel == "" {
-		return controller.DefaultMongoSnapChannel
+		return controller.DefaultJujuDBSnapChannel
 	}
 	return mc.snapChannel
 }
 
-func (mc *mockConfig) SetMongoSnapChannel(snapChannel string) {
+func (mc *mockConfig) SetJujuDBSnapChannel(snapChannel string) {
 	mc.snapChannel = snapChannel
 	mc.snapChannelSet = true
 }

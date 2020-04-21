@@ -270,7 +270,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		} else {
 			agentConfig.SetMongoMemoryProfile(mmprof)
 		}
-		agentConfig.SetMongoSnapChannel(args.ControllerConfig.MongoSnapChannel())
+		agentConfig.SetJujuDBSnapChannel(args.ControllerConfig.JujuDBSnapChannel())
 		return nil
 	}); err != nil {
 		return fmt.Errorf("cannot write agent config: %v", err)

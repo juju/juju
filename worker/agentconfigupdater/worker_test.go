@@ -39,15 +39,15 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.agent = &mockAgent{
 		conf: mockConfig{
 			profile:     controller.DefaultMongoMemoryProfile,
-			snapChannel: controller.DefaultMongoSnapChannel,
+			snapChannel: controller.DefaultJujuDBSnapChannel,
 		},
 	}
 	s.config = agentconfigupdater.WorkerConfig{
-		Agent:            s.agent,
-		Hub:              s.hub,
-		MongoProfile:     controller.DefaultMongoMemoryProfile,
-		MongoSnapChannel: controller.DefaultMongoSnapChannel,
-		Logger:           s.logger,
+		Agent:             s.agent,
+		Hub:               s.hub,
+		MongoProfile:      controller.DefaultMongoMemoryProfile,
+		JujuDBSnapChannel: controller.DefaultJujuDBSnapChannel,
+		Logger:            s.logger,
 	}
 }
 
@@ -121,7 +121,7 @@ func (s *WorkerSuite) TestUpdateMongoProfile(c *gc.C) {
 	newConfig := controllermsg.ConfigChangedMessage{
 		Config: controller.Config{
 			controller.MongoMemoryProfile: controller.DefaultMongoMemoryProfile,
-			controller.MongoSnapChannel:   controller.DefaultMongoSnapChannel,
+			controller.JujuDBSnapChannel:  controller.DefaultJujuDBSnapChannel,
 		},
 	}
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
@@ -149,14 +149,14 @@ func (s *WorkerSuite) TestUpdateMongoProfile(c *gc.C) {
 	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateMongoSnapChannel(c *gc.C) {
+func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *gc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
 	c.Assert(w, gc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 
 	newConfig := controllermsg.ConfigChangedMessage{
 		Config: controller.Config{
-			controller.MongoSnapChannel: controller.DefaultMongoSnapChannel,
+			controller.JujuDBSnapChannel: controller.DefaultJujuDBSnapChannel,
 		},
 	}
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
@@ -170,7 +170,7 @@ func (s *WorkerSuite) TestUpdateMongoSnapChannel(c *gc.C) {
 	// Snap channel is the same, worker still alive.
 	workertest.CheckAlive(c, w)
 
-	newConfig.Config[controller.MongoSnapChannel] = "latest/candidate"
+	newConfig.Config[controller.JujuDBSnapChannel] = "latest/candidate"
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
