@@ -182,6 +182,13 @@ type InterfaceInfo struct {
 
 	// IsDefaultGateway is set if this device is a default gw on a machine.
 	IsDefaultGateway bool
+
+	// Origin represents the authoritative source of the InterfaceInfo.
+	// It is expected that either the provider gave us this info or the
+	// machine gave us this info.
+	// Giving us this information allows us to reason about when a InterfaceInfo
+	// is in use.
+	Origin Origin
 }
 
 type interfaceInfoSlice []InterfaceInfo

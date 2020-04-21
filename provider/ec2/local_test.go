@@ -1719,6 +1719,7 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDev
 			),
 		},
 		AvailabilityZones: zones,
+		Origin:            corenetwork.OriginProvider,
 	}
 	c.Assert(iface, gc.DeepEquals, expectedInterface)
 }

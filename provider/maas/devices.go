@@ -205,6 +205,7 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 			Disabled:            !nic.Enabled,
 			NoAutoStart:         !nic.Enabled,
 			ParentInterfaceName: nameToParentName[nic.Name],
+			Origin:              corenetwork.OriginProvider,
 		}
 
 		if len(nic.Links) == 0 {
@@ -282,6 +283,7 @@ func (env *maasEnviron) deviceInterfaceInfo2(
 			Disabled:            !nic.Enabled(),
 			NoAutoStart:         !nic.Enabled(),
 			ParentInterfaceName: nameToParentName[nic.Name()],
+			Origin:              corenetwork.OriginProvider,
 		}
 		for _, link := range nic.Links() {
 			subnet := link.Subnet()

@@ -227,6 +227,7 @@ func (e Environ) networkInterfacesForInstance(ctx context.ProviderCallContext, i
 				corenetwork.NewScopedProviderAddress(ip, corenetwork.ScopeCloudLocal),
 			},
 			InterfaceType: corenetwork.EthernetInterface,
+			Origin:        corenetwork.OriginProvider,
 		}
 
 		for _, ipAssocName := range deviceAttributes.Ipassociations {

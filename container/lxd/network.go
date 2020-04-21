@@ -433,6 +433,7 @@ func InterfaceInfoFromDevices(nics map[string]device) ([]corenetwork.InterfaceIn
 			ParentInterfaceName: device["parent"],
 			MACAddress:          device["hwaddr"],
 			ConfigType:          corenetwork.ConfigDHCP,
+			Origin:              corenetwork.OriginProvider,
 		}
 		if device["mtu"] != "" {
 			mtu, err := strconv.Atoi(device["mtu"])

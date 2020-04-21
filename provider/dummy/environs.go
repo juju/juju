@@ -1473,6 +1473,7 @@ func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []ins
 				GatewayAddress: corenetwork.NewProviderAddress(
 					fmt.Sprintf("0.%d.0.1", (i+1)*10+idIndex),
 				),
+				Origin: corenetwork.OriginProvider,
 			}
 		}
 

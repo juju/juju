@@ -263,8 +263,9 @@ func (st *State) GetContainerInterfaceInfo(containerTag names.MachineTag) ([]cor
 // the method and the network.InterfaceInfo type to be called
 // InterfaceConfig.
 func (st *State) prepareOrGetContainerInterfaceInfo(
-	containerTag names.MachineTag, allocateNewAddress bool) (
-	[]corenetwork.InterfaceInfo, error) {
+	containerTag names.MachineTag,
+	allocateNewAddress bool,
+) ([]corenetwork.InterfaceInfo, error) {
 	var result params.MachineNetworkConfigResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
