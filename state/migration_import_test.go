@@ -708,6 +708,7 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	c.Assert(cloudService.Addresses(), jc.DeepEquals, network.SpaceAddresses{addr})
 	c.Assert(newApp.GetScale(), gc.Equals, 3)
 	c.Assert(newApp.GetPlacement(), gc.Equals, "")
+	c.Assert(state.GetApplicationHasResources(newApp), jc.IsTrue)
 }
 
 func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
