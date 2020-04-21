@@ -1237,12 +1237,14 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	// Perform model specific arg processing.
 	scale := 0
 	placement := ""
+	hasResources := false
 	switch model.Type() {
 	case ModelTypeIAAS:
 		if err := st.processIAASModelApplicationArgs(&args); err != nil {
 			return nil, errors.Trace(err)
 		}
 	case ModelTypeCAAS:
+		hasResources = true // all k8s apps start with the assumption of resources
 		if err := st.processCAASModelApplicationArgs(&args); err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1273,6 +1275,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		// CAAS
 		DesiredScale: scale,
 		Placement:    placement,
+		HasResources: hasResources,
 	}
 
 	app := newApplication(st, appDoc)

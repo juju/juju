@@ -98,6 +98,7 @@ type mockContainerBroker struct {
 	operatorWatcher        *watchertest.MockNotifyWatcher
 	reportedUnitStatus     status.Status
 	reportedOperatorStatus status.Status
+	units                  []caas.Unit
 }
 
 func (m *mockContainerBroker) Provider() caas.ContainerEnvironProvider {
@@ -111,23 +112,12 @@ func (m *mockContainerBroker) WatchUnits(appName string, mode caas.DeploymentMod
 
 func (m *mockContainerBroker) Units(appName string, mode caas.DeploymentMode) ([]caas.Unit, error) {
 	m.MethodCall(m, "Units", appName, mode)
-	return []caas.Unit{
-			{
-				Id:       "u1",
-				Address:  "10.0.0.1",
-				Status:   status.StatusInfo{Status: m.reportedUnitStatus},
-				Stateful: true,
-				FilesystemInfo: []caas.FilesystemInfo{
-					{MountPoint: "/path-to-here", ReadOnly: true, StorageName: "database",
-						Size: 100, FilesystemId: "fs-id",
-						Status: status.StatusInfo{Status: status.Attaching, Message: "not ready"},
-						Volume: caas.VolumeInfo{VolumeId: "vol-id", Size: 200, Persistent: true,
-							Status: status.StatusInfo{Status: status.Error, Message: "vol not ready"}},
-					},
-				},
-			},
-		},
-		m.NextErr()
+	for i, u := range m.units {
+		u.Status = status.StatusInfo{Status: m.reportedUnitStatus}
+		m.units[i] = u
+
+	}
+	return m.units, m.NextErr()
 }
 
 func (m *mockContainerBroker) Operator(appName string) (*caas.Operator, error) {
@@ -157,9 +147,10 @@ func (m *mockContainerBroker) AnnotateUnit(appName string, mode caas.DeploymentM
 
 type mockApplicationGetter struct {
 	testing.Stub
-	watcher      *watchertest.MockStringsWatcher
-	scaleWatcher *watchertest.MockNotifyWatcher
-	scale        int
+	watcher        *watchertest.MockStringsWatcher
+	scaleWatcher   *watchertest.MockNotifyWatcher
+	deploymentMode caas.DeploymentMode
+	scale          int
 }
 
 func (m *mockApplicationGetter) WatchApplications() (watcher.StringsWatcher, error) {
@@ -179,7 +170,7 @@ func (a *mockApplicationGetter) ApplicationConfig(appName string) (application.C
 
 func (a *mockApplicationGetter) DeploymentMode(appName string) (caas.DeploymentMode, error) {
 	a.MethodCall(a, "DeploymentMode", appName)
-	return caas.ModeWorkload, a.NextErr()
+	return a.deploymentMode, a.NextErr()
 }
 
 func (a *mockApplicationGetter) WatchApplicationScale(application string) (watcher.NotifyWatcher, error) {
@@ -201,11 +192,18 @@ func (a *mockApplicationGetter) ApplicationScale(application string) (int, error
 type mockApplicationUpdater struct {
 	testing.Stub
 	updated chan<- struct{}
+	cleared chan<- struct{}
 }
 
 func (m *mockApplicationUpdater) UpdateApplicationService(arg params.UpdateApplicationServiceArg) error {
 	m.MethodCall(m, "UpdateApplicationService", arg)
 	m.updated <- struct{}{}
+	return m.NextErr()
+}
+
+func (m *mockApplicationUpdater) ClearApplicationResources(appName string) error {
+	m.MethodCall(m, "ClearApplicationResources", appName)
+	m.cleared <- struct{}{}
 	return m.NextErr()
 }
 

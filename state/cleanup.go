@@ -39,6 +39,7 @@ const (
 	cleanupForceRemoveUnit               cleanupKind = "forceRemoveUnit"
 	cleanupRemovedUnit                   cleanupKind = "removedUnit"
 	cleanupApplication                   cleanupKind = "application"
+	cleanupForceApplication              cleanupKind = "forceApplication"
 	cleanupApplicationsForDyingModel     cleanupKind = "applications"
 	cleanupDyingMachine                  cleanupKind = "dyingMachine"
 	cleanupForceDestroyedMachine         cleanupKind = "machine"
@@ -162,6 +163,8 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupCharm(doc.Prefix)
 		case cleanupApplication:
 			err = st.cleanupApplication(doc.Prefix, args)
+		case cleanupForceApplication:
+			err = st.cleanupForceApplication(doc.Prefix, args)
 		case cleanupUnitsForDyingApplication:
 			err = st.cleanupUnitsForDyingApplication(doc.Prefix, args)
 		case cleanupDyingUnit:
@@ -504,6 +507,38 @@ func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.R
 	err = st.ApplyOperation(op)
 	if len(op.Errors) != 0 {
 		logger.Warningf("operational errors cleaning up application %v: %v", applicationname, op.Errors)
+	}
+	return err
+}
+
+// cleanupForceApplication forcibly removes the application.
+func (st *State) cleanupForceApplication(applicationName string, cleanupArgs []bson.Raw) (err error) {
+	logger.Debugf("force destroy application: %v", applicationName)
+	app, err := st.Application(applicationName)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Nothing to do, the application is already gone.
+			logger.Tracef("forceCleanupApplication(%s): application already gone", applicationName)
+			return nil
+		}
+		return errors.Trace(err)
+	}
+
+	var maxWait time.Duration
+	if n := len(cleanupArgs); n != 1 {
+		return errors.Errorf("expected 1 argument, got %d", n)
+	}
+	if err := cleanupArgs[0].Unmarshal(&maxWait); err != nil {
+		return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
+	}
+
+	op := app.DestroyOperation()
+	op.Force = true
+	op.CleanupIgnoringResources = true
+	op.MaxWait = maxWait
+	err = st.ApplyOperation(op)
+	if len(op.Errors) != 0 {
+		logger.Warningf("operational errors cleaning up application %v: %v", applicationName, op.Errors)
 	}
 	return err
 }

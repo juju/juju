@@ -1247,6 +1247,8 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		MetricCredentials:    a.MetricsCredentials(),
 		DesiredScale:         a.DesiredScale(),
 		Placement:            a.Placement(),
+		// TODO(caas)
+		HasResources: i.model.Type() == description.CAAS,
 	}, nil
 }
 

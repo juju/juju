@@ -837,6 +837,11 @@ func GetApplicationConfig(st *State, app *Application) *Settings {
 	return newSettings(st.db(), settingsC, app.applicationConfigKey())
 }
 
+// GetApplicationHasResources returns the app's HasResources value.
+func GetApplicationHasResources(app *Application) bool {
+	return app.doc.HasResources
+}
+
 // GetControllerSettings allows access to settings collection for
 // the controller.
 func GetControllerSettings(st *State) *Settings {

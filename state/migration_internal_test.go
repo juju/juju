@@ -398,6 +398,8 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		// RelationCount is handled by the number of times the application name
 		// appears in relation endpoints.
 		"RelationCount",
+		// TODO(caas)
+		"HasResources",
 	)
 	migrated := set.NewStrings(
 		"Name",
