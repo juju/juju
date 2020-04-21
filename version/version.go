@@ -20,7 +20,7 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "2.7.6"
+const version = "2.7.7"
 
 const (
 	// TreeStateDirty when the build was made with a dirty checkout.
