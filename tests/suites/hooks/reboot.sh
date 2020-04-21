@@ -6,6 +6,10 @@ run_start_hook_fires_after_reboot() {
 
     ensure "${model_name}" "${file}"
 
+    # the log messages the test looks for do not appear if root
+    # log level is WARNING.
+    juju model-config -m "${model_name}" logging-config="<root>=INFO;unit=DEBUG"
+
     juju deploy cs:~jameinel/ubuntu-lite-7
     wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
