@@ -296,7 +296,7 @@ func (s *WorkerSuite) TestModelConfigChange(c *gc.C) {
 	c.Logf("\nupdating status\n\n")
 
 	// Add a different logging config value.
-	expected := "juju=INFO;missing=DEBUG;unit=DEBUG"
+	expected := "juju=INFO;missing=DEBUG"
 	err = model.UpdateModelConfig(map[string]interface{}{
 		"logging-config": expected,
 	}, nil)

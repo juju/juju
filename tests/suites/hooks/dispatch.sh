@@ -9,7 +9,7 @@ run_hook_dispatching_script() {
 
     # the log messages the test looks for do not appear if root
     # log level is WARNING.
-    juju model-config logging-config="<root>=INFO;unit=DEBUG"
+    juju model-config logging-config="<root>=INFO"
 
     juju deploy cs:~juju-qa/bionic/ubuntu-plus-0
     wait_for "ubuntu-plus" "$(idle_condition "ubuntu-plus")"
