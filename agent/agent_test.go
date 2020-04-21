@@ -369,7 +369,7 @@ var attributeParams = agent.AgentConfigParams{
 	Nonce:             "a nonce",
 	Controller:        testing.ControllerTag,
 	Model:             testing.ModelTag,
-	MongoSnapChannel:  "4.0/stable",
+	JujuDBSnapChannel: "4.0/stable",
 }
 
 func (*suite) TestAttributes(c *gc.C) {
@@ -383,7 +383,7 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/machine-1")
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
 	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, jujuversion.Current)
-	c.Assert(conf.MongoSnapChannel(), gc.Equals, "4.0/stable")
+	c.Assert(conf.JujuDBSnapChannel(), gc.Equals, "4.0/stable")
 }
 
 func (*suite) TestStateServingInfo(c *gc.C) {
@@ -640,10 +640,10 @@ func (*suite) TestSetMongoChannel(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, jc.ErrorIsNil)
 
-	snapChannel := conf.MongoSnapChannel()
-	c.Assert(snapChannel, gc.Equals, attributeParams.MongoSnapChannel)
+	snapChannel := conf.JujuDBSnapChannel()
+	c.Assert(snapChannel, gc.Equals, attributeParams.JujuDBSnapChannel)
 
-	conf.SetMongoSnapChannel("latest/candidate")
-	snapChannel = conf.MongoSnapChannel()
+	conf.SetJujuDBSnapChannel("latest/candidate")
+	snapChannel = conf.JujuDBSnapChannel()
 	c.Assert(snapChannel, gc.Equals, "latest/candidate", gc.Commentf("mongo snap channel setting not updated"))
 }

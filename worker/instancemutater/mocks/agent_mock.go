@@ -276,18 +276,18 @@ func (mr *MockConfigMockRecorder) MongoMemoryProfile() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoMemoryProfile", reflect.TypeOf((*MockConfig)(nil).MongoMemoryProfile))
 }
 
-// MongoSnapChannel mocks base method
-func (m *MockConfig) MongoSnapChannel() string {
+// JujuDBSnapChannel mocks base method
+func (m *MockConfig) JujuDBSnapChannel() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MongoSnapChannel")
+	ret := m.ctrl.Call(m, "JujuDBSnapChannel")
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// MongoSnapChannel indicates an expected call of MongoSnapChannel
-func (mr *MockConfigMockRecorder) MongoSnapChannel() *gomock.Call {
+// JujuDBSnapChannel indicates an expected call of JujuDBSnapChannel
+func (mr *MockConfigMockRecorder) JujuDBSnapChannel() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoSnapChannel", reflect.TypeOf((*MockConfig)(nil).MongoSnapChannel))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JujuDBSnapChannel", reflect.TypeOf((*MockConfig)(nil).JujuDBSnapChannel))
 }
 
 // MongoVersion mocks base method

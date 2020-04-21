@@ -95,9 +95,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			configMongoMemoryProfile := mongo.MemoryProfile(controllerConfig.MongoMemoryProfile())
 			mongoProfileChanged := agentsMongoMemoryProfile != configMongoMemoryProfile
 
-			agentsMongoSnapChannel := agent.CurrentConfig().MongoSnapChannel()
-			configMongoSnapChannel := controllerConfig.MongoSnapChannel()
-			mongoSnapChannelChanged := agentsMongoSnapChannel != configMongoSnapChannel
+			agentsJujuDBSnapChannel := agent.CurrentConfig().JujuDBSnapChannel()
+			configJujuDBSnapChannel := controllerConfig.JujuDBSnapChannel()
+			jujuDBSnapChannelChanged := agentsJujuDBSnapChannel != configJujuDBSnapChannel
 
 			info, err := apiState.StateServingInfo()
 			if err != nil {
@@ -121,9 +121,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					logger.Debugf("setting agent config mongo memory profile: %q => %q", agentsMongoMemoryProfile, configMongoMemoryProfile)
 					config.SetMongoMemoryProfile(configMongoMemoryProfile)
 				}
-				if mongoSnapChannelChanged {
-					logger.Debugf("setting agent config mongo snap channel: %q => %q", agentsMongoSnapChannel, configMongoSnapChannel)
-					config.SetMongoSnapChannel(configMongoSnapChannel)
+				if jujuDBSnapChannelChanged {
+					logger.Debugf("setting agent config mongo snap channel: %q => %q", agentsJujuDBSnapChannel, configJujuDBSnapChannel)
+					config.SetJujuDBSnapChannel(configJujuDBSnapChannel)
 				}
 				return nil
 			})
@@ -134,7 +134,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if mongoProfileChanged {
 				logger.Infof("restarting agent for new mongo memory profile")
 				return nil, jworker.ErrRestartAgent
-			} else if mongoSnapChannelChanged {
+			} else if jujuDBSnapChannelChanged {
 				logger.Infof("restarting agent for new mongo snap channel")
 				return nil, jworker.ErrRestartAgent
 			}
@@ -148,11 +148,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			return NewWorker(WorkerConfig{
-				Agent:            agent,
-				Hub:              hub,
-				MongoProfile:     configMongoMemoryProfile,
-				MongoSnapChannel: configMongoSnapChannel,
-				Logger:           config.Logger,
+				Agent:             agent,
+				Hub:               hub,
+				MongoProfile:      configMongoMemoryProfile,
+				JujuDBSnapChannel: configJujuDBSnapChannel,
+				Logger:            config.Logger,
 			})
 		},
 	}

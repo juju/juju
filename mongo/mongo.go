@@ -445,7 +445,7 @@ type EnsureServerParams struct {
 	MemoryProfile MemoryProfile
 
 	// The channel for installing the mongo snap in focal and later.
-	MongoSnapChannel string
+	JujuDBSnapChannel string
 }
 
 // EnsureServer ensures that the MongoDB server is installed,
@@ -462,7 +462,7 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 	tweakSysctlForMongo(mongoKernelTweaks)
 
 	hostSeries := series.MustHostSeries()
-	mongoDep := dependency.Mongo(args.SetNUMAControlPolicy, args.MongoSnapChannel)
+	mongoDep := dependency.Mongo(args.SetNUMAControlPolicy, args.JujuDBSnapChannel)
 	usingMongoFromSnap := providesMongoAsSnap(mongoDep, hostSeries) || featureflag.Enabled(feature.MongoDbSnap)
 
 	// TODO(tsm): clean up the args.DataDir handling. When using a snap, args.DataDir should be
