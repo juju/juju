@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -4103,8 +4104,19 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	c.Assert(statusInfo.Message, gc.Equals, "existing container running")
 	unitHistory, err := u.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitHistory[0].Status, gc.Equals, status.Running)
-	c.Assert(unitHistory[0].Message, gc.Equals, "existing container running")
+	c.Assert(unitHistory, gc.HasLen, 2)
+	// Creating a new unit may cause the history entries to be written with
+	// the same timestamp due to the precision used by the db.
+	if unitHistory[0].Status == status.Running {
+		c.Assert(unitHistory[0].Status, gc.Equals, status.Running)
+		c.Assert(unitHistory[0].Message, gc.Equals, "existing container running")
+		c.Assert(unitHistory[1].Status, gc.Equals, status.Waiting)
+	} else {
+		c.Assert(unitHistory[1].Status, gc.Equals, status.Running)
+		c.Assert(unitHistory[1].Message, gc.Equals, "existing container running")
+		c.Assert(unitHistory[0].Status, gc.Equals, status.Waiting)
+		c.Assert(unitHistory[0].Since.Unix(), gc.Equals, history[1].Since.Unix())
+	}
 
 	u, ok = unitsById["never-cloud-container"]
 	c.Assert(ok, jc.IsTrue)
@@ -4165,8 +4177,19 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	// container status history must have overridden the unit status.
 	unitHistory, err = u.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitHistory[0].Status, gc.Equals, status.Running)
-	c.Assert(unitHistory[0].Message, gc.Equals, "new container running")
+	c.Assert(unitHistory, gc.HasLen, 2)
+	// Creating a new unit may cause the history entries to be written with
+	// the same timestamp due to the precision used by the db.
+	if unitHistory[0].Status == status.Running {
+		c.Assert(unitHistory[0].Status, gc.Equals, status.Running)
+		c.Assert(unitHistory[0].Message, gc.Equals, "new container running")
+		c.Assert(unitHistory[1].Status, gc.Equals, status.Waiting)
+	} else {
+		c.Assert(unitHistory[1].Status, gc.Equals, status.Running)
+		c.Assert(unitHistory[1].Message, gc.Equals, "new container running")
+		c.Assert(unitHistory[0].Status, gc.Equals, status.Waiting)
+		c.Assert(unitHistory[0].Since.Unix(), gc.Equals, history[1].Since.Unix())
+	}
 
 	// check cloud container status history is stored.
 	containerStatusHistory, err := state.GetCloudContainerStatusHistory(s.caasSt, u.Name(), status.StatusHistoryFilter{Size: 10})
@@ -4218,13 +4241,20 @@ func (s *CAASApplicationSuite) TestServiceInfoEmptyProviderId(c *gc.C) {
 	}
 }
 
-func (s *CAASApplicationSuite) TestRemoveUnitDeletesServiceInfo(c *gc.C) {
+func (s *CAASApplicationSuite) TestRemoveApplicationDeletesServiceInfo(c *gc.C) {
 	addrs := network.NewSpaceAddresses("10.0.0.1")
 
 	err := s.app.UpdateCloudService("id", addrs)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	err = s.app.ClearResources()
+	c.Assert(err, jc.ErrorIsNil)
+	// Until cleanups run, no removal.
+	si, err := s.app.ServiceInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(si, gc.NotNil)
+	assertCleanupCount(c, s.caasSt, 2)
 	_, err = s.app.ServiceInfo()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -4364,6 +4394,9 @@ func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
 	c.Assert(history[0].Message, gc.Equals, "waiting for container")
 
 	// Must overwrite the history
+	// Updating status may cause the history entries to be written with
+	// the same timestamp due to the precision used by the db.
+	s.Clock.Advance(1 * time.Millisecond)
 	err = app.SetOperatorStatus(status.StatusInfo{
 		Status:  status.Allocating,
 		Message: "operator message",
@@ -4377,6 +4410,9 @@ func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
 	c.Assert(history[1].Status, gc.Equals, status.Waiting)
 	c.Assert(history[1].Message, gc.Equals, "waiting for container")
 
+	// Updating status may cause the history entries to be written with
+	// the same timestamp due to the precision used by the db.
+	s.Clock.Advance(1 * time.Millisecond)
 	err = app.SetOperatorStatus(status.StatusInfo{
 		Status:  status.Running,
 		Message: "operator running",
@@ -4397,6 +4433,232 @@ func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
 	c.Assert(history[1].Message, gc.Equals, "operator message")
 	c.Assert(history[2].Status, gc.Equals, status.Waiting)
 	c.Assert(history[2].Message, gc.Equals, "waiting for container")
+}
+
+func (s *CAASApplicationSuite) TestClearResources(c *gc.C) {
+	c.Assert(state.GetApplicationHasResources(s.app), jc.IsTrue)
+	err := s.app.ClearResources()
+	c.Assert(err, gc.ErrorMatches, `application "gitlab" is alive`)
+	err = s.app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	assertCleanupCount(c, s.caasSt, 1)
+
+	// ClearResources should be idempotent.
+	for i := 0; i < 2; i++ {
+		err := s.app.ClearResources()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(state.GetApplicationHasResources(s.app), jc.IsFalse)
+	}
+	// Resetting the app's HasResources the first time schedules a cleanup.
+	assertCleanupCount(c, s.caasSt, 2)
+}
+
+func (s *CAASApplicationSuite) TestDestroySimple(c *gc.C) {
+	err := s.app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	// App not removed since cluster resources not cleaned up yet.
+	c.Assert(s.app.Life(), gc.Equals, state.Dead)
+	err = s.app.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(state.GetApplicationHasResources(s.app), jc.IsTrue)
+}
+
+func (s *CAASApplicationSuite) TestForceDestroyQueuesForceCleanup(c *gc.C) {
+	op := s.app.DestroyOperation()
+	op.Force = true
+	err := s.caasSt.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Cleanup queued but won't run until scheduled.
+	assertNeedsCleanup(c, s.caasSt)
+	s.Clock.Advance(2 * time.Minute)
+	assertCleanupRuns(c, s.caasSt)
+
+	err = s.app.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CAASApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
+	unit, err := s.app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.app.Life(), gc.Equals, state.Dying)
+
+	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)
+	assertLife(c, s.app, state.Dying)
+
+	c.Assert(unit.Remove(), jc.ErrorIsNil)
+	assertCleanupCount(c, s.caasSt, 1)
+	// App not removed since cluster resources not cleaned up yet.
+	assertLife(c, s.app, state.Dead)
+}
+
+func (s *CAASApplicationSuite) TestDestroyOnceHadUnits(c *gc.C) {
+	unit, err := s.app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.app.Life(), gc.Equals, state.Dead)
+	// App not removed since cluster resources not cleaned up yet.
+	assertLife(c, s.app, state.Dead)
+}
+
+func (s *CAASApplicationSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
+	unit, err := s.app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.app.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.app.Life(), gc.Equals, state.Dead)
+	// App not removed since cluster resources not cleaned up yet.
+	assertLife(c, s.app, state.Dead)
+}
+
+func (s *CAASApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
+	unit, err := s.app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.app.Life(), gc.Equals, state.Dying)
+	assertLife(c, s.app, state.Dying)
+
+	err = unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	assertLife(c, s.app, state.Dying)
+
+	c.Assert(unit.Remove(), jc.ErrorIsNil)
+	assertCleanupCount(c, s.caasSt, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	// App not removed since cluster resources not cleaned up yet.
+	assertLife(c, s.app, state.Dead)
+}
+
+func (s *CAASApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
+	ch := state.AddTestingCharmForSeries(c, s.caasSt, "kubernetes", "mysql")
+	mysql := state.AddTestingApplication(c, s.caasSt, "mysql", ch)
+	eps, err := s.caasSt.InferEndpoints("gitlab", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.caasSt.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Destroy a application with no units in relation scope; check application and
+	// unit removed.
+	err = mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysql.Refresh()
+	// App not removed since cluster resources not cleaned up yet.
+	assertLife(c, mysql, state.Dead)
+
+	err = rel.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CAASApplicationSuite) TestDestroyWithReferencedRelation(c *gc.C) {
+	s.assertDestroyWithReferencedRelation(c, true)
+}
+
+func (s *CAASApplicationSuite) TestDestroyWithReferencedRelationStaleCount(c *gc.C) {
+	s.assertDestroyWithReferencedRelation(c, false)
+}
+
+func (s *CAASApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh bool) {
+	ch := state.AddTestingCharmForSeries(c, s.caasSt, "kubernetes", "mysql")
+	mysql := state.AddTestingApplication(c, s.caasSt, "mysql", ch)
+	eps, err := s.caasSt.InferEndpoints("gitlab", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel0, err := s.caasSt.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch = state.AddTestingCharmForSeries(c, s.caasSt, "kubernetes", "proxy")
+	state.AddTestingApplication(c, s.caasSt, "proxy", ch)
+	eps, err = s.caasSt.InferEndpoints("proxy", "gitlab")
+	c.Assert(err, jc.ErrorIsNil)
+	rel1, err := s.caasSt.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a separate reference to the first relation.
+	unit, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel0.Unit(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Optionally update the application document to get correct relation counts.
+	if refresh {
+		err = s.app.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// Destroy, and check that the first relation becomes Dying...
+	c.Assert(s.app.Destroy(), jc.ErrorIsNil)
+	assertLife(c, rel0, state.Dying)
+
+	// ...while the second is removed directly.
+	err = rel1.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// Drop the last reference to the first relation; check the relation and
+	// the application are are both removed.
+	c.Assert(ru.LeaveScope(), jc.ErrorIsNil)
+	assertCleanupCount(c, s.caasSt, 1)
+	// App not removed since cluster resources not cleaned up yet.
+	assertLife(c, s.app, state.Dead)
+
+	err = rel0.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CAASApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
+	// Add 5 units; block quick-remove of gitlab/1 and gitlab/3
+	units := make([]*state.Unit, 5)
+	for i := range units {
+		unit, err := s.app.AddUnit(state.AddUnitParams{})
+		c.Assert(err, jc.ErrorIsNil)
+		units[i] = unit
+		if i%2 != 0 {
+			preventUnitDestroyRemove(c, unit)
+		}
+	}
+
+	assertDoesNotNeedCleanup(c, s.caasSt)
+
+	// Destroy gitlab, and check units are not touched.
+	err := s.app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	assertLife(c, s.app, state.Dying)
+	for _, unit := range units {
+		assertLife(c, unit, state.Alive)
+	}
+
+	dirty, err := s.caasSt.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsTrue)
+	assertCleanupCount(c, s.caasSt, 2)
+
+	for i, unit := range units {
+		if i%2 != 0 {
+			assertLife(c, unit, state.Dying)
+		} else {
+			assertRemoved(c, unit)
+		}
+	}
+
+	// App dying until units are gone.
+	assertLife(c, s.app, state.Dying)
 }
 
 func (s *ApplicationSuite) TestSetOperatorStatusNonCAAS(c *gc.C) {

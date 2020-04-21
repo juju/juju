@@ -112,7 +112,15 @@ func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Life(), gc.Equals, state.Dying)
 
-	assertCleanupCount(c, st, 4)
+	assertCleanupCount(c, st, 3)
+
+	// App removal requires cluster resources to be cleared.
+	err = app.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.ClearResources()
+	c.Assert(err, jc.ErrorIsNil)
+	assertCleanupCount(c, st, 2)
+
 	err = app.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = unit.Refresh()
@@ -176,7 +184,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
 
 	f := factory.NewFactory(st2, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
-	f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
 	controllerModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -200,6 +208,13 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
 	model2, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model2.Life(), gc.Equals, state.Dying)
+
+	// App removal requires cluster resources to be cleared.
+	err = app.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.ClearResources()
+	c.Assert(err, jc.ErrorIsNil)
+	assertCleanupCount(c, st2, 2)
 
 	c.Assert(st2.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(st2.RemoveDyingModel(), jc.ErrorIsNil)
@@ -237,7 +252,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 		Series: "kubernetes",
 		Charm:  ch,
 	}
-	application, err = otherSt.AddApplication(args)
+	application2, err := otherSt.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModel, err := s.State.Model()
@@ -257,6 +272,14 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 	c.Assert(err, gc.ErrorMatches, `hosting 1 other model`)
 
 	assertCleanupCount(c, otherSt, 2)
+
+	// App removal requires cluster resources to be cleared.
+	err = application2.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	err = application2.ClearResources()
+	c.Assert(err, jc.ErrorIsNil)
+	assertCleanupCount(c, otherSt, 2)
+
 	assertModel(otherModel, otherSt, state.Dying, 0)
 	c.Assert(otherSt.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(otherSt.RemoveDyingModel(), jc.ErrorIsNil)

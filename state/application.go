@@ -67,6 +67,10 @@ type applicationDoc struct {
 	PasswordHash string `bson:"passwordhash"`
 	// Placement is the placement directive that should be used allocating units/pods.
 	Placement string `bson:"placement,omitempty"`
+	// HasResources is set to false after an application has been removed
+	// and any k8s cluster resources have been fully cleaned up.
+	// Until then, the application must not be removed from the Juju model.
+	HasResources bool `bson:"has-resources,omitempty"`
 }
 
 func newApplication(st *State, doc *applicationDoc) *Application {
@@ -203,14 +207,15 @@ var errRefresh = stderrors.New("state seems inconsistent, refresh and try again"
 // some point; if the application has no units, and no relation involving the
 // application has any units in scope, they are all removed immediately.
 func (a *Application) Destroy() (err error) {
+	op := a.DestroyOperation()
 	defer func() {
 		logger.Tracef("Application(%s).Destroy() => %v", a.doc.Name, err)
 		if err == nil {
-			// This is a white lie; the document might actually be removed.
-			a.doc.Life = Dying
+			// After running the destory ops, app life is either Dying,
+			// or it may be set to Dead. If removed, life will also be marked as Dead.
+			a.doc.Life = op.PostDestoryAppLife
 		}
 	}()
-	op := a.DestroyOperation()
 	err = a.st.ApplyOperation(op)
 	if len(op.Errors) != 0 {
 		logger.Warningf("operational errors destroying application %v: %v", a.Name(), op.Errors)
@@ -240,6 +245,13 @@ type DestroyApplicationOperation struct {
 	// are removed. If this is false, then the operation will
 	// fail if there are any offers remaining.
 	RemoveOffers bool
+
+	// CleanupIgnoringResources is true if this operation has been
+	// scheduled by a forced cleanup task.
+	CleanupIgnoringResources bool
+
+	// PostDestoryAppLife is the life of the app if destroy completes without error.
+	PostDestoryAppLife Life
 
 	// ForcedOperation stores needed information to force this operation.
 	ForcedOperation
@@ -350,6 +362,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 		}
 		ops = append(ops, relOps...)
 	}
+	op.PostDestoryAppLife = Dying
 	if !op.Force && failedRels {
 		return nil, op.LastError()
 	}
@@ -408,7 +421,8 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	ops = append(ops, branchOps...)
 
 	// If the application has no units, and all its known relations will be
-	// removed, the application can also be removed.
+	// removed, the application can also be removed, so long as there are
+	// no other cluster resources, as can be the case for k8s charms.
 	if op.app.doc.UnitCount == 0 && op.app.doc.RelationCount == removeCount {
 		logger.Tracef("DestroyApplicationOperation(%s).destroyOps removing application", op.app.doc.Name)
 		// If we're forcing destruction the assertion shouldn't be that
@@ -418,6 +432,33 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 			{"unitcount", 0},
 			{"relationcount", removeCount},
 		}
+
+		// There are resources pending so don't remove app yet.
+		if op.app.doc.HasResources && !op.CleanupIgnoringResources {
+			if op.Force {
+				// We need to wait longer than normal for any k8s resources to be fully removed
+				// since it can take a while for the cluster to terminate rnning pods etc.
+				logger.Debugf("scheduling forced application %q cleanup", op.app.doc.Name)
+				deadline := op.app.st.stateClock.Now().Add(2 * op.MaxWait)
+				cleanupOp := newCleanupAtOp(deadline, cleanupForceApplication, op.app.doc.Name, op.MaxWait)
+				ops = append(ops, cleanupOp)
+			}
+			logger.Debugf("advancing application %q to dead, waiting for cluster resources", op.app.doc.Name)
+			update := bson.D{{"$set", bson.D{{"life", Dead}}}}
+			if removeCount != 0 {
+				decref := bson.D{{"$inc", bson.D{{"relationcount", -removeCount}}}}
+				update = append(update, decref...)
+			}
+			advanceLifecycleOp := txn.Op{
+				C:      applicationsC,
+				Id:     op.app.doc.DocID,
+				Assert: assertion,
+				Update: update,
+			}
+			op.PostDestoryAppLife = Dead
+			return append(ops, advanceLifecycleOp), nil
+		}
+
 		// When forced, this call will return operations to remove this
 		// application and accumulate all operational errors encountered in the operation.
 		// If the 'force' is not set and the call came across some errors,
@@ -1768,6 +1809,47 @@ func (a *Application) SetScale(scale int, generation int64, force bool) error {
 		return errors.Errorf("cannot set scale for application %q to %v: %v", a, scale, onAbort(err, applicationNotAliveErr))
 	}
 	a.doc.DesiredScale = scale
+	return nil
+}
+
+// ClearResources sets the application's pending resouces to false.
+// This is used on CAAS models.
+func (a *Application) ClearResources() error {
+	if a.doc.Life == Alive {
+		return errors.Errorf("application %q is alive", a.doc.Name)
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+			if !a.doc.HasResources {
+				return nil, jujutxn.ErrNoOperations
+			}
+		}
+		ops := []txn.Op{{
+			C:  applicationsC,
+			Id: a.doc.DocID,
+			Assert: bson.D{
+				{"life", bson.M{"$ne": Alive}},
+				{"charmurl", a.doc.CharmURL},
+				{"unitcount", a.doc.UnitCount},
+				{"has-resources", true}},
+			Update: bson.D{{"$set", bson.D{{"has-resources", false}}}},
+		}}
+		logger.Debugf("aaplication %q still has cluster resources, scheduling cleanup", a.doc.Name)
+		cleanupOp := newCleanupOp(
+			cleanupApplication,
+			a.doc.Name,
+			false, //force
+			false, // destroy storage
+		)
+		return append(ops, cleanupOp), nil
+	}
+	if err := a.st.db().Run(buildTxn); err != nil {
+		return errors.Errorf("cannot clear cluster resources for application %q: %v", a, onAbort(err, applicationNotAliveErr))
+	}
+	a.doc.HasResources = false
 	return nil
 }
 

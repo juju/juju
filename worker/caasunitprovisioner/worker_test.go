@@ -55,6 +55,7 @@ type WorkerSuite struct {
 	serviceDeleted          chan struct{}
 	serviceEnsured          chan struct{}
 	serviceUpdated          chan struct{}
+	resourcesCleared        chan struct{}
 	clock                   *testclock.Clock
 }
 
@@ -124,13 +125,16 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.serviceDeleted = make(chan struct{})
 	s.serviceEnsured = make(chan struct{})
 	s.serviceUpdated = make(chan struct{})
+	s.resourcesCleared = make(chan struct{})
 
 	s.applicationGetter = mockApplicationGetter{
-		watcher:      watchertest.NewMockStringsWatcher(s.applicationChanges),
-		scaleWatcher: watchertest.NewMockNotifyWatcher(s.applicationScaleChanges),
+		watcher:        watchertest.NewMockStringsWatcher(s.applicationChanges),
+		scaleWatcher:   watchertest.NewMockNotifyWatcher(s.applicationScaleChanges),
+		deploymentMode: caas.ModeWorkload,
 	}
 	s.applicationUpdater = mockApplicationUpdater{
 		updated: s.serviceUpdated,
+		cleared: s.resourcesCleared,
 	}
 
 	s.podSpecGetter = mockProvisioningInfoGetterGetter{
@@ -155,6 +159,21 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.containerBroker = mockContainerBroker{
 		unitsWatcher:    watchertest.NewMockNotifyWatcher(s.caasUnitsChanges),
 		operatorWatcher: watchertest.NewMockNotifyWatcher(s.caasOperatorChanges),
+		units: []caas.Unit{
+			{
+				Id:       "u1",
+				Address:  "10.0.0.1",
+				Stateful: true,
+				FilesystemInfo: []caas.FilesystemInfo{
+					{MountPoint: "/path-to-here", ReadOnly: true, StorageName: "database",
+						Size: 100, FilesystemId: "fs-id",
+						Status: status.StatusInfo{Status: status.Attaching, Message: "not ready"},
+						Volume: caas.VolumeInfo{VolumeId: "vol-id", Size: 200, Persistent: true,
+							Status: status.StatusInfo{Status: status.Error, Message: "vol not ready"}},
+					},
+				},
+			},
+		},
 	}
 	s.lifeGetter = mockLifeGetter{}
 	s.lifeGetter.setLife(life.Alive)
@@ -638,6 +657,12 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 	}
 
 	select {
+	case <-s.serviceDeleted:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be deleted")
+	}
+
+	select {
 	case s.applicationScaleChanges <- struct{}{}:
 		c.Fatal("unexpected watch for application scale")
 	case <-time.After(coretesting.ShortWait):
@@ -645,7 +670,7 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 	// There should just be the initial watch call, no subsequent calls to watch/get scale etc.
-	s.applicationGetter.CheckCallNames(c, "WatchApplications")
+	s.applicationGetter.CheckCallNames(c, "WatchApplications", "DeploymentMode")
 }
 
 func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplicationScale(c *gc.C) {
@@ -706,6 +731,147 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplicationScale(c *gc.C
 	}
 	c.Assert(running, jc.IsFalse)
 	workertest.CheckKilled(c, s.applicationGetter.scaleWatcher)
+}
+
+func (s *WorkerSuite) TestRemoveWorkloadApplicationWaitsForResources(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w, err := caasunitprovisioner.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	select {
+	case s.applicationChanges <- []string{"gitlab"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
+
+	// Check that the gitlab worker is running or not;
+	// given it time to startup.
+	shortAttempt := &utils.AttemptStrategy{
+		Total: coretesting.LongWait,
+		Delay: 10 * time.Millisecond,
+	}
+	running := false
+	for a := shortAttempt.Start(); a.Next(); {
+		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
+		if running {
+			break
+		}
+	}
+	c.Assert(running, jc.IsTrue)
+
+	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
+	select {
+	case s.applicationChanges <- []string{"gitlab"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
+
+	select {
+	case <-s.serviceDeleted:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be deleted")
+	}
+
+	// Check that the gitlab worker is running or not;
+	// given it time to shutdown.
+	for a := shortAttempt.Start(); a.Next(); {
+		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
+		if !running {
+			break
+		}
+	}
+	c.Assert(running, jc.IsFalse)
+
+	// Check the undertaker worker clears application resources.
+	s.containerBroker.SetErrors(nil, errors.NotFoundf("operator"))
+	s.containerBroker.units = nil
+
+	select {
+	case s.caasUnitsChanges <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending units change")
+	}
+
+	select {
+	case s.caasOperatorChanges <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending operator change")
+	}
+
+	select {
+	case <-s.resourcesCleared:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for resources to be cleared")
+	}
+}
+
+func (s *WorkerSuite) TestRemoveOperatorApplicationWaitsForResources(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.applicationGetter.deploymentMode = caas.ModeOperator
+
+	w, err := caasunitprovisioner.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	select {
+	case s.applicationChanges <- []string{"gitlab"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
+
+	// Check that the gitlab worker is running or not;
+	// given it time to startup.
+	shortAttempt := &utils.AttemptStrategy{
+		Total: coretesting.LongWait,
+		Delay: 10 * time.Millisecond,
+	}
+	running := false
+	for a := shortAttempt.Start(); a.Next(); {
+		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
+		if running {
+			break
+		}
+	}
+	c.Assert(running, jc.IsTrue)
+
+	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
+	select {
+	case s.applicationChanges <- []string{"gitlab"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
+
+	select {
+	case <-s.serviceDeleted:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be deleted")
+	}
+
+	// Check that the gitlab worker is running or not;
+	// given it time to shutdown.
+	for a := shortAttempt.Start(); a.Next(); {
+		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
+		if !running {
+			break
+		}
+	}
+	c.Assert(running, jc.IsFalse)
+
+	// Check the undertaker worker clears application resources.
+	s.containerBroker.units = nil
+	select {
+	case s.caasUnitsChanges <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending units change")
+	}
+
+	select {
+	case <-s.resourcesCleared:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for resources to be cleared")
+	}
 }
 
 func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {

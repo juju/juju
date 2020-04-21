@@ -3125,6 +3125,14 @@ func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// App removal requires cluster resources to be cleared.
+	err = s.application.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.application.ClearResources()
+	c.Assert(err, jc.ErrorIsNil)
+	assertCleanupCount(c, s.Model.State(), 2)
+
 	s.State.StartSync()
 	select {
 	case _, ok := <-w.Changes():

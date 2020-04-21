@@ -114,7 +114,10 @@ func (p *provisioner) loop() error {
 			var newApps []string
 			for _, app := range apps {
 				appLife, err := p.provisionerFacade.Life(app)
-				if errors.IsNotFound(err) || appLife == life.Dead {
+				if err != nil && !errors.IsNotFound(err) {
+					return errors.Trace(err)
+				}
+				if err != nil || appLife == life.Dead {
 					p.logger.Debugf("deleting operator for %q", app)
 					if err := p.broker.DeleteOperator(app); err != nil {
 						return errors.Annotatef(err, "failed to stop operator for %q", app)

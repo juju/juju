@@ -377,6 +377,27 @@ func (s *CAASProvisionerSuite) TestApplicationConfig(c *gc.C) {
 	c.Assert(results.Results[0].Config, jc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }
 
+func (s *CAASProvisionerSuite) TestClearApplicationsResources(c *gc.C) {
+	results, err := s.facade.ClearApplicationsResources(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-gitlab"},
+			{Tag: "unit-gitlab-0"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{},
+			{
+				Error: &params.Error{
+					Message: `"unit-gitlab-0" is not a valid application tag`,
+				},
+			}},
+	})
+	s.st.CheckCallNames(c, "Application")
+	s.st.application.CheckCallNames(c, "ClearResources")
+}
+
 func strPtr(s string) *string {
 	return &s
 }
