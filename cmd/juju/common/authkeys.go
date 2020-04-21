@@ -44,6 +44,8 @@ func FinalizeAuthorizedKeys(ctx *cmd.Context, attrs map[string]interface{}) erro
 	}
 	coercedAttrs := coerced.(map[string]interface{})
 
+	logger.Criticalf("FinalizeAuthorizedKeys: coerced attributes")
+
 	_, haveAuthorizedKeys := coercedAttrs[config.AuthorizedKeysKey].(string)
 	authorizedKeysPath, haveAuthorizedKeysPath := coercedAttrs[authorizedKeysPathKey].(string)
 	if haveAuthorizedKeys && haveAuthorizedKeysPath {
@@ -61,6 +63,9 @@ func FinalizeAuthorizedKeys(ctx *cmd.Context, attrs map[string]interface{}) erro
 	if err != nil {
 		return errors.Annotate(err, "reading authorized-keys")
 	}
+
+	logger.Criticalf("FinalizeAuthorizedKeys: authorised keys read")
+
 	if haveAuthorizedKeysPath {
 		delete(attrs, authorizedKeysPathKey)
 	}
@@ -89,6 +94,9 @@ func ReadAuthorizedKeys(ctx *cmd.Context, path string) (string, error) {
 	} else {
 		files = append(files, path)
 	}
+
+	logger.Criticalf("ReadAuthorizedKeys: detected public key files")
+
 	var firstError error
 	var keyData []byte
 	for _, f := range files {
@@ -99,6 +107,9 @@ func ReadAuthorizedKeys(ctx *cmd.Context, path string) (string, error) {
 			}
 			continue
 		}
+
+		logger.Criticalf("ReadAuthorizedKeys: normalised path")
+
 		if !filepath.IsAbs(f) {
 			f = filepath.Join(utils.Home(), ".ssh", f)
 		}
@@ -109,6 +120,9 @@ func ReadAuthorizedKeys(ctx *cmd.Context, path string) (string, error) {
 			}
 			continue
 		}
+
+		logger.Criticalf("ReadAuthorizedKeys: read file")
+
 		keyData = append(keyData, bytes.Trim(data, "\n")...)
 		keyData = append(keyData, '\n')
 		ctx.Verbosef("Adding contents of %q to authorized-keys", f)

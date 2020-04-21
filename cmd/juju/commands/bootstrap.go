@@ -1282,6 +1282,8 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		}
 	}
 
+	logger.Criticalf("combined config")
+
 	bootstrapModelConfig := make(map[string]interface{})
 	for k, v := range combinedConfig {
 		switch {
@@ -1298,6 +1300,8 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	if err != nil {
 		return bootstrapConfigs{}, errors.Annotate(err, "constructing bootstrap config")
 	}
+
+	logger.Criticalf("created bootstrap config")
 
 	controllerConfig, err := controller.NewConfig(
 		controllerUUID.String(),
