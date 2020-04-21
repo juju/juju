@@ -45,10 +45,13 @@ parts:
       - github.com/juju/juju/cmd/jujuc
       - github.com/juju/juju/cmd/jujud
       - github.com/juju/juju/cmd/plugins/juju-metadata
+    # go-external-strings is not supported by the standard go plugin.
+    # these strings are filled in by CI.
     go-external-strings:
       github.com/juju/juju/version.GitCommit: ""
       github.com/juju/juju/version.GitTreeState: ""
       github.com/juju/juju/version.build: ""
+    # go-static is not supported by the standard go plugin.
     go-static: true
     override-build: |
       snapcraftctl build
