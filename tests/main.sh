@@ -31,6 +31,7 @@ import_subdir_files includes
 TEST_NAMES="static_analysis \
             appdata \
             branches \
+            caasadmission \
             cli \
             controller \
             deploy \
