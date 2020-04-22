@@ -519,14 +519,6 @@ func (c *Config) ensureUnitLogging() error {
 			loggingConfig = loggo.LoggerInfo()
 		}
 	}
-	levels, err := loggo.ParseConfigString(loggingConfig)
-	if err != nil {
-		return err
-	}
-	// If there is is no specified level for "unit", then set one.
-	if _, ok := levels["unit"]; !ok {
-		loggingConfig = loggingConfig + ";unit=DEBUG"
-	}
 	c.defined["logging-config"] = loggingConfig
 	return nil
 }
