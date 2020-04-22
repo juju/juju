@@ -184,7 +184,7 @@ func (api *API) ensureSubnetsCanBeMoved(subnets []MovingSubnet, spaceName string
 		}
 	}
 
-	affected, err := api.getAffectedNetworks(subnets, force)
+	affected, err := api.getAffectedNetworks(subnets, spaceName, force)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -195,62 +195,29 @@ func (api *API) ensureSubnetsCanBeMoved(subnets []MovingSubnet, spaceName string
 // getAffectedNetworks interrogates machines connected to moving subnets.
 // From these it generates lists of common unit/subnet-topologies,
 // grouped by application.
-func (api *API) getAffectedNetworks(subnets []MovingSubnet, force bool) (*affectedNetworks, error) {
-	allSpaces, err := api.backing.AllSpaceInfos()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+func (api *API) getAffectedNetworks(subnets []MovingSubnet, spaceName string, force bool) (*affectedNetworks, error) {
 	movingSubnetIDs := network.MakeIDSet()
 	for _, subnet := range subnets {
 		movingSubnetIDs.Add(network.Id(subnet.ID()))
 	}
 
-	// After having verified that we are not moving any fan overlays,
-	// we need to indicate that any moving underlays include *their*
-	// overlays as being affected by a move.
-	movingOverlays, err := allSpaces.FanOverlaysFor(movingSubnetIDs)
+	allSpaces, err := api.backing.AllSpaceInfos()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	for _, overlay := range movingOverlays {
-		movingSubnetIDs.Add(overlay.ID)
-	}
 
-	affected := newAffectedNetworks(allSpaces, force)
+	affected, err := newAffectedNetworks(movingSubnetIDs, spaceName, allSpaces, force)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	machines, err := api.backing.AllMachines()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	for _, machine := range machines {
-		addresses, err := machine.AllAddresses()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		var includesMover bool
-		var machineSubnets network.SubnetInfos
-		for _, address := range addresses {
-			sub, err := address.Subnet()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			machineSubnets = append(machineSubnets, sub)
-
-			if movingSubnetIDs.Contains(sub.ID) {
-				includesMover = true
-			}
-		}
-
-		// We only consider this machine if it has an
-		// address in one of the moving subnets.
-		if includesMover {
-			if err = affected.includeMachine(machine, machineSubnets); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
+	if err := affected.processMachines(machines); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	return affected, nil
