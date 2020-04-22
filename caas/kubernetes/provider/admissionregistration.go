@@ -29,7 +29,7 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurations(
 	for name, webhooks := range cfgs {
 		spec := &admissionregistration.MutatingWebhookConfiguration{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        fmt.Sprintf("%s-%s", k.namespace, name), // ensure global reource MutatingWebhookConfiguration's name unique.
+				Name:        fmt.Sprintf("%s-%s", k.namespace, name), // ensure global resource MutatingWebhookConfiguration's name unique.
 				Namespace:   k.namespace,
 				Labels:      k.getAdmissionControllerLabels(appName),
 				Annotations: annotations,

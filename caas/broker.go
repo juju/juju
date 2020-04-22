@@ -130,7 +130,7 @@ type ServiceParams struct {
 	// PodSpec is the spec used to configure a pod.
 	PodSpec *specs.PodSpec
 
-	// RawK8sSpec is the raw spec used to configure a pod.
+	// RawK8sSpec is the raw spec used to to apply to the cluster.
 	RawK8sSpec string
 
 	// ResourceTags is a set of tags to set on the created service.

@@ -7,7 +7,6 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/kr/pretty"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
@@ -184,9 +183,7 @@ func (w *deploymentWorker) loop() error {
 		}
 
 		serviceParams, err := provisionInfoToServiceParams(info)
-		logger.Warningf("provisionInfoToServiceParams info -> len(info.PodSpec) %d, len(info.RawK8sSpec) %d", len(info.PodSpec), len(info.RawK8sSpec))
 		if err != nil {
-			logger.Warningf("provisionInfoToServiceParams info -> %s", pretty.Sprint(info))
 			return errors.Trace(err)
 		}
 		err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, serviceParams, desiredScale, appConfig)
@@ -240,7 +237,7 @@ func provisionInfoToServiceParams(info *apicaasunitprovisioner.ProvisioningInfo)
 		}
 	} else if len(info.RawK8sSpec) > 0 {
 		if serviceParams.RawK8sSpec, err = k8sspecs.ParseRawK8sSpec(info.RawK8sSpec); err != nil {
-			return nil, errors.Annotate(err, "cannot parse raw pod spec")
+			return nil, errors.Annotate(err, "cannot parse raw k8s spec")
 		}
 	}
 	return serviceParams, nil

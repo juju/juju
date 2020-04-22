@@ -215,6 +215,7 @@ func (d *deployer) validate() error {
 	return nil
 }
 
+// Deploy deploys raw k8s spec to the cluster.
 func (d *deployer) Deploy(ctx context.Context, spec string, force bool) error {
 	d.spec = spec
 
@@ -280,6 +281,7 @@ func (d *deployer) clientWithGroupVersion(gv apischema.GroupVersion) (rest.Inter
 	return d.newRestClient(cfg)
 }
 
+// load parses the raw k8s spec into a slice of resource info.
 func (d *deployer) load() (err error) {
 	defer func() {
 		logger.Debugf("processing %d resources for %q, err -> %#v", len(d.resources), d.deploymentName, err)
@@ -339,6 +341,7 @@ func (d *deployer) load() (err error) {
 	}
 }
 
+// apply deploys the resource info to the k8s cluster.
 func (d deployer) apply(ctx context.Context, wg *sync.WaitGroup, info resourceInfo, force bool, errChan chan<- error) (err error) {
 	defer wg.Done()
 

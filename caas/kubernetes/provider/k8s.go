@@ -735,6 +735,10 @@ func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, 
 func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	logger.Debugf("deleting application %s", appName)
 
+	// We prefer deleting resources using labels to do bulk deletion.
+	// Deleting resources using deployment name has been deprecated.
+	// But we keep it for now because some old resources created by
+	// very old Juju probably do not have proper labels set.
 	deploymentName := k.deploymentName(appName, true)
 	if err := k.deleteService(deploymentName); err != nil {
 		return errors.Trace(err)
@@ -748,6 +752,17 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteDeployment(deploymentName); err != nil {
 		return errors.Trace(err)
 	}
+
+	if err := k.deleteStatefulSets(appName); err != nil {
+		return errors.Trace(err)
+	}
+	if err := k.deleteDeployments(appName); err != nil {
+		return errors.Trace(err)
+	}
+	if err := k.deleteServices(appName); err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := k.deleteSecrets(appName); err != nil {
 		return errors.Trace(err)
 	}
@@ -900,7 +915,7 @@ func (k *kubernetesClient) applyRawK8sSpec(
 ) (err error) {
 
 	if params == nil || len(params.RawK8sSpec) == 0 {
-		return errors.Errorf("missing raw pod spec")
+		return errors.Errorf("missing raw k8s spec")
 	}
 
 	if params.Deployment.DeploymentType == "" {
@@ -1575,7 +1590,7 @@ func (k *kubernetesClient) configureDeployment(
 	deployment := &apps.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
-			Labels: map[string]string{labelApplication: appName},
+			Labels: LabelsForApp(appName),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
 				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
@@ -1585,12 +1600,12 @@ func (k *kubernetesClient) configureDeployment(
 			Replicas:             replicas,
 			RevisionHistoryLimit: int32Ptr(deploymentRevisionHistoryLimit),
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{labelApplication: appName},
+				MatchLabels: LabelsForApp(appName),
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
-					Labels:       map[string]string{labelApplication: appName},
+					Labels:       LabelsForApp(appName),
 					Annotations:  podAnnotations(annotations.Copy()).ToMap(),
 				},
 				Spec: workloadSpec.Pod,
@@ -1659,9 +1674,20 @@ func (k *kubernetesClient) getDeployment(name string) (*apps.Deployment, error) 
 }
 
 func (k *kubernetesClient) deleteDeployment(name string) error {
-	deployments := k.client().AppsV1().Deployments(k.namespace)
-	err := deployments.Delete(name, &v1.DeleteOptions{
+	err := k.client().AppsV1().Deployments(k.namespace).Delete(name, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) deleteDeployments(appName string) error {
+	err := k.client().AppsV1().Deployments(k.namespace).DeleteCollection(&v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	}, v1.ListOptions{
+		LabelSelector: labelSetToSelector(LabelsForApp(appName)).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -1774,11 +1800,11 @@ func (k *kubernetesClient) configureService(
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        deploymentName,
-			Labels:      map[string]string{labelApplication: appName},
+			Labels:      LabelsForApp(appName),
 			Annotations: annotations,
 		},
 		Spec: core.ServiceSpec{
-			Selector:                 map[string]string{labelApplication: appName},
+			Selector:                 LabelsForApp(appName),
 			Type:                     serviceType,
 			Ports:                    ports,
 			ExternalIPs:              config.Get(serviceExternalIPsConfigKey, []string(nil)).([]string),
@@ -1797,13 +1823,13 @@ func (k *kubernetesClient) configureHeadlessService(
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   headlessServiceName(deploymentName),
-			Labels: map[string]string{labelApplication: appName},
+			Labels: LabelsForApp(appName),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
 				Add("service.alpha.kubernetes.io/tolerate-unready-endpoints", "true").ToMap(),
 		},
 		Spec: core.ServiceSpec{
-			Selector:                 map[string]string{labelApplication: appName},
+			Selector:                 LabelsForApp(appName),
 			Type:                     core.ServiceTypeClusterIP,
 			ClusterIP:                "None",
 			PublishNotReadyAddresses: true,
@@ -1838,6 +1864,28 @@ func (k *kubernetesClient) deleteService(serviceName string) error {
 		return nil
 	}
 	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) deleteServices(appName string) error {
+	// Service API does not have `DeleteCollection` implemented, so we have to do it like this.
+	api := k.client().CoreV1().Services(k.namespace)
+	services, err := api.List(
+		v1.ListOptions{
+			LabelSelector: labelSetToSelector(LabelsForApp(appName)).String(),
+		},
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, svc := range services.Items {
+		if err := k.deleteService(svc.GetName()); err != nil {
+			if errors.IsNotFound(err) {
+				continue
+			}
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // ExposeService sets up external access to the specified application.
