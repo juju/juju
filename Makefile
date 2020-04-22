@@ -49,7 +49,7 @@ JUJU_BUILD_NUMBER ?=
 
 # Build flag passed to go -mod
 # CI should set this to vendor
-JUJU_GOMOD ?= mod
+JUJU_GOMOD_MODE ?= mod
 
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
@@ -100,8 +100,8 @@ run-tests:
 ## run-tests: Run the unit tests
 	$(eval TMP := $(shell mktemp -d jj-XXX --tmpdir))
 	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
-	@echo 'go test -mod=$(JUJU_GOMOD) -tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
-	@TMPDIR=$(TMP) go test -mod=$(JUJU_GOMOD) -tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
+	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
+	@TMPDIR=$(TMP) go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
 	@rm -r $(TMP)
 
 install: rebuild-schema go-install
@@ -113,14 +113,14 @@ clean:
 
 go-install:
 ## go-install: Install Juju binaries without updating dependencies
-	@echo 'go install -mod=$(JUJU_GOMOD) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
-	@go install -mod=$(JUJU_GOMOD) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
+	@echo 'go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
+	@go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
 
 go-build:
 ## go-build: Build Juju binaries without updating dependencies
 	@mkdir -p $(BUILD_DIR)/bin
-	@echo 'go build -mod=$(JUJU_GOMOD) -o $(BUILD_DIR)/bin -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
-	@go build -mod=$(JUJU_GOMOD) -o $(BUILD_DIR)/bin -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
+	@echo 'go build -mod=$(JUJU_GOMOD_MODE) -o $(BUILD_DIR)/bin -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
+	@go build -mod=$(JUJU_GOMOD_MODE) -o $(BUILD_DIR)/bin -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
 
 vendor-dependencies:
 ## vendor-dependencies: updates vendored dependencies
@@ -217,9 +217,9 @@ operator-image: operator-check-build
 push-operator-image: operator-image
 ## push-operator-image: Push up the new built operator image via docker
 	docker push "$(shell ${OPERATOR_IMAGE_PATH})"
-ifneq ($(shell ${OPERATOR_IMAGE_PATH}),$(shell ${OPERATOR_IMAGE_LEGACY_PATH}))
-	docker push "$(shell ${OPERATOR_IMAGE_LEGACY_PATH})"
-endif
+	@if [ "$(shell ${OPERATOR_IMAGE_PATH})" != "$(shell ${OPERATOR_IMAGE_LEGACY_PATH})" ]; then \
+		docker push "$(shell ${OPERATOR_IMAGE_LEGACY_PATH})"; \
+	fi
 
 microk8s-operator-update: install operator-image
 ## microk8s-operator-update: Push up the new built operator image for use with microk8s
