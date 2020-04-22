@@ -114,7 +114,7 @@ type NetworkBacking interface {
 	SetAvailabilityZones([]providercommon.AvailabilityZone) error
 
 	// AddSpace creates a space
-	AddSpace(Name string, ProviderId corenetwork.Id, Subnets []string, Public bool) error
+	AddSpace(string, corenetwork.Id, []string, bool) (BackingSpace, error)
 
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]BackingSpace, error)
@@ -129,14 +129,6 @@ type NetworkBacking interface {
 
 	// ModelTag returns the tag of the model this state is associated to.
 	ModelTag() names.ModelTag
-
-	// SaveProviderSubnets loads subnets into state.
-	// Currently it does not delete removed subnets.
-	SaveProviderSubnets(subnets []corenetwork.SubnetInfo, spaceID string) error
-
-	// SaveProviderSpaces loads providerSpaces into state.
-	// Currently it does not delete removed spaces.
-	SaveProviderSpaces(providerSpaces []corenetwork.SpaceInfo) error
 }
 
 // BackingSubnetToParamsSubnetV2 converts a network backing subnet to the new

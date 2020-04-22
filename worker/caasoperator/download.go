@@ -41,7 +41,7 @@ func (op *caasOperator) ensureCharm(localState *LocalState) error {
 	localState.CharmModifiedVersion = dbCharmInfo.CharmModifiedVersion
 	curl := dbCharmInfo.URL
 	if localState.CharmURL == curl {
-		logger.Debugf("charm %s already downloaded", curl)
+		op.config.Logger.Debugf("charm %s already downloaded", curl)
 		return nil
 	}
 	if err := op.setStatus(status.Maintenance, "downloading charm (%s)", curl); err != nil {

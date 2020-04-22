@@ -1911,9 +1911,9 @@ func (k *kubernetesClient) WatchUnits(appName string, mode caas.DeploymentMode) 
 	return k.newWatcher(factory.Core().V1().Pods().Informer(), appName, k.clock)
 }
 
-// WatchContainerStart returns a watcher which is notified when the specified container
-// for each unit in the application is starting/restarting. Each string represents
-// the provider id for the unit. If containerName is empty, then the first workload container
+// WatchContainerStart returns a watcher which is notified when a container matching containerName regexp
+// is starting/restarting. Each string represents the provider id for the unit the container belongs to.
+// If containerName regexp matches empty string, then the first workload container
 // is used.
 func (k *kubernetesClient) WatchContainerStart(appName string, containerName string) (watcher.StringsWatcher, error) {
 	pods := k.client().CoreV1().Pods(k.namespace)
@@ -1933,34 +1933,40 @@ func (k *kubernetesClient) WatchContainerStart(appName string, containerName str
 		return nil, errors.Trace(err)
 	}
 
-	podInInit := func(pod *core.Pod) bool {
+	containerNameRegex, err := regexp.Compile("^" + containerName + "$")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	running := func(pod *core.Pod) set.Strings {
 		if _, ok := pod.Annotations[annotationUnit]; !ok {
 			// Ignore pods that aren't annotated as a unit yet.
-			return false
+			return set.Strings{}
 		}
+		running := set.Strings{}
 		for _, cs := range pod.Status.InitContainerStatuses {
-			if cs.Name == containerName {
+			if containerNameRegex.MatchString(cs.Name) {
 				if cs.State.Running != nil {
-					return true
+					running.Add(cs.Name)
 				}
 			}
 		}
 		for i, cs := range pod.Status.ContainerStatuses {
-			useDefault := i == 0 && containerName == ""
-			if cs.Name == containerName || useDefault {
+			useDefault := i == 0 && containerNameRegex.MatchString("")
+			if containerNameRegex.MatchString(cs.Name) || useDefault {
 				if cs.State.Running != nil {
-					return true
+					running.Add(cs.Name)
 				}
 			}
 		}
-		return false
+		return running
 	}
 
-	podInitState := map[string]struct{}{}
+	podInitState := map[string]set.Strings{}
 	var initialEvents []string
 	for _, pod := range podsList.Items {
-		if podInInit(&pod) {
-			podInitState[string(pod.GetUID())] = struct{}{}
+		if containers := running(&pod); !containers.IsEmpty() {
+			podInitState[string(pod.GetUID())] = containers
 			initialEvents = append(initialEvents, providerID(&pod))
 		}
 	}
@@ -1975,9 +1981,14 @@ func (k *kubernetesClient) WatchContainerStart(appName string, containerName str
 			delete(podInitState, key)
 			return "", false
 		}
-		if podInInit(pod) {
-			if _, ok := podInitState[key]; !ok {
-				podInitState[key] = struct{}{}
+		if containers := running(pod); !containers.IsEmpty() {
+			if last, ok := podInitState[key]; ok {
+				podInitState[key] = containers
+				if !containers.Difference(last).IsEmpty() {
+					return providerID(pod), true
+				}
+			} else {
+				podInitState[key] = containers
 				return providerID(pod), true
 			}
 		} else {

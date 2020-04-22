@@ -1,14 +1,14 @@
-// Copyright 2019 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasunitinit_test
+package container_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	gc "gopkg.in/check.v1"
 )
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }

@@ -69,7 +69,7 @@ func (rc *runCommands) Execute(state State) (*State, error) {
 		return nil, errors.Trace(err)
 	}
 
-	response, err := rc.runner.RunCommands(rc.args.Commands)
+	response, err := rc.runner.RunCommands(rc.args.Commands, rc.args.RunLocation)
 	switch err {
 	case context.ErrRequeueAndReboot:
 		rc.logger.Warningf("cannot requeue external commands")

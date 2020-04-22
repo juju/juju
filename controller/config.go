@@ -133,6 +133,10 @@ const (
 	// detault
 	MongoMemoryProfile = "mongo-memory-profile"
 
+	// JujuDBSnapChannel selects the channel to use when installing mongo
+	// snaps for focal or later. The value is ignored for older releases.
+	JujuDBSnapChannel = "juju-db-snap-channel"
+
 	// MaxDebugLogDuration is used to provide a backstop to the execution of a debug-log
 	// command. If someone starts a debug-log session in a remote screen for example, it
 	// is very easy to disconnect from the screen while leaving the debug-log process
@@ -234,6 +238,10 @@ const (
 	// DefaultMongoMemoryProfile is the default profile used by mongo.
 	DefaultMongoMemoryProfile = MongoProfDefault
 
+	// DefaultJujuDBSnapChannel is the default snap channel for installing
+	// mongo in focal or later.
+	DefaultJujuDBSnapChannel = "4.0/stable"
+
 	// DefaultMaxDebugLogDuration is the default duration that debug-log commands
 	// can run before being terminated by the API server.
 	DefaultMaxDebugLogDuration = 24 * time.Hour
@@ -321,6 +329,7 @@ var (
 		SetNUMAControlPolicyKey,
 		StatePort,
 		MongoMemoryProfile,
+		JujuDBSnapChannel,
 		MaxDebugLogDuration,
 		MaxTxnLogSize,
 		MaxPruneTxnBatchSize,
@@ -685,6 +694,11 @@ func (c Config) MongoMemoryProfile() string {
 		return profile.(string)
 	}
 	return DefaultMongoMemoryProfile
+}
+
+// JujuDBSnapChannel returns the channel for installing mongo snaps.
+func (c Config) JujuDBSnapChannel() string {
+	return c.asString(JujuDBSnapChannel)
 }
 
 // NUMACtlPreference returns if numactl is preferred.
@@ -1085,6 +1099,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AutocertDNSNameKey:      schema.String(),
 	AllowModelAccessKey:     schema.Bool(),
 	MongoMemoryProfile:      schema.String(),
+	JujuDBSnapChannel:       schema.String(),
 	MaxDebugLogDuration:     schema.TimeDuration(),
 	MaxTxnLogSize:           schema.String(),
 	MaxPruneTxnBatchSize:    schema.ForceInt(),
@@ -1123,6 +1138,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AutocertDNSNameKey:      schema.Omit,
 	AllowModelAccessKey:     schema.Omit,
 	MongoMemoryProfile:      DefaultMongoMemoryProfile,
+	JujuDBSnapChannel:       DefaultJujuDBSnapChannel,
 	MaxDebugLogDuration:     DefaultMaxDebugLogDuration,
 	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
 	MaxPruneTxnBatchSize:    DefaultMaxPruneTxnBatchSize,
@@ -1227,6 +1243,10 @@ they don't have any access rights to the controller itself`,
 	MongoMemoryProfile: {
 		Type:        environschema.Tstring,
 		Description: `Sets mongo memory profile`,
+	},
+	JujuDBSnapChannel: {
+		Type:        environschema.Tstring,
+		Description: `Sets channel for installing mongo snaps when bootstrapping on focal or later`,
 	},
 	MaxDebugLogDuration: {
 		Type:        environschema.Tstring,

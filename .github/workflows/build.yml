@@ -4,6 +4,7 @@ jobs:
   linux-amd64:
     name: linux-amd64
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
     steps:
     - name: Set up Go 1.10
       uses: actions/setup-go@v1
@@ -30,9 +31,11 @@ jobs:
       working-directory: src/github.com/juju/juju
       run: |
         GOOS=linux GOARCH=amd64 make go-install
+
   linux-arm64:
     name: linux-arm64
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
     steps:
     - name: Set up Go 1.10
       uses: actions/setup-go@v1
@@ -59,9 +62,11 @@ jobs:
       working-directory: src/github.com/juju/juju
       run: |
         GOOS=linux GOARCH=arm64 make go-install
+
   linux-s390x:
     name: linux-s390x
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
     steps:
     - name: Set up Go 1.10
       uses: actions/setup-go@v1
@@ -88,9 +93,11 @@ jobs:
       working-directory: src/github.com/juju/juju
       run: |
         GOOS=linux GOARCH=s390x make go-install
+
   linux-ppc64le:
     name: linux-ppc64le
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
     steps:
     - name: Set up Go 1.10
       uses: actions/setup-go@v1
@@ -117,9 +124,11 @@ jobs:
       working-directory: src/github.com/juju/juju
       run: |
         GOOS=linux GOARCH=ppc64le make go-install
+
   windows-amd64:
     name: windows-amd64
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
     steps:
     - name: Set up Go 1.10
       uses: actions/setup-go@v1
@@ -146,9 +155,11 @@ jobs:
       working-directory: src/github.com/juju/juju
       run: |
         GOOS=windows GOARCH=amd64 make go-install
+
   darwin-amd64:
     name: darwin-amd64
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
     steps:
     - name: Set up Go 1.10
       uses: actions/setup-go@v1

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/version"
@@ -944,6 +945,32 @@ func (m *Model) AllEndpointBindings() ([]ApplicationEndpointBindings, error) {
 		appEndpointBindings[i] = endpointBindings
 	}
 	return appEndpointBindings, nil
+}
+
+// AllEndpointBindingsSpaceNames returns a set of spaces names for all the
+// endpoint bindings.
+func (st *State) AllEndpointBindingsSpaceNames() (set.Strings, error) {
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	allEndpointBindings, err := model.AllEndpointBindings()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	allEndpointBindingsSpaces := set.NewStrings()
+	for _, binding := range allEndpointBindings {
+		bindingSpaceNames, err := binding.Bindings.MapWithSpaceNames()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, spaceName := range bindingSpaceNames {
+			allEndpointBindingsSpaces.Add(spaceName)
+		}
+	}
+
+	return allEndpointBindingsSpaces, nil
 }
 
 // Users returns a slice of all users for this model.

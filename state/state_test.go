@@ -1536,6 +1536,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 		state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
+	c.Assert(state.GetApplicationHasResources(wordpress), jc.IsFalse)
 	outsettings, err := wordpress.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()
@@ -1585,6 +1586,7 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gitlab.Name(), gc.Equals, "gitlab")
 	c.Assert(gitlab.GetScale(), gc.Equals, 0)
+	c.Assert(state.GetApplicationHasResources(gitlab), jc.IsTrue)
 	outsettings, err := gitlab.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()
@@ -1974,7 +1976,6 @@ var inferEndpointsTests = []struct {
 				Name:      "logging-directory",
 				Role:      "requirer",
 				Interface: "logging",
-				Limit:     1,
 				Scope:     charm.ScopeContainer,
 			}}, {
 			ApplicationName: "lg2",
@@ -1982,7 +1983,6 @@ var inferEndpointsTests = []struct {
 				Name:      "logging-client",
 				Role:      "provider",
 				Interface: "logging",
-				Limit:     0,
 				Scope:     charm.ScopeGlobal,
 			}},
 		},
@@ -1998,7 +1998,6 @@ var inferEndpointsTests = []struct {
 			Relation: charm.Relation{
 				Name:      "ring",
 				Interface: "riak",
-				Limit:     1,
 				Role:      charm.RolePeer,
 				Scope:     charm.ScopeGlobal,
 			},
@@ -2045,7 +2044,6 @@ var inferEndpointsTests = []struct {
 				Name:      "logging-directory",
 				Role:      charm.RoleRequirer,
 				Scope:     charm.ScopeContainer,
-				Limit:     1,
 			},
 		}, {
 			ApplicationName: "wp",
@@ -2070,7 +2068,6 @@ var inferEndpointsTests = []struct {
 				Name:      "info",
 				Role:      charm.RoleRequirer,
 				Scope:     charm.ScopeContainer,
-				Limit:     1,
 			},
 		}, {
 			ApplicationName: "wp",
@@ -2091,7 +2088,6 @@ var inferEndpointsTests = []struct {
 				Name:      "info",
 				Role:      charm.RoleRequirer,
 				Scope:     charm.ScopeContainer,
-				Limit:     1,
 			},
 		}, {
 			ApplicationName: "ms",

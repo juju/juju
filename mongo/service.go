@@ -15,9 +15,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
@@ -84,15 +82,15 @@ type mongoService interface {
 	service.ServiceActions
 }
 
-var newService = func(name string, conf common.Conf) (mongoService, error) {
-	if featureflag.Enabled(feature.MongoDbSnap) {
+var newService = func(name string, usingSnap bool, conf common.Conf) (mongoService, error) {
+	if usingSnap {
 		return snap.NewServiceFromName(name, conf)
 	}
 	return service.DiscoverService(name, conf)
 }
 
 var discoverService = func(name string) (mongoService, error) {
-	return newService(name, common.Conf{})
+	return newService(name, false, common.Conf{})
 }
 
 // IsServiceInstalled returns whether the MongoDB init service
@@ -170,8 +168,8 @@ func sharedSecretPath(dataDir string) string {
 	return filepath.Join(dataDir, SharedSecretFile)
 }
 
-func logPath(dataDir string) string {
-	if featureflag.Enabled(feature.MongoDbSnap) {
+func logPath(dataDir string, usingMongoFromSnap bool) string {
+	if usingMongoFromSnap {
 		return filepath.Join(dataDir, "logs", "mongodb.log")
 	}
 	return mongoLogPath
@@ -359,12 +357,12 @@ func (mongoArgs *ConfigArgs) asMap() configArgsConverter {
 	return result
 }
 
-func (mongoArgs *ConfigArgs) asService() (mongoService, error) {
-	return newService(ServiceName, mongoArgs.asServiceConf())
+func (mongoArgs *ConfigArgs) asService(usingMongoFromSnap bool) (mongoService, error) {
+	return newService(ServiceName, usingMongoFromSnap, mongoArgs.asServiceConf(usingMongoFromSnap))
 }
 
 // asServiceConf returns the init system config for the mongo state service.
-func (mongoArgs *ConfigArgs) asServiceConf() common.Conf {
+func (mongoArgs *ConfigArgs) asServiceConf(usingMongoFromSnap bool) common.Conf {
 	// See https://docs.mongodb.com/manual/reference/ulimit/.
 	limits := map[string]string{
 		"fsize":   "unlimited", // file size
@@ -378,8 +376,8 @@ func (mongoArgs *ConfigArgs) asServiceConf() common.Conf {
 		Desc:        "juju state database",
 		Limit:       limits,
 		Timeout:     serviceTimeout,
-		ExecStart:   mongoArgs.startCommand(),
-		ExtraScript: mongoArgs.extraScript(),
+		ExecStart:   mongoArgs.startCommand(usingMongoFromSnap),
+		ExtraScript: mongoArgs.extraScript(usingMongoFromSnap),
 	}
 	return conf
 }
@@ -392,8 +390,8 @@ func (mongoArgs *ConfigArgs) asCommandLineArguments() string {
 	return mongoArgs.MongoPath + " " + mongoArgs.asMap().asCommandLineArguments()
 }
 
-func (mongoArgs *ConfigArgs) startCommand() string {
-	if featureflag.Enabled(feature.MongoDbSnap) {
+func (mongoArgs *ConfigArgs) startCommand(usingMongoFromSnap bool) string {
+	if usingMongoFromSnap {
 		// TODO(tsm): work out how to bridge mongoService and service.Service
 		// to access the StartCommands method, rather than duplicating code
 		return snap.Command + " start --enable " + ServiceName
@@ -406,8 +404,8 @@ func (mongoArgs *ConfigArgs) startCommand() string {
 	return cmd + mongoArgs.asCommandLineArguments()
 }
 
-func (mongoArgs *ConfigArgs) extraScript() string {
-	if featureflag.Enabled(feature.MongoDbSnap) {
+func (mongoArgs *ConfigArgs) extraScript(usingMongoFromSnap bool) string {
+	if usingMongoFromSnap {
 		return ""
 	}
 
@@ -438,30 +436,30 @@ func (mongoArgs *ConfigArgs) writeConfig(path string) error {
 
 // newMongoDBArgsWithDefaults returns *mongoDbConfigArgs
 // under the assumption that MongoDB 3.4 or later is running.
-func generateConfig(mongoPath string, dataDir string, statePort int, oplogSizeMB int, setNUMAControlPolicy bool, version Version, memProfile MemoryProfile) *ConfigArgs {
+func generateConfig(mongoPath string, oplogSizeMB int, version Version, usingMongoFromSnap bool, args EnsureServerParams) *ConfigArgs {
 	usingWiredTiger := version.StorageEngine == WiredTiger
 	usingMongo2 := version.Major == 2
 	usingMongo4orAbove := version.Major > 3
 	usingMongo36orAbove := usingMongo4orAbove || (version.Major == 3 && version.Minor >= 6)
 	usingMongo34orAbove := usingMongo36orAbove || (version.Major == 3 && version.Minor >= 4)
-	useLowMemory := memProfile == MemoryProfileLow
+	useLowMemory := args.MemoryProfile == MemoryProfileLow
 
 	mongoArgs := &ConfigArgs{
-		DataDir:          dataDir,
-		DBDir:            DbDir(dataDir),
+		DataDir:          args.DataDir,
+		DBDir:            DbDir(args.DataDir),
 		MongoPath:        mongoPath,
-		Port:             statePort,
+		Port:             args.StatePort,
 		OplogSizeMB:      oplogSizeMB,
-		WantNUMACtl:      setNUMAControlPolicy,
+		WantNUMACtl:      args.SetNUMAControlPolicy,
 		Version:          version,
 		IPv6:             network.SupportsIPv6(),
-		MemoryProfile:    memProfile,
+		MemoryProfile:    args.MemoryProfile,
 		Syslog:           true,
 		Journal:          true,
 		Quiet:            true,
 		ReplicaSet:       ReplicaSetName,
-		AuthKeyFile:      sharedSecretPath(dataDir),
-		PEMKeyFile:       sslKeyPath(dataDir),
+		AuthKeyFile:      sharedSecretPath(args.DataDir),
+		PEMKeyFile:       sslKeyPath(args.DataDir),
 		PEMKeyPassword:   "ignored", // used as boilerplate later
 		SSLOnNormalPorts: false,
 		//BindIP:                "127.0.0.1", // TODO(tsm): use machine's actual IP address via dialInfo
@@ -490,12 +488,12 @@ func generateConfig(mongoPath string, dataDir string, statePort int, oplogSizeMB
 		mongoArgs.SSLMode = "requireSSL"
 	}
 
-	if featureflag.Enabled(feature.MongoDbSnap) {
+	if usingMongoFromSnap {
 		// Switch from syslog to appending to dataDir, because snaps don't
 		// have the same permissions.
 		mongoArgs.Syslog = false
 		mongoArgs.LogAppend = true
-		mongoArgs.LogPath = logPath(dataDir)
+		mongoArgs.LogPath = logPath(args.DataDir, true)
 		mongoArgs.BindToAllIP = true // TODO(tsm): disable when not needed
 	}
 
@@ -504,7 +502,8 @@ func generateConfig(mongoPath string, dataDir string, statePort int, oplogSizeMB
 
 // newConf returns the init system config for the mongo state service.
 func newConf(args *ConfigArgs) common.Conf {
-	return args.asServiceConf()
+	usingJujuDBSnap := args.DataDir == dataPathForJujuDbSnap
+	return args.asServiceConf(usingJujuDBSnap)
 }
 
 func ensureDirectoriesMade(dataDir string) error {
@@ -526,6 +525,8 @@ func EnsureServiceInstalled(dataDir string, statePort int, oplogSizeMB int, setN
 		return errors.Trace(err)
 	}
 
+	usingMongoFromSnap := dataDir == dataPathForJujuDbSnap
+
 	mongoPath, err := Path(version)
 	if err != nil {
 		return errors.NewNotFound(err, "unable to find path to mongod")
@@ -533,19 +534,22 @@ func EnsureServiceInstalled(dataDir string, statePort int, oplogSizeMB int, setN
 
 	mongoArgs := generateConfig(
 		mongoPath,
-		dataDir,
-		statePort,
 		oplogSizeMB,
-		setNUMAControlPolicy,
 		version,
-		memProfile,
+		usingMongoFromSnap,
+		EnsureServerParams{
+			DataDir:              dataDir,
+			StatePort:            statePort,
+			SetNUMAControlPolicy: setNUMAControlPolicy,
+			MemoryProfile:        memProfile,
+		},
 	)
 
 	if !auth {
 		mongoArgs.AuthKeyFile = ""
 	}
 
-	service, err := mongoArgs.asService()
+	service, err := mongoArgs.asService(usingMongoFromSnap)
 	if err != nil {
 		return errors.Trace(err)
 	}

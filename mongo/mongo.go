@@ -443,6 +443,9 @@ type EnsureServerParams struct {
 	// MemoryProfile determines which value is going to be used by
 	// the cache and future memory tweaks.
 	MemoryProfile MemoryProfile
+
+	// The channel for installing the mongo snap in focal and later.
+	JujuDBSnapChannel string
 }
 
 // EnsureServer ensures that the MongoDB server is installed,
@@ -454,38 +457,19 @@ func EnsureServer(args EnsureServerParams) (Version, error) {
 	return ensureServer(args, mongoKernelTweaks)
 }
 
-func setupDataDirectory(args EnsureServerParams) error {
-	dbDir := DbDir(args.DataDir)
-	if err := os.MkdirAll(dbDir, 0700); err != nil {
-		return errors.Annotate(err, "cannot create mongo database directory")
-	}
-
-	// TODO(fix): rather than copy, we should ln -s coz it could be changed later!!!
-	if err := UpdateSSLKey(args.DataDir, args.Cert, args.PrivateKey); err != nil {
-		return errors.Trace(err)
-	}
-
-	err := utils.AtomicWriteFile(sharedSecretPath(args.DataDir), []byte(args.SharedSecret), 0600)
-	if err != nil {
-		return errors.Annotatef(err, "cannot write mongod shared secret to %v", sharedSecretPath(args.DataDir))
-	}
-
-	if err := os.MkdirAll(logPath(dbDir), 0644); err != nil {
-		return errors.Annotate(err, "cannot create mongodb logging directory")
-	}
-
-	return nil
-}
-
 func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) (Version, error) {
 	var zeroVersion Version
 	tweakSysctlForMongo(mongoKernelTweaks)
+
+	hostSeries := series.MustHostSeries()
+	mongoDep := dependency.Mongo(args.SetNUMAControlPolicy, args.JujuDBSnapChannel)
+	usingMongoFromSnap := providesMongoAsSnap(mongoDep, hostSeries) || featureflag.Enabled(feature.MongoDbSnap)
 
 	// TODO(tsm): clean up the args.DataDir handling. When using a snap, args.DataDir should be
 	//            set earlier in the bootstrapping process. An extra variable is needed here because
 	//            cloudconfig sends local snaps to /var/lib/juju/
 	dataDir := args.DataDir
-	if featureflag.Enabled(feature.MongoDbSnap) {
+	if usingMongoFromSnap {
 		if args.DataDir != dataPathForJujuDbSnap {
 			logger.Warningf("overwriting args.dataDir (set to %v) to %v", args.DataDir, dataPathForJujuDbSnap)
 			args.DataDir = dataPathForJujuDbSnap
@@ -497,9 +481,9 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 		args.DataDir, args.StatePort,
 	)
 
-	setupDataDirectory(args)
+	setupDataDirectory(args, usingMongoFromSnap)
 
-	if err := installMongod(series.MustHostSeries(), args.SetNUMAControlPolicy, dataDir); err != nil {
+	if err := installMongod(mongoDep, hostSeries, dataDir); err != nil {
 		// This isn't treated as fatal because the Juju MongoDB
 		// package is likely to be already installed anyway. There
 		// could just be a temporary issue with apt-get/yum/whatever
@@ -536,17 +520,19 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 		}
 	}
 
-	mongoArgs := generateConfig(mongoPath, args.DataDir, args.StatePort, oplogSizeMB, args.SetNUMAControlPolicy, mongodVersion, args.MemoryProfile)
+	mongoArgs := generateConfig(mongoPath, oplogSizeMB, mongodVersion, usingMongoFromSnap, args)
 	logger.Debugf("creating mongo service configuration for mongo version: %d.%d.%d-%s at %q",
 		mongoArgs.Version.Major, mongoArgs.Version.Minor, mongoArgs.Version.Point, mongoArgs.Version.Patch, mongoArgs.MongoPath)
 
-	svc, err := mongoArgs.asService()
+	svc, err := mongoArgs.asService(usingMongoFromSnap)
 	if err != nil {
 		return zeroVersion, errors.Trace(err)
 	}
 
+	// Update configuration if we are using mongo from snap (focal+ or
+	// on an earlier series using the feature flag).
 	// TODO(tsm): refactor out to service.Configure
-	if featureflag.Enabled(feature.MongoDbSnap) {
+	if usingMongoFromSnap {
 		err = mongoArgs.writeConfig(configPath(args.DataDir))
 		if err != nil {
 			return zeroVersion, errors.Trace(err)
@@ -612,6 +598,29 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 	return mongodVersion, nil
 }
 
+func setupDataDirectory(args EnsureServerParams, usingMongoFromSnap bool) error {
+	dbDir := DbDir(args.DataDir)
+	if err := os.MkdirAll(dbDir, 0700); err != nil {
+		return errors.Annotate(err, "cannot create mongo database directory")
+	}
+
+	// TODO(fix): rather than copy, we should ln -s coz it could be changed later!!!
+	if err := UpdateSSLKey(args.DataDir, args.Cert, args.PrivateKey); err != nil {
+		return errors.Trace(err)
+	}
+
+	err := utils.AtomicWriteFile(sharedSecretPath(args.DataDir), []byte(args.SharedSecret), 0600)
+	if err != nil {
+		return errors.Annotatef(err, "cannot write mongod shared secret to %v", sharedSecretPath(args.DataDir))
+	}
+
+	if err := os.MkdirAll(logPath(dbDir, usingMongoFromSnap), 0644); err != nil {
+		return errors.Annotate(err, "cannot create mongodb logging directory")
+	}
+
+	return nil
+}
+
 func truncateAndWriteIfExists(procFile, value string) error {
 	if _, err := os.Stat(procFile); os.IsNotExist(err) {
 		logger.Debugf("%q does not exist, will not set %q", procFile, value)
@@ -669,45 +678,59 @@ func logVersion(mongoPath string) {
 	logger.Debugf("using mongod: %s --version: %q", mongoPath, output)
 }
 
-func getSnapChannel() string {
-	return fmt.Sprintf("%s/%s", SnapTrack, SnapRisk)
-}
+func installMongod(mongoDep packaging.Dependency, hostSeries, dataDir string) error {
+	// If we are not forcing a mongo snap via a feature flag, install the
+	// package list (which may also include snaps for focal+) provided by
+	// the mongo dependency for our series.
+	if !featureflag.Enabled(feature.MongoDbSnap) {
+		return packaging.InstallDependency(mongoDep, hostSeries)
+	}
 
-func installMongod(operatingsystem string, numaCtl bool, dataDir string) error {
-	if featureflag.Enabled(feature.MongoDbSnap) {
-		snapName := ServiceName
-		jujuDbLocalSnapPattern := regexp.MustCompile(`juju-db_[0-9]+\.snap`)
+	snapName := ServiceName
+	jujuDbLocalSnapPattern := regexp.MustCompile(`juju-db_[0-9]+\.snap`)
 
-		// If we're installing a local snap, then provide an absolute path
-		// as a snap <name>. snap install <name> will then do the Right Thing (TM).
-		files, err := ioutil.ReadDir(path.Join(dataDir, "snap"))
-		if err == nil {
-			for _, fullFileName := range files {
-				_, fileName := path.Split(fullFileName.Name())
-				if jujuDbLocalSnapPattern.MatchString(fileName) {
-					snapName = fullFileName.Name()
-				}
+	// If we're installing a local snap, then provide an absolute path
+	// as a snap <name>. snap install <name> will then do the Right Thing (TM).
+	files, err := ioutil.ReadDir(path.Join(dataDir, "snap"))
+	if err == nil {
+		for _, fullFileName := range files {
+			_, fileName := path.Split(fullFileName.Name())
+			if jujuDbLocalSnapPattern.MatchString(fileName) {
+				snapName = fullFileName.Name()
 			}
 		}
-
-		prerequisites := []snap.App{snap.NewApp("core")}
-		backgroundServices := []snap.BackgroundService{{"daemon", true}}
-		conf := common.Conf{Desc: ServiceName + " snap"}
-		service, err := snap.NewService(snapName, ServiceName, conf, snap.Command, getSnapChannel(), "", backgroundServices, prerequisites)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return service.Install()
 	}
 
-	if err := packaging.InstallDependency(dependency.Mongo(numaCtl), operatingsystem); err != nil {
-		return err
+	prerequisites := []snap.App{snap.NewApp("core")}
+	backgroundServices := []snap.BackgroundService{
+		{
+			Name:            "daemon",
+			EnableAtStartup: true,
+		},
+	}
+	conf := common.Conf{Desc: ServiceName + " snap"}
+	snapChannel := fmt.Sprintf("%s/%s", SnapTrack, SnapRisk)
+	service, err := snap.NewService(snapName, ServiceName, conf, snap.Command, snapChannel, "", backgroundServices, prerequisites)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
-	return nil
+	return service.Install()
 }
 
 // DbDir returns the dir where mongo storage is.
 func DbDir(dataDir string) string {
 	return filepath.Join(dataDir, "db")
+}
+
+// providesMongoAsSnap returns true if a mongo dependency provides mongo
+// as a snap for the specified OS series.
+func providesMongoAsSnap(mongoDep packaging.Dependency, series string) bool {
+	pkgList, _ := mongoDep.PackageList(series)
+	for _, pkg := range pkgList {
+		if pkg.PackageManager == packaging.SnapPackageManager && pkg.Name == JujuDbSnap {
+			return true
+		}
+	}
+	return false
 }

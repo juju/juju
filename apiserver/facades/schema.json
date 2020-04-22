@@ -7455,6 +7455,17 @@
                         }
                     }
                 },
+                "ClearApplicationsResources": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
                 "DeploymentMode": {
                     "type": "object",
                     "properties": {

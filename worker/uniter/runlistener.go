@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runcommands"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 const JujuRunEndpoint = "JujuRunServer.RunCommands"
@@ -48,6 +49,9 @@ type RunCommandsArgs struct {
 	UnitName string
 	// Token is the unit token when run under CAAS environments for auth.
 	Token string
+	// Operator is true when the command should be run on the operator.
+	// This only affects k8s workload charms.
+	Operator bool
 }
 
 // A CommandRunner is something that will actually execute the commands and
@@ -314,6 +318,11 @@ func (c *ChannelCommandRunner) RunCommands(args RunCommandsArgs) (results *exec.
 		}
 	}
 
+	runLocation := runner.Workload
+	if args.Operator {
+		runLocation = runner.Operator
+	}
+
 	id := c.config.Commands.AddCommand(
 		operation.CommandArgs{
 			Commands:       args.Commands,
@@ -321,6 +330,7 @@ func (c *ChannelCommandRunner) RunCommands(args RunCommandsArgs) (results *exec.
 			RemoteUnitName: args.RemoteUnitName,
 			// TODO(jam): 2019-10-24 Include RemoteAppName
 			ForceRemoteUnit: args.ForceRemoteUnit,
+			RunLocation:     runLocation,
 		},
 		responseFunc,
 	)

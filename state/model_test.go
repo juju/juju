@@ -575,6 +575,25 @@ func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 	c.Assert(listBindings[0].Bindings.Map(), gc.DeepEquals, expected)
 }
 
+func (s *ModelSuite) TestAllEndpointBindingsSpaceNames(c *gc.C) {
+	oneSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
+		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+	state.AddTestingApplicationWithBindings(
+		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
+		map[string]string{"db": oneSpace.Id()})
+
+	spaceNames, err := s.State.AllEndpointBindingsSpaceNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spaceNames.Size(), gc.Equals, 2)
+	c.Assert(spaceNames.SortedValues(), gc.DeepEquals, []string{"alpha", "one"})
+}
+
+func (s *ModelSuite) TestAllEndpointBindingsSpaceNamesWithoutAnySpaces(c *gc.C) {
+	spaceNames, err := s.State.AllEndpointBindingsSpaceNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spaceNames.Size(), gc.Equals, 0)
+}
+
 // createTestModelConfig returns a new model config and its UUID for testing.
 func (s *ModelSuite) createTestModelConfig(c *gc.C) (*config.Config, string) {
 	return createTestModelConfig(c, s.modelTag.Id())

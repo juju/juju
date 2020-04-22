@@ -162,7 +162,6 @@ func (s *ResolverOpFactorySuite) TestUpgrade(c *gc.C) {
 	s.testUpgrade(c, resolver.ResolverOpFactory.NewUpgrade)
 	s.testUpgrade(c, resolver.ResolverOpFactory.NewRevertUpgrade)
 	s.testUpgrade(c, resolver.ResolverOpFactory.NewResolvedUpgrade)
-	s.testUpgrade(c, resolver.ResolverOpFactory.NewNoOpUpgrade)
 }
 
 func (s *ResolverOpFactorySuite) testUpgrade(
@@ -177,6 +176,26 @@ func (s *ResolverOpFactorySuite) testUpgrade(
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.LocalState.CharmURL, jc.DeepEquals, curl)
 	c.Assert(f.LocalState.Conflicted, jc.IsFalse)
+}
+
+func (s *ResolverOpFactorySuite) TestRemoteInit(c *gc.C) {
+	f := resolver.NewResolverOpFactory(s.opFactory)
+	f.LocalState.OutdatedRemoteCharm = true
+	op, err := f.NewRemoteInit(remotestate.ContainerRunningStatus{})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = op.Commit(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(f.LocalState.OutdatedRemoteCharm, jc.IsFalse)
+}
+
+func (s *ResolverOpFactorySuite) TestSkipRemoteInit(c *gc.C) {
+	f := resolver.NewResolverOpFactory(s.opFactory)
+	f.LocalState.OutdatedRemoteCharm = true
+	op, err := f.NewSkipRemoteInit(false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = op.Commit(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(f.LocalState.OutdatedRemoteCharm, jc.IsTrue)
 }
 
 func (s *ResolverOpFactorySuite) TestNewUpgradeError(c *gc.C) {

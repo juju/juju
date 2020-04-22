@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -42,7 +43,7 @@ type CAASOperatorSuite struct {
 }
 
 func newExecClient(modelName string) (exec.Executor, error) {
-	return nil, nil
+	return &mockExecutor{}, nil
 }
 
 func (s *CAASOperatorSuite) SetUpSuite(c *gc.C) {
@@ -228,4 +229,20 @@ type mockContainerStartWatcher struct{}
 
 func (*mockContainerStartWatcher) WatchContainerStart(appName string, container string) (watcher.StringsWatcher, error) {
 	return watchertest.NewMockStringsWatcher(make(chan []string)), nil
+}
+
+type mockExecutor struct{}
+
+var _ exec.Executor = &mockExecutor{}
+
+func (*mockExecutor) Status(params exec.StatusParams) (*exec.Status, error) {
+	return nil, errors.NotImplementedf("exec status")
+}
+
+func (*mockExecutor) Exec(params exec.ExecParams, cancel <-chan struct{}) error {
+	return errors.NotImplementedf("exec")
+}
+
+func (*mockExecutor) Copy(params exec.CopyParams, cancel <-chan struct{}) error {
+	return errors.NotImplementedf("exec copy")
 }

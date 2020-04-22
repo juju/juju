@@ -1,7 +1,7 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasunitinit_test
+package caasoperator_test
 
 import (
 	"bytes"
@@ -20,7 +20,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/caasoperator/mocks"
-	"github.com/juju/juju/worker/caasunitinit"
 )
 
 type UnitInitializerSuite struct {
@@ -39,9 +38,10 @@ func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
 
 	mockExecClient := mocks.NewMockExecutor(ctrl)
 
-	params := caasunitinit.InitializeUnitParams{
-		UnitTag: names.NewUnitTag("gitlab/0"),
-		Logger:  loggo.GetLogger("test"),
+	params := caasoperator.InitializeUnitParams{
+		InitType: caasoperator.UnitInit,
+		UnitTag:  names.NewUnitTag("gitlab/0"),
+		Logger:   loggo.GetLogger("test"),
 		Paths: caasoperator.Paths{
 			State: caasoperator.StatePaths{
 				CharmDir: "dir/charm",
@@ -51,9 +51,7 @@ func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
 		OperatorInfo: caas.OperatorInfo{
 			CACert: "ca-cert",
 		},
-		UnitProviderIDFunc: func(unit names.UnitTag) (string, error) {
-			return "gitlab-ffff", nil
-		},
+		ProviderID: "gitlab-ffff",
 		TempDir: func(dir string, prefix string) (string, error) {
 			return filepath.Join(dir, prefix+"-random"), nil
 		},
@@ -102,9 +100,10 @@ func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
 		}, gomock.Any()).Return(nil),
 		mockExecClient.EXPECT().Exec(exec.ExecParams{
 			Commands: []string{"/var/lib/juju/tools/jujud", "caas-unit-init",
-				"--send", "--unit", "unit-gitlab-0",
+				"--unit", "unit-gitlab-0",
 				"--charm-dir",
 				filepath.Join(os.TempDir(), "unit-gitlab-0-random/charm"),
+				"--send",
 				"--operator-file",
 				filepath.Join(os.TempDir(), "unit-gitlab-0-random/operator-client-cache.yaml"),
 				"--operator-ca-cert-file",
@@ -119,19 +118,20 @@ func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
 	)
 
 	cancel := make(chan struct{})
-	err := caasunitinit.InitializeUnit(params, cancel)
+	err := caasoperator.InitializeUnit(params, cancel)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *UnitInitializerSuite) TestInitializeUnitMissing(c *gc.C) {
+func (s *UnitInitializerSuite) TestInitializeUnitMissingProviderID(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	mockExecClient := mocks.NewMockExecutor(ctrl)
 
-	params := caasunitinit.InitializeUnitParams{
-		UnitTag: names.NewUnitTag("gitlab/0"),
-		Logger:  loggo.GetLogger("test"),
+	params := caasoperator.InitializeUnitParams{
+		InitType: caasoperator.UnitInit,
+		UnitTag:  names.NewUnitTag("gitlab/0"),
+		Logger:   loggo.GetLogger("test"),
 		Paths: caasoperator.Paths{
 			State: caasoperator.StatePaths{
 				CharmDir: "dir/charm",
@@ -141,9 +141,7 @@ func (s *UnitInitializerSuite) TestInitializeUnitMissing(c *gc.C) {
 		OperatorInfo: caas.OperatorInfo{
 			CACert: "ca-cert",
 		},
-		UnitProviderIDFunc: func(unit names.UnitTag) (string, error) {
-			return "", errors.NotFoundf("unit")
-		},
+		ProviderID: "",
 		TempDir: func(dir string, prefix string) (string, error) {
 			return filepath.Join(dir, prefix+"-random"), nil
 		},
@@ -155,8 +153,8 @@ func (s *UnitInitializerSuite) TestInitializeUnitMissing(c *gc.C) {
 	gomock.InOrder()
 
 	cancel := make(chan struct{})
-	err := caasunitinit.InitializeUnit(params, cancel)
-	c.Assert(err, gc.ErrorMatches, "unit not found")
+	err := caasoperator.InitializeUnit(params, cancel)
+	c.Assert(err, gc.ErrorMatches, "missing ProviderID not valid")
 }
 
 func (s *UnitInitializerSuite) TestInitializeContainerMissing(c *gc.C) {
@@ -165,9 +163,10 @@ func (s *UnitInitializerSuite) TestInitializeContainerMissing(c *gc.C) {
 
 	mockExecClient := mocks.NewMockExecutor(ctrl)
 
-	params := caasunitinit.InitializeUnitParams{
-		UnitTag: names.NewUnitTag("gitlab/0"),
-		Logger:  loggo.GetLogger("test"),
+	params := caasoperator.InitializeUnitParams{
+		InitType: caasoperator.UnitInit,
+		UnitTag:  names.NewUnitTag("gitlab/0"),
+		Logger:   loggo.GetLogger("test"),
 		Paths: caasoperator.Paths{
 			State: caasoperator.StatePaths{
 				CharmDir: "dir/charm",
@@ -177,9 +176,7 @@ func (s *UnitInitializerSuite) TestInitializeContainerMissing(c *gc.C) {
 		OperatorInfo: caas.OperatorInfo{
 			CACert: "ca-cert",
 		},
-		UnitProviderIDFunc: func(unit names.UnitTag) (string, error) {
-			return "gitlab-ffff", nil
-		},
+		ProviderID: "gitlab-ffff",
 		TempDir: func(dir string, prefix string) (string, error) {
 			return filepath.Join(dir, prefix+"-random"), nil
 		},
@@ -209,6 +206,59 @@ func (s *UnitInitializerSuite) TestInitializeContainerMissing(c *gc.C) {
 	)
 
 	cancel := make(chan struct{})
-	err := caasunitinit.InitializeUnit(params, cancel)
+	err := caasoperator.InitializeUnit(params, cancel)
+	c.Assert(err, gc.ErrorMatches, "container not found")
+}
+
+func (s *UnitInitializerSuite) TestInitializePodNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockExecClient := mocks.NewMockExecutor(ctrl)
+
+	params := caasoperator.InitializeUnitParams{
+		InitType: caasoperator.UnitInit,
+		UnitTag:  names.NewUnitTag("gitlab/0"),
+		Logger:   loggo.GetLogger("test"),
+		Paths: caasoperator.Paths{
+			State: caasoperator.StatePaths{
+				CharmDir: "dir/charm",
+			},
+		},
+		ExecClient: mockExecClient,
+		OperatorInfo: caas.OperatorInfo{
+			CACert: "ca-cert",
+		},
+		ProviderID: "gitlab-ffff",
+		TempDir: func(dir string, prefix string) (string, error) {
+			return filepath.Join(dir, prefix+"-random"), nil
+		},
+		WriteFile: func(path string, data []byte, perm os.FileMode) error {
+			return nil
+		},
+	}
+
+	gomock.InOrder(
+		mockExecClient.EXPECT().Exec(exec.ExecParams{
+			Commands:      []string{"mkdir", "-p", filepath.Join(os.TempDir(), "unit-gitlab-0-random")},
+			PodName:       "gitlab-ffff",
+			ContainerName: "juju-pod-init",
+			Stdout:        &bytes.Buffer{},
+			Stderr:        &bytes.Buffer{},
+		}, gomock.Any()).Return(nil),
+		mockExecClient.EXPECT().Copy(exec.CopyParams{
+			Src: exec.FileResource{
+				Path: "dir/charm",
+			},
+			Dest: exec.FileResource{
+				Path:          filepath.Join(os.TempDir(), "unit-gitlab-0-random"),
+				PodName:       "gitlab-ffff",
+				ContainerName: "juju-pod-init",
+			},
+		}, gomock.Any()).Return(errors.NotFoundf("container")),
+	)
+
+	cancel := make(chan struct{})
+	err := caasoperator.InitializeUnit(params, cancel)
 	c.Assert(err, gc.ErrorMatches, "container not found")
 }

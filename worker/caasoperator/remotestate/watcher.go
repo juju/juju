@@ -7,11 +7,18 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1/catacomb"
+
+	jworker "github.com/juju/juju/worker"
 )
 
-var logger = loggo.GetLogger("juju.worker.caasoperator.remotestate")
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead pass one through as config to the worker.
+var logger interface{}
+
+type Logger interface {
+	Debugf(message string, args ...interface{})
+}
 
 // RemoteStateWatcher collects application information from separate state watchers,
 // and updates a Snapshot which is sent on a channel upon change.
@@ -29,6 +36,7 @@ type RemoteStateWatcher struct {
 // WatcherConfig holds configuration parameters for the
 // remote state watcher.
 type WatcherConfig struct {
+	Logger             Logger
 	Application        string
 	CharmGetter        charmGetter
 	ApplicationWatcher applicationWatcher
@@ -83,8 +91,8 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 func (w *RemoteStateWatcher) loop() (err error) {
 	defer func() {
 		if errors.IsNotFound(err) {
-			logger.Debugf("ignoring error %v and exit", err)
-			err = nil
+			w.config.Logger.Debugf("application %q removed, terminating agent", w.application)
+			err = jworker.ErrTerminateAgent
 		}
 	}()
 
@@ -126,7 +134,7 @@ func (w *RemoteStateWatcher) loop() (err error) {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case _, ok := <-applicationChanges:
-			logger.Debugf("got application change")
+			w.config.Logger.Debugf("got application change")
 			if !ok {
 				return errors.New("application watcher closed")
 			}

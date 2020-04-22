@@ -44,6 +44,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.Features,
 		controller.IdentityURL,
 		controller.IdentityPublicKey,
+		controller.JujuDBSnapChannel,
 		controller.JujuHASpace,
 		controller.JujuManagementSpace,
 		controller.MaxDebugLogDuration,

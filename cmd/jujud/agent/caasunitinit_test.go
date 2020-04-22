@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"os/exec"
 	"runtime"
 	"sync"
 	"time"
@@ -55,12 +56,19 @@ func (s *CAASUnitInitSuite) newCommand(c *gc.C, st *testing.Stub) *CAASUnitInitC
 		st.AddCall("MkdirAll", path, mode)
 		return st.NextErr()
 	}
+	cmd.statFunc = func(path string) (os.FileInfo, error) {
+		st.AddCall("Stat", path)
+		return nil, st.NextErr()
+	}
+	cmd.waitForPIDFunc = func(pid int) {
+		st.AddCall("waitForPID", pid)
+	}
 	return cmd
 }
 
 func (s *CAASUnitInitSuite) checkCommand(c *gc.C, cmd *CAASUnitInitCommand, args []string,
 	unit string, operatorFile string,
-	operatorCACertFile string, charmDir string) []testing.StubCall {
+	operatorCACertFile string, charmDir string, upgrade bool) []testing.StubCall {
 	ctx, err := cmdtesting.RunCommand(c, cmd, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
@@ -68,23 +76,51 @@ func (s *CAASUnitInitSuite) checkCommand(c *gc.C, cmd *CAASUnitInitCommand, args
 	toolsPath := "/var/lib/juju/tools/" + unit
 	agentPath := "/var/lib/juju/agents/" + unit
 
+	// Directory setup
 	calls := []testing.StubCall{
+		{FuncName: "Stat", Args: []interface{}{"/var/lib/juju/tools/jujuc"}},
 		{FuncName: "RemoveAll", Args: []interface{}{toolsPath}},
 		{FuncName: "MkdirAll", Args: []interface{}{toolsPath, os.FileMode(0775)}},
-		{FuncName: "RemoveAll", Args: []interface{}{agentPath}},
-		{FuncName: "MkdirAll", Args: []interface{}{agentPath, os.FileMode(0775)}},
-		{FuncName: "Symlink", Args: []interface{}{"/var/lib/juju/tools/jujud", toolsPath + "/jujud"}},
 	}
+	if upgrade {
+		if charmDir != "" {
+			calls = append(calls,
+				testing.StubCall{FuncName: "RemoveAll", Args: []interface{}{agentPath + "/charm"}},
+			)
+		}
+	} else {
+		calls = append(calls,
+			testing.StubCall{FuncName: "RemoveAll", Args: []interface{}{agentPath}},
+			testing.StubCall{FuncName: "MkdirAll", Args: []interface{}{agentPath, os.FileMode(0775)}},
+		)
+	}
+
+	// Symlinks
+	calls = append(calls,
+		testing.StubCall{FuncName: "Symlink", Args: []interface{}{"/var/lib/juju/tools/jujud", toolsPath + "/jujud"}},
+	)
 	for _, cmdName := range jujuc.CommandNames() {
 		_ = cmdName
 		calls = append(calls,
-			testing.StubCall{FuncName: "Symlink", Args: []interface{}{"/var/lib/juju/tools/jujud", toolsPath + "/" + cmdName}})
+			testing.StubCall{FuncName: "Symlink", Args: []interface{}{"/var/lib/juju/tools/jujuc", toolsPath + "/" + cmdName}})
 	}
 
-	calls = append(calls,
-		testing.StubCall{FuncName: "Copy", Args: []interface{}{operatorFile, agentPath + "/operator-client.yaml"}},
-		testing.StubCall{FuncName: "Copy", Args: []interface{}{operatorCACertFile, agentPath + "/ca.crt"}},
-		testing.StubCall{FuncName: "Copy", Args: []interface{}{charmDir, agentPath + "/charm"}})
+	// Copies
+	if operatorFile != "" {
+		calls = append(calls,
+			testing.StubCall{FuncName: "Copy", Args: []interface{}{operatorFile, agentPath + "/operator-client.yaml"}},
+		)
+	}
+	if operatorCACertFile != "" {
+		calls = append(calls,
+			testing.StubCall{FuncName: "Copy", Args: []interface{}{operatorCACertFile, agentPath + "/ca.crt"}},
+		)
+	}
+	if charmDir != "" {
+		calls = append(calls,
+			testing.StubCall{FuncName: "Copy", Args: []interface{}{charmDir, agentPath + "/charm"}},
+		)
+	}
 
 	return calls
 }
@@ -97,7 +133,7 @@ func (s *CAASUnitInitSuite) TestInitUnit(c *gc.C) {
 	st := &testing.Stub{}
 	cmd := s.newCommand(c, st)
 	calls := s.checkCommand(c, cmd, args, "unit-wow-0",
-		"operator/file/path", "operator/cert/file/path", "charm/dir")
+		"operator/file/path", "operator/cert/file/path", "charm/dir", false)
 	st.CheckCalls(c, calls)
 }
 
@@ -117,7 +153,9 @@ func (s *CAASUnitInitSuite) TestInitUnitWaitSend(c *gc.C) {
 			return l, err
 		}
 		calls := s.checkCommand(c, cmd, []string{"--wait"}, "unit-wow-0",
-			"operator/file/path", "operator/cert/file/path", "charm/dir")
+			"operator/file/path", "operator/cert/file/path", "charm/dir", false)
+		calls = append(calls,
+			testing.StubCall{FuncName: "waitForPID", Args: []interface{}{os.Getpid()}})
 		st.CheckCalls(c, calls)
 	}()
 
@@ -142,4 +180,43 @@ func (s *CAASUnitInitSuite) TestInitUnitWaitSend(c *gc.C) {
 	c.Assert(stdErr.Bytes(), gc.Not(gc.HasLen), 0)
 
 	wg.Wait()
+}
+
+func (s *CAASUnitInitSuite) TestUpgradeUnit(c *gc.C) {
+	args := []string{"--unit", "unit-wow-0",
+		"--upgrade",
+		"--charm-dir", "charm/dir"}
+	st := &testing.Stub{}
+	cmd := s.newCommand(c, st)
+	calls := s.checkCommand(c, cmd, args, "unit-wow-0",
+		"", "", "charm/dir", true)
+	st.CheckCalls(c, calls)
+}
+
+func (s *CAASUnitInitSuite) TestWaitPID(c *gc.C) {
+	var cmd *exec.Cmd
+	pid := 0
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("ping", "127.0.0.1", "-n", "3")
+	} else {
+		cmd = exec.Command("sleep", "2")
+	}
+	err := cmd.Start()
+	c.Assert(err, jc.ErrorIsNil)
+	pid = cmd.Process.Pid
+	go func() {
+		// Need this to reap the zombie process.
+		_ = cmd.Wait()
+	}()
+	c.Assert(pid, gc.Not(gc.Equals), 0)
+	waitChan := make(chan struct{})
+	go func() {
+		defer close(waitChan)
+		waitForPID(pid)
+	}()
+	select {
+	case _, _ = <-waitChan:
+	case <-time.After(testing.LongWait):
+		c.Errorf("waited too long for waitForPID")
+	}
 }

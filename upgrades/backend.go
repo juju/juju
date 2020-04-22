@@ -78,6 +78,7 @@ type StateBackend interface {
 	RemoveControllerConfigMaxLogAgeAndSize() error
 	IncrementTasksSequence() error
 	AddMachineIDToSubordinates() error
+	AddOriginToIPAddresses() error
 	DropPresenceDatabase() error
 }
 
@@ -318,6 +319,10 @@ func (s stateBackend) IncrementTasksSequence() error {
 
 func (s stateBackend) AddMachineIDToSubordinates() error {
 	return state.AddMachineIDToSubordinates(s.pool)
+}
+
+func (s stateBackend) AddOriginToIPAddresses() error {
+	return state.AddOriginToIPAddresses(s.pool)
 }
 
 func (s stateBackend) DropPresenceDatabase() error {

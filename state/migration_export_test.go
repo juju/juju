@@ -537,6 +537,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 		c.Assert(exported.CloudService().ProviderId(), gc.Equals, "provider-id")
 		c.Assert(exported.DesiredScale(), gc.Equals, 3)
 		c.Assert(exported.Placement(), gc.Equals, "")
+		c.Assert(exported.HasResources(), jc.IsTrue)
 		addresses := exported.CloudService().Addresses()
 		addr := addresses[0]
 		c.Assert(addr.Value(), gc.Equals, "192.168.1.1")

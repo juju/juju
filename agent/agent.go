@@ -285,6 +285,10 @@ type Config interface {
 	// MongoMemoryProfile returns the profile to be used when setting
 	// mongo memory usage.
 	MongoMemoryProfile() mongo.MemoryProfile
+
+	// JujuDBSnapChannel returns the channel for installing mongo snaps in
+	// focal or later.
+	JujuDBSnapChannel() string
 }
 
 type configSetterOnly interface {
@@ -328,6 +332,10 @@ type configSetterOnly interface {
 	// SetMongoMemoryProfile sets the passed policy as the one to be
 	// used.
 	SetMongoMemoryProfile(mongo.MemoryProfile)
+
+	// SetJujuDBSnapChannel sets the channel for installing mongo snaps
+	// when bootstrapping focal or later.
+	SetJujuDBSnapChannel(string)
 
 	// SetLoggingConfig sets the logging config value for the agent.
 	SetLoggingConfig(string)
@@ -404,6 +412,7 @@ type configInternal struct {
 	values             map[string]string
 	mongoVersion       string
 	mongoMemoryProfile string
+	jujuDBSnapChannel  string
 }
 
 // AgentConfigParams holds the parameters required to create
@@ -422,6 +431,7 @@ type AgentConfigParams struct {
 	Values             map[string]string
 	MongoVersion       mongo.Version
 	MongoMemoryProfile mongo.MemoryProfile
+	JujuDBSnapChannel  string
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -479,6 +489,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		values:             configParams.Values,
 		mongoVersion:       configParams.MongoVersion.String(),
 		mongoMemoryProfile: configParams.MongoMemoryProfile.String(),
+		jujuDBSnapChannel:  configParams.JujuDBSnapChannel,
 	}
 	if len(configParams.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
@@ -777,6 +788,16 @@ func (c *configInternal) SetMongoVersion(v mongo.Version) {
 // SetMongoMemoryProfile implements configSetterOnly.
 func (c *configInternal) SetMongoMemoryProfile(v mongo.MemoryProfile) {
 	c.mongoMemoryProfile = v.String()
+}
+
+// JujuDBSnapChannel implements Config.
+func (c *configInternal) JujuDBSnapChannel() string {
+	return c.jujuDBSnapChannel
+}
+
+// SetJujuDBSnapChannel implements configSetterOnly.
+func (c *configInternal) SetJujuDBSnapChannel(snapChannel string) {
+	c.jujuDBSnapChannel = snapChannel
 }
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")

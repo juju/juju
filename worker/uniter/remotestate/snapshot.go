@@ -93,6 +93,9 @@ type Snapshot struct {
 	// UpgradeSeriesStatus is the preparation status of any currently running
 	// series upgrade
 	UpgradeSeriesStatus model.UpgradeSeriesStatus
+
+	// ContainerRunningStatus is set on CAAS models for remote init/upgrade of charm.
+	ContainerRunningStatus *ContainerRunningStatus
 }
 
 // RelationSnapshot tracks the state of a relationship from the viewpoint of the local unit.

@@ -53,7 +53,6 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"upgrade-steps-gate",
 		"upgrade-steps-runner",
 		"upgrader",
-		"unit-init-worker",
 		// TODO(caas)
 		//"metric-spool",
 		//"meter-status",
@@ -217,17 +216,6 @@ var expectedOperatorManifoldsWithDependencies = map[string][]string{
 		"charm-dir",
 		"clock",
 		"hook-retry-strategy",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
-	"unit-init-worker": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"clock",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"upgrade-steps-flag",

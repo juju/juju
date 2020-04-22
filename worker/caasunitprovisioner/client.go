@@ -41,6 +41,7 @@ type ApplicationGetter interface {
 // Juju applications from changes in the cloud.
 type ApplicationUpdater interface {
 	UpdateApplicationService(arg params.UpdateApplicationServiceArg) error
+	ClearApplicationResources(appName string) error
 }
 
 // ProvisioningInfoGetter provides an interface for

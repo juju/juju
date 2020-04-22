@@ -106,6 +106,14 @@ func (s *PodSpecSuite) TestRemoveApplicationRemovesRawK8sSpec(c *gc.C) {
 
 	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// App removal requires cluster resources to be cleared.
+	err = s.application.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.application.ClearResources()
+	c.Assert(err, jc.ErrorIsNil)
+	assertCleanupCount(c, s.State, 2)
+
 	s.assertRawK8sSpecNotFound(c, s.application.ApplicationTag())
 }
 
@@ -148,6 +156,14 @@ func (s *PodSpecSuite) TestRemoveApplicationRemovesPodSpec(c *gc.C) {
 
 	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// App removal requires cluster resources to be cleared.
+	err = s.application.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.application.ClearResources()
+	c.Assert(err, jc.ErrorIsNil)
+	assertCleanupCount(c, s.State, 2)
+
 	s.assertPodSpecNotFound(c, s.application.ApplicationTag())
 }
 

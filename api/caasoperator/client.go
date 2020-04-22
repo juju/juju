@@ -135,6 +135,9 @@ func (c *Client) Charm(application string) (*CharmInfo, error) {
 		return nil, errors.Trace(err)
 	}
 	if err := results.Results[0].Error; err != nil {
+		if params.IsCodeNotFound(err) {
+			return nil, errors.NotFoundf("application %q", application)
+		}
 		return nil, errors.Trace(err)
 	}
 	result := results.Results[0].Result

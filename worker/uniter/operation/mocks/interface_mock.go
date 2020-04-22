@@ -234,19 +234,19 @@ func (mr *MockFactoryMockRecorder) NewNoOpFinishUpgradeSeries() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNoOpFinishUpgradeSeries", reflect.TypeOf((*MockFactory)(nil).NewNoOpFinishUpgradeSeries))
 }
 
-// NewNoOpUpgrade mocks base method
-func (m *MockFactory) NewNoOpUpgrade(arg0 *charm_v6.URL) (operation.Operation, error) {
+// NewRemoteInit mocks base method
+func (m *MockFactory) NewRemoteInit(arg0 remotestate.ContainerRunningStatus) (operation.Operation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewNoOpUpgrade", arg0)
+	ret := m.ctrl.Call(m, "NewRemoteInit", arg0)
 	ret0, _ := ret[0].(operation.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// NewNoOpUpgrade indicates an expected call of NewNoOpUpgrade
-func (mr *MockFactoryMockRecorder) NewNoOpUpgrade(arg0 interface{}) *gomock.Call {
+// NewRemoteInit indicates an expected call of NewRemoteInit
+func (mr *MockFactoryMockRecorder) NewRemoteInit(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNoOpUpgrade", reflect.TypeOf((*MockFactory)(nil).NewNoOpUpgrade), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewRemoteInit", reflect.TypeOf((*MockFactory)(nil).NewRemoteInit), arg0)
 }
 
 // NewResignLeadership mocks base method
@@ -322,6 +322,21 @@ func (m *MockFactory) NewSkipHook(arg0 hook.Info) (operation.Operation, error) {
 func (mr *MockFactoryMockRecorder) NewSkipHook(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewSkipHook", reflect.TypeOf((*MockFactory)(nil).NewSkipHook), arg0)
+}
+
+// NewSkipRemoteInit mocks base method
+func (m *MockFactory) NewSkipRemoteInit(arg0 bool) (operation.Operation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewSkipRemoteInit", arg0)
+	ret0, _ := ret[0].(operation.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewSkipRemoteInit indicates an expected call of NewSkipRemoteInit
+func (mr *MockFactoryMockRecorder) NewSkipRemoteInit(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewSkipRemoteInit", reflect.TypeOf((*MockFactory)(nil).NewSkipRemoteInit), arg0)
 }
 
 // NewUpgrade mocks base method

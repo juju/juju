@@ -63,6 +63,15 @@ type ipAddressDoc struct {
 
 	// IsDefaultGateway is set to true if that device/subnet is the default gw for the machine
 	IsDefaultGateway bool `bson:"is-default-gateway,omitempty"`
+
+	// Origin represents the authoritative source of the ipAddress.
+	// It is expected that either the provider gave us this address or the
+	// machine gave us this address.
+	// Giving us this information allows us to reason about when a ipAddress is
+	// in use.
+	// This should always be required, hence the lack of omitempty (upgrade
+	// steps should correctly assign this for all addresses)
+	Origin network.Origin `bson:"origin"`
 }
 
 // AddressConfigMethod is the method used to configure a link-layer device's IP
@@ -196,9 +205,19 @@ func (addr *Address) GatewayAddress() string {
 	return addr.doc.GatewayAddress
 }
 
-// IsDefaultGateway returns true if this address is used for the default gw on the machine.
+// IsDefaultGateway returns true if this address is used for the default gw on
+// the machine.
 func (addr *Address) IsDefaultGateway() bool {
 	return addr.doc.IsDefaultGateway
+}
+
+// Origin represents the authoritative source of the ipAddress.
+// It is expected that either the provider gave us this address or the
+// machine gave us this address.
+// Giving us this information allows us to reason about when a ipAddress is
+// in use.
+func (addr *Address) Origin() network.Origin {
+	return addr.doc.Origin
 }
 
 // String returns a human-readable representation of the IP address.

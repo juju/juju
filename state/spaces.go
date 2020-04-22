@@ -373,7 +373,7 @@ func (s *Space) Remove() (err error) {
 	return onAbort(txnErr, errors.New("not found or not dead"))
 }
 
-// Refresh: refreshes the contents of the Space from the underlying state. It
+// Refresh refreshes the contents of the Space from the underlying state. It
 // returns an error that satisfies errors.IsNotFound if the Space has been
 // removed.
 func (s *Space) Refresh() error {
@@ -497,51 +497,5 @@ func (st *State) SaveProviderSubnets(subnets []network.SubnetInfo, spaceID strin
 		}
 	}
 
-	return nil
-}
-
-// SaveProviderSpaces loads providerSpaces into state.
-// Currently it does not delete removed spaces.
-func (st *State) SaveProviderSpaces(providerSpaces []network.SpaceInfo) error {
-	stateSpaces, err := st.AllSpaces()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	modelSpaceMap := make(map[network.Id]*Space)
-	spaceNames := make(set.Strings)
-	for _, space := range stateSpaces {
-		modelSpaceMap[space.ProviderId()] = space
-		spaceNames.Add(space.Name())
-	}
-
-	// TODO(mfoord): we need to delete spaces and subnets that no longer
-	// exist, so long as they're not in use.
-	for _, spaceInfo := range providerSpaces {
-		// Check if the space is already in state,
-		// in which case we know its name.
-		stateSpace, ok := modelSpaceMap[spaceInfo.ProviderId]
-		var spaceId string
-		if ok {
-			spaceId = stateSpace.Id()
-		} else {
-			// The space is new, we need to create a valid name for it in state.
-			// Convert the name into a valid name that is not already in use.
-			spaceName := network.ConvertSpaceName(string(spaceInfo.Name), spaceNames)
-
-			logger.Debugf("Adding space %s from provider %s", spaceName, string(spaceInfo.ProviderId))
-			space, err := st.AddSpace(spaceName, spaceInfo.ProviderId, []string{}, false)
-			if err != nil {
-				return errors.Trace(err)
-			}
-
-			spaceNames.Add(spaceName)
-			spaceId = space.Id()
-		}
-
-		err = st.SaveProviderSubnets(spaceInfo.Subnets, spaceId)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
 	return nil
 }

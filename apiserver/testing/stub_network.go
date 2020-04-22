@@ -206,6 +206,14 @@ func (f *FakeSpace) Life() (life life.Value) {
 	return
 }
 
+func (f *FakeSpace) EnsureDead() error {
+	return nil
+}
+
+func (f *FakeSpace) Remove() error {
+	return nil
+}
+
 // GoString implements fmt.GoStringer.
 func (f *FakeSpace) GoString() string {
 	return fmt.Sprintf("&FakeSpace{%q}", f.SpaceName)
@@ -580,14 +588,14 @@ func (sb *StubBacking) AddSubnet(subnetInfo networkingcommon.BackingSubnetInfo) 
 	return fs, nil
 }
 
-func (sb *StubBacking) AddSpace(name string, providerId network.Id, subnets []string, public bool) error {
+func (sb *StubBacking) AddSpace(name string, providerId network.Id, subnets []string, public bool) (networkingcommon.BackingSpace, error) {
 	sb.MethodCall(sb, "AddSpace", name, providerId, subnets, public)
 	if err := sb.NextErr(); err != nil {
-		return err
+		return nil, err
 	}
 	fs := &FakeSpace{SpaceName: name, SubnetIds: subnets, Public: public}
 	sb.Spaces = append(sb.Spaces, fs)
-	return nil
+	return fs, nil
 }
 
 func (sb *StubBacking) SaveProviderSubnets(subnets []network.SubnetInfo, spaceID string) error {
@@ -598,12 +606,14 @@ func (sb *StubBacking) SaveProviderSubnets(subnets []network.SubnetInfo, spaceID
 	return nil
 }
 
-func (sb *StubBacking) SaveProviderSpaces(providerSpaces []network.SpaceInfo) error {
-	sb.MethodCall(sb, "SaveProviderSpaces", providerSpaces)
-	if err := sb.NextErr(); err != nil {
-		return err
-	}
-	return nil
+func (sb *StubBacking) AllEndpointBindingsSpaceNames() (set.Strings, error) {
+	sb.MethodCall(sb, "AllEndpointBindingsSpaceNames")
+	return set.NewStrings(), nil
+}
+
+func (sb *StubBacking) DefaultEndpointBindingSpace() (string, error) {
+	sb.MethodCall(sb, "DefaultEndpointBindingSpace")
+	return "alpha", nil
 }
 
 // GoString implements fmt.GoStringer.
