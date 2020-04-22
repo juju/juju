@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -75,6 +76,24 @@ func (s *ResourcesHandlerSuite) authState(req *http.Request, tagKinds ...string)
 	ph := apiservertesting.StubPoolHelper{StubRelease: func() bool { return false }}
 	tag := names.NewUserTag(s.username)
 	return s.backend, ph, tag, nil
+}
+
+func (s *ResourcesHandlerSuite) TestExpectedAuthTags(c *gc.C) {
+	expectedTags := set.NewStrings(names.UserTagKind, names.MachineTagKind, names.ControllerAgentTagKind, names.ApplicationTagKind)
+
+	s.handler.StateAuthFunc = func(req *http.Request, tagKinds ...string) (apiserver.ResourcesBackend, state.PoolHelper, names.Tag, error) {
+		gotTags := set.NewStrings(tagKinds...)
+		if gotTags.Difference(expectedTags).Size() != 0 || expectedTags.Difference(gotTags).Size() != 0 {
+			c.Fatalf("unexpected tag kinds %v", tagKinds)
+			return nil, nil, nil, errors.NotValidf("tag kinds %v", tagKinds)
+		}
+		ph := apiservertesting.StubPoolHelper{StubRelease: func() bool { return false }}
+		tag := names.NewUserTag(s.username)
+		return s.backend, ph, tag, nil
+	}
+	s.req.Method = "GET"
+	s.handler.ServeHTTP(s.recorder, s.req)
+	s.checkResp(c, http.StatusOK, "application/octet-stream", resourceBody)
 }
 
 func (s *ResourcesHandlerSuite) TestStateAuthFailure(c *gc.C) {
