@@ -195,3 +195,17 @@ func (*subnetSuite) TestSubnetInfosGetByCIDR(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(subs, gc.DeepEquals, s[:2])
 }
+
+func (*subnetSuite) TestSubnetInfosGetByID(c *gc.C) {
+	s := network.SubnetInfos{
+		{ID: "1"},
+		{ID: "2"},
+		{ID: "3"},
+	}
+
+	c.Check(s.GetByID("1"), gc.NotNil)
+	c.Check(s.ContainsID("1"), jc.IsTrue)
+
+	c.Check(s.GetByID("9"), gc.IsNil)
+	c.Check(s.ContainsID("9"), jc.IsFalse)
+}
