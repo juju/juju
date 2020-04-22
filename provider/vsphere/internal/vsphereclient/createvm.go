@@ -518,12 +518,30 @@ func (c *Client) addNetworkDevice(
 ) (*types.VirtualVmxnet3, error) {
 	var networkBacking types.BaseVirtualDeviceBackingInfo
 	if dvportgroupConfigInfo, ok := dvportgroupConfig[network.Reference()]; !ok {
-		// It's not a distributed virtual portgroup, so return
-		// a backing info for a plain old network interface.
-		networkBacking = &types.VirtualEthernetCardNetworkBackingInfo{
-			VirtualDeviceDeviceBackingInfo: types.VirtualDeviceDeviceBackingInfo{
-				DeviceName: network.Name,
-			},
+		// It's not a distributed virtual portgroup, so figure
+		// out what it is and return the correct backing
+		networkSummary := network.Summary.GetNetworkSummary()
+
+		switch networkSummary.Network.Type {
+		case "OpaqueNetwork":
+			// create an opaque network type
+			var opaqueSummary = network.Summary
+
+			networkBacking = &types.VirtualEthernetCardOpaqueNetworkBackingInfo{
+				OpaqueNetworkId: opaqueSummary.(*types.OpaqueNetworkSummary).OpaqueNetworkId,
+				OpaqueNetworkType: opaqueSummary.(*types.OpaqueNetworkSummary).OpaqueNetworkType,
+			}
+			break
+		case "Network":
+			// create a backing info for a plain old network interface.
+			networkBacking = &types.VirtualEthernetCardNetworkBackingInfo{
+				VirtualDeviceDeviceBackingInfo: types.VirtualDeviceDeviceBackingInfo{
+					DeviceName: network.Name,
+				},
+			}
+			break
+		default:
+			return nil, errors.NewNotValid(nil, fmt.Sprintf("Unknown network type %q",networkSummary.Network.Type))
 		}
 	} else {
 		// It's a distributed virtual portgroup, so retrieve the details of
