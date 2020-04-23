@@ -67,6 +67,24 @@ func (l *Locus) Add(origin Origin, info InterfaceInfo) error {
 	return nil
 }
 
+// MachineAddresses returns the MachineAddresses for a set of interfaces.
+func (l *Locus) MachineAddresses() []ProviderAddresses {
+	return providerAddresses(l.machines)
+}
+
+// ProviderAddresses returns the ProviderAddresses for a set of interfaces.
+func (l *Locus) ProviderAddresses() []ProviderAddresses {
+	return providerAddresses(l.providers)
+}
+
+func providerAddresses(interfaces InterfaceInfos) []ProviderAddresses {
+	var result []ProviderAddresses
+	for _, info := range interfaces {
+		result = append(result, info.Addresses)
+	}
+	return result
+}
+
 // LinkLayerDevice describes the link-layer network device for a machine.
 type LinkLayerDevice interface {
 	// Addresses returns all IP addresses assigned to the device.

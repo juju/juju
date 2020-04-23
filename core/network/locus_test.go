@@ -36,6 +36,44 @@ func (s *LocusSuite) TestLocusAdd(c *gc.C) {
 	})
 }
 
+func (s *LocusSuite) TestLocusMachineAddresses(c *gc.C) {
+	locus := NewLocus()
+
+	address := NewProviderAddress("10.0.0.0")
+
+	interfaceInfo0 := InterfaceInfo{
+		Addresses: ProviderAddresses{address},
+	}
+	err := locus.Add(OriginMachine, interfaceInfo0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addresses := locus.MachineAddresses()
+	c.Assert(addresses, gc.HasLen, 1)
+	c.Assert(addresses[0], gc.DeepEquals, ProviderAddresses{address})
+
+	addresses = locus.ProviderAddresses()
+	c.Assert(addresses, gc.HasLen, 0)
+}
+
+func (s *LocusSuite) TestLocusProviderAddresses(c *gc.C) {
+	locus := NewLocus()
+
+	address := NewProviderAddress("10.0.0.0")
+
+	interfaceInfo0 := InterfaceInfo{
+		Addresses: ProviderAddresses{address},
+	}
+	err := locus.Add(OriginProvider, interfaceInfo0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addresses := locus.ProviderAddresses()
+	c.Assert(addresses, gc.HasLen, 1)
+	c.Assert(addresses[0], gc.DeepEquals, ProviderAddresses{address})
+
+	addresses = locus.MachineAddresses()
+	c.Assert(addresses, gc.HasLen, 0)
+}
+
 func (s *LocusSuite) TestNewLocusFromLinkLayerDevices(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
