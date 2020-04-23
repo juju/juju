@@ -53,7 +53,7 @@ type ProvisionerAPI struct {
 	*common.InstanceIdGetter
 	*common.ToolsFinder
 	*common.ToolsGetter
-	*networkingcommon.NetworkConfigAPI
+	*networkingcommon.NetworkConfigAPIV1
 
 	st                      *state.State
 	m                       *state.Model
@@ -141,7 +141,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		ModelWatcher:            common.NewModelWatcher(model, resources, authorizer),
 		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI:     common.NewStateControllerConfig(st),
-		NetworkConfigAPI:        networkingcommon.NewNetworkConfigAPI(st, getCanModify),
+		NetworkConfigAPIV1:      networkingcommon.NewNetworkConfigAPIV1(st, getCanModify),
 		st:                      st,
 		m:                       model,
 		resources:               resources,

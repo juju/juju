@@ -29,11 +29,30 @@ type NetworkConfigAPI struct {
 	getCanModify common.GetAuthFunc
 }
 
+type NetworkConfigAPIV1 struct {
+	*NetworkConfigAPIV2
+}
+
+type NetworkConfigAPIV2 struct {
+	*NetworkConfigAPI
+}
+
+// NewNetworkConfigAPI creates a new raw NetworkConfigAPI.
 func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) *NetworkConfigAPI {
 	return &NetworkConfigAPI{
 		st:           st,
 		getCanModify: getCanModify,
 	}
+}
+
+// NewNetworkConfigAPIV1 creates a new NewtworkConfigAPI at version 1.
+func NewNetworkConfigAPIV1(st *state.State, getCanModify common.GetAuthFunc) *NetworkConfigAPIV1 {
+	return &NetworkConfigAPIV1{NewNetworkConfigAPIV2(st, getCanModify)}
+}
+
+// NewNetworkConfigAPIV2 creates a new NewtworkConfigAPI at version 2.
+func NewNetworkConfigAPIV2(st *state.State, getCanModify common.GetAuthFunc) *NetworkConfigAPIV2 {
+	return &NetworkConfigAPIV2{NewNetworkConfigAPI(st, getCanModify)}
 }
 
 // SetObservedNetworkConfig reads the network config for the machine identified
@@ -59,8 +78,26 @@ func (api *NetworkConfigAPI) SetObservedNetworkConfig(args params.SetMachineNetw
 		return errors.Trace(err)
 	}
 
-	ifaces := params.InterfaceInfoFromNetworkConfig(mergedConfig)
-	return api.setLinkLayerDevicesAndAddresses(m, ifaces)
+	interfaceInfos := params.InterfaceInfoFromNetworkConfig(mergedConfig)
+	return api.setLinkLayerDevicesAndAddresses(m, interfaceInfos)
+}
+
+// SetObservedNetworkConfig backfills in any potential missing data when a
+// the API call is invoked.
+func (api *NetworkConfigAPIV1) SetObservedNetworkConfig(args params.SetMachineNetworkConfig) error {
+	// TODO: (stickupkid): Remove this for juju version 3.
+	// Old clients will not send NetworkOrigin so we should handle that case.
+	config := args.Config
+	for i := range config {
+		if config[i].NetworkOrigin != "" {
+			continue
+		}
+		config[i].NetworkOrigin = params.NetworkOrigin(network.OriginMachine)
+	}
+	return api.NetworkConfigAPI.SetObservedNetworkConfig(params.SetMachineNetworkConfig{
+		Tag:    args.Tag,
+		Config: config,
+	})
 }
 
 // fixUpFanSubnets takes network config and updates FAN subnets with proper CIDR, providerId and providerSubnetId.

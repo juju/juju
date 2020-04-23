@@ -17,6 +17,22 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// NetworkConfigAPI is an interface that represents an version independent
+// NetworkConfigAPI.
+type NetworkConfigAPI interface {
+	// SetObservedNetworkConfig reads the network config for the machine
+	// identified by the input args. This config is merged with the new network
+	// config supplied in the same args and updated if it has changed.
+	SetObservedNetworkConfig(params.SetMachineNetworkConfig) error
+
+	// SetProviderNetworkConfig sets the provider supplied network configuration
+	// contained in the input args against each machine supplied with said args.
+	SetProviderNetworkConfig(params.Entities) (params.ErrorResults, error)
+}
+
+// NetworkConfigAPIFunc creates a new NetworkConfigAPI independent of a version.
+type NetworkConfigAPIFunc = func(*state.State, common.GetAuthFunc) NetworkConfigAPI
+
 var logger = loggo.GetLogger("juju.apiserver.machine")
 
 // MachinerAPI implements the API used by the machiner worker.
@@ -26,7 +42,7 @@ type MachinerAPI struct {
 	*common.DeadEnsurer
 	*common.AgentEntityWatcher
 	*common.APIAddresser
-	*networkingcommon.NetworkConfigAPI
+	NetworkConfigAPI
 
 	st           *state.State
 	auth         facade.Authorizer
@@ -35,7 +51,11 @@ type MachinerAPI struct {
 }
 
 // NewMachinerAPI creates a new instance of the V2 Machiner API.
-func NewMachinerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*MachinerAPI, error) {
+func NewMachinerAPI(st *state.State,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	networkConfigAPIFunc NetworkConfigAPIFunc,
+) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
@@ -51,7 +71,7 @@ func NewMachinerAPI(st *state.State, resources facade.Resources, authorizer faca
 		DeadEnsurer:        common.NewDeadEnsurer(st, getCanModify),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanRead),
 		APIAddresser:       common.NewAPIAddresser(st, resources),
-		NetworkConfigAPI:   networkingcommon.NewNetworkConfigAPI(st, getCanModify),
+		NetworkConfigAPI:   networkConfigAPIFunc(st, getCanModify),
 		st:                 st,
 		auth:               authorizer,
 		getCanModify:       getCanModify,
@@ -153,17 +173,40 @@ func (api *MachinerAPI) RecordAgentStartTime(args params.Entities) (params.Error
 // MachinerAPIV1 implements the V1 API used by the machiner worker. Compared to
 // V2, it lacks the RecordAgentStartTime method.
 type MachinerAPIV1 struct {
+	*MachinerAPIV2
+}
+
+// MachinerAPIV2 implements the V1 API used by the machiner worker. Compared to
+// V2, it backfills the missing origin in NetworkConfig.
+type MachinerAPIV2 struct {
 	*MachinerAPI
 }
 
 // NewMachinerAPIV1 creates a new instance of the V1 Machiner API.
 func NewMachinerAPIV1(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*MachinerAPIV1, error) {
-	api, err := NewMachinerAPI(st, resources, authorizer)
+	api, err := NewMachinerAPI(st, resources, authorizer, func(st *state.State, fn common.GetAuthFunc) NetworkConfigAPI {
+		return networkingcommon.NewNetworkConfigAPIV1(st, fn)
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &MachinerAPIV1{api}, nil
+	// TODO (stickupkid): I'm not a fan of this, but I don't see a way to
+	// compose two (APIV1 and APIV2) together when we depend on an API
+	// constructor that remains the same.
+	return &MachinerAPIV1{&MachinerAPIV2{api}}, nil
+}
+
+// NewMachinerAPIV2 creates a new instance of the V2 Machiner API.
+func NewMachinerAPIV2(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*MachinerAPIV2, error) {
+	api, err := NewMachinerAPI(st, resources, authorizer, func(st *state.State, fn common.GetAuthFunc) NetworkConfigAPI {
+		return networkingcommon.NewNetworkConfigAPIV2(st, fn)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &MachinerAPIV2{api}, nil
 }
 
 // RecordAgentStartTime is not available in V1.
