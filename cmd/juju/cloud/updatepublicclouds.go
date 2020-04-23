@@ -103,7 +103,7 @@ func (c *updatePublicCloudsCommand) Run(ctxt *cmd.Context) error {
 		return err
 	}
 	if sameCloudInfo {
-		fmt.Fprintln(ctxt.Stderr, "This client's list of public clouds is up to date, see `juju clouds --client-only`.")
+		fmt.Fprintln(ctxt.Stderr, "This client's list of public clouds is up to date, see `juju clouds --client`.")
 		return nil
 	}
 	if err := jujucloud.WritePublicCloudMetadata(newPublicClouds); err != nil {
