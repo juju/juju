@@ -244,6 +244,9 @@ const (
 	// endpoint bindings.
 	DefaultSpace = "default-space"
 
+	// LXDSnapChannel selects the channel to use when installing LXD from a snap.
+	LXDSnapChannel = "lxd-snap-channel"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -460,6 +463,7 @@ var defaultConfigValues = map[string]interface{}{
 	CloudInitUserDataKey:          "",
 	ContainerInheritPropertiesKey: "",
 	BackupDirKey:                  "",
+	LXDSnapChannel:                "latest/stable",
 
 	// Image and agent streams and URLs.
 	"image-stream":               "released",
@@ -1399,6 +1403,11 @@ func (c *Config) ContainerInheritProperties() string {
 	return c.asString(ContainerInheritPropertiesKey)
 }
 
+// LXDSnapChannel returns the channel to be used when installing LXD from a snap.
+func (c *Config) LXDSnapChannel() string {
+	return c.asString(LXDSnapChannel)
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1528,6 +1537,7 @@ var alwaysOptional = schema.Defaults{
 	ContainerInheritPropertiesKey: schema.Omit,
 	BackupDirKey:                  schema.Omit,
 	DefaultSpace:                  schema.Omit,
+	LXDSnapChannel:                schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -2024,6 +2034,11 @@ data of the store. (default false)`,
 	},
 	DefaultSpace: {
 		Description: "The default network space used for application endpoints in this model",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	LXDSnapChannel: {
+		Description: "The channel to use when installing LXD from a snap (cosmic and later)",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

@@ -22,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/juju/container/lxd/mocks"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	coretesting "github.com/juju/juju/testing"
 	lxd "github.com/lxc/lxd/client"
@@ -91,6 +92,8 @@ LXD_IPV6_NAT="true"
 LXD_IPV6_PROXY="true"
 `
 
+const lxdSnapChannel = "latest/stable"
+
 func (s *InitialiserSuite) SetUpTest(c *gc.C) {
 	s.initialiserTestSuite.SetUpTest(c)
 	s.calledCmds = []string{}
@@ -127,7 +130,7 @@ func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
 	PatchLXDViaSnap(s, false)
 	PatchHostSeries(s, "trusty")
 
-	err = NewContainerInitialiser().Initialise()
+	err = NewContainerInitialiser(lxdSnapChannel).Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{
@@ -139,10 +142,56 @@ func (s *InitialiserSuite) TestSnapInstalledNoAptInstall(c *gc.C) {
 	PatchLXDViaSnap(s, true)
 	PatchHostSeries(s, "cosmic")
 
-	err := NewContainerInitialiser().Initialise()
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mgr := mocks.NewMockSnapManager(ctrl)
+	mgr.EXPECT().InstalledChannel("lxd").Return("latest/stable")
+	PatchGetSnapManager(s, mgr)
+
+	err := NewContainerInitialiser(lxdSnapChannel).Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{})
+}
+
+func (s *InitialiserSuite) TestSnapChannelMismatch(c *gc.C) {
+	PatchLXDViaSnap(s, true)
+	PatchHostSeries(s, "focal")
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mgr := mocks.NewMockSnapManager(ctrl)
+	gomock.InOrder(
+		mgr.EXPECT().InstalledChannel("lxd").Return("3.2/stable"),
+		mgr.EXPECT().ChangeChannel("lxd", lxdSnapChannel),
+	)
+	PatchGetSnapManager(s, mgr)
+
+	err := NewContainerInitialiser(lxdSnapChannel).Initialise()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *InitialiserSuite) TestSnapChannelPrefixMatch(c *gc.C) {
+	PatchLXDViaSnap(s, true)
+	PatchHostSeries(s, "focal")
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mgr := mocks.NewMockSnapManager(ctrl)
+	gomock.InOrder(
+		// The channel for the installed lxd snap also includes the
+		// branch for the focal release. The "track/risk" prefix is
+		// the same however so the container manager should not attempt
+		// to change the channel.
+		mgr.EXPECT().InstalledChannel("lxd").Return("latest/stable/ubuntu-20.04"),
+	)
+	PatchGetSnapManager(s, mgr)
+
+	err := NewContainerInitialiser(lxdSnapChannel).Initialise()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
@@ -156,7 +205,7 @@ func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
 	paccmder, err := commands.NewPackageCommander("xenial")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = NewContainerInitialiser().Initialise()
+	err = NewContainerInitialiser(lxdSnapChannel).Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{
@@ -171,11 +220,11 @@ func (s *InitialiserSuite) TestInstallViaSnap(c *gc.C) {
 
 	paccmder := commands.NewSnapPackageCommander()
 
-	err := NewContainerInitialiser().Initialise()
+	err := NewContainerInitialiser(lxdSnapChannel).Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{
-		paccmder.InstallCmd("--classic lxd"),
+		paccmder.InstallCmd("--classic --channel latest/stable lxd"),
 	})
 }
 
@@ -183,7 +232,7 @@ func (s *InitialiserSuite) TestLXDInitBionic(c *gc.C) {
 	s.patchDF100GB()
 	PatchHostSeries(s, "bionic")
 
-	container := NewContainerInitialiser()
+	container := NewContainerInitialiser(lxdSnapChannel)
 	err := container.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -194,7 +243,7 @@ func (s *InitialiserSuite) TestLXDInitTrusty(c *gc.C) {
 	s.patchDF100GB()
 	PatchHostSeries(s, "trusty")
 
-	container := NewContainerInitialiser()
+	container := NewContainerInitialiser(lxdSnapChannel)
 	err := container.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -209,7 +258,7 @@ func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
 	s.patchDF100GB()
 	PatchHostSeries(s, "trusty")
 
-	container := NewContainerInitialiser()
+	container := NewContainerInitialiser(lxdSnapChannel)
 	cont, ok := container.(*containerInitialiser)
 	if !ok {
 		c.Fatalf("Unexpected type of container initialized: %T", container)
@@ -278,7 +327,7 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 		cSvr.EXPECT().UpdateServer(updateReq, lxdtesting.ETag).Return(nil),
 	)
 
-	container := NewContainerInitialiser()
+	container := NewContainerInitialiser(lxdSnapChannel)
 	err := container.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -575,6 +624,10 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridge(c *gc.C) {
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
 	s.PatchForProxyUpdate(c, cSvr, true)
 
+	mgr := mocks.NewMockSnapManager(ctrl)
+	mgr.EXPECT().InstalledChannel("lxd").Return("latest/stable")
+	PatchGetSnapManager(s, mgr)
+
 	// The following nic is found, so we don't create a default nic and so
 	// don't update the profile with the nic.
 	profile := &api.Profile{
@@ -605,7 +658,7 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridge(c *gc.C) {
 		cSvr.EXPECT().UpdateServer(gomock.Any(), lxdtesting.ETag).Return(nil),
 	)
 
-	container := NewContainerInitialiser()
+	container := NewContainerInitialiser(lxdSnapChannel)
 	err := container.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -621,6 +674,10 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridgeWithoutNicsCreatesANew
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
 	s.PatchForProxyUpdate(c, cSvr, true)
+
+	mgr := mocks.NewMockSnapManager(ctrl)
+	mgr.EXPECT().InstalledChannel("lxd").Return("latest/stable")
+	PatchGetSnapManager(s, mgr)
 
 	// If no nics are found in the profile, then the configureLXDBridge will
 	// create a default nic for you.
@@ -659,7 +716,7 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridgeWithoutNicsCreatesANew
 		cSvr.EXPECT().UpdateServer(gomock.Any(), lxdtesting.ETag).Return(nil),
 	)
 
-	container := NewContainerInitialiser()
+	container := NewContainerInitialiser(lxdSnapChannel)
 	err := container.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 

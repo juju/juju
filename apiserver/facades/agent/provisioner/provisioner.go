@@ -421,15 +421,17 @@ func (api *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerCo
 	cfg := make(map[string]string)
 	cfg[container.ConfigModelUUID] = api.st.ModelUUID()
 
-	switch args.Type {
-	case instance.LXD:
-		// TODO(jam): DefaultMTU needs to be handled here
-	}
-
 	mConfig, err := api.m.ModelConfig()
 	if err != nil {
 		return result, err
 	}
+
+	switch args.Type {
+	case instance.LXD:
+		cfg[config.LXDSnapChannel] = mConfig.LXDSnapChannel()
+		// TODO(jam): DefaultMTU needs to be handled here
+	}
+
 	if url, set := mConfig.ContainerImageMetadataURL(); set {
 		cfg[config.ContainerImageMetadataURLKey] = url
 	}

@@ -195,7 +195,7 @@ func (s *containerSetupSuite) patch(c *gc.C) *gomock.Controller {
 	s.machine.EXPECT().Id().Return("0").AnyTimes()
 	s.machine.EXPECT().MachineTag().Return(names.NewMachineTag("0")).AnyTimes()
 
-	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType) container.Initialiser {
+	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType, map[string]string) container.Initialiser {
 		return s.initialiser
 	})
 

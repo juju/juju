@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/packaging/manager"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/series"
 	"github.com/lxc/lxd/shared"
@@ -34,6 +35,23 @@ var requiredPackages = []string{"lxd"}
 
 type containerInitialiser struct {
 	getExecCommand func(string, ...string) *exec.Cmd
+	lxdSnapChannel string
+}
+
+//go:generate mockgen -package mocks -destination mocks/snap_manager_mock.go github.com/juju/juju/container/lxd SnapManager
+
+// SnapManager defines an interface implemented by types that can query and/or
+// change the channel for installed snaps.
+type SnapManager interface {
+	InstalledChannel(string) string
+	ChangeChannel(string, string) error
+}
+
+// getSnapManager returns a snap manager implementation that is used to query
+// and/or change the channel for the installed lxd snap. Defined as a function
+// so it can be overridden by tests.
+var getSnapManager = func() SnapManager {
+	return manager.NewSnapPackageManager()
 }
 
 // containerInitialiser implements container.Initialiser.
@@ -41,9 +59,10 @@ var _ container.Initialiser = (*containerInitialiser)(nil)
 
 // NewContainerInitialiser returns an instance used to perform the steps
 // required to allow a host machine to run a LXC container.
-func NewContainerInitialiser() container.Initialiser {
+func NewContainerInitialiser(lxdSnapChannel string) container.Initialiser {
 	return &containerInitialiser{
-		exec.Command,
+		getExecCommand: exec.Command,
+		lxdSnapChannel: lxdSnapChannel,
 	}
 }
 
@@ -54,7 +73,7 @@ func (ci *containerInitialiser) Initialise() error {
 		return errors.Trace(err)
 	}
 
-	if err := ensureDependencies(localSeries); err != nil {
+	if err := ensureDependencies(ci.lxdSnapChannel, localSeries); err != nil {
 		return errors.Trace(err)
 	}
 	err = configureLXDBridge()
@@ -246,13 +265,31 @@ func editLXDBridgeFile(input string, subnet string) string {
 }
 
 // ensureDependencies install the required dependencies for running LXD.
-func ensureDependencies(series string) error {
+func ensureDependencies(lxdSnapChannel, series string) error {
+	// If the snap is already installed, check whether the operator asked
+	// us to use a different channel. If so, switch to it.
 	if lxdViaSnap() {
-		logger.Infof("LXD snap is installed; skipping package installation")
+		snapManager := getSnapManager()
+		trackedChannel := snapManager.InstalledChannel("lxd")
+		// Note that images with pre-installed snaps are normally
+		// tracking "latest/stable/ubuntu-$release_number". As our
+		// default model config setting is "latest/stable", we perform
+		// a starts-with check instead of an equality check to avoid
+		// switching channels when we don't actually need to.
+		if strings.HasPrefix(trackedChannel, lxdSnapChannel) {
+			logger.Infof("LXD snap is already installed (channel: %s); skipping package installation", trackedChannel)
+			return nil
+		}
+
+		// We need to switch to a different channel
+		logger.Infof("switching LXD snap channel from %s to %s", trackedChannel, lxdSnapChannel)
+		if err := snapManager.ChangeChannel("lxd", lxdSnapChannel); err != nil {
+			return errors.Trace(err)
+		}
 		return nil
 	}
 
-	if err := packaging.InstallDependency(dependency.LXD(), series); err != nil {
+	if err := packaging.InstallDependency(dependency.LXD(lxdSnapChannel), series); err != nil {
 		return errors.Trace(err)
 	}
 

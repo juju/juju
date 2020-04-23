@@ -1409,6 +1409,13 @@ func (s *ConfigSuite) TestCoerceForStorage(c *gc.C) {
 	c.Assert(tagsMap, gc.DeepEquals, expectedTags)
 }
 
+func (s *ConfigSuite) TestLXDSnapChannelConfig(c *gc.C) {
+	s.addJujuFiles(c)
+	config := newTestConfig(c, testing.Attrs{
+		"lxd-snap-channel": "latest/candidate"})
+	c.Assert(config.LXDSnapChannel(), gc.Equals, "latest/candidate")
+}
+
 var serverKey2 = `
 -----BEGIN RSA PRIVATE KEY-----
 MIIBPAIBAAJBALgI8m2TSdKefUOXkaluDrqbv1ua9gl2ec2ZrYQPDOQwDUoFXxQp
