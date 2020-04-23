@@ -28,13 +28,12 @@ func (n *unitNetwork) hasSameConnectivity(subnets network.SubnetInfos) bool {
 	return n.subnets.EqualTo(subnets)
 }
 
-// isConnectedTo returns true if the unitNetwork has a subnet in common with
-// the input space.
+// remainsConnectedTo returns true if the unitNetwork has a subnet in common
+// with the input future representation of the target space.
 // Note that we compare subnet IDs and not space IDs, because the subnets are
 // populated from the existing topology, whereas the input space comes from
-// the hypothetical new topology where one or more subnets
-// will have changed space.
-func (n *unitNetwork) isConnectedTo(space network.SpaceInfo) bool {
+// the hypothetical new topology where one or more subnets have moved there.
+func (n *unitNetwork) remainsConnectedTo(space network.SpaceInfo) bool {
 	spaceSubs := space.Subnets
 	for _, sub := range n.subnets {
 		if spaceSubs.ContainsID(sub.ID) {
@@ -224,7 +223,7 @@ func (n *affectedNetworks) ensurePositiveConstraintIntegrity(appName string, spa
 		}
 
 		for _, unitNet := range unitNets {
-			if !unitNet.isConnectedTo(*conSpace) {
+			if !unitNet.remainsConnectedTo(*conSpace) {
 				msg := fmt.Sprintf(
 					"moving subnet(s) to space %q violates space constraints "+
 						"for application %q: %s\n\tunits not connected to the space: %s",
