@@ -24,7 +24,6 @@ import (
 	"github.com/juju/version"
 	"github.com/kr/pretty"
 	"gopkg.in/juju/names.v3"
-	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -2402,8 +2401,8 @@ type workloadSpec struct {
 	ServiceAccounts                 []k8sspecs.K8sRBACSpecConverter
 	CustomResourceDefinitions       []k8sspecs.K8sCustomResourceDefinitionSpec
 	CustomResources                 map[string][]unstructured.Unstructured
-	MutatingWebhookConfigurations   map[string][]admissionregistration.MutatingWebhook
-	ValidatingWebhookConfigurations map[string][]admissionregistration.ValidatingWebhook
+	MutatingWebhookConfigurations   []k8sspecs.K8sMutatingWebhookSpec
+	ValidatingWebhookConfigurations []k8sspecs.K8sValidatingWebhookSpec
 	IngressResources                []k8sspecs.K8sIngressSpec
 }
 
