@@ -131,7 +131,7 @@ func (s *updatePublicCloudsSuite) TestNoNewData(c *gc.C) {
 	defer ts.Close()
 
 	msg := s.run(c, ts.URL, "")
-	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, "Fetching latest public cloud list...This client's list of public clouds is up to date, see `juju clouds --client-only`.")
+	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, "Fetching latest public cloud list...This client's list of public clouds is up to date, see `juju clouds --client`.")
 }
 
 func (s *updatePublicCloudsSuite) TestFirstRun(c *gc.C) {
