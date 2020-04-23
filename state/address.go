@@ -356,22 +356,9 @@ type address struct {
 	SpaceID     string `bson:"spaceid,omitempty"`
 }
 
-// Origin specifies where an address comes from, whether it was reported by a
-// provider or by a machine.
-type Origin string
-
-const (
-	// Address origin unknown.
-	OriginUnknown Origin = ""
-	// Address comes from a provider.
-	OriginProvider Origin = "provider"
-	// Address comes from a machine.
-	OriginMachine Origin = "machine"
-)
-
 // fromNetworkAddress is a convenience helper to create a state type
 // out of the network type, here for Address with a given Origin.
-func fromNetworkAddress(netAddr network.SpaceAddress, origin Origin) address {
+func fromNetworkAddress(netAddr network.SpaceAddress, origin network.Origin) address {
 	return address{
 		Value:       netAddr.Value,
 		AddressType: string(netAddr.Type),
@@ -396,7 +383,7 @@ func (addr *address) networkAddress() network.SpaceAddress {
 
 // fromNetworkAddresses is a convenience helper to create a state type
 // out of the network type, here for a slice of Address with a given origin.
-func fromNetworkAddresses(netAddrs network.SpaceAddresses, origin Origin) []address {
+func fromNetworkAddresses(netAddrs network.SpaceAddresses, origin network.Origin) []address {
 	addrs := make([]address, len(netAddrs))
 	for i, netAddr := range netAddrs {
 		addrs[i] = fromNetworkAddress(netAddr, origin)

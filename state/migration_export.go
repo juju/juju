@@ -812,6 +812,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		Exposed:              application.doc.Exposed,
 		PasswordHash:         application.doc.PasswordHash,
 		Placement:            application.doc.Placement,
+		HasResources:         application.doc.HasResources,
 		DesiredScale:         application.doc.DesiredScale,
 		MinUnits:             application.doc.MinUnits,
 		EndpointBindings:     map[string]string(ctx.endpoingBindings[globalKey]),

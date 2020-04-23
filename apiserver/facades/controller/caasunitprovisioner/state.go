@@ -90,6 +90,7 @@ type Application interface {
 	SetOperatorStatus(sInfo status.StatusInfo) error
 	SetStatus(statusInfo status.StatusInfo) error
 	Charm() (Charm, bool, error)
+	ClearResources() error
 }
 
 type stateShim struct {

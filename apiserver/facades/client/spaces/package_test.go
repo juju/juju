@@ -17,7 +17,7 @@ import (
 	environmocks "github.com/juju/juju/environs/mocks"
 )
 
-//go:generate mockgen -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,RenameSpace,RenameSpaceState,Settings,OpFactory,RemoveSpace,Subnet,Constraints,MovingSubnet,MoveSubnetsOp,Address
+//go:generate mockgen -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,RenameSpace,RenameSpaceState,Settings,OpFactory,RemoveSpace,Subnet,Constraints,MovingSubnet,MoveSubnetsOp,Address,ReloadSpaces,ReloadSpacesState,ReloadSpacesEnviron,EnvironSpaces,AuthorizerState
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -37,6 +37,12 @@ type APISuite struct {
 
 	cloudCallContext *context.CloudCallContext
 	API              *API
+
+	AuthorizerState     *MockAuthorizerState
+	EnvironSpaces       *MockEnvironSpaces
+	ReloadSpacesState   *MockReloadSpacesState
+	ReloadSpacesEnviron *MockReloadSpacesEnviron
+	ReloadSpacesAPI     *ReloadSpacesAPI
 }
 
 var _ = gc.Suite(&APISuite{})
@@ -83,9 +89,32 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 
 	unReg := environs.RegisterProvider("mock-provider", mockProvider)
 
+	s.EnvironSpaces = NewMockEnvironSpaces(ctrl)
+	s.ReloadSpacesState = NewMockReloadSpacesState(ctrl)
+	s.ReloadSpacesEnviron = NewMockReloadSpacesEnviron(ctrl)
+	s.AuthorizerState = NewMockAuthorizerState(ctrl)
+	s.ReloadSpacesAPI = NewReloadSpacesAPI(
+		s.ReloadSpacesState,
+		s.ReloadSpacesEnviron,
+		s.EnvironSpaces,
+		s.cloudCallContext,
+		DefaultReloadSpacesAuthorizer(
+			s.authorizer,
+			s.blockChecker,
+			s.AuthorizerState,
+		),
+	)
+
 	var err error
-	s.API, err = newAPIWithBacking(
-		s.Backing, s.blockChecker, s.cloudCallContext, s.resource, s.authorizer, s.OpFactory)
+	s.API, err = newAPIWithBacking(apiConfig{
+		ReloadSpacesAPI: s.ReloadSpacesAPI,
+		Backing:         s.Backing,
+		Check:           s.blockChecker,
+		Context:         s.cloudCallContext,
+		Resources:       s.resource,
+		Authorizer:      s.authorizer,
+		Factory:         s.OpFactory,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl, unReg
@@ -104,3 +133,6 @@ func SupportsSpaces(backing Backing, ctx context.ProviderCallContext) error {
 // NewAPIWithBacking is also a legacy-only artifact,
 // only used by the legacy test suite.
 var NewAPIWithBacking = newAPIWithBacking
+
+// APIConfig is also a legacy-only artifact.
+type APIConfig = apiConfig

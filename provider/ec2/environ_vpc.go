@@ -454,7 +454,7 @@ func getVPCSubnetIDsForAvailabilityZone(
 	vpcID, zoneName string,
 	allowedSubnetIDs []corenetwork.Id,
 ) ([]corenetwork.Id, error) {
-	allowedSubnets := corenetwork.MakeSubnetSet(allowedSubnetIDs...)
+	allowedSubnets := corenetwork.MakeIDSet(allowedSubnetIDs...)
 	vpc := &ec2.VPC{Id: vpcID}
 	subnets, err := getVPCSubnets(apiClient, ctx, vpc)
 	if err != nil && !isVPCNotUsableError(err) {
@@ -467,7 +467,7 @@ func getVPCSubnetIDsForAvailabilityZone(
 		return nil, errors.NewNotFound(err, message)
 	}
 
-	matchingSubnetIDs := corenetwork.MakeSubnetSet()
+	matchingSubnetIDs := corenetwork.MakeIDSet()
 	for _, subnet := range subnets {
 		if subnet.AvailZone != zoneName {
 			logger.Debugf("skipping subnet %q (in VPC %q): not in the chosen AZ %q", subnet.Id, vpcID, zoneName)

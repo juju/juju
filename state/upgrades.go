@@ -2507,7 +2507,7 @@ func ReplacePortsDocSubnetIDCIDR(pool *StatePool) (err error) {
 		var ops []txn.Op
 		for _, oldDoc := range docs {
 			// A doc with a subnet ID has already been upgraded.
-			if !network.IsValidCidr(oldDoc.SubnetID) {
+			if !network.IsValidCIDR(oldDoc.SubnetID) {
 				continue
 			}
 
@@ -2914,6 +2914,60 @@ func AddMachineIDToSubordinates(pool *StatePool) error {
 			C:      unitsC,
 			Id:     unit.DocID,
 			Update: bson.M{"$set": bson.M{"machineid": principal.MachineId}},
+		})
+	}
+
+	if len(ops) == 0 {
+		return nil
+	}
+	return st.runRawTransaction(ops)
+}
+
+// AddOriginToIPAddresses ensures that all ip address have an origin associated
+// with them.
+func AddOriginToIPAddresses(pool *StatePool) error {
+	st := pool.SystemState()
+	coll, closer := st.db().GetRawCollection(ipAddressesC)
+	defer closer()
+
+	// Load all the ip addresses into a map, based on the full ID.
+	// This should prevent duplicates ever showing up.
+	ipAddresses := make(map[string]*ipAddressDoc)
+	iter := coll.Find(nil).Iter()
+
+	var doc ipAddressDoc
+	for iter.Next(&doc) {
+		// Make a copy of the ipAddressDoc and put the copy into the map.
+		ipAddress := doc
+		ipAddresses[doc.DocID] = &ipAddress
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+
+	var ops []txn.Op
+	for _, ipAddress := range ipAddresses {
+		// Potentially we should check if it's a valid Origin and if it's not
+		// set it to the default origin.
+		if ipAddress.Origin != "" {
+			continue
+		}
+
+		// Set the origin to OriginProvider as the default ip address origin.
+		// The expectation is that the instancepoller will set all ip addresses
+		// that it knows about as a OriginProvier and anything it doesn't as a
+		// OriginMachine.
+		// The instancepoller will quiesce on the right value after the first
+		// run.
+		//
+		// The state of the network.Origin is a statemachine as follows:
+		//
+		//     OriginProvier -> OriginMachine -> Dead
+		//
+		ops = append(ops, txn.Op{
+			C:      ipAddressesC,
+			Id:     ipAddress.DocID,
+			Update: bson.M{"$set": bson.M{"origin": network.OriginProvider}},
 		})
 	}
 

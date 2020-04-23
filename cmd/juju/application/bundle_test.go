@@ -1340,11 +1340,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C)
                 num_units: 1
         relations:
             - ["wp:db", "mysql:server"]
-            - ["wp:db", "pgres:server"]
             - ["varnish:webcache", "wp:cache"]
     `)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertRelationsEstablished(c, "wp:db mysql:server", "wp:db pgres:server", "wp:cache varnish:webcache")
+	s.assertRelationsEstablished(c, "wp:db mysql:server", "wp:cache varnish:webcache")
 	s.assertUnitsCreated(c, map[string]string{
 		"mysql/0":   "0",
 		"pgres/0":   "1",

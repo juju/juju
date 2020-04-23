@@ -60,7 +60,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 
 	s.machine = nil
 
-	ch := s.AddTestingCharm(c, "wordpress")
+	ch := s.AddTestingCharm(c, "wordpress-nolimit")
 	s.application = s.AddTestingApplication(c, "u", ch)
 	s.unit = s.AddUnit(c, s.application)
 

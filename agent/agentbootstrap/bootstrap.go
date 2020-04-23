@@ -171,7 +171,7 @@ func InitializeState(
 	// because any space names in the bootstrap machine addresses must be
 	// reconcilable with space IDs at that point.
 	ctx := context.CallContext(st)
-	if err = space.ReloadSpaces(ctx, st, env); err != nil {
+	if err = space.ReloadSpaces(ctx, space.NewState(st), env); err != nil {
 		if errors.IsNotSupported(err) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {
@@ -365,7 +365,7 @@ func ensureHostedModel(
 
 	// TODO(wpk) 2017-05-24 Copy subnets/spaces from controller model
 	ctx := context.CallContext(hostedModelState)
-	if err = space.ReloadSpaces(ctx, hostedModelState, hostedModelEnv); err != nil {
+	if err = space.ReloadSpaces(ctx, space.NewState(hostedModelState), hostedModelEnv); err != nil {
 		if errors.IsNotSupported(err) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {

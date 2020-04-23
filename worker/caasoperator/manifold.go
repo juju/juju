@@ -35,9 +35,18 @@ import (
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
+type Logger interface {
+	Debugf(string, ...interface{})
+	Infof(string, ...interface{})
+	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
+}
+
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
 type ManifoldConfig struct {
+	Logger Logger
+
 	AgentName     string
 	APICallerName string
 	ClockName     string
@@ -62,6 +71,9 @@ type ManifoldConfig struct {
 }
 
 func (config ManifoldConfig) Validate() error {
+	if config.Logger == nil {
+		return errors.NotValidf("missing Logger")
+	}
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
@@ -175,7 +187,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				}
 			}
 
+			execClient, err := config.NewExecClient(os.Getenv(provider.OperatorNamespaceEnvName))
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			wCfg := Config{
+				Logger:                config.Logger,
 				ModelUUID:             agentConfig.Model().Id(),
 				ModelName:             model.Name,
 				Application:           applicationTag.Id(),
@@ -194,11 +212,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				RunListenerSocketFunc: runListenerSocketFunc,
 				LeadershipTrackerFunc: leadershipTrackerFunc,
 				UniterFacadeFunc:      newUniterFunc,
-			}
-
-			execClient, err := config.NewExecClient(os.Getenv(provider.OperatorNamespaceEnvName))
-			if err != nil {
-				return nil, errors.Trace(err)
+				ExecClient:            execClient,
 			}
 
 			loadOperatorInfoFunc := config.LoadOperatorInfo
@@ -211,15 +225,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			wCfg.OperatorInfo = *operatorInfo
 			wCfg.UniterParams = &uniter.UniterParams{
-				NewOperationExecutor:    operation.NewExecutor,
-				NewRemoteRunnerExecutor: getNewRunnerExecutor(execClient),
-				DataDir:                 agentConfig.DataDir(),
-				Clock:                   clock,
-				MachineLock:             config.MachineLock,
-				CharmDirGuard:           charmDirGuard,
-				UpdateStatusSignal:      uniter.NewUpdateStatusTimer(),
-				HookRetryStrategy:       hookRetryStrategy,
-				TranslateResolverErr:    config.TranslateResolverErr,
+				NewOperationExecutor: operation.NewExecutor,
+				DataDir:              agentConfig.DataDir(),
+				Clock:                clock,
+				MachineLock:          config.MachineLock,
+				CharmDirGuard:        charmDirGuard,
+				UpdateStatusSignal:   uniter.NewUpdateStatusTimer(),
+				HookRetryStrategy:    hookRetryStrategy,
+				TranslateResolverErr: config.TranslateResolverErr,
 			}
 			wCfg.UniterParams.SocketConfig, err = socketConfig(operatorInfo)
 			if err != nil {

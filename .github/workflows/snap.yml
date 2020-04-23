@@ -4,6 +4,7 @@ jobs:
   snap:
     name: linux-amd64
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
     steps:
     - name: Install Dependencies
       shell: bash

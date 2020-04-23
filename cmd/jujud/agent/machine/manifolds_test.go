@@ -473,6 +473,8 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 
 	"certificate-updater": {
 		"agent",
+		"certificate-watcher",
+		"is-controller-flag",
 		"state",
 		"state-config-watcher",
 		"upgrade-check-flag",

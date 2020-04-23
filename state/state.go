@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/core/status"
@@ -1108,7 +1109,7 @@ func (st *State) SaveCloudService(args SaveCloudServiceArgs) (_ *CloudService, e
 	doc := cloudServiceDoc{
 		DocID:                 applicationGlobalKey(args.Id),
 		ProviderId:            args.ProviderId,
-		Addresses:             fromNetworkAddresses(args.Addresses, OriginProvider),
+		Addresses:             fromNetworkAddresses(args.Addresses, corenetwork.OriginProvider),
 		Generation:            args.Generation,
 		DesiredScaleProtected: args.DesiredScaleProtected,
 	}
@@ -1236,12 +1237,14 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	// Perform model specific arg processing.
 	scale := 0
 	placement := ""
+	hasResources := false
 	switch model.Type() {
 	case ModelTypeIAAS:
 		if err := st.processIAASModelApplicationArgs(&args); err != nil {
 			return nil, errors.Trace(err)
 		}
 	case ModelTypeCAAS:
+		hasResources = true // all k8s apps start with the assumption of resources
 		if err := st.processCAASModelApplicationArgs(&args); err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1272,6 +1275,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		// CAAS
 		DesiredScale: scale,
 		Placement:    placement,
+		HasResources: hasResources,
 	}
 
 	app := newApplication(st, appDoc)
@@ -2147,6 +2151,11 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 					Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
 				})
 			}
+
+			// Enforce max-relation limits for the app:ep combination
+			if err := enforceMaxRelationLimit(app, ep); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 		if compatibleSeries && len(appSeries) > 1 {
 			// We need to ensure that there's intersection between the supported
@@ -2201,6 +2210,30 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		return &Relation{st, *doc}, nil
 	}
 	return nil, errors.Trace(err)
+}
+
+// enforceMaxRelationLimit returns an error if adding an additional relation
+// from app:ep exceeds the maximum allowed relation limit as specified in the
+// charm metadata.
+func enforceMaxRelationLimit(app ApplicationEntity, ep Endpoint) error {
+	// No limit defined
+	if ep.Relation.Limit == 0 {
+		return nil
+	}
+
+	// Count the number of already established relations for this app:endpoint
+	existingRels, err := app.Relations()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Adding a new relation would bump the already established limit by 1
+	establishedCount := establishedRelationCount(existingRels, ep.ApplicationName, ep.Relation)
+	if establishedCount+1 > ep.Relation.Limit {
+		return errors.QuotaLimitExceededf("establishing a new relation for %s:%s would exceed its maximum relation limit of %d", ep.ApplicationName, ep.Relation.Name, ep.Relation.Limit)
+	}
+
+	return nil
 }
 
 func aliveApplication(st *State, name string) (ApplicationEntity, error) {

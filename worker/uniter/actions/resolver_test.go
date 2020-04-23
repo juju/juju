@@ -89,6 +89,24 @@ func (s *actionsSuite) TestNextActionBlocked(c *gc.C) {
 	c.Assert(op, gc.IsNil)
 }
 
+func (s *actionsSuite) TestNextActionBlockedRemoteInit(c *gc.C) {
+	actionResolver := actions.NewResolver()
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+		CompletedActions:    map[string]struct{}{"actionA": {}},
+		OutdatedRemoteCharm: true,
+	}
+	remoteState := remotestate.Snapshot{
+		ActionsPending: []string{"actionA", "actionB"},
+		ActionsBlocked: false,
+	}
+	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
+	c.Assert(err, gc.DeepEquals, resolver.ErrNoOperation)
+	c.Assert(op, gc.IsNil)
+}
+
 func (s *actionsSuite) TestActionStateKindRunAction(c *gc.C) {
 	actionResolver := actions.NewResolver()
 	var actionA string = "actionA"

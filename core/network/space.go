@@ -23,10 +23,15 @@ const (
 	AlphaSpaceName = "alpha"
 )
 
-// SpaceLookup describes methods for acquiring SpaceInfos
-// to translate space IDs to space names and vice versa.
+// SpaceLookup describes the ability to get a complete
+// network topology, as understood by Juju.
 type SpaceLookup interface {
 	AllSpaceInfos() (SpaceInfos, error)
+}
+
+// SubnetLookup describes retrieving all subnets within a known set of spaces.
+type SubnetLookup interface {
+	AllSubnetInfos() (SubnetInfos, error)
 }
 
 // SpaceName is the name of a network space.
@@ -35,6 +40,7 @@ type SpaceName string
 // SpaceInfo defines a network space.
 type SpaceInfo struct {
 	// ID is the unique identifier for the space.
+	// TODO (manadart 2020-04-10): This should be a typed ID.
 	ID string
 
 	// Name is the name of the space.
@@ -46,7 +52,7 @@ type SpaceInfo struct {
 	ProviderId Id
 
 	// Subnets are the subnets that have been grouped into this network space.
-	Subnets []SubnetInfo
+	Subnets SubnetInfos
 }
 
 // SpaceInfos is a collection of spaces.
@@ -56,6 +62,102 @@ type SpaceInfos []SpaceInfo
 // It is useful for passing to conversions where we already have the spaces
 // materialised and don't need to pull them from the DB again.
 func (s SpaceInfos) AllSpaceInfos() (SpaceInfos, error) {
+	return s, nil
+}
+
+// AllSubnetInfos returns all subnets contained in this collection of spaces.
+// Since a subnet can only be in one space, we can simply accrue them all
+// with the need for duplicate checking.
+// As with AllSpaceInfos, it implements an interface that can be used to
+// indirect state.
+func (s SpaceInfos) AllSubnetInfos() (SubnetInfos, error) {
+	subs := make(SubnetInfos, 0)
+	for _, space := range s {
+		for _, sub := range space.Subnets {
+			subs = append(subs, sub)
+		}
+	}
+	return subs, nil
+}
+
+// FanOverlaysFor returns any subnets in this network topology that are
+// fan overlays for the input subnet IDs.
+func (s SpaceInfos) FanOverlaysFor(subnetIDs IDSet) (SubnetInfos, error) {
+	if len(subnetIDs) == 0 {
+		return nil, nil
+	}
+
+	var located int
+	var allOverlays SubnetInfos
+
+	for _, space := range s {
+		for _, sub := range space.Subnets {
+			if subnetIDs.Contains(sub.ID) {
+				overlays, err := space.Subnets.GetByUnderlayCIDR(sub.CIDR)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				allOverlays = append(allOverlays, overlays...)
+
+				// If we have tested all of the inputs, we can exit early.
+				located++
+				if located >= len(subnetIDs) {
+					return allOverlays, nil
+				}
+			}
+		}
+	}
+
+	return allOverlays, nil
+}
+
+// MoveSubnets returns a new topology representing
+// the movement of subnets to a new network space.
+func (s SpaceInfos) MoveSubnets(subnetIDs IDSet, spaceName string) (SpaceInfos, error) {
+	newSpace := s.GetByName(spaceName)
+	if newSpace == nil {
+		return nil, errors.NotFoundf("space with name %q", spaceName)
+	}
+
+	var movers SubnetInfos
+	found := MakeIDSet()
+
+	// First accrue the moving subnets and remove them from their old spaces.
+	for i, space := range s {
+		subs := space.Subnets
+		for j, sub := range subs {
+			if subnetIDs.Contains(sub.ID) {
+				// Indicate that we found the subnet,
+				// but don't do anything if it is already in the space.
+				found.Add(sub.ID)
+				if string(space.Name) == spaceName {
+					continue
+				}
+
+				sub.SpaceID = newSpace.ID
+				sub.SpaceName = spaceName
+				sub.ProviderSpaceId = newSpace.ProviderId
+
+				movers = append(movers, sub)
+				s[i].Subnets = append(subs[:j], subs[j+1:]...)
+			}
+		}
+	}
+
+	// Ensure that the input did not include subnets not in this collection.
+	if diff := subnetIDs.Difference(found); len(diff) != 0 {
+		return nil, errors.NotFoundf("subnet IDs %v", diff.SortedValues())
+	}
+
+	// Then put them against the new one.
+	// We have to find the space again in this collection,
+	// because newSpace was returned from a copy.
+	for i, space := range s {
+		if string(space.Name) == spaceName {
+			s[i].Subnets = append(space.Subnets, movers...)
+			break
+		}
+	}
 	return s, nil
 }
 
@@ -125,8 +227,8 @@ func (s SpaceInfos) ContainsName(name string) bool {
 }
 
 // Minus returns a new SpaceInfos representing all the
-// values in the target that are not in the parameter. Value
-// matching is done by ID.
+// values in the target that are not in the parameter.
+// Value matching is done by ID.
 func (s SpaceInfos) Minus(other SpaceInfos) SpaceInfos {
 	result := make(SpaceInfos, 0)
 	for _, value := range s {
@@ -162,7 +264,8 @@ nextSpace:
 					continue nextSpace
 				}
 
-				return nil, errors.Errorf("unable to infer space for address %q: address matches the same CIDR in multiple spaces", addr)
+				return nil, errors.Errorf(
+					"unable to infer space for address %q: address matches the same CIDR in multiple spaces", addr)
 			}
 		}
 	}
@@ -182,7 +285,8 @@ func (s SpaceInfos) InferSpaceFromCIDRAndSubnetID(cidr, providerSubnetID string)
 		}
 	}
 
-	return nil, errors.NewNotFound(nil, fmt.Sprintf("unable to infer space for CIDR %q and provider subnet ID %q", cidr, providerSubnetID))
+	return nil, errors.NewNotFound(
+		nil, fmt.Sprintf("unable to infer space for CIDR %q and provider subnet ID %q", cidr, providerSubnetID))
 }
 
 var (
@@ -217,10 +321,10 @@ func ConvertSpaceName(name string, existing set.Strings) string {
 	// If this name is in use add a numerical suffix.
 	if existing.Contains(name) {
 		counter := 2
-		for existing.Contains(name + fmt.Sprintf("-%d", counter)) {
-			counter += 1
+		for existing.Contains(fmt.Sprintf("%s-%d", name, counter)) {
+			counter++
 		}
-		name = name + fmt.Sprintf("-%d", counter)
+		name = fmt.Sprintf("%s-%d", name, counter)
 	}
 
 	return name

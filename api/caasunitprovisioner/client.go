@@ -351,3 +351,20 @@ func (c *Client) SetOperatorStatus(appName string, status status.Status, message
 	}
 	return result.OneError()
 }
+
+// ClearApplicationResources clears the flag which indicates an
+// application still has resources in the cluster.
+func (c *Client) ClearApplicationResources(appName string) error {
+	var result params.ErrorResults
+	args := params.Entities{Entities: []params.Entity{{Tag: names.NewApplicationTag(appName).String()}}}
+	if err := c.facade.FacadeCall("ClearApplicationsResources", args, &result); err != nil {
+		return errors.Trace(err)
+	}
+	if len(result.Results) != len(args.Entities) {
+		return errors.Errorf("expected %d result(s), got %d", len(args.Entities), len(result.Results))
+	}
+	if result.Results[0].Error == nil {
+		return nil
+	}
+	return maybeNotFound(result.Results[0].Error)
+}

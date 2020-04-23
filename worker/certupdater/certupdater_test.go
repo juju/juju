@@ -4,19 +4,16 @@
 package certupdater_test
 
 import (
-	"crypto/x509"
+	"net"
 	stdtesting "testing"
-	"time"
 
-	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/cert"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
-	jujucert "github.com/juju/juju/cert"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/certupdater"
@@ -35,7 +32,6 @@ var _ = gc.Suite(&CertUpdaterSuite{})
 
 func (s *CertUpdaterSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(&jujucert.NewLeafKeyBits, 1024)
 
 	s.stateServingInfo = jujucontroller.StateServingInfo{
 		Cert:         coretesting.ServerCert,
@@ -88,14 +84,6 @@ func (s *CertUpdaterSuite) StateServingInfo() (jujucontroller.StateServingInfo, 
 	return s.stateServingInfo, true
 }
 
-type mockConfigGetter struct{}
-
-func (g *mockConfigGetter) ControllerConfig() (jujucontroller.Config, error) {
-	return map[string]interface{}{
-		jujucontroller.CACertKey: coretesting.CACert,
-	}, nil
-}
-
 type mockAPIHostGetter struct{}
 
 func (g *mockAPIHostGetter) APIHostPortsForClients() ([]network.SpaceHostPorts, error) {
@@ -106,75 +94,42 @@ func (g *mockAPIHostGetter) APIHostPortsForClients() ([]network.SpaceHostPorts, 
 }
 
 func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
-	var initialAddresses []string
-	setter := func(info jujucontroller.StateServingInfo) error {
-		// Only care about first time called.
-		if len(initialAddresses) > 0 {
-			return nil
-		}
-		srvCert, err := cert.ParseCert(info.Cert)
-		c.Assert(err, jc.ErrorIsNil)
-		initialAddresses = make([]string, len(srvCert.IPAddresses))
-		for i, ip := range srvCert.IPAddresses {
-			initialAddresses[i] = ip.String()
-		}
-		return nil
-	}
+	authority, err := pkitest.NewTestAuthority()
+	c.Assert(err, jc.ErrorIsNil)
+
 	changes := make(chan struct{})
 	worker := certupdater.NewCertificateUpdater(certupdater.Config{
-		AddressWatcher:         &mockMachine{changes},
-		APIHostPortsGetter:     &mockAPIHostGetter{},
-		ControllerConfigGetter: &mockConfigGetter{},
-		StateServingInfoGetter: s,
-		StateServingInfoSetter: setter,
+		AddressWatcher:     &mockMachine{changes},
+		APIHostPortsGetter: &mockAPIHostGetter{},
+		Authority:          authority,
 	})
 	workertest.CleanKill(c, worker)
-	// Initial cert addresses initialised to cloud local ones.
-	c.Assert(initialAddresses, jc.DeepEquals, []string{"192.168.1.1"})
+
+	leaf, err := authority.LeafForGroup(certupdater.ControllerIPLeafGroup)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(leaf.Certificate().IPAddresses, coretesting.IPsEqual,
+		[]net.IP{net.ParseIP("192.168.1.1")})
 }
 
 func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
-	var srvCert *x509.Certificate
-	updated := make(chan struct{})
-	setter := func(info jujucontroller.StateServingInfo) error {
-		s.stateServingInfo = info
-		var err error
-		srvCert, err = cert.ParseCert(info.Cert)
-		c.Assert(err, jc.ErrorIsNil)
-		sanIPs := make([]string, len(srvCert.IPAddresses))
-		for i, ip := range srvCert.IPAddresses {
-			sanIPs[i] = ip.String()
-		}
-		sanIPsSet := set.NewStrings(sanIPs...)
-		if sanIPsSet.Size() == 2 && sanIPsSet.Contains("0.1.2.3") && sanIPsSet.Contains("192.168.1.1") {
-			close(updated)
-		}
-		return nil
-	}
+	authority, err := pkitest.NewTestAuthority()
+	c.Assert(err, jc.ErrorIsNil)
+
 	changes := make(chan struct{})
 	worker := certupdater.NewCertificateUpdater(certupdater.Config{
-		AddressWatcher:         &mockMachine{changes},
-		APIHostPortsGetter:     &mockAPIHostGetter{},
-		ControllerConfigGetter: &mockConfigGetter{},
-		StateServingInfoGetter: s,
-		StateServingInfoSetter: setter,
+		AddressWatcher:     &mockMachine{changes},
+		APIHostPortsGetter: &mockAPIHostGetter{},
+		Authority:          authority,
 	})
-	defer workertest.CleanKill(c, worker)
 
 	changes <- struct{}{}
 	// Certificate should be updated with the address value.
-	select {
-	case <-updated:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for certificate to be updated")
-	}
 
-	// The server certificates must report "juju-apiserver" as a DNS
-	// name for backwards-compatibility with API clients. They must
-	// also report "juju-mongodb" because these certificates are also
-	// used for serving MongoDB connections.
-	c.Assert(srvCert.DNSNames, jc.SameContents,
-		[]string{"localhost", "juju-apiserver", "juju-mongodb", "anything", "controller-service.controller-microk8s-localhost.svc"})
+	workertest.CleanKill(c, worker)
+	leaf, err := authority.LeafForGroup(certupdater.ControllerIPLeafGroup)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(leaf.Certificate().IPAddresses, coretesting.IPsEqual,
+		[]net.IP{net.ParseIP("0.1.2.3")})
 }
 
 type mockStateServingGetterNoCAKey struct{}
@@ -186,30 +141,4 @@ func (g *mockStateServingGetterNoCAKey) StateServingInfo() (jujucontroller.State
 		StatePort:  123,
 		APIPort:    456,
 	}, true
-
-}
-
-func (s *CertUpdaterSuite) TestAddressChangeNoCAKey(c *gc.C) {
-	updated := make(chan struct{})
-	setter := func(info jujucontroller.StateServingInfo) error {
-		close(updated)
-		return nil
-	}
-	changes := make(chan struct{})
-	worker := certupdater.NewCertificateUpdater(certupdater.Config{
-		AddressWatcher:         &mockMachine{changes},
-		APIHostPortsGetter:     &mockAPIHostGetter{},
-		ControllerConfigGetter: &mockConfigGetter{},
-		StateServingInfoGetter: &mockStateServingGetterNoCAKey{},
-		StateServingInfoSetter: setter,
-	})
-	defer workertest.CleanKill(c, worker)
-
-	changes <- struct{}{}
-	// Certificate should not be updated with the address value.
-	select {
-	case <-time.After(coretesting.ShortWait):
-	case <-updated:
-		c.Fatalf("set state serving info unexpectedly called")
-	}
 }

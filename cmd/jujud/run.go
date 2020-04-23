@@ -45,6 +45,7 @@ type RunCommand struct {
 	relationId            string
 	remoteUnitName        string
 	remoteApplicationName string
+	operator              bool
 }
 
 const runCommandDoc = `
@@ -80,6 +81,7 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.relationId, "relation", "", "")
 	f.StringVar(&c.remoteUnitName, "remote-unit", "", "run the commands for a specific remote unit in a relation context on a unit")
 	f.StringVar(&c.remoteApplicationName, "remote-app", "", "run the commands for a specific remote application in a relation context on a unit")
+	f.BoolVar(&c.operator, "operator", false, "run the commands on the operator instead of the workload. Only supported on k8s workload charms")
 	f.BoolVar(&c.forceRemoteUnit, "force-remote-unit", false, "run the commands for a specific relation context, bypassing the remote unit check")
 }
 
@@ -270,6 +272,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 		RemoteUnitName:        c.remoteUnitName,
 		RemoteApplicationName: c.remoteApplicationName,
 		ForceRemoteUnit:       c.forceRemoteUnit,
+		Operator:              c.operator,
 	}
 	if operatorClientInfo != nil {
 		args.Token = operatorClientInfo.Token

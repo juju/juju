@@ -236,45 +236,19 @@ func (s *UnitSuite) TestUnitStateMutateUniterState(c *gc.C) {
 	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
 }
 
-func (s *UnitSuite) TestUnitStateMutateAddRelationState(c *gc.C) {
-	// Set initial state; this should create a new unitstate doc
-	initState := s.testUnitSuite(c)
-
-	// Mutate relation state again with an existing state doc
-	// by adding a new value.
-	newRelationState := map[int]string{3: "three"}
-	newUS := state.NewUnitState()
-	newUS.SetRelationState(newRelationState)
-	err := s.unit.SetState(newUS, state.UnitStateSizeLimits{})
-	c.Assert(err, gc.IsNil)
-
-	expectedRelationState := initState.relationState
-	expectedRelationState[3] = "three"
-	// Ensure relation state changed
-	uState, err := s.unit.State()
-	c.Assert(err, gc.IsNil)
-	assertUnitStateRelationState(c, uState, expectedRelationState)
-
-	// Ensure the other state did not.
-	assertUnitStateCharmState(c, uState, initState.charmState)
-	assertUnitStateUniterState(c, uState, initState.uniterState)
-	assertUnitStateStorageState(c, uState, initState.storageState)
-}
-
 func (s *UnitSuite) TestUnitStateMutateChangeRelationState(c *gc.C) {
 	// Set initial state; this should create a new unitstate doc
 	initState := s.testUnitSuite(c)
 
 	// Mutate relation state again with an existing state doc
 	// by changing a value.
-	newRelationState := map[int]string{1: "five"}
+	expectedRelationState := initState.relationState
+	expectedRelationState[1] = "five"
 	newUS := state.NewUnitState()
-	newUS.SetRelationState(newRelationState)
+	newUS.SetRelationState(expectedRelationState)
 	err := s.unit.SetState(newUS, state.UnitStateSizeLimits{})
 	c.Assert(err, gc.IsNil)
 
-	expectedRelationState := initState.relationState
-	expectedRelationState[1] = "five"
 	// Ensure relation state changed
 	uState, err := s.unit.State()
 	c.Assert(err, gc.IsNil)
@@ -292,14 +266,13 @@ func (s *UnitSuite) TestUnitStateMutateDeleteRelationState(c *gc.C) {
 
 	// Mutate relation state again with an existing state doc
 	// by deleting value.
-	newRelationState := map[int]string{2: ""}
+	expectedRelationState := initState.relationState
+	delete(expectedRelationState, 2)
 	newUS := state.NewUnitState()
-	newUS.SetRelationState(newRelationState)
+	newUS.SetRelationState(expectedRelationState)
 	err := s.unit.SetState(newUS, state.UnitStateSizeLimits{})
 	c.Assert(err, gc.IsNil)
 
-	expectedRelationState := initState.relationState
-	delete(expectedRelationState, 2)
 	// Ensure relation state changed
 	uState, err := s.unit.State()
 	c.Assert(err, gc.IsNil)
@@ -3152,6 +3125,14 @@ func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// App removal requires cluster resources to be cleared.
+	err = s.application.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.application.ClearResources()
+	c.Assert(err, jc.ErrorIsNil)
+	assertCleanupCount(c, s.Model.State(), 2)
+
 	s.State.StartSync()
 	select {
 	case _, ok := <-w.Changes():

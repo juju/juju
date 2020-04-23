@@ -1288,6 +1288,34 @@ func (a *Facade) updateFilesystemInfo(filesystemUpdates map[string]filesystemInf
 	return nil
 }
 
+// ClearApplicationsResources clears the flags which indicate
+// applications still have resources in the cluster.
+func (a *Facade) ClearApplicationsResources(args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	for i, entity := range args.Entities {
+		appTag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		app, err := a.state.Application(appTag.Id())
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = app.ClearResources()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return result, nil
+}
+
 // UpdateApplicationsService updates the Juju data model to reflect the given
 // service details of the specified application.
 func (a *Facade) UpdateApplicationsService(args params.UpdateApplicationServiceArgs) (params.ErrorResults, error) {

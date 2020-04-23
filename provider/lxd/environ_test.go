@@ -375,6 +375,69 @@ func (s *environSuite) TestInstanceAvailabilityZoneNamesInvalidCredentials(c *gc
 	})
 }
 
+type environCloudProfileSuite struct {
+	lxd.EnvironSuite
+
+	callCtx context.ProviderCallContext
+
+	svr          *lxd.MockServer
+	cloudSpecEnv environs.CloudSpecSetter
+}
+
+var _ = gc.Suite(&environCloudProfileSuite{})
+
+func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfile(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.expectHasProfileFalse("juju-controller")
+	s.expectCreateProfile("juju-controller", nil)
+
+	err := s.cloudSpecEnv.SetCloudSpec(lxdCloudSpec())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.expectForProfileCreateRace("juju-controller")
+	s.expectCreateProfile("juju-controller", errors.New("The profile already exists"))
+
+	err := s.cloudSpecEnv.SetCloudSpec(lxdCloudSpec())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environCloudProfileSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.svr = lxd.NewMockServer(ctrl)
+
+	svrFactory := lxd.NewMockServerFactory(ctrl)
+	svrFactory.EXPECT().RemoteServer(lxdCloudSpec()).Return(s.svr, nil)
+
+	env, ok := s.NewEnvironWithServerFactory(c, svrFactory, nil).(environs.CloudSpecSetter)
+	c.Assert(ok, jc.IsTrue)
+	s.cloudSpecEnv = env
+
+	return ctrl
+}
+
+func (s *environCloudProfileSuite) expectForProfileCreateRace(name string) {
+	exp := s.svr.EXPECT()
+	gomock.InOrder(
+		exp.HasProfile(name).Return(false, nil),
+		exp.HasProfile(name).Return(true, nil),
+	)
+}
+
+func (s *environCloudProfileSuite) expectHasProfileFalse(name string) {
+	s.svr.EXPECT().HasProfile(name).Return(false, nil)
+}
+
+func (s *environCloudProfileSuite) expectCreateProfile(name string, err error) {
+	s.svr.EXPECT().CreateProfileWithConfig(name,
+		map[string]string{
+			"boot.autostart":   "true",
+			"security.nesting": "true",
+		}).Return(err)
+}
+
 type environProfileSuite struct {
 	lxd.EnvironSuite
 
@@ -430,17 +493,17 @@ func (s *environProfileSuite) TestAssignLXDProfiles(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	instId := "testme"
-	old := "old-profile"
-	new := "new-profile"
-	expectedProfiles := []string{"default", "juju-default", new}
-	s.expectAssignLXDProfiles(instId, old, new, []string{}, expectedProfiles, nil)
+	oldP := "old-profile"
+	newP := "new-profile"
+	expectedProfiles := []string{"default", "juju-default", newP}
+	s.expectAssignLXDProfiles(instId, oldP, newP, []string{}, expectedProfiles, nil)
 
 	obtained, err := s.lxdEnv.AssignLXDProfiles(instId, expectedProfiles, []lxdprofile.ProfilePost{
 		{
-			Name:    old,
+			Name:    oldP,
 			Profile: nil,
 		}, {
-			Name: new,
+			Name: newP,
 			Profile: &lxdprofile.Profile{
 				Config: map[string]string{
 					"security.nesting": "true",
@@ -457,19 +520,19 @@ func (s *environProfileSuite) TestAssignLXDProfilesErrorReturnsCurrent(c *gc.C) 
 	defer s.setup(c).Finish()
 
 	instId := "testme"
-	old := "old-profile"
-	new := "new-profile"
-	expectedProfiles := []string{"default", "juju-default", old}
-	newProfiles := []string{"default", "juju-default", new}
+	oldP := "old-profile"
+	newP := "new-profile"
+	expectedProfiles := []string{"default", "juju-default", oldP}
+	newProfiles := []string{"default", "juju-default", newP}
 	expectedErr := "fail UpdateContainerProfiles"
-	s.expectAssignLXDProfiles(instId, old, new, expectedProfiles, newProfiles, errors.New(expectedErr))
+	s.expectAssignLXDProfiles(instId, oldP, newP, expectedProfiles, newProfiles, errors.New(expectedErr))
 
 	obtained, err := s.lxdEnv.AssignLXDProfiles(instId, newProfiles, []lxdprofile.ProfilePost{
 		{
-			Name:    old,
+			Name:    oldP,
 			Profile: nil,
 		}, {
-			Name: new,
+			Name: newP,
 			Profile: &lxdprofile.Profile{
 				Config: map[string]string{
 					"security.nesting": "true",
@@ -479,7 +542,7 @@ func (s *environProfileSuite) TestAssignLXDProfilesErrorReturnsCurrent(c *gc.C) 
 		},
 	})
 	c.Assert(err, gc.ErrorMatches, expectedErr)
-	c.Assert(obtained, gc.DeepEquals, []string{"default", "juju-default", old})
+	c.Assert(obtained, gc.DeepEquals, []string{"default", "juju-default", oldP})
 }
 
 func (s *environProfileSuite) setup(c *gc.C) *gomock.Controller {

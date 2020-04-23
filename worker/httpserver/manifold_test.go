@@ -20,6 +20,8 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/pki"
+	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/httpserver"
 )
@@ -27,6 +29,7 @@ import (
 type ManifoldSuite struct {
 	testing.IsolationSuite
 
+	authority            pki.Authority
 	config               httpserver.ManifoldConfig
 	manifold             dependency.Manifold
 	context              dependency.Context
@@ -35,7 +38,6 @@ type ManifoldSuite struct {
 	mux                  *apiserverhttp.Mux
 	clock                *testclock.Clock
 	prometheusRegisterer stubPrometheusRegisterer
-	certWatcher          stubCertWatcher
 	tlsConfig            *tls.Config
 	controllerConfig     controller.Config
 
@@ -47,12 +49,15 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	authority, err := pkitest.NewTestAuthority()
+	c.Assert(err, jc.ErrorIsNil)
+	s.authority = authority
+
 	s.state = stubStateTracker{}
 	s.mux = &apiserverhttp.Mux{}
 	s.hub = pubsub.NewStructuredHub(nil)
 	s.clock = testclock.NewClock(time.Now())
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
-	s.certWatcher = stubCertWatcher{}
 	s.tlsConfig = &tls.Config{}
 	s.controllerConfig = controller.Config(map[string]interface{}{
 		"api-port":            1024,
@@ -64,7 +69,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.context = s.newContext(nil)
 	s.config = httpserver.ManifoldConfig{
 		AgentName:            "machine-42",
-		CertWatcherName:      "cert-watcher",
+		AuthorityName:        "authority",
 		HubName:              "hub",
 		StateName:            "state",
 		MuxName:              "mux",
@@ -83,7 +88,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"cert-watcher":   s.certWatcher.get,
+		"authority":      s.authority,
 		"state":          &s.state,
 		"hub":            s.hub,
 		"mux":            s.mux,
@@ -106,7 +111,7 @@ func (s *ManifoldSuite) getControllerConfig(st *state.State) (controller.Config,
 
 func (s *ManifoldSuite) newTLSConfig(
 	st *state.State,
-	getCertificate func() *tls.Certificate,
+	_ httpserver.SNIGetter,
 ) (*tls.Config, error) {
 	s.stub.MethodCall(s, "NewTLSConfig", st)
 	if err := s.stub.NextErr(); err != nil {
@@ -124,7 +129,7 @@ func (s *ManifoldSuite) newWorker(config httpserver.Config) (worker.Worker, erro
 }
 
 var expectedInputs = []string{
-	"cert-watcher",
+	"authority",
 	"state",
 	"mux",
 	"hub",
@@ -180,8 +185,8 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		func(cfg *httpserver.ManifoldConfig) { cfg.AgentName = "" },
 		"empty AgentName not valid",
 	}, {
-		func(cfg *httpserver.ManifoldConfig) { cfg.CertWatcherName = "" },
-		"empty CertWatcherName not valid",
+		func(cfg *httpserver.ManifoldConfig) { cfg.AuthorityName = "" },
+		"empty AuthorityName not valid",
 	}, {
 		func(cfg *httpserver.ManifoldConfig) { cfg.StateName = "" },
 		"empty StateName not valid",

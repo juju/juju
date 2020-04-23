@@ -345,7 +345,7 @@ func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, e
 		if exists {
 			// Terminating is always set to true regardless of whether the resource is failed as terminating
 			// since it's the overall state that is reported back.
-			logger.Debugf("operator %q exists and is terminating due to dangling %s resource(s)", c.label)
+			logger.Debugf("operator %q exists and is terminating due to dangling %s resource(s)", operatorName, c.label)
 			return caas.OperatorState{Exists: true, Terminating: true}, nil
 		}
 	}

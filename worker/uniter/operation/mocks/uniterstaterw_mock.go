@@ -35,6 +35,7 @@ func (m *MockUnitStateReadWriter) EXPECT() *MockUnitStateReadWriterMockRecorder 
 
 // SetState mocks base method
 func (m *MockUnitStateReadWriter) SetState(arg0 params.SetUnitStateArg) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetState", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -42,11 +43,13 @@ func (m *MockUnitStateReadWriter) SetState(arg0 params.SetUnitStateArg) error {
 
 // SetState indicates an expected call of SetState
 func (mr *MockUnitStateReadWriterMockRecorder) SetState(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetState", reflect.TypeOf((*MockUnitStateReadWriter)(nil).SetState), arg0)
 }
 
 // State mocks base method
 func (m *MockUnitStateReadWriter) State() (params.UnitStateResult, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "State")
 	ret0, _ := ret[0].(params.UnitStateResult)
 	ret1, _ := ret[1].(error)
@@ -55,5 +58,6 @@ func (m *MockUnitStateReadWriter) State() (params.UnitStateResult, error) {
 
 // State indicates an expected call of State
 func (mr *MockUnitStateReadWriterMockRecorder) State() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockUnitStateReadWriter)(nil).State))
 }

@@ -6,10 +6,10 @@ package caasunitprovisioner_test
 import (
 	"time"
 
-	"github.com/juju/loggo"
-
+	"github.com/golang/mock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -44,7 +44,7 @@ type WorkerSuite struct {
 	podSpecGetter      mockProvisioningInfoGetterGetter
 	lifeGetter         mockLifeGetter
 	unitUpdater        mockUnitUpdater
-	statusSetter       mockProvisioningStatusSetter
+	statusSetter       *caasunitprovisioner.MockProvisioningStatusSetter
 
 	applicationChanges      chan []string
 	applicationScaleChanges chan struct{}
@@ -55,6 +55,7 @@ type WorkerSuite struct {
 	serviceDeleted          chan struct{}
 	serviceEnsured          chan struct{}
 	serviceUpdated          chan struct{}
+	resourcesCleared        chan struct{}
 	clock                   *testclock.Clock
 }
 
@@ -124,13 +125,16 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.serviceDeleted = make(chan struct{})
 	s.serviceEnsured = make(chan struct{})
 	s.serviceUpdated = make(chan struct{})
+	s.resourcesCleared = make(chan struct{})
 
 	s.applicationGetter = mockApplicationGetter{
-		watcher:      watchertest.NewMockStringsWatcher(s.applicationChanges),
-		scaleWatcher: watchertest.NewMockNotifyWatcher(s.applicationScaleChanges),
+		watcher:        watchertest.NewMockStringsWatcher(s.applicationChanges),
+		scaleWatcher:   watchertest.NewMockNotifyWatcher(s.applicationScaleChanges),
+		deploymentMode: caas.ModeWorkload,
 	}
 	s.applicationUpdater = mockApplicationUpdater{
 		updated: s.serviceUpdated,
+		cleared: s.resourcesCleared,
 	}
 
 	s.podSpecGetter = mockProvisioningInfoGetterGetter{
@@ -155,6 +159,21 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.containerBroker = mockContainerBroker{
 		unitsWatcher:    watchertest.NewMockNotifyWatcher(s.caasUnitsChanges),
 		operatorWatcher: watchertest.NewMockNotifyWatcher(s.caasOperatorChanges),
+		units: []caas.Unit{
+			{
+				Id:       "u1",
+				Address:  "10.0.0.1",
+				Stateful: true,
+				FilesystemInfo: []caas.FilesystemInfo{
+					{MountPoint: "/path-to-here", ReadOnly: true, StorageName: "database",
+						Size: 100, FilesystemId: "fs-id",
+						Status: status.StatusInfo{Status: status.Attaching, Message: "not ready"},
+						Volume: caas.VolumeInfo{VolumeId: "vol-id", Size: 200, Persistent: true,
+							Status: status.StatusInfo{Status: status.Error, Message: "vol not ready"}},
+					},
+				},
+			},
+		},
 	}
 	s.lifeGetter = mockLifeGetter{}
 	s.lifeGetter.setLife(life.Alive)
@@ -162,21 +181,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		ensured:        s.serviceEnsured,
 		deleted:        s.serviceDeleted,
 		serviceWatcher: watchertest.NewMockNotifyWatcher(s.caasServiceChanges),
-	}
-	s.statusSetter = mockProvisioningStatusSetter{
-		statusSet: make(chan struct{}, 1),
-	}
-
-	s.config = caasunitprovisioner.Config{
-		ApplicationGetter:        &s.applicationGetter,
-		ApplicationUpdater:       &s.applicationUpdater,
-		ServiceBroker:            &s.serviceBroker,
-		ContainerBroker:          &s.containerBroker,
-		ProvisioningInfoGetter:   &s.podSpecGetter,
-		LifeGetter:               &s.lifeGetter,
-		UnitUpdater:              &s.unitUpdater,
-		ProvisioningStatusSetter: &s.statusSetter,
-		Logger:                   loggo.GetLogger("test"),
 	}
 }
 
@@ -189,6 +193,8 @@ func (s *WorkerSuite) sendContainerSpecChange(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.ApplicationGetter = nil
 	}, `missing ApplicationGetter not valid`)
@@ -233,6 +239,8 @@ func (s *WorkerSuite) testValidateConfig(c *gc.C, f func(*caasunitprovisioner.Co
 }
 
 func (s *WorkerSuite) TestStartStop(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
@@ -240,6 +248,9 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *WorkerSuite) setupNewUnitScenario(c *gc.C) worker.Worker {
+	s.statusSetter.EXPECT().SetOperatorStatus(
+		"gitlab", status.Waiting, "ensuring", map[string]interface{}{"foo": "bar"}).MinTimes(1)
+
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -275,7 +286,7 @@ func (s *WorkerSuite) setupNewUnitScenario(c *gc.C) worker.Worker {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for service to be ensured")
 	}
-	s.statusSetter.CheckCall(c, 0, "SetOperatorStatus", "gitlab", status.Waiting, "ensuring", map[string]interface{}{"foo": "bar"})
+
 	select {
 	case <-s.serviceUpdated:
 	case <-time.After(coretesting.LongWait):
@@ -285,6 +296,8 @@ func (s *WorkerSuite) setupNewUnitScenario(c *gc.C) worker.Worker {
 }
 
 func (s *WorkerSuite) TestScaleChangedInJuju(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
@@ -345,6 +358,8 @@ func intPtr(i int) *int {
 }
 
 func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
@@ -434,6 +449,8 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestNewPodSpecChange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
@@ -503,6 +520,11 @@ containers:
 }
 
 func (s *WorkerSuite) TestInvalidDeploymentChange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.statusSetter.EXPECT().SetOperatorStatus(
+		"gitlab", status.Error, "k8s does not support updating storage", map[string]interface{}(nil))
+
 	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
@@ -549,16 +571,13 @@ containers:
 	})
 	s.sendContainerSpecChange(c)
 	s.podSpecGetter.assertSpecRetrieved(c)
-	s.statusSetter.assertStatusSet(c)
 
 	c.Assert(s.serviceBroker.Calls(), gc.HasLen, 0)
-	// First call is for "waiting"
-	s.statusSetter.CheckCallNames(c, "SetOperatorStatus", "SetOperatorStatus")
-	s.statusSetter.CheckCall(c, 1, "SetOperatorStatus",
-		"gitlab", status.Error, "k8s does not support updating storage", map[string]interface{}(nil))
 }
 
 func (s *WorkerSuite) TestScaleZero(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
@@ -597,6 +616,8 @@ func (s *WorkerSuite) TestScaleZero(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestApplicationDeadRemovesService(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
@@ -622,6 +643,8 @@ func (s *WorkerSuite) TestApplicationDeadRemovesService(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -634,6 +657,12 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 	}
 
 	select {
+	case <-s.serviceDeleted:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be deleted")
+	}
+
+	select {
 	case s.applicationScaleChanges <- struct{}{}:
 		c.Fatal("unexpected watch for application scale")
 	case <-time.After(coretesting.ShortWait):
@@ -641,10 +670,12 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 	// There should just be the initial watch call, no subsequent calls to watch/get scale etc.
-	s.applicationGetter.CheckCallNames(c, "WatchApplications")
+	s.applicationGetter.CheckCallNames(c, "WatchApplications", "DeploymentMode")
 }
 
 func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplicationScale(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -702,7 +733,150 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplicationScale(c *gc.C
 	workertest.CheckKilled(c, s.applicationGetter.scaleWatcher)
 }
 
+func (s *WorkerSuite) TestRemoveWorkloadApplicationWaitsForResources(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w, err := caasunitprovisioner.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	select {
+	case s.applicationChanges <- []string{"gitlab"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
+
+	// Check that the gitlab worker is running or not;
+	// given it time to startup.
+	shortAttempt := &utils.AttemptStrategy{
+		Total: coretesting.LongWait,
+		Delay: 10 * time.Millisecond,
+	}
+	running := false
+	for a := shortAttempt.Start(); a.Next(); {
+		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
+		if running {
+			break
+		}
+	}
+	c.Assert(running, jc.IsTrue)
+
+	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
+	select {
+	case s.applicationChanges <- []string{"gitlab"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
+
+	select {
+	case <-s.serviceDeleted:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be deleted")
+	}
+
+	// Check that the gitlab worker is running or not;
+	// given it time to shutdown.
+	for a := shortAttempt.Start(); a.Next(); {
+		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
+		if !running {
+			break
+		}
+	}
+	c.Assert(running, jc.IsFalse)
+
+	// Check the undertaker worker clears application resources.
+	s.containerBroker.SetErrors(nil, errors.NotFoundf("operator"))
+	s.containerBroker.units = nil
+
+	select {
+	case s.caasUnitsChanges <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending units change")
+	}
+
+	select {
+	case s.caasOperatorChanges <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending operator change")
+	}
+
+	select {
+	case <-s.resourcesCleared:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for resources to be cleared")
+	}
+}
+
+func (s *WorkerSuite) TestRemoveOperatorApplicationWaitsForResources(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.applicationGetter.deploymentMode = caas.ModeOperator
+
+	w, err := caasunitprovisioner.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	select {
+	case s.applicationChanges <- []string{"gitlab"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
+
+	// Check that the gitlab worker is running or not;
+	// given it time to startup.
+	shortAttempt := &utils.AttemptStrategy{
+		Total: coretesting.LongWait,
+		Delay: 10 * time.Millisecond,
+	}
+	running := false
+	for a := shortAttempt.Start(); a.Next(); {
+		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
+		if running {
+			break
+		}
+	}
+	c.Assert(running, jc.IsTrue)
+
+	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
+	select {
+	case s.applicationChanges <- []string{"gitlab"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
+
+	select {
+	case <-s.serviceDeleted:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be deleted")
+	}
+
+	// Check that the gitlab worker is running or not;
+	// given it time to shutdown.
+	for a := shortAttempt.Start(); a.Next(); {
+		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
+		if !running {
+			break
+		}
+	}
+	c.Assert(running, jc.IsFalse)
+
+	// Check the undertaker worker clears application resources.
+	s.containerBroker.units = nil
+	select {
+	case s.caasUnitsChanges <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending units change")
+	}
+
+	select {
+	case <-s.resourcesCleared:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for resources to be cleared")
+	}
+}
+
 func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -751,6 +925,11 @@ func (s *WorkerSuite) TestUnitsChange(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.statusSetter.EXPECT().SetOperatorStatus(
+		"gitlab", status.Active, "testing 1. 2. 3.", map[string]interface{}{"zip": "zap"})
+
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -776,12 +955,13 @@ func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out sending applications change")
 	}
-	s.statusSetter.CheckNoCalls(c)
+
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if len(s.containerBroker.Calls()) > 0 {
 			break
 		}
 	}
+
 	s.containerBroker.CheckCallNames(c, "Operator")
 	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
 	s.containerBroker.ResetCalls()
@@ -800,13 +980,11 @@ func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
 	s.containerBroker.CheckCallNames(c, "Operator")
 	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
 
-	s.statusSetter.CheckCallNames(c, "SetOperatorStatus")
-	c.Assert(s.statusSetter.Calls()[0].Args, jc.DeepEquals, []interface{}{
-		"gitlab", status.Active, "testing 1. 2. 3.", map[string]interface{}{"zip": "zap"},
-	})
 }
 
 func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expectedUnitStatus status.Status) {
+	defer s.setupMocks(c).Finish()
+
 	s.containerBroker.ResetCalls()
 	s.unitUpdater.ResetCalls()
 	s.containerBroker.reportedUnitStatus = reported
@@ -850,4 +1028,24 @@ func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expectedUnitStatus sta
 			},
 		},
 	})
+}
+
+func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.statusSetter = caasunitprovisioner.NewMockProvisioningStatusSetter(ctrl)
+
+	s.config = caasunitprovisioner.Config{
+		ApplicationGetter:        &s.applicationGetter,
+		ApplicationUpdater:       &s.applicationUpdater,
+		ServiceBroker:            &s.serviceBroker,
+		ContainerBroker:          &s.containerBroker,
+		ProvisioningInfoGetter:   &s.podSpecGetter,
+		LifeGetter:               &s.lifeGetter,
+		UnitUpdater:              &s.unitUpdater,
+		ProvisioningStatusSetter: s.statusSetter,
+		Logger:                   loggo.GetLogger("test"),
+	}
+
+	return ctrl
 }

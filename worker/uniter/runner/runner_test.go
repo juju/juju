@@ -46,14 +46,14 @@ func (s *RunCommandSuite) TestRunCommandsEnvStdOutAndErrAndRC(c *gc.C) {
 	ctx, err := s.contextFactory.HookContext(hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 	paths := runnertesting.NewRealPaths(c)
-	runner := runner.NewRunner(ctx, paths, nil)
+	r := runner.NewRunner(ctx, paths, nil)
 
 	commands := `
 echo $JUJU_CHARM_DIR
 echo this is standard err >&2
 exit 42
 `
-	result, err := runner.RunCommands(commands)
+	result, err := r.RunCommands(commands, runner.Operator)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result.Code, gc.Equals, 42)
@@ -519,7 +519,7 @@ func (s *RunMockContextSuite) TestRunCommandsFlushSuccess(c *gc.C) {
 	ctx := &MockContext{
 		flushResult: expectErr,
 	}
-	_, actualErr := runner.NewRunner(ctx, s.paths, nil).RunCommands(echoPidScript)
+	_, actualErr := runner.NewRunner(ctx, s.paths, nil).RunCommands(echoPidScript, runner.Operator)
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "run commands")
 	c.Assert(ctx.flushFailure, gc.IsNil)
@@ -531,11 +531,85 @@ func (s *RunMockContextSuite) TestRunCommandsFlushFailure(c *gc.C) {
 	ctx := &MockContext{
 		flushResult: expectErr,
 	}
-	_, actualErr := runner.NewRunner(ctx, s.paths, nil).RunCommands(echoPidScript + "; exit 123")
+	_, actualErr := runner.NewRunner(ctx, s.paths, nil).RunCommands(echoPidScript+"; exit 123", runner.Operator)
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "run commands")
 	c.Assert(ctx.flushFailure, gc.IsNil) // exit code in _ result, as tested elsewhere
 	s.assertRecordedPid(c, ctx.expectPid)
+}
+
+func (s *RunMockContextSuite) TestRunCommandsFlushSuccessWorkloadNoExec(c *gc.C) {
+	expectErr := errors.New("pew pew pew")
+	ctx := &MockContext{
+		flushResult: expectErr,
+		modelType:   model.CAAS,
+	}
+	_, actualErr := runner.NewRunner(ctx, s.paths, nil).RunCommands(echoPidScript, runner.Workload)
+	c.Assert(actualErr, gc.Equals, expectErr)
+	c.Assert(ctx.flushBadge, gc.Equals, "run commands")
+	c.Assert(ctx.flushFailure, gc.IsNil)
+	s.assertRecordedPid(c, ctx.expectPid)
+}
+
+func (s *RunMockContextSuite) TestRunCommandsFlushFailureWorkloadNoExec(c *gc.C) {
+	expectErr := errors.New("pew pew pew")
+	ctx := &MockContext{
+		flushResult: expectErr,
+		modelType:   model.CAAS,
+	}
+	_, actualErr := runner.NewRunner(ctx, s.paths, nil).RunCommands(echoPidScript+"; exit 123", runner.Workload)
+	c.Assert(actualErr, gc.Equals, expectErr)
+	c.Assert(ctx.flushBadge, gc.Equals, "run commands")
+	c.Assert(ctx.flushFailure, gc.IsNil) // exit code in _ result, as tested elsewhere
+	s.assertRecordedPid(c, ctx.expectPid)
+}
+
+func (s *RunMockContextSuite) TestRunCommandsFlushSuccessWorkload(c *gc.C) {
+	ctx := &MockContext{
+		modelType: model.CAAS,
+	}
+	execCount := 0
+	execFunc := func(params runner.ExecParams) (*exec.ExecResponse, error) {
+		execCount++
+		switch execCount {
+		case 1:
+			return &exec.ExecResponse{}, nil
+		case 2:
+			return &exec.ExecResponse{}, nil
+		}
+		c.Fatal("invalid count")
+		return nil, nil
+	}
+	_, actualErr := runner.NewRunner(ctx, s.paths, execFunc).RunCommands(echoPidScript, runner.Workload)
+	c.Assert(execCount, gc.Equals, 2)
+	c.Assert(actualErr, jc.ErrorIsNil)
+	c.Assert(ctx.flushBadge, gc.Equals, "run commands")
+	c.Assert(ctx.flushFailure, jc.ErrorIsNil)
+}
+
+func (s *RunMockContextSuite) TestRunCommandsFlushFailedWorkload(c *gc.C) {
+	expectErr := errors.New("pew pew pew")
+	ctx := &MockContext{
+		flushResult: expectErr,
+		modelType:   model.CAAS,
+	}
+	execCount := 0
+	execFunc := func(params runner.ExecParams) (*exec.ExecResponse, error) {
+		execCount++
+		switch execCount {
+		case 1:
+			return &exec.ExecResponse{}, nil
+		case 2:
+			return nil, errors.Errorf("failed exec")
+		}
+		c.Fatal("invalid count")
+		return nil, nil
+	}
+	_, actualErr := runner.NewRunner(ctx, s.paths, execFunc).RunCommands(echoPidScript, runner.Workload)
+	c.Assert(execCount, gc.Equals, 2)
+	c.Assert(actualErr, gc.Equals, expectErr)
+	c.Assert(ctx.flushBadge, gc.Equals, "run commands")
+	c.Assert(ctx.flushFailure, gc.ErrorMatches, "failed exec")
 }
 
 func (s *RunMockContextSuite) TestRunActionCAASSuccess(c *gc.C) {

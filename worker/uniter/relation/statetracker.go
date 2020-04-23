@@ -5,6 +5,12 @@ package relation
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6"
+	corecharm "gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6/hooks"
+	"gopkg.in/juju/names.v3"
+	"gopkg.in/juju/worker.v1"
+
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -14,11 +20,6 @@ import (
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/runner/context"
-	"gopkg.in/juju/charm.v6"
-	corecharm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
 )
 
 //go:generate mockgen -package mocks -destination mocks/mock_statetracker.go github.com/juju/juju/worker/uniter/relation RelationStateTracker
@@ -60,9 +61,13 @@ type RelationStateTracker interface {
 	// with the specified relation ID.
 	RemoteApplication(int) string
 
-	// StateDir returns a StateDir instance for accessing the local state
+	// State returns a State instance for accessing the local state
 	// for a relation ID.
-	StateDir(int) (*StateDir, error)
+	State(int) (*State, error)
+
+	// StateFound returns a true if there is a state for the given in
+	// in the state manager.
+	StateFound(int) bool
 
 	// GetInfo returns information about current relation state.
 	GetInfo() map[int]*context.RelationInfo
@@ -86,10 +91,9 @@ type LeadershipContextFunc func(accessor context.LeadershipSettingsAccessor, tra
 // RlationStateTracker instance.
 type RelationStateTrackerConfig struct {
 	State                *uniter.State
-	UnitTag              names.UnitTag
+	Unit                 *uniter.Unit
 	Tracker              leadership.Tracker
 	CharmDir             string
-	RelationsDir         string
 	NewLeadershipContext LeadershipContextFunc
 	Abort                <-chan struct{}
 }
@@ -103,37 +107,32 @@ type relationStateTracker struct {
 	subordinate     bool
 	principalName   string
 	charmDir        string
-	relationsDir    string
 	relationers     map[int]*Relationer
 	remoteAppName   map[int]string
 	relationCreated map[int]bool
 	isPeerRelation  map[int]bool
+	stateMgr        StateManager
 }
 
 // NewRelationStateTracker returns a new RelationStateTracker instance.
 func NewRelationStateTracker(cfg RelationStateTrackerConfig) (RelationStateTracker, error) {
-	unit, err := cfg.State.Unit(cfg.UnitTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	principalName, subordinate, err := unit.PrincipalName()
+	principalName, subordinate, err := cfg.Unit.PrincipalName()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	leadershipContext := cfg.NewLeadershipContext(
 		cfg.State.LeadershipSettings,
 		cfg.Tracker,
-		cfg.UnitTag.Id(),
+		cfg.Unit.Tag().Id(),
 	)
 
 	r := &relationStateTracker{
 		st:              cfg.State,
-		unit:            unit,
+		unit:            cfg.Unit,
 		leaderCtx:       leadershipContext,
 		subordinate:     subordinate,
 		principalName:   principalName,
 		charmDir:        cfg.CharmDir,
-		relationsDir:    cfg.RelationsDir,
 		relationers:     make(map[int]*Relationer),
 		remoteAppName:   make(map[int]string),
 		relationCreated: make(map[int]bool),
@@ -146,10 +145,15 @@ func NewRelationStateTracker(cfg RelationStateTrackerConfig) (RelationStateTrack
 	return r, nil
 }
 
-// loadInitialState reconciles the local relation state dirs with the remote
+// loadInitialState reconciles the local state with the remote
 // state of the corresponding relations.
 func (r *relationStateTracker) loadInitialState() error {
 	relationStatus, err := r.unit.RelationsStatus()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	r.stateMgr, err = NewStateManager(r.unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -162,36 +166,31 @@ func (r *relationStateTracker) loadInitialState() error {
 		if !rs.InScope {
 			continue
 		}
-		relation, err := r.st.Relation(rs.Tag)
+		rel, err := r.st.Relation(rs.Tag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		relationSuspended[relation.Id()] = rs.Suspended
-		activeRelations[relation.Id()] = relation
-		orderedIds = append(orderedIds, relation.Id())
+		relationSuspended[rel.Id()] = rs.Suspended
+		activeRelations[rel.Id()] = rel
+		orderedIds = append(orderedIds, rel.Id())
 
 		// The relation-created hook always fires before joining.
 		// Since we are already in scope, the relation-created hook
 		// must have fired in the past so we can mark the relation as
 		// already created.
-		r.relationCreated[relation.Id()] = true
+		r.relationCreated[rel.Id()] = true
 	}
 
-	knownDirs, err := ReadAllStateDirs(r.relationsDir)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for id, dir := range knownDirs {
+	for _, id := range r.stateMgr.KnownIDs() {
 		if rel, ok := activeRelations[id]; ok {
-			if err := r.joinRelation(rel, dir); err != nil {
+			if err := r.joinRelation(rel); err != nil {
 				return errors.Trace(err)
 			}
 		} else if !relationSuspended[id] {
 			// Relations which are suspended may become active
 			// again so we keep the local state, otherwise we
 			// remove it.
-			if err := dir.Remove(); err != nil {
+			if err := r.stateMgr.RemoveRelation(id); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -199,14 +198,10 @@ func (r *relationStateTracker) loadInitialState() error {
 
 	for _, id := range orderedIds {
 		rel := activeRelations[id]
-		if _, ok := knownDirs[id]; ok {
+		if r.stateMgr.RelationFound(id) {
 			continue
 		}
-		dir, err := ReadStateDir(r.relationsDir, id)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := r.joinRelation(rel, dir); err != nil {
+		if err := r.joinRelation(rel); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -214,16 +209,16 @@ func (r *relationStateTracker) loadInitialState() error {
 }
 
 // joinRelation causes the unit agent to join the supplied relation, and to
-// store persistent state in the supplied dir. It will block until the
+// store persistent state. It will block until the
 // operation succeeds or fails; or until the abort chan is closed, in which
 // case it will return resolver.ErrLoopAborted.
-func (r *relationStateTracker) joinRelation(rel *uniter.Relation, dir *StateDir) (err error) {
+func (r *relationStateTracker) joinRelation(rel *uniter.Relation) (err error) {
 	logger.Infof("joining relation %q", rel)
 	ru, err := rel.Unit(r.unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	relationer := NewRelationer(ru, dir)
+	relationer := NewRelationer(ru, r.stateMgr)
 	unitWatcher, err := r.unit.Watch()
 	if err != nil {
 		return errors.Trace(err)
@@ -323,12 +318,8 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 			r.isPeerRelation[id] = true
 		}
 
-		dir, err := ReadStateDir(r.relationsDir, id)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if joinErr := r.joinRelation(rel, dir); joinErr != nil {
-			removeErr := dir.Remove()
+		if joinErr := r.joinRelation(rel); joinErr != nil {
+			removeErr := r.stateMgr.RemoveRelation(id)
 			if !params.IsCodeCannotEnterScope(joinErr) {
 				return errors.Trace(joinErr)
 			} else if removeErr != nil {
@@ -424,14 +415,18 @@ func (r *relationStateTracker) RemoteApplication(id int) string {
 	return r.remoteAppName[id]
 }
 
-// StateDir returns a StateDir instance for accessing the local state for a
+// State returns a State instance for accessing the persisted state for a
 // relation ID.
-func (r *relationStateTracker) StateDir(id int) (*StateDir, error) {
-	if rel := r.relationers[id]; rel != nil {
-		return rel.dir, nil
+func (r *relationStateTracker) State(id int) (*State, error) {
+	if rel, ok := r.relationers[id]; ok && rel != nil {
+		return r.stateMgr.Relation(id)
 	}
 
 	return nil, errors.Errorf("unknown relation: %d", id)
+}
+
+func (r *relationStateTracker) StateFound(id int) bool {
+	return r.stateMgr.RelationFound(id)
 }
 
 // PrepareHook is part of the RelationStateTracker interface.

@@ -221,7 +221,7 @@ func (s *BaseSuite) setupBroker(c *gc.C, ctrl *gomock.Controller,
 		})
 
 	var err error
-	s.broker, err = provider.NewK8sBroker(testing.ControllerTag.Id(), s.k8sRestConfig, s.cfg, newK8sClientFunc, newK8sRestFunc,
+	s.broker, err = provider.NewK8sBroker(testing.ControllerTag.Id(), s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
 		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl

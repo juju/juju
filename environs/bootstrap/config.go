@@ -18,8 +18,8 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/pki"
 )
 
 const (
@@ -208,17 +208,28 @@ func NewConfig(attrs map[string]interface{}) (Config, error) {
 	if config.CACert == "" && config.CAPrivateKey == "" {
 		// Generate a new CA certificate and private key.
 		// TODO(perrito666) 2016-05-02 lp:1558657
-		expiry := time.Now().UTC().AddDate(10, 0, 0)
-		uuid, err := utils.NewUUID()
+		signer, err := pki.DefaultKeyProfile()
 		if err != nil {
-			return Config{}, errors.Annotate(err, "generating UUID for CA certificate")
+			return Config{}, errors.Annotate(err, "generating new CA key pair")
 		}
-		caCert, caKey, err := cert.NewCA("juju-ca", uuid.String(), expiry)
+
+		ca, err := pki.NewCA("juju-ca", signer)
 		if err != nil {
-			return Config{}, errors.Trace(err)
+			return Config{}, errors.Annotate(err, "generating new CA")
 		}
-		config.CACert = caCert
-		config.CAPrivateKey = caKey
+
+		caKeyPem, err := pki.SignerToPemString(signer)
+		if err != nil {
+			return Config{}, errors.Annotate(err, "converting private key to pem")
+		}
+
+		caCertPem, err := pki.CertificateToPemString(pki.DefaultPemHeaders, ca)
+		if err != nil {
+			return Config{}, errors.Annotate(err, "converting certificate to pem")
+		}
+
+		config.CACert = caCertPem
+		config.CAPrivateKey = caKeyPem
 	}
 
 	return config, config.Validate()

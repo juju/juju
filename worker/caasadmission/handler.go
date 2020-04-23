@@ -181,6 +181,14 @@ func patchForLabels(labels map[string]string, appName string) []patchOperation {
 
 	neededLabels := provider.LabelsForApp(appName)
 
+	if len(labels) == 0 {
+		patches = append(patches, patchOperation{
+			Op:    addOp,
+			Path:  "/metadata/labels",
+			Value: map[string]string{},
+		})
+	}
+
 	for k, v := range neededLabels {
 		if extVal, found := labels[k]; found && extVal != v {
 			patches = append(patches, patchOperation{

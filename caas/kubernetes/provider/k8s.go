@@ -191,6 +191,7 @@ func newK8sBroker(
 	controllerUUID string,
 	k8sRestConfig *rest.Config,
 	cfg *config.Config,
+	namespace string,
 	newClient NewK8sClientFunc,
 	newRestClient k8sspecs.NewK8sRestClientFunc,
 	newWatcher NewK8sWatcherFunc,
@@ -211,6 +212,7 @@ func newK8sBroker(
 	if modelUUID == "" {
 		return nil, errors.NotValidf("modelUUID is required")
 	}
+
 	client := &kubernetesClient{
 		clock:                       clock,
 		clientUnlocked:              k8sClient,
@@ -221,9 +223,9 @@ func newK8sBroker(
 		informerFactoryUnlocked: informers.NewSharedInformerFactoryWithOptions(
 			k8sClient,
 			InformerResyncPeriod,
-			informers.WithNamespace(newCfg.Name()),
+			informers.WithNamespace(namespace),
 		),
-		namespace:         newCfg.Name(),
+		namespace:         namespace,
 		modelUUID:         modelUUID,
 		newWatcher:        newWatcher,
 		newStringsWatcher: newStringsWatcher,
@@ -451,7 +453,6 @@ please choose a different hosted model name then try again.`, hostedModelName),
 			_, err := broker.GetNamespace(nsName)
 			if errors.IsNotFound(err) {
 				// all good.
-				broker.SetNamespace(nsName)
 				// ensure controller specific annotations.
 				_ = broker.addAnnotations(annotationControllerIsControllerKey, "true")
 				return nil
@@ -2027,9 +2028,9 @@ func (k *kubernetesClient) WatchUnits(appName string, mode caas.DeploymentMode) 
 	return k.newWatcher(factory.Core().V1().Pods().Informer(), appName, k.clock)
 }
 
-// WatchContainerStart returns a watcher which is notified when the specified container
-// for each unit in the application is starting/restarting. Each string represents
-// the provider id for the unit. If containerName is empty, then the first workload container
+// WatchContainerStart returns a watcher which is notified when a container matching containerName regexp
+// is starting/restarting. Each string represents the provider id for the unit the container belongs to.
+// If containerName regexp matches empty string, then the first workload container
 // is used.
 func (k *kubernetesClient) WatchContainerStart(appName string, containerName string) (watcher.StringsWatcher, error) {
 	pods := k.client().CoreV1().Pods(k.namespace)
@@ -2049,34 +2050,40 @@ func (k *kubernetesClient) WatchContainerStart(appName string, containerName str
 		return nil, errors.Trace(err)
 	}
 
-	podInInit := func(pod *core.Pod) bool {
+	containerNameRegex, err := regexp.Compile("^" + containerName + "$")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	running := func(pod *core.Pod) set.Strings {
 		if _, ok := pod.Annotations[annotationUnit]; !ok {
 			// Ignore pods that aren't annotated as a unit yet.
-			return false
+			return set.Strings{}
 		}
+		running := set.Strings{}
 		for _, cs := range pod.Status.InitContainerStatuses {
-			if cs.Name == containerName {
+			if containerNameRegex.MatchString(cs.Name) {
 				if cs.State.Running != nil {
-					return true
+					running.Add(cs.Name)
 				}
 			}
 		}
 		for i, cs := range pod.Status.ContainerStatuses {
-			useDefault := i == 0 && containerName == ""
-			if cs.Name == containerName || useDefault {
+			useDefault := i == 0 && containerNameRegex.MatchString("")
+			if containerNameRegex.MatchString(cs.Name) || useDefault {
 				if cs.State.Running != nil {
-					return true
+					running.Add(cs.Name)
 				}
 			}
 		}
-		return false
+		return running
 	}
 
-	podInitState := map[string]struct{}{}
+	podInitState := map[string]set.Strings{}
 	var initialEvents []string
 	for _, pod := range podsList.Items {
-		if podInInit(&pod) {
-			podInitState[string(pod.GetUID())] = struct{}{}
+		if containers := running(&pod); !containers.IsEmpty() {
+			podInitState[string(pod.GetUID())] = containers
 			initialEvents = append(initialEvents, providerID(&pod))
 		}
 	}
@@ -2091,9 +2098,14 @@ func (k *kubernetesClient) WatchContainerStart(appName string, containerName str
 			delete(podInitState, key)
 			return "", false
 		}
-		if podInInit(pod) {
-			if _, ok := podInitState[key]; !ok {
-				podInitState[key] = struct{}{}
+		if containers := running(pod); !containers.IsEmpty() {
+			if last, ok := podInitState[key]; ok {
+				podInitState[key] = containers
+				if !containers.Difference(last).IsEmpty() {
+					return providerID(pod), true
+				}
+			} else {
+				podInitState[key] = containers
 				return providerID(pod), true
 			}
 		} else {
@@ -2151,7 +2163,7 @@ func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]ca
 	}
 
 	var units []caas.Unit
-	now := time.Now()
+	now := k.clock.Now()
 	for _, p := range podsList.Items {
 		var ports []string
 		for _, c := range p.Spec.Containers {
@@ -2164,13 +2176,12 @@ func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]ca
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		stateful := false
 		unitInfo := caas.Unit{
 			Id:       providerID(&p),
 			Address:  p.Status.PodIP,
 			Ports:    ports,
 			Dying:    terminated,
-			Stateful: stateful,
+			Stateful: isStateful(&p),
 			Status: status.StatusInfo{
 				Status:  unitStatus,
 				Message: statusMessage,
@@ -2679,10 +2690,17 @@ func headlessServiceName(deploymentName string) string {
 func providerID(pod *core.Pod) string {
 	// Pods managed by a stateful set use the pod name
 	// as the provider id as this is stable across pod restarts.
-	for _, ref := range pod.OwnerReferences {
-		if ref.Kind == "StatefulSet" {
-			return pod.Name
-		}
+	if isStateful(pod) {
+		return pod.Name
 	}
 	return string(pod.GetUID())
+}
+
+func isStateful(pod *core.Pod) bool {
+	for _, ref := range pod.OwnerReferences {
+		if ref.Kind == "StatefulSet" {
+			return true
+		}
+	}
+	return false
 }

@@ -4,7 +4,6 @@
 package vsphere
 
 import (
-	"fmt"
 	"path"
 	"sync"
 
@@ -229,22 +228,6 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 	if err := env.client.DestroyVMFolder(env.ctx, path.Join(env.getVMFolder(), controllerFolderName)); err != nil {
 		HandleCredentialError(err, env, ctx)
 		return errors.Annotate(err, "destroying VM folder")
-	}
-
-	// Remove VMDK cache(s). The user can specify the datastore, and can
-	// change it over time; or if not specified, any accessible datastore
-	// will be used. We must check them all.
-	datastores, err := env.accessibleDatastores(ctx)
-	if err != nil {
-		return errors.Annotate(err, "listing datastores")
-	}
-	for _, ds := range datastores {
-		datastorePath := fmt.Sprintf("[%s] %s", ds.Name, path.Join(env.getVMFolder(), templateDirectoryName(controllerUUID)))
-		logger.Debugf("deleting: %s", datastorePath)
-		if err := env.client.DeleteDatastoreFile(env.ctx, datastorePath); err != nil {
-			HandleCredentialError(err, env, ctx)
-			return errors.Annotatef(err, "deleting VMDK cache from datastore %q", ds.Name)
-		}
 	}
 	return nil
 }

@@ -15,10 +15,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/pki"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
@@ -201,6 +201,12 @@ func (a *API) IssueOperatorCertificate(args params.Entities) (params.IssueOperat
 		return params.IssueOperatorCertificateResults{}, errors.Trace(err)
 	}
 
+	authority, err := pki.NewDefaultAuthorityPemCAKey([]byte(caCert),
+		[]byte(si.CAPrivateKey))
+	if err != nil {
+		return params.IssueOperatorCertificateResults{}, errors.Trace(err)
+	}
+
 	res := params.IssueOperatorCertificateResults{
 		Results: make([]params.IssueOperatorCertificateResult, len(args.Entities)),
 	}
@@ -213,20 +219,29 @@ func (a *API) IssueOperatorCertificate(args params.Entities) (params.IssueOperat
 			continue
 		}
 
-		hostnames := []string{
-			appTag.Name,
-		}
-		cert, privateKey, err := cert.NewDefaultServer(caCert, si.CAPrivateKey, hostnames)
+		leaf, err := authority.LeafRequestForGroup(appTag.Name).
+			AddDNSNames(appTag.Name).
+			Commit()
+
 		if err != nil {
 			res.Results[i] = params.IssueOperatorCertificateResult{
 				Error: common.ServerError(err),
 			}
 			continue
 		}
+
+		cert, privateKey, err := leaf.ToPemParts()
+		if err != nil {
+			res.Results[i] = params.IssueOperatorCertificateResult{
+				Error: common.ServerError(err),
+			}
+			continue
+		}
+
 		res.Results[i] = params.IssueOperatorCertificateResult{
-			CACert:     caCert,
-			Cert:       cert,
-			PrivateKey: privateKey,
+			CACert:     string(caCert),
+			Cert:       string(cert),
+			PrivateKey: string(privateKey),
 		}
 	}
 

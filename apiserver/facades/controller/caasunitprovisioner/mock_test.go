@@ -184,6 +184,11 @@ func (a *mockApplication) SetScale(scale int, generation int64, force bool) erro
 	return nil
 }
 
+func (a *mockApplication) ClearResources() error {
+	a.MethodCall(a, "ClearResources")
+	return nil
+}
+
 func (a *mockApplication) StorageConstraints() (map[string]state.StorageConstraints, error) {
 	return map[string]state.StorageConstraints{
 		"data": {

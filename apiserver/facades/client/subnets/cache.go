@@ -276,7 +276,7 @@ func (cache *addSubnetsCache) validateSubnet(ctx context.ProviderCallContext, ci
 		return nil, errors.Errorf("CIDR and SubnetProviderId cannot be both set")
 	}
 	if haveCidr {
-		if !network.IsValidCidr(cidr) {
+		if !network.IsValidCIDR(cidr) {
 			return nil, errors.New(fmt.Sprintf("%q is not a valid CIDR", cidr))
 		}
 	}
@@ -310,7 +310,7 @@ func (cache *addSubnetsCache) validateSubnet(ctx context.ProviderCallContext, ci
 		)
 	}
 	// Do last-call validation.
-	if !network.IsValidCidr(info.CIDR) {
+	if !network.IsValidCIDR(info.CIDR) {
 		_, ipnet, err := net.ParseCIDR(info.CIDR)
 		if err != nil && info.CIDR != "" {
 			// The underlying error is not important here, just that

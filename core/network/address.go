@@ -6,30 +6,12 @@ package network
 import (
 	"bytes"
 	"fmt"
-	"math/rand"
 	"net"
 	"sort"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 )
-
-// macAddressTemplate is suitable for generating virtual MAC addresses,
-// particularly for use by container devices.
-// The last 3 segments are randomised.
-// TODO (manadart 2018-06-21) Depending on where this is utilised,
-// ensuring MAC address uniqueness within a model might be prudent.
-const macAddressTemplate = "00:16:3e:%02x:%02x:%02x"
-
-// GenerateVirtualMACAddress creates a random MAC address within the address
-// space implied by macAddressTemplate above.
-var GenerateVirtualMACAddress = func() string {
-	digits := make([]interface{}, 3)
-	for i := range digits {
-		digits[i] = rand.Intn(256)
-	}
-	return fmt.Sprintf(macAddressTemplate, digits...)
-}
 
 // Private and special use network ranges for IPv4 and IPv6.
 // See: http://tools.ietf.org/html/rfc1918
@@ -442,6 +424,13 @@ type SpaceAddress struct {
 // GoString implements fmt.GoStringer.
 func (a SpaceAddress) GoString() string {
 	return a.String()
+}
+
+// Converts the space address to a net.IP address assuming the space address is
+// either v4 or v6. If the SpaceAddress value is not a valid ip address nil is
+// returned
+func (a SpaceAddress) IP() net.IP {
+	return net.ParseIP(a.Value)
 }
 
 // String returns a string representation of the address, in the form:

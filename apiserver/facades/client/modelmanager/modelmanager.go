@@ -4,7 +4,7 @@
 // Package modelmanager defines an API end point for functions dealing with
 // models.  Creating, listing and sharing models. This facade is available at
 // the root of the controller API, and as such, there is no implicit Model
-// assocated.
+// associated.
 package modelmanager
 
 import (
@@ -687,7 +687,9 @@ func (m *ModelManagerAPI) newModel(
 		}
 	}
 
-	if err = space.ReloadSpaces(m.callContext, st, env); err != nil {
+	if err = space.ReloadSpaces(m.callContext, spaceStateShim{
+		ModelManagerBackend: st,
+	}, env); err != nil {
 		if errors.IsNotSupported(err) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {

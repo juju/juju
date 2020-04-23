@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cert"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/pki"
 )
 
 var usageShowControllerSummary = `
@@ -399,7 +399,7 @@ func (c *showControllerCommand) convertControllerForShow(
 	identityURL string,
 ) {
 	// CA cert will always be valid so no need to check for errors here
-	caFingerprint, _ := cert.Fingerprint(details.CACert)
+	caFingerprint, _, _ := pki.Fingerprint([]byte(details.CACert))
 
 	controller.Details = ControllerDetails{
 		ControllerUUID:         details.ControllerUUID,

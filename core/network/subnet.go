@@ -32,6 +32,9 @@ func newFanCIDRs(overlay, underlay string) *FanCIDRs {
 // SubnetInfo is a source-agnostic representation of a subnet.
 // It may originate from state, or from a provider.
 type SubnetInfo struct {
+	// ID is the unique ID of the subnet.
+	ID Id
+
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
 
@@ -131,8 +134,83 @@ func (s *SubnetInfo) ParsedCIDRNetwork() (*net.IPNet, error) {
 	return s.parsedCIDRNetwork, nil
 }
 
-// IsValidCidr returns whether cidr is a valid subnet CIDR.
-func IsValidCidr(cidr string) bool {
+// SubnetInfos is a collection of subnets.
+type SubnetInfos []SubnetInfo
+
+// SpaceIDs returns the set of space IDs that these subnets are in.
+func (s SubnetInfos) SpaceIDs() set.Strings {
+	spaceIDs := set.NewStrings()
+	for _, sub := range s {
+		spaceIDs.Add(sub.SpaceID)
+	}
+	return spaceIDs
+}
+
+// GetByUnderlayCIDR returns any subnets in this collection that are fan
+// overlays for the input CIDR.
+// An error is returned if the input is not a valid CIDR.
+// TODO (manadart 2020-04-15): Consider storing subnet IDs in FanInfo,
+// so we can ensure uniqueness in multi-network deployments.
+func (s SubnetInfos) GetByUnderlayCIDR(cidr string) (SubnetInfos, error) {
+	if !IsValidCIDR(cidr) {
+		return nil, errors.NotValidf("CIDR %q", cidr)
+	}
+
+	var overlays SubnetInfos
+	for _, sub := range s {
+		if sub.FanLocalUnderlay() == cidr {
+			overlays = append(overlays, sub)
+		}
+	}
+	return overlays, nil
+}
+
+// GetByCIDR returns all subnets in the collection
+// with a CIDR matching the input.
+func (s SubnetInfos) GetByCIDR(cidr string) (SubnetInfos, error) {
+	if !IsValidCIDR(cidr) {
+		return nil, errors.NotValidf("CIDR %q", cidr)
+	}
+
+	var matching SubnetInfos
+	for _, sub := range s {
+		if sub.CIDR == cidr {
+			matching = append(matching, sub)
+		}
+	}
+	return matching, nil
+}
+
+// EqualTo returns true if this slice of SubnetInfo is equal to the input.
+func (s SubnetInfos) EqualTo(other SubnetInfos) bool {
+	if len(s) != len(other) {
+		return false
+	}
+
+	SortSubnetInfos(s)
+	SortSubnetInfos(other)
+	for i := 0; i < len(s); i++ {
+		if s[i].ID != other[i].ID {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (s SubnetInfos) Len() int      { return len(s) }
+func (s SubnetInfos) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s SubnetInfos) Less(i, j int) bool {
+	return s[i].ID < s[j].ID
+}
+
+// SortSubnetInfos sorts subnets by ID.
+func SortSubnetInfos(s SubnetInfos) {
+	sort.Sort(s)
+}
+
+// IsValidCIDR returns whether cidr is a valid subnet CIDR.
+func IsValidCIDR(cidr string) bool {
 	_, ipNet, err := net.ParseCIDR(cidr)
 	if err == nil && ipNet.String() == cidr {
 		return true
@@ -163,62 +241,6 @@ func FindSubnetIDsForAvailabilityZone(zoneName string, subnetsToZones map[Id][]s
 	}
 
 	return sorted, nil
-}
-
-// SubnetSet represents the classic "set" data structure, and contains Id.
-// SubnetSet is used as a typed version to prevent string -> Id -> string
-// conversion when using set.Strings
-type SubnetSet map[Id]struct{}
-
-// MakeSubnetSet creates and initializes a SubnetSet and populates it with
-// initial values as specified in the parameters.
-func MakeSubnetSet(values ...Id) SubnetSet {
-	set := make(map[Id]struct{}, len(values))
-	for _, id := range values {
-		set[id] = struct{}{}
-	}
-	return set
-}
-
-// Add puts a value into the set.
-func (s SubnetSet) Add(value Id) {
-	s[value] = struct{}{}
-}
-
-// Size returns the number of elements in the set.
-func (s SubnetSet) Size() int {
-	return len(s)
-}
-
-// IsEmpty is true for empty or uninitialized sets.
-func (s SubnetSet) IsEmpty() bool {
-	return len(s) == 0
-}
-
-// Contains returns true if the value is in the set, and false otherwise.
-func (s SubnetSet) Contains(id Id) bool {
-	_, exists := s[id]
-	return exists
-}
-
-// Values returns an unordered slice containing all the values in the set.
-func (s SubnetSet) Values() []Id {
-	result := make([]Id, len(s))
-	i := 0
-	for key := range s {
-		result[i] = key
-		i++
-	}
-	return result
-}
-
-// SortedValues returns an ordered slice containing all the values in the set.
-func (s SubnetSet) SortedValues() []Id {
-	values := s.Values()
-	sort.Slice(values, func(i, j int) bool {
-		return values[i] < values[j]
-	})
-	return values
 }
 
 // InFan describes a network fan type.

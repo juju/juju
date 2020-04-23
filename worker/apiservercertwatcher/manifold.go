@@ -4,63 +4,39 @@
 package apiservercertwatcher
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/pem"
-	"strings"
-	"sync"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/pki"
 )
 
 var logger = loggo.GetLogger("juju.worker.apiservercertwatcher")
 
 type ManifoldConfig struct {
-	AgentName          string
-	AgentConfigChanged *voyeur.Value
+	AgentName string
 }
 
-// Manifold returns a dependency.Manifold which wraps an agent's
-// voyeur.Value which is set whenever the agent config is
-// changed. The manifold will not bounce when the certificates
-// change.
-//
-// The worker will watch for API server certificate changes,
-// and make the current value available via the manifold's Output.
-// The Output expects a pointer to a function of type:
-//    func() *tls.Certificate
-//
-// The resulting tls.Certificate's Leaf field will be set, to
-// ensure we only parse the certificate once. This allows the
-// consumer to obtain the associated DNS names.
-//
 // The manifold is intended to be a dependency for the apiserver.
+// Manifold provides a worker for supplying a pki Authority to other workers
+// that want to create and modify certificates in a Juju controller.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.AgentName},
 		Start: func(context dependency.Context) (worker.Worker, error) {
-			if config.AgentConfigChanged == nil {
-				return nil, errors.NotValidf("nil AgentConfigChanged")
-			}
-
 			var a agent.Agent
 			if err := context.Get(config.AgentName, &a); err != nil {
 				return nil, err
 			}
 
 			w := &apiserverCertWatcher{
-				agent:              a,
-				agentConfigChanged: config.AgentConfigChanged,
+				agent: a,
 			}
-			if err := w.update(); err != nil {
-				return nil, errors.Annotate(err, "parsing initial certificate")
+			if err := w.setup(); err != nil {
+				return nil, errors.Annotate(err, "setting up initial ca authority")
 			}
 
 			w.tomb.Go(w.loop)
@@ -75,61 +51,25 @@ func outputFunc(in worker.Worker, out interface{}) error {
 	if inWorker == nil {
 		return errors.Errorf("in should be a %T; got a %T", inWorker, in)
 	}
-	outPointer, ok := out.(*func() *tls.Certificate)
-	if !ok {
-		return errors.Errorf("out should be %T; got %T", outPointer, out)
+	switch result := out.(type) {
+	case *pki.Authority:
+		*result = inWorker.authority
+	default:
+		return errors.Errorf("unexpected type")
 	}
-	*outPointer = inWorker.getCurrent
 	return nil
 }
 
 type apiserverCertWatcher struct {
-	tomb               tomb.Tomb
-	agent              agent.Agent
-	agentConfigChanged *voyeur.Value
-
-	mu         sync.Mutex
-	currentRaw string
-	current    *tls.Certificate
+	tomb      tomb.Tomb
+	agent     agent.Agent
+	authority pki.Authority
 }
 
 func (w *apiserverCertWatcher) loop() error {
-	watch := w.agentConfigChanged.Watch()
-	defer watch.Close()
-	done := make(chan struct{})
-	defer close(done)
-
-	// TODO(axw) - this is pretty awful. There should be a
-	// NotifyWatcher for voyeur.Value. Note also that this code is
-	// repeated elsewhere.
-	watchCh := make(chan bool)
-	go func() {
-		defer close(watchCh)
-		for watch.Next() {
-			select {
-			case <-done:
-				return
-			case watchCh <- true:
-			}
-		}
-	}()
-
-	for {
-		// Always unconditionally check for a change first, in case
-		// there was a change between the start func and the call
-		// to Watch.
-		if err := w.update(); err != nil {
-			// We don't bounce the worker on bad certificate data.
-			logger.Errorf("cannot update certificate: %v", err)
-		}
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case _, ok := <-watchCh:
-			if !ok {
-				return errors.New("config changed value closed")
-			}
-		}
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
 	}
 }
 
@@ -138,63 +78,49 @@ func (w *apiserverCertWatcher) Kill() {
 	w.tomb.Kill(nil)
 }
 
-// Wait implements worker.Worker.
-func (w *apiserverCertWatcher) Wait() error {
-	return w.tomb.Wait()
-}
-
-func (w *apiserverCertWatcher) update() error {
-	//logger.Errorf("cannot update certificate: %v", err)
+func (w *apiserverCertWatcher) setup() error {
 	config := w.agent.CurrentConfig()
 	info, ok := config.StateServingInfo()
 	if !ok {
 		return errors.New("no state serving info in agent config")
 	}
-	if info.Cert == "" {
-		return errors.New("certificate is empty")
-	}
-	if info.PrivateKey == "" {
-		return errors.New("private key is empty")
-	}
-	if info.Cert == w.currentRaw {
-		// No change.
-		return nil
+
+	caCert := config.CACert()
+	if caCert == "" {
+		return errors.New("no ca certificate found in config")
 	}
 
-	tlsCert, err := tls.X509KeyPair([]byte(info.Cert), []byte(info.PrivateKey))
+	caPrivateKey := info.CAPrivateKey
+	if caPrivateKey == "" {
+		return errors.New("no CA cert private key")
+	}
+
+	authority, err := pki.NewDefaultAuthorityPemCAKey([]byte(caCert),
+		[]byte(caPrivateKey))
 	if err != nil {
-		return errors.Annotatef(err, "cannot create new TLS certificate")
+		return errors.Annotate(err, "building authority from pem ca")
 	}
-	x509Cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
+
+	_, err = authority.LeafGroupFromPemCertKey(pki.DefaultLeafGroup,
+		[]byte(info.Cert), []byte(info.PrivateKey))
 	if err != nil {
-		return errors.Annotatef(err, "parsing x509 cert")
-	}
-	tlsCert.Leaf = x509Cert
-
-	// Parse CA certificate and append it to the leaf certificate so a full
-	// certificate chain can be established if we want to use the cert for
-	// serving tls connections. CACert will always be valid so we can skip
-	// error checking.
-	pBlock, _ := pem.Decode([]byte(config.CACert()))
-	if pBlock != nil {
-		tlsCert.Certificate = append(tlsCert.Certificate, pBlock.Bytes)
+		return errors.Annotate(err, "loading default certificate for controller")
 	}
 
-	w.currentRaw = info.Cert
-	w.mu.Lock()
-	w.current = &tlsCert
-	w.mu.Unlock()
-
-	var addr []string
-	for _, ip := range x509Cert.IPAddresses {
-		addr = append(addr, ip.String())
+	_, signers, err := pki.UnmarshalPemData([]byte(info.PrivateKey))
+	if err != nil {
+		return errors.Annotate(err, "setting default certificate signing key")
 	}
-	logger.Infof("new certificate addresses: %v", strings.Join(addr, ", "))
+	if len(signers) != 1 {
+		return errors.Annotate(err, "expected one signing key from certificate pem data")
+	}
+	authority.SetLeafSigner(signers[0])
+
+	w.authority = authority
 	return nil
 }
 
-func (w *apiserverCertWatcher) getCurrent() *tls.Certificate {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.current
+// Wait implements worker.Worker.
+func (w *apiserverCertWatcher) Wait() error {
+	return w.tomb.Wait()
 }

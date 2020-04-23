@@ -147,7 +147,10 @@ func (p *provisioner) loop() error {
 			}
 			for _, appId := range apps {
 				appLife, err := p.config.LifeGetter.Life(appId)
-				if errors.IsNotFound(err) {
+				if err != nil && !errors.IsNotFound(err) {
+					return errors.Trace(err)
+				}
+				if err != nil || appLife == life.Dead {
 					// Once an application is deleted, remove the k8s service and ingress resources.
 					if err := p.config.ServiceBroker.UnexposeService(appId); err != nil {
 						return errors.Trace(err)
@@ -166,10 +169,25 @@ func (p *provisioner) loop() error {
 						}
 						p.deleteApplicationWorker(appId)
 					}
+					// Start the application undertaker worker to watch the cluster
+					// and wait for resources to be cleaned up.
+					mode, err := p.config.ApplicationGetter.DeploymentMode(appId)
+					if err != nil {
+						return errors.Trace(err)
+					}
+					uw, err := newApplicationUndertaker(
+						appId,
+						mode,
+						p.config.ServiceBroker,
+						p.config.ContainerBroker,
+						p.config.ApplicationUpdater,
+						logger,
+					)
+					if err != nil {
+						return errors.Trace(err)
+					}
+					p.catacomb.Add(uw)
 					continue
-				}
-				if err != nil {
-					return errors.Trace(err)
 				}
 				if _, ok := p.getApplicationWorker(appId); ok || appLife == life.Dead {
 					// Already watching the application. or we're

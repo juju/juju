@@ -8,7 +8,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/logfwd/syslog"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -209,16 +208,14 @@ func (s *ConfigSuite) TestRawValidateBadKeyFormat(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestRawValidateCertKeyMismatch(c *gc.C) {
-	_, key, err := cert.NewDefaultServer(coretesting.CACert, coretesting.CAKey, nil)
-	c.Assert(err, jc.ErrorIsNil)
 	cfg := syslog.RawConfig{
 		Host:       "a.b.c:9876",
 		CACert:     coretesting.CACert,
 		ClientCert: coretesting.ServerCert,
-		ClientKey:  key,
+		ClientKey:  coretesting.CAKey,
 	}
 
-	err = cfg.Validate()
+	err := cfg.Validate()
 	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: private key does not match public key`)
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/agent"
+	"github.com/juju/juju/apiserver/facades/agent/caasadmission"
 	"github.com/juju/juju/apiserver/facades/agent/caasagent"
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
@@ -181,6 +182,7 @@ func AllFacades() *facade.Registry {
 	// Move these to the correct place above once the feature flag disappears.
 	reg("CAASFirewaller", 1, caasfirewaller.NewStateFacade)
 	reg("CAASOperator", 1, caasoperator.NewStateFacade)
+	reg("CAASAdmission", 1, caasadmission.NewStateFacade)
 	reg("CAASAgent", 1, caasagent.NewStateFacade)
 	reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
 	reg("CAASOperatorUpgrader", 1, caasoperatorupgrader.NewStateCAASOperatorUpgraderAPI)

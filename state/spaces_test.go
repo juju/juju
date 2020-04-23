@@ -117,7 +117,6 @@ func (s *SpacesSuite) TestAddSpaceWithNoSubnetsAndEmptyProviderId(c *gc.C) {
 	space, err := s.addSpaceWithSubnets(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSpaceMatchesArgs(c, space, args)
-
 }
 
 func (s *SpacesSuite) TestAddSpaceWithNoSubnetsAndNonEmptyProviderId(c *gc.C) {
@@ -650,13 +649,16 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 		ProviderId: args.ProviderId,
 		Subnets: []network.SubnetInfo{
 			{
+				ID:                "0",
 				SpaceID:           space.Id(),
 				SpaceName:         "space1",
 				CIDR:              "1.1.1.0/24",
 				VLANTag:           79,
 				AvailabilityZones: []string{"AvailabilityZone"},
+				ProviderSpaceId:   "some id 2",
 			},
 			{
+				ID:                "2",
 				SpaceID:           space.Id(),
 				SpaceName:         "space1",
 				CIDR:              "253.1.0.0/16",
@@ -666,13 +668,16 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 					FanLocalUnderlay: "1.1.1.0/24",
 					FanOverlay:       "253.0.0.0/8",
 				},
+				ProviderSpaceId: "some id 2",
 			},
 			{
+				ID:                "1",
 				SpaceID:           space.Id(),
 				SpaceName:         "space1",
 				CIDR:              "2001:cbd0::/32",
 				VLANTag:           79,
 				AvailabilityZones: []string{"AvailabilityZone"},
+				ProviderSpaceId:   "some id 2",
 			},
 		},
 	}
@@ -798,6 +803,14 @@ var spaceTwo = []network.SpaceInfo{
 	},
 }
 
+var spaceThree = []network.SpaceInfo{
+	{
+		Name:       "space3",
+		ProviderId: "3",
+		Subnets:    []network.SubnetInfo{},
+	},
+}
+
 var twoSpaces = []network.SpaceInfo{spaceOne[0], spaceTwo[0]}
 
 var twoSubnetsAfterFAN = []network.SubnetInfo{
@@ -838,17 +851,17 @@ func checkSubnetsEqual(c *gc.C, subnets []*state.Subnet, subnetInfos []network.S
 	}
 }
 
-func checkSpacesEqual(c *gc.C, spaces []*state.Space, spaceInfos []network.SpaceInfo) {
+func checkSpacesEqual(c *gc.C, actual []*state.Space, expected []network.SpaceInfo) {
 	// Filter out the default space for comparisons.
-	filtered := spaces[:0]
-	for _, s := range spaces {
+	filtered := actual[:0]
+	for _, s := range actual {
 		if s.Name() != network.AlphaSpaceName {
 			filtered = append(filtered, s)
 		}
 	}
 
-	c.Assert(len(spaceInfos), gc.Equals, len(filtered))
-	for i, spaceInfo := range spaceInfos {
+	c.Assert(len(filtered), gc.Equals, len(expected))
+	for i, spaceInfo := range expected {
 		space := filtered[i]
 		c.Check(string(spaceInfo.Name), gc.Equals, space.Name())
 		c.Check(spaceInfo.ProviderId, gc.Equals, space.ProviderId())
@@ -878,21 +891,6 @@ func (s *SpacesDiscoverySuite) TestSaveProviderSubnetsOnlyAddsSubnets(c *gc.C) {
 	subnets, err := s.State.AllSubnets()
 	c.Assert(err, jc.ErrorIsNil)
 	checkSubnetsEqual(c, subnets, fourSubnets)
-}
-
-func (s *SpacesDiscoverySuite) TestSaveProviderSubnetsUpdatesSubnets(c *gc.C) {
-	err := s.State.SaveProviderSubnets(twoSubnets, "")
-	c.Check(err, jc.ErrorIsNil)
-
-	err = s.State.SaveProviderSpaces(spaceOne)
-	c.Assert(err, jc.ErrorIsNil)
-
-	subnets, err := s.State.AllSubnets()
-	c.Assert(err, jc.ErrorIsNil)
-	twoSubnetsWithSpace := twoSubnets
-	twoSubnetsWithSpace[0].ProviderSpaceId = spaceOne[0].ProviderId
-	twoSubnetsWithSpace[1].ProviderSpaceId = spaceOne[0].ProviderId
-	checkSubnetsEqual(c, subnets, twoSubnetsWithSpace)
 }
 
 func (s *SpacesDiscoverySuite) TestSaveProviderSubnetsOnlyIdempotent(c *gc.C) {
@@ -948,62 +946,4 @@ func (s *SpacesDiscoverySuite) TestSaveProviderSubnetsIgnored(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkSubnetsEqual(c, subnets, twoSubnets)
-}
-
-func (s *SpacesDiscoverySuite) TestSaveProviderSpaces(c *gc.C) {
-	err := s.State.SaveProviderSpaces(spaceOne)
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces, err := s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	checkSpacesEqual(c, spaces, spaceOne)
-}
-
-// TODO(wpk) 2017-05-24 this test will have to be rewritten when we support removing spaces/subnets in discovery.
-func (s *SpacesDiscoverySuite) TestSaveProviderSpacesAddsSpaces(c *gc.C) {
-	err := s.State.SaveProviderSpaces(spaceOne)
-	c.Check(err, jc.ErrorIsNil)
-
-	err = s.State.SaveProviderSpaces(spaceTwo)
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces, err := s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	checkSpacesEqual(c, spaces, twoSpaces)
-}
-
-func (s *SpacesDiscoverySuite) TestSaveProviderSpacesIdempotent(c *gc.C) {
-	err := s.State.SaveProviderSpaces(twoSpaces)
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces1, err := s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.State.SaveProviderSpaces(twoSpaces)
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces2, err := s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces1, gc.DeepEquals, spaces2)
-}
-
-func (s *SpacesDiscoverySuite) TestSaveProviderSpacesWithFAN(c *gc.C) {
-	err := s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.State.SaveProviderSpaces(spaceOne)
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces, err := s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	checkSpacesEqual(c, spaces, spaceOneAfterFAN)
-}
-
-func (s *SpacesDiscoverySuite) TestReloadSpacesIgnored(c *gc.C) {
-	err := s.State.SaveProviderSpaces(spaceOneAndIgnored)
-	c.Check(err, jc.ErrorIsNil)
-
-	spaces, err := s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	checkSpacesEqual(c, spaces, spaceOne)
 }

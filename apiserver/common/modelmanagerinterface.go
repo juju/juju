@@ -6,6 +6,7 @@ package common
 import (
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
@@ -67,7 +68,11 @@ type ModelManagerBackend interface {
 	ExportPartial(state.ExportConfig) (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
 	SetModelMeterStatus(string, string) error
-	SaveProviderSpaces([]network.SpaceInfo) error
+	AllSpaces() ([]*state.Space, error)
+	AddSpace(string, network.Id, []string, bool) (*state.Space, error)
+	AllEndpointBindingsSpaceNames() (set.Strings, error)
+	ConstraintsBySpaceName(string) ([]*state.Constraints, error)
+	DefaultEndpointBindingSpace() (string, error)
 	SaveProviderSubnets([]network.SubnetInfo, string) error
 	LatestMigration() (state.ModelMigration, error)
 	DumpAll() (map[string]interface{}, error)

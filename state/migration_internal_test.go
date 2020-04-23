@@ -414,6 +414,7 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		"Tools",
 		"DesiredScale",
 		"Placement",
+		"HasResources",
 	)
 	s.AssertExportedFields(c, applicationDoc{}, migrated.Union(ignored))
 }
@@ -689,6 +690,7 @@ func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
 		"SubnetCIDR",
 		"ConfigMethod",
 		"Value",
+		"Origin",
 	)
 	s.AssertExportedFields(c, ipAddressDoc{}, migrated.Union(ignored))
 }

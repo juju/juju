@@ -4,7 +4,6 @@
 package model
 
 import (
-	"crypto/tls"
 	"time"
 
 	"github.com/juju/clock"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/pki"
 	"github.com/juju/juju/worker/actionpruner"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
@@ -82,7 +82,7 @@ type ManifoldsConfig struct {
 	// is updated
 	AgentConfigChanged *voyeur.Value
 
-	CertGetter func() *tls.Certificate
+	Authority pki.Authority
 
 	// Clock supplies timing services to any manifolds that need them.
 	// Only a few workers have been converted to use them fo far.
@@ -481,8 +481,9 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		caasAdmissionName: ifResponsible(caasadmission.Manifold(caasadmission.ManifoldConfig{
 			AgentName:      agentName,
+			APICallerName:  apiCallerName,
+			Authority:      config.Authority,
 			BrokerName:     caasBrokerTrackerName,
-			CertGetter:     config.CertGetter,
 			Logger:         loggo.GetLogger("juju.worker.caasadmission"),
 			Mux:            config.Mux,
 			RBACMapperName: caasRBACMapperName,

@@ -38,11 +38,6 @@ func (f *mockOpFactory) NewUpgrade(charmURL *charm.URL) (operation.Operation, er
 	return f.op, f.NextErr()
 }
 
-func (f *mockOpFactory) NewNoOpUpgrade(charmURL *charm.URL) (operation.Operation, error) {
-	f.MethodCall(f, "NewNoOpUpgrade", charmURL)
-	return f.op, f.NextErr()
-}
-
 func (f *mockOpFactory) NewRevertUpgrade(charmURL *charm.URL) (operation.Operation, error) {
 	f.MethodCall(f, "NewRevertUpgrade", charmURL)
 	return f.op, f.NextErr()
@@ -65,6 +60,16 @@ func (f *mockOpFactory) NewSkipHook(info hook.Info) (operation.Operation, error)
 
 func (f *mockOpFactory) NewAction(id string) (operation.Operation, error) {
 	f.MethodCall(f, "NewAction", id)
+	return f.op, f.NextErr()
+}
+
+func (f *mockOpFactory) NewRemoteInit(runningStatus remotestate.ContainerRunningStatus) (operation.Operation, error) {
+	f.MethodCall(f, "NewRemoteInit", runningStatus)
+	return f.op, f.NextErr()
+}
+
+func (f *mockOpFactory) NewSkipRemoteInit(retry bool) (operation.Operation, error) {
+	f.MethodCall(f, "NewSkipRemoteInit", retry)
 	return f.op, f.NextErr()
 }
 

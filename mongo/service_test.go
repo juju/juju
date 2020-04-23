@@ -31,15 +31,18 @@ func (s *serviceSuite) TestNewConf24(c *gc.C) {
 	mongodVersion := mongo.Mongo24
 	port := 12345
 	oplogSizeMB := 10
+	usingMongoFromSnap := false
 
 	confArgs := mongo.GenerateConf(
 		mongodPath,
-		dataDir,
-		port,
 		oplogSizeMB,
-		false,
 		mongodVersion,
-		mongo.MemoryProfileDefault,
+		usingMongoFromSnap,
+		mongo.EnsureServerParams{
+			DataDir:       dataDir,
+			StatePort:     port,
+			MemoryProfile: mongo.MemoryProfileDefault,
+		},
 	)
 	conf := mongo.NewConf(confArgs)
 
@@ -98,14 +101,17 @@ func (s *serviceSuite) TestNewConf32(c *gc.C) {
 	mongodVersion := mongo.Mongo32wt
 	port := 12345
 	oplogSizeMB := 10
+	usingMongoFromSnap := false
 	confArgs := mongo.GenerateConf(
 		mongodPath,
-		dataDir,
-		port,
 		oplogSizeMB,
-		false,
 		mongodVersion,
-		mongo.MemoryProfileDefault,
+		usingMongoFromSnap,
+		mongo.EnsureServerParams{
+			DataDir:       dataDir,
+			StatePort:     port,
+			MemoryProfile: mongo.MemoryProfileDefault,
+		},
 	)
 	conf := mongo.NewConf(confArgs)
 
@@ -136,15 +142,18 @@ func (s *serviceSuite) TestNewConf32LowMem(c *gc.C) {
 	mongodVersion := mongo.Mongo32wt
 	port := 12345
 	oplogSizeMB := 10
+	usingMongoFromSnap := false
 
 	confArgs := mongo.GenerateConf(
 		mongodPath,
-		dataDir,
-		port,
 		oplogSizeMB,
-		false,
 		mongodVersion,
-		mongo.MemoryProfileLow,
+		usingMongoFromSnap,
+		mongo.EnsureServerParams{
+			DataDir:       dataDir,
+			StatePort:     port,
+			MemoryProfile: mongo.MemoryProfileLow,
+		},
 	)
 	conf := mongo.NewConf(confArgs)
 
