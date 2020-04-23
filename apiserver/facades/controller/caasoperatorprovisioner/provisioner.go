@@ -239,7 +239,7 @@ func (a *API) IssueOperatorCertificate(args params.Entities) (params.IssueOperat
 		}
 
 		res.Results[i] = params.IssueOperatorCertificateResult{
-			CACert:     string(caCert),
+			CACert:     caCert,
 			Cert:       string(cert),
 			PrivateKey: string(privateKey),
 		}

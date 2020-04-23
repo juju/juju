@@ -6,4 +6,4 @@
 
 package mocks
 
-//go:generate mockgen -package mocks -destination worker_mock.go gopkg.in/juju/worker.v1 Worker
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination worker_mock.go gopkg.in/juju/worker.v1 Worker

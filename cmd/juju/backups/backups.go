@@ -28,7 +28,7 @@ import (
 //
 // To regenerate the mocks for the APIClient used by this package,
 // run "go generate" from the package directory.
-//go:generate mockgen -package backups_test -destination mock_test.go github.com/juju/juju/cmd/juju/backups ArchiveReader,APIClient
+//go:generate go run github.com/golang/mock/mockgen -package backups_test -destination mock_test.go github.com/juju/juju/cmd/juju/backups ArchiveReader,APIClient
 type APIClient interface {
 	io.Closer
 	// Create sends an RPC request to create a new backup.
@@ -193,7 +193,7 @@ func (c *CommandBase) metadata(result *params.BackupsMetadataResult) string {
 //
 // To regenerate the mocks for the ArchiveReader used by this package,
 // run "go generate" from the package directory.
-//go:generate mockgen -package backups_test -destination mock_test.go github.com/juju/juju/cmd/juju/backups ArchiveReader,APIClient
+//go:generate go run github.com/golang/mock/mockgen -package backups_test -destination mock_test.go github.com/juju/juju/cmd/juju/backups ArchiveReader,APIClient
 type ArchiveReader interface {
 	io.ReadSeeker
 	io.Closer

@@ -7,7 +7,7 @@ import "github.com/juju/juju/environs"
 
 // This is needed to test provisioner.processProfileChanges
 //
-//go:generate mockgen -package mocks -destination mocks/lxdprofileinstancebroker_mock.go github.com/juju/juju/worker/provisioner LXDProfileInstanceBroker
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/lxdprofileinstancebroker_mock.go github.com/juju/juju/worker/provisioner LXDProfileInstanceBroker
 type LXDProfileInstanceBroker interface {
 	environs.InstanceBroker
 	environs.LXDProfiler

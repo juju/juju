@@ -100,7 +100,7 @@ func (step modelFoldersUpgradeStep) Run(ctx context.ProviderCallContext) error {
 		// We must create the folder even if there are no VMs in the model.
 		modelFolderPath := path.Join(env.getVMFolder(), controllerFolderName(step.controllerUUID), env.modelFolderName())
 
-		// EnsureVMFolder needs credential attributes to be defined separatedly
+		// EnsureVMFolder needs credential attributes to be defined separately
 		// from the folders it is supposed to create
 		if _, err := env.client.EnsureVMFolder(
 			env.ctx,

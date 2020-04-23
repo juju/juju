@@ -31,7 +31,7 @@ func (d Disconnected) When() time.Time {
 	return time.Unix(d.Disconnected, 0)
 }
 
-//go:generate mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/juju/worker/meterstatus UnitStateAPI,StateReadWriter
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/juju/worker/meterstatus UnitStateAPI,StateReadWriter
 
 // StateReadWriter is implemented by types that can read and write the meter
 // worker's internal state.

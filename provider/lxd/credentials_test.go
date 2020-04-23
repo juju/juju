@@ -26,7 +26,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate mockgen -package lxd -destination net_mock_test.go net Addr
+//go:generate go run github.com/golang/mock/mockgen -package lxd -destination net_mock_test.go net Addr
 
 type credentialsSuite struct {
 	lxd.BaseSuite

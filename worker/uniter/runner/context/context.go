@@ -115,7 +115,7 @@ type HookProcess interface {
 	Kill() error
 }
 
-//go:generate mockgen -package mocks -destination mocks/hookunit_mock.go github.com/juju/juju/worker/uniter/runner/context HookUnit
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/hookunit_mock.go github.com/juju/juju/worker/uniter/runner/context HookUnit
 
 // HookUnit represents the functions needed by a unit in a hook context to
 // call into state.

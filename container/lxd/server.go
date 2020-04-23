@@ -29,7 +29,7 @@ func HasSupport() bool {
 	return false
 }
 
-//go:generate mockgen -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
 
 // Server extends the upstream LXD container server.
 type Server struct {

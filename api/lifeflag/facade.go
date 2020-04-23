@@ -90,7 +90,7 @@ func (facade *Facade) Life(entity names.Tag) (life.Value, error) {
 		}
 		return "", errors.Trace(result.Error)
 	}
-	life := life.Value(result.Life)
+	life := result.Life
 	if err := life.Validate(); err != nil {
 		return "", errors.Trace(err)
 	}

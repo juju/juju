@@ -27,7 +27,7 @@ type DefaultRequestSigner struct {
 }
 
 const (
-	// DefaultValidtyYears is the max age a certificate is signed for useing the
+	// DefaultValidityYears is the max age a certificate is signed for using the
 	// DefaultRequestSigner
 	DefaultValidityYears = 10
 )

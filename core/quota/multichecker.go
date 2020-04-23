@@ -16,7 +16,7 @@ type MultiChecker struct {
 	checkers []Checker
 }
 
-// NewMultiChecker retuns a Checker that composes the Check/Outcome logic for
+// NewMultiChecker returns a Checker that composes the Check/Outcome logic for
 // the specified list of Checkers.
 func NewMultiChecker(checkers ...Checker) *MultiChecker {
 	return &MultiChecker{

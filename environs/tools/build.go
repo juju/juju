@@ -240,14 +240,24 @@ func copyExistingJujus(dir string) error {
 
 func buildJujus(dir string) error {
 	logger.Infof("building jujud")
+	cmd := exec.Command("go", "list", "-mod=readonly", "github.com/juju/juju")
+	cmd.Env = append(os.Environ(), "GO111MODULE=on")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		info := `cannot build juju agent outside of github.com/juju/juju tree
+cd into the directory containing juju %s %s
+%s`
+		return errors.Annotatef(err, info, jujuversion.Current.String(), jujuversion.GitCommit, out)
+	}
 	cmds := [][]string{
 		// TODO: jam 2020-03-12 do we want to also default to stripping the binary?
 		//       -ldflags "-s -w"
-		{"go", "build", "-gccgoflags=-static-libgo", "-o", filepath.Join(dir, names.Jujud), "github.com/juju/juju/cmd/jujud"},
-		{"go", "build", "-gccgoflags=-static-libgo", "-o", filepath.Join(dir, names.Jujuc), "github.com/juju/juju/cmd/jujuc"},
+		{"go", "build", "-mod=readonly", "-ldflags", "-extldflags \"-static\"", "-o", filepath.Join(dir, names.Jujud), "github.com/juju/juju/cmd/jujud"},
+		{"go", "build", "-mod=readonly", "-ldflags", "-extldflags \"-static\"", "-o", filepath.Join(dir, names.Jujuc), "github.com/juju/juju/cmd/jujuc"},
 	}
 	for _, args := range cmds {
 		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("build command %q failed: %v; %s", args[0], err, out)

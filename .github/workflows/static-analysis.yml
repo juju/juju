@@ -8,33 +8,13 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
 
-    - name: Set up Go 1.12
+    - name: Set up Go 1.14
       uses: actions/setup-go@v1
       with:
-        go-version: 1.12
+        go-version: 1.14
       id: go
 
-    - name: Set GOPATH
-      # temporary fix
-      # see https://github.com/actions/setup-go/issues/14
-      run: |
-        echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
-        echo "##[add-path]$GITHUB_WORKSPACE/bin"
-      shell: bash
-
-    - name: Checkout
-      uses: actions/checkout@v2
-      with:
-        path: src/github.com/juju/juju
-
-    - name: Install Vendor dependencies
-      working-directory: src/github.com/juju/juju
-      run: |
-        make dep
-      shell: bash
-
     - name: Install Dependencies
-      working-directory: src/github.com/juju/juju
       run: |
         go get -u github.com/client9/misspell/cmd/misspell
         go get -u github.com/tsenart/deadcode
@@ -43,26 +23,28 @@ jobs:
         go get -u github.com/mdempsky/unconvert
         go get -u github.com/gordonklaus/ineffassign
 
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Downloand Dependencies
+      run: go mod download
+
     - name: "Static Analysis: Copyright"
-      working-directory: src/github.com/juju/juju
       run: |
         STATIC_ANALYSIS_JOB=test_copyright make static-analysis
       shell: bash
 
     - name: "Static Analysis: Shell Check"
-      working-directory: src/github.com/juju/juju
       run: |
         STATIC_ANALYSIS_JOB=test_static_analysis_shell make static-analysis
       shell: bash
 
     - name: "Static Analysis: Go Check"
-      working-directory: src/github.com/juju/juju
       run: |
         STATIC_ANALYSIS_JOB=test_static_analysis_go make static-analysis
       shell: bash
 
     - name: "Static Analysis: Python Check"
-      working-directory: src/github.com/juju/juju
       run: |
         STATIC_ANALYSIS_JOB=test_static_analysis_python make static-analysis
       shell: bash
@@ -73,33 +55,16 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
 
-    - name: Set up Go 1.12
+    - name: Set up Go 1.14
       uses: actions/setup-go@v1
       with:
-        go-version: 1.12
+        go-version: 1.14
       id: go
-
-    - name: Set GOPATH
-      # temporary fix
-      # see https://github.com/actions/setup-go/issues/14
-      run: |
-        echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
-        echo "##[add-path]$GITHUB_WORKSPACE/bin"
-      shell: bash
 
     - name: Checkout
       uses: actions/checkout@v2
-      with:
-        path: src/github.com/juju/juju
-
-    - name: Install Vendor Dependencies
-      working-directory: src/github.com/juju/juju
-      run: |
-        make dep
-      shell: bash
 
     - name: Schema Check
-      working-directory: src/github.com/juju/juju
       run: |
         STATIC_ANALYSIS_JOB=test_schema make static-analysis
       shell: bash

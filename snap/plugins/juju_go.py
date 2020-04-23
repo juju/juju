@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""The dep plugin can be used for dep-enabled go projects.
+"""The juju-go plugin used for snapping juju.
 
 This plugin uses the common plugin keywords as well as those for "sources".
 For more information check the 'plugins' topic for the former and the
@@ -28,12 +28,6 @@ Additionally, this plugin uses the following plugin-specific keywords:
       Dependencies should have already been retrieved.
       Packages that are not "main" will not cause an error, but would
       not be useful either.
-
-    - go-importpath:
-      (string)
-      This entry tells the checked out `source` to live within a certain path
-      within `GOPATH`. This is required in order to work with absolute imports
-      and import path checking.
 """
 
 import logging
@@ -46,9 +40,8 @@ from snapcraft import file_utils
 
 logger = logging.getLogger(__name__)
 
-
-# TODO(wallyworld) - remove when we migrate to go mod
-class DepPlugin(snapcraft.BasePlugin):
+# TODO(hpidcock): move to upstream go plugin when it has the features we need.
+class JujuGoPlugin(snapcraft.BasePlugin):
     @classmethod
     def schema(cls):
         schema = super().schema()
@@ -56,7 +49,6 @@ class DepPlugin(snapcraft.BasePlugin):
             "type": "string",
             "default": "latest/stable",
         }
-        schema["properties"]["go-importpath"] = {"type": "string"}
         schema["properties"]["go-packages"] = {
             "type": "array",
             "minitems": 1,
@@ -73,10 +65,6 @@ class DepPlugin(snapcraft.BasePlugin):
             "type": "boolean",
             "default": False,
         }
-
-        # The import path must be specified.
-        schema["required"] = ["go-importpath"]
-
         return schema
 
     @classmethod
@@ -85,44 +73,24 @@ class DepPlugin(snapcraft.BasePlugin):
         # change in the YAML Snapcraft will consider the build step dirty.
         return ["go-packages", "go-external-strings", "go-channel", "go-static"]
 
-    @classmethod
-    def get_pull_properties(cls):
-        # Inform Snapcraft of the properties associated with pulling. If these
-        # change in the YAML Snapcraft will consider the pull step dirty.
-        return ["go-importpath"]
-
     def __init__(self, name, options, project):
         super().__init__(name, options, project)
-        self.build_packages.extend(["gcc", "git"])
+        self.build_packages.extend(["git"])
         self.build_snaps.extend(["go/"+self.options.go_channel])
         self._gopath = os.path.join(self.partdir, "go")
         self._gopath_src = os.path.join(self._gopath, "src")
         self._gopath_bin = os.path.join(self._gopath, "bin")
         self._gopath_pkg = os.path.join(self._gopath, "pkg")
-        self._path_in_gopath = os.path.join(self._gopath_src, self.options.go_importpath)
 
     def pull(self):
         super().pull()
 
-        try:
-            shutil.rmtree(os.path.dirname(self._path_in_gopath))
-        except:  # noqa: E722
-            pass
-        finally:
-            os.makedirs(os.path.dirname(self._path_in_gopath), exist_ok=True)
-
-        file_utils.link_or_copy_tree(self.sourcedir, self._path_in_gopath)
-
-        # Fetch and run dep
-        logger.info("Fetching dep...")
-        self._run(["go", "get", "github.com/golang/dep/cmd/dep"])
-
         logger.info("Obtaining project dependencies...")
         self._run(
             [
-                "dep",
-                "ensure",
-                "-vendor-only",
+                "go",
+                "mod",
+                "vendor",
             ]
         )
 
@@ -136,7 +104,7 @@ class DepPlugin(snapcraft.BasePlugin):
     def build(self):
         super().build()
 
-        cmd = ["go", "install"]
+        cmd = ["go", "install", "-mod=vendor"]
         cmd.append("-ldflags")
         flags = ""
         if self.options.go_static:
@@ -149,8 +117,6 @@ class DepPlugin(snapcraft.BasePlugin):
 
         for go_package in self.options.go_packages:
             cmd.append(go_package)
-        if not self.options.go_packages:
-            cmd.append("./{}/...".format(self.options.go_importpath))
 
         self._run(cmd)
 
@@ -158,10 +124,6 @@ class DepPlugin(snapcraft.BasePlugin):
         os.makedirs(install_bin_path, exist_ok=True)
         os.makedirs(self._gopath_bin, exist_ok=True)
         for binary in os.listdir(self._gopath_bin):
-            # Skip dep. It serves no purpose in production.
-            if binary == "dep":
-                continue
-
             binary_path = os.path.join(self._gopath_bin, binary)
             shutil.copy2(binary_path, install_bin_path)
 
@@ -176,26 +138,12 @@ class DepPlugin(snapcraft.BasePlugin):
 
     def _run(self, cmd, **kwargs):
         env = self._build_environment()
-
-        totalRetries = 3
-        for i in range(0, totalRetries):
-            try:
-                return self.run(cmd, cwd=self._path_in_gopath, env=env, **kwargs)
-            except Exception as e:
-                logger.info("Exception attempting to run: {}".format(e))
-                if i < totalRetries-1:
-                    continue
-                raise
+        return self.run(cmd, cwd=self.sourcedir, env=env, **kwargs)
 
     def _build_environment(self):
         env = os.environ.copy()
         env["GOPATH"] = self._gopath
         env["GOBIN"] = self._gopath_bin
-
-        # Add $GOPATH/bin so dep is actually callable.
-        env["PATH"] = "{}:{}".format(
-            os.path.join(self._gopath, "bin"), env.get("PATH", "")
-        )
 
         if self.options.go_static:
             env["CGO_ENABLED"] = "0"

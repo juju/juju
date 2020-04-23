@@ -85,6 +85,11 @@ func NewMetricsCollector() *Collector {
 			Subsystem: apiserverSubsystemNamespace,
 			Name:      "request_duration_seconds",
 			Help:      "Latency of Juju API requests in seconds.",
+			Objectives: map[float64]float64{
+				0.5:  0.05,
+				0.9:  0.01,
+				0.99: 0.001,
+			},
 		}, metricobserver.MetricLabelNames),
 		PingFailureCount: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: apiserverMetricsNamespace,

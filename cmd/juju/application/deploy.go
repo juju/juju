@@ -642,7 +642,7 @@ See also:
     spaces
 `
 
-//go:generate mockgen -package mocks -destination mocks/deploystepapi_mock.go github.com/juju/juju/cmd/juju/application DeployStepAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deploystepapi_mock.go github.com/juju/juju/cmd/juju/application DeployStepAPI
 
 // DeployStepAPI represents a API required for deploying using the step
 // deployment code.

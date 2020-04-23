@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-//go:generate mockgen -package mocks -destination mocks/lxdprofile.go github.com/juju/juju/apiserver/facades/agent/uniter LXDProfileBackend,LXDProfileMachine,LXDProfileUnit
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/lxdprofile.go github.com/juju/juju/apiserver/facades/agent/uniter LXDProfileBackend,LXDProfileMachine,LXDProfileUnit
 
 type LXDProfileBackend interface {
 	Machine(string) (LXDProfileMachine, error)

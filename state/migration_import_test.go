@@ -478,7 +478,7 @@ func (s *MigrationImportSuite) testMachinePortOps(c *gc.C, setup, validate strin
 	c.Assert(ops[0].Id, gc.Equals, fmt.Sprintf("m#3#%s", validate))
 }
 
-//go:generate mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description Machine,OpenedPorts
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description Machine,OpenedPorts
 func setupMockOpenedPorts(c *gc.C, mID, subnetID string) (*gomock.Controller, *mocks.MockMachine) {
 	ctrl := gomock.NewController(c)
 	mockMachine := mocks.NewMockMachine(ctrl)

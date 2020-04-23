@@ -836,7 +836,7 @@ type RemoveSpaceResults struct {
 // RemoveSpaceResult contains entries if removing a space is not possible.
 // Constraints are a slice of entities which has constraints on the space.
 // Bindings are a slice of entities which has bindings on that space.
-// Error is filled if an error has occured which is unexpected.
+// Error is filled if an error has occurred which is unexpected.
 type RemoveSpaceResult struct {
 	Constraints        []Entity `json:"constraints,omitempty"`
 	Bindings           []Entity `json:"bindings,omitempty"`

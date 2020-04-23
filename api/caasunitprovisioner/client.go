@@ -285,7 +285,7 @@ func (c *Client) Life(entityName string) (life.Value, error) {
 	if err := results.Results[0].Error; err != nil {
 		return "", maybeNotFound(err)
 	}
-	return life.Value(results.Results[0].Life), nil
+	return results.Results[0].Life, nil
 }
 
 // maybeNotFound returns an error satisfying errors.IsNotFound

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 )
 
-//go:generate mockgen -package gen -destination describeapi_mock.go github.com/juju/juju/generate/schemagen/gen APIServer,Registry
+//go:generate go run github.com/golang/mock/mockgen -package gen -destination describeapi_mock.go github.com/juju/juju/generate/schemagen/gen APIServer,Registry
 type APIServer interface {
 	AllFacades() Registry
 }

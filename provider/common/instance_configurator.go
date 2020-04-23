@@ -20,7 +20,7 @@ const (
 
 // Implementations of this interface should provide a way to configure external
 // IP allocation and add firewall functionality.
-//go:generate mockgen -package mocks -destination mocks/instance_configurator.go github.com/juju/juju/provider/common InstanceConfigurator
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/instance_configurator.go github.com/juju/juju/provider/common InstanceConfigurator
 type InstanceConfigurator interface {
 
 	// Close all ports.
