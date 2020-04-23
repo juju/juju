@@ -312,7 +312,7 @@ kubernetesResources:
       labels:
         foo: bar
       annotations:
-        no-prefixing: "true"
+        juju.io/disable-name-prefix: "true"
       webhooks:
         - name: "example.mutatingwebhookconfiguration.com"
           failurePolicy: Ignore
@@ -341,7 +341,7 @@ kubernetesResources:
       labels:
         foo: bar
       annotations:
-        no-prefixing: "true"
+        juju.io/disable-name-prefix: "true"
       webhooks:
         - name: "pod-policy.example.com"
           rules:
@@ -867,7 +867,7 @@ password: shhhh`[1:],
 						Meta: k8sspecs.Meta{
 							Name:        "example-mutatingwebhookconfiguration",
 							Labels:      map[string]string{"foo": "bar"},
-							Annotations: map[string]string{"no-prefixing": "true"},
+							Annotations: map[string]string{"juju.io/disable-name-prefix": "true"},
 						},
 						Webhooks: []admissionregistration.MutatingWebhook{webhook1},
 					},
@@ -877,7 +877,7 @@ password: shhhh`[1:],
 						Meta: k8sspecs.Meta{
 							Name:        "pod-policy.example.com",
 							Labels:      map[string]string{"foo": "bar"},
-							Annotations: map[string]string{"no-prefixing": "true"},
+							Annotations: map[string]string{"juju.io/disable-name-prefix": "true"},
 						},
 						Webhooks: []admissionregistration.ValidatingWebhook{webhook2},
 					},

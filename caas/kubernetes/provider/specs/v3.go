@@ -232,6 +232,7 @@ type Meta struct {
 	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
 
+// Validate validates the spec.
 func (m Meta) Validate() error {
 	if len(m.Name) == 0 {
 		return errors.New("name is missing")

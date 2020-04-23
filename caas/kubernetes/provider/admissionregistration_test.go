@@ -230,7 +230,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepName(c
 		{
 			Meta: k8sspecs.Meta{
 				Name:        "example-mutatingwebhookconfiguration",
-				Annotations: map[string]string{"no-prefixing": "true"},
+				Annotations: map[string]string{"juju.io/disable-name-prefix": "true"},
 			},
 			Webhooks: []admissionregistration.MutatingWebhook{webhook1},
 		},
@@ -241,7 +241,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepName(c
 			Name:        "example-mutatingwebhookconfiguration", // This name kept no change.
 			Namespace:   "test",
 			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id(), "no-prefixing": "true"},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id(), "juju.io/disable-name-prefix": "true"},
 		},
 		Webhooks: []admissionregistration.MutatingWebhook{webhook1},
 	}
@@ -519,7 +519,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepName
 		{
 			Meta: k8sspecs.Meta{
 				Name:        "example-validatingwebhookconfiguration",
-				Annotations: map[string]string{"no-prefixing": "true"},
+				Annotations: map[string]string{"juju.io/disable-name-prefix": "true"},
 			},
 			Webhooks: []admissionregistration.ValidatingWebhook{webhook1},
 		},
@@ -530,7 +530,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepName
 			Name:        "example-validatingwebhookconfiguration", // This name kept no change.
 			Namespace:   "test",
 			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id(), "no-prefixing": "true"},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id(), "juju.io/disable-name-prefix": "true"},
 		},
 		Webhooks: []admissionregistration.ValidatingWebhook{webhook1},
 	}

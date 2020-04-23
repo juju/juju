@@ -24,14 +24,13 @@ func (k *kubernetesClient) getAdmissionControllerLabels(appName string) map[stri
 	}
 }
 
-const (
-	annotationNoPrefixingKey   = "no-prefixing"
-	annotationNoPrefixingValue = "true"
-)
+var annotationDisableNamePrefixKey = jujuAnnotationKey("disable-name-prefix")
+
+const annotationDisableNamePrefixValue = "true"
 
 func decideNameForGlobalResource(meta k8sspecs.Meta, namespace string) string {
 	name := meta.Name
-	if k8sannotations.New(meta.Annotations).Has(annotationNoPrefixingKey, annotationNoPrefixingValue) {
+	if k8sannotations.New(meta.Annotations).Has(annotationDisableNamePrefixKey, annotationDisableNamePrefixValue) {
 		return name
 	}
 	return fmt.Sprintf("%s-%s", namespace, name)

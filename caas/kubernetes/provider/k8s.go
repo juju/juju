@@ -120,13 +120,17 @@ const (
 	statefulSetRevisionHistoryLimit int32 = 0
 )
 
+func jujuAnnotationKey(name string) string {
+	return annotationPrefix + "/" + name
+}
+
 var (
 	defaultPropagationPolicy = v1.DeletePropagationForeground
 
-	annotationModelUUIDKey              = annotationPrefix + "/" + "model"
-	annotationControllerUUIDKey         = annotationPrefix + "/" + "controller"
-	annotationControllerIsControllerKey = annotationPrefix + "/" + "is-controller"
-	annotationUnit                      = annotationPrefix + "/" + "unit"
+	annotationModelUUIDKey              = jujuAnnotationKey("model")
+	annotationControllerUUIDKey         = jujuAnnotationKey("controller")
+	annotationControllerIsControllerKey = jujuAnnotationKey("is-controller")
+	annotationUnit                      = jujuAnnotationKey("unit")
 )
 
 type kubernetesClient struct {
