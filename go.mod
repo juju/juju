@@ -72,7 +72,7 @@ require (
 	github.com/juju/testing v0.0.0-20191001232224-ce9dec17d28b
 	github.com/juju/txn v0.0.0-20190416045819-5f348e78887d
 	github.com/juju/usso v0.0.0-20160401104424-68a59c96c178 // indirect
-	github.com/juju/utils v0.0.0-20200225001211-e08ecd5f731f
+	github.com/juju/utils v0.0.0-20200423035217-b0a7da72a5fa
 	github.com/juju/version v0.0.0-20191219164919-81c1be00b9a6
 	github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
@@ -100,10 +100,10 @@ require (
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
-	golang.org/x/crypto v0.0.0-20200420201142-3c4aac89819a
-	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
+	golang.org/x/crypto v0.0.0-20200422194213-44a606286825
+	golang.org/x/net v0.0.0-20200421231249-e086a090c8fd
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
-	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
+	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f
 	google.golang.org/api v0.4.0
 	gopkg.in/amz.v3 v3.0.0-20191122063134-7ba11a47c789
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
