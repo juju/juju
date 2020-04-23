@@ -436,6 +436,7 @@ var exampleParsedInterfaceSetJSON = []corenetwork.InterfaceInfo{{
 	DNSSearchDomains:  nil,
 	MTU:               1500,
 	GatewayAddress:    corenetwork.NewProviderAddressInSpace("default", "10.20.19.2"),
+	Origin:            corenetwork.OriginProvider,
 }, {
 	DeviceIndex:       0,
 	MACAddress:        "52:54:00:70:9b:fe",
@@ -456,6 +457,7 @@ var exampleParsedInterfaceSetJSON = []corenetwork.InterfaceInfo{{
 	DNSSearchDomains:  nil,
 	MTU:               1500,
 	GatewayAddress:    corenetwork.NewProviderAddressInSpace("default", "10.20.19.2"),
+	Origin:            corenetwork.OriginProvider,
 }, {
 	DeviceIndex:         1,
 	MACAddress:          "52:54:00:70:9b:fe",
@@ -477,6 +479,7 @@ var exampleParsedInterfaceSetJSON = []corenetwork.InterfaceInfo{{
 	DNSSearchDomains:    nil,
 	MTU:                 1500,
 	GatewayAddress:      corenetwork.NewProviderAddressInSpace("admin", "10.50.19.2"),
+	Origin:              corenetwork.OriginProvider,
 }, {
 	DeviceIndex:         2,
 	MACAddress:          "52:54:00:70:9b:fe",
@@ -498,6 +501,7 @@ var exampleParsedInterfaceSetJSON = []corenetwork.InterfaceInfo{{
 	DNSSearchDomains:    nil,
 	MTU:                 1500,
 	GatewayAddress:      corenetwork.NewProviderAddressInSpace("public", "10.100.19.2"),
+	Origin:              corenetwork.OriginProvider,
 }, {
 	DeviceIndex:         3,
 	MACAddress:          "52:54:00:70:9b:fe",
@@ -520,6 +524,7 @@ var exampleParsedInterfaceSetJSON = []corenetwork.InterfaceInfo{{
 	DNSSearchDomains:    nil,
 	MTU:                 1500,
 	GatewayAddress:      newAddressOnSpaceWithId("storage", "3", "10.250.19.2"),
+	Origin:              corenetwork.OriginProvider,
 }, {
 	DeviceIndex:         4,
 	MACAddress:          "52:54:00:08:24:2d",
@@ -539,6 +544,7 @@ var exampleParsedInterfaceSetJSON = []corenetwork.InterfaceInfo{{
 	DNSServers:          nil,
 	DNSSearchDomains:    nil,
 	MTU:                 0,
+	Origin:              corenetwork.OriginProvider,
 }, {
 	DeviceIndex:         5,
 	MACAddress:          "52:54:00:08:24:2d",
@@ -561,6 +567,7 @@ var exampleParsedInterfaceSetJSON = []corenetwork.InterfaceInfo{{
 	DNSSearchDomains:    nil,
 	MTU:                 1500,
 	GatewayAddress:      newAddressOnSpaceWithId("space-0", "4", "192.168.20.2"),
+	Origin:              corenetwork.OriginProvider,
 }}
 
 func (s *interfacesSuite) TestParseInterfacesNoJSON(c *gc.C) {
@@ -954,6 +961,7 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:  nil,
 		MTU:               1500,
 		GatewayAddress:    corenetwork.NewProviderAddressInSpace("default", "10.20.19.2"),
+		Origin:            corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
@@ -974,6 +982,7 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:  nil,
 		MTU:               1500,
 		GatewayAddress:    corenetwork.NewProviderAddressInSpace("default", "10.20.19.2"),
+		Origin:            corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:         1,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -995,6 +1004,7 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
 		GatewayAddress:      corenetwork.NewProviderAddressInSpace("admin", "10.50.19.2"),
+		Origin:              corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:         2,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -1016,6 +1026,7 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
 		GatewayAddress:      corenetwork.NewProviderAddressInSpace("public", "10.100.19.2"),
+		Origin:              corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:         3,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -1038,6 +1049,7 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
 		GatewayAddress:      newAddressOnSpaceWithId("storage", "3", "10.250.19.2"),
+		Origin:              corenetwork.OriginProvider,
 	}}
 	machine := &fakeMachine{interfaceSet: exampleInterfaces}
 	instance := &maas2Instance{machine: machine}
@@ -1104,6 +1116,7 @@ func (s *interfacesSuite) TestMAAS2InterfacesNilVLAN(c *gc.C) {
 		DNSSearchDomains:  nil,
 		MTU:               1500,
 		GatewayAddress:    corenetwork.NewProviderAddressInSpace("default", "10.20.19.2"),
+		Origin:            corenetwork.OriginProvider,
 	}}
 
 	infos, err := maas2NetworkInterfaces(s.callCtx, instance, map[string]corenetwork.Id{})

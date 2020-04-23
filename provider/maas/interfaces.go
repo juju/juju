@@ -236,6 +236,7 @@ func maasObjectNetworkInterfaces(
 			ParentInterfaceName: parentName,
 			Disabled:            !iface.Enabled,
 			NoAutoStart:         !iface.Enabled,
+			Origin:              corenetwork.OriginProvider,
 		}
 
 		if len(iface.Links) == 0 {
@@ -357,6 +358,7 @@ func maas2NetworkInterfaces(
 			ParentInterfaceName: parentName,
 			Disabled:            !iface.Enabled(),
 			NoAutoStart:         !iface.Enabled(),
+			Origin:              corenetwork.OriginProvider,
 		}
 
 		if len(iface.Links()) == 0 {

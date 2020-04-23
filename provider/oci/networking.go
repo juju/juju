@@ -1102,6 +1102,7 @@ func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContex
 			InterfaceType:    corenetwork.EthernetInterface,
 			ProviderSubnetId: corenetwork.Id(*iface.Vnic.SubnetId),
 			CIDR:             *subnet.CidrBlock,
+			Origin:           corenetwork.OriginProvider,
 		}
 		if iface.Vnic.PublicIp != nil {
 			nic.ShadowAddresses = append(nic.ShadowAddresses,

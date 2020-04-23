@@ -18380,6 +18380,9 @@
                         "no-auto-start": {
                             "type": "boolean"
                         },
+                        "origin": {
+                            "type": "string"
+                        },
                         "parent-interface-name": {
                             "type": "string"
                         },
@@ -21442,6 +21445,9 @@
                         },
                         "no-auto-start": {
                             "type": "boolean"
+                        },
+                        "origin": {
+                            "type": "string"
                         },
                         "parent-interface-name": {
                             "type": "string"
@@ -27828,6 +27834,9 @@
                         },
                         "no-auto-start": {
                             "type": "boolean"
+                        },
+                        "origin": {
+                            "type": "string"
                         },
                         "parent-interface-name": {
                             "type": "string"

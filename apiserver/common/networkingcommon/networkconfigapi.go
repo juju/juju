@@ -224,9 +224,9 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 }
 
 func (api *NetworkConfigAPI) setLinkLayerDevicesAndAddresses(
-	m *state.Machine, ifaces []network.InterfaceInfo,
+	m *state.Machine, interfaceInfos []network.InterfaceInfo,
 ) error {
-	devicesArgs, devicesAddrs := NetworkInterfacesToStateArgs(ifaces)
+	devicesArgs, devicesAddrs := NetworkInterfacesToStateArgs(interfaceInfos)
 
 	logger.Debugf("setting devices: %+v", devicesArgs)
 	if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {

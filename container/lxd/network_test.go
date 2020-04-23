@@ -376,12 +376,14 @@ func (s *networkSuite) TestInterfaceInfoFromDevices(c *gc.C) {
 			MACAddress:          "00:16:3e:00:00:3e",
 			ConfigType:          corenetwork.ConfigDHCP,
 			ParentInterfaceName: "br1",
+			Origin:              corenetwork.OriginProvider,
 		},
 		{
 			InterfaceName:       "eth0",
 			MACAddress:          "00:16:3e:00:00:00",
 			ConfigType:          corenetwork.ConfigDHCP,
 			ParentInterfaceName: network.DefaultLXDBridge,
+			Origin:              corenetwork.OriginProvider,
 		},
 	}
 	c.Check(info, jc.DeepEquals, exp)

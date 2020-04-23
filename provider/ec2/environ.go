@@ -1192,6 +1192,7 @@ func mapNetworkInterface(iface ec2.NetworkInterface, subnet ec2.Subnet) corenetw
 		Addresses: corenetwork.ProviderAddresses{
 			corenetwork.NewScopedProviderAddress(iface.PrivateIPAddress, corenetwork.ScopeCloudLocal),
 		},
+		Origin: corenetwork.OriginProvider,
 	}
 
 	for _, privAddr := range iface.PrivateIPs {

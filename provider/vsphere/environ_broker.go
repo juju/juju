@@ -155,6 +155,7 @@ func (env *sessionEnviron) newRawInstance(
 		MACAddress:    internalMac,
 		InterfaceType: corenetwork.EthernetInterface,
 		ConfigType:    corenetwork.ConfigDHCP,
+		Origin:        corenetwork.OriginProvider,
 	}}
 	networkDevices := []vsphereclient.NetworkDevice{{MAC: internalMac, Network: env.ecfg.primaryNetwork()}}
 
@@ -171,6 +172,7 @@ func (env *sessionEnviron) newRawInstance(
 			MACAddress:    externalMac,
 			InterfaceType: corenetwork.EthernetInterface,
 			ConfigType:    corenetwork.ConfigDHCP,
+			Origin:        corenetwork.OriginProvider,
 		})
 		networkDevices = append(networkDevices, vsphereclient.NetworkDevice{MAC: externalMac, Network: externalNetwork})
 	}

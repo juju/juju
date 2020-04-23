@@ -1442,6 +1442,7 @@ func (e *Environ) networksForInstance(
 			MACAddress:    port.MACAddress,
 			Addresses:     corenetwork.NewProviderAddresses(ips...),
 			ConfigType:    corenetwork.ConfigDHCP,
+			Origin:        corenetwork.OriginProvider,
 		}
 	}
 

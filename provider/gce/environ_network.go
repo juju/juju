@@ -223,6 +223,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 				Disabled:        false,
 				NoAutoStart:     false,
 				ConfigType:      corenetwork.ConfigDHCP,
+				Origin:          corenetwork.OriginProvider,
 			})
 		}
 	}
