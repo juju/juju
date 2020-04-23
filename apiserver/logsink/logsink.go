@@ -12,9 +12,9 @@ import (
 	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/ratelimit"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
 

@@ -13,10 +13,10 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 

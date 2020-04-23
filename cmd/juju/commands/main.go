@@ -14,11 +14,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	utilsos "github.com/juju/os"
 	"github.com/juju/os/series"
 	proxyutils "github.com/juju/proxy"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 
 	// Import the providers.

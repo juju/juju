@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
+	"github.com/juju/featureflag"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
 

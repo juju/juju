@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"

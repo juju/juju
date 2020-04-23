@@ -16,10 +16,10 @@ import (
 	"text/template"
 
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/os"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
 
