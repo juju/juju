@@ -21,6 +21,21 @@ import (
 	coretest "github.com/juju/juju/tools"
 )
 
+type ToolsImportSuite struct {
+}
+
+var _ = gc.Suite(&ToolsImportSuite{})
+
+func (t *ToolsImportSuite) TestPackageDependencies(c *gc.C) {
+	// This test is to ensure we don't bring in dependencies on state, environ
+	// or any of the other bigger packages that'll drag in yet more dependencies.
+	// Only imports that start with "github.com/juju/juju" are checked, and the
+	// resulting slice has that prefix removed to keep the output short.
+	c.Assert(testing.FindJujuCoreImports(c, "github.com/juju/juju/agent/tools"),
+		gc.DeepEquals,
+		[]string{"juju/names", "tools"})
+}
+
 type ToolsSuite struct {
 	testing.BaseSuite
 	dataDir string
@@ -31,16 +46,6 @@ var _ = gc.Suite(&ToolsSuite{})
 func (t *ToolsSuite) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
 	t.dataDir = c.MkDir()
-}
-
-func (t *ToolsSuite) TestPackageDependencies(c *gc.C) {
-	// This test is to ensure we don't bring in dependencies on state, environ
-	// or any of the other bigger packages that'll drag in yet more dependencies.
-	// Only imports that start with "github.com/juju/juju" are checked, and the
-	// resulting slice has that prefix removed to keep the output short.
-	c.Assert(testing.FindJujuCoreImports(c, "github.com/juju/juju/agent/tools"),
-		gc.DeepEquals,
-		[]string{"juju/names", "tools"})
 }
 
 // gzyesses holds the result of running:
