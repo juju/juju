@@ -189,7 +189,7 @@ func (api *API) ensureSubnetsCanBeMoved(subnets []MovingSubnet, spaceName string
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(api.ensureSpaceConstraintIntegrity(affected, spaceName))
+	return errors.Trace(api.ensureSpaceConstraintIntegrity(affected))
 }
 
 // getAffectedNetworks interrogates machines connected to moving subnets.
@@ -230,7 +230,7 @@ func (api *API) getAffectedNetworks(subnets []MovingSubnet, spaceName string, fo
 // those constraints after subnet relocation.
 // If force is true we only log a warning for violations, otherwise an error
 // is returned.
-func (api *API) ensureSpaceConstraintIntegrity(affected *affectedNetworks, spaceName string) error {
+func (api *API) ensureSpaceConstraintIntegrity(affected *affectedNetworks) error {
 	constraints, err := api.backing.AllConstraints()
 	if err != nil {
 		return errors.Trace(err)
@@ -254,7 +254,7 @@ func (api *API) ensureSpaceConstraintIntegrity(affected *affectedNetworks, space
 		}
 	}
 
-	return errors.Trace(affected.ensureSpaceConstraintIntegrity(spaceConsByApp, spaceName))
+	return errors.Trace(affected.ensureSpaceConstraintIntegrity(spaceConsByApp))
 }
 
 func paramsFromMovedSubnet(movedSubnets []MovedSubnet) []params.MovedSubnet {

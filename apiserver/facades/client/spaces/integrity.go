@@ -49,10 +49,14 @@ func (n *unitNetwork) isConnectedTo(space network.SpaceInfo) bool {
 // is able to honour changing space topology based on application
 // constraints and endpoint bindings.
 type affectedNetworks struct {
-	// subnets are the subnets that are being moved.
+	// subnets identifies the subnets that are being moved.
 	subnets network.IDSet
+	// newSpace is the name of the space that the subnets are being moved to.
+	newSpace string
 	// spaces is a the target space topology.
-	spaces      network.SpaceInfos
+	spaces network.SpaceInfos
+	// appNetworks are are all unit subnet connectivity grouped by application
+	// for any that may be affected by moving the subnets above.
 	appNetworks map[string][]unitNetwork
 	force       bool
 }
@@ -83,6 +87,7 @@ func newAffectedNetworks(
 
 	return &affectedNetworks{
 		subnets:     movingSubnets,
+		newSpace:    spaceName,
 		spaces:      newTopology,
 		appNetworks: make(map[string][]unitNetwork),
 		force:       force,
@@ -165,7 +170,7 @@ func (n *affectedNetworks) includeMachine(machine Machine, subnets network.Subne
 	return nil
 }
 
-func (n *affectedNetworks) ensureSpaceConstraintIntegrity(cons map[string]set.Strings, newSpace string) error {
+func (n *affectedNetworks) ensureSpaceConstraintIntegrity(cons map[string]set.Strings) error {
 	for appName, unitNets := range n.appNetworks {
 		spaces, ok := cons[appName]
 		if !ok {
@@ -175,9 +180,9 @@ func (n *affectedNetworks) ensureSpaceConstraintIntegrity(cons map[string]set.St
 
 		// If the application has a negative space constraint for the
 		// destination, the proposed subnet relocation violates it.
-		if spaces.Contains("^" + newSpace) {
+		if spaces.Contains("^" + n.newSpace) {
 			msg := fmt.Sprintf("moving subnet(s) to space %q violates space constraints "+
-				"for application %q: %s", newSpace, appName, strings.Join(spaces.SortedValues(), ", "))
+				"for application %q: %s", n.newSpace, appName, strings.Join(spaces.SortedValues(), ", "))
 
 			if !n.force {
 				return errors.New(msg)
@@ -203,7 +208,7 @@ func (n *affectedNetworks) ensureSpaceConstraintIntegrity(cons map[string]set.St
 					msg := fmt.Sprintf(
 						"moving subnet(s) to space %q violates space constraints "+
 							"for application %q: %s\n\tunits not connected to the space: %s",
-						newSpace,
+						n.newSpace,
 						appName,
 						strings.Join(spaces.SortedValues(), ", "),
 						strings.Join(unitNet.unitNames.SortedValues(), ", "),
