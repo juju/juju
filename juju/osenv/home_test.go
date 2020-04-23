@@ -18,6 +18,7 @@ var _ = gc.Suite(&JujuXDGDataHomeSuite{})
 
 func (s *JujuXDGDataHomeSuite) TearDownTest(c *gc.C) {
 	osenv.SetJujuXDGDataHome("")
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *JujuXDGDataHomeSuite) TestStandardHome(c *gc.C) {

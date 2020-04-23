@@ -360,7 +360,7 @@ func (s *builderSuite) TestDeployDeploymentTypeMismatchFailed(c *gc.C) {
 func objBody(c *gc.C, object interface{}) io.ReadCloser {
 	output, err := json.MarshalIndent(object, "", "")
 	c.Assert(err, jc.ErrorIsNil)
-	return ioutil.NopCloser(bytes.NewReader([]byte(output)))
+	return ioutil.NopCloser(bytes.NewReader(output))
 }
 
 func (s *builderSuite) fakeRequest(

@@ -424,7 +424,7 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
 	c.Assert(vers, gc.DeepEquals, version.Binary{})
 	c.Assert(official, jc.IsFalse)
 	c.Assert(sha256Hash, gc.Equals, "")
-	c.Assert(err, gc.ErrorMatches, `cannot build jujud agent binary from source: build command "go" failed: exit status 1; `)
+	c.Assert(err, gc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
 
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &jujuversion.Current))
 
@@ -444,7 +444,7 @@ func (s *badBuildSuite) TestUploadToolsBadBuild(c *gc.C) {
 	// Test that original Upload Func fails as expected
 	t, err := sync.Upload(stor, "released", nil)
 	c.Assert(t, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `cannot build jujud agent binary from source: build command \"go\" failed: exit status 1; `)
+	c.Assert(err, gc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
 
 	// Test that Upload func passes after BundleTools func is mocked out
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, nil))
@@ -457,7 +457,7 @@ func (s *badBuildSuite) TestUploadToolsBadBuild(c *gc.C) {
 func (s *badBuildSuite) TestBuildToolsBadBuild(c *gc.C) {
 	// Test that original BuildAgentTarball fails
 	builtTools, err := sync.BuildAgentTarball(true, nil, "released")
-	c.Assert(err, gc.ErrorMatches, `cannot build jujud agent binary from source: build command \"go\" failed: exit status 1; `)
+	c.Assert(err, gc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
 	c.Assert(builtTools, gc.IsNil)
 
 	// Test that BuildAgentTarball func passes after BundleTools func is
