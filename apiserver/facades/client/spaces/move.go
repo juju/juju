@@ -254,7 +254,7 @@ func (api *API) ensureSpaceConstraintIntegrity(affected *affectedNetworks) error
 		}
 	}
 
-	return errors.Trace(affected.ensureSpaceConstraintIntegrity(spaceConsByApp))
+	return errors.Trace(affected.ensureConstraintIntegrity(spaceConsByApp))
 }
 
 func paramsFromMovedSubnet(movedSubnets []MovedSubnet) []params.MovedSubnet {

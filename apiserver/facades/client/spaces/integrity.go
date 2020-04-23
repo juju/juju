@@ -170,55 +170,74 @@ func (n *affectedNetworks) includeMachine(machine Machine, subnets network.Subne
 	return nil
 }
 
-func (n *affectedNetworks) ensureSpaceConstraintIntegrity(cons map[string]set.Strings) error {
-	for appName, unitNets := range n.appNetworks {
-		spaces, ok := cons[appName]
-		if !ok {
-			// If the application has no space constraints, we are done.
+// ensureConstraintIntegrity checks that moving subnets to the new space does
+// not violate any application space constraints.
+// If force is true, violations are logged as warnings,
+// otherwise an error is returned.
+func (n *affectedNetworks) ensureConstraintIntegrity(cons map[string]set.Strings) error {
+	for appName := range n.appNetworks {
+		// We know there are always constraints; this is ensured by the caller.
+		spaces := cons[appName]
+
+		if err := n.ensureNegativeConstraintIntegrity(appName, spaces); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := n.ensurePositiveConstraintIntegrity(appName, spaces); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	return nil
+}
+
+// ensureNegativeConstraintIntegrity checks that the input application does not
+// have a negative space constraint for the proposed destination space.
+func (n *affectedNetworks) ensureNegativeConstraintIntegrity(appName string, spaceConstraints set.Strings) error {
+	if spaceConstraints.Contains("^" + n.newSpace) {
+		msg := fmt.Sprintf("moving subnet(s) to space %q violates space constraints "+
+			"for application %q: %s", n.newSpace, appName, strings.Join(spaceConstraints.SortedValues(), ", "))
+
+		if !n.force {
+			return errors.New(msg)
+		}
+		logger.Warningf(msg)
+	}
+
+	return nil
+}
+
+// ensurePositiveConstraintIntegrity checks that for each positive space
+// constraint, comparing the input application's unit subnet connectivity to
+// the target topology determines the constraint to be satisfied.
+func (n *affectedNetworks) ensurePositiveConstraintIntegrity(appName string, spaceConstraints set.Strings) error {
+	unitNets := n.appNetworks[appName]
+
+	for _, spaceName := range spaceConstraints.Values() {
+		if strings.HasPrefix(spaceName, "^") {
 			continue
 		}
 
-		// If the application has a negative space constraint for the
-		// destination, the proposed subnet relocation violates it.
-		if spaces.Contains("^" + n.newSpace) {
-			msg := fmt.Sprintf("moving subnet(s) to space %q violates space constraints "+
-				"for application %q: %s", n.newSpace, appName, strings.Join(spaces.SortedValues(), ", "))
-
-			if !n.force {
-				return errors.New(msg)
-			}
-			logger.Warningf(msg)
+		conSpace := n.spaces.GetByName(spaceName)
+		if conSpace == nil {
+			return errors.NotFoundf("space with name %q", spaceName)
 		}
 
-		// Now check that for each positive space constraint,
-		// comparing the unit subnet connectivity to the target topology
-		// determines the constraint to be satisfied.
-		for _, spaceName := range spaces.Values() {
-			if strings.HasPrefix(spaceName, "^") {
-				continue
-			}
+		for _, unitNet := range unitNets {
+			if !unitNet.isConnectedTo(*conSpace) {
+				msg := fmt.Sprintf(
+					"moving subnet(s) to space %q violates space constraints "+
+						"for application %q: %s\n\tunits not connected to the space: %s",
+					n.newSpace,
+					appName,
+					strings.Join(spaceConstraints.SortedValues(), ", "),
+					strings.Join(unitNet.unitNames.SortedValues(), ", "),
+				)
 
-			conSpace := n.spaces.GetByName(spaceName)
-			if conSpace == nil {
-				return errors.NotFoundf("space with name %q", spaceName)
-			}
-
-			for _, unitNet := range unitNets {
-				if !unitNet.isConnectedTo(*conSpace) {
-					msg := fmt.Sprintf(
-						"moving subnet(s) to space %q violates space constraints "+
-							"for application %q: %s\n\tunits not connected to the space: %s",
-						n.newSpace,
-						appName,
-						strings.Join(spaces.SortedValues(), ", "),
-						strings.Join(unitNet.unitNames.SortedValues(), ", "),
-					)
-
-					if !n.force {
-						return errors.New(msg)
-					}
-					logger.Warningf(msg)
+				if !n.force {
+					return errors.New(msg)
 				}
+				logger.Warningf(msg)
 			}
 		}
 	}
