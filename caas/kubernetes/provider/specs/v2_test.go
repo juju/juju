@@ -615,7 +615,7 @@ password: shhhh`[1:],
 				},
 				CustomResourceDefinitions: []k8sspecs.K8sCustomResourceDefinitionSpec{
 					{
-						Name: "tfjobs.kubeflow.org",
+						Meta: k8sspecs.Meta{Name: "tfjobs.kubeflow.org"},
 						Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 							Group:   "kubeflow.org",
 							Version: "v1",
@@ -728,11 +728,17 @@ password: shhhh`[1:],
 					},
 				},
 				IngressResources: []k8sspecs.K8sIngressSpec{ingress1},
-				MutatingWebhookConfigurations: map[string][]admissionregistration.MutatingWebhook{
-					"example-mutatingwebhookconfiguration": {webhook1},
+				MutatingWebhookConfigurations: []k8sspecs.K8sMutatingWebhookSpec{
+					{
+						Meta:     k8sspecs.Meta{Name: "example-mutatingwebhookconfiguration"},
+						Webhooks: []admissionregistration.MutatingWebhook{webhook1},
+					},
 				},
-				ValidatingWebhookConfigurations: map[string][]admissionregistration.ValidatingWebhook{
-					"pod-policy.example.com": {webhook2},
+				ValidatingWebhookConfigurations: []k8sspecs.K8sValidatingWebhookSpec{
+					{
+						Meta:     k8sspecs.Meta{Name: "pod-policy.example.com"},
+						Webhooks: []admissionregistration.ValidatingWebhook{webhook2},
+					},
 				},
 			},
 		}

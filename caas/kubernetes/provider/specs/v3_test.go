@@ -308,47 +308,56 @@ kubernetesResources:
                     serviceName: test
                     servicePort: 80
   mutatingWebhookConfigurations:
-    example-mutatingwebhookconfiguration:
-      - name: "example.mutatingwebhookconfiguration.com"
-        failurePolicy: Ignore
-        clientConfig:
-          service:
-            name: apple-service
-            namespace: apples
-            path: /apple
-          caBundle: "YXBwbGVz"
-        namespaceSelector:
-          matchExpressions:
-            - key: production
-              operator: DoesNotExist
-        rules:
-          - apiGroups:
-              - ""
-            apiVersions:
-              - v1
-            operations:
-              - CREATE
-              - UPDATE
-            resources:
-              - pods
+    - name: example-mutatingwebhookconfiguration
+      labels:
+        foo: bar
+      annotations:
+        juju.io/disable-name-prefix: "true"
+      webhooks:
+        - name: "example.mutatingwebhookconfiguration.com"
+          failurePolicy: Ignore
+          clientConfig:
+            service:
+              name: apple-service
+              namespace: apples
+              path: /apple
+            caBundle: "YXBwbGVz"
+          namespaceSelector:
+            matchExpressions:
+              - key: production
+                operator: DoesNotExist
+          rules:
+            - apiGroups:
+                - ""
+              apiVersions:
+                - v1
+              operations:
+                - CREATE
+                - UPDATE
+              resources:
+                - pods
   validatingWebhookConfigurations:
-    pod-policy.example.com:
-      - name: "pod-policy.example.com"
-        rules:
-          - apiGroups: [""]
-            apiVersions: ["v1"]
-            operations: ["CREATE"]
-            resources: ["pods"]
-            scope: "Namespaced"
-        clientConfig:
-          service:
-            namespace: "example-namespace"
-            name: "example-service"
-          caBundle: "YXBwbGVz"
-        admissionReviewVersions: ["v1", "v1beta1"]
-        sideEffects: None
-        timeoutSeconds: 5
-
+    - name: pod-policy.example.com
+      labels:
+        foo: bar
+      annotations:
+        juju.io/disable-name-prefix: "true"
+      webhooks:
+        - name: "pod-policy.example.com"
+          rules:
+            - apiGroups: [""]
+              apiVersions: ["v1"]
+              operations: ["CREATE"]
+              resources: ["pods"]
+              scope: "Namespaced"
+          clientConfig:
+            service:
+              namespace: "example-namespace"
+              name: "example-service"
+            caBundle: "YXBwbGVz"
+          admissionReviewVersions: ["v1", "v1beta1"]
+          sideEffects: None
+          timeoutSeconds: 5
 `[1:]
 
 	expectedFileContent := `
@@ -730,10 +739,12 @@ password: shhhh`[1:],
 				},
 				CustomResourceDefinitions: []k8sspecs.K8sCustomResourceDefinitionSpec{
 					{
-						Name: "tfjobs.kubeflow.org",
-						Labels: map[string]string{
-							"foo":                            "bar",
-							"juju-global-resource-lifecycle": "model",
+						Meta: k8sspecs.Meta{
+							Name: "tfjobs.kubeflow.org",
+							Labels: map[string]string{
+								"foo":                            "bar",
+								"juju-global-resource-lifecycle": "model",
+							},
 						},
 						Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 							Group:   "kubeflow.org",
@@ -851,11 +862,25 @@ password: shhhh`[1:],
 					},
 				},
 				IngressResources: []k8sspecs.K8sIngressSpec{ingress1},
-				MutatingWebhookConfigurations: map[string][]admissionregistration.MutatingWebhook{
-					"example-mutatingwebhookconfiguration": {webhook1},
+				MutatingWebhookConfigurations: []k8sspecs.K8sMutatingWebhookSpec{
+					{
+						Meta: k8sspecs.Meta{
+							Name:        "example-mutatingwebhookconfiguration",
+							Labels:      map[string]string{"foo": "bar"},
+							Annotations: map[string]string{"juju.io/disable-name-prefix": "true"},
+						},
+						Webhooks: []admissionregistration.MutatingWebhook{webhook1},
+					},
 				},
-				ValidatingWebhookConfigurations: map[string][]admissionregistration.ValidatingWebhook{
-					"pod-policy.example.com": {webhook2},
+				ValidatingWebhookConfigurations: []k8sspecs.K8sValidatingWebhookSpec{
+					{
+						Meta: k8sspecs.Meta{
+							Name:        "pod-policy.example.com",
+							Labels:      map[string]string{"foo": "bar"},
+							Annotations: map[string]string{"juju.io/disable-name-prefix": "true"},
+						},
+						Webhooks: []admissionregistration.ValidatingWebhook{webhook2},
+					},
 				},
 			},
 		}
@@ -1058,7 +1083,7 @@ containers:
       protocol: TCP
 kubernetesResources:
   mutatingWebhookConfigurations:
-    example-mutatingwebhookconfiguration:
+    - name: example-mutatingwebhookconfiguration
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
@@ -1075,7 +1100,7 @@ containers:
       protocol: TCP
 kubernetesResources:
   validatingWebhookConfigurations:
-    example-validatingwebhookconfiguration:
+    - name: example-validatingwebhookconfiguration
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
