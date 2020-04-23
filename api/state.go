@@ -11,8 +11,8 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2/bakery"

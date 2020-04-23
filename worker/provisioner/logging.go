@@ -5,7 +5,7 @@ package provisioner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
+	"github.com/juju/featureflag"
 
 	"github.com/juju/juju/feature"
 )

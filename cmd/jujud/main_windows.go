@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/utils/featureflag"
+	"github.com/juju/featureflag"
 	"golang.org/x/sys/windows/svc"
 
 	"github.com/juju/juju/cmd/service"

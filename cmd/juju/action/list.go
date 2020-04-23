@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	"github.com/juju/naturalsort"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
@@ -79,7 +79,7 @@ func (c *listCommand) Info() *cmd.Info {
 		Doc:     listDoc,
 		Aliases: []string{"list-actions"},
 	})
-	if featureflag.Enabled(feature.JujuV3) {
+	if featureflag.Enabled(feature.ActionsV2) {
 		info.Doc = strings.Replace(info.Doc, "run-action", "run", -1)
 	}
 	return info

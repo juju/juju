@@ -9,7 +9,7 @@ package main
 import (
 	"os"
 
-	"github.com/juju/utils/featureflag"
+	"github.com/juju/featureflag"
 
 	"github.com/juju/juju/juju/osenv"
 )

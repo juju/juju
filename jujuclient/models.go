@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
 

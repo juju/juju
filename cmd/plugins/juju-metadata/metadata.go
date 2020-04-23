@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
@@ -63,7 +63,7 @@ func NewSuperCommand() cmd.Command {
 }
 
 func init() {
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey, osenv.JujuFeatures)
 }
 
 func main() {

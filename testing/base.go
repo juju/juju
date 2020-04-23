@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
@@ -19,7 +20,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
@@ -53,6 +53,7 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 		osenv.JujuModelEnvKey,
 		osenv.JujuLoggingConfigEnvKey,
 		osenv.JujuFeatureFlagEnvKey,
+		osenv.JujuFeatures,
 		osenv.XDGDataHome,
 	} {
 		s.oldEnvironment[name] = os.Getenv(name)

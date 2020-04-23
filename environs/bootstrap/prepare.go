@@ -5,7 +5,7 @@ package bootstrap
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
+	"github.com/juju/featureflag"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/caas"

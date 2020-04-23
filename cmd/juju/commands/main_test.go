@@ -16,12 +16,12 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
+	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -669,9 +669,9 @@ var commandNames = []string{
 	"whoami",
 }
 
-// devFeatures are feature flags that impact registration of commands.
-var devFeatures = []string{
-	feature.JujuV3,
+// optionalFeatures are feature flags that impact registration of commands.
+var optionalFeatures = []string{
+	feature.ActionsV2,
 }
 
 // These are the commands that are behind the `devFeatures`.
@@ -688,7 +688,7 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	// remove features behind dev_flag for the first test
 	// since they are not enabled.
 	cmdSet := set.NewStrings(commandNames...)
-	if !featureflag.Enabled(feature.JujuV3) {
+	if !featureflag.Enabled(feature.ActionsV2) {
 		cmdSet.Add("actions")
 		cmdSet.Add("list-actions")
 		cmdSet.Add("run-action")
@@ -710,7 +710,7 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 
 	// 2. Enable development features, and test again.
 	cmdSet = cmdSet.Union(commandNamesBehindFlags)
-	setFeatureFlags(strings.Join(devFeatures, ","))
+	setFeatureFlags(strings.Join(optionalFeatures, ","))
 	registered = getHelpCommandNames(c)
 	unknown = registered.Difference(cmdSet)
 	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
@@ -797,7 +797,7 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 	expected := make([]string, len(commandNames))
 	copy(expected, commandNames)
 	expected = append(expected, extraNames...)
-	if !featureflag.Enabled(feature.JujuV3) {
+	if !featureflag.Enabled(feature.ActionsV2) {
 		expected = append(expected, "cancel-action", "run-action", "show-action-status", "show-action-output")
 	}
 	sort.Strings(expected)
