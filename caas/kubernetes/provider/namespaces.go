@@ -74,12 +74,6 @@ func (k *kubernetesClient) getNamespaceByName(name string) (*core.Namespace, err
 	return ns, nil
 }
 
-// SetNamespace sets current namespace to the specified name.
-// Note: this does not ensure related namespace resources.
-func (k *kubernetesClient) SetNamespace(name string) {
-	k.namespace = name
-}
-
 // listNamespacesByAnnotations filters namespaces by annotations.
 func (k *kubernetesClient) listNamespacesByAnnotations(annotations k8sannotations.Annotation) ([]core.Namespace, error) {
 	namespaces, err := k.client().CoreV1().Namespaces().List(v1.ListOptions{})

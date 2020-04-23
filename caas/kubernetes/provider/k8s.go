@@ -189,6 +189,7 @@ func newK8sBroker(
 	controllerUUID string,
 	k8sRestConfig *rest.Config,
 	cfg *config.Config,
+	namespace string,
 	newClient NewK8sClientFunc,
 	newWatcher NewK8sWatcherFunc,
 	newStringsWatcher NewK8sStringsWatcherFunc,
@@ -208,6 +209,7 @@ func newK8sBroker(
 	if modelUUID == "" {
 		return nil, errors.NotValidf("modelUUID is required")
 	}
+
 	client := &kubernetesClient{
 		clock:                       clock,
 		clientUnlocked:              k8sClient,
@@ -217,9 +219,9 @@ func newK8sBroker(
 		informerFactoryUnlocked: informers.NewSharedInformerFactoryWithOptions(
 			k8sClient,
 			InformerResyncPeriod,
-			informers.WithNamespace(newCfg.Name()),
+			informers.WithNamespace(namespace),
 		),
-		namespace:         newCfg.Name(),
+		namespace:         namespace,
 		modelUUID:         modelUUID,
 		newWatcher:        newWatcher,
 		newStringsWatcher: newStringsWatcher,
@@ -439,7 +441,6 @@ please choose a different hosted model name then try again.`, hostedModelName),
 			_, err := broker.GetNamespace(nsName)
 			if errors.IsNotFound(err) {
 				// all good.
-				broker.SetNamespace(nsName)
 				// ensure controller specific annotations.
 				_ = broker.addAnnotations(annotationControllerIsControllerKey, "true")
 				return nil
