@@ -211,7 +211,7 @@ func (a *Application) Destroy() (err error) {
 	defer func() {
 		logger.Tracef("Application(%s).Destroy() => %v", a.doc.Name, err)
 		if err == nil {
-			// After running the destory ops, app life is either Dying,
+			// After running the destroy ops, app life is either Dying,
 			// or it may be set to Dead. If removed, life will also be marked as Dead.
 			a.doc.Life = op.PostDestoryAppLife
 		}
