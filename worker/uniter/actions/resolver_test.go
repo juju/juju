@@ -98,7 +98,7 @@ func (s *actionsSuite) TestNextActionBlocked(c *gc.C) {
 }
 
 func (s *actionsSuite) TestNextActionBlockedRemoteInit(c *gc.C) {
-	actionResolver := actions.NewResolver()
+	actionResolver := s.newResolver()
 	localState := resolver.LocalState{
 		State: operation.State{
 			Kind: operation.Continue,
