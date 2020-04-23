@@ -179,10 +179,7 @@ func (s *RunCommandsSuite) TestExecuteSuccessOperator(c *gc.C) {
 		&utilexec.ExecResponse{Code: 222}, nil,
 	)
 	callbacks := &RunCommandsCallbacks{}
-	factory := operation.NewFactory(operation.FactoryParams{
-		RunnerFactory: runnerFactory,
-		Callbacks:     callbacks,
-	})
+	factory := newOpFactory(runnerFactory, callbacks)
 	sendResponse := &MockSendResponse{}
 	commandArgs := someCommandArgs
 	commandArgs.RunLocation = runner.Operator

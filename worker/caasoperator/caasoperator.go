@@ -354,7 +354,8 @@ func (op *caasOperator) init() (*LocalState, error) {
 				return nil, errors.Annotate(err, "creating juju run socket")
 			}
 			op.config.Logger.Debugf("starting caas operator juju-run listener on %v", socket)
-			runListener, err := uniter.NewRunListener(*socket, loggo.GetLogger("juju.worker.uniter"))
+			logger := loggo.GetLogger("juju.worker.uniter")
+			runListener, err := uniter.NewRunListener(*socket, logger)
 			if err != nil {
 				return nil, errors.Annotate(err, "creating juju run listener")
 			}

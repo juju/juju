@@ -349,7 +349,7 @@ func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 		socket.Network = "unix"
 		socket.Address = fmt.Sprintf("%s/run.socket", agentDir)
 	}
-	listener, err := uniter.NewRunListener(socket, loggo.GetLogger("test")
+	listener, err := uniter.NewRunListener(socket, loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
 	listener.RegisterRunner("foo/1", &mockRunner{c})
 	s.AddCleanup(func(*gc.C) {
