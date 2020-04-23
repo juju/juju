@@ -126,13 +126,13 @@ func (s *DialCollectorSuite) TestCollect(c *gc.C) {
 			SampleSum:   float64ptr(6),
 			Quantile: []*dto.Quantile{{
 				Quantile: float64ptr(0.5),
-				Value:    float64ptr(1),
+				Value:    float64ptr(2),
 			}, {
 				Quantile: float64ptr(0.9),
-				Value:    float64ptr(2),
+				Value:    float64ptr(3),
 			}, {
 				Quantile: float64ptr(0.99),
-				Value:    float64ptr(2),
+				Value:    float64ptr(3),
 			}},
 		},
 	}, {
