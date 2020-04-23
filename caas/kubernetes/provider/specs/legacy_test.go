@@ -285,7 +285,7 @@ echo "do some stuff here for gitlab-init container"
 				},
 				CustomResourceDefinitions: []k8sspecs.K8sCustomResourceDefinitionSpec{
 					{
-						Name: "tfjobs.kubeflow.org",
+						Meta: k8sspecs.Meta{Name: "tfjobs.kubeflow.org"},
 						Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 							Group:   "kubeflow.org",
 							Version: "v1alpha2",
