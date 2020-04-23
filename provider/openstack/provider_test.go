@@ -879,6 +879,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 		MACAddress:    "mac-address",
 		Addresses:     corenetwork.NewProviderAddresses("10.10.10.1"),
 		ConfigType:    corenetwork.ConfigDHCP,
+		Origin:        corenetwork.OriginProvider,
 	}}).Return(nil)
 
 	siParams := environs.StartInstanceParams{
