@@ -92,7 +92,7 @@ func (k *kubernetesClient) deleteDaemonSets(appName string) error {
 	err := k.client().AppsV1().DaemonSets(k.namespace).DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector: labelSetToSelector(k.getSecretLabels(appName)).String(),
+		LabelSelector: labelSetToSelector(k.getDaemonSetLabels(appName)).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

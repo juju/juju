@@ -81,7 +81,7 @@ func newK8sClient(c *rest.Config) (
 	return k8sClient, apiextensionsclient, dynamicClient, nil
 }
 
-// CloudSpecToK8sRestConfig tranlates cloudspec to k8s rest config.
+// CloudSpecToK8sRestConfig translates cloudspec to k8s rest config.
 func CloudSpecToK8sRestConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 	if cloudSpec.Credential == nil {
 		return nil, errors.Errorf("cloud %v has no credential", cloudSpec.Name)
@@ -106,6 +106,10 @@ func CloudSpecToK8sRestConfig(cloudSpec environs.CloudSpec) (*rest.Config, error
 	}, nil
 }
 
+func newRestClient(cfg *rest.Config) (rest.Interface, error) {
+	return rest.RESTClientFor(cfg)
+}
+
 // Open is part of the ContainerEnvironProvider interface.
 func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, error) {
 	logger.Debugf("opening model %q.", args.Config.Name())
@@ -121,10 +125,9 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 	// disregard this one in favour of a new one pinned to the correct
 	// controller namespace when we find it.
 	broker, err := newK8sBroker(
-		args.ControllerUUID, k8sRestConfig, args.Config, args.Config.Name(),
-		newK8sClient, newKubernetesNotifyWatcher, newKubernetesStringsWatcher,
-		randomPrefix, jujuclock.WallClock)
-
+		args.ControllerUUID, k8sRestConfig, args.Config, args.Config.Name(), newK8sClient, newRestClient,
+		newKubernetesNotifyWatcher, newKubernetesStringsWatcher, randomPrefix,
+		jujuclock.WallClock)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +145,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 
 	return newK8sBroker(
 		args.ControllerUUID, k8sRestConfig, args.Config, ns,
-		newK8sClient, newKubernetesNotifyWatcher, newKubernetesStringsWatcher,
+		newK8sClient, newRestClient, newKubernetesNotifyWatcher, newKubernetesStringsWatcher,
 		randomPrefix, jujuclock.WallClock)
 }
 
