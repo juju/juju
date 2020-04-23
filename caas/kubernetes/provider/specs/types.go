@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	core "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/juju/juju/caas/specs"
@@ -145,9 +144,9 @@ func parseContainers(in string, containerSpec k8sContainersInterface) error {
 // ParseRawK8sSpec parses a k8s format of YAML file which defines how to
 // configure a CAAS pod. We allow for generic container
 // set up plus k8s select specific features.
-func ParseRawK8sSpec(in string) ([]unstructured.Unstructured, error) {
+func ParseRawK8sSpec(in string) (string, error) {
 	// TODO(caas): implement raw k8s spec parser.
-	return nil, nil
+	return in, nil
 }
 
 // ParsePodSpec parses a YAML file which defines how to

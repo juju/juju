@@ -36,3 +36,11 @@ func AppendLabels(dest map[string]string, sources ...map[string]string) map[stri
 	}
 	return dest
 }
+
+func (k *kubernetesClient) getlabelsForApp(appName string, isNamespaced bool) map[string]string {
+	labels := LabelsForApp(appName)
+	if !isNamespaced {
+		labels = AppendLabels(labels, LabelsForModel(k.CurrentModel()))
+	}
+	return labels
+}
