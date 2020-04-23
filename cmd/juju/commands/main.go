@@ -61,7 +61,7 @@ import (
 var logger = loggo.GetLogger("juju.cmd.juju.commands")
 
 func init() {
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey, osenv.JujuFeatures)
 }
 
 // TODO(ericsnow) Move the following to cmd/juju/main.go:
@@ -304,7 +304,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(status.NewStatusHistoryCommand())
 
 	// Error resolution and debugging commands.
-	if !featureflag.Enabled(feature.JujuV3) {
+	if !featureflag.Enabled(feature.ActionsV2) {
 		r.Register(newDefaultRunCommand(nil))
 	}
 	r.Register(newDefaultExecCommand(nil))
@@ -401,7 +401,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(action.NewListCommand())
 	r.Register(action.NewShowCommand())
 	r.Register(action.NewCancelCommand())
-	if featureflag.Enabled(feature.JujuV3) {
+	if featureflag.Enabled(feature.ActionsV2) {
 		r.Register(action.NewRunCommand())
 		r.Register(action.NewListOperationsCommand())
 		r.Register(action.NewShowOperationCommand())

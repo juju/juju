@@ -52,11 +52,11 @@ const MongoDbSnap = "mongodb-snap"
 // MongoDbSnap is not also enabled.
 const MongoDbSSTXN = "mongodb-sstxn"
 
-// JujuV3 indicates that new CLI commands and behaviour for v3 should be enabled.
-const JujuV3 = "juju-v3"
-
 // K8sOperators indicates that it's allowed to deploy charms with mode=operator
 const K8sOperators = "k8s-operators"
 
 // RawK8sSpec indicates that it's allowed to set k8s spec using raw yaml format.
 const RawK8sSpec = "raw-k8s-spec"
+
+// ActionsV2 enables the next generation actions UX.
+const ActionsV2 = "actions-v2"

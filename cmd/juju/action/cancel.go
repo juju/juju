@@ -41,7 +41,7 @@ Cancel pending or running tasks matching given IDs or partial ID prefixes.`
 
 func (c *cancelCommand) Info() *cmd.Info {
 	var info *cmd.Info
-	if featureflag.Enabled(feature.JujuV3) {
+	if featureflag.Enabled(feature.ActionsV2) {
 		info = &cmd.Info{
 			Name:    "cancel-task",
 			Args:    "(<task-id>|<task-id-prefix>) [...]",

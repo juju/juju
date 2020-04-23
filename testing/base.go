@@ -53,6 +53,7 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 		osenv.JujuModelEnvKey,
 		osenv.JujuLoggingConfigEnvKey,
 		osenv.JujuFeatureFlagEnvKey,
+		osenv.JujuFeatures,
 		osenv.XDGDataHome,
 	} {
 		s.oldEnvironment[name] = os.Getenv(name)
