@@ -34,6 +34,12 @@ func (s *meterStatusIntegrationSuite) SetUpTest(c *gc.C) {
 	state := s.OpenAPIAs(c, s.unit.UnitTag(), password)
 	s.status = meterstatus.NewClient(state, s.unit.UnitTag())
 	c.Assert(s.status, gc.NotNil)
+
+	// Ask for the MetricsManager as part of setup, so the metrics
+	// document is created before any of the tests care.
+	_, err = s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Ensure that all the creation events have flowed through the system.
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
@@ -75,12 +81,6 @@ func (s *meterStatusIntegrationSuite) TestWatchMeterStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = mm.SetLastSuccessfulSend(time.Now())
 	c.Assert(err, jc.ErrorIsNil)
-	// While in theory it is only one event, when the metrics manager is first
-	// asked for, if it doesn't exist it adds a document. Then the set last
-	// successful send changes that document, so there are actually two changes
-	// from the database perspective. Here we wait for the model to be idle
-	// before checking for one change.
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	wc.AssertOneChange()
 
 	// meter status does not change on every failed
