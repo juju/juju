@@ -89,8 +89,8 @@ bootstrap() {
         fi
     fi
     if [ "${BOOTSTRAP_REUSE}" = "true" ]; then
-        OUT=$(juju show-machine -m controller --format=json | jq -r ".machines | .[] | .series")
-        if [ -z "${OUT}" ]; then
+        OUT=$(juju show-machine -m "${bootstrapped_name}":controller --format=json | jq -r ".machines | .[] | .series")
+        if [ -n "${OUT}" ]; then
             OUT=$(echo "${OUT}" | grep -oh "${BOOTSTRAP_SERIES}" || true)
             if [ "${OUT}" != "${BOOTSTRAP_SERIES}" ]; then
                 echo "====> Unable to reuse bootstrapped juju"
