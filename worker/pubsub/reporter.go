@@ -6,7 +6,7 @@ package pubsub
 import (
 	"sync"
 
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/worker/v2"
 )
 
 // Reporter gives visibility for the introspection worker into the

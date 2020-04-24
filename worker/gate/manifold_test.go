@@ -6,9 +6,9 @@ package gate_test
 import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/worker/gate"
 )

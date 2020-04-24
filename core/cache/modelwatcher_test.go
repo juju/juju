@@ -6,9 +6,9 @@ package cache
 import (
 	"time"
 
+	"github.com/juju/worker/v2/workertest"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/testing"
 )

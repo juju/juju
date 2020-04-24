@@ -77,6 +77,7 @@ require (
 	github.com/juju/utils v0.0.0-20200423035217-b0a7da72a5fa
 	github.com/juju/version v0.0.0-20191219164919-81c1be00b9a6
 	github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb
+	github.com/juju/worker/v2 v2.0.0-20200424114111-8c6ac8046912
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.1.0
 	github.com/lestrrat/go-jspointer v0.0.0-20160229021354-f4881e611bdb // indirect

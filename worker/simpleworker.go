@@ -4,7 +4,7 @@
 package worker
 
 import (
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/worker/v2"
 	"gopkg.in/tomb.v2"
 )
 

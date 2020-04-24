@@ -6,9 +6,9 @@ package raftflag_test
 import (
 	coreraft "github.com/hashicorp/raft"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	coretesting "github.com/juju/juju/testing"

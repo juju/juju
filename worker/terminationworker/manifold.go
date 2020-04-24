@@ -4,8 +4,8 @@
 package terminationworker
 
 import (
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
 )
 
 // Manifold returns a manifold whose worker returns ErrTerminateAgent

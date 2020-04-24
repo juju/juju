@@ -12,7 +12,7 @@ import (
 	environs "github.com/juju/juju/environs"
 	instancemutater0 "github.com/juju/juju/worker/instancemutater"
 	names_v3 "github.com/juju/names/v4"
-	worker_v1 "gopkg.in/juju/worker.v1"
+	worker_v1 "github.com/juju/worker/v2"
 )
 
 // MockMutaterContext is a mock of MutaterContext interface

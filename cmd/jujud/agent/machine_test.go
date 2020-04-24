@@ -32,10 +32,10 @@ import (
 	sshtesting "github.com/juju/utils/ssh/testing"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/version"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
+	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
-	"gopkg.in/juju/worker.v1/workertest"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"

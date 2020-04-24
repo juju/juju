@@ -7,7 +7,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/worker.v1/catacomb"
+	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"

@@ -13,11 +13,11 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 	"github.com/juju/version"
+	"github.com/juju/worker/v2/catacomb"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v4"
 	csclientparams "gopkg.in/juju/charmrepo.v4/csclient/params"
-	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 

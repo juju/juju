@@ -4,8 +4,8 @@
 package agent
 
 import (
+	"github.com/juju/worker/v2/dependency"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/machine"

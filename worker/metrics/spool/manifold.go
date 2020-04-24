@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
 	corecharm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"

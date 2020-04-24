@@ -13,10 +13,10 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/catacomb"
 	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/uniter"

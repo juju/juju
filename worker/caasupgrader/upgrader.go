@@ -12,7 +12,7 @@ import (
 	"github.com/juju/os/series"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
-	"gopkg.in/juju/worker.v1/catacomb"
+	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/core/watcher"

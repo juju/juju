@@ -13,9 +13,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/voyeur"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"

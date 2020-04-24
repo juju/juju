@@ -19,8 +19,8 @@ import (
 	"github.com/juju/utils/arch"
 	jujusymlink "github.com/juju/utils/symlink"
 	"github.com/juju/version"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/catacomb"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/catacomb"
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/caas"

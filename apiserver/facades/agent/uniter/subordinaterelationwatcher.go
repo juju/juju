@@ -6,8 +6,8 @@ package uniter
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v2/catacomb"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/state"
 )

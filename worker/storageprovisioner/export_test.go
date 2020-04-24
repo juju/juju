@@ -3,7 +3,7 @@
 
 package storageprovisioner
 
-import "gopkg.in/juju/worker.v1"
+import "github.com/juju/worker/v2"
 
 var (
 	NewManagedFilesystemSource = &newManagedFilesystemSource
