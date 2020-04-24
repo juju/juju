@@ -87,7 +87,7 @@ show_help() {
     echo "    $(green 'cmd -r')        Reuse bootstrapped controller between testing suites"
     echo "    $(green 'cmd -l')        Local bootstrapped controller name to reuse"
     echo "    $(green 'cmd -p')        Bootstrap provider to use when bootstrapping <lxd|aws>"
-    echo "    $(green 'cmd -S')        Bootstrap series to use <default is host>"
+    echo "    $(green 'cmd -S')        Bootstrap series to use <default is host>, priority over -l"
     echo ""
     echo "Tests:"
     echo "¯¯¯¯¯¯"
