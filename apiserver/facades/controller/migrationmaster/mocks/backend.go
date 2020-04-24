@@ -10,8 +10,8 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	description "github.com/juju/description"
 	state "github.com/juju/juju/state"
+	names_v3 "github.com/juju/names/v4"
 	version "github.com/juju/version"
-	names_v3 "gopkg.in/juju/names.v3"
 )
 
 // MockBackend is a mock of Backend interface

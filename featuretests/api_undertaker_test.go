@@ -5,6 +5,7 @@ package featuretests
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"gopkg.in/juju/names.v3"
 )
 
 // TODO(fwereade) 2016-03-17 lp:1558668

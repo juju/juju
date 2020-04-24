@@ -6,11 +6,10 @@ package apiserver
 import (
 	"net/http"
 
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/names/v4"
 )
 
 // introspectionHandler is an http.Handler that wraps an http.Handler

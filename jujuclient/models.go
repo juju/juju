@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/model"

@@ -8,8 +8,8 @@ import (
 	"runtime"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/core/leadership"

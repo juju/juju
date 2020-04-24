@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	pacman "github.com/juju/packaging/manager"
 	jc "github.com/juju/testing/checkers"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"

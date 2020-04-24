@@ -16,9 +16,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils"
 	"github.com/juju/utils/ssh"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/sshclient"
 	"github.com/juju/juju/apiserver/params"

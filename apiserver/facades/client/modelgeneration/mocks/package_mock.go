@@ -11,8 +11,8 @@ import (
 	modelgeneration "github.com/juju/juju/apiserver/facades/client/modelgeneration"
 	cache "github.com/juju/juju/core/cache"
 	settings "github.com/juju/juju/core/settings"
+	names_v3 "github.com/juju/names/v4"
 	charm_v6 "gopkg.in/juju/charm.v6"
-	names_v3 "gopkg.in/juju/names.v3"
 )
 
 // MockState is a mock of State interface

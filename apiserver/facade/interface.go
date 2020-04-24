@@ -4,8 +4,6 @@
 package facade
 
 import (
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
@@ -13,6 +11,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
+	"github.com/juju/names/v4"
 )
 
 // Facade could be anything; it will be interpreted by the apiserver

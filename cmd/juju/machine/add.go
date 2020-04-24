@@ -12,8 +12,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils/winrm"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/machinemanager"
 	"github.com/juju/juju/api/modelconfig"

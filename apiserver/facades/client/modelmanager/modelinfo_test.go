@@ -10,11 +10,11 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/description"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"

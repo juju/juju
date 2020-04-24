@@ -19,10 +19,10 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/names/v4"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"

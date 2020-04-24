@@ -22,8 +22,8 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v3"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/common/apihttp"

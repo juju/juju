@@ -19,6 +19,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -38,7 +39,6 @@ import (
 	"gopkg.in/goose.v2/testservices/neutronservice"
 	"gopkg.in/goose.v2/testservices/novaservice"
 	"gopkg.in/goose.v2/testservices/openstackservice"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"

@@ -7,8 +7,8 @@ package machineactions_test
 import (
 	"errors"
 
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 

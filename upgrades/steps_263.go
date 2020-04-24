@@ -4,9 +4,8 @@
 package upgrades
 
 import (
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/api/upgradesteps"
+	"github.com/juju/names/v4"
 )
 
 // stepsFor263 returns upgrade steps for Juju 2.6.3.

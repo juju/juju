@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/shell"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"

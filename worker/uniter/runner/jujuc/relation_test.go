@@ -6,8 +6,8 @@ package jujuc_test
 import (
 	"fmt"
 
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/runner/jujuc/jujuctesting"

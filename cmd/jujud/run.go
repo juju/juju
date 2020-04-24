@@ -17,10 +17,10 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v4"
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
 	"github.com/juju/utils/exec"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"

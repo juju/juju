@@ -10,8 +10,8 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/pubsub"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"

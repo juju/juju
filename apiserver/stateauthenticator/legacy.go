@@ -8,8 +8,8 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"gopkg.in/httprequest.v1"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"

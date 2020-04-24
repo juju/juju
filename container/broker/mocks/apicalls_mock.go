@@ -12,7 +12,7 @@ import (
 	params "github.com/juju/juju/apiserver/params"
 	corenetwork "github.com/juju/juju/core/network"
 	network "github.com/juju/juju/network"
-	names_v3 "gopkg.in/juju/names.v3"
+	names_v3 "github.com/juju/names/v4"
 )
 
 // MockAPICalls is a mock of APICalls interface

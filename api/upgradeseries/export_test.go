@@ -4,10 +4,9 @@
 package upgradeseries
 
 import (
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
+	"github.com/juju/names/v4"
 )
 
 func NewStateFromCaller(caller base.FacadeCaller, authTag names.Tag) *Client {

@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/juju/names/v4"
 	"gopkg.in/httprequest.v1"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"
 )

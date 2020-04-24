@@ -3,7 +3,7 @@
 
 package storage
 
-import "gopkg.in/juju/names.v3"
+import "github.com/juju/names/v4"
 
 type DeviceType string
 

@@ -9,11 +9,11 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
 	"github.com/juju/testing"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"

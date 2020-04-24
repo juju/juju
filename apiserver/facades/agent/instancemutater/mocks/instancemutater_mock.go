@@ -14,8 +14,8 @@ import (
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
 	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
+	names_v3 "github.com/juju/names/v4"
 	charm_v6 "gopkg.in/juju/charm.v6"
-	names_v3 "gopkg.in/juju/names.v3"
 )
 
 // MockInstanceMutaterState is a mock of InstanceMutaterState interface

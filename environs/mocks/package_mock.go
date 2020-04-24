@@ -5,6 +5,8 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	jsonschema "github.com/juju/jsonschema"
 	cloud "github.com/juju/juju/cloud"
@@ -17,9 +19,8 @@ import (
 	instances "github.com/juju/juju/environs/instances"
 	network0 "github.com/juju/juju/network"
 	storage "github.com/juju/juju/storage"
+	names "github.com/juju/names/v4"
 	version "github.com/juju/version"
-	names "gopkg.in/juju/names.v3"
-	reflect "reflect"
 )
 
 // MockNetworkingEnviron is a mock of NetworkingEnviron interface

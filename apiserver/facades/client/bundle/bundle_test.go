@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"github.com/juju/description"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	appFacade "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/bundle"

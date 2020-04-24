@@ -5,8 +5,8 @@ package storage
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"

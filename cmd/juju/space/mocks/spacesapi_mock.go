@@ -5,10 +5,11 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/apiserver/params"
-	names_v3 "gopkg.in/juju/names.v3"
-	reflect "reflect"
+	names_v3 "github.com/juju/names/v4"
 )
 
 // MockSpaceAPI is a mock of SpaceAPI interface

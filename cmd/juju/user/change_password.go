@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/names/v4"
 	"golang.org/x/crypto/ssh/terminal"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 )
 

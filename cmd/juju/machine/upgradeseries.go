@@ -11,8 +11,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/api"

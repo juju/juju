@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	cloudapi "github.com/juju/juju/api/cloud"
 	jujucloud "github.com/juju/juju/cloud"

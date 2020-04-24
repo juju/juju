@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/filestorage"
 	"github.com/juju/version"
 	"gopkg.in/juju/blobstore.v2"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"

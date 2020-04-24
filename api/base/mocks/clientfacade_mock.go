@@ -12,8 +12,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	base "github.com/juju/juju/api/base"
+	names_v3 "github.com/juju/names/v4"
 	httprequest_v1 "gopkg.in/httprequest.v1"
-	names_v3 "gopkg.in/juju/names.v3"
 )
 
 // MockAPICallCloser is a mock of APICallCloser interface

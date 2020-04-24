@@ -8,8 +8,8 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 

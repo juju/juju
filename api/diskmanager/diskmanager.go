@@ -4,11 +4,10 @@
 package diskmanager
 
 import (
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/storage"
+	"github.com/juju/names/v4"
 )
 
 const diskManagerFacade = "DiskManager"

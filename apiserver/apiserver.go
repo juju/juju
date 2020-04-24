@@ -19,11 +19,11 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/pubsub"
 	"github.com/juju/ratelimit"
 	"github.com/juju/utils"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/tomb.v2"
 

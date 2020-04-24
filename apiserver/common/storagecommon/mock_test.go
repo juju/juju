@@ -5,8 +5,8 @@ package storagecommon_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/state"

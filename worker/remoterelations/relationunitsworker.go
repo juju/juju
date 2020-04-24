@@ -4,7 +4,6 @@
 package remoterelations
 
 import (
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/macaroon-bakery.v2/bakery"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/names/v4"
 )
 
 // relationUnitsWorker uses instances of watcher.RelationUnitsWatcher to

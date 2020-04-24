@@ -5,10 +5,11 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	state "github.com/juju/juju/state"
-	names "gopkg.in/juju/names.v3"
-	reflect "reflect"
+	names "github.com/juju/names/v4"
 )
 
 // MockEntityFinder is a mock of EntityFinder interface

@@ -6,9 +6,9 @@ package annotations_test
 import (
 	"fmt"
 
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/facades/client/annotations"
 	"github.com/juju/juju/apiserver/params"

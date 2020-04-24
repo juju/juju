@@ -11,8 +11,8 @@ import (
 	migration "github.com/juju/juju/migration"
 	resource "github.com/juju/juju/resource"
 	state "github.com/juju/juju/state"
+	names_v3 "github.com/juju/names/v4"
 	version "github.com/juju/version"
-	names_v3 "gopkg.in/juju/names.v3"
 )
 
 // MockPrecheckBackend is a mock of PrecheckBackend interface

@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"

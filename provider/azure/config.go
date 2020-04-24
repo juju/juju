@@ -9,8 +9,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/schema"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/environs/config"
 )

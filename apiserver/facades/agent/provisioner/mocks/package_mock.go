@@ -15,8 +15,8 @@ import (
 	network "github.com/juju/juju/network"
 	containerizer "github.com/juju/juju/network/containerizer"
 	state "github.com/juju/juju/state"
+	names_v3 "github.com/juju/names/v4"
 	charm_v6 "gopkg.in/juju/charm.v6"
-	names_v3 "gopkg.in/juju/names.v3"
 )
 
 // MockMachine is a mock of Machine interface

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 )
 
 // ImpliedModelHandler is an http.Handler that associates requests that

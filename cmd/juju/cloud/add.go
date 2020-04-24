@@ -12,9 +12,9 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils"
 	"github.com/juju/utils/cert"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
 
 	cloudapi "github.com/juju/juju/api/cloud"
