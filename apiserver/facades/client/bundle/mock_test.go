@@ -4,7 +4,7 @@
 package bundle_test
 
 import (
-	"github.com/juju/description"
+	"github.com/juju/description/v2"
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/client/bundle"

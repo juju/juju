@@ -6,7 +6,7 @@ package bundle_test
 import (
 	"fmt"
 
-	"github.com/juju/description"
+	"github.com/juju/description/v2"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

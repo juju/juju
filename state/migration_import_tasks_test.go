@@ -4,7 +4,7 @@ package state
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/description"
+	"github.com/juju/description/v2"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/description"
+	"github.com/juju/description/v2"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/series"

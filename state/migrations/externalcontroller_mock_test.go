@@ -5,9 +5,10 @@
 package migrations
 
 import (
-	gomock "github.com/golang/mock/gomock"
-	description "github.com/juju/description"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
+	description "github.com/juju/description/v2"
 )
 
 // MockMigrationExternalController is a mock of MigrationExternalController interface
