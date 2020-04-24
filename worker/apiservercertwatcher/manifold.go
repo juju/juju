@@ -6,8 +6,8 @@ package apiservercertwatcher
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"

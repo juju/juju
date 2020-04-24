@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/worker/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver"

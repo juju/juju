@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/collections/deque"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v2"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/multiwatcher"

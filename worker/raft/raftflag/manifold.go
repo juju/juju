@@ -6,8 +6,8 @@ package raftflag
 import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
 
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 )

@@ -17,10 +17,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/os"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
 	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	jworker "github.com/juju/juju/worker"

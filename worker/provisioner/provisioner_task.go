@@ -15,8 +15,8 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils"
 	"github.com/juju/version"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/catacomb"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/catacomb"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"

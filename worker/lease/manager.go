@@ -17,8 +17,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v2/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/core/lease"

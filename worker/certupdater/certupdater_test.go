@@ -8,8 +8,8 @@ import (
 	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/worker.v1/workertest"
 
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"

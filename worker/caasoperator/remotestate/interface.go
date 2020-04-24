@@ -4,7 +4,7 @@
 package remotestate
 
 import (
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/worker/v2"
 
 	caasoperatorapi "github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/core/watcher"

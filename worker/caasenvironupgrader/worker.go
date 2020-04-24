@@ -6,7 +6,7 @@ package caasenvironupgrader
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/worker/v2"
 
 	"github.com/juju/juju/core/status"
 	jujuworker "github.com/juju/juju/worker"

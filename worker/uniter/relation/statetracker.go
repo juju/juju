@@ -6,10 +6,10 @@ package relation
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/worker/v2"
 	"gopkg.in/juju/charm.v6"
 	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"

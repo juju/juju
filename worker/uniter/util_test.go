@@ -27,9 +27,9 @@ import (
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
 	utilexec "github.com/juju/utils/exec"
+	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/worker.v1"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"

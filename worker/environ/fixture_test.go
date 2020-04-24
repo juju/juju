@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"

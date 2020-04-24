@@ -11,7 +11,7 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/names/v4"
 	"github.com/juju/txn"
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/worker/v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/controller"

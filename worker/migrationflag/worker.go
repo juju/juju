@@ -6,7 +6,7 @@ package migrationflag
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/juju/worker.v1/catacomb"
+	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/watcher"

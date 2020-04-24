@@ -18,7 +18,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/version"
-	"gopkg.in/juju/worker.v1/dependency"
+	"github.com/juju/worker/v2/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/util"

@@ -7,8 +7,8 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/catacomb"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"

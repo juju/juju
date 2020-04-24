@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/worker/v2"
 )
 
 // BaseWatcher represents watch methods on the worker

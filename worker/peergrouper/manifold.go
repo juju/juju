@@ -6,9 +6,9 @@ package peergrouper
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state"

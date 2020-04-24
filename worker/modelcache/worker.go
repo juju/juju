@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/catacomb"
 	"github.com/kr/pretty"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lxdprofile"
