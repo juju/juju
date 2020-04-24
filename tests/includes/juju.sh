@@ -88,6 +88,16 @@ bootstrap() {
             export BOOTSTRAP_REUSE="false"
         fi
     fi
+    if [ "${BOOTSTRAP_REUSE}" = "true" ]; then
+        OUT=$(juju show-machine -m controller --format=json | jq -r ".machines | .[] | .series")
+        if [ -z "${OUT}" ]; then
+            OUT=$(echo "${OUT}" | grep -oh "${BOOTSTRAP_SERIES}" || true)
+            if [ "${OUT}" != "${BOOTSTRAP_SERIES}" ]; then
+                echo "====> Unable to reuse bootstrapped juju"
+                export BOOTSTRAP_REUSE="false"
+            fi
+        fi
+    fi
 
     version=$(juju_version)
 
@@ -151,15 +161,26 @@ juju_bootstrap() {
     output=${1}
     shift
 
+    series=
+    case "${BOOTSTRAP_SERIES}" in
+    "${CURRENT_LTS}")
+        series="--bootstrap-series=${BOOTSTRAP_SERIES} --config image-stream=daily --force"
+        ;;
+    "")
+        ;;
+    *)
+        series="--bootstrap-series=${BOOTSTRAP_SERIES}"
+    esac
+
     debug="false"
     if [ "${VERBOSE}" -gt 1 ]; then
         debug="true"
     fi
 
     if [ -n "${output}" ]; then
-        juju bootstrap --debug="${debug}" "${provider}" "${name}" -d "${model}" "$@" > "${output}" 2>&1
+        juju bootstrap ${series} --debug="${debug}" "${provider}" "${name}" -d "${model}" "$@" > "${output}" 2>&1
     else
-        juju bootstrap --debug="${debug}" "${provider}" "${name}" -d "${model}" "$@"
+        juju bootstrap ${series} --debug="${debug}" "${provider}" "${name}" -d "${model}" "$@"
     fi
     echo "${name}" >> "${TEST_DIR}/jujus"
 }
