@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	corecharm "github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/worker/v2/dependency"
 	dt "github.com/juju/worker/v2/dependency/testing"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/agent"
 	coretesting "github.com/juju/juju/testing"

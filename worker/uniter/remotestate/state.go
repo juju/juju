@@ -6,7 +6,7 @@ package remotestate
 import (
 	"time"
 
-	"gopkg.in/juju/charm.v6"
+	"github.com/juju/charm/v7"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"

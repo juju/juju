@@ -7,11 +7,11 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/api/action"
 	"github.com/juju/juju/api/application"

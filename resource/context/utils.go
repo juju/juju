@@ -7,8 +7,8 @@ import (
 	"io"
 	"os"
 
+	charmresource "github.com/juju/charm/v7/resource"
 	"github.com/juju/errors"
-	charmresource "gopkg.in/juju/charm.v6/resource"
 )
 
 // TODO(ericsnow) Move FingerprintMatcher to charm/resource (or even utils/hash)?

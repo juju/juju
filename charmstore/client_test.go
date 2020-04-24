@@ -7,14 +7,14 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v7/resource"
+	"github.com/juju/charmrepo/v5/csclient"
+	"github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v4/csclient"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
 )
 
 var _ = gc.Suite(&ClientSuite{})

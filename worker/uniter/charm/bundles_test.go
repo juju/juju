@@ -11,11 +11,11 @@ import (
 
 	"github.com/juju/loggo"
 
+	corecharm "github.com/juju/charm/v7"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/uniter"

@@ -6,10 +6,10 @@ package context_test
 import (
 	"reflect"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/context"

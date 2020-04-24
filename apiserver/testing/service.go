@@ -4,9 +4,9 @@
 package testing
 
 import (
+	"github.com/juju/charm/v7"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/state"

@@ -6,8 +6,8 @@ package settings
 import (
 	"fmt"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6"
 )
 
 const (

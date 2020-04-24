@@ -6,9 +6,9 @@ package cache
 import (
 	"fmt"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"

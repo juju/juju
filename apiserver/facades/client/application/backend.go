@@ -6,11 +6,11 @@ package application
 import (
 	"time"
 
+	"github.com/juju/charm/v7"
+	csparams "github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6"
-	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"

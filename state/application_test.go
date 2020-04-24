@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"

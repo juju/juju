@@ -10,11 +10,11 @@ package application
 import (
 	"time"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"

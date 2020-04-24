@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	corecharm "github.com/juju/charm/v7"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -29,7 +30,6 @@ import (
 	utilexec "github.com/juju/utils/exec"
 	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"

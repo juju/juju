@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"

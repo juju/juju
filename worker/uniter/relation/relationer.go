@@ -6,9 +6,9 @@ package relation
 import (
 	"fmt"
 
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2/dependency"
-	"gopkg.in/juju/charm.v6/hooks"
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker/uniter/hook"

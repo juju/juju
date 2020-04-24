@@ -12,12 +12,12 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/terms-client/api"
 	"github.com/juju/terms-client/api/wireformat"
-	"gopkg.in/juju/charm.v6"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"

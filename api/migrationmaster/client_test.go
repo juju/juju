@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	charmresource "github.com/juju/charm/v7/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
-	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"

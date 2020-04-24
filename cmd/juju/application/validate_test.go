@@ -5,9 +5,9 @@ package application_test
 
 import (
 	"github.com/golang/mock/gomock"
+	charm "github.com/juju/charm/v7"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	charm "gopkg.in/juju/charm.v6"
 
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/cmd/juju/application"

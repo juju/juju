@@ -6,14 +6,14 @@ package testing
 import (
 	"fmt"
 
+	"github.com/juju/charm/v7"
+	"github.com/juju/charmrepo/v5/csclient"
+	csparams "github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v4/csclient"
-	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	jujucharmstore "github.com/juju/juju/charmstore"

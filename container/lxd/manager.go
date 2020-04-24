@@ -8,11 +8,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujuarch "github.com/juju/utils/arch"
 	"github.com/lxc/lxd/shared/api"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/containerinit"

@@ -4,9 +4,9 @@
 package api
 
 import (
+	charmresource "github.com/juju/charm/v7/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	charmresource "gopkg.in/juju/charm.v6/resource"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"

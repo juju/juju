@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2/catacomb"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/common"

@@ -11,10 +11,10 @@ import (
 	"io"
 	"io/ioutil"
 
+	charmresource "github.com/juju/charm/v7/resource"
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/resources"
 	"gopkg.in/httprequest.v1"
-	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/resource"

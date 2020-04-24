@@ -19,10 +19,10 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/juju/charmrepo/v5/csclient"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v4/csclient"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver"

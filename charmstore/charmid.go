@@ -4,8 +4,8 @@
 package charmstore
 
 import (
-	"gopkg.in/juju/charm.v6"
-	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
+	"github.com/juju/charm/v7"
+	csparams "github.com/juju/charmrepo/v5/csclient/params"
 )
 
 // CharmID encapsulates data for identifying a

@@ -8,11 +8,11 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	charm_v6 "github.com/juju/charm/v7"
 	uniter "github.com/juju/juju/api/uniter"
 	params "github.com/juju/juju/apiserver/params"
 	status "github.com/juju/juju/core/status"
 	names_v3 "github.com/juju/names/v4"
-	charm_v6 "gopkg.in/juju/charm.v6"
 )
 
 // MockHookUnit is a mock of HookUnit interface

@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
+	corecharm "github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	corecharm "gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/params"
 )

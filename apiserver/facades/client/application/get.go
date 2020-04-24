@@ -4,10 +4,10 @@
 package application
 
 import (
+	"github.com/juju/charm/v7"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/schema"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/params"

@@ -39,7 +39,9 @@ require (
 	github.com/joyent/gosdc v0.0.0-20140524000815-2f11feadd2d9
 	github.com/joyent/gosign v0.0.0-20140524000734-0da0d5f13420
 	github.com/juju/ansiterm v0.0.0-20160907234532-b99631de12cf
-	github.com/juju/bundlechanges v0.0.0-20200325175536-0854974e6444
+	github.com/juju/bundlechanges v0.0.0-20200425015902-9e5ed4306b93
+	github.com/juju/charm/v7 v7.0.0-20200424224456-5fe646695e85
+	github.com/juju/charmrepo/v5 v5.0.0-20200424225329-cddcb4fdcd09
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
 	github.com/juju/collections v0.0.0-20180717171555-9be91dc79b7c
@@ -86,6 +88,7 @@ require (
 	github.com/lestrrat/go-jsval v0.0.0-20161012045717-b1258a10419f // indirect
 	github.com/lestrrat/go-pdebug v0.0.0-20160817063333-2e6eaaa5717f // indirect
 	github.com/lestrrat/go-structinfo v0.0.0-20160308131105-f74c056fe41f // indirect
+	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/lxc/lxd v0.0.0-20200306132355-582edb00c72c
 	github.com/masterzen/azure-sdk-for-go v3.2.0-beta.0.20161014135628-ee4f0065d00c+incompatible // indirect
 	github.com/masterzen/simplexml v0.0.0-20160608183007-4572e39b1ab9 // indirect
@@ -114,13 +117,11 @@ require (
 	gopkg.in/httprequest.v1 v1.2.0
 	gopkg.in/ini.v1 v1.10.1
 	gopkg.in/juju/blobstore.v2 v2.0.0-20160125023703-51fa6e26128d
-	gopkg.in/juju/charm.v6 v6.0.0-20200415131143-ad2e04a67e7b
-	gopkg.in/juju/charmrepo.v4 v4.1.3-0.20200210100342-4a4d9c6d92fd
 	gopkg.in/juju/environschema.v1 v1.0.0
 	gopkg.in/juju/idmclient.v1 v1.0.0-20180320161856-203d20774ce8
 	gopkg.in/juju/names.v2 v2.0.0-20190813004204-e057c73bd1be // indirect
 	gopkg.in/juju/names.v3 v3.0.0-20200331100531-2c9a102df211 // indirect
-	gopkg.in/juju/worker.v1 v1.0.0-20191018043616-19a698a7150f
+	gopkg.in/juju/worker.v1 v1.0.0-20191018043616-19a698a7150f // indirect
 	gopkg.in/macaroon-bakery.v2 v2.1.1-0.20190613120608-6734dc66fe81
 	gopkg.in/macaroon.v2 v2.1.0
 	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22

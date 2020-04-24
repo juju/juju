@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/charm/v7"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"

@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm_v6 "gopkg.in/juju/charm.v6"
+	charm_v6 "github.com/juju/charm/v7"
 )
 
 // MockInterface is a mock of Interface interface

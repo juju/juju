@@ -4,8 +4,8 @@
 package operation
 
 import (
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/remotestate"

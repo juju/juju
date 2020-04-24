@@ -6,10 +6,10 @@ package resource
 import (
 	"io"
 
+	charmresource "github.com/juju/charm/v7/resource"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	charmresource "gopkg.in/juju/charm.v6/resource"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"

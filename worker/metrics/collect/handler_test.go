@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	corecharm "github.com/juju/charm/v7"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -17,7 +18,6 @@ import (
 	dt "github.com/juju/worker/v2/dependency/testing"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6"
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/metrics/collect"

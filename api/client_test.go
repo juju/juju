@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -26,7 +27,6 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"

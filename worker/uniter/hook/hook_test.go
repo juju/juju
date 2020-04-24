@@ -4,9 +4,9 @@
 package hook_test
 
 import (
+	"github.com/juju/charm/v7/hooks"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"

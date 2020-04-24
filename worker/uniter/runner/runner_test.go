@@ -12,13 +12,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/common/charmrunner"

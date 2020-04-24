@@ -14,9 +14,9 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/juju/charm/v7"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"

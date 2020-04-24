@@ -4,8 +4,8 @@
 package provisioner
 
 import (
+	jujucharm "github.com/juju/charm/v7"
 	"github.com/juju/names/v4"
-	jujucharm "gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"

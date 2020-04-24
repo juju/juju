@@ -8,8 +8,8 @@ package relation
 import (
 	"fmt"
 
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/worker/uniter/hook"

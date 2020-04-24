@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v7"
+	csparams "github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -15,8 +17,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
-	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/common"

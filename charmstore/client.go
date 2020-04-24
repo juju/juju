@@ -11,12 +11,12 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v7/resource"
+	"github.com/juju/charmrepo/v5/csclient"
+	csparams "github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v4/csclient"
-	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 )

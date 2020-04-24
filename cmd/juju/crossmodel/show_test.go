@@ -4,12 +4,12 @@
 package crossmodel_test
 
 import (
+	"github.com/juju/charm/v7"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/cmd/juju/crossmodel"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"

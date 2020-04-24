@@ -6,11 +6,11 @@ package operation_test
 import (
 	"sync"
 
+	corecharm "github.com/juju/charm/v7"
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	utilexec "github.com/juju/utils/exec"
-	corecharm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"

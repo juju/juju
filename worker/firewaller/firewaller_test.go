@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 
 	"github.com/juju/juju/api"
