@@ -177,9 +177,15 @@ juju_bootstrap() {
         debug="true"
     fi
 
+
     if [ -n "${output}" ]; then
+        # When double quotes are added to ${series}, the juju bootstrap
+        # command looks correct, and works outside of the harness, but
+        # does not run, goes directly to cleanup.
+        #shellcheck disable=SC2086
         juju bootstrap ${series} --debug="${debug}" "${provider}" "${name}" -d "${model}" "$@" > "${output}" 2>&1
     else
+        #shellcheck disable=SC2086
         juju bootstrap ${series} --debug="${debug}" "${provider}" "${name}" -d "${model}" "$@"
     fi
     echo "${name}" >> "${TEST_DIR}/jujus"
