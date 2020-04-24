@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	"github.com/juju/replicaset"
 	jtesting "github.com/juju/testing"
@@ -20,7 +21,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v4"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/common"

@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/params"

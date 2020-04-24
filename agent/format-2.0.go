@@ -8,8 +8,8 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v3"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/controller"

@@ -5,14 +5,15 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	instancemutater "github.com/juju/juju/api/instancemutater"
 	instance "github.com/juju/juju/core/instance"
 	life "github.com/juju/juju/core/life"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
-	names_v3 "gopkg.in/juju/names.v3"
-	reflect "reflect"
+	names_v3 "github.com/juju/names/v4"
 )
 
 // MockMutaterMachine is a mock of MutaterMachine interface

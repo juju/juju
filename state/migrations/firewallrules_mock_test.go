@@ -5,10 +5,11 @@
 package migrations
 
 import (
-	gomock "github.com/golang/mock/gomock"
-	description "github.com/juju/description"
-	firewall "github.com/juju/juju/core/firewall"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
+	description "github.com/juju/description/v2"
+	firewall "github.com/juju/juju/core/firewall"
 )
 
 // MockMigrationFirewallRule is a mock of MigrationFirewallRule interface

@@ -14,11 +14,11 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	"github.com/juju/utils/arch"
 	jujusymlink "github.com/juju/utils/symlink"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 

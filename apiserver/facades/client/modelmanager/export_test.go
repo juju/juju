@@ -4,8 +4,8 @@
 package modelmanager
 
 import (
+	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 )
 
 func AuthCheck(c *gc.C, mm *ModelManagerAPI, user names.UserTag) bool {

@@ -9,7 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	state "github.com/juju/juju/state"
-	names_v3 "gopkg.in/juju/names.v3"
+	names_v3 "github.com/juju/names/v4"
 )
 
 // MockEntityFinder is a mock of EntityFinder interface

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/names/v4"
 )
 
 func newMockWatcher() *mockWatcher {

@@ -6,10 +6,10 @@ package resources
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"

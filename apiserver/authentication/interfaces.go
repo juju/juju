@@ -6,10 +6,9 @@ package authentication
 import (
 	"context"
 
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/names/v4"
 )
 
 // EntityAuthenticator is the interface all entity authenticators need to implement

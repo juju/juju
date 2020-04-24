@@ -12,12 +12,12 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"

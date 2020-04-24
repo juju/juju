@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/rpc"

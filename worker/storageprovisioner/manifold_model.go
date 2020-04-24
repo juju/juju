@@ -6,7 +6,7 @@ package storageprovisioner
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 

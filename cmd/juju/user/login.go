@@ -16,8 +16,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v4"
 	"gopkg.in/httprequest.v1"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/api"

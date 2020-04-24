@@ -6,9 +6,8 @@ package testing
 import (
 	"strings"
 
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/names/v4"
 )
 
 // FakeAuthorizer implements the facade.Authorizer interface.

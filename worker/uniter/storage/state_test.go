@@ -5,10 +5,10 @@ package storage_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/storage"

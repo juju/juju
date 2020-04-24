@@ -9,11 +9,11 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/juju/api"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v3"
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"

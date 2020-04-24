@@ -9,7 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/leadership"

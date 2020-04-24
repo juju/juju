@@ -10,9 +10,9 @@ import (
 	"github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"

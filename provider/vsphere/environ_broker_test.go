@@ -13,6 +13,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -22,7 +23,6 @@ import (
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"

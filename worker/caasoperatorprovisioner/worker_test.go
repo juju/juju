@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
@@ -19,7 +20,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 

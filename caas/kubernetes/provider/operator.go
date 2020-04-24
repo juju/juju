@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v3"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"

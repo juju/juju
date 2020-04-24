@@ -11,9 +11,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	"github.com/juju/utils"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"

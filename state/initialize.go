@@ -6,8 +6,8 @@ package state
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 

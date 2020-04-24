@@ -11,12 +11,12 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v3"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/uniter"

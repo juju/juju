@@ -13,7 +13,7 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"

@@ -23,12 +23,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/fs"
 	"github.com/juju/utils/shell"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/core/paths"

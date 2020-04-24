@@ -7,9 +7,8 @@ package caasoperator
 import (
 	"path/filepath"
 
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/names/v4"
 )
 
 // Paths represents the set of filesystem paths a caasoperator worker has reason to

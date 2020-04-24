@@ -10,11 +10,11 @@ import (
 	"net/url"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	api "github.com/juju/romulus/api/plan"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/application"

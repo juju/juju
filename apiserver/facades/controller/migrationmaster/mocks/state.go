@@ -13,7 +13,7 @@ import (
 	migration "github.com/juju/juju/core/migration"
 	permission "github.com/juju/juju/core/permission"
 	state "github.com/juju/juju/state"
-	names_v3 "gopkg.in/juju/names.v3"
+	names_v3 "github.com/juju/names/v4"
 )
 
 // MockModelMigration is a mock of ModelMigration interface

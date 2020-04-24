@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/schema"
 	jtesting "github.com/juju/testing"
 	"github.com/juju/utils"
@@ -19,7 +20,6 @@ import (
 	"gopkg.in/juju/charmrepo.v4"
 	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"

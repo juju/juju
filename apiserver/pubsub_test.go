@@ -12,11 +12,11 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket/websockettest"

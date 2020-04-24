@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/agent"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"

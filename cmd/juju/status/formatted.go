@@ -7,11 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/names/v4"
 )
 
 type formattedStatus struct {

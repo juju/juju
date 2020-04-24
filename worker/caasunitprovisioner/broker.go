@@ -4,11 +4,10 @@
 package caasunitprovisioner
 
 import (
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/names/v4"
 )
 
 type ContainerBroker interface {

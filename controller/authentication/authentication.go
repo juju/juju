@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
 	apiprovisioner "github.com/juju/juju/api/provisioner"

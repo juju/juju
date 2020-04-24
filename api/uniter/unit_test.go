@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/schema"
 	coretesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -15,7 +16,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base/testing"

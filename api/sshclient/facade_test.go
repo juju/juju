@@ -5,10 +5,10 @@ package sshclient_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/sshclient"

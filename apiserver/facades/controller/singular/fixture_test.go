@@ -6,8 +6,8 @@ package singular_test
 import (
 	"time"
 
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/lease"

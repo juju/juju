@@ -4,8 +4,8 @@
 package caasoperator
 
 import (
+	"github.com/juju/names/v4"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/network"

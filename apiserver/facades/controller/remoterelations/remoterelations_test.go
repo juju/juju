@@ -5,12 +5,12 @@ package remoterelations_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/common"

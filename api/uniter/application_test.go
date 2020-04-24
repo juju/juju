@@ -6,9 +6,9 @@ package uniter_test
 import (
 	"time"
 
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/leadership"
 	"github.com/juju/juju/api/uniter"

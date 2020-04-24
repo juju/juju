@@ -5,10 +5,11 @@
 package migrations
 
 import (
-	gomock "github.com/golang/mock/gomock"
-	description "github.com/juju/description"
-	names_v3 "gopkg.in/juju/names.v3"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
+	description "github.com/juju/description/v2"
+	names_v3 "github.com/juju/names/v4"
 )
 
 // MockMigrationRemoteApplication is a mock of MigrationRemoteApplication interface

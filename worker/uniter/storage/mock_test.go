@@ -6,12 +6,11 @@ package storage_test
 import (
 	"fmt"
 
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/names/v4"
 )
 
 type mockStorageAccessor struct {

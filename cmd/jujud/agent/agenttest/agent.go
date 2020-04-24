@@ -11,6 +11,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"

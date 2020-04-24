@@ -7,11 +7,11 @@ import (
 	"fmt"
 
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/names/v4"
 )
 
 // This module implements a subset of the interface provided by

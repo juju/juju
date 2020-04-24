@@ -14,12 +14,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/schema"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2"
 	goyaml "gopkg.in/yaml.v2"
 

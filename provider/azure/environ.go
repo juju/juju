@@ -23,12 +23,12 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/os"
 	jujuseries "github.com/juju/os/series"
 	"github.com/juju/retry"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"

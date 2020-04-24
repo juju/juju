@@ -4,10 +4,10 @@
 package stateauthenticator
 
 import (
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2/bakery/identchecker"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/names/v4"
 )
 
 // TODO update the tests moved from apiserver to test via the public

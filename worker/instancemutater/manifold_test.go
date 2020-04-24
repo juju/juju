@@ -6,9 +6,9 @@ package instancemutater_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 

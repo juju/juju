@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/dependency"
 	dt "gopkg.in/juju/worker.v1/dependency/testing"
 

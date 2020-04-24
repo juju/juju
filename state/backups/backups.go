@@ -44,8 +44,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils/filestorage"
-	"gopkg.in/juju/names.v3"
 )
 
 const (

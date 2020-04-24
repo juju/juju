@@ -5,9 +5,10 @@
 package mocks
 
 import (
-	gomock "github.com/golang/mock/gomock"
-	names_v3 "gopkg.in/juju/names.v3"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
+	names_v3 "github.com/juju/names/v4"
 )
 
 // MockAuthorizer is a mock of Authorizer interface

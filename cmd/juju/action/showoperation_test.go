@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"

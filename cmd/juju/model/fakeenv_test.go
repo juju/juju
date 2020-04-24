@@ -5,8 +5,8 @@ package model_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
 	jujucloud "github.com/juju/juju/cloud"

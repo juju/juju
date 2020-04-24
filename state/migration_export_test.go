@@ -10,9 +10,10 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/juju/description"
+	"github.com/juju/description/v2"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
@@ -20,7 +21,6 @@ import (
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2"
 
 	apitesting "github.com/juju/juju/api/testing"

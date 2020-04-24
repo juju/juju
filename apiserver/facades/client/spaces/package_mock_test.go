@@ -5,6 +5,8 @@
 package spaces
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	networkingcommon "github.com/juju/juju/apiserver/common/networkingcommon"
@@ -17,9 +19,8 @@ import (
 	context "github.com/juju/juju/environs/context"
 	space "github.com/juju/juju/environs/space"
 	state "github.com/juju/juju/state"
-	names_v3 "gopkg.in/juju/names.v3"
+	names_v3 "github.com/juju/names/v4"
 	txn "gopkg.in/mgo.v2/txn"
-	reflect "reflect"
 )
 
 // MockBacking is a mock of Backing interface

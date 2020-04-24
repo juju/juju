@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"

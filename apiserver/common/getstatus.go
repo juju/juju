@@ -6,12 +6,11 @@ package common
 import (
 	"fmt"
 
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
+	"github.com/juju/names/v4"
 )
 
 // StatusGetter implements a common Status method for use by

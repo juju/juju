@@ -14,11 +14,11 @@ import (
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/replicaset"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/lease"

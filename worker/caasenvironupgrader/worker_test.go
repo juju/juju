@@ -4,10 +4,10 @@
 package caasenvironupgrader_test
 
 import (
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/core/status"

@@ -3,9 +3,7 @@
 
 package firewaller
 
-import (
-	"gopkg.in/juju/names.v3"
-)
+import "github.com/juju/names/v4"
 
 func StartMachine(fw *Firewaller, tag names.MachineTag) error {
 	return fw.startMachine(tag)

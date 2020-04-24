@@ -8,7 +8,7 @@ import (
 	"github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 	worker "gopkg.in/juju/worker.v1"
 )
 

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/fortress"

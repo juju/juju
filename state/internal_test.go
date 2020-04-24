@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"

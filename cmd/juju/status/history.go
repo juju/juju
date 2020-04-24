@@ -15,7 +15,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"

@@ -8,10 +8,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/cloud"

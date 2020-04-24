@@ -6,10 +6,9 @@ package storage
 import (
 	"regexp"
 
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 
 	apistorage "github.com/juju/juju/api/storage"
 	jujucmd "github.com/juju/juju/cmd"

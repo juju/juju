@@ -13,9 +13,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
+	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	"github.com/juju/utils/cert"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/juju/osenv"

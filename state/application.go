@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn"
@@ -20,7 +21,6 @@ import (
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"

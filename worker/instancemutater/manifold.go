@@ -5,7 +5,7 @@ package instancemutater
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 

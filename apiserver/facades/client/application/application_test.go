@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -19,7 +20,6 @@ import (
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v4"
 	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/apiserver/common"
