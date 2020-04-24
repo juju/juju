@@ -152,17 +152,13 @@ func (st State) Validate() (err error) {
 			return errors.New("unexpected action id")
 		}
 	case Continue:
-		// TODO(jw4) LP-1438489
-		// ModeContinue should no longer have a Hook, but until the upgrade is
-		// fixed we can't fail the validation if it does.
-		if hasHook {
-			logger.Errorf("unexpected hook info with Kind Continue")
-		}
 		switch {
 		case hasCharm:
 			return errors.New("unexpected charm URL")
 		case hasActionId:
 			return errors.New("unexpected action id")
+		case hasHook:
+			return errors.New("unexpected hook info with Kind Continue")
 		}
 	case RemoteInit:
 		// Nothing to check for.

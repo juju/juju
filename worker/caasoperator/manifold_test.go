@@ -218,6 +218,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 				ServiceAddress:  "127.0.0.1",
 				OperatorAddress: "127.0.0.2",
 			},
+			Logger: loggo.GetLogger("juju.worker.uniter"),
 		},
 		OperatorInfo: caas.OperatorInfo{
 			CACert:     coretesting.CACert,

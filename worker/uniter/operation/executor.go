@@ -30,6 +30,7 @@ type executor struct {
 	stateOps           *StateOps
 	state              *State
 	acquireMachineLock func(string) (func(), error)
+	logger             Logger
 }
 
 // ExecutorConfig defines configuration for an Executor.
@@ -37,11 +38,15 @@ type ExecutorConfig struct {
 	StateReadWriter UnitStateReadWriter
 	InitialState    State
 	AcquireLock     func(string) (func(), error)
+	Logger          Logger
 }
 
 func (e ExecutorConfig) validate() error {
 	if e.StateReadWriter == nil {
 		return errors.NotValidf("executor config with nil state ops")
+	}
+	if e.Logger == nil {
+		return errors.NotValidf("executor config with nil logger")
 	}
 	return nil
 }
@@ -64,6 +69,7 @@ func NewExecutor(cfg ExecutorConfig) (Executor, error) {
 		stateOps:           stateOps,
 		state:              state,
 		acquireMachineLock: cfg.AcquireLock,
+		logger:             cfg.Logger,
 	}, nil
 }
 
@@ -74,14 +80,14 @@ func (x *executor) State() State {
 
 // Run is part of the Executor interface.
 func (x *executor) Run(op Operation, remoteStateChange <-chan remotestate.Snapshot) error {
-	logger.Debugf("running operation %v", op)
+	x.logger.Debugf("running operation %v", op)
 
 	if op.NeedsGlobalMachineLock() {
 		releaser, err := x.acquireMachineLock(op.String())
 		if err != nil {
 			return errors.Annotate(err, "could not acquire lock")
 		}
-		defer logger.Debugf("lock released")
+		defer x.logger.Debugf("lock released")
 		defer releaser()
 	}
 
@@ -115,20 +121,20 @@ func (x *executor) Run(op Operation, remoteStateChange <-chan remotestate.Snapsh
 
 // Skip is part of the Executor interface.
 func (x *executor) Skip(op Operation) error {
-	logger.Debugf("skipping operation %v", op)
+	x.logger.Debugf("skipping operation %v", op)
 	return x.do(op, stepCommit)
 }
 
 func (x *executor) do(op Operation, step executorStep) (err error) {
 	message := step.message(op)
-	logger.Debugf(message)
+	x.logger.Debugf(message)
 	newState, firstErr := step.run(op, *x.state)
 	if newState != nil {
 		writeErr := x.writeState(*newState)
 		if firstErr == nil {
 			firstErr = writeErr
 		} else if writeErr != nil {
-			logger.Errorf("after %s: %v", message, writeErr)
+			x.logger.Errorf("after %s: %v", message, writeErr)
 		}
 	}
 	return errors.Annotatef(firstErr, message)

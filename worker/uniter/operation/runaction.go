@@ -26,6 +26,7 @@ type runAction struct {
 
 	name   string
 	runner runner.Runner
+	logger Logger
 
 	RequiresMachineLock
 }
@@ -92,11 +93,11 @@ func (ra *runAction) Execute(state State) (*State, error) {
 			}
 			status, err := ra.callbacks.ActionStatus(ra.actionId)
 			if err != nil {
-				logger.Warningf("unable to get action status for %q: %v", ra.actionId, err)
+				ra.logger.Warningf("unable to get action status for %q: %v", ra.actionId, err)
 				continue
 			}
 			if status == params.ActionAborting {
-				logger.Infof("action %s aborting", ra.actionId)
+				ra.logger.Infof("action %s aborting", ra.actionId)
 				close(ra.cancel)
 				return
 			}
@@ -135,13 +136,13 @@ func (ra *runAction) Commit(state State) (*State, error) {
 func (ra *runAction) RemoteStateChanged(snapshot remotestate.Snapshot) {
 	change, ok := snapshot.ActionChanged[ra.actionId]
 	if !ok {
-		logger.Errorf("action %s missing action changed entry", ra.actionId)
+		ra.logger.Errorf("action %s missing action changed entry", ra.actionId)
 		// Shouldn't happen.
 		return
 	}
 	if ra.change < change {
 		ra.change = change
-		logger.Errorf("running action %s changed", ra.actionId)
+		ra.logger.Errorf("running action %s changed", ra.actionId)
 		select {
 		case ra.changed <- struct{}{}:
 		default:

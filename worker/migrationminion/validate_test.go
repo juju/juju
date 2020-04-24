@@ -6,6 +6,7 @@ package migrationminion_test
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -64,6 +65,12 @@ func (*ValidateSuite) TestMissingValidateMigration(c *gc.C) {
 	checkNotValid(c, config, "nil ValidateMigration not valid")
 }
 
+func (*ValidateSuite) TestMissingLogger(c *gc.C) {
+	config := validConfig()
+	config.Logger = nil
+	checkNotValid(c, config, "nil Logger not valid")
+}
+
 func validConfig() migrationminion.Config {
 	return migrationminion.Config{
 		Agent:             struct{ agent.Agent }{},
@@ -72,6 +79,7 @@ func validConfig() migrationminion.Config {
 		Clock:             struct{ clock.Clock }{},
 		APIOpen:           func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
 		ValidateMigration: func(base.APICaller) error { return nil },
+		Logger:            loggo.GetLogger("test"),
 	}
 }
 

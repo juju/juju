@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -66,6 +67,7 @@ func (s *NewExecutorSuite) TestNewExecutorInvalidStateRead(c *gc.C) {
 		StateReadWriter: s.mockStateRW,
 		InitialState:    initialState,
 		AcquireLock:     failAcquireLock,
+		Logger:          loggo.GetLogger("test"),
 	}
 	executor, err := operation.NewExecutor(cfg)
 	c.Assert(executor, gc.IsNil)
@@ -79,7 +81,9 @@ func (s *NewExecutorSuite) TestNewExecutorNoInitialState(c *gc.C) {
 	cfg := operation.ExecutorConfig{
 		StateReadWriter: s.mockStateRW,
 		InitialState:    initialState,
-		AcquireLock:     failAcquireLock}
+		AcquireLock:     failAcquireLock,
+		Logger:          loggo.GetLogger("test"),
+	}
 	executor, err := operation.NewExecutor(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(executor.State(), gc.DeepEquals, initialState)
@@ -96,6 +100,7 @@ func (s *NewExecutorSuite) TestNewExecutorValidFile(c *gc.C) {
 		StateReadWriter: s.mockStateRW,
 		InitialState:    operation.State{Step: operation.Queued},
 		AcquireLock:     failAcquireLock,
+		Logger:          loggo.GetLogger("test"),
 	}
 	executor, err := operation.NewExecutor(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -186,6 +191,7 @@ func (s *ExecutorSuite) newExecutor(c *gc.C, st *operation.State) operation.Exec
 		StateReadWriter: s.mockStateRW,
 		InitialState:    operation.State{Step: operation.Queued},
 		AcquireLock:     failAcquireLock,
+		Logger:          loggo.GetLogger("test"),
 	}
 	executor, err := operation.NewExecutor(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -469,6 +475,7 @@ func (s *ExecutorSuite) initLockTest(c *gc.C, lockFunc func(string) (func(), err
 		StateReadWriter: s.mockStateRW,
 		InitialState:    operation.State{Step: operation.Queued},
 		AcquireLock:     lockFunc,
+		Logger:          loggo.GetLogger("test"),
 	}
 	executor, err := operation.NewExecutor(cfg)
 	c.Assert(err, jc.ErrorIsNil)

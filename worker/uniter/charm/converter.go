@@ -7,6 +7,6 @@ package charm
 // patched for uniter tests.
 var NewDeployer = newDeployer
 
-func newDeployer(charmPath, dataPath string, bundles BundleReader) (Deployer, error) {
-	return NewManifestDeployer(charmPath, dataPath, bundles), nil
+func newDeployer(charmPath, dataPath string, bundles BundleReader, logger Logger) (Deployer, error) {
+	return NewManifestDeployer(charmPath, dataPath, bundles, logger), nil
 }

@@ -21,6 +21,7 @@ type FactoryParams struct {
 	Callbacks      Callbacks
 	Abort          <-chan struct{}
 	MetricSpoolDir string
+	Logger         Logger
 }
 
 // NewFactory returns a Factory that creates Operations backed by the supplied
@@ -103,6 +104,7 @@ func (f *factory) NewRunHook(hookInfo hook.Info) (Operation, error) {
 		info:          hookInfo,
 		callbacks:     f.config.Callbacks,
 		runnerFactory: f.config.RunnerFactory,
+		logger:        f.config.Logger,
 	}, nil
 }
 
@@ -124,6 +126,7 @@ func (f *factory) NewAction(actionId string) (Operation, error) {
 		actionId:      actionId,
 		callbacks:     f.config.Callbacks,
 		runnerFactory: f.config.RunnerFactory,
+		logger:        f.config.Logger,
 	}, nil
 }
 
@@ -157,12 +160,13 @@ func (f *factory) NewCommands(args CommandArgs, sendResponse CommandResponseFunc
 		sendResponse:  sendResponse,
 		callbacks:     f.config.Callbacks,
 		runnerFactory: f.config.RunnerFactory,
+		logger:        f.config.Logger,
 	}, nil
 }
 
 // NewResignLeadership is part of the Factory interface.
 func (f *factory) NewResignLeadership() (Operation, error) {
-	return &resignLeadership{}, nil
+	return &resignLeadership{logger: f.config.Logger}, nil
 }
 
 // NewAcceptLeadership is part of the Factory interface.

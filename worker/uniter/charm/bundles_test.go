@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/juju/loggo"
+
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -102,7 +104,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	basedir := c.MkDir()
 	bunsDir := filepath.Join(basedir, "random", "bundles")
 	downloader := api.NewCharmDownloader(s.st)
-	d := charm.NewBundlesDir(bunsDir, downloader)
+	d := charm.NewBundlesDir(bunsDir, downloader, loggo.GetLogger(""))
 
 	checkDownloadsEmpty := func() {
 		files, err := ioutil.ReadDir(filepath.Join(bunsDir, "downloads"))

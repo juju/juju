@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -65,6 +66,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 			s.stub.AddCall("ValidateMigration")
 			return nil
 		},
+		Logger: loggo.GetLogger("test"),
 	}
 }
 

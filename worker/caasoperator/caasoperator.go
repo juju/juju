@@ -213,10 +213,15 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	paths := config.getPaths()
+	logger := loggo.GetLogger("juju.worker.uniter.charm")
 	deployer, err := jujucharm.NewDeployer(
 		paths.State.CharmDir,
 		paths.State.DeployerDir,
-		jujucharm.NewBundlesDir(paths.State.BundlesDir, config.Downloader),
+		jujucharm.NewBundlesDir(
+			paths.State.BundlesDir,
+			config.Downloader,
+			logger),
+		logger,
 	)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot create deployer")
@@ -349,11 +354,12 @@ func (op *caasOperator) init() (*LocalState, error) {
 				return nil, errors.Annotate(err, "creating juju run socket")
 			}
 			op.config.Logger.Debugf("starting caas operator juju-run listener on %v", socket)
-			runListener, err := uniter.NewRunListener(*socket)
+			logger := loggo.GetLogger("juju.worker.uniter")
+			runListener, err := uniter.NewRunListener(*socket, logger)
 			if err != nil {
 				return nil, errors.Annotate(err, "creating juju run listener")
 			}
-			rlw := uniter.NewRunListenerWrapper(runListener)
+			rlw := uniter.NewRunListenerWrapper(runListener, logger)
 			if err := op.catacomb.Add(rlw); err != nil {
 				return nil, errors.Trace(err)
 			}
