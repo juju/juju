@@ -8,10 +8,10 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	charm_v6 "github.com/juju/charm/v7"
 	application "github.com/juju/juju/apiserver/facades/client/application"
 	controller "github.com/juju/juju/controller"
 	state "github.com/juju/juju/state"
-	charm_v6 "gopkg.in/juju/charm.v6"
 	mgo_v2 "gopkg.in/mgo.v2"
 )
 

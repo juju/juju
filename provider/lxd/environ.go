@@ -7,9 +7,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/lxc/lxd/shared/api"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"

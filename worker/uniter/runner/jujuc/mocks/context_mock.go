@@ -9,12 +9,12 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+	charm_v6 "github.com/juju/charm/v7"
 	params "github.com/juju/juju/apiserver/params"
 	application "github.com/juju/juju/core/application"
 	network "github.com/juju/juju/core/network"
 	jujuc "github.com/juju/juju/worker/uniter/runner/jujuc"
 	names_v3 "github.com/juju/names/v4"
-	charm_v6 "gopkg.in/juju/charm.v6"
 )
 
 // MockContext is a mock of Context interface

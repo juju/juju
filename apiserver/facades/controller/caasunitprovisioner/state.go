@@ -6,9 +6,9 @@ package caasunitprovisioner
 import (
 	"time"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"

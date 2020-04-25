@@ -6,10 +6,10 @@ package charmstore
 import (
 	"net/url"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 )

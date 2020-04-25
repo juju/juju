@@ -4,7 +4,7 @@
 package remotestate
 
 import (
-	"gopkg.in/juju/charm.v6"
+	"github.com/juju/charm/v7"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"

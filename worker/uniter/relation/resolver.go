@@ -4,11 +4,11 @@
 package relation
 
 import (
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/worker/uniter/hook"

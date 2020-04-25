@@ -8,9 +8,9 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"

@@ -8,6 +8,7 @@ import (
 	"net"
 	"path/filepath"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"

@@ -8,10 +8,10 @@ import (
 	"os"
 	"path/filepath"
 
+	corecharm "github.com/juju/charm/v7"
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/worker/uniter/charm"

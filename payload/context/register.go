@@ -4,9 +4,9 @@
 package context
 
 import (
+	"github.com/juju/charm/v7"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/payload"

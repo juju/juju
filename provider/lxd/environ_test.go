@@ -5,13 +5,13 @@ package lxd_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/charm/v7"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"

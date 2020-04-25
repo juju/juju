@@ -4,10 +4,10 @@
 package charmrevisionupdater_test
 
 import (
+	"github.com/juju/charm/v7"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/testing"

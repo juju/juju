@@ -6,9 +6,9 @@ package charm
 import (
 	"errors"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/collections/set"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v6"
 )
 
 // CharmURLPath is the path within a charm directory to which Deployers

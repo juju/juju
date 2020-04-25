@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	apicharms "github.com/juju/juju/api/charms"

@@ -6,8 +6,8 @@ package operation
 import (
 	"fmt"
 
+	corecharm "github.com/juju/charm/v7"
 	"github.com/juju/errors"
-	corecharm "gopkg.in/juju/charm.v6"
 )
 
 var (

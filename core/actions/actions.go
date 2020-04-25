@@ -5,7 +5,7 @@
 package actions
 
 import (
-	"gopkg.in/juju/charm.v6"
+	"github.com/juju/charm/v7"
 )
 
 // JujuRunActionName defines the action name used by juju-run.

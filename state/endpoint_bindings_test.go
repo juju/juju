@@ -5,12 +5,12 @@ package state_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/juju/state/mocks"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"

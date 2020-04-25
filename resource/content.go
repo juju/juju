@@ -9,9 +9,9 @@ import (
 	"io"
 	"os"
 
+	charmresource "github.com/juju/charm/v7/resource"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	charmresource "gopkg.in/juju/charm.v6/resource"
 )
 
 // Content holds a reader for the content of a resource along

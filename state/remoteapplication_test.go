@@ -7,10 +7,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/network"

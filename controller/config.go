@@ -9,13 +9,13 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/juju/charmrepo/v5/csclient"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/romulus"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charmrepo.v4/csclient"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 

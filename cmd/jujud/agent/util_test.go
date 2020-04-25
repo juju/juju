@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/names/v4"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/version"
 	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"

@@ -8,6 +8,8 @@ import (
 	"os"
 	"sync"
 
+	corecharm "github.com/juju/charm/v7"
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -15,8 +17,6 @@ import (
 	"github.com/juju/utils/exec"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
-	corecharm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/uniter"

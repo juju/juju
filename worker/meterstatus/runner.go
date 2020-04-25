@@ -4,10 +4,10 @@
 package meterstatus
 
 import (
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/machinelock"

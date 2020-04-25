@@ -6,10 +6,10 @@ package uniter
 import (
 	"fmt"
 
+	corecharm "github.com/juju/charm/v7"
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	corecharm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"

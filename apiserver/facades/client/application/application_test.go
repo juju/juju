@@ -9,6 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/charm/v7"
+	charmresource "github.com/juju/charm/v7/resource"
+	"github.com/juju/charmrepo/v5"
+	csparams "github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -16,10 +20,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
-	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v4"
-	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/apiserver/common"

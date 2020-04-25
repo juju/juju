@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/network"

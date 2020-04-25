@@ -4,8 +4,8 @@
 package modelgeneration
 
 import (
+	"github.com/juju/charm/v7"
 	"github.com/juju/names/v4"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/settings"

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/charm.v6"
 
 	jujucmd "github.com/juju/juju/cmd"
 )

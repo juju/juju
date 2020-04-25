@@ -7,12 +7,12 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/charmrepo/v5/csclient"
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	"github.com/juju/romulus"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v4/csclient"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/testing"

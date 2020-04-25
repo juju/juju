@@ -5,9 +5,9 @@ package upgradeseries_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/hook"

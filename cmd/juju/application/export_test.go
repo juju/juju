@@ -6,13 +6,13 @@ package application
 import (
 	"time"
 
+	charmresource "github.com/juju/charm/v7/resource"
+	"github.com/juju/charmrepo/v5"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
-	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v4"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"

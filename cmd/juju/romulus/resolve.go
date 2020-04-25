@@ -4,11 +4,11 @@
 package romulus
 
 import (
+	"github.com/juju/charm/v7"
+	"github.com/juju/charmrepo/v5"
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v4"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 )
 

@@ -10,11 +10,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
-	"gopkg.in/juju/charm.v6"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.crossmodelrelations")

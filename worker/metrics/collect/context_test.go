@@ -7,10 +7,10 @@ import (
 	"runtime"
 	"time"
 
+	corecharm "github.com/juju/charm/v7"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/keyvalues"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/metrics/collect"

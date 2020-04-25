@@ -7,6 +7,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/juju/charm/v7"
+	charmresource "github.com/juju/charm/v7/resource"
+	"github.com/juju/charmrepo/v5"
+	csclientparams "github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -14,10 +18,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2/catacomb"
-	"gopkg.in/juju/charm.v6"
-	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v4"
-	csclientparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 

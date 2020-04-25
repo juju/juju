@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -17,7 +18,6 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"

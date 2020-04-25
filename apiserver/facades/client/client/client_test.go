@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v7"
+	"github.com/juju/charmrepo/v5"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -19,8 +21,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v4"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/common"

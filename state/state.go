@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v7"
+	csparams "github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -26,8 +28,6 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6"
-	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"

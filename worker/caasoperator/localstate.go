@@ -6,9 +6,9 @@ package caasoperator
 import (
 	"os"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v6"
 )
 
 // LocalState is a cache of the state of the operator

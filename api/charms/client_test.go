@@ -5,9 +5,9 @@ package charms_test
 
 import (
 	"github.com/golang/mock/gomock"
+	charm "github.com/juju/charm/v7"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	charm "gopkg.in/juju/charm.v6"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/charms"

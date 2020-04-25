@@ -11,13 +11,13 @@ import (
 	"path"
 	"strings"
 
+	"github.com/juju/charm/v7"
+	charmresource "github.com/juju/charm/v7/resource"
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
-	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/charmstore"
