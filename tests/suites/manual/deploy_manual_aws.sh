@@ -5,7 +5,6 @@ run_deploy_manual_aws() {
     check_dependencies aws
 
     name="tests-$(petname)"
-    series="bionic"
 
     controller="${name}-controller"
     model1="${name}-m1"
