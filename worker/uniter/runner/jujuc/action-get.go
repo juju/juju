@@ -116,7 +116,13 @@ func (c *ActionGetCommand) Run(ctx *cmd.Context) error {
 	var answer interface{}
 
 	if len(c.keys) == 0 {
-		answer = params
+		// If no parameters were returned we still want to print an
+		// empty object, not nil.
+		if params == nil {
+			answer = make(map[string]interface{})
+		} else {
+			answer = params
+		}
 	} else {
 		answer, _ = recurseMapOnKeys(c.keys, params)
 	}

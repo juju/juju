@@ -116,7 +116,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 	}, {
 		summary: "a simple empty map with nil key",
 		args:    []string{"--format", "json"},
-		out:     "null\n",
+		out:     "{}\n",
 	}, {
 		summary: "a nonexistent key",
 		args:    []string{"foo"},
