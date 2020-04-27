@@ -136,14 +136,36 @@ func (d *manifestDeployer) startDeploy() error {
 	if err := os.MkdirAll(d.charmPath, 0755); err != nil {
 		return err
 	}
-	return WriteCharmURL(d.CharmPath(deployingURLPath), d.staged.url)
+	d.logger.Warningf("startDeploy 1 files at this dir %#v", d.listDir(d.charmPath))
+	err := WriteCharmURL(d.CharmPath(deployingURLPath), d.staged.url)
+	if err != nil {
+		return err
+	}
+	d.logger.Warningf("startDeploy WriteCharmURL -> %q, %q, %#v", d.CharmPath(deployingURLPath), d.staged.url, err)
+	d.logger.Warningf("startDeploy env -> %#v", os.Environ())
+	d.logger.Warningf("startDeploy 2 files at this dir %#v", d.listDir(d.charmPath))
+	return nil
+}
+
+func (d *manifestDeployer) listDir(p string) (o []string) {
+	f, err := os.Open(p)
+	d.logger.Warningf("manifestDeployer.listDir err -> %#v", err)
+	files, err := f.Readdir(-1)
+	defer f.Close()
+	for _, i := range files {
+		o = append(o, i.Name())
+	}
+	d.logger.Warningf("listDir %q -> %#v", p, o)
+	return o
 }
 
 // removeDiff removes every path in oldManifest that is not present in newManifest.
 func (d *manifestDeployer) removeDiff(oldManifest, newManifest set.Strings) error {
 	diff := oldManifest.Difference(newManifest)
+	d.logger.Warningf("removeDiff diff -> %#v", diff)
 	for _, path := range diff.SortedValues() {
 		fullPath := filepath.Join(d.charmPath, filepath.FromSlash(path))
+		d.logger.Warningf("removeDiff removing -> %q", fullPath)
 		if err := os.RemoveAll(fullPath); err != nil {
 			return err
 		}

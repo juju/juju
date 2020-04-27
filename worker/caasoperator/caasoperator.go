@@ -370,6 +370,8 @@ func (op *caasOperator) init() (*LocalState, error) {
 }
 
 func (op *caasOperator) loop() (err error) {
+	logger := op.config.Logger
+
 	defer func() {
 		if errors.IsNotFound(err) {
 			err = jworker.ErrTerminateAgent
@@ -380,7 +382,7 @@ func (op *caasOperator) loop() (err error) {
 	if err != nil {
 		return err
 	}
-	op.config.Logger.Infof("operator %q started", op.config.Application)
+	logger.Infof("operator %q started", op.config.Application)
 
 	// Start by reporting current tools (which includes arch/series).
 	if err := op.config.VersionSetter.SetVersion(
@@ -399,6 +401,7 @@ func (op *caasOperator) loop() (err error) {
 
 		if remoteWatcher != nil {
 			// watcher added to catacomb, will kill operator if there's an error.
+			logger.Warningf("restartWatcher Stop")
 			_ = worker.Stop(remoteWatcher)
 		}
 		var err error
@@ -484,7 +487,7 @@ func (op *caasOperator) loop() (err error) {
 				}
 				// Notify all uniters of the change so they run the upgrade-charm hook.
 				for unitID, changedChan := range aliveUnits {
-					op.config.Logger.Debugf("trigger upgrade charm for caas unit %v", unitID)
+					logger.Debugf("trigger upgrade charm for caas unit %v", unitID)
 					select {
 					case <-op.catacomb.Dying():
 						return op.catacomb.ErrDying()
@@ -493,12 +496,13 @@ func (op *caasOperator) loop() (err error) {
 				}
 			}
 		case units, ok := <-containerStartChan:
+			logger.Warningf("containerStartChan units -> %#v, ok -> %v", units, ok)
 			if !ok {
 				return errors.New("container start watcher closed channel")
 			}
 			for _, unitID := range units {
 				if runningChan, ok := unitRunningChannels[unitID]; ok {
-					op.config.Logger.Debugf("trigger running status for caas unit %v", unitID)
+					logger.Debugf("trigger running status for caas unit %v", unitID)
 					select {
 					case <-op.catacomb.Dying():
 						return op.catacomb.ErrDying()
@@ -507,17 +511,20 @@ func (op *caasOperator) loop() (err error) {
 				}
 			}
 		case units, ok := <-jujuUnitsWatcher.Changes():
+			logger.Warningf("jujuUnitsWatcher.Changes() units -> %#v, ok -> %v", units, ok)
 			if !ok {
 				return errors.New("watcher closed channel")
 			}
 			for _, v := range units {
 				unitID := v
 				unitLife, err := op.config.UnitGetter.Life(unitID)
+				logger.Warningf("jujuUnitsWatcher.Changes() unitLife -> %#v, err -> %v", unitLife, err)
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)
 				}
 				unitTag := names.NewUnitTag(unitID)
 				if errors.IsNotFound(err) || unitLife == life.Dead {
+					logger.Warningf("jujuUnitsWatcher.Changes() removing unit -> %#v", unitTag)
 					delete(aliveUnits, unitID)
 					delete(unitRunningChannels, unitID)
 					if err := op.runner.StopWorker(unitID); err != nil {
@@ -532,6 +539,7 @@ func (op *caasOperator) loop() (err error) {
 						return err
 					}
 				} else {
+					logger.Warningf("jujuUnitsWatcher.Changes() adding aliveUnits and unitRunningChannels for %#v", unitTag)
 					if _, ok := aliveUnits[unitID]; !ok {
 						aliveUnits[unitID] = make(chan struct{})
 					}
@@ -543,11 +551,14 @@ func (op *caasOperator) loop() (err error) {
 				if _, err := op.runner.Worker(unitID, op.catacomb.Dying()); err == nil || unitLife == life.Dead {
 					// Already watching the unit. or we're
 					// not yet watching it and it's dead.
+					logger.Warningf("jujuUnitsWatcher.Changes() continue.....")
 					continue
 				}
 
 				// Make all the required symlinks.
-				if err := op.makeAgentSymlinks(unitTag); err != nil {
+				err = op.makeAgentSymlinks(unitTag)
+				logger.Warningf("jujuUnitsWatcher.Changes() makeAgentSymlinks for %#v, err %#v", unitTag, err)
+				if err != nil {
 					return errors.Trace(err)
 				}
 
@@ -559,6 +570,7 @@ func (op *caasOperator) loop() (err error) {
 				params.LeadershipTracker = op.config.LeadershipTrackerFunc(unitTag)
 				params.ApplicationChannel = aliveUnits[unitID]
 				params.ContainerRunningStatusChannel = unitRunningChannels[unitID]
+				logger.Warningf("jujuUnitsWatcher.Changes() op.deploymentMode -> %q", op.deploymentMode)
 				if op.deploymentMode != caas.ModeOperator {
 					params.ContainerRunningStatusFunc = func(providerID string) (*uniterremotestate.ContainerRunningStatus, error) {
 						return op.runningStatus(unitTag, providerID)

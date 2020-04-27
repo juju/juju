@@ -98,6 +98,7 @@ func (p *pool) IsPrimary(nodeID string) (bool, error) {
 
 // SetStatus (Pool) updates the status of the machine with the input ID.
 func (p *pool) SetStatus(machineID string, sts status.Status, msg string) error {
+	// TODO: Fix here for K8s controller node!!!!
 	machine, err := p.SystemState().Machine(machineID)
 	if err != nil {
 		return errors.Trace(err)
