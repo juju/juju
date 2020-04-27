@@ -6,7 +6,10 @@ export SHELLCHECK_OPTS="-e SC2230 -e SC2039 -e SC2028 -e SC2002 -e SC2005"
 export BOOTSTRAP_REUSE_LOCAL="${BOOTSTRAP_REUSE_LOCAL:-}"
 export BOOTSTRAP_REUSE="${BOOTSTRAP_REUSE:-false}"
 export BOOTSTRAP_PROVIDER="${BOOTSTRAP_PROVIDER:-lxd}"
+export BOOTSTRAP_SERIES="${BOOTSTRAP_SERIES:-}"
 export RUN_SUBTEST="${RUN_SUBTEST:-}"
+
+export CURRENT_LTS="focal"
 
 OPTIND=1
 VERBOSE=1
@@ -84,6 +87,7 @@ show_help() {
     echo "    $(green 'cmd -r')        Reuse bootstrapped controller between testing suites"
     echo "    $(green 'cmd -l')        Local bootstrapped controller name to reuse"
     echo "    $(green 'cmd -p')        Bootstrap provider to use when bootstrapping <lxd|aws>"
+    echo "    $(green 'cmd -S')        Bootstrap series to use <default is host>, priority over -l"
     echo ""
     echo "Tests:"
     echo "¯¯¯¯¯¯"
@@ -118,7 +122,7 @@ show_help() {
     exit 1
 }
 
-while getopts "hH?:vVtAsaxrlp" opt; do
+while getopts "hH?:vVtAsaxrlpS" opt; do
     case "${opt}" in
     h|\?)
         show_help
@@ -169,6 +173,10 @@ while getopts "hH?:vVtAsaxrlp" opt; do
         ;;
     p)
         export BOOTSTRAP_PROVIDER="${2}"
+        shift 2
+        ;;
+    S)
+        export BOOTSTRAP_SERIES="${2}"
         shift 2
         ;;
     *)
