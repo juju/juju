@@ -6,6 +6,7 @@ package params
 // TODO(ericsnow) Eliminate the juju-related imports.
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/juju/juju/core/instance"
@@ -151,7 +152,7 @@ type ApplicationStatus struct {
 	MeterStatuses    map[string]MeterStatus `json:"meter-statuses"`
 	Status           DetailedStatus         `json:"status"`
 	WorkloadVersion  string                 `json:"workload-version"`
-	CharmVersion     string                 `json:"charm-verion"`
+	CharmVersion     string                 `json:"charm-version"`
 	CharmProfile     string                 `json:"charm-profile"`
 	EndpointBindings map[string]string      `json:"endpoint-bindings"`
 
@@ -159,6 +160,19 @@ type ApplicationStatus struct {
 	Scale         int    `json:"int,omitempty"`
 	ProviderId    string `json:"provider-id,omitempty"`
 	PublicAddress string `json:"public-address"`
+}
+
+// TODO(wallyworld) - remove in Juju 3
+// MarshalJSON marshals a status with a typo left in for compatibility.
+func (as ApplicationStatus) MarshalJSON() ([]byte, error) {
+	type Alias ApplicationStatus
+	return json.Marshal(&struct {
+		LegacyCharmVersion string `json:"charm-verion"`
+		Alias
+	}{
+		LegacyCharmVersion: as.CharmVersion,
+		Alias:              Alias(as),
+	})
 }
 
 // RemoteApplicationStatus holds status info about a remote application.
