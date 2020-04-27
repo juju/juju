@@ -15,27 +15,59 @@ run_deploy_manual_aws() {
 
     add_clean_func "run_cleanup_deploy_manual_aws"
 
-    vpc_id=$(aws ec2 create-vpc --cidr-block 10.0.0.0/28 --query 'Vpc.VpcId' --output text)
-    aws ec2 modify-vpc-attribute --vpc-id "${vpc_id}" --enable-dns-support "{\"Value\":true}"
-    aws ec2 modify-vpc-attribute --vpc-id "${vpc_id}" --enable-dns-hostnames "{\"Value\":true}"
+    # This creates a new VPC for this deployment. If one already exists it will
+    # get the existing setup and use that.
+    # The ingress and egress for this setup is rather lax, but in time we can
+    # tighten that up.
+    # All instances should be cleaned up on exiting.
 
-    echo "${vpc_id}" >> "${TEST_DIR}/ec2-vpcs"
+    local vpc_id sg_id subnet_id
 
-    igw_id=$(aws ec2 create-internet-gateway --query 'InternetGateway.InternetGatewayId' --output text)
-    aws ec2 attach-internet-gateway --internet-gateway-id "${igw_id}" --vpc-id "${vpc_id}"
+    OUT=$(aws ec2 describe-vpcs | jq '.Vpcs[] | select(.Tags[]? | select((.Key=="Name") and (.Value=="manual-deploy")))' || true)
+    vpc_id=$(echo "${OUT}" | jq -r '.VpcId' || true)
+    if [ -z "${vpc_id}" ]; then
+        # VPC doesn't exist, create one along with all the required setup.
+        vpc_id=$(aws ec2 create-vpc --cidr-block 10.0.0.0/28 --query 'Vpc.VpcId' --output text)
+        aws ec2 wait vpc-available --vpc-ids "${vpc_id}"
+        aws ec2 create-tags --resources "${vpc_id}" --tags Key=Name,Value="manual-deploy"
 
-    subnet_id=$(aws ec2 create-subnet --vpc-id "${vpc_id}" --cidr-block 10.0.0.0/28 --query 'Subnet.SubnetId' --output text)
-    routetable_id=$(aws ec2 create-route-table --vpc-id "${vpc_id}" --query 'RouteTable.RouteTableId' --output text)
+        aws ec2 modify-vpc-attribute --vpc-id "${vpc_id}" --enable-dns-support "{\"Value\":true}"
+        aws ec2 modify-vpc-attribute --vpc-id "${vpc_id}" --enable-dns-hostnames "{\"Value\":true}"
 
-    aws ec2 associate-route-table --route-table-id "${routetable_id}" --subnet-id "${subnet_id}"
-    aws ec2 create-route --route-table-id "${routetable_id}" --destination-cidr-block 0.0.0.0/0 --gateway-id "${igw_id}"
+        igw_id=$(aws ec2 create-internet-gateway --query 'InternetGateway.InternetGatewayId' --output text)
+        aws ec2 attach-internet-gateway --internet-gateway-id "${igw_id}" --vpc-id "${vpc_id}"
 
-    sg_id=$(aws ec2 create-security-group --group-name "ci-manual-deploy" --description "run_deploy_manual_aws" --vpc-id "${vpc_id}" --query 'GroupId' --output text)
-    aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 22 --cidr 0.0.0.0/0
-    aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 0-65535 --cidr 0.0.0.0/0
-    aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol udp --port 0-65535 --cidr 0.0.0.0/0
-    aws ec2 authorize-security-group-egress --group-id "${sg_id}" --protocol tcp --port 0-65535 --cidr 0.0.0.0/0
-    aws ec2 authorize-security-group-egress --group-id "${sg_id}" --protocol udp --port 0-65535 --cidr 0.0.0.0/0
+        subnet_id=$(aws ec2 create-subnet --vpc-id "${vpc_id}" --cidr-block 10.0.0.0/28 --query 'Subnet.SubnetId' --output text)
+        aws ec2 create-tags --resources "${subnet_id}" --tags Key=Name,Value="manual-deploy"
+
+        routetable_id=$(aws ec2 create-route-table --vpc-id "${vpc_id}" --query 'RouteTable.RouteTableId' --output text)
+
+        aws ec2 associate-route-table --route-table-id "${routetable_id}" --subnet-id "${subnet_id}"
+        aws ec2 create-route --route-table-id "${routetable_id}" --destination-cidr-block 0.0.0.0/0 --gateway-id "${igw_id}"
+
+        sg_id=$(aws ec2 create-security-group --group-name "ci-manual-deploy" --description "run_deploy_manual_aws" --vpc-id "${vpc_id}" --query 'GroupId' --output text)
+        aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 22 --cidr 0.0.0.0/0
+        aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 0-65535 --cidr 0.0.0.0/0
+        aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol udp --port 0-65535 --cidr 0.0.0.0/0
+        aws ec2 authorize-security-group-egress --group-id "${sg_id}" --protocol tcp --port 0-65535 --cidr 0.0.0.0/0
+        aws ec2 authorize-security-group-egress --group-id "${sg_id}" --protocol udp --port 0-65535 --cidr 0.0.0.0/0
+    else
+        OUT=$(aws ec2 describe-subnets | jq '.Subnets[] | select(.Tags[]? | select((.Key=="Name") and (.Value=="manual-deploy")))' || true)
+        if [ -z "${OUT}" ]; then
+            echo "Subnet not found: unknown state."
+            echo "Delete VPC and start again."
+            exit 1
+        fi
+        subnet_id=$(echo "${OUT}" | jq -r '.SubnetId')
+
+        OUT=$(aws ec2 describe-security-groups | jq ".SecurityGroups[] | select(.VpcId==\"${vpc_id}\" and .GroupName==\"ci-manual-deploy\")" || true)
+        if [ -z "${OUT}" ]; then
+            echo "Security group not found: unknown state."
+            echo "Delete VPC and start again."
+            exit 1
+        fi
+        sg_id=$(echo "${OUT}" | jq -r '.GroupId')
+    fi
 
     aws ec2 create-key-pair --key-name "${name}" --query 'KeyMaterial' --output text > ~/.ssh/"${name}".pem
     chmod 400 ~/.ssh/"${name}".pem
@@ -129,45 +161,7 @@ run_cleanup_deploy_manual_aws() {
         done < "${TEST_DIR}/ec2-instances"
     fi
 
-    if [ -f "${TEST_DIR}/ec2-vpcs" ]; then
-        echo "====> Cleaning up ec2-vpcs"
-        while read -r vpc_id; do
-            delete_vpc "${vpc_id}" >>"${TEST_DIR}/aws_cleanup"
-        done < "${TEST_DIR}/ec2-vpcs"
-    fi
-
     set_verbosity
 
     echo "====> Completed cleaning up aws"
-}
-
-delete_vpc() {
-    local vpc_id
-
-    vpc_id=${1}
-
-    echo "====> Cleaning up ec2-vpc (${vpc_id})"
-
-    aws ec2 describe-internet-gateways --filter Name=attachment.vpc-id,Values="${vpc_id}" | jq -r '.InternetGateways[].InternetGatewayId' | 
-      while read igw_id; do
-          aws ec2 detach-internet-gateway --internet-gateway-id="${igw_id}" --vpc-id="${vpc_id}" >>"${TEST_DIR}/aws_cleanup"
-          aws ec2 delete-internet-gateway --internet-gateway-id="${igw_id}" >>"${TEST_DIR}/aws_cleanup"
-      done
-    
-    aws ec2 describe-subnets --filters Name=vpc-id,Values=${vpc_id} | jq -r '.Subnets[].SubnetId' |
-      while read subnet_id; do
-          aws ec2 delete-subnet --subnet-id "${subnet_id}" >>"${TEST_DIR}/aws_cleanup"
-      done
-
-    aws ec2 describe-security-groups --filter Name=vpc-id,Values="${vpc_id}" | jq -r '.SecurityGroups[] | select(.GroupName != "default") | .GroupId' | 
-      while read sg_id; do
-          aws ec2 delete-security-group --group-id "${sg_id}" >>"${TEST_DIR}/aws_cleanup"
-      done
-
-    aws ec2 describe-route-tables --filter Name=vpc-id,Values="${vpc_id}" | jq -r '.RouteTables[].RouteTableId' |
-      while read route_id; do
-          aws ec2 delete-route-table --route-table-id "${route_id}" >>"${TEST_DIR}/aws_cleanup"
-      done
-
-    aws ec2 delete-vpc --vpc-id ${vpc_id} >>"${TEST_DIR}/aws_cleanup"
 }
