@@ -617,6 +617,10 @@ func (sb *stubBacking) MovingSubnet(string) (spaces.MovingSubnet, error) {
 	panic("should not be called")
 }
 
+func (sb *stubBacking) AllSpaceInfos() (network.SpaceInfos, error) {
+	panic("should not be called")
+}
+
 // LegacySuite is deprecated testing suite that uses stubs.
 // TODO (manadart 2020-03-24): These should be phased out in favour of the
 // mock-based tests.
