@@ -330,18 +330,28 @@ func Parse(args ...string) (Value, error) {
 func ParseWithAliases(args ...string) (cons Value, aliases map[string]string, err error) {
 	aliases = make(map[string]string)
 	for _, arg := range args {
+		name, val := "", ""
 		raws := strings.Split(strings.TrimSpace(arg), " ")
 		for _, raw := range raws {
 			if raw == "" {
 				continue
 			}
-			name, val, err := splitRaw(raw)
+			current_name, current_val, err := splitRaw(raw)
 			if err != nil {
 				return Value{}, nil, errors.Trace(err)
 			}
-			if canonical, ok := rawAliases[name]; ok {
-				aliases[name] = canonical
-				name = canonical
+			if current_name == "" && name == "" {
+				return Value{}, nil, errors.Errorf("malformed constraint %q", current_val)
+			}
+			if current_name != "" {
+				name = current_name
+				val = current_val
+				if canonical, ok := rawAliases[current_name]; ok {
+					aliases[current_name] = canonical
+					current_name = canonical
+				}
+			} else if name != "" {
+				val += " " + current_val
 			}
 			if err := cons.setRaw(name, val); err != nil {
 				return Value{}, aliases, errors.Trace(err)
@@ -432,7 +442,7 @@ func (v *Value) without(attrTags ...string) Value {
 func splitRaw(s string) (name, val string, err error) {
 	eq := strings.Index(s, "=")
 	if eq <= 0 {
-		return "", "", errors.Errorf("malformed constraint %q", s)
+		return "", s, nil
 	}
 	return s[:eq], s[eq+1:], nil
 }
@@ -665,9 +675,6 @@ func (v *Value) setVirtType(str string) error {
 }
 
 func (v *Value) setZones(str string) error {
-	if v.Zones != nil {
-		return errors.Errorf("already set")
-	}
 	v.Zones = parseCommaDelimited(str)
 	return nil
 }
