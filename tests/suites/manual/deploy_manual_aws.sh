@@ -14,11 +14,24 @@ run_deploy_manual_aws() {
 
     add_clean_func "run_cleanup_deploy_manual_aws"
 
+    # Eventually we should use BOOTSTRAP_SERIES
+    series="bionic"
+
     # This creates a new VPC for this deployment. If one already exists it will
     # get the existing setup and use that.
     # The ingress and egress for this setup is rather lax, but in time we can
     # tighten that up.
     # All instances should be cleaned up on exiting.
+    OUT=$(aws ec2 describe-images \
+            --owners 099720109477 \
+            --filters "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-${series}-?????-amd64-server-????????" 'Name=state,Values=available' \
+            --query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' \
+            --output text)
+    if [ -z "${OUT}" ]; then
+        echo "No image available: unknown state."
+        exit 1
+    fi
+    instance_image_id="${OUT}"
 
     local vpc_id sg_id subnet_id
 
@@ -79,7 +92,7 @@ run_deploy_manual_aws() {
         addr_result=${3}
 
         tags="ResourceType=instance,Tags=[{Key=Name,Value=${instance_name}}]"
-        instance_id=$(aws ec2 run-instances --image-id ami-03d8261f577d71b6a \
+        instance_id=$(aws ec2 run-instances --image-id "${instance_image_id}" \
             --count 1 \
             --instance-type t2.medium \
             --associate-public-ip-address \

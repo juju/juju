@@ -279,7 +279,8 @@ run_test() {
 
     import_subdir_files "suites/${TEST_CURRENT_NAME}"
 
-    echo "==> TEST BEGIN: ${TEST_CURRENT_DESCRIPTION}"
+    # shellcheck disable=SC2046,SC2086
+    echo "==> TEST BEGIN: ${TEST_CURRENT_DESCRIPTION} ($(green $(basename ${TEST_DIR})))"
     START_TIME=$(date +%s)
     ${TEST_CURRENT}
     END_TIME=$(date +%s)

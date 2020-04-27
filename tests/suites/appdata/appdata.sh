@@ -1,18 +1,3 @@
-test_appdata_int() {
-  if [ "$(skip 'test_appdata_int')" ]; then
-    echo "==> TEST SKIPPED: appdata int tests"
-    return
-  fi
-
-  (
-      set_verbosity
-
-      cd suites/appdata || exit
-
-      run "run_appdata_basic"
-  )
-}
-
 run_appdata_basic() {
     echo
 
@@ -56,4 +41,19 @@ run_appdata_basic() {
     check_contains "$output" "appdata-source/1 value2"
 
     destroy_model "appdata-basic"
+}
+
+test_appdata_int() {
+  if [ "$(skip 'test_appdata_int')" ]; then
+    echo "==> TEST SKIPPED: appdata int tests"
+    return
+  fi
+
+  (
+      set_verbosity
+
+      cd suites/appdata || exit
+
+      run "run_appdata_basic"
+  )
 }
