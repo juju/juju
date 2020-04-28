@@ -338,6 +338,12 @@ var parseConstraintsTests = []struct {
 		summary: "multiple zones",
 		args:    []string{"zones=az1,az2"},
 	}, {
+		summary: "spaced zones",
+		args:    []string{"zones=Availability zone 1"},
+	}, {
+		summary: "Multiple spaced zones",
+		args:    []string{"zones=Availability zone 1,Availability zone 2,az2"},
+	}, {
 		summary: "no zones",
 		args:    []string{"zones="},
 	},
