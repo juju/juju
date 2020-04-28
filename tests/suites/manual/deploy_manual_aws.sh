@@ -120,7 +120,7 @@ run_deploy_manual_aws() {
 
     # shellcheck disable=SC2154
     for addr in "${addr_c}" "${addr_m1}" "${addr_m2}"; do
-        ssh-keygen -f "${HOME}/.ssh/known_hosts" -R "${addr}"
+        ssh-keygen -f "${HOME}/.ssh/known_hosts" -R ubuntu@"${addr}"
 
         attempt=0
         while [ ${attempt} -lt 10 ]; do
@@ -128,6 +128,7 @@ run_deploy_manual_aws() {
                 -o IdentitiesOnly=yes \
                 -o StrictHostKeyChecking=no \
                 -o AddKeysToAgent=yes \
+                -o UserKnownHostsFile="${HOME}/.ssh/known_hosts" \
                 ubuntu@"${addr}" 2>&1 || true)
             if echo "${OUT}" | grep -q -v "Could not resolve hostname"; then
                 echo "Adding ssh key to ${addr}"
