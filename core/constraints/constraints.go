@@ -602,9 +602,6 @@ func (v *Value) setCpuPower(str string) (err error) {
 }
 
 func (v *Value) setInstanceType(str string) error {
-	if v.InstanceType != nil {
-		return errors.Errorf("already set")
-	}
 	v.InstanceType = &str
 	return nil
 }
