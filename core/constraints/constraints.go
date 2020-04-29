@@ -336,22 +336,21 @@ func ParseWithAliases(args ...string) (cons Value, aliases map[string]string, er
 			if raw == "" {
 				continue
 			}
-			current_name, current_val, err := splitRaw(raw)
+			currentName, currentValue, err := splitRaw(raw)
 			if err != nil {
 				return Value{}, nil, errors.Trace(err)
 			}
-			if current_name == "" && name == "" {
-				return Value{}, nil, errors.Errorf("malformed constraint %q", current_val)
+			if currentName == "" && name == "" {
+				return Value{}, nil, errors.Errorf("malformed constraint %q", currentValue)
 			}
-			if current_name != "" {
-				name = current_name
-				val = current_val
-				if canonical, ok := rawAliases[current_name]; ok {
-					aliases[current_name] = canonical
-					current_name = canonical
+			if currentName != "" {
+				name = currentName
+				val = currentValue
+				if canonical, ok := rawAliases[currentName]; ok {
+					aliases[currentName] = canonical
 				}
 			} else if name != "" {
-				val += " " + current_val
+				val += " " + currentValue
 			}
 			if err := cons.setRaw(name, val); err != nil {
 				return Value{}, aliases, errors.Trace(err)

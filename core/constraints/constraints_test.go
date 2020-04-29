@@ -24,6 +24,7 @@ var parseConstraintsTests = []struct {
 	summary string
 	args    []string
 	err     string
+	result  *constraints.Value
 }{
 	// Simple errors.
 	{
@@ -355,12 +356,57 @@ var parseConstraintsTests = []struct {
 			"root-disk=8G mem=2T  arch=i386  cores=4096 cpu-power=9001 container=lxd " +
 				"tags=foo,bar spaces=space1,^space2 instance-type=foo",
 			"virt-type=kvm zones=az1,az2"},
+		result: &constraints.Value{
+			Arch:         strp("i386"),
+			Container:    (*instance.ContainerType)(strp("lxd")),
+			CpuCores:     uint64p(4096),
+			CpuPower:     uint64p(9001),
+			Mem:          uint64p(2 * 1024 * 1024),
+			RootDisk:     uint64p(8192),
+			Tags:         &[]string{"foo", "bar"},
+			Spaces:       &[]string{"space1", "^space2"},
+			InstanceType: strp("foo"),
+			VirtType:     strp("kvm"),
+			Zones:        &[]string{"az1", "az2"},
+		},
 	}, {
 		summary: "kitchen sink separately",
 		args: []string{
 			"root-disk=8G", "mem=2T", "cores=4096", "cpu-power=9001", "arch=armhf",
 			"container=lxd", "tags=foo,bar", "spaces=space1,^space2",
 			"instance-type=foo", "virt-type=kvm", "zones=az1,az2"},
+		result: &constraints.Value{
+			Arch:         strp("armhf"),
+			Container:    (*instance.ContainerType)(strp("lxd")),
+			CpuCores:     uint64p(4096),
+			CpuPower:     uint64p(9001),
+			Mem:          uint64p(2 * 1024 * 1024),
+			RootDisk:     uint64p(8192),
+			Tags:         &[]string{"foo", "bar"},
+			Spaces:       &[]string{"space1", "^space2"},
+			InstanceType: strp("foo"),
+			VirtType:     strp("kvm"),
+			Zones:        &[]string{"az1", "az2"},
+		},
+	}, {
+		summary: "kitchen sink together with spaced zones",
+		args: []string{
+			"root-disk=8G mem=2T  arch=i386  cores=4096 zones=Availability zone 1 cpu-power=9001 container=lxd " +
+				"tags=foo,bar spaces=space1,^space2 instance-type=foo",
+			"virt-type=kvm"},
+		result: &constraints.Value{
+			Arch:         strp("i386"),
+			Container:    (*instance.ContainerType)(strp("lxd")),
+			CpuCores:     uint64p(4096),
+			CpuPower:     uint64p(9001),
+			Mem:          uint64p(2 * 1024 * 1024),
+			RootDisk:     uint64p(8192),
+			Tags:         &[]string{"foo", "bar"},
+			Spaces:       &[]string{"space1", "^space2"},
+			InstanceType: strp("foo"),
+			VirtType:     strp("kvm"),
+			Zones:        &[]string{"Availability zone 1"},
+		},
 	},
 }
 
@@ -376,6 +422,9 @@ func (s *ConstraintsSuite) TestParseConstraints(c *gc.C) {
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 			continue
+		}
+		if t.result != nil {
+			c.Check(cons0, gc.DeepEquals, *t.result)
 		}
 		cons1, err := constraints.Parse(cons0.String())
 		c.Check(err, jc.ErrorIsNil)
