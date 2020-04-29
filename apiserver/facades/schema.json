@@ -9704,7 +9704,7 @@
                         "charm-profile": {
                             "type": "string"
                         },
-                        "charm-verion": {
+                        "charm-version": {
                             "type": "string"
                         },
                         "endpoint-bindings": {
@@ -9789,7 +9789,7 @@
                         "meter-statuses",
                         "status",
                         "workload-version",
-                        "charm-verion",
+                        "charm-version",
                         "charm-profile",
                         "endpoint-bindings",
                         "public-address"
