@@ -346,9 +346,9 @@ func ParseWithAliases(args ...string) (cons Value, aliases map[string]string, er
 			if current_name != "" {
 				name = current_name
 				val = current_val
-				if canonical, ok := rawAliases[current_name]; ok {
-					aliases[current_name] = canonical
-					current_name = canonical
+				if canonical, ok := rawAliases[name]; ok {
+					aliases[name] = canonical
+					name = canonical
 				}
 			} else if name != "" {
 				val += " " + current_val
