@@ -76,7 +76,7 @@ var findInstanceSpecTests = []struct {
 		series: "xenial",
 		arches: []string{"amd64"},
 		cons:   "cpu-power=800",
-		itype:  "c5.large",
+		itype:  "bad.commit",
 		image:  "ami-00000133",
 	}, {
 		series: "xenial",
