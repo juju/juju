@@ -308,6 +308,9 @@ var parseConstraintsTests = []struct {
 	}, {
 		summary: "instance type empty",
 		args:    []string{"instance-type="},
+	}, {
+		summary: "instance type with spaces",
+		args:    []string{"instance-type=something with spaces"},
 	},
 
 	// "virt-type" in detail.
@@ -337,6 +340,12 @@ var parseConstraintsTests = []struct {
 	}, {
 		summary: "multiple zones",
 		args:    []string{"zones=az1,az2"},
+	}, {
+		summary: "spaced zones",
+		args:    []string{"zones=Availability zone 1"},
+	}, {
+		summary: "Multiple spaced zones",
+		args:    []string{"zones=Availability zone 1,Availability zone 2,az2"},
 	}, {
 		summary: "no zones",
 		args:    []string{"zones="},
@@ -418,6 +427,18 @@ func (s *ConstraintsSuite) TestMerge(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, `bad "arch" constraint: already set`)
 	c.Assert(merged, jc.DeepEquals, constraints.Value{})
+}
+
+func (s *ConstraintsSuite) TestParseZoneWithSpaces(c *gc.C) {
+	con := constraints.MustParse(
+		"arch=amd64 instance-type=with spaces cores=1",
+	)
+	c.Assert(con.Arch, gc.Not(gc.IsNil))
+	c.Assert(con.InstanceType, gc.Not(gc.IsNil))
+	c.Assert(con.CpuCores, gc.Not(gc.IsNil))
+	c.Check(*con.Arch, gc.Equals, "amd64")
+	c.Check(*con.InstanceType, gc.Equals, "with spaces")
+	c.Check(*con.CpuCores, gc.Equals, uint64(1))
 }
 
 func (s *ConstraintsSuite) TestParseMissingTagsAndSpaces(c *gc.C) {

@@ -1126,7 +1126,7 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]Machine
 	// when we have subnets populated for all providers.
 	if r, ok := results[corenetwork.AlphaSpaceId]; !ok && spaces.Contains(corenetwork.AlphaSpaceId) {
 		if privateLinkLayerAddress != nil {
-			r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, privateLinkLayerAddress)
+			r.NetworkInfos, _ = addAddressToResult(r.NetworkInfos, privateLinkLayerAddress)
 		} else {
 			r.NetworkInfos = []network.NetworkInfo{{
 				Addresses: []network.InterfaceAddress{{
