@@ -148,10 +148,11 @@ func (s *addImageSuite) assertAddImageMetadataErr(c *gc.C, m params.CloudImageMe
 
 func constructTestImageMetadata() params.CloudImageMetadata {
 	return params.CloudImageMetadata{
-		ImageId: "im-33333",
-		Series:  "trusty",
-		Arch:    "arch",
-		Source:  "custom",
+		ImageId:  "im-33333",
+		Series:   "trusty",
+		Arch:     "arch",
+		Source:   "custom",
+		Priority: 50,
 	}
 }
 

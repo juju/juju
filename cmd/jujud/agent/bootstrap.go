@@ -632,7 +632,7 @@ func storeImageMetadataInState(st *state.State, env environs.BootstrapEnviron, s
 		}
 		metadataState[i] = m
 	}
-	if err := st.CloudImageMetadataStorage.SaveMetadataNoExpiry(metadataState); err != nil {
+	if err := st.CloudImageMetadataStorage.SaveMetadata(metadataState); err != nil {
 		return errors.Annotatef(err, "cannot cache image metadata")
 	}
 	return nil

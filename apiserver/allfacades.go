@@ -7,7 +7,6 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -99,7 +98,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/singular"
 	"github.com/juju/juju/apiserver/facades/controller/statushistory"
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 )
 
@@ -215,9 +213,7 @@ func AllFacades() *facade.Registry {
 	reg("ImageManager", 2, imagemanager.NewImageManagerAPI)
 	reg("ImageMetadata", 3, imagemetadata.NewAPI)
 
-	if featureflag.Enabled(feature.ImageMetadata) {
-		reg("ImageMetadataManager", 1, imagemetadatamanager.NewAPI)
-	}
+	reg("ImageMetadataManager", 1, imagemetadatamanager.NewAPI)
 
 	reg("InstanceMutater", 1, instancemutater.NewFacadeV1)
 	reg("InstanceMutater", 2, instancemutater.NewFacadeV2)

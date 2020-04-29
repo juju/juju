@@ -66,6 +66,7 @@ const (
 	deleteMetadata = "deleteMetadata"
 	modelConfig    = "modelConfig"
 	controllerTag  = "controllerTag"
+	model          = "model"
 )
 
 func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
@@ -122,6 +123,17 @@ func (st *mockState) ModelConfig() (*config.Config, error) {
 func (st *mockState) ControllerTag() names.ControllerTag {
 	st.Stub.MethodCall(st, controllerTag)
 	return st.controllerTag()
+}
+
+func (st *mockState) Model() (imagemetadatamanager.Model, error) {
+	st.Stub.MethodCall(st, model)
+	return &mockModel{}, nil
+}
+
+type mockModel struct{}
+
+func (*mockModel) CloudRegion() string {
+	return "some-region"
 }
 
 func testConfig(c *gc.C) *config.Config {
