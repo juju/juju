@@ -13,36 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// StateManager encapsulates methods required to handle relation
-// state.
-type StateManager interface {
-	// KnownIDs returns a slice of relation ids, known to the
-	// state manager.
-	KnownIDs() []int
-
-	// Relation returns a copy of the relation state for the given id.
-	Relation(int) (*State, error)
-
-	// SetRelation persists the given state, overwriting the previous
-	// state for a given id or creating state at a new id.
-	SetRelation(*State) error
-
-	// RelationFound returns true if the state manager has a
-	// state for the given id.
-	RelationFound(id int) bool
-
-	// RemoveRelation removes the state for the given id from the
-	// manager.
-	RemoveRelation(id int) error
-}
-
-// UnitStateReadWriter encapsulates the methods from a state.Unit
-// required to set and get unit state.
-type UnitStateReadWriter interface {
-	State() (params.UnitStateResult, error)
-	SetState(unitState params.SetUnitStateArg) error
-}
-
 // NewStateManager
 func NewStateManager(rw UnitStateReadWriter) (StateManager, error) {
 	mgr := &stateManager{unitStateRW: rw}

@@ -33,9 +33,9 @@ type relationerSuite struct {
 	rel   *state.Relation
 	mgr   relation.StateManager
 
-	st         api.Connection
-	uniter     *apiuniter.State
-	apiRelUnit *apiuniter.RelationUnit
+	st      api.Connection
+	uniter  *apiuniter.State
+	relUnit relation.RelationUnit
 }
 
 var _ = gc.Suite(&relationerSuite{})
@@ -65,9 +65,9 @@ func (s *relationerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apiRel, err := s.uniter.Relation(s.rel.Tag().(names.RelationTag))
 	c.Assert(err, jc.ErrorIsNil)
-	s.apiRelUnit, err = apiRel.Unit(apiUnit)
+	apiRelUnit, err := apiRel.Unit(apiUnit.Tag(), apiUnit.ApplicationTag())
 	c.Assert(err, jc.ErrorIsNil)
-
+	s.relUnit = &relation.RelationUnitShim{apiRelUnit}
 	s.mgr, err = relation.NewStateManager(apiUnit)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -93,7 +93,7 @@ func (s *relationerSuite) AddRelationUnit(c *gc.C, name string) (*state.Relation
 func (s *relationerSuite) TestEnterLeaveScope(c *gc.C) {
 	ru1, _ := s.AddRelationUnit(c, "u/1")
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-	r := relation.NewRelationer(s.apiRelUnit, s.mgr)
+	r := relation.NewRelationer(s.relUnit, s.mgr)
 
 	w := ru1.Watch()
 	// u/1 does not consider u/0 to be alive.
@@ -122,12 +122,12 @@ func (s *relationerSuite) TestEnterLeaveScope(c *gc.C) {
 }
 
 func (s *relationerSuite) TestPrepareCommitHooks(c *gc.C) {
-	r := relation.NewRelationer(s.apiRelUnit, s.mgr)
+	r := relation.NewRelationer(s.relUnit, s.mgr)
 	err := r.Join()
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertMembers := func(expect map[string]int64) {
-		st, err := s.mgr.Relation(s.apiRelUnit.Relation().Id())
+		st, err := s.mgr.Relation(s.relUnit.Relation().Id())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st.Members, jc.DeepEquals, expect)
 		expectNames := make([]string, 0, len(expect))
@@ -203,7 +203,7 @@ func (s *relationerSuite) TestSetDying(c *gc.C) {
 	settings := map[string]interface{}{"unit": "settings"}
 	err := ru1.EnterScope(settings)
 	c.Assert(err, jc.ErrorIsNil)
-	r := relation.NewRelationer(s.apiRelUnit, s.mgr)
+	r := relation.NewRelationer(s.relUnit, s.mgr)
 	err = r.Join()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -220,7 +220,7 @@ func (s *relationerSuite) TestSetDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the relation state has been removed by die.
-	c.Assert(s.mgr.RelationFound(s.apiRelUnit.Relation().Id()), jc.IsFalse)
+	c.Assert(s.mgr.RelationFound(s.relUnit.Relation().Id()), jc.IsFalse)
 
 	// Check that it left scope, by leaving scope on the other side and destroying
 	// the relation.
@@ -282,10 +282,11 @@ func (s *relationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apiRel, err := uniterState.Relation(rel.Tag().(names.RelationTag))
 	c.Assert(err, jc.ErrorIsNil)
-	apiRelUnit, err := apiRel.Unit(apiUnit)
+	apiRelUnit, err := apiRel.Unit(apiUnit.Tag(), apiUnit.ApplicationTag())
 	c.Assert(err, jc.ErrorIsNil)
+	relUnit := &relation.RelationUnitShim{apiRelUnit}
 
-	r := relation.NewRelationer(apiRelUnit, mgr)
+	r := relation.NewRelationer(relUnit, mgr)
 	c.Assert(r, jc.Satisfies, (*relation.Relationer).IsImplicit)
 
 	// Hooks are not allowed.
