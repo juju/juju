@@ -4,8 +4,6 @@
 package uniter
 
 import (
-	"fmt"
-
 	"github.com/juju/charm/v7"
 
 	"github.com/juju/juju/apiserver/params"
@@ -114,18 +112,16 @@ func (r *Relation) Endpoint() (*Endpoint, error) {
 	return &Endpoint{r.toCharmRelation(result.Endpoint.Relation)}, nil
 }
 
-// Unit returns a RelationUnit for the supplied unit.
-func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
-	if u == nil {
-		return nil, fmt.Errorf("unit is nil")
-	}
-	result, err := r.st.relation(r.tag, u.tag)
+// Unit returns a RelationUnit for the supplied unitTag and applicationTag.
+func (r *Relation) Unit(uTag names.UnitTag, aTag names.ApplicationTag) (*RelationUnit, error) {
+	result, err := r.st.relation(r.tag, uTag)
 	if err != nil {
 		return nil, err
 	}
 	return &RelationUnit{
 		relation: r,
-		unit:     u,
+		unitTag:  uTag,
+		appTag:   aTag,
 		endpoint: Endpoint{r.toCharmRelation(result.Endpoint.Relation)},
 		st:       r.st,
 	}, nil

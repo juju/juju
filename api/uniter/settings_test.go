@@ -110,7 +110,7 @@ func (s *settingsSuite) TestWrite(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apiRelation, err := s.uniter.Relation(s.stateRelation.Tag().(names.RelationTag))
 	c.Assert(err, jc.ErrorIsNil)
-	apiRelUnit, err := apiRelation.Unit(apiUnit)
+	apiRelUnit, err := apiRelation.Unit(apiUnit.Tag(), apiUnit.ApplicationTag())
 	c.Assert(err, jc.ErrorIsNil)
 	settings, err := apiRelUnit.Settings()
 	c.Assert(err, jc.ErrorIsNil)

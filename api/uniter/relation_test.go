@@ -117,12 +117,9 @@ func (s *relationSuite) TestEndpoint(c *gc.C) {
 }
 
 func (s *relationSuite) TestUnit(c *gc.C) {
-	_, err := s.apiRelation.Unit(nil)
-	c.Assert(err, gc.ErrorMatches, "unit is nil")
-
 	apiUnit, err := s.uniter.Unit(names.NewUnitTag("wordpress/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	apiRelUnit, err := s.apiRelation.Unit(apiUnit)
+	apiRelUnit, err := s.apiRelation.Unit(apiUnit.Tag(), apiUnit.ApplicationTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiRelUnit, gc.NotNil)
 	// We just ensure we get the correct type, more tests
