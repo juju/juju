@@ -11521,7 +11521,7 @@
     },
     {
         "Name": "Cloud",
-        "Version": 6,
+        "Version": 7,
         "Schema": {
             "type": "object",
             "properties": {
@@ -11541,17 +11541,6 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
-                        }
-                    }
-                },
-                "CheckCredentialsModels": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/TaggedCredentials"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/UpdateCredentialResults"
                         }
                     }
                 },
