@@ -143,17 +143,10 @@ func (f *factory) NewFailAction(actionId string) (Operation, error) {
 
 // NewCommands is part of the Factory interface.
 func (f *factory) NewCommands(args CommandArgs, sendResponse CommandResponseFunc) (Operation, error) {
-	if args.Commands == "" {
-		return nil, errors.New("commands required")
+	if err := args.Validate(); err != nil {
+		return nil, errors.Trace(err)
 	} else if sendResponse == nil {
 		return nil, errors.New("response sender required")
-	}
-	if args.RemoteUnitName != "" {
-		if args.RelationId == -1 {
-			return nil, errors.New("remote unit not valid without relation")
-		} else if !names.IsValidUnit(args.RemoteUnitName) {
-			return nil, errors.Errorf("invalid remote unit name %q", args.RemoteUnitName)
-		}
 	}
 	return &runCommands{
 		args:          args,

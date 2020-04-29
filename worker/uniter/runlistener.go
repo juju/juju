@@ -300,6 +300,22 @@ func NewChannelCommandRunner(cfg ChannelCommandRunnerConfig) (*ChannelCommandRun
 // arguments in a runcommands.Commands, and then sending the returned
 // ID to a channel and waiting for a response callback.
 func (c *ChannelCommandRunner) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
+	runLocation := runner.Workload
+	if args.Operator {
+		runLocation = runner.Operator
+	}
+	operationArgs := operation.CommandArgs{
+		Commands:       args.Commands,
+		RelationId:     args.RelationId,
+		RemoteUnitName: args.RemoteUnitName,
+		// TODO(jam): 2019-10-24 Include RemoteAppName
+		ForceRemoteUnit: args.ForceRemoteUnit,
+		RunLocation:     runLocation,
+	}
+	if err := operationArgs.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	type responseInfo struct {
 		response *exec.ExecResponse
 		err      error
@@ -318,22 +334,7 @@ func (c *ChannelCommandRunner) RunCommands(args RunCommandsArgs) (results *exec.
 		}
 	}
 
-	runLocation := runner.Workload
-	if args.Operator {
-		runLocation = runner.Operator
-	}
-
-	id := c.config.Commands.AddCommand(
-		operation.CommandArgs{
-			Commands:       args.Commands,
-			RelationId:     args.RelationId,
-			RemoteUnitName: args.RemoteUnitName,
-			// TODO(jam): 2019-10-24 Include RemoteAppName
-			ForceRemoteUnit: args.ForceRemoteUnit,
-			RunLocation:     runLocation,
-		},
-		responseFunc,
-	)
+	id := c.config.Commands.AddCommand(operationArgs, responseFunc)
 	select {
 	case <-c.config.Abort:
 		return nil, errCommandAborted

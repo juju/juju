@@ -68,9 +68,24 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		args:     []string{"foo/2"},
 		errMatch: "missing commands",
 	}, {
+		title:    "explicit unit with no commands",
+		args:     []string{"-u", "foo/2"},
+		errMatch: "missing commands",
+	}, {
 		title:    "more than two arg",
 		args:     []string{"foo/2", "bar", "baz"},
-		errMatch: `unrecognized args: \["baz"\]`,
+		commands: "bar baz",
+		unit:     names.NewUnitTag("foo/2"),
+	}, {
+		title:    "command looks like unit id",
+		args:     []string{"-u", "foo/2", "unit-foo-2"},
+		commands: "unit-foo-2",
+		unit:     names.NewUnitTag("foo/2"),
+	}, {
+		title:    "command looks like unit name",
+		args:     []string{"-u", "foo/2", "foo/2"},
+		commands: "foo/2",
+		unit:     names.NewUnitTag("foo/2"),
 	}, {
 		title:      "unit and command assignment",
 		args:       []string{"unit-name-2", "command"},
@@ -80,6 +95,18 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 	}, {
 		title:      "unit id converted to tag",
 		args:       []string{"foo/1", "command"},
+		unit:       names.NewUnitTag("foo/1"),
+		commands:   "command",
+		relationId: "",
+	}, {
+		title:      "explicit unit id converted to tag",
+		args:       []string{"-u", "foo/1", "command"},
+		unit:       names.NewUnitTag("foo/1"),
+		commands:   "command",
+		relationId: "",
+	}, {
+		title:      "explicit unit name converted to tag",
+		args:       []string{"-u", "unit-foo-1", "command"},
 		unit:       names.NewUnitTag("foo/1"),
 		commands:   "command",
 		relationId: "",
@@ -131,6 +158,14 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		commands:   "command",
 		relationId: "",
 		operator:   true,
+	}, {
+		title:           "execute not in a context with unit",
+		args:            []string{"--no-context", "-u", "foo/1"},
+		commands:        "command",
+		avoidContext:    true,
+		relationId:      "",
+		forceRemoteUnit: false,
+		errMatch:        `-no-context cannot be passed with an explicit unit-name \(-u "foo/1"\)`,
 	},
 	} {
 		c.Logf("%d: %s", i, test.title)

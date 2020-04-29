@@ -5,6 +5,7 @@ package operation
 
 import (
 	corecharm "github.com/juju/charm/v7"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	utilexec "github.com/juju/utils/exec"
 
@@ -146,6 +147,21 @@ type CommandArgs struct {
 	ForceRemoteUnit bool
 	// RunLocation describes where the command must run.
 	RunLocation runner.RunLocation
+}
+
+// Validate the command arguments.
+func (args CommandArgs) Validate() error {
+	if args.Commands == "" {
+		return errors.New("commands required")
+	}
+	if args.RemoteUnitName != "" {
+		if args.RelationId == -1 {
+			return errors.New("remote unit not valid without relation")
+		} else if !names.IsValidUnit(args.RemoteUnitName) {
+			return errors.Errorf("invalid remote unit name %q", args.RemoteUnitName)
+		}
+	}
+	return nil
 }
 
 // CommandResponseFunc is for marshalling command responses back to the source
