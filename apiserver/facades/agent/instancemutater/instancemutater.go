@@ -361,6 +361,9 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine) (lxdProfileInfo,
 		return empty, errors.Trace(err)
 	}
 	machineProfiles, err := m.CharmProfiles()
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
 	changeResults := make([]params.ProfileInfoResult, len(units))
 	for i, unit := range units {
 		appName := unit.Application()
