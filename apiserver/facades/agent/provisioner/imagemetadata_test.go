@@ -4,7 +4,6 @@
 package provisioner_test
 
 import (
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -66,38 +65,6 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 	s.assertImageMetadataResults(c, result, expected...)
 }
 
-func (s *ImageMetadataSuite) TestMetadataNotInStateButInDataSources(c *gc.C) {
-	// ensure metadata in data sources and not in state
-	useTestImageData(c, testImagesData)
-
-	criteria := cloudimagemetadata.MetadataFilter{Stream: "daily"}
-	found, err := s.State.CloudImageMetadataStorage.FindMetadata(criteria)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-	c.Assert(found, gc.HasLen, 0)
-
-	api, err := provisioner.NewProvisionerAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := api.ProvisioningInfo(s.getTestMachinesTags(c))
-	c.Assert(err, jc.ErrorIsNil)
-
-	expected := s.expectedDataSoureImageMetadata()
-	s.assertImageMetadataResults(c, result, expected...)
-
-	// Also make sure that these images metadata has been written to state for re-use
-	saved, err := s.State.CloudImageMetadataStorage.FindMetadata(criteria)
-	c.Assert(err, jc.ErrorIsNil)
-	stateExpected := s.convertCloudImageMetadata(expected[0])
-	if len(saved["default cloud images"]) == len(stateExpected) {
-		for i, image := range saved["default cloud images"] {
-			stateExpected[i].DateCreated = image.DateCreated
-		}
-	}
-	c.Assert(saved, gc.DeepEquals, map[string][]cloudimagemetadata.Metadata{
-		"default cloud images": stateExpected,
-	})
-}
-
 func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
 	api, err := provisioner.NewProvisionerAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -155,17 +122,6 @@ func (s *ImageMetadataSuite) expectedDataSoureImageMetadata() [][]params.CloudIm
 	expected := make([][]params.CloudImageMetadata, len(s.machines))
 	for i := range s.machines {
 		expected[i] = []params.CloudImageMetadata{
-			{ImageId: "ami-1126745463",
-				Region:          "another_dummy_region",
-				Version:         "12.10",
-				Series:          "quantal",
-				Arch:            "amd64",
-				VirtType:        "pv",
-				RootStorageType: "ebs",
-				Source:          "default cloud images",
-				Stream:          "daily",
-				Priority:        10,
-			},
 			{ImageId: "ami-26745463",
 				Region:          "dummy_region",
 				Version:         "12.10",
@@ -189,109 +145,4 @@ func (s *ImageMetadataSuite) assertImageMetadataResults(
 		// We are only concerned with images here
 		c.Assert(one.Result.ImageMetadata, gc.DeepEquals, expected[i])
 	}
-}
-
-// TODO (anastasiamac 2015-09-04) This metadata is so verbose.
-// Need to generate the text by creating a struct and marshalling it.
-var testImagesData = map[string]string{
-	"/daily/streams/v1/index.json": `
-		{
-		 "index": {
-		  "com.ubuntu.cloud:daily:aws": {
-		   "updated": "Wed, 01 May 2013 13:31:26 +0000",
-		   "clouds": [
-			{
-			 "region": "dummy_region",
-			 "endpoint": "https://anywhere"
-			},
-			{
-			 "region": "another_dummy_region",
-			 "endpoint": ""
-			}
-		   ],
-		   "cloudname": "aws",
-		   "datatype": "image-ids",
-		   "format": "products:1.0",
-		   "products": [
-			"com.ubuntu.cloud.daily:server:12.10:amd64",
-			"com.ubuntu.cloud.daily:server:14.04:amd64"
-		   ],
-		   "path": "streams/v1/image_metadata.json"
-		   }
-		  },
-		 "updated": "Wed, 27 May 2015 13:31:26 +0000",
-		 "format": "index:1.0"
-		}
-`,
-	"/daily/streams/v1/image_metadata.json": `
-{
- "updated": "Wed, 27 May 2015 13:31:26 +0000",
- "content_id": "com.ubuntu.cloud:daily:aws",
- "products": {
-  "com.ubuntu.cloud.daily:server:14.04:amd64": {
-   "release": "trusty",
-   "version": "14.04",
-   "arch": "amd64",
-   "versions": {
-    "20140118": {
-     "items": {
-      "nzww1pe": {
-       "root_store": "ebs",
-       "virt": "pv",
-       "crsn": "da1",
-       "id": "ami-36745463"
-      },
-      "nzww1pe2": {
-       "root_store": "ebs",
-       "virt": "pv",
-       "crsn": "da2",
-       "id": "ami-1136745463"
-      }
-     },
-     "pubname": "ubuntu-trusty-14.04-amd64-server-20140118",
-     "label": "release"
-    }
-   }
-  },
-  "com.ubuntu.cloud.daily:server:12.10:amd64": {
-   "release": "quantal",
-   "version": "12.10",
-   "arch": "amd64",
-   "versions": {
-    "20121218": {
-     "items": {
-      "usww1pe": {
-       "root_store": "ebs",
-       "virt": "pv",
-       "crsn": "da1",
-       "id": "ami-26745463"
-      },
-      "usww1pe2": {
-       "root_store": "ebs",
-       "virt": "pv",
-       "crsn": "da2",
-       "id": "ami-1126745463"
-      }
-     },
-     "pubname": "ubuntu-quantal-12.10-amd64-server-20121218",
-     "label": "release"
-    }
-   }
-  }
- },
- "_aliases": {
-  "crsn": {
-   "da1": {
-    "region": "dummy_region",
-    "endpoint": "https://anywhere"
-   },
-   "da2": {
-    "region": "another_dummy_region",
-    "endpoint": ""
-   }
-  }
- },
- "format": "products:1.0"
-}
-`,
 }

@@ -23,9 +23,6 @@ const LogErrorStack = "log-error-stack"
 // instead of systemd for vivid and newer.
 const LegacyUpstart = "legacy-upstart"
 
-// ImageMetadata allows custom image metadata to be recorded in state.
-const ImageMetadata = "image-metadata"
-
 // DeveloperMode allows access to developer specific commands and behaviour.
 const DeveloperMode = "developer-mode"
 

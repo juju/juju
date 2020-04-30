@@ -420,7 +420,6 @@ func (s *environBrokerSuite) TestImageSourcesDefault(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkSources(c, sources, []string{
-		"https://streams.canonical.com/juju/images/releases/",
 		"https://cloud-images.ubuntu.com/releases/",
 	})
 }
@@ -439,7 +438,6 @@ func (s *environBrokerSuite) TestImageMetadataURL(c *gc.C) {
 
 	s.checkSources(c, sources, []string{
 		"https://my-test.com/images/",
-		"https://streams.canonical.com/juju/images/releases/",
 		"https://cloud-images.ubuntu.com/releases/",
 	})
 }
@@ -459,7 +457,6 @@ func (s *environBrokerSuite) TestImageMetadataURLEnsuresHTTPS(c *gc.C) {
 
 	s.checkSources(c, sources, []string{
 		"https://my-test.com/images/",
-		"https://streams.canonical.com/juju/images/releases/",
 		"https://cloud-images.ubuntu.com/releases/",
 	})
 }
@@ -477,7 +474,6 @@ func (s *environBrokerSuite) TestImageStreamReleased(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkSources(c, sources, []string{
-		"https://streams.canonical.com/juju/images/releases/",
 		"https://cloud-images.ubuntu.com/releases/",
 	})
 }
@@ -495,7 +491,6 @@ func (s *environBrokerSuite) TestImageStreamDaily(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkSources(c, sources, []string{
-		"https://streams.canonical.com/juju/images/daily/",
 		"https://cloud-images.ubuntu.com/daily/",
 	})
 }
