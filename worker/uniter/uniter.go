@@ -353,6 +353,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				ContainerRunningStatusChannel: u.containerRunningStatusChannel,
 				ContainerRunningStatusFunc:    u.containerRunningStatusFunc,
 				ModelType:                     u.modelType,
+				Logger:                        u.logger.Child("remotestate"),
 			})
 		if err != nil {
 			return errors.Trace(err)
