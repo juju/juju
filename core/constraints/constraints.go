@@ -348,6 +348,7 @@ func ParseWithAliases(args ...string) (cons Value, aliases map[string]string, er
 				val = currentValue
 				if canonical, ok := rawAliases[currentName]; ok {
 					aliases[currentName] = canonical
+					name = canonical
 				}
 			} else if name != "" {
 				val += " " + currentValue
@@ -601,9 +602,6 @@ func (v *Value) setCpuPower(str string) (err error) {
 }
 
 func (v *Value) setInstanceType(str string) error {
-	if v.InstanceType != nil {
-		return errors.Errorf("already set")
-	}
 	v.InstanceType = &str
 	return nil
 }
