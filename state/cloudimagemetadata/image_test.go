@@ -89,14 +89,6 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataWithDateCreated(c *gc.C) {
 }
 
 func (s *cloudImageMetadataSuite) TestSaveMetadataExpiry(c *gc.C) {
-	s.assertSaveMetadataExpiry(c, true)
-}
-
-func (s *cloudImageMetadataSuite) TestSaveMetadataNoExpiry(c *gc.C) {
-	s.assertSaveMetadataExpiry(c, false)
-}
-
-func (s *cloudImageMetadataSuite) assertSaveMetadataExpiry(c *gc.C, expires bool) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region-test",
@@ -107,16 +99,16 @@ func (s *cloudImageMetadataSuite) assertSaveMetadataExpiry(c *gc.C, expires bool
 		RootStorageType: "rootStorageType-test",
 		Source:          "test",
 	}
+	customAttrs := attrs
+	customAttrs.Source = "custom"
 	now := coretesting.NonZeroTime().UnixNano()
-	metadata := []cloudimagemetadata.Metadata{{attrs, 0, "1", now}}
+	metadata := []cloudimagemetadata.Metadata{
+		{attrs, 0, "1", now},
+		{customAttrs, 0, "2", now},
+	}
 	s.assertNoMetadata(c)
 
-	var err error
-	if expires {
-		err = s.storage.SaveMetadata(metadata)
-	} else {
-		err = s.storage.SaveMetadataNoExpiry(metadata)
-	}
+	err := s.storage.SaveMetadata(metadata)
 	c.Assert(err, jc.ErrorIsNil)
 	coll, closer := s.access.GetCollection(collectionName)
 	defer closer()
@@ -125,6 +117,7 @@ func (s *cloudImageMetadataSuite) assertSaveMetadataExpiry(c *gc.C, expires bool
 	err = coll.Find(nil).All(&all)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, record := range all {
+		expires := record["source"] != "custom"
 		expiresAt, ok := record["expire-at"].(time.Time)
 		c.Assert(ok, gc.Equals, expires)
 		if expires {

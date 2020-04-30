@@ -2182,7 +2182,7 @@ func (s *upgradesSuite) TestDeleteCloudImageMetadata(c *gc.C) {
 		{attrs1, 0, "1", now},
 		{attrs2, 0, "2", now},
 	}
-	err := stor.SaveMetadataNoExpiry(added)
+	err := stor.SaveMetadata(added)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []bson.M{{

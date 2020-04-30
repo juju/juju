@@ -103,6 +103,18 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 // Save stores given cloud image metadata.
 // It supports bulk calls.
 func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, error) {
+	model, err := api.metadata.Model()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for _, mList := range metadata.Metadata {
+		for i, m := range mList.Metadata {
+			if m.Region == "" {
+				m.Region = model.CloudRegion()
+				mList.Metadata[i] = m
+			}
+		}
+	}
 	all, err := imagecommon.Save(api.metadata, metadata)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)

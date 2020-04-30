@@ -58,6 +58,7 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindAndDeleteMetadata(c *gc.C) {
 		VirtType:        "virtType",
 		RootStorageType: "rootStorageType",
 		ImageId:         imageId,
+		Priority:        50,
 	}
 
 	err = s.client.Save([]params.CloudImageMetadata{m})

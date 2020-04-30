@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
@@ -59,6 +60,9 @@ func ParseMetadataListFromParams(p params.CloudImageMetadataList, cfg *config.Co
 			},
 			Priority: metadata.Priority,
 			ImageId:  metadata.ImageId,
+		}
+		if metadata.Source == "custom" && metadata.Priority == 0 {
+			results[i].Priority = simplestreams.CUSTOM_CLOUD_DATA
 		}
 		// TODO (anastasiamac 2016-08-24) This is a band-aid solution.
 		// Once correct value is read from simplestreams, this needs to go.
