@@ -34,6 +34,7 @@ func (m *MockSubordinateDestroyer) EXPECT() *MockSubordinateDestroyerMockRecorde
 
 // DestroyAllSubordinates mocks base method
 func (m *MockSubordinateDestroyer) DestroyAllSubordinates() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DestroyAllSubordinates")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -41,5 +42,6 @@ func (m *MockSubordinateDestroyer) DestroyAllSubordinates() error {
 
 // DestroyAllSubordinates indicates an expected call of DestroyAllSubordinates
 func (mr *MockSubordinateDestroyerMockRecorder) DestroyAllSubordinates() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyAllSubordinates", reflect.TypeOf((*MockSubordinateDestroyer)(nil).DestroyAllSubordinates))
 }
