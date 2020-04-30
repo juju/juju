@@ -18,7 +18,7 @@ func ImageMetadataURL(source, stream string) (string, error) {
 	}
 	// If the image metadata is coming from the official cloud images site,
 	// set up the correct path according to the images stream requested.
-	if source == UbuntuCloudImagesURL || source == JujuStreamsImagesURL {
+	if source == UbuntuCloudImagesURL {
 		cloudImagesPath := ReleasedImagesPath
 		if stream != "" && stream != ReleasedStream {
 			cloudImagesPath = stream

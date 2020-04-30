@@ -254,9 +254,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set model constraints")
 	f.StringVar(&c.BootstrapConstraintsStr, "bootstrap-constraints", "", "Specify bootstrap machine constraints")
 	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine")
-	if featureflag.Enabled(feature.ImageMetadata) {
-		f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
-	}
+	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
 	if featureflag.Enabled(feature.MongoDbSnap) {
 		f.StringVar(&c.JujuDbSnapPath, "db-snap", "", "Path to a locally built .snap to use as the internal juju-db service.")

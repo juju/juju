@@ -15,7 +15,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 )
 
@@ -83,22 +82,10 @@ func (s *MetadataSuite) TestHelpCommands(c *gc.C) {
 	// Check that we have correctly registered all the sub commands
 	// by checking the help output.
 
-	// Remove add/list-image for the first test because the feature is not
-	// enabled by default.
-	devFeatures := set.NewStrings("add-image", "list-images", "delete-image")
+	cmdSet := set.NewStrings(metadataCommandNames...)
 
-	// Remove features behind dev_flag for the first test since they are not
-	// enabled.
-	cmdSet := set.NewStrings(metadataCommandNames...).Difference(devFeatures)
-
-	// Test default commands.
 	// The names should be output in alphabetical order, so don't sort.
 	c.Assert(getHelpCommandNames(c), jc.SameContents, cmdSet.Values())
-
-	// Enable development features, and test again. We should now see the
-	// development commands.
-	s.SetFeatureFlags(feature.ImageMetadata)
-	c.Assert(getHelpCommandNames(c), jc.SameContents, metadataCommandNames)
 }
 
 func (s *MetadataSuite) assertHelpOutput(c *gc.C, cmd string) {
@@ -121,16 +108,13 @@ func (s *MetadataSuite) TestHelpGenerateImage(c *gc.C) {
 }
 
 func (s *MetadataSuite) TestHelpListImages(c *gc.C) {
-	s.SetFeatureFlags(feature.ImageMetadata)
 	s.assertHelpOutput(c, "list-images")
 }
 
 func (s *MetadataSuite) TestHelpAddImage(c *gc.C) {
-	s.SetFeatureFlags(feature.ImageMetadata)
 	s.assertHelpOutput(c, "add-image")
 }
 
 func (s *MetadataSuite) TestHelpDeleteImage(c *gc.C) {
-	s.SetFeatureFlags(feature.ImageMetadata)
 	s.assertHelpOutput(c, "delete-image")
 }

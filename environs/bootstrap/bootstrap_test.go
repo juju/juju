@@ -1099,7 +1099,7 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 
 	datasources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(datasources, gc.HasLen, 3)
+	c.Assert(datasources, gc.HasLen, 2)
 	c.Assert(datasources[0].Description(), gc.Equals, "bootstrap metadata")
 	// This data source does not require to contain signed data.
 	// However, it may still contain it.
@@ -1156,7 +1156,7 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesNoTools(c *gc.C) {
 
 		datasources, err := environs.ImageMetadataSources(env)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(datasources, gc.HasLen, 3)
+		c.Assert(datasources, gc.HasLen, 2)
 		c.Assert(datasources[0].Description(), gc.Equals, "bootstrap metadata")
 	}
 }
@@ -1189,7 +1189,7 @@ func (s *bootstrapSuite) TestBootstrapMetadataToolsNoImages(c *gc.C) {
 		c.Assert(envtools.DefaultBaseURL, gc.Equals, metadataDir)
 		datasources, err := environs.ImageMetadataSources(env)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(datasources, gc.HasLen, 2)
+		c.Assert(datasources, gc.HasLen, 1)
 		c.Assert(datasources[0].Description(), gc.Not(gc.Equals), "bootstrap metadata")
 	}
 }
@@ -1319,9 +1319,8 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 
 	datasources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(datasources, gc.HasLen, 2)
-	c.Assert(datasources[0].Description(), gc.Equals, "default cloud images")
-	c.Assert(datasources[1].Description(), gc.Equals, "default ubuntu cloud images")
+	c.Assert(datasources, gc.HasLen, 1)
+	c.Assert(datasources[0].Description(), gc.Equals, "default ubuntu cloud images")
 }
 
 func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, clientMinor int, toolsVersion *version.Number) (error, int, version.Number) {

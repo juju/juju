@@ -69,7 +69,6 @@ func (s *EnvironFixture) SetUpTest(c *gc.C) {
 
 	// Make sure we don't fall back to the public image sources.
 	s.PatchValue(&imagemetadata.DefaultUbuntuBaseURL, "")
-	s.PatchValue(&imagemetadata.DefaultJujuBaseURL, "")
 	s.callCtx = context.NewCloudCallContext()
 }
 
