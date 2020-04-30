@@ -212,8 +212,31 @@ func BootstrapInstance(
 		// No zone support, so just call StartInstance with
 		// a blank StartInstanceParams.AvailabilityZone.
 		zones = []string{""}
+		if args.BootstrapConstraints.HasZones() {
+			logger.Debugf("environ doesn't support zones: ignoring bootstrap zone constraints")
+		}
 	} else if err != nil {
 		return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
+	} else if args.BootstrapConstraints.HasZones() {
+		// TODO(hpidcock): bootstrap and worker/provisioner should probably derive
+		// from the same logic regarding placement.
+		var filteredZones []string
+		for _, zone := range zones {
+			for _, zoneConstraint := range *args.BootstrapConstraints.Zones {
+				if zone == zoneConstraint {
+					filteredZones = append(filteredZones, zone)
+					break
+				}
+			}
+		}
+		if len(filteredZones) == 0 {
+			return nil, "", nil, errors.Errorf(
+				"no available zones (%+q) matching bootstrap zone constraints (%+q)",
+				zones,
+				*args.BootstrapConstraints.Zones,
+			)
+		}
+		zones = filteredZones
 	}
 
 	var result *environs.StartInstanceResult
