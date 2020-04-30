@@ -96,6 +96,7 @@ type RelationStateTrackerConfig struct {
 	CharmDir             string
 	NewLeadershipContext LeadershipContextFunc
 	Abort                <-chan struct{}
+	Logger               Logger
 }
 
 // relationStateTracker implements RelationStateTracker.
@@ -112,6 +113,7 @@ type relationStateTracker struct {
 	relationCreated map[int]bool
 	isPeerRelation  map[int]bool
 	stateMgr        StateManager
+	logger          Logger
 }
 
 // NewRelationStateTracker returns a new RelationStateTracker instance.
@@ -138,6 +140,7 @@ func NewRelationStateTracker(cfg RelationStateTrackerConfig) (RelationStateTrack
 		relationCreated: make(map[int]bool),
 		isPeerRelation:  make(map[int]bool),
 		abort:           cfg.Abort,
+		logger:          cfg.Logger,
 	}
 	if err := r.loadInitialState(); err != nil {
 		return nil, errors.Trace(err)
@@ -213,12 +216,12 @@ func (r *relationStateTracker) loadInitialState() error {
 // operation succeeds or fails; or until the abort chan is closed, in which
 // case it will return resolver.ErrLoopAborted.
 func (r *relationStateTracker) joinRelation(rel *uniter.Relation) (err error) {
-	logger.Infof("joining relation %q", rel)
+	r.logger.Infof("joining relation %q", rel)
 	ru, err := rel.Unit(r.unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	relationer := NewRelationer(ru, r.stateMgr)
+	relationer := NewRelationer(ru, r.stateMgr, r.logger)
 	unitWatcher, err := r.unit.Watch()
 	if err != nil {
 		return errors.Trace(err)
@@ -228,7 +231,7 @@ func (r *relationStateTracker) joinRelation(rel *uniter.Relation) (err error) {
 			if err == nil {
 				err = e
 			} else {
-				logger.Errorf("while stopping unit watcher: %v", e)
+				r.logger.Errorf("while stopping unit watcher: %v", e)
 			}
 		}
 	}()
@@ -244,12 +247,12 @@ func (r *relationStateTracker) joinRelation(rel *uniter.Relation) (err error) {
 			}
 			err := relationer.Join()
 			if params.IsCodeCannotEnterScopeYet(err) {
-				logger.Infof("cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
+				r.logger.Infof("cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
 				continue
 			} else if err != nil {
 				return errors.Trace(err)
 			}
-			logger.Infof("joined relation %q", rel)
+			r.logger.Infof("joined relation %q", rel)
 			// Leaders get to set the relation status.
 			var isLeader bool
 			isLeader, err = r.leaderCtx.IsLeader()
@@ -309,7 +312,7 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 		if err != nil {
 			return errors.Trace(err)
 		} else if !ep.ImplementedBy(charmSpec) {
-			logger.Warningf("skipping relation with unknown endpoint %q", ep.Name)
+			r.logger.Warningf("skipping relation with unknown endpoint %q", ep.Name)
 			continue
 		}
 

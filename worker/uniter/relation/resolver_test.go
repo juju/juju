@@ -13,6 +13,7 @@ import (
 	"github.com/juju/charm/v7"
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -157,6 +158,7 @@ func (s *relationResolverSuite) setupRelations(c *gc.C) relation.RelationStateTr
 			CharmDir:             s.charmDir,
 			NewLeadershipContext: s.leadershipContextFunc,
 			Abort:                abort,
+			Logger:               loggo.GetLogger("test"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, 4)
@@ -234,6 +236,7 @@ func (s *relationResolverSuite) assertNewRelationsWithExistingRelations(c *gc.C,
 			CharmDir:             s.charmDir,
 			NewLeadershipContext: s.leadershipContextFunc,
 			Abort:                abort,
+			Logger:               loggo.GetLogger("test"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, int32(len(apiCalls)))
@@ -254,6 +257,10 @@ func (s *relationResolverSuite) TestNewRelationsWithExistingRelationsLeader(c *g
 
 func (s *relationResolverSuite) TestNewRelationsWithExistingRelationsNotLeader(c *gc.C) {
 	s.assertNewRelationsWithExistingRelations(c, false)
+}
+
+func (s *relationResolverSuite) newRelationResolver(stateTracker relation.RelationStateTracker, subordinateDestroyer relation.SubordinateDestroyer) resolver.Resolver {
+	return relation.NewRelationResolver(stateTracker, subordinateDestroyer, loggo.GetLogger("test"))
 }
 
 func (s *relationResolverSuite) TestNextOpNothing(c *gc.C) {
@@ -279,6 +286,7 @@ func (s *relationResolverSuite) TestNextOpNothing(c *gc.C) {
 			CharmDir:             s.charmDir,
 			NewLeadershipContext: s.leadershipContextFunc,
 			Abort:                abort,
+			Logger:               loggo.GetLogger("test"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, 4)
@@ -289,7 +297,7 @@ func (s *relationResolverSuite) TestNextOpNothing(c *gc.C) {
 		},
 	}
 	remoteState := remotestate.Snapshot{}
-	relationsResolver := relation.NewRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(r, nil)
 	_, err = relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(errors.Cause(err), gc.Equals, resolver.ErrNoOperation)
 }
@@ -425,6 +433,7 @@ func (s *relationResolverSuite) assertHookRelationJoined(c *gc.C, numCalls *int3
 			CharmDir:             s.charmDir,
 			NewLeadershipContext: s.leadershipContextFunc,
 			Abort:                abort,
+			Logger:               loggo.GetLogger("test"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, numCalls, 4)
@@ -448,7 +457,7 @@ func (s *relationResolverSuite) assertHookRelationJoined(c *gc.C, numCalls *int3
 			},
 		},
 	}
-	relationsResolver := relation.NewRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(r, nil)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, numCalls, 11)
@@ -482,7 +491,7 @@ func (s *relationResolverSuite) assertHookRelationChanged(
 			1: remoteRelationSnapshot,
 		},
 	}
-	relationsResolver := relation.NewRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(r, nil)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, numCalls, numCallsBefore)
@@ -584,7 +593,7 @@ func (s *relationResolverSuite) TestHookRelationChangedApplication(c *gc.C) {
 			},
 		},
 	}
-	relationsResolver := relation.NewRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(r, nil)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	// No new calls
@@ -622,7 +631,7 @@ func (s *relationResolverSuite) TestHookRelationChangedSuspended(c *gc.C) {
 		},
 	}
 
-	relationsResolver := relation.NewRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(r, nil)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, numCallsBefore+2) // Refresh/Life calls made by the resolver prior to emitting a RelationDeparted hook
@@ -652,7 +661,7 @@ func (s *relationResolverSuite) assertHookRelationDeparted(c *gc.C, numCalls *in
 			},
 		},
 	}
-	relationsResolver := relation.NewRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(r, nil)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, numCalls, numCallsBefore+2) // Refresh/Life calls made by the resolver prior to emitting a RelationDeparted hook
@@ -691,7 +700,7 @@ func (s *relationResolverSuite) TestHookRelationBroken(c *gc.C) {
 			},
 		},
 	}
-	relationsResolver := relation.NewRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(r, nil)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, 16)
@@ -717,7 +726,7 @@ func (s *relationResolverSuite) TestHookRelationBrokenWhenSuspended(c *gc.C) {
 			},
 		},
 	}
-	relationsResolver := relation.NewRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(r, nil)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, 16)
@@ -760,7 +769,7 @@ func (s *relationResolverSuite) TestHookRelationBrokenOnlyOnce(c *gc.C) {
 		},
 	}
 	// Get RelationBroken once.
-	relationsResolver := relation.NewRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(r, nil)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -883,6 +892,7 @@ func (s *relationResolverSuite) TestImplicitRelationNoHooks(c *gc.C) {
 			CharmDir:             s.charmDir,
 			NewLeadershipContext: s.leadershipContextFunc,
 			Abort:                abort,
+			Logger:               loggo.GetLogger("test"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -901,7 +911,7 @@ func (s *relationResolverSuite) TestImplicitRelationNoHooks(c *gc.C) {
 			},
 		},
 	}
-	relationsResolver := relation.NewRelationResolver(r, nil)
+	relationsResolver := s.newRelationResolver(r, nil)
 	_, err = relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(errors.Cause(err), gc.Equals, resolver.ErrNoOperation)
 }
@@ -1034,6 +1044,7 @@ func (s *relationResolverSuite) TestSubSubPrincipalRelationDyingDestroysUnit(c *
 			CharmDir:             s.charmDir,
 			NewLeadershipContext: s.leadershipContextFunc,
 			Abort:                make(chan struct{}),
+			Logger:               loggo.GetLogger("test"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, callsBeforeDestroy)
@@ -1065,7 +1076,7 @@ func (s *relationResolverSuite) TestSubSubPrincipalRelationDyingDestroysUnit(c *
 		},
 	}
 
-	relationResolver := relation.NewRelationResolver(r, nil)
+	relationResolver := s.newRelationResolver(r, nil)
 	_, err = relationResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1101,6 +1112,7 @@ func (s *relationResolverSuite) TestSubSubOtherRelationDyingNotDestroyed(c *gc.C
 			CharmDir:             s.charmDir,
 			NewLeadershipContext: s.leadershipContextFunc,
 			Abort:                make(chan struct{}),
+			Logger:               loggo.GetLogger("test"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1137,7 +1149,7 @@ func (s *relationResolverSuite) TestSubSubOtherRelationDyingNotDestroyed(c *gc.C
 		},
 	}
 
-	relationResolver := relation.NewRelationResolver(r, nil)
+	relationResolver := s.newRelationResolver(r, nil)
 	_, err = relationResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1231,6 +1243,7 @@ func (s *relationResolverSuite) TestPrincipalDyingDestroysSubordinates(c *gc.C) 
 			CharmDir:             s.charmDir,
 			NewLeadershipContext: s.leadershipContextFunc,
 			Abort:                make(chan struct{}),
+			Logger:               loggo.GetLogger("test"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, callsBeforeDestroy)
@@ -1258,7 +1271,7 @@ func (s *relationResolverSuite) TestPrincipalDyingDestroysSubordinates(c *gc.C) 
 
 	destroyer := mocks.NewMockSubordinateDestroyer(ctrl)
 	destroyer.EXPECT().DestroyAllSubordinates().Return(nil)
-	relationResolver := relation.NewRelationResolver(r, destroyer)
+	relationResolver := s.newRelationResolver(r, destroyer)
 	_, err = relationResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 

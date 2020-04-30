@@ -4,14 +4,14 @@
 package container
 
 import (
-	"github.com/juju/loggo"
-
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
 )
 
-var logger = loggo.GetLogger("juju.worker.uniter.container")
+// Logger is here to stop the desire of creating a package level Logger.
+// Don't do this, instead pass one in to the NewResolver function.
+var logger interface{}
 
 type containerResolver struct{}
 

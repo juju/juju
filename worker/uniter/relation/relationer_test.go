@@ -10,6 +10,7 @@ import (
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/juju/api"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -36,6 +37,7 @@ type relationerSuite struct {
 	st         api.Connection
 	uniter     *apiuniter.State
 	apiRelUnit *apiuniter.RelationUnit
+	logger     loggo.Logger
 }
 
 var _ = gc.Suite(&relationerSuite{})
@@ -70,6 +72,8 @@ func (s *relationerSuite) SetUpTest(c *gc.C) {
 
 	s.mgr, err = relation.NewStateManager(apiUnit)
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.logger = loggo.GetLogger("test")
 }
 
 func (s *relationerSuite) AddRelationUnit(c *gc.C, name string) (*state.RelationUnit, *state.Unit) {
@@ -90,10 +94,14 @@ func (s *relationerSuite) AddRelationUnit(c *gc.C, name string) (*state.Relation
 	return ru, u
 }
 
+func (s *relationerSuite) newRelationer() *relation.Relationer {
+	return relation.NewRelationer(s.apiRelUnit, s.mgr, s.logger)
+}
+
 func (s *relationerSuite) TestEnterLeaveScope(c *gc.C) {
 	ru1, _ := s.AddRelationUnit(c, "u/1")
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-	r := relation.NewRelationer(s.apiRelUnit, s.mgr)
+	r := s.newRelationer()
 
 	w := ru1.Watch()
 	// u/1 does not consider u/0 to be alive.
@@ -122,7 +130,7 @@ func (s *relationerSuite) TestEnterLeaveScope(c *gc.C) {
 }
 
 func (s *relationerSuite) TestPrepareCommitHooks(c *gc.C) {
-	r := relation.NewRelationer(s.apiRelUnit, s.mgr)
+	r := s.newRelationer()
 	err := r.Join()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -203,7 +211,7 @@ func (s *relationerSuite) TestSetDying(c *gc.C) {
 	settings := map[string]interface{}{"unit": "settings"}
 	err := ru1.EnterScope(settings)
 	c.Assert(err, jc.ErrorIsNil)
-	r := relation.NewRelationer(s.apiRelUnit, s.mgr)
+	r := s.newRelationer()
 	err = r.Join()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -285,7 +293,7 @@ func (s *relationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	apiRelUnit, err := apiRel.Unit(apiUnit)
 	c.Assert(err, jc.ErrorIsNil)
 
-	r := relation.NewRelationer(apiRelUnit, mgr)
+	r := relation.NewRelationer(apiRelUnit, mgr, loggo.GetLogger("test"))
 	c.Assert(r, jc.Satisfies, (*relation.Relationer).IsImplicit)
 
 	// Hooks are not allowed.
