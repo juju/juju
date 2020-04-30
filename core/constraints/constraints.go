@@ -259,6 +259,12 @@ func (v Value) String() string {
 		s := strings.Join(*v.Zones, ",")
 		strs = append(strs, "zones="+s)
 	}
+
+	// Ensure constraint values with spaces are properly escaped
+	for i := 0; i < len(strs); i++ {
+		strs[i] = strings.Replace(strs[i], " ", `\ `, -1)
+	}
+
 	return strings.Join(strs, " ")
 }
 
@@ -330,28 +336,23 @@ func Parse(args ...string) (Value, error) {
 func ParseWithAliases(args ...string) (cons Value, aliases map[string]string, err error) {
 	aliases = make(map[string]string)
 	for _, arg := range args {
-		name, val := "", ""
+		// Replace slash-escaped spaces with a null byte so we can
+		// safely split on remaining whitespace.
+		arg = strings.Replace(arg, `\ `, "\x00", -1)
 		raws := strings.Split(strings.TrimSpace(arg), " ")
 		for _, raw := range raws {
+			// Replace null bytes back to spaces
+			raw = strings.TrimSpace(strings.Replace(raw, "\x00", " ", -1))
 			if raw == "" {
 				continue
 			}
-			currentName, currentValue, err := splitRaw(raw)
+			name, val, err := splitRaw(raw)
 			if err != nil {
 				return Value{}, nil, errors.Trace(err)
 			}
-			if currentName == "" && name == "" {
-				return Value{}, nil, errors.Errorf("malformed constraint %q", currentValue)
-			}
-			if currentName != "" {
-				name = currentName
-				val = currentValue
-				if canonical, ok := rawAliases[currentName]; ok {
-					aliases[currentName] = canonical
-					name = canonical
-				}
-			} else if name != "" {
-				val += " " + currentValue
+			if canonical, ok := rawAliases[name]; ok {
+				aliases[name] = canonical
+				name = canonical
 			}
 			if err := cons.setRaw(name, val); err != nil {
 				return Value{}, aliases, errors.Trace(err)
@@ -442,7 +443,7 @@ func (v *Value) without(attrTags ...string) Value {
 func splitRaw(s string) (name, val string, err error) {
 	eq := strings.Index(s, "=")
 	if eq <= 0 {
-		return "", s, nil
+		return "", "", errors.Errorf("malformed constraint %q", s)
 	}
 	return s[:eq], s[eq+1:], nil
 }
@@ -602,6 +603,9 @@ func (v *Value) setCpuPower(str string) (err error) {
 }
 
 func (v *Value) setInstanceType(str string) error {
+	if v.InstanceType != nil {
+		return errors.Errorf("already set")
+	}
 	v.InstanceType = &str
 	return nil
 }
@@ -672,6 +676,9 @@ func (v *Value) setVirtType(str string) error {
 }
 
 func (v *Value) setZones(str string) error {
+	if v.Zones != nil {
+		return errors.Errorf("already set")
+	}
 	v.Zones = parseCommaDelimited(str)
 	return nil
 }
