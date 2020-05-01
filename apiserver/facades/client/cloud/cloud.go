@@ -28,6 +28,21 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.cloud")
 
+// CloudV7 defines the methods on the cloud API facade, version 7.
+type CloudV7 interface {
+	AddCloud(cloudArgs params.AddCloudArgs) error
+	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	Cloud(args params.Entities) (params.CloudResults, error)
+	Clouds() (params.CloudsResult, error)
+	Credential(args params.Entities) (params.CloudCredentialResults, error)
+	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
+	ModifyCloudAccess(args params.ModifyCloudAccessRequest) (params.ErrorResults, error)
+	RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error)
+	UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
+	UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.ErrorResults, error)
+}
+
 // CloudV6 defines the methods on the cloud API facade, version 6.
 type CloudV6 interface {
 	AddCloud(cloudArgs params.AddCloudArgs) error
@@ -130,10 +145,16 @@ type CloudAPI struct {
 	pool                   ModelPoolBackend
 }
 
+// CloudAPIV6 provides a way to wrap the different calls
+// between version 6 and version 7 of the cloud API.
+type CloudAPIV6 struct {
+	*CloudAPI
+}
+
 // CloudAPIV5 provides a way to wrap the different calls
 // between version 5 and version 6 of the cloud API.
 type CloudAPIV5 struct {
-	*CloudAPI
+	*CloudAPIV6
 }
 
 // CloudAPIV4 provides a way to wrap the different calls
@@ -161,7 +182,8 @@ type CloudAPIV1 struct {
 }
 
 var (
-	_ CloudV6 = (*CloudAPI)(nil)
+	_ CloudV7 = (*CloudAPI)(nil)
+	_ CloudV6 = (*CloudAPIV6)(nil)
 	_ CloudV5 = (*CloudAPIV5)(nil)
 	_ CloudV4 = (*CloudAPIV4)(nil)
 	_ CloudV3 = (*CloudAPIV3)(nil)
@@ -169,12 +191,21 @@ var (
 	_ CloudV1 = (*CloudAPIV1)(nil)
 )
 
-// NewFacadeV6 is used for API registration.
-func NewFacadeV6(context facade.Context) (*CloudAPI, error) {
+// NewFacadeV7 is used for API registration.
+func NewFacadeV7(context facade.Context) (*CloudAPI, error) {
 	st := NewStateBackend(context.State())
 	pool := NewModelPoolBackend(context.StatePool())
 	ctlrSt := NewStateBackend(pool.SystemState())
 	return NewCloudAPI(st, ctlrSt, pool, context.Auth())
+}
+
+// NewFacadeV6 is used for API registration.
+func NewFacadeV6(context facade.Context) (*CloudAPIV6, error) {
+	v6, err := NewFacadeV7(context)
+	if err != nil {
+		return nil, err
+	}
+	return &CloudAPIV6{v6}, nil
 }
 
 // NewFacadeV5 is used for API registration.
@@ -572,9 +603,12 @@ func (api *CloudAPI) AddCredentials(args params.TaggedCredentials) (params.Error
 // If there are any models that are using a credential and these models or their
 // cloud instances are not going to be accessible with corresponding credential,
 // there will be detailed validation errors per model.
-func (api *CloudAPI) CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
-	return api.commonUpdateCredentials(false, false, args)
+func (api *CloudAPIV6) CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
+	return api.commonUpdateCredentials(false, false, true, args)
 }
+
+// CheckCredentialsModels is gone in V7.
+func (*CloudAPI) CheckCredentialsModels(_, _ struct{}) {}
 
 // UpdateCredentialsCheckModels updates a set of cloud credentials' content.
 // If there are any models that are using a credential and these models
@@ -582,11 +616,22 @@ func (api *CloudAPI) CheckCredentialsModels(args params.TaggedCredentials) (para
 // there will be detailed validation errors per model.
 // Controller admins can 'force' an update of the credential
 // regardless of whether it is deemed valid or not.
-func (api *CloudAPI) UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error) {
-	return api.commonUpdateCredentials(true, args.Force, params.TaggedCredentials{args.Credentials})
+func (api *CloudAPIV6) UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error) {
+	return api.commonUpdateCredentials(true, args.Force, true, params.TaggedCredentials{args.Credentials})
 }
 
-func (api *CloudAPI) commonUpdateCredentials(update bool, force bool, args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
+// UpdateCredentialsCheckModels updates a set of cloud credentials' content.
+// If there are any models that are using a credential and these models
+// are not going to be visible with updated credential content,
+// there will be detailed validation errors per model.  Such model errors are returned
+// separately and do not contribute to the overall method error status.
+// Controller admins can 'force' an update of the credential
+// regardless of whether it is deemed valid or not.
+func (api *CloudAPI) UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error) {
+	return api.commonUpdateCredentials(true, args.Force, false, params.TaggedCredentials{args.Credentials})
+}
+
+func (api *CloudAPI) commonUpdateCredentials(update bool, force, legacy bool, args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
 	if force {
 		// Only controller admins can ask for an update to be forced.
 		isControllerAdmin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
@@ -624,7 +669,9 @@ func (api *CloudAPI) commonUpdateCredentials(update bool, force bool, args param
 
 		models, err := api.credentialModels(tag)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			if legacy || !force {
+				results[i].Error = common.ServerError(err)
+			}
 			if !force {
 				// Could not determine if credential has models - do not continue updating this credential...
 				continue
@@ -654,7 +701,9 @@ func (api *CloudAPI) commonUpdateCredentials(update bool, force bool, args param
 		}
 
 		if modelsErred {
-			results[i].Error = common.ServerError(errors.New("some models are no longer visible"))
+			if legacy {
+				results[i].Error = common.ServerError(errors.New("some models are no longer visible"))
+			}
 			if !force {
 				// Some models that use this credential do not like the new content, do not update the credential...
 				continue
@@ -731,7 +780,7 @@ func (api *CloudAPIV2) UpdateCredentials(args params.TaggedCredentials) (params.
 		Results: make([]params.ErrorResult, len(args.Credentials)),
 	}
 
-	updateResults, err := api.commonUpdateCredentials(true, false, args)
+	updateResults, err := api.commonUpdateCredentials(true, false, true, args)
 	if err != nil {
 		return results, err
 	}

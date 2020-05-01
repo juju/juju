@@ -1172,6 +1172,37 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsError(c *gc.C) {
 	c.Assert(s.called, jc.IsTrue)
 }
 
+func (s *cloudSuite) TestUpdateCloudsCredentialsMasksLegacyError(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
+				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
+					Results: []params.UpdateCredentialResult{
+						{CredentialTag: "cloudcred-foo_bob_bar0",
+							Error: common.ServerError(errors.New("some models are no longer visible")),
+						},
+					},
+				}
+				s.called = true
+				return nil
+			},
+		),
+		BestVersion: 6,
+	}
+	client := cloudapi.NewClient(apiCaller)
+	errs, err := client.UpdateCloudsCredentials(createCredentials(1), false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialResult{
+		{CredentialTag: "cloudcred-foo_bob_bar0"},
+	})
+	c.Assert(s.called, jc.IsTrue)
+}
+
 func (s *cloudSuite) TestUpdateCloudsCredentialsCallErrorV2(c *gc.C) {
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
