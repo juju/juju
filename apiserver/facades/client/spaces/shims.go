@@ -118,10 +118,12 @@ func (s *stateShim) AllEndpointBindings() ([]ApplicationEndpointBindingsShim, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	all := make([]ApplicationEndpointBindingsShim, len(endpointBindings))
-	for i, value := range endpointBindings {
-		all[i].AppName = value.AppName
-		all[i].Bindings = value.Bindings.Map()
+	all := make([]ApplicationEndpointBindingsShim, 0, len(endpointBindings))
+	for app, bindings := range endpointBindings {
+		all = append(all, ApplicationEndpointBindingsShim{
+			AppName:  app,
+			Bindings: bindings.Map(),
+		})
 	}
 	return all, nil
 }
