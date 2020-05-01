@@ -91,17 +91,42 @@ func (s *K8sSuite) TestPushUniqueVolume(c *gc.C) {
 			},
 		},
 	}
-	provider.PushUniqueVolume(podSpec, vol1)
+	aDifferentVol2 := core.Volume{
+		Name: "vol2",
+		VolumeSource: core.VolumeSource{
+			HostPath: &core.HostPathVolumeSource{
+				Path: "/var/log/foo",
+			},
+		},
+	}
+	err := provider.PushUniqueVolume(podSpec, vol1, false)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
 		vol1,
 	})
-	provider.PushUniqueVolume(podSpec, vol1)
+
+	err = provider.PushUniqueVolume(podSpec, vol1, false)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
 		vol1,
 	})
-	provider.PushUniqueVolume(podSpec, vol2)
+
+	err = provider.PushUniqueVolume(podSpec, vol2, false)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
 		vol1, vol2,
+	})
+
+	err = provider.PushUniqueVolume(podSpec, aDifferentVol2, false)
+	c.Assert(err, gc.ErrorMatches, `duplicated volume "vol2" not valid`)
+	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
+		vol1, vol2,
+	})
+
+	err = provider.PushUniqueVolume(podSpec, aDifferentVol2, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
+		vol1, aDifferentVol2,
 	})
 }
 

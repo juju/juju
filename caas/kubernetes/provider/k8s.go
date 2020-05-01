@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"encoding/json"
+	// "encoding/json"
 	"fmt"
 	"io"
 	"regexp"
@@ -1218,119 +1218,6 @@ func randomPrefix() (string, error) {
 		return "", errors.Trace(err)
 	}
 	return fmt.Sprintf("%x", randPrefixBytes), nil
-}
-
-// Upgrade sets the OCI image for the app's operator to the specified version.
-func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
-	var resourceName string
-	isController := appName == JujuControllerStackName
-	if isController {
-		// upgrading controller.
-		resourceName = appName
-	} else {
-		// upgrading operator.
-		resourceName = k.operatorName(appName)
-	}
-	logger.Debugf("Upgrading %q", resourceName)
-
-	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
-	existingStatefulSet, err := statefulsets.Get(resourceName, v1.GetOptions{})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-	// TODO(wallyworld) - only support stateful set at the moment
-	if err != nil {
-		return errors.NotSupportedf("upgrading %v", appName)
-	}
-	var operatorImagePath string
-	for i, c := range existingStatefulSet.Spec.Template.Spec.Containers {
-		if !podcfg.IsJujuOCIImage(c.Image) {
-			continue
-		}
-		operatorImagePath = podcfg.RebuildOldOperatorImagePath(c.Image, vers)
-		if operatorImagePath != c.Image {
-			logger.Infof("upgrading from %q to %q", c.Image, operatorImagePath)
-		}
-		c.Image = operatorImagePath
-		existingStatefulSet.Spec.Template.Spec.Containers[i] = c
-	}
-
-	// update juju-version annotation.
-	// TODO(caas): consider how to upgrade to current annotations format safely.
-	// just ensure juju-version to current version for now.
-	existingStatefulSet.SetAnnotations(
-		k8sannotations.New(existingStatefulSet.GetAnnotations()).
-			Add(labelVersion, vers.String()).ToMap(),
-	)
-	existingStatefulSet.Spec.Template.SetAnnotations(
-		k8sannotations.New(existingStatefulSet.Spec.Template.GetAnnotations()).
-			Add(labelVersion, vers.String()).ToMap(),
-	)
-
-	_, err = statefulsets.Update(existingStatefulSet)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if isController {
-		return nil
-	}
-
-	if len(operatorImagePath) == 0 {
-		// This should never happen.
-		return errors.NotValidf("no resources have been upgradable for application %q", appName)
-	}
-	return errors.Trace(k.upgradeJujuInitContainer(appName, operatorImagePath))
-}
-
-func (k *kubernetesClient) upgradeJujuInitContainer(appName, operatorImagePath string) error {
-	deploymentName := k.deploymentName(appName, true)
-
-	var data []byte
-	sResource, err := k.getStatefulSet(deploymentName)
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	} else if err == nil {
-		if err := ensureJujuInitContainer(&sResource.Spec.Template.Spec, operatorImagePath); err != nil {
-			return errors.Trace(err)
-		}
-		if data, err = json.Marshal(apps.StatefulSet{Spec: sResource.Spec}); err != nil {
-			return errors.Trace(err)
-		}
-		logger.Criticalf("sleeping 30s")
-		time.Sleep(30 * time.Second)
-		logger.Criticalf("wake up after 30s")
-		_, err = k.client().AppsV1().StatefulSets(k.namespace).Patch(sResource.GetName(), k8stypes.StrategicMergePatchType, data)
-		return errors.Trace(err)
-	}
-
-	deResource, err := k.getDeployment(deploymentName)
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	} else if err == nil {
-		if err := ensureJujuInitContainer(&deResource.Spec.Template.Spec, operatorImagePath); err != nil {
-			return errors.Trace(err)
-		}
-		if data, err = json.Marshal(apps.Deployment{Spec: deResource.Spec}); err != nil {
-			return errors.Trace(err)
-		}
-		_, err = k.client().AppsV1().Deployments(k.namespace).Patch(deResource.GetName(), k8stypes.StrategicMergePatchType, data)
-		return errors.Trace(err)
-	}
-
-	daResource, err := k.getDaemonSet(deploymentName)
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	} else if err == nil {
-		if err := ensureJujuInitContainer(&daResource.Spec.Template.Spec, operatorImagePath); err != nil {
-			return errors.Trace(err)
-		}
-		if data, err = json.Marshal(apps.DaemonSet{Spec: daResource.Spec}); err != nil {
-			return errors.Trace(err)
-		}
-		_, err = k.client().AppsV1().DaemonSets(k.namespace).Patch(daResource.GetName(), k8stypes.StrategicMergePatchType, data)
-		return errors.Trace(err)
-	}
-	return nil
 }
 
 func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
