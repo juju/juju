@@ -6601,65 +6601,6 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefaultWaitForUnit(c *gc.C) {
 	}
 }
 
-func (s *K8sBrokerSuite) TestUpgradeController(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	ss := apps.StatefulSet{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "controller",
-			Annotations: map[string]string{
-				"juju-version": "1.1.1",
-			},
-			Labels: map[string]string{"juju-operator": "controller"},
-		},
-		Spec: apps.StatefulSetSpec{
-			RevisionHistoryLimit: int32Ptr(0),
-			Template: core.PodTemplateSpec{
-				ObjectMeta: v1.ObjectMeta{
-					Annotations: map[string]string{
-						"juju-version": "1.1.1",
-					},
-				},
-				Spec: core.PodSpec{
-					Containers: []core.Container{
-						{Image: "foo"},
-						{Image: "jujud-operator:1.1.1"},
-					},
-				},
-			},
-		},
-	}
-	updated := ss
-	updated.Annotations["juju-version"] = "6.6.6"
-	updated.Spec.Template.Annotations["juju-version"] = "6.6.6"
-	updated.Spec.Template.Spec.Containers[1].Image = "juju-operator:6.6.6"
-	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get("controller", v1.GetOptions{}).
-			Return(&ss, nil),
-		s.mockStatefulSets.EXPECT().Update(&updated).
-			Return(nil, nil),
-	)
-
-	err := s.broker.Upgrade("controller", version.MustParse("6.6.6"))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *K8sBrokerSuite) TestUpgradeNotSupported(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-	)
-
-	err := s.broker.Upgrade("test-app", version.MustParse("6.6.6"))
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-}
-
 func initContainers() []core.Container {
 	jujudCmd := "export JUJU_DATA_DIR=/var/lib/juju\nexport JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools\n\nmkdir -p $JUJU_TOOLS_DIR\ncp /opt/jujud $JUJU_TOOLS_DIR/jujud"
 	jujudCmd += `

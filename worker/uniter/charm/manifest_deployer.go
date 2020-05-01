@@ -120,11 +120,11 @@ func (d *manifestDeployer) Deploy() (err error) {
 		}
 	}
 
-	// Overwrite whatever's in place with the staged charm.
-	d.logger.Debugf("deploying charm %q", d.staged.url)
-	if err := d.staged.bundle.ExpandTo(d.charmPath); err != nil {
-		return err
-	}
+	// // Overwrite whatever's in place with the staged charm.
+	// d.logger.Debugf("deploying charm %q", d.staged.url)
+	// if err := d.staged.bundle.ExpandTo(d.charmPath); err != nil {
+	// 	return err
+	// }
 
 	// Move the deploying file over the charm URL file, and we're done.
 	return d.finishDeploy()

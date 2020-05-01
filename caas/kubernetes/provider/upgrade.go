@@ -4,66 +4,22 @@
 package provider
 
 import (
-	// "bytes"
-	"context"
-	// "crypto/rand"
 	"encoding/json"
-	// "fmt"
-	// "io"
-	// "regexp"
-	// "sort"
-	// "strconv"
-	// "strings"
-	// "sync"
 	"time"
 
-	// jujuclock "github.com/juju/clock"
-	// "github.com/juju/collections/set"
 	"github.com/juju/errors"
-	// "github.com/juju/loggo"
-	// "github.com/juju/utils/arch"
 	"github.com/juju/version"
-	// "github.com/kr/pretty"
-	// "gopkg.in/juju/names.v3"
 	apps "k8s.io/api/apps/v1"
-	// core "k8s.io/api/core/v1"
-	// "k8s.io/api/extensions/v1beta1"
-	// k8sstorage "k8s.io/api/storage/v1"
-	// apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	// "k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	// k8slabels "k8s.io/apimachinery/pkg/labels"
 	k8stypes "k8s.io/apimachinery/pkg/types"
-	// "k8s.io/apimachinery/pkg/util/intstr"
-	// k8syaml "k8s.io/apimachinery/pkg/util/yaml"
-	// "k8s.io/client-go/dynamic"
-	// "k8s.io/client-go/informers"
-	// "k8s.io/client-go/kubernetes"
-	// "k8s.io/client-go/rest"
 
-	// "github.com/juju/juju/caas"
-	// k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	// "github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	k8sannotations "github.com/juju/juju/core/annotations"
-	// "github.com/juju/juju/core/application"
-	// "github.com/juju/juju/core/constraints"
-	// "github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/status"
-	// "github.com/juju/juju/core/network"
-	// "github.com/juju/juju/core/paths"
-	// "github.com/juju/juju/core/status"
-	// "github.com/juju/juju/core/watcher"
-	// "github.com/juju/juju/environs"
-	// "github.com/juju/juju/environs/config"
-	// envcontext "github.com/juju/juju/environs/context"
-	// "github.com/juju/juju/environs/tags"
-	// "github.com/juju/juju/storage"
+	"github.com/juju/juju/core/watcher"
 )
 
-//
 const applicationUpgradeTimeoutSeconds = 30
 
 // Upgrade sets the OCI image for the app's operator to the specified version.
@@ -86,26 +42,31 @@ func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
 		return errors.NotValidf("no resource is upgradable for application %q", appName)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), applicationUpgradeTimeoutSeconds*time.Second)
-	defer cancel()
-	watcher, err := k.WatchOperator(appName)
+	var opWatcher watcher.NotifyWatcher
+	opWatcher, err = k.WatchOperator(appName)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer opWatcher.Kill()
 
 	for {
 		select {
-		case <-ctx.Done():
-			logger.Criticalf(`UpgradeUpgradeUpgrade -> %q`, errors.Annotatef(ctx.Err(), "waiting for the upgraded operator ready for %q", appName))
-			// return errors.Annotatef(ctx.Err(), "waiting for the upgraded operator ready for %q", appName)
-			break
-		case <-watcher.Changes():
+		case <-k.clock.After(applicationUpgradeTimeoutSeconds * time.Second):
+			return errors.Timeoutf("timeout while waiting for the upgraded operator of %q ready", appName)
+		case _, ok := <-opWatcher.Changes():
+			if !ok {
+				opWatcher, err = k.WatchOperator(appName)
+				if err != nil {
+					return errors.Trace(err)
+				}
+			}
 			operator, err := k.Operator(appName)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			logger.Criticalf("operator.Status.Status -> %#v, operator.Status.Status == status.Running -> %v", operator.Status.Status, operator.Status.Status == status.Running)
+			logger.Criticalf("upgradeJujuInitContainer operator.Status.Status == status.Running-> %v", operator.Status.Status == status.Running)
 			if operator.Status.Status == status.Running {
+				// Operator has been stabilised, now we upgrade init containers.
 				return errors.Trace(k.upgradeJujuInitContainer(appName, operatorImagePath))
 			}
 		}
@@ -168,9 +129,6 @@ func (k *kubernetesClient) upgradeJujuInitContainer(appName, operatorImagePath s
 		if data, err = json.Marshal(apps.StatefulSet{Spec: sResource.Spec}); err != nil {
 			return errors.Trace(err)
 		}
-		logger.Criticalf("sleeping 30s")
-		time.Sleep(30 * time.Second)
-		logger.Criticalf("wake up after 30s")
 		_, err = k.client().AppsV1().StatefulSets(k.namespace).Patch(sResource.GetName(), k8stypes.StrategicMergePatchType, data)
 		return errors.Trace(err)
 	}
@@ -202,5 +160,6 @@ func (k *kubernetesClient) upgradeJujuInitContainer(appName, operatorImagePath s
 		_, err = k.client().AppsV1().DaemonSets(k.namespace).Patch(daResource.GetName(), k8stypes.StrategicMergePatchType, data)
 		return errors.Trace(err)
 	}
+	// TODO(caas): check here should error or not(operator charm does not have any workload. So it's probably ok if there is no init containers to upgrade).
 	return nil
 }

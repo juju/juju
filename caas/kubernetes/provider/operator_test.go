@@ -1068,52 +1068,6 @@ func (s *K8sBrokerSuite) TestOperatorNoPodFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "operator pod for application \"test\" not found")
 }
 
-func (s *K8sBrokerSuite) TestUpgradeOperator(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	ss := apps.StatefulSet{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "test-app-operator",
-			Annotations: map[string]string{
-				"juju-version":       "1.1.1",
-				"juju.io/controller": testing.ControllerTag.Id(),
-			},
-			Labels: map[string]string{"juju-app": "test-app"},
-		},
-		Spec: apps.StatefulSetSpec{
-			Template: core.PodTemplateSpec{
-				ObjectMeta: v1.ObjectMeta{
-					Annotations: map[string]string{
-						"juju-version": "1.1.1",
-					},
-				},
-				Spec: core.PodSpec{
-					Containers: []core.Container{
-						{Image: "foo"},
-						{Image: "jujud-operator:1.1.1"},
-					},
-				},
-			},
-		},
-	}
-	updated := ss
-	updated.Annotations["juju-version"] = "6.6.6"
-	updated.Spec.Template.Annotations["juju-version"] = "6.6.6"
-	updated.Spec.Template.Spec.Containers[1].Image = "juju-operator:6.6.6"
-	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{}).
-			Return(&ss, nil),
-		s.mockStatefulSets.EXPECT().Update(&updated).
-			Return(nil, nil),
-	)
-
-	err := s.broker.Upgrade("test-app", version.MustParse("6.6.6"))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *K8sBrokerSuite) TestOperatorExists(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()

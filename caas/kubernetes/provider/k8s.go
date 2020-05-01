@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	// "encoding/json"
 	"fmt"
 	"io"
 	"regexp"
@@ -2234,7 +2233,6 @@ func (k *kubernetesClient) getPODStatus(pod core.Pod, now time.Time) (string, st
 			statusMessage = eventList[count-1].Message
 		}
 	}
-	logger.Criticalf("getPODStatus ->%q, %#v", statusMessage, jujuStatus)
 	return statusMessage, jujuStatus, since, nil
 }
 
