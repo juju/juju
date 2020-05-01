@@ -571,8 +571,7 @@ func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 		"monitoring-port": network.AlphaSpaceId,
 		"db":              oneSpace.Id(),
 	}
-	c.Assert(listBindings[0].AppName, gc.Equals, app.Name())
-	c.Assert(listBindings[0].Bindings.Map(), gc.DeepEquals, expected)
+	c.Assert(listBindings[app.Name()].Map(), gc.DeepEquals, expected)
 }
 
 func (s *ModelSuite) TestAllEndpointBindingsSpaceNames(c *gc.C) {
