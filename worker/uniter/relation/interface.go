@@ -213,7 +213,7 @@ type Relation interface {
 	Tag() names.RelationTag
 
 	// Unit returns a uniter.RelationUnit for the supplied unit.
-	Unit(names.UnitTag, names.ApplicationTag) (RelationUnit, error)
+	Unit(names.UnitTag) (RelationUnit, error)
 
 	// UpdateSuspended updates the in memory value of the
 	// relation's suspended attribute.

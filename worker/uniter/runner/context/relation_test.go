@@ -73,7 +73,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apiUnit, err := s.uniter.Unit(unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
-	relUnit, err := apiRel.Unit(apiUnit.Tag(), apiUnit.ApplicationTag())
+	relUnit, err := apiRel.Unit(apiUnit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	s.relUnit = &relUnitShim{relUnit}
 }

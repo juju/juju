@@ -65,7 +65,7 @@ func (s *relationerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apiRel, err := s.uniter.Relation(s.rel.Tag().(names.RelationTag))
 	c.Assert(err, jc.ErrorIsNil)
-	apiRelUnit, err := apiRel.Unit(apiUnit.Tag(), apiUnit.ApplicationTag())
+	apiRelUnit, err := apiRel.Unit(apiUnit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	s.relUnit = &relation.RelationUnitShim{apiRelUnit}
 	s.mgr, err = relation.NewStateManager(apiUnit)
@@ -282,7 +282,7 @@ func (s *relationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apiRel, err := uniterState.Relation(rel.Tag().(names.RelationTag))
 	c.Assert(err, jc.ErrorIsNil)
-	apiRelUnit, err := apiRel.Unit(apiUnit.Tag(), apiUnit.ApplicationTag())
+	apiRelUnit, err := apiRel.Unit(apiUnit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	relUnit := &relation.RelationUnitShim{apiRelUnit}
 

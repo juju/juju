@@ -178,7 +178,7 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.relunits[rel.Id()] = ru
 	apiRel, err := s.uniter.Relation(rel.Tag().(names.RelationTag))
 	c.Assert(err, jc.ErrorIsNil)
-	apiRelUnit, err := apiRel.Unit(s.apiUnit.Tag(), s.apiUnit.ApplicationTag())
+	apiRelUnit, err := apiRel.Unit(s.apiUnit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	s.apiRelunits[rel.Id()] = apiRelUnit
 }

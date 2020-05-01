@@ -34,8 +34,8 @@ type relationShim struct {
 	*uniter.Relation
 }
 
-func (s *relationShim) Unit(uTag names.UnitTag, aTag names.ApplicationTag) (RelationUnit, error) {
-	u, err := s.Relation.Unit(uTag, aTag)
+func (s *relationShim) Unit(uTag names.UnitTag) (RelationUnit, error) {
+	u, err := s.Relation.Unit(uTag)
 	if err != nil {
 		return nil, err
 	}

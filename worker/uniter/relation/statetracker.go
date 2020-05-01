@@ -151,7 +151,7 @@ func (r *relationStateTracker) loadInitialState() error {
 // case it will return resolver.ErrLoopAborted.
 func (r *relationStateTracker) joinRelation(rel Relation) (err error) {
 	logger.Infof("joining relation %q", rel)
-	ru, err := rel.Unit(r.unit.Tag(), r.unit.ApplicationTag())
+	ru, err := rel.Unit(r.unit.Tag())
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -136,7 +136,7 @@ func (s *ContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.relunits[rel.Id()] = ru
 	apiRel, err := s.uniter.Relation(rel.Tag().(names.RelationTag))
 	c.Assert(err, jc.ErrorIsNil)
-	apiRelUnit, err := apiRel.Unit(s.apiUnit)
+	apiRelUnit, err := apiRel.Unit(s.apiUnit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	s.apiRelunits[rel.Id()] = apiRelUnit
 }
@@ -181,7 +181,7 @@ func (s *ContextSuite) getRelationInfos() map[int]*context.RelationInfo {
 	info := map[int]*context.RelationInfo{}
 	for relId, relUnit := range s.apiRelunits {
 		info[relId] = &context.RelationInfo{
-			RelationUnit: relUnit,
+			RelationUnit: &relUnitShim{relUnit},
 			MemberNames:  s.membership[relId],
 		}
 	}
@@ -251,4 +251,12 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 		printf("(sleep 0.2; echo %s; sleep 10) &", spec.background)
 	}
 	printf("exit %d", spec.code)
+}
+
+type relUnitShim struct {
+	*uniter.RelationUnit
+}
+
+func (r *relUnitShim) Relation() context.Relation {
+	return r.RelationUnit.Relation()
 }
