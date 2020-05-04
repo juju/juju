@@ -434,7 +434,7 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 			hookName, runner.paths.GetCharmDir(), charmLocation)
 		if session.DebugAt() != "" {
 			if hookHandlerType == InvalidHookHandler {
-				logger.Infof("debug-code active, and hook %s not implemented (skipping)", hookName)
+				logger.Infof("debug-code active, but hook %s not implemented (skipping)", hookName)
 				return InvalidHookHandler, err
 			}
 			logger.Infof("executing %s via debug-code; %s", hookName, hookHandlerType)
