@@ -401,7 +401,6 @@ func (op *caasOperator) loop() (err error) {
 
 		if remoteWatcher != nil {
 			// watcher added to catacomb, will kill operator if there's an error.
-			logger.Warningf("restartWatcher Stop")
 			_ = worker.Stop(remoteWatcher)
 		}
 		var err error
@@ -496,7 +495,6 @@ func (op *caasOperator) loop() (err error) {
 				}
 			}
 		case units, ok := <-containerStartChan:
-			logger.Warningf("containerStartChan units -> %#v, ok -> %v", units, ok)
 			if !ok {
 				return errors.New("container start watcher closed channel")
 			}
@@ -511,20 +509,17 @@ func (op *caasOperator) loop() (err error) {
 				}
 			}
 		case units, ok := <-jujuUnitsWatcher.Changes():
-			logger.Warningf("jujuUnitsWatcher.Changes() units -> %#v, ok -> %v", units, ok)
 			if !ok {
 				return errors.New("watcher closed channel")
 			}
 			for _, v := range units {
 				unitID := v
 				unitLife, err := op.config.UnitGetter.Life(unitID)
-				logger.Warningf("jujuUnitsWatcher.Changes() unitLife -> %#v, err -> %v", unitLife, err)
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)
 				}
 				unitTag := names.NewUnitTag(unitID)
 				if errors.IsNotFound(err) || unitLife == life.Dead {
-					logger.Warningf("jujuUnitsWatcher.Changes() removing unit -> %#v", unitTag)
 					delete(aliveUnits, unitID)
 					delete(unitRunningChannels, unitID)
 					if err := op.runner.StopWorker(unitID); err != nil {
@@ -539,7 +534,6 @@ func (op *caasOperator) loop() (err error) {
 						return err
 					}
 				} else {
-					logger.Warningf("jujuUnitsWatcher.Changes() adding aliveUnits and unitRunningChannels for %#v", unitTag)
 					if _, ok := aliveUnits[unitID]; !ok {
 						aliveUnits[unitID] = make(chan struct{})
 					}
@@ -551,14 +545,11 @@ func (op *caasOperator) loop() (err error) {
 				if _, err := op.runner.Worker(unitID, op.catacomb.Dying()); err == nil || unitLife == life.Dead {
 					// Already watching the unit. or we're
 					// not yet watching it and it's dead.
-					logger.Warningf("jujuUnitsWatcher.Changes() continue.....")
 					continue
 				}
 
 				// Make all the required symlinks.
-				err = op.makeAgentSymlinks(unitTag)
-				logger.Warningf("jujuUnitsWatcher.Changes() makeAgentSymlinks for %#v, err %#v", unitTag, err)
-				if err != nil {
+				if err := op.makeAgentSymlinks(unitTag); err != nil {
 					return errors.Trace(err)
 				}
 
@@ -570,7 +561,6 @@ func (op *caasOperator) loop() (err error) {
 				params.LeadershipTracker = op.config.LeadershipTrackerFunc(unitTag)
 				params.ApplicationChannel = aliveUnits[unitID]
 				params.ContainerRunningStatusChannel = unitRunningChannels[unitID]
-				logger.Warningf("jujuUnitsWatcher.Changes() op.deploymentMode -> %q", op.deploymentMode)
 				if op.deploymentMode != caas.ModeOperator {
 					params.ContainerRunningStatusFunc = func(providerID string) (*uniterremotestate.ContainerRunningStatus, error) {
 						return op.runningStatus(unitTag, providerID)
@@ -578,7 +568,7 @@ func (op *caasOperator) loop() (err error) {
 					params.RemoteInitFunc = func(runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
 						return op.remoteInit(unitTag, runningStatus, cancel)
 					}
-					params.NewRemoteRunnerExecutor = getNewRunnerExecutor(op.config.Logger, op.config.ExecClient)
+					params.NewRemoteRunnerExecutor = getNewRunnerExecutor(logger, op.config.ExecClient)
 				}
 				if err := op.config.StartUniterFunc(op.runner, params); err != nil {
 					return errors.Trace(err)

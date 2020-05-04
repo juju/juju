@@ -1135,7 +1135,6 @@ func (ctx *HookContext) doFlush(process string) error {
 // we'll still trigger a change to a counter on the podspec so that we can
 // ensure any other charm changes (eg storage) are acted on.
 func (ctx *HookContext) addCommitHookChangesForCAAS(builder *uniter.CommitHookParamsBuilder, process string) error {
-	logger.Criticalf("addCommitHookChangesForCAAS %v, %v, %q", ctx.podSpecYaml == nil, ctx.k8sRawSpecYaml == nil, process)
 	if ctx.podSpecYaml == nil && ctx.k8sRawSpecYaml == nil && process != string(hooks.UpgradeCharm) {
 		// No ops for any situation unless any k8s spec needs to be set or "upgrade-charm" was run.
 		return nil

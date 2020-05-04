@@ -64,9 +64,9 @@ func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			logger.Criticalf("upgradeJujuInitContainer operator.Status.Status == status.Running-> %v", operator.Status.Status == status.Running)
-			if operator.Status.Status == status.Running {
-				// Operator has been stabilised, now we upgrade init containers.
+			if operator.Status.Status == status.Running && operator.Config.OperatorImagePath == operatorImagePath {
+				logger.Infof("operator has been upgraded to %q, now the init container for %q is starting to upgrade", operatorImagePath, appName)
+				// Operator has been upgraded to target version and is stabilised.
 				return errors.Trace(k.upgradeJujuInitContainer(appName, operatorImagePath))
 			}
 		}
