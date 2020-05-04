@@ -289,6 +289,7 @@ func (s *relationUnitSuite) TestReadApplicationSettings(c *gc.C) {
 		"app": "settings",
 	})
 }
+
 func (s *relationUnitSuite) TestReadSettingsInvalidUnitTag(c *gc.C) {
 	// First try to read the settings which are not set.
 	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
@@ -433,10 +434,10 @@ func (s *relationUnitSuite) TestUpdateRelationSettingsForApplicationNotLeader(c 
 	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
 	c.Assert(wpRelUnit.EnterScope(nil), jc.ErrorIsNil)
 	_, err := apiRelUnit.ApplicationSettings()
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, gc.ErrorMatches, "permission denied.*")
 
 	err = apiRelUnit.UpdateRelationSettings(nil, params.Settings{"some": "value"})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, gc.ErrorMatches, "permission denied.*")
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitAndApplication(c *gc.C) {
@@ -481,5 +482,5 @@ func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitAndApplicationNotLe
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{"foo": "bar"})
 	gotSettings, err = apiRelUnit.ApplicationSettings()
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, gc.ErrorMatches, "permission denied.*")
 }

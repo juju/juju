@@ -821,7 +821,7 @@ func (s *ContextFactorySuite) TestReadApplicationSettings(c *gc.C) {
 	rel, err := ctx.Relation(0)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = rel.ApplicationSettings()
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, gc.ErrorMatches, "permission denied.*")
 	// Now claim leadership and try again
 	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
