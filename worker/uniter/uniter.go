@@ -463,6 +463,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				Abort:         u.catacomb.Dying(),
 				OnIdle:        onIdle,
 				CharmDirGuard: u.charmDirGuard,
+				Logger:        u.logger.Child("resolver"),
 			}, &localState)
 
 			err = u.translateResolverErr(err)

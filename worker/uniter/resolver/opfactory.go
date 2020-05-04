@@ -7,15 +7,12 @@ import (
 	"github.com/juju/charm/v7"
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
-
-var logger = loggo.GetLogger("juju.worker.uniter.resolver")
 
 // resolverOpFactory wraps an operation.Factory such that skips that affect
 // local state will, when committed, update the embedded LocalState struct
