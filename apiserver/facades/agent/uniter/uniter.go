@@ -38,8 +38,8 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
 // UniterAPI implements the latest version (v15) of the Uniter API, which adds
-// the State, CommitHookChanges calls and changes WatchActionNotifications to
-// notify on action changes.
+// the State, CommitHookChanges, ReadLocalApplicationSettings calls and changes
+// WatchActionNotifications to notify on action changes.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -1610,15 +1610,15 @@ func (u *UniterAPI) LeaveScope(args params.RelationUnits) (params.ErrorResults, 
 
 // ReadSettings returns the local settings of each given set of
 // relation/unit.
+//
+// NOTE(achilleasa): Using this call to read application data is deprecated
+// and will not work for k8s charms (see LP1876097). Instead, clients should
+// use ReadLocalApplicationSettings.
 func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.SettingsResults, error) {
 	result := params.SettingsResults{
 		Results: make([]params.SettingsResult, len(args.RelationUnits)),
 	}
 	canAccessUnit, err := u.accessUnit()
-	if err != nil {
-		return params.SettingsResults{}, errors.Trace(err)
-	}
-	canAccessApp, err := u.accessApplication()
 	if err != nil {
 		return params.SettingsResults{}, errors.Trace(err)
 	}
@@ -1643,27 +1643,15 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.SettingsResu
 			settings = node.Map()
 
 		case names.ApplicationTag:
-			var relation *state.Relation
-			relation, err = u.getRelation(arg.Relation)
-			if err != nil {
-				return nil, errors.Trace(err)
+			// Emulate a ReadLocalApplicationSettings call where
+			// the currently authenticated tag is implicitly
+			// assumed to be the requesting unit.
+			authTag := u.auth.GetAuthTag()
+			if authTag.Kind() != names.UnitTagKind {
+				// See LP1876097
+				return nil, common.ErrPerm
 			}
-			endpoints := relation.Endpoints()
-			isPeerRelation := len(endpoints) == 1 && endpoints[0].Role == charm.RolePeer
-			token := u.leadershipChecker.LeadershipCheck(tag.Id(), u.auth.GetAuthTag().Id())
-			canAccess := func(tag names.Tag) bool {
-				if !canAccessApp(tag) {
-					return false
-				}
-				if isPeerRelation {
-					return true
-				}
-				// For provider-requirer relations only allow the
-				// leader unit to read the application settings.
-				return token.Check(0, nil) == nil
-			}
-			settings, err = u.getRelationAppSettings(canAccess, arg.Relation, tag)
-
+			settings, err = u.readLocalApplicationSettings(arg.Relation, tag, authTag.(names.UnitTag))
 		default:
 			return nil, common.ErrPerm
 		}
@@ -1680,6 +1668,90 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.SettingsResu
 		result.Results[i].Settings = settings
 	}
 	return result, nil
+}
+
+// ReadLocalApplicationSettings is not available in V14 of the API.
+func (u *UniterAPIV14) ReadLocalApplicationSettings(_ struct{}) {}
+
+// ReadLocalApplicationSettings returns the local application settings for a
+// particular relation when invoked by the leader unit.
+func (u *UniterAPI) ReadLocalApplicationSettings(arg params.RelationUnit) (params.SettingsResult, error) {
+	var res params.SettingsResult
+
+	unitTag, err := names.ParseUnitTag(arg.Unit)
+	if err != nil {
+		return res, errors.NotValidf("unit tag %q", arg.Unit)
+	}
+
+	inferredAppName, err := names.UnitApplication(unitTag.Id())
+	if err != nil {
+		return res, errors.NotValidf("inferred application name from %q", arg.Unit)
+	}
+	inferredAppTag := names.NewApplicationTag(inferredAppName)
+
+	// Check whether the agent has authenticated as a unit or as an
+	// application (e.g. an operator in a k8s scenario).
+	authTag := u.auth.GetAuthTag()
+	switch authTag.Kind() {
+	case names.UnitTagKind:
+		// In this case, the authentication tag must match the unit tag
+		// provided by the caller.
+		if authTag.String() != unitTag.String() {
+			return res, errors.Trace(common.ErrPerm)
+		}
+	case names.ApplicationTagKind:
+		// In this case (k8s operator), we have no alternative than to
+		// implicitly trust the unit tag argument passed in by the
+		// operator (for more details, see LP1876097). As an early
+		// sanity check, ensure that the inferred application from the
+		// unit name matches the one currently logged on.
+		if authTag.String() != inferredAppTag.String() {
+			return res, errors.Trace(common.ErrPerm)
+		}
+	default:
+		return res, errors.NotSupportedf("reading local application settings after authenticating as %q", authTag.Kind())
+	}
+
+	settings, err := u.readLocalApplicationSettings(arg.Relation, inferredAppTag, unitTag)
+	if err != nil {
+		return res, errors.Trace(err)
+	}
+
+	res.Settings, err = convertRelationSettings(settings)
+	return res, errors.Trace(err)
+}
+
+// readLocalApplicationSettings attempts to access the local application data
+// bag for the specified relation on appTag on behalf of unitTag. If the
+// provided unitTag is not the leader, this method will return ErrPerm.
+func (u *UniterAPI) readLocalApplicationSettings(relTag string, appTag names.ApplicationTag, unitTag names.UnitTag) (map[string]interface{}, error) {
+	canAccessApp, err := u.accessApplication()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	relation, err := u.getRelation(relTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	endpoints := relation.Endpoints()
+	token := u.leadershipChecker.LeadershipCheck(appTag.Id(), unitTag.Id())
+
+	canAccessSettings := func(appTag names.Tag) bool {
+		if !canAccessApp(appTag) {
+			return false
+		}
+
+		isPeerRelation := len(endpoints) == 1 && endpoints[0].Role == charm.RolePeer
+		if isPeerRelation {
+			return true
+		}
+		// For provider-requirer relations only allow the
+		// leader unit to read the application settings.
+		return token.Check(0, nil) == nil
+	}
+
+	return u.getRelationAppSettings(canAccessSettings, relTag, appTag)
 }
 
 // ReadRemoteSettings returns the remote settings of each given set of
