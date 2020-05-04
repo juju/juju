@@ -218,7 +218,11 @@ const debugHooksHookScript = `#!/bin/bash
 echo $$ > $JUJU_DEBUG/hook.pid
 if [ -z "$JUJU_DEBUG_AT" ] ; then
 	exec /bin/bash --noprofile --init-file $JUJU_DEBUG/init.sh
+elif [ ! -x "__JUJU_HOOK_RUNNER__" ] ; then
+    juju-log --log-level INFO "debugging is enabled, but no handler for $JUJU_HOOK_NAME, skipping"
+    echo 0 > $JUJU_DEBUG/hook_exit_status
 else
+    juju-log --log-level INFO "debug running __JUJU_HOOK_RUNNER__ for $JUJU_HOOK_NAME"
 	__JUJU_HOOK_RUNNER__
 	echo $? > $JUJU_DEBUG/hook_exit_status
 fi
