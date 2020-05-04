@@ -430,8 +430,17 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 	debugctx := debug.NewHooksContext(runner.context.UnitName())
 	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
 		// Note: hookScript might be relative but the debug session only requires its name
-		hookHandlerType, hookScript, _ := runner.discoverHookHandler(hookName, runner.paths.GetCharmDir(), charmLocation)
-		logger.Infof("executing %s via debug-hooks; %s", hookName, hookHandlerType)
+		hookHandlerType, hookScript, err := runner.discoverHookHandler(
+			hookName, runner.paths.GetCharmDir(), charmLocation)
+		if session.DebugAt() != "" {
+			if hookHandlerType == InvalidHookHandler {
+				logger.Infof("debug-code active, and hook %s not implemented (skipping)", hookName)
+				return InvalidHookHandler, err
+			}
+			logger.Infof("executing %s via debug-code; %s", hookName, hookHandlerType)
+		} else {
+			logger.Infof("executing %s via debug-hooks; %s", hookName, hookHandlerType)
+		}
 		return hookHandlerType, session.RunHook(hookName, runner.paths.GetCharmDir(), env, hookScript)
 	}
 
