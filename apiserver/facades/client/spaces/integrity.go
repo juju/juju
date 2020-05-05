@@ -62,7 +62,10 @@ type affectedNetworks struct {
 	// These are included in order to determine whether application endpoint
 	// bindings can be massaged to satisfy the mutating space topology.
 	unchangedNetworks map[string][]unitNetwork
-	force             bool
+	// force originates as a CLI option.
+	// When true, violations of constraints/bindings integrity are logged as
+	// warnings instead of being returned as errors.
+	force bool
 }
 
 // newAffectedNetworks returns a new affectedNetworks reference for
@@ -180,8 +183,6 @@ func (n *affectedNetworks) includeMachine(machine Machine, subnets network.Subne
 
 // ensureConstraintIntegrity checks that moving subnets to the new space does
 // not violate any application space constraints.
-// If force is true, violations are logged as warnings,
-// otherwise an error is returned.
 func (n *affectedNetworks) ensureConstraintIntegrity(cons map[string]set.Strings) error {
 	for appName, spaces := range cons {
 		if _, ok := n.changingNetworks[appName]; !ok {
@@ -234,21 +235,86 @@ func (n *affectedNetworks) ensurePositiveConstraintIntegrity(appName string, spa
 		}
 
 		for _, unitNet := range unitNets {
-			if !unitNet.remainsConnectedTo(*conSpace) {
-				msg := fmt.Sprintf(
-					"moving subnet(s) to space %q violates space constraints "+
-						"for application %q: %s\n\tunits not connected to the space: %s",
-					n.newSpace,
-					appName,
-					strings.Join(spaceConstraints.SortedValues(), ", "),
-					strings.Join(unitNet.unitNames.SortedValues(), ", "),
-				)
-
-				if !n.force {
-					return errors.New(msg)
-				}
-				logger.Warningf(msg)
+			if unitNet.remainsConnectedTo(*conSpace) {
+				continue
 			}
+
+			msg := fmt.Sprintf(
+				"moving subnet(s) to space %q violates space constraints for application %q: %s\n\t"+
+					"units not connected to the space: %s",
+				n.newSpace,
+				appName,
+				strings.Join(spaceConstraints.SortedValues(), ", "),
+				strings.Join(unitNet.unitNames.SortedValues(), ", "),
+			)
+
+			if !n.force {
+				return errors.New(msg)
+			}
+			logger.Warningf(msg)
+		}
+	}
+
+	return nil
+}
+
+// ensureBindingsIntegrity checks that moving subnets to the new space does
+// not result in inconsistent application endpoint bindings.
+// Consistency is considered maintained if:
+//   1. Bound spaces remain unchanged by subnet relocation.
+//   2. We successfully change affected bindings to a new space that
+//      preserves consistency across all units of an application.
+func (n *affectedNetworks) ensureBindingsIntegrity(allBindings map[string]Bindings) error {
+	for appName, bindings := range allBindings {
+		if err := n.ensureApplicationBindingsIntegrity(appName, bindings); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (n *affectedNetworks) ensureApplicationBindingsIntegrity(appName string, appBindings Bindings) error {
+	unitNets, ok := n.changingNetworks[appName]
+	if !ok {
+		return nil
+	}
+
+	for endpoint, boundSpaceID := range appBindings.Map() {
+		for _, unitNet := range unitNets {
+			boundSpace := n.spaces.GetByID(boundSpaceID)
+			if boundSpace == nil {
+				return errors.NotFoundf("space with ID %q", boundSpaceID)
+			}
+
+			// TODO (manadart 2020-05-05): There is some optimisation that
+			// could be done here to prevent re-checking endpoints bound to
+			// spaces that we have already checked, but at this time it is
+			// eschewed for clarity.
+			// The comparisons are all done using the in-memory topology,
+			// without going back to the DB, so it is not a huge issue.
+			if unitNet.remainsConnectedTo(*boundSpace) {
+				continue
+			}
+
+			// TODO (manadart 2020-05-05): At this point,
+			// use n.unchangedNetworks in combination with n.changingNetworks
+			// to see if we can maintain integrity by changing the binding to
+			// the target space. If we can, just make the change and log it.
+
+			msg := fmt.Sprintf(
+				"moving subnet(s) to space %q violates endpoint binding %s:%s for application %q\n\t"+
+					"units not connected to the space: %s",
+				n.newSpace,
+				endpoint,
+				boundSpace.Name,
+				appName,
+				strings.Join(unitNet.unitNames.SortedValues(), ", "),
+			)
+
+			if !n.force {
+				return errors.New(msg)
+			}
+			logger.Warningf(msg)
 		}
 	}
 

@@ -153,6 +153,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *gc.C) {
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return(nil, nil)
+	bExp.AllEndpointBindings().Return(nil, nil)
 	bExp.MovingSubnet(subnetID).Return(subnet, nil)
 	bExp.ApplyOperation(moveSubnetsOp).Return(nil)
 
@@ -223,6 +224,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *gc.C) 
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return([]spaces.Constraints{cons1, cons2}, nil)
+	bExp.AllEndpointBindings().Return(nil, nil)
 	bExp.MovingSubnet(subnetID).Return(subnet, nil)
 	bExp.ApplyOperation(moveSubnetsOp).Return(nil)
 
@@ -382,6 +384,7 @@ func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess
 
 	bExp := s.Backing.EXPECT()
 	bExp.AllConstraints().Return([]spaces.Constraints{cons}, nil)
+	bExp.AllEndpointBindings().Return(nil, nil)
 	bExp.MovingSubnet(subnetID).Return(subnet, nil)
 	bExp.ApplyOperation(moveSubnetsOp).Return(nil)
 
@@ -441,7 +444,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsPositiveConstraintsViolatedNoForceE
 	m1 := expectMachine(ctrl, subnetID, "6")
 	expectMachineUnits(ctrl, m1, "mysql", "mysql/0")
 
-	// This machines units are connected only to the moving subnet,
+	// This machine's units are connected only to the moving subnet,
 	// which will violate the constraint.
 	m2 := expectMachine(ctrl, subnetID)
 	expectMachineUnits(ctrl, m2, "mysql", "mysql/1", "mysql/2")
@@ -457,6 +460,68 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsPositiveConstraintsViolatedNoForceE
 	c.Assert(res.Results, gc.HasLen, 1)
 	c.Assert(res.Results[0].Error.Message, gc.Equals,
 		`moving subnet(s) to space "destination" violates space constraints for application "mysql": from
+	units not connected to the space: mysql/1, mysql/2`)
+}
+
+func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceError(c *gc.C) {
+	ctrl, unReg := s.SetupMocks(c, true, false)
+	defer ctrl.Finish()
+	defer unReg()
+
+	spaceName := "destination"
+	subnetID := "3"
+
+	subnet := expectMovingSubnet(ctrl, subnetID, "")
+
+	s.Backing.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{
+		{
+			ID:   "1",
+			Name: "from",
+			// Note the two subnets in the original space.
+			// We are only moving one.
+			Subnets: network.SubnetInfos{
+				{
+					ID:   "3",
+					CIDR: "10.10.10.0/24",
+				},
+				{
+					ID:   "6",
+					CIDR: "20.20.20.0/24",
+				},
+			},
+		},
+		{
+			ID:   "2",
+			Name: network.SpaceName(spaceName),
+		},
+	}, nil)
+
+	// MySQL has a binding to the old space.
+	bindings := spaces.NewMockBindings(ctrl)
+	bindings.EXPECT().Map().Return(map[string]string{"db": "1"})
+
+	// mysql/0 is connected to both the moving subnet and the stationary one.
+	// It will satisfy the binding even after the subnet relocation.
+	m1 := expectMachine(ctrl, subnetID, "6")
+	expectMachineUnits(ctrl, m1, "mysql", "mysql/0")
+
+	// This machine's units are connected only to the moving subnet,
+	// which will violate the binding.
+	m2 := expectMachine(ctrl, subnetID)
+	expectMachineUnits(ctrl, m2, "mysql", "mysql/1", "mysql/2")
+
+	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m1, m2}, nil)
+
+	bExp := s.Backing.EXPECT()
+	bExp.AllConstraints().Return(nil, nil)
+	bExp.AllEndpointBindings().Return(map[string]spaces.Bindings{"mysql": bindings}, nil)
+	bExp.MovingSubnet(subnetID).Return(subnet, nil)
+
+	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error.Message, gc.Equals,
+		`moving subnet(s) to space "destination" violates endpoint binding db:from for application "mysql"
 	units not connected to the space: mysql/1, mysql/2`)
 }
 
