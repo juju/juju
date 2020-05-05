@@ -49,9 +49,10 @@ func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
 	}
 	defer opWatcher.Kill()
 
+	timeout := k.clock.After(applicationUpgradeTimeoutSeconds * time.Second)
 	for {
 		select {
-		case <-k.clock.After(applicationUpgradeTimeoutSeconds * time.Second):
+		case <-timeout:
 			return errors.Timeoutf("timeout while waiting for the upgraded operator of %q ready", appName)
 		case _, ok := <-opWatcher.Changes():
 			if !ok {

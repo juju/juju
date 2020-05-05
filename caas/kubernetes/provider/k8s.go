@@ -1381,7 +1381,7 @@ func ensureJujuInitContainer(podSpec *core.PodSpec, operatorImagePath string) er
 		return errors.Trace(err)
 	}
 
-	func() {
+	replaceOrUpdateInitContainer := func() {
 		for i, v := range podSpec.InitContainers {
 			if v.Name == initContainer.Name {
 				podSpec.InitContainers[i] = initContainer
@@ -1389,7 +1389,8 @@ func ensureJujuInitContainer(podSpec *core.PodSpec, operatorImagePath string) er
 			}
 		}
 		podSpec.InitContainers = append(podSpec.InitContainers, initContainer)
-	}()
+	}
+	replaceOrUpdateInitContainer()
 
 	if err = pushUniqueVolume(podSpec, vol, true); err != nil {
 		return errors.Trace(err)
