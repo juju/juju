@@ -1158,6 +1158,7 @@ func (ctx *HookContext) addCommitHookChangesForCAAS(builder *uniter.CommitHookPa
 	if ctx.k8sRawSpecYaml != nil {
 		builder.SetRawK8sSpec(appTag, ctx.k8sRawSpecYaml)
 	} else {
+		// either set k8s spec or increment upgrade-counter.
 		builder.SetPodSpec(appTag, ctx.podSpecYaml)
 	}
 	return nil

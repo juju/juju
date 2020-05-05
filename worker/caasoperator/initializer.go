@@ -173,7 +173,7 @@ func InitializeUnit(params InitializeUnitParams, cancel <-chan struct{}) error {
 		Stderr:        stdout,
 	}, cancel)
 	if err != nil {
-		return errors.Annotatef(err, "caas-unit-init failed: %s", string(stdout.Bytes()))
+		return errors.Annotatef(err, "caas-unit-init for unit %q failed: %s", params.UnitTag.Id(), string(stdout.Bytes()))
 	}
 
 	return nil

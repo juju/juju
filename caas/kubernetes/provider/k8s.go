@@ -911,7 +911,7 @@ func processConstraints(pod *core.PodSpec, appName string, cons constraints.Valu
 const applyRawSpecTimeoutSeconds = 20
 
 func (k *kubernetesClient) applyRawK8sSpec(
-	appName string,
+	appName, deploymentName string,
 	statusCallback caas.StatusCallbackFunc,
 	params *caas.ServiceParams,
 	numUnits int,
@@ -932,16 +932,6 @@ func (k *kubernetesClient) applyRawK8sSpec(
 	// TODO(caas): support Constraints, FileSystems, Devices, InitContainer for actions, etc.
 	if err := params.Deployment.DeploymentType.Validate(); err != nil {
 		return errors.Trace(err)
-	}
-
-	logger.Debugf("creating/updating application %s", appName)
-	deploymentName := k.deploymentName(appName, false)
-
-	if numUnits < 0 {
-		return errors.Errorf("number of units must be >= 0")
-	}
-	if numUnits == 0 {
-		return k.deleteAllPods(appName, deploymentName)
 	}
 
 	labelGetter := func(isNamespaced bool) map[string]string {
@@ -972,16 +962,26 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}()
 
+	logger.Debugf("creating/updating application %s", appName)
+	deploymentName := k.deploymentName(appName, true)
+
+	if numUnits < 0 {
+		return errors.Errorf("number of units must be >= 0")
+	}
+	if numUnits == 0 {
+		return k.deleteAllPods(appName, deploymentName)
+	}
+
 	if params.PodSpec != nil {
-		return k.ensureService(appName, statusCallback, params, numUnits, config)
+		return k.ensureService(appName, deploymentName, statusCallback, params, numUnits, config)
 	} else if len(params.RawK8sSpec) > 0 {
-		return k.applyRawK8sSpec(appName, statusCallback, params, numUnits, config)
+		return k.applyRawK8sSpec(appName, deploymentName, statusCallback, params, numUnits, config)
 	}
 	return errors.NewNotSupported(nil, "currently only k8s-raw-set and k8s-spec-set are supported")
 }
 
 func (k *kubernetesClient) ensureService(
-	appName string,
+	appName, deploymentName string,
 	statusCallback caas.StatusCallbackFunc,
 	params *caas.ServiceParams,
 	numUnits int,
@@ -994,16 +994,6 @@ func (k *kubernetesClient) ensureService(
 
 	if err := params.Deployment.DeploymentType.Validate(); err != nil {
 		return errors.Trace(err)
-	}
-
-	logger.Debugf("creating/updating application %s", appName)
-	deploymentName := k.deploymentName(appName, true)
-
-	if numUnits < 0 {
-		return errors.Errorf("number of units must be >= 0")
-	}
-	if numUnits == 0 {
-		return k.deleteAllPods(appName, deploymentName)
 	}
 
 	var cleanups []func()
@@ -1229,51 +1219,6 @@ func randomPrefix() (string, error) {
 	return fmt.Sprintf("%x", randPrefixBytes), nil
 }
 
-// Upgrade sets the OCI image for the app's operator to the specified version.
-func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
-	var resourceName string
-	if appName == JujuControllerStackName {
-		// upgrading controller.
-		resourceName = appName
-	} else {
-		// upgrading operator.
-		resourceName = k.operatorName(appName)
-	}
-	logger.Debugf("Upgrading %q", resourceName)
-
-	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
-	existingStatefulSet, err := statefulsets.Get(resourceName, v1.GetOptions{})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-	// TODO(wallyworld) - only support stateful set at the moment
-	if err != nil {
-		return errors.NotSupportedf("upgrading %v", appName)
-	}
-	for i, c := range existingStatefulSet.Spec.Template.Spec.Containers {
-		if !podcfg.IsJujuOCIImage(c.Image) {
-			continue
-		}
-		c.Image = podcfg.RebuildOldOperatorImagePath(c.Image, vers)
-		existingStatefulSet.Spec.Template.Spec.Containers[i] = c
-	}
-
-	// update juju-version annotation.
-	// TODO(caas): consider how to upgrade to current annotations format safely.
-	// just ensure juju-version to current version for now.
-	existingStatefulSet.SetAnnotations(
-		k8sannotations.New(existingStatefulSet.GetAnnotations()).
-			Add(labelVersion, vers.String()).ToMap(),
-	)
-	existingStatefulSet.Spec.Template.SetAnnotations(
-		k8sannotations.New(existingStatefulSet.Spec.Template.GetAnnotations()).
-			Add(labelVersion, vers.String()).ToMap(),
-	)
-
-	_, err = statefulsets.Update(existingStatefulSet)
-	return errors.Trace(err)
-}
-
 func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
 	zero := int32(0)
 	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
@@ -1367,7 +1312,7 @@ func (k *kubernetesClient) configurePodFiles(
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if err = pushUniqueVolume(&workloadSpec.Pod, vol); err != nil {
+			if err = pushUniqueVolume(&workloadSpec.Pod, vol, false); err != nil {
 				return errors.Trace(err)
 			}
 			workloadSpec.Pod.Containers[i].VolumeMounts = append(workloadSpec.Pod.Containers[i].VolumeMounts, core.VolumeMount{
@@ -1412,7 +1357,7 @@ func (k *kubernetesClient) configureStorage(
 		mountPath := getMountPathForFilesystem(i, appName, fs)
 		if vol != nil {
 			logger.Debugf("using volume for %s filesystem %s: %s", appName, fs.StorageName, pretty.Sprint(*vol))
-			if err = pushUniqueVolume(podSpec, *vol); err != nil {
+			if err = pushUniqueVolume(podSpec, *vol, false); err != nil {
 				return errors.Trace(err)
 			}
 			podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
@@ -1430,10 +1375,44 @@ func (k *kubernetesClient) configureStorage(
 	return nil
 }
 
-func configureInitContainer(podSpec *core.PodSpec, operatorImagePath string) error {
-	dataDir, err := paths.DataDir(CAASProviderType)
+func ensureJujuInitContainer(podSpec *core.PodSpec, operatorImagePath string) error {
+	initContainer, vol, volMounts, err := getJujuInitContainerAndStorageInfo(operatorImagePath)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	replaceOrUpdateInitContainer := func() {
+		for i, v := range podSpec.InitContainers {
+			if v.Name == initContainer.Name {
+				podSpec.InitContainers[i] = initContainer
+				return
+			}
+		}
+		podSpec.InitContainers = append(podSpec.InitContainers, initContainer)
+	}
+	replaceOrUpdateInitContainer()
+
+	if err = pushUniqueVolume(podSpec, vol, true); err != nil {
+		return errors.Trace(err)
+	}
+
+	for i := range podSpec.Containers {
+		container := &podSpec.Containers[i]
+		for _, volMount := range volMounts {
+			pushUniqueVolumeMount(container, volMount)
+		}
+	}
+	return nil
+}
+
+func getJujuInitContainerAndStorageInfo(operatorImagePath string) (container core.Container, vol core.Volume, volMounts []core.VolumeMount, err error) {
+	dataDir, err := paths.DataDir(CAASProviderType)
+	if err != nil {
+		return container, vol, volMounts, errors.Trace(err)
+	}
+	jujuRun, err := paths.JujuRun(CAASProviderType)
+	if err != nil {
+		return container, vol, volMounts, errors.Trace(err)
 	}
 	jujudCmd := `
 initCmd=$($JUJU_TOOLS_DIR/jujud help commands | grep caas-unit-init)
@@ -1442,7 +1421,7 @@ $JUJU_TOOLS_DIR/jujud caas-unit-init --debug --wait;
 else
 exit 0
 fi`[1:]
-	container := core.Container{
+	container = core.Container{
 		Name:            caas.InitContainerName,
 		Image:           operatorImagePath,
 		ImagePullPolicy: core.PullIfNotPresent,
@@ -1464,37 +1443,17 @@ fi`[1:]
 			),
 		},
 	}
-	podSpec.InitContainers = append(podSpec.InitContainers, container)
-	return configureDataDir(podSpec)
-}
-
-func configureDataDir(podSpec *core.PodSpec) error {
-	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
+	vol = core.Volume{
 		Name: dataDirVolumeName,
 		VolumeSource: core.VolumeSource{
 			EmptyDir: &core.EmptyDirVolumeSource{},
 		},
-	})
-	dataDir, err := paths.DataDir(CAASProviderType)
-	if err != nil {
-		return errors.Trace(err)
 	}
-	jujuRun, err := paths.JujuRun(CAASProviderType)
-	if err != nil {
-		return errors.Trace(err)
+	volMounts = []core.VolumeMount{
+		{Name: dataDirVolumeName, MountPath: dataDir},
+		{Name: dataDirVolumeName, MountPath: jujuRun, SubPath: "tools/jujud"},
 	}
-	for i := range podSpec.Containers {
-		container := &podSpec.Containers[i]
-		container.VolumeMounts = append(container.VolumeMounts, core.VolumeMount{
-			Name:      dataDirVolumeName,
-			MountPath: dataDir,
-		}, core.VolumeMount{
-			Name:      dataDirVolumeName,
-			MountPath: jujuRun,
-			SubPath:   "tools/jujud",
-		})
-	}
-	return nil
+	return container, vol, volMounts, nil
 }
 
 func podAnnotations(annotations k8sannotations.Annotation) k8sannotations.Annotation {
@@ -1650,7 +1609,7 @@ func (k *kubernetesClient) configurePVCForStatelessResource(
 			},
 		},
 	}
-	if err = pushUniqueVolume(podSpec, vol); err != nil {
+	if err = pushUniqueVolume(podSpec, vol, false); err != nil {
 		return cleanUps, errors.Trace(err)
 	}
 	podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
@@ -2275,7 +2234,6 @@ func (k *kubernetesClient) getPODStatus(pod core.Pod, now time.Time) (string, st
 			statusMessage = eventList[count-1].Message
 		}
 	}
-
 	return statusMessage, jujuStatus, since, nil
 }
 
@@ -2457,7 +2415,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 		logger.Errorf("unable to parse %q pod spec: \n%+v", appName, *podSpec)
 		return nil, errors.Annotatef(err, "processing container specs for app %q", appName)
 	}
-	if err := configureInitContainer(&spec.Pod, operatorImagePath); err != nil {
+	if err := ensureJujuInitContainer(&spec.Pod, operatorImagePath); err != nil {
 		return nil, errors.Annotatef(err, "adding init container for app %q", appName)
 	}
 

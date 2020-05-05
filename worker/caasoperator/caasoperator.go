@@ -370,6 +370,8 @@ func (op *caasOperator) init() (*LocalState, error) {
 }
 
 func (op *caasOperator) loop() (err error) {
+	logger := op.config.Logger
+
 	defer func() {
 		if errors.IsNotFound(err) {
 			err = jworker.ErrTerminateAgent
@@ -380,7 +382,7 @@ func (op *caasOperator) loop() (err error) {
 	if err != nil {
 		return err
 	}
-	op.config.Logger.Infof("operator %q started", op.config.Application)
+	logger.Infof("operator %q started", op.config.Application)
 
 	// Start by reporting current tools (which includes arch/series).
 	if err := op.config.VersionSetter.SetVersion(
@@ -484,7 +486,7 @@ func (op *caasOperator) loop() (err error) {
 				}
 				// Notify all uniters of the change so they run the upgrade-charm hook.
 				for unitID, changedChan := range aliveUnits {
-					op.config.Logger.Debugf("trigger upgrade charm for caas unit %v", unitID)
+					logger.Debugf("trigger upgrade charm for caas unit %v", unitID)
 					select {
 					case <-op.catacomb.Dying():
 						return op.catacomb.ErrDying()
@@ -498,7 +500,7 @@ func (op *caasOperator) loop() (err error) {
 			}
 			for _, unitID := range units {
 				if runningChan, ok := unitRunningChannels[unitID]; ok {
-					op.config.Logger.Debugf("trigger running status for caas unit %v", unitID)
+					logger.Debugf("trigger running status for caas unit %v", unitID)
 					select {
 					case <-op.catacomb.Dying():
 						return op.catacomb.ErrDying()
@@ -566,7 +568,7 @@ func (op *caasOperator) loop() (err error) {
 					params.RemoteInitFunc = func(runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
 						return op.remoteInit(unitTag, runningStatus, cancel)
 					}
-					params.NewRemoteRunnerExecutor = getNewRunnerExecutor(op.config.Logger, op.config.ExecClient)
+					params.NewRemoteRunnerExecutor = getNewRunnerExecutor(logger, op.config.ExecClient)
 				}
 				if err := op.config.StartUniterFunc(op.runner, params); err != nil {
 					return errors.Trace(err)
