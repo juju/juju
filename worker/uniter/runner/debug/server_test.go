@@ -334,7 +334,7 @@ exit 1`), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// fakeJujuLog installes a script that echos its arguments to stderr,
+// fakeJujuLog installs a script that echos its arguments to stderr,
 // ending up in the subprocess output
 func (s *DebugHooksServerSuite) fakeJujuLog(c *gc.C) {
 	err := ioutil.WriteFile(filepath.Join(s.fakebin, "juju-log"), []byte(`#!/bin/bash --norc
