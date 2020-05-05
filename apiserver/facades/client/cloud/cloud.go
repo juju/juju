@@ -32,6 +32,7 @@ var logger = loggo.GetLogger("juju.apiserver.cloud")
 type CloudV7 interface {
 	AddCloud(cloudArgs params.AddCloudArgs) error
 	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
 	Cloud(args params.Entities) (params.CloudResults, error)
 	Clouds() (params.CloudsResult, error)
 	Credential(args params.Entities) (params.CloudCredentialResults, error)
@@ -603,12 +604,10 @@ func (api *CloudAPI) AddCredentials(args params.TaggedCredentials) (params.Error
 // If there are any models that are using a credential and these models or their
 // cloud instances are not going to be accessible with corresponding credential,
 // there will be detailed validation errors per model.
-func (api *CloudAPIV6) CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
+// There's no Juju API client which uses this, but JAAS does,
+func (api *CloudAPI) CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
 	return api.commonUpdateCredentials(false, false, true, args)
 }
-
-// CheckCredentialsModels is gone in V7.
-func (*CloudAPI) CheckCredentialsModels(_, _ struct{}) {}
 
 // UpdateCredentialsCheckModels updates a set of cloud credentials' content.
 // If there are any models that are using a credential and these models
