@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	charm_v6 "github.com/juju/charm/v7"
 	set "github.com/juju/collections/set"
 	provisioner "github.com/juju/juju/apiserver/facades/agent/provisioner"
 	constraints "github.com/juju/juju/core/constraints"
@@ -15,8 +16,7 @@ import (
 	network "github.com/juju/juju/network"
 	containerizer "github.com/juju/juju/network/containerizer"
 	state "github.com/juju/juju/state"
-	charm_v6 "gopkg.in/juju/charm.v6"
-	names_v3 "gopkg.in/juju/names.v3"
+	names_v3 "github.com/juju/names/v4"
 )
 
 // MockMachine is a mock of Machine interface

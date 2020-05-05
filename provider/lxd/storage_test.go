@@ -5,11 +5,11 @@ package lxd_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	containerlxd "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs/context"

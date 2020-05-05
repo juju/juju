@@ -8,7 +8,7 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/juju/core/watcher"
-	"gopkg.in/juju/worker.v1/catacomb"
+	"github.com/juju/worker/v2/catacomb"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/watch"

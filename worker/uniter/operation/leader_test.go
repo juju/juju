@@ -4,10 +4,11 @@
 package operation_test
 
 import (
+	"github.com/juju/charm/v7/hooks"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -19,8 +20,14 @@ type LeaderSuite struct {
 
 var _ = gc.Suite(&LeaderSuite{})
 
+func (s *LeaderSuite) newFactory() operation.Factory {
+	return operation.NewFactory(operation.FactoryParams{
+		Logger: loggo.GetLogger("test"),
+	})
+}
+
 func (s *LeaderSuite) TestAcceptLeadership_Prepare_BadState(c *gc.C) {
-	factory := operation.NewFactory(operation.FactoryParams{})
+	factory := s.newFactory()
 	op, err := factory.NewAcceptLeadership()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -32,7 +39,7 @@ func (s *LeaderSuite) TestAcceptLeadership_Prepare_BadState(c *gc.C) {
 }
 
 func (s *LeaderSuite) TestAcceptLeadership_Prepare_NotLeader(c *gc.C) {
-	factory := operation.NewFactory(operation.FactoryParams{})
+	factory := s.newFactory()
 	op, err := factory.NewAcceptLeadership()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -43,7 +50,7 @@ func (s *LeaderSuite) TestAcceptLeadership_Prepare_NotLeader(c *gc.C) {
 }
 
 func (s *LeaderSuite) TestAcceptLeadership_Prepare_AlreadyLeader(c *gc.C) {
-	factory := operation.NewFactory(operation.FactoryParams{})
+	factory := s.newFactory()
 	op, err := factory.NewAcceptLeadership()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -57,7 +64,7 @@ func (s *LeaderSuite) TestAcceptLeadership_Prepare_AlreadyLeader(c *gc.C) {
 }
 
 func (s *LeaderSuite) TestAcceptLeadership_Commit_NotLeader_BlankSlate(c *gc.C) {
-	factory := operation.NewFactory(operation.FactoryParams{})
+	factory := s.newFactory()
 	op, err := factory.NewAcceptLeadership()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Prepare(operation.State{Kind: operation.Continue})
@@ -76,7 +83,7 @@ func (s *LeaderSuite) TestAcceptLeadership_Commit_NotLeader_BlankSlate(c *gc.C) 
 }
 
 func (s *LeaderSuite) TestAcceptLeadership_Commit_NotLeader_Preserve(c *gc.C) {
-	factory := operation.NewFactory(operation.FactoryParams{})
+	factory := s.newFactory()
 	op, err := factory.NewAcceptLeadership()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Prepare(operation.State{Kind: operation.Continue})
@@ -98,7 +105,7 @@ func (s *LeaderSuite) TestAcceptLeadership_Commit_NotLeader_Preserve(c *gc.C) {
 }
 
 func (s *LeaderSuite) TestAcceptLeadership_Commit_AlreadyLeader(c *gc.C) {
-	factory := operation.NewFactory(operation.FactoryParams{})
+	factory := s.newFactory()
 	op, err := factory.NewAcceptLeadership()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Prepare(operation.State{Kind: operation.Continue})
@@ -113,14 +120,14 @@ func (s *LeaderSuite) TestAcceptLeadership_Commit_AlreadyLeader(c *gc.C) {
 }
 
 func (s *LeaderSuite) TestAcceptLeadership_DoesNotNeedGlobalMachineLock(c *gc.C) {
-	factory := operation.NewFactory(operation.FactoryParams{})
+	factory := s.newFactory()
 	op, err := factory.NewAcceptLeadership()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.NeedsGlobalMachineLock(), jc.IsFalse)
 }
 
 func (s *LeaderSuite) TestResignLeadership_Prepare_Leader(c *gc.C) {
-	factory := operation.NewFactory(operation.FactoryParams{})
+	factory := s.newFactory()
 	op, err := factory.NewResignLeadership()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -130,7 +137,7 @@ func (s *LeaderSuite) TestResignLeadership_Prepare_Leader(c *gc.C) {
 }
 
 func (s *LeaderSuite) TestResignLeadership_Prepare_NotLeader(c *gc.C) {
-	factory := operation.NewFactory(operation.FactoryParams{})
+	factory := s.newFactory()
 	op, err := factory.NewResignLeadership()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -140,7 +147,7 @@ func (s *LeaderSuite) TestResignLeadership_Prepare_NotLeader(c *gc.C) {
 }
 
 func (s *LeaderSuite) TestResignLeadership_Execute(c *gc.C) {
-	factory := operation.NewFactory(operation.FactoryParams{})
+	factory := s.newFactory()
 	op, err := factory.NewResignLeadership()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -154,7 +161,7 @@ func (s *LeaderSuite) TestResignLeadership_Execute(c *gc.C) {
 }
 
 func (s *LeaderSuite) TestResignLeadership_Commit_ClearLeader(c *gc.C) {
-	factory := operation.NewFactory(operation.FactoryParams{})
+	factory := s.newFactory()
 	op, err := factory.NewResignLeadership()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -164,7 +171,7 @@ func (s *LeaderSuite) TestResignLeadership_Commit_ClearLeader(c *gc.C) {
 }
 
 func (s *LeaderSuite) TestResignLeadership_Commit_PreserveOthers(c *gc.C) {
-	factory := operation.NewFactory(operation.FactoryParams{})
+	factory := s.newFactory()
 	op, err := factory.NewResignLeadership()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -174,7 +181,7 @@ func (s *LeaderSuite) TestResignLeadership_Commit_PreserveOthers(c *gc.C) {
 }
 
 func (s *LeaderSuite) TestResignLeadership_Commit_All(c *gc.C) {
-	factory := operation.NewFactory(operation.FactoryParams{})
+	factory := s.newFactory()
 	op, err := factory.NewResignLeadership()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -186,7 +193,7 @@ func (s *LeaderSuite) TestResignLeadership_Commit_All(c *gc.C) {
 }
 
 func (s *LeaderSuite) TestResignLeadership_DoesNotNeedGlobalMachineLock(c *gc.C) {
-	factory := operation.NewFactory(operation.FactoryParams{})
+	factory := s.newFactory()
 	op, err := factory.NewResignLeadership()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.NeedsGlobalMachineLock(), jc.IsFalse)

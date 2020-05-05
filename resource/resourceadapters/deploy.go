@@ -6,8 +6,8 @@ package resourceadapters
 import (
 	"strconv"
 
+	charmresource "github.com/juju/charm/v7/resource"
 	"github.com/juju/errors"
-	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"

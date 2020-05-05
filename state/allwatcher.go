@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -357,7 +357,7 @@ func (m *backingMachine) updated(ctx *allWatcherContext) error {
 				return errors.Annotatef(err, "retrieving space for ID %q", spaceID)
 			}
 			mAddr.SpaceName = network.SpaceName(space.Name())
-			mAddr.ProviderSpaceID = network.Id(space.ProviderId())
+			mAddr.ProviderSpaceID = space.ProviderId()
 		}
 
 		info.Addresses = append(info.Addresses, mAddr)

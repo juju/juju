@@ -27,7 +27,7 @@ type AdmissionCreatorFunc func() (func(), error)
 const (
 	// Component describes a sub zone to use on the juju tld for unique resource
 	// ids. For example using this component "admission" with "juju.io" would
-	// yeild admission.juju.io
+	// yield admission.juju.io
 	Component = "admission"
 )
 

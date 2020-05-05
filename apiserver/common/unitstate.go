@@ -6,7 +6,7 @@ package common
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate mockgen -package mocks -destination mocks/unitstate.go github.com/juju/juju/apiserver/common UnitStateBackend,UnitStateUnit
-//go:generate mockgen -package mocks -destination mocks/modeloperation.go github.com/juju/juju/state ModelOperation
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/unitstate.go github.com/juju/juju/apiserver/common UnitStateBackend,UnitStateUnit
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/modeloperation.go github.com/juju/juju/state ModelOperation
 
 // UnitStateUnit describes unit-receiver state methods required
 // for UnitStateAPI.

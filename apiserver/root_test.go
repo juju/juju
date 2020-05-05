@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/names/v4"
 	"github.com/juju/rpcreflect"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/facade"

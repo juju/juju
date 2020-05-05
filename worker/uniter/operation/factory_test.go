@@ -4,12 +4,13 @@
 package operation_test
 
 import (
+	corecharm "github.com/juju/charm/v7"
+	"github.com/juju/charm/v7/hooks"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	utilexec "github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -34,6 +35,7 @@ func (s *FactorySuite) SetUpTest(c *gc.C) {
 	}
 	s.factory = operation.NewFactory(operation.FactoryParams{
 		Deployer: deployer,
+		Logger:   loggo.GetLogger("test"),
 	})
 }
 

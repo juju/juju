@@ -8,9 +8,9 @@ import (
 	"os"
 	"path"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/downloader"
 )
@@ -27,10 +27,11 @@ type Downloader interface {
 type BundlesDir struct {
 	path       string
 	downloader Downloader
+	logger     Logger
 }
 
 // NewBundlesDir returns a new BundlesDir which uses path for storage.
-func NewBundlesDir(path string, dlr Downloader) *BundlesDir {
+func NewBundlesDir(path string, dlr Downloader, logger Logger) *BundlesDir {
 	if dlr == nil {
 		dlr = downloader.New(downloader.NewArgs{
 			HostnameVerification: utils.NoVerifySSLHostnames,
@@ -39,6 +40,7 @@ func NewBundlesDir(path string, dlr Downloader) *BundlesDir {
 	return &BundlesDir{
 		path:       path,
 		downloader: dlr,
+		logger:     logger,
 	}
 }
 
@@ -74,7 +76,7 @@ func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struc
 		Verify:    downloader.NewSha256Verifier(expectedSha256),
 		Abort:     abort,
 	}
-	logger.Infof("downloading %s from API server", info.URL())
+	d.logger.Infof("downloading %s from API server", info.URL())
 	filename, err := d.downloader.Download(req)
 	if err != nil {
 		return errors.Annotatef(err, "failed to download charm %q from API server", info.URL())

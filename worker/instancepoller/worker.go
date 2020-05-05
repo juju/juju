@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/catacomb"
+	"github.com/juju/names/v4"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
@@ -24,10 +24,10 @@ import (
 	"github.com/juju/juju/worker/common"
 )
 
-//go:generate mockgen -package mocks -destination mocks/mocks_watcher.go github.com/juju/juju/core/watcher StringsWatcher
-//go:generate mockgen -package mocks -destination mocks/mocks_instances.go github.com/juju/juju/environs/instances Instance
-//go:generate mockgen -package mocks -destination mocks/mocks_cred_api.go github.com/juju/juju/worker/common CredentialAPI
-//go:generate mockgen -package mocks -destination mocks/mocks_instancepoller.go github.com/juju/juju/worker/instancepoller Environ,Machine
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mocks_watcher.go github.com/juju/juju/core/watcher StringsWatcher
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mocks_instances.go github.com/juju/juju/environs/instances Instance
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mocks_cred_api.go github.com/juju/juju/worker/common CredentialAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mocks_instancepoller.go github.com/juju/juju/worker/instancepoller Environ,Machine
 
 // ShortPoll and LongPoll hold the polling intervals for the instance
 // updater. When a machine has no address or is not started, it will be

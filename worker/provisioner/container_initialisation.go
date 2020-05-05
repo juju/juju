@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/worker/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/common"
@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	workercommon "github.com/juju/juju/worker/common"
 )
@@ -165,7 +166,7 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(
 		return errors.Annotate(err, "configuring availability zones")
 	}
 
-	if err := cs.initContainerDependencies(abort, containerType); err != nil {
+	if err := cs.initContainerDependencies(abort, containerType, managerConfig); err != nil {
 		return errors.Annotate(err, "setting up container dependencies on host machine")
 	}
 
@@ -201,8 +202,11 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(
 
 // initContainerDependencies ensures that the host machine is set-up to manage
 // containers of the input type.
-func (cs *ContainerSetup) initContainerDependencies(abort <-chan struct{}, containerType instance.ContainerType) error {
-	initialiser := getContainerInitialiser(containerType)
+func (cs *ContainerSetup) initContainerDependencies(abort <-chan struct{}, containerType instance.ContainerType, managerCfg container.ManagerConfig) error {
+	snapChannels := map[string]string{
+		"lxd": managerCfg.PopValue(config.LXDSnapChannel),
+	}
+	initialiser := getContainerInitialiser(containerType, snapChannels)
 
 	releaser, err := cs.acquireLock(fmt.Sprintf("%s container initialisation", containerType), abort)
 	if err != nil {
@@ -251,9 +255,9 @@ func (cs *ContainerSetup) TearDown() error {
 }
 
 // getContainerInitialiser exists to patch out in tests.
-var getContainerInitialiser = func(ct instance.ContainerType) container.Initialiser {
+var getContainerInitialiser = func(ct instance.ContainerType, snapChannels map[string]string) container.Initialiser {
 	if ct == instance.LXD {
-		return lxd.NewContainerInitialiser()
+		return lxd.NewContainerInitialiser(snapChannels["lxd"])
 	}
 	return kvm.NewContainerInitialiser()
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/gorilla/schema"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
+	"github.com/juju/featureflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket"

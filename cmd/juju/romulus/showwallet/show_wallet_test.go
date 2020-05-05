@@ -7,11 +7,11 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/romulus/wireformat/budget"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	rcmd "github.com/juju/juju/cmd/juju/romulus"

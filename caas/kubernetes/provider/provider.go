@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 )
@@ -80,7 +81,7 @@ func newK8sClient(c *rest.Config) (
 	return k8sClient, apiextensionsclient, dynamicClient, nil
 }
 
-// CloudSpecToK8sRestConfig tranlates cloudspec to k8s rest config.
+// CloudSpecToK8sRestConfig translates cloudspec to k8s rest config.
 func CloudSpecToK8sRestConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 	if cloudSpec.Credential == nil {
 		return nil, errors.Errorf("cloud %v has no credential", cloudSpec.Name)
@@ -105,6 +106,10 @@ func CloudSpecToK8sRestConfig(cloudSpec environs.CloudSpec) (*rest.Config, error
 	}, nil
 }
 
+func newRestClient(cfg *rest.Config) (rest.Interface, error) {
+	return rest.RESTClientFor(cfg)
+}
+
 // Open is part of the ContainerEnvironProvider interface.
 func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, error) {
 	logger.Debugf("opening model %q.", args.Config.Name())
@@ -115,14 +120,33 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// Guinea Pig broker to hunt for the namespace where a controller lives. We
+	// disregard this one in favour of a new one pinned to the correct
+	// controller namespace when we find it.
 	broker, err := newK8sBroker(
-		args.ControllerUUID, k8sRestConfig, args.Config, newK8sClient,
+		args.ControllerUUID, k8sRestConfig, args.Config, args.Config.Name(), newK8sClient, newRestClient,
 		newKubernetesNotifyWatcher, newKubernetesStringsWatcher, randomPrefix,
 		jujuclock.WallClock)
 	if err != nil {
 		return nil, err
 	}
-	return controllerCorelation(broker)
+
+	if args.Config.Name() != environsbootstrap.ControllerModelName {
+		return broker, nil
+	}
+
+	ns, err := controllerCorelation(broker)
+	if errors.IsNotFound(err) {
+		return broker, nil
+	} else if err != nil {
+		return broker, err
+	}
+
+	return newK8sBroker(
+		args.ControllerUUID, k8sRestConfig, args.Config, ns,
+		newK8sClient, newRestClient, newKubernetesNotifyWatcher, newKubernetesStringsWatcher,
+		randomPrefix, jujuclock.WallClock)
 }
 
 // CloudSchema returns the schema for adding new clouds of this type.

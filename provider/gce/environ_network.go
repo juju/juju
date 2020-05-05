@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"google.golang.org/api/compute/v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -223,6 +223,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 				Disabled:        false,
 				NoAutoStart:     false,
 				ConfigType:      corenetwork.ConfigDHCP,
+				Origin:          corenetwork.OriginProvider,
 			})
 		}
 	}

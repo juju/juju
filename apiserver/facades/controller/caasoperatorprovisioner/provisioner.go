@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -239,7 +239,7 @@ func (a *API) IssueOperatorCertificate(args params.Entities) (params.IssueOperat
 		}
 
 		res.Results[i] = params.IssueOperatorCertificateResult{
-			CACert:     string(caCert),
+			CACert:     caCert,
 			Cert:       string(cert),
 			PrivateKey: string(privateKey),
 		}

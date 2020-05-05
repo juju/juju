@@ -7,9 +7,8 @@ import (
 	"net/http"
 	"sync"
 
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/rpc"
+	"github.com/juju/names/v4"
 )
 
 // Observer defines a type which will observe API server events as

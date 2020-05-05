@@ -4,9 +4,9 @@
 package storage
 
 import (
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"

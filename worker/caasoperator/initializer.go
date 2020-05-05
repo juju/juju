@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1/catacomb"
+	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"

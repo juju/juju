@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/watcher"

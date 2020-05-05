@@ -14,7 +14,7 @@ import (
 )
 
 // AvailabilityZone describes a provider availability zone.
-//go:generate mockgen -package mocks -destination mocks/availability_zone.go github.com/juju/juju/provider/common AvailabilityZone
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/availability_zone.go github.com/juju/juju/provider/common AvailabilityZone
 type AvailabilityZone interface {
 	// Name returns the name of the availability zone.
 	Name() string
@@ -24,7 +24,7 @@ type AvailabilityZone interface {
 }
 
 // ZonedEnviron is an environs.Environ that has support for availability zones.
-//go:generate mockgen -package mocks -destination mocks/zoned_environ.go github.com/juju/juju/provider/common ZonedEnviron
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/zoned_environ.go github.com/juju/juju/provider/common ZonedEnviron
 type ZonedEnviron interface {
 	environs.Environ
 

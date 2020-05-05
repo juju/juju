@@ -6,10 +6,11 @@ package migrationminion_test
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -38,6 +39,7 @@ func (s *ManifoldSuite) validConfig() migrationminion.ManifoldConfig {
 		ValidateMigration: func(base.APICaller) error { return nil },
 		NewFacade:         func(base.APICaller) (migrationminion.Facade, error) { return nil, nil },
 		NewWorker:         func(migrationminion.Config) (worker.Worker, error) { return nil, nil },
+		Logger:            loggo.GetLogger("test"),
 	}
 }
 
@@ -83,6 +85,11 @@ func (s *ManifoldSuite) TestMissingNewFacade(c *gc.C) {
 func (s *ManifoldSuite) TestMissingNewWorker(c *gc.C) {
 	s.config.NewWorker = nil
 	s.checkNotValid(c, "nil NewWorker not valid")
+}
+
+func (s *ManifoldSuite) TestMissingLogger(c *gc.C) {
+	s.config.Logger = nil
+	s.checkNotValid(c, "nil Logger not valid")
 }
 
 func (s *ManifoldSuite) checkNotValid(c *gc.C, expect string) {

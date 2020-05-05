@@ -20,7 +20,7 @@ import (
 type Subnet struct {
 	st  *State
 	doc subnetDoc
-	// spaceID is either the space id from the subnet's FanLocalUnderlay,
+	// spaceID is either the space ID from the subnet's FanLocalUnderlay,
 	// or this subnet's space ID.
 	spaceID string
 }

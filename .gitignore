@@ -1,3 +1,4 @@
+_build/
 cmd/juju/juju
 cmd/jujud/jujud
 cmd/builddb/builddb
@@ -5,6 +6,7 @@ cmd/charmd/charmd
 cmd/charmload/charmload
 provider/ec2/internal/ec2instancetypes/index.json
 provider/ec2/internal/ec2instancetypes/data.yaml
+tests/test-*
 tags
 !tags/
 TAGS

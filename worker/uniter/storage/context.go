@@ -4,9 +4,8 @@
 package storage
 
 import (
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/storage"
+	"github.com/juju/names/v4"
 )
 
 // contextStorage is an implementation of hooks.ContextStorageAttachment.

@@ -6,11 +6,11 @@ package caasbroker_test
 import (
 	"sync"
 
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"

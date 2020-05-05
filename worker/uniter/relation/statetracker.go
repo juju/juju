@@ -4,12 +4,12 @@
 package relation
 
 import (
+	"github.com/juju/charm/v7"
+	corecharm "github.com/juju/charm/v7"
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6"
-	corecharm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/names/v4"
+	"github.com/juju/worker/v2"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
-//go:generate mockgen -package mocks -destination mocks/mock_statetracker.go github.com/juju/juju/worker/uniter/relation RelationStateTracker
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_statetracker.go github.com/juju/juju/worker/uniter/relation RelationStateTracker
 
 type RelationStateTracker interface {
 	// PrepareHook returns the name of the supplied relation hook, or an error

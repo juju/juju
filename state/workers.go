@@ -11,7 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	"github.com/juju/pubsub"
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/worker/v2"
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/paths"

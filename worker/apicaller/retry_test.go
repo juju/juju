@@ -6,6 +6,7 @@ package apicaller_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/worker/apicaller"
-	"gopkg.in/juju/names.v3"
 )
 
 // RetryStrategySuite exercises the cases where we need to connect

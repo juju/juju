@@ -5,7 +5,7 @@ package common
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/state"
 )
@@ -77,7 +77,7 @@ func AuthFuncForTagKind(kind string) GetAuthFunc {
 	}
 }
 
-//go:generate mockgen -package mocks -destination mocks/authorizer_mock.go github.com/juju/juju/apiserver/common Authorizer
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/authorizer_mock.go github.com/juju/juju/apiserver/common Authorizer
 
 // Authorizer represents the authenticated entity using the API server.
 type Authorizer interface {

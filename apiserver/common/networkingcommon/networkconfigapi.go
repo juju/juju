@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -224,9 +224,9 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 }
 
 func (api *NetworkConfigAPI) setLinkLayerDevicesAndAddresses(
-	m *state.Machine, ifaces []network.InterfaceInfo,
+	m *state.Machine, interfaceInfos []network.InterfaceInfo,
 ) error {
-	devicesArgs, devicesAddrs := NetworkInterfacesToStateArgs(ifaces)
+	devicesArgs, devicesAddrs := NetworkInterfacesToStateArgs(interfaceInfos)
 
 	logger.Debugf("setting devices: %+v", devicesArgs)
 	if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {

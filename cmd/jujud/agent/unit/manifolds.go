@@ -11,8 +11,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
+	"github.com/juju/worker/v2/dependency"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/worker.v1/dependency"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -234,6 +234,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
+			// No Logger defined in migrationflag package.
 		}),
 		migrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
 			AgentName:         agentName,
@@ -244,6 +245,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
+			Logger:            loggo.GetLogger("juju.worker.migrationminion"),
 		}),
 
 		// The logging config updater is a leaf worker that indirectly
@@ -264,6 +266,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		apiAddressUpdaterName: ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+			Logger:        loggo.GetLogger("juju.worker.apiaddressupdater"),
 		})),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
@@ -320,6 +323,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			CharmDirName:          charmDirName,
 			HookRetryStrategyName: hookRetryStrategyName,
 			TranslateResolverErr:  uniter.TranslateFortressErrors,
+			Logger:                loggo.GetLogger("juju.worker.uniter"),
 		})),
 
 		// TODO (mattyw) should be added to machine agent.

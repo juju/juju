@@ -217,6 +217,7 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 		Addresses: corenetwork.ProviderAddresses{
 			corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
 		},
+		Origin: corenetwork.OriginProvider,
 	}})
 }
 
@@ -302,6 +303,7 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		Addresses: corenetwork.ProviderAddresses{
 			corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
 		},
+		Origin: corenetwork.OriginProvider,
 	}})
 
 	// Check interfaces for second instance
@@ -324,6 +326,7 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		ShadowAddresses: corenetwork.ProviderAddresses{
 			corenetwork.NewScopedProviderAddress("25.185.142.227", corenetwork.ScopePublic),
 		},
+		Origin: corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:       1,
 		CIDR:              "10.0.20.0/24",
@@ -339,6 +342,7 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		Addresses: corenetwork.ProviderAddresses{
 			corenetwork.NewScopedProviderAddress("10.0.20.42", corenetwork.ScopeCloudLocal),
 		},
+		Origin: corenetwork.OriginProvider,
 	}})
 }
 
@@ -368,6 +372,7 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 		Addresses: corenetwork.ProviderAddresses{
 			corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
 		},
+		Origin: corenetwork.OriginProvider,
 	}})
 
 	// Check that the slot for the second instance is nil
@@ -413,6 +418,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		Addresses: corenetwork.ProviderAddresses{
 			corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
 		},
+		Origin: corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:       1,
 		CIDR:              "10.0.20.0/24",
@@ -431,6 +437,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		ShadowAddresses: corenetwork.ProviderAddresses{
 			corenetwork.NewScopedProviderAddress("25.185.142.227", corenetwork.ScopePublic),
 		},
+		Origin: corenetwork.OriginProvider,
 	}})
 }
 
@@ -475,6 +482,7 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 		ShadowAddresses: corenetwork.ProviderAddresses{
 			corenetwork.NewScopedProviderAddress("25.185.142.227", corenetwork.ScopePublic),
 		},
+		Origin: corenetwork.OriginProvider,
 	}})
 }
 
@@ -517,6 +525,7 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		Addresses: corenetwork.ProviderAddresses{
 			corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
 		},
+		Origin: corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:       1,
 		CIDR:              "10.0.10.0/24",
@@ -535,5 +544,6 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		ShadowAddresses: corenetwork.ProviderAddresses{
 			corenetwork.NewScopedProviderAddress("25.185.142.227", corenetwork.ScopePublic),
 		},
+		Origin: corenetwork.OriginProvider,
 	}})
 }

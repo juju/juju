@@ -23,6 +23,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/version"
@@ -32,7 +33,6 @@ import (
 	"gopkg.in/goose.v2/identity"
 	"gopkg.in/goose.v2/neutron"
 	"gopkg.in/goose.v2/nova"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -1442,6 +1442,7 @@ func (e *Environ) networksForInstance(
 			MACAddress:    port.MACAddress,
 			Addresses:     corenetwork.NewProviderAddresses(ips...),
 			ConfigType:    corenetwork.ConfigDHCP,
+			Origin:        corenetwork.OriginProvider,
 		}
 	}
 

@@ -8,14 +8,14 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -1278,8 +1278,8 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 				about: "model update keeps permissions",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
-					// Existance doesn't care about the other values, and they are
-					// not entirely relevent to this test.
+					// Existence doesn't care about the other values, and they are
+					// not entirely relevant to this test.
 					UserPermissions: map[string]permission.Access{
 						"bob":  permission.ReadAccess,
 						"mary": permission.AdminAccess,
@@ -1324,8 +1324,8 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
-					// Existance doesn't care about the other values, and they are
-					// not entirely relevent to this test.
+					// Existence doesn't care about the other values, and they are
+					// not entirely relevant to this test.
 					UserPermissions: map[string]permission.Access{
 						"bob":  permission.ReadAccess,
 						"mary": permission.AdminAccess,
@@ -1356,8 +1356,8 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
-					// Existance doesn't care about the other values, and they are
-					// not entirely relevent to this test.
+					// Existence doesn't care about the other values, and they are
+					// not entirely relevant to this test.
 					UserPermissions: map[string]permission.Access{
 						"bob":  permission.ReadAccess,
 						"mary": permission.AdminAccess,
@@ -1403,8 +1403,8 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
-					// Existance doesn't care about the other values, and they are
-					// not entirely relevent to this test.
+					// Existence doesn't care about the other values, and they are
+					// not entirely relevant to this test.
 					UserPermissions: map[string]permission.Access{
 						"bob":  permission.ReadAccess,
 						"mary": permission.AdminAccess,

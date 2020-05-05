@@ -10,8 +10,8 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/catacomb"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/pubsub/apiserver"
 )

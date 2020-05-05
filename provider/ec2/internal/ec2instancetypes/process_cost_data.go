@@ -422,7 +422,7 @@ func locationToRegion(loc string) (string, bool) {
 		"US West (N. California)": "us-west-1",
 		"US West (Oregon)":        "us-west-2",
 		// LA is a local zone, we currently don't support them.
-		// It is a AZ in us-west-2, but for pricing it is a seperate region.
+		// It is a AZ in us-west-2, but for pricing it is a separate region.
 		"US West (Los Angeles)":      ignoreRegion,
 		"Canada (Central)":           "ca-central-1",
 		"EU (Frankfurt)":             "eu-central-1",
@@ -430,6 +430,7 @@ func locationToRegion(loc string) (string, bool) {
 		"EU (London)":                "eu-west-2",
 		"EU (Paris)":                 "eu-west-3",
 		"EU (Stockholm)":             "eu-north-1",
+		"EU (Milan)":                 "eu-south-1",
 		"Asia Pacific (Tokyo)":       "ap-northeast-1",
 		"Asia Pacific (Seoul)":       "ap-northeast-2",
 		"Asia Pacific (Osaka-Local)": "ap-northeast-3",
@@ -441,6 +442,8 @@ func locationToRegion(loc string) (string, bool) {
 		"South America (Sao Paulo)":  "sa-east-1",
 		"AWS GovCloud (US-East)":     "us-gov-east-1",
 		"AWS GovCloud (US)":          "us-gov-west-1",
+		"AWS GovCloud (US-West)":     "us-gov-west-1",
+		"Africa (Cape Town)":         "af-south-1",
 
 		// NOTE(axw) at the time of writing, there is no
 		// pricing information for cn-north-1.

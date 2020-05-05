@@ -11,11 +11,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 

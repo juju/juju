@@ -5,7 +5,7 @@
 package systemd_test
 
 import (
-	dbus "github.com/coreos/go-systemd/dbus"
+	dbus "github.com/coreos/go-systemd/v22/dbus"
 	gomock "github.com/golang/mock/gomock"
 	os "os"
 	reflect "reflect"

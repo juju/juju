@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v3"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-//go:generate mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/api/provisioner MachineProvisioner
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/api/provisioner MachineProvisioner
 
 // MachineProvisioner defines what provisioner needs to provision a machine.
 type MachineProvisioner interface {

@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/names/v4"
+	"github.com/juju/worker/v2"
 
 	"github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/apiserver/params"
@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/environs"
 )
 
-//go:generate mockgen -package mocks -destination mocks/mutatercontext_mock.go github.com/juju/juju/worker/instancemutater MutaterContext
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mutatercontext_mock.go github.com/juju/juju/worker/instancemutater MutaterContext
 
 // lifetimeContext was extracted to allow the various Context clients to get
 // the benefits of the catacomb encapsulating everything that should happen

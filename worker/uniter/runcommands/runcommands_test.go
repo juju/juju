@@ -4,11 +4,12 @@
 package runcommands_test
 
 import (
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -48,6 +49,7 @@ func (s *runcommandsSuite) SetUpTest(c *gc.C) {
 				return &s.mockRunner, nil
 			},
 		},
+		Logger: loggo.GetLogger("test"),
 	})
 
 	s.commands = runcommands.NewCommands()

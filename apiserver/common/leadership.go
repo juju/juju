@@ -5,7 +5,7 @@ package common
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate mockgen -package mocks -destination mocks/leadership.go github.com/juju/juju/apiserver/common LeadershipPinningBackend,LeadershipMachine
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/leadership.go github.com/juju/juju/apiserver/common LeadershipPinningBackend,LeadershipMachine
 
 // LeadershipMachine is an indirection for state.machine.
 type LeadershipMachine interface {

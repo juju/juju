@@ -48,7 +48,7 @@ See also:
 )
 
 // DiffCommandAPI describes API methods required to execute the diff command.
-//go:generate mockgen -package mocks -destination ./mocks/diff_mock.go github.com/juju/juju/cmd/juju/model DiffCommandAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/diff_mock.go github.com/juju/juju/cmd/juju/model DiffCommandAPI
 type DiffCommandAPI interface {
 	Close() error
 

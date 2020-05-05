@@ -16,7 +16,7 @@ import (
 )
 
 // JujuLogCommandLogger provides a Logger interface for the juju-log command.
-//go:generate mockgen -package jujuc -destination juju-log_mock_test.go github.com/juju/juju/worker/uniter/runner/jujuc JujuLogCommandLogger,JujuLogCommandLoggerFactory,JujuLogContext
+//go:generate go run github.com/golang/mock/mockgen -package jujuc -destination juju-log_mock_test.go github.com/juju/juju/worker/uniter/runner/jujuc JujuLogCommandLogger,JujuLogCommandLoggerFactory,JujuLogContext
 type JujuLogCommandLogger interface {
 	Logf(level loggo.Level, message string, args ...interface{})
 	Warningf(message string, args ...interface{})

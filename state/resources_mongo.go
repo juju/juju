@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	charmresource "github.com/juju/charm/v7/resource"
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
-	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 

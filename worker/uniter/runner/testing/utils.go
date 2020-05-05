@@ -8,9 +8,9 @@ import (
 	"runtime"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
+	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/juju/sockets"

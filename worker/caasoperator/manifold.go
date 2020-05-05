@@ -13,10 +13,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -233,6 +234,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UpdateStatusSignal:   uniter.NewUpdateStatusTimer(),
 				HookRetryStrategy:    hookRetryStrategy,
 				TranslateResolverErr: config.TranslateResolverErr,
+				Logger:               loggo.GetLogger("juju.worker.uniter"),
 			}
 			wCfg.UniterParams.SocketConfig, err = socketConfig(operatorInfo)
 			if err != nil {

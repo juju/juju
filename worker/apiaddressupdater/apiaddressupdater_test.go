@@ -9,10 +9,13 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/workertest"
 
 	apimachiner "github.com/juju/juju/api/machiner"
 	corenetwork "github.com/juju/juju/core/network"
@@ -52,7 +55,12 @@ func (s *apiAddressSetter) SetAPIHostPorts(servers []corenetwork.HostPorts) erro
 
 func (s *APIAddressUpdaterSuite) TestStartStop(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), &apiAddressSetter{})
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(
+		apiaddressupdater.Config{
+			Addresser: apimachiner.NewState(st),
+			Setter:    &apiAddressSetter{},
+			Logger:    loggo.GetLogger("test"),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
@@ -65,7 +73,12 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 
 	setter := &apiAddressSetter{servers: make(chan []corenetwork.HostPorts, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	updater, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), setter)
+	updater, err := apiaddressupdater.NewAPIAddressUpdater(
+		apiaddressupdater.Config{
+			Addresser: apimachiner.NewState(st),
+			Setter:    setter,
+			Logger:    loggo.GetLogger("test"),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, updater)
 
@@ -94,7 +107,12 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	setter := &apiAddressSetter{servers: make(chan []corenetwork.HostPorts, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), setter)
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(
+		apiaddressupdater.Config{
+			Addresser: apimachiner.NewState(st),
+			Setter:    setter,
+			Logger:    loggo.GetLogger("test"),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -176,7 +194,12 @@ LXC_BRIDGE="ignored"`[1:])
 
 	setter := &apiAddressSetter{servers: make(chan []corenetwork.HostPorts, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	w, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), setter)
+	w, err := apiaddressupdater.NewAPIAddressUpdater(
+		apiaddressupdater.Config{
+			Addresser: apimachiner.NewState(st),
+			Setter:    setter,
+			Logger:    loggo.GetLogger("test"),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(w.Wait(), gc.IsNil) }()
 	defer w.Kill()
@@ -227,4 +250,57 @@ LXC_BRIDGE="ignored"`[1:])
 		}.HostPorts()
 		c.Assert(servers, jc.DeepEquals, []corenetwork.HostPorts{expServer1, expServerUpd})
 	}
+}
+
+type ValidateSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&ValidateSuite{})
+
+func (*ValidateSuite) TestValid(c *gc.C) {
+	err := validConfig().Validate()
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (*ValidateSuite) TestMissingAddresser(c *gc.C) {
+	config := validConfig()
+	config.Addresser = nil
+	checkNotValid(c, config, "nil Addresser not valid")
+}
+
+func (*ValidateSuite) TestMissingSetter(c *gc.C) {
+	config := validConfig()
+	config.Setter = nil
+	checkNotValid(c, config, "nil Setter not valid")
+}
+
+func (*ValidateSuite) TestMissingLogger(c *gc.C) {
+	config := validConfig()
+	config.Logger = nil
+	checkNotValid(c, config, "nil Logger not valid")
+}
+
+func validConfig() apiaddressupdater.Config {
+	return apiaddressupdater.Config{
+		Addresser: struct{ apiaddressupdater.APIAddresser }{},
+		Setter: struct {
+			apiaddressupdater.APIAddressSetter
+		}{},
+		Logger: loggo.GetLogger("test"),
+	}
+}
+
+func checkNotValid(c *gc.C, config apiaddressupdater.Config, expect string) {
+	check := func(err error) {
+		c.Check(err, gc.ErrorMatches, expect)
+		c.Check(err, jc.Satisfies, errors.IsNotValid)
+	}
+
+	err := config.Validate()
+	check(err)
+
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(config)
+	c.Check(worker, gc.IsNil)
+	check(err)
 }

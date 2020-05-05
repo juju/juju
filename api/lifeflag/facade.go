@@ -5,7 +5,7 @@ package lifeflag
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -90,7 +90,7 @@ func (facade *Facade) Life(entity names.Tag) (life.Value, error) {
 		}
 		return "", errors.Trace(result.Error)
 	}
-	life := life.Value(result.Life)
+	life := result.Life
 	if err := life.Validate(); err != nil {
 		return "", errors.Trace(err)
 	}

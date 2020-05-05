@@ -13,6 +13,7 @@ import (
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
+	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	k8sannotations "github.com/juju/juju/core/annotations"
 )
 
@@ -23,18 +24,30 @@ func (k *kubernetesClient) getAdmissionControllerLabels(appName string) map[stri
 	}
 }
 
+var annotationDisableNamePrefixKey = jujuAnnotationKey("disable-name-prefix")
+
+const annotationDisableNamePrefixValue = "true"
+
+func decideNameForGlobalResource(meta k8sspecs.Meta, namespace string) string {
+	name := meta.Name
+	if k8sannotations.New(meta.Annotations).Has(annotationDisableNamePrefixKey, annotationDisableNamePrefixValue) {
+		return name
+	}
+	return fmt.Sprintf("%s-%s", namespace, name)
+}
+
 func (k *kubernetesClient) ensureMutatingWebhookConfigurations(
-	appName string, annotations k8sannotations.Annotation, cfgs map[string][]admissionregistration.MutatingWebhook,
+	appName string, annotations k8sannotations.Annotation, cfgs []k8sspecs.K8sMutatingWebhookSpec,
 ) (cleanUps []func(), err error) {
-	for name, webhooks := range cfgs {
+	for _, v := range cfgs {
 		spec := &admissionregistration.MutatingWebhookConfiguration{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        fmt.Sprintf("%s-%s", k.namespace, name), // ensure global reource MutatingWebhookConfiguration's name unique.
+				Name:        decideNameForGlobalResource(v.Meta, k.namespace),
 				Namespace:   k.namespace,
-				Labels:      k.getAdmissionControllerLabels(appName),
-				Annotations: annotations,
+				Labels:      k8slabels.Merge(v.Labels, k.getAdmissionControllerLabels(appName)),
+				Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
 			},
-			Webhooks: webhooks,
+			Webhooks: v.Webhooks,
 		}
 		cfgCleanup, err := k.EnsureMutatingWebhookConfiguration(spec)
 		cleanUps = append(cleanUps, cfgCleanup)
@@ -146,17 +159,17 @@ func (k *kubernetesClient) deleteMutatingWebhookConfigurationsForApp(appName str
 }
 
 func (k *kubernetesClient) ensureValidatingWebhookConfigurations(
-	appName string, annotations k8sannotations.Annotation, cfgs map[string][]admissionregistration.ValidatingWebhook,
+	appName string, annotations k8sannotations.Annotation, cfgs []k8sspecs.K8sValidatingWebhookSpec,
 ) (cleanUps []func(), err error) {
-	for name, webhooks := range cfgs {
+	for _, v := range cfgs {
 		spec := &admissionregistration.ValidatingWebhookConfiguration{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        fmt.Sprintf("%s-%s", k.namespace, name), // ensure global resource ValidatingWebhookConfiguration's name unique.
+				Name:        decideNameForGlobalResource(v.Meta, k.namespace),
 				Namespace:   k.namespace,
-				Labels:      k.getAdmissionControllerLabels(appName),
-				Annotations: annotations,
+				Labels:      k8slabels.Merge(v.Labels, k.getAdmissionControllerLabels(appName)),
+				Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
 			},
-			Webhooks: webhooks,
+			Webhooks: v.Webhooks,
 		}
 		cfgCleanup, err := k.ensureValidatingWebhookConfiguration(spec)
 		cleanUps = append(cleanUps, cfgCleanup)

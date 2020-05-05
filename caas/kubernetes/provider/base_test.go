@@ -27,6 +27,7 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/mocks"
+	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -185,15 +186,16 @@ func (s *BaseSuite) getNamespace() string {
 
 func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
+	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
 	randomPrefixFunc := func() (string, error) {
 		return "appuuid", nil
 	}
-	return s.setupBroker(c, ctrl, newK8sRestClientFunc, randomPrefixFunc)
+	return s.setupBroker(c, ctrl, newK8sClientFunc, newK8sRestFunc, randomPrefixFunc)
 }
 
 func (s *BaseSuite) setupBroker(c *gc.C, ctrl *gomock.Controller,
-	newK8sRestClientFunc provider.NewK8sClientFunc,
+	newK8sClientFunc provider.NewK8sClientFunc,
+	newK8sRestFunc k8sspecs.NewK8sRestClientFunc,
 	randomPrefixFunc provider.RandomPrefixFunc) *gomock.Controller {
 	s.clock = testclock.NewClock(time.Time{})
 
@@ -219,13 +221,15 @@ func (s *BaseSuite) setupBroker(c *gc.C, ctrl *gomock.Controller,
 		})
 
 	var err error
-	s.broker, err = provider.NewK8sBroker(testing.ControllerTag.Id(), s.k8sRestConfig, s.cfg, newK8sRestClientFunc,
+	s.broker, err = provider.NewK8sBroker(testing.ControllerTag.Id(), s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
 		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
 }
 
-func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespace string) provider.NewK8sClientFunc {
+func (s *BaseSuite) setupK8sRestClient(
+	c *gc.C, ctrl *gomock.Controller, namespace string,
+) (provider.NewK8sClientFunc, k8sspecs.NewK8sRestClientFunc) {
 	s.k8sClient = mocks.NewMockInterface(ctrl)
 
 	// Plug in the various k8s client modules we need.
@@ -319,16 +323,18 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespa
 	s.k8sClient.EXPECT().Discovery().AnyTimes().Return(s.mockDiscovery)
 
 	return func(cfg *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error) {
-		c.Assert(cfg.Username, gc.Equals, "fred")
-		c.Assert(cfg.Password, gc.Equals, "secret")
-		c.Assert(cfg.Host, gc.Equals, "some-host")
-		c.Assert(cfg.TLSClientConfig, jc.DeepEquals, rest.TLSClientConfig{
-			CertData: []byte("cert-data"),
-			KeyData:  []byte("cert-key"),
-			CAData:   []byte(testing.CACert),
-		})
-		return s.k8sClient, s.mockApiextensionsClient, s.mockDynamicClient, nil
-	}
+			c.Assert(cfg.Username, gc.Equals, "fred")
+			c.Assert(cfg.Password, gc.Equals, "secret")
+			c.Assert(cfg.Host, gc.Equals, "some-host")
+			c.Assert(cfg.TLSClientConfig, jc.DeepEquals, rest.TLSClientConfig{
+				CertData: []byte("cert-data"),
+				KeyData:  []byte("cert-key"),
+				CAData:   []byte(testing.CACert),
+			})
+			return s.k8sClient, s.mockApiextensionsClient, s.mockDynamicClient, nil
+		}, func(cfg *rest.Config) (rest.Interface, error) {
+			return s.mockRestClient, nil
+		}
 }
 
 func (s *BaseSuite) k8sNotFoundError() *k8serrors.StatusError {

@@ -4,10 +4,10 @@
 package caasoperatorprovisioner_test
 
 import (
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"

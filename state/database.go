@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/featureflag"
 	"github.com/kr/pretty"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
@@ -28,10 +28,10 @@ type SessionCloser func()
 
 func dontCloseAnything() {}
 
-//go:generate mockgen -package mocks -destination mocks/database_mock.go github.com/juju/juju/state Database
-//go:generate mockgen -package mocks -destination mocks/mongo_mock.go github.com/juju/juju/mongo Collection,Query
-//go:generate mockgen -package mocks -destination mocks/txn_mock.go github.com/juju/txn Runner
-//go:generate mockgen -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/database_mock.go github.com/juju/juju/state Database
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mongo_mock.go github.com/juju/juju/mongo Collection,Query
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/txn_mock.go github.com/juju/txn Runner
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
 
 // Database exposes the mongodb capabilities that most of state should see.
 type Database interface {

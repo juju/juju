@@ -6,8 +6,8 @@ package charmstore
 import (
 	"time"
 
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/resource"
+	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v7/resource"
 )
 
 // CharmInfo holds the information about a charm from the charm store.

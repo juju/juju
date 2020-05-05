@@ -14,12 +14,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -1192,6 +1192,7 @@ func mapNetworkInterface(iface ec2.NetworkInterface, subnet ec2.Subnet) corenetw
 		Addresses: corenetwork.ProviderAddresses{
 			corenetwork.NewScopedProviderAddress(iface.PrivateIPAddress, corenetwork.ScopeCloudLocal),
 		},
+		Origin: corenetwork.OriginProvider,
 	}
 
 	for _, privAddr := range iface.PrivateIPs {

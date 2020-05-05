@@ -4,16 +4,16 @@
 package migrationmaster
 
 import (
+	"github.com/juju/names/v4"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 )
 
-//go:generate mockgen -package mocks -destination mocks/backend.go github.com/juju/juju/apiserver/facades/controller/migrationmaster Backend,OfferConnection
-//go:generate mockgen -package mocks -destination mocks/precheckbackend.go github.com/juju/juju/migration PrecheckBackend
-//go:generate mockgen -package mocks -destination mocks/state.go github.com/juju/juju/state ModelMigration,NotifyWatcher,ExternalController
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/backend.go github.com/juju/juju/apiserver/facades/controller/migrationmaster Backend,OfferConnection
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/precheckbackend.go github.com/juju/juju/migration PrecheckBackend
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/state.go github.com/juju/juju/state ModelMigration,NotifyWatcher,ExternalController
 
 // Backend defines the state functionality required by the
 // migrationmaster facade.

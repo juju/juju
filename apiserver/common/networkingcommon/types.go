@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -176,7 +176,7 @@ func NetworkInterfacesToStateArgs(ifaces []corenetwork.InterfaceInfo) (
 			args := state.LinkLayerDeviceArgs{
 				Name:        iface.InterfaceName,
 				MTU:         mtu,
-				ProviderID:  corenetwork.Id(iface.ProviderId),
+				ProviderID:  iface.ProviderId,
 				Type:        corenetwork.LinkLayerDeviceType(iface.InterfaceType),
 				MACAddress:  iface.MACAddress,
 				IsAutoStart: !iface.NoAutoStart,
@@ -220,9 +220,9 @@ func NetworkInterfacesToStateArgs(ifaces []corenetwork.InterfaceInfo) (
 
 		addr := state.LinkLayerDeviceAddress{
 			DeviceName:        iface.InterfaceName,
-			ProviderID:        corenetwork.Id(iface.ProviderAddressId),
-			ProviderNetworkID: corenetwork.Id(iface.ProviderNetworkId),
-			ProviderSubnetID:  corenetwork.Id(iface.ProviderSubnetId),
+			ProviderID:        iface.ProviderAddressId,
+			ProviderNetworkID: iface.ProviderNetworkId,
+			ProviderSubnetID:  iface.ProviderSubnetId,
 			ConfigMethod:      derivedConfigMethod,
 			CIDRAddress:       cidrAddress,
 			DNSServers:        iface.DNSServers.ToIPAddresses(),

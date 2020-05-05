@@ -4,11 +4,11 @@
 package operation_test
 
 import (
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -21,7 +21,7 @@ type FailActionSuite struct {
 var _ = gc.Suite(&FailActionSuite{})
 
 func (s *FailActionSuite) TestPrepare(c *gc.C) {
-	factory := operation.NewFactory(operation.FactoryParams{})
+	factory := newOpFactory(nil, nil)
 	op, err := factory.NewFailAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -61,9 +61,7 @@ func (s *FailActionSuite) TestExecuteSuccess(c *gc.C) {
 	for i, test := range stateChangeTests {
 		c.Logf("test %d: %s", i, test.description)
 		callbacks := &RunActionCallbacks{MockFailAction: &MockFailAction{}}
-		factory := operation.NewFactory(operation.FactoryParams{
-			Callbacks: callbacks,
-		})
+		factory := newOpFactory(nil, callbacks)
 		op, err := factory.NewFailAction(someActionId)
 		c.Assert(err, jc.ErrorIsNil)
 		midState, err := op.Prepare(test.before)
@@ -85,9 +83,7 @@ func (s *FailActionSuite) TestExecuteFail(c *gc.C) {
 		ActionId: &someActionId,
 	}
 	callbacks := &RunActionCallbacks{MockFailAction: &MockFailAction{err: errors.New("squelch")}}
-	factory := operation.NewFactory(operation.FactoryParams{
-		Callbacks: callbacks,
-	})
+	factory := newOpFactory(nil, callbacks)
 	op, err := factory.NewFailAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 	midState, err := op.Prepare(st)
@@ -143,7 +139,7 @@ func (s *FailActionSuite) TestCommit(c *gc.C) {
 
 	for i, test := range stateChangeTests {
 		c.Logf("test %d: %s", i, test.description)
-		factory := operation.NewFactory(operation.FactoryParams{})
+		factory := newOpFactory(nil, nil)
 		op, err := factory.NewFailAction(someActionId)
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -154,7 +150,7 @@ func (s *FailActionSuite) TestCommit(c *gc.C) {
 }
 
 func (s *FailActionSuite) TestNeedsGlobalMachineLock(c *gc.C) {
-	factory := operation.NewFactory(operation.FactoryParams{})
+	factory := newOpFactory(nil, nil)
 	op, err := factory.NewFailAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.NeedsGlobalMachineLock(), jc.IsTrue)

@@ -15,12 +15,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/worker/v2"
 )
 
 // TODO (manadart 2018-10-05) Add interfaces to the end of this line,
 // separated by commas, as they become required for mocking in tests.
-//go:generate mockgen -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/core/leadership Pinner
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/core/leadership Pinner
 
 // ErrClaimDenied is the error which will be returned when a
 // leadership claim has been denied.

@@ -6,8 +6,8 @@ package cleaner
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/cleaner"

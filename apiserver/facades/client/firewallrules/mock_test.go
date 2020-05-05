@@ -4,8 +4,8 @@
 package firewallrules_test
 
 import (
+	"github.com/juju/names/v4"
 	jtesting "github.com/juju/testing"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/facades/client/firewallrules"
 	"github.com/juju/juju/core/firewall"

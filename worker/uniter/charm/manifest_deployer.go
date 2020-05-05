@@ -8,9 +8,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v6"
 )
 
 const (
@@ -32,11 +33,12 @@ const (
 // that base charm. It thus leaves user files in place, with the exception of
 // those in directories referenced only in the original charm, which will be
 // deleted.
-func NewManifestDeployer(charmPath, dataPath string, bundles BundleReader) Deployer {
+func NewManifestDeployer(charmPath, dataPath string, bundles BundleReader, logger Logger) Deployer {
 	return &manifestDeployer{
 		charmPath: charmPath,
 		dataPath:  dataPath,
 		bundles:   bundles,
+		logger:    logger,
 	}
 }
 
@@ -44,6 +46,7 @@ type manifestDeployer struct {
 	charmPath string
 	dataPath  string
 	bundles   BundleReader
+	logger    Logger
 	staged    struct {
 		url      *charm.URL
 		bundle   Bundle
@@ -81,7 +84,26 @@ func (d *manifestDeployer) Deploy() (err error) {
 		return err
 	}
 	upgrading := baseURL != nil
-	defer manifestDeployError(&err, upgrading)
+	defer func(err *error) {
+		if *err != nil {
+			if upgrading {
+				// We now treat any failure to overwrite the charm -- or otherwise
+				// manipulate the charm directory -- as a conflict, because it's
+				// actually plausible for a user (or at least a charm author, who
+				// is the real audience for this case) to get in there and fix it.
+				d.logger.Errorf("cannot upgrade charm: %v", *err)
+				*err = ErrConflict
+			} else {
+				// ...but if we can't install at all, we just fail out as the old
+				// gitDeployer did, because I'm not willing to mess around with
+				// the uniter to enable ErrConflict handling on install. We've
+				// never heard of it actually happening, so this is probably not
+				// a big deal.
+				*err = errors.Annotate(*err, "cannot install charm")
+			}
+		}
+	}(&err)
+
 	if err := d.ensureBaseFiles(baseManifest); err != nil {
 		return err
 	}
@@ -99,7 +121,7 @@ func (d *manifestDeployer) Deploy() (err error) {
 	}
 
 	// Overwrite whatever's in place with the staged charm.
-	logger.Debugf("deploying charm %q", d.staged.url)
+	d.logger.Debugf("deploying charm %q", d.staged.url)
 	if err := d.staged.bundle.ExpandTo(d.charmPath); err != nil {
 		return err
 	}
@@ -110,7 +132,7 @@ func (d *manifestDeployer) Deploy() (err error) {
 
 // startDeploy persists the fact that we've started deploying the staged bundle.
 func (d *manifestDeployer) startDeploy() error {
-	logger.Debugf("preparing to deploy charm %q", d.staged.url)
+	d.logger.Debugf("preparing to deploy charm %q", d.staged.url)
 	if err := os.MkdirAll(d.charmPath, 0755); err != nil {
 		return err
 	}
@@ -131,7 +153,7 @@ func (d *manifestDeployer) removeDiff(oldManifest, newManifest set.Strings) erro
 
 // finishDeploy persists the fact that we've finished deploying the staged bundle.
 func (d *manifestDeployer) finishDeploy() error {
-	logger.Debugf("finishing deploy of charm %q", d.staged.url)
+	d.logger.Debugf("finishing deploy of charm %q", d.staged.url)
 	oldPath := d.CharmPath(deployingURLPath)
 	newPath := d.CharmPath(CharmURLPath)
 	return utils.ReplaceFile(oldPath, newPath)
@@ -149,9 +171,9 @@ func (d *manifestDeployer) finishDeploy() error {
 func (d *manifestDeployer) ensureBaseFiles(baseManifest set.Strings) error {
 	deployingURL, deployingManifest, err := d.loadManifest(deployingURLPath)
 	if err == nil {
-		logger.Infof("detected interrupted deploy of charm %q", deployingURL)
+		d.logger.Infof("detected interrupted deploy of charm %q", deployingURL)
 		if *deployingURL != *d.staged.url {
-			logger.Infof("removing files from charm %q", deployingURL)
+			d.logger.Infof("removing files from charm %q", deployingURL)
 			if err := d.removeDiff(deployingManifest, baseManifest); err != nil {
 				return err
 			}
@@ -185,7 +207,7 @@ func (d *manifestDeployer) loadManifest(urlFilePath string) (*charm.URL, set.Str
 	manifest := []string{}
 	err = utils.ReadYaml(path, &manifest)
 	if os.IsNotExist(err) {
-		logger.Warningf("manifest not found at %q: files from charm %q may be left unremoved", path, url)
+		d.logger.Warningf("manifest not found at %q: files from charm %q may be left unremoved", path, url)
 		err = nil
 	}
 	return url, set.NewStrings(manifest...), err
@@ -199,27 +221,4 @@ func (d *manifestDeployer) CharmPath(path string) string {
 // DataPath returns the supplied path joined to the ManifestDeployer's data directory.
 func (d *manifestDeployer) DataPath(path string) string {
 	return filepath.Join(d.dataPath, path)
-}
-
-// manifestDeployError annotates or replaces the supplied error according
-// to whether or not an upgrade operation is in play. It was extracted from
-// Deploy to aid that method's readability.
-func manifestDeployError(err *error, upgrading bool) {
-	if *err != nil {
-		if upgrading {
-			// We now treat any failure to overwrite the charm -- or otherwise
-			// manipulate the charm directory -- as a conflict, because it's
-			// actually plausible for a user (or at least a charm author, who
-			// is the real audience for this case) to get in there and fix it.
-			logger.Errorf("cannot upgrade charm: %v", *err)
-			*err = ErrConflict
-		} else {
-			// ...but if we can't install at all, we just fail out as the old
-			// gitDeployer did, because I'm not willing to mess around with
-			// the uniter to enable ErrConflict handling on install. We've
-			// never heard of it actually happening, so this is probably not
-			// a big deal.
-			*err = fmt.Errorf("cannot install charm: %v", *err)
-		}
-	}
 }

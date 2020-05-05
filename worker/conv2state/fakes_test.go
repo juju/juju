@@ -4,10 +4,9 @@
 package conv2state
 
 import (
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/names/v4"
 )
 
 type fakeMachiner struct {

@@ -9,13 +9,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/catacomb"
 	"github.com/kr/pretty"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/settings"
@@ -198,16 +197,24 @@ func (c *cacheWorker) loop() error {
 	defer c.config.PrometheusRegisterer.Unregister(allWatcherStarts)
 	defer c.config.PrometheusRegisterer.Unregister(collector)
 
-	if err := c.init(); err != nil {
-		return errors.Trace(err)
-	}
-
+	// Ensure that we are listening for updates before we send the initial
+	// controller config update. In reality, there will be no config changed events
+	// published until the initialize gate is unlocked, as the API server won't
+	// yet be running. However in tests, there is a situation where the test waits
+	// for the initial event and then publishes a change to ensure that the change
+	// results in another event. Without subscribing to the event first, there is a
+	// race between the test and the worker. Subscribing first ensures the worker
+	// is ready to process any changes.
 	unsubscribe, err := c.config.Hub.Subscribe(controller.ConfigChanged, c.onConfigChanged)
 	if err != nil {
 		c.config.Logger.Criticalf("programming error in subscribe function: %v", err)
 		return errors.Trace(err)
 	}
 	defer unsubscribe()
+
+	if err := c.init(); err != nil {
+		return errors.Trace(err)
+	}
 
 	watcherChanges := make(chan []multiwatcher.Delta)
 	// This worker needs to be robust with respect to the multiwatcher errors.
@@ -403,7 +410,7 @@ func (c *cacheWorker) translateModel(d multiwatcher.Delta) interface{} {
 	return cache.ModelChange{
 		ModelUUID:       value.ModelUUID,
 		Name:            value.Name,
-		Life:            life.Value(value.Life),
+		Life:            value.Life,
 		Owner:           value.Owner,
 		IsController:    value.IsController,
 		Cloud:           value.Cloud,
@@ -439,7 +446,7 @@ func (c *cacheWorker) translateApplication(d multiwatcher.Delta) interface{} {
 		Name:            value.Name,
 		Exposed:         value.Exposed,
 		CharmURL:        value.CharmURL,
-		Life:            life.Value(value.Life),
+		Life:            value.Life,
 		MinUnits:        value.MinUnits,
 		Constraints:     value.Constraints,
 		Annotations:     value.Annotations,
@@ -472,7 +479,7 @@ func (c *cacheWorker) translateMachine(d multiwatcher.Delta) interface{} {
 		Id:                       value.ID,
 		InstanceId:               value.InstanceID,
 		AgentStatus:              coreStatus(value.AgentStatus),
-		Life:                     life.Value(value.Life),
+		Life:                     value.Life,
 		Annotations:              value.Annotations,
 		Config:                   value.Config,
 		Series:                   value.Series,
@@ -511,7 +518,7 @@ func (c *cacheWorker) translateUnit(d multiwatcher.Delta) interface{} {
 		Series:         value.Series,
 		CharmURL:       value.CharmURL,
 		Annotations:    value.Annotations,
-		Life:           life.Value(value.Life),
+		Life:           value.Life,
 		PublicAddress:  value.PublicAddress,
 		PrivateAddress: value.PrivateAddress,
 		MachineId:      value.MachineID,

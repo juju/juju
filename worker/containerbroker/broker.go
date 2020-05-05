@@ -4,10 +4,10 @@ package containerbroker
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/catacomb"
-	"gopkg.in/juju/worker.v1/dependency"
+	"github.com/juju/names/v4"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v2/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -22,8 +22,8 @@ import (
 	"github.com/juju/juju/environs"
 )
 
-//go:generate mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/worker/containerbroker State
-//go:generate mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/api/provisioner MachineProvisioner
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/worker/containerbroker State
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/api/provisioner MachineProvisioner
 
 // Config describes the dependencies of a Tracker.
 //

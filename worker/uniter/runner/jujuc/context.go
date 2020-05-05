@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
@@ -22,7 +22,7 @@ import (
 
 // Context is the interface that all hook helper commands
 // depend on to interact with the rest of the system.
-//go:generate mockgen -package mocks -destination mocks/context_mock.go github.com/juju/juju/worker/uniter/runner/jujuc Context
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/context_mock.go github.com/juju/juju/worker/uniter/runner/jujuc Context
 type Context interface {
 	HookContext
 	relationHookContext
@@ -280,7 +280,7 @@ type ContextComponent interface {
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
-//go:generate mockgen -package jujuc -destination context_mock_test.go github.com/juju/juju/worker/uniter/runner/jujuc ContextRelation
+//go:generate go run github.com/golang/mock/mockgen -package jujuc -destination context_mock_test.go github.com/juju/juju/worker/uniter/runner/jujuc ContextRelation
 type ContextRelation interface {
 
 	// Id returns an integer which uniquely identifies the relation.

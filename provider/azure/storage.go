@@ -15,8 +15,8 @@ import (
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/schema"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"

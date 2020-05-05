@@ -6,7 +6,6 @@ package osenv_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
@@ -17,7 +16,6 @@ func Test(t *stdtesting.T) {
 }
 
 type importSuite struct {
-	testing.CleanupSuite
 }
 
 var _ = gc.Suite(&importSuite{})

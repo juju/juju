@@ -4,8 +4,6 @@
 package facade
 
 import (
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
@@ -13,6 +11,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
+	"github.com/juju/names/v4"
 )
 
 // Facade could be anything; it will be interpreted by the apiserver
@@ -123,7 +122,7 @@ type Context interface {
 	SingularClaimer() (lease.Claimer, error)
 }
 
-//go:generate mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Resources,Authorizer
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Resources,Authorizer
 
 // Authorizer represents the authenticated entity using the API server.
 type Authorizer interface {

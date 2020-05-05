@@ -4,16 +4,19 @@
 package actions
 
 import (
-	"github.com/juju/loggo"
-
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
 )
 
-var logger = loggo.GetLogger("juju.worker.uniter.actions")
+// Logger represents the logging methods used by the actions resolver.
+type Logger interface {
+	Infof(string, ...interface{})
+}
 
-type actionsResolver struct{}
+type actionsResolver struct {
+	logger Logger
+}
 
 // NewResolver returns a new resolver with determines which action related operation
 // should be run based on local and remote uniter states.
@@ -22,8 +25,8 @@ type actionsResolver struct{}
 // Use the same method as in the runcommands resolver
 // for updating the remote state snapshot when an
 // action is completed.
-func NewResolver() resolver.Resolver {
-	return &actionsResolver{}
+func NewResolver(logger Logger) resolver.Resolver {
+	return &actionsResolver{logger: logger}
 }
 
 func nextAction(pendingActions []string, completedActions map[string]struct{}) (string, error) {
@@ -63,12 +66,12 @@ func (r *actionsResolver) NextOp(
 		}
 	case operation.RunAction:
 		if localState.Hook != nil {
-			logger.Infof("found incomplete action %v; ignoring", localState.ActionId)
-			logger.Infof("recommitting prior %q hook", localState.Hook.Kind)
+			r.logger.Infof("found incomplete action %v; ignoring", localState.ActionId)
+			r.logger.Infof("recommitting prior %q hook", localState.Hook.Kind)
 			return opFactory.NewSkipHook(*localState.Hook)
 		}
 
-		logger.Infof("%q hook is nil", operation.RunAction)
+		r.logger.Infof("%q hook is nil", operation.RunAction)
 		// If the next action is the same as what the uniter is
 		// currently running then this means that the uniter was
 		// some how interrupted (killed) when running the action

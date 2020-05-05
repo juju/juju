@@ -69,6 +69,10 @@ type NetworkRoute struct {
 	Metric int `json:"metric"`
 }
 
+// NetworkOrigin specifies where an address comes from, whether it was reported
+// by a provider or by a machine.
+type NetworkOrigin string
+
 // NetworkConfig describes the necessary information to configure
 // a single network interface on a machine. This mostly duplicates
 // network.InterfaceInfo type and it's defined here so it can be kept
@@ -185,6 +189,13 @@ type NetworkConfig struct {
 
 	// IsDefaultGateway marks an interface that is a default gateway for a machine.
 	IsDefaultGateway bool `json:"is-default-gateway,omitempty"`
+
+	// NetworkOrigin represents the authoritative source of the NetworkConfig.
+	// It is expected that either the provider gave us this info or the
+	// machine gave us this info.
+	// Giving us this information allows us to reason about when a InterfaceInfo
+	// is in use.
+	NetworkOrigin NetworkOrigin `json:"origin,omitempty"`
 }
 
 // NetworkConfigFromInterfaceInfo converts a slice of network.InterfaceInfo into
@@ -234,6 +245,7 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []Ne
 			GatewayAddress:   v.GatewayAddress.Value,
 			Routes:           routes,
 			IsDefaultGateway: v.IsDefaultGateway,
+			NetworkOrigin:    NetworkOrigin(v.Origin),
 		}
 	}
 	return result
@@ -278,6 +290,7 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) []network.Interface
 			GatewayAddress:      network.NewProviderAddress(v.GatewayAddress),
 			Routes:              routes,
 			IsDefaultGateway:    v.IsDefaultGateway,
+			Origin:              network.Origin(v.NetworkOrigin),
 		}
 
 		// Compatibility layer for older clients that do not populate
@@ -836,7 +849,7 @@ type RemoveSpaceResults struct {
 // RemoveSpaceResult contains entries if removing a space is not possible.
 // Constraints are a slice of entities which has constraints on the space.
 // Bindings are a slice of entities which has bindings on that space.
-// Error is filled if an error has occured which is unexpected.
+// Error is filled if an error has occurred which is unexpected.
 type RemoveSpaceResult struct {
 	Constraints        []Entity `json:"constraints,omitempty"`
 	Bindings           []Entity `json:"bindings,omitempty"`

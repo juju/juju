@@ -4,10 +4,10 @@
 package agent
 
 import (
+	"github.com/juju/charm/v7"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 
 	charmtesting "github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/testing"
 	"github.com/juju/juju/controller"

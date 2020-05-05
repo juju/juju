@@ -25,7 +25,7 @@ import (
 )
 
 // LXCConfigReader reads files required for the LXC configuration.
-//go:generate mockgen -package lxd -destination provider_mock_test.go github.com/juju/juju/provider/lxd LXCConfigReader
+//go:generate go run github.com/golang/mock/mockgen -package lxd -destination provider_mock_test.go github.com/juju/juju/provider/lxd LXCConfigReader
 type LXCConfigReader interface {
 	// ReadConfig takes a path and returns a LXCConfig.
 	// Returns an error if there is an error with the location of the config

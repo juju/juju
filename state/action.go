@@ -11,10 +11,10 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -77,7 +77,7 @@ type actionNotificationDoc struct {
 	// represents.
 	ActionID string `bson:"actionid"`
 
-	// Changed represents the time when the corrosponding Action had a change
+	// Changed represents the time when the corresponding Action had a change
 	// worthy of notifying on.
 	// NOTE: changed should not be set on pending actions, see actionNotificationWatcher.
 	Changed time.Time `bson:"changed,omitempty"`

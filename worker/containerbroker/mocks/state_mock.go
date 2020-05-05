@@ -5,13 +5,14 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	provisioner "github.com/juju/juju/api/provisioner"
 	params "github.com/juju/juju/apiserver/params"
 	network "github.com/juju/juju/core/network"
 	network0 "github.com/juju/juju/network"
-	names_v3 "gopkg.in/juju/names.v3"
-	reflect "reflect"
+	names_v3 "github.com/juju/names/v4"
 )
 
 // MockState is a mock of State interface

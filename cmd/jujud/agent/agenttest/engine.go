@@ -11,9 +11,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
 	goyaml "gopkg.in/yaml.v2"
 
 	coretesting "github.com/juju/juju/testing"

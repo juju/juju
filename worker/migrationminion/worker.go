@@ -8,9 +8,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/catacomb"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/catacomb"
 	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/agent"
@@ -37,8 +36,6 @@ const (
 	retryBackoffFactor = 1.6
 )
 
-var logger = loggo.GetLogger("juju.worker.migrationminion")
-
 // Facade exposes controller functionality to a Worker.
 type Facade interface {
 	Watch() (watcher.MigrationStatusWatcher, error)
@@ -53,6 +50,7 @@ type Config struct {
 	Clock             clock.Clock
 	APIOpen           func(*api.Info, api.DialOpts) (api.Connection, error)
 	ValidateMigration func(base.APICaller) error
+	Logger            Logger
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -74,6 +72,9 @@ func (config Config) Validate() error {
 	}
 	if config.ValidateMigration == nil {
 		return errors.NotValidf("nil ValidateMigration")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	return nil
 }
@@ -136,7 +137,7 @@ func (w *Worker) loop() error {
 }
 
 func (w *Worker) handle(status watcher.MigrationStatus) error {
-	logger.Infof("migration phase is now: %s", status.Phase)
+	w.config.Logger.Infof("migration phase is now: %s", status.Phase)
 
 	if !status.Phase.IsRunning() {
 		return w.config.Guard.Unlock()
@@ -188,13 +189,13 @@ func (w *Worker) doVALIDATION(status watcher.MigrationStatus) error {
 			break
 		}
 		if attempt.More() {
-			logger.Debugf("validation failed (retrying): %v", err)
+			w.config.Logger.Debugf("validation failed (retrying): %v", err)
 		}
 	}
 	if err != nil {
 		// Don't return this error just log it and report to the
 		// migrationmaster that things didn't work out.
-		logger.Errorf("validation failed: %v", err)
+		w.config.Logger.Errorf("validation failed: %v", err)
 	}
 	return w.report(status, err == nil)
 }
@@ -250,7 +251,7 @@ func (w *Worker) doSUCCESS(status watcher.MigrationStatus) error {
 }
 
 func (w *Worker) report(status watcher.MigrationStatus, success bool) error {
-	logger.Debugf("reporting back for phase %s: %v", status.Phase, success)
+	w.config.Logger.Debugf("reporting back for phase %s: %v", status.Phase, success)
 	err := w.config.Facade.Report(status.MigrationId, status.Phase, success)
 	return errors.Annotate(err, "failed to report phase progress")
 }

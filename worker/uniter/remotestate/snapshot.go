@@ -4,12 +4,12 @@
 package remotestate
 
 import (
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/charm/v7"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/names/v4"
 )
 
 // Snapshot is a snapshot of the remote state of the unit.

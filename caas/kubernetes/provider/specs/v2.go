@@ -222,17 +222,27 @@ func validateCustomResourceDefinitionV2(name string, crd apiextensionsv1beta1.Cu
 
 func (krs *KubernetesResourcesV2) toLatest() *KubernetesResources {
 	out := &KubernetesResources{
-		Pod:                             krs.Pod,
-		Secrets:                         krs.Secrets,
-		CustomResourceDefinitions:       customResourceDefinitionsToLatest(krs.CustomResourceDefinitions),
-		CustomResources:                 krs.CustomResources,
-		MutatingWebhookConfigurations:   krs.MutatingWebhookConfigurations,
-		ValidatingWebhookConfigurations: krs.ValidatingWebhookConfigurations,
-		IngressResources:                krs.IngressResources,
+		Pod:                       krs.Pod,
+		Secrets:                   krs.Secrets,
+		CustomResourceDefinitions: customResourceDefinitionsToLatest(krs.CustomResourceDefinitions),
+		CustomResources:           krs.CustomResources,
+		IngressResources:          krs.IngressResources,
 	}
 	for _, sa := range krs.ServiceAccounts {
 		rbacSources := sa.toLatest()
 		out.ServiceAccounts = append(out.ServiceAccounts, rbacSources.ServiceAccounts...)
+	}
+	for name, webhooks := range krs.MutatingWebhookConfigurations {
+		out.MutatingWebhookConfigurations = append(out.MutatingWebhookConfigurations, K8sMutatingWebhookSpec{
+			Meta:     Meta{Name: name},
+			Webhooks: webhooks,
+		})
+	}
+	for name, webhooks := range krs.ValidatingWebhookConfigurations {
+		out.ValidatingWebhookConfigurations = append(out.ValidatingWebhookConfigurations, K8sValidatingWebhookSpec{
+			Meta:     Meta{Name: name},
+			Webhooks: webhooks,
+		})
 	}
 	return out
 }
@@ -240,7 +250,7 @@ func (krs *KubernetesResourcesV2) toLatest() *KubernetesResources {
 func customResourceDefinitionsToLatest(crds map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec) (out []K8sCustomResourceDefinitionSpec) {
 	for name, crd := range crds {
 		out = append(out, K8sCustomResourceDefinitionSpec{
-			Name: name,
+			Meta: Meta{Name: name},
 			Spec: crd,
 		})
 	}

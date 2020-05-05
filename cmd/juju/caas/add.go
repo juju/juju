@@ -17,8 +17,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"golang.org/x/crypto/ssh/terminal"
-	"gopkg.in/juju/names.v3"
 
 	cloudapi "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/caas"
@@ -42,7 +42,7 @@ type CloudMetadataStore interface {
 	WritePersonalCloudMetadata(cloudsMap map[string]jujucloud.Cloud) error
 }
 
-//go:generate mockgen -package mocks -destination mocks/storeapi_mock.go github.com/juju/juju/cmd/juju/caas CredentialStoreAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/storeapi_mock.go github.com/juju/juju/cmd/juju/caas CredentialStoreAPI
 type CredentialStoreAPI interface {
 	UpdateCredential(cloudName string, details jujucloud.CloudCredential) error
 }

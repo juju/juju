@@ -11,12 +11,12 @@ import (
 	"strings"
 
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"

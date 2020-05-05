@@ -10,12 +10,12 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
@@ -1002,6 +1002,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:  nil,
 		MTU:               1500,
 		GatewayAddress:    corenetwork.NewProviderAddressInSpace("default", "10.20.19.2"),
+		Origin:            corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
@@ -1022,6 +1023,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:  nil,
 		MTU:               1500,
 		GatewayAddress:    corenetwork.NewProviderAddressInSpace("default", "10.20.19.2"),
+		Origin:            corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:         1,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -1043,8 +1045,8 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
 		GatewayAddress:      corenetwork.NewProviderAddressInSpace("admin", "10.50.19.2"),
-	},
-	}
+		Origin:              corenetwork.OriginProvider,
+	}}
 	c.Assert(result.NetworkInfo, jc.DeepEquals, expected)
 }
 
@@ -1178,6 +1180,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 			GatewayIP:       "192.168.1.1",
 			Metric:          100,
 		}},
+		Origin: corenetwork.OriginProvider,
 	}}
 	c.Assert(result, jc.DeepEquals, expected)
 }
@@ -1303,6 +1306,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(
 		MTU:               1500,
 		GatewayAddress:    corenetwork.NewProviderAddressInSpace("freckles", "10.20.19.2"),
 		Routes:            []corenetwork.Route{},
+		Origin:            corenetwork.OriginProvider,
 	}}
 	c.Assert(result, jc.DeepEquals, expected)
 }
@@ -1542,6 +1546,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		DNSServers:        corenetwork.NewProviderAddressesInSpace("freckles", "10.20.19.2", "10.20.19.3"),
 		MTU:               1500,
 		GatewayAddress:    corenetwork.NewProviderAddressInSpace("freckles", "10.20.19.2"),
+		Origin:            corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:       1,
 		MACAddress:        "52:54:00:70:9b:f4",
@@ -1562,6 +1567,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 			GatewayIP:       "192.168.1.1",
 			Metric:          100,
 		}},
+		Origin: corenetwork.OriginProvider,
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
 	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
@@ -1767,6 +1773,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSubnetMissing(c *g
 		NoAutoStart:    false,
 		ConfigType:     "manual",
 		MTU:            1500,
+		Origin:         corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:    1,
 		MACAddress:     "53:54:00:70:9b:f1",
@@ -1779,6 +1786,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSubnetMissing(c *g
 		NoAutoStart:    false,
 		ConfigType:     "manual",
 		MTU:            1500,
+		Origin:         corenetwork.OriginProvider,
 	}})
 }
 
@@ -1999,6 +2007,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerReuseExistingDevice(c *gc.C
 		MTU:               1500,
 		GatewayAddress:    corenetwork.NewProviderAddressInSpace("space-1", "10.20.19.2"),
 		Routes:            []corenetwork.Route{},
+		Origin:            corenetwork.OriginProvider,
 	}}
 	c.Assert(result, jc.DeepEquals, expected)
 }
@@ -2198,6 +2207,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *g
 		MTU:               1500,
 		GatewayAddress:    corenetwork.NewProviderAddressInSpace("freckles", "10.20.19.2"),
 		Routes:            []corenetwork.Route{},
+		Origin:            corenetwork.OriginProvider,
 	}, {
 		DeviceIndex:       1,
 		MACAddress:        "53:54:00:70:88:bb",
@@ -2215,6 +2225,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *g
 		MTU:               1500,
 		GatewayAddress:    corenetwork.NewProviderAddressInSpace("freckles", "192.168.1.1"),
 		Routes:            []corenetwork.Route{},
+		Origin:            corenetwork.OriginProvider,
 	}}
 	c.Assert(result, jc.DeepEquals, expected)
 }

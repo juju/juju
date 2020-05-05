@@ -8,10 +8,10 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/api/applicationoffers"
 	jujucmd "github.com/juju/juju/cmd"

@@ -4,9 +4,9 @@
 package migrations
 
 import (
-	"github.com/juju/description"
+	"github.com/juju/description/v2"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 )
 
 // MigrationExternalController represents a state.ExternalController

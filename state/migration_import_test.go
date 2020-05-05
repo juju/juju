@@ -9,16 +9,16 @@ import (
 	"time" // only uses time.Time values
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/description"
+	"github.com/juju/charm/v7"
+	"github.com/juju/description/v2"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/constraints"
@@ -478,7 +478,7 @@ func (s *MigrationImportSuite) testMachinePortOps(c *gc.C, setup, validate strin
 	c.Assert(ops[0].Id, gc.Equals, fmt.Sprintf("m#3#%s", validate))
 }
 
-//go:generate mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description Machine,OpenedPorts
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description Machine,OpenedPorts
 func setupMockOpenedPorts(c *gc.C, mID, subnetID string) (*gomock.Controller, *mocks.MockMachine) {
 	ctrl := gomock.NewController(c)
 	mockMachine := mocks.NewMockMachine(ctrl)

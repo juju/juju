@@ -270,7 +270,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	var err error
 	select {
 	case err = <-errc:
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(3 * coretesting.LongWait):
 		c.Fatal("timed out")
 	}
 	c.Check(s.tw.Log(), jc.LogMatches, test.logs)

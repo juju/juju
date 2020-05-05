@@ -5,8 +5,8 @@ package watcher
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/catacomb"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/catacomb"
 )
 
 // NotifyChannel is a change channel as described in the CoreWatcher docs.

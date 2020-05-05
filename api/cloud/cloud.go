@@ -6,7 +6,7 @@ package cloud
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
@@ -147,6 +147,17 @@ func (c *Client) internalUpdateCloudsCredentials(in params.UpdateCredentialArgs,
 	}
 	if len(out.Results) != count {
 		return nil, countErr(len(out.Results))
+	}
+	// Older facades incorrectly set an error if models are invalid.
+	// The model result structs themselves contain the errors.
+	for i, r := range out.Results {
+		if r.Error == nil {
+			continue
+		}
+		if r.Error.Message == "some models are no longer visible" {
+			r.Error = nil
+		}
+		out.Results[i] = r
 	}
 	return out.Results, nil
 }

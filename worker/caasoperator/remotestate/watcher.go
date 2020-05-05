@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/worker.v1/catacomb"
+	"github.com/juju/worker/v2/catacomb"
 
 	jworker "github.com/juju/juju/worker"
 )

@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v3"
 	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/caas/specs"
@@ -130,6 +130,9 @@ type ServiceParams struct {
 	// PodSpec is the spec used to configure a pod.
 	PodSpec *specs.PodSpec
 
+	// RawK8sSpec is the raw spec used to to apply to the cluster.
+	RawK8sSpec string
+
 	// ResourceTags is a set of tags to set on the created service.
 	ResourceTags map[string]string
 
@@ -167,9 +170,6 @@ type Broker interface {
 	// EnsureOperator creates or updates an operator pod for running
 	// a charm for the specified application.
 	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
-
-	// ApplyRawK8sSpec deploys raw k8s spec.
-	ApplyRawK8sSpec(string) error
 
 	// OperatorExists indicates if the operator for the specified
 	// application exists, and whether the operator is terminating.

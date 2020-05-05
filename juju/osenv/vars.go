@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/juju/utils/featureflag"
+	"github.com/juju/featureflag"
 )
 
 const (
@@ -21,7 +21,17 @@ const (
 	JujuModelEnvKey         = "JUJU_MODEL"
 	JujuXDGDataHomeEnvKey   = "JUJU_DATA"
 	JujuLoggingConfigEnvKey = "JUJU_LOGGING_CONFIG"
-	JujuFeatureFlagEnvKey   = "JUJU_DEV_FEATURE_FLAGS"
+
+	// JujuFeatureFlagEnvKey is used to enable prototype/developer only
+	// features that we don't want to expose by default to the general user.
+	// It is propagated to as an environment variable to all agents.
+	JujuFeatureFlagEnvKey = "JUJU_DEV_FEATURE_FLAGS"
+
+	// JujuFeatures is used to allow the general user to opt in to new, polished
+	// features (primarily CLI enhancements) that may break backwards compatibility
+	// so cannot be enabled by default until the next major Juju revision.
+	// The features enabled by this flag are expected to have full doc available.
+	JujuFeatures = "JUJU_FEATURES"
 
 	// JujuStartupLoggingConfigEnvKey if set is used to configure the initial
 	// logging before the command objects are even created to allow debugging

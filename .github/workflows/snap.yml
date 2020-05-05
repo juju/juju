@@ -16,6 +16,7 @@ jobs:
         sudo lxd waitready
         sudo lxd init --auto
         sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
+        echo "##[add-path]/snap/bin"
     - name: Checkout
       uses: actions/checkout@v2
     - name: Build snap

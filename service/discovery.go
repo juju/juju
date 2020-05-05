@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/os"
 	"github.com/juju/os/series"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/feature"

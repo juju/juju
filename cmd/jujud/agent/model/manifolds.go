@@ -9,8 +9,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/voyeur"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"

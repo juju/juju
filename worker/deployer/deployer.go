@@ -9,9 +9,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/worker/v2"
 
 	"github.com/juju/juju/agent"
 	apideployer "github.com/juju/juju/api/deployer"

@@ -11,10 +11,10 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"

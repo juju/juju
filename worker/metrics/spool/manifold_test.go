@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
+	dt "github.com/juju/worker/v2/dependency/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
-	dt "gopkg.in/juju/worker.v1/dependency/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/metrics/spool"

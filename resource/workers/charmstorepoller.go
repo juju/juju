@@ -6,9 +6,9 @@ package workers
 import (
 	"time"
 
+	charmresource "github.com/juju/charm/v7/resource"
 	"github.com/juju/errors"
-	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/charmstore"
 )

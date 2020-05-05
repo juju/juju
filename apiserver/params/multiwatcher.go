@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"

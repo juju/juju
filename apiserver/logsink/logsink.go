@@ -12,9 +12,9 @@ import (
 	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/ratelimit"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -80,8 +80,8 @@ type GaugeVec interface {
 
 // MetricsCollector represents a way to change the metrics for the logsink
 // api handler.
-//go:generate mockgen -package mocks -destination mocks/metrics_collector_mock.go github.com/juju/juju/apiserver/logsink MetricsCollector
-//go:generate mockgen -package mocks -destination mocks/metrics_mock.go github.com/prometheus/client_golang/prometheus Counter,Gauge
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/metrics_collector_mock.go github.com/juju/juju/apiserver/logsink MetricsCollector
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/metrics_mock.go github.com/prometheus/client_golang/prometheus Counter,Gauge
 type MetricsCollector interface {
 
 	// TotalConnections returns a prometheus metric that can be incremented

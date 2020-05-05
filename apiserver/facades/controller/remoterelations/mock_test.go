@@ -6,10 +6,10 @@ package remoterelations_test
 import (
 	"fmt"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/tomb.v2"
 

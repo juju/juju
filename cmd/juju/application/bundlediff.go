@@ -7,12 +7,12 @@ import (
 	"io/ioutil"
 
 	"github.com/juju/bundlechanges"
+	"github.com/juju/charm/v7"
+	"github.com/juju/charmrepo/v5"
+	csparams "github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v4"
-	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/annotations"

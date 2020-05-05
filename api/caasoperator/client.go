@@ -4,10 +4,10 @@
 package caasoperator
 
 import (
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
@@ -248,7 +248,7 @@ func (c *Client) Life(entityName string) (life.Value, error) {
 	if err := results.Results[0].Error; err != nil {
 		return "", maybeNotFound(err)
 	}
-	return life.Value(results.Results[0].Life), nil
+	return results.Results[0].Life, nil
 }
 
 // maybeNotFound returns an error satisfying errors.IsNotFound

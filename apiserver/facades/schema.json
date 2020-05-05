@@ -9704,7 +9704,7 @@
                         "charm-profile": {
                             "type": "string"
                         },
-                        "charm-verion": {
+                        "charm-version": {
                             "type": "string"
                         },
                         "endpoint-bindings": {
@@ -9789,7 +9789,7 @@
                         "meter-statuses",
                         "status",
                         "workload-version",
-                        "charm-verion",
+                        "charm-version",
                         "charm-profile",
                         "endpoint-bindings",
                         "public-address"
@@ -11521,7 +11521,7 @@
     },
     {
         "Name": "Cloud",
-        "Version": 6,
+        "Version": 7,
         "Schema": {
             "type": "object",
             "properties": {
@@ -11541,17 +11541,6 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
-                        }
-                    }
-                },
-                "CheckCredentialsModels": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/TaggedCredentials"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/UpdateCredentialResults"
                         }
                     }
                 },
@@ -17488,6 +17477,231 @@
         }
     },
     {
+        "Name": "ImageMetadataManager",
+        "Version": 1,
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "Delete": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/MetadataImageIds"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
+                "List": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ImageMetadataFilter"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ListCloudImageMetadataResult"
+                        }
+                    }
+                },
+                "Save": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/MetadataSaveParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                }
+            },
+            "definitions": {
+                "CloudImageMetadata": {
+                    "type": "object",
+                    "properties": {
+                        "arch": {
+                            "type": "string"
+                        },
+                        "image-id": {
+                            "type": "string"
+                        },
+                        "priority": {
+                            "type": "integer"
+                        },
+                        "region": {
+                            "type": "string"
+                        },
+                        "root-storage-size": {
+                            "type": "integer"
+                        },
+                        "root-storage-type": {
+                            "type": "string"
+                        },
+                        "series": {
+                            "type": "string"
+                        },
+                        "source": {
+                            "type": "string"
+                        },
+                        "stream": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "type": "string"
+                        },
+                        "virt-type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "image-id",
+                        "region",
+                        "version",
+                        "series",
+                        "arch",
+                        "source",
+                        "priority"
+                    ]
+                },
+                "CloudImageMetadataList": {
+                    "type": "object",
+                    "properties": {
+                        "metadata": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CloudImageMetadata"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "ErrorResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "ErrorResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ErrorResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "ImageMetadataFilter": {
+                    "type": "object",
+                    "properties": {
+                        "arches": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "region": {
+                            "type": "string"
+                        },
+                        "root-storage-type": {
+                            "type": "string"
+                        },
+                        "series": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "stream": {
+                            "type": "string"
+                        },
+                        "virt-type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "ListCloudImageMetadataResult": {
+                    "type": "object",
+                    "properties": {
+                        "result": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CloudImageMetadata"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result"
+                    ]
+                },
+                "MetadataImageIds": {
+                    "type": "object",
+                    "properties": {
+                        "image-ids": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "image-ids"
+                    ]
+                },
+                "MetadataSaveParams": {
+                    "type": "object",
+                    "properties": {
+                        "metadata": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CloudImageMetadataList"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            }
+        }
+    },
+    {
         "Name": "InstanceMutater",
         "Version": 2,
         "Schema": {
@@ -18379,6 +18593,9 @@
                         },
                         "no-auto-start": {
                             "type": "boolean"
+                        },
+                        "origin": {
+                            "type": "string"
                         },
                         "parent-interface-name": {
                             "type": "string"
@@ -21442,6 +21659,9 @@
                         },
                         "no-auto-start": {
                             "type": "boolean"
+                        },
+                        "origin": {
+                            "type": "string"
                         },
                         "parent-interface-name": {
                             "type": "string"
@@ -27828,6 +28048,9 @@
                         },
                         "no-auto-start": {
                             "type": "boolean"
+                        },
+                        "origin": {
+                            "type": "string"
                         },
                         "parent-interface-name": {
                             "type": "string"

@@ -3,9 +3,7 @@
 
 package context
 
-import (
-	"gopkg.in/juju/names.v3"
-)
+import "github.com/juju/names/v4"
 
 // ActionData contains the tag, parameters, and results of an Action.
 type ActionData struct {

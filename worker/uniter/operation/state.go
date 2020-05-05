@@ -4,8 +4,8 @@
 package operation
 
 import (
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -152,17 +152,13 @@ func (st State) Validate() (err error) {
 			return errors.New("unexpected action id")
 		}
 	case Continue:
-		// TODO(jw4) LP-1438489
-		// ModeContinue should no longer have a Hook, but until the upgrade is
-		// fixed we can't fail the validation if it does.
-		if hasHook {
-			logger.Errorf("unexpected hook info with Kind Continue")
-		}
 		switch {
 		case hasCharm:
 			return errors.New("unexpected charm URL")
 		case hasActionId:
 			return errors.New("unexpected action id")
+		case hasHook:
+			return errors.New("unexpected hook info with Kind Continue")
 		}
 	case RemoteInit:
 		// Nothing to check for.
@@ -218,7 +214,7 @@ func NewStateOps(readwriter UnitStateReadWriter) *StateOps {
 
 // UnitStateReadWriter encapsulates the methods from a state.Unit
 // required to set and get unit state.
-//go:generate mockgen -package mocks -destination mocks/uniterstaterw_mock.go github.com/juju/juju/worker/uniter/operation UnitStateReadWriter
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/uniterstaterw_mock.go github.com/juju/juju/worker/uniter/operation UnitStateReadWriter
 type UnitStateReadWriter interface {
 	State() (params.UnitStateResult, error)
 	SetState(unitState params.SetUnitStateArg) error

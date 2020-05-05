@@ -10,13 +10,13 @@ import (
 	ociIdentity "github.com/oracle/oci-go-sdk/identity"
 )
 
-//go:generate mockgen -package testing -destination ../testing/mocks_identity.go github.com/juju/juju/provider/oci/common OCIIdentityClient
+//go:generate go run github.com/golang/mock/mockgen -package testing -destination ../testing/mocks_identity.go github.com/juju/juju/provider/oci/common OCIIdentityClient
 type OCIIdentityClient interface {
 	ListAvailabilityDomains(ctx context.Context, request ociIdentity.ListAvailabilityDomainsRequest) (response ociIdentity.ListAvailabilityDomainsResponse, err error)
 	ListCompartments(ctx context.Context, request ociIdentity.ListCompartmentsRequest) (response ociIdentity.ListCompartmentsResponse, err error)
 }
 
-//go:generate mockgen -package testing -destination ../testing/mocks_compute.go github.com/juju/juju/provider/oci/common OCIComputeClient
+//go:generate go run github.com/golang/mock/mockgen -package testing -destination ../testing/mocks_compute.go github.com/juju/juju/provider/oci/common OCIComputeClient
 type OCIComputeClient interface {
 	ListVnicAttachments(ctx context.Context, request ociCore.ListVnicAttachmentsRequest) (response ociCore.ListVnicAttachmentsResponse, err error)
 	TerminateInstance(ctx context.Context, request ociCore.TerminateInstanceRequest) (response ociCore.TerminateInstanceResponse, err error)
@@ -32,7 +32,7 @@ type OCIComputeClient interface {
 	AttachVolume(ctx context.Context, request ociCore.AttachVolumeRequest) (response ociCore.AttachVolumeResponse, err error)
 }
 
-//go:generate mockgen -package testing -destination ../testing/mocks_networking.go github.com/juju/juju/provider/oci/common OCINetworkingClient
+//go:generate go run github.com/golang/mock/mockgen -package testing -destination ../testing/mocks_networking.go github.com/juju/juju/provider/oci/common OCINetworkingClient
 type OCINetworkingClient interface {
 	CreateVcn(ctx context.Context, request ociCore.CreateVcnRequest) (response ociCore.CreateVcnResponse, err error)
 	DeleteVcn(ctx context.Context, request ociCore.DeleteVcnRequest) (response ociCore.DeleteVcnResponse, err error)
@@ -57,7 +57,7 @@ type OCINetworkingClient interface {
 	GetVnic(ctx context.Context, request ociCore.GetVnicRequest) (response ociCore.GetVnicResponse, err error)
 }
 
-//go:generate mockgen -package testing -destination ../testing/mocks_firewall.go github.com/juju/juju/provider/oci/common OCIFirewallClient
+//go:generate go run github.com/golang/mock/mockgen -package testing -destination ../testing/mocks_firewall.go github.com/juju/juju/provider/oci/common OCIFirewallClient
 type OCIFirewallClient interface {
 	CreateSecurityList(ctx context.Context, request ociCore.CreateSecurityListRequest) (response ociCore.CreateSecurityListResponse, err error)
 	ListSecurityLists(ctx context.Context, request ociCore.ListSecurityListsRequest) (response ociCore.ListSecurityListsResponse, err error)
@@ -65,7 +65,7 @@ type OCIFirewallClient interface {
 	GetSecurityList(ctx context.Context, request ociCore.GetSecurityListRequest) (response ociCore.GetSecurityListResponse, err error)
 }
 
-//go:generate mockgen -package testing -destination ../testing/mocks_storage.go github.com/juju/juju/provider/oci/common OCIStorageClient
+//go:generate go run github.com/golang/mock/mockgen -package testing -destination ../testing/mocks_storage.go github.com/juju/juju/provider/oci/common OCIStorageClient
 type OCIStorageClient interface {
 	CreateVolume(ctx context.Context, request ociCore.CreateVolumeRequest) (response ociCore.CreateVolumeResponse, err error)
 	ListVolumes(ctx context.Context, request ociCore.ListVolumesRequest) (response ociCore.ListVolumesResponse, err error)

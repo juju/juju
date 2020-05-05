@@ -6,10 +6,10 @@ package imagemetadatamanager_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
@@ -66,6 +66,7 @@ const (
 	deleteMetadata = "deleteMetadata"
 	modelConfig    = "modelConfig"
 	controllerTag  = "controllerTag"
+	model          = "model"
 )
 
 func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
@@ -122,6 +123,17 @@ func (st *mockState) ModelConfig() (*config.Config, error) {
 func (st *mockState) ControllerTag() names.ControllerTag {
 	st.Stub.MethodCall(st, controllerTag)
 	return st.controllerTag()
+}
+
+func (st *mockState) Model() (imagemetadatamanager.Model, error) {
+	st.Stub.MethodCall(st, model)
+	return &mockModel{}, nil
+}
+
+type mockModel struct{}
+
+func (*mockModel) CloudRegion() string {
+	return "some-region"
 }
 
 func testConfig(c *gc.C) *config.Config {

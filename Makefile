@@ -1,15 +1,19 @@
 #
 # Makefile for juju-core.
 #
-ifndef GOPATH
-$(warning You need to set up a GOPATH.  See the README file.)
-endif
-
+PROJECT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 PROJECT := github.com/juju/juju
-PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
-PROJECT_PACKAGES := $(shell go list $(PROJECT)/... | grep -v /vendor/ | grep -v /acceptancetests/ | grep -v mocks)
 
-# Allow the tests to take longer on arm platforms.
+BUILD_DIR ?= $(PROJECT_DIR)/_build
+
+define MAIN_PACKAGES
+  github.com/juju/juju/cmd/juju
+  github.com/juju/juju/cmd/jujuc
+  github.com/juju/juju/cmd/jujud
+  github.com/juju/juju/cmd/plugins/juju-metadata
+endef
+
+# Allow the tests to take longer on restricted platforms.
 ifeq ($(shell uname -p | sed -E 's/.*(armel|armhf|aarch64|ppc64le|ppc64|s390x).*/golang/'), golang)
 	TEST_TIMEOUT := 5400s
 else
@@ -43,6 +47,10 @@ BUILD_TAGS ?=
 # the build.
 JUJU_BUILD_NUMBER ?= 
 
+# Build flag passed to go -mod
+# CI should set this to vendor
+JUJU_GOMOD_MODE ?= mod
+
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
     COMPILE_FLAGS = -gcflags "all=-N -l"
@@ -67,30 +75,13 @@ help:
 	@echo "Usage: \n"
 	@sed -n 's/^##//p' ${MAKEFILE_LIST} | sort | column -t -s ':' |  sed -e 's/^/ /'
 
-# Start of GOPATH-dependent targets. Some targets only make sense -
-# and will only work - when this tree is found on the GOPATH.
-ifeq ($(CURDIR),$(PROJECT_DIR))
-
-ifeq ($(JUJU_SKIP_DEP),true)
-dep:
-	@echo "skipping dep"
-else
-$(GOPATH)/bin/dep:
-	go get -u github.com/golang/dep/cmd/dep
-
-# populate vendor/ from Gopkg.lock without updating it first (lock file is the single source of truth for machine).
-dep: $(GOPATH)/bin/dep
-## dep: Installs go dependencies
-	$(GOPATH)/bin/dep ensure -vendor-only $(verbose)
-endif
-
-build: dep rebuild-schema go-build
+build: rebuild-schema go-build
 ## build: Create Juju binaries
 
-release-build: dep go-build
+release-build: go-build
 ## release-build: Construct Juju binaries, without building schema
 
-release-install: dep go-install
+release-install: go-install
 ## release-install: Install Juju binaries
 
 pre-check:
@@ -98,52 +89,42 @@ pre-check:
 	@echo running pre-test checks
 	@INCLUDE_GOLINTERS=1 $(PROJECT_DIR)/scripts/verify.bash
 
-check: dep pre-check run-tests
+check: pre-check run-tests
 ## check: Verify Juju code using static analysis and unit tests
 
-test: dep run-tests
+test: run-tests
 ## test: Verify Juju code using unit tests
 
 # Can't make the length of the TMP dir too long or it hits socket name length issues.
 run-tests:
 ## run-tests: Run the unit tests
 	$(eval TMP := $(shell mktemp -d jj-XXX --tmpdir))
-	@echo 'go test --tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$PROJECT_PACKAGES -check.v'
-	@TMPDIR=$(TMP) go test --tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
+	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
+	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
+	@TMPDIR=$(TMP) go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
 	@rm -r $(TMP)
 
-install: dep rebuild-schema go-install
+install: rebuild-schema go-install
 ## install: Install Juju binaries
 
 clean:
 ## clean: Clean the cache and test caches
-	go clean -n -r --cache --testcache $(PROJECT_PACKAGES)
+	go clean -n -r --cache --testcache $(PROJECT)/...
 
 go-install:
 ## go-install: Install Juju binaries without updating dependencies
-	@echo 'go install -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$PROJECT_PACKAGES'
-	@go install -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(PROJECT_PACKAGES)
+	@echo 'go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
+	@go install -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
 
 go-build:
 ## go-build: Build Juju binaries without updating dependencies
-	@go build -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(PROJECT_PACKAGES)
+	@mkdir -p $(BUILD_DIR)/bin
+	@echo 'go build -mod=$(JUJU_GOMOD_MODE) -o $(BUILD_DIR)/bin -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
+	@go build -mod=$(JUJU_GOMOD_MODE) -o $(BUILD_DIR)/bin -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
 
-else # --------------------------------
-
-build:
-	$(error Cannot $@; $(CURDIR) is not on GOPATH)
-
-check:
-	$(error Cannot $@; $(CURDIR) is not on GOPATH)
-
-install:
-	$(error Cannot $@; $(CURDIR) is not on GOPATH)
-
-clean:
-	$(error Cannot $@; $(CURDIR) is not on GOPATH)
-
-endif
-# End of GOPATH-dependent targets.
+vendor-dependencies:
+## vendor-dependencies: updates vendored dependencies
+	@go mod vendor
 
 # Reformat source files.
 format:
@@ -155,18 +136,13 @@ simplify:
 ## simplify: Format and simplify the go source code
 	gofmt -w -l -s .
 
-# update Gopkg.lock (if needed), but do not update `vendor/`.
-rebuild-dependencies:
-## rebuild-dependencies: Update the dependencies
-	dep ensure -v -no-vendor $(dep-update)
-
 rebuild-schema:
 ## rebuild-schema: Rebuild the schema for clients with the latest facades
 	@echo "Generating facade schema..."
 ifdef SCHEMA_PATH
-	@go run ./generate/schemagen/schemagen.go "$(SCHEMA_PATH)"
+	@go run $(PROJECT)/generate/schemagen "$(SCHEMA_PATH)"
 else
-	@go run ./generate/schemagen/schemagen.go \
+	@go run $(PROJECT)/generate/schemagen \
 		./apiserver/facades/schema.json
 endif
 
@@ -174,8 +150,8 @@ endif
 # PPA includes the required mongodb-server binaries.
 install-snap-dependencies:
 ## install-snap-dependencies: Install the supported snap dependencies
-	@echo Installing go-1.12 snap
-	@sudo snap install go --channel=1.12/stable --classic
+	@echo Installing go-1.14 snap
+	@sudo snap install go --channel=1.14/stable --classic
 
 install-mongo-dependencies:
 ## install-mongo-dependencies: Install Mongo and its dependencies
@@ -209,61 +185,45 @@ else
 endif
 
 
-GOCHECK_COUNT="$(shell go list -f '{{join .Deps "\n"}}' github.com/juju/juju/... | grep -c "gopkg.in/check.v*")"
+GOCHECK_COUNT="$(shell go list -f '{{join .Deps "\n"}}' ${PROJECT}/... | grep -c "gopkg.in/check.v*")"
 check-deps:
 ## check-deps: Check dependencies are correct versions
 	@echo "$(GOCHECK_COUNT) instances of gocheck not in test code"
 
+
 # CAAS related targets
 DOCKER_USERNAME            ?= jujusolutions
-DOCKER_STAGING_DIR         ?= ${GOPATH}/tmp
+DOCKER_STAGING_DIR         ?= ${BUILD_DIR}/docker-staging
 JUJUD_STAGING_DIR          ?= ${DOCKER_STAGING_DIR}/jujud-operator
-JUJUD_BIN_DIR              ?= ${GOPATH}/bin
+JUJUD_BIN_DIR              ?= ${BUILD_DIR}/bin
 OPERATOR_IMAGE_BUILD_SRC   ?= true
-# By default the image tag is the full version number, including the build number.
-OPERATOR_IMAGE_TAG         ?= $(shell test -f ${JUJUD_BIN_DIR}/jujud && ${JUJUD_BIN_DIR}/jujud version | grep -E -o "^[[:digit:]]{1,9}\.[[:digit:]]{1,9}(\.|-[[:alpha:]]+)[[:digit:]]{1,9}(\.[[:digit:]]{1,9})?")
-# Legacy tags never have a build number.
-OPERATOR_IMAGE_TAG_LEGACY  ?= $(shell test -f ${JUJUD_BIN_DIR}/jujud && ${JUJUD_BIN_DIR}/jujud version | grep -E -o "^[[:digit:]]{1,9}\.[[:digit:]]{1,9}(\.|-[[:alpha:]]+)[[:digit:]]{1,9}")
-ifneq ($(JUJU_BUILD_NUMBER),)
-	OPERATOR_IMAGE_PATH = ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG}.${JUJU_BUILD_NUMBER}
-else
-	OPERATOR_IMAGE_PATH = ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG}
-endif
-OPERATOR_IMAGE_PATH_LEGACY  = ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG_LEGACY}
+
+# Import shell functions from make_functions.sh
+BUILD_OPERATOR_IMAGE=sh -c '. "${PROJECT_DIR}/make_functions.sh"; build_operator_image "$$@"' build_operator_image
+OPERATOR_IMAGE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_path "$$@"' operator_image_path
+OPERATOR_IMAGE_LEGACY_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_legacy_path "$$@"' operator_image_legacy_path
 
 operator-check-build:
 ifeq ($(OPERATOR_IMAGE_BUILD_SRC),true)
-	make install
+	make build
 else
 	@echo "skipping to build jujud bin, use existing one at ${JUJUD_BIN_DIR}/jujud."
 endif
 
 operator-image: operator-check-build
-ifeq ($(OPERATOR_IMAGE_TAG),)
-	$(error OPERATOR_IMAGE_TAG not set)
-endif
-	rm -rf ${JUJUD_STAGING_DIR}
-	mkdir -p ${JUJUD_STAGING_DIR}
-	cp ${JUJUD_BIN_DIR}/jujuc ${JUJUD_STAGING_DIR} || true
-	cp ${JUJUD_BIN_DIR}/jujud ${JUJUD_STAGING_DIR}
-	cp caas/jujud-operator-dockerfile ${JUJUD_STAGING_DIR}
-	cp caas/jujud-operator-requirements.txt ${JUJUD_STAGING_DIR}
-	docker build -f ${JUJUD_STAGING_DIR}/jujud-operator-dockerfile -t ${OPERATOR_IMAGE_PATH} ${JUJUD_STAGING_DIR}
-ifneq ($(OPERATOR_IMAGE_PATH),$(OPERATOR_IMAGE_PATH_LEGACY))
-	docker tag ${OPERATOR_IMAGE_PATH} ${OPERATOR_IMAGE_PATH_LEGACY}
-endif
-	rm -rf ${JUJUD_STAGING_DIR}
+## operator-image: Build operator image via docker
+	$(BUILD_OPERATOR_IMAGE)
 
 push-operator-image: operator-image
 ## push-operator-image: Push up the new built operator image via docker
-	docker push ${OPERATOR_IMAGE_PATH}
-ifneq ($(OPERATOR_IMAGE_PATH),$(OPERATOR_IMAGE_PATH_LEGACY))
-	docker push ${OPERATOR_IMAGE_PATH_LEGACY}
-endif
+	docker push "$(shell ${OPERATOR_IMAGE_PATH})"
+	@if [ "$(shell ${OPERATOR_IMAGE_PATH})" != "$(shell ${OPERATOR_IMAGE_LEGACY_PATH})" ]; then \
+		docker push "$(shell ${OPERATOR_IMAGE_LEGACY_PATH})"; \
+	fi
 
-microk8s-operator-update: operator-image
+microk8s-operator-update: install operator-image
 ## microk8s-operator-update: Push up the new built operator image for use with microk8s
-	docker save ${OPERATOR_IMAGE_PATH} | microk8s.ctr --namespace k8s.io image import -
+	docker save "$(shell ${OPERATOR_IMAGE_PATH})" | microk8s.ctr --namespace k8s.io image import -
 
 check-k8s-model:
 ## check-k8s-model: Check if k8s model is present in show-model
@@ -273,7 +233,7 @@ check-k8s-model:
 local-operator-update: check-k8s-model operator-image
 ## local-operator-update: Build then update local operator image
 	$(eval kubeworkers != juju status -m ${JUJU_K8S_MODEL} kubernetes-worker --format json | jq -c '.machines | keys' | tr  -c '[:digit:]' ' ' 2>&1)
-	docker save ${OPERATOR_IMAGE_PATH} | gzip > ${DOCKER_STAGING_DIR}/jujud-operator-image.tar.gz
+	docker save "$(shell ${OPERATOR_IMAGE_PATH})" | gzip > ${DOCKER_STAGING_DIR}/jujud-operator-image.tar.gz
 	$(foreach wm,$(kubeworkers), juju scp -m ${JUJU_K8S_MODEL} ${DOCKER_STAGING_DIR}/jujud-operator-image.tar.gz $(wm):/tmp/jujud-operator-image.tar.gz ; )
 	$(foreach wm,$(kubeworkers), juju ssh -m ${JUJU_K8S_MODEL} $(wm) -- "zcat /tmp/jujud-operator-image.tar.gz | docker load" ; )
 
@@ -286,5 +246,4 @@ static-analysis:
 .PHONY: build check install release-install release-build go-build go-install
 .PHONY: clean format simplify test run-tests
 .PHONY: install-dependencies
-.PHONY: rebuild-dependencies
-.PHONY: dep check-deps
+.PHONY: check-deps

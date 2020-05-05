@@ -253,6 +253,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.10.0.2")},
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   corenetwork.NewProviderAddress("0.10.0.1"),
+		Origin:           corenetwork.OriginProvider,
 	}, {
 		ProviderId:       "dummy-eth1",
 		ProviderSubnetId: "dummy-public",
@@ -268,6 +269,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.20.0.2")},
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   corenetwork.NewProviderAddress("0.20.0.1"),
+		Origin:           corenetwork.OriginProvider,
 	}, {
 		ProviderId:       "dummy-eth2",
 		ProviderSubnetId: "dummy-disabled",
@@ -283,6 +285,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.30.0.2")},
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   corenetwork.NewProviderAddress("0.30.0.1"),
+		Origin:           corenetwork.OriginProvider,
 	}}
 	infoList, err := e.NetworkInterfaces(s.callCtx, []instance.Id{instance.Id("i-42")})
 	c.Assert(err, jc.ErrorIsNil)

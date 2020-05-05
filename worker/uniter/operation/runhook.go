@@ -6,9 +6,9 @@ package operation
 import (
 	"fmt"
 
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
@@ -28,6 +28,7 @@ type runHook struct {
 
 	name   string
 	runner runner.Runner
+	logger Logger
 
 	hookFound bool
 
@@ -70,7 +71,7 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 		var isLeader bool
 		isLeader, err = rnr.Context().IsLeader()
 		if err == nil && !isLeader {
-			logger.Infof("unit is no longer the leader; skipping %q execution", name)
+			rh.logger.Infof("unit is no longer the leader; skipping %q execution", name)
 			return nil, ErrSkipExecute
 		}
 		if err != nil {
@@ -132,16 +133,16 @@ func (rh *runHook) Execute(state State) (*State, error) {
 		err = ErrNeedsReboot
 	case err == nil:
 	default:
-		logger.Errorf("hook %q (via %s) failed: %v", rh.name, handlerType, err)
+		rh.logger.Errorf("hook %q (via %s) failed: %v", rh.name, handlerType, err)
 		rh.callbacks.NotifyHookFailed(rh.name, rh.runner.Context())
 		return nil, ErrHookFailed
 	}
 
 	if rh.hookFound {
-		logger.Infof("ran %q hook (via %s)", rh.name, handlerType)
+		rh.logger.Infof("ran %q hook (via %s)", rh.name, handlerType)
 		rh.callbacks.NotifyHookCompleted(rh.name, rh.runner.Context())
 	} else {
-		logger.Infof("skipped %q hook (missing)", rh.name)
+		rh.logger.Infof("skipped %q hook (missing)", rh.name)
 	}
 
 	var hasRunStatusSet bool
@@ -186,7 +187,7 @@ func (rh *runHook) beforeHook(state State) error {
 	}
 
 	if err != nil {
-		logger.Errorf("error updating workload status before %v hook: %v", rh.info.Kind, err)
+		rh.logger.Errorf("error updating workload status before %v hook: %v", rh.info.Kind, err)
 		return err
 	}
 	return nil
@@ -198,7 +199,7 @@ func (rh *runHook) beforeHook(state State) error {
 func (rh *runHook) afterHook(state State) (_ bool, err error) {
 	defer func() {
 		if err != nil {
-			logger.Errorf("error updating workload status after %v hook: %v", rh.info.Kind, err)
+			rh.logger.Errorf("error updating workload status after %v hook: %v", rh.info.Kind, err)
 		}
 	}()
 
@@ -218,7 +219,7 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 		if hasRunStatusSet {
 			break
 		}
-		logger.Debugf("unit %v has started but has not yet set status", ctx.UnitName())
+		rh.logger.Debugf("unit %v has started but has not yet set status", ctx.UnitName())
 		// We've finished the start hook and the charm has not updated its
 		// own status so we'll set it to unknown.
 		err = ctx.SetUnitStatus(jujuc.StatusInfo{

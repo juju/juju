@@ -12,7 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/worker.v1/catacomb"
+	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"

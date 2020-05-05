@@ -7,10 +7,10 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/catacomb"
-	"gopkg.in/juju/worker.v1/dependency"
+	"github.com/juju/names/v4"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/catacomb"
+	"github.com/juju/worker/v2/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/instancemutater"
@@ -18,10 +18,10 @@ import (
 	"github.com/juju/juju/environs"
 )
 
-//go:generate mockgen -package mocks -destination mocks/instancebroker_mock.go github.com/juju/juju/worker/instancemutater InstanceMutaterAPI
-//go:generate mockgen -package mocks -destination mocks/logger_mock.go github.com/juju/juju/worker/instancemutater Logger
-//go:generate mockgen -package mocks -destination mocks/namestag_mock.go gopkg.in/juju/names.v3 Tag
-//go:generate mockgen -package mocks -destination mocks/machinemutater_mock.go github.com/juju/juju/api/instancemutater MutaterMachine
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/instancebroker_mock.go github.com/juju/juju/worker/instancemutater InstanceMutaterAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/logger_mock.go github.com/juju/juju/worker/instancemutater Logger
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/namestag_mock.go gopkg.in/juju/names.v3 Tag
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/machinemutater_mock.go github.com/juju/juju/api/instancemutater MutaterMachine
 
 type InstanceMutaterAPI interface {
 	WatchMachines() (watcher.StringsWatcher, error)

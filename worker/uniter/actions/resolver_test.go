@@ -4,6 +4,8 @@
 package actions_test
 
 import (
+	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -13,12 +15,18 @@ import (
 	"github.com/juju/juju/worker/uniter/resolver"
 )
 
-type actionsSuite struct{}
+type actionsSuite struct {
+	testing.IsolationSuite
+}
 
 var _ = gc.Suite(&actionsSuite{})
 
+func (s *actionsSuite) newResolver() resolver.Resolver {
+	return actions.NewResolver(loggo.GetLogger("test"))
+}
+
 func (s *actionsSuite) TestNoActions(c *gc.C) {
-	actionResolver := actions.NewResolver()
+	actionResolver := s.newResolver()
 	localState := resolver.LocalState{}
 	remoteState := remotestate.Snapshot{}
 	_, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
@@ -26,7 +34,7 @@ func (s *actionsSuite) TestNoActions(c *gc.C) {
 }
 
 func (s *actionsSuite) TestActionStateKindContinue(c *gc.C) {
-	actionResolver := actions.NewResolver()
+	actionResolver := s.newResolver()
 	localState := resolver.LocalState{
 		State: operation.State{
 			Kind: operation.Continue,
@@ -41,7 +49,7 @@ func (s *actionsSuite) TestActionStateKindContinue(c *gc.C) {
 }
 
 func (s *actionsSuite) TestActionRunHook(c *gc.C) {
-	actionResolver := actions.NewResolver()
+	actionResolver := s.newResolver()
 	localState := resolver.LocalState{
 		State: operation.State{
 			Kind: operation.RunHook,
@@ -57,7 +65,7 @@ func (s *actionsSuite) TestActionRunHook(c *gc.C) {
 }
 
 func (s *actionsSuite) TestNextAction(c *gc.C) {
-	actionResolver := actions.NewResolver()
+	actionResolver := s.newResolver()
 	localState := resolver.LocalState{
 		State: operation.State{
 			Kind: operation.Continue,
@@ -73,7 +81,7 @@ func (s *actionsSuite) TestNextAction(c *gc.C) {
 }
 
 func (s *actionsSuite) TestNextActionBlocked(c *gc.C) {
-	actionResolver := actions.NewResolver()
+	actionResolver := s.newResolver()
 	localState := resolver.LocalState{
 		State: operation.State{
 			Kind: operation.Continue,
@@ -90,7 +98,7 @@ func (s *actionsSuite) TestNextActionBlocked(c *gc.C) {
 }
 
 func (s *actionsSuite) TestNextActionBlockedRemoteInit(c *gc.C) {
-	actionResolver := actions.NewResolver()
+	actionResolver := s.newResolver()
 	localState := resolver.LocalState{
 		State: operation.State{
 			Kind: operation.Continue,
@@ -108,7 +116,7 @@ func (s *actionsSuite) TestNextActionBlockedRemoteInit(c *gc.C) {
 }
 
 func (s *actionsSuite) TestActionStateKindRunAction(c *gc.C) {
-	actionResolver := actions.NewResolver()
+	actionResolver := s.newResolver()
 	var actionA string = "actionA"
 
 	localState := resolver.LocalState{
@@ -127,7 +135,7 @@ func (s *actionsSuite) TestActionStateKindRunAction(c *gc.C) {
 }
 
 func (s *actionsSuite) TestActionStateKindRunActionPendingRemote(c *gc.C) {
-	actionResolver := actions.NewResolver()
+	actionResolver := s.newResolver()
 	var actionA string = "actionA"
 
 	localState := resolver.LocalState{

@@ -37,7 +37,7 @@ type Client interface {
 	FindFolder(ctx context.Context, folderPath string) (vmFolder *object.Folder, err error)
 }
 
-//go:generate mockgen -package mocks -destination mocks/client_mock.go github.com/juju/juju/provider/vsphere Client
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/client_mock.go github.com/juju/juju/provider/vsphere Client
 func dialClient(
 	ctx context.Context,
 	cloudSpec environs.CloudSpec,

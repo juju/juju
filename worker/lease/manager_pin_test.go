@@ -6,10 +6,10 @@ package lease_test
 import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/worker/lease"

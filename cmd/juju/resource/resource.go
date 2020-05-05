@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/charm/v7/resource"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6/resource"
 )
 
 // resourceValue associates a resource name to a value.

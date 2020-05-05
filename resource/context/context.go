@@ -8,10 +8,10 @@ import (
 	"os"
 	"path/filepath"
 
+	charmresource "github.com/juju/charm/v7/resource"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	charmresource "gopkg.in/juju/charm.v6/resource"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/context/internal"

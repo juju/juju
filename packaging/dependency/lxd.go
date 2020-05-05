@@ -4,21 +4,28 @@
 package dependency
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/juju/packaging"
 )
 
 const blankSeries = ""
 
-// LXD returns a dependency instance for installing lxd support
-func LXD() packaging.Dependency {
-	return lxdDependency{}
+// LXD returns a dependency instance for installing lxd support using the
+// specified channel preferences (applies to cosmic or later).
+func LXD(snapChannel string) packaging.Dependency {
+	return lxdDependency{
+		snapChannel: snapChannel,
+	}
 }
 
-type lxdDependency struct{}
+type lxdDependency struct {
+	snapChannel string
+}
 
 // PackageList implements packaging.Dependency.
-func (lxdDependency) PackageList(series string) ([]packaging.Package, error) {
+func (dep lxdDependency) PackageList(series string) ([]packaging.Package, error) {
 	var pkg packaging.Package
 
 	switch series {
@@ -28,8 +35,12 @@ func (lxdDependency) PackageList(series string) ([]packaging.Package, error) {
 		pkg.Name = "lxd"
 		pkg.PackageManager = packaging.AptPackageManager
 	default: // Use snaps for cosmic and beyond
+		if dep.snapChannel == "" {
+			return nil, errors.NotValidf("snap channel for lxd dependency")
+		}
+
 		pkg.Name = "lxd"
-		pkg.InstallOptions = "--classic"
+		pkg.InstallOptions = fmt.Sprintf("--classic --channel %s", dep.snapChannel)
 		pkg.PackageManager = packaging.SnapPackageManager
 	}
 

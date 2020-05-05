@@ -5,7 +5,7 @@ package jujuclient
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 )
 
 // ValidateControllerDetails ensures that given controller details are valid.

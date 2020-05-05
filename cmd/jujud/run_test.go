@@ -15,12 +15,12 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	jujuos "github.com/juju/os"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
@@ -68,9 +68,24 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		args:     []string{"foo/2"},
 		errMatch: "missing commands",
 	}, {
+		title:    "explicit unit with no commands",
+		args:     []string{"-u", "foo/2"},
+		errMatch: "missing commands",
+	}, {
 		title:    "more than two arg",
 		args:     []string{"foo/2", "bar", "baz"},
-		errMatch: `unrecognized args: \["baz"\]`,
+		commands: "bar baz",
+		unit:     names.NewUnitTag("foo/2"),
+	}, {
+		title:    "command looks like unit id",
+		args:     []string{"-u", "foo/2", "unit-foo-2"},
+		commands: "unit-foo-2",
+		unit:     names.NewUnitTag("foo/2"),
+	}, {
+		title:    "command looks like unit name",
+		args:     []string{"-u", "foo/2", "foo/2"},
+		commands: "foo/2",
+		unit:     names.NewUnitTag("foo/2"),
 	}, {
 		title:      "unit and command assignment",
 		args:       []string{"unit-name-2", "command"},
@@ -80,6 +95,18 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 	}, {
 		title:      "unit id converted to tag",
 		args:       []string{"foo/1", "command"},
+		unit:       names.NewUnitTag("foo/1"),
+		commands:   "command",
+		relationId: "",
+	}, {
+		title:      "explicit unit id converted to tag",
+		args:       []string{"-u", "foo/1", "command"},
+		unit:       names.NewUnitTag("foo/1"),
+		commands:   "command",
+		relationId: "",
+	}, {
+		title:      "explicit unit name converted to tag",
+		args:       []string{"-u", "unit-foo-1", "command"},
 		unit:       names.NewUnitTag("foo/1"),
 		commands:   "command",
 		relationId: "",
@@ -131,6 +158,14 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		commands:   "command",
 		relationId: "",
 		operator:   true,
+	}, {
+		title:           "execute not in a context with unit",
+		args:            []string{"--no-context", "-u", "foo/1"},
+		commands:        "command",
+		avoidContext:    true,
+		relationId:      "",
+		forceRemoteUnit: false,
+		errMatch:        `-no-context cannot be passed with an explicit unit-name \(-u "foo/1"\)`,
 	},
 	} {
 		c.Logf("%d: %s", i, test.title)
@@ -349,7 +384,7 @@ func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 		socket.Network = "unix"
 		socket.Address = fmt.Sprintf("%s/run.socket", agentDir)
 	}
-	listener, err := uniter.NewRunListener(socket)
+	listener, err := uniter.NewRunListener(socket, loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
 	listener.RegisterRunner("foo/1", &mockRunner{c})
 	s.AddCleanup(func(*gc.C) {

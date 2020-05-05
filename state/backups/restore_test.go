@@ -15,12 +15,12 @@ import (
 	"strings"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/names/v4"
 	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"

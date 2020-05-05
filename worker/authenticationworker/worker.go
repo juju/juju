@@ -9,10 +9,10 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/os"
 	"github.com/juju/utils/ssh"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/worker/v2"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"

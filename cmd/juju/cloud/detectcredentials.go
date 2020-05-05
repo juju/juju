@@ -502,7 +502,7 @@ func (c *detectCredentialsCommand) addRemoteCredentials(ctxt *cmd.Context, cloud
 	if moreCloudInfoNeeded {
 		ctxt.Infof("Use 'juju clouds' to view all available clouds and 'juju add-cloud' to add missing ones.")
 	}
-	return processUpdateCredentialResult(ctxt, accountDetails, "loaded", results, c.ControllerName, localErr)
+	return processUpdateCredentialResult(ctxt, accountDetails, "loaded", results, false, c.ControllerName, localErr)
 }
 
 func (c *detectCredentialsCommand) printCredentialOptions(ctxt *cmd.Context, discovered []discoveredCredential) {

@@ -10,17 +10,17 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/charm/v7"
+	csparams "github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6"
-	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -211,7 +211,7 @@ func (a *Application) Destroy() (err error) {
 	defer func() {
 		logger.Tracef("Application(%s).Destroy() => %v", a.doc.Name, err)
 		if err == nil {
-			// After running the destory ops, app life is either Dying,
+			// After running the destroy ops, app life is either Dying,
 			// or it may be set to Dead. If removed, life will also be marked as Dead.
 			a.doc.Life = op.PostDestoryAppLife
 		}
@@ -1409,7 +1409,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			quotaErr := a.preUpgradeRelationLimitCheck(cfg.Charm)
 
 			// If the operator specified --force, we still allow
-			// the ugprade to continue with a warning.
+			// the upgrade to continue with a warning.
 			if errors.IsQuotaLimitExceeded(quotaErr) && cfg.Force {
 				logger.Warningf("%v; allowing upgrade to proceed as the operator specified --force", quotaErr)
 			} else if quotaErr != nil {

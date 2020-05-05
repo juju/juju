@@ -4,9 +4,8 @@
 package block
 
 import (
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/state"
+	"github.com/juju/names/v4"
 )
 
 type blockAccess interface {

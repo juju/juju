@@ -348,6 +348,96 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *gc.C) {
 	c.Assert(callZones, jc.SameContents, []string{"z0", "z2"})
 }
 
+func (s *BootstrapSuite) TestStartInstanceAttemptZoneConstrained(c *gc.C) {
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	env := &mockZonedEnviron{
+		mockEnviron: mockEnviron{
+			storage: newStorage(s, c),
+			config:  configGetter(c),
+		},
+		deriveAvailabilityZones: func(context.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
+			return nil, nil
+		},
+		availabilityZones: func(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+			z0 := &mockAvailabilityZone{"z0", true}
+			z1 := &mockAvailabilityZone{"z1", true}
+			z2 := &mockAvailabilityZone{"z2", true}
+			z3 := &mockAvailabilityZone{"z3", true}
+			return []common.AvailabilityZone{z0, z1, z2, z3}, nil
+		},
+	}
+
+	var callZones []string
+	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
+		instances.Instance,
+		*instance.HardwareCharacteristics,
+		[]corenetwork.InterfaceInfo,
+		error,
+	) {
+		callZones = append(callZones, args.AvailabilityZone)
+		return nil, nil, nil, errors.New("bloop")
+	}
+
+	ctx := envtesting.BootstrapContext(c)
+	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+		ControllerConfig:         coretesting.FakeControllerConfig(),
+		AvailableTools:           fakeAvailableTools(),
+		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		BootstrapConstraints: constraints.Value{
+			Zones: &[]string{"z0", "z2"},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches,
+		`cannot start bootstrap instance in any availability zone \(z0, z2\)`,
+	)
+	c.Assert(callZones, jc.SameContents, []string{"z0", "z2"})
+}
+
+func (s *BootstrapSuite) TestStartInstanceNoMatchingConstraintZones(c *gc.C) {
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	env := &mockZonedEnviron{
+		mockEnviron: mockEnviron{
+			storage: newStorage(s, c),
+			config:  configGetter(c),
+		},
+		deriveAvailabilityZones: func(context.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
+			return nil, nil
+		},
+		availabilityZones: func(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+			z0 := &mockAvailabilityZone{"z0", true}
+			z1 := &mockAvailabilityZone{"z1", true}
+			z2 := &mockAvailabilityZone{"z2", true}
+			z3 := &mockAvailabilityZone{"z3", true}
+			return []common.AvailabilityZone{z0, z1, z2, z3}, nil
+		},
+	}
+
+	var callZones []string
+	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
+		instances.Instance,
+		*instance.HardwareCharacteristics,
+		[]corenetwork.InterfaceInfo,
+		error,
+	) {
+		callZones = append(callZones, args.AvailabilityZone)
+		return nil, nil, nil, errors.New("bloop")
+	}
+
+	ctx := envtesting.BootstrapContext(c)
+	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+		ControllerConfig:         coretesting.FakeControllerConfig(),
+		AvailableTools:           fakeAvailableTools(),
+		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		BootstrapConstraints: constraints.Value{
+			Zones: &[]string{"z4", "z5"},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches,
+		`no available zones \(\["z0" "z1" "z2" "z3"\]\) matching bootstrap zone constraints \(\["z4" "z5"\]\)`,
+	)
+	c.Assert(callZones, gc.IsNil)
+}
+
 func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	env := &mockZonedEnviron{

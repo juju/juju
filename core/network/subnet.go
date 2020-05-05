@@ -165,6 +165,22 @@ func (s SubnetInfos) GetByUnderlayCIDR(cidr string) (SubnetInfos, error) {
 	return overlays, nil
 }
 
+// ContainsID returns true if the collection contains a
+// space with the given ID.
+func (s SubnetInfos) ContainsID(id Id) bool {
+	return s.GetByID(id) != nil
+}
+
+// GetByID returns a reference to the subnet with the input ID if one is found.
+func (s SubnetInfos) GetByID(id Id) *SubnetInfo {
+	for _, sub := range s {
+		if sub.ID == id {
+			return &sub
+		}
+	}
+	return nil
+}
+
 // GetByCIDR returns all subnets in the collection
 // with a CIDR matching the input.
 func (s SubnetInfos) GetByCIDR(cidr string) (SubnetInfos, error) {

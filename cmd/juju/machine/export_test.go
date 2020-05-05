@@ -5,7 +5,7 @@ package machine
 
 import (
 	"github.com/juju/cmd"
-	"gopkg.in/juju/worker.v1/catacomb"
+	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"

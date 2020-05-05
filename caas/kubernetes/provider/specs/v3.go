@@ -225,16 +225,33 @@ func PrimeServiceAccountToK8sRBACResources(spec specs.PrimeServiceAccountSpecV3)
 	return out, nil
 }
 
+// Meta defines fields for constructing k8s spec ObjectMeta field.
+type Meta struct {
+	Name        string            `json:"name" yaml:"name"`
+	Labels      map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+}
+
+// Validate validates the spec.
+func (m Meta) Validate() error {
+	if len(m.Name) == 0 {
+		return errors.New("name is missing")
+	}
+	return nil
+}
+
 // K8sCustomResourceDefinitionSpec defines spec for creating or updating an CustomResourceDefinition resource.
 type K8sCustomResourceDefinitionSpec struct {
-	Name        string                                            `json:"name" yaml:"name"`
-	Labels      map[string]string                                 `json:"labels,omitempty" yaml:"labels,omitempty"`
-	Annotations map[string]string                                 `json:"annotations,omitempty" yaml:"annotations,omitempty"`
-	Spec        apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"spec" yaml:"spec"`
+	Meta `json:",inline" yaml:",inline"`
+	Spec apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"spec" yaml:"spec"`
 }
 
 // Validate validates the spec.
 func (crd K8sCustomResourceDefinitionSpec) Validate() error {
+	if err := crd.Meta.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+
 	if crd.Spec.Scope != apiextensionsv1beta1.NamespaceScoped && crd.Spec.Scope != apiextensionsv1beta1.ClusterScoped {
 		return errors.NewNotSupported(nil,
 			fmt.Sprintf("custom resource definition %q scope %q is not supported, please use %q or %q scope",
@@ -247,6 +264,38 @@ func (crd K8sCustomResourceDefinitionSpec) Validate() error {
 	return nil
 }
 
+// K8sMutatingWebhookSpec defines spec for creating or updating an MutatingWebhook resource.
+type K8sMutatingWebhookSpec struct {
+	Meta     `json:",inline" yaml:",inline"`
+	Webhooks []admissionregistration.MutatingWebhook `json:"webhooks" yaml:"webhooks"`
+}
+
+func (w K8sMutatingWebhookSpec) Validate() error {
+	if err := w.Meta.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if len(w.Webhooks) == 0 {
+		return errors.NotValidf("empty webhooks %q", w.Name)
+	}
+	return nil
+}
+
+// K8sValidatingWebhookSpec defines spec for creating or updating an ValidatingWebhook resource.
+type K8sValidatingWebhookSpec struct {
+	Meta     `json:",inline" yaml:",inline"`
+	Webhooks []admissionregistration.ValidatingWebhook `json:"webhooks" yaml:"webhooks"`
+}
+
+func (w K8sValidatingWebhookSpec) Validate() error {
+	if err := w.Meta.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if len(w.Webhooks) == 0 {
+		return errors.NotValidf("empty webhooks %q", w.Name)
+	}
+	return nil
+}
+
 // KubernetesResources is the k8s related resources.
 type KubernetesResources struct {
 	Pod *PodSpec `json:"pod,omitempty" yaml:"pod,omitempty"`
@@ -255,8 +304,8 @@ type KubernetesResources struct {
 	CustomResourceDefinitions []K8sCustomResourceDefinitionSpec      `json:"customResourceDefinitions" yaml:"customResourceDefinitions"`
 	CustomResources           map[string][]unstructured.Unstructured `json:"customResources,omitempty" yaml:"customResources,omitempty"`
 
-	MutatingWebhookConfigurations   map[string][]admissionregistration.MutatingWebhook   `json:"mutatingWebhookConfigurations,omitempty" yaml:"mutatingWebhookConfigurations,omitempty"`
-	ValidatingWebhookConfigurations map[string][]admissionregistration.ValidatingWebhook `json:"validatingWebhookConfigurations,omitempty" yaml:"validatingWebhookConfigurations,omitempty"`
+	MutatingWebhookConfigurations   []K8sMutatingWebhookSpec   `json:"mutatingWebhookConfigurations,omitempty" yaml:"mutatingWebhookConfigurations,omitempty"`
+	ValidatingWebhookConfigurations []K8sValidatingWebhookSpec `json:"validatingWebhookConfigurations,omitempty" yaml:"validatingWebhookConfigurations,omitempty"`
 
 	K8sRBACResources `json:",inline" yaml:",inline"`
 
@@ -276,14 +325,14 @@ func (krs *KubernetesResources) Validate() error {
 		}
 	}
 
-	for k, webhooks := range krs.MutatingWebhookConfigurations {
-		if len(webhooks) == 0 {
-			return errors.NotValidf("empty webhooks %q", k)
+	for _, webhook := range krs.MutatingWebhookConfigurations {
+		if err := webhook.Validate(); err != nil {
+			return errors.Trace(err)
 		}
 	}
-	for k, webhooks := range krs.ValidatingWebhookConfigurations {
-		if len(webhooks) == 0 {
-			return errors.NotValidf("empty webhooks %q", k)
+	for _, webhook := range krs.ValidatingWebhookConfigurations {
+		if err := webhook.Validate(); err != nil {
+			return errors.Trace(err)
 		}
 	}
 

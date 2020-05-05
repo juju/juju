@@ -13,7 +13,7 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/retry"
 	"github.com/juju/utils/deque"
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/worker/v2"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"

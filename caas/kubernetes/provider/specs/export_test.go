@@ -8,6 +8,7 @@ var (
 	ParsePodSpecLegacy   = parsePodSpecLegacy
 	ParsePodSpecForTest  = parsePodSpec
 	NewYAMLOrJSONDecoder = newYAMLOrJSONDecoder
+	NewDeployer          = newDeployer
 )
 
 type (

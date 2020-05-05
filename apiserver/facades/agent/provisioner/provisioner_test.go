@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -1842,6 +1842,7 @@ func (s *withImageMetadataSuite) TestContainerManagerConfigImageMetadata(c *gc.C
 		container.ConfigModelUUID:           coretesting.ModelTag.Id(),
 		config.ContainerImageStreamKey:      "daily",
 		config.ContainerImageMetadataURLKey: "https://images.linuxcontainers.org/",
+		config.LXDSnapChannel:               "latest/stable",
 	})
 }
 

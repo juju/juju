@@ -10,8 +10,8 @@ import (
 	"github.com/juju/juju/worker/containerbroker"
 	"github.com/juju/juju/worker/containerbroker/mocks"
 	"github.com/juju/testing"
+	worker "github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
-	worker "gopkg.in/juju/worker.v1"
 )
 
 type manifoldConfigSuite struct {

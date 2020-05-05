@@ -4,17 +4,15 @@
 package spaces
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -173,10 +171,11 @@ func (api *API) getMovingSubnets(tags []string) ([]MovingSubnet, error) {
 	return subnets, nil
 }
 
-// TODO (manadart 2020-03-19): At this point we only restrict and notify
-// based on application space constraints.
-// We need to handle the scenario where applications are *bound* to spaces
-// that would mutate as a result of moving subnets.
+// ensureSubnetsCanBeMoved gathers the relevant networking info required to
+// determine the validity of constraints and endpoint bindings resulting
+// a relocation of subnets.
+// An error is returned if validity is violated and force is passed as false.
+// TODO (manadart 2020-04-10): Endpoint validation.
 func (api *API) ensureSubnetsCanBeMoved(subnets []MovingSubnet, spaceName string, force bool) error {
 	for _, subnet := range subnets {
 		if subnet.FanLocalUnderlay() != "" {
@@ -185,21 +184,31 @@ func (api *API) ensureSubnetsCanBeMoved(subnets []MovingSubnet, spaceName string
 		}
 	}
 
-	appsByCIDR, err := api.applicationsByMovingCIDR(subnets)
+	affected, err := api.getAffectedNetworks(subnets, spaceName, force)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(api.ensureSpaceConstraintIntegrity(appsByCIDR, spaceName, force))
+	return errors.Trace(api.ensureSpaceConstraintIntegrity(affected, spaceName))
 }
 
-// applicationsByMovingCIDR returns slices of application names keyed by the
-// subnet CIDR that their host machines are connected to, if the CIDR is one of
-// the ones that we are being asked to move.
-func (api *API) applicationsByMovingCIDR(subnets []MovingSubnet) (map[string][]string, error) {
-	cidrs := set.NewStrings()
+// getAffectedNetworks interrogates machines connected to moving subnets.
+// From these it generates lists of common unit/subnet-topologies,
+// grouped by application.
+func (api *API) getAffectedNetworks(subnets []MovingSubnet, spaceName string, force bool) (*affectedNetworks, error) {
+	movingSubnetIDs := network.MakeIDSet()
 	for _, subnet := range subnets {
-		cidrs.Add(subnet.CIDR())
+		movingSubnetIDs.Add(network.Id(subnet.ID()))
+	}
+
+	allSpaces, err := api.backing.AllSpaceInfos()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	affected, err := newAffectedNetworks(movingSubnetIDs, spaceName, allSpaces, force)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	machines, err := api.backing.AllMachines()
@@ -207,28 +216,11 @@ func (api *API) applicationsByMovingCIDR(subnets []MovingSubnet) (map[string][]s
 		return nil, errors.Trace(err)
 	}
 
-	appsByCIDR := make(map[string][]string)
-	for _, machine := range machines {
-		addresses, err := machine.AllAddresses()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		for _, address := range addresses {
-			// TODO (manadart 2020-03-19): This needs to change once we are
-			// identifying address subnets by ID.
-			cidr := address.SubnetCIDR()
-			if cidrs.Contains(cidr) {
-				applicationNames, err := machine.ApplicationNames()
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				appsByCIDR[cidr] = applicationNames
-			}
-		}
+	if err := affected.processMachines(machines); err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	return appsByCIDR, nil
+	return affected, nil
 }
 
 // ensureSpaceConstraintIntegrity identifies all applications connected to
@@ -238,7 +230,7 @@ func (api *API) applicationsByMovingCIDR(subnets []MovingSubnet) (map[string][]s
 // those constraints after subnet relocation.
 // If force is true we only log a warning for violations, otherwise an error
 // is returned.
-func (api *API) ensureSpaceConstraintIntegrity(appsByCIDR map[string][]string, spaceName string, force bool) error {
+func (api *API) ensureSpaceConstraintIntegrity(affected *affectedNetworks, spaceName string) error {
 	constraints, err := api.backing.AllConstraints()
 	if err != nil {
 		return errors.Trace(err)
@@ -253,8 +245,8 @@ func (api *API) ensureSpaceConstraintIntegrity(appsByCIDR map[string][]string, s
 			return errors.Errorf("unable to determine an entity to which constraint %q applies", cons.ID())
 		}
 
-		// We don't care unless we are dealing with an
-		// application constraint that includes spaces.
+		// We only care if this is an application constraint,
+		// and it includes spaces.
 		val := cons.Value()
 		if tag.Kind() == names.ApplicationTagKind && val.HasSpaces() {
 			spaceCons := val.Spaces
@@ -262,30 +254,7 @@ func (api *API) ensureSpaceConstraintIntegrity(appsByCIDR map[string][]string, s
 		}
 	}
 
-	for cidr, appNames := range appsByCIDR {
-		for _, appName := range appNames {
-			if spaces, ok := spaceConsByApp[appName]; ok {
-				if violatesSpaceConstraint(spaceName, spaces) {
-					msg := fmt.Sprintf("moving subnet %q to space %q violates space constraints "+
-						"for application %q: %s", cidr, spaceName, appName, strings.Join(spaces.SortedValues(), ", "))
-
-					if !force {
-						return errors.New(msg)
-					}
-					logger.Warningf(msg)
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-// violatesSpaceConstraint compares the input target space to a set of space
-// constraints. It returns true if the space name is not in the set of positive
-// constraints, or if the set has a negative space constraint for the target.
-func violatesSpaceConstraint(spaceName string, constrainedSpaces set.Strings) bool {
-	return constrainedSpaces.Contains("^"+spaceName) || !constrainedSpaces.Contains(spaceName)
+	return errors.Trace(affected.ensureSpaceConstraintIntegrity(spaceConsByApp, spaceName))
 }
 
 func paramsFromMovedSubnet(movedSubnets []MovedSubnet) []params.MovedSubnet {

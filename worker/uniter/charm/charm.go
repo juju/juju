@@ -6,13 +6,10 @@ package charm
 import (
 	"errors"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/collections/set"
-	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v6"
 )
-
-var logger = loggo.GetLogger("juju.worker.uniter.charm")
 
 // CharmURLPath is the path within a charm directory to which Deployers
 // commonly write the charm URL of the latest deployed charm.
@@ -66,6 +63,14 @@ type Deployer interface {
 	// can be resolved by user intervention will be signalled by returning
 	// ErrConflict.
 	Deploy() error
+}
+
+// Logger represents the logging functions used by the charm package.
+type Logger interface {
+	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Infof(string, ...interface{})
+	Debugf(string, ...interface{})
 }
 
 // ErrConflict indicates that an upgrade failed and cannot be resolved

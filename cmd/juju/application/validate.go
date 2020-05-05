@@ -4,10 +4,10 @@
 package application
 
 import (
+	charm "github.com/juju/charm/v7"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	charm "gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	apicharms "github.com/juju/juju/api/charms"

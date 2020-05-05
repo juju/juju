@@ -11,8 +11,8 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/worker.v1/workertest"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	k8sstorage "k8s.io/api/storage/v1"
@@ -116,7 +116,7 @@ func (s *bootstrapSuite) TestControllerCorelation(c *gc.C) {
 		"juju.io/is-controller": "true",
 	})
 
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller")
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.getNamespace())
 	c.Assert(s.broker.GetAnnotations().ToMap(), jc.DeepEquals, map[string]string{
 		"juju.io/model":      s.cfg.UUID(),
 		"juju.io/controller": testing.ControllerTag.Id(),
@@ -126,8 +126,7 @@ func (s *bootstrapSuite) TestControllerCorelation(c *gc.C) {
 		s.mockNamespaces.EXPECT().List(v1.ListOptions{}).
 			Return(&core.NamespaceList{Items: []core.Namespace{existingNs}}, nil),
 	)
-	var err error
-	s.broker, err = provider.ControllerCorelation(s.broker)
+	ns, err := provider.ControllerCorelation(s.broker)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(
@@ -140,7 +139,7 @@ func (s *bootstrapSuite) TestControllerCorelation(c *gc.C) {
 		},
 	)
 	// controller namespace linked back(changed from 'controller' to 'controller-1')
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-1")
+	c.Assert(ns, jc.DeepEquals, "controller-1")
 }
 
 func (s *bootstrapSuite) TestGetControllerSvcSpec(c *gc.C) {
@@ -185,13 +184,15 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	defer ctrl.Finish()
 	// Eventually the namespace wil be set to controllerName.
 	// So we have to specify the final namespace(controllerName) for later use.
-	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl, s.pcfg.ControllerName)
+	newK8sClientFunc, newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl, s.pcfg.ControllerName)
 	randomPrefixFunc := func() (string, error) {
 		return "appuuid", nil
 	}
-	s.setupBroker(c, ctrl, newK8sRestClientFunc, randomPrefixFunc)
+	s.namespace = "controller-1"
+	s.setupBroker(c, ctrl, newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc)
+
 	// Broker's namespace is "controller" now - controllerModelConfig.Name()
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller")
+	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.getNamespace())
 	c.Assert(
 		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
 		map[string]string{
@@ -200,25 +201,13 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 	)
 
-	// These two are done in broker.Bootstrap method actually.
-	s.broker.SetNamespace("controller-1")
+	// Done in broker.Bootstrap method actually.
 	s.broker.GetAnnotations().Add("juju.io/is-controller", "true")
 
 	s.pcfg.Bootstrap.Timeout = 10 * time.Minute
 	s.pcfg.Bootstrap.ControllerExternalIPs = []string{"10.0.0.1"}
 
 	controllerStacker := s.controllerStackerGetter()
-	// Broker's namespace should be set to controller name now.
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-1")
-	c.Assert(
-		// "is-controller" is set as well.
-		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
-		map[string]string{
-			"juju.io/model":         s.cfg.UUID(),
-			"juju.io/controller":    testing.ControllerTag.Id(),
-			"juju.io/is-controller": "true",
-		},
-	)
 
 	sharedSecret, sslKey := controllerStacker.GetSharedSecretAndSSLKey(c)
 

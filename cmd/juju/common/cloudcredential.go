@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
@@ -24,7 +24,7 @@ import (
 // detected, meaning Juju cannot choose one automatically.
 var ErrMultipleDetectedCredentials = errors.New("multiple detected credentials")
 
-//go:generate mockgen -package common -destination credentialstore_mock_test.go github.com/juju/juju/jujuclient CredentialStore
+//go:generate go run github.com/golang/mock/mockgen -package common -destination credentialstore_mock_test.go github.com/juju/juju/jujuclient CredentialStore
 
 // RegisterCredentials will attempt to register any credentials that a provider
 // has to offer.
@@ -188,7 +188,7 @@ func OutputUpdateCredentialModelResult(ctx *cmd.Context, models []params.UpdateC
 	}
 }
 
-//go:generate mockgen -package common -destination cloudprovider_mock_test.go github.com/juju/juju/cmd/juju/common TestCloudProvider
+//go:generate go run github.com/golang/mock/mockgen -package common -destination cloudprovider_mock_test.go github.com/juju/juju/cmd/juju/common TestCloudProvider
 
 // TestCloudProvider is used for testing.
 type TestCloudProvider interface {

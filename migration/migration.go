@@ -9,12 +9,12 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/juju/description"
+	"github.com/juju/charm/v7"
+	"github.com/juju/description/v2"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/naturalsort"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/migration"

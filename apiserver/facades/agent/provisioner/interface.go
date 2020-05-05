@@ -4,8 +4,8 @@
 package provisioner
 
 import (
-	jujucharm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
+	jujucharm "github.com/juju/charm/v7"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/network"
@@ -15,8 +15,8 @@ import (
 // Machine is an indirection for use in container provisioning.
 // It is an indirection for both containerizer.Machine and
 // containerizer.Container as well as state.Machine locally.
-//go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine,BridgePolicy,Unit,Application,Charm
-//go:generate mockgen -package mocks -destination mocks/containerizer_mock.go github.com/juju/juju/network/containerizer LinkLayerDevice
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine,BridgePolicy,Unit,Application,Charm
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/containerizer_mock.go github.com/juju/juju/network/containerizer LinkLayerDevice
 type Machine interface {
 	containerizer.Container
 

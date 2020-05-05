@@ -12,16 +12,16 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v7/resource"
+	"github.com/juju/charmrepo/v5"
+	"github.com/juju/charmrepo/v5/csclient/params"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v4"
 	"github.com/juju/romulus"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v4"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
@@ -642,7 +642,7 @@ See also:
     spaces
 `
 
-//go:generate mockgen -package mocks -destination mocks/deploystepapi_mock.go github.com/juju/juju/cmd/juju/application DeployStepAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deploystepapi_mock.go github.com/juju/juju/cmd/juju/application DeployStepAPI
 
 // DeployStepAPI represents a API required for deploying using the step
 // deployment code.

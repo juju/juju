@@ -148,11 +148,11 @@ func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	var settings Settings
 	if c.Application {
-		isLeader, err := c.ctx.IsLeader()
-		if err != nil {
-			return errors.Annotate(err, "cannot determine leadership status")
+		isLeader, lErr := c.ctx.IsLeader()
+		if lErr != nil {
+			return errors.Annotate(lErr, "cannot determine leadership status")
 		} else if isLeader == false {
-			return errors.Annotate(err, "cannot write relation settings")
+			return errors.Errorf("cannot write relation settings")
 		}
 		settings, err = r.ApplicationSettings()
 		if err != nil {

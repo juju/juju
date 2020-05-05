@@ -13,9 +13,9 @@ import (
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -504,6 +504,50 @@ func (s *updateCredentialSuite) TestUpdateRemoteWithModels(c *gc.C) {
 						ModelName: "model-c",
 					},
 				},
+			},
+		}, nil
+	}
+	s.storeWithCredentials(c)
+
+	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "-c", "controller")
+	c.Assert(err, gc.DeepEquals, jujucmd.ErrSilent)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+Credential valid for:
+  model-c
+Credential invalid for:
+  model-a:
+    kaboom
+    kaboom 2
+  model-b:
+    one failure
+Failed models may require a different credential.
+Use ‘juju set-credential’ to change credential for these models before repeating this update.
+`[1:])
+}
+
+func (s *updateCredentialSuite) TestUpdateRemoteWithModelsError(c *gc.C) {
+	s.api.updateCloudsCredentials = func(cloudCredentials map[string]jujucloud.Credential, f bool) ([]params.UpdateCredentialResult, error) {
+		return []params.UpdateCredentialResult{
+			{
+				CredentialTag: names.NewCloudCredentialTag("aws/admin/my-credential").String(),
+				Models: []params.UpdateCredentialModelResult{
+					{
+						ModelName: "model-a",
+						Errors: []params.ErrorResult{
+							{common.ServerError(errors.New("kaboom"))},
+							{common.ServerError(errors.New("kaboom 2"))},
+						},
+					},
+					{
+						ModelName: "model-b",
+						Errors: []params.ErrorResult{
+							{common.ServerError(errors.New("one failure"))},
+						},
+					},
+					{
+						ModelName: "model-c",
+					},
+				},
 				Error: common.ServerError(errors.New("models issues")),
 			},
 		}, nil
@@ -524,7 +568,53 @@ Credential invalid for:
 Failed models may require a different credential.
 Use ‘juju set-credential’ to change credential for these models before repeating this update.
 `[1:])
-	c.Assert(c.GetTestLog(), jc.Contains, `Controller credential "my-credential" for user "admin@local" for cloud "aws" on controller "controller" not updated: models issues`)
+}
+
+func (s *updateCredentialSuite) TestUpdateRemoteWithModelsForce(c *gc.C) {
+	s.api.updateCloudsCredentials = func(cloudCredentials map[string]jujucloud.Credential, f bool) ([]params.UpdateCredentialResult, error) {
+		c.Assert(f, jc.IsTrue)
+		return []params.UpdateCredentialResult{
+			{
+				CredentialTag: names.NewCloudCredentialTag("aws/admin/my-credential").String(),
+				Models: []params.UpdateCredentialModelResult{
+					{
+						ModelName: "model-a",
+						Errors: []params.ErrorResult{
+							{common.ServerError(errors.New("kaboom"))},
+							{common.ServerError(errors.New("kaboom 2"))},
+						},
+					},
+					{
+						ModelName: "model-b",
+						Errors: []params.ErrorResult{
+							{common.ServerError(errors.New("one failure"))},
+						},
+					},
+					{
+						ModelName: "model-c",
+					},
+				},
+				Error: common.ServerError(errors.New("update error")),
+			},
+		}, nil
+	}
+	s.storeWithCredentials(c)
+
+	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "-c", "controller", "--force")
+	c.Assert(err, gc.DeepEquals, jujucmd.ErrSilent)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+Credential valid for:
+  model-c
+Credential invalid for:
+  model-a:
+    kaboom
+    kaboom 2
+  model-b:
+    one failure
+Failed models may require a different credential.
+Use ‘juju set-credential’ to change credential for these models.
+`[1:])
+	c.Assert(c.GetTestLog(), jc.Contains, `Controller credential "my-credential" for user "admin@local" for cloud "aws" on controller "controller" not updated: update error`)
 }
 
 type fakeUpdateCredentialAPI struct {

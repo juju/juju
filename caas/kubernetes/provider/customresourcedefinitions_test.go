@@ -129,7 +129,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreate(c *gc.
 
 	crds := []k8sspecs.K8sCustomResourceDefinitionSpec{
 		{
-			Name: "tfjobs.kubeflow.org",
+			Meta: k8sspecs.Meta{Name: "tfjobs.kubeflow.org"},
 			Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 				Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 					Kind:     "TFJob",
@@ -241,7 +241,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdate(c *gc.
 
 	crds := []k8sspecs.K8sCustomResourceDefinitionSpec{
 		{
-			Name: "tfjobs.kubeflow.org",
+			Meta: k8sspecs.Meta{Name: "tfjobs.kubeflow.org"},
 			Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 				Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 					Kind:     "TFJob",

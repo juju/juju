@@ -4,10 +4,10 @@
 package operation
 
 import (
-	"github.com/juju/loggo"
+	corecharm "github.com/juju/charm/v7"
+	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	utilexec "github.com/juju/utils/exec"
-	corecharm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -16,9 +16,16 @@ import (
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
-//go:generate mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/juju/worker/uniter/operation Operation,Factory
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/juju/worker/uniter/operation Operation,Factory
 
-var logger = loggo.GetLogger("juju.worker.uniter.operation")
+// Logger determines the logging methods used by the operations package.
+type Logger interface {
+	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Infof(string, ...interface{})
+	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
+}
 
 // Operation encapsulates the stages of the various things the uniter can do,
 // and the state changes that need to be recorded as they happen. Operations
@@ -140,6 +147,21 @@ type CommandArgs struct {
 	ForceRemoteUnit bool
 	// RunLocation describes where the command must run.
 	RunLocation runner.RunLocation
+}
+
+// Validate the command arguments.
+func (args CommandArgs) Validate() error {
+	if args.Commands == "" {
+		return errors.New("commands required")
+	}
+	if args.RemoteUnitName != "" {
+		if args.RelationId == -1 {
+			return errors.New("remote unit not valid without relation")
+		} else if !names.IsValidUnit(args.RemoteUnitName) {
+			return errors.Errorf("invalid remote unit name %q", args.RemoteUnitName)
+		}
+	}
+	return nil
 }
 
 // CommandResponseFunc is for marshalling command responses back to the source

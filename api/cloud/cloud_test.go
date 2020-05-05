@@ -7,10 +7,10 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	cloudapi "github.com/juju/juju/api/cloud"
@@ -1168,6 +1168,37 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialResult{
 		{CredentialTag: "cloudcred-foo_bob_bar0", Error: common.ServerError(errors.New("validation failure"))},
+	})
+	c.Assert(s.called, jc.IsTrue)
+}
+
+func (s *cloudSuite) TestUpdateCloudsCredentialsMasksLegacyError(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
+				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
+					Results: []params.UpdateCredentialResult{
+						{CredentialTag: "cloudcred-foo_bob_bar0",
+							Error: common.ServerError(errors.New("some models are no longer visible")),
+						},
+					},
+				}
+				s.called = true
+				return nil
+			},
+		),
+		BestVersion: 6,
+	}
+	client := cloudapi.NewClient(apiCaller)
+	errs, err := client.UpdateCloudsCredentials(createCredentials(1), false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialResult{
+		{CredentialTag: "cloudcred-foo_bob_bar0"},
 	})
 	c.Assert(s.called, jc.IsTrue)
 }

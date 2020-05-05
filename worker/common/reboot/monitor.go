@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/paths/transientfile"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 )
 
 // Monitor leverages juju's transient file mechanism to deliver one-off

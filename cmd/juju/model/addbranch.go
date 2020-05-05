@@ -56,7 +56,7 @@ type addBranchCommand struct {
 
 // AddBranchCommandAPI describes API methods required
 // to execute the branch command.
-//go:generate mockgen -package mocks -destination ./mocks/addbranch_mock.go github.com/juju/juju/cmd/juju/model AddBranchCommandAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/addbranch_mock.go github.com/juju/juju/cmd/juju/model AddBranchCommandAPI
 type AddBranchCommandAPI interface {
 	Close() error
 

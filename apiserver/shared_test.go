@@ -11,9 +11,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v2/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/worker.v1/workertest"
 
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"

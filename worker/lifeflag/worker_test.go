@@ -6,11 +6,11 @@ package lifeflag_test
 import (
 	"errors"
 
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1/workertest"
 
 	apilifeflag "github.com/juju/juju/api/lifeflag"
 	"github.com/juju/juju/core/life"

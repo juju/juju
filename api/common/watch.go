@@ -6,12 +6,11 @@ package common
 import (
 	"fmt"
 
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/names/v4"
 )
 
 // Watch starts a NotifyWatcher for the entity with the specified tag.

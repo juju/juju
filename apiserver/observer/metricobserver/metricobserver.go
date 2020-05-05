@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/rpc"
@@ -43,8 +43,8 @@ type SummaryVec interface {
 
 // MetricsCollector represents a bundle of metrics that is used by the observer
 // factory.
-//go:generate mockgen -package mocks -destination mocks/metrics_collector_mock.go github.com/juju/juju/apiserver/observer/metricobserver MetricsCollector,SummaryVec
-//go:generate mockgen -package mocks -destination mocks/metrics_mock.go github.com/prometheus/client_golang/prometheus Summary
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/metrics_collector_mock.go github.com/juju/juju/apiserver/observer/metricobserver MetricsCollector,SummaryVec
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/metrics_mock.go github.com/prometheus/client_golang/prometheus Summary
 type MetricsCollector interface {
 	// APIRequestDuration returns a SummaryVec for updating the duration of
 	// api request duration.

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/backups"
 	"github.com/juju/juju/api/base"
@@ -57,7 +57,7 @@ type RestoreAPI interface {
 // ModelStatusAPI is used to invoke common.ModelStatus
 // The interface is used to facilitate testing.
 //
-//go:generate mockgen -package backups_test -destination modelstatusapi_mock_test.go github.com/juju/juju/cmd/juju/backups ModelStatusAPI
+//go:generate go run github.com/golang/mock/mockgen -package backups_test -destination modelstatusapi_mock_test.go github.com/juju/juju/cmd/juju/backups ModelStatusAPI
 type ModelStatusAPI interface {
 	Close() error
 	ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error)

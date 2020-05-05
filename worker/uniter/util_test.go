@@ -16,19 +16,20 @@ import (
 	"sync"
 	"time"
 
+	corecharm "github.com/juju/charm/v7"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/mutex"
+	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
 	gt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
 	utilexec "github.com/juju/utils/exec"
+	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
@@ -514,6 +515,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		// appropriately.
 		Clock:         clock.WallClock,
 		RebootQuerier: s.rebootQuerier,
+		Logger:        loggo.GetLogger("test"),
 	}
 	ctx.uniter, err = uniter.NewUniter(&uniterParams)
 	c.Assert(err, jc.ErrorIsNil)

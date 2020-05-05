@@ -10,7 +10,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	apicloud "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/apiserver/params"
@@ -390,7 +390,7 @@ func (c *updateCredentialCommand) updateRemoteCredentials(ctx *cmd.Context, upda
 		ctx.Warningf("Could not update credentials remotely, on controller %q", c.ControllerName)
 		erred = cmd.ErrSilent
 	}
-	return processUpdateCredentialResult(ctx, accountDetails, "updated", results, c.ControllerName, erred)
+	return processUpdateCredentialResult(ctx, accountDetails, "updated", results, c.Force, c.ControllerName, erred)
 }
 
 func verifyCredentialsForUpload(ctx *cmd.Context, accountDetails *jujuclient.AccountDetails, aCloud *jujucloud.Cloud, region string, all map[string]jujucloud.Credential) (map[string]jujucloud.Credential, error) {
@@ -415,7 +415,7 @@ func verifyCredentialsForUpload(ctx *cmd.Context, accountDetails *jujuclient.Acc
 	return verified, erred
 }
 
-func processUpdateCredentialResult(ctx *cmd.Context, accountDetails *jujuclient.AccountDetails, op string, results []params.UpdateCredentialResult, controllerName string, localError error) error {
+func processUpdateCredentialResult(ctx *cmd.Context, accountDetails *jujuclient.AccountDetails, op string, results []params.UpdateCredentialResult, force bool, controllerName string, localError error) error {
 	for _, result := range results {
 		tag, err := names.ParseCloudCredentialTag(result.CredentialTag)
 		if err != nil {
@@ -425,13 +425,25 @@ func processUpdateCredentialResult(ctx *cmd.Context, accountDetails *jujuclient.
 		}
 		// We always want to display models information if there is any.
 		common.OutputUpdateCredentialModelResult(ctx, result.Models, true)
-		if result.Error != nil {
-			ctx.Warningf("Controller credential %q for user %q for cloud %q on controller %q not %v: %v.", tag.Name(), accountDetails.User, tag.Cloud().Id(), controllerName, op, result.Error)
-			if len(result.Models) != 0 {
-				ctx.Infof("Failed models may require a different credential.")
-				ctx.Infof("Use ‘juju set-credential’ to change credential for these models before repeating this update.")
+		haveModelErrors := false
+		for _, m := range result.Models {
+			haveModelErrors = len(m.Errors) > 0
+			if haveModelErrors {
+				break
 			}
-			// We do not want to return err here as we have already displayed it on the console.
+		}
+		if haveModelErrors || result.Error != nil {
+			if haveModelErrors {
+				ctx.Infof("Failed models may require a different credential.")
+				msg := "Use ‘juju set-credential’ to change credential for these models."
+				if !force {
+					msg = "Use ‘juju set-credential’ to change credential for these models before repeating this update."
+				}
+				ctx.Infof(msg)
+			}
+			if result.Error != nil {
+				ctx.Warningf("Controller credential %q for user %q for cloud %q on controller %q not %v: %v.", tag.Name(), accountDetails.User, tag.Cloud().Id(), controllerName, op, result.Error)
+			}
 			localError = cmd.ErrSilent
 			continue
 		}

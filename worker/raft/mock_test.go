@@ -5,10 +5,10 @@ package raft_test
 
 import (
 	"github.com/hashicorp/raft"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/worker/v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 )
 

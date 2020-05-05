@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"sort"
 
+	"github.com/juju/names/v4"
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
 	"github.com/juju/proxy"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/utils/keyvalues"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"

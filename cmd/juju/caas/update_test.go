@@ -11,10 +11,10 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucaas "github.com/juju/juju/caas"
@@ -43,7 +43,9 @@ type fakeUpdateCloudAPI struct {
 	*jujutesting.CallMocker
 	caas.UpdateCloudAPI
 
-	cloud jujucloud.Cloud
+	cloud       jujucloud.Cloud
+	modelResult []params.UpdateCredentialModelResult
+	errorResult *params.Error
 }
 
 func (api *fakeUpdateCloudAPI) Close() error {
@@ -69,6 +71,8 @@ func (api *fakeUpdateCloudAPI) UpdateCloudsCredentials(cloudCredentials map[stri
 	return []params.UpdateCredentialResult{
 		{
 			CredentialTag: tag,
+			Models:        api.modelResult,
+			Error:         api.errorResult,
 		},
 	}, nil
 }
@@ -318,4 +322,64 @@ func (s *updateCAASSuite) TestBuiltinToController(c *gc.C) {
 
 	s.fakeCloudAPI.CheckCall(c, 1, "UpdateCloud", expectedCloudToUpdate)
 	s.fakeCloudAPI.CheckCall(c, 2, "UpdateCloudsCredentials", expectedCredToUpdate, false)
+}
+
+func (s *updateCAASSuite) TestAffectedModels(c *gc.C) {
+	var logger loggo.Logger
+	s.fakeCloudAPI.modelResult = []params.UpdateCredentialModelResult{{
+		ModelName: "test",
+		ModelUUID: "uuid",
+		Errors:    []params.ErrorResult{{Error: &params.Error{Message: "error"}}},
+	}}
+	microk8sClusterMetadata := &jujucaas.ClusterMetadata{
+		Cloud: "microk8s",
+	}
+	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
+		CallMocker: jujutesting.NewCallMocker(logger),
+	}
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(microk8sClusterMetadata, nil)
+
+	command := s.makeCommand()
+	ctx, err := s.runCommand(c, command, "microk8s", "-c", "foo")
+	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
+
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+k8s cloud "microk8s" updated on controller "foo".
+Credential invalid for:
+  test:
+    error
+Failed models may require a different credential.
+Use ‘juju set-credential’ to change credential for these models before repeating this update.
+`[1:])
+}
+
+func (s *updateCAASSuite) TestUpdateCredentialError(c *gc.C) {
+	var logger loggo.Logger
+	s.fakeCloudAPI.modelResult = []params.UpdateCredentialModelResult{{
+		ModelName: "test",
+		ModelUUID: "uuid",
+		Errors:    []params.ErrorResult{{Error: &params.Error{Message: "error"}}},
+	}}
+	s.fakeCloudAPI.errorResult = &params.Error{Message: "some error"}
+	microk8sClusterMetadata := &jujucaas.ClusterMetadata{
+		Cloud: "microk8s",
+	}
+	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
+		CallMocker: jujutesting.NewCallMocker(logger),
+	}
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(microk8sClusterMetadata, nil)
+
+	command := s.makeCommand()
+	ctx, err := s.runCommand(c, command, "microk8s", "-c", "foo")
+	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
+
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+k8s cloud "microk8s" updated on controller "foo".
+Credential invalid for:
+  test:
+    error
+Failed models may require a different credential.
+Use ‘juju set-credential’ to change credential for these models before repeating this update.
+`[1:])
+	c.Assert(c.GetTestLog(), jc.Contains, `Controller credential "default" for user "foouser" for cloud "microk8s" on controller "foo" not updated: some error`)
 }

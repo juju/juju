@@ -108,7 +108,7 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 	sysClassNetPath := source.SysClassNetPath()
 	for _, nic := range interfaces {
 		nicType := network.ParseInterfaceType(sysClassNetPath, nic.Name)
-		nicConfig := interfaceToNetworkConfig(nic, nicType)
+		nicConfig := interfaceToNetworkConfig(nic, nicType, corenetwork.OriginMachine)
 		if nicConfig.InterfaceName == defaultRouteDevice {
 			nicConfig.IsDefaultGateway = true
 			nicConfig.GatewayAddress = defaultRoute.String()
@@ -168,7 +168,10 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 	return observedConfig, nil
 }
 
-func interfaceToNetworkConfig(nic net.Interface, nicType corenetwork.InterfaceType) params.NetworkConfig {
+func interfaceToNetworkConfig(nic net.Interface,
+	nicType corenetwork.InterfaceType,
+	networkOrigin corenetwork.Origin,
+) params.NetworkConfig {
 	configType := corenetwork.ConfigManual // assume manual initially, until we parse the address.
 	isUp := nic.Flags&net.FlagUp > 0
 	isLoopback := nic.Flags&net.FlagLoopback > 0
@@ -191,6 +194,7 @@ func interfaceToNetworkConfig(nic net.Interface, nicType corenetwork.InterfaceTy
 		InterfaceType: string(nicType),
 		NoAutoStart:   !isUp,
 		Disabled:      !isUp,
+		NetworkOrigin: params.NetworkOrigin(networkOrigin),
 	}
 }
 

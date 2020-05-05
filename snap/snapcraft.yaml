@@ -1,5 +1,5 @@
 name: juju
-version: 2.8-beta1
+version: 2.8-rc1
 summary: juju client
 description: Through the use of charms, juju provides you with shareable, re-usable, and repeatable expressions of devops best practices.
 confinement: classic
@@ -21,12 +21,9 @@ parts:
     plugin: dump
     source: snap/local
   juju:
-    # TODO(wallyworld) - use go plugin and remove dep when we migrate to go mod.
-    # plugin: go
-    # go-buildtags: xxx
-    plugin: dep
+    # TODO(hpidcock): move to upstream go plugin when it has the features we need.
+    plugin: juju-go
     go-channel: 1.14/stable
-    go-importpath: github.com/juju/juju
     # The source can be your local tree or github
     # source: https://github.com/juju/juju.git
     # If you pull a remote, set source-depth to 1 to make the fetch shorter
@@ -48,10 +45,13 @@ parts:
       - github.com/juju/juju/cmd/jujuc
       - github.com/juju/juju/cmd/jujud
       - github.com/juju/juju/cmd/plugins/juju-metadata
+    # go-external-strings is not supported by the standard go plugin.
+    # these strings are filled in by CI.
     go-external-strings:
       github.com/juju/juju/version.GitCommit: ""
       github.com/juju/juju/version.GitTreeState: ""
       github.com/juju/juju/version.build: ""
+    # go-static is not supported by the standard go plugin.
     go-static: true
     override-build: |
       snapcraftctl build

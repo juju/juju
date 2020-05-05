@@ -7,9 +7,9 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/catacomb"
+	"github.com/juju/names/v4"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/catacomb"
 
 	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
@@ -129,14 +129,7 @@ func (w *deploymentWorker) loop() error {
 		} else if err != nil {
 			return errors.Trace(err)
 		}
-		if info.RawK8sSpec != "" {
-			// TODO(caas): nothing we can do here before k8s provider can handle raw spec.
-			logger.Debugf("ApplyRawK8sSpec info.RawK8sSpec -> %s", info.RawK8sSpec)
-			if err := w.broker.ApplyRawK8sSpec(info.RawK8sSpec); err != nil {
-				return errors.Trace(err)
-			}
-			continue
-		}
+
 		if desiredScale == 0 {
 			if pw != nil {
 				worker.Stop(pw)
@@ -151,12 +144,7 @@ func (w *deploymentWorker) loop() error {
 			continue
 		}
 
-		specStr := info.PodSpec
-		var currentSpec string
-		if currentInfo != nil {
-			currentSpec = currentInfo.PodSpec
-		}
-		if desiredScale == currentScale && info.PodSpec == currentSpec {
+		if desiredScale == currentScale && isProvisionInfoEqual(info, currentInfo) {
 			continue
 		}
 
@@ -193,22 +181,10 @@ func (w *deploymentWorker) loop() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		spec, err := k8sspecs.ParsePodSpec(specStr)
-		if err != nil {
-			return errors.Annotate(err, "cannot parse pod spec")
-		}
 
-		serviceParams := &caas.ServiceParams{
-			PodSpec:           spec,
-			Constraints:       info.Constraints,
-			ResourceTags:      info.Tags,
-			Filesystems:       info.Filesystems,
-			Devices:           info.Devices,
-			OperatorImagePath: info.OperatorImagePath,
-			Deployment: caas.DeploymentParams{
-				DeploymentType: caas.DeploymentType(info.DeploymentInfo.DeploymentType),
-				ServiceType:    caas.ServiceType(info.DeploymentInfo.ServiceType),
-			},
+		serviceParams, err := provisionInfoToServiceParams(info)
+		if err != nil {
+			return errors.Trace(err)
 		}
 		err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, serviceParams, desiredScale, appConfig)
 		if err != nil {
@@ -220,7 +196,10 @@ func (w *deploymentWorker) loop() error {
 			return errors.Trace(err)
 		}
 		logger.Debugf("ensured deployment for %s for %v units", w.application, desiredScale)
-		if !serviceUpdated && !spec.OmitServiceFrontend {
+		if serviceParams.PodSpec == nil {
+			continue
+		}
+		if !serviceUpdated && !serviceParams.PodSpec.OmitServiceFrontend {
 			service, err := w.broker.GetService(w.application, caas.ModeWorkload, false)
 			if err != nil && !errors.IsNotFound(err) {
 				return errors.Annotate(err, "cannot get new service details")
@@ -233,6 +212,49 @@ func (w *deploymentWorker) loop() error {
 			serviceUpdated = true
 		}
 	}
+}
+
+func provisionInfoToServiceParams(info *apicaasunitprovisioner.ProvisioningInfo) (serviceParams *caas.ServiceParams, err error) {
+	if len(info.PodSpec) > 0 && len(info.RawK8sSpec) > 0 {
+		// This should never happen.
+		return nil, errors.NewForbidden(nil, "either PodSpec or RawK8sSpec can be set for each application, but not both")
+	}
+
+	serviceParams = &caas.ServiceParams{
+		Constraints:       info.Constraints,
+		ResourceTags:      info.Tags,
+		Filesystems:       info.Filesystems,
+		Devices:           info.Devices,
+		OperatorImagePath: info.OperatorImagePath,
+		Deployment: caas.DeploymentParams{
+			DeploymentType: caas.DeploymentType(info.DeploymentInfo.DeploymentType),
+			ServiceType:    caas.ServiceType(info.DeploymentInfo.ServiceType),
+		},
+	}
+	if len(info.PodSpec) > 0 {
+		if serviceParams.PodSpec, err = k8sspecs.ParsePodSpec(info.PodSpec); err != nil {
+			return nil, errors.Annotate(err, "cannot parse pod spec")
+		}
+	} else if len(info.RawK8sSpec) > 0 {
+		if serviceParams.RawK8sSpec, err = k8sspecs.ParseRawK8sSpec(info.RawK8sSpec); err != nil {
+			return nil, errors.Annotate(err, "cannot parse raw k8s spec")
+		}
+	}
+	return serviceParams, nil
+}
+
+// isProvisionInfoChanged checks if podspec or raw k8s spec changed or not.
+func isProvisionInfoEqual(newInfo, oldInfo *apicaasunitprovisioner.ProvisioningInfo) bool {
+	var newK8sSpec, newRawK8sSpec, oldK8sSpec, oldRawK8sSpec string
+	if newInfo != nil {
+		newK8sSpec = newInfo.PodSpec
+		newRawK8sSpec = newInfo.RawK8sSpec
+	}
+	if oldInfo != nil {
+		oldK8sSpec = oldInfo.PodSpec
+		oldRawK8sSpec = oldInfo.RawK8sSpec
+	}
+	return newK8sSpec == oldK8sSpec && newRawK8sSpec == oldRawK8sSpec
 }
 
 func updateApplicationService(appTag names.ApplicationTag, svc *caas.Service, updater ApplicationUpdater) error {

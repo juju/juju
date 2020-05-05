@@ -12,8 +12,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"gopkg.in/juju/names.v3"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -28,7 +28,6 @@ import (
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
 )
 
@@ -121,10 +120,7 @@ type controllerStacker interface {
 	Deploy() error
 }
 
-func controllerCorelation(broker *kubernetesClient) (*kubernetesClient, error) {
-	if broker.Config().Name() != environsbootstrap.ControllerModelName {
-		return broker, nil
-	}
+func controllerCorelation(broker *kubernetesClient) (string, error) {
 	// ensure controller specific annotations.
 	_ = broker.addAnnotations(annotationControllerIsControllerKey, "true")
 
@@ -133,16 +129,12 @@ func controllerCorelation(broker *kubernetesClient) (*kubernetesClient, error) {
 		// No existing controller found on the cluster.
 		// A controller must be bootstrapping now.
 		// It will reply on setControllerNamespace in controller stack to set namespace name.
-		return broker, nil
+		return "", errors.NewNotFound(err, "controller")
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	// This is an existing controller.
-	// Now, link it back.
-	// It should be always one record here based on current annotation design.
-	broker.SetNamespace(ns[0].GetName())
-	return broker, nil
+	return ns[0].GetName(), nil
 }
 
 // DecideControllerNamespace decides the namespace name to use for a new controller.

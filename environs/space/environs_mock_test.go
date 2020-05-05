@@ -5,6 +5,8 @@
 package space
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
@@ -15,9 +17,8 @@ import (
 	instances "github.com/juju/juju/environs/instances"
 	network0 "github.com/juju/juju/network"
 	storage "github.com/juju/juju/storage"
+	names_v3 "github.com/juju/names/v4"
 	version "github.com/juju/version"
-	names_v3 "gopkg.in/juju/names.v3"
-	reflect "reflect"
 )
 
 // MockBootstrapEnviron is a mock of BootstrapEnviron interface

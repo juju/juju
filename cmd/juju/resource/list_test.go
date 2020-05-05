@@ -6,13 +6,13 @@ package resource_test
 import (
 	"time"
 
+	charmresource "github.com/juju/charm/v7/resource"
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/names.v3"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/resource"

@@ -4,10 +4,9 @@
 package storage
 
 import (
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/names/v4"
 )
 
 // ProviderType uniquely identifies a storage provider, such as "ebs" or "loop".

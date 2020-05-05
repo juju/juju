@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/featureflag"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
@@ -41,7 +41,7 @@ Cancel pending or running tasks matching given IDs or partial ID prefixes.`
 
 func (c *cancelCommand) Info() *cmd.Info {
 	var info *cmd.Info
-	if featureflag.Enabled(feature.JujuV3) {
+	if featureflag.Enabled(feature.ActionsV2) {
 		info = &cmd.Info{
 			Name:    "cancel-task",
 			Args:    "(<task-id>|<task-id-prefix>) [...]",

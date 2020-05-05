@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
 	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"

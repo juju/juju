@@ -4,9 +4,9 @@
 package operation
 
 import (
+	corecharm "github.com/juju/charm/v7"
 	"github.com/juju/errors"
-	corecharm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -21,6 +21,7 @@ type FactoryParams struct {
 	Callbacks      Callbacks
 	Abort          <-chan struct{}
 	MetricSpoolDir string
+	Logger         Logger
 }
 
 // NewFactory returns a Factory that creates Operations backed by the supplied
@@ -103,6 +104,7 @@ func (f *factory) NewRunHook(hookInfo hook.Info) (Operation, error) {
 		info:          hookInfo,
 		callbacks:     f.config.Callbacks,
 		runnerFactory: f.config.RunnerFactory,
+		logger:        f.config.Logger,
 	}, nil
 }
 
@@ -124,6 +126,7 @@ func (f *factory) NewAction(actionId string) (Operation, error) {
 		actionId:      actionId,
 		callbacks:     f.config.Callbacks,
 		runnerFactory: f.config.RunnerFactory,
+		logger:        f.config.Logger,
 	}, nil
 }
 
@@ -140,29 +143,23 @@ func (f *factory) NewFailAction(actionId string) (Operation, error) {
 
 // NewCommands is part of the Factory interface.
 func (f *factory) NewCommands(args CommandArgs, sendResponse CommandResponseFunc) (Operation, error) {
-	if args.Commands == "" {
-		return nil, errors.New("commands required")
+	if err := args.Validate(); err != nil {
+		return nil, errors.Trace(err)
 	} else if sendResponse == nil {
 		return nil, errors.New("response sender required")
-	}
-	if args.RemoteUnitName != "" {
-		if args.RelationId == -1 {
-			return nil, errors.New("remote unit not valid without relation")
-		} else if !names.IsValidUnit(args.RemoteUnitName) {
-			return nil, errors.Errorf("invalid remote unit name %q", args.RemoteUnitName)
-		}
 	}
 	return &runCommands{
 		args:          args,
 		sendResponse:  sendResponse,
 		callbacks:     f.config.Callbacks,
 		runnerFactory: f.config.RunnerFactory,
+		logger:        f.config.Logger,
 	}, nil
 }
 
 // NewResignLeadership is part of the Factory interface.
 func (f *factory) NewResignLeadership() (Operation, error) {
-	return &resignLeadership{}, nil
+	return &resignLeadership{logger: f.config.Logger}, nil
 }
 
 // NewAcceptLeadership is part of the Factory interface.

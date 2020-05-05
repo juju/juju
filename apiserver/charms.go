@@ -19,9 +19,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	ziputil "github.com/juju/utils/zip"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/application"

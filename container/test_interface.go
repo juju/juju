@@ -3,7 +3,7 @@
 
 package container
 
-//go:generate mockgen -package testing -destination testing/interface_mock.go github.com/juju/juju/container TestLXDManager
+//go:generate go run github.com/golang/mock/mockgen -package testing -destination testing/interface_mock.go github.com/juju/juju/container TestLXDManager
 
 // TestLXDManager for use in worker/provisioner tests
 type TestLXDManager interface {

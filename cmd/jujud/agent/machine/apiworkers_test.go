@@ -5,10 +5,10 @@ package machine_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
+	dt "github.com/juju/worker/v2/dependency/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
-	dt "gopkg.in/juju/worker.v1/dependency/testing"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"

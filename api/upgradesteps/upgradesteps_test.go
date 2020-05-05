@@ -5,9 +5,9 @@ package upgradesteps_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/upgradesteps"

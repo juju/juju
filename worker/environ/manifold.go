@@ -5,8 +5,8 @@ package environ
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
 
 	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"

@@ -8,27 +8,12 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/worker/v2"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"
 )
-
-var logger = loggo.GetLogger("juju.worker.apiaddressupdater")
-
-// APIAddressUpdater is responsible for propagating API addresses.
-//
-// In practice, APIAddressUpdater is used by a machine agent to watch
-// API addresses in state and write the changes to the agent's config file.
-type APIAddressUpdater struct {
-	addresser APIAddresser
-	setter    APIAddressSetter
-
-	mu      sync.Mutex
-	current []corenetwork.ProviderHostPorts
-}
 
 // APIAddresser is an interface that is provided to NewAPIAddressUpdater
 // which can be used to watch for API address changes.
@@ -43,13 +28,46 @@ type APIAddressSetter interface {
 	SetAPIHostPorts(servers []corenetwork.HostPorts) error
 }
 
+// Config defines the operation of a Worker.
+type Config struct {
+	Addresser APIAddresser
+	Setter    APIAddressSetter
+	Logger    Logger
+}
+
+// Validate returns an error if config cannot drive a Worker.
+func (config Config) Validate() error {
+	if config.Addresser == nil {
+		return errors.NotValidf("nil Addresser")
+	}
+	if config.Setter == nil {
+		return errors.NotValidf("nil Setter")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	return nil
+}
+
+// APIAddressUpdater is responsible for propagating API addresses.
+//
+// In practice, APIAddressUpdater is used by a machine agent to watch
+// API addresses in state and write the changes to the agent's config file.
+type APIAddressUpdater struct {
+	config Config
+
+	mu      sync.Mutex
+	current []corenetwork.ProviderHostPorts
+}
+
 // NewAPIAddressUpdater returns a worker.Worker that watches for changes to
 // API addresses and then sets them on the APIAddressSetter.
-// TODO(fwereade): this should have a config struct, and some validation.
-func NewAPIAddressUpdater(addresser APIAddresser, setter APIAddressSetter) (worker.Worker, error) {
+func NewAPIAddressUpdater(config Config) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
 	handler := &APIAddressUpdater{
-		addresser: addresser,
-		setter:    setter,
+		config: config,
 	}
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: handler,
@@ -62,7 +80,7 @@ func NewAPIAddressUpdater(addresser APIAddresser, setter APIAddressSetter) (work
 
 // SetUp is part of the watcher.NotifyHandler interface.
 func (c *APIAddressUpdater) SetUp() (watcher.NotifyWatcher, error) {
-	return c.addresser.WatchAPIHostPorts()
+	return c.config.Addresser.WatchAPIHostPorts()
 }
 
 // Handle is part of the watcher.NotifyHandler interface.
@@ -72,7 +90,7 @@ func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
 		return err
 	}
 
-	logger.Debugf("updating API hostPorts to %+v", hps)
+	c.config.Logger.Debugf("updating API hostPorts to %+v", hps)
 	c.mu.Lock()
 	c.current = hps
 	c.mu.Unlock()
@@ -88,14 +106,14 @@ func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
 		hpsToSet[i] = hps.HostPorts()
 	}
 
-	if err := c.setter.SetAPIHostPorts(hpsToSet); err != nil {
+	if err := c.config.Setter.SetAPIHostPorts(hpsToSet); err != nil {
 		return fmt.Errorf("error setting addresses: %v", err)
 	}
 	return nil
 }
 
 func (c *APIAddressUpdater) getAddresses() ([]corenetwork.ProviderHostPorts, error) {
-	addresses, err := c.addresser.APIHostPorts()
+	addresses, err := c.config.Addresser.APIHostPorts()
 	if err != nil {
 		return nil, fmt.Errorf("error getting addresses: %v", err)
 	}

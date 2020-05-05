@@ -4,12 +4,12 @@
 package agent_test
 
 import (
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
+	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
 
 	coreagent "github.com/juju/juju/agent"
 	jujuversion "github.com/juju/juju/version"

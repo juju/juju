@@ -24,8 +24,7 @@ import (
 // We replace one of the urls with the supplied value
 // and prevent the other from being used.
 func PatchOfficialDataSources(s *testing.CleanupSuite, url string) {
-	s.PatchValue(&imagemetadata.DefaultUbuntuBaseURL, "")
-	s.PatchValue(&imagemetadata.DefaultJujuBaseURL, url)
+	s.PatchValue(&imagemetadata.DefaultUbuntuBaseURL, url)
 }
 
 // ParseMetadataFromDir loads ImageMetadata from the specified directory.

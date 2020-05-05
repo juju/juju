@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -17,7 +18,6 @@ import (
 	gooseerrors "gopkg.in/goose.v2/errors"
 	"gopkg.in/goose.v2/identity"
 	"gopkg.in/goose.v2/nova"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"

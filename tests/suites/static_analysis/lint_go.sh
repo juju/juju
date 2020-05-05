@@ -1,15 +1,7 @@
-run_dep_check() {
-  OUT=$(dep check 2>&1 || true)
-  if [ -n "${OUT}" ]; then
-    echo ""
-    echo "$(red 'Found some issues:')"
-    echo "\\n${OUT}" >&2
-    exit 1
-  fi
-}
-
 run_go_vet() {
-  OUT=$(go vet -composites=false ./... 2>&1 || true)
+  PACKAGES="${2}"
+  # shellcheck disable=SC2086
+  OUT=$(go vet -composites=false ${PACKAGES} 2>&1 || true)
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues:')"
@@ -19,7 +11,9 @@ run_go_vet() {
 }
 
 run_go_lint() {
-  OUT=$(golint -set_exit_status ./ 2>&1 || true)
+  PACKAGES="${2}"
+  # shellcheck disable=SC2086
+  OUT=$(golint -set_exit_status ${PACKAGES} 2>&1 || true)
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues:')"
@@ -43,7 +37,9 @@ run_go_imports() {
 }
 
 run_deadcode() {
-  OUT=$(deadcode ./ 2>&1 || true)
+  FOLDERS="${2}"
+  # shellcheck disable=SC2086
+  OUT=$(deadcode ${FOLDERS} 2>&1 || true)
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues:')"
@@ -53,8 +49,9 @@ run_deadcode() {
 }
 
 run_misspell() {
-  FILES=${2}
-  OUT=$(misspell -source=go 2>/dev/null "${FILES}" || true)
+  FILES="${2}"
+  # shellcheck disable=SC2086
+  OUT=$(misspell -source=go 2>/dev/null ${FILES} || true)
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues:')"
@@ -64,7 +61,9 @@ run_misspell() {
 }
 
 run_unconvert() {
-  OUT=$(unconvert ./ 2>&1 || true)
+  PACKAGES="${2}"
+  # shellcheck disable=SC2086
+  OUT=$(unconvert ${PACKAGES} 2>&1 || true)
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues:')"
@@ -74,7 +73,9 @@ run_unconvert() {
 }
 
 run_ineffassign() {
-  OUT=$(ineffassign ./.. | grep -v "_test.go" | grep "github.com/juju/juju" | sed -E "s/^(.+src\\/github\\.com\\/juju\\/juju\\/)(.+)/\2/")
+  FOLDERS="${2}"
+  # shellcheck disable=SC2086
+  OUT=$(ineffassign ${FOLDERS} | grep -v "_test.go" | grep "github.com/juju/juju" | sed -E "s/^(.+src\\/github\\.com\\/juju\\/juju\\/)(.+)/\2/")
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues:')"
@@ -110,31 +111,27 @@ test_static_analysis_go() {
 
     FILES=$(find ./* -name '*.go' -not -name '.#*' -not -name '*_mock.go' | grep -v vendor/ | grep -v acceptancetests/)
     FOLDERS=$(echo "${FILES}" | sed s/^\.//g | xargs dirname | awk -F "/" '{print $2}' | uniq | sort)
+    PACKAGES=$(go list ./... | grep -v github.com/juju/juju\$ | grep -v github.com/juju/juju/vendor/ | grep -v github.com/juju/juju/acceptancetests/)
 
     ## Functions starting by empty line
     # turned off until we get approval of test suite
     # run "func vet"
 
-    ## Check dependency is correct
-    if which dep >/dev/null 2>&1; then
-      run "run_dep_check"
-    else
-      echo "dep not found, dep static analysis disabled"
-    fi
-
     ## go vet, if it exists
     if go help vet >/dev/null 2>&1; then
-      run "run_go_vet" "${FOLDERS}"
+      run "run_go_vet" "${PACKAGES}"
     else
       echo "vet not found, vet static analysis disabled"
     fi
 
+    # TODO(hpidcock): re-enable golint when all the errors are fixed.
+
     ## golint
-    if which golint >/dev/null 2>&1; then
-      run "run_go_lint"
-    else
-      echo "golint not found, golint static analysis disabled"
-    fi
+    #if which golint >/dev/null 2>&1; then
+    #  run "run_go_lint" "${PACKAGES}"
+    #else
+    #  echo "golint not found, golint static analysis disabled"
+    #fi
 
     ## goimports
     if which goimports >/dev/null 2>&1; then
@@ -143,12 +140,15 @@ test_static_analysis_go() {
       echo "goimports not found, goimports static analysis disabled"
     fi
 
+    # TODO(hpidcock): re-enable deadcode when it supports tests/
+    # fix deadcode errors.
+
     ## deadcode
-    if which deadcode >/dev/null 2>&1; then
-      run "run_deadcode"
-    else
-      echo "deadcode not found, deadcode static analysis disabled"
-    fi
+    #if which deadcode >/dev/null 2>&1; then
+    #  run "run_deadcode" "${FOLDERS}"
+    #else
+    #  echo "deadcode not found, deadcode static analysis disabled"
+    #fi
 
     ## misspell
     if which misspell >/dev/null 2>&1; then
@@ -159,14 +159,14 @@ test_static_analysis_go() {
 
     ## unconvert
     if which unconvert >/dev/null 2>&1; then
-      run "run_unconvert"
+      run "run_unconvert" "${PACKAGES}"
     else
       echo "unconvert not found, unconvert static analysis disabled"
     fi
 
     ## ineffassign
     if which ineffassign >/dev/null 2>&1; then
-      run "run_ineffassign"
+      run "run_ineffassign" "${FOLDERS}"
     else
       echo "ineffassign not found, ineffassign static analysis disabled"
     fi

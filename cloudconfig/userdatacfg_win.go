@@ -12,18 +12,18 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
+	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	"github.com/juju/utils/cert"
-	"github.com/juju/utils/featureflag"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/tools"
 )
 
-//go:generate go run ../generate/filetoconst/filetoconst.go UserDataScript windowsuserdatafiles/userdata.ps1 winuserdatawrapper.go 2016 cloudconfig
-//go:generate go run ../generate/winuserdata/winuserdata.go 2016 winuserdata.go cloudconfig
+//go:generate go run github.com/juju/juju/generate/filetoconst UserDataScript windowsuserdatafiles/userdata.ps1 winuserdatawrapper.go 2016 cloudconfig
+//go:generate go run github.com/juju/juju/generate/winuserdata 2016 winuserdata.go cloudconfig
 
 type aclType string
 

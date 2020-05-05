@@ -31,10 +31,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	"github.com/juju/pubsub"
 	"github.com/juju/retry"
@@ -43,12 +45,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
+	"github.com/juju/worker/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -1473,6 +1473,7 @@ func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []ins
 				GatewayAddress: corenetwork.NewProviderAddress(
 					fmt.Sprintf("0.%d.0.1", (i+1)*10+idIndex),
 				),
+				Origin: corenetwork.OriginProvider,
 			}
 		}
 

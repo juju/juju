@@ -11,17 +11,17 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
+	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"gopkg.in/juju/names.v3"
 	k8score "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 )
 
 // TODO (manadart 2019-10-09):

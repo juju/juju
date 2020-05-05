@@ -5,8 +5,8 @@ package caasoperatorprovisioner
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -98,7 +98,7 @@ func (c *Client) Life(appName string) (life.Value, error) {
 	if err := results.Results[0].Error; err != nil {
 		return "", maybeNotFound(err)
 	}
-	return life.Value(results.Results[0].Life), nil
+	return results.Results[0].Life, nil
 }
 
 // OperatorProvisioningInfo holds the info needed to provision an operator.

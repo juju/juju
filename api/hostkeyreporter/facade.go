@@ -6,10 +6,9 @@
 package hostkeyreporter
 
 import (
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/names/v4"
 )
 
 // Facade provides access to the HostKeyReporter API facade.

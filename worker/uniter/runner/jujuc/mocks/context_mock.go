@@ -5,15 +5,16 @@
 package mocks
 
 import (
+	reflect "reflect"
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
+	charm_v6 "github.com/juju/charm/v7"
 	params "github.com/juju/juju/apiserver/params"
 	application "github.com/juju/juju/core/application"
 	network "github.com/juju/juju/core/network"
 	jujuc "github.com/juju/juju/worker/uniter/runner/jujuc"
-	charm_v6 "gopkg.in/juju/charm.v6"
-	names_v3 "gopkg.in/juju/names.v3"
-	reflect "reflect"
-	time "time"
+	names_v3 "github.com/juju/names/v4"
 )
 
 // MockContext is a mock of Context interface

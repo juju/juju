@@ -220,7 +220,7 @@ func RegisterCredentials(provider environs.EnvironProvider, args RegisterCredent
 	return nil, nil
 }
 
-//go:generate mockgen -package modelcmd -destination cloudprovider_mock_test.go github.com/juju/juju/cmd/modelcmd TestCloudProvider
+//go:generate go run github.com/golang/mock/mockgen -package modelcmd -destination cloudprovider_mock_test.go github.com/juju/juju/cmd/modelcmd TestCloudProvider
 
 // TestCloudProvider is used for testing.
 type TestCloudProvider interface {

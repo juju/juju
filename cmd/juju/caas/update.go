@@ -9,7 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	cloudapi "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/apiserver/params"
@@ -262,7 +262,9 @@ func (c *UpdateCAASCommand) Run(ctx *cmd.Context) (err error) {
 	var returnErr error
 	processErr := func(err error, successMsg string) {
 		if err != nil {
-			ctx.Infof("%v", err)
+			if err != cmd.ErrSilent {
+				ctx.Infof("%v", err)
+			}
 			returnErr = cmd.ErrSilent
 			return
 		}
@@ -351,12 +353,21 @@ func (c *UpdateCAASCommand) updateCredentialOnController(ctx *cmd.Context, apiCl
 		}
 		// We always want to display models information if there is any.
 		common.OutputUpdateCredentialModelResult(ctx, result.Models, true)
-		if result.Error != nil {
-			ctx.Warningf("Controller credential %q for user %q for cloud %q on controller %q not updated: %v.",
-				tag.Name(), currentAccountDetails.User, tag.Cloud().Id(), c.ControllerName, result.Error)
-			if len(result.Models) != 0 {
+		haveModelErrors := false
+		for _, m := range result.Models {
+			haveModelErrors = len(m.Errors) > 0
+			if haveModelErrors {
+				break
+			}
+		}
+		if haveModelErrors || result.Error != nil {
+			if haveModelErrors {
 				ctx.Infof("Failed models may require a different credential.")
 				ctx.Infof("Use ‘juju set-credential’ to change credential for these models before repeating this update.")
+			}
+			if result.Error != nil {
+				ctx.Warningf("Controller credential %q for user %q for cloud %q on controller %q not updated: %v.",
+					tag.Name(), currentAccountDetails.User, tag.Cloud().Id(), c.ControllerName, result.Error)
 			}
 			// We do not want to return err here as we have already displayed it on the console.
 			resultError = cmd.ErrSilent

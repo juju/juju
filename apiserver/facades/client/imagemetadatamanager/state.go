@@ -5,7 +5,7 @@ package imagemetadatamanager
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -18,6 +18,7 @@ type metadataAccess interface {
 	DeleteMetadata(imageId string) error
 	ModelConfig() (*config.Config, error)
 	ControllerTag() names.ControllerTag
+	Model() (Model, error)
 }
 
 type Model interface {
@@ -42,6 +43,11 @@ func (s stateShim) SaveMetadata(m []cloudimagemetadata.Metadata) error {
 
 func (s stateShim) DeleteMetadata(imageId string) error {
 	return s.State.CloudImageMetadataStorage.DeleteMetadata(imageId)
+}
+
+// Model returns the Model for this state.
+func (s stateShim) Model() (Model, error) {
+	return s.State.Model()
 }
 
 // ModelConfig implements the metadataAccess method as an expedient until the

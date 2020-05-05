@@ -6,10 +6,10 @@ package state
 import (
 	"fmt"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -481,7 +481,7 @@ func DefaultEndpointBindingsForCharm(st EndpointBinding, charmMeta *charm.Meta) 
 // EndpointBinding are the methods necessary for exported methods of
 // Bindings to work.
 //
-//go:generate mockgen -package mocks -destination mocks/endpointbinding_mock.go github.com/juju/juju/state EndpointBinding
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/endpointbinding_mock.go github.com/juju/juju/state EndpointBinding
 type EndpointBinding interface {
 	network.SpaceLookup
 	DefaultEndpointBindingSpace() (string, error)

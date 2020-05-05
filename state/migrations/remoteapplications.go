@@ -4,10 +4,10 @@
 package migrations
 
 import (
-	"github.com/juju/description"
+	"github.com/juju/charm/v7"
+	"github.com/juju/description/v2"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 )
 
 // MigrationRemoteApplication is an in-place representation of the

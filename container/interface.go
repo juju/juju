@@ -4,7 +4,7 @@
 package container
 
 import (
-	"gopkg.in/juju/charm.v6"
+	"github.com/juju/charm/v7"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
@@ -20,7 +20,7 @@ const (
 	ConfigAvailabilityZone = "availability-zone"
 )
 
-//go:generate mockgen -package testing -destination testing/package_mock.go github.com/juju/juju/container Manager,Initialiser
+//go:generate go run github.com/golang/mock/mockgen -package testing -destination testing/package_mock.go github.com/juju/juju/container Manager,Initialiser
 
 // ManagerConfig contains the initialization parameters for the ContainerManager.
 // The name of the manager is used to namespace the containers on the machine.

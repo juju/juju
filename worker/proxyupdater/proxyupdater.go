@@ -16,7 +16,7 @@ import (
 	"github.com/juju/packaging/config"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/exec"
-	"gopkg.in/juju/worker.v1"
+	"github.com/juju/worker/v2"
 
 	"github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/core/snap"

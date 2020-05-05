@@ -4,12 +4,12 @@
 package remoterelations
 
 import (
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/catacomb"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/names/v4"
 )
 
 // remoteRelationsWorker listens for changes to the

@@ -8,16 +8,16 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -2182,7 +2182,7 @@ func (s *upgradesSuite) TestDeleteCloudImageMetadata(c *gc.C) {
 		{attrs1, 0, "1", now},
 		{attrs2, 0, "2", now},
 	}
-	err := stor.SaveMetadataNoExpiry(added)
+	err := stor.SaveMetadata(added)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []bson.M{{

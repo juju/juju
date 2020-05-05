@@ -4,12 +4,12 @@
 package resource
 
 import (
+	"github.com/juju/charm/v7"
+	charmresource "github.com/juju/charm/v7/resource"
+	csparams "github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/charm.v6"
-	charmresource "gopkg.in/juju/charm.v6/resource"
-	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller"

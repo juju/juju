@@ -13,7 +13,7 @@ import (
 	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -227,6 +227,7 @@ func (e Environ) networkInterfacesForInstance(ctx context.ProviderCallContext, i
 				corenetwork.NewScopedProviderAddress(ip, corenetwork.ScopeCloudLocal),
 			},
 			InterfaceType: corenetwork.EthernetInterface,
+			Origin:        corenetwork.OriginProvider,
 		}
 
 		for _, ipAssocName := range deviceAttributes.Ipassociations {

@@ -1122,7 +1122,7 @@ func (w *SrvModelSummaryWatcher) translate(summaries []cache.ModelSummary) []par
 				Units:        summary.UnitCount,
 				Relations:    summary.RelationCount,
 			},
-			Status:      string(summary.Status),
+			Status:      summary.Status,
 			Messages:    w.translateMessages(summary.Messages),
 			Annotations: summary.Annotations,
 		}

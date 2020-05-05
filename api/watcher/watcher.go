@@ -8,12 +8,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -584,7 +583,7 @@ func (w *relationStatusWatcher) loop(initialChanges []params.RelationLifeSuspend
 		for i, ch := range changes {
 			result[i] = watcher.RelationStatusChange{
 				Key:             ch.Key,
-				Life:            life.Value(ch.Life),
+				Life:            ch.Life,
 				Suspended:       ch.Suspended,
 				SuspendedReason: ch.SuspendedReason,
 			}

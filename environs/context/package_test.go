@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate mockgen -package context -destination context_mock_test.go github.com/juju/juju/environs/context ModelCredentialInvalidator
+//go:generate go run github.com/golang/mock/mockgen -package context -destination context_mock_test.go github.com/juju/juju/environs/context ModelCredentialInvalidator
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

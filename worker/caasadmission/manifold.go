@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
 	admission "k8s.io/api/admissionregistration/v1beta1"
 
 	"github.com/juju/juju/agent"
@@ -22,7 +22,7 @@ import (
 // K8sBroker describes a Kubernetes broker interface this worker needs to
 // function.
 type K8sBroker interface {
-	// CurrentModel returns the current model the broker is targetting
+	// CurrentModel returns the current model the broker is targeting
 	CurrentModel() string
 
 	// GetCurrentNamespace returns the current namespace being targeted on the

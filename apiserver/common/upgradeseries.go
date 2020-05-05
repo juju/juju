@@ -6,7 +6,7 @@ package common
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate mockgen -package mocks -destination mocks/upgradeseries.go github.com/juju/juju/apiserver/common UpgradeSeriesBackend,UpgradeSeriesMachine,UpgradeSeriesUnit
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/upgradeseries.go github.com/juju/juju/apiserver/common UpgradeSeriesBackend,UpgradeSeriesMachine,UpgradeSeriesUnit
 
 type UpgradeSeriesBackend interface {
 	Machine(string) (UpgradeSeriesMachine, error)

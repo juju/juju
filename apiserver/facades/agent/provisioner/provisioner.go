@@ -9,7 +9,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
@@ -421,15 +421,17 @@ func (api *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerCo
 	cfg := make(map[string]string)
 	cfg[container.ConfigModelUUID] = api.st.ModelUUID()
 
-	switch args.Type {
-	case instance.LXD:
-		// TODO(jam): DefaultMTU needs to be handled here
-	}
-
 	mConfig, err := api.m.ModelConfig()
 	if err != nil {
 		return result, err
 	}
+
+	switch args.Type {
+	case instance.LXD:
+		cfg[config.LXDSnapChannel] = mConfig.LXDSnapChannel()
+		// TODO(jam): DefaultMTU needs to be handled here
+	}
+
 	if url, set := mConfig.ContainerImageMetadataURL(); set {
 		cfg[config.ContainerImageMetadataURLKey] = url
 	}

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	apicloud "github.com/juju/juju/api/cloud"
 	jujucloud "github.com/juju/juju/cloud"
@@ -647,7 +647,7 @@ func (c *addCredentialCommand) addRemoteCredentials(ctxt *cmd.Context, all map[s
 		logger.Errorf("%v", err)
 		ctxt.Warningf("Could not upload credentials to controller %q", c.ControllerName)
 	}
-	return processUpdateCredentialResult(ctxt, accountDetails, "added", results, c.ControllerName, localError)
+	return processUpdateCredentialResult(ctxt, accountDetails, "added", results, false, c.ControllerName, localError)
 }
 
 func enterFile(name, descr string, p *interact.Pollster, expanded, optional bool) (string, error) {

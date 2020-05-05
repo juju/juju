@@ -7,8 +7,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -99,7 +98,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/singular"
 	"github.com/juju/juju/apiserver/facades/controller/statushistory"
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 )
 
@@ -177,6 +175,7 @@ func AllFacades() *facade.Registry {
 	reg("Cloud", 4, cloud.NewFacadeV4) // adds UpdateCloud
 	reg("Cloud", 5, cloud.NewFacadeV5) // Removes DefaultCloud, handles config in AddCloud
 	reg("Cloud", 6, cloud.NewFacadeV6) // Adds validity to CredentialContent, force for AddCloud
+	reg("Cloud", 7, cloud.NewFacadeV7) // Do not set error if forcing credential update.
 
 	// CAAS related facades.
 	// Move these to the correct place above once the feature flag disappears.
@@ -215,9 +214,7 @@ func AllFacades() *facade.Registry {
 	reg("ImageManager", 2, imagemanager.NewImageManagerAPI)
 	reg("ImageMetadata", 3, imagemetadata.NewAPI)
 
-	if featureflag.Enabled(feature.ImageMetadata) {
-		reg("ImageMetadataManager", 1, imagemetadatamanager.NewAPI)
-	}
+	reg("ImageMetadataManager", 1, imagemetadatamanager.NewAPI)
 
 	reg("InstanceMutater", 1, instancemutater.NewFacadeV1)
 	reg("InstanceMutater", 2, instancemutater.NewFacadeV2)

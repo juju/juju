@@ -5,10 +5,9 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	specs "github.com/juju/juju/caas/specs"
+	reflect "reflect"
 )
 
 // MockPodSpecConverter is a mock of PodSpecConverter interface
@@ -36,6 +35,7 @@ func (m *MockPodSpecConverter) EXPECT() *MockPodSpecConverterMockRecorder {
 
 // ToLatest mocks base method
 func (m *MockPodSpecConverter) ToLatest() *specs.PodSpecV3 {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ToLatest")
 	ret0, _ := ret[0].(*specs.PodSpecV3)
 	return ret0
@@ -43,11 +43,13 @@ func (m *MockPodSpecConverter) ToLatest() *specs.PodSpecV3 {
 
 // ToLatest indicates an expected call of ToLatest
 func (mr *MockPodSpecConverterMockRecorder) ToLatest() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToLatest", reflect.TypeOf((*MockPodSpecConverter)(nil).ToLatest))
 }
 
 // Validate mocks base method
 func (m *MockPodSpecConverter) Validate() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Validate")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -55,5 +57,6 @@ func (m *MockPodSpecConverter) Validate() error {
 
 // Validate indicates an expected call of Validate
 func (mr *MockPodSpecConverterMockRecorder) Validate() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockPodSpecConverter)(nil).Validate))
 }

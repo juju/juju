@@ -91,6 +91,7 @@ func (s *imageMetadataSuite) TestSave(c *gc.C) {
 	expectedMetadata1 := imagecommon.ParseMetadataListFromParams(params.CloudImageMetadataList{
 		Metadata: []params.CloudImageMetadata{m},
 	}, nil)
+	c.Assert(expectedMetadata1[0].Priority, gc.Equals, 50)
 	expectedMetadata2 := imagecommon.ParseMetadataListFromParams(params.CloudImageMetadataList{
 		Metadata: []params.CloudImageMetadata{m, m},
 	}, nil)

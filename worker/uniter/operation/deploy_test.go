@@ -4,12 +4,13 @@
 package operation_test
 
 import (
+	corecharm "github.com/juju/charm/v7"
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -34,6 +35,7 @@ func (s *DeploySuite) testPrepareAlreadyDone(
 	factory := operation.NewFactory(operation.FactoryParams{
 		Deployer:  deployer,
 		Callbacks: callbacks,
+		Logger:    loggo.GetLogger("test"),
 	})
 	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -85,6 +87,7 @@ func (s *DeploySuite) testPrepareArchiveInfoError(c *gc.C, newDeploy newDeploy) 
 	factory := operation.NewFactory(operation.FactoryParams{
 		Deployer:  deployer,
 		Callbacks: callbacks,
+		Logger:    loggo.GetLogger("test"),
 	})
 	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -125,6 +128,7 @@ func (s *DeploySuite) testPrepareStageError(c *gc.C, newDeploy newDeploy) {
 		Deployer:  deployer,
 		Callbacks: callbacks,
 		Abort:     abort,
+		Logger:    loggo.GetLogger("test"),
 	})
 	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -165,6 +169,7 @@ func (s *DeploySuite) testPrepareSetCharmError(c *gc.C, newDeploy newDeploy) {
 	factory := operation.NewFactory(operation.FactoryParams{
 		Deployer:  deployer,
 		Callbacks: callbacks,
+		Logger:    loggo.GetLogger("test"),
 	})
 
 	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
@@ -202,6 +207,7 @@ func (s *DeploySuite) testPrepareSuccess(c *gc.C, newDeploy newDeploy, before, a
 	factory := operation.NewFactory(operation.FactoryParams{
 		Deployer:  deployer,
 		Callbacks: callbacks,
+		Logger:    loggo.GetLogger("test"),
 	})
 	op, err := newDeploy(factory, curl("cs:quantal/nyancat-4"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -336,6 +342,7 @@ func (s *DeploySuite) testExecuteError(c *gc.C, newDeploy newDeploy) {
 	factory := operation.NewFactory(operation.FactoryParams{
 		Deployer:  deployer,
 		Callbacks: callbacks,
+		Logger:    loggo.GetLogger("test"),
 	})
 	op, err := newDeploy(factory, curl("cs:quantal/nyancat-4"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -372,6 +379,7 @@ func (s *DeploySuite) testExecuteSuccess(
 	factory := operation.NewFactory(operation.FactoryParams{
 		Deployer:  deployer,
 		Callbacks: callbacks,
+		Logger:    loggo.GetLogger("test"),
 	})
 	op, err := newDeploy(factory, curl("cs:quantal/lol-1"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -492,6 +500,7 @@ func (s *DeploySuite) TestCommitQueueInstallHook(c *gc.C) {
 	factory := operation.NewFactory(operation.FactoryParams{
 		Deployer:  deployer,
 		Callbacks: callbacks,
+		Logger:    loggo.GetLogger("test"),
 	})
 	op, err := factory.NewInstall(curl("cs:quantal/x-0"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -517,6 +526,7 @@ func (s *DeploySuite) testCommitQueueUpgradeHook(c *gc.C, newDeploy newDeploy) {
 	factory := operation.NewFactory(operation.FactoryParams{
 		Deployer:  deployer,
 		Callbacks: callbacks,
+		Logger:    loggo.GetLogger("test"),
 	})
 
 	op, err := newDeploy(factory, curl("cs:quantal/x-0"))
@@ -555,6 +565,7 @@ func (s *DeploySuite) testCommitInterruptedHook(c *gc.C, newDeploy newDeploy) {
 	factory := operation.NewFactory(operation.FactoryParams{
 		Deployer:  deployer,
 		Callbacks: callbacks,
+		Logger:    loggo.GetLogger("test"),
 	})
 
 	op, err := newDeploy(factory, curl("cs:quantal/x-0"))
@@ -592,6 +603,7 @@ func (s *DeploySuite) testDoesNotNeedGlobalMachineLock(c *gc.C, newDeploy newDep
 	}
 	factory := operation.NewFactory(operation.FactoryParams{
 		Deployer: deployer,
+		Logger:   loggo.GetLogger("test"),
 	})
 	op, err := newDeploy(factory, curl("cs:quantal/x-0"))
 	c.Assert(err, jc.ErrorIsNil)

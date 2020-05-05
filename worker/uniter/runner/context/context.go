@@ -12,12 +12,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
@@ -115,7 +115,7 @@ type HookProcess interface {
 	Kill() error
 }
 
-//go:generate mockgen -package mocks -destination mocks/hookunit_mock.go github.com/juju/juju/worker/uniter/runner/context HookUnit
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/hookunit_mock.go github.com/juju/juju/worker/uniter/runner/context HookUnit
 
 // HookUnit represents the functions needed by a unit in a hook context to
 // call into state.

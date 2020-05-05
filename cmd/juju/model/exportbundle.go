@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/application"

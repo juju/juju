@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils"
 	"github.com/juju/utils/cert"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 )
 

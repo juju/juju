@@ -5,8 +5,8 @@ package provisioner
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
@@ -263,8 +263,9 @@ func (st *State) GetContainerInterfaceInfo(containerTag names.MachineTag) ([]cor
 // the method and the network.InterfaceInfo type to be called
 // InterfaceConfig.
 func (st *State) prepareOrGetContainerInterfaceInfo(
-	containerTag names.MachineTag, allocateNewAddress bool) (
-	[]corenetwork.InterfaceInfo, error) {
+	containerTag names.MachineTag,
+	allocateNewAddress bool,
+) ([]corenetwork.InterfaceInfo, error) {
 	var result params.MachineNetworkConfigResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},

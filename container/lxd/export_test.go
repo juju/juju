@@ -49,6 +49,10 @@ func PatchHostSeries(patcher patcher, series string) {
 	patcher.PatchValue(&hostSeries, func() (string, error) { return series, nil })
 }
 
+func PatchGetSnapManager(patcher patcher, mgr SnapManager) {
+	patcher.PatchValue(&getSnapManager, func() SnapManager { return mgr })
+}
+
 func GetImageSources(mgr container.Manager) ([]ServerSpec, error) {
 	return mgr.(*containerManager).getImageSources()
 }

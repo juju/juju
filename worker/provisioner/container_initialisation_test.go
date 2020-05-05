@@ -10,13 +10,13 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/workertest"
 	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/agent"
 	apimocks "github.com/juju/juju/api/base/mocks"
@@ -195,7 +195,7 @@ func (s *containerSetupSuite) patch(c *gc.C) *gomock.Controller {
 	s.machine.EXPECT().Id().Return("0").AnyTimes()
 	s.machine.EXPECT().MachineTag().Return(names.NewMachineTag("0")).AnyTimes()
 
-	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType) container.Initialiser {
+	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType, map[string]string) container.Initialiser {
 		return s.initialiser
 	})
 

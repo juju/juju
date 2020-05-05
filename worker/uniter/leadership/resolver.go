@@ -4,8 +4,7 @@
 package leadership
 
 import (
-	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6/hooks"
+	"github.com/juju/charm/v7/hooks"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -14,14 +13,18 @@ import (
 	"github.com/juju/juju/worker/uniter/resolver"
 )
 
-var logger = loggo.GetLogger("juju.worker.uniter.leadership")
+// Logger defines the logging methods used by the leadership package.
+type Logger interface {
+	Tracef(string, ...interface{})
+}
 
 type leadershipResolver struct {
+	logger Logger
 }
 
 // NewResolver returns a new leadership resolver.
-func NewResolver() resolver.Resolver {
-	return &leadershipResolver{}
+func NewResolver(logger Logger) resolver.Resolver {
+	return &leadershipResolver{logger: logger}
 }
 
 // NextOp is defined on the Resolver interface.
@@ -37,7 +40,7 @@ func (l *leadershipResolver) NextOp(
 	}
 
 	// Check for any leadership change, and enact it if possible.
-	logger.Tracef("checking leadership status")
+	l.logger.Tracef("checking leadership status")
 
 	// If we've already accepted leadership, we don't need to do it again.
 	canAcceptLeader := !localState.Leader
@@ -68,6 +71,6 @@ func (l *leadershipResolver) NextOp(
 		}
 	}
 
-	logger.Tracef("leadership status is up-to-date")
+	l.logger.Tracef("leadership status is up-to-date")
 	return nil, resolver.ErrNoOperation
 }

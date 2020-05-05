@@ -12,13 +12,13 @@ import (
 	"strings"
 
 	"github.com/juju/bundlechanges"
+	"github.com/juju/charm/v7"
 	"github.com/juju/collections/set"
-	"github.com/juju/description"
+	"github.com/juju/description/v2"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"

@@ -23,9 +23,6 @@ const LogErrorStack = "log-error-stack"
 // instead of systemd for vivid and newer.
 const LegacyUpstart = "legacy-upstart"
 
-// ImageMetadata allows custom image metadata to be recorded in state.
-const ImageMetadata = "image-metadata"
-
 // DeveloperMode allows access to developer specific commands and behaviour.
 const DeveloperMode = "developer-mode"
 
@@ -52,11 +49,11 @@ const MongoDbSnap = "mongodb-snap"
 // MongoDbSnap is not also enabled.
 const MongoDbSSTXN = "mongodb-sstxn"
 
-// JujuV3 indicates that new CLI commands and behaviour for v3 should be enabled.
-const JujuV3 = "juju-v3"
-
 // K8sOperators indicates that it's allowed to deploy charms with mode=operator
 const K8sOperators = "k8s-operators"
 
 // RawK8sSpec indicates that it's allowed to set k8s spec using raw yaml format.
 const RawK8sSpec = "raw-k8s-spec"
+
+// ActionsV2 enables the next generation actions UX.
+const ActionsV2 = "actions-v2"

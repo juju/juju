@@ -27,7 +27,7 @@ func strPtr(b string) *string {
 	return &b
 }
 
-func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs map[string][]admissionregistration.MutatingWebhook, assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8sspecs.K8sMutatingWebhookSpec, assertCalls ...*gomock.Call) {
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -165,8 +165,11 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreate(c *gc.C) 
 		Rules: []admissionregistration.RuleWithOperations{webhookRuleWithOperations1},
 	}
 
-	cfgs := map[string][]admissionregistration.MutatingWebhook{
-		"example-mutatingwebhookconfiguration": {webhook1},
+	cfgs := []k8sspecs.K8sMutatingWebhookSpec{
+		{
+			Meta:     k8sspecs.Meta{Name: "example-mutatingwebhookconfiguration"},
+			Webhooks: []admissionregistration.MutatingWebhook{webhook1},
+		},
 	}
 
 	cfg1 := &admissionregistration.MutatingWebhookConfiguration{
@@ -175,6 +178,70 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreate(c *gc.C) 
 			Namespace:   "test",
 			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+		},
+		Webhooks: []admissionregistration.MutatingWebhook{webhook1},
+	}
+
+	s.assertMutatingWebhookConfigurations(
+		c, cfgs,
+		s.mockMutatingWebhookConfiguration.EXPECT().Create(cfg1).Return(cfg1, nil),
+	)
+}
+
+func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepName(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	webhook1Rule1 := admissionregistration.Rule{
+		APIGroups:   []string{""},
+		APIVersions: []string{"v1"},
+		Resources:   []string{"pods"},
+	}
+	webhookRuleWithOperations1 := admissionregistration.RuleWithOperations{
+		Operations: []admissionregistration.OperationType{
+			admissionregistration.Create,
+			admissionregistration.Update,
+		},
+	}
+	webhookRuleWithOperations1.Rule = webhook1Rule1
+	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
+	c.Assert(err, jc.ErrorIsNil)
+	webhook1FailurePolicy := admissionregistration.Ignore
+	webhook1 := admissionregistration.MutatingWebhook{
+		Name:          "example.mutatingwebhookconfiguration.com",
+		FailurePolicy: &webhook1FailurePolicy,
+		ClientConfig: admissionregistration.WebhookClientConfig{
+			Service: &admissionregistration.ServiceReference{
+				Name:      "apple-service",
+				Namespace: "apples",
+				Path:      strPtr("/apple"),
+			},
+			CABundle: CABundle,
+		},
+		NamespaceSelector: &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				{Key: "production", Operator: metav1.LabelSelectorOpDoesNotExist},
+			},
+		},
+		Rules: []admissionregistration.RuleWithOperations{webhookRuleWithOperations1},
+	}
+
+	cfgs := []k8sspecs.K8sMutatingWebhookSpec{
+		{
+			Meta: k8sspecs.Meta{
+				Name:        "example-mutatingwebhookconfiguration",
+				Annotations: map[string]string{"juju.io/disable-name-prefix": "true"},
+			},
+			Webhooks: []admissionregistration.MutatingWebhook{webhook1},
+		},
+	}
+
+	cfg1 := &admissionregistration.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "example-mutatingwebhookconfiguration", // This name kept no change.
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id(), "juju.io/disable-name-prefix": "true"},
 		},
 		Webhooks: []admissionregistration.MutatingWebhook{webhook1},
 	}
@@ -223,8 +290,11 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdate(c *gc.C) 
 		Rules: []admissionregistration.RuleWithOperations{webhookRuleWithOperations1},
 	}
 
-	cfgs := map[string][]admissionregistration.MutatingWebhook{
-		"example-mutatingwebhookconfiguration": {webhook1},
+	cfgs := []k8sspecs.K8sMutatingWebhookSpec{
+		{
+			Meta:     k8sspecs.Meta{Name: "example-mutatingwebhookconfiguration"},
+			Webhooks: []admissionregistration.MutatingWebhook{webhook1},
+		},
 	}
 
 	cfg1 := &admissionregistration.MutatingWebhookConfiguration{
@@ -250,7 +320,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdate(c *gc.C) 
 	)
 }
 
-func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs map[string][]admissionregistration.ValidatingWebhook, assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k8sspecs.K8sValidatingWebhookSpec, assertCalls ...*gomock.Call) {
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -366,7 +436,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreate(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	webhook1FailurePolicy := admissionregistration.Ignore
 	webhook1 := admissionregistration.ValidatingWebhook{
-		Name:          "example.mutatingwebhookconfiguration.com",
+		Name:          "example.validatingwebhookconfiguration.com",
 		FailurePolicy: &webhook1FailurePolicy,
 		ClientConfig: admissionregistration.WebhookClientConfig{
 			Service: &admissionregistration.ServiceReference{
@@ -384,16 +454,83 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreate(c *gc.C
 		Rules: []admissionregistration.RuleWithOperations{webhookRuleWithOperations1},
 	}
 
-	cfgs := map[string][]admissionregistration.ValidatingWebhook{
-		"example-mutatingwebhookconfiguration": {webhook1},
+	cfgs := []k8sspecs.K8sValidatingWebhookSpec{
+		{
+			Meta:     k8sspecs.Meta{Name: "example-validatingwebhookconfiguration"},
+			Webhooks: []admissionregistration.ValidatingWebhook{webhook1},
+		},
 	}
 
 	cfg1 := &admissionregistration.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "test-example-mutatingwebhookconfiguration",
+			Name:        "test-example-validatingwebhookconfiguration",
 			Namespace:   "test",
 			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+		},
+		Webhooks: []admissionregistration.ValidatingWebhook{webhook1},
+	}
+
+	s.assertValidatingWebhookConfigurations(
+		c, cfgs,
+		s.mockValidatingWebhookConfiguration.EXPECT().Create(cfg1).Return(cfg1, nil),
+	)
+}
+
+func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepName(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	webhook1Rule1 := admissionregistration.Rule{
+		APIGroups:   []string{""},
+		APIVersions: []string{"v1"},
+		Resources:   []string{"pods"},
+	}
+	webhookRuleWithOperations1 := admissionregistration.RuleWithOperations{
+		Operations: []admissionregistration.OperationType{
+			admissionregistration.Create,
+			admissionregistration.Update,
+		},
+	}
+	webhookRuleWithOperations1.Rule = webhook1Rule1
+	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
+	c.Assert(err, jc.ErrorIsNil)
+	webhook1FailurePolicy := admissionregistration.Ignore
+	webhook1 := admissionregistration.ValidatingWebhook{
+		Name:          "example.validatingwebhookconfiguration.com",
+		FailurePolicy: &webhook1FailurePolicy,
+		ClientConfig: admissionregistration.WebhookClientConfig{
+			Service: &admissionregistration.ServiceReference{
+				Name:      "apple-service",
+				Namespace: "apples",
+				Path:      strPtr("/apple"),
+			},
+			CABundle: CABundle,
+		},
+		NamespaceSelector: &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				{Key: "production", Operator: metav1.LabelSelectorOpDoesNotExist},
+			},
+		},
+		Rules: []admissionregistration.RuleWithOperations{webhookRuleWithOperations1},
+	}
+
+	cfgs := []k8sspecs.K8sValidatingWebhookSpec{
+		{
+			Meta: k8sspecs.Meta{
+				Name:        "example-validatingwebhookconfiguration",
+				Annotations: map[string]string{"juju.io/disable-name-prefix": "true"},
+			},
+			Webhooks: []admissionregistration.ValidatingWebhook{webhook1},
+		},
+	}
+
+	cfg1 := &admissionregistration.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "example-validatingwebhookconfiguration", // This name kept no change.
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id(), "juju.io/disable-name-prefix": "true"},
 		},
 		Webhooks: []admissionregistration.ValidatingWebhook{webhook1},
 	}
@@ -424,7 +561,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdate(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	webhook1FailurePolicy := admissionregistration.Ignore
 	webhook1 := admissionregistration.ValidatingWebhook{
-		Name:          "example.mutatingwebhookconfiguration.com",
+		Name:          "example.validatingwebhookconfiguration.com",
 		FailurePolicy: &webhook1FailurePolicy,
 		ClientConfig: admissionregistration.WebhookClientConfig{
 			Service: &admissionregistration.ServiceReference{
@@ -442,13 +579,16 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdate(c *gc.C
 		Rules: []admissionregistration.RuleWithOperations{webhookRuleWithOperations1},
 	}
 
-	cfgs := map[string][]admissionregistration.ValidatingWebhook{
-		"example-mutatingwebhookconfiguration": {webhook1},
+	cfgs := []k8sspecs.K8sValidatingWebhookSpec{
+		{
+			Meta:     k8sspecs.Meta{Name: "example-validatingwebhookconfiguration"},
+			Webhooks: []admissionregistration.ValidatingWebhook{webhook1},
+		},
 	}
 
 	cfg1 := &admissionregistration.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "test-example-mutatingwebhookconfiguration",
+			Name:        "test-example-validatingwebhookconfiguration",
 			Namespace:   "test",
 			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
@@ -463,7 +603,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdate(c *gc.C
 			List(metav1.ListOptions{LabelSelector: "juju-app=app-name,juju-model=test"}).
 			Return(&admissionregistration.ValidatingWebhookConfigurationList{Items: []admissionregistration.ValidatingWebhookConfiguration{*cfg1}}, nil),
 		s.mockValidatingWebhookConfiguration.EXPECT().
-			Get("test-example-mutatingwebhookconfiguration", metav1.GetOptions{}).
+			Get("test-example-validatingwebhookconfiguration", metav1.GetOptions{}).
 			Return(cfg1, nil),
 		s.mockValidatingWebhookConfiguration.EXPECT().Update(cfg1).Return(cfg1, nil),
 	)

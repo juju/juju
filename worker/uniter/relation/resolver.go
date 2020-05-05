@@ -4,11 +4,11 @@
 package relation
 
 import (
+	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -19,7 +19,7 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter.relation")
 
-//go:generate mockgen -package mocks -destination mocks/mock_subordinate_destroyer.go github.com/juju/juju/worker/uniter/relation SubordinateDestroyer
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_subordinate_destroyer.go github.com/juju/juju/worker/uniter/relation SubordinateDestroyer
 
 // SubordinateDestroyer destroys all subordinates of a unit.
 type SubordinateDestroyer interface {

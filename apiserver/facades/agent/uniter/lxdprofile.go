@@ -6,7 +6,7 @@ package uniter
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-//go:generate mockgen -package mocks -destination mocks/lxdprofile.go github.com/juju/juju/apiserver/facades/agent/uniter LXDProfileBackend,LXDProfileMachine,LXDProfileUnit
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/lxdprofile.go github.com/juju/juju/apiserver/facades/agent/uniter LXDProfileBackend,LXDProfileMachine,LXDProfileUnit
 
 type LXDProfileBackend interface {
 	Machine(string) (LXDProfileMachine, error)

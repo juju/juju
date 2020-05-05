@@ -12,11 +12,11 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
+	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1/workertest"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	apps "k8s.io/api/apps/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -1801,6 +1801,18 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		s.mockDeployments.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
 
+		s.mockStatefulSets.EXPECT().DeleteCollection(
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
+			v1.ListOptions{LabelSelector: "juju-app=test"},
+		).Return(nil),
+		s.mockDeployments.EXPECT().DeleteCollection(
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
+			v1.ListOptions{LabelSelector: "juju-app=test"},
+		).Return(nil),
+
+		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=test"}).
+			Return(&core.ServiceList{}, nil),
+
 		// delete secrets.
 		s.mockSecrets.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
@@ -1918,7 +1930,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoUnits(c *gc.C) {
 			Return(nil, nil),
 	)
 
-	params := &caas.ServiceParams{}
+	params := &caas.ServiceParams{
+		PodSpec: getBasicPodspec(),
+	}
 	err := s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 0, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils/arch"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/instance"
 )
@@ -259,6 +259,12 @@ func (v Value) String() string {
 		s := strings.Join(*v.Zones, ",")
 		strs = append(strs, "zones="+s)
 	}
+
+	// Ensure constraint values with spaces are properly escaped
+	for i := 0; i < len(strs); i++ {
+		strs[i] = strings.Replace(strs[i], " ", `\ `, -1)
+	}
+
 	return strings.Join(strs, " ")
 }
 
@@ -330,8 +336,13 @@ func Parse(args ...string) (Value, error) {
 func ParseWithAliases(args ...string) (cons Value, aliases map[string]string, err error) {
 	aliases = make(map[string]string)
 	for _, arg := range args {
+		// Replace slash-escaped spaces with a null byte so we can
+		// safely split on remaining whitespace.
+		arg = strings.Replace(arg, `\ `, "\x00", -1)
 		raws := strings.Split(strings.TrimSpace(arg), " ")
 		for _, raw := range raws {
+			// Replace null bytes back to spaces
+			raw = strings.TrimSpace(strings.Replace(raw, "\x00", " ", -1))
 			if raw == "" {
 				continue
 			}

@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/api/imagemetadatamanager"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/rpc"
@@ -22,7 +21,6 @@ type cloudImageMetadataSuite struct {
 }
 
 func (s *cloudImageMetadataSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.ImageMetadata)
 	s.JujuConnSuite.SetUpTest(c)
 	s.client = imagemetadatamanager.NewClient(s.APIState)
 	c.Assert(s.client, gc.NotNil)
@@ -58,6 +56,7 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindAndDeleteMetadata(c *gc.C) {
 		VirtType:        "virtType",
 		RootStorageType: "rootStorageType",
 		ImageId:         imageId,
+		Priority:        50,
 	}
 
 	err = s.client.Save([]params.CloudImageMetadata{m})

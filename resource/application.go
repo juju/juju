@@ -4,9 +4,9 @@
 package resource
 
 import (
+	"github.com/juju/charm/v7/resource"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/names.v3"
+	"github.com/juju/names/v4"
 )
 
 // ApplicationResources contains the list of resources for the application and all its

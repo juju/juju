@@ -5,10 +5,9 @@
 package meterstatus
 
 import (
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -27,7 +26,7 @@ type MeterStatus interface {
 }
 
 // MeterStatusState represents the state of an model required by the MeterStatus.
-//go:generate mockgen -package mocks -destination mocks/meterstatus_mock.go github.com/juju/juju/apiserver/facades/agent/meterstatus MeterStatusState
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/meterstatus_mock.go github.com/juju/juju/apiserver/facades/agent/meterstatus MeterStatusState
 type MeterStatusState interface {
 	ApplyOperation(state.ModelOperation) error
 	ControllerConfig() (controller.Config, error)

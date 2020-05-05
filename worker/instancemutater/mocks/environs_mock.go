@@ -6,6 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	charm_v6 "github.com/juju/charm/v7"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
@@ -15,7 +16,6 @@ import (
 	instances "github.com/juju/juju/environs/instances"
 	storage "github.com/juju/juju/storage"
 	version "github.com/juju/version"
-	charm_v6 "gopkg.in/juju/charm.v6"
 	reflect "reflect"
 )
 

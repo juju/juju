@@ -9,13 +9,13 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/juju/names/v4"
 	"gopkg.in/httprequest.v1"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"
 )
 
-//go:generate mockgen -package mocks -destination mocks/caller_mock.go github.com/juju/juju/api/base APICaller,FacadeCaller
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/caller_mock.go github.com/juju/juju/api/base APICaller,FacadeCaller
 
 // APICaller is implemented by the client-facing State object.
 // It defines the lowest level of API calls and is used by

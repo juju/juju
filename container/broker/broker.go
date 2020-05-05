@@ -9,8 +9,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils/arch"
-	"gopkg.in/juju/names.v3"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
@@ -25,7 +25,7 @@ import (
 
 var logger = loggo.GetLogger("juju.container.broker")
 
-//go:generate mockgen -package mocks -destination mocks/apicalls_mock.go github.com/juju/juju/container/broker APICalls
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/apicalls_mock.go github.com/juju/juju/container/broker APICalls
 type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
 	PrepareContainerInterfaceInfo(names.MachineTag) ([]corenetwork.InterfaceInfo, error)

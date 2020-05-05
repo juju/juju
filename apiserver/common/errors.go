@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/txn"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"
 

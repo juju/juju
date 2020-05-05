@@ -16,6 +16,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -25,7 +26,6 @@ import (
 	amzec2 "gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/ec2/ec2test"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
@@ -1719,6 +1719,7 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDev
 			),
 		},
 		AvailabilityZones: zones,
+		Origin:            corenetwork.OriginProvider,
 	}
 	c.Assert(iface, gc.DeepEquals, expectedInterface)
 }

@@ -11,13 +11,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/charm/v7"
+	"github.com/juju/charmrepo/v5"
+	"github.com/juju/charmrepo/v5/csclient"
+	csparams "github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v4"
-	"gopkg.in/juju/charmrepo.v4/csclient"
-	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
@@ -31,11 +31,11 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-//go:generate mockgen -package mocks -destination mocks/storage_mock.go github.com/juju/juju/state/storage Storage
-//go:generate mockgen -package mocks -destination mocks/interface_mock.go gopkg.in/juju/charmrepo.v4 Interface
-//go:generate mockgen -package mocks -destination mocks/charm_mock.go github.com/juju/juju/apiserver/facades/client/application StateCharm
-//go:generate mockgen -package mocks -destination mocks/model_mock.go github.com/juju/juju/apiserver/facades/client/application StateModel
-//go:generate mockgen -package mocks -destination mocks/charmstore_mock.go github.com/juju/juju/apiserver/facades/client/application State
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/storage_mock.go github.com/juju/juju/state/storage Storage
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/interface_mock.go gopkg.in/juju/charmrepo.v4 Interface
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charm_mock.go github.com/juju/juju/apiserver/facades/client/application StateCharm
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/model_mock.go github.com/juju/juju/apiserver/facades/client/application StateModel
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charmstore_mock.go github.com/juju/juju/apiserver/facades/client/application State
 
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this
 // to use interfaces.

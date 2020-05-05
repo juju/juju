@@ -35,53 +35,30 @@ concurrent language.
 
 ### via snap
 
-    snap install go --channel=1.12/stable --classic
-    
-### via apt
+    snap install go --channel=1.14/stable --classic
 
-    sudo add-apt-repository ppa:gophers/archive
-    sudo apt update
-    sudo apt install go-lang-1.12
+[Snap](https://snapcraft.io/go) is the recommended way to install Go on Linux.
 
 ### Other options
 
 See https://golang.org/doc/install#install
 
-## Set up environment variables
-
-Your `GOPATH`  is where the `go` tool and your IDE find Go source code (`$GOPATH/src`), executables (`$GOPATH/bin`) and packages (`$GOPATH/pkg`). Adding `GOPATH` to your `PATH` enables you to run Go programs that you install.
-
-    export GOPATH=${HOME}/go
-    export PATH="$GOPATH/bin/:$PATH"
-    
-You should also make sure that the `$GOPATH` directory exists: 
-
-    mkdir -p $GOPATH
 
 ## Build Juju and its dependencies
 
 ### Download Juju source
 
-    go get -d -v github.com/juju/juju/...
+    git clone https://github.com/juju/juju.git
 
-The `-d` option means the source (for Juju and its dependencies) is only
-downloaded, but not built. We need to install the dependencies ourselves with `dep`.
+Juju does not depend on GOPATH anymore, therefore you can check juju out anywhere.
 
 ### Change to the Juju source code directory  
 
-    cd $GOPATH/src/github.com/juju/juju
+    cd juju
 
 ### Install runtime dependencies
 
     make install-dependencies
-
-### Install build dependencies
-
-    go get github.com/golang/dep
-    make dep
-
-`dep` is the tool that the Juju team uses to manage its dependencies.
-See the [Dependency management](#dependency-management) section for details.
 
 ### Compile
 
@@ -141,7 +118,7 @@ Juju github account. Here is how to fix that (replace <USERNAME> with your
 github account name):
 
 ```bash
-cd $GOPATH/src/github.com/juju/juju
+cd juju
 git remote set-url origin git@github.com:<USERNAME>/juju.git
 ```
 
@@ -154,7 +131,7 @@ git remote add upstream https://github.com/juju/juju.git
 Add the check script as a git hook:
 
 ```bash
-cd $GOPATH/src/github.com/juju/juju
+cd juju
 ln -s scripts/pre-push.bash .git/hooks/pre-push
 ```
 
@@ -168,7 +145,7 @@ Staying in sync
 Make sure your local copy and github fork stay in sync with upstream:
 
 ```bash
-cd $GOPATH/src/github.com/juju/juju
+cd juju
 git pull upstream develop
 git push
 ```
@@ -177,47 +154,20 @@ Dependency management
 =====================
 
 In the top-level directory of the Juju repo, there is a file,
-[Gopkg.lock](Gopkg.lock), that holds the revision ids of all the external
+[go.mod](go.mod), that holds the revision ids of all the external
 projects that Juju depends on. That file is used to freeze the code in
 external repositories so that Juju is insulated from changes to those repos.
 
-dep
+go mod
 ------
 
-[dep](https://golang.github.io/dep) is the tool that does the freezing.
-After getting the Juju code, you need to get `dep`:
-
-```bash
-go get github.com/golang/dep
-```
-
-This installs the `dep` application.  You can then run `dep` from the
-root of juju, to set the revision number on the external repositories:
-
-```bash
-cd $GOPATH/src/github.com/juju/juju
-make dep
-```
-
-Now you are ready to build, run, test, etc.
-
-Staying up-to-date
-------------------
-
-The [Gopkg.lock](Gopkg.lock) file can get out of date, for example when you
-have changed Gopkg.toml. When it is out of date, run `dep`. In practice, you
-can wait until you get a compile error about an external package not
-existing/having an incorrect API, and then rerun `dep ensure -v`.
+Juju now uses the built in `go mod` tooling to manage dependencies and therfore
+you don't need to do anything to ensure you are building with the correct versions.
 
 Updating dependencies
 ---------------------
 
-If you update a repo that Juju depends on, you will need to recreate
-`Gopkg.lock`:
-
-```bash
-make rebuild-dependencies [dep-update=true]
-```
+To update a dependency, use `go get -u github.com/the/dependency`.
 
 Code formatting
 ===============
@@ -341,7 +291,7 @@ and is not recursive, the following commands are equal, and will produce no
 output.
 
 ```bash
-cd $GOPATH/src/github.com/juju/juju
+cd juju
 go test
 go test github.com/juju/juju
 ```
@@ -423,32 +373,19 @@ Use the `$$merge$$` comment to land a PR.
 Static Analysis
 ---------------
 
-Static Analysis of the code is provided by
-[gometalinter](https://github.com/alecthomas/gometalinter).
+Static Analysis can be performed by running `make static-analysis`
 
-The Static Analysis runs every linter in parallel over the Juju code base with
-the aim to spot any potential errors that should be resolved. As a default all
-the linters are disabled and only a selection of linters are run on each pass.
-The linters that are run, are known to pass with the state of the current code
-base.
-
-You can independently run the linters on the code base to validate any issues
-before committing or pushing using the following command from the root of the
-repo:
-
-```bash
-./scripts/gometalinter.bash
-```
-
-If you already have the `git` hook installed for pre-pushing, then the linters
-will also run during that check.
-
-Adding new linters can be done, by editing the `./scripts/gometalinter.bash`
-file to also including/removing the desired linters.
-
-Additionally to turn off the linter check for pushing or verifying then setting
-the environment variable `IGNORE_GOMETALINTER` beforehand will cause this to
-happen.
+Required dependencies for full static analysis are:
+ - *nix tools (sh, grep etc.)
+ - shellcheck
+ - python3
+ - go
+ - golint
+ - goimports
+ - deadcode
+ - misspell
+ - unconvert
+ - ineffassign
 
 Community
 =========

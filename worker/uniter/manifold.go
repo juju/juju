@@ -6,9 +6,10 @@ package uniter
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
+	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -23,6 +24,20 @@ import (
 	"github.com/juju/juju/worker/uniter/resolver"
 )
 
+// Logger represents the methods used for logging messages.
+type Logger interface {
+	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Infof(string, ...interface{})
+	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
+
+	// Just using the loggo Logger here rather than providing
+	// a shim to a Logger. Perhaps we should just have the manifold
+	// config take a loggo.Logger?
+	Child(string) loggo.Logger
+}
+
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
 type ManifoldConfig struct {
@@ -34,6 +49,7 @@ type ManifoldConfig struct {
 	CharmDirName          string
 	HookRetryStrategyName string
 	TranslateResolverErr  func(error) error
+	Logger                Logger
 }
 
 // Manifold returns a dependency manifold that runs a uniter worker,
@@ -107,6 +123,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				TranslateResolverErr: config.TranslateResolverErr,
 				Clock:                manifoldConfig.Clock,
 				RebootQuerier:        reboot.NewMonitor(agentConfig.TransientDataDir()),
+				Logger:               config.Logger,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

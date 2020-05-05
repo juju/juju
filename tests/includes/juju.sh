@@ -42,7 +42,6 @@ ensure() {
 # ```
 bootstrap() {
     local provider name output model bootstrapped_name
-
     case "${BOOTSTRAP_PROVIDER:-}" in
         "aws")
             provider="aws"
@@ -59,6 +58,9 @@ bootstrap() {
 
             provider="${manual_name}"
             ;;
+        "microk8s")
+          provider="microk8s"
+          ;;
         *)
             echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."
             exit 1
@@ -86,6 +88,16 @@ bootstrap() {
             # No bootstrapped juju found, unset the the variable.
             echo "====> Unable to reuse bootstrapped juju"
             export BOOTSTRAP_REUSE="false"
+        fi
+    fi
+    if [ "${BOOTSTRAP_REUSE}" = "true" ]; then
+        OUT=$(juju show-machine -m "${bootstrapped_name}":controller --format=json | jq -r ".machines | .[] | .series")
+        if [ -n "${OUT}" ]; then
+            OUT=$(echo "${OUT}" | grep -oh "${BOOTSTRAP_SERIES}" || true)
+            if [ "${OUT}" != "${BOOTSTRAP_SERIES}" ]; then
+                echo "====> Unable to reuse bootstrapped juju"
+                export BOOTSTRAP_REUSE="false"
+            fi
         fi
     fi
 
@@ -151,15 +163,32 @@ juju_bootstrap() {
     output=${1}
     shift
 
+    series=
+    case "${BOOTSTRAP_SERIES}" in
+    "${CURRENT_LTS}")
+        series="--bootstrap-series=${BOOTSTRAP_SERIES} --config image-stream=daily --force"
+        ;;
+    "")
+        ;;
+    *)
+        series="--bootstrap-series=${BOOTSTRAP_SERIES}"
+    esac
+
     debug="false"
     if [ "${VERBOSE}" -gt 1 ]; then
         debug="true"
     fi
 
+
     if [ -n "${output}" ]; then
-        juju bootstrap --debug="${debug}" "${provider}" "${name}" -d "${model}" "$@" > "${output}" 2>&1
+        # When double quotes are added to ${series}, the juju bootstrap
+        # command looks correct, and works outside of the harness, but
+        # does not run, goes directly to cleanup.
+        #shellcheck disable=SC2086
+        juju bootstrap ${series} --debug="${debug}" "${provider}" "${name}" -d "${model}" "$@" > "${output}" 2>&1
     else
-        juju bootstrap --debug="${debug}" "${provider}" "${name}" -d "${model}" "$@"
+        #shellcheck disable=SC2086
+        juju bootstrap ${series} --debug="${debug}" "${provider}" "${name}" -d "${model}" "$@"
     fi
     echo "${name}" >> "${TEST_DIR}/jujus"
 }

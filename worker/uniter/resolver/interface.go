@@ -4,8 +4,8 @@
 package resolver
 
 import (
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/operation"
