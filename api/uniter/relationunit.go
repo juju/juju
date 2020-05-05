@@ -21,7 +21,8 @@ import (
 type RelationUnit struct {
 	st       *State
 	relation *Relation
-	unit     *Unit
+	unitTag  names.UnitTag
+	appTag   names.ApplicationTag
 	endpoint Endpoint
 	scope    string
 }
@@ -61,7 +62,7 @@ func (ru *RelationUnit) EnterScope() error {
 	args := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{{
 			Relation: ru.relation.tag.String(),
-			Unit:     ru.unit.tag.String(),
+			Unit:     ru.unitTag.String(),
 		}},
 	}
 	err := ru.st.facade.FacadeCall("EnterScope", args, &result)
@@ -81,7 +82,7 @@ func (ru *RelationUnit) LeaveScope() error {
 	args := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{{
 			Relation: ru.relation.tag.String(),
-			Unit:     ru.unit.tag.String(),
+			Unit:     ru.unitTag.String(),
 		}},
 	}
 	err := ru.st.facade.FacadeCall("LeaveScope", args, &result)
@@ -98,7 +99,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 	args := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{{
 			Relation: ru.relation.tag.String(),
-			Unit:     ru.unit.tag.String(),
+			Unit:     ru.unitTag.String(),
 		}},
 	}
 	err := ru.st.facade.FacadeCall("ReadSettings", args, &results)
@@ -112,7 +113,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 	if result.Error != nil {
 		return nil, errors.Trace(result.Error)
 	}
-	return newSettings(ru.st, ru.relation.tag.String(), ru.unit.tag.String(), result.Settings), nil
+	return newSettings(ru.st, ru.relation.tag.String(), ru.unitTag.String(), result.Settings), nil
 }
 
 // ApplicationSettings returns a Settings which allows access to this unit's
@@ -122,14 +123,14 @@ func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
 	var result params.SettingsResult
 	arg := params.RelationUnit{
 		Relation: ru.relation.tag.String(),
-		Unit:     ru.unit.Tag().String(),
+		Unit:     ru.unitTag.String(),
 	}
 	if err := ru.st.facade.FacadeCall("ReadLocalApplicationSettings", arg, &result); err != nil {
 		return nil, errors.Trace(err)
 	} else if result.Error != nil {
 		return nil, errors.Trace(result.Error)
 	}
-	return newSettings(ru.st, ru.relation.tag.String(), ru.unit.ApplicationTag().String(), result.Settings), nil
+	return newSettings(ru.st, ru.relation.tag.String(), ru.appTag.String(), result.Settings), nil
 }
 
 // ReadSettings returns a map holding the settings of the unit with the
@@ -152,7 +153,7 @@ func (ru *RelationUnit) ReadSettings(name string) (params.Settings, error) {
 	args := params.RelationUnitPairs{
 		RelationUnitPairs: []params.RelationUnitPair{{
 			Relation:   ru.relation.tag.String(),
-			LocalUnit:  ru.unit.tag.String(),
+			LocalUnit:  ru.unitTag.String(),
 			RemoteUnit: tag.String(),
 		}},
 	}
@@ -178,7 +179,7 @@ func (ru *RelationUnit) UpdateRelationSettings(unit, application params.Settings
 	args := params.RelationUnitsSettings{
 		RelationUnits: []params.RelationUnitSettings{{
 			Relation:            ru.relation.tag.String(),
-			Unit:                ru.unit.tag.String(),
+			Unit:                ru.unitTag.String(),
 			Settings:            unit,
 			ApplicationSettings: application,
 		}},

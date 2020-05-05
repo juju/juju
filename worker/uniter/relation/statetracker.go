@@ -5,7 +5,6 @@ package relation
 
 import (
 	"github.com/juju/charm/v7"
-	corecharm "github.com/juju/charm/v7"
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -21,68 +20,6 @@ import (
 	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
-
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_statetracker.go github.com/juju/juju/worker/uniter/relation RelationStateTracker
-
-type RelationStateTracker interface {
-	// PrepareHook returns the name of the supplied relation hook, or an error
-	// if the hook is unknown or invalid given current state.
-	PrepareHook(hook.Info) (string, error)
-
-	// CommitHook persists the state change encoded in the supplied relation
-	// hook, or returns an error if the hook is unknown or invalid given
-	// current relation state.
-	CommitHook(hook.Info) error
-
-	// SyncronizeScopes ensures that the locally tracked relation scopes
-	// reflect the contents of the remote state snapshot by entering or
-	// exiting scopes as required.
-	SynchronizeScopes(remotestate.Snapshot) error
-
-	// IsKnown returns true if the relation ID is known by the tracker.
-	IsKnown(int) bool
-
-	// IsImplicit returns true if the endpoint for a relation ID is implicit.
-	IsImplicit(int) (bool, error)
-
-	// IsPeerRelation returns true if the endpoint for a relation ID has a
-	// Peer role.
-	IsPeerRelation(int) (bool, error)
-
-	// HasContainerScope returns true if the specified relation ID has a
-	// container scope.
-	HasContainerScope(int) (bool, error)
-
-	// RelationCreated returns true if a relation created hook has been
-	// fired for the specified relation ID.
-	RelationCreated(int) bool
-
-	// RemoteApplication returns the remote application name associated
-	// with the specified relation ID.
-	RemoteApplication(int) string
-
-	// State returns a State instance for accessing the local state
-	// for a relation ID.
-	State(int) (*State, error)
-
-	// StateFound returns a true if there is a state for the given in
-	// in the state manager.
-	StateFound(int) bool
-
-	// GetInfo returns information about current relation state.
-	GetInfo() map[int]*context.RelationInfo
-
-	// Name returns the name of the relation with the supplied id, or an error
-	// if the relation is unknown.
-	Name(id int) (string, error)
-
-	// LocalUnitName returns the name for the local unit.
-	LocalUnitName() string
-
-	// LocalUnitAndApplicationLife returns the life values for the local
-	// unit and application.
-	LocalUnitAndApplicationLife() (life.Value, life.Value, error)
-}
 
 // LeadershipContextFunc is a function that returns a leadership context.
 type LeadershipContextFunc func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker, unitName string) context.LeadershipContext
@@ -100,8 +37,8 @@ type RelationStateTrackerConfig struct {
 
 // relationStateTracker implements RelationStateTracker.
 type relationStateTracker struct {
-	st              *uniter.State
-	unit            *uniter.Unit
+	st              StateTrackerState
+	unit            Unit
 	leaderCtx       context.LeadershipContext
 	abort           <-chan struct{}
 	subordinate     bool
@@ -127,8 +64,8 @@ func NewRelationStateTracker(cfg RelationStateTrackerConfig) (RelationStateTrack
 	)
 
 	r := &relationStateTracker{
-		st:              cfg.State,
-		unit:            cfg.Unit,
+		st:              &stateTrackerStateShim{cfg.State},
+		unit:            &unitShim{cfg.Unit},
 		leaderCtx:       leadershipContext,
 		subordinate:     subordinate,
 		principalName:   principalName,
@@ -160,7 +97,7 @@ func (r *relationStateTracker) loadInitialState() error {
 
 	// Keep the relations ordered for reliable testing.
 	var orderedIds []int
-	activeRelations := make(map[int]*uniter.Relation)
+	activeRelations := make(map[int]Relation)
 	relationSuspended := make(map[int]bool)
 	for _, rs := range relationStatus {
 		if !rs.InScope {
@@ -212,9 +149,9 @@ func (r *relationStateTracker) loadInitialState() error {
 // store persistent state. It will block until the
 // operation succeeds or fails; or until the abort chan is closed, in which
 // case it will return resolver.ErrLoopAborted.
-func (r *relationStateTracker) joinRelation(rel *uniter.Relation) (err error) {
+func (r *relationStateTracker) joinRelation(rel Relation) (err error) {
 	logger.Infof("joining relation %q", rel)
-	ru, err := rel.Unit(r.unit)
+	ru, err := rel.Unit(r.unit.Tag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -346,7 +283,7 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 			continue
 		}
 		scope := relationer.ru.Endpoint().Scope
-		if scope == corecharm.ScopeContainer && !relationer.dying {
+		if scope == charm.ScopeContainer && !relationer.dying {
 			return nil
 		}
 	}

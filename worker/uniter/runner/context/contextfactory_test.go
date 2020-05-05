@@ -109,7 +109,7 @@ func (s *ContextFactorySuite) getRelationInfos() map[int]*context.RelationInfo {
 	info := map[int]*context.RelationInfo{}
 	for relId, relUnit := range s.apiRelunits {
 		info[relId] = &context.RelationInfo{
-			RelationUnit: relUnit,
+			RelationUnit: &relUnitShim{relUnit},
 			MemberNames:  s.membership[relId],
 		}
 	}
