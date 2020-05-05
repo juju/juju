@@ -176,9 +176,53 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccess(c *gc.C) {
 	changes <- struct{}{}
 	s.watcher.EXPECT().Changes().Return(changes).MinTimes(1)
 
-	// Primary completes the upgrade.
+	// Initial state is UpgradePending
 	s.upgradeInfo.EXPECT().Refresh().Return(nil).MinTimes(1)
+	s.upgradeInfo.EXPECT().Status().Return(state.UpgradePending)
+	// After the first change is retrieved from the chanel above, we then say the upgrade is complete
 	s.upgradeInfo.EXPECT().Status().Return(state.UpgradeDBComplete)
+
+	s.pool.EXPECT().SetStatus("0", status.Started, "confirmed primary database upgrade to "+ver)
+
+	// We don't want to kill the worker while we are in the status observation
+	// loop, so we gate on this final expectation.
+	finished := make(chan struct{})
+	s.lock.EXPECT().Unlock().Do(func() {
+		finished <- struct{}{}
+	})
+
+	w, err := upgradedatabase.NewWorker(s.getConfig())
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-finished:
+	case <-time.After(testing.LongWait):
+	}
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccessFinishing(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.ignoreLogging(c)
+
+	s.expectUpgradeRequired(false)
+
+	ver := jujuversion.Current.String()
+	s.pool.EXPECT().SetStatus("0", status.Started, "waiting on primary database upgrade to "+ver)
+
+	// Expect a watcher that will fire a change for the initial event
+	// and then a change for the watch loop.
+	s.upgradeInfo.EXPECT().Watch().Return(s.watcher)
+	changes := make(chan struct{}, 2)
+	changes <- struct{}{}
+	changes <- struct{}{}
+	s.watcher.EXPECT().Changes().Return(changes).MinTimes(1)
+
+	// Initial state is UpgradePending
+	s.upgradeInfo.EXPECT().Refresh().Return(nil).MinTimes(1)
+	s.upgradeInfo.EXPECT().Status().Return(state.UpgradePending)
+	// After the first change is retrieved from the chanel above, we then say the upgrade is complete
+	s.upgradeInfo.EXPECT().Status().Return(state.UpgradeFinishing)
 
 	s.pool.EXPECT().SetStatus("0", status.Started, "confirmed primary database upgrade to "+ver)
 
@@ -234,6 +278,44 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
 	// Advance the clock beyond the time-out duration for waiting on primary.
 	c.Assert(clk.WaitAdvance(time.Hour, 1*time.Second, 1), jc.ErrorIsNil)
 
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestNotPrimaryButPrimaryFinished(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.ignoreLogging(c)
+
+	s.expectUpgradeRequired(false)
+
+	ver := jujuversion.Current.String()
+	s.pool.EXPECT().SetStatus("0", status.Started, "waiting on primary database upgrade to "+ver)
+
+	// Expect the watcher to be created, and then the Status is examined.
+	// If the status is already complete, there are no calls to the Changes for the watcher.
+
+	// Expect a watcher that will fire a change for the initial event
+	// and then a change for the watch loop.
+	s.upgradeInfo.EXPECT().Watch().Return(s.watcher)
+	// Primary already completed the upgrade.
+	s.upgradeInfo.EXPECT().Refresh().Return(nil).MinTimes(1)
+	s.upgradeInfo.EXPECT().Status().Return(state.UpgradeDBComplete)
+
+	s.pool.EXPECT().SetStatus("0", status.Started, "confirmed primary database upgrade to "+ver)
+
+	// We don't want to kill the worker while we are in the status observation
+	// loop, so we gate on this final expectation.
+	finished := make(chan struct{})
+	s.lock.EXPECT().Unlock().Do(func() {
+		finished <- struct{}{}
+	})
+
+	w, err := upgradedatabase.NewWorker(s.getConfig())
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-finished:
+	case <-time.After(testing.LongWait):
+	}
 	workertest.CleanKill(c, w)
 }
 
