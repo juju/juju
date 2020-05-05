@@ -119,28 +119,17 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 // application settings within the relation. This can only be used from the
 // leader unit. Calling it from a non-Leader generates a NotLeader error.
 func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
-	var results params.SettingsResults
-	appTag := ru.unit.ApplicationTag()
-	args := params.RelationUnits{
-		RelationUnits: []params.RelationUnit{{
-			Relation: ru.relation.tag.String(),
-			Unit:     appTag.String(),
-		}},
+	var result params.SettingsResult
+	arg := params.RelationUnit{
+		Relation: ru.relation.tag.String(),
+		Unit:     ru.unit.Tag().String(),
 	}
-	err := ru.st.facade.FacadeCall("ReadSettings", args, &results)
-	if err != nil {
+	if err := ru.st.facade.FacadeCall("ReadLocalApplicationSettings", arg, &result); err != nil {
 		return nil, errors.Trace(err)
-	}
-	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	results.Results = append(results.Results, params.SettingsResult{})
-
-	result := results.Results[0]
-	if result.Error != nil {
+	} else if result.Error != nil {
 		return nil, errors.Trace(result.Error)
 	}
-	return newSettings(ru.st, ru.relation.tag.String(), appTag.String(), result.Settings), nil
+	return newSettings(ru.st, ru.relation.tag.String(), ru.unit.ApplicationTag().String(), result.Settings), nil
 }
 
 // ReadSettings returns a map holding the settings of the unit with the

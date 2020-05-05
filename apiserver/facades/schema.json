@@ -36334,6 +36334,17 @@
                         }
                     }
                 },
+                "ReadLocalApplicationSettings": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/RelationUnit"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SettingsResult"
+                        }
+                    }
+                },
                 "ReadRemoteSettings": {
                     "type": "object",
                     "properties": {
