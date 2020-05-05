@@ -54,10 +54,15 @@ type affectedNetworks struct {
 	newSpace string
 	// spaces is a the target space topology.
 	spaces network.SpaceInfos
-	// appNetworks are are all unit subnet connectivity grouped by application
+	// changingNetworks is all unit subnet connectivity grouped by application
 	// for any that may be affected by moving the subnets above.
-	appNetworks map[string][]unitNetwork
-	force       bool
+	changingNetworks map[string][]unitNetwork
+	// unchangedNetworks is all unit subnet connectivity grouped by application
+	// for those that are unaffected by moving subnets.
+	// These are included in order to determine whether application endpoint
+	// bindings can be massaged to satisfy the mutating space topology.
+	unchangedNetworks map[string][]unitNetwork
+	force             bool
 }
 
 // newAffectedNetworks returns a new affectedNetworks reference for
@@ -85,11 +90,12 @@ func newAffectedNetworks(
 	}
 
 	return &affectedNetworks{
-		subnets:     movingSubnets,
-		newSpace:    spaceName,
-		spaces:      newTopology,
-		appNetworks: make(map[string][]unitNetwork),
-		force:       force,
+		subnets:           movingSubnets,
+		newSpace:          spaceName,
+		spaces:            newTopology,
+		changingNetworks:  make(map[string][]unitNetwork),
+		unchangedNetworks: make(map[string][]unitNetwork),
+		force:             force,
 	}, nil
 }
 
@@ -122,12 +128,8 @@ func (n *affectedNetworks) processMachines(machines []Machine) error {
 			}
 		}
 
-		// We only consider this machine if it has an
-		// address in one of the moving subnets.
-		if includesMover {
-			if err = n.includeMachine(machine, machineSubnets); err != nil {
-				return errors.Trace(err)
-			}
+		if err = n.includeMachine(machine, machineSubnets, includesMover); err != nil {
+			return errors.Trace(err)
 		}
 	}
 
@@ -135,18 +137,25 @@ func (n *affectedNetworks) processMachines(machines []Machine) error {
 }
 
 // includeMachine ensures that the units on the machine and their collection
-// of subnet connectedness are included as affectedNetworks to be validated.
-func (n *affectedNetworks) includeMachine(machine Machine, subnets network.SubnetInfos) error {
+// of subnet connectedness are included as networks to be validated.
+// The collection they are placed into depends on whether they are connected to
+// a moving subnet, indicated by the netChange argument.
+func (n *affectedNetworks) includeMachine(machine Machine, subnets network.SubnetInfos, netChange bool) error {
 	units, err := machine.Units()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	collection := n.unchangedNetworks
+	if netChange {
+		collection = n.changingNetworks
+	}
+
 	for _, unit := range units {
 		appName := unit.ApplicationName()
-		unitNets, ok := n.appNetworks[appName]
+		unitNets, ok := collection[appName]
 		if !ok {
-			n.appNetworks[appName] = []unitNetwork{}
+			collection[appName] = []unitNetwork{}
 		}
 
 		var present bool
@@ -159,7 +168,7 @@ func (n *affectedNetworks) includeMachine(machine Machine, subnets network.Subne
 		}
 
 		if !present {
-			n.appNetworks[appName] = append(unitNets, unitNetwork{
+			collection[appName] = append(unitNets, unitNetwork{
 				unitNames: set.NewStrings(unit.Name()),
 				subnets:   subnets,
 			})
@@ -175,7 +184,7 @@ func (n *affectedNetworks) includeMachine(machine Machine, subnets network.Subne
 // otherwise an error is returned.
 func (n *affectedNetworks) ensureConstraintIntegrity(cons map[string]set.Strings) error {
 	for appName, spaces := range cons {
-		if _, ok := n.appNetworks[appName]; !ok {
+		if _, ok := n.changingNetworks[appName]; !ok {
 			// The constraint is for an application not affected by the move.
 			continue
 		}
@@ -212,7 +221,7 @@ func (n *affectedNetworks) ensureNegativeConstraintIntegrity(appName string, spa
 // constraint, comparing the input application's unit subnet connectivity to
 // the target topology determines the constraint to be satisfied.
 func (n *affectedNetworks) ensurePositiveConstraintIntegrity(appName string, spaceConstraints set.Strings) error {
-	unitNets := n.appNetworks[appName]
+	unitNets := n.changingNetworks[appName]
 
 	for _, spaceName := range spaceConstraints.Values() {
 		if strings.HasPrefix(spaceName, "^") {

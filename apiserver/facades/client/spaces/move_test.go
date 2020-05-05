@@ -158,6 +158,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *gc.C) {
 
 	// Using different subnet - triggers no constraint violation.
 	m := expectMachine(ctrl, "2")
+	expectMachineUnits(ctrl, m, "mysql", "mysql/0")
 	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m}, nil)
 
 	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
