@@ -362,6 +362,12 @@ func (c *defaultsCommand) parseArgsForRegion(args []string) ([]string, error) {
 func (c *defaultsCommand) parseCloudRegion(args []string) ([]string, error) {
 	var cloud, maybeRegion string
 	cr := args[0]
+	// Exit early if arg[0] is name=value.
+	// We don't disallow "=" in region names, but probably should.
+	if strings.Contains(cr, "=") {
+		return args, nil
+	}
+
 	// Must have no more than one slash and it must not be at the beginning or end.
 	if strings.Count(cr, "/") == 1 && !strings.HasPrefix(cr, "/") && !strings.HasSuffix(cr, "/") {
 		elems := strings.Split(cr, "/")
@@ -378,13 +384,12 @@ func (c *defaultsCommand) parseCloudRegion(args []string) ([]string, error) {
 	info, err := os.Stat(maybeRegion)
 	isFile := err == nil && !info.IsDir()
 	// TODO(redir) 2016-10-05 #1627162
-	// We don't disallow "=" in region names, but probably should.
-	if isFile || strings.Contains(maybeRegion, "=") {
+	if isFile {
 		return args, nil
 	}
 
 	valid, err := c.validCloudRegion(cloud, maybeRegion)
-	if err != nil {
+	if err != nil && !errors.IsNotValid(err) {
 		return nil, errors.Trace(err)
 	}
 	if !valid {
@@ -467,7 +472,7 @@ func (c *defaultsCommand) validCloudRegion(cloudName, maybeRegion string) (bool,
 		}
 	} else {
 		if !names.IsValidCloud(cloudName) {
-			return false, errors.Errorf("invalid cloud %q", cloudName)
+			return false, errors.NotValidf("cloud %q", cloudName)
 		}
 		cTag = names.NewCloudTag(cloudName)
 	}
