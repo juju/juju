@@ -63,10 +63,14 @@ func (a *AdmissionSuite) TestAdmissionCreatorObject(c *gc.C) {
 
 			c.Assert(obj.Namespace, gc.Equals, namespace)
 			c.Assert(len(obj.Webhooks), gc.Equals, 1)
-			c.Assert(obj.Webhooks[0].ClientConfig.Service.Name, gc.Equals, svcName)
-			c.Assert(obj.Webhooks[0].ClientConfig.Service.Namespace, gc.Equals, namespace)
-			c.Assert(*obj.Webhooks[0].ClientConfig.Service.Path, gc.Equals, path)
-			c.Assert(*obj.Webhooks[0].ClientConfig.Service.Port, gc.Equals, port)
+			webhook := obj.Webhooks[0]
+			c.Assert(webhook.SideEffects, gc.NotNil)
+			c.Assert(*webhook.SideEffects, gc.Equals, admission.SideEffectClassNone)
+			svc := webhook.ClientConfig.Service
+			c.Assert(svc.Name, gc.Equals, svcName)
+			c.Assert(svc.Namespace, gc.Equals, namespace)
+			c.Assert(*svc.Path, gc.Equals, path)
+			c.Assert(*svc.Port, gc.Equals, port)
 
 			return func() { ensureWebhookCleanupCalled = true }, nil
 		}, serviceRef)
