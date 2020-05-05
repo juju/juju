@@ -816,7 +816,9 @@ func (s *clientSuite) TestDatastores(c *gc.C) {
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
+		makeStubCall("FindByInventoryPath", "FakeSearchIndex", "/dc0/datastore"),
 		retrievePropertiesStubCall("FakeDatastoreFolder"),
+		retrievePropertiesStubCall("FakeDatastore1", "FakeDatastore2"),
 	})
 
 	c.Assert(result, gc.HasLen, 2)

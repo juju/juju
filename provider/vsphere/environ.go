@@ -236,13 +236,13 @@ func (env *sessionEnviron) getVMFolder() string {
 	return env.environ.cloud.Credential.Attributes()[credAttrVMFolder]
 }
 
-func (env *sessionEnviron) accessibleDatastores(ctx callcontext.ProviderCallContext) ([]*mo.Datastore, error) {
+func (env *sessionEnviron) accessibleDatastores(ctx callcontext.ProviderCallContext) ([]mo.Datastore, error) {
 	datastores, err := env.client.Datastores(env.ctx)
 	if err != nil {
 		HandleCredentialError(err, env, ctx)
 		return nil, errors.Trace(err)
 	}
-	var results []*mo.Datastore
+	var results []mo.Datastore
 	for _, ds := range datastores {
 		if !ds.Summary.Accessible {
 			continue
