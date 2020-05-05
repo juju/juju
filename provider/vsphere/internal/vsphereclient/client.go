@@ -258,8 +258,8 @@ func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, e
 }
 
 // Datastores returns list of all datastores in the system.
-func (c *Client) Datastores(ctx context.Context) ([]*mo.Datastore, error) {
-	_, datacenter, err := c.finder(ctx)
+func (c *Client) Datastores(ctx context.Context) ([]mo.Datastore, error) {
+	finder, datacenter, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -268,17 +268,27 @@ func (c *Client) Datastores(ctx context.Context) ([]*mo.Datastore, error) {
 		return nil, errors.Trace(err)
 	}
 
-	es, err := c.lister(folders.DatastoreFolder.Reference()).List(ctx)
+	dsPath := path.Join(folders.DatastoreFolder.InventoryPath, "...")
+	c.logger.Tracef("listing datastores under %q", dsPath)
+	items, err := finder.DatastoreList(ctx, dsPath)
 	if err != nil {
+		if _, ok := err.(*find.NotFoundError); ok {
+			c.logger.Debugf("no datastores for path %q", dsPath)
+			return nil, nil
+		}
 		return nil, errors.Trace(err)
 	}
 
-	var datastores []*mo.Datastore
-	for _, e := range es {
-		switch o := e.Object.(type) {
-		case mo.Datastore:
-			datastores = append(datastores, &o)
-		}
+	refs := make([]types.ManagedObjectReference, len(items))
+	for i, item := range items {
+		c.logger.Tracef("%s", item.InventoryPath)
+		refs[i] = item.Reference()
+	}
+
+	var datastores []mo.Datastore
+	err = c.client.Retrieve(ctx, refs, nil, &datastores)
+	if err != nil {
+		return nil, errors.Annotate(err, "retrieving datastore details")
 	}
 	return datastores, nil
 }
