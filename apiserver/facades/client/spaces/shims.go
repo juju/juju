@@ -74,13 +74,6 @@ type stateShim struct {
 	model *state.Model
 }
 
-// ApplicationEndpointBindingsShim is a shim interface for
-// stateless access to ApplicationEndpointBindings.
-type ApplicationEndpointBindingsShim struct {
-	AppName  string
-	Bindings map[string]string
-}
-
 // NewStateShim returns a new state shim.
 func NewStateShim(st *state.State) (*stateShim, error) {
 	m, err := st.Model()
@@ -94,7 +87,9 @@ func NewStateShim(st *state.State) (*stateShim, error) {
 	}, nil
 }
 
-func (s *stateShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) (networkingcommon.BackingSpace, error) {
+func (s *stateShim) AddSpace(
+	name string, providerId network.Id, subnetIds []string, public bool,
+) (networkingcommon.BackingSpace, error) {
 	result, err := s.State.AddSpace(name, providerId, subnetIds, public)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -112,20 +107,19 @@ func (s *stateShim) SpaceByName(name string) (networkingcommon.BackingSpace, err
 	return space, nil
 }
 
-// AllEndpointBindings returns all endpoint bindings and maps it to a corresponding common type
-func (s *stateShim) AllEndpointBindings() ([]ApplicationEndpointBindingsShim, error) {
-	endpointBindings, err := s.model.AllEndpointBindings()
+// AllEndpointBindings returns all endpoint bindings,
+// with the map values indirected.
+func (s *stateShim) AllEndpointBindings() (map[string]Bindings, error) {
+	allBindings, err := s.model.AllEndpointBindings()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	all := make([]ApplicationEndpointBindingsShim, 0, len(endpointBindings))
-	for app, bindings := range endpointBindings {
-		all = append(all, ApplicationEndpointBindingsShim{
-			AppName:  app,
-			Bindings: bindings.Map(),
-		})
+
+	result := make(map[string]Bindings, len(allBindings))
+	for app, bindings := range allBindings {
+		result[app] = bindings
 	}
-	return all, nil
+	return result, nil
 }
 
 // AllMachines returns all machines and maps it to a corresponding common type.
