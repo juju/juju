@@ -101,7 +101,23 @@ type moveSubnetsAPISuite struct {
 
 var _ = gc.Suite(&moveSubnetsAPISuite{})
 
-func (s *moveSubnetsAPISuite) TestMoveSubnetsSuccess(c *gc.C) {
+func (s *moveSubnetsAPISuite) TestMoveSubnetsSubnetNotFoundError(c *gc.C) {
+	ctrl, unReg := s.SetupMocks(c, true, false)
+	defer ctrl.Finish()
+	defer unReg()
+
+	spaceName := "destination"
+	subnetID := "3"
+
+	s.Backing.EXPECT().MovingSubnet(subnetID).Return(nil, errors.NotFoundf("subnet 3"))
+
+	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error.Message, gc.Equals, "subnet 3 not found")
+}
+
+func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *gc.C) {
 	ctrl, unReg := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unReg()
@@ -156,7 +172,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsSuccess(c *gc.C) {
 	}})
 }
 
-func (s *moveSubnetsAPISuite) TestMoveSubnetsSubnetNotFoundError(c *gc.C) {
+func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *gc.C) {
 	ctrl, unReg := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unReg()
@@ -164,12 +180,55 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsSubnetNotFoundError(c *gc.C) {
 	spaceName := "destination"
 	subnetID := "3"
 
-	s.Backing.EXPECT().MovingSubnet(subnetID).Return(nil, errors.NotFoundf("subnet 3"))
+	subnet := expectMovingSubnet(ctrl, subnetID, "")
+
+	s.Backing.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{
+		{
+			ID:   "1",
+			Name: "from",
+			Subnets: network.SubnetInfos{
+				{
+					ID:   "3",
+					CIDR: "10.10.10.0/24",
+				},
+			},
+		},
+		{
+			ID:   "2",
+			Name: network.SpaceName(spaceName),
+		},
+	}, nil)
+
+	// MySQL has only non-space constraints.
+	cons1 := spaces.NewMockConstraints(ctrl)
+	cons1.EXPECT().ID().Return("c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql")
+	cons1.EXPECT().Value().Return(constraints.MustParse("arch=amd64"))
+
+	// Some other unaffected application is constrained not to be in the space.
+	cons2 := spaces.NewMockConstraints(ctrl)
+	cons2.EXPECT().ID().Return("c9741ea1-0c2a-444d-82f5-787583a48557:a#wordpress")
+	cons2.EXPECT().Value().Return(constraints.MustParse("spaces=^destination"))
+
+	m := expectMachine(ctrl, subnetID)
+	expectMachineUnits(ctrl, m, "mysql", "mysql/0")
+	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m}, nil)
+
+	moveSubnetsOp := spaces.NewMockMoveSubnetsOp(ctrl)
+	moveSubnetsOp.EXPECT().GetMovedSubnets().Return([]spaces.MovedSubnet{{
+		ID:        subnetID,
+		FromSpace: "from",
+	}})
+	s.OpFactory.EXPECT().NewMoveSubnetsOp(spaceName, []spaces.MovingSubnet{subnet}).Return(moveSubnetsOp, nil)
+
+	bExp := s.Backing.EXPECT()
+	bExp.AllConstraints().Return([]spaces.Constraints{cons1, cons2}, nil)
+	bExp.MovingSubnet(subnetID).Return(subnet, nil)
+	bExp.ApplyOperation(moveSubnetsOp).Return(nil)
 
 	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error.Message, gc.Equals, "subnet 3 not found")
+	c.Assert(res.Results[0].Error, gc.IsNil)
 }
 
 func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceError(c *gc.C) {

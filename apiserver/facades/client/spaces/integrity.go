@@ -174,9 +174,11 @@ func (n *affectedNetworks) includeMachine(machine Machine, subnets network.Subne
 // If force is true, violations are logged as warnings,
 // otherwise an error is returned.
 func (n *affectedNetworks) ensureConstraintIntegrity(cons map[string]set.Strings) error {
-	for appName := range n.appNetworks {
-		// We know there are always constraints; this is ensured by the caller.
-		spaces := cons[appName]
+	for appName, spaces := range cons {
+		if _, ok := n.appNetworks[appName]; !ok {
+			// The constraint is for an application not affected by the move.
+			continue
+		}
 
 		if err := n.ensureNegativeConstraintIntegrity(appName, spaces); err != nil {
 			return errors.Trace(err)
