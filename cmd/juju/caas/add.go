@@ -92,6 +92,9 @@ storage class to provide operator and workload storage. If none is found, use
 of the --storage option is required so that Juju will create a storage class
 with the specified name.
 
+If the cluster does not have a storage provisioning capability, use the
+--skip-storage option to add the cluster without any workload storage configured.
+
 When adding a GKE or AKS cluster, you can use the --gke or --aks option to
 interactively be stepped through the registration process, or you can supply the
 necessary parameters directly.
@@ -164,6 +167,9 @@ type AddCAASCommand struct {
 	// workloadStorage is a storage class specified by the user.
 	workloadStorage string
 
+	// skipStorage is used to signal that we don't need to configure storage provisioning.
+	skipStorage bool
+
 	// brokerGetter returns CAAS broker instance.
 	brokerGetter BrokerGetter
 
@@ -229,6 +235,7 @@ func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.hostCloudRegion, "region", "", "k8s cluster region or cloud/region")
 	f.StringVar(&c.hostCloud, "cloud", "", "k8s cluster cloud")
 	f.StringVar(&c.workloadStorage, "storage", "", "k8s storage class for workload storage")
+	f.BoolVar(&c.skipStorage, "skip-storage", false, "used when adding a cluster that doesn't have storage")
 	f.StringVar(&c.project, "project", "", "project to which the cluster belongs")
 	f.StringVar(&c.credential, "credential", "", "the credential to use when accessing the cluster")
 	f.StringVar(&c.resourceGroup, "resource-group", "", "the Azure resource group of the AKS cluster")
@@ -392,7 +399,7 @@ var unknownClusterErrMsg = `
 `[1:]
 
 var noClusterSpecifiedErrMsg = `
-	Juju needs to know what storage class to use to provision workload and operator storage.
+	Juju needs to know what storage class to use to provision workload storage.
 	Run add-k8s again, using --storage=<name> to specify the storage class to use.
 `[1:]
 
@@ -456,36 +463,42 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	storageParams := provider.KubeCloudStorageParams{
-		WorkloadStorage:        c.workloadStorage,
-		HostCloudRegion:        c.hostCloudRegion,
-		MetadataChecker:        broker,
-		GetClusterMetadataFunc: c.getClusterMetadataFunc(ctx),
-	}
+	var storageMsg string
+	if c.skipStorage {
+		storageMsg = " with no configured storage provisioning capability."
+	} else {
+		storageParams := provider.KubeCloudStorageParams{
+			WorkloadStorage:        c.workloadStorage,
+			HostCloudRegion:        c.hostCloudRegion,
+			MetadataChecker:        broker,
+			GetClusterMetadataFunc: c.getClusterMetadataFunc(ctx),
+		}
 
-	storageMsg, err := provider.UpdateKubeCloudWithStorage(&newCloud, storageParams)
-	if err != nil {
-		if provider.IsClusterQueryError(err) {
-			cloudArg := "--cloud=<cloud> to specify the cloud"
-			if c.ControllerName == "jaas" {
-				cloudArg = "--region=<cloud>/<someregion> to specify the cloud/region"
+		var err error
+		storageMsg, err = provider.UpdateKubeCloudWithStorage(&newCloud, storageParams)
+		if err != nil {
+			if provider.IsClusterQueryError(err) {
+				cloudArg := "--cloud=<cloud> to specify the cloud"
+				if c.ControllerName == "jaas" {
+					cloudArg = "--region=<cloud>/<someregion> to specify the cloud/region"
+				}
+				if err.Error() == "" {
+					return errors.Errorf(clusterQueryErrMsg, cloudArg)
+				}
+				return errors.Annotatef(err, clusterQueryErrMsg, cloudArg)
 			}
-			if err.Error() == "" {
-				return errors.Errorf(clusterQueryErrMsg, cloudArg)
+			if provider.IsNoRecommendedStorageError(err) {
+				return errors.Errorf(noRecommendedStorageErrMsg, err.(provider.NoRecommendedStorageError).StorageProvider())
 			}
-			return errors.Annotatef(err, clusterQueryErrMsg, cloudArg)
-		}
-		if provider.IsNoRecommendedStorageError(err) {
-			return errors.Errorf(noRecommendedStorageErrMsg, err.(provider.NoRecommendedStorageError).StorageProvider())
-		}
-		if provider.IsUnknownClusterError(err) {
-			cloudName := err.(provider.UnknownClusterError).CloudName
-			if cloudName == "" {
-				return errors.New(noClusterSpecifiedErrMsg)
+			if provider.IsUnknownClusterError(err) {
+				cloudName := err.(provider.UnknownClusterError).CloudName
+				if cloudName == "" {
+					return errors.New(noClusterSpecifiedErrMsg)
+				}
+				return errors.Errorf(unknownClusterErrMsg, cloudName)
 			}
-			return errors.Errorf(unknownClusterErrMsg, cloudName)
+			return errors.Trace(err)
 		}
-		return errors.Trace(err)
 	}
 
 	if newCloud.HostCloudRegion != "" {

@@ -792,7 +792,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataNoStorageError(c *gc.C) {
 	command := s.makeCommand(c, true, false, true)
 	_, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "mrcloud2", "-c", "foo")
 	expectedErr := `
-	Juju needs to know what storage class to use to provision workload and operator storage.
+	Juju needs to know what storage class to use to provision workload storage.
 	Run add-k8s again, using --storage=<name> to specify the storage class to use.
 `[1:]
 	c.Assert(err, gc.ErrorMatches, expectedErr)
@@ -863,6 +863,19 @@ func (s *addCAASSuite) TestUnknownClusterExistingStorageClass(c *gc.C) {
 		c.Assert(result, gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s" with storage provisioned by the existing "mystorage" storage class. You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
 	}, cloudRegion, "mystorage", "mystorage", testData{client: true, controller: true})
 
+}
+
+func (s *addCAASSuite) TestSkipStorage(c *gc.C) {
+	result := &jujucaas.ClusterMetadata{}
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result, nil)
+	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(errors.NotFoundf("foo"))
+
+	command := s.makeCommand(c, true, false, true)
+	ctx, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "mrcloud2", "-c", "foo", "--skip-storage")
+	c.Assert(err, jc.ErrorIsNil)
+	out := strings.Trim(cmdtesting.Stdout(ctx), "\n")
+	out = strings.Replace(out, "\n", " ", -1)
+	c.Assert(out, gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s" with no configured storage provisioning capability.`)
 }
 
 func (s *addCAASSuite) assertCreateDefaultStorageProvisioner(c *gc.C, expectedMsg string, t testData, additionalArgs ...string) {
