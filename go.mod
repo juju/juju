@@ -76,7 +76,7 @@ require (
 	github.com/juju/testing v0.0.0-20191001232224-ce9dec17d28b
 	github.com/juju/txn v0.0.0-20190416045819-5f348e78887d
 	github.com/juju/usso v0.0.0-20160401104424-68a59c96c178 // indirect
-	github.com/juju/utils v0.0.0-20200423035217-b0a7da72a5fa
+	github.com/juju/utils v0.0.0-20200424103611-54ececcc5fc7
 	github.com/juju/version v0.0.0-20191219164919-81c1be00b9a6
 	github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb
 	github.com/juju/worker/v2 v2.0.0-20200424114111-8c6ac8046912
