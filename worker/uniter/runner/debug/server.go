@@ -34,6 +34,11 @@ func (s *ServerSession) MatchHook(hookName string) bool {
 	return s.hooks.IsEmpty() || s.hooks.Contains(hookName)
 }
 
+// DebugAt returns the location for the charm to stop for debugging, if it is set.
+func (s *ServerSession) DebugAt() string {
+	return s.debugAt
+}
+
 // waitClientExit executes flock, waiting for the SSH client to exit.
 // This is a var so it can be replaced for testing.
 var waitClientExit = func(s *ServerSession) {
@@ -168,7 +173,7 @@ tmux new-window -t $JUJU_UNIT_NAME -n $window_name "$JUJU_DEBUG/hook.sh"
 # If we exit for whatever reason, kill the hook shell.
 exit_handler() {
     if [ -f $JUJU_DEBUG/hook.pid ]; then
-        kill -9 $(cat $JUJU_DEBUG/hook.pid) || true
+        kill -9 $(cat $JUJU_DEBUG/hook.pid) 2>/dev/null || true
     fi
 }
 trap exit_handler EXIT
@@ -218,7 +223,11 @@ const debugHooksHookScript = `#!/bin/bash
 echo $$ > $JUJU_DEBUG/hook.pid
 if [ -z "$JUJU_DEBUG_AT" ] ; then
 	exec /bin/bash --noprofile --init-file $JUJU_DEBUG/init.sh
+elif [ ! -x "__JUJU_HOOK_RUNNER__" ] ; then
+	juju-log --log-level INFO "debugging is enabled, but no handler for $JUJU_HOOK_NAME, skipping"
+	echo 0 > $JUJU_DEBUG/hook_exit_status
 else
+	juju-log --log-level INFO "debug running __JUJU_HOOK_RUNNER__ for $JUJU_HOOK_NAME"
 	__JUJU_HOOK_RUNNER__
 	echo $? > $JUJU_DEBUG/hook_exit_status
 fi
