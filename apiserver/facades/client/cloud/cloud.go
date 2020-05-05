@@ -28,6 +28,113 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.cloud")
 
+// CloudV7 defines the methods on the cloud API facade, version 7.
+type CloudV7 interface {
+	AddCloud(cloudArgs params.AddCloudArgs) error
+	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
+	Cloud(args params.Entities) (params.CloudResults, error)
+	Clouds() (params.CloudsResult, error)
+	Credential(args params.Entities) (params.CloudCredentialResults, error)
+	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
+	ModifyCloudAccess(args params.ModifyCloudAccessRequest) (params.ErrorResults, error)
+	RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error)
+	UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
+	UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.ErrorResults, error)
+}
+
+// CloudV6 defines the methods on the cloud API facade, version 6.
+type CloudV6 interface {
+	AddCloud(cloudArgs params.AddCloudArgs) error
+	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
+	Cloud(args params.Entities) (params.CloudResults, error)
+	Clouds() (params.CloudsResult, error)
+	Credential(args params.Entities) (params.CloudCredentialResults, error)
+	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
+	ModifyCloudAccess(args params.ModifyCloudAccessRequest) (params.ErrorResults, error)
+	RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error)
+	UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
+	UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.ErrorResults, error)
+}
+
+// CloudV5 defines the methods on the cloud API facade, version 5.
+type CloudV5 interface {
+	AddCloud(cloudArgs params.AddCloudArgs) error
+	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
+	Cloud(args params.Entities) (params.CloudResults, error)
+	Clouds() (params.CloudsResult, error)
+	Credential(args params.Entities) (params.CloudCredentialResults, error)
+	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
+	ModifyCloudAccess(args params.ModifyCloudAccessRequest) (params.ErrorResults, error)
+	RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error)
+	UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
+	UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.ErrorResults, error)
+}
+
+// CloudV4 defines the methods on the cloud API facade, version 4.
+type CloudV4 interface {
+	AddCloud(cloudArgs params.AddCloudArgs) error
+	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
+	Cloud(args params.Entities) (params.CloudResults, error)
+	Clouds() (params.CloudsResult, error)
+	Credential(args params.Entities) (params.CloudCredentialResults, error)
+	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
+	DefaultCloud() (params.StringResult, error)
+	ModifyCloudAccess(args params.ModifyCloudAccessRequest) (params.ErrorResults, error)
+	RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error)
+	UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
+	UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.ErrorResults, error)
+}
+
+// CloudV3 defines the methods on the cloud API facade, version 3.
+type CloudV3 interface {
+	AddCloud(cloudArgs params.AddCloudArgs) error
+	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
+	Cloud(args params.Entities) (params.CloudResults, error)
+	Clouds() (params.CloudsResult, error)
+	Credential(args params.Entities) (params.CloudCredentialResults, error)
+	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
+	DefaultCloud() (params.StringResult, error)
+	ModifyCloudAccess(args params.ModifyCloudAccessRequest) (params.ErrorResults, error)
+	RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error)
+	UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
+}
+
+// CloudV2 defines the methods on the cloud API facade, version 2.
+type CloudV2 interface {
+	AddCloud(cloudArgs params.AddCloudArgs) error
+	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	Cloud(args params.Entities) (params.CloudResults, error)
+	Clouds() (params.CloudsResult, error)
+	Credential(args params.Entities) (params.CloudCredentialResults, error)
+	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
+	DefaultCloud() (params.StringResult, error)
+	RemoveClouds(args params.Entities) (params.ErrorResults, error)
+	RevokeCredentials(args params.Entities) (params.ErrorResults, error)
+	UpdateCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
+}
+
+// CloudV1 defines the methods on the cloud API facade, version 1.
+type CloudV1 interface {
+	Cloud(args params.Entities) (params.CloudResults, error)
+	Clouds() (params.CloudsResult, error)
+	Credential(args params.Entities) (params.CloudCredentialResults, error)
+	DefaultCloud() (params.StringResult, error)
+	RevokeCredentials(args params.Entities) (params.ErrorResults, error)
+	UpdateCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
+}
+
 // CloudAPI implements the cloud interface and is the concrete implementation
 // of the api end point.
 type CloudAPI struct {
@@ -74,6 +181,16 @@ type CloudAPIV2 struct {
 type CloudAPIV1 struct {
 	*CloudAPIV2
 }
+
+var (
+	_ CloudV7 = (*CloudAPI)(nil)
+	_ CloudV6 = (*CloudAPIV6)(nil)
+	_ CloudV5 = (*CloudAPIV5)(nil)
+	_ CloudV4 = (*CloudAPIV4)(nil)
+	_ CloudV3 = (*CloudAPIV3)(nil)
+	_ CloudV2 = (*CloudAPIV2)(nil)
+	_ CloudV1 = (*CloudAPIV1)(nil)
+)
 
 // NewFacadeV7 is used for API registration.
 func NewFacadeV7(context facade.Context) (*CloudAPI, error) {
