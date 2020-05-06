@@ -2722,8 +2722,8 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 	err = m1.SetDevicesAddresses(
-		state.LinkLayerDeviceAddress{DeviceName: "enp5s0", CIDRAddress: "10.0.0.1/24", ConfigMethod: state.StaticAddress},
-		state.LinkLayerDeviceAddress{DeviceName: "enp5s1", CIDRAddress: "10.0.254.42/24", ConfigMethod: state.StaticAddress},
+		state.LinkLayerDeviceAddress{DeviceName: "enp5s0", CIDRAddress: "10.0.0.1/24", ConfigMethod: corenetwork.StaticAddress},
+		state.LinkLayerDeviceAddress{DeviceName: "enp5s1", CIDRAddress: "10.0.254.42/24", ConfigMethod: corenetwork.StaticAddress},
 	)
 	c.Assert(err, gc.IsNil)
 
@@ -2749,7 +2749,11 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 	wc.AssertChange("b1b30f7f8b818a0ef59e858ab0e409a33ebe9eefead686f7a0f1d1ef7a11cf0e")
 
 	// Adding a new machine address should trigger a change
-	err = m1.SetDevicesAddresses(state.LinkLayerDeviceAddress{DeviceName: "enp5s0", CIDRAddress: "10.0.0.100/24", ConfigMethod: state.StaticAddress})
+	err = m1.SetDevicesAddresses(state.LinkLayerDeviceAddress{
+		DeviceName:   "enp5s0",
+		CIDRAddress:  "10.0.0.100/24",
+		ConfigMethod: corenetwork.StaticAddress,
+	})
 	c.Assert(err, gc.IsNil)
 	err = m1.SetProviderAddresses(corenetwork.NewSpaceAddress("10.0.0.100"))
 	c.Assert(err, gc.IsNil)

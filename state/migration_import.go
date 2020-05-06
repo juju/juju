@@ -1815,7 +1815,7 @@ func (i *importer) addIPAddress(addr description.IPAddress) error {
 		DeviceName:       addr.DeviceName(),
 		MachineID:        addr.MachineID(),
 		SubnetCIDR:       subnetCIDR,
-		ConfigMethod:     AddressConfigMethod(addr.ConfigMethod()),
+		ConfigMethod:     network.AddressConfigMethod(addr.ConfigMethod()),
 		Value:            addressValue,
 		DNSServers:       addr.DNSServers(),
 		DNSSearchDomains: addr.DNSSearchDomains(),

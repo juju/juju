@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -49,7 +49,7 @@ func (s *ipAddressesStateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add the few subnets used by the tests into both models.
-	subnetInfos := []corenetwork.SubnetInfo{{
+	subnetInfos := []network.SubnetInfo{{
 		CIDR: "0.1.2.0/24",
 	}, {
 		CIDR: "fc00::/64",
@@ -81,7 +81,7 @@ func (s *ipAddressesStateSuite) addNamedDeviceWithAddresses(
 	for i, address := range addresses {
 		addressesArgs[i] = state.LinkLayerDeviceAddress{
 			DeviceName:   name,
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  address,
 		}
 	}
@@ -102,7 +102,7 @@ func (s *ipAddressesStateSuite) addNamedDeviceForMachine(
 ) *state.LinkLayerDevice {
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: name,
-		Type: corenetwork.EthernetDevice,
+		Type: network.EthernetDevice,
 	}
 	err := machine.SetLinkLayerDevices(deviceArgs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -266,7 +266,7 @@ func (s *ipAddressesStateSuite) TestMachineRemoveAllAddressesRemovesProviderIDRe
 	s.addNamedDevice(c, "foo")
 	addrArgs := state.LinkLayerDeviceAddress{
 		DeviceName:   "foo",
-		ConfigMethod: state.StaticAddress,
+		ConfigMethod: network.StaticAddress,
 		CIDRAddress:  "0.1.2.3/24",
 		ProviderID:   "bar",
 	}
@@ -311,7 +311,7 @@ func (s *ipAddressesStateSuite) TestMachineAllAddressesSuccess(c *gc.C) {
 
 func (s *ipAddressesStateSuite) TestMachineAllNetworkAddresses(c *gc.C) {
 	addedAddresses := s.addTwoDevicesWithTwoAddressesEach(c)
-	expected := make(corenetwork.SpaceAddresses, len(addedAddresses))
+	expected := make(network.SpaceAddresses, len(addedAddresses))
 	for i := range addedAddresses {
 		expected[i] = addedAddresses[i].NetworkAddress()
 	}
@@ -351,7 +351,7 @@ func (s *ipAddressesStateSuite) TestAllSpacesHandlesUnknownSubnets(c *gc.C) {
 	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{})
 }
 
-func resetSubnet(c *gc.C, st *state.State, subnetInfo corenetwork.SubnetInfo) {
+func resetSubnet(c *gc.C, st *state.State, subnetInfo network.SubnetInfo) {
 	// TODO (hml) 2019-07-26
 	// This comment is no longer valid.  Changes are in progress.
 	// Update when complete.
@@ -373,12 +373,12 @@ func (s *ipAddressesStateSuite) TestAllSpacesOneSpace(c *gc.C) {
 	s.addTwoDevicesWithTwoAddressesEach(c)
 	space, err := s.State.AddSpace("default", "default", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	resetSubnet(c, s.State, corenetwork.SubnetInfo{
+	resetSubnet(c, s.State, network.SubnetInfo{
 		CIDR:    "10.20.0.0/16",
 		SpaceID: space.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	resetSubnet(c, s.State, corenetwork.SubnetInfo{
+	resetSubnet(c, s.State, network.SubnetInfo{
 		CIDR:    "fc00::/64",
 		SpaceID: space.Id(),
 	})
@@ -392,14 +392,14 @@ func (s *ipAddressesStateSuite) TestAllSpacesMultiSpace(c *gc.C) {
 	s.addTwoDevicesWithTwoAddressesEach(c)
 	space1, err := s.State.AddSpace("default", "default", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	resetSubnet(c, s.State, corenetwork.SubnetInfo{
+	resetSubnet(c, s.State, network.SubnetInfo{
 		CIDR:    "10.20.0.0/16",
 		SpaceID: space1.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	space2, err := s.State.AddSpace("dmz-ipv6", "not-default", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	resetSubnet(c, s.State, corenetwork.SubnetInfo{
+	resetSubnet(c, s.State, network.SubnetInfo{
 		CIDR:    "fc00::/64",
 		SpaceID: space2.Id(),
 	})
@@ -413,7 +413,7 @@ func (s *ipAddressesStateSuite) TestAllSpacesReturnsDefaultSpace(c *gc.C) {
 	s.addTwoDevicesWithTwoAddressesEach(c)
 	spaces, err := s.machine.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{corenetwork.AlphaSpaceId})
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{network.AlphaSpaceId})
 }
 
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesDoesNothingWithEmptyArgs(c *gc.C) {
@@ -468,7 +468,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithEmptyDeviceName(
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithUnknownDeviceName(c *gc.C) {
 	args := state.LinkLayerDeviceAddress{
 		CIDRAddress:  "0.1.2.3/24",
-		ConfigMethod: state.StaticAddress,
+		ConfigMethod: network.StaticAddress,
 		DeviceName:   "missing",
 	}
 	expectedError := `invalid address "0.1.2.3/24": DeviceName "missing" on machine "0" not found`
@@ -491,7 +491,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithInvalidGatewayAd
 	args := state.LinkLayerDeviceAddress{
 		CIDRAddress:    "0.1.2.3/24",
 		DeviceName:     "eth0",
-		ConfigMethod:   state.StaticAddress,
+		ConfigMethod:   network.StaticAddress,
 		GatewayAddress: "boo hoo",
 	}
 	s.assertSetDevicesAddressesFailsValidationForArgs(c, args, `GatewayAddress "boo hoo" not valid`)
@@ -502,7 +502,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesOKWhenCIDRAddressDoesNotM
 	args := state.LinkLayerDeviceAddress{
 		CIDRAddress:  "192.168.123.42/16",
 		DeviceName:   "eth0",
-		ConfigMethod: state.StaticAddress,
+		ConfigMethod: network.StaticAddress,
 	}
 	err := s.machine.SetDevicesAddresses(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -517,7 +517,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesOKWhenCIDRAddressDoesNotM
 
 	// Add the subnet so it's known and retry setting the same address to verify
 	// SubnetID gets updated.
-	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "192.168.0.0/16"})
+	_, err = s.State.AddSubnet(network.SubnetInfo{CIDR: "192.168.0.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetDevicesAddresses(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -536,7 +536,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressMatch
 	args := state.LinkLayerDeviceAddress{
 		CIDRAddress:  "10.20.30.40/16",
 		DeviceName:   "eth0",
-		ConfigMethod: state.StaticAddress,
+		ConfigMethod: network.StaticAddress,
 	}
 	expectedError := fmt.Sprintf(
 		"invalid address %q: subnet %q is not alive",
@@ -553,7 +553,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenMachineNotAliveO
 	args := state.LinkLayerDeviceAddress{
 		CIDRAddress:  "10.20.30.40/16",
 		DeviceName:   "eth0",
-		ConfigMethod: state.StaticAddress,
+		ConfigMethod: network.StaticAddress,
 	}
 	err = s.otherStateMachine.SetDevicesAddresses(args)
 	c.Assert(err, gc.ErrorMatches, `.*: machine "0" not alive`)
@@ -573,7 +573,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesUpdatesExistingDocs(c *gc
 	setArgs := []state.LinkLayerDeviceAddress{{
 		// All fields that can be set are included below.
 		DeviceName:       "eth0",
-		ConfigMethod:     state.ManualAddress,
+		ConfigMethod:     network.ManualAddress,
 		CIDRAddress:      "0.1.2.3/24",
 		ProviderID:       "id-0123",
 		DNSServers:       []string{"ns1.example.com", "ns2.example.org"},
@@ -583,7 +583,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesUpdatesExistingDocs(c *gc
 		// No changed fields, just the required values are set: CIDRAddress +
 		// DeviceName (and s.machine.Id) are used to construct the DocID.
 		DeviceName:   "eth0",
-		ConfigMethod: state.StaticAddress,
+		ConfigMethod: network.StaticAddress,
 		CIDRAddress:  "10.20.30.42/16",
 	}}
 	err := s.machine.SetDevicesAddresses(setArgs...)
@@ -605,7 +605,7 @@ func (s *ipAddressesStateSuite) TestRemoveAddressRemovesProviderID(c *gc.C) {
 	device := s.addNamedDevice(c, "eth0")
 	addrArgs := state.LinkLayerDeviceAddress{
 		DeviceName:   "eth0",
-		ConfigMethod: state.ManualAddress,
+		ConfigMethod: network.ManualAddress,
 		CIDRAddress:  "0.1.2.3/24",
 		ProviderID:   "id-0123",
 	}
@@ -625,7 +625,7 @@ func (s *ipAddressesStateSuite) TestUpdateAddressFailsToChangeProviderID(c *gc.C
 	s.addNamedDevice(c, "eth0")
 	addrArgs := state.LinkLayerDeviceAddress{
 		DeviceName:   "eth0",
-		ConfigMethod: state.ManualAddress,
+		ConfigMethod: network.ManualAddress,
 		CIDRAddress:  "0.1.2.3/24",
 		ProviderID:   "id-0123",
 	}
@@ -640,7 +640,7 @@ func (s *ipAddressesStateSuite) TestUpdateAddressPreventsDuplicateProviderID(c *
 	s.addNamedDevice(c, "eth0")
 	addrArgs := state.LinkLayerDeviceAddress{
 		DeviceName:   "eth0",
-		ConfigMethod: state.ManualAddress,
+		ConfigMethod: network.ManualAddress,
 		CIDRAddress:  "0.1.2.3/24",
 	}
 	err := s.machine.SetDevicesAddresses(addrArgs)
@@ -677,12 +677,12 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithMultipleUpdatesOfSame
 		// No changes - same args as used by addNamedDeviceWithAddresses, so
 		// this is testing a no-op case.
 		DeviceName:   "eth0",
-		ConfigMethod: state.StaticAddress,
+		ConfigMethod: network.StaticAddress,
 		CIDRAddress:  "0.1.2.3/24",
 	}, {
 		// Change all fields that can change.
 		DeviceName:       "eth0",
-		ConfigMethod:     state.ManualAddress,
+		ConfigMethod:     network.ManualAddress,
 		CIDRAddress:      "0.1.2.3/24",
 		ProviderID:       "id-0123",
 		DNSServers:       []string{"ns1.example.com", "ns2.example.org"},
@@ -691,7 +691,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithMultipleUpdatesOfSame
 	}, {
 		// Test deletes work for DNS settings, also change method, and gateway.
 		DeviceName:       "eth0",
-		ConfigMethod:     state.DynamicAddress,
+		ConfigMethod:     network.DynamicAddress,
 		CIDRAddress:      "0.1.2.3/24",
 		ProviderID:       "id-0123", // not allowed to change ProviderID once set
 		DNSServers:       nil,
@@ -731,15 +731,15 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesMultipleDevicesWithSameAd
 	addressArgs := []state.LinkLayerDeviceAddress{
 		{
 			DeviceName:   "eth2",
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  "0.1.2.3/24",
-			ProviderID:   corenetwork.Id(providerID),
+			ProviderID:   network.Id(providerID),
 		},
 		{
 			DeviceName:   "br0",
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  "0.1.2.3/24",
-			ProviderID:   corenetwork.Id(providerID),
+			ProviderID:   network.Id(providerID),
 		},
 	}
 
@@ -747,7 +747,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesMultipleDevicesWithSameAd
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we can still change one of the addresses.
-	addressArgs[0].ConfigMethod = state.DynamicAddress
+	addressArgs[0].ConfigMethod = network.DynamicAddress
 	err = s.machine.SetDevicesAddresses(addressArgs[0])
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -760,15 +760,15 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesMultipleDevicesWithSameAd
 	addressArgs := []state.LinkLayerDeviceAddress{
 		{
 			DeviceName:   "eth2",
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  "0.1.2.3/24",
-			ProviderID:   corenetwork.Id(providerID),
+			ProviderID:   network.Id(providerID),
 		},
 		{
 			DeviceName:   "br0",
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  "0.1.2.4/24",
-			ProviderID:   corenetwork.Id(providerID),
+			ProviderID:   network.Id(providerID),
 		},
 	}
 
@@ -802,9 +802,9 @@ func (s *ipAddressesStateSuite) addDeviceWithAddressAndProviderIDForMachine(
 	device := s.addNamedDeviceForMachine(c, "eth0", machine)
 	addressArgs := state.LinkLayerDeviceAddress{
 		DeviceName:   "eth0",
-		ConfigMethod: state.StaticAddress,
+		ConfigMethod: network.StaticAddress,
 		CIDRAddress:  "0.1.2.3/24",
-		ProviderID:   corenetwork.Id(providerID),
+		ProviderID:   network.Id(providerID),
 	}
 	err := machine.SetDevicesAddresses(addressArgs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -827,21 +827,21 @@ func (s *ipAddressesStateSuite) testMachineSetDevicesAddressesIdempotently(c *gc
 	args := []state.LinkLayerDeviceAddress{{
 		DeviceName:   "lo",
 		CIDRAddress:  "127.0.0.1/8",
-		ConfigMethod: state.LoopbackAddress,
+		ConfigMethod: network.LoopbackAddress,
 	}, {
 		DeviceName:   "br-bond0",
 		CIDRAddress:  "10.20.0.100/16",
-		ConfigMethod: state.StaticAddress,
+		ConfigMethod: network.StaticAddress,
 		ProviderID:   "200",
 	}, {
 		DeviceName:   "br-bond0.12",
 		CIDRAddress:  "0.1.2.112/24",
-		ConfigMethod: state.StaticAddress,
+		ConfigMethod: network.StaticAddress,
 		ProviderID:   "201",
 	}, {
 		DeviceName:   "br-bond0.34",
 		CIDRAddress:  "0.1.2.134/24",
-		ConfigMethod: state.StaticAddress,
+		ConfigMethod: network.StaticAddress,
 		ProviderID:   "202",
 	}}
 	err = s.machine.SetDevicesAddressesIdempotently(args)
@@ -850,8 +850,8 @@ func (s *ipAddressesStateSuite) testMachineSetDevicesAddressesIdempotently(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allAddresses, gc.HasLen, len(args))
 	for _, address := range allAddresses {
-		if address.ConfigMethod() != state.LoopbackAddress && address.ConfigMethod() != state.ManualAddress {
-			c.Check(address.ProviderID(), gc.Not(gc.Equals), corenetwork.Id(""))
+		if address.ConfigMethod() != network.LoopbackAddress && address.ConfigMethod() != network.ManualAddress {
+			c.Check(address.ProviderID(), gc.Not(gc.Equals), network.Id(""))
 		}
 	}
 }
