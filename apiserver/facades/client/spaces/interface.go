@@ -32,6 +32,7 @@ type BlockChecker interface {
 // Address is an indirection for state.Address.
 type Address interface {
 	Subnet() (network.SubnetInfo, error)
+	ConfigMethod() network.AddressConfigMethod
 }
 
 // Unit is an indirection for state.Unit.

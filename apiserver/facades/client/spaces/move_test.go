@@ -566,11 +566,16 @@ func expectMachine(ctrl *gomock.Controller, subnetIDs ...string) *spaces.MockMac
 	for i, subID := range subnetIDs {
 		address := spaces.NewMockAddress(ctrl)
 		address.EXPECT().Subnet().Return(network.SubnetInfo{ID: network.Id(subID)}, nil)
+		address.EXPECT().ConfigMethod().Return(network.DynamicAddress)
 		addrs[i] = address
 	}
 
+	// Add a loopback into the mix to test that we don't ask for its subnets.
+	loopback := spaces.NewMockAddress(ctrl)
+	loopback.EXPECT().ConfigMethod().Return(network.LoopbackAddress)
+
 	machine := spaces.NewMockMachine(ctrl)
-	machine.EXPECT().AllAddresses().Return(addrs, nil)
+	machine.EXPECT().AllAddresses().Return(append(addrs, loopback), nil)
 	return machine
 }
 

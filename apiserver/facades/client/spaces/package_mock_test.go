@@ -1002,6 +1002,20 @@ func (m *MockAddress) EXPECT() *MockAddressMockRecorder {
 	return m.recorder
 }
 
+// ConfigMethod mocks base method
+func (m *MockAddress) ConfigMethod() network.AddressConfigMethod {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConfigMethod")
+	ret0, _ := ret[0].(network.AddressConfigMethod)
+	return ret0
+}
+
+// ConfigMethod indicates an expected call of ConfigMethod
+func (mr *MockAddressMockRecorder) ConfigMethod() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigMethod", reflect.TypeOf((*MockAddress)(nil).ConfigMethod))
+}
+
 // Subnet mocks base method
 func (m *MockAddress) Subnet() (network.SubnetInfo, error) {
 	m.ctrl.T.Helper()

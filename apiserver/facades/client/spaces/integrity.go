@@ -116,6 +116,11 @@ func (n *affectedNetworks) processMachines(machines []Machine) error {
 		var includesMover bool
 		var machineSubnets network.SubnetInfos
 		for _, address := range addresses {
+			// These are not going to have subnets, so just ignore them.
+			if address.ConfigMethod() == network.LoopbackAddress {
+				continue
+			}
+
 			// TODO (manadart 2020-04-22): Note that the Subnet method here
 			// looks up the subnet info based on the address CIDR.
 			// The backing schema for this needs to be rethought for multi-net
