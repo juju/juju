@@ -165,7 +165,7 @@ func (c *baseUpgradeCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *baseUpgradeCommand) precheck(ctx *cmd.Context, agentVersion version.Number) (bool, error) {
+func (c *baseUpgradeCommand) precheckVersion(ctx *cmd.Context, agentVersion version.Number) (bool, error) {
 	if c.BuildAgent && c.Version == version.Zero {
 		// Currently, uploading tools assumes the version to be
 		// the same as jujuversion.Current if not specified with
@@ -439,16 +439,16 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 		return errors.New("incomplete model configuration")
 	}
 
-	warnCompat, err := c.precheck(ctx, agentVersion)
+	warnCompat, err := c.precheckVersion(ctx, agentVersion)
 	if err != nil {
 		return err
 	}
 
-	context, versionsErr := c.initVersions(client, controllerCfg, cfg, agentVersion, warnCompat, fetchTimeout, availableAgents)
+	upgradeCtx, versionsErr := c.initVersions(client, controllerCfg, cfg, agentVersion, warnCompat, fetchTimeout, availableAgents)
 	if versionsErr != nil {
 		return versionsErr
 	}
-	tryImplicit := implicitUploadAllowed && len(context.packagedAgents) == 0
+	tryImplicit := implicitUploadAllowed && len(upgradeCtx.packagedAgents) == 0
 
 	// Look for any packaged binaries but only if we haven't been asked to build an agent.
 	var packagedAgentErr error
@@ -459,7 +459,7 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 				return err
 			}
 		}
-		if !tryImplicit && len(context.packagedAgents) == 0 {
+		if !tryImplicit && len(upgradeCtx.packagedAgents) == 0 {
 			// No tools found and we shouldn't upload any, so if we are not asking for a
 			// major upgrade, pretend there is no more recent version available.
 			filterVersion := jujuversion.Current
@@ -470,7 +470,7 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 				return errUpToDate
 			}
 		}
-		if packagedAgentErr = context.maybeChoosePackagedAgent(); packagedAgentErr != nil {
+		if packagedAgentErr = upgradeCtx.maybeChoosePackagedAgent(); packagedAgentErr != nil {
 			ctx.Verbosef("%v", packagedAgentErr)
 		}
 		uploadLocalBinary = isControllerModel && packagedAgentErr != nil && tryImplicit
@@ -480,27 +480,27 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 	// or the user has asked for a new agent to be built, upload a local
 	// jujud binary if possible.
 	if !warnCompat && (uploadLocalBinary || c.BuildAgent) {
-		if err := context.uploadTools(client, c.BuildAgent, agentVersion, c.DryRun); err != nil {
+		if err := upgradeCtx.uploadTools(client, c.BuildAgent, agentVersion, c.DryRun); err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 		builtMsg := ""
 		if c.BuildAgent {
 			builtMsg = " (built from source)"
 		}
-		fmt.Fprintf(ctx.Stdout, "no prepackaged agent binaries available, using local agent binary %v%s\n", context.chosen, builtMsg)
+		fmt.Fprintf(ctx.Stdout, "no prepackaged agent binaries available, using local agent binary %v%s\n", upgradeCtx.chosen, builtMsg)
 		packagedAgentErr = nil
 	}
 	if packagedAgentErr != nil {
 		return packagedAgentErr
 	}
 
-	if err := context.validate(); err != nil {
+	if err := upgradeCtx.validate(); err != nil {
 		return err
 	}
-	ctx.Verbosef("available agent binaries:\n%s", formatVersions(context.packagedAgents))
-	fmt.Fprintf(ctx.Stderr, "best version:\n    %v\n", context.chosen)
+	ctx.Verbosef("available agent binaries:\n%s", formatVersions(upgradeCtx.packagedAgents))
+	fmt.Fprintf(ctx.Stderr, "best version:\n    %v\n", upgradeCtx.chosen)
 	if warnCompat {
-		fmt.Fprintf(ctx.Stderr, "version %s incompatible with this client (%s)\n", context.chosen, jujuversion.Current)
+		fmt.Fprintf(ctx.Stderr, "version %s incompatible with this client (%s)\n", upgradeCtx.chosen, jujuversion.Current)
 	}
 	if c.DryRun {
 		if c.BuildAgent {
@@ -509,12 +509,12 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 			fmt.Fprintf(ctx.Stderr, "%s\n", c.upgradeMessage)
 		}
 	} else {
-		return c.notifyControllerUpgrade(ctx, client, context)
+		return c.notifyControllerUpgrade(ctx, client, upgradeCtx)
 	}
 	return nil
 }
 
-func (c *baseUpgradeCommand) notifyControllerUpgrade(ctx *cmd.Context, client upgradeJujuAPI, context *upgradeContext) error {
+func (c *baseUpgradeCommand) notifyControllerUpgrade(ctx *cmd.Context, client upgradeJujuAPI, upgradeCtx *upgradeContext) error {
 	if c.ResetPrevious {
 		if ok, err := c.confirmResetPreviousUpgrade(ctx); !ok || err != nil {
 			const message = "previous upgrade not reset and no new upgrade triggered"
@@ -527,7 +527,7 @@ func (c *baseUpgradeCommand) notifyControllerUpgrade(ctx *cmd.Context, client up
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 	}
-	if err := client.SetModelAgentVersion(context.chosen, c.IgnoreAgentVersions); err != nil {
+	if err := client.SetModelAgentVersion(upgradeCtx.chosen, c.IgnoreAgentVersions); err != nil {
 		if params.IsCodeUpgradeInProgress(err) {
 			return errors.Errorf("%s\n\n"+
 				"Please wait for the upgrade to complete or if there was a problem with\n"+
@@ -538,7 +538,7 @@ func (c *baseUpgradeCommand) notifyControllerUpgrade(ctx *cmd.Context, client up
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 	}
-	fmt.Fprintf(ctx.Stdout, "started upgrade to %s\n", context.chosen)
+	fmt.Fprintf(ctx.Stdout, "started upgrade to %s\n", upgradeCtx.chosen)
 	return nil
 }
 
