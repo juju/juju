@@ -1135,8 +1135,11 @@ func (ctx *HookContext) doFlush(process string) error {
 // we'll still trigger a change to a counter on the podspec so that we can
 // ensure any other charm changes (eg storage) are acted on.
 func (ctx *HookContext) addCommitHookChangesForCAAS(builder *uniter.CommitHookParamsBuilder, process string) error {
-	if ctx.podSpecYaml == nil && ctx.k8sRawSpecYaml == nil && process != string(hooks.UpgradeCharm) {
-		// No ops for any situation unless any k8s spec needs to be set or "upgrade-charm" was run.
+	logger.Criticalf("addCommitHookChangesForCAAS ctx.podSpecYaml -> %v, ctx.k8sRawSpecYaml -> %v, hooks.UpgradeCharm -> %q", ctx.podSpecYaml, ctx.k8sRawSpecYaml, string(hooks.UpgradeCharm))
+	if ctx.podSpecYaml == nil && ctx.k8sRawSpecYaml == nil {
+		// No ops for any situation unless any k8s spec needs to be set.
+		// The "upgrade-charm" hook always runs with non nil k8s spec for the leader but with nil k8s spec for non leaders.
+		// So here we ignore the "upgrade-charm" hook for non leader.
 		return nil
 	}
 	if ctx.podSpecYaml != nil && ctx.k8sRawSpecYaml != nil {
@@ -1147,9 +1150,8 @@ func (ctx *HookContext) addCommitHookChangesForCAAS(builder *uniter.CommitHookPa
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
 	}
-	// isLeader check only applies if the yaml has been set,
-	// not if just reacting to an upgrade-charm hook.
-	if !isLeader && (ctx.k8sRawSpecYaml != nil || ctx.podSpecYaml != nil) {
+	// Only leader can set k8s spec.
+	if !isLeader {
 		logger.Errorf("%v is not the leader but is setting application k8s spec", ctx.unitName)
 		return ErrIsNotLeader
 	}

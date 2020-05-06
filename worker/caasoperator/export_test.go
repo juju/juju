@@ -3,4 +3,12 @@
 
 package caasoperator
 
+import (
+	"github.com/juju/names/v4"
+)
+
 var GetNewRunnerExecutor = getNewRunnerExecutor
+
+func (op *caasOperator) MakeAgentSymlinks(unitTag names.UnitTag) error {
+	return op.makeAgentSymlinks(unitTag)
+}

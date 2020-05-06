@@ -433,6 +433,9 @@ func (s *WorkerSuite) TestRemovedApplication(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "agent should be terminated")
 }
 
+func (s *WorkerSuite) TestMakeAgentSymlinks(c *gc.C) {
+}
+
 func (s *WorkerSuite) TestContainerStart(c *gc.C) {
 	uniterStarted := make(chan struct{})
 	uniterGotRunning := make(chan struct{})
