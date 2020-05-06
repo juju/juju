@@ -253,8 +253,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 }
 
 func (op *caasOperator) makeAgentSymlinks(unitTag names.UnitTag) error {
-	// All units share the same charm and agent binary.
-	// (but with different state dirs for each unit).
+	// All units share the same agent binary.
 	// Set up the required symlinks.
 
 	// First the agent binary.
@@ -291,6 +290,23 @@ func (op *caasOperator) makeAgentSymlinks(unitTag names.UnitTag) error {
 		}
 	}
 
+	// Ensure legacy charm symlinks created before 2.8 getting unlinked.
+	unitCharmDir := filepath.Join(op.config.DataDir, "agents", unitTag.String(), "charm")
+	isUnitCharmDirSymlink, err := jujusymlink.IsSymlink(unitCharmDir)
+	if err != nil {
+		if os.IsNotExist(errors.Cause(err)) || os.IsPermission(errors.Cause(err)) {
+			// Ignore permission denied as this won't happen in production
+			// but may happen in testing depending on setup of /tmp
+			return nil
+		}
+		return errors.Trace(err)
+	}
+	if isUnitCharmDirSymlink {
+		op.config.Logger.Debugf("unlinking legacy charm symlink for unit %q", unitTag)
+		if err := os.Remove(unitCharmDir); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return nil
 }
 
