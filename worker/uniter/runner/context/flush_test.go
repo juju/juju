@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
 )
 
@@ -92,6 +93,80 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingSuccess(c *gc.C) {
 		"relation-name": "db1",
 		"qux":           "4",
 	})
+}
+
+func (s *FlushContextSuite) TestRebootAfterHook(c *gc.C) {
+	ctx := s.context(c)
+
+	// Set reboot priority
+	err := ctx.RequestReboot(jujuc.RebootAfterHook)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Flush the context with an error and check that reboot is not triggered.
+	expErr := errors.New("hook execution failed")
+	err = ctx.Flush("some badge", expErr)
+	c.Assert(err, gc.Equals, expErr)
+
+	reboot, err := s.machine.GetRebootFlag()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(reboot, jc.IsFalse, gc.Commentf("expected reboot request not to be triggered for unit's machine"))
+
+	// Flush the context without an error and check that reboot is triggered.
+	err = ctx.Flush("some badge", nil)
+	c.Assert(err, gc.Equals, context.ErrReboot)
+
+	reboot, err = s.machine.GetRebootFlag()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(reboot, jc.IsTrue, gc.Commentf("expected reboot request to be triggered for unit's machine"))
+}
+
+func (s *FlushContextSuite) TestRebootNowWhenHookFails(c *gc.C) {
+	ctx := s.context(c)
+
+	var stub testing.Stub
+	ctx.SetProcess(&mockProcess{func() error {
+		priority := ctx.GetRebootPriority()
+		c.Assert(priority, gc.Equals, jujuc.RebootNow)
+		return stub.NextErr()
+	}})
+	stub.SetErrors(errors.New("process is already dead"))
+
+	// Set reboot priority
+	err := ctx.RequestReboot(jujuc.RebootNow)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Flush the context with an error and check that reboot is triggered regardless.
+	expErr := errors.New("hook execution failed")
+	err = ctx.Flush("some badge", expErr)
+	c.Assert(err, gc.Equals, context.ErrRequeueAndReboot)
+
+	reboot, err := s.machine.GetRebootFlag()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(reboot, jc.IsTrue, gc.Commentf("expected reboot request to be triggered for unit's machine"))
+}
+
+func (s *FlushContextSuite) TestRebootNow(c *gc.C) {
+	ctx := s.context(c)
+
+	var stub testing.Stub
+	ctx.SetProcess(&mockProcess{func() error {
+		priority := ctx.GetRebootPriority()
+		c.Assert(priority, gc.Equals, jujuc.RebootNow)
+		return stub.NextErr()
+	}})
+	stub.SetErrors(errors.New("process is already dead"))
+
+	// Set reboot priority
+	err := ctx.RequestReboot(jujuc.RebootNow)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Flush the context without an error and check that reboot is triggered.
+	err = ctx.Flush("some badge", nil)
+	c.Assert(err, gc.Equals, context.ErrRequeueAndReboot)
+
+	reboot, err := s.machine.GetRebootFlag()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(reboot, jc.IsTrue, gc.Commentf("expected reboot request to be triggered for unit's machine"))
 }
 
 func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {

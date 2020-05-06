@@ -130,6 +130,7 @@ type HookUnit interface {
 	OpenPorts(protocol string, fromPort, toPort int) error
 	RequestReboot() error
 	SetUnitStatus(unitStatus status.Status, info string, data map[string]interface{}) error
+	SetAgentStatus(agentStatus status.Status, info string, data map[string]interface{}) error
 	State() (params.UnitStateResult, error)
 	Tag() names.UnitTag
 	UnitStatus() (params.StatusResult, error)
@@ -566,6 +567,17 @@ func (ctx *HookContext) SetUnitStatus(unitStatus jujuc.StatusInfo) error {
 		status.Status(unitStatus.Status),
 		unitStatus.Info,
 		unitStatus.Data,
+	)
+}
+
+// SetAgentStatus will set the given status for this unit's agent.
+// Implements jujuc.HookContext.ContextStatus, part of runner.Context.
+func (ctx *HookContext) SetAgentStatus(agentStatus jujuc.StatusInfo) error {
+	logger.Tracef("[AGENT-STATUS] %s: %s", agentStatus.Status, agentStatus.Info)
+	return ctx.unit.SetAgentStatus(
+		status.Status(agentStatus.Status),
+		agentStatus.Info,
+		agentStatus.Data,
 	)
 }
 
@@ -1023,14 +1035,14 @@ func (ctx *HookContext) handleReboot(ctxErr error) error {
 		if ctxErr != nil {
 			return ctxErr
 		}
-		return ErrReboot
+		ctxErr = ErrReboot
 	case jujuc.RebootNow:
-		return ErrRequeueAndReboot
+		ctxErr = ErrRequeueAndReboot
 	}
 
-	// Do a best-effort attempt to set the unit status; we don't care if it
-	// fails as we will request a reboot anyway.
-	if err := ctx.unit.SetUnitStatus(status.Rebooting, "", nil); err != nil {
+	// Do a best-effort attempt to set the unit agent status; we don't care
+	// if it fails as we will request a reboot anyway.
+	if err := ctx.unit.SetAgentStatus(status.Rebooting, "", nil); err != nil {
 		logger.Errorf("updating agent status: %v", err)
 	}
 
