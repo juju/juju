@@ -927,7 +927,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigBackfillsProviderIDs(c
 			parentName:  "bond0",
 			addresses: []instancepoller.StateLinkLayerDeviceAddress{
 				&mockLinkLayerDeviceAddress{
-					configMethod:     state.StaticAddress,
+					configMethod:     network.StaticAddress,
 					subnetCIDR:       "172.31.32.0/24",
 					dnsServers:       []string{"1.1.1.1"},
 					dnsSearchDomains: []string{"cloud"},
@@ -946,7 +946,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigBackfillsProviderIDs(c
 			isAutoStart: true,
 			addresses: []instancepoller.StateLinkLayerDeviceAddress{
 				&mockLinkLayerDeviceAddress{
-					configMethod:     state.LoopbackAddress,
+					configMethod:     network.LoopbackAddress,
 					subnetCIDR:       "127.0.0.0/24",
 					dnsServers:       []string{"1.1.1.1"},
 					dnsSearchDomains: []string{"cloud"},
@@ -998,7 +998,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigBackfillsProviderIDs(c
 	})
 	s.st.CheckCall(c, 8, "SetDevicesAddressesIdempotently", state.LinkLayerDeviceAddress{
 		DeviceName:        "foo0",
-		ConfigMethod:      state.StaticAddress,
+		ConfigMethod:      network.StaticAddress,
 		ProviderID:        "addr-404",    // backfilled
 		ProviderNetworkID: "net-cafe",    // backfilled
 		ProviderSubnetID:  "subnet-f00f", //backfilled
