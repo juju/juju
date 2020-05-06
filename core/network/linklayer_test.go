@@ -141,3 +141,28 @@ func (s *linkLayerSuite) TestStringLengthBetweenWhenWithinLimit(c *gc.C) {
 		c.Check(result, jc.IsTrue)
 	}
 }
+
+func (s *linkLayerSuite) TestIsValidAddressConfigMethodWithValidValues(c *gc.C) {
+	validTypes := []AddressConfigMethod{
+		LoopbackAddress,
+		StaticAddress,
+		DynamicAddress,
+		ManualAddress,
+	}
+
+	for _, value := range validTypes {
+		result := IsValidAddressConfigMethod(string(value))
+		c.Check(result, jc.IsTrue)
+	}
+}
+
+func (s *linkLayerSuite) TestIsValidAddressConfigMethodWithInvalidValues(c *gc.C) {
+	result := IsValidAddressConfigMethod("")
+	c.Check(result, jc.IsFalse)
+
+	result = IsValidAddressConfigMethod("anything")
+	c.Check(result, jc.IsFalse)
+
+	result = IsValidAddressConfigMethod(" ")
+	c.Check(result, jc.IsFalse)
+}

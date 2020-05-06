@@ -8,6 +8,34 @@ import (
 	"strings"
 )
 
+// AddressConfigMethod is the method used to configure a link-layer device's IP
+// address.
+type AddressConfigMethod string
+
+const (
+	// LoopbackAddress is used for IP addresses of LoopbackDevice types.
+	LoopbackAddress AddressConfigMethod = "loopback"
+
+	// StaticAddress is used for statically configured addresses.
+	StaticAddress AddressConfigMethod = "static"
+
+	// DynamicAddress is used for addresses dynamically configured via DHCP.
+	DynamicAddress AddressConfigMethod = "dynamic"
+
+	// ManualAddress is used for manually configured addresses.
+	ManualAddress AddressConfigMethod = "manual"
+)
+
+// IsValidAddressConfigMethod returns whether the given value is a valid method
+// to configure a link-layer network device's IP address.
+func IsValidAddressConfigMethod(value string) bool {
+	switch AddressConfigMethod(value) {
+	case LoopbackAddress, StaticAddress, DynamicAddress, ManualAddress:
+		return true
+	}
+	return false
+}
+
 // LinkLayerDeviceType defines the type of a link-layer network device.
 type LinkLayerDeviceType string
 

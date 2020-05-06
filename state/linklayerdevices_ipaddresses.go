@@ -43,7 +43,7 @@ type ipAddressDoc struct {
 	SubnetCIDR string `bson:"subnet-cidr"`
 
 	// ConfigMethod is the method used to configure this IP address.
-	ConfigMethod AddressConfigMethod `bson:"config-method"`
+	ConfigMethod network.AddressConfigMethod `bson:"config-method"`
 
 	// Value is the value of the configured IP address, e.g. 192.168.1.2 or
 	// 2001:db8::/64.
@@ -72,34 +72,6 @@ type ipAddressDoc struct {
 	// This should always be required, hence the lack of omitempty (upgrade
 	// steps should correctly assign this for all addresses)
 	Origin network.Origin `bson:"origin"`
-}
-
-// AddressConfigMethod is the method used to configure a link-layer device's IP
-// address.
-type AddressConfigMethod string
-
-const (
-	// LoopbackAddress is used for IP addresses of LoopbackDevice types.
-	LoopbackAddress AddressConfigMethod = "loopback"
-
-	// StaticAddress is used for statically configured addresses.
-	StaticAddress AddressConfigMethod = "static"
-
-	// DynamicAddress is used for addresses dynamically configured via DHCP.
-	DynamicAddress AddressConfigMethod = "dynamic"
-
-	// ManualAddress is used for manually configured addresses.
-	ManualAddress AddressConfigMethod = "manual"
-)
-
-// IsValidAddressConfigMethod returns whether the given value is a valid method
-// to configure a link-layer network device's IP address.
-func IsValidAddressConfigMethod(value string) bool {
-	switch AddressConfigMethod(value) {
-	case LoopbackAddress, StaticAddress, DynamicAddress, ManualAddress:
-		return true
-	}
-	return false
 }
 
 // Address represents the state of an IP address assigned to a link-layer
@@ -174,14 +146,14 @@ func (addr *Address) Subnet() (*Subnet, error) {
 }
 
 // ConfigMethod returns the AddressConfigMethod used for this IP address.
-func (addr *Address) ConfigMethod() AddressConfigMethod {
+func (addr *Address) ConfigMethod() network.AddressConfigMethod {
 	return addr.doc.ConfigMethod
 }
 
 // LoopbackConfigMethod returns whether AddressConfigMethod used for this IP
 // address was loopback.
 func (addr *Address) LoopbackConfigMethod() bool {
-	return addr.doc.ConfigMethod == LoopbackAddress
+	return addr.doc.ConfigMethod == network.LoopbackAddress
 }
 
 // Value returns the value of this IP address.

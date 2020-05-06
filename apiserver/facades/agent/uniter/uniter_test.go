@@ -4200,19 +4200,19 @@ func (s *uniterNetworkConfigSuite) makeMachineDevicesAndAddressesArgs(addrSuffix
 		}},
 		[]state.LinkLayerDeviceAddress{{
 			DeviceName:   "eth0",
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  fmt.Sprintf("8.8.8.%d/16", addrSuffix),
 		}, {
 			DeviceName:   "eth0.100",
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  fmt.Sprintf("10.0.0.%d/24", addrSuffix),
 		}, {
 			DeviceName:   "eth1",
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  fmt.Sprintf("8.8.4.%d/16", addrSuffix),
 		}, {
 			DeviceName:   "eth1.100",
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  fmt.Sprintf("10.0.0.%d/24", addrSuffix+1),
 		}}
 }
@@ -4471,35 +4471,35 @@ func (s *uniterNetworkInfoSuite) makeMachineDevicesAndAddressesArgs(addrSuffix i
 		}},
 		[]state.LinkLayerDeviceAddress{{
 			DeviceName:   "eth0",
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  fmt.Sprintf("8.8.8.%d/16", addrSuffix),
 		}, {
 			DeviceName:   "eth0.100",
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  fmt.Sprintf("10.0.0.%d/24", addrSuffix),
 		}, {
 			DeviceName:   "eth1",
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  fmt.Sprintf("8.8.4.%d/16", addrSuffix),
 		}, {
 			DeviceName:   "eth1",
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  fmt.Sprintf("8.8.4.%d/16", addrSuffix+1),
 		}, {
 			DeviceName:   "eth1.100",
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  fmt.Sprintf("10.0.0.%d/24", addrSuffix+1),
 		}, {
 			DeviceName:   "eth2",
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  fmt.Sprintf("100.64.0.%d/16", addrSuffix),
 		}, {
 			DeviceName:   "eth4",
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  fmt.Sprintf("192.168.1.%d/24", addrSuffix),
 		}, {
 			DeviceName:   "fan-1",
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  fmt.Sprintf("1.1.1.%d/12", addrSuffix),
 		}}
 }

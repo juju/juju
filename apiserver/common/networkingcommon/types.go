@@ -207,15 +207,15 @@ func NetworkInterfacesToStateArgs(ifaces []corenetwork.InterfaceInfo) (
 		ipNet.IP = ipAddr
 		cidrAddress := ipNet.String()
 
-		var derivedConfigMethod state.AddressConfigMethod
-		switch method := state.AddressConfigMethod(iface.ConfigType); method {
-		case state.StaticAddress, state.DynamicAddress,
-			state.LoopbackAddress, state.ManualAddress:
+		var derivedConfigMethod corenetwork.AddressConfigMethod
+		switch method := corenetwork.AddressConfigMethod(iface.ConfigType); method {
+		case corenetwork.StaticAddress, corenetwork.DynamicAddress,
+			corenetwork.LoopbackAddress, corenetwork.ManualAddress:
 			derivedConfigMethod = method
 		case "dhcp": // awkward special case
-			derivedConfigMethod = state.DynamicAddress
+			derivedConfigMethod = corenetwork.DynamicAddress
 		default:
-			derivedConfigMethod = state.StaticAddress
+			derivedConfigMethod = corenetwork.StaticAddress
 		}
 
 		addr := state.LinkLayerDeviceAddress{
