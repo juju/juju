@@ -135,18 +135,18 @@ func (s *FilesystemStatusSuite) checkGetSetStatus(c *gc.C) {
 }
 
 func (s *FilesystemStatusSuite) TestGetSetStatusDying(c *gc.C) {
-	err := s.storageBackend.DestroyFilesystem(s.filesystem.FilesystemTag())
+	err := s.storageBackend.DestroyFilesystem(s.filesystem.FilesystemTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
 }
 
 func (s *FilesystemStatusSuite) TestGetSetStatusDead(c *gc.C) {
-	err := s.storageBackend.DestroyFilesystem(s.filesystem.FilesystemTag())
+	err := s.storageBackend.DestroyFilesystem(s.filesystem.FilesystemTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DetachFilesystem(s.machine.MachineTag(), s.filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveFilesystemAttachment(s.machine.MachineTag(), s.filesystem.FilesystemTag())
+	err = s.storageBackend.RemoveFilesystemAttachment(s.machine.MachineTag(), s.filesystem.FilesystemTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	filesystem, err := s.storageBackend.Filesystem(s.filesystem.FilesystemTag())

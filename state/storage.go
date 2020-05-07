@@ -577,7 +577,7 @@ func removeStorageInstanceOps(si *storageInstance, assert bson.D, force bool) ([
 		ops = append(ops, machineStorageOp(
 			filesystemsC, filesystem.Tag().Id(),
 		))
-		fsOps, err := destroyFilesystemOps(si.sb, filesystem, si.doc.Releasing, nil)
+		fsOps, err := destroyFilesystemOps(si.sb, filesystem, si.doc.Releasing, force, nil)
 		if err != nil {
 			if !force {
 				return nil, errors.Trace(err)
@@ -602,7 +602,7 @@ func removeStorageInstanceOps(si *storageInstance, assert bson.D, force bool) ([
 		// this case, we want to destroy only the filesystem; when
 		// the filesystem is removed, the volume will be destroyed.
 		if !haveFilesystem {
-			volOps, err := destroyVolumeOps(si.sb, volume, si.doc.Releasing, nil)
+			volOps, err := destroyVolumeOps(si.sb, volume, si.doc.Releasing, force, nil)
 			if err != nil {
 				if !force {
 					return nil, errors.Trace(err)
@@ -1492,7 +1492,7 @@ func removeStorageAttachmentOps(
 
 	// If the storage instance has an associated volume or
 	// filesystem, detach the volume/filesystem too.
-	detachOps, err := im.detachStorageAttachmentOps(si, s.Unit())
+	detachOps, err := im.detachStorageAttachmentOps(si, s.Unit(), force)
 	if err != nil {
 		if !force {
 			return nil, errors.Trace(err)
@@ -1504,7 +1504,7 @@ func removeStorageAttachmentOps(
 	return ops, nil
 }
 
-func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTag names.UnitTag) ([]txn.Op, error) {
+func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTag names.UnitTag, force bool) ([]txn.Op, error) {
 	unit, err := sb.unit(unitTag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1571,14 +1571,19 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 			return nil, nil
 		}
 
+		lifeAssert := isAliveDoc
+		if force {
+			// Since we are force destroying, life assert should be current volume's life.
+			lifeAssert = bson.D{{"life", volume.Life()}}
+		}
 		if plans, err := sb.machineVolumeAttachmentPlans(hostTag, volume.VolumeTag()); err != nil {
 			return nil, errors.Trace(err)
 		} else {
 			if len(plans) > 0 {
-				return detachStorageAttachmentOps(hostTag, volume.VolumeTag()), nil
+				return detachStorageAttachmentOps(hostTag, volume.VolumeTag(), lifeAssert), nil
 			}
 		}
-		return detachVolumeOps(hostTag, volume.VolumeTag()), nil
+		return detachVolumeOps(hostTag, volume.VolumeTag(), lifeAssert), nil
 
 	case StorageKindFilesystem:
 		filesystem, err := sb.storageInstanceFilesystem(si.StorageTag())
