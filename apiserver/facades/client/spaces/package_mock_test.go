@@ -1016,19 +1016,32 @@ func (mr *MockAddressMockRecorder) ConfigMethod() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigMethod", reflect.TypeOf((*MockAddress)(nil).ConfigMethod))
 }
 
-// Subnet mocks base method
-func (m *MockAddress) Subnet() (network.SubnetInfo, error) {
+// SubnetCIDR mocks base method
+func (m *MockAddress) SubnetCIDR() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Subnet")
-	ret0, _ := ret[0].(network.SubnetInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "SubnetCIDR")
+	ret0, _ := ret[0].(string)
+	return ret0
 }
 
-// Subnet indicates an expected call of Subnet
-func (mr *MockAddressMockRecorder) Subnet() *gomock.Call {
+// SubnetCIDR indicates an expected call of SubnetCIDR
+func (mr *MockAddressMockRecorder) SubnetCIDR() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subnet", reflect.TypeOf((*MockAddress)(nil).Subnet))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubnetCIDR", reflect.TypeOf((*MockAddress)(nil).SubnetCIDR))
+}
+
+// Value mocks base method
+func (m *MockAddress) Value() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Value")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Value indicates an expected call of Value
+func (mr *MockAddressMockRecorder) Value() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Value", reflect.TypeOf((*MockAddress)(nil).Value))
 }
 
 // MockUnit is a mock of Unit interface

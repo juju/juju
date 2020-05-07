@@ -185,7 +185,7 @@ func (api *API) ensureSubnetsCanBeMoved(subnets []MovingSubnet, spaceName string
 
 	affected, err := api.getAffectedNetworks(subnets, spaceName, force)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "determining affected networks")
 	}
 
 	if err := api.ensureSpaceConstraintIntegrity(affected); err != nil {
@@ -220,7 +220,7 @@ func (api *API) getAffectedNetworks(subnets []MovingSubnet, spaceName string, fo
 	}
 
 	if err := affected.processMachines(machines); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "processing machine networks")
 	}
 
 	return affected, nil

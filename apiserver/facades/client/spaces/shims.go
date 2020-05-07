@@ -12,21 +12,6 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 )
 
-// addressShim implements Address.
-type addressShim struct {
-	*state.Address
-}
-
-// Subnet implements Address by returning the state.Subnet
-// as a network.SubnetInfo
-func (a *addressShim) Subnet() (network.SubnetInfo, error) {
-	s, err := a.Address.Subnet()
-	if err != nil {
-		return network.SubnetInfo{}, errors.Trace(err)
-	}
-	return s.NetworkSubnet(), nil
-}
-
 // machineShim implements Machine.
 type machineShim struct {
 	*state.Machine
@@ -41,7 +26,7 @@ func (m *machineShim) AllAddresses() ([]Address, error) {
 	}
 	shimAddr := make([]Address, len(addresses))
 	for i, address := range addresses {
-		shimAddr[i] = &addressShim{address}
+		shimAddr[i] = address
 	}
 	return shimAddr, nil
 }

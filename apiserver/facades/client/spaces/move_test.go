@@ -124,6 +124,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *gc.C) {
 
 	spaceName := "destination"
 	subnetID := "3"
+	cidr := "10.10.10.0/24"
 
 	subnet := expectMovingSubnet(ctrl, subnetID, "")
 
@@ -133,8 +134,12 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *gc.C) {
 			Name: "from",
 			Subnets: network.SubnetInfos{
 				{
-					ID:   "3",
-					CIDR: "10.10.10.0/24",
+					ID:   network.Id(subnetID),
+					CIDR: cidr,
+				},
+				{
+					ID:   "666",
+					CIDR: "20.20.20.0/24",
 				},
 			},
 		},
@@ -158,7 +163,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *gc.C) {
 	bExp.ApplyOperation(moveSubnetsOp).Return(nil)
 
 	// Using different subnet - triggers no constraint violation.
-	m := expectMachine(ctrl, "2")
+	m := expectMachine(ctrl, "20.20.20.0/24")
 	expectMachineUnits(ctrl, m, "mysql", "mysql/0")
 	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m}, nil)
 
@@ -181,6 +186,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *gc.C) 
 
 	spaceName := "destination"
 	subnetID := "3"
+	cidr := "10.10.10.0/24"
 
 	subnet := expectMovingSubnet(ctrl, subnetID, "")
 
@@ -190,8 +196,8 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *gc.C) 
 			Name: "from",
 			Subnets: network.SubnetInfos{
 				{
-					ID:   "3",
-					CIDR: "10.10.10.0/24",
+					ID:   network.Id(subnetID),
+					CIDR: cidr,
 				},
 			},
 		},
@@ -211,7 +217,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *gc.C) 
 	cons2.EXPECT().ID().Return("c9741ea1-0c2a-444d-82f5-787583a48557:a#wordpress")
 	cons2.EXPECT().Value().Return(constraints.MustParse("spaces=^destination"))
 
-	m := expectMachine(ctrl, subnetID)
+	m := expectMachine(ctrl, cidr)
 	expectMachineUnits(ctrl, m, "mysql", "mysql/0")
 	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m}, nil)
 
@@ -241,6 +247,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceE
 
 	spaceName := "destination"
 	subnetID := "3"
+	cidr := "10.10.10.0/24"
 
 	subnet := expectMovingSubnet(ctrl, subnetID, "")
 
@@ -250,8 +257,8 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceE
 			Name: "from",
 			Subnets: network.SubnetInfos{
 				{
-					ID:   "3",
-					CIDR: "10.10.10.0/24",
+					ID:   network.Id(subnetID),
+					CIDR: cidr,
 				},
 			},
 		},
@@ -266,7 +273,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceE
 	cons.EXPECT().ID().Return("c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql")
 	cons.EXPECT().Value().Return(constraints.MustParse("spaces=^destination"))
 
-	m := expectMachine(ctrl, subnetID)
+	m := expectMachine(ctrl, cidr)
 	expectMachineUnits(ctrl, m, "mysql", "mysql/0")
 	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m}, nil)
 
@@ -288,6 +295,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedForOverl
 
 	spaceName := "destination"
 	subnetID := "3"
+	cidr := "10.10.10.0/24"
 	fanSubnetID := "666"
 
 	subnet := expectMovingSubnet(ctrl, subnetID, "")
@@ -301,13 +309,17 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedForOverl
 			Subnets: network.SubnetInfos{
 				{
 					ID:   network.Id(subnetID),
-					CIDR: "10.10.10.0/24",
+					CIDR: cidr,
 				},
+				// This simulates what we see in AWS, where the overlay is
+				// segmented based on zones.
+				// See below where we create an address in this Fan network.
 				{
 					ID:   network.Id(fanSubnetID),
-					CIDR: "10.0.0.0/8",
+					CIDR: "10.10.0.0/12",
 					FanInfo: &network.FanCIDRs{
-						FanLocalUnderlay: "10.10.10.0/24",
+						FanLocalUnderlay: cidr,
+						FanOverlay:       "10.0.0.0/8",
 					},
 				},
 			},
@@ -323,8 +335,17 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedForOverl
 	cons.EXPECT().ID().Return("c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql")
 	cons.EXPECT().Value().Return(constraints.MustParse("spaces=^destination"))
 
-	// We are connected to the overlay of a moving subnet.
-	m := expectMachine(ctrl, fanSubnetID)
+	// This address is reported as being in the main Fan overlay;
+	// not the segment in our network topology.
+	// So we expect the subnet to be looked up by the address value.
+	address := spaces.NewMockAddress(ctrl)
+	address.EXPECT().SubnetCIDR().Return("10.0.0.0/8")
+	address.EXPECT().ConfigMethod().Return(network.DynamicAddress)
+	address.EXPECT().Value().Return("10.10.0.5")
+
+	m := spaces.NewMockMachine(ctrl)
+	m.EXPECT().AllAddresses().Return([]spaces.Address{address}, nil)
+
 	expectMachineUnits(ctrl, m, "mysql", "mysql/0")
 	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m}, nil)
 
@@ -346,6 +367,7 @@ func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess
 
 	spaceName := "destination"
 	subnetID := "3"
+	cidr := "10.10.10.0/24"
 
 	subnet := expectMovingSubnet(ctrl, subnetID, "")
 
@@ -355,8 +377,8 @@ func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess
 			Name: "from",
 			Subnets: network.SubnetInfos{
 				{
-					ID:   "3",
-					CIDR: "10.10.10.0/24",
+					ID:   network.Id(subnetID),
+					CIDR: cidr,
 				},
 			},
 		},
@@ -371,7 +393,7 @@ func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess
 	cons.EXPECT().ID().Return("c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql")
 	cons.EXPECT().Value().Return(constraints.MustParse("spaces=^destination"))
 
-	m := expectMachine(ctrl, subnetID)
+	m := expectMachine(ctrl, cidr)
 	expectMachineUnits(ctrl, m, "mysql", "mysql/0")
 	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m}, nil)
 
@@ -408,6 +430,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsPositiveConstraintsViolatedNoForceE
 
 	spaceName := "destination"
 	subnetID := "3"
+	cidr := "10.10.10.0/24"
 
 	subnet := expectMovingSubnet(ctrl, subnetID, "")
 
@@ -419,8 +442,8 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsPositiveConstraintsViolatedNoForceE
 			// We are only moving one.
 			Subnets: network.SubnetInfos{
 				{
-					ID:   "3",
-					CIDR: "10.10.10.0/24",
+					ID:   network.Id(subnetID),
+					CIDR: cidr,
 				},
 				{
 					ID:   "6",
@@ -441,12 +464,12 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsPositiveConstraintsViolatedNoForceE
 
 	// mysql/0 is connected to both the moving subnet and the stationary one.
 	// It will satisfy the constraint even after the subnet relocation.
-	m1 := expectMachine(ctrl, subnetID, "6")
+	m1 := expectMachine(ctrl, cidr, "20.20.20.0/24")
 	expectMachineUnits(ctrl, m1, "mysql", "mysql/0")
 
 	// This machine's units are connected only to the moving subnet,
 	// which will violate the constraint.
-	m2 := expectMachine(ctrl, subnetID)
+	m2 := expectMachine(ctrl, cidr)
 	expectMachineUnits(ctrl, m2, "mysql", "mysql/1", "mysql/2")
 
 	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m1, m2}, nil)
@@ -470,6 +493,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceErro
 
 	spaceName := "destination"
 	subnetID := "3"
+	cidr := "10.10.10.0/24"
 
 	subnet := expectMovingSubnet(ctrl, subnetID, "")
 
@@ -481,8 +505,8 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceErro
 			// We are only moving one.
 			Subnets: network.SubnetInfos{
 				{
-					ID:   "3",
-					CIDR: "10.10.10.0/24",
+					ID:   network.Id(subnetID),
+					CIDR: cidr,
 				},
 				{
 					ID:   "6",
@@ -502,12 +526,12 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceErro
 
 	// mysql/0 is connected to both the moving subnet and the stationary one.
 	// It will satisfy the binding even after the subnet relocation.
-	m1 := expectMachine(ctrl, subnetID, "6")
+	m1 := expectMachine(ctrl, cidr, "20.20.20.0/24")
 	expectMachineUnits(ctrl, m1, "mysql", "mysql/0")
 
 	// This machine's units are connected only to the moving subnet,
 	// which will violate the binding.
-	m2 := expectMachine(ctrl, subnetID)
+	m2 := expectMachine(ctrl, cidr)
 	expectMachineUnits(ctrl, m2, "mysql", "mysql/1", "mysql/2")
 
 	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m1, m2}, nil)
@@ -561,11 +585,11 @@ func expectMovingSubnet(ctrl *gomock.Controller, subnetID, underlay string) *spa
 	return subnet
 }
 
-func expectMachine(ctrl *gomock.Controller, subnetIDs ...string) *spaces.MockMachine {
-	addrs := make([]spaces.Address, len(subnetIDs))
-	for i, subID := range subnetIDs {
+func expectMachine(ctrl *gomock.Controller, cidrs ...string) *spaces.MockMachine {
+	addrs := make([]spaces.Address, len(cidrs))
+	for i, cidr := range cidrs {
 		address := spaces.NewMockAddress(ctrl)
-		address.EXPECT().Subnet().Return(network.SubnetInfo{ID: network.Id(subID)}, nil)
+		address.EXPECT().SubnetCIDR().Return(cidr)
 		address.EXPECT().ConfigMethod().Return(network.DynamicAddress)
 		addrs[i] = address
 	}

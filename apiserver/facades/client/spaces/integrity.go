@@ -121,11 +121,7 @@ func (n *affectedNetworks) processMachines(machines []Machine) error {
 				continue
 			}
 
-			// TODO (manadart 2020-04-22): Note that the Subnet method here
-			// looks up the subnet info based on the address CIDR.
-			// The backing schema for this needs to be rethought for multi-net
-			// capability.
-			sub, err := address.Subnet()
+			sub, err := n.addressSubnet(address)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -142,6 +138,41 @@ func (n *affectedNetworks) processMachines(machines []Machine) error {
 	}
 
 	return nil
+}
+
+func (n *affectedNetworks) addressSubnet(addr Address) (network.SubnetInfo, error) {
+	allSubs, err := n.spaces.AllSubnetInfos()
+	if err != nil {
+		return network.SubnetInfo{}, errors.Trace(err)
+	}
+
+	subs, err := allSubs.GetByCIDR(addr.SubnetCIDR())
+	if err != nil {
+		return network.SubnetInfo{}, errors.Trace(err)
+	}
+
+	// TODO (manadart 2020-05-07): This is done on the basis of CIDR still
+	// uniquely identifying a subnet.
+	// It will have to change for multi-network enablement.
+	if len(subs) > 0 {
+		return subs[0], nil
+	}
+
+	// If the address CIDR was not located in our network topology,
+	// it *may* be due to the fact that fan addresses are indicated as being
+	// part of their *overlay* (such as 252.0.0.0/8), rather than the
+	// zone-specific segments of the overlay (such as 252.32.0.0/12)
+	// as seen in AWS.
+	// Try to locate a subnet based on the address itself.
+	subs, err = allSubs.GetByAddress(addr.Value())
+	if err != nil {
+		return network.SubnetInfo{}, errors.Trace(err)
+	}
+
+	if len(subs) > 0 {
+		return subs[0], nil
+	}
+	return network.SubnetInfo{}, errors.NotFoundf("subnet for machine address %q", addr.Value())
 }
 
 // includeMachine ensures that the units on the machine and their collection
