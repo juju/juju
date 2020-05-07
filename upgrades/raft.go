@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/feature"
 	raftworker "github.com/juju/juju/worker/raft"
 )
 
@@ -138,11 +137,8 @@ func MigrateLegacyLeases(context Context) error {
 	// * there are some legacy leases,
 	// * there aren't already leases in the store.
 	st := context.State()
-	controllerConfig, err := st.ControllerConfig()
-	if err != nil {
-		return errors.Annotate(err, "getting controller config")
-	}
-	if controllerConfig.Features().Contains(feature.LegacyLeases) {
+	// TODO(legacy-leases): remove this.
+	if false {
 		logger.Debugf("legacy-leases flag is set, not migrating leases")
 		return nil
 	}

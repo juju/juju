@@ -30,10 +30,6 @@ const DeveloperMode = "developer-mode"
 // values for annotations, status, status history, or settings.
 const StrictMigration = "strict-migration"
 
-// LegacyLeases will switch all lease management to be handled by the
-// Mongo-based lease store, rather than by the Raft FSM.
-const LegacyLeases = "legacy-leases"
-
 // Branches will allow for model branches functionality to be used.
 const Branches = "branches"
 

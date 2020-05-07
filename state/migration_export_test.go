@@ -873,30 +873,6 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	}
 }
 
-func (s *MigrationExportSuite) TestApplicationLeadershipLegacy(c *gc.C) {
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		"features": []interface{}{feature.LegacyLeases},
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.makeApplicationWithUnits(c, "mysql", 2)
-	s.makeUnitApplicationLeaderLegacy(c, "mysql/1", "mysql")
-
-	s.makeApplicationWithUnits(c, "wordpress", 4)
-	s.makeUnitApplicationLeaderLegacy(c, "wordpress/2", "wordpress")
-
-	model, err := s.State.Export()
-	c.Assert(err, jc.ErrorIsNil)
-
-	leaders := make(map[string]string)
-	for _, application := range model.Applications() {
-		leaders[application.Name()] = application.Leader()
-	}
-	c.Assert(leaders, jc.DeepEquals, map[string]string{
-		"mysql":     "mysql/1",
-		"wordpress": "wordpress/2",
-	})
-}
-
 func (s *MigrationExportSuite) TestApplicationLeadership(c *gc.C) {
 	s.makeApplicationWithUnits(c, "mysql", 2)
 	s.makeUnitApplicationLeader(c, "mysql/1", "mysql")
