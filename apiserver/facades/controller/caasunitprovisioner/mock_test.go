@@ -364,7 +364,7 @@ func (m *mockStorage) DestroyStorageInstance(tag names.StorageTag, destroyAttach
 	return nil
 }
 
-func (m *mockStorage) DestroyFilesystem(tag names.FilesystemTag) (err error) {
+func (m *mockStorage) DestroyFilesystem(tag names.FilesystemTag, force bool) (err error) {
 	m.MethodCall(m, "DestroyFilesystem", tag)
 	return nil
 }
