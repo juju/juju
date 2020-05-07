@@ -222,7 +222,12 @@ func (*subnetSuite) TestSubnetInfosGetByAddress(c *gc.C) {
 
 	subs, err := s.GetByAddress("10.10.10.5")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(subs, gc.DeepEquals, s[:2])
+
+	// We need to check these explicitly, because the IPNets of the original
+	// members will now be populated, making them differ.
+	c.Assert(subs, gc.HasLen, 2)
+	c.Check(subs[0].ProviderId, gc.Equals, network.Id("1"))
+	c.Check(subs[1].ProviderId, gc.Equals, network.Id("2"))
 
 	subs, err = s.GetByAddress("30.30.30.5")
 	c.Assert(err, jc.ErrorIsNil)

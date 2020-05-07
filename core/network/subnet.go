@@ -207,7 +207,7 @@ func (s SubnetInfos) GetByAddress(addr string) (SubnetInfos, error) {
 
 	var subs SubnetInfos
 	for _, sub := range s {
-		_, ipNet, err := net.ParseCIDR(sub.CIDR)
+		ipNet, err := sub.ParsedCIDRNetwork()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
