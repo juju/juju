@@ -77,10 +77,11 @@ type Fetcher interface {
 }
 
 type fetcher struct {
-	metadata *imagedownloads.Metadata
-	req      *http.Request
-	client   *http.Client
-	image    *Image
+	metadata         *imagedownloads.Metadata
+	req              *http.Request
+	client           *http.Client
+	image            *Image
+	imageDownloadURL string
 }
 
 // Fetch implements Fetcher. It fetches the image file from simplestreams and
@@ -104,7 +105,7 @@ func (f *fetcher) Fetch() error {
 			"got %d fetching image %q", resp.StatusCode, path.Base(
 				f.req.URL.String()))
 	}
-	err = f.image.write(resp.Body, f.metadata)
+	err = f.image.write(resp.Body, f.metadata, f.imageDownloadURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -123,7 +124,7 @@ type ProgressCallback func(message string)
 // metadata information from Oner and updates local cache via Fetcher.
 // A ProgressCallback can optionally be passed which will get update messages
 // as data is copied.
-func Sync(o Oner, f Fetcher, progress ProgressCallback) error {
+func Sync(o Oner, f Fetcher, imageDownloadURL string, progress ProgressCallback) error {
 	md, err := o.One()
 	if err != nil {
 		if errors.IsAlreadyExists(err) {
@@ -133,7 +134,7 @@ func Sync(o Oner, f Fetcher, progress ProgressCallback) error {
 		return errors.Trace(err)
 	}
 	if f == nil {
-		f, err = newDefaultFetcher(md, paths.DataDir, progress)
+		f, err = newDefaultFetcher(md, imageDownloadURL, paths.DataDir, progress)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -193,7 +194,7 @@ func (p *progressWriter) Write(content []byte) (n int, err error) {
 }
 
 // write saves the stream to disk and updates the metadata file.
-func (i *Image) write(r io.Reader, md *imagedownloads.Metadata) error {
+func (i *Image) write(r io.Reader, md *imagedownloads.Metadata, imageDownloadURL string) error {
 	tmpPath := i.tmpFile.Name()
 	defer func() {
 		err := i.tmpFile.Close()
@@ -212,7 +213,7 @@ func (i *Image) write(r io.Reader, md *imagedownloads.Metadata) error {
 	if i.progress == nil {
 		writer = io.MultiWriter(i.tmpFile, hash)
 	} else {
-		dlURL, _ := md.DownloadURL()
+		dlURL, _ := md.DownloadURL(imageDownloadURL)
 		progWriter := &progressWriter{
 			url:      dlURL.String(),
 			callback: i.progress,
@@ -267,12 +268,12 @@ func (i *Image) cleanupAll() {
 	}
 }
 
-func newDefaultFetcher(md *imagedownloads.Metadata, pathfinder func(string) (string, error), callback ProgressCallback) (*fetcher, error) {
-	i, err := newImage(md, pathfinder, callback)
+func newDefaultFetcher(md *imagedownloads.Metadata, imageDownloadURL string, pathfinder func(string) (string, error), callback ProgressCallback) (*fetcher, error) {
+	i, err := newImage(md, imageDownloadURL, pathfinder, callback)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	dlURL, err := md.DownloadURL()
+	dlURL, err := md.DownloadURL(imageDownloadURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -281,12 +282,12 @@ func newDefaultFetcher(md *imagedownloads.Metadata, pathfinder func(string) (str
 		return nil, errors.Trace(err)
 	}
 	client := &http.Client{}
-	return &fetcher{metadata: md, image: i, client: client, req: req}, nil
+	return &fetcher{metadata: md, image: i, client: client, req: req, imageDownloadURL: imageDownloadURL}, nil
 }
 
-func newImage(md *imagedownloads.Metadata, pathfinder func(string) (string, error), callback ProgressCallback) (*Image, error) {
+func newImage(md *imagedownloads.Metadata, imageDownloadURL string, pathfinder func(string) (string, error), callback ProgressCallback) (*Image, error) {
 	// Setup names and paths.
-	dlURL, err := md.DownloadURL()
+	dlURL, err := md.DownloadURL(imageDownloadURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
