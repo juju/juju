@@ -61,8 +61,36 @@ func (Suite) TestFetchManyDefaultFilter(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(len(got), jc.DeepEquals, 27)
 	for _, v := range got {
-		gotURL, err := v.DownloadURL()
+		gotURL, err := v.DownloadURL(ts.URL)
 		c.Check(err, jc.ErrorIsNil)
+		c.Check(strings.HasSuffix(gotURL.String(), v.FType), jc.IsTrue)
+		c.Check(strings.Contains(gotURL.String(), v.Release), jc.IsTrue)
+		c.Check(strings.Contains(gotURL.String(), v.Version), jc.IsTrue)
+	}
+}
+
+func (Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *gc.C) {
+	ts := httptest.NewServer(&sstreamsHandler{})
+	defer ts.Close()
+	tds := []simplestreams.DataSource{
+		newTestDataSource(ts.URL)}
+	constraints := imagemetadata.NewImageConstraint(
+		simplestreams.LookupParams{
+			Arches: []string{"amd64", "arm64", "ppc64el"},
+			Series: []string{"xenial"},
+			Stream: "released",
+		},
+	)
+	got, resolveInfo, err := Fetch(tds, constraints, nil)
+	c.Check(resolveInfo.Signed, jc.IsTrue)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(len(got), jc.DeepEquals, 27)
+	for _, v := range got {
+		// Note: instead of the index URL, we are pulling the actual
+		// images from a different operator-provided URL.
+		gotURL, err := v.DownloadURL("https://tasty-cloud-images.ubuntu.com")
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(strings.HasPrefix(gotURL.String(), "https://tasty-cloud-images.ubuntu.com"), jc.IsTrue, gc.Commentf("expected image download URL to use the operator-provided URL"))
 		c.Check(strings.HasSuffix(gotURL.String(), v.FType), jc.IsTrue)
 		c.Check(strings.Contains(gotURL.String(), v.Release), jc.IsTrue)
 		c.Check(strings.Contains(gotURL.String(), v.Version), jc.IsTrue)
@@ -86,7 +114,7 @@ func (Suite) TestFetchSingleDefaultFilter(c *gc.C) {
 	c.Check(got[0].Arch, jc.DeepEquals, "ppc64el")
 	c.Check(err, jc.ErrorIsNil)
 	for _, v := range got {
-		gotURL, err := v.DownloadURL()
+		gotURL, err := v.DownloadURL(ts.URL)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(strings.HasSuffix(gotURL.String(), v.FType), jc.IsTrue)
 	}
@@ -107,7 +135,10 @@ func (Suite) TestFetchOneWithFilter(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(len(got), jc.DeepEquals, 1)
 	c.Check(got[0].Arch, jc.DeepEquals, "ppc64el")
-	gotURL, err := got[0].DownloadURL()
+	// Assuming that the operator has not overridden the image download URL
+	// parameter we pass the default empty value which should fall back to
+	// the default cloud-images.ubuntu.com URL.
+	gotURL, err := got[0].DownloadURL("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		gotURL.String(),
@@ -134,7 +165,10 @@ func (Suite) TestFetchManyWithFilter(c *gc.C) {
 	c.Check(got[2].Arch, jc.DeepEquals, "ppc64el")
 	for i, arch := range []string{"amd64", "arm64", "ppc64el"} {
 		wantURL := fmt.Sprintf("http://cloud-images.ubuntu.com/server/releases/xenial/release-20161020/ubuntu-16.04-server-cloudimg-%s-disk1.img", arch)
-		gotURL, err := got[i].DownloadURL()
+		// Assuming that the operator has not overridden the image
+		// download URL parameter we pass the default empty value which
+		// should fall back to the default cloud-images.ubuntu.com URL.
+		gotURL, err := got[i].DownloadURL("")
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(gotURL.String(), jc.DeepEquals, wantURL)
 
