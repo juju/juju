@@ -197,6 +197,27 @@ func (s SubnetInfos) GetByCIDR(cidr string) (SubnetInfos, error) {
 	return matching, nil
 }
 
+// Get by address returns subnets that based on IP range,
+// include the input IP address.
+func (s SubnetInfos) GetByAddress(addr string) (SubnetInfos, error) {
+	ip := net.ParseIP(addr)
+	if ip == nil {
+		return nil, errors.NotValidf("%q as IP address", addr)
+	}
+
+	var subs SubnetInfos
+	for _, sub := range s {
+		_, ipNet, err := net.ParseCIDR(sub.CIDR)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if ipNet.Contains(ip) {
+			subs = append(subs, sub)
+		}
+	}
+	return subs, nil
+}
+
 // EqualTo returns true if this slice of SubnetInfo is equal to the input.
 func (s SubnetInfos) EqualTo(other SubnetInfos) bool {
 	if len(s) != len(other) {
