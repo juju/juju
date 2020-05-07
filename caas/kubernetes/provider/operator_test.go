@@ -981,6 +981,16 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 	opPod := core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-operator",
+			Annotations: map[string]string{
+				"juju-version":       "2.99.0",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
+		},
+		Spec: core.PodSpec{
+			Containers: []core.Container{{
+				Name:  "juju-operator",
+				Image: "test-image",
+			}},
 		},
 		Status: core.PodStatus{
 			Phase:   core.PodPending,

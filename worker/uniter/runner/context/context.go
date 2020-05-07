@@ -18,6 +18,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
+	"github.com/kr/pretty"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
@@ -1132,9 +1133,10 @@ func (ctx *HookContext) doFlush(process string) error {
 	commitReq, numChanges := b.Build()
 	if numChanges > 0 {
 		if err := ctx.unit.CommitHookChanges(commitReq); err != nil {
+			logger.Criticalf("CommitHookChanges commitReq -> %s", pretty.Sprint(commitReq))
 			err = errors.Annotatef(err, "cannot apply changes")
 			logger.Errorf("%v", err)
-			return err
+			return errors.Trace(err)
 		}
 	}
 
