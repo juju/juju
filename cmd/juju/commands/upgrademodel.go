@@ -580,6 +580,13 @@ func (e environConfigGetter) CloudSpec() (environs.CloudSpec, error) {
 
 var getEnviron = environs.GetEnviron
 
+// UpgradePrecheckEnviron combines two interfaces required by
+// result of getEnviron. It is for testing purposes only.
+type UpgradePrecheckEnviron interface {
+	environs.Environ
+	environs.JujuUpgradePrechecker
+}
+
 // precheckEnviron looks for available PrecheckUpgradeOperations from
 // the current environs and runs them for the controller model.
 func (c *upgradeJujuCommand) precheckEnviron(upgradeCtx *upgradeContext, api controllerAPI, agentVersion version.Number) error {
@@ -596,6 +603,13 @@ func (c *upgradeJujuCommand) precheckEnviron(upgradeCtx *upgradeContext, api con
 	cfgGetter := environConfigGetter{
 		controllerAPI: api,
 		modelTag:      names.NewModelTag(details.ModelUUID)}
+	return doPrecheckEnviron(cfgGetter, upgradeCtx, agentVersion)
+}
+
+// doPrecheckEnviron does the work on running precheck upgrade environ steps.
+// This is split out from precheckEnviron to facilitate testing without the
+// jujuconnsuite and without mocking a juju store.
+func doPrecheckEnviron(cfgGetter environConfigGetter, upgradeCtx *upgradeContext, agentVersion version.Number) error {
 	env, err := getEnviron(cfgGetter, environs.New)
 	if err != nil {
 		return err
