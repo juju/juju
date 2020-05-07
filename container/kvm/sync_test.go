@@ -26,7 +26,7 @@ var _ = gc.Suite(&cacheSuite{})
 func (cacheSuite) TestSyncOnerErrors(c *gc.C) {
 	o := fakeParams{FakeData: nil, Err: errors.New("oner failed")}
 	u := fakeFetcher{}
-	got := Sync(o, u, nil)
+	got := Sync(o, u, "", nil)
 	c.Assert(got, gc.ErrorMatches, "oner failed")
 }
 
@@ -35,21 +35,21 @@ func (cacheSuite) TestSyncOnerExists(c *gc.C) {
 		FakeData: nil,
 		Err:      errors.AlreadyExistsf("exists")}
 	u := fakeFetcher{}
-	got := Sync(o, u, nil)
+	got := Sync(o, u, "", nil)
 	c.Assert(got, jc.ErrorIsNil)
 }
 
 func (cacheSuite) TestSyncUpdaterErrors(c *gc.C) {
 	o := fakeParams{FakeData: &imagedownloads.Metadata{}, Err: nil}
 	u := fakeFetcher{Err: errors.New("updater failed")}
-	got := Sync(o, u, nil)
+	got := Sync(o, u, "", nil)
 	c.Assert(got, gc.ErrorMatches, "updater failed")
 }
 
 func (cacheSuite) TestSyncSucceeds(c *gc.C) {
 	o := fakeParams{FakeData: &imagedownloads.Metadata{}}
 	u := fakeFetcher{}
-	got := Sync(o, u, nil)
+	got := Sync(o, u, "", nil)
 	c.Assert(got, jc.ErrorIsNil)
 }
 
