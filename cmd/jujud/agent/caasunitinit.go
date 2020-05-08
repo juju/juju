@@ -168,7 +168,6 @@ func (c *CAASUnitInitCommand) Run(ctx *cmd.Context) (errOut error) {
 	} else if err != nil {
 		return errors.Annotatef(err, "failed to stat %s", jujucPath)
 	}
-	logger.Criticalf("CAASUnitInitCommand os.Environ -> %q", os.Environ())
 	unitPaths := uniter.NewPaths(cmdutil.DataDir, unitTag, nil)
 	if err = c.removeAllFunc(unitPaths.ToolsDir); err != nil && !os.IsNotExist(err) {
 		return errors.Annotatef(err, "failed to remove unit tools dir %s",

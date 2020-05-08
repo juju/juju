@@ -55,6 +55,7 @@ func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
 		case <-timeout:
 			return errors.Timeoutf("timeout while waiting for the upgraded operator of %q ready", appName)
 		case <-k.clock.After(1 * time.Second):
+			// TODO(caas): change to use k8s watcher to trigger the polling.
 			ready, err := podChecker()
 			if err != nil {
 				return errors.Trace(err)
