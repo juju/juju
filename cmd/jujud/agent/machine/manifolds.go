@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	proxyconfig "github.com/juju/juju/utils/proxy"
 	jworker "github.com/juju/juju/worker"
@@ -920,9 +919,10 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     machineactions.NewMachineActionsWorker,
 		})),
 
+		// TODO(legacy-leases): remove this.
 		legacyLeasesFlagName: ifController(featureflag.Manifold(featureflag.ManifoldConfig{
 			StateName: stateName,
-			FlagName:  feature.LegacyLeases,
+			FlagName:  "legacy-leases-always-off",
 			Logger:    loggo.GetLogger("juju.worker.legacyleasesenabled"),
 			NewWorker: featureflag.NewWorker,
 		})),

@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 )
@@ -499,7 +498,8 @@ func (ctx *facadeContext) ID() string {
 // - only a claimer for the current model can be obtained with legacy
 // leases.
 func (ctx *facadeContext) LeadershipClaimer(modelUUID string) (leadership.Claimer, error) {
-	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
+	// TODO(legacy-leases): remove this.
+	if false {
 		if modelUUID != ctx.State().ModelUUID() {
 			return nil, errors.Errorf("can't get leadership claimer for different model with legacy lease manager")
 		}
@@ -517,7 +517,8 @@ func (ctx *facadeContext) LeadershipClaimer(modelUUID string) (leadership.Claime
 
 // LeadershipChecker is part of the facade.Context interface.
 func (ctx *facadeContext) LeadershipChecker() (leadership.Checker, error) {
-	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
+	// TODO(legacy-leases): remove this.
+	if false {
 		return ctx.State().LeadershipChecker(), nil
 	}
 	checker, err := ctx.r.shared.leaseManager.Checker(
@@ -533,7 +534,8 @@ func (ctx *facadeContext) LeadershipChecker() (leadership.Checker, error) {
 // LeadershipPinner is part of the facade.Context interface.
 // Pinning functionality is only available with the Raft leases implementation.
 func (ctx *facadeContext) LeadershipPinner(modelUUID string) (leadership.Pinner, error) {
-	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
+	// TODO(legacy-leases): remove this.
+	if false {
 		return nil, errors.NotImplementedf(
 			"unable to get leadership pinner; pinning is not available with the legacy lease manager")
 	}
@@ -551,7 +553,8 @@ func (ctx *facadeContext) LeadershipPinner(modelUUID string) (leadership.Pinner,
 // It returns a reader that can be used to return all application leaders
 // in the model.
 func (ctx *facadeContext) LeadershipReader(modelUUID string) (leadership.Reader, error) {
-	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
+	// TODO(legacy-leases): remove this.
+	if false {
 		return legacyLeadershipReader{ctx.State()}, nil
 	}
 	reader, err := ctx.r.shared.leaseManager.Reader(
@@ -566,7 +569,8 @@ func (ctx *facadeContext) LeadershipReader(modelUUID string) (leadership.Reader,
 
 // SingularClaimer is part of the facade.Context interface.
 func (ctx *facadeContext) SingularClaimer() (lease.Claimer, error) {
-	if ctx.r.shared.featureEnabled(feature.LegacyLeases) {
+	// TODO(legacy-leases): remove this.
+	if false {
 		return ctx.State().SingularClaimer(), nil
 	}
 	return ctx.r.shared.leaseManager.Claimer(
