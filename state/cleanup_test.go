@@ -225,7 +225,7 @@ func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// Clean up, and check that the unit has been removed...
-	// There's 4 jobs for the destroy and then the model
+	// There are 4 jobs for the destroy and then the model
 	// cleanup task queues another set because force is used.
 	s.assertCleanupCountDirty(c, 4)
 	assertRemoved(c, pr.u0)
@@ -1071,9 +1071,8 @@ func (s *CleanupSuite) TestDyingUnitWithForceSchedulesForceFallback(c *gc.C) {
 	s.assertCleanupRuns(c)
 
 	assertUnitRemoved(c, unit)
-	// After this there are three cleanups remaining: removedUnit,
-	// dyingMachine, forceRemoveMachine (but the last is delayed a
-	// minute).
+	// After this there are two cleanups remaining: removedUnit, forceRemoveMachine
+	//(but the last is delayed a minute).
 	s.assertCleanupCountDirty(c, 2)
 
 	s.Clock.Advance(time.Minute)
@@ -1137,7 +1136,7 @@ func (s *CleanupSuite) TestForceDestroyUnitDestroysSubordinates(c *gc.C) {
 	s.assertNextCleanup(c, "forceRemoveUnit")
 
 	assertUnitRemoved(c, unit)
-	// After this there are three cleanups remaining: removedUnit, forceRemoveMachine.
+	// After this there are two cleanups remaining: removedUnit, forceRemoveMachine.
 	s.assertCleanupCount(c, 2)
 }
 
@@ -1173,7 +1172,7 @@ func (s *CleanupSuite) TestForceDestroyUnitLeavesRelations(c *gc.C) {
 	s.assertCleanupRuns(c)
 
 	assertUnitRemoved(c, unit)
-	// After this there are three cleanups remaining: removedUnit, forceRemoveMachine.
+	// After this there are two cleanups remaining: removedUnit, forceRemoveMachine.
 	s.assertCleanupCount(c, 2)
 }
 

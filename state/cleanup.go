@@ -470,7 +470,7 @@ func (st *State) cleanupStorageForDyingModel(modelUUID string, cleanupArgs []bso
 	return nil
 }
 
-// cleanupForceStorage forcibly removes any dead storage from a dying model..
+// cleanupForceStorage forcibly removes any remaining storage records from a dying model.
 func (st *State) cleanupForceStorage(cleanupArgs []bson.Raw) (err error) {
 	sb, err := NewStorageBackend(st)
 	if err != nil {
@@ -1423,7 +1423,7 @@ func cleanupDyingEntityStorage(sb *storageBackend, hostTag names.Tag, manual boo
 		}
 	}
 	for _, f := range filesystems {
-		if err := sb.DestroyFilesystem(f.FilesystemTag(), false); err != nil && !errors.IsNotFound(err) {
+		if err := sb.DestroyFilesystem(f.FilesystemTag(), force); err != nil && !errors.IsNotFound(err) {
 			if !force {
 				return errors.Trace(err)
 			}

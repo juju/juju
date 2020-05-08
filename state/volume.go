@@ -769,7 +769,6 @@ func detachVolumeOps(host names.Tag, v names.VolumeTag, asserts bson.D) []txn.Op
 	return []txn.Op{{
 		C:  volumeAttachmentsC,
 		Id: volumeAttachmentId(host.Id(), v.Id()),
-		// If we are forcing...
 		Assert: asserts,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}}

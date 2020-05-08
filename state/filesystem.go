@@ -696,7 +696,7 @@ func (sb *storageBackend) RemoveFilesystemAttachment(host names.Tag, filesystem 
 				// so we check if volume plans were created, and if not, just skip to
 				// detaching the actual disk
 				var volOps []txn.Op
-				if plans == nil || len(plans) == 0 {
+				if len(plans) == 0 {
 					volOps = detachVolumeOps(host, volume, lifeAssert)
 				} else {
 					volOps = detachStorageAttachmentOps(host, volume, lifeAssert)
@@ -772,7 +772,7 @@ func (sb *storageBackend) DestroyFilesystem(tag names.FilesystemTag, force bool)
 			{{"storageid", ""}},
 			{{"storageid", bson.D{{"$exists", false}}}},
 		}}}
-		return destroyFilesystemOps(sb, filesystem, false, true, hasNoStorageAssignment)
+		return destroyFilesystemOps(sb, filesystem, false, force, hasNoStorageAssignment)
 	}
 	return sb.mb.db().Run(buildTxn)
 }
