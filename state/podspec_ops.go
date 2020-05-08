@@ -7,11 +7,14 @@ import (
 	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/kr/pretty"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/leadership"
 )
+
+var logPodSpec = logger.Child("podspec")
 
 type setPodSpecOperation struct {
 	m       *CAASModel
@@ -102,18 +105,34 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 	existing, err := op.m.podInfo(op.appTag)
 	if err == nil {
 		asserts := bson.D{{Name: "upgrade-counter", Value: existing.UpgradeCounter}}
+		if existing.UpgradeCounter == 0 {
+			asserts = bson.D{
+				bson.DocElem{
+					Name: "$or", Value: []bson.D{
+						{{Name: "upgrade-counter", Value: 0}},
+						{{
+							Name: "upgrade-counter",
+							Value: bson.D{
+								{Name: "$exists", Value: false},
+							},
+						}},
+					},
+				},
+			}
+		}
 		updates := bson.D{{Name: "$inc", Value: bson.D{{"upgrade-counter", 1}}}}
 		// Either "spec" or "raw-spec" can be set for each application.
 		if op.spec != nil {
 			updates = append(updates, bson.DocElem{Name: "$set", Value: bson.D{{"spec", *op.spec}}})
-			asserts = append(asserts, getEmptyFieldAssert("raw-spec"))
+			asserts = append(asserts, getEmptyStringFieldAssert("raw-spec"))
 		}
 		if op.rawSpec != nil {
 			updates = append(updates, bson.DocElem{Name: "$set", Value: bson.D{{"raw-spec", *op.rawSpec}}})
-			asserts = append(asserts, getEmptyFieldAssert("spec"))
+			asserts = append(asserts, getEmptyStringFieldAssert("spec"))
 		}
 		sop.Assert = asserts
 		sop.Update = updates
+		logPodSpec.Criticalf("newSetPodSpecOperation err == nil buildTxn -> %s", pretty.Sprint(sop))
 	} else if errors.IsNotFound(err) {
 		sop.Assert = txn.DocMissing
 		newDoc := containerSpecDoc{}
@@ -124,6 +143,7 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 			newDoc.RawSpec = *op.rawSpec
 		}
 		sop.Insert = newDoc
+		logPodSpec.Criticalf("newSetPodSpecOperation errors.IsNotFound(err) buildTxn -> %s", pretty.Sprint(sop))
 	} else {
 		return nil, errors.Annotate(err, "setting pod spec")
 	}
@@ -133,19 +153,14 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 // Done implements ModelOperation.
 func (op *setPodSpecOperation) Done(err error) error { return err }
 
-func getEmptyFieldAssert(fieldName string) bson.DocElem {
+func getEmptyStringFieldAssert(fieldName string) bson.DocElem {
 	return bson.DocElem{
 		Name: "$or", Value: []bson.D{
-			{{
-				Name: fieldName, Value: "",
-			}},
+			{{Name: fieldName, Value: ""}},
 			{{
 				Name: fieldName,
 				Value: bson.D{
-					{
-						Name:  "$exists",
-						Value: false,
-					},
+					{Name: "$exists", Value: false},
 				},
 			}},
 		},
