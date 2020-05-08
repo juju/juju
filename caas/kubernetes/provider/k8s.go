@@ -2171,7 +2171,7 @@ func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]ca
 				fsInfo, err = k.volumeInfoForEmptyDir(vol, volMount, now)
 			} else {
 				// Ignore volumes which are not Juju managed filesystems.
-				logger.Debugf("Ignoring blank EmptyDir, PersistentVolumeClaim or ClaimName")
+				logger.Debugf("ignoring blank EmptyDir, PersistentVolumeClaim or ClaimName")
 				continue
 			}
 			if err != nil {

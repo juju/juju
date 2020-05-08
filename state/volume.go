@@ -767,8 +767,8 @@ func detachStorageAttachmentOps(host names.Tag, v names.VolumeTag, asserts bson.
 
 func detachVolumeOps(host names.Tag, v names.VolumeTag, asserts bson.D) []txn.Op {
 	return []txn.Op{{
-		C:  volumeAttachmentsC,
-		Id: volumeAttachmentId(host.Id(), v.Id()),
+		C:      volumeAttachmentsC,
+		Id:     volumeAttachmentId(host.Id(), v.Id()),
 		Assert: asserts,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}}

@@ -634,15 +634,15 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err := charm.ClearDownloads(u.paths.State.BundlesDir); err != nil {
 		u.logger.Warningf(err.Error())
 	}
-	logger := u.logger.Child("charm")
+	charmLogger := u.logger.Child("charm")
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
 		u.paths.State.DeployerDir,
 		charm.NewBundlesDir(
 			u.paths.State.BundlesDir,
 			u.downloader,
-			logger),
-		logger,
+			charmLogger),
+		charmLogger,
 	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create deployer")

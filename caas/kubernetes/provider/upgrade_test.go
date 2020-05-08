@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -17,7 +16,6 @@ import (
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/testing"
@@ -67,7 +65,7 @@ func (s *K8sBrokerSuite) TestUpgradeController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) assertUpgradeOperator(c *gc.C, shouldTimeout bool, adjustClock func(), assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertUpgradeApplication(c *gc.C, shouldTimeout bool, adjustClock func(), assertCalls ...*gomock.Call) {
 	operatorSS := apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "app-name-operator",
@@ -94,18 +92,15 @@ func (s *K8sBrokerSuite) assertUpgradeOperator(c *gc.C, shouldTimeout bool, adju
 		},
 	}
 
-	opPodPending := core.Pod{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "test-operator",
-		},
-		Status: core.PodStatus{
-			Phase:   core.PodPending,
-			Message: "test message.",
-		},
-	}
 	opPodRuning := core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-operator",
+		},
+		Spec: core.PodSpec{
+			Containers: []core.Container{
+				{Image: "foo"},
+				{Name: "juju-operator", Image: "jujud-operator:1.1.1"},
+			},
 		},
 		Status: core.PodStatus{
 			Phase:   core.PodRunning,
@@ -119,66 +114,43 @@ func (s *K8sBrokerSuite) assertUpgradeOperator(c *gc.C, shouldTimeout bool, adju
 		},
 	}
 
-	watcherOperator, operatorNotifier := newKubernetesTestWatcher()
-	s.k8sWatcherFn = func(_ cache.SharedIndexInformer, _ string, _ jujuclock.Clock) (provider.KubernetesNotifyWatcher, error) {
-		return watcherOperator, nil
-	}
-
 	updatedOperatorSS := operatorSS
 	updatedOperatorSS.Annotations["juju-version"] = "6.6.6"
 	updatedOperatorSS.Spec.Template.Annotations["juju-version"] = "6.6.6"
 	updatedOperatorSS.Spec.Template.Spec.Containers[1].Image = "jujud-operator:6.6.6"
 
-	preAssertCalls := []*gomock.Call{
-		// handle legacy operator name.
+	expectedAssertCalls := []*gomock.Call{
+		// check operator status.
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Get("app-name-operator", v1.GetOptions{}).
-			Return(&operatorSS, nil),
-	}
-	if shouldTimeout {
-		preAssertCalls = append(preAssertCalls,
-			s.mockStatefulSets.EXPECT().Update(&updatedOperatorSS).
-				DoAndReturn(func(in *apps.StatefulSet) (*apps.StatefulSet, error) {
-					return in, nil
-				}),
-			// check operator status.
-			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
-				Return(nil, s.k8sNotFoundError()),
-			s.mockStatefulSets.EXPECT().Get("app-name-operator", v1.GetOptions{}).
-				Return(&updatedOperatorSS, nil),
-			s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=app-name"}).
-				Return(&core.PodList{Items: []core.Pod{opPodPending}}, nil),
-			s.mockConfigMaps.EXPECT().Get("app-name-operator-config", v1.GetOptions{}).
-				Return(&opCm, nil),
-		)
-	} else {
-		preAssertCalls = append(preAssertCalls,
-			s.mockStatefulSets.EXPECT().Update(&updatedOperatorSS).
-				DoAndReturn(func(in *apps.StatefulSet) (*apps.StatefulSet, error) {
-					operatorNotifier()
-					return in, nil
-				}),
-			// check operator status.
-			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
-				Return(nil, s.k8sNotFoundError()),
-			s.mockStatefulSets.EXPECT().Get("app-name-operator", v1.GetOptions{}).
-				Return(&updatedOperatorSS, nil),
-			s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=app-name"}).
-				Return(&core.PodList{Items: []core.Pod{opPodRuning}}, nil),
-			s.mockConfigMaps.EXPECT().Get("app-name-operator-config", v1.GetOptions{}).
-				Return(&opCm, nil),
+			Return(&updatedOperatorSS, nil),
+		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=app-name"}).
+			Return(&core.PodList{Items: []core.Pod{opPodRuning}}, nil),
+		s.mockConfigMaps.EXPECT().Get("app-name-operator-config", v1.GetOptions{}).
+			Return(&opCm, nil),
 
-			// upgrade Juju init container in workload pod.
+		// handle legacy operator name.
+		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+	}
+	expectedAssertCalls = append(expectedAssertCalls, assertCalls...)
+	if !shouldTimeout {
+		expectedAssertCalls = append(expectedAssertCalls,
+			// handle legacy operator name.
 			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
+			s.mockStatefulSets.EXPECT().Get("app-name-operator", v1.GetOptions{}).
+				Return(&operatorSS, nil),
+			// Upgrade operator.
+			s.mockStatefulSets.EXPECT().Update(&updatedOperatorSS).
+				DoAndReturn(func(in *apps.StatefulSet) (*apps.StatefulSet, error) {
+					return in, nil
+				}),
 		)
 	}
 	gomock.InOrder(
-		append(
-			preAssertCalls,
-			assertCalls...,
-		)...,
+		expectedAssertCalls...,
 	)
 
 	errChan := make(chan error)
@@ -199,19 +171,7 @@ func (s *K8sBrokerSuite) assertUpgradeOperator(c *gc.C, shouldTimeout bool, adju
 	}
 }
 
-func (s *K8sBrokerSuite) TestUpgradeOperatorTimeoutFailed(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	s.assertUpgradeOperator(c, true,
-		func() {
-			err := s.clock.WaitAdvance(30*time.Second, testing.ShortWait, 1)
-			c.Assert(err, jc.ErrorIsNil)
-		},
-	)
-}
-
-func (s *K8sBrokerSuite) TestUpgradeOperatorForStatefulApp(c *gc.C) {
+func (s *K8sBrokerSuite) TestUpgradeApplicationTimeoutFailed(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -231,15 +191,70 @@ func (s *K8sBrokerSuite) TestUpgradeOperatorForStatefulApp(c *gc.C) {
 	expectedPatchSSData, err := json.Marshal(expectedPatchSS)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertUpgradeOperator(c, false, func() {},
+	s.assertUpgradeApplication(c, true,
+		func() {
+			err := s.clock.WaitAdvance(30*time.Second, testing.ShortWait, 2)
+			c.Assert(err, jc.ErrorIsNil)
+		},
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
 			Return(workloadStatefulSet, nil),
 		s.mockStatefulSets.EXPECT().Patch("app-name", k8stypes.StrategicMergePatchType, expectedPatchSSData).
 			Return(nil, nil),
+		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+			Return(&core.PodList{Items: []core.Pod{}}, nil),
 	)
 }
 
-func (s *K8sBrokerSuite) TestUpgradeOperatorForStatelessApp(c *gc.C) {
+var appPodRuning = core.Pod{
+	ObjectMeta: v1.ObjectMeta{
+		Name:   "app-name",
+		Labels: map[string]string{"juju-app": "app-name"},
+	},
+	Spec: core.PodSpec{
+		InitContainers: []core.Container{
+			{Name: "juju-operator", Image: "jujud-operator:6.6.6"},
+		},
+	},
+	Status: core.PodStatus{
+		Phase:   core.PodRunning,
+		Message: "test message.",
+	},
+}
+
+func (s *K8sBrokerSuite) TestUpgradeApplicationForStatefulApp(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	basicPodSpec := getBasicPodspec()
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.PodSpec(workloadSpec)
+	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
+		Name:      "database-appuuid",
+		MountPath: "path/to/here",
+	})
+	workloadStatefulSet := unitStatefulSetArg(2, "workload-storage", podSpec)
+	expectedPatchSS := apps.StatefulSet{Spec: unitStatefulSetArg(2, "workload-storage", podSpec).Spec}
+	upgradedInitContainer := initContainers()[0]
+	upgradedInitContainer.Image = "jujud-operator:6.6.6"
+	expectedPatchSS.Spec.Template.Spec.InitContainers = []core.Container{upgradedInitContainer}
+	expectedPatchSSData, err := json.Marshal(expectedPatchSS)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertUpgradeApplication(c, false, func() {
+		err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 2)
+		c.Assert(err, jc.ErrorIsNil)
+	},
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(workloadStatefulSet, nil),
+		s.mockStatefulSets.EXPECT().Patch("app-name", k8stypes.StrategicMergePatchType, expectedPatchSSData).
+			Return(nil, nil),
+		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+			Return(&core.PodList{Items: []core.Pod{appPodRuning}}, nil),
+	)
+}
+
+func (s *K8sBrokerSuite) TestUpgradeApplicationForStatelessApp(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -286,17 +301,22 @@ func (s *K8sBrokerSuite) TestUpgradeOperatorForStatelessApp(c *gc.C) {
 	expectedPatchDeploymentData, err := json.Marshal(expectedPatchDeployment)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertUpgradeOperator(c, false, func() {},
+	s.assertUpgradeApplication(c, false, func() {
+		err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 2)
+		c.Assert(err, jc.ErrorIsNil)
+	},
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
 			Return(workloadDeployment, nil),
 		s.mockDeployments.EXPECT().Patch("app-name", k8stypes.StrategicMergePatchType, expectedPatchDeploymentData).
 			Return(nil, nil),
+		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+			Return(&core.PodList{Items: []core.Pod{appPodRuning}}, nil),
 	)
 }
 
-func (s *K8sBrokerSuite) TestUpgradeOperatorForDaemonApp(c *gc.C) {
+func (s *K8sBrokerSuite) TestUpgradeApplicationForDaemonApp(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -339,7 +359,10 @@ func (s *K8sBrokerSuite) TestUpgradeOperatorForDaemonApp(c *gc.C) {
 	expectedPatchDaemonSetData, err := json.Marshal(expectedPatchDaemonSet)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertUpgradeOperator(c, false, func() {},
+	s.assertUpgradeApplication(c, false, func() {
+		err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 2)
+		c.Assert(err, jc.ErrorIsNil)
+	},
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
@@ -348,6 +371,8 @@ func (s *K8sBrokerSuite) TestUpgradeOperatorForDaemonApp(c *gc.C) {
 			Return(workloadDaemonSet, nil),
 		s.mockDaemonSets.EXPECT().Patch("app-name", k8stypes.StrategicMergePatchType, expectedPatchDaemonSetData).
 			Return(nil, nil),
+		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+			Return(&core.PodList{Items: []core.Pod{appPodRuning}}, nil),
 	)
 }
 
@@ -356,12 +381,10 @@ func (s *K8sBrokerSuite) TestUpgradeNothingToUpgrade(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{}).
+		s.mockStatefulSets.EXPECT().Get("controller", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 	)
 
-	err := s.broker.Upgrade("test-app", version.MustParse("6.6.6"))
-	c.Assert(err, gc.ErrorMatches, `getting the existing statefulset "test-app-operator" to upgrade:  "test" not found`)
+	err := s.broker.Upgrade("controller", version.MustParse("6.6.6"))
+	c.Assert(err, gc.ErrorMatches, `getting the existing statefulset "controller" to upgrade:  "test" not found`)
 }

@@ -102,15 +102,30 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 	existing, err := op.m.podInfo(op.appTag)
 	if err == nil {
 		asserts := bson.D{{Name: "upgrade-counter", Value: existing.UpgradeCounter}}
+		if existing.UpgradeCounter == 0 {
+			asserts = bson.D{
+				bson.DocElem{
+					Name: "$or", Value: []bson.D{
+						{{Name: "upgrade-counter", Value: 0}},
+						{{
+							Name: "upgrade-counter",
+							Value: bson.D{
+								{Name: "$exists", Value: false},
+							},
+						}},
+					},
+				},
+			}
+		}
 		updates := bson.D{{Name: "$inc", Value: bson.D{{"upgrade-counter", 1}}}}
 		// Either "spec" or "raw-spec" can be set for each application.
 		if op.spec != nil {
 			updates = append(updates, bson.DocElem{Name: "$set", Value: bson.D{{"spec", *op.spec}}})
-			asserts = append(asserts, getEmptyFieldAssert("raw-spec"))
+			asserts = append(asserts, getEmptyStringFieldAssert("raw-spec"))
 		}
 		if op.rawSpec != nil {
 			updates = append(updates, bson.DocElem{Name: "$set", Value: bson.D{{"raw-spec", *op.rawSpec}}})
-			asserts = append(asserts, getEmptyFieldAssert("spec"))
+			asserts = append(asserts, getEmptyStringFieldAssert("spec"))
 		}
 		sop.Assert = asserts
 		sop.Update = updates
@@ -133,19 +148,14 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 // Done implements ModelOperation.
 func (op *setPodSpecOperation) Done(err error) error { return err }
 
-func getEmptyFieldAssert(fieldName string) bson.DocElem {
+func getEmptyStringFieldAssert(fieldName string) bson.DocElem {
 	return bson.DocElem{
 		Name: "$or", Value: []bson.D{
-			{{
-				Name: fieldName, Value: "",
-			}},
+			{{Name: fieldName, Value: ""}},
 			{{
 				Name: fieldName,
 				Value: bson.D{
-					{
-						Name:  "$exists",
-						Value: false,
-					},
+					{Name: "$exists", Value: false},
 				},
 			}},
 		},

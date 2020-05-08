@@ -1134,7 +1134,7 @@ func (ctx *HookContext) doFlush(process string) error {
 		if err := ctx.unit.CommitHookChanges(commitReq); err != nil {
 			err = errors.Annotatef(err, "cannot apply changes")
 			logger.Errorf("%v", err)
-			return err
+			return errors.Trace(err)
 		}
 	}
 
@@ -1159,9 +1159,12 @@ func (ctx *HookContext) addCommitHookChangesForCAAS(builder *uniter.CommitHookPa
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
 	}
-	// isLeader check only applies if the yaml has been set,
-	// not if just reacting to an upgrade-charm hook.
-	if !isLeader && (ctx.k8sRawSpecYaml != nil || ctx.podSpecYaml != nil) {
+	// Only leader can set k8s spec.
+	if !isLeader {
+		if process == string(hooks.UpgradeCharm) {
+			// We do not want to fail the non leader unit's upgrade-charm hook.
+			return nil
+		}
 		logger.Errorf("%v is not the leader but is setting application k8s spec", ctx.unitName)
 		return ErrIsNotLeader
 	}
