@@ -42,7 +42,6 @@ func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MachineWithCharmsSuite) TestManageModelRunsCharmRevisionUpdater(c *gc.C) {
-	c.Skip("Update this test to work with raft leases")
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 
 	s.SetupScenario(c)
