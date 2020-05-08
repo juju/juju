@@ -44,11 +44,12 @@ type relationStateTracker struct {
 	subordinate     bool
 	principalName   string
 	charmDir        string
-	relationers     map[int]*Relationer
+	relationers     map[int]Relationer
 	remoteAppName   map[int]string
 	relationCreated map[int]bool
 	isPeerRelation  map[int]bool
 	stateMgr        StateManager
+	newRelationer   func(ru RelationUnit, stateMgr StateManager) Relationer
 }
 
 // NewRelationStateTracker returns a new RelationStateTracker instance.
@@ -70,11 +71,16 @@ func NewRelationStateTracker(cfg RelationStateTrackerConfig) (RelationStateTrack
 		subordinate:     subordinate,
 		principalName:   principalName,
 		charmDir:        cfg.CharmDir,
-		relationers:     make(map[int]*Relationer),
+		relationers:     make(map[int]Relationer),
 		remoteAppName:   make(map[int]string),
 		relationCreated: make(map[int]bool),
 		isPeerRelation:  make(map[int]bool),
 		abort:           cfg.Abort,
+		newRelationer:   NewRelationer,
+	}
+	r.stateMgr, err = NewStateManager(r.unit)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	if err := r.loadInitialState(); err != nil {
 		return nil, errors.Trace(err)
@@ -86,11 +92,6 @@ func NewRelationStateTracker(cfg RelationStateTrackerConfig) (RelationStateTrack
 // state of the corresponding relations.
 func (r *relationStateTracker) loadInitialState() error {
 	relationStatus, err := r.unit.RelationsStatus()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	r.stateMgr, err = NewStateManager(r.unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -155,7 +156,7 @@ func (r *relationStateTracker) joinRelation(rel Relation) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	relationer := NewRelationer(ru, r.stateMgr)
+	relationer := r.newRelationer(ru, r.stateMgr)
 	unitWatcher, err := r.unit.Watch()
 	if err != nil {
 		return errors.Trace(err)
@@ -208,12 +209,12 @@ func (r *relationStateTracker) joinRelation(rel Relation) (err error) {
 func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) error {
 	var charmSpec *charm.CharmDir
 	for id, relationSnapshot := range remote.Relations {
-		if rel, found := r.relationers[id]; found {
+		if relr, found := r.relationers[id]; found {
 			// We've seen this relation before. The only changes
 			// we care about are to the lifecycle state or status,
 			// and to the member settings versions. We handle
 			// differences in settings in nextRelationHook.
-			rel.ru.Relation().UpdateSuspended(relationSnapshot.Suspended)
+			relr.RelationUnit().Relation().UpdateSuspended(relationSnapshot.Suspended)
 			if relationSnapshot.Life == life.Dying || relationSnapshot.Suspended {
 				if err := r.setDying(id); err != nil {
 					return errors.Trace(err)
@@ -238,6 +239,7 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 		// Make sure we ignore relations not implemented by the unit's charm.
 		if charmSpec == nil {
 			if charmSpec, err = charm.ReadCharmDir(r.charmDir); err != nil {
+				logger.Criticalf("charmdir %q", r.charmDir)
 				return errors.Trace(err)
 			}
 		}
@@ -268,10 +270,14 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 		r.remoteAppName[id] = rel.OtherApplication()
 	}
 
-	if !r.subordinate {
-		return nil
+	if r.subordinate {
+		return r.maybeSetSubordinateDying()
 	}
 
+	return nil
+}
+
+func (r *relationStateTracker) maybeSetSubordinateDying() error {
 	// If no Alive relations remain between a subordinate unit's application
 	// and its principal's application, the subordinate must become Dying.
 	principalApp, err := names.UnitApplication(r.principalName)
@@ -279,11 +285,12 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 		return errors.Trace(err)
 	}
 	for _, relationer := range r.relationers {
-		if relationer.ru.Relation().OtherApplication() != principalApp {
+		relUnit := relationer.RelationUnit()
+		if relUnit.Relation().OtherApplication() != principalApp {
 			continue
 		}
-		scope := relationer.ru.Endpoint().Scope
-		if scope == charm.ScopeContainer && !relationer.dying {
+		scope := relUnit.Endpoint().Scope
+		if scope == charm.ScopeContainer && !relationer.IsDying() {
 			return nil
 		}
 	}
@@ -418,7 +425,7 @@ func (r *relationStateTracker) Name(id int) (string, error) {
 	if !found {
 		return "", errors.Errorf("unknown relation: %d", id)
 	}
-	return relationer.ru.Endpoint().Name, nil
+	return relationer.RelationUnit().Endpoint().Name, nil
 }
 
 // LocalUnitName returns the name for the local unit.

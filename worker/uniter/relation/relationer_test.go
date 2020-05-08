@@ -287,7 +287,7 @@ func (s *relationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	relUnit := &relation.RelationUnitShim{apiRelUnit}
 
 	r := relation.NewRelationer(relUnit, mgr)
-	c.Assert(r, jc.Satisfies, (*relation.Relationer).IsImplicit)
+	c.Assert(r.IsImplicit(), jc.IsTrue)
 
 	// Hooks are not allowed.
 	_, err = r.PrepareHook(hook.Info{})
