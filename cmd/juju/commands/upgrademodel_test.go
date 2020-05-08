@@ -15,10 +15,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
@@ -32,6 +34,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -1267,4 +1270,145 @@ func (s *UpgradeCAASModelSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest,
 		c.Check(ok, jc.IsTrue)
 		c.Check(agentVersion, gc.Equals, version.MustParse(test.expectVersion))
 	}
+}
+
+//go:generate go run github.com/golang/mock/mockgen -package commands -destination mockenvirons_test.go github.com/juju/juju/environs Environ,PrecheckJujuUpgradeStep
+//go:generate go run github.com/golang/mock/mockgen -package commands -destination mockupgradeenvirons_test.go github.com/juju/juju/cmd/juju/commands UpgradePrecheckEnviron
+
+type upgradePrecheckSuite struct {
+	testing.CleanupSuite
+
+	upgradeContext *upgradeContext
+	ops            []environs.PrecheckJujuUpgradeOperation
+
+	upgradeEnv *MockUpgradePrecheckEnviron
+	env        *MockEnviron
+}
+
+var _ = gc.Suite(&upgradePrecheckSuite{})
+
+func (s *upgradePrecheckSuite) SetUpTest(c *gc.C) {
+	s.CleanupSuite.SetUpTest(c)
+	s.upgradeContext = &upgradeContext{chosen: version.MustParse("2.7.6")}
+}
+
+func (s *upgradePrecheckSuite) TestPrecheckEnvironNoUpgradePrecheckEnviron(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.patchEnviron(s.env)
+
+	err := doPrecheckEnviron(environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradePrecheckSuite) TestPrecheckEnvironPrepareFail(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectPreparePrechecker(errors.NotSupportedf("testing"))
+	s.patchEnviron(s.upgradeEnv)
+
+	err := doPrecheckEnviron(environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (s *upgradePrecheckSuite) TestPrecheckEnvironRunNoSteps(c *gc.C) {
+	// upgrade from 2.7.4 to 2.7.6,
+	// step at 2.8.0 not run or test would blow up.
+	s.ops = []environs.PrecheckJujuUpgradeOperation{
+		{TargetVersion: version.MustParse("2.8.0")},
+	}
+
+	defer s.setupMocks(c).Finish()
+	s.expectPreparePrechecker(nil)
+	s.expectPrecheckUpgradeOperations()
+	s.patchEnviron(s.upgradeEnv)
+
+	err := doPrecheckEnviron(environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradePrecheckSuite) TestPrecheckEnvironRunOneOfTwoSteps(c *gc.C) {
+	// upgrade from 2.7.4 to 2.7.6, run step at 2.7.6
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.expectPreparePrechecker(nil)
+
+	stepPass := s.setupUpgradeStep(ctrl, "test 2.7.6 step", nil)
+	stepNotRun := NewMockPrecheckJujuUpgradeStep(ctrl)
+	s.ops = []environs.PrecheckJujuUpgradeOperation{
+		{TargetVersion: version.MustParse("2.8.0"), Steps: []environs.PrecheckJujuUpgradeStep{stepNotRun}},
+		{TargetVersion: version.MustParse("2.7.6"), Steps: []environs.PrecheckJujuUpgradeStep{stepPass}},
+	}
+
+	s.expectPrecheckUpgradeOperations()
+	s.patchEnviron(s.upgradeEnv)
+
+	err := doPrecheckEnviron(environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradePrecheckSuite) TestPrecheckEnvironRunStepRC(c *gc.C) {
+	// upgrade from 2.7.4 to 2.8-rc1, run step at 2.8.0
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.expectPreparePrechecker(nil)
+	s.upgradeContext.chosen = version.MustParse("2.8-rc1")
+
+	stepPass := s.setupUpgradeStep(ctrl, "test 2.8.0 step", nil)
+	s.ops = []environs.PrecheckJujuUpgradeOperation{
+		{TargetVersion: version.MustParse("2.8.0"), Steps: []environs.PrecheckJujuUpgradeStep{stepPass}},
+	}
+
+	s.expectPrecheckUpgradeOperations()
+	s.patchEnviron(s.upgradeEnv)
+
+	err := doPrecheckEnviron(environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradePrecheckSuite) TestPrecheckEnvironRunStepFail(c *gc.C) {
+	// upgrade from 2.7.4 to 2.7.6, fail step at 2.7.6
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.expectPreparePrechecker(nil)
+
+	stepPass := s.setupUpgradeStep(ctrl, "test 2.7.6 step", errors.NotSupportedf("test fail"))
+	s.ops = []environs.PrecheckJujuUpgradeOperation{
+		{TargetVersion: version.MustParse("2.7.6"), Steps: []environs.PrecheckJujuUpgradeStep{stepPass}},
+	}
+
+	s.expectPrecheckUpgradeOperations()
+	s.patchEnviron(s.upgradeEnv)
+
+	err := doPrecheckEnviron(environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (s *upgradePrecheckSuite) patchEnviron(env environs.Environ) {
+	s.PatchValue(&getEnviron,
+		func(_ environs.EnvironConfigGetter, _ environs.NewEnvironFunc) (environs.Environ, error) {
+			return env, nil
+		},
+	)
+}
+
+func (s *upgradePrecheckSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.upgradeEnv = NewMockUpgradePrecheckEnviron(ctrl)
+	s.env = NewMockEnviron(ctrl)
+	return ctrl
+}
+
+func (s *upgradePrecheckSuite) setupUpgradeStep(ctrl *gomock.Controller, msg string, err error) *MockPrecheckJujuUpgradeStep {
+	step := NewMockPrecheckJujuUpgradeStep(ctrl)
+	exp := step.EXPECT()
+	exp.Description().Return(msg)
+	exp.Run().Return(err)
+	return step
+}
+
+func (s *upgradePrecheckSuite) expectPreparePrechecker(err error) {
+	s.upgradeEnv.EXPECT().PreparePrechecker().Return(err)
+}
+
+func (s *upgradePrecheckSuite) expectPrecheckUpgradeOperations() {
+	s.upgradeEnv.EXPECT().PrecheckUpgradeOperations().Return(s.ops)
 }

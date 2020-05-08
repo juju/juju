@@ -356,7 +356,7 @@ func (s *StorageStateSuiteBase) obliterateUnitStorage(c *gc.C, tag names.UnitTag
 }
 
 func (s *StorageStateSuiteBase) obliterateVolume(c *gc.C, tag names.VolumeTag) {
-	err := s.storageBackend.DestroyVolume(tag)
+	err := s.storageBackend.DestroyVolume(tag, false)
 	if errors.IsNotFound(err) {
 		return
 	}
@@ -370,14 +370,14 @@ func (s *StorageStateSuiteBase) obliterateVolume(c *gc.C, tag names.VolumeTag) {
 }
 
 func (s *StorageStateSuiteBase) obliterateVolumeAttachment(c *gc.C, m names.Tag, v names.VolumeTag) {
-	err := s.storageBackend.DetachVolume(m, v)
+	err := s.storageBackend.DetachVolume(m, v, false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveVolumeAttachment(m, v)
+	err = s.storageBackend.RemoveVolumeAttachment(m, v, false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *StorageStateSuiteBase) obliterateFilesystem(c *gc.C, tag names.FilesystemTag) {
-	err := s.storageBackend.DestroyFilesystem(tag)
+	err := s.storageBackend.DestroyFilesystem(tag, false)
 	if errors.IsNotFound(err) {
 		return
 	}
@@ -393,7 +393,7 @@ func (s *StorageStateSuiteBase) obliterateFilesystem(c *gc.C, tag names.Filesyst
 func (s *StorageStateSuiteBase) obliterateFilesystemAttachment(c *gc.C, host names.Tag, f names.FilesystemTag) {
 	err := s.storageBackend.DetachFilesystem(host, f)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveFilesystemAttachment(host, f)
+	err = s.storageBackend.RemoveFilesystemAttachment(host, f, false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -933,9 +933,9 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 	// Detach, but do not destroy, the storage.
 	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveFilesystemAttachment(oldMachineTag, filesystem.FilesystemTag())
+	err = s.storageBackend.RemoveFilesystemAttachment(oldMachineTag, filesystem.FilesystemTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveVolumeAttachment(oldMachineTag, volume.VolumeTag())
+	err = s.storageBackend.RemoveVolumeAttachment(oldMachineTag, volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the second unit to a machine so that when we

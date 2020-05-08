@@ -209,3 +209,27 @@ func (*subnetSuite) TestSubnetInfosGetByID(c *gc.C) {
 	c.Check(s.GetByID("9"), gc.IsNil)
 	c.Check(s.ContainsID("9"), jc.IsFalse)
 }
+
+func (*subnetSuite) TestSubnetInfosGetByAddress(c *gc.C) {
+	s := network.SubnetInfos{
+		{ID: "1", CIDR: "10.10.10.0/24", ProviderId: "1"},
+		{ID: "2", CIDR: "10.10.10.0/24", ProviderId: "2"},
+		{ID: "3", CIDR: "20.20.20.0/24"},
+	}
+
+	_, err := s.GetByAddress("invalid")
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+
+	subs, err := s.GetByAddress("10.10.10.5")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We need to check these explicitly, because the IPNets of the original
+	// members will now be populated, making them differ.
+	c.Assert(subs, gc.HasLen, 2)
+	c.Check(subs[0].ProviderId, gc.Equals, network.Id("1"))
+	c.Check(subs[1].ProviderId, gc.Equals, network.Id("2"))
+
+	subs, err = s.GetByAddress("30.30.30.5")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(subs, gc.HasLen, 0)
+}

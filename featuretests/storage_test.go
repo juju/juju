@@ -665,9 +665,9 @@ storage-block/1  data/1      block                       pending
 
 	// Remove the volume attachment, and then attach the allecto
 	// storage to the second unit.
-	err = sb.DetachVolume(names.NewMachineTag("0"), vol.VolumeTag())
+	err = sb.DetachVolume(names.NewMachineTag("0"), vol.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = sb.RemoveVolumeAttachment(names.NewMachineTag("0"), vol.VolumeTag())
+	err = sb.RemoveVolumeAttachment(names.NewMachineTag("0"), vol.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = runAttachStorage(c, u2.Name(), "allecto/2")
 	c.Assert(err, jc.ErrorIsNil)

@@ -1134,7 +1134,7 @@ func (a *Facade) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) 
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
-		err = a.storage.DestroyFilesystem(fs.FilesystemTag())
+		err = a.storage.DestroyFilesystem(fs.FilesystemTag(), false)
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}

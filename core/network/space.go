@@ -119,28 +119,30 @@ func (s SpaceInfos) MoveSubnets(subnetIDs IDSet, spaceName string) (SpaceInfos, 
 		return nil, errors.NotFoundf("space with name %q", spaceName)
 	}
 
+	// We return a copy, not mutating the original.
+	newSpaces := make(SpaceInfos, len(s))
 	var movers SubnetInfos
 	found := MakeIDSet()
 
 	// First accrue the moving subnets and remove them from their old spaces.
 	for i, space := range s {
-		subs := space.Subnets
-		for j, sub := range subs {
+		newSpaces[i] = space
+		newSpaces[i].Subnets = nil
+
+		for _, sub := range space.Subnets {
 			if subnetIDs.Contains(sub.ID) {
 				// Indicate that we found the subnet,
 				// but don't do anything if it is already in the space.
 				found.Add(sub.ID)
-				if string(space.Name) == spaceName {
-					continue
+				if string(space.Name) != spaceName {
+					sub.SpaceID = newSpace.ID
+					sub.SpaceName = spaceName
+					sub.ProviderSpaceId = newSpace.ProviderId
+					movers = append(movers, sub)
 				}
-
-				sub.SpaceID = newSpace.ID
-				sub.SpaceName = spaceName
-				sub.ProviderSpaceId = newSpace.ProviderId
-
-				movers = append(movers, sub)
-				s[i].Subnets = append(subs[:j], subs[j+1:]...)
+				continue
 			}
+			newSpaces[i].Subnets = append(newSpaces[i].Subnets, sub)
 		}
 	}
 
@@ -152,13 +154,14 @@ func (s SpaceInfos) MoveSubnets(subnetIDs IDSet, spaceName string) (SpaceInfos, 
 	// Then put them against the new one.
 	// We have to find the space again in this collection,
 	// because newSpace was returned from a copy.
-	for i, space := range s {
+	for i, space := range newSpaces {
 		if string(space.Name) == spaceName {
-			s[i].Subnets = append(space.Subnets, movers...)
+			newSpaces[i].Subnets = append(space.Subnets, movers...)
 			break
 		}
 	}
-	return s, nil
+
+	return newSpaces, nil
 }
 
 // String returns returns a quoted, comma-delimited names of the spaces in the

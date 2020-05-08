@@ -63,7 +63,7 @@ func (c *kvmContainer) EnsureCachedImage(params StartParams) error {
 			_ = params.StatusCallback(status.Provisioning, msg, nil)
 		}
 	}
-	if err := Sync(sp, nil, callback); err != nil {
+	if err := Sync(sp, nil, params.ImageDownloadURL, callback); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return errors.Trace(err)
 		}

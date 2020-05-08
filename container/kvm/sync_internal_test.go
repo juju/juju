@@ -36,7 +36,7 @@ func (syncInternalSuite) TestFetcher(c *gc.C) {
 	ts := newTestServer()
 	defer ts.Close()
 
-	md := newTestMetadata(ts.URL)
+	md := newTestMetadata()
 
 	tmpdir, pathfinder, ok := newTmpdir()
 	if !ok {
@@ -51,7 +51,7 @@ func (syncInternalSuite) TestFetcher(c *gc.C) {
 		}
 	}()
 
-	fetcher, err := newDefaultFetcher(md, pathfinder, nil)
+	fetcher, err := newDefaultFetcher(md, ts.URL, pathfinder, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// setup a fake command runner.
@@ -74,7 +74,7 @@ func (syncInternalSuite) TestFetcherWriteFails(c *gc.C) {
 	ts := newTestServer()
 	defer ts.Close()
 
-	md := newTestMetadata(ts.URL)
+	md := newTestMetadata()
 
 	tmpdir, pathfinder, ok := newTmpdir()
 	if !ok {
@@ -89,7 +89,7 @@ func (syncInternalSuite) TestFetcherWriteFails(c *gc.C) {
 		}
 	}()
 
-	fetcher, err := newDefaultFetcher(md, pathfinder, nil)
+	fetcher, err := newDefaultFetcher(md, ts.URL, pathfinder, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// setup a fake command runner.
@@ -110,7 +110,7 @@ func (syncInternalSuite) TestFetcherInvalidSHA(c *gc.C) {
 	ts := newTestServer()
 	defer ts.Close()
 
-	md := newTestMetadata(ts.URL)
+	md := newTestMetadata()
 	md.SHA256 = "invalid"
 
 	tmpdir, pathfinder, ok := newTmpdir()
@@ -126,7 +126,7 @@ func (syncInternalSuite) TestFetcherInvalidSHA(c *gc.C) {
 		}
 	}()
 
-	fetcher, err := newDefaultFetcher(md, pathfinder, nil)
+	fetcher, err := newDefaultFetcher(md, ts.URL, pathfinder, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = fetcher.Fetch()
@@ -137,7 +137,7 @@ func (syncInternalSuite) TestFetcherNotFound(c *gc.C) {
 	ts := newTestServer()
 	defer ts.Close()
 
-	md := newTestMetadata(ts.URL)
+	md := newTestMetadata()
 	md.Path = "not-there"
 
 	tmpdir, pathfinder, ok := newTmpdir()
@@ -153,7 +153,7 @@ func (syncInternalSuite) TestFetcherNotFound(c *gc.C) {
 		}
 	}()
 
-	fetcher, err := newDefaultFetcher(md, pathfinder, nil)
+	fetcher, err := newDefaultFetcher(md, ts.URL, pathfinder, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = fetcher.Fetch()
@@ -161,7 +161,7 @@ func (syncInternalSuite) TestFetcherNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `got 404 fetching image "not-there" not found`)
 }
 
-func newTestMetadata(base string) *imagedownloads.Metadata {
+func newTestMetadata() *imagedownloads.Metadata {
 	return &imagedownloads.Metadata{
 		Arch:    "archless",
 		Release: "spammy",
@@ -170,7 +170,6 @@ func newTestMetadata(base string) *imagedownloads.Metadata {
 		SHA256:  "5e8467e6732923e74de52ef60134ba747aeeb283812c60f69b67f4f79aca1475",
 		Path:    "server.img",
 		Size:    int64(len(imageContents)),
-		BaseURL: base,
 	}
 }
 

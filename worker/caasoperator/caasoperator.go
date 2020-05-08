@@ -575,8 +575,9 @@ func (op *caasOperator) loop() (err error) {
 				params.UniterFacade = op.config.UniterFacadeFunc(unitTag)
 				params.LeadershipTracker = op.config.LeadershipTrackerFunc(unitTag)
 				params.ApplicationChannel = aliveUnits[unitID]
-				params.ContainerRunningStatusChannel = unitRunningChannels[unitID]
 				if op.deploymentMode != caas.ModeOperator {
+					params.IsRemoteUnit = true
+					params.ContainerRunningStatusChannel = unitRunningChannels[unitID]
 					params.ContainerRunningStatusFunc = func(providerID string) (*uniterremotestate.ContainerRunningStatus, error) {
 						return op.runningStatus(unitTag, providerID)
 					}
