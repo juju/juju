@@ -381,14 +381,10 @@ func (s *K8sBrokerSuite) TestUpgradeNothingToUpgrade(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockDaemonSets.EXPECT().Get("app-name", v1.GetOptions{}).
+		s.mockStatefulSets.EXPECT().Get("controller", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 	)
 
-	err := s.broker.Upgrade("test-app", version.MustParse("6.6.6"))
-	c.Assert(err, gc.ErrorMatches, `getting the existing statefulset "test-app-operator" to upgrade:  "test" not found`)
+	err := s.broker.Upgrade("controller", version.MustParse("6.6.6"))
+	c.Assert(err, gc.ErrorMatches, `getting the existing statefulset "controller" to upgrade:  "test" not found`)
 }
