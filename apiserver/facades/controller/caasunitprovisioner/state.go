@@ -50,7 +50,7 @@ type StorageBackend interface {
 	// TODO(caas) - record unit id on the filesystem so we can query by unit
 	AllFilesystems() ([]state.Filesystem, error)
 	DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait time.Duration) (err error)
-	DestroyFilesystem(tag names.FilesystemTag) (err error)
+	DestroyFilesystem(tag names.FilesystemTag, force bool) (err error)
 }
 
 // DeviceBackend provides the subset of backend Device

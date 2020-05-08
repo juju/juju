@@ -573,11 +573,11 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 	for _, volumeId := range []string{"0/0", "3"} {
 		volumeTag := names.NewVolumeTag(volumeId)
 		machineTag := names.NewMachineTag("0")
-		err = s.storageBackend.DestroyVolume(volumeTag)
+		err = s.storageBackend.DestroyVolume(volumeTag, false)
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.storageBackend.DetachVolume(machineTag, volumeTag)
+		err = s.storageBackend.DetachVolume(machineTag, volumeTag, false)
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.storageBackend.RemoveVolumeAttachment(machineTag, volumeTag)
+		err = s.storageBackend.RemoveVolumeAttachment(machineTag, volumeTag, false)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -591,9 +591,9 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 	unitMachineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	unitMachineTag := names.NewMachineTag(unitMachineId)
-	err = s.storageBackend.DetachVolume(unitMachineTag, storageVolume.VolumeTag())
+	err = s.storageBackend.DetachVolume(unitMachineTag, storageVolume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveVolumeAttachment(unitMachineTag, storageVolume.VolumeTag())
+	err = s.storageBackend.RemoveVolumeAttachment(unitMachineTag, storageVolume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := s.api.RemoveVolumeParams(params.Entities{
@@ -696,11 +696,11 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 	for _, filesystemId := range []string{"0/0", "1"} {
 		filesystemTag := names.NewFilesystemTag(filesystemId)
 		machineTag := names.NewMachineTag("0")
-		err = s.storageBackend.DestroyFilesystem(filesystemTag)
+		err = s.storageBackend.DestroyFilesystem(filesystemTag, false)
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.storageBackend.DetachFilesystem(machineTag, filesystemTag)
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.storageBackend.RemoveFilesystemAttachment(machineTag, filesystemTag)
+		err = s.storageBackend.RemoveFilesystemAttachment(machineTag, filesystemTag, false)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -716,7 +716,7 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 	unitMachineTag := names.NewMachineTag(unitMachineId)
 	err = s.storageBackend.DetachFilesystem(unitMachineTag, storageFilesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveFilesystemAttachment(unitMachineTag, storageFilesystem.FilesystemTag())
+	err = s.storageBackend.RemoveFilesystemAttachment(unitMachineTag, storageFilesystem.FilesystemTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := s.api.RemoveFilesystemParams(params.Entities{
@@ -1444,11 +1444,11 @@ func (s *iaasProvisionerSuite) TestRemoveVolumesController(c *gc.C) {
 		{"volume-invalid"}, {"machine-0"},
 	}}
 
-	err := s.storageBackend.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"))
+	err := s.storageBackend.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("1"))
+	err = s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("1"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("1"))
+	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("1"), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.api.Remove(args)
@@ -1474,9 +1474,9 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemsController(c *gc.C) {
 
 	err := s.storageBackend.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveFilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("1"))
+	err = s.storageBackend.RemoveFilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("1"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.DestroyFilesystem(names.NewFilesystemTag("1"))
+	err = s.storageBackend.DestroyFilesystem(names.NewFilesystemTag("1"), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.api.Remove(args)
@@ -1502,11 +1502,11 @@ func (s *iaasProvisionerSuite) TestRemoveVolumesMachineAgent(c *gc.C) {
 		{"volume-invalid"}, {"machine-0"},
 	}}
 
-	err := s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"))
+	err := s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
+	err = s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"))
+	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.api.Remove(args)
@@ -1530,9 +1530,9 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemsMachineAgent(c *gc.C) {
 		{"filesystem-invalid"}, {"machine-0"},
 	}}
 
-	err := s.storageBackend.DestroyFilesystem(names.NewFilesystemTag("0/0"))
+	err := s.storageBackend.DestroyFilesystem(names.NewFilesystemTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveFilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
+	err = s.storageBackend.RemoveFilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.api.Remove(args)
@@ -1553,7 +1553,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeAttachments(c *gc.C) {
 	s.setupVolumes(c)
 	s.authorizer.Controller = false
 
-	err := s.storageBackend.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"))
+	err := s.storageBackend.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := s.api.RemoveAttachment(params.MachineStorageIds{
@@ -1724,9 +1724,9 @@ func (s *caasProvisionerSuite) TestRemoveFilesystemsApplicationAgent(c *gc.C) {
 		{"filesystem-invalid"}, {"machine-0"},
 	}}
 
-	err := s.storageBackend.DestroyFilesystem(names.NewFilesystemTag("0"))
+	err := s.storageBackend.DestroyFilesystem(names.NewFilesystemTag("0"), false)
 	c.Assert(err, gc.ErrorMatches, "destroying filesystem 0: filesystem is assigned to storage cache/0")
-	err = s.storageBackend.RemoveFilesystemAttachment(names.NewUnitTag("mariadb/0"), names.NewFilesystemTag("0"))
+	err = s.storageBackend.RemoveFilesystemAttachment(names.NewUnitTag("mariadb/0"), names.NewFilesystemTag("0"), false)
 	c.Assert(err, gc.ErrorMatches, "removing attachment of filesystem 0 from unit mariadb/0: filesystem attachment is not dying")
 
 	result, err := s.api.Remove(args)

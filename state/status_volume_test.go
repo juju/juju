@@ -141,18 +141,18 @@ func (s *VolumeStatusSuite) checkGetSetStatus(c *gc.C, volumeStatus status.Statu
 }
 
 func (s *VolumeStatusSuite) TestGetSetStatusDying(c *gc.C) {
-	err := s.storageBackend.DestroyVolume(s.volume.VolumeTag())
+	err := s.storageBackend.DestroyVolume(s.volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c, status.Attaching)
 }
 
 func (s *VolumeStatusSuite) TestGetSetStatusDead(c *gc.C) {
-	err := s.storageBackend.DestroyVolume(s.volume.VolumeTag())
+	err := s.storageBackend.DestroyVolume(s.volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.DetachVolume(s.machine.MachineTag(), s.volume.VolumeTag())
+	err = s.storageBackend.DetachVolume(s.machine.MachineTag(), s.volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveVolumeAttachment(s.machine.MachineTag(), s.volume.VolumeTag())
+	err = s.storageBackend.RemoveVolumeAttachment(s.machine.MachineTag(), s.volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	volume, err := s.storageBackend.Volume(s.volume.VolumeTag())

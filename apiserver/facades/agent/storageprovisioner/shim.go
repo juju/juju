@@ -102,13 +102,13 @@ type StorageBackend interface {
 	VolumeAttachmentPlans(volume names.VolumeTag) ([]state.VolumeAttachmentPlan, error)
 
 	RemoveFilesystem(names.FilesystemTag) error
-	RemoveFilesystemAttachment(names.Tag, names.FilesystemTag) error
+	RemoveFilesystemAttachment(names.Tag, names.FilesystemTag, bool) error
 	RemoveVolume(names.VolumeTag) error
-	RemoveVolumeAttachment(names.Tag, names.VolumeTag) error
+	RemoveVolumeAttachment(names.Tag, names.VolumeTag, bool) error
 	DetachFilesystem(names.Tag, names.FilesystemTag) error
-	DestroyFilesystem(names.FilesystemTag) error
-	DetachVolume(names.Tag, names.VolumeTag) error
-	DestroyVolume(names.VolumeTag) error
+	DestroyFilesystem(names.FilesystemTag, bool) error
+	DetachVolume(names.Tag, names.VolumeTag, bool) error
+	DestroyVolume(names.VolumeTag, bool) error
 
 	SetFilesystemInfo(names.FilesystemTag, state.FilesystemInfo) error
 	SetFilesystemAttachmentInfo(names.Tag, names.FilesystemTag, state.FilesystemAttachmentInfo) error
@@ -116,7 +116,7 @@ type StorageBackend interface {
 	SetVolumeAttachmentInfo(names.Tag, names.VolumeTag, state.VolumeAttachmentInfo) error
 
 	CreateVolumeAttachmentPlan(names.Tag, names.VolumeTag, state.VolumeAttachmentPlanInfo) error
-	RemoveVolumeAttachmentPlan(names.Tag, names.VolumeTag) error
+	RemoveVolumeAttachmentPlan(names.Tag, names.VolumeTag, bool) error
 	SetVolumeAttachmentPlanBlockInfo(machineTag names.Tag, volumeTag names.VolumeTag, info state.BlockDeviceInfo) error
 }
 

@@ -471,7 +471,8 @@ func (s *StorageProvisionerAPIv3) RemoveVolumeAttachmentPlan(args params.Machine
 		}
 		return s.sb.RemoveVolumeAttachmentPlan(
 			volumeAttachmentPlan.Machine(),
-			volumeAttachmentPlan.Volume())
+			volumeAttachmentPlan.Volume(),
+			false)
 	}
 	for i, arg := range args.Ids {
 		err := one(arg)
@@ -1592,9 +1593,9 @@ func (s *StorageProvisionerAPIv3) RemoveAttachment(args params.MachineStorageIds
 		}
 		switch attachmentTag := attachmentTag.(type) {
 		case names.VolumeTag:
-			return s.sb.RemoveVolumeAttachment(hostTag, attachmentTag)
+			return s.sb.RemoveVolumeAttachment(hostTag, attachmentTag, false)
 		case names.FilesystemTag:
-			return s.sb.RemoveFilesystemAttachment(hostTag, attachmentTag)
+			return s.sb.RemoveFilesystemAttachment(hostTag, attachmentTag, false)
 		default:
 			return common.ErrPerm
 		}
