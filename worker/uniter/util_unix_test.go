@@ -14,8 +14,6 @@ import (
 )
 
 var (
-	jujudBuildArgs = []string{"github.com/juju/juju/cmd/jujud"}
-
 	// Command suffix for the hooks
 	cmdSuffix = ""
 
