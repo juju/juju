@@ -7,14 +7,11 @@ import (
 	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/kr/pretty"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/leadership"
 )
-
-var logPodSpec = logger.Child("podspec")
 
 type setPodSpecOperation struct {
 	m       *CAASModel
@@ -132,7 +129,6 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 		}
 		sop.Assert = asserts
 		sop.Update = updates
-		logPodSpec.Criticalf("newSetPodSpecOperation err == nil buildTxn -> %s", pretty.Sprint(sop))
 	} else if errors.IsNotFound(err) {
 		sop.Assert = txn.DocMissing
 		newDoc := containerSpecDoc{}
@@ -143,7 +139,6 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 			newDoc.RawSpec = *op.rawSpec
 		}
 		sop.Insert = newDoc
-		logPodSpec.Criticalf("newSetPodSpecOperation errors.IsNotFound(err) buildTxn -> %s", pretty.Sprint(sop))
 	} else {
 		return nil, errors.Annotate(err, "setting pod spec")
 	}

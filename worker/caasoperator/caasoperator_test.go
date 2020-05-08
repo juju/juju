@@ -20,6 +20,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/symlink"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
@@ -434,6 +435,36 @@ func (s *WorkerSuite) TestRemovedApplication(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestMakeAgentSymlinks(c *gc.C) {
+	w, err := caasoperator.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	unitTag := names.NewUnitTag("gitlab/0")
+	op := w.(*caasoperator.CaasOperator)
+	unitDir := filepath.Join(op.GetDataDir(), "agents", unitTag.String())
+	err = os.MkdirAll(unitDir, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unitCharmLegacySymlink := filepath.Join(unitDir, "charm")
+	fakeAppDir := c.MkDir()
+	err = symlink.New(fakeAppDir, unitCharmLegacySymlink)
+	c.Assert(err, jc.ErrorIsNil)
+	assertSymlinkExist(c, unitCharmLegacySymlink)
+
+	err = op.MakeAgentSymlinks(unitTag)
+	c.Assert(err, jc.ErrorIsNil)
+	assertSymlinkNotExist(c, unitCharmLegacySymlink)
+}
+
+func assertSymlinkExist(c *gc.C, path string) {
+	symlinkExists, err := symlink.IsSymlink(path)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(symlinkExists, jc.IsTrue)
+}
+
+func assertSymlinkNotExist(c *gc.C, path string) {
+	_, err := symlink.IsSymlink(path)
+	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
 }
 
 func (s *WorkerSuite) TestContainerStart(c *gc.C) {

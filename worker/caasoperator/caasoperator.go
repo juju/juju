@@ -301,6 +301,7 @@ func (op *caasOperator) makeAgentSymlinks(unitTag names.UnitTag) error {
 		return errors.Trace(err)
 	}
 	if isUnitCharmDirSymlink {
+		op.config.Logger.Warningf("removing legacy charm symlink for %q", unitTag.String())
 		if err := os.Remove(unitCharmDir); err != nil {
 			return errors.Trace(err)
 		}
