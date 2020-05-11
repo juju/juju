@@ -54,3 +54,39 @@ func handleContainerNotFoundError(err error) error {
 	}
 	return containerNotRunningError(match[1])
 }
+
+type exec137Error struct {
+	err string
+}
+
+var _ error = &exec137Error{}
+
+func (e exec137Error) Error() string {
+	return e.err
+}
+
+func newexec137Error(err error) error {
+	return &exec137Error{
+		err: fmt.Sprintf("%v", err),
+	}
+}
+
+// IsExec137Error returns true when the supplied error is
+// caused by an exec137Error.
+func IsExec137Error(err error) bool {
+	_, ok := errors.Cause(err).(*exec137Error)
+	return ok
+}
+
+func handleExec137Error(err error) error {
+	if err == nil {
+		return nil
+	}
+	if exitErr, ok := errors.Cause(err).(ExitError); ok {
+		logger.Criticalf("handleExec137Error!!! %#v, %q", exitErr, exitErr.ExitStatus())
+		if exitErr.ExitStatus() == 137 {
+			return newexec137Error(exitErr)
+		}
+	}
+	return err
+}

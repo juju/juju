@@ -149,7 +149,11 @@ func processEnv(env []string) (string, error) {
 	return out, nil
 }
 
-func (c client) exec(opts ExecParams, cancel <-chan struct{}) error {
+func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
+	defer func() {
+		err = handleExec137Error(err)
+	}()
+
 	pidFile := fmt.Sprintf("/tmp/%s.pid", randomString(8, utils.LowerAlpha))
 	cmd := ""
 	if opts.WorkingDir != "" {

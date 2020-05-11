@@ -4,6 +4,9 @@
 package operation
 
 import (
+	"fmt"
+
+	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
@@ -34,12 +37,18 @@ func (op *remoteInit) Prepare(state State) (*State, error) {
 
 // Execute is part of the Operation interface.
 func (op *remoteInit) Execute(state State) (*State, error) {
-	if err := op.callbacks.RemoteInit(op.runningStatus, op.abort); err != nil {
+	step := Done
+	err := op.callbacks.RemoteInit(op.runningStatus, op.abort)
+	if exec.IsExec137Error(err) {
+		fmt.Println("RemoteInit exec.IsExec137Error(err)..........")
+		step = Pending
+	}
+	if err != nil {
 		return nil, err
 	}
 	return stateChange{
 		Kind: RemoteInit,
-		Step: Done,
+		Step: step,
 		Hook: state.Hook,
 	}.apply(state), nil
 }
