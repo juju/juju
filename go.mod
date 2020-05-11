@@ -73,7 +73,7 @@ require (
 	github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
 	github.com/juju/terms-client v1.0.2-0.20200331164339-fab45ea044ae
-	github.com/juju/testing v0.0.0-20200508032009-c4045af1c73f
+	github.com/juju/testing v0.0.0-20200510222523-6c8c298c77a0
 	github.com/juju/txn v0.0.0-20190416045819-5f348e78887d
 	github.com/juju/usso v0.0.0-20160401104424-68a59c96c178 // indirect
 	github.com/juju/utils v0.0.0-20200424103611-54ececcc5fc7
@@ -107,7 +107,7 @@ require (
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
-	golang.org/x/crypto v0.0.0-20200429183012-4b2356b1ed79
+	golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37
 	golang.org/x/net v0.0.0-20200506145744-7e3656a0809f
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f
