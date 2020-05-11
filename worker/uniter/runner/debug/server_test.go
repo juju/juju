@@ -248,6 +248,17 @@ func (s *DebugHooksServerSuite) TestRunHookDebugAt(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(session.DebugAt(), gc.Equals, "all")
 
+	flockAcquired := make(chan struct{}, 0)
+	waitForFlock := func() {
+		select {
+		case <-flockAcquired:
+		case <-time.After(testing.ShortWait):
+			c.Fatalf("timed out waiting for hook to acquire flock")
+		}
+	}
+	s.PatchValue(&waitClientExit, func(*ServerSession) {
+		flockAcquired <- struct{}{}
+	})
 	const hookName = "myhook"
 	hookRunner := s.tmpdir + "/" + hookName
 	err = ioutil.WriteFile(hookRunner, []byte(`#!/bin/bash --norc
@@ -258,22 +269,14 @@ echo ran hook >&2
 	env := os.Environ()
 	env = append(env, "JUJU_DISPATCH_PATH=hooks/"+hookName)
 	env = append(env, "JUJU_HOOK_NAME="+hookName)
-	runHookCh := make(chan error)
-	go func() {
-		runHookCh <- session.RunHook(hookName, s.tmpdir, env, hookRunner)
-	}()
+	err = session.RunHook(hookName, s.tmpdir, env, hookRunner)
+	waitForFlock() // Close the goroutine that was spawned to ensure cleanup
 
-	// RunHook should complete once we finish running the hook.sh
-	select {
-	case err := <-runHookCh:
-		c.Check(output.String(), gc.Equals,
-			fmt.Sprintf(`--log-level INFO debug running %s for myhook
+	c.Check(output.String(), gc.Equals,
+		fmt.Sprintf(`--log-level INFO debug running %s for myhook
 ran hook
 `, hookRunner))
-		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(testing.LongWait):
-		c.Fatal("RunHook did not complete")
-	}
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *DebugHooksServerSuite) TestRunHookDebugAtNoHook(c *gc.C) {
@@ -289,23 +292,27 @@ func (s *DebugHooksServerSuite) TestRunHookDebugAtNoHook(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(session.DebugAt(), gc.Equals, "all")
 
+	flockAcquired := make(chan struct{}, 0)
+	waitForFlock := func() {
+		select {
+		case <-flockAcquired:
+		case <-time.After(testing.ShortWait):
+			c.Fatalf("timed out waiting for hook to acquire flock")
+		}
+	}
+	s.PatchValue(&waitClientExit, func(*ServerSession) {
+		flockAcquired <- struct{}{}
+	})
 	env := os.Environ()
 	env = append(env, "JUJU_DISPATCH_PATH=hooks/"+hookName)
 	env = append(env, "JUJU_HOOK_NAME="+hookName)
-	runHookCh := make(chan error)
-	go func() {
-		runHookCh <- session.RunHook(hookName, s.tmpdir, env, "")
-	}()
+	err = session.RunHook(hookName, s.tmpdir, env, "")
+	waitForFlock() // Close the goroutine that was spawned to ensure cleanup
 
 	// RunHook should complete once we finish running the hook.sh
-	select {
-	case err := <-runHookCh:
-		c.Check(output.String(), gc.Equals,
-			"--log-level INFO debugging is enabled, but no handler for no-hook, skipping\n")
-		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(testing.LongWait):
-		c.Fatal("RunHook did not complete")
-	}
+	c.Check(output.String(), gc.Equals,
+		"--log-level INFO debugging is enabled, but no handler for no-hook, skipping\n")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *DebugHooksServerSuite) verifyEnvshFile(c *gc.C, envshPath string, hookName string) {
