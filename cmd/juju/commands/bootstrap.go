@@ -559,37 +559,6 @@ to create a new model to deploy k8s workloads.
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// If region is specified by the user, validate it here.
-	// lp#1632735
-	if c.Region != "" {
-		_, err := jujucloud.RegionByName(cloud.Regions, c.Region)
-		if err != nil {
-			allRegions := make([]string, len(cloud.Regions))
-			for i, one := range cloud.Regions {
-				allRegions[i] = one.Name
-			}
-			if len(allRegions) > 0 {
-				naturalsort.Sort(allRegions)
-				plural := "s are"
-				if len(allRegions) == 1 {
-					plural = " is"
-				}
-				ctx.Infof("Available cloud region%v %v", plural, strings.Join(allRegions, ", "))
-			}
-			return errors.NotValidf("region %q for cloud %q", c.Region, c.Cloud)
-		}
-	}
-
-	isCAASController := jujucloud.CloudIsCAAS(cloud)
-
-	// Custom clouds may not have explicitly declared support for any auth-
-	// types, in which case we'll assume that they support everything that
-	// the provider supports.
-	if len(cloud.AuthTypes) == 0 {
-		for authType := range provider.CredentialSchemas() {
-			cloud.AuthTypes = append(cloud.AuthTypes, authType)
-		}
-	}
 
 	credentials, regionName, err := c.credentialsAndRegionName(ctx, provider, cloud)
 	if err != nil {
@@ -631,6 +600,7 @@ to create a new model to deploy k8s workloads.
 		return errors.Trace(err)
 	}
 
+	isCAASController := jujucloud.CloudIsCAAS(cloud)
 	if !isCAASController {
 		if bootstrapCfg.bootstrap.ControllerServiceType != "" ||
 			bootstrapCfg.bootstrap.ControllerExternalName != "" ||
@@ -705,6 +675,13 @@ to create a new model to deploy k8s workloads.
 		CredentialName: credentials.name,
 		AdminSecret:    bootstrapCfg.bootstrap.AdminSecret,
 	}
+	environ, err := bootstrapPrepareController(
+		isCAASController, bootstrapCtx, store, bootstrapPrepareParams,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	bootstrapParams := bootstrap.BootstrapParams{
 		ControllerName:            c.controllerName,
 		BootstrapSeries:           c.BootstrapSeries,
@@ -732,13 +709,6 @@ to create a new model to deploy k8s workloads.
 			AddressesDelay: bootstrapCfg.bootstrap.BootstrapAddressesDelay,
 		},
 		Force: c.Force,
-	}
-
-	environ, err := bootstrapPrepareController(
-		isCAASController, bootstrapCtx, store, bootstrapPrepareParams,
-	)
-	if err != nil {
-		return errors.Trace(err)
 	}
 
 	hostedModel, err = c.initializeHostedModel(
@@ -857,64 +827,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	agentVersion := jujuversion.Current
-	if c.AgentVersion != nil {
-		agentVersion = *c.AgentVersion
-	}
-
-	controllerDataRefresher := func() error {
-		// this function allows polling address info later during retring.
-		// for example, the Load Balancer needs time to be provisioned.
-		var addrs []network.ProviderAddress
-		if env, ok := environ.(environs.InstanceBroker); ok {
-			// IAAS.
-			addrs, err = common.BootstrapEndpointAddresses(env, cloudCallCtx)
-			if err != nil {
-				return errors.Trace(err)
-			}
-		} else if env, ok := environ.(caas.ServiceGetterSetter); ok {
-			// CAAS.
-			var svc *caas.Service
-			svc, err = env.GetService(k8sprovider.JujuControllerStackName, caas.ModeWorkload, false)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if len(svc.Addresses) == 0 {
-				return errors.NotProvisionedf("k8s controller service %q address", svc.Id)
-			}
-			addrs = svc.Addresses
-		} else {
-			// TODO(caas): this should never happen.
-			return errors.NewNotValid(nil, "unexpected error happened, IAAS mode should have environs.Environ implemented.")
-		}
-
-		// Use the retrieved bootstrap machine/service addresses to create
-		// host/port endpoints for local storage.
-		hps := make([]network.MachineHostPort, len(addrs))
-		for i, addr := range addrs {
-			hps[i] = network.MachineHostPort{
-				MachineAddress: addr.MachineAddress,
-				NetPort:        network.NetPort(bootstrapCfg.controller.APIPort()),
-			}
-		}
-
-		return errors.Annotate(
-			juju.UpdateControllerDetailsFromLogin(
-				c.ClientStore(),
-				c.controllerName,
-				juju.UpdateControllerParams{
-					AgentVersion:           agentVersion.String(),
-					CurrentHostPorts:       []network.MachineHostPorts{hps},
-					PublicDNSName:          newStringIfNonEmpty(bootstrapCfg.controller.AutocertDNSName()),
-					MachineCount:           newInt(1),
-					ControllerMachineCount: newInt(1),
-				},
-			),
-			"saving bootstrap endpoint address",
-		)
-	}
-
-	if err = controllerDataRefresher(); err != nil {
+	if err = c.controllerDataRefresher(environ, cloudCallCtx, bootstrapCfg); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -935,6 +848,67 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		isCAASController,
 		c.controllerName,
 		c.hostedModelName,
+	)
+}
+
+func (c *bootstrapCommand) controllerDataRefresher(
+	environ environs.BootstrapEnviron,
+	cloudCallCtx *context.CloudCallContext,
+	bootstrapCfg bootstrapConfigs,
+) error {
+
+	agentVersion := jujuversion.Current
+	if c.AgentVersion != nil {
+		agentVersion = *c.AgentVersion
+	}
+	// this function allows polling address info later during retring.
+	// for example, the Load Balancer needs time to be provisioned.
+	var addrs []network.ProviderAddress
+	var err error
+	if env, ok := environ.(environs.InstanceBroker); ok {
+		// IAAS.
+		addrs, err = common.BootstrapEndpointAddresses(env, cloudCallCtx)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else if env, ok := environ.(caas.ServiceGetterSetter); ok {
+		// CAAS.
+		var svc *caas.Service
+		svc, err = env.GetService(k8sprovider.JujuControllerStackName, caas.ModeWorkload, false)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(svc.Addresses) == 0 {
+			return errors.NotProvisionedf("k8s controller service %q address", svc.Id)
+		}
+		addrs = svc.Addresses
+	} else {
+		// TODO(caas): this should never happen.
+		return errors.NewNotValid(nil, "unexpected error happened, IAAS mode should have environs.Environ implemented.")
+	}
+
+	// Use the retrieved bootstrap machine/service addresses to create
+	// host/port endpoints for local storage.
+	hps := make([]network.MachineHostPort, len(addrs))
+	for i, addr := range addrs {
+		hps[i] = network.MachineHostPort{
+			MachineAddress: addr.MachineAddress,
+			NetPort:        network.NetPort(bootstrapCfg.controller.APIPort()),
+		}
+	}
+	return errors.Annotate(
+		juju.UpdateControllerDetailsFromLogin(
+			c.ClientStore(),
+			c.controllerName,
+			juju.UpdateControllerParams{
+				AgentVersion:           agentVersion.String(),
+				CurrentHostPorts:       []network.MachineHostPorts{hps},
+				PublicDNSName:          newStringIfNonEmpty(bootstrapCfg.controller.AutocertDNSName()),
+				MachineCount:           newInt(1),
+				ControllerMachineCount: newInt(1),
+			},
+		),
+		"saving bootstrap endpoint address",
 	)
 }
 
@@ -998,6 +972,19 @@ func (c *bootstrapCommand) cloud(ctx *cmd.Context) (jujucloud.Cloud, environs.En
 		cloud, err = finalizer.FinalizeCloud(ctx, cloud)
 		if err != nil {
 			return fail(errors.Trace(err))
+		}
+	}
+
+	if err = c.validateRegion(ctx, &cloud); err != nil {
+		return fail(errors.Trace(err))
+	}
+
+	// Custom clouds may not have explicitly declared support for any auth-
+	// types, in which case we'll assume that they support everything that
+	// the provider supports.
+	if len(cloud.AuthTypes) == 0 {
+		for authType := range provider.CredentialSchemas() {
+			cloud.AuthTypes = append(cloud.AuthTypes, authType)
 		}
 	}
 
@@ -1083,6 +1070,28 @@ func (c *bootstrapCommand) detectCloud(
 		Endpoint:  cloudEndpoint,
 		Regions:   regions,
 	}, provider, nil
+}
+
+func (c *bootstrapCommand) validateRegion(ctx *cmd.Context, cloud *jujucloud.Cloud) error {
+	if c.Region == "" {
+		return nil
+	}
+	if _, err := jujucloud.RegionByName(cloud.Regions, c.Region); err == nil {
+		return nil
+	}
+	allRegions := make([]string, len(cloud.Regions))
+	for i, one := range cloud.Regions {
+		allRegions[i] = one.Name
+	}
+	if len(allRegions) > 0 {
+		naturalsort.Sort(allRegions)
+		plural := "s are"
+		if len(allRegions) == 1 {
+			plural = " is"
+		}
+		ctx.Infof("Available cloud region%v %v", plural, strings.Join(allRegions, ", "))
+	}
+	return errors.NotValidf("region %q for cloud %q", c.Region, c.Cloud)
 }
 
 type bootstrapCredentials struct {
