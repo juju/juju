@@ -25,13 +25,12 @@ _operator_image_version() {
     _strip_build_version "$(_juju_version)"
 }
 
-operator_image_legacy_path() {
+operator_image_release_path() {
     echo "${DOCKER_USERNAME}/jujud-operator:$(_operator_image_version)"
 }
 operator_image_path() {
-    if [ -z "${JUJU_BUILD_NUMBER}" ]
-    then
-        operator_image_legacy_path
+    if [ -z "${JUJU_BUILD_NUMBER}" ]; then
+        operator_image_release_path
     else
         echo "${DOCKER_USERNAME}/jujud-operator:$(_operator_image_version).${JUJU_BUILD_NUMBER}"
     fi
@@ -49,9 +48,8 @@ build_operator_image() {
 
     # Build image. We tar up the build context to support docker snap confinement.
     tar cf - -C "${DOCKER_STAGING_DIR}" . | "${DOCKER_BIN}" build -t "$(operator_image_path)" - 
-    if [ "$(operator_image_path)" != "$(operator_image_legacy_path)" ]
-    then
-        "${DOCKER_BIN}" tag "$(operator_image_path)" "$(operator_image_legacy_path)"
+    if [ "$(operator_image_path)" != "$(operator_image_release_path)" ]; then
+        "${DOCKER_BIN}" tag "$(operator_image_path)" "$(operator_image_release_path)"
     fi
 
     # Cleanup
