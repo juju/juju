@@ -443,7 +443,9 @@ func (s *K8sBrokerSuite) TestAPIVersion(c *gc.C) {
 
 	// The fake request results in an error that shows the expected path was accessed.
 	_, err := s.broker.APIVersion()
-	c.Assert(err, gc.ErrorMatches, `get /path/version: unsupported protocol scheme ""`)
+	// NOTE(achilleasa): go1.14 quotes malformed URLs in error messages
+	// hence the optional quotes in the regex below.
+	c.Assert(err, gc.ErrorMatches, `get "?/path/version"?: unsupported protocol scheme ""`)
 }
 
 func (s *K8sBrokerSuite) TestConfig(c *gc.C) {

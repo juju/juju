@@ -130,8 +130,8 @@ endif
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
 install-dependencies:
-	@echo Installing go-1.11 snap
-	@sudo snap install go --channel=1.11/stable --classic
+	@echo Installing go-1.14 snap
+	@sudo snap install go --channel=1.14/stable --classic
 	@echo Adding juju PPA for mongodb
 	@sudo apt-add-repository --yes ppa:juju/stable
 	@sudo apt-get update
