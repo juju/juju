@@ -151,7 +151,7 @@ func processEnv(env []string) (string, error) {
 
 func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 	defer func() {
-		err = handleExec137Error(err)
+		err = handleExecRetryableError(err)
 	}()
 
 	pidFile := fmt.Sprintf("/tmp/%s.pid", randomString(8, utils.LowerAlpha))

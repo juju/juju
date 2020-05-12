@@ -4,7 +4,7 @@
 package operation
 
 import (
-	"fmt"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -14,6 +14,7 @@ type remoteInit struct {
 	callbacks     Callbacks
 	abort         <-chan struct{}
 	runningStatus remotestate.ContainerRunningStatus
+	logger        Logger
 }
 
 // String is part of the Operation interface.
@@ -39,11 +40,10 @@ func (op *remoteInit) Prepare(state State) (*State, error) {
 func (op *remoteInit) Execute(state State) (*State, error) {
 	step := Done
 	err := op.callbacks.RemoteInit(op.runningStatus, op.abort)
-	if exec.IsExec137Error(err) {
-		fmt.Println("RemoteInit exec.IsExec137Error(err)..........")
-		step = Pending
-	}
-	if err != nil {
+	if exec.IsExecRetryableError(errors.Cause(err)) {
+		op.logger.Warningf("got error: %v, re-queue the remote init operation and retry later", err)
+		step = Queued
+	} else if err != nil {
 		return nil, err
 	}
 	return stateChange{
@@ -56,6 +56,10 @@ func (op *remoteInit) Execute(state State) (*State, error) {
 // Commit preserves the recorded hook, and returns a neutral state.
 // Commit is part of the Operation interface.
 func (op *remoteInit) Commit(state State) (*State, error) {
+	if state.Step != Done {
+		op.logger.Warningf("remote init operation step %q was not done, so current operation will not continue to next op for now", state.Step)
+		return &state, nil
+	}
 	return stateChange{
 		Kind: continuationKind(state),
 		Step: Pending,

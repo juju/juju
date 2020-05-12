@@ -9,6 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"k8s.io/client-go/util/exec"
+
+	"github.com/juju/juju/wrench"
 )
 
 // ExitError exposes what we need from k8s exec.ExitError
@@ -55,37 +57,39 @@ func handleContainerNotFoundError(err error) error {
 	return containerNotRunningError(match[1])
 }
 
-type exec137Error struct {
+type execRetryableError struct {
 	err string
 }
 
-var _ error = &exec137Error{}
+var _ error = &execRetryableError{}
 
-func (e exec137Error) Error() string {
+func (e execRetryableError) Error() string {
 	return e.err
 }
 
-func newexec137Error(err error) error {
-	return &exec137Error{
-		err: fmt.Sprintf("%v", err),
+func newexecRetryableError(err error) error {
+	return &execRetryableError{
+		err: fmt.Sprintf("%q", err.Error()),
 	}
 }
 
-// IsExec137Error returns true when the supplied error is
-// caused by an exec137Error.
-func IsExec137Error(err error) bool {
-	_, ok := errors.Cause(err).(*exec137Error)
+// IsExecRetryableError returns true when the supplied error is
+// caused by an execRetryableError.
+func IsExecRetryableError(err error) bool {
+	_, ok := errors.Cause(err).(*execRetryableError)
 	return ok
 }
 
-func handleExec137Error(err error) error {
+func handleExecRetryableError(err error) error {
+	if wrench.IsActive("exec", "137") {
+		return newexecRetryableError(errors.New("fake 137"))
+	}
 	if err == nil {
 		return nil
 	}
 	if exitErr, ok := errors.Cause(err).(ExitError); ok {
-		logger.Criticalf("handleExec137Error!!! %#v, %q", exitErr, exitErr.ExitStatus())
 		if exitErr.ExitStatus() == 137 {
-			return newexec137Error(exitErr)
+			return newexecRetryableError(exitErr)
 		}
 	}
 	return err

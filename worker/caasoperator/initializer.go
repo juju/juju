@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -121,15 +122,17 @@ func InitializeUnit(params InitializeUnitParams, cancel <-chan struct{}) error {
 		return errors.Annotatef(err, "creating temp directory")
 	}
 
+	stdout := &bytes.Buffer{}
+	command := []string{"mkdir", "-p", tempDir}
 	err = params.ExecClient.Exec(exec.ExecParams{
-		Commands:      []string{"mkdir", "-p", tempDir},
+		Commands:      command,
 		PodName:       params.ProviderID,
 		ContainerName: container,
-		Stdout:        &bytes.Buffer{},
-		Stderr:        &bytes.Buffer{},
+		Stdout:        stdout,
+		Stderr:        stdout,
 	}, cancel)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "running command: %q failed: %q", strings.Join(command, " "), string(stdout.Bytes()))
 	}
 
 	tempCharmDir := filepath.Join(tempDir, "charm")
@@ -163,9 +166,10 @@ func InitializeUnit(params InitializeUnitParams, cancel <-chan struct{}) error {
 			"--upgrade")
 	}
 
-	stdout := &bytes.Buffer{}
+	stdout = &bytes.Buffer{}
+	command = append([]string{jujudPath, "caas-unit-init"}, initArgs...)
 	err = params.ExecClient.Exec(exec.ExecParams{
-		Commands:      append([]string{jujudPath, "caas-unit-init"}, initArgs...),
+		Commands:      command,
 		PodName:       params.ProviderID,
 		ContainerName: container,
 		WorkingDir:    cmdutil.DataDir,
@@ -173,7 +177,7 @@ func InitializeUnit(params InitializeUnitParams, cancel <-chan struct{}) error {
 		Stderr:        stdout,
 	}, cancel)
 	if err != nil {
-		return errors.Annotatef(err, "caas-unit-init for unit %q failed: %s", params.UnitTag.Id(), string(stdout.Bytes()))
+		return errors.Annotatef(err, "caas-unit-init for unit %q with command: %q failed: %s", params.UnitTag.Id(), strings.Join(command, " "), string(stdout.Bytes()))
 	}
 
 	return nil

@@ -74,6 +74,7 @@ func (f *factory) NewRemoteInit(runningStatus remotestate.ContainerRunningStatus
 		callbacks:     f.config.Callbacks,
 		abort:         f.config.Abort,
 		runningStatus: runningStatus,
+		logger:        f.config.Logger,
 	}, nil
 }
 
