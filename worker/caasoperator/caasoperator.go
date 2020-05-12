@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/uniter"
 	jujucharm "github.com/juju/juju/worker/uniter/charm"
+	"github.com/juju/juju/worker/uniter/operation"
 	uniterremotestate "github.com/juju/juju/worker/uniter/remotestate"
 )
 
@@ -627,7 +628,7 @@ func (op *caasOperator) runningStatus(unit names.UnitTag, providerID string) (*u
 
 func (op *caasOperator) remoteInit(unit names.UnitTag, runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
 	op.config.Logger.Debugf("remote init for %v %+v", unit, runningStatus)
-	params := InitializeUnitParams{
+	params := initializeUnitParams{
 		ExecClient:   op.config.ExecClient,
 		Logger:       op.config.Logger,
 		OperatorInfo: op.config.OperatorInfo,
@@ -645,7 +646,11 @@ func (op *caasOperator) remoteInit(unit names.UnitTag, runningStatus uniterremot
 	default:
 		return errors.NotFoundf("container not running")
 	}
-	err := InitializeUnit(params, cancel)
+	err := initializeUnit(params, cancel)
+	causeErr := errors.Cause(err)
+	if exec.IsExecRetryableError(causeErr) {
+		return operation.NewretryableError(causeErr.Error())
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}

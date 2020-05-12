@@ -40,3 +40,23 @@ func IsDeployConflictError(err error) bool {
 	_, ok := err.(*deployConflictError)
 	return ok
 }
+
+type retryableError struct {
+	err string
+}
+
+func (err *retryableError) Error() string {
+	return err.err
+}
+
+// NewretryableError returns an error indicating that the operation can be retried.
+func NewretryableError(err string) error {
+	return &retryableError{err}
+}
+
+// IsRetryableError returns true if the error is a
+// deploy conflict error.
+func IsRetryableError(err error) bool {
+	_, ok := err.(*retryableError)
+	return ok
+}

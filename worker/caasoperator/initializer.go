@@ -25,7 +25,7 @@ import (
 type unitInitializer struct {
 	catacomb catacomb.Catacomb
 
-	config  InitializeUnitParams
+	config  initializeUnitParams
 	unitTag names.UnitTag
 }
 
@@ -39,9 +39,9 @@ const (
 	UnitUpgrade UnitInitType = "upgrade"
 )
 
-// InitializeUnitParams contains parameters and dependencies for initializing
+// initializeUnitParams contains parameters and dependencies for initializing
 // a unit.
-type InitializeUnitParams struct {
+type initializeUnitParams struct {
 	// UnitTag of the unit being initialized.
 	UnitTag names.UnitTag
 
@@ -70,8 +70,8 @@ type InitializeUnitParams struct {
 	TempDir func(string, string) (string, error)
 }
 
-// Validate InitializeUnitParams
-func (p InitializeUnitParams) Validate() error {
+// Validate initializeUnitParams
+func (p initializeUnitParams) Validate() error {
 	if p.Logger == nil {
 		return errors.NotValidf("missing Logger")
 	}
@@ -96,8 +96,8 @@ func (p InitializeUnitParams) Validate() error {
 	return nil
 }
 
-// InitializeUnit with the charm and configuration.
-func InitializeUnit(params InitializeUnitParams, cancel <-chan struct{}) error {
+// initializeUnit with the charm and configuration.
+func initializeUnit(params initializeUnitParams, cancel <-chan struct{}) error {
 	if err := params.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -183,7 +183,7 @@ func InitializeUnit(params InitializeUnitParams, cancel <-chan struct{}) error {
 	return nil
 }
 
-func setupRemoteConfiguration(params InitializeUnitParams, cancel <-chan struct{},
+func setupRemoteConfiguration(params initializeUnitParams, cancel <-chan struct{},
 	unitPaths uniter.Paths, tempDir string, container string) (string, string, error) {
 	tempCACertFile := filepath.Join(tempDir, caas.CACertFile)
 	if err := params.WriteFile(tempCACertFile, []byte(params.OperatorInfo.CACert), 0644); err != nil {

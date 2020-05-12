@@ -6,7 +6,6 @@ package operation
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
@@ -40,7 +39,7 @@ func (op *remoteInit) Prepare(state State) (*State, error) {
 func (op *remoteInit) Execute(state State) (*State, error) {
 	step := Done
 	err := op.callbacks.RemoteInit(op.runningStatus, op.abort)
-	if exec.IsExecRetryableError(errors.Cause(err)) {
+	if IsRetryableError(errors.Cause(err)) {
 		op.logger.Warningf("got error: %v, re-queue the remote init operation and retry later", err)
 		step = Queued
 	} else if err != nil {
