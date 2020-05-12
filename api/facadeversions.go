@@ -85,7 +85,7 @@ var facadeVersions = map[string]int{
 	"Payloads":                     1,
 	"PayloadsHookContext":          1,
 	"Pinger":                       1,
-	"Provisioner":                  10,
+	"Provisioner":                  11,
 	"ProxyUpdater":                 2,
 	"Reboot":                       2,
 	"RelationStatusWatcher":        1,

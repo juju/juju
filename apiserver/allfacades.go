@@ -263,8 +263,8 @@ func AllFacades() *facade.Registry {
 	reg("ModelManager", 2, modelmanager.NewFacadeV2)
 	reg("ModelManager", 3, modelmanager.NewFacadeV3)
 	reg("ModelManager", 4, modelmanager.NewFacadeV4)
-	reg("ModelManager", 5, modelmanager.NewFacadeV5) // adds ChangeModelCredential
-	reg("ModelManager", 6, modelmanager.NewFacadeV6) // adds cloud specific default config
+	reg("ModelManager", 5, modelmanager.NewFacadeV5) // Adds ChangeModelCredential
+	reg("ModelManager", 6, modelmanager.NewFacadeV6) // Adds cloud specific default config
 	reg("ModelManager", 7, modelmanager.NewFacadeV7) // DestroyModels gains 'force' and max-wait' parameters.
 	reg("ModelManager", 8, modelmanager.NewFacadeV8) // ModelInfo gains credential validity in return.
 	reg("ModelUpgrader", 1, modelupgrader.NewStateFacade)
@@ -279,12 +279,13 @@ func AllFacades() *facade.Registry {
 	reg("Pinger", 1, NewPinger)
 	reg("Provisioner", 3, provisioner.NewProvisionerAPIV4) // Yes this is weird.
 	reg("Provisioner", 4, provisioner.NewProvisionerAPIV4)
-	reg("Provisioner", 5, provisioner.NewProvisionerAPIV5)   // v5 adds DistributionGroupByMachineId()
-	reg("Provisioner", 6, provisioner.NewProvisionerAPIV6)   // v6 adds more proxy settings
-	reg("Provisioner", 7, provisioner.NewProvisionerAPIV7)   // v7 adds charm profile watcher
-	reg("Provisioner", 8, provisioner.NewProvisionerAPIV8)   // v8 adds changes charm profile and modification status
-	reg("Provisioner", 9, provisioner.NewProvisionerAPIV9)   // v9 adds supported containers
-	reg("Provisioner", 10, provisioner.NewProvisionerAPIV10) // v10 adds support for multiple space constraints.
+	reg("Provisioner", 5, provisioner.NewProvisionerAPIV5)   // Adds DistributionGroupByMachineId()
+	reg("Provisioner", 6, provisioner.NewProvisionerAPIV6)   // Adds more proxy settings
+	reg("Provisioner", 7, provisioner.NewProvisionerAPIV7)   // Adds charm profile watcher
+	reg("Provisioner", 8, provisioner.NewProvisionerAPIV8)   // Adds changes charm profile and modification status
+	reg("Provisioner", 9, provisioner.NewProvisionerAPIV9)   // Adds supported containers
+	reg("Provisioner", 10, provisioner.NewProvisionerAPIV10) // Adds support for multiple space constraints.
+	reg("Provisioner", 11, provisioner.NewProvisionerAPIV11) // Relies on agent-set origin in SetHostMachineNetworkConfig.
 
 	reg("ProxyUpdater", 1, proxyupdater.NewFacadeV1)
 	reg("ProxyUpdater", 2, proxyupdater.NewFacadeV2)
