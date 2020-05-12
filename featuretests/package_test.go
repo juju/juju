@@ -22,6 +22,8 @@ import (
 var runFeatureTests = flag.Bool("featuretests", true, "Run long-running feature tests.")
 
 func init() {
+	testing.Init()
+
 	// Required for anything requiring components (e.g. resources).
 	if err := all.RegisterForServer(); err != nil {
 		panic(err)
