@@ -145,8 +145,8 @@ func (s *relationResolverSuite) setupRelations(c *gc.C) relation.RelationStateTr
 	apiCaller := mockAPICaller(c, &numCalls,
 		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
-		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 		uniterAPICall("State", unitEntity, unitStateResults, nil),
+		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 	)
 	st := uniter.NewState(apiCaller, unitTag)
 	u, err := st.Unit(unitTag)
@@ -210,9 +210,9 @@ func (s *relationResolverSuite) assertNewRelationsWithExistingRelations(c *gc.C,
 	apiCalls := []apiCall{
 		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
+		uniterAPICall("State", unitEntity, unitStateResults, nil),
 		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{
 			{RelationResults: []params.RelationUnitStatus{{RelationTag: "relation-wordpress:db mysql:db", InScope: true}}}}}, nil),
-		uniterAPICall("State", unitEntity, unitStateResults, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		uniterAPICall("Watch", unitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}}}, nil),
@@ -267,8 +267,8 @@ func (s *relationResolverSuite) TestNextOpNothing(c *gc.C) {
 	apiCaller := mockAPICaller(c, &numCalls,
 		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
-		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 		uniterAPICall("State", unitEntity, unitStateResults, nil),
+		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 	)
 	st := uniter.NewState(apiCaller, unitTag)
 	u, err := st.Unit(unitTag)
@@ -345,8 +345,8 @@ func relationJoinedAPICalls2SetState() []apiCall {
 	apiCalls := []apiCall{
 		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
-		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 		uniterAPICall("State", unitEntity, unitStateResults, nil),
+		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 		uniterAPICall("RelationById", params.RelationIds{RelationIds: []int{1}}, relationResults, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		//uniterAPICall("State", unitEntity, unitStateResults, nil),
@@ -860,8 +860,8 @@ func (s *relationResolverSuite) TestImplicitRelationNoHooks(c *gc.C) {
 	apiCalls := []apiCall{
 		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
-		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 		uniterAPICall("State", unitEntity, unitStateResults, nil),
+		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 		uniterAPICall("RelationById", params.RelationIds{RelationIds: []int{1}}, relationResults, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		//uniterAPICall("State", unitEntity, unitStateResults, nil),
@@ -991,8 +991,8 @@ func subSubRelationAPICalls() []apiCall {
 	return []apiCall{
 		uniterAPICall("Refresh", nrpeUnitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}, nil),
 		uniterAPICall("GetPrincipal", nrpeUnitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "unit-wordpress-0", Ok: true}}}, nil),
-		uniterAPICall("RelationsStatus", nrpeUnitEntity, relationStatusResults, nil),
 		uniterAPICall("State", nrpeUnitEntity, unitStateResults, nil),
+		uniterAPICall("RelationsStatus", nrpeUnitEntity, relationStatusResults, nil),
 		uniterAPICall("Relation", relationUnits1, relationResults1, nil),
 		uniterAPICall("Relation", relationUnits2, relationResults2, nil),
 		uniterAPICall("Relation", relationUnits1, relationResults1, nil),
@@ -1195,8 +1195,8 @@ func principalWithSubordinateAPICalls() []apiCall {
 	return []apiCall{
 		uniterAPICall("Refresh", nrpeUnitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}, nil),
 		uniterAPICall("GetPrincipal", nrpeUnitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "unit-wordpress-0", Ok: true}}}, nil),
-		uniterAPICall("RelationsStatus", nrpeUnitEntity, relationStatusResults, nil),
 		uniterAPICall("State", nrpeUnitEntity, unitStateResults, nil),
+		uniterAPICall("RelationsStatus", nrpeUnitEntity, relationStatusResults, nil),
 		uniterAPICall("Relation", relationUnits1, relationResults1, nil),
 		uniterAPICall("Relation", relationUnits1, relationResults1, nil),
 		uniterAPICall("Watch", nrpeUnitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}}}, nil),

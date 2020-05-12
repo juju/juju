@@ -16,11 +16,6 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_statetracker.go github.com/juju/juju/worker/uniter/relation RelationStateTracker
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_subordinate_destroyer.go github.com/juju/juju/worker/uniter/relation SubordinateDestroyer
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_state_tracker_state.go github.com/juju/juju/worker/uniter/relation StateTrackerState
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_uniter_api.go github.com/juju/juju/worker/uniter/relation Unit,Application,Relation,RelationUnit
-
 type RelationStateTracker interface {
 	// PrepareHook returns the name of the supplied relation hook, or an error
 	// if the hook is unknown or invalid given current state.
@@ -257,4 +252,37 @@ type RelationUnit interface {
 	// this unit and application. It is only valid to update application
 	// settings if this unit is the leader.
 	UpdateRelationSettings(unit, application params.Settings) error
+}
+
+// Relationer encapsulates the methods from relationer required by a stateTracker.
+type Relationer interface {
+	// CommitHook persists the fact of the supplied hook's completion.
+	CommitHook(hi hook.Info) error
+
+	// ContextInfo returns a representation of the relationer's current state.
+	ContextInfo() *context.RelationInfo
+
+	// IsDying returns whether the relation is dying.
+	IsDying() bool
+
+	// IsImplicit returns whether the local relation endpoint is implicit.
+	IsImplicit() bool
+
+	// Join initializes local state and causes the unit to enter its relation
+	// scope, allowing its counterpart units to detect its presence and settings
+	// changes.
+	Join() error
+
+	// PrepareHook checks that the relation is in a state such that it makes
+	// sense to execute the supplied hook, and ensures that the relation context
+	// contains the latest relation state as communicated in the hook.Info.
+	PrepareHook(hi hook.Info) (string, error)
+
+	// RelationUnit returns the relation unit associated with this relationer instance.
+	RelationUnit() RelationUnit
+
+	// SetDying informs the relationer that the unit is departing the relation,
+	// and that the only hooks it should send henceforth are -departed hooks,
+	// until the relation is empty, followed by a -broken hook.
+	SetDying() error
 }
