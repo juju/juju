@@ -29,13 +29,13 @@ type unitInitializer struct {
 	unitTag names.UnitTag
 }
 
-// UnitInitType describes how to initilize the remote pod.
+// UnitInitType describes how to initialize the remote pod.
 type UnitInitType string
 
 const (
-	// UnitInit initilizes the caas init container.
+	// UnitInit initializes the caas init container.
 	UnitInit UnitInitType = "init"
-	// UnitUpgrade re-initilizes the caas workload container.
+	// UnitUpgrade re-initializes the caas workload container.
 	UnitUpgrade UnitInitType = "upgrade"
 )
 
@@ -48,7 +48,7 @@ type initializeUnitParams struct {
 	// ProviderID is the pod-name or pod-uid
 	ProviderID string
 
-	// InitType of how to initilize the pod.
+	// InitType of how to initialize the pod.
 	InitType UnitInitType
 
 	// Logger for the worker.
@@ -60,7 +60,7 @@ type initializeUnitParams struct {
 	// OperatorInfo contains serving information such as Certs and PrivateKeys.
 	OperatorInfo caas.OperatorInfo
 
-	// ExecClient is used for initilizing units.
+	// ExecClient is used for initializing units.
 	ExecClient exec.Executor
 
 	// WriteFile is used to write files to the local state.

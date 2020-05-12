@@ -49,8 +49,8 @@ func (err *retryableError) Error() string {
 	return err.err
 }
 
-// NewretryableError returns an error indicating that the operation can be retried.
-func NewretryableError(err string) error {
+// NewRetryableError returns an error indicating that the operation can be retried.
+func NewRetryableError(err string) error {
 	return &retryableError{err}
 }
 

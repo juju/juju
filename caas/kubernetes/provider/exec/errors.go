@@ -82,7 +82,9 @@ func IsExecRetryableError(err error) bool {
 
 func handleExecRetryableError(err error) error {
 	if wrench.IsActive("exec", "137") {
-		return newexecRetryableError(errors.New("fake 137"))
+		fakeErr := errors.New("fake 137")
+		logger.Warningf("wrench exec 137 enabled, returns %v", fakeErr)
+		return newexecRetryableError(fakeErr)
 	}
 	if err == nil {
 		return nil

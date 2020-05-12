@@ -530,6 +530,7 @@ func (op *caasOperator) loop() (err error) {
 			}
 			for _, v := range units {
 				unitID := v
+				logger.Warningf("jujuUnitsWatcher.Changes() unit -> %q", unitID)
 				unitLife, err := op.config.UnitGetter.Life(unitID)
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)
@@ -649,7 +650,7 @@ func (op *caasOperator) remoteInit(unit names.UnitTag, runningStatus uniterremot
 	err := initializeUnit(params, cancel)
 	causeErr := errors.Cause(err)
 	if exec.IsExecRetryableError(causeErr) {
-		return operation.NewretryableError(causeErr.Error())
+		return operation.NewRetryableError(causeErr.Error())
 	}
 	if err != nil {
 		return errors.Trace(err)

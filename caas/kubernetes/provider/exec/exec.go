@@ -16,6 +16,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/kballard/go-shellquote"
+	"github.com/kr/pretty"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,7 +32,7 @@ var logger = loggo.GetLogger("juju.kubernetes.provider.exec")
 const (
 	sigkillRetryDelay = 100 * time.Millisecond
 	gracefulKillDelay = 10 * time.Second
-	maxTrys           = 10
+	maxTries          = 10
 )
 
 var randomString = utils.RandomString
@@ -151,6 +152,9 @@ func processEnv(env []string) (string, error) {
 
 func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 	defer func() {
+		if err != nil {
+			logger.Criticalf("Exec opts -> %s, err ->%q, %#v", pretty.Sprint(opts), err.Error(), err)
+		}
 		err = handleExecRetryableError(err)
 	}()
 
@@ -241,7 +245,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 	}
 
 	kill := make(chan struct{}, 1)
-	killTrys := 0
+	killTries := 0
 	var timer <-chan time.Time
 	for {
 		select {
@@ -256,9 +260,9 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 			// Trigger SIGKILL
 			timer = time.After(gracefulKillDelay)
 		case <-kill:
-			killTrys++
-			if killTrys > maxTrys {
-				return errors.Errorf("SIGKILL failed after %d attempts", maxTrys)
+			killTries++
+			if killTries > maxTries {
+				return errors.Errorf("SIGKILL failed after %d attempts", maxTries)
 			}
 			err := sendSignal(syscall.SIGKILL, true)
 			if err != nil {
