@@ -21203,7 +21203,7 @@
     },
     {
         "Name": "Machiner",
-        "Version": 2,
+        "Version": 3,
         "Schema": {
             "type": "object",
             "properties": {
@@ -26475,7 +26475,7 @@
     },
     {
         "Name": "Provisioner",
-        "Version": 10,
+        "Version": 11,
         "Schema": {
             "type": "object",
             "properties": {

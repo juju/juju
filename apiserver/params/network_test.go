@@ -400,3 +400,35 @@ func (s *NetworkSuite) TestHostPortConversion(c *gc.C) {
 	pHPs := params.FromHostsPorts(hps)
 	c.Assert(params.ToMachineHostsPorts(pHPs), jc.DeepEquals, mHPs)
 }
+
+func (s *NetworkSuite) TestSetNetworkConfigBackFillMachineOrigin(c *gc.C) {
+	cfg := params.SetMachineNetworkConfig{
+		Tag: "machine-0",
+		Config: []params.NetworkConfig{
+			{
+				ProviderId: "1",
+				// This would not happen in the wild, but serves to
+				// differentiate from the back-filled entries.
+				NetworkOrigin: params.NetworkOrigin(network.OriginProvider),
+			},
+			{ProviderId: "2"},
+			{ProviderId: "3"},
+		},
+	}
+
+	cfg.BackFillMachineOrigin()
+	c.Assert(cfg.Config, gc.DeepEquals, []params.NetworkConfig{
+		{
+			ProviderId:    "1",
+			NetworkOrigin: params.NetworkOrigin(network.OriginProvider),
+		},
+		{
+			ProviderId:    "2",
+			NetworkOrigin: params.NetworkOrigin(network.OriginMachine),
+		},
+		{
+			ProviderId:    "3",
+			NetworkOrigin: params.NetworkOrigin(network.OriginMachine),
+		},
+	})
+}

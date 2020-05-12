@@ -681,6 +681,20 @@ type SetMachineNetworkConfig struct {
 	Config []NetworkConfig `json:"config"`
 }
 
+// BackfillMachineOrigin sets all empty NetworkOrigin entries to indicate that
+// they are sourced from the local machine.
+// TODO (manadart 2020-05-12): This is used by superseded methods on the
+// Machiner and NetworkConfig APIs, which along with this should considered for
+// removing for Juju 3.0.
+func (c *SetMachineNetworkConfig) BackFillMachineOrigin() {
+	for i := range c.Config {
+		if c.Config[i].NetworkOrigin != "" {
+			continue
+		}
+		c.Config[i].NetworkOrigin = NetworkOrigin(network.OriginMachine)
+	}
+}
+
 // MachineAddressesResult holds a list of machine addresses or an
 // error.
 type MachineAddressesResult struct {
