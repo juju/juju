@@ -121,11 +121,13 @@ func prepareHost(config Config) PrepareHostFunc {
 	}
 }
 
+// defaultBridger will prefer to use netplan if there is an /etc/netplan
+// directory, falling back to ENI if the directory doesn't exist.
 func defaultBridger() (network.Bridger, error) {
-	if _, err := os.Stat(systemSbinIfup); err == nil {
-		return network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, systemNetworkInterfacesFile)
-	} else {
+	if _, err := os.Stat(systemNetplanDirectory); err == nil {
 		return network.DefaultNetplanBridger(activateBridgesTimeout, systemNetplanDirectory)
+	} else {
+		return network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, systemNetworkInterfacesFile)
 	}
 }
 
