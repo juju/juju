@@ -9,6 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"k8s.io/client-go/util/exec"
+
+	"github.com/juju/juju/wrench"
 )
 
 // ExitError exposes what we need from k8s exec.ExitError
@@ -53,4 +55,44 @@ func handleContainerNotFoundError(err error) error {
 		return err
 	}
 	return containerNotRunningError(match[1])
+}
+
+type execRetryableError struct {
+	err string
+}
+
+var _ error = &execRetryableError{}
+
+func (e execRetryableError) Error() string {
+	return e.err
+}
+
+func newexecRetryableError(err error) error {
+	return &execRetryableError{
+		err: fmt.Sprintf("%q", err.Error()),
+	}
+}
+
+// IsExecRetryableError returns true when the supplied error is
+// caused by an execRetryableError.
+func IsExecRetryableError(err error) bool {
+	_, ok := errors.Cause(err).(*execRetryableError)
+	return ok
+}
+
+func handleExecRetryableError(err error) error {
+	if wrench.IsActive("exec", "137") {
+		fakeErr := errors.New("fake 137")
+		logger.Warningf("wrench exec 137 enabled, returns %v", fakeErr)
+		return newexecRetryableError(fakeErr)
+	}
+	if err == nil {
+		return nil
+	}
+	if exitErr, ok := errors.Cause(err).(ExitError); ok {
+		if exitErr.ExitStatus() == 137 {
+			return newexecRetryableError(exitErr)
+		}
+	}
+	return err
 }
