@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/wrench"
 )
 
 type unitInitializer struct {
@@ -110,13 +111,22 @@ type reTrier func(func() error, Logger, clock.Clock, <-chan struct{}) error
 
 // runnerWithRetry retries exec requests for init unit process if it got 137 error.
 func runnerWithRetry(f func() error, logger Logger, clk clock.Clock, cancel <-chan struct{}) error {
+
+	do := func() error {
+		if wrench.IsActive("exec", "137") {
+			fakeErr := errors.New("fake 137")
+			logger.Warningf("wrench exec 137 enabled, returns %v", fakeErr)
+			return exec.NewExecRetryableError(fakeErr)
+		}
+		return f()
+	}
 	args := retry.CallArgs{
 		Attempts:    5,
 		Delay:       1 * time.Second,
 		MaxDuration: 30 * time.Second,
 		Clock:       clk,
 		Stop:        cancel,
-		Func:        f,
+		Func:        do,
 		IsFatalError: func(err error) bool {
 			return err != nil && !exec.IsExecRetryableError(err)
 		},

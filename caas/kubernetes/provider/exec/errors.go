@@ -9,8 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"k8s.io/client-go/util/exec"
-
-	"github.com/juju/juju/wrench"
 )
 
 // ExitError exposes what we need from k8s exec.ExitError
@@ -82,11 +80,6 @@ func IsExecRetryableError(err error) bool {
 }
 
 func handleExecRetryableError(err error) error {
-	if wrench.IsActive("exec", "137") {
-		fakeErr := errors.New("fake 137")
-		logger.Warningf("wrench exec 137 enabled, returns %v", fakeErr)
-		return NewExecRetryableError(fakeErr)
-	}
 	if err == nil {
 		return nil
 	}
