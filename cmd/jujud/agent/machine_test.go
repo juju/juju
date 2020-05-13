@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	coreraft "github.com/hashicorp/raft"
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
@@ -55,6 +57,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
@@ -67,9 +70,14 @@ import (
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationmaster"
+	"github.com/juju/juju/worker/raft"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
 )
+
+// Use a longer wait in tests that are dependent on leases - sometimes
+// the raft workers can take a bit longer to spin up.
+const longerWait = 2 * coretesting.LongWait
 
 type MachineLegacyLeasesSuite struct {
 	commonMachineSuite
@@ -81,10 +89,20 @@ func (s *MachineLegacyLeasesSuite) SetUpTest(c *gc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.AuditingEnabled: true,
 		controller.CharmStoreURL:   "staging.charmstore",
-		controller.Features:        []interface{}{"legacy-leases"},
 	}
 	s.commonMachineSuite.SetUpTest(c)
 	coretesting.DumpTestLogsAfter(time.Minute, c, s)
+	bootstrapRaft(c, s.DataDir())
+}
+
+func bootstrapRaft(c *gc.C, dataDir string) {
+	err := raft.Bootstrap(raft.Config{
+		Clock:      clock.WallClock,
+		StorageDir: filepath.Join(dataDir, "raft"),
+		LocalID:    coreraft.ServerID("0"),
+		Logger:     loggo.GetLogger("machine_test.raft"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // TODO (manadart 2018-10-26): Tests that work with Raft leases should be
@@ -264,6 +282,7 @@ func (s *MachineLegacyLeasesSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	go func() {
 		c.Check(a.Run(cmdtesting.Context(c)), jc.ErrorIsNil)
 	}()
+	startAddressPublisher(s, c, a)
 
 	// Add one unit to an application;
 	charm := s.AddTestingCharm(c, "dummy")
@@ -338,7 +357,7 @@ func (s *MachineLegacyLeasesSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*
 	c.Assert(err, jc.ErrorIsNil)
 	w := m.Watch()
 	defer worker.Stop(w)
-	timeout := time.After(coretesting.LongWait)
+	timeout := time.After(longerWait)
 	for {
 		select {
 		case <-timeout:
@@ -449,6 +468,8 @@ func (s *MachineLegacyLeasesSuite) assertAgentOpensState(c *gc.C, job state.Mach
 	// All state jobs currently also run an APIWorker, so no
 	// need to check for that here, like in assertJobWithState.
 	st, done := s.waitForOpenState(c, a)
+	startAddressPublisher(s, c, a)
+
 	test(conf, st)
 	s.waitStopped(c, job, a, done)
 }
@@ -1040,7 +1061,7 @@ func (s *MachineLegacyLeasesSuite) TestControllerModelWorkers(c *gc.C) {
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, expectedWorkers)
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
-		agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, longerWait, s.BackingState.StartSync)
 	})
 }
 
@@ -1257,7 +1278,7 @@ func (s *MachineLegacyLeasesSuite) TestModelWorkersRespectSingularResponsibility
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, alwaysModelWorkers)
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
-		agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, longerWait, s.BackingState.StartSync)
 	})
 }
 
@@ -1306,4 +1327,39 @@ func (w *nullWorker) Kill() {
 func (w *nullWorker) Wait() error {
 	<-w.dead
 	return nil
+}
+
+type cleanupSuite interface {
+	AddCleanup(func(*gc.C))
+}
+
+func startAddressPublisher(suite cleanupSuite, c *gc.C, agent *MachineAgent) {
+	// Start publishing a test API address on the central hub so that
+	// the raft workers can start. The other way of unblocking them
+	// would be to get the peergrouper healthy, but that has proved
+	// difficult - trouble getting the replicaset correctly
+	// configured.
+	stop := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			case <-time.After(500 * time.Millisecond):
+				hub := agent.centralHub
+				if hub == nil {
+					continue
+				}
+				_, err := hub.Publish(apiserver.DetailsTopic, apiserver.Details{
+					Servers: map[string]apiserver.APIServer{
+						"0": {ID: "0", InternalAddress: "localhost:17070"},
+					},
+				})
+				if err != nil {
+					c.Logf("error publishing address: %s", err)
+				}
+			}
+		}
+	}()
+	suite.AddCleanup(func(c *gc.C) { close(stop) })
 }
