@@ -8,9 +8,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/worker/v2/catacomb"
 
@@ -68,6 +71,12 @@ type initializeUnitParams struct {
 
 	// TempDir is used for creating a temporary directory.
 	TempDir func(string, string) (string, error)
+
+	// Clock holds the clock to be used by the runner.
+	Clock clock.Clock
+
+	// reTrier is used for re-running some certain retryable exec request.
+	ReTrier reTrier
 }
 
 // Validate initializeUnitParams
@@ -94,6 +103,28 @@ func (p initializeUnitParams) Validate() error {
 		return errors.NotValidf("invalid InitType %q", string(p.InitType))
 	}
 	return nil
+}
+
+// reTrier is used for re-running some certain retryable exec request.
+type reTrier func(func() error, Logger, clock.Clock, <-chan struct{}) error
+
+// runnerWithRetry retries exec requests for init unit process if it got 137 error.
+func runnerWithRetry(f func() error, logger Logger, clk clock.Clock, cancel <-chan struct{}) error {
+	args := retry.CallArgs{
+		Attempts:    5,
+		Delay:       1 * time.Second,
+		MaxDuration: 30 * time.Second,
+		Clock:       clk,
+		Stop:        cancel,
+		Func:        f,
+		IsFatalError: func(err error) bool {
+			return err != nil && !exec.IsExecRetryableError(err)
+		},
+		NotifyFunc: func(err error, attempt int) {
+			logger.Debugf("retrying exec request, in %d attempt, %v", attempt, err)
+		},
+	}
+	return errors.Trace(retry.Call(args))
 }
 
 // initializeUnit with the charm and configuration.
@@ -136,16 +167,21 @@ func initializeUnit(params initializeUnitParams, cancel <-chan struct{}) error {
 	}
 
 	tempCharmDir := filepath.Join(tempDir, "charm")
-	err = params.ExecClient.Copy(exec.CopyParams{
-		Src: exec.FileResource{
-			Path: operatorPaths.State.CharmDir,
-		},
-		Dest: exec.FileResource{
-			Path:          tempDir,
-			PodName:       params.ProviderID,
-			ContainerName: container,
-		},
-	}, cancel)
+	// This heavy exec task might get 137 error, we will retry if it does happen.
+	err = params.ReTrier(
+		func() error {
+			return params.ExecClient.Copy(exec.CopyParams{
+				Src: exec.FileResource{
+					Path: operatorPaths.State.CharmDir,
+				},
+				Dest: exec.FileResource{
+					Path:          tempDir,
+					PodName:       params.ProviderID,
+					ContainerName: container,
+				},
+			}, cancel)
+		}, params.Logger, params.Clock, cancel,
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}

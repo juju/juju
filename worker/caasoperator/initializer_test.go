@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -39,6 +40,9 @@ func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
 	mockExecClient := mocks.NewMockExecutor(ctrl)
 
 	params := caasoperator.InitializeUnitParams{
+		ReTrier: func(f func() error, _ caasoperator.Logger, _ clock.Clock, _ <-chan struct{}) error {
+			return f()
+		},
 		InitType: caasoperator.UnitInit,
 		UnitTag:  names.NewUnitTag("gitlab/0"),
 		Logger:   loggo.GetLogger("test"),
@@ -129,6 +133,9 @@ func (s *UnitInitializerSuite) TestInitializeUnitMissingProviderID(c *gc.C) {
 	mockExecClient := mocks.NewMockExecutor(ctrl)
 
 	params := caasoperator.InitializeUnitParams{
+		ReTrier: func(f func() error, _ caasoperator.Logger, _ clock.Clock, _ <-chan struct{}) error {
+			return f()
+		},
 		InitType: caasoperator.UnitInit,
 		UnitTag:  names.NewUnitTag("gitlab/0"),
 		Logger:   loggo.GetLogger("test"),
@@ -164,6 +171,9 @@ func (s *UnitInitializerSuite) TestInitializeContainerMissing(c *gc.C) {
 	mockExecClient := mocks.NewMockExecutor(ctrl)
 
 	params := caasoperator.InitializeUnitParams{
+		ReTrier: func(f func() error, _ caasoperator.Logger, _ clock.Clock, _ <-chan struct{}) error {
+			return f()
+		},
 		InitType: caasoperator.UnitInit,
 		UnitTag:  names.NewUnitTag("gitlab/0"),
 		Logger:   loggo.GetLogger("test"),
@@ -217,6 +227,9 @@ func (s *UnitInitializerSuite) TestInitializePodNotFound(c *gc.C) {
 	mockExecClient := mocks.NewMockExecutor(ctrl)
 
 	params := caasoperator.InitializeUnitParams{
+		ReTrier: func(f func() error, _ caasoperator.Logger, _ clock.Clock, _ <-chan struct{}) error {
+			return f()
+		},
 		InitType: caasoperator.UnitInit,
 		UnitTag:  names.NewUnitTag("gitlab/0"),
 		Logger:   loggo.GetLogger("test"),

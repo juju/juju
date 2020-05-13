@@ -16,7 +16,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/kballard/go-shellquote"
-	"github.com/kr/pretty"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -152,9 +151,6 @@ func processEnv(env []string) (string, error) {
 
 func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 	defer func() {
-		if err != nil {
-			logger.Criticalf("Exec opts -> %s, err ->%q, %#v", pretty.Sprint(opts), err.Error(), err)
-		}
 		err = handleExecRetryableError(err)
 	}()
 	pidFile := fmt.Sprintf("/tmp/%s.pid", randomString(8, utils.LowerAlpha))

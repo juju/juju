@@ -67,7 +67,8 @@ func (e execRetryableError) Error() string {
 	return e.err
 }
 
-func newexecRetryableError(err error) error {
+// newExecRetryableError constructs an execRetryableError.
+func newExecRetryableError(err error) error {
 	return &execRetryableError{
 		err: fmt.Sprintf("%q", err.Error()),
 	}
@@ -84,14 +85,14 @@ func handleExecRetryableError(err error) error {
 	if wrench.IsActive("exec", "137") {
 		fakeErr := errors.New("fake 137")
 		logger.Warningf("wrench exec 137 enabled, returns %v", fakeErr)
-		return newexecRetryableError(fakeErr)
+		return newExecRetryableError(fakeErr)
 	}
 	if err == nil {
 		return nil
 	}
 	if exitErr, ok := errors.Cause(err).(ExitError); ok {
 		if exitErr.ExitStatus() == 137 {
-			return newexecRetryableError(exitErr)
+			return newExecRetryableError(exitErr)
 		}
 	}
 	return err

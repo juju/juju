@@ -636,6 +636,8 @@ func (op *caasOperator) remoteInit(unit names.UnitTag, runningStatus uniterremot
 		ProviderID:   runningStatus.PodName,
 		WriteFile:    ioutil.WriteFile,
 		TempDir:      ioutil.TempDir,
+		Clock:        op.config.Clock,
+		ReTrier:      runnerWithRetry,
 	}
 	switch {
 	case runningStatus.Initialising:

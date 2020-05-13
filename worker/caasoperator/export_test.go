@@ -11,6 +11,7 @@ var (
 	GetNewRunnerExecutor = getNewRunnerExecutor
 	JujudSymlinks        = jujudSymlinks
 	InitializeUnit       = initializeUnit
+	RunnerWithRetry      = runnerWithRetry
 )
 
 type (
