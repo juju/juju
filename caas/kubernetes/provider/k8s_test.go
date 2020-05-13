@@ -3408,7 +3408,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 			"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 		})
 	}()
-	err = s.clock.WaitAdvance(2*time.Second, testing.ShortWait, 1)
+	err = s.clock.WaitAdvance(2*time.Second, testing.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
@@ -3782,7 +3782,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 		})
 	}()
-	err = s.clock.WaitAdvance(2*time.Second, testing.ShortWait, 1)
+	err = s.clock.WaitAdvance(2*time.Second, testing.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {

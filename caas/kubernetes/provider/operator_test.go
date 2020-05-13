@@ -614,7 +614,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 			ConfigMapGeneration: 1234,
 		})
 	}()
-	err := s.clock.WaitAdvance(2*time.Second, testing.ShortWait, 1)
+	err := s.clock.WaitAdvance(2*time.Second, testing.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
