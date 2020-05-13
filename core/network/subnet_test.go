@@ -233,3 +233,51 @@ func (*subnetSuite) TestSubnetInfosGetByAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(subs, gc.HasLen, 0)
 }
+
+func (*subnetSuite) TestSubnetInfosGetBySpaceID(c *gc.C) {
+	s := network.SubnetInfos{
+		{
+			ID:      "1",
+			CIDR:    "10.10.10.0/24",
+			SpaceID: "666",
+		},
+		{
+			ID:      "2",
+			CIDR:    "222.0.0.0/8",
+			FanInfo: &network.FanCIDRs{FanLocalUnderlay: "10.10.10.0/24"},
+		},
+		{
+			ID:      "3",
+			CIDR:    "20.20.20.0/24",
+			SpaceID: "999",
+		},
+		{
+			ID:      "4",
+			CIDR:    "223.0.0.0/8",
+			FanInfo: &network.FanCIDRs{FanLocalUnderlay: "20.20.20.0/24"},
+			// This is to check that we don't get duplicates when retrieving
+			// by the underlay CIDR.
+			SpaceID: "999",
+		},
+	}
+
+	subs, err := s.GetBySpaceID("666")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(subs, gc.DeepEquals, network.SubnetInfos{
+		{
+			ID:      "1",
+			CIDR:    "10.10.10.0/24",
+			SpaceID: "666",
+		},
+		{
+			ID:      "2",
+			CIDR:    "222.0.0.0/8",
+			FanInfo: &network.FanCIDRs{FanLocalUnderlay: "10.10.10.0/24"},
+			SpaceID: "666",
+		},
+	})
+
+	subs, err = s.GetBySpaceID("999")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(subs, gc.DeepEquals, s[2:])
+}
