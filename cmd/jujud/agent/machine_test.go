@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	coreraft "github.com/hashicorp/raft"
+	"github.com/hashicorp/raft"
 	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -49,10 +49,12 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -70,14 +72,19 @@ import (
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationmaster"
-	"github.com/juju/juju/worker/raft"
+	raftworker "github.com/juju/juju/worker/raft"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
 )
 
-// Use a longer wait in tests that are dependent on leases - sometimes
-// the raft workers can take a bit longer to spin up.
-const longerWait = 2 * coretesting.LongWait
+const (
+	// Use a longer wait in tests that are dependent on leases - sometimes
+	// the raft workers can take a bit longer to spin up.
+	longerWait = 2 * coretesting.LongWait
+
+	// This is the address that the raft workers will use for the server.
+	serverAddress = "localhost:17070"
+)
 
 type MachineLegacyLeasesSuite struct {
 	commonMachineSuite
@@ -96,10 +103,10 @@ func (s *MachineLegacyLeasesSuite) SetUpTest(c *gc.C) {
 }
 
 func bootstrapRaft(c *gc.C, dataDir string) {
-	err := raft.Bootstrap(raft.Config{
+	err := raftworker.Bootstrap(raftworker.Config{
 		Clock:      clock.WallClock,
 		StorageDir: filepath.Join(dataDir, "raft"),
-		LocalID:    coreraft.ServerID("0"),
+		LocalID:    raft.ServerID("0"),
 		Logger:     loggo.GetLogger("machine_test.raft"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1265,10 +1272,8 @@ func (s *MachineLegacyLeasesSuite) TestDyingModelCleanedUp(c *gc.C) {
 func (s *MachineLegacyLeasesSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C) {
 
 	// Grab responsibility for the model on behalf of another machine.
-	claimer := s.BackingState.SingularClaimer()
 	uuid := s.BackingState.ModelUUID()
-	err := claimer.Claim(uuid, "machine-999-lxd-99", time.Hour)
-	c.Assert(err, jc.ErrorIsNil)
+	claimSingularRaftLease(c, s.DataDir(), uuid)
 
 	// Then run a normal model-tracking test, just checking for
 	// a different set of workers.
@@ -1280,6 +1285,55 @@ func (s *MachineLegacyLeasesSuite) TestModelWorkersRespectSingularResponsibility
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
 		agenttest.WaitMatch(c, matcher.Check, longerWait, s.BackingState.StartSync)
 	})
+}
+
+func claimSingularRaftLease(c *gc.C, dataDir string, modelUUID string) {
+	// This is cribbed from upgrades/raft.go, but simplified because
+	// we don't need to handle
+	raftDir := filepath.Join(dataDir, "raft")
+	snapshotStore, err := raftworker.NewSnapshotStore(raftDir, 2, loggo.GetLogger("machine_test.raft"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	var zero time.Time
+	newSnapshot := raftlease.Snapshot{
+		Version: raftlease.SnapshotVersion,
+		Entries: map[raftlease.SnapshotKey]raftlease.SnapshotEntry{
+			{
+				Namespace: lease.SingularControllerNamespace,
+				ModelUUID: modelUUID,
+				Lease:     modelUUID,
+			}: {
+				Holder:   "machine-999-lxd-99",
+				Start:    zero,
+				Duration: time.Hour,
+			},
+		},
+		GlobalTime: zero,
+	}
+	// Store the snapshot.
+	_, transport := raft.NewInmemTransport(raft.ServerAddress("notused"))
+	defer transport.Close()
+	sink, err := snapshotStore.Create(
+		raft.SnapshotVersionMax,
+		1, // lastIndex
+		1, // lastTerm
+		raft.Configuration{
+			Servers: []raft.Server{{
+				ID:       raft.ServerID("0"),
+				Address:  raft.ServerAddress(serverAddress),
+				Suffrage: raft.Voter,
+			}},
+		},
+		1, // configIndex
+		transport,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	defer sink.Close()
+	err = newSnapshot.Persist(sink)
+	if err != nil {
+		sink.Cancel()
+	}
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MachineLegacyLeasesSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()) {
@@ -1352,7 +1406,7 @@ func startAddressPublisher(suite cleanupSuite, c *gc.C, agent *MachineAgent) {
 				}
 				_, err := hub.Publish(apiserver.DetailsTopic, apiserver.Details{
 					Servers: map[string]apiserver.APIServer{
-						"0": {ID: "0", InternalAddress: "localhost:17070"},
+						"0": {ID: "0", InternalAddress: serverAddress},
 					},
 				})
 				if err != nil {
