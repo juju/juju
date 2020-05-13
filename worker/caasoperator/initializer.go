@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -24,30 +25,30 @@ import (
 type unitInitializer struct {
 	catacomb catacomb.Catacomb
 
-	config  InitializeUnitParams
+	config  initializeUnitParams
 	unitTag names.UnitTag
 }
 
-// UnitInitType describes how to initilize the remote pod.
+// UnitInitType describes how to initialize the remote pod.
 type UnitInitType string
 
 const (
-	// UnitInit initilizes the caas init container.
+	// UnitInit initializes the caas init container.
 	UnitInit UnitInitType = "init"
-	// UnitUpgrade re-initilizes the caas workload container.
+	// UnitUpgrade re-initializes the caas workload container.
 	UnitUpgrade UnitInitType = "upgrade"
 )
 
-// InitializeUnitParams contains parameters and dependencies for initializing
+// initializeUnitParams contains parameters and dependencies for initializing
 // a unit.
-type InitializeUnitParams struct {
+type initializeUnitParams struct {
 	// UnitTag of the unit being initialized.
 	UnitTag names.UnitTag
 
 	// ProviderID is the pod-name or pod-uid
 	ProviderID string
 
-	// InitType of how to initilize the pod.
+	// InitType of how to initialize the pod.
 	InitType UnitInitType
 
 	// Logger for the worker.
@@ -59,7 +60,7 @@ type InitializeUnitParams struct {
 	// OperatorInfo contains serving information such as Certs and PrivateKeys.
 	OperatorInfo caas.OperatorInfo
 
-	// ExecClient is used for initilizing units.
+	// ExecClient is used for initializing units.
 	ExecClient exec.Executor
 
 	// WriteFile is used to write files to the local state.
@@ -69,8 +70,8 @@ type InitializeUnitParams struct {
 	TempDir func(string, string) (string, error)
 }
 
-// Validate InitializeUnitParams
-func (p InitializeUnitParams) Validate() error {
+// Validate initializeUnitParams
+func (p initializeUnitParams) Validate() error {
 	if p.Logger == nil {
 		return errors.NotValidf("missing Logger")
 	}
@@ -95,8 +96,8 @@ func (p InitializeUnitParams) Validate() error {
 	return nil
 }
 
-// InitializeUnit with the charm and configuration.
-func InitializeUnit(params InitializeUnitParams, cancel <-chan struct{}) error {
+// initializeUnit with the charm and configuration.
+func initializeUnit(params initializeUnitParams, cancel <-chan struct{}) error {
 	if err := params.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -121,15 +122,17 @@ func InitializeUnit(params InitializeUnitParams, cancel <-chan struct{}) error {
 		return errors.Annotatef(err, "creating temp directory")
 	}
 
+	stdout := &bytes.Buffer{}
+	command := []string{"mkdir", "-p", tempDir}
 	err = params.ExecClient.Exec(exec.ExecParams{
-		Commands:      []string{"mkdir", "-p", tempDir},
+		Commands:      command,
 		PodName:       params.ProviderID,
 		ContainerName: container,
-		Stdout:        &bytes.Buffer{},
-		Stderr:        &bytes.Buffer{},
+		Stdout:        stdout,
+		Stderr:        stdout,
 	}, cancel)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "running command: %q failed: %q", strings.Join(command, " "), string(stdout.Bytes()))
 	}
 
 	tempCharmDir := filepath.Join(tempDir, "charm")
@@ -163,9 +166,10 @@ func InitializeUnit(params InitializeUnitParams, cancel <-chan struct{}) error {
 			"--upgrade")
 	}
 
-	stdout := &bytes.Buffer{}
+	stdout = &bytes.Buffer{}
+	command = append([]string{jujudPath, "caas-unit-init"}, initArgs...)
 	err = params.ExecClient.Exec(exec.ExecParams{
-		Commands:      append([]string{jujudPath, "caas-unit-init"}, initArgs...),
+		Commands:      command,
 		PodName:       params.ProviderID,
 		ContainerName: container,
 		WorkingDir:    cmdutil.DataDir,
@@ -173,13 +177,13 @@ func InitializeUnit(params InitializeUnitParams, cancel <-chan struct{}) error {
 		Stderr:        stdout,
 	}, cancel)
 	if err != nil {
-		return errors.Annotatef(err, "caas-unit-init for unit %q failed: %s", params.UnitTag.Id(), string(stdout.Bytes()))
+		return errors.Annotatef(err, "caas-unit-init for unit %q with command: %q failed: %s", params.UnitTag.Id(), strings.Join(command, " "), string(stdout.Bytes()))
 	}
 
 	return nil
 }
 
-func setupRemoteConfiguration(params InitializeUnitParams, cancel <-chan struct{},
+func setupRemoteConfiguration(params initializeUnitParams, cancel <-chan struct{},
 	unitPaths uniter.Paths, tempDir string, container string) (string, string, error) {
 	tempCACertFile := filepath.Join(tempDir, caas.CACertFile)
 	if err := params.WriteFile(tempCACertFile, []byte(params.OperatorInfo.CACert), 0644); err != nil {
