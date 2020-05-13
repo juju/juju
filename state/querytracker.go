@@ -5,6 +5,7 @@ package state
 
 import (
 	"runtime/debug"
+	"strings"
 	"sync"
 )
 
@@ -28,14 +29,19 @@ type QueryDetails struct {
 }
 
 // TrackQueries allows tests to turn on a mechanism to count and
-// track the database queries made.
-func (s *State) TrackQueries() QueryTracker {
-	tracker := &queryTracker{}
+// track the database queries made. The query is counted if
+// the method specified is found in the traceback. It is currently
+// just using a string.Contains check. We may want to extend this
+// functionality at some state to use regex, or support multiple
+// matches.
+func (s *State) TrackQueries(method string) QueryTracker {
+	tracker := &queryTracker{method: method}
 	s.database.(*database).setTracker(tracker)
 	return tracker
 }
 
 type queryTracker struct {
+	method  string
 	mu      sync.Mutex
 	queries []QueryDetails
 }
@@ -93,10 +99,13 @@ func (q *queryTracker) TrackRead(collectionName string, query interface{}) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	q.queries = append(q.queries, QueryDetails{
-		Type:           "read",
-		CollectionName: collectionName,
-		Query:          query,
-		Traceback:      string(debug.Stack()),
-	})
+	traceback := string(debug.Stack())
+	if strings.Contains(traceback, q.method) {
+		q.queries = append(q.queries, QueryDetails{
+			Type:           "read",
+			CollectionName: collectionName,
+			Query:          query,
+			Traceback:      string(debug.Stack()),
+		})
+	}
 }
