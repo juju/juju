@@ -91,10 +91,10 @@ func (mr *MockNetworkingEnvironMockRecorder) AllRunningInstances(arg0 interface{
 }
 
 // AllocateContainerAddresses mocks base method
-func (m *MockNetworkingEnviron) AllocateContainerAddresses(arg0 context.ProviderCallContext, arg1 instance.Id, arg2 names.MachineTag, arg3 []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (m *MockNetworkingEnviron) AllocateContainerAddresses(arg0 context.ProviderCallContext, arg1 instance.Id, arg2 names.MachineTag, arg3 network.InterfaceInfos) (network.InterfaceInfos, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllocateContainerAddresses", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].([]network.InterfaceInfo)
+	ret0, _ := ret[0].(network.InterfaceInfos)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -266,10 +266,10 @@ func (mr *MockNetworkingEnvironMockRecorder) MaintainInstance(arg0, arg1 interfa
 }
 
 // NetworkInterfaces mocks base method
-func (m *MockNetworkingEnviron) NetworkInterfaces(arg0 context.ProviderCallContext, arg1 []instance.Id) ([][]network.InterfaceInfo, error) {
+func (m *MockNetworkingEnviron) NetworkInterfaces(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]network.InterfaceInfos, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NetworkInterfaces", arg0, arg1)
-	ret0, _ := ret[0].([][]network.InterfaceInfo)
+	ret0, _ := ret[0].([]network.InterfaceInfos)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

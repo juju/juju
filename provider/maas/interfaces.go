@@ -87,7 +87,7 @@ type maasSubnet struct {
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces.
-func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]corenetwork.InterfaceInfo, error) {
+func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
 	switch len(ids) {
 	case 0:
 		return nil, environs.ErrNoInstances
@@ -96,7 +96,7 @@ func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids [
 		if err != nil {
 			return nil, err
 		}
-		return [][]corenetwork.InterfaceInfo{ifList}, nil
+		return []corenetwork.InterfaceInfos{ifList}, nil
 	}
 
 	// Fetch instance information for the IDs we are interested in.
@@ -114,7 +114,7 @@ func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids [
 		return nil, errors.Trace(err)
 	}
 
-	infos := make([][]corenetwork.InterfaceInfo, len(ids))
+	infos := make([]corenetwork.InterfaceInfos, len(ids))
 	if env.usingMAAS2() {
 		dnsSearchDomains, err := env.Domains(ctx)
 		if err != nil {
@@ -151,7 +151,7 @@ func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids [
 	return infos, err
 }
 
-func (env *maasEnviron) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) ([]corenetwork.InterfaceInfo, error) {
+func (env *maasEnviron) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) (corenetwork.InterfaceInfos, error) {
 	inst, err := env.getInstance(ctx, instId)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -179,7 +179,7 @@ func (env *maasEnviron) networkInterfacesForInstance(ctx context.ProviderCallCon
 // "interface_set" node details field.
 func maasObjectNetworkInterfaces(
 	_ context.ProviderCallContext, maasObject *gomaasapi.MAASObject, subnetsMap map[string]corenetwork.Id,
-) ([]corenetwork.InterfaceInfo, error) {
+) (corenetwork.InterfaceInfos, error) {
 	interfaceSet, ok := maasObject.GetMap()["interface_set"]
 	if !ok || interfaceSet.IsNil() {
 		// This means we're using an older MAAS API.
@@ -202,7 +202,7 @@ func maasObjectNetworkInterfaces(
 		return nil, errors.Trace(err)
 	}
 
-	infos := make([]corenetwork.InterfaceInfo, 0, len(interfaces))
+	infos := make(corenetwork.InterfaceInfos, 0, len(interfaces))
 	for i, iface := range interfaces {
 		// The below works for all types except bonds and their members.
 		parentName := strings.Join(iface.Parents, "")
@@ -317,9 +317,9 @@ func maas2NetworkInterfaces(
 	instance *maas2Instance,
 	subnetsMap map[string]corenetwork.Id,
 	dnsSearchDomains ...string,
-) ([]corenetwork.InterfaceInfo, error) {
+) (corenetwork.InterfaceInfos, error) {
 	interfaces := instance.machine.InterfaceSet()
-	infos := make([]corenetwork.InterfaceInfo, 0, len(interfaces))
+	infos := make(corenetwork.InterfaceInfos, 0, len(interfaces))
 	for i, iface := range interfaces {
 
 		// The below works for all types except bonds and their members.

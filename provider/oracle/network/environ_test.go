@@ -123,7 +123,7 @@ func (e *environSuite) TestAllocateContainerAddress(c *gc.C) {
 	var (
 		id   instance.Id
 		tag  names.MachineTag
-		info []corenetwork.InterfaceInfo
+		info corenetwork.InterfaceInfos
 	)
 
 	addr, err := e.netEnv.AllocateContainerAddresses(e.callCtx, id, tag, info)
@@ -183,7 +183,7 @@ func (e *environSuite) TestNetworkInterfacesWithEmptyParams(c *gc.C) {
 	infoList, err := netEnv.NetworkInterfaces(e.callCtx, []instance.Id{instance.Id("0")})
 	c.Assert(err, gc.IsNil)
 	c.Assert(infoList, gc.HasLen, 1)
-	c.Assert(infoList[0], jc.DeepEquals, []corenetwork.InterfaceInfo{})
+	c.Assert(infoList[0], jc.DeepEquals, corenetwork.InterfaceInfos{})
 }
 
 func (e *environSuite) TestNetworkInterfacesWithIPAssociation(c *gc.C) {

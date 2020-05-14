@@ -20,7 +20,7 @@ import (
 
 type allInstancesFunc func(context.ProviderCallContext) ([]instances.Instance, error)
 type instancesFunc func(context.ProviderCallContext, []instance.Id) ([]instances.Instance, error)
-type startInstanceFunc func(context.ProviderCallContext, environs.StartInstanceParams) (instances.Instance, *instance.HardwareCharacteristics, []corenetwork.InterfaceInfo, error)
+type startInstanceFunc func(context.ProviderCallContext, environs.StartInstanceParams) (instances.Instance, *instance.HardwareCharacteristics, corenetwork.InterfaceInfos, error)
 type stopInstancesFunc func(context.ProviderCallContext, []instance.Id) error
 type getToolsSourcesFunc func() ([]simplestreams.DataSource, error)
 type configFunc func() *config.Config

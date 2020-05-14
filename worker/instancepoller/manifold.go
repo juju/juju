@@ -54,7 +54,7 @@ func (e environWithoutNetworking) Instances(ctx context.ProviderCallContext, ids
 	return e.env.Instances(ctx, ids)
 }
 
-func (e environWithoutNetworking) NetworkInterfaces(context.ProviderCallContext, []instance.Id) ([][]network.InterfaceInfo, error) {
+func (e environWithoutNetworking) NetworkInterfaces(context.ProviderCallContext, []instance.Id) ([]network.InterfaceInfos, error) {
 	return nil, errNetworkingNotSupported
 }
 

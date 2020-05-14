@@ -58,7 +58,7 @@ func CloudInitUserData(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var interfaces []corenetwork.InterfaceInfo
+	var interfaces corenetwork.InterfaceInfos
 	if networkConfig != nil {
 		interfaces = networkConfig.Interfaces
 	}

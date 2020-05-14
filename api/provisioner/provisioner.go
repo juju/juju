@@ -245,13 +245,13 @@ func (st *State) ReleaseContainerAddresses(containerTag names.MachineTag) (err e
 
 // PrepareContainerInterfaceInfo allocates an address and returns information to
 // configure networking for a container. It accepts container tags as arguments.
-func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) ([]corenetwork.InterfaceInfo, error) {
+func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) (corenetwork.InterfaceInfos, error) {
 	return st.prepareOrGetContainerInterfaceInfo(containerTag, true)
 }
 
 // GetContainerInterfaceInfo returns information to configure networking
 // for a container. It accepts container tags as arguments.
-func (st *State) GetContainerInterfaceInfo(containerTag names.MachineTag) ([]corenetwork.InterfaceInfo, error) {
+func (st *State) GetContainerInterfaceInfo(containerTag names.MachineTag) (corenetwork.InterfaceInfos, error) {
 	return st.prepareOrGetContainerInterfaceInfo(containerTag, false)
 }
 
@@ -265,7 +265,7 @@ func (st *State) GetContainerInterfaceInfo(containerTag names.MachineTag) ([]cor
 func (st *State) prepareOrGetContainerInterfaceInfo(
 	containerTag names.MachineTag,
 	allocateNewAddress bool,
-) ([]corenetwork.InterfaceInfo, error) {
+) (corenetwork.InterfaceInfos, error) {
 	var result params.MachineNetworkConfigResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
@@ -286,7 +286,7 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 		return nil, err
 	}
 	machineConf := result.Results[0]
-	ifaceInfo := make([]corenetwork.InterfaceInfo, len(machineConf.Config))
+	ifaceInfo := make(corenetwork.InterfaceInfos, len(machineConf.Config))
 	for i, cfg := range machineConf.Config {
 		routes := make([]corenetwork.Route, len(cfg.Routes))
 		for j, route := range cfg.Routes {

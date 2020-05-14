@@ -424,8 +424,8 @@ func ipv6BridgeConfigError(fileName string, installedViaSnap bool) error {
 // input LXD NIC devices.
 // The output is used to generate cloud-init user-data congruent with the NICs
 // that end up in the container.
-func InterfaceInfoFromDevices(nics map[string]device) ([]corenetwork.InterfaceInfo, error) {
-	interfaces := make([]corenetwork.InterfaceInfo, len(nics))
+func InterfaceInfoFromDevices(nics map[string]device) (corenetwork.InterfaceInfos, error) {
+	interfaces := make(corenetwork.InterfaceInfos, len(nics))
 	var i int
 	for name, device := range nics {
 		iInfo := corenetwork.InterfaceInfo{
@@ -451,7 +451,7 @@ func InterfaceInfoFromDevices(nics map[string]device) ([]corenetwork.InterfaceIn
 	return interfaces, nil
 }
 
-type interfaceInfoSlice []corenetwork.InterfaceInfo
+type interfaceInfoSlice corenetwork.InterfaceInfos
 
 func (s interfaceInfoSlice) Len() int      { return len(s) }
 func (s interfaceInfoSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
@@ -459,7 +459,7 @@ func (s interfaceInfoSlice) Less(i, j int) bool {
 	return s[i].InterfaceName < s[j].InterfaceName
 }
 
-func sortInterfacesByName(interfaces []corenetwork.InterfaceInfo) {
+func sortInterfacesByName(interfaces corenetwork.InterfaceInfos) {
 	sort.Sort(interfaceInfoSlice(interfaces))
 }
 
@@ -470,7 +470,7 @@ const errIPV6NotSupported = `socket: address family not supported by protocol`
 // DevicesFromInterfaceInfo uses the input interface info collection to create a
 // map of network device configuration in the LXD format.
 // Names for any networks without a known CIDR are returned in a slice.
-func DevicesFromInterfaceInfo(interfaces []corenetwork.InterfaceInfo) (map[string]device, []string, error) {
+func DevicesFromInterfaceInfo(interfaces corenetwork.InterfaceInfos) (map[string]device, []string, error) {
 	nics := make(map[string]device, len(interfaces))
 	var unknown []string
 
