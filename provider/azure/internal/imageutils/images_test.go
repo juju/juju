@@ -36,7 +36,7 @@ func (s *imageutilsSuite) SetUpTest(c *gc.C) {
 	s.callCtx = context.NewCloudCallContext()
 }
 
-func (s *imageutilsSuite) TestSeriesImage(c *gc.C) {
+func (s *imageutilsSuite) TestSeriesImageLegacy(c *gc.C) {
 	s.mockSender.AppendResponse(mocks.NewResponseWithContent(
 		`[{"name": "14.04.3"}, {"name": "14.04.1-LTS"}, {"name": "12.04.5"}]`,
 	))
@@ -50,15 +50,29 @@ func (s *imageutilsSuite) TestSeriesImage(c *gc.C) {
 	})
 }
 
-func (s *imageutilsSuite) TestSeriesImageInvalidSKU(c *gc.C) {
+func (s *imageutilsSuite) TestSeriesImage(c *gc.C) {
 	s.mockSender.AppendResponse(mocks.NewResponseWithContent(
-		`[{"name": "12.04.invalid"}, {"name": "12.04.5-LTS"}]`,
+		`[{"name": "20_04"}, {"name": "20_04-LTS"}, {"name": "19_04"}]`,
 	))
-	image, err := imageutils.SeriesImage(s.callCtx, "precise", "released", "westus", s.client)
+	image, err := imageutils.SeriesImage(s.callCtx, "focal", "released", "westus", s.client)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image, gc.NotNil)
 	c.Assert(image, jc.DeepEquals, &instances.Image{
-		Id:       "Canonical:UbuntuServer:12.04.5-LTS:latest",
+		Id:       "Canonical:0001-com-ubuntu-server-focal:20_04-LTS:latest",
+		Arch:     arch.AMD64,
+		VirtType: "Hyper-V",
+	})
+}
+
+func (s *imageutilsSuite) TestSeriesImageInvalidSKU(c *gc.C) {
+	s.mockSender.AppendResponse(mocks.NewResponseWithContent(
+		`[{"name": "14.04.invalid"}, {"name": "14.04.5-LTS"}]`,
+	))
+	image, err := imageutils.SeriesImage(s.callCtx, "trusty", "released", "westus", s.client)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(image, gc.NotNil)
+	c.Assert(image, jc.DeepEquals, &instances.Image{
+		Id:       "Canonical:UbuntuServer:14.04.5-LTS:latest",
 		Arch:     arch.AMD64,
 		VirtType: "Hyper-V",
 	})

@@ -10,10 +10,13 @@ import (
 var (
 	GetNewRunnerExecutor = getNewRunnerExecutor
 	JujudSymlinks        = jujudSymlinks
+	InitializeUnit       = initializeUnit
+	RunnerWithRetry      = runnerWithRetry
 )
 
 type (
-	CaasOperator = caasOperator
+	InitializeUnitParams = initializeUnitParams
+	CaasOperator         = caasOperator
 )
 
 func (op *caasOperator) MakeAgentSymlinks(unitTag names.UnitTag) error {
