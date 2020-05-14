@@ -36,30 +36,56 @@ import (
 const (
 	guiConfigPath = "templates/config.js.go"
 	guiIndexPath  = "templates/index.html.go"
+
+	dashboardConfigPath = "config.js.go"
+	dashboardIndexPath  = "index.html"
 )
 
 type guiSuite struct {
 	apiserverBaseSuite
 }
 
-var _ = gc.Suite(&guiSuite{})
+type legacyGUISuite struct {
+	guiSuite
+}
+
+type dashboardSuite struct {
+	guiSuite
+}
+
+var _ = gc.Suite(&legacyGUISuite{})
+
+var _ = gc.Suite(&dashboardSuite{})
 
 // guiURL returns the complete URL where the Juju GUI can be found, including
-// the given hash and pathAndquery.
-func (s *guiSuite) guiURL(hash, pathAndquery string) string {
-	return s.urlFromBase(apiserver.GUIURLPathPrefix, hash, pathAndquery)
+// the given hash and pathAndQuery.
+func (s *legacyGUISuite) guiURL(hash, pathAndQuery string) string {
+	return s.urlFromBase(apiserver.GUIURLPathPrefix, hash, pathAndQuery)
 }
 
-func (s *guiSuite) guiOldURL(hash, pathAndquery string) string {
+// dashboardURL returns the complete URL where the Juju Dashboard can be found, including
+// the pathAndQuery.
+func (s *dashboardSuite) dashboardURL(pathAndQuery string) string {
+	if pathAndQuery == "" {
+		return s.URL(apiserver.DashboardURLPathPrefix, nil).String()
+	}
+	prefix := apiserver.DashboardURLPathPrefix
+	if strings.HasPrefix(pathAndQuery, "static/") || pathAndQuery == "config.js" {
+		prefix = ""
+	}
+	return s.urlFromBase(prefix, "", pathAndQuery)
+}
+
+func (s *legacyGUISuite) guiOldURL(hash, pathAndQuery string) string {
 	base := apiserver.GUIURLPathPrefix + s.State.ModelUUID() + "/"
-	return s.urlFromBase(base, hash, pathAndquery)
+	return s.urlFromBase(base, hash, pathAndQuery)
 }
 
-func (s *guiSuite) urlFromBase(base, hash, pathAndquery string) string {
+func (s *guiSuite) urlFromBase(base, hash, pathAndQuery string) string {
 	if hash != "" {
 		base += hash + "/"
 	}
-	parts := strings.SplitN(pathAndquery, "?", 2)
+	parts := strings.SplitN(pathAndQuery, "?", 2)
 	u := s.URL(base+parts[0], nil)
 	if len(parts) == 2 {
 		u.RawQuery = parts[1]
@@ -80,9 +106,9 @@ var guiHandlerTests = []struct {
 	// currentVersion optionally holds the GUI version that must be set as
 	// current right after setup is called and before the test is run.
 	currentVersion string
-	// pathAndquery holds the optional path and query for the request, for
+	// pathAndQuery holds the optional path and query for the request, for
 	// instance "/combo?file". If not provided, the "/" path is used.
-	pathAndquery string
+	pathAndQuery string
 	// expectedStatus holds the expected response HTTP status.
 	// A 200 OK status is used by default.
 	expectedStatus int
@@ -205,7 +231,7 @@ var guiHandlerTests = []struct {
 		return setupGUIArchive(c, storage, "2.0.42", nil)
 	},
 	currentVersion: "2.0.42",
-	pathAndquery:   "config.js",
+	pathAndQuery:   "config.js",
 	expectedStatus: http.StatusInternalServerError,
 	expectedError:  "cannot parse template: .*: no such file or directory",
 }, {
@@ -216,7 +242,7 @@ var guiHandlerTests = []struct {
 		})
 	},
 	currentVersion: "2.0.47",
-	pathAndquery:   "config.js",
+	pathAndQuery:   "config.js",
 	expectedStatus: http.StatusInternalServerError,
 	expectedError:  `cannot parse template: template: config.js.go:1: unexpected ".47" .*`,
 }, {
@@ -226,7 +252,7 @@ var guiHandlerTests = []struct {
 		return "invalid"
 	},
 	currentVersion: "2.0.47",
-	pathAndquery:   "config.js",
+	pathAndQuery:   "config.js",
 	expectedStatus: http.StatusNotFound,
 	expectedError:  `resource with "invalid" hash not found`,
 }, {
@@ -235,7 +261,7 @@ var guiHandlerTests = []struct {
 		return setupGUIArchive(c, storage, "1.0.0", nil)
 	},
 	currentVersion: "1.0.0",
-	pathAndquery:   "combo?foo&%%",
+	pathAndQuery:   "combo?foo&%%",
 	expectedStatus: http.StatusBadRequest,
 	expectedError:  `cannot combine files: invalid file name "%": invalid URL escape "%%"`,
 }, {
@@ -244,7 +270,7 @@ var guiHandlerTests = []struct {
 		return setupGUIArchive(c, storage, "1.0.0", nil)
 	},
 	currentVersion: "1.0.0",
-	pathAndquery:   "combo?../../../../../../etc/passwd",
+	pathAndQuery:   "combo?../../../../../../etc/passwd",
 	expectedStatus: http.StatusBadRequest,
 	expectedError:  `cannot combine files: forbidden file path "../../../../../../etc/passwd"`,
 }, {
@@ -254,7 +280,7 @@ var guiHandlerTests = []struct {
 		return "invalid"
 	},
 	currentVersion: "2.0.47",
-	pathAndquery:   "combo?foo",
+	pathAndQuery:   "combo?foo",
 	expectedStatus: http.StatusNotFound,
 	expectedError:  `resource with "invalid" hash not found`,
 }, {
@@ -268,7 +294,7 @@ var guiHandlerTests = []struct {
 		})
 	},
 	currentVersion:      "1.0.0",
-	pathAndquery:        "combo?voy/janeway.js&tng/picard.js&borg.js&ds9/sisko.js",
+	pathAndQuery:        "combo?voy/janeway.js&tng/picard.js&borg.js&ds9/sisko.js",
 	expectedStatus:      http.StatusOK,
 	expectedContentType: apiserver.JSMimeType,
 	expectedBody: `voyager
@@ -288,7 +314,7 @@ deep space nine
 		})
 	},
 	currentVersion:      "1.0.0",
-	pathAndquery:        "combo?no-such.css&foo.css&bad-wolf.css",
+	pathAndQuery:        "combo?no-such.css&foo.css&bad-wolf.css",
 	expectedStatus:      http.StatusOK,
 	expectedContentType: "text/css; charset=utf-8",
 	expectedBody: `my-style
@@ -302,7 +328,7 @@ deep space nine
 		})
 	},
 	currentVersion:      "1.0.0",
-	pathAndquery:        "static/file.js",
+	pathAndQuery:        "static/file.js",
 	expectedStatus:      http.StatusOK,
 	expectedContentType: apiserver.JSMimeType,
 	expectedBody:        "static file content",
@@ -313,7 +339,7 @@ deep space nine
 		return "bad-wolf"
 	},
 	currentVersion: "2.0.47",
-	pathAndquery:   "static/file.js",
+	pathAndQuery:   "static/file.js",
 	expectedStatus: http.StatusNotFound,
 	expectedError:  `resource with "bad-wolf" hash not found`,
 }, {
@@ -327,18 +353,18 @@ deep space nine
 		})
 	},
 	currentVersion: "2.1.1",
-	pathAndquery:   "static/file.js",
+	pathAndQuery:   "static/file.js",
 	expectedStatus: http.StatusNotFound,
 	expectedError:  `resource with ".*" hash not found`,
 }}
 
-func (s *guiSuite) TestGUIHandler(c *gc.C) {
+func (s *legacyGUISuite) TestGUIHandler(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		// Skipping the tests on Windows is not a problem as the Juju GUI is
 		// only served from Linux machines.
 		c.Skip("bzip2 command not available")
 	}
-	sendRequest := func(setup guiSetupFunc, currentVersion, pathAndquery string) *http.Response {
+	sendRequest := func(setup guiSetupFunc, currentVersion, pathAndQuery string) *http.Response {
 		// Set up the GUI base directory.
 		datadir := filepath.ToSlash(s.config.DataDir)
 		baseDir := filepath.FromSlash(agenttools.SharedGUIDir(datadir))
@@ -370,7 +396,7 @@ func (s *guiSuite) TestGUIHandler(c *gc.C) {
 
 		// Send a request to the test path.
 		return apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
-			URL: s.guiURL(hash, pathAndquery),
+			URL: s.guiURL(hash, pathAndQuery),
 		})
 	}
 
@@ -382,7 +408,7 @@ func (s *guiSuite) TestGUIHandler(c *gc.C) {
 		s.SetUpTest(c)
 
 		// Perform the request.
-		resp := sendRequest(test.setup, test.currentVersion, test.pathAndquery)
+		resp := sendRequest(test.setup, test.currentVersion, test.pathAndQuery)
 
 		// Check the response.
 		if test.expectedStatus == 0 {
@@ -405,12 +431,214 @@ func (s *guiSuite) TestGUIHandler(c *gc.C) {
 	}
 }
 
-func (s *guiSuite) TestGUIIndex(c *gc.C) {
+var dashboardHandlerTests = []struct {
+	// about describes the test.
+	about string
+	// setup is optionally used to set up the test.
+	// It receives the Juju GUI base directory and an empty GUI storage.
+	// Optionally it can return a GUI archive hash which is used by the test
+	// to build the URL path for the HTTP request.
+	setup guiSetupFunc
+	// currentVersion optionally holds the GUI version that must be set as
+	// current right after setup is called and before the test is run.
+	currentVersion string
+	// pathAndQuery holds the optional path and query for the request, for
+	// instance "/combo?file". If not provided, the "/" path is used.
+	pathAndQuery string
+	// expectedStatus holds the expected response HTTP status.
+	// A 200 OK status is used by default.
+	expectedStatus int
+	// expectedContentType holds the expected response content type.
+	// If expectedError is provided this field is ignored.
+	expectedContentType string
+	// expectedBody holds the expected response body, only used if
+	// expectedError is not provided (see below).
+	expectedBody string
+	// expectedError holds the expected error message included in the response.
+	expectedError string
+}{{
+	about:          "metadata not found",
+	expectedStatus: http.StatusNotFound,
+	expectedError:  "Juju Dashboard not found",
+}, {
+	about: "GUI directory is a file",
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		err := storage.Add(strings.NewReader(""), binarystorage.Metadata{
+			SHA256:  "fake-hash",
+			Version: "2.1.0",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		err = os.MkdirAll(baseDir, 0755)
+		c.Assert(err, jc.ErrorIsNil)
+		rootDir := filepath.Join(baseDir, "fake-hash")
+		err = ioutil.WriteFile(rootDir, nil, 0644)
+		c.Assert(err, jc.ErrorIsNil)
+		return ""
+	},
+	currentVersion: "2.1.0",
+	expectedStatus: http.StatusInternalServerError,
+	expectedError:  "cannot use Juju Dashboard root directory .*",
+}, {
+	about: "GUI directory is unaccessible",
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		err := storage.Add(strings.NewReader(""), binarystorage.Metadata{
+			SHA256:  "fake-hash",
+			Version: "2.2.0",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		err = os.MkdirAll(baseDir, 0000)
+		c.Assert(err, jc.ErrorIsNil)
+		return ""
+	},
+	currentVersion: "2.2.0",
+	expectedStatus: http.StatusInternalServerError,
+	expectedError:  "cannot stat Juju Dashboard root directory: .*",
+}, {
+	about: "invalid GUI archive",
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		err := storage.Add(strings.NewReader(""), binarystorage.Metadata{
+			SHA256:  "fake-hash",
+			Version: "2.3.0",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		return ""
+	},
+	currentVersion: "2.3.0",
+	expectedStatus: http.StatusInternalServerError,
+	expectedError:  "cannot uncompress Juju Dashboard archive: cannot parse archive: .*",
+}, {
+	about: "GUI current version not set",
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		err := storage.Add(strings.NewReader(""), binarystorage.Metadata{
+			SHA256: "fake-hash",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		return ""
+	},
+	expectedStatus: http.StatusNotFound,
+	expectedError:  "Juju Dashboard not found",
+}, {
+	about: "index: not found",
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		setupDashboardArchive(c, storage, "2.0.42", map[string]string{})
+		return ""
+	},
+	currentVersion: "2.0.42",
+	expectedStatus: http.StatusInternalServerError,
+	expectedError:  "cannot read index file: .*: no such file or directory",
+}, {
+	about: "config: template not found",
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		return setupDashboardArchive(c, storage, "2.0.42", nil)
+	},
+	currentVersion: "2.0.42",
+	pathAndQuery:   "config.js",
+	expectedStatus: http.StatusInternalServerError,
+	expectedError:  "cannot parse template: .*: no such file or directory",
+}, {
+	about: "config: invalid template",
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		return setupDashboardArchive(c, storage, "2.0.47", map[string]string{
+			dashboardConfigPath: "{{.BadWolf.47}}",
+		})
+	},
+	currentVersion: "2.0.47",
+	pathAndQuery:   "config.js",
+	expectedStatus: http.StatusInternalServerError,
+	expectedError:  `cannot parse template: template: config.js.go:1: unexpected ".47" .*`,
+}, {
+	about: "static files",
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		return setupDashboardArchive(c, storage, "1.0.0", map[string]string{
+			"static/file.js": "static file content",
+		})
+	},
+	currentVersion:      "1.0.0",
+	pathAndQuery:        "static/file.js",
+	expectedStatus:      http.StatusOK,
+	expectedContentType: apiserver.JSMimeType,
+	expectedBody:        "static file content",
+}}
+
+func (s *dashboardSuite) TestDashboardHandler(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		// Skipping the tests on Windows is not a problem as the Juju GUI is
+		// only served from Linux machines.
+		c.Skip("bzip2 command not available")
+	}
+	sendRequest := func(setup guiSetupFunc, currentVersion, pathAndQuery string) *http.Response {
+		// Set up the GUI base directory.
+		datadir := filepath.ToSlash(s.config.DataDir)
+		baseDir := filepath.FromSlash(agenttools.SharedGUIDir(datadir))
+		defer func() {
+			os.Chmod(baseDir, 0755)
+			os.Remove(baseDir)
+		}()
+
+		// Run specific test set up.
+		if setup != nil {
+			storage, err := s.State.GUIStorage()
+			c.Assert(err, jc.ErrorIsNil)
+			defer storage.Close()
+
+			// Ensure the GUI storage is empty.
+			allMeta, err := storage.AllMetadata()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(allMeta, gc.HasLen, 0)
+
+			// Dashboard doesn't care about the hash.
+			_ = setup(c, baseDir, storage)
+		}
+
+		// Set the current GUI version if required.
+		if currentVersion != "" {
+			err := s.State.GUISetVersion(version.MustParse(currentVersion))
+			c.Assert(err, jc.ErrorIsNil)
+		}
+
+		// Send a request to the test path.
+		return apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+			URL: s.dashboardURL(pathAndQuery),
+		})
+	}
+
+	for i, test := range dashboardHandlerTests {
+		c.Logf("\n%d: %s", i, test.about)
+
+		// Reset the db so that the GUI storage is empty in each test.
+		s.TearDownTest(c)
+		s.SetUpTest(c)
+
+		// Perform the request.
+		resp := sendRequest(test.setup, test.currentVersion, test.pathAndQuery)
+
+		// Check the response.
+		if test.expectedStatus == 0 {
+			test.expectedStatus = http.StatusOK
+		}
+		if test.expectedError != "" {
+			test.expectedContentType = params.ContentTypeJSON
+		}
+		body := apitesting.AssertResponse(c, resp, test.expectedStatus, test.expectedContentType)
+		if test.expectedError == "" {
+			c.Check(string(body), gc.Equals, test.expectedBody)
+		} else {
+			var jsonResp params.ErrorResult
+			err := json.Unmarshal(body, &jsonResp)
+			if !c.Check(err, jc.ErrorIsNil, gc.Commentf("body: %s", body)) {
+				continue
+			}
+			c.Check(jsonResp.Error.Message, gc.Matches, test.expectedError)
+		}
+	}
+}
+
+func (s *legacyGUISuite) TestGUIIndex(c *gc.C) {
 	tests := []struct {
 		about               string
 		guiVersion          string
 		path                string
-		getURL              func(hash, pathAndquery string) string
+		getURL              func(hash, pathAndQuery string) string
 		expectedConfigQuery string
 	}{{
 		about:      "new GUI, new URL, root",
@@ -483,6 +711,7 @@ func (s *guiSuite) TestGUIIndex(c *gc.C) {
 		})
 		err = s.State.GUISetVersion(vers)
 		c.Assert(err, jc.ErrorIsNil)
+
 		expectedIndexContent := fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
@@ -509,10 +738,72 @@ func (s *guiSuite) TestGUIIndex(c *gc.C) {
 		body = apitesting.AssertResponse(c, resp, http.StatusOK, "text/html; charset=utf-8")
 		c.Assert(string(body), gc.Equals, expectedIndexContent)
 	}
-
 }
 
-func (s *guiSuite) TestGUIIndexVersions(c *gc.C) {
+func (s *dashboardSuite) TestDashboardIndex(c *gc.C) {
+	tests := []struct {
+		about               string
+		guiVersion          string
+		path                string
+		expectedConfigQuery string
+	}{{
+		about:      "new GUI, new URL, root",
+		guiVersion: "2.3.0",
+	}, {
+		about:      "new GUI, new URL, model path",
+		guiVersion: "2.3.1",
+		path:       "u/admin/testmodel/",
+	}, {
+		about:      "old GUI, new URL, root",
+		guiVersion: "2.2.0",
+	}, {
+		about:               "old GUI, new URL, model path",
+		guiVersion:          "2.0.0",
+		path:                "u/admin/testmodel/",
+		expectedConfigQuery: "?model-uuid=" + s.State.ModelUUID() + "&base-postfix=u/admin/testmodel",
+	}}
+
+	// Ensure there's an admin user with access to the testmodel model.
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "admin"})
+	storage, err := s.State.GUIStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer storage.Close()
+
+	// Create a Juju GUI archive and save it into the storage.
+	indexContent := `
+<!DOCTYPE html>
+<html>
+<body>
+    not a template
+</body>
+</html>`
+
+	for i, test := range tests {
+		c.Logf("\n%d: %s", i, test.about)
+		vers := version.MustParse(test.guiVersion)
+		_ = setupDashboardArchive(c, storage, vers.String(), map[string]string{
+			dashboardIndexPath: indexContent,
+		})
+		err = s.State.GUISetVersion(vers)
+		c.Assert(err, jc.ErrorIsNil)
+
+		// Make a request for the Juju GUI index.
+		resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+			URL: s.dashboardURL(test.path),
+		})
+		body := apitesting.AssertResponse(c, resp, http.StatusOK, "text/html; charset=utf-8")
+		c.Assert(string(body), gc.Equals, indexContent)
+
+		// Non-handled paths are served by the index handler.
+		resp = apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+			URL: s.dashboardURL(test.path + "no-such-path/"),
+		})
+		body = apitesting.AssertResponse(c, resp, http.StatusOK, "text/html; charset=utf-8")
+		c.Assert(string(body), gc.Equals, indexContent)
+	}
+}
+
+func (s *legacyGUISuite) TestGUIIndexVersions(c *gc.C) {
 	storage, err := s.State.GUIStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
@@ -551,7 +842,43 @@ func (s *guiSuite) TestGUIIndexVersions(c *gc.C) {
 	c.Assert(string(body), gc.Equals, "index version 3.0.0")
 }
 
-func (s *guiSuite) TestGUIConfig(c *gc.C) {
+func (s *dashboardSuite) TestDashboardIndexVersions(c *gc.C) {
+	storage, err := s.State.GUIStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer storage.Close()
+
+	// Create Juju GUI archives and save it into the storage.
+	setupDashboardArchive(c, storage, "1.0.0", map[string]string{
+		dashboardIndexPath: "index version 1.0.0",
+	})
+	vers2 := version.MustParse("2.0.0")
+	setupDashboardArchive(c, storage, vers2.String(), map[string]string{
+		dashboardIndexPath: "index version 2.0.0",
+	})
+	vers3 := version.MustParse("3.0.0")
+	setupDashboardArchive(c, storage, vers3.String(), map[string]string{
+		dashboardIndexPath: "index version 3.0.0",
+	})
+
+	// Check that the correct index version is served.
+	err = s.State.GUISetVersion(vers2)
+	c.Assert(err, jc.ErrorIsNil)
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+		URL: s.dashboardURL(""),
+	})
+	body := apitesting.AssertResponse(c, resp, http.StatusOK, "text/plain; charset=utf-8")
+	c.Assert(string(body), gc.Equals, "index version 2.0.0")
+
+	err = s.State.GUISetVersion(vers3)
+	c.Assert(err, jc.ErrorIsNil)
+	resp = apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+		URL: s.dashboardURL(""),
+	})
+	body = apitesting.AssertResponse(c, resp, http.StatusOK, "text/plain; charset=utf-8")
+	c.Assert(string(body), gc.Equals, "index version 3.0.0")
+}
+
+func (s *legacyGUISuite) TestGUIConfig(c *gc.C) {
 	tests := []struct {
 		about              string
 		configPathAndQuery string
@@ -628,7 +955,57 @@ var config = {
 	}
 }
 
-func (s *guiSuite) TestGUIDirectory(c *gc.C) {
+func (s *dashboardSuite) TestDashboardConfig(c *gc.C) {
+	tests := []struct {
+		about              string
+		configPathAndQuery string
+		expectedBaseURL    string
+	}{{
+		about:              "no uuid, no postfix",
+		configPathAndQuery: "config.js",
+		expectedBaseURL:    "/dashboard/",
+	}}
+
+	storage, err := s.State.GUIStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer storage.Close()
+
+	// Create a Juju GUI archive and save it into the storage.
+	serverHost := s.server.Listener.Addr().String()
+	_ = serverHost
+	configContent := `
+var config = {
+    // This is just an example and does not reflect the real Juju GUI config.
+    baseAppURL: '{{.baseAppURL}}',
+    identityProviderAvailable: {{.identityProviderAvailable}},
+};`
+	vers := version.MustParse("2.0.0")
+	// Dashboard doesn't care about the hash.
+	_ = setupDashboardArchive(c, storage, vers.String(), map[string]string{
+		dashboardConfigPath: configContent,
+	})
+	err = s.State.GUISetVersion(vers)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for i, test := range tests {
+		c.Logf("\n%d: %s", i, test.about)
+		expectedConfigContent := fmt.Sprintf(`
+var config = {
+    // This is just an example and does not reflect the real Juju GUI config.
+    baseAppURL: '%s',
+    identityProviderAvailable: false,
+};`, test.expectedBaseURL)
+
+		// Make a request for the Juju GUI config.
+		resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+			URL: s.dashboardURL(test.configPathAndQuery),
+		})
+		body := apitesting.AssertResponse(c, resp, http.StatusOK, apiserver.JSMimeType)
+		c.Assert(string(body), gc.Equals, expectedConfigContent)
+	}
+}
+
+func (s *legacyGUISuite) TestGUIDirectory(c *gc.C) {
 	storage, err := s.State.GUIStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
@@ -663,6 +1040,40 @@ func (s *guiSuite) TestGUIDirectory(c *gc.C) {
 	c.Assert(string(b), gc.Equals, indexContent)
 }
 
+func (s *dashboardSuite) TestDashboardDirectory(c *gc.C) {
+	storage, err := s.State.GUIStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer storage.Close()
+
+	// Create a Juju GUI archive and save it into the storage.
+	indexContent := "<!DOCTYPE html><html><body>Exterminate!</body></html>"
+	vers := version.MustParse("2.0.0")
+	hash := setupDashboardArchive(c, storage, vers.String(), map[string]string{
+		dashboardIndexPath: indexContent,
+	})
+	err = s.State.GUISetVersion(vers)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Initially the GUI directory on the server is empty.
+	baseDir := agenttools.SharedGUIDir(s.config.DataDir)
+	c.Assert(baseDir, jc.DoesNotExist)
+
+	// Make a request for the Juju GUI.
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+		URL: s.dashboardURL(""),
+	})
+	body := apitesting.AssertResponse(c, resp, http.StatusOK, "text/html; charset=utf-8")
+	c.Assert(string(body), gc.Equals, indexContent)
+
+	// Now the GUI is stored on disk, in a directory corresponding to its
+	// archive SHA256 hash.
+	indexPath := filepath.Join(baseDir, hash, dashboardIndexPath)
+	c.Assert(indexPath, jc.IsNonEmptyFile)
+	b, err := ioutil.ReadFile(indexPath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(b), gc.Equals, indexContent)
+}
+
 type guiCandidSuite struct {
 	apiserverBaseSuite
 }
@@ -685,11 +1096,11 @@ func (s *guiCandidSuite) TestGUIConfig(c *gc.C) {
 	configContent := `
 var config = {
     // This is just an example and does not reflect the real Juju GUI config.
-    bakeryEnabled: {{.bakeryEnabled}},
+    identityProviderAvailable: {{.identityProviderAvailable}},
 };`
 	vers := version.MustParse("2.0.0")
-	hash := setupGUIArchive(c, storage, vers.String(), map[string]string{
-		guiConfigPath: configContent,
+	_ = setupDashboardArchive(c, storage, vers.String(), map[string]string{
+		dashboardConfigPath: configContent,
 	})
 	err = s.State.GUISetVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
@@ -697,11 +1108,11 @@ var config = {
 	expectedConfigContent := `
 var config = {
     // This is just an example and does not reflect the real Juju GUI config.
-    bakeryEnabled: true,
+    identityProviderAvailable: true,
 };`
 	// Make a request for the Juju GUI config.
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
-		URL: s.URL(apiserver.GUIURLPathPrefix+hash+"/config.js", nil).String(),
+		URL: s.URL("/config.js", nil).String(),
 	})
 	body := apitesting.AssertResponse(c, resp, http.StatusOK, apiserver.JSMimeType)
 	c.Assert(string(body), gc.Equals, expectedConfigContent)
@@ -893,7 +1304,7 @@ func (s *guiArchiveSuite) TestGUIArchivePostErrorUnauthorized(c *gc.C) {
 func (s *guiArchiveSuite) TestGUIArchivePostSuccess(c *gc.C) {
 	// Create a GUI archive to be uploaded.
 	vers := "2.0.42"
-	r, hash, size := makeGUIArchive(c, vers, nil)
+	r, hash, size := makeGUIOrDashboardArchive(c, ".", vers, nil)
 
 	// Prepare and send the request to upload a new GUI archive.
 	v := url.Values{}
@@ -939,7 +1350,7 @@ func (s *guiArchiveSuite) TestGUIArchivePostCurrent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a GUI archive to be uploaded.
-	r, hash, _ := makeGUIArchive(c, vers.String(), map[string]string{"filename": "content"})
+	r, hash, _ := makeGUIOrDashboardArchive(c, ".", vers.String(), map[string]string{"filename": "content"})
 
 	// Prepare and send the request to upload a new GUI archive.
 	v := url.Values{}
@@ -1091,11 +1502,11 @@ func (s *guiVersionSuite) TestGUIVersionPutErrorUnauthorized(c *gc.C) {
 	c.Assert(string(body), gc.Equals, "authentication failed: no credentials provided\n")
 }
 
-// makeGUIArchive creates a Juju GUI tar.bz2 archive with the given files.
+// makeGUIOrDashboardArchive creates a Juju GUI tar.bz2 archive with the given files.
 // The files parameter maps file names (relative to the internal "jujugui"
 // directory) to their contents. This function returns a reader for the
 // archive, its hash and size.
-func makeGUIArchive(c *gc.C, vers string, files map[string]string) (r io.Reader, hash string, size int64) {
+func makeGUIOrDashboardArchive(c *gc.C, baseDir, vers string, files map[string]string) (r io.Reader, hash string, size int64) {
 	if runtime.GOOS == "windows" {
 		// Skipping the tests on Windows is not a problem as the Juju GUI is
 		// only served from Linux machines.
@@ -1112,23 +1523,35 @@ func makeGUIArchive(c *gc.C, vers string, files map[string]string) (r io.Reader,
 	c.Assert(err, jc.ErrorIsNil)
 
 	tw := tar.NewWriter(stdin)
-	baseDir := filepath.Join("jujugui-"+vers, "jujugui")
+	// baseDir maybe "." which is omitted by filepath.Join()
+	versionFile := fmt.Sprintf("%s/version.json", baseDir)
 	err = tw.WriteHeader(&tar.Header{
-		Name:     baseDir,
+		Name:     filepath.Dir(versionFile),
 		Mode:     0700,
 		Typeflag: tar.TypeDir,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	versionData := fmt.Sprintf(`{"version": %q}`, vers)
+	err = tw.WriteHeader(&tar.Header{
+		Typeflag: tar.TypeReg,
+		Name:     versionFile,
+		Size:     int64(len(versionData)),
+		Mode:     0700,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = io.WriteString(tw, versionData)
+	c.Assert(err, jc.ErrorIsNil)
 	for path, content := range files {
-		name := filepath.Join(baseDir, path)
+		fileDir := fmt.Sprintf("%s/%s", baseDir, filepath.Dir(path))
+		fileName := fmt.Sprintf("%s/%s", baseDir, path)
 		err = tw.WriteHeader(&tar.Header{
-			Name:     filepath.Dir(name),
+			Name:     fileDir,
 			Mode:     0700,
 			Typeflag: tar.TypeDir,
 		})
 		c.Assert(err, jc.ErrorIsNil)
 		err = tw.WriteHeader(&tar.Header{
-			Name: name,
+			Name: fileName,
 			Mode: 0600,
 			Size: int64(len(content)),
 		})
@@ -1156,7 +1579,19 @@ func makeGUIArchive(c *gc.C, vers string, files map[string]string) (r io.Reader,
 // and files and saves it into the given storage. The Juju GUI archive SHA256
 // hash is returned.
 func setupGUIArchive(c *gc.C, storage binarystorage.Storage, vers string, files map[string]string) (hash string) {
-	r, hash, size := makeGUIArchive(c, vers, files)
+	baseDir := filepath.Join("jujugui-"+vers, "jujugui")
+	r, hash, size := makeGUIOrDashboardArchive(c, baseDir, vers, files)
+	err := storage.Add(r, binarystorage.Metadata{
+		Version: vers,
+		Size:    size,
+		SHA256:  hash,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return hash
+}
+
+func setupDashboardArchive(c *gc.C, storage binarystorage.Storage, vers string, files map[string]string) (hash string) {
+	r, hash, size := makeGUIOrDashboardArchive(c, ".", vers, files)
 	err := storage.Add(r, binarystorage.Metadata{
 		Version: vers,
 		Size:    size,

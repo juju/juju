@@ -14,7 +14,6 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/juju/keys"
 	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type simplestreamsSuite struct {
@@ -63,84 +62,82 @@ var fetchMetadataTests = []struct {
 	jujuVersion string
 	// expectedMetadata holds the list of metadata information returned.
 	// The following fields are automatically pre-populated by the test:
-	// "FullPath", "Source", "StringVersion" and "JujuMajorVersion"
+	// "FullPath", "Source", "DashboardVersion" and "MinJujuVersion"
 	expectedMetadata []*gui.Metadata
 	// expectedError optionally holds the expected error returned while trying
 	// to retrieve GUI metadata information.
 	expectedError string
 }{{
-	about:       "released version 2",
+	about:       "released version 2.8.2",
+	stream:      gui.ReleasedStream,
+	jujuVersion: "2.8.2",
+	expectedMetadata: []*gui.Metadata{{
+		Size:             6140774,
+		SHA256:           "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
+		Path:             "gui/2.1.1/jujugui-2.1.1.tar.bz2",
+		MinJujuVersion:   "2.8",
+		JujuMajorVersion: 2,
+		Version:          version.MustParse("2.1.1"),
+	}, {
+		Version:          version.MustParse("2.1.0"),
+		MinJujuVersion:   "2.7",
+		JujuMajorVersion: 2,
+		Path:             "gui/2.1.0/jujugui-2.1.0.tar.bz2",
+		Size:             6098111,
+		SHA256:           "6cec58b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
+	}},
+}, {
+	about:       "released version 2.0",
 	stream:      gui.ReleasedStream,
 	jujuVersion: "2.0.0",
-	expectedMetadata: []*gui.Metadata{{
-		Version: version.MustParse("2.1.1"),
-		Path:    "gui/2.1.1/jujugui-2.1.1.tar.bz2",
-		Size:    6140774,
-		SHA256:  "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
-	}, {
-		Version: version.MustParse("2.1.0"),
-		Path:    "gui/2.1.0/jujugui-2.1.0.tar.bz2",
-		Size:    6098111,
-		SHA256:  "6cec58b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
-	}},
-}, {
-	about:       "released version 2 beta",
-	stream:      gui.ReleasedStream,
-	jujuVersion: "2.0-beta1",
-	expectedMetadata: []*gui.Metadata{{
-		Version: version.MustParse("2.1.1"),
-		Path:    "gui/2.1.1/jujugui-2.1.1.tar.bz2",
-		Size:    6140774,
-		SHA256:  "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
-	}, {
-		Version: version.MustParse("2.1.0"),
-		Path:    "gui/2.1.0/jujugui-2.1.0.tar.bz2",
-		Size:    6098111,
-		SHA256:  "6cec58b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
-	}},
-}, {
-	about:       "released version 2.42",
-	stream:      gui.ReleasedStream,
-	jujuVersion: "2.42.0",
-	expectedMetadata: []*gui.Metadata{{
-		Version: version.MustParse("2.1.1"),
-		Path:    "gui/2.1.1/jujugui-2.1.1.tar.bz2",
-		Size:    6140774,
-		SHA256:  "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
-	}, {
-		Version: version.MustParse("2.1.0"),
-		Path:    "gui/2.1.0/jujugui-2.1.0.tar.bz2",
-		Size:    6098111,
-		SHA256:  "6cec58b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
-	}},
-}, {
-	about:       "released version 3",
-	stream:      gui.ReleasedStream,
-	jujuVersion: "3.0.0",
-	expectedMetadata: []*gui.Metadata{{
-		Version: version.MustParse("3.0.0"),
-		Path:    "gui/3.0.0/jujugui-3.0.0.tar.bz2",
-		Size:    42424242,
-		SHA256:  "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
-	}},
 }, {
 	about:       "released version 47",
 	stream:      gui.ReleasedStream,
 	jujuVersion: "47.0.0",
 }, {
-	about:       "devel version 2",
+	about:       "devel version 2.8.0",
 	stream:      gui.DevelStream,
-	jujuVersion: "2.0.0",
+	jujuVersion: "2.8.0",
 	expectedMetadata: []*gui.Metadata{{
-		Version: version.MustParse("2.4.0"),
-		Path:    "gui/2.4.0/jujugui-2.4.0.tar.bz2",
-		Size:    6098111,
-		SHA256:  "6cec58b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
+		Version:          version.MustParse("2.4.0"),
+		MinJujuVersion:   "2.8",
+		JujuMajorVersion: 2,
+		Path:             "gui/2.4.0/jujugui-2.4.0.tar.bz2",
+		Size:             6098111,
+		SHA256:           "6cec58b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
 	}, {
-		Version: version.MustParse("2.1.1"),
-		Path:    "gui/2.1.1/jujugui-2.1.1.tar.bz2",
-		Size:    474747,
-		SHA256:  "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
+		Version:          version.MustParse("2.1.1"),
+		MinJujuVersion:   "2.7",
+		JujuMajorVersion: 2,
+		Path:             "gui/2.1.1/jujugui-2.1.1.tar.bz2",
+		Size:             474747,
+		SHA256:           "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
+	}},
+}, {
+	about:       "devel version 2.9.0",
+	stream:      gui.DevelStream,
+	jujuVersion: "2.9.0",
+	expectedMetadata: []*gui.Metadata{{
+		Version:          version.MustParse("2.5.0"),
+		MinJujuVersion:   "2.9",
+		JujuMajorVersion: 2,
+		Path:             "gui/2.5.0/jujugui-2.5.0.tar.bz2",
+		Size:             6198111,
+		SHA256:           "123458b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
+	}, {
+		Version:          version.MustParse("2.4.0"),
+		MinJujuVersion:   "2.8",
+		JujuMajorVersion: 2,
+		Path:             "gui/2.4.0/jujugui-2.4.0.tar.bz2",
+		Size:             6098111,
+		SHA256:           "6cec58b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
+	}, {
+		Version:          version.MustParse("2.1.1"),
+		MinJujuVersion:   "2.7",
+		JujuMajorVersion: 2,
+		Path:             "gui/2.1.1/jujugui-2.1.1.tar.bz2",
+		Size:             474747,
+		SHA256:           "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
 	}},
 }, {
 	about:       "devel version 42",
@@ -171,44 +168,40 @@ var fetchMetadataTests = []struct {
 func (s *simplestreamsSuite) TestFetchMetadata(c *gc.C) {
 	for i, test := range fetchMetadataTests {
 		c.Logf("\ntest %d: %s", i, test.about)
-
-		// Patch the current Juju version.
 		jujuVersion := version.MustParse(test.jujuVersion)
-		s.PatchValue(&jujuversion.Current, jujuVersion)
 
 		// Add invalid datasource and check later that resolveInfo is correct.
 		invalidSource := sstesting.InvalidDataSource(s.RequireSigned)
 
 		// Fetch the Juju GUI archives.
-		allMeta, err := gui.FetchMetadata(test.stream, invalidSource, s.Source)
+		allMeta, err := gui.FetchMetadata(test.stream, jujuVersion.Major, jujuVersion.Minor, invalidSource, s.Source)
 		for i, meta := range allMeta {
 			c.Logf("metadata %d:\n%#v", i, meta)
 		}
 		if test.expectedError != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectedError)
-			c.Assert(allMeta, gc.IsNil)
+			c.Check(err, gc.ErrorMatches, test.expectedError)
+			c.Check(allMeta, gc.IsNil)
 			continue
 		}
 
 		// Populate the expected metadata with missing fields.
 		for _, meta := range test.expectedMetadata {
-			meta.JujuMajorVersion = jujuVersion.Major
 			meta.FullPath = "test:/" + meta.Path
 			meta.Source = s.Source
-			meta.StringVersion = meta.Version.String()
+			meta.DashboardVersion = meta.Version.String()
 		}
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(allMeta, jc.DeepEquals, test.expectedMetadata)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(allMeta, jc.DeepEquals, test.expectedMetadata)
 	}
 }
 
 func (s *simplestreamsSuite) TestConstraint(c *gc.C) {
 	constraint := gui.NewConstraint("test-stream", 42)
-	c.Assert(constraint.IndexIds(), jc.DeepEquals, []string{"com.canonical.streams:test-stream:gui"})
+	c.Assert(constraint.IndexIds(), jc.DeepEquals, []string{"com.canonical.streams:test-stream:dashboard"})
 
 	ids, err := constraint.ProductIds()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ids, jc.DeepEquals, []string{"com.canonical.streams:gui"})
+	c.Assert(ids, jc.DeepEquals, []string{"com.canonical.streams:dashboard"})
 
 	c.Assert(constraint.Arches, jc.DeepEquals, []string{})
 	c.Assert(constraint.Series, jc.DeepEquals, []string{})
@@ -222,48 +215,48 @@ var guiData = map[string]string{
 	"/streams/v1/index.json": `{
         "format": "index:1.0",
         "index": {
-            "com.canonical.streams:devel:gui": {
+            "com.canonical.streams:devel:dashboard": {
                 "datatype": "content-download",
                 "format": "products:1.0",
                 "path": "streams/v1/com.canonical.streams-devel-gui.json",
                 "products": [
-                    "com.canonical.streams:gui"
+                    "com.canonical.streams:dashboard"
                 ],
                 "updated": "Tue, 05 Apr 2016 16:19:03 +0000"
             },
-            "com.canonical.streams:released:gui": {
+            "com.canonical.streams:released:dashboard": {
                 "datatype": "content-download",
                 "format": "products:1.0",
                 "path": "streams/v1/com.canonical.streams-released-gui.json",
                 "products": [
-                    "com.canonical.streams:gui"
+                    "com.canonical.streams:dashboard"
                 ],
                 "updated": "Fri, 01 Apr 2016 15:47:41 +0000"
             },
-            "com.canonical.streams:invalid:gui": {
+            "com.canonical.streams:invalid:dashboard": {
                 "datatype": "content-download",
                 "format": "products:1.0",
                 "path": "streams/v1/com.canonical.streams-invalid-gui.json",
                 "products": [
-                    "com.canonical.streams:gui"
+                    "com.canonical.streams:dashboard"
                 ],
                 "updated": "Fri, 01 Apr 2016 15:47:41 +0000"
             },
-            "com.canonical.streams:errors:gui": {
+            "com.canonical.streams:errors:dashboard": {
                 "datatype": "content-download",
                 "format": "products:1.0",
                 "path": "streams/v1/com.canonical.streams-errors-gui.json",
                 "products": [
-                    "com.canonical.streams:gui"
+                    "com.canonical.streams:dashboard"
                 ],
                 "updated": "Fri, 01 Apr 2016 15:47:41 +0000"
             },
-            "com.canonical.streams:no-such:gui": {
+            "com.canonical.streams:no-such:dashboard": {
                 "datatype": "content-download",
                 "format": "products:1.0",
                 "path": "streams/v1/com.canonical.streams-no-such-gui.json",
                 "products": [
-                    "com.canonical.streams:gui"
+                    "com.canonical.streams:dashboard"
                 ],
                 "updated": "Fri, 01 Apr 2016 15:47:41 +0000"
             }
@@ -271,18 +264,29 @@ var guiData = map[string]string{
     "updated": "Fri, 01 Apr 2016 15:47:41 +0000"
     }`,
 	"/streams/v1/com.canonical.streams-devel-gui.json": `{
-        "content_id": "com.canonical.streams:devel:gui",
+        "content_id": "com.canonical.streams:devel:dashboard",
         "datatype": "content-download",
         "format": "products:1.0",
         "products": {
-            "com.canonical.streams:gui": {
+            "com.canonical.streams:dashboard": {
                 "format": "products:1.0",
                 "ftype": "tar.bz2",
                 "versions": {
                     "20160404": {
                         "items": {
+                            "2.5.0": {
+                                "juju-version": 2,
+                                "min-juju-version": "2.9",
+                                "md5": "5af3cb9f2625afbaff904cbd5c65772f",
+                                "path": "gui/2.5.0/jujugui-2.5.0.tar.bz2",
+                                "sha1": "1234a4236a132c75241a75d6ab1c96788c6f38b0",
+                                "sha256": "123458b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
+                                "size": 6198111,
+                                "version": "2.5.0"
+                            },
                             "2.4.0": {
                                 "juju-version": 2,
+                                "min-juju-version": "2.8",
                                 "md5": "5af3cb9f2625afbaff904cbd5c65772f",
                                 "path": "gui/2.4.0/jujugui-2.4.0.tar.bz2",
                                 "sha1": "b364a4236a132c75241a75d6ab1c96788c6f38b0",
@@ -292,6 +296,7 @@ var guiData = map[string]string{
                             },
                             "2.1.1": {
                                 "juju-version": 2,
+                                "min-juju-version": "2.7",
                                 "md5": "c49f1707078347cab31b0ff98bfb8dca",
                                 "path": "gui/2.1.1/jujugui-2.1.1.tar.bz2",
                                 "sha1": "1300d555f79b3de3bf334702d027701f69563849",
@@ -307,11 +312,11 @@ var guiData = map[string]string{
         "updated": "Mon, 04 Apr 2016 17:14:58 +0000"
     }`,
 	"/streams/v1/com.canonical.streams-released-gui.json": `{
-        "content_id": "com.canonical.streams:released:gui",
+        "content_id": "com.canonical.streams:released:dashboard",
         "datatype": "content-download",
         "format": "products:1.0",
         "products": {
-            "com.canonical.streams:gui": {
+            "com.canonical.streams:dashboard": {
                 "format": "products:1.0",
                 "ftype": "tar.bz2",
                 "versions": {
@@ -319,6 +324,7 @@ var guiData = map[string]string{
                         "items": {
                             "2.1.0": {
                                 "juju-version": 2,
+                                "min-juju-version": "2.7",
                                 "md5": "5af3cb9f2625afbaff904cbd5c65772f",
                                 "path": "gui/2.1.0/jujugui-2.1.0.tar.bz2",
                                 "sha1": "b364a4236a132c75241a75d6ab1c96788c6f38b0",
@@ -328,6 +334,7 @@ var guiData = map[string]string{
                             },
                             "2.1.1": {
                                 "juju-version": 2,
+                                "min-juju-version": "2.8",
                                 "md5": "c49f1707078347cab31b0ff98bfb8dca",
                                 "path": "gui/2.1.1/jujugui-2.1.1.tar.bz2",
                                 "sha1": "1300d555f79b3de3bf334702d027701f69563849",
@@ -337,6 +344,7 @@ var guiData = map[string]string{
                             },
                             "3.0.0": {
                                 "juju-version": 3,
+                                "min-juju-version": "3.0",
                                 "md5": "c49f1707078347cab31b0ff98bfb8dca",
                                 "path": "gui/3.0.0/jujugui-3.0.0.tar.bz2",
                                 "sha1": "1300d555f79b3de3bf334702d027701f69563849",
@@ -355,11 +363,11 @@ var guiData = map[string]string{
         bad: wolf
     `,
 	"/streams/v1/com.canonical.streams-errors-gui.json": `{
-        "content_id": "com.canonical.streams:devel:gui",
+        "content_id": "com.canonical.streams:devel:dashboard",
         "datatype": "content-download",
         "format": "products:1.0",
         "products": {
-            "com.canonical.streams:gui": {
+            "com.canonical.streams:dashboard": {
                 "format": "products:1.0",
                 "ftype": "tar.bz2",
                 "versions": {
@@ -367,6 +375,7 @@ var guiData = map[string]string{
                         "items": {
                             "2.0.0": {
                                 "juju-version": 2,
+                                "min-juju-version": "2.0",
                                 "md5": "5af3cb9f2625afbaff904cbd5c65772f",
                                 "path": "gui/2.0.0/jujugui-2.0.0.tar.bz2",
                                 "sha1": "b364a4236a132c75241a75d6ab1c96788c6f38b0",
