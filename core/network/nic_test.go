@@ -4,7 +4,6 @@
 package network_test
 
 import (
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -12,10 +11,60 @@ import (
 )
 
 type nicSuite struct {
-	testing.IsolationSuite
+	info network.InterfaceInfos
 }
 
 var _ = gc.Suite(&nicSuite{})
+
+func (s *nicSuite) SetUpTest(_ *gc.C) {
+	s.info = network.InterfaceInfos{
+		{VLANTag: 1, DeviceIndex: 0, InterfaceName: "eth0"},
+		{VLANTag: 0, DeviceIndex: 1, InterfaceName: "eth1"},
+		{VLANTag: 42, DeviceIndex: 2, InterfaceName: "br2"},
+		{ConfigType: network.ConfigDHCP, NoAutoStart: true},
+		{Addresses: network.ProviderAddresses{network.NewProviderAddress("0.1.2.3")}},
+		{DNSServers: network.NewProviderAddresses("1.1.1.1", "2.2.2.2")},
+		{GatewayAddress: network.NewProviderAddress("4.3.2.1")},
+		{AvailabilityZones: []string{"foo", "bar"}},
+		{Routes: []network.Route{{
+			DestinationCIDR: "0.1.2.3/24",
+			GatewayIP:       "0.1.2.1",
+			Metric:          0,
+		}}},
+	}
+}
+
+func (s *nicSuite) TestActualInterfaceName(c *gc.C) {
+	c.Check(s.info[0].ActualInterfaceName(), gc.Equals, "eth0.1")
+	c.Check(s.info[1].ActualInterfaceName(), gc.Equals, "eth1")
+	c.Check(s.info[2].ActualInterfaceName(), gc.Equals, "br2.42")
+}
+
+func (s *nicSuite) TestIsVirtual(c *gc.C) {
+	c.Check(s.info[0].IsVirtual(), jc.IsTrue)
+	c.Check(s.info[1].IsVirtual(), jc.IsFalse)
+	c.Check(s.info[2].IsVirtual(), jc.IsTrue)
+}
+
+func (s *nicSuite) TestIsVLAN(c *gc.C) {
+	c.Check(s.info[0].IsVLAN(), jc.IsTrue)
+	c.Check(s.info[1].IsVLAN(), jc.IsFalse)
+	c.Check(s.info[2].IsVLAN(), jc.IsTrue)
+}
+
+func (s *nicSuite) TestAdditionalFields(c *gc.C) {
+	c.Check(s.info[3].ConfigType, gc.Equals, network.ConfigDHCP)
+	c.Check(s.info[3].NoAutoStart, jc.IsTrue)
+	c.Check(s.info[4].Addresses, jc.DeepEquals, network.ProviderAddresses{network.NewProviderAddress("0.1.2.3")})
+	c.Check(s.info[5].DNSServers, jc.DeepEquals, network.NewProviderAddresses("1.1.1.1", "2.2.2.2"))
+	c.Check(s.info[6].GatewayAddress, jc.DeepEquals, network.NewProviderAddress("4.3.2.1"))
+	c.Check(s.info[7].AvailabilityZones, jc.DeepEquals, []string{"foo", "bar"})
+	c.Check(s.info[8].Routes, jc.DeepEquals, []network.Route{{
+		DestinationCIDR: "0.1.2.3/24",
+		GatewayIP:       "0.1.2.1",
+		Metric:          0,
+	}})
+}
 
 func (*nicSuite) TestInterfaceInfosChildren(c *gc.C) {
 	interfaces := getInterFaceInfos()

@@ -6,7 +6,6 @@ package network
 import (
 	"fmt"
 	"net"
-	"sort"
 
 	"github.com/juju/errors"
 )
@@ -277,22 +276,6 @@ func (s InterfaceInfos) Children(parentName string) InterfaceInfos {
 		}
 	}
 	return children
-}
-
-type interfaceInfoByDeviceIndexSlice []InterfaceInfo
-
-func (s interfaceInfoByDeviceIndexSlice) Len() int      { return len(s) }
-func (s interfaceInfoByDeviceIndexSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
-func (s interfaceInfoByDeviceIndexSlice) Less(i, j int) bool {
-	dev1 := s[i]
-	dev2 := s[j]
-	return dev1.DeviceIndex < dev2.DeviceIndex
-}
-
-// SortInterfaceInfo sorts a slice of InterfaceInfo on
-// DeviceIndex in ascending order.
-func SortInterfaceInfo(interfaces []InterfaceInfo) {
-	sort.Sort(interfaceInfoByDeviceIndexSlice(interfaces))
 }
 
 // ProviderInterfaceInfo holds enough information to identify an
