@@ -116,7 +116,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
-		[]corenetwork.InterfaceInfo,
+		corenetwork.InterfaceInfos,
 		error,
 	) {
 		c.Assert(args.Placement, gc.DeepEquals, checkPlacement)
@@ -289,7 +289,7 @@ func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {
 	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
-		[]corenetwork.InterfaceInfo,
+		corenetwork.InterfaceInfos,
 		error,
 	) {
 		c.Assert(args.AvailabilityZone, gc.Equals, "derived-zone")
@@ -329,7 +329,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *gc.C) {
 	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
-		[]corenetwork.InterfaceInfo,
+		corenetwork.InterfaceInfos,
 		error,
 	) {
 		callZones = append(callZones, args.AvailabilityZone)
@@ -371,7 +371,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptZoneConstrained(c *gc.C) {
 	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
-		[]corenetwork.InterfaceInfo,
+		corenetwork.InterfaceInfos,
 		error,
 	) {
 		callZones = append(callZones, args.AvailabilityZone)
@@ -416,7 +416,7 @@ func (s *BootstrapSuite) TestStartInstanceNoMatchingConstraintZones(c *gc.C) {
 	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
-		[]corenetwork.InterfaceInfo,
+		corenetwork.InterfaceInfos,
 		error,
 	) {
 		callZones = append(callZones, args.AvailabilityZone)
@@ -459,7 +459,7 @@ func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *gc.C) {
 	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
-		[]corenetwork.InterfaceInfo,
+		corenetwork.InterfaceInfos,
 		error,
 	) {
 		callZones = append(callZones, args.AvailabilityZone)
@@ -515,7 +515,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
-		[]corenetwork.InterfaceInfo,
+		corenetwork.InterfaceInfos,
 		error,
 	) {
 		icfg := args.InstanceConfig
@@ -622,7 +622,7 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
-		[]corenetwork.InterfaceInfo,
+		corenetwork.InterfaceInfos,
 		error,
 	) {
 		icfg := args.InstanceConfig
@@ -936,7 +936,7 @@ func fakeAvailableTools() tools.List {
 func fakeStartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 	instances.Instance,
 	*instance.HardwareCharacteristics,
-	[]corenetwork.InterfaceInfo,
+	corenetwork.InterfaceInfos,
 	error,
 ) {
 	checkInstanceId := "i-success"

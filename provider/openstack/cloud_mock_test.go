@@ -5,9 +5,10 @@
 package openstack
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	network "github.com/juju/juju/core/network"
-	reflect "reflect"
 )
 
 // MockNetworkingConfig is a mock of NetworkingConfig interface
@@ -34,7 +35,7 @@ func (m *MockNetworkingConfig) EXPECT() *MockNetworkingConfigMockRecorder {
 }
 
 // AddNetworkConfig mocks base method
-func (m *MockNetworkingConfig) AddNetworkConfig(arg0 []network.InterfaceInfo) error {
+func (m *MockNetworkingConfig) AddNetworkConfig(arg0 network.InterfaceInfos) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddNetworkConfig", arg0)
 	ret0, _ := ret[0].(error)

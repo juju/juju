@@ -114,7 +114,7 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 }
 
 func prepNetworkConfig() *container.NetworkConfig {
-	return container.BridgeNetworkConfig("eth0", 1500, []corenetwork.InterfaceInfo{{
+	return container.BridgeNetworkConfig("eth0", 1500, corenetwork.InterfaceInfos{{
 		InterfaceName:       "eth0",
 		InterfaceType:       corenetwork.EthernetInterface,
 		ConfigType:          corenetwork.ConfigDHCP,
@@ -208,7 +208,7 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 
 	// Supplying config for a single device with default bridge and without a
 	// CIDR will cause the default bridge to be updated with IPv4 config.
-	netConfig := container.BridgeNetworkConfig("eth0", 1500, []corenetwork.InterfaceInfo{{
+	netConfig := container.BridgeNetworkConfig("eth0", 1500, corenetwork.InterfaceInfos{{
 		InterfaceName:       "eth0",
 		InterfaceType:       corenetwork.EthernetInterface,
 		ConfigType:          corenetwork.ConfigDHCP,
@@ -336,7 +336,7 @@ func (s *managerSuite) TestIsInitialized(c *gc.C) {
 func (s *managerSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	interfaces := []corenetwork.InterfaceInfo{{
+	interfaces := corenetwork.InterfaceInfos{{
 		InterfaceName: "eth1",
 		InterfaceType: "ethernet",
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
@@ -354,7 +354,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C
 func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	interfaces := []corenetwork.InterfaceInfo{{
+	interfaces := corenetwork.InterfaceInfos{{
 		ParentInterfaceName: "br-eth0",
 		InterfaceName:       "eth0",
 		InterfaceType:       "ethernet",
@@ -386,7 +386,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 func (s *managerSuite) TestNetworkDevicesFromConfigUnknownCIDR(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	interfaces := []corenetwork.InterfaceInfo{{
+	interfaces := corenetwork.InterfaceInfos{{
 		ParentInterfaceName: "br-eth0",
 		InterfaceName:       "eth0",
 		InterfaceType:       "ethernet",

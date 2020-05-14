@@ -19,7 +19,7 @@ import (
 )
 
 type InterfaceInfoSuite struct {
-	info []corenetwork.InterfaceInfo
+	info corenetwork.InterfaceInfos
 }
 
 var _ = gc.Suite(&InterfaceInfoSuite{})

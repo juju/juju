@@ -1090,7 +1090,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 		askProviderForAddress = environs.SupportsContainerAddresses(callContext, env)
 	}
 
-	preparedInfo := make([]corenetwork.InterfaceInfo, len(containerDevices))
+	preparedInfo := make(corenetwork.InterfaceInfos, len(containerDevices))
 	for i, device := range containerDevices {
 		info, err := ctx.infoForDevice(device, askProviderForAddress)
 		if err != nil {

@@ -144,20 +144,20 @@ func (f *fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
 	return f.fakeContainerConfig, nil
 }
 
-func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) ([]corenetwork.InterfaceInfo, error) {
+func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) (corenetwork.InterfaceInfos, error) {
 	f.MethodCall(f, "PrepareContainerInterfaceInfo", tag)
 	if err := f.NextErr(); err != nil {
 		return nil, err
 	}
-	return []corenetwork.InterfaceInfo{f.fakeInterfaceInfo}, nil
+	return corenetwork.InterfaceInfos{f.fakeInterfaceInfo}, nil
 }
 
-func (f *fakeAPI) GetContainerInterfaceInfo(tag names.MachineTag) ([]corenetwork.InterfaceInfo, error) {
+func (f *fakeAPI) GetContainerInterfaceInfo(tag names.MachineTag) (corenetwork.InterfaceInfos, error) {
 	f.MethodCall(f, "GetContainerInterfaceInfo", tag)
 	if err := f.NextErr(); err != nil {
 		return nil, err
 	}
-	return []corenetwork.InterfaceInfo{f.fakeInterfaceInfo}, nil
+	return corenetwork.InterfaceInfos{f.fakeInterfaceInfo}, nil
 }
 
 func (f *fakeAPI) ReleaseContainerAddresses(tag names.MachineTag) error {

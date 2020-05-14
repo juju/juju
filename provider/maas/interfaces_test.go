@@ -416,7 +416,7 @@ const exampleInterfaceSetJSON = `
         }
 ]`
 
-var exampleParsedInterfaceSetJSON = []corenetwork.InterfaceInfo{{
+var exampleParsedInterfaceSetJSON = corenetwork.InterfaceInfos{{
 	DeviceIndex:       0,
 	MACAddress:        "52:54:00:70:9b:fe",
 	CIDR:              "10.20.19.0/24",
@@ -941,7 +941,7 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 	subnetsMap["10.250.19.0/24"] = "3"
 	subnetsMap["192.168.1.0/24"] = "0"
 
-	expected := []corenetwork.InterfaceInfo{{
+	expected := corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
 		CIDR:              "10.20.19.0/24",
@@ -1096,7 +1096,7 @@ func (s *interfacesSuite) TestMAAS2InterfacesNilVLAN(c *gc.C) {
 	machine := &fakeMachine{interfaceSet: exampleInterfaces}
 	instance := &maas2Instance{machine: machine}
 
-	expected := []corenetwork.InterfaceInfo{{
+	expected := corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
 		CIDR:              "10.20.19.0/24",

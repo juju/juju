@@ -48,7 +48,7 @@ type Networking interface {
 	// NetworkInterfaces requests information about the network
 	// interfaces on the given list of instances.
 	// Needed for Environ.Networking
-	NetworkInterfaces(ids []instance.Id) ([][]corenetwork.InterfaceInfo, error)
+	NetworkInterfaces(ids []instance.Id) ([]corenetwork.InterfaceInfos, error)
 }
 
 // NetworkingDecorator is an interface that provides a means of overriding
@@ -394,6 +394,6 @@ func noNetConfigMsg(err error) string {
 		err.Error())
 }
 
-func (n *NeutronNetworking) NetworkInterfaces(ids []instance.Id) ([][]corenetwork.InterfaceInfo, error) {
+func (n *NeutronNetworking) NetworkInterfaces(ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("neutron network interfaces")
 }
