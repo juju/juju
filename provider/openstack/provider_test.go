@@ -874,7 +874,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 	expectDefaultNetworks(mockNetworking)
 
 	netCfg := NewMockNetworkingConfig(ctrl)
-	netCfg.EXPECT().AddNetworkConfig([]corenetwork.InterfaceInfo{{
+	netCfg.EXPECT().AddNetworkConfig(corenetwork.InterfaceInfos{{
 		InterfaceName: "eth0",
 		MACAddress:    "mac-address",
 		Addresses:     corenetwork.NewProviderAddresses("10.10.10.1"),

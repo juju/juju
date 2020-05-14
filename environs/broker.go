@@ -67,7 +67,7 @@ type StartInstanceParams struct {
 
 	// NetworkInfo is an optional list of network interface details,
 	// necessary to configure on the instance.
-	NetworkInfo []corenetwork.InterfaceInfo
+	NetworkInfo corenetwork.InterfaceInfos
 
 	// SubnetsToZones is an optional collection of maps of provider-specific
 	// subnet IDs to a list of availability zone names each subnet is available
@@ -126,7 +126,7 @@ type StartInstanceResult struct {
 	// interfaces on the instance. Depending on the provider, this
 	// might be the same StartInstanceParams.NetworkInfo or may be
 	// modified as needed.
-	NetworkInfo []corenetwork.InterfaceInfo
+	NetworkInfo corenetwork.InterfaceInfos
 
 	// Volumes contains a list of volumes created, each one having the
 	// same Name as one of the VolumeParams in StartInstanceParams.Volumes.

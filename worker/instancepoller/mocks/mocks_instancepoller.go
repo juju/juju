@@ -54,9 +54,9 @@ func (mr *MockEnvironMockRecorder) Instances(arg0, arg1 interface{}) *gomock.Cal
 }
 
 // NetworkInterfaces mocks base method
-func (m *MockEnviron) NetworkInterfaces(arg0 context.ProviderCallContext, arg1 []instance.Id) ([][]network.InterfaceInfo, error) {
+func (m *MockEnviron) NetworkInterfaces(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]network.InterfaceInfos, error) {
 	ret := m.ctrl.Call(m, "NetworkInterfaces", arg0, arg1)
-	ret0, _ := ret[0].([][]network.InterfaceInfo)
+	ret0, _ := ret[0].([]network.InterfaceInfos)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -177,7 +177,7 @@ func (mr *MockMachineMockRecorder) SetInstanceStatus(arg0, arg1, arg2 interface{
 }
 
 // SetProviderNetworkConfig mocks base method
-func (m *MockMachine) SetProviderNetworkConfig(arg0 []network.InterfaceInfo) (network.ProviderAddresses, bool, error) {
+func (m *MockMachine) SetProviderNetworkConfig(arg0 network.InterfaceInfos) (network.ProviderAddresses, bool, error) {
 	ret := m.ctrl.Call(m, "SetProviderNetworkConfig", arg0)
 	ret0, _ := ret[0].(network.ProviderAddresses)
 	ret1, _ := ret[1].(bool)

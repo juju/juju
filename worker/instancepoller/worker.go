@@ -48,7 +48,7 @@ var (
 // poller.
 type Environ interface {
 	Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error)
-	NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error)
+	NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error)
 }
 
 // Machine specifies an interface for machine instances processed by the
@@ -56,7 +56,7 @@ type Environ interface {
 type Machine interface {
 	Id() string
 	InstanceId() (instance.Id, error)
-	SetProviderNetworkConfig([]network.InterfaceInfo) (network.ProviderAddresses, bool, error)
+	SetProviderNetworkConfig(network.InterfaceInfos) (network.ProviderAddresses, bool, error)
 	InstanceStatus() (params.StatusResult, error)
 	SetInstanceStatus(status.Status, string, map[string]interface{}) error
 	String() string
@@ -374,7 +374,7 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 			continue
 		}
 
-		var ifList []network.InterfaceInfo
+		var ifList network.InterfaceInfos
 		if netList != nil {
 			ifList = netList[idx]
 		}
@@ -415,7 +415,7 @@ func (u *updaterWorker) resolveInstanceID(entry *pollGroupEntry) error {
 // addresses based on the information collected from the provider. It returns
 // back the *instance* status and the number of provider addresses currently
 // known for the machine.
-func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instances.Instance, providerIfaceList []network.InterfaceInfo) (status.Status, int, error) {
+func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instances.Instance, providerIfaceList network.InterfaceInfos) (status.Status, int, error) {
 	curStatus, err := entry.m.InstanceStatus()
 	if err != nil {
 		// This should never occur since the machine is provisioned. If
@@ -468,7 +468,7 @@ func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instance
 // instance information.
 //
 // The call returns back the count of provider addresses for the machine.
-func (u *updaterWorker) syncProviderAddresses(entry *pollGroupEntry, instInfo instances.Instance, providerIfaceList []network.InterfaceInfo) (int, error) {
+func (u *updaterWorker) syncProviderAddresses(entry *pollGroupEntry, instInfo instances.Instance, providerIfaceList network.InterfaceInfos) (int, error) {
 	// If the provider does not support NetworkInterfaces, we will get an
 	// empty providerIfaceList; if that's the case, populate a minimal
 	// interface list from the instance info
@@ -495,8 +495,8 @@ func (u *updaterWorker) syncProviderAddresses(entry *pollGroupEntry, instInfo in
 // provide us with network interface information. For these providers we fetch
 // the reported instance addresses and coerce them into a list of InterfaceInfo
 // that we can send to the instancepoller facade.
-func fakeInterfacesFromInstanceAddrs(addrs []network.ProviderAddress) []network.InterfaceInfo {
-	instIfaceList := make([]network.InterfaceInfo, len(addrs))
+func fakeInterfacesFromInstanceAddrs(addrs []network.ProviderAddress) network.InterfaceInfos {
+	instIfaceList := make(network.InterfaceInfos, len(addrs))
 	for i, addr := range addrs {
 		instIfaceList[i].DeviceIndex = i
 		switch addr.Scope {

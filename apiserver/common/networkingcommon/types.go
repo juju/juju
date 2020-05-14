@@ -155,7 +155,7 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 
 // NetworkInterfacesToStateArgs splits the given interface list into a slice of
 // state.LinkLayerDeviceArgs and a slice of state.LinkLayerDeviceAddress.
-func NetworkInterfacesToStateArgs(ifaces []corenetwork.InterfaceInfo) (
+func NetworkInterfacesToStateArgs(ifaces corenetwork.InterfaceInfos) (
 	[]state.LinkLayerDeviceArgs,
 	[]state.LinkLayerDeviceAddress,
 ) {

@@ -259,6 +259,6 @@ func (cfg *centOSCloudConfig) updateProxySettings(PackageManagerProxyConfig) err
 
 // AddNetworkConfig is defined on the NetworkingConfig interface.
 // TODO(wpk) This has to be implemented for CentOS on VSphere to work properly!
-func (cfg *centOSCloudConfig) AddNetworkConfig(interfaces []corenetwork.InterfaceInfo) error {
+func (cfg *centOSCloudConfig) AddNetworkConfig(interfaces corenetwork.InterfaceInfos) error {
 	return nil
 }

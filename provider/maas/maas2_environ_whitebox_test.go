@@ -982,7 +982,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
 	result, err := jujutesting.StartInstanceWithParams(env, suite.callCtx, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := []corenetwork.InterfaceInfo{{
+	expected := corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
 		CIDR:              "10.20.19.0/24",
@@ -1151,7 +1151,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 
-	prepared := []corenetwork.InterfaceInfo{{
+	prepared := corenetwork.InterfaceInfos{{
 		MACAddress:    "52:54:00:70:9b:fe",
 		CIDR:          "10.20.19.0/24",
 		InterfaceName: "eth0",
@@ -1159,7 +1159,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 	ignored := names.NewMachineTag("1/lxd/0")
 	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := []corenetwork.InterfaceInfo{{
+	expected := corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		MACAddress:        "53:54:00:70:9b:ff",
 		CIDR:              "192.168.1.0/24",
@@ -1281,7 +1281,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 
-	prepared := []corenetwork.InterfaceInfo{{
+	prepared := corenetwork.InterfaceInfos{{
 		MACAddress:    "52:54:00:70:9b:fe",
 		CIDR:          "10.20.19.0/24",
 		InterfaceName: "eth0",
@@ -1289,7 +1289,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(
 	ignored := names.NewMachineTag("1/lxd/0")
 	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := []corenetwork.InterfaceInfo{{
+	expected := corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		MACAddress:        "53:54:00:70:9b:ff",
 		CIDR:              "10.20.19.0/24",
@@ -1376,7 +1376,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesStaticRoutesDenied
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 
-	prepared := []corenetwork.InterfaceInfo{{
+	prepared := corenetwork.InterfaceInfos{{
 		MACAddress:    "52:54:00:70:9b:fe",
 		CIDR:          "10.20.19.0/24",
 		InterfaceName: "eth0",
@@ -1522,7 +1522,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 	suite.injectController(controller)
 	env := suite.makeEnviron(c, nil)
 
-	prepared := []corenetwork.InterfaceInfo{{
+	prepared := corenetwork.InterfaceInfos{{
 		MACAddress:    "53:54:00:70:9b:ff",
 		CIDR:          "10.20.19.0/24",
 		InterfaceName: "eth0",
@@ -1531,7 +1531,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		CIDR:          "192.168.1.0/24",
 		InterfaceName: "eth1",
 	}}
-	expected := []corenetwork.InterfaceInfo{{
+	expected := corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		MACAddress:        "53:54:00:70:9b:ff",
 		CIDR:              "10.20.19.0/24",
@@ -1575,9 +1575,9 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
-func (suite *maas2EnvironSuite) assertAllocateContainerAddressesFails(c *gc.C, controller *fakeController, prepared []corenetwork.InterfaceInfo, errorMatches string) {
+func (suite *maas2EnvironSuite) assertAllocateContainerAddressesFails(c *gc.C, controller *fakeController, prepared corenetwork.InterfaceInfos, errorMatches string) {
 	if prepared == nil {
-		prepared = []corenetwork.InterfaceInfo{{}}
+		prepared = corenetwork.InterfaceInfos{{}}
 	}
 	suite.injectController(controller)
 	env := suite.makeEnviron(c, nil)
@@ -1640,7 +1640,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesMachinesError(c *g
 	}
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
-	prepared := []corenetwork.InterfaceInfo{
+	prepared := corenetwork.InterfaceInfos{
 		{InterfaceName: "eth0", CIDR: "10.20.19.0/24"},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
@@ -1675,7 +1675,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDeviceError(
 	}
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
-	prepared := []corenetwork.InterfaceInfo{
+	prepared := corenetwork.InterfaceInfos{
 		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
@@ -1754,14 +1754,14 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSubnetMissing(c *g
 	}
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
-	prepared := []corenetwork.InterfaceInfo{
+	prepared := corenetwork.InterfaceInfos{
 		{InterfaceName: "eth0", CIDR: "", MACAddress: "DEADBEEF"},
 		{InterfaceName: "eth1", CIDR: "", MACAddress: "DEADBEEE"},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
 	allocated, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allocated, jc.DeepEquals, []corenetwork.InterfaceInfo{{
+	c.Assert(allocated, jc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:    0,
 		MACAddress:     "53:54:00:70:9b:ff",
 		ProviderId:     "93",
@@ -1818,7 +1818,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateInterfaceErr
 	}
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
-	prepared := []corenetwork.InterfaceInfo{
+	prepared := corenetwork.InterfaceInfos{
 		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
 		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
 	}
@@ -1868,7 +1868,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesLinkSubnetError(c 
 	}
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
-	prepared := []corenetwork.InterfaceInfo{
+	prepared := corenetwork.InterfaceInfos{
 		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
 		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
 	}
@@ -1982,7 +1982,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerReuseExistingDevice(c *gc.C
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 
-	prepared := []corenetwork.InterfaceInfo{{
+	prepared := corenetwork.InterfaceInfos{{
 		MACAddress:    "53:54:00:70:9b:ff",
 		CIDR:          "10.20.19.0/24",
 		InterfaceName: "eth0",
@@ -1990,7 +1990,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerReuseExistingDevice(c *gc.C
 	containerTag := names.NewMachineTag("1/lxd/0")
 	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), containerTag, prepared)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := []corenetwork.InterfaceInfo{{
+	expected := corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		MACAddress:        "53:54:00:70:9b:ff",
 		CIDR:              "10.20.19.0/24",
@@ -2178,7 +2178,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *g
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 
-	prepared := []corenetwork.InterfaceInfo{{
+	prepared := corenetwork.InterfaceInfos{{
 		MACAddress:    "53:54:00:70:88:aa",
 		CIDR:          "10.20.19.0/24",
 		InterfaceName: "eth0",
@@ -2190,7 +2190,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *g
 	containerTag := names.NewMachineTag("1/lxd/0")
 	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), containerTag, prepared)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := []corenetwork.InterfaceInfo{{
+	expected := corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		MACAddress:        "53:54:00:70:88:aa",
 		CIDR:              "10.20.19.0/24",

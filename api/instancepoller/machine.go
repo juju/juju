@@ -153,7 +153,7 @@ func (m *Machine) SetInstanceStatus(status status.Status, message string, data m
 }
 
 // SetProviderNetworkConfig updates the provider addresses for this machine.
-func (m *Machine) SetProviderNetworkConfig(ifList []network.InterfaceInfo) (network.ProviderAddresses, bool, error) {
+func (m *Machine) SetProviderNetworkConfig(ifList network.InterfaceInfos) (network.ProviderAddresses, bool, error) {
 	var results params.SetProviderNetworkConfigResults
 	args := params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{{

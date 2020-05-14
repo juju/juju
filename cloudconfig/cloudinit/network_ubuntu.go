@@ -28,7 +28,7 @@ var (
 
 // GenerateENITemplate renders an e/n/i template config for one or more network
 // interfaces, using the given non-empty interfaces list.
-func GenerateENITemplate(interfaces []corenetwork.InterfaceInfo) (string, error) {
+func GenerateENITemplate(interfaces corenetwork.InterfaceInfos) (string, error) {
 	if len(interfaces) == 0 {
 		return "", errors.Errorf("missing container network config")
 	}
@@ -137,7 +137,7 @@ func GenerateENITemplate(interfaces []corenetwork.InterfaceInfo) (string, error)
 
 // GenerateNetplan renders a netplan file for one or more network
 // interfaces, using the given non-empty list of interfaces.
-func GenerateNetplan(interfaces []corenetwork.InterfaceInfo) (string, error) {
+func GenerateNetplan(interfaces corenetwork.InterfaceInfos) (string, error) {
 	if len(interfaces) == 0 {
 		return "", errors.Errorf("missing container network config")
 	}
@@ -210,7 +210,7 @@ type PreparedConfig struct {
 // PrepareNetworkConfigFromInterfaces collects the necessary information to
 // render a persistent network config from the given slice of
 // network.InterfaceInfo. The result always includes the loopback interface.
-func PrepareNetworkConfigFromInterfaces(interfaces []corenetwork.InterfaceInfo) *PreparedConfig {
+func PrepareNetworkConfigFromInterfaces(interfaces corenetwork.InterfaceInfos) *PreparedConfig {
 	dnsServers := set.NewStrings()
 	dnsSearchDomains := set.NewStrings()
 	gateway4Address := ""
@@ -296,7 +296,7 @@ func PrepareNetworkConfigFromInterfaces(interfaces []corenetwork.InterfaceInfo) 
 // AddNetworkConfig adds configuration scripts for specified interfaces
 // to cloudconfig - using boot textfiles and boot commands. It currently
 // supports e/n/i and netplan.
-func (cfg *ubuntuCloudConfig) AddNetworkConfig(interfaces []corenetwork.InterfaceInfo) error {
+func (cfg *ubuntuCloudConfig) AddNetworkConfig(interfaces corenetwork.InterfaceInfos) error {
 	if len(interfaces) != 0 {
 		eni, err := GenerateENITemplate(interfaces)
 		if err != nil {

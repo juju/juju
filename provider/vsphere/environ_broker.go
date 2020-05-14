@@ -150,7 +150,7 @@ func (env *sessionEnviron) newRawInstance(
 		return nil, nil, errors.Trace(err)
 	}
 
-	interfaces := []corenetwork.InterfaceInfo{{
+	interfaces := corenetwork.InterfaceInfos{{
 		InterfaceName: "eth0",
 		MACAddress:    internalMac,
 		InterfaceType: corenetwork.EthernetInterface,
