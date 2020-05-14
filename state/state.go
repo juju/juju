@@ -34,7 +34,6 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
-	coreglobalclock "github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
@@ -44,8 +43,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/state/globalclock"
-	statelease "github.com/juju/juju/state/lease"
 	raftleasestore "github.com/juju/juju/state/raftlease"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
@@ -60,14 +57,6 @@ const (
 
 	// blobstoreDB is the name of the blobstore GridFS database.
 	blobstoreDB = "blobstore"
-
-	// applicationLeadershipNamespace is the name of the lease.Store namespace
-	// used by the leadership manager.
-	applicationLeadershipNamespace = "application-leadership"
-
-	// singularControllerNamespace is the name of the lease.Store namespace
-	// used by the singular manager
-	singularControllerNamespace = "singular-controller"
 )
 
 type providerIdDoc struct {
@@ -86,11 +75,6 @@ type State struct {
 	policy                 Policy
 	newPolicy              NewPolicyFunc
 	runTransactionObserver RunTransactionObserverFunc
-
-	// leaseStoreId is used by the lease infrastructure to
-	// differentiate between machines whose clocks may be
-	// relatively-skewed.
-	leaseStoreId string
 
 	// workers is responsible for keeping the various sub-workers
 	// available by starting new ones as they fail. It doesn't do
@@ -419,21 +403,6 @@ func (st *State) start(controllerTag names.ControllerTag, hub *pubsub.SimpleHub)
 		return errors.Annotate(err, "obtaining connection status")
 	}
 
-	if len(connectionStatus.AuthInfo.AuthenticatedUsers) == 1 {
-		st.leaseStoreId = connectionStatus.AuthInfo.AuthenticatedUsers[0].User
-	} else {
-		// If we're running state anonymously, we can still use the lease
-		// manager; but we need to make sure we use a unique store ID, and
-		// will thus not be very performant.
-		logger.Infof("running state anonymously; using unique store id")
-		uuid, err := utils.NewUUID()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		st.leaseStoreId = fmt.Sprintf("anon-%s", uuid.String())
-	}
-	// now we've set up leaseStoreId, we can use workersFactory
-
 	logger.Infof("starting standard state workers")
 	workers, err := newWorkers(st, hub)
 	if err != nil {
@@ -460,44 +429,6 @@ func (st *State) ApplicationLeaders() (map[string]string, error) {
 		lease.ApplicationLeadershipNamespace,
 		st.ModelUUID(),
 	)
-}
-
-func (st *State) getLeadershipLeaseStore() (lease.Store, error) {
-	return st.getLeaseStore(lease.ApplicationLeadershipNamespace)
-}
-
-func (st *State) getSingularLeaseStore() (lease.Store, error) {
-	return st.getLeaseStore(lease.SingularControllerNamespace)
-}
-
-func (st *State) getLeaseStore(namespace string) (lease.Store, error) {
-	globalClock, err := st.globalClockReader()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting global clock for lease store")
-	}
-
-	// NOTE(axw) due to the lease managers being embedded in State,
-	// we cannot use "upgrade steps" to upgrade the leases prior
-	// to their use. Thus we must run the lease upgrade here. When
-	// we are able to extract the lease managers from State, we
-	// should remove this.
-	if err := migrateModelLeasesToGlobalTime(st); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	store, err := statelease.NewStore(statelease.StoreConfig{
-		Id:          st.leaseStoreId,
-		Namespace:   namespace,
-		ModelUUID:   st.modelUUID(),
-		Collection:  leasesC,
-		Mongo:       &environMongo{st},
-		LocalClock:  st.stateClock,
-		GlobalClock: globalClock,
-	})
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot create %q lease store", namespace)
-	}
-	return store, nil
 }
 
 // LeaseNotifyTarget returns a raftlease.NotifyTarget for storing
@@ -2543,26 +2474,6 @@ func tagForGlobalKey(key string) (string, bool) {
 		return "", false
 	}
 	return p + key[2:], true
-}
-
-// GlobalClockUpdater returns a new globalclock.Updater using the
-// State's *mgo.Session.
-func (st *State) GlobalClockUpdater() (coreglobalclock.Updater, error) {
-	return globalclock.NewUpdater(globalclock.UpdaterConfig{
-		Config: globalclock.Config{
-			Mongo:      &environMongo{st},
-			Collection: globalClockC,
-		},
-	})
-}
-
-func (st *State) globalClockReader() (*globalclock.Reader, error) {
-	return globalclock.NewReader(globalclock.ReaderConfig{
-		Config: globalclock.Config{
-			Mongo:      &environMongo{st},
-			Collection: globalClockC,
-		},
-	})
 }
 
 // TagFromDocID tries attempts to extract an entity-identifying tag from a
