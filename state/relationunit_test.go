@@ -1615,10 +1615,7 @@ var _ = gc.Suite(&WatchUnitsSuite{})
 // It claims leadership of the application for "unitName" and then sets the
 // application settings for that application to the provided settings.
 func updateAppSettings(c *gc.C, state *state.State, rel *state.Relation, app *state.Application, unitName string, settings map[string]interface{}) {
-	claimer := state.LeadershipClaimer()
-	c.Assert(claimer.ClaimLeadership(app.Name(), unitName, time.Minute), jc.ErrorIsNil)
-	token := state.LeadershipChecker().LeadershipCheck(app.Name(), unitName)
-	c.Assert(rel.UpdateApplicationSettings(app.Name(), token, settings), jc.ErrorIsNil)
+	c.Assert(rel.UpdateApplicationSettings(app.Name(), &fakeToken{}, settings), jc.ErrorIsNil)
 }
 
 func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
