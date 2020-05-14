@@ -139,6 +139,11 @@ func (a MachineAddress) String() string {
 	return prefix + a.Value
 }
 
+// IP returns the net.IP representation of this address.
+func (a MachineAddress) IP() net.IP {
+	return net.ParseIP(a.Value)
+}
+
 // sortOrder calculates the "weight" of the address when sorting:
 // - public IPs first;
 // - hostnames after that, but "localhost" will be last if present;

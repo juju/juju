@@ -34,7 +34,10 @@ func GenerateENITemplate(interfaces corenetwork.InterfaceInfos) (string, error) 
 	}
 	logger.Debugf("generating /e/n/i template from %#v", interfaces)
 
-	prepared := PrepareNetworkConfigFromInterfaces(interfaces)
+	prepared, err := PrepareNetworkConfigFromInterfaces(interfaces)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 
 	var output bytes.Buffer
 	gateway4Handled := false
@@ -147,7 +150,11 @@ func GenerateNetplan(interfaces corenetwork.InterfaceInfos) (string, error) {
 	netPlan.Network.Version = 2
 	for _, info := range interfaces {
 		var iface netplan.Ethernet
-		if cidr := info.CIDRAddress(); cidr != "" {
+		cidr, err := info.CIDRAddress()
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		if cidr != "" {
 			iface.Addresses = append(iface.Addresses, cidr)
 		} else if info.ConfigType == corenetwork.ConfigDHCP {
 			t := true
@@ -210,7 +217,7 @@ type PreparedConfig struct {
 // PrepareNetworkConfigFromInterfaces collects the necessary information to
 // render a persistent network config from the given slice of
 // network.InterfaceInfo. The result always includes the loopback interface.
-func PrepareNetworkConfigFromInterfaces(interfaces corenetwork.InterfaceInfos) *PreparedConfig {
+func PrepareNetworkConfigFromInterfaces(interfaces corenetwork.InterfaceInfos) (*PreparedConfig, error) {
 	dnsServers := set.NewStrings()
 	dnsSearchDomains := set.NewStrings()
 	gateway4Address := ""
@@ -247,7 +254,11 @@ func PrepareNetworkConfigFromInterfaces(interfaces corenetwork.InterfaceInfos) *
 			autoStarted.Add(ifaceName)
 		}
 
-		if cidr := info.CIDRAddress(); cidr != "" {
+		cidr, err := info.CIDRAddress()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if cidr != "" {
 			nameToAddress[ifaceName] = cidr
 		} else if info.ConfigType == corenetwork.ConfigDHCP {
 			nameToAddress[ifaceName] = string(corenetwork.ConfigDHCP)
@@ -290,7 +301,7 @@ func PrepareNetworkConfigFromInterfaces(interfaces corenetwork.InterfaceInfos) *
 	}
 
 	logger.Debugf("prepared network config for rendering: %+v", prepared)
-	return prepared
+	return prepared, nil
 }
 
 // AddNetworkConfig adds configuration scripts for specified interfaces
