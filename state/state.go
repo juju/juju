@@ -454,26 +454,12 @@ func (st *State) start(controllerTag names.ControllerTag, hub *pubsub.SimpleHub)
 // ApplicationLeaders returns a map of the application name to the
 // unit name that is the current leader.
 func (st *State) ApplicationLeaders() (map[string]string, error) {
-	// TODO(legacy-leases): remove this.
-	if true {
-		return raftleasestore.LeaseHolders(
-			&environMongo{st},
-			leaseHoldersC,
-			lease.ApplicationLeadershipNamespace,
-			st.ModelUUID(),
-		)
-	}
-
-	store, err := st.getLeadershipLeaseStore()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	leases := store.Leases()
-	result := make(map[string]string, len(leases))
-	for key, value := range leases {
-		result[key.Lease] = value.Holder
-	}
-	return result, nil
+	return raftleasestore.LeaseHolders(
+		&environMongo{st},
+		leaseHoldersC,
+		lease.ApplicationLeadershipNamespace,
+		st.ModelUUID(),
+	)
 }
 
 func (st *State) getLeadershipLeaseStore() (lease.Store, error) {
