@@ -172,10 +172,9 @@ func (api *API) getMovingSubnets(tags []string) ([]MovingSubnet, error) {
 }
 
 // ensureSubnetsCanBeMoved gathers the relevant networking info required to
-// determine the validity of constraints and endpoint bindings resulting
+// determine the validity of constraints and endpoint bindings resulting from
 // a relocation of subnets.
 // An error is returned if validity is violated and force is passed as false.
-// TODO (manadart 2020-04-10): Endpoint validation.
 func (api *API) ensureSubnetsCanBeMoved(subnets []MovingSubnet, spaceName string, force bool) error {
 	for _, subnet := range subnets {
 		if subnet.FanLocalUnderlay() != "" {
@@ -186,10 +185,14 @@ func (api *API) ensureSubnetsCanBeMoved(subnets []MovingSubnet, spaceName string
 
 	affected, err := api.getAffectedNetworks(subnets, spaceName, force)
 	if err != nil {
+		return errors.Annotate(err, "determining affected networks")
+	}
+
+	if err := api.ensureSpaceConstraintIntegrity(affected); err != nil {
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(api.ensureSpaceConstraintIntegrity(affected, spaceName))
+	return errors.Trace(api.ensureEndpointBindingsIntegrity(affected))
 }
 
 // getAffectedNetworks interrogates machines connected to moving subnets.
@@ -217,7 +220,7 @@ func (api *API) getAffectedNetworks(subnets []MovingSubnet, spaceName string, fo
 	}
 
 	if err := affected.processMachines(machines); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "processing machine networks")
 	}
 
 	return affected, nil
@@ -230,7 +233,7 @@ func (api *API) getAffectedNetworks(subnets []MovingSubnet, spaceName string, fo
 // those constraints after subnet relocation.
 // If force is true we only log a warning for violations, otherwise an error
 // is returned.
-func (api *API) ensureSpaceConstraintIntegrity(affected *affectedNetworks, spaceName string) error {
+func (api *API) ensureSpaceConstraintIntegrity(affected *affectedNetworks) error {
 	constraints, err := api.backing.AllConstraints()
 	if err != nil {
 		return errors.Trace(err)
@@ -254,7 +257,16 @@ func (api *API) ensureSpaceConstraintIntegrity(affected *affectedNetworks, space
 		}
 	}
 
-	return errors.Trace(affected.ensureSpaceConstraintIntegrity(spaceConsByApp, spaceName))
+	return errors.Trace(affected.ensureConstraintIntegrity(spaceConsByApp))
+}
+
+func (api *API) ensureEndpointBindingsIntegrity(affected *affectedNetworks) error {
+	allBindings, err := api.backing.AllEndpointBindings()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Trace(affected.ensureBindingsIntegrity(allBindings))
 }
 
 func paramsFromMovedSubnet(movedSubnets []MovedSubnet) []params.MovedSubnet {

@@ -31,7 +31,9 @@ type BlockChecker interface {
 
 // Address is an indirection for state.Address.
 type Address interface {
-	Subnet() (network.SubnetInfo, error)
+	SubnetCIDR() string
+	ConfigMethod() network.AddressConfigMethod
+	Value() string
 }
 
 // Unit is an indirection for state.Unit.
@@ -52,6 +54,12 @@ type Constraints interface {
 	ID() string
 	Value() constraints.Value
 	ChangeSpaceNameOps(from, to string) []txn.Op
+}
+
+// Bindings describes a collection of endpoint bindings for an application.
+type Bindings interface {
+	// Map returns the space IDs for each bound endpoint.
+	Map() map[string]string
 }
 
 // Backing describes the state methods used in this package.
@@ -83,7 +91,7 @@ type Backing interface {
 	SpaceByName(name string) (networkingcommon.BackingSpace, error)
 
 	// AllEndpointBindings loads all endpointBindings.
-	AllEndpointBindings() ([]ApplicationEndpointBindingsShim, error)
+	AllEndpointBindings() (map[string]Bindings, error)
 
 	// AllMachines loads all machines.
 	AllMachines() ([]Machine, error)

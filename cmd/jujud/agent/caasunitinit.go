@@ -227,12 +227,10 @@ func (c *CAASUnitInitCommand) Run(ctx *cmd.Context) (errOut error) {
 	}
 
 	for _, op := range copies {
-		logger.Infof("copy %s => %s", op.src, op.dst)
 		if err = c.copyFunc(op.src, op.dst); err != nil {
 			return errors.Annotatef(err, "failed to copy %s to %s", op.src, op.dst)
 		}
 	}
-
 	return nil
 }
 

@@ -529,6 +529,11 @@ func caasPrecheck(
 			len(args.Placement),
 		)
 	}
+	for _, s := range ch.Meta().Storage {
+		if s.Type == charm.StorageBlock {
+			return errors.Errorf("block storage %q is not supported for k8s charms", s.Name)
+		}
+	}
 
 	cfg, err := model.ModelConfig()
 	if err != nil {

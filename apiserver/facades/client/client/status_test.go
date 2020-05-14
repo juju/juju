@@ -106,15 +106,14 @@ func (s *statusSuite) TestFullStatusUnitScaling(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Machine: machine,
 	})
-
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-	tracker := s.State.TrackQueries()
+	tracker := s.State.TrackQueries("FullStatus")
 
 	client := s.APIState.Client()
 	_, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	queryCount := tracker.ReadCount()
+	c.Logf("initial query count: %d", queryCount)
 
 	// Add several more units of the same application to the
 	// same machine. We do this because we want to isolate to
@@ -129,7 +128,6 @@ func (s *statusSuite) TestFullStatusUnitScaling(c *gc.C) {
 		})
 	}
 
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	tracker.Reset()
 
 	_, err = client.Status(nil)
@@ -143,22 +141,19 @@ func (s *statusSuite) TestFullStatusUnitScaling(c *gc.C) {
 
 func (s *statusSuite) TestFullStatusMachineScaling(c *gc.C) {
 	s.Factory.MakeMachine(c, nil)
-
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-	tracker := s.State.TrackQueries()
+	tracker := s.State.TrackQueries("FullStatus")
 
 	client := s.APIState.Client()
 	_, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	queryCount := tracker.ReadCount()
+	c.Logf("initial query count: %d", queryCount)
 
 	// Add several more machines to the model.
 	for i := 0; i < 5; i++ {
 		s.Factory.MakeMachine(c, nil)
 	}
-
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	tracker.Reset()
 
 	_, err = client.Status(nil)
@@ -175,15 +170,14 @@ func (s *statusSuite) TestFullStatusInterfaceScaling(c *gc.C) {
 	s.createSpaceAndSubnetWithProviderID(c, "public", "10.0.0.0/24", "prov-0000")
 	s.createSpaceAndSubnetWithProviderID(c, "private", "10.20.0.0/24", "prov-ffff")
 	s.createSpaceAndSubnetWithProviderID(c, "dmz", "10.30.0.0/24", "prov-abcd")
-
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-	tracker := s.State.TrackQueries()
+	tracker := s.State.TrackQueries("FullStatus")
 
 	client := s.APIState.Client()
 	_, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	queryCount := tracker.ReadCount()
+	c.Logf("initial query count: %d", queryCount)
 
 	// Add a bunch of interfaces to the machine.
 	s.createNICWithIP(c, machine, "eth0", "10.0.0.11/24")
@@ -208,7 +202,6 @@ func (s *statusSuite) TestFullStatusInterfaceScaling(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	tracker.Reset()
 
 	_, err = client.Status(nil)
