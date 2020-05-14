@@ -627,7 +627,7 @@ func (op *caasOperator) runningStatus(unit names.UnitTag, providerID string) (*u
 
 func (op *caasOperator) remoteInit(unit names.UnitTag, runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
 	op.config.Logger.Debugf("remote init for %v %+v", unit, runningStatus)
-	params := InitializeUnitParams{
+	params := initializeUnitParams{
 		ExecClient:   op.config.ExecClient,
 		Logger:       op.config.Logger,
 		OperatorInfo: op.config.OperatorInfo,
@@ -636,6 +636,8 @@ func (op *caasOperator) remoteInit(unit names.UnitTag, runningStatus uniterremot
 		ProviderID:   runningStatus.PodName,
 		WriteFile:    ioutil.WriteFile,
 		TempDir:      ioutil.TempDir,
+		Clock:        op.config.Clock,
+		ReTrier:      runnerWithRetry,
 	}
 	switch {
 	case runningStatus.Initialising:
@@ -645,7 +647,7 @@ func (op *caasOperator) remoteInit(unit names.UnitTag, runningStatus uniterremot
 	default:
 		return errors.NotFoundf("container not running")
 	}
-	err := InitializeUnit(params, cancel)
+	err := initializeUnit(params, cancel)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -855,8 +855,14 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	}
 
 	// Finally, register GUI content endpoints.
+
+	// Add the legacy GUI handler.
 	guiEndpoints := guiEndpoints(guiURLPathPrefix, srv.dataDir, httpCtxt)
 	endpoints = append(endpoints, guiEndpoints...)
+	// And the new dashboard handler
+	dashboardEndpoints := dashboardEndpoints(dashboardURLPathPrefix, srv.dataDir, httpCtxt)
+	endpoints = append(endpoints, dashboardEndpoints...)
+
 	return endpoints
 }
 

@@ -25,8 +25,10 @@ var (
 	NewBackups            = &newBackups
 	BZMimeType            = bzMimeType
 	JSMimeType            = jsMimeType
-	GUIURLPathPrefix      = guiURLPathPrefix
 	SpritePath            = spritePath
+
+	GUIURLPathPrefix       = guiURLPathPrefix
+	DashboardURLPathPrefix = dashboardURLPathPrefix
 )
 
 func APIHandlerWithEntity(entity state.Entity) *apiHandler {

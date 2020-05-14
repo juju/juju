@@ -6,7 +6,6 @@ package network
 import (
 	"fmt"
 	"net"
-	"sort"
 
 	"github.com/juju/errors"
 )
@@ -101,8 +100,8 @@ type InterfaceInfo struct {
 	// associated network.
 	ProviderNetworkId Id
 
-	// ProviderSpaceId is the provider-specific id for the associated space, if
-	// known and supported.
+	// ProviderSpaceId is the provider-specific id for the associated space,
+	// if known and supported.
 	ProviderSpaceId Id
 
 	// ProviderVLANId is the provider-specific id of the VLAN for this
@@ -124,7 +123,8 @@ type InterfaceInfo struct {
 	// "eth1", even for a VLAN eth1.42 virtual interface).
 	InterfaceName string
 
-	// ParentInterfaceName is the name of the parent interface to use, if known.
+	// ParentInterfaceName is the name of the parent interface to use,
+	// if known.
 	ParentInterfaceName string
 
 	// InterfaceType is the type of the interface.
@@ -135,9 +135,9 @@ type InterfaceInfo struct {
 	Disabled bool
 
 	// NoAutoStart is true when the interface should not be configured
-	// to start automatically on boot. By default and for
-	// backwards-compatibility, interfaces are configured to
-	// auto-start.
+	// to start automatically on boot.
+	// By default and for backwards-compatibility, interfaces are
+	// configured to auto-start.
 	NoAutoStart bool
 
 	// ConfigType determines whether the interface should be
@@ -158,8 +158,7 @@ type InterfaceInfo struct {
 	ShadowAddresses ProviderAddresses
 
 	// DNSServers contains an optional list of IP addresses and/or
-	// hostnames to configure as DNS servers for this network
-	// interface.
+	// host names to configure as DNS servers for this network interface.
 	DNSServers ProviderAddresses
 
 	// MTU is the Maximum Transmission Unit controlling the maximum size of the
@@ -189,22 +188,6 @@ type InterfaceInfo struct {
 	// Giving us this information allows us to reason about when a InterfaceInfo
 	// is in use.
 	Origin Origin
-}
-
-type interfaceInfoSlice []InterfaceInfo
-
-func (s interfaceInfoSlice) Len() int      { return len(s) }
-func (s interfaceInfoSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
-func (s interfaceInfoSlice) Less(i, j int) bool {
-	iface1 := s[i]
-	iface2 := s[j]
-	return iface1.DeviceIndex < iface2.DeviceIndex
-}
-
-// SortInterfaceInfo sorts a slice of InterfaceInfo on DeviceIndex in ascending
-// order.
-func SortInterfaceInfo(interfaces []InterfaceInfo) {
-	sort.Sort(interfaceInfoSlice(interfaces))
 }
 
 // ActualInterfaceName returns raw interface name for raw interface (e.g. "eth0") and
@@ -257,6 +240,42 @@ func (i *InterfaceInfo) PrimaryAddress() ProviderAddress {
 	// be assigned to an interface but the provider ensures that the one
 	// flagged as primary is present at index 0.
 	return i.Addresses[0]
+}
+
+// InterfaceInfos is a slice of InterfaceInfo
+// for a single host/machine/container.
+type InterfaceInfos []InterfaceInfo
+
+// IterHierarchy runs the input function for every interface by processing each
+// device hierarchy, ensuring that no child device is processed before its
+// parent.
+func (s InterfaceInfos) IterHierarchy(f func(InterfaceInfo) error) error {
+	return s.iterChildHierarchy("", f)
+}
+
+func (s InterfaceInfos) iterChildHierarchy(parentName string, f func(InterfaceInfo) error) error {
+	children := s.Children(parentName)
+	for _, child := range children {
+		if err := f(child); err != nil {
+			return err
+		}
+		if err := s.iterChildHierarchy(child.InterfaceName, f); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Children returns interfaces that are direct children
+// of the interface with the input name.
+func (s InterfaceInfos) Children(parentName string) InterfaceInfos {
+	var children InterfaceInfos
+	for _, dev := range s {
+		if dev.ParentInterfaceName == parentName {
+			children = append(children, dev)
+		}
+	}
+	return children
 }
 
 // ProviderInterfaceInfo holds enough information to identify an

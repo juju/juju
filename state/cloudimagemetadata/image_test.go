@@ -490,7 +490,7 @@ func (s *cloudImageMetadataSuite) TestSupportedArchitectures(c *gc.C) {
 	uniqueArches, err := s.storage.SupportedArchitectures(
 		cloudimagemetadata.MetadataFilter{Stream: stream, Region: region})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uniqueArches, gc.DeepEquals, expected)
+	c.Assert(uniqueArches, jc.SameContents, expected)
 }
 
 func (s *cloudImageMetadataSuite) TestSupportedArchitecturesUnmatchedStreams(c *gc.C) {

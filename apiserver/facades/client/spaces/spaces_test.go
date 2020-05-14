@@ -47,7 +47,7 @@ func (s *APISuite) TestShowSpaceDefault(c *gc.C) {
 	defer unreg()
 
 	s.expectDefaultSpace(ctrl, "default", nil, nil)
-	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), nil)
+	s.expectEndpointBindings(ctrl, "1")
 	s.expectMachines(ctrl, s.getDefaultSpaces(), nil, nil)
 
 	expectedApplications := []string{"mysql", "mediawiki"}
@@ -115,15 +115,15 @@ func (s *APISuite) TestShowSpaceErrorGettingApplications(c *gc.C) {
 	defer ctrl.Finish()
 	defer unreg()
 
-	bamErr := errors.New("bam")
+	expErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, "default", nil, nil)
-	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), bamErr)
+	s.Backing.EXPECT().AllEndpointBindings().Return(nil, expErr)
 
 	args := s.getShowSpaceArg("default")
 
 	res, err := s.API.ShowSpace(args)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := fmt.Sprintf("fetching applications: %v", bamErr.Error())
+	expectedErr := fmt.Sprintf("fetching applications: %v", expErr.Error())
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
 }
 
@@ -134,7 +134,7 @@ func (s *APISuite) TestShowSpaceErrorGettingMachines(c *gc.C) {
 
 	bamErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, "default", nil, nil)
-	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), nil)
+	s.expectEndpointBindings(ctrl, "1")
 	s.expectMachines(ctrl, s.getDefaultSpaces(), bamErr, nil)
 
 	args := s.getShowSpaceArg("default")
@@ -244,7 +244,7 @@ func (s *APISuite) TestRemoveSpaceSuccessNoControllerConfig(c *gc.C) {
 	args, tag := s.getRemoveArgs(space, false)
 
 	s.expectDefaultSpace(ctrl, space, nil, nil)
-	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("2"), nil)
+	s.expectEndpointBindings(ctrl, "2")
 	s.Backing.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
 	s.Backing.EXPECT().IsController().Return(false)
 	s.OpFactory.EXPECT().NewRemoveSpaceOp(tag.Id()).Return(nil, nil)
@@ -264,7 +264,7 @@ func (s *APISuite) TestRemoveSpaceSuccessControllerConfig(c *gc.C) {
 	args, tag := s.getRemoveArgs(space, false)
 
 	s.expectDefaultSpace(ctrl, space, nil, nil)
-	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("2"), nil)
+	s.expectEndpointBindings(ctrl, "2")
 	s.Backing.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
 	s.Backing.EXPECT().IsController().Return(true)
 	s.Backing.EXPECT().ControllerConfig().Return(nil, nil)
@@ -285,7 +285,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundApplications(c *gc.C) {
 	args, _ := s.getRemoveArgs(space, false)
 
 	s.expectDefaultSpace(ctrl, space, nil, nil)
-	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), nil)
+	s.expectEndpointBindings(ctrl, "1")
 	s.Backing.EXPECT().IsController().Return(false)
 	s.Backing.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
@@ -316,7 +316,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundController(c *gc.C) {
 	args, _ := s.getRemoveArgs(space, false)
 
 	s.expectDefaultSpace(ctrl, space, nil, nil)
-	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("2"), nil)
+	s.expectEndpointBindings(ctrl, "2")
 	s.Backing.EXPECT().IsController().Return(true)
 
 	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
@@ -343,7 +343,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundConstraints(c *gc.C) {
 	args, _ := s.getRemoveArgs(space, false)
 
 	s.expectDefaultSpace(ctrl, space, nil, nil)
-	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("2"), nil)
+	s.expectEndpointBindings(ctrl, "2")
 	s.Backing.EXPECT().IsController().Return(false)
 
 	cApp, cModel := s.expectAllTags(space)
@@ -379,7 +379,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
 	args, _ := s.getRemoveArgs(space, false)
 
 	s.expectDefaultSpace(ctrl, space, nil, nil)
-	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), nil)
+	s.expectEndpointBindings(ctrl, "1")
 	s.Backing.EXPECT().IsController().Return(true)
 
 	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
@@ -425,7 +425,7 @@ func (s *APISuite) TestRemoveSpaceFoundAllWithForce(c *gc.C) {
 	args, tag := s.getRemoveArgs(space, true)
 
 	s.expectDefaultSpace(ctrl, space, nil, nil)
-	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), nil)
+	s.expectEndpointBindings(ctrl, "1")
 	s.Backing.EXPECT().IsController().Return(true)
 
 	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
@@ -492,25 +492,28 @@ func (s *APISuite) getShowSpaceArg(name string) params.Entities {
 	return args
 }
 
-func (s *APISuite) getDefaultApplicationEndpoints(spaceID string) []spaces.ApplicationEndpointBindingsShim {
-	endpoints := []spaces.ApplicationEndpointBindingsShim{{
-		AppName:  "mysql",
-		Bindings: map[string]string{"db": spaceID, "slave": "alpha"},
-	}, {
-		AppName:  "mediawiki",
-		Bindings: map[string]string{"db": spaceID, "back": "alpha"},
-	},
-	}
-	return endpoints
-}
-
 func (s *APISuite) getDefaultSpaces() set.Strings {
 	strings := set.NewStrings("1", "2")
 	return strings
 }
 
-func (s *APISuite) expectEndpointBindings(endpoints []spaces.ApplicationEndpointBindingsShim, err error) {
-	s.Backing.EXPECT().AllEndpointBindings().Return(endpoints, err)
+func (s *APISuite) expectEndpointBindings(ctrl *gomock.Controller, spaceID string) {
+	b1 := spaces.NewMockBindings(ctrl)
+	b1.EXPECT().Map().Return(map[string]string{
+		"db":    spaceID,
+		"slave": network.AlphaSpaceName,
+	})
+
+	b2 := spaces.NewMockBindings(ctrl)
+	b2.EXPECT().Map().Return(map[string]string{
+		"db":   spaceID,
+		"back": network.AlphaSpaceName,
+	})
+
+	s.Backing.EXPECT().AllEndpointBindings().Return(map[string]spaces.Bindings{
+		"mysql":     b1,
+		"mediawiki": b2,
+	}, nil)
 }
 
 // expectDefaultSpace configures a default space mock with default subnet settings
@@ -601,7 +604,7 @@ func (sb *stubBacking) SpaceByName(_ string) (networkingcommon.BackingSpace, err
 	panic("should not be called")
 }
 
-func (sb *stubBacking) AllEndpointBindings() ([]spaces.ApplicationEndpointBindingsShim, error) {
+func (sb *stubBacking) AllEndpointBindings() (map[string]spaces.Bindings, error) {
 	panic("should not be called")
 }
 

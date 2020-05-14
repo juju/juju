@@ -201,7 +201,7 @@ OPERATOR_IMAGE_BUILD_SRC   ?= true
 # Import shell functions from make_functions.sh
 BUILD_OPERATOR_IMAGE=sh -c '. "${PROJECT_DIR}/make_functions.sh"; build_operator_image "$$@"' build_operator_image
 OPERATOR_IMAGE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_path "$$@"' operator_image_path
-OPERATOR_IMAGE_LEGACY_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_legacy_path "$$@"' operator_image_legacy_path
+OPERATOR_IMAGE_RELEASE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_release_path "$$@"' operator_image_release_path
 
 operator-check-build:
 ifeq ($(OPERATOR_IMAGE_BUILD_SRC),true)
@@ -215,14 +215,16 @@ operator-image: operator-check-build
 	$(BUILD_OPERATOR_IMAGE)
 
 push-operator-image: operator-image
-## push-operator-image: Push up the new built operator image via docker
+## push-operator-image: Push up the newly built operator image via docker
+	@:$(if $(value JUJU_BUILD_NUMBER),, $(error Undefined JUJU_BUILD_NUMBER))
 	docker push "$(shell ${OPERATOR_IMAGE_PATH})"
-	@if [ "$(shell ${OPERATOR_IMAGE_PATH})" != "$(shell ${OPERATOR_IMAGE_LEGACY_PATH})" ]; then \
-		docker push "$(shell ${OPERATOR_IMAGE_LEGACY_PATH})"; \
-	fi
+
+push-release-operator-image: operator-image
+## push-release-operator-image: Push up the newly built release operator image via docker
+	docker push "$(shell ${OPERATOR_IMAGE_RELEASE_PATH})"
 
 microk8s-operator-update: install operator-image
-## microk8s-operator-update: Push up the new built operator image for use with microk8s
+## microk8s-operator-update: Push up the newly built operator image for use with microk8s
 	docker save "$(shell ${OPERATOR_IMAGE_PATH})" | microk8s.ctr --namespace k8s.io image import -
 
 check-k8s-model:
