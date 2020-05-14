@@ -32,7 +32,7 @@ type NetworkUbuntuSuite struct {
 	systemNetworkInterfacesFile string
 	jujuNetplanFile             string
 
-	fakeInterfaces []corenetwork.InterfaceInfo
+	fakeInterfaces corenetwork.InterfaceInfos
 
 	expectedSampleConfigHeader      string
 	expectedSampleConfigTemplate    string
@@ -66,7 +66,7 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 	s.networkInterfacesPythonFile = filepath.Join(networkFolder, "system-interfaces.py")
 	s.jujuNetplanFile = filepath.Join(netplanFolder, "79-juju.yaml")
 
-	s.fakeInterfaces = []corenetwork.InterfaceInfo{{
+	s.fakeInterfaces = corenetwork.InterfaceInfos{{
 		InterfaceName:    "any0",
 		CIDR:             "0.1.2.0/24",
 		ConfigType:       corenetwork.ConfigStatic,

@@ -370,7 +370,7 @@ func (s *networkSuite) TestInterfaceInfoFromDevices(c *gc.C) {
 	info, err := lxd.InterfaceInfoFromDevices(nics)
 	c.Assert(err, jc.ErrorIsNil)
 
-	exp := []corenetwork.InterfaceInfo{
+	exp := corenetwork.InterfaceInfos{
 		{
 			InterfaceName:       "eno9",
 			MACAddress:          "00:16:3e:00:00:3e",

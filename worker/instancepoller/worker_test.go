@@ -40,7 +40,7 @@ var (
 		network.NewScopedProviderAddress("1.1.1.42", network.ScopePublic),
 	}
 
-	testNetIfs = []network.InterfaceInfo{
+	testNetIfs = network.InterfaceInfos{
 		{
 			DeviceIndex:   0,
 			InterfaceName: "eth0",
@@ -55,7 +55,7 @@ var (
 		},
 	}
 
-	testCoercedNetIfs = []network.InterfaceInfo{
+	testCoercedNetIfs = network.InterfaceInfos{
 		{
 			DeviceIndex: 0,
 			Addresses: network.ProviderAddresses{
@@ -440,7 +440,7 @@ func (s *workerSuite) TestBatchPollingOfGroupMembers(c *gc.C) {
 	machine1Info.EXPECT().Status(gomock.Any()).Return(instance.Status{Status: status.Running})
 	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{"b4dc0ffee"}).Return([]instances.Instance{machine1Info}, nil)
 	mocked.environ.EXPECT().NetworkInterfaces(gomock.Any(), []instance.Id{"b4dc0ffee"}).Return(
-		[][]network.InterfaceInfo{testNetIfs},
+		[]network.InterfaceInfos{testNetIfs},
 		nil,
 	)
 

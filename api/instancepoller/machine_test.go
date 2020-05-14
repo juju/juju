@@ -226,7 +226,7 @@ func (s *MachineSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
-	cfg := []network.InterfaceInfo{{
+	cfg := network.InterfaceInfos{{
 		DeviceIndex: 0,
 		CIDR:        "10.0.0.0/24",
 		Addresses: []network.ProviderAddress{

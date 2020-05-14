@@ -18,12 +18,12 @@ type NetworkConfig struct {
 	Device      string
 	MTU         int
 
-	Interfaces []corenetwork.InterfaceInfo
+	Interfaces corenetwork.InterfaceInfos
 }
 
 // FallbackInterfaceInfo returns a single "eth0" interface configured with DHCP.
-func FallbackInterfaceInfo() []corenetwork.InterfaceInfo {
-	return []corenetwork.InterfaceInfo{{
+func FallbackInterfaceInfo() corenetwork.InterfaceInfos {
+	return corenetwork.InterfaceInfos{{
 		InterfaceName: "eth0",
 		InterfaceType: corenetwork.EthernetInterface,
 		ConfigType:    corenetwork.ConfigDHCP,
@@ -35,7 +35,7 @@ func FallbackInterfaceInfo() []corenetwork.InterfaceInfo {
 // configuration for the container's network interfaces and default MTU to use.
 // If interfaces is empty, FallbackInterfaceInfo() is used to get the a sane
 // default
-func BridgeNetworkConfig(device string, mtu int, interfaces []corenetwork.InterfaceInfo) *NetworkConfig {
+func BridgeNetworkConfig(device string, mtu int, interfaces corenetwork.InterfaceInfos) *NetworkConfig {
 	if len(interfaces) == 0 {
 		interfaces = FallbackInterfaceInfo()
 	}
