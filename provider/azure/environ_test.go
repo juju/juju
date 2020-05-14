@@ -62,10 +62,10 @@ const (
 )
 
 var (
-	quantalImageReference = compute.ImageReference{
+	xenialImageReference = compute.ImageReference{
 		Publisher: to.StringPtr("Canonical"),
 		Offer:     to.StringPtr("UbuntuServer"),
-		Sku:       to.StringPtr("12.10"),
+		Sku:       to.StringPtr("18.04-LTS"),
 		Version:   to.StringPtr("latest"),
 	}
 	win2012ImageReference = compute.ImageReference{
@@ -237,6 +237,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		{Name: to.StringPtr("15.04")},
 		{Name: to.StringPtr("15.10")},
 		{Name: to.StringPtr("16.04-LTS")},
+		{Name: to.StringPtr("18.04-LTS")},
 	}
 
 	s.commonDeployment = &resources.DeploymentExtended{
@@ -579,7 +580,7 @@ func (s *environSuite) assertStartInstance(c *gc.C, wantedRootDisk *int) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(false)
 	s.requests = nil
-	args := makeStartInstanceParams(c, s.controllerUUID, "quantal")
+	args := makeStartInstanceParams(c, s.controllerUUID, "bionic")
 	expectedRootDisk := uint64(30 * 1024) // 30 GiB
 	expectedDiskSize := 32
 	if wantedRootDisk != nil {
@@ -608,7 +609,7 @@ func (s *environSuite) assertStartInstance(c *gc.C, wantedRootDisk *int) {
 		CpuCores: &cpuCores,
 	})
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
-		imageReference: &quantalImageReference,
+		imageReference: &xenialImageReference,
 		diskSizeGB:     expectedDiskSize,
 		osProfile:      &s.linuxOsProfile,
 		instanceType:   "Standard_A1",
@@ -624,7 +625,7 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 
 	s.sender = s.startInstanceSenders(false)
 	s.requests = nil
-	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "quantal"))
+	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "bionic"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(&s.sshPublicKeys, []compute.SSHPublicKey{{
@@ -632,7 +633,7 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 		KeyData: to.StringPtr("public"),
 	}})
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
-		imageReference: &quantalImageReference,
+		imageReference: &xenialImageReference,
 		diskSizeGB:     32,
 		osProfile:      &s.linuxOsProfile,
 		instanceType:   "Standard_A1",
@@ -656,7 +657,7 @@ func (s *environSuite) TestStartInstanceInvalidCredential(c *gc.C) {
 	s.requests = nil
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
 
-	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "quantal"))
+	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "bionic"))
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
@@ -752,7 +753,7 @@ func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {
 	s.sender = senders
 	s.requests = nil
 
-	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "quantal"))
+	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "bionic"))
 	c.Assert(err, gc.ErrorMatches,
 		`creating virtual machine "machine-0": `+
 			`waiting for common resources to be created: `+
@@ -774,10 +775,10 @@ func (s *environSuite) TestStartInstanceCommonDeploymentStorageAccount(c *gc.C) 
 	s.sender = senders
 	s.requests = nil
 
-	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "quantal"))
+	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "bionic"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
-		imageReference:   &quantalImageReference,
+		imageReference:   &xenialImageReference,
 		diskSizeGB:       32,
 		osProfile:        &s.linuxOsProfile,
 		instanceType:     "Standard_A1",
@@ -802,7 +803,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 	s.sender = senders
 	s.requests = nil
 
-	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "quantal"))
+	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "bionic"))
 	c.Assert(err, gc.ErrorMatches,
 		`creating virtual machine "machine-0": `+
 			`waiting for common resources to be created: `+
@@ -823,14 +824,14 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	s.vmTags[tags.JujuUnitsDeployed] = &unitsDeployed
 	s.sender = s.startInstanceSenders(false)
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, "quantal")
+	params := makeStartInstanceParams(c, s.controllerUUID, "bionic")
 	params.InstanceConfig.Tags[tags.JujuUnitsDeployed] = unitsDeployed
 
 	_, err := env.StartInstance(s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
 		availabilitySetName: "mysql",
-		imageReference:      &quantalImageReference,
+		imageReference:      &xenialImageReference,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_A1",
@@ -1219,21 +1220,21 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("quantal"),
-			BootstrapSeries:          "quantal",
+			AvailableTools:           makeToolsList("bionic"),
+			BootstrapSeries:          "bionic",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Series, gc.Equals, "quantal")
+	c.Assert(result.Series, gc.Equals, "bionic")
 
 	c.Assert(len(s.requests), gc.Equals, numExpectedStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = to.StringPtr("true")
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
-		imageReference:      &quantalImageReference,
+		imageReference:      &xenialImageReference,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",
@@ -1254,8 +1255,8 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 	_, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("quantal"),
-			BootstrapSeries:          "quantal",
+			AvailableTools:           makeToolsList("bionic"),
+			BootstrapSeries:          "bionic",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
@@ -1285,7 +1286,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 			ControllerConfig: testing.FakeControllerConfig(),
 			AdminSecret:      jujutesting.AdminSecret,
 			CAPrivateKey:     testing.CAKey,
-			BootstrapSeries:  "quantal",
+			BootstrapSeries:  "bionic",
 			BuildAgentTarball: func(build bool, ver *version.Number, _ string) (*sync.BuiltAgent, error) {
 				c.Assert(build, jc.IsFalse)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
@@ -1310,7 +1311,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	s.vmTags[tags.JujuIsController] = to.StringPtr("true")
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
-		imageReference:      &quantalImageReference,
+		imageReference:      &xenialImageReference,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		needsProviderInit:   true,
@@ -1333,22 +1334,22 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         config,
-			AvailableTools:           makeToolsList("quantal"),
-			BootstrapSeries:          "quantal",
+			AvailableTools:           makeToolsList("bionic"),
+			BootstrapSeries:          "bionic",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Series, gc.Equals, "quantal")
+	c.Assert(result.Series, gc.Equals, "bionic")
 
 	c.Assert(len(s.requests), gc.Equals, numExpectedStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = to.StringPtr("true")
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		autocert:            true,
 		availabilitySetName: "juju-controller",
-		imageReference:      &quantalImageReference,
+		imageReference:      &xenialImageReference,
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",
