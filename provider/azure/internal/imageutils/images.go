@@ -12,6 +12,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-10-01/compute"
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os"
@@ -62,8 +63,7 @@ func SeriesImage(
 	switch seriesOS {
 	case os.Ubuntu:
 		publisher = ubuntuPublisher
-		offering = ubuntuOffering
-		sku, err = ubuntuSKU(ctx, series, stream, location, client)
+		sku, offering, err = ubuntuSKU(ctx, series, stream, location, client)
 		if err != nil {
 			return nil, errors.Annotatef(err, "selecting SKU for %s", series)
 		}
@@ -112,26 +112,41 @@ func SeriesImage(
 	}, nil
 }
 
-// ubuntuSKU returns the best SKU for the Canonical:UbuntuServer offering,
-// matching the given series.
-func ubuntuSKU(ctx context.ProviderCallContext, series, stream, location string, client compute.VirtualMachineImagesClient) (string, error) {
+func offerForUbuntuSeries(series string) (string, string, error) {
 	seriesVersion, err := jujuseries.SeriesVersion(series)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", "", errors.Trace(err)
 	}
-	logger.Debugf("listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, ubuntuOffering)
-	sdkCtx := stdcontext.Background()
-	result, err := client.ListSkus(sdkCtx, location, ubuntuPublisher, ubuntuOffering)
+
+	oldSeries := set.NewStrings("trusty", "xenial", "bionic", "cosmic", "disco")
+	if oldSeries.Contains(series) {
+		return ubuntuOffering, seriesVersion, nil
+	}
+	seriesVersion = strings.ReplaceAll(seriesVersion, ".", "_")
+	return fmt.Sprintf("0001-com-ubuntu-server-%s", series), seriesVersion, nil
+}
+
+// ubuntuSKU returns the best SKU for the Canonical:UbuntuServer offering,
+// matching the given series.
+func ubuntuSKU(ctx context.ProviderCallContext, series, stream, location string, client compute.VirtualMachineImagesClient) (string, string, error) {
+	offer, seriesVersion, err := offerForUbuntuSeries(series)
 	if err != nil {
-		return "", errorutils.HandleCredentialError(errors.Annotate(err, "listing Ubuntu SKUs"), ctx)
+		return "", "", errors.Trace(err)
+	}
+	logger.Debugf("listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, offer)
+	sdkCtx := stdcontext.Background()
+	result, err := client.ListSkus(sdkCtx, location, ubuntuPublisher, offer)
+	if err != nil {
+		return "", "", errorutils.HandleCredentialError(errors.Annotate(err, "listing Ubuntu SKUs"), ctx)
 	}
 	if result.Value == nil || len(*result.Value) == 0 {
-		return "", errors.NotFoundf("Ubuntu SKUs")
+		return "", "", errors.NotFoundf("Ubuntu SKUs")
 	}
 	skuNamesByVersion := make(map[ubuntuVersion]string)
 	var versions ubuntuVersions
 	for _, result := range *result.Value {
 		skuName := to.String(result.Name)
+		logger.Debugf("Found Azure SKU Name: %v", skuName)
 		if !strings.HasPrefix(skuName, seriesVersion) {
 			logger.Debugf("ignoring SKU %q (does not match series %q)", skuName, series)
 			continue
@@ -141,6 +156,7 @@ func ubuntuSKU(ctx context.ProviderCallContext, series, stream, location string,
 			logger.Errorf("ignoring SKU %q (failed to parse: %s)", skuName, err)
 			continue
 		}
+		logger.Debugf("SKU has version %#v and tag %q", version, tag)
 		var skuStream string
 		switch tag {
 		case "", "LTS":
@@ -156,11 +172,11 @@ func ubuntuSKU(ctx context.ProviderCallContext, series, stream, location string,
 		versions = append(versions, version)
 	}
 	if len(versions) == 0 {
-		return "", errors.NotFoundf("Ubuntu SKUs for %s stream", stream)
+		return "", "", errors.NotFoundf("Ubuntu SKUs for %s stream", stream)
 	}
 	sort.Sort(versions)
 	bestVersion := versions[len(versions)-1]
-	return skuNamesByVersion[bestVersion], nil
+	return skuNamesByVersion[bestVersion], offer, nil
 }
 
 type ubuntuVersion struct {
@@ -175,11 +191,15 @@ func parseUbuntuSKU(sku string) (ubuntuVersion, string, error) {
 	var version ubuntuVersion
 	var tag string
 	var err error
-	parts := strings.Split(sku, "-")
+	parts := strings.SplitN(sku, "-", 2)
 	if len(parts) > 1 {
-		tag = parts[1]
+		tag = strings.ToUpper(parts[1])
 	}
-	parts = strings.SplitN(parts[0], ".", 3)
+	sep := "_"
+	if strings.Contains(parts[0], ".") {
+		sep = "."
+	}
+	parts = strings.SplitN(parts[0], sep, 3)
 	version.Year, err = strconv.Atoi(parts[0])
 	if err != nil {
 		return ubuntuVersion{}, "", errors.Trace(err)
