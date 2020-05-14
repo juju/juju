@@ -829,6 +829,27 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	c.Assert(s.deployParams["foobar"].CharmConfig, jc.DeepEquals, charm.Settings{"intOption": int64(2)})
 }
 
+func (s *ApplicationSuite) TestDeployCAASBlockStorageRejected(c *gc.C) {
+	s.model.modelType = state.ModelTypeCAAS
+	s.backend.charm = &mockCharm{
+		meta: &charm.Meta{
+			Storage: map[string]charm.Storage{"block": {Name: "block", Type: charm.StorageBlock}},
+		},
+	}
+
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+		}},
+	}
+	result, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.OneError(), gc.ErrorMatches, `block storage "block" is not supported for k8s charms`)
+}
+
 func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
 	s.model.modelType = state.ModelTypeCAAS
 	delete(s.model.cfg, "operator-storage")
