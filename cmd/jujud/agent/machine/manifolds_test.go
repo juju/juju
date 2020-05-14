@@ -74,7 +74,6 @@ func (ms *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"disk-manager",
 			"external-controller-updater",
 			"fan-configurer",
-			"global-clock-updater",
 			"host-key-reporter",
 			"http-server",
 			"http-server-args",
@@ -83,7 +82,6 @@ func (ms *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"is-primary-controller-flag",
 			"lease-clock-updater",
 			"lease-manager",
-			"legacy-leases-flag",
 			"log-sender",
 			"logging-config-updater",
 			"machine-action-runner",
@@ -551,14 +549,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"global-clock-updater": {
-		"agent",
-		"is-controller-flag",
-		"legacy-leases-flag",
-		"state",
-		"state-config-watcher",
-	},
-
 	"host-key-reporter": {
 		"agent",
 		"api-caller",
@@ -652,13 +642,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"central-hub",
 		"clock",
-		"is-controller-flag",
-		"state",
-		"state-config-watcher",
-	},
-
-	"legacy-leases-flag": {
-		"agent",
 		"is-controller-flag",
 		"state",
 		"state-config-watcher",
