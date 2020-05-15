@@ -4,8 +4,6 @@
 package common_test
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -213,13 +211,8 @@ func (s *applicationStatusGetterSuite) TestGetUnitStatusIsLeader(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
 	}})
-	app, err := unit.Application()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.LeadershipClaimer().ClaimLeadership(
-		app.Name(),
-		unit.Name(),
-		time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
+	// No need to claim leadership - the checker passed in in setup
+	// always returns true.
 	result, err := s.getter.Status(params.Entities{[]params.Entity{{
 		unit.Tag().String(),
 	}}})

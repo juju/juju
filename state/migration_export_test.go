@@ -116,14 +116,6 @@ func (s *MigrationBaseSuite) makeUnitApplicationLeader(c *gc.C, unitName, applic
 	)
 }
 
-func (s *MigrationBaseSuite) makeUnitApplicationLeaderLegacy(c *gc.C, unitName, applicationName string) {
-	err := s.State.LeadershipClaimer().ClaimLeadership(
-		applicationName,
-		unitName,
-		time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *state.Unit, names.StorageTag) {
 	pool := "modelscoped"
 	kind := "block"

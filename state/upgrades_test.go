@@ -1909,7 +1909,7 @@ func (s *upgradesSuite) checkAddPruneSettings(c *gc.C, ageProp, sizeProp, defaul
 }
 
 func (s *upgradesSuite) TestMigrateLeasesToGlobalTime(c *gc.C) {
-	leases, closer := s.state.db().GetRawCollection(leasesC)
+	leases, closer := s.state.db().GetRawCollection("leases")
 	defer closer()
 
 	// Use the non-controller model to ensure we can run the function
@@ -2008,7 +2008,7 @@ func (s *upgradesSuite) TestMigrateLeasesToGlobalTimeWithNewTarget(c *gc.C) {
 	// It is possible that API servers will try to coordinate the singular lease before we can get to the upgrade steps.
 	// While upgrading leases, if we encounter any leases that already exist in the new GlobalTime format, they should
 	// be considered authoritative, and the old lease should just be deleted.
-	leases, closer := s.state.db().GetRawCollection(leasesC)
+	leases, closer := s.state.db().GetRawCollection("leases")
 	defer closer()
 
 	// Use the non-controller model to ensure we can run the function
@@ -2742,7 +2742,7 @@ func (s *upgradesSuite) TestLegacyLeases(c *gc.C) {
 		"time": int64(5000000000),
 	}), jc.ErrorIsNil)
 
-	coll, closer := s.state.db().GetRawCollection(leasesC)
+	coll, closer := s.state.db().GetRawCollection("leases")
 	defer closer()
 	err := coll.Insert(bson.M{
 		"namespace":  "buke",
@@ -4391,6 +4391,26 @@ func (s *upgradesSuite) TestDropPresenceDatabase(c *gc.C) {
 	err = DropPresenceDatabase(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(presenceDBExists(), jc.IsFalse)
+}
+
+func (s *upgradesSuite) TestDropLeasesCollection(c *gc.C) {
+	db := s.state.session.DB("juju")
+	col := db.C("leases")
+	err := col.Insert(bson.M{"test": "foo"})
+	c.Assert(err, jc.ErrorIsNil)
+	// Sanity check.
+	names, err := db.CollectionNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(set.NewStrings(names...).Contains("leases"), jc.IsTrue)
+
+	err = DropLeasesCollection(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+	names, err = db.CollectionNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(set.NewStrings(names...).Contains("leases"), jc.IsFalse)
+
+	err = DropLeasesCollection(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type docById []bson.M

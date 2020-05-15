@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/replicaset"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -1282,7 +1283,7 @@ func MigrateLeasesToGlobalTime(pool *StatePool) error {
 const InitialLeaderClaimTime = time.Minute
 
 func migrateModelLeasesToGlobalTime(st *State) error {
-	coll, closer := st.db().GetCollection(leasesC)
+	coll, closer := st.db().GetCollection("leases")
 	defer closer()
 
 	// Find all old lease/clock-skew documents, remove them
@@ -1290,7 +1291,20 @@ func migrateModelLeasesToGlobalTime(st *State) error {
 	//
 	// Replacement leases are created with a duration of a
 	// minute, relative to the global time epoch.
-	err := st.db().Run(func(int) ([]txn.Op, error) {
+
+	// We can't use st.db().Run here since leases isn't in
+	// allCollections anymore. Instead just get a jujutxn.Runner
+	// directly.
+	db := st.db().(*database)
+	runner := db.runner
+	if runner == nil {
+		runner = jujutxn.NewRunner(jujutxn.RunnerParams{
+			Database:               db.raw,
+			Clock:                  db.clock,
+			ServerSideTransactions: db.serverSideTransactions,
+		})
+	}
+	err := runner.Run(func(int) ([]txn.Op, error) {
 		var doc struct {
 			DocID     string `bson:"_id"`
 			Type      string `bson:"type"`
@@ -1307,7 +1321,7 @@ func migrateModelLeasesToGlobalTime(st *State) error {
 		for iter.Next(&doc) {
 			ops = append(ops, txn.Op{
 				C:      coll.Name(),
-				Id:     st.localID(doc.DocID),
+				Id:     doc.DocID,
 				Assert: txn.DocExists,
 				Remove: true,
 			})
@@ -1338,6 +1352,17 @@ func migrateModelLeasesToGlobalTime(st *State) error {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			// Add model UUID into the ops that came back...
+			for i, op := range claimOps {
+				op.Id = st.docID(op.Id.(string))
+				munged, err := mungeDocForMultiModel(op.Insert, st.ModelUUID(), modelUUIDRequired)
+				if err != nil {
+					return nil, errors.Annotate(err, "adding modelUUID")
+				}
+				op.Insert = munged
+				claimOps[i] = op
+			}
+
 			ops = append(ops, claimOps...)
 		}
 		if err := iter.Close(); err != nil {
@@ -1744,7 +1769,7 @@ func LegacyLeases(pool *StatePool, localTime time.Time) (map[corelease.Key]corel
 
 	// This needs to be the raw collection so we see all leases across
 	// models.
-	leaseCollection, closer := st.db().GetRawCollection(leasesC)
+	leaseCollection, closer := st.db().GetRawCollection("leases")
 	defer closer()
 	iter := leaseCollection.Find(nil).Iter()
 	results := make(map[corelease.Key]corelease.Info)
@@ -2981,4 +3006,20 @@ func AddOriginToIPAddresses(pool *StatePool) error {
 func DropPresenceDatabase(pool *StatePool) error {
 	st := pool.SystemState()
 	return st.session.DB("presence").DropDatabase()
+}
+
+// DropLeasesCollection removes the leases collection. Tolerates the
+// collection already not existing.
+func DropLeasesCollection(pool *StatePool) error {
+	st := pool.SystemState()
+	names, err := st.MongoSession().DB("juju").CollectionNames()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !set.NewStrings(names...).Contains("leases") {
+		return nil
+	}
+	coll, closer := st.db().GetRawCollection("leases")
+	defer closer()
+	return errors.Trace(coll.DropCollection())
 }
