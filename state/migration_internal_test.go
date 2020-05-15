@@ -198,11 +198,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// independent global clock.
 		globalClockC,
 
-		// Leases are not migrated either. When an application is migrated,
-		// we include the name of the leader unit. On import, a new lease
-		// is created for the leader unit.
-		leasesC,
-
 		// Volume attachment plans are ignored if missing. A missing collection
 		// simply defaults to the old code path.
 		volumeAttachmentPlanC,
