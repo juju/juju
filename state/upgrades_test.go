@@ -4393,6 +4393,26 @@ func (s *upgradesSuite) TestDropPresenceDatabase(c *gc.C) {
 	c.Assert(presenceDBExists(), jc.IsFalse)
 }
 
+func (s *upgradesSuite) TestDropLeasesCollection(c *gc.C) {
+	db := s.state.session.DB("juju")
+	col := db.C("leases")
+	err := col.Insert(bson.M{"test": "foo"})
+	c.Assert(err, jc.ErrorIsNil)
+	// Sanity check.
+	names, err := db.CollectionNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(set.NewStrings(names...).Contains("leases"), jc.IsTrue)
+
+	err = DropLeasesCollection(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+	names, err = db.CollectionNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(set.NewStrings(names...).Contains("leases"), jc.IsFalse)
+
+	err = DropLeasesCollection(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

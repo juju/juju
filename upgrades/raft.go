@@ -235,7 +235,9 @@ func MigrateLegacyLeases(context Context) error {
 		return errors.Annotate(err, "persisting snapshot")
 	}
 
-	return nil
+	// Now that the leases are migrated into raft we can drop the
+	// leases collection.
+	return errors.Trace(st.DropLeasesCollection())
 }
 
 // leasesInStore returns whether the logs and snapshots contain any
