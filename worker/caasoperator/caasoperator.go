@@ -520,6 +520,8 @@ func (op *caasOperator) loop() (err error) {
 					case <-op.catacomb.Dying():
 						return op.catacomb.ErrDying()
 					case runningChan <- struct{}{}:
+					default:
+						logger.Warningf("runningChan[%q] is blocked", unitID)
 					}
 				}
 			}
