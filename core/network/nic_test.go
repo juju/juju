@@ -4,6 +4,8 @@
 package network_test
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -131,6 +133,40 @@ func (*nicSuite) TestInterfaceInfosIterHierarchy(c *gc.C) {
 		"bond0:eth1",
 		":eth2",
 	})
+}
+
+func (*nicSuite) TestInterfaceInfosFiltering(c *gc.C) {
+	filtered := getInterFaceInfos().Filter(func(iface network.InterfaceInfo) bool {
+		return strings.HasPrefix(iface.InterfaceName, "eth")
+	})
+
+	// NOTE: we cannot use IterHierarchy here as the filtered list does not
+	// contain the parent ifaces.
+	var devs []string
+	for _, iface := range filtered {
+		devs = append(devs, iface.ParentInterfaceName+":"+iface.InterfaceName)
+	}
+
+	c.Check(devs, gc.DeepEquals, []string{
+		":eth2",
+		"bond0:eth0",
+		"bond0:eth1",
+	})
+
+	// Filter again
+	filtered = filtered.Filter(func(iface network.InterfaceInfo) bool {
+		return iface.InterfaceName == "eth1"
+	})
+
+	devs = devs[0:0]
+	for _, iface := range filtered {
+		devs = append(devs, iface.ParentInterfaceName+":"+iface.InterfaceName)
+	}
+
+	c.Check(devs, gc.DeepEquals, []string{
+		"bond0:eth1",
+	})
+
 }
 
 func getInterFaceInfos() network.InterfaceInfos {
