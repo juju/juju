@@ -282,6 +282,25 @@ func (s InterfaceInfos) Children(parentName string) InterfaceInfos {
 	return children
 }
 
+// InterfaceFilterFunc is a function that can be applied to filter a slice of
+// InterfaceInfo instances. Calls to this function should return false if
+// the specified InterfaceInfo should be filtered out.
+type InterfaceFilterFunc func(InterfaceInfo) bool
+
+// Filter applies keepFn to each entry in a InterfaceInfos list and returns
+// back a filtered list containing the entries for which predicateFn returned
+// true.
+func (s InterfaceInfos) Filter(predicateFn InterfaceFilterFunc) InterfaceInfos {
+	var out InterfaceInfos
+	for _, iface := range s {
+		if !predicateFn(iface) {
+			continue
+		}
+		out = append(out, iface)
+	}
+	return out
+}
+
 // ProviderInterfaceInfo holds enough information to identify an
 // interface or link layer device to a provider so that it can be
 // queried or manipulated. Its initial purpose is to pass to
