@@ -4,6 +4,7 @@
 package network_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -79,14 +80,14 @@ func (*nicSuite) TestCIDRAddress(c *gc.C) {
 		Addresses: network.NewProviderAddresses("10.0.0.10"),
 	}
 	addr, err = dev.CIDRAddress()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(addr, gc.Equals, "")
 
 	dev = network.InterfaceInfo{
 		CIDR: "10.0.0.0/24",
 	}
 	addr, err = dev.CIDRAddress()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(addr, gc.Equals, "")
 
 	dev = network.InterfaceInfo{

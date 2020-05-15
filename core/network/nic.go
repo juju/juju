@@ -213,17 +213,21 @@ func (i *InterfaceInfo) IsVLAN() bool {
 // CIDRAddress returns Address.Value combined with CIDR mask.
 func (i *InterfaceInfo) CIDRAddress() (string, error) {
 	primaryAddr := i.PrimaryAddress()
+
 	if i.CIDR == "" || primaryAddr.Value == "" {
-		return "", nil
+		return "", errors.NotFoundf("address and CIDR pair (%q, %q)", primaryAddr.Value, i.CIDR)
 	}
+
 	_, ipNet, err := net.ParseCIDR(i.CIDR)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+
 	ip := primaryAddr.IP()
 	if ip == nil {
 		return "", errors.Errorf("cannot parse IP address %q", primaryAddr.Value)
 	}
+
 	ipNet.IP = ip
 	return ipNet.String(), nil
 }

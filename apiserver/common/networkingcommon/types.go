@@ -189,13 +189,7 @@ func NetworkInterfacesToStateArgs(ifaces corenetwork.InterfaceInfos) (
 
 		cidrAddress, err := iface.CIDRAddress()
 		if err != nil {
-			logger.Warningf("ignoring unexpected address/CIDR format: %q/%q, %v",
-				iface.PrimaryAddress(), iface.CIDR, err)
-			continue
-		}
-		if cidrAddress == "" {
-			logger.Tracef("skipping empty CIDR %q and/or Address %q of %q",
-				iface.CIDR, iface.PrimaryAddress(), iface.InterfaceName)
+			logger.Warningf("ignoring address for device %q: %v", iface.InterfaceName, err)
 			continue
 		}
 

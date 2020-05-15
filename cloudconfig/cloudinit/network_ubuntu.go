@@ -151,7 +151,7 @@ func GenerateNetplan(interfaces corenetwork.InterfaceInfos) (string, error) {
 	for _, info := range interfaces {
 		var iface netplan.Ethernet
 		cidr, err := info.CIDRAddress()
-		if err != nil {
+		if err != nil && !errors.IsNotFound(err) {
 			return "", errors.Trace(err)
 		}
 		if cidr != "" {
@@ -255,7 +255,7 @@ func PrepareNetworkConfigFromInterfaces(interfaces corenetwork.InterfaceInfos) (
 		}
 
 		cidr, err := info.CIDRAddress()
-		if err != nil {
+		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
 		if cidr != "" {
