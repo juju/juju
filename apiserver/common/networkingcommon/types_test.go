@@ -890,27 +890,3 @@ func (s *TypesSuite) TestNetworkInterfacesToStateArgs(c *gc.C) {
 	c.Check(devicesArgs, jc.DeepEquals, expectedLinkLayerDeviceArgsWithFinalNetworkConfig)
 	c.Check(devicesAddrs, jc.DeepEquals, expectedLinkLayerDeviceAdressesWithFinalNetworkConfig)
 }
-
-func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigsBothNil(c *gc.C) {
-	result := networkingcommon.MergeProviderAndObservedNetworkConfigs(nil, nil)
-	c.Check(result, gc.IsNil)
-}
-
-func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigsNilObservedConfigs(c *gc.C) {
-	input := expectedProviderNetworkConfigs
-	result := networkingcommon.MergeProviderAndObservedNetworkConfigs(input, nil)
-	c.Check(result, gc.IsNil)
-}
-
-func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigsNilProviderConfigs(c *gc.C) {
-	input := expectedObservedNetworkConfigs
-	result := networkingcommon.MergeProviderAndObservedNetworkConfigs(nil, input)
-	c.Check(result, jc.DeepEquals, input)
-}
-
-func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigs(c *gc.C) {
-	observedConfig := expectedObservedNetworkConfigs
-	providerConfig := expectedProviderNetworkConfigs
-	result := networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
-	c.Check(result, jc.DeepEquals, expectedFinalNetworkConfigs)
-}
