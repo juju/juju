@@ -188,11 +188,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				}
 			}
 
-			execClient, err := config.NewExecClient(os.Getenv(provider.OperatorNamespaceEnvName))
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
 			wCfg := Config{
 				Logger:                config.Logger,
 				ModelUUID:             agentConfig.Model().Id(),
@@ -213,7 +208,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				RunListenerSocketFunc: runListenerSocketFunc,
 				LeadershipTrackerFunc: leadershipTrackerFunc,
 				UniterFacadeFunc:      newUniterFunc,
-				ExecClient:            execClient,
+				ExecClientGetter: func() (exec.Executor, error) {
+					return config.NewExecClient(os.Getenv(provider.OperatorNamespaceEnvName))
+				},
 			}
 
 			loadOperatorInfoFunc := config.LoadOperatorInfo
