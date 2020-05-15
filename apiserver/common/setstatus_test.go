@@ -4,8 +4,6 @@
 package common_test
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -244,11 +242,8 @@ func (s *serviceStatusSetterSuite) TestSetUnitStatusIsLeader(c *gc.C) {
 		Status: &status.StatusInfo{
 			Status: status.Maintenance,
 		}})
-	err := s.State.LeadershipClaimer().ClaimLeadership(
-		service.Name(),
-		unit.Name(),
-		time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
+	// No need to claim leadership - the checker passed in in setup
+	// always returns true.
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    unit.Tag().String(),
 		Status: status.Active.String(),
