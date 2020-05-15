@@ -187,25 +187,11 @@ func NetworkInterfacesToStateArgs(ifaces corenetwork.InterfaceInfos) (
 			devicesArgs = append(devicesArgs, args)
 		}
 
-		if iface.CIDR == "" || iface.PrimaryAddress().Value == "" {
-			logger.Tracef(
-				"skipping empty CIDR %q and/or Address %q of %q",
-				iface.CIDR, iface.PrimaryAddress(), iface.InterfaceName,
-			)
-			continue
-		}
-		_, ipNet, err := net.ParseCIDR(iface.CIDR)
+		cidrAddress, err := iface.CIDRAddress()
 		if err != nil {
-			logger.Warningf("FIXME: ignoring unexpected CIDR format %q: %v", iface.CIDR, err)
+			logger.Warningf("ignoring address for device %q: %v", iface.InterfaceName, err)
 			continue
 		}
-		ipAddr := net.ParseIP(iface.PrimaryAddress().Value)
-		if ipAddr == nil {
-			logger.Warningf("FIXME: ignoring unexpected Address format %q", iface.PrimaryAddress().Value)
-			continue
-		}
-		ipNet.IP = ipAddr
-		cidrAddress := ipNet.String()
 
 		var derivedConfigMethod corenetwork.AddressConfigMethod
 		switch method := corenetwork.AddressConfigMethod(iface.ConfigType); method {
