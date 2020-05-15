@@ -955,6 +955,8 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			UpgradeCheckGateName: upgradeCheckGateName,
 			PreviousAgentVersion: config.PreviousAgentVersion,
+			Logger:               loggo.GetLogger("juju.worker.upgrader"),
+			Clock:                config.Clock,
 		}),
 
 		upgradeSeriesWorkerName: ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{

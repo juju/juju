@@ -199,6 +199,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			UpgradeCheckGateName: upgradeCheckGateName,
 			PreviousAgentVersion: config.PreviousAgentVersion,
+			Logger:               loggo.GetLogger("juju.worker.upgrader"),
+			Clock:                config.Clock,
 		}),
 
 		// The upgradesteps worker runs soon after the unit agent

@@ -25,7 +25,7 @@ func (e *UpgradeReadyError) Error() string {
 // ChangeAgentTools does the actual agent upgrade.
 // It should be called just before an agent exits, so that
 // it will restart running the new tools.
-func (e *UpgradeReadyError) ChangeAgentTools() error {
+func (e *UpgradeReadyError) ChangeAgentTools(logger Logger) error {
 	agentTools, err := tools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools)
 	if err != nil {
 		return err
