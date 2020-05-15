@@ -554,12 +554,17 @@ func (s *NetworkUbuntuSuite) TestENIScriptHotplug(c *gc.C) {
 	}
 }
 
+func (s *NetworkUbuntuSuite) TestPrepareNetworkConfigFromInterfacesBadCIDRError(c *gc.C) {
+	s.fakeInterfaces[0].CIDR = "invalid"
+	_, err := cloudinit.PrepareNetworkConfigFromInterfaces(s.fakeInterfaces)
+	c.Assert(err, gc.ErrorMatches, `invalid CIDR address: invalid`)
+}
+
 func (s *NetworkUbuntuSuite) runENIScriptWithAllPythons(c *gc.C, ipCommand, input, expectedOutput string, wait, retries int) {
 	for _, python := range s.pythonVersions {
 		c.Logf("test using %s", python)
 		s.runENIScript(c, python, ipCommand, input, expectedOutput, wait, retries)
 	}
-
 }
 
 func (s *NetworkUbuntuSuite) runENIScript(c *gc.C, pythonBinary, ipCommand, input, expectedOutput string, wait, retries int) {
