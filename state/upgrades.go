@@ -3007,3 +3007,19 @@ func DropPresenceDatabase(pool *StatePool) error {
 	st := pool.SystemState()
 	return st.session.DB("presence").DropDatabase()
 }
+
+// DropLeasesCollection removes the leases collection. Tolerates the
+// collection already not existing.
+func DropLeasesCollection(pool *StatePool) error {
+	st := pool.SystemState()
+	names, err := st.MongoSession().DB("juju").CollectionNames()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !set.NewStrings(names...).Contains("leases") {
+		return nil
+	}
+	coll, closer := st.db().GetRawCollection("leases")
+	defer closer()
+	return errors.Trace(coll.DropCollection())
+}
