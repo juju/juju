@@ -43,7 +43,7 @@ func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
 	mockExecClient := mocks.NewMockExecutor(ctrl)
 
 	params := caasoperator.InitializeUnitParams{
-		ReTrier: func(f func() error, _ caasoperator.Logger, _ jujuclock.Clock, _ <-chan struct{}) error {
+		ReTrier: func(f func() error, _ func(error) bool, _ caasoperator.Logger, _ jujuclock.Clock, _ <-chan struct{}) error {
 			return f()
 		},
 		InitType: caasoperator.UnitInit,
@@ -136,7 +136,7 @@ func (s *UnitInitializerSuite) TestInitializeUnitMissingProviderID(c *gc.C) {
 	mockExecClient := mocks.NewMockExecutor(ctrl)
 
 	params := caasoperator.InitializeUnitParams{
-		ReTrier: func(f func() error, _ caasoperator.Logger, _ jujuclock.Clock, _ <-chan struct{}) error {
+		ReTrier: func(f func() error, _ func(error) bool, _ caasoperator.Logger, _ jujuclock.Clock, _ <-chan struct{}) error {
 			return f()
 		},
 		InitType: caasoperator.UnitInit,
@@ -174,7 +174,7 @@ func (s *UnitInitializerSuite) TestInitializeContainerMissing(c *gc.C) {
 	mockExecClient := mocks.NewMockExecutor(ctrl)
 
 	params := caasoperator.InitializeUnitParams{
-		ReTrier: func(f func() error, _ caasoperator.Logger, _ jujuclock.Clock, _ <-chan struct{}) error {
+		ReTrier: func(f func() error, _ func(error) bool, _ caasoperator.Logger, _ jujuclock.Clock, _ <-chan struct{}) error {
 			return f()
 		},
 		InitType: caasoperator.UnitInit,
@@ -230,7 +230,7 @@ func (s *UnitInitializerSuite) TestInitializePodNotFound(c *gc.C) {
 	mockExecClient := mocks.NewMockExecutor(ctrl)
 
 	params := caasoperator.InitializeUnitParams{
-		ReTrier: func(f func() error, _ caasoperator.Logger, _ jujuclock.Clock, _ <-chan struct{}) error {
+		ReTrier: func(f func() error, _ func(error) bool, _ caasoperator.Logger, _ jujuclock.Clock, _ <-chan struct{}) error {
 			return f()
 		},
 		InitType: caasoperator.UnitInit,
@@ -293,11 +293,13 @@ func (s *UnitInitializerSuite) TestRunnerWithRetry(c *gc.C) {
 
 	errChan := make(chan error)
 	go func() {
-		errChan <- caasoperator.RunnerWithRetry(execRequest, loggo.GetLogger("test"), clk, cancel)
+		errChan <- caasoperator.RunnerWithRetry(execRequest, func(err error) bool {
+			return err != nil && !exec.IsExecRetryableError(err)
+		}, loggo.GetLogger("test"), clk, cancel)
 	}()
-	err := clk.WaitAdvance(time.Second, testing.ShortWait, 1)
+	err := clk.WaitAdvance(2*time.Second, testing.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
-	err = clk.WaitAdvance(time.Second, testing.ShortWait, 1)
+	err = clk.WaitAdvance(2*time.Second, testing.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
