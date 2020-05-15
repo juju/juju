@@ -162,7 +162,7 @@ type InterfaceInfo struct {
 	DNSServers ProviderAddresses
 
 	// MTU is the Maximum Transmission Unit controlling the maximum size of the
-	// protocol packats that the interface can pass through. It is only used
+	// protocol packets that the interface can pass through. It is only used
 	// when > 0.
 	MTU int
 
@@ -211,21 +211,25 @@ func (i *InterfaceInfo) IsVLAN() bool {
 }
 
 // CIDRAddress returns Address.Value combined with CIDR mask.
-func (i *InterfaceInfo) CIDRAddress() string {
+func (i *InterfaceInfo) CIDRAddress() (string, error) {
 	primaryAddr := i.PrimaryAddress()
+
 	if i.CIDR == "" || primaryAddr.Value == "" {
-		return ""
+		return "", errors.NotFoundf("address and CIDR pair (%q, %q)", primaryAddr.Value, i.CIDR)
 	}
+
 	_, ipNet, err := net.ParseCIDR(i.CIDR)
 	if err != nil {
-		return errors.Trace(err).Error()
+		return "", errors.Trace(err)
 	}
-	ip := net.ParseIP(primaryAddr.Value)
+
+	ip := primaryAddr.IP()
 	if ip == nil {
-		return errors.Errorf("cannot parse IP address %q", primaryAddr.Value).Error()
+		return "", errors.Errorf("cannot parse IP address %q", primaryAddr.Value)
 	}
+
 	ipNet.IP = ip
-	return ipNet.String()
+	return ipNet.String(), nil
 }
 
 // PrimaryAddress returns the primary address for the interface.

@@ -4,6 +4,7 @@
 package network_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -64,6 +65,44 @@ func (s *nicSuite) TestAdditionalFields(c *gc.C) {
 		GatewayIP:       "0.1.2.1",
 		Metric:          0,
 	}})
+}
+
+func (*nicSuite) TestCIDRAddress(c *gc.C) {
+	dev := network.InterfaceInfo{
+		Addresses: network.NewProviderAddresses("10.0.0.10"),
+		CIDR:      "10.0.0.0/24",
+	}
+	addr, err := dev.CIDRAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(addr, gc.Equals, "10.0.0.10/24")
+
+	dev = network.InterfaceInfo{
+		Addresses: network.NewProviderAddresses("10.0.0.10"),
+	}
+	addr, err = dev.CIDRAddress()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(addr, gc.Equals, "")
+
+	dev = network.InterfaceInfo{
+		CIDR: "10.0.0.0/24",
+	}
+	addr, err = dev.CIDRAddress()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(addr, gc.Equals, "")
+
+	dev = network.InterfaceInfo{
+		Addresses: network.NewProviderAddresses("invalid"),
+		CIDR:      "10.0.0.0/24",
+	}
+	_, err = dev.CIDRAddress()
+	c.Assert(err, gc.ErrorMatches, `cannot parse IP address "invalid"`)
+
+	dev = network.InterfaceInfo{
+		Addresses: network.NewProviderAddresses("10.0.0.10"),
+		CIDR:      "invalid",
+	}
+	_, err = dev.CIDRAddress()
+	c.Assert(err, gc.ErrorMatches, `invalid CIDR address: invalid`)
 }
 
 func (*nicSuite) TestInterfaceInfosChildren(c *gc.C) {
