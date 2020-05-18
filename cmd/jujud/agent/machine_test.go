@@ -100,6 +100,9 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.commonMachineSuite.SetUpTest(c)
 	bootstrapRaft(c, s.DataDir())
 
+	// Restart failed workers much faster for the tests.
+	s.PatchValue(&EngineErrorDelay, 100*time.Millisecond)
+
 	// Most of these tests normally finish sub-second on a fast machine.
 	// If any given test hits a minute, we have almost certainly become
 	// wedged, so dump the logs.
