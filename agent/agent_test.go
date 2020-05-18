@@ -262,6 +262,21 @@ var agentConfigTests = []struct {
 	inspectConfig: func(c *gc.C, cfg agent.Config) {
 		c.Check(cfg.Dir(), gc.Equals, "/data/dir/agents/application-ubuntu")
 	},
+}, {
+	about: "agentConfig accepts an Model tag",
+	params: agent.AgentConfigParams{
+		Paths:             agent.Paths{DataDir: "/data/dir"},
+		Tag:               testing.ModelTag,
+		Password:          "sekrit",
+		UpgradedToVersion: jujuversion.Current,
+		Controller:        testing.ControllerTag,
+		Model:             testing.ModelTag,
+		CACert:            "ca cert",
+		APIAddresses:      []string{"localhost:1235"},
+	},
+	inspectConfig: func(c *gc.C, cfg agent.Config) {
+		c.Check(cfg.Dir(), gc.Equals, "/data/dir/agents/model-deadbeef-0bad-400d-8000-4b1d0d06f00d")
+	},
 }}
 
 func (*suite) TestNewAgentConfig(c *gc.C) {

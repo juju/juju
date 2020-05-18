@@ -595,6 +595,12 @@ func (r *apiHandler) AuthMachineAgent() bool {
 	return isMachine || isControllerAgent
 }
 
+// AuthModelAgent return whether the current client is a model agent
+func (r *apiHandler) AuthModelAgent() bool {
+	_, isModel := r.GetAuthTag().(names.ModelTag)
+	return isModel
+}
+
 // AuthApplicationAgent returns whether the current client is an application operator.
 func (r *apiHandler) AuthApplicationAgent() bool {
 	_, isApp := r.GetAuthTag().(names.ApplicationTag)

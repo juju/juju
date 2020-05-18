@@ -3,22 +3,6 @@
 
 package provider
 
-// LabelsForApp returns the labels that should be on a k8s object for a given
-// application name
-func LabelsForApp(name string) map[string]string {
-	return map[string]string{
-		labelApplication: name,
-	}
-}
-
-// LabelsForModel returns the labels that should be on a k8s object for a given
-// model name
-func LabelsForModel(name string) map[string]string {
-	return map[string]string{
-		labelModel: name,
-	}
-}
-
 // AppendLabels adds the labels defined in src to dest returning the result.
 // Overlapping keys in sources maps are overwritten by the very last defined
 // value for a duplicate key.
@@ -43,4 +27,20 @@ func (k *kubernetesClient) getlabelsForApp(appName string, isNamespaced bool) ma
 		labels = AppendLabels(labels, LabelsForModel(k.CurrentModel()))
 	}
 	return labels
+}
+
+// LabelsForApp returns the labels that should be on a k8s object for a given
+// application name
+func LabelsForApp(name string) map[string]string {
+	return map[string]string{
+		labelApplication: name,
+	}
+}
+
+// LabelsForModel returns the labels that should be on a k8s object for a given
+// model name
+func LabelsForModel(name string) map[string]string {
+	return map[string]string{
+		labelModel: name,
+	}
 }

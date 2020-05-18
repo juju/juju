@@ -12,8 +12,6 @@ import (
 	admission "k8s.io/api/admissionregistration/v1beta1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
-	admissionapi "github.com/juju/juju/api/caasadmission"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/worker/caasrbacmapper"
@@ -47,13 +45,18 @@ type Logger interface {
 // ManifoldConfig describes the resources used by the admission worker
 type ManifoldConfig struct {
 	AgentName      string
-	APICallerName  string
+	AuthorityName  string
 	Authority      pki.Authority
 	BrokerName     string
 	Logger         Logger
-	Mux            *apiserverhttp.Mux
+	MuxName        string
 	RBACMapperName string
 }
+
+const (
+	// DefaultModelOperatorPort
+	DefaultModelOperatorPort = int32(17071)
+)
 
 // Manifold returns a Manifold that encapsulates a Kubernetes mutating admission
 // controller. Manifold has no outputs.
@@ -61,9 +64,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.APICallerName,
+			config.AuthorityName,
 			config.BrokerName,
 			config.RBACMapperName,
+			config.MuxName,
 		},
 		Output: nil,
 		Start:  config.Start,
@@ -82,13 +86,8 @@ func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
-	var apiCaller base.APICaller
-	if err := context.Get(c.APICallerName, &apiCaller); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	api, err := admissionapi.NewClient(apiCaller)
-	if err != nil {
+	var authority pki.Authority
+	if err := context.Get(c.AuthorityName, &authority); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -102,20 +101,20 @@ func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
-	ctrlCfg, err := api.ControllerConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "fetching controller configuration for name")
+	var mux *apiserverhttp.Mux
+	if err := context.Get(c.MuxName, &mux); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	currentConfig := agent.CurrentConfig()
 	admissionPath := AdmissionPathForModel(currentConfig.Model().Id())
-	port := int32(17070)
-	admissionCreator, err := NewAdmissionCreator(c.Authority,
+	port := DefaultModelOperatorPort
+	admissionCreator, err := NewAdmissionCreator(authority,
 		broker.GetCurrentNamespace(), broker.CurrentModel(),
 		broker.EnsureMutatingWebhookConfiguration,
 		&admission.ServiceReference{
-			Name:      "controller-service",
-			Namespace: fmt.Sprintf("controller-%s", ctrlCfg.ControllerName()),
+			Name:      fmt.Sprintf("%s-modeloperator", broker.CurrentModel()),
+			Namespace: broker.GetCurrentNamespace(),
 			Path:      &admissionPath,
 			Port:      &port,
 		},
@@ -126,7 +125,7 @@ func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error)
 
 	return NewController(
 		c.Logger,
-		c.Mux,
+		mux,
 		AdmissionPathForModel(currentConfig.Model().Id()),
 		admissionCreator,
 		rbacMapper)
@@ -138,11 +137,8 @@ func (c ManifoldConfig) Validate() error {
 	if c.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
-	if c.APICallerName == "" {
-		return errors.NotValidf("empty APICallerName ")
-	}
-	if c.Authority == nil {
-		return errors.NotValidf("nil Authority")
+	if c.AuthorityName == "" {
+		return errors.NotValidf("empty AuthorityName ")
 	}
 	if c.BrokerName == "" {
 		return errors.NotValidf("empty BrokerName")
@@ -150,8 +146,8 @@ func (c ManifoldConfig) Validate() error {
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if c.Mux == nil {
-		return errors.NotValidf("nil apiserverhttp.Mux reference")
+	if c.MuxName == "" {
+		return errors.NotValidf("empty MuxName")
 	}
 	if c.RBACMapperName == "" {
 		return errors.NotValidf("empty RBACMapperName")
