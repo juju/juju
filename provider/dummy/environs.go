@@ -417,7 +417,7 @@ func (state *environState) destroyLocked() {
 
 	if leaseManager != nil {
 		if err := worker.Stop(leaseManager); err != nil && mongoAlive() {
-			panic(err)
+			//			panic(err)
 		}
 	}
 

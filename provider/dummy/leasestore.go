@@ -87,26 +87,17 @@ func (s *leaseStore) ExtendLease(key lease.Key, req lease.Request, _ <-chan stru
 	return nil
 }
 
-// Expire is part of lease.Store.
-func (s *leaseStore) ExpireLease(key lease.Key) error {
+// RevokeLease is part of lease.Store.
+func (s *leaseStore) RevokeLease(key lease.Key, holder string, stop <-chan struct{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	entry, found := s.entries[key]
+	_, found := s.entries[key]
 	if !found {
-		return lease.ErrInvalid
-	}
-	expiry := entry.start.Add(entry.duration)
-	if !s.clock.Now().After(expiry) {
 		return lease.ErrInvalid
 	}
 	delete(s.entries, key)
 	s.target.Expired(key)
 	return nil
-}
-
-// RevokeLease is part of lease.Store.
-func (store *leaseStore) RevokeLease(lease lease.Key, holder string, stop <-chan struct{}) error {
-	return errors.NotImplementedf("RevokeLease")
 }
 
 // Leases is part of lease.Store.
