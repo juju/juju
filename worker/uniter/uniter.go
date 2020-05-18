@@ -263,14 +263,16 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 
 	defer func() {
 		// If this is a CAAS unit, then dead errors are fairly normal ways to exit
-		// the uniter main loop, but the actual agent needs to keep running.
+		// the uniter main loop, but the parent operator agent needs to keep running.
 		if errors.Cause(err) == ErrCAASUnitDead {
 			err = nil
 		}
 		if u.runListener != nil {
 			u.runListener.UnregisterRunner(u.unit.Name())
 		}
-		u.localRunListener.UnregisterRunner(u.unit.Name())
+		if u.localRunListener != nil {
+			u.localRunListener.UnregisterRunner(u.unit.Name())
+		}
 		u.logger.Infof("unit %q shutting down: %s", u.unit, err)
 	}()
 

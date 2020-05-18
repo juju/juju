@@ -498,10 +498,12 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	}
 
 	uniterParams := uniter.UniterParams{
-		UniterFacade:         ctx.api,
-		UnitTag:              tag,
-		ModelType:            model.IAAS,
-		LeadershipTracker:    ctx.leaderTracker,
+		UniterFacade: ctx.api,
+		UnitTag:      tag,
+		ModelType:    model.IAAS,
+		LeadershipTrackerFunc: func(_ names.UnitTag) leadership.TrackerWorker {
+			return ctx.leaderTracker
+		},
 		CharmDirGuard:        ctx.charmDirGuard,
 		DataDir:              ctx.dataDir,
 		Downloader:           downloader,
