@@ -493,10 +493,7 @@ func (ctx *facadeContext) ID() string {
 	return ctx.key.objId
 }
 
-// LeadershipClaimer is part of the facade.Context interface. Getting
-// a claimer for an arbitrary model is only supported for raft leases
-// - only a claimer for the current model can be obtained with legacy
-// leases.
+// LeadershipClaimer is part of the facade.Context interface.
 func (ctx *facadeContext) LeadershipClaimer(modelUUID string) (leadership.Claimer, error) {
 	claimer, err := ctx.r.shared.leaseManager.Claimer(
 		lease.ApplicationLeadershipNamespace,
@@ -506,6 +503,18 @@ func (ctx *facadeContext) LeadershipClaimer(modelUUID string) (leadership.Claime
 		return nil, errors.Trace(err)
 	}
 	return leadershipClaimer{claimer}, nil
+}
+
+// LeadershipRevoker is part of the facade.Context interface.
+func (ctx *facadeContext) LeadershipRevoker(modelUUID string) (leadership.Revoker, error) {
+	revoker, err := ctx.r.shared.leaseManager.Revoker(
+		lease.ApplicationLeadershipNamespace,
+		modelUUID,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return leadershipRevoker{revoker}, nil
 }
 
 // LeadershipChecker is part of the facade.Context interface.

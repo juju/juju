@@ -28,8 +28,6 @@ type workers struct {
 	hub *pubsub.SimpleHub
 }
 
-const pingFlushInterval = time.Second
-
 func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
 	if hub == nil {
 		return nil, errors.NotValidf("missing hub")

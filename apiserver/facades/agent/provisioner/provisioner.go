@@ -130,10 +130,10 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
 	callCtx := context.CallContext(st)
 	api := &ProvisionerAPI{
-		Remover:                 common.NewRemover(st, false, getAuthFunc),
+		Remover:                 common.NewRemover(st, nil, false, getAuthFunc),
 		StatusSetter:            common.NewStatusSetter(st, getAuthFunc),
 		StatusGetter:            common.NewStatusGetter(st, getAuthFunc),
-		DeadEnsurer:             common.NewDeadEnsurer(st, getAuthFunc),
+		DeadEnsurer:             common.NewDeadEnsurer(st, nil, getAuthFunc),
 		PasswordChanger:         common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:              common.NewLifeGetter(st, getAuthFunc),
 		StateAddresser:          common.NewStateAddresser(st),

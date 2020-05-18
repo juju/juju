@@ -28,6 +28,7 @@ type Context struct {
 	Cancel_              <-chan struct{}
 
 	LeadershipClaimer_ leadership.Claimer
+	LeadershipRevoker_ leadership.Revoker
 	LeadershipChecker_ leadership.Checker
 	LeadershipPinner_  leadership.Pinner
 	LeadershipReader_  leadership.Reader
@@ -106,6 +107,11 @@ func (context Context) ModelPresence(modelUUID string) facade.ModelPresence {
 // LeadershipClaimer implements facade.Context.
 func (context Context) LeadershipClaimer(modelUUID string) (leadership.Claimer, error) {
 	return context.LeadershipClaimer_, nil
+}
+
+// LeadershipRevoker implements facade.Context.
+func (context Context) LeadershipRevoker(modelUUID string) (leadership.Revoker, error) {
+	return context.LeadershipRevoker_, nil
 }
 
 // LeadershipChecker implements facade.Context.

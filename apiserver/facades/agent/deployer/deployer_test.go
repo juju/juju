@@ -7,11 +7,13 @@ import (
 	"sort"
 	stdtesting "testing"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -25,6 +27,15 @@ import (
 
 func Test(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
+}
+
+type mockLeadershipRevoker struct {
+	revoked set.Strings
+}
+
+func (s *mockLeadershipRevoker) RevokeLeadership(applicationId, unitId string) error {
+	s.revoked.Add(unitId)
+	return nil
 }
 
 type deployerSuite struct {
@@ -42,6 +53,7 @@ type deployerSuite struct {
 
 	resources *common.Resources
 	deployer  *deployer.DeployerAPI
+	revoker   *mockLeadershipRevoker
 }
 
 var _ = gc.Suite(&deployerSuite{})
@@ -96,11 +108,15 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
+	s.revoker = &mockLeadershipRevoker{revoked: set.NewStrings()}
 	// Create a deployer API for machine 1.
 	deployer, err := deployer.NewDeployerAPI(
-		s.State,
-		s.resources,
-		s.authorizer,
+		facadetest.Context{
+			Auth_:              s.authorizer,
+			LeadershipRevoker_: s.revoker,
+			Resources_:         s.resources,
+			State_:             s.State,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.deployer = deployer
@@ -109,7 +125,14 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 func (s *deployerSuite) TestDeployerFailsWithNonMachineAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = s.AdminUserTag(c)
-	aDeployer, err := deployer.NewDeployerAPI(s.State, s.resources, anAuthorizer)
+	aDeployer, err := deployer.NewDeployerAPI(
+		facadetest.Context{
+			Auth_:              anAuthorizer,
+			LeadershipRevoker_: s.revoker,
+			Resources_:         s.resources,
+			State_:             s.State,
+		},
+	)
 	c.Assert(err, gc.NotNil)
 	c.Assert(aDeployer, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -264,6 +287,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 			{apiservertesting.ErrUnauthorized},
 		},
 	})
+	c.Assert(s.revoker.revoked.IsEmpty(), jc.IsTrue)
 
 	err = s.principal0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -287,6 +311,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{nil}},
 	})
+	c.Assert(s.revoker.revoked.Contains("logging/0"), jc.IsTrue)
 
 	err = s.subordinate0.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)

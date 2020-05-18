@@ -15,6 +15,7 @@ import (
 type broker interface {
 	lease.Checker
 	lease.Claimer
+	lease.Revoker
 	lease.Pinner
 	lease.Reader
 }
@@ -48,6 +49,24 @@ func (b *boundManager) Claim(leaseName, holderName string, duration time.Duratio
 		response:   make(chan error),
 		stop:       b.manager.catacomb.Dying(),
 	}.invoke(b.manager.claims)
+}
+
+// Revoke is part of the lease.Revoker interface.
+func (b *boundManager) Revoke(leaseName, holderName string) error {
+	key := b.leaseKey(leaseName)
+	if err := b.secretary.CheckLease(key); err != nil {
+		return errors.Annotatef(err, "cannot revoke lease %q", leaseName)
+	}
+	if err := b.secretary.CheckHolder(holderName); err != nil {
+		return errors.Annotatef(err, "cannot revoke lease for holder %q", holderName)
+	}
+
+	return revoke{
+		leaseKey:   key,
+		holderName: holderName,
+		response:   make(chan error),
+		stop:       b.manager.catacomb.Dying(),
+	}.invoke(b.manager.revokes)
 }
 
 // WaitUntilExpired is part of the lease.Claimer interface.

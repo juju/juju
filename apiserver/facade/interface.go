@@ -4,6 +4,8 @@
 package facade
 
 import (
+	"github.com/juju/names/v4"
+
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
@@ -11,7 +13,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
-	"github.com/juju/names/v4"
 )
 
 // Facade could be anything; it will be interpreted by the apiserver
@@ -104,6 +105,10 @@ type Context interface {
 	// LeadershipClaimer returns a leadership.Claimer tied to a
 	// specific model.
 	LeadershipClaimer(modelUUID string) (leadership.Claimer, error)
+
+	// LeadershipRevoker returns a leadership.Revoker tied to a
+	// specific model.
+	LeadershipRevoker(modelUUID string) (leadership.Revoker, error)
 
 	// LeadershipChecker returns a leadership.Checker for this
 	// context's model.
