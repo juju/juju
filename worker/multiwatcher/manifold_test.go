@@ -157,7 +157,20 @@ func (f *fakeStateTracker) Use() (*state.StatePool, error) {
 
 // pool returns a non-nil but invalid pointer to a state pool.
 func (f *fakeStateTracker) pool() *state.StatePool {
-	return (*state.StatePool)(unsafe.Pointer(f))
+	var out state.StatePool
+
+	// This works around unsafe pointer conversion that would normally cause
+	// panics based on compile flags for code like this:
+	// return (*state.StatePool)(unsafe.Pointer(f))
+	//
+	// We cast both types to byte arrays, slice them and copy one to the other.
+	// Having initialised the target structure first, we ensure that differing
+	// sizes do not introduce possible arbitrary memory access.
+	copy(
+		(*(*[unsafe.Sizeof(state.StatePool{})]byte)(unsafe.Pointer(&out)))[:],
+		(*(*[unsafe.Sizeof(fakeStateTracker{})]byte)(unsafe.Pointer(f)))[:],
+	)
+	return &out
 }
 
 // Done tracks that the used pool is released.
