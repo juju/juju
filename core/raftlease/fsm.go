@@ -11,7 +11,7 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/lease"
@@ -166,16 +166,9 @@ func (f *FSM) revoke(key lease.Key, holder string) *response {
 	if entry.holder != holder {
 		return invalidResponse()
 	}
-	for gKey, entries := range f.groups {
-		for k := range entries {
-			if key != k {
-				continue
-			}
-			delete(entries, key)
-		}
-		if len(entries) == 0 {
-			delete(f.groups, gKey)
-		}
+	delete(entries, key)
+	if len(entries) == 0 {
+		delete(f.groups, groupKeyFor(key))
 	}
 	return &response{expired: []lease.Key{key}}
 }
