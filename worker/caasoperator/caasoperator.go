@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/worker/uniter"
 	jujucharm "github.com/juju/juju/worker/uniter/charm"
 	uniterremotestate "github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/wrench"
 )
 
 // logger is here to stop the desire of creating a package level logger.
@@ -145,8 +146,8 @@ type Config struct {
 	// OperatorInfo contains serving information such as Certs and PrivateKeys.
 	OperatorInfo caas.OperatorInfo
 
-	// ExecClient for initializing caas units.
-	ExecClient exec.Executor
+	// ExecClientGetter returns an exec client for initializing caas units.
+	ExecClientGetter func() (exec.Executor, error)
 }
 
 func (config Config) Validate() error {
@@ -195,8 +196,8 @@ func (config Config) Validate() error {
 	if config.VersionSetter == nil {
 		return errors.NotValidf("missing VersionSetter")
 	}
-	if config.ExecClient == nil {
-		return errors.NotValidf("missing ExecClient")
+	if config.ExecClientGetter == nil {
+		return errors.NotValidf("missing ExecClientGetter")
 	}
 	return nil
 }
@@ -240,6 +241,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 			// For any failures, try again in 3 seconds.
 			RestartDelay: 3 * time.Second,
+			Logger:       config.Logger,
 		}),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -520,6 +522,9 @@ func (op *caasOperator) loop() (err error) {
 					case <-op.catacomb.Dying():
 						return op.catacomb.ErrDying()
 					case runningChan <- struct{}{}:
+					default:
+						// This should never happen unless there is a bug in the uniter.
+						logger.Warningf("unit running chan[%q] is blocked", unitID)
 					}
 				}
 			}
@@ -558,7 +563,7 @@ func (op *caasOperator) loop() (err error) {
 				}
 				// Start a worker to manage any new units.
 				if _, err := op.runner.Worker(unitID, op.catacomb.Dying()); err == nil || unitLife == life.Dead {
-					// Already watching the unit. or we're
+					// Already watching the unit or we're
 					// not yet watching it and it's dead.
 					continue
 				}
@@ -567,25 +572,32 @@ func (op *caasOperator) loop() (err error) {
 				if err := op.makeAgentSymlinks(unitTag); err != nil {
 					return errors.Trace(err)
 				}
-
 				params := op.config.UniterParams
 				params.ModelType = model.CAAS
 				params.UnitTag = unitTag
 				params.Downloader = op.config.Downloader // TODO(caas): write a cache downloader
 				params.UniterFacade = op.config.UniterFacadeFunc(unitTag)
-				params.LeadershipTracker = op.config.LeadershipTrackerFunc(unitTag)
+				params.LeadershipTrackerFunc = op.config.LeadershipTrackerFunc
 				params.ApplicationChannel = aliveUnits[unitID]
 				if op.deploymentMode != caas.ModeOperator {
 					params.IsRemoteUnit = true
 					params.ContainerRunningStatusChannel = unitRunningChannels[unitID]
+
+					execClient, err := op.config.ExecClientGetter()
+					if err != nil {
+						return errors.Trace(err)
+					}
 					params.ContainerRunningStatusFunc = func(providerID string) (*uniterremotestate.ContainerRunningStatus, error) {
-						return op.runningStatus(unitTag, providerID)
+						if wrench.IsActive("remote-init", "fatal-error") {
+							return nil, errors.New("fake remote-init fatal-error")
+						}
+						return op.runningStatus(execClient, unitTag, providerID)
 					}
 					params.RemoteInitFunc = func(runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
 						// TODO(caas): Remove the cached status uniterremotestate.ContainerRunningStatus from uniter watcher snapshot.
-						return op.remoteInitForUniter(unitTag, runningStatus, cancel)
+						return op.remoteInitForUniter(execClient, unitTag, runningStatus, cancel)
 					}
-					params.NewRemoteRunnerExecutor = getNewRunnerExecutor(logger, op.config.ExecClient)
+					params.NewRemoteRunnerExecutor = getNewRunnerExecutor(logger, execClient)
 				}
 				if err := op.config.StartUniterFunc(op.runner, params); err != nil {
 					return errors.Trace(err)
@@ -595,12 +607,12 @@ func (op *caasOperator) loop() (err error) {
 	}
 }
 
-func (op *caasOperator) runningStatus(unit names.UnitTag, providerID string) (*uniterremotestate.ContainerRunningStatus, error) {
+func (op *caasOperator) runningStatus(client exec.Executor, unit names.UnitTag, providerID string) (*uniterremotestate.ContainerRunningStatus, error) {
 	op.config.Logger.Debugf("request running status for %q %s", unit.String(), providerID)
 	params := exec.StatusParams{
 		PodName: providerID,
 	}
-	status, err := op.config.ExecClient.Status(params)
+	status, err := client.Status(params)
 	if err != nil {
 		op.config.Logger.Errorf("could not get pod %q %q %v", unit.String(), providerID, err)
 		return nil, errors.Annotatef(err, "getting pod status for unit %q, container %q", unit, providerID)
@@ -622,15 +634,15 @@ func (op *caasOperator) runningStatus(unit names.UnitTag, providerID string) (*u
 	}
 	return result, nil
 }
-func (op *caasOperator) remoteInitForUniter(unit names.UnitTag, runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
+func (op *caasOperator) remoteInitForUniter(client exec.Executor, unit names.UnitTag, runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
 	return runnerWithRetry(
 		func() error {
-			status, err := op.runningStatus(unit, runningStatus.PodName)
+			status, err := op.runningStatus(client, unit, runningStatus.PodName)
 			//  get the current status rather than using the status cached in remote state.
 			if err != nil {
 				return errors.Trace(err)
 			}
-			return op.remoteInit(unit, *status, cancel)
+			return op.remoteInit(client, unit, *status, cancel)
 		},
 		func(err error) bool {
 			// We need to re-fetch the running status then retry remoteInit if the container is not running.
@@ -639,10 +651,10 @@ func (op *caasOperator) remoteInitForUniter(unit names.UnitTag, runningStatus un
 	)
 }
 
-func (op *caasOperator) remoteInit(unit names.UnitTag, runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
+func (op *caasOperator) remoteInit(client exec.Executor, unit names.UnitTag, runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
 	op.config.Logger.Debugf("remote init for %q %+v", unit.String(), runningStatus)
 	params := initializeUnitParams{
-		ExecClient:   op.config.ExecClient,
+		ExecClient:   client,
 		Logger:       op.config.Logger,
 		OperatorInfo: op.config.OperatorInfo,
 		Paths:        op.paths,
@@ -661,11 +673,7 @@ func (op *caasOperator) remoteInit(unit names.UnitTag, runningStatus uniterremot
 	default:
 		return errors.NotFoundf("container not running")
 	}
-	err := initializeUnit(params, cancel)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(initializeUnit(params, cancel))
 }
 
 func (op *caasOperator) charmModified(local *LocalState, remote remotestate.Snapshot) bool {

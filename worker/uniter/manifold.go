@@ -87,6 +87,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := context.Get(config.LeadershipTrackerName, &leadershipTracker); err != nil {
 				return nil, err
 			}
+			leadershipTrackerFunc := func(_ names.UnitTag) leadership.TrackerWorker {
+				return leadershipTracker
+			}
 			var charmDirGuard fortress.Guard
 			if err := context.Get(config.CharmDirName, &charmDirGuard); err != nil {
 				return nil, err
@@ -109,21 +112,21 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			uniterFacade := uniter.NewState(apiConn, unitTag)
 			uniter, err := NewUniter(&UniterParams{
-				UniterFacade:         uniterFacade,
-				UnitTag:              unitTag,
-				ModelType:            model.IAAS,
-				LeadershipTracker:    leadershipTracker,
-				DataDir:              agentConfig.DataDir(),
-				Downloader:           downloader,
-				MachineLock:          manifoldConfig.MachineLock,
-				CharmDirGuard:        charmDirGuard,
-				UpdateStatusSignal:   NewUpdateStatusTimer(),
-				HookRetryStrategy:    hookRetryStrategy,
-				NewOperationExecutor: operation.NewExecutor,
-				TranslateResolverErr: config.TranslateResolverErr,
-				Clock:                manifoldConfig.Clock,
-				RebootQuerier:        reboot.NewMonitor(agentConfig.TransientDataDir()),
-				Logger:               config.Logger,
+				UniterFacade:          uniterFacade,
+				UnitTag:               unitTag,
+				ModelType:             model.IAAS,
+				LeadershipTrackerFunc: leadershipTrackerFunc,
+				DataDir:               agentConfig.DataDir(),
+				Downloader:            downloader,
+				MachineLock:           manifoldConfig.MachineLock,
+				CharmDirGuard:         charmDirGuard,
+				UpdateStatusSignal:    NewUpdateStatusTimer(),
+				HookRetryStrategy:     hookRetryStrategy,
+				NewOperationExecutor:  operation.NewExecutor,
+				TranslateResolverErr:  config.TranslateResolverErr,
+				Clock:                 manifoldConfig.Clock,
+				RebootQuerier:         reboot.NewMonitor(agentConfig.TransientDataDir()),
+				Logger:                config.Logger,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
