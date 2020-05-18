@@ -56,8 +56,8 @@ ifeq ($(DEBUG_JUJU), 1)
     COMPILE_FLAGS = -gcflags "all=-N -l"
     LINK_FLAGS = -ldflags "-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 else
-ifeq ($(shell go env GOARCH | sed -E 's/.*(arm64|ppc64le|ppc64).*/golang/'), golang)
-	# disable optimizations on arm64 ppc64le due to https://golang.org/issue/39049
+ifeq ($(shell go env GOARCH | sed -E 's/.*(ppc64le|ppc64).*/golang/'), golang)
+	# disable optimizations on ppc64le due to https://golang.org/issue/39049
 	# go 1.15 should include the fix for this issue.
 	COMPILE_FLAGS = -gcflags "all=-N"
 else
