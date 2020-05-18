@@ -54,8 +54,9 @@
   name = "github.com/hashicorp/go-msgpack"
 
 [[constraint]]
-  revision = "6e5ba93211eaf8d9a2ad7e41ffad8c6f160f9fe3"
+  revision = "5bda8c19a219d92592be4b9c667fb9a48466b614"
   name = "github.com/hashicorp/raft-boltdb"
+  source = "github.com/juju/raft-boltdb"
 
 [[constraint]]
   revision = "0854974e644486efb72b4c6eb164861c089c581a"
