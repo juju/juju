@@ -214,7 +214,6 @@ func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 				err = jworker.ErrTerminateAgent
 			}
 		}
-		logger.Criticalf("RemoteStateWatcher.setUp[%q] %p, err -> %#v", unitTag.String(), w, err)
 	}()
 	if w.unit, err = w.st.Unit(unitTag); err != nil {
 		return errors.Trace(err)

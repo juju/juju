@@ -153,7 +153,7 @@ type UniterParams struct {
 	UniterFacade                  *uniter.State
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
-	LeadershipTracker             leadership.TrackerWorker
+	LeadershipTrackerFunc         func(names.UnitTag) leadership.TrackerWorker
 	DataDir                       string
 	Downloader                    charm.Downloader
 	MachineLock                   machinelock.Lock
@@ -221,7 +221,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			paths:                         NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
 			modelType:                     uniterParams.ModelType,
 			hookLock:                      uniterParams.MachineLock,
-			leadershipTracker:             uniterParams.LeadershipTracker,
+			leadershipTracker:             uniterParams.LeadershipTrackerFunc(uniterParams.UnitTag),
 			charmDirGuard:                 uniterParams.CharmDirGuard,
 			updateStatusAt:                uniterParams.UpdateStatusSignal,
 			hookRetryStrategy:             uniterParams.HookRetryStrategy,
@@ -260,9 +260,6 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 }
 
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
-	defer func() {
-		u.logger.Warningf("Uniter.loop %q err -> %#v", unitTag.String(), err)
-	}()
 
 	defer func() {
 		// If this is a CAAS unit, then dead errors are fairly normal ways to exit
@@ -275,8 +272,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 		u.localRunListener.UnregisterRunner(u.unit.Name())
 		u.logger.Infof("unit %q shutting down: %s", u.unit, err)
-
-		// u.logger.Warningf("Uniter.Wait() err -> %#v", u.Wait())
 	}()
 
 	if err := u.init(unitTag); err != nil {
@@ -330,12 +325,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		watcher   *remotestate.RemoteStateWatcher
 		watcherMu sync.Mutex
 	)
-
-	// defer func() {
-	// 	if watcher != nil {
-	// 		worker.Stop(watcher)
-	// 	}
-	// }()
 
 	u.logger.Infof("hooks are retried %v", u.hookRetryStrategy.ShouldRetry)
 	retryHookChan := make(chan struct{}, 1)
