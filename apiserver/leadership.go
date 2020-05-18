@@ -66,6 +66,20 @@ func (m leadershipClaimer) BlockUntilLeadershipReleased(applicationName string, 
 	return errors.Trace(err)
 }
 
+// leadershipRevoker implements leadership.Revoker by wrapping a lease.Revoker.
+type leadershipRevoker struct {
+	claimer lease.Revoker
+}
+
+// RevokeLeadership is part of the leadership.Claimer interface.
+func (m leadershipRevoker) RevokeLeadership(applicationName, unitName string) error {
+	err := m.claimer.Revoke(applicationName, unitName)
+	if errors.Cause(err) == lease.ErrNotHeld {
+		return leadership.ErrClaimNotHeld
+	}
+	return errors.Trace(err)
+}
+
 // leadershipPinner implements leadership.Pinner by wrapping a lease.Pinner.
 type leadershipPinner struct {
 	pinner lease.Pinner

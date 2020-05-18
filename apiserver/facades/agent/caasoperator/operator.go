@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state/stateenvirons"
@@ -49,7 +50,12 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting caas client")
 	}
-	return NewFacade(resources, authorizer, stateShim{ctx.State()}, caasBroker)
+	leadershipRevoker, err := ctx.LeadershipRevoker(ctx.State().ModelUUID())
+	if err != nil {
+		return nil, errors.Annotate(err, "getting leadership client")
+	}
+	return NewFacade(resources, authorizer, stateShim{ctx.State()},
+		caasBroker, leadershipRevoker)
 }
 
 // NewFacade returns a new CAASOperator facade.
@@ -58,6 +64,7 @@ func NewFacade(
 	authorizer facade.Authorizer,
 	st CAASOperatorState,
 	broker CAASBrokerInterface,
+	leadershipRevoker leadership.Revoker,
 ) (*Facade, error) {
 	if !authorizer.AuthApplicationAgent() {
 		return nil, common.ErrPerm
@@ -99,7 +106,7 @@ func NewFacade(
 		LifeGetter:         common.NewLifeGetter(st, canRead),
 		APIAddresser:       common.NewAPIAddresser(st, resources),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, canRead),
-		Remover:            common.NewRemover(st, true, accessUnit),
+		Remover:            common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, accessUnit),
 		ToolsSetter:        common.NewToolsSetter(st, common.AuthFuncForTag(authorizer.GetAuthTag())),
 		auth:               authorizer,
 		resources:          resources,

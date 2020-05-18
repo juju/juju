@@ -55,9 +55,10 @@ type uniterSuiteBase struct {
 	testing.JujuConnSuite
 	networktesting.FirewallHelper
 
-	authorizer apiservertesting.FakeAuthorizer
-	resources  *common.Resources
-	uniter     *uniter.UniterAPI
+	authorizer        apiservertesting.FakeAuthorizer
+	resources         *common.Resources
+	leadershipRevoker *leadershipRevoker
+	uniter            *uniter.UniterAPI
 
 	machine0          *state.Machine
 	machine1          *state.Machine
@@ -68,6 +69,15 @@ type uniterSuiteBase struct {
 	mysql             *state.Application
 	mysqlUnit         *state.Unit
 	leadershipChecker *fakeLeadershipChecker
+}
+
+type leadershipRevoker struct {
+	revoked set.Strings
+}
+
+func (s *leadershipRevoker) RevokeLeadership(applicationId, unitId string) error {
+	s.revoked.Add(unitId)
+	return nil
 }
 
 func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
@@ -83,6 +93,9 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	// set up assuming the wordpress unit has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.wordpressUnit.Tag(),
+	}
+	s.leadershipRevoker = &leadershipRevoker{
+		revoked: set.NewStrings(),
 	}
 
 	// Create the resource registry separately to track invocations to
@@ -146,6 +159,7 @@ func (s *uniterSuiteBase) newUniterAPI(c *gc.C, st *state.State, auth facade.Aut
 	facadeContext := s.facadeContext()
 	facadeContext.State_ = st
 	facadeContext.Auth_ = auth
+	facadeContext.LeadershipRevoker_ = s.leadershipRevoker
 	uniterAPI, err := uniter.NewUniterAPI(facadeContext)
 	c.Assert(err, jc.ErrorIsNil)
 	return uniterAPI
@@ -468,6 +482,7 @@ func (s *uniterSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{nil}},
 	})
+	c.Assert(s.leadershipRevoker.revoked.Contains(s.wordpressUnit.Name()), jc.IsTrue)
 
 	// Verify Life is unchanged.
 	err = s.wordpressUnit.Refresh()

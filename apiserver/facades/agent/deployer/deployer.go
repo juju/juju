@@ -6,6 +6,7 @@ package deployer
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -29,13 +30,17 @@ type DeployerAPI struct {
 }
 
 // NewDeployerAPI creates a new server-side DeployerAPI facade.
-func NewDeployerAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*DeployerAPI, error) {
+func NewDeployerAPI(ctx facade.Context) (*DeployerAPI, error) {
+	authorizer := ctx.Auth()
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
+	}
+
+	st := ctx.State()
+	resources := ctx.Resources()
+	leadershipRevoker, err := ctx.LeadershipRevoker(st.ModelUUID())
+	if err != nil {
+		return nil, errors.Annotate(err, "getting leadership client")
 	}
 	getAuthFunc := func() (common.AuthFunc, error) {
 		// Get all units of the machine and cache them.
@@ -60,7 +65,7 @@ func NewDeployerAPI(
 		return authorizer.AuthOwner, nil
 	}
 	return &DeployerAPI{
-		Remover:         common.NewRemover(st, true, getAuthFunc),
+		Remover:         common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, getAuthFunc),
 		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
 		APIAddresser:    common.NewAPIAddresser(st, resources),
