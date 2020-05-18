@@ -34,6 +34,9 @@ const (
 	// OperationExtend denotes extending an already-held lease.
 	OperationExtend = "extend"
 
+	// OperationRevoke denotes revoking an existing lease.
+	OperationRevoke = "revoke"
+
 	// OperationSetTime denotes updating stored global time (which
 	// will also remove any expired leases).
 	OperationSetTime = "setTime"
@@ -149,6 +152,32 @@ func (f *FSM) extend(key lease.Key, holder string, duration time.Duration) *resp
 	entry.start = f.globalTime
 	entry.duration = duration
 	return &response{}
+}
+
+func (f *FSM) revoke(key lease.Key, holder string) *response {
+	entries, groupFound := f.getGroup(key)
+	if !groupFound {
+		return invalidResponse()
+	}
+	entry, found := entries[key]
+	if !found {
+		return invalidResponse()
+	}
+	if entry.holder != holder {
+		return invalidResponse()
+	}
+	for gKey, entries := range f.groups {
+		for k := range entries {
+			if key != k {
+				continue
+			}
+			delete(entries, key)
+		}
+		if len(entries) == 0 {
+			delete(f.groups, gKey)
+		}
+	}
+	return &response{expired: []lease.Key{key}}
 }
 
 func (f *FSM) pin(key lease.Key, entity string) *response {
@@ -358,6 +387,8 @@ func (f *FSM) Apply(log *raft.Log) interface{} {
 		return f.claim(command.LeaseKey(), command.Holder, command.Duration)
 	case OperationExtend:
 		return f.extend(command.LeaseKey(), command.Holder, command.Duration)
+	case OperationRevoke:
+		return f.revoke(command.LeaseKey(), command.Holder)
 	case OperationPin:
 		return f.pin(command.LeaseKey(), command.PinEntity)
 	case OperationUnpin:
@@ -569,6 +600,16 @@ func (c *Command) Validate() error {
 		}
 		if c.PinEntity != "" {
 			return errors.NotValidf("%s with pin entity", c.Operation)
+		}
+	case OperationRevoke:
+		if err := c.validateLeaseKey(); err != nil {
+			return err
+		}
+		if err := c.validateNoTime(); err != nil {
+			return err
+		}
+		if c.Duration != 0 {
+			return errors.NotValidf("%s with duration", c.Operation)
 		}
 	case OperationPin, OperationUnpin:
 		if err := c.validateLeaseKey(); err != nil {

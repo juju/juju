@@ -144,6 +144,68 @@ func (s *fsmSuite) TestExtend(c *gc.C) {
 	assertNoNotifications(c, resp)
 }
 
+func (s *fsmSuite) TestRevoke(c *gc.C) {
+	command := raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationRevoke,
+		Namespace: "ns",
+		ModelUUID: "model",
+		Lease:     "lease",
+		Holder:    "me",
+	}
+	resp := s.apply(c, command)
+	c.Assert(resp.Error(), jc.Satisfies, lease.IsInvalid)
+	assertNoNotifications(c, resp)
+
+	claimCommand := raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationClaim,
+		Namespace: "ns",
+		ModelUUID: "model",
+		Lease:     "lease",
+		Holder:    "me",
+		Duration:  time.Second,
+	}
+	resp = s.apply(c, claimCommand)
+	c.Assert(resp.Error(), jc.ErrorIsNil)
+	assertClaimed(c, resp, lease.Key{Namespace: "ns", ModelUUID: "model", Lease: "lease"}, "me")
+	c.Assert(s.fsm.Leases(timeDelegate(zero)), gc.DeepEquals,
+		map[lease.Key]lease.Info{
+			{"ns", "model", "lease"}: {
+				Holder: "me",
+				Expiry: offset(time.Second),
+			},
+		},
+	)
+
+	// Someone else trying to revoke the lease.
+	command.Holder = "you"
+	resp = s.apply(c, command)
+	c.Assert(resp.Error(), jc.Satisfies, lease.IsInvalid)
+	assertNoNotifications(c, resp)
+
+	command.Holder = "me"
+	resp = s.apply(c, command)
+	c.Assert(resp.Error(), jc.ErrorIsNil)
+	assertExpired(c, resp,
+		lease.Key{Namespace: "ns", ModelUUID: "model", Lease: "lease"},
+	)
+	c.Assert(s.fsm.Leases(timeDelegate(zero)), gc.HasLen, 0)
+
+	// Lease can be reclaimed after being revoked.
+	resp = s.apply(c, claimCommand)
+	c.Assert(resp.Error(), jc.ErrorIsNil)
+	assertClaimed(c, resp, lease.Key{Namespace: "ns", ModelUUID: "model", Lease: "lease"}, "me")
+	c.Assert(s.fsm.Leases(timeDelegate(zero)), gc.DeepEquals,
+		map[lease.Key]lease.Info{
+			{"ns", "model", "lease"}: {
+				Holder: "me",
+				Expiry: offset(time.Second),
+			},
+		},
+	)
+}
+
 func (s *fsmSuite) TestSetTime(c *gc.C) {
 	// Time always starts at 0.
 	resp := s.apply(c, raftlease.Command{

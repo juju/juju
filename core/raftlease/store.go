@@ -104,9 +104,6 @@ type Store struct {
 	prevTime   time.Time
 }
 
-// Autoexpire is part of lease.Store.
-func (*Store) Autoexpire() bool { return true }
-
 // ClaimLease is part of lease.Store.
 func (s *Store) ClaimLease(key lease.Key, req lease.Request, stop <-chan struct{}) error {
 	return errors.Trace(s.runOnLeader(&Command{
@@ -133,11 +130,16 @@ func (s *Store) ExtendLease(key lease.Key, req lease.Request, stop <-chan struct
 	}, stop))
 }
 
-// ExpireLease is part of lease.Store.
-func (s *Store) ExpireLease(key lease.Key) error {
-	// It's always an invalid operation - expiration happens
-	// automatically when time is advanced.
-	return lease.ErrInvalid
+// RevokeLease is part of lease.Store.
+func (s *Store) RevokeLease(key lease.Key, holder string, stop <-chan struct{}) error {
+	return errors.Trace(s.runOnLeader(&Command{
+		Version:   CommandVersion,
+		Operation: OperationRevoke,
+		Namespace: key.Namespace,
+		ModelUUID: key.ModelUUID,
+		Lease:     key.Lease,
+		Holder:    holder,
+	}, stop))
 }
 
 // Leases is part of lease.Store.

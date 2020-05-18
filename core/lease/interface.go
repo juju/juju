@@ -46,6 +46,12 @@ type Claimer interface {
 	WaitUntilExpired(leaseName string, cancel <-chan struct{}) error
 }
 
+// Revoker exposes lease revocation capabilities.
+type Revoker interface {
+	// Revoke releases the named lease for the named holder.
+	Revoke(leaseName, holderName string) error
+}
+
 // Pinner describes methods used to manage suspension of lease expiry.
 type Pinner interface {
 
@@ -111,6 +117,7 @@ type Reader interface {
 type Manager interface {
 	Checker(namespace string, modelUUID string) (Checker, error)
 	Claimer(namespace string, modelUUID string) (Claimer, error)
+	Revoker(namespace string, modelUUID string) (Revoker, error)
 	Pinner(namespace string, modelUUID string) (Pinner, error)
 	Reader(namespace string, modelUUID string) (Reader, error)
 }
