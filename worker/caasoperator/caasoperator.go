@@ -594,7 +594,8 @@ func (op *caasOperator) loop() (err error) {
 						return op.runningStatus(execClient, unitTag, providerID)
 					}
 					params.RemoteInitFunc = func(runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
-						return op.remoteInit(execClient, unitTag, runningStatus, cancel)
+						// TODO(caas): Remove the cached status uniterremotestate.ContainerRunningStatus from uniter watcher snapshot.
+						return op.remoteInitForUniter(execClient, unitTag, runningStatus, cancel)
 					}
 					params.NewRemoteRunnerExecutor = getNewRunnerExecutor(logger, execClient)
 				}
@@ -607,17 +608,14 @@ func (op *caasOperator) loop() (err error) {
 }
 
 func (op *caasOperator) runningStatus(client exec.Executor, unit names.UnitTag, providerID string) (*uniterremotestate.ContainerRunningStatus, error) {
-	op.config.Logger.Debugf("request running status for %v %s", unit, providerID)
+	op.config.Logger.Debugf("request running status for %q %s", unit.String(), providerID)
 	params := exec.StatusParams{
 		PodName: providerID,
 	}
 	status, err := client.Status(params)
-	if errors.IsNotFound(err) {
-		op.config.Logger.Errorf("could not find pod %v %s %v", unit, providerID, err)
-		return nil, nil
-	} else if err != nil {
-		op.config.Logger.Errorf("could not get pod %v %s %v", unit, providerID, err)
-		return nil, errors.Trace(err)
+	if err != nil {
+		op.config.Logger.Errorf("could not get pod %q %q %v", unit.String(), providerID, err)
+		return nil, errors.Annotatef(err, "getting pod status for unit %q, container %q", unit, providerID)
 	}
 	result := &uniterremotestate.ContainerRunningStatus{
 		PodName: status.PodName,
@@ -628,7 +626,7 @@ func (op *caasOperator) runningStatus(client exec.Executor, unit names.UnitTag, 
 			result.Initialising = cs.Running
 			result.InitialisingTime = cs.StartedAt
 		}
-		// Only check the default container
+		// Only check the default container.
 		if !cs.InitContainer && !cs.EphemeralContainer && once {
 			result.Running = cs.Running
 			once = false
@@ -636,9 +634,25 @@ func (op *caasOperator) runningStatus(client exec.Executor, unit names.UnitTag, 
 	}
 	return result, nil
 }
+func (op *caasOperator) remoteInitForUniter(client exec.Executor, unit names.UnitTag, runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
+	return runnerWithRetry(
+		func() error {
+			status, err := op.runningStatus(client, unit, runningStatus.PodName)
+			//  get the current status rather than using the status cached in remote state.
+			if err != nil {
+				return errors.Trace(err)
+			}
+			return op.remoteInit(client, unit, *status, cancel)
+		},
+		func(err error) bool {
+			// We need to re-fetch the running status then retry remoteInit if the container is not running.
+			return err != nil && !exec.IsContainerNotRunningError(err) && !errors.IsNotFound(err)
+		}, op.config.Logger, op.config.Clock, cancel,
+	)
+}
 
 func (op *caasOperator) remoteInit(client exec.Executor, unit names.UnitTag, runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
-	op.config.Logger.Debugf("remote init for %v %+v", unit, runningStatus)
+	op.config.Logger.Debugf("remote init for %q %+v", unit.String(), runningStatus)
 	params := initializeUnitParams{
 		ExecClient:   client,
 		Logger:       op.config.Logger,
