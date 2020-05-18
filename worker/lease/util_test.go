@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock/testclock"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -47,7 +49,7 @@ func (Secretary) CheckDuration(duration time.Duration) error {
 // Store implements corelease.Store for testing purposes.
 type Store struct {
 	mu           sync.Mutex
-	autoexpire   bool
+	clock        *testclock.Clock
 	leases       map[lease.Key]lease.Info
 	expect       []call
 	failed       chan error
@@ -57,7 +59,7 @@ type Store struct {
 
 // NewStore initializes and returns a new store configured to report
 // the supplied leases and expect the supplied calls.
-func NewStore(autoexpire bool, leases map[lease.Key]lease.Info, expect []call) *Store {
+func NewStore(leases map[lease.Key]lease.Info, expect []call, clock *testclock.Clock) *Store {
 	if leases == nil {
 		leases = make(map[lease.Key]lease.Info)
 	}
@@ -66,11 +68,11 @@ func NewStore(autoexpire bool, leases map[lease.Key]lease.Info, expect []call) *
 		close(done)
 	}
 	return &Store{
-		leases:     leases,
-		expect:     expect,
-		done:       done,
-		failed:     make(chan error, 1000),
-		autoexpire: autoexpire,
+		leases: leases,
+		expect: expect,
+		done:   done,
+		failed: make(chan error, 1000),
+		clock:  clock,
 	}
 }
 
@@ -96,9 +98,15 @@ func (store *Store) Wait(c *gc.C) {
 	}
 }
 
-// Autoexpire is part of the lease.Store interface.
-func (store *Store) Autoexpire() bool {
-	return store.autoexpire
+func (store *Store) expireLeases() {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	for k, v := range store.leases {
+		if store.clock.Now().Before(v.Expiry) {
+			continue
+		}
+		delete(store.leases, k)
+	}
 }
 
 // Leases is part of the lease.Store interface.
@@ -202,9 +210,8 @@ func (store *Store) ExtendLease(key lease.Key, request lease.Request, stop <-cha
 	return store.call("ExtendLease", []interface{}{key, request})
 }
 
-// ExpireLease is part of the corelease.Store interface.
-func (store *Store) ExpireLease(key lease.Key) error {
-	return store.call("ExpireLease", []interface{}{key})
+func (store *Store) RevokeLease(lease lease.Key, holder string, stop <-chan struct{}) error {
+	return store.call("RevokeLease", []interface{}{lease, holder})
 }
 
 // Refresh is part of the lease.Store interface.

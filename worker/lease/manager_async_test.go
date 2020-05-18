@@ -12,7 +12,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 
@@ -39,170 +38,136 @@ func (s *AsyncSuite) SetUpTest(c *gc.C) {
 	logger.SetLogLevel(loggo.TRACE)
 }
 
-func (s *AsyncSuite) TestExpiryTimeout(c *gc.C) {
-	// When a timeout happens on expiry we retry.
-	expireCalls := make(chan struct{})
+func (s *AsyncSuite) TestRevokeTimeout(c *gc.C) {
+	// When a timeout happens on revoke we retry.
+	revokeCalls := make(chan struct{})
 	fix := Fixture{
 		leases: leaseMap{
 			key("requiem"): {
 				Holder: "verdi",
-				Expiry: offset(-time.Second),
+				Expiry: offset(time.Minute),
 			},
 		},
 		expectCalls: []call{{
-			method: "Refresh",
-		}, {
-			method: "ExpireLease",
-			args:   []interface{}{key("requiem")},
+			method: "RevokeLease",
+			args:   []interface{}{key("requiem"), "verdi"},
 			err:    corelease.ErrTimeout,
 			callback: func(_ leaseMap) {
 				select {
-				case expireCalls <- struct{}{}:
+				case revokeCalls <- struct{}{}:
 				case <-time.After(coretesting.LongWait):
-					c.Errorf("timed out sending expired")
+					c.Errorf("timed out sending revoke")
 				}
 			},
 		}, {
-			method: "Refresh",
-		}, {
-			method: "ExpireLease",
-			args:   []interface{}{key("requiem")},
+			method: "RevokeLease",
+			args:   []interface{}{key("requiem"), "verdi"},
 			callback: func(leases leaseMap) {
 				delete(leases, key("requiem"))
-				close(expireCalls)
+				close(revokeCalls)
 			},
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
+		revoker, err := manager.Revoker("namespace", "modelUUID")
+		c.Assert(err, jc.ErrorIsNil)
+
+		result := make(chan error)
+		go func() {
+			result <- revoker.Revoke("requiem", "verdi")
+		}()
+
 		select {
-		case <-expireCalls:
+		case <-revokeCalls:
 		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out waiting for 1st expireCall")
+			c.Fatalf("timed out waiting for revoke")
 		}
 
-		// Just the retry delay is waiting
-		c.Assert(clock.WaitAdvance(50*time.Millisecond, coretesting.LongWait, 1), jc.ErrorIsNil)
+		// Two waiters:
+		// - one is the nextTick timer, set for 1 minute in the future
+		// - two is the claim retry timer
+		err = clock.WaitAdvance(50*time.Millisecond, coretesting.LongWait, 2)
+		c.Assert(err, jc.ErrorIsNil)
 
 		select {
-		case _, ok := <-expireCalls:
-			c.Assert(ok, gc.Equals, false)
+		case err := <-result:
+			c.Assert(err, jc.ErrorIsNil)
 		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out waiting for 2nd expireCall")
+			c.Fatalf("timed out waiting for response")
 		}
 	})
 }
 
-func (s *AsyncSuite) TestExpiryRepeatedTimeout(c *gc.C) {
-	// When a timeout happens on expiry we retry - if we hit the retry
+func (s *AsyncSuite) TestRevokeRepeatedTimeout(c *gc.C) {
+	// When a timeout happens on revoke we retry - if we hit the retry
 	// limit we should kill the manager.
-	expireCalls := make(chan struct{})
+	revokeCalls := make(chan struct{})
 
 	var calls []call
 	for i := 0; i < lease.MaxRetries; i++ {
-		calls = append(calls,
-			call{method: "Refresh"},
-			call{
-				method: "ExpireLease",
-				args:   []interface{}{key("requiem")},
-				err:    corelease.ErrTimeout,
-				callback: func(_ leaseMap) {
-					select {
-					case expireCalls <- struct{}{}:
-					case <-time.After(coretesting.LongWait):
-						c.Fatalf("timed out sending expired")
-					}
-				},
+		calls = append(calls, call{
+			method: "RevokeLease",
+			args:   []interface{}{key("requiem"), "verdi"},
+			err:    corelease.ErrTimeout,
+			callback: func(_ leaseMap) {
+				select {
+				case revokeCalls <- struct{}{}:
+				case <-time.After(coretesting.LongWait):
+					c.Errorf("timed out sending revoke")
+				}
 			},
-		)
+		})
 	}
 	fix := Fixture{
 		leases: leaseMap{
 			key("requiem"): {
-				Holder: "mozart",
-				Expiry: offset(-time.Second),
+				Holder: "verdi",
+				Expiry: offset(time.Minute),
 			},
 		},
 		expectCalls: calls,
 		expectDirty: true,
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
-		select {
-		case <-expireCalls:
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out waiting for 1st expireCall")
-		}
+		result := make(chan error)
+		revoker, err := manager.Revoker("namespace", "modelUUID")
+		c.Assert(err, jc.ErrorIsNil)
+		go func() {
+			result <- revoker.Revoke("requiem", "verdi")
+		}()
 
-		delay := lease.InitialRetryDelay
+		duration := lease.InitialRetryDelay
 		for i := 0; i < lease.MaxRetries-1; i++ {
-			c.Logf("retry %d", i+1)
-			// One timer:
-			// - retryingExpiry timers
-			// - nextTick just fired and is waiting for expire to complete
-			//   before it resets
-			err := clock.WaitAdvance(delay, coretesting.LongWait, 1)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Logf("retry %d", i)
 			select {
-			case <-expireCalls:
+			case <-revokeCalls:
+			case <-result:
+				c.Fatalf("got result too soon")
 			case <-time.After(coretesting.LongWait):
-				c.Fatalf("timed out waiting for expireCall")
+				c.Fatalf("timed out waiting for revoke call")
 			}
-			delay = time.Duration(float64(delay)*lease.RetryBackoffFactor + 1)
-		}
-		workertest.CheckAlive(c, manager)
-	})
-}
 
-func (s *AsyncSuite) TestExpiryInterruptedRetry(c *gc.C) {
-	// Check that retries are stopped when the manager is killed.
-	expireCalls := make(chan struct{})
-	fix := Fixture{
-		leases: leaseMap{
-			key("requiem"): {
-				Holder: "fauré",
-				Expiry: offset(-time.Second),
-			},
-		},
-		expectCalls: []call{{
-			method: "Refresh",
-		}, {
-			method: "ExpireLease",
-			args:   []interface{}{key("requiem")},
-			err:    corelease.ErrTimeout,
-			callback: func(_ leaseMap) {
-				select {
-				case expireCalls <- struct{}{}:
-				case <-time.After(coretesting.LongWait):
-					c.Errorf("timed out sending expired")
-				}
-			},
-		}},
-	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
+			// There should be 2 waiters:
+			//  - nextTick has a timer once things expire
+			//  - retryingClaim has an attempt timer
+			c.Assert(clock.WaitAdvance(duration, coretesting.LongWait, 2), jc.ErrorIsNil)
+			duration = time.Duration(float64(duration)*lease.RetryBackoffFactor + 1)
+		}
+
 		select {
-		case <-expireCalls:
+		case <-revokeCalls:
 		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out waiting for 1st expireCall")
+			c.Fatalf("timed out waiting for final revoke call")
 		}
 
-		// The retry loop has a waiter, but the core loop's timer has just fired
-		// and because expire hasn't completed, it hasn't been reset.
-		c.Assert(clock.WaitAdvance(0, coretesting.LongWait, 1), jc.ErrorIsNil)
+		select {
+		case err := <-result:
+			c.Assert(errors.Cause(err), gc.Equals, corelease.ErrTimeout)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for result")
+		}
 
-		// Stopping the worker should cancel the retry.
-		c.Assert(worker.Stop(manager), jc.ErrorIsNil)
-
-		// Advance the clock to trigger the next expire retry (second
-		// expected timer is the shutdown timeout check).
-		c.Assert(clock.WaitAdvance(50*time.Millisecond, coretesting.ShortWait, 2), jc.ErrorIsNil)
-
-		// Allow some wallclock time for a non-cancelled retry to
-		// happen if stopping the worker didn't cancel it. This is not
-		// ideal but I can't see a better way to verify that the retry
-		// doesn't happen - adding an exploding call to expectCalls
-		// makes the store wait for that call to be made. This is
-		// verified to pass reliably if the retry gets cancelled and
-		// fail reliably otherwise.
-		time.Sleep(coretesting.ShortWait)
+		workertest.CheckAlive(c, manager)
 	})
 }
 
@@ -489,18 +454,10 @@ func (s *AsyncSuite) TestClaimNoticesEarlyExpiry(c *gc.C) {
 					Expiry: offset(2 * time.Minute),
 				}
 			},
-		}, {
-			method: "Refresh",
-		}, {
-			method: "ExpireLease",
-			args:   []interface{}{key("icecream")},
-			callback: func(leases leaseMap) {
-				delete(leases, key("icecream"))
-			},
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
-		// When we first start, we should not yet call Expire because the
+		// When we first start, we should not yet expire because the
 		// Expiry should be 10 minutes into the future. But the first claim
 		// will create an entry that expires in only 1 minute, so we should
 		// reset our expire timeout
@@ -663,8 +620,6 @@ func (s *AsyncSuite) TestClaimRepeatedInvalid(c *gc.C) {
 func (s *AsyncSuite) TestWaitsForGoroutines(c *gc.C) {
 	// The manager should wait for all of its child expire and claim
 	// goroutines to be finished before it stops.
-	tickStarted := make(chan struct{})
-	tickFinish := make(chan struct{})
 	claimStarted := make(chan struct{})
 	claimFinish := make(chan struct{})
 	fix := Fixture{
@@ -675,16 +630,6 @@ func (s *AsyncSuite) TestWaitsForGoroutines(c *gc.C) {
 			},
 		},
 		expectCalls: []call{{
-			method: "Refresh",
-		}, {
-			method: "ExpireLease",
-			args:   []interface{}{key("legacy")},
-			parallelCallback: func(_ *sync.Mutex, _ leaseMap) {
-				close(tickStarted)
-				// Block until asked to stop.
-				<-tickFinish
-			},
-		}, {
 			method: "ClaimLease",
 			args: []interface{}{
 				key("blooadoath"),
@@ -697,11 +642,6 @@ func (s *AsyncSuite) TestWaitsForGoroutines(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
-		select {
-		case <-tickStarted:
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out waiting for expire start")
-		}
 
 		result := make(chan error)
 		claimer, err := manager.Claimer("namespace", "modelUUID")
@@ -733,11 +673,6 @@ func (s *AsyncSuite) TestWaitsForGoroutines(c *gc.C) {
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for result")
 		}
-
-		workertest.CheckAlive(c, manager)
-
-		// And when we finish the expire the worker stops.
-		close(tickFinish)
 
 		err = workertest.CheckKilled(c, manager)
 		c.Assert(err, jc.ErrorIsNil)
