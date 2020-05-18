@@ -141,6 +141,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 		"sla":              bson.M{"level": "", "credentials": []uint8{}},
 		"meter-status":     bson.M{"code": "", "info": ""},
 		"environ-version":  0,
+		"passwordhash":     "",
 	}, {
 		"_id":              "0000-dead-beaf-0002",
 		"type":             "iaas",
@@ -155,6 +156,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 		"sla":              bson.M{"level": "", "credentials": []uint8{}},
 		"meter-status":     bson.M{"code": "", "info": ""},
 		"environ-version":  0,
+		"passwordhash":     "",
 	},
 		initialModel,
 	}

@@ -129,6 +129,7 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 		CloudRegion:        dbModel.CloudRegion(),
 		Owner:              dbModel.Owner(),
 		Config:             modelConfig.Settings,
+		PasswordHash:       dbModel.doc.PasswordHash,
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
 		EnvironVersion:     dbModel.EnvironVersion(),
 		Blocks:             blocks,
