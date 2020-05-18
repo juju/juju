@@ -204,9 +204,8 @@ func (w *RemoteStateWatcher) CommandCompleted(completed string) {
 	}
 }
 
-func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) error {
+func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 	// TODO(axw) move this logic
-	var err error
 	defer func() {
 		cause := errors.Cause(err)
 		if params.IsCodeNotFoundOrCodeUnauthorized(cause) {
@@ -215,6 +214,7 @@ func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) error {
 				err = jworker.ErrTerminateAgent
 			}
 		}
+		logger.Criticalf("RemoteStateWatcher.setUp[%q] %p, err -> %#v", unitTag.String(), w, err)
 	}()
 	if w.unit, err = w.st.Unit(unitTag); err != nil {
 		return errors.Trace(err)
@@ -465,7 +465,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			runningStatus, err := w.containerRunningStatusFunc(w.current.ProviderID)
 			if err != nil {
-				return errors.Trace(err)
+				return errors.Annotatef(err, "getting container running status for %q", unitTag.String())
 			}
 			w.containerRunningStatus(*runningStatus)
 

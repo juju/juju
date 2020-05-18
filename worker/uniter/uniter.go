@@ -260,6 +260,25 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 }
 
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
+	defer func() {
+		u.logger.Warningf("Uniter.loop %q err -> %#v", unitTag.String(), err)
+	}()
+
+	defer func() {
+		// If this is a CAAS unit, then dead errors are fairly normal ways to exit
+		// the uniter main loop, but the actual agent needs to keep running.
+		if errors.Cause(err) == ErrCAASUnitDead {
+			err = nil
+		}
+		if u.runListener != nil {
+			u.runListener.UnregisterRunner(u.unit.Name())
+		}
+		u.localRunListener.UnregisterRunner(u.unit.Name())
+		u.logger.Infof("unit %q shutting down: %s", u.unit, err)
+
+		// u.logger.Warningf("Uniter.Wait() err -> %#v", u.Wait())
+	}()
+
 	if err := u.init(unitTag); err != nil {
 		switch cause := errors.Cause(err); cause {
 		case resolver.ErrLoopAborted:
@@ -311,6 +330,12 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		watcher   *remotestate.RemoteStateWatcher
 		watcherMu sync.Mutex
 	)
+
+	// defer func() {
+	// 	if watcher != nil {
+	// 		worker.Stop(watcher)
+	// 	}
+	// }()
 
 	u.logger.Infof("hooks are retried %v", u.hookRetryStrategy.ShouldRetry)
 	retryHookChan := make(chan struct{}, 1)
@@ -453,6 +478,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		// once initially.
 		select {
 		case <-u.catacomb.Dying():
+			u.logger.Warningf("Uniter.loop u.catacomb.Dying()!!!")
 			return u.catacomb.ErrDying()
 		case <-watcher.RemoteStateChanged():
 		}
@@ -509,20 +535,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 
 		if errors.Cause(err) != resolver.ErrRestart {
+			u.logger.Warningf("errors.Cause(err) != resolver.ErrRestart  !!!!!!!!")
 			break
 		}
 	}
-
-	// If this is a CAAS unit, then dead errors are fairly normal ways to exit
-	// the uniter main loop, but the actual agent needs to keep running.
-	if errors.Cause(err) == ErrCAASUnitDead {
-		err = nil
-	}
-	if u.runListener != nil {
-		u.runListener.UnregisterRunner(u.unit.Name())
-	}
-	u.localRunListener.UnregisterRunner(u.unit.Name())
-	u.logger.Infof("unit %q shutting down: %s", u.unit, err)
 	return err
 }
 
