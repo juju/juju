@@ -688,7 +688,7 @@ func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 		// Trigger a sync on the state used by the agent, and wait for the unit
 		// to be created.
 		agentState.StartSync()
-		timeout := time.After(coretesting.LongWait)
+		timeout := time.After(longerWait)
 		for {
 			select {
 			case <-timeout:
