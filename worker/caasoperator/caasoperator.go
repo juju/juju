@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/worker/uniter"
 	jujucharm "github.com/juju/juju/worker/uniter/charm"
 	uniterremotestate "github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/wrench"
 )
 
 // logger is here to stop the desire of creating a package level logger.
@@ -240,6 +241,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 			// For any failures, try again in 3 seconds.
 			RestartDelay: 3 * time.Second,
+			Logger:       config.Logger,
 		}),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -521,7 +523,8 @@ func (op *caasOperator) loop() (err error) {
 						return op.catacomb.ErrDying()
 					case runningChan <- struct{}{}:
 					default:
-						logger.Warningf("runningChan[%q] is blocked", unitID)
+						// This should never happen unless there is a bug in the uniter.
+						logger.Warningf("unit running chan[%q] is blocked", unitID)
 					}
 				}
 			}
@@ -529,7 +532,6 @@ func (op *caasOperator) loop() (err error) {
 			if !ok {
 				return errors.New("watcher closed channel")
 			}
-			logger.Warningf("new units ----------------------------> %+v", units)
 			for _, v := range units {
 				unitID := v
 				unitLife, err := op.config.UnitGetter.Life(unitID)
@@ -561,7 +563,7 @@ func (op *caasOperator) loop() (err error) {
 				}
 				// Start a worker to manage any new units.
 				if _, err := op.runner.Worker(unitID, op.catacomb.Dying()); err == nil || unitLife == life.Dead {
-					// Already watching the unit. or we're
+					// Already watching the unit or we're
 					// not yet watching it and it's dead.
 					continue
 				}
@@ -570,13 +572,12 @@ func (op *caasOperator) loop() (err error) {
 				if err := op.makeAgentSymlinks(unitTag); err != nil {
 					return errors.Trace(err)
 				}
-				logger.Warningf("\tnew unit -------> %q", unitTag)
 				params := op.config.UniterParams
 				params.ModelType = model.CAAS
 				params.UnitTag = unitTag
 				params.Downloader = op.config.Downloader // TODO(caas): write a cache downloader
 				params.UniterFacade = op.config.UniterFacadeFunc(unitTag)
-				params.LeadershipTracker = op.config.LeadershipTrackerFunc(unitTag)
+				params.LeadershipTrackerFunc = op.config.LeadershipTrackerFunc
 				params.ApplicationChannel = aliveUnits[unitID]
 				if op.deploymentMode != caas.ModeOperator {
 					params.IsRemoteUnit = true
@@ -587,6 +588,9 @@ func (op *caasOperator) loop() (err error) {
 						return errors.Trace(err)
 					}
 					params.ContainerRunningStatusFunc = func(providerID string) (*uniterremotestate.ContainerRunningStatus, error) {
+						if wrench.IsActive("remote-init", "fatal-error") {
+							return nil, errors.New("fake remote-init fatal-error")
+						}
 						return op.runningStatus(execClient, unitTag, providerID)
 					}
 					params.RemoteInitFunc = func(runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
@@ -608,7 +612,7 @@ func (op *caasOperator) runningStatus(client exec.Executor, unit names.UnitTag, 
 	params := exec.StatusParams{
 		PodName: providerID,
 	}
-	status, err := op.config.ExecClient.Status(params)
+	status, err := client.Status(params)
 	if err != nil {
 		op.config.Logger.Errorf("could not get pod %q %q %v", unit.String(), providerID, err)
 		return nil, errors.Annotatef(err, "getting pod status for unit %q, container %q", unit, providerID)
