@@ -215,31 +215,31 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 	if translateResolverErr == nil {
 		translateResolverErr = func(err error) error { return err }
 	}
-	u := &Uniter{
-		st:                            uniterParams.UniterFacade,
-		paths:                         NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
-		modelType:                     uniterParams.ModelType,
-		hookLock:                      uniterParams.MachineLock,
-		leadershipTracker:             uniterParams.LeadershipTracker,
-		charmDirGuard:                 uniterParams.CharmDirGuard,
-		updateStatusAt:                uniterParams.UpdateStatusSignal,
-		hookRetryStrategy:             uniterParams.HookRetryStrategy,
-		newOperationExecutor:          uniterParams.NewOperationExecutor,
-		newRemoteRunnerExecutor:       uniterParams.NewRemoteRunnerExecutor,
-		remoteInitFunc:                uniterParams.RemoteInitFunc,
-		translateResolverErr:          translateResolverErr,
-		observer:                      uniterParams.Observer,
-		clock:                         uniterParams.Clock,
-		downloader:                    uniterParams.Downloader,
-		applicationChannel:            uniterParams.ApplicationChannel,
-		containerRunningStatusChannel: uniterParams.ContainerRunningStatusChannel,
-		containerRunningStatusFunc:    uniterParams.ContainerRunningStatusFunc,
-		isRemoteUnit:                  uniterParams.IsRemoteUnit,
-		runListener:                   uniterParams.RunListener,
-		rebootQuerier:                 uniterParams.RebootQuerier,
-		logger:                        uniterParams.Logger,
-	}
 	startFunc := func() (worker.Worker, error) {
+		u := &Uniter{
+			st:                            uniterParams.UniterFacade,
+			paths:                         NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
+			modelType:                     uniterParams.ModelType,
+			hookLock:                      uniterParams.MachineLock,
+			leadershipTracker:             uniterParams.LeadershipTracker,
+			charmDirGuard:                 uniterParams.CharmDirGuard,
+			updateStatusAt:                uniterParams.UpdateStatusSignal,
+			hookRetryStrategy:             uniterParams.HookRetryStrategy,
+			newOperationExecutor:          uniterParams.NewOperationExecutor,
+			newRemoteRunnerExecutor:       uniterParams.NewRemoteRunnerExecutor,
+			remoteInitFunc:                uniterParams.RemoteInitFunc,
+			translateResolverErr:          translateResolverErr,
+			observer:                      uniterParams.Observer,
+			clock:                         uniterParams.Clock,
+			downloader:                    uniterParams.Downloader,
+			applicationChannel:            uniterParams.ApplicationChannel,
+			containerRunningStatusChannel: uniterParams.ContainerRunningStatusChannel,
+			containerRunningStatusFunc:    uniterParams.ContainerRunningStatusFunc,
+			isRemoteUnit:                  uniterParams.IsRemoteUnit,
+			runListener:                   uniterParams.RunListener,
+			rebootQuerier:                 uniterParams.RebootQuerier,
+			logger:                        uniterParams.Logger,
+		}
 		plan := catacomb.Plan{
 			Site: &u.catacomb,
 			Work: func() error {
