@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/state"
 )
 
 // leadershipChecker implements leadership.Checker by wrapping a lease.Checker.
@@ -67,6 +66,20 @@ func (m leadershipClaimer) BlockUntilLeadershipReleased(applicationName string, 
 	return errors.Trace(err)
 }
 
+// leadershipRevoker implements leadership.Revoker by wrapping a lease.Revoker.
+type leadershipRevoker struct {
+	claimer lease.Revoker
+}
+
+// RevokeLeadership is part of the leadership.Claimer interface.
+func (m leadershipRevoker) RevokeLeadership(applicationName, unitName string) error {
+	err := m.claimer.Revoke(applicationName, unitName)
+	if errors.Cause(err) == lease.ErrNotHeld {
+		return leadership.ErrClaimNotHeld
+	}
+	return errors.Trace(err)
+}
+
 // leadershipPinner implements leadership.Pinner by wrapping a lease.Pinner.
 type leadershipPinner struct {
 	pinner lease.Pinner
@@ -100,16 +113,4 @@ type leadershipReader struct {
 // current model.
 func (r leadershipReader) Leaders() (map[string]string, error) {
 	return r.reader.Leases(), nil
-}
-
-// legacyLeadershipReader implements leadership.Reader by wrapping state.
-type legacyLeadershipReader struct {
-	st *state.State
-}
-
-// Leaders (leadership.Reader) returns all application leaders in the
-// current model according to state.
-func (r legacyLeadershipReader) Leaders() (map[string]string, error) {
-	l, err := r.st.ApplicationLeaders()
-	return l, errors.Trace(err)
 }

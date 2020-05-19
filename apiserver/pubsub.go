@@ -10,6 +10,7 @@ import (
 	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket"
@@ -24,20 +25,22 @@ type Hub interface {
 
 func newPubSubHandler(h httpContext, hub Hub) http.Handler {
 	return &pubsubHandler{
-		ctxt: h,
-		hub:  hub,
+		ctxt:   h,
+		hub:    hub,
+		logger: loggo.GetLogger("juju.apiserver.pubsub"),
 	}
 }
 
 type pubsubHandler struct {
-	ctxt httpContext
-	hub  Hub
+	ctxt   httpContext
+	hub    Hub
+	logger loggo.Logger
 }
 
 // ServeHTTP implements the http.Handler interface.
 func (h *pubsubHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handler := func(socket *websocket.Conn) {
-		logger.Debugf("start of *pubsubHandler.ServeHTTP")
+		h.logger.Debugf("start of *pubsubHandler.ServeHTTP")
 		defer socket.Close()
 
 		// If we get to here, no more errors to report, so we report a nil
@@ -66,14 +69,14 @@ func (h *pubsubHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				if err := socket.WriteControl(gorillaws.PingMessage, []byte{}, deadline); err != nil {
 					// This error is expected if the other end goes away. By
 					// returning we close the socket through the defer call.
-					logger.Debugf("failed to write ping: %s", err)
+					h.logger.Debugf("failed to write ping: %s", err)
 					return
 				}
 			case m := <-messageCh:
-				logger.Tracef("topic: %q, data: %v", m.Topic, m.Data)
+				h.logger.Tracef("topic: %q, data: %v", m.Topic, m.Data)
 				_, err := h.hub.Publish(m.Topic, m.Data)
 				if err != nil {
-					logger.Errorf("publish failed: %v", err)
+					h.logger.Errorf("publish failed: %v", err)
 				}
 			}
 		}
@@ -93,7 +96,13 @@ func (h *pubsubHandler) receiveMessages(socket *websocket.Conn) <-chan params.Pu
 			// unblocked when the API handler calls socket.Close as it
 			// finishes.
 			if err := socket.ReadJSON(&m); err != nil {
-				logger.Errorf("pubsub receive error: %v", err)
+				// Since we don't give a list of expected error codes,
+				// any CloseError type is considered unexpected.
+				if gorillaws.IsUnexpectedCloseError(err) {
+					h.logger.Tracef("websocket closed")
+				} else {
+					h.logger.Errorf("pubsub receive error: %v", err)
+				}
 				return
 			}
 
@@ -114,10 +123,10 @@ func (h *pubsubHandler) sendError(ws *websocket.Conn, req *http.Request, err err
 	// There is no need to log the error for normal operators as there is nothing
 	// they can action. This is for developers.
 	if err != nil && featureflag.Enabled(feature.DeveloperMode) {
-		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
+		h.logger.Errorf("returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
 	}
 	if sendErr := ws.SendInitialErrorV0(err); sendErr != nil {
-		logger.Errorf("closing websocket, %v", err)
+		h.logger.Errorf("closing websocket, %v", err)
 		ws.Close()
 		return
 	}

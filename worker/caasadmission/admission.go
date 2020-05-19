@@ -65,7 +65,7 @@ func NewAdmissionCreator(
 	obj := admission.MutatingWebhookConfiguration{
 		ObjectMeta: meta.ObjectMeta{
 			Labels:    provider.LabelsForModel(modelName),
-			Name:      fmt.Sprintf("%s-model-admission", modelName),
+			Name:      fmt.Sprintf("juju-model-admission-%s", namespace),
 			Namespace: namespace,
 		},
 		Webhooks: []admission.MutatingWebhook{

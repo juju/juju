@@ -138,7 +138,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		UniterFacadeFunc:      s.uniterFacadeFunc,
 		RunListenerSocketFunc: s.runListenerSocketFunc,
 		StartUniterFunc:       func(runner *worker.Runner, params *uniter.UniterParams) error { return nil },
-		ExecClient:            s.mockExecutor,
+		ExecClientGetter:      func() (exec.Executor, error) { return s.mockExecutor, nil },
 		Logger:                loggo.GetLogger("test"),
 	}
 

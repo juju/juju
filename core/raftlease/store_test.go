@@ -305,11 +305,109 @@ func (s *storeSuite) TestExtendLeaseTimeout(c *gc.C) {
 	)
 }
 
-func (s *storeSuite) TestExpire(c *gc.C) {
-	err := s.store.ExpireLease(
-		lease.Key{"warframe", "oberon", "prime"},
+func (s *storeSuite) TestRevoke(c *gc.C) {
+	s.handleHubRequest(c,
+		func() {
+			err := s.store.RevokeLease(
+				lease.Key{"warframe", "frost", "prime"},
+				"konzu",
+				nil,
+			)
+			c.Assert(err, jc.ErrorIsNil)
+		},
+
+		raftlease.Command{
+			Version:   1,
+			Operation: raftlease.OperationRevoke,
+			Namespace: "warframe",
+			ModelUUID: "frost",
+			Lease:     "prime",
+			Holder:    "konzu",
+		},
+		func(req raftlease.ForwardRequest) {
+			_, err := s.hub.Publish(
+				req.ResponseTopic,
+				raftlease.ForwardResponse{},
+			)
+			c.Check(err, jc.ErrorIsNil)
+		},
 	)
-	c.Assert(err, jc.Satisfies, lease.IsInvalid)
+}
+
+func (s *storeSuite) TestRevokeLeaseAborted(c *gc.C) {
+	s.handleHubRequest(c,
+		func() {
+			errChan := make(chan error)
+			stopChan := make(chan struct{})
+			go func() {
+				errChan <- s.store.RevokeLease(
+					lease.Key{"warframe", "frost", "prime"},
+					"konzu",
+					stopChan,
+				)
+			}()
+			// Without allowing the time to move forward, abort the request
+			close(stopChan)
+
+			select {
+			case err := <-errChan:
+				c.Check(err, jc.Satisfies, lease.IsAborted)
+				c.Check(err, gc.ErrorMatches, `"revoke" on "frost:prime" for "konzu": lease operation aborted`)
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("timed out waiting for revoke error")
+			}
+		},
+
+		raftlease.Command{
+			Version:   1,
+			Operation: raftlease.OperationRevoke,
+			Namespace: "warframe",
+			ModelUUID: "frost",
+			Lease:     "prime",
+			Holder:    "konzu",
+		},
+		func(req raftlease.ForwardRequest) {
+			// No response here, as we want it hung waiting to be cancelled
+		},
+	)
+}
+
+func (s *storeSuite) TestRevokeLeaseTimeout(c *gc.C) {
+	s.handleHubRequest(c,
+		func() {
+			errChan := make(chan error)
+			go func() {
+				errChan <- s.store.RevokeLease(
+					lease.Key{"warframe", "frost", "prime"},
+					"konzu",
+					nil,
+				)
+			}()
+
+			// Jump time forward further than the 1-second forward
+			// timeout.
+			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 1), jc.ErrorIsNil)
+
+			select {
+			case err := <-errChan:
+				c.Assert(err, jc.Satisfies, lease.IsTimeout)
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("timed out waiting for revoke timeout error")
+			}
+		},
+
+		raftlease.Command{
+			Version:   1,
+			Operation: raftlease.OperationRevoke,
+			Namespace: "warframe",
+			ModelUUID: "frost",
+			Lease:     "prime",
+			Holder:    "konzu",
+		},
+		func(req raftlease.ForwardRequest) {
+			// No response here, as we want it hung waiting to be cancelled
+		},
+	)
 }
 
 func (s *storeSuite) TestLeases(c *gc.C) {

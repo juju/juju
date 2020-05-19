@@ -35,7 +35,7 @@ type Tracker struct {
 	waitingMinion     []chan bool
 }
 
-// NewTracker returns a *Tracker that attempts to claim and retain service
+// NewTracker returns a *Tracker that attempts to claim and retain application
 // leadership for the supplied unit. It will claim leadership for twice the
 // supplied duration, and once it's leader it will renew leadership every
 // time the duration elapses.

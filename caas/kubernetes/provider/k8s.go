@@ -510,7 +510,9 @@ func (k *kubernetesClient) SharedInformerFactory() informers.SharedInformerFacto
 }
 
 func (k *kubernetesClient) CurrentModel() string {
-	return k.namespace
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	return k.envCfgUnlocked.Name()
 }
 
 // Provider is part of the Broker interface.

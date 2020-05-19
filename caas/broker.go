@@ -167,6 +167,18 @@ type Broker interface {
 	// APIVersion returns the master kubelet API version.
 	APIVersion() (string, error)
 
+	// EnsureModelOperator creates or updates a model operator pod for running
+	// model operations in a CAAS namespace/model
+	EnsureModelOperator(modelUUID, agentPath string, config *ModelOperatorConfig) error
+
+	// ModelOperator return the model operator config used to create the current
+	// model operator for this broker
+	ModelOperator() (*ModelOperatorConfig, error)
+
+	// ModelOperatorExists indicates if the model operator for the given broker
+	// exists
+	ModelOperatorExists() (bool, error)
+
 	// EnsureOperator creates or updates an operator pod for running
 	// a charm for the specified application.
 	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
@@ -372,6 +384,18 @@ type CharmStorageParams struct {
 	// ResourceTags is a set of tags to set on the created filesystem, if the
 	// storage provider supports tags.
 	ResourceTags map[string]string
+}
+
+// ModelOperatorConfig is the config to when creating a model operator
+type ModelOperatorConfig struct {
+	// AgentConf is the contents of the agent.conf file.
+	AgentConf []byte
+
+	// OperatorImagePath is the docker registry URL for the image.
+	OperatorImagePath string
+
+	// Port is the socket port that the operator model will be listening on
+	Port int32
 }
 
 // OperatorConfig is the config to use when creating an operator.

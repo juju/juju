@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -54,18 +55,29 @@ type uniterSuiteBase struct {
 	testing.JujuConnSuite
 	networktesting.FirewallHelper
 
-	authorizer apiservertesting.FakeAuthorizer
-	resources  *common.Resources
-	uniter     *uniter.UniterAPI
+	authorizer        apiservertesting.FakeAuthorizer
+	resources         *common.Resources
+	leadershipRevoker *leadershipRevoker
+	uniter            *uniter.UniterAPI
 
-	machine0      *state.Machine
-	machine1      *state.Machine
-	wpCharm       *state.Charm
-	wordpress     *state.Application
-	wordpressUnit *state.Unit
-	mysqlCharm    *state.Charm
-	mysql         *state.Application
-	mysqlUnit     *state.Unit
+	machine0          *state.Machine
+	machine1          *state.Machine
+	wpCharm           *state.Charm
+	wordpress         *state.Application
+	wordpressUnit     *state.Unit
+	mysqlCharm        *state.Charm
+	mysql             *state.Application
+	mysqlUnit         *state.Unit
+	leadershipChecker *fakeLeadershipChecker
+}
+
+type leadershipRevoker struct {
+	revoked set.Strings
+}
+
+func (s *leadershipRevoker) RevokeLeadership(applicationId, unitId string) error {
+	s.revoked.Add(unitId)
+	return nil
 }
 
 func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
@@ -82,12 +94,16 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.wordpressUnit.Tag(),
 	}
+	s.leadershipRevoker = &leadershipRevoker{
+		revoked: set.NewStrings(),
+	}
 
 	// Create the resource registry separately to track invocations to
 	// Register.
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
+	s.leadershipChecker = &fakeLeadershipChecker{false}
 	s.uniter = s.newUniterAPI(c, s.State, s.authorizer)
 }
 
@@ -134,7 +150,7 @@ func (s *uniterSuiteBase) facadeContext() facadetest.Context {
 		StatePool_:         s.StatePool,
 		Resources_:         s.resources,
 		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
+		LeadershipChecker_: s.leadershipChecker,
 		Controller_:        s.Controller,
 	}
 }
@@ -143,6 +159,7 @@ func (s *uniterSuiteBase) newUniterAPI(c *gc.C, st *state.State, auth facade.Aut
 	facadeContext := s.facadeContext()
 	facadeContext.State_ = st
 	facadeContext.Auth_ = auth
+	facadeContext.LeadershipRevoker_ = s.leadershipRevoker
 	uniterAPI, err := uniter.NewUniterAPI(facadeContext)
 	c.Assert(err, jc.ErrorIsNil)
 	return uniterAPI
@@ -465,6 +482,7 @@ func (s *uniterSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{nil}},
 	})
+	c.Assert(s.leadershipRevoker.revoked.Contains(s.wordpressUnit.Name()), jc.IsTrue)
 
 	// Verify Life is unchanged.
 	err = s.wordpressUnit.Refresh()
@@ -2220,6 +2238,7 @@ func (s *uniterSuite) TestSetRelationsStatusNotLeader(c *gc.C) {
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.leadershipChecker.isLeader = false
 	args := params.RelationStatusArgs{
 		Args: []params.RelationStatusArg{
 			{s.wordpressUnit.Tag().String(), rel.Id(), params.Suspended, "message"},
@@ -2276,8 +2295,7 @@ func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 		c.Assert(relStatus.Message, gc.Equals, expectedMessage)
 	}
 
-	err = s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/0", time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
+	s.leadershipChecker.isLeader = true
 
 	result, err := s.uniter.SetRelationStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2297,15 +2315,12 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
-	err = s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/0", time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
-
-	token := s.State.LeadershipChecker().LeadershipCheck("wordpress", "wordpress/0")
-
-	err = rel.UpdateApplicationSettings("wordpress", token, map[string]interface{}{
+	err = rel.UpdateApplicationSettings("wordpress", &token{isLeader: true}, map[string]interface{}{
 		"wanda": "firebaugh",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.leadershipChecker.isLeader = true
 
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-42", Unit: "unit-foo-0"},
@@ -2354,16 +2369,12 @@ func (s *uniterSuite) TestReadSettingsForApplicationWhenNotLeader(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
-	// This is a unit that doesn't exist.
-	err = s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/1", time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
-
-	token := s.State.LeadershipChecker().LeadershipCheck("wordpress", "wordpress/1")
-
-	err = rel.UpdateApplicationSettings("wordpress", token, map[string]interface{}{
+	err = rel.UpdateApplicationSettings("wordpress", &token{isLeader: true}, map[string]interface{}{
 		"wanda": "firebaugh",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.leadershipChecker.isLeader = false
 
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: rel.Tag().String(), Unit: "application-wordpress"},
@@ -2429,12 +2440,7 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsWhenNotLeader(c *gc.C) {
 	s.assertInScope(c, relUnit, true)
 
 	// This is a unit that doesn't exist.
-	err = s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/1", time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
-
-	token := s.State.LeadershipChecker().LeadershipCheck("wordpress", "wordpress/1")
-
-	err = rel.UpdateApplicationSettings("wordpress", token, map[string]interface{}{
+	err = rel.UpdateApplicationSettings("wordpress", &token{isLeader: true}, map[string]interface{}{
 		"wanda": "firebaugh",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2839,6 +2845,8 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 		"other": "",
 	}
 
+	s.leadershipChecker.isLeader = false
+
 	args := params.RelationUnitsSettings{RelationUnits: []params.RelationUnitSettings{
 		{Relation: "relation-42", Unit: "unit-foo-0", Settings: nil},
 		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0", Settings: newSettings},
@@ -2896,22 +2904,19 @@ func (s *uniterSuite) TestUpdateSettingsWithAppSettings(c *gc.C) {
 		"other": "",
 	}
 
-	err = s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/0", time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
-
-	token := s.State.LeadershipChecker().LeadershipCheck("wordpress", "wordpress/0")
-
 	appSettings := map[string]interface{}{
 		"black midi": "ducter",
 		"battles":    "the yabba",
 	}
-	err = rel.UpdateApplicationSettings("wordpress", token, appSettings)
+	err = rel.UpdateApplicationSettings("wordpress", &token{isLeader: true}, appSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newAppSettings := params.Settings{
 		"black midi": "of schlagenheim",
 		"battles":    "",
 	}
+
+	s.leadershipChecker.isLeader = true
 
 	args := params.RelationUnitsSettings{RelationUnits: []params.RelationUnitSettings{{
 		Relation:            rel.Tag().String(),
@@ -2940,17 +2945,14 @@ func (s *uniterSuite) TestUpdateSettingsWithAppSettingsOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
-	err = s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/0", time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
-
-	token := s.State.LeadershipChecker().LeadershipCheck("wordpress", "wordpress/0")
-
 	appSettings := map[string]interface{}{
 		"black midi": "ducter",
 		"battles":    "the yabba",
 	}
-	err = rel.UpdateApplicationSettings("wordpress", token, appSettings)
+	err = rel.UpdateApplicationSettings("wordpress", &token{isLeader: true}, appSettings)
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.leadershipChecker.isLeader = true
 
 	newAppSettings := params.Settings{
 		"black midi": "of schlagenheim",
@@ -3764,8 +3766,7 @@ spec:
 func (s *uniterSuite) TestSetRawK8sSpec(c *gc.C) {
 	u, cm, app, unit := s.setupCAASModel(c)
 
-	err := cm.State().LeadershipClaimer().ClaimLeadership(app.ApplicationTag().Id(), unit.UnitTag().Id(), time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
+	s.leadershipChecker.isLeader = true
 
 	s.State = cm.State()
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
@@ -3795,8 +3796,7 @@ func (s *uniterSuite) TestSetRawK8sSpec(c *gc.C) {
 func (s *uniterSuite) TestSetRawK8sSpecNil(c *gc.C) {
 	_, cm, app, unit := s.setupCAASModel(c)
 
-	err := cm.State().LeadershipClaimer().ClaimLeadership(app.ApplicationTag().Id(), unit.UnitTag().Id(), time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
+	s.leadershipChecker.isLeader = true
 
 	s.State = cm.State()
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
@@ -3864,8 +3864,7 @@ containers:
 func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
 	_, cm, app, unit := s.setupCAASModel(c)
 
-	err := cm.State().LeadershipClaimer().ClaimLeadership(app.ApplicationTag().Id(), unit.UnitTag().Id(), time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
+	s.leadershipChecker.isLeader = true
 
 	s.State = cm.State()
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
@@ -3891,8 +3890,7 @@ func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
 func (s *uniterSuite) TestSetPodSpecNil(c *gc.C) {
 	_, cm, app, unit := s.setupCAASModel(c)
 
-	err := cm.State().LeadershipClaimer().ClaimLeadership(app.ApplicationTag().Id(), unit.UnitTag().Id(), time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
+	s.leadershipChecker.isLeader = true
 
 	s.State = cm.State()
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
@@ -4410,6 +4408,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
+	s.leadershipChecker = &fakeLeadershipChecker{false}
 	s.setupUniterAPIForUnit(c, s.wordpressUnit)
 }
 
@@ -4945,8 +4944,7 @@ func (s *uniterNetworkInfoSuite) TestUpdateNetworkInfo(c *gc.C) {
 func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	s.addRelationAndAssertInScope(c)
 
-	err := s.State.LeadershipClaimer().ClaimLeadership(s.wordpress.ApplicationTag().Id(), s.wordpressUnit.UnitTag().Id(), time.Minute)
-	c.Assert(err, gc.IsNil)
+	s.leadershipChecker.isLeader = true
 
 	// Clear network settings from all relation units
 	relList, err := s.wordpressUnit.RelationsJoined()
@@ -5028,10 +5026,8 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 func (s *uniterNetworkInfoSuite) TestCommitHookChangesWhenNotLeader(c *gc.C) {
 	s.addRelationAndAssertInScope(c)
 
-	// Make wordpress/0 the leader; we are working with wordpress/1
-	c.Assert(s.wordpressUnit.UnitTag().Id(), gc.Not(gc.Equals), "wordpress/0")
-	err := s.State.LeadershipClaimer().ClaimLeadership(s.wordpress.ApplicationTag().Id(), "wordpress/0", time.Minute)
-	c.Assert(err, gc.IsNil)
+	// Make it so we're not the leader.
+	s.leadershipChecker.isLeader = false
 
 	relList, err := s.wordpressUnit.RelationsJoined()
 	c.Assert(err, gc.IsNil)
@@ -5114,8 +5110,7 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 func (s *uniterNetworkInfoSuite) assertCommitHookChangesCAAS(c *gc.C, isRaw bool) {
 	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
 
-	err := cm.State().LeadershipClaimer().ClaimLeadership(gitlab.ApplicationTag().Id(), gitlabUnit.UnitTag().Id(), time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
+	s.leadershipChecker.isLeader = true
 
 	b := apiuniter.NewCommitHookParamsBuilder(gitlabUnit.UnitTag())
 	b.UpdateNetworkInfo()
@@ -5175,14 +5170,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASRawK8sSpec(c *gc.C) {
 func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASNotLeader(c *gc.C) {
 	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
 
-	f := factory.NewFactory(cm.State(), s.StatePool)
-	otherGitlabUnit := f.MakeUnit(c, &factory.UnitParams{
-		Application: gitlab,
-		SetCharmURL: true,
-	})
-
-	err := cm.State().LeadershipClaimer().ClaimLeadership(gitlab.ApplicationTag().Id(), otherGitlabUnit.Tag().Id(), time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
+	s.leadershipChecker.isLeader = false
 
 	b := apiuniter.NewCommitHookParamsBuilder(gitlabUnit.UnitTag())
 	b.UpdateNetworkInfo()
@@ -5207,8 +5195,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASNotLeader(c *gc.C) {
 func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASNotAllowSetPodSpecAndSetRawK8sSpec(c *gc.C) {
 	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
 
-	err := cm.State().LeadershipClaimer().ClaimLeadership(gitlab.ApplicationTag().Id(), gitlabUnit.UnitTag().Id(), time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
+	s.leadershipChecker.isLeader = true
 
 	b := apiuniter.NewCommitHookParamsBuilder(gitlabUnit.UnitTag())
 	b.UpdateNetworkInfo()
@@ -5539,7 +5526,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 		StatePool_:         s.StatePool,
 		Resources_:         resources,
 		Auth_:              apiservertesting.FakeAuthorizer{Tag: names.NewUnitTag("nomatter/0")},
-		LeadershipChecker_: s.State.LeadershipChecker(),
+		LeadershipChecker_: &fakeLeadershipChecker{false},
 	})
 
 	c.Assert(err, gc.ErrorMatches, "kaboom")
@@ -5611,4 +5598,24 @@ func (s *uniterV14Suite) TestWatchActionNotificationsLegacy(c *gc.C) {
 
 	_, err = addedAction.Cancel()
 	wc.AssertNoChange()
+}
+
+type fakeLeadershipChecker struct {
+	isLeader bool
+}
+
+type token struct {
+	isLeader          bool
+	unit, application string
+}
+
+func (t *token) Check(attempt int, trapdoorKey interface{}) error {
+	if !t.isLeader {
+		return leadership.NewNotLeaderError(t.unit, t.application)
+	}
+	return nil
+}
+
+func (f *fakeLeadershipChecker) LeadershipCheck(applicationName, unitName string) leadership.Token {
+	return &token{f.isLeader, unitName, applicationName}
 }

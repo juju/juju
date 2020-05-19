@@ -80,6 +80,7 @@ type StateBackend interface {
 	AddMachineIDToSubordinates() error
 	AddOriginToIPAddresses() error
 	DropPresenceDatabase() error
+	DropLeasesCollection() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -327,4 +328,8 @@ func (s stateBackend) AddOriginToIPAddresses() error {
 
 func (s stateBackend) DropPresenceDatabase() error {
 	return state.DropPresenceDatabase(s.pool)
+}
+
+func (s stateBackend) DropLeasesCollection() error {
+	return state.DropLeasesCollection(s.pool)
 }

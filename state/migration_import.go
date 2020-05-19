@@ -74,6 +74,7 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 		Owner:                   model.Owner(),
 		MigrationMode:           MigrationModeImporting,
 		EnvironVersion:          model.EnvironVersion(),
+		PasswordHash:            model.PasswordHash(),
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	}
 	if creds := model.CloudCredential(); creds != nil {
