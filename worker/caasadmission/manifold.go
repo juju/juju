@@ -4,8 +4,6 @@
 package caasadmission
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
@@ -113,7 +111,7 @@ func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error)
 		broker.GetCurrentNamespace(), broker.CurrentModel(),
 		broker.EnsureMutatingWebhookConfiguration,
 		&admission.ServiceReference{
-			Name:      fmt.Sprintf("%s-modeloperator", broker.CurrentModel()),
+			Name:      "modeloperator",
 			Namespace: broker.GetCurrentNamespace(),
 			Path:      &admissionPath,
 			Port:      &port,

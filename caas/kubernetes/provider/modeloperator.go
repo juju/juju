@@ -25,6 +25,10 @@ const (
 	modelOperatorPortLabel = "api"
 )
 
+var (
+	modelOperatorName = "modeloperator"
+)
+
 // EnsureModelOperator implements caas broker's interface. Function ensures that
 // a model operator for this broker's namespace exists within Kubernetes.
 func (k *kubernetesClient) EnsureModelOperator(
@@ -32,7 +36,7 @@ func (k *kubernetesClient) EnsureModelOperator(
 	agentPath string,
 	config *caas.ModelOperatorConfig,
 ) error {
-	operatorName := modelOperatorName(k.CurrentModel())
+	operatorName := modelOperatorName
 	modelTag := names.NewModelTag(modelUUID)
 
 	configMap := modelOperatorConfigMap(
@@ -55,7 +59,7 @@ func (k *kubernetesClient) EnsureModelOperator(
 				},
 				Items: []core.KeyToPath{
 					{
-						Key:  modelOperatorConfigMapAgentConfKey(operatorName),
+						Key:  modelOperatorConfigMapAgentConfKey(modelOperatorName),
 						Path: TemplateFileNameAgentConf,
 					},
 				},
@@ -96,7 +100,7 @@ func (k *kubernetesClient) EnsureModelOperator(
 // ModelOperator return the model operator config used to create the current
 // model operator for this broker
 func (k *kubernetesClient) ModelOperator() (*caas.ModelOperatorConfig, error) {
-	operatorName := modelOperatorName(k.CurrentModel())
+	operatorName := modelOperatorName
 	exists, err := k.ModelOperatorExists()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -211,7 +215,7 @@ func modelOperatorDeployment(
 // ModelOperatorExists indicates if the model operator for the given broker
 // exists
 func (k *kubernetesClient) ModelOperatorExists() (bool, error) {
-	operatorName := modelOperatorName(k.CurrentModel())
+	operatorName := modelOperatorName
 	exists, err := k.modelOperatorDeploymentExists(operatorName)
 	if err != nil {
 		return false, errors.Trace(err)
@@ -236,10 +240,6 @@ func modelOperatorLabels(operatorName string) map[string]string {
 	return map[string]string{
 		labelModelOperator: operatorName,
 	}
-}
-
-func modelOperatorName(modelName string) string {
-	return modelName + "-modeloperator"
 }
 
 func modelOperatorService(
