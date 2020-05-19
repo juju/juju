@@ -14,14 +14,14 @@ define MAIN_PACKAGES
 endef
 
 # Allow the tests to take longer on restricted platforms.
-ifeq ($(shell uname -p | sed -E 's/.*(armel|armhf|aarch64|ppc64le|ppc64|s390x).*/golang/'), golang)
+ifeq ($(shell go env GOARCH | sed -E 's/.*(arm|arm64|ppc64le|ppc64|s390x).*/golang/'), golang)
 	TEST_TIMEOUT := 5400s
 else
 	TEST_TIMEOUT := 1800s
 endif
 
 # Limit concurrency on s390x.
-ifeq ($(shell uname -p | sed -E 's/.*(s390x).*/golang/'), golang)
+ifeq ($(shell go env GOARCH | sed -E 's/.*(s390x).*/golang/'), golang)
 	TEST_ARGS := -p 4
 else
 	TEST_ARGS := 
@@ -56,7 +56,13 @@ ifeq ($(DEBUG_JUJU), 1)
     COMPILE_FLAGS = -gcflags "all=-N -l"
     LINK_FLAGS = -ldflags "-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 else
-    COMPILE_FLAGS =
+ifeq ($(shell go env GOARCH | sed -E 's/.*(ppc64le|ppc64).*/golang/'), golang)
+	# disable optimizations on ppc64le due to https://golang.org/issue/39049
+	# go 1.15 should include the fix for this issue.
+	COMPILE_FLAGS = -gcflags "all=-N"
+else
+	COMPILE_FLAGS =
+endif
     LINK_FLAGS = -ldflags "-s -w -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 endif
 

@@ -27,10 +27,9 @@ type Store interface {
 	// If it returns ErrInvalid, check Leases() for updated state.
 	ExtendLease(lease Key, request Request, stop <-chan struct{}) error
 
-	// ExpireLease records the vacation of the supplied lease. It will fail if
-	// we cannot verify that the lease's writer considers the expiry time to
-	// have passed. If it returns ErrInvalid, check Leases() for updated state.
-	ExpireLease(lease Key) error
+	// RevokeLease records the vacation of the supplied lease. It will fail if
+	// the lease is not held by the holder.
+	RevokeLease(lease Key, holder string, stop <-chan struct{}) error
 
 	// Leases returns a recent snapshot of lease state. Expiry times are
 	// expressed according to the Clock the store was configured with.
@@ -64,11 +63,6 @@ type Store interface {
 	// The return consists of each pinned lease and the collection of entities
 	// requiring its pinned behaviour.
 	Pinned() map[Key][]string
-
-	// Autoexpire indicates whether this store expires leases
-	// automatically as time is updated, or whether the client code
-	// needs to remove expired leases.
-	Autoexpire() bool
 }
 
 // Key fully identifies a lease, including the namespace and
@@ -180,4 +174,10 @@ func IsTimeout(err error) bool {
 // (even if it's wrapped).
 func IsAborted(err error) bool {
 	return errors.Cause(err) == ErrAborted
+}
+
+// IsNotHeld returns whether the specified error represents ErrNotHeld
+// (even if it's wrapped).
+func IsNotHeld(err error) bool {
+	return errors.Cause(err) == ErrNotHeld
 }

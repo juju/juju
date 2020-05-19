@@ -46,9 +46,6 @@ func newLeaseStore(clock clock.Clock, target raftlease.NotifyTarget, trapdoor ra
 	}
 }
 
-// Autoexpire is part of lease.Store.
-func (*leaseStore) Autoexpire() bool { return false }
-
 // ClaimLease is part of lease.Store.
 func (s *leaseStore) ClaimLease(key lease.Key, req lease.Request, _ <-chan struct{}) error {
 	s.mu.Lock()
@@ -90,16 +87,12 @@ func (s *leaseStore) ExtendLease(key lease.Key, req lease.Request, _ <-chan stru
 	return nil
 }
 
-// Expire is part of lease.Store.
-func (s *leaseStore) ExpireLease(key lease.Key) error {
+// RevokeLease is part of lease.Store.
+func (s *leaseStore) RevokeLease(key lease.Key, holder string, stop <-chan struct{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	entry, found := s.entries[key]
+	_, found := s.entries[key]
 	if !found {
-		return lease.ErrInvalid
-	}
-	expiry := entry.start.Add(entry.duration)
-	if !s.clock.Now().After(expiry) {
 		return lease.ErrInvalid
 	}
 	delete(s.entries, key)

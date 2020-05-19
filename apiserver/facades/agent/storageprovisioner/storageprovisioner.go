@@ -208,7 +208,7 @@ func NewStorageProvisionerAPIv3(
 	}
 	return &StorageProvisionerAPIv3{
 		LifeGetter:       common.NewLifeGetter(st, getLifeAuthFunc),
-		DeadEnsurer:      common.NewDeadEnsurer(st, getStorageEntityAuthFunc),
+		DeadEnsurer:      common.NewDeadEnsurer(st, nil, getStorageEntityAuthFunc),
 		InstanceIdGetter: common.NewInstanceIdGetter(st, getMachineAuthFunc),
 		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc),
 

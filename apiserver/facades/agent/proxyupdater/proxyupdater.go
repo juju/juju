@@ -93,7 +93,7 @@ type Backend interface {
 
 // NewAPIBase creates a new server-side API facade with the given Backing.
 func NewAPIBase(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*APIBase, error) {
-	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent()) {
+	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent() || authorizer.AuthModelAgent()) {
 		return nil, common.ErrPerm
 	}
 	return &APIBase{

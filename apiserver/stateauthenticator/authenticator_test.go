@@ -58,6 +58,13 @@ func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticator(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 }
 
+func (s *agentAuthenticatorSuite) TestModelGetsAgentAuthenticator(c *gc.C) {
+	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d"))
+	c.Assert(err, jc.ErrorIsNil)
+	_, ok := authenticator.(*authentication.AgentAuthenticator)
+	c.Assert(ok, jc.IsTrue)
+}
+
 func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthenticator(c *gc.C) {
 	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, names.NewUnitTag("wordpress/0"))
 	c.Assert(err, jc.ErrorIsNil)

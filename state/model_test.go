@@ -90,6 +90,12 @@ func (s *ModelSuite) TestNewModelNonExistentLocalUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot create model: user "non-existent" not found`)
 }
 
+func (s *ModelSuite) TestSetPassword(c *gc.C) {
+	testSetPassword(c, func() (state.Authenticator, error) {
+		return s.State.Model()
+	})
+}
+
 func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
 	owner := s.Factory.MakeUser(c, nil).UserTag()

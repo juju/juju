@@ -259,17 +259,6 @@ func allCollections() CollectionSchema {
 		// to ensure various IDs aren't reused.
 		sequenceC: {},
 
-		// This collection holds lease data. It's currently only used to
-		// implement application leadership, but is namespaced and available
-		// for use by other clients in future.
-		leasesC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "type"},
-			}, {
-				Key: []string{"model-uuid", "namespace"},
-			}},
-		},
-
 		// -----
 
 		// These collections hold information associated with applications.
@@ -587,7 +576,6 @@ const (
 	guimetadataC               = "guimetadata"
 	guisettingsC               = "guisettings"
 	instanceDataC              = "instanceData"
-	leasesC                    = "leases"
 	leaseHoldersC              = "leaseholders"
 	machinesC                  = "machines"
 	machineRemovalsC           = "machineremovals"

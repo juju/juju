@@ -310,6 +310,13 @@ type ConfigResult struct {
 	Error  *Error                 `json:"error,omitempty"`
 }
 
+// ModelOperatorInfo
+type ModelOperatorInfo struct {
+	APIAddresses []string       `json:"api-addresses"`
+	ImagePath    string         `json:"image-path"`
+	Version      version.Number `json:"version"`
+}
+
 // OperatorProvisioningInfoResults holds OperatorProvisioningInfo results.
 type OperatorProvisioningInfoResults struct {
 	Results []OperatorProvisioningInfo `json:"results"`

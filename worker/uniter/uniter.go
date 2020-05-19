@@ -153,7 +153,7 @@ type UniterParams struct {
 	UniterFacade                  *uniter.State
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
-	LeadershipTracker             leadership.TrackerWorker
+	LeadershipTrackerFunc         func(names.UnitTag) leadership.TrackerWorker
 	DataDir                       string
 	Downloader                    charm.Downloader
 	MachineLock                   machinelock.Lock
@@ -215,31 +215,31 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 	if translateResolverErr == nil {
 		translateResolverErr = func(err error) error { return err }
 	}
-	u := &Uniter{
-		st:                            uniterParams.UniterFacade,
-		paths:                         NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
-		modelType:                     uniterParams.ModelType,
-		hookLock:                      uniterParams.MachineLock,
-		leadershipTracker:             uniterParams.LeadershipTracker,
-		charmDirGuard:                 uniterParams.CharmDirGuard,
-		updateStatusAt:                uniterParams.UpdateStatusSignal,
-		hookRetryStrategy:             uniterParams.HookRetryStrategy,
-		newOperationExecutor:          uniterParams.NewOperationExecutor,
-		newRemoteRunnerExecutor:       uniterParams.NewRemoteRunnerExecutor,
-		remoteInitFunc:                uniterParams.RemoteInitFunc,
-		translateResolverErr:          translateResolverErr,
-		observer:                      uniterParams.Observer,
-		clock:                         uniterParams.Clock,
-		downloader:                    uniterParams.Downloader,
-		applicationChannel:            uniterParams.ApplicationChannel,
-		containerRunningStatusChannel: uniterParams.ContainerRunningStatusChannel,
-		containerRunningStatusFunc:    uniterParams.ContainerRunningStatusFunc,
-		isRemoteUnit:                  uniterParams.IsRemoteUnit,
-		runListener:                   uniterParams.RunListener,
-		rebootQuerier:                 uniterParams.RebootQuerier,
-		logger:                        uniterParams.Logger,
-	}
 	startFunc := func() (worker.Worker, error) {
+		u := &Uniter{
+			st:                            uniterParams.UniterFacade,
+			paths:                         NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
+			modelType:                     uniterParams.ModelType,
+			hookLock:                      uniterParams.MachineLock,
+			leadershipTracker:             uniterParams.LeadershipTrackerFunc(uniterParams.UnitTag),
+			charmDirGuard:                 uniterParams.CharmDirGuard,
+			updateStatusAt:                uniterParams.UpdateStatusSignal,
+			hookRetryStrategy:             uniterParams.HookRetryStrategy,
+			newOperationExecutor:          uniterParams.NewOperationExecutor,
+			newRemoteRunnerExecutor:       uniterParams.NewRemoteRunnerExecutor,
+			remoteInitFunc:                uniterParams.RemoteInitFunc,
+			translateResolverErr:          translateResolverErr,
+			observer:                      uniterParams.Observer,
+			clock:                         uniterParams.Clock,
+			downloader:                    uniterParams.Downloader,
+			applicationChannel:            uniterParams.ApplicationChannel,
+			containerRunningStatusChannel: uniterParams.ContainerRunningStatusChannel,
+			containerRunningStatusFunc:    uniterParams.ContainerRunningStatusFunc,
+			isRemoteUnit:                  uniterParams.IsRemoteUnit,
+			runListener:                   uniterParams.RunListener,
+			rebootQuerier:                 uniterParams.RebootQuerier,
+			logger:                        uniterParams.Logger,
+		}
 		plan := catacomb.Plan{
 			Site: &u.catacomb,
 			Work: func() error {
@@ -260,6 +260,22 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 }
 
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
+
+	defer func() {
+		// If this is a CAAS unit, then dead errors are fairly normal ways to exit
+		// the uniter main loop, but the parent operator agent needs to keep running.
+		if errors.Cause(err) == ErrCAASUnitDead {
+			err = nil
+		}
+		if u.runListener != nil {
+			u.runListener.UnregisterRunner(u.unit.Name())
+		}
+		if u.localRunListener != nil {
+			u.localRunListener.UnregisterRunner(u.unit.Name())
+		}
+		u.logger.Infof("unit %q shutting down: %s", u.unit, err)
+	}()
+
 	if err := u.init(unitTag); err != nil {
 		switch cause := errors.Cause(err); cause {
 		case resolver.ErrLoopAborted:
@@ -515,17 +531,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			break
 		}
 	}
-
-	// If this is a CAAS unit, then dead errors are fairly normal ways to exit
-	// the uniter main loop, but the actual agent needs to keep running.
-	if errors.Cause(err) == ErrCAASUnitDead {
-		err = nil
-	}
-	if u.runListener != nil {
-		u.runListener.UnregisterRunner(u.unit.Name())
-	}
-	u.localRunListener.UnregisterRunner(u.unit.Name())
-	u.logger.Infof("unit %q shutting down: %s", u.unit, err)
 	return err
 }
 

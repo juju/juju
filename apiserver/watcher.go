@@ -472,7 +472,7 @@ func (aw *SrvAllWatcher) translateBranchConfig(config map[string][]multiwatcher.
 }
 
 func isAgent(auth facade.Authorizer) bool {
-	return auth.AuthMachineAgent() || auth.AuthUnitAgent() || auth.AuthApplicationAgent()
+	return auth.AuthMachineAgent() || auth.AuthUnitAgent() || auth.AuthApplicationAgent() || auth.AuthModelAgent()
 }
 
 func isAgentOrUser(auth facade.Authorizer) bool {
