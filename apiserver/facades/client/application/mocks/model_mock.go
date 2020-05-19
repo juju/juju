@@ -5,10 +5,9 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	config "github.com/juju/juju/environs/config"
+	reflect "reflect"
 )
 
 // MockStateModel is a mock of StateModel interface
@@ -36,6 +35,7 @@ func (m *MockStateModel) EXPECT() *MockStateModelMockRecorder {
 
 // ModelConfig mocks base method
 func (m *MockStateModel) ModelConfig() (*config.Config, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelConfig")
 	ret0, _ := ret[0].(*config.Config)
 	ret1, _ := ret[1].(error)
@@ -44,5 +44,6 @@ func (m *MockStateModel) ModelConfig() (*config.Config, error) {
 
 // ModelConfig indicates an expected call of ModelConfig
 func (mr *MockStateModelMockRecorder) ModelConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockStateModel)(nil).ModelConfig))
 }

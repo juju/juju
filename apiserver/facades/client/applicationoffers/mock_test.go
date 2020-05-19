@@ -169,7 +169,9 @@ type mockBindings struct {
 	bMap map[string]string
 }
 
-func (b *mockBindings) MapWithSpaceNames() (map[string]string, error) {
+// TODO (stickupkid): This implementation is wrong, we should move to a newer
+// gomock style setup.
+func (b *mockBindings) MapWithSpaceNames(network.SpaceInfos) (map[string]string, error) {
 	return b.bMap, nil
 }
 
@@ -461,6 +463,10 @@ func (m *mockState) GetOfferUsers(offerUUID string) (map[string]permission.Acces
 		result[offerAccess.user.Id()] = access
 	}
 	return result, nil
+}
+
+func (m *mockState) AllSpaceInfos() (network.SpaceInfos, error) {
+	return nil, nil
 }
 
 type mockStatePool struct {

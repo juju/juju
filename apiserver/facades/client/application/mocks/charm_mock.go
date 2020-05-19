@@ -5,9 +5,8 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockStateCharm is a mock of StateCharm interface
@@ -35,6 +34,7 @@ func (m *MockStateCharm) EXPECT() *MockStateCharmMockRecorder {
 
 // IsUploaded mocks base method
 func (m *MockStateCharm) IsUploaded() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsUploaded")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -42,5 +42,6 @@ func (m *MockStateCharm) IsUploaded() bool {
 
 // IsUploaded indicates an expected call of IsUploaded
 func (mr *MockStateCharmMockRecorder) IsUploaded() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUploaded", reflect.TypeOf((*MockStateCharm)(nil).IsUploaded))
 }
