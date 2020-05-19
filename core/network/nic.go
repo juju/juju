@@ -282,6 +282,18 @@ func (s InterfaceInfos) Children(parentName string) InterfaceInfos {
 	return children
 }
 
+// GetByHardwareAddress returns a reference to the interface with the input
+// hardware address (such as a MAC address) if it exists in the collection,
+// otherwise nil is returned.
+func (s InterfaceInfos) GetByHardwareAddress(hwAddr string) *InterfaceInfo {
+	for _, dev := range s {
+		if dev.MACAddress == hwAddr {
+			return &dev
+		}
+	}
+	return nil
+}
+
 // ProviderInterfaceInfo holds enough information to identify an
 // interface or link layer device to a provider so that it can be
 // queried or manipulated. Its initial purpose is to pass to

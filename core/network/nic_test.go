@@ -19,7 +19,7 @@ var _ = gc.Suite(&nicSuite{})
 
 func (s *nicSuite) SetUpTest(_ *gc.C) {
 	s.info = network.InterfaceInfos{
-		{VLANTag: 1, DeviceIndex: 0, InterfaceName: "eth0"},
+		{VLANTag: 1, DeviceIndex: 0, InterfaceName: "eth0", MACAddress: "00:16:3e:aa:bb:cc"},
 		{VLANTag: 0, DeviceIndex: 1, InterfaceName: "eth1"},
 		{VLANTag: 42, DeviceIndex: 2, InterfaceName: "br2"},
 		{ConfigType: network.ConfigDHCP, NoAutoStart: true},
@@ -131,6 +131,14 @@ func (*nicSuite) TestInterfaceInfosIterHierarchy(c *gc.C) {
 		"bond0:eth1",
 		":eth2",
 	})
+}
+
+func (s *nicSuite) TestInterfaceInfosGetByHardwareAddress(c *gc.C) {
+	dev := s.info.GetByHardwareAddress("not-there")
+	c.Assert(dev, gc.IsNil)
+
+	dev = s.info.GetByHardwareAddress("00:16:3e:aa:bb:cc")
+	c.Assert(dev.InterfaceName, gc.Equals, "eth0")
 }
 
 func getInterFaceInfos() network.InterfaceInfos {
