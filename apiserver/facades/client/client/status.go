@@ -743,6 +743,15 @@ func fetchAllApplicationsAndUnits(
 		}
 	}
 
+	// Get all the space infos before iterating over the application infos.
+	// This wasn't originally envisaged as an optimisation, but a better way
+	// to handle getting the bindings with space names. Turns out we only really
+	// need to request it once and we can reuse it.
+	allSpaceInfos, err := st.AllSpaceInfos()
+	if err != nil {
+		return applicationStatusInfo{}, errors.Trace(err)
+	}
+
 	endpointBindings, err := model.AllEndpointBindings()
 	if err != nil {
 		return applicationStatusInfo{}, err
@@ -751,7 +760,7 @@ func fetchAllApplicationsAndUnits(
 	for app, bindings := range endpointBindings {
 		// If the only binding is the default, and it's set to the
 		// default space, no need to print.
-		bindingMap, err := bindings.MapWithSpaceNames()
+		bindingMap, err := bindings.MapWithSpaceNames(allSpaceInfos)
 		if err != nil {
 			return applicationStatusInfo{}, err
 		}

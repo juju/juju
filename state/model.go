@@ -950,9 +950,14 @@ func (st *State) AllEndpointBindingsSpaceNames() (set.Strings, error) {
 		return nil, errors.Trace(err)
 	}
 
+	lookup, err := st.AllSpaceInfos()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	allEndpointBindingsSpaces := set.NewStrings()
 	for _, bindings := range allEndpointBindings {
-		bindingSpaceNames, err := bindings.MapWithSpaceNames()
+		bindingSpaceNames, err := bindings.MapWithSpaceNames(lookup)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
