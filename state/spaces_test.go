@@ -6,7 +6,6 @@ package state_test
 import (
 	"fmt"
 	"net"
-	"sort"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -682,11 +681,21 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 		},
 	}
 
-	// Sort subnets by CIDR to avoid flaky tests
-	sort.Slice(spaceInfo.Subnets, func(l, r int) bool { return spaceInfo.Subnets[l].CIDR < spaceInfo.Subnets[r].CIDR })
-	sort.Slice(expSpaceInfo.Subnets, func(l, r int) bool { return expSpaceInfo.Subnets[l].CIDR < expSpaceInfo.Subnets[r].CIDR })
+	// Sort subnets by CIDR for test consistency.
+	corenetwork.SortSubnetInfos(spaceInfo.Subnets)
+	corenetwork.SortSubnetInfos(expSpaceInfo.Subnets)
 
 	c.Assert(spaceInfo, gc.DeepEquals, expSpaceInfo)
+
+	// Test that AllSpaceInfos works the same way.
+	allSpaceInfos, err := s.State.AllSpaceInfos()
+	c.Assert(err, jc.ErrorIsNil)
+
+	space1 := allSpaceInfos.GetByName("space1")
+	c.Assert(space1, gc.NotNil)
+
+	corenetwork.SortSubnetInfos(space1.Subnets)
+	c.Assert(*space1, gc.DeepEquals, expSpaceInfo)
 }
 
 type SpacesDiscoverySuite struct {
@@ -848,26 +857,6 @@ func checkSubnetsEqual(c *gc.C, subnets []*state.Subnet, subnetInfos []network.S
 		c.Check(subnetInfo.ProviderId, gc.Equals, subnet.ProviderId())
 		c.Check(subnetInfo.ProviderNetworkId, gc.Equals, subnet.ProviderNetworkId())
 		c.Check(subnetInfo.VLANTag, gc.Equals, subnet.VLANTag())
-	}
-}
-
-func checkSpacesEqual(c *gc.C, actual []*state.Space, expected []network.SpaceInfo) {
-	// Filter out the default space for comparisons.
-	filtered := actual[:0]
-	for _, s := range actual {
-		if s.Name() != network.AlphaSpaceName {
-			filtered = append(filtered, s)
-		}
-	}
-
-	c.Assert(len(filtered), gc.Equals, len(expected))
-	for i, spaceInfo := range expected {
-		space := filtered[i]
-		c.Check(string(spaceInfo.Name), gc.Equals, space.Name())
-		c.Check(spaceInfo.ProviderId, gc.Equals, space.ProviderId())
-		subnets, err := space.Subnets()
-		c.Assert(err, jc.ErrorIsNil)
-		checkSubnetsEqual(c, subnets, spaceInfo.Subnets)
 	}
 }
 
