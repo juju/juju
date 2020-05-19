@@ -15,7 +15,6 @@ require (
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
 	github.com/aws/aws-sdk-go v1.29.8
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/boltdb/bolt v1.3.1-0.20170131192018-e9cf4fae01b5 // indirect
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
 	github.com/dnaeon/go-vcr v1.0.1 // indirect
 	github.com/docker/distribution v2.6.0-rc.1.0.20180522175653-f0cc92778478+incompatible
@@ -31,7 +30,7 @@ require (
 	github.com/gorilla/websocket v1.4.0
 	github.com/gosuri/uitable v0.0.1
 	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
-	github.com/hashicorp/go-msgpack v0.0.0-20150518234257-fa3f63826f7c
+	github.com/hashicorp/go-msgpack v0.5.5
 	github.com/hashicorp/raft v2.0.0-20200420012049-88ad3b3f0a54+incompatible
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
 	github.com/imdario/mergo v0.3.6 // indirect
@@ -45,7 +44,7 @@ require (
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
 	github.com/juju/collections v0.0.0-20180717171555-9be91dc79b7c
-	github.com/juju/description/v2 v2.0.0-20200424074546-907f299eeafe
+	github.com/juju/description/v2 v2.0.0-20200514032006-b515a22fe74e
 	github.com/juju/errors v0.0.0-20200330140219-3fe23663418f
 	github.com/juju/featureflag v0.0.0-20200423045028-e2f9e1cb1611
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
@@ -108,7 +107,7 @@ require (
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37
-	golang.org/x/net v0.0.0-20200506145744-7e3656a0809f
+	golang.org/x/net v0.0.0-20200513185701-a91f0712d120
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f
 	google.golang.org/api v0.4.0
@@ -132,13 +131,12 @@ require (
 	gopkg.in/robfig/cron.v2 v2.0.0-20150107220207-be2e0b0deed5 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
 	gopkg.in/vmihailenco/msgpack.v2 v2.9.1 // indirect
-	gopkg.in/yaml.v2 v2.2.8
+	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.0.0-20200131193051-d9adff57e763
 	k8s.io/apiextensions-apiserver v0.0.0-20200131201446-6910daba737d
 	k8s.io/apimachinery v0.17.5-beta.0
 	k8s.io/client-go v0.0.0-20200131194156-19522ff28802
 	k8s.io/utils v0.0.0-20200124190032-861946025e34 // indirect
-	labix.org/v2/mgo v0.0.0-20140701140051-000000000287 // indirect
 	launchpad.net/xmlpath v0.0.0-20130614043138-000000000004 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
@@ -154,3 +152,5 @@ replace github.com/hashicorp/raft => github.com/juju/raft v2.0.0-20200420012049-
 replace gopkg.in/yaml.v2 => github.com/juju/yaml v0.0.0-20200420012109-12a32b78de07
 
 replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0.0.0-20141228071148-145fabdb1ab7
+
+replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5

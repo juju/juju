@@ -96,8 +96,6 @@ func EnsureWorkersStarted(st *State) {
 	// Note: we don't start the all-watcher workers, as
 	// they're started on demand anyway.
 	st.workers.txnLogWatcher()
-	st.workers.leadershipManager()
-	st.workers.singularManager()
 }
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {

@@ -217,6 +217,10 @@ func (s *raftSuite) TestMigrateLegacyLeases(c *gc.C) {
 		{"reyne", "m2", "keening"}: "jordan",
 	})
 
+	calls := context.state.(*mockState).stub.Calls()
+	lastCall := calls[len(calls)-1]
+	c.Assert(lastCall.FuncName, gc.Equals, "DropLeasesCollection")
+
 	expectedLeases := context.state.(*mockState).leases
 
 	// Start up raft with the leases in the snapshot.
@@ -538,6 +542,11 @@ func (s *mockState) ControllerConfig() (controller.Config, error) {
 func (s *mockState) LegacyLeases(localTime time.Time) (map[lease.Key]lease.Info, error) {
 	s.stub.AddCall("LegacyLeases", localTime)
 	return s.leases, s.stub.NextErr()
+}
+
+func (s *mockState) DropLeasesCollection() error {
+	s.stub.AddCall("DropLeasesCollection")
+	return s.stub.NextErr()
 }
 
 func (s *mockState) LeaseNotifyTarget(log io.Writer, errorLog raftleasestore.Logger) raftlease.NotifyTarget {

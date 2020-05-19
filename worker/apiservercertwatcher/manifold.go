@@ -16,8 +16,16 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.apiservercertwatcher")
 
+type AuthorityWorker interface {
+	Authority() pki.Authority
+	worker.Worker
+}
+
+type NewCertWatcherWorker func(agent.Agent) (AuthorityWorker, error)
+
 type ManifoldConfig struct {
-	AgentName string
+	AgentName           string
+	CertWatcherWorkerFn NewCertWatcherWorker
 }
 
 // The manifold is intended to be a dependency for the apiserver.
@@ -30,6 +38,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			var a agent.Agent
 			if err := context.Get(config.AgentName, &a); err != nil {
 				return nil, err
+			}
+
+			if config.CertWatcherWorkerFn != nil {
+				return config.CertWatcherWorkerFn(a)
 			}
 
 			w := &apiserverCertWatcher{
@@ -47,13 +59,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 func outputFunc(in worker.Worker, out interface{}) error {
-	inWorker, _ := in.(*apiserverCertWatcher)
+	inWorker, _ := in.(AuthorityWorker)
 	if inWorker == nil {
 		return errors.Errorf("in should be a %T; got a %T", inWorker, in)
 	}
 	switch result := out.(type) {
 	case *pki.Authority:
-		*result = inWorker.authority
+		*result = inWorker.Authority()
 	default:
 		return errors.Errorf("unexpected type")
 	}
@@ -71,6 +83,10 @@ func (w *apiserverCertWatcher) loop() error {
 	case <-w.tomb.Dying():
 		return tomb.ErrDying
 	}
+}
+
+func (w *apiserverCertWatcher) Authority() pki.Authority {
+	return w.authority
 }
 
 // Kill implements worker.Worker.

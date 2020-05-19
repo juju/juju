@@ -52,7 +52,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	cfg, err := config.New(config.UseDefaults, testing.FakeConfig().Merge(testing.Attrs{
-		config.NameKey:              "controller",
+		config.NameKey:              "controller-1",
 		provider.OperatorStorageKey: "",
 		provider.WorkloadStorageKey: "",
 	}))
@@ -785,7 +785,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 		errChan <- controllerStacker.Deploy()
 	}()
 
-	err = s.clock.WaitAdvance(3*time.Second, testing.ShortWait, 1)
+	err = s.clock.WaitAdvance(3*time.Second, testing.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {

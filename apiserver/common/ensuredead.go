@@ -15,15 +15,17 @@ import (
 // various facades.
 type DeadEnsurer struct {
 	st           state.EntityFinder
+	afterDead    func(names.Tag)
 	getCanModify GetAuthFunc
 }
 
 // NewDeadEnsurer returns a new DeadEnsurer. The GetAuthFunc will be
 // used on each invocation of EnsureDead to determine current
 // permissions.
-func NewDeadEnsurer(st state.EntityFinder, getCanModify GetAuthFunc) *DeadEnsurer {
+func NewDeadEnsurer(st state.EntityFinder, afterDead func(names.Tag), getCanModify GetAuthFunc) *DeadEnsurer {
 	return &DeadEnsurer{
 		st:           st,
+		afterDead:    afterDead,
 		getCanModify: getCanModify,
 	}
 }
@@ -37,7 +39,13 @@ func (d *DeadEnsurer) ensureEntityDead(tag names.Tag) error {
 	if !ok {
 		return NotSupportedError(tag, "ensuring death")
 	}
-	return entity.EnsureDead()
+	if err := entity.EnsureDead(); err != nil {
+		return errors.Trace(err)
+	}
+	if d.afterDead != nil {
+		d.afterDead(tag)
+	}
+	return nil
 }
 
 // EnsureDead calls EnsureDead on each given entity from state. It

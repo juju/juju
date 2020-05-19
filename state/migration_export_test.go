@@ -17,6 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -116,14 +117,6 @@ func (s *MigrationBaseSuite) makeUnitApplicationLeader(c *gc.C, unitName, applic
 	)
 }
 
-func (s *MigrationBaseSuite) makeUnitApplicationLeaderLegacy(c *gc.C, unitName, applicationName string) {
-	err := s.State.LeadershipClaimer().ClaimLeadership(
-		applicationName,
-		unitName,
-		time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *state.Unit, names.StorageTag) {
 	pool := "modelscoped"
 	kind := "block"
@@ -190,6 +183,9 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	err = s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
 	c.Assert(err, jc.ErrorIsNil)
 
+	err = s.Model.SetPassword("supppperrrrsecret1235556667777")
+	c.Assert(err, jc.ErrorIsNil)
+
 	environVersion := 123
 	err = s.Model.SetEnvironVersion(environVersion)
 	c.Assert(err, jc.ErrorIsNil)
@@ -197,6 +193,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
+	c.Assert(model.PasswordHash(), gc.Equals, utils.AgentPasswordHash("supppperrrrsecret1235556667777"))
 	c.Assert(model.Type(), gc.Equals, string(s.Model.Type()))
 	c.Assert(model.Tag(), gc.Equals, s.Model.ModelTag())
 	c.Assert(model.Owner(), gc.Equals, s.Model.Owner())

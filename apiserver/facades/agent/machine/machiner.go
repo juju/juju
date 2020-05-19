@@ -48,7 +48,7 @@ func NewMachinerAPI(st *state.State, resources facade.Resources, authorizer faca
 	return &MachinerAPI{
 		LifeGetter:         common.NewLifeGetter(st, getCanRead),
 		StatusSetter:       common.NewStatusSetter(st, getCanModify),
-		DeadEnsurer:        common.NewDeadEnsurer(st, getCanModify),
+		DeadEnsurer:        common.NewDeadEnsurer(st, nil, getCanModify),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanRead),
 		APIAddresser:       common.NewAPIAddresser(st, resources),
 		NetworkConfigAPI:   networkingcommon.NewNetworkConfigAPI(st, getCanModify),

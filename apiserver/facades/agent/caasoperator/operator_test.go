@@ -4,6 +4,7 @@
 package caasoperator_test
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -32,6 +33,7 @@ type CAASOperatorSuite struct {
 	facade     *caasoperator.Facade
 	st         *mockState
 	broker     *mockBroker
+	revoker    *mockLeadershipRevoker
 }
 
 func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
@@ -50,8 +52,9 @@ func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.broker = &mockBroker{}
+	s.revoker = &mockLeadershipRevoker{revoked: set.NewStrings()}
 
-	facade, err := caasoperator.NewFacade(s.resources, s.authorizer, s.st, s.broker)
+	facade, err := caasoperator.NewFacade(s.resources, s.authorizer, s.st, s.broker, s.revoker)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -60,7 +63,7 @@ func (s *CAASOperatorSuite) TestPermission(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
-	_, err := caasoperator.NewFacade(s.resources, s.authorizer, s.st, s.broker)
+	_, err := caasoperator.NewFacade(s.resources, s.authorizer, s.st, s.broker, nil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -205,6 +208,7 @@ func (s *CAASOperatorSuite) TestRemove(c *gc.C) {
 				},
 			}},
 	})
+	c.Assert(s.revoker.revoked.Contains("gitlab/0"), jc.IsTrue)
 }
 
 func (s *CAASOperatorSuite) TestSetPodSpec(c *gc.C) {

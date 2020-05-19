@@ -81,16 +81,13 @@ type Fixture struct {
 	// to the extent that it returns an error on Wait(); tests that don't set
 	// this flag will check that the manager's shutdown error is nil.
 	expectDirty bool
-
-	// autoexpire is whether the store should autoexpire.
-	autoexpire bool
 }
 
 // RunTest sets up a Manager and a Clock and passes them into the supplied
 // test function. The manager will be cleaned up afterwards.
 func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)) {
 	clock := testclock.NewClock(defaultClockStart)
-	store := NewStore(fix.autoexpire, fix.leases, fix.expectCalls)
+	store := NewStore(fix.leases, fix.expectCalls, clock)
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Clock: clock,
 		Store: store,

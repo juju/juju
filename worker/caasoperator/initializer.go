@@ -107,29 +107,26 @@ func (p initializeUnitParams) Validate() error {
 }
 
 // reTrier is used for re-running some certain retryable exec request.
-type reTrier func(func() error, Logger, clock.Clock, <-chan struct{}) error
+type reTrier func(func() error, func(error) bool, Logger, clock.Clock, <-chan struct{}) error
 
-// runnerWithRetry retries exec requests for init unit process if it got 137 error.
-func runnerWithRetry(f func() error, logger Logger, clk clock.Clock, cancel <-chan struct{}) error {
-
+// runnerWithRetry retries the exec request for init unit process if it got a retryable error.
+func runnerWithRetry(f func() error, fatalChecker func(error) bool, logger Logger, clk clock.Clock, cancel <-chan struct{}) error {
 	do := func() error {
-		if wrench.IsActive("exec", "137") {
-			fakeErr := errors.New("fake 137")
-			logger.Warningf("wrench exec 137 enabled, returns %v", fakeErr)
+		if wrench.IsActive("exec", "retryable-error") {
+			fakeErr := errors.New("fake retryable-error")
+			logger.Warningf("wrench exec retryable-error enabled, returns %v", fakeErr)
 			return exec.NewExecRetryableError(fakeErr)
 		}
 		return f()
 	}
 	args := retry.CallArgs{
-		Attempts:    5,
-		Delay:       1 * time.Second,
-		MaxDuration: 30 * time.Second,
-		Clock:       clk,
-		Stop:        cancel,
-		Func:        do,
-		IsFatalError: func(err error) bool {
-			return err != nil && !exec.IsExecRetryableError(err)
-		},
+		Attempts:     5,
+		Delay:        2 * time.Second,
+		MaxDuration:  30 * time.Second,
+		Clock:        clk,
+		Stop:         cancel,
+		Func:         do,
+		IsFatalError: fatalChecker,
 		NotifyFunc: func(err error, attempt int) {
 			logger.Debugf("retrying exec request, in %d attempt, %v", attempt, err)
 		},
@@ -190,6 +187,9 @@ func initializeUnit(params initializeUnitParams, cancel <-chan struct{}) error {
 					ContainerName: container,
 				},
 			}, cancel)
+		},
+		func(err error) bool {
+			return err != nil && !exec.IsExecRetryableError(err)
 		}, params.Logger, params.Clock, cancel,
 	)
 	if err != nil {

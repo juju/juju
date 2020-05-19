@@ -26,6 +26,10 @@ import (
 // leadership claim has been denied.
 var ErrClaimDenied = errors.New("leadership claim denied")
 
+// ErrClaimNotHeld is the error which will be returned when a
+// leadership lease is not held.
+var ErrClaimNotHeld = errors.New("leadership lease not held")
+
 // ErrBlockCancelled is returned from BlockUntilLeadershipReleased
 // if the client cancels the request by closing the cancel channel.
 var ErrBlockCancelled = errors.New("waiting for leadership cancelled by client")
@@ -68,6 +72,13 @@ type Claimer interface {
 	// to have no leader, in which case it returns no error; or until the
 	// manager is stopped, in which case it will fail.
 	BlockUntilLeadershipReleased(applicationId string, cancel <-chan struct{}) (err error)
+}
+
+// Claimer exposes leadership revocation capabilities.
+type Revoker interface {
+	// RevokeLeadership revokes leadership of the named application
+	// on behalf of the named unit.
+	RevokeLeadership(applicationId, unitId string) error
 }
 
 // Pinner describes methods used to manage suspension of application leadership
