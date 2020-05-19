@@ -371,7 +371,9 @@ func (s *syncScopesSuite) TestSynchronizeScopesNoRemoteRelationsDestroySubordina
 		StateManager:      s.stateMgr,
 		Subordinate:       true,
 		PrincipalName:     "ubuntu/0",
-		NewRelationerFunc: func(_ relation.RelationUnit, _ relation.StateManager) relation.Relationer { return s.relationer },
+		NewRelationerFunc: func(_ relation.RelationUnit, _ relation.StateManager, _ relation.Logger) relation.Relationer {
+			return s.relationer
+		},
 	}
 	rst, err := relation.NewStateTrackerForTest(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -722,7 +724,9 @@ func (s *baseStateTrackerSuite) newStateTracker(c *gc.C) relation.RelationStateT
 		Unit:              s.unit,
 		LeadershipContext: s.leadershipContext,
 		StateManager:      s.stateMgr,
-		NewRelationerFunc: func(_ relation.RelationUnit, _ relation.StateManager) relation.Relationer { return s.relationer },
+		NewRelationerFunc: func(_ relation.RelationUnit, _ relation.StateManager, _ relation.Logger) relation.Relationer {
+			return s.relationer
+		},
 	}
 	rst, err := relation.NewStateTrackerForTest(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -735,10 +739,12 @@ func (s *syncScopesSuite) newSyncScopesStateTracker(c *gc.C, relationers map[int
 		Unit:              s.unit,
 		LeadershipContext: s.leadershipContext,
 		StateManager:      s.stateMgr,
-		NewRelationerFunc: func(_ relation.RelationUnit, _ relation.StateManager) relation.Relationer { return s.relationer },
-		Relationers:       relationers,
-		RemoteAppName:     appNames,
-		CharmDir:          s.charmDir,
+		NewRelationerFunc: func(_ relation.RelationUnit, _ relation.StateManager, _ relation.Logger) relation.Relationer {
+			return s.relationer
+		},
+		Relationers:   relationers,
+		RemoteAppName: appNames,
+		CharmDir:      s.charmDir,
 	}
 	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
 	c.Assert(err, jc.ErrorIsNil)

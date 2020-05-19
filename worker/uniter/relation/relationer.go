@@ -20,15 +20,18 @@ type relationer struct {
 	ru         RelationUnit
 	stateMgr   StateManager
 	dying      bool
+
+	logger Logger
 }
 
 // NewRelationer creates a new relationer. The unit will not join the
 // relation until explicitly requested.
-func NewRelationer(ru RelationUnit, stateMgr StateManager) Relationer {
+func NewRelationer(ru RelationUnit, stateMgr StateManager, logger Logger) Relationer {
 	return &relationer{
 		relationId: ru.Relation().Id(),
 		ru:         ru,
 		stateMgr:   stateMgr,
+		logger:     logger,
 	}
 }
 
@@ -117,7 +120,7 @@ func (r *relationer) PrepareHook(hi hook.Info) (string, error) {
 	if r.IsImplicit() {
 		// Implicit relations always return ErrNoOperation from
 		// NextOp.  Something broken if we reach here.
-		logger.Errorf("implicit relations must not run hooks")
+		r.logger.Errorf("implicit relations must not run hooks")
 		return "", dependency.ErrBounce
 	}
 	st, err := r.stateMgr.Relation(hi.RelationId)
@@ -136,7 +139,7 @@ func (r *relationer) CommitHook(hi hook.Info) error {
 	if r.IsImplicit() {
 		// Implicit relations always return ErrNoOperation from
 		// NextOp.  Something broken if we reach here.
-		logger.Errorf("implicit relations must not run hooks")
+		r.logger.Errorf("implicit relations must not run hooks")
 		return dependency.ErrBounce
 	}
 	if hi.Kind == hooks.RelationBroken {

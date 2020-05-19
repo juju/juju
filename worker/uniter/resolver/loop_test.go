@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/charm/v7"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -58,6 +59,7 @@ func (s *LoopSuite) loop() (resolver.LocalState, error) {
 		Abort:         s.abort,
 		OnIdle:        s.onIdle,
 		CharmDirGuard: &mockCharmDirGuard{},
+		Logger:        loggo.GetLogger("test"),
 	}, &localState)
 	return localState, err
 }

@@ -358,6 +358,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				ContainerRunningStatusChannel: u.containerRunningStatusChannel,
 				ContainerRunningStatusFunc:    u.containerRunningStatusFunc,
 				ModelType:                     u.modelType,
+				Logger:                        u.logger.Child("remotestate"),
 			})
 		if err != nil {
 			return errors.Trace(err)
@@ -436,8 +437,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				u.logger.Child("leadership"),
 			),
 			CreatedRelations: relation.NewCreatedRelationResolver(u.relationStateTracker),
-			Relations:        relation.NewRelationResolver(u.relationStateTracker, u.unit),
-			Storage:          storage.NewResolver(u.storage, u.modelType),
+			Relations: relation.NewRelationResolver(
+				u.relationStateTracker, u.unit, u.logger.Child("relation")),
+			Storage: storage.NewResolver(u.storage, u.modelType),
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
@@ -473,6 +475,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				Abort:         u.catacomb.Dying(),
 				OnIdle:        onIdle,
 				CharmDirGuard: u.charmDirGuard,
+				Logger:        u.logger.Child("resolver"),
 			}, &localState)
 
 			err = u.translateResolverErr(err)
@@ -615,6 +618,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 			NewLeadershipContext: context.NewLeadershipContext,
 			CharmDir:             u.paths.State.CharmDir,
 			Abort:                u.catacomb.Dying(),
+			Logger:               u.logger.Child("relation"),
 		})
 	if err != nil {
 		return errors.Annotatef(err, "cannot create relation state tracker")

@@ -4,6 +4,8 @@
 package relation
 
 import (
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
@@ -15,7 +17,7 @@ type StateTrackerForTestConfig struct {
 	PrincipalName     string
 	CharmDir          string
 	StateManager      StateManager
-	NewRelationerFunc func(ru RelationUnit, stateMgr StateManager) Relationer
+	NewRelationerFunc func(RelationUnit, StateManager, Logger) Relationer
 	Relationers       map[int]Relationer
 	RemoteAppName     map[int]string
 }
@@ -34,6 +36,7 @@ func NewStateTrackerForTest(cfg StateTrackerForTestConfig) (RelationStateTracker
 		relationCreated: make(map[int]bool),
 		isPeerRelation:  make(map[int]bool),
 		stateMgr:        cfg.StateManager,
+		logger:          loggo.GetLogger("test"),
 		newRelationer:   cfg.NewRelationerFunc,
 	}
 
@@ -51,6 +54,7 @@ func NewStateTrackerForSyncScopesTest(cfg StateTrackerForTestConfig) (RelationSt
 		relationCreated: make(map[int]bool),
 		isPeerRelation:  make(map[int]bool),
 		stateMgr:        cfg.StateManager,
+		logger:          loggo.GetLogger("test"),
 		newRelationer:   cfg.NewRelationerFunc,
 		charmDir:        cfg.CharmDir,
 	}, nil
