@@ -29,12 +29,11 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/applicationscaler"
-	"github.com/juju/juju/worker/caasadmission"
 	"github.com/juju/juju/worker/caasbroker"
 	"github.com/juju/juju/worker/caasenvironupgrader"
 	"github.com/juju/juju/worker/caasfirewaller"
+	"github.com/juju/juju/worker/caasmodeloperator"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
-	"github.com/juju/juju/worker/caasrbacmapper"
 	"github.com/juju/juju/worker/caasunitprovisioner"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
@@ -479,16 +478,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:                 config.LoggingContext.GetLogger("juju.worker.caas"),
 		})),
 
-		caasAdmissionName: ifResponsible(caasadmission.Manifold(caasadmission.ManifoldConfig{
-			AgentName:      agentName,
-			APICallerName:  apiCallerName,
-			Authority:      config.Authority,
-			BrokerName:     caasBrokerTrackerName,
-			Logger:         loggo.GetLogger("juju.worker.caasadmission"),
-			Mux:            config.Mux,
-			RBACMapperName: caasRBACMapperName,
-		})),
-
 		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
 			caasfirewaller.ManifoldConfig{
 				APICallerName:  apiCallerName,
@@ -502,6 +491,15 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
 			},
 		)),
+
+		caasModelOperatorName: ifResponsible(caasmodeloperator.Manifold(caasmodeloperator.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			BrokerName:    caasBrokerTrackerName,
+			Logger:        loggo.GetLogger("juju.worker.caasmodeloperator"),
+			ModelUUID:     agentConfig.Model().Id(),
+		})),
+
 		caasOperatorProvisionerName: ifNotMigrating(caasoperatorprovisioner.Manifold(
 			caasoperatorprovisioner.ManifoldConfig{
 				AgentName:     agentName,
@@ -510,13 +508,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 				ClockName:     clockName,
 				NewWorker:     caasoperatorprovisioner.NewProvisionerWorker,
 				Logger:        config.LoggingContext.GetLogger("juju.worker.caasprovisioner"),
-			},
-		)),
-
-		caasRBACMapperName: ifResponsible(caasrbacmapper.Manifold(
-			caasrbacmapper.ManifoldConfig{
-				BrokerName: caasBrokerTrackerName,
-				Logger:     loggo.GetLogger("juju.worker.caasrbacmapper"),
 			},
 		)),
 
@@ -672,8 +663,8 @@ const (
 
 	caasAdmissionName           = "caas-admission"
 	caasFirewallerName          = "caas-firewaller"
+	caasModelOperatorName       = "caas-model-operator"
 	caasOperatorProvisionerName = "caas-operator-provisioner"
-	caasRBACMapperName          = "caas-rbac-mapper"
 	caasUnitProvisionerName     = "caas-unit-provisioner"
 	caasStorageProvisionerName  = "caas-storage-provisioner"
 	caasBrokerTrackerName       = "caas-broker-tracker"

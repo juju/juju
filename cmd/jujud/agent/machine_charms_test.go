@@ -39,10 +39,10 @@ func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 	}
 	s.commonMachineSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)
+	bootstrapRaft(c, s.DataDir())
 }
 
 func (s *MachineWithCharmsSuite) TestManageModelRunsCharmRevisionUpdater(c *gc.C) {
-	c.Skip("Update this test to work with raft leases")
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 
 	s.SetupScenario(c)
@@ -53,6 +53,8 @@ func (s *MachineWithCharmsSuite) TestManageModelRunsCharmRevisionUpdater(c *gc.C
 		c.Check(a.Run(ctx), jc.ErrorIsNil)
 	}()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	startAddressPublisher(s, c, a)
 
 	checkRevision := func() bool {
 		curl := charm.MustParseURL("cs:quantal/mysql")

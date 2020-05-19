@@ -72,18 +72,9 @@ func ImportModel(importer StateImporter, getClaimer ClaimerFunc, bytes []byte) (
 		return nil, nil, errors.Trace(err)
 	}
 
-	// If we're using legacy-leases we get the claimer from the new
-	// state - otherwise use the function passed in.
-	//
-	var claimer leadership.Claimer
-	// TODO(legacy-leases): remove this.
-	if false {
-		claimer = dbState.LeadershipClaimer()
-	} else {
-		claimer, err = getClaimer(dbModel.UUID())
-		if err != nil {
-			return nil, nil, errors.Annotate(err, "getting leadership claimer")
-		}
+	claimer, err := getClaimer(dbModel.UUID())
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "getting leadership claimer")
 	}
 
 	logger.Debugf("importing leadership")

@@ -54,13 +54,21 @@ func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
 			return tag == x0 || tag == x1 || tag == x2 || tag == x4
 		}, nil
 	}
+	afterDeadCalled := false
+	afterDead := func(tag names.Tag) {
+		if tag != u("x/1") && tag != u("x/2") {
+			c.Fail()
+		}
+		afterDeadCalled = true
+	}
 
-	d := common.NewDeadEnsurer(st, getCanModify)
+	d := common.NewDeadEnsurer(st, afterDead, getCanModify)
 	entities := params.Entities{[]params.Entity{
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"}, {"unit-x-5"},
 	}}
 	result, err := d.EnsureDead(entities)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(afterDeadCalled, jc.IsTrue)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{Message: "x0 fails"}},
@@ -77,7 +85,7 @@ func (*deadEnsurerSuite) TestEnsureDeadError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	d := common.NewDeadEnsurer(&fakeState{}, getCanModify)
+	d := common.NewDeadEnsurer(&fakeState{}, nil, getCanModify)
 	_, err := d.EnsureDead(params.Entities{[]params.Entity{{"x0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
@@ -86,7 +94,7 @@ func (*removeSuite) TestEnsureDeadNoArgsNoError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	d := common.NewDeadEnsurer(&fakeState{}, getCanModify)
+	d := common.NewDeadEnsurer(&fakeState{}, nil, getCanModify)
 	result, err := d.EnsureDead(params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)

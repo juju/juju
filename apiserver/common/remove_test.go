@@ -61,13 +61,21 @@ func (*removeSuite) TestRemove(c *gc.C) {
 			return tag == u0 || tag == u1 || tag == u2 || tag == u3 || tag == u5
 		}, nil
 	}
+	afterDeadCalled := false
+	afterDead := func(tag names.Tag) {
+		if tag != u("x/1") && tag != u("x/3") {
+			c.Fail()
+		}
+		afterDeadCalled = true
+	}
 
-	r := common.NewRemover(st, true, getCanModify)
+	r := common.NewRemover(st, afterDead, true, getCanModify)
 	entities := params.Entities{[]params.Entity{
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"}, {"unit-x-5"}, {"unit-x-6"},
 	}}
 	result, err := r.Remove(entities)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(afterDeadCalled, jc.IsTrue)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{Message: "x0 EnsureDead fails"}},
@@ -82,10 +90,12 @@ func (*removeSuite) TestRemove(c *gc.C) {
 
 	// Make sure when callEnsureDead is false EnsureDead() doesn't
 	// get called.
-	r = common.NewRemover(st, false, getCanModify)
+	afterDeadCalled = false
+	r = common.NewRemover(st, afterDead, false, getCanModify)
 	entities = params.Entities{[]params.Entity{{"unit-x-0"}, {"unit-x-1"}}}
 	result, err = r.Remove(entities)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(afterDeadCalled, jc.IsFalse)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{nil},
@@ -98,7 +108,7 @@ func (*removeSuite) TestRemoveError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	r := common.NewRemover(&fakeState{}, true, getCanModify)
+	r := common.NewRemover(&fakeState{}, nil, true, getCanModify)
 	_, err := r.Remove(params.Entities{[]params.Entity{{"x0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
@@ -107,7 +117,7 @@ func (*removeSuite) TestRemoveNoArgsNoError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	r := common.NewRemover(&fakeState{}, true, getCanModify)
+	r := common.NewRemover(&fakeState{}, nil, true, getCanModify)
 	result, err := r.Remove(params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)

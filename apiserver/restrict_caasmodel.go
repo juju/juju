@@ -72,6 +72,7 @@ var caasModelFacadeNames = set.NewStrings(
 	"CAASAdmission",
 	"CAASAgent",
 	"CAASFirewaller",
+	"CAASModelOperator",
 	"CAASOperator",
 	"CAASOperatorProvisioner",
 	"CAASOperatorUpgrader",

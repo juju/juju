@@ -166,6 +166,10 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	leadershipRevoker, err := context.LeadershipRevoker(st.ModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	accessUnit := unitAccessor(authorizer, st)
 	accessApplication := applicationAccessor(authorizer, st)
@@ -208,7 +212,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 
 	return &UniterAPI{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrApplication),
-		DeadEnsurer:                common.NewDeadEnsurer(st, accessUnit),
+		DeadEnsurer:                common.NewDeadEnsurer(st, common.RevokeLeadershipFunc(leadershipRevoker), accessUnit),
 		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrApplication),
 		APIAddresser:               common.NewAPIAddresser(st, resources),
 		ModelWatcher:               common.NewModelWatcher(m, resources, authorizer),
