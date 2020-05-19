@@ -193,16 +193,16 @@ func filterAddrs(
 
 // gatherLXCAddresses tries to discover the default lxc bridge name
 // and all of its addresses. See LP bug #1416928.
-func gatherLXCAddresses(toRemove map[string][]net.Addr) {
+func gatherLXCAddresses() (string, []net.Addr) {
 	file, err := os.Open(LXCNetDefaultConfig)
 	if os.IsNotExist(err) {
 		// No lxc-net config found, nothing to do.
 		logger.Debugf("no lxc bridge addresses to filter for machine")
-		return
+		return "", nil
 	} else if err != nil {
 		// Just log it, as it's not fatal.
 		logger.Errorf("cannot open %q: %v", LXCNetDefaultConfig, err)
-		return
+		return "", nil
 	}
 	defer file.Close()
 
@@ -220,26 +220,23 @@ func gatherLXCAddresses(toRemove map[string][]net.Addr) {
 				continue
 			}
 			bridgeName := strings.TrimSpace(parts[1])
-			gatherBridgeAddresses(bridgeName, toRemove)
-			return
+			return bridgeName, gatherBridgeAddresses(bridgeName)
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		logger.Debugf("failed to read %q: %v (ignoring)", LXCNetDefaultConfig, err)
 	}
-	return
+	return "", nil
 }
 
-func gatherBridgeAddresses(bridgeName string, toRemove map[string][]net.Addr) {
+func gatherBridgeAddresses(bridgeName string) []net.Addr {
 	addrs, err := InterfaceByNameAddrs(bridgeName)
 	if err != nil {
 		logger.Debugf("cannot get %q addresses: %v (ignoring)", bridgeName, err)
-		return
+		return nil
 	}
 	logger.Debugf("%q has addresses %v", bridgeName, addrs)
-	toRemove[bridgeName] = addrs
-	return
-
+	return addrs
 }
 
 // FilterBridgeAddresses removes addresses seen as a Bridge address
@@ -247,9 +244,11 @@ func gatherBridgeAddresses(bridgeName string, toRemove map[string][]net.Addr) {
 // rather than a remote accessible address.
 func FilterBridgeAddresses(addresses []corenetwork.ProviderAddress) corenetwork.ProviderAddresses {
 	addressesToRemove := make(map[string][]net.Addr)
-	gatherLXCAddresses(addressesToRemove)
-	gatherBridgeAddresses(DefaultLXDBridge, addressesToRemove)
-	gatherBridgeAddresses(DefaultKVMBridge, addressesToRemove)
+	if bridgeName, addrs := gatherLXCAddresses(); addrs != nil {
+		addressesToRemove[bridgeName] = addrs
+	}
+	addressesToRemove[DefaultLXDBridge] = gatherBridgeAddresses(DefaultLXDBridge)
+	addressesToRemove[DefaultKVMBridge] = gatherBridgeAddresses(DefaultKVMBridge)
 	filtered := filterAddrs(addresses, addressesToRemove)
 	logger.Debugf("addresses after filtering: %v", filtered)
 	return filtered
