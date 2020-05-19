@@ -37,15 +37,18 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 
 	resources := common.NewResources()
 	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
+
 	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
 	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, thirdPartyKey, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
+
 	apiV1, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, nil, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
+
 	s.api = &applicationoffers.OffersAPIV2{OffersAPI: apiV1}
 }
 

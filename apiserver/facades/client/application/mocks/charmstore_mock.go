@@ -5,14 +5,13 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
-	charm_v6 "github.com/juju/charm/v7"
+	charm "github.com/juju/charm/v7"
 	application "github.com/juju/juju/apiserver/facades/client/application"
 	controller "github.com/juju/juju/controller"
 	state "github.com/juju/juju/state"
-	mgo_v2 "gopkg.in/mgo.v2"
+	mgo "gopkg.in/mgo.v2"
+	reflect "reflect"
 )
 
 // MockState is a mock of State interface
@@ -40,6 +39,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 
 // ControllerConfig mocks base method
 func (m *MockState) ControllerConfig() (controller.Config, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerConfig")
 	ret0, _ := ret[0].(controller.Config)
 	ret1, _ := ret[1].(error)
@@ -48,11 +48,13 @@ func (m *MockState) ControllerConfig() (controller.Config, error) {
 
 // ControllerConfig indicates an expected call of ControllerConfig
 func (mr *MockStateMockRecorder) ControllerConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockState)(nil).ControllerConfig))
 }
 
 // Model mocks base method
 func (m *MockState) Model() (application.StateModel, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Model")
 	ret0, _ := ret[0].(application.StateModel)
 	ret1, _ := ret[1].(error)
@@ -61,11 +63,13 @@ func (m *MockState) Model() (application.StateModel, error) {
 
 // Model indicates an expected call of Model
 func (mr *MockStateMockRecorder) Model() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockState)(nil).Model))
 }
 
 // ModelUUID mocks base method
 func (m *MockState) ModelUUID() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelUUID")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -73,23 +77,27 @@ func (m *MockState) ModelUUID() string {
 
 // ModelUUID indicates an expected call of ModelUUID
 func (mr *MockStateMockRecorder) ModelUUID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockState)(nil).ModelUUID))
 }
 
 // MongoSession mocks base method
-func (m *MockState) MongoSession() *mgo_v2.Session {
+func (m *MockState) MongoSession() *mgo.Session {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MongoSession")
-	ret0, _ := ret[0].(*mgo_v2.Session)
+	ret0, _ := ret[0].(*mgo.Session)
 	return ret0
 }
 
 // MongoSession indicates an expected call of MongoSession
 func (mr *MockStateMockRecorder) MongoSession() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoSession", reflect.TypeOf((*MockState)(nil).MongoSession))
 }
 
 // PrepareStoreCharmUpload mocks base method
-func (m *MockState) PrepareStoreCharmUpload(arg0 *charm_v6.URL) (application.StateCharm, error) {
+func (m *MockState) PrepareStoreCharmUpload(arg0 *charm.URL) (application.StateCharm, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareStoreCharmUpload", arg0)
 	ret0, _ := ret[0].(application.StateCharm)
 	ret1, _ := ret[1].(error)
@@ -98,11 +106,13 @@ func (m *MockState) PrepareStoreCharmUpload(arg0 *charm_v6.URL) (application.Sta
 
 // PrepareStoreCharmUpload indicates an expected call of PrepareStoreCharmUpload
 func (mr *MockStateMockRecorder) PrepareStoreCharmUpload(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareStoreCharmUpload", reflect.TypeOf((*MockState)(nil).PrepareStoreCharmUpload), arg0)
 }
 
 // UpdateUploadedCharm mocks base method
 func (m *MockState) UpdateUploadedCharm(arg0 state.CharmInfo) (*state.Charm, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateUploadedCharm", arg0)
 	ret0, _ := ret[0].(*state.Charm)
 	ret1, _ := ret[1].(error)
@@ -111,5 +121,6 @@ func (m *MockState) UpdateUploadedCharm(arg0 state.CharmInfo) (*state.Charm, err
 
 // UpdateUploadedCharm indicates an expected call of UpdateUploadedCharm
 func (mr *MockStateMockRecorder) UpdateUploadedCharm(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUploadedCharm", reflect.TypeOf((*MockState)(nil).UpdateUploadedCharm), arg0)
 }
