@@ -16,14 +16,27 @@ var getCommandOutput = func(cmd *exec.Cmd) ([]byte, error) { return cmd.Output()
 
 // OvsManagedBridges returns a filtered version of ifaceList that only contains
 // bridge interfaces managed by openvswitch.
-func OvsManagedBridges(ifaceList InterfaceInfos) (InterfaceInfos, error) {
+func OvsManagedBridgeInterfaces(ifaceList InterfaceInfos) (InterfaceInfos, error) {
+	ovsBridges, err := OvsManagedBridges()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return ifaceList.Filter(func(iface InterfaceInfo) bool {
+		return ovsBridges.Contains(iface.InterfaceName)
+	}), nil
+}
+
+// OvsManagedBridges returns a set containing the names of all bridge
+// interfaces that are managed by openvswitch.
+func OvsManagedBridges() (set.Strings, error) {
 	if _, err := exec.LookPath("ovs-vsctl"); err != nil {
 		// ovs tools not installed; nothing to do
 		if execErr, isExecErr := err.(*exec.Error); isExecErr && execErr.Unwrap() == exec.ErrNotFound {
 			return nil, nil
 		}
 
-		return nil, errors.Annotate(err, "ovsManagedBridges: looking for ovs-vsctl")
+		return nil, errors.Annotate(err, "looking for ovs-vsctl")
 	}
 
 	// Query list of ovs-managed device names
@@ -38,8 +51,5 @@ func OvsManagedBridges(ifaceList InterfaceInfos) (InterfaceInfos, error) {
 			ovsBridges.Add(iface)
 		}
 	}
-
-	return ifaceList.Filter(func(iface InterfaceInfo) bool {
-		return ovsBridges.Contains(iface.InterfaceName)
-	}), nil
+	return ovsBridges, nil
 }

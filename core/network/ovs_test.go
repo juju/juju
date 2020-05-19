@@ -25,7 +25,7 @@ func (s *ovsSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
 
-func (s *ovsSuite) TestExistingOVSManagedBridges(c *gc.C) {
+func (s *ovsSuite) TestExistingOVSManagedBridgeInterfaces(c *gc.C) {
 	// Patch output for "ovs-vsctl list-br" and make sure exec.LookPath can
 	// detect it in the path
 	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
@@ -41,13 +41,13 @@ func (s *ovsSuite) TestExistingOVSManagedBridges(c *gc.C) {
 		{InterfaceName: "ovsbr1"},
 	}
 
-	ovsIfaces, err := OvsManagedBridges(ifaces)
+	ovsIfaces, err := OvsManagedBridgeInterfaces(ifaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ovsIfaces, gc.HasLen, 1, gc.Commentf("expected ovs-managed bridge list to contain a single entry"))
 	c.Assert(ovsIfaces[0].InterfaceName, gc.Equals, "ovsbr1", gc.Commentf("expected ovs-managed bridge list to contain iface 'ovsbr1'"))
 }
 
-func (s *ovsSuite) TestNonExistingOVSManagedBridges(c *gc.C) {
+func (s *ovsSuite) TestNonExistingOVSManagedBridgeInterfaces(c *gc.C) {
 	// Patch output for "ovs-vsctl list-br" and make sure exec.LookPath can
 	// detect it in the path
 	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
@@ -62,14 +62,14 @@ func (s *ovsSuite) TestNonExistingOVSManagedBridges(c *gc.C) {
 		{InterfaceName: "lxdbr0"},
 	}
 
-	ovsIfaces, err := OvsManagedBridges(ifaces)
+	ovsIfaces, err := OvsManagedBridgeInterfaces(ifaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ovsIfaces, gc.HasLen, 0, gc.Commentf("expected ovs-managed bridge list to be empty"))
 }
 
 func (s *ovsSuite) TestMissingOVSTools(c *gc.C) {
 	ifaces := InterfaceInfos{{InterfaceName: "eth0"}}
-	ovsIfaces, err := OvsManagedBridges(ifaces)
+	ovsIfaces, err := OvsManagedBridgeInterfaces(ifaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ovsIfaces, gc.HasLen, 0, gc.Commentf("expected ovs-managed bridge list to be empty"))
 }
