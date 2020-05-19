@@ -376,7 +376,7 @@ func (st *State) isMachineProvisioned(machineId string) (bool, error) {
 
 var errUpgradeInfoNotUpdated = errors.New("upgrade info not updated")
 
-func ensureUpgradeInfoUpdated(st *State, machineId string, previousVersion, targetVersion version.Number) (*UpgradeInfo, error) {
+func ensureUpgradeInfoUpdated(st *State, controllerId string, previousVersion, targetVersion version.Number) (*UpgradeInfo, error) {
 	var doc upgradeInfoDoc
 	if pdoc, err := currentUpgradeInfoDoc(st); err != nil {
 		return nil, errors.Trace(err)
@@ -396,7 +396,7 @@ func ensureUpgradeInfoUpdated(st *State, machineId string, previousVersion, targ
 	}
 
 	controllersReady := set.NewStrings(doc.ControllersReady...)
-	if !controllersReady.Contains(machineId) {
+	if !controllersReady.Contains(controllerId) {
 		return nil, errors.Trace(errUpgradeInfoNotUpdated)
 	}
 	return &UpgradeInfo{st: st, doc: doc}, nil

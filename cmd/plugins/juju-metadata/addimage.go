@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/os/series"
 
 	"github.com/juju/juju/apiserver/params"
@@ -146,6 +147,7 @@ func (c *addImageMetadataCommand) constructMetadataParam() params.CloudImageMeta
 		RootStorageType: c.RootStorageType,
 		Stream:          c.Stream,
 		Source:          "custom",
+		Priority:        simplestreams.CUSTOM_CLOUD_DATA,
 	}
 	if c.RootStorageSize != 0 {
 		info.RootStorageSize = &c.RootStorageSize

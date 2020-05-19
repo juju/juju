@@ -92,10 +92,9 @@ func (w WatcherConfig) validate() error {
 		if w.ApplicationChannel == nil {
 			return errors.NotValidf("watcher config for CAAS model with nil application channel")
 		}
-		if w.ContainerRunningStatusFunc != nil {
-			if w.ContainerRunningStatusChannel == nil {
-				return errors.NotValidf("watcher config for CAAS model with nil container running status channel")
-			}
+		if w.ContainerRunningStatusChannel != nil &&
+			w.ContainerRunningStatusFunc == nil {
+			return errors.NotValidf("watcher config for CAAS model with nil container running status func")
 		}
 	}
 	if w.Logger == nil {
@@ -133,7 +132,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		current: Snapshot{
 			Relations:      make(map[int]RelationSnapshot),
 			Storage:        make(map[names.StorageTag]StorageSnapshot),
-			ActionsBlocked: config.ContainerRunningStatusFunc != nil,
+			ActionsBlocked: config.ContainerRunningStatusChannel != nil,
 			ActionChanged:  make(map[string]int),
 		},
 	}

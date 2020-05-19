@@ -32,7 +32,7 @@ type NetworkUbuntuSuite struct {
 	systemNetworkInterfacesFile string
 	jujuNetplanFile             string
 
-	fakeInterfaces []corenetwork.InterfaceInfo
+	fakeInterfaces corenetwork.InterfaceInfos
 
 	expectedSampleConfigHeader      string
 	expectedSampleConfigTemplate    string
@@ -66,7 +66,7 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 	s.networkInterfacesPythonFile = filepath.Join(networkFolder, "system-interfaces.py")
 	s.jujuNetplanFile = filepath.Join(netplanFolder, "79-juju.yaml")
 
-	s.fakeInterfaces = []corenetwork.InterfaceInfo{{
+	s.fakeInterfaces = corenetwork.InterfaceInfos{{
 		InterfaceName:    "any0",
 		CIDR:             "0.1.2.0/24",
 		ConfigType:       corenetwork.ConfigStatic,
@@ -554,12 +554,23 @@ func (s *NetworkUbuntuSuite) TestENIScriptHotplug(c *gc.C) {
 	}
 }
 
+func (s *NetworkUbuntuSuite) TestPrepareNetworkConfigFromInterfacesBadCIDRError(c *gc.C) {
+	s.fakeInterfaces[0].CIDR = "invalid"
+	_, err := cloudinit.PrepareNetworkConfigFromInterfaces(s.fakeInterfaces)
+	c.Assert(err, gc.ErrorMatches, `invalid CIDR address: invalid`)
+}
+
+func (s *NetworkUbuntuSuite) TestGenerateNetplanBadAddressError(c *gc.C) {
+	s.fakeInterfaces[0].Addresses[0].Value = "invalid"
+	_, err := cloudinit.PrepareNetworkConfigFromInterfaces(s.fakeInterfaces)
+	c.Assert(err, gc.ErrorMatches, `cannot parse IP address "invalid"`)
+}
+
 func (s *NetworkUbuntuSuite) runENIScriptWithAllPythons(c *gc.C, ipCommand, input, expectedOutput string, wait, retries int) {
 	for _, python := range s.pythonVersions {
 		c.Logf("test using %s", python)
 		s.runENIScript(c, python, ipCommand, input, expectedOutput, wait, retries)
 	}
-
 }
 
 func (s *NetworkUbuntuSuite) runENIScript(c *gc.C, pythonBinary, ipCommand, input, expectedOutput string, wait, retries int) {

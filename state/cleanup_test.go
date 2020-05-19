@@ -219,12 +219,15 @@ func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 	// Destroy model, check cleanup queued.
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = model.Destroy(state.DestroyModelParams{})
+	force := true
+	err = model.Destroy(state.DestroyModelParams{Force: &force})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 
 	// Clean up, and check that the unit has been removed...
-	s.assertCleanupCount(c, 4)
+	// There are 4 jobs for the destroy and then the model
+	// cleanup task queues another set because force is used.
+	s.assertCleanupCountDirty(c, 4)
 	assertRemoved(c, pr.u0)
 
 	// ...and the unit has departed relation scope...
@@ -932,7 +935,7 @@ func (s *CleanupSuite) TestCleanupVolumeAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
-	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"))
+	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
@@ -952,7 +955,7 @@ func (s *CleanupSuite) TestCleanupFilesystemAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
-	err = s.storageBackend.DestroyFilesystem(names.NewFilesystemTag("0/0"))
+	err = s.storageBackend.DestroyFilesystem(names.NewFilesystemTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
@@ -1068,9 +1071,8 @@ func (s *CleanupSuite) TestDyingUnitWithForceSchedulesForceFallback(c *gc.C) {
 	s.assertCleanupRuns(c)
 
 	assertUnitRemoved(c, unit)
-	// After this there are three cleanups remaining: removedUnit,
-	// dyingMachine, forceRemoveMachine (but the last is delayed a
-	// minute).
+	// After this there are two cleanups remaining: removedUnit, forceRemoveMachine
+	//(but the last is delayed a minute).
 	s.assertCleanupCountDirty(c, 2)
 
 	s.Clock.Advance(time.Minute)
@@ -1134,9 +1136,8 @@ func (s *CleanupSuite) TestForceDestroyUnitDestroysSubordinates(c *gc.C) {
 	s.assertNextCleanup(c, "forceRemoveUnit")
 
 	assertUnitRemoved(c, unit)
-	// After this there are three cleanups remaining: removedUnit,
-	// dyingMachine, forceRemoveMachine.
-	s.assertCleanupCount(c, 3)
+	// After this there are two cleanups remaining: removedUnit, forceRemoveMachine.
+	s.assertCleanupCount(c, 2)
 }
 
 func (s *CleanupSuite) TestForceDestroyUnitLeavesRelations(c *gc.C) {
@@ -1171,9 +1172,8 @@ func (s *CleanupSuite) TestForceDestroyUnitLeavesRelations(c *gc.C) {
 	s.assertCleanupRuns(c)
 
 	assertUnitRemoved(c, unit)
-	// After this there are three cleanups remaining: removedUnit,
-	// dyingMachine, forceRemoveMachine.
-	s.assertCleanupCount(c, 3)
+	// After this there are two cleanups remaining: removedUnit, forceRemoveMachine.
+	s.assertCleanupCount(c, 2)
 }
 
 func (s *CleanupSuite) TestForceDestroyUnitRemovesStorageAttachments(c *gc.C) {
@@ -1243,9 +1243,8 @@ func (s *CleanupSuite) TestForceDestroyUnitRemovesStorageAttachments(c *gc.C) {
 	s.assertCleanupRuns(c)
 
 	assertUnitRemoved(c, u)
-	// After this there are two cleanups remaining: removedUnit,
-	// dyingMachine, forceRemoveMachine.
-	s.assertCleanupCount(c, 3)
+	// After this there are two cleanups remaining: removedUnit, forceRemoveMachine.
+	s.assertCleanupCount(c, 2)
 }
 
 func (s *CleanupSuite) TestForceDestroyApplicationRemovesUnitsThatAreAlreadyDying(c *gc.C) {

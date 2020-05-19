@@ -4,8 +4,6 @@
 package ec2_test
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -165,18 +163,14 @@ func (s *ProviderSuite) TestMaybeConvertCredentialErrorConvertsCredentialRelated
 	}
 }
 
-func (s *ProviderSuite) TestMaybeConvertCredentialErrorAppendsAuthorisationFailureMessage(c *gc.C) {
+func (s *ProviderSuite) TestMaybeConvertCredentialErrorNotInvalidCredential(c *gc.C) {
 	for _, code := range []string{
 		"OptInRequired",
 		"UnauthorizedOperation",
 	} {
 		err := ec2.MaybeConvertCredentialError(&ec2cloud.Error{Code: code}, context.NewCloudCallContext())
 		c.Assert(err, gc.NotNil)
-		c.Assert(err, jc.Satisfies, common.IsCredentialNotValid)
-		c.Assert(err.Error(), jc.Contains, fmt.Sprintf("\nPlease subscribe to the requested Amazon service. \n"+
-			"You are currently not authorized to use it.\n"+
-			"New Amazon accounts might take some time to be activated while \n"+
-			"your details are being verified.:  (%v)", code))
+		c.Assert(err, gc.Not(jc.Satisfies), common.IsCredentialNotValid)
 	}
 }
 

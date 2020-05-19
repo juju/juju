@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"testing"
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -33,8 +32,6 @@ type HandlerSuite struct {
 }
 
 var _ = gc.Suite(&HandlerSuite{})
-
-func TestHandlerSuite(t *testing.T) { gc.TestingT(t) }
 
 func (h *HandlerSuite) SetupTest(c *gc.C) {
 	h.logger = loggo.Logger{}

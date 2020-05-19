@@ -48,26 +48,16 @@ func NewStorage(collectionName string, store DataStore) Storage {
 
 var emptyMetadata = Metadata{}
 
-// SaveMetadataNoExpiry implements Storage.SaveMetadataNoExpiry and behaves as save-or-update.
-// Records will not expire.
-func (s *storage) SaveMetadataNoExpiry(metadata []Metadata) error {
-	return s.saveMetadata(metadata, false)
-}
-
 // SaveMetadata implements Storage.SaveMetadata and behaves as save-or-update.
-// Records will expire after a set time.
+// Non custom records will expire after a set time.
 func (s *storage) SaveMetadata(metadata []Metadata) error {
-	return s.saveMetadata(metadata, true)
-}
-
-func (s *storage) saveMetadata(metadata []Metadata, expires bool) error {
 	if len(metadata) == 0 {
 		return nil
 	}
 
 	newDocs := make([]imagesMetadataDoc, len(metadata))
 	for i, m := range metadata {
-		newDoc := s.mongoDoc(m, expires)
+		newDoc := s.mongoDoc(m)
 		if err := validateMetadata(&newDoc); err != nil {
 			return err
 		}
@@ -281,7 +271,7 @@ func (m imagesMetadataDoc) metadata() Metadata {
 	return r
 }
 
-func (s *storage) mongoDoc(m Metadata, expires bool) imagesMetadataDoc {
+func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 	now := time.Now()
 	dateCreated := m.DateCreated
 	if dateCreated == 0 {
@@ -302,7 +292,7 @@ func (s *storage) mongoDoc(m Metadata, expires bool) imagesMetadataDoc {
 		Source:          m.Source,
 		Priority:        m.Priority,
 	}
-	if expires {
+	if r.Source != "custom" {
 		r.ExpireAt = now
 	}
 	if m.RootStorageSize != nil {

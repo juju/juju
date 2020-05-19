@@ -6,7 +6,6 @@ package provider
 import (
 	"fmt"
 	"path/filepath"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -567,7 +566,7 @@ func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher,
 func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 	operatorName := k.operatorName(appName)
 	statefulSets := k.client().AppsV1().StatefulSets(k.namespace)
-	operator, err := statefulSets.Get(operatorName, v1.GetOptions{})
+	_, err := statefulSets.Get(operatorName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("operator %s", appName)
 	}
@@ -588,20 +587,19 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 
 	opPod := podsList.Items[0]
 	terminated := opPod.DeletionTimestamp != nil
-	now := time.Now()
-	statusMessage, opStatus, since, err := k.getPODStatus(opPod, now)
+	statusMessage, opStatus, since, err := k.getPODStatus(opPod, k.clock.Now())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	cfg := caas.OperatorConfig{}
-	if ver, ok := operator.Annotations[labelVersion]; ok {
+	if ver, ok := opPod.Annotations[labelVersion]; ok {
 		cfg.Version, err = version.Parse(ver)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	for _, container := range operator.Spec.Template.Spec.Containers {
+	for _, container := range opPod.Spec.Containers {
 		if container.Name == operatorContainerName {
 			cfg.OperatorImagePath = container.Image
 			break

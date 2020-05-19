@@ -59,6 +59,7 @@ func NewAdmissionCreator(
 	failurePolicy := admission.Ignore
 	matchPolicy := admission.Equivalent
 	ruleScope := admission.AllScopes
+	sideEffects := admission.SideEffectClassNone
 
 	// MutatingWebjook Obj
 	obj := admission.MutatingWebhookConfiguration{
@@ -69,6 +70,7 @@ func NewAdmissionCreator(
 		},
 		Webhooks: []admission.MutatingWebhook{
 			{
+				SideEffects: &sideEffects,
 				ClientConfig: admission.WebhookClientConfig{
 					CABundle: caPemBuffer.Bytes(),
 					Service:  service,

@@ -1416,7 +1416,7 @@ func (e *Environ) networksForInstance(
 	// Set the subnetID on the network for all networks.
 	// For each of the subnetIDs selected, create a port for each one.
 	subnetNetworks := make([]nova.ServerNetworks, 0, len(subnetIDForZone))
-	netInfo := make([]corenetwork.InterfaceInfo, len(subnetIDsForZone))
+	netInfo := make(corenetwork.InterfaceInfos, len(subnetIDsForZone))
 	for i, subnetID := range subnetIDForZone {
 		var port *neutron.PortV2
 		port, err = e.networking.CreatePort(e.uuid, networkID, subnetID)
@@ -2238,7 +2238,7 @@ func (e *Environ) Subnets(
 }
 
 // NetworkInterfaces is specified on environs.Networking.
-func (e *Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]corenetwork.InterfaceInfo, error) {
+func (e *Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
 	infos, err := e.networking.NetworkInterfaces(ids)
 	if err != nil {
 		handleCredentialError(err, ctx)
@@ -2283,7 +2283,7 @@ func (e *Environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error
 }
 
 // AllocateContainerAddresses is specified on environs.Networking.
-func (e *Environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []corenetwork.InterfaceInfo) ([]corenetwork.InterfaceInfo, error) {
+func (e *Environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("allocate container address")
 }
 

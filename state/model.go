@@ -906,14 +906,9 @@ func (m *Model) AllUnits() ([]*Unit, error) {
 	return units, nil
 }
 
-// ApplicationEndpointBindings - endpointBinding->space details for each application
-type ApplicationEndpointBindings struct {
-	AppName  string
-	Bindings *Bindings
-}
-
-// AllEndpointBindings returns all endpoint->space bindings for every application
-func (m *Model) AllEndpointBindings() ([]ApplicationEndpointBindings, error) {
+// AllEndpointBindings returns all endpoint->space bindings
+// keyed by application name.
+func (m *Model) AllEndpointBindings() (map[string]*Bindings, error) {
 	endpointBindings, closer := m.st.db().GetCollection(endpointBindingsC)
 	defer closer()
 
@@ -923,27 +918,23 @@ func (m *Model) AllEndpointBindings() ([]ApplicationEndpointBindings, error) {
 		return nil, errors.Annotatef(err, "cannot get endpoint bindings")
 	}
 
-	appEndpointBindings := make([]ApplicationEndpointBindings, len(docs))
-	for i, doc := range docs {
+	appEndpointBindings := make(map[string]*Bindings, 0)
+	for _, doc := range docs {
 		var applicationName string
 		applicationKey := m.localID(doc.DocID)
-		// for each application deployed we have an instance of ApplicationEndpointBindings struct
 		if strings.HasPrefix(applicationKey, "a#") {
 			applicationName = applicationKey[2:]
 		} else {
 			return nil, errors.NotValidf("application key %v", applicationKey)
 		}
+
 		bindings, err := NewBindings(m.st, doc.Bindings)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot make bindings")
 		}
-		endpointBindings := ApplicationEndpointBindings{
-			AppName:  applicationName,
-			Bindings: bindings,
-		}
-
-		appEndpointBindings[i] = endpointBindings
+		appEndpointBindings[applicationName] = bindings
 	}
+
 	return appEndpointBindings, nil
 }
 
@@ -960,8 +951,8 @@ func (st *State) AllEndpointBindingsSpaceNames() (set.Strings, error) {
 	}
 
 	allEndpointBindingsSpaces := set.NewStrings()
-	for _, binding := range allEndpointBindings {
-		bindingSpaceNames, err := binding.Bindings.MapWithSpaceNames()
+	for _, bindings := range allEndpointBindings {
+		bindingSpaceNames, err := bindings.MapWithSpaceNames()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

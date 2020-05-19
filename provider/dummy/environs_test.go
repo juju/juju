@@ -238,7 +238,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
 
-	expectInfo := []corenetwork.InterfaceInfo{{
+	expectInfo := corenetwork.InterfaceInfos{{
 		ProviderId:       "dummy-eth0",
 		ProviderSubnetId: "dummy-private",
 		CIDR:             "0.10.0.0/24",
@@ -348,7 +348,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 	c.Assert(netInfo, gc.HasLen, 0)
 }
 
-func assertInterfaces(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectInfo []corenetwork.InterfaceInfo) {
+func assertInterfaces(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectInfo corenetwork.InterfaceInfos) {
 	select {
 	case op := <-opc:
 		netOp, ok := op.(dummy.OpNetworkInterfaces)

@@ -6,10 +6,11 @@ package debinterfaces_test
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
-	"runtime"
 
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 
@@ -614,8 +615,8 @@ func (s *ParserSuite) TestSourceDirectoryStanzaWithWordExpanderError(c *gc.C) {
 }
 
 func (s *ParserSuite) TestSourceStanzaWithAbsoluteFilenames(c *gc.C) {
-	_, testfile, _, _ := runtime.Caller(0)
-	dir := filepath.Dir(testfile)
+	dir, err := os.Getwd()
+	c.Assert(err, jc.ErrorIsNil)
 	fullpath := fmt.Sprintf("%s/testdata/TestInputSourceStanza/interfaces.d/*.cfg", dir)
 	content := fmt.Sprintf("source %s", fullpath)
 	stanzas, err := debinterfaces.ParseSource("", content, s.expander)
@@ -669,8 +670,8 @@ func (s *ParserSuite) TestSourceStanzaWithAbsoluteFilenames(c *gc.C) {
 }
 
 func (s *ParserSuite) TestSourceDirectoryStanzaWithAbsoluteFilenames(c *gc.C) {
-	_, testfile, _, _ := runtime.Caller(0)
-	dir := filepath.Dir(testfile)
+	dir, err := os.Getwd()
+	c.Assert(err, jc.ErrorIsNil)
 	fullpath := fmt.Sprintf("%s/testdata/TestInputSourceDirectoryStanza/interfaces.d", dir)
 	content := fmt.Sprintf("source-directory %s", fullpath)
 	stanzas, err := debinterfaces.ParseSource("", content, s.expander)
@@ -705,20 +706,20 @@ func (s *ParserSuite) TestSourceDirectoryStanzaWithAbsoluteFilenames(c *gc.C) {
 }
 
 func (s *ParserSuite) TestSourceStanzaWithAbsoluteNonExistentFilenames(c *gc.C) {
-	_, testfile, _, _ := runtime.Caller(0)
-	dir := filepath.Dir(testfile)
+	dir, err := os.Getwd()
+	c.Assert(err, jc.ErrorIsNil)
 	fullpath := fmt.Sprintf("%s/testdata/non-existent.d/*", dir)
 	content := fmt.Sprintf("source %s", fullpath)
-	_, err := debinterfaces.ParseSource("", content, s.expander)
+	_, err = debinterfaces.ParseSource("", content, s.expander)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *ParserSuite) TestSourceDirectoryStanzaWithAbsoluteNonExistentFilenames(c *gc.C) {
-	_, testfile, _, _ := runtime.Caller(0)
-	dir := filepath.Dir(testfile)
+	dir, err := os.Getwd()
+	c.Assert(err, jc.ErrorIsNil)
 	fullpath := fmt.Sprintf("%s/testdata/non-existent", dir)
 	content := fmt.Sprintf("source-directory %s", fullpath)
-	_, err := debinterfaces.ParseSource("", content, s.expander)
+	_, err = debinterfaces.ParseSource("", content, s.expander)
 	c.Assert(err, gc.NotNil)
 }
 

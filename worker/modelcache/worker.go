@@ -197,16 +197,24 @@ func (c *cacheWorker) loop() error {
 	defer c.config.PrometheusRegisterer.Unregister(allWatcherStarts)
 	defer c.config.PrometheusRegisterer.Unregister(collector)
 
-	if err := c.init(); err != nil {
-		return errors.Trace(err)
-	}
-
+	// Ensure that we are listening for updates before we send the initial
+	// controller config update. In reality, there will be no config changed events
+	// published until the initialize gate is unlocked, as the API server won't
+	// yet be running. However in tests, there is a situation where the test waits
+	// for the initial event and then publishes a change to ensure that the change
+	// results in another event. Without subscribing to the event first, there is a
+	// race between the test and the worker. Subscribing first ensures the worker
+	// is ready to process any changes.
 	unsubscribe, err := c.config.Hub.Subscribe(controller.ConfigChanged, c.onConfigChanged)
 	if err != nil {
 		c.config.Logger.Criticalf("programming error in subscribe function: %v", err)
 		return errors.Trace(err)
 	}
 	defer unsubscribe()
+
+	if err := c.init(); err != nil {
+		return errors.Trace(err)
+	}
 
 	watcherChanges := make(chan []multiwatcher.Delta)
 	// This worker needs to be robust with respect to the multiwatcher errors.

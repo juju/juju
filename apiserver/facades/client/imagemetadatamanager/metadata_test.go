@@ -99,11 +99,15 @@ func (s *metadataSuite) TestSaveEmpty(c *gc.C) {
 	errs, err := s.api.Save(params.MetadataSaveParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, 0)
-	s.assertCalls(c, controllerTag)
+	s.assertCalls(c, controllerTag, model)
 }
 
 func (s *metadataSuite) TestSave(c *gc.C) {
-	m := params.CloudImageMetadata{
+	m1 := params.CloudImageMetadata{
+		Source: "custom",
+		Region: "east",
+	}
+	m2 := params.CloudImageMetadata{
 		Source: "custom",
 	}
 	msg := "save error"
@@ -111,14 +115,16 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 	saveCalls := 0
 	s.state.saveMetadata = func(m []cloudimagemetadata.Metadata) error {
 		saveCalls += 1
-		c.Assert(m, gc.HasLen, saveCalls)
+		if m[0].Region != "east" {
+			c.Assert(m[0].Region, gc.Equals, "some-region")
+		}
 		// TODO (anastasiamac 2016-08-24) This is a check for a band-aid solution.
 		// Once correct value is read from simplestreams, this needs to go.
 		// Bug# 1616295
 		// Ensure empty stream is changed to release
 		c.Assert(m[0].Stream, gc.DeepEquals, "released")
-		if saveCalls == 1 {
-			// don't err on first call
+		if saveCalls < 3 {
+			// don't err on first or second call
 			return nil
 		}
 		return errors.New(msg)
@@ -126,16 +132,19 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 
 	errs, err := s.api.Save(params.MetadataSaveParams{
 		Metadata: []params.CloudImageMetadataList{{
-			Metadata: []params.CloudImageMetadata{m},
+			Metadata: []params.CloudImageMetadata{m1},
 		}, {
-			Metadata: []params.CloudImageMetadata{m, m},
+			Metadata: []params.CloudImageMetadata{m2},
+		}, {
+			Metadata: []params.CloudImageMetadata{m1, m1},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs.Results, gc.HasLen, 2)
+	c.Assert(errs.Results, gc.HasLen, 3)
 	c.Assert(errs.Results[0].Error, gc.IsNil)
-	c.Assert(errs.Results[1].Error, gc.ErrorMatches, msg)
-	s.assertCalls(c, controllerTag, modelConfig, saveMetadata, saveMetadata)
+	c.Assert(errs.Results[1].Error, gc.IsNil)
+	c.Assert(errs.Results[2].Error, gc.ErrorMatches, msg)
+	s.assertCalls(c, controllerTag, model, modelConfig, saveMetadata, saveMetadata, saveMetadata)
 }
 
 func (s *metadataSuite) TestDeleteEmpty(c *gc.C) {

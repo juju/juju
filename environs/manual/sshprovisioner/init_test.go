@@ -133,7 +133,12 @@ func (s *initialisationSuite) TestCheckProvisioned(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provisioned, jc.IsFalse)
 
-	defer installFakeSSH(c, listCmd, "juju...", 0)()
+	defer installFakeSSH(c, listCmd, "snap.juju.fetch-oci", 0)()
+	provisioned, err = sshprovisioner.CheckProvisioned("example.com")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(provisioned, jc.IsFalse)
+
+	defer installFakeSSH(c, listCmd, "jujud-machine-42", 0)()
 	provisioned, err = sshprovisioner.CheckProvisioned("example.com")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provisioned, jc.IsTrue)

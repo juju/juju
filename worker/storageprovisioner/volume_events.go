@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/plans"
+	"github.com/juju/juju/wrench"
 )
 
 // volumesChanged is called when the lifecycle states of the volumes
@@ -146,6 +147,9 @@ func processDyingVolumePlans(ctx *context, volumePlans []params.VolumeAttachment
 		}
 		if err := volPlan.DetachVolume(val.Result.PlanInfo.DeviceAttributes); err != nil {
 			return errors.Trace(err)
+		}
+		if wrench.IsActive("storageprovisioner", "DetachVolume") {
+			return errors.New("wrench active")
 		}
 	}
 	results, err := ctx.config.Volumes.RemoveVolumeAttachmentPlan(ids)

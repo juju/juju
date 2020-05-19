@@ -854,7 +854,7 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 		state.LinkLayerDeviceAddress{
 			DeviceName:   "ens3",
 			CIDRAddress:  "10.0.0.10/24",
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: corenetwork.StaticAddress,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -906,7 +906,7 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoNoValues(c 
 
 	networkInfo, err := provisionerApi.PrepareContainerInterfaceInfo(s.containerTag)
 	c.Assert(err, gc.IsNil)
-	c.Check(networkInfo, jc.DeepEquals, []corenetwork.InterfaceInfo{})
+	c.Check(networkInfo, jc.DeepEquals, corenetwork.InterfaceInfos{})
 }
 
 func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c *gc.C) {
@@ -956,7 +956,7 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c
 	provisionerApi := provisioner.NewStateFromFacade(facadeCaller)
 	networkInfo, err := provisionerApi.PrepareContainerInterfaceInfo(s.containerTag)
 	c.Assert(err, gc.IsNil)
-	c.Check(networkInfo, jc.DeepEquals, []corenetwork.InterfaceInfo{{
+	c.Check(networkInfo, jc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:         1,
 		MACAddress:          "de:ad:be:ff:11:22",
 		CIDR:                "192.168.0.5/24",

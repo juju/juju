@@ -785,7 +785,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 		errChan <- controllerStacker.Deploy()
 	}()
 
-	err = s.clock.WaitAdvance(3*time.Second, testing.ShortWait, 1)
+	err = s.clock.WaitAdvance(3*time.Second, testing.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {

@@ -7,7 +7,6 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -99,7 +98,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/singular"
 	"github.com/juju/juju/apiserver/facades/controller/statushistory"
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 )
 
@@ -177,6 +175,7 @@ func AllFacades() *facade.Registry {
 	reg("Cloud", 4, cloud.NewFacadeV4) // adds UpdateCloud
 	reg("Cloud", 5, cloud.NewFacadeV5) // Removes DefaultCloud, handles config in AddCloud
 	reg("Cloud", 6, cloud.NewFacadeV6) // Adds validity to CredentialContent, force for AddCloud
+	reg("Cloud", 7, cloud.NewFacadeV7) // Do not set error if forcing credential update.
 
 	// CAAS related facades.
 	// Move these to the correct place above once the feature flag disappears.
@@ -215,9 +214,7 @@ func AllFacades() *facade.Registry {
 	reg("ImageManager", 2, imagemanager.NewImageManagerAPI)
 	reg("ImageMetadata", 3, imagemetadata.NewAPI)
 
-	if featureflag.Enabled(feature.ImageMetadata) {
-		reg("ImageMetadataManager", 1, imagemetadatamanager.NewAPI)
-	}
+	reg("ImageMetadataManager", 1, imagemetadatamanager.NewAPI)
 
 	reg("InstanceMutater", 1, instancemutater.NewFacadeV1)
 	reg("InstanceMutater", 2, instancemutater.NewFacadeV2)
@@ -242,7 +239,8 @@ func AllFacades() *facade.Registry {
 
 	reg("MachineUndertaker", 1, machineundertaker.NewFacade)
 	reg("Machiner", 1, machine.NewMachinerAPIV1)
-	reg("Machiner", 2, machine.NewMachinerAPI)
+	reg("Machiner", 2, machine.NewMachinerAPIV2) // Adds RecordAgentStartTime.
+	reg("Machiner", 3, machine.NewMachinerAPI)   // Relies on agent-set origin in SetObservedNetworkConfig.
 
 	reg("MeterStatus", 1, meterstatus.NewMeterStatusFacadeV1)
 	reg("MeterStatus", 2, meterstatus.NewMeterStatusFacade)
@@ -265,8 +263,8 @@ func AllFacades() *facade.Registry {
 	reg("ModelManager", 2, modelmanager.NewFacadeV2)
 	reg("ModelManager", 3, modelmanager.NewFacadeV3)
 	reg("ModelManager", 4, modelmanager.NewFacadeV4)
-	reg("ModelManager", 5, modelmanager.NewFacadeV5) // adds ChangeModelCredential
-	reg("ModelManager", 6, modelmanager.NewFacadeV6) // adds cloud specific default config
+	reg("ModelManager", 5, modelmanager.NewFacadeV5) // Adds ChangeModelCredential
+	reg("ModelManager", 6, modelmanager.NewFacadeV6) // Adds cloud specific default config
 	reg("ModelManager", 7, modelmanager.NewFacadeV7) // DestroyModels gains 'force' and max-wait' parameters.
 	reg("ModelManager", 8, modelmanager.NewFacadeV8) // ModelInfo gains credential validity in return.
 	reg("ModelUpgrader", 1, modelupgrader.NewStateFacade)
@@ -281,12 +279,13 @@ func AllFacades() *facade.Registry {
 	reg("Pinger", 1, NewPinger)
 	reg("Provisioner", 3, provisioner.NewProvisionerAPIV4) // Yes this is weird.
 	reg("Provisioner", 4, provisioner.NewProvisionerAPIV4)
-	reg("Provisioner", 5, provisioner.NewProvisionerAPIV5)   // v5 adds DistributionGroupByMachineId()
-	reg("Provisioner", 6, provisioner.NewProvisionerAPIV6)   // v6 adds more proxy settings
-	reg("Provisioner", 7, provisioner.NewProvisionerAPIV7)   // v7 adds charm profile watcher
-	reg("Provisioner", 8, provisioner.NewProvisionerAPIV8)   // v8 adds changes charm profile and modification status
-	reg("Provisioner", 9, provisioner.NewProvisionerAPIV9)   // v9 adds supported containers
-	reg("Provisioner", 10, provisioner.NewProvisionerAPIV10) // v10 adds support for multiple space constraints.
+	reg("Provisioner", 5, provisioner.NewProvisionerAPIV5)   // Adds DistributionGroupByMachineId()
+	reg("Provisioner", 6, provisioner.NewProvisionerAPIV6)   // Adds more proxy settings
+	reg("Provisioner", 7, provisioner.NewProvisionerAPIV7)   // Adds charm profile watcher
+	reg("Provisioner", 8, provisioner.NewProvisionerAPIV8)   // Adds changes charm profile and modification status
+	reg("Provisioner", 9, provisioner.NewProvisionerAPIV9)   // Adds supported containers
+	reg("Provisioner", 10, provisioner.NewProvisionerAPIV10) // Adds support for multiple space constraints.
+	reg("Provisioner", 11, provisioner.NewProvisionerAPIV11) // Relies on agent-set origin in SetHostMachineNetworkConfig.
 
 	reg("ProxyUpdater", 1, proxyupdater.NewFacadeV1)
 	reg("ProxyUpdater", 2, proxyupdater.NewFacadeV2)

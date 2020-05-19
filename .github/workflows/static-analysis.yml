@@ -27,7 +27,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
-    - name: Downloand Dependencies
+    - name: Download Dependencies
       run: go mod download
 
     - name: "Static Analysis: Copyright"

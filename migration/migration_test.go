@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/dummy"
@@ -122,22 +121,6 @@ func (s *ImportSuite) TestImportsLeadership(c *gc.C) {
 	claimer.stub.CheckCall(c, 0, "ClaimLeadership", "wordpress", "wordpress/1", time.Minute)
 }
 
-func (s *ImportSuite) TestImportsLeadershipLegacy(c *gc.C) {
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		"features": []interface{}{feature.LegacyLeases},
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.makeApplicationWithUnits(c, "wordpress", 3)
-	s.makeUnitApplicationLeaderLegacy(c, "wordpress/1", "wordpress")
-	s.makeApplicationWithUnits(c, "mysql", 2)
-
-	dbState := s.exportImport(c, nil)
-
-	leaders, err := dbState.ApplicationLeaders()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(leaders, gc.DeepEquals, map[string]string{"wordpress": "wordpress/1"})
-}
-
 func (s *ImportSuite) makeApplicationWithUnits(c *gc.C, applicationname string, count int) {
 	units := make([]*state.Unit, count)
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
@@ -162,14 +145,6 @@ func (s *ImportSuite) makeUnitApplicationLeader(c *gc.C, unitName, applicationNa
 		lease.Key{"application-leadership", s.State.ModelUUID(), applicationName},
 		unitName,
 	)
-}
-
-func (s *ImportSuite) makeUnitApplicationLeaderLegacy(c *gc.C, unitName, applicationName string) {
-	err := s.State.LeadershipClaimer().ClaimLeadership(
-		applicationName,
-		unitName,
-		time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {

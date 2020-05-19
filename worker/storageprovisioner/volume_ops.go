@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/status"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/wrench"
 )
 
 // createVolumes creates volumes with the specified parameters.
@@ -286,6 +287,9 @@ func removeVolumes(ctx *context, ops map[names.VolumeTag]*removeVolumeOp) error 
 		}
 		for i, err := range errs {
 			tag := tags[i]
+			if wrench.IsActive("storageprovisioner", "RemoveVolume") {
+				err = errors.New("wrench active")
+			}
 			if err == nil {
 				remove = append(remove, tag)
 				continue
@@ -389,6 +393,9 @@ func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp
 				AttachmentTag: p.Volume.String(),
 			}
 			entityStatus := &statuses[len(statuses)-1]
+			if wrench.IsActive("storageprovisioner", "DetachVolume") {
+				err = errors.New("wrench active")
+			}
 			if err != nil {
 				reschedule = append(reschedule, ops[id])
 				entityStatus.Status = status.Detaching.String()

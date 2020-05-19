@@ -571,8 +571,7 @@ func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 		"monitoring-port": network.AlphaSpaceId,
 		"db":              oneSpace.Id(),
 	}
-	c.Assert(listBindings[0].AppName, gc.Equals, app.Name())
-	c.Assert(listBindings[0].Bindings.Map(), gc.DeepEquals, expected)
+	c.Assert(listBindings[app.Name()].Map(), gc.DeepEquals, expected)
 }
 
 func (s *ModelSuite) TestAllEndpointBindingsSpaceNames(c *gc.C) {
@@ -771,12 +770,14 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	controllerModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	destroyStorage := true
+	force := true
 	c.Assert(controllerModel.Destroy(state.DestroyModelParams{
+		Force:               &force,
 		DestroyHostedModels: true,
 		DestroyStorage:      &destroyStorage,
 	}), jc.ErrorIsNil)
 
-	assertCleanupCount(c, s.State, 2)
+	assertCleanupCountDirty(c, s.State, 4)
 	assertAllMachinesDeadAndRemove(c, s.State)
 	assertModel(controllerModel, s.State, state.Dying, 0, 0)
 
@@ -784,7 +785,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	c.Assert(err, jc.Satisfies, state.IsHasHostedModelsError)
 	c.Assert(err, gc.ErrorMatches, `hosting 1 other model`)
 
-	assertCleanupCount(c, otherSt, 4)
+	assertCleanupCount(c, otherSt, 3)
 	assertAllMachinesDeadAndRemove(c, otherSt)
 	assertModel(otherModel, otherSt, state.Dying, 0, 0)
 	c.Assert(otherSt.ProcessDyingModel(), jc.ErrorIsNil)
@@ -1278,11 +1279,11 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 
 	err = sb.DetachFilesystem(machine.MachineTag(), names.NewFilesystemTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = sb.RemoveFilesystemAttachment(machine.MachineTag(), names.NewFilesystemTag("0"))
+	err = sb.RemoveFilesystemAttachment(machine.MachineTag(), names.NewFilesystemTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = sb.DetachVolume(machine.MachineTag(), names.NewVolumeTag("0"))
+	err = sb.DetachVolume(machine.MachineTag(), names.NewVolumeTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = sb.RemoveVolumeAttachment(machine.MachineTag(), names.NewVolumeTag("0"))
+	err = sb.RemoveVolumeAttachment(machine.MachineTag(), names.NewVolumeTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(machine.Remove(), jc.ErrorIsNil)
@@ -1328,9 +1329,9 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 		DestroyStorage: &destroyStorage,
 	}), jc.ErrorIsNil)
 
-	err = sb.DetachVolume(machine.MachineTag(), volumeTag)
+	err = sb.DetachVolume(machine.MachineTag(), volumeTag, false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = sb.RemoveVolumeAttachment(machine.MachineTag(), volumeTag)
+	err = sb.RemoveVolumeAttachment(machine.MachineTag(), volumeTag, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(machine.Remove(), jc.ErrorIsNil)
@@ -1917,6 +1918,17 @@ func assertCleanupCount(c *gc.C, st *state.State, count int) {
 		assertCleanupRuns(c, st)
 	}
 	assertDoesNotNeedCleanup(c, st)
+}
+
+// assertCleanupCountDirty is the same as assertCleanupCount, but it
+// checks that there are still cleanups to run.
+func assertCleanupCountDirty(c *gc.C, st *state.State, count int) {
+	for i := 0; i < count; i++ {
+		c.Logf("checking cleanups %d", i)
+		assertNeedsCleanup(c, st)
+		assertCleanupRuns(c, st)
+	}
+	assertNeedsCleanup(c, st)
 }
 
 // The provisioner will remove dead machines once their backing instances are

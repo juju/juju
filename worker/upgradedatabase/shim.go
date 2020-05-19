@@ -73,22 +73,22 @@ type pool struct {
 
 // IsPrimary (Pool) returns true if the Mongo primary is
 // running on the controller with the input ID.
-func (p *pool) IsPrimary(nodeID string) (bool, error) {
+func (p *pool) IsPrimary(controllerId string) (bool, error) {
 	st := p.SystemState()
 
 	// For IAAS models, controllers are machines.
 	// For CAAS models, until we support HA, there is only one Mongo
 	// and it is the primary.
-	model, err := st.Model()
+	hasMachine, err := p.hasMachine()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 	// TODO(CAAS) - bug 1849030 support HA
-	if model.Type() == state.ModelTypeCAAS {
+	if !hasMachine {
 		return true, nil
 	}
 
-	machine, err := st.Machine(nodeID)
+	machine, err := st.Machine(controllerId)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -96,9 +96,26 @@ func (p *pool) IsPrimary(nodeID string) (bool, error) {
 	return isPrimary, errors.Trace(err)
 }
 
+func (p *pool) hasMachine() (bool, error) {
+	model, err := p.SystemState().Model()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return model.Type() == state.ModelTypeIAAS, nil
+}
+
 // SetStatus (Pool) updates the status of the machine with the input ID.
-func (p *pool) SetStatus(machineID string, sts status.Status, msg string) error {
-	machine, err := p.SystemState().Machine(machineID)
+func (p *pool) SetStatus(controllerId string, sts status.Status, msg string) error {
+	hasMachine, err := p.hasMachine()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !hasMachine {
+		// TODO(CAAS) - bug 1849030 support HA
+		// Nothing we can do for now because we do not have any machine for CAAS controller.
+		return nil
+	}
+	machine, err := p.SystemState().Machine(controllerId)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -193,7 +193,7 @@ func maybeUpdateMachineProviderAddresses(m StateMachine, newSpaceAddrs network.S
 	return true, m.SetProviderAddresses(newSpaceAddrs...)
 }
 
-func backfillProviderIDs(m StateMachine, ifaces []network.InterfaceInfo) error {
+func backfillProviderIDs(m StateMachine, ifaces network.InterfaceInfos) error {
 	existingDevs, err := m.AllLinkLayerDevices()
 	if err != nil {
 		return err

@@ -167,12 +167,6 @@ These keys are obtained via the "Security Credentials"
 page in the AWS console.
 `
 
-const unauthorized = `
-Please subscribe to the requested Amazon service. 
-You are currently not authorized to use it.
-New Amazon accounts might take some time to be activated while 
-your details are being verified.`
-
 // verifyCredentials issues a cheap, non-modifying/idempotent request to EC2 to
 // verify the configured credentials. If verification fails, a user-friendly
 // error will be returned, and the original error will be logged at debug
@@ -218,10 +212,6 @@ var maybeConvertCredentialError = func(err error, ctx context.ProviderCallContex
 			return convert(common.CredentialNotValidf(err, "\nYour account is pending verification by Amazon."))
 		case "SignatureDoesNotMatch":
 			return convert(common.CredentialNotValidf(err, badKeys))
-		case "OptInRequired":
-			return convert(common.CredentialNotValidf(err, unauthorized))
-		case "UnauthorizedOperation":
-			return convert(common.CredentialNotValidf(err, unauthorized))
 		default:
 			// This error is unrelated to access keys, account or credentials...
 			return err

@@ -560,7 +560,7 @@ type LinkLayerDeviceAddress struct {
 	DeviceName string
 
 	// ConfigMethod is the method used to configure this address.
-	ConfigMethod AddressConfigMethod
+	ConfigMethod corenetwork.AddressConfigMethod
 
 	// ProviderID is the provider-specific ID of the address. Empty when not
 	// supported. Cannot be changed once set to non-empty.
@@ -692,7 +692,7 @@ func (m *Machine) validateSetDevicesAddressesArgs(args *LinkLayerDeviceAddress) 
 		return errors.Trace(err)
 	}
 
-	if !IsValidAddressConfigMethod(string(args.ConfigMethod)) {
+	if !corenetwork.IsValidAddressConfigMethod(string(args.ConfigMethod)) {
 		return errors.NotValidf("ConfigMethod %q", args.ConfigMethod)
 	}
 
@@ -1149,7 +1149,7 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]Machine
 	// when we have subnets populated for all providers.
 	if r, ok := results[corenetwork.AlphaSpaceId]; !ok && spaces.Contains(corenetwork.AlphaSpaceId) {
 		if privateLinkLayerAddress != nil {
-			r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, privateLinkLayerAddress)
+			r.NetworkInfos, _ = addAddressToResult(r.NetworkInfos, privateLinkLayerAddress)
 		} else {
 			r.NetworkInfos = []network.NetworkInfo{{
 				Addresses: []network.InterfaceAddress{{

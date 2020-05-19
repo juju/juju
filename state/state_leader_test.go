@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -172,26 +171,6 @@ func (s *LeadershipSuite) TestBlockUntilLeadershipReleasedCancel(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out while waiting for unblock")
 	}
-}
-
-func (s *LeadershipSuite) TestApplicationLeadersLegacy(c *gc.C) {
-	// Change to use legacy-leases so the state-based lease changes
-	// show up.
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		"features": []interface{}{feature.LegacyLeases},
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.claimer.ClaimLeadership("blah", "blah/0", time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.claimer.ClaimLeadership("application", "application/1", time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
-
-	leaders, err := s.State.ApplicationLeaders()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(leaders, jc.DeepEquals, map[string]string{
-		"application": "application/1",
-		"blah":        "blah/0",
-	})
 }
 
 func (s *LeadershipSuite) TestApplicationLeaders(c *gc.C) {

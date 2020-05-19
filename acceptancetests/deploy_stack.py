@@ -1049,7 +1049,11 @@ class BootstrapManager:
                 with self.client.ignore_soft_deadline():
                     self.client.list_controllers()
                     self.client.list_models()
-                    for m_client in self.client.iter_model_clients():
+
+                    # Only show status for models the backend is tracking.
+                    # This prevents errors attempting to retrieve status for
+                    # models that have been issued a destroy command.
+                    for m_client in self.client._backend.added_models:
                         m_client.show_status()
         finally:
             with self.client.ignore_soft_deadline():

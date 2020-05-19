@@ -88,7 +88,7 @@ func (s *ipAddressesInternalSuite) TestGlobalKeyMethod(c *gc.C) {
 
 func (s *ipAddressesInternalSuite) TestStringIncludesConfigMethodAndValue(c *gc.C) {
 	doc := ipAddressDoc{
-		ConfigMethod: ManualAddress,
+		ConfigMethod: network.ManualAddress,
 		Value:        "0.1.2.3",
 		MachineID:    "42",
 		DeviceName:   "eno1",
@@ -107,7 +107,7 @@ func (s *ipAddressesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C) {
 		DeviceName:       "eth0",
 		MachineID:        "42",
 		SubnetCIDR:       "10.20.30.0/24",
-		ConfigMethod:     StaticAddress,
+		ConfigMethod:     network.StaticAddress,
 		Value:            "10.20.30.40",
 		DNSServers:       []string{"ns1.example.com", "ns2.example.org"},
 		DNSSearchDomains: []string{"example.com", "example.org"},
@@ -118,35 +118,10 @@ func (s *ipAddressesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C) {
 	c.Check(result.DeviceName(), gc.Equals, "eth0")
 	c.Check(result.MachineID(), gc.Equals, "42")
 	c.Check(result.SubnetCIDR(), gc.Equals, "10.20.30.0/24")
-	c.Check(result.ConfigMethod(), gc.Equals, StaticAddress)
+	c.Check(result.ConfigMethod(), gc.Equals, network.StaticAddress)
 	c.Check(result.Value(), gc.Equals, "10.20.30.40")
 	c.Check(result.DNSServers(), jc.DeepEquals, []string{"ns1.example.com", "ns2.example.org"})
 	c.Check(result.DNSSearchDomains(), jc.DeepEquals, []string{"example.com", "example.org"})
 	c.Check(result.GatewayAddress(), gc.Equals, "10.20.30.1")
 	c.Check(result.NetworkAddress(), jc.DeepEquals, network.NewSpaceAddress(result.Value()))
-}
-
-func (s *ipAddressesInternalSuite) TestIsValidAddressConfigMethodWithValidValues(c *gc.C) {
-	validTypes := []AddressConfigMethod{
-		LoopbackAddress,
-		StaticAddress,
-		DynamicAddress,
-		ManualAddress,
-	}
-
-	for _, value := range validTypes {
-		result := IsValidAddressConfigMethod(string(value))
-		c.Check(result, jc.IsTrue)
-	}
-}
-
-func (s *ipAddressesInternalSuite) TestIsValidAddressConfigMethodWithInvalidValues(c *gc.C) {
-	result := IsValidAddressConfigMethod("")
-	c.Check(result, jc.IsFalse)
-
-	result = IsValidAddressConfigMethod("anything")
-	c.Check(result, jc.IsFalse)
-
-	result = IsValidAddressConfigMethod(" ")
-	c.Check(result, jc.IsFalse)
 }

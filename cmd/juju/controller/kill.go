@@ -48,6 +48,7 @@ See also:
 // forceful destroy.
 func NewKillCommand() modelcmd.Command {
 	cmd := killCommand{clock: clock.WallClock}
+	cmd.controllerCredentialAPIFunc = cmd.credentialAPIForControllerModel
 	cmd.environsDestroy = environs.Destroy
 	return wrapKillCommand(&cmd)
 }

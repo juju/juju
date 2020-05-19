@@ -42,7 +42,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/globalclock"
@@ -455,11 +454,8 @@ func (st *State) start(controllerTag names.ControllerTag, hub *pubsub.SimpleHub)
 // ApplicationLeaders returns a map of the application name to the
 // unit name that is the current leader.
 func (st *State) ApplicationLeaders() (map[string]string, error) {
-	config, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !config.Features().Contains(feature.LegacyLeases) {
+	// TODO(legacy-leases): remove this.
+	if true {
 		return raftleasestore.LeaseHolders(
 			&environMongo{st},
 			leaseHoldersC,
@@ -467,6 +463,7 @@ func (st *State) ApplicationLeaders() (map[string]string, error) {
 			st.ModelUUID(),
 		)
 	}
+
 	store, err := st.getLeadershipLeaseStore()
 	if err != nil {
 		return nil, errors.Trace(err)

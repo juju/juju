@@ -218,9 +218,9 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	for _, volumeTag := range volumeTags {
-		err = sb.DetachVolume(machineTag, volumeTag)
+		err = sb.DetachVolume(machineTag, volumeTag, false)
 		c.Assert(err, jc.ErrorIsNil)
-		err = sb.RemoveVolumeAttachment(machineTag, volumeTag)
+		err = sb.RemoveVolumeAttachment(machineTag, volumeTag, false)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

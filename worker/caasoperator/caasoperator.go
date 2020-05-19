@@ -253,8 +253,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 }
 
 func (op *caasOperator) makeAgentSymlinks(unitTag names.UnitTag) error {
-	// All units share the same charm and agent binary.
-	// (but with different state dirs for each unit).
+	// All units share the same agent binary.
 	// Set up the required symlinks.
 
 	// First the agent binary.
@@ -291,6 +290,22 @@ func (op *caasOperator) makeAgentSymlinks(unitTag names.UnitTag) error {
 		}
 	}
 
+	// Ensure legacy charm symlinks created before 2.8 getting unlinked.
+	unitCharmDir := filepath.Join(op.config.DataDir, "agents", unitTag.String(), "charm")
+	isUnitCharmDirSymlink, err := jujusymlink.IsSymlink(unitCharmDir)
+	if os.IsNotExist(errors.Cause(err)) || os.IsPermission(errors.Cause(err)) {
+		// Ignore permission denied as this won't happen in production
+		// but may happen in testing depending on setup of /tmp.
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	if isUnitCharmDirSymlink {
+		op.config.Logger.Warningf("removing legacy charm symlink for %q", unitTag.String())
+		if err := os.Remove(unitCharmDir); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return nil
 }
 
@@ -370,6 +385,8 @@ func (op *caasOperator) init() (*LocalState, error) {
 }
 
 func (op *caasOperator) loop() (err error) {
+	logger := op.config.Logger
+
 	defer func() {
 		if errors.IsNotFound(err) {
 			err = jworker.ErrTerminateAgent
@@ -380,7 +397,7 @@ func (op *caasOperator) loop() (err error) {
 	if err != nil {
 		return err
 	}
-	op.config.Logger.Infof("operator %q started", op.config.Application)
+	logger.Infof("operator %q started", op.config.Application)
 
 	// Start by reporting current tools (which includes arch/series).
 	if err := op.config.VersionSetter.SetVersion(
@@ -484,7 +501,7 @@ func (op *caasOperator) loop() (err error) {
 				}
 				// Notify all uniters of the change so they run the upgrade-charm hook.
 				for unitID, changedChan := range aliveUnits {
-					op.config.Logger.Debugf("trigger upgrade charm for caas unit %v", unitID)
+					logger.Debugf("trigger upgrade charm for caas unit %v", unitID)
 					select {
 					case <-op.catacomb.Dying():
 						return op.catacomb.ErrDying()
@@ -498,7 +515,7 @@ func (op *caasOperator) loop() (err error) {
 			}
 			for _, unitID := range units {
 				if runningChan, ok := unitRunningChannels[unitID]; ok {
-					op.config.Logger.Debugf("trigger running status for caas unit %v", unitID)
+					logger.Debugf("trigger running status for caas unit %v", unitID)
 					select {
 					case <-op.catacomb.Dying():
 						return op.catacomb.ErrDying()
@@ -558,15 +575,16 @@ func (op *caasOperator) loop() (err error) {
 				params.UniterFacade = op.config.UniterFacadeFunc(unitTag)
 				params.LeadershipTracker = op.config.LeadershipTrackerFunc(unitTag)
 				params.ApplicationChannel = aliveUnits[unitID]
-				params.ContainerRunningStatusChannel = unitRunningChannels[unitID]
 				if op.deploymentMode != caas.ModeOperator {
+					params.IsRemoteUnit = true
+					params.ContainerRunningStatusChannel = unitRunningChannels[unitID]
 					params.ContainerRunningStatusFunc = func(providerID string) (*uniterremotestate.ContainerRunningStatus, error) {
 						return op.runningStatus(unitTag, providerID)
 					}
 					params.RemoteInitFunc = func(runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
 						return op.remoteInit(unitTag, runningStatus, cancel)
 					}
-					params.NewRemoteRunnerExecutor = getNewRunnerExecutor(op.config.Logger, op.config.ExecClient)
+					params.NewRemoteRunnerExecutor = getNewRunnerExecutor(logger, op.config.ExecClient)
 				}
 				if err := op.config.StartUniterFunc(op.runner, params); err != nil {
 					return errors.Trace(err)
@@ -609,7 +627,7 @@ func (op *caasOperator) runningStatus(unit names.UnitTag, providerID string) (*u
 
 func (op *caasOperator) remoteInit(unit names.UnitTag, runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
 	op.config.Logger.Debugf("remote init for %v %+v", unit, runningStatus)
-	params := InitializeUnitParams{
+	params := initializeUnitParams{
 		ExecClient:   op.config.ExecClient,
 		Logger:       op.config.Logger,
 		OperatorInfo: op.config.OperatorInfo,
@@ -618,6 +636,8 @@ func (op *caasOperator) remoteInit(unit names.UnitTag, runningStatus uniterremot
 		ProviderID:   runningStatus.PodName,
 		WriteFile:    ioutil.WriteFile,
 		TempDir:      ioutil.TempDir,
+		Clock:        op.config.Clock,
+		ReTrier:      runnerWithRetry,
 	}
 	switch {
 	case runningStatus.Initialising:
@@ -627,7 +647,7 @@ func (op *caasOperator) remoteInit(unit names.UnitTag, runningStatus uniterremot
 	default:
 		return errors.NotFoundf("container not running")
 	}
-	err := InitializeUnit(params, cancel)
+	err := initializeUnit(params, cancel)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/cmd/juju/caas"
 	"github.com/juju/juju/cmd/juju/cachedimages"
 	"github.com/juju/juju/cmd/juju/charmcmd"
+	"github.com/juju/juju/cmd/juju/charmhub"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/juju/crossmodel"
@@ -529,6 +530,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		},
 	}))
 	r.Register(resource.NewCharmResourcesCommand(nil))
+
+	// CharmHub related commands
+	if featureflag.Enabled(feature.CharmHubIntegration) {
+		r.Register(charmhub.NewInfoCommand())
+	}
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {

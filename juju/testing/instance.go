@@ -98,7 +98,7 @@ func AssertStartInstance(
 func StartInstance(
 	env environs.Environ, ctx context.ProviderCallContext, controllerUUID, machineId string,
 ) (
-	instances.Instance, *instance.HardwareCharacteristics, []corenetwork.InterfaceInfo, error,
+	instances.Instance, *instance.HardwareCharacteristics, corenetwork.InterfaceInfos, error,
 ) {
 	return StartInstanceWithConstraints(env, ctx, controllerUUID, machineId, constraints.Value{})
 }
@@ -125,7 +125,7 @@ func StartInstanceWithConstraints(
 	ctx context.ProviderCallContext,
 	controllerUUID, machineId string, cons constraints.Value,
 ) (
-	instances.Instance, *instance.HardwareCharacteristics, []corenetwork.InterfaceInfo, error,
+	instances.Instance, *instance.HardwareCharacteristics, corenetwork.InterfaceInfos, error,
 ) {
 	params := environs.StartInstanceParams{ControllerUUID: controllerUUID, Constraints: cons, StatusCallback: fakeCallback}
 	result, err := StartInstanceWithParams(env, ctx, machineId, params)

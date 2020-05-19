@@ -303,14 +303,14 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 	storageTag, err := volume.StorageInstance()
 	c.Assert(err, jc.ErrorIsNil)
 	removeStorageInstance(c, s.storageBackend, storageTag)
-	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0"))
+	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0") // dying
 	wc.AssertNoChange()
 
-	err = s.storageBackend.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"))
+	err = s.storageBackend.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0"))
+	err = s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.storageBackend.RemoveVolume(names.NewVolumeTag("0"))
@@ -339,12 +339,12 @@ func (s *VolumeStateSuite) TestWatchModelVolumeAttachments(c *gc.C) {
 	wc.AssertChangeInSingleEvent("1:4", "1:5")
 	wc.AssertNoChange()
 
-	err := s.storageBackend.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"))
+	err := s.storageBackend.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0:0") // dying
 	wc.AssertNoChange()
 
-	err = s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0"))
+	err = s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0:0") // removed
 	wc.AssertNoChange()
@@ -375,14 +375,14 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 	storageTag, err := volume.StorageInstance()
 	c.Assert(err, jc.ErrorIsNil)
 	removeStorageInstance(c, s.storageBackend, storageTag)
-	err = s.storageBackend.DestroyVolume(volume.VolumeTag())
+	err = s.storageBackend.DestroyVolume(volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0/0") // dying
 	wc.AssertNoChange()
 
-	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"))
+	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
+	err = s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.RemoveVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -418,19 +418,19 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 	// no change, since we're only interested in the one machine.
 	wc.AssertNoChange()
 
-	err := s.storageBackend.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("2"))
+	err := s.storageBackend.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("2"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	// no change, since we're only interested in attachments of
 	// machine-scoped volumes.
 	wc.AssertNoChange()
 
 	removeVolumeStorageInstance(c, s.storageBackend, names.NewVolumeTag("0/0"))
-	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"))
+	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0:0/0") // dying
 	wc.AssertNoChange()
 
-	err = s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
+	err = s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0:0/0") // removed
 	wc.AssertNoChange()
@@ -630,7 +630,7 @@ func (s *VolumeStateSuite) TestSetVolumeAttachmentInfoVolumeNotProvisioned(c *gc
 func (s *VolumeStateSuite) TestDestroyVolume(c *gc.C) {
 	volume, _ := s.setupMachineScopedVolumeAttachment(c)
 	assertDestroy := func() {
-		err := s.storageBackend.DestroyVolume(volume.VolumeTag())
+		err := s.storageBackend.DestroyVolume(volume.VolumeTag(), false)
 		c.Assert(err, jc.ErrorIsNil)
 		volume = s.volume(c, volume.VolumeTag())
 		c.Assert(volume.Life(), gc.Equals, state.Dying)
@@ -640,7 +640,7 @@ func (s *VolumeStateSuite) TestDestroyVolume(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestDestroyVolumeNotFound(c *gc.C) {
-	err := s.storageBackend.DestroyVolume(names.NewVolumeTag("0"))
+	err := s.storageBackend.DestroyVolume(names.NewVolumeTag("0"), false)
 	c.Assert(err, gc.ErrorMatches, `destroying volume 0: volume "0" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -650,27 +650,27 @@ func (s *VolumeStateSuite) TestDestroyVolumeStorageAssigned(c *gc.C) {
 	storageTag, err := volume.StorageInstance()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.storageBackend.DestroyVolume(volume.VolumeTag())
+	err = s.storageBackend.DestroyVolume(volume.VolumeTag(), false)
 	c.Assert(err, gc.ErrorMatches, "destroying volume 0: volume is assigned to storage data/0")
 
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	removeStorageInstance(c, s.storageBackend, storageTag)
-	err = s.storageBackend.DestroyVolume(volume.VolumeTag())
+	err = s.storageBackend.DestroyVolume(volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *VolumeStateSuite) TestDestroyVolumeNoAttachments(c *gc.C) {
 	volume, machine := s.setupModelScopedVolumeAttachment(c)
-	err := s.storageBackend.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	err := s.storageBackend.DetachVolume(machine.MachineTag(), volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.storageBackend.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+		err := s.storageBackend.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag(), false)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err = s.storageBackend.DestroyVolume(volume.VolumeTag())
+	err = s.storageBackend.DestroyVolume(volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	volume = s.volume(c, volume.VolumeTag())
 
@@ -685,18 +685,18 @@ func (s *VolumeStateSuite) TestDetachVolumeDyingAttachment(c *gc.C) {
 	machineTag := machine.MachineTag()
 	// Make sure the state is already dying by the time we call DetachVolume
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.storageBackend.DetachVolume(machineTag, volumeTag)
+		err := s.storageBackend.DetachVolume(machineTag, volumeTag, false)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err := s.storageBackend.DetachVolume(machineTag, volumeTag)
+	err := s.storageBackend.DetachVolume(machineTag, volumeTag, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	volumeAttachment := s.volumeAttachment(c, machineTag, volumeTag)
 	c.Assert(volumeAttachment.Life(), gc.Equals, state.Dying)
 	volume = s.volume(c, volumeTag)
 	c.Assert(volume.Life(), gc.Equals, state.Alive)
-	err = s.storageBackend.DestroyVolume(volumeTag)
+	err = s.storageBackend.DestroyVolume(volumeTag, false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -723,11 +723,11 @@ func (s *VolumeStateSuite) TestDetachVolumeDyingAttachmentPlan(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.storageBackend.DetachVolume(machineTag, volumeTag)
+		err := s.storageBackend.DetachVolume(machineTag, volumeTag, false)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err = s.storageBackend.DetachVolume(machineTag, volumeTag)
+	err = s.storageBackend.DetachVolume(machineTag, volumeTag, false)
 	c.Assert(err, jc.ErrorIsNil)
 	// The volume attachment shouldn't progress to dying, but its volume attachment plan should have
 	volumeAttachment := s.volumeAttachment(c, machineTag, volumeTag)
@@ -736,7 +736,7 @@ func (s *VolumeStateSuite) TestDetachVolumeDyingAttachmentPlan(c *gc.C) {
 	c.Assert(volumeAttachmentPlan.Life(), gc.Equals, state.Dying)
 	volume = s.volume(c, volumeTag)
 	// now calling RemoveAttachmentPlan removes the plan and moves the VolumeAttachment to dying
-	err = s.storageBackend.RemoveVolumeAttachmentPlan(machineTag, volumeTag)
+	err = s.storageBackend.RemoveVolumeAttachmentPlan(machineTag, volumeTag, false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.storageBackend.VolumeAttachmentPlan(machineTag, volumeTag)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -747,9 +747,9 @@ func (s *VolumeStateSuite) TestDetachVolumeDyingAttachmentPlan(c *gc.C) {
 func (s *VolumeStateSuite) TestRemoveVolume(c *gc.C) {
 	volume, machine := s.setupMachineScopedVolumeAttachment(c)
 
-	err := s.storageBackend.DestroyVolume(volume.VolumeTag())
+	err := s.storageBackend.DestroyVolume(volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+	err = s.storageBackend.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemove := func() {
 		err = s.storageBackend.RemoveVolume(volume.VolumeTag())
@@ -770,7 +770,7 @@ func (s *VolumeStateSuite) TestRemoveVolumeNotDead(c *gc.C) {
 	volume, _ := s.setupMachineScopedVolumeAttachment(c)
 	err := s.storageBackend.RemoveVolume(volume.VolumeTag())
 	c.Assert(err, gc.ErrorMatches, "removing volume 0/0: volume is not dead")
-	err = s.storageBackend.DestroyVolume(volume.VolumeTag())
+	err = s.storageBackend.DestroyVolume(volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.RemoveVolume(volume.VolumeTag())
 	c.Assert(err, gc.ErrorMatches, "removing volume 0/0: volume is not dead")
@@ -779,7 +779,7 @@ func (s *VolumeStateSuite) TestRemoveVolumeNotDead(c *gc.C) {
 func (s *VolumeStateSuite) TestDetachVolume(c *gc.C) {
 	volume, machine := s.setupModelScopedVolumeAttachment(c)
 	assertDetach := func() {
-		err := s.storageBackend.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+		err := s.storageBackend.DetachVolume(machine.MachineTag(), volume.VolumeTag(), false)
 		c.Assert(err, jc.ErrorIsNil)
 		attachment := s.volumeAttachment(c, machine.MachineTag(), volume.VolumeTag())
 		c.Assert(attachment.Life(), gc.Equals, state.Dying)
@@ -791,15 +791,15 @@ func (s *VolumeStateSuite) TestDetachVolume(c *gc.C) {
 func (s *VolumeStateSuite) TestRemoveLastVolumeAttachment(c *gc.C) {
 	volume, machine := s.setupModelScopedVolumeAttachment(c)
 
-	err := s.storageBackend.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	err := s.storageBackend.DetachVolume(machine.MachineTag(), volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.storageBackend.DestroyVolume(volume.VolumeTag())
+	err = s.storageBackend.DestroyVolume(volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	volume = s.volume(c, volume.VolumeTag())
 	c.Assert(volume.Life(), gc.Equals, state.Dying)
 
-	err = s.storageBackend.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+	err = s.storageBackend.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The volume was Dying when the last attachment was
@@ -811,17 +811,17 @@ func (s *VolumeStateSuite) TestRemoveLastVolumeAttachment(c *gc.C) {
 func (s *VolumeStateSuite) TestRemoveLastVolumeAttachmentConcurrently(c *gc.C) {
 	volume, machine := s.setupModelScopedVolumeAttachment(c)
 
-	err := s.storageBackend.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	err := s.storageBackend.DetachVolume(machine.MachineTag(), volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.storageBackend.DestroyVolume(volume.VolumeTag())
+		err := s.storageBackend.DestroyVolume(volume.VolumeTag(), false)
 		c.Assert(err, jc.ErrorIsNil)
 		volume := s.volume(c, volume.VolumeTag())
 		c.Assert(volume.Life(), gc.Equals, state.Dying)
 	}).Check()
 
-	err = s.storageBackend.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+	err = s.storageBackend.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Last attachment was removed, and the volume was (concurrently)
@@ -831,7 +831,7 @@ func (s *VolumeStateSuite) TestRemoveLastVolumeAttachmentConcurrently(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestRemoveVolumeAttachmentNotFound(c *gc.C) {
-	err := s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("42"), names.NewVolumeTag("42"))
+	err := s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("42"), names.NewVolumeTag("42"), false)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, `removing attachment of volume 42 from machine 42: volume "42" on "machine 42" not found`)
 }
@@ -839,10 +839,10 @@ func (s *VolumeStateSuite) TestRemoveVolumeAttachmentNotFound(c *gc.C) {
 func (s *VolumeStateSuite) TestRemoveVolumeAttachmentConcurrently(c *gc.C) {
 	volume, machine := s.setupMachineScopedVolumeAttachment(c)
 
-	err := s.storageBackend.DestroyVolume(volume.VolumeTag())
+	err := s.storageBackend.DestroyVolume(volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	remove := func() {
-		err := s.storageBackend.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+		err := s.storageBackend.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag(), false)
 		c.Assert(err, jc.ErrorIsNil)
 		assertMachineStorageRefs(c, s.storageBackend, machine.MachineTag())
 	}
@@ -853,7 +853,7 @@ func (s *VolumeStateSuite) TestRemoveVolumeAttachmentConcurrently(c *gc.C) {
 func (s *VolumeStateSuite) TestRemoveVolumeAttachmentAlive(c *gc.C) {
 	volume, machine := s.setupMachineScopedVolumeAttachment(c)
 
-	err := s.storageBackend.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+	err := s.storageBackend.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag(), false)
 	c.Assert(err, gc.ErrorMatches, "removing attachment of volume 0/0 from machine 0: volume attachment is not dying")
 }
 
@@ -978,9 +978,9 @@ func (s *VolumeStateSuite) TestVolumeMachineScoped(c *gc.C) {
 	volume := s.volume(c, names.NewVolumeTag("0/0"))
 	c.Assert(volume.Life(), gc.Equals, state.Alive)
 
-	err = s.storageBackend.DestroyVolume(volume.VolumeTag())
+	err = s.storageBackend.DestroyVolume(volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+	err = s.storageBackend.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	volume = s.volume(c, volume.VolumeTag())
 	c.Assert(volume.Life(), gc.Equals, state.Dead)

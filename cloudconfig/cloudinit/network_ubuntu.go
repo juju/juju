@@ -28,13 +28,16 @@ var (
 
 // GenerateENITemplate renders an e/n/i template config for one or more network
 // interfaces, using the given non-empty interfaces list.
-func GenerateENITemplate(interfaces []corenetwork.InterfaceInfo) (string, error) {
+func GenerateENITemplate(interfaces corenetwork.InterfaceInfos) (string, error) {
 	if len(interfaces) == 0 {
 		return "", errors.Errorf("missing container network config")
 	}
 	logger.Debugf("generating /e/n/i template from %#v", interfaces)
 
-	prepared := PrepareNetworkConfigFromInterfaces(interfaces)
+	prepared, err := PrepareNetworkConfigFromInterfaces(interfaces)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 
 	var output bytes.Buffer
 	gateway4Handled := false
@@ -137,7 +140,7 @@ func GenerateENITemplate(interfaces []corenetwork.InterfaceInfo) (string, error)
 
 // GenerateNetplan renders a netplan file for one or more network
 // interfaces, using the given non-empty list of interfaces.
-func GenerateNetplan(interfaces []corenetwork.InterfaceInfo) (string, error) {
+func GenerateNetplan(interfaces corenetwork.InterfaceInfos) (string, error) {
 	if len(interfaces) == 0 {
 		return "", errors.Errorf("missing container network config")
 	}
@@ -147,7 +150,11 @@ func GenerateNetplan(interfaces []corenetwork.InterfaceInfo) (string, error) {
 	netPlan.Network.Version = 2
 	for _, info := range interfaces {
 		var iface netplan.Ethernet
-		if cidr := info.CIDRAddress(); cidr != "" {
+		cidr, err := info.CIDRAddress()
+		if err != nil && !errors.IsNotFound(err) {
+			return "", errors.Trace(err)
+		}
+		if cidr != "" {
 			iface.Addresses = append(iface.Addresses, cidr)
 		} else if info.ConfigType == corenetwork.ConfigDHCP {
 			t := true
@@ -210,7 +217,7 @@ type PreparedConfig struct {
 // PrepareNetworkConfigFromInterfaces collects the necessary information to
 // render a persistent network config from the given slice of
 // network.InterfaceInfo. The result always includes the loopback interface.
-func PrepareNetworkConfigFromInterfaces(interfaces []corenetwork.InterfaceInfo) *PreparedConfig {
+func PrepareNetworkConfigFromInterfaces(interfaces corenetwork.InterfaceInfos) (*PreparedConfig, error) {
 	dnsServers := set.NewStrings()
 	dnsSearchDomains := set.NewStrings()
 	gateway4Address := ""
@@ -247,7 +254,11 @@ func PrepareNetworkConfigFromInterfaces(interfaces []corenetwork.InterfaceInfo) 
 			autoStarted.Add(ifaceName)
 		}
 
-		if cidr := info.CIDRAddress(); cidr != "" {
+		cidr, err := info.CIDRAddress()
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		if cidr != "" {
 			nameToAddress[ifaceName] = cidr
 		} else if info.ConfigType == corenetwork.ConfigDHCP {
 			nameToAddress[ifaceName] = string(corenetwork.ConfigDHCP)
@@ -290,13 +301,13 @@ func PrepareNetworkConfigFromInterfaces(interfaces []corenetwork.InterfaceInfo) 
 	}
 
 	logger.Debugf("prepared network config for rendering: %+v", prepared)
-	return prepared
+	return prepared, nil
 }
 
 // AddNetworkConfig adds configuration scripts for specified interfaces
 // to cloudconfig - using boot textfiles and boot commands. It currently
 // supports e/n/i and netplan.
-func (cfg *ubuntuCloudConfig) AddNetworkConfig(interfaces []corenetwork.InterfaceInfo) error {
+func (cfg *ubuntuCloudConfig) AddNetworkConfig(interfaces corenetwork.InterfaceInfos) error {
 	if len(interfaces) != 0 {
 		eni, err := GenerateENITemplate(interfaces)
 		if err != nil {

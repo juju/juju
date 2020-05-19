@@ -46,7 +46,7 @@ func (r *containerResolver) NextOp(
 	// If we haven't yet handled the init container.
 	if !localState.OutdatedRemoteCharm && localState.ContainerRunningStatus != nil {
 		if localState.ContainerRunningStatus.InitialisingTime == remoteState.ContainerRunningStatus.InitialisingTime {
-			// We've already initilised the container.
+			// We've already initialised the container.
 			return noOp()
 		}
 	} else if !localState.OutdatedRemoteCharm {

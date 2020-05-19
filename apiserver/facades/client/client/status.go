@@ -748,10 +748,10 @@ func fetchAllApplicationsAndUnits(
 		return applicationStatusInfo{}, err
 	}
 	allBindingsByApp := make(map[string]map[string]string)
-	for _, bindings := range endpointBindings {
+	for app, bindings := range endpointBindings {
 		// If the only binding is the default, and it's set to the
 		// default space, no need to print.
-		bindingMap, err := bindings.Bindings.MapWithSpaceNames()
+		bindingMap, err := bindings.MapWithSpaceNames()
 		if err != nil {
 			return applicationStatusInfo{}, err
 		}
@@ -760,7 +760,7 @@ func fetchAllApplicationsAndUnits(
 				continue
 			}
 		}
-		allBindingsByApp[bindings.AppName] = bindingMap
+		allBindingsByApp[app] = bindingMap
 	}
 
 	lxdProfiles := make(map[string]*charm.LXDProfile)

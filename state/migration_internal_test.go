@@ -325,6 +325,8 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"ModelUUID",
 		// Life is always alive, confirmed by export precheck.
 		"Life",
+		// ForceDestroyed is only true for dying/dead machines.
+		"ForceDestroyed",
 		// Ignored at this stage, could be an issue if mongo 3.0 isn't
 		// available.
 		"StopMongoUntilVersion",

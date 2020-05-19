@@ -257,11 +257,11 @@ func (s *SSHCommonSuite) setLinkLayerDevicesAddresses(c *gc.C, m *state.Machine)
 	addressesArgs := []state.LinkLayerDeviceAddress{{
 		DeviceName:   "lo",
 		CIDRAddress:  "127.0.0.1/8", // will be filtered
-		ConfigMethod: state.LoopbackAddress,
+		ConfigMethod: network.LoopbackAddress,
 	}, {
 		DeviceName:   "eth0",
 		CIDRAddress:  "0.1.2.3/24", // needs to be a valid CIDR
-		ConfigMethod: state.StaticAddress,
+		ConfigMethod: network.StaticAddress,
 	}}
 	err = m.SetDevicesAddresses(addressesArgs...)
 	c.Assert(err, jc.ErrorIsNil)

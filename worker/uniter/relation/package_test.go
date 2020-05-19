@@ -12,3 +12,10 @@ import (
 func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
+
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_statetracker.go github.com/juju/juju/worker/uniter/relation RelationStateTracker
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_relationer.go github.com/juju/juju/worker/uniter/relation Relationer
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_subordinate_destroyer.go github.com/juju/juju/worker/uniter/relation SubordinateDestroyer
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_state_tracker_state.go github.com/juju/juju/worker/uniter/relation StateTrackerState
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_uniter_api.go github.com/juju/juju/worker/uniter/relation Unit,Relation,RelationUnit
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_state_manager.go github.com/juju/juju/worker/uniter/relation StateManager

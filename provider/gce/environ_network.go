@@ -139,7 +139,7 @@ func (e *environ) getInstanceSubnets(
 }
 
 // NetworkInterfaces implements environs.NetworkingEnviron.
-func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]corenetwork.InterfaceInfo, error) {
+func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -176,7 +176,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 		return nil, errors.Trace(err)
 	}
 
-	infos := make([][]corenetwork.InterfaceInfo, len(ids))
+	infos := make([]corenetwork.InterfaceInfos, len(ids))
 	for idx, inst := range insts {
 		if inst == nil {
 			continue // no instance with this ID known by provider
@@ -341,7 +341,7 @@ func (e *environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (b
 }
 
 // AllocateContainerAddresses implements environs.NetworkingEnviron.
-func (e *environ) AllocateContainerAddresses(context.ProviderCallContext, instance.Id, names.MachineTag, []corenetwork.InterfaceInfo) ([]corenetwork.InterfaceInfo, error) {
+func (e *environ) AllocateContainerAddresses(context.ProviderCallContext, instance.Id, names.MachineTag, corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("container addresses")
 }
 

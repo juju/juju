@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/wrench"
 )
 
 // NewLock creates a gate.Lock to be used to synchronise workers
@@ -260,21 +261,44 @@ func (w *upgradeDB) contextGetter(agentConfig agent.ConfigSetter) func() upgrade
 func (w *upgradeDB) watchUpgrade() {
 	w.setStatus(status.Started, fmt.Sprintf("waiting on primary database upgrade to %v", w.toVersion))
 
+	if wrench.IsActive("upgrade-database", "watch-upgrade") {
+		// Simulate an error causing the upgrade to fail.
+		w.logger.Errorf("unable to upgrade - wrench in the works")
+		w.setFailStatus()
+		return
+	}
+
 	timeout := w.clock.After(10 * time.Minute)
 	watcher := w.upgradeInfo.Watch()
 	defer func() { _ = watcher.Stop() }()
 
+	// Ensure that we re-read the upgrade document after starting the watcher to
+	// ensure that we are operating on the latest information, otherwise there
+	// is a potential race where we wouldn't notice a change.
+	if err := w.upgradeInfo.Refresh(); err != nil {
+		w.logger.Errorf("unable to refresh upgrade info: %v", err)
+		w.setFailStatus()
+		return
+	}
+
 	for {
+		// If the primary has already run the database steps then the status will
+		// be "db-complete", however if it has finished all its upgrade steps, the status
+		// will be "finishing". We need to check against both of these statuses.
+		switch w.upgradeInfo.Status() {
+		case state.UpgradeDBComplete, state.UpgradeFinishing:
+			w.setStatus(status.Started, fmt.Sprintf("confirmed primary database upgrade to %v", w.toVersion))
+			w.upgradeComplete.Unlock()
+			return
+		default:
+			// Continue waiting for another change.
+		}
+
 		select {
 		case <-watcher.Changes():
 			if err := w.upgradeInfo.Refresh(); err != nil {
 				w.logger.Errorf("unable to refresh upgrade info: %v", err)
 				w.setFailStatus()
-				return
-			}
-			if w.upgradeInfo.Status() == state.UpgradeDBComplete {
-				w.setStatus(status.Started, fmt.Sprintf("confirmed primary database upgrade to %v", w.toVersion))
-				w.upgradeComplete.Unlock()
 				return
 			}
 		case <-timeout:

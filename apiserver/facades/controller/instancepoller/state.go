@@ -12,7 +12,7 @@ import (
 
 // StateLinkLayerDevice represents a link layer device address from state package.
 type StateLinkLayerDeviceAddress interface {
-	ConfigMethod() state.AddressConfigMethod
+	ConfigMethod() network.AddressConfigMethod
 	SubnetCIDR() string
 	DNSServers() []string
 	DNSSearchDomains() []string

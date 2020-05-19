@@ -123,16 +123,11 @@ func (s *simplestreamsSuite) TestOfficialSources(c *gc.C) {
 	}()
 	ds, err := imagemetadata.OfficialDataSources("daily")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ds, gc.HasLen, 2)
+	c.Assert(ds, gc.HasLen, 1)
 	url, err := ds[0].URL("")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, "https://streams.canonical.com/juju/images/daily/")
-	c.Assert(ds[0].PublicSigningKey(), gc.Equals, sstesting.SignedMetadataPublicKey)
-
-	url, err = ds[1].URL("")
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url, gc.Equals, "http://cloud-images.ubuntu.com/daily/")
-	c.Assert(ds[1].PublicSigningKey(), gc.Equals, sstesting.SignedMetadataPublicKey)
+	c.Assert(ds[0].PublicSigningKey(), gc.Equals, sstesting.SignedMetadataPublicKey)
 }
 
 var fetchTests = []struct {

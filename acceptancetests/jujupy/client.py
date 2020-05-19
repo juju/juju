@@ -1109,6 +1109,12 @@ class ModelClient:
         :raises: subprocess.CalledProcessError if the operation fails.
         :return: Tuple: Subprocess's exit code, CommandComplete object.
         """
+
+        # Before destroying the controller, get the backend to stop tracking
+        # all of the models connected to it.
+        # This prevents calling status on dying/dead models.
+        self.untrack_models()
+
         args = (self.env.controller.name, '-y')
         if all_models:
             args += ('--destroy-all-models',)
@@ -1139,6 +1145,11 @@ class ModelClient:
             else:
                 logging.warning(message)
             raise
+
+    def untrack_models(self):
+        """Untrack models for this client's controller."""
+        for client in self.iter_model_clients():
+            self._backend.untrack_model(client)
 
     def get_juju_output(self, command, *args, **kwargs):
         """Call a juju command and return the output.

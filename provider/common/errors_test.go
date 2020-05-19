@@ -29,9 +29,9 @@ func (*ErrorsSuite) TestWrapZoneIndependentError(c *gc.C) {
 
 	stack := errors.ErrorStack(wrapped)
 	c.Assert(stack, gc.Matches, `
-github.com/juju/juju/provider/common/errors_test.go:.*: foo
-github.com/juju/juju/provider/common/errors_test.go:.*: bar
-github.com/juju/juju/provider/common/errors_test.go:.*: bar: foo`[1:])
+.*github.com/juju/juju/provider/common/errors_test.go:.*: foo
+.*github.com/juju/juju/provider/common/errors_test.go:.*: bar
+.*github.com/juju/juju/provider/common/errors_test.go:.*: bar: foo`[1:])
 }
 
 func (s *ErrorsSuite) TestInvalidCredentialWrapped(c *gc.C) {
@@ -46,9 +46,9 @@ func (s *ErrorsSuite) TestInvalidCredentialWrapped(c *gc.C) {
 
 	stack := errors.ErrorStack(err)
 	c.Assert(stack, gc.Matches, `
-github.com/juju/juju/provider/common/errors_test.go:.*: foo
-github.com/juju/juju/provider/common/errors_test.go:.*: bar
-github.com/juju/juju/provider/common/errors_test.go:.*: bar: foo`[1:])
+.*github.com/juju/juju/provider/common/errors_test.go:.*: foo
+.*github.com/juju/juju/provider/common/errors_test.go:.*: bar
+.*github.com/juju/juju/provider/common/errors_test.go:.*: bar: foo`[1:])
 }
 
 func (s *ErrorsSuite) TestInvalidCredentialNew(c *gc.C) {

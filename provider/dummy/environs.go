@@ -181,7 +181,7 @@ type OpDestroy struct {
 type OpNetworkInterfaces struct {
 	Env        string
 	InstanceId instance.Id
-	Info       []corenetwork.InterfaceInfo
+	Info       corenetwork.InterfaceInfos
 }
 
 type OpSubnets struct {
@@ -199,7 +199,7 @@ type OpStartInstance struct {
 	Instance          instances.Instance
 	Constraints       constraints.Value
 	SubnetsToZones    map[corenetwork.Id][]string
-	NetworkInfo       []corenetwork.InterfaceInfo
+	NetworkInfo       corenetwork.InterfaceInfos
 	Volumes           []storage.Volume
 	VolumeAttachments []storage.VolumeAttachment
 	Info              *mongo.MongoInfo
@@ -1434,7 +1434,7 @@ func (env *environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.Space
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces().
-func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]corenetwork.InterfaceInfo, error) {
+func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
 	if err := env.checkBroken("NetworkInterfaces"); err != nil {
 		return nil, err
 	}
@@ -1448,9 +1448,9 @@ func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []ins
 
 	// Simulate 3 NICs - primary and secondary enabled plus a disabled NIC.
 	// all configured using DHCP and having fake DNS servers and gateway.
-	infos := make([][]corenetwork.InterfaceInfo, len(ids))
+	infos := make([]corenetwork.InterfaceInfos, len(ids))
 	for idIndex, instId := range ids {
-		infos[idIndex] = make([]corenetwork.InterfaceInfo, 3)
+		infos[idIndex] = make(corenetwork.InterfaceInfos, 3)
 		for i, netName := range []string{"private", "public", "disabled"} {
 			infos[idIndex][i] = corenetwork.InterfaceInfo{
 				DeviceIndex:      i,
@@ -1927,7 +1927,7 @@ func delay() {
 	}
 }
 
-func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []corenetwork.InterfaceInfo) ([]corenetwork.InterfaceInfo, error) {
+func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("container address allocation")
 }
 

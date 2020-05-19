@@ -131,6 +131,9 @@ type Uniter struct {
 	// remoteInitFunc is used to init remote charm state.
 	remoteInitFunc RemoteInitFunc
 
+	// isRemoteUnit is true when the unit is remotely deployed.
+	isRemoteUnit bool
+
 	// hookRetryStrategy represents configuration for hook retries
 	hookRetryStrategy params.RetryStrategy
 
@@ -166,6 +169,7 @@ type UniterParams struct {
 	ApplicationChannel            watcher.NotifyChannel
 	ContainerRunningStatusChannel watcher.NotifyChannel
 	ContainerRunningStatusFunc    remotestate.ContainerRunningStatusFunc
+	IsRemoteUnit                  bool
 	SocketConfig                  *SocketConfig
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
 	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
@@ -230,6 +234,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 		applicationChannel:            uniterParams.ApplicationChannel,
 		containerRunningStatusChannel: uniterParams.ContainerRunningStatusChannel,
 		containerRunningStatusFunc:    uniterParams.ContainerRunningStatusFunc,
+		isRemoteUnit:                  uniterParams.IsRemoteUnit,
 		runListener:                   uniterParams.RunListener,
 		rebootQuerier:                 uniterParams.RebootQuerier,
 		logger:                        uniterParams.Logger,
@@ -402,6 +407,13 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				return errors.Trace(err)
 			}
 		}
+	} else if u.modelType == model.CAAS && u.isRemoteUnit {
+		if u.containerRunningStatusChannel == nil {
+			return errors.NotValidf("ContainerRunningStatusChannel missing for CAAS remote unit")
+		}
+		if u.containerRunningStatusFunc == nil {
+			return errors.NotValidf("ContainerRunningStatusFunc missing for CAAS remote unit")
+		}
 	}
 
 	for {
@@ -433,7 +445,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			),
 			Logger: u.logger,
 		}
-		if u.modelType == model.CAAS {
+		if u.modelType == model.CAAS && u.isRemoteUnit {
 			cfg.Container = container.NewResolver()
 		}
 		uniterResolver := NewUniterResolver(cfg)
@@ -451,8 +463,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			CharmURL:             charmURL,
 			CharmModifiedVersion: charmModifiedVersion,
 			UpgradeSeriesStatus:  model.UpgradeSeriesNotStarted,
-			// CAAS models should trigger remote update of the charm every start.
-			OutdatedRemoteCharm: u.modelType == model.CAAS,
+			// CAAS remote units should trigger remote update of the charm every start.
+			OutdatedRemoteCharm: u.isRemoteUnit,
 		}
 		for err == nil {
 			err = resolver.Loop(resolver.LoopConfig{
@@ -626,15 +638,15 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err := charm.ClearDownloads(u.paths.State.BundlesDir); err != nil {
 		u.logger.Warningf(err.Error())
 	}
-	logger := u.logger.Child("charm")
+	charmLogger := u.logger.Child("charm")
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
 		u.paths.State.DeployerDir,
 		charm.NewBundlesDir(
 			u.paths.State.BundlesDir,
 			u.downloader,
-			logger),
-		logger,
+			charmLogger),
+		charmLogger,
 	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create deployer")

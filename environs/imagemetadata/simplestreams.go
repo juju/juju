@@ -16,7 +16,6 @@ import (
 	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/juju/keys"
 )
 
 func init() {
@@ -101,10 +100,6 @@ const (
 	// public consumption.
 	UbuntuCloudImagesURL = "http://cloud-images.ubuntu.com"
 
-	// The location of juju specific image metadata including non-Ubuntu images
-	// in public clouds.
-	JujuStreamsImagesURL = "https://streams.canonical.com/juju/images"
-
 	// The path where released image metadata is found.
 	ReleasedImagesPath = "releases"
 )
@@ -112,7 +107,6 @@ const (
 // This needs to be a var so we can override it for testing and in bootstrap.
 var (
 	DefaultUbuntuBaseURL = UbuntuCloudImagesURL
-	DefaultJujuBaseURL   = JujuStreamsImagesURL
 )
 
 // OfficialDataSources returns the simplestreams datasources where official
@@ -120,34 +114,6 @@ var (
 func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 	var result []simplestreams.DataSource
 
-	// New images metadata for centos and windows and existing clouds.
-	defaultJujuURL, err := ImageMetadataURL(DefaultJujuBaseURL, stream)
-	if err != nil {
-		return nil, err
-	}
-	if defaultJujuURL != "" {
-		publicKey, err := simplestreams.UserPublicSigningKey()
-		if err != nil {
-			return nil, err
-		}
-		if publicKey == "" {
-			publicKey = keys.JujuPublicKey
-		}
-		config := simplestreams.Config{
-			Description:          "default cloud images",
-			BaseURL:              defaultJujuURL,
-			PublicSigningKey:     publicKey,
-			HostnameVerification: utils.VerifySSLHostnames,
-			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
-			RequireSigned:        true,
-		}
-		if err := config.Validate(); err != nil {
-			return nil, errors.Annotate(err, "simplestreams config validation failed")
-		}
-		result = append(result, simplestreams.NewDataSource(config))
-	}
-
-	// Fallback to image metadata for existing Ubuntu images.
 	defaultUbuntuURL, err := ImageMetadataURL(DefaultUbuntuBaseURL, stream)
 	if err != nil {
 		return nil, err

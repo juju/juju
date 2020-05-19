@@ -180,8 +180,8 @@ func (s *spaceSuite) TestMoveSubnets(c *gc.C) {
 	spaces, err := s.spaces.MoveSubnets(network.MakeIDSet("11", "12"), "space3")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spaces, gc.DeepEquals, network.SpaceInfos{
-		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{}},
-		{ID: "2", Name: "space2", Subnets: []network.SubnetInfo{}},
+		{ID: "1", Name: "space1", Subnets: nil},
+		{ID: "2", Name: "space2", Subnets: nil},
 		{
 			ID:   "3",
 			Name: "space3",
@@ -191,6 +191,13 @@ func (s *spaceSuite) TestMoveSubnets(c *gc.C) {
 				{ID: "12", CIDR: "10.0.1.0/24", SpaceID: "3", SpaceName: "space3"},
 			},
 		},
+	})
+
+	// Ensure the original was not mutated.
+	c.Assert(s.spaces, gc.DeepEquals, network.SpaceInfos{
+		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{ID: "11", CIDR: "10.0.0.0/24"}}},
+		{ID: "2", Name: "space2", Subnets: []network.SubnetInfo{{ID: "12", CIDR: "10.0.1.0/24"}}},
+		{ID: "3", Name: "space3", Subnets: []network.SubnetInfo{{ID: "13", CIDR: "10.0.2.0/24"}}},
 	})
 }
 

@@ -27,13 +27,6 @@ type Logger interface {
 	Infof(string, ...interface{})
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_subordinate_destroyer.go github.com/juju/juju/worker/uniter/relation SubordinateDestroyer
-
-// SubordinateDestroyer destroys all subordinates of a unit.
-type SubordinateDestroyer interface {
-	DestroyAllSubordinates() error
-}
-
 // NewRelationResolver returns a resolver that handles all relation-related
 // hooks (except relation-created) and is wired to the provided RelationStateTracker
 // instance.
