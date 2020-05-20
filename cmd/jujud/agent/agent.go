@@ -24,6 +24,11 @@ import (
 	"github.com/juju/juju/cmd/jujud/util"
 )
 
+// EngineErrorDelay is the amount of time the dependency engine waits
+// between getting an error from a worker, and restarting it. It is exposed
+// here so tests can make it smaller.
+var EngineErrorDelay = 3 * time.Second
+
 // AgentConf is a terribly confused interface.
 //
 // Parts of it are a mixin for cmd.Command implementations; others are a mixin
@@ -163,7 +168,7 @@ func dependencyEngineConfig() dependency.EngineConfig {
 	return dependency.EngineConfig{
 		IsFatal:          util.IsFatal,
 		WorstError:       util.MoreImportantError,
-		ErrorDelay:       3 * time.Second,
+		ErrorDelay:       EngineErrorDelay,
 		BounceDelay:      10 * time.Millisecond,
 		BackoffFactor:    1.2,
 		BackoffResetTime: 1 * time.Minute,

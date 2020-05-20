@@ -325,6 +325,24 @@ func (s *DefaultsCommandSuite) TestSet(c *gc.C) {
 	})
 }
 
+func (s *DefaultsCommandSuite) TestSetValueWithSlash(c *gc.C) {
+	// A value with a "/" might be interpreted as a cloud/region.
+	_, err := s.run(c, `juju-no-proxy="localhost,127.0.0.1,127.0.0.53,10.0.8.0/24"`)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fakeDefaultsAPI.cloud, gc.Equals, "dummy")
+	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		"attr": {Controller: nil, Default: "foo", Regions: nil},
+		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "dummy-value",
+		}, {
+			Name:  "another-region",
+			Value: "another-value",
+		}}},
+		"juju-no-proxy": {Controller: "localhost,127.0.0.1,127.0.0.53,10.0.8.0/24", Default: nil, Regions: nil},
+	})
+}
+
 func (s *DefaultsCommandSuite) TestSetFromFile(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")

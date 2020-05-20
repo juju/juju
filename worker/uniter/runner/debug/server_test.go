@@ -101,6 +101,7 @@ func (s *DebugHooksServerSuite) TestFindSession(c *gc.C) {
 	c.Assert(session.MatchHook("bar"), jc.IsTrue)
 	c.Assert(session.MatchHook("baz"), jc.IsTrue)
 	c.Assert(session.MatchHook("foo bar baz"), jc.IsFalse)
+	c.Assert(session.DebugAt(), gc.Equals, "")
 }
 
 func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
@@ -236,10 +237,115 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	}
 }
 
+func (s *DebugHooksServerSuite) TestRunHookDebugAt(c *gc.C) {
+	s.fakeTmux(c)
+	s.fakeJujuLog(c)
+	err := ioutil.WriteFile(s.ctx.ClientFileLock(), []byte("debug-at: all\n"), 0777)
+	c.Assert(err, jc.ErrorIsNil)
+	var output bytes.Buffer
+	session, err := s.ctx.FindSessionWithWriter(&output)
+	c.Assert(session, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(session.DebugAt(), gc.Equals, "all")
+
+	flockAcquired := make(chan struct{}, 0)
+	waitForFlock := func() {
+		select {
+		case <-flockAcquired:
+		case <-time.After(testing.ShortWait):
+			c.Fatalf("timed out waiting for hook to acquire flock")
+		}
+	}
+	s.PatchValue(&waitClientExit, func(*ServerSession) {
+		flockAcquired <- struct{}{}
+	})
+	const hookName = "myhook"
+	hookRunner := s.tmpdir + "/" + hookName
+	err = ioutil.WriteFile(hookRunner, []byte(`#!/bin/bash --norc
+echo ran hook >&2
+`), 0777)
+	c.Assert(err, jc.ErrorIsNil)
+
+	env := os.Environ()
+	env = append(env, "JUJU_DISPATCH_PATH=hooks/"+hookName)
+	env = append(env, "JUJU_HOOK_NAME="+hookName)
+	err = session.RunHook(hookName, s.tmpdir, env, hookRunner)
+	waitForFlock() // Close the goroutine that was spawned to ensure cleanup
+
+	c.Check(output.String(), gc.Equals,
+		fmt.Sprintf(`--log-level INFO debug running %s for myhook
+ran hook
+`, hookRunner))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *DebugHooksServerSuite) TestRunHookDebugAtNoHook(c *gc.C) {
+	// see that if the hook doesn't actually exist, we exit gracefully rather than error
+	const hookName = "no-hook"
+	s.fakeTmux(c)
+	s.fakeJujuLog(c)
+	err := ioutil.WriteFile(s.ctx.ClientFileLock(), []byte("debug-at: all\n"), 0777)
+	c.Assert(err, jc.ErrorIsNil)
+	var output bytes.Buffer
+	session, err := s.ctx.FindSessionWithWriter(&output)
+	c.Assert(session, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(session.DebugAt(), gc.Equals, "all")
+
+	flockAcquired := make(chan struct{}, 0)
+	waitForFlock := func() {
+		select {
+		case <-flockAcquired:
+		case <-time.After(testing.ShortWait):
+			c.Fatalf("timed out waiting for hook to acquire flock")
+		}
+	}
+	s.PatchValue(&waitClientExit, func(*ServerSession) {
+		flockAcquired <- struct{}{}
+	})
+	env := os.Environ()
+	env = append(env, "JUJU_DISPATCH_PATH=hooks/"+hookName)
+	env = append(env, "JUJU_HOOK_NAME="+hookName)
+	err = session.RunHook(hookName, s.tmpdir, env, "")
+	waitForFlock() // Close the goroutine that was spawned to ensure cleanup
+
+	// RunHook should complete once we finish running the hook.sh
+	c.Check(output.String(), gc.Equals,
+		"--log-level INFO debugging is enabled, but no handler for no-hook, skipping\n")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *DebugHooksServerSuite) verifyEnvshFile(c *gc.C, envshPath string, hookName string) {
 	data, err := ioutil.ReadFile(envshPath)
 	c.Assert(err, jc.ErrorIsNil)
 	contents := string(data)
 	c.Assert(contents, jc.Contains, fmt.Sprintf("JUJU_UNIT_NAME=%q", s.ctx.Unit))
 	c.Assert(contents, jc.Contains, fmt.Sprintf(`PS1="%s:hooks/%s %% "`, s.ctx.Unit, hookName))
+}
+
+// fakeTmux installs a script that will respond to has-session and new-window
+func (s *DebugHooksServerSuite) fakeTmux(c *gc.C) {
+	err := ioutil.WriteFile(filepath.Join(s.fakebin, "tmux"), []byte(`#!/bin/bash --norc
+case "$1" in
+    has-session)
+        # yes, we have the session
+        exit 0
+        ;;
+    new-window)
+        # echo "running: ${@: -1}" >&2
+        # cat ${@: -1} >&2
+	    exec "${@: -1}"
+        ;;
+esac
+exit 1`), 0777)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// fakeJujuLog installs a script that echos its arguments to stderr,
+// ending up in the subprocess output
+func (s *DebugHooksServerSuite) fakeJujuLog(c *gc.C) {
+	err := ioutil.WriteFile(filepath.Join(s.fakebin, "juju-log"), []byte(`#!/bin/bash --norc
+echo "$@" >&2
+`), 0777)
+	c.Assert(err, jc.ErrorIsNil)
 }

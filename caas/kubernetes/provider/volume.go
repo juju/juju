@@ -430,17 +430,33 @@ func getMountPathForFilesystem(i int, appName string, fs storage.KubernetesFiles
 }
 
 // pushUniqueVolume ensures to only add unique volumes because k8s will not schedule pods if it has duplicated volumes.
-func pushUniqueVolume(podSpec *core.PodSpec, vol core.Volume) error {
-	for _, v := range podSpec.Volumes {
-		if v.Name == vol.Name {
-			if reflect.DeepEqual(v, vol) {
-				return nil
-			}
-			return errors.NotValidf("duplicated volume %q", vol.Name)
+// The existing volume will be replaced if force sets to true.
+func pushUniqueVolume(podSpec *core.PodSpec, vol core.Volume, force bool) error {
+	for i, v := range podSpec.Volumes {
+		if v.Name != vol.Name {
+			continue
 		}
+		if reflect.DeepEqual(v, vol) {
+			return nil
+		}
+		if force {
+			podSpec.Volumes[i] = vol
+			return nil
+		}
+		return errors.NotValidf("duplicated volume %q", vol.Name)
 	}
 	podSpec.Volumes = append(podSpec.Volumes, vol)
 	return nil
+}
+
+// pushUniqueVolumeMount ensures to only add unique volume mount to a container.
+func pushUniqueVolumeMount(container *core.Container, volMount core.VolumeMount) {
+	for _, v := range container.VolumeMounts {
+		if reflect.DeepEqual(v, volMount) {
+			return
+		}
+	}
+	container.VolumeMounts = append(container.VolumeMounts, volMount)
 }
 
 func pushUniqueVolumeClaimTemplate(spec *apps.StatefulSetSpec, pvc core.PersistentVolumeClaim) error {

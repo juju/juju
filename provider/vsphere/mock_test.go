@@ -37,7 +37,7 @@ type mockClient struct {
 	resourcePools         map[string][]*object.ResourcePool
 	createdVirtualMachine *mo.VirtualMachine
 	virtualMachines       []*mo.VirtualMachine
-	datastores            []*mo.Datastore
+	datastores            []mo.Datastore
 	vmFolder              *object.Folder
 	hasPrivilege          bool
 }
@@ -70,7 +70,7 @@ func (c *mockClient) CreateVirtualMachine(ctx context.Context, args vsphereclien
 	return c.createdVirtualMachine, c.NextErr()
 }
 
-func (c *mockClient) Datastores(ctx context.Context) ([]*mo.Datastore, error) {
+func (c *mockClient) Datastores(ctx context.Context) ([]mo.Datastore, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.MethodCall(c, "Datastores", ctx)

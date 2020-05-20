@@ -424,16 +424,17 @@ func (api *API) getMachineCountBySpaceID(spaceID string) (int, error) {
 }
 
 func (api *API) applicationsBoundToSpace(spaceID string) ([]string, error) {
-	endpointBindings, err := api.backing.AllEndpointBindings()
+	allBindings, err := api.backing.AllEndpointBindings()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	applications := set.NewStrings()
-	for _, binding := range endpointBindings {
-		for _, boundSpace := range binding.Bindings {
+	for app, bindings := range allBindings {
+		for _, boundSpace := range bindings.Map() {
 			if boundSpace == spaceID {
-				applications.Add(binding.AppName)
+				applications.Add(app)
+				break
 			}
 		}
 	}

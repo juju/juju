@@ -58,12 +58,7 @@ func newDataSourceFunc(baseURL string) func() simplestreams.DataSource {
 // Metadata models the information about a particular cloud image download
 // product.
 type Metadata struct {
-	Arch string `json:"arch,omitempty"`
-	// For testing.
-	// TODO(ro) 2016-12-07 BaseURL was jammed on to allow for testing in
-	// juju/container/kvm/sync_internal_test. Refactor to pass it in rather
-	// than setting it on an otherwise needlessly exported member.
-	BaseURL string `json:"-"`
+	Arch    string `json:"arch,omitempty"`
 	Release string `json:"release,omitempty"`
 	Version string `json:"version,omitempty"`
 	FType   string `json:"ftype,omitempty"`
@@ -73,11 +68,11 @@ type Metadata struct {
 }
 
 // DownloadURL returns the URL representing the image.
-func (m *Metadata) DownloadURL() (*url.URL, error) {
-	if m.BaseURL == "" {
-		m.BaseURL = imagemetadata.UbuntuCloudImagesURL
+func (m *Metadata) DownloadURL(baseURL string) (*url.URL, error) {
+	if baseURL == "" {
+		baseURL = imagemetadata.UbuntuCloudImagesURL
 	}
-	u, err := url.Parse(m.BaseURL + "/" + m.Path)
+	u, err := url.Parse(baseURL + "/" + m.Path)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create url")
 	}

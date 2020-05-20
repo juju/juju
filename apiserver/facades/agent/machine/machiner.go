@@ -48,7 +48,7 @@ func NewMachinerAPI(st *state.State, resources facade.Resources, authorizer faca
 	return &MachinerAPI{
 		LifeGetter:         common.NewLifeGetter(st, getCanRead),
 		StatusSetter:       common.NewStatusSetter(st, getCanModify),
-		DeadEnsurer:        common.NewDeadEnsurer(st, getCanModify),
+		DeadEnsurer:        common.NewDeadEnsurer(st, nil, getCanModify),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanRead),
 		APIAddresser:       common.NewAPIAddresser(st, resources),
 		NetworkConfigAPI:   networkingcommon.NewNetworkConfigAPI(st, getCanModify),
@@ -153,17 +153,45 @@ func (api *MachinerAPI) RecordAgentStartTime(args params.Entities) (params.Error
 // MachinerAPIV1 implements the V1 API used by the machiner worker. Compared to
 // V2, it lacks the RecordAgentStartTime method.
 type MachinerAPIV1 struct {
+	*MachinerAPIV2
+}
+
+// MachinerAPIV2 implements the V1 API used by the machiner worker. Compared to
+// V2, it back-fills the missing origin in NetworkConfig.
+type MachinerAPIV2 struct {
 	*MachinerAPI
 }
 
 // NewMachinerAPIV1 creates a new instance of the V1 Machiner API.
-func NewMachinerAPIV1(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*MachinerAPIV1, error) {
+func NewMachinerAPIV1(
+	st *state.State, resources facade.Resources, authorizer facade.Authorizer,
+) (*MachinerAPIV1, error) {
 	api, err := NewMachinerAPI(st, resources, authorizer)
 	if err != nil {
 		return nil, err
 	}
 
-	return &MachinerAPIV1{api}, nil
+	return &MachinerAPIV1{&MachinerAPIV2{api}}, nil
+}
+
+// NewMachinerAPIV2 creates a new instance of the V2 Machiner API.
+func NewMachinerAPIV2(
+	st *state.State, resources facade.Resources, authorizer facade.Authorizer,
+) (*MachinerAPIV2, error) {
+	api, err := NewMachinerAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MachinerAPIV2{api}, nil
+}
+
+// SetObservedNetworkConfig back-fills machine origin before calling through to
+// the networking common method of the same name.
+// Older agents do not set the origin, so we must do it for them.
+func (api *MachinerAPIV2) SetObservedNetworkConfig(args params.SetMachineNetworkConfig) error {
+	args.BackFillMachineOrigin()
+	return api.NetworkConfigAPI.SetObservedNetworkConfig(args)
 }
 
 // RecordAgentStartTime is not available in V1.

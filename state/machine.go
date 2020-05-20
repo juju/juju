@@ -94,18 +94,19 @@ const manualMachinePrefix = "manual:"
 // machineDoc represents the internal state of a machine in MongoDB.
 // Note the correspondence with MachineInfo in apiserver/juju.
 type machineDoc struct {
-	DocID         string `bson:"_id"`
-	Id            string `bson:"machineid"`
-	ModelUUID     string `bson:"model-uuid"`
-	Nonce         string
-	Series        string
-	ContainerType string
-	Principals    []string
-	Life          Life
-	Tools         *tools.Tools `bson:",omitempty"`
-	Jobs          []MachineJob
-	PasswordHash  string
-	Clean         bool
+	DocID          string `bson:"_id"`
+	Id             string `bson:"machineid"`
+	ModelUUID      string `bson:"model-uuid"`
+	Nonce          string
+	Series         string
+	ContainerType  string
+	Principals     []string
+	Life           Life
+	Tools          *tools.Tools `bson:",omitempty"`
+	Jobs           []MachineJob
+	PasswordHash   string
+	Clean          bool
+	ForceDestroyed bool `bson:"force-destroyed"`
 
 	// Volumes contains the names of volumes attached to the machine.
 	Volumes []string `bson:"volumes,omitempty"`
@@ -178,6 +179,21 @@ func (m *Machine) ModelName() string {
 		logger.Errorf(err.Error())
 	}
 	return name
+}
+
+// ForceDestroyed returns whether the destruction of a dying/dead
+// machine was forced. It's always false for a machine that's alive.
+func (m *Machine) ForceDestroyed() bool {
+	return m.doc.ForceDestroyed
+}
+
+func (m *Machine) forceDestroyedOps() []txn.Op {
+	return []txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"force-destroyed", true}}}},
+	}}
 }
 
 // machineGlobalKey returns the global database key for the identified machine.
@@ -785,7 +801,6 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 			{{"principals", bson.D{{"$exists", false}}}},
 		},
 	}
-	cleanupOp := newCleanupOp(cleanupDyingMachine, m.doc.Id, force, maxWait)
 	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -903,6 +918,8 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 				}
 				ops = append(ops, containerCheck)
 			}
+			cleanupOp := newCleanupOp(cleanupDyingMachine, m.doc.Id, force, maxWait)
+			ops = append(ops, cleanupOp)
 			if canDie {
 				checkUnits := bson.DocElem{
 					Name: "$or", Value: []bson.D{
@@ -912,7 +929,6 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 					},
 				}
 				ops[0].Assert = append(asserts, checkUnits)
-				ops = append(ops, cleanupOp)
 				txnLogger.Debugf("txn moving machine %q to %s", m.Id(), life)
 				return ops, nil
 			}
@@ -941,7 +957,6 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 
 		// Add the additional asserts needed for this transaction.
 		ops[0].Assert = asserts
-		ops = append(ops, cleanupOp)
 		return ops, nil
 	}
 	if err = m.st.db().Run(buildTxn); err == jujutxn.ErrExcessiveContention {

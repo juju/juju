@@ -48,6 +48,7 @@ func (ctx *charmsSuiteContext) CachedModel(uuid string) (*cache.Model, error) { 
 func (ctx *charmsSuiteContext) MultiwatcherFactory() multiwatcher.Factory     { return nil }
 
 func (ctx *charmsSuiteContext) LeadershipClaimer(string) (leadership.Claimer, error) { return nil, nil }
+func (ctx *charmsSuiteContext) LeadershipRevoker(string) (leadership.Revoker, error) { return nil, nil }
 func (ctx *charmsSuiteContext) LeadershipChecker() (leadership.Checker, error)       { return nil, nil }
 func (ctx *charmsSuiteContext) LeadershipPinner(string) (leadership.Pinner, error)   { return nil, nil }
 func (ctx *charmsSuiteContext) LeadershipReader(string) (leadership.Reader, error)   { return nil, nil }

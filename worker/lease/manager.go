@@ -9,8 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/pprof"
-	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -88,6 +86,7 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 	manager := &Manager{
 		config:     config,
 		claims:     make(chan claim),
+		revokes:    make(chan revoke),
 		checks:     make(chan check),
 		blocks:     make(chan block),
 		expireDone: make(chan struct{}),
@@ -131,6 +130,9 @@ type Manager struct {
 	// claims is used to deliver lease claim requests to the loop.
 	claims chan claim
 
+	// revokes is used to deliver lease revoke requests to the loop.
+	revokes chan revoke
+
 	// checks is used to deliver lease check requests to the loop.
 	checks chan check
 
@@ -154,9 +156,9 @@ type Manager struct {
 	// are running (for debugging purposes).
 	outstandingClaims int64
 
-	// outstandingExpires tracks how many unfinished expire goroutines
+	// outstandingRevokes tracks how many unfinished revoke goroutines
 	// are running (for debugging purposes).
-	outstandingExpires int64
+	outstandingRevokes int64
 }
 
 // Kill is part of the worker.Worker interface.
@@ -208,6 +210,9 @@ func (manager *Manager) choose(blocks blocks) error {
 	case claim := <-manager.claims:
 		manager.startingClaim()
 		go manager.retryingClaim(claim)
+	case revoke := <-manager.revokes:
+		manager.startingRevoke()
+		go manager.retryingRevoke(revoke)
 	case pin := <-manager.pins:
 		manager.handlePin(pin)
 	case unpin := <-manager.unpins:
@@ -245,6 +250,11 @@ func (manager *Manager) Checker(namespace, modelUUID string) (lease.Checker, err
 
 // Claimer returns a lease.Claimer for the specified namespace and model.
 func (manager *Manager) Claimer(namespace, modelUUID string) (lease.Claimer, error) {
+	return manager.bind(namespace, modelUUID)
+}
+
+// Revoker returns a lease.Revoker for the specified namespace and model.
+func (manager *Manager) Revoker(namespace, modelUUID string) (lease.Revoker, error) {
 	return manager.bind(namespace, modelUUID)
 }
 
@@ -358,6 +368,95 @@ func (manager *Manager) handleClaim(claim claim) (bool, error) {
 	return true, nil
 }
 
+// retryingRevoke handles timeouts when unclaiming, and responds to the
+// revoking party when it eventually succeeds or fails, or if it times
+// out after a number of retries.
+func (manager *Manager) retryingRevoke(revoke revoke) {
+	defer manager.finishedRevoke()
+	var err error
+	for a := manager.startRetry(); a.Next(); {
+		err = manager.handleRevoke(revoke)
+		if !lease.IsTimeout(err) && !lease.IsInvalid(err) {
+			break
+		}
+		if a.More() {
+			if lease.IsInvalid(err) {
+				manager.config.Logger.Tracef("[%s] request by %s for revoking lease %s %v, retrying...",
+					manager.logContext, revoke.holderName, revoke.leaseKey.Lease, err)
+			} else {
+				manager.config.Logger.Tracef("[%s] timed out handling revoke by %s for lease %s, retrying...",
+					manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
+			}
+		}
+	}
+
+	if err == nil {
+		revoke.respond(nil)
+		// If we send back an error, then the main loop won't listen for expireDone
+		select {
+		case <-manager.catacomb.Dying():
+			return
+		case manager.expireDone <- struct{}{}:
+		}
+	} else {
+		switch {
+		case lease.IsTimeout(err):
+			manager.config.Logger.Warningf("[%s] retrying timed out while handling revoke %q for %q",
+				manager.logContext, revoke.leaseKey, revoke.holderName)
+			revoke.respond(lease.ErrTimeout)
+		case lease.IsInvalid(err):
+			// we want to see this, but it doesn't indicate something a user can do something about
+			manager.config.Logger.Infof("[%s] got %v after %d retries, revoke %q for %q",
+				manager.logContext, err, maxRetries, revoke.leaseKey, revoke.holderName)
+			revoke.respond(err)
+		case lease.IsNotHeld(err):
+			// we want to see this, but it doesn't indicate something a user can do something about
+			manager.config.Logger.Infof("[%s] got %v after %d retries, revoke %q for %q",
+				manager.logContext, err, maxRetries, revoke.leaseKey, revoke.holderName)
+			revoke.respond(err)
+		default:
+			// Stop the main loop because we got an abnormal error
+			manager.catacomb.Kill(errors.Trace(err))
+		}
+	}
+}
+
+// handleRevoke processes the supplied revocation. It will only return
+// unrecoverable errors or timeouts.
+func (manager *Manager) handleRevoke(revoke revoke) error {
+	store := manager.config.Store
+	var err error
+	select {
+	case <-manager.catacomb.Dying():
+		return manager.catacomb.ErrDying()
+	default:
+		info, found := manager.lookupLease(revoke.leaseKey)
+		switch {
+		case !found:
+			manager.config.Logger.Tracef("[%s] %s asked to revoke lease %s, no lease found",
+				manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
+			return nil
+		case info.Holder == revoke.holderName:
+			manager.config.Logger.Tracef("[%s] %s revoking lease %s",
+				manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
+			err = store.RevokeLease(revoke.leaseKey, revoke.holderName, manager.catacomb.Dying())
+		default:
+			manager.config.Logger.Tracef("[%s] %s revoking lease %s, held by %s, rejecting",
+				manager.logContext, revoke.holderName, revoke.leaseKey.Lease, info.Holder)
+			return lease.ErrNotHeld
+		}
+	}
+	if lease.IsAborted(err) {
+		return manager.catacomb.ErrDying()
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	manager.config.Logger.Tracef("[%s] %s revoked lease %s successful",
+		manager.logContext, revoke.holderName, revoke.leaseKey.Lease)
+	return nil
+}
+
 // handleCheck processes and responds to the supplied check. It will only return
 // unrecoverable errors; mere untruth of the assertion just indicates a bad
 // request, and is communicated back to the check's originator.
@@ -409,16 +508,8 @@ func (manager *Manager) handleCheck(check check) error {
 // and then compute the next time we should wake up.
 func (manager *Manager) tick(now time.Time, blocks blocks) {
 	manager.config.Logger.Tracef("[%s] tick at %v, running expiry checks\n", manager.logContext, now)
-	// If we need to expire leases we should do it, otherwise this
-	// is just an opportunity to check for blocks that need to be
-	// notified.
-	if !manager.config.Store.Autoexpire() {
-		manager.startingExpire()
-		go manager.retryingExpire(now)
-		// We wait for manager.retryingExpire to finish before we checkBlocks
-	} else {
-		manager.checkBlocks(blocks)
-	}
+	// Check for blocks that need to be notified.
+	manager.checkBlocks(blocks)
 }
 
 func (manager *Manager) checkBlocks(blocks blocks) {
@@ -503,95 +594,6 @@ func (manager *Manager) ensureNextTimeout(d time.Duration) {
 	manager.muNextTimeout.Unlock()
 }
 
-// retryingExpire runs expire and retries any timeouts.
-func (manager *Manager) retryingExpire(now time.Time) {
-	manager.config.Logger.Tracef("[%s] expire looking for leases to expire\n", manager.logContext)
-	defer manager.finishedExpire()
-	var err error
-	for a := manager.startRetry(); a.Next(); {
-		err = manager.expire(now)
-		if !lease.IsTimeout(err) {
-			break
-		}
-		if a.More() {
-			manager.config.Logger.Tracef("[%s] timed out during expire, retrying...", manager.logContext)
-		}
-	}
-	// Don't bother sending an error if we're dying - this avoids a
-	// race in the tests.
-	select {
-	case <-manager.catacomb.Dying():
-		manager.config.Logger.Tracef("[%s] expire exiting early do to manager shutdown", manager.logContext)
-		return
-	default:
-	}
-
-	if lease.IsTimeout(err) {
-		// We don't crash on timeouts to avoid bouncing the API server.
-		manager.config.Logger.Warningf("[%s] retrying timed out in expire", manager.logContext)
-		return
-	}
-	if err != nil {
-		manager.catacomb.Kill(errors.Trace(err))
-	} else {
-		// If we send back an error, then the main loop won't listen for expireDone
-		select {
-		case <-manager.catacomb.Dying():
-			return
-		case manager.expireDone <- struct{}{}:
-		}
-	}
-}
-
-// expire snapshots recent leases and expires any that it can. There
-// might be none that need attention; or those that do might already
-// have been extended or expired by someone else; so ErrInvalid is
-// expected, and ignored, comfortable that the store will have been
-// updated in the background; and that we'll see fresh info when we
-// subsequently check nextWake().
-//
-// It will return only unrecoverable errors.
-func (manager *Manager) expire(now time.Time) error {
-	store := manager.config.Store
-	if err := store.Refresh(); err != nil {
-		return errors.Trace(err)
-	}
-	leases := store.Leases()
-
-	// Sort lease keys so we expire in a predictable order for the tests.
-	keys := make([]lease.Key, 0, len(leases))
-	for key := range leases {
-		keys = append(keys, key)
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		return keysLess(keys[i], keys[j])
-	})
-
-	manager.config.Logger.Tracef("[%s] checking expiry on %d leases", manager.logContext, len(leases))
-	expired := make([]lease.Key, 0)
-	for _, key := range keys {
-		if leases[key].Expiry.After(now) {
-			continue
-		}
-		err := store.ExpireLease(key)
-		if err != nil && !lease.IsInvalid(err) {
-			return errors.Trace(err)
-		}
-		expired = append(expired, key)
-	}
-	if len(expired) == 0 {
-		manager.config.Logger.Debugf("[%s] no leases to expire", manager.logContext)
-	} else {
-		names := make([]string, 0, len(expired))
-		for _, expiredKey := range expired {
-			names = append(names, expiredKey.Lease)
-		}
-		manager.config.Logger.Debugf(
-			"[%s] expired %d leases: %s", manager.logContext, len(expired), strings.Join(names, ", "))
-	}
-	return nil
-}
-
 func (manager *Manager) startRetry() *retry.Attempt {
 	return retry.StartWithCancel(
 		retry.LimitCount(maxRetries, retry.Exponential{
@@ -652,14 +654,14 @@ func (manager *Manager) finishedClaim() {
 	atomic.AddInt64(&manager.outstandingClaims, -1)
 }
 
-func (manager *Manager) startingExpire() {
-	atomic.AddInt64(&manager.outstandingExpires, 1)
+func (manager *Manager) startingRevoke() {
+	atomic.AddInt64(&manager.outstandingRevokes, 1)
 	manager.wg.Add(1)
 }
 
-func (manager *Manager) finishedExpire() {
+func (manager *Manager) finishedRevoke() {
 	manager.wg.Done()
-	atomic.AddInt64(&manager.outstandingExpires, -1)
+	atomic.AddInt64(&manager.outstandingRevokes, -1)
 }
 
 // Report is part of dependency.Reporter
@@ -667,7 +669,7 @@ func (manager *Manager) Report() map[string]interface{} {
 	out := make(map[string]interface{})
 	out["entity-uuid"] = manager.config.EntityUUID
 	out["outstanding-claims"] = atomic.LoadInt64(&manager.outstandingClaims)
-	out["outstanding-expires"] = atomic.LoadInt64(&manager.outstandingExpires)
+	out["outstanding-revokes"] = atomic.LoadInt64(&manager.outstandingRevokes)
 	return out
 }
 
@@ -702,19 +704,19 @@ func (manager *Manager) dumpDebug() (string, error) {
 	}
 	defer dumpFile.Close()
 	claims := atomic.LoadInt64(&manager.outstandingClaims)
-	expires := atomic.LoadInt64(&manager.outstandingExpires)
+	revokes := atomic.LoadInt64(&manager.outstandingRevokes)
 	template := `
 lease manager state dump %v
 entity-uuid: %v
 outstanding-claims: %v
-outstanding-expires: %v
+outstanding-revokes: %v
 
 `[1:]
 	message := fmt.Sprintf(template,
 		time.Now().Format(time.RFC3339),
 		manager.config.EntityUUID,
 		claims,
-		expires,
+		revokes,
 	)
 	if _, err = io.WriteString(dumpFile, message); err != nil {
 		return "", errors.Annotate(err, "writing state to debug log file")

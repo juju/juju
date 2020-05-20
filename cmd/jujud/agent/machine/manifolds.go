@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	proxyconfig "github.com/juju/juju/utils/proxy"
 	jworker "github.com/juju/juju/worker"
@@ -55,7 +54,6 @@ import (
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/externalcontrollerupdater"
 	"github.com/juju/juju/worker/fanconfigurer"
-	"github.com/juju/juju/worker/featureflag"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/globalclockupdater"
@@ -556,8 +554,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:            loggo.GetLogger("juju.worker.migrationminion"),
 		}),
 
-		// We also run another clock updater to feed time updates into
-		// the lease FSM.
+		// We run clock updaters for every controller machine to
+		// ensure the lease clock is updated monotonically and at a
+		// rate no faster than real time.
 		leaseClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
 			Clock:            config.Clock,
 			LeaseManagerName: leaseManagerName,
@@ -920,28 +919,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     machineactions.NewMachineActionsWorker,
 		})),
 
-		legacyLeasesFlagName: ifController(featureflag.Manifold(featureflag.ManifoldConfig{
-			StateName: stateName,
-			FlagName:  feature.LegacyLeases,
-			Logger:    loggo.GetLogger("juju.worker.legacyleasesenabled"),
-			NewWorker: featureflag.NewWorker,
-		})),
-
-		// We run clock updaters for every controller machine to
-		// ensure the lease clock is updated monotonically and at a
-		// rate no faster than real time.
-		//
-		// If the legacy-leases feature flag is set the global clock
-		// updater updates the lease clock in the database.  .
-		globalClockUpdaterName: ifLegacyLeasesEnabled(globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
-			Clock:          config.Clock,
-			StateName:      stateName,
-			NewWorker:      globalclockupdater.NewWorker,
-			UpdateInterval: globalClockUpdaterUpdateInterval,
-			BackoffDelay:   globalClockUpdaterBackoffDelay,
-			Logger:         loggo.GetLogger("juju.worker.globalclockupdater.mongo"),
-		})),
-
 		// The upgrader is a leaf worker that returns a specific error
 		// type recognised by the machine agent, causing other workers
 		// to be stopped and the agent to be restarted running the new
@@ -955,6 +932,8 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			UpgradeCheckGateName: upgradeCheckGateName,
 			PreviousAgentVersion: config.PreviousAgentVersion,
+			Logger:               loggo.GetLogger("juju.worker.upgrader"),
+			Clock:                config.Clock,
 		}),
 
 		upgradeSeriesWorkerName: ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
@@ -1085,12 +1064,6 @@ var ifCredentialValid = engine.Housing{
 	},
 }.Decorate
 
-var ifLegacyLeasesEnabled = engine.Housing{
-	Flags: []string{
-		legacyLeasesFlagName,
-	},
-}.Decorate
-
 var ifModelCacheInitialized = engine.Housing{
 	Flags: []string{
 		modelCacheInitializedFlagName,
@@ -1150,7 +1123,6 @@ const (
 	hostKeyReporterName           = "host-key-reporter"
 	fanConfigurerName             = "fan-configurer"
 	externalControllerUpdaterName = "external-controller-updater"
-	globalClockUpdaterName        = "global-clock-updater"
 	leaseClockUpdaterName         = "lease-clock-updater"
 	isPrimaryControllerFlagName   = "is-primary-controller-flag"
 	isControllerFlagName          = "is-controller-flag"
@@ -1167,7 +1139,6 @@ const (
 	certificateUpdaterName        = "certificate-updater"
 	auditConfigUpdaterName        = "audit-config-updater"
 	leaseManagerName              = "lease-manager"
-	legacyLeasesFlagName          = "legacy-leases-flag"
 
 	upgradeSeriesWorkerName = "upgrade-series"
 

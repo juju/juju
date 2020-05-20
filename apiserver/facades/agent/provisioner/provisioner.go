@@ -130,10 +130,10 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
 	callCtx := context.CallContext(st)
 	api := &ProvisionerAPI{
-		Remover:                 common.NewRemover(st, false, getAuthFunc),
+		Remover:                 common.NewRemover(st, nil, false, getAuthFunc),
 		StatusSetter:            common.NewStatusSetter(st, getAuthFunc),
 		StatusGetter:            common.NewStatusGetter(st, getAuthFunc),
-		DeadEnsurer:             common.NewDeadEnsurer(st, getAuthFunc),
+		DeadEnsurer:             common.NewDeadEnsurer(st, nil, getAuthFunc),
 		PasswordChanger:         common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:              common.NewLifeGetter(st, getAuthFunc),
 		StateAddresser:          common.NewStateAddresser(st),
@@ -202,6 +202,12 @@ type ProvisionerAPIV9 struct {
 // It returns a new form of ProvisioningInfo that
 // supports multiple space constraints.
 type ProvisionerAPIV10 struct {
+	*ProvisionerAPIV11
+}
+
+// ProvisionerAPIV11 provides v10 of the provisioner facade.
+// It relies on agent-set origin when calling SetHostMachineNetworkConfig.
+type ProvisionerAPIV11 struct {
 	*ProvisionerAPI
 }
 
@@ -261,11 +267,20 @@ func NewProvisionerAPIV9(st *state.State, resources facade.Resources, authorizer
 
 // NewProvisionerAPIV10 creates a new server-side Provisioner API facade.
 func NewProvisionerAPIV10(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV10, error) {
-	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	provisionerAPI, err := NewProvisionerAPIV11(st, resources, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &ProvisionerAPIV10{provisionerAPI}, nil
+}
+
+// NewProvisionerAPIV11 creates a new server-side Provisioner API facade.
+func NewProvisionerAPIV11(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV11, error) {
+	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ProvisionerAPIV11{provisionerAPI}, nil
 }
 
 func (api *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
@@ -1075,7 +1090,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 		askProviderForAddress = environs.SupportsContainerAddresses(callContext, env)
 	}
 
-	preparedInfo := make([]corenetwork.InterfaceInfo, len(containerDevices))
+	preparedInfo := make(corenetwork.InterfaceInfos, len(containerDevices))
 	for i, device := range containerDevices {
 		info, err := ctx.infoForDevice(device, askProviderForAddress)
 		if err != nil {
@@ -1510,6 +1525,13 @@ func (api *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess
 		return errors.Trace(err)
 	}
 	return machine.MarkForRemoval()
+}
+
+// SetHostMachineNetworkConfig on versions prior to 11 will not receive args
+// with origin set by the calling agent. We back-fill for them.
+func (api *ProvisionerAPIV10) SetHostMachineNetworkConfig(args params.SetMachineNetworkConfig) error {
+	args.BackFillMachineOrigin()
+	return api.SetObservedNetworkConfig(args)
 }
 
 func (api *ProvisionerAPI) SetHostMachineNetworkConfig(args params.SetMachineNetworkConfig) error {

@@ -186,13 +186,13 @@ func (env *maasEnviron) deviceInterfaces(deviceID instance.Id) ([]maasInterface,
 
 }
 
-func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentName map[string]string) ([]corenetwork.InterfaceInfo, error) {
+func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentName map[string]string) (corenetwork.InterfaceInfos, error) {
 	interfaces, err := env.deviceInterfaces(deviceID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	interfaceInfo := make([]corenetwork.InterfaceInfo, 0, len(interfaces))
+	interfaceInfo := make(corenetwork.InterfaceInfos, 0, len(interfaces))
 	for _, nic := range interfaces {
 		nicInfo := corenetwork.InterfaceInfo{
 			InterfaceName:       nic.Name,
@@ -258,11 +258,11 @@ func (env *maasEnviron) deviceInterfaceInfo2(
 	device gomaasapi.Device,
 	nameToParentName map[string]string,
 	subnetToStaticRoutes map[string][]gomaasapi.StaticRoute,
-) ([]corenetwork.InterfaceInfo, error) {
+) (corenetwork.InterfaceInfos, error) {
 	deviceID := device.SystemID()
 	interfaces := device.InterfaceSet()
 
-	interfaceInfo := make([]corenetwork.InterfaceInfo, 0, len(interfaces))
+	interfaceInfo := make(corenetwork.InterfaceInfos, 0, len(interfaces))
 	for idx, nic := range interfaces {
 		vlanId := 0
 		vlanVid := 0
@@ -343,7 +343,7 @@ type deviceCreatorParams struct {
 	Subnet               gomaasapi.Subnet // may be nil
 	PrimaryMACAddress    string
 	PrimaryNICName       string
-	DesiredInterfaceInfo []corenetwork.InterfaceInfo
+	DesiredInterfaceInfo corenetwork.InterfaceInfos
 	CIDRToMAASSubnet     map[string]gomaasapi.Subnet
 	CIDRToStaticRoutes   map[string][]gomaasapi.StaticRoute
 	Machine              gomaasapi.Machine
@@ -502,7 +502,7 @@ func (env *maasEnviron) lookupStaticRoutes() (map[string][]gomaasapi.StaticRoute
 	return subnetToStaticRoutes, nil
 }
 
-func (env *maasEnviron) prepareDeviceDetails(name string, machine gomaasapi.Machine, preparedInfo []corenetwork.InterfaceInfo) (deviceCreatorParams, error) {
+func (env *maasEnviron) prepareDeviceDetails(name string, machine gomaasapi.Machine, preparedInfo corenetwork.InterfaceInfos) (deviceCreatorParams, error) {
 	var zeroParams deviceCreatorParams
 
 	subnetCIDRToSubnet, err := env.lookupSubnets()
@@ -547,7 +547,7 @@ func (env *maasEnviron) prepareDeviceDetails(name string, machine gomaasapi.Mach
 	return params, nil
 }
 
-func validateExistingDevice(netInfo []corenetwork.InterfaceInfo, device gomaasapi.Device) (bool, error) {
+func validateExistingDevice(netInfo corenetwork.InterfaceInfos, device gomaasapi.Device) (bool, error) {
 	// Compare the desired device characteristics with the actual device
 	interfaces := device.InterfaceSet()
 	if len(interfaces) < len(netInfo) {

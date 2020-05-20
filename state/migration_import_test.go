@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	corenetwork "github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
@@ -135,6 +134,9 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	err = original.SetEnvironVersion(environVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
+	err = original.SetPassword("supersecret1111111111111")
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.Model.SetAnnotations(original, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -148,6 +150,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 
+	c.Assert(newModel.PasswordHash(), gc.Equals, utils.AgentPasswordHash("supersecret1111111111111"))
 	c.Assert(newModel.Type(), gc.Equals, original.Type())
 	c.Assert(newModel.Owner(), gc.Equals, original.Owner())
 	c.Assert(newModel.LatestToolsVersion(), gc.Equals, latestTools)
@@ -362,7 +365,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 		Characteristics: &instance.HardwareCharacteristics{
 			RootDiskSource: &source,
 		},
-		Addresses: corenetwork.SpaceAddresses{addr},
+		Addresses: network.SpaceAddresses{addr},
 	})
 	err := s.Model.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1631,7 +1634,7 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	args := state.LinkLayerDeviceAddress{
 		DeviceName:       "foo",
-		ConfigMethod:     state.StaticAddress,
+		ConfigMethod:     network.StaticAddress,
 		CIDRAddress:      "0.1.2.3/24",
 		ProviderID:       "bar",
 		DNSServers:       []string{"bam", "mam"},
@@ -1650,7 +1653,7 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	c.Assert(addr.Value(), gc.Equals, "0.1.2.3")
 	c.Assert(addr.MachineID(), gc.Equals, machine.Id())
 	c.Assert(addr.DeviceName(), gc.Equals, "foo")
-	c.Assert(addr.ConfigMethod(), gc.Equals, state.StaticAddress)
+	c.Assert(addr.ConfigMethod(), gc.Equals, network.StaticAddress)
 	c.Assert(addr.SubnetCIDR(), gc.Equals, "0.1.2.0/24")
 	c.Assert(addr.ProviderID(), gc.Equals, network.Id("bar"))
 	c.Assert(addr.DNSServers(), jc.DeepEquals, []string{"bam", "mam"})
@@ -2241,12 +2244,12 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 			Scope:     charm.ScopeGlobal,
 		}},
 		Spaces: []*environs.ProviderSpaceInfo{{
-			SpaceInfo: corenetwork.SpaceInfo{
+			SpaceInfo: network.SpaceInfo{
 				Name:       "unicorns",
-				ProviderId: corenetwork.Id("space-provider-id"),
-				Subnets: []corenetwork.SubnetInfo{{
+				ProviderId: "space-provider-id",
+				Subnets: []network.SubnetInfo{{
 					CIDR:              "10.0.1.0/24",
-					ProviderId:        corenetwork.Id("subnet-provider-id"),
+					ProviderId:        "subnet-provider-id",
 					AvailabilityZones: []string{"eu-west-1"},
 				}},
 			},

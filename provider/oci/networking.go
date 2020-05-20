@@ -1047,9 +1047,9 @@ func (e *Environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, er
 	return nil, errors.NotSupportedf("super subnets")
 }
 
-func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([][]corenetwork.InterfaceInfo, error) {
+func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
 	var (
-		infos = make([][]corenetwork.InterfaceInfo, len(ids))
+		infos = make([]corenetwork.InterfaceInfos, len(ids))
 		err   error
 	)
 
@@ -1062,14 +1062,14 @@ func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []in
 	return infos, nil
 }
 
-func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContext, instId instance.Id) ([]corenetwork.InterfaceInfo, error) {
+func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContext, instId instance.Id) (corenetwork.InterfaceInfos, error) {
 	oInst, err := e.getOCIInstance(ctx, instId)
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 
-	info := []corenetwork.InterfaceInfo{}
+	info := corenetwork.InterfaceInfos{}
 	vnics, err := oInst.getVnics()
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
@@ -1147,8 +1147,8 @@ func (e *Environ) AllocateContainerAddresses(
 	ctx envcontext.ProviderCallContext,
 	hostInstanceID instance.Id,
 	containerTag names.MachineTag,
-	preparedInfo []corenetwork.InterfaceInfo,
-) ([]corenetwork.InterfaceInfo, error) {
+	preparedInfo corenetwork.InterfaceInfos,
+) (corenetwork.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("AllocateContainerAddresses")
 }
 

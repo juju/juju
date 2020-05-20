@@ -7,7 +7,6 @@ import (
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/life"
@@ -17,28 +16,32 @@ import (
 	"github.com/juju/juju/worker/uniter/resolver"
 )
 
-var logger = loggo.GetLogger("juju.worker.uniter.relation")
+// Logger is here to stop the desire of creating a package level Logger.
+// Don't do this, instead use the one passed into the new resolver function.
+var logger interface{}
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_subordinate_destroyer.go github.com/juju/juju/worker/uniter/relation SubordinateDestroyer
-
-// SubordinateDestroyer destroys all subordinates of a unit.
-type SubordinateDestroyer interface {
-	DestroyAllSubordinates() error
+// Logger represents the logging methods used in this package.
+type Logger interface {
+	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Infof(string, ...interface{})
 }
 
 // NewRelationResolver returns a resolver that handles all relation-related
 // hooks (except relation-created) and is wired to the provided RelationStateTracker
 // instance.
-func NewRelationResolver(stateTracker RelationStateTracker, subordinateDestroyer SubordinateDestroyer) resolver.Resolver {
+func NewRelationResolver(stateTracker RelationStateTracker, subordinateDestroyer SubordinateDestroyer, logger Logger) resolver.Resolver {
 	return &relationsResolver{
 		stateTracker:         stateTracker,
 		subordinateDestroyer: subordinateDestroyer,
+		logger:               logger,
 	}
 }
 
 type relationsResolver struct {
 	stateTracker         RelationStateTracker
 	subordinateDestroyer SubordinateDestroyer
+	logger               Logger
 }
 
 // NextOp implements resolver.Resolver.

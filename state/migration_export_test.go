@@ -17,6 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -116,14 +117,6 @@ func (s *MigrationBaseSuite) makeUnitApplicationLeader(c *gc.C, unitName, applic
 	)
 }
 
-func (s *MigrationBaseSuite) makeUnitApplicationLeaderLegacy(c *gc.C, unitName, applicationName string) {
-	err := s.State.LeadershipClaimer().ClaimLeadership(
-		applicationName,
-		unitName,
-		time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *state.Unit, names.StorageTag) {
 	pool := "modelscoped"
 	kind := "block"
@@ -190,6 +183,9 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	err = s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
 	c.Assert(err, jc.ErrorIsNil)
 
+	err = s.Model.SetPassword("supppperrrrsecret1235556667777")
+	c.Assert(err, jc.ErrorIsNil)
+
 	environVersion := 123
 	err = s.Model.SetEnvironVersion(environVersion)
 	c.Assert(err, jc.ErrorIsNil)
@@ -197,6 +193,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
+	c.Assert(model.PasswordHash(), gc.Equals, utils.AgentPasswordHash("supppperrrrsecret1235556667777"))
 	c.Assert(model.Type(), gc.Equals, string(s.Model.Type()))
 	c.Assert(model.Tag(), gc.Equals, s.Model.ModelTag())
 	c.Assert(model.Owner(), gc.Equals, s.Model.Owner())
@@ -873,30 +870,6 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	}
 }
 
-func (s *MigrationExportSuite) TestApplicationLeadershipLegacy(c *gc.C) {
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		"features": []interface{}{feature.LegacyLeases},
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.makeApplicationWithUnits(c, "mysql", 2)
-	s.makeUnitApplicationLeaderLegacy(c, "mysql/1", "mysql")
-
-	s.makeApplicationWithUnits(c, "wordpress", 4)
-	s.makeUnitApplicationLeaderLegacy(c, "wordpress/2", "wordpress")
-
-	model, err := s.State.Export()
-	c.Assert(err, jc.ErrorIsNil)
-
-	leaders := make(map[string]string)
-	for _, application := range model.Applications() {
-		leaders[application.Name()] = application.Leader()
-	}
-	c.Assert(leaders, jc.DeepEquals, map[string]string{
-		"mysql":     "mysql/1",
-		"wordpress": "wordpress/2",
-	})
-}
-
 func (s *MigrationExportSuite) TestApplicationLeadership(c *gc.C) {
 	s.makeApplicationWithUnits(c, "mysql", 2)
 	s.makeUnitApplicationLeader(c, "mysql/1", "mysql")
@@ -1350,7 +1323,7 @@ func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	args := state.LinkLayerDeviceAddress{
 		DeviceName:       "foo",
-		ConfigMethod:     state.StaticAddress,
+		ConfigMethod:     network.StaticAddress,
 		CIDRAddress:      "0.1.2.3/24",
 		ProviderID:       "bar",
 		DNSServers:       []string{"bam", "mam"},
@@ -1369,7 +1342,7 @@ func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
 	c.Assert(addr.Value(), gc.Equals, "0.1.2.3")
 	c.Assert(addr.MachineID(), gc.Equals, machine.Id())
 	c.Assert(addr.DeviceName(), gc.Equals, "foo")
-	c.Assert(addr.ConfigMethod(), gc.Equals, string(state.StaticAddress))
+	c.Assert(addr.ConfigMethod(), gc.Equals, string(network.StaticAddress))
 	c.Assert(addr.SubnetCIDR(), gc.Equals, "0.1.2.0/24")
 	c.Assert(addr.ProviderID(), gc.Equals, "bar")
 	c.Assert(addr.DNSServers(), jc.DeepEquals, []string{"bam", "mam"})
@@ -1391,7 +1364,7 @@ func (s *MigrationExportSuite) TestIPAddressesSkipped(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	args := state.LinkLayerDeviceAddress{
 		DeviceName:       "foo",
-		ConfigMethod:     state.StaticAddress,
+		ConfigMethod:     network.StaticAddress,
 		CIDRAddress:      "0.1.2.3/24",
 		ProviderID:       "bar",
 		DNSServers:       []string{"bam", "mam"},

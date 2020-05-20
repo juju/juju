@@ -32,7 +32,7 @@ import (
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/storage_mock.go github.com/juju/juju/state/storage Storage
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/interface_mock.go gopkg.in/juju/charmrepo.v4 Interface
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/charmrepo/v5 Interface
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charm_mock.go github.com/juju/juju/apiserver/facades/client/application StateCharm
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/model_mock.go github.com/juju/juju/apiserver/facades/client/application StateModel
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charmstore_mock.go github.com/juju/juju/apiserver/facades/client/application State

@@ -10,7 +10,9 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	"github.com/juju/testing"
@@ -19,6 +21,8 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/version"
+	"github.com/juju/worker/v2"
+	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -46,10 +50,10 @@ type UpgraderSuite struct {
 
 	machine              *state.Machine
 	state                api.Connection
-	oldRetryAfter        func() <-chan time.Time
 	confVersion          version.Number
 	upgradeStepsComplete gate.Lock
 	initialCheckComplete gate.Lock
+	clock                *testclock.Clock
 }
 
 type AllowedTargetVersionSuite struct{}
@@ -62,14 +66,9 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	// s.machine needs to have IsManager() so that it can get the actual
 	// current revision to upgrade to.
 	s.state, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageModel)
-	// Capture the value of RetryAfter, and use that captured
-	// value in the cleanup lambda.
-	oldRetryAfter := *upgrader.RetryAfter
-	s.AddCleanup(func(*gc.C) {
-		*upgrader.RetryAfter = oldRetryAfter
-	})
 	s.upgradeStepsComplete = gate.NewLock()
 	s.initialCheckComplete = gate.NewLock()
+	s.clock = testclock.NewClock(time.Now())
 }
 
 func (s *UpgraderSuite) patchVersion(v version.Binary) {
@@ -104,6 +103,8 @@ func agentConfig(tag names.Tag, datadir string) agent.Config {
 
 func (s *UpgraderSuite) makeUpgrader(c *gc.C) *upgrader.Upgrader {
 	w, err := upgrader.NewAgentUpgrader(upgrader.Config{
+		Clock:                       s.clock,
+		Logger:                      loggo.GetLogger("test"),
 		State:                       s.state.Upgrader(),
 		AgentConfig:                 agentConfig(s.machine.Tag(), s.DataDir()),
 		OrigAgentVersion:            s.confVersion,
@@ -128,7 +129,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	u := s.makeUpgrader(c)
-	statetesting.AssertStop(c, u)
+	workertest.CleanKill(c, u)
 	s.expectInitialUpgradeCheckDone(c)
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
@@ -150,7 +151,7 @@ func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	u := s.makeUpgrader(c)
-	statetesting.AssertStop(c, u)
+	workertest.CleanKill(c, u)
 	s.expectInitialUpgradeCheckDone(c)
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
@@ -177,7 +178,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	u := s.makeUpgrader(c)
-	err = u.Stop()
+	err = worker.Stop(u)
 	s.expectInitialUpgradeCheckNotDone(c)
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
@@ -201,23 +202,14 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, jc.ErrorIsNil)
 
-	retryc := make(chan time.Time)
-	*upgrader.RetryAfter = func(time.Duration) <-chan time.Time {
-		c.Logf("replacement retry after")
-		return retryc
-	}
 	err = stor.Remove(envtools.StorageName(newTools.Version, "released"))
 	c.Assert(err, jc.ErrorIsNil)
 	u := s.makeUpgrader(c)
-	defer u.Stop()
+	defer workertest.CheckKilled(c, u)
 	s.expectInitialUpgradeCheckNotDone(c)
 
 	for i := 0; i < 3; i++ {
-		select {
-		case retryc <- time.Now():
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("upgrader did not retry (attempt %d)", i)
-		}
+		s.clock.WaitAdvance(5*time.Second, coretesting.LongWait, 1)
 	}
 
 	// Make it upgrade to some newer tools that can be
@@ -263,7 +255,7 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 		NewTools:  newTools.Version,
 		DataDir:   s.DataDir(),
 	}
-	err = ugErr.ChangeAgentTools()
+	err = ugErr.ChangeAgentTools(loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
 	target := agenttools.ToolsDir(s.DataDir(), newToolsBinary)
 	link, err := symlink.Read(agenttools.ToolsDir(s.DataDir(), "anAgent"))
@@ -285,7 +277,7 @@ func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *gc.C) {
 	envtesting.InstallFakeDownloadedTools(c, s.DataDir(), newVersion)
 
 	u := s.makeUpgrader(c)
-	err = u.Stop()
+	err = worker.Stop(u)
 	s.expectInitialUpgradeCheckNotDone(c)
 
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
@@ -308,7 +300,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingMinorVersions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	u := s.makeUpgrader(c)
-	err = u.Stop()
+	err = worker.Stop(u)
 	s.expectInitialUpgradeCheckNotDone(c)
 
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
@@ -336,7 +328,7 @@ func (s *UpgraderSuite) TestUpgraderForbidsDowngradingToMajorVersion1(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	u := s.makeUpgrader(c)
-	err = u.Stop()
+	err = worker.Stop(u)
 	s.expectInitialUpgradeCheckDone(c)
 
 	// If the upgrade had been allowed we would get an
@@ -359,7 +351,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	u := s.makeUpgrader(c)
-	err = u.Stop()
+	err = worker.Stop(u)
 	s.expectInitialUpgradeCheckNotDone(c)
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
@@ -388,7 +380,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToOrigVersionIfUpgradeInProgr
 	c.Assert(err, jc.ErrorIsNil)
 
 	u := s.makeUpgrader(c)
-	err = u.Stop()
+	err = worker.Stop(u)
 	s.expectInitialUpgradeCheckNotDone(c)
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
@@ -423,7 +415,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToOrigVersionIfUpgradeNotInPr
 	c.Assert(err, jc.ErrorIsNil)
 
 	u := s.makeUpgrader(c)
-	err = u.Stop()
+	err = worker.Stop(u)
 	s.expectInitialUpgradeCheckNotDone(c)
 
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
@@ -451,15 +443,9 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 	var diskSpaceStub testing.Stub
 	diskSpaceStub.SetErrors(nil, errors.Errorf("full-up"))
 
-	var retryStub testing.Stub
-	retryc := make(chan time.Time)
-	*upgrader.RetryAfter = func(d time.Duration) <-chan time.Time {
-		retryStub.AddCall("retryAfter", d)
-		c.Logf("replacement retry after")
-		return retryc
-	}
-
 	u, err := upgrader.NewAgentUpgrader(upgrader.Config{
+		Clock:                       s.clock,
+		Logger:                      loggo.GetLogger("test"),
 		State:                       s.state.Upgrader(),
 		AgentConfig:                 agentConfig(s.machine.Tag(), s.DataDir()),
 		OrigAgentVersion:            s.confVersion,
@@ -471,16 +457,13 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Stop()
+	err = worker.Stop(u)
 	s.expectInitialUpgradeCheckNotDone(c)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(diskSpaceStub.Calls(), gc.HasLen, 2)
 	diskSpaceStub.CheckCall(c, 0, "CheckDiskSpace", s.DataDir(), upgrades.MinDiskSpaceMib)
 	diskSpaceStub.CheckCall(c, 1, "CheckDiskSpace", os.TempDir(), upgrades.MinDiskSpaceMib)
-
-	c.Assert(retryStub.Calls(), gc.HasLen, 1)
-	retryStub.CheckCall(c, 0, "retryAfter", time.Minute)
 
 	_, err = agenttools.ReadTools(s.DataDir(), newTools.Version)
 	// Would end with "no such file or directory" on *nix - not sure

@@ -52,9 +52,9 @@ func (mr *MockAPICallsMockRecorder) ContainerConfig() *gomock.Call {
 }
 
 // GetContainerInterfaceInfo mocks base method
-func (m *MockAPICalls) GetContainerInterfaceInfo(arg0 names_v3.MachineTag) ([]corenetwork.InterfaceInfo, error) {
+func (m *MockAPICalls) GetContainerInterfaceInfo(arg0 names_v3.MachineTag) (corenetwork.InterfaceInfos, error) {
 	ret := m.ctrl.Call(m, "GetContainerInterfaceInfo", arg0)
-	ret0, _ := ret[0].([]corenetwork.InterfaceInfo)
+	ret0, _ := ret[0].(corenetwork.InterfaceInfos)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -92,9 +92,9 @@ func (mr *MockAPICallsMockRecorder) HostChangesForContainer(arg0 interface{}) *g
 }
 
 // PrepareContainerInterfaceInfo mocks base method
-func (m *MockAPICalls) PrepareContainerInterfaceInfo(arg0 names_v3.MachineTag) ([]corenetwork.InterfaceInfo, error) {
+func (m *MockAPICalls) PrepareContainerInterfaceInfo(arg0 names_v3.MachineTag) (corenetwork.InterfaceInfos, error) {
 	ret := m.ctrl.Call(m, "PrepareContainerInterfaceInfo", arg0)
-	ret0, _ := ret[0].([]corenetwork.InterfaceInfo)
+	ret0, _ := ret[0].(corenetwork.InterfaceInfos)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -263,7 +263,9 @@ func (b *mockBindings) Map() map[string]string {
 	return b.bMap
 }
 
-func (b *mockBindings) MapWithSpaceNames() (map[string]string, error) {
+// TODO (stickupkid): This implementation is wrong, we should move to a newer
+// gomock style setup.
+func (b *mockBindings) MapWithSpaceNames(network.SpaceInfos) (map[string]string, error) {
 	return b.bMap, nil
 }
 

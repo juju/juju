@@ -109,7 +109,7 @@ func (s *ContextFactorySuite) getRelationInfos() map[int]*context.RelationInfo {
 	info := map[int]*context.RelationInfo{}
 	for relId, relUnit := range s.apiRelunits {
 		info[relId] = &context.RelationInfo{
-			RelationUnit: relUnit,
+			RelationUnit: &relUnitShim{relUnit},
 			MemberNames:  s.membership[relId],
 		}
 	}
@@ -821,7 +821,7 @@ func (s *ContextFactorySuite) TestReadApplicationSettings(c *gc.C) {
 	rel, err := ctx.Relation(0)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = rel.ApplicationSettings()
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, gc.ErrorMatches, "permission denied.*")
 	// Now claim leadership and try again
 	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)

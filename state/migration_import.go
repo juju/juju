@@ -74,6 +74,7 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 		Owner:                   model.Owner(),
 		MigrationMode:           MigrationModeImporting,
 		EnvironVersion:          model.EnvironVersion(),
+		PasswordHash:            model.PasswordHash(),
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	}
 	if creds := model.CloudCredential(); creds != nil {
@@ -1815,7 +1816,7 @@ func (i *importer) addIPAddress(addr description.IPAddress) error {
 		DeviceName:       addr.DeviceName(),
 		MachineID:        addr.MachineID(),
 		SubnetCIDR:       subnetCIDR,
-		ConfigMethod:     AddressConfigMethod(addr.ConfigMethod()),
+		ConfigMethod:     network.AddressConfigMethod(addr.ConfigMethod()),
 		Value:            addressValue,
 		DNSServers:       addr.DNSServers(),
 		DNSSearchDomains: addr.DNSSearchDomains(),

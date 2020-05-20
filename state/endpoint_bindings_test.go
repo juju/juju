@@ -342,7 +342,7 @@ type bindingsMockSuite struct {
 
 func (s *bindingsMockSuite) TestNewBindingsNilMap(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.expectAllSpaceInfos()
+	s.expectAllSpaceInfos(s.expectedSpaceInfos())
 
 	binding, err := state.NewBindings(s.endpointBinding, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -352,7 +352,8 @@ func (s *bindingsMockSuite) TestNewBindingsNilMap(c *gc.C) {
 
 func (s *bindingsMockSuite) TestNewBindingsByID(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.expectAllSpaceInfos()
+	s.expectAllSpaceInfos(s.expectedSpaceInfos())
+
 	initial := map[string]string{
 		"db":      "2",
 		"testing": "5",
@@ -368,7 +369,8 @@ func (s *bindingsMockSuite) TestNewBindingsByID(c *gc.C) {
 
 func (s *bindingsMockSuite) TestNewBindingsByName(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.expectAllSpaceInfos()
+	s.expectAllSpaceInfos(s.expectedSpaceInfos())
+
 	initial := map[string]string{
 		"db":      "two",
 		"testing": "42",
@@ -390,7 +392,7 @@ func (s *bindingsMockSuite) TestNewBindingsByName(c *gc.C) {
 
 func (s *bindingsMockSuite) TestNewBindingsNotFound(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.expectAllSpaceInfos()
+	s.expectAllSpaceInfos(s.expectedSpaceInfos())
 	initial := map[string]string{
 		"db":      "2",
 		"testing": "three",
@@ -404,7 +406,10 @@ func (s *bindingsMockSuite) TestNewBindingsNotFound(c *gc.C) {
 
 func (s *bindingsMockSuite) TestMapWithSpaceNames(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.expectAllSpaceInfos()
+
+	infos := s.expectedSpaceInfos()
+	s.expectAllSpaceInfos(infos)
+
 	initial := map[string]string{
 		"db":      "2",
 		"testing": "3",
@@ -414,7 +419,7 @@ func (s *bindingsMockSuite) TestMapWithSpaceNames(c *gc.C) {
 	binding, err := state.NewBindings(s.endpointBinding, initial)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(binding, gc.NotNil)
-	withSpaceNames, err := binding.MapWithSpaceNames()
+	withSpaceNames, err := binding.MapWithSpaceNames(infos)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := map[string]string{
@@ -425,8 +430,59 @@ func (s *bindingsMockSuite) TestMapWithSpaceNames(c *gc.C) {
 	c.Assert(withSpaceNames, jc.DeepEquals, expected)
 }
 
-func (s *bindingsMockSuite) expectAllSpaceInfos() {
-	infos := network.SpaceInfos{
+func (s *bindingsMockSuite) TestMapWithSpaceNamesWithNoLookup(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAllSpaceInfos(s.expectedSpaceInfos())
+
+	initial := map[string]string{
+		"db":      "2",
+		"testing": "3",
+		"empty":   network.AlphaSpaceId,
+	}
+
+	binding, err := state.NewBindings(s.endpointBinding, initial)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(binding, gc.NotNil)
+	_, err = binding.MapWithSpaceNames(nil)
+	c.Assert(err, gc.ErrorMatches, "*not valid*")
+}
+
+func (s *bindingsMockSuite) TestMapWithSpaceNamesWithNoBindings(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAllSpaceInfos(s.expectedSpaceInfos())
+
+	initial := map[string]string{}
+
+	binding, err := state.NewBindings(s.endpointBinding, initial)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(binding, gc.NotNil)
+	withSpaceNames, err := binding.MapWithSpaceNames(make(network.SpaceInfos, 0))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(withSpaceNames, gc.HasLen, 0)
+}
+
+func (s *bindingsMockSuite) TestMapWithSpaceNamesWithEmptyBindings(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAllSpaceInfos(s.expectedSpaceInfos())
+
+	initial := map[string]string{
+		"db":      "2",
+		"testing": "3",
+		"empty":   network.AlphaSpaceId,
+	}
+
+	binding, err := state.NewBindings(s.endpointBinding, initial)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(binding, gc.NotNil)
+	_, err = binding.MapWithSpaceNames(make(network.SpaceInfos, 0))
+	c.Assert(err, gc.ErrorMatches, "*not valid*")
+}
+
+func (s *bindingsMockSuite) expectedSpaceInfos() network.SpaceInfos {
+	return network.SpaceInfos{
 		{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName},
 		{ID: "1", Name: "one"},
 		{ID: "2", Name: "two"},
@@ -434,8 +490,12 @@ func (s *bindingsMockSuite) expectAllSpaceInfos() {
 		{ID: "4", Name: "four"},
 		{ID: "5", Name: "42"},
 	}
-	s.endpointBinding.EXPECT().AllSpaceInfos().Return(infos, nil).AnyTimes()
 }
+
+func (s *bindingsMockSuite) expectAllSpaceInfos(infos network.SpaceInfos) {
+	s.endpointBinding.EXPECT().AllSpaceInfos().Return(infos, nil)
+}
+
 func (s *bindingsMockSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.endpointBinding = mocks.NewMockEndpointBinding(ctrl)

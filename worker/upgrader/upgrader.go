@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	"github.com/juju/utils"
@@ -41,14 +40,9 @@ const (
 	notEnoughSpaceDelay = time.Minute
 )
 
-// retryAfter returns a channel that receives a value
-// when a failed download should be retried.
-var retryAfter = func(duration time.Duration) <-chan time.Time {
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	return time.After(duration)
-}
-
-var logger = loggo.GetLogger("juju.worker.upgrader")
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead pass one through as config to the worker.
+var logger interface{}
 
 // Upgrader represents a worker that watches the state for upgrade
 // requests.
@@ -62,6 +56,8 @@ type Upgrader struct {
 
 // Config contains the items the worker needs to start.
 type Config struct {
+	Clock                       Clock
+	Logger                      Logger
 	State                       *upgrader.State
 	AgentConfig                 agent.Config
 	OrigAgentVersion            version.Number
@@ -103,13 +99,6 @@ func (u *Upgrader) Wait() error {
 	return u.catacomb.Wait()
 }
 
-// Stop stops the upgrader and returns any
-// error it encountered when running.
-func (u *Upgrader) Stop() error {
-	u.Kill()
-	return u.Wait()
-}
-
 // AllowedTargetVersion checks if targetVersion is too different from
 // curVersion to allow a downgrade.
 func AllowedTargetVersion(
@@ -125,6 +114,7 @@ func AllowedTargetVersion(
 }
 
 func (u *Upgrader) loop() error {
+	logger := u.config.Logger
 	// Start by reporting current tools (which includes arch/series, and is
 	// used by the controller in communicating the desired version below).
 	if err := u.st.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current)); err != nil {
@@ -147,8 +137,7 @@ func (u *Upgrader) loop() error {
 		return errors.Trace(err)
 	}
 	logger.Infof("abort check blocked until version event received")
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	mustProceed := time.After(time.Minute)
+	mustProceed := u.config.Clock.After(time.Minute)
 	var dying <-chan struct{}
 	allowDying := func() {
 		if dying == nil {
@@ -247,7 +236,7 @@ func (u *Upgrader) loop() error {
 			}
 			logger.Errorf("failed to fetch agent binaries from %q: %v", wantTools.URL, err)
 		}
-		retry = retryAfter(delay)
+		retry = u.config.Clock.After(delay)
 	}
 }
 
@@ -275,7 +264,7 @@ func (u *Upgrader) newUpgradeReadyError(haveVersion version.Number, newVersion v
 }
 
 func (u *Upgrader) ensureTools(agentTools *coretools.Tools) error {
-	logger.Infof("fetching agent binaries from %q", agentTools.URL)
+	u.config.Logger.Infof("fetching agent binaries from %q", agentTools.URL)
 	// The reader MUST verify the tools' hash, so there is no
 	// need to validate the peer. We cannot anyway: see http://pad.lv/1261780.
 	resp, err := utils.GetNonValidatingHTTPClient().Get(agentTools.URL)
@@ -290,12 +279,12 @@ func (u *Upgrader) ensureTools(agentTools *coretools.Tools) error {
 	if err != nil {
 		return fmt.Errorf("cannot unpack agent binaries: %v", err)
 	}
-	logger.Infof("unpacked agent binaries %s to %s", agentTools.Version, u.dataDir)
+	u.config.Logger.Infof("unpacked agent binaries %s to %s", agentTools.Version, u.dataDir)
 	return nil
 }
 
 func (u *Upgrader) checkForSpace() error {
-	logger.Debugf("checking available space before downloading")
+	u.config.Logger.Debugf("checking available space before downloading")
 	err := u.config.CheckDiskSpace(u.dataDir, upgrades.MinDiskSpaceMib)
 	if err != nil {
 		return errors.Trace(err)

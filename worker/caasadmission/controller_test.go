@@ -6,7 +6,6 @@ package caasadmission_test
 import (
 	"net/http"
 	"sync"
-	"testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -26,8 +25,6 @@ type dummyMux struct {
 }
 
 var _ = gc.Suite(&ControllerSuite{})
-
-func TestControllerSuite(t *testing.T) { gc.TestingT(t) }
 
 func (d *dummyMux) AddHandler(i, j string, h http.Handler) error {
 	if d.AddHandlerFunc == nil {

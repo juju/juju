@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -462,8 +463,9 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 		Machines:     make(map[string]*charm.MachineSpec),
 		Relations:    [][]string{},
 	}
-	isCaas := model.Type() == description.CAAS
-	if isCaas {
+
+	isCAAS := model.Type() == description.CAAS
+	if isCAAS {
 		data.Type = "kubernetes"
 	} else {
 		data.Series = defaultSeries
@@ -472,6 +474,12 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	if len(model.Applications()) == 0 {
 		return nil, errors.Errorf("nothing to export as there are no applications")
 	}
+
+	allSpacesInfoLookup, err := b.backend.AllSpaceInfos()
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to retrieve all space information")
+	}
+
 	printEndpointBindingSpaceNames := b.printSpaceNamesInEndpointBindings(model.Applications())
 	machineIds := set.NewStrings()
 	usedSeries := set.NewStrings()
@@ -479,10 +487,12 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 		var newApplication *charm.ApplicationSpec
 		appSeries := application.Series()
 		usedSeries.Add(appSeries)
-		endpointsWithSpaceNames, err := b.endpointBindings(application.EndpointBindings(), printEndpointBindingSpaceNames)
+
+		endpointsWithSpaceNames, err := b.endpointBindings(application.EndpointBindings(), allSpacesInfoLookup, printEndpointBindingSpaceNames)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
 		if application.Subordinate() {
 			newApplication = &charm.ApplicationSpec{
 				Charm:            application.CharmURL(),
@@ -502,7 +512,8 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 			placement := ""
 			numUnits := 0
 			scale := 0
-			if isCaas {
+
+			if isCAAS {
 				placement = application.Placement()
 				scale = len(application.Units())
 			} else {
@@ -520,6 +531,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 					}
 				}
 			}
+
 			newApplication = &charm.ApplicationSpec{
 				Charm:            application.CharmURL(),
 				NumUnits:         numUnits,
@@ -531,6 +543,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 				Annotations:      application.Annotations(),
 				EndpointBindings: endpointsWithSpaceNames,
 			}
+
 			if appSeries != defaultSeries {
 				newApplication.Series = appSeries
 			}
@@ -614,7 +627,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	}
 
 	// Kubernetes bundles don't specify series right now.
-	if isCaas {
+	if isCAAS {
 		data.Series = ""
 	}
 
@@ -651,7 +664,7 @@ func (b *BundleAPI) printSpaceNamesInEndpointBindings(apps []description.Applica
 	return false
 }
 
-func (b *BundleAPI) endpointBindings(bindings map[string]string, printValue bool) (map[string]string, error) {
+func (b *BundleAPI) endpointBindings(bindings map[string]string, spaceLookup network.SpaceInfos, printValue bool) (map[string]string, error) {
 	if !printValue {
 		return nil, nil
 	}
@@ -659,7 +672,7 @@ func (b *BundleAPI) endpointBindings(bindings map[string]string, printValue bool
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return endpointBindings.MapWithSpaceNames()
+	return endpointBindings.MapWithSpaceNames(spaceLookup)
 }
 
 // filterOfferACL prunes the input offer ACL to remove internal juju users that

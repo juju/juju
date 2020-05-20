@@ -4,15 +4,12 @@
 package bootstrap
 
 import (
-	"archive/tar"
-	"compress/bzip2"
 	"crypto/sha256"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -667,7 +664,8 @@ func finalizeInstanceBootstrapConfig(
 		PrivateKey:   string(key),
 		CAPrivateKey: args.CAPrivateKey,
 	}
-	if _, ok := cfg.AgentVersion(); !ok {
+	vers, ok := cfg.AgentVersion()
+	if !ok {
 		return errors.New("controller model configuration has no agent-version")
 	}
 
@@ -683,7 +681,7 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.RegionInheritedConfig = args.Cloud.RegionConfig
 	icfg.Bootstrap.HostedModelConfig = args.HostedModelConfig
 	icfg.Bootstrap.Timeout = args.DialOpts.Timeout
-	icfg.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
+	icfg.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, cfg.GUIStream(), vers.Major, vers.Minor, func(msg string) {
 		ctx.Infof(msg)
 	})
 	icfg.Bootstrap.JujuDbSnapPath = args.JujuDbSnapPath
@@ -1027,21 +1025,21 @@ func setPrivateMetadataSources(metadataDir string) ([]*imagemetadata.ImageMetada
 // non-empty, remote GUI archive info is retrieved from simplestreams using it
 // as the base URL. The given logProgress function is used to inform users
 // about errors or progress in setting up the Juju GUI.
-func guiArchive(dataSourceBaseURL string, logProgress func(string)) *coretools.GUIArchive {
+func guiArchive(dataSourceBaseURL, stream string, major, minor int, logProgress func(string)) *coretools.GUIArchive {
 	// The environment variable is only used for development purposes.
 	path := os.Getenv("JUJU_GUI")
 	if path != "" {
 		vers, err := guiVersion(path)
 		if err != nil {
-			logProgress(fmt.Sprintf("Cannot use Juju GUI at %q: %s", path, err))
+			logProgress(fmt.Sprintf("Cannot use Juju Dashboard at %q: %s", path, err))
 			return nil
 		}
 		hash, size, err := hashAndSize(path)
 		if err != nil {
-			logProgress(fmt.Sprintf("Cannot use Juju GUI at %q: %s", path, err))
+			logProgress(fmt.Sprintf("Cannot use Juju Dashboard at %q: %s", path, err))
 			return nil
 		}
-		logProgress(fmt.Sprintf("Fetching Juju GUI %s from local archive", vers))
+		logProgress(fmt.Sprintf("Fetching Juju Dashboard %s from local archive", vers))
 		return &coretools.GUIArchive{
 			Version: vers,
 			URL:     "file://" + filepath.ToSlash(path),
@@ -1051,22 +1049,22 @@ func guiArchive(dataSourceBaseURL string, logProgress func(string)) *coretools.G
 	}
 	// Check if the user requested to bootstrap with no GUI.
 	if dataSourceBaseURL == "" {
-		logProgress("Juju GUI installation has been disabled")
+		logProgress("Juju Dashboard installation has been disabled")
 		return nil
 	}
 	// Fetch GUI archives info from simplestreams.
 	source := gui.NewDataSource(dataSourceBaseURL)
-	allMeta, err := guiFetchMetadata(gui.ReleasedStream, source)
+	allMeta, err := guiFetchMetadata(stream, major, minor, source)
 	if err != nil {
-		logProgress(fmt.Sprintf("Unable to fetch Juju GUI info: %s", err))
+		logProgress(fmt.Sprintf("Unable to fetch Juju Dashboard info: %s", err))
 		return nil
 	}
 	if len(allMeta) == 0 {
-		logProgress("No available Juju GUI archives found")
+		logProgress("No available Juju Dashboard archives found")
 		return nil
 	}
 	// Metadata info are returned in descending version order.
-	logProgress(fmt.Sprintf("Fetching Juju GUI %s", allMeta[0].Version))
+	logProgress(fmt.Sprintf("Fetching Juju Dashboard %s", allMeta[0].Version))
 	return &coretools.GUIArchive{
 		Version: allMeta[0].Version,
 		URL:     allMeta[0].FullPath,
@@ -1084,31 +1082,10 @@ func guiVersion(path string) (version.Number, error) {
 	var number version.Number
 	f, err := os.Open(path)
 	if err != nil {
-		return number, errors.Annotate(err, "cannot open Juju GUI archive")
+		return number, errors.Annotate(err, "cannot open Juju Dashboard archive")
 	}
 	defer f.Close()
-	prefix := "jujugui-"
-	r := tar.NewReader(bzip2.NewReader(f))
-	for {
-		hdr, err := r.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return number, errors.New("cannot read Juju GUI archive")
-		}
-		info := hdr.FileInfo()
-		if !info.IsDir() || !strings.HasPrefix(hdr.Name, prefix) {
-			continue
-		}
-		n := info.Name()[len(prefix):]
-		number, err = version.Parse(n)
-		if err != nil {
-			return number, errors.Errorf("cannot parse version %q", n)
-		}
-		return number, nil
-	}
-	return number, errors.New("cannot find Juju GUI version")
+	return gui.DashboardArchiveVersion(f)
 }
 
 // hashAndSize calculates and returns the SHA256 hash and the size of the file

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	"github.com/juju/version"
 
@@ -28,6 +29,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
@@ -165,7 +168,7 @@ func (c *baseUpgradeCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *baseUpgradeCommand) precheck(ctx *cmd.Context, agentVersion version.Number) (bool, error) {
+func (c *baseUpgradeCommand) precheckVersion(ctx *cmd.Context, agentVersion version.Number) (bool, error) {
 	if c.BuildAgent && c.Version == version.Zero {
 		// Currently, uploading tools assumes the version to be
 		// the same as jujuversion.Current if not specified with
@@ -320,6 +323,7 @@ type modelConfigAPI interface {
 }
 
 type controllerAPI interface {
+	CloudSpec(modelTag names.ModelTag) (environs.CloudSpec, error)
 	ControllerConfig() (controller.Config, error)
 	ModelConfig() (map[string]interface{}, error)
 	Close() error
@@ -439,16 +443,21 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 		return errors.New("incomplete model configuration")
 	}
 
-	warnCompat, err := c.precheck(ctx, agentVersion)
+	warnCompat, err := c.precheckVersion(ctx, agentVersion)
 	if err != nil {
 		return err
 	}
 
-	context, versionsErr := c.initVersions(client, controllerCfg, cfg, agentVersion, warnCompat, fetchTimeout, availableAgents)
+	upgradeCtx, versionsErr := c.initVersions(client, controllerCfg, cfg, agentVersion, warnCompat, fetchTimeout, availableAgents)
 	if versionsErr != nil {
 		return versionsErr
 	}
-	tryImplicit := implicitUploadAllowed && len(context.packagedAgents) == 0
+
+	if err := c.precheckEnviron(upgradeCtx, controllerClient, agentVersion); err != nil {
+		return err
+	}
+
+	tryImplicit := implicitUploadAllowed && len(upgradeCtx.packagedAgents) == 0
 
 	// Look for any packaged binaries but only if we haven't been asked to build an agent.
 	var packagedAgentErr error
@@ -459,7 +468,7 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 				return err
 			}
 		}
-		if !tryImplicit && len(context.packagedAgents) == 0 {
+		if !tryImplicit && len(upgradeCtx.packagedAgents) == 0 {
 			// No tools found and we shouldn't upload any, so if we are not asking for a
 			// major upgrade, pretend there is no more recent version available.
 			filterVersion := jujuversion.Current
@@ -470,7 +479,7 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 				return errUpToDate
 			}
 		}
-		if packagedAgentErr = context.maybeChoosePackagedAgent(); packagedAgentErr != nil {
+		if packagedAgentErr = upgradeCtx.maybeChoosePackagedAgent(); packagedAgentErr != nil {
 			ctx.Verbosef("%v", packagedAgentErr)
 		}
 		uploadLocalBinary = isControllerModel && packagedAgentErr != nil && tryImplicit
@@ -480,27 +489,27 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 	// or the user has asked for a new agent to be built, upload a local
 	// jujud binary if possible.
 	if !warnCompat && (uploadLocalBinary || c.BuildAgent) {
-		if err := context.uploadTools(client, c.BuildAgent, agentVersion, c.DryRun); err != nil {
+		if err := upgradeCtx.uploadTools(client, c.BuildAgent, agentVersion, c.DryRun); err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 		builtMsg := ""
 		if c.BuildAgent {
 			builtMsg = " (built from source)"
 		}
-		fmt.Fprintf(ctx.Stdout, "no prepackaged agent binaries available, using local agent binary %v%s\n", context.chosen, builtMsg)
+		fmt.Fprintf(ctx.Stdout, "no prepackaged agent binaries available, using local agent binary %v%s\n", upgradeCtx.chosen, builtMsg)
 		packagedAgentErr = nil
 	}
 	if packagedAgentErr != nil {
 		return packagedAgentErr
 	}
 
-	if err := context.validate(); err != nil {
+	if err := upgradeCtx.validate(); err != nil {
 		return err
 	}
-	ctx.Verbosef("available agent binaries:\n%s", formatVersions(context.packagedAgents))
-	fmt.Fprintf(ctx.Stderr, "best version:\n    %v\n", context.chosen)
+	ctx.Verbosef("available agent binaries:\n%s", formatVersions(upgradeCtx.packagedAgents))
+	fmt.Fprintf(ctx.Stderr, "best version:\n    %v\n", upgradeCtx.chosen)
 	if warnCompat {
-		fmt.Fprintf(ctx.Stderr, "version %s incompatible with this client (%s)\n", context.chosen, jujuversion.Current)
+		fmt.Fprintf(ctx.Stderr, "version %s incompatible with this client (%s)\n", upgradeCtx.chosen, jujuversion.Current)
 	}
 	if c.DryRun {
 		if c.BuildAgent {
@@ -509,12 +518,12 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 			fmt.Fprintf(ctx.Stderr, "%s\n", c.upgradeMessage)
 		}
 	} else {
-		return c.notifyControllerUpgrade(ctx, client, context)
+		return c.notifyControllerUpgrade(ctx, client, upgradeCtx)
 	}
 	return nil
 }
 
-func (c *baseUpgradeCommand) notifyControllerUpgrade(ctx *cmd.Context, client upgradeJujuAPI, context *upgradeContext) error {
+func (c *baseUpgradeCommand) notifyControllerUpgrade(ctx *cmd.Context, client upgradeJujuAPI, upgradeCtx *upgradeContext) error {
 	if c.ResetPrevious {
 		if ok, err := c.confirmResetPreviousUpgrade(ctx); !ok || err != nil {
 			const message = "previous upgrade not reset and no new upgrade triggered"
@@ -527,7 +536,7 @@ func (c *baseUpgradeCommand) notifyControllerUpgrade(ctx *cmd.Context, client up
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 	}
-	if err := client.SetModelAgentVersion(context.chosen, c.IgnoreAgentVersions); err != nil {
+	if err := client.SetModelAgentVersion(upgradeCtx.chosen, c.IgnoreAgentVersions); err != nil {
 		if params.IsCodeUpgradeInProgress(err) {
 			return errors.Errorf("%s\n\n"+
 				"Please wait for the upgrade to complete or if there was a problem with\n"+
@@ -538,8 +547,126 @@ func (c *baseUpgradeCommand) notifyControllerUpgrade(ctx *cmd.Context, client up
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 	}
-	fmt.Fprintf(ctx.Stdout, "started upgrade to %s\n", context.chosen)
+	fmt.Fprintf(ctx.Stdout, "started upgrade to %s\n", upgradeCtx.chosen)
 	return nil
+}
+
+// environConfigGetter implements environs.EnvironConfigGetter for use
+// to get an environ to be used by precheckEnviron.  It bridges the gap
+// to allow controller versions of the methods to be used for getting
+// the current environ.
+type environConfigGetter struct {
+	controllerAPI
+
+	modelTag names.ModelTag
+}
+
+// ModelConfig returns the complete config for the model.  It
+// bridges the gap between EnvironConfigGetter.ModelConfig and
+// controller.ModelConfig.
+func (e environConfigGetter) ModelConfig() (*config.Config, error) {
+	cfg, err := e.controllerAPI.ModelConfig()
+	if err != nil {
+		return nil, err
+	}
+	return config.New(config.NoDefaults, cfg)
+}
+
+// CloudSpec returns the cloud specification for the model associated
+// with the upgrade command.
+func (e environConfigGetter) CloudSpec() (environs.CloudSpec, error) {
+	return e.controllerAPI.CloudSpec(e.modelTag)
+}
+
+var getEnviron = environs.GetEnviron
+
+// UpgradePrecheckEnviron combines two interfaces required by
+// result of getEnviron. It is for testing purposes only.
+type UpgradePrecheckEnviron interface {
+	environs.Environ
+	environs.JujuUpgradePrechecker
+}
+
+// precheckEnviron looks for available PrecheckUpgradeOperations from
+// the current environs and runs them for the controller model.
+func (c *upgradeJujuCommand) precheckEnviron(upgradeCtx *upgradeContext, api controllerAPI, agentVersion version.Number) error {
+	modelName, details, err := c.ModelCommandBase.ModelDetails()
+	if err != nil {
+		return err
+	}
+
+	// modelName in form user/model-name
+	if modelName != jujuclient.JoinOwnerModelName(
+		names.NewUserTag(environs.AdminUser), bootstrap.ControllerModelName) {
+		return nil
+	}
+	cfgGetter := environConfigGetter{
+		controllerAPI: api,
+		modelTag:      names.NewModelTag(details.ModelUUID)}
+	return doPrecheckEnviron(cfgGetter, upgradeCtx, agentVersion)
+}
+
+// doPrecheckEnviron does the work on running precheck upgrade environ steps.
+// This is split out from precheckEnviron to facilitate testing without the
+// jujuconnsuite and without mocking a juju store.
+func doPrecheckEnviron(cfgGetter environConfigGetter, upgradeCtx *upgradeContext, agentVersion version.Number) error {
+	env, err := getEnviron(cfgGetter, environs.New)
+	if err != nil {
+		return err
+	}
+	precheckEnv, ok := env.(environs.JujuUpgradePrechecker)
+	if !ok {
+		return nil
+	}
+	if err = precheckEnv.PreparePrechecker(); err != nil {
+		return err
+	}
+	return checkEnvironForUpgrade(upgradeCtx.chosen, agentVersion, precheckEnv)
+}
+
+// checkEnvironForUpgrade returns an error if any of any Environs
+// PrecheckUpgradeOperations fail.
+func checkEnvironForUpgrade(targetVersion, agentVersion version.Number, precheckEnv environs.JujuUpgradePrechecker) error {
+	for _, op := range precheckEnv.PrecheckUpgradeOperations() {
+		if skipTarget(agentVersion, op.TargetVersion, targetVersion) {
+			logger.Debugf("ignoring precheck upgrade operation for version %v",
+				op.TargetVersion)
+			continue
+		}
+		logger.Debugf("running precheck upgrade operation for version %v",
+			op.TargetVersion)
+		for _, step := range op.Steps {
+			logger.Debugf("running precheck step %q", step.Description())
+			if err := step.Run(); err != nil {
+				return errors.Annotatef(err, "Unable to upgrade to %s:", targetVersion)
+			}
+		}
+	}
+	return nil
+}
+
+// skipTarget returns true if the from version is less than the target version
+// AND the target version is greater than the to version.
+// Borrowed from upgrades.opsIterator.
+func skipTarget(from, target, to version.Number) bool {
+	// Clear the version tag of the to release to ensure that all
+	// upgrade steps for the release are run for alpha and beta
+	// releases.
+	// ...but only do this if the from version has actually changed,
+	// lest we trigger upgrade mode unnecessarily for non-final
+	// versions.
+	if from.Compare(to) != 0 {
+		to.Tag = ""
+	}
+	// Do not run steps for versions of Juju earlier or same as we are upgrading from.
+	if target.Compare(from) <= 0 {
+		return true
+	}
+	// Do not run steps for versions of Juju later than we are upgrading to.
+	if target.Compare(to) > 0 {
+		return true
+	}
+	return false
 }
 
 func tryImplicitUpload(agentVersion version.Number) (bool, error) {

@@ -1054,7 +1054,7 @@ func (env *maasEnviron) StartInstance(
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
 	var displayName string
-	var interfaces []corenetwork.InterfaceInfo
+	var interfaces corenetwork.InterfaceInfos
 	if !env.usingMAAS2() {
 		inst1 := inst.(*maas1Instance)
 		startedNode, err := env.startNode(*inst1.maasObject, series, userdata)
@@ -2087,7 +2087,7 @@ func (env *maasEnviron) nodeIdFromInstance(inst instances.Instance) (string, err
 	return nodeId, err
 }
 
-func (env *maasEnviron) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []corenetwork.InterfaceInfo) ([]corenetwork.InterfaceInfo, error) {
+func (env *maasEnviron) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
 	if len(preparedInfo) == 0 {
 		return nil, errors.Errorf("no prepared info to allocate")
 	}
@@ -2098,7 +2098,7 @@ func (env *maasEnviron) AllocateContainerAddresses(ctx context.ProviderCallConte
 	return env.allocateContainerAddresses2(ctx, hostInstanceID, containerTag, preparedInfo)
 }
 
-func (env *maasEnviron) allocateContainerAddresses1(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []corenetwork.InterfaceInfo) ([]corenetwork.InterfaceInfo, error) {
+func (env *maasEnviron) allocateContainerAddresses1(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
 	subnetCIDRToVLANID := make(map[string]string)
 	subnetsAPI := env.getMAASClient().GetSubObject("subnets")
 	result, err := subnetsAPI.CallGet("", nil)
@@ -2208,7 +2208,7 @@ func (env *maasEnviron) allocateContainerAddresses1(ctx context.ProviderCallCont
 	return finalInterfaces, nil
 }
 
-func (env *maasEnviron) allocateContainerAddresses2(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []corenetwork.InterfaceInfo) ([]corenetwork.InterfaceInfo, error) {
+func (env *maasEnviron) allocateContainerAddresses2(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
 	args := gomaasapi.MachinesArgs{
 		AgentName: env.uuid,
 		SystemIDs: []string{string(hostInstanceID)},

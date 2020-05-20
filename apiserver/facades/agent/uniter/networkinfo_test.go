@@ -82,7 +82,7 @@ func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machi
 
 		addressesArg := state.LinkLayerDeviceAddress{
 			DeviceName:   name,
-			ConfigMethod: state.StaticAddress,
+			ConfigMethod: network.StaticAddress,
 			CIDRAddress:  address,
 		}
 		err = machine.SetDevicesAddresses(addressesArg)

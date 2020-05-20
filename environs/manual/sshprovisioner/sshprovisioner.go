@@ -181,7 +181,7 @@ func checkProvisioned(host string) (bool, error) {
 	}
 
 	output := strings.TrimSpace(stdout.String())
-	provisioned := strings.Contains(output, "juju")
+	provisioned := strings.Contains(output, "jujud-machine")
 	return provisioned, nil
 }
 

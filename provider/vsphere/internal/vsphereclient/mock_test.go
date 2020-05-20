@@ -252,12 +252,24 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 		req := req.(*methods.FindByInventoryPathBody).Req
 		r.MethodCall(r, "FindByInventoryPath", req.This.Value, req.InventoryPath)
 		logger.Debugf("FindByInventoryPath ref: %q, path: %q", req.This.Value, req.InventoryPath)
-		res.Res = &types.FindByInventoryPathResponse{
-			Returnval: &types.ManagedObjectReference{
-				Type:  "ComputeResource",
-				Value: "z0",
-			},
+		var findResponse *types.FindByInventoryPathResponse
+		if req.InventoryPath == "/dc0/datastore" {
+			findResponse = &types.FindByInventoryPathResponse{
+				Returnval: &types.ManagedObjectReference{
+					Type:  "Folder",
+					Value: "FakeDatastoreFolder",
+				},
+			}
+
+		} else {
+			findResponse = &types.FindByInventoryPathResponse{
+				Returnval: &types.ManagedObjectReference{
+					Type:  "ComputeResource",
+					Value: "z0",
+				},
+			}
 		}
+		res.Res = findResponse
 	case *methods.MarkAsTemplateBody:
 		req := req.(*methods.MarkAsTemplateBody).Req
 		r.MethodCall(r, "MarkAsTemplate", req.This.Value)

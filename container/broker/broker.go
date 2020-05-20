@@ -4,6 +4,7 @@
 package broker
 
 import (
+	"os/exec"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -25,11 +26,14 @@ import (
 
 var logger = loggo.GetLogger("juju.container.broker")
 
+// Overridden by tests
+var getCommandOutput = func(cmd *exec.Cmd) ([]byte, error) { return cmd.Output() }
+
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/apicalls_mock.go github.com/juju/juju/container/broker APICalls
 type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
-	PrepareContainerInterfaceInfo(names.MachineTag) ([]corenetwork.InterfaceInfo, error)
-	GetContainerInterfaceInfo(names.MachineTag) ([]corenetwork.InterfaceInfo, error)
+	PrepareContainerInterfaceInfo(names.MachineTag) (corenetwork.InterfaceInfos, error)
+	GetContainerInterfaceInfo(names.MachineTag) (corenetwork.InterfaceInfos, error)
 	GetContainerProfileInfo(names.MachineTag) ([]*apiprovisioner.LXDProfileResult, error)
 	ReleaseContainerAddresses(names.MachineTag) error
 	SetHostMachineNetworkConfig(names.MachineTag, []params.NetworkConfig) error
@@ -45,7 +49,7 @@ func prepareOrGetContainerInterfaceInfo(
 	machineID string,
 	allocateOrMaintain bool,
 	log loggo.Logger,
-) ([]corenetwork.InterfaceInfo, error) {
+) (corenetwork.InterfaceInfos, error) {
 	maintain := !allocateOrMaintain
 
 	if maintain {
@@ -73,14 +77,14 @@ func prepareOrGetContainerInterfaceInfo(
 // bridgeDevice is used for ParentInterfaceName, while the DNS config is
 // discovered using network.ParseResolvConf(). If interfaces has zero length,
 // container.FallbackInterfaceInfo() is used as fallback.
-func finishNetworkConfig(bridgeDevice string, interfaces []corenetwork.InterfaceInfo) ([]corenetwork.InterfaceInfo, error) {
+func finishNetworkConfig(bridgeDevice string, interfaces corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
 	haveNameservers, haveSearchDomains := false, false
 	if len(interfaces) == 0 {
 		// Use the fallback network config as a last resort.
 		interfaces = container.FallbackInterfaceInfo()
 	}
 
-	results := make([]corenetwork.InterfaceInfo, len(interfaces))
+	results := make(corenetwork.InterfaceInfos, len(interfaces))
 	for i, info := range interfaces {
 		if info.ParentInterfaceName == "" {
 			info.ParentInterfaceName = bridgeDevice
@@ -260,4 +264,34 @@ func proxyConfigurationFromContainerCfg(cfg params.ContainerConfig) instancecfg.
 		SnapStoreProxyID:    cfg.SnapStoreProxyID,
 		SnapStoreProxyURL:   cfg.SnapStoreProxyURL,
 	}
+}
+
+// ovsManagedBridges returns a filtered version of ifaceList that only contains
+// bridge interfaces managed by openvswitch.
+func ovsManagedBridges(ifaceList corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
+	if _, err := exec.LookPath("ovs-vsctl"); err != nil {
+		// ovs tools not installed; nothing to do
+		if execErr, isExecErr := err.(*exec.Error); isExecErr && execErr.Unwrap() == exec.ErrNotFound {
+			return nil, nil
+		}
+
+		return nil, errors.Annotate(err, "ovsManagedBridges: looking for ovs-vsctl")
+	}
+
+	// Query list of ovs-managed device names
+	res, err := getCommandOutput(exec.Command("ovs-vsctl", "list-br"))
+	if err != nil {
+		return nil, errors.Annotate(err, "querying ovs-managed bridges via ovs-vsctl")
+	}
+
+	ovsBridges := set.NewStrings()
+	for _, iface := range strings.Split(string(res), "\n") {
+		if iface = strings.TrimSpace(iface); iface != "" {
+			ovsBridges.Add(iface)
+		}
+	}
+
+	return ifaceList.Filter(func(iface corenetwork.InterfaceInfo) bool {
+		return ovsBridges.Contains(iface.InterfaceName)
+	}), nil
 }

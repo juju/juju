@@ -54,3 +54,39 @@ func handleContainerNotFoundError(err error) error {
 	}
 	return containerNotRunningError(match[1])
 }
+
+type execRetryableError struct {
+	err string
+}
+
+var _ error = &execRetryableError{}
+
+func (e execRetryableError) Error() string {
+	return e.err
+}
+
+// NewExecRetryableError constructs an execRetryableError.
+func NewExecRetryableError(err error) error {
+	return &execRetryableError{
+		err: fmt.Sprintf("%q", err.Error()),
+	}
+}
+
+// IsExecRetryableError returns true when the supplied error is
+// caused by an execRetryableError.
+func IsExecRetryableError(err error) bool {
+	_, ok := errors.Cause(err).(*execRetryableError)
+	return ok
+}
+
+func handleExecRetryableError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if exitErr, ok := errors.Cause(err).(ExitError); ok {
+		if exitErr.ExitStatus() == 137 {
+			return NewExecRetryableError(exitErr)
+		}
+	}
+	return err
+}

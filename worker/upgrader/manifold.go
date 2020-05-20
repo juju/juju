@@ -4,6 +4,8 @@
 package upgrader
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2"
@@ -16,6 +18,18 @@ import (
 	"github.com/juju/juju/worker/gate"
 )
 
+// Clock represents the clock methods this worker uses.
+type Clock interface {
+	After(time.Duration) <-chan time.Time
+}
+
+// Logger represents the logging methods used by this package.
+type Logger interface {
+	Debugf(string, ...interface{})
+	Infof(string, ...interface{})
+	Errorf(string, ...interface{})
+}
+
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
 type ManifoldConfig struct {
@@ -24,6 +38,8 @@ type ManifoldConfig struct {
 	UpgradeStepsGateName string
 	UpgradeCheckGateName string
 	PreviousAgentVersion version.Number
+	Logger               Logger
+	Clock                Clock
 }
 
 // Manifold returns a dependency manifold that runs an upgrader
@@ -79,6 +95,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			return NewAgentUpgrader(Config{
+				Clock:                       config.Clock,
+				Logger:                      config.Logger,
 				State:                       upgraderFacade,
 				AgentConfig:                 currentConfig,
 				OrigAgentVersion:            config.PreviousAgentVersion,

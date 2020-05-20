@@ -220,7 +220,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *gc.C) {
 	containerTag := names.NewMachineTag("1-lxd-0")
 
 	mockApi := mocks.NewMockAPICalls(ctlr)
-	mockApi.EXPECT().PrepareContainerInterfaceInfo(gomock.Eq(containerTag)).Return([]corenetwork.InterfaceInfo{fakeInterfaceInfo}, nil)
+	mockApi.EXPECT().PrepareContainerInterfaceInfo(gomock.Eq(containerTag)).Return(corenetwork.InterfaceInfos{fakeInterfaceInfo}, nil)
 	mockApi.EXPECT().ContainerConfig().Return(fakeContainerConfig(), nil)
 
 	put := &charm.LXDProfile{
@@ -267,7 +267,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithNoNameLXDProfile(c *gc.C) {
 	containerTag := names.NewMachineTag("1-lxd-0")
 
 	mockApi := mocks.NewMockAPICalls(ctlr)
-	mockApi.EXPECT().PrepareContainerInterfaceInfo(gomock.Eq(containerTag)).Return([]corenetwork.InterfaceInfo{fakeInterfaceInfo}, nil)
+	mockApi.EXPECT().PrepareContainerInterfaceInfo(gomock.Eq(containerTag)).Return(corenetwork.InterfaceInfos{fakeInterfaceInfo}, nil)
 	mockApi.EXPECT().ContainerConfig().Return(fakeContainerConfig(), nil)
 
 	put := &charm.LXDProfile{

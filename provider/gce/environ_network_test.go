@@ -202,7 +202,7 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 	c.Assert(infoList, gc.HasLen, 1)
 	infos := infoList[0]
 
-	c.Assert(infos, gc.DeepEquals, []corenetwork.InterfaceInfo{{
+	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		CIDR:              "10.0.10.0/24",
 		ProviderId:        "moana/somenetif",
@@ -288,7 +288,7 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 
 	// Check interfaces for first instance
 	infos := infoLists[0]
-	c.Assert(infos, gc.DeepEquals, []corenetwork.InterfaceInfo{{
+	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		CIDR:              "10.0.10.0/24",
 		ProviderId:        "i-1/somenetif",
@@ -308,7 +308,7 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 
 	// Check interfaces for second instance
 	infos = infoLists[1]
-	c.Assert(infos, gc.DeepEquals, []corenetwork.InterfaceInfo{{
+	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		CIDR:              "10.0.10.0/24",
 		ProviderId:        "i-2/netif-0",
@@ -357,7 +357,7 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 
 	// Check interfaces for first instance
 	infos := infoLists[0]
-	c.Assert(infos, gc.DeepEquals, []corenetwork.InterfaceInfo{{
+	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		CIDR:              "10.0.10.0/24",
 		ProviderId:        "i-1/somenetif",
@@ -403,7 +403,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 	c.Assert(infoList, gc.HasLen, 1)
 	infos := infoList[0]
 
-	c.Assert(infos, gc.DeepEquals, []corenetwork.InterfaceInfo{{
+	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		CIDR:              "10.0.10.0/24",
 		ProviderId:        "moana/somenetif",
@@ -464,7 +464,7 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 	c.Assert(infoList, gc.HasLen, 1)
 	infos := infoList[0]
 
-	c.Assert(infos, gc.DeepEquals, []corenetwork.InterfaceInfo{{
+	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		CIDR:              "10.240.0.0/16",
 		ProviderId:        "moana/somenetif",
@@ -510,7 +510,7 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 	c.Assert(infoList, gc.HasLen, 1)
 	infos := infoList[0]
 
-	c.Assert(infos, gc.DeepEquals, []corenetwork.InterfaceInfo{{
+	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		CIDR:              "10.0.10.0/24",
 		ProviderId:        "moana/somenetif",

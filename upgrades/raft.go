@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/feature"
 	raftworker "github.com/juju/juju/worker/raft"
 )
 
@@ -134,18 +133,9 @@ func MigrateLegacyLeases(context Context) error {
 	// running - they're all guarded by the upgrade-steps gate.
 
 	// We need to migrate leases if:
-	// * legacy-leases is off,
 	// * there are some legacy leases,
 	// * there aren't already leases in the store.
 	st := context.State()
-	controllerConfig, err := st.ControllerConfig()
-	if err != nil {
-		return errors.Annotate(err, "getting controller config")
-	}
-	if controllerConfig.Features().Contains(feature.LegacyLeases) {
-		logger.Debugf("legacy-leases flag is set, not migrating leases")
-		return nil
-	}
 
 	var zero time.Time
 	legacyLeases, err := st.LegacyLeases(zero)
@@ -245,7 +235,9 @@ func MigrateLegacyLeases(context Context) error {
 		return errors.Annotate(err, "persisting snapshot")
 	}
 
-	return nil
+	// Now that the leases are migrated into raft we can drop the
+	// leases collection.
+	return errors.Trace(st.DropLeasesCollection())
 }
 
 // leasesInStore returns whether the logs and snapshots contain any

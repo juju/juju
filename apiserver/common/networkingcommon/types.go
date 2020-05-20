@@ -155,7 +155,7 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 
 // NetworkInterfacesToStateArgs splits the given interface list into a slice of
 // state.LinkLayerDeviceArgs and a slice of state.LinkLayerDeviceAddress.
-func NetworkInterfacesToStateArgs(ifaces []corenetwork.InterfaceInfo) (
+func NetworkInterfacesToStateArgs(ifaces corenetwork.InterfaceInfos) (
 	[]state.LinkLayerDeviceArgs,
 	[]state.LinkLayerDeviceAddress,
 ) {
@@ -187,35 +187,21 @@ func NetworkInterfacesToStateArgs(ifaces []corenetwork.InterfaceInfo) (
 			devicesArgs = append(devicesArgs, args)
 		}
 
-		if iface.CIDR == "" || iface.PrimaryAddress().Value == "" {
-			logger.Tracef(
-				"skipping empty CIDR %q and/or Address %q of %q",
-				iface.CIDR, iface.PrimaryAddress(), iface.InterfaceName,
-			)
-			continue
-		}
-		_, ipNet, err := net.ParseCIDR(iface.CIDR)
+		cidrAddress, err := iface.CIDRAddress()
 		if err != nil {
-			logger.Warningf("FIXME: ignoring unexpected CIDR format %q: %v", iface.CIDR, err)
+			logger.Warningf("ignoring address for device %q: %v", iface.InterfaceName, err)
 			continue
 		}
-		ipAddr := net.ParseIP(iface.PrimaryAddress().Value)
-		if ipAddr == nil {
-			logger.Warningf("FIXME: ignoring unexpected Address format %q", iface.PrimaryAddress().Value)
-			continue
-		}
-		ipNet.IP = ipAddr
-		cidrAddress := ipNet.String()
 
-		var derivedConfigMethod state.AddressConfigMethod
-		switch method := state.AddressConfigMethod(iface.ConfigType); method {
-		case state.StaticAddress, state.DynamicAddress,
-			state.LoopbackAddress, state.ManualAddress:
+		var derivedConfigMethod corenetwork.AddressConfigMethod
+		switch method := corenetwork.AddressConfigMethod(iface.ConfigType); method {
+		case corenetwork.StaticAddress, corenetwork.DynamicAddress,
+			corenetwork.LoopbackAddress, corenetwork.ManualAddress:
 			derivedConfigMethod = method
 		case "dhcp": // awkward special case
-			derivedConfigMethod = state.DynamicAddress
+			derivedConfigMethod = corenetwork.DynamicAddress
 		default:
-			derivedConfigMethod = state.StaticAddress
+			derivedConfigMethod = corenetwork.StaticAddress
 		}
 
 		addr := state.LinkLayerDeviceAddress{
@@ -281,133 +267,6 @@ type NetworkConfigSource interface {
 	// InterfaceAddresses returns information about all addresses assigned to
 	// the network interface with the given name.
 	InterfaceAddresses(name string) ([]net.Addr, error)
-}
-
-// MergeProviderAndObservedNetworkConfigs returns the effective network configs,
-// using observedConfigs as a base and selectively updating it using the
-// matching providerConfigs for each interface.
-func MergeProviderAndObservedNetworkConfigs(
-	providerConfigs, observedConfigs []params.NetworkConfig,
-) []params.NetworkConfig {
-
-	providerConfigByName := networkConfigsByName(providerConfigs)
-	logger.Tracef("known provider config by name: %+v", providerConfigByName)
-
-	providerConfigByAddress := networkConfigsByAddress(providerConfigs)
-	logger.Tracef("known provider config by address: %+v", providerConfigByAddress)
-
-	var results []params.NetworkConfig
-	for _, observed := range observedConfigs {
-
-		name, ipAddress := observed.InterfaceName, observed.Address
-		finalConfig := observed
-
-		providerConfig, known := providerConfigByName[name]
-		if known {
-			finalConfig = mergeObservedAndProviderInterfaceConfig(finalConfig, providerConfig)
-			logger.Debugf("updated observed interface config for %q with: %+v", name, providerConfig)
-		}
-
-		providerConfig, known = providerConfigByAddress[ipAddress]
-		if known {
-			finalConfig = mergeObservedAndProviderAddressConfig(finalConfig, providerConfig)
-			logger.Debugf("updated observed address config for %q with: %+v", name, providerConfig)
-		}
-
-		results = append(results, finalConfig)
-		logger.Debugf("merged config for %q: %+v", name, finalConfig)
-	}
-
-	return results
-}
-
-func networkConfigsByName(input []params.NetworkConfig) map[string]params.NetworkConfig {
-	configsByName := make(map[string]params.NetworkConfig, len(input))
-	for _, config := range input {
-		configsByName[config.InterfaceName] = config
-	}
-	return configsByName
-}
-
-func networkConfigsByAddress(input []params.NetworkConfig) map[string]params.NetworkConfig {
-	configsByAddress := make(map[string]params.NetworkConfig, len(input))
-	for _, config := range input {
-		configsByAddress[config.Address] = config
-	}
-	return configsByAddress
-}
-
-func mergeObservedAndProviderInterfaceConfig(observedConfig, providerConfig params.NetworkConfig) params.NetworkConfig {
-	logger.Debugf("mergeObservedAndProviderInterfaceConfig %+v %+v", observedConfig, providerConfig)
-	finalConfig := observedConfig
-
-	// The following fields cannot be observed and are only known by the
-	// provider.
-	finalConfig.ProviderId = providerConfig.ProviderId
-	finalConfig.ProviderVLANId = providerConfig.ProviderVLANId
-	finalConfig.ProviderSubnetId = providerConfig.ProviderSubnetId
-	finalConfig.ProviderNetworkId = providerConfig.ProviderNetworkId
-
-	// The following few fields are only updated if their observed values are
-	// empty.
-
-	if observedConfig.InterfaceType == "" {
-		finalConfig.InterfaceType = providerConfig.InterfaceType
-	}
-
-	if observedConfig.VLANTag == 0 {
-		finalConfig.VLANTag = providerConfig.VLANTag
-	}
-
-	if observedConfig.ParentInterfaceName == "" {
-		finalConfig.ParentInterfaceName = providerConfig.ParentInterfaceName
-	}
-	logger.Debugf("mergeObservedAndProviderInterfaceConfig %+v", finalConfig)
-
-	return finalConfig
-}
-
-func mergeObservedAndProviderAddressConfig(observedConfig, providerConfig params.NetworkConfig) params.NetworkConfig {
-	finalConfig := observedConfig
-
-	// The following fields cannot be observed and are only known by the
-	// provider.
-	finalConfig.ProviderAddressId = providerConfig.ProviderAddressId
-	finalConfig.ProviderSubnetId = providerConfig.ProviderSubnetId
-	finalConfig.ProviderSpaceId = providerConfig.ProviderSpaceId
-
-	// The following few fields are only updated if their observed values are
-	// empty.
-
-	if observedConfig.ProviderVLANId == "" {
-		finalConfig.ProviderVLANId = providerConfig.ProviderVLANId
-	}
-
-	if observedConfig.VLANTag == 0 {
-		finalConfig.VLANTag = providerConfig.VLANTag
-	}
-
-	if observedConfig.ConfigType == "" {
-		finalConfig.ConfigType = providerConfig.ConfigType
-	}
-
-	if observedConfig.CIDR == "" {
-		finalConfig.CIDR = providerConfig.CIDR
-	}
-
-	if observedConfig.GatewayAddress == "" {
-		finalConfig.GatewayAddress = providerConfig.GatewayAddress
-	}
-
-	if len(observedConfig.DNSServers) == 0 {
-		finalConfig.DNSServers = providerConfig.DNSServers
-	}
-
-	if len(observedConfig.DNSSearchDomains) == 0 {
-		finalConfig.DNSSearchDomains = providerConfig.DNSSearchDomains
-	}
-
-	return finalConfig
 }
 
 func networkToParamsNetworkInfo(info network.NetworkInfo) params.NetworkInfo {

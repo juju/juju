@@ -230,7 +230,7 @@ func (c *upgradeControllerCommand) upgradeCAASController(ctx *cmd.Context) error
 		return errors.New("incomplete model configuration")
 	}
 
-	warnCompat, err := c.precheck(ctx, currentAgentVersion)
+	warnCompat, err := c.precheckVersion(ctx, currentAgentVersion)
 	if err != nil {
 		return err
 	}

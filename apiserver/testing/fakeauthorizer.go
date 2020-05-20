@@ -41,6 +41,12 @@ func (fa FakeAuthorizer) AuthApplicationAgent() bool {
 	return isApp
 }
 
+// AuthModelAgent returns true if the authenticated entity is a model agent
+func (fa FakeAuthorizer) AuthModelAgent() bool {
+	_, isModel := fa.GetAuthTag().(names.ModelTag)
+	return isModel
+}
+
 // AuthUnitAgent returns whether the current client is a unit agent.
 func (fa FakeAuthorizer) AuthUnitAgent() bool {
 	_, isUnit := fa.GetAuthTag().(names.UnitTag)

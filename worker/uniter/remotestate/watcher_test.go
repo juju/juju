@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/charm/v7"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -100,6 +101,7 @@ func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
 		LeadershipTracker:   s.leadership,
 		UnitTag:             s.st.unit.tag,
 		UpdateStatusChannel: statusTicker,
+		Logger:              loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.watcher = w
@@ -118,6 +120,7 @@ func (s *WatcherSuiteCAAS) SetUpTest(c *gc.C) {
 		ModelType:                     s.modelType,
 		LeadershipTracker:             s.leadership,
 		UnitTag:                       s.st.unit.tag,
+		Logger:                        loggo.GetLogger("test"),
 		UpdateStatusChannel:           statusTicker,
 		ApplicationChannel:            s.applicationWatcher.Changes(),
 		ContainerRunningStatusChannel: s.runningStatusWatcher.Changes(),
@@ -850,6 +853,10 @@ func (s *WatcherSuite) waitAlarmsStable(c *gc.C) {
 func (s *WatcherSuiteCAAS) TestWatcherConfig(c *gc.C) {
 	_, err := remotestate.NewWatcher(remotestate.WatcherConfig{
 		ModelType: model.CAAS,
+		Logger:    loggo.GetLogger("test"),
 	})
 	c.Assert(err, gc.ErrorMatches, "watcher config for CAAS model with nil application channel not valid")
+
+	_, err = remotestate.NewWatcher(remotestate.WatcherConfig{})
+	c.Assert(err, gc.ErrorMatches, "nil Logger not valid")
 }

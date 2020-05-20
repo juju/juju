@@ -96,15 +96,6 @@ func (s *CrossSuite) testWaits(c *gc.C, lease1, lease2 corelease.Key) {
 				Expiry: offset(time.Minute),
 			},
 		},
-		expectCalls: []call{{
-			method: "Refresh",
-		}, {
-			method: "ExpireLease",
-			args:   []interface{}{lease1},
-			callback: func(leases map[corelease.Key]corelease.Info) {
-				delete(leases, lease1)
-			},
-		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testclock.Clock) {
 		b1 := newBlockTest(c, manager, lease1)
@@ -179,7 +170,7 @@ func (s *CrossSuite) TestCheckAcrossModels(c *gc.C) {
 
 func (s *CrossSuite) TestDifferentNamespaceValidation(c *gc.C) {
 	clock := testclock.NewClock(defaultClockStart)
-	store := NewStore(false, nil, nil)
+	store := NewStore(nil, nil, clock)
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Clock: clock,
 		Store: store,

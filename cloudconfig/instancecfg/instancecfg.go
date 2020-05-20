@@ -794,6 +794,10 @@ func NewInstanceConfig(
 	if err != nil {
 		return nil, err
 	}
+	transientDataDir, err := paths.TransientDataDir(series)
+	if err != nil {
+		return nil, err
+	}
 	cloudInitOutputLog := path.Join(logDir, "cloud-init-output.log")
 	icfg := &InstanceConfig{
 		// Fixed entries.
@@ -802,6 +806,7 @@ func NewInstanceConfig(
 		MetricsSpoolDir:         metricsSpoolDir,
 		Jobs:                    []model.MachineJob{model.JobHostUnits},
 		CloudInitOutputLog:      cloudInitOutputLog,
+		TransientDataDir:        transientDataDir,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
 		Series:                  series,
 		Tags:                    map[string]string{},

@@ -581,12 +581,13 @@ func newBindingsFromIDs(spaceInfos network.SpaceInfos, givenMap map[string]strin
 }
 
 // MapWithSpaceNames returns the current bindingMap with space names rather than ids.
-func (b *Bindings) MapWithSpaceNames() (map[string]string, error) {
-	retVal := make(map[string]string, len(b.bindingsMap))
-	lookup, err := b.st.AllSpaceInfos()
-	if err != nil {
-		return nil, err
+func (b *Bindings) MapWithSpaceNames(lookup network.SpaceInfos) (map[string]string, error) {
+	// Handle the fact that space name lookup can be nil or empty.
+	if lookup == nil || (len(b.bindingsMap) > 0 && len(lookup) == 0) {
+		return nil, errors.NotValidf("empty space lookup")
 	}
+
+	retVal := make(map[string]string, len(b.bindingsMap))
 
 	// Assume that b.bindings is always in space id format due to
 	// Bindings constructor.

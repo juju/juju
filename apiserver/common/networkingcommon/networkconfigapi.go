@@ -224,7 +224,7 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 }
 
 func (api *NetworkConfigAPI) setLinkLayerDevicesAndAddresses(
-	m *state.Machine, interfaceInfos []network.InterfaceInfo,
+	m *state.Machine, interfaceInfos network.InterfaceInfos,
 ) error {
 	devicesArgs, devicesAddrs := NetworkInterfacesToStateArgs(interfaceInfos)
 

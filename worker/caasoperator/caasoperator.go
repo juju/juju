@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -41,6 +40,7 @@ import (
 	"github.com/juju/juju/worker/uniter"
 	jujucharm "github.com/juju/juju/worker/uniter/charm"
 	uniterremotestate "github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/wrench"
 )
 
 // logger is here to stop the desire of creating a package level logger.
@@ -145,8 +145,8 @@ type Config struct {
 	// OperatorInfo contains serving information such as Certs and PrivateKeys.
 	OperatorInfo caas.OperatorInfo
 
-	// ExecClient for initilizing caas units.
-	ExecClient exec.Executor
+	// ExecClientGetter returns an exec client for initializing caas units.
+	ExecClientGetter func() (exec.Executor, error)
 }
 
 func (config Config) Validate() error {
@@ -195,8 +195,8 @@ func (config Config) Validate() error {
 	if config.VersionSetter == nil {
 		return errors.NotValidf("missing VersionSetter")
 	}
-	if config.ExecClient == nil {
-		return errors.NotValidf("missing ExecClient")
+	if config.ExecClientGetter == nil {
+		return errors.NotValidf("missing ExecClientGetter")
 	}
 	return nil
 }
@@ -240,6 +240,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 			// For any failures, try again in 3 seconds.
 			RestartDelay: 3 * time.Second,
+			Logger:       config.Logger,
 		}),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -253,8 +254,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 }
 
 func (op *caasOperator) makeAgentSymlinks(unitTag names.UnitTag) error {
-	// All units share the same charm and agent binary.
-	// (but with different state dirs for each unit).
+	// All units share the same agent binary.
 	// Set up the required symlinks.
 
 	// First the agent binary.
@@ -291,6 +291,22 @@ func (op *caasOperator) makeAgentSymlinks(unitTag names.UnitTag) error {
 		}
 	}
 
+	// Ensure legacy charm symlinks created before 2.8 getting unlinked.
+	unitCharmDir := filepath.Join(op.config.DataDir, "agents", unitTag.String(), "charm")
+	isUnitCharmDirSymlink, err := jujusymlink.IsSymlink(unitCharmDir)
+	if os.IsNotExist(errors.Cause(err)) || os.IsPermission(errors.Cause(err)) {
+		// Ignore permission denied as this won't happen in production
+		// but may happen in testing depending on setup of /tmp.
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	if isUnitCharmDirSymlink {
+		op.config.Logger.Warningf("removing legacy charm symlink for %q", unitTag.String())
+		if err := os.Remove(unitCharmDir); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return nil
 }
 
@@ -370,6 +386,8 @@ func (op *caasOperator) init() (*LocalState, error) {
 }
 
 func (op *caasOperator) loop() (err error) {
+	logger := op.config.Logger
+
 	defer func() {
 		if errors.IsNotFound(err) {
 			err = jworker.ErrTerminateAgent
@@ -380,7 +398,7 @@ func (op *caasOperator) loop() (err error) {
 	if err != nil {
 		return err
 	}
-	op.config.Logger.Infof("operator %q started", op.config.Application)
+	logger.Infof("operator %q started", op.config.Application)
 
 	// Start by reporting current tools (which includes arch/series).
 	if err := op.config.VersionSetter.SetVersion(
@@ -388,15 +406,9 @@ func (op *caasOperator) loop() (err error) {
 		return errors.Annotate(err, "cannot set agent version")
 	}
 
-	var (
-		remoteWatcher remotestate.Watcher
-		watcherMu     sync.Mutex
-	)
+	var remoteWatcher remotestate.Watcher
 
 	restartWatcher := func() error {
-		watcherMu.Lock()
-		defer watcherMu.Unlock()
-
 		if remoteWatcher != nil {
 			// watcher added to catacomb, will kill operator if there's an error.
 			_ = worker.Stop(remoteWatcher)
@@ -484,7 +496,7 @@ func (op *caasOperator) loop() (err error) {
 				}
 				// Notify all uniters of the change so they run the upgrade-charm hook.
 				for unitID, changedChan := range aliveUnits {
-					op.config.Logger.Debugf("trigger upgrade charm for caas unit %v", unitID)
+					logger.Debugf("trigger upgrade charm for caas unit %v", unitID)
 					select {
 					case <-op.catacomb.Dying():
 						return op.catacomb.ErrDying()
@@ -498,11 +510,14 @@ func (op *caasOperator) loop() (err error) {
 			}
 			for _, unitID := range units {
 				if runningChan, ok := unitRunningChannels[unitID]; ok {
-					op.config.Logger.Debugf("trigger running status for caas unit %v", unitID)
+					logger.Debugf("trigger running status for caas unit %v", unitID)
 					select {
 					case <-op.catacomb.Dying():
 						return op.catacomb.ErrDying()
 					case runningChan <- struct{}{}:
+					default:
+						// This should never happen unless there is a bug in the uniter.
+						logger.Warningf("unit running chan[%q] is blocked", unitID)
 					}
 				}
 			}
@@ -541,7 +556,7 @@ func (op *caasOperator) loop() (err error) {
 				}
 				// Start a worker to manage any new units.
 				if _, err := op.runner.Worker(unitID, op.catacomb.Dying()); err == nil || unitLife == life.Dead {
-					// Already watching the unit. or we're
+					// Already watching the unit or we're
 					// not yet watching it and it's dead.
 					continue
 				}
@@ -550,23 +565,32 @@ func (op *caasOperator) loop() (err error) {
 				if err := op.makeAgentSymlinks(unitTag); err != nil {
 					return errors.Trace(err)
 				}
-
 				params := op.config.UniterParams
 				params.ModelType = model.CAAS
 				params.UnitTag = unitTag
 				params.Downloader = op.config.Downloader // TODO(caas): write a cache downloader
 				params.UniterFacade = op.config.UniterFacadeFunc(unitTag)
-				params.LeadershipTracker = op.config.LeadershipTrackerFunc(unitTag)
+				params.LeadershipTrackerFunc = op.config.LeadershipTrackerFunc
 				params.ApplicationChannel = aliveUnits[unitID]
-				params.ContainerRunningStatusChannel = unitRunningChannels[unitID]
 				if op.deploymentMode != caas.ModeOperator {
+					params.IsRemoteUnit = true
+					params.ContainerRunningStatusChannel = unitRunningChannels[unitID]
+
+					execClient, err := op.config.ExecClientGetter()
+					if err != nil {
+						return errors.Trace(err)
+					}
 					params.ContainerRunningStatusFunc = func(providerID string) (*uniterremotestate.ContainerRunningStatus, error) {
-						return op.runningStatus(unitTag, providerID)
+						if wrench.IsActive("remote-init", "fatal-error") {
+							return nil, errors.New("fake remote-init fatal-error")
+						}
+						return op.runningStatus(execClient, unitTag, providerID)
 					}
 					params.RemoteInitFunc = func(runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
-						return op.remoteInit(unitTag, runningStatus, cancel)
+						// TODO(caas): Remove the cached status uniterremotestate.ContainerRunningStatus from uniter watcher snapshot.
+						return op.remoteInitForUniter(execClient, unitTag, runningStatus, cancel)
 					}
-					params.NewRemoteRunnerExecutor = getNewRunnerExecutor(op.config.Logger, op.config.ExecClient)
+					params.NewRemoteRunnerExecutor = getNewRunnerExecutor(logger, execClient)
 				}
 				if err := op.config.StartUniterFunc(op.runner, params); err != nil {
 					return errors.Trace(err)
@@ -576,18 +600,15 @@ func (op *caasOperator) loop() (err error) {
 	}
 }
 
-func (op *caasOperator) runningStatus(unit names.UnitTag, providerID string) (*uniterremotestate.ContainerRunningStatus, error) {
-	op.config.Logger.Debugf("request running status for %v %s", unit, providerID)
+func (op *caasOperator) runningStatus(client exec.Executor, unit names.UnitTag, providerID string) (*uniterremotestate.ContainerRunningStatus, error) {
+	op.config.Logger.Debugf("request running status for %q %s", unit.String(), providerID)
 	params := exec.StatusParams{
 		PodName: providerID,
 	}
-	status, err := op.config.ExecClient.Status(params)
-	if errors.IsNotFound(err) {
-		op.config.Logger.Errorf("could not find pod %v %s %v", unit, providerID, err)
-		return nil, nil
-	} else if err != nil {
-		op.config.Logger.Errorf("could not get pod %v %s %v", unit, providerID, err)
-		return nil, errors.Trace(err)
+	status, err := client.Status(params)
+	if err != nil {
+		op.config.Logger.Errorf("could not get pod %q %q %v", unit.String(), providerID, err)
+		return nil, errors.Annotatef(err, "getting pod status for unit %q, container %q", unit, providerID)
 	}
 	result := &uniterremotestate.ContainerRunningStatus{
 		PodName: status.PodName,
@@ -598,7 +619,7 @@ func (op *caasOperator) runningStatus(unit names.UnitTag, providerID string) (*u
 			result.Initialising = cs.Running
 			result.InitialisingTime = cs.StartedAt
 		}
-		// Only check the default container
+		// Only check the default container.
 		if !cs.InitContainer && !cs.EphemeralContainer && once {
 			result.Running = cs.Running
 			once = false
@@ -606,11 +627,27 @@ func (op *caasOperator) runningStatus(unit names.UnitTag, providerID string) (*u
 	}
 	return result, nil
 }
+func (op *caasOperator) remoteInitForUniter(client exec.Executor, unit names.UnitTag, runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
+	return runnerWithRetry(
+		func() error {
+			status, err := op.runningStatus(client, unit, runningStatus.PodName)
+			//  get the current status rather than using the status cached in remote state.
+			if err != nil {
+				return errors.Trace(err)
+			}
+			return op.remoteInit(client, unit, *status, cancel)
+		},
+		func(err error) bool {
+			// We need to re-fetch the running status then retry remoteInit if the container is not running.
+			return err != nil && !exec.IsContainerNotRunningError(err) && !errors.IsNotFound(err)
+		}, op.config.Logger, op.config.Clock, cancel,
+	)
+}
 
-func (op *caasOperator) remoteInit(unit names.UnitTag, runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
-	op.config.Logger.Debugf("remote init for %v %+v", unit, runningStatus)
-	params := InitializeUnitParams{
-		ExecClient:   op.config.ExecClient,
+func (op *caasOperator) remoteInit(client exec.Executor, unit names.UnitTag, runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
+	op.config.Logger.Debugf("remote init for %q %+v", unit.String(), runningStatus)
+	params := initializeUnitParams{
+		ExecClient:   client,
 		Logger:       op.config.Logger,
 		OperatorInfo: op.config.OperatorInfo,
 		Paths:        op.paths,
@@ -618,6 +655,8 @@ func (op *caasOperator) remoteInit(unit names.UnitTag, runningStatus uniterremot
 		ProviderID:   runningStatus.PodName,
 		WriteFile:    ioutil.WriteFile,
 		TempDir:      ioutil.TempDir,
+		Clock:        op.config.Clock,
+		ReTrier:      runnerWithRetry,
 	}
 	switch {
 	case runningStatus.Initialising:
@@ -627,11 +666,7 @@ func (op *caasOperator) remoteInit(unit names.UnitTag, runningStatus uniterremot
 	default:
 		return errors.NotFoundf("container not running")
 	}
-	err := InitializeUnit(params, cancel)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(initializeUnit(params, cancel))
 }
 
 func (op *caasOperator) charmModified(local *LocalState, remote remotestate.Snapshot) bool {

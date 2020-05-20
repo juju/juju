@@ -5,6 +5,7 @@ package gui
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 
 	"github.com/juju/errors"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/keys"
-	jujuversion "github.com/juju/juju/version"
 )
 
 const (
@@ -51,12 +51,13 @@ func NewDataSource(baseURL string) simplestreams.DataSource {
 
 // FetchMetadata fetches and returns Juju GUI metadata from simplestreams,
 // sorted by version descending.
-func FetchMetadata(stream string, sources ...simplestreams.DataSource) ([]*Metadata, error) {
+func FetchMetadata(stream string, major, minor int, sources ...simplestreams.DataSource) ([]*Metadata, error) {
 	params := simplestreams.GetMetadataParams{
 		StreamsVersion: streamsVersion,
 		LookupConstraint: &constraint{
 			LookupParams: simplestreams.LookupParams{Stream: stream},
-			majorVersion: jujuversion.Current.Major,
+			majorVersion: major,
+			minorVersion: minor,
 		},
 		ValueParams: simplestreams.ValueParams{
 			DataType:        downloadType,
@@ -84,8 +85,10 @@ type Metadata struct {
 	SHA256 string `json:"sha256"`
 	Path   string `json:"path"`
 
-	JujuMajorVersion int    `json:"juju-version"`
-	StringVersion    string `json:"version"`
+	MinJujuVersion   string `json:"min-juju-version"`
+	DashboardVersion string `json:"version"`
+	// Legacy GUI metadata has juju-version.
+	JujuMajorVersion int `json:"juju-version"`
 
 	Version  version.Number           `json:"-"`
 	FullPath string                   `json:"-"`
@@ -109,6 +112,7 @@ func (b byVersion) Less(i, j int) bool { return b[i].Version.Compare(b[j].Versio
 type constraint struct {
 	simplestreams.LookupParams
 	majorVersion int
+	minorVersion int
 }
 
 // IndexIds generates a string array representing index ids formed similarly to
@@ -120,13 +124,16 @@ func (c *constraint) IndexIds() []string {
 // ProductIds generates a string array representing product ids formed
 // similarly to an ISCSI qualified name (IQN).
 func (c *constraint) ProductIds() ([]string, error) {
-	return []string{"com.canonical.streams:gui"}, nil
+	return []string{"com.canonical.streams:dashboard"}, nil
 }
 
-// contentId returns the GUI content id in simplestreams for the given stream.
+// contentId returns the dashboard content id in simplestreams for the given stream.
 func contentId(stream string) string {
-	return fmt.Sprintf("com.canonical.streams:%s:gui", stream)
+	return fmt.Sprintf("com.canonical.streams:%s:dashboard", stream)
 }
+
+// majorMinorRegEx is used to validate a major.minor version string.
+var majorMinorRegEx = regexp.MustCompile("^\\d\\.\\d$")
 
 // appendArchives collects all matching Juju GUI archive metadata information.
 func appendArchives(
@@ -136,20 +143,37 @@ func appendArchives(
 	cons simplestreams.LookupConstraint,
 ) ([]interface{}, error) {
 	var majorVersion int
+	var minorVersion int
 	if guiConstraint, ok := cons.(*constraint); ok {
 		majorVersion = guiConstraint.majorVersion
+		minorVersion = guiConstraint.minorVersion
 	}
 	for _, item := range items {
 		meta := item.(*Metadata)
-		if majorVersion != 0 && majorVersion != meta.JujuMajorVersion {
+		if meta.MinJujuVersion != "" && !majorMinorRegEx.MatchString(meta.MinJujuVersion) {
+			return nil, errors.NotValidf("min-juju-version value %q", meta.MinJujuVersion)
+		}
+		if majorVersion != 0 && meta.JujuMajorVersion != 0 &&
+			majorVersion != meta.JujuMajorVersion {
 			continue
+		}
+		if meta.MinJujuVersion != "" {
+			// Add a ".0" to major.minor to make a valid Juju version number.
+			minJujuVersion, err := version.Parse(meta.MinJujuVersion + ".0")
+			if err != nil {
+				return nil, errors.Annotate(err, "cannot parse supported juju version")
+			}
+			if majorVersion != minJujuVersion.Major ||
+				minorVersion < minJujuVersion.Minor {
+				continue
+			}
 		}
 		fullPath, err := source.URL(meta.Path)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot retrieve metadata full path")
 		}
 		meta.FullPath = fullPath
-		vers, err := version.Parse(meta.StringVersion)
+		vers, err := version.Parse(meta.DashboardVersion)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot parse metadata version")
 		}

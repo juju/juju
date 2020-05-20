@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
@@ -73,22 +72,9 @@ func ImportModel(importer StateImporter, getClaimer ClaimerFunc, bytes []byte) (
 		return nil, nil, errors.Trace(err)
 	}
 
-	config, err := dbState.ControllerConfig()
+	claimer, err := getClaimer(dbModel.UUID())
 	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	// If we're using legacy-leases we get the claimer from the new
-	// state - otherwise use the function passed in.
-	//
-	var claimer leadership.Claimer
-	if config.Features().Contains(feature.LegacyLeases) {
-		claimer = dbState.LeadershipClaimer()
-	} else {
-		claimer, err = getClaimer(dbModel.UUID())
-		if err != nil {
-			return nil, nil, errors.Annotate(err, "getting leadership claimer")
-		}
+		return nil, nil, errors.Annotate(err, "getting leadership claimer")
 	}
 
 	logger.Debugf("importing leadership")

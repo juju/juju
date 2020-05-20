@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/raft"
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
@@ -47,14 +49,17 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
@@ -67,30 +72,20 @@ import (
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationmaster"
+	raftworker "github.com/juju/juju/worker/raft"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
 )
 
-type MachineLegacyLeasesSuite struct {
-	commonMachineSuite
-}
+const (
+	// Use a longer wait in tests that are dependent on leases - sometimes
+	// the raft workers can take a bit longer to spin up.
+	longerWait = 2 * coretesting.LongWait
 
-var _ = gc.Suite(&MachineLegacyLeasesSuite{})
+	// This is the address that the raft workers will use for the server.
+	serverAddress = "localhost:17070"
+)
 
-func (s *MachineLegacyLeasesSuite) SetUpTest(c *gc.C) {
-	s.ControllerConfigAttrs = map[string]interface{}{
-		controller.AuditingEnabled: true,
-		controller.CharmStoreURL:   "staging.charmstore",
-		controller.Features:        []interface{}{"legacy-leases"},
-	}
-	s.commonMachineSuite.SetUpTest(c)
-	coretesting.DumpTestLogsAfter(time.Minute, c, s)
-}
-
-// TODO (manadart 2018-10-26): Tests that work with Raft leases should be
-// migrated to this suite.
-// When the Raft startup issue is resolved all tests can use this suite
-// and the MachineLegacyLeasesSuite can be removed.
 type MachineSuite struct {
 	commonMachineSuite
 }
@@ -103,13 +98,28 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 		controller.CharmStoreURL:   "staging.charmstore",
 	}
 	s.commonMachineSuite.SetUpTest(c)
+	bootstrapRaft(c, s.DataDir())
+
+	// Restart failed workers much faster for the tests.
+	s.PatchValue(&EngineErrorDelay, 100*time.Millisecond)
+
 	// Most of these tests normally finish sub-second on a fast machine.
 	// If any given test hits a minute, we have almost certainly become
 	// wedged, so dump the logs.
 	coretesting.DumpTestLogsAfter(time.Minute, c, s)
 }
 
-func (s *MachineLegacyLeasesSuite) TestParseNonsense(c *gc.C) {
+func bootstrapRaft(c *gc.C, dataDir string) {
+	err := raftworker.Bootstrap(raftworker.Config{
+		Clock:      clock.WallClock,
+		StorageDir: filepath.Join(dataDir, "raft"),
+		LocalID:    raft.ServerID("0"),
+		Logger:     loggo.GetLogger("machine_test.raft"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MachineSuite) TestParseNonsense(c *gc.C) {
 	var agentConf agentConf
 	err := ParseAgentCommand(&machineAgentCmd{agentInitializer: &agentConf}, nil)
 	c.Assert(err, gc.ErrorMatches, "either machine-id or controller-id must be set")
@@ -119,14 +129,14 @@ func (s *MachineLegacyLeasesSuite) TestParseNonsense(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "--controller-id option must be a non-negative integer")
 }
 
-func (s *MachineLegacyLeasesSuite) TestParseUnknown(c *gc.C) {
+func (s *MachineSuite) TestParseUnknown(c *gc.C) {
 	var agentConf agentConf
 	a := &machineAgentCmd{agentInitializer: &agentConf}
 	err := ParseAgentCommand(a, []string{"--machine-id", "42", "blistering barnacles"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
 }
 
-func (s *MachineLegacyLeasesSuite) TestParseSuccess(c *gc.C) {
+func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 	create := func() (cmd.Command, AgentConf) {
 		agentConf := agentConf{dataDir: s.DataDir()}
 		s.PrimeAgent(c, names.NewMachineTag("42"), initialMachinePassword)
@@ -143,14 +153,14 @@ func (s *MachineLegacyLeasesSuite) TestParseSuccess(c *gc.C) {
 	c.Assert(a.(*machineAgentCmd).machineId, gc.Equals, "42")
 }
 
-func (s *MachineLegacyLeasesSuite) TestRunInvalidMachineId(c *gc.C) {
+func (s *MachineSuite) TestRunInvalidMachineId(c *gc.C) {
 	c.Skip("agents don't yet distinguish between temporary and permanent errors")
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	err := s.newAgent(c, m).Run(nil)
 	c.Assert(err, gc.ErrorMatches, "some error")
 }
 
-func (s *MachineLegacyLeasesSuite) TestUseLumberjack(c *gc.C) {
+func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	agentConf := FakeAgentConfig{}
 	logger := s.newBufferedLogWriter()
@@ -175,7 +185,7 @@ func (s *MachineLegacyLeasesSuite) TestUseLumberjack(c *gc.C) {
 	c.Check(l.MaxSize, gc.Equals, 300)
 }
 
-func (s *MachineLegacyLeasesSuite) TestDontUseLumberjack(c *gc.C) {
+func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	agentConf := FakeAgentConfig{}
 	logger := s.newBufferedLogWriter()
@@ -199,7 +209,7 @@ func (s *MachineLegacyLeasesSuite) TestDontUseLumberjack(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *MachineLegacyLeasesSuite) TestRunStop(c *gc.C) {
+func (s *MachineSuite) TestRunStop(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	done := make(chan error)
@@ -211,7 +221,7 @@ func (s *MachineLegacyLeasesSuite) TestRunStop(c *gc.C) {
 	c.Assert(<-done, jc.ErrorIsNil)
 }
 
-func (s *MachineLegacyLeasesSuite) TestDyingMachine(c *gc.C) {
+func (s *MachineSuite) TestDyingMachine(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	done := make(chan error)
@@ -244,7 +254,7 @@ func (s *MachineLegacyLeasesSuite) TestDyingMachine(c *gc.C) {
 	c.Assert(m.Life(), gc.Equals, state.Dead)
 }
 
-func (s *MachineLegacyLeasesSuite) TestManageModelRunsInstancePoller(c *gc.C) {
+func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	s.AgentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
 	s.AgentSuite.PatchValue(&instancepoller.ShortPollCap, 500*time.Millisecond)
 	usefulVersion := version.Binary{
@@ -264,6 +274,7 @@ func (s *MachineLegacyLeasesSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	go func() {
 		c.Check(a.Run(cmdtesting.Context(c)), jc.ErrorIsNil)
 	}()
+	startAddressPublisher(s, c, a)
 
 	// Add one unit to an application;
 	charm := s.AddTestingCharm(c, "dummy")
@@ -315,7 +326,7 @@ func (s *MachineLegacyLeasesSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	}
 }
 
-func (s *MachineLegacyLeasesSuite) TestCallsUseMultipleCPUs(c *gc.C) {
+func (s *MachineSuite) TestCallsUseMultipleCPUs(c *gc.C) {
 	// All machine agents call UseMultipleCPUs.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	calledChan := make(chan struct{}, 1)
@@ -330,7 +341,7 @@ func (s *MachineLegacyLeasesSuite) TestCallsUseMultipleCPUs(c *gc.C) {
 	c.Check(a.Stop(), jc.ErrorIsNil)
 }
 
-func (s *MachineLegacyLeasesSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machine, instance.Id) {
+func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machine, instance.Id) {
 	c.Logf("waiting for unit %q to be provisioned", unit)
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -338,7 +349,7 @@ func (s *MachineLegacyLeasesSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*
 	c.Assert(err, jc.ErrorIsNil)
 	w := m.Watch()
 	defer worker.Stop(w)
-	timeout := time.After(coretesting.LongWait)
+	timeout := time.After(longerWait)
 	for {
 		select {
 		case <-timeout:
@@ -359,7 +370,7 @@ func (s *MachineLegacyLeasesSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*
 	}
 }
 
-func (s *MachineLegacyLeasesSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, currentTools *tools.Tools) {
+func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, currentTools *tools.Tools) {
 	newVers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
@@ -379,14 +390,14 @@ func (s *MachineLegacyLeasesSuite) testUpgradeRequest(c *gc.C, agent runner, tag
 	})
 }
 
-func (s *MachineLegacyLeasesSuite) TestUpgradeRequest(c *gc.C) {
+func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
 	m, _, currentTools := s.primeAgent(c, state.JobManageModel, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	s.testUpgradeRequest(c, a, m.Tag().String(), currentTools)
 	c.Assert(a.initialUpgradeCheckComplete.IsUnlocked(), jc.IsFalse)
 }
 
-func (s *MachineLegacyLeasesSuite) TestNoUpgradeRequired(c *gc.C) {
+func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobManageModel, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	done := make(chan error)
@@ -401,7 +412,7 @@ func (s *MachineLegacyLeasesSuite) TestNoUpgradeRequired(c *gc.C) {
 	c.Assert(a.initialUpgradeCheckComplete.IsUnlocked(), jc.IsTrue)
 }
 
-func (s *MachineLegacyLeasesSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgent, done chan error) {
+func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgent, done chan error) {
 	err := a.Stop()
 	if job == state.JobManageModel {
 		// When shutting down, the API server can be shut down before
@@ -425,7 +436,7 @@ func (s *MachineLegacyLeasesSuite) waitStopped(c *gc.C, job state.MachineJob, a 
 	}
 }
 
-func (s *MachineLegacyLeasesSuite) assertJobWithState(
+func (s *MachineSuite) assertJobWithState(
 	c *gc.C,
 	job state.MachineJob,
 	test func(agent.Config, *state.State),
@@ -440,7 +451,7 @@ func (s *MachineLegacyLeasesSuite) assertJobWithState(
 // assertAgentOpensState asserts that a machine agent started with the
 // given job. The agent's configuration and the agent's state.State are
 // then passed to the test function for further checking.
-func (s *MachineLegacyLeasesSuite) assertAgentOpensState(c *gc.C, job state.MachineJob, test func(agent.Config, *state.State)) {
+func (s *MachineSuite) assertAgentOpensState(c *gc.C, job state.MachineJob, test func(agent.Config, *state.State)) {
 	stm, conf, _ := s.primeAgent(c, job)
 	a := s.newAgent(c, stm)
 	defer a.Stop()
@@ -449,11 +460,13 @@ func (s *MachineLegacyLeasesSuite) assertAgentOpensState(c *gc.C, job state.Mach
 	// All state jobs currently also run an APIWorker, so no
 	// need to check for that here, like in assertJobWithState.
 	st, done := s.waitForOpenState(c, a)
+	startAddressPublisher(s, c, a)
+
 	test(conf, st)
 	s.waitStopped(c, job, a, done)
 }
 
-func (s *MachineLegacyLeasesSuite) waitForOpenState(c *gc.C, a *MachineAgent) (*state.State, chan error) {
+func (s *MachineSuite) waitForOpenState(c *gc.C, a *MachineAgent) (*state.State, chan error) {
 	agentAPIs := make(chan *state.State, 1)
 	s.AgentSuite.PatchValue(&reportOpenedState, func(st *state.State) {
 		select {
@@ -477,7 +490,7 @@ func (s *MachineLegacyLeasesSuite) waitForOpenState(c *gc.C, a *MachineAgent) (*
 	panic("can't happen")
 }
 
-func (s *MachineLegacyLeasesSuite) TestManageModelServesAPI(c *gc.C) {
+func (s *MachineSuite) TestManageModelServesAPI(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageModel, func(conf agent.Config, agentState *state.State) {
 		apiInfo, ok := conf.APIInfo()
 		c.Assert(ok, jc.IsTrue)
@@ -490,7 +503,7 @@ func (s *MachineLegacyLeasesSuite) TestManageModelServesAPI(c *gc.C) {
 	})
 }
 
-func (s *MachineLegacyLeasesSuite) TestManageModelAuditsAPI(c *gc.C) {
+func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 	password := "shhh..."
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Password: password,
@@ -580,7 +593,7 @@ func readAuditLog(c *gc.C, logPath string) []auditlog.Record {
 	return results
 }
 
-func (s *MachineLegacyLeasesSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
+func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
@@ -619,15 +632,15 @@ func (s *MachineLegacyLeasesSuite) assertAgentSetsToolsVersion(c *gc.C, job stat
 	}
 }
 
-func (s *MachineLegacyLeasesSuite) TestAgentSetsToolsVersionManageModel(c *gc.C) {
+func (s *MachineSuite) TestAgentSetsToolsVersionManageModel(c *gc.C) {
 	s.assertAgentSetsToolsVersion(c, state.JobManageModel)
 }
 
-func (s *MachineLegacyLeasesSuite) TestAgentSetsToolsVersionHostUnits(c *gc.C) {
+func (s *MachineSuite) TestAgentSetsToolsVersionHostUnits(c *gc.C) {
 	s.assertAgentSetsToolsVersion(c, state.JobHostUnits)
 }
 
-func (s *MachineLegacyLeasesSuite) TestManageModelRunsCleaner(c *gc.C) {
+func (s *MachineSuite) TestManageModelRunsCleaner(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageModel, func(conf agent.Config, agentState *state.State) {
 		// Create an application and unit, and destroy the app.
 		app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
@@ -664,7 +677,7 @@ func (s *MachineLegacyLeasesSuite) TestManageModelRunsCleaner(c *gc.C) {
 	})
 }
 
-func (s *MachineLegacyLeasesSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
+func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, agentState *state.State) {
 		// Ensure that the MinUnits worker is alive by doing a simple check
 		// that it responds to state changes: add an application, set its minimum
@@ -678,7 +691,7 @@ func (s *MachineLegacyLeasesSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C)
 		// Trigger a sync on the state used by the agent, and wait for the unit
 		// to be created.
 		agentState.StartSync()
-		timeout := time.After(coretesting.LongWait)
+		timeout := time.After(longerWait)
 		for {
 			select {
 			case <-timeout:
@@ -696,7 +709,7 @@ func (s *MachineLegacyLeasesSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C)
 	})
 }
 
-func (s *MachineLegacyLeasesSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 	//TODO(bogdanteleaga): Fix once we get authentication worker up on windows
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: authentication worker not yet implemented on windows")
@@ -733,7 +746,7 @@ func (s *MachineLegacyLeasesSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *g
 	}
 }
 
-func (s *MachineLegacyLeasesSuite) TestMachineAgentSymlinks(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
 	stm, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, stm)
 	defer a.Stop()
@@ -748,7 +761,7 @@ func (s *MachineLegacyLeasesSuite) TestMachineAgentSymlinks(c *gc.C) {
 	s.waitStopped(c, state.JobManageModel, a, done)
 }
 
-func (s *MachineLegacyLeasesSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		// Cannot make symlink to nonexistent file on windows or
 		// create a file point a symlink to it then remove it
@@ -781,7 +794,7 @@ func (s *MachineLegacyLeasesSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C)
 	s.waitStopped(c, state.JobManageModel, a, done)
 }
 
-func (s *MachineLegacyLeasesSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
@@ -810,7 +823,7 @@ func (s *MachineLegacyLeasesSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c
 	c.Fatalf("timeout while waiting for agent config to change")
 }
 
-func (s *MachineLegacyLeasesSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 	// Patch out the worker func before starting the agent.
 	started := newSignal()
 	newWorker := func(diskmanager.ListBlockDevicesFunc, diskmanager.BlockDeviceSetter) worker.Worker {
@@ -827,7 +840,7 @@ func (s *MachineLegacyLeasesSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C
 	started.assertTriggered(c, "diskmanager worker to start")
 }
 
-func (s *MachineLegacyLeasesSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
+func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 	expected := []storage.BlockDevice{{DeviceName: "whatever"}}
 	s.PatchValue(&diskmanager.DefaultListBlockDevices, func() ([]storage.BlockDevice, error) {
 		return expected, nil
@@ -856,7 +869,7 @@ func (s *MachineLegacyLeasesSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 	c.Fatalf("timeout while waiting for block devices to be recorded")
 }
 
-func (s *MachineLegacyLeasesSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 
 	started := newSignal()
@@ -875,13 +888,13 @@ func (s *MachineLegacyLeasesSuite) TestMachineAgentRunsMachineStorageWorker(c *g
 	started.assertTriggered(c, "storage worker to start")
 }
 
-func (s *MachineLegacyLeasesSuite) TestCertificateDNSUpdated(c *gc.C) {
+func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)
 	s.testCertificateDNSUpdated(c, a)
 }
 
-func (s *MachineLegacyLeasesSuite) TestCertificateDNSUpdatedInvalidPrivateKey(c *gc.C) {
+func (s *MachineSuite) TestCertificateDNSUpdatedInvalidPrivateKey(c *gc.C) {
 	m, agentConfig, _ := s.primeAgent(c, state.JobManageModel)
 
 	// Write out config with an invalid private key. This should
@@ -897,7 +910,7 @@ func (s *MachineLegacyLeasesSuite) TestCertificateDNSUpdatedInvalidPrivateKey(c 
 	s.testCertificateDNSUpdated(c, a)
 }
 
-func (s *MachineLegacyLeasesSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
+func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
 	// Set up a channel which fires when State is opened.
 	started := make(chan struct{}, 16)
 	s.PatchValue(&reportOpenedState, func(*state.State) {
@@ -926,7 +939,7 @@ func (s *MachineLegacyLeasesSuite) testCertificateDNSUpdated(c *gc.C, a *Machine
 	c.Check(string(pemContent), gc.Equals, stateInfo.Cert+"\n"+stateInfo.PrivateKey)
 }
 
-func (s *MachineLegacyLeasesSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) chan bool {
+func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) chan bool {
 	ignoreAddressCh := make(chan bool, 1)
 	s.AgentSuite.PatchValue(&machiner.NewMachiner, func(cfg machiner.Config) (worker.Worker, error) {
 		select {
@@ -945,7 +958,7 @@ func (s *MachineLegacyLeasesSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreV
 	return ignoreAddressCh
 }
 
-func (s *MachineLegacyLeasesSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
 	for _, expectedIgnoreValue := range []bool{true, false} {
 		ignoreAddressCh := s.setupIgnoreAddresses(c, expectedIgnoreValue)
 
@@ -969,7 +982,7 @@ func (s *MachineLegacyLeasesSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
 	}
 }
 
-func (s *MachineLegacyLeasesSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 	ignoreAddressCh := s.setupIgnoreAddresses(c, true)
 
 	parent, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -1029,7 +1042,7 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 }
 
-func (s *MachineLegacyLeasesSuite) TestControllerModelWorkers(c *gc.C) {
+func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 	uuid := s.BackingState.ModelUUID()
 
 	tracker := agenttest.NewEngineTracker()
@@ -1040,11 +1053,11 @@ func (s *MachineLegacyLeasesSuite) TestControllerModelWorkers(c *gc.C) {
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, expectedWorkers)
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
-		agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, longerWait, s.BackingState.StartSync)
 	})
 }
 
-func (s *MachineLegacyLeasesSuite) TestHostedModelWorkers(c *gc.C) {
+func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 	// The dummy provider blows up in the face of multi-model
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
@@ -1068,7 +1081,7 @@ func (s *MachineLegacyLeasesSuite) TestHostedModelWorkers(c *gc.C) {
 	})
 }
 
-func (s *MachineLegacyLeasesSuite) TestWorkersForHostedModelWithInvalidCredential(c *gc.C) {
+func (s *MachineSuite) TestWorkersForHostedModelWithInvalidCredential(c *gc.C) {
 	// The dummy provider blows up in the face of multi-model
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
@@ -1113,7 +1126,7 @@ func (s *MachineLegacyLeasesSuite) TestWorkersForHostedModelWithInvalidCredentia
 	})
 }
 
-func (s *MachineLegacyLeasesSuite) TestWorkersForHostedModelWithDeletedCredential(c *gc.C) {
+func (s *MachineSuite) TestWorkersForHostedModelWithDeletedCredential(c *gc.C) {
 	// The dummy provider blows up in the face of multi-model
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
@@ -1163,7 +1176,7 @@ func (s *MachineLegacyLeasesSuite) TestWorkersForHostedModelWithDeletedCredentia
 	})
 }
 
-func (s *MachineLegacyLeasesSuite) TestMigratingModelWorkers(c *gc.C) {
+func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	st, closer := s.setUpNewModel(c)
 	defer closer()
 	uuid := st.ModelUUID()
@@ -1208,7 +1221,7 @@ func (s *MachineLegacyLeasesSuite) TestMigratingModelWorkers(c *gc.C) {
 	})
 }
 
-func (s *MachineLegacyLeasesSuite) TestDyingModelCleanedUp(c *gc.C) {
+func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 	st, closer := s.setUpNewModel(c)
 	defer closer()
 
@@ -1241,13 +1254,11 @@ func (s *MachineLegacyLeasesSuite) TestDyingModelCleanedUp(c *gc.C) {
 	})
 }
 
-func (s *MachineLegacyLeasesSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C) {
+func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C) {
 
 	// Grab responsibility for the model on behalf of another machine.
-	claimer := s.BackingState.SingularClaimer()
 	uuid := s.BackingState.ModelUUID()
-	err := claimer.Claim(uuid, "machine-999-lxd-99", time.Hour)
-	c.Assert(err, jc.ErrorIsNil)
+	claimSingularRaftLease(c, s.DataDir(), uuid)
 
 	// Then run a normal model-tracking test, just checking for
 	// a different set of workers.
@@ -1257,11 +1268,60 @@ func (s *MachineLegacyLeasesSuite) TestModelWorkersRespectSingularResponsibility
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, alwaysModelWorkers)
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
-		agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, longerWait, s.BackingState.StartSync)
 	})
 }
 
-func (s *MachineLegacyLeasesSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()) {
+func claimSingularRaftLease(c *gc.C, dataDir string, modelUUID string) {
+	// This is cribbed from upgrades/raft.go, but simplified because
+	// we don't need to handle
+	raftDir := filepath.Join(dataDir, "raft")
+	snapshotStore, err := raftworker.NewSnapshotStore(raftDir, 2, loggo.GetLogger("machine_test.raft"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	var zero time.Time
+	newSnapshot := raftlease.Snapshot{
+		Version: raftlease.SnapshotVersion,
+		Entries: map[raftlease.SnapshotKey]raftlease.SnapshotEntry{
+			{
+				Namespace: lease.SingularControllerNamespace,
+				ModelUUID: modelUUID,
+				Lease:     modelUUID,
+			}: {
+				Holder:   "machine-999-lxd-99",
+				Start:    zero,
+				Duration: time.Hour,
+			},
+		},
+		GlobalTime: zero,
+	}
+	// Store the snapshot.
+	_, transport := raft.NewInmemTransport(raft.ServerAddress("notused"))
+	defer transport.Close()
+	sink, err := snapshotStore.Create(
+		raft.SnapshotVersionMax,
+		1, // lastIndex
+		1, // lastTerm
+		raft.Configuration{
+			Servers: []raft.Server{{
+				ID:       raft.ServerID("0"),
+				Address:  raft.ServerAddress(serverAddress),
+				Suffrage: raft.Voter,
+			}},
+		},
+		1, // configIndex
+		transport,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	defer sink.Close()
+	err = newSnapshot.Persist(sink)
+	if err != nil {
+		sink.Cancel()
+	}
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()) {
 	// Create a new environment, tests can now watch if workers start for it.
 	newSt = s.Factory.MakeModel(c, &factory.ModelParams{
 		ConfigAttrs: coretesting.Attrs{
@@ -1277,7 +1337,7 @@ func (s *MachineLegacyLeasesSuite) setUpNewModel(c *gc.C) (newSt *state.State, c
 	}
 }
 
-func (s *MachineLegacyLeasesSuite) TestReplicasetInitForNewController(c *gc.C) {
+func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("controllers on windows aren't supported")
 	}
@@ -1306,4 +1366,39 @@ func (w *nullWorker) Kill() {
 func (w *nullWorker) Wait() error {
 	<-w.dead
 	return nil
+}
+
+type cleanupSuite interface {
+	AddCleanup(func(*gc.C))
+}
+
+func startAddressPublisher(suite cleanupSuite, c *gc.C, agent *MachineAgent) {
+	// Start publishing a test API address on the central hub so that
+	// the raft workers can start. The other way of unblocking them
+	// would be to get the peergrouper healthy, but that has proved
+	// difficult - trouble getting the replicaset correctly
+	// configured.
+	stop := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			case <-time.After(500 * time.Millisecond):
+				hub := agent.centralHub
+				if hub == nil {
+					continue
+				}
+				_, err := hub.Publish(apiserver.DetailsTopic, apiserver.Details{
+					Servers: map[string]apiserver.APIServer{
+						"0": {ID: "0", InternalAddress: serverAddress},
+					},
+				})
+				if err != nil {
+					c.Logf("error publishing address: %s", err)
+				}
+			}
+		}
+	}()
+	suite.AddCleanup(func(c *gc.C) { close(stop) })
 }

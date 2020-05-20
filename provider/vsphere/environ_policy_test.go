@@ -112,7 +112,7 @@ func (s *environPolSuite) TestPrecheckInstanceChecksConstraintZones(c *gc.C) {
 }
 
 func (s *environPolSuite) TestPrecheckInstanceChecksConstraintDatastore(c *gc.C) {
-	s.client.datastores = []*mo.Datastore{{
+	s.client.datastores = []mo.Datastore{{
 		ManagedEntity: mo.ManagedEntity{Name: "foo"},
 	}, {
 		ManagedEntity: mo.ManagedEntity{Name: "bar"},

@@ -7,8 +7,11 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/golang/mock/gomock"
+	jujuclock "github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -17,6 +20,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/caasoperator/mocks"
@@ -39,6 +43,9 @@ func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
 	mockExecClient := mocks.NewMockExecutor(ctrl)
 
 	params := caasoperator.InitializeUnitParams{
+		ReTrier: func(f func() error, _ func(error) bool, _ caasoperator.Logger, _ jujuclock.Clock, _ <-chan struct{}) error {
+			return f()
+		},
 		InitType: caasoperator.UnitInit,
 		UnitTag:  names.NewUnitTag("gitlab/0"),
 		Logger:   loggo.GetLogger("test"),
@@ -129,6 +136,9 @@ func (s *UnitInitializerSuite) TestInitializeUnitMissingProviderID(c *gc.C) {
 	mockExecClient := mocks.NewMockExecutor(ctrl)
 
 	params := caasoperator.InitializeUnitParams{
+		ReTrier: func(f func() error, _ func(error) bool, _ caasoperator.Logger, _ jujuclock.Clock, _ <-chan struct{}) error {
+			return f()
+		},
 		InitType: caasoperator.UnitInit,
 		UnitTag:  names.NewUnitTag("gitlab/0"),
 		Logger:   loggo.GetLogger("test"),
@@ -164,6 +174,9 @@ func (s *UnitInitializerSuite) TestInitializeContainerMissing(c *gc.C) {
 	mockExecClient := mocks.NewMockExecutor(ctrl)
 
 	params := caasoperator.InitializeUnitParams{
+		ReTrier: func(f func() error, _ func(error) bool, _ caasoperator.Logger, _ jujuclock.Clock, _ <-chan struct{}) error {
+			return f()
+		},
 		InitType: caasoperator.UnitInit,
 		UnitTag:  names.NewUnitTag("gitlab/0"),
 		Logger:   loggo.GetLogger("test"),
@@ -217,6 +230,9 @@ func (s *UnitInitializerSuite) TestInitializePodNotFound(c *gc.C) {
 	mockExecClient := mocks.NewMockExecutor(ctrl)
 
 	params := caasoperator.InitializeUnitParams{
+		ReTrier: func(f func() error, _ func(error) bool, _ caasoperator.Logger, _ jujuclock.Clock, _ <-chan struct{}) error {
+			return f()
+		},
 		InitType: caasoperator.UnitInit,
 		UnitTag:  names.NewUnitTag("gitlab/0"),
 		Logger:   loggo.GetLogger("test"),
@@ -261,4 +277,36 @@ func (s *UnitInitializerSuite) TestInitializePodNotFound(c *gc.C) {
 	cancel := make(chan struct{})
 	err := caasoperator.InitializeUnit(params, cancel)
 	c.Assert(err, gc.ErrorMatches, "container not found")
+}
+
+func (s *UnitInitializerSuite) TestRunnerWithRetry(c *gc.C) {
+	cancel := make(chan struct{})
+	clk := testclock.NewClock(time.Time{})
+	called := 0
+	execRequest := func() error {
+		called++
+		if called < 3 {
+			return exec.NewExecRetryableError(errors.New("fake testing 137"))
+		}
+		return nil
+	}
+
+	errChan := make(chan error)
+	go func() {
+		errChan <- caasoperator.RunnerWithRetry(execRequest, func(err error) bool {
+			return err != nil && !exec.IsExecRetryableError(err)
+		}, loggo.GetLogger("test"), clk, cancel)
+	}()
+	err := clk.WaitAdvance(2*time.Second, testing.ShortWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	err = clk.WaitAdvance(2*time.Second, testing.ShortWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case err := <-errChan:
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(called, gc.DeepEquals, 3)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for RunnerWithRetry return")
+	}
 }

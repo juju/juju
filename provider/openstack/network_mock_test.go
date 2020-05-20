@@ -5,12 +5,13 @@
 package openstack
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
 	neutron "gopkg.in/goose.v2/neutron"
 	nova "gopkg.in/goose.v2/nova"
-	reflect "reflect"
 )
 
 // MockSSLHostnameConfig is a mock of SSLHostnameConfig interface
@@ -133,10 +134,10 @@ func (mr *MockNetworkingMockRecorder) DeletePortByID(arg0 interface{}) *gomock.C
 }
 
 // NetworkInterfaces mocks base method
-func (m *MockNetworking) NetworkInterfaces(arg0 []instance.Id) ([][]network.InterfaceInfo, error) {
+func (m *MockNetworking) NetworkInterfaces(arg0 []instance.Id) ([]network.InterfaceInfos, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NetworkInterfaces", arg0)
-	ret0, _ := ret[0].([][]network.InterfaceInfo)
+	ret0, _ := ret[0].([]network.InterfaceInfos)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

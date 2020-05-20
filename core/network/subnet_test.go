@@ -209,3 +209,75 @@ func (*subnetSuite) TestSubnetInfosGetByID(c *gc.C) {
 	c.Check(s.GetByID("9"), gc.IsNil)
 	c.Check(s.ContainsID("9"), jc.IsFalse)
 }
+
+func (*subnetSuite) TestSubnetInfosGetByAddress(c *gc.C) {
+	s := network.SubnetInfos{
+		{ID: "1", CIDR: "10.10.10.0/24", ProviderId: "1"},
+		{ID: "2", CIDR: "10.10.10.0/24", ProviderId: "2"},
+		{ID: "3", CIDR: "20.20.20.0/24"},
+	}
+
+	_, err := s.GetByAddress("invalid")
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+
+	subs, err := s.GetByAddress("10.10.10.5")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We need to check these explicitly, because the IPNets of the original
+	// members will now be populated, making them differ.
+	c.Assert(subs, gc.HasLen, 2)
+	c.Check(subs[0].ProviderId, gc.Equals, network.Id("1"))
+	c.Check(subs[1].ProviderId, gc.Equals, network.Id("2"))
+
+	subs, err = s.GetByAddress("30.30.30.5")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(subs, gc.HasLen, 0)
+}
+
+func (*subnetSuite) TestSubnetInfosGetBySpaceID(c *gc.C) {
+	s := network.SubnetInfos{
+		{
+			ID:      "1",
+			CIDR:    "10.10.10.0/24",
+			SpaceID: "666",
+		},
+		{
+			ID:      "2",
+			CIDR:    "222.0.0.0/8",
+			FanInfo: &network.FanCIDRs{FanLocalUnderlay: "10.10.10.0/24"},
+		},
+		{
+			ID:      "3",
+			CIDR:    "20.20.20.0/24",
+			SpaceID: "999",
+		},
+		{
+			ID:      "4",
+			CIDR:    "223.0.0.0/8",
+			FanInfo: &network.FanCIDRs{FanLocalUnderlay: "20.20.20.0/24"},
+			// This is to check that we don't get duplicates when retrieving
+			// by the underlay CIDR.
+			SpaceID: "999",
+		},
+	}
+
+	subs, err := s.GetBySpaceID("666")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(subs, gc.DeepEquals, network.SubnetInfos{
+		{
+			ID:      "1",
+			CIDR:    "10.10.10.0/24",
+			SpaceID: "666",
+		},
+		{
+			ID:      "2",
+			CIDR:    "222.0.0.0/8",
+			FanInfo: &network.FanCIDRs{FanLocalUnderlay: "10.10.10.0/24"},
+			SpaceID: "666",
+		},
+	})
+
+	subs, err = s.GetBySpaceID("999")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(subs, gc.DeepEquals, s[2:])
+}

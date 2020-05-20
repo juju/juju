@@ -414,7 +414,7 @@ type HostnameConfig interface {
 // NetworkingConfig is the interface for managing configuration of network
 type NetworkingConfig interface {
 	// AddNetworkConfig adds network config from interfaces to the container.
-	AddNetworkConfig(interfaces []corenetwork.InterfaceInfo) error
+	AddNetworkConfig(interfaces corenetwork.InterfaceInfos) error
 }
 
 // New returns a new Config with no options set.

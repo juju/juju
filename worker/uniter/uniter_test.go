@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -57,12 +56,9 @@ func (s *UniterSuite) SetUpSuite(c *gc.C) {
 	toolsDir := tools.ToolsDir(s.dataDir, "unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	// TODO(fwereade) GAAAAAAAAAAAAAAAAAH this is LUDICROUS.
-	// TODO(hpidcock): Seriously? This is disgusting.
-	cmd := exec.Command("go", append([]string{"build", "-o", toolsDir, "-mod=readonly"}, jujudBuildArgs...)...)
-	out, err := cmd.CombinedOutput()
-	c.Logf(string(out))
-	c.Assert(err, jc.ErrorIsNil)
+
+	coretesting.CopyOrBuildJujuBins(c, toolsDir, "jujud", "jujuc")
+
 	s.oldLcAll = os.Getenv("LC_ALL")
 	os.Setenv("LC_ALL", "en_US")
 	s.unitDir = filepath.Join(s.dataDir, "agents", "unit-u-0")

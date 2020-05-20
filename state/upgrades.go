@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/juju/charm/v7"
 	"github.com/juju/collections/set"
@@ -23,15 +22,12 @@ import (
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/state/globalclock"
-	"github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/upgrade"
 	"github.com/juju/juju/storage/provider"
 )
@@ -1272,82 +1268,6 @@ func AddModelType(pool *StatePool) error {
 	return st.db().RunTransaction(ops)
 }
 
-// MigrateLeasesToGlobalTime removes old (<2.3-beta2) lease/clock-skew
-// documents, replacing the lease documents with new ones for the
-// existing lease holders.
-func MigrateLeasesToGlobalTime(pool *StatePool) error {
-	return runForAllModelStates(pool, migrateModelLeasesToGlobalTime)
-}
-
-const InitialLeaderClaimTime = time.Minute
-
-func migrateModelLeasesToGlobalTime(st *State) error {
-	coll, closer := st.db().GetCollection(leasesC)
-	defer closer()
-
-	// Find all old lease/clock-skew documents, remove them
-	// and create replacement lease docs in the new format.
-	//
-	// Replacement leases are created with a duration of a
-	// minute, relative to the global time epoch.
-	err := st.db().Run(func(int) ([]txn.Op, error) {
-		var doc struct {
-			DocID     string `bson:"_id"`
-			Type      string `bson:"type"`
-			Namespace string `bson:"namespace"`
-			Name      string `bson:"name"`
-			Holder    string `bson:"holder"`
-			Expiry    int64  `bson:"expiry"`
-			Writer    string `bson:"writer"`
-		}
-
-		var ops []txn.Op
-		iter := coll.Find(bson.D{{"type", bson.D{{"$exists", true}}}}).Iter()
-		defer iter.Close()
-		for iter.Next(&doc) {
-			ops = append(ops, txn.Op{
-				C:      coll.Name(),
-				Id:     st.localID(doc.DocID),
-				Assert: txn.DocExists,
-				Remove: true,
-			})
-			if doc.Type != "lease" {
-				upgradesLogger.Tracef("deleting old lease doc %q", doc.DocID)
-				continue
-			}
-			// Check if the target exists
-			if _, err := lease.LookupLease(coll, doc.Namespace, doc.Name); err == nil {
-				// target already exists, it takes precedence over an old doc, which we still want to delete
-				upgradesLogger.Infof("new lease %q %q already exists, simply deleting old lease %q",
-					doc.Namespace, doc.Name, doc.DocID)
-				continue
-			} else if err != mgo.ErrNotFound {
-				// We got an unknown error looking up this doc, don't suppress it
-				return nil, err
-			}
-			upgradesLogger.Tracef("migrating lease %q to new lease structure", doc.DocID)
-			claimOps, err := lease.ClaimLeaseOps(
-				doc.Namespace,
-				doc.Name,
-				doc.Holder,
-				doc.Writer,
-				coll.Name(),
-				globalclock.GlobalEpoch(),
-				InitialLeaderClaimTime,
-			)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			ops = append(ops, claimOps...)
-		}
-		if err := iter.Close(); err != nil {
-			return nil, errors.Trace(err)
-		}
-		return ops, nil
-	})
-	return errors.Annotate(err, "upgrading legacy lease documents")
-}
-
 // AddRelationStatus sets the initial status for existing relations
 // without a status.
 func AddRelationStatus(pool *StatePool) error {
@@ -1722,62 +1642,6 @@ func migrateStorageMachineIds(st *State) error {
 		return errors.Trace(st.db().RunTransaction(ops))
 	}
 	return nil
-}
-
-// LegacyLeases returns information about all of the leases in the
-// state-based lease store.
-func LegacyLeases(pool *StatePool, localTime time.Time) (map[corelease.Key]corelease.Info, error) {
-	st := pool.SystemState()
-	reader, err := globalclock.NewReader(globalclock.ReaderConfig{
-		Config: globalclock.Config{
-			Collection: globalClockC,
-			Mongo:      &environMongo{state: st},
-		},
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	globalTime, err := reader.Now()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// This needs to be the raw collection so we see all leases across
-	// models.
-	leaseCollection, closer := st.db().GetRawCollection(leasesC)
-	defer closer()
-	iter := leaseCollection.Find(nil).Iter()
-	results := make(map[corelease.Key]corelease.Info)
-
-	var doc struct {
-		Namespace string        `bson:"namespace"`
-		ModelUUID string        `bson:"model-uuid"`
-		Name      string        `bson:"name"`
-		Holder    string        `bson:"holder"`
-		Start     int64         `bson:"start"`
-		Duration  time.Duration `bson:"duration"`
-	}
-
-	for iter.Next(&doc) {
-		startTime := time.Unix(0, doc.Start)
-		globalExpiry := startTime.Add(doc.Duration)
-		remaining := globalExpiry.Sub(globalTime)
-		localExpiry := localTime.Add(remaining)
-		key := corelease.Key{
-			Namespace: doc.Namespace,
-			ModelUUID: doc.ModelUUID,
-			Lease:     doc.Name,
-		}
-		results[key] = corelease.Info{
-			Holder:   doc.Holder,
-			Expiry:   localExpiry,
-			Trapdoor: nil,
-		}
-	}
-	if err := iter.Close(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return results, nil
 }
 
 // MigrateAddModelPermissions converts add-model permissions on the controller

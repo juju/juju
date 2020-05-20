@@ -161,9 +161,9 @@ func (e Environ) getSubnetInfo() ([]corenetwork.SubnetInfo, error) {
 }
 
 // NetworkInterfaces is defined on the environs.Networking interface.
-func (e Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]corenetwork.InterfaceInfo, error) {
+func (e Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
 	var (
-		infos = make([][]corenetwork.InterfaceInfo, len(ids))
+		infos = make([]corenetwork.InterfaceInfos, len(ids))
 		err   error
 	)
 
@@ -176,14 +176,14 @@ func (e Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instan
 	return infos, nil
 }
 
-func (e Environ) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) ([]corenetwork.InterfaceInfo, error) {
+func (e Environ) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) (corenetwork.InterfaceInfos, error) {
 	instance, err := e.env.Details(instId)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(instance.Networking) == 0 {
-		return []corenetwork.InterfaceInfo{}, nil
+		return corenetwork.InterfaceInfos{}, nil
 	}
 	subnetInfo, err := e.getSubnetInfoAsMap()
 	if err != nil {
@@ -191,7 +191,7 @@ func (e Environ) networkInterfacesForInstance(ctx context.ProviderCallContext, i
 	}
 	nicAttributes := e.getNicAttributes(instance)
 
-	interfaces := make([]corenetwork.InterfaceInfo, 0, len(instance.Networking))
+	interfaces := make(corenetwork.InterfaceInfos, 0, len(instance.Networking))
 	idx := 0
 	for nicName, nicObj := range instance.Networking {
 		// gsamfira: While the API may hold any alphanumeric NIC name
@@ -328,8 +328,8 @@ func (e Environ) AllocateContainerAddresses(
 	ctx context.ProviderCallContext,
 	hostInstanceID instance.Id,
 	containerTag names.MachineTag,
-	preparedInfo []corenetwork.InterfaceInfo,
-) ([]corenetwork.InterfaceInfo, error) {
+	preparedInfo corenetwork.InterfaceInfos,
+) (corenetwork.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("containers")
 }
 

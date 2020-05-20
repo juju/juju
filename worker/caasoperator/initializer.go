@@ -7,9 +7,13 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/worker/v2/catacomb"
 
@@ -19,35 +23,36 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/wrench"
 )
 
 type unitInitializer struct {
 	catacomb catacomb.Catacomb
 
-	config  InitializeUnitParams
+	config  initializeUnitParams
 	unitTag names.UnitTag
 }
 
-// UnitInitType describes how to initilize the remote pod.
+// UnitInitType describes how to initialize the remote pod.
 type UnitInitType string
 
 const (
-	// UnitInit initilizes the caas init container.
+	// UnitInit initializes the caas init container.
 	UnitInit UnitInitType = "init"
-	// UnitUpgrade re-initilizes the caas workload container.
+	// UnitUpgrade re-initializes the caas workload container.
 	UnitUpgrade UnitInitType = "upgrade"
 )
 
-// InitializeUnitParams contains parameters and dependencies for initializing
+// initializeUnitParams contains parameters and dependencies for initializing
 // a unit.
-type InitializeUnitParams struct {
+type initializeUnitParams struct {
 	// UnitTag of the unit being initialized.
 	UnitTag names.UnitTag
 
 	// ProviderID is the pod-name or pod-uid
 	ProviderID string
 
-	// InitType of how to initilize the pod.
+	// InitType of how to initialize the pod.
 	InitType UnitInitType
 
 	// Logger for the worker.
@@ -59,7 +64,7 @@ type InitializeUnitParams struct {
 	// OperatorInfo contains serving information such as Certs and PrivateKeys.
 	OperatorInfo caas.OperatorInfo
 
-	// ExecClient is used for initilizing units.
+	// ExecClient is used for initializing units.
 	ExecClient exec.Executor
 
 	// WriteFile is used to write files to the local state.
@@ -67,10 +72,16 @@ type InitializeUnitParams struct {
 
 	// TempDir is used for creating a temporary directory.
 	TempDir func(string, string) (string, error)
+
+	// Clock holds the clock to be used by the runner.
+	Clock clock.Clock
+
+	// reTrier is used for re-running some certain retryable exec request.
+	ReTrier reTrier
 }
 
-// Validate InitializeUnitParams
-func (p InitializeUnitParams) Validate() error {
+// Validate initializeUnitParams
+func (p initializeUnitParams) Validate() error {
 	if p.Logger == nil {
 		return errors.NotValidf("missing Logger")
 	}
@@ -95,8 +106,36 @@ func (p InitializeUnitParams) Validate() error {
 	return nil
 }
 
-// InitializeUnit with the charm and configuration.
-func InitializeUnit(params InitializeUnitParams, cancel <-chan struct{}) error {
+// reTrier is used for re-running some certain retryable exec request.
+type reTrier func(func() error, func(error) bool, Logger, clock.Clock, <-chan struct{}) error
+
+// runnerWithRetry retries the exec request for init unit process if it got a retryable error.
+func runnerWithRetry(f func() error, fatalChecker func(error) bool, logger Logger, clk clock.Clock, cancel <-chan struct{}) error {
+	do := func() error {
+		if wrench.IsActive("exec", "retryable-error") {
+			fakeErr := errors.New("fake retryable-error")
+			logger.Warningf("wrench exec retryable-error enabled, returns %v", fakeErr)
+			return exec.NewExecRetryableError(fakeErr)
+		}
+		return f()
+	}
+	args := retry.CallArgs{
+		Attempts:     5,
+		Delay:        2 * time.Second,
+		MaxDuration:  30 * time.Second,
+		Clock:        clk,
+		Stop:         cancel,
+		Func:         do,
+		IsFatalError: fatalChecker,
+		NotifyFunc: func(err error, attempt int) {
+			logger.Debugf("retrying exec request, in %d attempt, %v", attempt, err)
+		},
+	}
+	return errors.Trace(retry.Call(args))
+}
+
+// initializeUnit with the charm and configuration.
+func initializeUnit(params initializeUnitParams, cancel <-chan struct{}) error {
 	if err := params.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -121,28 +160,38 @@ func InitializeUnit(params InitializeUnitParams, cancel <-chan struct{}) error {
 		return errors.Annotatef(err, "creating temp directory")
 	}
 
+	stdout := &bytes.Buffer{}
+	command := []string{"mkdir", "-p", tempDir}
 	err = params.ExecClient.Exec(exec.ExecParams{
-		Commands:      []string{"mkdir", "-p", tempDir},
+		Commands:      command,
 		PodName:       params.ProviderID,
 		ContainerName: container,
-		Stdout:        &bytes.Buffer{},
-		Stderr:        &bytes.Buffer{},
+		Stdout:        stdout,
+		Stderr:        stdout,
 	}, cancel)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "running command: %q failed: %q", strings.Join(command, " "), string(stdout.Bytes()))
 	}
 
 	tempCharmDir := filepath.Join(tempDir, "charm")
-	err = params.ExecClient.Copy(exec.CopyParams{
-		Src: exec.FileResource{
-			Path: operatorPaths.State.CharmDir,
+	// This heavy exec task might get 137 error, we will retry if it does happen.
+	err = params.ReTrier(
+		func() error {
+			return params.ExecClient.Copy(exec.CopyParams{
+				Src: exec.FileResource{
+					Path: operatorPaths.State.CharmDir,
+				},
+				Dest: exec.FileResource{
+					Path:          tempDir,
+					PodName:       params.ProviderID,
+					ContainerName: container,
+				},
+			}, cancel)
 		},
-		Dest: exec.FileResource{
-			Path:          tempDir,
-			PodName:       params.ProviderID,
-			ContainerName: container,
-		},
-	}, cancel)
+		func(err error) bool {
+			return err != nil && !exec.IsExecRetryableError(err)
+		}, params.Logger, params.Clock, cancel,
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -163,9 +212,10 @@ func InitializeUnit(params InitializeUnitParams, cancel <-chan struct{}) error {
 			"--upgrade")
 	}
 
-	stdout := &bytes.Buffer{}
+	stdout = &bytes.Buffer{}
+	command = append([]string{jujudPath, "caas-unit-init"}, initArgs...)
 	err = params.ExecClient.Exec(exec.ExecParams{
-		Commands:      append([]string{jujudPath, "caas-unit-init"}, initArgs...),
+		Commands:      command,
 		PodName:       params.ProviderID,
 		ContainerName: container,
 		WorkingDir:    cmdutil.DataDir,
@@ -173,13 +223,13 @@ func InitializeUnit(params InitializeUnitParams, cancel <-chan struct{}) error {
 		Stderr:        stdout,
 	}, cancel)
 	if err != nil {
-		return errors.Annotatef(err, "caas-unit-init failed: %s", string(stdout.Bytes()))
+		return errors.Annotatef(err, "caas-unit-init for unit %q with command: %q failed: %s", params.UnitTag.Id(), strings.Join(command, " "), string(stdout.Bytes()))
 	}
 
 	return nil
 }
 
-func setupRemoteConfiguration(params InitializeUnitParams, cancel <-chan struct{},
+func setupRemoteConfiguration(params initializeUnitParams, cancel <-chan struct{},
 	unitPaths uniter.Paths, tempDir string, container string) (string, string, error) {
 	tempCACertFile := filepath.Join(tempDir, caas.CACertFile)
 	if err := params.WriteFile(tempCACertFile, []byte(params.OperatorInfo.CACert), 0644); err != nil {

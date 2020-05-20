@@ -10,31 +10,33 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2/dependency"
 
-	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
-// Relationer manages a unit's presence in a relation.
-type Relationer struct {
+// relationer manages a unit's presence in a relation.
+type relationer struct {
 	relationId int
-	ru         *apiuniter.RelationUnit
+	ru         RelationUnit
 	stateMgr   StateManager
 	dying      bool
+
+	logger Logger
 }
 
-// NewRelationer creates a new Relationer. The unit will not join the
+// NewRelationer creates a new relationer. The unit will not join the
 // relation until explicitly requested.
-func NewRelationer(ru *apiuniter.RelationUnit, stateMgr StateManager) *Relationer {
-	return &Relationer{
+func NewRelationer(ru RelationUnit, stateMgr StateManager, logger Logger) Relationer {
+	return &relationer{
 		relationId: ru.Relation().Id(),
 		ru:         ru,
 		stateMgr:   stateMgr,
+		logger:     logger,
 	}
 }
 
-// ContextInfo returns a representation of the Relationer's current state.
-func (r *Relationer) ContextInfo() *context.RelationInfo {
+// ContextInfo returns a representation of the relationer's current state.
+func (r *relationer) ContextInfo() *context.RelationInfo {
 	st, err := r.stateMgr.Relation(r.relationId)
 	if errors.IsNotFound(err) {
 		st = NewState(r.relationId)
@@ -44,24 +46,33 @@ func (r *Relationer) ContextInfo() *context.RelationInfo {
 	for memberName := range members {
 		memberNames = append(memberNames, memberName)
 	}
-	return &context.RelationInfo{r.ru, memberNames}
+	sh, _ := r.ru.(*RelationUnitShim)
+	return &context.RelationInfo{
+		RelationUnit: &context.RelationUnitShim{sh.RelationUnit},
+		MemberNames:  memberNames,
+	}
 }
 
 // IsImplicit returns whether the local relation endpoint is implicit. Implicit
 // relations do not run hooks.
-func (r *Relationer) IsImplicit() bool {
+func (r *relationer) IsImplicit() bool {
 	return r.ru.Endpoint().IsImplicit()
 }
 
+// IsDying returns whether the relation is dying.
+func (r *relationer) IsDying() bool {
+	return r.dying
+}
+
 // RelationUnit returns the relation unit associated with this relationer instance.
-func (r *Relationer) RelationUnit() *apiuniter.RelationUnit {
+func (r *relationer) RelationUnit() RelationUnit {
 	return r.ru
 }
 
 // Join initializes local state and causes the unit to enter its relation
 // scope, allowing its counterpart units to detect its presence and settings
 // changes.
-func (r *Relationer) Join() error {
+func (r *relationer) Join() error {
 	if r.dying {
 		return errors.New("dying relationer must not join!")
 	}
@@ -83,7 +94,7 @@ func (r *Relationer) Join() error {
 // SetDying informs the relationer that the unit is departing the relation,
 // and that the only hooks it should send henceforth are -departed hooks,
 // until the relation is empty, followed by a -broken hook.
-func (r *Relationer) SetDying() error {
+func (r *relationer) SetDying() error {
 	if r.IsImplicit() {
 		r.dying = true
 		return r.die()
@@ -94,7 +105,7 @@ func (r *Relationer) SetDying() error {
 
 // die is run when the relationer has no further responsibilities; it leaves
 // relation scope, and removes relation state.
-func (r *Relationer) die() error {
+func (r *relationer) die() error {
 	if err := r.ru.LeaveScope(); err != nil {
 		return errors.Annotatef(err, "leaving scope of relation %q", r.ru.Relation())
 	}
@@ -105,11 +116,11 @@ func (r *Relationer) die() error {
 // sense to execute the supplied hook, and ensures that the relation context
 // contains the latest relation state as communicated in the hook.Info. It
 // returns the name of the hook that must be run.
-func (r *Relationer) PrepareHook(hi hook.Info) (string, error) {
+func (r *relationer) PrepareHook(hi hook.Info) (string, error) {
 	if r.IsImplicit() {
 		// Implicit relations always return ErrNoOperation from
 		// NextOp.  Something broken if we reach here.
-		logger.Errorf("implicit relations must not run hooks")
+		r.logger.Errorf("implicit relations must not run hooks")
 		return "", dependency.ErrBounce
 	}
 	st, err := r.stateMgr.Relation(hi.RelationId)
@@ -124,11 +135,11 @@ func (r *Relationer) PrepareHook(hi hook.Info) (string, error) {
 }
 
 // CommitHook persists the fact of the supplied hook's completion.
-func (r *Relationer) CommitHook(hi hook.Info) error {
+func (r *relationer) CommitHook(hi hook.Info) error {
 	if r.IsImplicit() {
 		// Implicit relations always return ErrNoOperation from
 		// NextOp.  Something broken if we reach here.
-		logger.Errorf("implicit relations must not run hooks")
+		r.logger.Errorf("implicit relations must not run hooks")
 		return dependency.ErrBounce
 	}
 	if hi.Kind == hooks.RelationBroken {

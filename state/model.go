@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
+	jujuutils "github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -114,6 +115,9 @@ type modelDoc struct {
 
 	// MeterStatus is the current meter status of the model.
 	MeterStatus modelMeterStatusdoc `bson:"meter-status"`
+
+	// PasswordHash is used by the caas model operator.
+	PasswordHash string `bson:"passwordhash"`
 
 	// ForceDestroyed is whether --force was specified when destroying
 	// this model. It only has any meaning when the model is dying or
@@ -279,6 +283,9 @@ type ModelArgs struct {
 
 	// EnvironVersion is the initial version of the Environ for the model.
 	EnvironVersion int
+
+	// PasswordHash is used by the caas model operator.
+	PasswordHash string
 }
 
 // Validate validates the ModelArgs.
@@ -556,6 +563,46 @@ func (m *Model) Tag() names.Tag {
 // ModelTag is the concrete model tag for this model.
 func (m *Model) ModelTag() names.ModelTag {
 	return names.NewModelTag(m.doc.UUID)
+}
+
+// SetPassword sets the password for the model's agent.
+func (m *Model) SetPassword(password string) error {
+	if len(password) < jujuutils.MinAgentPasswordLength {
+		return fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
+	}
+	passwordHash := jujuutils.AgentPasswordHash(password)
+	ops := []txn.Op{{
+		C:      modelsC,
+		Id:     m.doc.UUID,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
+	}}
+	err := m.st.db().RunTransaction(ops)
+	if err != nil {
+		return fmt.Errorf("cannot set password of model %q: %v", m, onAbort(err, ErrDead))
+	}
+	m.doc.PasswordHash = passwordHash
+	return nil
+}
+
+// PasswordHash returns the password hash set on the model document
+func (m *Model) PasswordHash() string {
+	return m.doc.PasswordHash
+}
+
+// String returns the model name.
+func (m *Model) String() string {
+	return m.doc.Name
+}
+
+// PasswordValid returns whether the given password is valid
+// for the given application.
+func (m *Model) PasswordValid(password string) bool {
+	agentHash := jujuutils.AgentPasswordHash(password)
+	if agentHash == m.doc.PasswordHash {
+		return true
+	}
+	return false
 }
 
 // ControllerTag is the tag for the controller that the model is
@@ -950,9 +997,14 @@ func (st *State) AllEndpointBindingsSpaceNames() (set.Strings, error) {
 		return nil, errors.Trace(err)
 	}
 
+	lookup, err := st.AllSpaceInfos()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	allEndpointBindingsSpaces := set.NewStrings()
 	for _, bindings := range allEndpointBindings {
-		bindingSpaceNames, err := bindings.MapWithSpaceNames()
+		bindingSpaceNames, err := bindings.MapWithSpaceNames(lookup)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1602,7 +1654,7 @@ func removeModelEntityRefOp(mb modelBackend, entityField, entityId string) txn.O
 func createModelOp(
 	modelType ModelType,
 	owner names.UserTag,
-	name, uuid, controllerUUID, cloudName, cloudRegion string,
+	name, uuid, controllerUUID, cloudName, cloudRegion, passwordHash string,
 	cloudCredential names.CloudCredentialTag,
 	migrationMode MigrationMode,
 	environVersion int,
@@ -1619,6 +1671,7 @@ func createModelOp(
 		Cloud:           cloudName,
 		CloudRegion:     cloudRegion,
 		CloudCredential: cloudCredential.Id(),
+		PasswordHash:    passwordHash,
 	}
 	return txn.Op{
 		C:      modelsC,

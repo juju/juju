@@ -758,13 +758,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 	s.assertCustomerResources(
 		c, crs,
 		func() {
-			err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
+			err := s.clock.WaitAdvance(time.Second, testing.LongWait, 1)
 			c.Assert(err, jc.ErrorIsNil)
 
-			err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
+			err = s.clock.WaitAdvance(time.Second, testing.LongWait, 1)
 			c.Assert(err, jc.ErrorIsNil)
 		},
-		// waits CRD stablised.
+		// waits CRD stabilised.
 		// 1. CRD not found.
 		s.mockCustomResourceDefinition.EXPECT().Get("tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(nil, s.k8sNotFoundError()),
 		// 2. CRD resource type not ready yet.
@@ -1082,10 +1082,10 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsAllGood(c *gc.C) {
 		resultChan <- result
 	}(s.broker)
 
-	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 2)
+	err := s.clock.WaitAdvance(time.Second, testing.LongWait, 2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
+	err = s.clock.WaitAdvance(time.Second, testing.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
@@ -1123,7 +1123,7 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsFailEarly(c *gc.C) {
 		resultChan <- result
 	}(s.broker)
 
-	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
+	err := s.clock.WaitAdvance(time.Second, testing.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {

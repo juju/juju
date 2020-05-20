@@ -200,7 +200,7 @@ type NetworkConfig struct {
 
 // NetworkConfigFromInterfaceInfo converts a slice of network.InterfaceInfo into
 // the equivalent NetworkConfig slice.
-func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []NetworkConfig {
+func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []NetworkConfig {
 	result := make([]NetworkConfig, len(interfaceInfos))
 	for i, v := range interfaceInfos {
 		var dnsServers []string
@@ -253,8 +253,8 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []Ne
 
 // InterfaceInfoFromNetworkConfig converts a slice of NetworkConfig into the
 // equivalent network.InterfaceInfo slice.
-func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) []network.InterfaceInfo {
-	result := make([]network.InterfaceInfo, len(configs))
+func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceInfos {
+	result := make(network.InterfaceInfos, len(configs))
 	for i, v := range configs {
 		routes := make([]network.Route, len(v.Routes))
 		for j, route := range v.Routes {
@@ -679,6 +679,20 @@ type SetMachinesAddresses struct {
 type SetMachineNetworkConfig struct {
 	Tag    string          `json:"tag"`
 	Config []NetworkConfig `json:"config"`
+}
+
+// BackfillMachineOrigin sets all empty NetworkOrigin entries to indicate that
+// they are sourced from the local machine.
+// TODO (manadart 2020-05-12): This is used by superseded methods on the
+// Machiner and NetworkConfig APIs, which along with this should considered for
+// removing for Juju 3.0.
+func (c *SetMachineNetworkConfig) BackFillMachineOrigin() {
+	for i := range c.Config {
+		if c.Config[i].NetworkOrigin != "" {
+			continue
+		}
+		c.Config[i].NetworkOrigin = NetworkOrigin(network.OriginMachine)
+	}
 }
 
 // MachineAddressesResult holds a list of machine addresses or an
