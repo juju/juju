@@ -39,10 +39,17 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+
 	env, err := environs.GetEnviron(api.configGetter, environs.New)
 	if err != nil {
 		return result, errors.Annotate(err, "retrieving environ")
 	}
+
+	spacesIdsToProviderIds, err := api.spaceIdsToProviderIds()
+	if err != nil {
+		return result, errors.Annotate(err, "retrieving all spaces")
+	}
+
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
@@ -51,22 +58,29 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 		}
 		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
-			result.Results[i].Result, err = api.getProvisioningInfo(machine, env)
+			result.Results[i].Result, err = api.getProvisioningInfo(machine, env, spacesIdsToProviderIds)
 		}
+
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
 
-func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Environ) (*params.ProvisioningInfoV10, error) {
-	var err error
-	var result params.ProvisioningInfoV10
+func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
+	env environs.Environ,
+	spacesIdsToProviderIds map[string]string,
+) (*params.ProvisioningInfoV10, error) {
+	endpointBindings, err := api.machineEndpointBindings(m, spacesIdsToProviderIds)
+	if err != nil {
+		return nil, common.ServerError(errors.Annotate(err, "cannot determine machine endpoint bindings"))
+	}
 
-	if result.ProvisioningInfoBase, err = api.getProvisioningInfoBase(m, env); err != nil {
+	var result params.ProvisioningInfoV10
+	if result.ProvisioningInfoBase, err = api.getProvisioningInfoBase(m, env, endpointBindings); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if result.ProvisioningNetworkTopology, err = api.machineSpaceTopology(m); err != nil {
+	if result.ProvisioningNetworkTopology, err = api.machineSpaceTopology(m, endpointBindings); err != nil {
 		return nil, errors.Annotate(err, "matching subnets to zones")
 	}
 
@@ -83,10 +97,17 @@ func (api *ProvisionerAPIV9) ProvisioningInfo(args params.Entities) (params.Prov
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+
 	env, err := environs.GetEnviron(api.configGetter, environs.New)
 	if err != nil {
 		return result, errors.Annotate(err, "retrieving environ")
 	}
+
+	spacesIdsToProviderIds, err := api.spaceIdsToProviderIds()
+	if err != nil {
+		return result, errors.Annotate(err, "retrieving all spaces")
+	}
+
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
@@ -95,15 +116,23 @@ func (api *ProvisionerAPIV9) ProvisioningInfo(args params.Entities) (params.Prov
 		}
 		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
-			result.Results[i].Result, err = api.getProvisioningInfo(machine, env)
+			result.Results[i].Result, err = api.getProvisioningInfo(machine, env, spacesIdsToProviderIds)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
 
-func (api *ProvisionerAPIV9) getProvisioningInfo(m *state.Machine, env environs.Environ) (*params.ProvisioningInfo, error) {
-	base, err := api.getProvisioningInfoBase(m, env)
+func (api *ProvisionerAPIV9) getProvisioningInfo(m *state.Machine,
+	env environs.Environ,
+	spacesIdsToProviderIds map[string]string,
+) (*params.ProvisioningInfo, error) {
+	endpointBindings, err := api.machineEndpointBindings(m, spacesIdsToProviderIds)
+	if err != nil {
+		return nil, common.ServerError(errors.Annotate(err, "cannot determine machine endpoint bindings"))
+	}
+
+	base, err := api.getProvisioningInfoBase(m, env, endpointBindings)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -121,8 +150,9 @@ func (api *ProvisionerAPIV9) getProvisioningInfo(m *state.Machine, env environs.
 
 // getProvisioningInfoBase returns the component of provisioning
 // info that is common to all versions of the API.
-func (api *ProvisionerAPI) getProvisioningInfoBase(
-	m *state.Machine, env environs.Environ,
+func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
+	env environs.Environ,
+	endpointBindings map[string]string,
 ) (params.ProvisioningInfoBase, error) {
 	var err error
 
@@ -130,6 +160,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		Series:            m.Series(),
 		Placement:         m.Placement(),
 		CloudInitUserData: env.Config().CloudInitUserData(),
+		EndpointBindings:  endpointBindings,
 	}
 
 	if result.Constraints, err = m.Constraints(); err != nil {
@@ -142,10 +173,6 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 
 	if result.CharmLXDProfiles, err = api.machineLXDProfileNames(m, env); err != nil {
 		return result, errors.Annotate(err, "cannot write lxd profiles")
-	}
-
-	if result.EndpointBindings, err = api.machineEndpointBindings(m); err != nil {
-		return result, errors.Annotate(err, "cannot determine machine endpoint bindings")
 	}
 
 	if result.ImageMetadata, err = api.availableImageMetadata(m, env); err != nil {
@@ -285,20 +312,24 @@ func (api *ProvisionerAPI) machineTags(m *state.Machine, jobs []model.MachineJob
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	controllerCfg, err := api.st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	machineTags := instancecfg.InstanceTags(cfg.UUID(), controllerCfg.ControllerUUID(), cfg, jobs)
 	if len(unitNames) > 0 {
 		machineTags[tags.JujuUnitsDeployed] = strings.Join(unitNames, " ")
 	}
-	machineId := fmt.Sprintf("%s-%s", cfg.Name(), m.Tag().String())
-	machineTags[tags.JujuMachine] = machineId
+
+	machineID := fmt.Sprintf("%s-%s", cfg.Name(), m.Tag().String())
+	machineTags[tags.JujuMachine] = machineID
+
 	return machineTags, nil
 }
 
-func (api *ProvisionerAPI) machineSpaceTopology(m *state.Machine) (params.ProvisioningNetworkTopology, error) {
+func (api *ProvisionerAPI) machineSpaceTopology(m *state.Machine, endpointBindings map[string]string) (params.ProvisioningNetworkTopology, error) {
 	var topology params.ProvisioningNetworkTopology
 
 	cons, err := m.Constraints()
@@ -373,29 +404,35 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(machineID string, spaceName s
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	subnets, err := space.Subnets()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	if len(subnets) == 0 {
 		return nil, errors.Errorf("cannot use space %q as deployment target: no subnets", spaceName)
 	}
+
 	subnetsToZones := make(map[string][]string, len(subnets))
 	for _, subnet := range subnets {
 		warningPrefix := fmt.Sprintf("not using subnet %q in space %q for machine %q provisioning: ",
 			subnet.CIDR(), spaceName, machineID,
 		)
-		providerId := subnet.ProviderId()
-		if providerId == "" {
+
+		providerID := subnet.ProviderId()
+		if providerID == "" {
 			logger.Warningf(warningPrefix + "no ProviderId set")
 			continue
 		}
+
 		zones := subnet.AvailabilityZones()
 		if len(zones) == 0 {
 			logger.Warningf(warningPrefix + "no availability zone(s) set")
 			continue
 		}
-		subnetsToZones[string(providerId)] = zones
+
+		subnetsToZones[string(providerID)] = zones
 	}
 	return subnetsToZones, nil
 }
@@ -410,24 +447,29 @@ func (api *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs
 		logger.Tracef("LXDProfiler not implemented by environ")
 		return nil, nil
 	}
+
 	units, err := m.Units()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	var pNames []string
 	for _, unit := range units {
 		app, err := unit.Application()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
 		ch, _, err := app.Charm()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
 		profile := ch.LXDProfile()
 		if profile == nil || profile.Empty() {
 			continue
 		}
+
 		pName := lxdprofile.Name(api.m.Name(), app.Name(), ch.Revision())
 		// Lock here, we get a new env for every call to ProvisioningInfo().
 		api.mu.Lock()
@@ -441,13 +483,10 @@ func (api *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs
 	return pNames, nil
 }
 
-func (api *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string]string, error) {
+func (api *ProvisionerAPI) machineEndpointBindings(m *state.Machine,
+	spacesIdsToProviderIds map[string]string,
+) (map[string]string, error) {
 	units, err := m.Units()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	spacesIdsToProviderIds, err := api.spaceIdsToProviderIds()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -490,9 +529,9 @@ func (api *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string
 				continue
 			}
 
-			spaceProviderId, nameKnown := spacesIdsToProviderIds[spaceID]
+			spaceProviderID, nameKnown := spacesIdsToProviderIds[spaceID]
 			if nameKnown {
-				combinedBindings[endpoint] = spaceProviderId
+				combinedBindings[endpoint] = spaceProviderID
 			} else {
 				// Technically, this can't happen in practice, as we're
 				// validating the bindings during application deployment.
@@ -509,19 +548,19 @@ func (api *ProvisionerAPI) spaceIdsToProviderIds() (map[string]string, error) {
 		return nil, errors.Annotate(err, "getting all spaces")
 	}
 
-	idsToProviderIds := make(map[string]string, len(allSpaces))
+	lookup := make(map[string]string, len(allSpaces))
 	for _, space := range allSpaces {
 		// For providers without native support for spaces, use the name instead
 		// as provider ID.
-		providerId := string(space.ProviderId())
-		if len(providerId) == 0 {
-			providerId = space.Name()
+		providerID := string(space.ProviderId())
+		if len(providerID) == 0 {
+			providerID = space.Name()
 		}
 
-		idsToProviderIds[space.Id()] = providerId
+		lookup[space.Id()] = providerID
 	}
 
-	return idsToProviderIds, nil
+	return lookup, nil
 }
 
 // availableImageMetadata returns all image metadata available to this machine
