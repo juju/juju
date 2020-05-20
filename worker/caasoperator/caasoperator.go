@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -407,15 +406,9 @@ func (op *caasOperator) loop() (err error) {
 		return errors.Annotate(err, "cannot set agent version")
 	}
 
-	var (
-		remoteWatcher remotestate.Watcher
-		watcherMu     sync.Mutex
-	)
+	var remoteWatcher remotestate.Watcher
 
 	restartWatcher := func() error {
-		watcherMu.Lock()
-		defer watcherMu.Unlock()
-
 		if remoteWatcher != nil {
 			// watcher added to catacomb, will kill operator if there's an error.
 			_ = worker.Stop(remoteWatcher)

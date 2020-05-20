@@ -323,10 +323,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 	}
 
-	var (
-		watcher   *remotestate.RemoteStateWatcher
-		watcherMu sync.Mutex
-	)
+	var watcher *remotestate.RemoteStateWatcher
 
 	u.logger.Infof("hooks are retried %v", u.hookRetryStrategy.ShouldRetry)
 	retryHookChan := make(chan struct{}, 1)
@@ -354,9 +351,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}()
 
 	restartWatcher := func() error {
-		watcherMu.Lock()
-		defer watcherMu.Unlock()
-
 		if watcher != nil {
 			// watcher added to catacomb, will kill uniter if there's an error.
 			worker.Stop(watcher)
