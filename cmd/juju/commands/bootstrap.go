@@ -21,6 +21,7 @@ import (
 	"github.com/juju/naturalsort"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
+	"github.com/juju/utils/keyvalues"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/caas"
@@ -846,6 +847,20 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	}
 	bootstrapParams.CloudCredential = credentials.credential
 	bootstrapParams.CloudCredentialName = credentials.name
+
+	// See if there's any additional agent environment options required.
+	// eg JUJU_AGENT_TESTING_OPTIONS=foo=bar,timeout=2s
+	// These are written to the agent.conf VALUES section.
+	testingOptionsStr := os.Getenv("JUJU_AGENT_TESTING_OPTIONS")
+	opts, err := keyvalues.Parse(
+		strings.Split(
+			strings.ReplaceAll(testingOptionsStr, " ", ""), ","), false)
+	for k, v := range opts {
+		if bootstrapParams.ExtraAgentValuesForTesting == nil {
+			bootstrapParams.ExtraAgentValuesForTesting = map[string]string{}
+		}
+		bootstrapParams.ExtraAgentValuesForTesting[k] = v
+	}
 
 	bootstrapFuncs := getBootstrapFuncs()
 	if err = bootstrapFuncs.Bootstrap(

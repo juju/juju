@@ -185,10 +185,10 @@ juju_bootstrap() {
         # command looks correct, and works outside of the harness, but
         # does not run, goes directly to cleanup.
         #shellcheck disable=SC2086
-        juju bootstrap ${series} --debug="${debug}" "${provider}" "${name}" -d "${model}" "$@" > "${output}" 2>&1
+        juju bootstrap ${series} --debug="${debug}" --build-agent=${BUILD_AGENT} "${provider}" "${name}" -d "${model}" "$@" > "${output}" 2>&1
     else
         #shellcheck disable=SC2086
-        juju bootstrap ${series} --debug="${debug}" "${provider}" "${name}" -d "${model}" "$@"
+        juju bootstrap ${series} --debug="${debug}" --build-agent=${BUILD_AGENT} "${provider}" "${name}" -d "${model}" "$@"
     fi
     echo "${name}" >> "${TEST_DIR}/jujus"
 }
