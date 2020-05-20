@@ -1,11 +1,10 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package application
+package deployer
 
 import (
 	"github.com/juju/charm/v7"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
@@ -20,6 +19,9 @@ const (
 )
 
 type modelConfig interface {
+	// DefaultSeries returns the configured default Ubuntu series
+	// for the environment, and whether the default series was
+	// explicitly configured on the environment.
 	DefaultSeries() (string, bool)
 }
 

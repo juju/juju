@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package application_test
+package deployer_test
 
 import (
 	"github.com/golang/mock/gomock"
@@ -10,8 +10,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apicharms "github.com/juju/juju/api/charms"
-	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/cmd/juju/application/mocks"
+	"github.com/juju/juju/cmd/juju/application/deployer"
+	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 )
 
 type ValidateLXDProfileCharmSuite struct {
@@ -24,13 +24,13 @@ func (*ValidateLXDProfileCharmSuite) TestRunPreWithNoLXDProfile(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	deployInfo := application.DeploymentInfo{
+	deployInfo := deployer.DeploymentInfo{
 		CharmInfo: &apicharms.CharmInfo{},
 	}
 
 	mockDeployStepAPI := mocks.NewMockDeployStepAPI(ctrl)
 
-	validate := &application.ValidateLXDProfileCharm{}
+	validate := &deployer.ValidateLXDProfileCharm{}
 	err := validate.RunPre(mockDeployStepAPI, nil, nil, deployInfo)
 	c.Assert(err, gc.IsNil)
 }
@@ -39,7 +39,7 @@ func (*ValidateLXDProfileCharmSuite) TestRunPreWithLXDProfile(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	deployInfo := application.DeploymentInfo{
+	deployInfo := deployer.DeploymentInfo{
 		CharmInfo: &apicharms.CharmInfo{
 			LXDProfile: &charm.LXDProfile{
 				Config: map[string]string{
@@ -51,7 +51,7 @@ func (*ValidateLXDProfileCharmSuite) TestRunPreWithLXDProfile(c *gc.C) {
 
 	mockDeployStepAPI := mocks.NewMockDeployStepAPI(ctrl)
 
-	validate := &application.ValidateLXDProfileCharm{}
+	validate := &deployer.ValidateLXDProfileCharm{}
 	err := validate.RunPre(mockDeployStepAPI, nil, nil, deployInfo)
 	c.Assert(err, gc.IsNil)
 }
@@ -60,7 +60,7 @@ func (*ValidateLXDProfileCharmSuite) TestRunPreWithInvalidLXDProfile(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	deployInfo := application.DeploymentInfo{
+	deployInfo := deployer.DeploymentInfo{
 		CharmInfo: &apicharms.CharmInfo{
 			LXDProfile: &charm.LXDProfile{
 				Config: map[string]string{
@@ -72,7 +72,7 @@ func (*ValidateLXDProfileCharmSuite) TestRunPreWithInvalidLXDProfile(c *gc.C) {
 
 	mockDeployStepAPI := mocks.NewMockDeployStepAPI(ctrl)
 
-	validate := &application.ValidateLXDProfileCharm{}
+	validate := &deployer.ValidateLXDProfileCharm{}
 	err := validate.RunPre(mockDeployStepAPI, nil, nil, deployInfo)
 	c.Assert(err, gc.ErrorMatches, "invalid lxd-profile.yaml: contains config value \"boot.autostart\"")
 }
@@ -81,14 +81,14 @@ func (*ValidateLXDProfileCharmSuite) TestRunPreWithNoLXDProfileAndForce(c *gc.C)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	deployInfo := application.DeploymentInfo{
+	deployInfo := deployer.DeploymentInfo{
 		CharmInfo: &apicharms.CharmInfo{},
 		Force:     true,
 	}
 
 	mockDeployStepAPI := mocks.NewMockDeployStepAPI(ctrl)
 
-	validate := &application.ValidateLXDProfileCharm{}
+	validate := &deployer.ValidateLXDProfileCharm{}
 	err := validate.RunPre(mockDeployStepAPI, nil, nil, deployInfo)
 	c.Assert(err, gc.IsNil)
 }
@@ -97,7 +97,7 @@ func (*ValidateLXDProfileCharmSuite) TestRunPreWithLXDProfileAndForce(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	deployInfo := application.DeploymentInfo{
+	deployInfo := deployer.DeploymentInfo{
 		CharmInfo: &apicharms.CharmInfo{
 			LXDProfile: &charm.LXDProfile{
 				Config: map[string]string{
@@ -110,7 +110,7 @@ func (*ValidateLXDProfileCharmSuite) TestRunPreWithLXDProfileAndForce(c *gc.C) {
 
 	mockDeployStepAPI := mocks.NewMockDeployStepAPI(ctrl)
 
-	validate := &application.ValidateLXDProfileCharm{}
+	validate := &deployer.ValidateLXDProfileCharm{}
 	err := validate.RunPre(mockDeployStepAPI, nil, nil, deployInfo)
 	c.Assert(err, gc.IsNil)
 }
@@ -119,7 +119,7 @@ func (*ValidateLXDProfileCharmSuite) TestRunPreWithInvalidLXDProfileAndForce(c *
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	deployInfo := application.DeploymentInfo{
+	deployInfo := deployer.DeploymentInfo{
 		CharmInfo: &apicharms.CharmInfo{
 			LXDProfile: &charm.LXDProfile{
 				Config: map[string]string{
@@ -132,7 +132,7 @@ func (*ValidateLXDProfileCharmSuite) TestRunPreWithInvalidLXDProfileAndForce(c *
 
 	mockDeployStepAPI := mocks.NewMockDeployStepAPI(ctrl)
 
-	validate := &application.ValidateLXDProfileCharm{}
+	validate := &deployer.ValidateLXDProfileCharm{}
 	err := validate.RunPre(mockDeployStepAPI, nil, nil, deployInfo)
 	c.Assert(err, gc.IsNil)
 }

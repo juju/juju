@@ -141,8 +141,8 @@ func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 	) (ids map[string]string, err error) {
 		return deployResources(s.State, applicationID, resources)
 	}
-	deploy.NewCharmRepo = func() (*charmStoreAdaptor, error) {
-		return s.fakeAPI.charmStoreAdaptor, nil
+	deploy.NewCharmRepo = func() (*CharmStoreAdaptor, error) {
+		return s.fakeAPI.CharmStoreAdaptor, nil
 	}
 
 	_, output, err := runDeployWithOutput(c, modelcmd.Wrap(deploy), "bionic/starsay", "--resource", "upload-resource="+resourceFile)

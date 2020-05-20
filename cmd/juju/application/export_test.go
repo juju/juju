@@ -44,8 +44,8 @@ func NewDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelCommand {
 		) (ids map[string]string, err error) {
 			return nil, nil
 		},
-		NewCharmRepo: func() (*charmStoreAdaptor, error) {
-			return fakeApi.charmStoreAdaptor, nil
+		NewCharmRepo: func() (*CharmStoreAdaptor, error) {
+			return fakeApi.CharmStoreAdaptor, nil
 		},
 		clock: jujuclock.WallClock,
 	}
@@ -74,7 +74,7 @@ func NewDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelCommand {
 				plansClient:       &plansClient{planURL: mURL},
 			}, nil
 		}
-		deployCmd.NewCharmRepo = func() (*charmStoreAdaptor, error) {
+		deployCmd.NewCharmRepo = func() (*CharmStoreAdaptor, error) {
 			controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -88,7 +88,7 @@ func NewDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelCommand {
 				return nil, errors.Trace(err)
 			}
 			cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
-			return &charmStoreAdaptor{
+			return &CharmStoreAdaptor{
 				macaroonGetter:     cstoreClient,
 				charmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),
 			}, nil

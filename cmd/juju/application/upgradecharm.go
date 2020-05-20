@@ -31,10 +31,11 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/resource"
+
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
@@ -42,15 +43,15 @@ import (
 func newUpgradeCharmCommand() *upgradeCharmCommand {
 	return &upgradeCharmCommand{
 		DeployResources: resourceadapters.DeployResources,
-		ResolveCharm:    resolveCharm,
+		ResolveCharm:    utils.ResolveCharm,
 		NewCharmAdder:   newCharmAdder,
-		NewCharmClient: func(conn base.APICallCloser) CharmClient {
+		NewCharmClient: func(conn base.APICallCloser) utils.CharmClient {
 			return charms.NewClient(conn)
 		},
 		NewCharmUpgradeClient: func(conn base.APICallCloser) CharmAPIClient {
 			return application.NewClient(conn)
 		},
-		NewResourceLister: func(conn base.APICallCloser) (ResourceLister, error) {
+		NewResourceLister: func(conn base.APICallCloser) (utils.ResourceLister, error) {
 			resclient, err := resourceadapters.NewAPIClient(conn)
 			if err != nil {
 				return nil, err
@@ -65,7 +66,7 @@ func newUpgradeCharmCommand() *upgradeCharmCommand {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) charmrepoForDeploy {
+		) utils.CharmrepoForDeploy {
 			return getCharmStore(bakeryClient, csURL, channel)
 		},
 	}
@@ -90,42 +91,30 @@ type CharmUpgradeClient interface {
 	SetCharm(string, application.SetCharmConfig) error
 }
 
-// CharmClient defines a subset of the charms facade, as required
-// by the upgrade-charm command.
-type CharmClient interface {
-	CharmInfo(string) (*charms.CharmInfo, error)
-}
-
-// ResourceLister defines a subset of the resources facade, as required
-// by the upgrade-charm command.
-type ResourceLister interface {
-	ListResources([]string) ([]resource.ApplicationResources, error)
-}
-
 // NewCharmAdderFunc is the type of a function used to construct
 // a new CharmAdder.
 type NewCharmAdderFunc func(
 	api.Connection,
-) CharmAdder
+) utils.CharmAdder
 
 // NewCharmStoreFunc constructs a charm store client.
 type NewCharmStoreFunc func(
 	*httpbakery.Client,
 	string, // Charmstore API URL
 	csclientparams.Channel,
-) charmrepoForDeploy
+) utils.CharmrepoForDeploy
 
 // UpgradeCharm is responsible for upgrading an application's charm.
 type upgradeCharmCommand struct {
 	modelcmd.ModelCommandBase
 
 	DeployResources       resourceadapters.DeployResourcesFunc
-	ResolveCharm          ResolveCharmFunc
+	ResolveCharm          utils.ResolveCharmFunc
 	NewCharmAdder         NewCharmAdderFunc
 	NewCharmStore         NewCharmStoreFunc
-	NewCharmClient        func(base.APICallCloser) CharmClient
+	NewCharmClient        func(base.APICallCloser) utils.CharmClient
 	NewCharmUpgradeClient func(base.APICallCloser) CharmAPIClient
-	NewResourceLister     func(base.APICallCloser) (ResourceLister, error)
+	NewResourceLister     func(base.APICallCloser) (utils.ResourceLister, error)
 	NewSpacesClient       func(base.APICallCloser) SpacesAPI
 	CharmStoreURLGetter   func(base.APICallCloser) (string, error)
 
@@ -376,7 +365,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	chID, csMac, err := c.addCharm(addCharmParams{
 		charmAdder:     c.NewCharmAdder(apiRoot),
 		charmRepo:      c.NewCharmStore(bakeryClient, csURL, c.Channel),
-		authorizer:     newCharmStoreClient(bakeryClient, csURL),
+		authorizer:     utils.NewCharmStoreClient(bakeryClient, csURL),
 		oldURL:         oldURL,
 		newCharmRef:    newRef,
 		deployedSeries: applicationInfo.Series,
@@ -396,7 +385,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	meta, err := getMetaResources(chID.URL, charmsClient)
+	meta, err := utils.GetMetaResources(chID.URL, charmsClient)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -520,12 +509,12 @@ func (c *upgradeCharmCommand) checkApplicationFacadeSupport(verQuerier versionQu
 // DeployResources should accept a resource-specific client instead.
 func (c *upgradeCharmCommand) upgradeResources(
 	apiRoot base.APICallCloser,
-	resourceLister ResourceLister,
+	resourceLister utils.ResourceLister,
 	chID charmstore.CharmID,
 	csMac *macaroon.Macaroon,
 	meta map[string]charmresource.Meta,
 ) (map[string]string, error) {
-	filtered, err := getUpgradeResources(
+	filtered, err := utils.GetUpgradeResources(
 		resourceLister,
 		c.ApplicationName,
 		c.Resources,
@@ -551,80 +540,9 @@ func (c *upgradeCharmCommand) upgradeResources(
 	return ids, errors.Trace(err)
 }
 
-func getUpgradeResources(
-	resourceLister ResourceLister,
-	applicationID string,
-	cliResources map[string]string,
-	meta map[string]charmresource.Meta,
-) (map[string]charmresource.Meta, error) {
-	if len(meta) == 0 {
-		return nil, nil
-	}
-
-	current, err := getResources(applicationID, resourceLister)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	filtered := filterResources(meta, current, cliResources)
-	return filtered, nil
-}
-
-func getMetaResources(charmURL *charm.URL, client CharmClient) (map[string]charmresource.Meta, error) {
-	charmInfo, err := client.CharmInfo(charmURL.String())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return charmInfo.Meta.Resources, nil
-}
-
-func getResources(applicationID string, resourceLister ResourceLister) (map[string]resource.Resource, error) {
-	svcs, err := resourceLister.ListResources([]string{applicationID})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return resource.AsMap(svcs[0].Resources), nil
-}
-
-func filterResources(
-	meta map[string]charmresource.Meta,
-	current map[string]resource.Resource,
-	uploads map[string]string,
-) map[string]charmresource.Meta {
-	filtered := make(map[string]charmresource.Meta)
-	for name, res := range meta {
-		if shouldUpgradeResource(res, uploads, current) {
-			filtered[name] = res
-		}
-	}
-	return filtered
-}
-
-// shouldUpgradeResource reports whether we should upload the metadata for the given
-// resource.  This is always true for resources we're adding with the --resource
-// flag. For resources we're not adding with --resource, we only upload metadata
-// for charmstore resources.  Previously uploaded resources stay pinned to the
-// data the user uploaded.
-func shouldUpgradeResource(res charmresource.Meta, uploads map[string]string, current map[string]resource.Resource) bool {
-	// Always upload metadata for resources the user is uploading during
-	// upgrade-charm.
-	if _, ok := uploads[res.Name]; ok {
-		return true
-	}
-	cur, ok := current[res.Name]
-	if !ok {
-		// If there's no information on the server, there should be.
-		return true
-	}
-	// Never override existing resources a user has already uploaded.
-	if cur.Origin == charmresource.OriginUpload {
-		return false
-	}
-	return true
-}
-
 func newCharmAdder(
 	api api.Connection,
-) CharmAdder {
+) utils.CharmAdder {
 	return &apiClient{Client: api.Client()}
 }
 
@@ -632,8 +550,8 @@ func getCharmStore(
 	bakeryClient *httpbakery.Client,
 	csURL string,
 	channel csclientparams.Channel,
-) charmrepoForDeploy {
-	csClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(channel)
+) utils.CharmrepoForDeploy {
+	csClient := utils.NewCharmStoreClient(bakeryClient, csURL).WithChannel(channel)
 	return charmrepo.NewCharmStoreFromClient(csClient)
 }
 
@@ -648,9 +566,9 @@ var getCharmStoreAPIURL = func(conAPIRoot base.APICallCloser) (string, error) {
 }
 
 type addCharmParams struct {
-	charmAdder     CharmAdder
-	authorizer     macaroonGetter
-	charmRepo      charmrepoForDeploy
+	charmAdder     utils.CharmAdder
+	authorizer     utils.MacaroonGetter
+	charmRepo      utils.CharmrepoForDeploy
 	oldURL         *charm.URL
 	newCharmRef    string
 	deployedSeries string
@@ -717,7 +635,7 @@ func (c *upgradeCharmCommand) addCharm(params addCharmParams) (charmstore.CharmI
 		return id, nil, errors.Errorf("already running latest charm %q", newURL)
 	}
 
-	curl, csMac, err := addCharmFromURL(params.charmAdder, params.authorizer, newURL, channel, params.force)
+	curl, csMac, err := utils.AddCharmFromURL(params.charmAdder, params.authorizer, newURL, channel, params.force)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}

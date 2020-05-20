@@ -93,8 +93,8 @@ func (s *DeploySuiteBase) deployCommandForState() *DeployCommand {
 	deploy := newDeployCommand()
 	deploy.Steps = nil
 	deploy.DeployResources = s.DeployResources
-	deploy.NewCharmRepo = func() (*charmStoreAdaptor, error) {
-		return s.fakeAPI.charmStoreAdaptor, nil
+	deploy.NewCharmRepo = func() (*CharmStoreAdaptor, error) {
+		return s.fakeAPI.CharmStoreAdaptor, nil
 	}
 	deploy.NewConsumeDetailsAPI = func(url *charm.OfferURL) (ConsumeDetails, error) {
 		return s.fakeAPI, nil
@@ -111,8 +111,8 @@ func (s *DeploySuiteBase) runDeployForState(c *gc.C, args ...string) error {
 	deploy := newDeployCommand()
 	deploy.Steps = nil
 	deploy.DeployResources = s.DeployResources
-	deploy.NewCharmRepo = func() (*charmStoreAdaptor, error) {
-		return s.fakeAPI.charmStoreAdaptor, nil
+	deploy.NewCharmRepo = func() (*CharmStoreAdaptor, error) {
+		return s.fakeAPI.CharmStoreAdaptor, nil
 	}
 	deploy.NewConsumeDetailsAPI = func(url *charm.OfferURL) (ConsumeDetails, error) {
 		return s.fakeAPI, nil
@@ -152,7 +152,7 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 		"type": "foo",
 	}
 	s.fakeAPI = vanillaFakeModelAPI(cfgAttrs)
-	s.fakeAPI.charmStoreAdaptor = &charmStoreAdaptor{
+	s.fakeAPI.CharmStoreAdaptor = &CharmStoreAdaptor{
 		charmrepoForDeploy: s.fakeAPI,
 		macaroonGetter:     &noopMacaroonGetter{},
 	}
@@ -994,8 +994,8 @@ func (s *CAASDeploySuiteBase) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ..
 			return fakeAPI, nil
 		},
 		DeployResources: s.DeployResources,
-		NewCharmRepo: func() (*charmStoreAdaptor, error) {
-			return fakeAPI.charmStoreAdaptor, nil
+		NewCharmRepo: func() (*CharmStoreAdaptor, error) {
+			return fakeAPI.CharmStoreAdaptor, nil
 		},
 		clock: jujuclock.WallClock,
 	}
@@ -2184,7 +2184,7 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorageNotSupported(c *gc.C) {
 // sharpened, this will become so as well.
 type fakeDeployAPI struct {
 	DeployAPI
-	*charmStoreAdaptor
+	*CharmStoreAdaptor
 	*jujutesting.CallMocker
 	planURL string
 }

@@ -4,12 +4,13 @@
 // TODO(natefinch): change the code in this file to use the
 // github.com/juju/juju/charmstore package to interact with the charmstore.
 
-package application
+package utils
 
 import (
 	"net/url"
 
 	"github.com/juju/charm/v7"
+	"github.com/juju/charmrepo/v5"
 	"github.com/juju/charmrepo/v5/csclient"
 	csparams "github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/errors"
@@ -20,23 +21,15 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 )
 
-// SeriesConfig defines the single config method that we need to resolve
-// changes.
-type SeriesConfig interface {
-	// DefaultSeries returns the configured default Ubuntu series for the environment,
-	// and whether the default series was explicitly configured on the environment.
-	DefaultSeries() (string, bool)
-}
-
-// ResolveCharmFunc is the type of a function that resolves a charm URL with
-// an optionally specified preferred channel.
+// ResolveCharmFunc is the type of a function that resolves a charm URL
+// with an optionally specified preferred channel.
 type ResolveCharmFunc func(
 	resolveWithChannel func(*charm.URL, csparams.Channel) (*charm.URL, csparams.Channel, []string, error),
 	url *charm.URL,
 	preferredChannel csparams.Channel,
 ) (*charm.URL, csparams.Channel, []string, error)
 
-func resolveCharm(
+func ResolveCharm(
 	resolveWithChannel func(*charm.URL, csparams.Channel) (*charm.URL, csparams.Channel, []string, error),
 	url *charm.URL,
 	preferredChannel csparams.Channel,
@@ -55,13 +48,11 @@ func resolveCharm(
 	return resultURL, channel, supportedSeries, nil
 }
 
-// TODO(ericsnow) Return charmstore.CharmID from addCharmFromURL()?
-
-// addCharmFromURL calls the appropriate client API calls to add the
+// AddCharmFromURL calls the appropriate client API calls to add the
 // given charm URL to state. For non-public charm URLs, this function also
 // handles the macaroon authorization process using the given csClient.
 // The resulting charm URL of the added charm is displayed on stdout.
-func addCharmFromURL(client CharmAdder, cs macaroonGetter, curl *charm.URL, channel csparams.Channel, force bool) (*charm.URL, *macaroon.Macaroon, error) {
+func AddCharmFromURL(client CharmAdder, cs MacaroonGetter, curl *charm.URL, channel csparams.Channel, force bool) (*charm.URL, *macaroon.Macaroon, error) {
 	var csMac *macaroon.Macaroon
 	if err := client.AddCharm(curl, channel, force); err != nil {
 		if !params.IsCodeUnauthorized(err) {
@@ -79,28 +70,51 @@ func addCharmFromURL(client CharmAdder, cs macaroonGetter, curl *charm.URL, chan
 	return curl, csMac, nil
 }
 
-// newCharmStoreClient is called to obtain a charm store client.
+// NewCharmStoreClient is called to obtain a charm store client.
 // It is defined as a variable so it can be changed for testing purposes.
-var newCharmStoreClient = func(client *httpbakery.Client, csURL string) *csclient.Client {
+var NewCharmStoreClient = func(client *httpbakery.Client, csURL string) *csclient.Client {
 	return csclient.New(csclient.Params{
 		URL:          csURL,
 		BakeryClient: client,
 	})
 }
 
-type macaroonGetter interface {
-	Get(endpoint string, extra interface{}) error
-}
-
-// authorizeCharmStoreEntity acquires and return the charm store delegatable macaroon to be
-// used to add the charm corresponding to the given URL.
-// The macaroon is properly attenuated so that it can only be used to deploy
-// the given charm URL.
-func authorizeCharmStoreEntity(csClient macaroonGetter, curl *charm.URL) (*macaroon.Macaroon, error) {
+// authorizeCharmStoreEntity acquires and return the charm store
+// delegatable macaroon to be used to add the charm corresponding
+// to the given URL. The macaroon is properly attenuated so that
+// it can only be used to deploy the given charm URL.
+func authorizeCharmStoreEntity(csClient MacaroonGetter, curl *charm.URL) (*macaroon.Macaroon, error) {
 	endpoint := "/delegatable-macaroon?id=" + url.QueryEscape(curl.String())
 	var m *macaroon.Macaroon
 	if err := csClient.Get(endpoint, &m); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return m, nil
+}
+
+// NewCharmStoreAdaptor combines charm store functionality with the ability to get a macaroon.
+func NewCharmStoreAdaptor(client *httpbakery.Client, csURL string) *CharmStoreAdaptor {
+	cstoreClient := NewCharmStoreClient(client, csURL)
+	return &CharmStoreAdaptor{
+		CharmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),
+		MacaroonGetter:     cstoreClient,
+	}
+}
+
+type CharmStoreAdaptor struct {
+	CharmrepoForDeploy
+	MacaroonGetter
+}
+
+func (a *CharmStoreAdaptor) Resolve(url *charm.URL, preferredChannel csparams.Channel) (
+	*charm.URL,
+	csparams.Channel,
+	[]string,
+	error,
+) {
+	return ResolveCharm(a.CharmrepoForDeploy.ResolveWithPreferredChannel, url, preferredChannel)
+}
+
+func (a *CharmStoreAdaptor) Get(url *charm.URL, path string) (*charm.CharmArchive, error) {
+	return a.CharmrepoForDeploy.Get(url, path)
 }

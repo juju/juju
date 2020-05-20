@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package application
+package deployer_test
 
 import (
 	"fmt"
@@ -887,9 +887,6 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
 			return nil
 		},
 	}
-	s.PatchValue(&watchAll, func(*api.Client) (allWatcher, error) {
-		return watcher, nil
-	})
 
 	s.setupCharm(c, "xenial/django-0", "django", "bionic")
 	s.setupCharm(c, "xenial/wordpress-0", "wordpress", "bionic")

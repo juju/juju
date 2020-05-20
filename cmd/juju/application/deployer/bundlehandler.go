@@ -1,13 +1,12 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package application
+package deployer
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -26,11 +25,11 @@ import (
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
@@ -43,10 +42,6 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-var watchAll = func(c *api.Client) (allWatcher, error) {
-	return c.WatchAll()
-}
-
 type allWatcher interface {
 	Next() ([]params.Delta, error)
 	Stop() error
@@ -57,36 +52,6 @@ type allWatcher interface {
 type deploymentLogger interface {
 	// Infof formats and logs the given message.
 	Infof(string, ...interface{})
-}
-
-func verifyBundle(data *charm.BundleData, bundleDir string) error {
-	verifyConstraints := func(s string) error {
-		_, err := constraints.Parse(s)
-		return err
-	}
-	verifyStorage := func(s string) error {
-		_, err := storage.ParseConstraints(s)
-		return err
-	}
-	verifyDevices := func(s string) error {
-		_, err := devices.ParseConstraints(s)
-		return err
-	}
-	var verifyError error
-	if bundleDir == "" {
-		verifyError = data.Verify(verifyConstraints, verifyStorage, verifyDevices)
-	} else {
-		verifyError = data.VerifyLocal(bundleDir, verifyConstraints, verifyStorage, verifyDevices)
-	}
-
-	if verr, ok := errors.Cause(verifyError).(*charm.VerificationError); ok {
-		errs := make([]string, len(verr.Errors))
-		for i, err := range verr.Errors {
-			errs[i] = err.Error()
-		}
-		return errors.New("the provided bundle has the following errors:\n" + strings.Join(errs, "\n"))
-	}
-	return errors.Trace(verifyError)
 }
 
 type bundleDeploySpec struct {
@@ -102,9 +67,9 @@ type bundleDeploySpec struct {
 	bundleOverlayFile []string
 	channel           csparams.Channel
 
-	apiRoot              DeployAPI
+	deployAPI            DeployerAPI
 	bundleResolver       BundleResolver
-	authorizer           macaroonGetter
+	authorizer           utils.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
 	deployResources      resourceadapters.DeployResourcesFunc
 
@@ -119,39 +84,13 @@ type bundleDeploySpec struct {
 	accountUser     string
 }
 
-func composeAndVerifyBundle(base charm.BundleDataSource, pathToOverlays []string) (*charm.BundleData, error) {
-	var (
-		dsList []charm.BundleDataSource
-		err    error
-	)
-
-	dsList = append(dsList, base)
-	for _, pathToOverlay := range pathToOverlays {
-		ds, err := charm.LocalBundleDataSource(pathToOverlay)
-		if err != nil {
-			return nil, errors.Annotatef(err, "unable to process overlays")
-		}
-		dsList = append(dsList, ds)
-	}
-
-	bundleData, err := charm.ReadAndMergeBundleData(dsList...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err = verifyBundle(bundleData, base.BasePath()); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return bundleData, nil
-}
-
 // deployBundle deploys the given bundle data using the given API client and
 // charm store client. The deployment is not transactional, and its progress is
 // notified using the given deployment logger.
 //
 // Note: deployBundle expects that spec.BundleData points to a verified bundle
 // that has all required external overlays applied.
-func deployBundle(bundleData *charm.BundleData, spec bundleDeploySpec) (map[*charm.URL]*macaroon.Macaroon, error) {
+func bundleDeploy(bundleData *charm.BundleData, spec bundleDeploySpec) (map[*charm.URL]*macaroon.Macaroon, error) {
 	// TODO: move bundle parsing and checking into the handler.
 	h := makeBundleHandler(bundleData, spec)
 	if err := h.makeModel(spec.useExistingMachines, spec.bundleMachines); err != nil {
@@ -202,10 +141,10 @@ type bundleHandler struct {
 	// channel identifies the default channel to use for the bundle.
 	channel csparams.Channel
 
-	// api is used to interact with the environment.
-	api                  DeployAPI
+	// deployAPI is used to interact with the environment.
+	deployAPI            DeployerAPI
 	bundleResolver       BundleResolver
-	authorizer           macaroonGetter
+	authorizer           utils.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
 	deployResources      resourceadapters.DeployResourcesFunc
 
@@ -283,7 +222,7 @@ func makeBundleHandler(bundleData *charm.BundleData, spec bundleDeploySpec) *bun
 		applications:         applications,
 		results:              make(map[string]string),
 		channel:              spec.channel,
-		api:                  spec.apiRoot,
+		deployAPI:            spec.deployAPI,
 		bundleResolver:       spec.bundleResolver,
 		authorizer:           spec.authorizer,
 		getConsumeDetailsAPI: spec.getConsumeDetailsAPI,
@@ -309,11 +248,11 @@ func (h *bundleHandler) makeModel(
 	bundleMachines map[string]string,
 ) error {
 	// Initialize the unit status.
-	status, err := h.api.Status(nil)
+	status, err := h.deployAPI.Status(nil)
 	if err != nil {
 		return errors.Annotate(err, "cannot get model status")
 	}
-	h.model, err = buildModelRepresentation(status, h.api, useExistingMachines, bundleMachines)
+	h.model, err = utils.BuildModelRepresentation(status, h.deployAPI, useExistingMachines, bundleMachines)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -325,7 +264,7 @@ func (h *bundleHandler) makeModel(
 		}
 	}
 
-	h.modelConfig, err = getModelConfig(h.api)
+	h.modelConfig, err = getModelConfig(h.deployAPI)
 	if err != nil {
 		return err
 	}
@@ -380,7 +319,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		url, _, _, err := resolveCharm(h.bundleResolver.ResolveWithPreferredChannel, ch, csparams.Channel(spec.Channel))
+		url, _, _, err := utils.ResolveCharm(h.bundleResolver.ResolveWithPreferredChannel, ch, csparams.Channel(spec.Channel))
 		if err != nil {
 			return errors.Annotatef(err, "cannot resolve URL %q", spec.Charm)
 		}
@@ -432,7 +371,7 @@ func (h *bundleHandler) getChanges() error {
 func (h *bundleHandler) handleChanges() error {
 	var err error
 	// Instantiate a watcher used to follow the deployment progress.
-	h.watcher, err = h.api.WatchAll()
+	h.watcher, err = h.deployAPI.WatchAll()
 	if err != nil {
 		return errors.Annotate(err, "cannot watch model")
 	}
@@ -529,7 +468,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 			}); err != nil && !h.force {
 				return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 			}
-			if curl, err = h.api.AddLocalCharm(curl, ch, h.force); err != nil {
+			if curl, err = h.deployAPI.AddLocalCharm(curl, ch, h.force); err != nil {
 				return err
 			}
 			logger.Debugf("added charm %s", curl)
@@ -544,7 +483,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Trace(err)
 	}
 
-	url, channel, _, err := resolveCharm(h.bundleResolver.ResolveWithPreferredChannel, ch, csparams.Channel(p.Channel))
+	url, channel, _, err := utils.ResolveCharm(h.bundleResolver.ResolveWithPreferredChannel, ch, csparams.Channel(p.Channel))
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
@@ -552,7 +491,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
 	var macaroon *macaroon.Macaroon
-	url, macaroon, err = addCharmFromURL(h.api, h.authorizer, url, channel, h.force)
+	url, macaroon, err = utils.AddCharmFromURL(h.deployAPI, h.authorizer, url, channel, h.force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
@@ -640,7 +579,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		}
 		for k, v := range p.Storage {
 			if _, ok := storageConstraints[k]; ok {
-				// Storage constraints overridden
+				// storage constraints overridden
 				// on the command line.
 				continue
 			}
@@ -669,7 +608,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 			deviceConstraints[k] = cons
 		}
 	}
-	charmInfo, err := h.api.CharmInfo(ch)
+	charmInfo, err := h.deployAPI.CharmInfo(ch)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -687,7 +626,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		macaroon,
 		resources,
 		charmInfo.Meta.Resources,
-		h.api,
+		h.deployAPI,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -731,7 +670,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 
 	// Deploy the application.
-	if err := h.api.Deploy(application.DeployArgs{
+	if err := h.deployAPI.Deploy(application.DeployArgs{
 		CharmID:          chID,
 		CharmOrigin:      origin,
 		Cons:             cons,
@@ -771,7 +710,7 @@ func (h *bundleHandler) scaleApplication(change *bundlechanges.ScaleChange) erro
 
 	p := change.Params
 
-	result, err := h.api.ScaleApplication(application.ScaleApplicationParams{
+	result, err := h.deployAPI.ScaleApplication(application.ScaleApplicationParams{
 		ApplicationName: p.Application,
 		Scale:           p.Scale,
 	})
@@ -856,7 +795,7 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 		}
 	}
 	logger.Debugf("machineParams: %s", pretty.Sprint(machineParams))
-	r, err := h.api.AddMachines([]params.AddMachineParams{machineParams})
+	r, err := h.deployAPI.AddMachines([]params.AddMachineParams{machineParams})
 	if err != nil {
 		return errors.Annotatef(err, "cannot create machine for holding %s", deployedApps())
 	}
@@ -884,7 +823,7 @@ func (h *bundleHandler) addRelation(change *bundlechanges.AddRelationChange) err
 	ep1 := resolveRelation(p.Endpoint1, h.results)
 	ep2 := resolveRelation(p.Endpoint2, h.results)
 	// TODO(wallyworld) - CMR support in bundles
-	_, err := h.api.AddRelation([]string{ep1, ep2}, nil)
+	_, err := h.deployAPI.AddRelation([]string{ep1, ep2}, nil)
 	if err != nil {
 		// TODO(thumper): remove this error check when we add resolving
 		// implicit relations.
@@ -925,14 +864,14 @@ func (h *bundleHandler) addUnit(change *bundlechanges.AddUnitChange) error {
 		if container != "" {
 			directive = container + ":" + directive
 		}
-		placement, err := parsePlacement(directive)
+		placement, err := utils.ParsePlacement(directive)
 		if err != nil {
 			return errors.Errorf("invalid --to parameter %q", directive)
 		}
 		logger.Debugf("  resolved: placement %q", directive)
 		placementArg = append(placementArg, placement)
 	}
-	r, err := h.api.AddUnits(application.AddUnitsParams{
+	r, err := h.deployAPI.AddUnits(application.AddUnitsParams{
 		ApplicationName: applicationName,
 		NumUnits:        1,
 		Placement:       placementArg,
@@ -977,17 +916,17 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	}
 	macaroon := h.macaroons[cURL]
 
-	meta, err := getMetaResources(cURL, h.api)
+	meta, err := utils.GetMetaResources(cURL, h.deployAPI)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	resources := h.makeResourceMap(meta, p.Resources, p.LocalResources)
 
-	resourceLister, err := resourceadapters.NewAPIClient(h.api)
+	resourceLister, err := resourceadapters.NewAPIClient(h.deployAPI)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	filtered, err := getUpgradeResources(resourceLister, p.Application, resources, meta)
+	filtered, err := utils.GetUpgradeResources(resourceLister, p.Application, resources, meta)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -999,7 +938,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 			macaroon,
 			resources,
 			filtered,
-			h.api,
+			h.deployAPI,
 		)
 		if err != nil {
 			return errors.Trace(err)
@@ -1013,7 +952,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 		Force:           h.force,
 	}
 	// Bundles only ever deal with the current generation.
-	if err := h.api.SetCharm(model.GenerationMaster, cfg); err != nil {
+	if err := h.deployAPI.SetCharm(model.GenerationMaster, cfg); err != nil {
 		return errors.Trace(err)
 	}
 	h.writeAddedResources(resNames2IDs)
@@ -1043,7 +982,7 @@ func (h *bundleHandler) setOptions(change *bundlechanges.SetOptionsChange) error
 		return errors.Annotatef(err, "cannot marshal options for application %q", p.Application)
 	}
 
-	if err := h.api.Update(params.ApplicationUpdate{
+	if err := h.deployAPI.Update(params.ApplicationUpdate{
 		ApplicationName: p.Application,
 		SettingsYAML:    string(cfg),
 		Generation:      model.GenerationMaster,
@@ -1060,9 +999,9 @@ func (h *bundleHandler) setConstraints(change *bundlechanges.SetConstraintsChang
 		return nil
 	}
 	p := change.Params
-	// We know that p.Constraints is a valid constraints type due to the validation.
+	// We know that p.constraints is a valid constraints type due to the validation.
 	cons, _ := constraints.Parse(p.Constraints)
-	if err := h.api.SetConstraints(p.Application, cons); err != nil {
+	if err := h.deployAPI.SetConstraints(p.Application, cons); err != nil {
 		// This should never happen, as the bundle is already verified.
 		return errors.Annotatef(err, "cannot update constraints for application %q", p.Application)
 	}
@@ -1077,7 +1016,7 @@ func (h *bundleHandler) exposeApplication(change *bundlechanges.ExposeChange) er
 	}
 
 	application := resolve(change.Params.Application, h.results)
-	if err := h.api.Expose(application); err != nil {
+	if err := h.deployAPI.Expose(application); err != nil {
 		return errors.Annotatef(err, "cannot expose application %s", application)
 	}
 	return nil
@@ -1103,7 +1042,7 @@ func (h *bundleHandler) setAnnotations(change *bundlechanges.SetAnnotationsChang
 	default:
 		return errors.Errorf("unexpected annotation entity type %q", p.EntityType)
 	}
-	result, err := h.api.SetAnnotation(map[string]map[string]string{tag: p.Annotations})
+	result, err := h.deployAPI.SetAnnotation(map[string]map[string]string{tag: p.Annotations})
 	if err == nil && len(result) > 0 {
 		err = result[0].Error
 	}
@@ -1120,7 +1059,7 @@ func (h *bundleHandler) createOffer(change *bundlechanges.CreateOfferChange) err
 	}
 
 	p := change.Params
-	result, err := h.api.Offer(h.targetModelUUID, p.Application, p.Endpoints, p.OfferName, "")
+	result, err := h.deployAPI.Offer(h.targetModelUUID, p.Application, p.Endpoints, p.OfferName, "")
 	if err == nil && len(result) > 0 && result[0].Error != nil {
 		err = result[0].Error
 	}
@@ -1150,8 +1089,8 @@ func (h *bundleHandler) consumeOffer(change *bundlechanges.ConsumeOfferChange) e
 	if url.Source == "" {
 		url.Source = h.controllerName
 	}
-	// Get the consume details from the offer api. We don't use the generic
-	// DeployAPI as we may have to contact another controller to gain access
+	// Get the consume details from the offer deployAPI. We don't use the generic
+	// DeployerAPI as we may have to contact another controller to gain access
 	// to that information.
 	controllerOfferAPI, err := h.getConsumeDetailsAPI(url)
 	if err != nil {
@@ -1194,7 +1133,7 @@ func (h *bundleHandler) consumeOffer(change *bundlechanges.ConsumeOfferChange) e
 			CACert:        consumeDetails.ControllerInfo.CACert,
 		}
 	}
-	localName, err := h.api.Consume(arg)
+	localName, err := h.deployAPI.Consume(arg)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1212,7 +1151,7 @@ func (h *bundleHandler) grantOfferAccess(change *bundlechanges.GrantOfferAccessC
 	p := change.Params
 
 	offerURL := fmt.Sprintf("%s.%s", h.targetModelName, p.Offer)
-	if err := h.api.GrantOffer(p.User, p.Access, offerURL); err != nil && !isUserAlreadyHasAccessErr(err) {
+	if err := h.deployAPI.GrantOffer(p.User, p.Access, offerURL); err != nil && !isUserAlreadyHasAccessErr(err) {
 
 		return errors.Annotatef(err, "cannot grant %s access to user %s on offer %s", p.Access, p.User, offerURL)
 	}
@@ -1350,187 +1289,8 @@ func resolve(placeholder string, results map[string]string) string {
 	return results[id]
 }
 
-// ModelExtractor provides everything we need to build a
-// bundlechanges.Model from a model API connection.
-type ModelExtractor interface {
-	GetAnnotations(tags []string) ([]params.AnnotationsGetResult, error)
-	GetConstraints(applications ...string) ([]constraints.Value, error)
-	GetConfig(branchName string, applications ...string) ([]map[string]interface{}, error)
-	Sequences() (map[string]int, error)
-}
-
-func buildModelRepresentation(
-	status *params.FullStatus,
-	apiRoot ModelExtractor,
-	useExistingMachines bool,
-	bundleMachines map[string]string,
-) (*bundlechanges.Model, error) {
-	var (
-		annotationTags []string
-		appNames       []string
-		principalApps  []string
-	)
-	machineMap := make(map[string]string)
-	machines := make(map[string]*bundlechanges.Machine)
-	for id, machineStatus := range status.Machines {
-		machines[id] = &bundlechanges.Machine{
-			ID:     id,
-			Series: machineStatus.Series,
-		}
-		tag := names.NewMachineTag(id)
-		annotationTags = append(annotationTags, tag.String())
-		if useExistingMachines && tag.ContainerType() == "" {
-			machineMap[id] = id
-		}
-	}
-	// Now iterate over the bundleMachines that the user specified.
-	for bundleMachine, modelMachine := range bundleMachines {
-		machineMap[bundleMachine] = modelMachine
-	}
-	applications := make(map[string]*bundlechanges.Application)
-	for name, appStatus := range status.Applications {
-		app := &bundlechanges.Application{
-			Name:          name,
-			Charm:         appStatus.Charm,
-			Scale:         appStatus.Scale,
-			Exposed:       appStatus.Exposed,
-			Series:        appStatus.Series,
-			SubordinateTo: appStatus.SubordinateTo,
-		}
-		for unitName, unit := range appStatus.Units {
-			app.Units = append(app.Units, bundlechanges.Unit{
-				Name:    unitName,
-				Machine: unit.Machine,
-			})
-		}
-		applications[name] = app
-		annotationTags = append(annotationTags, names.NewApplicationTag(name).String())
-		appNames = append(appNames, name)
-		if len(appStatus.Units) > 0 {
-			// While this isn't entirely accurate, because an application
-			// without any units is still a principal, it is less bad than
-			// just using 'SubordinateTo' as a subordinate charm that isn't
-			// related to anything has that empty too.
-			principalApps = append(principalApps, name)
-		}
-	}
-	mod := &bundlechanges.Model{
-		Applications: applications,
-		Machines:     machines,
-		MachineMap:   machineMap,
-	}
-	for _, relation := range status.Relations {
-		// All relations have two endpoints except peers.
-		if len(relation.Endpoints) != 2 {
-			continue
-		}
-		mod.Relations = append(mod.Relations, bundlechanges.Relation{
-			App1:      relation.Endpoints[0].ApplicationName,
-			Endpoint1: relation.Endpoints[0].Name,
-			App2:      relation.Endpoints[1].ApplicationName,
-			Endpoint2: relation.Endpoints[1].Name,
-		})
-	}
-	// Get all the annotations.
-	annotations, err := apiRoot.GetAnnotations(annotationTags)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, result := range annotations {
-		if result.Error.Error != nil {
-			return nil, errors.Trace(result.Error.Error)
-		}
-		tag, err := names.ParseTag(result.EntityTag)
-		if err != nil {
-			return nil, errors.Trace(err) // This should never happen.
-		}
-		switch kind := tag.Kind(); kind {
-		case names.ApplicationTagKind:
-			mod.Applications[tag.Id()].Annotations = result.Annotations
-		case names.MachineTagKind:
-			mod.Machines[tag.Id()].Annotations = result.Annotations
-		default:
-			return nil, errors.Errorf("unexpected tag kind for annotations: %q", kind)
-		}
-	}
-	// Add in the model sequences.
-	sequences, err := apiRoot.Sequences()
-	if err == nil {
-		mod.Sequence = sequences
-	} else if !errors.IsNotSupported(err) {
-		return nil, errors.Annotate(err, "getting model sequences")
-	}
-
-	// When dealing with bundles the current model generation is always used.
-	configValues, err := apiRoot.GetConfig(model.GenerationMaster, appNames...)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting application options")
-	}
-	for i, cfg := range configValues {
-		options := make(map[string]interface{})
-		// The config map has values that looks like this:
-		//  map[string]interface {}{
-		//        "value":       "",
-		//        "source":     "user", // or "unset" or "default"
-		//        "description": "Where to gather metrics from.\nExamples:\n  host1.maas:9090\n  host1.maas:9090, host2.maas:9090\n",
-		//        "type":        "string",
-		//    },
-		// We want the value iff default is false.
-		for key, valueMap := range cfg {
-			value, err := applicationConfigValue(key, valueMap)
-			if err != nil {
-				return nil, errors.Annotatef(err, "bad application config for %q", appNames[i])
-			}
-			if value != nil {
-				options[key] = value
-			}
-		}
-		mod.Applications[appNames[i]].Options = options
-	}
-	// Lastly get all the application constraints.
-	constraintValues, err := apiRoot.GetConstraints(principalApps...)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting application constraints")
-	}
-	for i, value := range constraintValues {
-		mod.Applications[principalApps[i]].Constraints = value.String()
-	}
-
-	mod.ConstraintsEqual = func(a, b string) bool {
-		// Since the constraints have already been validated, we don't
-		// even bother checking the error response here.
-		ac, _ := constraints.Parse(a)
-		bc, _ := constraints.Parse(b)
-		return reflect.DeepEqual(ac, bc)
-	}
-
-	return mod, nil
-}
-
-// applicationConfigValue returns the value if it is not a default value.
-// If the value is a default value, nil is returned.
-// If there was issue determining the type or value, an error is returned.
-func applicationConfigValue(key string, valueMap interface{}) (interface{}, error) {
-	vm, ok := valueMap.(map[string]interface{})
-	if !ok {
-		return nil, errors.Errorf("unexpected application config value type %T for key %q", valueMap, key)
-	}
-	source, found := vm["source"]
-	if !found {
-		return nil, errors.Errorf("missing application config value 'source' for key %q", key)
-	}
-	if source != "user" {
-		return nil, nil
-	}
-	value, found := vm["value"]
-	if !found {
-		return nil, errors.Errorf("missing application config value 'value'")
-	}
-	return value, nil
-}
-
 // applicationRequiresTrust returns true if this app requires the operator to
-// explicitly trust it. Trust requirements may be either specified as an option
+// explicitly trust it. trust requirements may be either specified as an option
 // or via the "trust" field at the application spec level
 func applicationRequiresTrust(appSpec *charm.ApplicationSpec) bool {
 	optRequiresTrust := appSpec.Options != nil && appSpec.Options["trust"] == true
