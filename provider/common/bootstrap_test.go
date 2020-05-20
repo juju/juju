@@ -130,6 +130,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 			args.Constraints,
 			args.InstanceConfig.Series,
 			"",
+			nil,
 		)
 		c.Assert(err, jc.ErrorIsNil)
 

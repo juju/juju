@@ -61,8 +61,10 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 			coretesting.FakeControllerConfig(),
 			constraints.Value{}, constraints.Value{},
 			vers.Series, "",
+			map[string]string{"foo": "bar"},
 		)
 		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(icfg.AgentEnvironment, jc.DeepEquals, map[string]string{"foo": "bar"})
 		icfg.APIInfo = &api.Info{
 			Password: "password",
 			CACert:   coretesting.CACert,

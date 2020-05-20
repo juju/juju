@@ -152,6 +152,7 @@ var (
 const SystemIdentity = "system-identity"
 
 const (
+	// LxcBridge is deprecated, used LxdBridge instead.
 	LxcBridge         = "LXC_BRIDGE"
 	LxdBridge         = "LXD_BRIDGE"
 	ProviderType      = "PROVIDER_TYPE"
@@ -160,17 +161,6 @@ const (
 	AgentServiceName  = "AGENT_SERVICE_NAME"
 	MongoOplogSize    = "MONGO_OPLOG_SIZE"
 	NUMACtlPreference = "NUMA_CTL_PREFERENCE"
-
-	AgentLoginRateLimit  = "AGENT_LOGIN_RATE_LIMIT"
-	AgentLoginMinPause   = "AGENT_LOGIN_MIN_PAUSE"
-	AgentLoginMaxPause   = "AGENT_LOGIN_MAX_PAUSE"
-	AgentLoginRetryPause = "AGENT_LOGIN_RETRY_PAUSE"
-
-	AgentConnMinPause       = "AGENT_CONN_MIN_PAUSE"
-	AgentConnMaxPause       = "AGENT_CONN_MAX_PAUSE"
-	AgentConnLowerThreshold = "AGENT_CONN_LOWER_THRESHOLD"
-	AgentConnUpperThreshold = "AGENT_CONN_UPPER_THRESHOLD"
-	AgentConnLookbackWindow = "AGENT_CONN_LOOKBACK_WINDOW"
 
 	MgoStatsEnabled = "MGO_STATS_ENABLED"
 
@@ -183,6 +173,13 @@ const (
 	LogSinkDBLoggerFlushInterval = "LOGSINK_DBLOGGER_FLUSH_INTERVAL"
 	LogSinkRateLimitBurst        = "LOGSINK_RATELIMIT_BURST"
 	LogSinkRateLimitRefill       = "LOGSINK_RATELIMIT_REFILL"
+
+	// These values are used to override various aspects of worker behaviour.
+	// They are used for debugging or testing purposes.
+
+	// CharmRevisionUpdateInterval controls how often the
+	// charm revision update worker runs.
+	CharmRevisionUpdateInterval = "CHARM_REVISION_UPDATE_INTERVAL"
 )
 
 // The Config interface is the sole way that the agent gets access to the
