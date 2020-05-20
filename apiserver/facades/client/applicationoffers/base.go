@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
@@ -424,9 +425,9 @@ func makeOfferFilterFromParams(filter params.OfferFilter) (jujucrossmodel.Applic
 	return offerFilter, nil
 }
 
-func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.ApplicationOffer) (
-	*params.ApplicationOfferDetails, crossmodel.Application, error,
-) {
+func (api *BaseAPI) makeOfferParams(backend Backend,
+	offer *jujucrossmodel.ApplicationOffer,
+) (*params.ApplicationOfferDetails, crossmodel.Application, error) {
 	app, err := backend.Application(offer.ApplicationName)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -458,8 +459,15 @@ func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.Appli
 		return &result, app, nil
 	}
 
+	// We could lift this much higher in the function call, but we need to be
+	// sure that CAAS can handle the fact that this API call is called.
+	allSpaceInfosLookup, err := backend.AllSpaceInfos()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	// Get spaces and bindings for IAAS models.
-	result.Spaces, result.Bindings, err = api.spacesAndBindingParams(backend, app, offer.Endpoints)
+	result.Spaces, result.Bindings, err = api.spacesAndBindingParams(backend, app, offer.Endpoints, allSpaceInfosLookup)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -471,15 +479,15 @@ func (api *BaseAPI) spacesAndBindingParams(
 	backend Backend,
 	app crossmodel.Application,
 	offerEndpoints map[string]charm.Relation,
+	allSpaceInfosLookup network.SpaceInfos,
 ) ([]params.RemoteSpace, map[string]string, error) {
-
 	appBindings, err := app.EndpointBindings()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	// We want space names, because space ids are not
 	// persistent outside of the current model.
-	appBindingsMap, err := appBindings.MapWithSpaceNames()
+	appBindingsMap, err := appBindings.MapWithSpaceNames(allSpaceInfosLookup)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
