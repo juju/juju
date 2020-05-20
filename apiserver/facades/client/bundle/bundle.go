@@ -664,7 +664,7 @@ func (b *BundleAPI) printSpaceNamesInEndpointBindings(apps []description.Applica
 	return false
 }
 
-func (b *BundleAPI) endpointBindings(bindings map[string]string, allSpacesInfoLookup network.SpaceInfos, printValue bool) (map[string]string, error) {
+func (b *BundleAPI) endpointBindings(bindings map[string]string, spaceLookup network.SpaceInfos, printValue bool) (map[string]string, error) {
 	if !printValue {
 		return nil, nil
 	}
@@ -672,7 +672,7 @@ func (b *BundleAPI) endpointBindings(bindings map[string]string, allSpacesInfoLo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return endpointBindings.MapWithSpaceNames(allSpacesInfoLookup)
+	return endpointBindings.MapWithSpaceNames(spaceLookup)
 }
 
 // filterOfferACL prunes the input offer ACL to remove internal juju users that

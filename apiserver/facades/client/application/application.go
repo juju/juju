@@ -2445,9 +2445,6 @@ func (u *APIv8) ApplicationInfo(_, _ struct{}) {}
 // ApplicationsInfo returns applications information.
 func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfoResults, error) {
 	// Get all the space infos before iterating over the application infos.
-	// This wasn't originally envisaged as an optimisation, but a better way
-	// to handle getting the bindings with space names. Turns out we only really
-	// need to request it once and we can reuse it.
 	allSpaceInfosLookup, err := api.backend.AllSpaceInfos()
 	if err != nil {
 		return params.ApplicationInfoResults{}, common.ServerError(err)
