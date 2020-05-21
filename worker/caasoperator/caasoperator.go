@@ -523,8 +523,10 @@ func (op *caasOperator) loop() (err error) {
 						return op.catacomb.ErrDying()
 					case runningChan <- struct{}{}:
 					default:
-						// This should never happen unless there is a bug in the uniter.
-						logger.Warningf("unit running chan[%q] is blocked", unitID)
+						// This will happen when the buffered channel already
+						// has an event. If this is the case it's ok to discard
+						// the event.
+						logger.Debugf("unit running chan[%q] discarding running event as one already exists", unitID)
 					}
 				}
 			}
@@ -558,7 +560,9 @@ func (op *caasOperator) loop() (err error) {
 						aliveUnits[unitID] = make(chan struct{})
 					}
 					if _, ok := unitRunningChannels[unitID]; !ok && op.deploymentMode != caas.ModeOperator {
-						unitRunningChannels[unitID] = make(chan struct{})
+						// We make a buffered channel here so that we don't
+						// block the operator while the uniter may not be ready
+						unitRunningChannels[unitID] = make(chan struct{}, 1)
 					}
 				}
 				// Start a worker to manage any new units.
