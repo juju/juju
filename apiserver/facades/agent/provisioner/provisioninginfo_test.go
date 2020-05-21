@@ -302,8 +302,20 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 						// We expect none of the unspecified bindings in the result.
 					},
 				},
+				ProvisioningNetworkTopology: params.ProvisioningNetworkTopology{
+					SubnetAZs: map[string][]string{
+						"subnet-0": {"zone0"},
+						"subnet-1": {"zone1"},
+						"subnet-2": {"zone2"},
+					},
+					SpaceSubnets: map[string][]string{
+						"space1": {"subnet-0"},
+						"space2": {"subnet-1", "subnet-2"},
+					},
+				},
 			},
-		}}}
+		}},
+	}
 	c.Assert(result, jc.DeepEquals, expected)
 }
 

@@ -49,6 +49,11 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 		return result, errors.Annotate(err, "getting all spaces")
 	}
 
+	allSpaceInfos, err := api.st.AllSpaceInfos()
+	if err != nil {
+		return result, errors.Annotate(err, "getting all space infos")
+	}
+
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
@@ -57,7 +62,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 		}
 		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
-			result.Results[i].Result, err = api.getProvisioningInfo(machine, env, allSpaces)
+			result.Results[i].Result, err = api.getProvisioningInfo(machine, env, allSpaces, allSpaceInfos)
 		}
 
 		result.Results[i].Error = common.ServerError(err)
@@ -68,6 +73,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 	env environs.Environ,
 	allSpaces []*state.Space,
+	allSpaceInfos network.SpaceInfos,
 ) (*params.ProvisioningInfoV10, error) {
 	endpointBindings, err := api.machineEndpointBindings(m)
 	if err != nil {
@@ -84,7 +90,12 @@ func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 		return nil, errors.Trace(err)
 	}
 
-	if result.ProvisioningNetworkTopology, err = api.machineSpaceTopology(m, spaceBindings); err != nil {
+	machineSpaces, err := api.machineSpaces(m, allSpaceInfos, endpointBindings)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if result.ProvisioningNetworkTopology, err = api.machineSpaceTopology(m.Id(), machineSpaces); err != nil {
 		return nil, errors.Annotate(err, "matching subnets to zones")
 	}
 
@@ -341,24 +352,53 @@ func (api *ProvisionerAPI) machineTags(m *state.Machine, jobs []model.MachineJob
 	return machineTags, nil
 }
 
-func (api *ProvisionerAPI) machineSpaceTopology(m *state.Machine, endpointBindings map[string]string) (params.ProvisioningNetworkTopology, error) {
-	var topology params.ProvisioningNetworkTopology
-
+func (api *ProvisionerAPI) machineSpaces(m *state.Machine,
+	allSpaceInfos network.SpaceInfos,
+	endpointBindings map[string]*state.Bindings,
+) ([]string, error) {
 	cons, err := m.Constraints()
 	if err != nil {
-		return topology, errors.Annotate(err, "retrieving machine constraints")
+		return nil, errors.Annotate(err, "retrieving machine constraints")
 	}
 
 	includeSpaces := cons.IncludeSpaces()
-	if len(includeSpaces) < 1 {
+
+	allSpaceNames := make(map[string]struct{})
+	for _, spaceName := range includeSpaces {
+		allSpaceNames[spaceName] = struct{}{}
+	}
+	for _, endpointBinding := range endpointBindings {
+		bindingSpaces, err := endpointBinding.MapWithSpaceNames(allSpaceInfos)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, spaceName := range bindingSpaces {
+			allSpaceNames[spaceName] = struct{}{}
+		}
+	}
+
+	if _, ok := allSpaceNames[network.AlphaSpaceName]; ok {
+		delete(allSpaceNames, network.AlphaSpaceName)
+	}
+
+	var spaces []string
+	for space := range allSpaceNames {
+		spaces = append(spaces, space)
+	}
+	return spaces, nil
+}
+
+func (api *ProvisionerAPI) machineSpaceTopology(machineID string, spaceNames []string) (params.ProvisioningNetworkTopology, error) {
+	var topology params.ProvisioningNetworkTopology
+	if len(spaceNames) < 1 {
 		return topology, nil
 	}
 
 	topology.SubnetAZs = make(map[string][]string)
 	topology.SpaceSubnets = make(map[string][]string)
 
-	for _, spaceName := range includeSpaces {
-		subnetsAndZones, err := api.subnetsAndZonesForSpace(m.Id(), spaceName)
+	for _, spaceName := range spaceNames {
+		subnetsAndZones, err := api.subnetsAndZonesForSpace(machineID, spaceName)
 		if err != nil {
 			return topology, errors.Trace(err)
 		}
