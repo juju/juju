@@ -6,7 +6,9 @@ package muxhttpserver
 import (
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2/catacomb"
@@ -27,6 +29,7 @@ type Logger interface {
 
 type Server struct {
 	catacomb catacomb.Catacomb
+	listener net.Listener
 	logger   Logger
 	Mux      *apiserverhttp.Mux
 	server   *http.Server
@@ -43,16 +46,21 @@ func NewServer(authority pki.Authority, logger Logger, conf Config) (*Server, er
 		GetCertificate: pki.AuthoritySNITLSGetter(authority),
 	}
 
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%s", conf.Address, conf.Port))
+	if err != nil {
+		return nil, errors.Annotate(err, "creating mux http server listener")
+	}
+
 	httpServ := &http.Server{
-		Addr:      fmt.Sprintf("%s:%s", conf.Address, conf.Port),
 		Handler:   mux,
 		TLSConfig: tlsConfig,
 	}
 
 	server := &Server{
-		logger: logger,
-		Mux:    mux,
-		server: httpServ,
+		listener: listener,
+		logger:   logger,
+		Mux:      mux,
+		server:   httpServ,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -75,6 +83,14 @@ func (s *Server) Kill() {
 	s.catacomb.Kill(nil)
 }
 
+func (s *Server) Port() string {
+	splits := strings.Split(s.listener.Addr().String(), ":")
+	if len(splits) == 0 {
+		return ""
+	}
+	return splits[len(splits)-1]
+}
+
 // Wait implements the worker interface
 func (s *Server) Wait() error {
 	return s.catacomb.Wait()
@@ -84,8 +100,8 @@ func (s *Server) loop() error {
 	httpCh := make(chan error)
 
 	go func() {
-		s.logger.Infof("starting http server on %s", s.server.Addr)
-		httpCh <- s.server.ListenAndServeTLS("", "")
+		s.logger.Infof("starting http server on %s", s.listener.Addr())
+		httpCh <- s.server.ServeTLS(s.listener, "", "")
 		close(httpCh)
 	}()
 
@@ -94,7 +110,7 @@ func (s *Server) loop() error {
 		case <-s.catacomb.Dying():
 			s.server.Close()
 		case err := <-httpCh:
-			if err != nil {
+			if err != nil && err != http.ErrServerClosed {
 				return err
 			}
 			return s.catacomb.ErrDying()
