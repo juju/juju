@@ -377,10 +377,6 @@ func (api *ProvisionerAPI) machineSpaces(m *state.Machine,
 		}
 	}
 
-	if _, ok := allSpaceNames[network.AlphaSpaceName]; ok {
-		delete(allSpaceNames, network.AlphaSpaceName)
-	}
-
 	var spaces []string
 	for space := range allSpaceNames {
 		spaces = append(spaces, space)
@@ -390,7 +386,10 @@ func (api *ProvisionerAPI) machineSpaces(m *state.Machine,
 
 func (api *ProvisionerAPI) machineSpaceTopology(machineID string, spaceNames []string) (params.ProvisioningNetworkTopology, error) {
 	var topology params.ProvisioningNetworkTopology
-	if len(spaceNames) < 1 {
+
+	// If there are no space names, or if there is only one space name and
+	// that's the alpha space.
+	if len(spaceNames) < 1 || (len(spaceNames) == 1 && spaceNames[0] == network.AlphaSpaceName) {
 		return topology, nil
 	}
 
