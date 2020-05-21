@@ -686,6 +686,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                config.Clock,
 			MuxShutdownWait:      config.MuxShutdownWait,
 			LogDir:               agentConfig.LogDir(),
+			Logger:               loggo.GetLogger("juju.worker.httpserver"),
 			GetControllerConfig:  httpserver.GetControllerConfig,
 			NewTLSConfig:         httpserver.NewTLSConfig,
 			NewWorker:            httpserver.NewWorkerShim,
