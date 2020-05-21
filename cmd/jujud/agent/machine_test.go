@@ -22,7 +22,6 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
@@ -45,6 +44,7 @@ import (
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
@@ -62,6 +62,7 @@ import (
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
@@ -1389,13 +1390,19 @@ func startAddressPublisher(suite cleanupSuite, c *gc.C, agent *MachineAgent) {
 				if hub == nil {
 					continue
 				}
-				_, err := hub.Publish(apiserver.DetailsTopic, apiserver.Details{
+				sent, err := hub.Publish(apiserver.DetailsTopic, apiserver.Details{
 					Servers: map[string]apiserver.APIServer{
 						"0": {ID: "0", InternalAddress: serverAddress},
 					},
 				})
 				if err != nil {
 					c.Logf("error publishing address: %s", err)
+				}
+
+				// Ensure that it has been sent, before moving on.
+				select {
+				case <-sent:
+				case <-time.After(testing.ShortWait):
 				}
 			}
 		}
