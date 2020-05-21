@@ -68,6 +68,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 						tags.JujuModel:      coretesting.ModelTag.Id(),
 						tags.JujuMachine:    "controller-machine-0",
 					},
+					EndpointBindings: make(map[string]string),
 				},
 			}},
 			{Result: &params.ProvisioningInfoV10{
@@ -82,6 +83,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 						tags.JujuModel:      coretesting.ModelTag.Id(),
 						tags.JujuMachine:    "controller-machine-5",
 					},
+					EndpointBindings: make(map[string]string),
 					Volumes: []params.VolumeParams{{
 						VolumeTag:  "volume-0",
 						Size:       1000,
@@ -164,6 +166,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 						tags.JujuModel:      coretesting.ModelTag.Id(),
 						tags.JujuMachine:    "controller-machine-5",
 					},
+					EndpointBindings: make(map[string]string),
 				},
 				SubnetsToZones: map[string][]string{
 					"subnet-1": {"zone1"},
@@ -208,6 +211,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 				tags.JujuModel:      coretesting.ModelTag.Id(),
 				tags.JujuMachine:    "controller-machine-5",
 			},
+			EndpointBindings: make(map[string]string),
 		},
 		ProvisioningNetworkTopology: params.ProvisioningNetworkTopology{
 			SubnetAZs: map[string][]string{
@@ -379,7 +383,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 						tags.JujuMachine:       "controller-machine-5",
 						tags.JujuUnitsDeployed: profileUnit.Name(),
 					},
-					EndpointBindings: map[string]string{},
+					EndpointBindings: make(map[string]string),
 					CharmLXDProfiles: []string{pName},
 				},
 			},
@@ -438,6 +442,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 							Provider:   "static",
 						},
 					}},
+					EndpointBindings: make(map[string]string),
 				},
 			}},
 		},
@@ -569,6 +574,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 						tags.JujuModel:      coretesting.ModelTag.Id(),
 						tags.JujuMachine:    "controller-machine-0",
 					},
+					EndpointBindings: make(map[string]string),
 				},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 0/lxd/0")},
