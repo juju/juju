@@ -39,12 +39,12 @@ func ECDSAP384() (crypto.Signer, error) {
 	return ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 }
 
-// ECDSA384 returns a RSA 2048 private key
+// RSA2048 returns a RSA 2048 private key
 func RSA2048() (crypto.Signer, error) {
 	return rsa.GenerateKey(rand.Reader, 2048)
 }
 
-// ECDSA384 returns a RSA 3072 private key
+// RSA3072 returns a RSA 3072 private key
 func RSA3072() (crypto.Signer, error) {
 	return rsa.GenerateKey(rand.Reader, 3072)
 }
