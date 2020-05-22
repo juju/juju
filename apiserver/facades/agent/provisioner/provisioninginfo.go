@@ -44,11 +44,6 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 		return result, errors.Annotate(err, "retrieving environ")
 	}
 
-	allSpaces, err := api.st.AllSpaces()
-	if err != nil {
-		return result, errors.Annotate(err, "getting all spaces")
-	}
-
 	allSpaceInfos, err := api.st.AllSpaceInfos()
 	if err != nil {
 		return result, errors.Annotate(err, "getting all space infos")
@@ -62,7 +57,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 		}
 		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
-			result.Results[i].Result, err = api.getProvisioningInfo(machine, env, allSpaces, allSpaceInfos)
+			result.Results[i].Result, err = api.getProvisioningInfo(machine, env, allSpaceInfos)
 		}
 
 		result.Results[i].Error = common.ServerError(err)
@@ -72,15 +67,14 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 
 func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 	env environs.Environ,
-	allSpaces []*state.Space,
-	allSpaceInfos network.SpaceInfos,
+	spaceInfos network.SpaceInfos,
 ) (*params.ProvisioningInfoV10, error) {
 	endpointBindings, err := api.machineEndpointBindings(m)
 	if err != nil {
 		return nil, common.ServerError(errors.Annotate(err, "cannot determine machine endpoint bindings"))
 	}
 
-	spaceBindings, err := api.translateEndpointBindingsToSpaces(allSpaces, endpointBindings)
+	spaceBindings, err := api.translateEndpointBindingsToSpaces(spaceInfos, endpointBindings)
 	if err != nil {
 		return nil, common.ServerError(errors.Annotate(err, "cannot determine spaces for endpoint bindings"))
 	}
@@ -90,7 +84,7 @@ func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 		return nil, errors.Trace(err)
 	}
 
-	machineSpaces, err := api.machineSpaces(m, allSpaceInfos, endpointBindings)
+	machineSpaces, err := api.machineSpaces(m, spaceInfos, endpointBindings)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -118,7 +112,7 @@ func (api *ProvisionerAPIV9) ProvisioningInfo(args params.Entities) (params.Prov
 		return result, errors.Annotate(err, "retrieving environ")
 	}
 
-	allSpaces, err := api.st.AllSpaces()
+	spaceInfos, err := api.st.AllSpaceInfos()
 	if err != nil {
 		return result, errors.Annotate(err, "getting all spaces")
 	}
@@ -131,7 +125,7 @@ func (api *ProvisionerAPIV9) ProvisioningInfo(args params.Entities) (params.Prov
 		}
 		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
-			result.Results[i].Result, err = api.getProvisioningInfo(machine, env, allSpaces)
+			result.Results[i].Result, err = api.getProvisioningInfo(machine, env, spaceInfos)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
@@ -140,14 +134,14 @@ func (api *ProvisionerAPIV9) ProvisioningInfo(args params.Entities) (params.Prov
 
 func (api *ProvisionerAPIV9) getProvisioningInfo(m *state.Machine,
 	env environs.Environ,
-	allSpaces []*state.Space,
+	spaceInfos network.SpaceInfos,
 ) (*params.ProvisioningInfo, error) {
 	endpointBindings, err := api.machineEndpointBindings(m)
 	if err != nil {
 		return nil, common.ServerError(errors.Annotate(err, "cannot determine machine endpoint bindings"))
 	}
 
-	spaceBindings, err := api.translateEndpointBindingsToSpaces(allSpaces, endpointBindings)
+	spaceBindings, err := api.translateEndpointBindingsToSpaces(spaceInfos, endpointBindings)
 	if err != nil {
 		return nil, common.ServerError(errors.Annotate(err, "cannot determine spaces for endpoint bindings"))
 	}
@@ -563,12 +557,7 @@ func (api *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string
 	return endpointBindings, nil
 }
 
-func (api *ProvisionerAPI) translateEndpointBindingsToSpaces(allSpaces []*state.Space, endpointBindings map[string]*state.Bindings) (map[string]string, error) {
-	spacesIdsToProviderIds, err := api.spaceIdsToProviderIds(allSpaces)
-	if err != nil {
-		return nil, errors.Annotate(err, "retrieving all spaces")
-	}
-
+func (api *ProvisionerAPI) translateEndpointBindingsToSpaces(spaceInfos network.SpaceInfos, endpointBindings map[string]*state.Bindings) (map[string]string, error) {
 	combinedBindings := make(map[string]string)
 	for _, bindings := range endpointBindings {
 		if len(bindings.Map()) == 0 {
@@ -586,9 +575,13 @@ func (api *ProvisionerAPI) translateEndpointBindingsToSpaces(allSpaces []*state.
 				continue
 			}
 
-			spaceProviderID, nameKnown := spacesIdsToProviderIds[spaceID]
-			if nameKnown {
-				combinedBindings[endpoint] = spaceProviderID
+			space := spaceInfos.GetByID(spaceID)
+			if space != nil {
+				bound := string(space.ProviderId)
+				if bound == "" {
+					bound = string(space.Name)
+				}
+				combinedBindings[endpoint] = bound
 			} else {
 				// Technically, this can't happen in practice, as we're
 				// validating the bindings during application deployment.
@@ -597,22 +590,6 @@ func (api *ProvisionerAPI) translateEndpointBindingsToSpaces(allSpaces []*state.
 		}
 	}
 	return combinedBindings, nil
-}
-
-func (api *ProvisionerAPI) spaceIdsToProviderIds(allSpaces []*state.Space) (map[string]string, error) {
-	lookup := make(map[string]string, len(allSpaces))
-	for _, space := range allSpaces {
-		// For providers without native support for spaces, use the name instead
-		// as provider ID.
-		providerID := string(space.ProviderId())
-		if len(providerID) == 0 {
-			providerID = space.Name()
-		}
-
-		lookup[space.Id()] = providerID
-	}
-
-	return lookup, nil
 }
 
 // availableImageMetadata returns all image metadata available to this machine
