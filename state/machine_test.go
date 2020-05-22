@@ -331,6 +331,18 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
 }
 
+func (s *MachineSuite) TestLifeMachineLockedForSeriesUpgrade(c *gc.C) {
+	err := s.machine.CreateUpgradeSeriesLock(nil, "xenial")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.Destroy()
+	c.Assert(err, gc.ErrorMatches, `machine 1 is locked for series upgrade`)
+
+	err = s.machine.EnsureDead()
+	c.Assert(err, gc.ErrorMatches, `machine 1 is locked for series upgrade`)
+	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
+}
+
 func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	// A machine with an assigned unit must not advance lifecycle.
 	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
