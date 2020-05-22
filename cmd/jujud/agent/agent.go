@@ -125,12 +125,12 @@ func (c *agentConf) CurrentConfig() agent.Config {
 	return c._config.Clone()
 }
 
-func setupAgentLogging(config agent.Config) {
-
+func setupAgentLogging(context *loggo.Context, config agent.Config) {
+	logger := context.GetLogger("juju.agent.setup")
 	if loggingOverride := config.Value(agent.LoggingOverride); loggingOverride != "" {
 		logger.Infof("logging override set for this agent: %q", loggingOverride)
-		loggo.DefaultContext().ResetLoggerLevels()
-		err := loggo.ConfigureLoggers(loggingOverride)
+		context.ResetLoggerLevels()
+		err := context.ConfigureLoggers(loggingOverride)
 		if err != nil {
 			logger.Errorf("setting logging override %v", err)
 		}
@@ -138,8 +138,8 @@ func setupAgentLogging(config agent.Config) {
 		logger.Infof("setting logging config to %q", loggingConfig)
 		// There should only be valid logging configuration strings saved
 		// in the logging config section in the agent.conf file.
-		loggo.DefaultContext().ResetLoggerLevels()
-		err := loggo.ConfigureLoggers(loggingConfig)
+		context.ResetLoggerLevels()
+		err := context.ConfigureLoggers(loggingConfig)
 		if err != nil {
 			logger.Errorf("problem setting logging config %v", err)
 		}
