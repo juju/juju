@@ -29,6 +29,7 @@ import (
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
+	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -252,7 +253,7 @@ func (h *bundleHandler) makeModel(
 	if err != nil {
 		return errors.Annotate(err, "cannot get model status")
 	}
-	h.model, err = utils.BuildModelRepresentation(status, h.deployAPI, useExistingMachines, bundleMachines)
+	h.model, err = appbundle.BuildModelRepresentation(status, h.deployAPI, useExistingMachines, bundleMachines)
 	if err != nil {
 		return errors.Trace(err)
 	}

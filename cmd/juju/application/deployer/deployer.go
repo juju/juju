@@ -21,6 +21,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
+	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/core/constraints"
@@ -335,7 +336,7 @@ func (d *DeployerFactory) maybeReadLocalCharm(getter ModelConfigGetter) (Deploye
 
 func (d *DeployerFactory) maybeReadCharmstoreBundle(cstore *utils.CharmStoreAdaptor) (Deployer, error) {
 	// validate this is a charmstore bundle
-	bundleURL, channel, err := utils.ResolveBundleURL(cstore, d.charmOrBundle, d.channel)
+	bundleURL, channel, err := appbundle.ResolveBundleURL(cstore, d.charmOrBundle, d.channel)
 	if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
 		return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	}
@@ -366,7 +367,7 @@ func (d *DeployerFactory) maybeReadCharmstoreBundle(cstore *utils.CharmStoreAdap
 		return nil, errors.Trace(err)
 	}
 
-	db := d.newDeployBundle(utils.NewResolvedBundle(bundle))
+	db := d.newDeployBundle(appbundle.NewResolvedBundle(bundle))
 	db.bundleURL = bundleURL
 	db.channel = channel
 	db.bundleOverlayFile = d.bundleOverlayFile

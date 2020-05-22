@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package utils
+package bundle
 
 import (
 	"reflect"
@@ -11,14 +11,30 @@ import (
 	"github.com/juju/charm/v7"
 	csparams "github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/storage"
 )
+
+// This file contains functionality required by both the application
+// package and the application/deployer package.
+
+var logger = loggo.GetLogger("juju.cmd.juju.application.bundle")
+
+// ModelExtractor provides everything we need to build a
+// bundlechanges.Model from a model API connection.
+type ModelExtractor interface {
+	GetAnnotations(tags []string) ([]params.AnnotationsGetResult, error)
+	GetConstraints(applications ...string) ([]constraints.Value, error)
+	GetConfig(branchName string, applications ...string) ([]map[string]interface{}, error)
+	Sequences() (map[string]int, error)
+}
 
 // BuildModelRepresentation creates a buildchanges.Model, representing
 // the existing deployment, to be used while deploying or diffing a bundle.
@@ -247,6 +263,12 @@ func verifyBundle(data *charm.BundleData, bundleDir string) error {
 	return errors.Trace(verifyError)
 }
 
+// URLResolver is the part of charmrepo.Charmstore that we need to
+// resolve a charm url.
+type URLResolver interface {
+	ResolveWithPreferredChannel(*charm.URL, csparams.Channel) (*charm.URL, csparams.Channel, []string, error)
+}
+
 // ResolveBundleURL tries to interpret maybeBundle as a eharmstorr
 // bundle. If it turns out to be a bundle, the resolved URL and
 // channel are returned. If it isn't but there wasn't a problem
@@ -259,7 +281,7 @@ func ResolveBundleURL(cstore URLResolver, maybeBundle string, preferredChannel c
 
 	// Charm or bundle has been supplied as a URL so we resolve and
 	// deploy using the store.
-	storeCharmOrBundleURL, channel, _, err := ResolveCharm(cstore.ResolveWithPreferredChannel, userRequestedURL, preferredChannel)
+	storeCharmOrBundleURL, channel, _, err := utils.ResolveCharm(cstore.ResolveWithPreferredChannel, userRequestedURL, preferredChannel)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}

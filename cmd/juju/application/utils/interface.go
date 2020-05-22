@@ -9,8 +9,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/charms"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/resource"
 )
 
@@ -41,15 +39,6 @@ type CharmrepoForDeploy interface {
 // as required by different application commands.
 type MacaroonGetter interface {
 	Get(endpoint string, extra interface{}) error
-}
-
-// ModelExtractor provides everything we need to build a
-// bundlechanges.Model from a model API connection.
-type ModelExtractor interface {
-	GetAnnotations(tags []string) ([]params.AnnotationsGetResult, error)
-	GetConstraints(applications ...string) ([]constraints.Value, error)
-	GetConfig(branchName string, applications ...string) ([]map[string]interface{}, error)
-	Sequences() (map[string]int, error)
 }
 
 // ResourceLister defines a subset of the resources facade, as required

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -85,7 +86,7 @@ func (d *deployBundle) deploy(
 	// Compose bundle to be deployed and check its validity before running
 	// any pre/post checks.
 	var bundleData *charm.BundleData
-	if bundleData, err = utils.ComposeAndVerifyBundle(d.bundleDataSource, d.bundleOverlayFile); err != nil {
+	if bundleData, err = bundle.ComposeAndVerifyBundle(d.bundleDataSource, d.bundleOverlayFile); err != nil {
 		return errors.Annotatef(err, "cannot deploy bundle")
 	}
 	d.bundleDir = d.bundleDataSource.BasePath()
