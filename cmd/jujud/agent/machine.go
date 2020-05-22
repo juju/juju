@@ -470,7 +470,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
 
-	setupAgentLogging(a.CurrentConfig())
+	setupAgentLogging(loggo.DefaultContext(), a.CurrentConfig())
 
 	if err := introspection.WriteProfileFunctions(introspection.ProfileDir); err != nil {
 		// This isn't fatal, just annoying.

@@ -146,7 +146,7 @@ func (s *bufferedLogWriterSuite) TestClose(c *gc.C) {
 }
 
 func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriter(c *gc.C) {
-	bufferedLogger, err := logsender.InstallBufferedLogWriter(10)
+	bufferedLogger, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 10)
 	c.Assert(err, jc.ErrorIsNil)
 	defer logsender.UninstallBufferedLogWriter()
 
@@ -168,7 +168,7 @@ func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriter(c *gc.C) {
 }
 
 func (s *bufferedLogWriterSuite) TestUninstallBufferedLogWriter(c *gc.C) {
-	_, err := logsender.InstallBufferedLogWriter(10)
+	_, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 10)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = logsender.UninstallBufferedLogWriter()

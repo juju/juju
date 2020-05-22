@@ -161,7 +161,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) (err error) {
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return err
 	}
-	setupAgentLogging(a.CurrentConfig())
+	setupAgentLogging(loggo.DefaultContext(), a.CurrentConfig())
 
 	a.runner.StartWorker("api", a.APIWorkers)
 	err = cmdutil.AgentDone(logger, a.runner.Wait())

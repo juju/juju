@@ -47,9 +47,9 @@ const writerName = "buffered-logs"
 
 // InstallBufferedLogWriter creates and returns a new BufferedLogWriter,
 // registering it with Loggo.
-func InstallBufferedLogWriter(maxLen int) (*BufferedLogWriter, error) {
+func InstallBufferedLogWriter(context *loggo.Context, maxLen int) (*BufferedLogWriter, error) {
 	writer := NewBufferedLogWriter(maxLen)
-	err := loggo.RegisterWriter(writerName, writer)
+	err := context.AddWriter(writerName, writer)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to set up log buffering")
 	}

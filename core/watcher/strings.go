@@ -5,6 +5,7 @@ package watcher
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 )
 
@@ -138,4 +139,12 @@ func (sw *StringsWorker) Kill() {
 // Wait is part of the worker.Worker interface.
 func (sw *StringsWorker) Wait() error {
 	return sw.catacomb.Wait()
+}
+
+// Report implements dependency.Reporter.
+func (sw *StringsWorker) Report() map[string]interface{} {
+	if r, ok := sw.config.Handler.(worker.Reporter); ok {
+		return r.Report()
+	}
+	return nil
 }
