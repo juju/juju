@@ -594,6 +594,40 @@ func (s *CleanupSuite) TestForceDestroyMachineSchedulesRemove(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *CleanupSuite) TestForceDestroyMachineRemovesUpgradeSeriesLock(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertDoesNotNeedCleanup(c)
+
+	err = machine.CreateUpgradeSeriesLock(nil, "xenial")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.ForceDestroy(time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertNeedsCleanup(c)
+	s.assertCleanupRuns(c)
+
+	assertLifeIs(c, machine, state.Dead)
+
+	// Running a cleanup pass succeeds but doesn't get rid of cleanups
+	// because there's a scheduled one.
+	s.assertCleanupRuns(c)
+	assertLifeIs(c, machine, state.Dead)
+	s.assertNeedsCleanup(c)
+
+	locked, err := machine.IsLockedForSeriesUpgrade()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(locked, jc.IsFalse)
+
+	s.Clock.Advance(time.Minute)
+	s.assertCleanupCount(c, 1)
+	err = machine.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *CleanupSuite) TestCleanupDyingUnit(c *gc.C) {
 	// Create active unit, in a relation.
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)

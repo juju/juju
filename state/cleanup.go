@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/bson"
@@ -654,7 +655,7 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanup
 }
 
 // cleanupCharm is speculative: it can abort without error for many
-// reasons, because it's triggered somewhat overenthusiastically for
+// reasons, because it's triggered somewhat over-enthusiastically for
 // simplicity's sake.
 func (st *State) cleanupCharm(charmURL string) error {
 	curl, err := charm.ParseURL(charmURL)
@@ -1062,7 +1063,7 @@ func (st *State) cleanupRemovedUnit(unitId string, cleanupArgs []bson.Raw) error
 
 // cleanupDyingMachine marks resources owned by the machine as dying, to ensure
 // they are cleaned up as well.
-func (st *State) cleanupDyingMachine(machineId string, cleanupArgs []bson.Raw) error {
+func (st *State) cleanupDyingMachine(machineID string, cleanupArgs []bson.Raw) error {
 	var (
 		force   bool
 		maxWait time.Duration
@@ -1082,12 +1083,14 @@ func (st *State) cleanupDyingMachine(machineId string, cleanupArgs []bson.Raw) e
 			return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
 		}
 	}
-	machine, err := st.Machine(machineId)
+
+	machine, err := st.Machine(machineID)
 	if errors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
-		return err
+		return errors.Trace(err)
 	}
+
 	err = cleanupDyingMachineResources(machine, force)
 	if err != nil {
 		return errors.Trace(err)
@@ -1097,7 +1100,7 @@ func (st *State) cleanupDyingMachine(machineId string, cleanupArgs []bson.Raw) e
 	// is if the cloud credential is invalid so the provisioner is
 	// stopped.
 	if force {
-		st.scheduleForceCleanup(cleanupForceRemoveMachine, machineId, maxWait)
+		st.scheduleForceCleanup(cleanupForceRemoveMachine, machineID, maxWait)
 	}
 	return nil
 }
@@ -1121,17 +1124,19 @@ func (st *State) cleanupForceDestroyedMachine(machineId string, cleanupArgs []bs
 	return st.cleanupForceDestroyedMachineInternal(machineId, maxWait)
 }
 
-func (st *State) cleanupForceDestroyedMachineInternal(machineId string, maxWait time.Duration) error {
-	machine, err := st.Machine(machineId)
-	if errors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
+func (st *State) cleanupForceDestroyedMachineInternal(machineID string, maxWait time.Duration) error {
+	// The first thing we want to do is remove any series upgrade machine
+	// locks that might prevent other resources from being removed.
+	// We don't tie the lock cleanup to existence of the machine.
+	// Just always delete it if it exists.
+	if err := st.cleanupUpgradeSeriesLock(machineID); err != nil {
 		return errors.Trace(err)
 	}
 
-	// The first thing we want to do is remove any series upgrade machine
-	// locks that might prevent other resources from being removed.
-	if err := cleanupUpgradeSeriesLock(machine); err != nil {
+	machine, err := st.Machine(machineID)
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1156,9 +1161,9 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineId string, maxWait 
 		return errors.Trace(err)
 	}
 	if machine.IsManager() {
-		node, err := st.ControllerNode(machineId)
+		node, err := st.ControllerNode(machineID)
 		if err != nil {
-			return errors.Annotatef(err, "cannot get controller node for machine %v", machineId)
+			return errors.Annotatef(err, "cannot get controller node for machine %v", machineID)
 		}
 		if node.HasVote() {
 			// we remove the vote from the controller so that it can be torn down cleanly. Note that this isn't reflected
@@ -1589,6 +1594,23 @@ func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) (err 
 	return nil
 }
 
+// cleanupUpgradeSeriesLock removes a series upgrade lock
+// for the input machine ID if one exists.
+// The
+func (st *State) cleanupUpgradeSeriesLock(machineID string) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if _, err := st.getUpgradeSeriesLock(machineID); err != nil {
+			if errors.IsNotFound(err) {
+				return nil, jujutxn.ErrNoOperations
+			}
+			return nil, errors.Trace(err)
+		}
+
+		return removeUpgradeSeriesLockTxnOps(machineID), nil
+	}
+	return errors.Trace(st.db().Run(buildTxn))
+}
+
 func closeIter(iter mongo.Iterator, errOut *error, message string) {
 	err := iter.Close()
 	if err == nil {
@@ -1600,14 +1622,4 @@ func closeIter(iter mongo.Iterator, errOut *error, message string) {
 		return
 	}
 	logger.Errorf("%v", err)
-}
-
-func cleanupUpgradeSeriesLock(machine *Machine) error {
-	logger.Infof("removing any upgrade series locks for machine, %s", machine)
-	err := machine.RemoveUpgradeSeriesLock()
-	// Do not return an error
-	if errors.IsNotFound(err) {
-		return nil
-	}
-	return err
 }
