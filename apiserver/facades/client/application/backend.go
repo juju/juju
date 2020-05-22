@@ -104,7 +104,7 @@ type Application interface {
 // the same names.
 type Bindings interface {
 	Map() map[string]string
-	MapWithSpaceNames() (map[string]string, error)
+	MapWithSpaceNames(network.SpaceInfos) (map[string]string, error)
 }
 
 // Charm defines a subset of the functionality provided by the

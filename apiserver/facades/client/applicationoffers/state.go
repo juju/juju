@@ -70,6 +70,8 @@ type Backend interface {
 
 	// GetModelCallContext gets everything that is needed to make cloud calls on behalf of the state current model.
 	GetModelCallContext() context.ProviderCallContext
+
+	AllSpaceInfos() (network.SpaceInfos, error)
 }
 
 var GetStateAccess = func(st *state.State) Backend {
@@ -112,6 +114,10 @@ func (s *stateShim) Model() (Model, error) {
 
 func (s *stateShim) GetModelCallContext() context.ProviderCallContext {
 	return context.CallContext(s.st)
+}
+
+func (s *stateShim) AllSpaceInfos() (network.SpaceInfos, error) {
+	return s.st.AllSpaceInfos()
 }
 
 type stateCharmShim struct {

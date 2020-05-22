@@ -2444,6 +2444,12 @@ func (u *APIv8) ApplicationInfo(_, _ struct{}) {}
 
 // ApplicationsInfo returns applications information.
 func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfoResults, error) {
+	// Get all the space infos before iterating over the application infos.
+	allSpaceInfosLookup, err := api.backend.AllSpaceInfos()
+	if err != nil {
+		return params.ApplicationInfoResults{}, common.ServerError(err)
+	}
+
 	out := make([]params.ApplicationInfoResult, len(in.Entities))
 	for i, one := range in.Entities {
 		tag, err := names.ParseApplicationTag(one.Tag)
@@ -2469,7 +2475,7 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			continue
 		}
 
-		bindingsMap, err := bindings.MapWithSpaceNames()
+		bindingsMap, err := bindings.MapWithSpaceNames(allSpaceInfosLookup)
 		if err != nil {
 			out[i].Error = common.ServerError(err)
 			continue
