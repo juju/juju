@@ -695,7 +695,8 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		step.SetPlanURL(apiRoot.PlanURL())
 	}
 
-	deploy, err := c.getDeployerFactory().GetDeployer(apiRoot, cstoreAPI)
+	factory, cfg := c.getDeployerFactory()
+	deploy, err := factory.GetDeployer(cfg, apiRoot, cstoreAPI)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -738,34 +739,36 @@ func (c *DeployCommand) getMeteringAPIURL(controllerAPIRoot api.Connection) (str
 	return controllerCfg.MeteringURL(), nil
 }
 
-func (c *DeployCommand) getDeployerFactory() *deployer.DeployerFactory {
-	cfg := deployer.DeployerConfig{
+func (c *DeployCommand) getDeployerFactory() (*deployer.DeployerFactory, deployer.DeployerConfig) {
+	dep := deployer.DeployerDependencies{
 		Model:                c,
-		ApplicationName:      c.ApplicationName,
-		AttachStorage:        c.AttachStorage,
-		Bindings:             c.Bindings,
-		BundleDevices:        c.BundleDevices,
-		BundleMachines:       c.BundleMachines,
-		BundleOverlayFile:    c.BundleOverlayFile,
-		BundleStorage:        c.BundleStorage,
-		Channel:              c.Channel,
-		CharmOrBundle:        c.CharmOrBundle,
-		ConfigOptions:        c.ConfigOptions,
-		Constraints:          c.Constraints,
-		Devices:              c.Devices,
-		DryRun:               c.DryRun,
-		FlagSet:              c.flagSet,
-		Force:                c.Force,
 		NewConsumeDetailsAPI: c.NewConsumeDetailsAPI, // only used here
-		NumUnits:             c.NumUnits,
-		PlacementSpec:        c.PlacementSpec,
-		Placement:            c.Placement,
-		Resources:            c.Resources,
-		Series:               c.Series,
 		Steps:                c.Steps,
-		Storage:              c.Storage,
-		Trust:                c.Trust,
-		UseExisting:          c.UseExisting,
 	}
-	return deployer.NewDeployerFactory(cfg)
+	cfg := deployer.DeployerConfig{
+		ApplicationName:   c.ApplicationName,
+		AttachStorage:     c.AttachStorage,
+		Bindings:          c.Bindings,
+		BundleDevices:     c.BundleDevices,
+		BundleMachines:    c.BundleMachines,
+		BundleOverlayFile: c.BundleOverlayFile,
+		BundleStorage:     c.BundleStorage,
+		Channel:           c.Channel,
+		CharmOrBundle:     c.CharmOrBundle,
+		ConfigOptions:     c.ConfigOptions,
+		Constraints:       c.Constraints,
+		Devices:           c.Devices,
+		DryRun:            c.DryRun,
+		FlagSet:           c.flagSet,
+		Force:             c.Force,
+		NumUnits:          c.NumUnits,
+		PlacementSpec:     c.PlacementSpec,
+		Placement:         c.Placement,
+		Resources:         c.Resources,
+		Series:            c.Series,
+		Storage:           c.Storage,
+		Trust:             c.Trust,
+		UseExisting:       c.UseExisting,
+	}
+	return deployer.NewDeployerFactory(dep), cfg
 }

@@ -35,49 +35,34 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.juju.application.deployer")
 
-func NewDeployerFactory(cfg DeployerConfig) *DeployerFactory {
+// NewDeployerFactory returns a DeployerFactory setup with the API and
+// function dependencies required by every deployerr.
+func NewDeployerFactory(dep DeployerDependencies) *DeployerFactory {
 	d := &DeployerFactory{
-		model:                cfg.Model,
-		placementSpec:        cfg.PlacementSpec,
-		placement:            cfg.Placement,
-		numUnits:             cfg.NumUnits,
-		attachStorage:        cfg.AttachStorage,
 		clock:                jujuclock.WallClock,
-		charmOrBundle:        cfg.CharmOrBundle,
-		bundleOverlayFile:    cfg.BundleOverlayFile,
-		channel:              cfg.Channel,
-		series:               cfg.Series,
-		force:                cfg.Force,
-		dryRun:               cfg.DryRun,
-		applicationName:      cfg.ApplicationName,
-		configOptions:        cfg.ConfigOptions,
-		constraints:          cfg.Constraints,
-		storage:              cfg.Storage,
-		bundleStorage:        cfg.BundleStorage,
-		devices:              cfg.Devices,
-		bundleDevices:        cfg.BundleDevices,
-		resources:            cfg.Resources,
-		bindings:             cfg.Bindings,
-		steps:                cfg.Steps,
-		UseExisting:          cfg.UseExisting,
-		bundleMachines:       cfg.BundleMachines,
-		newConsumeDetailsAPI: cfg.NewConsumeDetailsAPI,
-		trust:                cfg.Trust,
-		flagSet:              cfg.FlagSet,
+		model:                dep.Model,
+		newConsumeDetailsAPI: dep.NewConsumeDetailsAPI,
+		steps:                dep.Steps,
 	}
-	if cfg.DeployResources == nil {
+	if dep.DeployResources == nil {
 		d.deployResources = resourceadapters.DeployResources
 	}
 	return d
 }
 
+// Deployter defines the functionality of a deployer returned by the
+// DeployterFactory.
 type Deployer interface {
 	// PrepareAndDeploy finishes preparing to deploy a charm or bundle,
-	// then deploys it.
+	// then deploys it.  This is done as one step to accomidate the
+	// call being wrapped by block.ProcessBlockedError.
 	PrepareAndDeploy(*cmd.Context, DeployerAPI, *utils.CharmStoreAdaptor) error
 }
 
-func (d *DeployerFactory) GetDeployer(getter ModelConfigGetter, cstoreAPI *utils.CharmStoreAdaptor) (Deployer, error) {
+// GetDeployer returns the correct deployer to use based on the cfg provided.
+// A ModelConfigGetter and CharmStoreAdaptor nneded to find the deployer.
+func (d *DeployerFactory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, cstoreAPI *utils.CharmStoreAdaptor) (Deployer, error) {
+	d.setConfig(cfg)
 	maybeDeployers := []func() (Deployer, error){
 		d.maybeReadLocalBundle,
 		func() (Deployer, error) { return d.maybeReadLocalCharm(getter) },
@@ -95,8 +80,42 @@ func (d *DeployerFactory) GetDeployer(getter ModelConfigGetter, cstoreAPI *utils
 	return nil, errors.NotFoundf("suitable Deployer")
 }
 
-type DeployFn func(*cmd.Context, DeployerAPI, *utils.CharmStoreAdaptor) error
+func (d *DeployerFactory) setConfig(cfg DeployerConfig) {
+	d.placementSpec = cfg.PlacementSpec
+	d.placement = cfg.Placement
+	d.numUnits = cfg.NumUnits
+	d.attachStorage = cfg.AttachStorage
+	d.charmOrBundle = cfg.CharmOrBundle
+	d.bundleOverlayFile = cfg.BundleOverlayFile
+	d.channel = cfg.Channel
+	d.series = cfg.Series
+	d.force = cfg.Force
+	d.dryRun = cfg.DryRun
+	d.applicationName = cfg.ApplicationName
+	d.configOptions = cfg.ConfigOptions
+	d.constraints = cfg.Constraints
+	d.storage = cfg.Storage
+	d.bundleStorage = cfg.BundleStorage
+	d.devices = cfg.Devices
+	d.bundleDevices = cfg.BundleDevices
+	d.resources = cfg.Resources
+	d.bindings = cfg.Bindings
+	d.useExisting = cfg.UseExisting
+	d.bundleMachines = cfg.BundleMachines
+	d.trust = cfg.Trust
+	d.flagSet = cfg.FlagSet
+}
 
+// DeployerDependencies are required for any deployer to be run.
+type DeployerDependencies struct {
+	DeployResources      resourceadapters.DeployResourcesFunc
+	Model                ModelCommand
+	NewConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
+	Steps                []DeployStep
+}
+
+// DeployerConfig is the data required to choose a deployer and then run
+// PrepareAndDeploy.
 type DeployerConfig struct {
 	Model                ModelCommand
 	ApplicationName      string
@@ -123,41 +142,45 @@ type DeployerConfig struct {
 	Placement            []*instance.Placement
 	Resources            map[string]string
 	Series               string
-	Steps                []DeployStep
 	Storage              map[string]storage.Constraints
 	Trust                bool
 	UseExisting          bool
 }
 
 type DeployerFactory struct {
+	// DeployerDependencies
 	model                ModelCommand
-	placementSpec        string
-	placement            []*instance.Placement
-	numUnits             int
-	attachStorage        []string
-	clock                jujuclock.Clock
-	charmOrBundle        string
-	bundleOverlayFile    []string
-	channel              params.Channel
-	series               string
-	force                bool
-	dryRun               bool
-	applicationName      string
-	configOptions        common.ConfigFlag
-	constraints          constraints.Value
-	storage              map[string]storage.Constraints
-	bundleStorage        map[string]map[string]storage.Constraints
-	devices              map[string]devices.Constraints
-	bundleDevices        map[string]map[string]devices.Constraints
-	resources            map[string]string
-	bindings             map[string]string
-	steps                []DeployStep
-	UseExisting          bool
-	bundleMachines       map[string]string
-	newConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
 	deployResources      resourceadapters.DeployResourcesFunc
-	trust                bool
-	flagSet              *gnuflag.FlagSet
+	newConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
+
+	// DeployerConfig
+	placementSpec     string
+	placement         []*instance.Placement
+	numUnits          int
+	attachStorage     []string
+	charmOrBundle     string
+	bundleOverlayFile []string
+	channel           params.Channel
+	series            string
+	force             bool
+	dryRun            bool
+	applicationName   string
+	configOptions     common.ConfigFlag
+	constraints       constraints.Value
+	storage           map[string]storage.Constraints
+	bundleStorage     map[string]map[string]storage.Constraints
+	devices           map[string]devices.Constraints
+	bundleDevices     map[string]map[string]devices.Constraints
+	resources         map[string]string
+	bindings          map[string]string
+	steps             []DeployStep
+	useExisting       bool
+	bundleMachines    map[string]string
+	trust             bool
+	flagSet           *gnuflag.FlagSet
+
+	// Private
+	clock jujuclock.Clock
 }
 
 func (d *DeployerFactory) maybePredeployedLocalCharm() (Deployer, error) {
@@ -178,6 +201,9 @@ func (d *DeployerFactory) maybePredeployedLocalCharm() (Deployer, error) {
 	}, nil
 }
 
+// newDeployCharm returns the config needed to eventually call
+// deployCharm.deploy.  This is used by all types of charms to
+// be deployed
 func (d *DeployerFactory) newDeployCharm() deployCharm {
 	return deployCharm{
 		applicationName: d.applicationName,
@@ -230,6 +256,9 @@ func (d *DeployerFactory) maybeReadLocalBundle() (Deployer, error) {
 	return &localBundle{deployBundle: d.newDeployBundle(ds)}, nil
 }
 
+// newDeployBundle returns the config needed to eventually call
+// deployBundle.deploy.  This is used by all types of bundles to
+// be deployed
 func (d *DeployerFactory) newDeployBundle(ds charm.BundleDataSource) deployBundle {
 	return deployBundle{
 		model:                d.model,
@@ -241,7 +270,7 @@ func (d *DeployerFactory) newDeployBundle(ds charm.BundleDataSource) deployBundl
 		channel:              d.channel,
 		newConsumeDetailsAPI: d.newConsumeDetailsAPI,
 		deployResources:      d.deployResources,
-		useExistingMachines:  d.UseExisting,
+		useExistingMachines:  d.useExisting,
 		bundleMachines:       d.bundleMachines,
 		bundleStorage:        d.bundleStorage,
 		bundleDevices:        d.bundleDevices,
