@@ -4,42 +4,47 @@
 package uniter_test
 
 import (
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	basetesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type modelSuite struct {
-	uniterSuite
-	apiModel   *model.Model
-	stateModel *state.Model
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&modelSuite{})
 
-func (s *modelSuite) SetUpTest(c *gc.C) {
-	s.uniterSuite.SetUpTest(c)
-	var err error
-	s.apiModel, err = s.uniter.Model()
+func (s *modelSuite) TestModel(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(id, gc.Equals, "")
+		switch request {
+		case "CurrentModel":
+			c.Assert(arg, gc.IsNil)
+			c.Assert(result, gc.FitsTypeOf, &params.ModelResult{})
+			*(result.(*params.ModelResult)) = params.ModelResult{
+				Name: "mary",
+				UUID: "deadbeaf",
+				Type: "caas",
+			}
+		default:
+			c.Fatalf("unexpected api call %q", request)
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	m, err := client.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	s.stateModel, err = s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *modelSuite) TearDownTest(c *gc.C) {
-	s.uniterSuite.TearDownTest(c)
-}
-
-func (s *modelSuite) TestUUID(c *gc.C) {
-	c.Assert(s.apiModel.UUID, gc.Equals, s.stateModel.UUID())
-}
-
-func (s *modelSuite) TestName(c *gc.C) {
-	c.Assert(s.apiModel.Name, gc.Equals, s.stateModel.Name())
-}
-
-func (s *modelSuite) TestType(c *gc.C) {
-	c.Assert(s.apiModel.ModelType.String(), gc.Equals, string(s.stateModel.Type()))
+	c.Assert(m, jc.DeepEquals, &model.Model{
+		Name:      "mary",
+		UUID:      "deadbeaf",
+		ModelType: model.CAAS,
+	})
 }

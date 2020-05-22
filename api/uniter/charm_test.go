@@ -4,48 +4,65 @@
 package uniter_test
 
 import (
+	"github.com/juju/charm/v7"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type charmSuite struct {
-	uniterSuite
-
-	apiCharm *uniter.Charm
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&charmSuite{})
 
-func (s *charmSuite) SetUpTest(c *gc.C) {
-	s.uniterSuite.SetUpTest(c)
-
-	var err error
-	s.apiCharm, err = s.uniter.Charm(s.wordpressCharm.URL())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiCharm, gc.NotNil)
-}
-
-func (s *charmSuite) TearDownTest(c *gc.C) {
-	s.uniterSuite.TearDownTest(c)
-}
-
 func (s *charmSuite) TestCharmWithNilFails(c *gc.C) {
-	_, err := s.uniter.Charm(nil)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	_, err := client.Charm(nil)
 	c.Assert(err, gc.ErrorMatches, "charm url cannot be nil")
 }
 
-func (s *charmSuite) TestString(c *gc.C) {
-	c.Assert(s.apiCharm.String(), gc.Equals, s.wordpressCharm.String())
-}
-
-func (s *charmSuite) TestURL(c *gc.C) {
-	c.Assert(s.apiCharm.URL(), gc.DeepEquals, s.wordpressCharm.URL())
+func (s *charmSuite) TestCharm(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	curl := charm.MustParseURL("mysql")
+	ch, err := client.Charm(curl)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), jc.DeepEquals, curl)
+	c.Assert(ch.String(), gc.Equals, curl.String())
 }
 
 func (s *charmSuite) TestArchiveSha256(c *gc.C) {
-	archiveSha256, err := s.apiCharm.ArchiveSha256()
+	curl := charm.MustParseURL("mysql")
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "CharmArchiveSha256")
+		c.Assert(arg, jc.DeepEquals, params.CharmURLs{
+			URLs: []params.CharmURL{{URL: curl.String()}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		*(result.(*params.StringResults)) = params.StringResults{
+			Results: []params.StringResult{{
+				Result: "deadbeef",
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	ch, err := client.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(archiveSha256, gc.Equals, s.wordpressCharm.BundleSha256())
+	sha, err := ch.ArchiveSha256()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sha, gc.Equals, "deadbeef")
 }

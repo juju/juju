@@ -21,12 +21,6 @@ type unitStorageSuite struct {
 
 var _ = gc.Suite(&unitStorageSuite{})
 
-func (s *unitStorageSuite) createTestUnit(c *gc.C, t string, apiCaller basetesting.APICallerFunc) *uniter.Unit {
-	tag := names.NewUnitTag(t)
-	st := uniter.NewStateV2(apiCaller, tag)
-	return uniter.CreateUnit(st, tag)
-}
-
 func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 	count := uint64(1)
 	args := map[string][]params.StorageConstraints{
@@ -54,7 +48,10 @@ func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 		}
 		return nil
 	})
-	u := s.createTestUnit(c, "mysql/0", apiCaller)
+	caller := basetesting.BestVersionCaller{apiCaller, 2}
+	tag := names.NewUnitTag("mysql/0")
+	st := uniter.NewState(caller, tag)
+	u := uniter.CreateUnit(st, tag)
 	err := u.AddStorage(args)
 	c.Assert(err, gc.ErrorMatches, "yoink")
 }
@@ -85,7 +82,10 @@ func (s *unitStorageSuite) TestAddUnitStorageError(c *gc.C) {
 		return errors.New(msg)
 	})
 
-	u := s.createTestUnit(c, "mysql/0", apiCaller)
+	caller := basetesting.BestVersionCaller{apiCaller, 2}
+	tag := names.NewUnitTag("mysql/0")
+	st := uniter.NewState(caller, tag)
+	u := uniter.CreateUnit(st, tag)
 	err := u.AddStorage(args)
 	c.Assert(err, gc.ErrorMatches, msg)
 	c.Assert(called, jc.IsTrue)
