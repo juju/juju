@@ -50,7 +50,7 @@ func (s *aksSuite) TestGetKubeConfig(c *gc.C) {
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks get-credentials --name mycluster --resource-group resourceGroup --overwrite-existing -f " + configFile,
-			Environment: []string{"KUBECONFIG=" + configFile, "PATH=/path/to/here"},
+			Environment: mergeEnv(os.Environ(), []string{"KUBECONFIG=" + configFile}),
 		}).
 			Return(&exec.ExecResponse{
 				Code: 0,
@@ -104,7 +104,7 @@ func (s *aksSuite) TestInteractiveParam(c *gc.C) {
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json",
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+			Environment: os.Environ(),
 		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
@@ -114,7 +114,7 @@ func (s *aksSuite) TestInteractiveParam(c *gc.C) {
 			Commands: fmt.Sprintf(
 				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
 				resourceGroup),
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+			Environment: os.Environ(),
 		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
@@ -177,7 +177,7 @@ func (s *aksSuite) TestInteractiveParamResourceGroupDefined(c *gc.C) {
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json --resource-group " + resourceGroup,
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+			Environment: os.Environ(),
 		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
@@ -187,7 +187,7 @@ func (s *aksSuite) TestInteractiveParamResourceGroupDefined(c *gc.C) {
 			Commands: fmt.Sprintf(
 				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
 				resourceGroup),
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+			Environment: os.Environ(),
 		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
@@ -254,7 +254,7 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedSingleResourceGr
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json",
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+			Environment: os.Environ(),
 		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
@@ -264,7 +264,7 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedSingleResourceGr
 			Commands: fmt.Sprintf(
 				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
 				resourceGroup),
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+			Environment: os.Environ(),
 		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
@@ -331,7 +331,7 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedMultiResourceGro
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json",
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+			Environment: os.Environ(),
 		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
@@ -341,7 +341,7 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedMultiResourceGro
 			Commands: fmt.Sprintf(
 				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
 				resourceGroup),
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+			Environment: os.Environ(),
 		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
@@ -407,7 +407,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json",
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+			Environment: os.Environ(),
 		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
@@ -417,7 +417,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 			Commands: fmt.Sprintf(
 				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
 				resourceGroup),
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+			Environment: os.Environ(),
 		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
@@ -497,7 +497,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json",
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+			Environment: os.Environ(),
 		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
@@ -505,7 +505,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 			}, nil),
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    `az group list --output json --query "[?properties.provisioningState=='Succeeded']"`,
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+			Environment: os.Environ(),
 		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
@@ -515,7 +515,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 			Commands: fmt.Sprintf(
 				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
 				resourceGroup),
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+			Environment: os.Environ(),
 		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
@@ -572,7 +572,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedResourceGroupSpecified(c
 			Commands: fmt.Sprintf(
 				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
 				resourceGroup),
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+			Environment: os.Environ(),
 		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
@@ -612,7 +612,7 @@ func (s *aksSuite) TestEnsureExecutablePicksAZ(c *gc.C) {
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "which az",
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+			Environment: os.Environ(),
 		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
@@ -620,7 +620,7 @@ func (s *aksSuite) TestEnsureExecutablePicksAZ(c *gc.C) {
 			}, nil),
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az account show",
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+			Environment: os.Environ(),
 		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
@@ -641,7 +641,7 @@ func (s *aksSuite) TestEnsureExecutableNotFound(c *gc.C) {
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "which az",
-			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
+			Environment: os.Environ(),
 		}).
 			Return(&exec.ExecResponse{
 				Code: 1,

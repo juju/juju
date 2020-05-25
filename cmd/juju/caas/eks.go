@@ -38,7 +38,7 @@ func (e *eks) cloud() string {
 func (e *eks) ensureExecutable() error {
 	cmd := []string{"which", e.tool}
 	err := collapseRunError(runCommand(e, cmd, ""))
-	errAnnotationMessage := fmt.Sprintf("%q not found. Please install %q (see: https://eksctl.io/introduction/#installation, login, and try again", e.tool, e.tool)
+	errAnnotationMessage := fmt.Sprintf(`%q not found. Please install %q (see: https://eksctl.io/introduction/#installation), login, and try again`, e.tool, e.tool)
 	if err != nil {
 		return errors.Errorf(errAnnotationMessage)
 	}
@@ -87,9 +87,16 @@ func (e *eks) interactiveParams(ctx *cmd.Context, p *clusterParams) (*clusterPar
 			return nil, errors.Trace(err)
 		}
 
+		if len(clusters) == 0 {
+			return nil, errors.NewNotFound(nil, fmt.Sprintf("no cluster found in region %q", p.region))
+		}
+		if len(clusters) == 1 {
+			p.name = clusters[0]
+			return p, nil
+		}
 		if p.name, err = pollster.Select(interact.List{
 			Singular: "cluster",
-			Plural:   "Available clusters",
+			Plural:   fmt.Sprintf("Available clusters in %s", p.region),
 			Options:  clusters,
 			Default:  clusters[0],
 		}); err != nil {

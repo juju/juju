@@ -285,7 +285,7 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 				return errors.Errorf("do not specify --cloud when adding a GKE, EKS or AKS cluster")
 			}
 			if strings.Contains(c.hostCloudRegion, "/") {
-				return errors.Errorf("only specify region, not cloud/region, when adding a GKE or AKS cluster")
+				return errors.Errorf("only specify region, not cloud/region, when adding a GKE, EKS or AKS cluster")
 			}
 		} else {
 			c.hostCloudRegion, err = c.tryEnsureCloudTypeForHostRegion(c.hostCloud, c.hostCloudRegion)
