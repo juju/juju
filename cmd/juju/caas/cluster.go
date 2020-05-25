@@ -49,10 +49,12 @@ func collapseRunError(result *exec.ExecResponse, err error) error {
 var runCommand = func(runner CommandRunner, params []string, kubeconfig string) (*exec.ExecResponse, error) {
 	cmd := strings.Join(params, " ")
 
-	path := getEnv("path")
 	execParams := exec.RunParams{
 		Commands:    cmd,
-		Environment: []string{"KUBECONFIG=" + kubeconfig, "PATH=" + path},
+		Environment: os.Environ(),
+	}
+	if len(kubeconfig) > 0 {
+		execParams.Environment = append(execParams.Environment, "KUBECONFIG="+kubeconfig)
 	}
 	return runner.RunCommands(execParams)
 }

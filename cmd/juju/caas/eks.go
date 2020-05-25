@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/cmd/juju/interact"
 )
 
+const eksDomain = "eksctl.io"
+
 type eks struct {
 	tool string
 	CommandRunner
@@ -42,10 +44,8 @@ func (e *eks) ensureExecutable() error {
 	}
 
 	// check that we are logged in, there is no way to provide login details to a separate command.
-	cmd = []string{e.tool, "get", "cluster", "-v", "5"}
-	logger.Criticalf("cmd -> %v", cmd)
+	cmd = []string{e.tool, "get", "cluster"}
 	err = collapseRunError(runCommand(e, cmd, ""))
-	logger.Criticalf("cmd -> %v, err -> %#v", cmd, err)
 	if err != nil {
 		return errors.Errorf("please ensure the account has been setup and re-run this command")
 	}
@@ -68,7 +68,7 @@ func (e *eks) getKubeConfig(p *clusterParams) (io.ReadCloser, string, error) {
 		return nil, "", errors.Trace(err)
 	}
 	reader, err := os.Open(kubeconfig)
-	return reader, p.name, err
+	return reader, fmt.Sprintf("%s.%s.%s", p.name, p.region, eksDomain), err
 }
 
 func (e *eks) interactiveParams(ctx *cmd.Context, p *clusterParams) (*clusterParams, error) {
