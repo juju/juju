@@ -19,22 +19,18 @@
 
 from __future__ import print_function
 
-import os
-from time import sleep
 import json
 import logging
+import os
 import shutil
 import subprocess
-from pprint import pformat
-from enum import Enum
 from contextlib import contextmanager
+from enum import Enum
+from pprint import pformat
+from time import sleep
 
-from jujupy.utility import (
-    ensure_dir,
-    until_timeout,
-)
 from jujupy.client import temp_bootstrap_env
-
+from jujupy.utility import ensure_dir, until_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +52,7 @@ class K8sProviderType(Enum):
     K8S_CORE = 2
     GKE = 3
     AKS = 4
+    EKS = 5
 
     @classmethod
     def keys(cls):
