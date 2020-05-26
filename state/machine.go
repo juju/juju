@@ -779,18 +779,24 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 			original.doc.Life = life
 		}
 	}()
-	// op and
-	op := txn.Op{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Update: bson.D{{"$set", bson.D{{"life", life}}}},
+
+	ops := []txn.Op{
+		{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Update: bson.D{{"$set", bson.D{{"life", life}}}},
+		},
+		{
+			C:      machineUpgradeSeriesLocksC,
+			Id:     m.doc.Id,
+			Assert: txn.DocMissing,
+		},
 	}
 
 	cleanupOp := newCleanupOp(cleanupDyingMachine, m.doc.Id, force, maxWait)
 	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		ops := []txn.Op{op}
 		var asserts bson.D
 		// Grab a fresh copy of the machine data.
 		// We don't write to original, because the expectation is that state-

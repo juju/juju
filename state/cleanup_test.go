@@ -628,6 +628,29 @@ func (s *CleanupSuite) TestForceDestroyMachineRemovesUpgradeSeriesLock(c *gc.C) 
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *CleanupSuite) TestDestroyMachineAssertsNoUpgradeSeriesLock(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertDoesNotNeedCleanup(c)
+
+	// Simulate a race by adding a lock after the check has been run,
+	// but before the destruction transaction assertions execute.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(machine.CreateUpgradeSeriesLock(nil, "xenial"), gc.IsNil)
+	}).Check()
+
+	// Check that we get an error, but for the transaction assertion failure,
+	// and not for the initial check, which passes.
+	err = machine.Destroy()
+	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.Not(gc.ErrorMatches), `machine 1 is locked for series upgrade`)
+
+	assertLifeIs(c, machine, state.Alive)
+}
+
 func (s *CleanupSuite) TestCleanupDyingUnit(c *gc.C) {
 	// Create active unit, in a relation.
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
