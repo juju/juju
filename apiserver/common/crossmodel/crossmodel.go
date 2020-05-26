@@ -489,10 +489,7 @@ type offerGetter interface {
 // struct for a specified offer name.
 func GetOfferStatusChange(st offerGetter, offerUUID, offerName string) (*params.OfferStatusChange, error) {
 	offer, err := st.ApplicationOfferForUUID(offerUUID)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
-	if err != nil {
+	if errors.IsNotFound(err) {
 		return &params.OfferStatusChange{
 			OfferName: offerName,
 			Status: params.EntityStatus{
@@ -500,13 +497,12 @@ func GetOfferStatusChange(st offerGetter, offerUUID, offerName string) (*params.
 				Info:   "offer has been removed",
 			},
 		}, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
 	}
 	// TODO(wallyworld) - for now, offer status is just the application status
 	app, err := st.Application(offer.ApplicationName)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
-	if err != nil {
+	if errors.IsNotFound(err) {
 		return &params.OfferStatusChange{
 			OfferName: offerName,
 			Status: params.EntityStatus{
@@ -514,7 +510,10 @@ func GetOfferStatusChange(st offerGetter, offerUUID, offerName string) (*params.
 				Info:   "application has been removed",
 			},
 		}, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
 	}
+
 	status, err := app.Status()
 	if err != nil {
 		return nil, errors.Trace(err)

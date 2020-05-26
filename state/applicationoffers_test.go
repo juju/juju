@@ -759,7 +759,6 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	// Initial event.
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 
 	app, err := s.State.Application(offer.ApplicationName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -769,7 +768,6 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 
 	u := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: app,
@@ -779,11 +777,9 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 
 	err = ao.Remove(offer.OfferName, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -792,7 +788,6 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 }
 
 func (s *applicationOffersSuite) TestWatchOffer(c *gc.C) {
@@ -820,12 +815,10 @@ func (s *applicationOffersSuite) TestWatchOffer(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	// Initial event.
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 
 	err = ao.Remove(offer.OfferName, false)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 
 	err = ao.Remove(anotherOffer.OfferName, false)
 	c.Assert(err, jc.ErrorIsNil)
