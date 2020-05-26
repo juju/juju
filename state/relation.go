@@ -73,6 +73,11 @@ func (r *Relation) Tag() names.Tag {
 	return names.NewRelationTag(r.doc.Key)
 }
 
+// UnitCount is the number of units still in relation scope.
+func (r *Relation) UnitCount() int {
+	return r.doc.UnitCount
+}
+
 // Suspended returns true if the relation is suspended.
 func (r *Relation) Suspended() bool {
 	return r.doc.Suspended

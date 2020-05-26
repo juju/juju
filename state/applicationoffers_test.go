@@ -563,7 +563,7 @@ func (s *applicationOffersSuite) TestRemoveApplicationFailsWithOfferWithConnecti
 	s.addOfferConnection(c, offer.OfferUUID)
 
 	err := s.mysql.Destroy()
-	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 offer`)
+	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 consumer`)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	assertOffersRef(c, s.State, "mysql", 1)
@@ -576,7 +576,7 @@ func (s *applicationOffersSuite) TestRemoveApplicationFailsWithOfferWithConnecti
 	}
 	defer state.SetBeforeHooks(c, s.State, addConnectedOffer).Check()
 	err := s.mysql.Destroy()
-	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 offer`)
+	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 consumer`)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	assertOffersRef(c, s.State, "mysql", 1)
@@ -792,5 +792,42 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
+	wc.AssertNoChange()
+}
+
+func (s *applicationOffersSuite) TestWatchOffer(c *gc.C) {
+	ao := state.NewApplicationOffers(s.State)
+	offer, err := ao.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "mysql",
+		Owner:           s.Owner.Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	anotherOffer, err := ao.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-postgresql",
+		ApplicationName: "mysql",
+		Owner:           s.Owner.Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure that all the creation events have flowed through the system.
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
+	w := s.State.WatchOffer(offer.OfferName)
+
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	// Initial event.
+	wc.AssertOneChange()
+	wc.AssertNoChange()
+
+	err = ao.Remove(offer.OfferName, false)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+	wc.AssertNoChange()
+
+	err = ao.Remove(anotherOffer.OfferName, false)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
