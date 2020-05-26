@@ -337,6 +337,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:       agentName,
 			MetricSpoolName: metricSpoolName,
 			CharmDirName:    charmDirName,
+			Clock:           config.Clock,
+			Logger:          loggo.GetLogger("juju.worker.metrics.collect"),
 		})),
 
 		// The meter status worker executes the meter-status-changed hook when it detects

@@ -11,6 +11,8 @@ import (
 	"time"
 
 	corecharm "github.com/juju/charm/v7"
+	"github.com/juju/clock"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -45,6 +47,8 @@ func (s *handlerSuite) SetUpTest(c *gc.C) {
 		AgentName:       "agent-name",
 		MetricSpoolName: "metric-spool-name",
 		CharmDirName:    "charmdir-name",
+		Clock:           clock.WallClock,
+		Logger:          loggo.GetLogger("test"),
 	}
 	s.manifold = collect.Manifold(s.manifoldConfig)
 	s.dataDir = c.MkDir()
