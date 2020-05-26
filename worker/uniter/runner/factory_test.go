@@ -11,6 +11,7 @@ import (
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -175,6 +176,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 		Storage:          s.storage,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
+		Logger:           loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	factory, err := runner.NewFactory(
