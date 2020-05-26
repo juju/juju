@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/uniter"
@@ -67,6 +68,8 @@ type contextFactory struct {
 	state   *uniter.State
 	tracker leadership.Tracker
 
+	logger loggo.Logger
+
 	// Fields that shouldn't change in a factory's lifetime.
 	paths      Paths
 	modelUUID  string
@@ -96,6 +99,7 @@ type FactoryConfig struct {
 	Storage          StorageContextAccessor
 	Paths            Paths
 	Clock            Clock
+	Logger           loggo.Logger
 }
 
 // NewContextFactory returns a ContextFactory capable of creating execution contexts backed
@@ -131,6 +135,7 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 		unit:             config.Unit,
 		state:            config.State,
 		tracker:          config.Tracker,
+		logger:           config.Logger,
 		paths:            config.Paths,
 		modelUUID:        m.UUID,
 		modelName:        m.Name,
@@ -174,6 +179,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		storage:            f.storage,
 		clock:              f.clock,
+		logger:             f.logger,
 		componentDir:       f.paths.ComponentDir,
 		componentFuncs:     registeredComponentFuncs,
 		availabilityzone:   f.zone,
@@ -308,7 +314,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 
 	apiVersion, err := f.state.CloudAPIVersion()
 	if err != nil {
-		logger.Warningf("could not retrieve the cloud API version: %v", err)
+		f.logger.Warningf("could not retrieve the cloud API version: %v", err)
 	}
 	ctx.cloudAPIVersion = apiVersion
 
@@ -341,11 +347,11 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 		// unset as we always have; this isn't great but it's about behaviour preservation.
 		ctx.publicAddress, err = f.unit.PublicAddress()
 		if err != nil && !params.IsCodeNoAddressSet(err) {
-			logger.Warningf("cannot get legacy public address for %v: %v", f.unit.Name(), err)
+			f.logger.Warningf("cannot get legacy public address for %v: %v", f.unit.Name(), err)
 		}
 		ctx.privateAddress, err = f.unit.PrivateAddress()
 		if err != nil && !params.IsCodeNoAddressSet(err) {
-			logger.Warningf("cannot get legacy private address for %v: %v", f.unit.Name(), err)
+			f.logger.Warningf("cannot get legacy private address for %v: %v", f.unit.Name(), err)
 		}
 	}
 	return nil
