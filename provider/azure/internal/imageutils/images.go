@@ -122,7 +122,7 @@ func offerForUbuntuSeries(series string) (string, string, error) {
 	if oldSeries.Contains(series) {
 		return ubuntuOffering, seriesVersion, nil
 	}
-	seriesVersion = strings.ReplaceAll(seriesVersion, ".", "_")
+	seriesVersion = strings.Replace(seriesVersion, ".", "_", -1)
 	return fmt.Sprintf("0001-com-ubuntu-server-%s", series), seriesVersion, nil
 }
 
