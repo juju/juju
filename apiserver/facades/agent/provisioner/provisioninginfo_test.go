@@ -68,6 +68,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 						tags.JujuModel:      coretesting.ModelTag.Id(),
 						tags.JujuMachine:    "controller-machine-0",
 					},
+					EndpointBindings: make(map[string]string),
 				},
 			}},
 			{Result: &params.ProvisioningInfoV10{
@@ -82,6 +83,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 						tags.JujuModel:      coretesting.ModelTag.Id(),
 						tags.JujuMachine:    "controller-machine-5",
 					},
+					EndpointBindings: make(map[string]string),
 					Volumes: []params.VolumeParams{{
 						VolumeTag:  "volume-0",
 						Size:       1000,
@@ -164,6 +166,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 						tags.JujuModel:      coretesting.ModelTag.Id(),
 						tags.JujuMachine:    "controller-machine-5",
 					},
+					EndpointBindings: make(map[string]string),
 				},
 				SubnetsToZones: map[string][]string{
 					"subnet-1": {"zone1"},
@@ -208,6 +211,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 				tags.JujuModel:      coretesting.ModelTag.Id(),
 				tags.JujuMachine:    "controller-machine-5",
 			},
+			EndpointBindings: make(map[string]string),
 		},
 		ProvisioningNetworkTopology: params.ProvisioningNetworkTopology{
 			SubnetAZs: map[string][]string{
@@ -250,6 +254,17 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.C) {
 	s.addSpacesAndSubnets(c)
+
+	alphaSpace, err := s.State.SpaceByName("alpha")
+	c.Assert(err, jc.ErrorIsNil)
+
+	testing.AddSubnetsWithTemplate(c, s.State, 1, network.SubnetInfo{
+		CIDR:              "10.10.{{add 4 .}}.0/24",
+		ProviderId:        "subnet-alpha",
+		AvailabilityZones: []string{"zone-alpha"},
+		SpaceID:           alphaSpace.Id(),
+		VLANTag:           43,
+	})
 
 	wordpressMachine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
@@ -298,8 +313,109 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 						// We expect none of the unspecified bindings in the result.
 					},
 				},
+				ProvisioningNetworkTopology: params.ProvisioningNetworkTopology{
+					SubnetAZs: map[string][]string{
+						"subnet-0":     {"zone0"},
+						"subnet-1":     {"zone1"},
+						"subnet-2":     {"zone2"},
+						"subnet-alpha": {"zone-alpha"},
+					},
+					SpaceSubnets: map[string][]string{
+						"space1": {"subnet-0"},
+						"space2": {"subnet-1", "subnet-2"},
+						"alpha":  {"subnet-alpha"},
+					},
+				},
 			},
-		}}}
+		}},
+	}
+	c.Assert(result, jc.DeepEquals, expected)
+}
+
+func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAlphaSpace(c *gc.C) {
+	s.addSpacesAndSubnets(c)
+
+	wordpressMachine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Use juju names for spaces in bindings, simulating ''juju deploy
+	// --bind...' was called.
+	bindings := map[string]string{
+		"url": "space1", // has both name and provider ID
+		"db":  "space2", // has only name, no provider ID
+	}
+	wordpressCharm := s.AddTestingCharm(c, "wordpress")
+	wordpressService := s.AddTestingApplicationWithBindings(c, "wordpress", wordpressCharm, bindings)
+	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = wordpressUnit.AssignToMachine(wordpressMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: wordpressMachine.Tag().String()},
+	}}
+	result, err := s.provisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := params.ProvisioningInfoResultsV10{
+		Results: []params.ProvisioningInfoResultV10{{
+			Error: apiservertesting.ServerError("matching subnets to zones: cannot use space \"alpha\" as deployment target: no subnets"),
+		}},
+	}
+	c.Assert(result, jc.DeepEquals, expected)
+}
+
+func (s *withoutControllerSuite) TestProvisioningInfoWithAlphaEndpointBindings(c *gc.C) {
+	s.addSpacesAndSubnets(c)
+
+	wordpressMachine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Use juju names for spaces in bindings, simulating ''juju deploy
+	// --bind...' was called.
+	bindings := map[string]string{
+		"url": "alpha",
+	}
+	wordpressCharm := s.AddTestingCharm(c, "wordpress")
+	wordpressService := s.AddTestingApplicationWithBindings(c, "wordpress", wordpressCharm, bindings)
+	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = wordpressUnit.AssignToMachine(wordpressMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: wordpressMachine.Tag().String()},
+	}}
+	result, err := s.provisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerCfg := s.ControllerConfig
+	expected := params.ProvisioningInfoResultsV10{
+		Results: []params.ProvisioningInfoResultV10{{
+			Result: &params.ProvisioningInfoV10{
+				ProvisioningInfoBase: params.ProvisioningInfoBase{
+					ControllerConfig: controllerCfg,
+					Series:           "quantal",
+					Jobs:             []model.MachineJob{model.JobHostUnits},
+					Tags: map[string]string{
+						tags.JujuController:    coretesting.ControllerTag.Id(),
+						tags.JujuModel:         coretesting.ModelTag.Id(),
+						tags.JujuMachine:       "controller-machine-5",
+						tags.JujuUnitsDeployed: wordpressUnit.Name(),
+					},
+					// Ensure space names are translated to provider IDs, where
+					// possible.
+					EndpointBindings: map[string]string{},
+				},
+			},
+		}},
+	}
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
@@ -379,7 +495,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 						tags.JujuMachine:       "controller-machine-5",
 						tags.JujuUnitsDeployed: profileUnit.Name(),
 					},
-					EndpointBindings: map[string]string{},
+					EndpointBindings: make(map[string]string),
 					CharmLXDProfiles: []string{pName},
 				},
 			},
@@ -438,6 +554,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 							Provider:   "static",
 						},
 					}},
+					EndpointBindings: make(map[string]string),
 				},
 			}},
 		},
@@ -569,6 +686,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 						tags.JujuModel:      coretesting.ModelTag.Id(),
 						tags.JujuMachine:    "controller-machine-0",
 					},
+					EndpointBindings: make(map[string]string),
 				},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 0/lxd/0")},
