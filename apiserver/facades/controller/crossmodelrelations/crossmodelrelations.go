@@ -514,23 +514,35 @@ func (api *CrossModelRelationsAPI) WatchRelationsSuspendedStatus(
 type OfferWatcher interface {
 	state.NotifyWatcher
 	OfferUUID() string
+	OfferName() string
 }
 
 type offerWatcher struct {
 	state.NotifyWatcher
 	offerUUID string
+	offerName string
 }
 
 func (w *offerWatcher) OfferUUID() string {
 	return w.offerUUID
 }
 
+func (w *offerWatcher) OfferName() string {
+	return w.offerName
+}
+
 func watchOfferStatus(st CrossModelRelationsState, offerUUID string) (OfferWatcher, error) {
-	w, err := st.WatchOfferStatus(offerUUID)
+	w1, err := st.WatchOfferStatus(offerUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &offerWatcher{w, offerUUID}, nil
+	offer, err := st.ApplicationOfferForUUID(offerUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	w2 := st.WatchOffer(offer.OfferName)
+	mw := common.NewMultiNotifyWatcher(w1, w2)
+	return &offerWatcher{mw, offerUUID, offer.OfferName}, nil
 }
 
 // WatchOfferStatus starts an OfferStatusWatcher for
@@ -561,7 +573,7 @@ func (api *CrossModelRelationsAPI) WatchOfferStatus(
 			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
 			continue
 		}
-		change, err := commoncrossmodel.GetOfferStatusChange(api.st, arg.OfferUUID)
+		change, err := commoncrossmodel.GetOfferStatusChange(api.st, arg.OfferUUID, w.OfferName())
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			w.Stop()

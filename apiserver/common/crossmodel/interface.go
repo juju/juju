@@ -86,6 +86,10 @@ type Backend interface {
 	// of the offer.
 	WatchOfferStatus(offerUUID string) (state.NotifyWatcher, error)
 
+	// WatchOffer returns a watcher that notifies of changes to the
+	// lifecycle of the offer.
+	WatchOffer(offerName string) state.NotifyWatcher
+
 	// FirewallRule returns the firewall rule for the specified service.
 	FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error)
 
@@ -109,6 +113,9 @@ type Relation interface {
 
 	// Tag returns the relation's tag.
 	Tag() names.Tag
+
+	// UnitCount is the number of units still in relation scope.
+	UnitCount() int
 
 	// RemoteUnit returns a RelationUnit for the remote application unit
 	// with the supplied ID.

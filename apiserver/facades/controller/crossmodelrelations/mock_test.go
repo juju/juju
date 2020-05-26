@@ -304,6 +304,7 @@ func (w *mockRelationStatusWatcher) Changes() <-chan []string {
 type mockOfferStatusWatcher struct {
 	*mockWatcher
 	offerUUID string
+	offerName string
 	changes   chan struct{}
 }
 
@@ -313,6 +314,10 @@ func (w *mockOfferStatusWatcher) Changes() <-chan struct{} {
 
 func (w *mockOfferStatusWatcher) OfferUUID() string {
 	return w.offerUUID
+}
+
+func (w *mockOfferStatusWatcher) OfferName() string {
+	return w.offerName
 }
 
 type mockModel struct {
@@ -367,6 +372,10 @@ func (r *mockRelation) Destroy() error {
 
 func (r *mockRelation) Life() state.Life {
 	return state.Alive
+}
+
+func (r *mockRelation) UnitCount() int {
+	return 666
 }
 
 func (r *mockRelation) SetStatus(statusInfo status.StatusInfo) error {
@@ -499,7 +508,7 @@ func (a *mockApplication) Life() state.Life {
 
 func (a *mockApplication) Status() (status.StatusInfo, error) {
 	a.MethodCall(a, "Status")
-	return status.StatusInfo{}, nil
+	return status.StatusInfo{Status: status.Terminated}, nil
 }
 
 type mockOfferConnection struct {

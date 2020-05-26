@@ -14227,6 +14227,9 @@
                         },
                         "suspended-reason": {
                             "type": "string"
+                        },
+                        "unit-count": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
@@ -28250,6 +28253,9 @@
                         },
                         "suspended-reason": {
                             "type": "string"
+                        },
+                        "unit-count": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
@@ -28880,6 +28886,9 @@
                         },
                         "suspended-reason": {
                             "type": "string"
+                        },
+                        "unit-count": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
