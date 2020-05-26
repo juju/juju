@@ -157,8 +157,8 @@ func New(config Config) (*Worker, error) {
 			// prevent the others from running.
 			IsFatal: func(error) bool { return false },
 
-			// For any failures, try again in 1 minute.
-			RestartDelay: time.Minute,
+			// For any failures, try again in 15 seconds.
+			RestartDelay: 15 * time.Second,
 		}),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
@@ -254,8 +254,8 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 				remoteModelUUID:                   remoteApp.ModelUUID,
 				isConsumerProxy:                   remoteApp.IsConsumerProxy,
 				offerMacaroon:                     remoteApp.Macaroon,
-				localRelationChanges:              make(chan params.RemoteRelationChangeEvent),
-				remoteRelationChanges:             make(chan params.RemoteRelationChangeEvent),
+				localRelationChanges:              make(chan RelationUnitChangeEvent),
+				remoteRelationChanges:             make(chan RelationUnitChangeEvent),
 				localModelFacade:                  w.config.RelationsFacade,
 				newRemoteModelRelationsFacadeFunc: w.config.NewRemoteModelFacadeFunc,
 				logger:                            logger,
