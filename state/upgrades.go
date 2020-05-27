@@ -2777,6 +2777,9 @@ func ReplaceSpaceNameWithIDEndpointBindings(pool *StatePool) error {
 				}
 				updatedMap[k] = v
 			}
+			if _, haveDefault := updatedMap[""]; !haveDefault {
+				updatedMap[""] = network.AlphaSpaceId
+			}
 			ops = append(ops, txn.Op{
 				C:      endpointBindingsC,
 				Id:     doc.DocID,

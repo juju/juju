@@ -1132,6 +1132,35 @@ func (s *MigrationImportSuite) TestEndpointBindings(c *gc.C) {
 	c.Assert(bindings.Map()[""], gc.Equals, network.AlphaSpaceId)
 }
 
+func (s *MigrationImportSuite) TestIncompleteEndpointBindings(c *gc.C) {
+	// Ensure we handle the case coming from an early 2.7 controller
+	// where the default binding is missing.
+	space := s.Factory.MakeSpace(c, &factory.SpaceParams{
+		Name: "one", ProviderID: "provider", IsPublic: true})
+	state.AddTestingApplicationWithBindings(
+		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
+		map[string]string{"db": space.Id()})
+
+	_, newSt := s.importModel(c, s.State, func(desc map[string]interface{}) {
+		apps := desc["applications"].(map[interface{}]interface{})
+		for _, item := range apps["applications"].([]interface{}) {
+			bindings, ok := item.(map[interface{}]interface{})["endpoint-bindings"].(map[interface{}]interface{})
+			if !ok {
+				continue
+			}
+			delete(bindings, "")
+		}
+	})
+
+	newWordpress, err := newSt.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+
+	bindings, err := newWordpress.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bindings.Map()["db"], gc.Equals, space.Id())
+	c.Assert(bindings.Map()[""], gc.Equals, network.AlphaSpaceId)
+}
+
 func (s *MigrationImportSuite) TestNilEndpointBindings(c *gc.C) {
 	app := state.AddTestingApplicationWithEmptyBindings(
 		c, s.State, "dummy", state.AddTestingCharm(c, s.State, "dummy"))
