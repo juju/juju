@@ -668,7 +668,7 @@ func (e *HasAssignedUnitsError) Error() string {
 }
 
 func IsHasAssignedUnitsError(err error) bool {
-	_, ok := err.(*HasAssignedUnitsError)
+	_, ok := errors.Cause(err).(*HasAssignedUnitsError)
 	return ok
 }
 
