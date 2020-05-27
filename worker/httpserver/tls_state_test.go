@@ -9,10 +9,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/juju/juju/worker/httpserver"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/acme"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/worker/httpserver"
 )
 
 type tlsStateFixture struct {
@@ -40,7 +42,11 @@ type TLSStateSuite struct {
 var _ = gc.Suite(&TLSStateSuite{})
 
 func (s *TLSStateSuite) TestNewTLSConfig(c *gc.C) {
-	tlsConfig, err := httpserver.NewTLSConfig(s.State, testSNIGetter(s.cert))
+	tlsConfig, err := httpserver.NewTLSConfig(
+		s.State,
+		testSNIGetter(s.cert),
+		loggo.GetLogger("test"),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cert, err := tlsConfig.GetCertificate(&tls.ClientHelloInfo{
@@ -76,7 +82,11 @@ func (s *TLSStateAutocertSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *TLSStateAutocertSuite) TestAutocertExceptions(c *gc.C) {
-	tlsConfig, err := httpserver.NewTLSConfig(s.State, testSNIGetter(s.cert))
+	tlsConfig, err := httpserver.NewTLSConfig(
+		s.State,
+		testSNIGetter(s.cert),
+		loggo.GetLogger("test"),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.testGetCertificate(c, tlsConfig, "127.0.0.1")
 	s.testGetCertificate(c, tlsConfig, "juju-apiserver")
@@ -85,7 +95,11 @@ func (s *TLSStateAutocertSuite) TestAutocertExceptions(c *gc.C) {
 }
 
 func (s *TLSStateAutocertSuite) TestAutocert(c *gc.C) {
-	tlsConfig, err := httpserver.NewTLSConfig(s.State, testSNIGetter(s.cert))
+	tlsConfig, err := httpserver.NewTLSConfig(
+		s.State,
+		testSNIGetter(s.cert),
+		loggo.GetLogger("test"),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.testGetCertificate(c, tlsConfig, "public.invalid")
 	c.Assert(s.autocertQueried, jc.IsTrue)
@@ -93,7 +107,11 @@ func (s *TLSStateAutocertSuite) TestAutocert(c *gc.C) {
 }
 
 func (s *TLSStateAutocertSuite) TestAutocertHostPolicy(c *gc.C) {
-	tlsConfig, err := httpserver.NewTLSConfig(s.State, testSNIGetter(s.cert))
+	tlsConfig, err := httpserver.NewTLSConfig(
+		s.State,
+		testSNIGetter(s.cert),
+		loggo.GetLogger("test"),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.testGetCertificate(c, tlsConfig, "always.invalid")
 	c.Assert(s.autocertQueried, jc.IsFalse)

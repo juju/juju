@@ -11,7 +11,7 @@ import "github.com/juju/loggo"
 // the string content. For now, we just want to get the messages into the log
 // file.
 type loggoWrapper struct {
-	logger loggo.Logger
+	logger Logger
 	level  loggo.Level
 }
 

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/pki"
+	pkitls "github.com/juju/juju/pki/tls"
 )
 
 type Config struct {
@@ -21,6 +22,7 @@ type Config struct {
 }
 
 type Logger interface {
+	Debugf(string, ...interface{})
 	Errorf(string, ...interface{})
 	Infof(string, ...interface{})
 }
@@ -40,7 +42,7 @@ func NewServer(authority pki.Authority, logger Logger, conf Config) (*Server, er
 	mux := apiserverhttp.NewMux()
 
 	tlsConfig := &tls.Config{
-		GetCertificate: pki.AuthoritySNITLSGetter(authority),
+		GetCertificate: pkitls.AuthoritySNITLSGetter(authority, logger),
 	}
 
 	httpServ := &http.Server{
