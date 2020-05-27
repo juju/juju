@@ -105,6 +105,9 @@ func compileK8sCloudCheckers() map[string][]k8slabels.Selector {
 			newLabelRequirements(
 				requirementParams{"manufacturer", selection.Equals, []string{"amazon_ec2"}},
 			),
+			newLabelRequirements(
+				requirementParams{"eks.amazonaws.com/nodegroup", selection.Exists, nil},
+			),
 			// CDK on AWS.
 			newLabelRequirements(
 				requirementParams{"juju.io/cloud", selection.Equals, []string{"ec2"}},
