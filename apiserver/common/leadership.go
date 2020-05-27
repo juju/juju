@@ -44,14 +44,6 @@ func (s leadershipPinningBackend) Machine(name string) (LeadershipMachine, error
 	return leadershipMachine{m}, nil
 }
 
-// LeadershipPinningAPI exposes leadership pinning and unpinning functionality
-// for remote use.
-type LeadershipPinningAPI interface {
-	PinMachineApplications() (params.PinApplicationsResults, error)
-	UnpinMachineApplications() (params.PinApplicationsResults, error)
-	PinnedLeadership() (params.PinnedLeadershipResult, error)
-}
-
 // NewLeadershipPinningFromContext creates and returns a new leadership from
 // a facade context.
 // This signature is suitable for facade registration.
@@ -117,7 +109,7 @@ func (a *LeadershipPinning) PinApplicationLeaders() (params.PinApplicationsResul
 	tag := a.authorizer.GetAuthTag()
 	switch tag.Kind() {
 	case names.MachineTagKind:
-		return a.pinMachineApplications()
+		return a.pinMachineApplications(tag)
 	default:
 		return params.PinApplicationsResults{}, ErrPerm
 	}
@@ -133,7 +125,7 @@ func (a *LeadershipPinning) UnpinApplicationLeaders() (params.PinApplicationsRes
 	tag := a.authorizer.GetAuthTag()
 	switch tag.Kind() {
 	case names.MachineTagKind:
-		return a.unpinMachineApplications()
+		return a.unpinMachineApplications(tag)
 	default:
 		return params.PinApplicationsResults{}, ErrPerm
 	}
@@ -141,13 +133,8 @@ func (a *LeadershipPinning) UnpinApplicationLeaders() (params.PinApplicationsRes
 
 // GetMachineApplicationNames returns the applications associated with a
 // machine.
-func (a *LeadershipPinning) GetMachineApplicationNames() ([]string, error) {
-	if !a.authorizer.AuthMachineAgent() {
-		return nil, ErrPerm
-	}
-
-	tag := a.authorizer.GetAuthTag()
-	m, err := a.st.Machine(tag.Id())
+func (a *LeadershipPinning) GetMachineApplicationNames(id string) ([]string, error) {
+	m, err := a.st.Machine(id)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -160,52 +147,42 @@ func (a *LeadershipPinning) GetMachineApplicationNames() ([]string, error) {
 
 // PinMachineApplicationsByName takes a slice of application names and attempts
 // to pin them accordingly.
-func (a *LeadershipPinning) PinMachineApplicationsByName(appNames []string) (params.PinApplicationsResults, error) {
-	if !a.authorizer.AuthMachineAgent() {
-		return params.PinApplicationsResults{}, ErrPerm
-	}
-
-	return a.pinMachineAppsOps(appNames, a.pinner.PinLeadership)
+func (a *LeadershipPinning) PinMachineApplicationsByName(tag names.Tag, appNames []string) (params.PinApplicationsResults, error) {
+	return a.pinMachineAppsOps(tag, appNames, a.pinner.PinLeadership)
 }
 
 // UnpinMachineApplicationsByName takes a slice of application names and
 // attempts to pin them accordingly.
-func (a *LeadershipPinning) UnpinMachineApplicationsByName(appNames []string) (params.PinApplicationsResults, error) {
-	if !a.authorizer.AuthMachineAgent() {
-		return params.PinApplicationsResults{}, ErrPerm
-	}
-
-	return a.pinMachineAppsOps(appNames, a.pinner.UnpinLeadership)
+func (a *LeadershipPinning) UnpinMachineApplicationsByName(tag names.Tag, appNames []string) (params.PinApplicationsResults, error) {
+	return a.pinMachineAppsOps(tag, appNames, a.pinner.UnpinLeadership)
 }
 
 // pinMachineApplications pins leadership for applications represented by units
 // running on the auth'd machine.
-func (a *LeadershipPinning) pinMachineApplications() (params.PinApplicationsResults, error) {
-	appNames, err := a.GetMachineApplicationNames()
+func (a *LeadershipPinning) pinMachineApplications(tag names.Tag) (params.PinApplicationsResults, error) {
+	appNames, err := a.GetMachineApplicationNames(tag.Id())
 	if err != nil {
 		return params.PinApplicationsResults{}, ErrPerm
 	}
-	return a.pinMachineAppsOps(appNames, a.pinner.PinLeadership)
+	return a.pinMachineAppsOps(tag, appNames, a.pinner.PinLeadership)
 }
 
 // unpinMachineApplications unpins leadership for applications represented by
 // units running on the auth'd machine.
-func (a *LeadershipPinning) unpinMachineApplications() (params.PinApplicationsResults, error) {
-	appNames, err := a.GetMachineApplicationNames()
+func (a *LeadershipPinning) unpinMachineApplications(tag names.Tag) (params.PinApplicationsResults, error) {
+	appNames, err := a.GetMachineApplicationNames(tag.Id())
 	if err != nil {
 		return params.PinApplicationsResults{}, ErrPerm
 	}
-	return a.pinMachineAppsOps(appNames, a.pinner.UnpinLeadership)
+	return a.pinMachineAppsOps(tag, appNames, a.pinner.UnpinLeadership)
 }
 
 // pinMachineAppsOps runs the input pin/unpin operation against all
 // applications represented by units on the authorised machine.
 // An assumption is made that the validity of the auth tag has been verified
 // by the caller.
-func (a *LeadershipPinning) pinMachineAppsOps(appNames []string, op func(string, string) error) (params.PinApplicationsResults, error) {
+func (a *LeadershipPinning) pinMachineAppsOps(tag names.Tag, appNames []string, op func(string, string) error) (params.PinApplicationsResults, error) {
 	var result params.PinApplicationsResults
-
-	tag := a.authorizer.GetAuthTag()
 
 	results := make([]params.PinApplicationResult, len(appNames))
 	for i, app := range appNames {

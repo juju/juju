@@ -56,14 +56,6 @@ func (s *upgradeSeriesSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *upgradeSeriesSuite) TestFacadeConformsToInterface(c *gc.C) {
-	// To preserve backwards compatibility, we ensure that the current facade
-	// aligns to the common.LeadershipPinningAPI. The actual underlying
-	// leadership type no longer does this (for good reasons), but we need to
-	// ensure the Facade still does to prevent a revision change.
-	var _ common.LeadershipPinningAPI = s.api
-}
-
 func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 	defer s.arrangeTest(c).Finish()
 
