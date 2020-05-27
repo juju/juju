@@ -28,7 +28,7 @@ type LeadershipSuite struct {
 
 	modelTag    names.ModelTag
 	authTag     names.Tag
-	api         common.LeadershipPinningAPI
+	api         *common.LeadershipPinning
 	machineApps []string
 }
 
@@ -65,19 +65,19 @@ func (s *LeadershipSuite) TestPinnedLeadershipPermissionDenied(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *LeadershipSuite) TestPinMachineApplicationsSuccess(c *gc.C) {
+func (s *LeadershipSuite) TestPinApplicationLeadersSuccess(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	for _, app := range s.machineApps {
 		s.pinner.EXPECT().PinLeadership(app, s.authTag.String()).Return(nil)
 	}
 
-	res, err := s.api.PinMachineApplications()
+	res, err := s.api.PinApplicationLeaders()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
 }
 
-func (s *LeadershipSuite) TestPinMachineApplicationsPartialError(c *gc.C) {
+func (s *LeadershipSuite) TestPinApplicationLeadersPartialError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	errorRes := errors.New("boom")
@@ -85,7 +85,7 @@ func (s *LeadershipSuite) TestPinMachineApplicationsPartialError(c *gc.C) {
 	s.pinner.EXPECT().PinLeadership("redis", s.authTag.String()).Return(nil)
 	s.pinner.EXPECT().PinLeadership("wordpress", s.authTag.String()).Return(errorRes)
 
-	res, err := s.api.PinMachineApplications()
+	res, err := s.api.PinApplicationLeaders()
 	c.Assert(err, jc.ErrorIsNil)
 
 	results := s.pinApplicationsSuccessResults()
@@ -93,19 +93,19 @@ func (s *LeadershipSuite) TestPinMachineApplicationsPartialError(c *gc.C) {
 	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: results})
 }
 
-func (s *LeadershipSuite) TestUnpinMachineApplicationsSuccess(c *gc.C) {
+func (s *LeadershipSuite) TestUnpinApplicationLeadersSuccess(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	for _, app := range s.machineApps {
 		s.pinner.EXPECT().UnpinLeadership(app, s.authTag.String()).Return(nil)
 	}
 
-	res, err := s.api.UnpinMachineApplications()
+	res, err := s.api.UnpinApplicationLeaders()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
 }
 
-func (s *LeadershipSuite) TestUnpinMachineApplicationsPartialError(c *gc.C) {
+func (s *LeadershipSuite) TestUnpinApplicationLeadersPartialError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	errorRes := errors.New("boom")
@@ -113,7 +113,7 @@ func (s *LeadershipSuite) TestUnpinMachineApplicationsPartialError(c *gc.C) {
 	s.pinner.EXPECT().UnpinLeadership("redis", s.authTag.String()).Return(errorRes)
 	s.pinner.EXPECT().UnpinLeadership("wordpress", s.authTag.String()).Return(nil)
 
-	res, err := s.api.UnpinMachineApplications()
+	res, err := s.api.UnpinApplicationLeaders()
 	c.Assert(err, jc.ErrorIsNil)
 
 	results := s.pinApplicationsSuccessResults()
@@ -121,15 +121,93 @@ func (s *LeadershipSuite) TestUnpinMachineApplicationsPartialError(c *gc.C) {
 	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: results})
 }
 
-func (s *LeadershipSuite) TestPinMachineApplicationsPermissionDenied(c *gc.C) {
+func (s *LeadershipSuite) TestPinApplicationLeadersPermissionDenied(c *gc.C) {
 	s.authTag = names.NewUserTag("some-random-cat")
 	defer s.setup(c).Finish()
 
-	_, err := s.api.PinMachineApplications()
+	_, err := s.api.PinApplicationLeaders()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 
-	_, err = s.api.UnpinMachineApplications()
+	_, err = s.api.UnpinApplicationLeaders()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+
+	_, err = s.api.PinMachineApplicationsByName(s.machineApps)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+
+	_, err = s.api.UnpinMachineApplicationsByName(s.machineApps)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *LeadershipSuite) TestGetMachineApplicationNamesDenied(c *gc.C) {
+	s.authTag = names.NewUserTag("some-random-cat")
+	defer s.setup(c).Finish()
+
+	_, err := s.api.GetMachineApplicationNames()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *LeadershipSuite) TestGetMachineApplicationNamesSuccess(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	appNames, err := s.api.GetMachineApplicationNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(appNames, gc.DeepEquals, s.machineApps)
+}
+
+func (s *LeadershipSuite) TestPinMachineApplicationsByNameSuccess(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	for _, app := range s.machineApps {
+		s.pinner.EXPECT().PinLeadership(app, s.authTag.String()).Return(nil)
+	}
+
+	res, err := s.api.PinMachineApplicationsByName(s.machineApps)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
+}
+
+func (s *LeadershipSuite) TestPinMachineApplicationsByNamePartialError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	errorRes := errors.New("boom")
+	s.pinner.EXPECT().PinLeadership("mysql", s.authTag.String()).Return(nil)
+	s.pinner.EXPECT().PinLeadership("redis", s.authTag.String()).Return(errorRes)
+	s.pinner.EXPECT().PinLeadership("wordpress", s.authTag.String()).Return(nil)
+
+	res, err := s.api.PinMachineApplicationsByName(s.machineApps)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results := s.pinApplicationsSuccessResults()
+	results[1].Error = common.ServerError(errorRes)
+	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: results})
+}
+
+func (s *LeadershipSuite) TestUnpinMachineApplicationsByNameSuccess(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	for _, app := range s.machineApps {
+		s.pinner.EXPECT().UnpinLeadership(app, s.authTag.String()).Return(nil)
+	}
+
+	res, err := s.api.UnpinMachineApplicationsByName(s.machineApps)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
+}
+
+func (s *LeadershipSuite) TestUnpinMachineApplicationsByNamePartialError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	errorRes := errors.New("boom")
+	s.pinner.EXPECT().UnpinLeadership("mysql", s.authTag.String()).Return(nil)
+	s.pinner.EXPECT().UnpinLeadership("redis", s.authTag.String()).Return(errorRes)
+	s.pinner.EXPECT().UnpinLeadership("wordpress", s.authTag.String()).Return(nil)
+
+	res, err := s.api.UnpinMachineApplicationsByName(s.machineApps)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results := s.pinApplicationsSuccessResults()
+	results[1].Error = common.ServerError(errorRes)
+	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: results})
 }
 
 func (s *LeadershipSuite) setup(c *gc.C) *gomock.Controller {
@@ -147,7 +225,7 @@ func (s *LeadershipSuite) setup(c *gc.C) *gomock.Controller {
 	}
 
 	var err error
-	s.api, err = common.NewLeadershipPinningAPI(
+	s.api, err = common.NewLeadershipPinning(
 		s.backend,
 		s.modelTag,
 		s.pinner,
