@@ -140,19 +140,19 @@ func (s *LeadershipSuite) TestGetMachineApplicationNamesSuccess(c *gc.C) {
 	c.Check(appNames, gc.DeepEquals, s.machineApps)
 }
 
-func (s *LeadershipSuite) TestPinMachineApplicationsByNameSuccess(c *gc.C) {
+func (s *LeadershipSuite) TestPinApplicationLeadersByNameSuccess(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	for _, app := range s.machineApps {
 		s.pinner.EXPECT().PinLeadership(app, s.authTag.String()).Return(nil)
 	}
 
-	res, err := s.api.PinMachineApplicationsByName(s.authTag, s.machineApps)
+	res, err := s.api.PinApplicationLeadersByName(s.authTag, s.machineApps)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
 }
 
-func (s *LeadershipSuite) TestPinMachineApplicationsByNamePartialError(c *gc.C) {
+func (s *LeadershipSuite) TestPinApplicationLeadersByNamePartialError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	errorRes := errors.New("boom")
@@ -160,7 +160,7 @@ func (s *LeadershipSuite) TestPinMachineApplicationsByNamePartialError(c *gc.C) 
 	s.pinner.EXPECT().PinLeadership("redis", s.authTag.String()).Return(errorRes)
 	s.pinner.EXPECT().PinLeadership("wordpress", s.authTag.String()).Return(nil)
 
-	res, err := s.api.PinMachineApplicationsByName(s.authTag, s.machineApps)
+	res, err := s.api.PinApplicationLeadersByName(s.authTag, s.machineApps)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results := s.pinApplicationsSuccessResults()
@@ -168,19 +168,19 @@ func (s *LeadershipSuite) TestPinMachineApplicationsByNamePartialError(c *gc.C) 
 	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: results})
 }
 
-func (s *LeadershipSuite) TestUnpinMachineApplicationsByNameSuccess(c *gc.C) {
+func (s *LeadershipSuite) TestUnpinApplicationLeadersByNameSuccess(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	for _, app := range s.machineApps {
 		s.pinner.EXPECT().UnpinLeadership(app, s.authTag.String()).Return(nil)
 	}
 
-	res, err := s.api.UnpinMachineApplicationsByName(s.authTag, s.machineApps)
+	res, err := s.api.UnpinApplicationLeadersByName(s.authTag, s.machineApps)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: s.pinApplicationsSuccessResults()})
 }
 
-func (s *LeadershipSuite) TestUnpinMachineApplicationsByNamePartialError(c *gc.C) {
+func (s *LeadershipSuite) TestUnpinApplicationLeadersByNamePartialError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	errorRes := errors.New("boom")
@@ -188,7 +188,7 @@ func (s *LeadershipSuite) TestUnpinMachineApplicationsByNamePartialError(c *gc.C
 	s.pinner.EXPECT().UnpinLeadership("redis", s.authTag.String()).Return(errorRes)
 	s.pinner.EXPECT().UnpinLeadership("wordpress", s.authTag.String()).Return(nil)
 
-	res, err := s.api.UnpinMachineApplicationsByName(s.authTag, s.machineApps)
+	res, err := s.api.UnpinApplicationLeadersByName(s.authTag, s.machineApps)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results := s.pinApplicationsSuccessResults()
