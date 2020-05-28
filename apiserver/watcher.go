@@ -766,7 +766,8 @@ func newOfferStatusWatcher(context facade.Context) (facade.Facade, error) {
 // or the Watch call that created the srvOfferStatusWatcher.
 func (w *srvOfferStatusWatcher) Next() (params.OfferStatusWatchResult, error) {
 	if _, ok := <-w.watcher.Changes(); ok {
-		change, err := crossmodel.GetOfferStatusChange(crossmodel.GetBackend(w.st), w.watcher.OfferUUID())
+		change, err := crossmodel.GetOfferStatusChange(
+			crossmodel.GetBackend(w.st), w.watcher.OfferUUID(), w.watcher.OfferName())
 		if err != nil {
 			return params.OfferStatusWatchResult{
 				Error: common.ServerError(err),
