@@ -8,8 +8,8 @@ package meterstatus
 import (
 	"os"
 	"path"
+	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -23,18 +23,36 @@ import (
 	"github.com/juju/juju/core/machinelock"
 )
 
-var (
-	logger = loggo.GetLogger("juju.worker.meterstatus")
-)
+// Logger is here to stop the desire of creating a package level Logger.
+// Don't do this, instead use the logger passed into the manifold.
+var logger interface{}
+
+// Logger represents the logging methods used in this package.
+type Logger interface {
+	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Infof(string, ...interface{})
+	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
+
+	Root() loggo.Logger
+}
+
+// Clock defines the time methods used by this package.
+type Clock interface {
+	Now() time.Time
+	After(time.Duration) <-chan time.Time
+}
 
 // ManifoldConfig identifies the resource names upon which the status manifold depends.
 type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 	MachineLock   machinelock.Lock
-	Clock         clock.Clock
+	Clock         Clock
+	Logger        Logger
 
-	NewHookRunner           func(names.UnitTag, machinelock.Lock, agent.Config, clock.Clock) HookRunner
+	NewHookRunner           func(HookRunnerConfig) HookRunner
 	NewMeterStatusAPIClient func(base.APICaller, names.UnitTag) meterstatus.MeterStatusClient
 	NewUniterStateAPIClient func(base.FacadeCaller, names.UnitTag) *common.UnitStateAPI
 
@@ -74,7 +92,13 @@ func newStatusWorker(config ManifoldConfig, context dependency.Context) (worker.
 	}
 
 	agentConfig := agent.CurrentConfig()
-	runner := config.NewHookRunner(unitTag, config.MachineLock, agentConfig, config.Clock)
+	runner := config.NewHookRunner(HookRunnerConfig{
+		MachineLock: config.MachineLock,
+		AgentConfig: agentConfig,
+		Tag:         unitTag,
+		Clock:       config.Clock,
+		Logger:      config.Logger,
+	})
 	localStateFile := path.Join(agentConfig.DataDir(), "meter-status.yaml")
 
 	// If we don't have a valid APICaller, start a meter status
@@ -85,11 +109,12 @@ func newStatusWorker(config ManifoldConfig, context dependency.Context) (worker.
 	var apiCaller base.APICaller
 	err := context.Get(config.APICallerName, &apiCaller)
 	if errors.Cause(err) == dependency.ErrMissing {
-		logger.Tracef("API caller dependency not available, starting isolated meter status worker.")
+		config.Logger.Tracef("API caller dependency not available, starting isolated meter status worker.")
 		cfg := IsolatedConfig{
 			Runner:           runner,
 			StateReadWriter:  NewDiskBackedState(localStateFile),
 			Clock:            config.Clock,
+			Logger:           config.Logger,
 			AmberGracePeriod: defaultAmberGracePeriod,
 			RedGracePeriod:   defaultRedGracePeriod,
 			TriggerFactory:   GetTriggers,
@@ -98,7 +123,7 @@ func newStatusWorker(config ManifoldConfig, context dependency.Context) (worker.
 	} else if err != nil {
 		return nil, err
 	}
-	logger.Tracef("Starting connected meter status worker.")
+	config.Logger.Tracef("Starting connected meter status worker.")
 	status := config.NewMeterStatusAPIClient(apiCaller, unitTag)
 	stateReadWriter := NewControllerBackedState(
 		config.NewUniterStateAPIClient(
@@ -114,7 +139,7 @@ func newStatusWorker(config ManifoldConfig, context dependency.Context) (worker.
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Annotate(err, "reading locally persisted worker state")
 	} else if err == nil {
-		logger.Infof("detected locally persisted worker state; migrating to the controller")
+		config.Logger.Infof("detected locally persisted worker state; migrating to the controller")
 		if err = stateReadWriter.Write(priorState); err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -123,7 +148,7 @@ func newStatusWorker(config ManifoldConfig, context dependency.Context) (worker.
 		// the deletion attempt to fail; we simply log it as a warning
 		// as it's non-fatal.
 		if err = os.Remove(localStateFile); err != nil {
-			logger.Warningf("unable to remove existing local state file: %v", err)
+			config.Logger.Warningf("unable to remove existing local state file: %v", err)
 		}
 	}
 

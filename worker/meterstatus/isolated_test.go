@@ -8,18 +8,18 @@ import (
 	"path"
 	"time"
 
-	"github.com/golang/mock/gomock"
-	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/meterstatus"
-	"github.com/juju/juju/worker/meterstatus/mocks"
 )
 
 const (
@@ -30,50 +30,74 @@ const (
 type IsolatedWorkerConfigSuite struct {
 	coretesting.BaseSuite
 
-	stub *testing.Stub
-
-	dataDir string
+	config meterstatus.IsolatedConfig
 }
 
 var _ = gc.Suite(&IsolatedWorkerConfigSuite{})
 
 func (s *IsolatedWorkerConfigSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.stub = &testing.Stub{}
-	s.dataDir = c.MkDir()
+	s.config = meterstatus.IsolatedConfig{
+		Runner:           struct{ meterstatus.HookRunner }{},
+		StateReadWriter:  struct{ meterstatus.StateReadWriter }{},
+		Clock:            struct{ meterstatus.Clock }{},
+		Logger:           struct{ meterstatus.Logger }{},
+		AmberGracePeriod: AmberGracePeriod,
+		RedGracePeriod:   RedGracePeriod,
+		TriggerFactory:   meterstatus.GetTriggers,
+	}
 }
 
-func (s *IsolatedWorkerConfigSuite) TestConfigValidation(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+func (s *IsolatedWorkerConfigSuite) TestConfigValid(c *gc.C) {
+	c.Assert(s.config.Validate(), jc.ErrorIsNil)
+}
 
-	tests := []struct {
-		cfg      meterstatus.IsolatedConfig
-		expected string
-	}{{
-		cfg: meterstatus.IsolatedConfig{
-			Runner:          &stubRunner{stub: s.stub},
-			StateReadWriter: mocks.NewMockStateReadWriter(ctrl),
-		},
-		expected: "clock not provided",
-	}, {
-		cfg: meterstatus.IsolatedConfig{
-			Clock:           testclock.NewClock(time.Now()),
-			StateReadWriter: mocks.NewMockStateReadWriter(ctrl),
-		},
-		expected: "hook runner not provided",
-	}, {
-		cfg: meterstatus.IsolatedConfig{
-			Clock:  testclock.NewClock(time.Now()),
-			Runner: &stubRunner{stub: s.stub},
-		},
-		expected: "state read/writer not provided",
-	}}
-	for i, test := range tests {
-		c.Logf("running test %d", i)
-		err := test.cfg.Validate()
-		c.Assert(err, gc.ErrorMatches, test.expected)
-	}
+func (s *IsolatedWorkerConfigSuite) TestMissingRunner(c *gc.C) {
+	s.config.Runner = nil
+	err := s.config.Validate()
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing Runner not valid")
+}
+
+func (s *IsolatedWorkerConfigSuite) TestMissingStateReadWriter(c *gc.C) {
+	s.config.StateReadWriter = nil
+	err := s.config.Validate()
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing StateReadWriter not valid")
+}
+
+func (s *IsolatedWorkerConfigSuite) TestMissingClock(c *gc.C) {
+	s.config.Clock = nil
+	err := s.config.Validate()
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing Clock not valid")
+}
+
+func (s *IsolatedWorkerConfigSuite) TestMissingLogger(c *gc.C) {
+	s.config.Logger = nil
+	err := s.config.Validate()
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing Logger not valid")
+}
+
+func (s *IsolatedWorkerConfigSuite) TestMissingAmberGracePeriod(c *gc.C) {
+	s.config.AmberGracePeriod = 0
+	err := s.config.Validate()
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "amber grace period not valid")
+}
+
+func (s *IsolatedWorkerConfigSuite) TestMissingRedGracePeriod(c *gc.C) {
+	s.config.RedGracePeriod = 0
+	err := s.config.Validate()
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "red grace period not valid")
+}
+
+func (s *IsolatedWorkerConfigSuite) TestMissingAmberEqualRed(c *gc.C) {
+	s.config.RedGracePeriod = s.config.AmberGracePeriod
+	err := s.config.Validate()
+	c.Assert(err.Error(), gc.Equals, "amber grace period must be shorter than the red grace period")
 }
 
 type IsolatedWorkerSuite struct {
@@ -101,7 +125,7 @@ func (s *IsolatedWorkerSuite) SetUpTest(c *gc.C) {
 	s.hookRan = make(chan struct{})
 	s.triggersCreated = make(chan struct{})
 
-	triggerFactory := func(state meterstatus.WorkerState, status string, disconectedAt time.Time, clk clock.Clock, amber time.Duration, red time.Duration) (<-chan time.Time, <-chan time.Time) {
+	triggerFactory := func(state meterstatus.WorkerState, status string, disconectedAt time.Time, clk meterstatus.Clock, amber time.Duration, red time.Duration) (<-chan time.Time, <-chan time.Time) {
 		select {
 		case s.triggersCreated <- struct{}{}:
 		case <-time.After(coretesting.LongWait):
@@ -116,6 +140,7 @@ func (s *IsolatedWorkerSuite) SetUpTest(c *gc.C) {
 			Runner:           &stubRunner{stub: s.stub, ran: s.hookRan},
 			StateReadWriter:  meterstatus.NewDiskBackedState(path.Join(s.dataDir, "meter-status.yaml")),
 			Clock:            s.clk,
+			Logger:           loggo.GetLogger("test"),
 			AmberGracePeriod: AmberGracePeriod,
 			RedGracePeriod:   RedGracePeriod,
 			TriggerFactory:   triggerFactory,
@@ -126,9 +151,7 @@ func (s *IsolatedWorkerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *IsolatedWorkerSuite) TearDownTest(c *gc.C) {
-	s.worker.Kill()
-	err := s.worker.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	workertest.CleanKill(c, s.worker)
 }
 
 func (s *IsolatedWorkerSuite) TestTriggering(c *gc.C) {

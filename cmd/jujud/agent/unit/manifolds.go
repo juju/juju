@@ -348,6 +348,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:            apiCallerName,
 			MachineLock:              config.MachineLock,
 			Clock:                    config.Clock,
+			Logger:                   loggo.GetLogger("juju.worker.meterstatus"),
 			NewHookRunner:            meterstatus.NewHookRunner,
 			NewMeterStatusAPIClient:  msapi.NewClient,
 			NewUniterStateAPIClient:  commonapi.NewUniterStateAPI,

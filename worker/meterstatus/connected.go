@@ -23,18 +23,22 @@ type ConnectedConfig struct {
 	Runner          HookRunner
 	Status          meterstatus.MeterStatusClient
 	StateReadWriter StateReadWriter
+	Logger          Logger
 }
 
 // Validate validates the config structure and returns an error on failure.
 func (c ConnectedConfig) Validate() error {
 	if c.Runner == nil {
-		return errors.New("hook runner not provided")
+		return errors.NotValidf("missing Runner")
 	}
 	if c.StateReadWriter == nil {
-		return errors.New("state read/writer not provided")
+		return errors.NotValidf("missing StateReadWriter")
 	}
 	if c.Status == nil {
-		return errors.New("meter status API client not provided")
+		return errors.NotValidf("missing Status")
+	}
+	if c.Logger == nil {
+		return errors.NotValidf("missing Logger")
 	}
 	return nil
 }
@@ -86,13 +90,13 @@ func (w *connectedStatusHandler) TearDown() error {
 
 // Handle is part of the worker.NotifyWatchHandler interface.
 func (w *connectedStatusHandler) Handle(abort <-chan struct{}) error {
-	logger.Debugf("got meter status change signal from watcher")
+	w.config.Logger.Debugf("got meter status change signal from watcher")
 	currentCode, currentInfo, err := w.config.Status.MeterStatus()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if currentCode == w.st.Code && currentInfo == w.st.Info {
-		logger.Tracef("meter status (%q, %q) matches stored information (%q, %q), skipping", currentCode, currentInfo, w.st.Code, w.st.Info)
+		w.config.Logger.Tracef("meter status (%q, %q) matches stored information (%q, %q), skipping", currentCode, currentInfo, w.st.Code, w.st.Info)
 		return nil
 	}
 	w.applyStatus(currentCode, currentInfo, abort)
@@ -104,6 +108,6 @@ func (w *connectedStatusHandler) Handle(abort <-chan struct{}) error {
 }
 
 func (w *connectedStatusHandler) applyStatus(code, info string, abort <-chan struct{}) {
-	logger.Tracef("applying meter status change: %q (%q)", code, info)
+	w.config.Logger.Tracef("applying meter status change: %q (%q)", code, info)
 	w.config.Runner.RunHook(code, info, abort)
 }

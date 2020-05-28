@@ -6,7 +6,6 @@ package meterstatus
 import (
 	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2"
 	"gopkg.in/tomb.v2"
@@ -38,7 +37,8 @@ const (
 type IsolatedConfig struct {
 	Runner           HookRunner
 	StateReadWriter  StateReadWriter
-	Clock            clock.Clock
+	Clock            Clock
+	Logger           Logger
 	AmberGracePeriod time.Duration
 	RedGracePeriod   time.Duration
 	TriggerFactory   TriggerCreator
@@ -47,19 +47,22 @@ type IsolatedConfig struct {
 // Validate validates the config structure and returns an error on failure.
 func (c IsolatedConfig) Validate() error {
 	if c.Runner == nil {
-		return errors.New("hook runner not provided")
+		return errors.NotValidf("missing Runner")
 	}
 	if c.StateReadWriter == nil {
-		return errors.New("state read/writer not provided")
+		return errors.NotValidf("missing StateReadWriter")
 	}
 	if c.Clock == nil {
-		return errors.New("clock not provided")
+		return errors.NotValidf("missing Clock")
+	}
+	if c.Logger == nil {
+		return errors.NotValidf("missing Logger")
 	}
 	if c.AmberGracePeriod <= 0 {
-		return errors.New("invalid amber grace period")
+		return errors.NotValidf("amber grace period")
 	}
 	if c.RedGracePeriod <= 0 {
-		return errors.New("invalid red grace period")
+		return errors.NotValidf("red grace period")
 	}
 	if c.AmberGracePeriod >= c.RedGracePeriod {
 		return errors.New("amber grace period must be shorter than the red grace period")
@@ -111,7 +114,7 @@ func (w *isolatedStatusWorker) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-redSignal:
-			logger.Debugf("triggering meter status transition to RED due to loss of connection")
+			w.config.Logger.Debugf("triggering meter status transition to RED due to loss of connection")
 			currentCode := "RED"
 			currentInfo := "unit agent has been disconnected"
 
@@ -119,7 +122,7 @@ func (w *isolatedStatusWorker) loop() error {
 			st.Code, st.Info = currentCode, currentInfo
 			st.Disconnected.State = Done
 		case <-amberSignal:
-			logger.Debugf("triggering meter status transition to AMBER due to loss of connection")
+			w.config.Logger.Debugf("triggering meter status transition to AMBER due to loss of connection")
 			currentCode := "AMBER"
 			currentInfo := "unit agent has been disconnected"
 
@@ -134,7 +137,7 @@ func (w *isolatedStatusWorker) loop() error {
 }
 
 func (w *isolatedStatusWorker) applyStatus(code, info string) {
-	logger.Tracef("applying meter status change: %q (%q)", code, info)
+	w.config.Logger.Tracef("applying meter status change: %q (%q)", code, info)
 	w.config.Runner.RunHook(code, info, w.tomb.Dying())
 }
 
