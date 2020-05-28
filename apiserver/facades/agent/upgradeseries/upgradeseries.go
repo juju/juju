@@ -19,11 +19,11 @@ var logger = loggo.GetLogger("juju.apiserver.upgradeseries")
 // API serves methods required by the machine agent upgrade-series worker.
 type API struct {
 	*common.UpgradeSeriesAPI
-	common.LeadershipPinningAPI
 
-	st        common.UpgradeSeriesBackend
-	auth      facade.Authorizer
-	resources facade.Resources
+	st         common.UpgradeSeriesBackend
+	auth       facade.Authorizer
+	resources  facade.Resources
+	leadership common.LeadershipPinningAPI
 }
 
 // NewAPI creates a new instance of the API with the given context
@@ -63,11 +63,11 @@ func NewUpgradeSeriesAPI(
 	}
 
 	return &API{
-		st:                   st,
-		resources:            resources,
-		auth:                 authorizer,
-		UpgradeSeriesAPI:     common.NewUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
-		LeadershipPinningAPI: leadership,
+		st:               st,
+		resources:        resources,
+		auth:             authorizer,
+		leadership:       leadership,
+		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
 	}, nil
 }
 
@@ -280,6 +280,24 @@ func (a *API) authAndMachine(e params.Entity, canAccess common.AuthFunc) (common
 		return nil, common.ErrPerm
 	}
 	return a.GetMachine(tag)
+}
+
+// PinnedLeadership returns all pinned applications and the entities that
+// require their pinned behaviour, for leadership in the current model.
+func (a *API) PinnedLeadership() (params.PinnedLeadershipResult, error) {
+	return a.leadership.PinnedLeadership()
+}
+
+// PinMachineApplications pins leadership for applications represented by units
+// running on the auth'd machine.
+func (a *API) PinMachineApplications() (params.PinApplicationsResults, error) {
+	return a.leadership.PinMachineApplications()
+}
+
+// UnpinMachineApplications unpins leadership for applications represented by
+// units running on the auth'd machine.
+func (a *API) UnpinMachineApplications() (params.PinApplicationsResults, error) {
+	return a.leadership.UnpinMachineApplications()
 }
 
 // disabledLeadershipPinningFacade implements the LeadershipPinningAPI, but
