@@ -113,15 +113,23 @@ func (s *RelationSuite) TestRetrieveSuccess(c *gc.C) {
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlUnit, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 	expect, err := s.State.AddRelation(wordpressEP, mysqlEP)
 	c.Assert(err, jc.ErrorIsNil)
+	mysqlru, err := expect.Unit(mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	rel, err := s.State.EndpointsRelation(wordpressEP, mysqlEP)
 	check := func() {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(rel.Id(), gc.Equals, expect.Id())
 		c.Assert(rel.String(), gc.Equals, expect.String())
+		c.Assert(rel.UnitCount(), gc.Equals, 1)
 	}
 	check()
 	rel, err = s.State.EndpointsRelation(mysqlEP, wordpressEP)

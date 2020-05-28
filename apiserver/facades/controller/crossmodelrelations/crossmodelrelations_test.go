@@ -82,7 +82,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	offerStatusWatcher := func(st crossmodelrelations.CrossModelRelationsState, offerUUID string) (crossmodelrelations.OfferWatcher, error) {
 		c.Assert(s.st, gc.Equals, st)
 		s.watchedOffers = []string{offerUUID}
-		w := &mockOfferStatusWatcher{offerUUID: offerUUID, changes: make(chan struct{}, 1)}
+		w := &mockOfferStatusWatcher{offerUUID: offerUUID, offerName: "mysql", changes: make(chan struct{}, 1)}
 		w.changes <- struct{}{}
 		return w, nil
 	}
@@ -598,6 +598,10 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, len(args.Args))
 	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
 	c.Assert(results.Results[1].Error, gc.IsNil)
+	c.Assert(results.Results[1].Changes, jc.DeepEquals, []params.OfferStatusChange{{
+		OfferName: "mysql",
+		Status:    params.EntityStatus{Status: status.Terminated},
+	}})
 	c.Assert(results.Results[2].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
 	c.Assert(s.watchedOffers, jc.DeepEquals, []string{"mysql-uuid"})
 	s.st.CheckCalls(c, []testing.StubCall{
@@ -739,6 +743,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	uc := 666
 	c.Assert(result, gc.DeepEquals, params.RemoteRelationWatchResults{
 		Results: []params.RemoteRelationWatchResult{{
 			RemoteRelationWatcherId: "1",
@@ -746,6 +751,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 				RelationToken:    "token-db2:db django:db",
 				ApplicationToken: "token-offer-django",
 				Macaroons:        nil,
+				UnitCount:        &uc,
 				ApplicationSettings: map[string]interface{}{
 					"majoribanks": "mt victoria",
 				},
