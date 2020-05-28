@@ -4,15 +4,17 @@
 package machinemanager_test
 
 import (
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/common/storagecommon"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
+	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
@@ -32,6 +34,11 @@ var _ = gc.Suite(&instanceTypesSuite{})
 var over9kCPUCores uint64 = 9001
 
 func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	leadership := mocks.NewMockLeadership(ctrl)
+
 	backend := &mockBackend{
 		cloudSpec: environs.CloudSpec{},
 	}
@@ -51,7 +58,15 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 			},
 		},
 	}
-	api, err := machinemanager.NewMachineManagerAPI(backend, backend, pool, authorizer, backend.ModelTag(), context.NewCloudCallContext(), common.NewResources())
+	api, err := machinemanager.NewMachineManagerAPI(backend,
+		backend,
+		pool,
+		authorizer,
+		backend.ModelTag(),
+		context.NewCloudCallContext(),
+		common.NewResources(),
+		leadership,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := params.ModelInstanceTypesConstraints{
@@ -68,19 +83,23 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	expected := []params.InstanceTypesResult{
 		{
 			InstanceTypes: []params.InstanceType{
-				{
-					Name: "instancetype-1",
-				},
-				{
-					Name: "instancetype-2",
-				}},
+				{Name: "instancetype-1"},
+				{Name: "instancetype-2"},
+			},
 			CostUnit:     "USD/h",
 			CostCurrency: "USD",
 		},
 		{
-			Error: &params.Error{Message: "Instances matching constraint  not found", Code: "not found"}},
+			Error: &params.Error{
+				Message: "Instances matching constraint  not found", Code: "not found",
+			},
+		},
 		{
-			Error: &params.Error{Message: "Instances matching constraint  not found", Code: "not found"}}}
+			Error: &params.Error{
+				Message: "Instances matching constraint  not found", Code: "not found",
+			},
+		},
+	}
 	c.Assert(r.Results, gc.DeepEquals, expected)
 }
 
