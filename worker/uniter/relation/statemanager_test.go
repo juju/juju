@@ -199,23 +199,23 @@ func (s *stateManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *stateManagerSuite) setupFourStates(c *gc.C) []relation.State {
-	st1 := relation.State{RelationId: 123}
+	st1 := relation.NewState(123)
 	st1.Members = map[string]int64{
 		"foo/0": 1,
 		"foo/1": 2,
 	}
 	st1.ChangedPending = "foo/1"
-	st2 := relation.State{RelationId: 456}
+	st2 := relation.NewState(456)
 	st2.Members = map[string]int64{
 		"bar/0": 3,
 		"bar/1": 4,
 	}
-	st3 := relation.State{RelationId: 789}
-	st4 := relation.State{RelationId: 10}
+	st3 := relation.NewState(789)
+	st4 := relation.NewState(10)
 	st4.ApplicationMembers = map[string]int64{
 		"baz-app": 2,
 	}
-	states := []relation.State{st1, st2, st3, st4}
+	states := []relation.State{*st1, *st2, *st3, *st4}
 	s.expectState(c, states...)
 	return states
 }
