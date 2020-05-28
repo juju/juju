@@ -26,7 +26,7 @@ var _ = gc.Suite(&NetworkGetSuite{})
 func (s *NetworkGetSuite) SetUpSuite(c *gc.C) {
 	s.ContextSuite.SetUpSuite(c)
 	lookupHost := func(host string) (addrs []string, err error) {
-		return []string{"10.3.3.3"}, nil
+		return []string{"127.0.1.1", "10.3.3.3"}, nil
 	}
 	testing.PatchValue(&jujuc.LookupHost, lookupHost)
 }

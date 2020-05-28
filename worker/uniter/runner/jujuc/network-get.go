@@ -220,8 +220,25 @@ func resolveNetworkInfoAddresses(
 func resolveHostAddress(hostName string, lookupHost resolver) string {
 	resolved, err := lookupHost(hostName)
 	if err != nil {
-		logger.Warningf("The address %q is neither an IP address nor a resolvable hostname", hostName)
+		logger.Errorf("resolving %q: %v", hostName, err)
 		return ""
 	}
+
+	if len(resolved) == 0 {
+		logger.Warningf("no lookup results for host %q", hostName)
+		return ""
+	}
+
+	// We have seen examples of host file entries like this:
+	//   127.0.1.1 hostname.fqdn hostname
+	// net.LookupHost appends resolutions from the host file first,
+	// so we need to filter these out.
+	for _, addr := range resolved {
+		if ip := net.ParseIP(addr); ip != nil && !ip.IsLoopback() {
+			return addr
+		}
+	}
+
+	// Return the best result we have.
 	return resolved[0]
 }
