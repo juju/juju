@@ -1224,7 +1224,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineID string, maxWait 
 
 	// Schedule a forced cleanup if not already done.
 	if !machine.ForceDestroyed() {
-		st.scheduleForceCleanup(cleanupForceRemoveMachine, machineId, maxWait)
+		st.scheduleForceCleanup(cleanupForceRemoveMachine, machineID, maxWait)
 		if err := st.db().RunTransaction(machine.forceDestroyedOps()); err != nil {
 			return errors.Trace(err)
 		}

@@ -566,6 +566,7 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *gc.C) {
 				UnitCount:        intPtr(2),
 				DepartedUnits:    []int{1},
 				Macaroons:        macaroon.Slice{mac},
+				BakeryVersion:    bakery.LatestVersion,
 			},
 		}},
 	}
@@ -585,6 +586,7 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *gc.C) {
 				UnitCount:        intPtr(1),
 				DepartedUnits:    []int{0},
 				Macaroons:        macaroon.Slice{mac},
+				BakeryVersion:    bakery.LatestVersion,
 			},
 		}},
 	}
@@ -939,7 +941,7 @@ func (s *remoteRelationsSuite) TestDyingRelationSuspended(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
 
-	s.relationsFacade.relations["db2:db django:db"].life = params.Dying
+	s.relationsFacade.relations["db2:db django:db"].life = life.Dying
 	s.relationsFacade.relations["db2:db django:db"].SetSuspended(true)
 	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
