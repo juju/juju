@@ -261,6 +261,11 @@ func (r *mockRelation) Life() state.Life {
 	return r.life
 }
 
+func (r *mockRelation) UnitCount() int {
+	r.MethodCall(r, "UnitCount")
+	return 666
+}
+
 func (r *mockRelation) Suspended() bool {
 	r.MethodCall(r, "Suspended")
 	return r.suspended

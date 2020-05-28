@@ -807,3 +807,16 @@ func (st *State) WatchOfferStatus(offerUUID string) (NotifyWatcher, error) {
 	}
 	return newNotifyCollWatcher(st, statusesC, filter), nil
 }
+
+// WatchOffer returns a new NotifyWatcher watching for
+// changes to the specified offer.
+func (st *State) WatchOffer(offerName string) NotifyWatcher {
+	filter := func(rawId interface{}) bool {
+		id, err := st.strictLocalID(rawId.(string))
+		if err != nil {
+			return false
+		}
+		return offerName == id
+	}
+	return newNotifyCollWatcher(st, applicationOffersC, filter)
+}

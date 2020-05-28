@@ -21,7 +21,7 @@ type remoteRelationsWorker struct {
 	remoteRelationToken string
 	applicationToken    string
 	relationsWatcher    watcher.RelationStatusWatcher
-	changes             chan<- params.RemoteRelationChangeEvent
+	changes             chan<- RelationUnitChangeEvent
 	logger              Logger
 }
 
@@ -30,7 +30,7 @@ func newRemoteRelationsWorker(
 	applicationToken string,
 	remoteRelationToken string,
 	relationsWatcher watcher.RelationStatusWatcher,
-	changes chan<- params.RemoteRelationChangeEvent,
+	changes chan<- RelationUnitChangeEvent,
 	logger Logger,
 ) (*remoteRelationsWorker, error) {
 	w := &remoteRelationsWorker{
@@ -61,8 +61,8 @@ func (w *remoteRelationsWorker) Wait() error {
 
 func (w *remoteRelationsWorker) loop() error {
 	var (
-		changes chan<- params.RemoteRelationChangeEvent
-		event   params.RemoteRelationChangeEvent
+		changes chan<- RelationUnitChangeEvent
+		event   RelationUnitChangeEvent
 	)
 	for {
 		select {
@@ -82,12 +82,15 @@ func (w *remoteRelationsWorker) loop() error {
 			change := relChanges[len(relChanges)-1]
 			w.logger.Debugf("relation status changed for %v: %v", w.relationTag, change)
 			suspended := change.Suspended
-			event = params.RemoteRelationChangeEvent{
-				RelationToken:    w.remoteRelationToken,
-				ApplicationToken: w.applicationToken,
-				Life:             params.Life(change.Life),
-				Suspended:        &suspended,
-				SuspendedReason:  change.SuspendedReason,
+			event = RelationUnitChangeEvent{
+				Tag: w.relationTag,
+				RemoteRelationChangeEvent: params.RemoteRelationChangeEvent{
+					RelationToken:    w.remoteRelationToken,
+					ApplicationToken: w.applicationToken,
+					Life:             params.Life(change.Life),
+					Suspended:        &suspended,
+					SuspendedReason:  change.SuspendedReason,
+				},
 			}
 			changes = w.changes
 

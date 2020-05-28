@@ -12,6 +12,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/params"
+	corecrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -43,9 +45,40 @@ func (s *crossmodelSuite) TestExpandChangeWhenRelationHasGone(c *gc.C) {
 	})
 }
 
+func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGone(c *gc.C) {
+	st := &mockBackend{}
+	ch, err := crossmodel.GetOfferStatusChange(st, "uuid", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
+		OfferName: "mysql",
+		Status:    params.EntityStatus{Status: status.Terminated, Info: "offer has been removed"},
+	})
+}
+
+func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGone(c *gc.C) {
+	st := &mockBackend{}
+	ch, err := crossmodel.GetOfferStatusChange(st, "deadbeef", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
+		OfferName: "mysql",
+		Status:    params.EntityStatus{Status: status.Terminated, Info: "application has been removed"},
+	})
+}
+
+func (s *crossmodelSuite) TestGetOfferStatusChange(c *gc.C) {
+	st := &mockBackend{appName: "mysql"}
+	ch, err := crossmodel.GetOfferStatusChange(st, "deadbeef", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
+		OfferName: "mysql",
+		Status:    params.EntityStatus{Status: status.Active},
+	})
+}
+
 type mockBackend struct {
 	testing.Stub
 	crossmodel.Backend
+	appName        string
 	remoteEntities map[names.Tag]string
 }
 
@@ -60,4 +93,31 @@ func (st *mockBackend) GetRemoteEntity(token string) (names.Tag, error) {
 		}
 	}
 	return nil, errors.NotFoundf("token %v", token)
+}
+
+func (st *mockBackend) ApplicationOfferForUUID(uuid string) (*corecrossmodel.ApplicationOffer, error) {
+	if uuid != "deadbeef" {
+		return nil, errors.NotFoundf(uuid)
+	}
+	return &corecrossmodel.ApplicationOffer{
+		ApplicationName: st.appName,
+	}, nil
+}
+
+func (st *mockBackend) Application(name string) (crossmodel.Application, error) {
+	if name != "mysql" {
+		return nil, errors.NotFoundf(name)
+	}
+	return &mockApplication{
+		status: status.StatusInfo{Status: status.Active},
+	}, nil
+}
+
+type mockApplication struct {
+	crossmodel.Application
+	status status.StatusInfo
+}
+
+func (a *mockApplication) Status() (status.StatusInfo, error) {
+	return a.status, nil
 }

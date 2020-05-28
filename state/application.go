@@ -295,7 +295,13 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 		if err2 != nil {
 			err = errors.Trace(err2)
 		} else {
-			err = errors.Errorf("application is used by %d offer%s", len(rels), plural(len(rels)))
+			n := 0
+			for _, r := range rels {
+				if _, isCrossModel, err := r.RemoteApplication(); err == nil && isCrossModel {
+					n++
+				}
+			}
+			err = errors.Errorf("application is used by %d consumer%s", n, plural(n))
 		}
 	} else {
 		err = errors.NewNotSupported(err, "change to the application detected")
