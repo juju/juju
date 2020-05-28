@@ -374,7 +374,10 @@ func (s *ApplicationSuite) TestMergeBindings(c *gc.C) {
 	b, err := s.mysql.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 
-	curBindings, err := b.MapWithSpaceNames()
+	allSpaceInfosLookup, err := s.State.AllSpaceInfos()
+	c.Assert(err, jc.ErrorIsNil)
+
+	curBindings, err := b.MapWithSpaceNames(allSpaceInfosLookup)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curBindings, gc.DeepEquals, expBindings)
 
@@ -391,7 +394,7 @@ func (s *ApplicationSuite) TestMergeBindings(c *gc.C) {
 	expBindings["server"] = "isolated"
 	b, err = s.mysql.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	updatedBindings, err := b.MapWithSpaceNames()
+	updatedBindings, err := b.MapWithSpaceNames(allSpaceInfosLookup)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(updatedBindings, gc.DeepEquals, expBindings)
 }
@@ -413,7 +416,10 @@ func (s *ApplicationSuite) TestMergeBindingsWithForce(c *gc.C) {
 	b, err := s.mysql.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 
-	curBindings, err := b.MapWithSpaceNames()
+	allSpaceInfosLookup, err := s.State.AllSpaceInfos()
+	c.Assert(err, jc.ErrorIsNil)
+
+	curBindings, err := b.MapWithSpaceNames(allSpaceInfosLookup)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curBindings, gc.DeepEquals, expBindings)
 
@@ -430,7 +436,7 @@ func (s *ApplicationSuite) TestMergeBindingsWithForce(c *gc.C) {
 	expBindings["server"] = "far"
 	b, err = s.mysql.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	updatedBindings, err := b.MapWithSpaceNames()
+	updatedBindings, err := b.MapWithSpaceNames(allSpaceInfosLookup)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(updatedBindings, gc.DeepEquals, expBindings)
 }
