@@ -32,9 +32,6 @@ type Logger interface {
 	Debugf(string, ...interface{})
 	Tracef(string, ...interface{})
 
-	// Just using the loggo Logger here rather than providing
-	// a shim to a Logger. Perhaps we should just have the manifold
-	// config take a loggo.Logger?
 	Child(string) loggo.Logger
 }
 
@@ -52,6 +49,20 @@ type ManifoldConfig struct {
 	Logger                Logger
 }
 
+// Validate ensures all the required values for the config are set.
+func (config *ManifoldConfig) Validate() error {
+	if config.Clock == nil {
+		return errors.NotValidf("missing Clock")
+	}
+	if config.MachineLock == nil {
+		return errors.NotValidf("missing MachineLock")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("missing Logger")
+	}
+	return nil
+}
+
 // Manifold returns a dependency manifold that runs a uniter worker,
 // using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
@@ -64,13 +75,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.HookRetryStrategyName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
-			if config.Clock == nil {
-				return nil, errors.NotValidf("missing Clock")
+			if err := config.Validate(); err != nil {
+				return nil, errors.Trace(err)
 			}
-			if config.MachineLock == nil {
-				return nil, errors.NotValidf("missing MachineLock")
-			}
-
 			// Collect all required resources.
 			var agent agent.Agent
 			if err := context.Get(config.AgentName, &agent); err != nil {

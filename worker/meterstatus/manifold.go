@@ -156,6 +156,7 @@ func newStatusWorker(config ManifoldConfig, context dependency.Context) (worker.
 		Runner:          runner,
 		StateReadWriter: stateReadWriter,
 		Status:          status,
+		Logger:          config.Logger,
 	}
 	return config.NewConnectedStatusWorker(cfg)
 }

@@ -39,7 +39,7 @@ const (
 
 var (
 	// Logger is here to stop the desire of creating a package level Logger.
-	// Don't do this, instead use the context passed into the manifold.
+	// Don't do this, instead use the logger passed into the manifold.
 	logger interface{}
 
 	defaultPeriod = 5 * time.Minute
