@@ -11,6 +11,8 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
@@ -619,6 +621,35 @@ func (s *ipAddressesStateSuite) TestRemoveAddressRemovesProviderID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetDevicesAddresses(addrArgs)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ipAddressesStateSuite) TestChangeOriginOps(c *gc.C) {
+	dev := s.addNamedDevice(c, "eth0")
+
+	addrArgs := state.LinkLayerDeviceAddress{
+		DeviceName:   "eth0",
+		ConfigMethod: network.ManualAddress,
+		CIDRAddress:  "0.1.2.3/24",
+		Origin:       network.OriginMachine,
+	}
+	err := s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrs, err := dev.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr := addrs[0]
+	c.Assert(addr.Origin(), gc.Equals, network.OriginMachine)
+
+	// No operations for setting the same origin.
+	c.Assert(addr.SetOriginOps(network.OriginMachine), gc.IsNil)
+
+	c.Assert(addr.SetOriginOps(network.OriginProvider), gc.DeepEquals, []txn.Op{{
+		C:      "ip.addresses",
+		Id:     addr.DocID(),
+		Assert: txn.DocExists,
+		Update: bson.DocElem{Name: "$set", Value: bson.M{"origin": network.OriginProvider}},
+	}})
 }
 
 func (s *ipAddressesStateSuite) TestUpdateAddressFailsToChangeProviderID(c *gc.C) {

@@ -591,6 +591,12 @@ type LinkLayerDeviceAddress struct {
 	// IsDefaultGateway is set to true if this address on this device is the
 	// default gw on a machine.
 	IsDefaultGateway bool
+
+	// Origin represents the authoritative source of the address.
+	// it is set using precedence, with "provider" overriding "machine".
+	// It is used to determine whether the address is no longer recognised
+	// and is safe to remove.
+	Origin corenetwork.Origin
 }
 
 // SetDevicesAddresses sets the addresses of all devices in devicesAddresses,
@@ -756,6 +762,7 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 		DNSSearchDomains: args.DNSSearchDomains,
 		GatewayAddress:   args.GatewayAddress,
 		IsDefaultGateway: args.IsDefaultGateway,
+		Origin:           args.Origin,
 	}
 	return newDoc, nil
 }
