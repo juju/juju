@@ -35,6 +35,10 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
+// Logger is here to stop the desire of creating a package level Logger.
+// Don't do this, instead use xxx.
+var logger interface{}
+
 // Paths exposes the paths needed by Context.
 type Paths interface {
 	// GetToolsDir returns the filesystem path to the dirctory containing
@@ -75,7 +79,6 @@ type Clock interface {
 	After(time.Duration) <-chan time.Time
 }
 
-var logger = loggo.GetLogger("juju.worker.uniter.context")
 var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 
 // ComponentConfig holds all the information related to a hook context
@@ -275,6 +278,8 @@ type HookContext struct {
 	// clock is used for any time operations.
 	clock Clock
 
+	logger loggo.Logger
+
 	componentDir   func(string) string
 	componentFuncs map[string]ComponentFunc
 
@@ -301,6 +306,11 @@ type HookContext struct {
 	charmStateCacheDirty bool
 
 	mu sync.Mutex
+}
+
+// GetLogger returns a Logger for the specified module.
+func (ctx *HookContext) GetLogger(module string) loggo.Logger {
+	return ctx.logger.Root().Child(module)
 }
 
 // GetCharmState returns a copy of the cached charm state.
@@ -562,7 +572,7 @@ func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 // Implements jujuc.HookContext.ContextStatus, part of runner.Context.
 func (ctx *HookContext) SetUnitStatus(unitStatus jujuc.StatusInfo) error {
 	ctx.hasRunStatusSet = true
-	logger.Tracef("[WORKLOAD-STATUS] %s: %s", unitStatus.Status, unitStatus.Info)
+	ctx.logger.Tracef("[WORKLOAD-STATUS] %s: %s", unitStatus.Status, unitStatus.Info)
 	return ctx.unit.SetUnitStatus(
 		status.Status(unitStatus.Status),
 		unitStatus.Info,
@@ -573,7 +583,7 @@ func (ctx *HookContext) SetUnitStatus(unitStatus jujuc.StatusInfo) error {
 // SetAgentStatus will set the given status for this unit's agent.
 // Implements jujuc.HookContext.ContextStatus, part of runner.Context.
 func (ctx *HookContext) SetAgentStatus(agentStatus jujuc.StatusInfo) error {
-	logger.Tracef("[AGENT-STATUS] %s: %s", agentStatus.Status, agentStatus.Info)
+	ctx.logger.Tracef("[AGENT-STATUS] %s: %s", agentStatus.Status, agentStatus.Info)
 	return ctx.unit.SetAgentStatus(
 		status.Status(agentStatus.Status),
 		agentStatus.Info,
@@ -585,7 +595,7 @@ func (ctx *HookContext) SetAgentStatus(agentStatus jujuc.StatusInfo) error {
 // unit's belong, only if this unit is the leader.
 // Implements jujuc.HookContext.ContextStatus, part of runner.Context.
 func (ctx *HookContext) SetApplicationStatus(applicationStatus jujuc.StatusInfo) error {
-	logger.Tracef("[APPLICATION-STATUS] %s: %s", applicationStatus.Status, applicationStatus.Info)
+	ctx.logger.Tracef("[APPLICATION-STATUS] %s: %s", applicationStatus.Status, applicationStatus.Info)
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
@@ -762,7 +772,7 @@ func (ctx *HookContext) SetPodSpec(specYaml string) error {
 		return errors.Annotatef(err, "cannot determine leadership")
 	}
 	if !isLeader {
-		logger.Errorf("%q is not the leader but is setting application k8s spec", ctx.unitName)
+		ctx.logger.Errorf("%q is not the leader but is setting application k8s spec", ctx.unitName)
 		return ErrIsNotLeader
 	}
 	_, err = k8sspecs.ParsePodSpec(specYaml)
@@ -781,7 +791,7 @@ func (ctx *HookContext) SetRawK8sSpec(specYaml string) error {
 		return errors.Annotatef(err, "cannot determine leadership")
 	}
 	if !isLeader {
-		logger.Errorf("%q is not the leader but is setting application raw k8s spec", ctx.unitName)
+		ctx.logger.Errorf("%q is not the leader but is setting application raw k8s spec", ctx.unitName)
 		return ErrIsNotLeader
 	}
 	_, err = k8sspecs.ParseRawK8sSpec(specYaml)
@@ -1025,7 +1035,7 @@ func (ctx *HookContext) HookVars(paths Paths, remote bool, getEnv GetEnvFunc) ([
 }
 
 func (ctx *HookContext) handleReboot(ctxErr error) error {
-	logger.Tracef("checking for reboot request")
+	ctx.logger.Tracef("checking for reboot request")
 	rebootPriority := ctx.GetRebootPriority()
 	switch rebootPriority {
 	case jujuc.RebootSkip:
@@ -1043,7 +1053,7 @@ func (ctx *HookContext) handleReboot(ctxErr error) error {
 	// Do a best-effort attempt to set the unit agent status; we don't care
 	// if it fails as we will request a reboot anyway.
 	if err := ctx.unit.SetAgentStatus(status.Rebooting, "", nil); err != nil {
-		logger.Errorf("updating agent status: %v", err)
+		ctx.logger.Errorf("updating agent status: %v", err)
 	}
 
 	if err := ctx.unit.RequestReboot(); err != nil {
@@ -1133,7 +1143,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	if numChanges > 0 {
 		if err := ctx.unit.CommitHookChanges(commitReq); err != nil {
 			err = errors.Annotatef(err, "cannot apply changes")
-			logger.Errorf("%v", err)
+			ctx.logger.Errorf("%v", err)
 			return errors.Trace(err)
 		}
 	}
@@ -1165,7 +1175,7 @@ func (ctx *HookContext) addCommitHookChangesForCAAS(builder *uniter.CommitHookPa
 			// We do not want to fail the non leader unit's upgrade-charm hook.
 			return nil
 		}
-		logger.Errorf("%v is not the leader but is setting application k8s spec", ctx.unitName)
+		ctx.logger.Errorf("%v is not the leader but is setting application k8s spec", ctx.unitName)
 		return ErrIsNotLeader
 	}
 
@@ -1236,7 +1246,7 @@ func (ctx *HookContext) killCharmHook() error {
 		// nothing to kill
 		return charmrunner.ErrNoProcess
 	}
-	logger.Infof("trying to kill context process %v", proc.Pid())
+	ctx.logger.Infof("trying to kill context process %v", proc.Pid())
 
 	tick := ctx.clock.After(0)
 	timeout := ctx.clock.After(30 * time.Second)
@@ -1250,14 +1260,14 @@ func (ctx *HookContext) killCharmHook() error {
 		case <-tick:
 			err := proc.Kill()
 			if err != nil {
-				logger.Infof("kill returned: %s", err)
-				logger.Infof("assuming already killed")
+				ctx.logger.Infof("kill returned: %s", err)
+				ctx.logger.Infof("assuming already killed")
 				return nil
 			}
 		case <-timeout:
 			return errors.Errorf("failed to kill context process %v", proc.Pid())
 		}
-		logger.Infof("waiting for context process %v to die", proc.Pid())
+		ctx.logger.Infof("waiting for context process %v to die", proc.Pid())
 		tick = ctx.clock.After(100 * time.Millisecond)
 	}
 }

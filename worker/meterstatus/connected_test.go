@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -25,6 +26,7 @@ type ConnectedWorkerSuite struct {
 	stub *testing.Stub
 
 	msClient *stubMeterStatusClient
+	config   meterstatus.ConnectedConfig
 }
 
 var _ = gc.Suite(&ConnectedWorkerSuite{})
@@ -34,6 +36,13 @@ func (s *ConnectedWorkerSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 
 	s.msClient = newStubMeterStatusClient(s.stub)
+
+	s.config = meterstatus.ConnectedConfig{
+		Runner:          &stubRunner{stub: s.stub},
+		Status:          s.msClient,
+		StateReadWriter: struct{ meterstatus.StateReadWriter }{},
+		Logger:          loggo.GetLogger("test"),
+	}
 }
 
 func assertSignal(c *gc.C, signal <-chan struct{}) {
@@ -44,37 +53,36 @@ func assertSignal(c *gc.C, signal <-chan struct{}) {
 	}
 }
 
-func (s *ConnectedWorkerSuite) TestConfigValidation(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+func (s *ConnectedWorkerSuite) TestConfigValid(c *gc.C) {
+	c.Assert(s.config.Validate(), jc.ErrorIsNil)
+}
 
-	tests := []struct {
-		cfg      meterstatus.ConnectedConfig
-		expected string
-	}{{
-		cfg: meterstatus.ConnectedConfig{
-			Status:          s.msClient,
-			StateReadWriter: mocks.NewMockStateReadWriter(ctrl),
-		},
-		expected: "hook runner not provided",
-	}, {
-		cfg: meterstatus.ConnectedConfig{
-			StateReadWriter: mocks.NewMockStateReadWriter(ctrl),
-			Runner:          &stubRunner{stub: s.stub},
-		},
-		expected: "meter status API client not provided",
-	}, {
-		cfg: meterstatus.ConnectedConfig{
-			Status: s.msClient,
-			Runner: &stubRunner{stub: s.stub},
-		},
-		expected: "state read/writer not provided",
-	}}
-	for i, test := range tests {
-		c.Logf("running test %d", i)
-		err := test.cfg.Validate()
-		c.Assert(err, gc.ErrorMatches, test.expected)
-	}
+func (s *ConnectedWorkerSuite) TestConfigMissingRunner(c *gc.C) {
+	s.config.Runner = nil
+	err := s.config.Validate()
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing Runner not valid")
+}
+
+func (s *ConnectedWorkerSuite) TestConfigMissingStateReadWriter(c *gc.C) {
+	s.config.StateReadWriter = nil
+	err := s.config.Validate()
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing StateReadWriter not valid")
+}
+
+func (s *ConnectedWorkerSuite) TestConfigMissingStatus(c *gc.C) {
+	s.config.Status = nil
+	err := s.config.Validate()
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing Status not valid")
+}
+
+func (s *ConnectedWorkerSuite) TestConfigMissingLogger(c *gc.C) {
+	s.config.Logger = nil
+	err := s.config.Validate()
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing Logger not valid")
 }
 
 // TestStatusHandlerDoesNotRerunNoChange ensures that the handler does not execute the hook if it
@@ -91,12 +99,9 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerDoesNotRerunNoChange(c *gc.C) {
 		}).Return(nil),
 	)
 
-	handler, err := meterstatus.NewConnectedStatusHandler(
-		meterstatus.ConnectedConfig{
-			Runner:          &stubRunner{stub: s.stub},
-			StateReadWriter: stateReadWriter,
-			Status:          s.msClient,
-		})
+	config := s.config
+	config.StateReadWriter = stateReadWriter
+	handler, err := meterstatus.NewConnectedStatusHandler(config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
 	_, err = handler.SetUp()
@@ -129,12 +134,9 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerRunsHookOnChanges(c *gc.C) {
 		}).Return(nil),
 	)
 
-	handler, err := meterstatus.NewConnectedStatusHandler(
-		meterstatus.ConnectedConfig{
-			Runner:          &stubRunner{stub: s.stub},
-			StateReadWriter: stateReadWriter,
-			Status:          s.msClient,
-		})
+	config := s.config
+	config.StateReadWriter = stateReadWriter
+	handler, err := meterstatus.NewConnectedStatusHandler(config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
 	_, err = handler.SetUp()
@@ -163,12 +165,9 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerHandlesHookMissingError(c *gc.C)
 	)
 
 	s.stub.SetErrors(charmrunner.NewMissingHookError("meter-status-changed"))
-	handler, err := meterstatus.NewConnectedStatusHandler(
-		meterstatus.ConnectedConfig{
-			Runner:          &stubRunner{stub: s.stub},
-			StateReadWriter: stateReadWriter,
-			Status:          s.msClient,
-		})
+	config := s.config
+	config.StateReadWriter = stateReadWriter
+	handler, err := meterstatus.NewConnectedStatusHandler(config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
 	_, err = handler.SetUp()
@@ -194,12 +193,9 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerHandlesRandomHookError(c *gc.C) 
 	)
 
 	s.stub.SetErrors(fmt.Errorf("blah"))
-	handler, err := meterstatus.NewConnectedStatusHandler(
-		meterstatus.ConnectedConfig{
-			Runner:          &stubRunner{stub: s.stub},
-			StateReadWriter: stateReadWriter,
-			Status:          s.msClient,
-		})
+	config := s.config
+	config.StateReadWriter = stateReadWriter
+	handler, err := meterstatus.NewConnectedStatusHandler(config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
 	_, err = handler.SetUp()
@@ -231,12 +227,9 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerDoesNotRerunAfterRestart(c *gc.C
 		}, nil),
 	)
 
-	handler, err := meterstatus.NewConnectedStatusHandler(
-		meterstatus.ConnectedConfig{
-			Runner:          &stubRunner{stub: s.stub},
-			StateReadWriter: stateReadWriter,
-			Status:          s.msClient,
-		})
+	config := s.config
+	config.StateReadWriter = stateReadWriter
+	handler, err := meterstatus.NewConnectedStatusHandler(config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
 	_, err = handler.SetUp()
@@ -249,11 +242,7 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerDoesNotRerunAfterRestart(c *gc.C
 	s.stub.ResetCalls()
 
 	// Create a new handler (imitating worker restart).
-	handler, err = meterstatus.NewConnectedStatusHandler(
-		meterstatus.ConnectedConfig{
-			Runner:          &stubRunner{stub: s.stub},
-			StateReadWriter: stateReadWriter,
-			Status:          s.msClient})
+	handler, err = meterstatus.NewConnectedStatusHandler(config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
 	_, err = handler.SetUp()

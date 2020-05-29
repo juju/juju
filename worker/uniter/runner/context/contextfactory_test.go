@@ -10,6 +10,7 @@ import (
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -62,6 +63,7 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 		Storage:          s.storage,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
+		Logger:           loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.factory = contextFactory
@@ -255,6 +257,7 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 		Storage:          s.storage,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
+		Logger:           loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := contextFactory.HookContext(hook.Info{
@@ -329,6 +332,7 @@ func (s *ContextFactorySuite) setupPodSpec(c *gc.C) (*state.State, context.Conte
 		Storage:          s.storage,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
+		Logger:           loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st, contextFactory, unit.ApplicationName()
@@ -536,6 +540,7 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 		Storage:          s.storage,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
+		Logger:           loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := contextFactory.HookContext(hook.Info{
