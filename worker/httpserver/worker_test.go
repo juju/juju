@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -67,6 +68,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		APIPort:              0,
 		APIPortOpenDelay:     0,
 		ControllerAPIPort:    0,
+		Logger:               loggo.GetLogger("test"),
 	}
 }
 

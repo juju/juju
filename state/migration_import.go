@@ -960,8 +960,10 @@ func (i *importer) applicationOffers(app ApplicationDescription) error {
 // of space names as the map values and can safely be passed to the NewBindings
 // c-tor.
 func (i *importer) parseBindings(bindingsMap map[string]string) (*Bindings, error) {
+	defaultMappingsAreIds := true
 	for epName, spNameOrID := range bindingsMap {
 		if spNameOrID == "" {
+			defaultMappingsAreIds = false
 			bindingsMap[epName] = network.AlphaSpaceName
 		}
 	}
@@ -970,11 +972,19 @@ func (i *importer) parseBindings(bindingsMap map[string]string) (*Bindings, erro
 	// non-default space whereas 2.7 controllers always set it.
 	// The application implementation in the description package has
 	// `omitempty` for bindings, so we need to create it if nil.
+	// There's an added complication. Coming from a 2.6 controller, the
+	// mapping is endpoint -> spaceName. If the 2.6 controller has been
+	// upgraded to 2.7.x (x < 7), the mapping is endpoint -> spaceID.
+	// We need to ensure that a consistent mapping value is used.
 	if bindingsMap == nil {
 		bindingsMap = make(map[string]string, 1)
 	}
 	if _, exists := bindingsMap[defaultEndpointName]; !exists {
-		bindingsMap[defaultEndpointName] = network.AlphaSpaceName
+		if defaultMappingsAreIds {
+			bindingsMap[defaultEndpointName] = network.AlphaSpaceId
+		} else {
+			bindingsMap[defaultEndpointName] = network.AlphaSpaceName
+		}
 	}
 
 	return NewBindings(i.st, bindingsMap)

@@ -238,7 +238,7 @@ var (
 		Patch:         "",
 		StorageEngine: WiredTiger,
 	}
-	// MongoUpgrade represents a sepacial case where an upgrade is in
+	// MongoUpgrade represents a special case where an upgrade is in
 	// progress.
 	MongoUpgrade = Version{Major: 0,
 		Minor:         0,

@@ -612,16 +612,21 @@ func (m *Machine) isMachineUpgradeSeriesStatusSet(status model.UpgradeSeriesStat
 }
 
 func (m *Machine) getUpgradeSeriesLock() (*upgradeSeriesLockDoc, error) {
-	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
+	lock, err := m.st.getUpgradeSeriesLock(m.Id())
+	return lock, errors.Trace(err)
+}
+
+func (st *State) getUpgradeSeriesLock(machineID string) (*upgradeSeriesLockDoc, error) {
+	coll, closer := st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
 
 	var lock upgradeSeriesLockDoc
-	err := coll.FindId(m.Id()).One(&lock)
+	err := coll.FindId(machineID).One(&lock)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("upgrade lock for machine %q", m)
+		return nil, errors.NotFoundf("upgrade lock for machine %q", machineID)
 	}
 	if err != nil {
-		return nil, errors.Annotatef(err, "retrieving upgrade series lock for machine %v", m.Id())
+		return nil, errors.Annotatef(err, "retrieving upgrade series lock for machine %v", machineID)
 	}
 	return &lock, nil
 }

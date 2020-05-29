@@ -137,23 +137,33 @@ func (s *State) YamlString() (string, error) {
 	return string(data), nil
 }
 
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (s *State) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type StateCopy State
+	var sc StateCopy
+	err := unmarshal(&sc)
+	if err != nil {
+		return err
+	}
+	*s = State(sc)
+	if s.Members == nil {
+		s.Members = map[string]int64{}
+	}
+	if s.ApplicationMembers == nil {
+		s.ApplicationMembers = map[string]int64{}
+	}
+	return nil
+}
+
 // copy returns an independent copy of the state.
 func (s *State) copy() *State {
-	stCopy := &State{
-		RelationId:     s.RelationId,
-		ChangedPending: s.ChangedPending,
+	stCopy := NewState(s.RelationId)
+	stCopy.ChangedPending = s.ChangedPending
+	for m, v := range s.Members {
+		stCopy.Members[m] = v
 	}
-	if s.Members != nil {
-		stCopy.Members = make(map[string]int64, len(s.Members))
-		for m, v := range s.Members {
-			stCopy.Members[m] = v
-		}
-	}
-	if s.ApplicationMembers != nil {
-		stCopy.ApplicationMembers = make(map[string]int64, len(s.ApplicationMembers))
-		for m, v := range s.ApplicationMembers {
-			stCopy.ApplicationMembers[m] = v
-		}
+	for m, v := range s.ApplicationMembers {
+		stCopy.ApplicationMembers[m] = v
 	}
 	return stCopy
 }

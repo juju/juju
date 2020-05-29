@@ -156,9 +156,11 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 		c.Assert(worker.Stop(w), jc.ErrorIsNil)
 	}()
 
+	uc := 0
 	assertRelationUnitsChange(c, s.BackingState, w, params.RemoteRelationChangeEvent{
 		RelationToken:    relToken,
 		ApplicationToken: appToken,
+		UnitCount:        &uc,
 	})
 	assertNoRelationUnitsChange(c, s.BackingState, w)
 
@@ -170,6 +172,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(settings)
 	c.Assert(err, jc.ErrorIsNil)
+	uc = 1
 	expect := params.RemoteRelationChangeEvent{
 		RelationToken:    relToken,
 		ApplicationToken: appToken,
@@ -179,6 +182,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 				"key": "value",
 			},
 		}},
+		UnitCount: &uc,
 	}
 	assertRelationUnitsChange(c, s.BackingState, w, expect)
 	assertNoRelationUnitsChange(c, s.BackingState, w)
@@ -202,6 +206,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 				"quay": float64(123),
 			},
 		}},
+		UnitCount: &uc,
 	}
 	assertRelationUnitsChange(c, s.BackingState, w, expect)
 	assertNoRelationUnitsChange(c, s.BackingState, w)
@@ -209,10 +214,12 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 	// Remove a unit of wordpress, expect a change.
 	err = ru.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
+	uc = 0
 	expect = params.RemoteRelationChangeEvent{
 		RelationToken:    relToken,
 		ApplicationToken: appToken,
 		DepartedUnits:    []int{0},
+		UnitCount:        &uc,
 	}
 	assertRelationUnitsChange(c, s.BackingState, w, expect)
 	assertNoRelationUnitsChange(c, s.BackingState, w)
