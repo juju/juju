@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/charm/v7"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -95,6 +96,7 @@ func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
 	s.applicationWatcher = s.st.unit.application.applicationWatcher
 	s.st.unit.upgradeSeriesWatcher = newMockNotifyWatcher()
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
+		Logger:              loggo.GetLogger("test"),
 		State:               s.st,
 		ModelType:           s.modelType,
 		LeadershipTracker:   s.leadership,
@@ -114,6 +116,7 @@ func (s *WatcherSuiteCAAS) SetUpTest(c *gc.C) {
 	s.applicationWatcher = newMockNotifyWatcher()
 	s.runningStatusWatcher = newMockNotifyWatcher()
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
+		Logger:                        loggo.GetLogger("test"),
 		State:                         s.st,
 		ModelType:                     s.modelType,
 		LeadershipTracker:             s.leadership,
@@ -849,7 +852,13 @@ func (s *WatcherSuite) waitAlarmsStable(c *gc.C) {
 
 func (s *WatcherSuiteCAAS) TestWatcherConfig(c *gc.C) {
 	_, err := remotestate.NewWatcher(remotestate.WatcherConfig{
+		Logger:    loggo.GetLogger("test"),
 		ModelType: model.CAAS,
 	})
 	c.Assert(err, gc.ErrorMatches, "watcher config for CAAS model with nil application channel not valid")
+}
+
+func (s *WatcherSuite) TestWatcherConfigMissingLogger(c *gc.C) {
+	_, err := remotestate.NewWatcher(remotestate.WatcherConfig{})
+	c.Assert(err, gc.ErrorMatches, "missing Logger not valid")
 }

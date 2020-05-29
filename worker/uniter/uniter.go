@@ -362,6 +362,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		var err error
 		watcher, err = remotestate.NewWatcher(
 			remotestate.WatcherConfig{
+				Logger:                        u.logger.Child("remotestate"),
 				State:                         remotestate.NewAPIState(u.st),
 				LeadershipTracker:             u.leadershipTracker,
 				UnitTag:                       unitTag,
