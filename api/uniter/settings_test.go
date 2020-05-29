@@ -8,29 +8,21 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type settingsSuite struct {
-	uniterSuite
-	commonRelationSuiteMixin
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&settingsSuite{})
 
-func (s *settingsSuite) SetUpTest(c *gc.C) {
-	s.uniterSuite.SetUpTest(c)
-	s.commonRelationSuiteMixin.SetUpTest(c, s.uniterSuite)
-}
-
-func (s *settingsSuite) TearDownTest(c *gc.C) {
-	s.uniterSuite.TearDownTest(c)
-}
-
 func (s *settingsSuite) TestNewSettingsAndMap(c *gc.C) {
 	// Make sure newSettings accepts nil settings.
-	settings := uniter.NewSettings(s.uniter, "blah", "foo", nil)
+	settings := uniter.NewSettings("blah", "foo", nil)
 	theMap := settings.Map()
 	c.Assert(theMap, gc.NotNil)
 	c.Assert(theMap, gc.HasLen, 0)
@@ -40,13 +32,13 @@ func (s *settingsSuite) TestNewSettingsAndMap(c *gc.C) {
 		"some":  "settings",
 		"other": "stuff",
 	}
-	settings = uniter.NewSettings(s.uniter, "blah", "foo", rawSettings)
+	settings = uniter.NewSettings("blah", "foo", rawSettings)
 	theMap = settings.Map()
 	c.Assert(theMap, gc.DeepEquals, rawSettings)
 }
 
 func (s *settingsSuite) TestSet(c *gc.C) {
-	settings := uniter.NewSettings(s.uniter, "blah", "foo", nil)
+	settings := uniter.NewSettings("blah", "foo", nil)
 
 	settings.Set("foo", "bar")
 	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
@@ -64,7 +56,7 @@ func (s *settingsSuite) TestSet(c *gc.C) {
 }
 
 func (s *settingsSuite) TestDelete(c *gc.C) {
-	settings := uniter.NewSettings(s.uniter, "blah", "foo", nil)
+	settings := uniter.NewSettings("blah", "foo", nil)
 
 	settings.Set("foo", "qaz")
 	settings.Set("abc", "tink")
@@ -96,23 +88,53 @@ func (s *settingsSuite) TestDelete(c *gc.C) {
 }
 
 func (s *settingsSuite) TestWrite(c *gc.C) {
-	wpRelUnit, err := s.stateRelation.Unit(s.wordpressUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	rawSettings := map[string]interface{}{
-		"some":  "stuff",
-		"other": "things",
-	}
-	err = wpRelUnit.EnterScope(rawSettings)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, wpRelUnit, true)
+	settingsUpdated := false
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		switch request {
+		case "ReadSettings":
+			c.Assert(arg, gc.DeepEquals, params.RelationUnits{
+				RelationUnits: []params.RelationUnit{{
+					Relation: "relation-mysql.database#wordpress.server",
+					Unit:     "unit-mysql-0",
+				}},
+			})
+			c.Assert(result, gc.FitsTypeOf, &params.SettingsResults{})
+			*(result.(*params.SettingsResults)) = params.SettingsResults{
+				Results: []params.SettingsResult{{
+					Settings: params.Settings{
+						"some":  "stuff",
+						"other": "things",
+					},
+				}},
+			}
+		case "UpdateSettings":
+			c.Assert(arg, gc.DeepEquals, params.RelationUnitsSettings{
+				RelationUnits: []params.RelationUnitSettings{{
+					Relation: "relation-mysql.database#wordpress.server",
+					Unit:     "unit-mysql-0",
+					Settings: params.Settings{
+						"foo":   "qaz",
+						"other": "days",
+						"some":  "",
+					},
+					ApplicationSettings: params.Settings{"foo": "bar"},
+				}},
+			})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{}},
+			}
+			settingsUpdated = true
+		default:
+			c.Fatalf("unexpected api call %q", request)
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
-	apiRelation, err := s.uniter.Relation(s.stateRelation.Tag().(names.RelationTag))
-	c.Assert(err, jc.ErrorIsNil)
-	apiRelUnit, err := apiRelation.Unit(apiUnit.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	settings, err := apiRelUnit.Settings()
+	relUnit := uniter.CreateRelationUnit(client, names.NewRelationTag("mysql:database wordpress:server"), names.NewUnitTag("mysql/0"))
+	settings, err := relUnit.Settings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
 		"some":  "stuff",
@@ -124,12 +146,7 @@ func (s *settingsSuite) TestWrite(c *gc.C) {
 	settings.Delete("some")
 	settings.Set("foo", "qaz")
 	settings.Set("other", "days")
-	err = apiRelUnit.UpdateRelationSettings(settings.FinalResult(), nil)
+	err = relUnit.UpdateRelationSettings(settings.FinalResult(), params.Settings{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err = apiRelUnit.Settings()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
-		"foo":   "qaz",
-		"other": "days",
-	})
+	c.Assert(settingsUpdated, jc.IsTrue)
 }

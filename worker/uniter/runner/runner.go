@@ -35,7 +35,9 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-var logger = loggo.GetLogger("juju.worker.uniter.runner")
+// Logger is here to stop the desire of creating a package level Logger.
+// Don't do this, instead use the method defined in the Runner.
+var logger interface{}
 
 type runMode int
 
@@ -116,6 +118,8 @@ type Context interface {
 
 	Prepare() error
 	Flush(badge string, failure error) error
+
+	GetLogger(module string) loggo.Logger
 }
 
 // NewRunner returns a Runner backed by the supplied context and paths.
@@ -166,6 +170,10 @@ type runner struct {
 	paths   context.Paths
 	// remoteExecutor executes commands on a remote workload pod for CAAS.
 	remoteExecutor ExecFunc
+}
+
+func (runner *runner) logger() loggo.Logger {
+	return runner.context.GetLogger("juju.worker.uniter.runner")
 }
 
 func (runner *runner) Context() Context {
@@ -272,6 +280,7 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 
 // runJujuRunAction is the function that executes when a juju-run action is ran.
 func (runner *runner) runJujuRunAction() (err error) {
+	logger := runner.logger()
 	logger.Debugf("juju-run action is running")
 	data, err := runner.context.ActionData()
 	if err != nil {
@@ -368,7 +377,7 @@ func (runner *runner) RunAction(actionName string) (HookHandlerType, error) {
 	if err != nil {
 		return InvalidHookHandler, errors.Trace(err)
 	}
-	logger.Debugf("running action %q on %v", actionName, rMode)
+	runner.logger().Debugf("running action %q on %v", actionName, rMode)
 	return runner.runCharmHookWithLocation(actionName, "actions", rMode)
 }
 
@@ -427,6 +436,7 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 		err = runner.context.Flush(hookName, err)
 	}()
 
+	logger := runner.logger()
 	debugctx := debug.NewHooksContext(runner.context.UnitName())
 	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
 		// Note: hookScript might be relative but the debug session only requires its name
@@ -698,7 +708,7 @@ func (runner *runner) startJujucServer(token string, rMode runMode) (*jujuc.Serv
 	}
 
 	socket := runner.paths.GetJujucServerSocket(rMode == runOnRemote)
-	logger.Debugf("starting jujuc server %s %v", token, socket)
+	runner.logger().Debugf("starting jujuc server %s %v", token, socket)
 	srv, err := jujuc.NewServer(getCmd, socket, token)
 	if err != nil {
 		return nil, errors.Annotate(err, "starting jujuc server")
@@ -707,8 +717,9 @@ func (runner *runner) startJujucServer(token string, rMode runMode) (*jujuc.Serv
 	return srv, nil
 }
 
+// getKigger returns the logger for a particular unit's hook.
 func (runner *runner) getLogger(hookName string) loggo.Logger {
-	return loggo.GetLogger(fmt.Sprintf("unit.%s.%s", runner.context.UnitName(), hookName))
+	return runner.context.GetLogger(fmt.Sprintf("unit.%s.%s", runner.context.UnitName(), hookName))
 }
 
 var exportLineRegexp = regexp.MustCompile("(?m)^export ([^=]+)=(.*)$")
@@ -747,7 +758,7 @@ func (runner *runner) getRemoteEnviron(abort <-chan struct{}) (map[string]string
 		unquotedValue := unquoted[0]
 		env[key] = unquotedValue
 	}
-	logger.Debugf("fetched remote env %+q", env)
+	runner.logger().Debugf("fetched remote env %+q", env)
 	return env, nil
 }
 

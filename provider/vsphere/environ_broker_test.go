@@ -67,7 +67,7 @@ func (s *legacyEnvironBrokerSuite) SetUpTest(c *gc.C) {
 func (s *legacyEnvironBrokerSuite) createStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
 	var cons constraints.Value
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		coretesting.FakeControllerConfig(), cons, cons, "trusty", "",
+		coretesting.FakeControllerConfig(), cons, cons, "trusty", "", nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

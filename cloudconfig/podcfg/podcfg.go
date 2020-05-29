@@ -349,32 +349,20 @@ func NewBootstrapControllerPodConfig(
 	return pcfg, nil
 }
 
-// PopulateControllerPodConfig is called both from the FinishControllerPodConfig below,
-// which does have access to the environment config, and from the container
-// provisioners, which don't have access to the environment config. Everything
-// that is needed to provision a container needs to be returned to the
-// provisioner in the ContainerConfig structure. Those values are then used to
-// call this function.
-func PopulateControllerPodConfig(pcfg *ControllerPodConfig, providerType string) error {
-	if pcfg.AgentEnvironment == nil {
-		pcfg.AgentEnvironment = make(map[string]string)
-	}
-	pcfg.AgentEnvironment[agent.ProviderType] = providerType
-	return nil
-}
-
 // FinishControllerPodConfig sets fields on a ControllerPodConfig that can be determined by
 // inspecting a plain config.Config and the pod constraints at the last
 // moment before creating podspec. It assumes that the supplied Config comes
 // from an environment that has passed through all the validation checks in the
 // Bootstrap func, and that has set an agent-version (via finding the tools to,
 // use for bootstrap, or otherwise).
-func FinishControllerPodConfig(pcfg *ControllerPodConfig, cfg *config.Config) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot complete pod configuration")
-	if err := PopulateControllerPodConfig(pcfg, cfg.Type()); err != nil {
-		return errors.Trace(err)
+func FinishControllerPodConfig(pcfg *ControllerPodConfig, cfg *config.Config, agentEnvironment map[string]string) {
+	if pcfg.AgentEnvironment == nil {
+		pcfg.AgentEnvironment = make(map[string]string)
 	}
-	return nil
+	pcfg.AgentEnvironment[agent.ProviderType] = cfg.Type()
+	for k, v := range agentEnvironment {
+		pcfg.AgentEnvironment[k] = v
+	}
 }
 
 // PodLabels returns the minimum set of tags that should be set on a

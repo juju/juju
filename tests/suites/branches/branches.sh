@@ -8,19 +8,19 @@ run_branch() {
 
     juju branch | check 'Active branch is "master"'
 
-    juju deploy redis
+    juju deploy mongodb
 
-    wait_for "redis" "$(idle_condition "redis")"
+    wait_for "mongodb" "$(idle_condition "mongodb")"
 
     juju add-branch test-branch
     juju branch | check 'Active branch is "test-branch"'
 
-    juju config redis password=pass --branch test-branch
-    check_config_command "juju config redis password --branch test-branch" "pass"
-    juju config redis password --branch master | wc -c | check "0"
+    juju config mongodb replicaset=newset --branch test-branch
+    check_config_command "juju config mongodb replicaset --branch test-branch" "newset"
+    check_config_command "juju config mongodb replicaset --branch master" "myset"
 
     juju commit test-branch | check 'Active branch set to "master"'
-    check_config_command "juju config redis password" "pass"
+    check_config_command "juju config mongodb replicaset" "newset"
 
     # Clean up!
     destroy_model "branches"

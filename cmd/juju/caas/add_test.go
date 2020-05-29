@@ -449,7 +449,39 @@ func (s *addCAASSuite) TestInit(c *gc.C) {
 		},
 		{
 			args:           []string{"--gke", "--context-name", "a"},
-			expectedErrStr: "do not specify context name when adding a GKE cluster",
+			expectedErrStr: "do not specify context name when adding a AKS/GKE/EKS cluster",
+		},
+		{
+			args:           []string{"--aks", "--context-name", "a"},
+			expectedErrStr: "do not specify context name when adding a AKS/GKE/EKS cluster",
+		},
+		{
+			args:           []string{"--eks", "--context-name", "a"},
+			expectedErrStr: "do not specify context name when adding a AKS/GKE/EKS cluster",
+		},
+		{
+			args:           []string{"--gke", "--cloud", "a"},
+			expectedErrStr: "do not specify --cloud when adding a GKE, EKS or AKS cluster",
+		},
+		{
+			args:           []string{"--aks", "--cloud", "a"},
+			expectedErrStr: "do not specify --cloud when adding a GKE, EKS or AKS cluster",
+		},
+		{
+			args:           []string{"--eks", "--cloud", "a"},
+			expectedErrStr: "do not specify --cloud when adding a GKE, EKS or AKS cluster",
+		},
+		{
+			args:           []string{"--gke", "--region", "cloud/region"},
+			expectedErrStr: "only specify region, not cloud/region, when adding a GKE, EKS or AKS cluster",
+		},
+		{
+			args:           []string{"--aks", "--region", "cloud/region"},
+			expectedErrStr: "only specify region, not cloud/region, when adding a GKE, EKS or AKS cluster",
+		},
+		{
+			args:           []string{"--eks", "--region", "cloud/region"},
+			expectedErrStr: "only specify region, not cloud/region, when adding a GKE, EKS or AKS cluster",
 		},
 		{
 			args:           []string{"--project", "a"},
@@ -458,6 +490,30 @@ func (s *addCAASSuite) TestInit(c *gc.C) {
 		{
 			args:           []string{"--credential", "a"},
 			expectedErrStr: "do not specify credential unless adding a GKE cluster",
+		},
+		{
+			args:           []string{"--project", "a", "--aks"},
+			expectedErrStr: "do not specify project unless adding a GKE cluster",
+		},
+		{
+			args:           []string{"--credential", "a", "--aks"},
+			expectedErrStr: "do not specify credential unless adding a GKE cluster",
+		},
+		{
+			args:           []string{"--project", "a", "--eks"},
+			expectedErrStr: "do not specify project unless adding a GKE cluster",
+		},
+		{
+			args:           []string{"--credential", "a", "--eks"},
+			expectedErrStr: "do not specify credential unless adding a GKE cluster",
+		},
+		{
+			args:           []string{"--resource-group", "rg1", "--gke"},
+			expectedErrStr: "do not specify resource-group unless adding a AKS cluster",
+		},
+		{
+			args:           []string{"--resource-group", "rg1", "--eks"},
+			expectedErrStr: "do not specify resource-group unless adding a AKS cluster",
 		},
 	} {
 		args := append([]string{"myk8s"}, ts.args...)
@@ -513,17 +569,17 @@ func (s *addCAASSuite) TestCloudAndRegionFlag(c *gc.C) {
 			title:          "specify cloud with gke",
 			cloud:          "aws",
 			gke:            true,
-			expectedErrStr: `do not specify --cloud when adding a GKE or AKS cluster`,
+			expectedErrStr: `do not specify --cloud when adding a GKE, EKS or AKS cluster`,
 		}, {
 			title:          "specify cloud with aks",
 			cloud:          "aws",
 			aks:            true,
-			expectedErrStr: `do not specify --cloud when adding a GKE or AKS cluster`,
+			expectedErrStr: `do not specify --cloud when adding a GKE, EKS or AKS cluster`,
 		}, {
 			title:          "specify cloud/region with gke",
 			region:         "gce/us-east",
 			gke:            true,
-			expectedErrStr: `only specify region, not cloud/region, when adding a GKE or AKS cluster`,
+			expectedErrStr: `only specify region, not cloud/region, when adding a GKE, EKS or AKS cluster`,
 		}, {
 			title: "missing region --cloud=teststack but cloud has default region",
 			cloud: "teststack",
@@ -1281,5 +1337,5 @@ func (s *addCAASSuite) TestCorrectSelectContext(c *gc.C) {
 func (s *addCAASSuite) TestOnlyOneClusterProvider(c *gc.C) {
 	command := s.makeCommand(c, true, false, true)
 	_, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--aks", "--gke")
-	c.Assert(err, gc.ErrorMatches, "only one of '--gke' or '--aks' can be supplied")
+	c.Assert(err, gc.ErrorMatches, "only one of '--gke', '--eks' or '--aks' can be supplied")
 }

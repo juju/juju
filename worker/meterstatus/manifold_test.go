@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -108,7 +107,7 @@ func (s *PatchedManifoldSuite) SetUpTest(c *gc.C) {
 	newMSClient := func(_ base.APICaller, _ names.UnitTag) msapi.MeterStatusClient {
 		return s.msClient
 	}
-	newHookRunner := func(_ names.UnitTag, _ machinelock.Lock, _ agent.Config, _ clock.Clock) meterstatus.HookRunner {
+	newHookRunner := func(_ meterstatus.HookRunnerConfig) meterstatus.HookRunner {
 		return &stubRunner{stub: s.stub}
 	}
 

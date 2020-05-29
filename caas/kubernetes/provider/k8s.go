@@ -423,10 +423,7 @@ func (k *kubernetesClient) Bootstrap(
 	}
 
 	finalizer := func(ctx environs.BootstrapContext, pcfg *podcfg.ControllerPodConfig, opts environs.BootstrapDialOpts) (err error) {
-		if err = podcfg.FinishControllerPodConfig(pcfg, k.Config()); err != nil {
-			return errors.Trace(err)
-		}
-
+		podcfg.FinishControllerPodConfig(pcfg, k.Config(), args.ExtraAgentValuesForTesting)
 		if err = pcfg.VerifyConfig(); err != nil {
 			return errors.Trace(err)
 		}

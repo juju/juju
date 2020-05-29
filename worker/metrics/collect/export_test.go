@@ -4,6 +4,9 @@
 package collect
 
 import (
+	"github.com/juju/clock"
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner"
 )
@@ -15,10 +18,6 @@ var (
 
 	// NewRecorder allows patching the function that creates the metric recorder.
 	NewRecorder = &newRecorder
-
-	// NewHookContext returns a new hook context used to collect metrics.
-	// It is exported here for calling from tests, but not patching.
-	NewHookContext = newHookContext
 
 	// ReadCharm reads the charm directory and returns the charm url and
 	// metrics declared by the charm.
@@ -42,4 +41,15 @@ func NewSocketListenerFnc(listener handlerSetterStopper) func(string, spool.Conn
 		listener.SetHandler(handler)
 		return listener, nil
 	}
+}
+
+// NewHookContext returns a new hook context used to collect metrics.
+// It is exported here for calling from tests, but not patching.
+func NewHookContext(unitName string, recorder spool.MetricRecorder) runner.Context {
+	return newHookContext(hookConfig{
+		unitName: unitName,
+		recorder: recorder,
+		clock:    clock.WallClock,
+		logger:   loggo.GetLogger("test"),
+	})
 }

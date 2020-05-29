@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/loggo"
+
 	corecharm "github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -45,6 +48,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:       "agent-name",
 		MetricSpoolName: "metric-spool-name",
 		CharmDirName:    "charmdir-name",
+		Clock:           clock.WallClock,
+		Logger:          loggo.GetLogger("test"),
 	}
 	s.manifold = collect.Manifold(s.manifoldConfig)
 	s.dataDir = c.MkDir()

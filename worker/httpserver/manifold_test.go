@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -82,6 +83,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		GetControllerConfig:  s.getControllerConfig,
 		NewTLSConfig:         s.newTLSConfig,
 		NewWorker:            s.newWorker,
+		Logger:               loggo.GetLogger("test"),
 	}
 	s.manifold = httpserver.Manifold(s.config)
 }
@@ -111,7 +113,8 @@ func (s *ManifoldSuite) getControllerConfig(st *state.State) (controller.Config,
 
 func (s *ManifoldSuite) newTLSConfig(
 	st *state.State,
-	_ httpserver.SNIGetter,
+	_ httpserver.SNIGetterFunc,
+	_ httpserver.Logger,
 ) (*tls.Config, error) {
 	s.stub.MethodCall(s, "NewTLSConfig", st)
 	if err := s.stub.NextErr(); err != nil {
@@ -173,6 +176,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ControllerAPIPort:    2048,
 		MuxShutdownWait:      1 * time.Minute,
 		LogDir:               "log-dir",
+		Logger:               s.config.Logger,
 	})
 }
 

@@ -85,7 +85,10 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 	// prepareOrGetContainerInterfaceInfo should always return a value. The
 	// test suite currently doesn't think so, and I'm hesitant to munge it too
 	// much.
-	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
+	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
+	if bridgeDevice == "" {
+		bridgeDevice = broker.agentConfig.Value(agent.LxcBridge)
+	}
 	if bridgeDevice == "" {
 		bridgeDevice = network.DefaultLXDBridge
 	}

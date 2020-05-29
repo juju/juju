@@ -136,6 +136,22 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *bootstrapSuite) TestBootstrapTestingOptions(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		s.callContext, bootstrap.BootstrapParams{
+			ControllerConfig:           coretesting.FakeControllerConfig(),
+			AdminSecret:                "admin-secret",
+			CAPrivateKey:               coretesting.CAKey,
+			SupportedBootstrapSeries:   supportedJujuSeries,
+			ExtraAgentValuesForTesting: map[string]string{"foo": "bar"},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+	c.Assert(env.instanceConfig.AgentEnvironment, jc.DeepEquals, map[string]string{"foo": "bar"})
+}
+
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
@@ -303,10 +319,11 @@ func (s *bootstrapSuite) assertFinalizePodBootstrapConfig(c *gc.C, serviceType, 
 	}))
 	c.Assert(err, jc.ErrorIsNil)
 	params := bootstrap.BootstrapParams{
-		CAPrivateKey:           coretesting.CAKey,
-		ControllerServiceType:  serviceType,
-		ControllerExternalName: externalName,
-		ControllerExternalIPs:  externalIps,
+		CAPrivateKey:               coretesting.CAKey,
+		ControllerServiceType:      serviceType,
+		ControllerExternalName:     externalName,
+		ControllerExternalIPs:      externalIps,
+		ExtraAgentValuesForTesting: map[string]string{"foo": "bar"},
 	}
 	err = bootstrap.FinalizePodBootstrapConfig(podConfig, params, modelCfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -314,6 +331,7 @@ func (s *bootstrapSuite) assertFinalizePodBootstrapConfig(c *gc.C, serviceType, 
 	c.Assert(podConfig.Bootstrap.ControllerServiceType, gc.Equals, serviceType)
 	c.Assert(podConfig.Bootstrap.ControllerExternalName, gc.Equals, externalName)
 	c.Assert(podConfig.Bootstrap.ControllerExternalIPs, jc.DeepEquals, externalIps)
+	c.Assert(podConfig.AgentEnvironment, jc.DeepEquals, map[string]string{"foo": "bar"})
 }
 
 func intPtr(i uint64) *uint64 {

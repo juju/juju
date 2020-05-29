@@ -47,7 +47,8 @@ func (s *storageSuite) TestUnitStorageAttachments(c *gc.C) {
 		return nil
 	})
 
-	st := uniter.NewStateV2(apiCaller, names.NewUnitTag("mysql/0"))
+	caller := testing.BestVersionCaller{apiCaller, 2}
+	st := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
 	attachmentIds, err := st.UnitStorageAttachments(names.NewUnitTag("mysql/0"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
@@ -72,7 +73,8 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 		return nil
 	})
 
-	st := uniter.NewStateV2(apiCaller, names.NewUnitTag("mysql/0"))
+	caller := testing.BestVersionCaller{apiCaller, 2}
+	st := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
 	err := st.DestroyUnitStorageAttachments(names.NewUnitTag("mysql/0"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
@@ -85,7 +87,8 @@ func (s *storageSuite) TestStorageAttachmentResultCountMismatch(c *gc.C) {
 		}
 		return nil
 	})
-	st := uniter.NewStateV2(apiCaller, names.NewUnitTag("mysql/0"))
+	caller := testing.BestVersionCaller{apiCaller, 2}
+	st := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
 	_, err := st.UnitStorageAttachments(names.NewUnitTag("mysql/0"))
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
@@ -94,7 +97,8 @@ func (s *storageSuite) TestAPIErrors(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("bad")
 	})
-	st := uniter.NewStateV2(apiCaller, names.NewUnitTag("mysql/0"))
+	caller := testing.BestVersionCaller{apiCaller, 2}
+	st := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
 	_, err := st.UnitStorageAttachments(names.NewUnitTag("mysql/0"))
 	c.Check(err, gc.ErrorMatches, "bad")
 }
@@ -119,7 +123,8 @@ func (s *storageSuite) TestWatchUnitStorageAttachments(c *gc.C) {
 		return nil
 	})
 
-	st := uniter.NewStateV2(apiCaller, names.NewUnitTag("mysql/0"))
+	caller := testing.BestVersionCaller{apiCaller, 2}
+	st := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
 	_, err := st.WatchUnitStorageAttachments(names.NewUnitTag("mysql/0"))
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(called, jc.IsTrue)
@@ -148,7 +153,8 @@ func (s *storageSuite) TestWatchStorageAttachments(c *gc.C) {
 		return nil
 	})
 
-	st := uniter.NewStateV2(apiCaller, names.NewUnitTag("mysql/0"))
+	caller := testing.BestVersionCaller{apiCaller, 2}
+	st := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
 	_, err := st.WatchStorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("mysql/0"))
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(called, jc.IsTrue)
@@ -185,7 +191,8 @@ func (s *storageSuite) TestStorageAttachments(c *gc.C) {
 		return nil
 	})
 
-	st := uniter.NewStateV2(apiCaller, names.NewUnitTag("mysql/0"))
+	caller := testing.BestVersionCaller{apiCaller, 2}
+	st := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
 	attachment, err := st.StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("mysql/0"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
@@ -213,7 +220,8 @@ func (s *storageSuite) TestStorageAttachmentLife(c *gc.C) {
 		return nil
 	})
 
-	st := uniter.NewStateV2(apiCaller, names.NewUnitTag("mysql/0"))
+	caller := testing.BestVersionCaller{apiCaller, 2}
+	st := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
 	results, err := st.StorageAttachmentLife([]params.StorageAttachmentId{{
 		StorageTag: "storage-data-0",
 		UnitTag:    "unit-mysql-0",
@@ -243,7 +251,8 @@ func (s *storageSuite) TestRemoveStorageAttachment(c *gc.C) {
 		return nil
 	})
 
-	st := uniter.NewStateV2(apiCaller, names.NewUnitTag("mysql/0"))
+	caller := testing.BestVersionCaller{apiCaller, 2}
+	st := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
 	err := st.RemoveStorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("mysql/0"))
 	c.Check(err, gc.ErrorMatches, "yoink")
 }

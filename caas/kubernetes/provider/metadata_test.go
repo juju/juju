@@ -132,6 +132,13 @@ var hostRegionsTestCases = []hostRegionTestcase{
 		}),
 	},
 	{
+		expectedCloud:   "ec2",
+		expectedRegions: set.NewStrings(""),
+		nodes: newNodeList(map[string]string{
+			"eks.amazonaws.com/nodegroup": "any-node-group",
+		}),
+	},
+	{
 		expectedRegions: set.NewStrings(),
 		nodes: newNodeList(map[string]string{
 			"failure-domain.beta.kubernetes.io/region": "a-fancy-region",

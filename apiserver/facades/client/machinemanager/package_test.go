@@ -9,6 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
+//go:generate mockgen -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/apiserver/facades/client/machinemanager Leadership
+
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }

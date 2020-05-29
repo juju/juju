@@ -4,514 +4,526 @@
 package uniter_test
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/schema"
-	coretesting "github.com/juju/testing"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base/testing"
+	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	jujufactory "github.com/juju/juju/testing/factory"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type unitSuite struct {
-	uniterSuite
-
-	apiUnit *uniter.Unit
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&unitSuite{})
 
-func (s *unitSuite) SetUpTest(c *gc.C) {
-	s.uniterSuite.SetUpTest(c)
-
-	var err error
-	s.apiUnit, err = s.uniter.Unit(s.wordpressUnit.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *unitSuite) TestRequestReboot(c *gc.C) {
-	err := s.apiUnit.RequestReboot()
-	c.Assert(err, jc.ErrorIsNil)
-	rFlag, err := s.wordpressMachine.GetRebootFlag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rFlag, jc.IsTrue)
-}
-
 func (s *unitSuite) TestUnitAndUnitTag(c *gc.C) {
-	apiUnitFoo, err := s.uniter.Unit(names.NewUnitTag("foo/42"))
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Assert(apiUnitFoo, gc.IsNil)
-
-	c.Assert(s.apiUnit.Tag(), gc.Equals, s.wordpressUnit.Tag().(names.UnitTag))
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "Refresh")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.UnitRefreshResults{})
+		*(result.(*params.UnitRefreshResults)) = params.UnitRefreshResults{
+			Results: []params.UnitRefreshResult{{
+				Life: life.Alive,
+			}},
+		}
+		return nil
+	})
+	tag := names.NewUnitTag("mysql/0")
+	client := uniter.NewState(apiCaller, tag)
+	unit, err := client.Unit(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Name(), gc.Equals, "mysql/0")
+	c.Assert(unit.Tag(), gc.Equals, tag)
+	c.Assert(unit.Life(), gc.Equals, life.Alive)
+	c.Assert(unit.ApplicationName(), gc.Equals, "mysql")
+	c.Assert(unit.ApplicationTag(), gc.Equals, names.NewApplicationTag("mysql"))
 }
 
 func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
-	statusInfo, err := s.wordpressUnit.AgentStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.Allocating)
-	c.Assert(statusInfo.Message, gc.Equals, "")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "SetAgentStatus")
+		c.Assert(arg, gc.DeepEquals, params.SetStatus{
+			Entities: []params.EntityStatusArgs{
+				{Tag: "unit-mysql-0", Status: "idle", Info: "blah", Data: map[string]interface{}{"foo": "bar"}},
+			},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
+		}
+		return nil
+	})
+	caller := basetesting.BestVersionCaller{apiCaller, 2}
+	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
 
-	unitStatusInfo, err := s.wordpressUnit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitStatusInfo.Status, gc.Equals, status.Waiting)
-	c.Assert(unitStatusInfo.Message, gc.Equals, "waiting for machine")
-	c.Assert(unitStatusInfo.Data, gc.HasLen, 0)
-
-	err = s.apiUnit.SetAgentStatus(status.Idle, "blah", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	statusInfo, err = s.wordpressUnit.AgentStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.Idle)
-	c.Assert(statusInfo.Message, gc.Equals, "blah")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
-	c.Assert(statusInfo.Since, gc.NotNil)
-
-	// Ensure that unit has not changed.
-	unitStatusInfo, err = s.wordpressUnit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitStatusInfo.Status, gc.Equals, status.Waiting)
-	c.Assert(unitStatusInfo.Message, gc.Equals, "waiting for machine")
-	c.Assert(unitStatusInfo.Data, gc.HasLen, 0)
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	err := unit.SetAgentStatus(status.Idle, "blah", map[string]interface{}{"foo": "bar"})
+	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
 func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
-	statusInfo, err := s.wordpressUnit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.Waiting)
-	c.Assert(statusInfo.Message, gc.Equals, "waiting for machine")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "SetUnitStatus")
+		c.Assert(arg, gc.DeepEquals, params.SetStatus{
+			Entities: []params.EntityStatusArgs{
+				{Tag: "unit-mysql-0", Status: "idle", Info: "blah", Data: map[string]interface{}{"foo": "bar"}},
+			},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
+		}
+		return nil
+	})
+	caller := basetesting.BestVersionCaller{apiCaller, 2}
+	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
 
-	agentStatusInfo, err := s.wordpressUnit.AgentStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(agentStatusInfo.Status, gc.Equals, status.Allocating)
-	c.Assert(agentStatusInfo.Message, gc.Equals, "")
-	c.Assert(agentStatusInfo.Data, gc.HasLen, 0)
-
-	err = s.apiUnit.SetUnitStatus(status.Active, "blah", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	statusInfo, err = s.wordpressUnit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.Active)
-	c.Assert(statusInfo.Message, gc.Equals, "blah")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
-	c.Assert(statusInfo.Since, gc.NotNil)
-
-	// Ensure unit's agent has not changed.
-	agentStatusInfo, err = s.wordpressUnit.AgentStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(agentStatusInfo.Status, gc.Equals, status.Allocating)
-	c.Assert(agentStatusInfo.Message, gc.Equals, "")
-	c.Assert(agentStatusInfo.Data, gc.HasLen, 0)
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	err := unit.SetUnitStatus(status.Idle, "blah", map[string]interface{}{"foo": "bar"})
+	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
 func (s *unitSuite) TestUnitStatus(c *gc.C) {
 	now := time.Now()
-	sInfo := status.StatusInfo{
-		Status:  status.Maintenance,
-		Message: "blah",
-		Since:   &now,
-	}
-	err := s.wordpressUnit.SetStatus(sInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "UnitStatus")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StatusResults{})
+		*(result.(*params.StatusResults)) = params.StatusResults{
+			Results: []params.StatusResult{{
+				Id:     "mysql/0",
+				Life:   life.Alive,
+				Status: "maintenance",
+				Info:   "blah",
+				Data:   map[string]interface{}{"foo": "bar"},
+				Since:  &now,
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	result, err := s.apiUnit.UnitStatus()
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	statusInfo, err := unit.UnitStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Since, gc.NotNil)
-	result.Since = nil
-	c.Assert(result, gc.DeepEquals, params.StatusResult{
+	c.Assert(statusInfo, gc.DeepEquals, params.StatusResult{
+		Id:     "mysql/0",
+		Life:   life.Alive,
 		Status: status.Maintenance.String(),
 		Info:   "blah",
-		Data:   map[string]interface{}{},
+		Data:   map[string]interface{}{"foo": "bar"},
+		Since:  &now,
 	})
 }
 
-func (s *unitSuite) TestLogActionMessage(c *gc.C) {
-	operationID, err := s.Model.EnqueueOperation("a test")
-	c.Assert(err, jc.ErrorIsNil)
-	anAction, err := s.wordpressUnit.AddAction(operationID, "fakeaction", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = anAction.Begin()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.apiUnit.LogActionMessage(anAction.ActionTag(), "hello")
-	c.Assert(err, jc.ErrorIsNil)
-
-	anAction, err = s.Model.Action(anAction.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	messages := anAction.Messages()
-	c.Assert(messages, gc.HasLen, 1)
-	c.Assert(messages[0].Message(), gc.Equals, "hello")
-	c.Assert(messages[0].Timestamp(), gc.NotNil)
-}
-
 func (s *unitSuite) TestEnsureDead(c *gc.C) {
-	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Alive)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "EnsureDead")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	err := s.apiUnit.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.wordpressUnit.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Dead)
-
-	err = s.apiUnit.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.wordpressUnit.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Dead)
-
-	err = s.wordpressUnit.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.wordpressUnit.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-
-	err = s.apiUnit.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" not found`)
-	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	err := unit.EnsureDead()
+	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
 func (s *unitSuite) TestDestroy(c *gc.C) {
-	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Alive)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "Destroy")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	err := s.apiUnit.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.wordpressUnit.Refresh()
-	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" not found`)
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	err := unit.Destroy()
+	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
 func (s *unitSuite) TestDestroyAllSubordinates(c *gc.C) {
-	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Alive)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "DestroyAllSubordinates")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	// Call without subordinates - no change.
-	err := s.apiUnit.DestroyAllSubordinates()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add a couple of subordinates and try again.
-	_, _, loggingSub := s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
-	_, _, monitoringSub := s.addRelatedApplication(c, "wordpress", "monitoring", s.wordpressUnit)
-	c.Assert(loggingSub.Life(), gc.Equals, state.Alive)
-	c.Assert(monitoringSub.Life(), gc.Equals, state.Alive)
-
-	err = s.apiUnit.DestroyAllSubordinates()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Verify they got destroyed.
-	err = loggingSub.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(loggingSub.Life(), gc.Equals, state.Dying)
-	err = monitoringSub.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(monitoringSub.Life(), gc.Equals, state.Dying)
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	err := unit.DestroyAllSubordinates()
+	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
-func (s *unitSuite) TestRefreshLife(c *gc.C) {
-	c.Assert(s.apiUnit.Life(), gc.Equals, life.Alive)
+func (s *unitSuite) TestRefresh(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "Refresh")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.UnitRefreshResults{})
+		*(result.(*params.UnitRefreshResults)) = params.UnitRefreshResults{
+			Results: []params.UnitRefreshResult{{
+				Life:       life.Dying,
+				Resolved:   params.ResolvedRetryHooks,
+				ProviderID: "666",
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	err := s.apiUnit.EnsureDead()
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	err := unit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiUnit.Life(), gc.Equals, life.Alive)
-
-	err = s.apiUnit.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiUnit.Life(), gc.Equals, life.Dead)
+	c.Assert(unit.Life(), gc.Equals, life.Dying)
+	c.Assert(unit.Resolved(), gc.Equals, params.ResolvedRetryHooks)
+	c.Assert(unit.Life(), gc.Equals, life.Dying)
 }
 
-func (s *unitSuite) TestRefreshResolve(c *gc.C) {
-	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *unitSuite) TestClearResolved(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "ClearResolved")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	err = s.apiUnit.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	mode := s.apiUnit.Resolved()
-	c.Assert(mode, gc.Equals, params.ResolvedRetryHooks)
-
-	err = s.apiUnit.ClearResolved()
-	c.Assert(err, jc.ErrorIsNil)
-	mode = s.apiUnit.Resolved()
-	c.Assert(mode, gc.Equals, params.ResolvedRetryHooks)
-
-	err = s.apiUnit.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	mode = s.apiUnit.Resolved()
-	c.Assert(mode, gc.Equals, params.ResolvedNone)
-}
-
-func (s *unitSuite) TestRefreshUpdateProviderID(c *gc.C) {
-	c.Assert(s.apiUnit.ProviderID(), gc.Equals, "")
-
-	providerID := "provider-id-123"
-	err := s.wordpressApplication.UpdateUnits(
-		&state.UpdateUnitsOperation{
-			Updates: []*state.UpdateUnitOperation{
-				s.wordpressUnit.UpdateOperation(
-					state.UnitUpdateProperties{
-						ProviderId: &providerID,
-					},
-				),
-			},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiUnit.ProviderID(), gc.Equals, "")
-
-	err = s.apiUnit.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiUnit.ProviderID(), gc.Equals, providerID)
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	err := unit.ClearResolved()
+	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
 func (s *unitSuite) TestWatch(c *gc.C) {
-	c.Assert(s.apiUnit.Life(), gc.Equals, life.Alive)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		if objType == "NotifyWatcher" {
+			if request != "Next" && request != "Stop" {
+				c.Fatalf("unexpected watcher request %q", request)
+			}
+			return nil
+		}
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "Watch")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{{
+				NotifyWatcherId: "1",
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	w, err := s.apiUnit.Watch()
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	w, err := unit.Watch()
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
 	// Initial event.
-	wc.AssertOneChange()
-
-	// Change something other than the lifecycle and make sure it's
-	// not detected.
-	err = s.apiUnit.SetAgentStatus(status.Idle, "not really", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Make the unit dead and check it's detected.
-	err = s.apiUnit.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("watcher did not send change")
+	}
 }
 
 func (s *unitSuite) TestWatchRelations(c *gc.C) {
-	w, err := s.apiUnit.WatchRelations()
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		if objType == "StringsWatcher" {
+			if request != "Next" && request != "Stop" {
+				c.Fatalf("unexpected watcher request %q", request)
+			}
+			return nil
+		}
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "WatchUnitRelations")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				StringsWatcherId: "1",
+				Changes:          []string{"666"},
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	w, err := unit.WatchRelations()
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
 	// Initial event.
-	wc.AssertChange()
-	wc.AssertNoChange()
-
-	// Change something other than the lifecycle and make sure it's
-	// not detected.
-	err = s.wordpressApplication.SetExposed()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Add another application and relate it to wordpress,
-	// check it's detected.
-	s.addMachineAppCharmAndUnit(c, "mysql")
-	rel := s.addRelation(c, "wordpress", "mysql")
-	wc.AssertChange(rel.String())
-
-	// Destroy the relation and check it's detected.
-	err = rel.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(rel.String())
-	wc.AssertNoChange()
-}
-
-func (s *unitSuite) TestSubordinateWatchRelations(c *gc.C) {
-	// A subordinate unit deployed with this wordpress unit shouldn't
-	// be notified about changes to logging mysql.
-	loggingRel, _, loggingUnit := s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = loggingUnit.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add another principal app that we can relate logging to.
-	s.addMachineAppCharmAndUnit(c, "mysql")
-
-	api := s.OpenAPIAs(c, loggingUnit.Tag(), password)
-	uniter, err := api.Uniter()
-	c.Assert(err, jc.ErrorIsNil)
-	apiUnit, err := uniter.Unit(loggingUnit.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
-
-	w, err := apiUnit.WatchRelations()
-	c.Assert(err, jc.ErrorIsNil)
-
-	wc := watchertest.NewStringsWatcherC(c, w, nil)
-	defer wc.AssertStops()
-
-	wc.AssertChange(loggingRel.Tag().Id())
-	wc.AssertNoChange()
-
-	// Adding a subordinate relation to another application doesn't notify this unit.
-	s.addRelation(c, "mysql", "logging")
-	wc.AssertNoChange()
-
-	// Destroying a relevant relation does notify it.
-	err = loggingRel.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	wc.AssertChange(loggingRel.Tag().Id())
-	wc.AssertNoChange()
+	wc.AssertChange("666")
 }
 
 func (s *unitSuite) TestAssignedMachine(c *gc.C) {
-	machineTag, err := s.apiUnit.AssignedMachine()
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "AssignedMachine")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		*(result.(*params.StringResults)) = params.StringResults{
+			Results: []params.StringResult{{
+				Result: "machine-666",
+			}},
+		}
+		return nil
+	})
+	caller := basetesting.BestVersionCaller{apiCaller, 1}
+	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	tag, err := unit.AssignedMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineTag, gc.Equals, s.wordpressMachine.Tag())
+	c.Assert(tag, gc.Equals, names.NewMachineTag("666"))
 }
 
 func (s *unitSuite) TestPrincipalName(c *gc.C) {
-	unitName, ok, err := s.apiUnit.PrincipalName()
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "GetPrincipal")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringBoolResults{})
+		*(result.(*params.StringBoolResults)) = params.StringBoolResults{
+			Results: []params.StringBoolResult{{
+				Result: "unit-wordpress-0",
+				Ok:     true,
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	name, ok, err := unit.PrincipalName()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(unitName, gc.Equals, "")
+	c.Assert(name, gc.Equals, "wordpress/0")
+	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *unitSuite) TestHasSubordinates(c *gc.C) {
-	found, err := s.apiUnit.HasSubordinates()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, jc.IsFalse)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "HasSubordinates")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.BoolResults{})
+		*(result.(*params.BoolResults)) = params.BoolResults{
+			Results: []params.BoolResult{{
+				Result: true,
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	// Add a couple of subordinates and try again.
-	s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
-	s.addRelatedApplication(c, "wordpress", "monitoring", s.wordpressUnit)
-
-	found, err = s.apiUnit.HasSubordinates()
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	ok, err := unit.HasSubordinates()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, jc.IsTrue)
+	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *unitSuite) TestPublicAddress(c *gc.C) {
-	_, err := s.apiUnit.PublicAddress()
-	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no public address set`)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "PublicAddress")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		*(result.(*params.StringResults)) = params.StringResults{
+			Results: []params.StringResult{{
+				Result: "1.1.1.1",
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	err = s.wordpressMachine.SetProviderAddresses(
-		corenetwork.NewScopedSpaceAddress("1.2.3.4", corenetwork.ScopePublic),
-	)
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	address, err := unit.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
-
-	address, err := s.apiUnit.PublicAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, gc.Equals, "1.2.3.4")
+	c.Assert(address, gc.Equals, "1.1.1.1")
 }
 
 func (s *unitSuite) TestPrivateAddress(c *gc.C) {
-	_, err := s.apiUnit.PrivateAddress()
-	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no private address set`)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "PrivateAddress")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		*(result.(*params.StringResults)) = params.StringResults{
+			Results: []params.StringResult{{
+				Result: "1.1.1.1",
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	err = s.wordpressMachine.SetProviderAddresses(
-		corenetwork.NewScopedSpaceAddress("1.2.3.4", corenetwork.ScopeCloudLocal),
-	)
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	address, err := unit.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
-
-	address, err := s.apiUnit.PrivateAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, gc.Equals, "1.2.3.4")
+	c.Assert(address, gc.Equals, "1.1.1.1")
 }
 
 func (s *unitSuite) TestAvailabilityZone(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "AvailabilityZone",
-		func(result interface{}) error {
-			if results, ok := result.(*params.StringResults); ok {
-				results.Results = []params.StringResult{{
-					Result: "a-zone",
-				}}
-			}
-			return nil
-		},
-	)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "AvailabilityZone")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		*(result.(*params.StringResults)) = params.StringResults{
+			Results: []params.StringResult{{
+				Result: "a-zone",
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	zone, err := s.apiUnit.AvailabilityZone()
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	address, err := unit.AvailabilityZone()
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(zone, gc.Equals, "a-zone")
+	c.Assert(address, gc.Equals, "a-zone")
 }
 
-func (s *unitSuite) TestOpenClosePortRanges(c *gc.C) {
-	ports, err := s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.HasLen, 0)
-
-	err = s.apiUnit.OpenPorts("tcp", 1234, 1400)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.apiUnit.OpenPorts("udp", 4321, 5000)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ports, err = s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	// OpenedPorts returns a sorted slice.
-	c.Assert(ports, gc.DeepEquals, []corenetwork.PortRange{
-		{Protocol: "tcp", FromPort: 1234, ToPort: 1400},
-		{Protocol: "udp", FromPort: 4321, ToPort: 5000},
+func (s *unitSuite) TestOpenPorts(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "OpenPorts")
+		c.Assert(arg, gc.DeepEquals, params.EntitiesPortRanges{
+			Entities: []params.EntityPortRange{{
+				Tag:      "unit-mysql-0",
+				Protocol: "TCP",
+				FromPort: 1,
+				ToPort:   100,
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
+		}
+		return nil
 	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	err = s.apiUnit.ClosePorts("udp", 4321, 5000)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ports, err = s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	// OpenedPorts returns a sorted slice.
-	c.Assert(ports, gc.DeepEquals, []corenetwork.PortRange{
-		{Protocol: "tcp", FromPort: 1234, ToPort: 1400},
-	})
-
-	err = s.apiUnit.ClosePorts("tcp", 1234, 1400)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ports, err = s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.HasLen, 0)
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	err := unit.OpenPorts("TCP", 1, 100)
+	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
-func (s *unitSuite) TestGetSetCharmURL(c *gc.C) {
-	// No charm URL set yet.
-	curl, ok := s.wordpressUnit.CharmURL()
-	c.Assert(curl, gc.IsNil)
-	c.Assert(ok, jc.IsFalse)
+func (s *unitSuite) TestClosePorts(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "ClosePorts")
+		c.Assert(arg, gc.DeepEquals, params.EntitiesPortRanges{
+			Entities: []params.EntityPortRange{{
+				Tag:      "unit-mysql-0",
+				Protocol: "TCP",
+				FromPort: 1,
+				ToPort:   100,
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	// Now check the same through the API.
-	_, err := s.apiUnit.CharmURL()
-	c.Assert(err, gc.Equals, uniter.ErrNoCharmURLSet)
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	err := unit.ClosePorts("TCP", 1, 100)
+	c.Assert(err, gc.ErrorMatches, "biff")
+}
 
-	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
+func (s *unitSuite) TestCharmURL(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "CharmURL")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringBoolResults{})
+		*(result.(*params.StringBoolResults)) = params.StringBoolResults{
+			Results: []params.StringBoolResult{{
+				Result: "cs:mysql",
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	curl, err := unit.CharmURL()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(curl, jc.DeepEquals, charm.MustParseURL("cs:mysql"))
+}
 
-	curl, err = s.apiUnit.CharmURL()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.NotNil)
-	c.Assert(curl.String(), gc.Equals, s.wordpressCharm.String())
+func (s *unitSuite) TestSetCharmURL(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "SetCharmURL")
+		c.Assert(arg, gc.DeepEquals, params.EntitiesCharmURL{
+			Entities: []params.EntityCharmURL{
+				{Tag: "unit-mysql-0", CharmURL: "cs:mysql"},
+			},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	err := unit.SetCharmURL(charm.MustParseURL("cs:mysql"))
+	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
 func (s *unitSuite) TestNetworkInfo(c *gc.C) {
-	var called int
 	relId := 2
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		called++
-		if called == 1 {
-			*(result.(*params.UnitRefreshResults)) = params.UnitRefreshResults{
-				Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}
-			return nil
-		}
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
@@ -531,546 +543,311 @@ func (s *unitSuite) TestNetworkInfo(c *gc.C) {
 		return nil
 	})
 
-	ut := names.NewUnitTag("mysql/0")
-	st := uniter.NewState(apiCaller, ut)
-	unit, err := st.Unit(ut)
-	c.Assert(err, jc.ErrorIsNil)
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	result, err := unit.NetworkInfo([]string{"server"}, &relId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result["db"].Error, gc.ErrorMatches, "FAIL")
-	c.Assert(called, gc.Equals, 2)
 }
 
 func (s *unitSuite) TestConfigSettings(c *gc.C) {
-	// Make sure ConfigSettings returns an error when
-	// no charm URL is set, as its state counterpart does.
-	_, err := s.apiUnit.ConfigSettings()
-	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before retrieving config")
-
-	// Now set the charm and try again.
-	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
-	c.Assert(err, jc.ErrorIsNil)
-
-	settings, err := s.apiUnit.ConfigSettings()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
-		"blog-title": "My Title",
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "ConfigSettings")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ConfigSettingsResults{})
+		*(result.(*params.ConfigSettingsResults)) = params.ConfigSettingsResults{
+			Results: []params.ConfigSettingsResult{{
+				Settings: params.ConfigSettings{"foo": "bar"},
+			}},
+		}
+		return nil
 	})
 
-	// Update the config and check we get the changes on the next call.
-	err = s.wordpressApplication.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
-		"blog-title": "superhero paparazzi",
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-
-	settings, err = s.apiUnit.ConfigSettings()
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	settings, err := unit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
-		"blog-title": "superhero paparazzi",
+		"foo": "bar",
 	})
 }
 
 func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
-	// Make sure WatchConfigSettingsHash returns an error when
-	// no charm URL is set, as its state counterpart does.
-	_, err := s.apiUnit.WatchConfigSettingsHash()
-	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before watching config")
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		if objType == "StringsWatcher" {
+			if request != "Next" && request != "Stop" {
+				c.Fatalf("unexpected watcher request %q", request)
+			}
+			return nil
+		}
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "WatchConfigSettingsHash")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				StringsWatcherId: "1",
+				Changes:          []string{"666"},
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	// Now set the charm and try again.
-	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	w, err := unit.WatchConfigSettingsHash()
 	c.Assert(err, jc.ErrorIsNil)
-
-	w, err := s.apiUnit.WatchConfigSettingsHash()
-	c.Assert(err, jc.ErrorIsNil)
-	// We don't need any preassert because the underlying watcher is using a wall clock.
 	wc := watchertest.NewStringsWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
-	// See core/cache/hash.go for the hash implementation.
-	// This is a hash of the charm URL PLUS an empty map[string]interface{}.
-	wc.AssertChange("0affda4fb1eaa8df870459625aa93c85e9fd6fc5374ac69f509575d139032262")
-	err = s.wordpressApplication.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
-		"blog-title": "sauceror central",
-	})
-
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("bfeb5aee52e6dea59d9c2a0c35a4d7fffa690c7230b1dd66f16832e4094905ae")
-
-	// Non-change is not reported.
-	err = s.wordpressApplication.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
-		"blog-title": "sauceror central",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	wc.AssertNoChange()
+	// Initial event.
+	wc.AssertChange("666")
 }
 
 func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
-	watcher, err := s.apiUnit.WatchTrustConfigSettingsHash()
-	c.Assert(err, jc.ErrorIsNil)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		if objType == "StringsWatcher" {
+			if request != "Next" && request != "Stop" {
+				c.Fatalf("unexpected watcher request %q", request)
+			}
+			return nil
+		}
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "WatchTrustConfigSettingsHash")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				StringsWatcherId: "1",
+				Changes:          []string{"666"},
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	stringsWatcher := watchertest.NewStringsWatcherC(c, watcher, nil)
-	defer stringsWatcher.AssertStops()
-
-	// Initial event - this is the hash of the settings key
-	// a#wordpress#application + an empty bson.D.
-	stringsWatcher.AssertChange("92652ce7679e295c6567a3891c562dcab727c71543f8c1c3a38c3626ce064019")
-
-	// Update application config and see if it is reported
-	trustFieldKey := "trust"
-	err = s.wordpressApplication.UpdateApplicationConfig(application.ConfigAttributes{
-		trustFieldKey: true,
-	},
-		[]string{},
-		environschema.Fields{trustFieldKey: {
-			Description: "Does this application have access to trusted credentials",
-			Type:        environschema.Tbool,
-			Group:       environschema.JujuGroup,
-		}},
-		schema.Defaults{
-			trustFieldKey: false,
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	stringsWatcher.AssertChange("2f1368bde39be8106dcdca15e35cc3b5f7db5b8e429806369f621a47fb938519")
-}
-
-func (s *unitSuite) TestWatchActionNotifications(c *gc.C) {
-	w, err := s.apiUnit.WatchActionNotifications()
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	w, err := unit.WatchTrustConfigSettingsHash()
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
 	// Initial event.
-	wc.AssertChange()
-
-	// Add a couple of actions and make sure the changes are detected.
-	operationID, err := s.Model.EnqueueOperation("a test")
-	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.wordpressUnit.AddAction(operationID, "fakeaction", map[string]interface{}{
-		"outfile": "foo.txt",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(action.Id())
-
-	action, err = s.wordpressUnit.AddAction(operationID, "fakeaction", map[string]interface{}{
-		"outfile": "foo.bz2",
-		"compression": map[string]interface{}{
-			"kind":    "bzip",
-			"quality": float64(5.0),
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(action.Id())
-}
-
-func (s *unitSuite) TestWatchActionNotificationsError(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActionNotifications",
-		func(result interface{}) error {
-			return fmt.Errorf("Test error")
-		},
-	)
-
-	_, err := s.apiUnit.WatchActionNotifications()
-	c.Assert(err.Error(), gc.Equals, "Test error")
-}
-
-func (s *unitSuite) TestWatchActionNotificationsErrorResults(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActionNotifications",
-		func(results interface{}) error {
-			if results, ok := results.(*params.StringsWatchResults); ok {
-				results.Results = make([]params.StringsWatchResult, 1)
-				results.Results[0] = params.StringsWatchResult{
-					Error: &params.Error{
-						Message: "An error in the watch result.",
-						Code:    params.CodeNotAssigned,
-					},
-				}
-			}
-			return nil
-		},
-	)
-
-	_, err := s.apiUnit.WatchActionNotifications()
-	c.Assert(err.Error(), gc.Equals, "An error in the watch result.")
-}
-
-func (s *unitSuite) TestWatchActionNotificationsNoResults(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActionNotifications",
-		func(results interface{}) error {
-			return nil
-		},
-	)
-
-	_, err := s.apiUnit.WatchActionNotifications()
-	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 0")
-}
-
-func (s *unitSuite) TestWatchActionNotificationsMoreResults(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActionNotifications",
-		func(results interface{}) error {
-			if results, ok := results.(*params.StringsWatchResults); ok {
-				results.Results = make([]params.StringsWatchResult, 2)
-			}
-			return nil
-		},
-	)
-
-	_, err := s.apiUnit.WatchActionNotifications()
-	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 2")
-}
-
-func (s *unitSuite) TestWatchUpgradeSeriesNotifications(c *gc.C) {
-	watcher, err := s.apiUnit.WatchUpgradeSeriesNotifications()
-	c.Assert(err, jc.ErrorIsNil)
-
-	notifyWatcher := watchertest.NewNotifyWatcherC(c, watcher, s.BackingState.StartSync)
-	defer notifyWatcher.AssertStops()
-
-	notifyWatcher.AssertOneChange()
-
-	s.CreateUpgradeSeriesLock(c)
-
-	// Expect a notification that the document was created (i.e. a lock was placed)
-	notifyWatcher.AssertOneChange()
-
-	err = s.wordpressMachine.RemoveUpgradeSeriesLock()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// A notification that the document was removed (i.e. the lock was released)
-	notifyWatcher.AssertOneChange()
-}
-
-func (s *unitSuite) TestUpgradeSeriesStatusIsInitializedToUnitStarted(c *gc.C) {
-	// First we create the prepare lock
-	s.CreateUpgradeSeriesLock(c)
-
-	// Then we check to see the status of our upgrade. We note that creating
-	// the lock essentially kicks off an upgrade from the perspective of
-	// assigned units.
-	status, err := s.apiUnit.UpgradeSeriesStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, model.UpgradeSeriesPrepareStarted)
-}
-
-func (s *unitSuite) TestSetUpgradeSeriesStatusFailsIfNoLockExists(c *gc.C) {
-	arbitraryStatus := model.UpgradeSeriesNotStarted
-	arbitraryReason := ""
-
-	err := s.apiUnit.SetUpgradeSeriesStatus(arbitraryStatus, arbitraryReason)
-	c.Assert(err, gc.ErrorMatches, "upgrade lock for machine \"[0-9]*\" not found")
-}
-
-func (s *unitSuite) TestSetUpgradeSeriesStatusUpdatesStatus(c *gc.C) {
-	arbitraryNonDefaultStatus := model.UpgradeSeriesPrepareRunning
-	arbitraryReason := ""
-
-	// First we create the prepare lock or the required state will not exists
-	s.CreateUpgradeSeriesLock(c)
-
-	// Change the state to something other than the default remote state of UpgradeSeriesPrepareStarted
-	err := s.apiUnit.SetUpgradeSeriesStatus(arbitraryNonDefaultStatus, arbitraryReason)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check to see that the upgrade status has been set appropriately
-	status, err := s.apiUnit.UpgradeSeriesStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, arbitraryNonDefaultStatus)
-}
-
-func (s *unitSuite) TestSetUpgradeSeriesStatusShouldOnlySetSpecifiedUnit(c *gc.C) {
-	// add another unit
-	unit2, err := s.wordpressApplication.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = unit2.AssignToMachine(s.wordpressMachine)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Creating a lock for the machine transitions all units to started state
-	s.CreateUpgradeSeriesLock(c, unit2.Name())
-
-	// Complete one unit
-	err = unit2.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, "")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// The other unit should still be in the started state
-	status, err := s.wordpressUnit.UpgradeSeriesStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, model.UpgradeSeriesPrepareStarted)
-}
-
-func (s *unitSuite) CreateUpgradeSeriesLock(c *gc.C, additionalUnits ...string) {
-	unitNames := additionalUnits
-	unitNames = append(unitNames, s.wordpressUnit.Name())
-	series := "trust"
-
-	err := s.wordpressMachine.CreateUpgradeSeriesLock(unitNames, series)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *unitSuite) TestApplicationNameAndTag(c *gc.C) {
-	c.Assert(s.apiUnit.ApplicationName(), gc.Equals, s.wordpressApplication.Name())
-	c.Assert(s.apiUnit.ApplicationTag(), gc.Equals, s.wordpressApplication.Tag())
-}
-
-func (s *unitSuite) TestRelationSuspended(c *gc.C) {
-	relationStatus, err := s.apiUnit.RelationsStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relationStatus, gc.HasLen, 0)
-
-	rel1, _, _ := s.addRelatedApplication(c, "wordpress", "monitoring", s.wordpressUnit)
-	relationStatus, err = s.apiUnit.RelationsStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relationStatus, gc.DeepEquals, []uniter.RelationStatus{{
-		Tag:       rel1.Tag().(names.RelationTag),
-		InScope:   true,
-		Suspended: false,
-	}})
-
-	rel2 := s.addRelationSuspended(c, "wordpress", "logging", s.wordpressUnit)
-	relationStatus, err = s.apiUnit.RelationsStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relationStatus, jc.SameContents, []uniter.RelationStatus{{
-		Tag:       rel1.Tag().(names.RelationTag),
-		InScope:   true,
-		Suspended: false,
-	}, {
-		Tag:       rel2.Tag().(names.RelationTag),
-		InScope:   false,
-		Suspended: true,
-	}})
+	wc.AssertChange("666")
 }
 
 func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
-	w, err := s.apiUnit.WatchAddressesHash()
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		if objType == "StringsWatcher" {
+			if request != "Next" && request != "Stop" {
+				c.Fatalf("unexpected watcher request %q", request)
+			}
+			return nil
+		}
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "WatchUnitAddressesHash")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				StringsWatcherId: "1",
+				Changes:          []string{"666"},
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	w, err := unit.WatchAddressesHash()
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
 	// Initial event.
-	wc.AssertChange("8065d3e3d860b8ffc61338320c32a1534f38cf98c8c10c9d327ce6fd3c5fe507")
-
-	// Update config get an event.
-	err = s.wordpressMachine.SetProviderAddresses(corenetwork.NewSpaceAddress("0.1.2.4"))
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("0f381d7742fd2eb5e439bf4e8f5c922d047351a36700a935990021be0b2a32fd")
-
-	// Non-change is not reported.
-	err = s.wordpressMachine.SetProviderAddresses(corenetwork.NewSpaceAddress("0.1.2.4"))
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Change is reported for machine addresses.
-	err = s.wordpressMachine.SetMachineAddresses(corenetwork.NewSpaceAddress("0.1.2.5"))
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("e80796733d5885a9bcaa00062d1043aea6e3cea38bd41811db8c5df4c50d5cce")
-
-	// Set machine addresses to empty is reported.
-	err = s.wordpressMachine.SetMachineAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("0f381d7742fd2eb5e439bf4e8f5c922d047351a36700a935990021be0b2a32fd")
+	wc.AssertChange("666")
 }
 
-func (s *unitSuite) TestWatchAddressesHashErrors(c *gc.C) {
-	err := s.wordpressUnit.UnassignFromMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.apiUnit.WatchAddressesHash()
-	c.Assert(err, jc.Satisfies, params.IsCodeNotAssigned)
-}
-
-func (s *unitSuite) TestAddMetrics(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "AddMetrics",
-		func(results interface{}) error {
-			result := results.(*params.ErrorResults)
-			result.Results = make([]params.ErrorResult, 1)
-			return nil
-		},
-	)
-	metrics := []params.Metric{{
-		Key: "A", Value: "23", Time: time.Now(),
-	}, {
-		Key: "B", Value: "27.0", Time: time.Now(), Labels: map[string]string{"foo": "bar"},
-	}}
-	err := s.apiUnit.AddMetrics(metrics)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *unitSuite) TestAddMetricsError(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "AddMetrics",
-		func(results interface{}) error {
-			result := results.(*params.ErrorResults)
-			result.Results = make([]params.ErrorResult, 1)
-			return fmt.Errorf("test error")
-		},
-	)
-	metrics := []params.Metric{{
-		Key: "A", Value: "23", Time: time.Now(),
-	}, {
-		Key: "B", Value: "27.0", Time: time.Now(), Labels: map[string]string{"foo": "bar"},
-	}}
-	err := s.apiUnit.AddMetrics(metrics)
-	c.Assert(err, gc.ErrorMatches, "unable to add metric: test error")
-}
-
-func (s *unitSuite) TestAddMetricsResultError(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "AddMetrics",
-		func(results interface{}) error {
-			result := results.(*params.ErrorResults)
-			result.Results = make([]params.ErrorResult, 1)
-			result.Results[0].Error = &params.Error{
-				Message: "error adding metrics",
-				Code:    params.CodeNotAssigned,
+func (s *unitSuite) TestWatchUpgradeSeriesNotifications(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		if objType == "NotifyWatcher" {
+			if request != "Next" && request != "Stop" {
+				c.Fatalf("unexpected watcher request %q", request)
 			}
 			return nil
-		},
-	)
-	metrics := []params.Metric{{
-		Key: "A", Value: "23", Time: time.Now(),
-	}, {
-		Key: "B", Value: "27.0", Time: time.Now(), Labels: map[string]string{"foo": "bar"},
-	}}
-	err := s.apiUnit.AddMetrics(metrics)
-	c.Assert(err, gc.ErrorMatches, "error adding metrics")
-}
+		}
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "WatchUpgradeSeriesNotifications")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{{
+				NotifyWatcherId: "1",
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-func (s *unitSuite) TestMeterStatus(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "GetMeterStatus",
-		func(results interface{}) error {
-			result := results.(*params.MeterStatusResults)
-			result.Results = make([]params.MeterStatusResult, 1)
-			result.Results[0].Code = "GREEN"
-			result.Results[0].Info = "All ok."
-			return nil
-		},
-	)
-	statusCode, statusInfo, err := s.apiUnit.MeterStatus()
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	w, err := unit.WatchUpgradeSeriesNotifications()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusCode, gc.Equals, "GREEN")
-	c.Assert(statusInfo, gc.Equals, "All ok.")
+	wc := watchertest.NewNotifyWatcherC(c, w, nil)
+	defer wc.AssertStops()
+
+	// Initial event.
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("watcher did not send change")
+	}
 }
 
-func (s *unitSuite) TestMeterStatusError(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "GetMeterStatus",
-		func(results interface{}) error {
-			result := results.(*params.MeterStatusResults)
-			result.Results = make([]params.MeterStatusResult, 1)
-			return fmt.Errorf("boo")
-		},
-	)
-	statusCode, statusInfo, err := s.apiUnit.MeterStatus()
-	c.Assert(err, gc.ErrorMatches, "boo")
-	c.Assert(statusCode, gc.Equals, "")
-	c.Assert(statusInfo, gc.Equals, "")
+func (s *unitSuite) TestUpgradeSeriesStatus(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "SetUpgradeSeriesUnitStatus")
+		c.Assert(arg, gc.DeepEquals, params.UpgradeSeriesStatusParams{
+			Params: []params.UpgradeSeriesStatusParam{{
+				Entity:  params.Entity{Tag: "unit-mysql-0"},
+				Status:  "completed",
+				Message: "done",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	err := unit.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, "done")
+	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
-func (s *unitSuite) TestMeterStatusResultError(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "GetMeterStatus",
-		func(results interface{}) error {
-			result := results.(*params.MeterStatusResults)
-			result.Results = make([]params.MeterStatusResult, 1)
-			result.Results[0].Error = &params.Error{
-				Message: "error getting meter status",
-				Code:    params.CodeNotAssigned,
-			}
-			return nil
-		},
-	)
-	statusCode, statusInfo, err := s.apiUnit.MeterStatus()
-	c.Assert(err, gc.ErrorMatches, "error getting meter status")
-	c.Assert(statusCode, gc.Equals, "")
-	c.Assert(statusInfo, gc.Equals, "")
+func (s *unitSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "UpgradeSeriesUnitStatus")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.UpgradeSeriesStatusResults{})
+		*(result.(*params.UpgradeSeriesStatusResults)) = params.UpgradeSeriesStatusResults{
+			Results: []params.UpgradeSeriesStatusResult{{
+				Status: "completed",
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	seriesStatus, err := unit.UpgradeSeriesStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(seriesStatus, gc.Equals, model.UpgradeSeriesCompleted)
 }
 
 func (s *unitSuite) TestUpgradeSeriesStatusMultipleReturnsError(c *gc.C) {
-	facadeCaller := testing.StubFacadeCaller{Stub: &coretesting.Stub{}}
-	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		*(response.(*params.UpgradeSeriesStatusResults)) = params.UpgradeSeriesStatusResults{
-			Results: []params.UpgradeSeriesStatusResult{
-				{Status: "prepare started"},
-				{Status: "completed"},
-			},
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(result, gc.FitsTypeOf, &params.UpgradeSeriesStatusResults{})
+		*(result.(*params.UpgradeSeriesStatusResults)) = params.UpgradeSeriesStatusResults{
+			Results: []params.UpgradeSeriesStatusResult{{}, {}},
 		}
 		return nil
-	}
-	uniter.PatchUnitUpgradeSeriesFacade(s.apiUnit, &facadeCaller)
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	_, err := s.apiUnit.UpgradeSeriesStatus()
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	_, err := unit.UpgradeSeriesStatus()
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
-func (s *unitSuite) TestUpgradeSeriesStatusSingleResult(c *gc.C) {
-	facadeCaller := testing.StubFacadeCaller{Stub: &coretesting.Stub{}}
-	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		*(response.(*params.UpgradeSeriesStatusResults)) = params.UpgradeSeriesStatusResults{
-			Results: []params.UpgradeSeriesStatusResult{{Status: "completed"}},
+func (s *unitSuite) TestRelationStatus(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "RelationsStatus")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.RelationUnitStatusResults{})
+		*(result.(*params.RelationUnitStatusResults)) = params.RelationUnitStatusResults{
+			Results: []params.RelationUnitStatusResult{{
+				RelationResults: []params.RelationUnitStatus{{
+					RelationTag: "relation-wordpress.server#mysql.db",
+					Suspended:   true,
+					InScope:     true,
+				}},
+			}},
 		}
 		return nil
-	}
-	uniter.PatchUnitUpgradeSeriesFacade(s.apiUnit, &facadeCaller)
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	sts, err := s.apiUnit.UpgradeSeriesStatus()
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	relStatus, err := unit.RelationsStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sts, gc.Equals, model.UpgradeSeriesCompleted)
+	c.Assert(relStatus, jc.DeepEquals, []uniter.RelationStatus{{
+		Tag:       names.NewRelationTag("wordpress:server mysql:db"),
+		Suspended: true,
+		InScope:   true,
+	}})
 }
 
 func (s *unitSuite) TestUnitState(c *gc.C) {
-	err := s.apiUnit.SetState(params.SetUnitStateArg{
-		CharmState: &map[string]string{"one": "two"},
+	unitState := params.UnitStateResult{
+		MeterStatusState: "meter",
+		StorageState:     "storage",
+		UniterState:      "uniter",
+		CharmState:       map[string]string{"foo": "bar"},
+		RelationState:    map[int]string{666: "666"},
+	}
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "State")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.UnitStateResults{})
+		*(result.(*params.UnitStateResults)) = params.UnitStateResults{
+			Results: []params.UnitStateResult{unitState},
+		}
+		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	obtainedUnitState, err := s.apiUnit.State()
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	result, err := unit.State()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedUnitState.CharmState, gc.HasLen, 1)
-	c.Assert(obtainedUnitState.CharmState, jc.DeepEquals, map[string]string{"one": "two"})
-	c.Assert(obtainedUnitState.UniterState, gc.Equals, "")
+	c.Assert(result, jc.DeepEquals, unitState)
 }
 
-type unitMetricBatchesSuite struct {
-	jujutesting.JujuConnSuite
+func (s *unitSuite) TestSetState(c *gc.C) {
+	unitState := params.SetUnitStateArg{
+		Tag:           "unit-mysql-0",
+		CharmState:    &map[string]string{"foo": "bar"},
+		RelationState: &map[int]string{666: "666"},
+	}
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "SetState")
+		c.Assert(arg, gc.DeepEquals, params.SetUnitStateArgs{
+			Args: []params.SetUnitStateArg{unitState},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	st      api.Connection
-	uniter  *uniter.State
-	apiUnit *uniter.Unit
-	charm   *state.Charm
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	err := unit.SetState(unitState)
+	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
-var _ = gc.Suite(&unitMetricBatchesSuite{})
-
-func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-
-	s.charm = s.Factory.MakeCharm(c, &jujufactory.CharmParams{
-		Name: "metered",
-		URL:  "cs:quantal/metered",
-	})
-	application := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
-		Charm: s.charm,
-	})
-	unit := s.Factory.MakeUnit(c, &jujufactory.UnitParams{
-		Application: application,
-		SetCharmURL: true,
-	})
-
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-	s.st = s.OpenAPIAs(c, unit.Tag(), password)
-
-	// Create the uniter API facade.
-	s.uniter, err = s.st.Uniter()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.uniter, gc.NotNil)
-
-	s.apiUnit, err = s.uniter.Unit(unit.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *unitMetricBatchesSuite) TestSendMetricBatchPatch(c *gc.C) {
+func (s *unitSuite) TestAddMetricBatch(c *gc.C) {
 	metrics := []params.Metric{{
 		Key: "pings", Value: "5", Time: time.Now().UTC(),
 	}, {
@@ -1079,88 +856,111 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatchPatch(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	batch := params.MetricBatch{
 		UUID:     uuid,
-		CharmURL: s.charm.URL().String(),
+		CharmURL: "cs:mysql",
 		Created:  time.Now(),
 		Metrics:  metrics,
 	}
 
-	var called bool
-	uniter.PatchUnitResponse(s, s.apiUnit, "AddMetricBatches",
-		func(response interface{}) error {
-			called = true
-			result := response.(*params.ErrorResults)
-			result.Results = make([]params.ErrorResult, 1)
-			return nil
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "AddMetricBatches")
+		c.Assert(arg, gc.DeepEquals, params.MetricBatchParams{
+			Batches: []params.MetricBatchParam{{
+				Tag:   "unit-mysql-0",
+				Batch: batch,
+			}},
 		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	results, err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	result, err := unit.AddMetricBatches([]params.MetricBatch{batch})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[batch.UUID], gc.IsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(result, jc.DeepEquals, map[string]error{
+		uuid: &params.Error{Message: "biff"},
+	})
 }
 
-func (s *unitMetricBatchesSuite) TestSendMetricBatchFail(c *gc.C) {
-	var called bool
-	uniter.PatchUnitResponse(s, s.apiUnit, "AddMetricBatches",
-		func(response interface{}) error {
-			called = true
-			result := response.(*params.ErrorResults)
-			result.Results = make([]params.ErrorResult, 1)
-			result.Results[0].Error = common.ServerError(common.ErrPerm)
-			return nil
-		})
+func (s *unitSuite) TestAddMetrics(c *gc.C) {
 	metrics := []params.Metric{{
-		Key: "pings", Value: "5", Time: time.Now().UTC(),
+		Key: "A", Value: "23", Time: time.Now(),
 	}, {
-		Key: "pongs", Value: "6", Time: time.Now().UTC(), Labels: map[string]string{"foo": "bar"},
+		Key: "B", Value: "27.0", Time: time.Now(), Labels: map[string]string{"foo": "bar"},
 	}}
-	uuid := utils.MustNewUUID().String()
-	batch := params.MetricBatch{
-		UUID:     uuid,
-		CharmURL: s.charm.URL().String(),
-		Created:  time.Now(),
-		Metrics:  metrics,
-	}
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "AddMetrics")
+		c.Assert(arg, gc.DeepEquals, params.MetricsParams{
+			Metrics: []params.MetricsParam{{
+				Tag:     "unit-mysql-0",
+				Metrics: metrics,
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	results, err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[batch.UUID], gc.ErrorMatches, "permission denied")
-	c.Assert(called, jc.IsTrue)
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	err := unit.AddMetrics(metrics)
+	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
-func (s *unitMetricBatchesSuite) TestSendMetricBatch(c *gc.C) {
-	uuid := utils.MustNewUUID().String()
-	now := time.Now().Round(time.Second).UTC()
-	metrics := []params.Metric{{
-		Key: "pings", Value: "5", Time: now,
-	}, {
-		Key: "pongs", Value: "6", Time: time.Now().UTC(), Labels: map[string]string{"foo": "bar"},
-	}}
-	batch := params.MetricBatch{
-		UUID:     uuid,
-		CharmURL: s.charm.URL().String(),
-		Created:  now,
-		Metrics:  metrics,
-	}
+func (s *unitSuite) TestAddMetricsError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return errors.New("boom")
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	results, err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	err := unit.AddMetrics(nil)
+	c.Assert(err, gc.ErrorMatches, "unable to add metric: boom")
+}
+
+func (s *unitSuite) TestMeterStatus(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "GetMeterStatus")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.MeterStatusResults{})
+		*(result.(*params.MeterStatusResults)) = params.MeterStatusResults{
+			Results: []params.MeterStatusResult{{
+				Code: "code",
+				Info: "info",
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	code, info, err := unit.MeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[batch.UUID], gc.IsNil)
+	c.Assert(code, gc.Equals, "code")
+	c.Assert(info, gc.Equals, "info")
+}
 
-	batches, err := s.State.AllMetricBatches()
-	c.Assert(err, gc.IsNil)
-	c.Assert(batches, gc.HasLen, 1)
-	c.Assert(batches[0].UUID(), gc.Equals, uuid)
-	c.Assert(batches[0].Sent(), jc.IsFalse)
-	c.Assert(batches[0].CharmURL(), gc.Equals, s.charm.URL().String())
-	c.Assert(batches[0].Metrics(), gc.HasLen, 2)
-	c.Assert(batches[0].Metrics()[0].Key, gc.Equals, "pings")
-	c.Assert(batches[0].Metrics()[0].Value, gc.Equals, "5")
-	c.Assert(batches[0].Metrics()[0].Labels, gc.HasLen, 0)
-	c.Assert(batches[0].Metrics()[1].Key, gc.Equals, "pongs")
-	c.Assert(batches[0].Metrics()[1].Value, gc.Equals, "6")
-	c.Assert(batches[0].Metrics()[1].Labels, gc.DeepEquals, map[string]string{"foo": "bar"})
+func (s *unitSuite) TestMeterStatusResultError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(result, gc.FitsTypeOf, &params.MeterStatusResults{})
+		*(result.(*params.MeterStatusResults)) = params.MeterStatusResults{
+			Results: []params.MeterStatusResult{{
+				Error: &params.Error{Message: "pow"},
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	_, _, err := unit.MeterStatus()
+	c.Assert(err, gc.ErrorMatches, "pow")
 }

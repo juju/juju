@@ -19,22 +19,18 @@ var logger = loggo.GetLogger("juju.apiserver.upgradeseries")
 // API serves methods required by the machine agent upgrade-series worker.
 type API struct {
 	*common.UpgradeSeriesAPI
-	common.LeadershipPinningAPI
 
-	st        common.UpgradeSeriesBackend
-	auth      facade.Authorizer
-	resources facade.Resources
+	st         common.UpgradeSeriesBackend
+	auth       facade.Authorizer
+	resources  facade.Resources
+	leadership *common.LeadershipPinning
 }
 
 // NewAPI creates a new instance of the API with the given context
 func NewAPI(ctx facade.Context) (*API, error) {
-	leadership, err := common.NewLeadershipPinningFacade(ctx)
+	leadership, err := common.NewLeadershipPinningFromContext(ctx)
 	if err != nil {
-		if errors.IsNotImplemented(errors.Cause(err)) {
-			leadership = disabledLeadershipPinningFacade{}
-		} else {
-			return nil, errors.Trace(err)
-		}
+		return nil, errors.Trace(err)
 	}
 	return NewUpgradeSeriesAPI(common.UpgradeSeriesState{St: ctx.State()}, ctx.Resources(), ctx.Auth(), leadership)
 }
@@ -45,7 +41,7 @@ func NewUpgradeSeriesAPI(
 	st common.UpgradeSeriesBackend,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	leadership common.LeadershipPinningAPI,
+	leadership *common.LeadershipPinning,
 ) (*API, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
@@ -63,11 +59,11 @@ func NewUpgradeSeriesAPI(
 	}
 
 	return &API{
-		st:                   st,
-		resources:            resources,
-		auth:                 authorizer,
-		UpgradeSeriesAPI:     common.NewUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
-		LeadershipPinningAPI: leadership,
+		st:               st,
+		resources:        resources,
+		auth:             authorizer,
+		leadership:       leadership,
+		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
 	}, nil
 }
 
@@ -282,22 +278,20 @@ func (a *API) authAndMachine(e params.Entity, canAccess common.AuthFunc) (common
 	return a.GetMachine(tag)
 }
 
-// disabledLeadershipPinningFacade implements the LeadershipPinningAPI, but
-// provides a no-operation for pinning operations
-type disabledLeadershipPinningFacade struct{}
-
-// PinMachineApplications implements common.LeadershipPinningAPI
-func (disabledLeadershipPinningFacade) PinMachineApplications() (params.PinApplicationsResults, error) {
-	return params.PinApplicationsResults{}, errors.NotImplementedf(
-		"unable to get leadership pinner; pinning is not available with the legacy lease manager")
+// PinnedLeadership returns all pinned applications and the entities that
+// require their pinned behaviour, for leadership in the current model.
+func (a *API) PinnedLeadership() (params.PinnedLeadershipResult, error) {
+	return a.leadership.PinnedLeadership()
 }
 
-// UnpinMachineApplications implements common.LeadershipPinningAPI
-func (disabledLeadershipPinningFacade) UnpinMachineApplications() (params.PinApplicationsResults, error) {
-	return params.PinApplicationsResults{}, nil
+// PinMachineApplications pins leadership for applications represented by units
+// running on the auth'd machine.
+func (a *API) PinMachineApplications() (params.PinApplicationsResults, error) {
+	return a.leadership.PinApplicationLeaders()
 }
 
-// PinnedLeadership implements common.LeadershipPinningAPI
-func (disabledLeadershipPinningFacade) PinnedLeadership() (params.PinnedLeadershipResult, error) {
-	return params.PinnedLeadershipResult{}, nil
+// UnpinMachineApplications unpins leadership for applications represented by
+// units running on the auth'd machine.
+func (a *API) UnpinMachineApplications() (params.PinApplicationsResults, error) {
+	return a.leadership.UnpinApplicationLeaders()
 }

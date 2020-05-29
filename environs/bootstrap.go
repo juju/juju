@@ -67,6 +67,9 @@ type BootstrapParams struct {
 	// providers that do not implements simplestreams.HasRegion.
 	ImageMetadata []*imagemetadata.ImageMetadata
 
+	// ExtraAgentValuesForTesting are testing only values written to the agent config file.
+	ExtraAgentValuesForTesting map[string]string
+
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
 }

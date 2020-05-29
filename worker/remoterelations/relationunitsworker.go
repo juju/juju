@@ -4,6 +4,8 @@
 package remoterelations
 
 import (
+	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 	"gopkg.in/macaroon-bakery.v2/bakery"
@@ -11,8 +13,14 @@ import (
 
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/names/v4"
 )
+
+// RelationUnitChangeEvent encapsulates a remote relation event,
+// adding the tag of the relation which changed.
+type RelationUnitChangeEvent struct {
+	Tag names.RelationTag
+	params.RemoteRelationChangeEvent
+}
 
 // relationUnitsWorker uses instances of watcher.RelationUnitsWatcher to
 // listen to changes to relation settings in a model, local or remote.
@@ -22,8 +30,9 @@ type relationUnitsWorker struct {
 	catacomb    catacomb.Catacomb
 	relationTag names.RelationTag
 	rrw         watcher.RemoteRelationWatcher
-	changes     chan<- params.RemoteRelationChangeEvent
+	changes     chan<- RelationUnitChangeEvent
 	macaroon    *macaroon.Macaroon
+	mode        string // mode is local or remote.
 
 	logger Logger
 }
@@ -32,8 +41,9 @@ func newRelationUnitsWorker(
 	relationTag names.RelationTag,
 	macaroon *macaroon.Macaroon,
 	rrw watcher.RemoteRelationWatcher,
-	changes chan<- params.RemoteRelationChangeEvent,
+	changes chan<- RelationUnitChangeEvent,
 	logger Logger,
+	mode string,
 ) (*relationUnitsWorker, error) {
 	w := &relationUnitsWorker{
 		relationTag: relationTag,
@@ -41,6 +51,7 @@ func newRelationUnitsWorker(
 		rrw:         rrw,
 		changes:     changes,
 		logger:      logger,
+		mode:        mode,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -58,7 +69,7 @@ func (w *relationUnitsWorker) Kill() {
 // Wait is defined on worker.Worker
 func (w *relationUnitsWorker) Wait() error {
 	err := w.catacomb.Wait()
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		w.logger.Errorf("error in relation units worker for %v: %v", w.relationTag.Id(), err)
 	}
 	return err
@@ -74,7 +85,7 @@ func (w *relationUnitsWorker) loop() error {
 				// We are dying.
 				return w.catacomb.ErrDying()
 			}
-			w.logger.Debugf("relation units changed for %v: %#v", w.relationTag, change)
+			w.logger.Debugf("%v relation units changed for %v: %#v", w.mode, w.relationTag, change)
 			if isEmpty(change) {
 				continue
 			}
@@ -87,13 +98,17 @@ func (w *relationUnitsWorker) loop() error {
 			change.Macaroons = macaroon.Slice{w.macaroon}
 			change.BakeryVersion = bakery.LatestVersion
 
+			event := RelationUnitChangeEvent{
+				Tag:                       w.relationTag,
+				RemoteRelationChangeEvent: change,
+			}
 			// Send in lockstep so we don't drop events (otherwise
 			// we'd need to merge them - not too hard in this
 			// case but probably not needed).
 			select {
 			case <-w.catacomb.Dying():
 				return w.catacomb.ErrDying()
-			case w.changes <- change:
+			case w.changes <- event:
 			}
 		}
 	}

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/proxy"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -194,6 +195,10 @@ type MockContext struct {
 	flushFailure    error
 	flushResult     error
 	modelType       model.ModelType
+}
+
+func (ctx *MockContext) GetLogger(module string) loggo.Logger {
+	return loggo.GetLogger(module)
 }
 
 func (ctx *MockContext) UnitName() string {

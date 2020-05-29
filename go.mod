@@ -54,7 +54,7 @@ require (
 	github.com/juju/gomaasapi v0.0.0-20190826212825-0ab1eb636aba
 	github.com/juju/jsonschema v0.0.0-20161102181919-a0ef8b74ebcf
 	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
-	github.com/juju/loggo v0.0.0-20190526231331-6e530bcce5d8
+	github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e
 	github.com/juju/lru v0.0.0-20181205132344-305dec07bf2f // indirect
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
 	github.com/juju/names/v4 v4.0.0-20200424054733-9a8294627524
