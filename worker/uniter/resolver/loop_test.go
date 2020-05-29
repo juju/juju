@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/charm/v7"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -51,6 +52,7 @@ func (s *LoopSuite) loop() (resolver.LocalState, error) {
 		CharmURL: s.charmURL,
 	}
 	err := resolver.Loop(resolver.LoopConfig{
+		Logger:        loggo.GetLogger("test"),
 		Resolver:      s.resolver,
 		Factory:       s.opFactory,
 		Watcher:       s.watcher,

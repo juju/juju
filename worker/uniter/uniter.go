@@ -362,6 +362,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		var err error
 		watcher, err = remotestate.NewWatcher(
 			remotestate.WatcherConfig{
+				Logger:                        u.logger.Child("remotestate"),
 				State:                         remotestate.NewAPIState(u.st),
 				LeadershipTracker:             u.leadershipTracker,
 				UnitTag:                       unitTag,
@@ -451,7 +452,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			),
 			CreatedRelations: relation.NewCreatedRelationResolver(u.relationStateTracker),
 			Relations:        relation.NewRelationResolver(u.relationStateTracker, u.unit),
-			Storage:          storage.NewResolver(u.storage, u.modelType),
+			Storage: storage.NewResolver(
+				u.logger.Child("storage"), u.storage, u.modelType),
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
@@ -480,6 +482,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 		for err == nil {
 			err = resolver.Loop(resolver.LoopConfig{
+				Logger:        u.logger.Child("resolver"),
 				Resolver:      uniterResolver,
 				Watcher:       watcher,
 				Executor:      u.operationExecutor,
@@ -614,6 +617,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		relation.RelationStateTrackerConfig{
 			State:                u.st,
 			Unit:                 u.unit,
+			Logger:               u.logger.Child("relation"),
 			Tracker:              u.leadershipTracker,
 			NewLeadershipContext: context.NewLeadershipContext,
 			CharmDir:             u.paths.State.CharmDir,

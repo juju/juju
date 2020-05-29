@@ -10,6 +10,7 @@ import (
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/juju/api"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -93,7 +94,7 @@ func (s *relationerSuite) AddRelationUnit(c *gc.C, name string) (*state.Relation
 func (s *relationerSuite) TestEnterLeaveScope(c *gc.C) {
 	ru1, _ := s.AddRelationUnit(c, "u/1")
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-	r := relation.NewRelationer(s.relUnit, s.mgr)
+	r := relation.NewRelationer(s.relUnit, s.mgr, loggo.GetLogger("test"))
 
 	w := ru1.Watch()
 	// u/1 does not consider u/0 to be alive.
@@ -122,7 +123,7 @@ func (s *relationerSuite) TestEnterLeaveScope(c *gc.C) {
 }
 
 func (s *relationerSuite) TestPrepareCommitHooks(c *gc.C) {
-	r := relation.NewRelationer(s.relUnit, s.mgr)
+	r := relation.NewRelationer(s.relUnit, s.mgr, loggo.GetLogger("test"))
 	err := r.Join()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -203,7 +204,7 @@ func (s *relationerSuite) TestSetDying(c *gc.C) {
 	settings := map[string]interface{}{"unit": "settings"}
 	err := ru1.EnterScope(settings)
 	c.Assert(err, jc.ErrorIsNil)
-	r := relation.NewRelationer(s.relUnit, s.mgr)
+	r := relation.NewRelationer(s.relUnit, s.mgr, loggo.GetLogger("test"))
 	err = r.Join()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -286,7 +287,7 @@ func (s *relationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	relUnit := &relation.RelationUnitShim{apiRelUnit}
 
-	r := relation.NewRelationer(relUnit, mgr)
+	r := relation.NewRelationer(relUnit, mgr, loggo.GetLogger("test"))
 	c.Assert(r, jc.Satisfies, (*relation.Relationer).IsImplicit)
 
 	// Hooks are not allowed.
