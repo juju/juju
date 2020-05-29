@@ -354,6 +354,9 @@ type mockConfig struct {
 
 	snapChannel    string
 	snapChannelSet bool
+
+	nonSyncedWritesToRaftLog    bool
+	nonSyncedWritesToRaftLogSet bool
 }
 
 func (mc *mockConfig) Tag() names.Tag {
@@ -398,6 +401,15 @@ func (mc *mockConfig) JujuDBSnapChannel() string {
 func (mc *mockConfig) SetJujuDBSnapChannel(snapChannel string) {
 	mc.snapChannel = snapChannel
 	mc.snapChannelSet = true
+}
+
+func (mc *mockConfig) NonSyncedWritesToRaftLog() bool {
+	return mc.nonSyncedWritesToRaftLog
+}
+
+func (mc *mockConfig) SetNonSyncedWritesToRaftLog(nonSynced bool) {
+	mc.nonSyncedWritesToRaftLog = nonSynced
+	mc.nonSyncedWritesToRaftLogSet = true
 }
 
 func (mc *mockConfig) LogDir() string {
