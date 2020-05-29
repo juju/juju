@@ -12,6 +12,15 @@ import (
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
+// Logger is here to stop the desire of creating a package level Logger.
+// Don't do this, instead pass a Logger in to the required functions.
+var logger interface{}
+
+// Logger represents the logging methods used in this package.
+type Logger interface {
+	Tracef(string, ...interface{})
+}
+
 // ErrLoopAborted is used to signal that the loop is exiting because it
 // received a value on its config's Abort chan.
 var ErrLoopAborted = errors.New("resolver loop aborted")
@@ -23,6 +32,7 @@ var ErrDoNotProceed = errors.New("do not proceed")
 
 // LoopConfig contains configuration parameters for the resolver loop.
 type LoopConfig struct {
+	Logger        Logger
 	Resolver      Resolver
 	Watcher       remotestate.Watcher
 	Executor      operation.Executor
@@ -55,7 +65,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 	rf := &resolverOpFactory{Factory: cfg.Factory, LocalState: localState}
 
 	// Initialize charmdir availability before entering the loop in case we're recovering from a restart.
-	err := updateCharmDir(cfg.Executor.State(), cfg.CharmDirGuard, cfg.Abort)
+	err := updateCharmDir(cfg.Logger, cfg.Executor.State(), cfg.CharmDirGuard, cfg.Abort)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -91,7 +101,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 				}
 			}()
 
-			logger.Tracef("running op: %v", op)
+			cfg.Logger.Tracef("running op: %v", op)
 			if err := cfg.Executor.Run(op, remoteStateChanged); err != nil {
 				close(done)
 				return errors.Trace(err)
@@ -103,7 +113,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 			rf.RemoteState = cfg.Watcher.Snapshot()
 			rf.LocalState.State = cfg.Executor.State()
 
-			err = updateCharmDir(rf.LocalState.State, cfg.CharmDirGuard, cfg.Abort)
+			err = updateCharmDir(cfg.Logger, rf.LocalState.State, cfg.CharmDirGuard, cfg.Abort)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -137,7 +147,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 
 // updateCharmDir sets charm directory availability for sharing among
 // concurrent workers according to local operation state.
-func updateCharmDir(opState operation.State, guard fortress.Guard, abort fortress.Abort) error {
+func updateCharmDir(logger Logger, opState operation.State, guard fortress.Guard, abort fortress.Abort) error {
 	var changing bool
 
 	// Determine if the charm content is changing.

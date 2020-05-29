@@ -481,6 +481,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 		for err == nil {
 			err = resolver.Loop(resolver.LoopConfig{
+				Logger:        u.logger.Child("resolver"),
 				Resolver:      uniterResolver,
 				Watcher:       watcher,
 				Executor:      u.operationExecutor,
