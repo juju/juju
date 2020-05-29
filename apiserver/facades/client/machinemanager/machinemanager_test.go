@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
+	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
@@ -37,19 +39,29 @@ type MachineManagerSuite struct {
 	st         *mockState
 	pool       *mockPool
 	api        *machinemanager.MachineManagerAPI
+	leadership *mocks.MockLeadership
 
 	callContext context.ProviderCallContext
 }
 
 func (s *MachineManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
-	mm, err := machinemanager.NewMachineManagerAPI(s.st, s.st, s.pool, s.authorizer, s.st.ModelTag(), s.callContext, common.NewResources())
+	mm, err := machinemanager.NewMachineManagerAPI(s.st,
+		s.st,
+		s.pool,
+		s.authorizer,
+		s.st.ModelTag(),
+		s.callContext,
+		common.NewResources(),
+		s.leadership,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
 }
 
 func (s *MachineManagerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
 	s.st = &mockState{
 		machines: make(map[string]*mockMachine),
 		unitStorageAttachmentsF: func(tag names.UnitTag) ([]state.StorageAttachment, error) {
@@ -65,12 +77,38 @@ func (s *MachineManagerSuite) SetUpTest(c *gc.C) {
 	s.pool = &mockPool{}
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	s.callContext = context.NewCloudCallContext()
+}
+
+func (s *MachineManagerSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.leadership = mocks.NewMockLeadership(ctrl)
+
 	var err error
-	s.api, err = machinemanager.NewMachineManagerAPI(s.st, s.st, s.pool, s.authorizer, s.st.ModelTag(), s.callContext, common.NewResources())
+	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
+		s.st,
+		s.pool,
+		s.authorizer,
+		s.st.ModelTag(),
+		s.callContext,
+		common.NewResources(),
+		s.leadership,
+	)
 	c.Assert(err, jc.ErrorIsNil)
+
+	return ctrl
+}
+
+func (s *MachineManagerSuite) expectUnpinAppLeaders(id string) {
+	machineTag := names.NewMachineTag(id)
+
+	s.leadership.EXPECT().GetMachineApplicationNames(id).Return([]string{"foo-app-1"}, nil)
+	s.leadership.EXPECT().UnpinApplicationLeadersByName(machineTag, []string{"foo-app-1"}).Return(params.PinApplicationsResults{}, nil)
 }
 
 func (s *MachineManagerSuite) TestAddMachines(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	apiParams := make([]params.AddMachineParams, 2)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
@@ -123,11 +161,13 @@ func (s *MachineManagerSuite) TestAddMachines(c *gc.C) {
 func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
-	_, err := machinemanager.NewMachineManagerAPI(nil, nil, nil, s.authorizer, names.ModelTag{}, s.callContext, common.NewResources())
+	_, err := machinemanager.NewMachineManagerAPI(nil, nil, nil, s.authorizer, names.ModelTag{}, s.callContext, common.NewResources(), nil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *MachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	s.st.err = errors.New("boom")
 	results, err := s.api.AddMachines(params.AddMachines{
 		MachineParams: []params.AddMachineParams{{
@@ -144,6 +184,10 @@ func (s *MachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
 }
 
 func (s *MachineManagerSuite) TestDestroyMachine(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectUnpinAppLeaders("0")
+
 	s.st.machines["0"] = &mockMachine{}
 	results, err := s.api.DestroyMachine(params.Entities{
 		Entities: []params.Entity{{Tag: "machine-0"}},
@@ -169,6 +213,10 @@ func (s *MachineManagerSuite) TestDestroyMachine(c *gc.C) {
 }
 
 func (s *MachineManagerSuite) TestForceDestroyMachine(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectUnpinAppLeaders("0")
+
 	s.st.machines["0"] = &mockMachine{}
 	results, err := s.api.ForceDestroyMachine(params.Entities{
 		Entities: []params.Entity{{Tag: "machine-0"}},
@@ -203,6 +251,8 @@ func (s *MachineManagerSuite) assertMachinesDestroyed(c *gc.C, in []params.Entit
 }
 
 func (s *MachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	s.st.machines["0"] = &mockMachine{}
 	s.st.unitStorageAttachmentsF = func(tag names.UnitTag) ([]state.StorageAttachment, error) {
 		return nil, errors.New("kaboom")
@@ -225,6 +275,8 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval(c *gc.
 }
 
 func (s *MachineManagerSuite) TestDestroyMachineFailedAllStorageClassification(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	s.st.machines["0"] = &mockMachine{}
 	s.st.SetErrors(
 		errors.New("boom"),
@@ -256,6 +308,8 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedAllStorageClassification(c
 }
 
 func (s *MachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetrieval(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	s.st.machines["0"] = &mockMachine{}
 	s.st.unitStorageAttachmentsF = func(tag names.UnitTag) ([]state.StorageAttachment, error) {
 		if tag.Id() == "foo/1" {
@@ -286,6 +340,10 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetrieval(c
 }
 
 func (s *MachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMachines(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectUnpinAppLeaders("1")
+
 	s.st.machines["0"] = &mockMachine{}
 	s.st.machines["1"] = &mockMachine{
 		unitsF: func() ([]machinemanager.Unit, error) {
@@ -345,6 +403,10 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMa
 }
 
 func (s *MachineManagerSuite) TestDestroyMachineWithParamsV4(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectUnpinAppLeaders("0")
+
 	apiV4 := s.machineManagerAPIV4()
 	s.st.machines["0"] = &mockMachine{}
 	results, err := apiV4.DestroyMachineWithParams(params.DestroyMachinesParams{
@@ -386,6 +448,10 @@ func (s *MachineManagerSuite) assertDestroyMachineWithParams(c *gc.C, in params.
 }
 
 func (s *MachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectUnpinAppLeaders("0")
+
 	noWait := 0 * time.Second
 	s.assertDestroyMachineWithParams(c,
 		params.DestroyMachinesParams{
@@ -414,6 +480,10 @@ func (s *MachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C) {
 }
 
 func (s *MachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectUnpinAppLeaders("0")
+
 	s.assertDestroyMachineWithParams(c,
 		params.DestroyMachinesParams{
 			Keep:        true,
@@ -454,6 +524,8 @@ func (s *MachineManagerSuite) apiV5() machinemanager.MachineManagerAPIV5 {
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesValidateOK(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	s.setupUpgradeSeries(c)
 	s.st.machines["0"].unitAgentState = status.Idle
 
@@ -478,6 +550,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateOK(c *gc.C) {
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesValidateIsControllerError(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	s.setupUpgradeSeries(c)
 	apiV5 := s.apiV5()
 	args := params.UpdateSeriesArgs{
@@ -493,6 +567,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateIsControllerError(c *gc.C
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesValidateNoSeriesError(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	s.setupUpgradeSeries(c)
 	apiV5 := s.apiV5()
 	args := params.UpdateSeriesArgs{
@@ -507,6 +583,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateNoSeriesError(c *gc.C) {
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesValidateNotFromUbuntuError(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	s.setupUpgradeSeries(c)
 	apiV5 := s.apiV5()
 	args := params.UpdateSeriesArgs{
@@ -523,6 +601,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateNotFromUbuntuError(c *gc.
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesValidateNotToUbuntuError(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	s.setupUpgradeSeries(c)
 	apiV5 := s.apiV5()
 	args := params.UpdateSeriesArgs{
@@ -539,6 +619,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateNotToUbuntuError(c *gc.C)
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesValidateAlreadyRunningSeriesError(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	s.setupUpgradeSeries(c)
 	apiV5 := s.apiV5()
 	args := params.UpdateSeriesArgs{
@@ -554,6 +636,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateAlreadyRunningSeriesError
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesValidateOlderSeriesError(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	s.setupUpgradeSeries(c)
 	apiV5 := s.apiV5()
 	args := params.UpdateSeriesArgs{
@@ -570,6 +654,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateOlderSeriesError(c *gc.C)
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesValidateUnitNotIdleError(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	s.setupUpgradeSeries(c)
 	s.st.machines["0"].unitAgentState = status.Executing
 	s.st.machines["0"].unitState = status.Active
@@ -588,6 +674,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateUnitNotIdleError(c *gc.C)
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesValidateUnitStatusError(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	s.setupUpgradeSeries(c)
 	s.st.machines["0"].unitAgentState = status.Idle
 	s.st.machines["0"].unitState = status.Error
@@ -606,6 +694,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateUnitStatusError(c *gc.C) 
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	s.setupUpgradeSeries(c)
 	s.st.machines["0"].unitAgentState = status.Idle
 
@@ -628,6 +718,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareMachineNotFound(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	apiV5 := s.apiV5()
 	machineTag := names.NewMachineTag("76")
 	result, err := apiV5.UpgradeSeriesPrepare(
@@ -642,6 +734,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareMachineNotFound(c *gc.C) {
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareNotMachineTag(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	apiV5 := s.apiV5()
 	unitTag := names.NewUnitTag("mysql/0")
 	result, err := apiV5.UpgradeSeriesPrepare(
@@ -656,6 +750,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareNotMachineTag(c *gc.C) {
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesPreparePermissionDenied(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	user := names.NewUserTag("fred")
 	s.setAPIUser(c, user)
 	apiV5 := s.apiV5()
@@ -671,6 +767,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPreparePermissionDenied(c *gc.C) 
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareBlockedChanges(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	apiV5 := s.apiV5()
 	s.st.blockMsg = "TestUpgradeSeriesPrepareBlockedChanges"
 	s.st.block = state.ChangeBlock
@@ -689,6 +787,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareBlockedChanges(c *gc.C) {
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareNoSeries(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	apiV5 := s.apiV5()
 	result, err := apiV5.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{
@@ -705,6 +805,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareNoSeries(c *gc.C) {
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareIncompatibleSeries(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	s.setupUpgradeSeries(c)
 	s.st.machines["0"].SetErrors(&state.ErrIncompatibleSeries{
 		SeriesList: []string{"yakkety", "zesty"},
@@ -733,6 +835,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareRemoveLockAfterFail(c *gc.
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesComplete(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	s.setupUpgradeSeries(c)
 	apiV5 := s.apiV5()
 	_, err := apiV5.UpgradeSeriesComplete(
@@ -747,6 +851,8 @@ func (s *MachineManagerSuite) TestUpgradeSeriesComplete(c *gc.C) {
 // but complex enough to warrant being exported from an export test package for
 // testing.
 func (s *MachineManagerSuite) TestIsSeriesLessThan(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	ss := series.SupportedSeries()
 
 	// get the series versions
