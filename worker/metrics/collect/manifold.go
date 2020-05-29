@@ -38,7 +38,10 @@ const (
 )
 
 var (
-	logger        = loggo.GetLogger("juju.worker.metrics.collect")
+	// Logger is here to stop the desire of creating a package level Logger.
+	// Don't do this, instead use the logger passed into the manifold.
+	logger interface{}
+
 	defaultPeriod = 5 * time.Minute
 
 	// errMetricsNotDefined is returned when the charm the uniter is running does
@@ -84,6 +87,19 @@ type stopper interface {
 	Stop() error
 }
 
+// Clock represents time methods used by this package.
+type Clock interface {
+	Now() time.Time
+}
+
+// Logger represents the logging methods used in this package.
+type Logger interface {
+	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
+
+	Root() loggo.Logger
+}
+
 // ManifoldConfig identifies the resource names upon which the collect manifold
 // depends.
 type ManifoldConfig struct {
@@ -92,6 +108,9 @@ type ManifoldConfig struct {
 	AgentName       string
 	MetricSpoolName string
 	CharmDirName    string
+
+	Clock  Clock
+	Logger Logger
 }
 
 // Manifold returns a collect-metrics manifold.
@@ -158,6 +177,8 @@ func newCollect(config ManifoldConfig, context dependency.Context) (*collect, er
 	runner := &hookRunner{
 		unitTag: unitTag.String(),
 		paths:   paths,
+		clock:   config.Clock,
+		logger:  config.Logger,
 	}
 	var listener stopper
 	charmURL, validMetrics, err := readCharm(unitTag, paths)
@@ -185,6 +206,7 @@ func newCollect(config ManifoldConfig, context dependency.Context) (*collect, er
 		charmdir:      charmdir,
 		listener:      listener,
 		runner:        runner,
+		logger:        config.Logger,
 	}
 
 	return collector, nil
@@ -197,6 +219,7 @@ type collect struct {
 	charmdir      fortress.Guest
 	listener      stopper
 	runner        *hookRunner
+	logger        Logger
 }
 
 func (w *collect) stop() {
@@ -227,7 +250,7 @@ func (w *collect) Do(stop <-chan struct{}) (err error) {
 
 	recorder, err := newRecorder(unitTag, paths, w.metricFactory)
 	if errors.Cause(err) == errMetricsNotDefined {
-		logger.Tracef("%v", err)
+		w.logger.Tracef("%v", err)
 		return nil
 	} else if err != nil {
 		return errors.Annotate(err, "failed to instantiate metric recorder")
@@ -237,11 +260,11 @@ func (w *collect) Do(stop <-chan struct{}) (err error) {
 		return w.runner.do(recorder)
 	}, stop)
 	if err == fortress.ErrAborted {
-		logger.Tracef("cannot execute collect-metrics: %v", err)
+		w.logger.Tracef("cannot execute collect-metrics: %v", err)
 		return nil
 	}
 	if spool.IsMetricsDataError(err) {
-		logger.Debugf("cannot record metrics: %v", err)
+		w.logger.Debugf("cannot record metrics: %v", err)
 		return nil
 	}
 	return err
@@ -252,14 +275,22 @@ type hookRunner struct {
 
 	unitTag string
 	paths   uniter.Paths
+
+	clock  Clock
+	logger Logger
 }
 
 func (h *hookRunner) do(recorder spool.MetricRecorder) error {
 	h.m.Lock()
 	defer h.m.Unlock()
-	logger.Debugf("recording metrics")
+	h.logger.Debugf("recording metrics")
 
-	ctx := newHookContext(h.unitTag, recorder)
+	ctx := newHookContext(hookConfig{
+		unitName: h.unitTag,
+		recorder: recorder,
+		clock:    h.clock,
+		logger:   h.logger,
+	})
 	err := ctx.addJujuUnitsMetric()
 	if err != nil {
 		return errors.Annotatef(err, "error adding 'juju-units' metric")
@@ -271,11 +302,11 @@ func (h *hookRunner) do(recorder spool.MetricRecorder) error {
 	case charmrunner.IsMissingHookError(errors.Cause(err)):
 		fallthrough
 	case err == nil && handlerType == runner.InvalidHookHandler:
-		logger.Debugf("skipped %q hook (missing)", hooks.CollectMetrics)
+		h.logger.Debugf("skipped %q hook (missing)", hooks.CollectMetrics)
 	case err != nil:
 		return errors.Annotatef(err, "error running %q hook", hooks.CollectMetrics)
 	default:
-		logger.Debugf("ran %q hook (via %s)", hooks.CollectMetrics, handlerType)
+		h.logger.Debugf("ran %q hook (via %s)", hooks.CollectMetrics, handlerType)
 	}
 
 	return nil

@@ -5,11 +5,9 @@ package meterstatus
 
 import (
 	"time"
-
-	"github.com/juju/clock"
 )
 
-type TriggerCreator func(WorkerState, string, time.Time, clock.Clock, time.Duration, time.Duration) (<-chan time.Time, <-chan time.Time)
+type TriggerCreator func(WorkerState, string, time.Time, Clock, time.Duration, time.Duration) (<-chan time.Time, <-chan time.Time)
 
 // GetTriggers returns the signal channels for state transitions based on the current state.
 // It controls the transitions of the inactive meter status worker.
@@ -28,7 +26,7 @@ func GetTriggers(
 	wst WorkerState,
 	status string,
 	disconnectedAt time.Time,
-	clk clock.Clock,
+	clk Clock,
 	amberGracePeriod time.Duration,
 	redGracePeriod time.Duration) (<-chan time.Time, <-chan time.Time) {
 

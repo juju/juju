@@ -5,7 +5,6 @@ package meterstatus
 
 import (
 	"github.com/juju/charm/v7/hooks"
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -26,15 +25,26 @@ type hookRunner struct {
 	machineLock machinelock.Lock
 	config      agent.Config
 	tag         names.UnitTag
-	clock       clock.Clock
+	clock       Clock
+	logger      Logger
 }
 
-func NewHookRunner(tag names.UnitTag, machineLock machinelock.Lock, config agent.Config, clock clock.Clock) HookRunner {
+// HookRunnerConfig is just an argument struct for NewHookRunner.
+type HookRunnerConfig struct {
+	MachineLock machinelock.Lock
+	AgentConfig agent.Config
+	Tag         names.UnitTag
+	Clock       Clock
+	Logger      Logger
+}
+
+func NewHookRunner(config HookRunnerConfig) HookRunner {
 	return &hookRunner{
-		tag:         tag,
-		machineLock: machineLock,
-		config:      config,
-		clock:       clock,
+		tag:         config.Tag,
+		machineLock: config.MachineLock,
+		config:      config.AgentConfig,
+		clock:       config.Clock,
+		logger:      config.Logger,
 	}
 }
 
@@ -55,7 +65,11 @@ func (w *hookRunner) acquireExecutionLock(action string, interrupt <-chan struct
 
 func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) {
 	unitTag := w.tag
-	ctx := NewLimitedContext(unitTag.String())
+	ctx := newLimitedContext(hookConfig{
+		unitName: unitTag.String(),
+		clock:    w.clock,
+		logger:   w.logger,
+	})
 	ctx.SetEnvVars(map[string]string{
 		"JUJU_METER_STATUS": code,
 		"JUJU_METER_INFO":   info,
@@ -64,7 +78,7 @@ func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) {
 	r := runner.NewRunner(ctx, paths, nil)
 	releaser, err := w.acquireExecutionLock(string(hooks.MeterStatusChanged), interrupt)
 	if err != nil {
-		logger.Errorf("failed to acquire machine lock: %v", err)
+		w.logger.Errorf("failed to acquire machine lock: %v", err)
 		return
 	}
 	defer releaser()
@@ -72,10 +86,10 @@ func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) {
 	cause := errors.Cause(err)
 	switch {
 	case charmrunner.IsMissingHookError(cause):
-		logger.Infof("skipped %q hook (missing)", string(hooks.MeterStatusChanged))
+		w.logger.Infof("skipped %q hook (missing)", string(hooks.MeterStatusChanged))
 	case err != nil:
-		logger.Errorf("error running %q: %v", hooks.MeterStatusChanged, err)
+		w.logger.Errorf("error running %q: %v", hooks.MeterStatusChanged, err)
 	default:
-		logger.Infof("ran %q hook (via %s)", hooks.MeterStatusChanged, handlerType)
+		w.logger.Infof("ran %q hook (via %s)", hooks.MeterStatusChanged, handlerType)
 	}
 }

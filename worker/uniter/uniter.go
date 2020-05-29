@@ -144,8 +144,7 @@ type Uniter struct {
 	// rebootQuerier allows the uniter to detect when the machine has
 	// rebooted so we can notify the charms accordingly.
 	rebootQuerier RebootQuerier
-
-	logger Logger
+	logger        Logger
 }
 
 // UniterParams hold all the necessary parameters for a new Uniter.
@@ -204,7 +203,6 @@ func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
 // StartUniter creates a new Uniter and starts it using the specified runner.
 func StartUniter(runner *worker.Runner, params *UniterParams) error {
 	startFunc := newUniter(params)
-
 	params.Logger.Debugf("starting uniter for  %q", params.UnitTag.Id())
 	err := runner.StartWorker(params.UnitTag.Id(), startFunc)
 	return errors.Annotate(err, "error starting uniter worker")
@@ -658,6 +656,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		Storage:          u.storage,
 		Paths:            u.paths,
 		Clock:            u.clock,
+		Logger:           u.logger.Child("context"),
 	})
 	if err != nil {
 		return err

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/model"
@@ -21,15 +22,21 @@ import (
 type hookContext struct {
 	jujuc.RestrictedContext
 
-	unitName string
-	id       string
-	recorder spool.MetricRecorder
+	id     string
+	config hookConfig
 }
 
-func newHookContext(unitName string, recorder spool.MetricRecorder) *hookContext {
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	id := fmt.Sprintf("%s-%s-%d", unitName, "collect-metrics", rand.New(rand.NewSource(time.Now().Unix())).Int63())
-	return &hookContext{unitName: unitName, id: id, recorder: recorder}
+type hookConfig struct {
+	unitName string
+	recorder spool.MetricRecorder
+	clock    Clock
+	logger   Logger
+}
+
+func newHookContext(config hookConfig) *hookContext {
+	now := config.clock.Now().Unix()
+	id := fmt.Sprintf("%s-%s-%d", config.unitName, "collect-metrics", rand.New(rand.NewSource(now)).Int63())
+	return &hookContext{id: id, config: config}
 }
 
 // HookVars implements runner.Context.
@@ -40,7 +47,7 @@ func (ctx *hookContext) HookVars(paths context.Paths, remote bool, getEnv contex
 		"JUJU_CONTEXT_ID=" + ctx.id,
 		"JUJU_AGENT_SOCKET_ADDRESS=" + paths.GetJujucClientSocket(remote).Address,
 		"JUJU_AGENT_SOCKET_NETWORK=" + paths.GetJujucClientSocket(remote).Network,
-		"JUJU_UNIT_NAME=" + ctx.unitName,
+		"JUJU_UNIT_NAME=" + ctx.config.unitName,
 	}
 	if remote {
 		vars = append(vars,
@@ -50,9 +57,14 @@ func (ctx *hookContext) HookVars(paths context.Paths, remote bool, getEnv contex
 	return append(vars, context.OSDependentEnvVars(paths, getEnv)...), nil
 }
 
+// GetLogger returns the logger for the specified module.
+func (ctx *hookContext) GetLogger(module string) loggo.Logger {
+	return ctx.config.logger.Root().Child(module)
+}
+
 // UnitName implements runner.Context.
 func (ctx *hookContext) UnitName() string {
-	return ctx.unitName
+	return ctx.config.unitName
 }
 
 // ModelType implements runner.Context
@@ -64,25 +76,26 @@ func (ctx *hookContext) ModelType() model.ModelType {
 
 // Flush implements runner.Context.
 func (ctx *hookContext) Flush(process string, ctxErr error) (err error) {
-	return ctx.recorder.Close()
+	return ctx.config.recorder.Close()
 }
 
 // AddMetric implements runner.Context.
 func (ctx *hookContext) AddMetric(key string, value string, created time.Time) error {
-	return ctx.recorder.AddMetric(key, value, created, nil)
+	return ctx.config.recorder.AddMetric(key, value, created, nil)
 }
 
 // AddMetricLabels implements runner.Context.
 func (ctx *hookContext) AddMetricLabels(key string, value string, created time.Time, labels map[string]string) error {
-	return ctx.recorder.AddMetric(key, value, created, labels)
+	return ctx.config.recorder.AddMetric(key, value, created, labels)
 }
 
 // addJujuUnitsMetric adds the juju-units built in metric if it
 // is defined for this context.
 func (ctx *hookContext) addJujuUnitsMetric() error {
-	if ctx.recorder.IsDeclaredMetric("juju-units") {
+	if ctx.config.recorder.IsDeclaredMetric("juju-units") {
 		// TODO(fwereade): 2016-03-17 lp:1558657
-		err := ctx.recorder.AddMetric("juju-units", "1", time.Now().UTC(), nil)
+		now := ctx.config.clock.Now().UTC()
+		err := ctx.config.recorder.AddMetric("juju-units", "1", now, nil)
 		if err != nil {
 			return errors.Trace(err)
 		}
