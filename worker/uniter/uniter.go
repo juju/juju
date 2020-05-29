@@ -614,6 +614,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		relation.RelationStateTrackerConfig{
 			State:                u.st,
 			Unit:                 u.unit,
+			Logger:               u.logger.Child("relation"),
 			Tracker:              u.leadershipTracker,
 			NewLeadershipContext: context.NewLeadershipContext,
 			CharmDir:             u.paths.State.CharmDir,
