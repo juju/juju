@@ -17,6 +17,16 @@ import (
 	"github.com/juju/juju/worker/uniter/resolver"
 )
 
+// Logger is here to stop the desire of creating a package level Logger.
+// Don't do this, instead pass a Logger in to the required functions.
+var logger interface{}
+
+// Logger represents the logging methods used in this package.
+type Logger interface {
+	Infof(string, ...interface{})
+	Debugf(string, ...interface{})
+}
+
 // StorageResolverOperations instances know how to make operations
 // required by the resolver.
 type StorageResolverOperations interface {
@@ -25,6 +35,7 @@ type StorageResolverOperations interface {
 }
 
 type storageResolver struct {
+	logger    Logger
 	storage   *Attachments
 	dying     bool
 	life      map[names.StorageTag]life.Value
@@ -32,8 +43,9 @@ type storageResolver struct {
 }
 
 // NewResolver returns a new storage resolver.
-func NewResolver(storage *Attachments, modelType model.ModelType) resolver.Resolver {
+func NewResolver(logger Logger, storage *Attachments, modelType model.ModelType) resolver.Resolver {
 	return &storageResolver{
+		logger:    logger,
 		storage:   storage,
 		modelType: modelType,
 		life:      make(map[names.StorageTag]life.Value),
@@ -110,7 +122,7 @@ func (s *storageResolver) NextOp(
 
 	// This message is only interesting for IAAS models.
 	if s.modelType == model.IAAS && !localState.Installed && s.storage.Pending() == 0 {
-		logger.Infof("initial storage attachments ready")
+		s.logger.Infof("initial storage attachments ready")
 	}
 
 	for tag, snap := range remoteState.Storage {
@@ -121,7 +133,7 @@ func (s *storageResolver) NextOp(
 		return op, err
 	}
 	if s.storage.Pending() > 0 {
-		logger.Debugf("still pending %v", s.storage.pending.SortedValues())
+		s.logger.Debugf("still pending %v", s.storage.pending.SortedValues())
 		// For IAAS models, storage hooks are run before install.
 		// If the install hook has not yet run and there's still
 		// pending storage, we wait. We don't wait after the
@@ -157,7 +169,7 @@ func (s *storageResolver) nextHookOp(
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
 
-	logger.Debugf("next hook op for %v: %+v", tag, snap)
+	s.logger.Debugf("next hook op for %v: %+v", tag, snap)
 
 	if snap.Life == life.Dead {
 		// Storage must have been Dying to become Dead;

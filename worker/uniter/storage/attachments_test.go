@@ -7,6 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -181,7 +182,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 
 	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	r := storage.NewResolver(att, s.modelType)
+	r := storage.NewResolver(loggo.GetLogger("test"), att, s.modelType)
 
 	// First make sure we create a storage-attached hook operation for
 	// data/0. We do this to show that until the hook is *committed*,
@@ -246,7 +247,7 @@ func (s *attachmentsSuite) testAttachmentsStorage(c *gc.C, opState operation.Sta
 
 	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	r := storage.NewResolver(att, s.modelType)
+	r := storage.NewResolver(loggo.GetLogger("test"), att, s.modelType)
 
 	storageTag := names.NewStorageTag("data/0")
 	_, err = att.Storage(storageTag)
@@ -292,7 +293,7 @@ func (s *caasAttachmentsSuite) TestAttachmentsStorageNotStarted(c *gc.C) {
 
 	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	r := storage.NewResolver(att, s.modelType)
+	r := storage.NewResolver(loggo.GetLogger("test"), att, s.modelType)
 
 	storageTag := names.NewStorageTag("data/0")
 	_, err = att.Storage(storageTag)
@@ -341,7 +342,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 
 	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	r := storage.NewResolver(att, s.modelType)
+	r := storage.NewResolver(loggo.GetLogger("test"), att, s.modelType)
 
 	// Inform the resolver of an attachment.
 	localState := resolver.LocalState{State: operation.State{
@@ -422,7 +423,7 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(att.Pending(), gc.Equals, 1)
-	r := storage.NewResolver(att, s.modelType)
+	r := storage.NewResolver(loggo.GetLogger("test"), att, s.modelType)
 
 	// Inform the resolver that the unit is Dying. The storage is still
 	// Alive, and is now provisioned, but will be destroyed and removed
@@ -462,7 +463,7 @@ func (s *attachmentsSuite) TestAttachmentsWaitPending(c *gc.C) {
 
 	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	r := storage.NewResolver(att, s.modelType)
+	r := storage.NewResolver(loggo.GetLogger("test"), att, s.modelType)
 
 	nextOp := func(installed bool) error {
 		localState := resolver.LocalState{State: operation.State{
