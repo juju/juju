@@ -2035,6 +2035,25 @@ func (s *BootstrapSuite) TestBootstrapPrintCloudRegionsNoSuchCloud(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cloud foo not found")
 }
 
+func (s *BootstrapSuite) TestBootstrapTestingOptions(c *gc.C) {
+	s.PatchEnvironment("JUJU_AGENT_TESTING_OPTIONS", "foo=bar, hello = world")
+	var gotArgs bootstrap.BootstrapParams
+	bootstrapFuncs := &fakeBootstrapFuncs{
+		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error {
+			gotArgs = args
+			return errors.New("test error")
+		},
+	}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return bootstrapFuncs
+	})
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(gotArgs.ExtraAgentValuesForTesting, jc.DeepEquals, map[string]string{"foo": "bar", "hello": "world"})
+}
+
 func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 	// This test ensures that the controller name is correctly set on
 	// on the bootstrap commands embedded ModelCommandBase. Without

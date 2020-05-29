@@ -828,6 +828,7 @@ func NewBootstrapInstanceConfig(
 	config controller.Config,
 	cons, modelCons constraints.Value,
 	series, publicImageSigningKey string,
+	agentEnvironment map[string]string,
 ) (*InstanceConfig, error) {
 	// For a bootstrap instance, the caller must provide the state.Info
 	// and the api.Info. The machine id must *always* be "0".
@@ -847,6 +848,12 @@ func NewBootstrapInstanceConfig(
 			BootstrapMachineConstraints: cons,
 			ModelConstraints:            modelCons,
 		},
+	}
+	for k, v := range agentEnvironment {
+		if icfg.AgentEnvironment == nil {
+			icfg.AgentEnvironment = make(map[string]string)
+		}
+		icfg.AgentEnvironment[k] = v
 	}
 	icfg.Jobs = []model.MachineJob{
 		model.JobManageModel,

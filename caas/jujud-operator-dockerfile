@@ -1,4 +1,5 @@
-FROM ubuntu:18.04
+ARG BASE_IMAGE
+FROM $BASE_IMAGE
 
 # Add the syslog user for audit logging.
 RUN useradd --system -M syslog
@@ -27,5 +28,6 @@ RUN pip3 install -r /tmp/wheelhouse/jujud-operator-requirements.txt
 WORKDIR /var/lib/juju
 # copy jujud
 COPY jujud /opt/
+COPY jujuc /opt/
 
 ENTRYPOINT ["sh", "-c"]

@@ -12,19 +12,17 @@ import (
 
 // Settings manages changes to unit settings in a relation.
 type Settings struct {
-	st          *State
 	relationTag string
 	unitTag     string
 	settings    params.Settings
 	dirty       bool
 }
 
-func newSettings(st *State, relationTag, unitTag string, settings params.Settings) *Settings {
+func newSettings(relationTag, unitTag string, settings params.Settings) *Settings {
 	if settings == nil {
 		settings = make(params.Settings)
 	}
 	return &Settings{
-		st:          st,
 		relationTag: relationTag,
 		unitTag:     unitTag,
 		settings:    settings,

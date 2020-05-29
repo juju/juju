@@ -4,179 +4,230 @@
 package uniter_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/core/watcher/watchertest"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type actionSuite struct {
-	uniterSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&actionSuite{})
-var basicParams = map[string]interface{}{"outfile": "foo.txt"}
 
 func (s *actionSuite) TestAction(c *gc.C) {
-	var actionTests = []struct {
-		description string
-		action      params.Action
-	}{{
-		description: "A simple Action.",
-		action: params.Action{
-			Name:       "fakeaction",
-			Parameters: basicParams,
+	actionResult := params.ActionResult{
+		Action: &params.Action{
+			Name:       "backup",
+			Parameters: map[string]interface{}{"foo": "bar"},
 		},
-	}, {
-		description: "An Action with nested parameters.",
-		action: params.Action{
-			Name: "fakeaction",
-			Parameters: map[string]interface{}{
-				"outfile": "foo.bz2",
-				"compression": map[string]interface{}{
-					"kind":    "bzip",
-					"quality": float64(5.0),
-				},
-			},
-		},
-	}}
-
-	for i, actionTest := range actionTests {
-		c.Logf("test %d: %s", i, actionTest.description)
-		operationID, err := s.Model.EnqueueOperation("a test")
-		c.Assert(err, jc.ErrorIsNil)
-		a, err := s.uniterSuite.wordpressUnit.AddAction(
-			operationID,
-			actionTest.action.Name,
-			actionTest.action.Parameters)
-		c.Assert(err, jc.ErrorIsNil)
-
-		ok := names.IsValidAction(a.Id())
-		c.Assert(ok, gc.Equals, true)
-		actionTag := names.NewActionTag(a.Id())
-		c.Assert(a.Tag(), gc.Equals, actionTag)
-
-		retrievedAction, err := s.uniter.Action(actionTag)
-		c.Assert(err, jc.ErrorIsNil)
-
-		c.Assert(retrievedAction.Name(), gc.DeepEquals, actionTest.action.Name)
-		c.Assert(retrievedAction.Params(), gc.DeepEquals, actionTest.action.Parameters)
 	}
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "Actions")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "action-666"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ActionResults{})
+		*(result.(*params.ActionResults)) = params.ActionResults{
+			Results: []params.ActionResult{actionResult},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+
+	a, err := client.Action(names.NewActionTag("666"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(a.Name(), gc.Equals, actionResult.Action.Name)
+	c.Assert(a.Params(), jc.DeepEquals, actionResult.Action.Parameters)
 }
 
-func (s *actionSuite) TestActionNotFound(c *gc.C) {
-	_, err := s.uniter.Action(names.NewActionTag("feedface-0123-4567-8901-2345deadbeef"))
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, `action "feedface-0123-4567-8901-2345deadbeef" not found`)
+func (s *actionSuite) TestActionError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "Actions")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "action-666"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ActionResults{})
+		*(result.(*params.ActionResults)) = params.ActionResults{
+			Results: []params.ActionResult{{
+				Error: &params.Error{Message: "boom"},
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+
+	_, err := client.Action(names.NewActionTag("666"))
+	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *actionSuite) TestNewActionAndAccessors(c *gc.C) {
-	testAction, err := uniter.NewAction("snapshot", basicParams)
-	c.Assert(err, jc.ErrorIsNil)
-	testName := testAction.Name()
-	testParams := testAction.Params()
-	c.Assert(testName, gc.Equals, "snapshot")
-	c.Assert(testParams, gc.DeepEquals, basicParams)
+func (s *actionSuite) TestActionBegin(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "BeginActions")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "action-666"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{Error: &params.Error{Message: "boom"}}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	err := client.ActionBegin(names.NewActionTag("666"))
+	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *actionSuite) TestActionComplete(c *gc.C) {
-	completed, err := s.uniterSuite.wordpressUnit.CompletedActions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(completed, gc.DeepEquals, ([]state.Action)(nil))
-
-	operationID, err := s.Model.EnqueueOperation("a test")
-	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.uniterSuite.wordpressUnit.AddAction(operationID, "fakeaction", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.uniter.ActionBegin(action.ActionTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	actionResult := map[string]interface{}{"output": "it worked!"}
-	err = s.uniter.ActionFinish(action.ActionTag(), params.ActionCompleted, actionResult, "")
-	c.Assert(err, jc.ErrorIsNil)
-
-	completed, err = s.uniterSuite.wordpressUnit.CompletedActions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(completed), gc.Equals, 1)
-	c.Assert(completed[0].Status(), gc.Equals, state.ActionCompleted)
-	res, errstr := completed[0].Results()
-	c.Assert(errstr, gc.Equals, "")
-	c.Assert(res, gc.DeepEquals, actionResult)
-	c.Assert(completed[0].Name(), gc.Equals, "fakeaction")
-	operation, err := s.Model.Operation(operationID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(operation.Status(), gc.Equals, state.ActionCompleted)
+func (s *actionSuite) TestActionFinish(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "FinishActions")
+		c.Assert(arg, gc.DeepEquals, params.ActionExecutionResults{Results: []params.ActionExecutionResult{{
+			ActionTag: "action-666",
+			Status:    "failed",
+			Results:   map[string]interface{}{"foo": "bar"},
+			Message:   "oops",
+		}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{Error: &params.Error{Message: "boom"}}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	err := client.ActionFinish(names.NewActionTag("666"), "failed", map[string]interface{}{"foo": "bar"}, "oops")
+	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
 func (s *actionSuite) TestActionStatus(c *gc.C) {
-	completed, err := s.uniterSuite.wordpressUnit.CompletedActions()
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "ActionStatus")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "action-666"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		*(result.(*params.StringResults)) = params.StringResults{
+			Results: []params.StringResult{{Result: "failed"}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	status, err := client.ActionStatus(names.NewActionTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(completed, gc.DeepEquals, ([]state.Action)(nil))
-
-	operationID, err := s.Model.EnqueueOperation("a test")
-	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.uniterSuite.wordpressUnit.AddAction(operationID, "fakeaction", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	status, err := s.uniter.ActionStatus(action.ActionTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, params.ActionPending)
-
-	err = s.uniter.ActionBegin(action.ActionTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	status, err = s.uniter.ActionStatus(action.ActionTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, params.ActionRunning)
-
-	actionResult := map[string]interface{}{"output": "it worked!"}
-	err = s.uniter.ActionFinish(action.ActionTag(), params.ActionCompleted, actionResult, "")
-	c.Assert(err, jc.ErrorIsNil)
-
-	status, err = s.uniter.ActionStatus(action.ActionTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, params.ActionCompleted)
-
-	completed, err = s.uniterSuite.wordpressUnit.CompletedActions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(completed), gc.Equals, 1)
-	c.Assert(completed[0].Status(), gc.Equals, state.ActionCompleted)
-	res, errstr := completed[0].Results()
-	c.Assert(errstr, gc.Equals, "")
-	c.Assert(res, gc.DeepEquals, actionResult)
-	c.Assert(completed[0].Name(), gc.Equals, "fakeaction")
-	operation, err := s.Model.Operation(operationID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(operation.Status(), gc.Equals, state.ActionCompleted)
+	c.Assert(status, gc.Equals, "failed")
 }
 
-func (s *actionSuite) TestActionFail(c *gc.C) {
-	completed, err := s.uniterSuite.wordpressUnit.CompletedActions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(completed, gc.DeepEquals, ([]state.Action)(nil))
+func (s *actionSuite) TestLogActionMessage(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "LogActionsMessages")
+		c.Assert(arg, gc.DeepEquals, params.ActionMessageParams{
+			Messages: []params.EntityString{{Tag: "action-666", Value: "hello"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
+		}
+		return nil
+	})
+	caller := basetesting.BestVersionCaller{apiCaller, 12}
+	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
 
-	operationID, err := s.Model.EnqueueOperation("a test")
-	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.uniterSuite.wordpressUnit.AddAction(operationID, "fakeaction", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	err := unit.LogActionMessage(names.NewActionTag("666"), "hello")
+	c.Assert(err, gc.ErrorMatches, "biff")
+}
 
-	errmsg := "it failed!"
-	err = s.uniter.ActionFinish(action.ActionTag(), params.ActionFailed, nil, errmsg)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *actionSuite) TestWatchActionNotifications(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		if objType == "StringsWatcher" {
+			if request != "Next" && request != "Stop" {
+				c.Fatalf("unexpected watcher request %q", request)
+			}
+			return nil
+		}
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "WatchActionNotifications")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				StringsWatcherId: "1",
+				Changes:          []string{"666"},
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
-	completed, err = s.uniterSuite.wordpressUnit.CompletedActions()
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	w, err := unit.WatchActionNotifications()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(completed), gc.Equals, 1)
-	c.Assert(completed[0].Status(), gc.Equals, state.ActionFailed)
-	res, errstr := completed[0].Results()
-	c.Assert(errstr, gc.Equals, errmsg)
-	c.Assert(res, gc.DeepEquals, map[string]interface{}{})
-	c.Assert(completed[0].Name(), gc.Equals, "fakeaction")
-	operation, err := s.Model.Operation(operationID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(operation.Status(), gc.Equals, state.ActionFailed)
+	wc := watchertest.NewStringsWatcherC(c, w, nil)
+	defer wc.AssertStops()
+
+	// Initial event.
+	wc.AssertChange("666")
+}
+
+func (s *actionSuite) TestWatchActionNotificationsError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return errors.New("boom")
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	_, err := unit.WatchActionNotifications()
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *actionSuite) TestWatchActionNotificationsErrorResults(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "WatchActionNotifications")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				Error: &params.Error{Message: "boom"},
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	_, err := unit.WatchActionNotifications()
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *actionSuite) TestWatchActionNotificationsNoResults(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	_, err := unit.WatchActionNotifications()
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
+}
+
+func (s *actionSuite) TestWatchActionNotificationsMoreResults(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{}, {}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	_, err := unit.WatchActionNotifications()
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }

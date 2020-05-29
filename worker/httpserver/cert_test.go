@@ -24,8 +24,8 @@ type certSuite struct {
 
 var _ = gc.Suite(&certSuite{})
 
-func testSNIGetter(cert *tls.Certificate) httpserver.SNIGetter {
-	return httpserver.SNIGetterFn(func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+func testSNIGetter(cert *tls.Certificate) httpserver.SNIGetterFunc {
+	return httpserver.SNIGetterFunc(func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		return cert, nil
 	})
 }
@@ -37,6 +37,7 @@ func (s *certSuite) SetUpTest(c *gc.C) {
 		"https://0.1.2.3/no-autocert-here",
 		nil,
 		testSNIGetter(coretesting.ServerTLSCert),
+		loggo.GetLogger("test"),
 	)
 	// Copy the root CAs across.
 	tlsConfig.RootCAs = s.config.TLSConfig.RootCAs
@@ -74,6 +75,7 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 		"https://0.1.2.3/no-autocert-here",
 		nil,
 		testSNIGetter(coretesting.ServerTLSCert),
+		loggo.GetLogger("test"),
 	)
 	s.config.TLSConfig = tlsConfig
 
@@ -114,6 +116,7 @@ func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
 		"https://0.1.2.3/no-autocert-here",
 		nil,
 		testSNIGetter(coretesting.ServerTLSCert),
+		loggo.GetLogger("test"),
 	)
 	s.config.TLSConfig = tlsConfig
 

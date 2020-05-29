@@ -67,13 +67,19 @@ func AddControllerMachine(c *gc.C, st *state.State) *state.Machine {
 //     VLANTag: 42,
 // })
 func AddSubnetsWithTemplate(c *gc.C, st *state.State, numSubnets uint, infoTemplate network.SubnetInfo) {
+	funcMap := template.FuncMap{
+		"add": func(a, b int) int {
+			return a + b
+		},
+	}
+
 	for subnetIndex := 0; subnetIndex < int(numSubnets); subnetIndex++ {
 		info := infoTemplate // make a copy each time.
 
 		// permute replaces the contents of *s with the result of interpreting
 		// *s as a template.
 		permute := func(s string) string {
-			t, err := template.New("").Parse(s)
+			t, err := template.New("").Funcs(funcMap).Parse(s)
 			c.Assert(err, jc.ErrorIsNil)
 
 			var buf bytes.Buffer

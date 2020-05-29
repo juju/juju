@@ -67,6 +67,8 @@ func (s *Space) ProviderId() network.Id {
 }
 
 // Subnets returns all the subnets associated with the Space.
+// TODO (manadart 2020-05-19): Phase out usage of this method.
+// Prefer NetworkSpace for retrieving space subnet data.
 func (s *Space) Subnets() ([]*Subnet, error) {
 	id := s.Id()
 
@@ -96,26 +98,38 @@ func (s *Space) Subnets() ([]*Subnet, error) {
 }
 
 // NetworkSpace maps the space fields into a network.SpaceInfo.
+// This method materialises subnets for each call.
+// If calling multiple times, consider using AllSpaceInfos and filtering
+// in-place.
 func (s *Space) NetworkSpace() (network.SpaceInfo, error) {
-	subnets, err := s.Subnets()
+	subs, err := s.st.AllSubnetInfos()
 	if err != nil {
 		return network.SpaceInfo{}, errors.Trace(err)
 	}
 
-	mappedSubnets := make([]network.SubnetInfo, len(subnets))
-	for i, subnet := range subnets {
-		mappedSubnet := subnet.NetworkSubnet()
-		mappedSubnet.SpaceID = s.Id()
-		mappedSubnet.SpaceName = s.Name()
-		mappedSubnet.ProviderSpaceId = s.ProviderId()
-		mappedSubnets[i] = mappedSubnet
+	space, err := s.networkSpace(subs)
+	return space, errors.Trace(err)
+}
+
+// networkSpace transforms a Space into a network.SpaceInfo using the
+// materialised subnet information.
+func (s *Space) networkSpace(subnets network.SubnetInfos) (network.SpaceInfo, error) {
+	spaceSubs, err := subnets.GetBySpaceID(s.Id())
+	if err != nil {
+		return network.SpaceInfo{}, errors.Trace(err)
+	}
+
+	for i := range spaceSubs {
+		spaceSubs[i].SpaceID = s.Id()
+		spaceSubs[i].SpaceName = s.Name()
+		spaceSubs[i].ProviderSpaceId = s.ProviderId()
 	}
 
 	return network.SpaceInfo{
 		ID:         s.Id(),
 		Name:       network.SpaceName(s.Name()),
 		ProviderId: s.ProviderId(),
-		Subnets:    mappedSubnets,
+		Subnets:    spaceSubs,
 	}, nil
 }
 
@@ -286,19 +300,20 @@ func (st *State) SpaceByName(name string) (*Space, error) {
 }
 
 // AllSpaceInfos returns SpaceInfos for all spaces in the model.
-// TODO (manadart 2020-04-09): Instead of calling NetworkSpace here,
-// load all the SubnetInfos once and retrieve the space subnets and
-// overlays from there.
-// This method is inefficient in that it hits the DB 1-2 times for
-// each space to retrieve subnets.
 func (st *State) AllSpaceInfos() (network.SpaceInfos, error) {
 	spaces, err := st.AllSpaces()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	subs, err := st.AllSubnetInfos()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	result := make(network.SpaceInfos, len(spaces))
 	for i, space := range spaces {
-		if result[i], err = space.NetworkSpace(); err != nil {
+		if result[i], err = space.networkSpace(subs); err != nil {
 			return nil, err
 		}
 	}

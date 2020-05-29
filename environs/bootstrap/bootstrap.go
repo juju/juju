@@ -168,6 +168,9 @@ type BootstrapParams struct {
 
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
+
+	// ExtraAgentValuesForTesting are testing only values written to the agent config file.
+	ExtraAgentValuesForTesting map[string]string
 }
 
 // Validate validates the bootstrap parameters.
@@ -527,6 +530,7 @@ func bootstrapIAAS(
 		args.ModelConstraints,
 		result.Series,
 		publicKey,
+		args.ExtraAgentValuesForTesting,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -591,14 +595,15 @@ func Bootstrap(
 		return errors.Annotate(err, "validating bootstrap parameters")
 	}
 	bootstrapParams := environs.BootstrapParams{
-		CloudName:                args.Cloud.Name,
-		CloudRegion:              args.CloudRegion,
-		ControllerConfig:         args.ControllerConfig,
-		ModelConstraints:         args.ModelConstraints,
-		BootstrapSeries:          args.BootstrapSeries,
-		SupportedBootstrapSeries: args.SupportedBootstrapSeries,
-		Placement:                args.Placement,
-		Force:                    args.Force,
+		CloudName:                  args.Cloud.Name,
+		CloudRegion:                args.CloudRegion,
+		ControllerConfig:           args.ControllerConfig,
+		ModelConstraints:           args.ModelConstraints,
+		BootstrapSeries:            args.BootstrapSeries,
+		SupportedBootstrapSeries:   args.SupportedBootstrapSeries,
+		Placement:                  args.Placement,
+		Force:                      args.Force,
+		ExtraAgentValuesForTesting: args.ExtraAgentValuesForTesting,
 	}
 	doBootstrap := bootstrapIAAS
 	if jujucloud.CloudIsCAAS(args.Cloud) {
@@ -744,6 +749,11 @@ func finalizePodBootstrapConfig(
 	}
 	if _, ok := cfg.AgentVersion(); !ok {
 		return errors.New("controller model configuration has no agent-version")
+	}
+
+	pcfg.AgentEnvironment = make(map[string]string)
+	for k, v := range args.ExtraAgentValuesForTesting {
+		pcfg.AgentEnvironment[k] = v
 	}
 
 	pcfg.Bootstrap.ControllerModelConfig = cfg

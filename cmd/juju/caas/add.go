@@ -175,6 +175,7 @@ type AddCAASCommand struct {
 
 	gke        bool
 	aks        bool
+	eks        bool
 	k8sCluster k8sCluster
 
 	cloudMetadataStore    CloudMetadataStore
@@ -241,6 +242,16 @@ func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.resourceGroup, "resource-group", "", "the Azure resource group of the AKS cluster")
 	f.BoolVar(&c.gke, "gke", false, "used when adding a GKE cluster")
 	f.BoolVar(&c.aks, "aks", false, "used when adding an AKS cluster")
+	f.BoolVar(&c.eks, "eks", false, "used when adding an EKS cluster")
+}
+
+func countTrue(items ...bool) (count int) {
+	for _, item := range items {
+		if item {
+			count++
+		}
+	}
+	return count
 }
 
 // Init populates the command with the args from the command line.
@@ -251,8 +262,16 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
 		return errors.Errorf("missing k8s name.")
 	}
-	if c.gke && c.aks {
-		return errors.BadRequestf("only one of '--gke' or '--aks' can be supplied")
+
+	switch count := countTrue(c.aks, c.gke, c.eks); count {
+	case 1:
+		if c.contextName != "" {
+			return errors.New("do not specify context name when adding a AKS/GKE/EKS cluster")
+		}
+	default:
+		if count > 1 {
+			return errors.BadRequestf("only one of '--gke', '--eks' or '--aks' can be supplied")
+		}
 	}
 	c.caasType = "kubernetes"
 	c.caasName = args[0]
@@ -261,12 +280,12 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 		return errors.New("only specify one of cluster-name or context-name, not both")
 	}
 	if c.hostCloudRegion != "" || c.hostCloud != "" {
-		if c.gke || c.aks {
+		if c.gke || c.aks || c.eks {
 			if c.hostCloud != "" {
-				return errors.Errorf("do not specify --cloud when adding a GKE or AKS cluster")
+				return errors.Errorf("do not specify --cloud when adding a GKE, EKS or AKS cluster")
 			}
 			if strings.Contains(c.hostCloudRegion, "/") {
-				return errors.Errorf("only specify region, not cloud/region, when adding a GKE or AKS cluster")
+				return errors.Errorf("only specify region, not cloud/region, when adding a GKE, EKS or AKS cluster")
 			}
 		} else {
 			c.hostCloudRegion, err = c.tryEnsureCloudTypeForHostRegion(c.hostCloud, c.hostCloudRegion)
@@ -278,15 +297,11 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 		c.givenHostCloudRegion = c.hostCloudRegion
 	}
 
+	// TODO(caas): consider to change --gke|--aks|--eks flag to sub commands in future version then we can move these
+	// cloud specific options/flags' validation to sub commands level.
 	if c.gke {
-		if c.contextName != "" {
-			return errors.New("do not specify context name when adding a GKE cluster")
-		}
 		if c.k8sCluster == nil {
 			c.k8sCluster = newGKECluster()
-		}
-		if err := c.k8sCluster.ensureExecutable(); err != nil {
-			return errors.Trace(err)
 		}
 	} else {
 		if c.project != "" {
@@ -295,16 +310,25 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 		if c.credential != "" {
 			return errors.New("do not specify credential unless adding a GKE cluster")
 		}
-		if c.aks {
-			if c.contextName != "" {
-				return errors.New("do not specify context name when adding a AKS cluster")
-			}
-			if c.k8sCluster == nil {
-				c.k8sCluster = newAKSCluster()
-			}
-			if err := c.k8sCluster.ensureExecutable(); err != nil {
-				return errors.Trace(err)
-			}
+	}
+
+	if c.aks {
+		if c.k8sCluster == nil {
+			c.k8sCluster = newAKSCluster()
+		}
+	} else {
+		if c.resourceGroup != "" {
+			return errors.New("do not specify resource-group unless adding a AKS cluster")
+		}
+	}
+
+	if c.eks && c.k8sCluster == nil {
+		c.k8sCluster = newEKSCluster()
+	}
+
+	if c.k8sCluster != nil {
+		if err := c.k8sCluster.ensureExecutable(); err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return cmd.CheckEmpty(args[1:])
@@ -337,6 +361,9 @@ func (c *AddCAASCommand) getConfigReader(ctx *cmd.Context) (io.Reader, string, e
 	if c.aks {
 		return c.getAKSKubeConfig(ctx)
 	}
+	if c.eks {
+		return c.getEKSKubeConfig(ctx)
+	}
 	rdr, err := getStdinPipe(ctx)
 	return rdr, c.clusterName, err
 }
@@ -352,6 +379,29 @@ func (c *AddCAASCommand) getGKEKubeConfig(ctx *cmd.Context) (io.Reader, string, 
 	// If any items are missing, prompt for them.
 	if p.name == "" || p.project == "" || p.region == "" {
 		var err error
+		p, err = c.k8sCluster.interactiveParams(ctx, p)
+		if err != nil {
+			return nil, "", errors.Trace(err)
+		}
+	}
+	c.clusterName = p.name
+	c.hostCloudRegion = c.k8sCluster.cloud() + "/" + p.region
+	return c.k8sCluster.getKubeConfig(p)
+}
+
+func (c *AddCAASCommand) getEKSKubeConfig(ctx *cmd.Context) (io.Reader, string, error) {
+	p := &clusterParams{
+		name: c.clusterName,
+	}
+	var err error
+	if len(c.hostCloudRegion) > 0 {
+		if _, p.region, err = jujucloud.SplitHostCloudRegion(c.hostCloudRegion); err != nil {
+			return nil, "", errors.Annotatef(err, "getting region from host cloud region")
+		}
+	}
+
+	// If any items are missing, prompt for them.
+	if p.name == "" || p.region == "" {
 		p, err = c.k8sCluster.interactiveParams(ctx, p)
 		if err != nil {
 			return nil, "", errors.Trace(err)

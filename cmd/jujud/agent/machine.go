@@ -1121,6 +1121,8 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		NewContainerBrokerFunc:      newCAASBroker,
 		NewMigrationMaster:          migrationmaster.NewWorker,
 	}
+	applyTestingOverrides(currentConfig, &manifoldsCfg)
+
 	var manifolds dependency.Manifolds
 	if cfg.ModelType == state.ModelTypeIAAS {
 		manifolds = iaasModelManifolds(manifoldsCfg)
@@ -1138,6 +1140,18 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		logger:    cfg.ModelLogger,
 		modelUUID: cfg.ModelUUID,
 	}, nil
+}
+
+func applyTestingOverrides(agentConfig agent.Config, manifoldsCfg *model.ManifoldsConfig) {
+	if v := agentConfig.Value(agent.CharmRevisionUpdateInterval); v != "" {
+		charmRevisionUpdateInterval, err := time.ParseDuration(v)
+		if err == nil {
+			manifoldsCfg.CharmRevisionUpdateInterval = charmRevisionUpdateInterval
+			logger.Infof("model worker charm revision update interval set to %v for testing", charmRevisionUpdateInterval)
+		} else {
+			logger.Warningf("invalid charm revision update interval, using default %v: %v", manifoldsCfg.CharmRevisionUpdateInterval, err)
+		}
+	}
 }
 
 type modelWorker struct {

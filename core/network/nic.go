@@ -88,6 +88,7 @@ type InterfaceInfo struct {
 
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
+	=======
 
 	// ProviderId is a provider-specific NIC id.
 	ProviderId Id
@@ -299,6 +300,18 @@ func (s InterfaceInfos) Filter(predicateFn InterfaceFilterFunc) InterfaceInfos {
 		out = append(out, iface)
 	}
 	return out
+}
+
+// GetByHardwareAddress returns a reference to the interface with the input
+// hardware address (such as a MAC address) if it exists in the collection,
+// otherwise nil is returned.
+func (s InterfaceInfos) GetByHardwareAddress(hwAddr string) *InterfaceInfo {
+	for _, dev := range s {
+		if dev.MACAddress == hwAddr {
+			return &dev
+		}
+	}
+	return nil
 }
 
 // ProviderInterfaceInfo holds enough information to identify an

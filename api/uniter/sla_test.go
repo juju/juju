@@ -10,10 +10,12 @@ import (
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type slaSuiteV4 struct {
-	uniterSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&slaSuiteV4{})
@@ -26,7 +28,8 @@ func (s *slaSuiteV4) TestSLALevelOldFacadeVersion(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
-	st := uniter.NewStateV4(apiCaller, names.NewUnitTag("wordpress/0"))
+	caller := testing.BestVersionCaller{apiCaller, 4}
+	st := uniter.NewState(caller, names.NewUnitTag("wordpress/0"))
 	level, err := st.SLALevel()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -36,16 +39,25 @@ func (s *slaSuiteV4) TestSLALevelOldFacadeVersion(c *gc.C) {
 }
 
 type slaSuite struct {
-	uniterSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&slaSuite{})
 
 func (s *slaSuite) TestSLALevel(c *gc.C) {
-	err := s.State.SetSLA("essential", "bob", []byte("creds"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	level, err := s.uniter.SLALevel()
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "SLALevel")
+		c.Assert(arg, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.StringResult{})
+		*(result.(*params.StringResult)) = params.StringResult{
+			Result: "essential",
+		}
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 5}
+	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
+	level, err := client.SLALevel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(level, gc.Equals, "essential")
 }

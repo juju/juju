@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
@@ -17,10 +18,19 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/pki"
+	pkitls "github.com/juju/juju/pki/tls"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
 )
+
+type Logger interface {
+	Debugf(string, ...interface{})
+	Errorf(string, ...interface{})
+	Infof(string, ...interface{})
+	Logf(loggo.Level, string, ...interface{})
+	Warningf(string, ...interface{})
+}
 
 // ManifoldConfig holds the information necessary to run an HTTP server
 // in a dependency.Engine.
@@ -42,8 +52,10 @@ type ManifoldConfig struct {
 	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
 
+	Logger Logger
+
 	GetControllerConfig func(*state.State) (controller.Config, error)
-	NewTLSConfig        func(*state.State, SNIGetter) (*tls.Config, error)
+	NewTLSConfig        func(*state.State, SNIGetterFunc, Logger) (*tls.Config, error)
 	NewWorker           func(Config) (worker.Worker, error)
 }
 
@@ -78,6 +90,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.GetControllerConfig == nil {
 		return errors.NotValidf("nil GetControllerConfig")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil logger")
 	}
 	if config.NewTLSConfig == nil {
 		return errors.NotValidf("nil NewTLSConfig")
@@ -156,7 +171,10 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	}()
 
 	systemState := statePool.SystemState()
-	tlsConfig, err := config.NewTLSConfig(systemState, authoritySNIGetter(authority))
+	tlsConfig, err := config.NewTLSConfig(
+		systemState,
+		pkitls.AuthoritySNITLSGetter(authority, config.Logger),
+		config.Logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -174,6 +192,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		Mux:                  mux,
 		MuxShutdownWait:      config.MuxShutdownWait,
 		LogDir:               config.LogDir,
+		Logger:               config.Logger,
 		APIPort:              controllerConfig.APIPort(),
 		APIPortOpenDelay:     controllerConfig.APIPortOpenDelay(),
 		ControllerAPIPort:    controllerConfig.ControllerAPIPort(),

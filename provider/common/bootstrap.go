@@ -138,6 +138,7 @@ func BootstrapInstance(
 	envCfg := env.Config()
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
 		args.ControllerConfig, args.BootstrapConstraints, args.ModelConstraints, selectedSeries, publicKey,
+		args.ExtraAgentValuesForTesting,
 	)
 	if err != nil {
 		return nil, "", nil, err
@@ -156,7 +157,7 @@ func BootstrapInstance(
 			if icfg.AgentEnvironment == nil {
 				icfg.AgentEnvironment = make(map[string]string)
 			}
-			icfg.AgentEnvironment[agent.LxcBridge] = args.ContainerBridgeName
+			icfg.AgentEnvironment[agent.LxdBridge] = args.ContainerBridgeName
 		}
 	}
 	maybeSetBridge(instanceConfig)
