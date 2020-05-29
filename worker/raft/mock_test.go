@@ -23,8 +23,9 @@ func (ma *mockAgent) CurrentConfig() agent.Config {
 
 type mockAgentConfig struct {
 	agent.Config
-	dataDir string
-	tag     names.Tag
+	dataDir                  string
+	tag                      names.Tag
+	nonSyncedWritesToRaftLog bool
 }
 
 func (c *mockAgentConfig) Tag() names.Tag {
@@ -33,6 +34,10 @@ func (c *mockAgentConfig) Tag() names.Tag {
 
 func (c *mockAgentConfig) DataDir() string {
 	return c.dataDir
+}
+
+func (c *mockAgentConfig) NonSyncedWritesToRaftLog() bool {
+	return c.nonSyncedWritesToRaftLog
 }
 
 type mockRaftWorker struct {
