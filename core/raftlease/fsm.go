@@ -4,6 +4,7 @@
 package raftlease
 
 import (
+	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -683,6 +684,27 @@ func (c *Command) LeaseKey() lease.Key {
 // Marshal converts this command to a byte slice.
 func (c *Command) Marshal() ([]byte, error) {
 	return yaml.Marshal(c)
+}
+
+// String implements fmt.Stringer for the Command type.
+func (c *Command) String() string {
+	switch c.Operation {
+	case OperationSetTime:
+		return fmt.Sprintf(
+			"Command(ver: %d, op: %s, new time: %v)",
+			c.Version, c.Operation, c.NewTime,
+		)
+	case OperationPin, OperationUnpin:
+		return fmt.Sprintf(
+			"Command(ver: %d, op: %s, ns: %s, model: %s, lease: %s, holder: %s, pin entity: %s)",
+			c.Version, c.Operation, c.Namespace, c.ModelUUID, c.Lease, c.Holder, c.PinEntity,
+		)
+	default:
+		return fmt.Sprintf(
+			"Command(ver: %d, op: %s, ns: %s, model: %.6s, lease: %s, holder: %s)",
+			c.Version, c.Operation, c.Namespace, c.ModelUUID, c.Lease, c.Holder,
+		)
+	}
 }
 
 // UnmarshalCommand converts a marshalled command []byte into a
