@@ -219,14 +219,16 @@ func waitForFirstChange(c *gc.C, watch <-chan Change, want Change) {
 // that the worker has stopped, and thus is no longer using its mgo
 // session before TearDownTest shuts down the connection.
 func assertStopped(c *gc.C, w worker.Worker) {
-	done := make(chan struct{})
+	w.Kill()
+
+	wait := make(chan error, 1)
 	go func() {
-		c.Check(worker.Stop(w), jc.ErrorIsNil)
-		close(done)
+		wait <- w.Wait()
 	}()
+
 	select {
-	case <-done:
-		return
+	case err := <-wait:
+		c.Assert(err, jc.ErrorIsNil)
 	case <-time.After(testing.ShortWait):
 		c.Fatalf("failed to stop worker %v after %v", w, testing.ShortWait)
 	}
