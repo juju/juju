@@ -852,14 +852,19 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	// eg JUJU_AGENT_TESTING_OPTIONS=foo=bar,timeout=2s
 	// These are written to the agent.conf VALUES section.
 	testingOptionsStr := os.Getenv("JUJU_AGENT_TESTING_OPTIONS")
-	opts, err := keyvalues.Parse(
-		strings.Split(
-			strings.ReplaceAll(testingOptionsStr, " ", ""), ","), false)
-	for k, v := range opts {
-		if bootstrapParams.ExtraAgentValuesForTesting == nil {
-			bootstrapParams.ExtraAgentValuesForTesting = map[string]string{}
+	if len(testingOptionsStr) > 0 {
+		opts, err := keyvalues.Parse(
+			strings.Split(
+				strings.ReplaceAll(testingOptionsStr, " ", ""), ","), false)
+		if err != nil {
+			return errors.Annotatef(err, "invalid JUJU_AGENT_TESTING_OPTIONS env value %q", testingOptionsStr)
 		}
-		bootstrapParams.ExtraAgentValuesForTesting[k] = v
+		for k, v := range opts {
+			if bootstrapParams.ExtraAgentValuesForTesting == nil {
+				bootstrapParams.ExtraAgentValuesForTesting = map[string]string{}
+			}
+			bootstrapParams.ExtraAgentValuesForTesting[k] = v
+		}
 	}
 
 	bootstrapFuncs := getBootstrapFuncs()

@@ -4,7 +4,10 @@
 package uniter_test
 
 import (
+	"time"
+
 	"github.com/juju/names/v4"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -20,7 +23,6 @@ import (
 type applicationSuite struct {
 	coretesting.BaseSuite
 
-	apiCaller basetesting.APICallerFunc
 	life      life.Value
 	statusSet bool
 }
@@ -30,11 +32,20 @@ var _ = gc.Suite(&applicationSuite{})
 func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.life = life.Alive
-	s.apiCaller = func(objType string, version int, id, request string, arg, result interface{}) error {
+}
+
+func (s *applicationSuite) apiCallerFunc(c *gc.C) basetesting.APICallerFunc {
+	return func(objType string, version int, id, request string, arg, result interface{}) error {
+		if objType == "NotifyWatcher" {
+			if request != "Next" && request != "Stop" {
+				c.Fatalf("unexpected watcher request %q", request)
+			}
+			return nil
+		}
 		c.Assert(objType, gc.Equals, "Uniter")
 		switch request {
 		case "Life":
-			c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
+			c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
 			c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
 			*(result.(*params.LifeResults)) = params.LifeResults{
 				Results: []params.LifeResult{{
@@ -42,7 +53,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 				}},
 			}
 		case "Watch":
-			c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
+			c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
 			c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
 			*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
 				Results: []params.NotifyWatchResult{{
@@ -50,7 +61,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 				}},
 			}
 		case "CharmURL":
-			c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
+			c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
 			c.Assert(result, gc.FitsTypeOf, &params.StringBoolResults{})
 			*(result.(*params.StringBoolResults)) = params.StringBoolResults{
 				Results: []params.StringBoolResult{{
@@ -59,7 +70,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 				}},
 			}
 		case "CharmModifiedVersion":
-			c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
+			c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
 			c.Assert(result, gc.FitsTypeOf, &params.IntResults{})
 			*(result.(*params.IntResults)) = params.IntResults{
 				Results: []params.IntResult{{
@@ -67,7 +78,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 				}},
 			}
 		case "ApplicationStatus":
-			c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+			c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
 			c.Assert(result, gc.FitsTypeOf, &params.ApplicationStatusResults{})
 			*(result.(*params.ApplicationStatusResults)) = params.ApplicationStatusResults{
 				Results: []params.ApplicationStatusResult{{
@@ -78,8 +89,6 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 				}},
 			}
 		case "SetApplicationStatus":
-			c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-			c.Assert(result, gc.FitsTypeOf, &params.ApplicationStatusResults{})
 			c.Assert(arg, jc.DeepEquals, params.SetStatus{
 				Entities: []params.EntityStatusArgs{
 					{
@@ -90,6 +99,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 					},
 				},
 			})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 			*(result.(*params.ErrorResults)) = params.ErrorResults{
 				Results: []params.ErrorResult{{}},
 			}
@@ -102,7 +112,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *applicationSuite) TestNameTagAndString(c *gc.C) {
-	client := uniter.NewState(s.apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	tag := names.NewApplicationTag("mysql")
 	app, err := client.Application(tag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -113,7 +123,7 @@ func (s *applicationSuite) TestNameTagAndString(c *gc.C) {
 }
 
 func (s *applicationSuite) TestWatch(c *gc.C) {
-	client := uniter.NewState(s.apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -123,11 +133,16 @@ func (s *applicationSuite) TestWatch(c *gc.C) {
 	defer wc.AssertStops()
 
 	// Initial event.
-	wc.AssertOneChange()
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("watcher did not send change")
+	}
 }
 
 func (s *applicationSuite) TestRefresh(c *gc.C) {
-	client := uniter.NewState(s.apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -138,7 +153,7 @@ func (s *applicationSuite) TestRefresh(c *gc.C) {
 }
 
 func (s *applicationSuite) TestCharmURL(c *gc.C) {
-	client := uniter.NewState(s.apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -149,7 +164,7 @@ func (s *applicationSuite) TestCharmURL(c *gc.C) {
 }
 
 func (s *applicationSuite) TestCharmModifiedVersion(c *gc.C) {
-	client := uniter.NewState(s.apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -159,7 +174,7 @@ func (s *applicationSuite) TestCharmModifiedVersion(c *gc.C) {
 }
 
 func (s *applicationSuite) TestSetApplicationStatus(c *gc.C) {
-	client := uniter.NewState(s.apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -169,7 +184,7 @@ func (s *applicationSuite) TestSetApplicationStatus(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationStatus(c *gc.C) {
-	client := uniter.NewState(s.apiCaller, names.NewUnitTag("mysql/0"))
+	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
