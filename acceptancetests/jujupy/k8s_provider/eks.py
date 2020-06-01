@@ -24,8 +24,11 @@ import logging
 import os
 import shutil
 import subprocess
+from time import sleep
 
 import yaml
+
+from jujupy.utility import until_timeout
 
 from .base import Base, K8sProviderType
 from .factory import register_provider
@@ -62,7 +65,7 @@ class EKS(Base):
 
         # list all running clusters.
         logger.info(
-            'running eks clusters: \n\t- %s',
+            'running eks clusters in %s: \n\t- %s', self.location,
             '\n\t- '.join([c['name'] for c in self.list_clusters(self.location)])
         )
 
@@ -122,8 +125,25 @@ class EKS(Base):
         return self.eksctl('get', 'cluster', '--name', self.cluster_name, '--region', self.location, '-o', 'json')
 
     def provision_eks(self):
+        def log_remaining(remaining, msg=''):
+            sleep(3)
+            if remaining % 30 == 0:
+                msg += ' timeout in %ss...' % remaining
+                logger.info(msg)
+                
         # do pre cleanup;
         self._tear_down_substrate()
+        
+        for remaining in until_timeout(600):
+            # wait for the existing cluster to be deleted.
+            try:
+                self._get_cluster(self.cluster_name)
+            except Exception as e:
+                if is_404(e):
+                    break
+                raise
+            else:
+                log_remaining(remaining)
 
         # provision cluster.
         logger.info('creating cluster -> %s', self.cluster_name)
@@ -144,7 +164,7 @@ class EKS(Base):
             )
             logger.info("cluster %s has been successfully provisioned -> \n%s", self.cluster_name, o)
         except subprocess.CalledProcessError as e:
-            logger.error('Error attempting to create the EKS instance.', e)
+            logger.error('Error attempting to create the EKS instance %s', e.__dict__)
             raise e
 
 

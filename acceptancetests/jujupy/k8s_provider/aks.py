@@ -176,7 +176,7 @@ class AKS(Base):
                 self.cluster_name, pformat(result.as_dict()),
             )
         except azure_exceptions.CloudError as e:
-            logger.error('Error attempting to create the AKS instance.', e.message)
+            logger.error('Error attempting to create the AKS instance %s', e.message)
             raise e
 
     def get_k8s_version(self, location):
