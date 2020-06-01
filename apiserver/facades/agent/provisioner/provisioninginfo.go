@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
+	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
@@ -355,27 +356,18 @@ func (api *ProvisionerAPI) machineSpaces(m *state.Machine,
 		return nil, errors.Annotate(err, "retrieving machine constraints")
 	}
 
-	includeSpaces := cons.IncludeSpaces()
-
-	allSpaceNames := make(map[string]struct{})
-	for _, spaceName := range includeSpaces {
-		allSpaceNames[spaceName] = struct{}{}
-	}
+	spaceNames := set.NewStrings(cons.IncludeSpaces()...)
 	for _, endpointBinding := range endpointBindings {
 		bindingSpaces, err := endpointBinding.MapWithSpaceNames(allSpaceInfos)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		for _, spaceName := range bindingSpaces {
-			allSpaceNames[spaceName] = struct{}{}
+			spaceNames.Add(spaceName)
 		}
 	}
 
-	var spaces []string
-	for space := range allSpaceNames {
-		spaces = append(spaces, space)
-	}
-	return spaces, nil
+	return spaceNames.SortedValues(), nil
 }
 
 func (api *ProvisionerAPI) machineSpaceTopology(machineID string, spaceNames []string) (params.ProvisioningNetworkTopology, error) {
