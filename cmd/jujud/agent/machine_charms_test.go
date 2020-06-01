@@ -4,6 +4,8 @@
 package agent
 
 import (
+	"fmt"
+
 	"github.com/juju/charm/v7"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
@@ -56,16 +58,21 @@ func (s *MachineWithCharmsSuite) TestManageModelRunsCharmRevisionUpdater(c *gc.C
 
 	startAddressPublisher(s, c, a)
 
-	checkRevision := func() bool {
+	checkRevision := func() error {
 		curl := charm.MustParseURL("cs:quantal/mysql")
 		placeholder, err := s.State.LatestPlaceholderCharm(curl)
-		return err == nil && placeholder.String() == curl.WithRevision(23).String()
+		if err != nil {
+			return err
+		} else if placeholder.String() != curl.WithRevision(23).String() {
+			return fmt.Errorf("%s != %s", placeholder.String(), curl.WithRevision(23).String())
+		}
+		return nil
 	}
-	success := false
+	var lastError error
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		if success = checkRevision(); success {
+		if lastError = checkRevision(); lastError != nil {
 			break
 		}
 	}
-	c.Assert(success, jc.IsTrue)
+	c.Assert(lastError, jc.ErrorIsNil)
 }
