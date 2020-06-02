@@ -673,7 +673,7 @@ func gorillaDialWebsocket(ctx context.Context, urlStr string, tlsConfig *tls.Con
 				)
 			}
 		}
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return jsoncodec.NewWebsocketConn(c), nil
 }
