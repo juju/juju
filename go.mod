@@ -27,7 +27,7 @@ require (
 	github.com/googleapis/gnostic v0.2.0
 	github.com/gorilla/handlers v0.0.0-20170224193955-13d73096a474
 	github.com/gorilla/schema v0.0.0-20160426231512-08023a0215e7
-	github.com/gorilla/websocket v1.4.0
+	github.com/gorilla/websocket v1.4.2
 	github.com/gosuri/uitable v0.0.1
 	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
 	github.com/hashicorp/go-msgpack v0.5.5
