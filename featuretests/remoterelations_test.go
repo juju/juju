@@ -160,7 +160,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 	assertRelationUnitsChange(c, s.BackingState, w, params.RemoteRelationChangeEvent{
 		RelationToken:    relToken,
 		ApplicationToken: appToken,
-		UnitCount: &uc,
+		UnitCount:        &uc,
 	})
 	assertNoRelationUnitsChange(c, s.BackingState, w)
 
@@ -219,7 +219,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 		RelationToken:    relToken,
 		ApplicationToken: appToken,
 		DepartedUnits:    []int{0},
-		UnitCount: &uc,
+		UnitCount:        &uc,
 	}
 	assertRelationUnitsChange(c, s.BackingState, w, expect)
 	assertNoRelationUnitsChange(c, s.BackingState, w)
