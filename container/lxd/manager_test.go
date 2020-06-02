@@ -528,6 +528,8 @@ func (s *managerSuite) TestMaybeWriteLXDProfile(c *gc.C) {
 	}
 	s.cSvr.EXPECT().CreateProfile(post).Return(nil)
 	s.cSvr.EXPECT().GetProfileNames().Return([]string{"default", "custom"}, nil)
+	expProfile := lxdapi.Profile{ProfilePut: lxdapi.ProfilePut(put)}
+	s.cSvr.EXPECT().GetProfile(post.Name).Return(&expProfile, "etag", nil)
 
 	err := proMgr.MaybeWriteLXDProfile("juju-default-lxd-0", &put)
 	c.Assert(err, jc.ErrorIsNil)
@@ -652,10 +654,12 @@ func (s *managerSuite) expectUpdateContainerProfiles(old, new string, newProfile
 		ProfilePut: put,
 		Name:       new,
 	}
+	expProfile := lxdapi.Profile{ProfilePut: put}
 	cExp := s.cSvr.EXPECT()
 	gomock.InOrder(
 		cExp.GetProfileNames().Return(oldProfiles, nil),
 		cExp.CreateProfile(post).Return(nil),
+		cExp.GetProfile(post.Name).Return(&expProfile, "etag", nil),
 		cExp.GetContainer(instId).Return(
 			&lxdapi.Container{
 				ContainerPut: lxdapi.ContainerPut{
