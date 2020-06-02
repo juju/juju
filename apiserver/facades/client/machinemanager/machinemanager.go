@@ -439,13 +439,23 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 
 		// Ensure that when the machine has been removed that all the leadership
 		// references to that machine are also cleared up.
+		//
+		// Unfortunately we can't follow the normal practices of failing on the
+		// error, as we've already removed the machine and we'll tell the callee
+		// that we failed to remove the machine.
+		//
+		// Note: in some cases if a application has pinned during series upgrade
+		// and it has been pinned without a timeout, then the leadership will
+		// still prevent another leadership change. The work around for this
+		// case until we provide the ability for the operator to unpin via the
+		// CLI, is to remove the raft logs manually.
 		results, err := mm.leadership.UnpinApplicationLeadersByName(machineTag, applicationNames)
 		if err != nil {
-			return fail(err)
+			logger.Warningf("could not unpin application leaders for machine %s with error %v", machineTag.Id(), err)
 		}
 		for _, result := range results.Results {
 			if result.Error != nil {
-				return fail(result.Error)
+				logger.Warningf("could not unpin application leaders for machine %s with error %v", machineTag.Id(), result.Error)
 			}
 		}
 
