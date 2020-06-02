@@ -146,11 +146,10 @@ func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
 
 func (s *NetworkGetSuite) TestNetworkGet(c *gc.C) {
 	for i, t := range []struct {
-		summary  string
-		args     []string
-		code     int
-		out      string
-		checkctx func(*gc.C, *cmd.Context)
+		summary string
+		args    []string
+		code    int
+		out     string
 	}{{
 		summary: "no arguments",
 		code:    2,
@@ -287,27 +286,46 @@ ingress-addresses:
 - 10.3.3.3`[1:],
 	}} {
 		c.Logf("test %d: %s", i, t.summary)
-		com := s.createCommand(c)
-		ctx := cmdtesting.Context(c)
-		code := cmd.Main(com, ctx, t.args)
-		c.Check(code, gc.Equals, t.code)
-		if code == 0 {
-			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
-			expect := t.out
-			if expect != "" {
-				expect = expect + "\n"
-			}
-			c.Check(bufferString(ctx.Stdout), gc.Equals, expect)
-		} else {
-			c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-			expect := fmt.Sprintf(`(.|\n)*ERROR %s\n`, t.out)
-			c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
+		s.testScenario(c, t.args, t.code, t.out)
+	}
+}
+
+func (s *NetworkGetSuite) TestNetworkGetLoopbackOnly(c *gc.C) {
+	lookupHost := func(host string) (addrs []string, err error) {
+		return []string{"127.0.1.1"}, nil
+	}
+	testing.PatchValue(&jujuc.LookupHost, lookupHost)
+
+	s.testScenario(c, []string{"resolvable-hostname"}, 0, `
+bind-addresses:
+- macaddress: "00:11:22:33:44:33"
+  interfacename: eth3
+  addresses:
+  - hostname: resolvable-hostname
+    address: ""
+    cidr: 10.33.1.8/24`[1:])
+}
+
+func (s *NetworkGetSuite) testScenario(c *gc.C, args []string, code int, out string) {
+	ctx := cmdtesting.Context(c)
+
+	c.Check(cmd.Main(s.createCommand(c), ctx, args), gc.Equals, code)
+
+	if code == 0 {
+		c.Check(bufferString(ctx.Stderr), gc.Equals, "")
+		expect := out
+		if expect != "" {
+			expect = expect + "\n"
 		}
+		c.Check(bufferString(ctx.Stdout), gc.Equals, expect)
+	} else {
+		c.Check(bufferString(ctx.Stdout), gc.Equals, "")
+		expect := fmt.Sprintf(`(.|\n)*ERROR %s\n`, out)
+		c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 	}
 }
 
 func (s *NetworkGetSuite) TestHelp(c *gc.C) {
-
 	helpLine := `Usage: network-get [options] <binding-name> [--ingress-address] [--bind-address] [--egress-subnets]`
 
 	com := s.createCommand(c)

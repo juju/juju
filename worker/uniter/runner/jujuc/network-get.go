@@ -194,25 +194,28 @@ func resolveNetworkInfoAddresses(
 	for i, info := range netInfoResult.Info {
 		for j, addr := range info.Addresses {
 			if ip := net.ParseIP(addr.Address); ip == nil {
-				resolvedAddr := addressForHost(addr.Address)
-				if resolvedAddr != "" {
-					addr.Hostname = addr.Address
-					addr.Address = resolvedAddr
-					netInfoResult.Info[i].Addresses[j] = addr
-				}
+				// If the address is not an IP, we assume it is a host name.
+				addr.Hostname = addr.Address
+				addr.Address = addressForHost(addr.Hostname)
+				netInfoResult.Info[i].Addresses[j] = addr
 			}
 		}
 	}
 
 	// Resolve addresses in IngressAddresses.
-	for i, addr := range netInfoResult.IngressAddresses {
-		if ip := net.ParseIP(addr); ip == nil {
-			resolvedAddr := addressForHost(addr)
-			if resolvedAddr != "" {
-				netInfoResult.IngressAddresses[i] = resolvedAddr
-			}
+	// This is slightly different to the addresses above in that we do not
+	// include anything that does not resolve to a usable address.
+	var newIngress []string
+	for _, addr := range netInfoResult.IngressAddresses {
+		if ip := net.ParseIP(addr); ip != nil {
+			newIngress = append(newIngress, addr)
+			continue
+		}
+		if ipAddr := addressForHost(addr); ipAddr != "" {
+			newIngress = append(newIngress, ipAddr)
 		}
 	}
+	netInfoResult.IngressAddresses = newIngress
 
 	return netInfoResult
 }
@@ -224,21 +227,32 @@ func resolveHostAddress(hostName string, lookupHost resolver) string {
 		return ""
 	}
 
-	if len(resolved) == 0 {
-		logger.Warningf("no lookup results for host %q", hostName)
-		return ""
-	}
-
-	// We have seen examples of host file entries like this:
+	// We have seen examples of /etc/hosts entries like this:
 	//   127.0.1.1 hostname.fqdn hostname
-	// net.LookupHost appends resolutions from the host file first,
-	// so we need to filter these out.
+	//
+	// The default behaviour of net.LookupHost returns any IPs resolved via the
+	// hosts file *without* querying DNS. Given that these may include loopback
+	// addresses that are unusable by machines they might be advertised to,
+	// we avoid returning them.
 	for _, addr := range resolved {
 		if ip := net.ParseIP(addr); ip != nil && !ip.IsLoopback() {
 			return addr
 		}
 	}
 
-	// Return the best result we have.
-	return resolved[0]
+	if len(resolved) == 0 {
+		logger.Warningf("no addresses resolved for host %q", hostName)
+	} else {
+		// If we got results, but they were all filtered out, then we need to
+		// help out operators with some advice.
+		logger.Warningf(
+			"no usable addresses resolved for host %q\n\t"+
+				"resolved: %v\n\t"+
+				"consider editing the hosts file, or changing host resolution order via /etc/nsswitch.conf",
+			hostName,
+			resolved,
+		)
+	}
+
+	return ""
 }
