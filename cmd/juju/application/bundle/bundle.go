@@ -25,15 +25,6 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.juju.application.bundle")
 
-// ModelExtractor provides everything we need to build a
-// bundlechanges.Model from a model API connection.
-type ModelExtractor interface {
-	GetAnnotations(tags []string) ([]params.AnnotationsGetResult, error)
-	GetConstraints(applications ...string) ([]constraints.Value, error)
-	GetConfig(branchName string, applications ...string) ([]map[string]interface{}, error)
-	Sequences() (map[string]int, error)
-}
-
 // BuildModelRepresentation creates a buildchanges.Model, representing
 // the existing deployment, to be used while deploying or diffing a bundle.
 func BuildModelRepresentation(
@@ -208,7 +199,7 @@ func applicationConfigValue(key string, valueMap interface{}) (interface{}, erro
 
 // ComposeAndVerifyBundle merges base and overlays then verifies the
 // combined bundle data.
-func ComposeAndVerifyBundle(base charm.BundleDataSource, pathToOverlays []string) (*charm.BundleData, error) {
+func ComposeAndVerifyBundle(base BundleDataSource, pathToOverlays []string) (*charm.BundleData, error) {
 	var dsList []charm.BundleDataSource
 
 	dsList = append(dsList, base)

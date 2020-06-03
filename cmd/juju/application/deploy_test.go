@@ -37,6 +37,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
 	apitesting "github.com/juju/juju/api/testing"
@@ -95,10 +96,10 @@ func (s *DeploySuiteBase) deployCommandForState() *DeployCommand {
 	deploy := newDeployCommand()
 	deploy.Steps = nil
 	deploy.DeployResources = s.DeployResources
-	deploy.NewCharmRepo = func() (*CharmStoreAdaptor, error) {
+	deploy.NewCharmRepo = func() (*store.CharmStoreAdaptor, error) {
 		return s.fakeAPI.CharmStoreAdaptor, nil
 	}
-	deploy.NewConsumeDetailsAPI = func(url *charm.OfferURL) (ConsumeDetails, error) {
+	deploy.NewConsumeDetailsAPI = func(url *charm.OfferURL) (deployer.ConsumeDetails, error) {
 		return s.fakeAPI, nil
 	}
 	return deploy
@@ -113,10 +114,10 @@ func (s *DeploySuiteBase) runDeployForState(c *gc.C, args ...string) error {
 	deploy := newDeployCommand()
 	deploy.Steps = nil
 	deploy.DeployResources = s.DeployResources
-	deploy.NewCharmRepo = func() (*CharmStoreAdaptor, error) {
+	deploy.NewCharmRepo = func() (*store.CharmStoreAdaptor, error) {
 		return s.fakeAPI.CharmStoreAdaptor, nil
 	}
-	deploy.NewConsumeDetailsAPI = func(url *charm.OfferURL) (ConsumeDetails, error) {
+	deploy.NewConsumeDetailsAPI = func(url *charm.OfferURL) (deployer.ConsumeDetails, error) {
 		return s.fakeAPI, nil
 	}
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), args...)
@@ -154,9 +155,9 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 		"type": "foo",
 	}
 	s.fakeAPI = vanillaFakeModelAPI(cfgAttrs)
-	s.fakeAPI.CharmStoreAdaptor = &CharmStoreAdaptor{
-		charmrepoForDeploy: s.fakeAPI,
-		macaroonGetter:     &noopMacaroonGetter{},
+	s.fakeAPI.CharmStoreAdaptor = &store.CharmStoreAdaptor{
+		CharmrepoForDeploy: s.fakeAPI,
+		MacaroonGetter:     &noopMacaroonGetter{},
 	}
 }
 
@@ -996,10 +997,9 @@ func (s *CAASDeploySuiteBase) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ..
 			return fakeAPI, nil
 		},
 		DeployResources: s.DeployResources,
-		NewCharmRepo: func() (*CharmStoreAdaptor, error) {
+		NewCharmRepo: func() (*store.CharmStoreAdaptor, error) {
 			return fakeAPI.CharmStoreAdaptor, nil
 		},
-		clock: jujuclock.WallClock,
 	}
 	cmd.SetClientStore(s.Store)
 	return cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
@@ -1680,7 +1680,7 @@ func (s *DeploySuite) TestAddMetricCredentials(c *gc.C) {
 	setMetricCredentialsCall := s.fakeAPI.Call("SetMetricCredentials", meteredURL.Name, creds).Returns(error(nil))
 
 	deploy := s.deployCommand()
-	deploy.Steps = []DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}}
+	deploy.Steps = []deployer.DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}}
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/metered-1", "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1714,7 +1714,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	setMetricCredentialsCall := s.fakeAPI.Call("SetMetricCredentials", meteredURL.Name, creds).Returns(error(nil))
 
 	deploy := s.deployCommand()
-	deploy.Steps = []DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}}
+	deploy.Steps = []deployer.DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}}
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1822,7 +1822,7 @@ pings:
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
 
 	deploy := s.deployCommand()
-	deploy.Steps = []DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}}
+	deploy.Steps = []deployer.DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}}
 	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), curl.String(), "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{{
@@ -1888,7 +1888,7 @@ func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 	s.fakeAPI.Call("SetMetricCredentials", meteredCharmURL.Name, creds).Returns(errors.New("IsMetered"))
 
 	deploy := s.deployCommand()
-	deploy.Steps = []DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}}
+	deploy.Steps = []deployer.DeployStep{&RegisterMeteredCharm{PlanURL: server.URL}}
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/metered-1", "--plan", "someplan")
 
 	c.Check(err, gc.ErrorMatches, "IsMetered")
@@ -2187,7 +2187,7 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorageNotSupported(c *gc.C) {
 // sharpened, this will become so as well.
 type fakeDeployAPI struct {
 	DeployAPI
-	*CharmStoreAdaptor
+	*store.CharmStoreAdaptor
 	*jujutesting.CallMocker
 	planURL string
 }

@@ -8,7 +8,6 @@ import (
 
 	charmresource "github.com/juju/charm/v7/resource"
 	"github.com/juju/charmrepo/v5"
-	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -22,6 +21,8 @@ import (
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/modelconfig"
 	jujucharmstore "github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cmd/juju/application/store"
+	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
@@ -44,10 +45,9 @@ func NewDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelCommand {
 		) (ids map[string]string, err error) {
 			return nil, nil
 		},
-		NewCharmRepo: func() (*CharmStoreAdaptor, error) {
+		NewCharmRepo: func() (*store.CharmStoreAdaptor, error) {
 			return fakeApi.CharmStoreAdaptor, nil
 		},
-		clock: jujuclock.WallClock,
 	}
 	if fakeApi == nil {
 		deployCmd.NewAPIRoot = func() (DeployAPI, error) {
@@ -74,7 +74,7 @@ func NewDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelCommand {
 				plansClient:       &plansClient{planURL: mURL},
 			}, nil
 		}
-		deployCmd.NewCharmRepo = func() (*CharmStoreAdaptor, error) {
+		deployCmd.NewCharmRepo = func() (*store.CharmStoreAdaptor, error) {
 			controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -87,10 +87,10 @@ func NewDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelCommand {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
-			return &CharmStoreAdaptor{
-				macaroonGetter:     cstoreClient,
-				charmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),
+			cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
+			return &store.CharmStoreAdaptor{
+				MacaroonGetter:     cstoreClient,
+				CharmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),
 			}, nil
 		}
 	}
@@ -101,12 +101,12 @@ func NewUpgradeCharmCommandForTest(
 	store jujuclient.ClientStore,
 	apiOpen api.OpenFunc,
 	deployResources resourceadapters.DeployResourcesFunc,
-	resolveCharm ResolveCharmFunc,
+	resolveCharm store.ResolveCharmFunc,
 	newCharmStore NewCharmStoreFunc,
 	newCharmAdder NewCharmAdderFunc,
-	newCharmClient func(base.APICallCloser) CharmClient,
+	newCharmClient func(base.APICallCloser) utils.CharmClient,
 	newCharmUpgradeClient func(base.APICallCloser) CharmAPIClient,
-	newResourceLister func(base.APICallCloser) (ResourceLister, error),
+	newResourceLister func(base.APICallCloser) (utils.ResourceLister, error),
 	charmStoreURLGetter func(base.APICallCloser) (string, error),
 	newSpacesClient func(base.APICallCloser) SpacesAPI,
 ) cmd.Command {
@@ -129,7 +129,7 @@ func NewUpgradeCharmCommandForTest(
 func NewUpgradeCharmCommandForStateTest(
 	newCharmStore NewCharmStoreFunc,
 	newCharmAdder NewCharmAdderFunc,
-	newCharmClient func(base.APICallCloser) CharmClient,
+	newCharmClient func(base.APICallCloser) utils.CharmClient,
 	deployResources resourceadapters.DeployResourcesFunc,
 	newCharmAPIClient func(conn base.APICallCloser) CharmAPIClient,
 ) cmd.Command {
