@@ -25,7 +25,7 @@ import (
 	apiparams "github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application/deployer"
-	"github.com/juju/juju/cmd/juju/application/utils"
+	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -142,7 +142,7 @@ func newDeployCommand() *DeployCommand {
 	deployCmd := &DeployCommand{
 		Steps: deployer.Steps(),
 	}
-	deployCmd.NewCharmRepo = func() (*utils.CharmStoreAdaptor, error) {
+	deployCmd.NewCharmRepo = func() (*store.CharmStoreAdaptor, error) {
 		controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -155,7 +155,7 @@ func newDeployCommand() *DeployCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return utils.NewCharmStoreAdaptor(bakeryClient, csURL), nil
+		return store.NewCharmStoreAdaptor(bakeryClient, csURL), nil
 	}
 	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
 		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
@@ -261,7 +261,7 @@ type DeployCommand struct {
 
 	//
 	// NewCharmRepo stores a function which returns a charm store client.
-	NewCharmRepo func() (*utils.CharmStoreAdaptor, error)
+	NewCharmRepo func() (*store.CharmStoreAdaptor, error)
 
 	//
 	// NewConsumeDetailsAPI stores a function which will return a new API

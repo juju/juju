@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/bundle"
-	"github.com/juju/juju/cmd/juju/application/utils"
+	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
@@ -34,7 +34,7 @@ type deployBundle struct {
 	channel           csparams.Channel
 
 	bundleResolver       BundleResolver
-	authorizer           utils.MacaroonGetter
+	authorizer           store.MacaroonGetter
 	newConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
 	deployResources      resourceadapters.DeployResourcesFunc
 
@@ -54,7 +54,7 @@ type deployBundle struct {
 func (d *deployBundle) deploy(
 	ctx *cmd.Context,
 	deployAPI DeployerAPI,
-	cstore *utils.CharmStoreAdaptor,
+	cstore *store.CharmStoreAdaptor,
 ) (rErr error) {
 	d.bundleResolver = cstore
 	d.authorizer = cstore.MacaroonGetter
@@ -187,7 +187,7 @@ type localBundle struct {
 }
 
 // PrepareAndDeploy deploys a local bundle, no further preparation is needed.
-func (d *localBundle) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, cstore *utils.CharmStoreAdaptor) error {
+func (d *localBundle) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, cstore *store.CharmStoreAdaptor) error {
 	return d.deploy(ctx, deployAPI, cstore)
 }
 
@@ -196,7 +196,7 @@ type charmstoreBundle struct {
 }
 
 // PrepareAndDeploy deploys a local bundle, no further preparation is needed.
-func (d *charmstoreBundle) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, cstore *utils.CharmStoreAdaptor) error {
+func (d *charmstoreBundle) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, cstore *store.CharmStoreAdaptor) error {
 	ctx.Infof("Located bundle %q", d.bundleURL)
 	return d.deploy(ctx, deployAPI, cstore)
 }

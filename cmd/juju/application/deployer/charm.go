@@ -20,6 +20,7 @@ import (
 	applicationapi "github.com/juju/juju/api/application"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/core/constraints"
@@ -256,7 +257,7 @@ type predeployedLocalCharm struct {
 
 // PrepareAndDeploy finishes preparing to deploy a predeployed local charm,
 // then deploys it.
-func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ *utils.CharmStoreAdaptor) error {
+func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ *store.CharmStoreAdaptor) error {
 	userCharmURL := d.userCharmURL
 	ctx.Verbosef("Preparing to deploy local charm %q again", userCharmURL.Name)
 
@@ -305,7 +306,7 @@ type localCharm struct {
 
 // PrepareAndDeploy finishes preparing to deploy a local charm,
 // then deploys it.
-func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ *utils.CharmStoreAdaptor) error {
+func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ *store.CharmStoreAdaptor) error {
 	ctx.Verbosef("Preparing to deploy local charm: %q ", l.curl.Name)
 	if err := l.validateCharmFlags(); err != nil {
 		return errors.Trace(err)
@@ -340,7 +341,7 @@ type charmStoreCharm struct {
 
 // PrepareAndDeploy finishes preparing to deploy a charm store charm,
 // then deploys it.
-func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, cstore *utils.CharmStoreAdaptor) error {
+func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, cstore *store.CharmStoreAdaptor) error {
 	userRequestedURL := c.userRequestedURL
 	ctx.Verbosef("Preparing to deploy %q from the charm store", userRequestedURL.Name)
 
@@ -362,7 +363,7 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// Charm or bundle has been supplied as a URL so we resolve and
 	// deploy using the store but pass in the channel command line
 	// argument so users can target a specific channel.
-	storeCharmOrBundleURL, channel, supportedSeries, err := utils.ResolveCharm(
+	storeCharmOrBundleURL, channel, supportedSeries, err := store.ResolveCharm(
 		cstore.ResolveWithPreferredChannel, userRequestedURL, c.channel,
 	)
 	if charm.IsUnsupportedSeriesError(err) {
@@ -410,7 +411,7 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	// Store the charm in the controller
-	curl, csMac, err := utils.AddCharmFromURL(deployAPI, cstore.MacaroonGetter, storeCharmOrBundleURL, channel, c.force)
+	curl, csMac, err := store.AddCharmFromURL(deployAPI, cstore.MacaroonGetter, storeCharmOrBundleURL, channel, c.force)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())

@@ -21,7 +21,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
-	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
+	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/core/constraints"
@@ -50,18 +50,18 @@ func NewDeployerFactory(dep DeployerDependencies) *DeployerFactory {
 	return d
 }
 
-// Deployter defines the functionality of a deployer returned by the
-// DeployterFactory.
+// Deployer defines the functionality of a deployer returned by the
+// DeployerFactory.
 type Deployer interface {
 	// PrepareAndDeploy finishes preparing to deploy a charm or bundle,
 	// then deploys it.  This is done as one step to accomidate the
 	// call being wrapped by block.ProcessBlockedError.
-	PrepareAndDeploy(*cmd.Context, DeployerAPI, *utils.CharmStoreAdaptor) error
+	PrepareAndDeploy(*cmd.Context, DeployerAPI, *store.CharmStoreAdaptor) error
 }
 
 // GetDeployer returns the correct deployer to use based on the cfg provided.
 // A ModelConfigGetter and CharmStoreAdaptor nneded to find the deployer.
-func (d *DeployerFactory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, cstoreAPI *utils.CharmStoreAdaptor) (Deployer, error) {
+func (d *DeployerFactory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, cstoreAPI *store.CharmStoreAdaptor) (Deployer, error) {
 	d.setConfig(cfg)
 	maybeDeployers := []func() (Deployer, error){
 		d.maybeReadLocalBundle,
@@ -363,9 +363,9 @@ func (d *DeployerFactory) maybeReadLocalCharm(getter ModelConfigGetter) (Deploye
 	}, err
 }
 
-func (d *DeployerFactory) maybeReadCharmstoreBundle(cstore *utils.CharmStoreAdaptor) (Deployer, error) {
+func (d *DeployerFactory) maybeReadCharmstoreBundle(cstore *store.CharmStoreAdaptor) (Deployer, error) {
 	// validate this is a charmstore bundle
-	bundleURL, channel, err := appbundle.ResolveBundleURL(cstore, d.charmOrBundle, d.channel)
+	bundleURL, channel, err := store.ResolveBundleURL(cstore, d.charmOrBundle, d.channel)
 	if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
 		return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	}
@@ -396,7 +396,7 @@ func (d *DeployerFactory) maybeReadCharmstoreBundle(cstore *utils.CharmStoreAdap
 		return nil, errors.Trace(err)
 	}
 
-	db := d.newDeployBundle(appbundle.NewResolvedBundle(bundle))
+	db := d.newDeployBundle(store.NewResolvedBundle(bundle))
 	db.bundleURL = bundleURL
 	db.channel = channel
 	db.bundleOverlayFile = d.bundleOverlayFile

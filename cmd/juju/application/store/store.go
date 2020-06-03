@@ -4,7 +4,7 @@
 // TODO(natefinch): change the code in this file to use the
 // github.com/juju/juju/charmstore package to interact with the charmstore.
 
-package utils
+package store
 
 import (
 	"net/url"
@@ -20,33 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 )
-
-// ResolveCharmFunc is the type of a function that resolves a charm URL
-// with an optionally specified preferred channel.
-type ResolveCharmFunc func(
-	resolveWithChannel func(*charm.URL, csparams.Channel) (*charm.URL, csparams.Channel, []string, error),
-	url *charm.URL,
-	preferredChannel csparams.Channel,
-) (*charm.URL, csparams.Channel, []string, error)
-
-func ResolveCharm(
-	resolveWithChannel func(*charm.URL, csparams.Channel) (*charm.URL, csparams.Channel, []string, error),
-	url *charm.URL,
-	preferredChannel csparams.Channel,
-) (*charm.URL, csparams.Channel, []string, error) {
-	if url.Schema != "cs" {
-		return nil, csparams.NoChannel, nil, errors.Errorf("unknown schema for charm URL %q", url)
-	}
-
-	resultURL, channel, supportedSeries, err := resolveWithChannel(url, preferredChannel)
-	if err != nil {
-		return nil, csparams.NoChannel, nil, errors.Trace(err)
-	}
-	if resultURL.Series != "" && len(supportedSeries) == 0 {
-		supportedSeries = []string{resultURL.Series}
-	}
-	return resultURL, channel, supportedSeries, nil
-}
 
 // AddCharmFromURL calls the appropriate client API calls to add the
 // given charm URL to state. For non-public charm URLs, this function also

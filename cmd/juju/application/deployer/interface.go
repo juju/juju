@@ -8,6 +8,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/core/model"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/api/application"
 	apicharms "github.com/juju/juju/api/charms"
 	apiparams "github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/series"
@@ -83,7 +83,7 @@ type DeployerAPI interface {
 	base.APICallCloser
 
 	ApplicationAPI
-	utils.CharmAdder
+	store.CharmAdder
 	DeployStepAPI
 	CharmDeployAPI
 	ModelAPI
@@ -113,7 +113,7 @@ type ApplicationAPI interface {
 // BundleResolver defines what we need from a charm store to resolve a
 // bundle and read the bundle data.
 type BundleResolver interface {
-	utils.URLResolver
+	store.URLResolver
 	GetBundle(*charm.URL, string) (charm.Bundle, error)
 }
 

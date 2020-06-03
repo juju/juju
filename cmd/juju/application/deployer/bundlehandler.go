@@ -5,6 +5,7 @@ package deployer
 
 import (
 	"fmt"
+
 	"os"
 	"path/filepath"
 	"strconv"
@@ -30,6 +31,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
+	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -70,7 +72,7 @@ type bundleDeploySpec struct {
 
 	deployAPI            DeployerAPI
 	bundleResolver       BundleResolver
-	authorizer           utils.MacaroonGetter
+	authorizer           store.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
 	deployResources      resourceadapters.DeployResourcesFunc
 
@@ -145,7 +147,7 @@ type bundleHandler struct {
 	// deployAPI is used to interact with the environment.
 	deployAPI            DeployerAPI
 	bundleResolver       BundleResolver
-	authorizer           utils.MacaroonGetter
+	authorizer           store.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
 	deployResources      resourceadapters.DeployResourcesFunc
 
@@ -320,7 +322,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		url, _, _, err := utils.ResolveCharm(h.bundleResolver.ResolveWithPreferredChannel, ch, csparams.Channel(spec.Channel))
+		url, _, _, err := store.ResolveCharm(h.bundleResolver.ResolveWithPreferredChannel, ch, csparams.Channel(spec.Channel))
 		if err != nil {
 			return errors.Annotatef(err, "cannot resolve URL %q", spec.Charm)
 		}
@@ -484,7 +486,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Trace(err)
 	}
 
-	url, channel, _, err := utils.ResolveCharm(h.bundleResolver.ResolveWithPreferredChannel, ch, csparams.Channel(p.Channel))
+	url, channel, _, err := store.ResolveCharm(h.bundleResolver.ResolveWithPreferredChannel, ch, csparams.Channel(p.Channel))
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
@@ -492,7 +494,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
 	var macaroon *macaroon.Macaroon
-	url, macaroon, err = utils.AddCharmFromURL(h.deployAPI, h.authorizer, url, channel, h.force)
+	url, macaroon, err = store.AddCharmFromURL(h.deployAPI, h.authorizer, url, channel, h.force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
