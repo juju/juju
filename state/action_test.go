@@ -1292,6 +1292,62 @@ func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
 	checkExpected(wc2, expected)
 }
 
+func (s *ActionSuite) TestWatchActionResults(c *gc.C) {
+	w := s.Model.WatchActionResultsFilteredBy(s.unit)
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	// queue some actions before starting the watcher
+	fa1, err := s.unit.AddAction(operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	fa1, err = fa1.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	// Initial event.
+	wc.AssertChange()
+
+	_, err = fa1.Finish(state.ActionResults{
+		Status: state.ActionCompleted,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(fa1.Id())
+}
+
+func (s *ActionSuite) TestWatchFilteredActionResults(c *gc.C) {
+	w := s.Model.WatchActionResultsFilteredBy(s.unit)
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	// queue some actions before starting the watcher
+	fa1, err := s.unit.AddAction(operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	fa1, err = fa1.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	// Initial event.
+	wc.AssertChange()
+
+	fa2, err := s.unit2.AddAction(operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	fa2, err = fa2.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	_, err = fa1.Finish(state.ActionResults{
+		Status: state.ActionCompleted,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(fa1.Id())
+
+	_, err = fa2.Finish(state.ActionResults{
+		Status: state.ActionCompleted,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+}
+
 // mapify is a convenience method, also to make reading the tests
 // easier. It combines two comma delimited strings representing
 // additions and removals and turns it into the map[interface{}]bool

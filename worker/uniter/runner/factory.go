@@ -39,15 +39,17 @@ func NewFactory(
 	state *uniter.State,
 	paths context.Paths,
 	contextFactory context.ContextFactory,
+	newProcessRunner NewRunnerFunc,
 	remoteExecutor ExecFunc,
 ) (
 	Factory, error,
 ) {
 	f := &factory{
-		state:          state,
-		paths:          paths,
-		contextFactory: contextFactory,
-		remoteExecutor: remoteExecutor,
+		state:            state,
+		paths:            paths,
+		contextFactory:   contextFactory,
+		newProcessRunner: newProcessRunner,
+		remoteExecutor:   remoteExecutor,
 	}
 
 	return f, nil
@@ -60,8 +62,9 @@ type factory struct {
 	state *uniter.State
 
 	// Fields that shouldn't change in a factory's lifetime.
-	paths          context.Paths
-	remoteExecutor ExecFunc
+	paths            context.Paths
+	newProcessRunner NewRunnerFunc
+	remoteExecutor   ExecFunc
 }
 
 // NewCommandRunner exists to satisfy the Factory interface.
@@ -70,7 +73,7 @@ func (f *factory) NewCommandRunner(commandInfo context.CommandInfo) (Runner, err
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	runner := NewRunner(ctx, f.paths, f.remoteExecutor)
+	runner := f.newProcessRunner(ctx, f.paths, f.remoteExecutor)
 	return runner, nil
 }
 
@@ -84,7 +87,7 @@ func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	runner := NewRunner(ctx, f.paths, f.remoteExecutor)
+	runner := f.newProcessRunner(ctx, f.paths, f.remoteExecutor)
 	return runner, nil
 }
 
@@ -130,7 +133,7 @@ func (f *factory) NewActionRunner(actionId string, cancel <-chan struct{}) (Runn
 	if err != nil {
 		return nil, charmrunner.NewBadActionError(name, err.Error())
 	}
-	runner := NewRunner(ctx, f.paths, f.remoteExecutor)
+	runner := f.newProcessRunner(ctx, f.paths, f.remoteExecutor)
 	return runner, nil
 }
 

@@ -119,6 +119,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 		s.uniter,
 		s.paths,
 		s.contextFactory,
+		runner.NewRunner,
 		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)

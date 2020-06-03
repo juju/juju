@@ -102,9 +102,10 @@ func NewMockUnitHookContext(mockUnit *mocks.MockHookUnit) *HookContext {
 
 func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter.State) *HookContext {
 	return &HookContext{
-		unit:   mockUnit,
-		state:  state,
-		logger: loggo.GetLogger("test"),
+		unitName: mockUnit.Tag().Id(),
+		unit:     mockUnit,
+		state:    state,
+		logger:   loggo.GetLogger("test"),
 	}
 }
 
