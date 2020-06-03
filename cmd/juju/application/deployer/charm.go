@@ -238,13 +238,13 @@ func (d *deployCharm) deploy(
 
 var (
 	// TODO(thumper): support dry-run for apps as well as bundles.
-	bundleOnlyFlags = []string{
+	BundleOnlyFlags = []string{
 		"overlay", "dry-run", "map-machines",
 	}
 )
 
 func (d *deployCharm) validateCharmFlags() error {
-	if flags := utils.GetFlags(d.flagSet, bundleOnlyFlags); len(flags) > 0 {
+	if flags := utils.GetFlags(d.flagSet, BundleOnlyFlags); len(flags) > 0 {
 		return errors.Errorf("options provided but not supported when deploying a charm: %s", strings.Join(flags, ", "))
 	}
 	return nil

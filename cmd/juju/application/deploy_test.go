@@ -5,6 +5,7 @@ package application
 
 import (
 	"fmt"
+
 	"io/ioutil"
 	"net/http/httptest"
 	"os"
@@ -43,6 +44,7 @@ import (
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	jjcharmstore "github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cmd/juju/application/deployer"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
@@ -1328,9 +1330,10 @@ func (s *DeploySuite) TestDeployLocalWithTerms(c *gc.C) {
 }
 
 func (s *DeploySuite) TestDeployFlags(c *gc.C) {
-	command := DeployCommand{
-		clock: jujuclock.WallClock,
-	}
+	// TODO: (2020-06-03)
+	// Move to deployer package for testing, then BundleOnlyFlags and
+	// CharmOnlyFlags can be private again.
+	command := DeployCommand{}
 	flagSet := gnuflag.NewFlagSetWithFlagKnownAs(command.Info().Name, gnuflag.ContinueOnError, "option")
 	command.SetFlags(flagSet)
 	c.Assert(command.flagSet, jc.DeepEquals, flagSet)
@@ -1341,8 +1344,8 @@ func (s *DeploySuite) TestDeployFlags(c *gc.C) {
 	flagSet.VisitAll(func(flag *gnuflag.Flag) {
 		allFlags = append(allFlags, flag.Name)
 	})
-	declaredFlags := append(charmAndBundleFlags, charmOnlyFlags()...)
-	declaredFlags = append(declaredFlags, bundleOnlyFlags...)
+	declaredFlags := append(charmAndBundleFlags, deployer.CharmOnlyFlags()...)
+	declaredFlags = append(declaredFlags, deployer.BundleOnlyFlags...)
 	declaredFlags = append(declaredFlags, "B", "no-browser-login")
 	sort.Strings(declaredFlags)
 	c.Assert(declaredFlags, jc.DeepEquals, allFlags)

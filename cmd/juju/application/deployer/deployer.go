@@ -523,15 +523,15 @@ func (d *DeployerFactory) validateResourcesNeededForLocalDeploy(charmMeta *charm
 }
 
 func (d *DeployerFactory) validateBundleFlags() error {
-	if flags := utils.GetFlags(d.flagSet, charmOnlyFlags()); len(flags) > 0 {
+	if flags := utils.GetFlags(d.flagSet, CharmOnlyFlags()); len(flags) > 0 {
 		return errors.Errorf("options provided but not supported when deploying a bundle: %s", strings.Join(flags, ", "))
 	}
 	return nil
 }
 
-// charmOnlyFlags and bundleOnlyFlags are used to validate flags based on
+// CharmOnlyFlags and BundleOnlyFlags are used to validate flags based on
 // whether we are deploying a charm or a bundle.
-func charmOnlyFlags() []string {
+func CharmOnlyFlags() []string {
 	charmOnlyFlags := []string{
 		"bind", "config", "constraints", "n", "num-units",
 		"series", "to", "resource", "attach-storage",
