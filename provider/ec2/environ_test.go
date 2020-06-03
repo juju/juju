@@ -4,12 +4,16 @@
 package ec2
 
 import (
+	"strings"
+
+	gomock "github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	amzec2 "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -199,4 +203,127 @@ func (*Suite) TestSupportsContainerAddresses(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 	c.Assert(supported, jc.IsFalse)
 	c.Check(environs.SupportsContainerAddresses(callCtx, env), jc.IsFalse)
+}
+
+func (*Suite) TestSelectSubnetIDsForZone(c *gc.C) {
+	subnetZones := map[corenetwork.Id][]string{
+		corenetwork.Id("bar"): []string{"foo"},
+	}
+	placement := corenetwork.Id("")
+	az := "foo"
+
+	var env *environ
+	subnets, err := env.selectSubnetIDsForZone(subnetZones, placement, az)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnets, gc.DeepEquals, []corenetwork.Id{"bar"})
+}
+
+func (*Suite) TestSelectSubnetIDsForZones(c *gc.C) {
+	subnetZones := map[corenetwork.Id][]string{
+		corenetwork.Id("bar"): []string{"foo"},
+		corenetwork.Id("baz"): []string{"foo"},
+	}
+	placement := corenetwork.Id("")
+	az := "foo"
+
+	var env *environ
+	subnets, err := env.selectSubnetIDsForZone(subnetZones, placement, az)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnets, gc.DeepEquals, []corenetwork.Id{"bar", "baz"})
+}
+
+func (*Suite) TestSelectSubnetIDsForZoneWithPlacement(c *gc.C) {
+	subnetZones := map[corenetwork.Id][]string{
+		corenetwork.Id("bar"): []string{"foo"},
+		corenetwork.Id("baz"): []string{"foo"},
+	}
+	placement := corenetwork.Id("baz")
+	az := "foo"
+
+	var env *environ
+	subnets, err := env.selectSubnetIDsForZone(subnetZones, placement, az)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnets, gc.DeepEquals, []corenetwork.Id{"baz"})
+}
+
+func (*Suite) TestSelectSubnetIDsForZoneWithIncorrectPlacement(c *gc.C) {
+	subnetZones := map[corenetwork.Id][]string{
+		corenetwork.Id("bar"): []string{"foo"},
+		corenetwork.Id("baz"): []string{"foo"},
+	}
+	placement := corenetwork.Id("boom")
+	az := "foo"
+
+	var env *environ
+	_, err := env.selectSubnetIDsForZone(subnetZones, placement, az)
+	c.Assert(err, gc.ErrorMatches, `subnets "boom" in AZ "foo" not found`)
+}
+
+func (*Suite) TestSelectSubnetIDsForZoneWithINFAN(c *gc.C) {
+	subnetZones := map[corenetwork.Id][]string{
+		corenetwork.Id("bar-INFAN-test"): []string{"foo"},
+		corenetwork.Id("baz"):            []string{"foo"},
+	}
+	placement := corenetwork.Id("")
+	az := "foo"
+
+	var env *environ
+	subnets, err := env.selectSubnetIDsForZone(subnetZones, placement, az)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnets, gc.DeepEquals, []corenetwork.Id{"baz"})
+}
+
+func (*Suite) TestSelectSubnetIDForInstance(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockContext := NewMockProviderCallContext(ctrl)
+
+	subnetZones := []map[corenetwork.Id][]string{{
+		corenetwork.Id("bar-INFAN-test"): []string{"foo"},
+		corenetwork.Id("baz"):            []string{"foo"},
+	}}
+	placement := corenetwork.Id("")
+	az := "foo"
+
+	var env *environ
+	subnet, err := env.selectSubnetIDForInstance(mockContext, false, subnetZones, placement, az)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnet, gc.DeepEquals, "baz")
+}
+
+func (*Suite) TestSelectSubnetIDForInstanceSelection(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockContext := NewMockProviderCallContext(ctrl)
+
+	subnetZones := []map[corenetwork.Id][]string{{
+		corenetwork.Id("bar-INFAN-test"): []string{"foo"},
+		corenetwork.Id("baz"):            []string{"foo"},
+		corenetwork.Id("taz"):            []string{"foo"},
+	}}
+	placement := corenetwork.Id("")
+	az := "foo"
+
+	var env *environ
+	subnet, err := env.selectSubnetIDForInstance(mockContext, false, subnetZones, placement, az)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(strings.HasSuffix(subnet, "az"), jc.IsTrue)
+}
+
+func (*Suite) TestSelectSubnetIDForInstanceWithNoMatchingZones(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockContext := NewMockProviderCallContext(ctrl)
+
+	subnetZones := []map[corenetwork.Id][]string{}
+	placement := corenetwork.Id("")
+	az := "invalid"
+
+	var env *environ
+	subnet, err := env.selectSubnetIDForInstance(mockContext, false, subnetZones, placement, az)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnet, gc.Equals, "")
 }
