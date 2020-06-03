@@ -76,7 +76,6 @@ $(GOPATH)/bin/dep:
 # populate vendor/ from Gopkg.lock without updating it first (lock file is the single source of truth for machine).
 dep: $(GOPATH)/bin/dep
 	sh -c '. "${PROJECT_DIR}/make_functions.sh"; ensure_dep "$$@"'
-	$(GOPATH)/bin/dep ensure -vendor-only $(verbose)
 endif
 
 build: dep rebuild-schema go-build
@@ -137,9 +136,12 @@ format:
 simplify:
 	gofmt -w -l -s .
 
-# update Gopkg.lock (if needed), but do not update `vendor/`.
+# Update Gopkg.lock (if needed), but do not update `vendor/`.
+# If the vendor folder was populated via the cache, remove .cached_vendor_deps
+# so that calls to 'make dep' refresh the vendor contents via 'dep ensure'.
 rebuild-dependencies:
 	dep ensure -v -no-vendor $(dep-update)
+	rm -f .cached_vendor_deps
 
 rebuild-schema:
 	@echo "Generating facade schema..."
