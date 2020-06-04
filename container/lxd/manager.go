@@ -75,6 +75,11 @@ func NewContainerManager(cfg container.ManagerConfig, svr *Server) (container.Ma
 	imageMetaDataURL := cfg.PopValue(config.ContainerImageMetadataURLKey)
 	imageStream := cfg.PopValue(config.ContainerImageStreamKey)
 
+	// This value is also popped by the provisioner worker; the following
+	// dummy pop operation ensures that we don't get a spurious warning
+	// for it when calling WarnAboutUnused() below.
+	_ = cfg.PopValue(config.LXDSnapChannel)
+
 	cfg.WarnAboutUnused()
 	return &containerManager{
 		server:           svr,
