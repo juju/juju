@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/storage"
 	"github.com/juju/juju/worker/uniter/upgradeseries"
+	"github.com/juju/juju/worker/uniter/verifycharmprofile"
 )
 
 type resolverSuite struct {
@@ -64,6 +65,7 @@ func (s *caasResolverSuite) SetUpTest(c *gc.C) {
 		UpgradeSeries:       upgradeseries.NewResolver(),
 		Leadership:          leadership.NewResolver(logger),
 		Actions:             uniteractions.NewResolver(logger),
+		VerifyCharmProfile:  verifycharmprofile.NewResolver(logger),
 		CreatedRelations:    nopResolver{},
 		Relations:           nopResolver{},
 		Storage:             storage.NewResolver(logger, attachments, model.CAAS),
@@ -88,6 +90,7 @@ func (s *iaasResolverSuite) SetUpTest(c *gc.C) {
 		UpgradeSeries:       upgradeseries.NewResolver(),
 		Leadership:          leadership.NewResolver(logger),
 		Actions:             uniteractions.NewResolver(logger),
+		VerifyCharmProfile:  verifycharmprofile.NewResolver(logger),
 		CreatedRelations:    nopResolver{},
 		Relations:           nopResolver{},
 		Storage:             storage.NewResolver(logger, attachments, model.IAAS),

@@ -301,6 +301,19 @@ func (s serveCharm) step(c *gc.C, ctx *context) {
 	}
 }
 
+type addCharmProfileToMachine struct {
+	profiles []string
+}
+
+func (acpm addCharmProfileToMachine) step(c *gc.C, ctx *context) {
+	machineId, err := ctx.unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := ctx.st.Machine(machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetCharmProfiles(acpm.profiles)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type createApplicationAndUnit struct {
 	applicationName string
 	storage         map[string]state.StorageConstraints

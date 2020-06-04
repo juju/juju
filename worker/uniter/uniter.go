@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
@@ -44,6 +45,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/storage"
 	"github.com/juju/juju/worker/uniter/upgradeseries"
+	"github.com/juju/juju/worker/uniter/verifycharmprofile"
 )
 
 var (
@@ -303,6 +305,11 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	opState := u.operationExecutor.State()
 	if opState.Kind == operation.Install {
 		u.logger.Infof("resuming charm install")
+		// Verify the charm profile before proceeding.  Do not install
+		// until
+		if err := u.verifyCharmProfile(opState.CharmURL); err != nil {
+			return err
+		}
 		op, err := u.operationFactory.NewInstall(opState.CharmURL)
 		if err != nil {
 			return errors.Trace(err)
@@ -452,6 +459,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			Actions: actions.NewResolver(
 				u.logger.Child("actions"),
 			),
+			VerifyCharmProfile: verifycharmprofile.NewResolver(
+				u.logger.Child("verifycharmprofile"),
+			),
 			UpgradeSeries: upgradeseries.NewResolver(),
 			Leadership: uniterleadership.NewResolver(
 				u.logger.Child("leadership"),
@@ -536,6 +546,50 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 	}
 	return err
+}
+
+func (u *Uniter) verifyCharmProfile(curl *corecharm.URL) error {
+	ch, err := u.st.Charm(curl)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	required, err := ch.LXDProfileRequired()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !required {
+		// If no lxd profile is required for this charm, move on.
+		u.logger.Debugf("no lxd profile required for %s", curl)
+		return nil
+	}
+	profile, err := u.unit.LXDProfileName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if profile == "" {
+		if err := u.unit.SetUnitStatus(status.Waiting, "required charm profile not yet applied to machine", nil); err != nil {
+			return errors.Trace(err)
+		}
+		u.logger.Debugf("required lxd profile not found on machine")
+		return errors.NotFoundf("required charm profile on machine")
+	}
+	// double check profile revision matches charm revision.
+	rev, err := lxdprofile.ProfileRevision(profile)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if rev != curl.Revision {
+		if err := u.unit.SetUnitStatus(status.Waiting, fmt.Sprintf("required charm profile %q not yet applied to machine", profile), nil); err != nil {
+			return errors.Trace(err)
+		}
+		u.logger.Debugf("charm is revision %d, charm profile has revision %d", curl.Revision, rev)
+		return errors.NotFoundf("required charm profile, %q, on machine", profile)
+	}
+	u.logger.Debugf("required lxd profile %q FOUND on machine", profile)
+	if err := u.unit.SetUnitStatus(status.Waiting, status.MessageInitializingAgent, nil); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (u *Uniter) terminate() error {
