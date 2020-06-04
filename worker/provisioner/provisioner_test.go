@@ -1107,7 +1107,7 @@ func (s *ProvisionerSuite) testProvisioningFailsAndSetsErrorStatusForConstraints
 
 func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownSpaces(c *gc.C) {
 	cons := constraints.MustParse(
-		s.defaultConstraints.String(), "spaces=missing,ignored,^ignored-too",
+		s.defaultConstraints.String(), "spaces=missing,missing-too,^ignored-too",
 	)
 	expectedErrorStatus := `matching subnets to zones: space "missing" not found`
 	s.testProvisioningFailsAndSetsErrorStatusForConstraints(c, cons, expectedErrorStatus)
