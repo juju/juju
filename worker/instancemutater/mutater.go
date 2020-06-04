@@ -5,8 +5,11 @@ package instancemutater
 
 import (
 	"fmt"
+	"strings"
 	"sync"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -20,6 +23,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/wrench"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mutatercontext_mock.go github.com/juju/juju/worker/instancemutater MutaterContext
@@ -233,6 +237,18 @@ func (m MutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 	if verified {
 		m.logger.Infof("no changes necessary to machine-%s lxd profiles (%v)", m.id, expectedProfiles)
 		return report(nil)
+	}
+
+	// Adding a wrench to test charm not running hooks before profile can be applied.
+	// Do not bother for the default or model profile.  We're not interested in non
+	// charm profiles.
+	if wrench.IsActive("instance-mutater", "disable-apply-lxdprofile") && len(expectedProfiles) > 1 {
+
+		m.logger.Warningf("waiting 3 minutes to apply lxd profiles %q due to wrench in the works", strings.Join(expectedProfiles, ", "))
+		select {
+		case <-clock.WallClock.After(3 * time.Minute):
+			m.logger.Warningf("continue with apply lxd profiles")
+		}
 	}
 
 	m.logger.Infof("machine-%s (%s) assign lxd profiles %q, %#v", m.id, string(info.InstanceId), expectedProfiles, post)
