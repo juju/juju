@@ -30,8 +30,6 @@ import (
 
 var hostSeries = series.HostSeries
 
-var requiredPackages = []string{"lxd"}
-
 type containerInitialiser struct {
 	getExecCommand func(string, ...string) *exec.Cmd
 }
