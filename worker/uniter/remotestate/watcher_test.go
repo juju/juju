@@ -67,6 +67,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 			storageWatcher:                   newMockStringsWatcher(),
 			actionWatcher:                    newMockStringsWatcher(),
 			relationsWatcher:                 newMockStringsWatcher(),
+			instanceDataWatcher:              newMockNotifyWatcher(),
 		},
 		relations:                   make(map[names.RelationTag]*mockRelation),
 		storageAttachment:           make(map[params.StorageAttachmentId]params.StorageAttachment),
@@ -95,6 +96,7 @@ func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
 	s.st.unit.application.applicationWatcher = newMockNotifyWatcher()
 	s.applicationWatcher = s.st.unit.application.applicationWatcher
 	s.st.unit.upgradeSeriesWatcher = newMockNotifyWatcher()
+	s.st.unit.instanceDataWatcher = newMockNotifyWatcher()
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
 		Logger:              loggo.GetLogger("test"),
 		State:               s.st,
@@ -176,6 +178,9 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	if s.st.unit.upgradeSeriesWatcher != nil {
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 	}
+	if s.st.unit.instanceDataWatcher != nil {
+		s.st.unit.instanceDataWatcher.changes <- struct{}{}
+	}
 	s.st.unit.storageWatcher.changes <- []string{}
 	s.st.unit.actionWatcher.changes <- []string{}
 	if s.st.unit.application.applicationWatcher != nil {
@@ -202,6 +207,7 @@ func (s *WatcherSuite) signalAll() {
 	if s.st.modelType == model.IAAS {
 		s.applicationWatcher.changes <- struct{}{}
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
+		s.st.unit.instanceDataWatcher.changes <- struct{}{}
 	}
 }
 
@@ -367,6 +373,8 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 
 	if s.modelType == model.IAAS {
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
+		assertOneChange()
+		s.st.unit.instanceDataWatcher.changes <- struct{}{}
 		assertOneChange()
 	}
 	s.st.unit.application.forceUpgrade = true

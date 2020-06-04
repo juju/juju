@@ -3669,26 +3669,23 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 // WatchInstanceData isn't on the v15 API.
 func (u *UniterAPIV15) WatchInstanceData(_ struct{}) {}
 
-// WatchInstanceData is a shim to call the LXDProfileAPIv2 verison of this method.
+// WatchInstanceData is a shim to call the LXDProfileAPIv2 version of this method.
 func (u *UniterAPI) WatchInstanceData(args params.Entities) (params.NotifyWatchResults, error) {
-	logger.Debugf("WatchInstanceData shim")
 	return u.lxdProfileAPI.WatchInstanceData(args)
 }
 
 // LXDProfileName isn't on the v15 API.
 func (u *UniterAPIV15) LXDProfileName(_ struct{}) {}
 
-// LXDProfileName is a shim to call the LXDProfileAPIv2 verison of this method.
+// LXDProfileName is a shim to call the LXDProfileAPIv2 version of this method.
 func (u *UniterAPI) LXDProfileName(args params.Entities) (params.StringResults, error) {
-	logger.Debugf("LXDProfileName shim")
 	return u.lxdProfileAPI.LXDProfileName(args)
 }
 
 // LXDProfileRequired isn't on the v15 API.
 func (u *UniterAPIV15) LXDProfileRequired(_ struct{}) {}
 
-// LXDProfileRequired is a shim to call the LXDProfileAPIv2 verison of this method.
+// LXDProfileRequired is a shim to call the LXDProfileAPIv2 version of this method.
 func (u *UniterAPI) LXDProfileRequired(args params.CharmURLs) (params.BoolResults, error) {
-	logger.Debugf("LXDProfileRequired shim")
 	return u.lxdProfileAPI.LXDProfileRequired(args)
 }

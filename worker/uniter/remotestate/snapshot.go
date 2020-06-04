@@ -96,6 +96,13 @@ type Snapshot struct {
 
 	// ContainerRunningStatus is set on CAAS models for remote init/upgrade of charm.
 	ContainerRunningStatus *ContainerRunningStatus
+
+	// LXDProfileName is the name of the lxd profile applied to the unit's
+	// machine for the current charm version.
+	LXDProfileName string
+
+	// CharmProfileRequired is true if the charm has a lxdprofile.yaml.
+	CharmProfileRequired bool
 }
 
 // RelationSnapshot tracks the state of a relationship from the viewpoint of the local unit.
