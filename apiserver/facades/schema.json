@@ -36184,7 +36184,7 @@
     },
     {
         "Name": "Uniter",
-        "Version": 15,
+        "Version": 16,
         "Schema": {
             "type": "object",
             "properties": {
@@ -36530,6 +36530,28 @@
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/BoolResults"
+                        }
+                    }
+                },
+                "LXDProfileName": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResults"
+                        }
+                    }
+                },
+                "LXDProfileRequired": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/CharmURLs"
                         },
                         "Result": {
                             "$ref": "#/definitions/BoolResults"
@@ -37010,6 +37032,17 @@
                     "properties": {
                         "Result": {
                             "$ref": "#/definitions/NotifyWatchResult"
+                        }
+                    }
+                },
+                "WatchInstanceData": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResults"
                         }
                     }
                 },
