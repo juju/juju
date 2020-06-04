@@ -10,25 +10,19 @@
 from __future__ import print_function
 
 import argparse
+import json
 import logging
 import sys
-import json
 from time import sleep
 
 import requests
-
 from deploy_stack import BootstrapManager
 from utility import (
-    add_basic_testing_arguments,
-    configure_logging,
-    JujuAssertionError,
+    JujuAssertionError, add_basic_testing_arguments, configure_logging,
 )
 
+from jujupy.k8s_provider import K8sProviderType, providers
 from jujupy.utility import until_timeout
-from jujupy.k8s_provider import (
-    providers,
-    K8sProviderType,
-)
 
 __metaclass__ = type
 
@@ -58,7 +52,7 @@ def check_app_healthy(url, timeout=300, success_hook=lambda: None, fail_hook=lam
     raise JujuAssertionError('%s is not healthy' % url)
 
 
-def get_app_endpoint(caas_client, model_name, app_name, svc_type, timeout=120):
+def get_app_endpoint(caas_client, model_name, app_name, svc_type, timeout=180):
     if svc_type == 'LoadBalancer':
         for remaining in until_timeout(timeout):
             try:

@@ -9,6 +9,10 @@ import (
 	"github.com/juju/juju/worker/uniter/resolver"
 )
 
+// Logger is here to stop the desire of creating a package level Logger.
+// Don't do this, instead use the one passed into the NewResolver as needed.
+var logger interface{}
+
 // Logger represents the logging methods used by the actions resolver.
 type Logger interface {
 	Infof(string, ...interface{})

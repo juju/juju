@@ -9,7 +9,6 @@ package storage
 import (
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/params"
@@ -17,8 +16,6 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
-
-var logger = loggo.GetLogger("juju.worker.uniter.storage")
 
 // StorageAccessor is an interface for accessing information about
 // storage attachments.

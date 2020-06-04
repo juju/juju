@@ -19,25 +19,22 @@
 
 from __future__ import print_function
 
-import logging
-import yaml
 import json
-from time import sleep
+import logging
+import os
 import shutil
 import tempfile
-import os
+from time import sleep
 
+import yaml
+from google.api_core import exceptions
 from google.cloud import container_v1
 from google.oauth2 import service_account
-from google.api_core import exceptions
+
 from jujupy.utility import until_timeout
 
-from .base import (
-    Base,
-    K8sProviderType,
-)
+from .base import Base, K8sProviderType
 from .factory import register_provider
-
 
 logger = logging.getLogger(__name__)
 CLUSTER_STATUS = container_v1.enums.Cluster.Status
@@ -165,7 +162,7 @@ class GKE(Base):
                 self._get_cluster(self.cluster_name)
             except exceptions.NotFound:
                 break
-            finally:
+            else:
                 log_remaining(remaining)
 
         # provision cluster.

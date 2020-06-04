@@ -29,7 +29,9 @@ import (
 // CmdSuffix is the filename suffix to use for executables.
 const CmdSuffix = cmdSuffix
 
-var logger = loggo.GetLogger("worker.uniter.jujuc")
+// This logger is fine being package level as this jujuc executable
+// is separate from the uniter in that it is run inside hooks.
+var logger = loggo.GetLogger("jujuc")
 
 // ErrNoStdin is returned by Jujuc.Main if the hook tool requests
 // stdin, and none is supplied.

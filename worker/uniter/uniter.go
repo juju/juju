@@ -447,7 +447,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			CreatedRelations: relation.NewCreatedRelationResolver(u.relationStateTracker),
 			Relations: relation.NewRelationResolver(
 				u.relationStateTracker, u.unit, u.logger.Child("relation")),
-			Storage: storage.NewResolver(u.storage, u.modelType),
+			Storage: storage.NewResolver(
+				u.logger.Child("storage"), u.storage, u.modelType),
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
