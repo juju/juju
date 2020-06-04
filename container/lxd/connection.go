@@ -127,9 +127,6 @@ func connectImageRemote(remote ServerSpec) (lxd.ImageServer, error) {
 	return nil, fmt.Errorf("bad protocol supplied for connection: %v", remote.Protocol)
 }
 
-// ConnectLocal connects to LXD on a local socket.
-var ConnectLocal = connectLocal
-
 func connectLocal() (lxd.ContainerServer, error) {
 	client, err := lxd.ConnectLXDUnix(SocketPath(nil), nil)
 	return client, errors.Trace(err)
