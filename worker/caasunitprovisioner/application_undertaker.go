@@ -76,7 +76,6 @@ func (au *applicationUndertaker) loop() (err error) {
 	// restarted all the time. So we don't abuse the catacomb by adding new
 	// workers unbounded, use a defer to stop the running worker.
 	defer func() {
-		au.logger.Warningf("EXIT AU WORKER: %v", err)
 		if brokerUnitsWatcher != nil {
 			worker.Stop(brokerUnitsWatcher)
 		}
