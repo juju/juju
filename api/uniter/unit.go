@@ -781,6 +781,50 @@ func (u *Unit) WatchStorage() (watcher.StringsWatcher, error) {
 	return u.st.WatchUnitStorageAttachments(u.tag)
 }
 
+// WatchInstanceData returns a watcher for observing changes to the
+// instanceData of the unit's machine.  Primarily used for watching
+// LXDProfile changes.
+func (u *Unit) WatchInstanceData() (watcher.NotifyWatcher, error) {
+	var results params.NotifyWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall("WatchInstanceData", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// LXDProfileName returns the name of the lxd profile applied to the unit's
+// machine for the current charm version.
+func (u *Unit) LXDProfileName() (string, error) {
+	var results params.StringResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall("LXDProfileName", args, &results)
+	if err != nil {
+		return "", err
+	}
+	if len(results.Results) != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return "", result.Error
+	}
+	return result.Result, nil
+}
+
 // AddStorage adds desired storage instances to a unit.
 func (u *Unit) AddStorage(constraints map[string][]params.StorageConstraints) error {
 	if u.st.facade.BestAPIVersion() < 2 {
