@@ -4,6 +4,8 @@
 package broker
 
 import (
+	"strings"
+
 	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -14,14 +16,18 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
+	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 )
 
 var lxdLogger = loggo.GetLogger("juju.container.broker.lxd")
+
+// Overriden by tests.
+var lookupOvsManagedBridges = network.OvsManagedBridges
 
 type PrepareHostFunc func(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error
 
@@ -85,13 +91,11 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 	// prepareOrGetContainerInterfaceInfo should always return a value. The
 	// test suite currently doesn't think so, and I'm hesitant to munge it too
 	// much.
-	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
-	if bridgeDevice == "" {
-		bridgeDevice = broker.agentConfig.Value(agent.LxcBridge)
+	bridgeDevice, err := selectBridgeDevice(broker.agentConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	if bridgeDevice == "" {
-		bridgeDevice = network.DefaultLXDBridge
-	}
+
 	interfaces, err := finishNetworkConfig(bridgeDevice, preparedInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -154,6 +158,37 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 		Hardware:    hardware,
 		NetworkInfo: interfaces,
 	}, nil
+}
+
+func selectBridgeDevice(agentCfg agent.Config) (string, error) {
+	// If the operator has already selected a bridge device use that
+	preferredDev := agentCfg.Value(agent.LxdBridge)
+	if preferredDev == "" {
+		preferredDev = agentCfg.Value(agent.LxcBridge)
+	}
+	if preferredDev != "" {
+		return preferredDev, nil
+	}
+
+	// Check if the device list contains any OVS-managed bridges. If only
+	// one OVS bridge is available prefer that; otherwise, log a warning
+	// and fall back to the default LXD bridge
+	ovsDeviceNames, err := lookupOvsManagedBridges()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	switch ovsDeviceNames.Size() {
+	case 0: // no OVS-bridges present
+		return jujunetwork.DefaultLXDBridge, nil
+	case 1:
+		preferredDev = ovsDeviceNames.Values()[0]
+		logger.Infof("using OVS-managed bridge device %q for containerized workloads", preferredDev)
+		return preferredDev, nil
+	default:
+		logger.Warningf("found multiple OVS-managed bridge devices (%s) and no preferred bridge device specified; falling back to default device %q", strings.Join(ovsDeviceNames.SortedValues(), ", "), jujunetwork.DefaultLXDBridge)
+		return jujunetwork.DefaultLXDBridge, nil
+	}
 }
 
 func (broker *lxdBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
