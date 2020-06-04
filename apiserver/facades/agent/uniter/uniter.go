@@ -37,9 +37,8 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v15) of the Uniter API, which adds
-// the State, CommitHookChanges, ReadLocalApplicationSettings calls and changes
-// WatchActionNotifications to notify on action changes.
+// UniterAPI implements the latest version (v16) of the Uniter API, which adds
+// LXDProfileAPIv2.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -52,6 +51,7 @@ type UniterAPI struct {
 	*common.UnitStateAPI
 	*leadershipapiserver.LeadershipSettingsAccessor
 	meterstatus.MeterStatus
+	lxdProfileAPI       *LXDProfileAPIv2
 	m                   *state.Model
 	st                  *state.State
 	clock               clock.Clock
@@ -77,10 +77,17 @@ type UniterAPI struct {
 	cloudSpec       cloudspec.CloudSpecAPI
 }
 
+// UniterAPIV15 implements version (v15) of the Uniter API, which adds
+// the State, CommitHookChanges, ReadLocalApplicationSettings calls and changes
+// WatchActionNotifications to notify on action changes.
+type UniterAPIV15 struct {
+	UniterAPI
+}
+
 // UniterAPIV14 implements version (v14) of the Uniter API,
 // which adds GetPodSpec, SetState and State.
 type UniterAPIV14 struct {
-	UniterAPI
+	UniterAPIV15
 }
 
 // UniterAPIV13 implements version (v13) of the Uniter API,
@@ -221,6 +228,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		UnitStateAPI:               common.NewExternalUnitStateAPI(st, resources, authorizer, accessUnit, logger),
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
 		MeterStatus:                msAPI,
+		lxdProfileAPI:              NewExternalLXDProfileAPIv2(st, resources, authorizer, accessUnit, logger),
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
 		// own status *and* its application's? This is not a pleasing arrangement.
 		StatusAPI: NewStatusAPI(st, accessUnitOrApplication, leadershipChecker),
@@ -242,14 +250,25 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	}, nil
 }
 
-// NewUniterAPIV14 creates an instance of the V14 uniter API.
-func NewUniterAPIV14(context facade.Context) (*UniterAPIV14, error) {
+// NewUniterAPIV15 creates an instance of the V15 uniter API.
+func NewUniterAPIV15(context facade.Context) (*UniterAPIV15, error) {
 	uniterAPI, err := NewUniterAPI(context)
 	if err != nil {
 		return nil, err
 	}
-	return &UniterAPIV14{
+	return &UniterAPIV15{
 		UniterAPI: *uniterAPI,
+	}, nil
+}
+
+// NewUniterAPIV14 creates an instance of the V14 uniter API.
+func NewUniterAPIV14(context facade.Context) (*UniterAPIV14, error) {
+	uniterAPI, err := NewUniterAPIV15(context)
+	if err != nil {
+		return nil, err
+	}
+	return &UniterAPIV14{
+		UniterAPIV15: *uniterAPI,
 	}, nil
 }
 
@@ -3647,4 +3666,31 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 
 	// Apply all changes in a single transaction.
 	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))
+}
+
+// WatchInstanceData isn't on the v15 API.
+func (u *UniterAPIV15) WatchInstanceData(_ struct{}) {}
+
+// WatchInstanceData is a shim to call the LXDProfileAPIv2 verison of this method.
+func (u *UniterAPI) WatchInstanceData(args params.Entities) (params.NotifyWatchResults, error) {
+	logger.Debugf("WatchInstanceData shim")
+	return u.lxdProfileAPI.WatchInstanceData(args)
+}
+
+// LXDProfileName isn't on the v15 API.
+func (u *UniterAPIV15) LXDProfileName(_ struct{}) {}
+
+// LXDProfileName is a shim to call the LXDProfileAPIv2 verison of this method.
+func (u *UniterAPI) LXDProfileName(args params.Entities) (params.StringResults, error) {
+	logger.Debugf("LXDProfileName shim")
+	return u.lxdProfileAPI.LXDProfileName(args)
+}
+
+// LXDProfileRequired isn't on the v15 API.
+func (u *UniterAPIV15) LXDProfileRequired(_ struct{}) {}
+
+// LXDProfileRequired is a shim to call the LXDProfileAPIv2 verison of this method.
+func (u *UniterAPI) LXDProfileRequired(args params.CharmURLs) (params.BoolResults, error) {
+	logger.Debugf("LXDProfileRequired shim")
+	return u.lxdProfileAPI.LXDProfileRequired(args)
 }

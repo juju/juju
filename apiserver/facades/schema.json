@@ -37489,8 +37489,8 @@
     },
     {
         "Name": "Uniter",
-        "Description": "UniterAPI implements the latest version (v15) of the Uniter API, which adds\nthe State, CommitHookChanges, ReadLocalApplicationSettings calls and changes\nWatchActionNotifications to notify on action changes.",
-        "Version": 15,
+        "Description": "UniterAPI implements the latest version (v16) of the Uniter API, which adds\nLXDProfileAPIv2.",
+        "Version": 16,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -37879,6 +37879,30 @@
                         }
                     },
                     "description": "HasSubordinates returns the whether each given unit has any subordinates."
+                },
+                "LXDProfileName": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResults"
+                        }
+                    },
+                    "description": "LXDProfileName is a shim to call the LXDProfileAPIv2 verison of this method."
+                },
+                "LXDProfileRequired": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/CharmURLs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/BoolResults"
+                        }
+                    },
+                    "description": "LXDProfileRequired is a shim to call the LXDProfileAPIv2 verison of this method."
                 },
                 "LeaveScope": {
                     "type": "object",
@@ -38401,6 +38425,18 @@
                         }
                     },
                     "description": "WatchForModelConfigChanges returns a NotifyWatcher that observes\nchanges to the model configuration.\nNote that although the NotifyWatchResult contains an Error field,\nit's not used because we are only returning a single watcher,\nso we use the regular error return."
+                },
+                "WatchInstanceData": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResults"
+                        }
+                    },
+                    "description": "WatchInstanceData is a shim to call the LXDProfileAPIv2 verison of this method."
                 },
                 "WatchLeadershipSettings": {
                     "type": "object",
