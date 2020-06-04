@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/worker/caasadmission"
 	"github.com/juju/juju/worker/caasbroker"
 	"github.com/juju/juju/worker/caasrbacmapper"
+	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/muxhttpserver"
 )
 
@@ -27,6 +28,13 @@ type ManifoldConfig struct {
 
 	// NewContainerBrokerFunc is a function opens a CAAS provider.
 	NewContainerBrokerFunc caas.NewContainerBrokerFunc
+	Port                   string
+	ServiceName            string
+	ServiceNamespace       string
+
+	// UpdateLoggerConfig is a function that will save the specified
+	// config value as the logging config in the agent.conf file.
+	UpdateLoggerConfig func(string) error
 }
 
 // Manifolds return a set of co-configured manifolds covering the various
@@ -50,12 +58,15 @@ func Manifolds(config ManifoldConfig) dependency.Manifolds {
 		}),
 
 		caasAdmissionName: caasadmission.Manifold(caasadmission.ManifoldConfig{
-			AgentName:      agentName,
-			AuthorityName:  certificateWatcherName,
-			BrokerName:     caasBrokerTrackerName,
-			Logger:         loggo.GetLogger("juju.worker.caasadmission"),
-			MuxName:        modelHTTPServerName,
-			RBACMapperName: caasRBACMapperName,
+			AgentName:        agentName,
+			AuthorityName:    certificateWatcherName,
+			BrokerName:       caasBrokerTrackerName,
+			Logger:           loggo.GetLogger("juju.worker.caasadmission"),
+			MuxName:          modelHTTPServerName,
+			ServerInfoName:   modelHTTPServerName,
+			RBACMapperName:   caasRBACMapperName,
+			ServiceName:      config.ServiceName,
+			ServiceNamespace: config.ServiceNamespace,
 		}),
 
 		caasBrokerTrackerName: caasbroker.Manifold(caasbroker.ManifoldConfig{
@@ -76,22 +87,36 @@ func Manifolds(config ManifoldConfig) dependency.Manifolds {
 			CertWatcherWorkerFn: apiservercertwatcher.NewAuthorityWorker,
 		}),
 
+		// The logging config updater is a leaf worker that indirectly
+		// controls the messages sent via the log sender or rsyslog,
+		// according to changes in environment config. We should only need
+		// one of these in a consolidated agent.
+		loggingConfigUpdaterName: logger.Manifold(logger.ManifoldConfig{
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			LoggingContext:  loggo.DefaultContext(),
+			Logger:          loggo.GetLogger("juju.worker.loggerconfig"),
+			UpdateAgentFunc: config.UpdateLoggerConfig,
+		}),
+
 		modelHTTPServerName: muxhttpserver.Manifold(
 			muxhttpserver.ManifoldConfig{
 				AuthorityName: certificateWatcherName,
 				Logger:        loggo.GetLogger("juju.worker.muxhttpserver"),
+				Port:          config.Port,
 			},
 		),
 	}
 }
 
 const (
-	agentName              = "agent"
-	apiCallerName          = "api-caller"
-	apiConfigWatcherName   = "api-config-watcher"
-	caasAdmissionName      = "caas-admission"
-	caasBrokerTrackerName  = "caas-broker-tracker"
-	caasRBACMapperName     = "caas-rbac-mapper"
-	certificateWatcherName = "certificate-watcher"
-	modelHTTPServerName    = "model-http-server"
+	agentName                = "agent"
+	apiCallerName            = "api-caller"
+	apiConfigWatcherName     = "api-config-watcher"
+	caasAdmissionName        = "caas-admission"
+	caasBrokerTrackerName    = "caas-broker-tracker"
+	caasRBACMapperName       = "caas-rbac-mapper"
+	certificateWatcherName   = "certificate-watcher"
+	modelHTTPServerName      = "model-http-server"
+	loggingConfigUpdaterName = "logging-config-updater"
 )

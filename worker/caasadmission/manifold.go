@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/worker/caasrbacmapper"
+	"github.com/juju/juju/worker/muxhttpserver"
 )
 
 // K8sBroker describes a Kubernetes broker interface this worker needs to
@@ -42,13 +43,16 @@ type Logger interface {
 
 // ManifoldConfig describes the resources used by the admission worker
 type ManifoldConfig struct {
-	AgentName      string
-	AuthorityName  string
-	Authority      pki.Authority
-	BrokerName     string
-	Logger         Logger
-	MuxName        string
-	RBACMapperName string
+	AgentName        string
+	AuthorityName    string
+	Authority        pki.Authority
+	BrokerName       string
+	Logger           Logger
+	MuxName          string
+	RBACMapperName   string
+	ServerInfoName   string
+	ServiceName      string
+	ServiceNamespace string
 }
 
 const (
@@ -66,6 +70,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.BrokerName,
 			config.RBACMapperName,
 			config.MuxName,
+			config.ServerInfoName,
 		},
 		Output: nil,
 		Start:  config.Start,
@@ -104,17 +109,27 @@ func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
+	var serverInfo muxhttpserver.ServerInfo
+	if err := context.Get(c.ServerInfoName, &serverInfo); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	port, err := serverInfo.PortInt()
+	if err != nil {
+		return nil, errors.Annotate(err, "fetching http server port as int")
+	}
+
+	svcPort := int32(port)
 	currentConfig := agent.CurrentConfig()
 	admissionPath := AdmissionPathForModel(currentConfig.Model().Id())
-	port := DefaultModelOperatorPort
 	admissionCreator, err := NewAdmissionCreator(authority,
 		broker.GetCurrentNamespace(), broker.CurrentModel(),
 		broker.EnsureMutatingWebhookConfiguration,
 		&admission.ServiceReference{
-			Name:      "modeloperator",
-			Namespace: broker.GetCurrentNamespace(),
+			Name:      c.ServiceName,
+			Namespace: c.ServiceNamespace,
 			Path:      &admissionPath,
-			Port:      &port,
+			Port:      &svcPort,
 		},
 	)
 	if err != nil {
@@ -149,6 +164,15 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.RBACMapperName == "" {
 		return errors.NotValidf("empty RBACMapperName")
+	}
+	if c.ServerInfoName == "" {
+		return errors.NotValidf("empty ServerInfoName")
+	}
+	if c.ServiceName == "" {
+		return errors.NotValidf("empty ServiceName")
+	}
+	if c.ServiceNamespace == "" {
+		return errors.NotValidf("empty ServiceNamespace")
 	}
 	return nil
 }
