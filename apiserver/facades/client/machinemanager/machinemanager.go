@@ -27,6 +27,18 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.machinemanager")
 
+// Leadership represents a type for modifying the leadership settings of an
+// application for series upgrades.
+type Leadership interface {
+	// GetMachineApplicationNames returns the applications associated with a
+	// machine.
+	GetMachineApplicationNames(string) ([]string, error)
+
+	// UnpinApplicationLeadersByName takes a slice of application names and
+	// attempts to unpin them accordingly.
+	UnpinApplicationLeadersByName(names.Tag, []string) (params.PinApplicationsResults, error)
+}
+
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
 	st            Backend
@@ -35,6 +47,7 @@ type MachineManagerAPI struct {
 	authorizer    facade.Authorizer
 	check         *common.BlockChecker
 	resources     facade.Resources
+	leadership    Leadership
 
 	modelTag    names.ModelTag
 	callContext context.ProviderCallContext
@@ -54,7 +67,30 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	pool := &poolShim{ctx.StatePool()}
-	return NewMachineManagerAPI(backend, storageAccess, pool, ctx.Auth(), model.ModelTag(), state.CallContext(st), ctx.Resources())
+
+	var leadership Leadership
+	leadership, err = common.NewLeadershipPinningFromContext(ctx)
+	if err != nil {
+		// If we're using legacy leases then we don't have a leadership pinning
+		// type. In that case, we should use a default implementation.
+		// TODO (stickupkid): Remove this when it lands in 2.8+, as legacy
+		// leases have been removed.
+		if !errors.IsNotImplemented(err) {
+			return nil, errors.Trace(err)
+		}
+		leadership = legacyLeadershipPinning{}
+	}
+
+	return NewMachineManagerAPI(
+		backend,
+		storageAccess,
+		pool,
+		ctx.Auth(),
+		model.ModelTag(),
+		state.CallContext(st),
+		ctx.Resources(),
+		leadership,
+	)
 }
 
 // Version 4 of MachineManagerAPI
@@ -110,6 +146,7 @@ func NewMachineManagerAPI(
 	modelTag names.ModelTag,
 	callCtx context.ProviderCallContext,
 	resources facade.Resources,
+	leadership Leadership,
 ) (*MachineManagerAPI, error) {
 	if !auth.AuthClient() {
 		return nil, common.ErrPerm
@@ -123,6 +160,7 @@ func NewMachineManagerAPI(
 		modelTag:      modelTag,
 		callContext:   callCtx,
 		resources:     resources,
+		leadership:    leadership,
 	}, nil
 }
 
@@ -384,6 +422,11 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 			logger.Warningf("could not deal with units' storage on machine %v: %v", machineTag.Id(), all.Combine())
 		}
 
+		applicationNames, err := mm.leadership.GetMachineApplicationNames(machineTag.Id())
+		if err != nil {
+			return fail(err)
+		}
+
 		if force {
 			if err := machine.ForceDestroy(maxWait); err != nil {
 				return fail(err)
@@ -393,6 +436,29 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 				return fail(err)
 			}
 		}
+
+		// Ensure that when the machine has been removed that all the leadership
+		// references to that machine are also cleared up.
+		//
+		// Unfortunately we can't follow the normal practices of failing on the
+		// error, as we've already removed the machine and we'll tell the callee
+		// that we failed to remove the machine.
+		//
+		// Note: in some cases if a application has pinned during series upgrade
+		// and it has been pinned without a timeout, then the leadership will
+		// still prevent another leadership change. The work around for this
+		// case until we provide the ability for the operator to unpin via the
+		// CLI, is to remove the raft logs manually.
+		results, err := mm.leadership.UnpinApplicationLeadersByName(machineTag, applicationNames)
+		if err != nil {
+			logger.Warningf("could not unpin application leaders for machine %s with error %v", machineTag.Id(), err)
+		}
+		for _, result := range results.Results {
+			if result.Error != nil {
+				logger.Warningf("could not unpin application leaders for machine %s with error %v", machineTag.Id(), result.Error)
+			}
+		}
+
 		result.Info = &info
 		return result
 	}
@@ -713,4 +779,21 @@ func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string
 	}
 
 	return nil
+}
+
+// TODO (stickupkid): Remove this in 2.8+ as legacy leases have been removed.
+type legacyLeadershipPinning struct{}
+
+// GetMachineApplicationNames returns the applications associated with a
+// machine.
+func (l legacyLeadershipPinning) GetMachineApplicationNames(string) ([]string, error) {
+	return nil, nil
+}
+
+// UnpinApplicationLeadersByName takes a slice of application names and
+// attempts to unpin them accordingly.
+func (l legacyLeadershipPinning) UnpinApplicationLeadersByName(tag names.Tag, appNames []string) (params.PinApplicationsResults, error) {
+	return params.PinApplicationsResults{
+		Results: make([]params.PinApplicationResult, len(appNames)),
+	}, nil
 }
