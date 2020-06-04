@@ -295,15 +295,6 @@ func (s *BaseSuiteUnpatched) NewInstance(c *gc.C, name string) *environInstance 
 	return newInstance(container, s.Env)
 }
 
-func (s *BaseSuiteUnpatched) IsRunningLocally(c *gc.C) bool {
-	restore := gitjujutesting.PatchEnvPathPrepend(s.osPathOrig)
-	defer restore()
-
-	running, err := lxd.IsRunningLocally()
-	c.Assert(err, jc.ErrorIsNil)
-	return running
-}
-
 type BaseSuite struct {
 	BaseSuiteUnpatched
 
