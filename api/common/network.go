@@ -103,11 +103,26 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get default route")
 	}
+	ovsBridgeNames, err := corenetwork.OvsManagedBridges()
+	if err != nil {
+		return nil, errors.Annotate(err, "looking for OVS-managed bridges")
+	}
+
 	var namesOrder []string
 	nameToConfigs := make(map[string][]params.NetworkConfig)
 	sysClassNetPath := source.SysClassNetPath()
 	for _, nic := range interfaces {
 		nicType := network.ParseInterfaceType(sysClassNetPath, nic.Name)
+		// OVS bridges which you can list via 'ovs-vsctl list-br' don't
+		// show up in brctl output. However, each OVS-managed bridge
+		// exposes one of their internal ports as a device with the
+		// same name as the bridge. By explicitly forcing the device's
+		// type to bridge we allow juju to use it as a bridge for
+		// containerized workloads.
+		if ovsBridgeNames.Contains(nic.Name) {
+			nicType = corenetwork.BridgeInterface
+		}
+
 		nicConfig := interfaceToNetworkConfig(nic, nicType, corenetwork.OriginMachine)
 		if nicConfig.InterfaceName == defaultRouteDevice {
 			nicConfig.IsDefaultGateway = true
