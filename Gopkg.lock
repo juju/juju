@@ -152,13 +152,6 @@
   revision = "c068ca2f0aacee5ac3681d68e4d0a003b7d1fd2c"
 
 [[projects]]
-  digest = "1:b471352860820b29a0c88927132a4b55049e93b0042a20295abcf22eacb570a6"
-  name = "github.com/boltdb/bolt"
-  packages = ["."]
-  pruneopts = ""
-  revision = "e9cf4fae01b5a8ff89d0ec6b32f0d9c9f79aefdd"
-
-[[projects]]
   digest = "1:0b2d5839372f6dc106fcaa70b6bd5832789a633c4e470540f76c2ec6c560e1c1"
   name = "github.com/census-instrumentation/opencensus-proto"
   packages = [
@@ -412,11 +405,12 @@
   source = "github.com/juju/raft"
 
 [[projects]]
-  digest = "1:d2707097c8132df0bfccc3fbbf6973b3b80324e08d6e489edf90efc9d7b5c773"
+  digest = "1:c2ff332cf887ab4cdeddca9229e64e1d718310dab3faabc464d39dcda6f98c12"
   name = "github.com/hashicorp/raft-boltdb"
   packages = ["."]
   pruneopts = ""
-  revision = "6e5ba93211eaf8d9a2ad7e41ffad8c6f160f9fe3"
+  revision = "5bda8c19a219d92592be4b9c667fb9a48466b614"
+  source = "github.com/juju/raft-boltdb"
 
 [[projects]]
   digest = "1:7ab38c15bd21e056e3115c8b526d201eaf74e0308da9370997c6b3c187115d36"
@@ -1209,6 +1203,14 @@
   ]
   pruneopts = ""
   revision = "40aebf13ba45d8b16d760807fc5e380e7c6f48fb"
+
+[[projects]]
+  digest = "1:2a591e844f6019284ded9f5095e53764c3d69bb8e7d1cf2b318f1b7e25864508"
+  name = "go.etcd.io/bbolt"
+  packages = ["."]
+  pruneopts = ""
+  revision = "68cc10a767ea1c6b9e8dcb9847317ff192d6d974"
+  version = "v1.3.4"
 
 [[projects]]
   digest = "1:ad67dfd3799a2c58f6c65871dd141d8b53f61f600aec48ce8d7fa16a4d5476f8"

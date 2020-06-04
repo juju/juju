@@ -15,7 +15,6 @@ import (
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/apiserver/params"
-	jujucert "github.com/juju/juju/cert"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
@@ -36,7 +35,6 @@ var _ = gc.Suite(&CertUpdaterSuite{})
 
 func (s *CertUpdaterSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(&jujucert.NewLeafKeyBits, 512)
 
 	s.stateServingInfo = params.StateServingInfo{
 		Cert:         coretesting.ServerCert,

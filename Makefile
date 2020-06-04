@@ -9,15 +9,15 @@ PROJECT := github.com/juju/juju
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 PROJECT_PACKAGES := $(shell go list $(PROJECT)/... | grep -v /vendor/ | grep -v /acceptancetests/ | grep -v mocks)
 
-# Allow the tests to take longer on arm platforms.
-ifeq ($(shell uname -p | sed -E 's/.*(armel|armhf|aarch64|ppc64le|ppc64|s390x).*/golang/'), golang)
+# Allow the tests to take longer on restricted platforms.
+ifeq ($(shell go env GOARCH | sed -E 's/.*(arm|arm64|ppc64le|ppc64|s390x).*/golang/'), golang)
 	TEST_TIMEOUT := 5400s
 else
 	TEST_TIMEOUT := 1800s
 endif
 
 # Limit concurrency on s390x.
-ifeq ($(shell uname -p | sed -E 's/.*(s390x).*/golang/'), golang)
+ifeq ($(shell go env GOARCH | sed -E 's/.*(s390x).*/golang/'), golang)
 	TEST_ARGS := -p 4
 else
 	TEST_ARGS := 
@@ -48,7 +48,13 @@ ifeq ($(DEBUG_JUJU), 1)
     COMPILE_FLAGS = -gcflags "all=-N -l"
     LINK_FLAGS = -ldflags "-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 else
-    COMPILE_FLAGS =
+ifeq ($(shell go env GOARCH | sed -E 's/.*(arm64|ppc64le|ppc64).*/golang/'), golang)
+	# disable optimizations on arm64 ppc64le due to https://golang.org/issue/39049
+	# go 1.15 should include the fix for this issue.
+	COMPILE_FLAGS = -gcflags "all=-N"
+else
+	COMPILE_FLAGS =
+endif
     LINK_FLAGS = -ldflags "-s -w -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 endif
 
@@ -75,7 +81,7 @@ $(GOPATH)/bin/dep:
 
 # populate vendor/ from Gopkg.lock without updating it first (lock file is the single source of truth for machine).
 dep: $(GOPATH)/bin/dep
-	$(GOPATH)/bin/dep ensure -vendor-only $(verbose)
+	sh -c '. "${PROJECT_DIR}/make_functions.sh"; ensure_dep "$$@"'
 endif
 
 build: dep rebuild-schema go-build
@@ -136,9 +142,12 @@ format:
 simplify:
 	gofmt -w -l -s .
 
-# update Gopkg.lock (if needed), but do not update `vendor/`.
+# Update Gopkg.lock (if needed), but do not update `vendor/`.
+# If the vendor folder was populated via the cache, remove .cached_vendor_deps
+# so that calls to 'make dep' refresh the vendor contents via 'dep ensure'.
 rebuild-dependencies:
 	dep ensure -v -no-vendor $(dep-update)
+	rm -f .cached_vendor_deps
 
 rebuild-schema:
 	@echo "Generating facade schema..."

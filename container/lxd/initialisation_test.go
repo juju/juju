@@ -32,13 +32,9 @@ type initialiserTestSuite struct {
 	testing.PatchExecHelper
 }
 
-func (s *initialiserTestSuite) PatchForProxyUpdate(c *gc.C, svr lxd.ContainerServer, lxdIsRunning bool) {
+func (s *initialiserTestSuite) PatchForProxyUpdate(c *gc.C, svr lxd.ContainerServer) {
 	s.PatchValue(&ConnectLocal, func() (lxd.ContainerServer, error) {
 		return svr, nil
-	})
-
-	s.PatchValue(&IsRunningLocally, func() (bool, error) {
-		return lxdIsRunning, nil
 	})
 }
 
@@ -52,7 +48,8 @@ func (s *initialiserTestSuite) patchDF100GB() {
 
 type InitialiserSuite struct {
 	initialiserTestSuite
-	calledCmds []string
+	calledCmds          []string
+	isLXDRunningLocally bool
 }
 
 var _ = gc.Suite(&InitialiserSuite{})
@@ -107,6 +104,11 @@ func (s *InitialiserSuite) SetUpTest(c *gc.C) {
 	// Fake the lxc executable for all the tests.
 	testing.PatchExecutableAsEchoArgs(c, s, "lxc")
 	testing.PatchExecutableAsEchoArgs(c, s, "lxd")
+
+	s.isLXDRunningLocally = true
+	s.PatchValue(&IsRunningLocally, func() (bool, error) {
+		return s.isLXDRunningLocally, nil
+	})
 }
 
 // getMockRunCommandWithRetry is a helper function which returns a function
@@ -232,7 +234,7 @@ func (s *InitialiserSuite) TestConfigureProxies(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
-	s.PatchForProxyUpdate(c, cSvr, true)
+	s.PatchForProxyUpdate(c, cSvr)
 
 	updateReq := api.ServerPut{Config: map[string]interface{}{
 		"core.proxy_http":         "http://test.local/http/proxy",
@@ -262,7 +264,7 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
-	s.PatchForProxyUpdate(c, cSvr, true)
+	s.PatchForProxyUpdate(c, cSvr)
 
 	s.PatchEnvironment("http_proxy", "http://test.local/http/proxy")
 	s.PatchEnvironment("https_proxy", "http://test.local/https/proxy")
@@ -287,7 +289,8 @@ func (s *InitialiserSuite) TestConfigureProxiesLXDNotRunning(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
-	s.PatchForProxyUpdate(c, cSvr, false)
+	s.isLXDRunningLocally = false
+	s.PatchForProxyUpdate(c, cSvr)
 
 	// No expected calls.
 	err := ConfigureLXDProxies(proxy.Settings{
@@ -573,7 +576,7 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridge(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
-	s.PatchForProxyUpdate(c, cSvr, true)
+	s.PatchForProxyUpdate(c, cSvr)
 
 	// The following nic is found, so we don't create a default nic and so
 	// don't update the profile with the nic.
@@ -620,7 +623,7 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridgeWithoutNicsCreatesANew
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
-	s.PatchForProxyUpdate(c, cSvr, true)
+	s.PatchForProxyUpdate(c, cSvr)
 
 	// If no nics are found in the profile, then the configureLXDBridge will
 	// create a default nic for you.

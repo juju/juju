@@ -213,6 +213,7 @@ func (s *MachineLegacyLeasesSuite) TestRunStop(c *gc.C) {
 }
 
 func (s *MachineLegacyLeasesSuite) TestDyingMachine(c *gc.C) {
+	c.Skip("https://bugs.launchpad.net/juju/+bug/1881979")
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	done := make(chan error)
