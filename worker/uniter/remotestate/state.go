@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/juju/charm/v7"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/names/v4"
 )
 
 type Waiter interface {
@@ -23,6 +23,7 @@ type Waiter interface {
 type UpdateStatusTimerFunc func(time.Duration) Waiter
 
 type State interface {
+	Charm(*charm.URL) (Charm, error)
 	Relation(names.RelationTag) (Relation, error)
 	StorageAttachment(names.StorageTag, names.UnitTag) (params.StorageAttachment, error)
 	StorageAttachmentLife([]params.StorageAttachmentId) ([]params.LifeResult, error)
@@ -35,6 +36,7 @@ type State interface {
 
 type Unit interface {
 	Life() life.Value
+	LXDProfileName() (string, error)
 	Refresh() error
 	ProviderID() string
 	Resolved() params.ResolvedMode
@@ -45,6 +47,7 @@ type Unit interface {
 	WatchConfigSettingsHash() (watcher.StringsWatcher, error)
 	WatchTrustConfigSettingsHash() (watcher.StringsWatcher, error)
 	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)
+	WatchInstanceData() (watcher.NotifyWatcher, error)
 	WatchStorage() (watcher.StringsWatcher, error)
 	WatchActionNotifications() (watcher.StringsWatcher, error)
 	// WatchRelation returns a watcher that fires when relations
@@ -80,6 +83,11 @@ type Relation interface {
 	UpdateSuspended(bool)
 }
 
+type Charm interface {
+	// LXDProfileRequired returns true if this charm has an lxdprofile.yaml
+	LXDProfileRequired() (bool, error)
+}
+
 func NewAPIState(st *uniter.State) State {
 	return apiState{st}
 }
@@ -108,6 +116,10 @@ func (st apiState) Relation(tag names.RelationTag) (Relation, error) {
 func (st apiState) Unit(tag names.UnitTag) (Unit, error) {
 	u, err := st.State.Unit(tag)
 	return apiUnit{u}, err
+}
+
+func (st apiState) Charm(charmURL *charm.URL) (Charm, error) {
+	return st.State.Charm(charmURL)
 }
 
 func (u apiUnit) Application() (Application, error) {
