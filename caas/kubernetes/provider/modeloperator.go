@@ -20,6 +20,38 @@ import (
 	"github.com/juju/juju/core/paths"
 )
 
+// ModelOperatorBroker defines a broker for Executing Kubernetes ensure
+// commands. This interfaces is scoped down to the exact components needed by
+// the ensure model operator routines.
+type ModelOperatorBroker interface {
+	// EnsureConfigMap ensures the supplied kubernetes config map exists in the
+	// targeted cluster. Error returned if this action is not able to be
+	// performed.
+	EnsureConfigMap(*core.ConfigMap) error
+
+	// EnsureDeployment ensures the supplied kubernetes deployment object exists
+	// in the targeted cluster. Error returned if this action is not able to be
+	// performed.
+	EnsureDeployment(*apps.Deployment) error
+
+	// EnsureService ensures the spplied kubernetes service object exists in the
+	// targeted cluster. Error returned if the action is not able to be
+	// performed.
+	EnsureService(*core.Service) error
+
+	// Namespace returns the current default namespace targeted by this broker.
+	Namespace() string
+}
+
+// modelOperatorBrokerBridge provides a pluggable struct of funcs to implement
+// the ModelOperatorBroker interface
+type modelOperatorBrokerBridge struct {
+	ensureConfigMap  func(*core.ConfigMap) error
+	ensureDeployment func(*apps.Deployment) error
+	ensureService    func(*core.Service) error
+	namespace        func() string
+}
+
 const (
 	labelModelOperator     = "juju-modeloperator"
 	modelOperatorPortLabel = "api"
@@ -29,24 +61,54 @@ var (
 	modelOperatorName = "modeloperator"
 )
 
-// EnsureModelOperator implements caas broker's interface. Function ensures that
-// a model operator for this broker's namespace exists within Kubernetes.
-func (k *kubernetesClient) EnsureModelOperator(
+// EnsureConfigMap implements ModelOperatorBroker
+func (m *modelOperatorBrokerBridge) EnsureConfigMap(c *core.ConfigMap) error {
+	if m.ensureConfigMap == nil {
+		return errors.New("ensure config map bridge not configured")
+	}
+	return m.ensureConfigMap(c)
+}
+
+// EnsureDeployment implements ModelOperatorBroker
+func (m *modelOperatorBrokerBridge) EnsureDeployment(d *apps.Deployment) error {
+	if m.ensureDeployment == nil {
+		return errors.New("ensure deployment bridge not configured")
+	}
+	return m.ensureDeployment(d)
+}
+
+// EnsureService implements ModelOperatorBroker
+func (m *modelOperatorBrokerBridge) EnsureService(s *core.Service) error {
+	if m.ensureService == nil {
+		return errors.New("ensure service bridge not configured")
+	}
+	return m.ensureService(s)
+}
+
+// Namespace implements ModelOperatorBroker
+func (m *modelOperatorBrokerBridge) Namespace() string {
+	if m.namespace == nil {
+		return ""
+	}
+	return m.namespace()
+}
+
+func ensureModelOperator(
 	modelUUID,
 	agentPath string,
 	config *caas.ModelOperatorConfig,
-) error {
+	broker ModelOperatorBroker) error {
+
 	operatorName := modelOperatorName
 	modelTag := names.NewModelTag(modelUUID)
 
 	configMap := modelOperatorConfigMap(
-		k.namespace,
+		broker.Namespace(),
 		operatorName,
 		map[string]string{},
 		config.AgentConf)
 
-	_, err := k.ensureConfigMap(configMap)
-	if err != nil {
+	if err := broker.EnsureConfigMap(configMap); err != nil {
 		return errors.Annotate(err, "ensuring model operator config map")
 	}
 
@@ -76,14 +138,14 @@ func (k *kubernetesClient) EnsureModelOperator(
 	}
 
 	service := modelOperatorService(
-		operatorName, k.namespace, map[string]string{}, config.Port)
-	if err := k.ensureK8sService(service); err != nil {
+		operatorName, broker.Namespace(), map[string]string{}, config.Port)
+	if err := broker.EnsureService(service); err != nil {
 		return errors.Annotate(err, "ensuring model operater service")
 	}
 
 	deployment, err := modelOperatorDeployment(
 		operatorName,
-		k.namespace,
+		broker.Namespace(),
 		map[string]string{},
 		config.OperatorImagePath,
 		config.Port,
@@ -94,7 +156,27 @@ func (k *kubernetesClient) EnsureModelOperator(
 		return errors.Annotate(err, "building juju model operator deployment")
 	}
 
-	return k.ensureDeployment(deployment)
+	return broker.EnsureDeployment(deployment)
+}
+
+// EnsureModelOperator implements caas broker's interface. Function ensures that
+// a model operator for this broker's namespace exists within Kubernetes.
+func (k *kubernetesClient) EnsureModelOperator(
+	modelUUID,
+	agentPath string,
+	config *caas.ModelOperatorConfig,
+) error {
+	bridge := &modelOperatorBrokerBridge{
+		ensureConfigMap: func(c *core.ConfigMap) error {
+			_, err := k.ensureConfigMap(c)
+			return err
+		},
+		ensureDeployment: k.ensureDeployment,
+		ensureService:    k.ensureK8sService,
+		namespace:        func() string { return k.namespace },
+	}
+
+	return ensureModelOperator(modelUUID, agentPath, config, bridge)
 }
 
 // ModelOperator return the model operator config used to create the current
