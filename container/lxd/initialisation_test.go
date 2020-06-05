@@ -13,34 +13,24 @@ import (
 	"os/exec"
 	"runtime"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/packaging/commands"
 	"github.com/juju/packaging/manager"
 	"github.com/juju/proxy"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	lxd "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/juju/container/lxd/mocks"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	coretesting "github.com/juju/juju/testing"
-	lxd "github.com/lxc/lxd/client"
 )
 
 type initialiserTestSuite struct {
 	coretesting.BaseSuite
 	testing.PatchExecHelper
-}
-
-func (s *initialiserTestSuite) PatchForProxyUpdate(c *gc.C, svr lxd.ContainerServer, lxdIsRunning bool) {
-	s.PatchValue(&ConnectLocal, func() (lxd.ContainerServer, error) {
-		return svr, nil
-	})
-
-	s.PatchValue(&IsRunningLocally, func() (bool, error) {
-		return lxdIsRunning, nil
-	})
 }
 
 // patchDF100GB ensures that df always returns 100GB.
@@ -98,7 +88,6 @@ func (s *InitialiserSuite) SetUpTest(c *gc.C) {
 	s.initialiserTestSuite.SetUpTest(c)
 	s.calledCmds = []string{}
 	s.PatchValue(&manager.RunCommandWithRetry, getMockRunCommandWithRetry(&s.calledCmds))
-	s.PatchValue(&configureLXDBridge, func() error { return nil })
 
 	nonRandomizedOctetRange := func() []int {
 		// chosen by fair dice roll
@@ -123,6 +112,17 @@ func getMockRunCommandWithRetry(calledCmds *[]string) func(string, func(string) 
 	}
 }
 
+func (s *initialiserTestSuite) containerInitialiser(svr lxd.ContainerServer, lxdIsRunning bool) *containerInitialiser {
+	result := NewContainerInitialiser(lxdSnapChannel).(*containerInitialiser)
+	result.configureLxdBridge = func() error { return nil }
+	result.configureLxdProxies = func(proxy.Settings, func() (bool, error), func() (*Server, error)) error { return nil }
+	result.newLocalServer = func() (*Server, error) { return NewServer(svr) }
+	result.isRunningLocally = func() (bool, error) {
+		return lxdIsRunning, nil
+	}
+	return result
+}
+
 func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
 	paccmder, err := commands.NewPackageCommander("trusty")
 	c.Assert(err, jc.ErrorIsNil)
@@ -130,7 +130,7 @@ func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
 	PatchLXDViaSnap(s, false)
 	PatchHostSeries(s, "trusty")
 
-	err = NewContainerInitialiser(lxdSnapChannel).Initialise()
+	err = s.containerInitialiser(nil, true).Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{
@@ -149,7 +149,7 @@ func (s *InitialiserSuite) TestSnapInstalledNoAptInstall(c *gc.C) {
 	mgr.EXPECT().InstalledChannel("lxd").Return("latest/stable")
 	PatchGetSnapManager(s, mgr)
 
-	err := NewContainerInitialiser(lxdSnapChannel).Initialise()
+	err := s.containerInitialiser(nil, true).Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{})
@@ -169,7 +169,7 @@ func (s *InitialiserSuite) TestSnapChannelMismatch(c *gc.C) {
 	)
 	PatchGetSnapManager(s, mgr)
 
-	err := NewContainerInitialiser(lxdSnapChannel).Initialise()
+	err := s.containerInitialiser(nil, true).Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -190,7 +190,7 @@ func (s *InitialiserSuite) TestSnapChannelPrefixMatch(c *gc.C) {
 	)
 	PatchGetSnapManager(s, mgr)
 
-	err := NewContainerInitialiser(lxdSnapChannel).Initialise()
+	err := s.containerInitialiser(nil, true).Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -205,7 +205,7 @@ func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
 	paccmder, err := commands.NewPackageCommander("xenial")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = NewContainerInitialiser(lxdSnapChannel).Initialise()
+	err = s.containerInitialiser(nil, true).Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{
@@ -220,7 +220,7 @@ func (s *InitialiserSuite) TestInstallViaSnap(c *gc.C) {
 
 	paccmder := commands.NewSnapPackageCommander()
 
-	err := NewContainerInitialiser(lxdSnapChannel).Initialise()
+	err := s.containerInitialiser(nil, true).Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{
@@ -232,8 +232,7 @@ func (s *InitialiserSuite) TestLXDInitBionic(c *gc.C) {
 	s.patchDF100GB()
 	PatchHostSeries(s, "bionic")
 
-	container := NewContainerInitialiser(lxdSnapChannel)
-	err := container.Initialise()
+	err := s.containerInitialiser(nil, true).Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	testing.AssertEchoArgs(c, "lxd", "init", "--auto")
@@ -243,8 +242,7 @@ func (s *InitialiserSuite) TestLXDInitTrusty(c *gc.C) {
 	s.patchDF100GB()
 	PatchHostSeries(s, "trusty")
 
-	container := NewContainerInitialiser(lxdSnapChannel)
-	err := container.Initialise()
+	err := s.containerInitialiser(nil, true).Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that our patched call has no recorded args.
@@ -258,12 +256,8 @@ func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
 	s.patchDF100GB()
 	PatchHostSeries(s, "trusty")
 
-	container := NewContainerInitialiser(lxdSnapChannel)
-	cont, ok := container.(*containerInitialiser)
-	if !ok {
-		c.Fatalf("Unexpected type of container initialized: %T", container)
-	}
-	cont.getExecCommand = s.PatchExecHelper.GetExecCommand(testing.PatchExecConfig{
+	ci := s.containerInitialiser(nil, true)
+	ci.getExecCommand = s.PatchExecHelper.GetExecCommand(testing.PatchExecConfig{
 		Stderr: `LXD init cannot be used at this time.
 However if all you want to do is reconfigure the network,
 you can still do so by running "sudo dpkg-reconfigure -p medium lxd"
@@ -273,31 +267,7 @@ error: You have existing containers or images. lxd init requires an empty LXD.`,
 	})
 
 	// the above error should be ignored by the code that calls lxd init.
-	err := container.Initialise()
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *InitialiserSuite) TestConfigureProxies(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cSvr := lxdtesting.NewMockContainerServer(ctrl)
-	s.PatchForProxyUpdate(c, cSvr, true)
-
-	updateReq := api.ServerPut{Config: map[string]interface{}{
-		"core.proxy_http":         "http://test.local/http/proxy",
-		"core.proxy_https":        "http://test.local/https/proxy",
-		"core.proxy_ignore_hosts": "test.local,localhost",
-	}}
-	gomock.InOrder(
-		cSvr.EXPECT().GetServer().Return(&api.Server{}, lxdtesting.ETag, nil).Times(2),
-		cSvr.EXPECT().UpdateServer(updateReq, lxdtesting.ETag).Return(nil),
-	)
-
-	err := ConfigureLXDProxies(proxy.Settings{
-		Http:    "http://test.local/http/proxy",
-		Https:   "http://test.local/https/proxy",
-		NoProxy: "test.local,localhost",
-	})
+	err := ci.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -311,7 +281,6 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
-	s.PatchForProxyUpdate(c, cSvr, true)
 
 	s.PatchEnvironment("http_proxy", "http://test.local/http/proxy")
 	s.PatchEnvironment("https_proxy", "http://test.local/https/proxy")
@@ -327,8 +296,9 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 		cSvr.EXPECT().UpdateServer(updateReq, lxdtesting.ETag).Return(nil),
 	)
 
-	container := NewContainerInitialiser(lxdSnapChannel)
-	err := container.Initialise()
+	ci := s.containerInitialiser(cSvr, true)
+	ci.configureLxdProxies = internalConfigureLXDProxies
+	err := ci.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -336,14 +306,14 @@ func (s *InitialiserSuite) TestConfigureProxiesLXDNotRunning(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
-	s.PatchForProxyUpdate(c, cSvr, false)
+
+	s.PatchEnvironment("http_proxy", "http://test.local/http/proxy")
+	s.PatchEnvironment("https_proxy", "http://test.local/https/proxy")
+	s.PatchEnvironment("no_proxy", "test.local,localhost")
 
 	// No expected calls.
-	err := ConfigureLXDProxies(proxy.Settings{
-		Http:    "http://test.local/http/proxy",
-		Https:   "http://test.local/https/proxy",
-		NoProxy: "test.local,localhost",
-	})
+	ci := s.containerInitialiser(cSvr, false)
+	err := ci.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -622,7 +592,6 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridge(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
-	s.PatchForProxyUpdate(c, cSvr, true)
 
 	mgr := mocks.NewMockSnapManager(ctrl)
 	mgr.EXPECT().InstalledChannel("lxd").Return("latest/stable")
@@ -654,12 +623,11 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridge(c *gc.C) {
 		}, lxdtesting.ETag, nil),
 		cSvr.EXPECT().GetProfile(lxdDefaultProfileName).Return(profile, "", nil),
 		cSvr.EXPECT().GetNetwork("lxdbr1").Return(network, "", nil),
-		cSvr.EXPECT().GetServer().Return(&api.Server{}, lxdtesting.ETag, nil).Times(2),
-		cSvr.EXPECT().UpdateServer(gomock.Any(), lxdtesting.ETag).Return(nil),
 	)
 
-	container := NewContainerInitialiser(lxdSnapChannel)
-	err := container.Initialise()
+	ci := s.containerInitialiser(cSvr, true)
+	ci.configureLxdBridge = ci.internalConfigureLXDBridge
+	err := ci.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	testing.AssertEchoArgs(c, "lxd", "init", "--auto")
@@ -673,7 +641,6 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridgeWithoutNicsCreatesANew
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
-	s.PatchForProxyUpdate(c, cSvr, true)
 
 	mgr := mocks.NewMockSnapManager(ctrl)
 	mgr.EXPECT().InstalledChannel("lxd").Return("latest/stable")
@@ -712,12 +679,11 @@ func (s *ConfigureInitialiserSuite) TestConfigureLXDBridgeWithoutNicsCreatesANew
 		// Because no nic was found, we create the nic info and then update the
 		// update profile with that nic information.
 		cSvr.EXPECT().UpdateProfile(lxdDefaultProfileName, updatedProfile, gomock.Any()).Return(nil),
-		cSvr.EXPECT().GetServer().Return(&api.Server{}, lxdtesting.ETag, nil).Times(2),
-		cSvr.EXPECT().UpdateServer(gomock.Any(), lxdtesting.ETag).Return(nil),
 	)
 
-	container := NewContainerInitialiser(lxdSnapChannel)
-	err := container.Initialise()
+	ci := s.containerInitialiser(cSvr, true)
+	ci.configureLxdBridge = ci.internalConfigureLXDBridge
+	err := ci.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	testing.AssertEchoArgs(c, "lxd", "init", "--auto")

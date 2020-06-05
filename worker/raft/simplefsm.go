@@ -46,15 +46,15 @@ func (fsm *SimpleFSM) Snapshot() (raft.FSMSnapshot, error) {
 
 // Restore is part of the raft.FSM interface.
 func (fsm *SimpleFSM) Restore(rc io.ReadCloser) error {
-	defer rc.Close()
 	var logs [][]byte
 	if err := gob.NewDecoder(rc).Decode(&logs); err != nil {
+		_ = rc.Close()
 		return err
 	}
 	fsm.mu.Lock()
 	fsm.logs = logs
 	fsm.mu.Unlock()
-	return nil
+	return rc.Close()
 }
 
 // SimpleSnapshot is an implementation of raft.FSMSnapshot, returned
@@ -70,8 +70,7 @@ func (snap *SimpleSnapshot) Persist(sink raft.SnapshotSink) error {
 		sink.Cancel()
 		return err
 	}
-	sink.Close()
-	return nil
+	return sink.Close()
 }
 
 // Release is part of the raft.FSMSnapshot interface.

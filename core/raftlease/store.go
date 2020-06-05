@@ -239,7 +239,7 @@ func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
 		},
 	)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "running %s", command)
 	}
 	defer unsubscribe()
 
@@ -254,7 +254,7 @@ func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
 	})
 	if err != nil {
 		s.record(command.Operation, "error", start)
-		return errors.Trace(err)
+		return errors.Annotatef(err, "publishing %s", command)
 	}
 
 	select {
@@ -262,19 +262,20 @@ func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
 		// TODO (thumper) 2019-12-20, bug 1857072
 		// Scale testing hit this a *lot*,
 		// perhaps we need to consider batching messages to run on the leader?
-		logger.Infof("timeout")
+		logger.Errorf("timeout waiting for %s to be processed", command)
 		s.record(command.Operation, "timeout", start)
 		return lease.ErrTimeout
 	case err := <-errChan:
-		logger.Errorf("%v", err)
+		logger.Errorf("processing %s: %v", command, err)
 		s.record(command.Operation, "error", start)
 		return errors.Trace(err)
 	case response := <-responseChan:
 		err := RecoverError(response.Error)
 		logger.Tracef("got response, err %v", err)
-		result := "failure"
-		if err == nil {
-			result = "success"
+		result := "success"
+		if err != nil {
+			logger.Errorf("command %s: %v", command, err)
+			result = "failure"
 		}
 		s.record(command.Operation, result, start)
 		return err

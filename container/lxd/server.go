@@ -63,7 +63,7 @@ func MaybeNewLocalServer() (*Server, error) {
 
 // NewLocalServer returns a Server based on a local socket connection.
 func NewLocalServer() (*Server, error) {
-	cSvr, err := ConnectLocal()
+	cSvr, err := connectLocal()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
