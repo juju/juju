@@ -102,9 +102,10 @@ func NewMockUnitHookContext(mockUnit *mocks.MockHookUnit) *HookContext {
 
 func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter.State) *HookContext {
 	return &HookContext{
-		unit:   mockUnit,
-		state:  state,
-		logger: loggo.GetLogger("test"),
+		unitName: mockUnit.Tag().Id(), //unitName used by the action finaliser method.
+		unit:     mockUnit,
+		state:    state,
+		logger:   loggo.GetLogger("test"),
 	}
 }
 

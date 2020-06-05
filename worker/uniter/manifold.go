@@ -20,8 +20,10 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/common/reboot"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 // Logger represents the methods used for logging messages.
@@ -130,6 +132,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UpdateStatusSignal:    NewUpdateStatusTimer(),
 				HookRetryStrategy:     hookRetryStrategy,
 				NewOperationExecutor:  operation.NewExecutor,
+				NewDeployer:           charm.NewDeployer,
+				NewProcessRunner:      runner.NewRunner,
 				TranslateResolverErr:  config.TranslateResolverErr,
 				Clock:                 manifoldConfig.Clock,
 				RebootQuerier:         reboot.NewMonitor(agentConfig.TransientDataDir()),

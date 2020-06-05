@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,19 +17,17 @@ import (
 
 	corecharm "github.com/juju/charm/v7"
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mutex"
 	"github.com/juju/names/v4"
-	"github.com/juju/proxy"
 	gt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
-	utilexec "github.com/juju/utils/exec"
 	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
-	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"
@@ -40,7 +37,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
@@ -50,8 +46,11 @@ import (
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/worker/uniter/runner"
+	runnercontext "github.com/juju/juju/worker/uniter/runner/context"
 )
 
 var (
@@ -110,6 +109,8 @@ type context struct {
 	wg             sync.WaitGroup
 	mu             sync.Mutex
 	hooksCompleted []string
+	runner         *mockRunner
+	deployer       *mockDeployer
 }
 
 var _ uniter.UniterExecutionObserver = (*context)(nil)
@@ -178,66 +179,6 @@ func (ctx *context) apiLogin(c *gc.C) {
 	ctx.leaderTracker.setLeader(c, true)
 }
 
-func (ctx *context) writeExplicitHook(c *gc.C, path string, contents string) {
-	err := ioutil.WriteFile(path+cmdSuffix, []byte(contents), 0755)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (ctx *context) writeHook(c *gc.C, path string, good bool) {
-	hook := badHook
-	if good {
-		hook = goodHook
-	}
-	content := fmt.Sprintf(hook, filepath.Base(path))
-	ctx.writeExplicitHook(c, path, content)
-}
-
-func (ctx *context) writeAction(c *gc.C, path, name string) {
-	actionPath := filepath.Join(path, "actions", name)
-	action := actions[name]
-	err := ioutil.WriteFile(actionPath+cmdSuffix, []byte(action), 0755)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (ctx *context) writeActionsYaml(c *gc.C, path string, names ...string) {
-	var actionsYaml = map[string]string{
-		"base": "",
-		"snapshot": `
-snapshot:
-   description: Take a snapshot of the database.
-   params:
-      outfile:
-         description: "The file to write out to."
-         type: string
-   required: ["outfile"]
-`[1:],
-		"action-log": `
-action-log:
-`[1:],
-		"action-log-fail": `
-action-log-fail:
-`[1:],
-		"action-log-fail-error": `
-action-log-fail-error:
-`[1:],
-		"action-reboot": `
-action-reboot:
-`[1:],
-	}
-	actionsYamlPath := filepath.Join(path, "actions.yaml")
-	var actionsYamlFull string
-	// Build an appropriate actions.yaml
-	if names[0] != "base" {
-		names = append([]string{"base"}, names...)
-	}
-	for _, name := range names {
-		actionsYamlFull = strings.Join(
-			[]string{actionsYamlFull, actionsYaml[name]}, "\n")
-	}
-	err := ioutil.WriteFile(actionsYamlPath, []byte(actionsYamlFull), 0755)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (ctx *context) matchHooks(c *gc.C) (match, cannotMatch, overshoot bool) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
@@ -300,20 +241,6 @@ type createCharm struct {
 	customize func(*gc.C, *context, string)
 }
 
-var (
-	baseCharmHooks = []string{
-		"install", "start", "config-changed", "upgrade-charm", "stop",
-		"db-relation-joined", "db-relation-changed", "db-relation-departed",
-		"db-relation-broken", "meter-status-changed", "collect-metrics", "update-status",
-	}
-	leaderCharmHooks = []string{
-		"leader-elected", "leader-deposed", "leader-settings-changed",
-	}
-	storageCharmHooks = []string{
-		"wp-content-storage-attached", "wp-content-storage-detaching",
-	}
-)
-
 func startupHooks(minion bool) []string {
 	leaderHook := "leader-elected"
 	if minion {
@@ -324,23 +251,11 @@ func startupHooks(minion bool) []string {
 
 func (s createCharm) step(c *gc.C, ctx *context) {
 	base := testcharms.Repo.ClonedDirPath(c.MkDir(), "wordpress")
-
-	allCharmHooks := baseCharmHooks
-	allCharmHooks = append(allCharmHooks, leaderCharmHooks...)
-	allCharmHooks = append(allCharmHooks, storageCharmHooks...)
-
-	for _, name := range allCharmHooks {
-		path := filepath.Join(base, "hooks", name)
-		good := true
-		for _, bad := range s.badHooks {
-			if name == bad {
-				good = false
-			}
-		}
-		ctx.writeHook(c, path, good)
-	}
 	if s.customize != nil {
 		s.customize(c, ctx, base)
+	}
+	if len(s.badHooks) > 0 {
+		ctx.runner.hooksWithErrors = set.NewStrings(s.badHooks...)
 	}
 	dir, err := corecharm.ReadCharmDir(base)
 	c.Assert(err, jc.ErrorIsNil)
@@ -484,6 +399,12 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	if ctx.api == nil {
 		panic("API connection not established")
 	}
+	if ctx.runner == nil {
+		panic("process runner not set up")
+	}
+	if ctx.runner == nil {
+		panic("deployer not set up")
+	}
 	if s.rebootQuerier == nil {
 		s.rebootQuerier = fakeRebootQuerier{}
 	}
@@ -510,6 +431,16 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		MachineLock:          processLock,
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer(),
 		NewOperationExecutor: operationExecutor,
+		NewProcessRunner: func(context runner.Context, paths runnercontext.Paths, remoteExecutor runner.ExecFunc) runner.Runner {
+			ctx.runner.ctx = context
+			return ctx.runner
+		},
+		NewDeployer: func(charmPath, dataPath string, bundles charm.BundleReader, logger charm.Logger) (charm.Deployer, error) {
+			ctx.deployer.charmPath = charmPath
+			ctx.deployer.dataPath = dataPath
+			ctx.deployer.bundles = bundles
+			return ctx.deployer, nil
+		},
 		TranslateResolverErr: s.translateResolverErr,
 		Observer:             ctx,
 		// TODO(axw) 2015-11-02 #1512191
@@ -615,33 +546,6 @@ func (s verifyRunning) step(c *gc.C, ctx *context) {
 	step(c, ctx, waitHooks(hooks))
 }
 
-type startupErrorWithCustomCharm struct {
-	badHook   string
-	customize func(*gc.C, *context, string)
-}
-
-func (s startupErrorWithCustomCharm) step(c *gc.C, ctx *context) {
-	step(c, ctx, createCharm{
-		badHooks:  []string{s.badHook},
-		customize: s.customize,
-	})
-	step(c, ctx, serveCharm{})
-	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnitAgent{
-		statusGetter: unitStatusGetter,
-		status:       status.Error,
-		info:         fmt.Sprintf(`hook failed: %q`, s.badHook),
-	})
-	for _, hook := range startupHooks(false) {
-		if hook == s.badHook {
-			step(c, ctx, waitHooks{"fail-" + hook})
-			break
-		}
-		step(c, ctx, waitHooks{hook})
-	}
-	step(c, ctx, verifyCharm{})
-}
-
 type startupError struct {
 	badHook string
 }
@@ -665,28 +569,11 @@ func (s startupError) step(c *gc.C, ctx *context) {
 	step(c, ctx, verifyCharm{})
 }
 
-type createDownloads struct{}
+type verifyDeployed struct{}
 
-func (s createDownloads) step(c *gc.C, ctx *context) {
-	dir := downloadDir(ctx)
-	c.Assert(os.MkdirAll(dir, 0775), jc.ErrorIsNil)
-	c.Assert(
-		ioutil.WriteFile(filepath.Join(dir, "foo"), []byte("bar"), 0775),
-		jc.ErrorIsNil,
-	)
-}
-
-type verifyDownloadsCleared struct{}
-
-func (s verifyDownloadsCleared) step(c *gc.C, ctx *context) {
-	files, err := ioutil.ReadDir(downloadDir(ctx))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(files, gc.HasLen, 0)
-}
-
-func downloadDir(ctx *context) string {
-	paths := uniter.NewPaths(ctx.dataDir, ctx.unit.UnitTag(), nil)
-	return filepath.Join(paths.State.BundlesDir, "downloads")
+func (s verifyDeployed) step(c *gc.C, ctx *context) {
+	c.Assert(ctx.deployer.curl, jc.DeepEquals, curl(0))
+	c.Assert(ctx.deployer.deployed, jc.IsTrue)
 }
 
 type quickStart struct {
@@ -737,8 +624,6 @@ func (s resolveError) step(c *gc.C, ctx *context) {
 }
 
 type statusfunc func() (status.StatusInfo, error)
-
-type statusfuncGetter func(ctx *context) statusfunc
 
 var unitStatusGetter = func(ctx *context) statusfunc {
 	return func() (status.StatusInfo, error) {
@@ -877,57 +762,32 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 	}
 }
 
-type actionResult struct {
-	name    string
-	results map[string]interface{}
-	status  string
-	message string
+type actionData struct {
+	actionName string
+	args       []string
 }
 
-type waitActionResults struct {
-	expectedResults []actionResult
+type waitActionInvocation struct {
+	expectedActions []actionData
 }
 
-func (s waitActionResults) step(c *gc.C, ctx *context) {
-	m, err := ctx.st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	resultsWatcher := m.WatchActionResults()
-	defer func() {
-		c.Assert(resultsWatcher.Stop(), gc.IsNil)
-	}()
+func (s waitActionInvocation) step(c *gc.C, ctx *context) {
 	timeout := time.After(worstCase)
 	for {
-		ctx.s.BackingState.StartSync()
 		select {
 		case <-time.After(coretesting.ShortWait):
-			continue
-		case <-timeout:
-			c.Fatalf("timed out waiting for action results")
-		case changes, ok := <-resultsWatcher.Changes():
-			c.Logf("Got changes: %#v", changes)
-			c.Assert(ok, jc.IsTrue)
-			stateActionResults, err := ctx.unit.CompletedActions()
-			c.Assert(err, jc.ErrorIsNil)
-			if len(stateActionResults) != len(s.expectedResults) {
+			if len(ctx.runner.ranActions) != len(s.expectedActions) {
 				continue
 			}
-			actualResults := make([]actionResult, len(stateActionResults))
-			for i, result := range stateActionResults {
-				results, message := result.Results()
-				actualResults[i] = actionResult{
-					name:    result.Name(),
-					results: results,
-					status:  string(result.Status()),
-					message: message,
-				}
-			}
-			assertActionResultsMatch(c, actualResults, s.expectedResults)
+			assertActionsMatch(c, ctx.runner.ranActions, s.expectedActions)
 			return
+		case <-timeout:
+			c.Fatalf("timed out waiting for action invocation")
 		}
 	}
 }
 
-func assertActionResultsMatch(c *gc.C, actualIn []actionResult, expectIn []actionResult) {
+func assertActionsMatch(c *gc.C, actualIn []actionData, expectIn []actionData) {
 	matches := 0
 	desiredMatches := len(actualIn)
 	c.Assert(len(actualIn), gc.Equals, len(expectIn))
@@ -946,36 +806,17 @@ findMatch:
 		// if we finish the whole thing without finding a match, we failed.
 		c.Assert(actualIn, jc.DeepEquals, expectIn)
 	}
-
 	c.Assert(matches, gc.Equals, desiredMatches)
-}
-
-type verifyNoActionResults struct{}
-
-func (s verifyNoActionResults) step(c *gc.C, ctx *context) {
-	time.Sleep(coretesting.ShortWait)
-	result, err := ctx.unit.CompletedActions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.HasLen, 0)
 }
 
 type fixHook struct {
 	name string
 }
 
-func (s fixHook) step(c *gc.C, ctx *context) {
-	path := filepath.Join(ctx.path, "charm", "hooks", s.name)
-	ctx.writeHook(c, path, true)
-}
-
-type changeMeterStatus struct {
-	code string
-	info string
-}
-
-func (s changeMeterStatus) step(c *gc.C, ctx *context) {
-	err := ctx.unit.SetMeterStatus(s.code, s.info)
-	c.Assert(err, jc.ErrorIsNil)
+func (s fixHook) step(_ *gc.C, ctx *context) {
+	if ctx.runner.hooksWithErrors != nil {
+		ctx.runner.hooksWithErrors.Remove(s.name)
+	}
 }
 
 type updateStatusHookTick struct{}
@@ -1068,11 +909,7 @@ type startUpgradeError struct{}
 
 func (s startUpgradeError) step(c *gc.C, ctx *context) {
 	steps := []stepper{
-		createCharm{
-			customize: func(c *gc.C, ctx *context, path string) {
-				appendHook(c, path, "start", "chmod 555 $CHARM_DIR")
-			},
-		},
+		createCharm{},
 		serveCharm{},
 		createUniter{},
 		waitUnitAgent{
@@ -1081,7 +918,12 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		waitHooks(startupHooks(false)),
 		verifyCharm{},
 
-		createCharm{revision: 1},
+		createCharm{
+			revision: 1,
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.deployer.err = charm.ErrConflict
+			},
+		},
 		serveCharm{},
 		upgradeCharm{revision: 1},
 		waitUnitAgent{
@@ -1139,10 +981,8 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 
 type fixUpgradeError struct{}
 
-func (s fixUpgradeError) step(c *gc.C, ctx *context) {
-	charmPath := filepath.Join(ctx.path, "charm")
-	err := os.Chmod(charmPath, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+func (s fixUpgradeError) step(_ *gc.C, ctx *context) {
+	ctx.deployer.err = nil
 }
 
 type addRelation struct {
@@ -1161,6 +1001,7 @@ func (s addRelation) step(c *gc.C, ctx *context) {
 	ctx.relation, err = ctx.st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.relationUnits = map[string]*state.RelationUnit{}
+	step(c, ctx, waitHooks{"db-relation-created mysql db:0"})
 	if !s.waitJoin {
 		return
 	}
@@ -1322,20 +1163,6 @@ func (removeSubordinate) step(c *gc.C, ctx *context) {
 	ctx.subordinate = nil
 }
 
-type assertYaml struct {
-	path   string
-	expect map[string]interface{}
-}
-
-func (s assertYaml) step(c *gc.C, ctx *context) {
-	data, err := ioutil.ReadFile(filepath.Join(ctx.path, s.path))
-	c.Assert(err, jc.ErrorIsNil)
-	actual := make(map[string]interface{})
-	err = goyaml.Unmarshal(data, &actual)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, gc.DeepEquals, s.expect)
-}
-
 type writeFile struct {
 	path string
 	mode os.FileMode
@@ -1347,17 +1174,6 @@ func (s writeFile) step(c *gc.C, ctx *context) {
 	err := os.MkdirAll(dir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(path, nil, s.mode)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-type chmod struct {
-	path string
-	mode os.FileMode
-}
-
-func (s chmod) step(c *gc.C, ctx *context) {
-	path := filepath.Join(ctx.path, s.path)
-	err := os.Chmod(path, s.mode)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1387,47 +1203,6 @@ var subordinateDying = custom{func(c *gc.C, ctx *context) {
 
 func curl(revision int) *corecharm.URL {
 	return corecharm.MustParseURL("cs:quantal/wordpress").WithRevision(revision)
-}
-
-func appendHook(c *gc.C, charm, name, data string) {
-	path := filepath.Join(charm, "hooks", name+cmdSuffix)
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
-	_, err = f.Write([]byte(data))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func renameRelation(c *gc.C, charmPath, oldName, newName string) {
-	path := filepath.Join(charmPath, "metadata.yaml")
-	f, err := os.Open(path)
-	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
-	meta, err := corecharm.ReadMeta(f)
-	c.Assert(err, jc.ErrorIsNil)
-
-	replace := func(what map[string]corecharm.Relation) bool {
-		for relName, relation := range what {
-			if relName == oldName {
-				what[newName] = relation
-				delete(what, oldName)
-				return true
-			}
-		}
-		return false
-	}
-	replaced := replace(meta.Provides) || replace(meta.Requires) || replace(meta.Peers)
-	c.Assert(replaced, gc.Equals, true, gc.Commentf("charm %q does not implement relation %q", charmPath, oldName))
-
-	newmeta, err := goyaml.Marshal(meta)
-	c.Assert(err, jc.ErrorIsNil)
-	ioutil.WriteFile(path, newmeta, 0644)
-
-	f, err = os.Open(path)
-	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
-	_, err = corecharm.ReadMeta(f)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 type hookLock struct {
@@ -1462,39 +1237,6 @@ func (h *hookLock) release() *hookStep {
 	}}
 }
 
-type setProxySettings proxy.Settings
-
-func (s setProxySettings) step(c *gc.C, ctx *context) {
-	attrs := map[string]interface{}{
-		"http-proxy":  s.Http,
-		"https-proxy": s.Https,
-		"ftp-proxy":   s.Ftp,
-		"no-proxy":    s.NoProxy,
-	}
-	m, err := ctx.st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = m.UpdateModelConfig(attrs, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-type relationRunCommands []string
-
-func (cmds relationRunCommands) step(c *gc.C, ctx *context) {
-	commands := strings.Join(cmds, "\n")
-	args := uniter.RunCommandsArgs{
-		Commands:       commands,
-		RelationId:     0,
-		RemoteUnitName: "",
-		// RemoteApplicationName: ""
-		UnitName: "u/0",
-	}
-	result, err := ctx.uniter.RunCommands(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Code, gc.Equals, 0)
-	c.Check(string(result.Stdout), gc.Equals, "")
-	c.Check(string(result.Stderr), gc.Equals, "")
-}
-
 type runCommands []string
 
 func (cmds runCommands) step(c *gc.C, ctx *context) {
@@ -1508,53 +1250,8 @@ func (cmds runCommands) step(c *gc.C, ctx *context) {
 	result, err := ctx.uniter.RunCommands(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Code, gc.Equals, 0)
-	c.Check(string(result.Stdout), gc.Equals, "")
+	c.Check(string(result.Stdout), gc.Equals, "test on workload")
 	c.Check(string(result.Stderr), gc.Equals, "")
-}
-
-type asyncRunCommands []string
-
-func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
-	commands := strings.Join(cmds, "\n")
-	args := uniter.RunCommandsArgs{
-		Commands:       commands,
-		RelationId:     -1,
-		RemoteUnitName: "",
-		UnitName:       "u/0",
-	}
-
-	var socketPath string
-	if runtime.GOOS == "windows" {
-		socketPath = `\\.\pipe\unit-u-0-run`
-	} else {
-		socketPath = filepath.Join(ctx.path, "run.socket")
-	}
-
-	ctx.wg.Add(1)
-	go func() {
-		defer ctx.wg.Done()
-		// make sure the socket exists
-		client, err := sockets.Dial(sockets.Socket{Network: "unix", Address: socketPath})
-		// Don't use asserts in go routines.
-		if !c.Check(err, jc.ErrorIsNil) {
-			return
-		}
-		defer client.Close()
-
-		var result utilexec.ExecResponse
-		err = client.Call(uniter.JujuRunEndpoint, args, &result)
-		if c.Check(err, jc.ErrorIsNil) {
-			c.Check(result.Code, gc.Equals, 0)
-			c.Check(string(result.Stdout), gc.Equals, "")
-			c.Check(string(result.Stderr), gc.Equals, "")
-		}
-	}()
-}
-
-type waitContextWaitGroup struct{}
-
-func (waitContextWaitGroup) step(c *gc.C, ctx *context) {
-	ctx.wg.Wait()
 }
 
 type forceMinion struct{}
@@ -1697,62 +1394,6 @@ func (successToken) Check(int, interface{}) error {
 	return nil
 }
 
-type verifyLeaderSettings map[string]string
-
-func (verify verifyLeaderSettings) step(c *gc.C, ctx *context) {
-	actual, err := ctx.application.LeaderSettings()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, jc.DeepEquals, map[string]string(verify))
-}
-
-type verifyFile struct {
-	filename string
-	content  string
-}
-
-func (verify verifyFile) fileExists() bool {
-	_, err := os.Stat(verify.filename)
-	return err == nil
-}
-
-func (verify verifyFile) checkContent(c *gc.C) {
-	content, err := ioutil.ReadFile(verify.filename)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(content), gc.Equals, verify.content)
-}
-
-func (verify verifyFile) step(c *gc.C, ctx *context) {
-	if verify.fileExists() {
-		verify.checkContent(c)
-		return
-	}
-	c.Logf("waiting for file: %s", verify.filename)
-	timeout := time.After(worstCase)
-	for {
-		select {
-		case <-time.After(coretesting.ShortWait):
-			if verify.fileExists() {
-				verify.checkContent(c)
-				return
-			}
-		case <-timeout:
-			c.Fatalf("file does not exist")
-		}
-	}
-}
-
-// verify that the file does not exist
-type verifyNoFile struct {
-	filename string
-}
-
-func (verify verifyNoFile) step(c *gc.C, ctx *context) {
-	c.Assert(verify.filename, jc.DoesNotExist)
-	// Wait a short time and check again.
-	time.Sleep(coretesting.ShortWait)
-	c.Assert(verify.filename, jc.DoesNotExist)
-}
-
 type mockCharmDirGuard struct{}
 
 // Unlock implements fortress.Guard.
@@ -1825,7 +1466,7 @@ type expectError struct {
 	err string
 }
 
-func (s expectError) step(c *gc.C, ctx *context) {
+func (s expectError) step(_ *gc.C, ctx *context) {
 	ctx.setExpectedError(s.err)
 }
 
@@ -1878,15 +1519,13 @@ func init() {
 }
 
 type fakemachinelock struct {
+	machinelock.Lock
 	mu sync.Mutex
 }
 
-func (f *fakemachinelock) Acquire(spec machinelock.Spec) (func(), error) {
+func (f *fakemachinelock) Acquire(_ machinelock.Spec) (func(), error) {
 	f.mu.Lock()
 	return func() {
 		f.mu.Unlock()
 	}, nil
-}
-func (f *fakemachinelock) Report(opts ...machinelock.ReportOption) (string, error) {
-	return "", nil
 }
