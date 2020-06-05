@@ -450,7 +450,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			StartRetryHookTimer: retryHookTimer.Start,
 			StopRetryHookTimer:  retryHookTimer.Reset,
 			Actions: actions.NewResolver(
-				u.logger.Child("expectedActions"),
+				u.logger.Child("actions"),
 			),
 			UpgradeSeries: upgradeseries.NewResolver(),
 			Leadership: uniterleadership.NewResolver(

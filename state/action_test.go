@@ -1275,7 +1275,7 @@ func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
 	w2 := s.State.WatchActionLogs(fa1.Id())
 	defer statetesting.AssertStop(c, w)
 	wc2 := statetesting.NewStringsWatcherC(c, s.State, w2)
-	// make sure the previously pending actions are sent on the watcher
+	// Make sure the previously pending actions are sent on the watcher.
 	expected = []actions.ActionMessage{{
 		Timestamp: startNow,
 		Message:   "first",
@@ -1299,7 +1299,7 @@ func (s *ActionSuite) TestWatchActionResults(c *gc.C) {
 
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	// queue some actions before starting the watcher
+	// Queue some actions before starting the watcher.
 	fa1, err := s.unit.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	fa1, err = fa1.Begin()
@@ -1321,7 +1321,7 @@ func (s *ActionSuite) TestWatchFilteredActionResults(c *gc.C) {
 
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	// queue some actions before starting the watcher
+	// Queue some actions before starting the watcher.
 	fa1, err := s.unit.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	fa1, err = fa1.Begin()

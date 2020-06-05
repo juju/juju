@@ -31,9 +31,8 @@ import (
 
 type UniterSuite struct {
 	testing.JujuConnSuite
-	dataDir  string
-	oldLcAll string
-	unitDir  string
+	dataDir string
+	unitDir string
 
 	updateStatusHookTicker *manualTicker
 	runner                 *mockRunner
@@ -54,18 +53,10 @@ func (s *UniterSuite) SetUpSuite(c *gc.C) {
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.oldLcAll = os.Getenv("LC_ALL")
-	err = os.Setenv("LC_ALL", "en_US")
-	c.Assert(err, jc.ErrorIsNil)
+	s.PatchEnvironment("LC_ALL", "en_US")
 	s.unitDir = filepath.Join(s.dataDir, "agents", "unit-u-0")
 	err = all.RegisterForServer()
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *UniterSuite) TearDownSuite(c *gc.C) {
-	err := os.Setenv("LC_ALL", s.oldLcAll)
-	c.Assert(err, jc.ErrorIsNil)
-	s.JujuConnSuite.TearDownSuite(c)
 }
 
 func (s *UniterSuite) SetUpTest(c *gc.C) {
