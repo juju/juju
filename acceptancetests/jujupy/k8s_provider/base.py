@@ -27,6 +27,7 @@ import subprocess
 from contextlib import contextmanager
 from enum import Enum
 from pprint import pformat
+from shlex import quote
 from time import sleep
 
 from jujupy.client import temp_bootstrap_env
@@ -211,13 +212,14 @@ class Base(object):
         cm['data'] = data
         self.kubectl_apply(json.dumps(cm))
 
-    def sh(self, *args):
-        args = [str(arg) for arg in args]
+    def sh(self, *args, shell=False):
+        args = [quote(str(arg)) if shell else str(arg) for arg in args]
         logger.debug('sh -> %s', ' '.join(args))
         return subprocess.check_output(
             # cmd should be a list of str.
             args,
             stderr=subprocess.STDOUT,
+            shell=shell,
         ).decode('UTF-8').strip()
 
     def _ensure_kubectl_bin(self):
