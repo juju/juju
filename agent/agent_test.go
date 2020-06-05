@@ -376,15 +376,16 @@ var attributeParams = agent.AgentConfigParams{
 	Paths: agent.Paths{
 		DataDir: "/data/dir",
 	},
-	Tag:               names.NewMachineTag("1"),
-	UpgradedToVersion: jujuversion.Current,
-	Password:          "sekrit",
-	CACert:            "ca cert",
-	APIAddresses:      []string{"localhost:1235"},
-	Nonce:             "a nonce",
-	Controller:        testing.ControllerTag,
-	Model:             testing.ModelTag,
-	JujuDBSnapChannel: "4.0/stable",
+	Tag:                      names.NewMachineTag("1"),
+	UpgradedToVersion:        jujuversion.Current,
+	Password:                 "sekrit",
+	CACert:                   "ca cert",
+	APIAddresses:             []string{"localhost:1235"},
+	Nonce:                    "a nonce",
+	Controller:               testing.ControllerTag,
+	Model:                    testing.ModelTag,
+	JujuDBSnapChannel:        "4.0/stable",
+	NonSyncedWritesToRaftLog: false,
 }
 
 func (*suite) TestAttributes(c *gc.C) {
@@ -399,6 +400,7 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
 	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, jujuversion.Current)
 	c.Assert(conf.JujuDBSnapChannel(), gc.Equals, "4.0/stable")
+	c.Assert(conf.NonSyncedWritesToRaftLog(), jc.IsFalse)
 }
 
 func (*suite) TestStateServingInfo(c *gc.C) {
@@ -661,4 +663,16 @@ func (*suite) TestSetMongoChannel(c *gc.C) {
 	conf.SetJujuDBSnapChannel("latest/candidate")
 	snapChannel = conf.JujuDBSnapChannel()
 	c.Assert(snapChannel, gc.Equals, "latest/candidate", gc.Commentf("mongo snap channel setting not updated"))
+}
+
+func (*suite) TestSetSyncWritesToRaftLog(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, jc.ErrorIsNil)
+
+	nonSyncedWritesToRaftLog := conf.NonSyncedWritesToRaftLog()
+	c.Assert(nonSyncedWritesToRaftLog, jc.IsFalse)
+
+	conf.SetNonSyncedWritesToRaftLog(true)
+	nonSyncedWritesToRaftLog = conf.NonSyncedWritesToRaftLog()
+	c.Assert(nonSyncedWritesToRaftLog, jc.IsTrue, gc.Commentf("sync writes to raft log settings not updated"))
 }

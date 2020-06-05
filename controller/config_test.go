@@ -333,6 +333,12 @@ var newConfigTests = []struct {
 		controller.MaxAgentStateSize: "3000000",
 	},
 	expectError: `invalid max charm/agent state sizes: combined value should not exceed mongo's 16M per-document limit, got 17000000`,
+}, {
+	about: "invalid non-synced-writes-to-raft-log - string",
+	config: controller.Config{
+		controller.NonSyncedWritesToRaftLog: "I live dangerously",
+	},
+	expectError: `non-synced-writes-to-raft-log: expected bool, got string\("I live dangerously"\)`,
 }, {}}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {
