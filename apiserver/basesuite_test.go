@@ -6,6 +6,7 @@ package apiserver_test
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
@@ -38,6 +39,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 
 	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
+		Clock:                clock.WallClock,
 		Logger:               loggo.GetLogger("test"),
 		Backing:              state.NewAllWatcherBacking(s.StatePool),
 		PrometheusRegisterer: noopRegisterer{},

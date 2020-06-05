@@ -940,6 +940,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			}
 
 			multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
+				Clock:                clock.WallClock,
 				Logger:               loggo.GetLogger("dummy.multiwatcher"),
 				Backing:              state.NewAllWatcherBacking(statePool),
 				PrometheusRegisterer: noopRegisterer{},

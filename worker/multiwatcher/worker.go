@@ -5,6 +5,7 @@ package multiwatcher
 
 import (
 	"sync"
+	"time"
 
 	"github.com/juju/collections/deque"
 	"github.com/juju/errors"
@@ -19,6 +20,7 @@ import (
 
 // Config is an argument struct used to create a Worker.
 type Config struct {
+	Clock                Clock
 	Logger               Logger
 	Backing              state.AllWatcherBacking
 	PrometheusRegisterer prometheus.Registerer
@@ -27,6 +29,9 @@ type Config struct {
 
 // Validate validates the worker configuration.
 func (config Config) Validate() error {
+	if config.Clock == nil {
+		return errors.NotValidf("missing Clock")
+	}
 	if config.Logger == nil {
 		return errors.NotValidf("missing Logger")
 	}
@@ -97,6 +102,11 @@ type request struct {
 	next *request
 }
 
+type queueEntry struct {
+	change  *watcher.Change
+	created time.Time
+}
+
 // NewWorkerShim is a method used for hooking up the specific NewWorker
 // to the manifold NewWorker config arg. This allows other tests to use
 // the NewWorker to get something that acts as a multiwatcher.Factory
@@ -130,10 +140,12 @@ func NewWorker(config Config) (*Worker, error) {
 const (
 	// Keys used in the Report method are used to retrieve from
 	// the map in the metrics code, so define constants for the keys.
-	reportWatcherKey = "num-watchers"
-	reportStoreKey   = "store-size"
-	reportRestartKey = "restart-count"
-	reportErrorsKey  = "errors"
+	reportWatcherKey   = "num-watchers"
+	reportStoreKey     = "store-size"
+	reportRestartKey   = "restart-count"
+	reportQueueSizeKey = "queue-size"
+	reportQueueAgeKey  = "queue-age"
+	reportErrorsKey    = "errors"
 )
 
 // Report is shown up in the engine report of the agent.
@@ -146,12 +158,20 @@ func (w *Worker) Report() map[string]interface{} {
 	for _, err := range w.errors {
 		errors = append(errors, err.Error())
 	}
+	queueSize := w.pending.Len()
+	var queueAge float64
+	if front, exists := w.pending.Front(); exists {
+		entry := front.(*queueEntry)
+		queueAge = w.config.Clock.Now().Sub(entry.created).Seconds()
+	}
 	w.mu.Unlock()
 
 	report := map[string]interface{}{
-		reportWatcherKey: count,
-		reportStoreKey:   store,
-		reportRestartKey: restart,
+		reportWatcherKey:   count,
+		reportStoreKey:     store,
+		reportRestartKey:   restart,
+		reportQueueSizeKey: queueSize,
+		reportQueueAgeKey:  queueAge,
 	}
 	if len(errors) > 0 {
 		report[reportErrorsKey] = errors
@@ -276,20 +296,50 @@ func (w *Worker) inner() error {
 		case err := <-processError:
 			return errors.Trace(err)
 		case change := <-in:
-			w.mu.Lock()
-			w.pending.PushBack(&change)
-			if w.pending.Len() == 1 {
-				select {
-				// In all normal cases, we can push something onto sm.data
-				// as it is a buffered channel. And if the length is one,
-				// then data should be empty. However paranoia and all that.
-				case w.data <- struct{}{}:
-				default:
-				}
-			}
-			w.mu.Unlock()
+			w.append(&change)
 		}
 	}
+}
+
+func (w *Worker) append(change *watcher.Change) {
+	start := w.config.Clock.Now()
+	w.mu.Lock()
+	if inQueue := w.changePending(change); inQueue {
+		w.metrics.dupe.Inc()
+	} else {
+		element := &queueEntry{
+			change:  change,
+			created: start,
+		}
+		w.pending.PushBack(element)
+		if w.pending.Len() == 1 {
+			select {
+			// In all normal cases, we can push something onto sm.data
+			// as it is a buffered channel. And if the length is one,
+			// then data should be empty. However paranoia and all that.
+			case w.data <- struct{}{}:
+			default:
+			}
+		}
+	}
+	w.mu.Unlock()
+	finish := w.config.Clock.Now()
+	w.metrics.append.Observe(float64(finish.Sub(start).Milliseconds()))
+}
+
+func (w *Worker) changePending(change *watcher.Change) bool {
+	// Function assumes lock already held by append function.
+
+	// Look to see if there is already an entry in the pending queue
+	// for the same collection and id.
+	var entry *queueEntry
+	iter := w.pending.Iterator()
+	for iter.Next(&entry) {
+		if entry.change.C == change.C && entry.change.Id == change.Id {
+			return true
+		}
+	}
+	return false
 }
 
 func (w *Worker) process(backing state.AllWatcherBacking, done <-chan struct{}) error {
@@ -326,9 +376,14 @@ func (w *Worker) process(backing state.AllWatcherBacking, done <-chan struct{}) 
 			next = w.closed
 		}
 		if change != nil {
+			start := w.config.Clock.Now()
 			if err := backing.Changed(w.store, *change); err != nil {
 				return errors.Trace(err)
 			}
+			// We don't care about observing changes that error out.
+			// They shouldn't happen very often at all.
+			finish := w.config.Clock.Now()
+			w.metrics.process.Observe(float64(finish.Sub(start).Milliseconds()))
 		}
 		w.respond()
 	}
@@ -343,7 +398,8 @@ func (w *Worker) popOne() (*watcher.Change, bool) {
 		return nil, true
 	}
 	empty := w.pending.Len() == 0
-	return val.(*watcher.Change), empty
+	entry := val.(*queueEntry)
+	return entry.change, empty
 }
 
 // Kill implements worker.Worker.Kill.

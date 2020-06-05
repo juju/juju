@@ -6,6 +6,7 @@ package multiwatcher_test
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -29,6 +30,7 @@ func (s *watcherSuite) startWorker(c *gc.C, backing state.AllWatcherBacking) *mw
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.TRACE)
 	config := mwWorker.Config{
+		Clock:                clock.WallClock,
 		Logger:               logger,
 		Backing:              backing,
 		PrometheusRegisterer: noopRegisterer{},
