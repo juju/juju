@@ -162,8 +162,12 @@ endif
 # PPA includes the required mongodb-server binaries.
 install-snap-dependencies:
 ## install-snap-dependencies: Install the supported snap dependencies
+ifeq ($(shell go version | grep -o "go1.14" || true),go1.14)
+	@echo Using installed go-1.14
+else
 	@echo Installing go-1.14 snap
 	@sudo snap install go --channel=1.14/stable --classic
+endif
 
 install-mongo-dependencies:
 ## install-mongo-dependencies: Install Mongo and its dependencies
