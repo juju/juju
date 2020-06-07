@@ -107,7 +107,7 @@ func (u *Upgrader) loop() error {
 	// for a full minute; but after that we proceed regardless.
 	versionWatcher, err := u.upgraderClient.WatchAPIVersion(u.tag.String())
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "getting upgrader facade watch api version client")
 	}
 	logger.Infof("abort check blocked until version event received")
 	// TODO(fwereade): 2016-03-17 lp:1558657

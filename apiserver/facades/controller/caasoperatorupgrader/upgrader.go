@@ -43,7 +43,7 @@ func NewCAASOperatorUpgraderAPI(
 	authorizer facade.Authorizer,
 	broker caas.Upgrader,
 ) (*API, error) {
-	if !authorizer.AuthController() && !authorizer.AuthApplicationAgent() {
+	if !authorizer.AuthController() && !authorizer.AuthApplicationAgent() && !authorizer.AuthModelAgent() {
 		return nil, common.ErrPerm
 	}
 	return &API{

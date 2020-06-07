@@ -6,6 +6,7 @@ package modeloperator
 import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/voyeur"
+	"github.com/juju/version"
 	"github.com/juju/worker/v2/dependency"
 
 	coreagent "github.com/juju/juju/agent"
@@ -18,12 +19,19 @@ import (
 	"github.com/juju/juju/worker/caasadmission"
 	"github.com/juju/juju/worker/caasbroker"
 	"github.com/juju/juju/worker/caasrbacmapper"
+	"github.com/juju/juju/worker/caasupgrader"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/muxhttpserver"
 )
 
 type ManifoldConfig struct {
-	Agent              coreagent.Agent
+	// Agent contains the agent that will be wrapped and made available to
+	// its dependencies via a dependency.Engine.
+	Agent coreagent.Agent
+
+	// AgentConfigChanged is set whenever the unit agent's config
+	// is updated.
 	AgentConfigChanged *voyeur.Value
 
 	// NewContainerBrokerFunc is a function opens a CAAS provider.
@@ -35,6 +43,15 @@ type ManifoldConfig struct {
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.
 	UpdateLoggerConfig func(string) error
+
+	// PreviousAgentVersion passes through the version the unit
+	// agent was running before the current restart.
+	PreviousAgentVersion version.Number
+
+	// UpgradeStepsLock is passed to the upgrade steps gate to
+	// coordinate workers that shouldn't do anything until the
+	// upgrade-steps worker is done.
+	UpgradeStepsLock gate.Lock
 }
 
 // Manifolds return a set of co-configured manifolds covering the various
@@ -106,6 +123,15 @@ func Manifolds(config ManifoldConfig) dependency.Manifolds {
 				Port:          config.Port,
 			},
 		),
+
+		upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			PreviousAgentVersion: config.PreviousAgentVersion,
+		}),
+
+		upgradeStepsGateName: gate.ManifoldEx(config.UpgradeStepsLock),
 	}
 }
 
@@ -117,6 +143,8 @@ const (
 	caasBrokerTrackerName    = "caas-broker-tracker"
 	caasRBACMapperName       = "caas-rbac-mapper"
 	certificateWatcherName   = "certificate-watcher"
-	modelHTTPServerName      = "model-http-server"
 	loggingConfigUpdaterName = "logging-config-updater"
+	modelHTTPServerName      = "model-http-server"
+	upgraderName             = "upgrader"
+	upgradeStepsGateName     = "upgrade-steps-gate"
 )
