@@ -41,6 +41,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
 	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
+		Clock:                clock.WallClock,
 		Logger:               loggo.GetLogger("test"),
 		Backing:              state.NewAllWatcherBacking(s.StatePool),
 		PrometheusRegisterer: noopRegisterer{},

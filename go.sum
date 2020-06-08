@@ -285,6 +285,8 @@ github.com/juju/collections v0.0.0-20180515203731-520e0549d51a/go.mod h1:Ep+c0vn
 github.com/juju/collections v0.0.0-20180516022642-90152009b5f3/go.mod h1:Ep+c0vnxsgmmTtsMibPgEEleZyi0b4uVvyzJ+8ka9EI=
 github.com/juju/collections v0.0.0-20180717171555-9be91dc79b7c h1:m/Uo8B7nrH3K6nvk66Y67T7cbHcyY101rW24vGuMON8=
 github.com/juju/collections v0.0.0-20180717171555-9be91dc79b7c/go.mod h1:Ep+c0vnxsgmmTtsMibPgEEleZyi0b4uVvyzJ+8ka9EI=
+github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271 h1:4R626WTwa7pRYQFiIRLVPepMhm05eZMEx+wIurRnMLc=
+github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271/go.mod h1:5XgO71dV1JClcOJE+4dzdn4HrI5LiyKd7PlVG6eZYhY=
 github.com/juju/description/v2 v2.0.0-20200424074546-907f299eeafe/go.mod h1:5CKxYQKZCqzv6+dokJVLL7bCCeFZHi1j3i2iLb/X7Z8=
 github.com/juju/description/v2 v2.0.0-20200514032006-b515a22fe74e h1:YewjT3e0KpdGM/3k5cJTAD7vPzKe9/PEd7qSlUwaxPY=
 github.com/juju/description/v2 v2.0.0-20200514032006-b515a22fe74e/go.mod h1:5CKxYQKZCqzv6+dokJVLL7bCCeFZHi1j3i2iLb/X7Z8=
@@ -390,6 +392,7 @@ github.com/juju/terms-client v1.0.2-0.20200331164339-fab45ea044ae h1:wGk/zIPORIC
 github.com/juju/terms-client v1.0.2-0.20200331164339-fab45ea044ae/go.mod h1:oGYNRVtU+5D99X5rPRaSwzKCc0mqF8A/L2a2UZycbQg=
 github.com/juju/testing v0.0.0-20160404094317-162fafccebf2/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20161031103713-b8689951f6db/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
+github.com/juju/testing v0.0.0-20180402130637-44801989f0f7/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20180517134105-72703b1e95eb/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20180807043854-177f846b8501/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
 github.com/juju/testing v0.0.0-20180820040200-b0b89ba330f2/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=

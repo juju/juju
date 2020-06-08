@@ -83,6 +83,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	s.mux = apiserverhttp.NewMux()
 
 	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
+		Clock:                clock.WallClock,
 		Logger:               loggo.GetLogger("test"),
 		Backing:              state.NewAllWatcherBacking(s.StatePool),
 		PrometheusRegisterer: noopRegisterer{},
