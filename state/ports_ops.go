@@ -114,7 +114,7 @@ func (op *openClosePortsOperation) Build(attempt int) ([]txn.Op, error) {
 	return ops, nil
 }
 
-// Done implements ModelOperartion.
+// Done implements ModelOperation.
 func (op *openClosePortsOperation) Done(err error) error {
 	if err != nil {
 		return err

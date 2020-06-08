@@ -374,6 +374,32 @@ func (s *PortsDocSuite) TestComposedOpenCloseOperation(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
+func (s *PortsDocSuite) TestPortOperationSucceedsForDyingModel(c *gc.C) {
+	// Open initial port range
+	openPortRange := state.PortRange{
+		FromPort: 200,
+		ToPort:   210,
+		UnitName: s.unit1.Name(),
+		Protocol: "TCP",
+	}
+	err := s.portsWithoutSubnet.OpenPorts(openPortRange)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(s.Model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	}).Check()
+
+	// Close the initially opened ports
+	op, err := s.portsWithoutSubnet.OpenClosePortsOperation(
+		nil,
+		[]state.PortRange{{FromPort: 200, ToPort: 210, UnitName: s.unit1.Name(), Protocol: "TCP"}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *PortsDocSuite) TestComposedOpenCloseOperationNoEffectiveOps(c *gc.C) {
 	// Run a composed open/close operation
 	op, err := s.portsWithoutSubnet.OpenClosePortsOperation(
