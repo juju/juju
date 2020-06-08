@@ -776,10 +776,11 @@ func (s waitActionInvocation) step(c *gc.C, ctx *context) {
 	for {
 		select {
 		case <-time.After(coretesting.ShortWait):
-			if len(ctx.runner.ranActions) != len(s.expectedActions) {
+			ranActions := ctx.runner.ranActions()
+			if len(ranActions) != len(s.expectedActions) {
 				continue
 			}
-			assertActionsMatch(c, ctx.runner.ranActions, s.expectedActions)
+			assertActionsMatch(c, ranActions, s.expectedActions)
 			return
 		case <-timeout:
 			c.Fatalf("timed out waiting for action invocation")
