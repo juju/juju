@@ -122,6 +122,9 @@ type Context interface {
 	GetLogger(module string) loggo.Logger
 }
 
+// NewRunnerFunc returns a func used to create a Runner backed by the supplied context and paths.
+type NewRunnerFunc func(context Context, paths context.Paths, remoteExecutor ExecFunc) Runner
+
 // NewRunner returns a Runner backed by the supplied context and paths.
 func NewRunner(context Context, paths context.Paths, remoteExecutor ExecFunc) Runner {
 	return &runner{context, paths, remoteExecutor}
@@ -573,6 +576,7 @@ func (runner *runner) runCharmProcessOnRemote(hook, hookName, charmDir string, e
 	return errors.Trace(err)
 }
 
+// Check still tested
 func (runner *runner) runCharmProcessOnLocal(hook, hookName, charmDir string, env []string) error {
 	hookCmd := hookCommand(hook)
 	ps := exec.Command(hookCmd[0], hookCmd[1:]...)

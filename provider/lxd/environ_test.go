@@ -559,7 +559,7 @@ func (s *environProfileSuite) expectMaybeWriteLXDProfile(hasProfile bool, name s
 	exp := s.svr.EXPECT()
 	exp.HasProfile(name).Return(hasProfile, nil)
 	if !hasProfile {
-		exp.CreateProfile(api.ProfilesPost{
+		post := api.ProfilesPost{
 			Name: name,
 			ProfilePut: api.ProfilePut{
 				Config: map[string]string{
@@ -567,7 +567,10 @@ func (s *environProfileSuite) expectMaybeWriteLXDProfile(hasProfile bool, name s
 				},
 				Description: "test profile",
 			},
-		}).Return(nil)
+		}
+		exp.CreateProfile(post).Return(nil)
+		expProfile := api.Profile{ProfilePut: post.ProfilePut}
+		exp.GetProfile(name).Return(&expProfile, "etag", nil)
 	}
 }
 

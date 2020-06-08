@@ -4,7 +4,6 @@
 package uniter_test
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -16,11 +15,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/testing"
@@ -33,13 +30,13 @@ import (
 )
 
 type UniterSuite struct {
-	coretesting.GitSuite
 	testing.JujuConnSuite
-	dataDir  string
-	oldLcAll string
-	unitDir  string
+	dataDir string
+	unitDir string
 
 	updateStatusHookTicker *manualTicker
+	runner                 *mockRunner
+	deployer               *mockDeployer
 }
 
 var _ = gc.Suite(&UniterSuite{})
@@ -50,37 +47,28 @@ var _ = gc.Suite(&UniterSuite{})
 var errNotDir = syscall.ENOTDIR.Error()
 
 func (s *UniterSuite) SetUpSuite(c *gc.C) {
-	s.GitSuite.SetUpSuite(c)
 	s.JujuConnSuite.SetUpSuite(c)
 	s.dataDir = c.MkDir()
 	toolsDir := tools.ToolsDir(s.dataDir, "unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
-	coretesting.CopyOrBuildJujuBins(c, toolsDir, "jujud", "jujuc")
-
-	s.oldLcAll = os.Getenv("LC_ALL")
-	os.Setenv("LC_ALL", "en_US")
+	s.PatchEnvironment("LC_ALL", "en_US")
 	s.unitDir = filepath.Join(s.dataDir, "agents", "unit-u-0")
-	all.RegisterForServer()
-}
-
-func (s *UniterSuite) TearDownSuite(c *gc.C) {
-	os.Setenv("LC_ALL", s.oldLcAll)
-	s.JujuConnSuite.TearDownSuite(c)
-	s.GitSuite.TearDownSuite(c)
+	err = all.RegisterForServer()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UniterSuite) SetUpTest(c *gc.C) {
 	s.updateStatusHookTicker = newManualTicker()
-	s.GitSuite.SetUpTest(c)
+	s.runner = &mockRunner{}
+	s.deployer = &mockDeployer{}
 	s.JujuConnSuite.SetUpTest(c)
 }
 
 func (s *UniterSuite) TearDownTest(c *gc.C) {
 	s.ResetContext(c)
 	s.JujuConnSuite.TearDownTest(c)
-	s.GitSuite.TearDownTest(c)
 }
 
 func (s *UniterSuite) Reset(c *gc.C) {
@@ -89,6 +77,8 @@ func (s *UniterSuite) Reset(c *gc.C) {
 }
 
 func (s *UniterSuite) ResetContext(c *gc.C) {
+	s.runner = &mockRunner{}
+	s.deployer = &mockDeployer{}
 	err := os.RemoveAll(s.unitDir)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -109,6 +99,8 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 				leaseManager:           s.LeaseManager,
 				updateStatusHookTicker: s.updateStatusHookTicker,
 				charmDirGuard:          &mockCharmDirGuard{},
+				runner:                 s.runner,
+				deployer:               s.deployer,
 			}
 			ctx.run(c, t.steps)
 		}()
@@ -126,6 +118,8 @@ func (s *UniterSuite) runUniterTest(c *gc.C, steps ...stepper) {
 		leaseManager:           s.LeaseManager,
 		updateStatusHookTicker: s.updateStatusHookTicker,
 		charmDirGuard:          &mockCharmDirGuard{},
+		runner:                 s.runner,
+		deployer:               s.deployer,
 	}
 	ctx.run(c, steps)
 }
@@ -154,11 +148,10 @@ func (s *UniterSuite) TestPreviousDownloadsCleared(c *gc.C) {
 			serveCharm{},
 			ensureStateWorker{},
 			createApplicationAndUnit{},
-			createDownloads{},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{status: status.Idle},
-			verifyDownloadsCleared{},
+			verifyDeployed{},
 		),
 	})
 }
@@ -176,7 +169,7 @@ func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
 			serveCharm{},
 			writeFile{"charm", 0644},
 			createUniter{},
-			waitUniterDead{err: `executing operation "install cs:quantal/wordpress-0": open .*` + errNotDir},
+			waitUniterDead{err: `executing operation "install cs:quantal/wordpress-0": .*` + errNotDir},
 		), ut(
 			"charm cannot be downloaded",
 			createCharm{},
@@ -451,28 +444,6 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *gc.C) {
 			},
 			waitHooks{"config-changed", "start"},
 			verifyRunning{},
-		), ut(
-			"steady state config change with config-get verification",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					appendHook(c, path, "config-changed", appendConfigChanged)
-				},
-			},
-			serveCharm{},
-			createUniter{},
-			waitUnitAgent{
-				status: status.Idle,
-			},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-			assertYaml{"charm/config.out", map[string]interface{}{
-				"blog-title": "My Title",
-			}},
-			changeConfig{"blog-title": "Goodness Gracious Me"},
-			waitHooks{"config-changed"},
-			verifyRunning{},
-			assertYaml{"charm/config.out", map[string]interface{}{
-				"blog-title": "Goodness Gracious Me",
-			}},
 		),
 	})
 }
@@ -707,102 +678,6 @@ resources:
 	})
 }
 
-func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
-	//TODO(bogdanteleaga): Fix this on windows
-	coretesting.SkipIfWindowsBug(c, "lp:1403084")
-	//TODO(hml): Fix this on S390X, intermittent there.
-	coretesting.SkipIfS390X(c, "lp:1534637")
-	makeTest := func(description string, content, extraChecks ft.Entries) uniterTest {
-		return ut(description,
-			createCharm{
-				// This is the base charm which all upgrade tests start out running.
-				customize: func(c *gc.C, ctx *context, path string) {
-					ft.Entries{
-						ft.Dir{"dir", 0755},
-						ft.File{"file", "blah", 0644},
-						ft.Symlink{"symlink", "file"},
-					}.Create(c, path)
-					// Note that it creates "dir/user-file" at runtime, which may be
-					// preserved or removed depending on the test.
-					script := "echo content > dir/user-file && chmod 755 dir/user-file"
-					appendHook(c, path, "start", script)
-				},
-			},
-			serveCharm{},
-			createUniter{},
-			waitUnitAgent{
-				status: status.Idle,
-			},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-			},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-
-			createCharm{
-				revision: 1,
-				customize: func(c *gc.C, _ *context, path string) {
-					content.Create(c, path)
-				},
-			},
-			serveCharm{},
-			upgradeCharm{revision: 1},
-			waitUnitAgent{
-				status: status.Idle,
-				charm:  1,
-			},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-				charm:        1,
-			},
-			waitHooks{"upgrade-charm", "config-changed"},
-			verifyCharm{revision: 1},
-			custom{func(c *gc.C, ctx *context) {
-				path := filepath.Join(ctx.path, "charm")
-				content.Check(c, path)
-				extraChecks.Check(c, path)
-			}},
-			verifyRunning{},
-		)
-	}
-
-	s.runUniterTests(c, []uniterTest{
-		makeTest(
-			"files overwite files, dirs, symlinks",
-			ft.Entries{
-				ft.File{"file", "new", 0755},
-				ft.File{"dir", "new", 0755},
-				ft.File{"symlink", "new", 0755},
-			},
-			ft.Entries{
-				ft.Removed{"dir/user-file"},
-			},
-		), makeTest(
-			"symlinks overwite files, dirs, symlinks",
-			ft.Entries{
-				ft.Symlink{"file", "new"},
-				ft.Symlink{"dir", "new"},
-				ft.Symlink{"symlink", "new"},
-			},
-			ft.Entries{
-				ft.Removed{"dir/user-file"},
-			},
-		), makeTest(
-			"dirs overwite files, symlinks; merge dirs",
-			ft.Entries{
-				ft.Dir{"file", 0755},
-				ft.Dir{"dir", 0755},
-				ft.File{"dir/charm-file", "charm-content", 0644},
-				ft.Dir{"symlink", 0755},
-			},
-			ft.Entries{
-				ft.File{"dir/user-file", "content\n", 0755},
-			},
-		),
-	})
-}
-
 func (s *UniterSuite) TestUniterErrorStateUnforcedUpgrade(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		// Upgrade scenarios from error state.
@@ -974,20 +849,24 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			"db-relation-departed mysql/0 db:0",
 			"db-relation-broken db:0",
 			"stop",
+			"remove",
 		}, {
 			"db-relation-departed mysql/0 db:0",
 			"leader-settings-changed",
 			"db-relation-broken db:0",
 			"stop",
+			"remove",
 		}, {
 			"db-relation-departed mysql/0 db:0",
 			"db-relation-broken db:0",
 			"leader-settings-changed",
 			"stop",
+			"remove",
 		}, {
 			"db-relation-departed mysql/0 db:0",
 			"db-relation-broken db:0",
 			"stop",
+			"remove",
 		}}
 		unchecked := ctx.hooksCompleted[len(ctx.hooks):]
 		for _, possible := range possibles {
@@ -1054,42 +933,6 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			// we can get the event to give us the synchronisation point.
 			changeConfig{"blog-title": "Goodness Gracious Me"},
 			waitHooks{"config-changed"},
-		), ut(
-			"all relations are available to config-changed on bounce, even if state dir is missing",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					script := uniterRelationsCustomizeScript
-					appendHook(c, path, "config-changed", script)
-				},
-			},
-			serveCharm{},
-			createUniter{},
-			waitUnitAgent{
-				status: status.Idle,
-			},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-			},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-			addRelation{waitJoin: true},
-			stopUniter{},
-			custom{func(c *gc.C, ctx *context) {
-				// Check that config-changed didn't record any relations, because
-				// they shouldn't been available until after the start hook.
-				ft.File{"charm/relations.out", "", 0644}.Check(c, ctx.path)
-			}},
-			// Now that starting the uniter doesn't always fire
-			// config-changed we need to tweak the config to trigger
-			// it.
-			changeConfig{"blog-title": "Goodness Gracious Me"},
-			startUniter{},
-			waitHooks{"config-changed"},
-			custom{func(c *gc.C, ctx *context) {
-				// Check that config-changed did record the joined relations.
-				data := fmt.Sprintf("db:%d\n", ctx.relation.Id())
-				ft.File{"charm/relations.out", data, 0644}.Check(c, ctx.path)
-			}},
 		),
 	})
 }
@@ -1156,16 +999,21 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 	})
 }
 
-func (s *UniterSuite) TestActionEvents(c *gc.C) {
+func (s *UniterSuite) TestRunCommand(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
-			"simple action event: defined in actions.yaml, no args",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeAction(c, path, "action-log")
-					ctx.writeActionsYaml(c, path, "action-log")
-				},
-			},
+			"run commands",
+			quickStart{},
+			runCommands{"test"},
+		),
+	})
+}
+
+func (s *UniterSuite) TestRunAction(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"simple action",
+			createCharm{},
 			serveCharm{},
 			ensureStateWorker{},
 			createApplicationAndUnit{},
@@ -1178,11 +1026,10 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
-			addAction{"action-log", nil},
-			waitActionResults{[]actionResult{{
-				name:    "action-log",
-				results: map[string]interface{}{"Code": "0"},
-				status:  params.ActionCompleted,
+			addAction{"fakeaction", map[string]interface{}{"foo": "bar"}},
+			waitActionInvocation{[]actionData{{
+				actionName: "fakeaction",
+				args:       []string{"foo=bar"},
 			}}},
 			waitUnitAgent{status: status.Idle},
 			waitUnitAgent{
@@ -1190,16 +1037,14 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				status:       status.Unknown,
 			},
 		), ut(
-			"action-fail causes the action to fail with a message",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeAction(c, path, "action-log-fail")
-					ctx.writeActionsYaml(c, path, "action-log-fail")
-				},
-			},
+			"pending expectedActions get consumed",
+			createCharm{},
 			serveCharm{},
 			ensureStateWorker{},
 			createApplicationAndUnit{},
+			addAction{"fakeaction", map[string]interface{}{"foo": "bar"}},
+			addAction{"fakeaction", nil},
+			addAction{"fakeaction", nil},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{status: status.Idle},
@@ -1209,201 +1054,13 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
-			addAction{"action-log-fail", nil},
-			waitActionResults{[]actionResult{{
-				name: "action-log-fail",
-				results: map[string]interface{}{
-					"Code": "0",
-					"foo":  "still works",
-				},
-				message: "I'm afraid I can't let you do that, Dave.",
-				status:  params.ActionFailed,
-			}}},
-			waitUnitAgent{status: status.Idle}, waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-			},
-		), ut(
-			"action-fail with the wrong arguments fails but is not an error",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeAction(c, path, "action-log-fail-error")
-					ctx.writeActionsYaml(c, path, "action-log-fail-error")
-				},
-			},
-			serveCharm{},
-			ensureStateWorker{},
-			createApplicationAndUnit{},
-			startUniter{},
-			waitAddresses{},
-			waitUnitAgent{status: status.Idle},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-			},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-			verifyCharm{},
-			addAction{"action-log-fail-error", nil},
-			waitActionResults{[]actionResult{{
-				name: "action-log-fail-error",
-				results: map[string]interface{}{
-					"Code":   "0",
-					"Stderr": `ERROR unrecognized args: ["many" "arguments"]` + "\n",
-					"foo":    "still works",
-				},
-				message: "A real message",
-				status:  params.ActionFailed,
-			}}},
-			waitUnitAgent{status: status.Idle},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-			},
-		), ut(
-			"actions with correct params passed are not an error",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeAction(c, path, "snapshot")
-					ctx.writeActionsYaml(c, path, "snapshot")
-				},
-			},
-			serveCharm{},
-			ensureStateWorker{},
-			createApplicationAndUnit{},
-			startUniter{},
-			waitAddresses{},
-			waitUnitAgent{status: status.Idle},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-			},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-			verifyCharm{},
-			addAction{
-				name:   "snapshot",
-				params: map[string]interface{}{"outfile": "foo.bar"},
-			},
-			waitActionResults{[]actionResult{{
-				name: "snapshot",
-				results: map[string]interface{}{
-					"Code": "0",
-					"outfile": map[string]interface{}{
-						"name": "snapshot-01.tar",
-						"size": map[string]interface{}{
-							"magnitude": "10.3",
-							"units":     "GB",
-						},
-					},
-					"completion": "yes",
-				},
-				status: params.ActionCompleted,
-			}}},
-			waitUnitAgent{status: status.Idle},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-			},
-		), ut(
-			"actions with incorrect params passed are not an error but fail",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeAction(c, path, "snapshot")
-					ctx.writeActionsYaml(c, path, "snapshot")
-				},
-			},
-			serveCharm{},
-			ensureStateWorker{},
-			createApplicationAndUnit{},
-			startUniter{},
-			waitAddresses{},
-			waitUnitAgent{status: status.Idle},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-			},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-			verifyCharm{},
-			addAction{
-				name:   "snapshot",
-				params: map[string]interface{}{"outfile": 2},
-			},
-			waitActionResults{[]actionResult{{
-				name:    "snapshot",
-				results: map[string]interface{}{},
-				status:  params.ActionFailed,
-				message: `cannot run "snapshot" action: validation failed: (root).outfile : must be of type string, given 2`,
-			}}},
-			waitUnitAgent{status: status.Idle},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-			},
-		), ut(
-			"actions not defined in actions.yaml fail without causing a uniter error",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeAction(c, path, "snapshot")
-				},
-			},
-			serveCharm{},
-			ensureStateWorker{},
-			createApplicationAndUnit{},
-			startUniter{},
-			waitAddresses{},
-			waitUnitAgent{status: status.Idle},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-			},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-			verifyCharm{},
-			addAction{"snapshot", map[string]interface{}{"outfile": "foo.bar"}},
-			waitActionResults{[]actionResult{{
-				name:    "snapshot",
-				results: map[string]interface{}{},
-				status:  params.ActionFailed,
-				message: `cannot run "snapshot" action: not defined`,
-			}}},
-			waitUnitAgent{status: status.Idle},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-			},
-		), ut(
-			"pending actions get consumed",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeAction(c, path, "action-log")
-					ctx.writeActionsYaml(c, path, "action-log")
-				},
-			},
-			serveCharm{},
-			ensureStateWorker{},
-			createApplicationAndUnit{},
-			addAction{"action-log", nil},
-			addAction{"action-log", nil},
-			addAction{"action-log", nil},
-			startUniter{},
-			waitAddresses{},
-			waitUnitAgent{status: status.Idle},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-			},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-			verifyCharm{},
-			waitActionResults{[]actionResult{{
-				name:    "action-log",
-				results: map[string]interface{}{"Code": "0"},
-				status:  params.ActionCompleted,
+			waitActionInvocation{[]actionData{{
+				actionName: "fakeaction",
+				args:       []string{"foo=bar"},
 			}, {
-				name:    "action-log",
-				results: map[string]interface{}{"Code": "0"},
-				status:  params.ActionCompleted,
+				actionName: "fakeaction",
 			}, {
-				name:    "action-log",
-				results: map[string]interface{}{"Code": "0"},
-				status:  params.ActionCompleted,
+				actionName: "fakeaction",
 			}}},
 			waitUnitAgent{status: status.Idle},
 			waitUnitAgent{
@@ -1411,56 +1068,19 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				status:       status.Unknown,
 			},
 		), ut(
-			"actions not implemented fail but are not errors",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeActionsYaml(c, path, "action-log")
-				},
-			},
-			serveCharm{},
-			ensureStateWorker{},
-			createApplicationAndUnit{},
-			startUniter{},
-			waitAddresses{},
-			waitUnitAgent{status: status.Idle},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-			},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-			verifyCharm{},
-			addAction{"action-log", nil},
-			waitActionResults{[]actionResult{{
-				name:    "action-log",
-				results: map[string]interface{}{},
-				status:  params.ActionFailed,
-				message: `action not implemented on unit "u/0"`,
-			}}},
-			waitUnitAgent{status: status.Idle},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-			},
-		), ut(
-			"actions may run from ModeHookError, but do not clear the error",
-			startupErrorWithCustomCharm{
+			"expectedActions may run from ModeHookError, but do not clear the error",
+			startupError{
 				badHook: "start",
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeAction(c, path, "action-log")
-					ctx.writeActionsYaml(c, path, "action-log")
-				},
 			},
-			addAction{"action-log", nil},
+			addAction{"fakeaction", nil},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "start"`,
 				data:         map[string]interface{}{"hook": "start"},
 			},
-			waitActionResults{[]actionResult{{
-				name:    "action-log",
-				results: map[string]interface{}{"Code": "0"},
-				status:  params.ActionCompleted,
+			waitActionInvocation{[]actionData{{
+				actionName: "fakeaction",
 			}}},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
@@ -1521,6 +1141,8 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		leaseManager:           s.LeaseManager,
 		updateStatusHookTicker: s.updateStatusHookTicker,
 		charmDirGuard:          &mockCharmDirGuard{},
+		runner:                 s.runner,
+		deployer:               s.deployer,
 	}
 
 	addControllerMachine(c, ctx.st)
@@ -1564,201 +1186,9 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	})
 }
 
-func (s *UniterSuite) TestRebootDisabledInActions(c *gc.C) {
-	s.runUniterTests(c, []uniterTest{
-		ut(
-			"test that juju-reboot disabled in actions",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeAction(c, path, "action-reboot")
-					ctx.writeActionsYaml(c, path, "action-reboot")
-				},
-			},
-			serveCharm{},
-			ensureStateWorker{},
-			createApplicationAndUnit{},
-			addAction{"action-reboot", nil},
-			startUniter{},
-			waitAddresses{},
-			waitUnitAgent{
-				status: status.Idle,
-			},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-			},
-			waitActionResults{[]actionResult{{
-				name: "action-reboot",
-				results: map[string]interface{}{
-					"Code":           "0",
-					"Stderr":         "ERROR juju-reboot is not supported when running an action.\nERROR juju-reboot is not supported when running an action.\n",
-					"reboot-delayed": "good",
-					"reboot-now":     "good",
-				},
-				status: params.ActionCompleted,
-			}}},
-		)})
-}
-
-func (s *UniterSuite) TestRebootFinishesHook(c *gc.C) {
-	s.runUniterTests(c, []uniterTest{
-		ut(
-			"test that juju-reboot finishes hook, and reboots",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					hpath := filepath.Join(path, "hooks", "install")
-					ctx.writeExplicitHook(c, hpath, rebootHook)
-				},
-			},
-			serveCharm{},
-			ensureStateWorker{},
-			createApplicationAndUnit{},
-			startUniter{},
-			waitAddresses{},
-			waitUniterDead{err: "machine needs to reboot"},
-			waitHooks{"install"},
-			startUniter{},
-			waitUnitAgent{
-				status: status.Idle,
-			},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-			},
-			waitHooks{"leader-elected", "config-changed", "start"},
-		)})
-}
-
-func (s *UniterSuite) TestRebootNowKillsHook(c *gc.C) {
-	s.runUniterTests(c, []uniterTest{
-		ut(
-			"test that juju-reboot --now kills hook and exits",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					hpath := filepath.Join(path, "hooks", "install")
-					ctx.writeExplicitHook(c, hpath, rebootNowHook)
-				},
-			},
-			serveCharm{},
-			ensureStateWorker{},
-			createApplicationAndUnit{},
-			startUniter{},
-			waitAddresses{},
-			waitUniterDead{err: "machine needs to reboot"},
-			waitHooks{"install"},
-			startUniter{},
-			waitUnitAgent{
-				status: status.Idle,
-			},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Unknown,
-			},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-		)})
-}
-
-func (s *UniterSuite) TestRebootDisabledOnHookError(c *gc.C) {
-	s.runUniterTests(c, []uniterTest{
-		ut(
-			"test juju-reboot will not happen if hook errors out",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					hpath := filepath.Join(path, "hooks", "install")
-					ctx.writeExplicitHook(c, hpath, badRebootHook)
-				},
-			},
-			serveCharm{},
-			ensureStateWorker{},
-			createApplicationAndUnit{},
-			startUniter{},
-			waitAddresses{},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Error,
-				info:         fmt.Sprintf(`hook failed: "install"`),
-			},
-		),
-	})
-}
-
-func (s *UniterSuite) TestJujuRunExecutionSerialized(c *gc.C) {
-	s.runUniterTests(c, []uniterTest{
-		ut(
-			"hook failed status should stay around after juju run",
-			createCharm{badHooks: []string{"config-changed"}},
-			serveCharm{},
-			createUniter{},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Error,
-				info:         `hook failed: "config-changed"`,
-				data: map[string]interface{}{
-					"hook": "config-changed",
-				},
-			},
-			runCommands{"exit 0"},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       status.Error,
-				info:         `hook failed: "config-changed"`,
-				data: map[string]interface{}{
-					"hook": "config-changed",
-				},
-			},
-		)})
-}
-
-func (s *UniterSuite) TestRebootFromJujuRun(c *gc.C) {
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: currently does not work on windows")
-	}
-	s.runUniterTests(c, []uniterTest{
-		ut(
-			"test juju-reboot",
-			quickStart{},
-			runCommands{"juju-reboot"},
-			waitUniterDead{err: "machine needs to reboot"},
-			startUniter{},
-			waitHooks{},
-		), ut(
-			"test juju-reboot with bad hook",
-			startupError{"install"},
-			runCommands{"juju-reboot"},
-			waitUniterDead{err: "machine needs to reboot"},
-			startUniter{},
-			waitHooks{},
-		), ut(
-			"test juju-reboot --now",
-			quickStart{},
-			runCommands{"juju-reboot --now"},
-			waitUniterDead{err: "machine needs to reboot"},
-			startUniter{},
-			waitHooks{},
-		), ut(
-			"test juju-reboot --now with bad hook",
-			startupError{"install"},
-			runCommands{"juju-reboot --now"},
-			waitUniterDead{err: "machine needs to reboot"},
-			startUniter{},
-			waitHooks{},
-		),
-	})
-}
-
 func (s *UniterSuite) TestLeadership(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
-			"hook tools when leader",
-			quickStart{},
-			runCommands{"leader-set foo=bar baz=qux"},
-			verifyLeaderSettings{"foo": "bar", "baz": "qux"},
-		), ut(
-			"hook tools when not leader",
-			quickStart{minion: true},
-			runCommands{leadershipScript},
-		), ut(
 			"leader-elected triggers when elected",
 			quickStart{minion: true},
 			forceLeader{},

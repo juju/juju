@@ -6,6 +6,7 @@ package multiwatcher
 import (
 	"fmt"
 
+	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +25,7 @@ var _ = gc.Suite(&workerSuite{})
 func (*workerSuite) TestHandle(c *gc.C) {
 	sm := &Worker{
 		config: Config{
+			Clock:   clock.WallClock,
 			Logger:  loggo.GetLogger("test.worker"),
 			Backing: testbacking.New(nil),
 		},
@@ -86,6 +88,7 @@ func (*workerSuite) TestHandle(c *gc.C) {
 func (*workerSuite) TestRespondMultiple(c *gc.C) {
 	sm := &Worker{
 		config: Config{
+			Clock:   clock.WallClock,
 			Logger:  loggo.GetLogger("test.worker"),
 			Backing: testbacking.New(nil),
 		},
@@ -210,6 +213,7 @@ func (s *workerSuite) TestRespondResults(c *gc.C) {
 
 			sm := &Worker{
 				config: Config{
+					Clock:   clock.WallClock,
 					Logger:  loggo.GetLogger("test.worker"),
 					Backing: testbacking.New(nil),
 				},

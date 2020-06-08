@@ -72,7 +72,7 @@ func (s *raftSuite) TestBootStrapRaftWithEmptyLog(c *gc.C) {
 	raftDir := filepath.Join(dataDir, "raft")
 	c.Assert(os.Mkdir(raftDir, 0777), jc.ErrorIsNil)
 
-	logStore, err := raftworker.NewLogStore(raftDir)
+	logStore, err := raftworker.NewLogStore(raftDir, raftworker.SyncAfterWrite)
 	c.Assert(err, jc.ErrorIsNil)
 	// Have to close it here or the open in the code hangs!
 	logStore.Close()
@@ -386,7 +386,7 @@ func (s *raftSuite) TestMigrateLegacyLeasesWithSnapshotAndLogs(c *gc.C) {
 	raftDir := filepath.Join(dataDir, "raft")
 	c.Assert(os.Mkdir(raftDir, 0777), jc.ErrorIsNil)
 
-	logStore, err := raftworker.NewLogStore(raftDir)
+	logStore, err := raftworker.NewLogStore(raftDir, raftworker.SyncAfterWrite)
 	c.Assert(err, jc.ErrorIsNil)
 
 	logger := loggo.GetLogger("raft_upgrades")

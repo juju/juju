@@ -50,17 +50,18 @@ type format_2_0Serialization struct {
 	Values        map[string]string `yaml:"values"`
 
 	// Only controller machines have these next items set.
-	ControllerCert     string `yaml:"controllercert,omitempty"`
-	ControllerKey      string `yaml:"controllerkey,omitempty"`
-	CAPrivateKey       string `yaml:"caprivatekey,omitempty"`
-	APIPort            int    `yaml:"apiport,omitempty"`
-	ControllerAPIPort  int    `yaml:"controllerapiport,omitempty"`
-	StatePort          int    `yaml:"stateport,omitempty"`
-	SharedSecret       string `yaml:"sharedsecret,omitempty"`
-	SystemIdentity     string `yaml:"systemidentity,omitempty"`
-	MongoVersion       string `yaml:"mongoversion,omitempty"`
-	MongoMemoryProfile string `yaml:"mongomemoryprofile,omitempty"`
-	JujuDBSnapChannel  string `yaml:"juju-db-snap-channel,omitempty"`
+	ControllerCert           string `yaml:"controllercert,omitempty"`
+	ControllerKey            string `yaml:"controllerkey,omitempty"`
+	CAPrivateKey             string `yaml:"caprivatekey,omitempty"`
+	APIPort                  int    `yaml:"apiport,omitempty"`
+	ControllerAPIPort        int    `yaml:"controllerapiport,omitempty"`
+	StatePort                int    `yaml:"stateport,omitempty"`
+	SharedSecret             string `yaml:"sharedsecret,omitempty"`
+	SystemIdentity           string `yaml:"systemidentity,omitempty"`
+	MongoVersion             string `yaml:"mongoversion,omitempty"`
+	MongoMemoryProfile       string `yaml:"mongomemoryprofile,omitempty"`
+	JujuDBSnapChannel        string `yaml:"juju-db-snap-channel,omitempty"`
+	NonSyncedWritesToRaftLog bool   `yaml:"no-sync-writes-to-raft-log,omitempty"`
 }
 
 func init() {
@@ -98,16 +99,17 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 			LogDir:           format.LogDir,
 			MetricsSpoolDir:  format.MetricsSpoolDir,
 		}),
-		jobs:              format.Jobs,
-		upgradedToVersion: *format.UpgradedToVersion,
-		nonce:             format.Nonce,
-		controller:        controllerTag,
-		model:             modelTag,
-		caCert:            format.CACert,
-		statePassword:     format.StatePassword,
-		oldPassword:       format.OldPassword,
-		loggingConfig:     format.LoggingConfig,
-		values:            format.Values,
+		jobs:                     format.Jobs,
+		upgradedToVersion:        *format.UpgradedToVersion,
+		nonce:                    format.Nonce,
+		controller:               controllerTag,
+		model:                    modelTag,
+		caCert:                   format.CACert,
+		statePassword:            format.StatePassword,
+		oldPassword:              format.OldPassword,
+		loggingConfig:            format.LoggingConfig,
+		values:                   format.Values,
+		nonSyncedWritesToRaftLog: format.NonSyncedWritesToRaftLog,
 	}
 	if len(format.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
@@ -181,6 +183,8 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		OldPassword:       config.oldPassword,
 		LoggingConfig:     config.loggingConfig,
 		Values:            config.values,
+
+		NonSyncedWritesToRaftLog: config.nonSyncedWritesToRaftLog,
 	}
 	if config.servingInfo != nil {
 		format.ControllerCert = config.servingInfo.Cert

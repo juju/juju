@@ -5,8 +5,6 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	agent "github.com/juju/juju/agent"
 	api "github.com/juju/juju/api"
@@ -17,6 +15,7 @@ import (
 	names "github.com/juju/names/v4"
 	shell "github.com/juju/utils/shell"
 	version "github.com/juju/version"
+	reflect "reflect"
 )
 
 // MockAgent is a mock of Agent interface
@@ -193,6 +192,20 @@ func (mr *MockConfigMockRecorder) Jobs() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Jobs", reflect.TypeOf((*MockConfig)(nil).Jobs))
 }
 
+// JujuDBSnapChannel mocks base method
+func (m *MockConfig) JujuDBSnapChannel() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "JujuDBSnapChannel")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// JujuDBSnapChannel indicates an expected call of JujuDBSnapChannel
+func (mr *MockConfigMockRecorder) JujuDBSnapChannel() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JujuDBSnapChannel", reflect.TypeOf((*MockConfig)(nil).JujuDBSnapChannel))
+}
+
 // LogDir mocks base method
 func (m *MockConfig) LogDir() string {
 	m.ctrl.T.Helper()
@@ -278,20 +291,6 @@ func (mr *MockConfigMockRecorder) MongoMemoryProfile() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoMemoryProfile", reflect.TypeOf((*MockConfig)(nil).MongoMemoryProfile))
 }
 
-// JujuDBSnapChannel mocks base method
-func (m *MockConfig) JujuDBSnapChannel() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "JujuDBSnapChannel")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// JujuDBSnapChannel indicates an expected call of JujuDBSnapChannel
-func (mr *MockConfigMockRecorder) JujuDBSnapChannel() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JujuDBSnapChannel", reflect.TypeOf((*MockConfig)(nil).JujuDBSnapChannel))
-}
-
 // MongoVersion mocks base method
 func (m *MockConfig) MongoVersion() mongo.Version {
 	m.ctrl.T.Helper()
@@ -304,6 +303,20 @@ func (m *MockConfig) MongoVersion() mongo.Version {
 func (mr *MockConfigMockRecorder) MongoVersion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoVersion", reflect.TypeOf((*MockConfig)(nil).MongoVersion))
+}
+
+// NonSyncedWritesToRaftLog mocks base method
+func (m *MockConfig) NonSyncedWritesToRaftLog() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NonSyncedWritesToRaftLog")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// NonSyncedWritesToRaftLog indicates an expected call of NonSyncedWritesToRaftLog
+func (mr *MockConfigMockRecorder) NonSyncedWritesToRaftLog() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NonSyncedWritesToRaftLog", reflect.TypeOf((*MockConfig)(nil).NonSyncedWritesToRaftLog))
 }
 
 // Nonce mocks base method
@@ -571,6 +584,20 @@ func (mr *MockConfigSetterMockRecorder) Jobs() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Jobs", reflect.TypeOf((*MockConfigSetter)(nil).Jobs))
 }
 
+// JujuDBSnapChannel mocks base method
+func (m *MockConfigSetter) JujuDBSnapChannel() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "JujuDBSnapChannel")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// JujuDBSnapChannel indicates an expected call of JujuDBSnapChannel
+func (mr *MockConfigSetterMockRecorder) JujuDBSnapChannel() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JujuDBSnapChannel", reflect.TypeOf((*MockConfigSetter)(nil).JujuDBSnapChannel))
+}
+
 // LogDir mocks base method
 func (m *MockConfigSetter) LogDir() string {
 	m.ctrl.T.Helper()
@@ -656,20 +683,6 @@ func (mr *MockConfigSetterMockRecorder) MongoMemoryProfile() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoMemoryProfile", reflect.TypeOf((*MockConfigSetter)(nil).MongoMemoryProfile))
 }
 
-// JujuDBSnapChannel mocks base method
-func (m *MockConfigSetter) JujuDBSnapChannel() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "JujuDBSnapChannel")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// JujuDBSnapChannel indicates an expected call of JujuDBSnapChannel
-func (mr *MockConfigSetterMockRecorder) JujuDBSnapChannel() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JujuDBSnapChannel", reflect.TypeOf((*MockConfigSetter)(nil).JujuDBSnapChannel))
-}
-
 // MongoVersion mocks base method
 func (m *MockConfigSetter) MongoVersion() mongo.Version {
 	m.ctrl.T.Helper()
@@ -682,6 +695,20 @@ func (m *MockConfigSetter) MongoVersion() mongo.Version {
 func (mr *MockConfigSetterMockRecorder) MongoVersion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoVersion", reflect.TypeOf((*MockConfigSetter)(nil).MongoVersion))
+}
+
+// NonSyncedWritesToRaftLog mocks base method
+func (m *MockConfigSetter) NonSyncedWritesToRaftLog() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NonSyncedWritesToRaftLog")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// NonSyncedWritesToRaftLog indicates an expected call of NonSyncedWritesToRaftLog
+func (mr *MockConfigSetterMockRecorder) NonSyncedWritesToRaftLog() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NonSyncedWritesToRaftLog", reflect.TypeOf((*MockConfigSetter)(nil).NonSyncedWritesToRaftLog))
 }
 
 // Nonce mocks base method
@@ -748,6 +775,18 @@ func (mr *MockConfigSetterMockRecorder) SetControllerAPIPort(arg0 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetControllerAPIPort", reflect.TypeOf((*MockConfigSetter)(nil).SetControllerAPIPort), arg0)
 }
 
+// SetJujuDBSnapChannel mocks base method
+func (m *MockConfigSetter) SetJujuDBSnapChannel(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetJujuDBSnapChannel", arg0)
+}
+
+// SetJujuDBSnapChannel indicates an expected call of SetJujuDBSnapChannel
+func (mr *MockConfigSetterMockRecorder) SetJujuDBSnapChannel(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetJujuDBSnapChannel", reflect.TypeOf((*MockConfigSetter)(nil).SetJujuDBSnapChannel), arg0)
+}
+
 // SetLoggingConfig mocks base method
 func (m *MockConfigSetter) SetLoggingConfig(arg0 string) {
 	m.ctrl.T.Helper()
@@ -772,18 +811,6 @@ func (mr *MockConfigSetterMockRecorder) SetMongoMemoryProfile(arg0 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMongoMemoryProfile", reflect.TypeOf((*MockConfigSetter)(nil).SetMongoMemoryProfile), arg0)
 }
 
-// SetJujuDBSnapChannel mocks base method
-func (m *MockConfigSetter) SetJujuDBSnapChannel(arg0 string) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetJujuDBSnapChannel", arg0)
-}
-
-// SetJujuDBSnapChannel indicates an expected call of SetJujuDBSnapChannel
-func (mr *MockConfigSetterMockRecorder) SetJujuDBSnapChannel(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetJujuDBSnapChannel", reflect.TypeOf((*MockConfigSetter)(nil).SetJujuDBSnapChannel), arg0)
-}
-
 // SetMongoVersion mocks base method
 func (m *MockConfigSetter) SetMongoVersion(arg0 mongo.Version) {
 	m.ctrl.T.Helper()
@@ -794,6 +821,18 @@ func (m *MockConfigSetter) SetMongoVersion(arg0 mongo.Version) {
 func (mr *MockConfigSetterMockRecorder) SetMongoVersion(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMongoVersion", reflect.TypeOf((*MockConfigSetter)(nil).SetMongoVersion), arg0)
+}
+
+// SetNonSyncedWritesToRaftLog mocks base method
+func (m *MockConfigSetter) SetNonSyncedWritesToRaftLog(arg0 bool) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetNonSyncedWritesToRaftLog", arg0)
+}
+
+// SetNonSyncedWritesToRaftLog indicates an expected call of SetNonSyncedWritesToRaftLog
+func (mr *MockConfigSetterMockRecorder) SetNonSyncedWritesToRaftLog(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetNonSyncedWritesToRaftLog", reflect.TypeOf((*MockConfigSetter)(nil).SetNonSyncedWritesToRaftLog), arg0)
 }
 
 // SetOldPassword mocks base method

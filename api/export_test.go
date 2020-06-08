@@ -25,7 +25,7 @@ var (
 	SlideAddressToFront     = slideAddressToFront
 	BestVersion             = bestVersion
 	FacadeVersions          = &facadeVersions
-	HasHooks                = &hasHooks
+	HasHooksOrDispatch      = &hasHooksOrDispatch
 )
 
 func DialAPI(info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {

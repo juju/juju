@@ -92,13 +92,14 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	raftDir := filepath.Join(agentConfig.DataDir(), "raft")
 
 	return config.NewWorker(Config{
-		FSM:                  config.FSM,
-		Logger:               config.Logger,
-		StorageDir:           raftDir,
-		LocalID:              raft.ServerID(agentConfig.Tag().Id()),
-		Transport:            transport,
-		Clock:                clk,
-		PrometheusRegisterer: config.PrometheusRegisterer,
+		FSM:                      config.FSM,
+		Logger:                   config.Logger,
+		StorageDir:               raftDir,
+		LocalID:                  raft.ServerID(agentConfig.Tag().Id()),
+		Transport:                transport,
+		Clock:                    clk,
+		PrometheusRegisterer:     config.PrometheusRegisterer,
+		NonSyncedWritesToRaftLog: agentConfig.NonSyncedWritesToRaftLog(),
 	})
 }
 

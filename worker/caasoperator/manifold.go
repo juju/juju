@@ -33,7 +33,9 @@ import (
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 type Logger interface {
@@ -224,6 +226,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			wCfg.OperatorInfo = *operatorInfo
 			wCfg.UniterParams = &uniter.UniterParams{
 				NewOperationExecutor: operation.NewExecutor,
+				NewDeployer:          charm.NewDeployer,
+				NewProcessRunner:     runner.NewRunner,
 				DataDir:              agentConfig.DataDir(),
 				Clock:                clock,
 				MachineLock:          config.MachineLock,

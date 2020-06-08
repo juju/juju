@@ -329,7 +329,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 			},
 		}},
 	}
-	c.Assert(result, jc.DeepEquals, expected)
+	check := jc.NewMultiChecker()
+	check.Add(`(*.Results[0].Result).ProvisioningNetworkTopology.SpaceSubnets["space2"]`, jc.SameContents, jc.ExpectedValue)
+	c.Assert(result, check, expected)
 }
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAlphaSpace(c *gc.C) {
