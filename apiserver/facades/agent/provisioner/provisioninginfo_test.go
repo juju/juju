@@ -291,14 +291,6 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check SpaceSubnets string array with multiple elements.
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Result, gc.NotNil)
-	topo := &result.Results[0].Result.ProvisioningNetworkTopology
-	c.Assert(topo.SpaceSubnets, gc.NotNil)
-	c.Assert(topo.SpaceSubnets["space2"], jc.SameContents, []string{"subnet-1", "subnet-2"})
-	delete(topo.SpaceSubnets, "space2")
-
 	controllerCfg := s.ControllerConfig
 	expected := params.ProvisioningInfoResultsV10{
 		Results: []params.ProvisioningInfoResultV10{{
@@ -330,13 +322,16 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 					},
 					SpaceSubnets: map[string][]string{
 						"space1": {"subnet-0"},
+						"space2": {"subnet-1", "subnet-2"},
 						"alpha":  {"subnet-alpha"},
 					},
 				},
 			},
 		}},
 	}
-	c.Assert(result, jc.DeepEquals, expected)
+	check := jc.NewMultiChecker()
+	check.Add(`(*.Results[0].Result).ProvisioningNetworkTopology.SpaceSubnets["space2"]`, jc.SameContents, jc.ExpectedValue)
+	c.Assert(result, check, expected)
 }
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAlphaSpace(c *gc.C) {

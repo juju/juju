@@ -81,12 +81,6 @@ func (s *PoolUpdateSuite) TestPoolUpdateOneAttr(c *gc.C) {
 	c.Assert(updatedConfigs.Config, gc.DeepEquals, map[string]interface{}{"something": "too"})
 }
 
-func (s *PoolUpdateSuite) TestPoolUpdateEmptyAttr(c *gc.C) {
-	_, err := s.runPoolUpdate(c, []string{"sunshine", ""})
-	c.Check(err, gc.ErrorMatches, `expected "key=value", got ""`)
-	c.Assert(len(s.mockAPI.Updates), gc.Equals, 0)
-}
-
 func (s *PoolUpdateSuite) TestPoolUpdateManyAttrs(c *gc.C) {
 	_, err := s.runPoolUpdate(c, []string{"sunshine", "something=too", "another=one"})
 	c.Check(err, jc.ErrorIsNil)
