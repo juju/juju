@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -17,12 +18,23 @@ import (
 type mockRunner struct {
 	ctx runner.Context
 
+	mu              sync.Mutex
 	hooksWithErrors set.Strings
-	ranActions      []actionData
+	ranActions_     []actionData
 }
 
 func (r *mockRunner) Context() runner.Context {
 	return r.ctx
+}
+
+func (r *mockRunner) ranActions() []actionData {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	result := make([]actionData, len(r.ranActions_))
+	for i, a := range r.ranActions_ {
+		result[i] = a
+	}
+	return result
 }
 
 // RunCommands exists to satisfy the Runner interface.
@@ -46,7 +58,9 @@ func (r *mockRunner) RunAction(actionName string) (runner.HookHandlerType, error
 	for k, v := range params {
 		ranAction.args = append(ranAction.args, fmt.Sprintf("%s=%s", k, v))
 	}
-	r.ranActions = append(r.ranActions, ranAction)
+	r.mu.Lock()
+	r.ranActions_ = append(r.ranActions_, ranAction)
+	r.mu.Unlock()
 	return runner.ExplicitHookHandler, nil
 }
 

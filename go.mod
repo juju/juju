@@ -130,7 +130,6 @@ require (
 	gopkg.in/retry.v1 v1.0.2
 	gopkg.in/robfig/cron.v2 v2.0.0-20150107220207-be2e0b0deed5 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
-	gopkg.in/vmihailenco/msgpack.v2 v2.9.1 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.0.0-20200131193051-d9adff57e763
 	k8s.io/apiextensions-apiserver v0.0.0-20200131201446-6910daba737d
