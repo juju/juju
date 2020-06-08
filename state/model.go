@@ -798,9 +798,8 @@ func (m *Model) LatestToolsVersion() version.Number {
 	}
 	v, err := version.Parse(ver)
 	if err != nil {
-		// This is being stored from a valid version but
-		// in case this data would beacame corrupt It is not
-		// worth to fail because of it.
+		// This is being stored from a valid version,
+		// but we don't fail should it become corrupt.
 		return version.Zero
 	}
 	return v
@@ -1755,21 +1754,45 @@ func (m *Model) assertActiveOp() txn.Op {
 // assertModelActiveOp returns a txn.Op that asserts the given
 // model UUID refers to an Alive model.
 func assertModelActiveOp(modelUUID string) txn.Op {
+	return assertModelUsableOp(modelUUID, isAliveDoc)
+}
+
+// assertModelNotDeadOp returns a txn.Op that asserts the given
+// model UUID refers to a model that is not dead and not currently
+// in the process of migration.
+func assertModelNotDeadOp(modelUUID string) txn.Op {
+	return assertModelUsableOp(modelUUID, notDeadDoc)
+}
+
+func assertModelUsableOp(modelUUID string, lifeAssertion bson.D) txn.Op {
 	return txn.Op{
 		C:      modelsC,
 		Id:     modelUUID,
-		Assert: append(isAliveDoc, bson.DocElem{"migration-mode", MigrationModeNone}),
+		Assert: append(lifeAssertion, bson.DocElem{Name: "migration-mode", Value: MigrationModeNone}),
 	}
 }
 
 func checkModelActive(st *State) error {
+	return errors.Trace(checkModelUsable(st, func(life Life) bool { return life == Alive }))
+}
+
+func checkModelNotDead(st *State) error {
+	return errors.Trace(checkModelUsable(st, func(life Life) bool { return life != Dead }))
+}
+
+func checkModelUsable(st *State, validLife func(Life) bool) error {
 	model, err := st.Model()
-	if (err == nil && model.Life() != Alive) || errors.IsNotFound(err) {
-		return errors.Errorf("model %q is no longer alive", model.Name())
-	} else if err != nil {
-		return errors.Annotate(err, "unable to read model")
-	} else if mode := model.MigrationMode(); mode != MigrationModeNone {
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if !validLife(model.Life()) {
+		return errors.Errorf("model %q is %s", model.Name(), model.Life().String())
+	}
+
+	if model.MigrationMode() != MigrationModeNone {
 		return errors.Errorf("model %q is being migrated", model.Name())
 	}
+
 	return nil
 }
