@@ -936,8 +936,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams, machineId string) names.VolumeTag {
 	ops, tag, err := state.AddVolumeOps(s.State, params, machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.RunTransaction(s.State, ops)
-	c.Assert(err, jc.ErrorIsNil)
+	state.RunTransaction(c, s.State, ops)
 	return tag
 }
 
@@ -2652,8 +2651,7 @@ func (s *MachineSuite) TestUpdateMachineSeriesSameSeriesAfterStart(c *gc.C) {
 					Id:     state.DocID(s.State, mach.Id()),
 					Update: bson.D{{"$set", bson.D{{"series", "trusty"}}}},
 				}}
-				err := state.RunTransaction(s.State, ops)
-				c.Assert(err, jc.ErrorIsNil)
+				state.RunTransaction(c, s.State, ops)
 			},
 			After: func() {
 				err := mach.Refresh()
