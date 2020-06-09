@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/quota"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/context/mocks"
@@ -808,8 +809,9 @@ func (s *mockHookContextSuite) TestActionAbort(c *gc.C) {
 			}
 			return nil
 		})
-		state := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-		hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, state)
+		s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
+		st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+		hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, st)
 		cancel := make(chan struct{})
 		if test.Cancel {
 			close(cancel)
@@ -826,4 +828,32 @@ func (s *mockHookContextSuite) TestActionAbort(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		mocks.Finish()
 	}
+}
+
+func (s *mockHookContextSuite) TestMissingAction(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(version, gc.Equals, 0)
+		c.Assert(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "FinishActions")
+		c.Assert(arg, gc.DeepEquals, params.ActionExecutionResults{
+			Results: []params.ActionExecutionResult{{
+				ActionTag: "action-2",
+				Status:    "failed",
+				Message:   `action not implemented on unit "wordpress/0"`,
+			}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{}},
+		}
+		return nil
+	})
+	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
+	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, st)
+
+	context.WithActionContext(hookContext, nil, nil)
+	err := hookContext.Flush("action", charmrunner.NewMissingHookError("noaction"))
+	c.Assert(err, jc.ErrorIsNil)
 }

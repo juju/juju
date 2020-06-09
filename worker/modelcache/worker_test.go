@@ -87,6 +87,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	})
 	w, err := multiworker.NewWorker(
 		multiworker.Config{
+			Clock:                clock.WallClock,
 			Logger:               s.logger,
 			Backing:              state.NewAllWatcherBacking(s.StatePool),
 			PrometheusRegisterer: noopRegisterer{},

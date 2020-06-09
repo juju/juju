@@ -48,6 +48,9 @@ class EKS(Base):
         super().__init__(bs_manager, timeout)
 
         self.cluster_name = self.client.env.controller.name  # use controller name for cluster name
+        suffix = os.environ.get('BUILD_NUMBER', None)
+        if suffix is not None:
+            self.cluster_name += '-%s' % suffix
         self._eksctl_bin = os.path.join(self.juju_home, 'eksctl')
         self._ensure_eksctl_bin()
         self.default_storage_class_name = ''
@@ -65,7 +68,7 @@ class EKS(Base):
 
         # list all running clusters.
         logger.info(
-            'running eks clusters in %s: \n\t- %s', self.location,
+            'Running eks clusters in %s: \n\t- %s', self.location,
             '\n\t- '.join([c['name'] for c in self.list_clusters(self.location)])
         )
 
@@ -79,7 +82,7 @@ class EKS(Base):
         else:
             self.sh(
                 '''curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp && mv /tmp/eksctl %s
-''' % self._eksctl_bin)
+''' % self._eksctl_bin, shell=True)
 
     def eksctl(self, *args):
         return self.sh(self._eksctl_bin, *args)
@@ -87,9 +90,7 @@ class EKS(Base):
     def _tear_down_substrate(self):
         logger.info("Deleting the EKS instance {0}".format(self.cluster_name))
         try:
-            o = self.eksctl(
-                'delete', 'cluster', self.cluster_name, '--region', self.location,
-            )
+            o = self.eksctl('delete', 'cluster', self.cluster_name, '--region', self.location)
             logger.info("cluster %s has been deleted -> \n%s", self.cluster_name, o)
         except Exception as e:
             if is_404(e):
@@ -103,9 +104,9 @@ class EKS(Base):
         )
 
     def _ensure_kube_dir(self):
-        logger.info("writing kubeconfig to %s" % self.kube_config_path)
-        self.sh(
-            'eksctl', 'utils', 'write-kubeconfig', '--cluster', self.cluster_name,
+        logger.info("Writing kubeconfig to %s" % self.kube_config_path)
+        self.eksctl(
+            'utils', 'write-kubeconfig', '--cluster', self.cluster_name,
             '--region', self.location, '--kubeconfig', self.kube_config_path,
         )
 
@@ -130,10 +131,10 @@ class EKS(Base):
             if remaining % 30 == 0:
                 msg += ' timeout in %ss...' % remaining
                 logger.info(msg)
-                
+
         # do pre cleanup;
         self._tear_down_substrate()
-        
+
         for remaining in until_timeout(600):
             # wait for the existing cluster to be deleted.
             try:
@@ -146,7 +147,7 @@ class EKS(Base):
                 log_remaining(remaining)
 
         # provision cluster.
-        logger.info('creating cluster -> %s', self.cluster_name)
+        logger.info('Creating cluster -> %s', self.cluster_name)
         try:
             o = self.eksctl(
                 'create', 'cluster',

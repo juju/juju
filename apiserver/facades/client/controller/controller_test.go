@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -62,6 +63,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
 	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
+		Clock:                clock.WallClock,
 		Logger:               loggo.GetLogger("test"),
 		Backing:              state.NewAllWatcherBacking(s.StatePool),
 		PrometheusRegisterer: noopRegisterer{},

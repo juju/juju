@@ -91,11 +91,6 @@ func (s *PoolCreateSuite) TestPoolCreateOneAttr(c *gc.C) {
 	c.Assert(createdConfigs.Config, gc.DeepEquals, map[string]interface{}{"something": "too"})
 }
 
-func (s *PoolCreateSuite) TestPoolCreateEmptyAttr(c *gc.C) {
-	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop", ""})
-	c.Check(err, gc.ErrorMatches, `expected "key=value", got ""`)
-}
-
 func (s *PoolCreateSuite) TestPoolCreateManyAttrs(c *gc.C) {
 	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop", "something=too", "another=one"})
 	c.Check(err, jc.ErrorIsNil)

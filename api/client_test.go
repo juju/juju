@@ -98,29 +98,43 @@ func (s *clientSuite) TestUploadToolsOtherModel(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *clientSuite) TestZipHasHooks(c *gc.C) {
-	ch := testcharms.Repo.CharmDir("storage-filesystem-subordinate") // has hooks
+func (s *clientSuite) TestZipHasHooksOnly(c *gc.C) {
+	ch := testcharms.Repo.CharmDir("storage-filesystem-subordinate") // has hooks only
 	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
 	c.Assert(err, jc.ErrorIsNil)
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
 	err = ch.ArchiveTo(tempFile)
 	c.Assert(err, jc.ErrorIsNil)
-	f := *api.HasHooks
+	f := *api.HasHooksOrDispatch
 	hasHooks, err := f(tempFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasHooks, jc.IsTrue)
 }
 
-func (s *clientSuite) TestZipHasNoHooks(c *gc.C) {
-	ch := testcharms.Repo.CharmDir("category") // has no hooks
+func (s *clientSuite) TestZipHasDispatchFileOnly(c *gc.C) {
+	ch := testcharms.Repo.CharmDir("category-dispatch") // has dispatch file only
 	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
 	c.Assert(err, jc.ErrorIsNil)
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
 	err = ch.ArchiveTo(tempFile)
 	c.Assert(err, jc.ErrorIsNil)
-	f := *api.HasHooks
+	f := *api.HasHooksOrDispatch
+	hasDispatch, err := f(tempFile.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hasDispatch, jc.IsTrue)
+}
+
+func (s *clientSuite) TestZipHasNoHooksNorDispath(c *gc.C) {
+	ch := testcharms.Repo.CharmDir("category") // has no hooks nor dispatch file
+	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
+	c.Assert(err, jc.ErrorIsNil)
+	defer tempFile.Close()
+	defer os.Remove(tempFile.Name())
+	err = ch.ArchiveTo(tempFile)
+	c.Assert(err, jc.ErrorIsNil)
+	f := *api.HasHooksOrDispatch
 	hasHooks, err := f(tempFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasHooks, jc.IsFalse)
@@ -168,7 +182,7 @@ func (s *clientSuite) TestAddLocalCharmNoHooks(c *gc.C) {
 		func(string) (bool, error) {
 			return false, nil
 		},
-		`invalid charm \"dummy\": has no hooks`)
+		`invalid charm \"dummy\": has no hooks nor dispatch file`)
 }
 
 func (s *clientSuite) TestAddLocalCharmWithLXDProfile(c *gc.C) {
@@ -243,14 +257,14 @@ func (s *clientSuite) testAddLocalCharmWithWithForceSucceeds(name string, c *gc.
 
 func (s *clientSuite) assertAddLocalCharmFailed(c *gc.C, f func(string) (bool, error), msg string) {
 	curl, ch := s.testCharm(c)
-	s.PatchValue(api.HasHooks, f)
+	s.PatchValue(api.HasHooksOrDispatch, f)
 	_, err := s.APIState.Client().AddLocalCharm(curl, ch, false)
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
 func (s *clientSuite) TestAddLocalCharmDefinetelyWithHooks(c *gc.C) {
 	curl, ch := s.testCharm(c)
-	s.PatchValue(api.HasHooks, func(string) (bool, error) {
+	s.PatchValue(api.HasHooksOrDispatch, func(string) (bool, error) {
 		return true, nil
 	})
 	savedCURL, err := s.APIState.Client().AddLocalCharm(curl, ch, false)

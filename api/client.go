@@ -355,12 +355,12 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*ch
 		return nil, errors.Errorf("unknown charm type %T", ch)
 	}
 
-	anyHooks, err := hasHooks(archive.Name())
+	anyHooksOrDispatch, err := hasHooksOrDispatch(archive.Name())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !anyHooks {
-		return nil, errors.Errorf("invalid charm %q: has no hooks", curl.Name)
+	if !anyHooksOrDispatch {
+		return nil, errors.Errorf("invalid charm %q: has no hooks nor dispatch file", curl.Name)
 	}
 
 	curl, err = c.UploadCharm(curl, archive)
@@ -370,9 +370,9 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*ch
 	return curl, nil
 }
 
-var hasHooks = hasHooksFolder
+var hasHooksOrDispatch = hasHooksFolderOrDispatchFile
 
-func hasHooksFolder(name string) (bool, error) {
+func hasHooksFolderOrDispatchFile(name string) (bool, error) {
 	zipr, err := zip.OpenReader(name)
 	if err != nil {
 		return false, err
@@ -381,6 +381,7 @@ func hasHooksFolder(name string) (bool, error) {
 	count := 0
 	// zip file spec 4.4.17.1 says that separators are always "/" even on Windows.
 	hooksPath := "hooks/"
+	dispatchPath := "dispatch"
 	for _, f := range zipr.File {
 		if strings.Contains(f.Name, hooksPath) {
 			count++
@@ -388,12 +389,16 @@ func hasHooksFolder(name string) (bool, error) {
 		if count > 1 {
 			// 1 is the magic number here.
 			// Charm zip archive is expected to contain several files and folders.
-			// All properly built charms will have a non-empty "hooks" folders.
+			// All properly built charms will have a non-empty "hooks" folders OR
+			// a dispatch file.
 			// File names in the archive will be of the form "hooks/" - for hooks folder; and
 			// "hooks/*" for the actual charm hooks implementations.
 			// For example, install hook may have a file with a name "hooks/install".
 			// Once we know that there are, at least, 2 files that have names that start with "hooks/", we
 			// know for sure that the charm has a non-empty hooks folder.
+			return true, nil
+		}
+		if strings.Contains(f.Name, dispatchPath) {
 			return true, nil
 		}
 	}

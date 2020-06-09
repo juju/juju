@@ -93,6 +93,8 @@ type Uniter struct {
 	operationFactory        operation.Factory
 	operationExecutor       operation.Executor
 	newOperationExecutor    NewOperationExecutorFunc
+	newProcessRunner        runner.NewRunnerFunc
+	newDeployer             charm.NewDeployerFunc
 	newRemoteRunnerExecutor NewRunnerExecutorFunc
 	translateResolverErr    func(error) error
 
@@ -160,6 +162,8 @@ type UniterParams struct {
 	UpdateStatusSignal            remotestate.UpdateStatusTimerFunc
 	HookRetryStrategy             params.RetryStrategy
 	NewOperationExecutor          NewOperationExecutorFunc
+	NewProcessRunner              runner.NewRunnerFunc
+	NewDeployer                   charm.NewDeployerFunc
 	NewRemoteRunnerExecutor       NewRunnerExecutorFunc
 	RemoteInitFunc                RemoteInitFunc
 	RunListener                   *RunListener
@@ -224,6 +228,8 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			updateStatusAt:                uniterParams.UpdateStatusSignal,
 			hookRetryStrategy:             uniterParams.HookRetryStrategy,
 			newOperationExecutor:          uniterParams.NewOperationExecutor,
+			newProcessRunner:              uniterParams.NewProcessRunner,
+			newDeployer:                   uniterParams.NewDeployer,
 			newRemoteRunnerExecutor:       uniterParams.NewRemoteRunnerExecutor,
 			remoteInitFunc:                uniterParams.RemoteInitFunc,
 			translateResolverErr:          translateResolverErr,
@@ -637,7 +643,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		u.logger.Warningf(err.Error())
 	}
 	charmLogger := u.logger.Child("charm")
-	deployer, err := charm.NewDeployer(
+	deployer, err := u.newDeployer(
 		u.paths.State.CharmDir,
 		u.paths.State.DeployerDir,
 		charm.NewBundlesDir(
@@ -667,7 +673,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		remoteExecutor = u.newRemoteRunnerExecutor(u.unit, u.paths)
 	}
 	runnerFactory, err := runner.NewFactory(
-		u.st, u.paths, contextFactory, remoteExecutor,
+		u.st, u.paths, contextFactory, u.newProcessRunner, remoteExecutor,
 	)
 	if err != nil {
 		return errors.Trace(err)

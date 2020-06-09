@@ -4,6 +4,8 @@
 package multiwatcher
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
@@ -22,10 +24,16 @@ type Logger interface {
 	Criticalf(string, ...interface{})
 }
 
+// Clock describes the time methods used in this package by the worker.
+type Clock interface {
+	Now() time.Time
+}
+
 // ManifoldConfig holds the information necessary to run a model cache worker in
 // a dependency.Engine.
 type ManifoldConfig struct {
 	StateName string
+	Clock     Clock
 	Logger    Logger
 
 	// NOTE: what metrics do we want to expose here?
@@ -40,6 +48,9 @@ type ManifoldConfig struct {
 func (config ManifoldConfig) Validate() error {
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("missing Clock")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("missing Logger")
@@ -85,6 +96,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	w, err := config.NewWorker(Config{
+		Clock:                config.Clock,
 		Logger:               config.Logger,
 		Backing:              config.NewAllWatcher(pool),
 		PrometheusRegisterer: config.PrometheusRegisterer,

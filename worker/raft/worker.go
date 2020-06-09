@@ -93,6 +93,11 @@ type Config struct {
 	// worker.
 	StorageDir string
 
+	// NonSyncedWritesToRaftLog allows the operator to disable fsync calls
+	// after each write to the raft log. This option trades performance for
+	// data safety and should be used with caution.
+	NonSyncedWritesToRaftLog bool
+
 	// LocalID is the raft.ServerID of this worker.
 	LocalID raft.ServerID
 
@@ -298,10 +303,17 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 		registerMetrics(w.config.PrometheusRegisterer, w.config.Logger)
 	}
 
-	rawLogStore, err := NewLogStore(w.config.StorageDir)
+	syncMode := SyncAfterWrite
+	if w.config.NonSyncedWritesToRaftLog {
+		syncMode = NoSyncAfterWrite
+		w.config.Logger.Warningf(`disabling fsync calls between raft log writes as instructed by the "non-synced-writes-to-raft-log option"`)
+	}
+
+	rawLogStore, err := NewLogStore(w.config.StorageDir, syncMode)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	// We need to make sure access to the LogStore methods (+ closing)
 	// is synchronised, but we don't need to synchronise the
 	// StableStore methods, because we aren't giving out a reference
@@ -405,14 +417,29 @@ func NewRaftConfig(config Config) (*raft.Config, error) {
 	return raftConfig, nil
 }
 
-// NewLogStore opens a boltDB logstore in the specified directory. If
-// the directory doesn't already exist it'll be created.
-func NewLogStore(dir string) (*raftboltdb.BoltStore, error) {
+// SyncMode defines the supported sync modes when writing to the raft log store.
+type SyncMode bool
+
+const (
+	// SyncWrites ensures that an fsync call is performed after each write.
+	SyncAfterWrite SyncMode = false
+
+	// NoSyncAfterWrite ensures that no fsync calls are performed between
+	// writes.
+	NoSyncAfterWrite SyncMode = true
+)
+
+// NewLogStore opens a boltDB logstore in the specified directory. If the
+// directory doesn't already exist it'll be created. If the caller passes
+// NonSyncedAfterWrite as the value of the syncMode argument, the underlying store
+// will NOT perform fsync calls between log writes.
+func NewLogStore(dir string, syncMode SyncMode) (*raftboltdb.BoltStore, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, errors.Trace(err)
 	}
 	logs, err := raftboltdb.New(raftboltdb.Options{
-		Path: filepath.Join(dir, "logs"),
+		Path:   filepath.Join(dir, "logs"),
+		NoSync: syncMode == NoSyncAfterWrite,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create bolt store for raft logs")

@@ -4,6 +4,7 @@
 package multiwatcher_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -30,6 +31,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = multiwatcher.ManifoldConfig{
 		StateName:            "state",
+		Clock:                clock.WallClock,
 		Logger:               loggo.GetLogger("test"),
 		PrometheusRegisterer: noopRegisterer{},
 		NewWorker: func(multiwatcher.Config) (worker.Worker, error) {
@@ -66,6 +68,13 @@ func (s *ManifoldSuite) TestConfigValidationMissingPrometheusRegisterer(c *gc.C)
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "missing PrometheusRegisterer not valid")
+}
+
+func (s *ManifoldSuite) TestConfigValidationMissingClock(c *gc.C) {
+	s.config.Clock = nil
+	err := s.config.Validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "missing Clock not valid")
 }
 
 func (s *ManifoldSuite) TestConfigValidationMissingLogger(c *gc.C) {
