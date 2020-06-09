@@ -89,6 +89,7 @@ func main() {
 
 		output[k] = TemplateFacade{
 			Name:        facade.Name,
+			AvailableTo: facade.AvailableTo,
 			Description: facade.Description,
 			Version:     facade.Version,
 			Methods:     methods,
@@ -110,6 +111,7 @@ type JSONFacade struct {
 	Name        string
 	Description string
 	Version     int
+	AvailableTo []string
 	Schema      JSONFacadeSchema
 }
 
@@ -157,6 +159,7 @@ type TemplateFacade struct {
 	Name        string
 	Description string
 	Version     int
+	AvailableTo []string
 	Methods     []TemplateMethod
 	Definitions []TemplateDefinition
 }
@@ -240,10 +243,19 @@ nav, main, footer {
 	{{$facade_name:=.Name}}
 		<h2 id="{{.Name}}"><a href="#{{.Name}}">{{.Name}}</a> v{{.Version}}</h2>
 		<blockquote>{{.Description}}</blockquote>
-		<ul>
-			<li>Jump to <a href="#{{.Name}}_definitions">Definitions</a></li>
-			<li>Jump to <a href="#top">Top</a></li>
-		</ul>
+		<h5>Facade Type</h5>
+		<ol>
+			{{range .AvailableTo}}
+				<li>{{.}}</li>
+			{{end}}
+		</ol>
+		<div style="float:right">
+			<ul>
+				<li>Jump to <a href="#{{.Name}}_definitions">Definitions</a></li>
+				<li>Jump to <a href="#top">Top</a></li>
+			</ul>
+		</div>
+		<div style="clear:both"></div>
 		<table class="highlight">
 			<tr>
 				<th>Name</th>
@@ -261,10 +273,13 @@ nav, main, footer {
 			{{end}}
 		</table>
 		<h3 id="{{.Name}}_definitions"><a href="#{{.Name}}_definitions">{{.Name}} Definitions</a></h3>
-		<ul>
-			<li>Jump to <a href="#{{.Name}}">Methods</a></li>
-			<li>Jump to <a href="#top">Top</a></li>
-		</ul>
+		<div style="float:right">
+			<ul>
+				<li>Jump to <a href="#{{.Name}}">Methods</a></li>
+				<li>Jump to <a href="#top">Top</a></li>
+			</ul>
+		</div>
+		<div style="clear:both"></div>
 		{{range .Definitions}}
 		<h4 id="{{$facade_name}}_definitions_{{.Name}}"><a href="#{{$facade_name}}_definitions_{{.Name}}">{{.Name}}</a></h4>
 		<table class="highlight">
