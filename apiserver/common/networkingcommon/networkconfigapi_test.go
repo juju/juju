@@ -40,12 +40,21 @@ func (s *networkConfigSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *networkConfigSuite) TestSetObservedNetworkConfig(c *gc.C) {
-	devices, err := s.machine.AllLinkLayerDevices()
+	err := s.machine.SetInstanceInfo("i-foo", "", "FAKE_NONCE", nil, nil, nil, nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertSetObservedNetworkConfig(c, s.machine)
+}
+
+func (s *networkConfigSuite) TestSetObservedNetworkConfigOnContainer(c *gc.C) {
+	container := s.Factory.MakeMachineNested(c, s.machine.Id(), nil)
+	s.assertSetObservedNetworkConfig(c, container)
+}
+
+func (s *networkConfigSuite) assertSetObservedNetworkConfig(c *gc.C, machine *state.Machine) {
+	devices, err := machine.AllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(devices, gc.HasLen, 0)
-
-	err = s.machine.SetInstanceInfo("i-foo", "", "FAKE_NONCE", nil, nil, nil, nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
 
 	observedConfig := []params.NetworkConfig{{
 		InterfaceName: "lo",
@@ -66,14 +75,14 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfig(c *gc.C) {
 		Address:       "0.20.0.2",
 	}}
 	args := params.SetMachineNetworkConfig{
-		Tag:    s.machine.Tag().String(),
+		Tag:    machine.Tag().String(),
 		Config: observedConfig,
 	}
 
 	err = s.networkconfig.SetObservedNetworkConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	devices, err = s.machine.AllLinkLayerDevices()
+	devices, err = machine.AllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(devices, gc.HasLen, 3)
 

@@ -230,6 +230,31 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 	return nil
 }
 
+// removeUnusedLinkLayerDevices removes any link layer devices that
+// exist in state but not in the supplied args.
+func (m *Machine) removeUnusedLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot remove unused link-layer devices on machine %q", m.doc.Id)
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if m.doc.Life != Alive {
+			return nil, errors.Errorf("machine %q not alive", m.doc.Id)
+		}
+		removeDevicesOps, err := m.removeUnusedLinkLayerDevicesOps(devicesArgs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(removeDevicesOps) == 0 {
+			logger.Debugf("no LinkLayerDevices to remove for machine %q", m.Id())
+			return nil, jujutxn.ErrNoOperations
+		}
+		return append([]txn.Op{m.assertAliveOp()}, removeDevicesOps...), nil
+	}
+	if err := m.st.db().Run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 func (st *State) allProviderIDsForLinkLayerDevices() (set.Strings, error) {
 	return st.allProviderIDsForEntity("linklayerdevice")
 }
@@ -467,6 +492,49 @@ func (m *Machine) setDevicesFromDocsOps(newDocs []linkLayerDeviceDoc) ([]txn.Op,
 		} else {
 			return nil, errors.Trace(err)
 		}
+	}
+	return ops, nil
+}
+
+// removeUnusedLinkLayerDevicesOps removes link-layer devices that
+// are not in the in-use list.
+func (m *Machine) removeUnusedLinkLayerDevicesOps(inUse []LinkLayerDeviceArgs) ([]txn.Op, error) {
+	devices, closer := m.st.db().GetCollection(linkLayerDevicesC)
+	defer closer()
+
+	existingToDelete := make(map[string]linkLayerDeviceDoc)
+	filter := bson.D{{
+		"_id", bson.D{{"$regex", "^" + linkLayerDeviceGlobalKey(m.Id(), "")}},
+	}}
+	var docs []linkLayerDeviceDoc
+	err := devices.Find(filter).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, d := range docs {
+		existingToDelete[d.Name] = d
+	}
+
+	var ops []txn.Op
+	for _, arg := range inUse {
+		delete(existingToDelete, arg.Name)
+	}
+	for _, devDoc := range existingToDelete {
+		dev := LinkLayerDevice{st: m.st, doc: devDoc}
+		removeOps, err := removeLinkLayerDeviceOps(m.st, dev.DocID(), dev.parentDocID())
+		// TODO(wallyworld) - do we need to remove parent devices also?
+		if IsParentDeviceHasChildrenError(err) {
+			logger.Debugf("not removing link layer device %q on machine %q as it has children", dev.Name(), m.Id())
+			continue
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if dev.ProviderID() != "" {
+			op := dev.st.networkEntityGlobalKeyRemoveOp("linklayerdevice", dev.ProviderID())
+			removeOps = append(removeOps, op)
+		}
+		ops = append(ops, removeOps...)
 	}
 	return ops, nil
 }
@@ -934,6 +1002,7 @@ func (m *Machine) AllNetworkAddresses() (corenetwork.SpaceAddresses, error) {
 // into multiple sets of args and calls SetLinkLayerDevices() for each set, such
 // that child devices are set only after their parents.
 func (m *Machine) SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs []LinkLayerDeviceArgs) error {
+	// TODO(wallyworld) - ideally this entire method would be done as a model op
 	seenNames := set.NewStrings("") // sentinel for empty ParentName.
 	for {
 		argsToSet := []LinkLayerDeviceArgs{}
@@ -969,7 +1038,7 @@ func (m *Machine) SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs []Lin
 			seenNames.Add(args.Name)
 		}
 	}
-	return nil
+	return m.removeUnusedLinkLayerDevices(devicesArgs...)
 }
 
 // SetDevicesAddressesIdempotently calls SetDevicesAddresses() and if it fails

@@ -42,9 +42,6 @@ func (api *NetworkConfigAPI) SetObservedNetworkConfig(args params.SetMachineNetw
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if m.IsContainer() {
-		return nil
-	}
 	observedConfig := args.Config
 	logger.Tracef("observed network config of machine %q: %+v", m.Id(), observedConfig)
 	if len(observedConfig) == 0 {
