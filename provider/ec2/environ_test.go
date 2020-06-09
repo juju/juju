@@ -207,7 +207,7 @@ func (*Suite) TestSupportsContainerAddresses(c *gc.C) {
 
 func (*Suite) TestSelectSubnetIDsForZone(c *gc.C) {
 	subnetZones := map[corenetwork.Id][]string{
-		corenetwork.Id("bar"): []string{"foo"},
+		corenetwork.Id("bar"): {"foo"},
 	}
 	placement := corenetwork.Id("")
 	az := "foo"
@@ -220,8 +220,8 @@ func (*Suite) TestSelectSubnetIDsForZone(c *gc.C) {
 
 func (*Suite) TestSelectSubnetIDsForZones(c *gc.C) {
 	subnetZones := map[corenetwork.Id][]string{
-		corenetwork.Id("bar"): []string{"foo"},
-		corenetwork.Id("baz"): []string{"foo"},
+		corenetwork.Id("bar"): {"foo"},
+		corenetwork.Id("baz"): {"foo"},
 	}
 	placement := corenetwork.Id("")
 	az := "foo"
@@ -234,8 +234,8 @@ func (*Suite) TestSelectSubnetIDsForZones(c *gc.C) {
 
 func (*Suite) TestSelectSubnetIDsForZoneWithPlacement(c *gc.C) {
 	subnetZones := map[corenetwork.Id][]string{
-		corenetwork.Id("bar"): []string{"foo"},
-		corenetwork.Id("baz"): []string{"foo"},
+		corenetwork.Id("bar"): {"foo"},
+		corenetwork.Id("baz"): {"foo"},
 	}
 	placement := corenetwork.Id("baz")
 	az := "foo"
@@ -248,8 +248,8 @@ func (*Suite) TestSelectSubnetIDsForZoneWithPlacement(c *gc.C) {
 
 func (*Suite) TestSelectSubnetIDsForZoneWithIncorrectPlacement(c *gc.C) {
 	subnetZones := map[corenetwork.Id][]string{
-		corenetwork.Id("bar"): []string{"foo"},
-		corenetwork.Id("baz"): []string{"foo"},
+		corenetwork.Id("bar"): {"foo"},
+		corenetwork.Id("baz"): {"foo"},
 	}
 	placement := corenetwork.Id("boom")
 	az := "foo"
@@ -261,8 +261,8 @@ func (*Suite) TestSelectSubnetIDsForZoneWithIncorrectPlacement(c *gc.C) {
 
 func (*Suite) TestSelectSubnetIDsForZoneWithINFAN(c *gc.C) {
 	subnetZones := map[corenetwork.Id][]string{
-		corenetwork.Id("bar-INFAN-test"): []string{"foo"},
-		corenetwork.Id("baz"):            []string{"foo"},
+		corenetwork.Id("bar-INFAN-test"): {"foo"},
+		corenetwork.Id("baz"):            {"foo"},
 	}
 	placement := corenetwork.Id("")
 	az := "foo"
