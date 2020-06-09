@@ -1175,6 +1175,12 @@ func (s *linkLayerDevicesStateSuite) TestMachineSetParentLinkLayerDevicesBeforeT
 }
 
 func (s *linkLayerDevicesStateSuite) TestMachineSetParentLinkLayerDevicesBeforeTheirChildrenIdempotent(c *gc.C) {
+	willBeDeleted := []state.LinkLayerDeviceArgs{{
+		Name: "obsolete",
+		Type: corenetwork.BridgeDevice,
+	}}
+	err := s.machine.SetParentLinkLayerDevicesBeforeTheirChildren(willBeDeleted)
+	c.Assert(err, jc.ErrorIsNil)
 	s.testMachineSetParentLinkLayerDevicesBeforeTheirChildren(c)
 	s.testMachineSetParentLinkLayerDevicesBeforeTheirChildren(c)
 }
@@ -1290,6 +1296,7 @@ func (s *linkLayerDevicesStateSuite) testMachineSetParentLinkLayerDevicesBeforeT
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allDevices, gc.HasLen, len(nestedDevicesArgs))
 	for _, device := range allDevices {
+		c.Check(device.Name(), gc.Not(gc.Equals), "obsolete")
 		if device.Type() != corenetwork.LoopbackDevice && device.Type() != corenetwork.BridgeDevice {
 			c.Check(device.ProviderID(), gc.Not(gc.Equals), corenetwork.Id(""))
 		}
