@@ -21,6 +21,7 @@ type GenSuite struct {
 	pkgRegistry *MockPackageRegistry
 	apiServer   *MockAPIServer
 	registry    *MockRegistry
+	linker      *MockLinker
 }
 
 var _ = gc.Suite(&GenSuite{})
@@ -31,9 +32,10 @@ func (s *GenSuite) TestResult(c *gc.C) {
 	s.scenario(c,
 		s.expectLoadPackage,
 		s.expectList,
+		s.expectLinker,
 		s.expectGetType,
 	)
-	result, err := Generate(s.pkgRegistry, s.apiServer)
+	result, err := Generate(s.pkgRegistry, s.linker, s.apiServer)
 	c.Check(err, jc.ErrorIsNil)
 
 	objtype := rpcreflect.ObjTypeOf(reflect.TypeOf(ResourcesFacade{}))
@@ -43,6 +45,7 @@ func (s *GenSuite) TestResult(c *gc.C) {
 			Description: "",
 			Version:     4,
 			Schema:      jsonschema.ReflectFromObjType(objtype),
+			AvailableTo: []string{},
 		},
 	})
 }
@@ -53,6 +56,7 @@ func (s *GenSuite) setup(c *gc.C) *gomock.Controller {
 	s.pkgRegistry = NewMockPackageRegistry(ctrl)
 	s.apiServer = NewMockAPIServer(ctrl)
 	s.registry = NewMockRegistry(ctrl)
+	s.linker = NewMockLinker(ctrl)
 
 	return ctrl
 }
@@ -68,12 +72,17 @@ func (s *GenSuite) expectList() {
 	aExp.AllFacades().Return(s.registry)
 
 	rExp := s.registry.EXPECT()
-	rExp.List().Return([]facade.Description{
+	rExp.ListDetails().Return([]facade.Details{
 		{
-			Name:     "Resources",
-			Versions: []int{1, 2, 3, 4},
+			Name:    "Resources",
+			Version: 4,
 		},
 	})
+}
+
+func (s *GenSuite) expectLinker() {
+	aExp := s.linker.EXPECT()
+	aExp.Links(gomock.Any(), gomock.Any()).Return([]string{})
 }
 
 func (s *GenSuite) expectLoadPackage() {
