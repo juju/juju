@@ -1,4 +1,4 @@
-#!/bin/sh -eu
+#!/bin/sh
 
 PATH=/snap/bin:$PATH
 
