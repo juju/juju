@@ -1028,6 +1028,17 @@ func (m *Machine) removeUnusedLinkLayerDevices(devicesArgs LinkLayerDevicesArgs)
 		}
 	}
 
+	// Treat devices with parents not also being deleted as not having parents.
+	// This is so that when the hierarchy for batching is generated below,
+	// such devices are deleted last, with the other top-level parents.
+	unusedNames := unusedArgs.deviceNames()
+	for i, args := range unusedArgs {
+		if unusedNames.Contains(args.ParentName) {
+			continue
+		}
+		unusedArgs[i].ParentName = ""
+	}
+
 	// Batch up the unused args, then iterate in reverse order
 	// so that groups of children are deleted before parents.
 	unusedGroups := unusedArgs.batchParentsFirst()
