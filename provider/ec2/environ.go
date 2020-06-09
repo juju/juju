@@ -568,7 +568,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	// if we use them all when constructing the instance creation request.
 	var subnetZones map[corenetwork.Id][]string
 	if len(args.SubnetsToZones) > 0 {
-		subnetZones = args.SubnetsToZones[0]
+		subnetZones = filterSubnetsToZones(args.SubnetsToZones)
 	}
 
 	haveVPCID := isVPCIDSet(e.ecfg().vpcID())
@@ -681,6 +681,29 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		Instance: inst,
 		Hardware: &hc,
 	}, nil
+}
+
+// FilterSubnetsToZones removes the INFAN network types from possible subnets.
+// We can't use the INFAN networks as they require you to use the underlay
+// network.
+// TODO (stickupkid): We should lift this to core package if more providers need
+// this.
+// TODO (stickupkid): We should consider removing them during the generation of
+// ProvisioningInfo provided that container provisioning was unaffected.
+func filterSubnetsToZones(subnetsToZones []map[corenetwork.Id][]string) map[corenetwork.Id][]string {
+	if len(subnetsToZones) == 0 {
+		return nil
+	}
+
+	subnetZones := make(map[corenetwork.Id][]string)
+	// Use the first subnets zones until we support multiple NIC
+	for id, zones := range subnetsToZones[0] {
+		if corenetwork.IsInFanNetwork(id) {
+			continue
+		}
+		subnetZones[id] = zones
+	}
+	return subnetZones
 }
 
 func (e *environ) deriveAvailabilityZone(ctx context.ProviderCallContext, args environs.StartInstanceParams) (string, error) {
