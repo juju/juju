@@ -17,13 +17,14 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 )
 
-//go:generate mockgen -package gen -destination describeapi_mock.go github.com/juju/juju/generate/schemagen/gen APIServer,Registry,PackageRegistry
+//go:generate mockgen -package gen -destination describeapi_mock.go github.com/juju/juju/generate/schemagen/gen APIServer,Registry,PackageRegistry,Linker
 type APIServer interface {
 	AllFacades() Registry
 }
 
 type Registry interface {
 	List() []facade.Description
+	ListDetails() []facade.Details
 	GetType(name string, version int) (reflect.Type, error)
 }
 
@@ -31,22 +32,27 @@ type PackageRegistry interface {
 	LoadPackage() (*packages.Package, error)
 }
 
+type Linker interface {
+	Links(string, facade.Factory) []string
+}
+
 // Generate a FacadeSchema from the APIServer
-func Generate(pkgRegistry PackageRegistry, client APIServer) ([]FacadeSchema, error) {
+func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer) ([]FacadeSchema, error) {
 	pkg, err := pkgRegistry.LoadPackage()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	registry := client.AllFacades()
-	facades := registry.List()
+	facades := registry.ListDetails()
 	result := make([]FacadeSchema, len(facades))
 	for i, facade := range facades {
 		// select the latest version from the facade list
-		version := facade.Versions[len(facade.Versions)-1]
+		version := facade.Version
 
 		result[i].Name = facade.Name
 		result[i].Version = version
+		result[i].AvailableTo = linker.Links(facade.Name, facade.Factory)
 
 		kind, err := registry.GetType(facade.Name, version)
 		if err != nil {
@@ -92,6 +98,7 @@ type FacadeSchema struct {
 	Name        string
 	Description string
 	Version     int
+	AvailableTo []string
 	Schema      *jsonschema.Schema
 }
 
