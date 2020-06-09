@@ -7,6 +7,7 @@ import (
 	"go/token"
 	"go/types"
 	"reflect"
+	"sort"
 
 	"github.com/juju/errors"
 	jsonschema "github.com/juju/jsonschema-gen"
@@ -45,8 +46,24 @@ func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer) ([]F
 
 	registry := client.AllFacades()
 	facades := registry.ListDetails()
-	result := make([]FacadeSchema, len(facades))
-	for i, facade := range facades {
+
+	latest := make(map[string]facade.Details)
+	for _, facade := range facades {
+		if f, ok := latest[facade.Name]; ok && facade.Version < f.Version {
+			continue
+		}
+		latest[facade.Name] = facade
+	}
+	latestFacades := make([]facade.Details, 0, len(latest))
+	for _, v := range latest {
+		latestFacades = append(latestFacades, v)
+	}
+	sort.Slice(latestFacades, func(i, j int) bool {
+		return latestFacades[i].Name < latestFacades[j].Name
+	})
+
+	result := make([]FacadeSchema, len(latestFacades))
+	for i, facade := range latestFacades {
 		// select the latest version from the facade list
 		version := facade.Version
 
