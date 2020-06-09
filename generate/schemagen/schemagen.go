@@ -5,11 +5,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io/ioutil"
 	"os"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/generate/schemagen/gen"
+	"golang.org/x/tools/go/packages"
 )
 
 func main() {
@@ -20,7 +25,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	result, err := gen.Generate(apiServerShim{})
+	result, err := gen.Generate(defaultPackages{
+		path: "github.com/juju/juju/apiserver",
+	}, apiServerShim{})
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -43,4 +50,26 @@ type apiServerShim struct{}
 
 func (apiServerShim) AllFacades() gen.Registry {
 	return apiserver.AllFacades()
+}
+
+type defaultPackages struct {
+	path string
+}
+
+func (p defaultPackages) LoadPackage() (*packages.Package, error) {
+	cfg := packages.Config{
+		Mode: packages.LoadAllSyntax,
+		ParseFile: func(fset *token.FileSet, filename string, src []byte) (*ast.File, error) {
+			return parser.ParseFile(fset, filename, src, parser.ParseComments)
+		},
+	}
+
+	pkgs, err := packages.Load(&cfg, p.path)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot load %q", p.path)
+	}
+	if len(pkgs) != 1 {
+		return nil, errors.Errorf("packages.Load returned %d packages, not 1", len(pkgs))
+	}
+	return pkgs[0], nil
 }

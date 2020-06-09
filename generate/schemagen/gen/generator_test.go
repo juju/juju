@@ -18,8 +18,9 @@ import (
 type GenSuite struct {
 	testing.IsolationSuite
 
-	apiServer *MockAPIServer
-	registry  *MockRegistry
+	pkgRegistry *MockPackageRegistry
+	apiServer   *MockAPIServer
+	registry    *MockRegistry
 }
 
 var _ = gc.Suite(&GenSuite{})
@@ -28,18 +29,20 @@ func (s *GenSuite) TestResult(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.scenario(c,
+		s.expectLoadPackage,
 		s.expectList,
 		s.expectGetType,
 	)
-	result, err := Generate(s.apiServer)
+	result, err := Generate(s.pkgRegistry, s.apiServer)
 	c.Check(err, jc.ErrorIsNil)
 
 	objtype := rpcreflect.ObjTypeOf(reflect.TypeOf(ResourcesFacade{}))
 	c.Check(result, gc.DeepEquals, []FacadeSchema{
 		{
-			Name:    "Resources",
-			Version: 4,
-			Schema:  jsonschema.ReflectFromObjType(objtype),
+			Name:        "Resources",
+			Description: "",
+			Version:     4,
+			Schema:      jsonschema.ReflectFromObjType(objtype),
 		},
 	})
 }
@@ -47,6 +50,7 @@ func (s *GenSuite) TestResult(c *gc.C) {
 func (s *GenSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.pkgRegistry = NewMockPackageRegistry(ctrl)
 	s.apiServer = NewMockAPIServer(ctrl)
 	s.registry = NewMockRegistry(ctrl)
 
@@ -70,6 +74,11 @@ func (s *GenSuite) expectList() {
 			Versions: []int{1, 2, 3, 4},
 		},
 	})
+}
+
+func (s *GenSuite) expectLoadPackage() {
+	aExp := s.pkgRegistry.EXPECT()
+	aExp.LoadPackage().Return(nil, nil)
 }
 
 type ResourcesFacade struct{}
