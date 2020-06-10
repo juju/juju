@@ -1894,8 +1894,8 @@ func (w *unitsWatcher) loop(coll, id string) error {
 	}
 }
 
-// WatchHardwareCharacteristics returns a watcher for observing changes to a machine's hardware characteristics.
-func (m *Machine) WatchHardwareCharacteristics() NotifyWatcher {
+// WatchInstanceData returns a watcher for observing changes to a machine's instance data.
+func (m *Machine) WatchInstanceData() NotifyWatcher {
 	return newEntityWatcher(m.st, instanceDataC, m.doc.DocID)
 }
 
@@ -1939,11 +1939,6 @@ func (u *Unit) Watch() NotifyWatcher {
 // Watch returns a watcher for observing changes to a model.
 func (m *Model) Watch() NotifyWatcher {
 	return newEntityWatcher(m.st, modelsC, m.doc.UUID)
-}
-
-// WatchInstanceData returns a watcher for observing changes to a model.
-func (m *Machine) WatchInstanceData() NotifyWatcher {
-	return newEntityWatcher(m.st, instanceDataC, m.doc.Id)
 }
 
 // WatchUpgradeInfo returns a watcher for observing changes to upgrade
