@@ -42,9 +42,6 @@ func (api *NetworkConfigAPI) SetObservedNetworkConfig(args params.SetMachineNetw
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if m.IsContainer() {
-		return nil
-	}
 	observedConfig := args.Config
 	logger.Tracef("observed network config of machine %q: %+v", m.Id(), observedConfig)
 	if len(observedConfig) == 0 {
@@ -52,18 +49,21 @@ func (api *NetworkConfigAPI) SetObservedNetworkConfig(args params.SetMachineNetw
 		return nil
 	}
 
-	providerConfig, err := api.getOneMachineProviderNetworkConfig(m)
-	if errors.IsNotProvisioned(err) {
-		logger.Infof("not updating machine %q network config: %v", m.Id(), err)
-		return nil
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
+	// Do not ask the provider about containers in machines.
 	mergedConfig := observedConfig
-	if len(providerConfig) != 0 {
-		mergedConfig = MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
-		logger.Tracef("merged observed and provider network config for machine %q: %+v", m.Id(), mergedConfig)
+	if !m.IsContainer() {
+		providerConfig, err := api.getOneMachineProviderNetworkConfig(m)
+		if errors.IsNotProvisioned(err) {
+			logger.Infof("not updating machine %q network config: %v", m.Id(), err)
+			return nil
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(providerConfig) != 0 {
+			mergedConfig = MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
+			logger.Tracef("merged observed and provider network config for machine %q: %+v", m.Id(), mergedConfig)
+		}
 	}
 
 	mergedConfig, err = api.fixUpFanSubnets(mergedConfig)
@@ -125,6 +125,7 @@ func (api *NetworkConfigAPI) SetProviderNetworkConfig(args params.Entities) (par
 		}
 
 		if m.IsContainer() {
+			logger.Debugf("not updating network config for container %q", m.Id())
 			continue
 		}
 
@@ -164,10 +165,6 @@ func (api *NetworkConfigAPI) getMachineForSettingNetworkConfig(machineTag string
 		return nil, errors.Trace(common.ErrPerm)
 	} else if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	if m.IsContainer() {
-		logger.Debugf("not updating network config for container %q", m.Id())
 	}
 
 	return m, nil

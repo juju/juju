@@ -163,6 +163,53 @@ type LinkLayerDeviceArgs struct {
 	ParentName string
 }
 
+type LinkLayerDevicesArgs []LinkLayerDeviceArgs
+
+// batchParentsFirst returns the devices args as sub-divided collections,
+// ensuring that each group consists only of devices who's parents (if any)
+// are contained in a group with an earlier index.
+func (a LinkLayerDevicesArgs) batchParentsFirst() []LinkLayerDevicesArgs {
+	var allDevs []LinkLayerDevicesArgs
+
+	// Collect the device names that we see, starting with the empty string as
+	// a proxy the root devices - those without a parent.
+	seen := set.NewStrings("")
+	for {
+		var groupDevs LinkLayerDevicesArgs
+
+		// Get all devices who's parents we have already seen.
+		for _, args := range a {
+			if seen.Contains(args.Name) {
+				continue
+			}
+			if seen.Contains(args.ParentName) {
+				groupDevs = append(groupDevs, args)
+			}
+		}
+
+		if len(groupDevs) == 0 {
+			break
+		}
+
+		// Mark as seen only after we have accrued the full group.
+		for _, args := range groupDevs {
+			seen.Add(args.Name)
+		}
+
+		allDevs = append(allDevs, groupDevs)
+	}
+
+	return allDevs
+}
+
+func (a LinkLayerDevicesArgs) deviceNames() set.Strings {
+	deviceNames := set.NewStrings()
+	for _, dev := range a {
+		deviceNames.Add(dev.Name)
+	}
+	return deviceNames
+}
+
 // SetLinkLayerDevices sets link-layer devices on the machine, adding or
 // updating existing devices as needed, in a single transaction. ProviderID
 // field can be empty if not supported by the provider, but when set must be
@@ -933,43 +980,122 @@ func (m *Machine) AllNetworkAddresses() (corenetwork.SpaceAddresses, error) {
 // SetParentLinkLayerDevicesBeforeTheirChildren splits the given devicesArgs
 // into multiple sets of args and calls SetLinkLayerDevices() for each set, such
 // that child devices are set only after their parents.
-func (m *Machine) SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs []LinkLayerDeviceArgs) error {
-	seenNames := set.NewStrings("") // sentinel for empty ParentName.
-	for {
-		argsToSet := []LinkLayerDeviceArgs{}
-		for _, args := range devicesArgs {
-			if seenNames.Contains(args.Name) {
-				// Already added earlier.
-				continue
-			}
-			if seenNames.Contains(args.ParentName) {
-				argsToSet = append(argsToSet, args)
-			}
-		}
-		if len(argsToSet) == 0 {
-			// We're done.
-			break
-		}
-		logger.Debugf("setting link-layer devices %+v", argsToSet)
-		if err := m.SetLinkLayerDevices(argsToSet...); IsProviderIDNotUniqueError(err) {
+func (m *Machine) SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs LinkLayerDevicesArgs) error {
+	// TODO(wallyworld) - ideally this entire method would be done as a model op
+	for _, groupedArgs := range devicesArgs.batchParentsFirst() {
+		logger.Debugf("setting link-layer devices %+v", groupedArgs)
+		if err := m.SetLinkLayerDevices(groupedArgs...); IsProviderIDNotUniqueError(err) {
 			// FIXME: Make updating devices with unchanged ProviderID idempotent.
 			// FIXME: this obliterates the ProviderID of *all*
 			// devices if any *one* of them is not unique.
-			for i, args := range argsToSet {
-				args.ProviderID = ""
-				argsToSet[i] = args
+			for i := range groupedArgs {
+				groupedArgs[i].ProviderID = ""
 			}
-			if err := m.SetLinkLayerDevices(argsToSet...); err != nil {
+			if err := m.SetLinkLayerDevices(groupedArgs...); err != nil {
 				return errors.Trace(err)
 			}
 		} else if err != nil {
 			return errors.Trace(err)
 		}
-		for _, args := range argsToSet {
-			seenNames.Add(args.Name)
+	}
+
+	return m.removeUnusedLinkLayerDevices(devicesArgs)
+}
+
+// removeUnusedLinkLayerDevices removes any link layer devices that
+// exist in state but not in the supplied args.
+func (m *Machine) removeUnusedLinkLayerDevices(devicesArgs LinkLayerDevicesArgs) (err error) {
+	defer errors.DeferredAnnotatef(&err, "removing unused link-layer devices on machine %q", m.doc.Id)
+
+	unused, err := m.unusedLinkLayerDevices(devicesArgs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(unused) == 0 {
+		return nil
+	}
+
+	// Do some transformations to prepare for deleting children before parents.
+	// Index the unused devices by name, and create a dummy
+	// LinkLayerDevicesArgs collection so we can lever it to drive the batches.
+	unusedByName := make(map[string]*LinkLayerDevice, len(unused))
+	unusedArgs := make(LinkLayerDevicesArgs, len(unused))
+	for i, dev := range unused {
+		unusedByName[dev.Name()] = dev
+		unusedArgs[i] = LinkLayerDeviceArgs{
+			Name:       dev.Name(),
+			ParentName: dev.ParentName(),
 		}
 	}
+
+	// Treat devices with parents not also being deleted as not having parents.
+	// This is so that when the hierarchy for batching is generated below,
+	// such devices are deleted last, with the other top-level parents.
+	unusedNames := unusedArgs.deviceNames()
+	for i, args := range unusedArgs {
+		if unusedNames.Contains(args.ParentName) {
+			continue
+		}
+		unusedArgs[i].ParentName = ""
+	}
+
+	// Batch up the unused args, then iterate in reverse order
+	// so that groups of children are deleted before parents.
+	unusedGroups := unusedArgs.batchParentsFirst()
+	for i := len(unusedGroups) - 1; i >= 0; i-- {
+		// Gather the ops for deleting this batch of children.
+		var ops []txn.Op
+		for _, devArgs := range unusedGroups[i] {
+			dev := unusedByName[devArgs.Name]
+			removeOps, err := removeLinkLayerDeviceOps(m.st, dev.DocID(), dev.parentDocID())
+			if err != nil {
+				return errors.Trace(err)
+			}
+			ops = append(ops, removeOps...)
+		}
+
+		// Run the transaction.
+		// We have to do this each time, because the transaction op generation
+		// above checks the integrity of the existing hierarchy in Mongo.
+		// This would cause errors if attempting to delete any parents in a
+		// single transaction, even if we were also deleting the children.
+		buildTxn := func(attempt int) ([]txn.Op, error) {
+			if m.doc.Life != Alive {
+				return nil, errors.Errorf("machine %q not alive", m.doc.Id)
+			}
+
+			if len(ops) == 0 {
+				logger.Debugf("no LinkLayerDevices to remove for machine %q", m.Id())
+				return nil, jujutxn.ErrNoOperations
+			}
+
+			return append([]txn.Op{m.assertAliveOp()}, ops...), nil
+		}
+		if err := m.st.db().Run(buildTxn); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	return nil
+}
+
+// unusedLinkLayerDevices returns all link-layer devices for the machine
+// that are not represented in the input arguments.
+func (m *Machine) unusedLinkLayerDevices(seen LinkLayerDevicesArgs) ([]*LinkLayerDevice, error) {
+	seenNames := seen.deviceNames()
+
+	allDevs, err := m.AllLinkLayerDevices()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var unused []*LinkLayerDevice
+	for _, dev := range allDevs {
+		if !seenNames.Contains(dev.Name()) {
+			unused = append(unused, dev)
+		}
+	}
+	return unused, nil
 }
 
 // SetDevicesAddressesIdempotently calls SetDevicesAddresses() and if it fails
