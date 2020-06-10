@@ -268,7 +268,7 @@
 
 [[constraint]]
   name = "github.com/gorilla/websocket"
-  revision = "5ed622c449da6d44c3c8329331ff47a9e5844f71"
+  revision = "b65e62901fc1c0d968042419e74789f6af455eb9"
 
 [[constraint]]
   name = "github.com/hashicorp/raft"
