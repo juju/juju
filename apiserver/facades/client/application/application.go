@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -92,6 +93,12 @@ type APIv10 struct {
 // The Get call also returns the current endpoint bindings while the SetCharm
 // call access a map of operator-defined bindings.
 type APIv11 struct {
+	*APIv12
+}
+
+// APIv12 provides the Application API facade for version 12.
+// It adds the UnitsInfo method.
+type APIv12 struct {
 	*APIBase
 }
 
@@ -109,7 +116,8 @@ type APIBase struct {
 	model     Model
 	modelType state.ModelType
 
-	resources facade.Resources
+	resources        facade.Resources
+	leadershipReader leadership.Reader
 
 	// TODO(axw) stateCharm only exists because I ran out
 	// of time unwinding all of the tendrils of state. We
@@ -190,11 +198,19 @@ func NewFacadeV10(ctx facade.Context) (*APIv10, error) {
 }
 
 func NewFacadeV11(ctx facade.Context) (*APIv11, error) {
-	api, err := newFacadeBase(ctx)
+	api, err := NewFacadeV12(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv11{api}, nil
+}
+
+func NewFacadeV12(ctx facade.Context) (*APIv12, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv12{api}, nil
 }
 
 type caasBrokerInterface interface {
@@ -230,12 +246,18 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 
 	resources := ctx.Resources()
 
+	leadershipReader, err := ctx.LeadershipReader(ctx.State().ModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return NewAPIBase(
 		&stateShim{ctx.State()},
 		storageAccess,
 		ctx.Auth(),
 		blockChecker,
-		facadeModel,
+		&modelShim{facadeModel},
+		leadershipReader,
 		stateCharm,
 		DeployApplication,
 		storagePoolManager,
@@ -252,6 +274,7 @@ func NewAPIBase(
 	authorizer facade.Authorizer,
 	blockChecker BlockChecker,
 	model Model,
+	leadershipReader leadership.Reader,
 	stateCharm func(Charm) *state.Charm,
 	deployApplication func(ApplicationDeployer, DeployApplicationParams) (Application, error),
 	storagePoolManager poolmanager.PoolManager,
@@ -269,6 +292,7 @@ func NewAPIBase(
 		check:                 blockChecker,
 		model:                 model,
 		modelType:             model.Type(),
+		leadershipReader:      leadershipReader,
 		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
 		storagePoolManager:    storagePoolManager,
@@ -2619,6 +2643,230 @@ func validateAgentVersions(application Application, versioner AgentVersioner) er
 		if modelVer.Compare(epoch) < 0 {
 			return ErrInvalidAgentVersions
 		}
+	}
+	return nil
+}
+
+// UnitsInfo isn't on the v11 API.
+func (u *APIv11) UnitsInfo(_, _ struct{}) {}
+
+// UnitsInfo returns unit information.
+func (api *APIBase) UnitsInfo(in params.Entities) (params.UnitInfoResults, error) {
+	out := make([]params.UnitInfoResult, len(in.Entities))
+	leaders, err := api.leadershipReader.Leaders()
+	if err != nil {
+		return params.UnitInfoResults{}, errors.Trace(err)
+	}
+	for i, one := range in.Entities {
+		tag, err := names.ParseUnitTag(one.Tag)
+		if err != nil {
+			out[i].Error = common.ServerError(err)
+			continue
+		}
+		unit, err := api.backend.Unit(tag.Id())
+		if err != nil {
+			out[i].Error = common.ServerError(err)
+			continue
+		}
+		app, err := api.backend.Application(unit.ApplicationName())
+		if err != nil {
+			out[i].Error = common.ServerError(err)
+			continue
+		}
+		curl, _ := app.CharmURL()
+		machineId, _ := unit.AssignedMachineId()
+		workloadVersion, err := unit.WorkloadVersion()
+		if err != nil {
+			out[i].Error = common.ServerError(err)
+			continue
+		}
+
+		result := &params.UnitResult{
+			Tag:             tag.String(),
+			WorkloadVersion: workloadVersion,
+			Machine:         machineId,
+			Charm:           curl.String(),
+		}
+		if leader := leaders[unit.ApplicationName()]; leader == unit.Name() {
+			result.Leader = true
+		}
+		if machineId != "" {
+			machine, err := api.backend.Machine(machineId)
+			if err != nil {
+				out[i].Error = common.ServerError(err)
+				continue
+			}
+			publicAddress, err := machine.PublicAddress()
+			if err == nil {
+				result.PublicAddress = publicAddress.Value
+			}
+			openPorts, err := api.openPortsOnMachine(unit.Name(), machineId)
+			if err != nil {
+				out[i].Error = common.ServerError(err)
+				continue
+			}
+			result.OpenedPorts = openPorts
+		}
+		container, err := unit.ContainerInfo()
+		if err != nil && !errors.IsNotFound(err) {
+			out[i].Error = common.ServerError(err)
+			continue
+		}
+		if err == nil {
+			if addr := container.Address(); addr != nil {
+				result.Address = addr.Value
+			}
+			result.ProviderId = container.ProviderId()
+			if len(result.OpenedPorts) == 0 {
+				result.OpenedPorts = container.Ports()
+			}
+		}
+		result.RelationData, err = api.relationData(app, unit)
+		if err != nil {
+			out[i].Error = common.ServerError(err)
+			continue
+		}
+
+		out[i].Result = result
+	}
+	return params.UnitInfoResults{out}, nil
+}
+
+func (api *APIBase) openPortsOnMachine(unitName, machineID string) ([]string, error) {
+	var result []string
+	allOpenPorts, err := api.model.AllPorts()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// We are only looking for the open ports on the "" subnet.
+	for _, openPorts := range allOpenPorts {
+		if openPorts.MachineID() != machineID || openPorts.SubnetID() != "" {
+			continue
+		}
+		var corePorts []network.PortRange
+		for _, port := range openPorts.PortsForUnit(unitName) {
+			corePorts = append(corePorts, network.PortRange{
+				Protocol: port.Protocol,
+				FromPort: port.FromPort,
+				ToPort:   port.ToPort,
+			})
+		}
+		network.SortPortRanges(corePorts)
+		for _, port := range corePorts {
+			result = append(result, port.String())
+		}
+	}
+	return result, nil
+}
+
+func (api *APIBase) relationData(app Application, myUnit Unit) ([]params.EndpointRelationData, error) {
+	rels, err := app.Relations()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]params.EndpointRelationData, len(rels))
+	for i, rel := range rels {
+		ep, err := rel.Endpoint(app.Name())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		erd := params.EndpointRelationData{
+			Endpoint:         ep.Name,
+			ApplicationData:  make(map[string]interface{}),
+			UnitRelationData: make(map[string]params.RelationData),
+		}
+		appSettings, err := rel.ApplicationSettings(app.Name())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for k, v := range appSettings {
+			erd.ApplicationData[k] = v
+		}
+		relatedEps, err := rel.RelatedEndpoints(app.Name())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// There is only one related endpoint.
+		related := relatedEps[0]
+		erd.RelatedEndpoint = related.Name
+
+		otherApp, err := api.backend.Application(related.ApplicationName)
+		if errors.IsNotFound(err) {
+			erd.CrossModel = true
+			if err := api.crossModelRelationData(rel, related.ApplicationName, &erd); err != nil {
+				return nil, errors.Trace(err)
+			}
+			result[i] = erd
+			continue
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		otherUnits, err := otherApp.AllUnits()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		otherUnits = append(otherUnits, myUnit)
+		for _, u := range otherUnits {
+			ru, err := rel.Unit(u.Name())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			inScope, err := ru.InScope()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			urd := params.RelationData{
+				InScope: inScope,
+			}
+			if inScope {
+				settings, err := ru.Settings()
+				if err != nil && !errors.IsNotFound(err) {
+					return nil, errors.Trace(err)
+				}
+				if err == nil {
+					urd.UnitData = make(map[string]interface{})
+					for k, v := range settings {
+						urd.UnitData[k] = v
+					}
+				}
+			}
+			erd.UnitRelationData[u.Name()] = urd
+		}
+
+		result[i] = erd
+	}
+	return result, nil
+}
+
+func (api *APIBase) crossModelRelationData(rel Relation, appName string, erd *params.EndpointRelationData) error {
+	rus, err := rel.AllRemoteUnits(appName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, ru := range rus {
+		inScope, err := ru.InScope()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		urd := params.RelationData{
+			InScope: inScope,
+		}
+		if inScope {
+			settings, err := ru.Settings()
+			if err != nil && !errors.IsNotFound(err) {
+				return errors.Trace(err)
+			}
+			if err == nil {
+				urd.UnitData = make(map[string]interface{})
+				for k, v := range settings {
+					urd.UnitData[k] = v
+				}
+			}
+		}
+		erd.UnitRelationData[ru.UnitName()] = urd
 	}
 	return nil
 }

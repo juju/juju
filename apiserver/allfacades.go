@@ -154,6 +154,7 @@ func AllFacades() *facade.Registry {
 	reg("Application", 9, application.NewFacadeV9)   // ApplicationInfo; generational config; Force on App, Relation and Unit Removal.
 	reg("Application", 10, application.NewFacadeV10) // --force and --no-wait parameters
 	reg("Application", 11, application.NewFacadeV11) // Get call returns the endpoint bindings
+	reg("Application", 12, application.NewFacadeV12) // Adds UnitsInfo()
 
 	reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
 	reg("ApplicationOffers", 2, applicationoffers.NewOffersAPIV2)
