@@ -1020,3 +1020,24 @@ func (c *Client) MergeBindings(req params.ApplicationMergeBindingsArgs) error {
 	}
 	return results.OneError()
 }
+
+// UnitsInfo retrieves units information.
+func (c *Client) UnitsInfo(units []names.UnitTag) ([]params.UnitInfoResult, error) {
+	if apiVersion := c.BestAPIVersion(); apiVersion < 12 {
+		return nil, errors.NotSupportedf("UnitsInfo for Application facade v%v", apiVersion)
+	}
+	all := make([]params.Entity, len(units))
+	for i, one := range units {
+		all[i] = params.Entity{Tag: one.String()}
+	}
+	in := params.Entities{Entities: all}
+	var out params.UnitInfoResults
+	err := c.facade.FacadeCall("UnitsInfo", in, &out)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if resultsLen := len(out.Results); resultsLen != len(units) {
+		return nil, errors.Errorf("expected %d results, got %d", len(units), resultsLen)
+	}
+	return out.Results, nil
+}
