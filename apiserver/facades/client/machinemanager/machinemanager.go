@@ -369,7 +369,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 
 		var storageErrors []params.ErrorResult
 		storageError := func(e error) {
-			storageErrors = append(storageErrors, params.ErrorResult{common.ServerError(e)})
+			storageErrors = append(storageErrors, params.ErrorResult{Error: common.ServerError(e)})
 		}
 
 		storageSeen := names.NewSet()
@@ -408,7 +408,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 		}
 
 		if len(storageErrors) != 0 {
-			all := params.ErrorResults{storageErrors}
+			all := params.ErrorResults{Results: storageErrors}
 			if !force {
 				return fail(all.Combine())
 			}
@@ -432,13 +432,24 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 
 		// Ensure that when the machine has been removed that all the leadership
 		// references to that machine are also cleared up.
+		//
+		// Unfortunately we can't follow the normal practices of failing on the
+		// error, as we've already removed the machine and we'll tell the caller
+		// that we failed to remove the machine.
+		//
+		// Note: in some cases if a application has pinned during series upgrade
+		// and it has been pinned without a timeout, then the leadership will
+		// still prevent another leadership change. The work around for this
+		// case until we provide the ability for the operator to unpin via the
+		// CLI, is to remove the raft logs manually.
 		results, err := mm.leadership.UnpinApplicationLeadersByName(machineTag, applicationNames)
 		if err != nil {
-			return fail(err)
+			logger.Warningf("could not unpin application leaders for machine %s with error %v", machineTag.Id(), err)
 		}
 		for _, result := range results.Results {
 			if result.Error != nil {
-				return fail(result.Error)
+				logger.Warningf(
+					"could not unpin application leaders for machine %s with error %v", machineTag.Id(), result.Error)
 			}
 		}
 
@@ -449,7 +460,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 	for i, entity := range args.Entities {
 		results[i] = destroyMachine(entity)
 	}
-	return params.DestroyMachineResults{results}, nil
+	return params.DestroyMachineResults{Results: results}, nil
 }
 
 // UpgradeSeriesValidate validates that the incoming arguments correspond to a
