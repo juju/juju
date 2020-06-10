@@ -261,6 +261,34 @@ machines:
 `[1:])
 }
 
+func (s *diffSuite) TestRelationsWithMissingEndpoints(c *gc.C) {
+	rels := []params.RelationStatus{
+		{
+			Endpoints: []params.EndpointStatus{
+				{ApplicationName: "prometheus", Name: "juju-info"},
+				{ApplicationName: "grafana", Name: "juju-info"},
+			},
+		},
+	}
+	s.apiRoot = &mockAPIRoot{responses: makeAPIResponsesWithRelations(rels)}
+
+	ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, withMissingRelationEndpoints))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Note: the logger output is not captured so only the relevant diff
+	// output is checked here.
+	exp := `
+relations:
+  bundle-additions:
+  - - 'grafana:'
+    - prometheus:juju-info
+  model-additions:
+  - - grafana:juju-info
+    - prometheus:juju-info`
+
+	c.Assert(strings.Contains(cmdtesting.Stdout(ctx), exp[1:]), jc.IsTrue)
+}
+
 func (s *diffSuite) writeLocalBundle(c *gc.C, content string) string {
 	return s.writeFile(c, "bundle.yaml", content)
 }
@@ -273,6 +301,10 @@ func (s *diffSuite) writeFile(c *gc.C, name, content string) string {
 }
 
 func makeAPIResponses() map[string]interface{} {
+	return makeAPIResponsesWithRelations(nil)
+}
+
+func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string]interface{} {
 	var cores uint64 = 3
 	return map[string]interface{}{
 		"ModelConfig.ModelGet": params.ModelConfigResults{
@@ -302,6 +334,7 @@ func makeAPIResponses() map[string]interface{} {
 					},
 				},
 			},
+			Relations: relations,
 			Machines: map[string]params.MachineStatus{
 				"0": {Series: "xenial"},
 				"1": {Series: "bionic"},
@@ -453,5 +486,26 @@ applications:
 relations:
 - - telegraf:info
   - prometheus:juju-info
+`
+
+	withMissingRelationEndpoints = `
+series: xenial
+applications:
+  prometheus:
+    charm: 'cs:prometheus2-7'
+    num_units: 1
+    series: xenial
+    options:
+      ontology: anselm
+    annotations:
+      aspect: west
+    constraints: 'cores=4'
+  grafana:
+    charm: 'cs:grafana-19'
+    num_units: 1
+    series: bionic
+relations:
+- - prometheus:juju-info
+  - grafana
 `
 )
