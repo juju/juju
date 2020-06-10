@@ -614,6 +614,7 @@ func (env *azureEnviron) createVirtualMachine(
 	}
 
 	maybeStorageAccount, err := env.getStorageAccount()
+	logger.Criticalf("maybeStorageAccount %#v, err %#v", maybeStorageAccount, err)
 	if errors.IsNotFound(err) {
 		// Only models created prior to Juju 2.3 will have a storage
 		// account. Juju 2.3 onwards exclusively uses managed disks
@@ -649,6 +650,7 @@ func (env *azureEnviron) createVirtualMachine(
 	if err != nil {
 		return errors.Annotate(err, "getting availability set name")
 	}
+	logger.Criticalf("availabilitySetName -> %q", availabilitySetName)
 	if availabilitySetName != "" {
 		availabilitySetId := fmt.Sprintf(
 			`[resourceId('Microsoft.Compute/availabilitySets','%s')]`,
@@ -656,7 +658,7 @@ func (env *azureEnviron) createVirtualMachine(
 		)
 		var (
 			availabilitySetProperties  interface{}
-			availabilityStorageOptions armtemplates.Sku
+			availabilityStorageOptions *armtemplates.Sku
 		)
 		if maybeStorageAccount == nil {
 			// This model uses managed disks; we must create
@@ -671,7 +673,7 @@ func (env *azureEnviron) createVirtualMachine(
 				PlatformFaultDomainCount: to.Int32Ptr(maxFaultDomains(env.location)),
 			}
 			// Availability needs to be 'Aligned' to support managed disks.
-			availabilityStorageOptions.Name = "Aligned"
+			availabilityStorageOptions = &armtemplates.Sku{Name: "Aligned"}
 		}
 		resources = append(resources, armtemplates.Resource{
 			APIVersion: computeAPIVersion,
@@ -680,7 +682,7 @@ func (env *azureEnviron) createVirtualMachine(
 			Location:   env.location,
 			Tags:       envTags,
 			Properties: availabilitySetProperties,
-			Sku:        &availabilityStorageOptions,
+			Sku:        availabilityStorageOptions,
 		})
 		availabilitySetSubResource = &compute.SubResource{
 			ID: to.StringPtr(availabilitySetId),
@@ -1645,7 +1647,7 @@ func (env *azureEnviron) Destroy(ctx context.ProviderCallContext) error {
 // DestroyController is specified in the Environ interface.
 func (env *azureEnviron) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
 	logger.Debugf("destroying model %q", env.envName)
-	logger.Debugf("- deleting resource groups")
+	logger.Debugf("deleting resource groups")
 	if err := env.deleteControllerManagedResourceGroups(ctx, controllerUUID); err != nil {
 		return errors.Trace(err)
 	}
