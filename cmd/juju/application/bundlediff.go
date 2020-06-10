@@ -4,7 +4,9 @@
 package application
 
 import (
+	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"github.com/juju/bundlechanges"
 	"github.com/juju/charm/v7"
@@ -131,6 +133,10 @@ func (c *bundleDiffCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	if err = c.warnForMissingRelationEndpoints(ctx, bundle); err != nil {
+		return errors.Trace(err)
+	}
+
 	// Extract the information from the current model.
 	model, err := c.readModel(apiRoot)
 	if err != nil {
@@ -155,6 +161,39 @@ func (c *bundleDiffCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (c *bundleDiffCommand) warnForMissingRelationEndpoints(ctx *cmd.Context, bundle *charm.BundleData) error {
+	var missing []string
+	for _, relPair := range bundle.Relations {
+		if len(relPair) != 2 {
+			return errors.Errorf("malformed relation %v", relPair)
+		}
+
+		if missingRelationEndpoint(relPair[0]) || missingRelationEndpoint(relPair[1]) {
+			missing = append(missing, fmt.Sprintf("[%s, %s]", relPair[0], relPair[1]))
+		}
+	}
+
+	if len(missing) == 0 {
+		return nil
+	}
+
+	logger.Warningf(
+		"The provided bundle includes relations without explicit endpoints, which may appear as extra entries in the diff output.\nTo avoid this in the future, update the endpoints for the following bundle relations:\n - %s",
+		strings.Join(missing, "\n - "),
+	)
+
+	// Add an extra blank line to separate the diff output from the warning
+	// and avoid confusion.
+	_, _ = fmt.Fprintln(ctx.Stderr)
+
+	return nil
+}
+
+func missingRelationEndpoint(rel string) bool {
+	tokens := strings.SplitN(rel, ":", 2)
+	return len(tokens) != 2 || tokens[1] == ""
 }
 
 func (c *bundleDiffCommand) newAPIRoot() (base.APICallCloser, error) {
