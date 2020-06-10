@@ -419,7 +419,7 @@ func (s *CommonProvisionerSuite) waitForWatcher(c *gc.C, w state.NotifyWatcher, 
 }
 
 func (s *CommonProvisionerSuite) waitHardwareCharacteristics(c *gc.C, m *state.Machine, check func() bool) {
-	w := m.WatchHardwareCharacteristics()
+	w := m.WatchInstanceData()
 	name := fmt.Sprintf("hardware characteristics for machine %v", m)
 	s.waitForWatcher(c, w, name, check)
 }
