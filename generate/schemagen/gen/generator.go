@@ -13,7 +13,6 @@ import (
 	jsonschema "github.com/juju/jsonschema-gen"
 	"github.com/juju/rpcreflect"
 	"golang.org/x/tools/go/packages"
-	"gopkg.in/errgo.v1"
 
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -192,7 +191,7 @@ func methodDocComment(pkg *packages.Package, tname *types.TypeName, methodName s
 	obj := sel.Obj()
 	decl, err := findDecl(pkg, obj.Pos())
 	if err != nil {
-		return "", errgo.Mask(err)
+		return "", errors.Trace(err)
 	}
 	switch decl := decl.(type) {
 	case *ast.GenDecl:

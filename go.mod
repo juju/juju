@@ -114,7 +114,6 @@ require (
 	google.golang.org/api v0.4.0
 	gopkg.in/amz.v3 v3.0.0-20191122063134-7ba11a47c789
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
-	gopkg.in/errgo.v1 v1.0.1
 	gopkg.in/goose.v2 v2.0.0-20200403131220-0c829f62c42a
 	gopkg.in/httprequest.v1 v1.2.0
 	gopkg.in/ini.v1 v1.10.1
