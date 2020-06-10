@@ -190,6 +190,11 @@ type NetworkConfig struct {
 	// IsDefaultGateway marks an interface that is a default gateway for a machine.
 	IsDefaultGateway bool `json:"is-default-gateway,omitempty"`
 
+	// VirtualPortType provides additional information about the type of
+	// this device if it belongs to a virtual switch (e.g. when using
+	// open-vswitch).
+	VirtualPortType string `json:"virtual-port-type,omitempty"`
+
 	// NetworkOrigin represents the authoritative source of the NetworkConfig.
 	// It is expected that either the provider gave us this info or the
 	// machine gave us this info.
@@ -245,6 +250,7 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 			GatewayAddress:   v.GatewayAddress.Value,
 			Routes:           routes,
 			IsDefaultGateway: v.IsDefaultGateway,
+			VirtualPortType:  string(v.VirtualPortType),
 			NetworkOrigin:    NetworkOrigin(v.Origin),
 		}
 	}
@@ -290,6 +296,7 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			GatewayAddress:      network.NewProviderAddress(v.GatewayAddress),
 			Routes:              routes,
 			IsDefaultGateway:    v.IsDefaultGateway,
+			VirtualPortType:     network.VirtualPortType(v.VirtualPortType),
 			Origin:              network.Origin(v.NetworkOrigin),
 		}
 
