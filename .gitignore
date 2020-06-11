@@ -29,4 +29,3 @@ juju-backup-*.tar.gz
 scripts/mgo-run-txn/mgo-run-txn
 tests/tmp.*
 *.out
-scripts/schemadocs/output.html
