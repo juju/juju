@@ -12,14 +12,15 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
+	"golang.org/x/tools/go/packages"
+
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/generate/schemagen/gen"
 	"github.com/juju/juju/state"
-	"github.com/juju/names/v4"
-	"golang.org/x/tools/go/packages"
 )
 
 func main() {

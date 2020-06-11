@@ -8,6 +8,7 @@ import (
 	"go/types"
 	"reflect"
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	jsonschema "github.com/juju/jsonschema-gen"
@@ -92,7 +93,7 @@ func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer) ([]F
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot get doc comment for %v", objType.GoType())
 		}
-		result[i].Description = doc
+		result[i].Description = strings.TrimSpace(doc)
 
 		for _, name := range objType.MethodNames() {
 			for propName, prop := range result[i].Schema.Properties {
@@ -101,7 +102,7 @@ func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer) ([]F
 					if err != nil {
 						return nil, errors.Annotatef(err, "cannot get doc comment for %v: %v", objType.GoType(), name)
 					}
-					prop.Description = doc
+					prop.Description = strings.TrimSpace(doc)
 				}
 			}
 		}
