@@ -14,8 +14,8 @@ test_deploy() {
     bootstrap "test-deploy-ctl" "${file}"
 
     test_deploy_charms
-    test_deploy_bundles
-    test_cmr_bundles_export_overlay
+    #test_deploy_bundles
+    #test_cmr_bundles_export_overlay
 
     destroy_controller "test-deploy-ctl"
 }
