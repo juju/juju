@@ -37890,7 +37890,7 @@
                             "$ref": "#/definitions/StringResults"
                         }
                     },
-                    "description": "LXDProfileName is a shim to call the LXDProfileAPIv2 verison of this method."
+                    "description": "LXDProfileName is a shim to call the LXDProfileAPIv2 version of this method."
                 },
                 "LXDProfileRequired": {
                     "type": "object",
@@ -37902,7 +37902,7 @@
                             "$ref": "#/definitions/BoolResults"
                         }
                     },
-                    "description": "LXDProfileRequired is a shim to call the LXDProfileAPIv2 verison of this method."
+                    "description": "LXDProfileRequired is a shim to call the LXDProfileAPIv2 version of this method."
                 },
                 "LeaveScope": {
                     "type": "object",
@@ -38436,7 +38436,7 @@
                             "$ref": "#/definitions/NotifyWatchResults"
                         }
                     },
-                    "description": "WatchInstanceData is a shim to call the LXDProfileAPIv2 verison of this method."
+                    "description": "WatchInstanceData is a shim to call the LXDProfileAPIv2 version of this method."
                 },
                 "WatchLeadershipSettings": {
                     "type": "object",
