@@ -6,6 +6,7 @@ package common
 import (
 	"net"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -35,6 +36,10 @@ type NetworkConfigSource interface {
 	// default route on the machine. If there is no default route (known),
 	// then zero values are returned.
 	DefaultRoute() (net.IP, string, error)
+
+	// OvsManagedBridges returns the names of network interfaces that
+	// correspond to OVS-managed bridges.
+	OvsManagedBridges() (set.Strings, error)
 }
 
 type netPackageConfigSource struct{}
@@ -63,6 +68,12 @@ func (n *netPackageConfigSource) DefaultRoute() (net.IP, string, error) {
 	return network.GetDefaultRoute()
 }
 
+// OvsManagedBridges returns the names of network interfaces that
+// correspond to OVS-managed bridges.
+func (n *netPackageConfigSource) OvsManagedBridges() (set.Strings, error) {
+	return corenetwork.OvsManagedBridges()
+}
+
 // DefaultNetworkConfigSource returns a NetworkConfigSource backed by the net
 // package, to be used with GetObservedNetworkConfig().
 func DefaultNetworkConfigSource() NetworkConfigSource {
@@ -83,6 +94,9 @@ func DefaultNetworkConfigSource() NetworkConfigSource {
 //   the ParentInterfaceName will be populated with the name of the bridge.
 // * ConfigType fields will be set to ConfigManual when no address is detected,
 //   or ConfigStatic when it is.
+// * NICs that correspond to the internal port of an OVS-managed switch will
+//   have their type forced to bridge and their virtual port type set to
+//   OvsPort.
 // * TODO: IPv6 link-local addresses will be ignored and treated as empty ATM.
 //
 // Result entries will be grouped by InterfaceName, in the same order they are
@@ -99,6 +113,13 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 		return nil, nil
 	}
 
+	knownOVSBridges, err := source.OvsManagedBridges()
+	if err != nil {
+		// NOTE(achilleasa): we will only get an error here if we do
+		// locate the OVS cli tools and get an error executing them.
+		return nil, errors.Annotate(err, "cannot query list of OVS bridges")
+	}
+
 	defaultRoute, defaultRouteDevice, err := source.DefaultRoute()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get default route")
@@ -108,7 +129,18 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 	sysClassNetPath := source.SysClassNetPath()
 	for _, nic := range interfaces {
 		nicType := network.ParseInterfaceType(sysClassNetPath, nic.Name)
-		nicConfig := interfaceToNetworkConfig(nic, nicType, corenetwork.OriginMachine)
+		// OVS bridges expose one of the internal ports as a device
+		// with the same name as the bridge. However, they are not
+		// detected as bridge devices so we need to manually force
+		// their type so they can be used by juju for containerized
+		// workloads.
+		virtualPortType := corenetwork.NonVirtualPort
+		if knownOVSBridges.Contains(nic.Name) {
+			nicType = corenetwork.BridgeInterface
+			virtualPortType = corenetwork.OvsPort
+		}
+
+		nicConfig := interfaceToNetworkConfig(nic, nicType, virtualPortType, corenetwork.OriginMachine)
 		if nicConfig.InterfaceName == defaultRouteDevice {
 			nicConfig.IsDefaultGateway = true
 			nicConfig.GatewayAddress = defaultRoute.String()
@@ -170,6 +202,7 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 
 func interfaceToNetworkConfig(nic net.Interface,
 	nicType corenetwork.InterfaceType,
+	virtualPortType corenetwork.VirtualPortType,
 	networkOrigin corenetwork.Origin,
 ) params.NetworkConfig {
 	configType := corenetwork.ConfigManual // assume manual initially, until we parse the address.
@@ -186,15 +219,16 @@ func interfaceToNetworkConfig(nic net.Interface,
 	}
 
 	return params.NetworkConfig{
-		DeviceIndex:   nic.Index,
-		MACAddress:    nic.HardwareAddr.String(),
-		ConfigType:    string(configType),
-		MTU:           nic.MTU,
-		InterfaceName: nic.Name,
-		InterfaceType: string(nicType),
-		NoAutoStart:   !isUp,
-		Disabled:      !isUp,
-		NetworkOrigin: params.NetworkOrigin(networkOrigin),
+		DeviceIndex:     nic.Index,
+		MACAddress:      nic.HardwareAddr.String(),
+		ConfigType:      string(configType),
+		MTU:             nic.MTU,
+		InterfaceName:   nic.Name,
+		InterfaceType:   string(nicType),
+		NoAutoStart:     !isUp,
+		Disabled:        !isUp,
+		VirtualPortType: string(virtualPortType),
+		NetworkOrigin:   params.NetworkOrigin(networkOrigin),
 	}
 }
 
