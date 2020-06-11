@@ -44,9 +44,10 @@ func main() {
 		methods := make([]TemplateMethod, 0, len(facade.Schema.Properties))
 		for k, prop := range facade.Schema.Properties {
 			methods = append(methods, TemplateMethod{
-				Name:   k,
-				Param:  prop.Properties.Params.Ref,
-				Result: prop.Properties.Result.Ref,
+				Name:        k,
+				Description: prop.Description,
+				Param:       prop.Properties.Params.Ref,
+				Result:      prop.Properties.Result.Ref,
 			})
 		}
 		sort.Slice(methods, func(i, j int) bool {
@@ -88,6 +89,8 @@ func main() {
 
 		output[k] = TemplateFacade{
 			Name:        facade.Name,
+			AvailableTo: facade.AvailableTo,
+			Description: facade.Description,
 			Version:     facade.Version,
 			Methods:     methods,
 			Definitions: definitions,
@@ -105,34 +108,40 @@ func main() {
 
 // JSONFacade represents the facade in json schema form
 type JSONFacade struct {
-	Name    string
-	Version int
-	Schema  JSONFacadeSchema
+	Name        string
+	Description string
+	Version     int
+	AvailableTo []string
+	Schema      JSONFacadeSchema
 }
 
 // JSONFacadeSchema represents the facade schema object in json schema form
 type JSONFacadeSchema struct {
 	Type        string                      `json:"type"`
+	Description string                      `json:"description"`
 	Properties  map[string]PropertySchema   `json:"properties"`
 	Definitions map[string]DefinitionSchema `json:"definitions"`
 }
 
 // PropertySchema represents the property schema object in json schema form
 type PropertySchema struct {
-	Type       string   `json:"type"`
-	Properties Property `json:"properties"`
+	Description string   `json:"description"`
+	Type        string   `json:"type"`
+	Properties  Property `json:"properties"`
 }
 
 // Property represents the property object in json schema form
 type Property struct {
-	Params Ref
-	Result Ref
+	Description string
+	Params      Ref
+	Result      Ref
 }
 
 // Ref represents a reference to another object
 type Ref struct {
-	Ref  string `json:"$ref"`
-	Type string `json:"type"`
+	Ref         string `json:"$ref"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
 }
 
 // DefinitionSchema represents a definition in json schema form
@@ -148,16 +157,19 @@ type DefinitionSchema struct {
 // TemplateFacade represents a facade for templating usage
 type TemplateFacade struct {
 	Name        string
+	Description string
 	Version     int
+	AvailableTo []string
 	Methods     []TemplateMethod
 	Definitions []TemplateDefinition
 }
 
 // TemplateMethod represents a facade method for templating usage
 type TemplateMethod struct {
-	Name   string
-	Param  string
-	Result string
+	Name        string
+	Description string
+	Param       string
+	Result      string
 }
 
 // TemplateDefinition represents a facade definition for templating usage
@@ -230,29 +242,44 @@ nav, main, footer {
 	{{range .}}
 	{{$facade_name:=.Name}}
 		<h2 id="{{.Name}}"><a href="#{{.Name}}">{{.Name}}</a> v{{.Version}}</h2>
-		<ul>
-			<li>Jump to <a href="#{{.Name}}_definitions">Definitions</a></li>
-			<li>Jump to <a href="#top">Top</a></li>
-		</ul>
+		<blockquote>{{.Description}}</blockquote>
+		<h5>Facade Type</h5>
+		<ol>
+			{{range .AvailableTo}}
+				<li>{{.}}</li>
+			{{end}}
+		</ol>
+		<div style="float:right">
+			<ul>
+				<li>Jump to <a href="#{{.Name}}_definitions">Definitions</a></li>
+				<li>Jump to <a href="#top">Top</a></li>
+			</ul>
+		</div>
+		<div style="clear:both"></div>
 		<table class="highlight">
 			<tr>
 				<th>Name</th>
 				<th>Params</th>
 				<th>Results</th>
+				<th>Description</th>
 			</tr>
 			{{range .Methods}}
 			<tr>
 				<td>{{.Name}}</td>
 				<td><a href="#{{$facade_name}}_{{.Param | defLink}}">{{.Param | defName}}</a></td>
 				<td><a href="#{{$facade_name}}_{{.Result | defLink}}">{{.Result | defName}}</a></td>
+				<td>{{.Description}}</td>
 			</tr>
 			{{end}}
 		</table>
 		<h3 id="{{.Name}}_definitions"><a href="#{{.Name}}_definitions">{{.Name}} Definitions</a></h3>
-		<ul>
-			<li>Jump to <a href="#{{.Name}}">Methods</a></li>
-			<li>Jump to <a href="#top">Top</a></li>
-		</ul>
+		<div style="float:right">
+			<ul>
+				<li>Jump to <a href="#{{.Name}}">Methods</a></li>
+				<li>Jump to <a href="#top">Top</a></li>
+			</ul>
+		</div>
+		<div style="clear:both"></div>
 		{{range .Definitions}}
 		<h4 id="{{$facade_name}}_definitions_{{.Name}}"><a href="#{{$facade_name}}_definitions_{{.Name}}">{{.Name}}</a></h4>
 		<table class="highlight">
