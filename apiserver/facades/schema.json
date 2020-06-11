@@ -1658,7 +1658,7 @@
     },
     {
         "Name": "Application",
-        "Version": 11,
+        "Version": 12,
         "Schema": {
             "type": "object",
             "properties": {
@@ -1943,6 +1943,17 @@
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/ApplicationUnexpose"
+                        }
+                    }
+                },
+                "UnitsInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/UnitInfoResults"
                         }
                     }
                 },
@@ -3182,6 +3193,45 @@
                         "units"
                     ]
                 },
+                "EndpointRelationData": {
+                    "type": "object",
+                    "properties": {
+                        "ApplicationData": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "cross-model": {
+                            "type": "boolean"
+                        },
+                        "endpoint": {
+                            "type": "string"
+                        },
+                        "related-endpoint": {
+                            "type": "string"
+                        },
+                        "unit-relation-data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/RelationData"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "endpoint",
+                        "cross-model",
+                        "related-endpoint",
+                        "ApplicationData",
+                        "unit-relation-data"
+                    ]
+                },
                 "Entities": {
                     "type": "object",
                     "properties": {
@@ -3323,6 +3373,28 @@
                     "required": [
                         "scope",
                         "directive"
+                    ]
+                },
+                "RelationData": {
+                    "type": "object",
+                    "properties": {
+                        "InScope": {
+                            "type": "boolean"
+                        },
+                        "UnitData": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "InScope",
+                        "UnitData"
                     ]
                 },
                 "RelationSuspendedArg": {
@@ -3582,6 +3654,81 @@
                         "life",
                         "space-tag",
                         "zones"
+                    ]
+                },
+                "UnitInfoResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "$ref": "#/definitions/UnitResult"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "UnitInfoResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/UnitInfoResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "UnitResult": {
+                    "type": "object",
+                    "properties": {
+                        "address": {
+                            "type": "string"
+                        },
+                        "charm": {
+                            "type": "string"
+                        },
+                        "leader": {
+                            "type": "boolean"
+                        },
+                        "machine": {
+                            "type": "string"
+                        },
+                        "opened-ports": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "public-address": {
+                            "type": "string"
+                        },
+                        "relation-data": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/EndpointRelationData"
+                            }
+                        },
+                        "tag": {
+                            "type": "string"
+                        },
+                        "workload-version": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag",
+                        "workload-version",
+                        "opened-ports",
+                        "charm"
                     ]
                 },
                 "UnitsResolved": {

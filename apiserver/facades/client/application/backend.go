@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/charm/v7"
 	csparams "github.com/juju/charmrepo/v5/csclient/params"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
 	"github.com/juju/version"
@@ -67,6 +68,7 @@ type BlockChecker interface {
 // details on the methods, see the methods on state.Application with
 // the same names.
 type Application interface {
+	Name() string
 	AddUnit(state.AddUnitParams) (Unit, error)
 	AllUnits() ([]Unit, error)
 	ApplicationConfig() (application.ConfigAttributes, error)
@@ -96,6 +98,7 @@ type Application interface {
 	ChangeScale(int) (int, error)
 	AgentTools() (*tools.Tools, error)
 	MergeBindings(*state.Bindings, bool) error
+	Relations() ([]Relation, error)
 }
 
 // Bindings defines a subset of the functionality provided by the
@@ -120,6 +123,7 @@ type Charm interface {
 // details on the methods, see the methods on state.Machine with
 // the same names.
 type Machine interface {
+	PublicAddress() (network.SpaceAddress, error)
 	IsLockedForSeriesUpgrade() (bool, error)
 	IsParentLockedForSeriesUpgrade() (bool, error)
 }
@@ -133,10 +137,21 @@ type Relation interface {
 	Tag() names.Tag
 	Destroy() error
 	DestroyWithForce(bool, time.Duration) ([]error, error)
+	Endpoints() []state.Endpoint
+	RelatedEndpoints(applicationname string) ([]state.Endpoint, error)
+	ApplicationSettings(appName string) (map[string]interface{}, error)
+	AllRemoteUnits(appName string) ([]RelationUnit, error)
+	Unit(string) (RelationUnit, error)
 	Endpoint(string) (state.Endpoint, error)
 	SetSuspended(bool, string) error
 	Suspended() bool
 	SuspendedReason() string
+}
+
+type RelationUnit interface {
+	UnitName() string
+	InScope() (bool, error)
+	Settings() (map[string]interface{}, error)
 }
 
 // Unit defines a subset of the functionality provided by the
@@ -147,6 +162,7 @@ type Unit interface {
 	Name() string
 	Tag() names.Tag
 	UnitTag() names.UnitTag
+	ApplicationName() string
 	Destroy() error
 	DestroyOperation() *state.DestroyUnitOperation
 	IsPrincipal() bool
@@ -155,8 +171,10 @@ type Unit interface {
 	AgentTools() (*tools.Tools, error)
 
 	AssignedMachineId() (string, error)
+	WorkloadVersion() (string, error)
 	AssignWithPolicy(state.AssignmentPolicy) error
 	AssignWithPlacement(*instance.Placement) error
+	ContainerInfo() (state.CloudContainer, error)
 }
 
 // Model defines a subset of the functionality provided by the
@@ -171,6 +189,7 @@ type Model interface {
 	Type() state.ModelType
 	ModelConfig() (*config.Config, error)
 	AgentVersion() (version.Number, error)
+	AllPorts() ([]Ports, error)
 }
 
 // Resources defines a subset of the functionality provided by the
@@ -186,6 +205,22 @@ type Generation interface {
 
 type stateShim struct {
 	*state.State
+}
+
+type modelShim struct {
+	*state.Model
+}
+
+func (m modelShim) AllPorts() ([]Ports, error) {
+	ports, err := m.Model.AllPorts()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Ports, len(ports))
+	for i, p := range ports {
+		out[i] = statePortsShim{p}
+	}
+	return out, nil
 }
 
 type ExternalController state.ExternalController
@@ -295,7 +330,7 @@ func (s stateShim) AddRelation(eps ...state.Endpoint) (Relation, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateRelationShim{r}, nil
+	return stateRelationShim{r, s.State}, nil
 }
 
 func (s stateShim) SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error) {
@@ -316,7 +351,7 @@ func (s stateShim) EndpointsRelation(eps ...state.Endpoint) (Relation, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateRelationShim{r}, nil
+	return stateRelationShim{r, s.State}, nil
 }
 
 func (s stateShim) Relation(id int) (Relation, error) {
@@ -324,7 +359,7 @@ func (s stateShim) Relation(id int) (Relation, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateRelationShim{r}, nil
+	return stateRelationShim{r, s.State}, nil
 }
 
 func (s stateShim) Machine(name string) (Machine, error) {
@@ -406,6 +441,18 @@ func (a stateApplicationShim) AllUnits() ([]Unit, error) {
 	return out, nil
 }
 
+func (a stateApplicationShim) Relations() ([]Relation, error) {
+	rels, err := a.Application.Relations()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Relation, len(rels))
+	for i, r := range rels {
+		out[i] = stateRelationShim{r, a.st}
+	}
+	return out, nil
+}
+
 func (a stateApplicationShim) EndpointBindings() (Bindings, error) {
 	return a.Application.EndpointBindings()
 }
@@ -420,6 +467,43 @@ type stateMachineShim struct {
 
 type stateRelationShim struct {
 	*state.Relation
+	st *state.State
+}
+
+func (r stateRelationShim) Unit(unitName string) (RelationUnit, error) {
+	u, err := r.st.Unit(unitName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ru, err := r.Relation.Unit(u)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return stateRelationUnitShim{ru}, nil
+}
+
+func (r stateRelationShim) AllRemoteUnits(appName string) ([]RelationUnit, error) {
+	rus, err := r.Relation.AllRemoteUnits(appName)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]RelationUnit, len(rus))
+	for i, ru := range rus {
+		out[i] = stateRelationUnitShim{ru}
+	}
+	return out, nil
+}
+
+type stateRelationUnitShim struct {
+	*state.RelationUnit
+}
+
+func (ru stateRelationUnitShim) Settings() (map[string]interface{}, error) {
+	s, err := ru.RelationUnit.Settings()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return s.Map(), nil
 }
 
 type stateUnitShim struct {
@@ -440,4 +524,14 @@ type Subnet interface {
 	VLANTag() int
 	ProviderId() network.Id
 	ProviderNetworkId() network.Id
+}
+
+type statePortsShim struct {
+	*state.Ports
+}
+
+type Ports interface {
+	SubnetID() string
+	MachineID() string
+	PortsForUnit(unitName string) []state.PortRange
 }

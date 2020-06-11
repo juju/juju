@@ -617,7 +617,7 @@ func (r *Relation) Endpoints() []Endpoint {
 }
 
 // RelatedEndpoints returns the endpoints of the relation r with which
-// units of the named application will establish relations. If the service
+// units of the named application will establish relations. If the application
 // is not part of the relation r, an error will be returned.
 func (r *Relation) RelatedEndpoints(applicationname string) ([]Endpoint, error) {
 	local, err := r.Endpoint(applicationname)

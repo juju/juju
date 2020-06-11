@@ -446,3 +446,45 @@ type ApplicationInfoResult struct {
 type ApplicationInfoResults struct {
 	Results []ApplicationInfoResult `json:"results"`
 }
+
+// RelationData holds information about a unit's relation.
+type RelationData struct {
+	InScope  bool                   `yaml:"in-scope"`
+	UnitData map[string]interface{} `yaml:"data"`
+}
+
+// EndpointRelationData holds information about a relation to a given endpoint.
+type EndpointRelationData struct {
+	Endpoint         string                  `json:"endpoint"`
+	CrossModel       bool                    `json:"cross-model"`
+	RelatedEndpoint  string                  `json:"related-endpoint"`
+	ApplicationData  map[string]interface{}  `yaml:"application-relation-data"`
+	UnitRelationData map[string]RelationData `json:"unit-relation-data"`
+}
+
+// UnitResult holds unit info.
+type UnitResult struct {
+	Tag             string                 `json:"tag"`
+	WorkloadVersion string                 `json:"workload-version"`
+	Machine         string                 `json:"machine,omitempty"`
+	OpenedPorts     []string               `json:"opened-ports"`
+	PublicAddress   string                 `json:"public-address,omitempty"`
+	Charm           string                 `json:"charm"`
+	Leader          bool                   `json:"leader,omitempty"`
+	RelationData    []EndpointRelationData `json:"relation-data,omitempty"`
+
+	// The following are for CAAS models.
+	ProviderId string `json:"provider-id,omitempty"`
+	Address    string `json:"address,omitempty"`
+}
+
+// UnitInfoResults holds an unit info result or a retrieval error.
+type UnitInfoResult struct {
+	Result *UnitResult `json:"result,omitempty"`
+	Error  *Error      `json:"error,omitempty"`
+}
+
+// UnitInfoResults holds units associated with entities.
+type UnitInfoResults struct {
+	Results []UnitInfoResult `json:"results"`
+}
