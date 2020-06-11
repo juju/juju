@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/juju/cmd"
@@ -12,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
+	apiapplication "github.com/juju/juju/api/application"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
@@ -45,8 +46,7 @@ func (s *ShowUnitSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.mockAPI = &mockShowUnitAPI{
-		version:       12,
-		unitsInfoFunc: func([]names.UnitTag) ([]params.UnitInfoResult, error) { return nil, nil },
+		unitsInfoFunc: func([]names.UnitTag) ([]apiapplication.UnitInfo, error) { return nil, nil },
 	}
 }
 
@@ -125,19 +125,11 @@ func (s *ShowUnitSuite) TestShowInvalidAndValidNames(c *gc.C) {
 	})
 }
 
-func (s *ShowUnitSuite) TestShowUnsupported(c *gc.C) {
-	s.mockAPI.version = 11
-	s.assertRunShow(c, showUnitTest{
-		args: []string{"wordpress/0"},
-		err:  "show unit on API server version 11 not supported",
-	})
-}
-
 func (s *ShowUnitSuite) TestShowApiError(c *gc.C) {
-	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]params.UnitInfoResult, error) {
-		return []params.UnitInfoResult{
-			{Error: &params.Error{Message: "boom"}},
-		}, nil
+	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]apiapplication.UnitInfo, error) {
+		return []apiapplication.UnitInfo{{
+			Error: errors.New("boom"),
+		}}, nil
 	}
 	msg := "boom"
 	s.assertRunShow(c, showUnitTest{
@@ -146,8 +138,8 @@ func (s *ShowUnitSuite) TestShowApiError(c *gc.C) {
 	})
 }
 
-func (s *ShowUnitSuite) createTestUnitInfo(app string, otherEndpoint string) *params.UnitResult {
-	result := &params.UnitResult{
+func (s *ShowUnitSuite) createTestUnitInfo(app string, otherEndpoint string) apiapplication.UnitInfo {
+	result := apiapplication.UnitInfo{
 		Tag:             fmt.Sprintf("unit-%v-0", app),
 		WorkloadVersion: "666",
 		Machine:         "0",
@@ -155,12 +147,12 @@ func (s *ShowUnitSuite) createTestUnitInfo(app string, otherEndpoint string) *pa
 		PublicAddress:   "10.0.0.1",
 		Charm:           fmt.Sprintf("charm-%v", app),
 		Leader:          true,
-		RelationData: []params.EndpointRelationData{{
+		RelationData: []apiapplication.EndpointRelationData{{
 			Endpoint:        "db",
 			CrossModel:      true,
 			RelatedEndpoint: "server",
 			ApplicationData: map[string]interface{}{app: "setting"},
-			UnitRelationData: map[string]params.RelationData{
+			UnitRelationData: map[string]apiapplication.RelationData{
 				"mariadb/2": {
 					InScope:  true,
 					UnitData: map[string]interface{}{"mariadb/2": "mariadb/2-setting"},
@@ -171,11 +163,11 @@ func (s *ShowUnitSuite) createTestUnitInfo(app string, otherEndpoint string) *pa
 		Address:    "192.168.1.1",
 	}
 	if otherEndpoint != "" {
-		result.RelationData = append(result.RelationData, params.EndpointRelationData{
+		result.RelationData = append(result.RelationData, apiapplication.EndpointRelationData{
 			Endpoint:        otherEndpoint,
 			RelatedEndpoint: "common",
 		})
-		result.RelationData[0].UnitRelationData["mariadb/3"] = params.RelationData{
+		result.RelationData[0].UnitRelationData["mariadb/3"] = apiapplication.RelationData{
 			InScope:  true,
 			UnitData: map[string]interface{}{"mariadb/3": "mariadb/3-setting"},
 		}
@@ -184,9 +176,9 @@ func (s *ShowUnitSuite) createTestUnitInfo(app string, otherEndpoint string) *pa
 }
 
 func (s *ShowUnitSuite) TestShow(c *gc.C) {
-	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]params.UnitInfoResult, error) {
-		return []params.UnitInfoResult{
-			{Result: s.createTestUnitInfo("wordpress", "")},
+	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]apiapplication.UnitInfo, error) {
+		return []apiapplication.UnitInfo{
+			s.createTestUnitInfo("wordpress", ""),
 		}, nil
 	}
 	s.assertRunShow(c, showUnitTest{
@@ -218,9 +210,9 @@ wordpress/0:
 }
 
 func (s *ShowUnitSuite) TestShowAppOnly(c *gc.C) {
-	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]params.UnitInfoResult, error) {
-		return []params.UnitInfoResult{
-			{Result: s.createTestUnitInfo("wordpress", "")},
+	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]apiapplication.UnitInfo, error) {
+		return []apiapplication.UnitInfo{
+			s.createTestUnitInfo("wordpress", ""),
 		}, nil
 	}
 	s.assertRunShow(c, showUnitTest{
@@ -247,9 +239,9 @@ wordpress/0:
 }
 
 func (s *ShowUnitSuite) TestShowEndpoint(c *gc.C) {
-	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]params.UnitInfoResult, error) {
-		return []params.UnitInfoResult{
-			{Result: s.createTestUnitInfo("wordpress", "db-shared")},
+	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]apiapplication.UnitInfo, error) {
+		return []apiapplication.UnitInfo{
+			s.createTestUnitInfo("wordpress", "db-shared"),
 		}, nil
 	}
 	s.assertRunShow(c, showUnitTest{
@@ -266,6 +258,7 @@ wordpress/0:
   relation-info:
   - endpoint: db-shared
     related-endpoint: common
+    application-data: {}
   provider-id: provider-id
   address: 192.168.1.1
 `[1:],
@@ -273,9 +266,9 @@ wordpress/0:
 }
 
 func (s *ShowUnitSuite) TestShowOtherUnit(c *gc.C) {
-	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]params.UnitInfoResult, error) {
-		return []params.UnitInfoResult{
-			{Result: s.createTestUnitInfo("wordpress", "db-shared")},
+	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]apiapplication.UnitInfo, error) {
+		return []apiapplication.UnitInfo{
+			s.createTestUnitInfo("wordpress", "db-shared"),
 		}, nil
 	}
 	s.assertRunShow(c, showUnitTest{
@@ -307,9 +300,9 @@ wordpress/0:
 }
 
 func (s *ShowUnitSuite) TestShowJSON(c *gc.C) {
-	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]params.UnitInfoResult, error) {
-		return []params.UnitInfoResult{
-			{Result: s.createTestUnitInfo("wordpress", "")},
+	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]apiapplication.UnitInfo, error) {
+		return []apiapplication.UnitInfo{
+			s.createTestUnitInfo("wordpress", ""),
 		}, nil
 	}
 	s.assertRunShow(c, showUnitTest{
@@ -319,10 +312,10 @@ func (s *ShowUnitSuite) TestShowJSON(c *gc.C) {
 }
 
 func (s *ShowUnitSuite) TestShowMix(c *gc.C) {
-	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]params.UnitInfoResult, error) {
-		return []params.UnitInfoResult{
-			{Result: s.createTestUnitInfo("wordpress", "")},
-			{Error: &params.Error{Message: "boom"}},
+	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]apiapplication.UnitInfo, error) {
+		return []apiapplication.UnitInfo{
+			s.createTestUnitInfo("wordpress", ""),
+			{Error: errors.New("boom")},
 		}, nil
 	}
 	s.assertRunShow(c, showUnitTest{
@@ -332,10 +325,10 @@ func (s *ShowUnitSuite) TestShowMix(c *gc.C) {
 }
 
 func (s *ShowUnitSuite) TestShowMany(c *gc.C) {
-	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]params.UnitInfoResult, error) {
-		return []params.UnitInfoResult{
-			{Result: s.createTestUnitInfo("wordpress", "")},
-			{Result: s.createTestUnitInfo("logging", "")},
+	s.mockAPI.unitsInfoFunc = func([]names.UnitTag) ([]apiapplication.UnitInfo, error) {
+		return []apiapplication.UnitInfo{
+			s.createTestUnitInfo("wordpress", ""),
+			s.createTestUnitInfo("logging", ""),
 		}, nil
 	}
 	s.assertRunShow(c, showUnitTest{
@@ -388,18 +381,13 @@ wordpress/0:
 }
 
 type mockShowUnitAPI struct {
-	version       int
-	unitsInfoFunc func([]names.UnitTag) ([]params.UnitInfoResult, error)
+	unitsInfoFunc func([]names.UnitTag) ([]apiapplication.UnitInfo, error)
 }
 
 func (s mockShowUnitAPI) Close() error {
 	return nil
 }
 
-func (s mockShowUnitAPI) BestAPIVersion() int {
-	return s.version
-}
-
-func (s mockShowUnitAPI) UnitsInfo(tags []names.UnitTag) ([]params.UnitInfoResult, error) {
+func (s mockShowUnitAPI) UnitsInfo(tags []names.UnitTag) ([]apiapplication.UnitInfo, error) {
 	return s.unitsInfoFunc(tags)
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/naturalsort"
 
 	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -25,11 +24,11 @@ Optionally, relation data for only a specified endpoint
 or related unit may be shown, or just the application data. 
 
 Examples:
-    $ juju show-unit mysql/0
-    $ juju show-unit mysql/0 wordpress/1
-    $ juju show-unit mysql/0 --app
-    $ juju show-unit mysql/0 --endpoint db
-    $ juju show-unit mysql/0 --related-unit wordpress/2
+    juju show-unit mysql/0
+    juju show-unit mysql/0 wordpress/1
+    juju show-unit mysql/0 --app
+    juju show-unit mysql/0 --endpoint db
+    juju show-unit mysql/0 --related-unit wordpress/2
 `
 
 // NewShowUnitCommand returns a command that displays unit info.
@@ -93,16 +92,15 @@ func (c *showUnitCommand) Init(args []string) error {
 func (c *showUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters.Formatters())
-	f.StringVar(&c.endpoint, "endpoint", "", "Only show relation data for the specified endpoint")
-	f.StringVar(&c.relatedUnit, "related-unit", "", "Only show relation data for the specified unit")
-	f.BoolVar(&c.appOnly, "app", false, "Only show application relation data")
+	f.StringVar(&c.endpoint, "endpoint", "", "only show relation data for the specified endpoint")
+	f.StringVar(&c.relatedUnit, "related-unit", "", "only show relation data for the specified unit")
+	f.BoolVar(&c.appOnly, "app", false, "only show application relation data")
 }
 
 // UnitsInfoAPI defines the API methods that show-unit command uses.
 type UnitsInfoAPI interface {
 	Close() error
-	BestAPIVersion() int
-	UnitsInfo([]names.UnitTag) ([]params.UnitInfoResult, error)
+	UnitsInfo([]names.UnitTag) ([]application.UnitInfo, error)
 }
 
 func (c *showUnitCommand) newUnitAPI() (UnitsInfoAPI, error) {
@@ -121,11 +119,6 @@ func (c *showUnitCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	if v := client.BestAPIVersion(); v < 12 {
-		// old client does not support showing applications.
-		return errors.NotSupportedf("show unit on API server version %v", v)
-	}
-
 	tags, err := c.getUnitTags()
 	if err != nil {
 		return err
@@ -136,17 +129,21 @@ func (c *showUnitCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	var errs params.ErrorResults
-	var valid []params.UnitResult
+	var errs []error
+	var valid []application.UnitInfo
 	for _, result := range results {
 		if result.Error != nil {
-			errs.Results = append(errs.Results, params.ErrorResult{result.Error})
+			errs = append(errs, result.Error)
 			continue
 		}
-		valid = append(valid, *result.Result)
+		valid = append(valid, result)
 	}
-	if len(errs.Results) > 0 {
-		return errs.Combine()
+	if len(errs) > 0 {
+		var errorStrings []string
+		for _, r := range errs {
+			errorStrings = append(errorStrings, r.Error())
+		}
+		return errors.New(strings.Join(errorStrings, "\n"))
 	}
 
 	output, err := c.formatUnitInfos(valid)
@@ -167,7 +164,7 @@ func (c *showUnitCommand) getUnitTags() ([]names.UnitTag, error) {
 	return tags, nil
 }
 
-func (c *showUnitCommand) formatUnitInfos(all []params.UnitResult) (map[string]UnitInfo, error) {
+func (c *showUnitCommand) formatUnitInfos(all []application.UnitInfo) (map[string]UnitInfo, error) {
 	if len(all) == 0 {
 		return nil, nil
 	}
@@ -191,7 +188,7 @@ type RelationData struct {
 	Endpoint                string                      `yaml:"endpoint" json:"endpoint"`
 	CrossModel              bool                        `yaml:"cross-model,omitempty" json:"cross-model,omitempty"`
 	RelatedEndpoint         string                      `yaml:"related-endpoint" json:"related-endpoint"`
-	ApplicationRelationData map[string]interface{}      `yaml:"application-data,omitempty" json:"application-data,omitempty"`
+	ApplicationRelationData map[string]interface{}      `yaml:"application-data" json:"application-data"`
 	MyData                  UnitRelationData            `yaml:"local-unit,omitempty" json:"local-unit,omitempty"`
 	Data                    map[string]UnitRelationData `yaml:"related-units,omitempty" json:"related-units,omitempty"`
 }
@@ -211,7 +208,7 @@ type UnitInfo struct {
 	Address    string `yaml:"address,omitempty" json:"address,omitempty"`
 }
 
-func (c *showUnitCommand) createUnitInfo(details params.UnitResult) (names.UnitTag, UnitInfo, error) {
+func (c *showUnitCommand) createUnitInfo(details application.UnitInfo) (names.UnitTag, UnitInfo, error) {
 	tag, err := names.ParseUnitTag(details.Tag)
 	if err != nil {
 		return names.UnitTag{}, UnitInfo{}, errors.Trace(err)
@@ -276,7 +273,10 @@ func (c *showUnitCommand) createUnitInfo(details params.UnitResult) (names.UnitT
 			}
 			rd.Data[remoteUnit] = urd
 		}
-		info.RelationData = append(info.RelationData, rd)
+		if c.endpoint == rd.Endpoint || len(rd.ApplicationRelationData) > 0 ||
+			len(rd.Data) > 0 || len(rd.MyData.UnitData) > 0 {
+			info.RelationData = append(info.RelationData, rd)
+		}
 	}
 
 	return tag, info, nil

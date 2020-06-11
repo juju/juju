@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	stderrors "errors"
 	"time"
 
 	"github.com/juju/charm/v7"
@@ -1653,9 +1654,9 @@ func (s *applicationSuite) TestUnitsInfo(c *gc.C) {
 	)
 	c.Check(called, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, []params.UnitInfoResult{
-		{Error: &params.Error{Message: "boom"}},
-		{Result: &params.UnitResult{
+	c.Assert(results, gc.DeepEquals, []application.UnitInfo{
+		{Error: stderrors.New("boom")},
+		{
 			Tag:             "unit-bar-1",
 			WorkloadVersion: "666",
 			Machine:         "1",
@@ -1663,12 +1664,12 @@ func (s *applicationSuite) TestUnitsInfo(c *gc.C) {
 			PublicAddress:   "10.0.0.1",
 			Charm:           "charm-bar",
 			Leader:          true,
-			RelationData: []params.EndpointRelationData{{
+			RelationData: []application.EndpointRelationData{{
 				Endpoint:        "db",
 				CrossModel:      true,
 				RelatedEndpoint: "server",
 				ApplicationData: map[string]interface{}{"foo": "bar"},
-				UnitRelationData: map[string]params.RelationData{
+				UnitRelationData: map[string]application.RelationData{
 					"baz": {
 						InScope:  true,
 						UnitData: map[string]interface{}{"hello": "world"},
@@ -1677,7 +1678,7 @@ func (s *applicationSuite) TestUnitsInfo(c *gc.C) {
 			}},
 			ProviderId: "provider-id",
 			Address:    "192.168.1.1",
-		}},
+		},
 	})
 }
 

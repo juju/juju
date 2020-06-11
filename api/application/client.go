@@ -8,6 +8,7 @@
 package application
 
 import (
+	stderrors "errors"
 	"time"
 
 	"github.com/juju/charm/v7"
@@ -1021,8 +1022,41 @@ func (c *Client) MergeBindings(req params.ApplicationMergeBindingsArgs) error {
 	return results.OneError()
 }
 
+// UnitInfo holds information about a unit.
+type UnitInfo struct {
+	Error error
+
+	Tag             string
+	WorkloadVersion string
+	Machine         string
+	OpenedPorts     []string
+	PublicAddress   string
+	Charm           string
+	Leader          bool
+	RelationData    []EndpointRelationData
+
+	// The following are for CAAS models.
+	ProviderId string
+	Address    string
+}
+
+// RelationData holds information about a unit's relation.
+type RelationData struct {
+	InScope  bool
+	UnitData map[string]interface{}
+}
+
+// EndpointRelationData holds information about a relation to a given endpoint.
+type EndpointRelationData struct {
+	Endpoint         string
+	CrossModel       bool
+	RelatedEndpoint  string
+	ApplicationData  map[string]interface{}
+	UnitRelationData map[string]RelationData
+}
+
 // UnitsInfo retrieves units information.
-func (c *Client) UnitsInfo(units []names.UnitTag) ([]params.UnitInfoResult, error) {
+func (c *Client) UnitsInfo(units []names.UnitTag) ([]UnitInfo, error) {
 	if apiVersion := c.BestAPIVersion(); apiVersion < 12 {
 		return nil, errors.NotSupportedf("UnitsInfo for Application facade v%v", apiVersion)
 	}
@@ -1039,5 +1073,58 @@ func (c *Client) UnitsInfo(units []names.UnitTag) ([]params.UnitInfoResult, erro
 	if resultsLen := len(out.Results); resultsLen != len(units) {
 		return nil, errors.Errorf("expected %d results, got %d", len(units), resultsLen)
 	}
-	return out.Results, nil
+	infos := make([]UnitInfo, len(out.Results))
+	for i, r := range out.Results {
+		infos[i] = unitInfoFromParams(r)
+	}
+	return infos, nil
+}
+
+func unitInfoFromParams(in params.UnitInfoResult) UnitInfo {
+	if in.Error != nil {
+		return UnitInfo{Error: stderrors.New(in.Error.Error())}
+	}
+	info := UnitInfo{
+		Tag:             in.Result.Tag,
+		WorkloadVersion: in.Result.WorkloadVersion,
+		Machine:         in.Result.Machine,
+		PublicAddress:   in.Result.PublicAddress,
+		Charm:           in.Result.Charm,
+		Leader:          in.Result.Leader,
+		ProviderId:      in.Result.ProviderId,
+		Address:         in.Result.Address,
+	}
+	for _, p := range in.Result.OpenedPorts {
+		info.OpenedPorts = append(info.OpenedPorts, p)
+	}
+	for _, inRd := range in.Result.RelationData {
+		erd := EndpointRelationData{
+			Endpoint:        inRd.Endpoint,
+			CrossModel:      inRd.CrossModel,
+			RelatedEndpoint: inRd.RelatedEndpoint,
+		}
+		if len(inRd.ApplicationData) > 0 {
+			erd.ApplicationData = make(map[string]interface{})
+			for k, v := range inRd.ApplicationData {
+				erd.ApplicationData[k] = v
+			}
+		}
+		if len(inRd.UnitRelationData) > 0 {
+			erd.UnitRelationData = make(map[string]RelationData)
+			for unit, inUrd := range inRd.UnitRelationData {
+				urd := RelationData{
+					InScope: inUrd.InScope,
+				}
+				if len(inUrd.UnitData) > 0 {
+					urd.UnitData = make(map[string]interface{})
+					for k, v := range inUrd.UnitData {
+						urd.UnitData[k] = v
+					}
+				}
+				erd.UnitRelationData[unit] = urd
+			}
+		}
+		info.RelationData = append(info.RelationData, erd)
+	}
+	return info
 }

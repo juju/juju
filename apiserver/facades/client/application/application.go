@@ -256,7 +256,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		storageAccess,
 		ctx.Auth(),
 		blockChecker,
-		&modelShim{facadeModel},
+		&modelShim{facadeModel}, // modelShim wraps the AllPorts() API.
 		leadershipReader,
 		stateCharm,
 		DeployApplication,
@@ -2807,8 +2807,6 @@ func (api *APIBase) relationData(app Application, myUnit Unit) ([]params.Endpoin
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		otherUnits = append(otherUnits, myUnit)
 		for _, u := range otherUnits {
 			ru, err := rel.Unit(u.Name())
 			if err != nil {
