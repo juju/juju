@@ -1558,8 +1558,10 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.SettingsResu
 			}
 			var node *state.Settings
 			node, err = relUnit.Settings()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			settings = node.Map()
-
 		case names.ApplicationTag:
 			var relation *state.Relation
 			relation, err = u.getRelation(arg.Relation)
