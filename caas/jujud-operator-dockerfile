@@ -13,6 +13,7 @@ RUN apt-get update \
     python3-distutils \
     # below apt dependencies are required by controller pod.
     iproute2 \
+    curl \
     && pip3 install --upgrade pip setuptools \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /root/.cache
