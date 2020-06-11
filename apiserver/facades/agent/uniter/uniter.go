@@ -1644,8 +1644,10 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.SettingsResu
 			}
 			var node *state.Settings
 			node, err = relUnit.Settings()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			settings = node.Map()
-
 		case names.ApplicationTag:
 			// Emulate a ReadLocalApplicationSettings call where
 			// the currently authenticated tag is implicitly

@@ -3,7 +3,7 @@ module github.com/juju/juju
 go 1.14
 
 require (
-	github.com/Azure/azure-sdk-for-go v41.0.0+incompatible
+	github.com/Azure/azure-sdk-for-go v42.0.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.10.0
 	github.com/Azure/go-autorest/autorest/adal v0.8.3
 	github.com/Azure/go-autorest/autorest/date v0.2.0
@@ -38,7 +38,7 @@ require (
 	github.com/joyent/gosdc v0.0.0-20140524000815-2f11feadd2d9
 	github.com/joyent/gosign v0.0.0-20140524000734-0da0d5f13420
 	github.com/juju/ansiterm v0.0.0-20160907234532-b99631de12cf
-	github.com/juju/bundlechanges v0.0.0-20200425015902-9e5ed4306b93
+	github.com/juju/bundlechanges v0.0.0-20200610103550-2c584a1d0a20
 	github.com/juju/charm/v7 v7.0.0-20200424224456-5fe646695e85
 	github.com/juju/charmrepo/v5 v5.0.0-20200424225329-cddcb4fdcd09
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
@@ -110,6 +110,7 @@ require (
 	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f
+	golang.org/x/tools v0.0.0-20190920225731-5eefd052ad72
 	google.golang.org/api v0.4.0
 	gopkg.in/amz.v3 v3.0.0-20191122063134-7ba11a47c789
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f

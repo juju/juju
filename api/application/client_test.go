@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	stderrors "errors"
 	"time"
 
 	"github.com/juju/charm/v7"
@@ -1557,5 +1558,150 @@ func (s *applicationSuite) TestApplicationsInfoResultMismatch(c *gc.C) {
 		},
 	)
 	c.Check(called, jc.IsTrue)
+	c.Assert(err, gc.ErrorMatches, "expected 2 results, got 3")
+}
+
+func (s *applicationSuite) TestUnitsInfoBotSupported(c *gc.C) {
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			called = true
+			c.Assert(request, gc.Equals, "UnitsInfo")
+			return nil
+		},
+	)
+	client := application.NewClient(apiCaller)
+	_, err := client.UnitsInfo(nil)
+	c.Assert(err, gc.ErrorMatches, "UnitsInfo for Application facade v0 not supported")
+	c.Assert(called, jc.IsFalse)
+}
+
+func apiForUnitsInfo(f basetesting.APICallerFunc) basetesting.BestVersionCaller {
+	return basetesting.BestVersionCaller{
+		BestVersion:   12,
+		APICallerFunc: f,
+	}
+}
+
+func (s *applicationSuite) TestUnitsInfoCallError(c *gc.C) {
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			called = true
+			c.Assert(request, gc.Equals, "UnitsInfo")
+			return errors.New("boom")
+		},
+	)
+
+	client := application.NewClient(apiForUnitsInfo(apiCaller))
+	_, err := client.UnitsInfo(nil)
+	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestUnitsInfo(c *gc.C) {
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			called = true
+			c.Assert(request, gc.Equals, "UnitsInfo")
+			args, ok := a.(params.Entities)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, jc.DeepEquals, params.Entities{
+				Entities: []params.Entity{
+					{Tag: "unit-foo-0"},
+					{Tag: "unit-bar-1"},
+				}})
+
+			result, ok := response.(*params.UnitInfoResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.UnitInfoResult{
+				{Error: &params.Error{Message: "boom"}},
+				{Result: &params.UnitResult{
+					Tag:             "unit-bar-1",
+					WorkloadVersion: "666",
+					Machine:         "1",
+					OpenedPorts:     []string{"80"},
+					PublicAddress:   "10.0.0.1",
+					Charm:           "charm-bar",
+					Leader:          true,
+					RelationData: []params.EndpointRelationData{{
+						Endpoint:        "db",
+						CrossModel:      true,
+						RelatedEndpoint: "server",
+						ApplicationData: map[string]interface{}{"foo": "bar"},
+						UnitRelationData: map[string]params.RelationData{
+							"baz": {
+								InScope:  true,
+								UnitData: map[string]interface{}{"hello": "world"},
+							},
+						},
+					}},
+					ProviderId: "provider-id",
+					Address:    "192.168.1.1",
+				}},
+			}
+			return nil
+		},
+	)
+
+	client := application.NewClient(apiForUnitsInfo(apiCaller))
+	results, err := client.UnitsInfo(
+		[]names.UnitTag{
+			names.NewUnitTag("foo/0"),
+			names.NewUnitTag("bar/1"),
+		},
+	)
+	c.Check(called, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, []application.UnitInfo{
+		{Error: stderrors.New("boom")},
+		{
+			Tag:             "unit-bar-1",
+			WorkloadVersion: "666",
+			Machine:         "1",
+			OpenedPorts:     []string{"80"},
+			PublicAddress:   "10.0.0.1",
+			Charm:           "charm-bar",
+			Leader:          true,
+			RelationData: []application.EndpointRelationData{{
+				Endpoint:        "db",
+				CrossModel:      true,
+				RelatedEndpoint: "server",
+				ApplicationData: map[string]interface{}{"foo": "bar"},
+				UnitRelationData: map[string]application.RelationData{
+					"baz": {
+						InScope:  true,
+						UnitData: map[string]interface{}{"hello": "world"},
+					},
+				},
+			}},
+			ProviderId: "provider-id",
+			Address:    "192.168.1.1",
+		},
+	})
+}
+
+func (s *applicationSuite) TestUnitssInfoResultMismatch(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "UnitsInfo")
+
+			result, ok := response.(*params.UnitInfoResults)
+			c.Assert(ok, jc.IsTrue)
+			result.Results = []params.UnitInfoResult{
+				{}, {}, {},
+			}
+			return nil
+		},
+	)
+
+	client := application.NewClient(apiForUnitsInfo(apiCaller))
+	_, err := client.UnitsInfo(
+		[]names.UnitTag{
+			names.NewUnitTag("foo/0"),
+			names.NewUnitTag("bar/1"),
+		},
+	)
 	c.Assert(err, gc.ErrorMatches, "expected 2 results, got 3")
 }
