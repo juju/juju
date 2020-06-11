@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm/libvirt"
+	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/imagedownloads"
@@ -75,13 +76,23 @@ func (c *kvmContainer) EnsureCachedImage(params StartParams) error {
 // Start creates and starts a new container.
 // It assumes that the backing image is already cached on disk.
 func (c *kvmContainer) Start(params StartParams) error {
-	var bridge string
 	var interfaces []libvirt.InterfaceInfo
+	ovsBridgeNames, err := network.OvsManagedBridges()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if params.Network != nil {
 		if params.Network.NetworkType == container.BridgeNetwork {
-			bridge = params.Network.Device
 			for _, iface := range params.Network.Interfaces {
-				interfaces = append(interfaces, interfaceInfo{config: iface})
+				parentVirtualPortType := network.NonVirtualPort
+				if ovsBridgeNames.Contains(iface.ParentInterfaceName) {
+					parentVirtualPortType = network.OvsPort
+				}
+
+				interfaces = append(interfaces, interfaceInfo{
+					config:                iface,
+					parentVirtualPortType: parentVirtualPortType,
+				})
 			}
 		} else {
 			err := errors.New("Non-bridge network devices not yet supported")
@@ -93,18 +104,18 @@ func (c *kvmContainer) Start(params StartParams) error {
 	if params.StatusCallback != nil {
 		_ = params.StatusCallback(status.Provisioning, "Creating instance", nil)
 	}
-	if err := CreateMachine(CreateMachineParams{
+	mparams := CreateMachineParams{
 		Hostname:          c.name,
 		Series:            params.Series,
 		UserDataFile:      params.UserDataFile,
 		NetworkConfigData: params.NetworkConfigData,
-		NetworkBridge:     bridge,
 		Memory:            params.Memory,
 		CpuCores:          params.CpuCores,
 		RootDisk:          params.RootDisk,
 		Interfaces:        interfaces,
-	}); err != nil {
-		return err
+	}
+	if err := CreateMachine(mparams); err != nil {
+		return errors.Trace(err)
 	}
 
 	logger.Debugf("Set machine %s to autostart", c.name)
@@ -143,7 +154,8 @@ func (c *kvmContainer) String() string {
 }
 
 type interfaceInfo struct {
-	config corenetwork.InterfaceInfo
+	config                corenetwork.InterfaceInfo
+	parentVirtualPortType network.VirtualPortType
 }
 
 // MACAddress returns the embedded MacAddress value.
@@ -159,4 +171,8 @@ func (i interfaceInfo) InterfaceName() string {
 // ParentInterfaceName returns the embedded ParentInterfaceName value.
 func (i interfaceInfo) ParentInterfaceName() string {
 	return i.config.ParentInterfaceName
+}
+
+func (i interfaceInfo) ParentVirtualPortType() string {
+	return string(i.parentVirtualPortType)
 }

@@ -64,7 +64,6 @@ type CreateMachineParams struct {
 	Series            string
 	UserDataFile      string
 	NetworkConfigData string
-	NetworkBridge     string
 	Memory            uint64
 	CpuCores          uint64
 	RootDisk          uint64
