@@ -2198,6 +2198,16 @@ func (m *Machine) AgentStartTime() time.Time {
 	return m.doc.AgentStartedAt
 }
 
+// AssertAliveOp returns an assert-only transaction operation
+// that ensures the machine is alive.
+func (m *Machine) AssertAliveOp() txn.Op {
+	return txn.Op{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: isAliveDoc,
+	}
+}
+
 // UpdateOperation returns a model operation that will update the machine.
 func (m *Machine) UpdateOperation() *UpdateMachineOperation {
 	return &UpdateMachineOperation{m: &Machine{st: m.st, doc: m.doc}}
