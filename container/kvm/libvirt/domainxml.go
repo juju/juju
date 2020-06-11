@@ -30,6 +30,10 @@ type InterfaceInfo interface {
 	MACAddress() string
 	// ParentInterfaceName returns the interface's parent device name.
 	ParentInterfaceName() string
+	// ParentVirtualPortType returns the type of the virtual port for this
+	// interface's parent (e.g. for bridging to an OVS-managed device) or
+	// an empty value if no virtual port is used.
+	ParentVirtualPortType() string
 	// InterfaceName returns the interface's device name.
 	InterfaceName() string
 }
@@ -122,13 +126,19 @@ func NewDomain(p domainParams) (Domain, error) {
 		}
 	}
 	for _, iface := range p.NetworkInfo() {
-		d.Interface = append(d.Interface, Interface{
+		virtIf := Interface{
 			Type:   "bridge",
 			MAC:    InterfaceMAC{Address: iface.MACAddress()},
 			Model:  Model{Type: "virtio"},
 			Source: InterfaceSource{Bridge: iface.ParentInterfaceName()},
 			Guest:  InterfaceGuest{Dev: iface.InterfaceName()},
-		})
+		}
+		if vpType := iface.ParentVirtualPortType(); vpType != "" {
+			virtIf.VirtualPortType = &InterfaceVirtualPort{
+				Type: vpType,
+			}
+		}
+		d.Interface = append(d.Interface, virtIf)
 	}
 	return d, nil
 }
@@ -331,11 +341,19 @@ type SerialTarget struct {
 // an incoming argument.
 // See: https://libvirt.org/formatdomain.html#elementsNICSBridge
 type Interface struct {
-	Type   string          `xml:"type,attr"`
-	MAC    InterfaceMAC    `xml:"mac"`
-	Model  Model           `xml:"model"`
-	Source InterfaceSource `xml:"source"`
-	Guest  InterfaceGuest  `xml:"guest"`
+	Type            string                `xml:"type,attr"`
+	MAC             InterfaceMAC          `xml:"mac"`
+	Model           Model                 `xml:"model"`
+	Source          InterfaceSource       `xml:"source"`
+	Guest           InterfaceGuest        `xml:"guest"`
+	VirtualPortType *InterfaceVirtualPort `xml:"virtualport,omitempty"`
+}
+
+// InterfaceVirtualPort provides additional configuration data to be forwarded
+// to a vepa (802.1Qbg) or 802.1Qbh compliant switch, or to an Open vSwitch
+// virtual switch.
+type InterfaceVirtualPort struct {
+	Type string `xml:"type,attr"`
 }
 
 // InterfaceMAC is the MAC address for an Interface.

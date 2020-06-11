@@ -102,6 +102,44 @@ var arm64DomainStr = `
     </devices>
 </domain>`[1:]
 
+var amd64WithOvsBridgeDomainStr = `
+<domain type="kvm">
+    <name>juju-someid</name>
+    <vcpu>2</vcpu>
+    <currentMemory unit="MiB">1024</currentMemory>
+    <memory unit="MiB">1024</memory>
+    <os>
+        <type>hvm</type>
+    </os>
+    <devices>
+        <disk device="disk" type="file">
+            <driver type="qcow2" name="qemu"></driver>
+            <source file="/some/path"></source>
+            <target dev="vda"></target>
+        </disk>
+        <disk device="disk" type="file">
+            <driver type="raw" name="qemu"></driver>
+            <source file="/another/path"></source>
+            <target dev="vdb"></target>
+        </disk>
+        <interface type="bridge">
+            <mac address="00:00:00:00:00:00"></mac>
+            <model type="virtio"></model>
+            <source bridge="parent-dev"></source>
+            <guest dev="device-name"></guest>
+            <virtualport type="openvswitch"></virtualport>
+        </interface>
+        <serial type="pty">
+            <source path="/dev/pts/2"></source>
+            <target port="0"></target>
+        </serial>
+        <console type="pty" tty="/dev/pts/2">
+            <source path="/dev/pts/2"></source>
+            <target port="0"></target>
+        </console>
+    </devices>
+</domain>`[1:]
+
 func (domainXMLSuite) TestNewDomain(c *gc.C) {
 	table := []struct {
 		arch, want string
@@ -132,6 +170,28 @@ func (domainXMLSuite) TestNewDomain(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		c.Assert(string(ml), jc.DeepEquals, test.want)
 	}
+}
+
+func (domainXMLSuite) TestNewDomainWithOvsBridge(c *gc.C) {
+	ifaces := []InterfaceInfo{
+		dummyInterface{
+			mac:                   "00:00:00:00:00:00",
+			parent:                "parent-dev",
+			name:                  "device-name",
+			parentVirtualPortType: "openvswitch",
+		},
+	}
+	disks := []DiskInfo{
+		dummyDisk{driver: "qcow2", source: "/some/path"},
+		dummyDisk{driver: "raw", source: "/another/path"},
+	}
+	params := dummyParams{ifaceInfo: ifaces, diskInfo: disks, memory: 1024, cpuCores: 2, hostname: "juju-someid", arch: "amd64"}
+
+	d, err := NewDomain(params)
+	c.Check(err, jc.ErrorIsNil)
+	ml, err := xml.MarshalIndent(&d, "", "    ")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(string(ml), jc.DeepEquals, amd64WithOvsBridgeDomainStr)
 }
 
 func (domainXMLSuite) TestNewDomainError(c *gc.C) {
@@ -171,9 +231,10 @@ func (d dummyDisk) Driver() string { return d.driver }
 func (d dummyDisk) Source() string { return d.source }
 
 type dummyInterface struct {
-	mac, parent, name string
+	mac, parent, parentVirtualPortType, name string
 }
 
-func (i dummyInterface) InterfaceName() string       { return i.name }
-func (i dummyInterface) MACAddress() string          { return i.mac }
-func (i dummyInterface) ParentInterfaceName() string { return i.parent }
+func (i dummyInterface) InterfaceName() string         { return i.name }
+func (i dummyInterface) MACAddress() string            { return i.mac }
+func (i dummyInterface) ParentInterfaceName() string   { return i.parent }
+func (i dummyInterface) ParentVirtualPortType() string { return i.parentVirtualPortType }
