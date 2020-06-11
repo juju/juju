@@ -1,2 +1,2 @@
 #!/bin/bash
-status-set active install
+status-set active installed
