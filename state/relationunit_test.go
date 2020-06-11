@@ -1090,6 +1090,7 @@ func addRU(c *gc.C, app *state.Application, rel *state.Relation, principal *stat
 	}
 	ru, err := rel.Unit(u)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ru.UnitName(), gc.Equals, u.Name())
 	return u, ru
 }
 

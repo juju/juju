@@ -254,6 +254,13 @@ func (a *mockApplication) AgentTools() (*tools.Tools, error) {
 	return a.agentTools, a.NextErr()
 }
 
+func (a *mockApplication) Relations() ([]application.Relation, error) {
+	a.MethodCall(a, "Relations")
+	return []application.Relation{
+		&mockRelation{},
+	}, nil
+}
+
 type mockBindings struct {
 	// A map of endpoint names to space names.
 	bMap map[string]string
@@ -449,6 +456,14 @@ func (m *mockBackend) Space(_ string) (*state.Space, error) {
 	return nil, nil
 }
 
+type mockLeadership struct{}
+
+func (mockLeadership) Leaders() (map[string]string, error) {
+	return map[string]string{
+		"postgresql": "postgresql/0",
+	}, nil
+}
+
 func newMockModel() mockModel {
 	return mockModel{
 		uuid:      utils.MustNewUUID().String(),
@@ -501,6 +516,33 @@ func (m *mockModel) AgentVersion() (version.Number, error) {
 	return ver, nil
 }
 
+func (m *mockModel) AllPorts() ([]application.Ports, error) {
+	return []application.Ports{
+		mockPorts{"0"},
+		mockPorts{"1"},
+	}, nil
+}
+
+type mockPorts struct {
+	machineId string
+}
+
+func (mockPorts) SubnetID() string {
+	return ""
+}
+
+func (m mockPorts) MachineID() string {
+	return m.machineId
+}
+
+func (mockPorts) PortsForUnit(unitName string) []state.PortRange {
+	return []state.PortRange{{
+		FromPort: 100,
+		ToPort:   102,
+		Protocol: "IP",
+	}}
+}
+
 type mockMachine struct {
 	jtesting.Stub
 
@@ -520,6 +562,12 @@ func (m *mockMachine) IsParentLockedForSeriesUpgrade() (bool, error) {
 func (m *mockMachine) Id() string {
 	m.MethodCall(m, "Id")
 	return m.id
+}
+
+func (m *mockMachine) PublicAddress() (network.SpaceAddress, error) {
+	return network.SpaceAddress{
+		MachineAddress: network.MachineAddress{Value: "10.0.0.1"},
+	}, nil
 }
 
 func (m *mockBackend) InferEndpoints(endpoints ...string) ([]state.Endpoint, error) {
@@ -733,6 +781,54 @@ func (r *mockRelation) Tag() names.Tag {
 	return r.tag
 }
 
+func (r *mockRelation) Endpoints() []state.Endpoint {
+	r.MethodCall(r, "Endpoints")
+	return []state.Endpoint{{
+		ApplicationName: "postgresql",
+	}, {
+		ApplicationName: "gitlab",
+	}}
+}
+
+func (r *mockRelation) RelatedEndpoints(appName string) ([]state.Endpoint, error) {
+	r.MethodCall(r, "RelatedEndpoints")
+	if appName != "postgresql" {
+		return nil, errors.NotFoundf("app %q", appName)
+	}
+	return []state.Endpoint{{
+		ApplicationName: "gitlab",
+		Relation:        charm.Relation{Name: "server"},
+	}}, nil
+}
+
+func (r *mockRelation) ApplicationSettings(appName string) (map[string]interface{}, error) {
+	r.MethodCall(r, "ApplicationSettings")
+	return map[string]interface{}{"app-" + appName: "setting"}, nil
+}
+
+func (r *mockRelation) AllRemoteUnits(appName string) ([]application.RelationUnit, error) {
+	r.MethodCall(r, "AllRemoteUnits")
+	return []application.RelationUnit{
+		mockRelationUnit{appName + "/2"},
+	}, nil
+}
+
+func (r *mockRelation) Unit(name string) (application.RelationUnit, error) {
+	r.MethodCall(r, "Unit")
+	return mockRelationUnit{name}, nil
+}
+
+func (r *mockRelation) Endpoint(name string) (state.Endpoint, error) {
+	r.MethodCall(r, "Endpoint")
+	if name != "postgresql" {
+		return state.Endpoint{}, errors.NotFoundf("endpoint for %q", name)
+	}
+	return state.Endpoint{
+		ApplicationName: "postgresql",
+		Relation:        charm.Relation{Name: "db"},
+	}, nil
+}
+
 func (r *mockRelation) SetStatus(status status.StatusInfo) error {
 	r.MethodCall(r, "SetStatus")
 	r.status = status.Status
@@ -765,6 +861,22 @@ func (r *mockRelation) Destroy() error {
 func (r *mockRelation) DestroyWithForce(force bool, maxWait time.Duration) ([]error, error) {
 	r.MethodCall(r, "DestroyWithForce", force, maxWait)
 	return nil, r.NextErr()
+}
+
+type mockRelationUnit struct {
+	unit string
+}
+
+func (m mockRelationUnit) UnitName() string {
+	return m.unit
+}
+
+func (mockRelationUnit) InScope() (bool, error) {
+	return true, nil
+}
+
+func (m mockRelationUnit) Settings() (map[string]interface{}, error) {
+	return map[string]interface{}{m.unit: m.unit + "-setting"}, nil
 }
 
 type mockUnit struct {
@@ -820,9 +932,40 @@ func (u *mockUnit) Name() string {
 	return u.name
 }
 
+func (u *mockUnit) ApplicationName() string {
+	u.MethodCall(u, "ApplicationName")
+	appName, _ := names.UnitApplication(u.name)
+	return appName
+}
+
+func (u *mockUnit) WorkloadVersion() (string, error) {
+	u.MethodCall(u, "WorkloadVersion")
+	return "666", nil
+}
+
+func (u *mockUnit) ContainerInfo() (state.CloudContainer, error) {
+	return mockCloudContainer{}, nil
+}
+
 func (u *mockUnit) AgentTools() (*tools.Tools, error) {
 	u.MethodCall(u, "AgentTools")
 	return u.agentTools, u.NextErr()
+}
+
+type mockCloudContainer struct {
+	state.CloudContainer
+}
+
+func (mockCloudContainer) ProviderId() string {
+	return "provider-id"
+}
+
+func (mockCloudContainer) Address() *network.SpaceAddress {
+	return &network.SpaceAddress{
+		MachineAddress: network.MachineAddress{
+			Value: "192.168.1.1",
+		},
+	}
 }
 
 type mockStorageAttachment struct {

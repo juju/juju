@@ -46,6 +46,11 @@ func (ru *RelationUnit) Endpoint() Endpoint {
 	return ru.endpoint
 }
 
+// UnitName returns the name of the unit in the relation.
+func (ru *RelationUnit) UnitName() string {
+	return ru.unitName
+}
+
 // ErrCannotEnterScope indicates that a relation unit failed to enter its scope
 // due to either the unit or the relation not being Alive.
 var ErrCannotEnterScope = stderrors.New("cannot enter scope: unit or relation is not alive")

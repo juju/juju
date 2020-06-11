@@ -786,6 +786,36 @@ func (s *environSuite) TestStartInstanceCommonDeploymentStorageAccount(c *gc.C) 
 	})
 }
 
+func (s *environSuite) TestStartInstanceCommonDeploymentWithStorageAccountAndAvailabilitySetName(c *gc.C) {
+	resourceTypes := []resources.ProviderResourceType{{
+		ResourceType: to.StringPtr("storageAccounts"),
+	}}
+	providers := []resources.Provider{{
+		Namespace:     to.StringPtr("Microsoft.Storage"),
+		ResourceTypes: &resourceTypes,
+	}}
+	s.commonDeployment.Properties.Providers = &providers
+
+	env := s.openEnviron(c)
+	unitsDeployed := "mysql/0 wordpress/0"
+	s.vmTags[tags.JujuUnitsDeployed] = &unitsDeployed
+	s.sender = s.startInstanceSenders(false)
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, "bionic")
+	params.InstanceConfig.Tags[tags.JujuUnitsDeployed] = unitsDeployed
+
+	_, err := env.StartInstance(s.callCtx, params)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
+		availabilitySetName: "mysql",
+		imageReference:      &xenialImageReference,
+		diskSizeGB:          32,
+		osProfile:           &s.linuxOsProfile,
+		instanceType:        "Standard_A1",
+		unmanagedStorage:    true,
+	})
+}
+
 func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 	// StartInstance waits for the "common" deployment to complete
 	// successfully before creating the VM deployment.
@@ -1028,13 +1058,13 @@ func (s *environSuite) assertStartInstanceRequests(
 		)
 		var (
 			availabilitySetProperties  interface{}
-			availabilityStorageOptions armtemplates.Sku
+			availabilityStorageOptions *armtemplates.Sku
 		)
 		if !args.unmanagedStorage {
 			availabilitySetProperties = &compute.AvailabilitySetProperties{
 				PlatformFaultDomainCount: to.Int32Ptr(3),
 			}
-			availabilityStorageOptions.Name = "Aligned"
+			availabilityStorageOptions = &armtemplates.Sku{Name: "Aligned"}
 		}
 		templateResources = append(templateResources, armtemplates.Resource{
 			APIVersion: computeAPIVersion,
@@ -1043,7 +1073,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			Location:   "westus",
 			Tags:       to.StringMap(s.envTags),
 			Properties: availabilitySetProperties,
-			Sku:        &availabilityStorageOptions,
+			Sku:        availabilityStorageOptions,
 		})
 		availabilitySetSubResource = &compute.SubResource{
 			ID: to.StringPtr(availabilitySetId),

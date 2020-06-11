@@ -118,6 +118,37 @@ func (*subnetSuite) TestFilterInFanNetwork(c *gc.C) {
 	}
 }
 
+func (*subnetSuite) TestIsInFanNetwork(c *gc.C) {
+	testCases := []struct {
+		name     string
+		subnet   network.Id
+		expected bool
+	}{
+		{
+			name:     "empty",
+			subnet:   network.Id(""),
+			expected: false,
+		},
+		{
+			name:     "no match",
+			subnet:   network.Id("foo-1asd-fan-network"),
+			expected: false,
+		},
+		{
+			name:     "match",
+			subnet:   network.Id("foo-1asd-INFAN-network"),
+			expected: true,
+		},
+	}
+
+	for i, t := range testCases {
+		c.Logf("test %d: %s", i, t.name)
+
+		res := network.IsInFanNetwork(t.subnet)
+		c.Check(res, gc.Equals, t.expected)
+	}
+}
+
 func (*subnetSuite) TestSubnetInfosEquality(c *gc.C) {
 	s1 := network.SubnetInfos{
 		{ID: "1"},

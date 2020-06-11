@@ -46,6 +46,7 @@ type ApplicationSuite struct {
 	coretesting.JujuOSEnvSuite
 	backend            mockBackend
 	model              mockModel
+	leadership         mockLeadership
 	endpoints          []state.Endpoint
 	relation           mockRelation
 	application        mockApplication
@@ -56,7 +57,7 @@ type ApplicationSuite struct {
 	env          environs.Environ
 	blockChecker mockBlockChecker
 	authorizer   apiservertesting.FakeAuthorizer
-	api          *application.APIv11
+	api          *application.APIv12
 	deployParams map[string]application.DeployApplicationParams
 }
 
@@ -73,6 +74,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		s.authorizer,
 		&s.blockChecker,
 		&s.model,
+		&s.leadership,
 		func(application.Charm) *state.Charm {
 			return &state.Charm{}
 		},
@@ -86,7 +88,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		s.caasBroker,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &application.APIv11{api}
+	s.api = &application.APIv12{api}
 }
 
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {
@@ -129,6 +131,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 				name:        "postgresql",
 				series:      "quantal",
 				subordinate: false,
+				curl:        charm.MustParseURL("cs:postgresql-42"),
 				charm: &mockCharm{
 					config: &charm.Config{
 						Options: map[string]charm.Option{
@@ -143,13 +146,13 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 					{
 						name:       "postgresql/0",
 						tag:        names.NewUnitTag("postgresql/0"),
-						machineId:  "machine-0",
+						machineId:  "0",
 						agentTools: agentTools,
 					},
 					{
 						name:       "postgresql/1",
 						tag:        names.NewUnitTag("postgresql/1"),
-						machineId:  "machine-1",
+						machineId:  "1",
 						agentTools: agentTools,
 					},
 				},
@@ -212,13 +215,13 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 					{
 						name:       "redis/0",
 						tag:        names.NewUnitTag("redis/0"),
-						machineId:  "machine-0",
+						machineId:  "0",
 						agentTools: olderAgentTools,
 					},
 					{
 						name:       "redis/1",
 						tag:        names.NewUnitTag("redis/1"),
-						machineId:  "machine-1",
+						machineId:  "1",
 						agentTools: olderAgentTools,
 					},
 				},
@@ -1931,4 +1934,41 @@ func (s *ApplicationSuite) TestApplicationMergeBindingsErr(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, len(req.Args))
 	app.CheckCallNames(c, "MergeBindings")
 	c.Assert(*result.Results[0].Error, gc.ErrorMatches, "boom")
+}
+
+func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
+	s.backend.machines = map[string]*mockMachine{"0": {}}
+
+	entities := []params.Entity{{Tag: "unit-postgresql-0"}, {"unit-mysql-0"}}
+	result, err := s.api.UnitsInfo(params.Entities{entities})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, len(entities))
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.UnitResult{
+		Tag:             "unit-postgresql-0",
+		WorkloadVersion: "666",
+		Machine:         "0",
+		OpenedPorts:     []string{"100-102/ip"},
+		PublicAddress:   "10.0.0.1",
+		Charm:           "cs:postgresql-42",
+		Leader:          true,
+		RelationData: []params.EndpointRelationData{{
+			Endpoint:        "db",
+			CrossModel:      true,
+			RelatedEndpoint: "server",
+			ApplicationData: map[string]interface{}{"app-postgresql": "setting"},
+			UnitRelationData: map[string]params.RelationData{
+				"gitlab/2": {
+					InScope:  true,
+					UnitData: map[string]interface{}{"gitlab/2": "gitlab/2-setting"},
+				},
+			},
+		}},
+		ProviderId: "provider-id",
+		Address:    "192.168.1.1",
+	})
+	c.Assert(result.Results[1].Error, jc.DeepEquals, &params.Error{
+		Code:    "not found",
+		Message: `unit "mysql/0" not found`,
+	})
 }

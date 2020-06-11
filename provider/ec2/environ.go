@@ -560,64 +560,11 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	runArgs := commonRunArgs
 	runArgs.AvailZone = availabilityZone
 
-	// TODO (manadart 2020-02-07): We only take the first subnet/zones
-	// mapping to create a NIC for the instance.
-	// This effectively uses a single positive space constraint if many are
-	// specified; behaviour that dates from the original spaces MVP.
-	// It will not take too much effort to enable multi-NIC support for EC2
-	// if we use them all when constructing the instance creation request.
-	var subnetZones map[corenetwork.Id][]string
-	if len(args.SubnetsToZones) > 0 {
-		subnetZones = args.SubnetsToZones[0]
-	}
+	hasVPCID := isVPCIDSet(e.ecfg().vpcID())
 
-	haveVPCID := isVPCIDSet(e.ecfg().vpcID())
-	var subnetIDsForZone []corenetwork.Id
-	var subnetErr error
-	if haveVPCID {
-		var allowedSubnetIDs []corenetwork.Id
-		if placementSubnetID != "" {
-			allowedSubnetIDs = []corenetwork.Id{placementSubnetID}
-		} else {
-			for _, spaces := range args.SubnetsToZones {
-				for subnetID := range spaces {
-					allowedSubnetIDs = append(allowedSubnetIDs, subnetID)
-				}
-			}
-		}
-		subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(
-			e.ec2, ctx, e.ecfg().vpcID(), availabilityZone, allowedSubnetIDs)
-	} else if args.Constraints.HasSpaces() {
-		subnetIDsForZone, subnetErr =
-			corenetwork.FindSubnetIDsForAvailabilityZone(availabilityZone, subnetZones)
-
-		if subnetErr == nil && placementSubnetID != "" {
-			asSet := corenetwork.MakeIDSet(subnetIDsForZone...)
-			if asSet.Contains(placementSubnetID) {
-				subnetIDsForZone = []corenetwork.Id{placementSubnetID}
-			} else {
-				subnetIDsForZone = nil
-				subnetErr = errors.NotFoundf("subnets %q in AZ %q", placementSubnetID, availabilityZone)
-			}
-		}
-	}
-
-	switch {
-	case isNotFoundError(subnetErr):
-		return nil, errors.Trace(subnetErr)
-	case subnetErr != nil:
-		return nil, errors.Annotatef(maybeConvertCredentialError(subnetErr, ctx), "getting subnets for zone %q", availabilityZone)
-	case len(subnetIDsForZone) > 1:
-		// With multiple equally suitable subnets, picking one at random
-		// will allow for better instance spread within the same zone, and
-		// still work correctly if we happen to pick a constrained subnet
-		// (we'll just treat this the same way we treat constrained zones
-		// and retry).
-		runArgs.SubnetId = subnetIDsForZone[rand.Intn(len(subnetIDsForZone))].String()
-		logger.Debugf("selected random subnet %q from all matching in zone %q", runArgs.SubnetId, availabilityZone)
-	case len(subnetIDsForZone) == 1:
-		runArgs.SubnetId = subnetIDsForZone[0].String()
-		logger.Debugf("selected subnet %q in zone %q", runArgs.SubnetId, availabilityZone)
+	runArgs.SubnetId, err = e.selectSubnetIDForInstance(ctx, hasVPCID, args.SubnetsToZones, placementSubnetID, availabilityZone)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	callback(status.Allocating, fmt.Sprintf("Trying to start instance in availability zone %q", availabilityZone), nil)
@@ -637,7 +584,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		Instance: &instResp.Instances[0],
 	}
 	instAZ := inst.Instance.AvailZone
-	if haveVPCID {
+	if hasVPCID {
 		instVPC := e.ecfg().vpcID()
 		instSubnet := inst.Instance.SubnetId
 		logger.Infof("started instance %q in AZ %q, subnet %q, VPC %q", inst.Id(), instAZ, instSubnet, instVPC)
@@ -681,6 +628,134 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		Instance: inst,
 		Hardware: &hc,
 	}, nil
+}
+
+func (e *environ) selectSubnetIDForInstance(ctx context.ProviderCallContext,
+	hasVPCID bool,
+	subnetsToZones []map[corenetwork.Id][]string,
+	placementSubnetID corenetwork.Id,
+	availabilityZone string,
+) (string, error) {
+	// TODO (manadart 2020-02-07): We only take the first subnet/zones
+	// mapping to create a NIC for the instance.
+	// This effectively uses a single positive space constraint if many are
+	// specified; behaviour that dates from the original spaces MVP.
+	// It will not take too much effort to enable multi-NIC support for EC2
+	// if we use them all when constructing the instance creation request.
+	var subnetZones map[corenetwork.Id][]string
+	if len(subnetsToZones) > 0 {
+		subnetZones = filterSubnetsToZones(subnetsToZones)
+	}
+
+	var (
+		subnetIDsForZone []corenetwork.Id
+		err              error
+	)
+	if hasVPCID {
+		subnetIDsForZone, err = e.selectVPCSubnetIDsForZone(ctx, subnetZones, placementSubnetID, availabilityZone)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	} else if availabilityZone != "" && len(subnetZones) > 0 {
+		subnetIDsForZone, err = e.selectSubnetIDsForZone(subnetZones, placementSubnetID, availabilityZone)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	}
+
+	numSubnetIDs := len(subnetIDsForZone)
+	if numSubnetIDs == 0 {
+		return "", nil
+	}
+
+	// With multiple equally suitable subnets, picking one at random
+	// will allow for better instance spread within the same zone, and
+	// still work correctly if we happen to pick a constrained subnet
+	// (we'll just treat this the same way we treat constrained zones
+	// and retry).
+	subnetID := subnetIDsForZone[rand.Intn(numSubnetIDs)].String()
+	logger.Debugf("selected random subnet %q from %d matching in zone %q", subnetID, numSubnetIDs, availabilityZone)
+	return subnetID, nil
+}
+
+func (e *environ) selectVPCSubnetIDsForZone(ctx context.ProviderCallContext,
+	subnetZones map[corenetwork.Id][]string,
+	placementSubnetID corenetwork.Id,
+	availabilityZone string,
+) ([]corenetwork.Id, error) {
+	var allowedSubnetIDs []corenetwork.Id
+	if placementSubnetID != "" {
+		allowedSubnetIDs = []corenetwork.Id{placementSubnetID}
+	} else {
+		for subnetID := range subnetZones {
+			allowedSubnetIDs = append(allowedSubnetIDs, subnetID)
+		}
+	}
+
+	subnets, err := getVPCSubnetIDsForAvailabilityZone(
+		e.ec2, ctx, e.ecfg().vpcID(), availabilityZone, allowedSubnetIDs)
+
+	switch {
+	case isNotFoundError(err):
+		return nil, errors.Trace(err)
+	case err != nil:
+		return nil, errors.Annotatef(maybeConvertCredentialError(err, ctx), "getting subnets for zone %q", availabilityZone)
+	}
+	return subnets, nil
+}
+
+// selectSubnetIDsForZone selects a slice of subnets from a placement or
+// availabilityZone.
+// TODO (stickupkid): This could be lifted into core package as openstack has
+// a very similar pattern to this.
+func (e *environ) selectSubnetIDsForZone(subnetZones map[corenetwork.Id][]string,
+	placementSubnetID corenetwork.Id,
+	availabilityZone string,
+) ([]corenetwork.Id, error) {
+	subnets, err := corenetwork.FindSubnetIDsForAvailabilityZone(availabilityZone, subnetZones)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(subnets) == 0 {
+		return nil, errors.Errorf("availability zone %q has no subnets satisfying space constraints", availabilityZone)
+	}
+
+	// Filter out any fan networks.
+	subnets = corenetwork.FilterInFanNetwork(subnets)
+
+	// Use the placement to locate a subnet ID.
+	if placementSubnetID != "" {
+		asSet := corenetwork.MakeIDSet(subnets...)
+		if !asSet.Contains(placementSubnetID) {
+			return nil, errors.NotFoundf("subnets %q in AZ %q", placementSubnetID, availabilityZone)
+		}
+		subnets = []corenetwork.Id{placementSubnetID}
+	}
+
+	return subnets, nil
+}
+
+// FilterSubnetsToZones removes the INFAN network types from possible subnets.
+// We can't use the INFAN networks as they require you to use the underlay
+// network.
+// TODO (stickupkid): We should lift this to core package if more providers need
+// this.
+// TODO (stickupkid): We should consider removing them during the generation of
+// ProvisioningInfo provided that container provisioning was unaffected.
+func filterSubnetsToZones(subnetsToZones []map[corenetwork.Id][]string) map[corenetwork.Id][]string {
+	if len(subnetsToZones) == 0 {
+		return nil
+	}
+
+	subnetZones := make(map[corenetwork.Id][]string)
+	// Use the first subnets zones until we support multiple NIC
+	for id, zones := range subnetsToZones[0] {
+		if corenetwork.IsInFanNetwork(id) {
+			continue
+		}
+		subnetZones[id] = zones
+	}
+	return subnetZones
 }
 
 func (e *environ) deriveAvailabilityZone(ctx context.ProviderCallContext, args environs.StartInstanceParams) (string, error) {
