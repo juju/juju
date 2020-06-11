@@ -291,6 +291,16 @@ func getInstanceData(st *State, id string) (instanceData, error) {
 	return instData, nil
 }
 
+// removeInstanceDataOp returns the operation needed to remove the
+// instance data document associated with the given globalKey.
+func removeInstanceDataOp(globalKey string) txn.Op {
+	return txn.Op{
+		C:      instanceDataC,
+		Id:     globalKey,
+		Remove: true,
+	}
+}
+
 // AllInstanceData retrieves all instance data in the model
 // and provides a way to query hardware characteristics and
 // charm profiles by machine.
@@ -1085,6 +1095,7 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 		removeMachineBlockDevicesOp(m.Id()),
 		removeModelMachineRefOp(m.st, m.Id()),
 		removeSSHHostKeyOp(m.globalKey()),
+		removeInstanceDataOp(m.doc.DocID),
 	}
 	linkLayerDevicesOps, err := m.removeAllLinkLayerDevicesOps()
 	if err != nil {
