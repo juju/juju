@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"fmt"
 	"github.com/juju/charm/v7"
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter"
 	uniteractions "github.com/juju/juju/worker/uniter/actions"
+	unitercharm "github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/container"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/leadership"
@@ -28,17 +30,20 @@ import (
 	"github.com/juju/juju/worker/uniter/verifycharmprofile"
 )
 
-type resolverSuite struct {
-	stub                 testing.Stub
-	charmModifiedVersion int
-	charmURL             *charm.URL
-	remoteState          remotestate.Snapshot
-	opFactory            operation.Factory
-	resolver             resolver.Resolver
-	resolverConfig       uniter.ResolverConfig
+type baseResolverSuite struct {
+	stub           testing.Stub
+	charmURL       *charm.URL
+	remoteState    remotestate.Snapshot
+	opFactory      operation.Factory
+	resolver       resolver.Resolver
+	resolverConfig uniter.ResolverConfig
 
 	clearResolved   func() error
 	reportHookError func(hook.Info) error
+}
+
+type resolverSuite struct {
+	baseResolverSuite
 }
 
 type caasResolverSuite struct {
@@ -49,35 +54,27 @@ type iaasResolverSuite struct {
 	resolverSuite
 }
 
+type conflictedResolverSuite struct {
+	baseResolverSuite
+}
+
 var _ = gc.Suite(&caasResolverSuite{})
 var _ = gc.Suite(&iaasResolverSuite{})
+var _ = gc.Suite(&conflictedResolverSuite{})
 
 func (s *caasResolverSuite) SetUpTest(c *gc.C) {
-	attachments, err := storage.NewAttachments(&dummyStorageAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	logger := loggo.GetLogger("test")
-	s.resolverConfig = uniter.ResolverConfig{
-		ClearResolved:       func() error { return s.clearResolved() },
-		ReportHookError:     func(info hook.Info) error { return s.reportHookError(info) },
-		StartRetryHookTimer: func() { s.stub.AddCall("StartRetryHookTimer") },
-		StopRetryHookTimer:  func() { s.stub.AddCall("StopRetryHookTimer") },
-		ShouldRetryHooks:    true,
-		UpgradeSeries:       upgradeseries.NewResolver(),
-		Leadership:          leadership.NewResolver(logger),
-		Actions:             uniteractions.NewResolver(logger),
-		VerifyCharmProfile:  verifycharmprofile.NewResolver(logger),
-		CreatedRelations:    nopResolver{},
-		Relations:           nopResolver{},
-		Storage:             storage.NewResolver(logger, attachments, model.CAAS),
-		Commands:            nopResolver{},
-		ModelType:           model.CAAS,
-		Container:           container.NewResolver(),
-		Logger:              logger,
-	}
-	s.resolverSuite.SetUpTest(c)
+	s.resolverSuite.SetUpTest(c, model.CAAS)
 }
 
 func (s *iaasResolverSuite) SetUpTest(c *gc.C) {
+	s.resolverSuite.SetUpTest(c, model.IAAS)
+}
+
+func (s *conflictedResolverSuite) SetUpTest(_ *gc.C) {
+	// NoOp, required to not panic.
+}
+
+func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType) {
 	attachments, err := storage.NewAttachments(&dummyStorageAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	logger := loggo.GetLogger("test")
@@ -93,32 +90,31 @@ func (s *iaasResolverSuite) SetUpTest(c *gc.C) {
 		VerifyCharmProfile:  verifycharmprofile.NewResolver(logger),
 		CreatedRelations:    nopResolver{},
 		Relations:           nopResolver{},
-		Storage:             storage.NewResolver(logger, attachments, model.IAAS),
+		Storage:             storage.NewResolver(logger, attachments, modelType),
 		Commands:            nopResolver{},
-		ModelType:           model.IAAS,
+		ModelType:           modelType,
+		Container:           container.NewResolver(),
 		Logger:              logger,
 	}
-	s.resolverSuite.SetUpTest(c)
-	s.resolver = uniter.NewUniterResolver(s.resolverConfig)
-}
 
-func (s *resolverSuite) SetUpTest(c *gc.C) {
 	s.stub = testing.Stub{}
 	s.charmURL = charm.MustParseURL("cs:precise/mysql-2")
 	s.remoteState = remotestate.Snapshot{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
+		CharmURL: s.charmURL,
 	}
 	s.opFactory = operation.NewFactory(operation.FactoryParams{
 		Logger: loggo.GetLogger("test"),
 	})
 
-	s.clearResolved = func() error {
-		return errors.New("unexpected resolved")
+	if s.clearResolved == nil {
+		s.clearResolved = func() error {
+			return errors.New("unexpected resolved")
+		}
 	}
 
 	s.reportHookError = func(hook.Info) error {
-		return errors.New("unexpected report hook error")
+		return nil
+		//return errors.New("unexpected report hook error")
 	}
 
 	s.resolver = uniter.NewUniterResolver(s.resolverConfig)
@@ -129,8 +125,7 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 // local state.
 func (s *resolverSuite) TestStartedNotInstalled(c *gc.C) {
 	localState := resolver.LocalState{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
+		CharmURL: s.charmURL,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: false,
@@ -145,8 +140,7 @@ func (s *resolverSuite) TestStartedNotInstalled(c *gc.C) {
 // uninstalled local state is an install hook operation.
 func (s *resolverSuite) TestNotStartedNotInstalled(c *gc.C) {
 	localState := resolver.LocalState{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
+		CharmURL: s.charmURL,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: false,
@@ -160,9 +154,8 @@ func (s *resolverSuite) TestNotStartedNotInstalled(c *gc.C) {
 
 func (s *iaasResolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 	localState := resolver.LocalState{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
-		UpgradeSeriesStatus:  model.UpgradeSeriesNotStarted,
+		CharmURL:            s.charmURL,
+		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
@@ -177,7 +170,6 @@ func (s *iaasResolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 
 func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c *gc.C) {
 	localState := resolver.LocalState{
-		CharmModifiedVersion:  s.charmModifiedVersion,
 		CharmURL:              s.charmURL,
 		UpgradeSeriesStatus:   model.UpgradeSeriesNotStarted,
 		LeaderSettingsVersion: 1,
@@ -202,9 +194,8 @@ func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c 
 
 func (s *iaasResolverSuite) TestRunsOperationToResetLocalUpgradeSeriesStateWhenConditionsAreMet(c *gc.C) {
 	localState := resolver.LocalState{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
-		UpgradeSeriesStatus:  model.UpgradeSeriesCompleted,
+		CharmURL:            s.charmURL,
+		UpgradeSeriesStatus: model.UpgradeSeriesCompleted,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
@@ -256,8 +247,7 @@ func (s *resolverSuite) TestHookErrorDoesNotStartRetryTimerIfShouldRetryFalse(c 
 func (s *resolverSuite) TestHookErrorStartRetryTimer(c *gc.C) {
 	s.reportHookError = func(hook.Info) error { return nil }
 	localState := resolver.LocalState{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
+		CharmURL: s.charmURL,
 		State: operation.State{
 			Kind:      operation.RunHook,
 			Step:      operation.Pending,
@@ -282,8 +272,7 @@ func (s *resolverSuite) TestHookErrorStartRetryTimer(c *gc.C) {
 func (s *resolverSuite) TestHookErrorStartRetryTimerAgain(c *gc.C) {
 	s.reportHookError = func(hook.Info) error { return nil }
 	localState := resolver.LocalState{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
+		CharmURL: s.charmURL,
 		State: operation.State{
 			Kind:      operation.RunHook,
 			Step:      operation.Pending,
@@ -326,8 +315,7 @@ func (s *resolverSuite) testResolveHookErrorStopRetryTimer(c *gc.C, mode params.
 	s.clearResolved = func() error { return nil }
 	s.reportHookError = func(hook.Info) error { return nil }
 	localState := resolver.LocalState{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
+		CharmURL: s.charmURL,
 		State: operation.State{
 			Kind:      operation.RunHook,
 			Step:      operation.Pending,
@@ -352,8 +340,7 @@ func (s *resolverSuite) testResolveHookErrorStopRetryTimer(c *gc.C, mode params.
 func (s *resolverSuite) TestRunHookStopRetryTimer(c *gc.C) {
 	s.reportHookError = func(hook.Info) error { return nil }
 	localState := resolver.LocalState{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
+		CharmURL: s.charmURL,
 		State: operation.State{
 			Kind:      operation.RunHook,
 			Step:      operation.Pending,
@@ -377,8 +364,7 @@ func (s *resolverSuite) TestRunHookStopRetryTimer(c *gc.C) {
 
 func (s *resolverSuite) TestRunsConfigChangedIfConfigHashChanges(c *gc.C) {
 	localState := resolver.LocalState{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
+		CharmURL: s.charmURL,
 		State: operation.State{
 			Kind:       operation.Continue,
 			Installed:  true,
@@ -395,8 +381,7 @@ func (s *resolverSuite) TestRunsConfigChangedIfConfigHashChanges(c *gc.C) {
 
 func (s *resolverSuite) TestRunsConfigChangedIfTrustHashChanges(c *gc.C) {
 	localState := resolver.LocalState{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
+		CharmURL: s.charmURL,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
@@ -413,8 +398,7 @@ func (s *resolverSuite) TestRunsConfigChangedIfTrustHashChanges(c *gc.C) {
 
 func (s *resolverSuite) TestRunsConfigChangedIfAddressesHashChanges(c *gc.C) {
 	localState := resolver.LocalState{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
+		CharmURL: s.charmURL,
 		State: operation.State{
 			Kind:          operation.Continue,
 			Installed:     true,
@@ -431,8 +415,7 @@ func (s *resolverSuite) TestRunsConfigChangedIfAddressesHashChanges(c *gc.C) {
 
 func (s *resolverSuite) TestNoOperationIfHashesAllMatch(c *gc.C) {
 	localState := resolver.LocalState{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
+		CharmURL: s.charmURL,
 		State: operation.State{
 			Kind:          operation.Continue,
 			Installed:     true,
@@ -450,6 +433,170 @@ func (s *resolverSuite) TestNoOperationIfHashesAllMatch(c *gc.C) {
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
+func (s *resolverSuite) TestUpgradeOperation(c *gc.C) {
+	opFactory := setupUpgradeOpFactory()
+	localState := resolver.LocalState{
+		CharmURL: s.charmURL,
+		State: operation.State{
+			Kind:      operation.Upgrade,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	op, err := s.resolver.NextOp(localState, s.remoteState, opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, fmt.Sprintf("upgrade to %s", s.charmURL))
+}
+
+func (s *resolverSuite) TestUpgradeOperationVerifyCPFail(c *gc.C) {
+	opFactory := setupUpgradeOpFactory()
+	localState := resolver.LocalState{
+		CharmURL: s.charmURL,
+		State: operation.State{
+			Kind:      operation.Upgrade,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.remoteState.CharmProfileRequired = true
+	_, err := s.resolver.NextOp(localState, s.remoteState, opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+}
+
+func (s *resolverSuite) TestContinueUpgradeOperation(c *gc.C) {
+	opFactory := setupUpgradeOpFactory()
+	localState := resolver.LocalState{
+		CharmURL: s.charmURL,
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.setupForceCharmModifiedTrue()
+	op, err := s.resolver.NextOp(localState, s.remoteState, opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, fmt.Sprintf("upgrade to %s", s.charmURL))
+}
+
+func (s *resolverSuite) TestContinueUpgradeOperationVerifyCPFail(c *gc.C) {
+	opFactory := setupUpgradeOpFactory()
+	localState := resolver.LocalState{
+		CharmURL: s.charmURL,
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.setupForceCharmModifiedTrue()
+	s.remoteState.CharmProfileRequired = true
+	_, err := s.resolver.NextOp(localState, s.remoteState, opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+}
+
+func (s *resolverSuite) TestRunHookPendingUpgradeOperation(c *gc.C) {
+	opFactory := setupUpgradeOpFactory()
+	localState := resolver.LocalState{
+		CharmURL: s.charmURL,
+		State: operation.State{
+			Kind:      operation.RunHook,
+			Hook:      &hook.Info{Kind: hooks.ConfigChanged},
+			Installed: true,
+			Started:   true,
+			Step:      operation.Pending,
+		},
+	}
+	s.setupForceCharmModifiedTrue()
+	op, err := s.resolver.NextOp(localState, s.remoteState, opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, fmt.Sprintf("upgrade to %s", s.charmURL))
+}
+
+func (s *conflictedResolverSuite) TestNextOpConflicted(c *gc.C) {
+	s.baseResolverSuite.SetUpTest(c, model.IAAS)
+	opFactory := setupUpgradeOpFactory()
+	localState := resolver.LocalState{
+		CharmURL:   s.charmURL,
+		Conflicted: true,
+		State: operation.State{
+			Kind:      operation.Upgrade,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	_, err := s.resolver.NextOp(localState, s.remoteState, opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrWaiting)
+}
+
+func (s *conflictedResolverSuite) TestNextOpConflictedVerifyCPFail(c *gc.C) {
+	s.baseResolverSuite.SetUpTest(c, model.IAAS)
+	opFactory := setupUpgradeOpFactory()
+	localState := resolver.LocalState{
+		CharmURL:   s.charmURL,
+		Conflicted: true,
+		State: operation.State{
+			Kind:      operation.Upgrade,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.remoteState.CharmProfileRequired = true
+	_, err := s.resolver.NextOp(localState, s.remoteState, opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+}
+
+func (s *conflictedResolverSuite) TestNextOpConflictedNewResolvedUpgrade(c *gc.C) {
+	s.clearResolved = func() error {
+		return nil
+	}
+	s.baseResolverSuite.SetUpTest(c, model.IAAS)
+	opFactory := setupUpgradeOpFactory()
+	localState := resolver.LocalState{
+		CharmURL:   s.charmURL,
+		Conflicted: true,
+		State: operation.State{
+			Kind:      operation.Upgrade,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.remoteState.ResolvedMode = params.ResolvedRetryHooks
+	op, err := s.resolver.NextOp(localState, s.remoteState, opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, fmt.Sprintf("continue upgrade to %s", s.charmURL))
+}
+
+func (s *conflictedResolverSuite) TestNextOpConflictedNewRevertUpgrade(c *gc.C) {
+	s.baseResolverSuite.SetUpTest(c, model.IAAS)
+	opFactory := setupUpgradeOpFactory()
+	localState := resolver.LocalState{
+		CharmURL:   s.charmURL,
+		Conflicted: true,
+		State: operation.State{
+			Kind:      operation.Upgrade,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.setupForceCharmModifiedTrue()
+	op, err := s.resolver.NextOp(localState, s.remoteState, opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, fmt.Sprintf("switch upgrade to %s", s.charmURL))
+}
+
+func setupUpgradeOpFactory() operation.Factory {
+	return operation.NewFactory(operation.FactoryParams{
+		Deployer: &fakeDeployer{},
+		Logger:   loggo.GetLogger("test"),
+	})
+}
+
+func (s *baseResolverSuite) setupForceCharmModifiedTrue() {
+	s.remoteState.ForceCharmUpgrade = true
+	s.remoteState.CharmModifiedVersion = 3
+}
+
 // fakeRW implements the storage.UnitStateReadWriter interface
 // so SetUpTests can call storage.NewAttachments.  It doesn't
 // need to do anything.
@@ -461,5 +608,19 @@ func (m *fakeRW) State() (params.UnitStateResult, error) {
 }
 
 func (m *fakeRW) SetState(_ params.SetUnitStateArg) error {
+	return nil
+}
+
+// fakeDeployer implements the charm.Deployter interface
+// so Upgrade operations can call validate deployer not nil.  It doesn't
+// need to do anything.
+type fakeDeployer struct {
+}
+
+func (m *fakeDeployer) Stage(_ unitercharm.BundleInfo, _ <-chan struct{}) error {
+	return nil
+}
+
+func (m *fakeDeployer) Deploy() error {
 	return nil
 }
