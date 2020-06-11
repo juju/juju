@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-10-01/compute"
-	armstorage "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
+	legacystorage "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage"
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
@@ -157,7 +157,7 @@ func (e *azureStorageProvider) FilesystemSource(providerConfig *storage.Config) 
 
 type azureVolumeSource struct {
 	env                 *azureEnviron
-	maybeStorageAccount *armstorage.Account
+	maybeStorageAccount *legacystorage.Account
 	maybeStorageClient  internalazurestorage.Client
 }
 
@@ -903,12 +903,12 @@ func gibToMib(g uint64) uint64 {
 
 // dataDiskVhdRoot returns the URL to the blob container in which we store the
 // VHDs for data disks for the environment.
-func dataDiskVhdRoot(storageAccount *armstorage.Account) string {
+func dataDiskVhdRoot(storageAccount *legacystorage.Account) string {
 	return blobContainerURL(storageAccount, dataDiskVHDContainer)
 }
 
 // blobContainer returns the URL to the named blob container.
-func blobContainerURL(storageAccount *armstorage.Account, container string) string {
+func blobContainerURL(storageAccount *legacystorage.Account, container string) string {
 	return fmt.Sprintf(
 		"%s%s/",
 		to.String(storageAccount.PrimaryEndpoints.Blob),
@@ -935,8 +935,8 @@ func blobVolumeId(blob internalazurestorage.Blob) (string, bool) {
 func getStorageClient(
 	newClient internalazurestorage.NewClientFunc,
 	storageEndpoint string,
-	storageAccount *armstorage.Account,
-	storageAccountKey *armstorage.AccountKey,
+	storageAccount *legacystorage.Account,
+	storageAccountKey *legacystorage.AccountKey,
 ) (internalazurestorage.Client, error) {
 	storageAccountName := to.String(storageAccount.Name)
 	const useHTTPS = true
@@ -951,9 +951,9 @@ func getStorageClient(
 
 // getStorageAccountKey returns the key for the storage account.
 func getStorageAccountKey(
-	client armstorage.AccountsClient,
+	client legacystorage.AccountsClient,
 	resourceGroup, accountName string,
-) (*armstorage.AccountKey, error) {
+) (*legacystorage.AccountKey, error) {
 	logger.Debugf("getting keys for storage account %q", accountName)
 	sdkCtx := stdcontext.Background()
 	listKeysResult, err := client.ListKeys(sdkCtx, resourceGroup, accountName)
@@ -968,12 +968,12 @@ func getStorageAccountKey(
 	}
 
 	// We need a storage key with full permissions.
-	var fullKey *armstorage.AccountKey
+	var fullKey *legacystorage.AccountKey
 	for _, key := range *listKeysResult.Keys {
 		logger.Debugf("storage account key: %#v", key)
 		// At least some of the time, Azure returns the permissions
 		// in title-case, which does not match the constant.
-		if strings.ToUpper(string(key.Permissions)) != strings.ToUpper(string(armstorage.Full)) {
+		if strings.ToUpper(string(key.Permissions)) != strings.ToUpper(string(legacystorage.Full)) {
 			continue
 		}
 		fullKey = &key
@@ -982,7 +982,7 @@ func getStorageAccountKey(
 	if fullKey == nil {
 		return nil, errors.NotFoundf(
 			"storage account key with %q permission",
-			armstorage.Full,
+			legacystorage.Full,
 		)
 	}
 	return fullKey, nil

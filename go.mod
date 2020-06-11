@@ -3,7 +3,7 @@ module github.com/juju/juju
 go 1.14
 
 require (
-	github.com/Azure/azure-sdk-for-go v41.0.0+incompatible
+	github.com/Azure/azure-sdk-for-go v42.0.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.10.0
 	github.com/Azure/go-autorest/autorest/adal v0.8.3
 	github.com/Azure/go-autorest/autorest/date v0.2.0

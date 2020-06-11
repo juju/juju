@@ -17,7 +17,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-10-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
+	legacystorage "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage" // Pin this legacy storage API to 2017-10-01 since it's only used for unmanaged storage was created in 2.2 or earlier models.
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -74,7 +74,10 @@ const (
 
 	computeAPIVersion = "2018-10-01"
 	networkAPIVersion = "2018-08-01"
-	storageAPIVersion = "2018-07-01"
+	// Note: do not upgrade this storage API anymore because Juju uses managed storage since 2.3 and this API is only used
+	// for models upgraded from 2.2.
+	// Upgrading the storage API may break those upgraded old models.
+	storageAPIVersion = "2017-10-01"
 )
 
 type azureEnviron struct {
@@ -109,7 +112,7 @@ type azureEnviron struct {
 	compute            compute.BaseClient
 	disk               compute.BaseClient
 	resources          resources.BaseClient
-	storage            storage.BaseClient
+	storage            legacystorage.BaseClient
 	network            network.BaseClient
 	storageClient      azurestorage.Client
 	storageAccountName string
@@ -117,8 +120,8 @@ type azureEnviron struct {
 	mu                     sync.Mutex
 	config                 *azureModelConfig
 	instanceTypes          map[string]instances.InstanceType
-	storageAccount         **storage.Account
-	storageAccountKey      *storage.AccountKey
+	storageAccount         **legacystorage.Account
+	storageAccountKey      *legacystorage.AccountKey
 	commonResourcesCreated bool
 }
 
@@ -181,7 +184,7 @@ func (env *azureEnviron) initEnviron() error {
 	env.compute = compute.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.disk = compute.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.resources = resources.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
-	env.storage = storage.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
+	env.storage = legacystorage.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.network = network.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	clients := map[string]*autorest.Client{
 		"azure.compute":   &env.compute.Client,
@@ -286,7 +289,7 @@ func (env *azureEnviron) initResourceGroup(ctx context.ProviderCallContext, cont
 	// New models are not given a storage account. Initialise the
 	// storage account pointer to a pointer to a nil pointer, so
 	// "getStorageAccount" avoids making an API call.
-	env.storageAccount = new(*storage.Account)
+	env.storageAccount = new(*legacystorage.Account)
 
 	return nil
 }
@@ -613,7 +616,6 @@ func (env *azureEnviron) createVirtualMachine(
 	}
 
 	maybeStorageAccount, err := env.getStorageAccount()
-	logger.Criticalf("maybeStorageAccount %#v, err %#v", maybeStorageAccount, err)
 	if errors.IsNotFound(err) {
 		// Only models created prior to Juju 2.3 will have a storage
 		// account. Juju 2.3 onwards exclusively uses managed disks
@@ -649,7 +651,6 @@ func (env *azureEnviron) createVirtualMachine(
 	if err != nil {
 		return errors.Annotate(err, "getting availability set name")
 	}
-	logger.Criticalf("availabilitySetName -> %q", availabilitySetName)
 	if availabilitySetName != "" {
 		availabilitySetId := fmt.Sprintf(
 			`[resourceId('Microsoft.Compute/availabilitySets','%s')]`,
@@ -886,7 +887,7 @@ func (env *azureEnviron) waitCommonResourcesCreated() error {
 			}
 		}
 		if !hasStorageAccount {
-			env.storageAccount = new(*storage.Account)
+			env.storageAccount = new(*legacystorage.Account)
 		}
 	}
 	return nil
@@ -999,7 +1000,7 @@ func availabilitySetName(
 // based on the series and chosen instance spec.
 func newStorageProfile(
 	vmName string,
-	maybeStorageAccount *storage.Account,
+	maybeStorageAccount *legacystorage.Account,
 	storageAccountType string,
 	instanceSpec *instances.InstanceSpec,
 ) (*compute.StorageProfile, error) {
@@ -1854,7 +1855,7 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 
 // maybeGetStorageClient returns the environment's storage client if it
 // has one, and nil if it does not.
-func (env *azureEnviron) maybeGetStorageClient() (internalazurestorage.Client, *storage.Account, error) {
+func (env *azureEnviron) maybeGetStorageClient() (internalazurestorage.Client, *legacystorage.Account, error) {
 	storageClient, storageAccount, err := env.getStorageClient()
 	if errors.IsNotFound(err) {
 		// Only models created prior to Juju 2.3 will have a storage
@@ -1871,7 +1872,7 @@ func (env *azureEnviron) maybeGetStorageClient() (internalazurestorage.Client, *
 
 // getStorageClient queries the storage account key, and uses it to construct
 // a new storage client.
-func (env *azureEnviron) getStorageClient() (internalazurestorage.Client, *storage.Account, error) {
+func (env *azureEnviron) getStorageClient() (internalazurestorage.Client, *legacystorage.Account, error) {
 	env.mu.Lock()
 	defer env.mu.Unlock()
 	storageAccount, err := env.getStorageAccountLocked()
@@ -1898,31 +1899,31 @@ func (env *azureEnviron) getStorageClient() (internalazurestorage.Client, *stora
 
 // getStorageAccount returns the storage account for this environment's
 // resource group.
-func (env *azureEnviron) getStorageAccount() (*storage.Account, error) {
+func (env *azureEnviron) getStorageAccount() (*legacystorage.Account, error) {
 	env.mu.Lock()
 	defer env.mu.Unlock()
 	return env.getStorageAccountLocked()
 }
 
-func (env *azureEnviron) getStorageAccountLocked() (*storage.Account, error) {
+func (env *azureEnviron) getStorageAccountLocked() (*legacystorage.Account, error) {
 	if env.storageAccount != nil {
 		if *env.storageAccount == nil {
 			return nil, errors.NotFoundf("storage account")
 		}
 		return *env.storageAccount, nil
 	}
-	client := storage.AccountsClient{env.storage}
-	account, err := client.GetProperties(stdcontext.Background(), env.resourceGroup, env.storageAccountName, storage.AccountExpandGeoReplicationStats)
+	client := legacystorage.AccountsClient{env.storage}
+	account, err := client.GetProperties(stdcontext.Background(), env.resourceGroup, env.storageAccountName)
 	if err != nil {
 		if isNotFoundResult(account.Response) {
 			// Remember that the account was not found
 			// by storing a pointer to a nil pointer.
-			env.storageAccount = new(*storage.Account)
+			env.storageAccount = new(*legacystorage.Account)
 			return nil, errors.NewNotFound(err, fmt.Sprintf("storage account not found"))
 		}
 		return nil, errors.Trace(err)
 	}
-	env.storageAccount = new(*storage.Account)
+	env.storageAccount = new(*legacystorage.Account)
 	*env.storageAccount = &account
 	return &account, nil
 }
@@ -1930,11 +1931,11 @@ func (env *azureEnviron) getStorageAccountLocked() (*storage.Account, error) {
 // getStorageAccountKeysLocked returns a storage account key for this
 // environment's storage account. If refresh is true, any cached key
 // will be refreshed. This method assumes that env.mu is held.
-func (env *azureEnviron) getStorageAccountKeyLocked(accountName string, refresh bool) (*storage.AccountKey, error) {
+func (env *azureEnviron) getStorageAccountKeyLocked(accountName string, refresh bool) (*legacystorage.AccountKey, error) {
 	if !refresh && env.storageAccountKey != nil {
 		return env.storageAccountKey, nil
 	}
-	client := storage.AccountsClient{env.storage}
+	client := legacystorage.AccountsClient{env.storage}
 	key, err := getStorageAccountKey(client, env.resourceGroup, accountName)
 	if err != nil {
 		return nil, errors.Trace(err)
