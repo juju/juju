@@ -54,6 +54,10 @@ type linkLayerDeviceDoc struct {
 	// is inside a container, in which case ParentName can be a global key of a
 	// BridgeDevice on the host machine of the container.
 	ParentName string `bson:"parent-name"`
+
+	// If this is device is part of a virtual switch, this field indicates
+	// the type of switch (e.g. an OVS bridge ) this port belongs to.
+	VirtualPortType network.VirtualPortType `bson:"virtual-port-type"`
 }
 
 // LinkLayerDevice represents the state of a link-layer network device for a
@@ -146,6 +150,12 @@ func (dev *LinkLayerDevice) IsUp() bool {
 // returns the global key of the parent device, not just its name.
 func (dev *LinkLayerDevice) ParentName() string {
 	return dev.doc.ParentName
+}
+
+// VirtualPortType returns the type of virtual port for the device if managed
+// by a virtual switch.
+func (dev *LinkLayerDevice) VirtualPortType() network.VirtualPortType {
+	return dev.doc.VirtualPortType
 }
 
 func (dev *LinkLayerDevice) parentDeviceNameAndMachineID() (string, string) {
@@ -347,6 +357,9 @@ func updateLinkLayerDeviceDocOp(existingDoc, newDoc *linkLayerDeviceDoc) (txn.Op
 	}
 	if existingDoc.ParentName != newDoc.ParentName {
 		changes["parent-name"] = newDoc.ParentName
+	}
+	if existingDoc.VirtualPortType != newDoc.VirtualPortType {
+		changes["virtual-port-type"] = newDoc.VirtualPortType
 	}
 
 	var updates bson.D
