@@ -16,6 +16,7 @@ define MAIN_PACKAGES
   github.com/juju/juju/cmd/juju
   github.com/juju/juju/cmd/jujuc
   github.com/juju/juju/cmd/jujud
+  github.com/juju/juju/cmd/k8sagent
   github.com/juju/juju/cmd/plugins/juju-metadata
 endef
 
