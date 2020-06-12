@@ -345,7 +345,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C
 	s.makeManager(c)
 	result, _, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{
 		Interfaces: interfaces,
-	})
+	}, "0/lxd/0")
 
 	c.Assert(err, gc.ErrorMatches, "parent interface name is empty")
 	c.Assert(result, gc.IsNil)
@@ -364,11 +364,12 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 
 	expected := map[string]map[string]string{
 		"eth0": {
-			"hwaddr":  "aa:bb:cc:dd:ee:f0",
-			"name":    "eth0",
-			"nictype": "bridged",
-			"parent":  "br-eth0",
-			"type":    "nic",
+			"hwaddr":    "aa:bb:cc:dd:ee:f0",
+			"name":      "eth0",
+			"nictype":   "bridged",
+			"parent":    "br-eth0",
+			"type":      "nic",
+			"host_name": "1lxd2-0",
 		},
 	}
 
@@ -376,7 +377,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 	result, unknown, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{
 		Device:     "lxdbr0",
 		Interfaces: interfaces,
-	})
+	}, "1/lxd/2")
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, expected)
@@ -397,7 +398,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigUnknownCIDR(c *gc.C) {
 	_, unknown, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{
 		Device:     "lxdbr0",
 		Interfaces: interfaces,
-	})
+	}, "1/lxd/2")
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(unknown, gc.DeepEquals, []string{"br-eth0"})
@@ -410,7 +411,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigNoInputGetsProfileNICs(c *gc.
 	s.cSvr.EXPECT().GetProfile("default").Return(defaultLegacyProfileWithNIC(), lxdtesting.ETag, nil)
 
 	s.makeManager(c)
-	result, _, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{})
+	result, _, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{}, "1/lxd/2")
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := map[string]map[string]string{
@@ -419,6 +420,8 @@ func (s *managerSuite) TestNetworkDevicesFromConfigNoInputGetsProfileNICs(c *gc.
 			"type":    "nic",
 			"nictype": "bridged",
 			"hwaddr":  "00:16:3e:00:00:00",
+			// NOTE: the host name will not be set because we get
+			// the NICs from the default profile.
 		},
 	}
 

@@ -467,13 +467,15 @@ func sortInterfacesByName(interfaces corenetwork.InterfaceInfos) {
 // unsupported protocols.
 const errIPV6NotSupported = `socket: address family not supported by protocol`
 
-// DevicesFromInterfaceInfo uses the input interface info collection to create a
-// map of network device configuration in the LXD format.
-// Names for any networks without a known CIDR are returned in a slice.
-func DevicesFromInterfaceInfo(interfaces corenetwork.InterfaceInfos) (map[string]device, []string, error) {
+// DevicesFromInterfaceInfo uses the input interface info collection to create
+// a map of network device configuration in the LXD format. Names for any
+// networks without a known CIDR are returned in a slice. The machineID arg is
+// used for generating predictable host interface names for the container's
+// ethernet devices.
+func DevicesFromInterfaceInfo(interfaces corenetwork.InterfaceInfos, machineID string) (map[string]device, []string, error) {
 	nics := make(map[string]device, len(interfaces))
 	var unknown []string
-
+	var nicCount int
 	for _, v := range interfaces {
 		if v.InterfaceType == corenetwork.LoopbackInterface {
 			continue
@@ -487,7 +489,9 @@ func DevicesFromInterfaceInfo(interfaces corenetwork.InterfaceInfos) (map[string
 		if v.CIDR == "" {
 			unknown = append(unknown, v.ParentInterfaceName)
 		}
-		nics[v.InterfaceName] = newNICDevice(v.InterfaceName, v.ParentInterfaceName, v.MACAddress, v.MTU)
+		hostIfaceName := makeHostInterfaceName(machineID, nicCount)
+		nics[v.InterfaceName] = newNICDevice(v.InterfaceName, v.ParentInterfaceName, hostIfaceName, v.MACAddress, v.MTU)
+		nicCount++
 	}
 
 	return nics, unknown, nil
@@ -498,13 +502,18 @@ func DevicesFromInterfaceInfo(interfaces corenetwork.InterfaceInfos) (map[string
 // TODO (manadart 2018-06-21) We want to support nictype=macvlan too.
 // This will involve interrogating the parent device, via the server if it is
 // LXD managed, or via the container.NetworkConfig.DeviceType that this is
-// being generated from.
-func newNICDevice(deviceName, parentDevice, hwAddr string, mtu int) device {
+// being generated from. If the hostIfaceName argument is not empty, LXD will
+// use its value as the name of the container's virtual eth device on the host.
+// Otherwise, the host interface will be assigned a random unique value by LXD.
+func newNICDevice(deviceName, parentDevice, hostIfaceName, hwAddr string, mtu int) device {
 	device := map[string]string{
 		"type":    "nic",
 		"nictype": nicTypeBridged,
 		"name":    deviceName,
 		"parent":  parentDevice,
+	}
+	if hostIfaceName != "" {
+		device["host_name"] = hostIfaceName
 	}
 	if hwAddr != "" {
 		device["hwaddr"] = hwAddr
@@ -513,4 +522,13 @@ func newNICDevice(deviceName, parentDevice, hwAddr string, mtu int) device {
 		device["mtu"] = fmt.Sprintf("%v", mtu)
 	}
 	return device
+}
+
+// makeHostInterfaceName constructs and return a suitable name for the host
+// NIC that represents a virtual ethernet device attached to a container.
+func makeHostInterfaceName(machineID string, nicIndex int) string {
+	// Remove the slashes to make the final device name easier to parse,
+	// e.g. 0lxd1-1.
+	machineID = strings.Replace(machineID, "/", "", -1)
+	return fmt.Sprintf("%s-%d", machineID, nicIndex)
 }
