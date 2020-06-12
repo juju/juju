@@ -33,8 +33,9 @@ type mergeMachineLinkLayerOp struct {
 
 func newMergeMachineLinkLayerOp(machine StateMachine, incoming network.InterfaceInfos) *mergeMachineLinkLayerOp {
 	return &mergeMachineLinkLayerOp{
-		machine:  machine,
-		incoming: incoming,
+		machine:   machine,
+		incoming:  incoming,
+		processed: set.NewStrings(),
 	}
 }
 
@@ -141,6 +142,8 @@ func (o *mergeMachineLinkLayerOp) deviceAddrs(dev StateLinkLayerDevice) []StateL
 func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
 	addr StateLinkLayerDeviceAddress, incomingDev *network.InterfaceInfo,
 ) ([]txn.Op, error) {
+	addrValue := addr.Value()
+
 	// TODO (manadart 2020-06-09): This is where we see a cardinality mismatch.
 	// The InterfaceInfo type has one provider address ID, but a collection of
 	// addresses and shadow addresses.
@@ -150,13 +153,13 @@ func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
 	// We should also be adding shadow addresses to the link-layer device here.
 	// For now, if the provider does not recognise the address,
 	// give responsibility for it to the machine.
-	if !set.NewStrings(incomingDev.Addresses.ToIPAddresses()...).Contains(addr.Value()) {
+	if !set.NewStrings(incomingDev.Addresses.ToIPAddresses()...).Contains(addrValue) {
 		return addr.SetOriginOps(network.OriginMachine), nil
 	}
 
 	// If the address is the incoming primary address, assign the provider ID.
 	// Otherwise simply indicate that the provider is aware of this address.
-	if addr.Value() == incomingDev.PrimaryAddress().Value {
+	if addrValue == incomingDev.PrimaryAddress().Value && incomingDev.ProviderAddressId != "" {
 		ops, err := addr.SetProviderIDOps(incomingDev.ProviderAddressId)
 		return ops, errors.Trace(err)
 	}
