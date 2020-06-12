@@ -359,6 +359,7 @@ func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) er
 		logger.Debugf("lxd profile %q already exists, not written again", pName)
 		return nil
 	}
+	logger.Debugf("attempting to write lxd profile %q %+v", pName, put)
 	post := api.ProfilesPost{
 		Name:       pName,
 		ProfilePut: api.ProfilePut(*put),
@@ -367,6 +368,24 @@ func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) er
 		return errors.Trace(err)
 	}
 	logger.Debugf("wrote lxd profile %q", pName)
+	if err := env.verifyProfile(pName); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// verifyProfile gets the actual profile from lxd for the name provided
+// and logs the result. For informational purposes only. Returns an error
+// if the call to GetProfile fails.
+func (env *environ) verifyProfile(pName string) error {
+	// As there are configs where we do not have the option of looking at
+	// the profile on the machine to verify, verify here that what we thought
+	// was written, is what was written.
+	profile, _, err := env.server().GetProfile(pName)
+	if err != nil {
+		return err
+	}
+	logger.Debugf("lxd profile %q: received %+v ", pName, profile.ProfilePut)
 	return nil
 }
 

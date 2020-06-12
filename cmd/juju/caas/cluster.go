@@ -4,11 +4,13 @@
 package caas
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/exec"
 )
@@ -46,13 +48,33 @@ func collapseRunError(result *exec.ExecResponse, err error) error {
 	return nil
 }
 
+func mergeEnv(envs ...[]string) (out []string) {
+	m := map[string]string{}
+	keys := set.NewStrings()
+	for _, env := range envs {
+		for _, val := range env {
+			kv := strings.SplitN(val, "=", 2)
+			k := kv[0]
+			m[k] = kv[1]
+			keys.Add(k)
+		}
+	}
+	// sort keys for test.
+	for _, k := range keys.SortedValues() {
+		out = append(out, fmt.Sprintf("%s=%s", k, m[k]))
+	}
+	return out
+}
+
 var runCommand = func(runner CommandRunner, params []string, kubeconfig string) (*exec.ExecResponse, error) {
 	cmd := strings.Join(params, " ")
 
-	path := getEnv("path")
 	execParams := exec.RunParams{
 		Commands:    cmd,
-		Environment: []string{"KUBECONFIG=" + kubeconfig, "PATH=" + path},
+		Environment: os.Environ(),
+	}
+	if len(kubeconfig) > 0 {
+		execParams.Environment = mergeEnv(execParams.Environment, []string{"KUBECONFIG=" + kubeconfig})
 	}
 	return runner.RunCommands(execParams)
 }

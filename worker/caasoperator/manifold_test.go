@@ -180,6 +180,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config.RunListenerSocketFunc, gc.NotNil)
 	c.Assert(config.UniterParams.UpdateStatusSignal, gc.NotNil)
 	c.Assert(config.UniterParams.NewOperationExecutor, gc.NotNil)
+	c.Assert(config.UniterParams.NewProcessRunner, gc.NotNil)
+	c.Assert(config.UniterParams.NewDeployer, gc.NotNil)
 	c.Assert(config.Logger, gc.NotNil)
 	c.Assert(config.ExecClientGetter, gc.NotNil)
 	config.LeadershipTrackerFunc = nil
@@ -188,6 +190,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.RunListenerSocketFunc = nil
 	config.UniterParams.UpdateStatusSignal = nil
 	config.UniterParams.NewOperationExecutor = nil
+	config.UniterParams.NewDeployer = nil
+	config.UniterParams.NewProcessRunner = nil
 	config.Logger = nil
 	config.ExecClientGetter = nil
 

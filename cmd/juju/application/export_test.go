@@ -289,6 +289,14 @@ func NewShowCommandForTest(api ApplicationsInfoAPI, store jujuclient.ClientStore
 	return modelcmd.Wrap(cmd)
 }
 
+func NewShowUnitCommandForTest(api UnitsInfoAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &showUnitCommand{newAPIFunc: func() (UnitsInfoAPI, error) {
+		return api, nil
+	}}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}
+
 // RepoSuiteBaseSuite allows the patching of the supported juju suite for
 // each test.
 type RepoSuiteBaseSuite struct {

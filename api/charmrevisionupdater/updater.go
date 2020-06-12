@@ -8,19 +8,19 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// State provides access to a worker's view of the state.
-type State struct {
+// Client provides access to a worker's view of the state.
+type Client struct {
 	facade base.FacadeCaller
 }
 
-// NewState returns a version of the state that provides functionality required by the worker.
-func NewState(caller base.APICaller) *State {
-	return &State{base.NewFacadeCaller(caller, "CharmRevisionUpdater")}
+// NewClient returns a version of the state that provides functionality required by the worker.
+func NewClient(caller base.APICaller) *Client {
+	return &Client{base.NewFacadeCaller(caller, "CharmRevisionUpdater")}
 }
 
 // UpdateLatestRevisions retrieves charm revision info from a repository
 // and updates the revision info in state.
-func (st *State) UpdateLatestRevisions() error {
+func (st *Client) UpdateLatestRevisions() error {
 	result := new(params.ErrorResult)
 	err := st.facade.FacadeCall("UpdateLatestRevisions", nil, result)
 	if err != nil {

@@ -406,7 +406,7 @@ func (s *watcherSuite) TestRelationStatusWatcherDeadRelation(c *gc.C) {
 
 func (s *watcherSuite) setupOfferStatusWatch(
 	c *gc.C,
-) (func(status status.Status, message string), func()) {
+) (func(status status.Status, message string), func(), func()) {
 	// Create the offer connection details.
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
 	offers := state.NewApplicationOffers(s.State)
@@ -478,32 +478,33 @@ func (s *watcherSuite) setupOfferStatusWatch(
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("watcher didn't emit an event")
 		}
-		assertNoChange()
 	}
 
 	// Initial event.
 	assertChange(status.Waiting, "waiting for machine")
-	return assertChange, stop
+	return assertChange, assertNoChange, stop
 }
 
 func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
 	// Create a pair of services and a relation between them.
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 
-	assertChange, stop := s.setupOfferStatusWatch(c)
+	assertChange, assertNoChange, stop := s.setupOfferStatusWatch(c)
 	defer stop()
 
 	err := mysql.SetStatus(status.StatusInfo{Status: status.Waiting, Message: "another message"})
 	c.Assert(err, jc.ErrorIsNil)
 	assertChange(status.Waiting, "another message")
 
-	// Deleting the offer results in an empty change set.
+	// Removing offer and application both trigger events.
 	offers := state.NewApplicationOffers(s.State)
 	err = offers.Remove("hosted-mysql", false)
 	c.Assert(err, jc.ErrorIsNil)
+	assertChange("terminated", "offer has been removed")
 	err = mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange("", "")
+	assertChange("terminated", "offer has been removed")
+	assertNoChange()
 }
 
 type migrationSuite struct {

@@ -75,6 +75,11 @@ func NewContainerManager(cfg container.ManagerConfig, svr *Server) (container.Ma
 	imageMetaDataURL := cfg.PopValue(config.ContainerImageMetadataURLKey)
 	imageStream := cfg.PopValue(config.ContainerImageStreamKey)
 
+	// This value is also popped by the provisioner worker; the following
+	// dummy pop operation ensures that we don't get a spurious warning
+	// for it when calling WarnAboutUnused() below.
+	_ = cfg.PopValue(config.LXDSnapChannel)
+
 	cfg.WarnAboutUnused()
 	return &containerManager{
 		server:           svr,
@@ -308,6 +313,7 @@ func (m *containerManager) MaybeWriteLXDProfile(pName string, put *charm.LXDProf
 		logger.Debugf("lxd profile %q already exists, not written again", pName)
 		return nil
 	}
+	logger.Debugf("attempting to write lxd profile %q %+v", pName, put)
 	post := api.ProfilesPost{
 		Name:       pName,
 		ProfilePut: api.ProfilePut(*put),
@@ -316,6 +322,24 @@ func (m *containerManager) MaybeWriteLXDProfile(pName string, put *charm.LXDProf
 		return errors.Trace(err)
 	}
 	logger.Debugf("wrote lxd profile %q", pName)
+	if err := m.verifyProfile(pName); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// verifyProfile gets the actual profile from lxd for the name provided
+// and logs the result. For informational purposes only. Returns an error
+// if the call to GetProfile fails.
+func (m *containerManager) verifyProfile(pName string) error {
+	// As there are configs where we do not have the option of looking at
+	// the profile on the machine to verify, verify here that what we thought
+	// was written, is what was written.
+	profile, _, err := m.server.GetProfile(pName)
+	if err != nil {
+		return err
+	}
+	logger.Debugf("lxd profile %q: received %+v ", pName, profile.ProfilePut)
 	return nil
 }
 

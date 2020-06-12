@@ -4,57 +4,35 @@
 package charmrevisionupdater_test
 
 import (
-	"github.com/juju/charm/v7"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/charmrevisionupdater"
-	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/apiserver/params"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type versionUpdaterSuite struct {
-	jujutesting.JujuConnSuite
-	testing.CharmSuite
-
-	updater *charmrevisionupdater.State
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&versionUpdaterSuite{})
 
-func (s *versionUpdaterSuite) SetUpSuite(c *gc.C) {
-	s.JujuConnSuite.SetUpSuite(c)
-	s.CharmSuite.SetUpSuite(c, &s.JujuConnSuite)
-}
-
-func (s *versionUpdaterSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.CharmSuite.SetUpTest(c)
-
-	machine, err := s.State.AddMachine("quantal", state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("i-manager", "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	st := s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
-	c.Assert(st, gc.NotNil)
-
-	s.updater = charmrevisionupdater.NewState(st)
-	c.Assert(s.updater, gc.NotNil)
-}
-
 func (s *versionUpdaterSuite) TestUpdateRevisions(c *gc.C) {
-	s.SetupScenario(c)
-	err := s.updater.UpdateLatestRevisions()
-	c.Assert(err, jc.ErrorIsNil)
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CharmRevisionUpdater")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "UpdateLatestRevisions")
+		c.Check(arg, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResult{})
+		*(result.(*params.ErrorResult)) = params.ErrorResult{
+			Error: &params.Error{Message: "boom"},
+		}
+		return nil
+	})
 
-	curl := charm.MustParseURL("cs:quantal/mysql")
-	pending, err := s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pending.String(), gc.Equals, "cs:quantal/mysql-23")
+	client := charmrevisionupdater.NewClient(apiCaller)
+	err := client.UpdateLatestRevisions()
+	c.Assert(err, gc.ErrorMatches, "boom")
 }

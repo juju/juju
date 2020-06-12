@@ -34,7 +34,8 @@ func BootstrapRaft(context Context) error {
 	agentConfig := context.AgentConfig()
 	storageDir := raftDir(agentConfig)
 
-	logStore, err := raftworker.NewLogStore(storageDir)
+	// Always sync raft log writes when upgrading.
+	logStore, err := raftworker.NewLogStore(storageDir, raftworker.SyncAfterWrite)
 	if err != nil {
 		return errors.Annotate(err, "making log store")
 	}
@@ -149,7 +150,8 @@ func MigrateLegacyLeases(context Context) error {
 
 	storageDir := raftDir(context.AgentConfig())
 
-	logStore, err := raftworker.NewLogStore(storageDir)
+	// Always sync raft log writes when upgrading.
+	logStore, err := raftworker.NewLogStore(storageDir, raftworker.SyncAfterWrite)
 	if err != nil {
 		return errors.Annotate(err, "opening log store")
 	}

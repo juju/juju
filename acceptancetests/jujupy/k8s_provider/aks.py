@@ -21,20 +21,15 @@ from __future__ import print_function
 
 import logging
 import os
-import sys
-import yaml
 from pprint import pformat
 
+import yaml
 from azure.common.client_factory import get_client_from_json_dict
 from azure.mgmt import containerservice
 from msrestazure import azure_exceptions
 
-from .base import (
-    Base,
-    K8sProviderType,
-)
+from .base import Base, K8sProviderType
 from .factory import register_provider
-
 
 logger = logging.getLogger(__name__)
 
@@ -181,7 +176,7 @@ class AKS(Base):
                 self.cluster_name, pformat(result.as_dict()),
             )
         except azure_exceptions.CloudError as e:
-            logger.error('Error attempting to create the AKS instance.', e.message)
+            logger.error('Error attempting to create the AKS instance %s', e.message)
             raise e
 
     def get_k8s_version(self, location):

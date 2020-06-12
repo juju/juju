@@ -78,7 +78,7 @@ func (c client) copyFromPod(params CopyParams, cancel <-chan struct{}) error {
 func (c client) copyToPod(params CopyParams, cancel <-chan struct{}) (err error) {
 	src := params.Src
 	dest := params.Dest
-	logger.Debugf("coping from %v to %v", src, dest)
+	logger.Debugf("copying from %v to %v", src, dest)
 
 	if _, err = os.Stat(src.Path); err != nil {
 		return errors.NewNotValid(nil, fmt.Sprintf("%q does not exist on local", src.Path))

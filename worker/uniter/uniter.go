@@ -93,6 +93,8 @@ type Uniter struct {
 	operationFactory        operation.Factory
 	operationExecutor       operation.Executor
 	newOperationExecutor    NewOperationExecutorFunc
+	newProcessRunner        runner.NewRunnerFunc
+	newDeployer             charm.NewDeployerFunc
 	newRemoteRunnerExecutor NewRunnerExecutorFunc
 	translateResolverErr    func(error) error
 
@@ -144,8 +146,7 @@ type Uniter struct {
 	// rebootQuerier allows the uniter to detect when the machine has
 	// rebooted so we can notify the charms accordingly.
 	rebootQuerier RebootQuerier
-
-	logger Logger
+	logger        Logger
 }
 
 // UniterParams hold all the necessary parameters for a new Uniter.
@@ -161,6 +162,8 @@ type UniterParams struct {
 	UpdateStatusSignal            remotestate.UpdateStatusTimerFunc
 	HookRetryStrategy             params.RetryStrategy
 	NewOperationExecutor          NewOperationExecutorFunc
+	NewProcessRunner              runner.NewRunnerFunc
+	NewDeployer                   charm.NewDeployerFunc
 	NewRemoteRunnerExecutor       NewRunnerExecutorFunc
 	RemoteInitFunc                RemoteInitFunc
 	RunListener                   *RunListener
@@ -204,7 +207,6 @@ func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
 // StartUniter creates a new Uniter and starts it using the specified runner.
 func StartUniter(runner *worker.Runner, params *UniterParams) error {
 	startFunc := newUniter(params)
-
 	params.Logger.Debugf("starting uniter for  %q", params.UnitTag.Id())
 	err := runner.StartWorker(params.UnitTag.Id(), startFunc)
 	return errors.Annotate(err, "error starting uniter worker")
@@ -226,6 +228,8 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			updateStatusAt:                uniterParams.UpdateStatusSignal,
 			hookRetryStrategy:             uniterParams.HookRetryStrategy,
 			newOperationExecutor:          uniterParams.NewOperationExecutor,
+			newProcessRunner:              uniterParams.NewProcessRunner,
+			newDeployer:                   uniterParams.NewDeployer,
 			newRemoteRunnerExecutor:       uniterParams.NewRemoteRunnerExecutor,
 			remoteInitFunc:                uniterParams.RemoteInitFunc,
 			translateResolverErr:          translateResolverErr,
@@ -449,7 +453,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			CreatedRelations: relation.NewCreatedRelationResolver(u.relationStateTracker),
 			Relations: relation.NewRelationResolver(
 				u.relationStateTracker, u.unit, u.logger.Child("relation")),
-			Storage: storage.NewResolver(u.storage, u.modelType),
+			Storage: storage.NewResolver(
+				u.logger.Child("storage"), u.storage, u.modelType),
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
@@ -638,7 +643,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		u.logger.Warningf(err.Error())
 	}
 	charmLogger := u.logger.Child("charm")
-	deployer, err := charm.NewDeployer(
+	deployer, err := u.newDeployer(
 		u.paths.State.CharmDir,
 		u.paths.State.DeployerDir,
 		charm.NewBundlesDir(
@@ -658,6 +663,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		Storage:          u.storage,
 		Paths:            u.paths,
 		Clock:            u.clock,
+		Logger:           u.logger.Child("context"),
 	})
 	if err != nil {
 		return err
@@ -667,7 +673,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		remoteExecutor = u.newRemoteRunnerExecutor(u.unit, u.paths)
 	}
 	runnerFactory, err := runner.NewFactory(
-		u.st, u.paths, contextFactory, remoteExecutor,
+		u.st, u.paths, contextFactory, u.newProcessRunner, remoteExecutor,
 	)
 	if err != nil {
 		return errors.Trace(err)

@@ -860,3 +860,8 @@ func (s *WatcherSuiteCAAS) TestWatcherConfig(c *gc.C) {
 	_, err = remotestate.NewWatcher(remotestate.WatcherConfig{})
 	c.Assert(err, gc.ErrorMatches, "nil Logger not valid")
 }
+
+func (s *WatcherSuite) TestWatcherConfigMissingLogger(c *gc.C) {
+	_, err := remotestate.NewWatcher(remotestate.WatcherConfig{})
+	c.Assert(err, gc.ErrorMatches, "nil Logger not valid")
+}

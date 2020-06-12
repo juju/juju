@@ -195,6 +195,10 @@ const (
 	// hard (but configurable) limit of 16M.
 	MaxAgentStateSize = "max-agent-state-size"
 
+	// NonSyncedWritesToRaftLog allows the operator to disable fsync calls
+	// when writing to the raft log by setting this value to true.
+	NonSyncedWritesToRaftLog = "non-synced-writes-to-raft-log"
+
 	// Attribute Defaults
 
 	// DefaultAgentRateLimitMax allows the first 10 agents to connect without any
@@ -284,6 +288,10 @@ const (
 	// state data that agents can store to the controller.
 	DefaultMaxAgentStateSize = 512 * 1024
 
+	// DefaultNonSyncedWritesToRaftLog is the default value for the
+	// non-synced-writes-to-raft-log value. It is set to false by default.
+	DefaultNonSyncedWritesToRaftLog = false
+
 	// JujuHASpace is the network space within which the MongoDB replica-set
 	// should communicate.
 	JujuHASpace = "juju-ha-space"
@@ -352,6 +360,7 @@ var (
 		MeteringURL,
 		MaxCharmStateSize,
 		MaxAgentStateSize,
+		NonSyncedWritesToRaftLog,
 	}
 
 	// For backwards compatibility, we must include "anything", "juju-apiserver"
@@ -396,6 +405,7 @@ var (
 		Features,
 		MaxCharmStateSize,
 		MaxAgentStateSize,
+		NonSyncedWritesToRaftLog,
 	)
 
 	// DefaultAuditLogExcludeMethods is the default list of methods to
@@ -824,6 +834,15 @@ func (c Config) MaxAgentStateSize() int {
 	return c.intOrDefault(MaxAgentStateSize, DefaultMaxAgentStateSize)
 }
 
+// NonSyncedWritesToRaftLog returns true if fsync calls should be skipped
+// after each write to the raft log.
+func (c Config) NonSyncedWritesToRaftLog() bool {
+	if v, ok := c[NonSyncedWritesToRaftLog]; ok {
+		return v.(bool)
+	}
+	return DefaultNonSyncedWritesToRaftLog
+}
+
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
@@ -1080,83 +1099,85 @@ func (c Config) AsSpaceConstraints(spaces *[]string) *[]string {
 }
 
 var configChecker = schema.FieldMap(schema.Fields{
-	AgentRateLimitMax:       schema.ForceInt(),
-	AgentRateLimitRate:      schema.TimeDuration(),
-	AuditingEnabled:         schema.Bool(),
-	AuditLogCaptureArgs:     schema.Bool(),
-	AuditLogMaxSize:         schema.String(),
-	AuditLogMaxBackups:      schema.ForceInt(),
-	AuditLogExcludeMethods:  schema.List(schema.String()),
-	APIPort:                 schema.ForceInt(),
-	APIPortOpenDelay:        schema.String(),
-	ControllerAPIPort:       schema.ForceInt(),
-	ControllerName:          schema.String(),
-	StatePort:               schema.ForceInt(),
-	IdentityURL:             schema.String(),
-	IdentityPublicKey:       schema.String(),
-	SetNUMAControlPolicyKey: schema.Bool(),
-	AutocertURLKey:          schema.String(),
-	AutocertDNSNameKey:      schema.String(),
-	AllowModelAccessKey:     schema.Bool(),
-	MongoMemoryProfile:      schema.String(),
-	JujuDBSnapChannel:       schema.String(),
-	MaxDebugLogDuration:     schema.TimeDuration(),
-	MaxTxnLogSize:           schema.String(),
-	MaxPruneTxnBatchSize:    schema.ForceInt(),
-	MaxPruneTxnPasses:       schema.ForceInt(),
-	ModelLogfileMaxBackups:  schema.ForceInt(),
-	ModelLogfileMaxSize:     schema.String(),
-	ModelLogsSize:           schema.String(),
-	PruneTxnQueryCount:      schema.ForceInt(),
-	PruneTxnSleepTime:       schema.String(),
-	JujuHASpace:             schema.String(),
-	JujuManagementSpace:     schema.String(),
-	CAASOperatorImagePath:   schema.String(),
-	CAASImageRepo:           schema.String(),
-	Features:                schema.List(schema.String()),
-	CharmStoreURL:           schema.String(),
-	MeteringURL:             schema.String(),
-	MaxCharmStateSize:       schema.ForceInt(),
-	MaxAgentStateSize:       schema.ForceInt(),
+	AgentRateLimitMax:        schema.ForceInt(),
+	AgentRateLimitRate:       schema.TimeDuration(),
+	AuditingEnabled:          schema.Bool(),
+	AuditLogCaptureArgs:      schema.Bool(),
+	AuditLogMaxSize:          schema.String(),
+	AuditLogMaxBackups:       schema.ForceInt(),
+	AuditLogExcludeMethods:   schema.List(schema.String()),
+	APIPort:                  schema.ForceInt(),
+	APIPortOpenDelay:         schema.String(),
+	ControllerAPIPort:        schema.ForceInt(),
+	ControllerName:           schema.String(),
+	StatePort:                schema.ForceInt(),
+	IdentityURL:              schema.String(),
+	IdentityPublicKey:        schema.String(),
+	SetNUMAControlPolicyKey:  schema.Bool(),
+	AutocertURLKey:           schema.String(),
+	AutocertDNSNameKey:       schema.String(),
+	AllowModelAccessKey:      schema.Bool(),
+	MongoMemoryProfile:       schema.String(),
+	JujuDBSnapChannel:        schema.String(),
+	MaxDebugLogDuration:      schema.TimeDuration(),
+	MaxTxnLogSize:            schema.String(),
+	MaxPruneTxnBatchSize:     schema.ForceInt(),
+	MaxPruneTxnPasses:        schema.ForceInt(),
+	ModelLogfileMaxBackups:   schema.ForceInt(),
+	ModelLogfileMaxSize:      schema.String(),
+	ModelLogsSize:            schema.String(),
+	PruneTxnQueryCount:       schema.ForceInt(),
+	PruneTxnSleepTime:        schema.String(),
+	JujuHASpace:              schema.String(),
+	JujuManagementSpace:      schema.String(),
+	CAASOperatorImagePath:    schema.String(),
+	CAASImageRepo:            schema.String(),
+	Features:                 schema.List(schema.String()),
+	CharmStoreURL:            schema.String(),
+	MeteringURL:              schema.String(),
+	MaxCharmStateSize:        schema.ForceInt(),
+	MaxAgentStateSize:        schema.ForceInt(),
+	NonSyncedWritesToRaftLog: schema.Bool(),
 }, schema.Defaults{
-	AgentRateLimitMax:       schema.Omit,
-	AgentRateLimitRate:      schema.Omit,
-	APIPort:                 DefaultAPIPort,
-	APIPortOpenDelay:        DefaultAPIPortOpenDelay,
-	ControllerAPIPort:       schema.Omit,
-	ControllerName:          schema.Omit,
-	AuditingEnabled:         DefaultAuditingEnabled,
-	AuditLogCaptureArgs:     DefaultAuditLogCaptureArgs,
-	AuditLogMaxSize:         fmt.Sprintf("%vM", DefaultAuditLogMaxSizeMB),
-	AuditLogMaxBackups:      DefaultAuditLogMaxBackups,
-	AuditLogExcludeMethods:  DefaultAuditLogExcludeMethods,
-	StatePort:               DefaultStatePort,
-	IdentityURL:             schema.Omit,
-	IdentityPublicKey:       schema.Omit,
-	SetNUMAControlPolicyKey: DefaultNUMAControlPolicy,
-	AutocertURLKey:          schema.Omit,
-	AutocertDNSNameKey:      schema.Omit,
-	AllowModelAccessKey:     schema.Omit,
-	MongoMemoryProfile:      DefaultMongoMemoryProfile,
-	JujuDBSnapChannel:       DefaultJujuDBSnapChannel,
-	MaxDebugLogDuration:     DefaultMaxDebugLogDuration,
-	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
-	MaxPruneTxnBatchSize:    DefaultMaxPruneTxnBatchSize,
-	MaxPruneTxnPasses:       DefaultMaxPruneTxnPasses,
-	ModelLogfileMaxBackups:  DefaultModelLogfileMaxBackups,
-	ModelLogfileMaxSize:     fmt.Sprintf("%vM", DefaultModelLogfileMaxSize),
-	ModelLogsSize:           fmt.Sprintf("%vM", DefaultModelLogsSizeMB),
-	PruneTxnQueryCount:      DefaultPruneTxnQueryCount,
-	PruneTxnSleepTime:       DefaultPruneTxnSleepTime,
-	JujuHASpace:             schema.Omit,
-	JujuManagementSpace:     schema.Omit,
-	CAASOperatorImagePath:   schema.Omit,
-	CAASImageRepo:           schema.Omit,
-	Features:                schema.Omit,
-	CharmStoreURL:           csclient.ServerURL,
-	MeteringURL:             romulus.DefaultAPIRoot,
-	MaxCharmStateSize:       DefaultMaxCharmStateSize,
-	MaxAgentStateSize:       DefaultMaxAgentStateSize,
+	AgentRateLimitMax:        schema.Omit,
+	AgentRateLimitRate:       schema.Omit,
+	APIPort:                  DefaultAPIPort,
+	APIPortOpenDelay:         DefaultAPIPortOpenDelay,
+	ControllerAPIPort:        schema.Omit,
+	ControllerName:           schema.Omit,
+	AuditingEnabled:          DefaultAuditingEnabled,
+	AuditLogCaptureArgs:      DefaultAuditLogCaptureArgs,
+	AuditLogMaxSize:          fmt.Sprintf("%vM", DefaultAuditLogMaxSizeMB),
+	AuditLogMaxBackups:       DefaultAuditLogMaxBackups,
+	AuditLogExcludeMethods:   DefaultAuditLogExcludeMethods,
+	StatePort:                DefaultStatePort,
+	IdentityURL:              schema.Omit,
+	IdentityPublicKey:        schema.Omit,
+	SetNUMAControlPolicyKey:  DefaultNUMAControlPolicy,
+	AutocertURLKey:           schema.Omit,
+	AutocertDNSNameKey:       schema.Omit,
+	AllowModelAccessKey:      schema.Omit,
+	MongoMemoryProfile:       DefaultMongoMemoryProfile,
+	JujuDBSnapChannel:        DefaultJujuDBSnapChannel,
+	MaxDebugLogDuration:      DefaultMaxDebugLogDuration,
+	MaxTxnLogSize:            fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
+	MaxPruneTxnBatchSize:     DefaultMaxPruneTxnBatchSize,
+	MaxPruneTxnPasses:        DefaultMaxPruneTxnPasses,
+	ModelLogfileMaxBackups:   DefaultModelLogfileMaxBackups,
+	ModelLogfileMaxSize:      fmt.Sprintf("%vM", DefaultModelLogfileMaxSize),
+	ModelLogsSize:            fmt.Sprintf("%vM", DefaultModelLogsSizeMB),
+	PruneTxnQueryCount:       DefaultPruneTxnQueryCount,
+	PruneTxnSleepTime:        DefaultPruneTxnSleepTime,
+	JujuHASpace:              schema.Omit,
+	JujuManagementSpace:      schema.Omit,
+	CAASOperatorImagePath:    schema.Omit,
+	CAASImageRepo:            schema.Omit,
+	Features:                 schema.Omit,
+	CharmStoreURL:            csclient.ServerURL,
+	MeteringURL:              romulus.DefaultAPIRoot,
+	MaxCharmStateSize:        DefaultMaxCharmStateSize,
+	MaxAgentStateSize:        DefaultMaxAgentStateSize,
+	NonSyncedWritesToRaftLog: DefaultNonSyncedWritesToRaftLog,
 })
 
 // ConfigSchema holds information on all the fields defined by
@@ -1320,5 +1341,9 @@ Use "caas-image-repo" instead.`,
 	MaxAgentStateSize: {
 		Type:        environschema.Tint,
 		Description: `The maximum size (in bytes) of internal state data that agents can store to the controller`,
+	},
+	NonSyncedWritesToRaftLog: {
+		Type:        environschema.Tbool,
+		Description: `Do not perform fsync calls after appending entries to the raft log. Disabling sync improves performance at the cost of reliability`,
 	},
 }

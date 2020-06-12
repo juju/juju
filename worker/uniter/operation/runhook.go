@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type runHook struct {

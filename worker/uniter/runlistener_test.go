@@ -42,7 +42,7 @@ func (s *ListenerSuite) SetUpTest(c *gc.C) {
 func (s *ListenerSuite) NewRunListener(c *gc.C, operator bool) *uniter.RunListener {
 	listener, err := uniter.NewRunListener(s.socketPath, loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
-	listener.RegisterRunner("test/0", &mockRunner{
+	listener.RegisterRunner("test/0", &mockCommandRunner{
 		c:        c,
 		operator: operator,
 	})
@@ -159,14 +159,14 @@ func (s *ChannelCommandRunnerSuite) TestCommandsAborted(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "command execution aborted")
 }
 
-type mockRunner struct {
+type mockCommandRunner struct {
 	c        *gc.C
 	operator bool
 }
 
-var _ uniter.CommandRunner = (*mockRunner)(nil)
+var _ uniter.CommandRunner = (*mockCommandRunner)(nil)
 
-func (r *mockRunner) RunCommands(args uniter.RunCommandsArgs) (results *exec.ExecResponse, err error) {
+func (r *mockCommandRunner) RunCommands(args uniter.RunCommandsArgs) (results *exec.ExecResponse, err error) {
 	r.c.Log("mock runner: " + args.Commands)
 	r.c.Assert(args.Operator, gc.Equals, r.operator)
 	return &exec.ExecResponse{

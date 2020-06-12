@@ -31,11 +31,13 @@ import (
 
 var hostSeries = series.HostSeries
 
-var requiredPackages = []string{"lxd"}
-
 type containerInitialiser struct {
-	getExecCommand func(string, ...string) *exec.Cmd
-	lxdSnapChannel string
+	getExecCommand      func(string, ...string) *exec.Cmd
+	configureLxdProxies func(_ proxy.Settings, isRunningLocally func() (bool, error), newLocalServer func() (*Server, error)) error
+	configureLxdBridge  func() error
+	isRunningLocally    func() (bool, error)
+	newLocalServer      func() (*Server, error)
+	lxdSnapChannel      string
 }
 
 //go:generate mockgen -package mocks -destination mocks/snap_manager_mock.go github.com/juju/juju/container/lxd SnapManager
@@ -60,10 +62,15 @@ var _ container.Initialiser = (*containerInitialiser)(nil)
 // NewContainerInitialiser returns an instance used to perform the steps
 // required to allow a host machine to run a LXC container.
 func NewContainerInitialiser(lxdSnapChannel string) container.Initialiser {
-	return &containerInitialiser{
-		getExecCommand: exec.Command,
-		lxdSnapChannel: lxdSnapChannel,
+	ci := &containerInitialiser{
+		getExecCommand:   exec.Command,
+		lxdSnapChannel:   lxdSnapChannel,
+		isRunningLocally: isRunningLocally,
+		newLocalServer:   NewLocalServer,
 	}
+	ci.configureLxdBridge = ci.internalConfigureLXDBridge
+	ci.configureLxdProxies = internalConfigureLXDProxies
+	return ci
 }
 
 // Initialise is specified on the container.Initialiser interface.
@@ -76,12 +83,12 @@ func (ci *containerInitialiser) Initialise() error {
 	if err := ensureDependencies(ci.lxdSnapChannel, localSeries); err != nil {
 		return errors.Trace(err)
 	}
-	err = configureLXDBridge()
+	err = ci.configureLxdBridge()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	proxies := proxy.DetectProxies()
-	err = ConfigureLXDProxies(proxies)
+	err = ci.configureLxdProxies(proxies, ci.isRunningLocally, ci.newLocalServer)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -114,7 +121,15 @@ func (ci *containerInitialiser) Initialise() error {
 // core.proxy_https configuration values based on the current environment.
 // If LXD is not installed, we skip the configuration.
 func ConfigureLXDProxies(proxies proxy.Settings) error {
-	running, err := IsRunningLocally()
+	return internalConfigureLXDProxies(proxies, isRunningLocally, NewLocalServer)
+}
+
+func internalConfigureLXDProxies(
+	proxies proxy.Settings,
+	isRunningLocally func() (bool, error),
+	newLocalServer func() (*Server, error),
+) error {
+	running, err := isRunningLocally()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -124,7 +139,7 @@ func ConfigureLXDProxies(proxies proxy.Settings) error {
 		return nil
 	}
 
-	svr, err := NewLocalServer()
+	svr, err := newLocalServer()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -149,8 +164,8 @@ var df = func(path string) (uint64, error) {
 	return uint64(statfs.Bsize) * statfs.Bfree, nil
 }
 
-var configureLXDBridge = func() error {
-	server, err := NewLocalServer()
+func (ci *containerInitialiser) internalConfigureLXDBridge() error {
+	server, err := ci.newLocalServer()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -432,11 +447,8 @@ func bridgeConfiguration(input string) (string, error) {
 	return input, nil
 }
 
-// IsRunningLocally returns true if LXD is running locally.
-var IsRunningLocally = isRunningLocally
-
 func isRunningLocally() (bool, error) {
-	svcName, err := InstalledServiceName()
+	svcName, err := installedServiceName()
 	if svcName == "" || err != nil {
 		return false, errors.Trace(err)
 	}
@@ -457,9 +469,9 @@ func isRunningLocally() (bool, error) {
 	return running, nil
 }
 
-// InstalledServiceName returns the name of the running service for the LXD
+// installedServiceName returns the name of the running service for the LXD
 // daemon. If LXD is not installed, the return is an empty string.
-func InstalledServiceName() (string, error) {
+func installedServiceName() (string, error) {
 	names, err := service.ListServices()
 	if err != nil {
 		return "", errors.Trace(err)

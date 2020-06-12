@@ -291,6 +291,16 @@ func getInstanceData(st *State, id string) (instanceData, error) {
 	return instData, nil
 }
 
+// removeInstanceDataOp returns the operation needed to remove the
+// instance data document associated with the given globalKey.
+func removeInstanceDataOp(globalKey string) txn.Op {
+	return txn.Op{
+		C:      instanceDataC,
+		Id:     globalKey,
+		Remove: true,
+	}
+}
+
 // AllInstanceData retrieves all instance data in the model
 // and provides a way to query hardware characteristics and
 // charm profiles by machine.
@@ -605,7 +615,7 @@ func (m *Machine) PasswordValid(password string) bool {
 // If the machine has assigned units, Destroy will return
 // a HasAssignedUnitsError.
 func (m *Machine) Destroy() error {
-	return m.advanceLifecycle(Dying, false, 0)
+	return errors.Trace(m.advanceLifecycle(Dying, false, 0))
 }
 
 // ForceDestroy queues the machine for complete removal, including the
@@ -686,7 +696,7 @@ func (e *HasAssignedUnitsError) Error() string {
 }
 
 func IsHasAssignedUnitsError(err error) bool {
-	_, ok := err.(*HasAssignedUnitsError)
+	_, ok := errors.Cause(err).(*HasAssignedUnitsError)
 	return ok
 }
 
@@ -774,6 +784,15 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 			ContainerIds: containers,
 		}
 	}
+
+	locked, err := original.IsLockedForSeriesUpgrade()
+	if err != nil {
+		return errors.Annotatef(err, "reading machine %s upgrade-series lock", original.Id())
+	}
+	if locked {
+		return errors.Errorf("machine %s is locked for series upgrade", original.Id())
+	}
+
 	m := original
 	defer func() {
 		if err == nil {
@@ -788,23 +807,22 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 			original.doc.Life = life
 		}
 	}()
-	// op and
-	op := txn.Op{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Update: bson.D{{"$set", bson.D{{"life", life}}}},
-	}
-	// noUnits asserts that the machine has no principal units.
-	noUnits := bson.DocElem{
-		Name: "$or", Value: []bson.D{
-			{{"principals", bson.D{{"$size", 0}}}},
-			{{"principals", bson.D{{"$exists", false}}}},
+
+	ops := []txn.Op{
+		{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Update: bson.D{{"$set", bson.D{{"life", life}}}},
+		},
+		{
+			C:      machineUpgradeSeriesLocksC,
+			Id:     m.doc.Id,
+			Assert: txn.DocMissing,
 		},
 	}
 	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		ops := []txn.Op{op}
 		var asserts bson.D
 		// Grab a fresh copy of the machine data.
 		// We don't write to original, because the expectation is that state-
@@ -858,6 +876,7 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 		default:
 			panic(fmt.Errorf("cannot advance lifecycle to %v", life))
 		}
+
 		// Check that the machine does not have any responsibilities that
 		// prevent a lifecycle change.
 		// If there are no alive units left on the machine, or all the applications are dying,
@@ -886,9 +905,10 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 				ops = append(ops, controllerOp)
 				ops = append(ops, setControllerWantsVoteOp(m.st, m.doc.Id, false))
 			}
-			var principalUnitnames []string
+
+			var principalUnitNames []string
 			for _, principalUnit := range m.doc.Principals {
-				principalUnitnames = append(principalUnitnames, principalUnit)
+				principalUnitNames = append(principalUnitNames, principalUnit)
 				u, err := m.st.Unit(principalUnit)
 				if err != nil {
 					return nil, errors.Annotatef(err, "reading machine %s principal unit %v", m, m.doc.Principals[0])
@@ -902,6 +922,7 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 					break
 				}
 			}
+
 			if canDie {
 				containers, err := m.Containers()
 				if err != nil {
@@ -920,10 +941,11 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 			}
 			cleanupOp := newCleanupOp(cleanupDyingMachine, m.doc.Id, force, maxWait)
 			ops = append(ops, cleanupOp)
+
 			if canDie {
 				checkUnits := bson.DocElem{
 					Name: "$or", Value: []bson.D{
-						{{Name: "principals", Value: principalUnitnames}},
+						{{Name: "principals", Value: principalUnitNames}},
 						{{Name: "principals", Value: bson.D{{"$size", 0}}}},
 						{{Name: "principals", Value: bson.D{{"$exists", false}}}},
 					},
@@ -940,7 +962,12 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 				UnitNames: m.doc.Principals,
 			}
 		}
-		asserts = append(asserts, noUnits)
+		asserts = append(asserts, bson.DocElem{
+			Name: "$or", Value: []bson.D{
+				{{"principals", bson.D{{"$size", 0}}}},
+				{{"principals", bson.D{{"$exists", false}}}},
+			},
+		})
 
 		if life == Dead {
 			if isController(&m.doc) {
@@ -959,6 +986,7 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 		ops[0].Assert = asserts
 		return ops, nil
 	}
+
 	if err = m.st.db().Run(buildTxn); err == jujutxn.ErrExcessiveContention {
 		err = errors.Annotatef(err, "machine %s cannot advance lifecycle", m)
 	}
@@ -1067,6 +1095,7 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 		removeMachineBlockDevicesOp(m.Id()),
 		removeModelMachineRefOp(m.st, m.Id()),
 		removeSSHHostKeyOp(m.globalKey()),
+		removeInstanceDataOp(m.doc.DocID),
 	}
 	linkLayerDevicesOps, err := m.removeAllLinkLayerDevicesOps()
 	if err != nil {

@@ -319,9 +319,13 @@ const InFan = "INFAN"
 func FilterInFanNetwork(networks []Id) []Id {
 	var result []Id
 	for _, network := range networks {
-		if !strings.Contains(network.String(), InFan) {
+		if !IsInFanNetwork(network) {
 			result = append(result, network)
 		}
 	}
 	return result
+}
+
+func IsInFanNetwork(network Id) bool {
+	return strings.Contains(network.String(), InFan)
 }

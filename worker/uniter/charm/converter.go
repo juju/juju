@@ -7,6 +7,9 @@ package charm
 // patched for uniter tests.
 var NewDeployer = newDeployer
 
+// NewDeployerFunc returns a func used to create a deployer.
+type NewDeployerFunc func(charmPath, dataPath string, bundles BundleReader, logger Logger) (Deployer, error)
+
 func newDeployer(charmPath, dataPath string, bundles BundleReader, logger Logger) (Deployer, error) {
 	return NewManifestDeployer(charmPath, dataPath, bundles, logger), nil
 }

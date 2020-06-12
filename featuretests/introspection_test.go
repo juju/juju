@@ -10,8 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/state"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
@@ -20,9 +19,11 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/agent"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/introspect"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
@@ -47,7 +48,7 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 
 	var err error
-	s.logger, err = logsender.InstallBufferedLogWriter(1000)
+	s.logger, err = logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 1000)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
 		err := logsender.UninstallBufferedLogWriter()

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"math/rand"
 	"path"
-	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/model"
@@ -22,16 +22,22 @@ type limitedContext struct {
 
 	env map[string]string
 
-	unitName string
-	id       string
+	id     string
+	config hookConfig
 }
 
-// NewLimitedContext creates a new context that implements just the bare minimum
+type hookConfig struct {
+	unitName string
+	clock    Clock
+	logger   Logger
+}
+
+// newLimitedContext creates a new context that implements just the bare minimum
 // of the hooks.Context interface.
-func NewLimitedContext(unitName string) *limitedContext {
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	id := fmt.Sprintf("%s-%s-%d", unitName, "meter-status", rand.New(rand.NewSource(time.Now().Unix())).Int63())
-	return &limitedContext{unitName: unitName, id: id}
+func newLimitedContext(config hookConfig) *limitedContext {
+	now := config.clock.Now().Unix()
+	id := fmt.Sprintf("%s-%s-%d", config.unitName, "meter-status", rand.New(rand.NewSource(now)).Int63())
+	return &limitedContext{id: id, config: config}
 }
 
 // HookVars implements runner.Context.
@@ -42,7 +48,7 @@ func (ctx *limitedContext) HookVars(paths context.Paths, remote bool, getEnv con
 		"JUJU_CONTEXT_ID=" + ctx.id,
 		"JUJU_AGENT_SOCKET_ADDRESS=" + paths.GetJujucClientSocket(remote).Address,
 		"JUJU_AGENT_SOCKET_NETWORK=" + paths.GetJujucClientSocket(remote).Network,
-		"JUJU_UNIT_NAME=" + ctx.unitName,
+		"JUJU_UNIT_NAME=" + ctx.config.unitName,
 	}
 	if remote {
 		vars = append(vars,
@@ -53,6 +59,11 @@ func (ctx *limitedContext) HookVars(paths context.Paths, remote bool, getEnv con
 		vars = append(vars, fmt.Sprintf("%s=%s", key, val))
 	}
 	return append(vars, context.OSDependentEnvVars(paths, getEnv)...), nil
+}
+
+// GetLogger returns the logger for the specified module.
+func (ctx *limitedContext) GetLogger(module string) loggo.Logger {
+	return ctx.config.logger.Root().Child(module)
 }
 
 // SetEnvVars sets additional environment variables to be exported by the context.
@@ -68,7 +79,7 @@ func (ctx *limitedContext) SetEnvVars(vars map[string]string) {
 
 // UnitName implements runner.Context.
 func (ctx *limitedContext) UnitName() string {
-	return ctx.unitName
+	return ctx.config.unitName
 }
 
 // ModelType implements runner.Context

@@ -17,6 +17,11 @@ type Collector struct {
 	watcherCount prometheus.Gauge
 	restartCount prometheus.Gauge
 	storeSize    prometheus.Gauge
+	queueSize    prometheus.Gauge
+	queueAge     prometheus.Gauge
+	append       prometheus.Summary
+	dupe         prometheus.Counter
+	process      prometheus.Summary
 }
 
 // NewMetricsCollector returns a new Collector.
@@ -44,6 +49,45 @@ func NewMetricsCollector(worker *Worker) *Collector {
 				Help:      "The number of entities in the store.",
 			},
 		),
+		queueSize: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: metricsNamespace,
+				Name:      "queue_size",
+				Help:      "The number of entries in the queue to process.",
+			},
+		),
+		queueAge: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: metricsNamespace,
+				Name:      "queue_age",
+				Help:      "The age in seconds of the oldest queue entry.",
+			},
+		),
+		append: prometheus.NewSummary(prometheus.SummaryOpts{
+			Namespace: metricsNamespace,
+			Name:      "append",
+			Help:      "Time to append a queue entry in ms.",
+			Objectives: map[float64]float64{
+				0.5:  0.05,
+				0.9:  0.01,
+				0.99: 0.001,
+			},
+		}),
+		dupe: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: metricsNamespace,
+			Name:      "dupe",
+			Help:      "Count of duplicate watcher notifications already in queue.",
+		}),
+		process: prometheus.NewSummary(prometheus.SummaryOpts{
+			Namespace: metricsNamespace,
+			Name:      "process",
+			Help:      "Time to process a queue entry in ms.",
+			Objectives: map[float64]float64{
+				0.5:  0.05,
+				0.9:  0.01,
+				0.99: 0.001,
+			},
+		}),
 	}
 }
 
@@ -52,6 +96,11 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	c.watcherCount.Describe(ch)
 	c.restartCount.Describe(ch)
 	c.storeSize.Describe(ch)
+	c.queueSize.Describe(ch)
+	c.queueAge.Describe(ch)
+	c.append.Describe(ch)
+	c.dupe.Describe(ch)
+	c.process.Describe(ch)
 }
 
 // Collect is part of the prometheus.Collector interface.
@@ -66,8 +115,15 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.watcherCount.Set(floatValue(reportWatcherKey))
 	c.restartCount.Set(floatValue(reportRestartKey))
 	c.storeSize.Set(floatValue(reportStoreKey))
+	c.queueSize.Set(floatValue(reportQueueSizeKey))
+	c.queueAge.Set(report[reportQueueAgeKey].(float64))
 
 	c.watcherCount.Collect(ch)
 	c.restartCount.Collect(ch)
 	c.storeSize.Collect(ch)
+	c.queueSize.Collect(ch)
+	c.queueAge.Collect(ch)
+	c.append.Collect(ch)
+	c.dupe.Collect(ch)
+	c.process.Collect(ch)
 }

@@ -22,11 +22,11 @@ type openClosePortsOperation struct {
 	updatedPortList []PortRange
 }
 
-// Build implements ModelOperartion.
+// Build implements ModelOperation.
 func (op *openClosePortsOperation) Build(attempt int) ([]txn.Op, error) {
 	var createPortsDoc = op.p.areNew
 	if attempt > 0 {
-		if err := checkModelActive(op.p.st); err != nil {
+		if err := checkModelNotDead(op.p.st); err != nil {
 			return nil, errors.Annotate(err, "cannot open/close ports")
 		}
 		if err := op.verifySubnetAliveWhenSet(); err != nil {
@@ -43,7 +43,7 @@ func (op *openClosePortsOperation) Build(attempt int) ([]txn.Op, error) {
 	}
 
 	ops := []txn.Op{
-		assertModelActiveOp(op.p.st.ModelUUID()),
+		assertModelNotDeadOp(op.p.st.ModelUUID()),
 	}
 
 	// Start with a clean copy of the ranges from the ports document
@@ -114,7 +114,7 @@ func (op *openClosePortsOperation) Build(attempt int) ([]txn.Op, error) {
 	return ops, nil
 }
 
-// Done implements ModelOperartion.
+// Done implements ModelOperation.
 func (op *openClosePortsOperation) Done(err error) error {
 	if err != nil {
 		return err

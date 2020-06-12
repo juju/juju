@@ -98,3 +98,25 @@ func (*podcfgSuite) TestBootstrapConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(podConfig.Bootstrap.BootstrapMachineConstraints, gc.DeepEquals, cons)
 }
+
+func (*podcfgSuite) TestFinishControllerPodConfig(c *gc.C) {
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
+		"type": "kubernetes",
+	})
+	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
+		testing.FakeControllerConfig(),
+		"controller-1",
+		"kubernetes",
+		constraints.Value{},
+	)
+	podcfg.FinishControllerPodConfig(
+		podConfig,
+		cfg,
+		map[string]string{"foo": "bar"},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(podConfig.AgentEnvironment, jc.DeepEquals, map[string]string{
+		"PROVIDER_TYPE": "kubernetes",
+		"foo":           "bar",
+	})
+}

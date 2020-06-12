@@ -73,6 +73,11 @@ func (r *Relation) Tag() names.Tag {
 	return names.NewRelationTag(r.doc.Key)
 }
 
+// UnitCount is the number of units still in relation scope.
+func (r *Relation) UnitCount() int {
+	return r.doc.UnitCount
+}
+
 // Suspended returns true if the relation is suspended.
 func (r *Relation) Suspended() bool {
 	return r.doc.Suspended
@@ -612,7 +617,7 @@ func (r *Relation) Endpoints() []Endpoint {
 }
 
 // RelatedEndpoints returns the endpoints of the relation r with which
-// units of the named application will establish relations. If the service
+// units of the named application will establish relations. If the application
 // is not part of the relation r, an error will be returned.
 func (r *Relation) RelatedEndpoints(applicationname string) ([]Endpoint, error) {
 	local, err := r.Endpoint(applicationname)

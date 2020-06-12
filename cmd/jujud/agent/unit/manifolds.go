@@ -339,6 +339,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:       agentName,
 			MetricSpoolName: metricSpoolName,
 			CharmDirName:    charmDirName,
+			Clock:           config.Clock,
+			Logger:          loggo.GetLogger("juju.worker.metrics.collect"),
 		})),
 
 		// The meter status worker executes the meter-status-changed hook when it detects
@@ -348,6 +350,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:            apiCallerName,
 			MachineLock:              config.MachineLock,
 			Clock:                    config.Clock,
+			Logger:                   loggo.GetLogger("juju.worker.meterstatus"),
 			NewHookRunner:            meterstatus.NewHookRunner,
 			NewMeterStatusAPIClient:  msapi.NewClient,
 			NewUniterStateAPIClient:  commonapi.NewUniterStateAPI,

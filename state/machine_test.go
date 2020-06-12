@@ -159,7 +159,7 @@ func (s *MachineSuite) TestAddMachineInsideMachineModelDying(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, s.machine.Id(), instance.LXD)
-	c.Assert(err, gc.ErrorMatches, `model "testmodel" is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `model "testmodel" is dying`)
 }
 
 func (s *MachineSuite) TestAddMachineInsideMachineModelMigrating(c *gc.C) {
@@ -334,11 +334,27 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.machine.Destroy()
-	c.Assert(err, gc.FitsTypeOf, &state.HasContainersError{})
+	c.Assert(errors.Cause(err), gc.FitsTypeOf, &state.HasContainersError{})
 	c.Assert(err, gc.ErrorMatches, `machine 1 is hosting containers "1/lxd/0"`)
-	err1 := s.machine.EnsureDead()
-	c.Assert(err1, gc.DeepEquals, err)
+
+	err = s.machine.EnsureDead()
+	c.Assert(errors.Cause(err), gc.FitsTypeOf, &state.HasContainersError{})
+	c.Assert(err, gc.ErrorMatches, `machine 1 is hosting containers "1/lxd/0"`)
+
+	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
+}
+
+func (s *MachineSuite) TestLifeMachineLockedForSeriesUpgrade(c *gc.C) {
+	err := s.machine.CreateUpgradeSeriesLock(nil, "xenial")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.Destroy()
+	c.Assert(err, gc.ErrorMatches, `machine 1 is locked for series upgrade`)
+
+	err = s.machine.EnsureDead()
+	c.Assert(err, gc.ErrorMatches, `machine 1 is locked for series upgrade`)
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
 }
 
@@ -352,8 +368,11 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	err = s.machine.Destroy()
 	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
 	c.Assert(err, gc.ErrorMatches, `machine 1 has unit "wordpress/0" assigned`)
-	err1 := s.machine.EnsureDead()
-	c.Assert(err1, gc.DeepEquals, err)
+
+	err = s.machine.EnsureDead()
+	c.Assert(err, jc.Satisfies, state.IsHasAssignedUnitsError)
+	c.Assert(err, gc.ErrorMatches, `machine 1 has unit "wordpress/0" assigned`)
+
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
 
 	// Once no unit is assigned, lifecycle can advance.
@@ -539,7 +558,14 @@ func (s *MachineSuite) TestDestroyFailsWhenNewContainerAdded(c *gc.C) {
 }
 
 func (s *MachineSuite) TestRemove(c *gc.C) {
-	err := s.State.SetSSHHostKeys(s.machine.MachineTag(), state.SSHHostKeys{"rsa", "dsa"})
+	arch := "amd64"
+	char := &instance.HardwareCharacteristics{
+		Arch: &arch,
+	}
+	err := s.machine.SetProvisioned("umbrella/0", "snowflake", "fake_nonce", char)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.SetSSHHostKeys(s.machine.MachineTag(), state.SSHHostKeys{"rsa", "dsa"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Remove()

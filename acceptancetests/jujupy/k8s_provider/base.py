@@ -19,22 +19,19 @@
 
 from __future__ import print_function
 
-import os
-from time import sleep
 import json
 import logging
+import os
 import shutil
 import subprocess
-from pprint import pformat
-from enum import Enum
 from contextlib import contextmanager
+from enum import Enum
+from pprint import pformat
+from shlex import quote
+from time import sleep
 
-from jujupy.utility import (
-    ensure_dir,
-    until_timeout,
-)
 from jujupy.client import temp_bootstrap_env
-
+from jujupy.utility import ensure_dir, until_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +53,7 @@ class K8sProviderType(Enum):
     K8S_CORE = 2
     GKE = 3
     AKS = 4
+    EKS = 5
 
     @classmethod
     def keys(cls):
@@ -118,7 +116,7 @@ class Base(object):
     def __init__(self, bs_manager, timeout=1800):
         self.client = bs_manager.client
         self.bs_manager = bs_manager
-        # register cleanup_hook
+        # register cleanup_hook.
         bs_manager.cleanup_hook = self.ensure_cleanup
 
         self.timeout = timeout
@@ -135,11 +133,11 @@ class Base(object):
 
         self.kubectl_path = os.path.join(self.juju_home, 'kubectl')
         self.kube_home = os.path.join(self.juju_home, '.kube')
-        # ensure kube home
+        # ensure kube home.
         ensure_dir(self.kube_home)
         self.kube_config_path = os.path.join(self.kube_home, 'config')
 
-        # ensure kube config env var
+        # ensure kube config env var.
         os.environ[KUBE_CONFIG_PATH_ENV_VAR] = self.kube_config_path
 
     @contextmanager
@@ -147,7 +145,7 @@ class Base(object):
         try:
             self._ensure_cluster_stack()
             self._ensure_kube_dir()
-            self.check_cluster_healthy()
+            self.check_cluster_healthy(300)
             self._ensure_cluster_config()
 
             yield self
@@ -185,7 +183,7 @@ class Base(object):
     def check_cluster_healthy(self, timeout=0):
         def check():
             try:
-                cluster_info = self.kubectl('cluster-info')
+                cluster_info = self.kubectl('cluster-info', '--request-timeout=3s')
                 logger.debug('cluster_info -> \n%s', cluster_info)
                 nodes_info = self.kubectl('get', 'nodes')
                 logger.debug('nodes_info -> \n%s', pformat(nodes_info))
@@ -214,13 +212,14 @@ class Base(object):
         cm['data'] = data
         self.kubectl_apply(json.dumps(cm))
 
-    def sh(self, *args):
-        args = [str(arg) for arg in args]
+    def sh(self, *args, shell=False):
+        args = [quote(str(arg)) if shell else str(arg) for arg in args]
         logger.debug('sh -> %s', ' '.join(args))
         return subprocess.check_output(
             # cmd should be a list of str.
             args,
             stderr=subprocess.STDOUT,
+            shell=shell,
         ).decode('UTF-8').strip()
 
     def _ensure_kubectl_bin(self):
@@ -247,7 +246,7 @@ class Base(object):
             logger.debug(o)
 
     def get_external_hostname(self):
-        # assume here always use single node cdk core or microk8s
+        # assume here always use single node cdk core or microk8s.
         return '{}.xip.io'.format(self.get_first_worker_ip())
 
     def get_first_worker_ip(self):

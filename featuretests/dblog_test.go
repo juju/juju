@@ -83,7 +83,7 @@ func (s *dblogSuite) assertAgentLogsGoToDB(c *gc.C, tag names.Tag, isCaas bool) 
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
 	err := agentConf.ReadConfig(tag.String())
 	c.Assert(err, jc.ErrorIsNil)
-	logger, err := logsender.InstallBufferedLogWriter(1000)
+	logger, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 1000)
 	c.Assert(err, jc.ErrorIsNil)
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		agentConf,
@@ -111,7 +111,7 @@ func (s *dblogSuite) TestUnitAgentLogsGoToDB(c *gc.C) {
 	// Create a unit and an agent for it.
 	u, password := s.Factory.MakeUnitReturningPassword(c, nil)
 	s.PrimeAgent(c, u.Tag(), password)
-	logger, err := logsender.InstallBufferedLogWriter(1000)
+	logger, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 1000)
 	c.Assert(err, jc.ErrorIsNil)
 	a, err := agentcmd.NewUnitAgent(nil, logger)
 	c.Assert(err, jc.ErrorIsNil)

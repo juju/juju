@@ -16,10 +16,11 @@
 # Functionality for handling installed or other juju binaries
 # (including paths etc.)
 
-
 from .base import K8sProviderType  # noqa
 from .factory import providers  # noqa
+
 # load supported providers.
-from .microk8s import MicroK8s as _  # noqa
-from .gke import GKE as _  # noqa
-from .aks import AKS as _  # noqa
+from .aks import AKS as _  # noqa isort:skip
+from .eks import EKS as _  # noqa isort:skip
+from .gke import GKE as _  # noqa isort:skip
+from .microk8s import MicroK8s as _  # noqa isort:skip

@@ -6,6 +6,7 @@ package context
 import (
 	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
 
@@ -60,6 +61,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		pendingPorts:        make(map[PortRange]PortRangeInfo),
 		assignedMachineTag:  hcParams.AssignedMachineTag,
 		clock:               hcParams.Clock,
+		logger:              loggo.GetLogger("test"),
 	}
 	// Get and cache the addresses.
 	var err error
@@ -93,14 +95,17 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 
 func NewMockUnitHookContext(mockUnit *mocks.MockHookUnit) *HookContext {
 	return &HookContext{
-		unit: mockUnit,
+		unit:   mockUnit,
+		logger: loggo.GetLogger("test"),
 	}
 }
 
 func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter.State) *HookContext {
 	return &HookContext{
-		unit:  mockUnit,
-		state: state,
+		unitName: mockUnit.Tag().Id(), //unitName used by the action finaliser method.
+		unit:     mockUnit,
+		state:    state,
+		logger:   loggo.GetLogger("test"),
 	}
 }
 
@@ -195,6 +200,7 @@ func NewModelHookContext(p ModelHookContextParams) *HookContext {
 		slaLevel:           p.SLALevel,
 		principal:          p.UnitName,
 		cloudAPIVersion:    "6.66",
+		logger:             loggo.GetLogger("test"),
 	}
 }
 

@@ -208,12 +208,14 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 		{"machine-42"},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
+	uc := 666
 	c.Assert(results.Results, jc.DeepEquals, []params.RemoteRelationWatchResult{{
 		RemoteRelationWatcherId: "1",
 		Changes: params.RemoteRelationChangeEvent{
 			RelationToken:    "token-relation-django.db#db2.db",
 			ApplicationToken: "token-application-django",
 			Macaroons:        nil,
+			UnitCount:        &uc,
 			ApplicationSettings: map[string]interface{}{
 				"sunday": "roast",
 			},
@@ -259,6 +261,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 		{"Endpoints", []interface{}{}},
 		{"ApplicationSettings", []interface{}{"django"}},
 		{"Unit", []interface{}{"django/0"}},
+		{"UnitCount", []interface{}{}},
 	})
 }
 

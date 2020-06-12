@@ -58,6 +58,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.PruneTxnSleepTime,
 		controller.MaxCharmStateSize,
 		controller.MaxAgentStateSize,
+		controller.NonSyncedWritesToRaftLog,
 	)
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)

@@ -18,6 +18,10 @@ import (
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/juju/worker/uniter/operation Operation,Factory
 
+// Logger is here to stop the desire of creating a package level Logger.
+// Don't do this, pass one in to the needed functions.
+var logger interface{}
+
 // Logger determines the logging methods used by the operations package.
 type Logger interface {
 	Errorf(string, ...interface{})

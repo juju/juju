@@ -406,6 +406,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// through the AllWatcherBacking and manages notifying the multiwatchers.
 		multiwatcherName: ifDatabaseUpgradeComplete(ifController(multiwatcher.Manifold(multiwatcher.ManifoldConfig{
 			StateName:            stateName,
+			Clock:                config.Clock,
 			Logger:               loggo.GetLogger("juju.worker.multiwatcher"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            multiwatcher.NewWorkerShim,
@@ -686,6 +687,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                config.Clock,
 			MuxShutdownWait:      config.MuxShutdownWait,
 			LogDir:               agentConfig.LogDir(),
+			Logger:               loggo.GetLogger("juju.worker.httpserver"),
 			GetControllerConfig:  httpserver.GetControllerConfig,
 			NewTLSConfig:         httpserver.NewTLSConfig,
 			NewWorker:            httpserver.NewWorkerShim,

@@ -37,31 +37,10 @@ import (
 )
 
 type UnitSuite struct {
-	coretesting.GitSuite
 	agenttest.AgentSuite
 }
 
 var _ = gc.Suite(&UnitSuite{})
-
-func (s *UnitSuite) SetUpSuite(c *gc.C) {
-	s.GitSuite.SetUpSuite(c)
-	s.AgentSuite.SetUpSuite(c)
-}
-
-func (s *UnitSuite) TearDownSuite(c *gc.C) {
-	s.AgentSuite.TearDownSuite(c)
-	s.GitSuite.TearDownSuite(c)
-}
-
-func (s *UnitSuite) SetUpTest(c *gc.C) {
-	s.GitSuite.SetUpTest(c)
-	s.AgentSuite.SetUpTest(c)
-}
-
-func (s *UnitSuite) TearDownTest(c *gc.C) {
-	s.AgentSuite.TearDownTest(c)
-	s.GitSuite.TearDownTest(c)
-}
 
 // primeAgent creates a unit, and sets up the unit agent's directory.
 // It returns the assigned machine, new unit and the agent's configuration.

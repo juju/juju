@@ -4,7 +4,13 @@
 PROJECT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 PROJECT := github.com/juju/juju
 
+GOOS=$(shell go env GOOS)
+GOARCH=$(shell go env GOARCH)
+HOST_GOOS=$(shell GOOS= GOARCH= go env GOOS)
+HOST_GOARCH=$(shell GOOS= GOARCH= go env GOARCH)
+
 BUILD_DIR ?= $(PROJECT_DIR)/_build
+BIN_DIR = ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
 
 define MAIN_PACKAGES
   github.com/juju/juju/cmd/juju
@@ -14,14 +20,14 @@ define MAIN_PACKAGES
 endef
 
 # Allow the tests to take longer on restricted platforms.
-ifeq ($(shell go env GOARCH | sed -E 's/.*(arm|arm64|ppc64le|ppc64|s390x).*/golang/'), golang)
+ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(arm|arm64|ppc64le|ppc64|s390x).*/golang/'), golang)
 	TEST_TIMEOUT := 5400s
 else
 	TEST_TIMEOUT := 1800s
 endif
 
 # Limit concurrency on s390x.
-ifeq ($(shell go env GOARCH | sed -E 's/.*(s390x).*/golang/'), golang)
+ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(s390x).*/golang/'), golang)
 	TEST_ARGS := -p 4
 else
 	TEST_ARGS := 
@@ -56,7 +62,7 @@ ifeq ($(DEBUG_JUJU), 1)
     COMPILE_FLAGS = -gcflags "all=-N -l"
     LINK_FLAGS = -ldflags "-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 else
-ifeq ($(shell go env GOARCH | sed -E 's/.*(ppc64le|ppc64).*/golang/'), golang)
+ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(ppc64le|ppc64).*/golang/'), golang)
 	# disable optimizations on ppc64le due to https://golang.org/issue/39049
 	# go 1.15 should include the fix for this issue.
 	COMPILE_FLAGS = -gcflags "all=-N"
@@ -124,9 +130,9 @@ go-install:
 
 go-build:
 ## go-build: Build Juju binaries without updating dependencies
-	@mkdir -p $(BUILD_DIR)/bin
-	@echo 'go build -mod=$(JUJU_GOMOD_MODE) -o $(BUILD_DIR)/bin -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
-	@go build -mod=$(JUJU_GOMOD_MODE) -o $(BUILD_DIR)/bin -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
+	@mkdir -p ${BIN_DIR}
+	@echo 'go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$MAIN_PACKAGES'
+	@go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(strip $(MAIN_PACKAGES))
 
 vendor-dependencies:
 ## vendor-dependencies: updates vendored dependencies
@@ -156,8 +162,12 @@ endif
 # PPA includes the required mongodb-server binaries.
 install-snap-dependencies:
 ## install-snap-dependencies: Install the supported snap dependencies
+ifeq ($(shell go version | grep -o "go1.14" || true),go1.14)
+	@echo Using installed go-1.14
+else
 	@echo Installing go-1.14 snap
 	@sudo snap install go --channel=1.14/stable --classic
+endif
 
 install-mongo-dependencies:
 ## install-mongo-dependencies: Install Mongo and its dependencies
@@ -201,7 +211,7 @@ check-deps:
 DOCKER_USERNAME            ?= jujusolutions
 DOCKER_STAGING_DIR         ?= ${BUILD_DIR}/docker-staging
 JUJUD_STAGING_DIR          ?= ${DOCKER_STAGING_DIR}/jujud-operator
-JUJUD_BIN_DIR              ?= ${BUILD_DIR}/bin
+JUJUD_BIN_DIR              ?= ${BIN_DIR}
 OPERATOR_IMAGE_BUILD_SRC   ?= true
 
 # Import shell functions from make_functions.sh
@@ -229,7 +239,11 @@ push-release-operator-image: operator-image
 ## push-release-operator-image: Push up the newly built release operator image via docker
 	docker push "$(shell ${OPERATOR_IMAGE_RELEASE_PATH})"
 
-microk8s-operator-update: install operator-image
+host-install:
+## install juju for host os/architecture
+	GOOS=$(HOST_GOOS) GOARCH=$(HOST_GOARCH) make install
+
+microk8s-operator-update: host-install operator-image
 ## microk8s-operator-update: Push up the newly built operator image for use with microk8s
 	docker save "$(shell ${OPERATOR_IMAGE_PATH})" | microk8s.ctr --namespace k8s.io image import -
 

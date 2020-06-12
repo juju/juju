@@ -7,149 +7,193 @@ import (
 	"time"
 
 	"github.com/juju/names/v4"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/leadership"
+	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type applicationSuite struct {
-	uniterSuite
+	coretesting.BaseSuite
 
-	apiApplication *uniter.Application
+	life      life.Value
+	statusSet bool
 }
 
 var _ = gc.Suite(&applicationSuite{})
 
 func (s *applicationSuite) SetUpTest(c *gc.C) {
-	s.uniterSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
+	s.life = life.Alive
+}
 
-	var err error
-	s.apiApplication, err = s.uniter.Application(s.wordpressApplication.Tag().(names.ApplicationTag))
-	c.Assert(err, jc.ErrorIsNil)
+func (s *applicationSuite) apiCallerFunc(c *gc.C) basetesting.APICallerFunc {
+	return func(objType string, version int, id, request string, arg, result interface{}) error {
+		if objType == "NotifyWatcher" {
+			if request != "Next" && request != "Stop" {
+				c.Fatalf("unexpected watcher request %q", request)
+			}
+			return nil
+		}
+		c.Assert(objType, gc.Equals, "Uniter")
+		switch request {
+		case "Life":
+			c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
+			c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+			*(result.(*params.LifeResults)) = params.LifeResults{
+				Results: []params.LifeResult{{
+					Life: s.life,
+				}},
+			}
+		case "Watch":
+			c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
+			c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+			*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
+				Results: []params.NotifyWatchResult{{
+					NotifyWatcherId: "1",
+				}},
+			}
+		case "CharmURL":
+			c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
+			c.Assert(result, gc.FitsTypeOf, &params.StringBoolResults{})
+			*(result.(*params.StringBoolResults)) = params.StringBoolResults{
+				Results: []params.StringBoolResult{{
+					Result: "cs:mysql",
+					Ok:     true,
+				}},
+			}
+		case "CharmModifiedVersion":
+			c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-mysql"}}})
+			c.Assert(result, gc.FitsTypeOf, &params.IntResults{})
+			*(result.(*params.IntResults)) = params.IntResults{
+				Results: []params.IntResult{{
+					Result: 1,
+				}},
+			}
+		case "ApplicationStatus":
+			c.Assert(arg, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+			c.Assert(result, gc.FitsTypeOf, &params.ApplicationStatusResults{})
+			*(result.(*params.ApplicationStatusResults)) = params.ApplicationStatusResults{
+				Results: []params.ApplicationStatusResult{{
+					Application: params.StatusResult{Status: "alive"},
+					Units: map[string]params.StatusResult{
+						"unit-mysql-0": {Status: "dying"},
+					},
+				}},
+			}
+		case "SetApplicationStatus":
+			c.Assert(arg, jc.DeepEquals, params.SetStatus{
+				Entities: []params.EntityStatusArgs{
+					{
+						Tag:    "unit-mysql-0",
+						Status: "blocked",
+						Info:   "app blocked",
+						Data:   map[string]interface{}{"foo": "bar"},
+					},
+				},
+			})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{}},
+			}
+			s.statusSet = true
+		default:
+			c.Fatalf("unexpected api call %q", request)
+		}
+		return nil
+	}
 }
 
 func (s *applicationSuite) TestNameTagAndString(c *gc.C) {
-	c.Assert(s.apiApplication.Name(), gc.Equals, s.wordpressApplication.Name())
-	c.Assert(s.apiApplication.String(), gc.Equals, s.wordpressApplication.String())
-	c.Assert(s.apiApplication.Tag(), gc.Equals, s.wordpressApplication.Tag().(names.ApplicationTag))
+	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
+	tag := names.NewApplicationTag("mysql")
+	app, err := client.Application(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app.Name(), gc.Equals, "mysql")
+	c.Assert(app.String(), gc.Equals, "mysql")
+	c.Assert(app.Tag(), gc.Equals, tag)
+	c.Assert(app.Life(), gc.Equals, life.Alive)
 }
 
 func (s *applicationSuite) TestWatch(c *gc.C) {
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-	c.Assert(s.apiApplication.Life(), gc.Equals, life.Alive)
-
-	w, err := s.apiApplication.Watch()
+	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
+	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+
+	w, err := app.Watch()
+	c.Assert(err, jc.ErrorIsNil)
+	wc := watchertest.NewNotifyWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
 	// Initial event.
-	wc.AssertOneChange()
-
-	// Change something and check it's detected.
-	err = s.wordpressApplication.SetExposed()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Destroy the application and check it's detected.
-	err = s.wordpressApplication.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("watcher did not send change")
+	}
 }
 
 func (s *applicationSuite) TestRefresh(c *gc.C) {
-	c.Assert(s.apiApplication.Life(), gc.Equals, life.Alive)
-
-	err := s.wordpressApplication.Destroy()
+	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
+	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiApplication.Life(), gc.Equals, life.Alive)
 
-	err = s.apiApplication.Refresh()
+	s.life = life.Dying
+	err = app.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiApplication.Life(), gc.Equals, life.Dying)
+	c.Assert(app.Life(), gc.Equals, life.Dying)
 }
 
 func (s *applicationSuite) TestCharmURL(c *gc.C) {
-	// Get the charm URL through state calls.
-	curl, force := s.wordpressApplication.CharmURL()
-	c.Assert(curl, gc.DeepEquals, s.wordpressCharm.URL())
-	c.Assert(force, jc.IsFalse)
-
-	// Now check the same through the API.
-	curl, force, err := s.apiApplication.CharmURL()
+	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
+	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.DeepEquals, s.wordpressCharm.URL())
-	c.Assert(force, jc.IsFalse)
+
+	curl, force, err := app.CharmURL()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(curl.String(), gc.Equals, "cs:mysql")
+	c.Assert(force, jc.IsTrue)
 }
 
 func (s *applicationSuite) TestCharmModifiedVersion(c *gc.C) {
-	// Get the charm URL through state calls.
-	ver, err := s.apiApplication.CharmModifiedVersion()
+	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
+	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ver, gc.Equals, s.wordpressApplication.CharmModifiedVersion())
+
+	ver, err := app.CharmModifiedVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ver, gc.Equals, 1)
 }
 
 func (s *applicationSuite) TestSetApplicationStatus(c *gc.C) {
-	message := "a test message"
-	stat, err := s.wordpressApplication.Status()
+	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
+	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stat.Status, gc.Not(gc.Equals), status.Active)
-	c.Assert(stat.Message, gc.Not(gc.Equals), message)
 
-	err = s.apiApplication.SetStatus(s.wordpressUnit.Name(), status.Active, message, map[string]interface{}{})
-	c.Check(err, gc.ErrorMatches, `"wordpress/0" is not leader of "wordpress"`)
-
-	s.claimLeadership(c, s.wordpressUnit, s.wordpressApplication)
-
-	err = s.apiApplication.SetStatus(s.wordpressUnit.Name(), status.Active, message, map[string]interface{}{})
-	c.Check(err, jc.ErrorIsNil)
-
-	stat, err = s.wordpressApplication.Status()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(stat.Status, gc.Equals, status.Active)
-	c.Check(stat.Message, gc.Equals, message)
+	err = app.SetStatus("mysql/0", status.Blocked, "app blocked", map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.statusSet, jc.IsTrue)
 }
 
 func (s *applicationSuite) TestApplicationStatus(c *gc.C) {
-	message := "a test message"
-	stat, err := s.wordpressApplication.Status()
+	client := uniter.NewState(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
+	app, err := client.Application(names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stat.Status, gc.Not(gc.Equals), status.Active)
-	c.Assert(stat.Message, gc.Not(gc.Equals), message)
 
-	now := time.Now()
-	sInfo := status.StatusInfo{
-		Status:  status.Active,
-		Message: message,
-		Data:    map[string]interface{}{},
-		Since:   &now,
-	}
-	err = s.wordpressApplication.SetStatus(sInfo)
-	c.Check(err, jc.ErrorIsNil)
-
-	stat, err = s.wordpressApplication.Status()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(stat.Status, gc.Equals, status.Active)
-	c.Check(stat.Message, gc.Equals, message)
-
-	result, err := s.apiApplication.Status(s.wordpressUnit.Name())
-	c.Check(err, gc.ErrorMatches, `"wordpress/0" is not leader of "wordpress"`)
-
-	s.claimLeadership(c, s.wordpressUnit, s.wordpressApplication)
-	result, err = s.apiApplication.Status(s.wordpressUnit.Name())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(result.Error, gc.IsNil)
-	c.Check(result.Application.Status, gc.Equals, status.Active.String())
-}
-
-func (s *applicationSuite) claimLeadership(c *gc.C, unit *state.Unit, app *state.Application) {
-	claimer := leadership.NewClient(s.st)
-	err := claimer.ClaimLeadership(app.Name(), unit.Name(), time.Minute)
+	status, err := app.Status("mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, jc.DeepEquals, params.ApplicationStatusResult{
+		Application: params.StatusResult{Status: "alive"},
+		Units: map[string]params.StatusResult{
+			"unit-mysql-0": {Status: "dying"},
+		},
+	})
 }

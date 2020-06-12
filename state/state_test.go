@@ -907,15 +907,15 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	c.Assert(string(instId), gc.Equals, "inst-id")
 }
 
-func (s *StateSuite) TestAddMachinesmodelDying(c *gc.C) {
+func (s *StateSuite) TestAddMachinesModelDying(c *gc.C) {
 	err := s.Model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially Dying.
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testmodel" is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testmodel" is dying`)
 }
 
-func (s *StateSuite) TestAddMachinesmodelDyingAfterInitial(c *gc.C) {
+func (s *StateSuite) TestAddMachinesModelDyingAfterInitial(c *gc.C) {
 	// Check that machines cannot be added if the model is initially
 	// Alive but set to Dying immediately before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
@@ -923,10 +923,10 @@ func (s *StateSuite) TestAddMachinesmodelDyingAfterInitial(c *gc.C) {
 		c.Assert(s.Model.Destroy(state.DestroyModelParams{}), gc.IsNil)
 	}).Check()
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testmodel" is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testmodel" is dying`)
 }
 
-func (s *StateSuite) TestAddMachinesmodelMigrating(c *gc.C) {
+func (s *StateSuite) TestAddMachinesModelMigrating(c *gc.C) {
 	err := s.Model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially Dying.
@@ -1653,7 +1653,7 @@ func (s *StateSuite) TestAddApplicationModelDying(c *gc.C) {
 	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testmodel" is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testmodel" is dying`)
 }
 
 func (s *StateSuite) TestAddApplicationModelMigrating(c *gc.C) {
@@ -1717,7 +1717,7 @@ func (s *StateSuite) TestAddApplicationModelDyingAfterInitial(c *gc.C) {
 		c.Assert(s.Model.Destroy(state.DestroyModelParams{}), gc.IsNil)
 	}).Check()
 	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testmodel" is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testmodel" is dying`)
 }
 
 func (s *StateSuite) TestApplicationNotFound(c *gc.C) {

@@ -4,6 +4,7 @@
 package multiwatcher_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -30,10 +31,18 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.logger.SetLogLevel(loggo.TRACE)
 
 	s.config = multiwatcher.Config{
+		Clock:                clock.WallClock,
 		Logger:               s.logger,
 		Backing:              state.NewAllWatcherBacking(s.StatePool),
 		PrometheusRegisterer: noopRegisterer{},
 	}
+}
+
+func (s *WorkerSuite) TestConfigMissingClock(c *gc.C) {
+	s.config.Clock = nil
+	err := s.config.Validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "missing Clock not valid")
 }
 
 func (s *WorkerSuite) TestConfigMissingLogger(c *gc.C) {

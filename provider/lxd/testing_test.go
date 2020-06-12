@@ -187,7 +187,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 
 	cons := constraints.Value{}
 
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "trusty", "")
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "trusty", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = instanceConfig.SetTools(coretools.List{
@@ -293,15 +293,6 @@ func (s *BaseSuiteUnpatched) NewContainer(c *gc.C, name string) *containerlxd.Co
 func (s *BaseSuiteUnpatched) NewInstance(c *gc.C, name string) *environInstance {
 	container := s.NewContainer(c, name)
 	return newInstance(container, s.Env)
-}
-
-func (s *BaseSuiteUnpatched) IsRunningLocally(c *gc.C) bool {
-	restore := gitjujutesting.PatchEnvPathPrepend(s.osPathOrig)
-	defer restore()
-
-	running, err := lxd.IsRunningLocally()
-	c.Assert(err, jc.ErrorIsNil)
-	return running
 }
 
 type BaseSuite struct {
@@ -811,7 +802,7 @@ func (s *EnvironSuite) GetStartInstanceArgs(c *gc.C, series string) environs.Sta
 	}
 
 	cons := constraints.Value{}
-	iConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, series, "")
+	iConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, series, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return environs.StartInstanceParams{

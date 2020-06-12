@@ -333,12 +333,14 @@ func ExpandChange(
 		})
 	}
 
+	uc := relation.UnitCount()
 	result := params.RemoteRelationChangeEvent{
 		RelationToken:       relationToken,
 		ApplicationToken:    appToken,
 		ApplicationSettings: appSettings,
 		ChangedUnits:        unitChanges,
 		DepartedUnits:       departed,
+		UnitCount:           &uc,
 	}
 
 	return result, nil
@@ -501,22 +503,39 @@ type offerGetter interface {
 
 // GetOfferStatusChange returns a status change
 // struct for a specified offer name.
-func GetOfferStatusChange(st offerGetter, offerUUID string) (*params.OfferStatusChange, error) {
+func GetOfferStatusChange(st offerGetter, offerUUID, offerName string) (*params.OfferStatusChange, error) {
 	offer, err := st.ApplicationOfferForUUID(offerUUID)
-	if err != nil {
+	if errors.IsNotFound(err) {
+		return &params.OfferStatusChange{
+			OfferName: offerName,
+			Status: params.EntityStatus{
+				Status: status.Terminated,
+				Info:   "offer has been removed",
+			},
+		}, nil
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	// TODO(wallyworld) - for now, offer status is just the application status
 	app, err := st.Application(offer.ApplicationName)
-	if err != nil {
+	if errors.IsNotFound(err) {
+		return &params.OfferStatusChange{
+			OfferName: offerName,
+			Status: params.EntityStatus{
+				Status: status.Terminated,
+				Info:   "application has been removed",
+			},
+		}, nil
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	sts, err := app.Status()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &params.OfferStatusChange{
-		OfferName: offer.OfferName,
+		OfferName: offerName,
 		Status: params.EntityStatus{
 			Status: sts.Status,
 			Info:   sts.Message,

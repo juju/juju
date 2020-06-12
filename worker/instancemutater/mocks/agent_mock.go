@@ -5,8 +5,6 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	agent "github.com/juju/juju/agent"
 	api "github.com/juju/juju/api"
@@ -16,6 +14,7 @@ import (
 	names "github.com/juju/names/v4"
 	shell "github.com/juju/utils/shell"
 	version "github.com/juju/version"
+	reflect "reflect"
 )
 
 // MockAgent is a mock of Agent interface
@@ -192,6 +191,20 @@ func (mr *MockConfigMockRecorder) Jobs() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Jobs", reflect.TypeOf((*MockConfig)(nil).Jobs))
 }
 
+// JujuDBSnapChannel mocks base method
+func (m *MockConfig) JujuDBSnapChannel() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "JujuDBSnapChannel")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// JujuDBSnapChannel indicates an expected call of JujuDBSnapChannel
+func (mr *MockConfigMockRecorder) JujuDBSnapChannel() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JujuDBSnapChannel", reflect.TypeOf((*MockConfig)(nil).JujuDBSnapChannel))
+}
+
 // LogDir mocks base method
 func (m *MockConfig) LogDir() string {
 	m.ctrl.T.Helper()
@@ -277,20 +290,6 @@ func (mr *MockConfigMockRecorder) MongoMemoryProfile() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoMemoryProfile", reflect.TypeOf((*MockConfig)(nil).MongoMemoryProfile))
 }
 
-// JujuDBSnapChannel mocks base method
-func (m *MockConfig) JujuDBSnapChannel() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "JujuDBSnapChannel")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// JujuDBSnapChannel indicates an expected call of JujuDBSnapChannel
-func (mr *MockConfigMockRecorder) JujuDBSnapChannel() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JujuDBSnapChannel", reflect.TypeOf((*MockConfig)(nil).JujuDBSnapChannel))
-}
-
 // MongoVersion mocks base method
 func (m *MockConfig) MongoVersion() mongo.Version {
 	m.ctrl.T.Helper()
@@ -303,6 +302,20 @@ func (m *MockConfig) MongoVersion() mongo.Version {
 func (mr *MockConfigMockRecorder) MongoVersion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoVersion", reflect.TypeOf((*MockConfig)(nil).MongoVersion))
+}
+
+// NonSyncedWritesToRaftLog mocks base method
+func (m *MockConfig) NonSyncedWritesToRaftLog() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NonSyncedWritesToRaftLog")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// NonSyncedWritesToRaftLog indicates an expected call of NonSyncedWritesToRaftLog
+func (mr *MockConfigMockRecorder) NonSyncedWritesToRaftLog() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NonSyncedWritesToRaftLog", reflect.TypeOf((*MockConfig)(nil).NonSyncedWritesToRaftLog))
 }
 
 // Nonce mocks base method

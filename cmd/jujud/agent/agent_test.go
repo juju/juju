@@ -78,31 +78,34 @@ var _ = gc.Suite(&agentLoggingSuite{})
 
 func (*agentLoggingSuite) TestNoLoggingConfig(c *gc.C) {
 	f := &fakeLoggingConfig{}
-	initial := loggo.LoggerInfo()
+	context := loggo.NewContext(loggo.WARNING)
+	initial := context.Config().String()
 
-	setupAgentLogging(f)
+	setupAgentLogging(context, f)
 
-	c.Assert(loggo.LoggerInfo(), gc.Equals, initial)
+	c.Assert(context.Config().String(), gc.Equals, initial)
 }
 
 func (*agentLoggingSuite) TestLoggingOverride(c *gc.C) {
 	f := &fakeLoggingConfig{
 		loggingOverride: "test=INFO",
 	}
+	context := loggo.NewContext(loggo.WARNING)
 
-	setupAgentLogging(f)
+	setupAgentLogging(context, f)
 
-	c.Assert(loggo.LoggerInfo(), gc.Equals, "<root>=WARNING;test=INFO")
+	c.Assert(context.Config().String(), gc.Equals, "<root>=WARNING;test=INFO")
 }
 
 func (*agentLoggingSuite) TestLoggingConfig(c *gc.C) {
 	f := &fakeLoggingConfig{
 		loggingConfig: "test=INFO",
 	}
+	context := loggo.NewContext(loggo.WARNING)
 
-	setupAgentLogging(f)
+	setupAgentLogging(context, f)
 
-	c.Assert(loggo.LoggerInfo(), gc.Equals, "<root>=WARNING;test=INFO")
+	c.Assert(context.Config().String(), gc.Equals, "<root>=WARNING;test=INFO")
 }
 
 type fakeLoggingConfig struct {

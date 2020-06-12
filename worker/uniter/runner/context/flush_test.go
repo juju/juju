@@ -120,6 +120,31 @@ func (s *FlushContextSuite) TestRebootAfterHook(c *gc.C) {
 	c.Assert(reboot, jc.IsTrue, gc.Commentf("expected reboot request to be triggered for unit's machine"))
 }
 
+func (s *FlushContextSuite) TestRebootWhenHookFails(c *gc.C) {
+	ctx := s.context(c)
+
+	var stub testing.Stub
+	ctx.SetProcess(&mockProcess{func() error {
+		priority := ctx.GetRebootPriority()
+		c.Assert(priority, gc.Equals, jujuc.RebootAfterHook)
+		return stub.NextErr()
+	}})
+	stub.SetErrors(errors.New("process is already dead"))
+
+	// Set reboot priority
+	err := ctx.RequestReboot(jujuc.RebootAfterHook)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Flush the context with an error and check that reboot is not triggered.
+	expErr := errors.New("hook execution failed")
+	err = ctx.Flush("some badge", expErr)
+	c.Assert(err, gc.ErrorMatches, "hook execution failed")
+
+	reboot, err := s.machine.GetRebootFlag()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(reboot, jc.IsFalse)
+}
+
 func (s *FlushContextSuite) TestRebootNowWhenHookFails(c *gc.C) {
 	ctx := s.context(c)
 

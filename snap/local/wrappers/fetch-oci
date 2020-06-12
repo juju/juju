@@ -1,4 +1,4 @@
-#!/bin/sh -eu
+#!/bin/sh
 
 PATH=/snap/bin:$PATH
 
@@ -20,7 +20,11 @@ if ! which $container_cmd; then
 fi
 
 echo "Wait for microk8s to be ready if needed."
-microk8s.status --wait-ready --timeout 30
+wait_result=$(microk8s.status --wait-ready --timeout 30 2>&1)
+if [ $? -ne 0 ]; then
+    echo "${wait_result}"
+    exit 0
+fi
 
 juju_version=$(/snap/bin/juju version | rev | cut -d- -f3- | rev)
 oci_image="docker.io/jujusolutions/jujud-operator:$juju_version"
