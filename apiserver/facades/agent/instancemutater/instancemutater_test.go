@@ -806,6 +806,25 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 	})
 }
 
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDProfileVerificationNeededWithManualMachine(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthMachineAgent()
+	s.expectLife(s.machineTag)
+	s.expectWatchLXDProfileVerificationNeededWithManualMachine()
+	facade := s.facadeAPIForScenario(c)
+
+	result, err := facade.WatchLXDProfileVerificationNeeded(params.Entities{
+		Entities: []params.Entity{{Tag: s.machineTag.String()}},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{{
+			Error: common.ServerError(errors.NotSupportedf("watching lxd profiles on manual machines")),
+		}},
+	})
+}
+
 func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDProfileVerificationNeededModelCacheError(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -840,6 +859,7 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLX
 	}()
 
 	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
+	s.machine.EXPECT().IsManual().Return(false)
 	s.machine.EXPECT().WatchLXDProfileVerificationNeeded().Return(s.watcher, nil)
 	s.watcher.EXPECT().Changes().Return(ch)
 	s.resources.EXPECT().Register(s.watcher).Return("1")
@@ -850,13 +870,24 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLX
 	close(ch)
 
 	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
+	s.machine.EXPECT().IsManual().Return(false)
 	s.machine.EXPECT().WatchLXDProfileVerificationNeeded().Return(s.watcher, nil)
 	s.watcher.EXPECT().Changes().Return(ch)
 }
 
 func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededError() {
 	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
+	s.machine.EXPECT().IsManual().Return(false)
 	s.machine.EXPECT().WatchLXDProfileVerificationNeeded().Return(s.watcher, errors.New("error from model cache"))
+}
+
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededWithManualMachine() {
+	ch := make(chan struct{})
+	close(ch)
+
+	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
+	s.machine.EXPECT().IsManual().Return(true)
+	s.machine.EXPECT().WatchLXDProfileVerificationNeeded().Times(0)
 }
 
 type InstanceMutaterAPIWatchContainersSuite struct {

@@ -60,6 +60,11 @@ func (m *Machine) CharmProfiles() []string {
 	return m.details.CharmProfiles
 }
 
+// IsManual returns true if the machine was manually provisioned.
+func (m *Machine) IsManual() bool {
+	return m.details.IsManual
+}
+
 // ContainerType returns the cached container type hosting this machine.
 func (m *Machine) ContainerType() instance.ContainerType {
 	return instance.ContainerType(m.details.ContainerType)
