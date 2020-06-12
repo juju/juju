@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
@@ -94,8 +95,15 @@ func (s *verifySuite) TestNextOpMatchingCharmRevisions(c *gc.C) {
 	c.Assert(op, gc.IsNil)
 }
 
+func (s *verifySuite) TestNewResolverCAAS(c *gc.C) {
+	r := verifycharmprofile.NewResolver(&fakelogger{}, model.CAAS)
+	op, err := r.NextOp(resolver.LocalState{}, remotestate.Snapshot{}, nil)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	c.Assert(op, jc.ErrorIsNil)
+}
+
 func newVerifyCharmProfileResolver() resolver.Resolver {
-	return verifycharmprofile.NewResolver(&fakelogger{})
+	return verifycharmprofile.NewResolver(&fakelogger{}, model.IAAS)
 }
 
 type fakelogger struct{}

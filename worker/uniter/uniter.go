@@ -461,6 +461,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			),
 			VerifyCharmProfile: verifycharmprofile.NewResolver(
 				u.logger.Child("verifycharmprofile"),
+				u.modelType,
 			),
 			UpgradeSeries: upgradeseries.NewResolver(),
 			Leadership: uniterleadership.NewResolver(
@@ -549,6 +550,15 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 }
 
 func (u *Uniter) verifyCharmProfile(curl *corecharm.URL) error {
+	// This is an anti-pattern we should not be propagating.
+	// To avoid it here, major rewrite of the uniter would be
+	// required.
+	if u.modelType == model.CAAS {
+		return nil
+	}
+
+	// NOTE: this is very similar code to verifyCharmProfile.NextOp,
+	// if you make changes here, check to see if they are needed there.
 	ch, err := u.st.Charm(curl)
 	if err != nil {
 		return errors.Trace(err)

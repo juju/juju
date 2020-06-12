@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"fmt"
+
 	"github.com/juju/charm/v7"
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
@@ -87,7 +88,7 @@ func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType) {
 		UpgradeSeries:       upgradeseries.NewResolver(),
 		Leadership:          leadership.NewResolver(logger),
 		Actions:             uniteractions.NewResolver(logger),
-		VerifyCharmProfile:  verifycharmprofile.NewResolver(logger),
+		VerifyCharmProfile:  verifycharmprofile.NewResolver(logger, modelType),
 		CreatedRelations:    nopResolver{},
 		Relations:           nopResolver{},
 		Storage:             storage.NewResolver(logger, attachments, modelType),
@@ -448,7 +449,7 @@ func (s *resolverSuite) TestUpgradeOperation(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, fmt.Sprintf("upgrade to %s", s.charmURL))
 }
 
-func (s *resolverSuite) TestUpgradeOperationVerifyCPFail(c *gc.C) {
+func (s *iaasResolverSuite) TestUpgradeOperationVerifyCPFail(c *gc.C) {
 	opFactory := setupUpgradeOpFactory()
 	localState := resolver.LocalState{
 		CharmURL: s.charmURL,
@@ -479,7 +480,7 @@ func (s *resolverSuite) TestContinueUpgradeOperation(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, fmt.Sprintf("upgrade to %s", s.charmURL))
 }
 
-func (s *resolverSuite) TestContinueUpgradeOperationVerifyCPFail(c *gc.C) {
+func (s *iaasResolverSuite) TestContinueUpgradeOperationVerifyCPFail(c *gc.C) {
 	opFactory := setupUpgradeOpFactory()
 	localState := resolver.LocalState{
 		CharmURL: s.charmURL,
