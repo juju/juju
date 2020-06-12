@@ -87,6 +87,15 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 				continue
 			}
 
+			profileChangeWatcher, err := api.WatchLXDProfileVerificationNeeded()
+			if err != nil {
+				if errors.IsNotSupported(err) {
+					m.logger.Tracef("ignoring manual machine-%s", id)
+					continue
+				}
+				return errors.Annotatef(err, "failed to start watching application lxd profiles for machine-%s", id)
+			}
+
 			ch = make(chan struct{})
 			m.machines[tag] = ch
 
@@ -98,7 +107,7 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 			}
 
 			m.wg.Add(1)
-			go runMachine(machine, ch, m.machineDead, func() { m.wg.Done() })
+			go runMachine(machine, profileChangeWatcher, ch, m.machineDead, func() { m.wg.Done() })
 		} else {
 			// We've received this tag before, therefore
 			// the machine has been removed from the model
@@ -109,7 +118,11 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 	return nil
 }
 
-func runMachine(machine MutaterMachine, removed <-chan struct{}, died chan<- instancemutater.MutaterMachine, cleanup func()) {
+func runMachine(
+	machine MutaterMachine,
+	profileChangeWatcher watcher.NotifyWatcher,
+	removed <-chan struct{}, died chan<- instancemutater.MutaterMachine, cleanup func(),
+) {
 	defer cleanup()
 	defer func() {
 		// We can't just send on the dead channel because the
@@ -126,12 +139,6 @@ func runMachine(machine MutaterMachine, removed <-chan struct{}, died chan<- ins
 		}
 	}()
 
-	profileChangeWatcher, err := machine.machineApi.WatchLXDProfileVerificationNeeded()
-	if err != nil {
-		machine.logger.Errorf(errors.Annotatef(err, "failed to start watching application lxd profiles for machine-%s", machine.id).Error())
-		machine.context.KillWithError(err)
-		return
-	}
 	if err := machine.context.add(profileChangeWatcher); err != nil {
 		machine.context.KillWithError(err)
 		return

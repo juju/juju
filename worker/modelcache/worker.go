@@ -417,6 +417,7 @@ func (c *cacheWorker) translateMachine(d multiwatcher.Delta) interface{} {
 		Config:                   value.Config,
 		Series:                   value.Series,
 		ContainerType:            value.ContainerType,
+		IsManual:                 value.IsManual,
 		SupportedContainers:      value.SupportedContainers,
 		SupportedContainersKnown: value.SupportedContainersKnown,
 		HardwareCharacteristics:  value.HardwareCharacteristics,

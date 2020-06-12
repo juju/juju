@@ -107,6 +107,9 @@ func MachineChange(c *gc.C, modelUUID string, machine *state.Machine) cache.Mach
 	chProf, err := machine.CharmProfiles()
 	c.Assert(err, jc.ErrorIsNil)
 
+	isManual, err := machine.IsManual()
+	c.Assert(err, jc.ErrorIsNil)
+
 	sc, scKnown := machine.SupportedContainers()
 
 	return cache.MachineChange{
@@ -118,6 +121,7 @@ func MachineChange(c *gc.C, modelUUID string, machine *state.Machine) cache.Mach
 		Life:                     life.Value(machine.Life().String()),
 		Series:                   machine.Series(),
 		ContainerType:            string(machine.ContainerType()),
+		IsManual:                 isManual,
 		SupportedContainers:      sc,
 		SupportedContainersKnown: scKnown,
 		HardwareCharacteristics:  hwc,

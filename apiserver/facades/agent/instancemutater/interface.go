@@ -59,6 +59,7 @@ type ModelCache interface {
 // ModelCacheMachine represents a point of use Machine from the cache package.
 type ModelCacheMachine interface {
 	ContainerType() instance.ContainerType
+	IsManual() bool
 	WatchLXDProfileVerificationNeeded() (cache.NotifyWatcher, error)
 	WatchContainers() (cache.StringsWatcher, error)
 }
