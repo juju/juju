@@ -101,7 +101,9 @@ func (*podcfgSuite) TestBootstrapConstraints(c *gc.C) {
 
 func (*podcfgSuite) TestFinishControllerPodConfig(c *gc.C) {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
-		"type": "kubernetes",
+		"type":                      "kubernetes",
+		"ssl-hostname-verification": false,
+		"juju-https-proxy":          "https-proxy",
 	})
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		testing.FakeControllerConfig(),
@@ -109,12 +111,14 @@ func (*podcfgSuite) TestFinishControllerPodConfig(c *gc.C) {
 		"kubernetes",
 		constraints.Value{},
 	)
+	c.Assert(err, jc.ErrorIsNil)
 	podcfg.FinishControllerPodConfig(
 		podConfig,
 		cfg,
 		map[string]string{"foo": "bar"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(podConfig.DisableSSLHostnameVerification, jc.IsTrue)
+	c.Assert(podConfig.ProxySettings.Https, gc.Equals, "https-proxy")
 	c.Assert(podConfig.AgentEnvironment, jc.DeepEquals, map[string]string{
 		"PROVIDER_TYPE": "kubernetes",
 		"foo":           "bar",

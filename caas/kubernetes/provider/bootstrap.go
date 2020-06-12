@@ -4,7 +4,9 @@
 package provider
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -13,7 +15,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/proxy"
 	"github.com/juju/retry"
+	"github.com/juju/utils"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -21,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/agent"
+	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig"
@@ -1005,6 +1010,13 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 	)
 	var jujudCmd string
 	if c.pcfg.ControllerId == agent.BootstrapControllerId {
+		guiCmd, err := c.setUpGUICommand()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if guiCmd != "" {
+			jujudCmd += "\n" + guiCmd
+		}
 		// only do bootstrap-state on the bootstrap controller - controller-0.
 		jujudCmd += "\n" + fmt.Sprintf(
 			"test -e $JUJU_DATA_DIR/%s || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/%s --data-dir $JUJU_DATA_DIR %s --timeout %s",
@@ -1021,4 +1033,60 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 	)
 	statefulset.Spec.Template.Spec.Containers = generateContainerSpecs(jujudCmd)
 	return nil
+}
+
+func (c *controllerStack) setUpGUICommand() (string, error) {
+	if c.pcfg.Bootstrap.GUI == nil {
+		return "", nil
+	}
+	var guiCmds []string
+	u, err := url.Parse(c.pcfg.Bootstrap.GUI.URL)
+	if err != nil {
+		return "", errors.Annotate(err, "cannot parse Juju GUI URL")
+	}
+	guiJson, err := json.Marshal(c.pcfg.Bootstrap.GUI)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	guiDir := agenttools.SharedGUIDir(c.pcfg.DataDir)
+	guiCmds = append(guiCmds,
+		"echo Installing Dashboard...",
+		"export gui="+utils.ShQuote(guiDir),
+		"mkdir -p $gui",
+	)
+	// Download the GUI from simplestreams.
+	command := "curl -sSf -o $gui/gui.tar.bz2 --retry 10"
+	if c.pcfg.DisableSSLHostnameVerification {
+		command += " --insecure"
+	}
+
+	curlProxyArgs := formatCurlProxyArguments(u.String(), c.pcfg.ProxySettings)
+	command += curlProxyArgs
+	command += " " + utils.ShQuote(u.String())
+	// A failure in fetching the Juju GUI archive should not prevent the
+	// model to be bootstrapped. Better no GUI than no Juju at all.
+	command += " || echo Unable to retrieve Juju Dashboard"
+	guiCmds = append(guiCmds, command)
+	guiCmds = append(guiCmds,
+		"[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256",
+		fmt.Sprintf(
+			`[ -f $gui/jujugui.sha256 ] && (grep '%s' $gui/jujugui.sha256 && printf %%s %s > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)`,
+			c.pcfg.Bootstrap.GUI.SHA256, utils.ShQuote(string(guiJson))),
+	)
+	return strings.Join(guiCmds, "\n"), nil
+}
+
+func formatCurlProxyArguments(guiURL string, proxySettings proxy.Settings) (proxyArgs string) {
+	if strings.HasPrefix(guiURL, "http://") && proxySettings.Http != "" {
+		proxyUrl := proxySettings.Http
+		proxyArgs += fmt.Sprintf(" --proxy %s", proxyUrl)
+	} else if strings.HasPrefix(guiURL, "https://") && proxySettings.Https != "" {
+		proxyUrl := proxySettings.Https
+		// curl automatically uses HTTP CONNECT for URLs containing HTTPS
+		proxyArgs += fmt.Sprintf(" --proxy %s", proxyUrl)
+	}
+	if proxySettings.NoProxy != "" {
+		proxyArgs += fmt.Sprintf(" --noproxy %s", proxySettings.NoProxy)
+	}
+	return
 }

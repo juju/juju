@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/proxy"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
@@ -39,6 +40,14 @@ type ControllerPodConfig struct {
 	// Bootstrap contains bootstrap-specific configuration. If this is set,
 	// Controller must also be set.
 	Bootstrap *BootstrapConfig
+
+	// DisableSSLHostnameVerification can be set to true to tell cloud-init
+	// that it shouldn't verify SSL certificates
+	DisableSSLHostnameVerification bool
+
+	// ProxySettings encapsulates all proxy-related settings used to access
+	// an outside network.
+	ProxySettings proxy.Settings
 
 	// Controller contains controller-specific configuration. If this is
 	// set, then the instance will be configured as a controller pod.
@@ -356,6 +365,8 @@ func NewBootstrapControllerPodConfig(
 // Bootstrap func, and that has set an agent-version (via finding the tools to,
 // use for bootstrap, or otherwise).
 func FinishControllerPodConfig(pcfg *ControllerPodConfig, cfg *config.Config, agentEnvironment map[string]string) {
+	pcfg.DisableSSLHostnameVerification = !cfg.SSLHostnameVerification()
+	pcfg.ProxySettings = cfg.JujuProxySettings()
 	if pcfg.AgentEnvironment == nil {
 		pcfg.AgentEnvironment = make(map[string]string)
 	}
