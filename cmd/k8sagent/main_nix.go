@@ -16,5 +16,5 @@ func init() {
 }
 
 func main() {
-	os.Exit(cmd(os.Args))
+	os.Exit(mainWrapper(os.Args))
 }

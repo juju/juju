@@ -34,11 +34,11 @@ func main() {
 
 	commandName := filepath.Base(os.Args[0])
 	if isInteractive || commandName != names.K8sagent {
-		os.Exit(Main(os.Args))
+		os.Exit(mainWrapper(os.Args))
 	} else {
 		s := service.SystemService{
 			Name: names.K8sagent,
-			Cmd:  cmd,
+			Cmd:  mainWrapper,
 			Args: os.Args,
 		}
 		if err := s.Run(); err != nil {
