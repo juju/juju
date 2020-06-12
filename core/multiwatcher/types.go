@@ -85,6 +85,7 @@ type MachineInfo struct {
 	Config                   map[string]interface{}
 	Series                   string
 	ContainerType            string
+	IsManual                 bool
 	SupportedContainers      []instance.ContainerType
 	SupportedContainersKnown bool
 	HardwareCharacteristics  *instance.HardwareCharacteristics
