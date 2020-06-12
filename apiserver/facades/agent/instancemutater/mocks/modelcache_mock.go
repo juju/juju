@@ -109,6 +109,18 @@ func (mr *MockModelCacheMachineMockRecorder) ContainerType() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerType", reflect.TypeOf((*MockModelCacheMachine)(nil).ContainerType))
 }
 
+// IsManual mocks base method
+func (m *MockModelCacheMachine) IsManual() bool {
+	ret := m.ctrl.Call(m, "IsManual")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsManual indicates an expected call of IsManual
+func (mr *MockModelCacheMachineMockRecorder) IsManual() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsManual", reflect.TypeOf((*MockModelCacheMachine)(nil).IsManual))
+}
+
 // WatchContainers mocks base method
 func (m *MockModelCacheMachine) WatchContainers() (cache.StringsWatcher, error) {
 	ret := m.ctrl.Call(m, "WatchContainers")

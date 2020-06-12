@@ -92,10 +92,20 @@ func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeededServe
 	defer s.setup(c).Finish()
 
 	api := s.machineForScenario(c,
-		s.expectWatchLXDProfileVerificationNeededWithError(errors.New("failed")),
+		s.expectWatchLXDProfileVerificationNeededWithError("", "failed"),
 	)
 	_, err := api.WatchLXDProfileVerificationNeeded()
 	c.Assert(err, gc.ErrorMatches, "failed")
+}
+
+func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeededNotSupported(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	api := s.machineForScenario(c,
+		s.expectWatchLXDProfileVerificationNeededWithError("not supported", "failed"),
+	)
+	_, err := api.WatchLXDProfileVerificationNeeded()
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *instanceMutaterMachineSuite) TestWatchContainers(c *gc.C) {
@@ -326,7 +336,7 @@ func (s *instanceMutaterMachineSuite) expectWatchLXDProfileVerificationNeeded() 
 	fExp.RawAPICaller().Return(s.apiCaller)
 }
 
-func (s *instanceMutaterMachineSuite) expectWatchLXDProfileVerificationNeededWithError(err error) func() {
+func (s *instanceMutaterMachineSuite) expectWatchLXDProfileVerificationNeededWithError(code, message string) func() {
 	return func() {
 		args := params.Entities{
 			Entities: []params.Entity{
@@ -337,7 +347,8 @@ func (s *instanceMutaterMachineSuite) expectWatchLXDProfileVerificationNeededWit
 			Results: []params.NotifyWatchResult{
 				{
 					Error: &params.Error{
-						Message: err.Error(),
+						Code:    code,
+						Message: message,
 					},
 				},
 			},

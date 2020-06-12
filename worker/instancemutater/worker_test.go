@@ -305,6 +305,16 @@ func (s *workerEnvironSuite) TestCharmProfilingInfoError(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeNotSupported)
 }
 
+func (s *workerEnvironSuite) TestMachineNotSupported(c *gc.C) {
+	defer s.setup(c, 1).Finish()
+
+	s.notifyMachines([][]string{{"0"}})
+	s.expectFacadeMachineTag(0)
+	s.machine[0].EXPECT().WatchLXDProfileVerificationNeeded().Return(nil, errors.NotSupportedf(""))
+	s.machine[0].EXPECT().CharmProfilingInfo().Times(0)
+	s.cleanKill(c, s.workerForScenario(c))
+}
+
 func (s *workerSuite) setup(c *gc.C, machineCount int) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
