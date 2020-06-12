@@ -558,7 +558,14 @@ func (s *MachineSuite) TestDestroyFailsWhenNewContainerAdded(c *gc.C) {
 }
 
 func (s *MachineSuite) TestRemove(c *gc.C) {
-	err := s.State.SetSSHHostKeys(s.machine.MachineTag(), state.SSHHostKeys{"rsa", "dsa"})
+	arch := "amd64"
+	char := &instance.HardwareCharacteristics{
+		Arch: &arch,
+	}
+	err := s.machine.SetProvisioned("umbrella/0", "snowflake", "fake_nonce", char)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.SetSSHHostKeys(s.machine.MachineTag(), state.SSHHostKeys{"rsa", "dsa"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Remove()
