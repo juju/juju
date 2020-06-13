@@ -528,7 +528,7 @@ func (c *Client) addNetworkDevice(
 			var opaqueSummary = network.Summary
 
 			networkBacking = &types.VirtualEthernetCardOpaqueNetworkBackingInfo{
-				OpaqueNetworkId: opaqueSummary.(*types.OpaqueNetworkSummary).OpaqueNetworkId,
+				OpaqueNetworkId:   opaqueSummary.(*types.OpaqueNetworkSummary).OpaqueNetworkId,
 				OpaqueNetworkType: opaqueSummary.(*types.OpaqueNetworkSummary).OpaqueNetworkType,
 			}
 			break
@@ -541,7 +541,7 @@ func (c *Client) addNetworkDevice(
 			}
 			break
 		default:
-			return nil, errors.NewNotValid(nil, fmt.Sprintf("Unknown network type %q",networkSummary.Network.Type))
+			return nil, errors.NewNotValid(nil, fmt.Sprintf("Unknown network type %q", networkSummary.Network.Type))
 		}
 	} else {
 		// It's a distributed virtual portgroup, so retrieve the details of
