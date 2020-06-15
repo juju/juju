@@ -1,6 +1,6 @@
 [![Juju logo](doc/juju-logo.png?raw=true)](https://jujucharms.com/)
 
-Simple, secure and stable devops tooling. 
+Simple, secure and stable dev-ops tooling. 
 Juju keeps complexity low and productivity high. 
 Built to manage today’s complex application architectures wherever they are run.
  
