@@ -23,6 +23,7 @@ import os
 import pexpect
 import re
 import shutil
+import six
 import subprocess
 import sys
 import time
@@ -1954,7 +1955,8 @@ class ModelClient:
         command.
 
         """
-        for row in output.split('\n'):
+        out_text = six.ensure_text(output)
+        for row in out_text.split('\n'):
             if 'juju register' in row:
                 command_string = row.strip().lstrip()
                 command_parts = command_string.split(' ')
@@ -2375,11 +2377,12 @@ def register_user_interactively(client, token, controller_name):
     """
     try:
         child = client.expect('register', (token), include_e=False)
-        child.expect('Enter a new password:')
+        child.logfile = sys.stdout
+        child.expect(u'Enter a new password:')
         child.sendline(client.env.user_name + '_password')
-        child.expect('Confirm password:')
+        child.expect(u'Confirm password:')
         child.sendline(client.env.user_name + '_password')
-        child.expect('Enter a name for this controller \[.*\]:')
+        child.expect(u'Enter a name for this controller \[.*\]:')
         child.sendline(controller_name)
         client._end_pexpect_session(child)
     except pexpect.TIMEOUT:
