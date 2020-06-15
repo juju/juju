@@ -192,6 +192,7 @@ type ApplicationInfo struct {
 	Config          map[string]interface{}
 	Subordinate     bool
 	Status          StatusInfo
+	OperatorStatus  StatusInfo // For CAAS models
 	WorkloadVersion string
 }
 

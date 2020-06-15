@@ -5,7 +5,9 @@ package cache_test
 
 import (
 	"sync"
+	"time"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2/workertest"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	gc "gopkg.in/check.v1"
@@ -77,6 +79,147 @@ func (s *ApplicationSuite) TestConfigWatcherChange(c *gc.C) {
 	a.SetDetails(change)
 	wc.AssertNoChange()
 	c.Check(testutil.ToFloat64(s.Gauges.ApplicationHashCacheMiss), gc.Equals, float64(2))
+}
+
+func (s *ApplicationSuite) status(value status.Status, when time.Time) status.StatusInfo {
+	return status.StatusInfo{
+		Status: value,
+		Since:  &when,
+	}
+}
+
+func (s *ApplicationSuite) TestStatusWhenSet(c *gc.C) {
+	model := s.NewModel(cache.ModelChange{
+		Name: "test",
+	})
+	appStatus := s.status(status.Active, time.Now())
+	model.UpdateApplication(cache.ApplicationChange{
+		Name:   "app",
+		Status: appStatus,
+	}, s.Manager)
+	app, err := model.Application("app")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app.Status(), jc.DeepEquals, appStatus)
+}
+
+func (s *ApplicationSuite) TestStatusWhenUnsetNoUnits(c *gc.C) {
+	model := s.NewModel(cache.ModelChange{
+		Name: "test",
+	})
+	model.UpdateApplication(cache.ApplicationChange{
+		Name:   "app",
+		Status: s.status(status.Unset, time.Now()),
+	}, s.Manager)
+	app, err := model.Application("app")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app.Status(), jc.DeepEquals, status.StatusInfo{
+		Status: status.Unknown,
+	})
+}
+
+func (s *ApplicationSuite) TestStatusWhenUnsetWithUnits(c *gc.C) {
+	model := s.NewModel(cache.ModelChange{
+		Name: "test",
+	})
+	model.UpdateApplication(cache.ApplicationChange{
+		Name:   "app",
+		Status: s.status(status.Unset, time.Now()),
+	}, s.Manager)
+	model.UpdateUnit(cache.UnitChange{
+		Name:           "app/1",
+		Application:    "app",
+		WorkloadStatus: s.status(status.Active, time.Now()),
+	}, s.Manager)
+	// Application status derivation uses the status.DeriveStatus method
+	// which defines the relative priorities of the status values.
+	expected := s.status(status.Waiting, time.Now().Add(-time.Minute))
+	model.UpdateUnit(cache.UnitChange{
+		Name:           "app/2",
+		Application:    "app",
+		WorkloadStatus: expected,
+	}, s.Manager)
+
+	app, err := model.Application("app")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app.Status(), jc.DeepEquals, expected)
+}
+
+func (s *ApplicationSuite) TestStatusOperatorRunning(c *gc.C) {
+	model := s.NewModel(cache.ModelChange{
+		Name: "test",
+	})
+	appStatus := s.status(status.Active, time.Now())
+	model.UpdateApplication(cache.ApplicationChange{
+		Name:           "app",
+		Status:         appStatus,
+		OperatorStatus: s.status(status.Running, time.Now()),
+	}, s.Manager)
+	app, err := model.Application("app")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app.Status(), jc.DeepEquals, appStatus)
+}
+
+func (s *ApplicationSuite) TestStatusOperatorActive(c *gc.C) {
+	model := s.NewModel(cache.ModelChange{
+		Name: "test",
+	})
+	appStatus := s.status(status.Blocked, time.Now())
+	model.UpdateApplication(cache.ApplicationChange{
+		Name:           "app",
+		Status:         appStatus,
+		OperatorStatus: s.status(status.Active, time.Now()),
+	}, s.Manager)
+	app, err := model.Application("app")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app.Status(), jc.DeepEquals, appStatus)
+}
+
+func (s *ApplicationSuite) TestStatusOperatorWaiting(c *gc.C) {
+	model := s.NewModel(cache.ModelChange{
+		Name: "test",
+	})
+	expected := s.status(status.Waiting, time.Now())
+	model.UpdateApplication(cache.ApplicationChange{
+		Name:           "app",
+		Status:         s.status(status.Active, time.Now()),
+		OperatorStatus: expected}, s.Manager)
+	app, err := model.Application("app")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app.Status(), jc.DeepEquals, expected)
+}
+
+func (s *ApplicationSuite) TestUnitsSorted(c *gc.C) {
+	model := s.NewModel(cache.ModelChange{
+		Name: "test",
+	})
+	model.UpdateApplication(cache.ApplicationChange{
+		Name:   "app",
+		Status: s.status(status.Unset, time.Now()),
+	}, s.Manager)
+	model.UpdateUnit(cache.UnitChange{
+		Name:        "app/1",
+		Application: "app",
+	}, s.Manager)
+	model.UpdateUnit(cache.UnitChange{
+		Name:        "app/2",
+		Application: "app",
+	}, s.Manager)
+	model.UpdateUnit(cache.UnitChange{
+		Name:        "app/10",
+		Application: "app",
+	}, s.Manager)
+
+	app, err := model.Application("app")
+	c.Assert(err, jc.ErrorIsNil)
+	units := app.Units()
+
+	names := make([]string, len(units))
+	for i, u := range units {
+		names[i] = u.Name()
+	}
+	// Simple alphabetical sort for now as we may well soon have unit IDs that
+	// are hashes.
+	c.Assert(names, jc.DeepEquals, []string{"app/1", "app/10", "app/2"})
 }
 
 var appChange = cache.ApplicationChange{

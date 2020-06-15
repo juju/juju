@@ -60,6 +60,7 @@ type ApplicationChange struct {
 	Config          map[string]interface{}
 	Subordinate     bool
 	Status          status.StatusInfo
+	OperatorStatus  status.StatusInfo // For CAAS applications.
 	WorkloadVersion string
 }
 
