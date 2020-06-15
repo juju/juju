@@ -608,6 +608,21 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesNoop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithVirtualPort(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
+		Name:            "foo",
+		Type:            corenetwork.EthernetDevice,
+		VirtualPortType: corenetwork.OvsPort,
+	}
+	err := s.machine.SetLinkLayerDevices(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	devs, err := s.machine.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devs, gc.HasLen, 1)
+	c.Assert(devs[0].VirtualPortType(), gc.Equals, corenetwork.OvsPort, gc.Commentf("virtual port type field was not persisted"))
+}
+
 func (s *linkLayerDevicesStateSuite) removeDeviceAndAssertSuccess(c *gc.C, givenDevice *state.LinkLayerDevice) {
 	err := givenDevice.Remove()
 	c.Assert(err, jc.ErrorIsNil)

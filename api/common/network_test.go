@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -192,6 +193,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigInterfaceAddressesError(c *gc
 	s.stubConfigSource.SetErrors(
 		nil,                        // Interfaces
 		nil,                        // DefaultRoute
+		nil,                        // OvsManagedBridges
 		errors.New("no addresses"), // InterfaceAddressses
 	)
 
@@ -199,8 +201,8 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigInterfaceAddressesError(c *gc
 	c.Check(err, gc.ErrorMatches, `cannot get interface "lo" addresses: no addresses`)
 	c.Check(observedConfig, gc.IsNil)
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "lo")
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "lo")
 }
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigNoInterfaceAddresses(c *gc.C) {
@@ -220,8 +222,8 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigNoInterfaceAddresses(c *gc.C)
 		NetworkOrigin: params.NetworkOrigin("machine"),
 	}})
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "br-eth1")
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "br-eth1")
 }
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigLoopbackInferred(c *gc.C) {
@@ -250,8 +252,8 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigLoopbackInferred(c *gc.C) {
 		NetworkOrigin: params.NetworkOrigin("machine"),
 	}})
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "lo")
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "lo")
 }
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigVLANInferred(c *gc.C) {
@@ -286,8 +288,8 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigVLANInferred(c *gc.C) {
 		NetworkOrigin: params.NetworkOrigin("machine"),
 	}})
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "eth0.100")
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "eth0.100")
 }
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigEthernetInfrerred(c *gc.C) {
@@ -306,8 +308,47 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigEthernetInfrerred(c *gc.C) {
 		NetworkOrigin: params.NetworkOrigin("machine"),
 	}})
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "eth0")
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "eth0")
+}
+
+func (s *NetworkSuite) TestGetObservedNetworkConfigForOVSDevices(c *gc.C) {
+	s.stubConfigSource.interfaces = []net.Interface{
+		{
+			Index:        2,
+			MTU:          1500,
+			Name:         "ovsbr0",
+			HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
+			Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
+		},
+	}
+	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
+		"ovsbr0": {
+			fakeAddr("10.100.19.123/24"),
+		},
+	}
+	s.stubConfigSource.ovsBridges = set.NewStrings("ovsbr0")
+
+	// NOTE: OVS-managed devices appear as virtual NICs instead of bridges.
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "ovsbr0", "")
+
+	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
+		DeviceIndex:     2,
+		MACAddress:      "aa:bb:cc:dd:ee:f0",
+		CIDR:            "10.100.19.0/24",
+		MTU:             1500,
+		InterfaceName:   "ovsbr0",
+		InterfaceType:   "bridge",
+		ConfigType:      "static",
+		Address:         "10.100.19.123",
+		VirtualPortType: "openvswitch",
+		NetworkOrigin:   params.NetworkOrigin("machine"),
+	}})
+
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "ovsbr0")
 }
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *gc.C) {
@@ -391,6 +432,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *g
 
 	s.stubConfigSource.CheckCallNames(c,
 		"Interfaces",
+		"OvsManagedBridges",
 		"DefaultRoute",
 		"SysClassNetPath",
 		"InterfaceAddresses", // eth0
@@ -398,10 +440,10 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *g
 		"InterfaceAddresses", // br-eth1
 		"InterfaceAddresses", // eth1
 	)
-	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "eth0")
-	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "br-eth0")
-	s.stubConfigSource.CheckCall(c, 5, "InterfaceAddresses", "br-eth1")
-	s.stubConfigSource.CheckCall(c, 6, "InterfaceAddresses", "eth1")
+	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "eth0")
+	s.stubConfigSource.CheckCall(c, 5, "InterfaceAddresses", "br-eth0")
+	s.stubConfigSource.CheckCall(c, 6, "InterfaceAddresses", "br-eth1")
+	s.stubConfigSource.CheckCall(c, 7, "InterfaceAddresses", "eth1")
 }
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigAddressNotInCIDRFormat(c *gc.C) {
@@ -426,8 +468,8 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigAddressNotInCIDRFormat(c *gc.
 		NetworkOrigin: params.NetworkOrigin("machine"),
 	}})
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "eth0")
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "eth0")
 }
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigEmptyAddressValue(c *gc.C) {
@@ -449,8 +491,8 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigEmptyAddressValue(c *gc.C) {
 		NetworkOrigin: params.NetworkOrigin("machine"),
 	}})
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "eth0")
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "eth0")
 }
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigInvalidAddressValue(c *gc.C) {
@@ -464,8 +506,8 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigInvalidAddressValue(c *gc.C) 
 	c.Check(err, gc.ErrorMatches, `cannot parse IP address "invalid" on interface "eth0"`)
 	c.Check(observedConfig, gc.IsNil)
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "eth0")
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "OvsManagedBridges", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "eth0")
 }
 
 type stubNetworkConfigSource struct {
@@ -476,6 +518,7 @@ type stubNetworkConfigSource struct {
 	interfaceAddrs        map[string][]net.Addr
 	defaultRouteGatewayIP net.IP
 	defaultRouteDevice    string
+	ovsBridges            set.Strings
 }
 
 // makeSysClassNetInterfacePath creates a subdir for the given interfaceName,
@@ -552,4 +595,17 @@ func (s *stubNetworkConfigSource) DefaultRoute() (net.IP, string, error) {
 		return nil, "", err
 	}
 	return s.defaultRouteGatewayIP, s.defaultRouteDevice, nil
+}
+
+// OvsManagedBridges implements NetworkConfigSource.
+func (s *stubNetworkConfigSource) OvsManagedBridges() (set.Strings, error) {
+	s.AddCall("OvsManagedBridges")
+	if err := s.NextErr(); err != nil {
+		return nil, err
+	}
+	if s.ovsBridges == nil {
+		s.ovsBridges = set.NewStrings()
+	}
+
+	return s.ovsBridges, nil
 }

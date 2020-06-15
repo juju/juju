@@ -708,6 +708,7 @@ func (s *MigrationSuite) TestLinkLayerDeviceDocFields(c *gc.C) {
 		"IsAutoStart",
 		"IsUp",
 		"ParentName",
+		"VirtualPortType",
 	)
 	s.AssertExportedFields(c, linkLayerDeviceDoc{}, migrated.Union(ignored))
 }

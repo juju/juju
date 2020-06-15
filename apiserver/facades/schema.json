@@ -19678,6 +19678,9 @@
                                 "$ref": "#/definitions/Address"
                             }
                         },
+                        "virtual-port-type": {
+                            "type": "string"
+                        },
                         "vlan-tag": {
                             "type": "integer"
                         }
@@ -22841,6 +22844,9 @@
                             "items": {
                                 "$ref": "#/definitions/Address"
                             }
+                        },
+                        "virtual-port-type": {
+                            "type": "string"
                         },
                         "vlan-tag": {
                             "type": "integer"
@@ -29478,6 +29484,9 @@
                             "items": {
                                 "$ref": "#/definitions/Address"
                             }
+                        },
+                        "virtual-port-type": {
+                            "type": "string"
                         },
                         "vlan-tag": {
                             "type": "integer"

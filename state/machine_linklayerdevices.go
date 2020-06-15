@@ -163,6 +163,10 @@ type LinkLayerDeviceArgs struct {
 	// key of a BridgeDevice on the host machine of the container. Traffic
 	// originating from a device egresses from its parent device.
 	ParentName string
+
+	// If this is device is part of a virtual switch, this field indicates
+	// the type of switch (e.g. an OVS bridge ) this port belongs to.
+	VirtualPortType corenetwork.VirtualPortType
 }
 
 // SetLinkLayerDevices sets link-layer devices on the machine, adding or
@@ -406,17 +410,18 @@ func (m *Machine) newLinkLayerDeviceDocFromArgs(args *LinkLayerDeviceArgs) *link
 	modelUUID := m.st.ModelUUID()
 
 	return &linkLayerDeviceDoc{
-		DocID:       linkLayerDeviceDocID,
-		Name:        args.Name,
-		ModelUUID:   modelUUID,
-		MTU:         args.MTU,
-		ProviderID:  providerID,
-		MachineID:   m.doc.Id,
-		Type:        args.Type,
-		MACAddress:  args.MACAddress,
-		IsAutoStart: args.IsAutoStart,
-		IsUp:        args.IsUp,
-		ParentName:  args.ParentName,
+		DocID:           linkLayerDeviceDocID,
+		Name:            args.Name,
+		ModelUUID:       modelUUID,
+		MTU:             args.MTU,
+		ProviderID:      providerID,
+		MachineID:       m.doc.Id,
+		Type:            args.Type,
+		MACAddress:      args.MACAddress,
+		IsAutoStart:     args.IsAutoStart,
+		IsUp:            args.IsUp,
+		ParentName:      args.ParentName,
+		VirtualPortType: args.VirtualPortType,
 	}
 }
 
