@@ -79,6 +79,7 @@ def assess_cross_model_relations_multiple_controllers(args):
         with consume_bs_manager.booted_context(consume_bs_args.upload_tools):
             consume_model = consume_bs_manager.client
             ensure_user_can_consume_offer(offer_model, consume_model)
+            log.info("Finished CMR multiple controllers test.")
 
 
 def ensure_cmr_offer_management(client):
@@ -94,6 +95,7 @@ def ensure_cmr_offer_management(client):
       commands on
     """
     with temporary_model(client, 'offer-management') as management_model:
+        log.info('Asserting CMR offer management.')
         app_name = 'dummy-source'
 
         deploy_local_charm(management_model, app_name)
@@ -104,6 +106,7 @@ def ensure_cmr_offer_management(client):
 
         offer_url = assert_offer_is_listed(management_model, app_name)
         assert_offer_can_be_deleted(management_model, offer_url)
+        log.info('PASS: CMR offer management.')
 
 
 def ensure_cmr_offer_consumption_and_relation(offer_client, consume_client):
@@ -138,6 +141,7 @@ def ensure_user_can_consume_offer(offer_client, consume_client):
     with temporary_model(offer_client, 'relation-source') as source_client:
         with temporary_model(consume_client, 'relation-sink') as sink_client:
             offer_url, offer_name = deploy_and_offer_db_app(source_client)
+            log.info('Asserting offer {} can be consumed.'.format(offer_url))
 
             username = 'theundertaker'
             token = source_client.add_user_perms(username)
@@ -155,7 +159,7 @@ def ensure_user_can_consume_offer(offer_client, consume_client):
                     '--format', 'yaml',
                     include_e=False))
             # There must only be one offer
-            user_offer_url = offers_found.keys()[0]
+            user_offer_url = list(offers_found.keys())[0]
 
             assert_relating_to_offer_succeeds(sink_client, user_offer_url)
             assert_saas_url_is_correct(
@@ -170,7 +174,7 @@ def assert_offer_is_listed(client, app_name, offer_name=None):
     :param offer_name: If not None is used to name the endpoint offer.
     :return: String URL of the resulting offered endpoint.
     """
-    log.info('Assessing {} offers.'.format(
+    log.info('Asserting listing {} offers.'.format(
         'named' if offer_name else 'unnamed'))
 
     expected_url, offer_key = offer_endpoint(
@@ -196,6 +200,7 @@ def assert_offer_is_listed(client, app_name, offer_name=None):
 
 def assert_offer_can_be_deleted(client, offer_url):
     """Assert that an offer can be successfully deleted."""
+    log.info('Asserting offer can be deleted.')
     client.juju('remove-offer', (offer_url), include_e=False)
     offer_output = yaml.safe_load(
         client.get_juju_output('offers', '--format', 'yaml'))
@@ -212,6 +217,7 @@ def assert_relating_to_offer_succeeds(client, offer_url):
     Raises an exception if the workload status does not move to 'active' within
     the default timeout (600 seconds).
     """
+    log.info('Asserting relating to offer.')
     client.deploy('cs:mediawiki')
     # No need to check workloads until the relation is set.
     client.wait_for_started()
@@ -219,10 +225,12 @@ def assert_relating_to_offer_succeeds(client, offer_url):
     # relation is successfully made.
     client.juju('relate', ('mediawiki:db', offer_url))
     client.wait_for_workloads()
+    log.info('PASS: Relating mediawiki to mysql offer.')
 
 
 def assert_saas_url_is_correct(client, offer_name, offer_url):
     """Offer url of Saas status field must match the expected `offer_url`."""
+    log.info('Asserting SAAS URL is correct.')
     status_saas_check = client.get_status()
     status_saas_url = status_saas_check.status[
         'application-endpoints'][offer_name]['url']
@@ -230,7 +238,7 @@ def assert_saas_url_is_correct(client, offer_name, offer_url):
         raise JujuAssertionError(
             'Consuming models status does not state status of the'
             'consumed offer.')
-
+    log.info('PASS: SAAS URL is correct.')
 
 def deploy_and_offer_db_app(client):
     """Deploy mysql application and offer it's db endpoint.
