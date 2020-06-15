@@ -9,5 +9,8 @@ test_caasadmission() {
     echo "==> Checking for dependencies"
     check_dependencies juju jq petname microk8s
 
-    test_deploy_admission
+    run_deploy_microk8s "$(petname)"
+
+    test_controller_model_admission
+    test_new_model_admission
 }

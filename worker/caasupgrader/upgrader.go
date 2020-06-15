@@ -147,9 +147,15 @@ func (u *Upgrader) loop() error {
 		if err != nil {
 			return err
 		}
-		logger.Debugf("desired agent binary version: %v", wantVersion)
 
-		if wantVersion == jujuversion.Current {
+		haveVersion := jujuversion.Current
+		if wantVersion.Build == 0 {
+			haveVersion.Build = 0
+		} else {
+			haveVersion.Build = jujuversion.OfficialBuild
+		}
+
+		if wantVersion == haveVersion {
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		} else if !upgrader.AllowedTargetVersion(
