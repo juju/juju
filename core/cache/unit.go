@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/settings"
+	"github.com/juju/juju/core/status"
 )
 
 // Unit represents a unit in a cached model.
@@ -76,7 +77,17 @@ func (u *Unit) Ports() []network.Port {
 	return u.details.Ports
 }
 
-// Config settings returns the effective charm configuration for this unit
+// AgentStatus returns the agent status of the unit.
+func (u *Unit) AgentStatus() status.StatusInfo {
+	return u.details.AgentStatus
+}
+
+// WorkloadStatus returns the workload status of the unit.
+func (u *Unit) WorkloadStatus() status.StatusInfo {
+	return u.details.WorkloadStatus
+}
+
+// ConfigSettings returns the effective charm configuration for this unit
 // taking into account whether it is tracking a model branch.
 func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if u.details.CharmURL == "" {

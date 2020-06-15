@@ -164,7 +164,8 @@ func (s *EntitySuite) NewModel(details ModelChange) *Model {
 }
 
 func (s *EntitySuite) NewApplication(details ApplicationChange) *Application {
-	a := newApplication(s.Gauges, s.Hub, s.NewResident())
+	m := s.NewModel(ModelChange{Name: "test"})
+	a := newApplication(m, m.metrics, m.hub, s.Manager.new())
 	a.setDetails(details)
 	return a
 }
