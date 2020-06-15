@@ -4,24 +4,33 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/loggo"
+	proxyutils "github.com/juju/proxy"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
-	"github.com/juju/juju/cmd/jujud/hooktool"
 	"github.com/juju/juju/cmd/jujud/introspect"
 	"github.com/juju/juju/cmd/jujud/run"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	initcommand "github.com/juju/juju/cmd/k8sagent/init"
+	unitcommand "github.com/juju/juju/cmd/k8sagent/unit"
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/utils/proxy"
+	"github.com/juju/juju/worker/logsender"
 )
 
 var logger = loggo.GetLogger("juju.cmd.k8sagent")
@@ -37,7 +46,7 @@ func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
 }
 
-var jujudDoc = `
+var k8sAgentDoc = `
 juju provides easy, intelligent service orchestration on top of models
 such as OpenStack, Amazon AWS, or bare metal. k8sagent is a component
 of juju for managing k8s workloads.
@@ -57,8 +66,57 @@ const (
 	exit_panic = 3
 )
 
+type k8sAgentLogWriter struct {
+	target io.Writer
+}
+
+func (w *k8sAgentLogWriter) Write(entry loggo.Entry) {
+	if strings.HasPrefix(entry.Module, "unit.") {
+		fmt.Fprintln(w.target, w.unitFormat(entry))
+	} else {
+		fmt.Fprintln(w.target, loggo.DefaultFormatter(entry))
+	}
+}
+
+func (w *k8sAgentLogWriter) unitFormat(entry loggo.Entry) string {
+	ts := entry.Timestamp.In(time.UTC).Format("2006-01-02 15:04:05")
+	// Just show the last element of the module.
+	lastDot := strings.LastIndex(entry.Module, ".")
+	module := entry.Module[lastDot+1:]
+	return fmt.Sprintf("%s %s %s %s", ts, entry.Level, module, entry.Message)
+}
+
 func k8sAgentCommand(args []string, ctx *cmd.Context) (code int, err error) {
-	return 0, nil
+	// Assuming an average of 200 bytes per log message, use up to
+	// 200MB for the log buffer.
+	defer logger.Debugf("k8sagent complete, code %d, err %v", code, err)
+	bufferedLogger, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 1048576)
+	if err != nil {
+		return 1, errors.Trace(err)
+	}
+
+	// Set the default transport to use the in-process proxy
+	// configuration.
+	if err := proxy.DefaultConfig.Set(proxyutils.DetectProxies()); err != nil {
+		return 1, errors.Trace(err)
+	}
+	if err := proxy.DefaultConfig.InstallInDefaultTransport(); err != nil {
+		return 1, errors.Trace(err)
+	}
+
+	k8sAgent := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name: "k8sAgent",
+		Doc:  k8sAgentDoc,
+	})
+
+	k8sAgent.Log.NewWriter = func(target io.Writer) loggo.Writer {
+		return &k8sAgentLogWriter{target: target}
+	}
+
+	k8sAgent.Register(initcommand.New())
+	k8sAgent.Register(unitcommand.New(ctx, bufferedLogger))
+	code = cmd.Main(k8sAgent, ctx, args[1:])
+	return code, nil
 }
 
 func mainWrapper(args []string) int {
@@ -100,7 +158,9 @@ func mainWrapper(args []string) int {
 	case names.JujuIntrospect:
 		code = cmd.Main(&introspect.IntrospectCommand{}, ctx, args[1:])
 	default:
-		code, err = hooktool.Main(commandName, ctx, args)
+		code = 1
+		// This should never happen unless jujuc was missing and hooktools were misconfigured.
+		err = errors.New("k8sagent always expects to use jujuc for hook tools")
 	}
 	if err != nil {
 		cmd.WriteError(ctx.Stderr, err)
