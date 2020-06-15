@@ -17,7 +17,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter/mocks"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -28,9 +31,10 @@ type newLxdProfileSuite struct {
 	unitTag1    names.UnitTag
 
 	backend *mocks.MockLXDProfileBackendV2
-	unit    *mocks.MockLXDProfileUnitV2
-	machine *mocks.MockLXDProfileMachineV2
 	charm   *mocks.MockLXDProfileCharmV2
+	machine *mocks.MockLXDProfileMachineV2
+	model   *mocks.MockLXDProfileModelV2
+	unit    *mocks.MockLXDProfileUnitV2
 }
 
 var _ = gc.Suite(&newLxdProfileSuite{})
@@ -112,6 +116,114 @@ func (s *newLxdProfileSuite) TestLXDProfileRequired(c *gc.C) {
 	})
 }
 
+func (s *newLxdProfileSuite) TestCanApplyLXDProfileUnauthorized(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectModel()
+	s.expectModelTypeIAAS()
+	s.expectProviderType(c, "lxd")
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewUnitTag("mysql/2").String()},
+			{Tag: names.NewMachineTag("2").String()},
+		},
+	}
+	api := s.newAPI()
+	results, err := api.CanApplyLXDProfile(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.BoolResults{
+		Results: []params.BoolResult{
+			{Result: false, Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
+			{Result: false, Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
+		},
+	})
+}
+
+func (s *newLxdProfileSuite) TestCanApplyLXDProfileIAASLXDNotManual(c *gc.C) {
+	// model type: IAAS
+	// provider type: lxd
+	// manual: false
+	defer s.setupMocks(c).Finish()
+	s.expectUnitAndMachine()
+	s.expectModel()
+	s.expectModelTypeIAAS()
+	s.expectProviderType(c, "lxd")
+	s.expectManual(false)
+
+	s.testCanApplyLXDProfile(c, true)
+}
+
+func (s *newLxdProfileSuite) TestCanApplyLXDProfileIAASLXDManual(c *gc.C) {
+	// model type: IAAS
+	// provider type: lxd
+	// manual: true
+	defer s.setupMocks(c).Finish()
+	s.expectUnitAndMachine()
+	s.expectModel()
+	s.expectModelTypeIAAS()
+	s.expectProviderType(c, "lxd")
+	s.expectManual(true)
+
+	s.testCanApplyLXDProfile(c, false)
+}
+
+func (s *newLxdProfileSuite) TestCanApplyLXDProfileCAAS(c *gc.C) {
+	// model type: CAAS
+	// provider type: k8s
+	defer s.setupMocks(c).Finish()
+	s.expectModel()
+	s.expectModelTypeCAAS()
+	s.expectProviderType(c, "k8s")
+
+	s.testCanApplyLXDProfile(c, false)
+}
+
+func (s *newLxdProfileSuite) TestCanApplyLXDProfileIAASMAASNotManualKVM(c *gc.C) {
+	// model type: IAAS
+	// provider type: maas
+	// manual: false
+	// container: KVM
+	defer s.setupMocks(c).Finish()
+	s.expectUnitAndMachine()
+	s.expectModel()
+	s.expectModelTypeIAAS()
+	s.expectProviderType(c, "maas")
+	s.expectManual(false)
+	s.expectContainerType(instance.KVM)
+
+	s.testCanApplyLXDProfile(c, false)
+}
+
+func (s *newLxdProfileSuite) TestCanApplyLXDProfileIAASMAASNotManualLXD(c *gc.C) {
+	// model type: IAAS
+	// provider type: maas
+	// manual: false
+	// container: LXD
+	defer s.setupMocks(c).Finish()
+	s.expectUnitAndMachine()
+	s.expectModel()
+	s.expectModelTypeIAAS()
+	s.expectProviderType(c, "maas")
+	s.expectManual(false)
+	s.expectContainerType(instance.LXD)
+
+	s.testCanApplyLXDProfile(c, true)
+}
+
+func (s *newLxdProfileSuite) testCanApplyLXDProfile(c *gc.C, result bool) {
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: s.unitTag1.String()},
+		},
+	}
+	api := s.newAPI()
+	results, err := api.CanApplyLXDProfile(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.BoolResults{
+		Results: []params.BoolResult{{Result: result, Error: nil}},
+	})
+}
+
 func (s *newLxdProfileSuite) newAPI() *uniter.LXDProfileAPIv2 {
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
@@ -137,9 +249,10 @@ func (s *newLxdProfileSuite) newAPI() *uniter.LXDProfileAPIv2 {
 func (s *newLxdProfileSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.backend = mocks.NewMockLXDProfileBackendV2(ctrl)
-	s.unit = mocks.NewMockLXDProfileUnitV2(ctrl)
-	s.machine = mocks.NewMockLXDProfileMachineV2(ctrl)
 	s.charm = mocks.NewMockLXDProfileCharmV2(ctrl)
+	s.machine = mocks.NewMockLXDProfileMachineV2(ctrl)
+	s.model = mocks.NewMockLXDProfileModelV2(ctrl)
+	s.unit = mocks.NewMockLXDProfileUnitV2(ctrl)
 	return ctrl
 }
 
@@ -160,6 +273,37 @@ func (s *newLxdProfileSuite) expectOneLXDProfileRequired() {
 	s.charm.EXPECT().LXDProfile().Return(lxdprofile.Profile{Config: map[string]string{"one": "two"}})
 
 	s.backend.EXPECT().Charm(charm.MustParseURL("cs:testme-3")).Return(nil, errors.NotFoundf("cs:testme-3"))
+}
+
+func (s *newLxdProfileSuite) expectModel() {
+	s.backend.EXPECT().Model().Return(s.model, nil)
+}
+
+func (s *newLxdProfileSuite) expectModelTypeIAAS() {
+	s.model.EXPECT().Type().Return(state.ModelTypeIAAS)
+}
+
+func (s *newLxdProfileSuite) expectModelTypeCAAS() {
+	s.model.EXPECT().Type().Return(state.ModelTypeCAAS)
+}
+
+func (s *newLxdProfileSuite) expectProviderType(c *gc.C, pType string) {
+	attrs := map[string]interface{}{
+		config.TypeKey: pType,
+		config.NameKey: "testmodel",
+		config.UUIDKey: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+	}
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	s.model.EXPECT().ModelConfig().Return(cfg, nil)
+}
+
+func (s *newLxdProfileSuite) expectManual(manual bool) {
+	s.machine.EXPECT().IsManual().Return(manual, nil)
+}
+
+func (s *newLxdProfileSuite) expectContainerType(cType instance.ContainerType) {
+	s.machine.EXPECT().ContainerType().Return(cType)
 }
 
 func (s *newLxdProfileSuite) expectWatchInstanceData() {

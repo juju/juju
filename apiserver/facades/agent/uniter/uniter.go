@@ -3691,3 +3691,11 @@ func (u *UniterAPIV15) LXDProfileRequired(_ struct{}) {}
 func (u *UniterAPI) LXDProfileRequired(args params.CharmURLs) (params.BoolResults, error) {
 	return u.lxdProfileAPI.LXDProfileRequired(args)
 }
+
+// CanApplyLXDProfile isn't on the v15 API.
+func (u *UniterAPIV15) CanApplyLXDProfile(_ struct{}) {}
+
+// CanApplyLXDProfile is a shim to call the LXDProfileAPIv2 version of this method.
+func (u *UniterAPI) CanApplyLXDProfile(args params.Entities) (params.BoolResults, error) {
+	return u.lxdProfileAPI.CanApplyLXDProfile(args)
+}

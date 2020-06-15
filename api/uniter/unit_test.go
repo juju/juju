@@ -1021,3 +1021,24 @@ func (s *unitSuite) TestLXDProfileName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(profile, gc.Equals, "juju-default-mysql-0")
 }
+
+func (s *unitSuite) TestCanApplyLXDProfile(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "CanApplyLXDProfile")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.BoolResults{})
+		*(result.(*params.BoolResults)) = params.BoolResults{
+			Results: []params.BoolResult{{
+				Result: true,
+			}},
+		}
+		return nil
+	})
+	caller := basetesting.BestVersionCaller{apiCaller, 1}
+	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	canApply, err := unit.CanApplyLXDProfile()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(canApply, jc.IsTrue)
+}

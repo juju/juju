@@ -37626,6 +37626,18 @@
                     },
                     "description": "BeginActions marks the actions represented by the passed in Tags as running."
                 },
+                "CanApplyLXDProfile": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/BoolResults"
+                        }
+                    },
+                    "description": "CanApplyLXDProfile is a shim to call the LXDProfileAPIv2 version of this method."
+                },
                 "CharmArchiveSha256": {
                     "type": "object",
                     "properties": {

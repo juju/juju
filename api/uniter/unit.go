@@ -825,6 +825,27 @@ func (u *Unit) LXDProfileName() (string, error) {
 	return result.Result, nil
 }
 
+// CanApplyLXDProfile returns true if an lxd profile can be applied to
+// this unit, e.g. this is an lxd machine or container and not maunal
+func (u *Unit) CanApplyLXDProfile() (bool, error) {
+	var results params.BoolResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall("CanApplyLXDProfile", args, &results)
+	if err != nil {
+		return false, err
+	}
+	if len(results.Results) != 1 {
+		return false, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.Result, nil
+}
+
 // AddStorage adds desired storage instances to a unit.
 func (u *Unit) AddStorage(constraints map[string][]params.StorageConstraints) error {
 	if u.st.facade.BestAPIVersion() < 2 {

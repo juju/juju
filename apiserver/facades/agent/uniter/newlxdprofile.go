@@ -1,4 +1,4 @@
-// Copyright 2018 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter
@@ -6,13 +6,16 @@ package uniter
 import (
 	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
+
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -21,12 +24,20 @@ type LXDProfileBackendV2 interface {
 	Charm(*charm.URL) (LXDProfileCharmV2, error)
 	Machine(string) (LXDProfileMachineV2, error)
 	Unit(string) (LXDProfileUnitV2, error)
+	Model() (LXDProfileModelV2, error)
+}
+
+type LXDProfileModelV2 interface {
+	ModelConfig() (*config.Config, error)
+	Type() state.ModelType
 }
 
 // LXDProfileMachineV2 describes machine-receiver state methods
 // for executing a lxd profile upgrade.
 type LXDProfileMachineV2 interface {
 	CharmProfiles() ([]string, error)
+	ContainerType() instance.ContainerType
+	IsManual() (bool, error)
 	WatchInstanceData() state.NotifyWatcher
 }
 
@@ -90,6 +101,10 @@ func (s LXDProfileStateV2) Unit(id string) (LXDProfileUnitV2, error) {
 func (s LXDProfileStateV2) Charm(curl *charm.URL) (LXDProfileCharmV2, error) {
 	c, err := s.st.Charm(curl)
 	return &lxdProfileCharmV2{c}, err
+}
+
+func (s LXDProfileStateV2) Model() (LXDProfileModelV2, error) {
+	return s.st.Model()
 }
 
 type lxdProfileMachineV2 struct {
@@ -223,6 +238,87 @@ func (u *LXDProfileAPIv2) getOneLXDProfileName(unit LXDProfileUnitV2, machine LX
 	}
 	appName := unit.ApplicationName()
 	return lxdprofile.MatchProfileNameByAppName(profileNames, appName)
+}
+
+// CanApplyLXDProfile returns true if
+//   - this is an IAAS model,
+//   - the unit is not on a manual machine,
+//   - the provider type is "lxd" or it's an lxd container.
+func (u *LXDProfileAPIv2) CanApplyLXDProfile(args params.Entities) (params.BoolResults, error) {
+	u.logger.Tracef("Starting CanApplyLXDProfile with %+v", args)
+	result := params.BoolResults{
+		Results: make([]params.BoolResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.BoolResults{}, err
+	}
+	providerType, mType, err := u.getModelTypeProviderType()
+	if err != nil {
+		return params.BoolResults{}, err
+	}
+	if mType != state.ModelTypeIAAS {
+		return result, nil
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		machine, err := u.getLXDProfileMachineV2(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		name, err := u.getOneCanApplyLXDProfile(machine, providerType)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		result.Results[i].Result = name
+
+	}
+	return result, nil
+}
+
+func (u *LXDProfileAPIv2) getOneCanApplyLXDProfile(machine LXDProfileMachineV2, providerType string) (bool, error) {
+	if manual, err := machine.IsManual(); err != nil {
+		return false, err
+	} else if manual {
+		// We do no know what type of machine a manual one is, so we do not
+		// manage lxd profiles on it.
+		return false, nil
+	}
+	if providerType == "lxd" {
+		return true, nil
+	}
+	switch machine.ContainerType() {
+	case instance.KVM:
+		// charm profiles cannot be applied to KVM containers.
+		return false, nil
+	case instance.LXD:
+		return true, nil
+	}
+	return false, nil
+}
+
+func (u *LXDProfileAPIv2) getModelTypeProviderType() (string, state.ModelType, error) {
+	m, err := u.backend.Model()
+	if err != nil {
+		return "", "", err
+	}
+	cfg, err := m.ModelConfig()
+	if err != nil {
+		return "", "", err
+	}
+	return cfg.Type(), m.Type(), nil
 }
 
 // LXDProfileRequired returns true if charm has an lxd profile in it.
