@@ -89,47 +89,41 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 
 func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
 	s.WatcherSuite.SetUpTest(c)
-	statusTicker := func(wait time.Duration) remotestate.Waiter {
-		return dummyWaiter{s.clock.After(wait)}
-	}
-
 	s.st.unit.application.applicationWatcher = newMockNotifyWatcher()
 	s.applicationWatcher = s.st.unit.application.applicationWatcher
 	s.st.unit.upgradeSeriesWatcher = newMockNotifyWatcher()
 	s.st.unit.instanceDataWatcher = newMockNotifyWatcher()
-	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
-		Logger:              loggo.GetLogger("test"),
-		State:               s.st,
-		ModelType:           s.modelType,
-		LeadershipTracker:   s.leadership,
-		UnitTag:             s.st.unit.tag,
-		UpdateStatusChannel: statusTicker,
-	})
+	w, err := remotestate.NewWatcher(s.setupWatcherConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	s.watcher = w
 }
 
 func (s *WatcherSuiteCAAS) SetUpTest(c *gc.C) {
 	s.WatcherSuite.SetUpTest(c)
+	s.applicationWatcher = newMockNotifyWatcher()
+	s.runningStatusWatcher = newMockNotifyWatcher()
+	cfg := s.setupWatcherConfig()
+	cfg.ApplicationChannel = s.applicationWatcher.Changes()
+	cfg.ContainerRunningStatusChannel = s.runningStatusWatcher.Changes()
+	cfg.ContainerRunningStatusFunc = func(providerID string) (*remotestate.ContainerRunningStatus, error) { return s.running, nil }
+	w, err := remotestate.NewWatcher(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	s.watcher = w
+}
+
+func (s *WatcherSuite) setupWatcherConfig() remotestate.WatcherConfig {
 	statusTicker := func(wait time.Duration) remotestate.Waiter {
 		return dummyWaiter{s.clock.After(wait)}
 	}
-
-	s.applicationWatcher = newMockNotifyWatcher()
-	s.runningStatusWatcher = newMockNotifyWatcher()
-	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
-		Logger:                        loggo.GetLogger("test"),
-		State:                         s.st,
-		ModelType:                     s.modelType,
-		LeadershipTracker:             s.leadership,
-		UnitTag:                       s.st.unit.tag,
-		UpdateStatusChannel:           statusTicker,
-		ApplicationChannel:            s.applicationWatcher.Changes(),
-		ContainerRunningStatusChannel: s.runningStatusWatcher.Changes(),
-		ContainerRunningStatusFunc:    func(providerID string) (*remotestate.ContainerRunningStatus, error) { return s.running, nil },
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.watcher = w
+	return remotestate.WatcherConfig{
+		Logger:               loggo.GetLogger("test"),
+		State:                s.st,
+		ModelType:            s.modelType,
+		LeadershipTracker:    s.leadership,
+		UnitTag:              s.st.unit.tag,
+		UpdateStatusChannel:  statusTicker,
+		CanApplyCharmProfile: s.modelType == model.IAAS,
+	}
 }
 
 type dummyWaiter struct {

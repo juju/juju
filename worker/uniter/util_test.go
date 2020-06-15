@@ -31,6 +31,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/machinelock"
@@ -75,6 +76,27 @@ func assertAssignUnit(c *gc.C, st *state.State, u *state.Unit) {
 	mid, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := st.Machine(mid)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("i-exist", "", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProviderAddresses(dummyPrivateAddress, dummyPublicAddress)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// Assign the unit to a provisioned machine with dummy addresses set.
+func assertAssignUnitLXDContainer(c *gc.C, st *state.State, u *state.Unit) {
+	machine, err := st.AddMachineInsideNewMachine(
+		state.MachineTemplate{
+			Series: "quantal",
+			Jobs:   []state.MachineJob{state.JobHostUnits},
+		},
+		state.MachineTemplate{ // parent
+			Series: "quantal",
+			Jobs:   []state.MachineJob{state.JobHostUnits},
+		},
+		instance.LXD,
+	)
+	err = u.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("i-exist", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -317,6 +339,7 @@ func (acpm addCharmProfileToMachine) step(c *gc.C, ctx *context) {
 type createApplicationAndUnit struct {
 	applicationName string
 	storage         map[string]state.StorageConstraints
+	container       bool
 }
 
 func (csau createApplicationAndUnit) step(c *gc.C, ctx *context) {
@@ -332,7 +355,12 @@ func (csau createApplicationAndUnit) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the unit to a provisioned machine to match expected state.
-	assertAssignUnit(c, ctx.st, unit)
+	if csau.container {
+		assertAssignUnitLXDContainer(c, ctx.st, unit)
+	} else {
+		assertAssignUnit(c, ctx.st, unit)
+	}
+
 	ctx.application = app
 	ctx.unit = unit
 

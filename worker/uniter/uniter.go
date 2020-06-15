@@ -302,13 +302,20 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	// is started.
 	var charmURL *corecharm.URL
 	var charmModifiedVersion int
+	var canApplyCharmProfile bool
 	opState := u.operationExecutor.State()
 	if opState.Kind == operation.Install {
 		u.logger.Infof("resuming charm install")
-		// Verify the charm profile before proceeding.  Do not install
-		// until
-		if err := u.verifyCharmProfile(opState.CharmURL); err != nil {
+		canApplyCharmProfile, err = u.unit.CanApplyLXDProfile()
+		if err != nil {
 			return err
+		}
+		if canApplyCharmProfile {
+			// Note: canApplyCharmProfile will be false for a CAAS model.
+			// Verify the charm profile before proceeding.
+			if err := u.verifyCharmProfile(opState.CharmURL); err != nil {
+				return err
+			}
 		}
 		op, err := u.operationFactory.NewInstall(opState.CharmURL)
 		if err != nil {
@@ -386,6 +393,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				ContainerRunningStatusChannel: u.containerRunningStatusChannel,
 				ContainerRunningStatusFunc:    u.containerRunningStatusFunc,
 				ModelType:                     u.modelType,
+				CanApplyCharmProfile:          canApplyCharmProfile,
 			})
 		if err != nil {
 			return errors.Trace(err)
@@ -550,13 +558,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 }
 
 func (u *Uniter) verifyCharmProfile(curl *corecharm.URL) error {
-	// This is an anti-pattern we should not be propagating.
-	// To avoid it here, major rewrite of the uniter would be
-	// required.
-	if u.modelType == model.CAAS {
-		return nil
-	}
-
 	// NOTE: this is very similar code to verifyCharmProfile.NextOp,
 	// if you make changes here, check to see if they are needed there.
 	ch, err := u.st.Charm(curl)

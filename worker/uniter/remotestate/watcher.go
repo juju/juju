@@ -50,6 +50,7 @@ type RemoteStateWatcher struct {
 	applicationChannel            watcher.NotifyChannel
 	containerRunningStatusChannel watcher.NotifyChannel
 	containerRunningStatusFunc    ContainerRunningStatusFunc
+	canApplyCharmProfile          bool
 
 	catacomb catacomb.Catacomb
 
@@ -84,6 +85,7 @@ type WatcherConfig struct {
 	ContainerRunningStatusFunc    ContainerRunningStatusFunc
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
+	CanApplyCharmProfile          bool
 }
 
 func (w WatcherConfig) validate() error {
@@ -123,6 +125,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		containerRunningStatusChannel: config.ContainerRunningStatusChannel,
 		containerRunningStatusFunc:    config.ContainerRunningStatusFunc,
 		modelType:                     config.ModelType,
+		canApplyCharmProfile:          config.CanApplyCharmProfile,
 		// Note: it is important that the out channel be buffered!
 		// The remote state watcher will perform a non-blocking send
 		// on the channel to wake up the observer. It is non-blocking
@@ -345,9 +348,10 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		}
 		upgradeSeriesChanges = upgradeSeriesw.Changes()
 		requiredEvents++
+	}
 
-		// Only IAAS models support lxd profiles, which are watched for on a
-		// machine's InstanceData.
+	if w.canApplyCharmProfile {
+		// Note: canApplyCharmProfile will be false for a CAAS model.
 		instanceDataW, err := w.unit.WatchInstanceData()
 		if err != nil {
 			return errors.Trace(err)
@@ -730,13 +734,16 @@ func (w *RemoteStateWatcher) applicationChanged() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ch, err := w.st.Charm(url)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	required, err := ch.LXDProfileRequired()
-	if err != nil {
-		return errors.Trace(err)
+	required := false
+	if w.canApplyCharmProfile {
+		ch, err := w.st.Charm(url)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		required, err = ch.LXDProfileRequired()
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	ver, err := w.application.CharmModifiedVersion()
 	if err != nil {

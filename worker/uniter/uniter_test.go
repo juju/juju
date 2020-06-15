@@ -230,7 +230,7 @@ config:
 			createCharm{customize: addCharmProfile},
 			serveCharm{},
 			ensureStateWorker{},
-			createApplicationAndUnit{},
+			createApplicationAndUnit{container: true},
 			startUniter{
 				newExecutorFunc: executorFunc(c),
 			},
@@ -246,7 +246,7 @@ config:
 			createCharm{customize: addCharmProfile},
 			serveCharm{},
 			ensureStateWorker{},
-			createApplicationAndUnit{},
+			createApplicationAndUnit{container: true},
 			addCharmProfileToMachine{profiles: []string{"default", "juju-model-u-0"}},
 			startUniter{
 				newExecutorFunc: executorFunc(c),
