@@ -19256,7 +19256,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "SetInstanceStatus updates the instance status for each given\nentity. Only machine tags are accepted."
+                    "description": "SetInstanceStatus updates the instance status for each given entity.\nOnly machine tags are accepted."
                 },
                 "SetProviderAddresses": {
                     "type": "object",
@@ -19280,7 +19280,7 @@
                             "$ref": "#/definitions/SetProviderNetworkConfigResults"
                         }
                     },
-                    "description": "SetProviderNetworkConfig updates the provider addresses for one or more\nmachines.\n\nWhat's more, if the client request includes provider-specific IDs (e.g.\nnetwork, subnet or address IDs), this method will also iterate any present\nlink layer devices (and their addresses) and backfill any missing\nprovider-specific information."
+                    "description": "SetProviderNetworkConfig updates the provider addresses for one or more\nmachines.\n\nWhat's more, if the client request includes provider-specific IDs (e.g.\nnetwork, subnet or address IDs), this method will also iterate any present\nlink layer devices (and their addresses) and merge in any missing\nprovider-specific information."
                 },
                 "Status": {
                     "type": "object",
