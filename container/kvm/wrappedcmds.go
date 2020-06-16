@@ -56,6 +56,11 @@ var (
 	// first part is the opaque identifier we don't care about
 	// then the hostname, and lastly the status.
 	machineListPattern = regexp.MustCompile(`(?m)^\s+\d+\s+(?P<hostname>[-\w]+)\s+(?P<status>.+)\s*$`)
+
+	// Overridden by tests.
+	getHostSeries = func() (string, error) {
+		return series.HostSeries()
+	}
 )
 
 // CreateMachineParams Implements libvirt.domainParams.
@@ -460,20 +465,52 @@ func writeRootDisk(params CreateMachineParams) (string, error) {
 		guestBase,
 		backingFileName(params.Series, params.Arch()))
 
-	out, err := params.runCmd(
-		"",
-		"qemu-img",
+	cmdArgs := []string{
 		"create",
 		"-b", backingPath,
+	}
+
+	// On focal+ we must explicitly specify the format of the backing image
+	// as well (see LP1883575).
+	needsBackingImgFormat, err := mustSpecifyBackingImageFormat()
+	if err != nil {
+		return "", errors.Trace(err)
+	} else if needsBackingImgFormat {
+		// Contrary to their extension, the backing files fetched via
+		// simple stream are raw and not qcow2 images.
+		cmdArgs = append(cmdArgs, "-F", "raw")
+	}
+
+	cmdArgs = append(cmdArgs,
 		"-f", "qcow2",
 		imgPath,
-		fmt.Sprintf("%dG", params.RootDisk))
+		fmt.Sprintf("%dG", params.RootDisk),
+	)
+
+	out, err := params.runCmd("", "qemu-img", cmdArgs...)
 	logger.Debugf("create root image: %s", out)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
 	return imgPath, nil
+}
+
+// mustSpecifyBackingImageFormat returns true if the qemu-img command on the
+// host requests the backing image format to be explicitly provided as an
+// argument.
+func mustSpecifyBackingImageFormat() (bool, error) {
+	series, err := getHostSeries()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	switch series {
+	case "precise", "trusty", "xenial", "bionic", "eoan":
+		return false, nil
+	default: // focal+
+		return true, nil
+	}
 }
 
 // pool info parses and returns the output of `virsh pool-info <poolname>`.
