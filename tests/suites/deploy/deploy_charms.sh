@@ -105,6 +105,8 @@ run_deploy_lxd_to_machine() {
 
     juju upgrade-charm "lxd-profile-alt" --path "${charm}"
 
+    # Ensure that an upgrade will be kicked off. This doesn't mean an upgrade
+    # has finished though, just started.
     wait_for "lxd-profile-alt" "$(charm_rev "lxd-profile-alt" 1)"
     wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
@@ -158,6 +160,8 @@ run_deploy_lxd_to_container() {
 
     juju upgrade-charm "lxd-profile-alt" --path "${charm}"
 
+    # Ensure that an upgrade will be kicked off. This doesn't mean an upgrade
+    # has finished though, just started.
     wait_for "lxd-profile-alt" "$(charm_rev "lxd-profile-alt" 1)"
     wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
