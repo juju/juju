@@ -1297,14 +1297,70 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 	c.Assert(cmds, jc.DeepEquals, []string{expected})
 }
 
-func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
+func (s *cloudinitSuite) TestLegacyProxyWritten(c *gc.C) {
 	environConfig := minimalModelConfig(c)
 	environConfig, err := environConfig.Apply(map[string]interface{}{
-		"http-proxy": "http://user@10.0.0.1",
-		"no-proxy":   "localhost,10.0.3.1",
+		"http-proxy":  "http://user@10.0.0.1",
+		"https-proxy": "http://user@10.0.0.2",
+		"no-proxy":    "localhost,10.0.3.1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	instanceCfg := s.createInstanceConfig(c, environConfig)
+	expected := []string{
+		`export http_proxy=http://user@10.0.0.1`,
+		`export HTTP_PROXY=http://user@10.0.0.1`,
+		`export https_proxy=http://user@10.0.0.2`,
+		`export HTTPS_PROXY=http://user@10.0.0.2`,
+		`export no_proxy=0.1.2.3,10.0.3.1,localhost`,
+		`export NO_PROXY=0.1.2.3,10.0.3.1,localhost`,
+		`(printf '%s\n' 'export http_proxy=http://user@10.0.0.1
+export HTTP_PROXY=http://user@10.0.0.1
+export https_proxy=http://user@10.0.0.2
+export HTTPS_PROXY=http://user@10.0.0.2
+export no_proxy=0.1.2.3,10.0.3.1,localhost
+export NO_PROXY=0.1.2.3,10.0.3.1,localhost' > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
+		`printf '%s\n' '# To allow juju to control the global systemd proxy settings,
+# create symbolic links to this file from within /etc/systemd/system.conf.d/
+# and /etc/systemd/users.conf.d/.
+[Manager]
+DefaultEnvironment="http_proxy=http://user@10.0.0.1" "HTTP_PROXY=http://user@10.0.0.1" "https_proxy=http://user@10.0.0.2" "HTTPS_PROXY=http://user@10.0.0.2" "no_proxy=0.1.2.3,10.0.3.1,localhost" "NO_PROXY=0.1.2.3,10.0.3.1,localhost"
+' > /etc/juju-proxy-systemd.conf`,
+	}
+	s.testProxyWritten(c, environConfig, expected)
+}
+
+func (s *cloudinitSuite) TestJujuProxyWritten(c *gc.C) {
+	environConfig := minimalModelConfig(c)
+	environConfig, err := environConfig.Apply(map[string]interface{}{
+		"juju-http-proxy":  "http://user@10.0.0.1",
+		"juju-https-proxy": "http://user@10.0.0.2",
+		"juju-no-proxy":    "localhost,10.0.3.1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []string{
+		`export http_proxy=http://user@10.0.0.1`,
+		`export HTTP_PROXY=http://user@10.0.0.1`,
+		`export https_proxy=http://user@10.0.0.2`,
+		`export HTTPS_PROXY=http://user@10.0.0.2`,
+		`export no_proxy=0.1.2.3,10.0.3.1,localhost`,
+		`export NO_PROXY=0.1.2.3,10.0.3.1,localhost`,
+		`(printf '%s\n' 'export http_proxy=http://user@10.0.0.1
+export HTTP_PROXY=http://user@10.0.0.1
+export https_proxy=http://user@10.0.0.2
+export HTTPS_PROXY=http://user@10.0.0.2
+export no_proxy=0.1.2.3,10.0.3.1,localhost
+export NO_PROXY=0.1.2.3,10.0.3.1,localhost' > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
+		`printf '%s\n' '# To allow juju to control the global systemd proxy settings,
+# create symbolic links to this file from within /etc/systemd/system.conf.d/
+# and /etc/systemd/users.conf.d/.
+[Manager]
+DefaultEnvironment="http_proxy=http://user@10.0.0.1" "HTTP_PROXY=http://user@10.0.0.1" "https_proxy=http://user@10.0.0.2" "HTTPS_PROXY=http://user@10.0.0.2" "no_proxy=0.1.2.3,10.0.3.1,localhost" "NO_PROXY=0.1.2.3,10.0.3.1,localhost"
+' > /etc/juju-proxy-systemd.conf`,
+	}
+	s.testProxyWritten(c, environConfig, expected)
+}
+
+func (s *cloudinitSuite) testProxyWritten(c *gc.C, cfg *config.Config, expected []string) {
+	instanceCfg := s.createInstanceConfig(c, cfg)
 	cloudcfg, err := cloudinit.New("quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
@@ -1314,26 +1370,10 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 
 	cmds := cloudcfg.RunCmds()
 	first := `[ -e /etc/profile.d/juju-proxy.sh ] || printf '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`
-	expected := []string{
-		`export http_proxy=http://user@10.0.0.1`,
-		`export HTTP_PROXY=http://user@10.0.0.1`,
-		`export no_proxy=0.1.2.3,10.0.3.1,localhost`,
-		`export NO_PROXY=0.1.2.3,10.0.3.1,localhost`,
-		`(printf '%s\n' 'export http_proxy=http://user@10.0.0.1
-export HTTP_PROXY=http://user@10.0.0.1
-export no_proxy=0.1.2.3,10.0.3.1,localhost
-export NO_PROXY=0.1.2.3,10.0.3.1,localhost' > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
-		`printf '%s\n' '# To allow juju to control the global systemd proxy settings,
-# create symbolic links to this file from within /etc/systemd/system.conf.d/
-# and /etc/systemd/users.conf.d/.
-[Manager]
-DefaultEnvironment="http_proxy=http://user@10.0.0.1" "HTTP_PROXY=http://user@10.0.0.1" "no_proxy=0.1.2.3,10.0.3.1,localhost" "NO_PROXY=0.1.2.3,10.0.3.1,localhost" 
-' > /etc/juju-proxy-systemd.conf`,
-	}
 	found := false
 	for i, cmd := range cmds {
 		if cmd == first {
-			c.Assert(cmds[i+1:i+7], jc.DeepEquals, expected)
+			c.Assert(cmds[i+1:len(expected)+1], jc.DeepEquals, expected)
 			found = true
 			break
 		}

@@ -321,18 +321,22 @@ func (w *unixConfigure) ConfigureJuju() error {
 		// /etc/juju-proxy.conf file will be empty.
 		`[ -e /etc/profile.d/juju-proxy.sh ] || ` +
 			`printf '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`)
-	if w.icfg.LegacyProxySettings.HasProxySet() {
-		exportedProxyEnv := w.icfg.LegacyProxySettings.AsScriptEnvironment()
-		w.conf.AddScripts(strings.Split(exportedProxyEnv, "\n")...)
-		w.conf.AddScripts(
-			fmt.Sprintf(
-				`(printf '%%s\n' %s > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
-				shquote(w.icfg.LegacyProxySettings.AsScriptEnvironment())))
-
-		// Write out systemd proxy settings
-		w.conf.AddScripts(fmt.Sprintf(`printf '%%s\n' %[1]s > /etc/juju-proxy-systemd.conf`,
-			shquote(w.icfg.LegacyProxySettings.AsSystemdDefaultEnv())))
+	var proxySettings proxy.Settings
+	if w.icfg.JujuProxySettings.HasProxySet() {
+		proxySettings = w.icfg.JujuProxySettings
+	} else if w.icfg.LegacyProxySettings.HasProxySet() {
+		proxySettings = w.icfg.LegacyProxySettings
 	}
+	exportedProxyEnv := proxySettings.AsScriptEnvironment()
+	w.conf.AddScripts(strings.Split(exportedProxyEnv, "\n")...)
+	w.conf.AddScripts(
+		fmt.Sprintf(
+			`(printf '%%s\n' %s > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
+			shquote(w.icfg.LegacyProxySettings.AsScriptEnvironment())))
+
+	// Write out systemd proxy settings
+	w.conf.AddScripts(fmt.Sprintf(`printf '%%s\n' %[1]s > /etc/juju-proxy-systemd.conf`,
+		shquote(w.icfg.LegacyProxySettings.AsSystemdDefaultEnv())))
 
 	if w.icfg.Controller != nil && w.icfg.Controller.PublicImageSigningKey != "" {
 		keyFile := filepath.Join(agent.DefaultPaths.ConfDir, simplestreams.SimplestreamsPublicKeyFile)
