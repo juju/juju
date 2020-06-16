@@ -87,6 +87,13 @@ type commandWrapperSuite struct {
 
 var _ = gc.Suite(&commandWrapperSuite{})
 
+func (s *commandWrapperSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	PatchGetHostSeries(s, func() (string, error) {
+		return "bionic", nil
+	})
+}
+
 func (commandWrapperSuite) TestCreateNoHostname(c *gc.C) {
 	stub := NewRunStub("exit before this", nil)
 	p := CreateMachineParams{}
@@ -96,11 +103,42 @@ func (commandWrapperSuite) TestCreateNoHostname(c *gc.C) {
 }
 
 func (commandWrapperSuite) TestCreateMachineSuccess(c *gc.C) {
-	stub := NewRunStub("success", nil)
+	tmpDir, err := ioutil.TempDir("", "juju-libvirtSuite-")
+	c.Check(err, jc.ErrorIsNil)
+
+	want := []string{
+		tmpDir + ` genisoimage -output \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00-ds\.iso -volid cidata -joliet -rock user-data meta-data network-config`,
+		` qemu-img create -b \/tmp/juju-libvirtSuite-\d+\/kvm\/guests\/precise-arm64-backing-file.qcow -f qcow2 \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00.qcow 8G`,
+		` virsh define \/tmp\/juju-libvirtSuite-\d+\/host00.xml`,
+		" virsh start host00",
+	}
+
+	assertCreateMachineSuccess(c, tmpDir, want)
+}
+
+func (s *commandWrapperSuite) TestCreateMachineSuccessOnFocal(c *gc.C) {
+	PatchGetHostSeries(s, func() (string, error) {
+		return "focal", nil
+	})
 
 	tmpDir, err := ioutil.TempDir("", "juju-libvirtSuite-")
 	c.Check(err, jc.ErrorIsNil)
-	err = os.MkdirAll(filepath.Join(tmpDir, "kvm", "guests"), 0755)
+
+	want := []string{
+		tmpDir + ` genisoimage -output \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00-ds\.iso -volid cidata -joliet -rock user-data meta-data network-config`,
+		// On focal, the backing image format must be explicitly specified
+		// hence the '-F raw'
+		` qemu-img create -b \/tmp/juju-libvirtSuite-\d+\/kvm\/guests\/precise-arm64-backing-file.qcow -F raw -f qcow2 \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00.qcow 8G`,
+		` virsh define \/tmp\/juju-libvirtSuite-\d+\/host00.xml`,
+		" virsh start host00",
+	}
+
+	assertCreateMachineSuccess(c, tmpDir, want)
+}
+func assertCreateMachineSuccess(c *gc.C, tmpDir string, expCommands []string) {
+	stub := NewRunStub("success", nil)
+
+	err := os.MkdirAll(filepath.Join(tmpDir, "kvm", "guests"), 0755)
 	c.Check(err, jc.ErrorIsNil)
 	cloudInitPath := filepath.Join(tmpDir, "cloud-init")
 	userDataPath := filepath.Join(tmpDir, "user-data")
@@ -143,16 +181,9 @@ func (commandWrapperSuite) TestCreateMachineSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(b), gc.Equals, "this-is-network-config")
 
-	c.Check(len(stub.Calls()), gc.Equals, 4)
-	want := []string{
-		tmpDir + ` genisoimage -output \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00-ds\.iso -volid cidata -joliet -rock user-data meta-data network-config`,
-		` qemu-img create -b \/tmp/juju-libvirtSuite-\d+\/kvm\/guests\/precise-arm64-backing-file.qcow -f qcow2 \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00.qcow 8G`,
-		` virsh define \/tmp\/juju-libvirtSuite-\d+\/host00.xml`,
-		" virsh start host00",
-	}
-
+	c.Check(len(stub.Calls()), gc.Equals, len(expCommands))
 	for i, cmd := range stub.Calls() {
-		c.Check(cmd, gc.Matches, want[i])
+		c.Check(cmd, gc.Matches, expCommands[i])
 	}
 }
 
