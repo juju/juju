@@ -2678,7 +2678,7 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 		}
 	}
 
-	state.RunTransaction(c, s.State, ops)
+	state.RunTransaction(c, st, ops)
 
 	// test that we can find each doc in state
 	for _, collName := range state.MultiModelCollections() {
