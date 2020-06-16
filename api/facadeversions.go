@@ -107,7 +107,7 @@ var facadeVersions = map[string]int{
 	"Subnets":                      4,
 	"Undertaker":                   1,
 	"UnitAssigner":                 1,
-	"Uniter":                       15,
+	"Uniter":                       16,
 	"Upgrader":                     1,
 	"UpgradeSeries":                1,
 	"UpgradeSteps":                 2,

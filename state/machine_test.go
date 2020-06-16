@@ -1226,7 +1226,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
 	// This test is testing logic in watcher.entityWatcher, which
 	// is also used by:
-	//  Machine.WatchHardwareCharacteristics
+	//  Machine.WatchInstanceData
 	//  Application.Watch
 	//  Unit.Watch
 	//  State.WatchForModelConfigChanges

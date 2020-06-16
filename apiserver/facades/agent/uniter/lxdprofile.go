@@ -15,6 +15,11 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+// NOTE:
+// This file is for backward compatibility only!  The approach taken here for
+// charms with lxd profiles is completely different from the approach in
+// NewLXDProfileAPI.
+
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/lxdprofile.go github.com/juju/juju/apiserver/facades/agent/uniter LXDProfileBackend,LXDProfileMachine,LXDProfileUnit
 
 type LXDProfileBackend interface {

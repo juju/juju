@@ -2605,7 +2605,7 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
-	w := machine.WatchHardwareCharacteristics()
+	w := machine.WatchInstanceData()
 	defer statetesting.AssertStop(c, w)
 
 	// Initial event.
