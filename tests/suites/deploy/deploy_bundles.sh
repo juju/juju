@@ -31,6 +31,8 @@ run_deploy_cmr_bundle() {
     sed "s/{{BOOTSTRAPPED_JUJU_CTRL_NAME}}/${BOOTSTRAPPED_JUJU_CTRL_NAME}/g" "${bundle}" > "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
     juju deploy "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
 
+    wait_for "wordpress" "$(idle_condition "wordpress")"
+
     destroy_model "test-cmr-bundles-deploy"
     destroy_model "other"
 }
@@ -92,8 +94,8 @@ run_deploy_lxd_profile_bundle_openstack() {
     wait_for "neutron-api" "$(idle_condition "neutron-api" 4)"
     wait_for "neutron-gateway" "$(idle_condition "neutron-gateway" 5)"
     wait_for "nova-compute" "$(idle_condition "nova-compute" 8)"
-    wait_for "lxd" "$(idle_subordinate_condition "lxd" "nova-compute" 2)"
-    wait_for "neutron-openvswitch" "$(idle_subordinate_condition "neutron-openvswitch" "nova-compute" 6)"
+    wait_for "lxd" "$(idle_subordinate_condition "lxd" "nova-compute")"
+    wait_for "neutron-openvswitch" "$(idle_subordinate_condition "neutron-openvswitch" "nova-compute")"
     wait_for "nova-cloud-controller" "$(idle_condition "nova-cloud-controller" 7)"
 
     lxd_profile_name="juju-${model_name}-neutron-openvswitch"
