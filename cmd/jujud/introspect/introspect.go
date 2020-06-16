@@ -36,6 +36,11 @@ type IntrospectCommand struct {
 	IntrospectionSocketName func(names.Tag) string
 }
 
+// New initializes IntrospectCommand.
+func New(sockNameGetter func(names.Tag) string) cmd.Command {
+	return &IntrospectCommand{IntrospectionSocketName: sockNameGetter}
+}
+
 const introspectCommandDoc = `
 Introspect Juju agents running on this machine.
 
