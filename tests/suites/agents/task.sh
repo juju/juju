@@ -9,7 +9,7 @@ test_agents() {
     echo "==> Checking for dependencies"
     check_dependencies juju
 
-    file="${TEST_DIR}/test-agents.txt"
+    file="${TEST_DIR}/test-agents.log"
 
     JUJU_AGENT_TESTING_OPTIONS=CHARM_REVISION_UPDATE_INTERVAL=15s \
     bootstrap "test-agents" "${file}"

@@ -2,7 +2,7 @@
 run_deploy_local_charm_revision() {
   echo
 
-  file="${TEST_DIR}/local-charm-deploy-git.txt"
+  file="${TEST_DIR}/local-charm-deploy-git.log"
 
   ensure "local-charm-deploy" "${file}"
 
@@ -33,7 +33,7 @@ run_deploy_local_charm_revision() {
 run_deploy_local_charm_revision_no_vcs() {
   echo
 
-  file="${TEST_DIR}/local-charm-deploy-no-vcs.txt"
+  file="${TEST_DIR}/local-charm-deploy-no-vcs.log"
 
   ensure "local-charm-deploy-no-vcs" "${file}"
 
@@ -55,7 +55,7 @@ run_deploy_local_charm_revision_no_vcs() {
 run_deploy_local_charm_revision_no_vcs_but_version_file() {
   echo
 
-  file="${TEST_DIR}/local-charm-deploy-version-file.txt"
+  file="${TEST_DIR}/local-charm-deploy-version-file.log"
 
   ensure "local-charm-deploy-version-file" "${file}"
 
@@ -90,7 +90,7 @@ run_deploy_local_charm_revision_no_vcs_but_version_file() {
 run_deploy_local_charm_revision_relative_path() {
   echo
 
-  file="${TEST_DIR}/local-charm-deploy-relative-path.txt"
+  file="${TEST_DIR}/local-charm-deploy-relative-path.log"
 
   ensure "relative-path" "${file}"
 
@@ -130,7 +130,7 @@ run_deploy_local_charm_revision_relative_path() {
 run_deploy_local_charm_revision_invalid_git() {
   echo
 
-  file="${TEST_DIR}/local-charm-deploy-wrong-git.txt"
+  file="${TEST_DIR}/local-charm-deploy-wrong-git.log"
   ensure "local-charm-deploy-wrong-git" "${file}"
 
   TMP_CHARM_GIT=$(mktemp -d -t ci-XXXXXXXXXX)

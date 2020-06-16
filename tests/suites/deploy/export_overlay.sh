@@ -1,7 +1,7 @@
 run_cmr_bundles_export_overlay() {
     echo
 
-    file="${TEST_DIR}/test-cmr-bundles-export-overlay.txt"
+    file="${TEST_DIR}/test-cmr-bundles-export-overlay.log"
 
     ensure "cmr-bundles-test-export-overlay" "${file}"
 
@@ -16,13 +16,13 @@ run_cmr_bundles_export_overlay() {
 
     juju add-model test1
 
-    echo -n 'my-include' > example.txt
+    echo -n 'my-include' > example.log
     cat > overlay.yaml << EOT
 applications:
   wordpress:
     annotations:
-      raw: include-file://example.txt
-      enc: include-base64://example.txt
+      raw: include-file://example.log
+      enc: include-base64://example.log
 EOT
 
     juju deploy ./testcharms/charm-repo/bundle/multi-doc-overlays --overlay overlay.yaml

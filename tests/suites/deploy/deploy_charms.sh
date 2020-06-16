@@ -1,7 +1,7 @@
 run_deploy_charm() {
     echo
 
-    file="${TEST_DIR}/test-deploy-charm.txt"
+    file="${TEST_DIR}/test-deploy-charm.log"
 
     ensure "test-deploy-charm" "${file}"
 
@@ -14,7 +14,7 @@ run_deploy_charm() {
 run_deploy_lxd_profile_charm() {
     echo
 
-    file="${TEST_DIR}/test-deploy-lxd-profile.txt"
+    file="${TEST_DIR}/test-deploy-lxd-profile.log"
 
     ensure "test-deploy-lxd-profile" "${file}"
 
@@ -29,7 +29,7 @@ run_deploy_lxd_profile_charm() {
 run_deploy_lxd_profile_charm_container() {
     echo
 
-    file="${TEST_DIR}/test-deploy-lxd-profile.txt"
+    file="${TEST_DIR}/test-deploy-lxd-profile.log"
 
     ensure "test-deploy-lxd-profile-container" "${file}"
 
@@ -45,7 +45,7 @@ run_deploy_lxd_profile_charm_container() {
 run_deploy_local_lxd_profile_charm() {
     echo
 
-    file="${TEST_DIR}/test-deploy-local-lxd-profile.txt"
+    file="${TEST_DIR}/test-deploy-local-lxd-profile.log"
 
     ensure "test-deploy-local-lxd-profile" "${file}"
 
@@ -89,7 +89,7 @@ run_deploy_lxd_to_machine() {
     echo
 
     model_name="test-deploy-lxd-machine"
-    file="${TEST_DIR}/${model_name}.txt"
+    file="${TEST_DIR}/${model_name}.log"
 
     ensure "${model_name}" "${file}"
 
@@ -146,7 +146,7 @@ run_deploy_lxd_to_container() {
     echo
 
     model_name="test-deploy-lxd-container"
-    file="${TEST_DIR}/${model_name}.txt"
+    file="${TEST_DIR}/${model_name}.log"
 
     ensure "${model_name}" "${file}"
 
@@ -156,7 +156,7 @@ run_deploy_lxd_to_container() {
     wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
     INST_ID=$(juju status --format=json | jq -r ".machines | .[\"0\"] | .[\"instance-id\"]")
-    OUT=$(lxc exec ${INST_ID} -- sh -c "lxc profile show \"juju-test-deploy-lxd-container-lxd-profile-alt-0\"")
+    OUT=$(lxc exec "${INST_ID}" -- sh -c "lxc profile show \"juju-test-deploy-lxd-container-lxd-profile-alt-0\"")
     echo "${OUT}" | grep "linux.kernel_modules: nbd,ip_tables,ip6_tables"
 
     juju upgrade-charm "lxd-profile-alt" --path "${charm}"
@@ -168,7 +168,7 @@ run_deploy_lxd_to_container() {
 
     attempt=0
     while true; do
-        OUT=$(lxc exec ${INST_ID} -- sh -c "lxc profile show \"juju-test-deploy-lxd-container-lxd-profile-alt-1\"" || echo 'NOT FOUND')
+        OUT=$(lxc exec "${INST_ID}" -- sh -c "lxc profile show \"juju-test-deploy-lxd-container-lxd-profile-alt-1\"" || echo 'NOT FOUND')
         if echo "${OUT}" | grep -q "linux.kernel_modules: nbd,ip_tables,ip6_tables"; then
             break
         fi
@@ -184,7 +184,7 @@ run_deploy_lxd_to_container() {
     # Ensure that the old one is removed
     attempt=0
     while true; do
-        OUT=$(lxc exec ${INST_ID} -- sh -c "lxc profile list" || echo 'NOT FOUND')
+        OUT=$(lxc exec "${INST_ID}" -- sh -c "lxc profile list" || echo 'NOT FOUND')
         if echo "${OUT}" | grep -v "juju-test-deploy-lxd-container-lxd-profile-alt-0"; then
             break
         fi
@@ -210,17 +210,18 @@ test_deploy_charms() {
         cd .. || exit
 
         run "run_deploy_charm"
-        run "run_deploy_lxd_to_container"
         run "run_deploy_lxd_profile_charm_container"
 
         case "${BOOTSTRAP_PROVIDER:-}" in
             "lxd")
                 run "run_deploy_lxd_to_machine"
+                run "run_deploy_lxd_to_container"
                 run "run_deploy_lxd_profile_charm"
                 run "run_deploy_local_lxd_profile_charm"
                 ;;
             "localhost")
                 run "run_deploy_lxd_to_machine"
+                run "run_deploy_lxd_to_container"
                 run "run_deploy_lxd_profile_charm"
                 run "run_deploy_local_lxd_profile_charm"
                 ;;

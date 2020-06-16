@@ -1,7 +1,7 @@
 run_deploy_bundle() {
     echo
 
-    file="${TEST_DIR}/test-bundles-deploy.txt"
+    file="${TEST_DIR}/test-bundles-deploy.log"
 
     ensure "test-bundles-deploy" "${file}"
 
@@ -15,7 +15,7 @@ run_deploy_bundle() {
 run_deploy_cmr_bundle() {
     echo
 
-    file="${TEST_DIR}/test-cmr-bundles-deploy.txt"
+    file="${TEST_DIR}/test-cmr-bundles-deploy.log"
 
     ensure "test-cmr-bundles-deploy" "${file}"
 
@@ -40,7 +40,7 @@ run_deploy_cmr_bundle() {
 run_deploy_exported_bundle() {
     echo
 
-    file="${TEST_DIR}/test-export-bundles-deploy.txt"
+    file="${TEST_DIR}/test-export-bundles-deploy.log"
 
     ensure "test-export-bundles-deploy" "${file}"
 
@@ -58,7 +58,7 @@ run_deploy_exported_bundle() {
 run_deploy_trusted_bundle() {
     echo
 
-    file="${TEST_DIR}/test-trusted-bundles-deploy.txt"
+    file="${TEST_DIR}/test-trusted-bundles-deploy.log"
 
     ensure "test-trusted-bundles-deploy" "${file}"
 
@@ -80,7 +80,7 @@ run_deploy_lxd_profile_bundle_openstack() {
     echo
 
     model_name="test-deploy-lxd-profile-bundle-o7k"
-    file="${TEST_DIR}/${model_name}.txt"
+    file="${TEST_DIR}/${model_name}.log"
 
     ensure "${model_name}" "${file}"
 
@@ -113,7 +113,7 @@ run_deploy_lxd_profile_bundle() {
     echo
 
     model_name="test-deploy-lxd-profile-bundle"
-    file="${TEST_DIR}/${model_name}.txt"
+    file="${TEST_DIR}/${model_name}.log"
 
     ensure "${model_name}" "${file}"
 

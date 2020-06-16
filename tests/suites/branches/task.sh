@@ -9,7 +9,7 @@ test_branches() {
     echo "==> Checking for dependencies"
     check_dependencies juju
 
-    file="${TEST_DIR}/test-branch.txt"
+    file="${TEST_DIR}/test-branch.log"
 
     export JUJU_DEV_FEATURE_FLAGS=generations
 

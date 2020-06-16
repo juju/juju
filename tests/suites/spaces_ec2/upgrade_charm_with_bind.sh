@@ -1,7 +1,7 @@
 run_upgrade_charm_with_bind() {
     echo
 
-    file="${TEST_DIR}/test-upgrade-charm-with-bind-ec2.txt"
+    file="${TEST_DIR}/test-upgrade-charm-with-bind-ec2.log"
 
     ensure "spaces-upgrade-charm-with-bind-ec2" "${file}"
 
