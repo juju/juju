@@ -256,7 +256,11 @@ config:
 				status:       status.Waiting,
 				info:         status.MessageInitializingAgent,
 			},
-			verifyRunning{},
+			waitUnitAgent{
+				status: status.Failed,
+				info:   "resolver loop error",
+			},
+			expectError{".*some error occurred.*"},
 		),
 	})
 }
