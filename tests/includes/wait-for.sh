@@ -88,6 +88,17 @@ agent_status() {
     echo ".applications[\"$app\"].units[\"$app/$unit\"][\"juju-status\"]"
 }
 
+# charm_rev gets the current juju-status object for the application and uses it
+# to find the application charm-rev.
+charm_rev() {
+    local app rev
+
+    app=$1
+    rev=${2:-0}
+
+    echo ".applications | select(.[\"$app\"] | .[\"charm-rev\"] == $rev)"
+}
+
 # wait_for_machine_agent_status blocks until the machine agent for the specified
 # machine instance ID reports the requested status.
 #

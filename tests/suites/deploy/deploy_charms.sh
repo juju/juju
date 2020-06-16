@@ -85,6 +85,118 @@ run_deploy_local_lxd_profile_charm() {
     destroy_model "test-deploy-local-lxd-profile"
 }
 
+run_deploy_lxd_to_machine() {
+    echo
+
+    model_name="test-deploy-lxd-machine"
+    file="${TEST_DIR}/${model_name}.txt"
+
+    ensure "${model_name}" "${file}"
+
+    juju add-machine -n 1
+
+    charm=./tests/suites/deploy/charms/lxd-profile-alt
+    juju deploy "${charm}" --to 0
+
+    wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
+
+    lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-0" | \
+        grep "linux.kernel_modules: nbd,ip_tables,ip6_tables"
+
+    juju upgrade-charm "lxd-profile-alt" --path "${charm}"
+
+    # Ensure that an upgrade will be kicked off. This doesn't mean an upgrade
+    # has finished though, just started.
+    wait_for "lxd-profile-alt" "$(charm_rev "lxd-profile-alt" 1)"
+    wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
+
+    attempt=0
+    while true; do
+        OUT=$(lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-1" | grep "linux.kernel_modules: nbd,ip_tables,ip6_tables" || echo 'NOT FOUND')
+        if [ "${OUT}" != "NOT FOUND" ]; then
+            break
+        fi
+        attempt=$((attempt+1))
+        if [ $attempt -eq 10 ]; then
+             # shellcheck disable=SC2046
+             echo $(red "timeout: waiting for lxc profile to show 50sec")
+             exit 5
+        fi
+        sleep 1
+    done
+
+    # Ensure that the old one is removed
+    attempt=0
+    while true; do
+        OUT=$(lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-0" || echo 'NOT FOUND')
+        if [ "${OUT}" = "NOT FOUND" ]; then
+            break
+        fi
+        attempt=$((attempt+1))
+        if [ $attempt -eq 10 ]; then
+             # shellcheck disable=SC2046
+             echo $(red "timeout: waiting for lxc profile to show 50sec")
+             exit 5
+        fi
+        sleep 1
+    done
+}
+
+run_deploy_lxd_to_container() {
+    echo
+
+    model_name="test-deploy-lxd-container"
+    file="${TEST_DIR}/${model_name}.txt"
+
+    ensure "${model_name}" "${file}"
+
+    charm=./tests/suites/deploy/charms/lxd-profile-alt
+    juju deploy "${charm}" --to lxd
+
+    wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
+
+    juju run --application lxd-profile-alt -- su root && lxc profile show "juju-test-deploy-lxd-container-lxd-profile-alt-0" | \
+        grep "linux.kernel_modules: nbd,ip_tables,ip6_tables"
+
+    juju upgrade-charm "lxd-profile-alt" --path "${charm}"
+
+    # Ensure that an upgrade will be kicked off. This doesn't mean an upgrade
+    # has finished though, just started.
+    wait_for "lxd-profile-alt" "$(charm_rev "lxd-profile-alt" 1)"
+    wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
+
+    attempt=0
+    while true; do
+        OUT=$(juju run --application lxd-profile-alt -- su root && lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-1" | grep "linux.kernel_modules: nbd,ip_tables,ip6_tables" || echo 'NOT FOUND')
+        if [ "${OUT}" != "NOT FOUND" ]; then
+            break
+        fi
+        attempt=$((attempt+1))
+        if [ $attempt -eq 10 ]; then
+             # shellcheck disable=SC2046
+             echo $(red "timeout: waiting for lxc profile to show 50sec")
+             exit 5
+        fi
+        sleep 1
+    done
+
+    # Ensure that the old one is removed
+    attempt=0
+    while true; do
+        OUT=$(juju run --application lxd-profile-alt -- su root && lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-0" || echo 'NOT FOUND')
+        if [ "${OUT}" = "NOT FOUND" ]; then
+            break
+        fi
+        attempt=$((attempt+1))
+        if [ $attempt -eq 10 ]; then
+             # shellcheck disable=SC2046
+             echo $(red "timeout: waiting for lxc profile to show 50sec")
+             exit 5
+        fi
+        sleep 1
+    done
+}
+
 test_deploy_charms() {
     if [ "$(skip 'test_deploy_charms')" ]; then
         echo "==> TEST SKIPPED: deploy charms"
@@ -97,17 +209,21 @@ test_deploy_charms() {
         cd .. || exit
 
         run "run_deploy_charm"
+        run "run_deploy_lxd_to_container"
+        run "run_deploy_lxd_profile_charm_container"
+
         case "${BOOTSTRAP_PROVIDER:-}" in
             "lxd")
+                run "run_deploy_lxd_to_machine"
                 run "run_deploy_lxd_profile_charm"
                 run "run_deploy_local_lxd_profile_charm"
                 ;;
             "localhost")
+                run "run_deploy_lxd_to_machine"
                 run "run_deploy_lxd_profile_charm"
                 run "run_deploy_local_lxd_profile_charm"
                 ;;
             *)
-                run "run_deploy_lxd_profile_charm_container"
                 echo "==> TEST SKIPPED: deploy_local_lxd_profile_charm - tests for LXD only"
                 ;;
         esac
