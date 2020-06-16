@@ -44,7 +44,7 @@ func SetModelTypeToCAAS(c *gc.C, st *State, m *Model) {
 		Update: bson.D{{"$set", bson.D{{"type", ModelTypeCAAS}}}},
 	}}
 
-	c.Assert(st.db().RunTransaction(ops), jc.ErrorIsNil)
+	RunTransaction(c, st, ops)
 	c.Assert(m.refresh(m.UUID()), jc.ErrorIsNil)
 }
 
@@ -57,6 +57,11 @@ func AddTestingApplicationWithEmptyBindings(c *gc.C, st *State, name string, ch 
 		ch:   ch,
 	})
 
-	c.Assert(st.db().RunTransaction([]txn.Op{removeEndpointBindingsOp(app.globalKey())}), jc.ErrorIsNil)
+	RunTransaction(c, st, []txn.Op{removeEndpointBindingsOp(app.globalKey())})
 	return app
+}
+
+// RunTransaction exposes the transaction running capability of State.
+func RunTransaction(c *gc.C, st *State, ops []txn.Op) {
+	c.Assert(st.db().RunTransaction(ops), jc.ErrorIsNil)
 }

@@ -6,11 +6,14 @@ package instancepoller_test
 import (
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
@@ -21,11 +24,11 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type InstancePollerSuite struct {
-	coretesting.BaseSuite
+	testing.IsolationSuite
 
 	st         *mockState
 	api        *instancepoller.InstancePollerAPI
@@ -44,7 +47,7 @@ type InstancePollerSuite struct {
 var _ = gc.Suite(&InstancePollerSuite{})
 
 func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Controller: true,
@@ -116,7 +119,7 @@ func (s *InstancePollerSuite) TestModelConfigFailure(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestModelConfigSuccess(c *gc.C) {
-	modelConfig := coretesting.ModelConfig(c)
+	modelConfig := jujutesting.ModelConfig(c)
 	s.st.SetConfig(c, modelConfig)
 
 	result, err := s.api.ModelConfig()
@@ -160,7 +163,7 @@ func (s *InstancePollerSuite) TestWatchForModelConfigChangesSuccess(c *gc.C) {
 	s.st.CheckCallNames(c, "WatchForModelConfigChanges")
 
 	// Try changing the config to verify an event is reported.
-	modelConfig := coretesting.ModelConfig(c)
+	modelConfig := jujutesting.ModelConfig(c)
 	s.st.SetConfig(c, modelConfig)
 	wc.AssertOneChange()
 }
@@ -638,9 +641,9 @@ func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 
 	now := s.clock.Now()
 	s.st.CheckMachineCall(c, 0, "1")
-	s.st.CheckCall(c, 1, "SetInstanceStatus", status.StatusInfo{Status: status.Status(""), Since: &now})
+	s.st.CheckCall(c, 1, "SetInstanceStatus", status.StatusInfo{Status: "", Since: &now})
 	s.st.CheckMachineCall(c, 2, "2")
-	s.st.CheckCall(c, 3, "SetInstanceStatus", status.StatusInfo{Status: status.Status("new status"), Since: &now})
+	s.st.CheckCall(c, 3, "SetInstanceStatus", status.StatusInfo{Status: "new status", Since: &now})
 	s.st.CheckMachineCall(c, 4, "42")
 
 	// Ensure machines were updated.
@@ -741,11 +744,8 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
-	s.st.SetSpaceInfo(network.SpaceInfos{
-		{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName},
-		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{CIDR: "10.0.0.0/24"}}},
-		{ID: "2", Name: "my-space-on-maas", Subnets: []network.SubnetInfo{{CIDR: "10.73.37.0/24", ProviderId: "my-space-on-maas"}}},
-	})
+	s.setDefaultSpaceInfo()
+
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
 
 	results, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
@@ -826,11 +826,8 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkConfigNoChange(c *gc.C) {
-	s.st.SetSpaceInfo(network.SpaceInfos{
-		{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName},
-		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{CIDR: "10.0.0.0/24"}}},
-		{ID: "2", Name: "my-space-on-maas", Subnets: []network.SubnetInfo{{CIDR: "10.73.37.0/24", ProviderId: "my-space-on-maas"}}},
-	})
+	s.setDefaultSpaceInfo()
+
 	s.st.SetMachineInfo(c, machineInfo{
 		id:             "1",
 		instanceStatus: statusInfo("foo"),
@@ -908,105 +905,122 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNoChange(c *gc.C) {
 	})
 }
 
-func (s *InstancePollerSuite) TestSetProviderNetworkConfigBackfillsProviderIDs(c *gc.C) {
-	s.st.SetSpaceInfo(network.SpaceInfos{
-		{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName},
-		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{CIDR: "10.0.0.0/24"}}},
-		{ID: "2", Name: "my-space-on-maas", Subnets: []network.SubnetInfo{{CIDR: "10.73.37.0/24", ProviderId: "my-space-on-maas"}}},
-	})
-	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
-	s.st.SetMachineLinkLayerDevices(c, "1", []instancepoller.StateLinkLayerDevice{
-		// This device will be matched and its provider IDs backfilled
-		mockLinkLayerDevice{
-			name:        "foo0",
-			mtu:         1234,
-			devType:     network.EthernetDevice,
-			macAddress:  "aa:bb:cc:dd:ee:ff",
-			isAutoStart: true,
-			isUp:        true,
-			parentName:  "bond0",
-			addresses: []instancepoller.StateLinkLayerDeviceAddress{
-				&mockLinkLayerDeviceAddress{
-					configMethod:     network.StaticAddress,
-					subnetCIDR:       "172.31.32.0/24",
-					dnsServers:       []string{"1.1.1.1"},
-					dnsSearchDomains: []string{"cloud"},
-					gatewayAddress:   "172.31.32.1",
-					isDefaultGateway: true,
-					value:            "172.31.32.33",
-				},
-			},
-		},
-		// This device will not be matched
-		mockLinkLayerDevice{
-			name:        "lo",
-			mtu:         1234,
-			devType:     network.EthernetDevice,
-			macAddress:  "aa:bb:cc:dd:ee:00",
-			isAutoStart: true,
-			addresses: []instancepoller.StateLinkLayerDeviceAddress{
-				&mockLinkLayerDeviceAddress{
-					configMethod:     network.LoopbackAddress,
-					subnetCIDR:       "127.0.0.0/24",
-					dnsServers:       []string{"1.1.1.1"},
-					dnsSearchDomains: []string{"cloud"},
-					gatewayAddress:   "172.31.32.1",
-					isDefaultGateway: false,
-					value:            "127.0.0.1",
-				},
-			},
-		},
+func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.setDefaultSpaceInfo()
+
+	// Hardware address not matched.
+	dev := instancepoller.NewMockStateLinkLayerDevice(ctrl)
+	dev.EXPECT().MACAddress().Return("01:01:01:01:01:01")
+	dev.EXPECT().Name().Return("eth0")
+
+	// Address should be set back to machine origin.
+	addr := instancepoller.NewMockStateLinkLayerDeviceAddress(ctrl)
+	addr.EXPECT().DeviceName().Return("eth0")
+	addr.EXPECT().SetOriginOps(network.OriginMachine).Return([]txn.Op{{C: "address-origin-manual"}})
+
+	s.st.SetMachineInfo(c, machineInfo{
+		id:               "1",
+		instanceStatus:   statusInfo("foo"),
+		linkLayerDevices: []instancepoller.StateLinkLayerDevice{dev},
+		addresses:        []instancepoller.StateLinkLayerDeviceAddress{addr},
 	})
 
-	results, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
+	result, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{
 			{
-				Tag: "machine-1",
-				Configs: []params.NetworkConfig{
-					{
-						ProviderId:        "eni-1234",
-						ProviderAddressId: "addr-404",
-						ProviderSubnetId:  "subnet-f00f",
-						ProviderNetworkId: "net-cafe",
-						Addresses: []params.Address{
-							{
-								Value: "172.31.32.33",
-								Scope: "local-cloud",
-							},
-						},
-					},
-				},
+				Tag:     "machine-1",
+				Configs: []params.NetworkConfig{{MACAddress: "00:00:00:00:00:00"}},
 			},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	result := results.Results[0]
-	c.Assert(result.Modified, jc.IsTrue)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
 
-	// Verify that the provider IDs were indeed backfilled for the matched
-	// ethernet device.
-	s.st.CheckCall(c, 6, "SetParentLinkLayerDevicesBeforeTheirChildren", state.LinkLayerDeviceArgs{
-		Name:        "foo0",
-		MTU:         1234,
-		ProviderID:  "eni-1234", // backfilled
-		Type:        network.EthernetDevice,
-		MACAddress:  "aa:bb:cc:dd:ee:ff",
-		IsAutoStart: true,
-		IsUp:        true,
-		ParentName:  "bond0",
+	var buildCalled bool
+	for _, call := range s.st.Calls() {
+		if call.FuncName == "ApplyOperation.Build" {
+			buildCalled = true
+			c.Check(call.Args, gc.DeepEquals, []interface{}{[]txn.Op{
+				{C: "machine-alive"},
+				{C: "address-origin-manual"},
+			}})
+		}
+	}
+	c.Assert(buildCalled, jc.IsTrue)
+}
+
+func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.setDefaultSpaceInfo()
+
+	// Hardware address will match; prover ID will be set.
+	dev := instancepoller.NewMockStateLinkLayerDevice(ctrl)
+	dExp := dev.EXPECT()
+	dExp.MACAddress().Return("00:00:00:00:00:00").Times(2)
+	dExp.Name().Return("eth0")
+	dExp.ProviderID().Return(network.Id(""))
+	dExp.SetProviderIDOps(network.Id("p-dev")).Return([]txn.Op{{C: "dev-provider-id"}}, nil)
+
+	// Address matched on device/value will have provider IDs set.
+	addr := instancepoller.NewMockStateLinkLayerDeviceAddress(ctrl)
+	aExp := addr.EXPECT()
+	aExp.DeviceName().Return("eth0")
+	aExp.Value().Return("10.0.0.42")
+	aExp.SetProviderIDOps(network.Id("p-addr")).Return([]txn.Op{{C: "addr-provider-id"}}, nil)
+
+	s.st.SetMachineInfo(c, machineInfo{
+		id:               "1",
+		instanceStatus:   statusInfo("foo"),
+		linkLayerDevices: []instancepoller.StateLinkLayerDevice{dev},
+		addresses:        []instancepoller.StateLinkLayerDeviceAddress{addr},
 	})
-	s.st.CheckCall(c, 8, "SetDevicesAddressesIdempotently", state.LinkLayerDeviceAddress{
-		DeviceName:        "foo0",
-		ConfigMethod:      network.StaticAddress,
-		ProviderID:        "addr-404",    // backfilled
-		ProviderNetworkID: "net-cafe",    // backfilled
-		ProviderSubnetID:  "subnet-f00f", //backfilled
-		CIDRAddress:       "172.31.32.33/24",
-		DNSServers:        []string{"1.1.1.1"},
-		DNSSearchDomains:  []string{"cloud"},
-		GatewayAddress:    "172.31.32.1",
-		IsDefaultGateway:  true,
+
+	result, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
+		Args: []params.ProviderNetworkConfig{
+			{
+				Tag: "machine-1",
+				Configs: []params.NetworkConfig{{
+					// This should still be matched based on hardware address.
+					InterfaceName:     "some-provider-esoteria",
+					MACAddress:        "00:00:00:00:00:00",
+					ProviderId:        "p-dev",
+					ProviderAddressId: "p-addr",
+					Addresses:         []params.Address{{Value: "10.0.0.42"}},
+				}},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	var buildCalled bool
+	for _, call := range s.st.Calls() {
+		if call.FuncName == "ApplyOperation.Build" {
+			buildCalled = true
+			c.Check(call.Args, gc.DeepEquals, []interface{}{[]txn.Op{
+				{C: "machine-alive"},
+				{C: "dev-provider-id"},
+				{C: "addr-provider-id"},
+			}})
+		}
+	}
+	c.Assert(buildCalled, jc.IsTrue)
+}
+
+func (s *InstancePollerSuite) setDefaultSpaceInfo() {
+	s.st.SetSpaceInfo(network.SpaceInfos{
+		{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName},
+		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{CIDR: "10.0.0.0/24"}}},
+		{ID: "2", Name: "my-space-on-maas", Subnets: []network.SubnetInfo{
+			{CIDR: "10.73.37.0/24", ProviderId: "my-space-on-maas"},
+		}},
 	})
 }
 
