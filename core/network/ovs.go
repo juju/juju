@@ -30,13 +30,11 @@ func OvsManagedBridgeInterfaces(ifaceList InterfaceInfos) (InterfaceInfos, error
 // OvsManagedBridges returns a set containing the names of all bridge
 // interfaces that are managed by openvswitch.
 func OvsManagedBridges() (set.Strings, error) {
-	if _, err := exec.LookPath("ovs-vsctl"); err != nil {
-		// ovs tools not installed; nothing to do
-		if execErr, isExecErr := err.(*exec.Error); isExecErr && execErr.Unwrap() == exec.ErrNotFound {
-			return nil, nil
-		}
-
-		return nil, errors.Annotate(err, "looking for ovs-vsctl")
+	haveOvsCli, err := ovsToolsAvailable()
+	if err != nil {
+		return nil, errors.Trace(err)
+	} else if !haveOvsCli { // nothing to do if the tools are missing
+		return nil, nil
 	}
 
 	// Query list of ovs-managed device names
@@ -52,4 +50,34 @@ func OvsManagedBridges() (set.Strings, error) {
 		}
 	}
 	return ovsBridges, nil
+}
+
+// MaybeRemovePortFromOvsBridge attempts to remove portName from any openvswitch
+// bridge that it is attached to. If portName does not exist, this is a no-op.
+func MaybeRemovePortFromOvsBridge(portName string) error {
+	haveOvsCli, err := ovsToolsAvailable()
+	if err != nil {
+		return errors.Trace(err)
+	} else if !haveOvsCli { // nothing to do if the tools are missing
+		return nil
+	}
+
+	logger.Debugf("remove port from all OVS bridges: ovs-vsctl --if-exists del-port %s", portName)
+	if _, err = getCommandOutput(exec.Command("ovs-vsctl", "--if-exists", "del-port", portName)); err != nil {
+		return errors.Annotate(err, "deleting port from ovs-managed bridge via ovs-vsctl")
+	}
+	return nil
+}
+
+func ovsToolsAvailable() (bool, error) {
+	if _, err := exec.LookPath("ovs-vsctl"); err != nil {
+		// OVS tools not installed
+		if execErr, isExecErr := err.(*exec.Error); isExecErr && execErr.Unwrap() == exec.ErrNotFound {
+			return false, nil
+		}
+
+		return false, errors.Annotate(err, "looking for ovs-vsctl")
+	}
+
+	return true, nil
 }
