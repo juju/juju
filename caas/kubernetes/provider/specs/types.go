@@ -88,6 +88,7 @@ type PodSpec struct {
 	ReadinessGates                []core.PodReadinessGate  `json:"readinessGates,omitempty" yaml:"readinessGates,omitempty"`
 	DNSPolicy                     core.DNSPolicy           `json:"dnsPolicy,omitempty" yaml:"dnsPolicy,omitempty"`
 	HostNetwork                   bool                     `json:"hostNetwork,omitempty" yaml:"hostNetwork,omitempty"`
+	HostPID                       bool                     `json:"hostPID,omitempty" yaml:"hostPID,omitempty"`
 }
 
 // IsEmpty checks if PodSpec is empty or not.
