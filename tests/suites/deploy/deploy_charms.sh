@@ -1,7 +1,7 @@
 run_deploy_charm() {
     echo
 
-    file="${TEST_DIR}/test-deploy-charm.txt"
+    file="${TEST_DIR}/test-deploy-charm.log"
 
     ensure "test-deploy-charm" "${file}"
 
@@ -14,7 +14,7 @@ run_deploy_charm() {
 run_deploy_lxd_profile_charm() {
     echo
 
-    file="${TEST_DIR}/test-deploy-lxd-profile.txt"
+    file="${TEST_DIR}/test-deploy-lxd-profile.log"
 
     ensure "test-deploy-lxd-profile" "${file}"
 
@@ -29,7 +29,7 @@ run_deploy_lxd_profile_charm() {
 run_deploy_lxd_profile_charm_container() {
     echo
 
-    file="${TEST_DIR}/test-deploy-lxd-profile.txt"
+    file="${TEST_DIR}/test-deploy-lxd-profile.log"
 
     ensure "test-deploy-lxd-profile-container" "${file}"
 
@@ -45,7 +45,7 @@ run_deploy_lxd_profile_charm_container() {
 run_deploy_local_lxd_profile_charm() {
     echo
 
-    file="${TEST_DIR}/test-deploy-local-lxd-profile.txt"
+    file="${TEST_DIR}/test-deploy-local-lxd-profile.log"
 
     ensure "test-deploy-local-lxd-profile" "${file}"
 
@@ -89,7 +89,7 @@ run_deploy_lxd_to_machine() {
     echo
 
     model_name="test-deploy-lxd-machine"
-    file="${TEST_DIR}/${model_name}.txt"
+    file="${TEST_DIR}/${model_name}.log"
 
     ensure "${model_name}" "${file}"
 
@@ -101,7 +101,7 @@ run_deploy_lxd_to_machine() {
     wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
     lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-0" | \
-        grep "linux.kernel_modules: nbd,ip_tables,ip6_tables"
+        grep "linux.kernel_modules: ip_tables,ip6_tables"
 
     juju upgrade-charm "lxd-profile-alt" --path "${charm}"
 
@@ -112,7 +112,7 @@ run_deploy_lxd_to_machine() {
 
     attempt=0
     while true; do
-        OUT=$(lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-1" | grep "linux.kernel_modules: nbd,ip_tables,ip6_tables" || echo 'NOT FOUND')
+        OUT=$(lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-1" | grep "linux.kernel_modules: ip_tables,ip6_tables" || echo 'NOT FOUND')
         if [ "${OUT}" != "NOT FOUND" ]; then
             break
         fi
@@ -122,7 +122,7 @@ run_deploy_lxd_to_machine() {
              echo $(red "timeout: waiting for lxc profile to show 50sec")
              exit 5
         fi
-        sleep 1
+        sleep 5
     done
 
     # Ensure that the old one is removed
@@ -138,7 +138,7 @@ run_deploy_lxd_to_machine() {
              echo $(red "timeout: waiting for lxc profile to show 50sec")
              exit 5
         fi
-        sleep 1
+        sleep 5
     done
 }
 
@@ -146,7 +146,7 @@ run_deploy_lxd_to_container() {
     echo
 
     model_name="test-deploy-lxd-container"
-    file="${TEST_DIR}/${model_name}.txt"
+    file="${TEST_DIR}/${model_name}.log"
 
     ensure "${model_name}" "${file}"
 
@@ -155,8 +155,8 @@ run_deploy_lxd_to_container() {
 
     wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
-    juju run --application lxd-profile-alt -- su root && lxc profile show "juju-test-deploy-lxd-container-lxd-profile-alt-0" | \
-        grep "linux.kernel_modules: nbd,ip_tables,ip6_tables"
+    OUT=$(juju run --machine 0 -- sh -c "sudo lxc profile show \"juju-test-deploy-lxd-container-lxd-profile-alt-0\"")
+    echo "${OUT}" | grep "linux.kernel_modules: ip_tables,ip6_tables"
 
     juju upgrade-charm "lxd-profile-alt" --path "${charm}"
 
@@ -167,8 +167,8 @@ run_deploy_lxd_to_container() {
 
     attempt=0
     while true; do
-        OUT=$(juju run --application lxd-profile-alt -- su root && lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-1" | grep "linux.kernel_modules: nbd,ip_tables,ip6_tables" || echo 'NOT FOUND')
-        if [ "${OUT}" != "NOT FOUND" ]; then
+        OUT=$(juju run --machine 0 -- sh -c "sudo lxc profile show \"juju-test-deploy-lxd-container-lxd-profile-alt-1\"" || echo 'NOT FOUND')
+        if echo "${OUT}" | grep -q "linux.kernel_modules: ip_tables,ip6_tables"; then
             break
         fi
         attempt=$((attempt+1))
@@ -177,14 +177,14 @@ run_deploy_lxd_to_container() {
              echo $(red "timeout: waiting for lxc profile to show 50sec")
              exit 5
         fi
-        sleep 1
+        sleep 5
     done
 
     # Ensure that the old one is removed
     attempt=0
     while true; do
-        OUT=$(juju run --application lxd-profile-alt -- su root && lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-0" || echo 'NOT FOUND')
-        if [ "${OUT}" = "NOT FOUND" ]; then
+        OUT=$(juju run --machine 0 -- sh -c "sudo lxc profile list" || echo 'NOT FOUND')
+        if echo "${OUT}" | grep -v "juju-test-deploy-lxd-container-lxd-profile-alt-0"; then
             break
         fi
         attempt=$((attempt+1))
@@ -193,7 +193,7 @@ run_deploy_lxd_to_container() {
              echo $(red "timeout: waiting for lxc profile to show 50sec")
              exit 5
         fi
-        sleep 1
+        sleep 5
     done
 }
 

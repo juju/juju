@@ -9,7 +9,7 @@ test_cli() {
     echo "==> Checking for dependencies"
     check_dependencies juju
 
-    file="${TEST_DIR}/test-cli.txt"
+    file="${TEST_DIR}/test-cli.log"
 
     bootstrap "test-cli" "${file}"
 

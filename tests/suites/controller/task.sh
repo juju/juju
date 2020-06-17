@@ -9,7 +9,7 @@ test_controller() {
     echo "==> Checking for dependencies"
     check_dependencies juju
 
-    file="${TEST_DIR}/test-controller.txt"
+    file="${TEST_DIR}/test-controller.log"
 
     bootstrap "test-controller" "${file}"
 

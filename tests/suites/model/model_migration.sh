@@ -5,7 +5,7 @@ run_model_migration() {
     echo
 
     # The following ensures that a bootstrap juju exists.
-    file="${TEST_DIR}/test-model-migration.txt"
+    file="${TEST_DIR}/test-model-migration.log"
     ensure "model-migration" "${file}"
 
     # Ensure we have another controller available.
@@ -41,7 +41,7 @@ run_model_migration_saas_common() {
     echo
 
     # The following ensures that a bootstrap juju exists.
-    file="${TEST_DIR}/test-model-migration-saas-common.txt"
+    file="${TEST_DIR}/test-model-migration-saas-common.log"
     ensure "model-migration-saas" "${file}"
 
     # Ensure we have another controller available.
@@ -100,7 +100,7 @@ run_model_migration_saas_external() {
     echo
 
     # The following ensures that a bootstrap juju exists.
-    file="${TEST_DIR}/test-model-migration-saas-external.txt"
+    file="${TEST_DIR}/test-model-migration-saas-external.log"
     ensure "model-migration-saas" "${file}"
 
     # Ensure we have controllers for the consuming model
@@ -161,7 +161,7 @@ run_model_migration_saas_consumer() {
     echo
 
     # The following ensures that a bootstrap juju exists.
-    file="${TEST_DIR}/test-model-migration-saas-consumer.txt"
+    file="${TEST_DIR}/test-model-migration-saas-consumer.log"
     ensure "model-migration-saas" "${file}"
 
     # Ensure we have controllers for the consuming model
@@ -247,7 +247,7 @@ bootstrap_alt_controller() {
     START_TIME=$(date +%s)
     echo "====> Bootstrapping ${name}"
 
-    file="${TEST_DIR}/${name}.txt"
+    file="${TEST_DIR}/${name}.log"
     juju_bootstrap "${BOOTSTRAP_PROVIDER}" "${name}" "misc" "${file}"
 
     END_TIME=$(date +%s)

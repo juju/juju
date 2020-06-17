@@ -9,7 +9,7 @@ test_appdata() {
     echo "==> Checking for dependencies"
     check_dependencies juju
 
-    file="${TEST_DIR}/test-appdata.txt"
+    file="${TEST_DIR}/test-appdata.log"
 
     bootstrap "test-appdata" "${file}"
 

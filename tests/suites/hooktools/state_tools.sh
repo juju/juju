@@ -2,7 +2,7 @@ run_state_delete_get_set() {
     echo
 
     model_name="test-state-delete-get-set"
-    file="${TEST_DIR}/${model_name}.txt"
+    file="${TEST_DIR}/${model_name}.log"
 
     ensure "${model_name}" "${file}"
 
@@ -30,7 +30,7 @@ run_state_set_clash_uniter_state() {
     echo
 
     model_name="test-state-set-clash-uniter-state"
-    file="${TEST_DIR}/${model_name}.txt"
+    file="${TEST_DIR}/${model_name}.log"
 
     ensure "${model_name}" "${file}"
 

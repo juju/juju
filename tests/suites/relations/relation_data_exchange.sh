@@ -2,7 +2,7 @@ run_relation_data_exchange() {
     echo
 
     model_name="test-relation-data-exchange"
-    file="${TEST_DIR}/${model_name}.txt"
+    file="${TEST_DIR}/${model_name}.log"
 
     ensure "${model_name}" "${file}"
 

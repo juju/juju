@@ -1,7 +1,7 @@
 run_deploy_bundle() {
     echo
 
-    file="${TEST_DIR}/test-bundles-deploy.txt"
+    file="${TEST_DIR}/test-bundles-deploy.log"
 
     ensure "test-bundles-deploy" "${file}"
 
@@ -15,7 +15,7 @@ run_deploy_bundle() {
 run_deploy_cmr_bundle() {
     echo
 
-    file="${TEST_DIR}/test-cmr-bundles-deploy.txt"
+    file="${TEST_DIR}/test-cmr-bundles-deploy.log"
 
     ensure "test-cmr-bundles-deploy" "${file}"
 
@@ -31,6 +31,8 @@ run_deploy_cmr_bundle() {
     sed "s/{{BOOTSTRAPPED_JUJU_CTRL_NAME}}/${BOOTSTRAPPED_JUJU_CTRL_NAME}/g" "${bundle}" > "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
     juju deploy "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
 
+    wait_for "wordpress" "$(idle_condition "wordpress")"
+
     destroy_model "test-cmr-bundles-deploy"
     destroy_model "other"
 }
@@ -38,7 +40,7 @@ run_deploy_cmr_bundle() {
 run_deploy_exported_bundle() {
     echo
 
-    file="${TEST_DIR}/test-export-bundles-deploy.txt"
+    file="${TEST_DIR}/test-export-bundles-deploy.log"
 
     ensure "test-export-bundles-deploy" "${file}"
 
@@ -56,7 +58,7 @@ run_deploy_exported_bundle() {
 run_deploy_trusted_bundle() {
     echo
 
-    file="${TEST_DIR}/test-trusted-bundles-deploy.txt"
+    file="${TEST_DIR}/test-trusted-bundles-deploy.log"
 
     ensure "test-trusted-bundles-deploy" "${file}"
 
@@ -78,7 +80,7 @@ run_deploy_lxd_profile_bundle_openstack() {
     echo
 
     model_name="test-deploy-lxd-profile-bundle-o7k"
-    file="${TEST_DIR}/${model_name}.txt"
+    file="${TEST_DIR}/${model_name}.log"
 
     ensure "${model_name}" "${file}"
 
@@ -92,8 +94,8 @@ run_deploy_lxd_profile_bundle_openstack() {
     wait_for "neutron-api" "$(idle_condition "neutron-api" 4)"
     wait_for "neutron-gateway" "$(idle_condition "neutron-gateway" 5)"
     wait_for "nova-compute" "$(idle_condition "nova-compute" 8)"
-    wait_for "lxd" "$(idle_subordinate_condition "lxd" "nova-compute" 2)"
-    wait_for "neutron-openvswitch" "$(idle_subordinate_condition "neutron-openvswitch" "nova-compute" 6)"
+    wait_for "lxd" "$(idle_subordinate_condition "lxd" "nova-compute")"
+    wait_for "neutron-openvswitch" "$(idle_subordinate_condition "neutron-openvswitch" "nova-compute")"
     wait_for "nova-cloud-controller" "$(idle_condition "nova-cloud-controller" 7)"
 
     lxd_profile_name="juju-${model_name}-neutron-openvswitch"
@@ -111,7 +113,7 @@ run_deploy_lxd_profile_bundle() {
     echo
 
     model_name="test-deploy-lxd-profile-bundle"
-    file="${TEST_DIR}/${model_name}.txt"
+    file="${TEST_DIR}/${model_name}.log"
 
     ensure "${model_name}" "${file}"
 

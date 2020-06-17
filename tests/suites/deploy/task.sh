@@ -9,7 +9,7 @@ test_deploy() {
     echo "==> Checking for dependencies"
     check_dependencies juju
 
-    file="${TEST_DIR}/test-deploy-ctl.txt"
+    file="${TEST_DIR}/test-deploy-ctl.log"
 
     bootstrap "test-deploy-ctl" "${file}"
 
