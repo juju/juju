@@ -158,10 +158,11 @@ func generateOSElement(p domainParams) OS {
 // generateFeaturesElement generates the appropriate features element based on
 // the architecture.
 func generateFeaturesElement(p domainParams) *Features {
+	f := new(Features)
 	if p.Arch() == arch.ARM64 {
-		return &Features{GIC: &GIC{Version: "host"}}
+		f.GIC = &GIC{Version: "host"}
 	}
-	return nil
+	return f
 }
 
 // generateCPU infor generates any model/fallback related settings. These are
@@ -235,11 +236,11 @@ type NVRAMCode struct {
 	Type     string `xml:"type,attr,omitempty"`
 }
 
-// Features is only generated for ARM64 at the time of this writing. This is
-// because GIC is required for ARM64.
-// See: https://libvirt.org/formatdomain.html#elementsFeatures
+// Features allows us to request one or more hypervisor features to be toggled
+// on/off. See: https://libvirt.org/formatdomain.html#elementsFeatures
 type Features struct {
-	GIC *GIC `xml:"gic,omitempty"`
+	GIC  *GIC   `xml:"gic,omitempty"`
+	ACPI string `xml:"acpi"`
 }
 
 // GIC is the Generic Interrupt Controller and is required to UEFI boot on
