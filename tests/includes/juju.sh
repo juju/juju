@@ -313,8 +313,8 @@ introspect_controller() {
         return
     fi
 
-    echo "${idents}" | xargs -I % juju ssh -m "${name}:controller" % bash -lc "juju_engine_report" > "${TEST_DIR}/${name}-juju_engine_reports.log"
-    echo "${idents}" | xargs -I % juju ssh -m "${name}:controller" % bash -lc "juju_goroutines" > "${TEST_DIR}/${name}-juju_goroutines.log"
+    echo "${idents}" | xargs -I % juju ssh -m "${name}:controller" % bash -lc "juju_engine_report" > "${TEST_DIR}/${name}-juju_engine_reports.log" 2>/dev/null
+    echo "${idents}" | xargs -I % juju ssh -m "${name}:controller" % bash -lc "juju_goroutines" > "${TEST_DIR}/${name}-juju_goroutines.log" 2>/dev/null
 }
 
 remove_controller_offers() {

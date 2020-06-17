@@ -101,7 +101,7 @@ run_deploy_lxd_to_machine() {
     wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
     lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-0" | \
-        grep "linux.kernel_modules: nbd,ip_tables,ip6_tables"
+        grep "linux.kernel_modules: ip_tables,ip6_tables"
 
     juju upgrade-charm "lxd-profile-alt" --path "${charm}"
 
@@ -112,7 +112,7 @@ run_deploy_lxd_to_machine() {
 
     attempt=0
     while true; do
-        OUT=$(lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-1" | grep "linux.kernel_modules: nbd,ip_tables,ip6_tables" || echo 'NOT FOUND')
+        OUT=$(lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-1" | grep "linux.kernel_modules: ip_tables,ip6_tables" || echo 'NOT FOUND')
         if [ "${OUT}" != "NOT FOUND" ]; then
             break
         fi
@@ -155,9 +155,8 @@ run_deploy_lxd_to_container() {
 
     wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
-    INST_ID=$(juju status --format=json | jq -r ".machines | .[\"0\"] | .[\"instance-id\"]")
-    OUT=$(lxc exec "${INST_ID}" -- sh -c "lxc profile show \"juju-test-deploy-lxd-container-lxd-profile-alt-0\"")
-    echo "${OUT}" | grep "linux.kernel_modules: nbd,ip_tables,ip6_tables"
+    OUT=$(juju run --machine 0 -- sh -c "sudo lxc profile show \"juju-test-deploy-lxd-container-lxd-profile-alt-0\"")
+    echo "${OUT}" | grep "linux.kernel_modules: ip_tables,ip6_tables"
 
     juju upgrade-charm "lxd-profile-alt" --path "${charm}"
 
@@ -168,8 +167,8 @@ run_deploy_lxd_to_container() {
 
     attempt=0
     while true; do
-        OUT=$(lxc exec "${INST_ID}" -- sh -c "lxc profile show \"juju-test-deploy-lxd-container-lxd-profile-alt-1\"" || echo 'NOT FOUND')
-        if echo "${OUT}" | grep -q "linux.kernel_modules: nbd,ip_tables,ip6_tables"; then
+        OUT=$(juju run --machine 0 -- sh -c "sudo lxc profile show \"juju-test-deploy-lxd-container-lxd-profile-alt-1\"" || echo 'NOT FOUND')
+        if echo "${OUT}" | grep -q "linux.kernel_modules: ip_tables,ip6_tables"; then
             break
         fi
         attempt=$((attempt+1))
@@ -184,7 +183,7 @@ run_deploy_lxd_to_container() {
     # Ensure that the old one is removed
     attempt=0
     while true; do
-        OUT=$(lxc exec "${INST_ID}" -- sh -c "lxc profile list" || echo 'NOT FOUND')
+        OUT=$(juju run --machine 0 -- sh -c "sudo lxc profile list" || echo 'NOT FOUND')
         if echo "${OUT}" | grep -v "juju-test-deploy-lxd-container-lxd-profile-alt-0"; then
             break
         fi
@@ -210,18 +209,17 @@ test_deploy_charms() {
         cd .. || exit
 
         run "run_deploy_charm"
+        run "run_deploy_lxd_to_container"
         run "run_deploy_lxd_profile_charm_container"
 
         case "${BOOTSTRAP_PROVIDER:-}" in
             "lxd")
                 run "run_deploy_lxd_to_machine"
-                run "run_deploy_lxd_to_container"
                 run "run_deploy_lxd_profile_charm"
                 run "run_deploy_local_lxd_profile_charm"
                 ;;
             "localhost")
                 run "run_deploy_lxd_to_machine"
-                run "run_deploy_lxd_to_container"
                 run "run_deploy_lxd_profile_charm"
                 run "run_deploy_local_lxd_profile_charm"
                 ;;
