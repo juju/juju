@@ -7,7 +7,9 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"os"
 
+	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -84,6 +86,16 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return series.DefaultSupportedLTS() })
+	// Use the real ec2 session if we are running with real creds.
+	accessKey := os.Getenv("AWS_ACCESS_KEY_ID")
+	if accessKey == "" {
+		t.BaseSuite.PatchValue(&ec2.EC2Session, func(region, accessKey, secretKey string) ec2iface.EC2API {
+			c.Assert(region, gc.Equals, "test")
+			c.Assert(accessKey, gc.Equals, "x")
+			c.Assert(secretKey, gc.Equals, "x")
+			return mockEC2Session{}
+		})
+	}
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {

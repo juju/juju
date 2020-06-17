@@ -408,7 +408,7 @@ func bootstrapIAAS(
 	} else {
 		// If no arch is specified as a constraint, we'll bootstrap
 		// on the same arch as the client used to bootstrap.
-		bootstrapArch = arch.HostArch()
+		bootstrapArch = localToolsArch()
 		// We no longer support controllers on i386.
 		// If we are bootstrapping from an i386 client,
 		// we'll look for amd64 tools.

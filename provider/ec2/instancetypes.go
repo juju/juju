@@ -1,0 +1,328 @@
+// Copyright 2016 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package ec2
+
+import (
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
+	"github.com/juju/collections/set"
+	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
+
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
+)
+
+var _ environs.InstanceTypesFetcher = (*environ)(nil)
+
+// EC2Session returns a session with the given credentials.
+var EC2Session = func(region, accessKey, secretKey string) ec2iface.EC2API {
+	sess := session.Must(session.NewSession())
+	ec2Session := ec2.New(sess, &aws.Config{
+		Region: aws.String(region),
+		Credentials: credentials.NewStaticCredentialsFromCreds(credentials.Value{
+			AccessKeyID:     accessKey,
+			SecretAccessKey: secretKey,
+		}),
+	})
+	return ec2Session
+}
+
+// InstanceTypes implements InstanceTypesFetcher
+func (e *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+	ec2Session := EC2Session(e.cloud.Region, e.ec2.AccessKey, e.ec2.SecretKey)
+	iTypes, err := e.supportedInstanceTypes(ec2Session, ctx)
+	if err != nil {
+		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
+	}
+	iTypes, err = instances.MatchingInstanceTypes(iTypes, "", c)
+	if err != nil {
+		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
+	}
+	return instances.InstanceTypesWithCostMetadata{
+		InstanceTypes: iTypes,
+		CostUnit:      "$USD/hour",
+		CostDivisor:   1000,
+		CostCurrency:  "USD"}, nil
+}
+
+func calculateCPUPower(instType string, clock *float64, vcpu uint64) uint64 {
+	// T-class instances have burstable CPU. This is not captured
+	// in the pricing information, so we have to hard-code it. We
+	// will have to update this list when T3 instances come along.
+	switch instType {
+	case "t1.micro":
+		return 20
+	case "t2.nano":
+		return 5
+	case "t2.micro":
+		return 10
+	case "t2.small":
+		return 20
+	case "t2.medium":
+		return 40
+	case "t2.large":
+		return 60
+	}
+	if clock == nil {
+		return vcpu * 100
+	}
+
+	// If the information includes a clock speed, we use that
+	// to estimate the ECUs. The pricing information does not
+	// include the ECUs, but they're only estimates anyway.
+	// Amazon moved to "vCPUs" quite some time ago.
+	// To date, info.ClockSpeed can have the form "Up to <float> GHz" or
+	// "<float> GHz", so look for a float match.
+	return uint64(*clock * 1.4 * 100 * float64(vcpu))
+}
+
+// virtType returns a virt type that matches our simplestrams metadata
+// rather than what the instance type actually reports.
+func virtType(info *ec2.InstanceTypeInfo) *string {
+	// Only very old instance types are restricted to paravirtual.
+	switch strings.SplitN(*info.InstanceType, ".", 2)[0] {
+	case "t1", "m1", "c1", "m2":
+		return aws.String("paravirtual")
+	}
+
+	return aws.String("hvm")
+}
+
+// supportsClassic reports whether the instance type with the given
+// name can be run in EC2-Classic.
+//
+// At the time of writing, we know that the following instance type
+// families support only VPC: C4, M4, P2, T2, X1. However, rather
+// than hard-coding that list, we assume that any new instance type
+// families support VPC only, and so we hard-code the inverse of the
+// list at the time of writing.
+//
+// See:
+//     http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-vpc.html#vpc-only-instance-types
+func supportsClassic(instanceType string) bool {
+	parts := strings.SplitN(instanceType, ".", 2)
+	if len(parts) < 2 {
+		return false
+	}
+	switch strings.ToLower(parts[0]) {
+	case
+		"c1", "c3",
+		"cc2",
+		"cg1",
+		"cr1",
+		"d2",
+		"g2",
+		"hi1",
+		"hs1",
+		"i2",
+		"m1", "m2", "m3",
+		"r3",
+		"t1":
+		return true
+	}
+	return false
+}
+
+var archNames = map[string]string{
+	"x86":     arch.I386,
+	"x86_64":  arch.AMD64,
+	"arm":     arch.ARM,
+	"aarch64": arch.ARM64,
+}
+
+func archName(in string) string {
+	if archName, ok := archNames[in]; ok {
+		return archName
+	}
+	return in
+}
+
+func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context.ProviderCallContext) (result []instances.InstanceType, err error) {
+	e.instTypesMutex.Lock()
+	defer e.instTypesMutex.Unlock()
+
+	defer func() {
+		if err == nil {
+			if len(e.instTypes) == 0 {
+				logger.Tracef("got instance types:\n%#v", result)
+			}
+			e.instTypes = result
+		}
+	}()
+
+	// Use a cached copy if populated as it's mildly
+	// expensive to fetch each time.
+	if len(e.instTypes) > 0 {
+		return e.instTypes, nil
+	}
+
+	// First get all the zone names for the current region.
+	zoneResults, err := ec2Session.DescribeAvailabilityZones(&ec2.DescribeAvailabilityZonesInput{
+		Filters: []*ec2.Filter{{
+			Name:   aws.String("region-name"),
+			Values: []*string{aws.String(e.cloud.Region)},
+		}},
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var zoneNames []string
+	zoneFilter := &ec2.Filter{Name: aws.String("location")}
+	for _, z := range zoneResults.AvailabilityZones {
+		zoneNames = append(zoneNames, *z.ZoneName)
+		zoneFilter.Values = append(zoneFilter.Values, z.ZoneName)
+	}
+
+	// Query the instance type names for the region and credential in use.
+	var instTypeNames []*string
+	instanceTypeRegions := make(map[string]set.Strings)
+	var token *string
+	for {
+		offeringResults, err := ec2Session.DescribeInstanceTypeOfferings(&ec2.DescribeInstanceTypeOfferingsInput{
+			LocationType: aws.String("availability-zone"),
+			MaxResults:   aws.Int64(100),
+			NextToken:    token,
+			Filters:      []*ec2.Filter{zoneFilter},
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, offering := range offeringResults.InstanceTypeOfferings {
+			if _, ok := instanceTypeRegions[*offering.InstanceType]; !ok {
+				instanceTypeRegions[*offering.InstanceType] = set.NewStrings()
+			}
+			instanceTypeRegions[*offering.InstanceType].Add(*offering.Location)
+			instTypeNames = append(instTypeNames, offering.InstanceType)
+		}
+		token = offeringResults.NextToken
+		if token == nil {
+			break
+		}
+	}
+
+	// Populate the costs fo the instance types in use.
+	costs := make(map[string]uint64)
+	if err := instanceTypeCosts(ec2Session, instTypeNames, zoneNames, costs); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Compose the results.
+	var allInstanceTypes []instances.InstanceType
+	for {
+		querySize := len(instTypeNames)
+		if querySize > 100 {
+			querySize = 100
+		}
+		instTypeParams := &ec2.DescribeInstanceTypesInput{
+			InstanceTypes: instTypeNames[0:querySize],
+		}
+		instTypeResults, err := ec2Session.DescribeInstanceTypes(instTypeParams)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, info := range instTypeResults.InstanceTypes {
+			instType := instances.InstanceType{
+				Name:       *info.InstanceType,
+				VirtType:   virtType(info),
+				Deprecated: info.CurrentGeneration == nil || !*info.CurrentGeneration,
+				Cost:       costs[*info.InstanceType],
+			}
+			if info.VCpuInfo != nil && info.VCpuInfo.DefaultVCpus != nil {
+				instType.CpuCores = uint64(*info.VCpuInfo.DefaultVCpus)
+				if info.ProcessorInfo != nil && info.ProcessorInfo.SustainedClockSpeedInGhz != nil {
+					cpupower := calculateCPUPower(
+						instType.Name,
+						info.ProcessorInfo.SustainedClockSpeedInGhz,
+						uint64(*info.VCpuInfo.DefaultVCpus))
+					instType.CpuPower = &cpupower
+				}
+			}
+			if info.MemoryInfo != nil && info.MemoryInfo.SizeInMiB != nil {
+				instType.Mem = uint64(*info.MemoryInfo.SizeInMiB)
+			}
+			if info.ProcessorInfo != nil {
+				for _, instArch := range info.ProcessorInfo.SupportedArchitectures {
+					instType.Arches = append(instType.Arches, archName(*instArch))
+				}
+			}
+			if instRegions, ok := instanceTypeRegions[instType.Name]; !ok || instRegions.Size() < len(zoneNames) {
+				instType.Deprecated = true
+			}
+			allInstanceTypes = append(allInstanceTypes, instType)
+		}
+		if len(instTypeNames) <= 100 {
+			break
+		}
+		instTypeNames = instTypeNames[querySize:]
+	}
+
+	if isVPCIDSet(e.ecfg().vpcID()) {
+		return allInstanceTypes, nil
+	}
+	hasDefaultVPC, err := e.hasDefaultVPC(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if hasDefaultVPC {
+		return allInstanceTypes, nil
+	}
+
+	// The region has no default VPC, and the user has not specified
+	// one to use. We filter out any instance types that are not
+	// supported in EC2-Classic.
+	supportedInstanceTypes := make([]instances.InstanceType, 0, len(allInstanceTypes))
+	for _, instanceType := range allInstanceTypes {
+		if !supportsClassic(instanceType.Name) {
+			continue
+		}
+		supportedInstanceTypes = append(supportedInstanceTypes, instanceType)
+	}
+	return supportedInstanceTypes, nil
+}
+
+// instanceTypeCosts queries the latest spot price for the given instance types.
+func instanceTypeCosts(ec2Session ec2iface.EC2API, instTypeNames []*string, zoneNames []string, costs map[string]uint64) error {
+	var token *string
+	spParams := &ec2.DescribeSpotPriceHistoryInput{
+		InstanceTypes: instTypeNames,
+		MaxResults:    aws.Int64(1000),
+		StartTime:     aws.Time(time.Now()),
+		Filters:       []*ec2.Filter{{Name: aws.String("availability-zone")}},
+	}
+	for _, zone := range zoneNames {
+		spParams.Filters[0].Values = append(spParams.Filters[0].Values, aws.String(zone))
+	}
+	for {
+		spParams.NextToken = token
+		priceResults, err := ec2Session.DescribeSpotPriceHistory(spParams)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, sp := range priceResults.SpotPriceHistory {
+			if _, ok := costs[*sp.InstanceType]; !ok {
+				price, err := strconv.ParseFloat(*sp.SpotPrice, 32)
+				if err == nil {
+					costs[*sp.InstanceType] = uint64(1000 * price)
+				}
+			}
+		}
+		token = priceResults.NextToken
+		// token should be nil when there's no more records
+		// but it never gets set to nil so there's a bug in the api.
+		if len(priceResults.SpotPriceHistory) < 1000 {
+			break
+		}
+	}
+	return nil
+}
