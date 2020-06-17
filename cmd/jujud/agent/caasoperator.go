@@ -73,7 +73,7 @@ func NewCaasOperatorAgent(
 	bufferedLogger *logsender.BufferedLogWriter,
 	configure func(*caasoperator.ManifoldsConfig) error,
 ) (*CaasOperatorAgent, error) {
-	prometheusRegistry, err := newPrometheusRegistry()
+	prometheusRegistry, err := NewPrometheusRegistry()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -237,7 +237,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 	}
 	manifolds := CaasOperatorManifolds(manifoldConfig)
 
-	engine, err := dependency.NewEngine(dependencyEngineConfig())
+	engine, err := dependency.NewEngine(DependencyEngineConfig())
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +247,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		}
 		return nil, err
 	}
-	if err := startIntrospection(introspectionConfig{
+	if err := StartIntrospection(IntrospectionConfig{
 		Agent:              op,
 		Engine:             engine,
 		MachineLock:        op.machineLock,

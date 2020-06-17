@@ -139,7 +139,7 @@ func (m *ModelCommand) Workers() (worker.Worker, error) {
 		NewContainerBrokerFunc: caas.New,
 	})
 
-	engine, err := dependency.NewEngine(dependencyEngineConfig())
+	engine, err := dependency.NewEngine(DependencyEngineConfig())
 	if err != nil {
 		return nil, err
 	}

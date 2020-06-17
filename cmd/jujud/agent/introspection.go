@@ -27,9 +27,9 @@ func DefaultIntrospectionSocketName(entityTag names.Tag) string {
 	return "jujud-" + entityTag.String()
 }
 
-// introspectionConfig defines the various components that the introspection
+// IntrospectionConfig defines the various components that the introspection
 // worker reports on or needs to start up.
-type introspectionConfig struct {
+type IntrospectionConfig struct {
 	Agent              agent.Agent
 	Engine             *dependency.Engine
 	StatePoolReporter  introspection.IntrospectionReporter
@@ -41,13 +41,13 @@ type introspectionConfig struct {
 	WorkerFunc         func(config introspection.Config) (worker.Worker, error)
 }
 
-// startIntrospection creates the introspection worker. It cannot and should
+// StartIntrospection creates the introspection worker. It cannot and should
 // not be in the engine itself as it reports on the engine, and other aspects
 // of the runtime. If we put it in the engine, then it is mostly likely shut
 // down in the times we need it most, which is when the agent is having
 // problems shutting down. Here we effectively start the worker and tie its
 // life to that of the engine that is returned.
-func startIntrospection(cfg introspectionConfig) error {
+func StartIntrospection(cfg IntrospectionConfig) error {
 	if runtime.GOOS != "linux" {
 		logger.Debugf("introspection worker not supported on %q", runtime.GOOS)
 		return nil
@@ -77,11 +77,11 @@ func startIntrospection(cfg introspectionConfig) error {
 	return nil
 }
 
-// newPrometheusRegistry returns a new prometheus.Registry with
+// NewPrometheusRegistry returns a new prometheus.Registry with
 // the Go and process metric collectors registered. This registry
 // is exposed by the introspection abstract domain socket on all
 // Linux agents.
-func newPrometheusRegistry() (*prometheus.Registry, error) {
+func NewPrometheusRegistry() (*prometheus.Registry, error) {
 	r := prometheus.NewRegistry()
 	if err := r.Register(prometheus.NewGoCollector()); err != nil {
 		return nil, errors.Trace(err)

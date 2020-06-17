@@ -35,14 +35,14 @@ func (s *introspectionSuite) TestStartNonLinux(c *gc.C) {
 	}
 	var started bool
 
-	cfg := introspectionConfig{
+	cfg := IntrospectionConfig{
 		WorkerFunc: func(_ introspection.Config) (worker.Worker, error) {
 			started = true
 			return nil, errors.New("shouldn't call start")
 		},
 	}
 
-	err := startIntrospection(cfg)
+	err := StartIntrospection(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(started, jc.IsFalse)
 }
@@ -52,7 +52,7 @@ func (s *introspectionSuite) TestStartError(c *gc.C) {
 		c.Skip("introspection worker not supported on non-linux")
 	}
 
-	cfg := introspectionConfig{
+	cfg := IntrospectionConfig{
 		Agent:         &dummyAgent{},
 		NewSocketName: DefaultIntrospectionSocketName,
 		WorkerFunc: func(_ introspection.Config) (worker.Worker, error) {
@@ -60,7 +60,7 @@ func (s *introspectionSuite) TestStartError(c *gc.C) {
 		},
 	}
 
-	err := startIntrospection(cfg)
+	err := StartIntrospection(cfg)
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 
@@ -81,7 +81,7 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 	engine, err := dependency.NewEngine(config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg := introspectionConfig{
+	cfg := IntrospectionConfig{
 		Agent:         &dummyAgent{},
 		Engine:        engine,
 		NewSocketName: func(tag names.Tag) string { return "bananas" },
@@ -91,7 +91,7 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 		},
 	}
 
-	err = startIntrospection(cfg)
+	err = StartIntrospection(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(fake.config.DepEngine, gc.Equals, engine)

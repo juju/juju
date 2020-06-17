@@ -307,7 +307,7 @@ func NewMachineAgent(
 	rootDir string,
 	isCaasAgent bool,
 ) (*MachineAgent, error) {
-	prometheusRegistry, err := newPrometheusRegistry()
+	prometheusRegistry, err := NewPrometheusRegistry()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -533,7 +533,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 
 func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion version.Number) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
-		engine, err := dependency.NewEngine(dependencyEngineConfig())
+		engine, err := dependency.NewEngine(DependencyEngineConfig())
 		if err != nil {
 			return nil, err
 		}
@@ -614,7 +614,7 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 			}
 			return nil, err
 		}
-		if err := startIntrospection(introspectionConfig{
+		if err := StartIntrospection(IntrospectionConfig{
 			Agent:              a,
 			Engine:             engine,
 			StatePoolReporter:  &statePoolReporter,
@@ -1062,7 +1062,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config := dependencyEngineConfig()
+	config := DependencyEngineConfig()
 	config.IsFatal = model.IsFatal
 	config.WorstError = model.WorstError
 	config.Filter = model.IgnoreErrRemoved

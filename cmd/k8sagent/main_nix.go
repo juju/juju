@@ -116,7 +116,11 @@ func k8sAgentCommand(ctx *cmd.Context) (cmd.Command, error) {
 	}
 
 	k8sAgent.Register(initcommand.New())
-	k8sAgent.Register(unitcommand.New(ctx, bufferedLogger))
+	unitCommand, err := unitcommand.New(ctx, bufferedLogger)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	k8sAgent.Register(unitCommand)
 	return k8sAgent, nil
 }
 

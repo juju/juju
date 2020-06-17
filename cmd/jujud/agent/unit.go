@@ -64,7 +64,7 @@ type UnitAgent struct {
 
 // NewUnitAgent creates a new UnitAgent value properly initialized.
 func NewUnitAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (*UnitAgent, error) {
-	prometheusRegistry, err := newPrometheusRegistry()
+	prometheusRegistry, err := NewPrometheusRegistry()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -207,7 +207,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		Clock:                clock.WallClock,
 	})
 
-	engine, err := dependency.NewEngine(dependencyEngineConfig())
+	engine, err := dependency.NewEngine(DependencyEngineConfig())
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +217,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		}
 		return nil, err
 	}
-	if err := startIntrospection(introspectionConfig{
+	if err := StartIntrospection(IntrospectionConfig{
 		Agent:              a,
 		Engine:             engine,
 		NewSocketName:      DefaultIntrospectionSocketName,

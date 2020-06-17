@@ -164,7 +164,8 @@ func GetJujuVersion(machineAgent string, dataDir string) (version.Number, error)
 	return config.UpgradedToVersion(), nil
 }
 
-func dependencyEngineConfig() dependency.EngineConfig {
+// DependencyEngineConfig returns a dependency engine config.
+func DependencyEngineConfig() dependency.EngineConfig {
 	return dependency.EngineConfig{
 		IsFatal:          util.IsFatal,
 		WorstError:       util.MoreImportantError,
