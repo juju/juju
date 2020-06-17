@@ -22321,7 +22321,7 @@
     {
         "Name": "Machiner",
         "Description": "MachinerAPI implements the API used by the machiner worker.",
-        "Version": 3,
+        "Version": 4,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent"
@@ -22423,18 +22423,6 @@
                         }
                     },
                     "description": "SetObservedNetworkConfig reads the network config for the machine identified\nby the input args. This config is merged with the new network config supplied\nin the same args and updated if it has changed."
-                },
-                "SetProviderNetworkConfig": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "SetProviderNetworkConfig sets the provider supplied network configuration\ncontained in the input args against each machine supplied with said args."
                 },
                 "SetStatus": {
                     "type": "object",
@@ -28212,18 +28200,6 @@
                         }
                     },
                     "description": "SetPasswords sets the given password for each supplied entity, if possible."
-                },
-                "SetProviderNetworkConfig": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "SetProviderNetworkConfig sets the provider supplied network configuration\ncontained in the input args against each machine supplied with said args."
                 },
                 "SetStatus": {
                     "type": "object",
