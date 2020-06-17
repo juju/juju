@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
 )
 
@@ -221,12 +220,8 @@ func (w *unixConfigure) ConfigureBasic() error {
 func (w *unixConfigure) addCleanShutdownJob(initSystem string) {
 	switch initSystem {
 	case service.InitSystemUpstart:
-		path, contents := upstart.CleanShutdownJobPath, upstart.CleanShutdownJob
-		w.conf.AddRunTextFile(path, contents, 0644)
-	case service.InitSystemSystemd:
-		path, contents := systemd.CleanShutdownServicePath, systemd.CleanShutdownService
-		w.conf.AddRunTextFile(path, contents, 0644)
-		w.conf.AddScripts(fmt.Sprintf("/bin/systemctl enable '%s'", path))
+		p, contents := upstart.CleanShutdownJobPath, upstart.CleanShutdownJob
+		w.conf.AddRunTextFile(p, contents, 0644)
 	}
 }
 

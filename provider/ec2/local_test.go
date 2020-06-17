@@ -409,8 +409,6 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	c.Assert(keys, jc.SameContents, []string{"output", "users", "runcmd", "ssh_keys"})
 	c.Assert(userDataMap["runcmd"], jc.DeepEquals, []interface{}{
 		"set -xe",
-		"install -D -m 644 /dev/null '/etc/systemd/system/juju-clean-shutdown.service'",
-		"printf '%s\\n' '\n[Unit]\nDescription=Stop all network interfaces on shutdown\nDefaultDependencies=false\nAfter=final.target\n\n[Service]\nType=oneshot\nExecStart=/sbin/ifdown -a -v --force\nStandardOutput=tty\nStandardError=tty\n\n[Install]\nWantedBy=final.target\n' > '/etc/systemd/system/juju-clean-shutdown.service'", "/bin/systemctl enable '/etc/systemd/system/juju-clean-shutdown.service'",
 		"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
 		"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
 	})
