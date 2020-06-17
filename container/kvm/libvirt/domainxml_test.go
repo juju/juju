@@ -30,6 +30,9 @@ var amd64DomainStr = `
     <os>
         <type>hvm</type>
     </os>
+    <features>
+        <acpi></acpi>
+    </features>
     <devices>
         <disk device="disk" type="file">
             <driver type="qcow2" name="qemu"></driver>
@@ -70,6 +73,7 @@ var arm64DomainStr = `
     </os>
     <features>
         <gic version="host"></gic>
+        <acpi></acpi>
     </features>
     <cpu mode="custom" match="exact">
         <model fallback="allow">cortex-a53</model>
