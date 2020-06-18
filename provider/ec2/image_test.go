@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
 	"github.com/juju/juju/testing"
 )
 
@@ -22,6 +21,93 @@ var _ = gc.Suite(&specSuite{})
 type specSuite struct {
 	testing.BaseSuite
 }
+
+var paravirtual = "pv"
+
+var testInstanceTypes = []instances.InstanceType{{
+	Name:     "t3a.xlarge",
+	CpuCores: 4,
+	CpuPower: instances.CpuPower(1400),
+	Mem:      16384,
+	Arches:   []string{"amd64"},
+	Cost:     172,
+}, {
+	Name:     "t3a.nano",
+	CpuCores: 2,
+	CpuPower: instances.CpuPower(700),
+	Mem:      512,
+	Arches:   []string{"amd64"},
+	Cost:     5,
+}, {
+	Name:     "t3a.micro",
+	CpuCores: 2,
+	CpuPower: instances.CpuPower(700),
+	Mem:      1024,
+	Arches:   []string{"amd64"},
+	Cost:     10,
+}, {
+	Name:     "t3a.small",
+	CpuCores: 2,
+	CpuPower: instances.CpuPower(700),
+	Mem:      2048,
+	Arches:   []string{"amd64"},
+	Cost:     21,
+}, {
+	Name:     "t3a.medium",
+	CpuPower: instances.CpuPower(700),
+	Mem:      4096,
+	Arches:   []string{"amd64"},
+	Cost:     43,
+}, {
+	Name:     "m1.medium",
+	CpuCores: 1,
+	CpuPower: instances.CpuPower(100),
+	Mem:      3840,
+	Arches:   []string{"amd64", "i386"},
+	VirtType: &paravirtual,
+	Cost:     117,
+}, {
+	Name:     "a1.xlarge",
+	CpuCores: 4,
+	CpuPower: instances.CpuPower(1288),
+	Mem:      8192,
+	Arches:   []string{"arm64"},
+}, {
+	Name:     "c4.large",
+	CpuCores: 2,
+	CpuPower: instances.CpuPower(811),
+	Mem:      3840,
+	Arches:   []string{"amd64"},
+	Cost:     114,
+}, {
+	Name:     "t2.medium",
+	CpuCores: 2,
+	CpuPower: instances.CpuPower(40),
+	Mem:      4096,
+	Arches:   []string{"amd64"},
+	Cost:     46,
+}, {
+	Name:     "c1.medium",
+	CpuCores: 2,
+	CpuPower: instances.CpuPower(200),
+	Mem:      1741,
+	Arches:   []string{"amd64", "i386"},
+	Cost:     164,
+}, {
+	Name:     "cc2.8xlarge",
+	CpuCores: 32,
+	CpuPower: instances.CpuPower(11647),
+	Mem:      61952,
+	Arches:   []string{"amd64"},
+	Cost:     2250,
+}, {
+	Name:     "r5a.large",
+	CpuCores: 2,
+	CpuPower: instances.CpuPower(700),
+	Mem:      16384,
+	Arches:   []string{"amd64"},
+	Cost:     137,
+}}
 
 var findInstanceSpecTests = []struct {
 	// LTS-dependent requires new or updated entries upon a new LTS release.
@@ -156,7 +242,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 		spec, err := findInstanceSpec(
 			false, // non-controller
 			imageMetadata,
-			ec2instancetypes.RegionInstanceTypes("test"),
+			testInstanceTypes,
 			&instances.InstanceConstraint{
 				Region:      "test",
 				Series:      test.series,
@@ -178,12 +264,13 @@ func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.
 	}
 
 	c.Check(instanceConstraint.Constraints.CpuPower, gc.IsNil)
-	findInstanceSpec(
+	_, err := findInstanceSpec(
 		false, // non-controller
 		TestImageMetadata,
-		ec2instancetypes.RegionInstanceTypes("test"),
+		testInstanceTypes,
 		instanceConstraint,
 	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(instanceConstraint.Constraints.CpuPower, gc.IsNil)
 }
@@ -223,7 +310,7 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 		_, err := findInstanceSpec(
 			false, // non-controller
 			imageMetadata,
-			ec2instancetypes.RegionInstanceTypes("test"),
+			testInstanceTypes,
 			&instances.InstanceConstraint{
 				Region:      "test",
 				Series:      t.series,
