@@ -2850,6 +2850,27 @@ func DropPresenceDatabase(pool *StatePool) error {
 	return st.session.DB("presence").DropDatabase()
 }
 
+// RemoveUnsupportedLinkLayer removes link-layer devices and addresses where
+// the EC2 provider added them with the name "unsupported".
 func RemoveUnsupportedLinkLayer(pool *StatePool) error {
+	st := pool.SystemState()
+
+	fieldByCollection := map[string]string{
+		ipAddressesC:      "device-name",
+		linkLayerDevicesC: "name",
+	}
+
+	for colName, fieldName := range fieldByCollection {
+		coll, closer := st.db().GetRawCollection(colName)
+		defer closer()
+
+		bulk := coll.Bulk()
+		bulk.Unordered()
+		bulk.RemoveAll(bson.D{{fieldName, bson.D{{"$regex", "^unsupported"}}}})
+		if _, err := bulk.Run(); err != nil {
+			return errors.Annotate(err, `deleting link-layer data for "unsupported" names`)
+		}
+	}
+
 	return nil
 }
