@@ -51,7 +51,7 @@ func stateStepsFor28() []Step {
 			},
 		},
 		&upgradeStep{
-			description: "add origin to ip addresses",
+			description: "add origin to IP addresses",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return context.State().AddOriginToIPAddresses()

@@ -6,6 +6,15 @@ package upgrades
 // stateStepsFor281 returns upgrade steps for Juju 2.8.1.
 func stateStepsFor281() []Step {
 	return []Step{
+		// This step occurs for the 2.8.0 upgrade, but is repeated here due to
+		// now-fixed issues that could have unset address origin since.
+		&upgradeStep{
+			description: "add origin to IP addresses",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().AddOriginToIPAddresses()
+			},
+		},
 		&upgradeStep{
 			description: `remove "unsupported" link-layer device data`,
 			targets:     []Target{DatabaseMaster},

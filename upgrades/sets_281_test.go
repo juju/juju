@@ -20,6 +20,11 @@ type steps281Suite struct {
 
 var _ = gc.Suite(&steps281Suite{})
 
+func (s *steps281Suite) TestAddOriginToIPAddresses(c *gc.C) {
+	step := findStateStep(c, v281, "add origin to IP addresses")
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
+
 func (s *steps281Suite) TestRemoveUnsupportedLinkLayer(c *gc.C) {
 	step := findStateStep(c, v281, `remove "unsupported" link-layer device data`)
 	// Logic for step itself is tested in state package.
