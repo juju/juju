@@ -41,6 +41,7 @@ type Logger interface {
 // Manifold will depend.
 type ManifoldConfig struct {
 	AgentName             string
+	ModelType             model.ModelType
 	APICallerName         string
 	MachineLock           machinelock.Lock
 	Clock                 clock.Clock
@@ -55,6 +56,9 @@ type ManifoldConfig struct {
 func (config *ManifoldConfig) Validate() error {
 	if config.Clock == nil {
 		return errors.NotValidf("missing Clock")
+	}
+	if len(config.ModelType) == 0 {
+		return errors.NotValidf("missing model type")
 	}
 	if config.MachineLock == nil {
 		return errors.NotValidf("missing MachineLock")
@@ -123,7 +127,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			uniter, err := NewUniter(&UniterParams{
 				UniterFacade:          uniterFacade,
 				UnitTag:               unitTag,
-				ModelType:             model.IAAS,
+				ModelType:             config.ModelType,
 				LeadershipTrackerFunc: leadershipTrackerFunc,
 				DataDir:               agentConfig.DataDir(),
 				Downloader:            downloader,

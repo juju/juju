@@ -21,6 +21,7 @@ import (
 	msapi "github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/utils/proxy"
@@ -318,6 +319,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// (and probably one for each component broken out).
 		uniterName: ifNotMigrating(uniter.Manifold(uniter.ManifoldConfig{
 			AgentName:             agentName,
+			ModelType:             model.IAAS,
 			APICallerName:         apiCallerName,
 			MachineLock:           config.MachineLock,
 			Clock:                 config.Clock,
