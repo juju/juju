@@ -255,7 +255,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	}
 
 	if test.hostArch != "" {
-		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return test.hostArch }))
+		restore = restore.Add(testing.PatchEnvironment("GOOS", test.hostArch))
 	}
 
 	controllerName := "peckham-controller"
