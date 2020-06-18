@@ -2821,15 +2821,15 @@ func AddOriginToIPAddresses(pool *StatePool) error {
 		}
 
 		// Set the origin to OriginProvider as the default ip address origin.
-		// The expectation is that the instancepoller will set all ip addresses
-		// that it knows about as a OriginProvier and anything it doesn't as a
-		// OriginMachine.
-		// The instancepoller will quiesce on the right value after the first
+		// The expectation is that the instance poller will set all IP
+		// addresses that it knows about to OriginProvider and anything it
+		// doesn't to OriginMachine.
+		// The instance poller will quiesce on the right value after the first
 		// run.
 		//
-		// The state of the network.Origin is a statemachine as follows:
+		// The state of the network.Origin is a state-machine as follows:
 		//
-		//     OriginProvier -> OriginMachine -> Dead
+		//     OriginProvider -> OriginMachine -> Deleted
 		//
 		ops = append(ops, txn.Op{
 			C:      ipAddressesC,
@@ -2848,4 +2848,29 @@ func AddOriginToIPAddresses(pool *StatePool) error {
 func DropPresenceDatabase(pool *StatePool) error {
 	st := pool.SystemState()
 	return st.session.DB("presence").DropDatabase()
+}
+
+// RemoveUnsupportedLinkLayer removes link-layer devices and addresses where
+// the EC2 provider added them with the name "unsupported".
+func RemoveUnsupportedLinkLayer(pool *StatePool) error {
+	st := pool.SystemState()
+
+	fieldByCollection := map[string]string{
+		ipAddressesC:      "device-name",
+		linkLayerDevicesC: "name",
+	}
+
+	for colName, fieldName := range fieldByCollection {
+		coll, closer := st.db().GetRawCollection(colName)
+		defer closer()
+
+		bulk := coll.Bulk()
+		bulk.Unordered()
+		bulk.RemoveAll(bson.D{{fieldName, bson.D{{"$regex", "^unsupported"}}}})
+		if _, err := bulk.Run(); err != nil {
+			return errors.Annotate(err, `deleting link-layer data for "unsupported" names`)
+		}
+	}
+
+	return nil
 }

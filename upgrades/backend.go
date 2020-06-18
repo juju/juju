@@ -81,6 +81,7 @@ type StateBackend interface {
 	AddOriginToIPAddresses() error
 	DropPresenceDatabase() error
 	DropLeasesCollection() error
+	RemoveUnsupportedLinkLayer() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -332,4 +333,8 @@ func (s stateBackend) DropPresenceDatabase() error {
 
 func (s stateBackend) DropLeasesCollection() error {
 	return state.DropLeasesCollection(s.pool)
+}
+
+func (s stateBackend) RemoveUnsupportedLinkLayer() error {
+	return state.RemoveUnsupportedLinkLayer(s.pool)
 }
