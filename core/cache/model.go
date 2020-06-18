@@ -245,6 +245,21 @@ func (m *Model) Units() map[string]Unit {
 	return units
 }
 
+// applicationUnits returns all units for the specified application.
+func (m *Model) applicationUnits(appName string) []Unit {
+	m.mu.Lock()
+
+	var result []Unit
+	for _, u := range m.units {
+		if u.details.Application == appName {
+			result = append(result, u.copy())
+		}
+	}
+
+	m.mu.Unlock()
+	return result
+}
+
 // Unit returns the unit with the input name.
 // If the unit is not found, a NotFoundError is returned.
 func (m *Model) Unit(unitName string) (Unit, error) {
@@ -335,7 +350,7 @@ func (m *Model) updateApplication(ch ApplicationChange, rm *residentManager) {
 
 	app, found := m.applications[ch.Name]
 	if !found {
-		app = newApplication(m.metrics, m.hub, rm.new())
+		app = newApplication(m, m.metrics, m.hub, rm.new())
 		m.applications[ch.Name] = app
 	}
 	app.setDetails(ch)

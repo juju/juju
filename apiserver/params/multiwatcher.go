@@ -125,6 +125,7 @@ type MachineInfo struct {
 	Config                   map[string]interface{}            `json:"config,omitempty"`
 	Series                   string                            `json:"series"`
 	ContainerType            string                            `json:"container-type"`
+	IsManual                 bool                              `json:"-"` // internal use only
 	SupportedContainers      []instance.ContainerType          `json:"supported-containers"`
 	SupportedContainersKnown bool                              `json:"supported-containers-known"`
 	HardwareCharacteristics  *instance.HardwareCharacteristics `json:"hardware-characteristics,omitempty"`

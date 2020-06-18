@@ -621,6 +621,113 @@ func (s *ipAddressesStateSuite) TestRemoveAddressRemovesProviderID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ipAddressesStateSuite) TestChangeOriginOpsNoProviderID(c *gc.C) {
+	dev := s.addNamedDevice(c, "eth0")
+
+	addrArgs := state.LinkLayerDeviceAddress{
+		DeviceName:   "eth0",
+		ConfigMethod: network.ManualAddress,
+		CIDRAddress:  "0.1.2.3/24",
+		Origin:       network.OriginMachine,
+	}
+	err := s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrs, err := dev.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	addr := addrs[0]
+	c.Assert(addr.Origin(), gc.Equals, network.OriginMachine)
+
+	// No operations for setting the same origin.
+	c.Assert(addr.SetOriginOps(network.OriginMachine), gc.IsNil)
+
+	state.RunTransaction(c, s.State, addr.SetOriginOps(network.OriginProvider))
+
+	addrs, err = dev.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	addr = addrs[0]
+	c.Assert(addr.Origin(), gc.Equals, network.OriginProvider)
+}
+
+func (s *ipAddressesStateSuite) TestChangeOriginOpsWithProviderID(c *gc.C) {
+	dev := s.addNamedDevice(c, "eth0")
+
+	addrArgs := state.LinkLayerDeviceAddress{
+		DeviceName:   "eth0",
+		ConfigMethod: network.ManualAddress,
+		CIDRAddress:  "0.1.2.3/24",
+		Origin:       network.OriginProvider,
+		ProviderID:   "p1",
+	}
+	err := s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrs, err := dev.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	addr := addrs[0]
+	c.Assert(addr.Origin(), gc.Equals, network.OriginProvider)
+
+	// No operations for setting the same origin.
+	c.Assert(addr.SetOriginOps(network.OriginProvider), gc.IsNil)
+
+	state.RunTransaction(c, s.State, addr.SetOriginOps(network.OriginMachine))
+
+	addrs, err = dev.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	addr = addrs[0]
+	c.Assert(addr.Origin(), gc.Equals, network.OriginMachine)
+	c.Assert(addr.ProviderID().String(), gc.Equals, "")
+
+	// Set the address again with the provider ID.
+	// Success means the provider ID was removed from the global collection.
+	addrArgs = state.LinkLayerDeviceAddress{
+		DeviceName:   "eth0",
+		ConfigMethod: network.ManualAddress,
+		CIDRAddress:  "0.1.2.3/24",
+		Origin:       network.OriginProvider,
+		ProviderID:   "p1",
+	}
+	err = s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ipAddressesStateSuite) TestSetProviderIDOps(c *gc.C) {
+	dev := s.addNamedDevice(c, "eth0")
+
+	addrArgs := state.LinkLayerDeviceAddress{
+		DeviceName:   "eth0",
+		ConfigMethod: network.ManualAddress,
+		CIDRAddress:  "0.1.2.3/24",
+		Origin:       network.OriginMachine,
+	}
+	err := s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrs, err := dev.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	addr := addrs[0]
+	c.Assert(addr.Origin(), gc.Equals, network.OriginMachine)
+
+	ops, err := addr.SetProviderIDOps("p1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.RunTransaction(c, s.State, ops)
+
+	addrs, err = dev.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	addr = addrs[0]
+	c.Assert(addr.ProviderID().String(), gc.Equals, "p1")
+	c.Assert(addr.Origin(), gc.Equals, network.OriginProvider)
+
+	// No operations for setting the same ID.
+	addrs, err = dev.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+
+	ops, err = addr.SetProviderIDOps("p1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, 0)
+}
+
 func (s *ipAddressesStateSuite) TestUpdateAddressFailsToChangeProviderID(c *gc.C) {
 	s.addNamedDevice(c, "eth0")
 	addrArgs := state.LinkLayerDeviceAddress{

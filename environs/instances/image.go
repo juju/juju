@@ -103,7 +103,7 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 	}
 	if len(specs) > 0 {
 		sort.Sort(byArch(specs))
-		logger.Infof("find instance - using image with id: %v", specs[0].Image.Id)
+		logger.Infof("find instance - using %v image with id: %v", specs[0].Image.Arch, specs[0].Image.Id)
 		return specs[0], nil
 	}
 

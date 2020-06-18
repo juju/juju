@@ -7,7 +7,7 @@ test_machine() {
     echo "==> Checking for dependencies"
     check_dependencies juju
 
-    file="${TEST_DIR}/test-machine.txt"
+    file="${TEST_DIR}/test-machine.log"
 
     bootstrap "test-machine" "${file}"
 

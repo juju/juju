@@ -1014,8 +1014,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 			Update: bson.D{{"$set", bson.D{{"life", state.Dead}}}},
 		}}
 
-		err = state.RunTransaction(s.State, ops)
-		c.Assert(err, jc.ErrorIsNil)
+		state.RunTransaction(c, s.State, ops)
 		assertLife(c, s.mysql, state.Dead)
 	}).Check()
 
@@ -1290,8 +1289,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 			Id:     mysqlKey,
 			Update: bson.D{{"$set", updatesMap}},
 		}}
-		err := state.RunTransaction(s.State, ops)
-		c.Assert(err, jc.ErrorIsNil)
+		state.RunTransaction(c, s.State, ops)
 	}
 
 	defer state.SetTestHooks(c, s.State,
@@ -1493,8 +1491,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSamesSeriesAfterStart(c *g
 					Id:     state.DocID(s.State, "multi-series"),
 					Update: bson.D{{"$set", bson.D{{"series", "trusty"}}}},
 				}}
-				err = state.RunTransaction(s.State, ops)
-				c.Assert(err, jc.ErrorIsNil)
+				state.RunTransaction(c, s.State, ops)
 			},
 			After: func() {
 				assertApplicationSeriesUpdate(c, app, "trusty")
@@ -3968,7 +3965,7 @@ var _ = gc.Suite(&CAASApplicationSuite{})
 func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.caasSt = s.Factory.MakeCAASModel(c, nil)
-	s.AddCleanup(func(_ *gc.C) { s.caasSt.Close() })
+	s.AddCleanup(func(_ *gc.C) { _ = s.caasSt.Close() })
 
 	f := factory.NewFactory(s.caasSt, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})

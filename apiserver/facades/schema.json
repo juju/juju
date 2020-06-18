@@ -19256,7 +19256,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "SetInstanceStatus updates the instance status for each given\nentity. Only machine tags are accepted."
+                    "description": "SetInstanceStatus updates the instance status for each given entity.\nOnly machine tags are accepted."
                 },
                 "SetProviderAddresses": {
                     "type": "object",
@@ -19280,7 +19280,7 @@
                             "$ref": "#/definitions/SetProviderNetworkConfigResults"
                         }
                     },
-                    "description": "SetProviderNetworkConfig updates the provider addresses for one or more\nmachines.\n\nWhat's more, if the client request includes provider-specific IDs (e.g.\nnetwork, subnet or address IDs), this method will also iterate any present\nlink layer devices (and their addresses) and backfill any missing\nprovider-specific information."
+                    "description": "SetProviderNetworkConfig updates the provider addresses for one or more\nmachines.\n\nWhat's more, if the client request includes provider-specific IDs (e.g.\nnetwork, subnet or address IDs), this method will also iterate any present\nlink layer devices (and their addresses) and merge in any missing\nprovider-specific information."
                 },
                 "Status": {
                     "type": "object",
@@ -22324,7 +22324,7 @@
     {
         "Name": "Machiner",
         "Description": "MachinerAPI implements the API used by the machiner worker.",
-        "Version": 3,
+        "Version": 4,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent"
@@ -22426,18 +22426,6 @@
                         }
                     },
                     "description": "SetObservedNetworkConfig reads the network config for the machine identified\nby the input args. This config is merged with the new network config supplied\nin the same args and updated if it has changed."
-                },
-                "SetProviderNetworkConfig": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "SetProviderNetworkConfig sets the provider supplied network configuration\ncontained in the input args against each machine supplied with said args."
                 },
                 "SetStatus": {
                     "type": "object",
@@ -28218,18 +28206,6 @@
                         }
                     },
                     "description": "SetPasswords sets the given password for each supplied entity, if possible."
-                },
-                "SetProviderNetworkConfig": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "SetProviderNetworkConfig sets the provider supplied network configuration\ncontained in the input args against each machine supplied with said args."
                 },
                 "SetStatus": {
                     "type": "object",
@@ -37498,8 +37474,8 @@
     },
     {
         "Name": "Uniter",
-        "Description": "UniterAPI implements the latest version (v15) of the Uniter API, which adds\nthe State, CommitHookChanges, ReadLocalApplicationSettings calls and changes\nWatchActionNotifications to notify on action changes.",
-        "Version": 15,
+        "Description": "UniterAPI implements the latest version (v16) of the Uniter API, which adds\nLXDProfileAPIv2.",
+        "Version": 16,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -37634,6 +37610,18 @@
                         }
                     },
                     "description": "BeginActions marks the actions represented by the passed in Tags as running."
+                },
+                "CanApplyLXDProfile": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/BoolResults"
+                        }
+                    },
+                    "description": "CanApplyLXDProfile is a shim to call the LXDProfileAPIv2 version of this method."
                 },
                 "CharmArchiveSha256": {
                     "type": "object",
@@ -37888,6 +37876,30 @@
                         }
                     },
                     "description": "HasSubordinates returns the whether each given unit has any subordinates."
+                },
+                "LXDProfileName": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResults"
+                        }
+                    },
+                    "description": "LXDProfileName is a shim to call the LXDProfileAPIv2 version of this method."
+                },
+                "LXDProfileRequired": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/CharmURLs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/BoolResults"
+                        }
+                    },
+                    "description": "LXDProfileRequired is a shim to call the LXDProfileAPIv2 version of this method."
                 },
                 "LeaveScope": {
                     "type": "object",
@@ -38410,6 +38422,18 @@
                         }
                     },
                     "description": "WatchForModelConfigChanges returns a NotifyWatcher that observes\nchanges to the model configuration.\nNote that although the NotifyWatchResult contains an Error field,\nit's not used because we are only returning a single watcher,\nso we use the regular error return."
+                },
+                "WatchInstanceData": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResults"
+                        }
+                    },
+                    "description": "WatchInstanceData is a shim to call the LXDProfileAPIv2 version of this method."
                 },
                 "WatchLeadershipSettings": {
                     "type": "object",

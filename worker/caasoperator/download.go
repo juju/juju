@@ -32,6 +32,11 @@ func (c *charmInfo) ArchiveSha256() (string, error) {
 	return c.sha256, nil
 }
 
+func (c *charmInfo) LXDProfileRequired() (bool, error) {
+	// Not applicable to CAAS units.
+	return false, errors.NotImplementedf("LXDProfileRequired")
+}
+
 func (op *caasOperator) ensureCharm(localState *LocalState) error {
 	dbCharmInfo, err := op.config.CharmGetter.Charm(op.config.Application)
 	if err != nil {

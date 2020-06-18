@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -92,54 +91,4 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigPermissions(c *gc.C) {
 
 	err := s.networkconfig.SetObservedNetworkConfig(args)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
-
-func (s *networkConfigSuite) TestSetProviderNetworkConfig(c *gc.C) {
-	devices, err := s.machine.AllLinkLayerDevices()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devices, gc.HasLen, 0)
-
-	err = s.machine.SetInstanceInfo("i-foo", "", "FAKE_NONCE", nil, nil, nil, nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: s.machine.Tag().String()},
-	}}
-
-	result, err := s.networkconfig.SetProviderNetworkConfig(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{nil}},
-	})
-
-	devices, err = s.machine.AllLinkLayerDevices()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devices, gc.HasLen, 3)
-
-	for _, device := range devices {
-		c.Check(device.Name(), gc.Matches, `eth[0-2]`)
-		c.Check(string(device.Type()), gc.Equals, "ethernet")
-		c.Check(device.MACAddress(), gc.Matches, `aa:bb:cc:dd:ee:f[0-2]`)
-		addrs, err := device.Addresses()
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(addrs, gc.HasLen, 1)
-	}
-}
-
-func (s *networkConfigSuite) TestSetProviderNetworkConfigPermissions(c *gc.C) {
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "machine-0"},
-		{Tag: "machine-1"},
-		{Tag: "machine-42"},
-	}}
-
-	result, err := s.networkconfig.SetProviderNetworkConfig(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: apiservertesting.NotProvisionedError(s.machine.Id())},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
 }

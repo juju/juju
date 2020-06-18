@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -240,6 +241,12 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return series.DefaultSupportedLTS() })
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
+	t.BaseSuite.PatchValue(&ec2.EC2Session, func(region, accessKey, secretKey string) ec2iface.EC2API {
+		c.Assert(region, gc.Equals, "test")
+		c.Assert(accessKey, gc.Equals, "x")
+		c.Assert(secretKey, gc.Equals, "x")
+		return mockEC2Session{}
+	})
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
 	// TODO(jam) I don't understand why we shouldn't do this.
@@ -409,8 +416,6 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	c.Assert(keys, jc.SameContents, []string{"output", "users", "runcmd", "ssh_keys"})
 	c.Assert(userDataMap["runcmd"], jc.DeepEquals, []interface{}{
 		"set -xe",
-		"install -D -m 644 /dev/null '/etc/systemd/system/juju-clean-shutdown.service'",
-		"printf '%s\\n' '\n[Unit]\nDescription=Stop all network interfaces on shutdown\nDefaultDependencies=false\nAfter=final.target\n\n[Service]\nType=oneshot\nExecStart=/sbin/ifdown -a -v --force\nStandardOutput=tty\nStandardError=tty\n\n[Install]\nWantedBy=final.target\n' > '/etc/systemd/system/juju-clean-shutdown.service'", "/bin/systemctl enable '/etc/systemd/system/juju-clean-shutdown.service'",
 		"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
 		"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
 	})

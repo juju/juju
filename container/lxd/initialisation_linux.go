@@ -40,7 +40,7 @@ type containerInitialiser struct {
 	lxdSnapChannel      string
 }
 
-//go:generate mockgen -package mocks -destination mocks/snap_manager_mock.go github.com/juju/juju/container/lxd SnapManager
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/snap_manager_mock.go github.com/juju/juju/container/lxd SnapManager
 
 // SnapManager defines an interface implemented by types that can query and/or
 // change the channel for installed snaps.

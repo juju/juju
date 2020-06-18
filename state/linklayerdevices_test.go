@@ -652,6 +652,30 @@ func (s *linkLayerDevicesStateSuite) TestMachineRemoveAllLinkLayerDevicesNoError
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *linkLayerDevicesStateSuite) TestSetProviderIDOps(c *gc.C) {
+	dev1 := s.addNamedDevice(c, "foo")
+
+	ops, err := dev1.SetProviderIDOps("p1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.Not(gc.HasLen), 0)
+
+	state.RunTransaction(c, s.State, ops)
+
+	dev1, err = s.machine.LinkLayerDevice("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dev1.ProviderID().String(), gc.Equals, "p1")
+
+	// No-op if already set.
+	ops, err = dev1.SetProviderIDOps("p2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, 0)
+
+	// Error if ID already used.
+	dev2 := s.addNamedDevice(c, "bar")
+	_, err = dev2.SetProviderIDOps("p1")
+	c.Assert(err, gc.ErrorMatches, "provider IDs not unique: p1")
+}
+
 func (s *linkLayerDevicesStateSuite) createSpaceAndSubnet(c *gc.C, spaceName, CIDR string) {
 	s.createSpaceAndSubnetWithProviderID(c, spaceName, CIDR, "")
 }

@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
@@ -72,6 +71,9 @@ type environ struct {
 
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
+
+	instTypesMutex sync.Mutex
+	instTypes      []instances.InstanceType
 
 	defaultVPCMutex   sync.Mutex
 	defaultVPCChecked bool
@@ -176,7 +178,8 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 		[]string{constraints.InstanceType},
 		[]string{constraints.Mem, constraints.Cores, constraints.CpuPower})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	instanceTypes, err := e.supportedInstanceTypes(ctx)
+	ec2Session := EC2Session(e.cloud.Region, e.ec2.AccessKey, e.ec2.SecretKey)
+	instanceTypes, err := e.supportedInstanceTypes(ec2Session, ctx)
 
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -339,7 +342,8 @@ func (e *environ) PrecheckInstance(ctx context.ProviderCallContext, args environ
 		return nil
 	}
 	// Constraint has an instance-type constraint so let's see if it is valid.
-	instanceTypes, err := e.supportedInstanceTypes(ctx)
+	ec2Session := EC2Session(e.cloud.Region, e.ec2.AccessKey, e.ec2.SecretKey)
+	instanceTypes, err := e.supportedInstanceTypes(ec2Session, ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -464,7 +468,8 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 
 	arches := args.Tools.Arches()
 
-	instanceTypes, err := e.supportedInstanceTypes(ctx)
+	ec2Session := EC2Session(e.cloud.Region, e.ec2.AccessKey, e.ec2.SecretKey)
+	instanceTypes, err := e.supportedInstanceTypes(ec2Session, ctx)
 	if err != nil {
 		return nil, wrapError(err)
 	}
@@ -487,7 +492,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, common.ZoneIndependentError(
-			errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches),
+			errors.Errorf("chosen architecture %v for image %q not present in %v", spec.Image.Arch, spec.Image.Id, arches),
 		)
 	}
 
@@ -2266,32 +2271,6 @@ func (e *environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, int
 	return errors.NotSupportedf("container address allocation")
 }
 
-func (e *environ) supportedInstanceTypes(ctx context.ProviderCallContext) ([]instances.InstanceType, error) {
-	allInstanceTypes := ec2instancetypes.RegionInstanceTypes(e.cloud.Region)
-	if isVPCIDSet(e.ecfg().vpcID()) {
-		return allInstanceTypes, nil
-	}
-	hasDefaultVPC, err := e.hasDefaultVPC(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if hasDefaultVPC {
-		return allInstanceTypes, nil
-	}
-
-	// The region has no default VPC, and the user has not specified
-	// one to use. We filter out any instance types that are not
-	// supported in EC2-Classic.
-	supportedInstanceTypes := make([]instances.InstanceType, 0, len(allInstanceTypes))
-	for _, instanceType := range allInstanceTypes {
-		if !ec2instancetypes.SupportsClassic(instanceType.Name) {
-			continue
-		}
-		supportedInstanceTypes = append(supportedInstanceTypes, instanceType)
-	}
-	return supportedInstanceTypes, nil
-}
-
 func (e *environ) hasDefaultVPC(ctx context.ProviderCallContext) (bool, error) {
 	e.defaultVPCMutex.Lock()
 	defer e.defaultVPCMutex.Unlock()
@@ -2359,6 +2338,10 @@ func (e *environ) SetCloudSpec(spec environs.CloudSpec) error {
 			e.cloud.Endpoint = region.EC2Endpoint
 		}
 	}
+
+	e.instTypesMutex.Lock()
+	e.instTypes = nil
+	e.instTypesMutex.Unlock()
 
 	var err error
 	e.ec2, err = awsClient(e.cloud)

@@ -9,7 +9,7 @@ test_examples() {
     echo "==> Checking for dependencies"
     check_dependencies juju
 
-    file="${TEST_DIR}/test-example.txt"
+    file="${TEST_DIR}/test-example.log"
 
     bootstrap "test-example" "${file}"
 

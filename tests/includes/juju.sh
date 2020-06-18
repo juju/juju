@@ -212,7 +212,7 @@ destroy_model() {
         return
     fi
 
-    output="${TEST_DIR}/${name}-destroy.txt"
+    output="${TEST_DIR}/${name}-destroy.log"
 
     echo "====> Destroying juju model ${name}"
     echo "${name}" | xargs -I % juju destroy-model --force -y % >"${output}" 2>&1
@@ -248,7 +248,7 @@ destroy_controller() {
         fi
         echo "====> Destroying model ($(green "${name}"))"
 
-        output="${TEST_DIR}/${name}-destroy-model.txt"
+        output="${TEST_DIR}/${name}-destroy-model.log"
         echo "${name}" | xargs -I % juju destroy-model --force -y % >"${output}" 2>&1
 
         echo "====> Destroyed model ($(green "${name}"))"
@@ -270,7 +270,7 @@ destroy_controller() {
 
     set_verbosity
 
-    output="${TEST_DIR}/${name}-destroy-controller.txt"
+    output="${TEST_DIR}/${name}-destroy-controller.log"
 
     echo "====> Destroying juju ($(green "${name}"))"
     echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models -y % >"${output}" 2>&1
@@ -313,8 +313,8 @@ introspect_controller() {
         return
     fi
 
-    echo "${idents}" | xargs -I % juju ssh -m "${name}:controller" % bash -lc "juju_engine_report" > "${TEST_DIR}/${name}-juju_engine_reports.txt"
-    echo "${idents}" | xargs -I % juju ssh -m "${name}:controller" % bash -lc "juju_goroutines" > "${TEST_DIR}/${name}-juju_goroutines.txt"
+    echo "${idents}" | xargs -I % juju ssh -m "${name}:controller" % bash -lc "juju_engine_report" > "${TEST_DIR}/${name}-juju_engine_reports.log" 2>/dev/null
+    echo "${idents}" | xargs -I % juju ssh -m "${name}:controller" % bash -lc "juju_goroutines" > "${TEST_DIR}/${name}-juju_goroutines.log" 2>/dev/null
 }
 
 remove_controller_offers() {
@@ -329,7 +329,7 @@ remove_controller_offers() {
             echo "${OUT}" | while read -r offer; do
                 if [ -n "${offer}" ]; then
                     juju remove-offer --force -y -c "${name}" "${offer}"
-                    echo "${offer}" >> "${TEST_DIR}/${name}-juju_removed_offers.txt"
+                    echo "${offer}" >> "${TEST_DIR}/${name}-juju_removed_offers.log"
                 fi
             done
         done

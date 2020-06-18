@@ -53,6 +53,8 @@ parts:
       github.com/juju/juju/version.build: ""
     # go-static is not supported by the standard go plugin.
     go-static: true
+    # go-strip is not supported by the standard go plugin.
+    go-strip: true
     override-build: |
       snapcraftctl build
 

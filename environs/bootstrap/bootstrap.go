@@ -278,7 +278,7 @@ func bootstrapCAAS(
 	}
 	podConfig.JujuVersion = jujuVersion
 	podConfig.OfficialBuild = jujuversion.OfficialBuild
-	if err := finalizePodBootstrapConfig(podConfig, args, environ.Config()); err != nil {
+	if err := finalizePodBootstrapConfig(ctx, podConfig, args, environ.Config()); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
 	if err := result.CaasBootstrapFinalizer(ctx, podConfig, args.DialOpts); err != nil {
@@ -408,7 +408,7 @@ func bootstrapIAAS(
 	} else {
 		// If no arch is specified as a constraint, we'll bootstrap
 		// on the same arch as the client used to bootstrap.
-		bootstrapArch = arch.HostArch()
+		bootstrapArch = localToolsArch()
 		// We no longer support controllers on i386.
 		// If we are bootstrapping from an i386 client,
 		// we'll look for amd64 tools.
@@ -686,7 +686,7 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.RegionInheritedConfig = args.Cloud.RegionConfig
 	icfg.Bootstrap.HostedModelConfig = args.HostedModelConfig
 	icfg.Bootstrap.Timeout = args.DialOpts.Timeout
-	icfg.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, cfg.GUIStream(), vers.Major, vers.Minor, func(msg string) {
+	icfg.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, cfg.GUIStream(), vers.Major, vers.Minor, true, func(msg string) {
 		ctx.Infof(msg)
 	})
 	icfg.Bootstrap.JujuDbSnapPath = args.JujuDbSnapPath
@@ -695,6 +695,7 @@ func finalizeInstanceBootstrapConfig(
 }
 
 func finalizePodBootstrapConfig(
+	ctx environs.BootstrapContext,
 	pcfg *podcfg.ControllerPodConfig,
 	args BootstrapParams,
 	cfg *config.Config,
@@ -756,6 +757,11 @@ func finalizePodBootstrapConfig(
 		pcfg.AgentEnvironment[k] = v
 	}
 
+	vers, ok := cfg.AgentVersion()
+	if !ok {
+		return errors.New("controller model configuration has no agent-version")
+	}
+
 	pcfg.Bootstrap.ControllerModelConfig = cfg
 	pcfg.Bootstrap.ControllerCloud = args.Cloud
 	pcfg.Bootstrap.ControllerCloudRegion = args.CloudRegion
@@ -768,6 +774,9 @@ func finalizePodBootstrapConfig(
 	pcfg.Bootstrap.ControllerServiceType = args.ControllerServiceType
 	pcfg.Bootstrap.ControllerExternalName = args.ControllerExternalName
 	pcfg.Bootstrap.ControllerExternalIPs = append([]string(nil), args.ControllerExternalIPs...)
+	pcfg.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, cfg.GUIStream(), vers.Major, vers.Minor, false, func(msg string) {
+		ctx.Infof(msg)
+	})
 	return nil
 }
 
@@ -1035,10 +1044,14 @@ func setPrivateMetadataSources(metadataDir string) ([]*imagemetadata.ImageMetada
 // non-empty, remote GUI archive info is retrieved from simplestreams using it
 // as the base URL. The given logProgress function is used to inform users
 // about errors or progress in setting up the Juju GUI.
-func guiArchive(dataSourceBaseURL, stream string, major, minor int, logProgress func(string)) *coretools.GUIArchive {
+func guiArchive(dataSourceBaseURL, stream string, major, minor int, allowLocal bool, logProgress func(string)) *coretools.GUIArchive {
 	// The environment variable is only used for development purposes.
 	path := os.Getenv("JUJU_GUI")
-	if path != "" {
+	if path != "" && !allowLocal {
+		// TODO(wallyworld) - support local archive on k8s controllers at bootstrap
+		// It can't be passed the same way as on IAAS as it's too large.
+		logProgress("Dashboard from local archive on bootstrap not supported")
+	} else if path != "" {
 		vers, err := guiVersion(path)
 		if err != nil {
 			logProgress(fmt.Sprintf("Cannot use Juju Dashboard at %q: %s", path, err))

@@ -76,6 +76,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
+	s.PatchEnvironment("JUJU_GUI", "")
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	storageDir := c.MkDir()
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
@@ -325,7 +326,7 @@ func (s *bootstrapSuite) assertFinalizePodBootstrapConfig(c *gc.C, serviceType, 
 		ControllerExternalIPs:      externalIps,
 		ExtraAgentValuesForTesting: map[string]string{"foo": "bar"},
 	}
-	err = bootstrap.FinalizePodBootstrapConfig(podConfig, params, modelCfg)
+	err = bootstrap.FinalizePodBootstrapConfig(envtesting.BootstrapContext(c), podConfig, params, modelCfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(podConfig.Bootstrap.ControllerModelConfig, jc.DeepEquals, modelCfg)
 	c.Assert(podConfig.Bootstrap.ControllerServiceType, gc.Equals, serviceType)

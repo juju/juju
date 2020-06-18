@@ -162,7 +162,7 @@ func (s *charmConfigWatcherSuite) newWatcher(c *gc.C, unitName string, charmURL 
 // newStub model sets up a cached model containing a redis application
 // and a branch with 2 redis units tracking it.
 func (s *charmConfigWatcherSuite) newStubModel() *stubCharmConfigModel {
-	app := newApplication(s.Gauges, s.Hub, s.NewResident())
+	app := newApplication(nil, s.Gauges, s.Hub, s.NewResident())
 	app.setDetails(ApplicationChange{
 		Name:   "redis",
 		Config: map[string]interface{}{}},
