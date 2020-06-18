@@ -111,12 +111,7 @@ func virtType(info *ec2.InstanceTypeInfo) *string {
 // See:
 //     http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-vpc.html#vpc-only-instance-types
 func supportsClassic(instanceType string) bool {
-	parts := strings.SplitN(instanceType, ".", 2)
-	if len(parts) < 2 {
-		return false
-	}
-	switch strings.ToLower(parts[0]) {
-	case
+	classicTypes := set.NewStrings(
 		"c1", "c3",
 		"cc2",
 		"cg1",
@@ -128,10 +123,13 @@ func supportsClassic(instanceType string) bool {
 		"i2",
 		"m1", "m2", "m3",
 		"r3",
-		"t1":
-		return true
+		"t1",
+	)
+	parts := strings.SplitN(instanceType, ".", 2)
+	if len(parts) < 2 {
+		return false
 	}
-	return false
+	return classicTypes.Contains(strings.ToLower(parts[0]))
 }
 
 var archNames = map[string]string{
@@ -163,9 +161,12 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 
 	// Use a cached copy if populated as it's mildly
 	// expensive to fetch each time.
+	// TODO(wallyworld) - consider using a cache with expiry
 	if len(e.instTypes) > 0 {
 		return e.instTypes, nil
 	}
+
+	const maxResults = 100
 
 	// First get all the zone names for the current region.
 	zoneResults, err := ec2Session.DescribeAvailabilityZones(&ec2.DescribeAvailabilityZonesInput{
@@ -191,7 +192,7 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 	for {
 		offeringResults, err := ec2Session.DescribeInstanceTypeOfferings(&ec2.DescribeInstanceTypeOfferingsInput{
 			LocationType: aws.String("availability-zone"),
-			MaxResults:   aws.Int64(100),
+			MaxResults:   aws.Int64(maxResults),
 			NextToken:    token,
 			Filters:      []*ec2.Filter{zoneFilter},
 		})
@@ -211,21 +212,24 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 		}
 	}
 
-	// Populate the costs fo the instance types in use.
-	costs := make(map[string]uint64)
-	if err := instanceTypeCosts(ec2Session, instTypeNames, zoneNames, costs); err != nil {
+	// Populate the costs for the instance types in use.
+	costs, err := instanceTypeCosts(ec2Session, instTypeNames, zoneNames)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// Compose the results.
 	var allInstanceTypes []instances.InstanceType
-	for {
+	for len(instTypeNames) > 0 {
 		querySize := len(instTypeNames)
-		if querySize > 100 {
-			querySize = 100
+		if querySize > maxResults {
+			querySize = maxResults
 		}
+		page := instTypeNames[0:querySize]
+		instTypeNames = instTypeNames[querySize:]
+
 		instTypeParams := &ec2.DescribeInstanceTypesInput{
-			InstanceTypes: instTypeNames[0:querySize],
+			InstanceTypes: page,
 		}
 		instTypeResults, err := ec2Session.DescribeInstanceTypes(instTypeParams)
 		if err != nil {
@@ -261,10 +265,6 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 			}
 			allInstanceTypes = append(allInstanceTypes, instType)
 		}
-		if len(instTypeNames) <= 100 {
-			break
-		}
-		instTypeNames = instTypeNames[querySize:]
 	}
 
 	if isVPCIDSet(e.ecfg().vpcID()) {
@@ -281,7 +281,7 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 	// The region has no default VPC, and the user has not specified
 	// one to use. We filter out any instance types that are not
 	// supported in EC2-Classic.
-	supportedInstanceTypes := make([]instances.InstanceType, 0, len(allInstanceTypes))
+	var supportedInstanceTypes []instances.InstanceType
 	for _, instanceType := range allInstanceTypes {
 		if !supportsClassic(instanceType.Name) {
 			continue
@@ -292,37 +292,44 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 }
 
 // instanceTypeCosts queries the latest spot price for the given instance types.
-func instanceTypeCosts(ec2Session ec2iface.EC2API, instTypeNames []*string, zoneNames []string, costs map[string]uint64) error {
+func instanceTypeCosts(ec2Session ec2iface.EC2API, instTypeNames []*string, zoneNames []string) (map[string]uint64, error) {
+	const (
+		maxResults = 1000
+		costFactor = 1000
+	)
 	var token *string
 	spParams := &ec2.DescribeSpotPriceHistoryInput{
 		InstanceTypes: instTypeNames,
-		MaxResults:    aws.Int64(1000),
+		MaxResults:    aws.Int64(maxResults),
 		StartTime:     aws.Time(time.Now()),
-		Filters:       []*ec2.Filter{{Name: aws.String("availability-zone")}},
 	}
+	filter := &ec2.Filter{Name: aws.String("availability-zone")}
 	for _, zone := range zoneNames {
-		spParams.Filters[0].Values = append(spParams.Filters[0].Values, aws.String(zone))
+		filter.Values = append(filter.Values, aws.String(zone))
 	}
+	spParams.Filters = []*ec2.Filter{filter}
+
+	costs := make(map[string]uint64)
 	for {
 		spParams.NextToken = token
 		priceResults, err := ec2Session.DescribeSpotPriceHistory(spParams)
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		for _, sp := range priceResults.SpotPriceHistory {
 			if _, ok := costs[*sp.InstanceType]; !ok {
 				price, err := strconv.ParseFloat(*sp.SpotPrice, 32)
 				if err == nil {
-					costs[*sp.InstanceType] = uint64(1000 * price)
+					costs[*sp.InstanceType] = uint64(costFactor * price)
 				}
 			}
 		}
 		token = priceResults.NextToken
 		// token should be nil when there's no more records
 		// but it never gets set to nil so there's a bug in the api.
-		if len(priceResults.SpotPriceHistory) < 1000 {
+		if len(priceResults.SpotPriceHistory) < maxResults {
 			break
 		}
 	}
-	return nil
+	return costs, nil
 }
