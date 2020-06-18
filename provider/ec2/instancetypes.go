@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -181,6 +182,10 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 	var zoneNames []string
 	zoneFilter := &ec2.Filter{Name: aws.String("location")}
 	for _, z := range zoneResults.AvailabilityZones {
+		// Should never be nil.
+		if z.ZoneName == nil {
+			continue
+		}
 		zoneNames = append(zoneNames, *z.ZoneName)
 		zoneFilter.Values = append(zoneFilter.Values, z.ZoneName)
 	}
@@ -200,6 +205,10 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 			return nil, errors.Trace(err)
 		}
 		for _, offering := range offeringResults.InstanceTypeOfferings {
+			// Should never be nil.
+			if offering.InstanceType == nil {
+				continue
+			}
 			if _, ok := instanceTypeRegions[*offering.InstanceType]; !ok {
 				instanceTypeRegions[*offering.InstanceType] = set.NewStrings()
 			}
@@ -236,34 +245,12 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 			return nil, errors.Trace(err)
 		}
 		for _, info := range instTypeResults.InstanceTypes {
-			instType := instances.InstanceType{
-				Name:       *info.InstanceType,
-				VirtType:   virtType(info),
-				Deprecated: info.CurrentGeneration == nil || !*info.CurrentGeneration,
-				Cost:       costs[*info.InstanceType],
+			// Should never be nil.
+			if info.InstanceType == nil {
+				continue
 			}
-			if info.VCpuInfo != nil && info.VCpuInfo.DefaultVCpus != nil {
-				instType.CpuCores = uint64(*info.VCpuInfo.DefaultVCpus)
-				if info.ProcessorInfo != nil && info.ProcessorInfo.SustainedClockSpeedInGhz != nil {
-					cpupower := calculateCPUPower(
-						instType.Name,
-						info.ProcessorInfo.SustainedClockSpeedInGhz,
-						uint64(*info.VCpuInfo.DefaultVCpus))
-					instType.CpuPower = &cpupower
-				}
-			}
-			if info.MemoryInfo != nil && info.MemoryInfo.SizeInMiB != nil {
-				instType.Mem = uint64(*info.MemoryInfo.SizeInMiB)
-			}
-			if info.ProcessorInfo != nil {
-				for _, instArch := range info.ProcessorInfo.SupportedArchitectures {
-					instType.Arches = append(instType.Arches, archName(*instArch))
-				}
-			}
-			if instRegions, ok := instanceTypeRegions[instType.Name]; !ok || instRegions.Size() < len(zoneNames) {
-				instType.Deprecated = true
-			}
-			allInstanceTypes = append(allInstanceTypes, instType)
+			allInstanceTypes = append(
+				allInstanceTypes, convertEC2InstanceType(info, instanceTypeRegions, costs, zoneNames))
 		}
 	}
 
@@ -289,6 +276,56 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 		supportedInstanceTypes = append(supportedInstanceTypes, instanceType)
 	}
 	return supportedInstanceTypes, nil
+}
+
+func convertEC2InstanceType(
+	info *ec2.InstanceTypeInfo,
+	instanceTypeRegions map[string]set.Strings,
+	costs map[string]uint64,
+	zoneNames []string,
+) instances.InstanceType {
+	instCost, ok := costs[*info.InstanceType]
+	if !ok {
+		instCost = math.MaxUint64
+	}
+
+	instType := instances.InstanceType{
+		Name:       *info.InstanceType,
+		VirtType:   virtType(info),
+		Deprecated: info.CurrentGeneration == nil || !*info.CurrentGeneration,
+		Cost:       instCost,
+	}
+	if info.VCpuInfo != nil && info.VCpuInfo.DefaultVCpus != nil {
+		instType.CpuCores = uint64(*info.VCpuInfo.DefaultVCpus)
+		if info.ProcessorInfo != nil && info.ProcessorInfo.SustainedClockSpeedInGhz != nil {
+			cpupower := calculateCPUPower(
+				instType.Name,
+				info.ProcessorInfo.SustainedClockSpeedInGhz,
+				uint64(*info.VCpuInfo.DefaultVCpus))
+			instType.CpuPower = &cpupower
+		}
+	}
+	if info.MemoryInfo != nil && info.MemoryInfo.SizeInMiB != nil {
+		instType.Mem = uint64(*info.MemoryInfo.SizeInMiB)
+	}
+	if info.ProcessorInfo != nil {
+		for _, instArch := range info.ProcessorInfo.SupportedArchitectures {
+			// Should never be nil.
+			if instArch == nil {
+				continue
+			}
+			instType.Arches = append(instType.Arches, archName(*instArch))
+		}
+	}
+	instRegions, ok := instanceTypeRegions[instType.Name]
+	if !ok {
+		instType.Deprecated = true
+	} else {
+		// If a instance type is available it at least 3 zones (or all of them if < 3)
+		// then consider it able to be used without explicitly asking for it.
+		instType.Deprecated = instRegions.Size() < 3 && instRegions.Size() < len(zoneNames)
+	}
+	return instType
 }
 
 // instanceTypeCosts queries the latest spot price for the given instance types.
