@@ -6,7 +6,7 @@ cat_mongo_service() {
 run_mongo_memory_profile() {
     echo
 
-    file="${TEST_DIR}/mongo_memory_profile.txt"
+    file="${TEST_DIR}/mongo_memory_profile.log"
 
     ensure "mongo-memory-profile" "${file}"
 

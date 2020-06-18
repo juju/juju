@@ -3,7 +3,7 @@ run_charmrevisionupdater() {
     echo
 
     model_name="test-charmrevisionupdater"
-    file="${TEST_DIR}/${model_name}.txt"
+    file="${TEST_DIR}/${model_name}.log"
 
     ensure "${model_name}" "${file}"
 

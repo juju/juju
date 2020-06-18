@@ -6,8 +6,9 @@ PROJECT := github.com/juju/juju
 
 GOOS=$(shell go env GOOS)
 GOARCH=$(shell go env GOARCH)
-HOST_GOOS=$(shell GOOS= GOARCH= go env GOOS)
-HOST_GOARCH=$(shell GOOS= GOARCH= go env GOARCH)
+GOHOSTOS=$(shell go env GOHOSTOS)
+GOHOSTARCH=$(shell go env GOHOSTARCH)
+export CGO_ENABLED=0
 
 BUILD_DIR ?= $(PROJECT_DIR)/_build
 BIN_DIR = ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
@@ -69,7 +70,7 @@ ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(ppc64le|ppc64).*/golang/'), golang
 else
 	COMPILE_FLAGS =
 endif
-    LINK_FLAGS = -ldflags "-s -w -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
+    LINK_FLAGS = -ldflags "-s -w -extldflags '-static' -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 endif
 
 define DEPENDENCIES
@@ -152,9 +153,9 @@ rebuild-schema:
 ## rebuild-schema: Rebuild the schema for clients with the latest facades
 	@echo "Generating facade schema..."
 ifdef SCHEMA_PATH
-	@go run $(PROJECT)/generate/schemagen "$(SCHEMA_PATH)"
+	@go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen "$(SCHEMA_PATH)"
 else
-	@go run $(PROJECT)/generate/schemagen \
+	@go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen \
 		./apiserver/facades/schema.json
 endif
 
@@ -241,7 +242,7 @@ push-release-operator-image: operator-image
 
 host-install:
 ## install juju for host os/architecture
-	GOOS=$(HOST_GOOS) GOARCH=$(HOST_GOARCH) make install
+	GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) make install
 
 microk8s-operator-update: host-install operator-image
 ## microk8s-operator-update: Push up the newly built operator image for use with microk8s

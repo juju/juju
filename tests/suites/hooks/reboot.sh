@@ -2,7 +2,7 @@ run_start_hook_fires_after_reboot() {
     echo
 
     model_name="test-start-hook-fires-after-reboot"
-    file="${TEST_DIR}/${model_name}.txt"
+    file="${TEST_DIR}/${model_name}.log"
 
     ensure "${model_name}" "${file}"
 
@@ -60,7 +60,7 @@ run_reboot_monitor_state_cleanup() {
     echo
 
     model_name="test-reboot-monitor-state-cleanup"
-    file="${TEST_DIR}/${model_name}.txt"
+    file="${TEST_DIR}/${model_name}.log"
 
     ensure "${model_name}" "${file}"
 

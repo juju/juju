@@ -37,7 +37,7 @@ type linkLayerDeviceDoc struct {
 	// MachineID is the ID of the machine this device belongs to.
 	MachineID string `bson:"machine-id"`
 
-	// Type is the undelying type of the device.
+	// Type is the underlying type of the device.
 	Type network.LinkLayerDeviceType `bson:"type"`
 
 	// MACAddress is the media access control (MAC) address of the device.
@@ -173,8 +173,8 @@ func (dev *LinkLayerDevice) parentDeviceNameAndMachineID() (string, string) {
 		return "", ""
 	}
 	if hostMachineID == "" {
-		// Parent device is on the same machine and ParentName is not a global
-		// key.
+		// Parent device is on the same machine and
+		// ParentName is not a global key.
 		return dev.doc.ParentName, dev.doc.MachineID
 	}
 	return parentDeviceName, hostMachineID
@@ -199,6 +199,35 @@ func (dev *LinkLayerDevice) parentDocID() string {
 		return ""
 	}
 	return dev.st.docID(parentGlobalKey)
+}
+
+// SetProviderIDOps returns the operations required to set the input
+// provider ID for the link-layer device.
+func (dev *LinkLayerDevice) SetProviderIDOps(id network.Id) ([]txn.Op, error) {
+	// We only set the provider ID if it was previously empty.
+	if dev.doc.ProviderID != "" || id == "" || dev.doc.ProviderID == id.String() {
+		return nil, nil
+	}
+
+	// Since we assume that we are now setting the ID for the first time,
+	// ensure that it has not already been used to identify another device.
+	exists, err := dev.st.networkEntityGlobalKeyExists("linklayerdevice", id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if exists {
+		return nil, NewProviderIDNotUniqueError(id)
+	}
+
+	return []txn.Op{
+		dev.st.networkEntityGlobalKeyOp("linklayerdevice", id),
+		{
+			C:      linkLayerDevicesC,
+			Id:     dev.doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"providerid": id}},
+		},
+	}, nil
 }
 
 // machineProxy is a convenience wrapper for calling Machine.LinkLayerDevice()

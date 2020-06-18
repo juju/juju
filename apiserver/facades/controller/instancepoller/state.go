@@ -4,6 +4,8 @@
 package instancepoller
 
 import (
+	"gopkg.in/mgo.v2/txn"
+
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -12,6 +14,7 @@ import (
 
 // StateLinkLayerDevice represents a link layer device address from state package.
 type StateLinkLayerDeviceAddress interface {
+	DeviceName() string
 	ConfigMethod() network.AddressConfigMethod
 	SubnetCIDR() string
 	DNSServers() []string
@@ -19,6 +22,17 @@ type StateLinkLayerDeviceAddress interface {
 	GatewayAddress() string
 	IsDefaultGateway() bool
 	Value() string
+
+	// Origin indicates the authority that is maintaining this address.
+	Origin() network.Origin
+
+	// SetOriginOps returns the transaction operations required to change
+	// the origin for this address.
+	SetOriginOps(origin network.Origin) []txn.Op
+
+	// SetProviderIDOps returns the operations required to set the input
+	// provider ID for the address.
+	SetProviderIDOps(id network.Id) ([]txn.Op, error)
 }
 
 // StateLinkLayerDevice represents a link layer device from state package.
@@ -31,7 +45,13 @@ type StateLinkLayerDevice interface {
 	IsAutoStart() bool
 	IsUp() bool
 	ParentName() string
-	Addresses() ([]StateLinkLayerDeviceAddress, error)
+
+	// ProviderID returns the provider-specific identifier for this device.
+	ProviderID() network.Id
+
+	// SetProviderIDOps returns the operations required to set the input
+	// provider ID for the link-layer device.
+	SetProviderIDOps(id network.Id) ([]txn.Op, error)
 }
 
 // StateMachine represents a machine from state package.
@@ -43,8 +63,7 @@ type StateMachine interface {
 	ProviderAddresses() network.SpaceAddresses
 	SetProviderAddresses(...network.SpaceAddress) error
 	AllLinkLayerDevices() ([]StateLinkLayerDevice, error)
-	SetParentLinkLayerDevicesBeforeTheirChildren([]state.LinkLayerDeviceArgs) error
-	SetDevicesAddressesIdempotently([]state.LinkLayerDeviceAddress) error
+	AllAddresses() ([]StateLinkLayerDeviceAddress, error)
 	InstanceStatus() (status.StatusInfo, error)
 	SetInstanceStatus(status.StatusInfo) error
 	SetStatus(status.StatusInfo) error
@@ -53,6 +72,7 @@ type StateMachine interface {
 	Life() state.Life
 	Status() (status.StatusInfo, error)
 	IsManual() (bool, error)
+	AssertAliveOp() txn.Op
 }
 
 type StateInterface interface {
@@ -62,24 +82,9 @@ type StateInterface interface {
 	network.SpaceLookup
 
 	Machine(id string) (StateMachine, error)
-}
 
-type linkLayerDeviceShim struct {
-	*state.LinkLayerDevice
-}
-
-func (s linkLayerDeviceShim) Addresses() ([]StateLinkLayerDeviceAddress, error) {
-	addrList, err := s.LinkLayerDevice.Addresses()
-	if err != nil {
-		return nil, err
-	}
-
-	out := make([]StateLinkLayerDeviceAddress, len(addrList))
-	for i, addr := range addrList {
-		out[i] = addr
-	}
-
-	return out, nil
+	// ApplyOperation applies a given ModelOperation to the model.
+	ApplyOperation(state.ModelOperation) error
 }
 
 type machineShim struct {
@@ -94,7 +99,21 @@ func (s machineShim) AllLinkLayerDevices() ([]StateLinkLayerDevice, error) {
 
 	out := make([]StateLinkLayerDevice, len(devList))
 	for i, dev := range devList {
-		out[i] = linkLayerDeviceShim{dev}
+		out[i] = dev
+	}
+
+	return out, nil
+}
+
+func (s machineShim) AllAddresses() ([]StateLinkLayerDeviceAddress, error) {
+	addrList, err := s.Machine.AllAddresses()
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]StateLinkLayerDeviceAddress, len(addrList))
+	for i, addr := range addrList {
+		out[i] = addr
 	}
 
 	return out, nil

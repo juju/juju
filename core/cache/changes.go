@@ -60,6 +60,7 @@ type ApplicationChange struct {
 	Config          map[string]interface{}
 	Subordinate     bool
 	Status          status.StatusInfo
+	OperatorStatus  status.StatusInfo // For CAAS applications.
 	WorkloadVersion string
 }
 
@@ -240,6 +241,7 @@ type MachineChange struct {
 	Config                   map[string]interface{}
 	Series                   string
 	ContainerType            string
+	IsManual                 bool
 	SupportedContainers      []instance.ContainerType
 	SupportedContainersKnown bool
 	HardwareCharacteristics  *instance.HardwareCharacteristics

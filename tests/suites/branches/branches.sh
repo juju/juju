@@ -3,7 +3,7 @@ run_branch() {
     echo
 
     # The following ensures that a bootstrap juju exists
-    file="${TEST_DIR}/test-branches.txt"
+    file="${TEST_DIR}/test-branches.log"
     ensure "branches" "${file}"
 
     juju branch | check 'Active branch is "master"'

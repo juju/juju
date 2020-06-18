@@ -3,7 +3,7 @@ run_example1() {
     echo
 
     # The following ensures that a bootstrap juju exists
-    file="${TEST_DIR}/test-example1.txt"
+    file="${TEST_DIR}/test-example1.log"
     ensure "example1" "${file}"
 
     # Run your checks here
@@ -16,7 +16,7 @@ run_example1() {
 run_example2() {
     echo
 
-    file="${TEST_DIR}/test-example2.txt"
+    file="${TEST_DIR}/test-example2.log"
     ensure "example2" "${file}"
 
     echo "Hello example 2!" | check "Hello example 2!"

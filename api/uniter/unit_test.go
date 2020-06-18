@@ -964,3 +964,81 @@ func (s *unitSuite) TestMeterStatusResultError(c *gc.C) {
 	_, _, err := unit.MeterStatus()
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
+
+func (s *unitSuite) TestWatchInstanceData(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		if objType == "NotifyWatcher" {
+			if request != "Next" && request != "Stop" {
+				c.Fatalf("unexpected watcher request %q", request)
+			}
+			return nil
+		}
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "WatchInstanceData")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{{
+				NotifyWatcherId: "1",
+			}},
+		}
+		return nil
+	})
+	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	w, err := unit.WatchInstanceData()
+	c.Assert(err, jc.ErrorIsNil)
+	wc := watchertest.NewNotifyWatcherC(c, w, nil)
+	defer wc.AssertStops()
+
+	// Initial event.
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("watcher did not send change")
+	}
+}
+
+func (s *unitSuite) TestLXDProfileName(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "LXDProfileName")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		*(result.(*params.StringResults)) = params.StringResults{
+			Results: []params.StringResult{{
+				Result: "juju-default-mysql-0",
+			}},
+		}
+		return nil
+	})
+	caller := basetesting.BestVersionCaller{apiCaller, 1}
+	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	profile, err := unit.LXDProfileName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(profile, gc.Equals, "juju-default-mysql-0")
+}
+
+func (s *unitSuite) TestCanApplyLXDProfile(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "CanApplyLXDProfile")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.BoolResults{})
+		*(result.(*params.BoolResults)) = params.BoolResults{
+			Results: []params.BoolResult{{
+				Result: true,
+			}},
+		}
+		return nil
+	})
+	caller := basetesting.BestVersionCaller{apiCaller, 1}
+	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	canApply, err := unit.CanApplyLXDProfile()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(canApply, jc.IsTrue)
+}

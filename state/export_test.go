@@ -335,10 +335,6 @@ func NowToTheSecond(st *State) time.Time {
 	return st.nowToTheSecond()
 }
 
-func RunTransaction(st *State, ops []txn.Op) error {
-	return st.db().RunTransaction(ops)
-}
-
 // Return the PasswordSalt that goes along with the PasswordHash
 func GetUserPasswordSaltAndHash(u *User) (string, string) {
 	return u.doc.PasswordSalt, u.doc.PasswordHash

@@ -3,7 +3,7 @@ test_log_permissions() {
   echo
 
   # The following ensures that a bootstrap juju exists
-  file="${TEST_DIR}/test_log_permissions.txt"
+  file="${TEST_DIR}/test_log_permissions.log"
   ensure "correct-log" "${file}"
 
   juju deploy postgresql

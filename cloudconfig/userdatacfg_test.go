@@ -486,9 +486,6 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-quantal-amd64\.sha256
 		upgradedToVersion: "1.2.3",
 		expectScripts: `
 set -xe
-install -D -m 644 /dev/null '/etc/systemd/system/juju-clean-shutdown\.service'
-printf '%s\\n' '\\n\[Unit\]\\n.*Stop all network interfaces.*WantedBy=final\.target\\n' > '/etc/systemd.*'
-/bin/systemctl enable '/etc/systemd/system/juju-clean-shutdown\.service'
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 .*

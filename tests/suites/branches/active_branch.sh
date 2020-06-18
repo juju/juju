@@ -2,7 +2,7 @@
 run_indicate_active_branch_no_active() {
   echo
 
-  file="${TEST_DIR}/indicate-active-branch-no-active.txt"
+  file="${TEST_DIR}/indicate-active-branch-no-active.log"
 
   ensure "indicate-active-branch-no-active" "${file}"
 
@@ -24,7 +24,7 @@ run_indicate_active_branch_no_active() {
 run_indicate_active_branch_active() {
   echo
 
-  file="${TEST_DIR}/indicate-active-branch-active.txt"
+  file="${TEST_DIR}/indicate-active-branch-active.log"
 
   ensure "indicate-active-branch-active" "${file}"
 

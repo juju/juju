@@ -344,7 +344,7 @@ func (a *MachineAgent) registerPrometheusCollectors() error {
 		}
 	}
 	if err := a.prometheusRegistry.Register(
-		logsendermetrics.BufferedLogWriterMetrics{a.bufferedLogger},
+		logsendermetrics.BufferedLogWriterMetrics{BufferedLogWriter: a.bufferedLogger},
 	); err != nil {
 		return errors.Annotate(err, "registering logsender collector")
 	}
@@ -531,7 +531,9 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	return cmdutil.AgentDone(logger, err)
 }
 
-func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion version.Number) func() (worker.Worker, error) {
+func (a *MachineAgent) makeEngineCreator(
+	agentName string, previousAgentVersion version.Number,
+) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		engine, err := dependency.NewEngine(dependencyEngineConfig())
 		if err != nil {
@@ -697,7 +699,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		// If startAPIWorkers exits early with an error, stop the
 		// runner so that any already started runners aren't leaked.
 		if outErr != nil {
-			worker.Stop(runner)
+			_ = worker.Stop(runner)
 		}
 	}()
 
@@ -728,14 +730,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 			// the API, report "unknown job type" here.
 		}
 	}
-	if isController {
-		// We don't have instance info set and the network config for the
-		// bootstrap machine only, so update it now. All the other machines will
-		// have instance info including network config set at provisioning time.
-		if err := a.setControllerNetworkConfig(apiConn); err != nil {
-			return nil, errors.Annotate(err, "setting controller network config")
-		}
-	} else {
+	if !isController {
 		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
 			// TODO(fwereade): this worker needs its own facade.
 			facade := apimachiner.NewState(apiConn)
@@ -755,7 +750,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 type noopStatusSetter struct{}
 
 // SetStatus implements upgradesteps.StatusSetter
-func (a *noopStatusSetter) SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error {
+func (a *noopStatusSetter) SetStatus(_ status.Status, _ string, _ map[string]interface{}) error {
 	return nil
 }
 
@@ -779,31 +774,16 @@ func (a *MachineAgent) machine(apiConn api.Connection) (*apimachiner.Machine, er
 	return machinerAPI.Machine(tag)
 }
 
-func (a *MachineAgent) setControllerNetworkConfig(apiConn api.Connection) error {
-	machine, err := a.machine(apiConn)
-	if errors.IsNotFound(err) || err == nil && machine.Life() == life.Dead {
-		return jworker.ErrTerminateAgent
-	}
-	if err != nil {
-		return errors.Annotatef(err, "cannot load machine %s from state", a.CurrentConfig().Tag())
-	}
-
-	if err := machine.SetProviderNetworkConfig(); err != nil {
-		return errors.Annotate(err, "cannot set controller provider network config")
-	}
-	return nil
-}
-
 func (a *MachineAgent) recordAgentStartTime(apiConn api.Connection) error {
-	machine, err := a.machine(apiConn)
-	if errors.IsNotFound(err) || err == nil && machine.Life() == life.Dead {
+	m, err := a.machine(apiConn)
+	if errors.IsNotFound(err) || err == nil && m.Life() == life.Dead {
 		return jworker.ErrTerminateAgent
 	}
 	if err != nil {
 		return errors.Annotatef(err, "cannot load machine %s from state", a.CurrentConfig().Tag())
 	}
 
-	if err := machine.RecordAgentStartTime(); err != nil {
+	if err := m.RecordAgentStartTime(); err != nil {
 		return errors.Annotate(err, "cannot record agent start time")
 	}
 	return nil
@@ -924,35 +904,36 @@ func (a *MachineAgent) updateSupportedContainers(
 	if errors.IsNotFound(result[0].Err) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
 		return jworker.ErrTerminateAgent
 	}
-	machine := result[0].Machine
+
+	m := result[0].Machine
 	if len(containers) == 0 {
-		if err := machine.SupportsNoContainers(); err != nil {
+		if err := m.SupportsNoContainers(); err != nil {
 			return errors.Annotatef(err, "clearing supported containers for %s", tag)
 		}
 		return nil
 	}
-	if err := machine.SetSupportedContainers(containers...); err != nil {
+	if err := m.SetSupportedContainers(containers...); err != nil {
 		return errors.Annotatef(err, "setting supported containers for %s", tag)
 	}
+
 	// Start the watcher to fire when a container is first requested on the machine.
-	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
+	watcherName := fmt.Sprintf("%s-container-watcher", m.Id())
 
 	credentialAPI, err := workercommon.NewCredentialInvalidatorFacade(st)
 	if err != nil {
 		return errors.Annotatef(err, "cannot get credential invalidator facade")
 	}
-	params := provisioner.ContainerSetupParams{
+	handler := provisioner.NewContainerSetupHandler(provisioner.ContainerSetupParams{
 		Runner:              runner,
 		Logger:              loggo.GetLogger("juju.container-setup"),
 		WorkerName:          watcherName,
 		SupportedContainers: containers,
-		Machine:             machine,
+		Machine:             m,
 		Provisioner:         pr,
 		Config:              agentConfig,
 		MachineLock:         a.machineLock,
 		CredentialAPI:       credentialAPI,
-	}
-	handler := provisioner.NewContainerSetupHandler(params)
+	})
 	a.startWorkerAfterUpgrade(runner, watcherName, func() (worker.Worker, error) {
 		w, err := watcher.NewStringsWorker(watcher.StringsConfig{
 			Handler: handler,
@@ -1147,9 +1128,11 @@ func applyTestingOverrides(agentConfig agent.Config, manifoldsCfg *model.Manifol
 		charmRevisionUpdateInterval, err := time.ParseDuration(v)
 		if err == nil {
 			manifoldsCfg.CharmRevisionUpdateInterval = charmRevisionUpdateInterval
-			logger.Infof("model worker charm revision update interval set to %v for testing", charmRevisionUpdateInterval)
+			logger.Infof("model worker charm revision update interval set to %v for testing",
+				charmRevisionUpdateInterval)
 		} else {
-			logger.Warningf("invalid charm revision update interval, using default %v: %v", manifoldsCfg.CharmRevisionUpdateInterval, err)
+			logger.Warningf("invalid charm revision update interval, using default %v: %v",
+				manifoldsCfg.CharmRevisionUpdateInterval, err)
 		}
 	}
 }
@@ -1278,7 +1261,7 @@ func openStatePool(
 // startWorkerAfterUpgrade starts a worker to run the specified child worker
 // but only after waiting for upgrades to complete.
 func (a *MachineAgent) startWorkerAfterUpgrade(runner jworker.Runner, name string, start func() (worker.Worker, error)) {
-	runner.StartWorker(name, func() (worker.Worker, error) {
+	_ = runner.StartWorker(name, func() (worker.Worker, error) {
 		return a.upgradeWaiterWorker(name, start), nil
 	})
 }

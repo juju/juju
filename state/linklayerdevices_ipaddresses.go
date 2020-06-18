@@ -184,10 +184,9 @@ func (addr *Address) IsDefaultGateway() bool {
 }
 
 // Origin represents the authoritative source of the ipAddress.
-// It is expected that either the provider gave us this address or the
-// machine gave us this address.
-// Giving us this information allows us to reason about when a ipAddress is
-// in use.
+// it is set using precedence, with "provider" overriding "machine".
+// It is used to determine whether the address is no longer recognised
+// and is safe to remove.
 func (addr *Address) Origin() network.Origin {
 	return addr.doc.Origin
 }
@@ -225,6 +224,72 @@ func (addr *Address) Remove() (err error) {
 		ops = append(ops, op)
 	}
 	return addr.st.db().RunTransaction(ops)
+}
+
+// SetOriginOps returns the transaction operations required to set the input
+// origin for the the address.
+// If the address has a provider ID and origin is changing from provider to
+// machine, remove the ID from the address document and the global collection.
+func (addr *Address) SetOriginOps(origin network.Origin) []txn.Op {
+	if addr.Origin() == origin {
+		return nil
+	}
+
+	updates := bson.D{bson.DocElem{Name: "$set", Value: bson.M{"origin": origin}}}
+
+	removeProviderID := origin == network.OriginMachine &&
+		addr.Origin() == network.OriginProvider &&
+		addr.ProviderID() != ""
+
+	if removeProviderID {
+		updates = append(updates, bson.DocElem{Name: "$unset", Value: bson.M{"providerid": 1}})
+	}
+
+	ops := []txn.Op{{
+		C:      ipAddressesC,
+		Id:     addr.DocID(),
+		Assert: txn.DocExists,
+		Update: updates,
+	}}
+
+	if removeProviderID {
+		return append(ops, addr.st.networkEntityGlobalKeyRemoveOp("address", addr.ProviderID()))
+	}
+	return ops
+}
+
+// SetProviderIDOps returns the transaction operations required to update the
+// address with the input provider ID.
+// Setting the provider ID updates the address origin to provider.
+func (addr *Address) SetProviderIDOps(id network.Id) ([]txn.Op, error) {
+	// We only set the provider ID if it was previously empty.
+	if addr.doc.ProviderID != "" || id == "" || addr.doc.ProviderID == id.String() {
+		return nil, nil
+	}
+
+	// Since we assume that we are now setting the ID for the first time,
+	// ensure that it has not already been used to identify another device.
+	exists, err := addr.st.networkEntityGlobalKeyExists("address", id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if exists {
+		return nil, NewProviderIDNotUniqueError(id)
+	}
+
+	return []txn.Op{
+		addr.st.networkEntityGlobalKeyOp("address", id),
+		{
+			C:      ipAddressesC,
+			Id:     addr.doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{
+				"providerid": id,
+				"origin":     network.OriginProvider,
+			}},
+		},
+	}, nil
+
 }
 
 // removeIPAddressDocOpOp returns an operation to remove the ipAddressDoc
@@ -369,12 +434,12 @@ func (st *State) AllIPAddresses() (addresses []*Address, err error) {
 	addressesCollection, closer := st.db().GetCollection(ipAddressesC)
 	defer closer()
 
-	sdocs := []ipAddressDoc{}
-	err = addressesCollection.Find(bson.D{}).All(&sdocs)
+	var docs []ipAddressDoc
+	err = addressesCollection.Find(bson.D{}).All(&docs)
 	if err != nil {
 		return nil, errors.Errorf("cannot get all ip addresses")
 	}
-	for _, a := range sdocs {
+	for _, a := range docs {
 		addresses = append(addresses, newIPAddress(st, a))
 	}
 	return addresses, nil

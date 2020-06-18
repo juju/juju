@@ -27,6 +27,7 @@ type ResolverConfig struct {
 	ShouldRetryHooks    bool
 	StartRetryHookTimer func()
 	StopRetryHookTimer  func()
+	VerifyCharmProfile  resolver.Resolver
 	UpgradeSeries       resolver.Resolver
 	Leadership          resolver.Resolver
 	Actions             resolver.Resolver
@@ -78,7 +79,7 @@ func (s *uniterResolver) NextOp(
 		}
 		// continue upgrading the charm
 		logger.Infof("resuming charm upgrade")
-		return opFactory.NewUpgrade(localState.CharmURL)
+		return s.newUpgradeOperation(localState, remoteState, opFactory)
 	}
 
 	if localState.Restart {
@@ -177,6 +178,16 @@ func (s *uniterResolver) nextOpConflicted(
 ) (operation.Operation, error) {
 	// Only IAAS models deal with conflicted upgrades.
 	// TODO(caas) - what to do here.
+
+	// Verify the charm profile before proceeding.  No hooks to run, if the
+	// correct one is not yet applied.
+	_, err := s.config.VerifyCharmProfile.NextOp(localState, remoteState, opFactory)
+	if e := errors.Cause(err); e == resolver.ErrDoNotProceed {
+		return nil, resolver.ErrNoOperation
+	} else if e != resolver.ErrNoOperation {
+		return nil, err
+	}
+
 	if remoteState.ResolvedMode != params.ResolvedNone {
 		if err := s.config.ClearResolved(); err != nil {
 			return nil, errors.Trace(err)
@@ -187,6 +198,22 @@ func (s *uniterResolver) nextOpConflicted(
 		return opFactory.NewRevertUpgrade(remoteState.CharmURL)
 	}
 	return nil, resolver.ErrWaiting
+}
+
+func (s *uniterResolver) newUpgradeOperation(
+	localState resolver.LocalState,
+	remoteState remotestate.Snapshot,
+	opFactory operation.Factory,
+) (operation.Operation, error) {
+	// Verify the charm profile before proceeding.  No hooks to run, if the
+	// correct one is not yet applied.
+	_, err := s.config.VerifyCharmProfile.NextOp(localState, remoteState, opFactory)
+	if e := errors.Cause(err); e == resolver.ErrDoNotProceed {
+		return nil, resolver.ErrNoOperation
+	} else if e != resolver.ErrNoOperation {
+		return nil, err
+	}
+	return opFactory.NewUpgrade(remoteState.CharmURL)
 }
 
 func (s *uniterResolver) nextOpHookError(
@@ -201,7 +228,7 @@ func (s *uniterResolver) nextOpHookError(
 	}
 
 	if remoteState.ForceCharmUpgrade && s.charmModified(localState, remoteState) {
-		return opFactory.NewUpgrade(remoteState.CharmURL)
+		return s.newUpgradeOperation(localState, remoteState, opFactory)
 	}
 
 	switch remoteState.ResolvedMode {
@@ -305,7 +332,7 @@ func (s *uniterResolver) nextOp(
 	}
 
 	if s.charmModified(localState, remoteState) {
-		return opFactory.NewUpgrade(remoteState.CharmURL)
+		return s.newUpgradeOperation(localState, remoteState, opFactory)
 	}
 
 	configHashChanged := localState.ConfigHash != remoteState.ConfigHash

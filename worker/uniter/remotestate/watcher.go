@@ -51,6 +51,7 @@ type RemoteStateWatcher struct {
 	applicationChannel            watcher.NotifyChannel
 	containerRunningStatusChannel watcher.NotifyChannel
 	containerRunningStatusFunc    ContainerRunningStatusFunc
+	canApplyCharmProfile          bool
 
 	catacomb catacomb.Catacomb
 
@@ -85,6 +86,7 @@ type WatcherConfig struct {
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
 	Logger                        Logger
+	CanApplyCharmProfile          bool
 }
 
 func (w WatcherConfig) validate() error {
@@ -124,6 +126,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		containerRunningStatusFunc:    config.ContainerRunningStatusFunc,
 		modelType:                     config.ModelType,
 		logger:                        config.Logger,
+		canApplyCharmProfile:          config.CanApplyCharmProfile,
 		// Note: it is important that the out channel be buffered!
 		// The remote state watcher will perform a non-blocking send
 		// on the channel to wake up the observer. It is non-blocking
@@ -309,10 +312,11 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var (
-		seenApplicationChange bool
-
+		seenApplicationChange   bool
+		seenInstanceDataChange  bool
 		seenUpgradeSeriesChange bool
 		upgradeSeriesChanges    watcher.NotifyChannel
+		instanceDataChannel     watcher.NotifyChannel
 	)
 
 	// CAAS models don't use an application watcher
@@ -344,6 +348,19 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			return errors.Trace(err)
 		}
 		upgradeSeriesChanges = upgradeSeriesw.Changes()
+		requiredEvents++
+	}
+
+	if w.canApplyCharmProfile {
+		// Note: canApplyCharmProfile will be false for a CAAS model.
+		instanceDataW, err := w.unit.WatchInstanceData()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := w.catacomb.Add(instanceDataW); err != nil {
+			return errors.Trace(err)
+		}
+		instanceDataChannel = instanceDataW.Changes()
 		requiredEvents++
 	}
 
@@ -460,6 +477,16 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenApplicationChange)
+
+		case _, ok := <-instanceDataChannel:
+			w.logger.Debugf("got instance data change")
+			if !ok {
+				return errors.New("instance data watcher closed")
+			}
+			if err := w.instanceDataChanged(); err != nil {
+				return errors.Trace(err)
+			}
+			observedEvent(&seenInstanceDataChange)
 
 		case _, ok := <-w.containerRunningStatusChannel:
 			w.logger.Debugf("got running status change")
@@ -708,6 +735,17 @@ func (w *RemoteStateWatcher) applicationChanged() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	required := false
+	if w.canApplyCharmProfile {
+		ch, err := w.st.Charm(url)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		required, err = ch.LXDProfileRequired()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
 	ver, err := w.application.CharmModifiedVersion()
 	if err != nil {
 		return errors.Trace(err)
@@ -716,7 +754,20 @@ func (w *RemoteStateWatcher) applicationChanged() error {
 	w.current.CharmURL = url
 	w.current.ForceCharmUpgrade = force
 	w.current.CharmModifiedVersion = ver
+	w.current.CharmProfileRequired = required
 	w.mu.Unlock()
+	return nil
+}
+
+func (w *RemoteStateWatcher) instanceDataChanged() error {
+	name, err := w.unit.LXDProfileName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.mu.Lock()
+	w.current.LXDProfileName = name
+	w.mu.Unlock()
+	w.logger.Debugf("LXDProfileName changed to %q", name)
 	return nil
 }
 

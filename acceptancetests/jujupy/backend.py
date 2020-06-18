@@ -239,7 +239,8 @@ class JujuBackend:
         # timing command tacked on).
         command_string = ' '.join(quote(a) for a in args)
         with scoped_environ(env):
-            return pexpect.spawn(command_string)
+            log.debug('starting client interaction: {}'.format(command_string))
+            return pexpect.spawn(command_string, encoding='UTF-8', timeout=60)
 
     @contextmanager
     def juju_async(self, command, args, used_feature_flags,
