@@ -232,6 +232,17 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	// Check that the alpha space is created.
 	_, err = s.State.SpaceByName(network.AlphaSpaceName)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the bakery config is created.
+	bakeryConfig := s.State.NewBakeryConfig()
+	_, err = bakeryConfig.GetLocalUsersKey()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = bakeryConfig.GetLocalUsersThirdPartyKey()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = bakeryConfig.GetExternalUsersThirdPartyKey()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = bakeryConfig.GetOffersThirdPartyKey()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
