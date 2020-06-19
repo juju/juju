@@ -148,7 +148,7 @@ func (b *bakeryConfig) deserialiseKey(data, label string) (*bakery.KeyPair, erro
 	var keyPair bakery.KeyPair
 	err := json.Unmarshal([]byte(data), &keyPair)
 	if err != nil {
-		err = errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	logger.Debugf("using %s: %s", label, keyPair.Public.String())
 	return &keyPair, nil
