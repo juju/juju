@@ -157,11 +157,15 @@ func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
 		return addr.SetOriginOps(network.OriginMachine), nil
 	}
 
-	// If the address is the incoming primary address, assign the provider ID.
+	// If the address is the incoming primary address, assign the provider IDs.
 	// Otherwise simply indicate that the provider is aware of this address.
-	if addrValue == incomingDev.PrimaryAddress().Value && incomingDev.ProviderAddressId != "" {
+	if addrValue == incomingDev.PrimaryAddress().Value {
 		ops, err := addr.SetProviderIDOps(incomingDev.ProviderAddressId)
-		return ops, errors.Trace(err)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return append(ops, addr.SetProviderNetIDsOps(
+			incomingDev.ProviderNetworkId, incomingDev.ProviderSubnetId)...), nil
 	}
 	return addr.SetOriginOps(network.OriginProvider), nil
 }
@@ -174,7 +178,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
 // Log for now and consider adding such devices in the future.
 func (o *mergeMachineLinkLayerOp) processNewDevices() {
 	for _, dev := range o.incoming {
-		if o.processed.Contains(dev.MACAddress) {
+		if !o.processed.Contains(dev.MACAddress) {
 			logger.Debugf(
 				"ignoring unrecognised device %q (%s) with addresses %v",
 				dev.InterfaceName, dev.MACAddress, dev.Addresses,
