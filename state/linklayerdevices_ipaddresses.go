@@ -26,9 +26,13 @@ type ipAddressDoc struct {
 	// ModelUUID. Empty when not supported by the provider.
 	ProviderID string `bson:"providerid,omitempty"`
 
-	// ProviderSubnetID is a provider-specific ID subnet ID this IP address.
+	// ProviderSubnetID is a provider-specific ID for this address's subnet.
 	// Empty when not supported by the provider.
 	ProviderSubnetID string `bson:"provider-subnet-id,omitempty"`
+
+	// ProviderNetworkID is a provider-specific ID for this address's network.
+	// Empty when not supported by the provider.
+	ProviderNetworkID string `bson:"provider-network-id,omitempty"`
 
 	// DeviceName is the name of the link-layer device this IP address is
 	// assigned to.
@@ -37,9 +41,9 @@ type ipAddressDoc struct {
 	// MachineID is the ID of the machine this IP address's device belongs to.
 	MachineID string `bson:"machine-id"`
 
-	// SubnetCIDR is the CIDR of the subnet this IP address belongs to. The CIDR
-	// will either match a known provider subnet or a machine-local subnet (like
-	// 10.0.3.0/24 or 127.0.0.0/8).
+	// SubnetCIDR is the CIDR of the subnet this IP address belongs to.
+	// The CIDR will either match a known provider subnet or a machine-local
+	// subnet (like 10.0.3.0/24 or 127.0.0.0/8).
 	SubnetCIDR string `bson:"subnet-cidr"`
 
 	// ConfigMethod is the method used to configure this IP address.
@@ -61,7 +65,8 @@ type ipAddressDoc struct {
 	// uses. Can be empty.
 	GatewayAddress string `bson:"gateway-address,omitempty"`
 
-	// IsDefaultGateway is set to true if that device/subnet is the default gw for the machine
+	// IsDefaultGateway is set to true if that device/subnet is the default
+	// gw for the machine.
 	IsDefaultGateway bool `bson:"is-default-gateway,omitempty"`
 
 	// Origin represents the authoritative source of the ipAddress.
@@ -104,6 +109,11 @@ func (addr *Address) ProviderID() network.Id {
 // ProviderSubnetID returns the provider-specific subnet ID, if set.
 func (addr *Address) ProviderSubnetID() network.Id {
 	return network.Id(addr.doc.ProviderSubnetID)
+}
+
+// ProviderNetworkID returns the provider-specific network ID, if set.
+func (addr *Address) ProviderNetworkID() network.Id {
+	return network.Id(addr.doc.ProviderNetworkID)
 }
 
 // MachineID returns the ID of the machine this IP address belongs to.
