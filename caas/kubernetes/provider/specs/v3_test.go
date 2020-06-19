@@ -202,6 +202,7 @@ kubernetesResources:
       - conditionType: PodScheduled
     dnsPolicy: ClusterFirstWithHostNet
     hostNetwork: true
+    hostPID: true
   secrets:
     - name: build-robot-secret
       type: Opaque
@@ -716,6 +717,7 @@ echo "do some stuff here for gitlab-init container"
 					},
 					DNSPolicy:   "ClusterFirstWithHostNet",
 					HostNetwork: true,
+					HostPID:     true,
 				},
 				Secrets: []k8sspecs.Secret{
 					{
