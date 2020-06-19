@@ -33,6 +33,10 @@ type StateLinkLayerDeviceAddress interface {
 	// SetProviderIDOps returns the operations required to set the input
 	// provider ID for the address.
 	SetProviderIDOps(id network.Id) ([]txn.Op, error)
+
+	// SetProviderNetIDsOps returns the transaction operations required to ensure
+	// that the input provider IDs are set against the address.
+	SetProviderNetIDsOps(networkID, subnetID network.Id) []txn.Op
 }
 
 // StateLinkLayerDevice represents a link layer device from state package.

@@ -973,6 +973,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 	aExp.DeviceName().Return("eth0")
 	aExp.Value().Return("10.0.0.42")
 	aExp.SetProviderIDOps(network.Id("p-addr")).Return([]txn.Op{{C: "addr-provider-id"}}, nil)
+	aExp.SetProviderNetIDsOps(network.Id("p-net"), network.Id("p-sub")).Return([]txn.Op{{C: "addr-provider-net-ids"}})
 
 	s.st.SetMachineInfo(c, machineInfo{
 		id:               "1",
@@ -991,6 +992,8 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 					MACAddress:        "00:00:00:00:00:00",
 					ProviderId:        "p-dev",
 					ProviderAddressId: "p-addr",
+					ProviderNetworkId: "p-net",
+					ProviderSubnetId:  "p-sub",
 					Addresses:         []params.Address{{Value: "10.0.0.42"}},
 				}},
 			},
@@ -1008,6 +1011,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 				{C: "machine-alive"},
 				{C: "dev-provider-id"},
 				{C: "addr-provider-id"},
+				{C: "addr-provider-net-ids"},
 			}})
 		}
 	}

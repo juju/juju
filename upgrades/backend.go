@@ -82,6 +82,7 @@ type StateBackend interface {
 	DropPresenceDatabase() error
 	DropLeasesCollection() error
 	RemoveUnsupportedLinkLayer() error
+	AddBakeryConfig() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -337,4 +338,8 @@ func (s stateBackend) DropLeasesCollection() error {
 
 func (s stateBackend) RemoveUnsupportedLinkLayer() error {
 	return state.RemoveUnsupportedLinkLayer(s.pool)
+}
+
+func (s stateBackend) AddBakeryConfig() error {
+	return state.AddBakeryConfig(s.pool)
 }

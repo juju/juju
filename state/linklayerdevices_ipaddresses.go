@@ -26,7 +26,11 @@ type ipAddressDoc struct {
 	// ModelUUID. Empty when not supported by the provider.
 	ProviderID string `bson:"providerid,omitempty"`
 
-	// ProviderSubnetID is a provider-specific ID subnet ID this IP address.
+	// ProviderNetworkID is a provider-specific ID for this address's network.
+	// Empty when not supported by the provider.
+	ProviderNetworkID string `bson:"provider-network-id,omitempty"`
+
+	// ProviderSubnetID is a provider-specific ID for this address's subnet.
 	// Empty when not supported by the provider.
 	ProviderSubnetID string `bson:"provider-subnet-id,omitempty"`
 
@@ -37,9 +41,9 @@ type ipAddressDoc struct {
 	// MachineID is the ID of the machine this IP address's device belongs to.
 	MachineID string `bson:"machine-id"`
 
-	// SubnetCIDR is the CIDR of the subnet this IP address belongs to. The CIDR
-	// will either match a known provider subnet or a machine-local subnet (like
-	// 10.0.3.0/24 or 127.0.0.0/8).
+	// SubnetCIDR is the CIDR of the subnet this IP address belongs to.
+	// The CIDR will either match a known provider subnet or a machine-local
+	// subnet (like 10.0.3.0/24 or 127.0.0.0/8).
 	SubnetCIDR string `bson:"subnet-cidr"`
 
 	// ConfigMethod is the method used to configure this IP address.
@@ -61,7 +65,8 @@ type ipAddressDoc struct {
 	// uses. Can be empty.
 	GatewayAddress string `bson:"gateway-address,omitempty"`
 
-	// IsDefaultGateway is set to true if that device/subnet is the default gw for the machine
+	// IsDefaultGateway is set to true if that device/subnet is the default
+	// gw for the machine.
 	IsDefaultGateway bool `bson:"is-default-gateway,omitempty"`
 
 	// Origin represents the authoritative source of the ipAddress.
@@ -104,6 +109,11 @@ func (addr *Address) ProviderID() network.Id {
 // ProviderSubnetID returns the provider-specific subnet ID, if set.
 func (addr *Address) ProviderSubnetID() network.Id {
 	return network.Id(addr.doc.ProviderSubnetID)
+}
+
+// ProviderNetworkID returns the provider-specific network ID, if set.
+func (addr *Address) ProviderNetworkID() network.Id {
+	return network.Id(addr.doc.ProviderNetworkID)
 }
 
 // MachineID returns the ID of the machine this IP address belongs to.
@@ -212,20 +222,6 @@ func ipAddressGlobalKey(machineID, deviceName, address string) string {
 	return deviceGlobalKey + "#ip#" + address
 }
 
-// Remove removes the IP address, if it exists. No error is returned when the
-// address was already removed.
-func (addr *Address) Remove() (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot remove %s", addr)
-
-	removeOp := removeIPAddressDocOp(addr.doc.DocID)
-	ops := []txn.Op{removeOp}
-	if addr.ProviderID() != "" {
-		op := addr.st.networkEntityGlobalKeyRemoveOp("address", addr.ProviderID())
-		ops = append(ops, op)
-	}
-	return addr.st.db().RunTransaction(ops)
-}
-
 // SetOriginOps returns the transaction operations required to set the input
 // origin for the the address.
 // If the address has a provider ID and origin is changing from provider to
@@ -289,7 +285,47 @@ func (addr *Address) SetProviderIDOps(id network.Id) ([]txn.Op, error) {
 			}},
 		},
 	}, nil
+}
 
+// SetProviderNetIDsOps returns the transaction operations required to ensure
+// that the input provider IDs are set against the address.
+// This is distinct from SetProviderIDOps above, because we assume that the
+// uniqueness of the IDs has already been established and that they are
+// recorded in the global collection.
+func (addr *Address) SetProviderNetIDsOps(networkID, subnetID network.Id) []txn.Op {
+	updates := bson.M{}
+
+	if addr.doc.ProviderNetworkID != networkID.String() {
+		updates["provider-network-id"] = networkID
+	}
+	if addr.doc.ProviderSubnetID != subnetID.String() {
+		updates["provider-subnet-id"] = subnetID
+	}
+
+	if len(updates) == 0 {
+		return nil
+	}
+
+	return []txn.Op{{
+		C:      ipAddressesC,
+		Id:     addr.doc.DocID,
+		Assert: txn.DocExists,
+		Update: bson.M{"$set": updates},
+	}}
+}
+
+// Remove removes the IP address, if it exists. No error is returned when the
+// address was already removed.
+func (addr *Address) Remove() (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot remove %s", addr)
+
+	removeOp := removeIPAddressDocOp(addr.doc.DocID)
+	ops := []txn.Op{removeOp}
+	if addr.ProviderID() != "" {
+		op := addr.st.networkEntityGlobalKeyRemoveOp("address", addr.ProviderID())
+		ops = append(ops, op)
+	}
+	return addr.st.db().RunTransaction(ops)
 }
 
 // removeIPAddressDocOpOp returns an operation to remove the ipAddressDoc
