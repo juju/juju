@@ -22,5 +22,12 @@ func stateStepsFor281() []Step {
 				return context.State().RemoveUnsupportedLinkLayer()
 			},
 		},
+		&upgradeStep{
+			description: `add bakery config`,
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().AddBakeryConfig()
+			},
+		},
 	}
 }

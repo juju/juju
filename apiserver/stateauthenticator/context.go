@@ -93,9 +93,11 @@ func newAuthContext(
 		//"is-authenticated-user",
 		func(ctx context.Context, cond, arg string) error { return nil },
 	)
+
+	bakeryConfig := st.NewBakeryConfig()
 	location := "juju model " + st.ModelUUID()
 	var err error
-	ctxt.localUserThirdPartyBakeryKey, err = bakery.GenerateKey()
+	ctxt.localUserThirdPartyBakeryKey, err = bakeryConfig.GetLocalUsersThirdPartyKey()
 	if err != nil {
 		return nil, errors.Annotate(err, "generating key for local user third party bakery key")
 	}
@@ -114,7 +116,7 @@ func newAuthContext(
 		return nil, errors.Trace(err)
 	}
 	locator := bakeryutil.BakeryThirdPartyLocator{PublicKey: ctxt.localUserThirdPartyBakeryKey.Public}
-	localUserBakeryKey, err := bakery.GenerateKey()
+	localUserBakeryKey, err := bakeryConfig.GetLocalUsersKey()
 	if err != nil {
 		return nil, errors.Annotate(err, "generating key for local user bakery key")
 	}
@@ -256,7 +258,8 @@ func newExternalMacaroonAuth(st *state.State, clock clock.Clock, identClient ide
 		return nil, errMacaroonAuthNotConfigured
 	}
 	idPK := controllerCfg.IdentityPublicKey()
-	key, err := bakery.GenerateKey()
+	bakeryConfig := st.NewBakeryConfig()
+	key, err := bakeryConfig.GetExternalUsersThirdPartyKey()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -278,10 +281,6 @@ func newExternalMacaroonAuth(st *state.State, clock clock.Clock, identClient ide
 	// We pass in nil for the storage, which leads to in-memory storage
 	// being used. We only use in-memory storage for now, since we never
 	// expire the keys, and don't want garbage to accumulate.
-	//
-	// TODO(axw) we should store the key in mongo, so that multiple servers
-	// can authenticate. That will require that we encode the server's ID
-	// in the macaroon ID so that servers don't overwrite each others' keys.
 	if identClient == nil {
 		identClient = &auth
 	}
@@ -298,8 +297,5 @@ func newExternalMacaroonAuth(st *state.State, clock clock.Clock, identClient ide
 		Location: idURL,
 	})
 	auth.Bakery = indentBakery
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot make macaroon")
-	}
 	return &auth, nil
 }
