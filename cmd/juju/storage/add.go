@@ -31,51 +31,70 @@ func NewAddCommand() cmd.Command {
 
 const (
 	addCommandDoc = `
-Add storage instances to a unit dynamically using provided storage directives.
-Specify a unit and a storage specification in the same format 
-as passed to juju deploy --storage=”...”.
+Add storage to a pre-existing unit within a model. Storage is allocated from 
+a storage pool, using parameters provided within a "storage directive". (Use 
+'juju deploy --storage=<storage-directive>' to provision storage during the 
+deployment process).
 
-A storage directive consists of a storage name as per charm specification
-and storage constraints, e.g. pool, count, size.
+	juju add-storage <unit> <storage-directive>
 
-The acceptable format for storage constraints is a comma separated
-sequence of: POOL, COUNT, and SIZE, where
+<unit> is the ID of a unit that is already in the model. 
 
-    POOL identifies the storage pool. POOL can be a string
-    starting with a letter, followed by zero or more digits
-    or letters optionally separated by hyphens.
+<storage-directive> describes to the charm how to refer to the storage, 
+and where to provision it from. <storage-directive> takes the following form:
+	
+    <storage-name>[=<storage-constraint>]
 
-    COUNT is a positive integer indicating how many instances
-    of the storage to create. If unspecified, and SIZE is
-    specified, COUNT defaults to 1.
+<storage-name> is defined in the charm's metadata.yaml file.   
 
-    SIZE describes the minimum size of the storage instances to
-    create. SIZE is a floating point number and multiplier from
-    the set (M, G, T, P, E, Z, Y), which are all treated as
-    powers of 1024.
+<storage-constraint> is a description of how Juju should provision storage 
+instances for the unit. The following three forms are accepted:
 
-Storage constraints can be optionally omitted.
-Model default values will be used for all omitted constraint values.
-There is no need to comma-separate omitted constraints. 
+    <storage-pool>[,<count>][,<size>]
+    <count>[,<size>]
+    <size>
+
+<storage-pool> is the storage pool to provision storage instances from. Must 
+be a name from 'juju storage-pools'.  The default pool is available via 
+executing 'juju model-config storage-default-block-source'.
+
+<count> is the number of storage instances to provision from <storage-pool> of
+<size>. Must be a positive integer. The default count is "1". May be restricted
+by the charm, which can specify a maximum number of storage instances per unit.
+
+<size> is the number of bytes to provision per storage instance. Must be a 
+positive number, followed by a size suffix.  Valid suffixes include M, G, T,
+and P.  Defaults to "1024M", or the which can specify a minimum size required 
+by the charm.
+
 
 Examples:
-    # Add 3 ebs storage instances for "data" storage to unit u/0:
 
-      juju add-storage u/0 data=ebs,1024,3 
-    or
-      juju add-storage u/0 data=ebs,3
-    or
-      juju add-storage u/0 data=ebs,,3 
-    
-    
-    # Add 1 storage instances for "data" storage to unit u/0
-    # using default model provider pool:
+    # Add a 100MiB tmpfs storage instance for "pgdata" storage
+    # to unit postgresql/0
+    juju add-storage postgresql/0 pgdata=tmpfs,100M
 
-      juju add-storage u/0 data=1 
-    or
-      juju add-storage u/0 data 
+    # Add 10 1TiB storage instances to "osd-devices" storage
+    # to unit ceph-osd/0 from the model's default storage pool
+    juju add-storage ceph-osd/0 osd-devices=1T,10
+
+	# Add a storage instance from the (AWS-specific) ebs-ssd
+	# storage pool for "brick" storage to unit gluster/0:
+    juju add-storage gluster/0 brick=ebs-ssd
+
+
+Further reading:
+
+    https://juju.is/docs/storage
+
+
+See also:
+
+    import-filesystem
+    storage
+    storage-pools
 `
-	addCommandAgs = `<unit name> <charm storage name>[=<storage constraints>]`
+	addCommandAgs = `<unit> <storage-directive>`
 )
 
 // addCommand adds unit storage instances dynamically.
@@ -110,7 +129,7 @@ func (c *addCommand) Init(args []string) (err error) {
 func (c *addCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "add-storage",
-		Purpose: "Adds unit storage dynamically.",
+		Purpose: "Adds storage to a unit after it has been deployed.",
 		Doc:     addCommandDoc,
 		Args:    addCommandAgs,
 	})
