@@ -1306,6 +1306,12 @@ func (s *cloudinitSuite) TestLegacyProxyWritten(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []string{
+		`[ -e /etc/profile.d/juju-proxy.sh ] || (printf '%s\n' 'export http_proxy=http://user@10.0.0.1
+export HTTP_PROXY=http://user@10.0.0.1
+export https_proxy=http://user@10.0.0.2
+export HTTPS_PROXY=http://user@10.0.0.2
+export no_proxy=0.1.2.3,10.0.3.1,localhost
+export NO_PROXY=0.1.2.3,10.0.3.1,localhost' > /etc/profile.d/juju-proxy.sh`,
 		`export http_proxy=http://user@10.0.0.1`,
 		`export HTTP_PROXY=http://user@10.0.0.1`,
 		`export https_proxy=http://user@10.0.0.2`,
@@ -1337,6 +1343,7 @@ func (s *cloudinitSuite) TestJujuProxyWritten(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []string{
+		`rm -f /etc/profile.d/juju-proxy.sh`,
 		`export http_proxy=http://user@10.0.0.1`,
 		`export HTTP_PROXY=http://user@10.0.0.1`,
 		`export https_proxy=http://user@10.0.0.2`,
@@ -1369,11 +1376,11 @@ func (s *cloudinitSuite) testProxyWritten(c *gc.C, cfg *config.Config, expected 
 	c.Assert(err, jc.ErrorIsNil)
 
 	cmds := cloudcfg.RunCmds()
-	first := `[ -e /etc/profile.d/juju-proxy.sh ] || printf '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`
+	first := expected[0]
 	found := false
 	for i, cmd := range cmds {
 		if cmd == first {
-			c.Assert(cmds[i+1:len(expected)+1], jc.DeepEquals, expected)
+			c.Assert(cmds[i+1:len(expected)], jc.DeepEquals, expected[1:])
 			found = true
 			break
 		}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	stdos "os"
 	stdexec "os/exec"
 
 	"github.com/juju/errors"
@@ -101,15 +102,23 @@ var NewWorker = func(config Config) (worker.Worker, error) {
 	return w, nil
 }
 
-func (w *proxyWorker) saveProxySettingsToFiles() error {
-	// The proxy settings are (usually) stored in three files:
+func (w *proxyWorker) saveProxySettingsToFiles(legacy bool) error {
+	// The proxy settings are stored in the following three files:
 	// - /etc/juju-proxy.conf - in 'env' format
-	// - /etc/systemd/system.conf.d/juju-proxy.conf
-	// - /etc/systemd/user.conf.d/juju-proxy.conf - both in 'systemd' format
+	// - /etc/juju-proxy-systemd.conf - in the format supported in the systemd "Manager" config section.
+	// - (legacy settings only) /etc/profile.d/juju-proxy.sh - in the format supported in the systemd "Manager" config section.
 	for _, file := range w.config.EnvFiles {
-		err := ioutil.WriteFile(file, []byte(w.proxy.AsScriptEnvironment()), 0644)
-		if err != nil {
-			w.config.Logger.Errorf("Error updating environment file %s - %v", file, err)
+		// Remove the file that modifies the shell environment if new settings are used.
+		if !legacy && file == "/etc/profile.d/juju-proxy.sh" {
+			err := stdos.RemoveAll(file)
+			if err != nil {
+				w.config.Logger.Errorf("Error removing the environment file %s - %v", file, err)
+			}
+		} else {
+			err := ioutil.WriteFile(file, []byte(w.proxy.AsScriptEnvironment()), 0644)
+			if err != nil {
+				w.config.Logger.Errorf("Error updating environment file %s - %v", file, err)
+			}
 		}
 	}
 	for _, file := range w.config.SystemdFiles {
@@ -121,7 +130,10 @@ func (w *proxyWorker) saveProxySettingsToFiles() error {
 	return nil
 }
 
-func (w *proxyWorker) saveProxySettingsToRegistry() error {
+func (w *proxyWorker) saveProxySettingsToRegistry(legacy bool) error {
+	if !legacy {
+		return nil
+	}
 	// On windows we write the proxy settings to the registry.
 	setProxyScript := `$value_path = "%s"
     $new_proxy = "%s"
@@ -150,12 +162,12 @@ func (w *proxyWorker) saveProxySettingsToRegistry() error {
 	return nil
 }
 
-func (w *proxyWorker) saveProxySettings() error {
+func (w *proxyWorker) saveProxySettings(legacy bool) error {
 	switch os.HostOS() {
 	case os.Windows:
-		return w.saveProxySettingsToRegistry()
+		return w.saveProxySettingsToRegistry(legacy)
 	default:
-		return w.saveProxySettingsToFiles()
+		return w.saveProxySettingsToFiles(legacy)
 	}
 }
 
@@ -163,11 +175,15 @@ func (w *proxyWorker) handleProxyValues(legacyProxySettings, jujuProxySettings p
 	// Legacy proxy settings update the environment, and also call the
 	// InProcessUpdate, which installs the proxy into the default HTTP
 	// transport. The same occurs for jujuProxySettings.
-	settings := jujuProxySettings
+	var settings proxy.Settings
+	var legacy bool
 	if jujuProxySettings.HasProxySet() {
+		settings = jujuProxySettings
+		legacy = false
 		w.config.Logger.Debugf("applying in-process juju proxy settings %#v", jujuProxySettings)
 	} else {
 		settings = legacyProxySettings
+		legacy = true
 		w.config.Logger.Debugf("applying in-process legacy proxy settings %#v", legacyProxySettings)
 	}
 
@@ -186,11 +202,10 @@ func (w *proxyWorker) handleProxyValues(legacyProxySettings, jujuProxySettings p
 		}
 	}
 
-	// Here we write files to disk. This is done only for legacyProxySettings.
-	if w.config.SupportLegacyValues && (legacyProxySettings != w.proxy || w.first) {
-		w.config.Logger.Debugf("saving new legacy proxy settings %#v", legacyProxySettings)
-		w.proxy = legacyProxySettings
-		if err := w.saveProxySettings(); err != nil {
+	if w.config.SupportLegacyValues && (settings != w.proxy || w.first) {
+		w.config.Logger.Debugf("saving updated proxy settings %#v", settings)
+		w.proxy = settings
+		if err := w.saveProxySettings(legacy); err != nil {
 			// It isn't really fatal, but we should record it.
 			w.config.Logger.Errorf("error saving proxy settings: %v", err)
 		}

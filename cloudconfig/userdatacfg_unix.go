@@ -308,35 +308,37 @@ func (w *unixConfigure) ConfigureJuju() error {
 		return errors.Trace(err)
 	}
 
-	// Write out the normal proxy settings so that the settings are
-	// sourced by bash, and ssh through that.
-	w.conf.AddScripts(
-		// We look to see if the proxy line is there already as
-		// the manual provider may have had it already.
-		// We write this file out whether we are using the legacy proxy
-		// or the juju proxy to deal with runtime changes. The proxy updater worker
-		// only modifies /etc/juju-proxy.conf, so if changes are written to that file
-		// we need to make sure the profile.d file exists to reflect these changes.
-		// If the new juju proxies are used, the legacy proxies will not be set, and the
-		// /etc/juju-proxy.conf file will be empty.
-		`[ -e /etc/profile.d/juju-proxy.sh ] || ` +
-			`printf '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`)
 	var proxySettings proxy.Settings
 	if w.icfg.JujuProxySettings.HasProxySet() {
 		proxySettings = w.icfg.JujuProxySettings
+		// We look to see if the proxy file is there already as
+		// the manual provider may have had it already and
+		// remove it when new proxy settings are used.
+		w.conf.AddScripts(`rm -f /etc/profile.d/juju-proxy.sh`)
 	} else if w.icfg.LegacyProxySettings.HasProxySet() {
 		proxySettings = w.icfg.LegacyProxySettings
+		w.conf.AddScripts(
+			fmt.Sprintf(
+				// We look to see if the proxy file is there already as
+				// the manual provider may have had it already.
+				`[ -e /etc/profile.d/juju-proxy.sh ] || printf '%%s\n' %s > /etc/profile.d/juju-proxy.sh`,
+				shquote(proxySettings.AsScriptEnvironment())))
 	}
-	exportedProxyEnv := proxySettings.AsScriptEnvironment()
-	w.conf.AddScripts(strings.Split(exportedProxyEnv, "\n")...)
-	w.conf.AddScripts(
-		fmt.Sprintf(
-			`(printf '%%s\n' %s > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
-			shquote(w.icfg.LegacyProxySettings.AsScriptEnvironment())))
 
-	// Write out systemd proxy settings
-	w.conf.AddScripts(fmt.Sprintf(`printf '%%s\n' %[1]s > /etc/juju-proxy-systemd.conf`,
-		shquote(w.icfg.LegacyProxySettings.AsSystemdDefaultEnv())))
+	if proxySettings.HasProxySet() {
+		exportedProxyEnv := proxySettings.AsScriptEnvironment()
+		w.conf.AddScripts(strings.Split(exportedProxyEnv, "\n")...)
+		w.conf.AddScripts(
+			fmt.Sprintf(
+				`(printf '%%s\n' %s > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
+				shquote(proxySettings.AsScriptEnvironment())))
+
+		// Write proxy settings in the systemd format. This file will not affect the system unless
+		// symlinks to it are created in /etc/systemd/system.conf.d/ or /etc/systemd/users.conf.d/
+		// by somebody external to Juju.
+		w.conf.AddScripts(fmt.Sprintf(`printf '%%s\n' %[1]s > /etc/juju-proxy-systemd.conf`,
+			shquote(proxySettings.AsSystemdDefaultEnv())))
+	}
 
 	if w.icfg.Controller != nil && w.icfg.Controller.PublicImageSigningKey != "" {
 		keyFile := filepath.Join(agent.DefaultPaths.ConfDir, simplestreams.SimplestreamsPublicKeyFile)
