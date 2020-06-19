@@ -911,14 +911,6 @@ func GetCloudContainerStatusHistory(st *State, name string, filter status.Status
 	return statusHistory(args)
 }
 
-func CaasUnitDisplayStatus(unitStatus status.StatusInfo, cloudContainerStatus status.StatusInfo, expectWorkload bool) status.StatusInfo {
-	return caasUnitDisplayStatus(unitStatus, cloudContainerStatus, expectWorkload)
-}
-
-func CaasApplicationDisplayStatus(appStatus status.StatusInfo, operatorStatus status.StatusInfo, expectWorkload bool) status.StatusInfo {
-	return caasApplicationDisplayStatus(appStatus, operatorStatus, expectWorkload)
-}
-
 func ApplicationOperatorStatus(st *State, appName string) (status.StatusInfo, error) {
 	return getStatus(st.db(), applicationGlobalOperatorKey(appName), "operator")
 }
