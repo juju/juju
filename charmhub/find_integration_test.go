@@ -15,25 +15,26 @@ import (
 	"github.com/juju/juju/charmhub"
 )
 
-type InfoClientSuite struct {
+type FindClientSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&InfoClientSuite{})
+var _ = gc.Suite(&FindClientSuite{})
 
-func (s *InfoClientSuite) TestLiveInfoRequest(c *gc.C) {
+func (s *FindClientSuite) TestLiveFindRequest(c *gc.C) {
 	config := charmhub.CharmhubConfig()
 	basePath, err := config.BasePath()
 	c.Assert(err, jc.ErrorIsNil)
 
-	infoPath, err := basePath.Join("info")
+	findPath, err := basePath.Join("find")
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiRequester := charmhub.NewAPIRequester(charmhub.DefaultHTTPTransport())
 	restClient := charmhub.NewHTTPRESTClient(apiRequester)
 
-	client := charmhub.NewInfoClient(infoPath, restClient)
-	response, err := client.Info(context.TODO(), "wordpress")
+	client := charmhub.NewFindClient(findPath, restClient)
+	responses, err := client.Find(context.TODO(), "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(response.Name, gc.Equals, "wordpress")
+	c.Assert(len(responses), jc.GreaterThan, 1)
+	c.Assert(responses[0].Name, gc.Equals, "wordpress")
 }

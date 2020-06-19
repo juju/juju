@@ -22,7 +22,7 @@ type InfoSuite struct {
 
 var _ = gc.Suite(&InfoSuite{})
 
-func (s *InfoSuite) TestGet(c *gc.C) {
+func (s *InfoSuite) TestInfo(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -35,12 +35,12 @@ func (s *InfoSuite) TestGet(c *gc.C) {
 	s.expectGet(c, restClient, path, name)
 
 	client := NewInfoClient(path, restClient)
-	response, err := client.Get(context.TODO(), name)
+	response, err := client.Info(context.TODO(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.Name, gc.Equals, name)
 }
 
-func (s *InfoSuite) TestGetFailure(c *gc.C) {
+func (s *InfoSuite) TestInfoFailure(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -53,7 +53,7 @@ func (s *InfoSuite) TestGetFailure(c *gc.C) {
 	s.expectGetFailure(c, restClient)
 
 	client := NewInfoClient(path, restClient)
-	_, err := client.Get(context.TODO(), name)
+	_, err := client.Info(context.TODO(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
@@ -184,7 +184,7 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 	restClient := NewHTTPRESTClient(apiRequester)
 
 	client := NewInfoClient(infoPath, restClient)
-	response, err := client.Get(context.TODO(), "wordpress")
+	response, err := client.Info(context.TODO(), "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response, gc.DeepEquals, infoResponse)
 }

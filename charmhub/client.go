@@ -41,42 +41,6 @@ const (
 
 const defaultMinMultipartUploadSize = 5 * 1024 * 1024
 
-// Path defines a absolute path for calling requests to the server.
-type Path struct {
-	base *url.URL
-}
-
-// MakePath creates a URL for queries to a server.
-func MakePath(base *url.URL) Path {
-	return Path{
-		base: base,
-	}
-}
-
-// Join will sum path names onto a base URL and ensure it constructs a URL
-// that is valid.
-// Example:
-//  - http://baseurl/name0/name1/
-func (u Path) Join(names ...string) (Path, error) {
-	baseURL := u.String()
-	if !strings.HasSuffix(baseURL, "/") {
-		baseURL += "/"
-	}
-
-	namedPath := path.Join(names...)
-	path, err := url.Parse(baseURL + namedPath)
-	if err != nil {
-		return Path{}, errors.Trace(err)
-	}
-	return MakePath(path), nil
-}
-
-// String returns a stringified version of the Path.
-// Under the hood this calls the url.URL#String method.
-func (u Path) String() string {
-	return u.base.String()
-}
-
 // Config holds configuration for creating a new charm hub client.
 type Config struct {
 	// URL holds the base endpoint URL of the charmhub,
@@ -115,6 +79,7 @@ func (c Config) BasePath() (Path, error) {
 // Client represents the client side of a charm store.
 type Client struct {
 	infoClient *InfoClient
+	findClient *FindClient
 }
 
 // NewClient creates a new charmhub client from the supplied configuration.
@@ -129,14 +94,85 @@ func NewClient(config Config) (*Client, error) {
 		return nil, errors.Annotate(err, "constructing info path")
 	}
 
-	httpClient := DefaultHTTPTransport()
-	apiRequester := NewAPIRequester(httpClient)
+	findPath, err := base.Join("find")
+	if err != nil {
+		return nil, errors.Annotate(err, "constructing find path")
+	}
+
+	var (
+		httpClient   = DefaultHTTPTransport()
+		apiRequester = NewAPIRequester(httpClient)
+		restClient   = NewHTTPRESTClient(apiRequester)
+	)
 	return &Client{
-		infoClient: NewInfoClient(infoPath, NewHTTPRESTClient(apiRequester)),
+		infoClient: NewInfoClient(infoPath, restClient),
+		findClient: NewFindClient(findPath, restClient),
 	}, nil
 }
 
 // Info returns charm info on the provided charm name from charmhub.
 func (c *Client) Info(ctx context.Context, name string) (InfoResponse, error) {
-	return c.infoClient.Get(ctx, name)
+	return c.infoClient.Info(ctx, name)
+}
+
+// Find searches for a given charm for a given name from charmhub.
+func (c *Client) Find(ctx context.Context, name string) ([]FindResponse, error) {
+	return c.findClient.Find(ctx, name)
+}
+
+type ChannelMap struct {
+	Channel  Channel  `json:"channel,omitempty"`
+	Revision Revision `json:"revision,omitempty"`
+}
+
+type Channel struct {
+	Name       string   `json:"name"`
+	Platform   Platform `json:"platform"`
+	ReleasedAt string   `json:"released-at"`
+	Risk       string   `json:"risk"`
+	Track      string   `json:"track"`
+}
+
+type Platform struct {
+	Architecture string `json:"architecture"`
+	OS           string `json:"os"`
+	Series       string `json:"series"`
+}
+
+type Revision struct {
+	ConfigYAML   string     `json:"config-yaml"`
+	CreatedAt    string     `json:"created-at"`
+	Download     Download   `json:"download"`
+	MetadataYAML string     `json:"metadata-yaml"`
+	Platforms    []Platform `json:"platforms"`
+	Revision     int        `json:"revision"`
+	Version      string     `json:"version"`
+}
+
+type Download struct {
+	HashSHA265 string `json:"hash-sha-265"`
+	Size       int    `json:"size"`
+	URL        string `json:"url"`
+}
+
+type Charm struct {
+	Categories  []Category        `json:"categories"`
+	Description string            `json:"description"`
+	License     string            `json:"license"`
+	Media       []Media           `json:"media"`
+	Publisher   map[string]string `json:"publisher"`
+	Summary     string            `json:"summary"`
+	UsedBy      []string          `json:"used-by"`
+}
+
+type Category struct {
+	Featured bool   `json:"featured"`
+	Name     string `json:"name"`
+}
+
+type Media struct {
+	Type   string `json:"type"`
+	URL    string `json:"url"`
+	Width  int    `json:"width,omitempty"`
+	Height int    `json:"height,omitempty"`
 }

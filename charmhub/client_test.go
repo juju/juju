@@ -9,35 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-type PathSuite struct {
-	testing.IsolationSuite
-}
-
-var _ = gc.Suite(&PathSuite{})
-
-func (s *PathSuite) TestJoin(c *gc.C) {
-	rawURL := MustParseURL(c, "http://foobar/v1/path/")
-
-	path := MakePath(rawURL)
-	appPath, err := path.Join("entity", "app")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(appPath.String(), gc.Equals, "http://foobar/v1/path/entity/app")
-}
-
-func (s *PathSuite) TestJoinMultipleTimes(c *gc.C) {
-	rawURL := MustParseURL(c, "http://foobar/v1/path/")
-
-	path := MakePath(rawURL)
-	entityPath, err := path.Join("entity")
-	c.Assert(err, jc.ErrorIsNil)
-
-	appPath, err := entityPath.Join("app")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(appPath.String(), gc.Equals, "http://foobar/v1/path/entity/app")
-}
-
 type ConfigSuite struct {
 	testing.IsolationSuite
 }
