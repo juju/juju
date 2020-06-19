@@ -26,23 +26,23 @@ type Client interface {
 type CharmHubAPI struct {
 	auth facade.Authorizer
 
-	//newClientFunc is for testing purposes to facilitate using mocks.
+	// newClientFunc is for testing purposes to facilitate using mocks.
 	newClientFunc func(charmhub.Config) (Client, error)
 }
 
 func NewFacade(ctx facade.Context) (*CharmHubAPI, error) {
 	auth := ctx.Auth()
-	ncFunc := func(p charmhub.Config) (Client, error) {
+	newClientFunc := func(p charmhub.Config) (Client, error) {
 		return charmhub.NewClient(p)
 	}
-	return newCharmHubAPI(auth, ncFunc)
+	return newCharmHubAPI(auth, newClientFunc)
 }
 
-func newCharmHubAPI(authorizer facade.Authorizer, ncFunc func(charmhub.Config) (Client, error)) (*CharmHubAPI, error) {
+func newCharmHubAPI(authorizer facade.Authorizer, newClientFunc func(charmhub.Config) (Client, error)) (*CharmHubAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	return &CharmHubAPI{auth: authorizer, newClientFunc: ncFunc}, nil
+	return &CharmHubAPI{auth: authorizer, newClientFunc: newClientFunc}, nil
 }
 
 func (api *CharmHubAPI) Info(arg params.Entity) (params.CharmHubCharmInfoResult, error) {
@@ -54,6 +54,10 @@ func (api *CharmHubAPI) Info(arg params.Entity) (params.CharmHubCharmInfoResult,
 	// TODO: (hml) 2020-06-17
 	// Add model config value for charmhub-url to charmhub client New().
 	// once implemented.
+	// TODO: (hml) 2020-06-19
+	// PR Comment
+	// "I think it's fair to say we should cache this, as generating
+	// a new client for every info is wasteful. Lets tackle at a later point."
 	chClient, err := api.newClientFunc(charmhub.CharmhubConfig())
 	if err != nil {
 		return params.CharmHubCharmInfoResult{}, errors.Annotate(err, "could not get charm hub client")
