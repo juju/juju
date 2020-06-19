@@ -4272,6 +4272,32 @@ func (s *upgradesSuite) TestRemoveUnsupportedLinkLayer(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestAddBakeryConfig(c *gc.C) {
+	const bakeryConfigKey = "bakeryConfig"
+	controllerColl, controllerCloser := s.state.db().GetRawCollection(controllersC)
+	defer controllerCloser()
+
+	err := controllerColl.RemoveId(bakeryConfigKey)
+	c.Assert(err, jc.ErrorIsNil)
+
+	bakeryConfig := s.state.NewBakeryConfig()
+	_, err = bakeryConfig.GetLocalUsersKey()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	err = AddBakeryConfig(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+	key, err := bakeryConfig.GetLocalUsersKey()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check it's idempotent.
+	err = AddBakeryConfig(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+	key2, err := bakeryConfig.GetLocalUsersKey()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(key, jc.DeepEquals, key2)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

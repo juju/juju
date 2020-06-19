@@ -2874,3 +2874,25 @@ func RemoveUnsupportedLinkLayer(pool *StatePool) error {
 
 	return nil
 }
+
+// AddBakeryConfig adds a bakery config doc to controllers collection
+// if it does not already exist.
+func AddBakeryConfig(pool *StatePool) error {
+	const bakeryConfigKey = "bakeryConfig"
+	st := pool.SystemState()
+	coll, closer := st.db().GetRawCollection(controllersC)
+	defer closer()
+
+	if n, err := coll.FindId(bakeryConfigKey).Count(); err != nil {
+		return errors.Trace(err)
+	} else if n > 0 {
+		return nil
+	}
+
+	bakeryConfig := st.NewBakeryConfig()
+	op, err := bakeryConfig.InitialiseBakeryConfigOp()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(st.runRawTransaction([]txn.Op{op}))
+}

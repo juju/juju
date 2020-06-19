@@ -91,7 +91,7 @@ type Config struct {
 	Entity string
 }
 
-// CharmhubConfig defines a charmhub client configuration for targetting the
+// CharmhubConfig defines a charmhub client configuration for targeting the
 // snapcraft API.
 func CharmhubConfig() Config {
 	return Config{

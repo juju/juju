@@ -114,7 +114,7 @@ func (m *ModelStatus) Application(appName string, unitNames []string) (status.St
 	if err != nil {
 		return status.StatusInfo{}, errors.Trace(err)
 	}
-	return caasApplicationDisplayStatus(appStatus, operatorStatusDoc.asStatusInfo(), expectWorkload), nil
+	return status.ApplicationDisplayStatus(appStatus, operatorStatusDoc.asStatusInfo(), expectWorkload), nil
 }
 
 // MachineAgent returns the status of the machine agent.
@@ -194,79 +194,7 @@ func (m *ModelStatus) UnitWorkload(unitName string, expectWorkload bool) (status
 	if err != nil && !errors.IsNotFound(err) {
 		return info, err
 	}
-	return caasUnitDisplayStatus(info, containerInfo, expectWorkload), nil
-}
-
-func isStatusModified(unitStatus status.StatusInfo) bool {
-	return (unitStatus.Status != "" && unitStatus.Status != status.Waiting) ||
-		(unitStatus.Message != status.MessageWaitForContainer && unitStatus.Message != status.MessageInitializingAgent)
-}
-
-func caasUnitDisplayStatus(unitStatus status.StatusInfo, containerStatus status.StatusInfo, expectWorkload bool) status.StatusInfo {
-	if unitStatus.Status == status.Terminated {
-		return unitStatus
-	}
-	if containerStatus.Status == status.Terminated {
-		return containerStatus
-	}
-	if containerStatus.Status == "" {
-		// No container update received from k8s yet.
-		// Unit may have set status, (though final status
-		// can only be active if a container status has come through).
-		if isStatusModified(unitStatus) && (unitStatus.Status != status.Active || !expectWorkload) {
-			return unitStatus
-		}
-		message := unitStatus.Message
-		if expectWorkload {
-			message = status.MessageWaitForContainer
-		}
-
-		// If no unit status set, assume still allocating.
-		return status.StatusInfo{
-			Status:  status.Waiting,
-			Message: message,
-		}
-	}
-	if unitStatus.Status != status.Active && unitStatus.Status != status.Waiting && unitStatus.Status != status.Blocked {
-		// Charm has said that there's a problem (error) or
-		// it's doing something (maintenance) so we'll stick with that.
-		return unitStatus
-	}
-
-	// Charm may think it's active, but as yet there's no way for it to
-	// query the workload state, so we'll ensure that we only say that
-	// it's active if the pod is reported as running. If not, we'll report
-	// any pod error.
-	switch containerStatus.Status {
-	case status.Error, status.Blocked, status.Allocating:
-		return containerStatus
-	case status.Waiting:
-		if unitStatus.Status == status.Active {
-			return containerStatus
-		}
-	case status.Running:
-		// Unit hasn't moved from initial state.
-		if !isStatusModified(unitStatus) {
-			return containerStatus
-		}
-	}
-	return unitStatus
-}
-
-// caasApplicationDisplayStatus determines which of the two statuses to use when displaying application status in a CAAS model.
-func caasApplicationDisplayStatus(applicationStatus, operatorStatus status.StatusInfo, expectWorkload bool) status.StatusInfo {
-	if applicationStatus.Status == status.Terminated {
-		return applicationStatus
-	}
-	// Only interested in the operator status if it's not running/active.
-	if operatorStatus.Status != status.Running && operatorStatus.Status != status.Active {
-		if operatorStatus.Status == status.Waiting && !expectWorkload {
-			operatorStatus.Message = status.MessageInitializingAgent
-		}
-		return operatorStatus
-	}
-
-	return applicationStatus
+	return status.UnitDisplayStatus(info, containerInfo, expectWorkload), nil
 }
 
 // caasHistoryRewriteDoc determines which status should be stored as history.

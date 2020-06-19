@@ -325,6 +325,20 @@ func (mr *MockStateLinkLayerDeviceAddressMockRecorder) SetProviderIDOps(arg0 int
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProviderIDOps", reflect.TypeOf((*MockStateLinkLayerDeviceAddress)(nil).SetProviderIDOps), arg0)
 }
 
+// SetProviderNetIDsOps mocks base method
+func (m *MockStateLinkLayerDeviceAddress) SetProviderNetIDsOps(arg0, arg1 network.Id) []txn.Op {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetProviderNetIDsOps", arg0, arg1)
+	ret0, _ := ret[0].([]txn.Op)
+	return ret0
+}
+
+// SetProviderNetIDsOps indicates an expected call of SetProviderNetIDsOps
+func (mr *MockStateLinkLayerDeviceAddressMockRecorder) SetProviderNetIDsOps(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProviderNetIDsOps", reflect.TypeOf((*MockStateLinkLayerDeviceAddress)(nil).SetProviderNetIDsOps), arg0, arg1)
+}
+
 // SubnetCIDR mocks base method
 func (m *MockStateLinkLayerDeviceAddress) SubnetCIDR() string {
 	m.ctrl.T.Helper()

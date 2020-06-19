@@ -748,26 +748,25 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 
 	globalKey := ipAddressGlobalKey(m.doc.Id, args.DeviceName, addressValue)
 	ipAddressDocID := m.st.docID(globalKey)
-	providerID := string(args.ProviderID)
-	subnetID := string(args.ProviderSubnetID)
 
 	modelUUID := m.st.ModelUUID()
 
 	newDoc := &ipAddressDoc{
-		DocID:            ipAddressDocID,
-		ModelUUID:        modelUUID,
-		ProviderID:       providerID,
-		ProviderSubnetID: subnetID,
-		DeviceName:       args.DeviceName,
-		MachineID:        m.doc.Id,
-		SubnetCIDR:       subnetCIDR,
-		ConfigMethod:     args.ConfigMethod,
-		Value:            addressValue,
-		DNSServers:       args.DNSServers,
-		DNSSearchDomains: args.DNSSearchDomains,
-		GatewayAddress:   args.GatewayAddress,
-		IsDefaultGateway: args.IsDefaultGateway,
-		Origin:           args.Origin,
+		DocID:             ipAddressDocID,
+		ModelUUID:         modelUUID,
+		ProviderID:        args.ProviderID.String(),
+		ProviderNetworkID: args.ProviderNetworkID.String(),
+		ProviderSubnetID:  args.ProviderSubnetID.String(),
+		DeviceName:        args.DeviceName,
+		MachineID:         m.doc.Id,
+		SubnetCIDR:        subnetCIDR,
+		ConfigMethod:      args.ConfigMethod,
+		Value:             addressValue,
+		DNSServers:        args.DNSServers,
+		DNSSearchDomains:  args.DNSSearchDomains,
+		GatewayAddress:    args.GatewayAddress,
+		IsDefaultGateway:  args.IsDefaultGateway,
+		Origin:            args.Origin,
 	}
 	return newDoc, nil
 }
@@ -1169,11 +1168,8 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]Machine
 				}},
 			}}
 		}
-		if err != nil {
-			r.Error = err
-		} else {
-			results[corenetwork.AlphaSpaceId] = r
-		}
+
+		results[corenetwork.AlphaSpaceId] = r
 	}
 
 	for _, id := range spaces.Values() {

@@ -33,7 +33,20 @@ var _ = gc.Suite(&StorageSuite{})
 func (s *StorageSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.Stub.ResetCalls()
-	s.collection = mockCollection{Stub: &s.Stub}
+	s.collection = mockCollection{
+		Stub: &s.Stub,
+		one: func(q *mockQuery, result *interface{}) error {
+			location := q.id.(string)
+			if location != "oldkey" {
+				return mgo.ErrNotFound
+			}
+			*(*result).(*storageDoc) = storageDoc{
+				Location: q.id.(string),
+				Item:     "{\"RootKey\":\"ibbhlQv5+yf7UMNI77W4hxQeQjRdMxs0\"}",
+			}
+			return nil
+		},
+	}
 	s.closeCollection = func() {
 		s.AddCall("Close")
 		s.PopNoErr()
@@ -132,12 +145,14 @@ func (s *StorageSuite) TestGetLegacyFallback(c *gc.C) {
 type mockCollection struct {
 	mongo.WriteCollection
 	*gitjujutesting.Stub
+
+	one func(q *mockQuery, result *interface{}) error
 }
 
 func (c *mockCollection) FindId(id interface{}) mongo.Query {
 	c.MethodCall(c, "FindId", id)
 	c.PopNoErr()
-	return &mockQuery{Stub: c.Stub, id: id}
+	return &mockQuery{Stub: c.Stub, id: id, one: c.one}
 }
 
 func (c *mockCollection) Writeable() mongo.WriteCollection {
@@ -149,19 +164,16 @@ func (c *mockCollection) Writeable() mongo.WriteCollection {
 type mockQuery struct {
 	mongo.Query
 	*gitjujutesting.Stub
-	id interface{}
+	id  interface{}
+	one func(q *mockQuery, result *interface{}) error
 }
 
 func (q *mockQuery) One(result interface{}) error {
 	q.MethodCall(q, "One", result)
 
-	location := q.id.(string)
-	if location != "oldkey" {
-		return mgo.ErrNotFound
-	}
-	*result.(*storageDoc) = storageDoc{
-		Location: q.id.(string),
-		Item:     "{\"RootKey\":\"ibbhlQv5+yf7UMNI77W4hxQeQjRdMxs0\"}",
+	err := q.one(q, &result)
+	if err != nil {
+		return err
 	}
 	return q.NextErr()
 }
