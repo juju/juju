@@ -92,7 +92,7 @@ func NewHTTPRESTClient(transport Transport) *HTTPRESTClient {
 	}
 }
 
-// Get makes a GET request to the given path in the charm store (not
+// Get makes a GET request to the given path in the charmhub (not
 // including the host name or version prefix but including a leading /),
 // parsing the result as JSON into the given result value, which should
 // be a pointer to the expected data, but may be nil if no result is

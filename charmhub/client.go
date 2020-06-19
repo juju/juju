@@ -2,14 +2,14 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // CharmHub is a client for communication with charmhub.  Unlike
-// the charmstore client within juju, this package does not rely on
+// the charmhub client within juju, this package does not rely on
 // wrapping an external package client. Generic client code for this
 // package has been copied from "github.com/juju/charmrepo/v5/csclient".
 //
 // TODO: (hml) 2020-06-17
 // Implement:
 // - use of macaroons, at that time consider refactoring the local
-//   charmstore pkg to share macaroonJar.
+//   charmhub pkg to share macaroonJar.
 // - user/password ?
 // - allow for use of the channel pieces
 
@@ -79,13 +79,12 @@ func (u Path) String() string {
 
 // Config holds configuration for creating a new charm hub client.
 type Config struct {
-	// URL holds the base endpoint URL of the charmstore,
+	// URL holds the base endpoint URL of the charmhub,
 	// with no trailing slash, not including the version.
-	// For example https://api.jujucharms.com/charmstore
-	// If empty, the default charm store client location is used.
+	// For example https://api.snapcraft.io/v2/charms/
 	URL string
 
-	// Version holds the version attribute of the charmstore we're requesting.
+	// Version holds the version attribute of the charmhub we're requesting.
 	Version string
 
 	// Entity holds the entity to target when querying the API (charm or snaps).

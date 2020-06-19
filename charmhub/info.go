@@ -97,11 +97,9 @@ type Category struct {
 	Name     string `json:"name"`
 }
 
-// TODO: (hml) 2020-06-17
-// Why do we fail unmarshalling to this structure?
 type Media struct {
-	Height int    `json:"height"`
 	Type   string `json:"type"`
 	URL    string `json:"url"`
-	Width  int    `json:"width"`
+	Width  int    `json:"width,omitempty"`
+	Height int    `json:"height,omitempty"`
 }
