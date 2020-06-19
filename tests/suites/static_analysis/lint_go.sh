@@ -98,6 +98,16 @@ run_go_fmt() {
   fi
 }
 
+run_go_tidy() {
+  CUR_SHA=$(git show HEAD:go.sum | shasum -a 1 | awk '{ print $1 }')
+  go mod tidy 2>&1
+  NEW_SHA=$(cat go.sum | shasum -a 1 | awk '{ print $1 }')
+  if [ "${CUR_SHA}" != "${NEW_SHA}" ]; then
+      (>&2 echo "\\nError: go mod sum is out of sync. Run 'go mod tidy' and commit source.")
+      exit 1
+  fi
+}
+
 test_static_analysis_go() {
   if [ "$(skip 'test_static_analysis_go')" ]; then
       echo "==> TEST SKIPPED: static go analysis"
@@ -173,5 +183,6 @@ test_static_analysis_go() {
 
     ## go fmt
     run "run_go_fmt" "${FILES}"
+    run "run_go_tidy"
   )
 }
