@@ -106,14 +106,16 @@ func (s *ApplicationSuite) TestStatusWhenUnsetNoUnits(c *gc.C) {
 	model := s.NewModel(cache.ModelChange{
 		Name: "test",
 	})
+	now := time.Now()
 	model.UpdateApplication(cache.ApplicationChange{
 		Name:   "app",
-		Status: s.status(status.Unset, time.Now()),
+		Status: s.status(status.Unset, now),
 	}, s.Manager)
 	app, err := model.Application("app")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(app.Status(), jc.DeepEquals, status.StatusInfo{
 		Status: status.Unknown,
+		Since:  &now,
 	})
 }
 
@@ -144,7 +146,7 @@ func (s *ApplicationSuite) TestStatusWhenUnsetWithUnits(c *gc.C) {
 	c.Assert(app.Status(), jc.DeepEquals, expected)
 }
 
-func (s *ApplicationSuite) TestStatusOperatorRunning(c *gc.C) {
+func (s *ApplicationSuite) TestDisplayStatusOperatorRunning(c *gc.C) {
 	model := s.NewModel(cache.ModelChange{
 		Name: "test",
 	})
@@ -156,10 +158,10 @@ func (s *ApplicationSuite) TestStatusOperatorRunning(c *gc.C) {
 	}, s.Manager)
 	app, err := model.Application("app")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(app.Status(), jc.DeepEquals, appStatus)
+	c.Assert(app.DisplayStatus(), jc.DeepEquals, appStatus)
 }
 
-func (s *ApplicationSuite) TestStatusOperatorActive(c *gc.C) {
+func (s *ApplicationSuite) TestDisplayStatusOperatorActive(c *gc.C) {
 	model := s.NewModel(cache.ModelChange{
 		Name: "test",
 	})
@@ -171,21 +173,22 @@ func (s *ApplicationSuite) TestStatusOperatorActive(c *gc.C) {
 	}, s.Manager)
 	app, err := model.Application("app")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(app.Status(), jc.DeepEquals, appStatus)
+	c.Assert(app.DisplayStatus(), jc.DeepEquals, appStatus)
 }
 
-func (s *ApplicationSuite) TestStatusOperatorWaiting(c *gc.C) {
+func (s *ApplicationSuite) TestDisplayStatusOperatorWaiting(c *gc.C) {
 	model := s.NewModel(cache.ModelChange{
 		Name: "test",
 	})
 	expected := s.status(status.Waiting, time.Now())
+	expected.Message = status.MessageInitializingAgent
 	model.UpdateApplication(cache.ApplicationChange{
 		Name:           "app",
 		Status:         s.status(status.Active, time.Now()),
 		OperatorStatus: expected}, s.Manager)
 	app, err := model.Application("app")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(app.Status(), jc.DeepEquals, expected)
+	c.Assert(app.DisplayStatus(), jc.DeepEquals, expected)
 }
 
 func (s *ApplicationSuite) TestUnitsSorted(c *gc.C) {

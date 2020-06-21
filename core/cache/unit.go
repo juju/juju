@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/core/status"
@@ -85,6 +86,21 @@ func (u *Unit) AgentStatus() status.StatusInfo {
 // WorkloadStatus returns the workload status of the unit.
 func (u *Unit) WorkloadStatus() status.StatusInfo {
 	return u.details.WorkloadStatus
+}
+
+// DisplayWorkloadStatus returns the workload status of the unit.
+// For CAAS models, the cloud container status is used over the unit
+// if the cloud container status in certain circumstances.
+func (u *Unit) DisplayWorkloadStatus() status.StatusInfo {
+	if u.model.Type() == model.IAAS {
+		return u.details.WorkloadStatus
+	}
+	app, err := u.model.Application(u.Application())
+	if err != nil {
+		return u.details.WorkloadStatus
+	}
+	return status.UnitDisplayStatus(
+		u.details.WorkloadStatus, u.details.ContainerStatus, app.ExpectsWorkload())
 }
 
 // ConfigSettings returns the effective charm configuration for this unit

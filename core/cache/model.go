@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 )
@@ -89,6 +90,13 @@ type Model struct {
 	// subscribers have handled the call. We only record the last one
 	// as the tests want to know that a set of changes have been applied.
 	lastSummaryPublish <-chan struct{}
+}
+
+// Type returns the model type for this model, either "iaas" or "caas".
+func (m *Model) Type() model.ModelType {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.details.Type
 }
 
 // Config returns the current model config.
