@@ -70,19 +70,23 @@ func (m *CAASModel) PodSpec(appTag names.ApplicationTag) (string, error) {
 }
 
 func (m *CAASModel) podInfo(appTag names.ApplicationTag) (*containerSpecDoc, error) {
-	coll, cleanup := m.mb.db().GetCollection(podSpecsC)
-	defer cleanup()
 	var doc containerSpecDoc
-	if err := coll.FindId(applicationGlobalKey(appTag.Id())).One(&doc); err != nil {
-		if err == mgo.ErrNotFound {
-			return nil, errors.NotFoundf(
-				"k8s spec for %s",
-				names.ReadableString(appTag),
-			)
-		}
-		return nil, errors.Trace(err)
+	if err := readPodInfo(m.mb.db(), appTag.Id(), &doc); err != nil {
+		return nil, err
 	}
 	return &doc, nil
+}
+
+func readPodInfo(db Database, appName string, doc interface{}) error {
+	coll, cleanup := db.GetCollection(podSpecsC)
+	defer cleanup()
+	if err := coll.FindId(applicationGlobalKey(appName)).One(doc); err != nil {
+		if err == mgo.ErrNotFound {
+			return errors.NotFoundf("k8s spec for application %s", appName)
+		}
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func removePodSpecOp(appTag names.ApplicationTag) txn.Op {

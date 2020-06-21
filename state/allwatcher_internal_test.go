@@ -51,6 +51,7 @@ var (
 	_ backingEntityDoc = (*backingAction)(nil)
 	_ backingEntityDoc = (*backingBlock)(nil)
 	_ backingEntityDoc = (*backingGeneration)(nil)
+	_ backingEntityDoc = (*backingPodSpec)(nil)
 )
 
 var dottedConfig = `
@@ -653,6 +654,248 @@ func (s *allWatcherStateSuite) TestChangeRelations(c *gc.C) {
 
 func (s *allWatcherStateSuite) TestChangeApplications(c *gc.C) {
 	testChangeApplications(c, s.owner, s.performChangeTestCases)
+}
+
+func strPtr(s string) *string {
+	return &s
+}
+
+func (s *allWatcherStateSuite) TestChangeCAASApplications(c *gc.C) {
+	loggo.GetLogger("juju.txn").SetLogLevel(loggo.TRACE)
+	changeTestFuncs := []changeTestFunc{
+		// Applications.
+		func(c *gc.C, st *State) changeTestCase {
+			return changeTestCase{
+				about: "not finding a podspec for a change is fine",
+				change: watcher.Change{
+					C:  "podSpecs",
+					Id: st.docID(applicationGlobalKey("mysql")),
+				}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			caasSt := s.newCAASState(c)
+			m, err := caasSt.Model()
+			c.Assert(err, jc.ErrorIsNil)
+			cm, err := m.CAASModel()
+			c.Assert(err, jc.ErrorIsNil)
+			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
+			mysql := AddTestingApplication(c, caasSt, "mysql", ch)
+			err = cm.SetPodSpec(nil, mysql.ApplicationTag(), strPtr("some podspec"))
+			c.Assert(err, jc.ErrorIsNil)
+			now := st.clock().Now()
+			return changeTestCase{
+				about: "initial CAAS application has podspec",
+				change: watcher.Change{
+					C:  "applications",
+					Id: caasSt.docID("mysql"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.ApplicationInfo{
+						ModelUUID: caasSt.ModelUUID(),
+						Name:      "mysql",
+						CharmURL:  "local:kubernetes/kubernetes-mysql-0",
+						Life:      "alive",
+						Config:    map[string]interface{}{},
+						Status: multiwatcher.StatusInfo{
+							Current: "waiting",
+							Message: "waiting for container",
+							Data:    map[string]interface{}{},
+							Since:   &now,
+						},
+						OperatorStatus: multiwatcher.StatusInfo{
+							Current: "waiting",
+							Message: "waiting for container",
+							Data:    map[string]interface{}{},
+							Since:   &now,
+						},
+						PodSpec: &multiwatcher.PodSpec{
+							Spec: "some podspec",
+						},
+					},
+				},
+			}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			caasSt := s.newCAASState(c)
+			m, err := caasSt.Model()
+			c.Assert(err, jc.ErrorIsNil)
+			cm, err := m.CAASModel()
+			c.Assert(err, jc.ErrorIsNil)
+			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
+			mysql := AddTestingApplication(c, caasSt, "mysql", ch)
+			err = cm.SetPodSpec(nil, mysql.ApplicationTag(), strPtr("some podspec"))
+			c.Assert(err, jc.ErrorIsNil)
+			return changeTestCase{
+				about: "application podspec is updated",
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.ApplicationInfo{
+						ModelUUID: caasSt.ModelUUID(),
+						Name:      "mysql",
+					},
+				},
+				change: watcher.Change{
+					C:  "podSpecs",
+					Id: caasSt.docID(applicationGlobalKey("mysql")),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.ApplicationInfo{
+						ModelUUID: caasSt.ModelUUID(),
+						Name:      "mysql",
+						PodSpec: &multiwatcher.PodSpec{
+							Spec: "some podspec",
+						},
+					},
+				},
+			}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			caasSt := s.newCAASState(c)
+			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
+			mysql := AddTestingApplication(c, caasSt, "mysql", ch)
+			now := st.clock().Now()
+			sInfo := status.StatusInfo{
+				Status:  status.Error,
+				Message: "failure",
+				Since:   &now,
+			}
+			err := mysql.SetOperatorStatus(sInfo)
+			c.Assert(err, jc.ErrorIsNil)
+			return changeTestCase{
+				about: "operator status update, updates application",
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.ApplicationInfo{
+						ModelUUID: caasSt.ModelUUID(),
+						Name:      "mysql",
+					},
+				},
+				change: watcher.Change{
+					C:  "statuses",
+					Id: caasSt.docID(applicationGlobalOperatorKey("mysql")),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.ApplicationInfo{
+						ModelUUID: caasSt.ModelUUID(),
+						Name:      "mysql",
+						OperatorStatus: multiwatcher.StatusInfo{
+							Current: "error",
+							Message: "failure",
+							Data:    map[string]interface{}{},
+							Since:   &now,
+						},
+					},
+				},
+			}
+		},
+	}
+	s.performChangeTestCases(c, changeTestFuncs)
+}
+
+func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
+	changeTestFuncs := []changeTestFunc{
+		func(c *gc.C, st *State) changeTestCase {
+			caasSt := s.newCAASState(c)
+			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
+			mysql := AddTestingApplication(c, caasSt, "mysql", ch)
+			unit, err := mysql.AddUnit(AddUnitParams{})
+			c.Assert(err, jc.ErrorIsNil)
+
+			updateUnits := UpdateUnitsOperation{
+				Updates: []*UpdateUnitOperation{
+					unit.UpdateOperation(UnitUpdateProperties{
+						CloudContainerStatus: &status.StatusInfo{Status: status.Maintenance, Message: "setting up"},
+					}),
+				},
+			}
+			err = mysql.UpdateUnits(&updateUnits)
+			c.Assert(err, jc.ErrorIsNil)
+
+			now := st.clock().Now()
+			return changeTestCase{
+				about: "initial CAAS unit has container status",
+				change: watcher.Change{
+					C:  "units",
+					Id: caasSt.docID("mysql/0"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						ModelUUID:   caasSt.ModelUUID(),
+						Name:        "mysql/0",
+						Application: "mysql",
+						Series:      "kubernetes",
+						Life:        "alive",
+						Ports:       []network.Port{},
+						PortRanges:  []network.PortRange{},
+						WorkloadStatus: multiwatcher.StatusInfo{
+							Current: "waiting",
+							Message: "agent initializing",
+							Data:    map[string]interface{}{},
+							Since:   &now,
+						},
+						AgentStatus: multiwatcher.StatusInfo{
+							Current: "allocating",
+							Data:    map[string]interface{}{},
+							Since:   &now,
+						},
+						ContainerStatus: multiwatcher.StatusInfo{
+							Current: "maintenance",
+							Message: "setting up",
+							Data:    map[string]interface{}{},
+							Since:   &now,
+						},
+					},
+				},
+			}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			caasSt := s.newCAASState(c)
+			ch := AddTestingCharmForSeries(c, caasSt, "kubernetes", "mysql")
+			mysql := AddTestingApplication(c, caasSt, "mysql", ch)
+			unit, err := mysql.AddUnit(AddUnitParams{})
+			c.Assert(err, jc.ErrorIsNil)
+
+			updateUnits := UpdateUnitsOperation{
+				Updates: []*UpdateUnitOperation{
+					unit.UpdateOperation(UnitUpdateProperties{
+						CloudContainerStatus: &status.StatusInfo{Status: status.Maintenance, Message: "setting up"},
+					}),
+				},
+			}
+			err = mysql.UpdateUnits(&updateUnits)
+			c.Assert(err, jc.ErrorIsNil)
+
+			now := st.clock().Now()
+			return changeTestCase{
+				about: "container status updates existing unit",
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						ModelUUID:   caasSt.ModelUUID(),
+						Name:        "mysql/0",
+						Application: "mysql",
+						Series:      "kubernetes",
+					},
+				},
+				change: watcher.Change{
+					C:  "statuses",
+					Id: caasSt.docID(unit.globalCloudContainerKey()),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						ModelUUID:   caasSt.ModelUUID(),
+						Name:        "mysql/0",
+						Application: "mysql",
+						Series:      "kubernetes",
+						ContainerStatus: multiwatcher.StatusInfo{
+							Current: "maintenance",
+							Message: "setting up",
+							Data:    map[string]interface{}{},
+							Since:   &now,
+						},
+					},
+				},
+			}
+		},
+	}
+	s.performChangeTestCases(c, changeTestFuncs)
 }
 
 func (s *allWatcherStateSuite) TestChangeCharms(c *gc.C) {
@@ -1930,13 +2173,13 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 			c.Assert(err, jc.ErrorIsNil)
 			err = unit.SetWorkloadVersion("42.47")
 			c.Assert(err, jc.ErrorIsNil)
-			now := st.clock().Now()
 			return changeTestCase{
 				about: "workload version is updated when set on a unit",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID: st.ModelUUID(),
-						Name:      "wordpress/0",
+						ModelUUID:   st.ModelUUID(),
+						Name:        "wordpress/0",
+						Application: "wordpress",
 					},
 					&multiwatcher.ApplicationInfo{
 						ModelUUID: st.ModelUUID(),
@@ -1946,30 +2189,19 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 				},
 				change: watcher.Change{
 					C:  "statuses",
-					Id: st.docID("u#" + unit.Name() + "#charm"),
+					Id: st.docID("u#" + unit.Name() + "#charm#sat#workload-version"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
-					&multiwatcher.UnitInfo{
-						ModelUUID: st.ModelUUID(),
-						Name:      "wordpress/0",
-						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "waiting",
-							Message: "waiting for machine",
-							Data:    map[string]interface{}{},
-							Since:   &now,
-						},
-					},
 					&multiwatcher.ApplicationInfo{
 						ModelUUID:       st.ModelUUID(),
 						Name:            "wordpress",
 						CharmURL:        "local:quantal/quantal-wordpress-3",
 						WorkloadVersion: "42.47",
-						Status: multiwatcher.StatusInfo{
-							Current: "waiting",
-							Message: "waiting for machine",
-							Data:    map[string]interface{}{},
-							Since:   &now,
-						},
+					},
+					&multiwatcher.UnitInfo{
+						ModelUUID:   st.ModelUUID(),
+						Name:        "wordpress/0",
+						Application: "wordpress",
 					},
 				},
 			}
@@ -1980,13 +2212,13 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 			c.Assert(err, jc.ErrorIsNil)
 			err = unit.SetWorkloadVersion("")
 			c.Assert(err, jc.ErrorIsNil)
-			now := st.clock().Now()
 			return changeTestCase{
 				about: "workload version is not updated when empty",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID: st.ModelUUID(),
-						Name:      "wordpress/0",
+						ModelUUID:   st.ModelUUID(),
+						Name:        "wordpress/0",
+						Application: "wordpress",
 					},
 					&multiwatcher.ApplicationInfo{
 						ModelUUID:       st.ModelUUID(),
@@ -1997,30 +2229,19 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 				},
 				change: watcher.Change{
 					C:  "statuses",
-					Id: st.docID("u#" + unit.Name() + "#charm"),
+					Id: st.docID("u#" + unit.Name() + "#charm#sat#workload-version"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
-					&multiwatcher.UnitInfo{
-						ModelUUID: st.ModelUUID(),
-						Name:      "wordpress/0",
-						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "waiting",
-							Message: "waiting for machine",
-							Data:    map[string]interface{}{},
-							Since:   &now,
-						},
-					},
 					&multiwatcher.ApplicationInfo{
 						ModelUUID:       st.ModelUUID(),
 						Name:            "wordpress",
 						CharmURL:        "local:quantal/quantal-wordpress-3",
 						WorkloadVersion: "ultimate",
-						Status: multiwatcher.StatusInfo{
-							Current: "waiting",
-							Message: "waiting for machine",
-							Data:    map[string]interface{}{},
-							Since:   &now,
-						},
+					},
+					&multiwatcher.UnitInfo{
+						ModelUUID:   st.ModelUUID(),
+						Name:        "wordpress/0",
+						Application: "wordpress",
 					},
 				},
 			}
