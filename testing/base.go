@@ -142,6 +142,13 @@ func SkipUnlessControllerOS(c *gc.C) {
 	}
 }
 
+// SkipLXDNotSupported will skip tests if the host does not support LXD
+func SkipLXDNotSupported(c *gc.C) {
+	if jujuos.HostOS() != jujuos.Ubuntu {
+		c.Skip("Test disabled for non-LXD OS")
+	}
+}
+
 // SkipFlaky skips the test if there is an open bug for intermittent test failures
 func SkipFlaky(c *gc.C, bugID string) {
 	c.Skip(fmt.Sprintf("Test disabled until flakiness is fixed - see bug %s", bugID))
