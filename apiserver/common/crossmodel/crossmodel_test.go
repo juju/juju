@@ -47,7 +47,8 @@ func (s *crossmodelSuite) TestExpandChangeWhenRelationHasGone(c *gc.C) {
 
 func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGone(c *gc.C) {
 	st := &mockBackend{}
-	ch, err := crossmodel.GetOfferStatusChange(st, "uuid", "mysql")
+	cache := &fakeCachedModel{}
+	ch, err := crossmodel.GetOfferStatusChange(cache, st, "uuid", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",
@@ -57,7 +58,8 @@ func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGone(c *gc.C) {
 
 func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGone(c *gc.C) {
 	st := &mockBackend{}
-	ch, err := crossmodel.GetOfferStatusChange(st, "deadbeef", "mysql")
+	cache := &fakeCachedModel{}
+	ch, err := crossmodel.GetOfferStatusChange(cache, st, "deadbeef", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",
@@ -67,7 +69,10 @@ func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGone(c *gc.C) {
 
 func (s *crossmodelSuite) TestGetOfferStatusChange(c *gc.C) {
 	st := &mockBackend{appName: "mysql"}
-	ch, err := crossmodel.GetOfferStatusChange(st, "deadbeef", "mysql")
+	cache := &fakeCachedModel{
+		info: status.StatusInfo{Status: status.Active},
+	}
+	ch, err := crossmodel.GetOfferStatusChange(cache, st, "deadbeef", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",
@@ -109,15 +114,31 @@ func (st *mockBackend) Application(name string) (crossmodel.Application, error) 
 		return nil, errors.NotFoundf(name)
 	}
 	return &mockApplication{
-		status: status.StatusInfo{Status: status.Active},
+		name: "mysql",
 	}, nil
 }
 
 type mockApplication struct {
 	crossmodel.Application
-	status status.StatusInfo
+	name string
 }
 
-func (a *mockApplication) Status() (status.StatusInfo, error) {
-	return a.status, nil
+func (a *mockApplication) Name() string {
+	return a.name
+}
+
+type fakeCachedModel struct {
+	err  error
+	info status.StatusInfo
+}
+
+func (f *fakeCachedModel) Application(name string) (crossmodel.CachedApplication, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f, nil
+}
+
+func (f *fakeCachedModel) Status() status.StatusInfo {
+	return f.info
 }
