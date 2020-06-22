@@ -659,10 +659,11 @@ func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
 	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, false)
 	newApp, err := newSt.Application(application.Name())
 	c.Assert(err, jc.ErrorIsNil)
+	// Has unset application status.
 	appStatus, err := newApp.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appStatus.Status, gc.Equals, status.Active)
-	c.Assert(appStatus.Message, gc.Equals, "unit active")
+	c.Assert(appStatus.Status, gc.Equals, status.Unset)
+	c.Assert(appStatus.Message, gc.Equals, "")
 }
 
 func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
@@ -772,11 +773,11 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	})
 	newApp, err := newSt.Application(application.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	// Must use derived status
+	// Has unset application status.
 	appStatus, err := newApp.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appStatus.Status, gc.Equals, status.Active)
-	c.Assert(appStatus.Message, gc.Equals, "unit active")
+	c.Assert(appStatus.Status, gc.Equals, status.Unset)
+	c.Assert(appStatus.Message, gc.Equals, "")
 }
 
 func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
