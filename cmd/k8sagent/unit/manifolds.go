@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
@@ -18,6 +17,7 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
-	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/leadership"
@@ -149,12 +148,13 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			NewWorker: gate.NewFlagWorker,
 		}),
 
-		upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
-			AgentName:            agentName,
-			APICallerName:        apiCallerName,
-			UpgradeStepsGateName: upgradeStepsGateName,
-			PreviousAgentVersion: config.PreviousAgentVersion,
-		}),
+		// TODO(ycliuhw): implement upgrade stragegy for the new CAAS agent.
+		// upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
+		// 	AgentName:            agentName,
+		// 	APICallerName:        apiCallerName,
+		// 	UpgradeStepsGateName: upgradeStepsGateName,
+		// 	PreviousAgentVersion: config.PreviousAgentVersion,
+		// }),
 
 		// The upgradesteps worker runs soon after the operator
 		// starts and runs any steps required to upgrade to the
