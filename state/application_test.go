@@ -3286,59 +3286,6 @@ func (s *ApplicationSuite) TestMetricCredentialsOnDying(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot update metric credentials: application is not found or not alive")
 }
 
-func (s *ApplicationSuite) testStatus(c *gc.C, status1, status2, expected status.Status) {
-	u1, err := s.mysql.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	now := coretesting.ZeroTime()
-	sInfo := status.StatusInfo{
-		Status:  status1,
-		Message: "status 1",
-		Since:   &now,
-	}
-	err = u1.SetStatus(sInfo)
-	c.Assert(err, jc.ErrorIsNil)
-
-	u2, err := s.mysql.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	sInfo = status.StatusInfo{
-		Status:  status2,
-		Message: "status 2",
-		Since:   &now,
-	}
-	if status2 == status.Error {
-		err = u2.SetAgentStatus(sInfo)
-	} else {
-		err = u2.SetStatus(sInfo)
-	}
-	c.Assert(err, jc.ErrorIsNil)
-
-	statusInfo, err := s.mysql.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Since, gc.NotNil)
-	statusInfo.Since = nil
-	c.Assert(statusInfo, jc.DeepEquals, status.StatusInfo{
-		Status:  expected,
-		Message: "status 2",
-		Data:    map[string]interface{}{},
-	})
-}
-
-func (s *ApplicationSuite) TestStatus(c *gc.C) {
-	for _, t := range []struct{ status1, status2, expected status.Status }{
-		{status.Active, status.Waiting, status.Waiting},
-		{status.Maintenance, status.Waiting, status.Waiting},
-		{status.Active, status.Blocked, status.Blocked},
-		{status.Waiting, status.Blocked, status.Blocked},
-		{status.Maintenance, status.Blocked, status.Blocked},
-		{status.Maintenance, status.Error, status.Error},
-		{status.Blocked, status.Error, status.Error},
-		{status.Waiting, status.Error, status.Error},
-		{status.Active, status.Error, status.Error},
-	} {
-		s.testStatus(c, t.status1, t.status2, t.expected)
-	}
-}
-
 const oneRequiredStorageMeta = `
 storage:
   data0:
@@ -3919,6 +3866,58 @@ func (s *ApplicationSuite) TestUpdateApplicationConfig(c *gc.C) {
 	}
 }
 
+func (s *ApplicationSuite) TestStatusInitial(c *gc.C) {
+	appStatus, err := s.mysql.Status()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(appStatus.Status, gc.Equals, status.Unset)
+	c.Check(appStatus.Message, gc.Equals, "")
+	c.Check(appStatus.Data, gc.HasLen, 0)
+}
+
+func (s *ApplicationSuite) TestUnitStatusesNoUnits(c *gc.C) {
+	statuses, err := s.mysql.UnitStatuses()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(statuses, gc.HasLen, 0)
+}
+
+func (s *ApplicationSuite) TestUnitStatusesWithUnits(c *gc.C) {
+	u1, err := s.mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = u1.SetStatus(status.StatusInfo{
+		Status: status.Maintenance,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// If Agent status is in error, we see that.
+	u2, err := s.mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = u2.Agent().SetStatus(status.StatusInfo{
+		Status:  status.Error,
+		Message: "foo",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = u2.SetStatus(status.StatusInfo{
+		Status: status.Blocked,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	statuses, err := s.mysql.UnitStatuses()
+	c.Check(err, jc.ErrorIsNil)
+
+	check := jc.NewMultiChecker()
+	check.AddRegex(`\[.*\]\.Since`, jc.Ignore)
+	check.AddRegex(`\[.*\]\.Data`, jc.Ignore)
+	c.Assert(statuses, check, map[string]status.StatusInfo{
+		"mysql/0": status.StatusInfo{
+			Status: status.Maintenance,
+		},
+		"mysql/1": status.StatusInfo{
+			Status:  status.Error,
+			Message: "foo",
+		},
+	})
+}
+
 func sampleApplicationConfigSchema() environschema.Fields {
 	schema := environschema.Fields{
 		"title":       environschema.Attr{Type: environschema.Tstring},
@@ -4393,8 +4392,8 @@ func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
 	history, err := app.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 1)
-	c.Assert(history[0].Status, gc.Equals, status.Waiting)
-	c.Assert(history[0].Message, gc.Equals, "waiting for container")
+	c.Assert(history[0].Status, gc.Equals, status.Unset)
+	c.Assert(history[0].Message, gc.Equals, "")
 
 	// Must overwrite the history
 	// Updating status may cause the history entries to be written with
@@ -4410,8 +4409,8 @@ func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
 	c.Assert(history, gc.HasLen, 2)
 	c.Assert(history[0].Status, gc.Equals, status.Allocating)
 	c.Assert(history[0].Message, gc.Equals, "operator message")
-	c.Assert(history[1].Status, gc.Equals, status.Waiting)
-	c.Assert(history[1].Message, gc.Equals, "waiting for container")
+	c.Assert(history[1].Status, gc.Equals, status.Unset)
+	c.Assert(history[1].Message, gc.Equals, "")
 
 	// Updating status may cause the history entries to be written with
 	// the same timestamp due to the precision used by the db.
@@ -4434,8 +4433,8 @@ func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
 	c.Assert(history[0].Message, gc.Equals, "app active")
 	c.Assert(history[1].Status, gc.Equals, status.Allocating)
 	c.Assert(history[1].Message, gc.Equals, "operator message")
-	c.Assert(history[2].Status, gc.Equals, status.Waiting)
-	c.Assert(history[2].Message, gc.Equals, "waiting for container")
+	c.Assert(history[2].Status, gc.Equals, status.Unset)
+	c.Assert(history[2].Message, gc.Equals, "")
 }
 
 func (s *CAASApplicationSuite) TestClearResources(c *gc.C) {
@@ -4679,22 +4678,16 @@ func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 
-	// Initial status.
-	appStatus, err := state.ApplicationOperatorStatus(st, app.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appStatus.Status, gc.DeepEquals, status.Waiting)
-	c.Assert(appStatus.Message, gc.DeepEquals, "waiting for container")
-
 	now := coretesting.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Error,
 		Message: "broken",
 		Since:   &now,
 	}
-	err = app.SetOperatorStatus(sInfo)
+	err := app.SetOperatorStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
-	appStatus, err = state.ApplicationOperatorStatus(st, app.Name())
+	appStatus, err := state.ApplicationOperatorStatus(st, app.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appStatus.Status, gc.DeepEquals, status.Error)
 	c.Assert(appStatus.Message, gc.DeepEquals, "broken")

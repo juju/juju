@@ -33,7 +33,10 @@ func (s *ApplicationStatusSuite) TestInitialStatus(c *gc.C) {
 func (s *ApplicationStatusSuite) checkInitialStatus(c *gc.C) {
 	statusInfo, err := s.application.Status()
 	c.Check(err, jc.ErrorIsNil)
-	checkInitialWorkloadStatus(c, statusInfo)
+	c.Check(statusInfo.Status, gc.Equals, status.Unset)
+	c.Check(statusInfo.Message, gc.Equals, "")
+	c.Check(statusInfo.Data, gc.HasLen, 0)
+	c.Check(statusInfo.Since, gc.NotNil)
 }
 
 func (s *ApplicationStatusSuite) TestSetUnknownStatus(c *gc.C) {
@@ -153,90 +156,4 @@ func (s *ApplicationStatusSuite) TestSetStatusSince(c *gc.C) {
 	statusInfo, err = s.application.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(timeBeforeOrEqual(*firstTime, *statusInfo.Since), jc.IsTrue)
-}
-
-func (s *ApplicationStatusSuite) TestDeriveStatus(c *gc.C) {
-	// NOTE(fwereade): as detailed in the code, this implementation is not sane.
-	// The specified behaviour is arguably sane, but the code is in the wrong
-	// place.
-
-	// Create a unit with each possible status.
-	addUnit := func(unitStatus status.Status) *state.Unit {
-		unit, err := s.application.AddUnit(state.AddUnitParams{})
-		c.Assert(err, gc.IsNil)
-		now := testing.ZeroTime()
-		sInfo := status.StatusInfo{
-			Status:  unitStatus,
-			Message: "blam",
-			Since:   &now,
-		}
-		err = unit.SetStatus(sInfo)
-		c.Assert(err, gc.IsNil)
-		return unit
-	}
-	blockedUnit := addUnit(status.Blocked)
-	waitingUnit := addUnit(status.Waiting)
-	maintenanceUnit := addUnit(status.Maintenance)
-	terminatedUnit := addUnit(status.Terminated)
-	activeUnit := addUnit(status.Active)
-	unknownUnit := addUnit(status.Unknown)
-
-	// ...and create one with error status by setting it on the agent :-/.
-	errorUnit, err := s.application.AddUnit(state.AddUnitParams{})
-	c.Assert(err, gc.IsNil)
-	now := testing.ZeroTime()
-	sInfo := status.StatusInfo{
-		Status:  status.Error,
-		Message: "blam",
-		Since:   &now,
-	}
-	err = errorUnit.Agent().SetStatus(sInfo)
-	c.Assert(err, gc.IsNil)
-
-	// For each status, in order of severity, check the application status is
-	// derived from that unit status; then remove that unit and proceed to
-	// the next severity.
-	checkAndRemove := func(unit *state.Unit, status status.Status) {
-		info, err := s.application.Status()
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(info.Status, gc.Equals, status)
-
-		err = unit.Destroy()
-		c.Assert(err, jc.ErrorIsNil)
-		err = unit.EnsureDead()
-		c.Assert(err, jc.ErrorIsNil)
-		err = unit.Remove()
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	checkAndRemove(errorUnit, status.Error)
-	checkAndRemove(blockedUnit, status.Blocked)
-	checkAndRemove(waitingUnit, status.Waiting)
-	checkAndRemove(maintenanceUnit, status.Maintenance)
-	checkAndRemove(activeUnit, status.Active)
-	checkAndRemove(terminatedUnit, status.Terminated)
-	checkAndRemove(unknownUnit, status.Unknown)
-}
-
-func (s *ApplicationStatusSuite) TestApplicationStatusOverridesDerivedStatus(c *gc.C) {
-	unit, err := s.application.AddUnit(state.AddUnitParams{})
-	c.Assert(err, gc.IsNil)
-	now := testing.ZeroTime()
-	sInfo := status.StatusInfo{
-		Status:  status.Blocked,
-		Message: "pow",
-		Since:   &now,
-	}
-	err = unit.SetStatus(sInfo)
-	c.Assert(err, gc.IsNil)
-	sInfo = status.StatusInfo{
-		Status:  status.Maintenance,
-		Message: "zot",
-		Since:   &now,
-	}
-	err = s.application.SetStatus(sInfo)
-	c.Assert(err, gc.IsNil)
-
-	info, err := s.application.Status()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(info.Status, gc.Equals, status.Maintenance)
 }

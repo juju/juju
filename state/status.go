@@ -76,47 +76,6 @@ func (m *ModelStatus) Model() (status.StatusInfo, error) {
 	return m.getStatus(m.model.globalKey(), "model")
 }
 
-// Application returns the status of the model.
-// The unitNames are needed due to the current weird implementation of
-// application status.
-// Considers the operator pods status (for caas models)
-func (m *ModelStatus) Application(appName string, unitNames []string) (status.StatusInfo, error) {
-	// This is kinda terrible, see notes in application.go for *Application.Status().
-	doc, err := m.getDoc(applicationGlobalKey(appName), "application")
-	if err != nil {
-		return status.StatusInfo{}, err
-	}
-	appStatus := doc.asStatusInfo()
-	expectWorkload, err := CheckApplicationExpectsWorkload(m.model, appName)
-	if err != nil {
-		return status.StatusInfo{}, errors.Trace(err)
-	}
-	if doc.NeverSet {
-		// Get the status for the agents, and derive a status from that.
-		var unitStatuses []status.StatusInfo
-		for _, name := range unitNames {
-			unitStatus, err := m.UnitWorkload(name, expectWorkload)
-			if err != nil {
-				return status.StatusInfo{}, errors.Annotatef(err, "deriving application status from %q", name)
-			}
-			unitStatuses = append(unitStatuses, unitStatus)
-		}
-		if len(unitStatuses) > 0 {
-			appStatus = deriveApplicationStatus(unitStatuses)
-		}
-
-	}
-	if m.model.Type() == ModelTypeIAAS {
-		return appStatus, nil
-	}
-
-	operatorStatusDoc, err := m.getDoc(applicationGlobalOperatorKey(appName), "operator")
-	if err != nil {
-		return status.StatusInfo{}, errors.Trace(err)
-	}
-	return status.ApplicationDisplayStatus(appStatus, operatorStatusDoc.asStatusInfo(), expectWorkload), nil
-}
-
 // MachineAgent returns the status of the machine agent.
 func (m *ModelStatus) MachineAgent(machineID string) (status.StatusInfo, error) {
 	return m.getStatus(machineGlobalKey(machineID), "machine")
@@ -218,7 +177,6 @@ type statusDocWithID struct {
 	StatusInfo string                 `bson:"statusinfo"`
 	StatusData map[string]interface{} `bson:"statusdata"`
 	Updated    int64                  `bson:"updated"`
-	NeverSet   bool                   `bson:"neverset"`
 }
 
 func (doc *statusDocWithID) asStatusInfo() status.StatusInfo {
@@ -243,14 +201,15 @@ type statusDoc struct {
 	// Updated used to be a *time.Time that was not present on statuses dating
 	// from older versions of juju so this might be 0 for those cases.
 	Updated int64 `bson:"updated"`
+}
 
-	// TODO(fwereade/wallyworld): lp:1479278
-	// NeverSet is a short-term hack to work around a misfeature in application
-	// status. To maintain current behaviour, we create application status docs
-	// (and only application status documents) with NeverSet true; and then, when
-	// reading them, if NeverSet is still true, we aggregate status from the
-	// units instead.
-	NeverSet bool `bson:"neverset"`
+func (doc *statusDoc) asStatusInfo() status.StatusInfo {
+	return status.StatusInfo{
+		Status:  doc.Status,
+		Message: doc.StatusInfo,
+		Data:    utils.UnescapeKeys(doc.StatusData),
+		Since:   unixNanoToTime(doc.Updated),
+	}
 }
 
 func unixNanoToTime(i int64) *time.Time {
@@ -274,12 +233,7 @@ func getStatus(db Database, globalKey, badge string) (_ status.StatusInfo, err e
 		return status.StatusInfo{}, errors.Trace(err)
 	}
 
-	return status.StatusInfo{
-		Status:  doc.Status,
-		Message: doc.StatusInfo,
-		Data:    utils.UnescapeKeys(doc.StatusData),
-		Since:   unixNanoToTime(doc.Updated),
-	}, nil
+	return doc.asStatusInfo(), nil
 }
 
 func getEntityKeysForStatus(mb modelBackend, keyType string, status status.Status) ([]string, error) {
