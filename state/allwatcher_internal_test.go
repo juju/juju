@@ -205,8 +205,8 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		Config:      charm.Settings{"blog-title": "boring"},
 		Subordinate: false,
 		Status: multiwatcher.StatusInfo{
-			Current: "waiting",
-			Message: "waiting for machine",
+			Current: "unset",
+			Message: "",
 			Data:    map[string]interface{}{},
 			Since:   &now,
 		},
@@ -235,8 +235,8 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		Config:      charm.Settings{},
 		Subordinate: true,
 		Status: multiwatcher.StatusInfo{
-			Current: "waiting",
-			Message: "waiting for machine",
+			Current: "unset",
+			Message: "",
 			Data:    map[string]interface{}{},
 			Since:   &now,
 		},
@@ -392,8 +392,8 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		Life:      life.Alive,
 		Config:    charm.Settings{},
 		Status: multiwatcher.StatusInfo{
-			Current: "waiting",
-			Message: "waiting for machine",
+			Current: "unset",
+			Message: "",
 			Data:    map[string]interface{}{},
 			Since:   &now,
 		},
@@ -697,8 +697,7 @@ func (s *allWatcherStateSuite) TestChangeCAASApplications(c *gc.C) {
 						Life:      "alive",
 						Config:    map[string]interface{}{},
 						Status: multiwatcher.StatusInfo{
-							Current: "waiting",
-							Message: "waiting for container",
+							Current: "unset",
 							Data:    map[string]interface{}{},
 							Since:   &now,
 						},
@@ -2131,8 +2130,8 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 						MinUnits:  42,
 						Config:    charm.Settings{},
 						Status: multiwatcher.StatusInfo{
-							Current: "waiting",
-							Message: "waiting for machine",
+							Current: "unset",
+							Message: "",
 							Data:    map[string]interface{}{},
 							Since:   &now,
 						},
@@ -3062,86 +3061,6 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 							Since:   &now,
 						},
 					}}}
-		},
-		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			u, err := wordpress.AddUnit(AddUnitParams{})
-			c.Assert(err, jc.ErrorIsNil)
-			err = u.AssignToNewMachine()
-			c.Assert(err, jc.ErrorIsNil)
-			now := st.clock().Now()
-			sInfo := status.StatusInfo{
-				Status:  status.Active,
-				Message: "",
-				Since:   &now,
-			}
-			err = u.SetStatus(sInfo)
-			c.Assert(err, jc.ErrorIsNil)
-
-			return changeTestCase{
-				about: "application status is changed if the unit status changes",
-				initialContents: []multiwatcher.EntityInfo{
-					&multiwatcher.UnitInfo{
-						ModelUUID:   st.ModelUUID(),
-						Name:        "wordpress/0",
-						Application: "wordpress",
-						AgentStatus: multiwatcher.StatusInfo{
-							Current: "idle",
-							Message: "",
-							Data:    map[string]interface{}{},
-							Since:   &now,
-						},
-						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "error",
-							Message: "failure",
-							Data:    map[string]interface{}{},
-							Since:   &now,
-						},
-					},
-					&multiwatcher.ApplicationInfo{
-						ModelUUID: st.ModelUUID(),
-						Name:      "wordpress",
-						Status: multiwatcher.StatusInfo{
-							Current: "error",
-							Message: "failure",
-							Data:    map[string]interface{}{},
-							Since:   &now,
-						},
-					},
-				},
-				change: watcher.Change{
-					C:  "statuses",
-					Id: st.docID("u#wordpress/0#charm"),
-				},
-				expectContents: []multiwatcher.EntityInfo{
-					&multiwatcher.UnitInfo{
-						ModelUUID:   st.ModelUUID(),
-						Name:        "wordpress/0",
-						Application: "wordpress",
-						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "active",
-							Message: "",
-							Data:    map[string]interface{}{},
-							Since:   &now,
-						},
-						AgentStatus: multiwatcher.StatusInfo{
-							Current: "idle",
-							Message: "",
-							Data:    map[string]interface{}{},
-							Since:   &now,
-						},
-					},
-					&multiwatcher.ApplicationInfo{
-						ModelUUID: st.ModelUUID(),
-						Name:      "wordpress",
-						Status: multiwatcher.StatusInfo{
-							Current: "active",
-							Message: "",
-							Data:    map[string]interface{}{},
-							Since:   &now,
-						},
-					},
-				}}
 		},
 	}
 	runChangeTests(c, changeTestFuncs)

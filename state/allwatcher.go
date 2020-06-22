@@ -1314,53 +1314,6 @@ func (s *backingStatus) updatedUnitStatus(ctx *allWatcherContext, unitStatus mul
 		}
 		newInfo.AgentStatus.Version = agentVersion
 	}
-
-	// Retrieve the unit.
-	unit, err := ctx.state.Unit(newInfo.Name)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// It is possible that the event processing is happening slower
-			// than reality and a missing unit isn't that terrible.
-			logger.Debugf("unit %q not in DB", newInfo.Name)
-			return nil
-		}
-		return errors.Annotatef(err, "cannot retrieve unit %q", newInfo.Name)
-	}
-
-	// A change in a unit's status might also affect its application.
-	application, err := unit.Application()
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// It is possible that the event processing is happening slower
-			// than reality and a missing application isn't that terrible.
-			logger.Debugf("application for unit %q not in DB", newInfo.Name)
-			return nil
-		}
-		return errors.Trace(err)
-	}
-	applicationID, _, ok := ctx.entityIDForGlobalKey(application.globalKey())
-	if !ok {
-		return nil
-	}
-	applicationInfo := ctx.store.Get(applicationID)
-	if applicationInfo == nil {
-		return nil
-	}
-	// TODO: this is very inefficient if there are many units and no application
-	// status set.
-	status, err := application.Status()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	newApplicationInfo := *applicationInfo.(*multiwatcher.ApplicationInfo)
-	newApplicationInfo.Status = multiwatcher.NewStatusInfo(status, nil)
-	workloadVersion, err := unit.WorkloadVersion()
-	if err != nil {
-		return errors.Annotatef(err, "cannot retrieve workload version for %q", unit.Name())
-	} else if workloadVersion != "" {
-		newApplicationInfo.WorkloadVersion = workloadVersion
-	}
-	ctx.store.Update(&newApplicationInfo)
 	return nil
 }
 
