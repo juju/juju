@@ -6,6 +6,7 @@ package client_test
 import (
 	"time"
 
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -861,6 +862,7 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 		Charm: ch,
 	})
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.app})
+	s.WaitForModelWatchersIdle(c, st.ModelUUID())
 }
 
 func (s *CAASStatusSuite) TestStatusOperatorNotReady(c *gc.C) {
@@ -877,6 +879,7 @@ func (s *CAASStatusSuite) TestStatusPodSpecNotSet(c *gc.C) {
 	client := s.APIState.Client()
 	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -899,6 +902,7 @@ containers:
 `[1:]
 	err = cm.SetPodSpec(nil, s.app.ApplicationTag(), &spec)
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -908,6 +912,7 @@ containers:
 }
 
 func (s *CAASStatusSuite) TestStatusCloudContainerSet(c *gc.C) {
+	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	client := s.APIState.Client()
 	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
 	c.Assert(err, jc.ErrorIsNil)
@@ -921,6 +926,7 @@ func (s *CAASStatusSuite) TestStatusCloudContainerSet(c *gc.C) {
 		})}
 	err = s.app.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)

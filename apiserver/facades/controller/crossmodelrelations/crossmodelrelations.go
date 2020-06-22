@@ -38,6 +38,7 @@ type CrossModelRelationsAPI struct {
 	fw         firewall.State
 	resources  facade.Resources
 	authorizer facade.Authorizer
+	model      commoncrossmodel.CachedModel
 
 	mu              sync.Mutex
 	authCtxt        *commoncrossmodel.AuthContext
@@ -62,6 +63,10 @@ func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI
 	if err != nil {
 		return nil, err
 	}
+	cachedModel, err := ctx.CachedModel(st.ModelUUID())
+	if err != nil {
+		return nil, err
+	}
 
 	return NewCrossModelRelationsAPI(
 		stateShim{
@@ -69,7 +74,9 @@ func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI
 			Backend: commoncrossmodel.GetBackend(st),
 		},
 		firewall.StateShim(st, model),
-		ctx.Resources(), ctx.Auth(), authCtxt.(*commoncrossmodel.AuthContext),
+		ctx.Resources(), ctx.Auth(),
+		commoncrossmodel.CacheShim{cachedModel},
+		authCtxt.(*commoncrossmodel.AuthContext),
 		firewall.WatchEgressAddressesForRelations,
 		watchRelationLifeSuspendedStatus,
 		watchOfferStatus,
@@ -92,6 +99,7 @@ func NewCrossModelRelationsAPI(
 	fw firewall.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	model commoncrossmodel.CachedModel,
 	authCtxt *commoncrossmodel.AuthContext,
 	egressAddressWatcher egressAddressWatcherFunc,
 	relationStatusWatcher relationStatusWatcherFunc,
@@ -103,6 +111,7 @@ func NewCrossModelRelationsAPI(
 		fw:                    fw,
 		resources:             resources,
 		authorizer:            authorizer,
+		model:                 model,
 		authCtxt:              authCtxt,
 		egressAddressWatcher:  egressAddressWatcher,
 		relationStatusWatcher: relationStatusWatcher,
@@ -569,7 +578,7 @@ func (api *CrossModelRelationsAPI) WatchOfferStatus(
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-
+		// TODO: move full watcher to the model cache.
 		w, err := api.offerStatusWatcher(api.st, arg.OfferUUID)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
@@ -580,7 +589,7 @@ func (api *CrossModelRelationsAPI) WatchOfferStatus(
 			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
 			continue
 		}
-		change, err := commoncrossmodel.GetOfferStatusChange(api.st, arg.OfferUUID, w.OfferName())
+		change, err := commoncrossmodel.GetOfferStatusChange(api.model, api.st, arg.OfferUUID, w.OfferName())
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			w.Stop()
