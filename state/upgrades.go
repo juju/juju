@@ -2896,3 +2896,52 @@ func AddBakeryConfig(pool *StatePool) error {
 	}
 	return errors.Trace(st.runRawTransaction([]txn.Op{op}))
 }
+
+// ReplaceNeverSetWithUnset in the status documents.
+func ReplaceNeverSetWithUnset(pool *StatePool) (err error) {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(statusesC)
+		defer closer()
+
+		var docs []bson.M
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, oldDoc := range docs {
+			// For docs where "neverset" is true, we update the
+			// Status and StatusInfo. For all others, we just remove
+			// the "neverset attribute".
+			value, hasAttribute := oldDoc["neverset"]
+			if !hasAttribute {
+				// Removed already.
+				continue
+			}
+			neverset, ok := value.(bool)
+			if !ok {
+				// This shouldn't happen, but if it is there,
+				// just ignore this one.
+				continue
+			}
+
+			update := bson.M{"$unset": bson.M{"neverset": nil}}
+			if neverset {
+				update["$set"] = bson.M{
+					"status":     "unset",
+					"statusinfo": "",
+				}
+			}
+
+			ops = append(ops, txn.Op{
+				C:      statusesC,
+				Id:     oldDoc["_id"],
+				Assert: txn.DocExists,
+				Update: update,
+			})
+		}
+
+		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}
