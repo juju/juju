@@ -68,14 +68,14 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 	}
 
 	var prereqOps []txn.Op
-	appTagID := op.appTag.Id()
-	app, err := op.m.State().Application(appTagID)
+	appName := op.appTag.Id()
+	app, err := op.m.State().Application(appName)
 	if err != nil {
 		return nil, errors.Annotate(err, "setting pod spec")
 	}
 	if app.Life() != Alive {
 		return nil, errors.Annotate(
-			errors.Errorf("application %s not alive", app.String()),
+			errors.Errorf("application %s not alive", appName),
 			"setting pod spec",
 		)
 	}
@@ -97,7 +97,7 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 
 	sop := txn.Op{
 		C:  podSpecsC,
-		Id: applicationGlobalKey(appTagID),
+		Id: applicationGlobalKey(appName),
 	}
 	existing, err := op.m.podInfo(op.appTag)
 	if err == nil {

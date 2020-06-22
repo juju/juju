@@ -107,19 +107,22 @@ func makeAllWatcherCollectionInfo(collNames []string) map[string]allWatcherState
 			// Permissions are attached to the Model that they are for.
 			collection.docType = reflect.TypeOf(backingPermission{})
 			collection.subsidiary = true
+		case podSpecsC:
+			collection.docType = reflect.TypeOf(backingPodSpec{})
+			collection.subsidiary = true
 		default:
-			logger.Criticalf("programming error: unknown collection %q", collName)
+			allWatcherLogger.Criticalf("programming error: unknown collection %q", collName)
 		}
 
 		docType := collection.docType
 		if _, ok := seenTypes[docType]; ok {
-			logger.Criticalf("programming error: duplicate collection type %s", docType)
+			allWatcherLogger.Criticalf("programming error: duplicate collection type %s", docType)
 		} else {
 			seenTypes[docType] = struct{}{}
 		}
 
 		if _, ok := collectionByName[collName]; ok {
-			logger.Criticalf("programming error: duplicate collection name %q", collName)
+			allWatcherLogger.Criticalf("programming error: duplicate collection name %q", collName)
 		} else {
 			collectionByName[collName] = collection
 		}
@@ -303,7 +306,7 @@ func (e *backingPermission) getModelInfo(ctx *allWatcherContext, modelUUID strin
 }
 
 func (e *backingPermission) mongoID() string {
-	logger.Criticalf("programming error: attempting to get mongoID from permissions document")
+	allWatcherLogger.Criticalf("programming error: attempting to get mongoID from permissions document")
 	return ""
 }
 
@@ -329,8 +332,8 @@ func (m *backingMachine) updated(ctx *allWatcherContext) error {
 		wantsVote = err == nil && node.WantsVote()
 		hasVote = err == nil && node.HasVote()
 	}
-	modelId, _ := ctx.entityIDForGlobalKey(modelGlobalKey)
-	modelEntity := ctx.store.Get(modelId)
+	modelID, _, _ := ctx.entityIDForGlobalKey(modelGlobalKey)
+	modelEntity := ctx.store.Get(modelID)
 	var providerType string
 	if modelEntity != nil {
 		modelInfo := modelEntity.(*multiwatcher.ModelInfo)
@@ -437,7 +440,7 @@ type backingInstanceData instanceData
 
 func (i *backingInstanceData) updated(ctx *allWatcherContext) error {
 	allWatcherLogger.Tracef(`instance data "%s:%s" updated`, ctx.modelUUID, ctx.id)
-	parentID, ok := ctx.entityIDForGlobalKey(machineGlobalKey(ctx.id))
+	parentID, _, ok := ctx.entityIDForGlobalKey(machineGlobalKey(ctx.id))
 	if !ok {
 		return nil
 	}
@@ -562,7 +565,7 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 
 	oldInfo := ctx.store.Get(info.EntityID())
 	if oldInfo == nil {
-		logger.Debugf("new unit %q added to backing state", u.Name)
+		allWatcherLogger.Debugf("new unit %q added to backing state", u.Name)
 
 		// Annotations are optional, so may not be there.
 		info.Annotations = ctx.getAnnotations(unitGlobalKey(u.Name))
@@ -579,6 +582,12 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 		}
 		info.PortRanges = portRanges
 		info.Ports = compatiblePorts
+		if modelType == ModelTypeCAAS {
+			containerStatus, err := ctx.getStatus(globalCloudContainerKey(u.Name), "cloud container")
+			if err == nil {
+				info.ContainerStatus = containerStatus
+			}
+		}
 	} else {
 		// The entry already exists, so preserve the current status and ports.
 		oldInfo := oldInfo.(*multiwatcher.UnitInfo)
@@ -586,6 +595,7 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 		// Unit and workload status.
 		info.AgentStatus = oldInfo.AgentStatus
 		info.WorkloadStatus = oldInfo.WorkloadStatus
+		info.ContainerStatus = oldInfo.ContainerStatus
 		info.Ports = oldInfo.Ports
 		info.PortRanges = oldInfo.PortRanges
 	}
@@ -621,11 +631,11 @@ func (ctx *allWatcherContext) getUnitAddresses(u *Unit) (string, string, error) 
 	if modelType == ModelTypeCAAS {
 		publicAddress, err := u.PublicAddress()
 		if err != nil {
-			logger.Tracef("getting a public address for unit %q failed: %q", u.Name(), err)
+			allWatcherLogger.Tracef("getting a public address for unit %q failed: %q", u.Name(), err)
 		}
 		privateAddress, err := u.PrivateAddress()
 		if err != nil {
-			logger.Tracef("getting a private address for unit %q failed: %q", u.Name(), err)
+			allWatcherLogger.Tracef("getting a private address for unit %q failed: %q", u.Name(), err)
 		}
 		return publicAddress.Value, privateAddress.Value, nil
 	}
@@ -677,7 +687,7 @@ func (app *backingApplication) updated(ctx *allWatcherContext) error {
 	oldInfo := ctx.store.Get(info.EntityID())
 	needConfig := false
 	if oldInfo == nil {
-		logger.Debugf("new application %q added to backing state", app.Name)
+		allWatcherLogger.Debugf("new application %q added to backing state", app.Name)
 		key := applicationGlobalKey(app.Name)
 		// Annotations are optional, so may not be there.
 		info.Annotations = ctx.getAnnotations(key)
@@ -694,6 +704,31 @@ func (app *backingApplication) updated(ctx *allWatcherContext) error {
 			return errors.Annotatef(err, "reading application status for key %s", key)
 		}
 		info.Status = applicationStatus
+		// OperatorStatus is only available for CAAS applications.
+		// So if we don't find it, don't worry.
+		modelType, err := ctx.modelType()
+		if err != nil {
+			return errors.Annotatef(err, "get model type for %q", ctx.modelUUID)
+		}
+		if modelType == ModelTypeCAAS {
+			// Look for the PodSpec for this application.
+			var doc backingPodSpec
+			if err := readPodInfo(ctx.state.db(), app.Name, &doc); err != nil {
+				if errors.IsNotFound(err) {
+					// This is expected in some situations, there just hasn't
+					// been a call to set the pod spec.
+				} else {
+					return errors.Annotatef(err, "get podSpec for %s", app.Name)
+				}
+			} else {
+				info.PodSpec = doc.asPodSpec()
+			}
+			key = applicationGlobalOperatorKey(app.Name)
+			operatorStatus, err := ctx.getStatus(key, "application operator")
+			if err == nil {
+				info.OperatorStatus = operatorStatus
+			}
+		}
 	} else {
 		// The entry already exists, so preserve the current status.
 		appInfo := oldInfo.(*multiwatcher.ApplicationInfo)
@@ -710,6 +745,8 @@ func (app *backingApplication) updated(ctx *allWatcherContext) error {
 			needConfig = true
 		}
 		info.Status = appInfo.Status
+		info.OperatorStatus = appInfo.OperatorStatus
+		info.PodSpec = appInfo.PodSpec
 	}
 	if needConfig {
 		config, err := ctx.getSettings(applicationCharmConfigKey(app.Name, app.CharmURL))
@@ -730,6 +767,56 @@ func (app *backingApplication) removed(ctx *allWatcherContext) error {
 
 func (app *backingApplication) mongoID() string {
 	return app.Name
+}
+
+type backingPodSpec containerSpecDoc
+
+func (ps *backingPodSpec) updated(ctx *allWatcherContext) error {
+	allWatcherLogger.Tracef(`podspec "%s:%s" updated`, ctx.modelUUID, ctx.id)
+
+	// The id of the podspec is the application global key.
+	parentID, _, ok := ctx.entityIDForGlobalKey(ctx.id)
+	if !ok {
+		return nil
+	}
+	info0 := ctx.store.Get(parentID)
+	switch info := info0.(type) {
+	case nil:
+		// The parent info doesn't exist. Ignore until it does.
+		return nil
+	case *multiwatcher.ApplicationInfo:
+		newInfo := *info
+		newInfo.PodSpec = ps.asPodSpec()
+		info0 = &newInfo
+	default:
+		allWatcherLogger.Warningf("unexpected podspec type: %T", info)
+		return nil
+	}
+	ctx.store.Update(info0)
+	return nil
+}
+
+func (ps *backingPodSpec) asPodSpec() *multiwatcher.PodSpec {
+	podSpec := &multiwatcher.PodSpec{
+		Spec:    ps.Spec,
+		Counter: ps.UpgradeCounter,
+	}
+	if podSpec.Spec == "" {
+		podSpec.Spec = ps.RawSpec
+		podSpec.Raw = true
+	}
+	return podSpec
+}
+
+func (ps *backingPodSpec) removed(ctx *allWatcherContext) error {
+	allWatcherLogger.Tracef(`podspec "%s:%s" removed`, ctx.modelUUID, ctx.id)
+	// The podSpec is only removed when the application is removed, so we don't care.
+	return nil
+}
+
+func (ps *backingPodSpec) mongoID() string {
+	allWatcherLogger.Criticalf("programming error: attempting to get mongoID from podspec document")
+	return ""
 }
 
 type backingCharm charmDoc
@@ -801,7 +888,7 @@ func (app *backingRemoteApplication) updated(ctx *allWatcherContext) error {
 	}
 	oldInfo := ctx.store.Get(info.EntityID())
 	if oldInfo == nil {
-		logger.Debugf("new remote application %q added to backing state", app.Name)
+		allWatcherLogger.Debugf("new remote application %q added to backing state", app.Name)
 		// Fetch the status.
 		key := remoteApplicationGlobalKey(app.Name)
 		appStatus, err := ctx.getStatus(key, "remote application")
@@ -809,14 +896,14 @@ func (app *backingRemoteApplication) updated(ctx *allWatcherContext) error {
 			return errors.Annotatef(err, "reading remote application status for key %s", key)
 		}
 		info.Status = appStatus
-		logger.Debugf("remote application status %#v", info.Status)
+		allWatcherLogger.Debugf("remote application status %#v", info.Status)
 	} else {
-		logger.Debugf("use status from existing app")
+		allWatcherLogger.Debugf("use status from existing app")
 		switch t := oldInfo.(type) {
 		case *multiwatcher.RemoteApplicationUpdate:
 			info.Status = t.Status
 		default:
-			logger.Debugf("unexpected type %t", t)
+			allWatcherLogger.Debugf("unexpected type %t", t)
 		}
 	}
 	ctx.store.Update(info)
@@ -861,7 +948,7 @@ func (app *backingRemoteApplication) removed(ctx *allWatcherContext) (err error)
 	err = app.updateOfferInfo(ctx)
 	if err != nil {
 		// We log the error but don't prevent the remote app removal.
-		logger.Errorf("updating application offer info: %v", err)
+		allWatcherLogger.Errorf("updating application offer info: %v", err)
 	}
 	ctx.removeFromStore(multiwatcher.RemoteApplicationKind)
 	return err
@@ -1011,7 +1098,7 @@ func (a *backingAnnotation) updated(ctx *allWatcherContext) error {
 	// Also update the annotations on the associated type.
 	// When we can kill the old Watch API where annotations are separate
 	// entries, we'd only update the associated type.
-	parentID, ok := ctx.entityIDForGlobalKey(ctx.id)
+	parentID, _, ok := ctx.entityIDForGlobalKey(ctx.id)
 	if !ok {
 		return nil
 	}
@@ -1107,7 +1194,7 @@ func (s *backingStatus) toStatusInfo() multiwatcher.StatusInfo {
 
 func (s *backingStatus) updated(ctx *allWatcherContext) error {
 	allWatcherLogger.Tracef(`status "%s:%s" updated`, ctx.modelUUID, ctx.id)
-	parentID, ok := ctx.entityIDForGlobalKey(ctx.id)
+	parentID, suffix, ok := ctx.entityIDForGlobalKey(ctx.id)
 	if !ok {
 		return nil
 	}
@@ -1121,14 +1208,31 @@ func (s *backingStatus) updated(ctx *allWatcherContext) error {
 		return nil
 	case *multiwatcher.UnitInfo:
 		newInfo := *info
-		// Get the unit's current recorded status from state.
-		// It's needed to reset the unit status when a unit comes off error.
-		statusInfo, err := ctx.getStatus(unitGlobalKey(newInfo.Name), "unit")
-		if err != nil {
-			return err
-		}
-		if err := s.updatedUnitStatus(ctx, statusInfo, &newInfo); err != nil {
-			return err
+		switch suffix {
+		// I have no idea what the original author was thinking about when
+		// they added "sat" as part of the key.
+		case "#charm#sat#workload-version":
+			// Unit workload status is only shown currently implemented on the
+			// application, and the last set unit workload version is considered
+			// the one that matters.
+			s.updateApplicationWorkload(ctx, info)
+			// No need to touch the unit for now, so we can exit the function here.
+			return nil
+		case "#charm#container":
+			newInfo.ContainerStatus = s.toStatusInfo()
+		case "#charm", "":
+			// Get the unit's current recorded status from state.
+			// It's needed to reset the unit status when a unit comes off error.
+			statusInfo, err := ctx.getStatus(unitGlobalKey(newInfo.Name), "unit")
+			if err != nil {
+				return err
+			}
+			if err := s.updatedUnitStatus(ctx, statusInfo, &newInfo); err != nil {
+				return err
+			}
+		default:
+			allWatcherLogger.Tracef("charm status suffix %q unhandled", suffix)
+			return nil
 		}
 		info0 = &newInfo
 	case *multiwatcher.ModelInfo:
@@ -1137,7 +1241,15 @@ func (s *backingStatus) updated(ctx *allWatcherContext) error {
 		info0 = &newInfo
 	case *multiwatcher.ApplicationInfo:
 		newInfo := *info
-		newInfo.Status = s.toStatusInfo()
+		switch suffix {
+		case "#operator":
+			newInfo.OperatorStatus = s.toStatusInfo()
+		case "":
+			newInfo.Status = s.toStatusInfo()
+		default:
+			allWatcherLogger.Tracef("application status suffix %q unhandled", suffix)
+			return nil
+		}
 		info0 = &newInfo
 	case *multiwatcher.RemoteApplicationUpdate:
 		newInfo := *info
@@ -1145,14 +1257,17 @@ func (s *backingStatus) updated(ctx *allWatcherContext) error {
 		info0 = &newInfo
 	case *multiwatcher.MachineInfo:
 		newInfo := *info
-		// lets disambiguate between juju machine agent and provider instance statuses.
-		if strings.HasSuffix(ctx.id, "#instance") {
+		switch suffix {
+		case "#instance":
 			newInfo.InstanceStatus = s.toStatusInfo()
-		} else {
+		case "":
 			// Preserve the agent version that is set on the agent status.
 			agentVersion := newInfo.AgentStatus.Version
 			newInfo.AgentStatus = s.toStatusInfo()
 			newInfo.AgentStatus.Version = agentVersion
+		default:
+			allWatcherLogger.Tracef("machine status suffix %q unhandled", suffix)
+			return nil
 		}
 		info0 = &newInfo
 	default:
@@ -1160,6 +1275,23 @@ func (s *backingStatus) updated(ctx *allWatcherContext) error {
 	}
 	ctx.store.Update(info0)
 	return nil
+}
+
+func (s *backingStatus) updateApplicationWorkload(ctx *allWatcherContext, unit *multiwatcher.UnitInfo) {
+	// If the workload version is blank, do nothing.
+	if s.StatusInfo == "" {
+		return
+	}
+	// Lookup the application for the unit.
+	appInfo := &multiwatcher.ApplicationInfo{
+		ModelUUID: ctx.modelUUID,
+		Name:      unit.Application,
+	}
+	info0 := ctx.store.Get(appInfo.EntityID())
+	appInfo = info0.(*multiwatcher.ApplicationInfo)
+	updated := *appInfo
+	updated.WorkloadVersion = s.StatusInfo
+	ctx.store.Update(&updated)
 }
 
 func (s *backingStatus) updatedUnitStatus(ctx *allWatcherContext, unitStatus multiwatcher.StatusInfo, newInfo *multiwatcher.UnitInfo) error {
@@ -1206,7 +1338,7 @@ func (s *backingStatus) updatedUnitStatus(ctx *allWatcherContext, unitStatus mul
 		}
 		return errors.Trace(err)
 	}
-	applicationID, ok := ctx.entityIDForGlobalKey(application.globalKey())
+	applicationID, _, ok := ctx.entityIDForGlobalKey(application.globalKey())
 	if !ok {
 		return nil
 	}
@@ -1239,7 +1371,7 @@ func (s *backingStatus) removed(ctx *allWatcherContext) error {
 }
 
 func (s *backingStatus) mongoID() string {
-	logger.Criticalf("programming error: attempting to get mongoID from status document")
+	allWatcherLogger.Criticalf("programming error: attempting to get mongoID from status document")
 	return ""
 }
 
@@ -1247,7 +1379,7 @@ type backingConstraints constraintsDoc
 
 func (c *backingConstraints) updated(ctx *allWatcherContext) error {
 	allWatcherLogger.Tracef(`constraints "%s:%s" updated`, ctx.modelUUID, ctx.id)
-	parentID, ok := ctx.entityIDForGlobalKey(ctx.id)
+	parentID, _, ok := ctx.entityIDForGlobalKey(ctx.id)
 	if !ok {
 		return nil
 	}
@@ -1279,7 +1411,7 @@ func (c *backingConstraints) removed(ctx *allWatcherContext) error {
 }
 
 func (c *backingConstraints) mongoID() string {
-	logger.Criticalf("programming error: attempting to get mongoID from constraints document")
+	allWatcherLogger.Criticalf("programming error: attempting to get mongoID from constraints document")
 	return ""
 }
 
@@ -1331,7 +1463,7 @@ func (s *backingSettings) removed(ctx *allWatcherContext) error {
 }
 
 func (s *backingSettings) mongoID() string {
-	logger.Criticalf("programming error: attempting to get mongoID from settings document")
+	allWatcherLogger.Criticalf("programming error: attempting to get mongoID from settings document")
 	return ""
 }
 
@@ -1385,13 +1517,13 @@ func (p *backingOpenedPorts) removed(ctx *allWatcherContext) error {
 			// always acting a little behind reality. It is reasonable
 			// that entities have been deleted from State but we're
 			// still seeing events related to them from the watcher.
-			logger.Errorf("cannot retrieve units for %q: %v", info.ID, err)
+			allWatcherLogger.Errorf("cannot retrieve units for %q: %v", info.ID, err)
 			return nil
 		}
 		// Update the ports on all units assigned to the machine.
 		for _, u := range units {
 			if err := updateUnitPorts(ctx, u); err != nil {
-				logger.Errorf("cannot update unit ports for %q: %v", u.Name(), err)
+				allWatcherLogger.Errorf("cannot update unit ports for %q: %v", u.Name(), err)
 			}
 		}
 	}
@@ -1399,13 +1531,13 @@ func (p *backingOpenedPorts) removed(ctx *allWatcherContext) error {
 }
 
 func (p *backingOpenedPorts) mongoID() string {
-	logger.Criticalf("programming error: attempting to get mongoID from openedPorts document")
+	allWatcherLogger.Criticalf("programming error: attempting to get mongoID from openedPorts document")
 	return ""
 }
 
 // updateUnitPorts updates the Ports and PortRanges info of the given unit.
 func updateUnitPorts(ctx *allWatcherContext, u *Unit) error {
-	eid, ok := ctx.entityIDForGlobalKey(u.globalKey())
+	eid, _, ok := ctx.entityIDForGlobalKey(u.globalKey())
 	if !ok {
 		// This should never happen.
 		return errors.New("cannot retrieve entity id for unit")
@@ -1560,6 +1692,8 @@ func NewAllWatcherBacking(pool *StatePool) AllWatcherBacking {
 		remoteApplicationsC,
 		statusesC,
 		settingsC,
+		// And for CAAS we need to watch these...
+		podSpecsC,
 	}
 	collectionMap := makeAllWatcherCollectionInfo(collectionNames)
 	controllerState := pool.SystemState()
@@ -1705,7 +1839,7 @@ func loadAllWatcherEntities(st *State, loadOrder []string, collectionByName map[
 	start := st.clock().Now()
 	defer func() {
 		elapsed := st.clock().Now().Sub(start)
-		logger.Infof("allwatcher loaded for model %q in %s", st.ModelUUID(), elapsed)
+		allWatcherLogger.Infof("allwatcher loaded for model %q in %s", st.ModelUUID(), elapsed)
 	}()
 
 	ctx := &allWatcherContext{
@@ -1721,7 +1855,7 @@ func loadAllWatcherEntities(st *State, loadOrder []string, collectionByName map[
 	for _, name := range loadOrder {
 		c, found := collectionByName[name]
 		if !found {
-			logger.Criticalf("programming error, collection %q not found in map", name)
+			allWatcherLogger.Criticalf("programming error, collection %q not found in map", name)
 			continue
 		}
 		if c.subsidiary {
@@ -2094,46 +2228,49 @@ func (ctx *allWatcherContext) getOpenedPorts(unit *Unit) ([]network.PortRange, e
 
 // entityIDForGlobalKey returns the entity id for the given global key.
 // It returns false if the key is not recognized.
-func (ctx *allWatcherContext) entityIDForGlobalKey(key string) (multiwatcher.EntityID, bool) {
+func (ctx *allWatcherContext) entityIDForGlobalKey(key string) (multiwatcher.EntityID, string, bool) {
 	var result multiwatcher.EntityInfo
 	if key == modelGlobalKey {
 		result = &multiwatcher.ModelInfo{
 			ModelUUID: ctx.modelUUID,
 		}
-		return result.EntityID(), true
+		return result.EntityID(), "", true
 	} else if len(key) < 3 || key[1] != '#' {
-		return multiwatcher.EntityID{}, false
+		return multiwatcher.EntityID{}, "", false
 	}
 	// NOTE: we should probably have a single place where we have all the global key functions
 	// so we can check coverage both ways.
-	id := key[2:]
-	switch key[0] {
-	case 'm':
-		id = strings.TrimSuffix(id, "#instance")
+	parts := strings.Split(key, "#")
+	id := parts[1]
+	suffix := strings.Join(parts[2:], "#")
+	if len(suffix) > 0 {
+		suffix = "#" + suffix
+	}
+	switch parts[0] {
+	case "m":
 		result = &multiwatcher.MachineInfo{
 			ModelUUID: ctx.modelUUID,
 			ID:        id,
 		}
-	case 'u':
-		id = strings.TrimSuffix(id, "#charm")
+	case "u":
 		result = &multiwatcher.UnitInfo{
 			ModelUUID: ctx.modelUUID,
 			Name:      id,
 		}
-	case 'a':
+	case "a":
 		result = &multiwatcher.ApplicationInfo{
 			ModelUUID: ctx.modelUUID,
 			Name:      id,
 		}
-	case 'c':
+	case "c":
 		result = &multiwatcher.RemoteApplicationUpdate{
 			ModelUUID: ctx.modelUUID,
 			Name:      id,
 		}
 	default:
-		return multiwatcher.EntityID{}, false
+		return multiwatcher.EntityID{}, "", false
 	}
-	return result.EntityID(), true
+	return result.EntityID(), suffix, true
 }
 
 func (ctx *allWatcherContext) modelType() (ModelType, error) {
@@ -2153,7 +2290,7 @@ func (ctx *allWatcherContext) modelType() (ModelType, error) {
 // extra.
 func (ctx *allWatcherContext) entityIDForSettingsKey(key string) (multiwatcher.EntityID, string, bool) {
 	if !strings.HasPrefix(key, "a#") {
-		eid, ok := ctx.entityIDForGlobalKey(key)
+		eid, _, ok := ctx.entityIDForGlobalKey(key)
 		return eid, "", ok
 	}
 	key = key[2:]
@@ -2174,10 +2311,11 @@ func (ctx *allWatcherContext) entityIDForSettingsKey(key string) (multiwatcher.E
 func (ctx *allWatcherContext) entityIDForOpenedPortsKey(key string) (multiwatcher.EntityID, bool) {
 	parts, err := extractPortsIDParts(key)
 	if err != nil {
-		logger.Debugf("cannot parse ports key %q: %v", key, err)
+		allWatcherLogger.Debugf("cannot parse ports key %q: %v", key, err)
 		return multiwatcher.EntityID{}, false
 	}
-	return ctx.entityIDForGlobalKey(machineGlobalKey(parts[1]))
+	id, _, known := ctx.entityIDForGlobalKey(machineGlobalKey(parts[1]))
+	return id, known
 }
 
 func (ctx *allWatcherContext) getMachineInfo(machineID string) *multiwatcher.MachineInfo {
