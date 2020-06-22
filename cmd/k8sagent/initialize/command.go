@@ -1,11 +1,10 @@
-// Copyright 2012-2020 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package init
+package initialize
 
 import (
 	"github.com/juju/cmd"
-	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 
 	jujucmd "github.com/juju/juju/cmd"
@@ -13,7 +12,6 @@ import (
 )
 
 var (
-	logger         = loggo.GetLogger("juju.cmd.k8sagent.init")
 	jujuRun        = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
 	jujuDumpLogs   = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
 	jujuIntrospect = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
@@ -38,7 +36,7 @@ func (c *initCommand) Info() *cmd.Info {
 	})
 }
 
-func (c *initCommand) Run(_ *cmd.Context) error {
-	logger.Infof("starting k8sagent init command")
+func (c *initCommand) Run(ctx *cmd.Context) error {
+	ctx.Infof("starting k8sagent init command")
 	return nil
 }

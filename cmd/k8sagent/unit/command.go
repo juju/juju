@@ -5,13 +5,10 @@ package unit
 
 import (
 	"github.com/juju/cmd"
-	"github.com/juju/loggo"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/worker/logsender"
 )
-
-var logger = loggo.GetLogger("juju.cmd.k8sagent.unit")
 
 type unitCommand struct {
 	cmd.CommandBase
@@ -29,7 +26,7 @@ func (c *unitCommand) Info() *cmd.Info {
 	})
 }
 
-func (c *unitCommand) Run(_ *cmd.Context) error {
-	logger.Infof("starting k8sagent unit command")
+func (c *unitCommand) Run(ctx *cmd.Context) error {
+	ctx.Infof("starting k8sagent unit command")
 	return nil
 }
