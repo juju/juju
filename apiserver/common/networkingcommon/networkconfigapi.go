@@ -142,7 +142,7 @@ func (api *NetworkConfigAPI) setLinkLayerDevicesAndAddresses(
 	}
 
 	logger.Debugf("setting addresses: %+v", devicesAddrs)
-	if err := m.SetDevicesAddressesIdempotently(devicesAddrs); err != nil {
+	if err := m.SetDevicesAddresses(devicesAddrs...); err != nil {
 		return errors.Trace(err)
 	}
 
