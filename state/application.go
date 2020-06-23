@@ -2834,7 +2834,7 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 		}
 		operatorStatus, err := getStatus(a.st.db(), applicationGlobalOperatorKey(a.Name()), "operator")
 		if err == nil {
-			newHistory, err = caasHistoryRewriteDoc(statusInfo, operatorStatus, expectWorkload, caasApplicationDisplayStatus, a.st.clock())
+			newHistory, err = caasHistoryRewriteDoc(statusInfo, operatorStatus, expectWorkload, status.ApplicationDisplayStatus, a.st.clock())
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -2884,7 +2884,7 @@ func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	historyDoc, err := caasHistoryRewriteDoc(appStatus, sInfo, expectWorkload, caasApplicationDisplayStatus, a.st.clock())
+	historyDoc, err := caasHistoryRewriteDoc(appStatus, sInfo, expectWorkload, status.ApplicationDisplayStatus, a.st.clock())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -3229,7 +3229,7 @@ func (op *AddUnitOperation) Done(err error) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		newHistory, err := caasHistoryRewriteDoc(unitStatus, *op.props.CloudContainerStatus, true, caasUnitDisplayStatus, op.application.st.clock())
+		newHistory, err := caasHistoryRewriteDoc(unitStatus, *op.props.CloudContainerStatus, true, status.UnitDisplayStatus, op.application.st.clock())
 		if err != nil {
 			return errors.Trace(err)
 		}

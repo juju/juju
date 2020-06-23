@@ -4215,6 +4215,88 @@ func (s *upgradesSuite) TestDropPresenceDatabase(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(presenceDBExists(), jc.IsFalse)
 }
+func (s *upgradesSuite) TestRemoveUnsupportedLinkLayer(c *gc.C) {
+	uuid := utils.MustNewUUID().String()
+
+	devCol, devCloser := s.state.db().GetRawCollection(linkLayerDevicesC)
+	defer devCloser()
+
+	retainedDev := bson.M{
+		"_id":        uuid + ":m#0#d#eth0",
+		"model-uuid": uuid,
+		"name":       "eth0",
+	}
+
+	err := devCol.Insert(
+		retainedDev,
+		bson.M{
+			"_id":        uuid + ":m#0#d#unsupported0",
+			"model-uuid": uuid,
+			"name":       "unsupported0",
+		},
+		bson.M{
+			"_id":        uuid + ":m#0#d#unsupported1",
+			"model-uuid": uuid,
+			"name":       "unsupported1",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrCol, addrCloser := s.state.db().GetRawCollection(ipAddressesC)
+	defer addrCloser()
+
+	retainedAddr := bson.M{
+		"_id":         uuid + ":m#0#d#eth0#ip#30.30.30.30",
+		"model-uuid":  uuid,
+		"device-name": "eth0",
+	}
+
+	err = addrCol.Insert(
+		retainedAddr,
+		bson.M{
+			"_id":         uuid + ":m#0#d#unsupported0#ip#10.10.10.10",
+			"model-uuid":  uuid,
+			"device-name": "unsupported0",
+		},
+		bson.M{
+			"_id":         uuid + ":m#0#d#unsupported1#ip#20.20.20.20",
+			"model-uuid":  uuid,
+			"device-name": "unsupported1",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertUpgradedData(c, RemoveUnsupportedLinkLayer,
+		upgradedData(devCol, []bson.M{retainedDev}),
+		upgradedData(addrCol, []bson.M{retainedAddr}),
+	)
+}
+
+func (s *upgradesSuite) TestAddBakeryConfig(c *gc.C) {
+	const bakeryConfigKey = "bakeryConfig"
+	controllerColl, controllerCloser := s.state.db().GetRawCollection(controllersC)
+	defer controllerCloser()
+
+	err := controllerColl.RemoveId(bakeryConfigKey)
+	c.Assert(err, jc.ErrorIsNil)
+
+	bakeryConfig := s.state.NewBakeryConfig()
+	_, err = bakeryConfig.GetLocalUsersKey()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	err = AddBakeryConfig(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+	key, err := bakeryConfig.GetLocalUsersKey()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check it's idempotent.
+	err = AddBakeryConfig(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+	key2, err := bakeryConfig.GetLocalUsersKey()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(key, jc.DeepEquals, key2)
+}
 
 type docById []bson.M
 

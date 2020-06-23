@@ -30,6 +30,10 @@ type InterfaceInfo interface {
 	MACAddress() string
 	// ParentInterfaceName returns the interface's parent device name.
 	ParentInterfaceName() string
+	// ParentVirtualPortType returns the type of the virtual port for this
+	// interface's parent (e.g. for bridging to an OVS-managed device) or
+	// an empty value if no virtual port is used.
+	ParentVirtualPortType() string
 	// InterfaceName returns the interface's device name.
 	InterfaceName() string
 }
@@ -122,13 +126,19 @@ func NewDomain(p domainParams) (Domain, error) {
 		}
 	}
 	for _, iface := range p.NetworkInfo() {
-		d.Interface = append(d.Interface, Interface{
+		virtIf := Interface{
 			Type:   "bridge",
 			MAC:    InterfaceMAC{Address: iface.MACAddress()},
 			Model:  Model{Type: "virtio"},
 			Source: InterfaceSource{Bridge: iface.ParentInterfaceName()},
 			Guest:  InterfaceGuest{Dev: iface.InterfaceName()},
-		})
+		}
+		if vpType := iface.ParentVirtualPortType(); vpType != "" {
+			virtIf.VirtualPortType = &InterfaceVirtualPort{
+				Type: vpType,
+			}
+		}
+		d.Interface = append(d.Interface, virtIf)
 	}
 	return d, nil
 }
@@ -158,10 +168,11 @@ func generateOSElement(p domainParams) OS {
 // generateFeaturesElement generates the appropriate features element based on
 // the architecture.
 func generateFeaturesElement(p domainParams) *Features {
+	f := new(Features)
 	if p.Arch() == arch.ARM64 {
-		return &Features{GIC: &GIC{Version: "host"}}
+		f.GIC = &GIC{Version: "host"}
 	}
-	return nil
+	return f
 }
 
 // generateCPU infor generates any model/fallback related settings. These are
@@ -235,11 +246,11 @@ type NVRAMCode struct {
 	Type     string `xml:"type,attr,omitempty"`
 }
 
-// Features is only generated for ARM64 at the time of this writing. This is
-// because GIC is required for ARM64.
-// See: https://libvirt.org/formatdomain.html#elementsFeatures
+// Features allows us to request one or more hypervisor features to be toggled
+// on/off. See: https://libvirt.org/formatdomain.html#elementsFeatures
 type Features struct {
-	GIC *GIC `xml:"gic,omitempty"`
+	GIC  *GIC   `xml:"gic,omitempty"`
+	ACPI string `xml:"acpi"`
 }
 
 // GIC is the Generic Interrupt Controller and is required to UEFI boot on
@@ -331,11 +342,19 @@ type SerialTarget struct {
 // an incoming argument.
 // See: https://libvirt.org/formatdomain.html#elementsNICSBridge
 type Interface struct {
-	Type   string          `xml:"type,attr"`
-	MAC    InterfaceMAC    `xml:"mac"`
-	Model  Model           `xml:"model"`
-	Source InterfaceSource `xml:"source"`
-	Guest  InterfaceGuest  `xml:"guest"`
+	Type            string                `xml:"type,attr"`
+	MAC             InterfaceMAC          `xml:"mac"`
+	Model           Model                 `xml:"model"`
+	Source          InterfaceSource       `xml:"source"`
+	Guest           InterfaceGuest        `xml:"guest"`
+	VirtualPortType *InterfaceVirtualPort `xml:"virtualport,omitempty"`
+}
+
+// InterfaceVirtualPort provides additional configuration data to be forwarded
+// to a vepa (802.1Qbg) or 802.1Qbh compliant switch, or to an Open vSwitch
+// virtual switch.
+type InterfaceVirtualPort struct {
+	Type string `xml:"type,attr"`
 }
 
 // InterfaceMAC is the MAC address for an Interface.

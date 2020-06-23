@@ -34,11 +34,11 @@ func (m *Machine) Life() life.Value {
 
 // Refresh updates the cached local copy of the machine's data.
 func (m *Machine) Refresh() error {
-	life, err := m.st.machineLife(m.tag)
+	l, err := m.st.machineLife(m.tag)
 	if err != nil {
 		return err
 	}
-	m.life = life
+	m.life = l
 	return nil
 }
 
@@ -123,20 +123,6 @@ func (m *Machine) SetObservedNetworkConfig(netConfig []params.NetworkConfig) err
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-// SetProviderNetworkConfig sets the machine network config as seen by the
-// provider.
-func (m *Machine) SetProviderNetworkConfig() error {
-	var result params.ErrorResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag.String()}},
-	}
-	err := m.st.facade.FacadeCall("SetProviderNetworkConfig", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
 }
 
 // RecordAgentStartTime updates the start time for the agent running on the

@@ -15,11 +15,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.common.networkingcommon")
@@ -98,43 +95,6 @@ func (api *NetworkConfigAPI) fixUpFanSubnets(networkConfig []params.NetworkConfi
 	return networkConfig, nil
 }
 
-// SetProviderNetworkConfig sets the provider supplied network configuration
-// contained in the input args against each machine supplied with said args.
-func (api *NetworkConfigAPI) SetProviderNetworkConfig(args params.Entities) (params.ErrorResults, error) {
-	logger.Tracef("SetProviderNetworkConfig %+v", args)
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-
-	for i, arg := range args.Entities {
-		m, err := api.getMachineForSettingNetworkConfig(arg.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-
-		if m.IsContainer() {
-			continue
-		}
-
-		providerConfig, err := api.getOneMachineProviderNetworkConfig(m)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		} else if len(providerConfig) == 0 {
-			continue
-		}
-		logger.Tracef("provider network config for %q: %+v", m.Id(), providerConfig)
-
-		ifaces := params.InterfaceInfoFromNetworkConfig(providerConfig)
-		if err := api.setLinkLayerDevicesAndAddresses(m, ifaces); err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-	}
-	return result, nil
-}
-
 func (api *NetworkConfigAPI) getMachineForSettingNetworkConfig(machineTag string) (*state.Machine, error) {
 	canModify, err := api.getCanModify()
 	if err != nil {
@@ -169,58 +129,6 @@ func (api *NetworkConfigAPI) getMachine(tag names.MachineTag) (*state.Machine, e
 		return nil, err
 	}
 	return entity.(*state.Machine), nil
-}
-
-func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine) ([]params.NetworkConfig, error) {
-	manual, err := m.IsManual()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if manual {
-		logger.Infof("provider network config not supported on manually provisioned machines")
-		return nil, nil
-	}
-
-	model, err := api.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	netEnviron, err := NetworkingEnvironFromModelConfig(
-		stateenvirons.EnvironConfigGetter{
-			Model: model,
-		},
-	)
-	if errors.IsNotSupported(err) {
-		logger.Infof("provider network config not supported: %v", err)
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Annotate(err, "cannot get provider network config")
-	}
-
-	instId, err := m.InstanceId()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	interfaceInfos, err := netEnviron.NetworkInterfaces(context.CallContext(api.st), []instance.Id{instId})
-	if errors.IsNotSupported(err) {
-		// It's possible to have a networking environ, but not support
-		// NetworkInterfaces(). In leiu of adding SupportsNetworkInterfaces():
-		logger.Infof("provider network interfaces not supported: %v", err)
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Annotatef(err, "cannot get network interfaces of %q", instId)
-	}
-	if len(interfaceInfos) == 0 || len(interfaceInfos[0]) == 0 {
-		logger.Infof("no provider network interfaces found")
-		return nil, nil
-	}
-
-	providerConfig := params.NetworkConfigFromInterfaceInfo(interfaceInfos[0])
-	logger.Tracef("provider network config instance %q: %+v", instId, providerConfig)
-
-	return providerConfig, nil
 }
 
 func (api *NetworkConfigAPI) setLinkLayerDevicesAndAddresses(

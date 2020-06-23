@@ -608,6 +608,21 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesNoop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithVirtualPort(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
+		Name:            "foo",
+		Type:            corenetwork.EthernetDevice,
+		VirtualPortType: corenetwork.OvsPort,
+	}
+	err := s.machine.SetLinkLayerDevices(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	devs, err := s.machine.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devs, gc.HasLen, 1)
+	c.Assert(devs[0].VirtualPortType(), gc.Equals, corenetwork.OvsPort, gc.Commentf("virtual port type field was not persisted"))
+}
+
 func (s *linkLayerDevicesStateSuite) removeDeviceAndAssertSuccess(c *gc.C, givenDevice *state.LinkLayerDevice) {
 	err := givenDevice.Remove()
 	c.Assert(err, jc.ErrorIsNil)
@@ -635,6 +650,30 @@ func (s *linkLayerDevicesStateSuite) TestMachineRemoveAllLinkLayerDevicesNoError
 
 	err := s.machine.RemoveAllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *linkLayerDevicesStateSuite) TestSetProviderIDOps(c *gc.C) {
+	dev1 := s.addNamedDevice(c, "foo")
+
+	ops, err := dev1.SetProviderIDOps("p1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.Not(gc.HasLen), 0)
+
+	state.RunTransaction(c, s.State, ops)
+
+	dev1, err = s.machine.LinkLayerDevice("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dev1.ProviderID().String(), gc.Equals, "p1")
+
+	// No-op if already set.
+	ops, err = dev1.SetProviderIDOps("p2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, 0)
+
+	// Error if ID already used.
+	dev2 := s.addNamedDevice(c, "bar")
+	_, err = dev2.SetProviderIDOps("p1")
+	c.Assert(err, gc.ErrorMatches, "provider IDs not unique: p1")
 }
 
 func (s *linkLayerDevicesStateSuite) createSpaceAndSubnet(c *gc.C, spaceName, CIDR string) {

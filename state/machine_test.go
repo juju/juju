@@ -558,7 +558,14 @@ func (s *MachineSuite) TestDestroyFailsWhenNewContainerAdded(c *gc.C) {
 }
 
 func (s *MachineSuite) TestRemove(c *gc.C) {
-	err := s.State.SetSSHHostKeys(s.machine.MachineTag(), state.SSHHostKeys{"rsa", "dsa"})
+	arch := "amd64"
+	char := &instance.HardwareCharacteristics{
+		Arch: &arch,
+	}
+	err := s.machine.SetProvisioned("umbrella/0", "snowflake", "fake_nonce", char)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.SetSSHHostKeys(s.machine.MachineTag(), state.SSHHostKeys{"rsa", "dsa"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Remove()
@@ -936,8 +943,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams, machineId string) names.VolumeTag {
 	ops, tag, err := state.AddVolumeOps(s.State, params, machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.RunTransaction(s.State, ops)
-	c.Assert(err, jc.ErrorIsNil)
+	state.RunTransaction(c, s.State, ops)
 	return tag
 }
 
@@ -1227,7 +1233,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
 	// This test is testing logic in watcher.entityWatcher, which
 	// is also used by:
-	//  Machine.WatchHardwareCharacteristics
+	//  Machine.WatchInstanceData
 	//  Application.Watch
 	//  Unit.Watch
 	//  State.WatchForModelConfigChanges
@@ -2652,8 +2658,7 @@ func (s *MachineSuite) TestUpdateMachineSeriesSameSeriesAfterStart(c *gc.C) {
 					Id:     state.DocID(s.State, mach.Id()),
 					Update: bson.D{{"$set", bson.D{{"series", "trusty"}}}},
 				}}
-				err := state.RunTransaction(s.State, ops)
-				c.Assert(err, jc.ErrorIsNil)
+				state.RunTransaction(c, s.State, ops)
 			},
 			After: func() {
 				err := mach.Refresh()

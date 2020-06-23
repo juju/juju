@@ -4,9 +4,12 @@
 package cache
 
 import (
+	"sort"
 	"sync"
 
 	"github.com/juju/pubsub"
+
+	"github.com/juju/juju/core/status"
 )
 
 const (
@@ -16,9 +19,10 @@ const (
 	applicationConfigChange = "application-config-change"
 )
 
-func newApplication(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Application {
+func newApplication(model *Model, metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Application {
 	a := &Application{
 		Resident: res,
+		model:    model,
 		metrics:  metrics,
 		hub:      hub,
 		mu:       &sync.Mutex{},
@@ -32,7 +36,7 @@ type Application struct {
 	// and tracks resources that it is responsible for cleaning up.
 	*Resident
 
-	// Link to model?
+	model   *Model
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
 	mu      *sync.Mutex
@@ -55,6 +59,41 @@ func (a *Application) CharmURL() string {
 func (a *Application) Config() map[string]interface{} {
 	a.metrics.ApplicationConfigReads.Inc()
 	return a.details.Config
+}
+
+// Units returns all the units for this application.
+func (a *Application) Units() []Unit {
+	units := a.model.applicationUnits(a.details.Name)
+	sort.Slice(units, func(i, j int) bool {
+		return units[i].Name() < units[j].Name()
+	})
+	return units
+}
+
+// Status returns the application status if it is set, and if not
+// it uses the derived status from the units.
+func (a *Application) Status() status.StatusInfo {
+	info := a.details.Status
+	if info.Status == status.Unset {
+		// Get all the unit workload statuses to derive the application one.
+		var statuses []status.StatusInfo
+		for _, u := range a.Units() {
+			statuses = append(statuses, u.WorkloadStatus())
+		}
+		return status.DeriveStatus(statuses)
+	}
+	// If there is no status in the OperatorStatus, it is because there
+	// is no operator status, which is the normal situation for IAAS applications.
+	opInfo := a.details.OperatorStatus
+	if opInfo.Status == "" {
+		return info
+	}
+	// For CAAS applications, if the operator status is running or active
+	// we just return the application status.
+	if opInfo.Status == status.Running || opInfo.Status == status.Active {
+		return info
+	}
+	return opInfo
 }
 
 // WatchConfig creates a watcher for the application config.

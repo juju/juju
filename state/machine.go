@@ -291,6 +291,16 @@ func getInstanceData(st *State, id string) (instanceData, error) {
 	return instData, nil
 }
 
+// removeInstanceDataOp returns the operation needed to remove the
+// instance data document associated with the given globalKey.
+func removeInstanceDataOp(globalKey string) txn.Op {
+	return txn.Op{
+		C:      instanceDataC,
+		Id:     globalKey,
+		Remove: true,
+	}
+}
+
 // AllInstanceData retrieves all instance data in the model
 // and provides a way to query hardware characteristics and
 // charm profiles by machine.
@@ -477,29 +487,35 @@ func (m *Machine) IsManager() bool {
 
 // IsManual returns true if the machine was manually provisioned.
 func (m *Machine) IsManual() (bool, error) {
+	// To avoid unnecessary db lookups, a little of the
+	// logic from isManualMachine() below is duplicated here
+	// so we can exit early if possible.
+	if strings.HasPrefix(m.doc.Nonce, manualMachinePrefix) {
+		return true, nil
+	}
+	if m.doc.Id != "0" {
+		return false, nil
+	}
+	modelSettings, err := readSettings(m.st.db(), settingsC, modelGlobalKey)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	providerRaw, _ := modelSettings.Get("type")
+	providerType, _ := providerRaw.(string)
+	return isManualMachine(m.doc.Id, m.doc.Nonce, providerType), nil
+}
+
+func isManualMachine(id, nonce, providerType string) bool {
 	// Apart from the bootstrap machine, manually provisioned
 	// machines have a nonce prefixed with "manual:". This is
 	// unique to manual provisioning.
-	if strings.HasPrefix(m.doc.Nonce, manualMachinePrefix) {
-		return true, nil
+	if strings.HasPrefix(nonce, manualMachinePrefix) {
+		return true
 	}
 	// The bootstrap machine uses BootstrapNonce, so in that
 	// case we need to check if its provider type is "manual".
 	// We also check for "null", which is an alias for manual.
-	if m.doc.Id == "0" {
-		model, err := m.st.Model()
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-
-		cfg, err := model.ModelConfig()
-		if err != nil {
-			return false, err
-		}
-		t := cfg.Type()
-		return t == "null" || t == "manual", nil
-	}
-	return false, nil
+	return id == "0" && (providerType == "null" || providerType == "manual")
 }
 
 // AgentTools returns the tools that the agent is currently running.
@@ -1085,6 +1101,7 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 		removeMachineBlockDevicesOp(m.Id()),
 		removeModelMachineRefOp(m.st, m.Id()),
 		removeSSHHostKeyOp(m.globalKey()),
+		removeInstanceDataOp(m.doc.DocID),
 	}
 	linkLayerDevicesOps, err := m.removeAllLinkLayerDevicesOps()
 	if err != nil {
@@ -2190,6 +2207,16 @@ func (m *Machine) RecordAgentStartTime() error {
 // was started.
 func (m *Machine) AgentStartTime() time.Time {
 	return m.doc.AgentStartedAt
+}
+
+// AssertAliveOp returns an assert-only transaction operation
+// that ensures the machine is alive.
+func (m *Machine) AssertAliveOp() txn.Op {
+	return txn.Op{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: isAliveDoc,
+	}
 }
 
 // UpdateOperation returns a model operation that will update the machine.

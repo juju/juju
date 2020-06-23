@@ -53,6 +53,10 @@ func PatchGetSnapManager(patcher patcher, mgr SnapManager) {
 	patcher.PatchValue(&getSnapManager, func() SnapManager { return mgr })
 }
 
+func PatchMaybeRemovePortFromOvsBridge(patcher patcher, fn func(string) error) {
+	patcher.PatchValue(&maybeRemovePortFromOvsBridge, fn)
+}
+
 func GetImageSources(mgr container.Manager) ([]ServerSpec, error) {
 	return mgr.(*containerManager).getImageSources()
 }
@@ -61,11 +65,11 @@ func VerifyNICsWithConfigFile(svr *Server, nics map[string]device, reader func(s
 	return svr.verifyNICsWithConfigFile(nics, reader)
 }
 
-func NetworkDevicesFromConfig(mgr container.Manager, netConfig *container.NetworkConfig) (
+func NetworkDevicesFromConfig(mgr container.Manager, netConfig *container.NetworkConfig, machineID string) (
 	map[string]device, []string, error,
 ) {
 	cMgr := mgr.(*containerManager)
-	return cMgr.networkDevicesFromConfig(netConfig)
+	return cMgr.networkDevicesFromConfig(netConfig, machineID)
 }
 
 func NewTestingServer(svr lxdclient.ContainerServer, clock clock.Clock) (*Server, error) {

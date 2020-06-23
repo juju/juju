@@ -65,13 +65,17 @@ class JujuGoPlugin(snapcraft.BasePlugin):
             "type": "boolean",
             "default": False,
         }
+        schema["properties"]["go-strip"] = {
+            "type": "boolean",
+            "default": False,
+        }
         return schema
 
     @classmethod
     def get_build_properties(cls):
         # Inform Snapcraft of the properties associated with building. If these
         # change in the YAML Snapcraft will consider the build step dirty.
-        return ["go-packages", "go-external-strings", "go-channel", "go-static"]
+        return ["go-packages", "go-external-strings", "go-channel", "go-static", "go-strip"]
 
     def __init__(self, name, options, project):
         super().__init__(name, options, project)
@@ -86,13 +90,7 @@ class JujuGoPlugin(snapcraft.BasePlugin):
         super().pull()
 
         logger.info("Obtaining project dependencies...")
-        self._run(
-            [
-                "go",
-                "mod",
-                "vendor",
-            ]
-        )
+        self._run(["go", "mod", "vendor"])
 
     def clean_pull(self):
         super().clean_pull()
@@ -104,11 +102,17 @@ class JujuGoPlugin(snapcraft.BasePlugin):
     def build(self):
         super().build()
 
-        cmd = ["go", "install", "-mod=vendor"]
+        install_bin_path = os.path.join(self.installdir, "bin")
+        os.makedirs(install_bin_path, exist_ok=True)
+
+        cmd = ["go", "build", "-o", install_bin_path, "-mod=vendor"]
         cmd.append("-ldflags")
         flags = ""
+        if self.options.go_strip:
+            flags += '-s -w '
         if self.options.go_static:
-            flags = '-extldflags "-static"'
+            flags += '-extldflags "-static" '
+        flags = flags.strip()
 
         if len(self.options.go_external_strings) > 0:
             for k, v in self.options.go_external_strings.items():
@@ -119,13 +123,6 @@ class JujuGoPlugin(snapcraft.BasePlugin):
             cmd.append(go_package)
 
         self._run(cmd)
-
-        install_bin_path = os.path.join(self.installdir, "bin")
-        os.makedirs(install_bin_path, exist_ok=True)
-        os.makedirs(self._gopath_bin, exist_ok=True)
-        for binary in os.listdir(self._gopath_bin):
-            binary_path = os.path.join(self._gopath_bin, binary)
-            shutil.copy2(binary_path, install_bin_path)
 
     def clean_build(self):
         super().clean_build()

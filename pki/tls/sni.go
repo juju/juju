@@ -20,7 +20,7 @@ type Logger interface {
 // supplied  authority that best matches the client hellow message.
 func AuthoritySNITLSGetter(authority pki.Authority, logger Logger) func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		logger.Debugf("recieved tls client hello for server name %s", hello.ServerName)
+		logger.Debugf("received tls client hello for server name %s", hello.ServerName)
 		var cert *tls.Certificate
 		authority.LeafRange(func(leaf pki.Leaf) bool {
 			if err := hello.SupportsCertificate(leaf.TLSCertificate()); err == nil {

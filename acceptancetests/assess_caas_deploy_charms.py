@@ -73,18 +73,18 @@ def get_app_endpoint(caas_client, model_name, app_name, svc_type, timeout=180):
 
 def deploy_test_workloads(caas_client, k8s_model, caas_provider):
     k8s_model.deploy(
-        charm="cs:~juju/mariadb-k8s-0",
+        charm="cs:~juju/mariadb-k8s-3",
     )
     svc_type = None
     if caas_provider == K8sProviderType.MICROK8S.name:
         k8s_model.deploy(
-            charm="cs:~juju/mediawiki-k8s-3",
+            charm="cs:~juju/mediawiki-k8s-4",
             config='juju-external-hostname={}'.format(caas_client.get_external_hostname()),
         )
         k8s_model.juju('expose', ('mediawiki-k8s',))
     else:
         k8s_model.deploy(
-            charm="cs:~juju/mediawiki-k8s-3",
+            charm="cs:~juju/mediawiki-k8s-4",
             config='kubernetes-service-type=LoadBalancer',
         )
         svc_type = 'LoadBalancer'

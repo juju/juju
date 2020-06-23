@@ -16,7 +16,7 @@ test_spaces_ec2() {
     hotplug_nic_id=$(setup_nic_for_space_tests)
     echo "[+] created secondary NIC with ID ${hotplug_nic_id}"
 
-    file="${TEST_DIR}/test-spaces-ec2.txt"
+    file="${TEST_DIR}/test-spaces-ec2.log"
 
     bootstrap "test-spaces-ec2" "${file}"
 

@@ -2605,7 +2605,7 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
-	w := machine.WatchHardwareCharacteristics()
+	w := machine.WatchInstanceData()
 	defer statetesting.AssertStop(c, w)
 
 	// Initial event.
@@ -2678,8 +2678,7 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 		}
 	}
 
-	err := state.RunTransaction(st, ops)
-	c.Assert(err, jc.ErrorIsNil)
+	state.RunTransaction(c, st, ops)
 
 	// test that we can find each doc in state
 	for _, collName := range state.MultiModelCollections() {
@@ -2692,7 +2691,7 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 
 	// Add a model user whose permissions should get removed
 	// when the model is.
-	_, err = s.Model.AddUser(
+	_, err := s.Model.AddUser(
 		state.UserAccessSpec{
 			User:      names.NewUserTag("amelia@external"),
 			CreatedBy: s.Owner,

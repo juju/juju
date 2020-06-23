@@ -329,12 +329,22 @@ func (m *backingMachine) updated(ctx *allWatcherContext) error {
 		wantsVote = err == nil && node.WantsVote()
 		hasVote = err == nil && node.HasVote()
 	}
+	modelId, _ := ctx.entityIDForGlobalKey(modelGlobalKey)
+	modelEntity := ctx.store.Get(modelId)
+	var providerType string
+	if modelEntity != nil {
+		modelInfo := modelEntity.(*multiwatcher.ModelInfo)
+		providerType, _ = modelInfo.Config["type"].(string)
+
+	}
+	isManual := isManualMachine(m.Id, m.Nonce, providerType)
 	info := &multiwatcher.MachineInfo{
 		ModelUUID:                m.ModelUUID,
 		ID:                       m.Id,
 		Life:                     life.Value(m.Life.String()),
 		Series:                   m.Series,
 		ContainerType:            m.ContainerType,
+		IsManual:                 isManual,
 		Jobs:                     paramsJobsFromJobs(m.Jobs),
 		SupportedContainers:      m.SupportedContainers,
 		SupportedContainersKnown: m.SupportedContainersKnown,

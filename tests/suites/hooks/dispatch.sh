@@ -3,7 +3,7 @@ run_hook_dispatching_script() {
     echo
 
     model_name="test-hook-dispatching"
-    file="${TEST_DIR}/${model_name}.txt"
+    file="${TEST_DIR}/${model_name}.log"
 
     ensure "${model_name}" "${file}"
 

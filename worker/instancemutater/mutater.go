@@ -5,8 +5,11 @@ package instancemutater
 
 import (
 	"fmt"
+	"strings"
 	"sync"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -20,6 +23,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/wrench"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mutatercontext_mock.go github.com/juju/juju/worker/instancemutater MutaterContext
@@ -88,6 +92,15 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 				continue
 			}
 
+			profileChangeWatcher, err := api.WatchLXDProfileVerificationNeeded()
+			if err != nil {
+				if errors.IsNotSupported(err) {
+					m.logger.Tracef("ignoring manual machine-%s", id)
+					continue
+				}
+				return errors.Annotatef(err, "failed to start watching application lxd profiles for machine-%s", id)
+			}
+
 			ch = make(chan struct{})
 			m.machines[tag] = ch
 
@@ -99,7 +112,7 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 			}
 
 			m.wg.Add(1)
-			go runMachine(machine, ch, m.machineDead, func() { m.wg.Done() })
+			go runMachine(machine, profileChangeWatcher, ch, m.machineDead, func() { m.wg.Done() })
 		} else {
 			// We've received this tag before, therefore
 			// the machine has been removed from the model
@@ -110,7 +123,11 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 	return nil
 }
 
-func runMachine(machine MutaterMachine, removed <-chan struct{}, died chan<- instancemutater.MutaterMachine, cleanup func()) {
+func runMachine(
+	machine MutaterMachine,
+	profileChangeWatcher watcher.NotifyWatcher,
+	removed <-chan struct{}, died chan<- instancemutater.MutaterMachine, cleanup func(),
+) {
 	defer cleanup()
 	defer func() {
 		// We can't just send on the dead channel because the
@@ -127,12 +144,6 @@ func runMachine(machine MutaterMachine, removed <-chan struct{}, died chan<- ins
 		}
 	}()
 
-	profileChangeWatcher, err := machine.machineApi.WatchLXDProfileVerificationNeeded()
-	if err != nil {
-		machine.logger.Errorf(errors.Annotatef(err, "failed to start watching application lxd profiles for machine-%s", machine.id).Error())
-		machine.context.KillWithError(err)
-		return
-	}
 	if err := machine.context.add(profileChangeWatcher); err != nil {
 		machine.context.KillWithError(err)
 		return
@@ -233,6 +244,18 @@ func (m MutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 	if verified {
 		m.logger.Infof("no changes necessary to machine-%s lxd profiles (%v)", m.id, expectedProfiles)
 		return report(nil)
+	}
+
+	// Adding a wrench to test charm not running hooks before profile can be applied.
+	// Do not bother for the default or model profile.  We're not interested in non
+	// charm profiles.
+	if wrench.IsActive("instance-mutater", "disable-apply-lxdprofile") && len(expectedProfiles) > 1 {
+
+		m.logger.Warningf("waiting 3 minutes to apply lxd profiles %q due to wrench in the works", strings.Join(expectedProfiles, ", "))
+		select {
+		case <-clock.WallClock.After(3 * time.Minute):
+			m.logger.Warningf("continue with apply lxd profiles")
+		}
 	}
 
 	m.logger.Infof("machine-%s (%s) assign lxd profiles %q, %#v", m.id, string(info.InstanceId), expectedProfiles, post)

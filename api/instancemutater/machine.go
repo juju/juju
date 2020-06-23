@@ -189,6 +189,9 @@ func (m *Machine) WatchLXDProfileVerificationNeeded() (watcher.NotifyWatcher, er
 	}
 	result := results.Results[0]
 	if result.Error != nil {
+		if params.IsCodeNotSupported(result.Error) {
+			return nil, errors.NotSupportedf("watching LXD profiles on machine %q", m.tag.Id())
+		}
 		return nil, result.Error
 	}
 	return apiwatcher.NewNotifyWatcher(m.facade.RawAPICaller(), result), nil

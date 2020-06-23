@@ -151,6 +151,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 				},
 				DNSPolicy:   core.DNSClusterFirst,
 				HostNetwork: true,
+				HostPID:     true,
 			},
 		},
 	}
@@ -196,6 +197,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 		},
 		DNSPolicy:                    core.DNSClusterFirst,
 		HostNetwork:                  true,
+		HostPID:                      true,
 		ServiceAccountName:           "app-name",
 		AutomountServiceAccountToken: boolPtr(true),
 		InitContainers:               initContainers(),

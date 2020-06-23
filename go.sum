@@ -267,8 +267,6 @@ github.com/jtolds/gls v4.20.0+incompatible h1:xdiiI2gbIgH/gLH7ADydsJ1uDOEzR8yvV7
 github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
 github.com/juju/ansiterm v0.0.0-20160907234532-b99631de12cf h1:1Bxg7u1ZVppXGJxN76APTgBEdHkR/PSbpeY4I8cWeEA=
 github.com/juju/ansiterm v0.0.0-20160907234532-b99631de12cf/go.mod h1:UJSiEoRfvx3hP73CvoARgeLjaIOjybY9vj8PUPPFGeU=
-github.com/juju/bundlechanges v0.0.0-20200425015902-9e5ed4306b93 h1:ccyisx1a8mxq30KtEVLqiC+TXZbet6jneurdvc9ATCA=
-github.com/juju/bundlechanges v0.0.0-20200425015902-9e5ed4306b93/go.mod h1:nsBnRyayHbdHeduPzHgQVwbYhUz73aiRTjfJl5d86Uc=
 github.com/juju/bundlechanges v0.0.0-20200610103550-2c584a1d0a20 h1:kh7sWk+OrZj3yHAj2widz7S9+xKPkjpfKtMuvmRK6DI=
 github.com/juju/bundlechanges v0.0.0-20200610103550-2c584a1d0a20/go.mod h1:nsBnRyayHbdHeduPzHgQVwbYhUz73aiRTjfJl5d86Uc=
 github.com/juju/charm/v7 v7.0.0-20200424215011-2c5875af8596 h1:HxkKL4WZ8j/2q63vngE6poi5p1I6KzsxC0v93bvpDBM=

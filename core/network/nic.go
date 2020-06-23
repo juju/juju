@@ -34,6 +34,14 @@ const (
 	BridgeInterface     InterfaceType = "bridge"
 )
 
+// VirtualPortType defines the list of known port types for virtual NICs.
+type VirtualPortType string
+
+const (
+	NonVirtualPort VirtualPortType = ""
+	OvsPort        VirtualPortType = "openvswitch"
+)
+
 // Route defines a single route to a subnet via a defined gateway.
 type Route struct {
 	// DestinationCIDR is the subnet that we want a controlled route to.
@@ -182,6 +190,11 @@ type InterfaceInfo struct {
 	// IsDefaultGateway is set if this device is a default gw on a machine.
 	IsDefaultGateway bool
 
+	// VirtualPortType provides additional information about the type of
+	// this device if it belongs to a virtual switch (e.g. when using
+	// open-vswitch).
+	VirtualPortType VirtualPortType
+
 	// Origin represents the authoritative source of the InterfaceInfo.
 	// It is expected that either the provider gave us this info or the
 	// machine gave us this info.
@@ -200,9 +213,10 @@ func (i *InterfaceInfo) ActualInterfaceName() string {
 }
 
 // IsVirtual returns true when the interface is a virtual device, as
-// opposed to a physical device (e.g. a VLAN or a network alias)
+// opposed to a physical device (e.g. a VLAN, network alias or OVS-managed
+// device).
 func (i *InterfaceInfo) IsVirtual() bool {
-	return i.VLANTag > 0
+	return i.VLANTag > 0 || i.VirtualPortType != NonVirtualPort
 }
 
 // IsVLAN returns true when the interface is a VLAN interface.

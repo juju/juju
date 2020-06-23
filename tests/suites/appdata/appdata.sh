@@ -1,7 +1,7 @@
 run_appdata_basic() {
     echo
 
-    file="${TEST_DIR}/appdata-basic.txt"
+    file="${TEST_DIR}/appdata-basic.log"
 
     ensure "appdata-basic" "${file}"
 

@@ -85,6 +85,7 @@ type MachineInfo struct {
 	Config                   map[string]interface{}
 	Series                   string
 	ContainerType            string
+	IsManual                 bool
 	SupportedContainers      []instance.ContainerType
 	SupportedContainersKnown bool
 	HardwareCharacteristics  *instance.HardwareCharacteristics
@@ -191,6 +192,7 @@ type ApplicationInfo struct {
 	Config          map[string]interface{}
 	Subordinate     bool
 	Status          StatusInfo
+	OperatorStatus  StatusInfo // For CAAS models
 	WorkloadVersion string
 }
 

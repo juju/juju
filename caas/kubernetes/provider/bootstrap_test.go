@@ -11,6 +11,7 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
@@ -31,6 +32,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -206,6 +208,12 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 
 	s.pcfg.Bootstrap.Timeout = 10 * time.Minute
 	s.pcfg.Bootstrap.ControllerExternalIPs = []string{"10.0.0.1"}
+	s.pcfg.Bootstrap.GUI = &tools.GUIArchive{
+		URL:     "http://gui-url",
+		Version: version.MustParse("6.6.6"),
+		SHA256:  "deadbeef",
+		Size:    999,
+	}
 
 	controllerStacker := s.controllerStackerGetter()
 
@@ -560,6 +568,12 @@ export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 mkdir -p $JUJU_TOOLS_DIR
 cp /opt/jujud $JUJU_TOOLS_DIR/jujud
 
+echo Installing Dashboard...
+export gui='/var/lib/juju/gui'
+mkdir -p $gui
+curl -sSf -o $gui/gui.tar.bz2 --retry 10 'http://gui-url' || echo Unable to retrieve Juju Dashboard
+[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256
+[ -f $gui/jujugui.sha256 ] && (grep 'deadbeef' $gui/jujugui.sha256 && printf %s '{"version":"6.6.6","url":"http://gui-url","sha256":"deadbeef","size":999}' > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)
 test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/bootstrap-params --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s
 $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
 `[1:],

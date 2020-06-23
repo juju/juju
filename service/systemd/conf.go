@@ -11,12 +11,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/juju/core/paths"
-
 	"github.com/coreos/go-systemd/v22/unit"
 	"github.com/juju/errors"
 	"github.com/juju/utils/shell"
 
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/service/common"
 )
 
@@ -344,26 +343,3 @@ func deserializeOptions(opts []*unit.UnitOption, renderer shell.Renderer) (commo
 	err := validate("<>", conf, renderer)
 	return conf, errors.Trace(err)
 }
-
-// CleanShutdownService is added to machines to ensure DHCP-assigned
-// IP addresses are released on shutdown, reboot, or halt. See bug
-// http://pad.lv/1348663 for more info.
-const CleanShutdownService = `
-[Unit]
-Description=Stop all network interfaces on shutdown
-DefaultDependencies=false
-After=final.target
-
-[Service]
-Type=oneshot
-ExecStart=/sbin/ifdown -a -v --force
-StandardOutput=tty
-StandardError=tty
-
-[Install]
-WantedBy=final.target
-`
-
-// CleanShutdownServicePath is the full file path where
-// CleanShutdownService is created.
-const CleanShutdownServicePath = "/etc/systemd/system/juju-clean-shutdown.service"

@@ -16,6 +16,7 @@ from boto.exception import EC2ResponseError
 from dateutil import parser as date_parser
 
 import gce
+import six
 from utility import (
     temp_dir,
     until_timeout,
@@ -204,7 +205,8 @@ class AWSAccount:
                     try:
                         interface.delete()
                     except EC2ResponseError as e:
-                        if e.error_code not in (
+                        err_code = six.ensure_text(e.error_code)
+                        if err_code not in (
                                 'InvalidNetworkInterface.InUse',
                                 'InvalidNetworkInterfaceID.NotFound'):
                             raise
@@ -230,7 +232,9 @@ class AWSAccount:
                     if not deleted:
                         failures.append((sg_id, "Failed to delete"))
                 except EC2ResponseError as e:
-                    failures.append((sg_id, repr(e)))
+                    err_code = six.ensure_text(e.error_code)
+                    if err_code != 'InvalidGroup.NotFound':
+                        failures.append((sg_id, repr(e)))
 
         return failures
 

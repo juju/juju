@@ -433,7 +433,7 @@ func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
 			return nil, errors.Trace(err)
 		}
 
-		modifiedStatus := caasUnitDisplayStatus(unitStatus, cloudContainerStatus, true)
+		modifiedStatus := status.UnitDisplayStatus(unitStatus, cloudContainerStatus, true)
 		now := op.unit.st.clock().Now()
 		doc := statusDoc{
 			Status:     modifiedStatus.Status,
@@ -1381,7 +1381,7 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		newHistory, err = caasHistoryRewriteDoc(unitStatus, cloudContainerStatus, expectWorkload, caasUnitDisplayStatus, u.st.clock())
+		newHistory, err = caasHistoryRewriteDoc(unitStatus, cloudContainerStatus, expectWorkload, status.UnitDisplayStatus, u.st.clock())
 		if err != nil {
 			return errors.Trace(err)
 		}

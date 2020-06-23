@@ -335,10 +335,6 @@ func NowToTheSecond(st *State) time.Time {
 	return st.nowToTheSecond()
 }
 
-func RunTransaction(st *State, ops []txn.Op) error {
-	return st.db().RunTransaction(ops)
-}
-
 // Return the PasswordSalt that goes along with the PasswordHash
 func GetUserPasswordSaltAndHash(u *User) (string, string) {
 	return u.doc.PasswordSalt, u.doc.PasswordHash
@@ -913,14 +909,6 @@ func GetCloudContainerStatusHistory(st *State, name string, filter status.Status
 		filter:    filter,
 	}
 	return statusHistory(args)
-}
-
-func CaasUnitDisplayStatus(unitStatus status.StatusInfo, cloudContainerStatus status.StatusInfo, expectWorkload bool) status.StatusInfo {
-	return caasUnitDisplayStatus(unitStatus, cloudContainerStatus, expectWorkload)
-}
-
-func CaasApplicationDisplayStatus(appStatus status.StatusInfo, operatorStatus status.StatusInfo, expectWorkload bool) status.StatusInfo {
-	return caasApplicationDisplayStatus(appStatus, operatorStatus, expectWorkload)
 }
 
 func ApplicationOperatorStatus(st *State, appName string) (status.StatusInfo, error) {
