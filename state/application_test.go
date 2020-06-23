@@ -3908,10 +3908,10 @@ func (s *ApplicationSuite) TestUnitStatusesWithUnits(c *gc.C) {
 	check.AddRegex(`\[.*\]\.Since`, jc.Ignore)
 	check.AddRegex(`\[.*\]\.Data`, jc.Ignore)
 	c.Assert(statuses, check, map[string]status.StatusInfo{
-		"mysql/0": status.StatusInfo{
+		"mysql/0": {
 			Status: status.Maintenance,
 		},
-		"mysql/1": status.StatusInfo{
+		"mysql/1": {
 			Status:  status.Error,
 			Message: "foo",
 		},
