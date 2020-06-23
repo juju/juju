@@ -1992,7 +1992,6 @@ func (s *upgradesSuite) TestAddRelationStatus(c *gc.C) {
 		"statusdata": bson.M{},
 		"statusinfo": "",
 		"updated":    int64(321),
-		"neverset":   false,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2003,7 +2002,6 @@ func (s *upgradesSuite) TestAddRelationStatus(c *gc.C) {
 		"statusdata": bson.M{},
 		"statusinfo": "",
 		"updated":    int64(123),
-		"neverset":   false,
 	}, {
 		"_id":        s.state.ModelUUID() + ":r#1",
 		"model-uuid": s.state.ModelUUID(),
@@ -2011,7 +2009,6 @@ func (s *upgradesSuite) TestAddRelationStatus(c *gc.C) {
 		"statusdata": bson.M{},
 		"statusinfo": "",
 		"updated":    int64(123),
-		"neverset":   false,
 	}, {
 		"_id":        s.state.ModelUUID() + ":r#2",
 		"model-uuid": s.state.ModelUUID(),
@@ -2019,7 +2016,6 @@ func (s *upgradesSuite) TestAddRelationStatus(c *gc.C) {
 		"statusdata": bson.M{},
 		"statusinfo": "",
 		"updated":    int64(321),
-		"neverset":   false,
 	}}
 
 	s.assertUpgradedData(c, AddRelationStatus,
@@ -2891,7 +2887,6 @@ func (s *upgradesSuite) TestEnsureDefaultModificationStatus(c *gc.C) {
 			"status":     "idle",
 			"statusinfo": "",
 			"statusdata": bson.M{},
-			"neverset":   false,
 			"updated":    int64(1),
 		}, {
 			"_id":        uuid2 + ":m#1#modification",
@@ -2899,7 +2894,6 @@ func (s *upgradesSuite) TestEnsureDefaultModificationStatus(c *gc.C) {
 			"status":     "idle",
 			"statusinfo": "",
 			"statusdata": bson.M{},
-			"neverset":   false,
 			"updated":    int64(1),
 		},
 	}
