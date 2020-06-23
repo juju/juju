@@ -797,13 +797,22 @@ func (i *importer) loadUnits() error {
 
 // makeStatusDoc assumes status is non-nil.
 func (i *importer) makeStatusDoc(statusVal description.Status) statusDoc {
-	return statusDoc{
+	doc := statusDoc{
 		Status:     status.Status(statusVal.Value()),
 		StatusInfo: statusVal.Message(),
 		StatusData: statusVal.Data(),
 		Updated:    statusVal.Updated().UnixNano(),
-		NeverSet:   statusVal.NeverSet(),
 	}
+	// Older versions of Juju would pass through NeverSet() on the status
+	// description for application statuses that hadn't been explicitly
+	// set by the lead unit. If that is the case, we make the status what
+	// the new code expects.
+	if statusVal.NeverSet() {
+		doc.Status = status.Unset
+		doc.StatusInfo = ""
+		doc.StatusData = nil
+	}
+	return doc
 }
 
 func (i *importer) application(a description.Application, ctrlCfg controller.Config) error {

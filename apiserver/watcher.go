@@ -738,6 +738,7 @@ func (w *srvRelationStatusWatcher) Next() (params.RelationLifeSuspendedStatusWat
 type srvOfferStatusWatcher struct {
 	watcherCommon
 	st      *state.State
+	model   *cache.Model
 	watcher crossmodelrelations.OfferWatcher
 }
 
@@ -745,6 +746,12 @@ func newOfferStatusWatcher(context facade.Context) (facade.Facade, error) {
 	id := context.ID()
 	auth := context.Auth()
 	resources := context.Resources()
+
+	st := context.State()
+	model, err := context.CachedModel(st.ModelUUID())
+	if err != nil {
+		return watcherCommon{}, err
+	}
 
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
@@ -757,7 +764,8 @@ func newOfferStatusWatcher(context facade.Context) (facade.Facade, error) {
 	}
 	return &srvOfferStatusWatcher{
 		watcherCommon: newWatcherCommon(context),
-		st:            context.State(),
+		st:            st,
+		model:         model,
 		watcher:       watcher,
 	}, nil
 }
@@ -767,8 +775,10 @@ func newOfferStatusWatcher(context facade.Context) (facade.Facade, error) {
 // or the Watch call that created the srvOfferStatusWatcher.
 func (w *srvOfferStatusWatcher) Next() (params.OfferStatusWatchResult, error) {
 	if _, ok := <-w.watcher.Changes(); ok {
+		shim := crossmodel.CacheShim{w.model}
 		change, err := crossmodel.GetOfferStatusChange(
-			crossmodel.GetBackend(w.st), w.watcher.OfferUUID(), w.watcher.OfferName())
+			shim, crossmodel.GetBackend(w.st),
+			w.watcher.OfferUUID(), w.watcher.OfferName())
 		if err != nil {
 			return params.OfferStatusWatchResult{
 				Error: common.ServerError(err),

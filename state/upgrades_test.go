@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	mongoutils "github.com/juju/juju/mongo/utils"
@@ -1991,7 +1992,6 @@ func (s *upgradesSuite) TestAddRelationStatus(c *gc.C) {
 		"statusdata": bson.M{},
 		"statusinfo": "",
 		"updated":    int64(321),
-		"neverset":   false,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2002,7 +2002,6 @@ func (s *upgradesSuite) TestAddRelationStatus(c *gc.C) {
 		"statusdata": bson.M{},
 		"statusinfo": "",
 		"updated":    int64(123),
-		"neverset":   false,
 	}, {
 		"_id":        s.state.ModelUUID() + ":r#1",
 		"model-uuid": s.state.ModelUUID(),
@@ -2010,7 +2009,6 @@ func (s *upgradesSuite) TestAddRelationStatus(c *gc.C) {
 		"statusdata": bson.M{},
 		"statusinfo": "",
 		"updated":    int64(123),
-		"neverset":   false,
 	}, {
 		"_id":        s.state.ModelUUID() + ":r#2",
 		"model-uuid": s.state.ModelUUID(),
@@ -2018,7 +2016,6 @@ func (s *upgradesSuite) TestAddRelationStatus(c *gc.C) {
 		"statusdata": bson.M{},
 		"statusinfo": "",
 		"updated":    int64(321),
-		"neverset":   false,
 	}}
 
 	s.assertUpgradedData(c, AddRelationStatus,
@@ -2890,7 +2887,6 @@ func (s *upgradesSuite) TestEnsureDefaultModificationStatus(c *gc.C) {
 			"status":     "idle",
 			"statusinfo": "",
 			"statusdata": bson.M{},
-			"neverset":   false,
 			"updated":    int64(1),
 		}, {
 			"_id":        uuid2 + ":m#1#modification",
@@ -2898,7 +2894,6 @@ func (s *upgradesSuite) TestEnsureDefaultModificationStatus(c *gc.C) {
 			"status":     "idle",
 			"statusinfo": "",
 			"statusdata": bson.M{},
-			"neverset":   false,
 			"updated":    int64(1),
 		},
 	}
@@ -4296,6 +4291,82 @@ func (s *upgradesSuite) TestAddBakeryConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(key, jc.DeepEquals, key2)
+}
+
+func (s *upgradesSuite) TestReplaceNeverSetWithUnset(c *gc.C) {
+	const bakeryConfigKey = "bakeryConfig"
+	coll, closer := s.state.db().GetCollection(statusesC)
+	defer closer()
+
+	type oldDoc struct {
+		ID         string        `bson:"_id"`
+		Status     status.Status `bson:"status"`
+		StatusInfo string        `bson:"statusinfo"`
+		NeverSet   bool          `bson:"neverset"`
+	}
+
+	// Insert two statuses, one with neverset true, and one with false.
+	ops := []txn.Op{
+		{
+			C:  statusesC,
+			Id: "neverset-true",
+			Insert: oldDoc{
+				Status:     status.Waiting,
+				StatusInfo: status.MessageWaitForMachine,
+				NeverSet:   true,
+			},
+		}, {
+			C:  statusesC,
+			Id: "neverset-false",
+			Insert: oldDoc{
+				Status:     status.Active,
+				StatusInfo: "all good",
+			},
+		},
+	}
+	err := s.state.db().RunTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ReplaceNeverSetWithUnset(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkNoNeverSetAttribute := func() {
+		var doc bson.M
+		err := coll.FindId("neverset-true").One(&doc)
+		c.Assert(err, jc.ErrorIsNil)
+		_, found := doc["neverset"]
+		c.Check(found, jc.IsFalse)
+		err = coll.FindId("neverset-false").One(&doc)
+		c.Assert(err, jc.ErrorIsNil)
+		_, found = doc["neverset"]
+		c.Check(found, jc.IsFalse)
+	}
+
+	checkDocs := func() {
+		var doc statusDoc
+		err := coll.FindId("neverset-true").One(&doc)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(doc, jc.DeepEquals, statusDoc{
+			ModelUUID: s.state.ModelUUID(),
+			Status:    status.Unset,
+		})
+		err = coll.FindId("neverset-false").One(&doc)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(doc, jc.DeepEquals, statusDoc{
+			ModelUUID:  s.state.ModelUUID(),
+			Status:     status.Active,
+			StatusInfo: "all good",
+		})
+	}
+	checkDocs()
+	checkNoNeverSetAttribute()
+
+	// Check it's idempotent.
+	err = ReplaceNeverSetWithUnset(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkDocs()
+	checkNoNeverSetAttribute()
 }
 
 type docById []bson.M

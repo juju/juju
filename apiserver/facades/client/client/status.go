@@ -173,6 +173,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 
 	var noStatus params.FullStatus
 	var context statusContext
+	context.cachedModel = c.api.modelCache
 
 	m, err := c.api.stateAccessor.Model()
 	if err != nil {
@@ -505,6 +506,7 @@ type applicationStatusInfo struct {
 
 type statusContext struct {
 	providerType string
+	cachedModel  *cache.Model
 	model        *state.Model
 	status       *state.ModelStatus
 	presence     common.ModelPresenceContext
@@ -1199,14 +1201,13 @@ func (context *statusContext) processApplication(application *state.Application)
 		}
 		processedStatus.Units = context.processUnits(units, applicationCharm.URL().String(), expectWorkload)
 	}
-	var unitNames []string
-	for _, unit := range units {
-		unitNames = append(unitNames, unit.Name())
-	}
-	applicationStatus, err := context.status.Application(application.Name(), unitNames)
-	if err != nil {
-		processedStatus.Err = common.ServerError(err)
-		return processedStatus
+
+	// If for whatever reason the application isn't yet in the cache,
+	// we have an unknown status.
+	applicationStatus := status.StatusInfo{Status: status.Unknown}
+	cachedApp, err := context.cachedModel.Application(application.Name())
+	if err == nil {
+		applicationStatus = cachedApp.DisplayStatus()
 	}
 	processedStatus.Status.Status = applicationStatus.Status.String()
 	processedStatus.Status.Info = applicationStatus.Message

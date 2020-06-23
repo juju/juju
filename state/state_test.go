@@ -1553,8 +1553,8 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
 	sInfo, err := mysql.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sInfo.Status, gc.Equals, status.Waiting)
-	c.Assert(sInfo.Message, gc.Equals, "waiting for machine")
+	c.Assert(sInfo.Status, gc.Equals, status.Unset)
+	c.Assert(sInfo.Message, gc.Equals, "")
 
 	// Check that retrieving the new created applications works correctly.
 	wordpress, err = s.State.Application("wordpress")
@@ -1600,8 +1600,8 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 
 	sInfo, err := gitlab.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sInfo.Status, gc.Equals, status.Waiting)
-	c.Assert(sInfo.Message, gc.Equals, "waiting for container")
+	c.Assert(sInfo.Status, gc.Equals, status.Unset)
+	c.Assert(sInfo.Message, gc.Equals, "")
 
 	// Check that retrieving the newly created application works correctly.
 	gitlab, err = st.Application("gitlab")

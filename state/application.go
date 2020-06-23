@@ -2758,45 +2758,11 @@ func (a *Application) DeviceConstraints() (map[string]DeviceConstraints, error) 
 // If no status is recorded, then there are no unit leaders and the
 // status is derived from the unit status values.
 func (a *Application) Status() (status.StatusInfo, error) {
-	statuses, closer := a.st.db().GetCollection(statusesC)
-	defer closer()
-	query := statuses.Find(bson.D{{"_id", a.globalKey()}, {"neverset", true}})
-	if count, err := query.Count(); err != nil {
+	info, err := getStatus(a.st.db(), a.globalKey(), "application")
+	if err != nil {
 		return status.StatusInfo{}, errors.Trace(err)
-	} else if count != 0 {
-		// This indicates that SetStatus has never been called on this application.
-		// This in turn implies the application status document is likely to be
-		// inaccurate, so we return aggregated unit statuses instead.
-		//
-		// TODO(thumper) 2019-12-20: bug 1857075
-		// TODO(fwereade): this is completely wrong and will produce bad results
-		// in not-very-challenging scenarios. The leader unit remains responsible
-		// for setting the application status in a timely way, *whether or not the
-		// charm's hooks exists or sets an application status*. This logic should be
-		// removed as soon as possible, and the responsibilities implemented in
-		// the right places rather than being applied at seeming random.
-		units, err := a.AllUnits()
-		if err != nil {
-			return status.StatusInfo{}, err
-		}
-		logger.Tracef("application %q has %d units", a.Name(), len(units))
-		var unitStatuses []status.StatusInfo
-		for _, unit := range units {
-			unitStatus, err := unit.Status()
-			if err != nil {
-				// Sometimes as units are being removed, we may hit a not found error here.
-				if errors.IsNotFound(err) {
-					continue
-				}
-				return status.StatusInfo{}, errors.Annotatef(err, "deriving application status from %q", unit.Name())
-			}
-			unitStatuses = append(unitStatuses, unitStatus)
-		}
-		if len(unitStatuses) > 0 {
-			return deriveApplicationStatus(unitStatuses), nil
-		}
 	}
-	return getStatus(a.st.db(), a.globalKey(), "application")
+	return info, nil
 }
 
 // CheckApplicationExpectsWorkload checks if the application expects workload or not.
@@ -2910,53 +2876,52 @@ func (a *Application) StatusHistory(filter status.StatusHistoryFilter) ([]status
 	return statusHistory(args)
 }
 
-// ApplicationAndUnitsStatus returns the status for this application and all its units.
-func (a *Application) ApplicationAndUnitsStatus() (status.StatusInfo, map[string]status.StatusInfo, error) {
-	applicationStatus, err := a.Status()
+// UnitStatuses returns a map of unit names to their Status results (workload
+// status).
+func (a *Application) UnitStatuses() (map[string]status.StatusInfo, error) {
+	col, closer := a.st.db().GetRawCollection(statusesC)
+	defer closer()
+	// Agent status is u#unit-name
+	// Workload status is u#unit-name#charm
+	selector := fmt.Sprintf("^%s:u#%s/\\d+(#charm)?$", a.st.modelUUID(), a.doc.Name)
+	var docs []statusDocWithID
+	err := col.Find(bson.M{"_id": bson.M{"$regex": selector}}).All(&docs)
 	if err != nil {
-		return status.StatusInfo{}, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	units, err := a.AllUnits()
-	if err != nil {
-		return status.StatusInfo{}, nil, err
-	}
-	results := make(map[string]status.StatusInfo, len(units))
-	for _, unit := range units {
-		unitStatus, err := unit.Status()
-		if err != nil {
-			return status.StatusInfo{}, nil, err
-		}
-		results[unit.Name()] = unitStatus
-	}
-	return applicationStatus, results, nil
-
-}
-
-func deriveApplicationStatus(statuses []status.StatusInfo) status.StatusInfo {
-	var result status.StatusInfo
-	for _, unitStatus := range statuses {
-		currentSeverity := statusServerities[result.Status]
-		unitSeverity := statusServerities[unitStatus.Status]
-		if unitSeverity > currentSeverity {
-			result.Status = unitStatus.Status
-			result.Message = unitStatus.Message
-			result.Data = unitStatus.Data
-			result.Since = unitStatus.Since
+	result := make(map[string]status.StatusInfo)
+	workload := make(map[string]status.StatusInfo)
+	agent := make(map[string]status.StatusInfo)
+	for _, doc := range docs {
+		key := a.st.localID(doc.ID)
+		parts := strings.Split(key, "#")
+		// We know there will be at least two parts because the regex
+		// specifies a #.
+		unitName := parts[1]
+		if strings.HasSuffix(key, "#charm") {
+			workload[unitName] = doc.asStatusInfo()
+		} else {
+			agent[unitName] = doc.asStatusInfo()
 		}
 	}
-	return result
-}
 
-// statusSeverities holds status values with a severity measure.
-// Status values with higher severity are used in preference to others.
-var statusServerities = map[status.Status]int{
-	status.Error:       100,
-	status.Blocked:     90,
-	status.Waiting:     80,
-	status.Maintenance: 70,
-	status.Active:      60,
-	status.Terminated:  50,
-	status.Unknown:     40,
+	// The reason for this dance is due to the way that hook errors
+	// show up in status. See Unit.Status() for more details.
+	for name, value := range agent {
+		if value.Status == status.Error {
+			result[name] = value
+		} else {
+			if workloadStatus, found := workload[name]; found {
+				result[name] = workloadStatus
+			}
+			// If there is a missing workload status for the unit
+			// it is possible that we are in the process of deleting the
+			// unit. While dirty reads like this should be unusual, it
+			// is possible. In these situations, we just don't return
+			// a status for that unit.
+		}
+	}
+	return result, nil
 }
 
 type addApplicationOpsArgs struct {

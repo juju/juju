@@ -453,15 +453,13 @@ var (
 	}
 	unexposedApplication = dummyCharm(M{
 		"application-status": M{
-			"current": "waiting",
-			"message": "waiting for machine",
+			"current": "unknown",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 	})
 	exposedApplication = dummyCharm(M{
 		"application-status": M{
-			"current": "waiting",
-			"message": "waiting for machine",
+			"current": "unknown",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"exposed": true,

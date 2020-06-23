@@ -1960,16 +1960,11 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 	if !ok {
 		return result, errors.Errorf("expected int64 for updated, got %T", statusDoc["updated"])
 	}
-	neverset, ok := statusDoc["neverset"].(bool)
-	if !ok {
-		return result, errors.Errorf("expected neverset for updated, got %T", statusDoc["neverset"])
-	}
 
 	result.Value = status
 	result.Message = info
 	result.Data = dataMap
 	result.Updated = time.Unix(0, updated)
-	result.NeverSet = neverset
 	return result, nil
 }
 
