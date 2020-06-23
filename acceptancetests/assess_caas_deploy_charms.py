@@ -13,6 +13,7 @@ import argparse
 import json
 import logging
 import sys
+from pprint import pformat
 from time import sleep
 
 import requests
@@ -102,10 +103,12 @@ def assess_caas_charm_deployment(caas_client, caas_provider):
     k8s_model = caas_client.add_model(model_name)
 
     def success_hook():
-        log.info(caas_client.kubectl('get', 'all', '--all-namespaces'))
+        log.info(caas_client.kubectl('get', 'all', '--all-namespaces', '-o', 'wide'))
 
     def fail_hook():
         success_hook()
+        ns_dumps = caas_client.kubectl('get', 'all', '-n', model_name, '-o', 'json')
+        log.info('all resources in namespace %s -> %s', model_name, pformat(json.loads(ns_dumps)))
         log.info(caas_client.kubectl('get', 'pv,pvc', '-n', model_name))
         caas_client.ensure_cleanup()
 
