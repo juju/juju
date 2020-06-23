@@ -34,7 +34,7 @@ type MachinerAPI struct {
 	getCanRead   common.GetAuthFunc
 }
 
-// NewMachinerAPI creates a new instance of the V2 Machiner API.
+// NewMachinerAPI creates a new instance of the Machiner API.
 func NewMachinerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
@@ -150,15 +150,21 @@ func (api *MachinerAPI) RecordAgentStartTime(args params.Entities) (params.Error
 	return results, nil
 }
 
-// MachinerAPIV1 implements the V1 API used by the machiner worker. Compared to
-// V2, it lacks the RecordAgentStartTime method.
+// MachinerAPIV1 implements the V1 API used by the machiner worker.
 type MachinerAPIV1 struct {
 	*MachinerAPIV2
 }
 
-// MachinerAPIV2 implements the V1 API used by the machiner worker. Compared to
-// V2, it back-fills the missing origin in NetworkConfig.
+// MachinerAPIV2 implements the V2 API used by the machiner worker.
+// It adds RecordAgentStartTime and back-fills the missing origin in
+// NetworkConfig.
 type MachinerAPIV2 struct {
+	*MachinerAPIV3
+}
+
+// MachinerAPIV3 implements the V3 API used by the machiner worker.
+// It removes SetProviderNetworkConfig.
+type MachinerAPIV3 struct {
 	*MachinerAPI
 }
 
@@ -166,19 +172,19 @@ type MachinerAPIV2 struct {
 func NewMachinerAPIV1(
 	st *state.State, resources facade.Resources, authorizer facade.Authorizer,
 ) (*MachinerAPIV1, error) {
-	api, err := NewMachinerAPI(st, resources, authorizer)
+	api, err := NewMachinerAPIV2(st, resources, authorizer)
 	if err != nil {
 		return nil, err
 	}
 
-	return &MachinerAPIV1{&MachinerAPIV2{api}}, nil
+	return &MachinerAPIV1{api}, nil
 }
 
 // NewMachinerAPIV2 creates a new instance of the V2 Machiner API.
 func NewMachinerAPIV2(
 	st *state.State, resources facade.Resources, authorizer facade.Authorizer,
 ) (*MachinerAPIV2, error) {
-	api, err := NewMachinerAPI(st, resources, authorizer)
+	api, err := NewMachinerAPIV3(st, resources, authorizer)
 	if err != nil {
 		return nil, err
 	}
@@ -192,6 +198,29 @@ func NewMachinerAPIV2(
 func (api *MachinerAPIV2) SetObservedNetworkConfig(args params.SetMachineNetworkConfig) error {
 	args.BackFillMachineOrigin()
 	return api.NetworkConfigAPI.SetObservedNetworkConfig(args)
+}
+
+// NewMachinerAPIV3 creates a new instance of the V3 Machiner API.
+func NewMachinerAPIV3(
+	st *state.State, resources facade.Resources, authorizer facade.Authorizer,
+) (*MachinerAPIV3, error) {
+	api, err := NewMachinerAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MachinerAPIV3{api}, nil
+}
+
+// SetProviderNetworkConfig is no-op.
+// This method stub is here, because the method was removed from the common
+// networking API.
+// It was only ever called by controller machine agents during start-up.
+// Not only was this unnecessary, it duplicated link-layer devices on AWS.
+func (api *MachinerAPIV3) SetProviderNetworkConfig(args params.Entities) (params.ErrorResults, error) {
+	return params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}, nil
 }
 
 // RecordAgentStartTime is not available in V1.

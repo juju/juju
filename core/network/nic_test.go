@@ -34,6 +34,7 @@ func (s *nicSuite) SetUpTest(_ *gc.C) {
 			GatewayIP:       "0.1.2.1",
 			Metric:          0,
 		}}},
+		{DeviceIndex: 42, InterfaceName: "ovsbr0", VirtualPortType: network.OvsPort},
 	}
 }
 
@@ -47,6 +48,7 @@ func (s *nicSuite) TestIsVirtual(c *gc.C) {
 	c.Check(s.info[0].IsVirtual(), jc.IsTrue)
 	c.Check(s.info[1].IsVirtual(), jc.IsFalse)
 	c.Check(s.info[2].IsVirtual(), jc.IsTrue)
+	c.Check(s.info[9].IsVirtual(), jc.IsTrue, gc.Commentf("expected NIC with OVS virtual port type to be treated as virtual"))
 }
 
 func (s *nicSuite) TestIsVLAN(c *gc.C) {

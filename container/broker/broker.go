@@ -4,7 +4,6 @@
 package broker
 
 import (
-	"os/exec"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -25,9 +24,6 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.container.broker")
-
-// Overridden by tests
-var getCommandOutput = func(cmd *exec.Cmd) ([]byte, error) { return cmd.Output() }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/apicalls_mock.go github.com/juju/juju/container/broker APICalls
 type APICalls interface {
@@ -264,34 +260,4 @@ func proxyConfigurationFromContainerCfg(cfg params.ContainerConfig) instancecfg.
 		SnapStoreProxyID:    cfg.SnapStoreProxyID,
 		SnapStoreProxyURL:   cfg.SnapStoreProxyURL,
 	}
-}
-
-// ovsManagedBridges returns a filtered version of ifaceList that only contains
-// bridge interfaces managed by openvswitch.
-func ovsManagedBridges(ifaceList corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
-	if _, err := exec.LookPath("ovs-vsctl"); err != nil {
-		// ovs tools not installed; nothing to do
-		if execErr, isExecErr := err.(*exec.Error); isExecErr && execErr.Unwrap() == exec.ErrNotFound {
-			return nil, nil
-		}
-
-		return nil, errors.Annotate(err, "ovsManagedBridges: looking for ovs-vsctl")
-	}
-
-	// Query list of ovs-managed device names
-	res, err := getCommandOutput(exec.Command("ovs-vsctl", "list-br"))
-	if err != nil {
-		return nil, errors.Annotate(err, "querying ovs-managed bridges via ovs-vsctl")
-	}
-
-	ovsBridges := set.NewStrings()
-	for _, iface := range strings.Split(string(res), "\n") {
-		if iface = strings.TrimSpace(iface); iface != "" {
-			ovsBridges.Add(iface)
-		}
-	}
-
-	return ifaceList.Filter(func(iface corenetwork.InterfaceInfo) bool {
-		return ovsBridges.Contains(iface.InterfaceName)
-	}), nil
 }

@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package broker
+package network
 
 import (
 	"os/exec"
@@ -9,25 +9,23 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/core/network"
 )
 
-type brokerSuite struct {
+type ovsSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&brokerSuite{})
+var _ = gc.Suite(&ovsSuite{})
 
-func (s *brokerSuite) SetUpSuite(c *gc.C) {
+func (s *ovsSuite) SetUpSuite(c *gc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 }
 
-func (s *brokerSuite) SetUpTest(c *gc.C) {
+func (s *ovsSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
 
-func (s *brokerSuite) TestExistingOVSManagedBridges(c *gc.C) {
+func (s *ovsSuite) TestExistingOvsManagedBridgeInterfaces(c *gc.C) {
 	// Patch output for "ovs-vsctl list-br" and make sure exec.LookPath can
 	// detect it in the path
 	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
@@ -36,20 +34,20 @@ func (s *brokerSuite) TestExistingOVSManagedBridges(c *gc.C) {
 		return []byte("ovsbr1" + "\n"), nil
 	})
 
-	ifaces := network.InterfaceInfos{
+	ifaces := InterfaceInfos{
 		{InterfaceName: "eth0"},
 		{InterfaceName: "eth1"},
 		{InterfaceName: "lxdbr0"},
 		{InterfaceName: "ovsbr1"},
 	}
 
-	ovsIfaces, err := ovsManagedBridges(ifaces)
+	ovsIfaces, err := OvsManagedBridgeInterfaces(ifaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ovsIfaces, gc.HasLen, 1, gc.Commentf("expected ovs-managed bridge list to contain a single entry"))
 	c.Assert(ovsIfaces[0].InterfaceName, gc.Equals, "ovsbr1", gc.Commentf("expected ovs-managed bridge list to contain iface 'ovsbr1'"))
 }
 
-func (s *brokerSuite) TestNonExistingOVSManagedBridges(c *gc.C) {
+func (s *ovsSuite) TestNonExistingOvsManagedBridgeInterfaces(c *gc.C) {
 	// Patch output for "ovs-vsctl list-br" and make sure exec.LookPath can
 	// detect it in the path
 	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
@@ -58,20 +56,34 @@ func (s *brokerSuite) TestNonExistingOVSManagedBridges(c *gc.C) {
 		return []byte("\n"), nil
 	})
 
-	ifaces := network.InterfaceInfos{
+	ifaces := InterfaceInfos{
 		{InterfaceName: "eth0"},
 		{InterfaceName: "eth1"},
 		{InterfaceName: "lxdbr0"},
 	}
 
-	ovsIfaces, err := ovsManagedBridges(ifaces)
+	ovsIfaces, err := OvsManagedBridgeInterfaces(ifaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ovsIfaces, gc.HasLen, 0, gc.Commentf("expected ovs-managed bridge list to be empty"))
 }
 
-func (s *brokerSuite) TestMissingOVSTools(c *gc.C) {
-	ifaces := network.InterfaceInfos{{InterfaceName: "eth0"}}
-	ovsIfaces, err := ovsManagedBridges(ifaces)
+func (s *ovsSuite) TestMissingOvsTools(c *gc.C) {
+	ifaces := InterfaceInfos{{InterfaceName: "eth0"}}
+	ovsIfaces, err := OvsManagedBridgeInterfaces(ifaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ovsIfaces, gc.HasLen, 0, gc.Commentf("expected ovs-managed bridge list to be empty"))
+}
+
+func (s *ovsSuite) TestRemovePortFromOvsBridge(c *gc.C) {
+	// Patch output for "ovs-vsctl del-port" and make sure exec.LookPath can
+	// detect it in the path
+	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
+	expArgs := []string{"ovs-vsctl", "--if-exists", "del-port", "the-port"}
+	s.PatchValue(&getCommandOutput, func(cmd *exec.Cmd) ([]byte, error) {
+		c.Assert(cmd.Args, gc.DeepEquals, expArgs, gc.Commentf("expected ovs-vsctl to be invoked with args: %v", expArgs))
+		return []byte("\n"), nil
+	})
+
+	err := MaybeRemovePortFromOvsBridge("the-port")
+	c.Assert(err, jc.ErrorIsNil)
 }

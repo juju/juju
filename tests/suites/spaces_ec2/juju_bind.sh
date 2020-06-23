@@ -1,7 +1,7 @@
 run_juju_bind() {
     echo
 
-    file="${TEST_DIR}/test-juju-bind.txt"
+    file="${TEST_DIR}/test-juju-bind.log"
 
     ensure "spaces-juju-bind" "${file}"
 

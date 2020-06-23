@@ -163,6 +163,10 @@ type LinkLayerDeviceArgs struct {
 	// key of a BridgeDevice on the host machine of the container. Traffic
 	// originating from a device egresses from its parent device.
 	ParentName string
+
+	// If this is device is part of a virtual switch, this field indicates
+	// the type of switch (e.g. an OVS bridge ) this port belongs to.
+	VirtualPortType corenetwork.VirtualPortType
 }
 
 // SetLinkLayerDevices sets link-layer devices on the machine, adding or
@@ -406,17 +410,18 @@ func (m *Machine) newLinkLayerDeviceDocFromArgs(args *LinkLayerDeviceArgs) *link
 	modelUUID := m.st.ModelUUID()
 
 	return &linkLayerDeviceDoc{
-		DocID:       linkLayerDeviceDocID,
-		Name:        args.Name,
-		ModelUUID:   modelUUID,
-		MTU:         args.MTU,
-		ProviderID:  providerID,
-		MachineID:   m.doc.Id,
-		Type:        args.Type,
-		MACAddress:  args.MACAddress,
-		IsAutoStart: args.IsAutoStart,
-		IsUp:        args.IsUp,
-		ParentName:  args.ParentName,
+		DocID:           linkLayerDeviceDocID,
+		Name:            args.Name,
+		ModelUUID:       modelUUID,
+		MTU:             args.MTU,
+		ProviderID:      providerID,
+		MachineID:       m.doc.Id,
+		Type:            args.Type,
+		MACAddress:      args.MACAddress,
+		IsAutoStart:     args.IsAutoStart,
+		IsUp:            args.IsUp,
+		ParentName:      args.ParentName,
+		VirtualPortType: args.VirtualPortType,
 	}
 }
 
@@ -591,6 +596,12 @@ type LinkLayerDeviceAddress struct {
 	// IsDefaultGateway is set to true if this address on this device is the
 	// default gw on a machine.
 	IsDefaultGateway bool
+
+	// Origin represents the authoritative source of the address.
+	// it is set using precedence, with "provider" overriding "machine".
+	// It is used to determine whether the address is no longer recognised
+	// and is safe to remove.
+	Origin corenetwork.Origin
 }
 
 // SetDevicesAddresses sets the addresses of all devices in devicesAddresses,
@@ -737,25 +748,25 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 
 	globalKey := ipAddressGlobalKey(m.doc.Id, args.DeviceName, addressValue)
 	ipAddressDocID := m.st.docID(globalKey)
-	providerID := string(args.ProviderID)
-	subnetID := string(args.ProviderSubnetID)
 
 	modelUUID := m.st.ModelUUID()
 
 	newDoc := &ipAddressDoc{
-		DocID:            ipAddressDocID,
-		ModelUUID:        modelUUID,
-		ProviderID:       providerID,
-		ProviderSubnetID: subnetID,
-		DeviceName:       args.DeviceName,
-		MachineID:        m.doc.Id,
-		SubnetCIDR:       subnetCIDR,
-		ConfigMethod:     args.ConfigMethod,
-		Value:            addressValue,
-		DNSServers:       args.DNSServers,
-		DNSSearchDomains: args.DNSSearchDomains,
-		GatewayAddress:   args.GatewayAddress,
-		IsDefaultGateway: args.IsDefaultGateway,
+		DocID:             ipAddressDocID,
+		ModelUUID:         modelUUID,
+		ProviderID:        args.ProviderID.String(),
+		ProviderNetworkID: args.ProviderNetworkID.String(),
+		ProviderSubnetID:  args.ProviderSubnetID.String(),
+		DeviceName:        args.DeviceName,
+		MachineID:         m.doc.Id,
+		SubnetCIDR:        subnetCIDR,
+		ConfigMethod:      args.ConfigMethod,
+		Value:             addressValue,
+		DNSServers:        args.DNSServers,
+		DNSSearchDomains:  args.DNSSearchDomains,
+		GatewayAddress:    args.GatewayAddress,
+		IsDefaultGateway:  args.IsDefaultGateway,
+		Origin:            args.Origin,
 	}
 	return newDoc, nil
 }
@@ -1157,11 +1168,8 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]Machine
 				}},
 			}}
 		}
-		if err != nil {
-			r.Error = err
-		} else {
-			results[corenetwork.AlphaSpaceId] = r
-		}
+
+		results[corenetwork.AlphaSpaceId] = r
 	}
 
 	for _, id := range spaces.Values() {

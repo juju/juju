@@ -174,14 +174,15 @@ func NetworkInterfacesToStateArgs(ifaces corenetwork.InterfaceInfos) (
 				mtu = uint(iface.MTU)
 			}
 			args := state.LinkLayerDeviceArgs{
-				Name:        iface.InterfaceName,
-				MTU:         mtu,
-				ProviderID:  iface.ProviderId,
-				Type:        corenetwork.LinkLayerDeviceType(iface.InterfaceType),
-				MACAddress:  iface.MACAddress,
-				IsAutoStart: !iface.NoAutoStart,
-				IsUp:        !iface.Disabled,
-				ParentName:  iface.ParentInterfaceName,
+				Name:            iface.InterfaceName,
+				MTU:             mtu,
+				ProviderID:      iface.ProviderId,
+				Type:            corenetwork.LinkLayerDeviceType(iface.InterfaceType),
+				MACAddress:      iface.MACAddress,
+				IsAutoStart:     !iface.NoAutoStart,
+				IsUp:            !iface.Disabled,
+				ParentName:      iface.ParentInterfaceName,
+				VirtualPortType: iface.VirtualPortType,
 			}
 			logger.Tracef("state device args for device: %+v", args)
 			devicesArgs = append(devicesArgs, args)

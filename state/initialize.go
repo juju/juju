@@ -218,6 +218,12 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 		userGlobalKey(userAccessID(args.ControllerModelArgs.Owner)),
 		permission.AdminAccess)
 
+	bakeryConfig := st.NewBakeryConfig()
+	initBakeryConfigOp, err := bakeryConfig.InitialiseBakeryConfigOp()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	ops = append(ops,
 		txn.Op{
 			C:      controllersC,
@@ -255,6 +261,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 			Assert: txn.DocMissing,
 			Insert: &hostedModelCountDoc{},
 		},
+		initBakeryConfigOp,
 		createSettingsOp(controllersC, ControllerSettingsGlobalKey, args.ControllerConfig),
 		createSettingsOp(globalSettingsC, cloudGlobalKey(args.Cloud.Name), args.ControllerInheritedConfig),
 	)

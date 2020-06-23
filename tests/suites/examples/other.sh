@@ -1,7 +1,7 @@
 run_other() {
     echo
 
-    file="${TEST_DIR}/test-other.txt"
+    file="${TEST_DIR}/test-other.log"
     ensure "other" "${file}"
 
     echo "Hello other!"

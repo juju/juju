@@ -123,6 +123,11 @@ const (
 	// Status values specific to applications and units, reflecting the
 	// state of the software itself.
 
+	// Unset is only for applications, and is a placeholder status.
+	// The core/cache package deals with aggregating the unit status
+	// to the application level.
+	Unset Status = "unset"
+
 	// Maintenance is set when:
 	// The unit is not yet providing services, but is actively doing stuff
 	// in preparation for providing those services.
@@ -345,4 +350,37 @@ func ValidModelStatus(status Status) bool {
 // status value which has been deprecated.
 func (status Status) Matches(candidate Status) bool {
 	return status == candidate
+}
+
+// DeriveStatus is used to determine the application
+// status from a set of unit status values.
+func DeriveStatus(statuses []StatusInfo) StatusInfo {
+	// By providing an unknown default, we get a reasonable answer
+	// even if there are no units.
+	result := StatusInfo{
+		Status: Unknown,
+	}
+	for _, unitStatus := range statuses {
+		currentSeverity := statusServerities[result.Status]
+		unitSeverity := statusServerities[unitStatus.Status]
+		if unitSeverity > currentSeverity {
+			result.Status = unitStatus.Status
+			result.Message = unitStatus.Message
+			result.Data = unitStatus.Data
+			result.Since = unitStatus.Since
+		}
+	}
+	return result
+}
+
+// statusSeverities holds status values with a severity measure.
+// Status values with higher severity are used in preference to others.
+var statusServerities = map[Status]int{
+	Error:       100,
+	Blocked:     90,
+	Waiting:     80,
+	Maintenance: 70,
+	Active:      60,
+	Terminated:  50,
+	Unknown:     40,
 }

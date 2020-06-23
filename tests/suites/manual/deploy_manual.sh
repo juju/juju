@@ -41,7 +41,7 @@ manual_deploy() {
 
     juju add-cloud --client "${cloud_name}" "${TEST_DIR}/cloud_name.yaml" >"${TEST_DIR}/add-cloud.log" 2>&1
 
-    file="${TEST_DIR}/test-${name}.txt"
+    file="${TEST_DIR}/test-${name}.log"
 
     bootstrap "${cloud_name}" "test-${name}" "${file}"
 

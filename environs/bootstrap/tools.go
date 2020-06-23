@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/juju/errors"
 	jujuos "github.com/juju/os"
@@ -23,12 +24,20 @@ var (
 	findTools = envtools.FindTools
 )
 
+func localToolsArch() string {
+	toolsArch := os.Getenv("GOARCH")
+	if toolsArch == "" {
+		toolsArch = arch.HostArch()
+	}
+	return toolsArch
+}
+
 // validateUploadAllowed returns an error if an attempt to upload tools should
 // not be allowed.
 func validateUploadAllowed(env environs.ConfigGetter, toolsArch, toolsSeries *string, validator constraints.Validator) error {
 	// Now check that the architecture and series for which we are setting up an
 	// environment matches that from which we are bootstrapping.
-	hostArch := arch.HostArch()
+	hostArch := localToolsArch()
 	// We can't build tools for a different architecture if one is specified.
 	if toolsArch != nil && *toolsArch != hostArch {
 		return fmt.Errorf("cannot use agent built for %q using a machine running on %q", *toolsArch, hostArch)
@@ -94,7 +103,7 @@ func locallyBuildableTools(toolsSeries *string) (buildable coretools.List, _ ver
 		binary := version.Binary{
 			Number: buildNumber,
 			Series: ser,
-			Arch:   arch.HostArch(),
+			Arch:   localToolsArch(),
 		}
 		buildable = append(buildable, &coretools.Tools{Version: binary})
 	}

@@ -180,7 +180,7 @@ func (m *containerManager) getContainerSpec(
 		return ContainerSpec{}, errors.Trace(err)
 	}
 
-	nics, unknown, err := m.networkDevicesFromConfig(networkConfig)
+	nics, unknown, err := m.networkDevicesFromConfig(networkConfig, instanceConfig.MachineId)
 	if err != nil {
 		return ContainerSpec{}, errors.Trace(err)
 	}
@@ -284,15 +284,24 @@ func (m *containerManager) getImageSources() ([]ServerSpec, error) {
 // name, return a single "eth0" device with the bridge as its parent.
 // The last fall-back is to return the NIC devices from the default profile.
 // Names for any networks without a known CIDR are returned in a slice.
-func (m *containerManager) networkDevicesFromConfig(netConfig *container.NetworkConfig) (map[string]device, []string, error) {
+func (m *containerManager) networkDevicesFromConfig(netConfig *container.NetworkConfig, machineID string) (map[string]device, []string, error) {
 	if len(netConfig.Interfaces) > 0 {
-		return DevicesFromInterfaceInfo(netConfig.Interfaces)
+		return DevicesFromInterfaceInfo(netConfig.Interfaces, machineID)
 	} else if netConfig.Device != "" {
 		return map[string]device{
-			"eth0": newNICDevice("eth0", netConfig.Device, corenetwork.GenerateVirtualMACAddress(), netConfig.MTU),
+			"eth0": newNICDevice(
+				"eth0",
+				netConfig.Device,
+				makeHostInterfaceName(machineID, 0),
+				corenetwork.GenerateVirtualMACAddress(),
+				netConfig.MTU,
+			),
 		}, nil, nil
 	}
 
+	// NOTE(achilleasa): the lxd default profile can be edited by the
+	// operator to override the host_name setting. To this end, we should
+	// avoid patching the host_name ourselves.
 	nics, err := m.server.GetNICsFromProfile(lxdDefaultProfileName)
 	return nics, nil, errors.Trace(err)
 }

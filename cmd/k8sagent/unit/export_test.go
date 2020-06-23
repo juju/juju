@@ -10,5 +10,5 @@ import (
 
 func NewForTest(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (cmd.Command, error) {
 	// TODO
-	return &unitCommand{}, nil
+	return &k8sUnitAgent{}, nil
 }

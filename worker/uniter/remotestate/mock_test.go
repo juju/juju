@@ -109,6 +109,22 @@ type mockState struct {
 	storageAttachmentWatchers   map[names.StorageTag]*mockNotifyWatcher
 	updateStatusInterval        time.Duration
 	updateStatusIntervalWatcher *mockNotifyWatcher
+	charm                       *mockCharm
+}
+
+func (st *mockState) Charm(*charm.URL) (remotestate.Charm, error) {
+	if st.charm != nil {
+		return st.charm, nil
+	}
+	return &mockCharm{}, nil
+}
+
+type mockCharm struct {
+	required bool
+}
+
+func (c *mockCharm) LXDProfileRequired() (bool, error) {
+	return c.required, nil
 }
 
 func (st *mockState) Relation(tag names.RelationTag) (remotestate.Relation, error) {
@@ -210,10 +226,16 @@ type mockUnit struct {
 	storageWatcher                   *mockStringsWatcher
 	actionWatcher                    *mockStringsWatcher
 	relationsWatcher                 *mockStringsWatcher
+	instanceDataWatcher              *mockNotifyWatcher
+	lxdProfileName                   string
 }
 
 func (u *mockUnit) Life() life.Value {
 	return u.life
+}
+
+func (u *mockUnit) LXDProfileName() (string, error) {
+	return u.lxdProfileName, nil
 }
 
 func (u *mockUnit) Refresh() error {
@@ -266,6 +288,10 @@ func (u *mockUnit) WatchRelations() (watcher.StringsWatcher, error) {
 
 func (u *mockUnit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) {
 	return u.upgradeSeriesWatcher, nil
+}
+
+func (u *mockUnit) WatchInstanceData() (watcher.NotifyWatcher, error) {
+	return u.instanceDataWatcher, nil
 }
 
 func (u *mockUnit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {

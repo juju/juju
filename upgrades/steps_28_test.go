@@ -49,7 +49,7 @@ func (s *steps28Suite) TestAddMachineIDToSubordinates(c *gc.C) {
 }
 
 func (s *steps28Suite) TestAddOriginToIPAddresses(c *gc.C) {
-	step := findStateStep(c, v280, "add origin to ip addresses")
+	step := findStateStep(c, v280, "add origin to IP addresses")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
 

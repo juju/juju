@@ -208,6 +208,7 @@ func (aw *SrvAllWatcher) translateMachine(info multiwatcher.EntityInfo) params.E
 		Config:                   orig.Config,
 		Series:                   orig.Series,
 		ContainerType:            orig.ContainerType,
+		IsManual:                 orig.IsManual,
 		SupportedContainers:      orig.SupportedContainers,
 		SupportedContainersKnown: orig.SupportedContainersKnown,
 		HardwareCharacteristics:  orig.HardwareCharacteristics,

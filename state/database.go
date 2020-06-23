@@ -61,7 +61,7 @@ type Database interface {
 	// see modelStateCollection.
 	GetCollection(name string) (mongo.Collection, SessionCloser)
 
-	// GetCollecitonFor returns the named Collection, scoped for the
+	// GetCollectionFor returns the named collection, scoped for the
 	// model specified. As for GetCollection, a closer is also returned.
 	GetCollectionFor(modelUUID, name string) (mongo.Collection, SessionCloser)
 

@@ -40,20 +40,23 @@ idle_condition() {
     app_index=${2:-0}
     unit_index=${3:-0}
 
-    echo ".applications | select(.[\"$name\"] | .units | .[\"$name/$unit_index\"] | .[\"juju-status\"] | .current == \"idle\") | keys[$app_index]"
+    path=".[\"$name\"] | .units | .[\"$name/$unit_index\"]"
+
+    echo ".applications | select(($path | .[\"juju-status\"] | .current == \"idle\") and ($path | .[\"workload-status\"] | .current != \"error\")) | keys[$app_index]"
 }
 
 idle_subordinate_condition() {
-    local name parent app_index unit_index parent_index
+    local name parent unit_index parent_index
 
     name=${1}
     parent=${2}
-    app_index=${3:-0}
-    unit_index=${4:-0}
-    parent_index=${5:-0}
+    unit_index=${3:-0}
+    parent_index=${4:-0}
+
+    path=".[\"$parent\"] | .units | .[\"$parent/$parent_index\"] | .subordinates | .[\"$name/$unit_index\"]"
 
     # Print the *subordinate* name if it has an idle status in parent application
-    echo ".applications | select(.[\"$parent\"] | .units | .[\"$parent/$parent_index\"] | .subordinates | .[\"$name/$unit_index\"] | .[\"juju-status\"] | .current == \"idle\") | \"$name\""
+    echo ".applications | select(($path | .[\"juju-status\"] | .current == \"idle\") and ($path | .[\"workload-status\"] | .current != \"error\")) | \"$name\""
 }
 
 active_condition() {
@@ -86,6 +89,17 @@ agent_status() {
     unit=$2
 
     echo ".applications[\"$app\"].units[\"$app/$unit\"][\"juju-status\"]"
+}
+
+# charm_rev gets the current juju-status object for the application and uses it
+# to find the application charm-rev.
+charm_rev() {
+    local app rev
+
+    app=$1
+    rev=${2:-0}
+
+    echo ".applications | select(.[\"$app\"] | .[\"charm-rev\"] == $rev)"
 }
 
 # wait_for_machine_agent_status blocks until the machine agent for the specified

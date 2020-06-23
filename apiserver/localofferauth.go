@@ -56,7 +56,8 @@ func newOfferAuthcontext(pool *state.StatePool) (*crossmodel.AuthContext, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	key, err := bakery.GenerateKey()
+	bakeryConfig := st.NewBakeryConfig()
+	key, err := bakeryConfig.GetOffersThirdPartyKey()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

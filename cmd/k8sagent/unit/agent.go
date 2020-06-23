@@ -219,7 +219,7 @@ func (c *k8sUnitAgent) workers() (worker.Worker, error) {
 
 func (c *k8sUnitAgent) Run(_ *cmd.Context) (err error) {
 	defer c.Done(err)
-	logger.Infof("starting k8sagent unit command")
+	c.ctx.Infof("starting k8sagent unit command")
 
 	agentConfig := c.CurrentConfig()
 	machineLock, err := machinelock.New(machinelock.Config{
@@ -236,9 +236,9 @@ func (c *k8sUnitAgent) Run(_ *cmd.Context) (err error) {
 	c.machineLock = machineLock
 	c.upgradeComplete = upgradesteps.NewLock(agentConfig)
 
-	logger.Infof("k8sagent unit %q start (%s [%s])", c.Tag().String(), jujuversion.Current, runtime.Compiler)
+	c.ctx.Infof("k8sagent unit %q start (%s [%s])", c.Tag().String(), jujuversion.Current, runtime.Compiler)
 	if flags := featureflag.String(); flags != "" {
-		logger.Warningf("developer feature flags enabled: %s", flags)
+		c.ctx.Warningf("developer feature flags enabled: %s", flags)
 	}
 
 	c.runner.StartWorker("unit", c.workers)

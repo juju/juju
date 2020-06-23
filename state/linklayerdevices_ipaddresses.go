@@ -26,7 +26,11 @@ type ipAddressDoc struct {
 	// ModelUUID. Empty when not supported by the provider.
 	ProviderID string `bson:"providerid,omitempty"`
 
-	// ProviderSubnetID is a provider-specific ID subnet ID this IP address.
+	// ProviderNetworkID is a provider-specific ID for this address's network.
+	// Empty when not supported by the provider.
+	ProviderNetworkID string `bson:"provider-network-id,omitempty"`
+
+	// ProviderSubnetID is a provider-specific ID for this address's subnet.
 	// Empty when not supported by the provider.
 	ProviderSubnetID string `bson:"provider-subnet-id,omitempty"`
 
@@ -37,9 +41,9 @@ type ipAddressDoc struct {
 	// MachineID is the ID of the machine this IP address's device belongs to.
 	MachineID string `bson:"machine-id"`
 
-	// SubnetCIDR is the CIDR of the subnet this IP address belongs to. The CIDR
-	// will either match a known provider subnet or a machine-local subnet (like
-	// 10.0.3.0/24 or 127.0.0.0/8).
+	// SubnetCIDR is the CIDR of the subnet this IP address belongs to.
+	// The CIDR will either match a known provider subnet or a machine-local
+	// subnet (like 10.0.3.0/24 or 127.0.0.0/8).
 	SubnetCIDR string `bson:"subnet-cidr"`
 
 	// ConfigMethod is the method used to configure this IP address.
@@ -61,7 +65,8 @@ type ipAddressDoc struct {
 	// uses. Can be empty.
 	GatewayAddress string `bson:"gateway-address,omitempty"`
 
-	// IsDefaultGateway is set to true if that device/subnet is the default gw for the machine
+	// IsDefaultGateway is set to true if that device/subnet is the default
+	// gw for the machine.
 	IsDefaultGateway bool `bson:"is-default-gateway,omitempty"`
 
 	// Origin represents the authoritative source of the ipAddress.
@@ -104,6 +109,11 @@ func (addr *Address) ProviderID() network.Id {
 // ProviderSubnetID returns the provider-specific subnet ID, if set.
 func (addr *Address) ProviderSubnetID() network.Id {
 	return network.Id(addr.doc.ProviderSubnetID)
+}
+
+// ProviderNetworkID returns the provider-specific network ID, if set.
+func (addr *Address) ProviderNetworkID() network.Id {
+	return network.Id(addr.doc.ProviderNetworkID)
 }
 
 // MachineID returns the ID of the machine this IP address belongs to.
@@ -184,10 +194,9 @@ func (addr *Address) IsDefaultGateway() bool {
 }
 
 // Origin represents the authoritative source of the ipAddress.
-// It is expected that either the provider gave us this address or the
-// machine gave us this address.
-// Giving us this information allows us to reason about when a ipAddress is
-// in use.
+// it is set using precedence, with "provider" overriding "machine".
+// It is used to determine whether the address is no longer recognised
+// and is safe to remove.
 func (addr *Address) Origin() network.Origin {
 	return addr.doc.Origin
 }
@@ -211,6 +220,98 @@ func ipAddressGlobalKey(machineID, deviceName, address string) string {
 		return ""
 	}
 	return deviceGlobalKey + "#ip#" + address
+}
+
+// SetOriginOps returns the transaction operations required to set the input
+// origin for the the address.
+// If the address has a provider ID and origin is changing from provider to
+// machine, remove the ID from the address document and the global collection.
+func (addr *Address) SetOriginOps(origin network.Origin) []txn.Op {
+	if addr.Origin() == origin {
+		return nil
+	}
+
+	updates := bson.D{bson.DocElem{Name: "$set", Value: bson.M{"origin": origin}}}
+
+	removeProviderID := origin == network.OriginMachine &&
+		addr.Origin() == network.OriginProvider &&
+		addr.ProviderID() != ""
+
+	if removeProviderID {
+		updates = append(updates, bson.DocElem{Name: "$unset", Value: bson.M{"providerid": 1}})
+	}
+
+	ops := []txn.Op{{
+		C:      ipAddressesC,
+		Id:     addr.DocID(),
+		Assert: txn.DocExists,
+		Update: updates,
+	}}
+
+	if removeProviderID {
+		return append(ops, addr.st.networkEntityGlobalKeyRemoveOp("address", addr.ProviderID()))
+	}
+	return ops
+}
+
+// SetProviderIDOps returns the transaction operations required to update the
+// address with the input provider ID.
+// Setting the provider ID updates the address origin to provider.
+func (addr *Address) SetProviderIDOps(id network.Id) ([]txn.Op, error) {
+	// We only set the provider ID if it was previously empty.
+	if addr.doc.ProviderID != "" || id == "" || addr.doc.ProviderID == id.String() {
+		return nil, nil
+	}
+
+	// Since we assume that we are now setting the ID for the first time,
+	// ensure that it has not already been used to identify another device.
+	exists, err := addr.st.networkEntityGlobalKeyExists("address", id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if exists {
+		return nil, NewProviderIDNotUniqueError(id)
+	}
+
+	return []txn.Op{
+		addr.st.networkEntityGlobalKeyOp("address", id),
+		{
+			C:      ipAddressesC,
+			Id:     addr.doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{
+				"providerid": id,
+				"origin":     network.OriginProvider,
+			}},
+		},
+	}, nil
+}
+
+// SetProviderNetIDsOps returns the transaction operations required to ensure
+// that the input provider IDs are set against the address.
+// This is distinct from SetProviderIDOps above, because we assume that the
+// uniqueness of the IDs has already been established and that they are
+// recorded in the global collection.
+func (addr *Address) SetProviderNetIDsOps(networkID, subnetID network.Id) []txn.Op {
+	updates := bson.M{}
+
+	if addr.doc.ProviderNetworkID != networkID.String() {
+		updates["provider-network-id"] = networkID
+	}
+	if addr.doc.ProviderSubnetID != subnetID.String() {
+		updates["provider-subnet-id"] = subnetID
+	}
+
+	if len(updates) == 0 {
+		return nil
+	}
+
+	return []txn.Op{{
+		C:      ipAddressesC,
+		Id:     addr.doc.DocID,
+		Assert: txn.DocExists,
+		Update: bson.M{"$set": updates},
+	}}
 }
 
 // Remove removes the IP address, if it exists. No error is returned when the
@@ -369,12 +470,12 @@ func (st *State) AllIPAddresses() (addresses []*Address, err error) {
 	addressesCollection, closer := st.db().GetCollection(ipAddressesC)
 	defer closer()
 
-	sdocs := []ipAddressDoc{}
-	err = addressesCollection.Find(bson.D{}).All(&sdocs)
+	var docs []ipAddressDoc
+	err = addressesCollection.Find(bson.D{}).All(&docs)
 	if err != nil {
 		return nil, errors.Errorf("cannot get all ip addresses")
 	}
-	for _, a := range sdocs {
+	for _, a := range docs {
 		addresses = append(addresses, newIPAddress(st, a))
 	}
 	return addresses, nil

@@ -291,6 +291,9 @@ func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFu
 	if err != nil {
 		return result, err
 	}
+	if machine.IsManual() {
+		return result, errors.NotSupportedf("watching lxd profiles on manual machines")
+	}
 	watch, err := machine.WatchLXDProfileVerificationNeeded()
 	if err != nil {
 		return result, err

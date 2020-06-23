@@ -1,4 +1,4 @@
-// Copyright 2012-2020 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
@@ -16,7 +16,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	proxyutils "github.com/juju/proxy"
 
@@ -25,26 +24,15 @@ import (
 	"github.com/juju/juju/cmd/jujud/introspect"
 	"github.com/juju/juju/cmd/jujud/run"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	initcommand "github.com/juju/juju/cmd/k8sagent/init"
+	initcommand "github.com/juju/juju/cmd/k8sagent/initialize"
 	unitcommand "github.com/juju/juju/cmd/k8sagent/unit"
-	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker/logsender"
 )
 
 var logger = loggo.GetLogger("juju.cmd.k8sagent")
-
-func init() {
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
-	if err := components.RegisterForServer(); err != nil {
-		logger.Criticalf("unable to register server components: %v", err)
-		os.Exit(1)
-	}
-}
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -55,7 +43,7 @@ juju provides easy, intelligent service orchestration on top of models
 such as OpenStack, Amazon AWS, or bare metal. k8sagent is a component
 of juju for managing k8s workloads.
 
-https://jujucharms.com/
+https://juju.is/
 
 The k8sagent command can also forward invocations over RPC for execution by the
 juju unit agent. When used in this way, it expects to be called via a symlink
@@ -93,6 +81,7 @@ func (w *k8sAgentLogWriter) unitFormat(entry loggo.Entry) string {
 func k8sAgentCommand(ctx *cmd.Context) (cmd.Command, error) {
 	// Assuming an average of 200 bytes per log message, use up to
 	// 200MB for the log buffer.
+	// TODO(ycliuhw): move the buffered logger into core package.
 	bufferedLogger, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 1048576)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -135,8 +124,6 @@ func mainWrapper(f commandFactotry, args []string) (code int) {
 		code = f.k8sAgentCmd(ctx, args)
 	case names.JujuRun:
 		code = f.jujuRun(ctx, args)
-	case names.JujuDumpLogs:
-		code = f.jujuDumpLogs(ctx, args)
 	case names.JujuIntrospect:
 		code = f.jujuIntrospect(ctx, args)
 	default:
@@ -170,9 +157,10 @@ func main() {
 		},
 		jujuRun: func(ctx *cmd.Context, args []string) int {
 			lock, err := machinelock.New(machinelock.Config{
-				AgentName:   "juju-run",
-				Clock:       clock.WallClock,
-				Logger:      loggo.GetLogger("juju.machinelock"),
+				AgentName: "juju-run",
+				Clock:     clock.WallClock,
+				Logger:    loggo.GetLogger("juju.machinelock"),
+				// TODO(ycliuhw): consider to rename machinelock package to something more generic for k8s pod lock.
 				LogFilename: filepath.Join(cmdutil.LogDir, machinelock.Filename),
 			})
 			if err != nil {

@@ -1,4 +1,4 @@
-// Copyright 2012-2020 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
@@ -31,9 +31,6 @@ func (s *k8sAgentSuite) TestMainWrapper(c *gc.C) {
 		jujuRun: func(ctx *cmd.Context, args []string) int {
 			return 12
 		},
-		jujuDumpLogs: func(ctx *cmd.Context, args []string) int {
-			return 13
-		},
 		jujuIntrospect: func(ctx *cmd.Context, args []string) int {
 			return 14
 		},
@@ -41,7 +38,6 @@ func (s *k8sAgentSuite) TestMainWrapper(c *gc.C) {
 	for _, tc := range []mainWrapperTC{
 		{args: []string{"k8sagent"}, code: 11},
 		{args: []string{"juju-run"}, code: 12},
-		{args: []string{"juju-dumplogs"}, code: 13},
 		{args: []string{"juju-introspect"}, code: 14},
 	} {
 		c.Check(mainWrapper(factory, tc.args), gc.DeepEquals, tc.code)

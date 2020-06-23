@@ -49,6 +49,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/backups" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/block"   // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/bundle"
+	"github.com/juju/juju/apiserver/facades/client/charmhub"
 	"github.com/juju/juju/apiserver/facades/client/charms"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/client"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/cloud"      // ModelUser Read
@@ -166,6 +167,7 @@ func AllFacades() *facade.Registry {
 	reg("Bundle", 2, bundle.NewFacadeV2)
 	reg("Bundle", 3, bundle.NewFacadeV3)
 	reg("Bundle", 4, bundle.NewFacadeV4)
+	reg("CharmHub", 1, charmhub.NewFacade)
 	reg("CharmRevisionUpdater", 2, charmrevisionupdater.NewCharmRevisionUpdaterAPI)
 	reg("Charms", 2, charms.NewFacade)
 	reg("Cleaner", 2, cleaner.NewCleanerAPI)
@@ -243,7 +245,8 @@ func AllFacades() *facade.Registry {
 	reg("MachineUndertaker", 1, machineundertaker.NewFacade)
 	reg("Machiner", 1, machine.NewMachinerAPIV1)
 	reg("Machiner", 2, machine.NewMachinerAPIV2) // Adds RecordAgentStartTime.
-	reg("Machiner", 3, machine.NewMachinerAPI)   // Relies on agent-set origin in SetObservedNetworkConfig.
+	reg("Machiner", 3, machine.NewMachinerAPIV3) // Relies on agent-set origin in SetObservedNetworkConfig.
+	reg("Machiner", 4, machine.NewMachinerAPI)   // Removes SetProviderNetworkConfig.
 
 	reg("MeterStatus", 1, meterstatus.NewMeterStatusFacadeV1)
 	reg("MeterStatus", 2, meterstatus.NewMeterStatusFacade)
@@ -338,7 +341,8 @@ func AllFacades() *facade.Registry {
 	reg("Uniter", 12, uniter.NewUniterAPIV12)
 	reg("Uniter", 13, uniter.NewUniterAPIV13)
 	reg("Uniter", 14, uniter.NewUniterAPIV14)
-	reg("Uniter", 15, uniter.NewUniterAPI)
+	reg("Uniter", 15, uniter.NewUniterAPIV15)
+	reg("Uniter", 16, uniter.NewUniterAPI)
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
 	reg("UpgradeSeries", 1, upgradeseries.NewAPI)
