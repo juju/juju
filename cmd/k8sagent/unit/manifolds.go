@@ -79,11 +79,6 @@ type manifoldsConfig struct {
 	// upgrade-steps worker is done.
 	UpgradeStepsLock gate.Lock
 
-	// // UpgradeCheckLock is passed to the upgrade check gate to
-	// // coordinate workers that shouldn't do anything until the
-	// // upgrader worker completes it's first check.
-	// UpgradeCheckLock gate.Lock
-
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
@@ -314,7 +309,6 @@ const (
 	leadershipTrackerName = "leadership-tracker"
 	hookRetryStrategyName = "hook-retry-strategy"
 
-	upgraderName         = "upgrader"
 	upgradeStepsName     = "upgrade-steps-runner"
 	upgradeStepsGateName = "upgrade-steps-gate"
 	upgradeStepsFlagName = "upgrade-steps-flag"

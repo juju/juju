@@ -43,7 +43,7 @@ type k8sUnitAgent struct {
 	configChangedVal *voyeur.Value
 	// Unit command of k8sagent only knows application name but not unit name.
 	// It will configure out the unit name from agent.conf file by itself.
-	ApplicationName string
+	applicationName string
 	clk             clock.Clock
 	runner          *worker.Runner
 	bufferedLogger  *logsender.BufferedLogWriter
@@ -91,17 +91,16 @@ func (c *k8sUnitAgent) Info() *cmd.Info {
 
 // SetFlags implements Command.
 func (c *k8sUnitAgent) SetFlags(f *gnuflag.FlagSet) {
-	// --data-dir /juju  ?
 	c.AgentConf.AddFlags(f)
-	f.StringVar(&c.ApplicationName, "application-name", "", "name of the application")
+	f.StringVar(&c.applicationName, "application-name", "", "name of the application")
 }
 
 // Init initializes the command for running.
 func (c *k8sUnitAgent) Init(args []string) error {
-	if c.ApplicationName == "" {
+	if c.applicationName == "" {
 		return cmdutil.RequiredError("application-name")
 	}
-	if !names.IsValidApplication(c.ApplicationName) {
+	if !names.IsValidApplication(c.applicationName) {
 		return errors.Errorf(`--application-name option expects "<application>" argument`)
 	}
 	if err := c.AgentConf.CheckArgs(args); err != nil {
@@ -113,8 +112,8 @@ func (c *k8sUnitAgent) Init(args []string) error {
 		RestartDelay:  jworker.RestartDelay,
 	})
 
-	// Note: c.Tag() == c.CurrentConfig().Tag() == unitTag !!
-	// c.ApplicationTag == applicationTag
+	// Note: agent.conf file is at /var/lib/juju/agents/<application-tag>/agent.conf
+	// Tag in agent.conf is unit tag.
 	if err := c.ReadConfig(c.applicationTag().String()); err != nil {
 		return errors.Trace(err)
 	}
@@ -146,14 +145,13 @@ func (c *k8sUnitAgent) Done(err error) {
 
 // Tag implements Agent.
 func (c *k8sUnitAgent) Tag() names.UnitTag {
+	// TODO(ycliuhw): Currently CAAS operator logs in using application tag and no password setup for units now.
+	// Because k8sagent unit command logs in as an unit,  we need initialize password for CAAS unit.
 	return c.CurrentConfig().Tag().(names.UnitTag)
-
-	// TODO: currently CAAS units do NOT have password at all, so for now login using application Tag.!!!
-	// return names.NewApplicationTag(c.ApplicationName)
 }
 
 func (c *k8sUnitAgent) applicationTag() names.Tag {
-	return names.NewApplicationTag(c.ApplicationName)
+	return names.NewApplicationTag(c.applicationName)
 }
 
 // ChangeConfig implements Agent.
@@ -184,9 +182,8 @@ func (c *k8sUnitAgent) workers() (worker.Worker, error) {
 		PreviousAgentVersion: agentConfig.UpgradedToVersion(),
 		PreUpgradeSteps:      c.preUpgradeSteps,
 		UpgradeStepsLock:     c.upgradeComplete,
-		// UpgradeCheckLock:     c.initialUpgradeCheckComplete, ??
-		MachineLock: c.machineLock,
-		Clock:       c.clk,
+		MachineLock:          c.machineLock,
+		Clock:                c.clk,
 	}
 	manifolds := Manifolds(cfg)
 

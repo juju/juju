@@ -42,14 +42,6 @@ func NewUpgraderFacade(st *state.State, resources facade.Resources, auth facade.
 	case names.MachineTag, names.ControllerAgentTag, names.ApplicationTag:
 		return NewUpgraderAPI(st, resources, auth)
 	case names.UnitTag:
-		m, err := st.Model()
-		if err != nil {
-			return nil, common.ErrPerm
-		}
-		if m.Type() == state.ModelTypeCAAS {
-			// TODO: fix here!!!
-			return NewUpgraderAPI(st, resources, auth)
-		}
 		return NewUnitUpgraderAPI(st, resources, auth)
 	}
 	// Not a machine or unit.
