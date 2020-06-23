@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package run
 
 import (
 	"crypto/tls"
@@ -17,6 +17,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
@@ -33,6 +34,8 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter"
 )
+
+var logger = loggo.GetLogger("juju.cmd.jujud.run")
 
 type RunCommand struct {
 	cmd.CommandBase
@@ -78,6 +81,14 @@ Examples:
 
 The commands are executed with '/bin/bash -s', and the output returned.
 `
+
+func getenv(name string) (string, error) {
+	value := os.Getenv(name)
+	if value == "" {
+		return "", errors.Errorf("%s not set", name)
+	}
+	return value, nil
+}
 
 // Info returns usage information for the command.
 func (c *RunCommand) Info() *cmd.Info {

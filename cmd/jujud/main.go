@@ -24,25 +24,25 @@ import (
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/utils/exec"
 
+	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
 	"github.com/juju/juju/cmd/jujud/introspect"
+	"github.com/juju/juju/cmd/jujud/run"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/core/machinelock"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
-
-	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
-
-	// Import the providers.
-	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+
+	// Import the providers.
+	_ "github.com/juju/juju/provider/all"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")
@@ -62,7 +62,7 @@ var jujudDoc = `
 juju provides easy, intelligent service orchestration on top of models
 such as OpenStack, Amazon AWS, or bare metal. jujud is a component of juju.
 
-https://jujucharms.com/
+https://juju.is/
 
 The jujud command can also forward invocations over RPC for execution by the
 juju unit agent. When used in this way, it expects to be called via a symlink
@@ -297,7 +297,7 @@ func Main(args []string) int {
 		if err != nil {
 			code = exit_err
 		} else {
-			run := &RunCommand{MachineLock: lock}
+			run := &run.RunCommand{MachineLock: lock}
 			code = cmd.Main(run, ctx, args[1:])
 		}
 	case jujunames.JujuDumpLogs:
