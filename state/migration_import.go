@@ -203,8 +203,8 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	if err := restore.linklayerdevices(); err != nil {
 		return nil, nil, errors.Annotate(err, "linklayerdevices")
 	}
-	if err := restore.ipaddresses(); err != nil {
-		return nil, nil, errors.Annotate(err, "ipaddresses")
+	if err := restore.ipAddresses(); err != nil {
+		return nil, nil, errors.Annotate(err, "ipAddresses")
 	}
 	if err := restore.storage(); err != nil {
 		return nil, nil, errors.Annotate(err, "storage")
@@ -1796,16 +1796,16 @@ func (i *importer) addSubnet(id string, args network.SubnetInfo) error {
 	return nil
 }
 
-func (i *importer) ipaddresses() error {
-	i.logger.Debugf("importing ip addresses")
+func (i *importer) ipAddresses() error {
+	i.logger.Debugf("importing IP addresses")
 	for _, addr := range i.model.IPAddresses() {
 		err := i.addIPAddress(addr)
 		if err != nil {
-			i.logger.Errorf("error importing ip address %v: %s", addr, err)
+			i.logger.Errorf("error importing IP address %v: %s", addr, err)
 			return errors.Trace(err)
 		}
 	}
-	i.logger.Debugf("importing ip addresses succeeded")
+	i.logger.Debugf("importing IP addresses succeeded")
 	return nil
 }
 
@@ -1820,18 +1820,21 @@ func (i *importer) addIPAddress(addr description.IPAddress) error {
 	modelUUID := i.st.ModelUUID()
 
 	newDoc := &ipAddressDoc{
-		DocID:            ipAddressDocID,
-		ModelUUID:        modelUUID,
-		ProviderID:       providerID,
-		DeviceName:       addr.DeviceName(),
-		MachineID:        addr.MachineID(),
-		SubnetCIDR:       subnetCIDR,
-		ConfigMethod:     network.AddressConfigMethod(addr.ConfigMethod()),
-		Value:            addressValue,
-		DNSServers:       addr.DNSServers(),
-		DNSSearchDomains: addr.DNSSearchDomains(),
-		GatewayAddress:   addr.GatewayAddress(),
-		IsDefaultGateway: addr.IsDefaultGateway(),
+		DocID:             ipAddressDocID,
+		ModelUUID:         modelUUID,
+		ProviderID:        providerID,
+		DeviceName:        addr.DeviceName(),
+		MachineID:         addr.MachineID(),
+		SubnetCIDR:        subnetCIDR,
+		ConfigMethod:      network.AddressConfigMethod(addr.ConfigMethod()),
+		Value:             addressValue,
+		DNSServers:        addr.DNSServers(),
+		DNSSearchDomains:  addr.DNSSearchDomains(),
+		GatewayAddress:    addr.GatewayAddress(),
+		IsDefaultGateway:  addr.IsDefaultGateway(),
+		ProviderNetworkID: addr.ProviderNetworkID(),
+		ProviderSubnetID:  addr.ProviderSubnetID(),
+		Origin:            network.Origin(addr.Origin()),
 	}
 
 	ops := []txn.Op{{
