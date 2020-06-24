@@ -18,7 +18,7 @@ import (
 //
 // The output func accepts an out pointer to either an Unlocker or a Waiter.
 func Manifold() dependency.Manifold {
-	return ManifoldEx(NewLock())
+	return ManifoldEx(nil)
 }
 
 // ManifoldEx does the same thing as Manifold but takes the
@@ -31,7 +31,14 @@ func Manifold() dependency.Manifold {
 func ManifoldEx(lock Lock) dependency.Manifold {
 	return dependency.Manifold{
 		Start: func(_ dependency.Context) (worker.Worker, error) {
-			w := &gate{lock: lock}
+			// Need to assign a copy of the arg so we don't
+			// modify the variable in the closure when we get
+			// called a second time.
+			wLock := lock
+			if wLock == nil {
+				wLock = NewLock()
+			}
+			w := &gate{lock: wLock}
 			w.tomb.Go(func() error {
 				<-w.tomb.Dying()
 				return nil
