@@ -1705,17 +1705,18 @@ func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error 
 	localID := linkLayerDeviceGlobalKey(device.MachineID(), device.Name())
 	linkLayerDeviceDocID := i.st.docID(localID)
 	newDoc := &linkLayerDeviceDoc{
-		ModelUUID:   modelUUID,
-		DocID:       linkLayerDeviceDocID,
-		MachineID:   device.MachineID(),
-		ProviderID:  providerID,
-		Name:        device.Name(),
-		MTU:         device.MTU(),
-		Type:        network.LinkLayerDeviceType(device.Type()),
-		MACAddress:  device.MACAddress(),
-		IsAutoStart: device.IsAutoStart(),
-		IsUp:        device.IsUp(),
-		ParentName:  device.ParentName(),
+		ModelUUID:       modelUUID,
+		DocID:           linkLayerDeviceDocID,
+		MachineID:       device.MachineID(),
+		ProviderID:      providerID,
+		Name:            device.Name(),
+		MTU:             device.MTU(),
+		Type:            network.LinkLayerDeviceType(device.Type()),
+		MACAddress:      device.MACAddress(),
+		IsAutoStart:     device.IsAutoStart(),
+		IsUp:            device.IsUp(),
+		ParentName:      device.ParentName(),
+		VirtualPortType: network.VirtualPortType(device.VirtualPortType()),
 	}
 
 	ops := []txn.Op{{
