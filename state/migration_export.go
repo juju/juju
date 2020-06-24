@@ -1453,15 +1453,16 @@ func (e *exporter) linklayerdevices() error {
 	e.logger.Debugf("read %d ip devices", len(linklayerdevices))
 	for _, device := range linklayerdevices {
 		e.model.AddLinkLayerDevice(description.LinkLayerDeviceArgs{
-			ProviderID:  string(device.ProviderID()),
-			MachineID:   device.MachineID(),
-			Name:        device.Name(),
-			MTU:         device.MTU(),
-			Type:        string(device.Type()),
-			MACAddress:  device.MACAddress(),
-			IsAutoStart: device.IsAutoStart(),
-			IsUp:        device.IsUp(),
-			ParentName:  device.ParentName(),
+			ProviderID:      string(device.ProviderID()),
+			MachineID:       device.MachineID(),
+			Name:            device.Name(),
+			MTU:             device.MTU(),
+			Type:            string(device.Type()),
+			MACAddress:      device.MACAddress(),
+			IsAutoStart:     device.IsAutoStart(),
+			IsUp:            device.IsUp(),
+			ParentName:      device.ParentName(),
+			VirtualPortType: string(device.VirtualPortType()),
 		})
 	}
 	return nil

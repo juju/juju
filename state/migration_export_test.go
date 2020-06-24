@@ -1169,8 +1169,9 @@ func (s *MigrationExportSuite) TestLinkLayerDevices(c *gc.C) {
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
 	deviceArgs := state.LinkLayerDeviceArgs{
-		Name: "foo",
-		Type: network.EthernetDevice,
+		Name:            "foo",
+		Type:            network.EthernetDevice,
+		VirtualPortType: network.OvsPort,
 	}
 	err := machine.SetLinkLayerDevices(deviceArgs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1183,6 +1184,7 @@ func (s *MigrationExportSuite) TestLinkLayerDevices(c *gc.C) {
 	device := devices[0]
 	c.Assert(device.Name(), gc.Equals, "foo")
 	c.Assert(device.Type(), gc.Equals, string(network.EthernetDevice))
+	c.Assert(device.VirtualPortType(), gc.Equals, "openvswitch", gc.Commentf("VirtualPortType was not exported correctly"))
 }
 
 func (s *MigrationExportSuite) TestLinkLayerDevicesSkipped(c *gc.C) {
