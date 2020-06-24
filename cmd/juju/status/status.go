@@ -71,55 +71,78 @@ type statusCommand struct {
 }
 
 var usageSummary = `
-Reports the current status of the model, machines, applications and units.`[1:]
+Report the status of the model, its machines, applications and units.`[1:]
 
 var usageDetails = `
-By default (without argument), the status of the model, including all
-applications and units will be output.
+Report the model's status, optionally filtered by names of applications or
+units. When selectors are present, filter the report to exclude entities that
+do not match.
 
-Application or unit names may be used as output filters (the '*' can be used as
-a wildcard character). In addition to matched applications and units, related
-machines, applications, and units will also be displayed. If a subordinate unit
-is matched, then its principal unit will be displayed. If a principal unit is
-matched, then all of its subordinates will be displayed.
+    juju status [<selector> [...]]
 
-Machine numbers may also be used as output filters. This will only display data
-in each section relevant to the specified machines. For example, application
-section will only contain the applications that have units on these machines, etc.
+<selector> selects machines, units or applications from the model to display.
+Wildcard characters (*) enable multiple entities to be matched at the same
+time.
 
-The available output formats are:
+    (<machine>|<unit>|<application>)[*]
 
-- tabular (default): Displays status in a tabular format with a separate table
-	  for the model, machines, applications, relations (if any), storage (if any)
-	  and units.
-      Note: in this format, the AZ column refers to the cloud region's
-      availability zone.
-- {short|line|oneline}: List units and their subordinates. For each unit, the IP
-      address and agent status are listed.
-- summary: Displays the subnet(s) and port(s) the model utilises. Also displays
-      aggregate information about:
-      - Machines: total #, and # in each state.
-      - Units: total #, and # in each state.
-      - Applications: total #, and # exposed of each application.
-- yaml: Displays information about the model, machines, applications, and units
-      in structured YAML format.
-- json: Displays information about the model, machines, applications, and units
-      in structured JSON format.
+When an entity that matches <selector> is related to other applications, the 
+status of those applications will also be presented. By default (without a 
+<selector>) the status of all applications and their units will be displayed.
 
-In tabular format, 'Relations' section is not displayed by default.
-Use --relations option to see this section. This option is ignored in all other
-formats.
+
+Altering the output format
+
+The '--format' option allows you to specify how the status report is formatted.
+
+  --format=tabular  (default)
+                    Display information about all aspects of the model in a 
+                    human-centric manner. Omits some information by default.
+                    Use the '--relations' and '--storage' options to include
+                    all available information.
+
+  --format=line
+  --format=short
+  --format=oneline
+                    Reports information from units. Includes their IP address,
+                    open ports and the status of the workload and agent.
+
+  --format=summary
+                    Reports aggregated information about the model. Includes 
+                    a description of subnets and ports that are in use, the
+                    counts of applications, units, and machines by status code.
+
+  --format=json
+  --format=yaml
+                    Provide information in a JSON or YAML formats for 
+                    programmatic use.
 
 Examples:
-    juju show-status
-    juju show-status mysql
-    juju show-status nova-*
-    juju show-status --relations
-    juju show-status --storage
+
+    # Report the status of units hosted on machine 0
+    juju status 0
+
+    # Report the status of the the mysql application
+    juju status mysql
+
+    # Report the status for applications that start with nova-
+    juju status nova-*
+
+    # Include information about storage and relations in output
+    juju status --storage --relations
+
+    # Provide output as valid JSON
+    juju status --format=json
+
+Further reading:
+
+    https://juju.is/docs/command/status
 
 See also:
+
     machines
     show-model
+    show-debug-log
     show-status-log
     storage
 `
@@ -127,7 +150,7 @@ See also:
 func (c *statusCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "show-status",
-		Args:    "[filter pattern ...]",
+		Args:    "[<selector> [...]]",
 		Purpose: usageSummary,
 		Doc:     usageDetails,
 		Aliases: []string{"status"},
@@ -136,11 +159,11 @@ func (c *statusCommand) Info() *cmd.Info {
 
 func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
-	f.BoolVar(&c.color, "color", false, "Force use of ANSI color codes")
+	f.BoolVar(&c.isoTime, "utc", false, "Display timestamps in the UTC timezone")
 
-	f.BoolVar(&c.relations, "relations", false, "Show 'relations' section")
-	f.BoolVar(&c.storage, "storage", false, "Show 'storage' section")
+	f.BoolVar(&c.color, "color", false, "Use ANSI color codes in tabular output")
+	f.BoolVar(&c.relations, "relations", false, "Show 'relations' section in tabular output")
+	f.BoolVar(&c.storage, "storage", false, "Show 'storage' section in tabular output")
 
 	f.IntVar(&c.retryCount, "retry-count", 3, "Number of times to retry API failures")
 	f.DurationVar(&c.retryDelay, "retry-delay", 100*time.Millisecond, "Time to wait between retry attempts")
