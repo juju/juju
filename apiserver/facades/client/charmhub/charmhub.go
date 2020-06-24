@@ -14,12 +14,13 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/charmhub/transport"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.charmhub")
 
 type Client interface {
-	Info(ctx context.Context, name string) (charmhub.InfoResponse, error)
+	Info(ctx context.Context, name string) (transport.InfoResponse, error)
 }
 
 // API provides the charmhub API facade for version 1.
