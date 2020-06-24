@@ -194,7 +194,7 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	if err := export.subnets(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.ipaddresses(); err != nil {
+	if err := export.ipAddresses(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := export.linklayerdevices(); err != nil {
@@ -1492,7 +1492,7 @@ func (e *exporter) subnets() error {
 	return nil
 }
 
-func (e *exporter) ipaddresses() error {
+func (e *exporter) ipAddresses() error {
 	if e.cfg.SkipIPAddresses {
 		return nil
 	}
@@ -1503,15 +1503,18 @@ func (e *exporter) ipaddresses() error {
 	e.logger.Debugf("read %d ip addresses", len(ipaddresses))
 	for _, addr := range ipaddresses {
 		e.model.AddIPAddress(description.IPAddressArgs{
-			ProviderID:       string(addr.ProviderID()),
-			DeviceName:       addr.DeviceName(),
-			MachineID:        addr.MachineID(),
-			SubnetCIDR:       addr.SubnetCIDR(),
-			ConfigMethod:     string(addr.ConfigMethod()),
-			Value:            addr.Value(),
-			DNSServers:       addr.DNSServers(),
-			DNSSearchDomains: addr.DNSSearchDomains(),
-			GatewayAddress:   addr.GatewayAddress(),
+			ProviderID:        string(addr.ProviderID()),
+			DeviceName:        addr.DeviceName(),
+			MachineID:         addr.MachineID(),
+			SubnetCIDR:        addr.SubnetCIDR(),
+			ConfigMethod:      string(addr.ConfigMethod()),
+			Value:             addr.Value(),
+			DNSServers:        addr.DNSServers(),
+			DNSSearchDomains:  addr.DNSSearchDomains(),
+			GatewayAddress:    addr.GatewayAddress(),
+			ProviderNetworkID: addr.ProviderNetworkID().String(),
+			ProviderSubnetID:  addr.ProviderSubnetID().String(),
+			Origin:            string(addr.Origin()),
 		})
 	}
 	return nil
@@ -1957,16 +1960,11 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 	if !ok {
 		return result, errors.Errorf("expected int64 for updated, got %T", statusDoc["updated"])
 	}
-	neverset, ok := statusDoc["neverset"].(bool)
-	if !ok {
-		return result, errors.Errorf("expected neverset for updated, got %T", statusDoc["neverset"])
-	}
 
 	result.Value = status
 	result.Message = info
 	result.Data = dataMap
 	result.Updated = time.Unix(0, updated)
-	result.NeverSet = neverset
 	return result, nil
 }
 

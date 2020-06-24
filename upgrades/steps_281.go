@@ -29,5 +29,12 @@ func stateStepsFor281() []Step {
 				return context.State().AddBakeryConfig()
 			},
 		},
+		&upgradeStep{
+			description: `update status documents to remove neverset`,
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().ReplaceNeverSetWithUnset()
+			},
+		},
 	}
 }

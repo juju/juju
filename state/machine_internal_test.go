@@ -48,7 +48,7 @@ func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsDocDoesNOTExist(c 
 		Assert: txn.DocMissing,
 		Insert: arbitraryData,
 	}
-	assertConstainsOP(c, expectedOp, createUpgradeSeriesLockTxnOps(arbitraryId, arbitraryData))
+	assertContainsOP(c, expectedOp, createUpgradeSeriesLockTxnOps(arbitraryId, arbitraryData))
 }
 
 func (s *MachineInternalSuite) TestRemoveUpgradeLockTxnAssertsDocExists(c *gc.C) {
@@ -59,10 +59,10 @@ func (s *MachineInternalSuite) TestRemoveUpgradeLockTxnAssertsDocExists(c *gc.C)
 		Assert: txn.DocExists,
 		Remove: true,
 	}
-	assertConstainsOP(c, expectedOp, removeUpgradeSeriesLockTxnOps(arbitraryId))
+	assertContainsOP(c, expectedOp, removeUpgradeSeriesLockTxnOps(arbitraryId))
 }
 
-func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsBuildsCorrectUnitTransaction(c *gc.C) {
+func (s *MachineInternalSuite) TestSetUpgradeSeriesTxnOpsBuildsCorrectUnitTransaction(c *gc.C) {
 	arbitraryMachineID := "id"
 	arbitraryUnitName := "application/0"
 	arbitraryStatus := model.UpgradeSeriesPrepareStarted
@@ -90,7 +90,7 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsBuildsCorrectUnitTransa
 	c.Assert(actualOpSt, gc.Equals, expectedOpSt)
 }
 
-func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMachineIsAlive(c *gc.C) {
+func (s *MachineInternalSuite) TestSetUpgradeSeriesTxnOpsShouldAssertAssignedMachineIsAlive(c *gc.C) {
 	arbitraryMachineID := "id"
 	arbitraryStatus := model.UpgradeSeriesPrepareStarted
 	arbitraryUnitName := "application/0"
@@ -171,7 +171,7 @@ func (s *MachineInternalSuite) TestSetUpgradeSeriesMessageTxnOps(c *gc.C) {
 	c.Assert(actualOpsSt, gc.Equals, expectedOpsSt)
 }
 
-func assertConstainsOP(c *gc.C, expectedOp txn.Op, actualOps []txn.Op) {
+func assertContainsOP(c *gc.C, expectedOp txn.Op, actualOps []txn.Op) {
 	var found bool
 	for _, actualOp := range actualOps {
 		if actualOp == expectedOp {

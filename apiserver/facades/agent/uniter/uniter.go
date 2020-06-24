@@ -231,7 +231,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		lxdProfileAPI:              NewExternalLXDProfileAPIv2(st, resources, authorizer, accessUnit, logger),
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
 		// own status *and* its application's? This is not a pleasing arrangement.
-		StatusAPI: NewStatusAPI(st, accessUnitOrApplication, leadershipChecker),
+		StatusAPI: NewStatusAPI(st, &cacheShim{cacheModel}, accessUnitOrApplication, leadershipChecker),
 
 		m:                 m,
 		st:                st,

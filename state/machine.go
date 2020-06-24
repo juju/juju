@@ -1414,7 +1414,7 @@ func (m *Machine) SetInstanceInfo(
 	if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {
 		return errors.Trace(err)
 	}
-	if err := m.SetDevicesAddressesIdempotently(devicesAddrs); err != nil {
+	if err := m.SetDevicesAddresses(devicesAddrs...); err != nil {
 		return errors.Trace(err)
 	}
 

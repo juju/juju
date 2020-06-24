@@ -85,6 +85,7 @@ LXD_IPV6_PROXY="true"
 const lxdSnapChannel = "latest/stable"
 
 func (s *InitialiserSuite) SetUpTest(c *gc.C) {
+	coretesting.SkipLXDNotSupported(c)
 	s.initialiserTestSuite.SetUpTest(c)
 	s.calledCmds = []string{}
 	s.PatchValue(&manager.RunCommandWithRetry, getMockRunCommandWithRetry(&s.calledCmds))

@@ -46,14 +46,13 @@ idle_condition() {
 }
 
 idle_subordinate_condition() {
-    local name parent unit_index parent_index
+    local name parent unit_index
 
     name=${1}
     parent=${2}
     unit_index=${3:-0}
-    parent_index=${4:-0}
 
-    path=".[\"$parent\"] | .units | .[\"$parent/$parent_index\"] | .subordinates | .[\"$name/$unit_index\"]"
+    path=".[\"$parent\"] | .units | .[] | .subordinates | .[\"$name/$unit_index\"]"
 
     # Print the *subordinate* name if it has an idle status in parent application
     echo ".applications | select(($path | .[\"juju-status\"] | .current == \"idle\") and ($path | .[\"workload-status\"] | .current != \"error\")) | \"$name\""

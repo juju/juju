@@ -1322,13 +1322,16 @@ func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
 	err = machine.SetLinkLayerDevices(deviceArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	args := state.LinkLayerDeviceAddress{
-		DeviceName:       "foo",
-		ConfigMethod:     network.StaticAddress,
-		CIDRAddress:      "0.1.2.3/24",
-		ProviderID:       "bar",
-		DNSServers:       []string{"bam", "mam"},
-		DNSSearchDomains: []string{"weeee"},
-		GatewayAddress:   "0.1.2.1",
+		DeviceName:        "foo",
+		ConfigMethod:      network.StaticAddress,
+		CIDRAddress:       "0.1.2.3/24",
+		ProviderID:        "bar",
+		DNSServers:        []string{"bam", "mam"},
+		DNSSearchDomains:  []string{"weeee"},
+		GatewayAddress:    "0.1.2.1",
+		ProviderNetworkID: "p-net-id",
+		ProviderSubnetID:  "p-sub-id",
+		Origin:            network.OriginProvider,
 	}
 	err = machine.SetDevicesAddresses(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1348,6 +1351,10 @@ func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
 	c.Assert(addr.DNSServers(), jc.DeepEquals, []string{"bam", "mam"})
 	c.Assert(addr.DNSSearchDomains(), jc.DeepEquals, []string{"weeee"})
 	c.Assert(addr.GatewayAddress(), gc.Equals, "0.1.2.1")
+	c.Assert(addr.ProviderNetworkID(), gc.Equals, "p-net-id")
+	c.Assert(addr.ProviderSubnetID(), gc.Equals, "p-sub-id")
+	c.Assert(addr.Origin(), gc.Equals, string(network.OriginProvider))
+
 }
 
 func (s *MigrationExportSuite) TestIPAddressesSkipped(c *gc.C) {

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/settings"
@@ -27,6 +28,7 @@ type ControllerConfigChange struct {
 type ModelChange struct {
 	ModelUUID       string
 	Name            string
+	Type            model.ModelType
 	Life            life.Value
 	Owner           string // tag maybe?
 	IsController    bool
@@ -46,6 +48,14 @@ type RemoveModel struct {
 	ModelUUID string
 }
 
+// PodSpec is used to determine whether or not a CAAS application
+// has called the command to set the pod spec.
+type PodSpec struct {
+	Spec    string
+	Raw     bool
+	Counter int
+}
+
 // ApplicationChange represents either a new application, or a change
 // to an existing application in a model.
 type ApplicationChange struct {
@@ -62,6 +72,7 @@ type ApplicationChange struct {
 	Status          status.StatusInfo
 	OperatorStatus  status.StatusInfo // For CAAS applications.
 	WorkloadVersion string
+	PodSpec         *PodSpec // For CAAS applications.
 }
 
 // copy returns a deep copy of the ApplicationChange.
@@ -150,8 +161,10 @@ type UnitChange struct {
 	PortRanges     []network.PortRange
 	Principal      string
 	Subordinate    bool
-	WorkloadStatus status.StatusInfo
-	AgentStatus    status.StatusInfo
+
+	WorkloadStatus  status.StatusInfo
+	AgentStatus     status.StatusInfo
+	ContainerStatus status.StatusInfo // For CAAS models.
 }
 
 // copy returns a deep copy of the UnitChange.

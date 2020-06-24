@@ -29,12 +29,26 @@ type Logger interface {
 	Infof(string, ...interface{})
 }
 
+// Server is the http server running inside this worker handling requests to
+// the http mux
 type Server struct {
 	catacomb catacomb.Catacomb
+	info     ServerInfo
 	listener net.Listener
 	logger   Logger
 	Mux      *apiserverhttp.Mux
 	server   *http.Server
+}
+
+// ServerInfo represents a small interface for informining interested party's
+// through manifolds outputs the listening information of the server
+type ServerInfo interface {
+	Port() string
+	PortInt() (int, error)
+}
+
+type serverInfo struct {
+	port string
 }
 
 var (
@@ -59,6 +73,7 @@ func NewServer(authority pki.Authority, logger Logger, conf Config) (*Server, er
 	}
 
 	server := &Server{
+		info:     &serverInfo{conf.Port},
 		listener: listener,
 		logger:   logger,
 		Mux:      mux,
@@ -85,6 +100,14 @@ func (s *Server) Kill() {
 	s.catacomb.Kill(nil)
 }
 
+func (s *serverInfo) Port() string {
+	return s.port
+}
+
+func (s *serverInfo) PortInt() (int, error) {
+	return net.LookupPort("tcp", s.port)
+}
+
 func (s *Server) Port() string {
 	splits := strings.Split(s.listener.Addr().String(), ":")
 	if len(splits) == 0 {
@@ -96,6 +119,10 @@ func (s *Server) Port() string {
 // Wait implements the worker interface
 func (s *Server) Wait() error {
 	return s.catacomb.Wait()
+}
+
+func (s *Server) Info() ServerInfo {
+	return s.info
 }
 
 func (s *Server) loop() error {

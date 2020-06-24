@@ -696,6 +696,8 @@ func clearContollerTimestamp(status *params.FullStatus) {
 }
 
 func (s *clientSuite) TestClientStatus(c *gc.C) {
+	loggo.GetLogger("juju.core.cache").SetLogLevel(loggo.TRACE)
+	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	s.setUpScenario(c)
 	status, err := s.APIState.Client().Status(nil)
 	clearSinceTimes(status)
@@ -950,6 +952,7 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 
 func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
+	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine("quantal", state.JobManageModel)

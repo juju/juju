@@ -1152,6 +1152,8 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	scale := 0
 	placement := ""
 	hasResources := false
+	var operatorStatusDoc *statusDoc
+	nowNano := st.clock().Now().UnixNano()
 	switch model.Type() {
 	case ModelTypeIAAS:
 		if err := st.processIAASModelApplicationArgs(&args); err != nil {
@@ -1165,6 +1167,12 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		scale = args.NumUnits
 		if len(args.Placement) == 1 {
 			placement = args.Placement[0].Directive
+		}
+		operatorStatusDoc = &statusDoc{
+			ModelUUID:  st.ModelUUID(),
+			Status:     status.Waiting,
+			StatusInfo: status.MessageWaitForContainer,
+			Updated:    nowNano,
 		}
 	}
 
@@ -1208,17 +1216,9 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	}
 
 	statusDoc := statusDoc{
-		ModelUUID:  st.ModelUUID(),
-		Status:     status.Waiting,
-		StatusInfo: status.MessageWaitForMachine,
-		Updated:    st.clock().Now().UnixNano(),
-		// This exists to preserve questionable unit-aggregation behaviour
-		// while we work out how to switch to an implementation that makes
-		// sense.
-		NeverSet: true,
-	}
-	if model.Type() == ModelTypeCAAS {
-		statusDoc.StatusInfo = status.MessageWaitForContainer
+		ModelUUID: st.ModelUUID(),
+		Status:    status.Unset,
+		Updated:   nowNano,
 	}
 
 	if err := args.ApplicationConfig.Validate(); err != nil {
@@ -1261,6 +1261,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		addOps, err := addApplicationOps(st, app, addApplicationOpsArgs{
 			applicationDoc:    appDoc,
 			statusDoc:         statusDoc,
+			operatorStatus:    operatorStatusDoc,
 			constraints:       args.Constraints,
 			storage:           args.Storage,
 			devices:           args.Devices,

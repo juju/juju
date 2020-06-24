@@ -6,6 +6,7 @@ package provider
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -55,6 +56,10 @@ type modelOperatorBrokerBridge struct {
 const (
 	labelModelOperator     = "juju-modeloperator"
 	modelOperatorPortLabel = "api"
+
+	EnvModelAgentCAASServiceName      = "SERVICE_NAME"
+	EnvModelAgentCAASServiceNamespace = "SERVICE_NAMESPACE"
+	EnvModelAgentHTTPPort             = "HTTP_PORT"
 )
 
 var (
@@ -150,6 +155,7 @@ func ensureModelOperator(
 		config.OperatorImagePath,
 		config.Port,
 		modelUUID,
+		service.Name,
 		volumes,
 		volumeMounts)
 	if err != nil {
@@ -233,6 +239,7 @@ func modelOperatorDeployment(
 	operatorImagePath string,
 	port int32,
 	modelUUID string,
+	serviceName string,
 	volumes []core.Volume,
 	volumeMounts []core.VolumeMount,
 ) (*apps.Deployment, error) {
@@ -277,6 +284,20 @@ func modelOperatorDeployment(
 								"tools",
 								jujudCmd,
 							),
+						},
+						Env: []core.EnvVar{
+							{
+								Name:  EnvModelAgentHTTPPort,
+								Value: strconv.Itoa(int(port)),
+							},
+							{
+								Name:  EnvModelAgentCAASServiceName,
+								Value: serviceName,
+							},
+							{
+								Name:  EnvModelAgentCAASServiceNamespace,
+								Value: namespace,
+							},
 						},
 						Ports: []core.ContainerPort{
 							{

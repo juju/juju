@@ -659,10 +659,11 @@ func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
 	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, false)
 	newApp, err := newSt.Application(application.Name())
 	c.Assert(err, jc.ErrorIsNil)
+	// Has unset application status.
 	appStatus, err := newApp.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appStatus.Status, gc.Equals, status.Active)
-	c.Assert(appStatus.Message, gc.Equals, "unit active")
+	c.Assert(appStatus.Status, gc.Equals, status.Unset)
+	c.Assert(appStatus.Message, gc.Equals, "")
 }
 
 func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
@@ -772,11 +773,11 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	})
 	newApp, err := newSt.Application(application.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	// Must use derived status
+	// Has unset application status.
 	appStatus, err := newApp.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appStatus.Status, gc.Equals, status.Active)
-	c.Assert(appStatus.Message, gc.Equals, "unit active")
+	c.Assert(appStatus.Status, gc.Equals, status.Unset)
+	c.Assert(appStatus.Message, gc.Equals, "")
 }
 
 func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
@@ -1662,13 +1663,16 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	err = machine.SetLinkLayerDevices(deviceArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	args := state.LinkLayerDeviceAddress{
-		DeviceName:       "foo",
-		ConfigMethod:     network.StaticAddress,
-		CIDRAddress:      "0.1.2.3/24",
-		ProviderID:       "bar",
-		DNSServers:       []string{"bam", "mam"},
-		DNSSearchDomains: []string{"weeee"},
-		GatewayAddress:   "0.1.2.1",
+		DeviceName:        "foo",
+		ConfigMethod:      network.StaticAddress,
+		CIDRAddress:       "0.1.2.3/24",
+		ProviderID:        "bar",
+		DNSServers:        []string{"bam", "mam"},
+		DNSSearchDomains:  []string{"weeee"},
+		GatewayAddress:    "0.1.2.1",
+		ProviderNetworkID: "p-net-id",
+		ProviderSubnetID:  "p-sub-id",
+		Origin:            network.OriginProvider,
 	}
 	err = machine.SetDevicesAddresses(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1688,6 +1692,9 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	c.Assert(addr.DNSServers(), jc.DeepEquals, []string{"bam", "mam"})
 	c.Assert(addr.DNSSearchDomains(), jc.DeepEquals, []string{"weeee"})
 	c.Assert(addr.GatewayAddress(), gc.Equals, "0.1.2.1")
+	c.Assert(addr.ProviderNetworkID().String(), gc.Equals, "p-net-id")
+	c.Assert(addr.ProviderSubnetID().String(), gc.Equals, "p-sub-id")
+	c.Assert(addr.Origin(), gc.Equals, network.OriginProvider)
 }
 
 func (s *MigrationImportSuite) TestSSHHostKey(c *gc.C) {

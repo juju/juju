@@ -83,6 +83,7 @@ type StateBackend interface {
 	DropLeasesCollection() error
 	RemoveUnsupportedLinkLayer() error
 	AddBakeryConfig() error
+	ReplaceNeverSetWithUnset() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -342,4 +343,8 @@ func (s stateBackend) RemoveUnsupportedLinkLayer() error {
 
 func (s stateBackend) AddBakeryConfig() error {
 	return state.AddBakeryConfig(s.pool)
+}
+
+func (s stateBackend) ReplaceNeverSetWithUnset() error {
+	return state.ReplaceNeverSetWithUnset(s.pool)
 }

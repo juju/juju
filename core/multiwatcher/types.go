@@ -177,6 +177,14 @@ func NewStatusInfo(s status.StatusInfo, err error) StatusInfo {
 	}
 }
 
+// PodSpec is used to determine whether or not a CAAS application
+// has called the command to set the pod spec.
+type PodSpec struct {
+	Spec    string
+	Raw     bool
+	Counter int
+}
+
 // ApplicationInfo holds the information about an application that is tracked
 // by multiwatcherStore.
 type ApplicationInfo struct {
@@ -192,8 +200,9 @@ type ApplicationInfo struct {
 	Config          map[string]interface{}
 	Subordinate     bool
 	Status          StatusInfo
-	OperatorStatus  StatusInfo // For CAAS models
+	OperatorStatus  StatusInfo // For CAAS models.
 	WorkloadVersion string
+	PodSpec         *PodSpec // For CAAS models.
 }
 
 // EntityID returns a unique identifier for an application across
@@ -364,8 +373,9 @@ type UnitInfo struct {
 	Principal      string
 	Subordinate    bool
 	// Workload and agent state are modelled separately.
-	WorkloadStatus StatusInfo
-	AgentStatus    StatusInfo
+	WorkloadStatus  StatusInfo
+	AgentStatus     StatusInfo
+	ContainerStatus StatusInfo // For CAAS models.
 }
 
 // EntityID returns a unique identifier for a unit across
