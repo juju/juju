@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charmhub
+package transport
 
 // The following contains all the common DTOs for a gathering information from
 // a given store.

@@ -13,6 +13,9 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	path "github.com/juju/juju/charmhub/path"
+	"github.com/juju/juju/charmhub/transport"
 )
 
 type FindSuite struct {
@@ -27,7 +30,7 @@ func (s *FindSuite) TestFind(c *gc.C) {
 
 	baseURL := MustParseURL(c, "http://api.foo.bar")
 
-	path := MakePath(baseURL)
+	path := path.MakePath(baseURL)
 	name := "meshuggah"
 
 	restClient := NewMockRESTClient(ctrl)
@@ -46,7 +49,7 @@ func (s *FindSuite) TestFindFailure(c *gc.C) {
 
 	baseURL := MustParseURL(c, "http://api.foo.bar")
 
-	path := MakePath(baseURL)
+	path := path.MakePath(baseURL)
 	name := "meshuggah"
 
 	restClient := NewMockRESTClient(ctrl)
@@ -57,12 +60,12 @@ func (s *FindSuite) TestFindFailure(c *gc.C) {
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
-func (s *FindSuite) expectGet(c *gc.C, client *MockRESTClient, path Path, name string) {
-	namedPath, err := path.Query("q", name)
+func (s *FindSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path, name string) {
+	namedPath, err := p.Query("q", name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ Path, responses *FindResponses) {
-		responses.Results = []FindResponse{{
+	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, responses *transport.FindResponses) {
+		responses.Results = []transport.FindResponse{{
 			Name: name,
 		}}
 	}).Return(nil)
@@ -73,15 +76,15 @@ func (s *FindSuite) expectGetFailure(c *gc.C, client *MockRESTClient) {
 }
 
 func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
-	findResponses := FindResponses{
-		Results: []FindResponse{{
+	findResponses := transport.FindResponses{
+		Results: []transport.FindResponse{{
 			Name: "wordpress",
 			Type: "object",
 			ID:   "charmCHARMcharmCHARMcharmCHARM01",
-			ChannelMap: []ChannelMap{{
-				Channel: Channel{
+			ChannelMap: []transport.ChannelMap{{
+				Channel: transport.Channel{
 					Name: "latest/stable",
-					Platform: Platform{
+					Platform: transport.Platform{
 						Architecture: "all",
 						OS:           "ubuntu",
 						Series:       "bionic",
@@ -90,16 +93,16 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 					Risk:       "stable",
 					Track:      "latest",
 				},
-				Revision: Revision{
+				Revision: transport.Revision{
 					ConfigYAML: "one: 1\ntwo: 2\nitems: [1,2,3,4]\n\"",
 					CreatedAt:  "2019-12-16T19:20:26.673192+00:00",
-					Download: Download{
+					Download: transport.Download{
 						HashSHA265: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
 						Size:       12042240,
 						URL:        "https://api.snapcraft.io/api/v1/snaps/download/QLLfVfIKfcnTZiPFnmGcigB2vB605ZY7_16.snap",
 					},
 					MetadataYAML: "name: myname\nversion: 1.0.3\nsummary: A charm or bundle.\ndescription: |\n  This will install and setup services optimized to run in the cloud.\n  By default it will place Ngnix configured to scale horizontally\n  with Nginx's reverse proxy.\n",
-					Platforms: []Platform{{
+					Platforms: []transport.Platform{{
 						Architecture: "all",
 						OS:           "ubuntu",
 						Series:       "bionic",
@@ -108,14 +111,14 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 					Version:  "1.0.3",
 				},
 			}},
-			Charm: Charm{
-				Categories: []Category{{
+			Charm: transport.Charm{
+				Categories: []transport.Category{{
 					Featured: true,
 					Name:     "blog",
 				}},
 				Description: "This will install and setup WordPress optimized to run in the cloud. By default it will place Ngnix and php-fpm configured to scale horizontally with Nginx's reverse proxy.",
 				License:     "Apache-2.0",
-				Media: []Media{{
+				Media: []transport.Media{{
 					Height: 256,
 					Type:   "icon",
 					URL:    "https://dashboard.snapcraft.io/site_media/appmedia/2017/04/wpcom.png",
@@ -131,10 +134,10 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 					"wordpress-site",
 				},
 			},
-			DefaultRelease: ChannelMap{
-				Channel: Channel{
+			DefaultRelease: transport.ChannelMap{
+				Channel: transport.Channel{
 					Name: "latest/stable",
-					Platform: Platform{
+					Platform: transport.Platform{
 						Architecture: "all",
 						OS:           "ubuntu",
 						Series:       "bionic",
@@ -143,16 +146,16 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 					Risk:       "stable",
 					Track:      "latest",
 				},
-				Revision: Revision{
+				Revision: transport.Revision{
 					ConfigYAML: "one: 1\ntwo: 2\nitems: [1,2,3,4]\n\"",
 					CreatedAt:  "2019-12-16T19:20:26.673192+00:00",
-					Download: Download{
+					Download: transport.Download{
 						HashSHA265: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
 						Size:       12042240,
 						URL:        "https://api.snapcraft.io/api/v1/snaps/download/QLLfVfIKfcnTZiPFnmGcigB2vB605ZY7_16.snap",
 					},
 					MetadataYAML: "name: myname\nversion: 1.0.3\nsummary: A charm or bundle.\ndescription: |\n  This will install and setup services optimized to run in the cloud.\n  By default it will place Ngnix configured to scale horizontally\n  with Nginx's reverse proxy.\n",
-					Platforms: []Platform{{
+					Platforms: []transport.Platform{{
 						Architecture: "all",
 						OS:           "ubuntu",
 						Series:       "bionic",
@@ -194,8 +197,8 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 }
 
 func (s *FindSuite) TestFindErrorPayload(c *gc.C) {
-	findResponses := FindResponses{
-		ErrorList: []APIError{{
+	findResponses := transport.FindResponses{
+		ErrorList: []transport.APIError{{
 			Code:    "some-error-code",
 			Message: "not found error code",
 		}},

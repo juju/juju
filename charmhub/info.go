@@ -7,16 +7,18 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/charmhub/path"
+	"github.com/juju/juju/charmhub/transport"
 )
 
 // InfoClient defines a client for info requests.
 type InfoClient struct {
-	path   Path
+	path   path.Path
 	client RESTClient
 }
 
 // NewInfoClient creates a InfoClient for requesting
-func NewInfoClient(path Path, client RESTClient) *InfoClient {
+func NewInfoClient(path path.Path, client RESTClient) *InfoClient {
 	return &InfoClient{
 		path:   path,
 		client: client,
@@ -25,8 +27,8 @@ func NewInfoClient(path Path, client RESTClient) *InfoClient {
 
 // Info requests the information of a given charm. If that charm doesn't exist
 // an error stating that fact will be returned.
-func (c *InfoClient) Info(ctx context.Context, name string) (InfoResponse, error) {
-	var resp InfoResponse
+func (c *InfoClient) Info(ctx context.Context, name string) (transport.InfoResponse, error) {
+	var resp transport.InfoResponse
 	path, err := c.path.Join(name)
 	if err != nil {
 		return resp, errors.Trace(err)
@@ -36,13 +38,4 @@ func (c *InfoClient) Info(ctx context.Context, name string) (InfoResponse, error
 		return resp, errors.Trace(err)
 	}
 	return resp, nil
-}
-
-type InfoResponse struct {
-	Type           string       `json:"type"`
-	ID             string       `json:"id"`
-	Name           string       `json:"name"`
-	Charm          Charm        `json:"charm,omitempty"`
-	ChannelMap     []ChannelMap `json:"channel-map"`
-	DefaultRelease ChannelMap   `json:"default-release,omitempty"`
 }

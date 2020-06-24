@@ -23,6 +23,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+
+	charmhubpath "github.com/juju/juju/charmhub/path"
+	"github.com/juju/juju/charmhub/transport"
 )
 
 // ServerURL holds the default location of the global charm hub.
@@ -66,14 +69,14 @@ func CharmhubConfig() Config {
 }
 
 // BasePath returns the base configuration path for speaking to the server API.
-func (c Config) BasePath() (Path, error) {
+func (c Config) BasePath() (charmhubpath.Path, error) {
 	baseURL := strings.TrimRight(c.URL, "/")
 	rawURL := fmt.Sprintf("%s/%s", baseURL, path.Join(c.Version, c.Entity))
 	url, err := url.Parse(rawURL)
 	if err != nil {
-		return Path{}, errors.Trace(err)
+		return charmhubpath.Path{}, errors.Trace(err)
 	}
-	return MakePath(url), nil
+	return charmhubpath.MakePath(url), nil
 }
 
 // Client represents the client side of a charm store.
@@ -110,11 +113,11 @@ func NewClient(config Config) (*Client, error) {
 }
 
 // Info returns charm info on the provided charm name from charmhub.
-func (c *Client) Info(ctx context.Context, name string) (InfoResponse, error) {
+func (c *Client) Info(ctx context.Context, name string) (transport.InfoResponse, error) {
 	return c.infoClient.Info(ctx, name)
 }
 
 // Find searches for a given charm for a given name from charmhub.
-func (c *Client) Find(ctx context.Context, name string) ([]FindResponse, error) {
+func (c *Client) Find(ctx context.Context, name string) ([]transport.FindResponse, error) {
 	return c.findClient.Find(ctx, name)
 }

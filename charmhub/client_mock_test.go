@@ -7,6 +7,7 @@ package charmhub
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
+	path "github.com/juju/juju/charmhub/path"
 	http "net/http"
 	reflect "reflect"
 )
@@ -73,7 +74,7 @@ func (m *MockRESTClient) EXPECT() *MockRESTClientMockRecorder {
 }
 
 // Get mocks base method
-func (m *MockRESTClient) Get(arg0 context.Context, arg1 Path, arg2 interface{}) error {
+func (m *MockRESTClient) Get(arg0 context.Context, arg1 path.Path, arg2 interface{}) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

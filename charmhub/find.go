@@ -8,17 +8,19 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/charmhub/path"
+	"github.com/juju/juju/charmhub/transport"
 )
 
 // FindClient defines a client for querying information about a given charm or
 // bundle for a given charmhub store.
 type FindClient struct {
-	path   Path
+	path   path.Path
 	client RESTClient
 }
 
 // NewFindClient creates a FindClient for querying charm or bundle information.
-func NewFindClient(path Path, client RESTClient) *FindClient {
+func NewFindClient(path path.Path, client RESTClient) *FindClient {
 	return &FindClient{
 		path:   path,
 		client: client,
@@ -26,13 +28,13 @@ func NewFindClient(path Path, client RESTClient) *FindClient {
 }
 
 // Find searches Charm Hub and provides results matching a string.
-func (c *FindClient) Find(ctx context.Context, query string) ([]FindResponse, error) {
+func (c *FindClient) Find(ctx context.Context, query string) ([]transport.FindResponse, error) {
 	path, err := c.path.Query("q", query)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var resp FindResponses
+	var resp transport.FindResponses
 	if err := c.client.Get(ctx, path, &resp); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -48,18 +50,4 @@ func (c *FindClient) Find(ctx context.Context, query string) ([]FindResponse, er
 	}
 
 	return resp.Results, nil
-}
-
-type FindResponses struct {
-	Results   []FindResponse `json:"results"`
-	ErrorList []APIError     `json:"error-list"`
-}
-
-type FindResponse struct {
-	Type           string       `json:"type"`
-	ID             string       `json:"id"`
-	Name           string       `json:"name"`
-	Charm          Charm        `json:"charm,omitempty"`
-	ChannelMap     []ChannelMap `json:"channel-map"`
-	DefaultRelease ChannelMap   `json:"default-release,omitempty"`
 }

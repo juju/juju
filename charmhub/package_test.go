@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"testing"
 
+	path "github.com/juju/juju/charmhub/path"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
@@ -25,9 +26,9 @@ func MustParseURL(c *gc.C, path string) *url.URL {
 	return u
 }
 
-func MustMakePath(c *gc.C, path string) Path {
-	u := MustParseURL(c, path)
-	return MakePath(u)
+func MustMakePath(c *gc.C, p string) path.Path {
+	u := MustParseURL(c, p)
+	return path.MakePath(u)
 }
 
 type nopCloser struct {
