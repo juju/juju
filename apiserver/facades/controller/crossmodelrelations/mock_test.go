@@ -502,9 +502,15 @@ func (r *mockRemoteApplication) Destroy() error {
 
 type mockApplication struct {
 	commoncrossmodel.Application
+	name string
 	testing.Stub
 	life state.Life
 	eps  []state.Endpoint
+}
+
+func (a *mockApplication) Name() string {
+	a.MethodCall(a, "Name")
+	return a.name
 }
 
 func (a *mockApplication) Endpoints() ([]state.Endpoint, error) {

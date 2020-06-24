@@ -15,6 +15,7 @@ import (
 type ManifoldConfig struct {
 	AuthorityName string
 	Logger        Logger
+	Port          string
 }
 
 func Manifold(config ManifoldConfig) dependency.Manifold {
@@ -36,6 +37,8 @@ func manifoldOutput(in worker.Worker, out interface{}) error {
 	switch result := out.(type) {
 	case **apiserverhttp.Mux:
 		*result = inServer.Mux
+	case *ServerInfo:
+		*result = inServer.Info()
 	default:
 		return errors.Errorf("expected Mapper, got %T", out)
 	}
@@ -52,7 +55,12 @@ func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
-	return NewServer(authority, c.Logger, DefaultConfig())
+	serverConfig := DefaultConfig()
+	if c.Port != "" {
+		serverConfig.Port = c.Port
+	}
+
+	return NewServer(authority, c.Logger, serverConfig)
 }
 
 func (c ManifoldConfig) Validate() error {

@@ -41,7 +41,7 @@ func NewController(
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &c.catacomb,
 		Work: c.makeLoop(admissionCreator,
-			admissionHandler(logger, rbacMapper), mux, path),
+			admissionHandler(logger, rbacMapper), logger, mux, path),
 	}); err != nil {
 		return c, errors.Trace(err)
 	}
@@ -56,15 +56,18 @@ func (c *Controller) Kill() {
 func (c *Controller) makeLoop(
 	admissionCreator AdmissionCreator,
 	handler http.Handler,
+	logger Logger,
 	mux Mux,
 	path string) func() error {
 
 	return func() error {
+		logger.Debugf("installing caas admission handler at %s", path)
 		if err := mux.AddHandler(http.MethodPost, path, handler); err != nil {
 			return errors.Trace(err)
 		}
 		defer mux.RemoveHandler(http.MethodPost, path)
 
+		logger.Infof("ensuring model k8s webhook configurations")
 		admissionCleanup, err := admissionCreator.EnsureMutatingWebhookConfiguration()
 		if err != nil {
 			return errors.Trace(err)

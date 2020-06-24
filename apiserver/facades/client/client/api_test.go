@@ -216,9 +216,9 @@ var scenarioStatus = &params.FullStatus{
 			Relations:     map[string][]string{},
 			SubordinateTo: []string{},
 			Units:         map[string]params.UnitStatus{},
+			// Since there are no units, the derived status is Unknown.
 			Status: params.DetailedStatus{
-				Status: "waiting",
-				Info:   "waiting for machine",
+				Status: "unknown",
 			},
 			EndpointBindings: map[string]string{
 				"":               network.AlphaSpaceName,
@@ -513,5 +513,6 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		setDefaultPassword(c, lu)
 		add(lu)
 	}
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	return
 }

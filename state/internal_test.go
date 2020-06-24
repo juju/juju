@@ -124,6 +124,28 @@ func (s *internalStateSuite) newState(c *gc.C) *State {
 	return st
 }
 
+func (s *internalStateSuite) newCAASState(c *gc.C) *State {
+	s.modelCount++
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
+		"name": fmt.Sprintf("testmodel%d", s.modelCount),
+		"uuid": utils.MustNewUUID().String(),
+	})
+	_, st, err := s.controller.NewModel(ModelArgs{
+		Type:        ModelTypeCAAS,
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg,
+		Owner:       s.owner,
+		StorageProviderRegistry: storage.ChainedProviderRegistry{
+			dummy.StorageProviders(),
+			provider.CommonStorageProviders(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(*gc.C) { st.Close() })
+	return st
+}
+
 type internalStatePolicy struct{}
 
 func (internalStatePolicy) Prechecker() (environs.InstancePrechecker, error) {

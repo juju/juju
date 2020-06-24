@@ -70,30 +70,50 @@ func (a *Application) Units() []Unit {
 	return units
 }
 
+// ExpectsWorkload only makes sense for CAAS applications.
+// If a workload is expected, the charm would have set a podspec.
+// Pod specs are never set for IAAS models.
+func (a *Application) ExpectsWorkload() bool {
+	return a.details.PodSpec != nil
+}
+
 // Status returns the application status if it is set, and if not
 // it uses the derived status from the units.
-func (a *Application) Status() status.StatusInfo {
+func (a *Application) maybeDerivedStatus(getStatus func(*Unit) status.StatusInfo) status.StatusInfo {
 	info := a.details.Status
 	if info.Status == status.Unset {
 		// Get all the unit workload statuses to derive the application one.
 		var statuses []status.StatusInfo
 		for _, u := range a.Units() {
-			statuses = append(statuses, u.WorkloadStatus())
+			statuses = append(statuses, getStatus(&u))
 		}
-		return status.DeriveStatus(statuses)
+		derived := status.DeriveStatus(statuses)
+		if derived.Since == nil {
+			derived.Since = info.Since
+		}
+		return derived
 	}
+	return info
+}
+
+// Status returns the application status if it is set, and if not
+// it uses the derived status from the units.
+func (a *Application) Status() status.StatusInfo {
+	return a.maybeDerivedStatus((*Unit).WorkloadStatus)
+}
+
+// DisplayStatus is used from the status code in the apiserver, and is what
+// we show to the user. For CAAS models, this is a synthetic status based on
+// the application status and the operator status.
+func (a *Application) DisplayStatus() status.StatusInfo {
+	info := a.maybeDerivedStatus((*Unit).DisplayWorkloadStatus)
 	// If there is no status in the OperatorStatus, it is because there
 	// is no operator status, which is the normal situation for IAAS applications.
 	opInfo := a.details.OperatorStatus
 	if opInfo.Status == "" {
 		return info
 	}
-	// For CAAS applications, if the operator status is running or active
-	// we just return the application status.
-	if opInfo.Status == status.Running || opInfo.Status == status.Active {
-		return info
-	}
-	return opInfo
+	return status.ApplicationDisplayStatus(info, opInfo, a.ExpectsWorkload())
 }
 
 // WatchConfig creates a watcher for the application config.

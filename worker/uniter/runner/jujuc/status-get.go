@@ -92,6 +92,7 @@ func (c *StatusGetCommand) ApplicationStatus(ctx *cmd.Context) error {
 
 	units := make(map[string]interface{}, len(applicationStatus.Units))
 	for _, unit := range applicationStatus.Units {
+		// NOTE: unit.Tag is a unit name, not a unit tag.
 		units[unit.Tag] = toDetails(unit, c.includeData)
 	}
 	details["units"] = units

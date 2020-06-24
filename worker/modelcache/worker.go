@@ -410,6 +410,7 @@ func (c *cacheWorker) translateModel(d multiwatcher.Delta) interface{} {
 	return cache.ModelChange{
 		ModelUUID:       value.ModelUUID,
 		Name:            value.Name,
+		Type:            value.Type,
 		Life:            value.Life,
 		Owner:           value.Owner,
 		IsController:    value.IsController,
@@ -441,6 +442,15 @@ func (c *cacheWorker) translateApplication(d multiwatcher.Delta) interface{} {
 		return nil
 	}
 
+	var podSpec *cache.PodSpec
+	if spec := value.PodSpec; spec != nil {
+		podSpec = &cache.PodSpec{
+			Spec:    spec.Spec,
+			Raw:     spec.Raw,
+			Counter: spec.Counter,
+		}
+	}
+
 	return cache.ApplicationChange{
 		ModelUUID:       value.ModelUUID,
 		Name:            value.Name,
@@ -453,7 +463,9 @@ func (c *cacheWorker) translateApplication(d multiwatcher.Delta) interface{} {
 		Config:          value.Config,
 		Subordinate:     value.Subordinate,
 		Status:          coreStatus(value.Status),
+		OperatorStatus:  coreStatus(value.OperatorStatus),
 		WorkloadVersion: value.WorkloadVersion,
+		PodSpec:         podSpec,
 	}
 }
 
@@ -527,8 +539,10 @@ func (c *cacheWorker) translateUnit(d multiwatcher.Delta) interface{} {
 		PortRanges:     value.PortRanges,
 		Principal:      value.Principal,
 		Subordinate:    value.Subordinate,
-		WorkloadStatus: coreStatus(value.WorkloadStatus),
-		AgentStatus:    coreStatus(value.AgentStatus),
+
+		WorkloadStatus:  coreStatus(value.WorkloadStatus),
+		AgentStatus:     coreStatus(value.AgentStatus),
+		ContainerStatus: coreStatus(value.ContainerStatus),
 	}
 }
 

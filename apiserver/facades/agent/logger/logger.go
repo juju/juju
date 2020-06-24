@@ -40,7 +40,10 @@ func NewLoggerAPI(ctx facade.Context) (*LoggerAPI, error) {
 	resources := ctx.Resources()
 	authorizer := ctx.Auth()
 
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
+	if !authorizer.AuthMachineAgent() &&
+		!authorizer.AuthUnitAgent() &&
+		!authorizer.AuthApplicationAgent() &&
+		!authorizer.AuthModelAgent() {
 		return nil, common.ErrPerm
 	}
 	m, err := ctx.Controller().Model(st.ModelUUID())

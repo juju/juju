@@ -230,10 +230,6 @@ func (st *State) allProviderIDsForLinkLayerDevices() (set.Strings, error) {
 	return st.allProviderIDsForEntity("linklayerdevice")
 }
 
-func (st *State) allProviderIDsForAddresses() (set.Strings, error) {
-	return st.allProviderIDsForEntity("address")
-}
-
 func (st *State) allProviderIDsForEntity(entityName string) (set.Strings, error) {
 	idCollection, closer := st.db().GetCollection(providerIDsC)
 	defer closer()
@@ -632,18 +628,6 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 		if m.doc.Life != Alive {
 			return nil, errors.Errorf("machine %q not alive", m.doc.Id)
 		}
-		if attempt > 0 {
-			allIds, err := m.st.allProviderIDsForAddresses()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			for _, args := range devicesAddresses {
-				if allIds.Contains(string(args.ProviderID)) {
-					return nil, errors.Annotatef(
-						NewProviderIDNotUniqueError(args.ProviderID), "invalid address %q", args.CIDRAddress)
-				}
-			}
-		}
 
 		setAddressesOps, err := m.setDevicesAddressesFromDocsOps(newDocs)
 		if err != nil {
@@ -1002,27 +986,6 @@ func (m *Machine) SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs []Lin
 		for _, args := range argsToSet {
 			seenNames.Add(args.Name)
 		}
-	}
-	return nil
-}
-
-// SetDevicesAddressesIdempotently calls SetDevicesAddresses() and if it fails
-// with ErrProviderIDNotUnique, retries the call with all ProviderID fields in
-// devicesAddresses set to empty.
-func (m *Machine) SetDevicesAddressesIdempotently(devicesAddresses []LinkLayerDeviceAddress) error {
-	if err := m.SetDevicesAddresses(devicesAddresses...); IsProviderIDNotUniqueError(err) {
-		// FIXME: Make updating addresses with unchanged ProviderID idempotent.
-		// FIXME: this obliterates the ProviderID of *all*
-		// addresses if any *one* of them is not unique.
-		for i, args := range devicesAddresses {
-			args.ProviderID = ""
-			devicesAddresses[i] = args
-		}
-		if err := m.SetDevicesAddresses(devicesAddresses...); err != nil {
-			return errors.Trace(err)
-		}
-	} else if err != nil {
-		return errors.Trace(err)
 	}
 	return nil
 }

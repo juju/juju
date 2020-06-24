@@ -133,10 +133,36 @@ func (m *ModelCommand) Wait() error {
 }
 
 func (m *ModelCommand) Workers() (worker.Worker, error) {
+	port := os.Getenv(caasprovider.EnvModelAgentHTTPPort)
+	if port == "" {
+		return nil, errors.NotValidf("env %s missing", caasprovider.EnvModelAgentHTTPPort)
+	}
+
+	svcName := os.Getenv(caasprovider.EnvModelAgentCAASServiceName)
+	if svcName == "" {
+		return nil, errors.NotValidf("env %s missing", caasprovider.EnvModelAgentCAASServiceName)
+	}
+
+	svcNamespace := os.Getenv(caasprovider.EnvModelAgentCAASServiceNamespace)
+	if svcNamespace == "" {
+		return nil, errors.NotValidf("env %s missing", caasprovider.EnvModelAgentCAASServiceNamespace)
+	}
+
+	updateAgentConfLogging := func(loggingConfig string) error {
+		return m.AgentConf.ChangeConfig(func(setter agent.ConfigSetter) error {
+			setter.SetLoggingConfig(loggingConfig)
+			return nil
+		})
+	}
+
 	manifolds := modeloperator.Manifolds(modeloperator.ManifoldConfig{
 		Agent:                  agent.APIHostPortsSetter{m},
 		AgentConfigChanged:     m.configChangedVal,
 		NewContainerBrokerFunc: caas.New,
+		Port:                   port,
+		ServiceName:            svcName,
+		ServiceNamespace:       svcNamespace,
+		UpdateLoggerConfig:     updateAgentConfLogging,
 	})
 
 	engine, err := dependency.NewEngine(dependencyEngineConfig())

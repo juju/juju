@@ -15,8 +15,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&upgradesSuite{})
-
 func (s *upgradesSuite) TestMigrateLeasesToGlobalTime(c *gc.C) {
 	leases, closer := s.state.db().GetRawCollection("leases")
 	defer closer()
