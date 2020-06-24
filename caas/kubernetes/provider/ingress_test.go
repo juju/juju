@@ -297,3 +297,41 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 		s.mockIngressInterface.EXPECT().Get("test-ingress", v1.GetOptions{}).Return(existingNonJujuManagedIngress, nil),
 	)
 }
+
+func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithIngressCreatedByJujuExpose(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	ingress1Rule1 := extensionsv1beta1.IngressRule{
+		IngressRuleValue: extensionsv1beta1.IngressRuleValue{
+			HTTP: &extensionsv1beta1.HTTPIngressRuleValue{
+				Paths: []extensionsv1beta1.HTTPIngressPath{
+					{
+						Path: "/testpath",
+						Backend: extensionsv1beta1.IngressBackend{
+							ServiceName: "test",
+							ServicePort: intstr.IntOrString{IntVal: 80},
+						},
+					},
+				},
+			},
+		},
+	}
+	ingress1 := k8sspecs.K8sIngressSpec{
+		Name: "app-name",
+		Labels: map[string]string{
+			"foo": "bar",
+		},
+		Annotations: map[string]string{
+			"nginx.ingress.kubernetes.io/rewrite-target": "/",
+		},
+		Spec: extensionsv1beta1.IngressSpec{
+			Rules: []extensionsv1beta1.IngressRule{ingress1Rule1},
+		},
+	}
+
+	IngressResources := []k8sspecs.K8sIngressSpec{ingress1}
+	s.assertIngressResources(
+		c, IngressResources, `creating or updating ingress resources: ingress name "app-name" is reserved for juju expose not valid`,
+	)
+}
