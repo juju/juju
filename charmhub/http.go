@@ -10,6 +10,8 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/charmhub/path"
+	"github.com/juju/juju/charmhub/transport"
 	httprequest "gopkg.in/httprequest.v1"
 )
 
@@ -23,12 +25,6 @@ type Transport interface {
 // DefaultHTTPTransport creates a new HTTPTransport.
 func DefaultHTTPTransport() *http.Client {
 	return &http.Client{}
-}
-
-// APIError represents the error from the charmhub api.
-type APIError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
 }
 
 // APIRequester creates a wrapper around the transport to allow for better
@@ -65,7 +61,7 @@ func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
 		return nil, errors.Errorf(`expected "application/json" contentType from server: %v`, contentType)
 	}
 
-	var apiError APIError
+	var apiError transport.APIError
 	if err := json.Unmarshal(data, &apiError); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -76,7 +72,7 @@ func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
 // RESTClient defines a type for making requests to a server.
 type RESTClient interface {
 	// Get performs GET requests to a given Path.
-	Get(context.Context, Path, interface{}) error
+	Get(context.Context, path.Path, interface{}) error
 }
 
 // HTTPRESTClient represents a RESTClient that expects to interact with a
@@ -97,7 +93,7 @@ func NewHTTPRESTClient(transport Transport) *HTTPRESTClient {
 // parsing the result as JSON into the given result value, which should
 // be a pointer to the expected data, but may be nil if no result is
 // desired.
-func (c *HTTPRESTClient) Get(ctx context.Context, path Path, result interface{}) error {
+func (c *HTTPRESTClient) Get(ctx context.Context, path path.Path, result interface{}) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", path.String(), nil)
 	if err != nil {
 		return errors.Annotate(err, "can not make new request")

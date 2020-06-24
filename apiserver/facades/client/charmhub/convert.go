@@ -5,10 +5,10 @@ package charmhub
 
 import (
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/charmhub/transport"
 )
 
-func convertCharmInfoResult(info charmhub.InfoResponse) params.InfoResponse {
+func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
 	return params.InfoResponse{
 		Type:           info.Type,
 		ID:             info.ID,
@@ -19,7 +19,7 @@ func convertCharmInfoResult(info charmhub.InfoResponse) params.InfoResponse {
 	}
 }
 
-func convertCharm(ch charmhub.Charm) params.CharmHubCharm {
+func convertCharm(ch transport.Charm) params.CharmHubCharm {
 	return params.CharmHubCharm{
 		Categories:  convertCategories(ch.Categories),
 		Description: ch.Description,
@@ -31,7 +31,7 @@ func convertCharm(ch charmhub.Charm) params.CharmHubCharm {
 	}
 }
 
-func convertCategories(categories []charmhub.Category) []params.Category {
+func convertCategories(categories []transport.Category) []params.Category {
 	result := make([]params.Category, len(categories))
 	for i, c := range categories {
 		result[i] = params.Category(c)
@@ -39,7 +39,7 @@ func convertCategories(categories []charmhub.Category) []params.Category {
 	return result
 }
 
-func convertMedia(media []charmhub.Media) []params.Media {
+func convertMedia(media []transport.Media) []params.Media {
 	result := make([]params.Media, len(media))
 	for i, m := range media {
 		result[i] = params.Media(m)
@@ -47,7 +47,7 @@ func convertMedia(media []charmhub.Media) []params.Media {
 	return result
 }
 
-func convertChannelMap(cms []charmhub.ChannelMap) []params.ChannelMap {
+func convertChannelMap(cms []transport.ChannelMap) []params.ChannelMap {
 	result := make([]params.ChannelMap, len(cms))
 	for i, cm := range cms {
 		result[i] = convertOneChannelMap(cm)
@@ -55,7 +55,7 @@ func convertChannelMap(cms []charmhub.ChannelMap) []params.ChannelMap {
 	return result
 }
 
-func convertOneChannelMap(defaultMap charmhub.ChannelMap) params.ChannelMap {
+func convertOneChannelMap(defaultMap transport.ChannelMap) params.ChannelMap {
 	return params.ChannelMap{
 		Channel: params.Channel{
 			Name:       defaultMap.Channel.Name,
@@ -74,7 +74,7 @@ func convertOneChannelMap(defaultMap charmhub.ChannelMap) params.ChannelMap {
 	}
 }
 
-func convertPlatforms(platforms []charmhub.Platform) []params.Platform {
+func convertPlatforms(platforms []transport.Platform) []params.Platform {
 	result := make([]params.Platform, len(platforms))
 	for i, p := range platforms {
 		result[i] = params.Platform(p)

@@ -7,7 +7,7 @@ package mocks
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
-	charmhub "github.com/juju/juju/charmhub"
+	transport "github.com/juju/juju/charmhub/transport"
 	reflect "reflect"
 )
 
@@ -35,10 +35,10 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // Info mocks base method
-func (m *MockClient) Info(arg0 context.Context, arg1 string) (charmhub.InfoResponse, error) {
+func (m *MockClient) Info(arg0 context.Context, arg1 string) (transport.InfoResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Info", arg0, arg1)
-	ret0, _ := ret[0].(charmhub.InfoResponse)
+	ret0, _ := ret[0].(transport.InfoResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

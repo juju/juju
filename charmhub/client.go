@@ -23,6 +23,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+
+	charmhubpath "github.com/juju/juju/charmhub/path"
+	"github.com/juju/juju/charmhub/transport"
 )
 
 // ServerURL holds the default location of the global charm hub.
@@ -40,42 +43,6 @@ const (
 )
 
 const defaultMinMultipartUploadSize = 5 * 1024 * 1024
-
-// Path defines a absolute path for calling requests to the server.
-type Path struct {
-	base *url.URL
-}
-
-// MakePath creates a URL for queries to a server.
-func MakePath(base *url.URL) Path {
-	return Path{
-		base: base,
-	}
-}
-
-// Join will sum path names onto a base URL and ensure it constructs a URL
-// that is valid.
-// Example:
-//  - http://baseurl/name0/name1/
-func (u Path) Join(names ...string) (Path, error) {
-	baseURL := u.String()
-	if !strings.HasSuffix(baseURL, "/") {
-		baseURL += "/"
-	}
-
-	namedPath := path.Join(names...)
-	path, err := url.Parse(baseURL + namedPath)
-	if err != nil {
-		return Path{}, errors.Trace(err)
-	}
-	return MakePath(path), nil
-}
-
-// String returns a stringified version of the Path.
-// Under the hood this calls the url.URL#String method.
-func (u Path) String() string {
-	return u.base.String()
-}
 
 // Config holds configuration for creating a new charm hub client.
 type Config struct {
@@ -102,19 +69,20 @@ func CharmhubConfig() Config {
 }
 
 // BasePath returns the base configuration path for speaking to the server API.
-func (c Config) BasePath() (Path, error) {
+func (c Config) BasePath() (charmhubpath.Path, error) {
 	baseURL := strings.TrimRight(c.URL, "/")
 	rawURL := fmt.Sprintf("%s/%s", baseURL, path.Join(c.Version, c.Entity))
 	url, err := url.Parse(rawURL)
 	if err != nil {
-		return Path{}, errors.Trace(err)
+		return charmhubpath.Path{}, errors.Trace(err)
 	}
-	return MakePath(url), nil
+	return charmhubpath.MakePath(url), nil
 }
 
 // Client represents the client side of a charm store.
 type Client struct {
 	infoClient *InfoClient
+	findClient *FindClient
 }
 
 // NewClient creates a new charmhub client from the supplied configuration.
@@ -129,14 +97,27 @@ func NewClient(config Config) (*Client, error) {
 		return nil, errors.Annotate(err, "constructing info path")
 	}
 
+	findPath, err := base.Join("find")
+	if err != nil {
+		return nil, errors.Annotate(err, "constructing find path")
+	}
+
 	httpClient := DefaultHTTPTransport()
 	apiRequester := NewAPIRequester(httpClient)
+	restClient := NewHTTPRESTClient(apiRequester)
+
 	return &Client{
-		infoClient: NewInfoClient(infoPath, NewHTTPRESTClient(apiRequester)),
+		infoClient: NewInfoClient(infoPath, restClient),
+		findClient: NewFindClient(findPath, restClient),
 	}, nil
 }
 
 // Info returns charm info on the provided charm name from charmhub.
-func (c *Client) Info(ctx context.Context, name string) (InfoResponse, error) {
-	return c.infoClient.Get(ctx, name)
+func (c *Client) Info(ctx context.Context, name string) (transport.InfoResponse, error) {
+	return c.infoClient.Info(ctx, name)
+}
+
+// Find searches for a given charm for a given name from charmhub.
+func (c *Client) Find(ctx context.Context, name string) ([]transport.FindResponse, error) {
+	return c.findClient.Find(ctx, name)
 }
