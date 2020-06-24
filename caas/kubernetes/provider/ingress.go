@@ -29,6 +29,9 @@ func (k *kubernetesClient) ensureIngressResources(
 	appName string, annotations k8sannotations.Annotation, ingSpecs []k8sspecs.K8sIngressSpec,
 ) (cleanUps []func(), err error) {
 	for _, v := range ingSpecs {
+		if v.Name == appName {
+			return cleanUps, errors.NotValidf("ingress name %q is reserved for juju expose", appName)
+		}
 		ing := &v1beta1.Ingress{
 			ObjectMeta: v1.ObjectMeta{
 				Name:        v.Name,
