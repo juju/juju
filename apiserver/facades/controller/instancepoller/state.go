@@ -4,70 +4,22 @@
 package instancepoller
 
 import (
-	"gopkg.in/mgo.v2/txn"
-
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
-// StateLinkLayerDevice represents a link layer device address from state package.
-type StateLinkLayerDeviceAddress interface {
-	DeviceName() string
-	ConfigMethod() network.AddressConfigMethod
-	SubnetCIDR() string
-	DNSServers() []string
-	DNSSearchDomains() []string
-	GatewayAddress() string
-	IsDefaultGateway() bool
-	Value() string
-
-	// Origin indicates the authority that is maintaining this address.
-	Origin() network.Origin
-
-	// SetOriginOps returns the transaction operations required to change
-	// the origin for this address.
-	SetOriginOps(origin network.Origin) []txn.Op
-
-	// SetProviderIDOps returns the operations required to set the input
-	// provider ID for the address.
-	SetProviderIDOps(id network.Id) ([]txn.Op, error)
-
-	// SetProviderNetIDsOps returns the transaction operations required to ensure
-	// that the input provider IDs are set against the address.
-	SetProviderNetIDsOps(networkID, subnetID network.Id) []txn.Op
-}
-
-// StateLinkLayerDevice represents a link layer device from state package.
-type StateLinkLayerDevice interface {
-	Name() string
-	MTU() uint
-	Type() network.LinkLayerDeviceType
-	IsLoopbackDevice() bool
-	MACAddress() string
-	IsAutoStart() bool
-	IsUp() bool
-	ParentName() string
-
-	// ProviderID returns the provider-specific identifier for this device.
-	ProviderID() network.Id
-
-	// SetProviderIDOps returns the operations required to set the input
-	// provider ID for the link-layer device.
-	SetProviderIDOps(id network.Id) ([]txn.Op, error)
-}
-
 // StateMachine represents a machine from state package.
 type StateMachine interface {
 	state.Entity
+	networkingcommon.LinkLayerMachine
 
 	Id() string
 	InstanceId() (instance.Id, error)
 	ProviderAddresses() network.SpaceAddresses
 	SetProviderAddresses(...network.SpaceAddress) error
-	AllLinkLayerDevices() ([]StateLinkLayerDevice, error)
-	AllAddresses() ([]StateLinkLayerDeviceAddress, error)
 	InstanceStatus() (status.StatusInfo, error)
 	SetInstanceStatus(status.StatusInfo) error
 	SetStatus(status.StatusInfo) error
@@ -76,7 +28,6 @@ type StateMachine interface {
 	Life() state.Life
 	Status() (status.StatusInfo, error)
 	IsManual() (bool, error)
-	AssertAliveOp() txn.Op
 }
 
 type StateInterface interface {
@@ -95,13 +46,13 @@ type machineShim struct {
 	*state.Machine
 }
 
-func (s machineShim) AllLinkLayerDevices() ([]StateLinkLayerDevice, error) {
+func (s machineShim) AllLinkLayerDevices() ([]networkingcommon.LinkLayerDevice, error) {
 	devList, err := s.Machine.AllLinkLayerDevices()
 	if err != nil {
 		return nil, err
 	}
 
-	out := make([]StateLinkLayerDevice, len(devList))
+	out := make([]networkingcommon.LinkLayerDevice, len(devList))
 	for i, dev := range devList {
 		out[i] = dev
 	}
@@ -109,13 +60,13 @@ func (s machineShim) AllLinkLayerDevices() ([]StateLinkLayerDevice, error) {
 	return out, nil
 }
 
-func (s machineShim) AllAddresses() ([]StateLinkLayerDeviceAddress, error) {
+func (s machineShim) AllAddresses() ([]networkingcommon.LinkLayerAddress, error) {
 	addrList, err := s.Machine.AllAddresses()
 	if err != nil {
 		return nil, err
 	}
 
-	out := make([]StateLinkLayerDeviceAddress, len(addrList))
+	out := make([]networkingcommon.LinkLayerAddress, len(addrList))
 	for i, addr := range addrList {
 		out[i] = addr
 	}
