@@ -10,13 +10,14 @@ import (
 	"github.com/juju/errors"
 )
 
-// FindClient defines a client for info requests.
+// FindClient defines a client for querying information about a given charm or
+// bundle for a given charmhub store.
 type FindClient struct {
 	path   Path
 	client RESTClient
 }
 
-// NewFindClient creates a FindClient for requesting
+// NewFindClient creates a FindClient for querying charm or bundle information.
 func NewFindClient(path Path, client RESTClient) *FindClient {
 	return &FindClient{
 		path:   path,
