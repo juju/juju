@@ -59,9 +59,8 @@
   source = "github.com/juju/raft-boltdb"
 
 [[constraint]]
-  revision = "9c9a93fa5758432ec07279ca9ece5c686008a802"
+  revision = "6fa9a5bcf8d4ec654391174c8fe8ab032f0fd0c4"
   name = "github.com/juju/bundlechanges"
-  source = "github.com/SimonRichardson/bundlechanges"
 
 [[constraint]]
   revision = "518c591d8576f28b31d46e90ee00536418690345"

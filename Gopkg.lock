@@ -483,8 +483,7 @@
   name = "github.com/juju/bundlechanges"
   packages = ["."]
   pruneopts = ""
-  revision = "9c9a93fa5758432ec07279ca9ece5c686008a802"
-  source = "github.com/SimonRichardson/bundlechanges"
+  revision = "6fa9a5bcf8d4ec654391174c8fe8ab032f0fd0c4"
 
 [[projects]]
   digest = "1:f720ea29e073a9a7109a5080f32753292dc8616a22a905876d425cc64c21bd8d"
