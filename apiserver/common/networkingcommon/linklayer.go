@@ -164,3 +164,8 @@ func (o *MachineLinkLayerOp) MarkProcessed(dev LinkLayerDevice) {
 func (o *MachineLinkLayerOp) IsProcessed(dev network.InterfaceInfo) bool {
 	return o.processed.Contains(dev.MACAddress)
 }
+
+// Done (state.ModelOperation) returns the result of running the operation.
+func (o *MachineLinkLayerOp) Done(err error) error {
+	return err
+}
