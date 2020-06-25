@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
+	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/gate"
@@ -58,13 +59,32 @@ func (s *ManifoldSuite) TestUnlockAgain(c *gc.C) {
 	assertUnlocked(c, w)
 }
 
-func (s *ManifoldSuite) TestSameManifoldWorkersConnected(c *gc.C) {
-	worker2, err := s.manifold.Start(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	defer checkStop(c, worker2)
-
+func (s *ManifoldSuite) TestRestartLocks(c *gc.C) {
 	u := unlocker(c, s.manifold, s.worker)
-	w := waiter(c, s.manifold, worker2)
+	u.Unlock()
+
+	workertest.CleanKill(c, s.worker)
+	worker, err := s.manifold.Start(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, worker)
+
+	w := waiter(c, s.manifold, worker)
+	assertLocked(c, w)
+}
+
+func (s *ManifoldSuite) TestManifoldWithLockWorkersConnected(c *gc.C) {
+	lock := gate.NewLock()
+	manifold := gate.ManifoldEx(lock)
+	worker, err := manifold.Start(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, worker)
+
+	worker2, err := manifold.Start(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, worker2)
+
+	u := unlocker(c, manifold, worker)
+	w := waiter(c, manifold, worker2)
 
 	u.Unlock()
 	assertUnlocked(c, w)

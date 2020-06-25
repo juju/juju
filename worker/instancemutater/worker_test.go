@@ -310,8 +310,17 @@ func (s *workerEnvironSuite) TestMachineNotSupported(c *gc.C) {
 
 	s.notifyMachines([][]string{{"0"}})
 	s.expectFacadeMachineTag(0)
-	s.machine[0].EXPECT().WatchLXDProfileVerificationNeeded().Return(nil, errors.NotSupportedf(""))
-	s.machine[0].EXPECT().CharmProfilingInfo().Times(0)
+
+	// We need another sync point here, because the worker can be killed
+	// before this method is called.
+	s.doneWG.Add(1)
+	s.machine[0].EXPECT().WatchLXDProfileVerificationNeeded().DoAndReturn(
+		func() (watcher.NotifyWatcher, error) {
+			s.doneWG.Done()
+			return nil, errors.NotSupportedf("")
+		},
+	)
+
 	s.cleanKill(c, s.workerForScenario(c))
 }
 
