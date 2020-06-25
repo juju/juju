@@ -9,6 +9,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/core/network"
 )
 
@@ -16,33 +17,21 @@ import (
 // provider-sourced network configuration with existing data for a single
 // machine/host/container.
 type mergeMachineLinkLayerOp struct {
-	// machine is the machine for which this operation
-	// sets link-layer device information.
-	machine StateMachine
-
-	// incoming is the network interface information incoming from the provider.
-	incoming network.InterfaceInfos
-
-	// processed is the set of hardware IDs that we have
-	// processed from the incoming interfaces.
-	processed set.Strings
-
-	existingDevs  []StateLinkLayerDevice
-	existingAddrs []StateLinkLayerDeviceAddress
+	*networkingcommon.MachineLinkLayerOp
 }
 
-func newMergeMachineLinkLayerOp(machine StateMachine, incoming network.InterfaceInfos) *mergeMachineLinkLayerOp {
+func newMergeMachineLinkLayerOp(
+	machine networkingcommon.LinkLayerMachine, incoming network.InterfaceInfos,
+) *mergeMachineLinkLayerOp {
 	return &mergeMachineLinkLayerOp{
-		machine:   machine,
-		incoming:  incoming,
-		processed: set.NewStrings(),
+		networkingcommon.NewMachineLinkLayerOp(machine, incoming),
 	}
 }
 
+// Build (state.ModelOperation) returns the transaction operations used to
+// merge incoming provider link-layer data with that in state.
 func (o *mergeMachineLinkLayerOp) Build(_ int) ([]txn.Op, error) {
-	var err error
-
-	if o.existingDevs, err = o.machine.AllLinkLayerDevices(); err != nil {
+	if err := o.PopulateExistingDevices(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -51,16 +40,16 @@ func (o *mergeMachineLinkLayerOp) Build(_ int) ([]txn.Op, error) {
 	// machine document, so the incoming provider-sourced addresses are usable.
 	// For now we ensure that the instance poller only adds device information
 	// that the machine agent is unaware of.
-	if len(o.existingDevs) == 0 {
+	if len(o.ExistingDevices()) == 0 {
 		return nil, jujutxn.ErrNoOperations
 	}
 
-	if o.existingAddrs, err = o.machine.AllAddresses(); err != nil {
+	if err := o.PopulateExistingAddresses(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var ops []txn.Op
-	for _, existingDev := range o.existingDevs {
+	for _, existingDev := range o.ExistingDevices() {
 		devOps, err := o.processExistingDevice(existingDev)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -71,16 +60,16 @@ func (o *mergeMachineLinkLayerOp) Build(_ int) ([]txn.Op, error) {
 	o.processNewDevices()
 
 	if len(ops) > 0 {
-		return append([]txn.Op{o.machine.AssertAliveOp()}, ops...), nil
+		return append([]txn.Op{o.AssertAliveOp()}, ops...), nil
 	}
 	return ops, nil
 }
 
-func (o *mergeMachineLinkLayerOp) processExistingDevice(dev StateLinkLayerDevice) ([]txn.Op, error) {
+func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.LinkLayerDevice) ([]txn.Op, error) {
 	// Match the incoming device by hardware address in order to
 	// identify addresses by device name.
 	// Not all providers (such as AWS) have names for NIC devices.
-	incomingDev := o.incoming.GetByHardwareAddress(dev.MACAddress())
+	incomingDev := o.Incoming().GetByHardwareAddress(dev.MACAddress())
 
 	// If this device was not observed by the provider,
 	// ensure that responsibility for the addresses is relinquished
@@ -106,7 +95,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev StateLinkLayerDevice
 		return nil, errors.Trace(err)
 	}
 
-	for _, addr := range o.deviceAddrs(dev) {
+	for _, addr := range o.DeviceAddresses(dev) {
 		addrOps, err := o.processExistingDeviceAddress(addr, incomingDev)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -114,33 +103,23 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev StateLinkLayerDevice
 		ops = append(ops, addrOps...)
 	}
 
-	o.processed.Add(dev.MACAddress())
+	o.MarkProcessed(dev)
 	return ops, nil
 }
 
 // opsForDeviceOriginRelinquishment returns transaction operations required to
 // ensure that the origin for all addresses on the device is relinquished to
 // the machine.
-func (o *mergeMachineLinkLayerOp) opsForDeviceOriginRelinquishment(dev StateLinkLayerDevice) []txn.Op {
+func (o *mergeMachineLinkLayerOp) opsForDeviceOriginRelinquishment(dev networkingcommon.LinkLayerDevice) []txn.Op {
 	var ops []txn.Op
-	for _, addr := range o.deviceAddrs(dev) {
+	for _, addr := range o.DeviceAddresses(dev) {
 		ops = append(ops, addr.SetOriginOps(network.OriginMachine)...)
 	}
 	return ops
 }
 
-func (o *mergeMachineLinkLayerOp) deviceAddrs(dev StateLinkLayerDevice) []StateLinkLayerDeviceAddress {
-	var addrs []StateLinkLayerDeviceAddress
-	for _, addr := range o.existingAddrs {
-		if addr.DeviceName() == dev.Name() {
-			addrs = append(addrs, addr)
-		}
-	}
-	return addrs
-}
-
 func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
-	addr StateLinkLayerDeviceAddress, incomingDev *network.InterfaceInfo,
+	addr networkingcommon.LinkLayerAddress, incomingDev *network.InterfaceInfo,
 ) ([]txn.Op, error) {
 	addrValue := addr.Value()
 
@@ -177,8 +156,8 @@ func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
 // At the time of writing we preserve existing behaviour and do not add them.
 // Log for now and consider adding such devices in the future.
 func (o *mergeMachineLinkLayerOp) processNewDevices() {
-	for _, dev := range o.incoming {
-		if !o.processed.Contains(dev.MACAddress) {
+	for _, dev := range o.Incoming() {
+		if !o.IsProcessed(dev) {
 			logger.Debugf(
 				"ignoring unrecognised device %q (%s) with addresses %v",
 				dev.InterfaceName, dev.MACAddress, dev.Addresses,

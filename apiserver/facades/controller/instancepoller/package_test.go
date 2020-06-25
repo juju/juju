@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package instancepoller -destination package_mock_test.go github.com/juju/juju/apiserver/facades/controller/instancepoller StateLinkLayerDevice,StateLinkLayerDeviceAddress
+//go:generate go run github.com/golang/mock/mockgen -package instancepoller -destination package_mock_test.go github.com/juju/juju/apiserver/common/networkingcommon LinkLayerDevice,LinkLayerAddress
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
