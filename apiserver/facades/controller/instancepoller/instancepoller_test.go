@@ -16,6 +16,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -912,20 +913,20 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *gc
 	s.setDefaultSpaceInfo()
 
 	// Hardware address not matched.
-	dev := instancepoller.NewMockStateLinkLayerDevice(ctrl)
+	dev := instancepoller.NewMockLinkLayerDevice(ctrl)
 	dev.EXPECT().MACAddress().Return("01:01:01:01:01:01")
 	dev.EXPECT().Name().Return("eth0")
 
 	// Address should be set back to machine origin.
-	addr := instancepoller.NewMockStateLinkLayerDeviceAddress(ctrl)
+	addr := instancepoller.NewMockLinkLayerAddress(ctrl)
 	addr.EXPECT().DeviceName().Return("eth0")
 	addr.EXPECT().SetOriginOps(network.OriginMachine).Return([]txn.Op{{C: "address-origin-manual"}})
 
 	s.st.SetMachineInfo(c, machineInfo{
 		id:               "1",
 		instanceStatus:   statusInfo("foo"),
-		linkLayerDevices: []instancepoller.StateLinkLayerDevice{dev},
-		addresses:        []instancepoller.StateLinkLayerDeviceAddress{addr},
+		linkLayerDevices: []networkingcommon.LinkLayerDevice{dev},
+		addresses:        []networkingcommon.LinkLayerAddress{addr},
 	})
 
 	result, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
@@ -960,7 +961,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 	s.setDefaultSpaceInfo()
 
 	// Hardware address will match; prover ID will be set.
-	dev := instancepoller.NewMockStateLinkLayerDevice(ctrl)
+	dev := instancepoller.NewMockLinkLayerDevice(ctrl)
 	dExp := dev.EXPECT()
 	dExp.MACAddress().Return("00:00:00:00:00:00").Times(2)
 	dExp.Name().Return("eth0")
@@ -968,7 +969,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 	dExp.SetProviderIDOps(network.Id("p-dev")).Return([]txn.Op{{C: "dev-provider-id"}}, nil)
 
 	// Address matched on device/value will have provider IDs set.
-	addr := instancepoller.NewMockStateLinkLayerDeviceAddress(ctrl)
+	addr := instancepoller.NewMockLinkLayerAddress(ctrl)
 	aExp := addr.EXPECT()
 	aExp.DeviceName().Return("eth0")
 	aExp.Value().Return("10.0.0.42")
@@ -978,8 +979,8 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 	s.st.SetMachineInfo(c, machineInfo{
 		id:               "1",
 		instanceStatus:   statusInfo("foo"),
-		linkLayerDevices: []instancepoller.StateLinkLayerDevice{dev},
-		addresses:        []instancepoller.StateLinkLayerDeviceAddress{addr},
+		linkLayerDevices: []networkingcommon.LinkLayerDevice{dev},
+		addresses:        []networkingcommon.LinkLayerAddress{addr},
 	})
 
 	result, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{

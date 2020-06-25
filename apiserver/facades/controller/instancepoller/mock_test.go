@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/juju/apiserver/common/networkingcommon"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -271,8 +273,8 @@ type machineInfo struct {
 	isManual          bool
 
 	// See package_mock_test.go for these mocks.
-	linkLayerDevices []instancepoller.StateLinkLayerDevice
-	addresses        []instancepoller.StateLinkLayerDeviceAddress
+	linkLayerDevices []networkingcommon.LinkLayerDevice
+	addresses        []networkingcommon.LinkLayerAddress
 }
 
 type mockMachine struct {
@@ -335,7 +337,7 @@ func (m *mockMachine) SetProviderAddresses(addrs ...network.SpaceAddress) error 
 }
 
 // AllLinkLayerDevices implements StateMachine.
-func (m *mockMachine) AllLinkLayerDevices() ([]instancepoller.StateLinkLayerDevice, error) {
+func (m *mockMachine) AllLinkLayerDevices() ([]networkingcommon.LinkLayerDevice, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -347,7 +349,7 @@ func (m *mockMachine) AllLinkLayerDevices() ([]instancepoller.StateLinkLayerDevi
 }
 
 // AllAddresses implements StateMachine.
-func (m *mockMachine) AllAddresses() ([]instancepoller.StateLinkLayerDeviceAddress, error) {
+func (m *mockMachine) AllAddresses() ([]networkingcommon.LinkLayerAddress, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
