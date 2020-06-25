@@ -49,9 +49,9 @@ type LinkLayerAddress interface {
 	SetProviderNetIDsOps(networkID, subnetID network.Id) []txn.Op
 }
 
-// LinkLayerMachine describes a machine that can query
-// and update link-layer device data.
-type LinkLayerMachine interface {
+// LinkLayerAccessor describes an entity that can
+// return link-layer data related to it.
+type LinkLayerAccessor interface {
 	// AllLinkLayerDevices returns all currently known
 	// layer-2 devices for the machine.
 	AllLinkLayerDevices() ([]LinkLayerDevice, error)
@@ -59,6 +59,12 @@ type LinkLayerMachine interface {
 	// AllAddresses returns all IP addresses assigned to the machine's
 	// link-layer devices
 	AllAddresses() ([]LinkLayerAddress, error)
+}
+
+// LinkLayerMachine describes a machine that can return its link-layer data
+// and assert that it is alive in preparation for updating such data.
+type LinkLayerMachine interface {
+	LinkLayerAccessor
 
 	// AssertAliveOp returns a transaction operation for asserting
 	// that the machine is currently alive.
