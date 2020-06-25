@@ -13,6 +13,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
+	gooseerrors "gopkg.in/goose.v2/errors"
 	"gopkg.in/goose.v2/neutron"
 
 	"github.com/juju/juju/core/instance"
@@ -299,14 +300,17 @@ func deleteSecurityGroupsOneOfNames(
 // of the groups is tried multiple times.
 func deleteSecurityGroup(
 	ctx context.ProviderCallContext,
-	deleteSecurityGroupById func(string) error,
+	deleteSecurityGroupByID func(string) error,
 	name, id string,
 	clock clock.Clock,
 ) {
 	logger.Debugf("deleting security group %q", name)
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
-			if err := deleteSecurityGroupById(id); err != nil {
+			if err := deleteSecurityGroupByID(id); err != nil {
+				if gooseerrors.IsNotFound(err) {
+					return nil
+				}
 				common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 				return errors.Trace(err)
 			}
@@ -602,8 +606,11 @@ func (c *neutronFirewaller) ensureGroup(name string, rules []neutron.RuleInfoV2)
 			remove[k] = have[k]
 		}
 	}
-	for _, ruleId := range remove {
-		if err = neutronClient.DeleteSecurityGroupRuleV2(ruleId); err != nil {
+	for _, ruleID := range remove {
+		if err = neutronClient.DeleteSecurityGroupRuleV2(ruleID); err != nil {
+			if gooseerrors.IsNotFound(err) {
+				continue
+			}
 			return zeroGroup, err
 		}
 	}
@@ -950,13 +957,16 @@ func (c *neutronFirewaller) closePortsInGroup(ctx context.ProviderCallContext, n
 	}
 	neutronClient := c.environ.neutron()
 	// TODO: Hey look ma, it's quadratic
+	// TODO: (stickupkid): Put into a map and delete linearly.
 	for _, rule := range rules {
 		for _, p := range group.Rules {
 			if !secGroupMatchesIngressRule(p, rule) {
 				continue
 			}
-			err := neutronClient.DeleteSecurityGroupRuleV2(p.Id)
-			if err != nil {
+			if err := neutronClient.DeleteSecurityGroupRuleV2(p.Id); err != nil {
+				if gooseerrors.IsNotFound(err) {
+					continue
+				}
 				common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 				return errors.Trace(err)
 			}
