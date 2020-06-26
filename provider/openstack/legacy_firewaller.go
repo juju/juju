@@ -32,7 +32,7 @@ type legacyNovaFirewaller struct {
 // other instances that might be running on the same OpenStack account.
 // In addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
-func (c *legacyNovaFirewaller) SetUpGroups(ctx context.ProviderCallContext, controllerUUID, machineId string, apiPort int) ([]string, error) {
+func (c *legacyNovaFirewaller) SetUpGroups(ctx context.ProviderCallContext, controllerUUID, machineID string, apiPort int) ([]string, error) {
 	jujuGroup, err := c.setUpGlobalGroup(ctx, c.jujuGroupName(controllerUUID), apiPort)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -40,7 +40,7 @@ func (c *legacyNovaFirewaller) SetUpGroups(ctx context.ProviderCallContext, cont
 	var machineGroup nova.SecurityGroup
 	switch c.environ.Config().FirewallMode() {
 	case config.FwInstance:
-		machineGroup, err = c.ensureGroup(ctx, c.machineGroupName(controllerUUID, machineId), nil)
+		machineGroup, err = c.ensureGroup(ctx, c.machineGroupName(controllerUUID, machineID), nil)
 	case config.FwGlobal:
 		machineGroup, err = c.ensureGroup(ctx, c.globalGroupName(controllerUUID), nil)
 	}
@@ -132,6 +132,7 @@ func (c *legacyNovaFirewaller) ensureGroup(ctx context.ProviderCallContext, name
 			// mean CIDR=0.0.0.0/0
 			rule.GroupId = &group.Id
 		}
+
 		groupRule, err := novaClient.CreateSecurityGroupRule(rule)
 		if err != nil && !gooseerrors.IsDuplicateValue(err) {
 			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
@@ -149,6 +150,7 @@ func (c *legacyNovaFirewaller) deleteSecurityGroups(ctx context.ProviderCallCont
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return errors.Annotate(err, "cannot list security groups")
 	}
+
 	for _, group := range securityGroups {
 		if match(group.Name) {
 			deleteSecurityGroup(ctx,
@@ -238,18 +240,18 @@ func (c *legacyNovaFirewaller) IngressRules(ctx context.ProviderCallContext) ([]
 }
 
 // OpenInstancePorts implements Firewaller interface.
-func (c *legacyNovaFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, rules []network.IngressRule) error {
-	return c.openInstancePorts(ctx, c.openPortsInGroup, machineId, rules)
+func (c *legacyNovaFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineID string, rules []network.IngressRule) error {
+	return c.openInstancePorts(ctx, c.openPortsInGroup, machineID, rules)
 }
 
 // CloseInstancePorts implements Firewaller interface.
-func (c *legacyNovaFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, rules []network.IngressRule) error {
-	return c.closeInstancePorts(ctx, c.closePortsInGroup, machineId, rules)
+func (c *legacyNovaFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineID string, rules []network.IngressRule) error {
+	return c.closeInstancePorts(ctx, c.closePortsInGroup, machineID, rules)
 }
 
 // InstanceIngressRules implements Firewaller interface.
-func (c *legacyNovaFirewaller) InstanceIngressRules(ctx context.ProviderCallContext, inst instances.Instance, machineId string) ([]network.IngressRule, error) {
-	return c.instanceIngressRules(ctx, c.ingressRulesInGroup, machineId)
+func (c *legacyNovaFirewaller) InstanceIngressRules(ctx context.ProviderCallContext, inst instances.Instance, machineID string) ([]network.IngressRule, error) {
+	return c.instanceIngressRules(ctx, c.ingressRulesInGroup, machineID)
 }
 
 func (c *legacyNovaFirewaller) matchingGroup(ctx context.ProviderCallContext, nameRegExp string) (nova.SecurityGroup, error) {
