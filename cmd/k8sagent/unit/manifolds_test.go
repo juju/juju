@@ -46,10 +46,6 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"leadership-tracker",
 		"hook-retry-strategy",
 
-		"upgrade-steps-runner",
-		"upgrade-steps-gate",
-		"upgrade-steps-flag",
-
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
@@ -76,10 +72,6 @@ func (*ManifoldsSuite) TestMigrationGuards(c *gc.C) {
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
-
-		"upgrade-steps-runner",
-		"upgrade-steps-gate",
-		"upgrade-steps-flag",
 	)
 	config := unit.ManifoldsConfig{}
 	manifolds := unit.Manifolds(config)
@@ -129,8 +121,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"leadership-tracker",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate"},
+	},
 
 	"log-sender": {"agent", "api-caller", "api-config-watcher"},
 
@@ -140,50 +131,36 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate"},
+	},
 	"leadership-tracker": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate"},
+	},
 	"hook-retry-strategy": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate"},
-
-	"upgrade-steps-runner": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"upgrade-steps-gate",
 	},
-	"upgrade-steps-gate": {},
-	"upgrade-steps-flag": {"upgrade-steps-gate"},
 
-	"migration-fortress": {
-		"upgrade-steps-flag",
-		"upgrade-steps-gate"},
+	"migration-fortress": {},
 
 	"migration-inactive-flag": {
 		"agent",
 		"api-caller",
-		"api-config-watcher"},
+		"api-config-watcher",
+	},
 
 	"migration-minion": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
 		"migration-fortress",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate"},
+	},
 
 	"proxy-config-updater": {
 		"agent",
@@ -191,22 +168,19 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate"},
+	},
 	"logging-config-updater": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate"},
+	},
 	"api-address-updater": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate"},
+	},
 }

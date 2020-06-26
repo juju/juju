@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
@@ -242,7 +241,7 @@ func (c *k8sUnitAgent) Run(_ *cmd.Context) (err error) {
 	}
 
 	c.runner.StartWorker("unit", c.workers)
-	return cmdutil.AgentDone(logger, c.runner.Wait())
+	return AgentDone(logger, c.runner.Wait())
 }
 
 // validateMigration is called by the migrationminion to help check
@@ -270,4 +269,21 @@ func (c *k8sUnitAgent) validateMigration(apiCaller base.APICaller) error {
 			newModelUUID, curModelUUID)
 	}
 	return nil
+}
+
+// AgentDone processes the error returned by an exiting agent.
+func AgentDone(logger loggo.Logger, err error) error {
+	err = errors.Cause(err)
+	switch err {
+	case jworker.ErrTerminateAgent:
+		// These errors are swallowed here because we want to exit
+		// the agent process without error, to avoid the init system
+		// restarting us.
+		err = nil
+	}
+	if err == jworker.ErrRestartAgent {
+		// This does not seems to happen for k8s units.
+		logger.Warningf("agent restarting")
+	}
+	return err
 }

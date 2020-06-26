@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
@@ -38,7 +37,6 @@ import (
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/retrystrategy"
 	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/worker/upgradesteps"
 )
 
 // manifoldsConfig allows specialisation of the result of Manifolds.
@@ -132,42 +130,13 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			LogSource:     config.LogSource,
 		}),
 
-		// The upgrade steps gate is used to coordinate workers which
-		// shouldn't do anything until the upgrade-steps worker has
-		// finished running any required upgrade steps. The flag of
-		// similar name is used to implement the isFullyUpgraded func
-		// that keeps upgrade concerns out of unrelated manifolds.
-		upgradeStepsGateName: gate.ManifoldEx(config.UpgradeStepsLock),
-		upgradeStepsFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
-			GateName:  upgradeStepsGateName,
-			NewWorker: gate.NewFlagWorker,
-		}),
-
-		// TODO(ycliuhw): implement upgrade stragegy for the new CAAS agent.
+		// TODO(ycliuhw): implement upgrade strategy for the new CAAS agent.
 		// upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
 		// 	AgentName:            agentName,
 		// 	APICallerName:        apiCallerName,
 		// 	UpgradeStepsGateName: upgradeStepsGateName,
 		// 	PreviousAgentVersion: config.PreviousAgentVersion,
 		// }),
-
-		// The upgradesteps worker runs soon after the operator
-		// starts and runs any steps required to upgrade to the
-		// running jujud version. Once upgrade steps have run, the
-		// upgradesteps gate is unlocked and the worker exits.
-		upgradeStepsName: upgradesteps.Manifold(upgradesteps.ManifoldConfig{
-			AgentName:            agentName,
-			APICallerName:        apiCallerName,
-			UpgradeStepsGateName: upgradeStepsGateName,
-			// Realistically,  operators should not open state for any reason.
-			OpenStateForUpgrade: func() (*state.StatePool, error) {
-				return nil, errors.New("operator cannot open state")
-			},
-			PreUpgradeSteps: config.PreUpgradeSteps,
-			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
-				return &noopStatusSetter{}, nil
-			},
-		}),
 
 		// The migration workers collaborate to run migrations;
 		// and to create a mechanism for running other workers
@@ -178,7 +147,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		// possible interference with the minion (which will not
 		// take action until it's gained sole control of the
 		// fortress).
-		migrationFortressName: ifFullyUpgraded(fortress.Manifold()),
+		migrationFortressName: fortress.Manifold(),
 		migrationInactiveFlagName: migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
 			Check:         migrationflag.IsTerminal,
@@ -284,12 +253,6 @@ func clockManifold(clock clock.Clock) dependency.Manifold {
 	}
 }
 
-var ifFullyUpgraded = engine.Housing{
-	Flags: []string{
-		upgradeStepsFlagName,
-	},
-}.Decorate
-
 var ifNotMigrating = engine.Housing{
 	Flags: []string{
 		migrationInactiveFlagName,
@@ -308,10 +271,6 @@ const (
 	charmDirName          = "charm-dir"
 	leadershipTrackerName = "leadership-tracker"
 	hookRetryStrategyName = "hook-retry-strategy"
-
-	upgradeStepsName     = "upgrade-steps-runner"
-	upgradeStepsGateName = "upgrade-steps-gate"
-	upgradeStepsFlagName = "upgrade-steps-flag"
 
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"
