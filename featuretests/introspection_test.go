@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/introspect"
 	"github.com/juju/juju/state"
@@ -102,7 +103,7 @@ func (s *introspectionSuite) startAgent(
 	c *gc.C, tag names.Tag, password string, vers version.Binary, isCaas bool,
 ) (*agentcmd.MachineAgent, string) {
 	s.PrimeStateAgentVersion(c, tag, password, vers)
-	agentConf := agentcmd.NewAgentConf(s.DataDir())
+	agentConf := agentconf.NewAgentConf(s.DataDir())
 	err := agentConf.ReadConfig(tag.String())
 	c.Assert(err, jc.ErrorIsNil)
 

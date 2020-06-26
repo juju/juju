@@ -21,6 +21,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/common"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/agent/addons"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -80,15 +82,15 @@ func (s *dblogSuite) TestMachineAgentLogsGoToDBIAAS(c *gc.C) {
 }
 
 func (s *dblogSuite) assertAgentLogsGoToDB(c *gc.C, tag names.Tag, isCaas bool) {
-	agentConf := agentcmd.NewAgentConf(s.DataDir())
-	err := agentConf.ReadConfig(tag.String())
+	aCfg := agentconf.NewAgentConf(s.DataDir())
+	err := aCfg.ReadConfig(tag.String())
 	c.Assert(err, jc.ErrorIsNil)
 	logger, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 1000)
 	c.Assert(err, jc.ErrorIsNil)
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
-		agentConf,
+		aCfg,
 		logger,
-		agentcmd.DefaultIntrospectionSocketName,
+		addons.DefaultIntrospectionSocketName,
 		noPreUpgradeSteps,
 		c.MkDir(),
 	)
