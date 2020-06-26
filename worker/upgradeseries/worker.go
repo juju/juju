@@ -195,13 +195,13 @@ func (w *upgradeSeriesWorker) handlePrepareStarted() error {
 		return nil
 	}
 
-	return errors.Trace(w.transitionPrepareComplete(unitServices))
+	return errors.Trace(w.transitionPrepareComplete())
 }
 
 // transitionPrepareComplete rewrites service unit files for unit agents running
 // on this machine so that they are compatible with the init system of the
 // series upgrade target.
-func (w *upgradeSeriesWorker) transitionPrepareComplete(unitServices map[string]string) error {
+func (w *upgradeSeriesWorker) transitionPrepareComplete() error {
 	w.logger.Infof("preparing service units for series upgrade")
 	toSeries, err := w.TargetSeries()
 	if err != nil {
