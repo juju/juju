@@ -256,24 +256,21 @@ func (s *systemdServiceManager) CreateAgentConf(name string, dataDir string) (_ 
 
 // CopyAgentBinary copies all the tools into the path specified for each agent.
 func (s *systemdServiceManager) CopyAgentBinary(
-	machineAgent string,
-	unitAgents []string,
-	dataDir, toSeries, fromSeries string,
-	jujuVersion version.Number,
+	machineAgent string, unitAgents []string, dataDir, toSeries, fromSeries string, jujuVersion version.Number,
 ) (err error) {
 	defer func() {
 		if err != nil {
-			err = errors.Annotate(err, "failed to copy tools")
+			err = errors.Annotate(err, "copying agent binaries")
 		}
 	}()
 
 	// Setup new and old version.Binary instances with different series.
-	fromVers := version.Binary{
+	fromVer := version.Binary{
 		Number: jujuVersion,
 		Arch:   arch.HostArch(),
 		Series: fromSeries,
 	}
-	toVers := version.Binary{
+	toVer := version.Binary{
 		Number: jujuVersion,
 		Arch:   arch.HostArch(),
 		Series: toSeries,
@@ -281,41 +278,39 @@ func (s *systemdServiceManager) CopyAgentBinary(
 
 	// If tools with the new series don't already exist, copy
 	// current tools to new directory with correct series.
-	if _, err = os.Stat(tools.SharedToolsDir(dataDir, toVers)); err != nil {
+	if _, err = os.Stat(tools.SharedToolsDir(dataDir, toVer)); err != nil {
 		// Copy tools to new directory with correct series.
-		if err = fs.Copy(tools.SharedToolsDir(dataDir, fromVers), tools.SharedToolsDir(dataDir, toVers)); err != nil {
-			return err
+		if err = fs.Copy(tools.SharedToolsDir(dataDir, fromVer), tools.SharedToolsDir(dataDir, toVer)); err != nil {
+			return errors.Trace(err)
 		}
 	}
 
 	// Write tools metadata with new version, however don't change
 	// the URL, so we know where it came from.
-	jujuTools, err := tools.ReadTools(dataDir, toVers)
+	jujuTools, err := tools.ReadTools(dataDir, toVer)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Only write once
-	if jujuTools.Version != toVers {
-		jujuTools.Version = toVers
-		if err = tools.WriteToolsMetadataData(tools.ToolsDir(dataDir, toVers.String()), jujuTools); err != nil {
-			return err
+	if jujuTools.Version != toVer {
+		jujuTools.Version = toVer
+		if err = tools.WriteToolsMetadataData(tools.ToolsDir(dataDir, toVer.String()), jujuTools); err != nil {
+			return errors.Trace(err)
 		}
 	}
 
 	// Update Agent Tool links
-	var lastError error
 	for _, agentName := range append(unitAgents, machineAgent) {
-		toolPath := tools.ToolsDir(dataDir, toVers.String())
+		toolPath := tools.ToolsDir(dataDir, toVer.String())
 		toolsDir := tools.ToolsDir(dataDir, agentName)
 
-		err = symlink.Replace(toolsDir, toolPath)
-		if err != nil {
-			lastError = err
+		if err = symlink.Replace(toolsDir, toolPath); err != nil {
+			return errors.Trace(err)
 		}
 	}
 
-	return lastError
+	return nil
 }
 
 // StartAllAgents starts all of the input agents.

@@ -5,13 +5,12 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/core/watcher"
 	upgradeseries "github.com/juju/juju/worker/upgradeseries"
-	names_v3 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
+	reflect "reflect"
 )
 
 // MockFacade is a mock of Facade interface
@@ -35,6 +34,21 @@ func NewMockFacade(ctrl *gomock.Controller) *MockFacade {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockFacade) EXPECT() *MockFacadeMockRecorder {
 	return m.recorder
+}
+
+// CurrentSeries mocks base method
+func (m *MockFacade) CurrentSeries() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CurrentSeries")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CurrentSeries indicates an expected call of CurrentSeries
+func (mr *MockFacadeMockRecorder) CurrentSeries() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentSeries", reflect.TypeOf((*MockFacade)(nil).CurrentSeries))
 }
 
 // FinishUpgradeSeries mocks base method
@@ -125,10 +139,10 @@ func (mr *MockFacadeMockRecorder) TargetSeries() *gomock.Call {
 }
 
 // UnitsCompleted mocks base method
-func (m *MockFacade) UnitsCompleted() ([]names_v3.UnitTag, error) {
+func (m *MockFacade) UnitsCompleted() ([]names.UnitTag, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnitsCompleted")
-	ret0, _ := ret[0].([]names_v3.UnitTag)
+	ret0, _ := ret[0].([]names.UnitTag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -140,10 +154,10 @@ func (mr *MockFacadeMockRecorder) UnitsCompleted() *gomock.Call {
 }
 
 // UnitsPrepared mocks base method
-func (m *MockFacade) UnitsPrepared() ([]names_v3.UnitTag, error) {
+func (m *MockFacade) UnitsPrepared() ([]names.UnitTag, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnitsPrepared")
-	ret0, _ := ret[0].([]names_v3.UnitTag)
+	ret0, _ := ret[0].([]names.UnitTag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
