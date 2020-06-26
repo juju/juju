@@ -23,25 +23,22 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	jujucmd "github.com/juju/juju/cmd"
-	jujudagent "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/addons"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/upgradesteps"
 )
 
 var logger = loggo.GetLogger("juju.cmd.k8sagent.unit")
 
 type k8sUnitAgent struct {
 	cmd.CommandBase
-	jujudagent.AgentConf
+	agentconf.AgentConf
 	configChangedVal *voyeur.Value
 	// Unit command of k8sagent only knows application name but not unit name.
 	// It will configure out the unit name from agent.conf file by itself.
@@ -55,13 +52,6 @@ type k8sUnitAgent struct {
 	errReason       error
 	machineLock     machinelock.Lock
 
-	// Used to signal that the upgrade worker will not
-	// reboot the agent on startup because there are no
-	// longer any immediately pending agent upgrades.
-	initialUpgradeCheckComplete gate.Lock
-	preUpgradeSteps             upgrades.PreUpgradeStepsFunc
-	upgradeComplete             gate.Lock
-
 	prometheusRegistry *prometheus.Registry
 }
 
@@ -71,15 +61,13 @@ func New(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (cmd.Com
 		return nil, errors.Trace(err)
 	}
 	return &k8sUnitAgent{
-		AgentConf:                   jujudagent.NewAgentConf(""),
-		configChangedVal:            voyeur.NewValue(true),
-		ctx:                         ctx,
-		clk:                         clock.WallClock,
-		dead:                        make(chan struct{}),
-		initialUpgradeCheckComplete: gate.NewLock(),
-		bufferedLogger:              bufferedLogger,
-		prometheusRegistry:          prometheusRegistry,
-		preUpgradeSteps:             upgrades.PreUpgradeSteps,
+		AgentConf:          agentconf.NewAgentConf(""),
+		configChangedVal:   voyeur.NewValue(true),
+		ctx:                ctx,
+		clk:                clock.WallClock,
+		dead:               make(chan struct{}),
+		bufferedLogger:     bufferedLogger,
+		prometheusRegistry: prometheusRegistry,
 	}, nil
 }
 
@@ -182,8 +170,6 @@ func (c *k8sUnitAgent) workers() (worker.Worker, error) {
 		PrometheusRegisterer: c.prometheusRegistry,
 		UpdateLoggerConfig:   updateAgentConfLogging,
 		PreviousAgentVersion: agentConfig.UpgradedToVersion(),
-		PreUpgradeSteps:      c.preUpgradeSteps,
-		UpgradeStepsLock:     c.upgradeComplete,
 		MachineLock:          c.machineLock,
 		Clock:                c.clk,
 	}
@@ -216,9 +202,9 @@ func (c *k8sUnitAgent) workers() (worker.Worker, error) {
 	return engine, nil
 }
 
-func (c *k8sUnitAgent) Run(_ *cmd.Context) (err error) {
+func (c *k8sUnitAgent) Run(ctx *cmd.Context) (err error) {
 	defer c.Done(err)
-	c.ctx.Infof("starting k8sagent unit command")
+	ctx.Infof("starting k8sagent unit command")
 
 	agentConfig := c.CurrentConfig()
 	machineLock, err := machinelock.New(machinelock.Config{
@@ -233,11 +219,10 @@ func (c *k8sUnitAgent) Run(_ *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 	c.machineLock = machineLock
-	c.upgradeComplete = upgradesteps.NewLock(agentConfig)
 
-	c.ctx.Infof("k8sagent unit %q start (%s [%s])", c.Tag().String(), jujuversion.Current, runtime.Compiler)
+	ctx.Infof("k8sagent unit %q start (%s [%s])", c.Tag().String(), jujuversion.Current, runtime.Compiler)
 	if flags := featureflag.String(); flags != "" {
-		c.ctx.Warningf("developer feature flags enabled: %s", flags)
+		ctx.Warningf("developer feature flags enabled: %s", flags)
 	}
 
 	c.runner.StartWorker("unit", c.workers)

@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/upgrader"
 )
 
 type UnitSuite struct {

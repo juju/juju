@@ -20,15 +20,12 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/leadership"
 	wlogger "github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
@@ -72,16 +69,6 @@ type manifoldsConfig struct {
 	// agent was running before the current restart.
 	PreviousAgentVersion version.Number
 
-	// UpgradeStepsLock is passed to the upgrade steps gate to
-	// coordinate workers that shouldn't do anything until the
-	// upgrade-steps worker is done.
-	UpgradeStepsLock gate.Lock
-
-	// PreUpgradeSteps is a function that is used by the upgradesteps
-	// worker to ensure that conditions are OK for an upgrade to
-	// proceed.
-	PreUpgradeSteps func(*state.StatePool, coreagent.Config, bool, bool, bool) error
-
 	// MachineLock is a central source for acquiring the machine lock.
 	// This is used by a number of workers to ensure serialisation of actions
 	// across the machine.
@@ -98,6 +85,7 @@ type manifoldsConfig struct {
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
 func Manifolds(config manifoldsConfig) dependency.Manifolds {
+	// NOTE: this agent doesn't have any upgrade steps checks because it will just be restarted when upgrades happen.
 	return dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
@@ -120,8 +108,6 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			Logger:               loggo.GetLogger("juju.worker.apicaller"),
 		}),
 
-		clockName: clockManifold(config.Clock),
-
 		// The log sender is a leaf worker that sends log messages to some
 		// API server, when configured so to do. We should only need one of
 		// these in a consolidated agent.
@@ -130,7 +116,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			LogSource:     config.LogSource,
 		}),
 
-		// TODO(ycliuhw): implement upgrade strategy for the new CAAS agent.
+		// TODO(ycliuhw): make a worker to set agent version and remove from worker/upgrader.
 		// upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
 		// 	AgentName:            agentName,
 		// 	APICallerName:        apiCallerName,
@@ -264,7 +250,6 @@ const (
 	agentName            = "agent"
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
-	clockName            = "clock"
 	uniterName           = "uniter"
 	logSenderName        = "log-sender"
 
@@ -280,10 +265,3 @@ const (
 	loggingConfigUpdaterName = "logging-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"
 )
-
-type noopStatusSetter struct{}
-
-// SetStatus implements upgradesteps.StatusSetter
-func (a *noopStatusSetter) SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error {
-	return nil
-}

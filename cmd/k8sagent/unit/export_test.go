@@ -8,7 +8,7 @@ import (
 	"github.com/juju/utils/voyeur"
 
 	"github.com/juju/juju/agent"
-	jujudagent "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/worker/logsender"
 )
 
@@ -21,20 +21,20 @@ type K8sUnitAgentTest interface {
 	cmd.Command
 	DataDir() string
 	ApplicationName() string
-	SetAgentConf(cfg jujudagent.AgentConf)
+	SetAgentConf(cfg agentconf.AgentConf)
 	ChangeConfig(change agent.ConfigMutator) error
 }
 
 func NewForTest(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter, configChangedVal *voyeur.Value) (K8sUnitAgentTest, error) {
 	return &k8sUnitAgent{
 		ctx:              ctx,
-		AgentConf:        jujudagent.NewAgentConf(""),
+		AgentConf:        agentconf.NewAgentConf(""),
 		bufferedLogger:   bufferedLogger,
 		configChangedVal: configChangedVal,
 	}, nil
 }
 
-func (c *k8sUnitAgent) SetAgentConf(cfg jujudagent.AgentConf) {
+func (c *k8sUnitAgent) SetAgentConf(cfg agentconf.AgentConf) {
 	c.AgentConf = cfg
 }
 

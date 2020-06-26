@@ -21,6 +21,7 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	coretesting "github.com/juju/juju/testing"
 	jujuworker "github.com/juju/juju/worker"
@@ -160,7 +161,7 @@ func (s *CAASOperatorSuite) TestRunCopiesConfigTemplate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	a := &CaasOperatorAgent{
-		AgentConf:       NewAgentConf(dataDir),
+		AgentConf:       agentconf.NewAgentConf(dataDir),
 		ctx:             ctx,
 		ApplicationName: "mysql",
 		bufferedLogger:  s.newBufferedLogWriter(),

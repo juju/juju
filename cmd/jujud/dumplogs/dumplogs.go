@@ -24,7 +24,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"
-	jujudagent "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	corenames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
@@ -34,13 +34,13 @@ import (
 // "juju-dumplogs" command.
 func NewCommand() cmd.Command {
 	return &dumpLogsCommand{
-		agentConfig: jujudagent.NewAgentConf(""),
+		agentConfig: agentconf.NewAgentConf(""),
 	}
 }
 
 type dumpLogsCommand struct {
 	cmd.CommandBase
-	agentConfig jujudagent.AgentConf
+	agentConfig agentconf.AgentConf
 	machineId   string
 	outDir      string
 }

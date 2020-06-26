@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 )
 
 type checkConnectionSuite struct {
@@ -58,7 +59,7 @@ func newAgentConf() *mockAgentConf {
 }
 
 type mockAgentConf struct {
-	agentcmd.AgentConf
+	agentconf.AgentConf
 	stub *testing.Stub
 }
 

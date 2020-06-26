@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/addons"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
@@ -44,7 +45,7 @@ var (
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
 	cmd.CommandBase
-	AgentConf
+	agentconf.AgentConf
 	configChangedVal *voyeur.Value
 	UnitName         string
 	runner           *worker.Runner
@@ -72,7 +73,7 @@ func NewUnitAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter)
 		return nil, errors.Trace(err)
 	}
 	return &UnitAgent{
-		AgentConf:                   NewAgentConf(""),
+		AgentConf:                   agentconf.NewAgentConf(""),
 		configChangedVal:            voyeur.NewValue(true),
 		ctx:                         ctx,
 		dead:                        make(chan struct{}),
@@ -164,7 +165,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) (err error) {
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return err
 	}
-	setupAgentLogging(loggo.DefaultContext(), a.CurrentConfig())
+	agentconf.SetupAgentLogging(loggo.DefaultContext(), a.CurrentConfig())
 
 	a.runner.StartWorker("api", a.APIWorkers)
 	err = cmdutil.AgentDone(logger, a.runner.Wait())

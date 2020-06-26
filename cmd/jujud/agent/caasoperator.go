@@ -28,6 +28,7 @@ import (
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/addons"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
@@ -51,7 +52,7 @@ var (
 // CaasOperatorAgent is a cmd.Command responsible for running a CAAS operator agent.
 type CaasOperatorAgent struct {
 	cmd.CommandBase
-	AgentConf
+	agentconf.AgentConf
 	configChangedVal *voyeur.Value
 	ApplicationName  string
 	runner           *worker.Runner
@@ -81,7 +82,7 @@ func NewCaasOperatorAgent(
 		return nil, errors.Trace(err)
 	}
 	return &CaasOperatorAgent{
-		AgentConf:          NewAgentConf(""),
+		AgentConf:          agentconf.NewAgentConf(""),
 		configChangedVal:   voyeur.NewValue(true),
 		ctx:                ctx,
 		dead:               make(chan struct{}),

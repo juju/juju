@@ -45,6 +45,7 @@ import (
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/addons"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
@@ -145,18 +146,6 @@ type AgentInitializer interface {
 	DataDir() string
 }
 
-// AgentConfigWriter encapsulates disk I/O operations with the agent
-// config.
-type AgentConfigWriter interface {
-	// ReadConfig reads the config for the given tag from disk.
-	ReadConfig(tag string) error
-	// ChangeConfig executes the given agent.ConfigMutator in a
-	// thread-safe context.
-	ChangeConfig(agent.ConfigMutator) error
-	// CurrentConfig returns a copy of the in-memory agent config.
-	CurrentConfig() agent.Config
-}
-
 // NewMachineAgentCmd creates a Command which handles parsing
 // command-line arguments and instantiating and running a
 // MachineAgent.
@@ -164,7 +153,7 @@ func NewMachineAgentCmd(
 	ctx *cmd.Context,
 	machineAgentFactory machineAgentFactoryFnType,
 	agentInitializer AgentInitializer,
-	configFetcher AgentConfigWriter,
+	configFetcher agentconf.AgentConfigWriter,
 ) cmd.Command {
 	return &machineAgentCmd{
 		ctx:                 ctx,
@@ -179,7 +168,7 @@ type machineAgentCmd struct {
 
 	// This group of arguments is required.
 	agentInitializer    AgentInitializer
-	currentConfig       AgentConfigWriter
+	currentConfig       agentconf.AgentConfigWriter
 	machineAgentFactory machineAgentFactoryFnType
 	ctx                 *cmd.Context
 
@@ -223,7 +212,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 	} else {
 		a.agentTag = names.NewControllerAgentTag(a.controllerId)
 	}
-	if err := readAgentConfig(a.currentConfig, a.agentTag.Id()); err != nil {
+	if err := agentconf.ReadAgentConfig(a.currentConfig, a.agentTag.Id()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
 	config := a.currentConfig.CurrentConfig()
@@ -273,7 +262,7 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 // MachineAgentFactoryFn returns a function which instantiates a
 // MachineAgent given a machineId.
 func MachineAgentFactoryFn(
-	agentConfWriter AgentConfigWriter,
+	agentConfWriter agentconf.AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
 	newIntrospectionSocketName func(names.Tag) string,
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
@@ -301,7 +290,7 @@ func MachineAgentFactoryFn(
 // NewMachineAgent instantiates a new MachineAgent.
 func NewMachineAgent(
 	agentTag names.Tag,
-	agentConfWriter AgentConfigWriter,
+	agentConfWriter agentconf.AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
 	runner *worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
@@ -363,7 +352,7 @@ func (a *MachineAgent) registerPrometheusCollectors() error {
 // MachineAgent is responsible for tying together all functionality
 // needed to orchestrate a Jujud instance which controls a machine.
 type MachineAgent struct {
-	AgentConfigWriter
+	agentconf.AgentConfigWriter
 
 	ctx               *cmd.Context
 	dead              chan struct{}
@@ -473,7 +462,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
 
-	setupAgentLogging(loggo.DefaultContext(), a.CurrentConfig())
+	agentconf.SetupAgentLogging(loggo.DefaultContext(), a.CurrentConfig())
 
 	if err := introspection.WriteProfileFunctions(introspection.ProfileDir); err != nil {
 		// This isn't fatal, just annoying.

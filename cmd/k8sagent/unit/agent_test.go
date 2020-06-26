@@ -17,7 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	jujudagent "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/k8sagent/unit"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/logsender"
@@ -171,7 +171,7 @@ func (f FakeConfig) Value(key string) string {
 }
 
 type FakeAgentConfig struct {
-	jujudagent.AgentConf
+	agentconf.AgentConf
 	values map[string]string
 }
 

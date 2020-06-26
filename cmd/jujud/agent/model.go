@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/caas"
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/cmd/jujud/agent/modeloperator"
@@ -30,7 +31,7 @@ import (
 
 // ModelCommand is a cmd.Command responsible for running a model agent.
 type ModelCommand struct {
-	AgentConf
+	agentconf.AgentConf
 	cmd.CommandBase
 	configChangedVal *voyeur.Value
 	dead             chan struct{}
@@ -94,7 +95,7 @@ func (m *ModelCommand) maybeCopyAgentConfig() error {
 // NewModelCommand creates a new ModelCommand instance properly initialized
 func NewModelCommand() *ModelCommand {
 	return &ModelCommand{
-		AgentConf:        NewAgentConf(""),
+		AgentConf:        agentconf.NewAgentConf(""),
 		configChangedVal: voyeur.NewValue(true),
 		dead:             make(chan struct{}),
 	}

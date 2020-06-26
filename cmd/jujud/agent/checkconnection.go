@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/worker/apicaller"
 )
@@ -30,13 +31,13 @@ func ConnectAsAgent(a agent.Agent) (io.Closer, error) {
 type checkConnectionCommand struct {
 	cmd.CommandBase
 	agentName string
-	config    AgentConf
+	config    agentconf.AgentConf
 	connect   ConnectFunc
 }
 
 // NewCheckConnectionCommand returns a command that will test
 // connecting to the API with details from the agent's config.
-func NewCheckConnectionCommand(config AgentConf, connect ConnectFunc) cmd.Command {
+func NewCheckConnectionCommand(config agentconf.AgentConf, connect ConnectFunc) cmd.Command {
 	return &checkConnectionCommand{
 		config:  config,
 		connect: connect,

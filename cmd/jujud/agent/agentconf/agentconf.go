@@ -1,10 +1,10 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 /*
 agent contains jujud's machine agent.
 */
-package agent
+package agentconf
 
 import (
 	"sync"
@@ -118,7 +118,7 @@ func (c *agentConf) CurrentConfig() agent.Config {
 	return c._config.Clone()
 }
 
-func setupAgentLogging(context *loggo.Context, config agent.Config) {
+func SetupAgentLogging(context *loggo.Context, config agent.Config) {
 	logger := context.GetLogger("juju.agent.setup")
 	if loggingOverride := config.Value(agent.LoggingOverride); loggingOverride != "" {
 		logger.Infof("logging override set for this agent: %q", loggingOverride)
@@ -157,9 +157,21 @@ func GetJujuVersion(machineAgent string, dataDir string) (version.Number, error)
 	return config.UpgradedToVersion(), nil
 }
 
-// readAgentConfig is a helper to read either machine or controller agent config,
+// AgentConfigWriter encapsulates disk I/O operations with the agent
+// config.
+type AgentConfigWriter interface {
+	// ReadConfig reads the config for the given tag from disk.
+	ReadConfig(tag string) error
+	// ChangeConfig executes the given agent.ConfigMutator in a
+	// thread-safe context.
+	ChangeConfig(agent.ConfigMutator) error
+	// CurrentConfig returns a copy of the in-memory agent config.
+	CurrentConfig() agent.Config
+}
+
+// ReadAgentConfig is a helper to read either machine or controller agent config,
 // whichever is there. Machine config gets precedence.
-func readAgentConfig(c AgentConfigWriter, agentId string) error {
+func ReadAgentConfig(c AgentConfigWriter, agentId string) error {
 	var tag names.Tag = names.NewMachineTag(agentId)
 	err := c.ReadConfig(tag.String())
 	if err != nil {

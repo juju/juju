@@ -44,6 +44,7 @@ import (
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
@@ -122,34 +123,34 @@ func bootstrapRaft(c *gc.C, dataDir string) {
 }
 
 func (s *MachineSuite) TestParseNonsense(c *gc.C) {
-	var agentConf agentConf
-	err := ParseAgentCommand(&machineAgentCmd{agentInitializer: &agentConf}, nil)
+	var agentConf agentconf.AgentConf
+	err := ParseAgentCommand(&machineAgentCmd{agentInitializer: agentConf}, nil)
 	c.Assert(err, gc.ErrorMatches, "either machine-id or controller-id must be set")
-	err = ParseAgentCommand(&machineAgentCmd{agentInitializer: &agentConf}, []string{"--machine-id", "-4004"})
+	err = ParseAgentCommand(&machineAgentCmd{agentInitializer: agentConf}, []string{"--machine-id", "-4004"})
 	c.Assert(err, gc.ErrorMatches, "--machine-id option must be a non-negative integer")
-	err = ParseAgentCommand(&machineAgentCmd{agentInitializer: &agentConf}, []string{"--controller-id", "-4004"})
+	err = ParseAgentCommand(&machineAgentCmd{agentInitializer: agentConf}, []string{"--controller-id", "-4004"})
 	c.Assert(err, gc.ErrorMatches, "--controller-id option must be a non-negative integer")
 }
 
 func (s *MachineSuite) TestParseUnknown(c *gc.C) {
-	var agentConf agentConf
-	a := &machineAgentCmd{agentInitializer: &agentConf}
+	var agentConf agentconf.AgentConf
+	a := &machineAgentCmd{agentInitializer: agentConf}
 	err := ParseAgentCommand(a, []string{"--machine-id", "42", "blistering barnacles"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
 }
 
 func (s *MachineSuite) TestParseSuccess(c *gc.C) {
-	create := func() (cmd.Command, AgentConf) {
-		agentConf := agentConf{dataDir: s.DataDir()}
+	create := func() (cmd.Command, agentconf.AgentConf) {
+		agentConf := agentconf.NewAgentConf(s.DataDir())
 		s.PrimeAgent(c, names.NewMachineTag("42"), initialMachinePassword)
 		logger := s.newBufferedLogWriter()
 		a := NewMachineAgentCmd(
 			nil,
-			NewTestMachineAgentFactory(&agentConf, logger, c.MkDir()),
-			&agentConf,
-			&agentConf,
+			NewTestMachineAgentFactory(agentConf, logger, c.MkDir()),
+			agentConf,
+			agentConf,
 		)
-		return a, &agentConf
+		return a, agentConf
 	}
 	a := CheckAgentCommand(c, s.DataDir(), create, []string{"--machine-id", "42", "--log-to-stderr", "--data-dir", s.DataDir()})
 	c.Assert(a.(*machineAgentCmd).machineId, gc.Equals, "42")
