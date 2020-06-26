@@ -65,13 +65,29 @@ func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 	return "", errors.Trace(r.Error)
 }
 
+// CurrentSeries returns what Juju thinks the current series of the machine is.
+// Note that a machine could have been upgraded out-of-band by running
+// do-release-upgrade outside of the upgrade-series workflow,
+// making this value incorrect.
+func (s *Client) CurrentSeries() (string, error) {
+	series, err := s.series("CurrentSeries")
+	return series, errors.Trace(err)
+}
+
+// TargetSeries returns the series that a machine has been locked
+// for upgrading to.
 func (s *Client) TargetSeries() (string, error) {
+	series, err := s.series("TargetSeries")
+	return series, errors.Trace(err)
+}
+
+func (s *Client) series(methodName string) (string, error) {
 	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.authTag.String()}},
 	}
 
-	err := s.facade.FacadeCall("TargetSeries", args, &results)
+	err := s.facade.FacadeCall(methodName, args, &results)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

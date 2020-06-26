@@ -41220,7 +41220,7 @@
     {
         "Name": "UpgradeSeries",
         "Description": "API serves methods required by the machine agent upgrade-series worker.",
-        "Version": 1,
+        "Version": 2,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -41230,6 +41230,18 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "CurrentSeries": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResults"
+                        }
+                    },
+                    "description": "CurrentSeries returns what Juju thinks the current series of the machine is.\nNote that a machine could have been upgraded out-of-band by running\ndo-release-upgrade outside of the upgrade-series workflow,\nmaking this value incorrect."
+                },
                 "FinishUpgradeSeries": {
                     "type": "object",
                     "properties": {

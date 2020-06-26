@@ -1523,7 +1523,7 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series
 	var err error
 	chDir, err = charm.ReadCharmDir(testcharms.RepoWithSeries(series).CharmDirPath(name))
 	if err != nil {
-		if !os.IsNotExist(err) {
+		if !os.IsNotExist(errors.Cause(err)) {
 			c.Fatal(err)
 			return nil
 		}

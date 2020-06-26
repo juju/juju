@@ -29,10 +29,17 @@ type Upgrader interface {
 type upgrader struct {
 	logger Logger
 
+	// jujuCurrentSeries is what Juju thinks the
+	// current series of the machine is.
+	jujuCurrentSeries string
+
+	// fromSeries is the actual current series,
+	// determined directly from the machine.
 	fromSeries string
 	fromInit   string
-	toSeries   string
-	toInit     string
+
+	toSeries string
+	toInit   string
 
 	machineAgent string
 	unitAgents   []string
@@ -42,7 +49,9 @@ type upgrader struct {
 
 // NewUpgrader uses the input function to determine the series that should be
 // supported, and returns a reference to a new Upgrader that supports it.
-func NewUpgrader(toSeries string, manager service.SystemdServiceManager, logger Logger) (Upgrader, error) {
+func NewUpgrader(
+	currentSeries, toSeries string, manager service.SystemdServiceManager, logger Logger,
+) (Upgrader, error) {
 	fromSeries, err := hostSeries()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -58,12 +67,13 @@ func NewUpgrader(toSeries string, manager service.SystemdServiceManager, logger 
 	}
 
 	return &upgrader{
-		logger:     logger,
-		fromSeries: fromSeries,
-		fromInit:   fromInit,
-		toSeries:   toSeries,
-		toInit:     toInit,
-		manager:    manager,
+		logger:            logger,
+		jujuCurrentSeries: currentSeries,
+		fromSeries:        fromSeries,
+		fromInit:          fromInit,
+		toSeries:          toSeries,
+		toInit:            toInit,
+		manager:           manager,
 	}, nil
 }
 
@@ -121,8 +131,12 @@ func (u *upgrader) ensureSystemdFiles() error {
 // right tools path for the target OS series, and that individual agents use
 // those files.
 func (u *upgrader) ensureAgentBinaries() error {
+	// Here we pass what Juju *thinks* the current series is, because that is
+	// where we expect the agent binaries to be.
+	// If was pass the machine-detected series for a machine upgraded outside
+	// of this workflow, the binaries will not be found.
 	if err := u.manager.CopyAgentBinary(
-		u.machineAgent, u.unitAgents, paths.NixDataDir, u.toSeries, u.fromSeries, version.Current); err != nil {
+		u.machineAgent, u.unitAgents, paths.NixDataDir, u.toSeries, u.jujuCurrentSeries, version.Current); err != nil {
 		return errors.Trace(err)
 	}
 

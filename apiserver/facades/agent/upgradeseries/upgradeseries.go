@@ -78,7 +78,7 @@ func (a *API) MachineStatus(args params.Entities) (params.UpgradeSeriesStatusRes
 
 	results := make([]params.UpgradeSeriesStatusResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		machine, err := a.authAndMachine(entity, canAccess)
+		machine, err := a.authAndGetMachine(entity, canAccess)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
@@ -106,7 +106,7 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 
 	results := make([]params.ErrorResult, len(args.Params))
 	for i, param := range args.Params {
-		machine, err := a.authAndMachine(param.Entity, canAccess)
+		machine, err := a.authAndGetMachine(param.Entity, canAccess)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
@@ -115,6 +115,32 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 		}
+	}
+
+	result.Results = results
+	return result, nil
+}
+
+// CurrentSeries returns what Juju thinks the current series of the machine is.
+// Note that a machine could have been upgraded out-of-band by running
+// do-release-upgrade outside of the upgrade-series workflow,
+// making this value incorrect.
+func (a *API) CurrentSeries(args params.Entities) (params.StringResults, error) {
+	result := params.StringResults{}
+
+	canAccess, err := a.AccessMachine()
+	if err != nil {
+		return result, err
+	}
+
+	results := make([]params.StringResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		machine, err := a.authAndGetMachine(entity, canAccess)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		results[i].Result = machine.Series()
 	}
 
 	result.Results = results
@@ -133,7 +159,7 @@ func (a *API) TargetSeries(args params.Entities) (params.StringResults, error) {
 
 	results := make([]params.StringResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		machine, err := a.authAndMachine(entity, canAccess)
+		machine, err := a.authAndGetMachine(entity, canAccess)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
@@ -160,7 +186,7 @@ func (a *API) StartUnitCompletion(args params.UpgradeSeriesStartUnitCompletionPa
 		return params.ErrorResults{}, err
 	}
 	for i, entity := range args.Entities {
-		machine, err := a.authAndMachine(entity, canAccess)
+		machine, err := a.authAndGetMachine(entity, canAccess)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -187,7 +213,7 @@ func (a *API) FinishUpgradeSeries(args params.UpdateSeriesArgs) (params.ErrorRes
 		return params.ErrorResults{}, err
 	}
 	for i, arg := range args.Args {
-		machine, err := a.authAndMachine(arg.Entity, canAccess)
+		machine, err := a.authAndGetMachine(arg.Entity, canAccess)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -242,7 +268,7 @@ func (a *API) unitsInState(args params.Entities, status model.UpgradeSeriesStatu
 
 	results := make([]params.EntitiesResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		machine, err := a.authAndMachine(entity, canAccess)
+		machine, err := a.authAndGetMachine(entity, canAccess)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
@@ -267,7 +293,7 @@ func (a *API) unitsInState(args params.Entities, status model.UpgradeSeriesStatu
 	return result, nil
 }
 
-func (a *API) authAndMachine(e params.Entity, canAccess common.AuthFunc) (common.UpgradeSeriesMachine, error) {
+func (a *API) authAndGetMachine(e params.Entity, canAccess common.AuthFunc) (common.UpgradeSeriesMachine, error) {
 	tag, err := names.ParseMachineTag(e.Tag)
 	if err != nil {
 		return nil, err
@@ -294,4 +320,21 @@ func (a *API) PinMachineApplications() (params.PinApplicationsResults, error) {
 // units running on the auth'd machine.
 func (a *API) UnpinMachineApplications() (params.PinApplicationsResults, error) {
 	return a.leadership.UnpinApplicationLeaders()
+}
+
+// APIv1 provides the upgrade-series API facade for version 1.
+type APIv1 struct {
+	*API
+}
+
+// CurrentSeries was not available on version 1 of the API.
+func (api *APIv1) CurrentSeries(_, _ struct{}) {}
+
+// NewAPIv1 is a wrapper that creates a V1 upgrade-series API.
+func NewAPIv1(ctx facade.Context) (*APIv1, error) {
+	api, err := NewAPI(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv1{api}, nil
 }

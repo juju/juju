@@ -9,13 +9,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/os/series"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/service"
-	"github.com/juju/os/series"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/worker/upgradeseries Facade,Logger,AgentService,ServiceAccess,Upgrader
@@ -32,23 +32,19 @@ type Logger interface {
 
 // Config is the configuration needed to construct an UpgradeSeries worker.
 type Config struct {
-	// FacadeFactory is used to acquire back-end state with
-	// the input tag context.
-	FacadeFactory func(names.Tag) Facade
+	// Facade is used to access back-end state.
+	Facade Facade
 
 	// Logger is the logger for this worker.
 	Logger Logger
-
-	// Tag is the current machine tag.
-	Tag names.Tag
 
 	// ServiceAccess provides access to the local init system.
 	Service ServiceAccess
 
 	// UpgraderFactory is a factory method that will return an upgrader capable
 	// of handling service and agent binary manipulation for a
-	// runtime-determined target OS series.
-	UpgraderFactory func(string) (Upgrader, error)
+	// runtime-determined current and target OS series.
+	UpgraderFactory func(string, string) (Upgrader, error)
 }
 
 // Validate validates the upgrade-series worker configuration.
@@ -56,15 +52,8 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if config.Tag == nil {
-		return errors.NotValidf("nil machine tag")
-	}
-	k := config.Tag.Kind()
-	if k != names.MachineTagKind {
-		return errors.NotValidf("%q tag kind", k)
-	}
-	if config.FacadeFactory == nil {
-		return errors.NotValidf("nil FacadeFactory")
+	if config.Facade == nil {
+		return errors.NotValidf("nil Facade")
 	}
 	if config.Service == nil {
 		return errors.NotValidf("nil Service")
@@ -81,11 +70,10 @@ func (config Config) Validate() error {
 type upgradeSeriesWorker struct {
 	Facade
 
-	facadeFactory   func(names.Tag) Facade
 	catacomb        catacomb.Catacomb
 	logger          Logger
 	service         ServiceAccess
-	upgraderFactory func(string) (Upgrader, error)
+	upgraderFactory func(string, string) (Upgrader, error)
 
 	// Some local state retained for reporting purposes.
 	mu             sync.Mutex
@@ -108,8 +96,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 
 	w := &upgradeSeriesWorker{
-		Facade:          config.FacadeFactory(config.Tag),
-		facadeFactory:   config.FacadeFactory,
+		Facade:          config.Facade,
 		logger:          config.Logger,
 		service:         config.Service,
 		upgraderFactory: config.UpgraderFactory,
@@ -208,27 +195,33 @@ func (w *upgradeSeriesWorker) handlePrepareStarted() error {
 		return nil
 	}
 
-	return errors.Trace(w.transitionPrepareComplete(unitServices))
+	return errors.Trace(w.transitionPrepareComplete())
 }
 
 // transitionPrepareComplete rewrites service unit files for unit agents running
 // on this machine so that they are compatible with the init system of the
 // series upgrade target.
-func (w *upgradeSeriesWorker) transitionPrepareComplete(unitServices map[string]string) error {
+func (w *upgradeSeriesWorker) transitionPrepareComplete() error {
 	w.logger.Infof("preparing service units for series upgrade")
+	currentSeries, err := w.CurrentSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	toSeries, err := w.TargetSeries()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	upgrader, err := w.upgraderFactory(toSeries)
+
+	upgrader, err := w.upgraderFactory(currentSeries, toSeries)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if err := upgrader.PerformUpgrade(); err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareCompleted,
-		"binaries and service files written"))
+
+	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareCompleted, "binaries and service files written"))
 }
 
 func (w *upgradeSeriesWorker) handleCompleteStarted() error {
