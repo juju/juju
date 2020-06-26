@@ -85,6 +85,18 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	})
 }
 
+func (s *upgradeSeriesSuite) TestCurrentSeries(c *gc.C) {
+	defer s.arrangeTest(c).Finish()
+
+	s.machine.EXPECT().Series().Return("xenial")
+
+	results, err := s.api.CurrentSeries(s.entityArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{{Result: "xenial"}},
+	})
+}
+
 func (s *upgradeSeriesSuite) TestUpgradeSeriesTarget(c *gc.C) {
 	defer s.arrangeTest(c).Finish()
 

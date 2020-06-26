@@ -121,6 +121,32 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 	return result, nil
 }
 
+// CurrentSeries returns what Juju thinks the current series of the machine is.
+// Note that a machine could have been upgraded out-of-band by running
+// do-release-upgrade outside of the upgrade-series workflow,
+// making this value incorrect.
+func (a *API) CurrentSeries(args params.Entities) (params.StringResults, error) {
+	result := params.StringResults{}
+
+	canAccess, err := a.AccessMachine()
+	if err != nil {
+		return result, err
+	}
+
+	results := make([]params.StringResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		machine, err := a.authAndMachine(entity, canAccess)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		results[i].Result = machine.Series()
+	}
+
+	result.Results = results
+	return result, nil
+}
+
 // TargetSeries returns the series that a machine has been locked
 // for upgrading to.
 func (a *API) TargetSeries(args params.Entities) (params.StringResults, error) {
@@ -294,4 +320,21 @@ func (a *API) PinMachineApplications() (params.PinApplicationsResults, error) {
 // units running on the auth'd machine.
 func (a *API) UnpinMachineApplications() (params.PinApplicationsResults, error) {
 	return a.leadership.UnpinApplicationLeaders()
+}
+
+// APIv1 provides the upgrade-series API facade for version 1.
+type APIv1 struct {
+	*API
+}
+
+// CurrentSeries was not available on version 1 of the API.
+func (api *APIv1) CurrentSeries(_, _ struct{}) {}
+
+// NewAPIv1 is a wrapper that creates a V1 upgrade-series API.
+func NewAPIv1(ctx facade.Context) (*APIv1, error) {
+	api, err := NewAPI(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv1{api}, nil
 }

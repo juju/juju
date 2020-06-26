@@ -343,7 +343,10 @@ func AllFacades() *facade.Registry {
 	reg("Uniter", 16, uniter.NewUniterAPI)
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
-	reg("UpgradeSeries", 1, upgradeseries.NewAPI)
+
+	reg("UpgradeSeries", 1, upgradeseries.NewAPIv1)
+	reg("UpgradeSeries", 2, upgradeseries.NewAPI) // Adds CurrentSeries.
+
 	reg("UpgradeSteps", 1, upgradesteps.NewFacadeV1)
 	reg("UpgradeSteps", 2, upgradesteps.NewFacadeV2)
 	reg("UserManager", 1, usermanager.NewUserManagerAPI)
