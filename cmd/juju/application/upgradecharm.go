@@ -5,6 +5,7 @@ package application
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 
 	"github.com/juju/charm/v7"
@@ -361,6 +362,15 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 
 	if c.Channel == "" {
 		c.Channel = csclientparams.Channel(applicationInfo.Channel)
+	}
+
+	newURL, err := url.Parse(newRef)
+	if err != nil {
+		return errors.Trace(err)
+	} else if newURL.Scheme != "" && newURL.Scheme != "local" && c.Channel != "" {
+		// If not upgrading from a local path, display the channel we
+		// are pulling the charm from.
+		ctx.Infof("Looking up metadata for charm %v (channel: %s)", newRef, c.Channel)
 	}
 
 	chID, csMac, err := c.addCharm(addCharmParams{
