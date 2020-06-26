@@ -9,13 +9,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/os/series"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/service"
-	"github.com/juju/os/series"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/worker/upgradeseries Facade,Logger,AgentService,ServiceAccess,Upgrader
@@ -81,7 +81,6 @@ func (config Config) Validate() error {
 type upgradeSeriesWorker struct {
 	Facade
 
-	facadeFactory   func(names.Tag) Facade
 	catacomb        catacomb.Catacomb
 	logger          Logger
 	service         ServiceAccess
@@ -109,7 +108,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 	w := &upgradeSeriesWorker{
 		Facade:          config.FacadeFactory(config.Tag),
-		facadeFactory:   config.FacadeFactory,
 		logger:          config.Logger,
 		service:         config.Service,
 		upgraderFactory: config.UpgraderFactory,
