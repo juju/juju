@@ -78,7 +78,7 @@ func (a *API) MachineStatus(args params.Entities) (params.UpgradeSeriesStatusRes
 
 	results := make([]params.UpgradeSeriesStatusResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		machine, err := a.authAndMachine(entity, canAccess)
+		machine, err := a.authAndGetMachine(entity, canAccess)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
@@ -106,7 +106,7 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 
 	results := make([]params.ErrorResult, len(args.Params))
 	for i, param := range args.Params {
-		machine, err := a.authAndMachine(param.Entity, canAccess)
+		machine, err := a.authAndGetMachine(param.Entity, canAccess)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
@@ -135,7 +135,7 @@ func (a *API) CurrentSeries(args params.Entities) (params.StringResults, error) 
 
 	results := make([]params.StringResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		machine, err := a.authAndMachine(entity, canAccess)
+		machine, err := a.authAndGetMachine(entity, canAccess)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
@@ -159,7 +159,7 @@ func (a *API) TargetSeries(args params.Entities) (params.StringResults, error) {
 
 	results := make([]params.StringResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		machine, err := a.authAndMachine(entity, canAccess)
+		machine, err := a.authAndGetMachine(entity, canAccess)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
@@ -186,7 +186,7 @@ func (a *API) StartUnitCompletion(args params.UpgradeSeriesStartUnitCompletionPa
 		return params.ErrorResults{}, err
 	}
 	for i, entity := range args.Entities {
-		machine, err := a.authAndMachine(entity, canAccess)
+		machine, err := a.authAndGetMachine(entity, canAccess)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -213,7 +213,7 @@ func (a *API) FinishUpgradeSeries(args params.UpdateSeriesArgs) (params.ErrorRes
 		return params.ErrorResults{}, err
 	}
 	for i, arg := range args.Args {
-		machine, err := a.authAndMachine(arg.Entity, canAccess)
+		machine, err := a.authAndGetMachine(arg.Entity, canAccess)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -268,7 +268,7 @@ func (a *API) unitsInState(args params.Entities, status model.UpgradeSeriesStatu
 
 	results := make([]params.EntitiesResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		machine, err := a.authAndMachine(entity, canAccess)
+		machine, err := a.authAndGetMachine(entity, canAccess)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
@@ -293,7 +293,7 @@ func (a *API) unitsInState(args params.Entities, status model.UpgradeSeriesStatu
 	return result, nil
 }
 
-func (a *API) authAndMachine(e params.Entity, canAccess common.AuthFunc) (common.UpgradeSeriesMachine, error) {
+func (a *API) authAndGetMachine(e params.Entity, canAccess common.AuthFunc) (common.UpgradeSeriesMachine, error) {
 	tag, err := names.ParseMachineTag(e.Tag)
 	if err != nil {
 		return nil, err
