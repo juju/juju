@@ -25,6 +25,7 @@ var relationListTests = []struct {
 	summary            string
 	relid              int
 	members0, members1 []string
+	remoteAppName      string
 	args               []string
 	code               int
 	out                string
@@ -104,13 +105,20 @@ var relationListTests = []struct {
 		relid:    1,
 		args:     []string{"--format", "yaml"},
 		out:      "- bar\n- baz\n- foo",
+	}, {
+		summary:       "remote application for relation",
+		members1:      []string{}, // relation established but all units removed
+		relid:         1,
+		remoteAppName: "galaxy",
+		args:          []string{"--app"},
+		out:           "galaxy",
 	},
 }
 
 func (s *RelationListSuite) TestRelationList(c *gc.C) {
 	for i, t := range relationListTests {
 		c.Logf("test %d: %s", i, t.summary)
-		hctx, info := s.newHookContext(t.relid, "", "")
+		hctx, info := s.newHookContext(t.relid, "", t.remoteAppName)
 		info.setRelations(0, t.members0)
 		info.setRelations(1, t.members1)
 		c.Logf("%#v %#v", info.rels[t.relid], t.members1)
@@ -143,12 +151,14 @@ Summary:
 list relation units
 
 Options:
+--app  (= false)
+    List remote application instead of participating units
 --format  (= smart)
     Specify output format (json|smart|yaml)
 -o, --output (= "")
     Specify an output file
 -r, --relation  (= %s)
-    specify a relation by id
+    Specify a relation by id
 %s`[1:]
 
 	for relid, t := range map[int]struct {
