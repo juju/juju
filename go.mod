@@ -39,8 +39,8 @@ require (
 	github.com/joyent/gosign v0.0.0-20140524000734-0da0d5f13420
 	github.com/juju/ansiterm v0.0.0-20160907234532-b99631de12cf
 	github.com/juju/bundlechanges v0.0.0-20200625095418-8b1912834d29
-	github.com/juju/charm/v7 v7.0.0-20200424224456-5fe646695e85
-	github.com/juju/charmrepo/v5 v5.0.0-20200424225329-cddcb4fdcd09
+	github.com/juju/charm/v7 v7.0.0-20200625165032-ef717232a815
+	github.com/juju/charmrepo/v5 v5.0.0-20200626080438-30e3069e6e8e
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
