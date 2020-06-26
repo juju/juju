@@ -121,6 +121,20 @@ func (mr *MockContextRelationMockRecorder) ReadSettings(arg0 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSettings", reflect.TypeOf((*MockContextRelation)(nil).ReadSettings), arg0)
 }
 
+// RemoteApplicationName mocks base method
+func (m *MockContextRelation) RemoteApplicationName() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoteApplicationName")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// RemoteApplicationName indicates an expected call of RemoteApplicationName
+func (mr *MockContextRelationMockRecorder) RemoteApplicationName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteApplicationName", reflect.TypeOf((*MockContextRelation)(nil).RemoteApplicationName))
+}
+
 // SetStatus mocks base method
 func (m *MockContextRelation) SetStatus(arg0 relation.Status) error {
 	m.ctrl.T.Helper()

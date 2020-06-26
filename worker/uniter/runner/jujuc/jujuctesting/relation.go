@@ -28,6 +28,8 @@ type Relation struct {
 	RemoteApplicationSettings Settings
 	// LocalApplicationSettings is data for jujuc.ContextRelation
 	LocalApplicationSettings Settings
+	// RemoteApplicationName is data for jujuc.ContextRelation
+	RemoteApplicationName string
 }
 
 // Reset clears the Relation's settings.
@@ -154,4 +156,10 @@ func (r *ContextRelation) Suspended() bool {
 // SetStatus implements jujuc.ContextRelation.
 func (r *ContextRelation) SetStatus(status relation.Status) error {
 	return nil
+}
+
+// RemoteApplicationName implements jujuc.ContextRelation.
+func (r *ContextRelation) RemoteApplicationName() string {
+	r.stub.AddCall("RemoteApplicationName")
+	return r.info.RemoteApplicationName
 }
