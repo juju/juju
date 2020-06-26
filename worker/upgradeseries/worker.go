@@ -32,15 +32,11 @@ type Logger interface {
 
 // Config is the configuration needed to construct an UpgradeSeries worker.
 type Config struct {
-	// FacadeFactory is used to acquire back-end state with
-	// the input tag context.
-	FacadeFactory func(names.Tag) Facade
+	// Facade is used to access back-end state.
+	Facade Facade
 
 	// Logger is the logger for this worker.
 	Logger Logger
-
-	// Tag is the current machine tag.
-	Tag names.Tag
 
 	// ServiceAccess provides access to the local init system.
 	Service ServiceAccess
@@ -56,15 +52,8 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if config.Tag == nil {
-		return errors.NotValidf("nil machine tag")
-	}
-	k := config.Tag.Kind()
-	if k != names.MachineTagKind {
-		return errors.NotValidf("%q tag kind", k)
-	}
-	if config.FacadeFactory == nil {
-		return errors.NotValidf("nil FacadeFactory")
+	if config.Facade == nil {
+		return errors.NotValidf("nil Facade")
 	}
 	if config.Service == nil {
 		return errors.NotValidf("nil Service")
@@ -107,7 +96,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 
 	w := &upgradeSeriesWorker{
-		Facade:          config.FacadeFactory(config.Tag),
+		Facade:          config.Facade,
 		logger:          config.Logger,
 		service:         config.Service,
 		upgraderFactory: config.UpgraderFactory,

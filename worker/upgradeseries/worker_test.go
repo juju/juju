@@ -301,8 +301,7 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *workerSuite) workerForScenario(c *gc.C, behaviours ...func()) worker.Worker {
 	cfg := upgradeseries.Config{
 		Logger:          s.logger,
-		FacadeFactory:   func(_ names.Tag) upgradeseries.Facade { return s.facade },
-		Tag:             names.NewMachineTag("0"),
+		Facade:          s.facade,
 		Service:         s.service,
 		UpgraderFactory: func(_ string) (upgradeseries.Upgrader, error) { return s.upgrader, nil },
 	}

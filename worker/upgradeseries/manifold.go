@@ -63,24 +63,15 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 		return nil, errors.Errorf("expected a machine tag, got %v", tag)
 	}
 
-	// Partially apply the NewFacade method and pass it as a factory.
-	// This is so the worker can use the API server in different contexts.
-	// TODO (manadart 2018-08-30): This behaviour is vestigial.
-	// We no longer need a factory and can pass a concrete facade.
-	newFacade := func(t names.Tag) Facade {
-		return config.NewFacade(apiCaller, t)
-	}
-
-	// Partially apply Upgrader factory function so we only need to request
+	// Partially apply the upgrader factory function so we only need to request
 	// using the getter for the target OS series.
 	newUpgrader := func(targetSeries string) (Upgrader, error) {
 		return NewUpgrader(targetSeries, service.NewServiceManagerWithDefaults(), config.Logger)
 	}
 
 	cfg := Config{
-		Tag:             tag,
 		Logger:          config.Logger,
-		FacadeFactory:   newFacade,
+		Facade:          config.NewFacade(apiCaller, tag),
 		Service:         &serviceAccess{},
 		UpgraderFactory: newUpgrader,
 	}
