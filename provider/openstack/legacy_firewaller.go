@@ -111,16 +111,17 @@ func (c *legacyNovaFirewaller) ensureGroup(ctx context.ProviderCallContext, name
 	if err != nil {
 		if !gooseerrors.IsDuplicateValue(err) {
 			return legacyZeroGroup, err
-		} else {
-			// We just tried to create a duplicate group, so load the existing group.
-			group, err = novaClient.SecurityGroupByName(name)
-			if err != nil {
-				common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
-				return legacyZeroGroup, err
-			}
-			return *group, nil
 		}
+
+		// We just tried to create a duplicate group, so load the existing group.
+		group, err = novaClient.SecurityGroupByName(name)
+		if err != nil {
+			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+			return legacyZeroGroup, err
+		}
+		return *group, nil
 	}
+
 	// The new group is created so now add the rules.
 	group.Rules = make([]nova.SecurityGroupRule, len(rules))
 	for i, rule := range rules {
@@ -351,7 +352,12 @@ func (c *legacyNovaFirewaller) ingressRulesInGroup(ctx context.ProviderCallConte
 	// Keep track of all the RemoteIPPrefixes for each port range.
 	portSourceCIDRs := make(map[corenetwork.PortRange]*[]string)
 	for _, p := range group.Rules {
-		portRange := corenetwork.PortRange{*p.FromPort, *p.ToPort, *p.IPProtocol}
+		portRange := corenetwork.PortRange{
+			FromPort: *p.FromPort,
+			ToPort:   *p.ToPort,
+			Protocol: *p.IPProtocol,
+		}
+
 		// Record the RemoteIPPrefix for the port range.
 		remotePrefix := p.IPRange["cidr"]
 		if remotePrefix == "" {
