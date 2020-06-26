@@ -47,7 +47,7 @@ func (s *upgraderSuite) TestNotToSystemdCopyToolsOnly(c *gc.C) {
 		s.machineService, s.unitServices, paths.NixDataDir, "trusty", "precise", version.Current,
 	).Return(nil)
 
-	upg := s.newUpgrader(c, "trusty")
+	upg := s.newUpgrader(c, "precise", "trusty")
 	c.Assert(upg.PerformUpgrade(), jc.ErrorIsNil)
 }
 
@@ -63,7 +63,7 @@ func (s *upgraderSuite) TestFromSystemdCopyToolsOnly(c *gc.C) {
 		s.machineService, s.unitServices, paths.NixDataDir, "bionic", "xenial", version.Current,
 	).Return(nil)
 
-	upg := s.newUpgrader(c, "bionic")
+	upg := s.newUpgrader(c, "xenial", "bionic")
 	c.Assert(upg.PerformUpgrade(), jc.ErrorIsNil)
 }
 
@@ -82,7 +82,7 @@ func (s *upgraderSuite) TestToSystemdServicesWritten(c *gc.C) {
 		s.machineService, s.unitServices, paths.NixDataDir, "xenial", "trusty", version.Current,
 	).Return(nil)
 
-	upg := s.newUpgrader(c, "xenial")
+	upg := s.newUpgrader(c, "trusty", "xenial")
 	c.Assert(upg.PerformUpgrade(), jc.ErrorIsNil)
 }
 
@@ -93,8 +93,8 @@ func (s *upgraderSuite) setupMocks(ctrl *gomock.Controller) {
 	s.manager.EXPECT().FindAgents(paths.NixDataDir).Return(s.machineService, s.unitServices, nil, nil)
 }
 
-func (s *upgraderSuite) newUpgrader(c *gc.C, toSeries string) upgradeseries.Upgrader {
-	upg, err := upgradeseries.NewUpgrader(toSeries, s.manager, s.logger)
+func (s *upgraderSuite) newUpgrader(c *gc.C, currentSeries, toSeries string) upgradeseries.Upgrader {
+	upg, err := upgradeseries.NewUpgrader(currentSeries, toSeries, s.manager, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	return upg
 }

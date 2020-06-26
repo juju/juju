@@ -43,8 +43,8 @@ type Config struct {
 
 	// UpgraderFactory is a factory method that will return an upgrader capable
 	// of handling service and agent binary manipulation for a
-	// runtime-determined target OS series.
-	UpgraderFactory func(string) (Upgrader, error)
+	// runtime-determined current and target OS series.
+	UpgraderFactory func(string, string) (Upgrader, error)
 }
 
 // Validate validates the upgrade-series worker configuration.
@@ -73,7 +73,7 @@ type upgradeSeriesWorker struct {
 	catacomb        catacomb.Catacomb
 	logger          Logger
 	service         ServiceAccess
-	upgraderFactory func(string) (Upgrader, error)
+	upgraderFactory func(string, string) (Upgrader, error)
 
 	// Some local state retained for reporting purposes.
 	mu             sync.Mutex
@@ -203,19 +203,25 @@ func (w *upgradeSeriesWorker) handlePrepareStarted() error {
 // series upgrade target.
 func (w *upgradeSeriesWorker) transitionPrepareComplete() error {
 	w.logger.Infof("preparing service units for series upgrade")
+	currentSeries, err := w.CurrentSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	toSeries, err := w.TargetSeries()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	upgrader, err := w.upgraderFactory(toSeries)
+
+	upgrader, err := w.upgraderFactory(currentSeries, toSeries)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if err := upgrader.PerformUpgrade(); err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareCompleted,
-		"binaries and service files written"))
+
+	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesPrepareCompleted, "binaries and service files written"))
 }
 
 func (w *upgradeSeriesWorker) handleCompleteStarted() error {
