@@ -567,8 +567,8 @@ func (c *neutronFirewaller) ensureGroup(name string, rules []neutron.RuleInfoV2)
 	// Due to parallelization of the provisioner, it's possible that we try
 	// to create the model security group a second time before the first time
 	// is complete causing failures.
-	// NOTE: This can block for ever (API timeouts). We should allow a mutex to
-	// timeout and fail with an error.
+	// TODO (stickupkid): This can block forever (API timeouts). We should allow
+	// a mutex to timeout and fail with an error.
 	c.ensureGroupMutex.Lock()
 	defer c.ensureGroupMutex.Unlock()
 
