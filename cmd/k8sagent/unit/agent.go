@@ -24,6 +24,8 @@ import (
 	"github.com/juju/juju/api/uniter"
 	jujucmd "github.com/juju/juju/cmd"
 	jujudagent "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/upgrades"
@@ -98,7 +100,7 @@ func (c *k8sUnitAgent) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the command for running.
 func (c *k8sUnitAgent) Init(args []string) error {
 	if c.applicationName == "" {
-		return cmdutil.RequiredError("application-name")
+		return agenterrors.RequiredError("application-name")
 	}
 	if !names.IsValidApplication(c.applicationName) {
 		return errors.Errorf(`--application-name option expects "<application>" argument`)
@@ -107,8 +109,8 @@ func (c *k8sUnitAgent) Init(args []string) error {
 		return err
 	}
 	c.runner = worker.NewRunner(worker.RunnerParams{
-		IsFatal:       cmdutil.IsFatal,
-		MoreImportant: cmdutil.MoreImportant,
+		IsFatal:       agenterrors.IsFatal,
+		MoreImportant: agenterrors.MoreImportant,
 		RestartDelay:  jworker.RestartDelay,
 	})
 
@@ -187,7 +189,7 @@ func (c *k8sUnitAgent) workers() (worker.Worker, error) {
 	}
 	manifolds := Manifolds(cfg)
 
-	engine, err := dependency.NewEngine(jujudagent.DependencyEngineConfig())
+	engine, err := dependency.NewEngine(engine.DependencyEngineConfig())
 	if err != nil {
 		return nil, err
 	}

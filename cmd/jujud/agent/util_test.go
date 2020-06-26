@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
@@ -188,8 +188,8 @@ func NewTestMachineAgentFactory(
 			agentConfWriter,
 			bufferedLogger,
 			worker.NewRunner(worker.RunnerParams{
-				IsFatal:       cmdutil.IsFatal,
-				MoreImportant: cmdutil.MoreImportant,
+				IsFatal:       agenterrors.IsFatal,
+				MoreImportant: agenterrors.MoreImportant,
 				RestartDelay:  jworker.RestartDelay,
 			}),
 			&mockLoopDeviceManager{},

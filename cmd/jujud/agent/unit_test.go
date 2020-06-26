@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -203,7 +204,7 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	err = machine.SetAgentVersion(newVers)
 	c.Assert(err, jc.ErrorIsNil)
 	err = runWithTimeout(c, agent)
-	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
+	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
 		AgentName: unit.Tag().String(),
 		OldTools:  currentTools.Version,
 		NewTools:  newVers,

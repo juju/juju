@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -211,7 +212,7 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 
 	select {
 	case agentErr := <-agentDone:
-		upgradeReadyErr, ok := agentErr.(*upgrader.UpgradeReadyError)
+		upgradeReadyErr, ok := agentErr.(*agenterrors.UpgradeReadyError)
 		if !ok {
 			c.Fatalf("didn't see UpgradeReadyError, instead got: %v", agentErr)
 		}

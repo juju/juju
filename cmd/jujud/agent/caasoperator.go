@@ -28,6 +28,8 @@ import (
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/upgrades"
@@ -106,7 +108,7 @@ func (op *CaasOperatorAgent) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the command for running.
 func (op *CaasOperatorAgent) Init(args []string) error {
 	if op.ApplicationName == "" {
-		return cmdutil.RequiredError("application-name")
+		return agenterrors.RequiredError("application-name")
 	}
 	if !names.IsValidApplication(op.ApplicationName) {
 		return errors.Errorf(`--application-name option expects "<application>" argument`)
@@ -115,8 +117,8 @@ func (op *CaasOperatorAgent) Init(args []string) error {
 		return err
 	}
 	op.runner = worker.NewRunner(worker.RunnerParams{
-		IsFatal:       cmdutil.IsFatal,
-		MoreImportant: cmdutil.MoreImportant,
+		IsFatal:       agenterrors.IsFatal,
+		MoreImportant: agenterrors.MoreImportant,
 		RestartDelay:  jworker.RestartDelay,
 	})
 	return nil
@@ -237,7 +239,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 	}
 	manifolds := CaasOperatorManifolds(manifoldConfig)
 
-	engine, err := dependency.NewEngine(DependencyEngineConfig())
+	engine, err := dependency.NewEngine(engine.DependencyEngineConfig())
 	if err != nil {
 		return nil, err
 	}

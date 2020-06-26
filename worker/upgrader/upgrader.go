@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/upgrader"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
@@ -254,8 +255,8 @@ func (u *Upgrader) toolsAlreadyDownloaded(wantVersion version.Binary) bool {
 	return err == nil
 }
 
-func (u *Upgrader) newUpgradeReadyError(haveVersion version.Number, newVersion version.Binary) *UpgradeReadyError {
-	return &UpgradeReadyError{
+func (u *Upgrader) newUpgradeReadyError(haveVersion version.Number, newVersion version.Binary) *agenterrors.UpgradeReadyError {
+	return &agenterrors.UpgradeReadyError{
 		OldTools:  toBinaryVersion(haveVersion),
 		NewTools:  newVersion,
 		AgentName: u.tag.String(),

@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/jujud/util"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 )
@@ -81,7 +81,7 @@ func (c *converter) Handle(_ <-chan struct{}) error {
 		return nil
 	}
 
-	return &util.FatalError{"bounce agent to pick up new jobs"}
+	return &agenterrors.FatalError{"bounce agent to pick up new jobs"}
 }
 
 // TearDown implements NotifyWatchHandler's TearDown method.

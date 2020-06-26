@@ -8,9 +8,7 @@ package agent
 
 import (
 	"sync"
-	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
@@ -18,16 +16,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/version"
-	"github.com/juju/worker/v2/dependency"
 
 	"github.com/juju/juju/agent"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/cmd/jujud/util"
 )
-
-// EngineErrorDelay is the amount of time the dependency engine waits
-// between getting an error from a worker, and restarting it. It is exposed
-// here so tests can make it smaller.
-var EngineErrorDelay = 3 * time.Second
 
 // AgentConf is a terribly confused interface.
 //
@@ -79,7 +72,7 @@ func (c *agentConf) AddFlags(f *gnuflag.FlagSet) {
 // CheckArgs reports whether the given args are valid for this agent.
 func (c *agentConf) CheckArgs(args []string) error {
 	if c.dataDir == "" {
-		return util.RequiredError("data-dir")
+		return agenterrors.RequiredError("data-dir")
 	}
 	return cmd.CheckEmpty(args)
 }
@@ -162,21 +155,6 @@ func GetJujuVersion(machineAgent string, dataDir string) (version.Number, error)
 		return version.Number{}, errors.Errorf("%s agent conf is not found", machineAgent)
 	}
 	return config.UpgradedToVersion(), nil
-}
-
-// DependencyEngineConfig returns a dependency engine config.
-func DependencyEngineConfig() dependency.EngineConfig {
-	return dependency.EngineConfig{
-		IsFatal:          util.IsFatal,
-		WorstError:       util.MoreImportantError,
-		ErrorDelay:       EngineErrorDelay,
-		BounceDelay:      10 * time.Millisecond,
-		BackoffFactor:    1.2,
-		BackoffResetTime: 1 * time.Minute,
-		MaxDelay:         2 * time.Minute,
-		Clock:            clock.WallClock,
-		Logger:           loggo.GetLogger("juju.worker.dependency"),
-	}
 }
 
 // readAgentConfig is a helper to read either machine or controller agent config,

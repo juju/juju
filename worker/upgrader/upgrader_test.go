@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -180,7 +181,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	u := s.makeUpgrader(c)
 	err = worker.Stop(u)
 	s.expectInitialUpgradeCheckNotDone(c)
-	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
+	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
 		OldTools:  oldTools.Version,
 		NewTools:  newTools.Version,
@@ -228,7 +229,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	}()
 	select {
 	case err := <-done:
-		envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
+		envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
 			AgentName: s.machine.Tag().String(),
 			OldTools:  oldTools.Version,
 			NewTools:  newerTools.Version,
@@ -249,7 +250,7 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	s.patchVersion(newTools.Version)
 	err := envtools.MergeAndWriteMetadata(stor, "released", "released", coretools.List{newTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, jc.ErrorIsNil)
-	ugErr := &upgrader.UpgradeReadyError{
+	ugErr := &agenterrors.UpgradeReadyError{
 		AgentName: "anAgent",
 		OldTools:  oldTools.Version,
 		NewTools:  newTools.Version,
@@ -280,7 +281,7 @@ func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *gc.C) {
 	err = worker.Stop(u)
 	s.expectInitialUpgradeCheckNotDone(c)
 
-	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
+	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
 		OldTools:  oldVersion,
 		NewTools:  newVersion,
@@ -303,7 +304,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingMinorVersions(c *gc.C) {
 	err = worker.Stop(u)
 	s.expectInitialUpgradeCheckNotDone(c)
 
-	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
+	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
 		OldTools:  origTools.Version,
 		NewTools:  downgradeTools.Version,
@@ -353,7 +354,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
 	u := s.makeUpgrader(c)
 	err = worker.Stop(u)
 	s.expectInitialUpgradeCheckNotDone(c)
-	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
+	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
 		OldTools:  origTools.Version,
 		NewTools:  downgradeTools.Version,
@@ -382,7 +383,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToOrigVersionIfUpgradeInProgr
 	u := s.makeUpgrader(c)
 	err = worker.Stop(u)
 	s.expectInitialUpgradeCheckNotDone(c)
-	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
+	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
 		OldTools:  origTools.Version,
 		NewTools:  downgradeVersion,
@@ -418,7 +419,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToOrigVersionIfUpgradeNotInPr
 	err = worker.Stop(u)
 	s.expectInitialUpgradeCheckNotDone(c)
 
-	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
+	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
 		OldTools:  origTools.Version,
 		NewTools:  prevTools.Version,

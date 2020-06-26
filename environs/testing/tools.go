@@ -20,6 +20,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
@@ -28,7 +29,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/upgrader"
 )
 
 // toolsltsseries records the known ubuntu lts series.
@@ -118,9 +118,9 @@ func CheckTools(c *gc.C, obtained, expected *coretools.Tools) {
 }
 
 // CheckUpgraderReadyError ensures the obtained and expected errors are equal.
-func CheckUpgraderReadyError(c *gc.C, obtained error, expected *upgrader.UpgradeReadyError) {
-	c.Assert(obtained, gc.FitsTypeOf, &upgrader.UpgradeReadyError{})
-	err := obtained.(*upgrader.UpgradeReadyError)
+func CheckUpgraderReadyError(c *gc.C, obtained error, expected *agenterrors.UpgradeReadyError) {
+	c.Assert(obtained, gc.FitsTypeOf, &agenterrors.UpgradeReadyError{})
+	err := obtained.(*agenterrors.UpgradeReadyError)
 	c.Assert(err.AgentName, gc.Equals, expected.AgentName)
 	c.Assert(err.DataDir, gc.Equals, expected.DataDir)
 	c.Assert(err.OldTools, gc.Equals, expected.OldTools)

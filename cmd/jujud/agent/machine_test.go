@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
@@ -384,7 +385,7 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 	err := s.State.SetModelAgentVersion(newVers.Number, true)
 	c.Assert(err, jc.ErrorIsNil)
 	err = runWithTimeout(c, agent)
-	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
+	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
 		AgentName: tag,
 		OldTools:  currentTools.Version,
 		NewTools:  newTools.Version,

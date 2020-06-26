@@ -44,6 +44,8 @@ import (
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/cmd/jujud/reboot"
@@ -282,8 +284,8 @@ func MachineAgentFactoryFn(
 			agentConfWriter,
 			bufferedLogger,
 			worker.NewRunner(worker.RunnerParams{
-				IsFatal:       cmdutil.IsFatal,
-				MoreImportant: cmdutil.MoreImportant,
+				IsFatal:       agenterrors.IsFatal,
+				MoreImportant: agenterrors.MoreImportant,
 				RestartDelay:  jworker.RestartDelay,
 			}),
 			looputil.NewLoopDeviceManager(),
@@ -535,7 +537,7 @@ func (a *MachineAgent) makeEngineCreator(
 	agentName string, previousAgentVersion version.Number,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
-		engine, err := dependency.NewEngine(DependencyEngineConfig())
+		engine, err := dependency.NewEngine(engine.DependencyEngineConfig())
 		if err != nil {
 			return nil, err
 		}
@@ -691,8 +693,8 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	}
 
 	runner := worker.NewRunner(worker.RunnerParams{
-		IsFatal:       cmdutil.ConnectionIsFatal(logger, apiConn),
-		MoreImportant: cmdutil.MoreImportant,
+		IsFatal:       agenterrors.ConnectionIsFatal(logger, apiConn),
+		MoreImportant: agenterrors.MoreImportant,
 		RestartDelay:  jworker.RestartDelay,
 	})
 	defer func() {
@@ -1043,7 +1045,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config := DependencyEngineConfig()
+	config := engine.DependencyEngineConfig()
 	config.IsFatal = model.IsFatal
 	config.WorstError = model.WorstError
 	config.Filter = model.IgnoreErrRemoved
