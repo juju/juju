@@ -600,15 +600,16 @@ func (c *neutronFirewaller) ensureGroup(name string, rules []neutron.RuleInfoV2)
 
 	// Find rules we want to delete, that we have but don't want, and
 	// delete them.
-	remove := make(ruleInfoSet)
+	// Define a removal set to ensure that we only ever delete a ruleID once.
+	remove := set.NewStrings()
 	for k := range have {
 		// Neutron creates 2 egress rules with any new Security Group.
 		// Keep them.
 		if _, ok := want[k]; !ok && k.Direction != "egress" {
-			remove[k] = have[k]
+			remove.Add(have[k])
 		}
 	}
-	for _, ruleID := range remove {
+	for _, ruleID := range remove.SortedValues() {
 		if err = neutronClient.DeleteSecurityGroupRuleV2(ruleID); err != nil {
 			if gooseerrors.IsNotFound(err) {
 				continue
