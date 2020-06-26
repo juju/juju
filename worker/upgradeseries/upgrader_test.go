@@ -67,6 +67,24 @@ func (s *upgraderSuite) TestFromSystemdCopyToolsOnly(c *gc.C) {
 	c.Assert(upg.PerformUpgrade(), jc.ErrorIsNil)
 }
 
+func (s *upgraderSuite) TestFromSystemdCopyToolsForAlreadyUpgradedMachine(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.setupMocks(ctrl)
+
+	// Actual series is Bionic.
+	s.patchFrom("bionic")
+
+	// No systemd file changes; just the new tools for the target series.
+	s.manager.EXPECT().CopyAgentBinary(
+		s.machineService, s.unitServices, paths.NixDataDir, "bionic", "xenial", version.Current,
+	).Return(nil)
+
+	// Juju thinks the machine is Xenial.
+	upg := s.newUpgrader(c, "xenial", "bionic")
+	c.Assert(upg.PerformUpgrade(), jc.ErrorIsNil)
+}
+
 func (s *upgraderSuite) TestToSystemdServicesWritten(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

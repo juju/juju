@@ -131,8 +131,12 @@ func (u *upgrader) ensureSystemdFiles() error {
 // right tools path for the target OS series, and that individual agents use
 // those files.
 func (u *upgrader) ensureAgentBinaries() error {
+	// Here we pass what Juju *thinks* the current series is, because that is
+	// where we expect the agent binaries to be.
+	// If was pass the machine-detected series for a machine upgraded outside
+	// of this workflow, the binaries will not be found.
 	if err := u.manager.CopyAgentBinary(
-		u.machineAgent, u.unitAgents, paths.NixDataDir, u.toSeries, u.fromSeries, version.Current); err != nil {
+		u.machineAgent, u.unitAgents, paths.NixDataDir, u.toSeries, u.jujuCurrentSeries, version.Current); err != nil {
 		return errors.Trace(err)
 	}
 
