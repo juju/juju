@@ -19,6 +19,7 @@ type Facade interface {
 	MachineStatus() (model.UpgradeSeriesStatus, error)
 	UnitsPrepared() ([]names.UnitTag, error)
 	UnitsCompleted() ([]names.UnitTag, error)
+	CurrentSeries() (string, error)
 	TargetSeries() (string, error)
 
 	// Setters
@@ -29,7 +30,8 @@ type Facade interface {
 	UnpinMachineApplications() (map[string]error, error)
 }
 
-// NewFacade creates a *upgradeseries.Client and returns it as a Facade.
+// NewFacade creates a new upgrade-series client and returns its
+// reference as the facade indirection above.
 func NewFacade(apiCaller base.APICaller, tag names.Tag) Facade {
 	return upgradeseries.NewClient(apiCaller, tag)
 }
