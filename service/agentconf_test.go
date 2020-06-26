@@ -285,7 +285,7 @@ func (s *agentConfSuite) TestCopyAgentBinaryOriginalAgentBinariesNotFound(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.manager.CopyAgentBinary(s.machineName, s.unitNames, s.dataDir, "xenial", "xenial", jujuVersion)
-	c.Assert(err, gc.ErrorMatches, "failed to copy tools: .* no such file or directory")
+	c.Assert(err, gc.ErrorMatches, "copying agent binaries: .* no such file or directory")
 }
 
 func (s *agentConfSuite) TestWriteSystemdAgents(c *gc.C) {

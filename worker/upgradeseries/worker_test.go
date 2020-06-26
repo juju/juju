@@ -164,6 +164,7 @@ func (s *workerSuite) expectMachinePrepareStartedUnitFilesWrittenProgressPrepare
 
 	exp.MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
 	s.expectUnitsPrepared("wordpress/0", "mysql/0")
+	exp.CurrentSeries().Return("trusty", nil)
 	exp.TargetSeries().Return("xenial", nil)
 
 	s.upgrader.EXPECT().PerformUpgrade().Return(nil)
@@ -301,10 +302,9 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *workerSuite) workerForScenario(c *gc.C, behaviours ...func()) worker.Worker {
 	cfg := upgradeseries.Config{
 		Logger:          s.logger,
-		FacadeFactory:   func(_ names.Tag) upgradeseries.Facade { return s.facade },
-		Tag:             names.NewMachineTag("0"),
+		Facade:          s.facade,
 		Service:         s.service,
-		UpgraderFactory: func(_ string) (upgradeseries.Upgrader, error) { return s.upgrader, nil },
+		UpgraderFactory: func(_, _ string) (upgradeseries.Upgrader, error) { return s.upgrader, nil },
 	}
 
 	for _, b := range behaviours {

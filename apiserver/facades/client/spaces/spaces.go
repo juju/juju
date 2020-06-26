@@ -86,7 +86,7 @@ func NewAPIv4(st *state.State, res facade.Resources, auth facade.Authorizer) (*A
 	return &APIv4{api}, nil
 }
 
-// NewAPIv5 is a wrapper that creates a V4 spaces API.
+// NewAPIv5 is a wrapper that creates a V5 spaces API.
 func NewAPIv5(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv5, error) {
 	api, err := NewAPI(st, res, auth)
 	if err != nil {
