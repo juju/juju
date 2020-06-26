@@ -1,13 +1,14 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package agent
+package addons
 
 import (
 	"runtime"
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
@@ -19,6 +20,8 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/introspection"
 )
+
+var logger = loggo.GetLogger("juju.cmd.jujud.agent.addons")
 
 // DefaultIntrospectionSocketName returns the socket name to use for the
 // abstract domain socket that the introspection worker serves requests
@@ -93,21 +96,21 @@ func NewPrometheusRegistry() (*prometheus.Registry, error) {
 	return r, nil
 }
 
-// statePoolIntrospectionReporter wraps a (possibly nil) state.StatePool,
+// StatePoolIntrospectionReporter wraps a (possibly nil) state.StatePool,
 // calling its IntrospectionReport method or returning a message if it
 // is nil.
-type statePoolIntrospectionReporter struct {
+type StatePoolIntrospectionReporter struct {
 	mu   sync.Mutex
 	pool *state.StatePool
 }
 
-func (h *statePoolIntrospectionReporter) set(pool *state.StatePool) {
+func (h *StatePoolIntrospectionReporter) Set(pool *state.StatePool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.pool = pool
 }
 
-func (h *statePoolIntrospectionReporter) IntrospectionReport() string {
+func (h *StatePoolIntrospectionReporter) IntrospectionReport() string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.pool == nil {

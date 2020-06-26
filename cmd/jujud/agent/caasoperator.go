@@ -27,6 +27,7 @@ import (
 	apicaasoperator "github.com/juju/juju/api/caasoperator"
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/jujud/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
@@ -75,7 +76,7 @@ func NewCaasOperatorAgent(
 	bufferedLogger *logsender.BufferedLogWriter,
 	configure func(*caasoperator.ManifoldsConfig) error,
 ) (*CaasOperatorAgent, error) {
-	prometheusRegistry, err := NewPrometheusRegistry()
+	prometheusRegistry, err := addons.NewPrometheusRegistry()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -249,11 +250,11 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		}
 		return nil, err
 	}
-	if err := StartIntrospection(IntrospectionConfig{
+	if err := addons.StartIntrospection(addons.IntrospectionConfig{
 		Agent:              op,
 		Engine:             engine,
 		MachineLock:        op.machineLock,
-		NewSocketName:      DefaultIntrospectionSocketName,
+		NewSocketName:      addons.DefaultIntrospectionSocketName,
 		PrometheusGatherer: op.prometheusRegistry,
 		WorkerFunc:         introspection.NewWorker,
 	}); err != nil {

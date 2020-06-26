@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/jujud/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
@@ -309,7 +310,7 @@ func NewMachineAgent(
 	rootDir string,
 	isCaasAgent bool,
 ) (*MachineAgent, error) {
-	prometheusRegistry, err := NewPrometheusRegistry()
+	prometheusRegistry, err := addons.NewPrometheusRegistry()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -559,7 +560,7 @@ func (a *MachineAgent) makeEngineCreator(
 		// statePoolReporter is an introspection.IntrospectionReporter,
 		// which is set to the current StatePool managed by the state
 		// tracker in controller agents.
-		var statePoolReporter statePoolIntrospectionReporter
+		var statePoolReporter addons.StatePoolIntrospectionReporter
 		registerIntrospectionHandlers := func(handle func(path string, h http.Handler)) {
 			introspection.RegisterHTTPHandlers(introspection.ReportSources{
 				DependencyEngine:   engine,
@@ -600,7 +601,7 @@ func (a *MachineAgent) makeEngineCreator(
 			LogPruneInterval:                  5 * time.Minute,
 			TransactionPruneInterval:          time.Hour,
 			MachineLock:                       a.machineLock,
-			SetStatePool:                      statePoolReporter.set,
+			SetStatePool:                      statePoolReporter.Set,
 			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
 			NewModelWorker:                    a.startModelWorkers,
 			MuxShutdownWait:                   1 * time.Minute,
@@ -618,7 +619,7 @@ func (a *MachineAgent) makeEngineCreator(
 			}
 			return nil, err
 		}
-		if err := StartIntrospection(IntrospectionConfig{
+		if err := addons.StartIntrospection(addons.IntrospectionConfig{
 			Agent:              a,
 			Engine:             engine,
 			StatePoolReporter:  &statePoolReporter,

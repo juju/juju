@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/controller"
@@ -76,7 +77,6 @@ import (
 	"github.com/juju/juju/worker/migrationmaster"
 	raftworker "github.com/juju/juju/worker/raft"
 	"github.com/juju/juju/worker/storageprovisioner"
-	"github.com/juju/juju/worker/upgrader"
 )
 
 const (
@@ -103,7 +103,7 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	bootstrapRaft(c, s.DataDir())
 
 	// Restart failed workers much faster for the tests.
-	s.PatchValue(&EngineErrorDelay, 100*time.Millisecond)
+	s.PatchValue(&engine.EngineErrorDelay, 100*time.Millisecond)
 
 	// Most of these tests normally finish sub-second on a fast machine.
 	// If any given test hits a minute, we have almost certainly become

@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	jujucmd "github.com/juju/juju/cmd"
 	jujudagent "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -66,7 +67,7 @@ type k8sUnitAgent struct {
 }
 
 func New(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (cmd.Command, error) {
-	prometheusRegistry, err := jujudagent.NewPrometheusRegistry()
+	prometheusRegistry, err := addons.NewPrometheusRegistry()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -199,11 +200,11 @@ func (c *k8sUnitAgent) workers() (worker.Worker, error) {
 		}
 		return nil, err
 	}
-	if err := jujudagent.StartIntrospection(jujudagent.IntrospectionConfig{
+	if err := addons.StartIntrospection(addons.IntrospectionConfig{
 		Agent:              c,
 		Engine:             engine,
 		MachineLock:        c.machineLock,
-		NewSocketName:      jujudagent.DefaultIntrospectionSocketName,
+		NewSocketName:      addons.DefaultIntrospectionSocketName,
 		PrometheusGatherer: c.prometheusRegistry,
 		WorkerFunc:         introspection.NewWorker,
 	}); err != nil {

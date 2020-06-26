@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/jujud/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
@@ -66,7 +67,7 @@ type UnitAgent struct {
 
 // NewUnitAgent creates a new UnitAgent value properly initialized.
 func NewUnitAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (*UnitAgent, error) {
-	prometheusRegistry, err := NewPrometheusRegistry()
+	prometheusRegistry, err := addons.NewPrometheusRegistry()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -219,10 +220,10 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		}
 		return nil, err
 	}
-	if err := StartIntrospection(IntrospectionConfig{
+	if err := addons.StartIntrospection(addons.IntrospectionConfig{
 		Agent:              a,
 		Engine:             engine,
-		NewSocketName:      DefaultIntrospectionSocketName,
+		NewSocketName:      addons.DefaultIntrospectionSocketName,
 		PrometheusGatherer: a.prometheusRegistry,
 		MachineLock:        machineLock,
 		WorkerFunc:         introspection.NewWorker,
