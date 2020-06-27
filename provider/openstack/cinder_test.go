@@ -903,7 +903,7 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointBadURL(c *gc.C) {
 		"north": map[string]string{"volumev2": "some %4"},
 	}}
 	url, err := openstack.GetVolumeEndpointURL(client, "north")
-	c.Assert(err, gc.ErrorMatches, `parse some %4: .*`)
+	c.Assert(err, gc.ErrorMatches, `parse ("?)some %4("?): .*`)
 	c.Assert(url, gc.IsNil)
 }
 
