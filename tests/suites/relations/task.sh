@@ -15,6 +15,7 @@ test_relations() {
 
     test_relation_data_exchange
     test_relation_departing_unit
+    test_relation_list_app
 
     destroy_controller "test-relations"
 }
