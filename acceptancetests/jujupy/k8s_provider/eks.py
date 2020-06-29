@@ -103,6 +103,11 @@ class EKS(Base):
             self.eksctl('get', 'cluster', '--region', region, '-o', 'json'),
         )
 
+    def get_lb_svc_address(self, svc_name, namespace):
+        return json.loads(
+            self.kubectl('-n', namespace, 'get', 'svc', svc_name, '-o', 'json')
+        )['status']['loadBalancer']['ingress'][0]['hostname']
+
     def _ensure_kube_dir(self):
         logger.info("Writing kubeconfig to %s" % self.kube_config_path)
         self.eksctl(

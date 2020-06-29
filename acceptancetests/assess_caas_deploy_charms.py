@@ -57,11 +57,7 @@ def get_app_endpoint(caas_client, model_name, app_name, svc_type, timeout=180):
     if svc_type == 'LoadBalancer':
         for remaining in until_timeout(timeout):
             try:
-                lb_addr = json.loads(
-                    caas_client.kubectl(
-                        '-n', model_name, 'get', 'svc', app_name, '-o', 'json'
-                    )
-                )['status']['loadBalancer']['ingress'][0]['ip']
+                lb_addr = caas_client.get_lb_svc_address(app_name, model_name)
                 if lb_addr:
                     log.info('load balancer addr for %s is %s' % (app_name, lb_addr))
                     return lb_addr
