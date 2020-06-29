@@ -256,6 +256,11 @@ class Base(object):
         logger.debug("trying to get first worker node IP, nodes are -> \n%s", pformat(nodes))
         return self._node_address_getter(nodes['items'][0])
 
+    def get_lb_svc_address(self, svc_name, namespace):
+        return json.loads(
+            self.kubectl('-n', namespace, 'get', 'svc', svc_name, '-o', 'json')
+        )['status']['loadBalancer']['ingress'][0]['ip']
+
     def ensure_cleanup(self):
         controller_uuid = self.client.get_controller_uuid()
         namespaces = json.loads(
