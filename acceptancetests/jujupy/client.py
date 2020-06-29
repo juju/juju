@@ -2066,7 +2066,7 @@ class ModelClient:
             child = self.expect(self.login_user_command,
                                 (username, '-c', self.env.controller.name),
                                 include_e=False)
-            child.expect('(?i)password')
+            child.expect(u'(?i)password')
             child.sendline(password)
             self._end_pexpect_session(child)
         except pexpect.TIMEOUT:
