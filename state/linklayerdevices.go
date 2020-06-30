@@ -194,9 +194,33 @@ func (dev *LinkLayerDevice) parentDocID() string {
 // SetProviderIDOps returns the operations required to set the input
 // provider ID for the link-layer device.
 func (dev *LinkLayerDevice) SetProviderIDOps(id network.Id) ([]txn.Op, error) {
-	// We only set the provider ID if it was previously empty.
-	if dev.doc.ProviderID != "" || id == "" || dev.doc.ProviderID == id.String() {
+	currentID := network.Id(dev.doc.ProviderID)
+
+	// If this provider ID is already set, we have nothing to do.
+	if id == currentID {
 		return nil, nil
+	}
+
+	// If the incoming provider ID is not empty, we will only set it on the
+	// device if it is currently empty.
+	// TODO (manadart 2020-06-30): This is a preservation of prior behaviour
+	// and probably bears re-evaluation.
+	if id != "" && currentID != "" {
+		return nil, nil
+	}
+
+	// If removing the provider ID from the device,
+	// also remove the ID from the global collection.
+	if id == "" {
+		return []txn.Op{
+			{
+				C:      linkLayerDevicesC,
+				Id:     dev.doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.M{"$unset": bson.M{"providerid": 1}},
+			},
+			dev.st.networkEntityGlobalKeyRemoveOp("linklayerdevice", currentID),
+		}, nil
 	}
 
 	// Since we assume that we are now setting the ID for the first time,
