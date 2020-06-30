@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
@@ -362,7 +362,7 @@ func (w *upgradesteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 		if upgradeErr == nil {
 			break
 		}
-		if cmdutil.ConnectionIsDead(logger, w.apiConn) {
+		if agenterrors.ConnectionIsDead(logger, w.apiConn) {
 			// API connection has gone away - abort!
 			return &apiLostDuringUpgrade{upgradeErr}
 		}

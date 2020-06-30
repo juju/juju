@@ -29,6 +29,7 @@ import (
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
@@ -61,7 +62,7 @@ const adminUserName = "admin"
 // BootstrapCommand represents a jujud bootstrap command.
 type BootstrapCommand struct {
 	cmd.CommandBase
-	AgentConf
+	agentconf.AgentConf
 	BootstrapParamsFile string
 	Timeout             time.Duration
 }
@@ -69,7 +70,7 @@ type BootstrapCommand struct {
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
 func NewBootstrapCommand() *BootstrapCommand {
 	return &BootstrapCommand{
-		AgentConf: NewAgentConf(""),
+		AgentConf: agentconf.NewAgentConf(""),
 	}
 }
 
@@ -246,7 +247,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return nil
 	}
 
-	if err := readAgentConfig(c, agent.BootstrapControllerId); err != nil {
+	if err := agentconf.ReadAgentConfig(c, agent.BootstrapControllerId); err != nil {
 		return errors.Annotate(err, "cannot read config")
 	}
 	agentConfig := c.CurrentConfig()

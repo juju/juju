@@ -14,7 +14,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/worker/apicaller"
 )
 
@@ -30,13 +31,13 @@ func ConnectAsAgent(a agent.Agent) (io.Closer, error) {
 type checkConnectionCommand struct {
 	cmd.CommandBase
 	agentName string
-	config    AgentConf
+	config    agentconf.AgentConf
 	connect   ConnectFunc
 }
 
 // NewCheckConnectionCommand returns a command that will test
 // connecting to the API with details from the agent's config.
-func NewCheckConnectionCommand(config AgentConf, connect ConnectFunc) cmd.Command {
+func NewCheckConnectionCommand(config agentconf.AgentConf, connect ConnectFunc) cmd.Command {
 	return &checkConnectionCommand{
 		config:  config,
 		connect: connect,
@@ -55,7 +56,7 @@ func (c *checkConnectionCommand) Info() *cmd.Info {
 // Init is part of cmd.Command.
 func (c *checkConnectionCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return &util.FatalError{"agent-name argument is required"}
+		return &agenterrors.FatalError{"agent-name argument is required"}
 	}
 	agentName, args := args[0], args[1:]
 	if err := cmd.CheckEmpty(args); err != nil {
@@ -66,7 +67,7 @@ func (c *checkConnectionCommand) Init(args []string) error {
 		return errors.Annotatef(err, "agent-name")
 	}
 	if tag.Kind() != "machine" && tag.Kind() != "unit" {
-		return &util.FatalError{"agent-name must be a machine or unit tag"}
+		return &agenterrors.FatalError{"agent-name must be a machine or unit tag"}
 	}
 	err = c.config.ReadConfig(agentName)
 	if err != nil {

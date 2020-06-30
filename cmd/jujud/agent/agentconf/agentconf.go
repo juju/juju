@@ -1,16 +1,11 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-/*
-agent contains jujud's machine agent.
-*/
-package agent
+package agentconf
 
 import (
 	"sync"
-	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
@@ -18,16 +13,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/version"
-	"github.com/juju/worker/v2/dependency"
 
 	"github.com/juju/juju/agent"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/cmd/jujud/util"
 )
-
-// EngineErrorDelay is the amount of time the dependency engine waits
-// between getting an error from a worker, and restarting it. It is exposed
-// here so tests can make it smaller.
-var EngineErrorDelay = 3 * time.Second
 
 // AgentConf is a terribly confused interface.
 //
@@ -79,7 +69,7 @@ func (c *agentConf) AddFlags(f *gnuflag.FlagSet) {
 // CheckArgs reports whether the given args are valid for this agent.
 func (c *agentConf) CheckArgs(args []string) error {
 	if c.dataDir == "" {
-		return util.RequiredError("data-dir")
+		return agenterrors.RequiredError("data-dir")
 	}
 	return cmd.CheckEmpty(args)
 }
@@ -125,7 +115,7 @@ func (c *agentConf) CurrentConfig() agent.Config {
 	return c._config.Clone()
 }
 
-func setupAgentLogging(context *loggo.Context, config agent.Config) {
+func SetupAgentLogging(context *loggo.Context, config agent.Config) {
 	logger := context.GetLogger("juju.agent.setup")
 	if loggingOverride := config.Value(agent.LoggingOverride); loggingOverride != "" {
 		logger.Infof("logging override set for this agent: %q", loggingOverride)
@@ -164,23 +154,21 @@ func GetJujuVersion(machineAgent string, dataDir string) (version.Number, error)
 	return config.UpgradedToVersion(), nil
 }
 
-func dependencyEngineConfig() dependency.EngineConfig {
-	return dependency.EngineConfig{
-		IsFatal:          util.IsFatal,
-		WorstError:       util.MoreImportantError,
-		ErrorDelay:       EngineErrorDelay,
-		BounceDelay:      10 * time.Millisecond,
-		BackoffFactor:    1.2,
-		BackoffResetTime: 1 * time.Minute,
-		MaxDelay:         2 * time.Minute,
-		Clock:            clock.WallClock,
-		Logger:           loggo.GetLogger("juju.worker.dependency"),
-	}
+// AgentConfigWriter encapsulates disk I/O operations with the agent
+// config.
+type AgentConfigWriter interface {
+	// ReadConfig reads the config for the given tag from disk.
+	ReadConfig(tag string) error
+	// ChangeConfig executes the given agent.ConfigMutator in a
+	// thread-safe context.
+	ChangeConfig(agent.ConfigMutator) error
+	// CurrentConfig returns a copy of the in-memory agent config.
+	CurrentConfig() agent.Config
 }
 
-// readAgentConfig is a helper to read either machine or controller agent config,
+// ReadAgentConfig is a helper to read either machine or controller agent config,
 // whichever is there. Machine config gets precedence.
-func readAgentConfig(c AgentConfigWriter, agentId string) error {
+func ReadAgentConfig(c AgentConfigWriter, agentId string) error {
 	var tag names.Tag = names.NewMachineTag(agentId)
 	err := c.ReadConfig(tag.String())
 	if err != nil {

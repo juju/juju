@@ -25,8 +25,10 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cmd/jujud/agent/addons"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
@@ -175,7 +177,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 }
 
 func NewTestMachineAgentFactory(
-	agentConfWriter AgentConfigWriter,
+	agentConfWriter agentconf.AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
 	rootDir string,
 ) machineAgentFactoryFnType {
@@ -188,12 +190,12 @@ func NewTestMachineAgentFactory(
 			agentConfWriter,
 			bufferedLogger,
 			worker.NewRunner(worker.RunnerParams{
-				IsFatal:       cmdutil.IsFatal,
-				MoreImportant: cmdutil.MoreImportant,
+				IsFatal:       agenterrors.IsFatal,
+				MoreImportant: agenterrors.MoreImportant,
 				RestartDelay:  jworker.RestartDelay,
 			}),
 			&mockLoopDeviceManager{},
-			DefaultIntrospectionSocketName,
+			addons.DefaultIntrospectionSocketName,
 			preUpgradeSteps,
 			rootDir,
 			isCAAS,
@@ -203,10 +205,10 @@ func NewTestMachineAgentFactory(
 
 // newAgent returns a new MachineAgent instance
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
-	agentConf := agentConf{dataDir: s.DataDir()}
+	agentConf := agentconf.NewAgentConf(s.DataDir())
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
 	logger := s.newBufferedLogWriter()
-	machineAgentFactory := NewTestMachineAgentFactory(&agentConf, logger, c.MkDir())
+	machineAgentFactory := NewTestMachineAgentFactory(agentConf, logger, c.MkDir())
 	machineAgent, err := machineAgentFactory(m.Tag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	return machineAgent
@@ -354,7 +356,7 @@ func (f FakeConfig) Value(key string) string {
 }
 
 type FakeAgentConfig struct {
-	AgentConf
+	agentconf.AgentConf
 	values map[string]string
 }
 

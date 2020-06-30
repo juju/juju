@@ -18,6 +18,7 @@ var (
 
 	// TODO(ycliuhw): ensure below symlinks with hooktool symlinks(->jujuc) together in init subcommand of k8sagent.
 	k8sAgentSymlinks = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
+	// TODO(ycliuhw): prepare paths, agent.conf etc(what caas operator has been done).
 )
 
 type initCommand struct {

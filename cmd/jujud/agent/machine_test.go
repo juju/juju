@@ -44,7 +44,10 @@ import (
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
@@ -75,7 +78,6 @@ import (
 	"github.com/juju/juju/worker/migrationmaster"
 	raftworker "github.com/juju/juju/worker/raft"
 	"github.com/juju/juju/worker/storageprovisioner"
-	"github.com/juju/juju/worker/upgrader"
 )
 
 const (
@@ -102,7 +104,7 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	bootstrapRaft(c, s.DataDir())
 
 	// Restart failed workers much faster for the tests.
-	s.PatchValue(&EngineErrorDelay, 100*time.Millisecond)
+	s.PatchValue(&engine.EngineErrorDelay, 100*time.Millisecond)
 
 	// Most of these tests normally finish sub-second on a fast machine.
 	// If any given test hits a minute, we have almost certainly become
@@ -121,34 +123,34 @@ func bootstrapRaft(c *gc.C, dataDir string) {
 }
 
 func (s *MachineSuite) TestParseNonsense(c *gc.C) {
-	var agentConf agentConf
-	err := ParseAgentCommand(&machineAgentCmd{agentInitializer: &agentConf}, nil)
+	aCfg := agentconf.NewAgentConf(s.DataDir())
+	err := ParseAgentCommand(&machineAgentCmd{agentInitializer: aCfg}, nil)
 	c.Assert(err, gc.ErrorMatches, "either machine-id or controller-id must be set")
-	err = ParseAgentCommand(&machineAgentCmd{agentInitializer: &agentConf}, []string{"--machine-id", "-4004"})
+	err = ParseAgentCommand(&machineAgentCmd{agentInitializer: aCfg}, []string{"--machine-id", "-4004"})
 	c.Assert(err, gc.ErrorMatches, "--machine-id option must be a non-negative integer")
-	err = ParseAgentCommand(&machineAgentCmd{agentInitializer: &agentConf}, []string{"--controller-id", "-4004"})
+	err = ParseAgentCommand(&machineAgentCmd{agentInitializer: aCfg}, []string{"--controller-id", "-4004"})
 	c.Assert(err, gc.ErrorMatches, "--controller-id option must be a non-negative integer")
 }
 
 func (s *MachineSuite) TestParseUnknown(c *gc.C) {
-	var agentConf agentConf
-	a := &machineAgentCmd{agentInitializer: &agentConf}
+	aCfg := agentconf.NewAgentConf(s.DataDir())
+	a := &machineAgentCmd{agentInitializer: aCfg}
 	err := ParseAgentCommand(a, []string{"--machine-id", "42", "blistering barnacles"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
 }
 
 func (s *MachineSuite) TestParseSuccess(c *gc.C) {
-	create := func() (cmd.Command, AgentConf) {
-		agentConf := agentConf{dataDir: s.DataDir()}
+	create := func() (cmd.Command, agentconf.AgentConf) {
+		aCfg := agentconf.NewAgentConf(s.DataDir())
 		s.PrimeAgent(c, names.NewMachineTag("42"), initialMachinePassword)
 		logger := s.newBufferedLogWriter()
 		a := NewMachineAgentCmd(
 			nil,
-			NewTestMachineAgentFactory(&agentConf, logger, c.MkDir()),
-			&agentConf,
-			&agentConf,
+			NewTestMachineAgentFactory(aCfg, logger, c.MkDir()),
+			aCfg,
+			aCfg,
 		)
-		return a, &agentConf
+		return a, aCfg
 	}
 	a := CheckAgentCommand(c, s.DataDir(), create, []string{"--machine-id", "42", "--log-to-stderr", "--data-dir", s.DataDir()})
 	c.Assert(a.(*machineAgentCmd).machineId, gc.Equals, "42")
@@ -384,7 +386,7 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 	err := s.State.SetModelAgentVersion(newVers.Number, true)
 	c.Assert(err, jc.ErrorIsNil)
 	err = runWithTimeout(c, agent)
-	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
+	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
 		AgentName: tag,
 		OldTools:  currentTools.Version,
 		NewTools:  newTools.Version,

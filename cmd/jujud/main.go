@@ -27,6 +27,8 @@ import (
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/agent/addons"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
 	"github.com/juju/juju/cmd/jujud/introspect"
@@ -226,11 +228,11 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// TODO(katco-): AgentConf type is doing too much. The
 	// MachineAgent type has called out the separate concerns; the
 	// AgentConf should be split up to follow suit.
-	agentConf := agentcmd.NewAgentConf("")
+	agentConf := agentconf.NewAgentConf("")
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		agentConf,
 		bufferedLogger,
-		agentcmd.DefaultIntrospectionSocketName,
+		addons.DefaultIntrospectionSocketName,
 		upgrades.PreUpgradeSteps,
 		"",
 	)

@@ -19,7 +19,7 @@ import (
 
 	apiagent "github.com/juju/juju/api/agent"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/agent/addons"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 )
 
@@ -106,7 +106,7 @@ func (c *IntrospectCommand) Run(ctx *cmd.Context) error {
 
 	getSocketName := c.IntrospectionSocketName
 	if getSocketName == nil {
-		getSocketName = agent.DefaultIntrospectionSocketName
+		getSocketName = addons.DefaultIntrospectionSocketName
 	}
 	socketName := "@" + getSocketName(tag)
 	if c.listen != "" {

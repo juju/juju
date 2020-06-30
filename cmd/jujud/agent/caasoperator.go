@@ -27,7 +27,11 @@ import (
 	apicaasoperator "github.com/juju/juju/api/caasoperator"
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/jujud/agent/addons"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/upgrades"
@@ -48,7 +52,7 @@ var (
 // CaasOperatorAgent is a cmd.Command responsible for running a CAAS operator agent.
 type CaasOperatorAgent struct {
 	cmd.CommandBase
-	AgentConf
+	agentconf.AgentConf
 	configChangedVal *voyeur.Value
 	ApplicationName  string
 	runner           *worker.Runner
@@ -73,12 +77,12 @@ func NewCaasOperatorAgent(
 	bufferedLogger *logsender.BufferedLogWriter,
 	configure func(*caasoperator.ManifoldsConfig) error,
 ) (*CaasOperatorAgent, error) {
-	prometheusRegistry, err := newPrometheusRegistry()
+	prometheusRegistry, err := addons.NewPrometheusRegistry()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &CaasOperatorAgent{
-		AgentConf:          NewAgentConf(""),
+		AgentConf:          agentconf.NewAgentConf(""),
 		configChangedVal:   voyeur.NewValue(true),
 		ctx:                ctx,
 		dead:               make(chan struct{}),
@@ -106,7 +110,7 @@ func (op *CaasOperatorAgent) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the command for running.
 func (op *CaasOperatorAgent) Init(args []string) error {
 	if op.ApplicationName == "" {
-		return cmdutil.RequiredError("application-name")
+		return agenterrors.RequiredError("application-name")
 	}
 	if !names.IsValidApplication(op.ApplicationName) {
 		return errors.Errorf(`--application-name option expects "<application>" argument`)
@@ -115,8 +119,8 @@ func (op *CaasOperatorAgent) Init(args []string) error {
 		return err
 	}
 	op.runner = worker.NewRunner(worker.RunnerParams{
-		IsFatal:       cmdutil.IsFatal,
-		MoreImportant: cmdutil.MoreImportant,
+		IsFatal:       agenterrors.IsFatal,
+		MoreImportant: agenterrors.MoreImportant,
 		RestartDelay:  jworker.RestartDelay,
 	})
 	return nil
@@ -237,7 +241,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 	}
 	manifolds := CaasOperatorManifolds(manifoldConfig)
 
-	engine, err := dependency.NewEngine(dependencyEngineConfig())
+	engine, err := dependency.NewEngine(engine.DependencyEngineConfig())
 	if err != nil {
 		return nil, err
 	}
@@ -247,11 +251,11 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		}
 		return nil, err
 	}
-	if err := startIntrospection(introspectionConfig{
+	if err := addons.StartIntrospection(addons.IntrospectionConfig{
 		Agent:              op,
 		Engine:             engine,
 		MachineLock:        op.machineLock,
-		NewSocketName:      DefaultIntrospectionSocketName,
+		NewSocketName:      addons.DefaultIntrospectionSocketName,
 		PrometheusGatherer: op.prometheusRegistry,
 		WorkerFunc:         introspection.NewWorker,
 	}); err != nil {

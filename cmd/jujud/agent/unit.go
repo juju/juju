@@ -22,6 +22,10 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/jujud/agent/addons"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
@@ -41,7 +45,7 @@ var (
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
 	cmd.CommandBase
-	AgentConf
+	agentconf.AgentConf
 	configChangedVal *voyeur.Value
 	UnitName         string
 	runner           *worker.Runner
@@ -64,12 +68,12 @@ type UnitAgent struct {
 
 // NewUnitAgent creates a new UnitAgent value properly initialized.
 func NewUnitAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (*UnitAgent, error) {
-	prometheusRegistry, err := newPrometheusRegistry()
+	prometheusRegistry, err := addons.NewPrometheusRegistry()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &UnitAgent{
-		AgentConf:                   NewAgentConf(""),
+		AgentConf:                   agentconf.NewAgentConf(""),
 		configChangedVal:            voyeur.NewValue(true),
 		ctx:                         ctx,
 		dead:                        make(chan struct{}),
@@ -97,7 +101,7 @@ func (a *UnitAgent) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the command for running.
 func (a *UnitAgent) Init(args []string) error {
 	if a.UnitName == "" {
-		return cmdutil.RequiredError("unit-name")
+		return agenterrors.RequiredError("unit-name")
 	}
 	if !names.IsValidUnit(a.UnitName) {
 		return errors.Errorf(`--unit-name option expects "<application>/<n>" argument`)
@@ -106,8 +110,8 @@ func (a *UnitAgent) Init(args []string) error {
 		return err
 	}
 	a.runner = worker.NewRunner(worker.RunnerParams{
-		IsFatal:       cmdutil.IsFatal,
-		MoreImportant: cmdutil.MoreImportant,
+		IsFatal:       agenterrors.IsFatal,
+		MoreImportant: agenterrors.MoreImportant,
 		RestartDelay:  jworker.RestartDelay,
 	})
 
@@ -161,7 +165,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) (err error) {
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return err
 	}
-	setupAgentLogging(loggo.DefaultContext(), a.CurrentConfig())
+	agentconf.SetupAgentLogging(loggo.DefaultContext(), a.CurrentConfig())
 
 	a.runner.StartWorker("api", a.APIWorkers)
 	err = cmdutil.AgentDone(logger, a.runner.Wait())
@@ -207,7 +211,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		Clock:                clock.WallClock,
 	})
 
-	engine, err := dependency.NewEngine(dependencyEngineConfig())
+	engine, err := dependency.NewEngine(engine.DependencyEngineConfig())
 	if err != nil {
 		return nil, err
 	}
@@ -217,10 +221,10 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		}
 		return nil, err
 	}
-	if err := startIntrospection(introspectionConfig{
+	if err := addons.StartIntrospection(addons.IntrospectionConfig{
 		Agent:              a,
 		Engine:             engine,
-		NewSocketName:      DefaultIntrospectionSocketName,
+		NewSocketName:      addons.DefaultIntrospectionSocketName,
 		PrometheusGatherer: a.prometheusRegistry,
 		MachineLock:        machineLock,
 		WorkerFunc:         introspection.NewWorker,

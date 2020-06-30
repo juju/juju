@@ -25,12 +25,16 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/agent/addons"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -38,7 +42,6 @@ import (
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
@@ -211,7 +214,7 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 
 	select {
 	case agentErr := <-agentDone:
-		upgradeReadyErr, ok := agentErr.(*upgrader.UpgradeReadyError)
+		upgradeReadyErr, ok := agentErr.(*agenterrors.UpgradeReadyError)
 		if !ok {
 			c.Fatalf("didn't see UpgradeReadyError, instead got: %v", agentErr)
 		}
@@ -235,14 +238,14 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 
 // TODO(mjs) - the following should maybe be part of AgentSuite
 func (s *upgradeSuite) newAgent(c *gc.C, m *state.Machine) *agentcmd.MachineAgent {
-	agentConf := agentcmd.NewAgentConf(s.DataDir())
+	agentConf := agentconf.NewAgentConf(s.DataDir())
 	agentConf.ReadConfig(m.Tag().String())
 	logger := logsender.NewBufferedLogWriter(1024)
 	s.AddCleanup(func(*gc.C) { logger.Close() })
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		agentConf,
 		logger,
-		agentcmd.DefaultIntrospectionSocketName,
+		addons.DefaultIntrospectionSocketName,
 		noPreUpgradeSteps,
 		c.MkDir(),
 	)

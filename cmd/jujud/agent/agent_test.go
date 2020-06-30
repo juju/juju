@@ -13,13 +13,14 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/core/network"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/worker/proxyupdater"
 )
 
-type acCreator func() (cmd.Command, AgentConf)
+type acCreator func() (cmd.Command, agentconf.AgentConf)
 
 // CheckAgentCommand is a utility function for verifying that common agent
 // options are handled by a Command; it returns an instance of that
@@ -81,7 +82,7 @@ func (*agentLoggingSuite) TestNoLoggingConfig(c *gc.C) {
 	context := loggo.NewContext(loggo.WARNING)
 	initial := context.Config().String()
 
-	setupAgentLogging(context, f)
+	agentconf.SetupAgentLogging(context, f)
 
 	c.Assert(context.Config().String(), gc.Equals, initial)
 }
@@ -92,7 +93,7 @@ func (*agentLoggingSuite) TestLoggingOverride(c *gc.C) {
 	}
 	context := loggo.NewContext(loggo.WARNING)
 
-	setupAgentLogging(context, f)
+	agentconf.SetupAgentLogging(context, f)
 
 	c.Assert(context.Config().String(), gc.Equals, "<root>=WARNING;test=INFO")
 }
@@ -103,7 +104,7 @@ func (*agentLoggingSuite) TestLoggingConfig(c *gc.C) {
 	}
 	context := loggo.NewContext(loggo.WARNING)
 
-	setupAgentLogging(context, f)
+	agentconf.SetupAgentLogging(context, f)
 
 	c.Assert(context.Config().String(), gc.Equals, "<root>=WARNING;test=INFO")
 }

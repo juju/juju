@@ -1,7 +1,7 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package agent
+package addons_test
 
 import (
 	"runtime"
@@ -18,7 +18,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/jujud/agent/addons"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/introspection"
 )
@@ -35,14 +36,14 @@ func (s *introspectionSuite) TestStartNonLinux(c *gc.C) {
 	}
 	var started bool
 
-	cfg := introspectionConfig{
+	cfg := addons.IntrospectionConfig{
 		WorkerFunc: func(_ introspection.Config) (worker.Worker, error) {
 			started = true
 			return nil, errors.New("shouldn't call start")
 		},
 	}
 
-	err := startIntrospection(cfg)
+	err := addons.StartIntrospection(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(started, jc.IsFalse)
 }
@@ -52,15 +53,15 @@ func (s *introspectionSuite) TestStartError(c *gc.C) {
 		c.Skip("introspection worker not supported on non-linux")
 	}
 
-	cfg := introspectionConfig{
+	cfg := addons.IntrospectionConfig{
 		Agent:         &dummyAgent{},
-		NewSocketName: DefaultIntrospectionSocketName,
+		NewSocketName: addons.DefaultIntrospectionSocketName,
 		WorkerFunc: func(_ introspection.Config) (worker.Worker, error) {
 			return nil, errors.New("boom")
 		},
 	}
 
-	err := startIntrospection(cfg)
+	err := addons.StartIntrospection(cfg)
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 
@@ -73,15 +74,15 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 	}
 
 	config := dependency.EngineConfig{
-		IsFatal:    cmdutil.IsFatal,
-		WorstError: cmdutil.MoreImportantError,
+		IsFatal:    agenterrors.IsFatal,
+		WorstError: agenterrors.MoreImportantError,
 		Clock:      clock.WallClock,
 		Logger:     loggo.GetLogger("juju.worker.dependency"),
 	}
 	engine, err := dependency.NewEngine(config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg := introspectionConfig{
+	cfg := addons.IntrospectionConfig{
 		Agent:         &dummyAgent{},
 		Engine:        engine,
 		NewSocketName: func(tag names.Tag) string { return "bananas" },
@@ -91,7 +92,7 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 		},
 	}
 
-	err = startIntrospection(cfg)
+	err = addons.StartIntrospection(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(fake.config.DepEngine, gc.Equals, engine)
@@ -108,7 +109,7 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 }
 
 func (s *introspectionSuite) TestDefaultIntrospectionSocketName(c *gc.C) {
-	name := DefaultIntrospectionSocketName(names.NewMachineTag("42"))
+	name := addons.DefaultIntrospectionSocketName(names.NewMachineTag("42"))
 	c.Assert(name, gc.Equals, "jujud-machine-42")
 }
 

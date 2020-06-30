@@ -20,6 +20,9 @@ import (
 	"github.com/juju/juju/caas"
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/cmd/jujud/agent/modeloperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	jujuversion "github.com/juju/juju/version"
@@ -28,7 +31,7 @@ import (
 
 // ModelCommand is a cmd.Command responsible for running a model agent.
 type ModelCommand struct {
-	AgentConf
+	agentconf.AgentConf
 	cmd.CommandBase
 	configChangedVal *voyeur.Value
 	dead             chan struct{}
@@ -54,7 +57,7 @@ func (m *ModelCommand) Info() *cmd.Info {
 // Init initializers the command for running
 func (m *ModelCommand) Init(args []string) error {
 	if m.ModelUUID == "" {
-		return cmdutil.RequiredError("model-uuid")
+		return agenterrors.RequiredError("model-uuid")
 	}
 
 	if err := m.AgentConf.CheckArgs(args); err != nil {
@@ -62,8 +65,8 @@ func (m *ModelCommand) Init(args []string) error {
 	}
 
 	m.runner = worker.NewRunner(worker.RunnerParams{
-		IsFatal:       cmdutil.IsFatal,
-		MoreImportant: cmdutil.MoreImportant,
+		IsFatal:       agenterrors.IsFatal,
+		MoreImportant: agenterrors.MoreImportant,
 		RestartDelay:  jworker.RestartDelay,
 	})
 	return nil
@@ -92,7 +95,7 @@ func (m *ModelCommand) maybeCopyAgentConfig() error {
 // NewModelCommand creates a new ModelCommand instance properly initialized
 func NewModelCommand() *ModelCommand {
 	return &ModelCommand{
-		AgentConf:        NewAgentConf(""),
+		AgentConf:        agentconf.NewAgentConf(""),
 		configChangedVal: voyeur.NewValue(true),
 		dead:             make(chan struct{}),
 	}
@@ -165,7 +168,7 @@ func (m *ModelCommand) Workers() (worker.Worker, error) {
 		UpdateLoggerConfig:     updateAgentConfLogging,
 	})
 
-	engine, err := dependency.NewEngine(dependencyEngineConfig())
+	engine, err := dependency.NewEngine(engine.DependencyEngineConfig())
 	if err != nil {
 		return nil, err
 	}

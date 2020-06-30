@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter"
 )
 
@@ -30,6 +31,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		Clock:       testclock.NewClock(time.Now()),
 		MachineLock: fakeLock{},
 		Logger:      loggo.GetLogger("test"),
+		ModelType:   model.IAAS,
 	}
 }
 
@@ -57,6 +59,13 @@ func (s *ManifoldSuite) TestConfigValidationMissingLogger(c *gc.C) {
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "missing Logger not valid")
+}
+
+func (s *ManifoldSuite) TestConfigValidationMissingModelType(c *gc.C) {
+	s.config.ModelType = ""
+	err := s.config.Validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "missing model type not valid")
 }
 
 type fakeLock struct {

@@ -1,13 +1,14 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package agent
+package addons
 
 import (
 	"runtime"
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
@@ -20,6 +21,8 @@ import (
 	"github.com/juju/juju/worker/introspection"
 )
 
+var logger = loggo.GetLogger("juju.cmd.jujud.agent.addons")
+
 // DefaultIntrospectionSocketName returns the socket name to use for the
 // abstract domain socket that the introspection worker serves requests
 // over.
@@ -27,9 +30,9 @@ func DefaultIntrospectionSocketName(entityTag names.Tag) string {
 	return "jujud-" + entityTag.String()
 }
 
-// introspectionConfig defines the various components that the introspection
+// IntrospectionConfig defines the various components that the introspection
 // worker reports on or needs to start up.
-type introspectionConfig struct {
+type IntrospectionConfig struct {
 	Agent              agent.Agent
 	Engine             *dependency.Engine
 	StatePoolReporter  introspection.IntrospectionReporter
@@ -41,13 +44,13 @@ type introspectionConfig struct {
 	WorkerFunc         func(config introspection.Config) (worker.Worker, error)
 }
 
-// startIntrospection creates the introspection worker. It cannot and should
+// StartIntrospection creates the introspection worker. It cannot and should
 // not be in the engine itself as it reports on the engine, and other aspects
 // of the runtime. If we put it in the engine, then it is mostly likely shut
 // down in the times we need it most, which is when the agent is having
 // problems shutting down. Here we effectively start the worker and tie its
 // life to that of the engine that is returned.
-func startIntrospection(cfg introspectionConfig) error {
+func StartIntrospection(cfg IntrospectionConfig) error {
 	if runtime.GOOS != "linux" {
 		logger.Debugf("introspection worker not supported on %q", runtime.GOOS)
 		return nil
@@ -77,11 +80,11 @@ func startIntrospection(cfg introspectionConfig) error {
 	return nil
 }
 
-// newPrometheusRegistry returns a new prometheus.Registry with
+// NewPrometheusRegistry returns a new prometheus.Registry with
 // the Go and process metric collectors registered. This registry
 // is exposed by the introspection abstract domain socket on all
 // Linux agents.
-func newPrometheusRegistry() (*prometheus.Registry, error) {
+func NewPrometheusRegistry() (*prometheus.Registry, error) {
 	r := prometheus.NewRegistry()
 	if err := r.Register(prometheus.NewGoCollector()); err != nil {
 		return nil, errors.Trace(err)
@@ -93,21 +96,21 @@ func newPrometheusRegistry() (*prometheus.Registry, error) {
 	return r, nil
 }
 
-// statePoolIntrospectionReporter wraps a (possibly nil) state.StatePool,
+// StatePoolIntrospectionReporter wraps a (possibly nil) state.StatePool,
 // calling its IntrospectionReport method or returning a message if it
 // is nil.
-type statePoolIntrospectionReporter struct {
+type StatePoolIntrospectionReporter struct {
 	mu   sync.Mutex
 	pool *state.StatePool
 }
 
-func (h *statePoolIntrospectionReporter) set(pool *state.StatePool) {
+func (h *StatePoolIntrospectionReporter) Set(pool *state.StatePool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.pool = pool
 }
 
-func (h *statePoolIntrospectionReporter) IntrospectionReport() string {
+func (h *StatePoolIntrospectionReporter) IntrospectionReport() string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.pool == nil {
