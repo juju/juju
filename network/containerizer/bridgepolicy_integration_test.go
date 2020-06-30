@@ -81,12 +81,17 @@ func (s *bridgePolicyStateSuite) setupTwoSpaces(c *gc.C) {
 }
 
 func (s *bridgePolicyStateSuite) createNICWithIP(c *gc.C, machine containerizer.Machine, deviceName, cidrAddress string) {
+	s.createNICWithIPAndPortType(c, machine, deviceName, cidrAddress, corenetwork.NonVirtualPort)
+}
+
+func (s *bridgePolicyStateSuite) createNICWithIPAndPortType(c *gc.C, machine containerizer.Machine, deviceName, cidrAddress string, portType corenetwork.VirtualPortType) {
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
-			Name:       deviceName,
-			Type:       corenetwork.EthernetDevice,
-			ParentName: "",
-			IsUp:       true,
+			Name:            deviceName,
+			Type:            corenetwork.EthernetDevice,
+			ParentName:      "",
+			IsUp:            true,
+			VirtualPortType: portType,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -100,9 +105,7 @@ func (s *bridgePolicyStateSuite) createNICWithIP(c *gc.C, machine containerizer.
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *bridgePolicyStateSuite) createBridgeWithIP(
-	c *gc.C, machine containerizer.Machine, bridgeName, cidrAddress string,
-) {
+func (s *bridgePolicyStateSuite) createBridgeWithIP(c *gc.C, machine containerizer.Machine, bridgeName, cidrAddress string) {
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       bridgeName,
@@ -124,9 +127,7 @@ func (s *bridgePolicyStateSuite) createBridgeWithIP(
 
 // createNICAndBridgeWithIP creates a network interface and a bridge on the
 // machine, and assigns the requested CIDRAddress to the bridge.
-func (s *bridgePolicyStateSuite) createNICAndBridgeWithIP(
-	c *gc.C, machine containerizer.Machine, deviceName, bridgeName, cidrAddress string,
-) {
+func (s *bridgePolicyStateSuite) createNICAndBridgeWithIP(c *gc.C, machine containerizer.Machine, deviceName, bridgeName, cidrAddress string) {
 	s.createBridgeWithIP(c, machine, bridgeName, cidrAddress)
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
@@ -175,6 +176,56 @@ func (s *bridgePolicyStateSuite) createAllDefaultDevices(c *gc.C, machine contai
 	s.createBridgeWithIP(c, machine, "lxdbr0", "10.0.4.1/24")
 	// container.DefaultKvmBridge
 	s.createBridgeWithIP(c, machine, "virbr0", "192.168.124.1/24")
+}
+
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesWithProviderNetworkingAndOvsBridge(c *gc.C) {
+	s.createNICWithIP(c, s.machine, "ens3", "172.12.0.10/24")
+	// OVS bridges appear as regular nics; however, juju detects them by
+	// ovs-vsctl and sets their virtual port type to corenetwork.OvsPort
+	s.createNICWithIPAndPortType(c, s.machine, "ovsbr0", "172.12.0.10/24", corenetwork.OvsPort)
+	s.createAllDefaultDevices(c, s.machine)
+
+	s.addContainerMachine(c)
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+
+	// When using "provider" as the container networking method, the bridge
+	// policy code will treat ovs devices as bridges.
+	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containerDevices, gc.HasLen, 1)
+
+	c.Assert(containerDevices[0].ParentName(), gc.Equals, "m#0#d#ovsbr0", gc.Commentf("expected container device parent to be the OVS bridge"))
+}
+
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesWithLocalNetworkingAndOvsBridge(c *gc.C) {
+	s.createNICWithIP(c, s.machine, "ens3", "172.12.0.10/24")
+	// OVS bridges appear as regular nics; however, juju detects them by
+	// ovs-vsctl and sets their virtual port type to corenetwork.OvsPort
+	s.createNICWithIPAndPortType(c, s.machine, "ovsbr0", "172.12.0.10/24", corenetwork.OvsPort)
+	s.createAllDefaultDevices(c, s.machine)
+
+	s.addContainerMachine(c)
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+
+	// When using "local" as the container networking method, the bridge
+	// policy code will treat ovs devices as regular NICs.
+	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "local"), s.State)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containerDevices, gc.HasLen, 1)
+
+	c.Assert(containerDevices[0].ParentName(), gc.Equals, "m#0#d#lxdbr0", gc.Commentf("expected container device parent to be the default lxd bridge as the container networking method is 'local'"))
 }
 
 func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyPaired(c *gc.C) {
