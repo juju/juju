@@ -607,6 +607,8 @@ func (v *azureVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attac
 	return results, nil
 }
 
+const azureDiskDeviceLink = "/dev/disk/azure/scsi1/lun%d"
+
 func (v *azureVolumeSource) attachVolume(
 	vm *compute.VirtualMachine,
 	p storage.VolumeAttachmentParams,
@@ -624,10 +626,10 @@ func (v *azureVolumeSource) attachVolume(
 		}
 		// Disk is already attached.
 		volumeAttachment := &storage.VolumeAttachment{
-			p.Volume,
-			p.Machine,
-			storage.VolumeAttachmentInfo{
-				BusAddress: diskBusAddress(to.Int32(disk.Lun)),
+			Volume:  p.Volume,
+			Machine: p.Machine,
+			VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
+				DeviceLink: fmt.Sprintf(azureDiskDeviceLink, to.Int32(disk.Lun)),
 			},
 		}
 		return volumeAttachment, false, nil
@@ -682,10 +684,10 @@ func (v *azureVolumeSource) addDataDisk(
 	vm.StorageProfile.DataDisks = &dataDisks
 
 	return &storage.VolumeAttachment{
-		volumeTag,
-		machineTag,
-		storage.VolumeAttachmentInfo{
-			BusAddress: diskBusAddress(lun),
+		Volume:  volumeTag,
+		Machine: machineTag,
+		VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
+			DeviceLink: fmt.Sprintf(azureDiskDeviceLink, lun),
 		},
 	}, nil
 }
@@ -881,12 +883,6 @@ func nextAvailableLUN(vm *compute.VirtualMachine) (int32, error) {
 		}
 	}
 	return -1, errors.New("all LUNs are in use")
-}
-
-// diskBusAddress returns the value to use in the BusAddress field of
-// VolumeAttachmentInfo for a disk with the specified LUN.
-func diskBusAddress(lun int32) string {
-	return fmt.Sprintf("scsi@5:0.0.%d", lun)
 }
 
 // mibToGib converts mebibytes to gibibytes.
