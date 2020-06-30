@@ -14,10 +14,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/machineundertaker"
 )
 

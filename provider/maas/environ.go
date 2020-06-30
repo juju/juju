@@ -2256,21 +2256,21 @@ func (env *maasEnviron) allocateContainerAddresses2(ctx context.ProviderCallCont
 	return interfaces, nil
 }
 
-func (env *maasEnviron) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
-	macAddresses := make([]string, len(interfaces))
+func (env *maasEnviron) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []corenetwork.ProviderInterfaceInfo) error {
+	hwAddresses := make([]string, len(interfaces))
 	for i, info := range interfaces {
-		macAddresses[i] = info.MACAddress
+		hwAddresses[i] = info.HardwareAddress
 	}
 	if !env.usingMAAS2() {
-		return env.releaseContainerAddresses1(ctx, macAddresses)
+		return env.releaseContainerAddresses1(ctx, hwAddresses)
 	}
-	return env.releaseContainerAddresses2(ctx, macAddresses)
+	return env.releaseContainerAddresses2(ctx, hwAddresses)
 }
 
-func (env *maasEnviron) releaseContainerAddresses1(ctx context.ProviderCallContext, macAddresses []string) error {
+func (env *maasEnviron) releaseContainerAddresses1(ctx context.ProviderCallContext, hwAddresses []string) error {
 	devicesAPI := env.getMAASClient().GetSubObject("devices")
 	values := url.Values{}
-	for _, address := range macAddresses {
+	for _, address := range hwAddresses {
 		values.Add("mac_address", address)
 	}
 	result, err := devicesAPI.CallGet("list", values)
@@ -2311,8 +2311,8 @@ func (env *maasEnviron) releaseContainerAddresses1(ctx context.ProviderCallConte
 	return nil
 }
 
-func (env *maasEnviron) releaseContainerAddresses2(ctx context.ProviderCallContext, macAddresses []string) error {
-	devices, err := env.maasController.Devices(gomaasapi.DevicesArgs{MACAddresses: macAddresses})
+func (env *maasEnviron) releaseContainerAddresses2(ctx context.ProviderCallContext, hwAddresses []string) error {
+	devices, err := env.maasController.Devices(gomaasapi.DevicesArgs{MACAddresses: hwAddresses})
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return errors.Trace(err)

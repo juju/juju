@@ -8,9 +8,8 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 )
 
 // SupportsNetworking is a convenience helper to check if an environment
@@ -20,7 +19,7 @@ var SupportsNetworking = supportsNetworking
 
 // DefaultSpaceInfo should be passed into Networking.ProviderSpaceInfo
 // to get information about the default space.
-var DefaultSpaceInfo *corenetwork.SpaceInfo
+var DefaultSpaceInfo *network.SpaceInfo
 
 // Networking interface defines methods that environments
 // with networking capabilities must implement.
@@ -28,8 +27,8 @@ type Networking interface {
 	// Subnets returns basic information about subnets known
 	// by the provider for the environment.
 	Subnets(
-		ctx context.ProviderCallContext, inst instance.Id, subnetIds []corenetwork.Id,
-	) ([]corenetwork.SubnetInfo, error)
+		ctx context.ProviderCallContext, inst instance.Id, subnetIds []network.Id,
+	) ([]network.SubnetInfo, error)
 
 	// SuperSubnets returns information about aggregated subnets - eg. global CIDR
 	// for EC2 VPC.
@@ -41,7 +40,7 @@ type Networking interface {
 	// but not all of the instances were found, the returned slice will
 	// have some nil slots, and an ErrPartialInstances error will be
 	// returned.
-	NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error)
+	NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error)
 
 	// SupportsSpaces returns whether the current environment supports
 	// spaces. The returned error satisfies errors.IsNotSupported(),
@@ -56,7 +55,7 @@ type Networking interface {
 	// Spaces returns a slice of network.SpaceInfo with info, including
 	// details of all associated subnets, about all spaces known to the
 	// provider that have subnets available.
-	Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceInfo, error)
+	Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error)
 
 	// ProviderSpaceInfo returns the details of the space requested as
 	// a ProviderSpaceInfo. This will contain everything needed to
@@ -77,7 +76,7 @@ type Networking interface {
 	// authoritative. In that case the provider should collect up any
 	// other information needed to determine routability and include
 	// the passed-in space info in the ProviderSpaceInfo returned.
-	ProviderSpaceInfo(ctx context.ProviderCallContext, space *corenetwork.SpaceInfo) (*ProviderSpaceInfo, error)
+	ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*ProviderSpaceInfo, error)
 
 	// AreSpacesRoutable returns whether the communication between the
 	// two spaces can use cloud-local addresses.
@@ -91,7 +90,7 @@ type Networking interface {
 	// AllocateContainerAddresses allocates a static address for each of the
 	// container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
 	// network config including all allocated addresses on success.
-	AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error)
+	AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo network.InterfaceInfos) (network.InterfaceInfos, error)
 
 	// ReleaseContainerAddresses releases the previously allocated
 	// addresses matching the interface details passed in.
@@ -106,7 +105,7 @@ type Networking interface {
 	// - returns a subset based on public scope matching.
 	// The address `Value` is then returned to the client,
 	// which is just a string, so we do not actually leak a SpaceAddress.
-	SSHAddresses(ctx context.ProviderCallContext, addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddresses, error)
+	SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error)
 }
 
 // NetworkingEnviron combines the standard Environ interface with the
@@ -161,7 +160,7 @@ func SupportsContainerAddresses(ctx context.ProviderCallContext, env BootstrapEn
 // ProviderSpaceInfo contains all the information about a space needed
 // by another environ to decide whether it can be routed to.
 type ProviderSpaceInfo struct {
-	corenetwork.SpaceInfo
+	network.SpaceInfo
 
 	// Cloud type governs what attributes will exist in the
 	// provider-specific map.

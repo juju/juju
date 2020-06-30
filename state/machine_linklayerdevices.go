@@ -87,15 +87,15 @@ func (m *Machine) forEachLinkLayerDeviceDoc(
 // the link layer devices belonging to this machine. These can be used
 // to identify the devices when interacting with the provider
 // directly (for example, releasing container addresses).
-func (m *Machine) AllProviderInterfaceInfos() ([]network.ProviderInterfaceInfo, error) {
+func (m *Machine) AllProviderInterfaceInfos() ([]corenetwork.ProviderInterfaceInfo, error) {
 	devices, err := m.AllLinkLayerDevices()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make([]network.ProviderInterfaceInfo, len(devices))
+	result := make([]corenetwork.ProviderInterfaceInfo, len(devices))
 	for i, device := range devices {
 		result[i].InterfaceName = device.Name()
-		result[i].MACAddress = device.MACAddress()
+		result[i].HardwareAddress = device.MACAddress()
 		result[i].ProviderId = device.ProviderID()
 	}
 	return result, nil

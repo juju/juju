@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -94,7 +94,7 @@ func (m *API) GetMachineProviderInterfaceInfo(machines params.Entities) params.P
 		infos := make([]params.ProviderInterfaceInfo, len(interfaces))
 		for i, info := range interfaces {
 			infos[i].InterfaceName = info.InterfaceName
-			infos[i].MACAddress = info.MACAddress
+			infos[i].MACAddress = info.HardwareAddress
 			infos[i].ProviderId = string(info.ProviderId)
 		}
 

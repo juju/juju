@@ -2267,7 +2267,7 @@ func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, ho
 	return nil, errors.NotSupportedf("container address allocation")
 }
 
-func (e *environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
+func (e *environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []corenetwork.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
 }
 

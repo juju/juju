@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/machineundertaker"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -95,20 +95,20 @@ func (*undertakerSuite) TestGetMachineProviderInterfaceInfo(c *gc.C) {
 		"0": {
 			Stub: &testing.Stub{},
 			interfaceInfos: []network.ProviderInterfaceInfo{{
-				InterfaceName: "billy",
-				MACAddress:    "hexadecimal!",
-				ProviderId:    "a number",
+				InterfaceName:   "billy",
+				HardwareAddress: "hexadecimal!",
+				ProviderId:      "a number",
 			}, {
-				InterfaceName: "lily",
-				MACAddress:    "octal?",
-				ProviderId:    "different number",
+				InterfaceName:   "lily",
+				HardwareAddress: "octal?",
+				ProviderId:      "different number",
 			}}},
 		"2": {
 			Stub: &testing.Stub{},
 			interfaceInfos: []network.ProviderInterfaceInfo{{
-				InterfaceName: "gilly",
-				MACAddress:    "sexagesimal?!",
-				ProviderId:    "some number",
+				InterfaceName:   "gilly",
+				HardwareAddress: "sexagesimal?!",
+				ProviderId:      "some number",
 			}},
 		},
 	}
