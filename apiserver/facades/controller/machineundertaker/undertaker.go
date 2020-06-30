@@ -94,7 +94,7 @@ func (m *API) GetMachineProviderInterfaceInfo(machines params.Entities) params.P
 		infos := make([]params.ProviderInterfaceInfo, len(interfaces))
 		for i, info := range interfaces {
 			infos[i].InterfaceName = info.InterfaceName
-			infos[i].MACAddress = info.MACAddress
+			infos[i].MACAddress = info.HardwareAddress
 			infos[i].ProviderId = string(info.ProviderId)
 		}
 

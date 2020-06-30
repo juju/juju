@@ -339,7 +339,8 @@ type ProviderInterfaceInfo struct {
 	// ProviderId is a provider-specific NIC id.
 	ProviderId Id
 
-	// MACAddress is the network interface's hardware MAC address
-	// (e.g. "aa:bb:cc:dd:ee:ff").
-	MACAddress string
+	// HardwareAddress is the network interface's hardware address. The
+	// contents of this field depend on the NIC type (a MAC address for an
+	// ethernet device, a GUID for an infiniband device etc.)
+	HardwareAddress string
 }

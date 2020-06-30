@@ -95,7 +95,7 @@ func (m *Machine) AllProviderInterfaceInfos() ([]corenetwork.ProviderInterfaceIn
 	result := make([]corenetwork.ProviderInterfaceInfo, len(devices))
 	for i, device := range devices {
 		result[i].InterfaceName = device.Name()
-		result[i].MACAddress = device.MACAddress()
+		result[i].HardwareAddress = device.MACAddress()
 		result[i].ProviderId = device.ProviderID()
 	}
 	return result, nil

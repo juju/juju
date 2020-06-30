@@ -83,7 +83,7 @@ func (api *API) GetProviderInterfaceInfo(machine names.MachineTag) ([]network.Pr
 	infos := make([]network.ProviderInterfaceInfo, len(item.Interfaces))
 	for i, info := range item.Interfaces {
 		infos[i].InterfaceName = info.InterfaceName
-		infos[i].MACAddress = info.MACAddress
+		infos[i].HardwareAddress = info.MACAddress
 		infos[i].ProviderId = network.Id(info.ProviderId)
 	}
 	return infos, nil

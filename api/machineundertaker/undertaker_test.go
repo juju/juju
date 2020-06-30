@@ -150,13 +150,13 @@ func (*undertakerSuite) TestGetInfo(c *gc.C) {
 	results, err := api.GetProviderInterfaceInfo(names.NewMachineTag("100"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, []network.ProviderInterfaceInfo{{
-		InterfaceName: "hamster huey",
-		MACAddress:    "calvin",
-		ProviderId:    "1234",
+		InterfaceName:   "hamster huey",
+		HardwareAddress: "calvin",
+		ProviderId:      "1234",
 	}, {
-		InterfaceName: "happy hamster hop",
-		MACAddress:    "hobbes",
-		ProviderId:    "1235",
+		InterfaceName:   "happy hamster hop",
+		HardwareAddress: "hobbes",
+		ProviderId:      "1235",
 	}})
 }
 

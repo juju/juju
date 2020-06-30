@@ -2465,9 +2465,9 @@ func (suite *maas2EnvironSuite) TestReleaseContainerAddresses(c *gc.C) {
 
 	env := suite.makeEnviron(c, controller)
 	err := env.ReleaseContainerAddresses(suite.callCtx, []network.ProviderInterfaceInfo{
-		{MACAddress: "will"},
-		{MACAddress: "dustin"},
-		{MACAddress: "eleven"},
+		{HardwareAddress: "will"},
+		{HardwareAddress: "dustin"},
+		{HardwareAddress: "eleven"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2487,8 +2487,8 @@ func (suite *maas2EnvironSuite) TestReleaseContainerAddresses_HandlesDupes(c *gc
 
 	env := suite.makeEnviron(c, controller)
 	err := env.ReleaseContainerAddresses(suite.callCtx, []network.ProviderInterfaceInfo{
-		{MACAddress: "will"},
-		{MACAddress: "eleven"},
+		{HardwareAddress: "will"},
+		{HardwareAddress: "eleven"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2503,7 +2503,7 @@ func (suite *maas2EnvironSuite) TestReleaseContainerAddresses_HandlesDupes(c *gc
 func (suite *maas2EnvironSuite) TestReleaseContainerAddressesErrorGettingDevices(c *gc.C) {
 	controller := newFakeControllerWithErrors(errors.New("Everything done broke"))
 	env := suite.makeEnviron(c, controller)
-	err := env.ReleaseContainerAddresses(suite.callCtx, []network.ProviderInterfaceInfo{{MACAddress: "anything"}})
+	err := env.ReleaseContainerAddresses(suite.callCtx, []network.ProviderInterfaceInfo{{HardwareAddress: "anything"}})
 	c.Assert(err, gc.ErrorMatches, "Everything done broke")
 }
 
@@ -2516,7 +2516,7 @@ func (suite *maas2EnvironSuite) TestReleaseContainerAddressesErrorDeletingDevice
 
 	env := suite.makeEnviron(c, controller)
 	err := env.ReleaseContainerAddresses(suite.callCtx, []network.ProviderInterfaceInfo{
-		{MACAddress: "eleven"},
+		{HardwareAddress: "eleven"},
 	})
 	c.Assert(err, gc.ErrorMatches, "deleting device hopper: don't delete me")
 

@@ -999,9 +999,9 @@ func (s *environSuite) TestReleaseContainerAddresses(c *gc.C) {
 	env := s.makeEnviron()
 	err := env.ReleaseContainerAddresses(s.callCtx,
 		[]corenetwork.ProviderInterfaceInfo{
-			{MACAddress: "mac1"},
-			{MACAddress: "mac3"},
-			{MACAddress: "mac4"},
+			{HardwareAddress: "mac1"},
+			{HardwareAddress: "mac3"},
+			{HardwareAddress: "mac4"},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1025,8 +1025,8 @@ func (s *environSuite) TestReleaseContainerAddresses_HandlesDupes(c *gc.C) {
 	env := s.makeEnviron()
 	err := env.ReleaseContainerAddresses(s.callCtx,
 		[]corenetwork.ProviderInterfaceInfo{
-			{MACAddress: "mac1"},
-			{MACAddress: "mac2"},
+			{HardwareAddress: "mac1"},
+			{HardwareAddress: "mac2"},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
