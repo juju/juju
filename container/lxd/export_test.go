@@ -53,10 +53,6 @@ func PatchGetSnapManager(patcher patcher, mgr SnapManager) {
 	patcher.PatchValue(&getSnapManager, func() SnapManager { return mgr })
 }
 
-func PatchMaybeRemovePortFromOvsBridge(patcher patcher, fn func(string) error) {
-	patcher.PatchValue(&maybeRemovePortFromOvsBridge, fn)
-}
-
 func GetImageSources(mgr container.Manager) ([]ServerSpec, error) {
 	return mgr.(*containerManager).getImageSources()
 }
