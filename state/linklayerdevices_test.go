@@ -659,6 +659,20 @@ func (s *linkLayerDevicesStateSuite) TestSetProviderIDOps(c *gc.C) {
 	dev2 := s.addNamedDevice(c, "bar")
 	_, err = dev2.SetProviderIDOps("p1")
 	c.Assert(err, gc.ErrorMatches, "provider IDs not unique: p1")
+
+	// Unset the ID.
+	ops, err = dev1.SetProviderIDOps("")
+	c.Assert(err, jc.ErrorIsNil)
+	state.RunTransaction(c, s.State, ops)
+
+	dev1, err = s.machine.LinkLayerDevice("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dev1.ProviderID().String(), gc.Equals, "")
+
+	// The global ID is unregistered, so we should be able to reset it.
+	ops, err = dev1.SetProviderIDOps("p1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.Not(gc.HasLen), 0)
 }
 
 func (s *linkLayerDevicesStateSuite) createSpaceAndSubnet(c *gc.C, spaceName, CIDR string) {
