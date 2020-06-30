@@ -5,6 +5,7 @@ package specs_test
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
@@ -75,6 +76,7 @@ containers:
       restricted: "yes"
       switch: on
       special: p@ssword's
+      number: 5242880
       my-resource-limit:
         resource:
           container-name: container1
@@ -421,6 +423,7 @@ echo "do some stuff here for gitlab container"
 					"switch":     true,
 					"brackets":   `["hello", "world"]`,
 					"special":    "p@ssword's",
+					"number":     json.Number("5242880"),
 					"my-resource-limit": map[string]interface{}{
 						"resource": map[string]interface{}{
 							"container-name": "container1",
