@@ -2256,7 +2256,7 @@ func (env *maasEnviron) allocateContainerAddresses2(ctx context.ProviderCallCont
 	return interfaces, nil
 }
 
-func (env *maasEnviron) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
+func (env *maasEnviron) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []corenetwork.ProviderInterfaceInfo) error {
 	macAddresses := make([]string, len(interfaces))
 	for i, info := range interfaces {
 		macAddresses[i] = info.MACAddress

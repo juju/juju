@@ -18,7 +18,6 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oracle"
 	"github.com/juju/juju/provider/oracle/network"
 	oracletesting "github.com/juju/juju/provider/oracle/testing"
@@ -134,7 +133,7 @@ func (e *environSuite) TestAllocateContainerAddress(c *gc.C) {
 }
 
 func (e *environSuite) TestReleaseContainerAddresses(c *gc.C) {
-	var i []jujunetwork.ProviderInterfaceInfo
+	var i []corenetwork.ProviderInterfaceInfo
 	err := e.netEnv.ReleaseContainerAddresses(e.callCtx, i)
 	c.Assert(err, gc.NotNil)
 	is := errors.IsNotSupported(err)

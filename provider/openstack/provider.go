@@ -2288,7 +2288,7 @@ func (e *Environ) AllocateContainerAddresses(ctx context.ProviderCallContext, ho
 }
 
 // ReleaseContainerAddresses is specified on environs.Networking.
-func (e *Environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
+func (e *Environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []corenetwork.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("release container address")
 }
 

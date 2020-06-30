@@ -5,9 +5,6 @@
 package testing
 
 import (
-	io "io"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	jsonschema "github.com/juju/jsonschema"
 	cloud "github.com/juju/juju/cloud"
@@ -23,6 +20,8 @@ import (
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version"
 	environschema "gopkg.in/juju/environschema.v1"
+	io "io"
+	reflect "reflect"
 )
 
 // MockEnvironProvider is a mock of EnvironProvider interface
@@ -1765,7 +1764,7 @@ func (mr *MockNetworkingEnvironMockRecorder) ProviderSpaceInfo(arg0, arg1 interf
 }
 
 // ReleaseContainerAddresses mocks base method
-func (m *MockNetworkingEnviron) ReleaseContainerAddresses(arg0 context.ProviderCallContext, arg1 []network0.ProviderInterfaceInfo) error {
+func (m *MockNetworkingEnviron) ReleaseContainerAddresses(arg0 context.ProviderCallContext, arg1 []network.ProviderInterfaceInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReleaseContainerAddresses", arg0, arg1)
 	ret0, _ := ret[0].(error)

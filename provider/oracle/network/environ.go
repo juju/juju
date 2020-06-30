@@ -19,7 +19,6 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	commonProvider "github.com/juju/juju/provider/oracle/common"
 )
 
@@ -334,7 +333,7 @@ func (e Environ) AllocateContainerAddresses(
 }
 
 // ReleaseContainerAddresses is defined on the environs.Networking interface.
-func (e Environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
+func (e Environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []corenetwork.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container")
 }
 

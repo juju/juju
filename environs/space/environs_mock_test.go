@@ -5,8 +5,6 @@
 package space
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
@@ -15,10 +13,10 @@ import (
 	config "github.com/juju/juju/environs/config"
 	context "github.com/juju/juju/environs/context"
 	instances "github.com/juju/juju/environs/instances"
-	network0 "github.com/juju/juju/network"
 	storage "github.com/juju/juju/storage"
-	names_v3 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
 	version "github.com/juju/version"
+	reflect "reflect"
 )
 
 // MockBootstrapEnviron is a mock of BootstrapEnviron interface
@@ -256,7 +254,7 @@ func (mr *MockNetworkingEnvironMockRecorder) AllRunningInstances(arg0 interface{
 }
 
 // AllocateContainerAddresses mocks base method
-func (m *MockNetworkingEnviron) AllocateContainerAddresses(arg0 context.ProviderCallContext, arg1 instance.Id, arg2 names_v3.MachineTag, arg3 network.InterfaceInfos) (network.InterfaceInfos, error) {
+func (m *MockNetworkingEnviron) AllocateContainerAddresses(arg0 context.ProviderCallContext, arg1 instance.Id, arg2 names.MachineTag, arg3 network.InterfaceInfos) (network.InterfaceInfos, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllocateContainerAddresses", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(network.InterfaceInfos)
@@ -503,7 +501,7 @@ func (mr *MockNetworkingEnvironMockRecorder) ProviderSpaceInfo(arg0, arg1 interf
 }
 
 // ReleaseContainerAddresses mocks base method
-func (m *MockNetworkingEnviron) ReleaseContainerAddresses(arg0 context.ProviderCallContext, arg1 []network0.ProviderInterfaceInfo) error {
+func (m *MockNetworkingEnviron) ReleaseContainerAddresses(arg0 context.ProviderCallContext, arg1 []network.ProviderInterfaceInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReleaseContainerAddresses", arg0, arg1)
 	ret0, _ := ret[0].(error)

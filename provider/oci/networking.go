@@ -17,11 +17,10 @@ import (
 	ociCore "github.com/oracle/oci-go-sdk/core"
 
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/network"
 	providerCommon "github.com/juju/juju/provider/oci/common"
 )
 
@@ -949,9 +948,9 @@ func (e *Environ) allSubnetsAsMap(modelUUID string) (map[string]ociCore.Subnet, 
 
 // Subnets is defined on the environs.Networking interface.
 func (e *Environ) Subnets(
-	ctx envcontext.ProviderCallContext, id instance.Id, subnets []corenetwork.Id,
-) ([]corenetwork.SubnetInfo, error) {
-	var results []corenetwork.SubnetInfo
+	ctx envcontext.ProviderCallContext, id instance.Id, subnets []network.Id,
+) ([]network.SubnetInfo, error) {
+	var results []network.SubnetInfo
 	subIdSet := set.NewStrings()
 	for _, subId := range subnets {
 		subIdSet.Add(string(subId))
@@ -993,9 +992,9 @@ func (e *Environ) Subnets(
 			if !ok {
 				continue
 			}
-			info := corenetwork.SubnetInfo{
+			info := network.SubnetInfo{
 				CIDR:       *subnet.CidrBlock,
-				ProviderId: corenetwork.Id(*nic.Vnic.SubnetId),
+				ProviderId: network.Id(*nic.Vnic.SubnetId),
 			}
 			results = append(results, info)
 		}
@@ -1026,18 +1025,18 @@ func (e *Environ) Subnets(
 	return results, nil
 }
 
-func makeSubnetInfo(subnet ociCore.Subnet) (corenetwork.SubnetInfo, error) {
+func makeSubnetInfo(subnet ociCore.Subnet) (network.SubnetInfo, error) {
 	if subnet.CidrBlock == nil {
-		return corenetwork.SubnetInfo{}, errors.Errorf("nil cidr block in subnet")
+		return network.SubnetInfo{}, errors.Errorf("nil cidr block in subnet")
 	}
 	_, _, err := net.ParseCIDR(*subnet.CidrBlock)
 	if err != nil {
-		return corenetwork.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", *subnet.CidrBlock)
+		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", *subnet.CidrBlock)
 	}
 
-	info := corenetwork.SubnetInfo{
+	info := network.SubnetInfo{
 		CIDR:              *subnet.CidrBlock,
-		ProviderId:        corenetwork.Id(*subnet.Id),
+		ProviderId:        network.Id(*subnet.Id),
 		AvailabilityZones: []string{*subnet.AvailabilityDomain},
 	}
 	return info, nil
@@ -1047,9 +1046,9 @@ func (e *Environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, er
 	return nil, errors.NotSupportedf("super subnets")
 }
 
-func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
+func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
 	var (
-		infos = make([]corenetwork.InterfaceInfos, len(ids))
+		infos = make([]network.InterfaceInfos, len(ids))
 		err   error
 	)
 
@@ -1062,14 +1061,14 @@ func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []in
 	return infos, nil
 }
 
-func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContext, instId instance.Id) (corenetwork.InterfaceInfos, error) {
+func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContext, instId instance.Id) (network.InterfaceInfos, error) {
 	oInst, err := e.getOCIInstance(ctx, instId)
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 
-	info := corenetwork.InterfaceInfos{}
+	info := network.InterfaceInfos{}
 	vnics, err := oInst.getVnics()
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
@@ -1088,27 +1087,27 @@ func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContex
 		if !ok || subnet.CidrBlock == nil {
 			continue
 		}
-		nic := corenetwork.InterfaceInfo{
+		nic := network.InterfaceInfo{
 			InterfaceName: fmt.Sprintf("unsupported%d", iface.Idx),
 			DeviceIndex:   iface.Idx,
-			ProviderId:    corenetwork.Id(*iface.Vnic.Id),
+			ProviderId:    network.Id(*iface.Vnic.Id),
 			MACAddress:    *iface.Vnic.MacAddress,
-			Addresses: corenetwork.ProviderAddresses{
-				corenetwork.NewScopedProviderAddress(
+			Addresses: network.ProviderAddresses{
+				network.NewScopedProviderAddress(
 					*iface.Vnic.PrivateIp,
-					corenetwork.ScopeCloudLocal,
+					network.ScopeCloudLocal,
 				),
 			},
-			InterfaceType:    corenetwork.EthernetInterface,
-			ProviderSubnetId: corenetwork.Id(*iface.Vnic.SubnetId),
+			InterfaceType:    network.EthernetInterface,
+			ProviderSubnetId: network.Id(*iface.Vnic.SubnetId),
 			CIDR:             *subnet.CidrBlock,
-			Origin:           corenetwork.OriginProvider,
+			Origin:           network.OriginProvider,
 		}
 		if iface.Vnic.PublicIp != nil {
 			nic.ShadowAddresses = append(nic.ShadowAddresses,
-				corenetwork.NewScopedProviderAddress(
+				network.NewScopedProviderAddress(
 					*iface.Vnic.PublicIp,
-					corenetwork.ScopePublic,
+					network.ScopePublic,
 				),
 			)
 		}
@@ -1125,12 +1124,12 @@ func (e *Environ) SupportsSpaceDiscovery(ctx envcontext.ProviderCallContext) (bo
 	return false, nil
 }
 
-func (e *Environ) Spaces(ctx envcontext.ProviderCallContext) ([]corenetwork.SpaceInfo, error) {
+func (e *Environ) Spaces(ctx envcontext.ProviderCallContext) ([]network.SpaceInfo, error) {
 	return nil, errors.NotSupportedf("Spaces")
 }
 
 func (e *Environ) ProviderSpaceInfo(
-	ctx envcontext.ProviderCallContext, space *corenetwork.SpaceInfo,
+	ctx envcontext.ProviderCallContext, space *network.SpaceInfo,
 ) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("ProviderSpaceInfo")
 }
@@ -1147,8 +1146,8 @@ func (e *Environ) AllocateContainerAddresses(
 	ctx envcontext.ProviderCallContext,
 	hostInstanceID instance.Id,
 	containerTag names.MachineTag,
-	preparedInfo corenetwork.InterfaceInfos,
-) (corenetwork.InterfaceInfos, error) {
+	preparedInfo network.InterfaceInfos,
+) (network.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("AllocateContainerAddresses")
 }
 
@@ -1156,6 +1155,6 @@ func (e *Environ) ReleaseContainerAddresses(ctx envcontext.ProviderCallContext, 
 	return errors.NotSupportedf("ReleaseContainerAddresses")
 }
 
-func (e *Environ) SSHAddresses(ctx envcontext.ProviderCallContext, addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddresses, error) {
+func (e *Environ) SSHAddresses(ctx envcontext.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
 	return addresses, nil
 }

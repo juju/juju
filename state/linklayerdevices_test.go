@@ -497,7 +497,7 @@ func (s *linkLayerDevicesStateSuite) TestMachineAllProviderInterfaceInfos(c *gc.
 
 	results, err := s.machine.AllProviderInterfaceInfos()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.SameContents, []network.ProviderInterfaceInfo{{
+	c.Assert(results, jc.SameContents, []corenetwork.ProviderInterfaceInfo{{
 		InterfaceName: "sara-lynn",
 		MACAddress:    "ab:cd:ef:01:23:45",
 		ProviderId:    "thing1",

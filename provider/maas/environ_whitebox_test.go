@@ -36,7 +36,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
@@ -999,7 +998,7 @@ func (s *environSuite) TestReleaseContainerAddresses(c *gc.C) {
 
 	env := s.makeEnviron()
 	err := env.ReleaseContainerAddresses(s.callCtx,
-		[]network.ProviderInterfaceInfo{
+		[]corenetwork.ProviderInterfaceInfo{
 			{MACAddress: "mac1"},
 			{MACAddress: "mac3"},
 			{MACAddress: "mac4"},
@@ -1025,7 +1024,7 @@ func (s *environSuite) TestReleaseContainerAddresses_HandlesDupes(c *gc.C) {
 
 	env := s.makeEnviron()
 	err := env.ReleaseContainerAddresses(s.callCtx,
-		[]network.ProviderInterfaceInfo{
+		[]corenetwork.ProviderInterfaceInfo{
 			{MACAddress: "mac1"},
 			{MACAddress: "mac2"},
 		})
