@@ -317,6 +317,10 @@ type ContextRelation interface {
 
 	// SetStatus sets the relation's status.
 	SetStatus(relation.Status) error
+
+	// RemoteApplicationName returns the application on the other end of
+	// the relation from the perspective of this unit.
+	RemoteApplicationName() string
 }
 
 // ContextStorageAttachment expresses the capabilities of a hook with

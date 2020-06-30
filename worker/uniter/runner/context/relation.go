@@ -32,6 +32,10 @@ type Relation interface {
 
 	// Tag returns the relation tag.
 	Tag() names.RelationTag
+
+	// OtherApplication returns the name of the application on the other
+	// end of the relation (from this unit's perspective).
+	OtherApplication() string
 }
 
 type RelationUnit interface {
@@ -174,4 +178,10 @@ func (ctx *ContextRelation) Suspended() bool {
 // SetStatus sets the relation's status.
 func (ctx *ContextRelation) SetStatus(status relation.Status) error {
 	return errors.Trace(ctx.ru.Relation().SetStatus(status))
+}
+
+// RemoteApplicationName returns the application on the other end of this
+// relation from the perspective of this unit.
+func (ctx *ContextRelation) RemoteApplicationName() string {
+	return ctx.ru.Relation().OtherApplication()
 }

@@ -23,8 +23,8 @@ func (s *relationSuite) newHookContext(relid int, remote string, app string) (ju
 	settings := jujuctesting.Settings{
 		"private-address": "u-0.testing.invalid",
 	}
-	rInfo.setNextRelation("", s.Unit, settings) // peer0
-	rInfo.setNextRelation("", s.Unit, settings) // peer1
+	rInfo.setNextRelation("", s.Unit, app, settings) // peer0
+	rInfo.setNextRelation("", s.Unit, app, settings) // peer1
 	if relid >= 0 {
 		rInfo.SetAsRelationHook(relid, remote)
 		if app == "" {
@@ -52,7 +52,7 @@ func (ri *relationInfo) reset() {
 	ri.rels = nil
 }
 
-func (ri *relationInfo) setNextRelation(name, unit string, settings jujuctesting.Settings) int {
+func (ri *relationInfo) setNextRelation(name, unit, app string, settings jujuctesting.Settings) int {
 	if ri.rels == nil {
 		ri.rels = make(map[int]*jujuctesting.Relation)
 	}
@@ -65,6 +65,7 @@ func (ri *relationInfo) setNextRelation(name, unit string, settings jujuctesting
 		relation.UnitName = unit
 		relation.SetRelated(unit, settings)
 	}
+	relation.RemoteApplicationName = app
 	ri.rels[id] = relation
 	return id
 }
@@ -74,7 +75,7 @@ func (ri *relationInfo) addRelatedApplications(relname string, count int) {
 		ri.rels = make(map[int]*jujuctesting.Relation)
 	}
 	for i := 0; i < count; i++ {
-		ri.setNextRelation(relname, "", nil)
+		ri.setNextRelation(relname, "", ri.RemoteApplicationName, nil)
 	}
 }
 

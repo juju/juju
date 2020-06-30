@@ -5,16 +5,15 @@
 package mocks
 
 import (
-	reflect "reflect"
-	time "time"
-
 	gomock "github.com/golang/mock/gomock"
-	charm_v6 "github.com/juju/charm/v7"
+	charm "github.com/juju/charm/v7"
 	params "github.com/juju/juju/apiserver/params"
 	application "github.com/juju/juju/core/application"
 	network "github.com/juju/juju/core/network"
 	jujuc "github.com/juju/juju/worker/uniter/runner/jujuc"
-	names_v3 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
+	reflect "reflect"
+	time "time"
 )
 
 // MockContext is a mock of Context interface
@@ -172,10 +171,10 @@ func (mr *MockContextMockRecorder) Component(arg0 interface{}) *gomock.Call {
 }
 
 // ConfigSettings mocks base method
-func (m *MockContext) ConfigSettings() (charm_v6.Settings, error) {
+func (m *MockContext) ConfigSettings() (charm.Settings, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConfigSettings")
-	ret0, _ := ret[0].(charm_v6.Settings)
+	ret0, _ := ret[0].(charm.Settings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -609,7 +608,7 @@ func (mr *MockContextMockRecorder) SetUnitWorkloadVersion(arg0 interface{}) *gom
 }
 
 // Storage mocks base method
-func (m *MockContext) Storage(arg0 names_v3.StorageTag) (jujuc.ContextStorageAttachment, error) {
+func (m *MockContext) Storage(arg0 names.StorageTag) (jujuc.ContextStorageAttachment, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Storage", arg0)
 	ret0, _ := ret[0].(jujuc.ContextStorageAttachment)
@@ -624,10 +623,10 @@ func (mr *MockContextMockRecorder) Storage(arg0 interface{}) *gomock.Call {
 }
 
 // StorageTags mocks base method
-func (m *MockContext) StorageTags() ([]names_v3.StorageTag, error) {
+func (m *MockContext) StorageTags() ([]names.StorageTag, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StorageTags")
-	ret0, _ := ret[0].([]names_v3.StorageTag)
+	ret0, _ := ret[0].([]names.StorageTag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
