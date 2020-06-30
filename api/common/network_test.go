@@ -340,7 +340,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigForOVSDevices(c *gc.C) {
 		CIDR:            "10.100.19.0/24",
 		MTU:             1500,
 		InterfaceName:   "ovsbr0",
-		InterfaceType:   "bridge",
+		InterfaceType:   "ethernet",
 		ConfigType:      "static",
 		Address:         "10.100.19.123",
 		VirtualPortType: "openvswitch",

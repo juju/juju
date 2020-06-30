@@ -128,18 +128,12 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 	nameToConfigs := make(map[string][]params.NetworkConfig)
 	sysClassNetPath := source.SysClassNetPath()
 	for _, nic := range interfaces {
-		nicType := network.ParseInterfaceType(sysClassNetPath, nic.Name)
-		// OVS bridges expose one of the internal ports as a device
-		// with the same name as the bridge. However, they are not
-		// detected as bridge devices so we need to manually force
-		// their type so they can be used by juju for containerized
-		// workloads.
 		virtualPortType := corenetwork.NonVirtualPort
 		if knownOVSBridges.Contains(nic.Name) {
-			nicType = corenetwork.BridgeInterface
 			virtualPortType = corenetwork.OvsPort
 		}
 
+		nicType := network.ParseInterfaceType(sysClassNetPath, nic.Name)
 		nicConfig := interfaceToNetworkConfig(nic, nicType, virtualPortType, corenetwork.OriginMachine)
 		if nicConfig.InterfaceName == defaultRouteDevice {
 			nicConfig.IsDefaultGateway = true
