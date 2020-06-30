@@ -15,6 +15,7 @@ apps:
   fetch-oci:
     daemon: oneshot
     command: wrappers/fetch-oci
+    stop-timeout: 35s
 
 parts:
   wrappers:
