@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils/set"
 	lxdapi "github.com/lxc/lxd/shared/api"
 
@@ -18,6 +19,8 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 )
+
+var _ environs.Networking = (*environ)(nil)
 
 // Subnets returns basic information about subnets known by the provider for
 // the environment.
@@ -278,4 +281,66 @@ func getContainerDetails(srv Server, containerID string) (*lxdapi.Container, *lx
 	}
 
 	return cont, state, nil
+}
+
+// SuperSubnets returns information about aggregated subnet.
+func (*environ) SuperSubnets(context.ProviderCallContext) ([]string, error) {
+	return nil, errors.NotSupportedf("super subnets")
+}
+
+// SupportsSpaces returns whether the current environment supports
+// spaces. The returned error satisfies errors.IsNotSupported(),
+// unless a general API failure occurs.
+func (*environ) SupportsSpaces(context.ProviderCallContext) (bool, error) {
+	return true, nil
+}
+
+// SupportsSpaceDiscovery returns whether the current environment
+// supports discovering spaces from the provider. The returned error
+// satisfies errors.IsNotSupported(), unless a general API failure occurs.
+func (*environ) SupportsSpaceDiscovery(context.ProviderCallContext) (bool, error) {
+	return false, nil
+}
+
+// Spaces returns a slice of network.SpaceInfo with info, including
+// details of all associated subnets, about all spaces known to the
+// provider that have subnets available.
+func (*environ) Spaces(context.ProviderCallContext) ([]network.SpaceInfo, error) {
+	return nil, errors.NotSupportedf("spaces")
+}
+
+// ProviderSpaceInfo returns the details of the space requested as
+// a ProviderSpaceInfo.
+func (*environ) ProviderSpaceInfo(context.ProviderCallContext, *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+	return nil, errors.NotSupportedf("spaces")
+}
+
+// AreSpacesRoutable returns whether the communication between the
+// two spaces can use cloud-local addaddresses.
+func (*environ) AreSpacesRoutable(context.ProviderCallContext, *environs.ProviderSpaceInfo, *environs.ProviderSpaceInfo) (bool, error) {
+	return false, errors.NotSupportedf("spaces")
+}
+
+// SupportsContainerAddresses returns true if the current environment is
+// able to allocate addaddresses for containers.
+func (*environ) SupportsContainerAddresses(context.ProviderCallContext) (bool, error) {
+	return false, nil
+}
+
+// AllocateContainerAddresses allocates a static addsubnetss for each of the
+// container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
+// network config including all allocated addaddresses on success.
+func (*environ) AllocateContainerAddresses(context.ProviderCallContext, instance.Id, names.MachineTag, network.InterfaceInfos) (network.InterfaceInfos, error) {
+	return nil, errors.NotSupportedf("container address allocation")
+}
+
+// ReleaseContainerAddresses releases the previously allocated
+// addaddresses matching the interface details passed in.
+func (*environ) ReleaseContainerAddresses(context.ProviderCallContext, []network.ProviderInterfaceInfo) error {
+	return errors.NotSupportedf("container address allocation")
+}
+
+// SSHAddresses filters the input addaddresses to those suitable for SSH use.
+func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
+	return addresses, nil
 }

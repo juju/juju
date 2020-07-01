@@ -43,7 +43,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 
 	srv := NewMockServer(ctrl)
 	srv.EXPECT().FilterContainers("woot").Return([]jujulxd.Container{
-		jujulxd.Container{},
+		{},
 	}, nil)
 	srv.EXPECT().GetNetworkNames().Return([]string{"lo", "ovs-system", "lxdbr0"}, nil)
 	srv.EXPECT().GetNetworkState("lo").Return(&lxdapi.NetworkState{
@@ -106,7 +106,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C
 
 	srv := NewMockServer(ctrl)
 	srv.EXPECT().FilterContainers("woot").Return([]jujulxd.Container{
-		jujulxd.Container{},
+		{},
 	}, nil)
 	srv.EXPECT().GetNetworkNames().Return([]string{"lxdbr0"}, nil)
 	srv.EXPECT().GetNetworkState("lxdbr0").Return(&lxdapi.NetworkState{
@@ -158,12 +158,12 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 	srv := NewMockServer(ctrl)
 	srv.EXPECT().GetContainer("woot").Return(&lxdapi.Container{
 		ExpandedDevices: map[string]map[string]string{
-			"eth0": map[string]string{
+			"eth0": {
 				"name":    "eth0",
 				"network": "lxdbr0",
 				"type":    "nic",
 			},
-			"eth1": map[string]string{
+			"eth1": {
 				"name":    "eth1",
 				"network": "ovsbr0",
 				"type":    "nic",
@@ -172,7 +172,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 	}, "etag", nil)
 	srv.EXPECT().GetContainerState("woot").Return(&lxdapi.ContainerState{
 		Network: map[string]lxdapi.ContainerStateNetwork{
-			"eth0": lxdapi.ContainerStateNetwork{
+			"eth0": {
 				Type:   "broadcast",
 				State:  "up",
 				Mtu:    1500,
@@ -192,7 +192,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 					},
 				},
 			},
-			"lo": lxdapi.ContainerStateNetwork{
+			"lo": {
 				Type:   "loopback", // skipped as this is a loopback device
 				State:  "up",
 				Mtu:    1500,
@@ -206,7 +206,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 					},
 				},
 			},
-			"eth1": lxdapi.ContainerStateNetwork{
+			"eth1": {
 				Type:   "broadcast",
 				State:  "up",
 				Mtu:    1500,
@@ -229,7 +229,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot"})
 	c.Assert(err, jc.ErrorIsNil)
 	expInfos := []network.InterfaceInfos{
-		network.InterfaceInfos{
+		{
 			{
 				DeviceIndex:         0,
 				MACAddress:          "00:16:3e:19:29:cb",
@@ -272,7 +272,7 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 	srv := NewMockServer(ctrl)
 	srv.EXPECT().GetContainer("woot").Return(&lxdapi.Container{
 		ExpandedDevices: map[string]map[string]string{
-			"eth0": map[string]string{
+			"eth0": {
 				"name":    "eth0",
 				"network": "lxdbr0",
 				"type":    "nic",
@@ -282,7 +282,7 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 	srv.EXPECT().GetContainer("unknown").Return(nil, "", errors.New("not found"))
 	srv.EXPECT().GetContainerState("woot").Return(&lxdapi.ContainerState{
 		Network: map[string]lxdapi.ContainerStateNetwork{
-			"eth0": lxdapi.ContainerStateNetwork{
+			"eth0": {
 				Type:   "broadcast",
 				State:  "up",
 				Mtu:    1500,
@@ -305,7 +305,7 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot", "unknown"})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances, gc.Commentf("expected a partial instances error to be returned if some of the instances were not found"))
 	expInfos := []network.InterfaceInfos{
-		network.InterfaceInfos{
+		{
 			{
 				DeviceIndex:         0,
 				MACAddress:          "00:16:3e:19:29:cb",
