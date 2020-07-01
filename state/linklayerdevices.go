@@ -215,6 +215,26 @@ func (dev *LinkLayerDevice) SetProviderIDOps(id network.Id) ([]txn.Op, error) {
 	}, nil
 }
 
+// RemoveOps returns transaction operations that will ensure that the
+// device is not present in the collection and that if set,
+// its provider ID is removed from the global register.
+// Note that this method eschews responsibility for removing device
+// addresses and for ensuring that this device has no children.
+// That responsibility lies with the caller.
+func (dev *LinkLayerDevice) RemoveOps() []txn.Op {
+	ops := []txn.Op{{
+		C:      linkLayerDevicesC,
+		Id:     dev.DocID(),
+		Remove: true,
+	}}
+
+	if dev.ProviderID() != "" {
+		ops = append(ops, dev.st.networkEntityGlobalKeyRemoveOp("linklayerdevice", dev.ProviderID()))
+	}
+
+	return ops
+}
+
 // Remove removes the device, if it exists. No error is returned when the device
 // was already removed. ErrParentDeviceHasChildren is returned if this device is
 // a parent to one or more existing devices and therefore cannot be removed.

@@ -675,6 +675,15 @@ func (s *linkLayerDevicesStateSuite) TestSetProviderIDOps(c *gc.C) {
 	c.Assert(ops, gc.Not(gc.HasLen), 0)
 }
 
+func (s *linkLayerDevicesStateSuite) TestRemoveOps(c *gc.C) {
+	dev := s.addNamedDevice(c, "eth0")
+
+	state.RunTransaction(c, s.State, dev.RemoveOps())
+
+	_, err := s.State.LinkLayerDevice(dev.DocID())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *linkLayerDevicesStateSuite) createSpaceAndSubnet(c *gc.C, spaceName, CIDR string) {
 	s.createSpaceAndSubnetWithProviderID(c, spaceName, CIDR, "")
 }
