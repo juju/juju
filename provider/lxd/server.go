@@ -79,6 +79,8 @@ type Server interface {
 	Name() string
 	GetNetworkNames() ([]string, error)
 	GetNetworkState(name string) (*lxdapi.NetworkState, error)
+	GetContainer(name string) (*lxdapi.Container, string, error)
+	GetContainerState(name string) (*lxdapi.ContainerState, string, error)
 }
 
 // ServerFactory creates a new factory for creating servers that are required

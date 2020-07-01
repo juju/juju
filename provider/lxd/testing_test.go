@@ -714,6 +714,14 @@ func (*StubClient) GetNetworkState(string) (*api.NetworkState, error) {
 	panic("this stub is deprecated; use mocks instead")
 }
 
+func (*StubClient) GetContainer(string) (*api.Container, string, error) {
+	panic("this stub is deprecated; use mocks instead")
+}
+
+func (*StubClient) GetContainerState(string) (*api.ContainerState, string, error) {
+	panic("this stub is deprecated; use mocks instead")
+}
+
 // TODO (manadart 2018-07-20): This exists to satisfy the testing stub
 // interface. It is temporary, pending replacement with mocks and
 // should not be called in tests.

@@ -317,6 +317,22 @@ func (mr *MockServerMockRecorder) GetConnectionInfo() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConnectionInfo", reflect.TypeOf((*MockServer)(nil).GetConnectionInfo))
 }
 
+// GetContainer mocks base method
+func (m *MockServer) GetContainer(arg0 string) (*api.Container, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetContainer", arg0)
+	ret0, _ := ret[0].(*api.Container)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetContainer indicates an expected call of GetContainer
+func (mr *MockServerMockRecorder) GetContainer(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainer", reflect.TypeOf((*MockServer)(nil).GetContainer), arg0)
+}
+
 // GetContainerProfiles mocks base method
 func (m *MockServer) GetContainerProfiles(arg0 string) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -330,6 +346,22 @@ func (m *MockServer) GetContainerProfiles(arg0 string) ([]string, error) {
 func (mr *MockServerMockRecorder) GetContainerProfiles(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerProfiles", reflect.TypeOf((*MockServer)(nil).GetContainerProfiles), arg0)
+}
+
+// GetContainerState mocks base method
+func (m *MockServer) GetContainerState(arg0 string) (*api.ContainerState, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetContainerState", arg0)
+	ret0, _ := ret[0].(*api.ContainerState)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetContainerState indicates an expected call of GetContainerState
+func (mr *MockServerMockRecorder) GetContainerState(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerState", reflect.TypeOf((*MockServer)(nil).GetContainerState), arg0)
 }
 
 // GetNICsFromProfile mocks base method
