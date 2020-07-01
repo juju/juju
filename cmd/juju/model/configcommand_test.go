@@ -254,6 +254,80 @@ func (s *ConfigCommandSuite) TestSetFromFileCombined(c *gc.C) {
 	c.Assert(s.fake.values, jc.DeepEquals, expected)
 }
 
+func (s *ConfigCommandSuite) TestOutputIsSimpleYAML(c *gc.C) {
+	modelCfg, err := s.fake.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
+	modelCfg["cloudinit-userdata"] = "test data"
+	err = s.fake.ModelSet(modelCfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	context, err := s.run(c, "--all")
+	c.Assert(err, jc.ErrorIsNil)
+	output := cmdtesting.Stdout(context)
+	expected := `
+cloudinit-userdata: test data
+running: true
+special: special value
+
+`[1:]
+	c.Assert(output, jc.DeepEquals, expected)
+}
+
+func (s *ConfigCommandSuite) TestOutputForOneIsSimpleYAML(c *gc.C) {
+	modelCfg, err := s.fake.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
+	modelCfg["cloudinit-userdata"] = "test data"
+	err = s.fake.ModelSet(modelCfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	context, err := s.run(c, "--all", "cloudinit-userdata")
+	c.Assert(err, jc.ErrorIsNil)
+	output := cmdtesting.Stdout(context)
+	expected := `
+cloudinit-userdata: test data
+
+`[1:]
+	c.Assert(output, jc.DeepEquals, expected)
+}
+
+func (s *ConfigCommandSuite) TestOutputComplexStringIsSimpleYAML(c *gc.C) {
+	modelCfg, err := s.fake.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
+	modelCfg["cloudinit-userdata"] = `
+packages:
+	 - jq
+	 - shellcheck
+`[1:]
+	err = s.fake.ModelSet(modelCfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	context, err := s.run(c, "--all", "cloudinit-userdata")
+	c.Assert(err, jc.ErrorIsNil)
+	output := cmdtesting.Stdout(context)
+	expected := `
+cloudinit-userdata: "packages:\n\t - jq\n\t - shellcheck\n"
+
+`[1:]
+	c.Assert(output, jc.DeepEquals, expected)
+}
+
+func (s *ConfigCommandSuite) TestOutputForResourceTagSimpleYAML(c *gc.C) {
+	modelCfg, err := s.fake.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
+	modelCfg["resource-tags"] = `a=foo b=bar`
+	err = s.fake.ModelSet(modelCfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	context, err := s.run(c, "--all", "resource-tags")
+	c.Assert(err, jc.ErrorIsNil)
+	output := cmdtesting.Stdout(context)
+	expected := `
+resource-tags: a=foo b=bar
+
+`[1:]
+	c.Assert(output, jc.DeepEquals, expected)
+}
+
 func (s *ConfigCommandSuite) TestPassesValues(c *gc.C) {
 	_, err := s.run(c, "special=extra", "unknown=foo")
 	c.Assert(err, jc.ErrorIsNil)
