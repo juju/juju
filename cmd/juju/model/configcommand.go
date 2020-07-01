@@ -361,7 +361,7 @@ func (c *configCommand) handleIsKeyOfModel(attrs config.ConfigValues, ctx *cmd.C
 	if len(c.keys) == 1 {
 		key := c.keys[0]
 		if value, found := attrs[key]; found {
-			if c.out.Name() == "tabular" {
+			if !c.outputSimpleYAML && c.out.Name() == "tabular" {
 				// The user has not specified that they want
 				// YAML or JSON formatting, so we print out
 				// the value unadorned.
@@ -380,7 +380,7 @@ func (c *configCommand) handleIsKeyOfModel(attrs config.ConfigValues, ctx *cmd.C
 
 	// In tabular format, don't print "cloudinit-userdata" it can be very long,
 	// instead give instructions on how to print specifically.
-	if value, ok := attrs[config.CloudInitUserDataKey]; ok && c.out.Name() == "tabular" && value.Value.(string) != "" {
+	if value, ok := attrs[config.CloudInitUserDataKey]; ok && !c.outputSimpleYAML && c.out.Name() == "tabular" && value.Value.(string) != "" {
 		value.Value = "<value set, see juju model-config cloudinit-userdata>"
 		attrs["cloudinit-userdata"] = value
 	}
