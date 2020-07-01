@@ -183,6 +183,12 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 				ID: mockVolId,
 			}, nil
 		},
+		listAvailabilityZones: func() ([]cinder.AvailabilityZone, error) {
+			return []cinder.AvailabilityZone{{
+				Name:  "zone-1",
+				State: cinder.AvailabilityZoneState{Available: true},
+			}}, nil
+		},
 		getVolume: func(volumeId string) (*cinder.Volume, error) {
 			var status string
 			getVolumeCalls++
@@ -236,6 +242,81 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 	// should have been 2 calls to GetVolume: twice initially
 	// to wait until the volume became available.
 	c.Check(getVolumeCalls, gc.Equals, 2)
+}
+
+func (s *cinderVolumeSourceSuite) TestCreateVolumeNoCompatibleZones(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	var created bool
+	mockAdapter := &mockAdapter{
+		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
+			created = true
+			c.Assert(args, jc.DeepEquals, cinder.CreateVolumeVolumeParams{
+				Size: 1,
+				Name: "juju-testmodel-volume-123",
+			})
+			return &cinder.Volume{
+				ID: mockVolId,
+			}, nil
+		},
+		listAvailabilityZones: func() ([]cinder.AvailabilityZone, error) {
+			return []cinder.AvailabilityZone{{
+				Name:  "nova",
+				State: cinder.AvailabilityZoneState{Available: true},
+			}}, nil
+		},
+		getVolume: func(volumeId string) (*cinder.Volume, error) {
+			return &cinder.Volume{
+				ID:     volumeId,
+				Size:   1,
+				Status: "available",
+			}, nil
+		},
+	}
+
+	volSource := openstack.NewCinderVolumeSource(mockAdapter, s.env)
+	_, err := volSource.CreateVolumes(s.callCtx, []storage.VolumeParams{{
+		Provider: openstack.CinderProviderType,
+		Tag:      mockVolumeTag,
+		Size:     1024,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(created, jc.IsTrue)
+}
+
+func (s *cinderVolumeSourceSuite) TestCreateVolumeZonesNotSupported(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	var created bool
+	mockAdapter := &mockAdapter{
+		// listAvailabilityZones not implemented so we get a NotImplemented error.
+		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
+			created = true
+			c.Assert(args, jc.DeepEquals, cinder.CreateVolumeVolumeParams{
+				Size: 1,
+				Name: "juju-testmodel-volume-123",
+			})
+			return &cinder.Volume{
+				ID: mockVolId,
+			}, nil
+		},
+		getVolume: func(volumeId string) (*cinder.Volume, error) {
+			return &cinder.Volume{
+				ID:     volumeId,
+				Size:   1,
+				Status: "available",
+			}, nil
+		},
+	}
+
+	volSource := openstack.NewCinderVolumeSource(mockAdapter, s.env)
+	_, err := volSource.CreateVolumes(s.callCtx, []storage.VolumeParams{{
+		Provider: openstack.CinderProviderType,
+		Tag:      mockVolumeTag,
+		Size:     1024,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(created, jc.IsTrue)
 }
 
 func (s *cinderVolumeSourceSuite) TestCreateVolumeVolumeType(c *gc.C) {
@@ -770,6 +851,7 @@ type mockAdapter struct {
 	detachVolume          func(string, string) error
 	listVolumeAttachments func(string) ([]nova.VolumeAttachment, error)
 	setVolumeMetadata     func(string, map[string]string) (map[string]string, error)
+	listAvailabilityZones func() ([]cinder.AvailabilityZone, error)
 }
 
 func (ma *mockAdapter) GetVolume(volumeId string) (*cinder.Volume, error) {
@@ -837,6 +919,14 @@ func (ma *mockAdapter) SetVolumeMetadata(volumeId string, metadata map[string]st
 		return ma.setVolumeMetadata(volumeId, metadata)
 	}
 	return nil, nil
+}
+
+func (ma *mockAdapter) ListVolumeAvailabilityZones() ([]cinder.AvailabilityZone, error) {
+	ma.MethodCall(ma, "ListAvailabilityZones")
+	if ma.listAvailabilityZones != nil {
+		return ma.listAvailabilityZones()
+	}
+	return nil, gooseerrors.NewNotImplementedf(nil, nil, "ListAvailabilityZones")
 }
 
 type testEndpointResolver struct {
@@ -918,7 +1008,7 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointBadURL(c *gc.C) {
 	url, err := openstack.GetVolumeEndpointURL(client, "north")
 	// NOTE(achilleasa): go1.14 quotes malformed URLs in error messages
 	// hence the optional quotes in the regex below.
-	c.Assert(err, gc.ErrorMatches, `parse "?some %4"?: .*`)
+	c.Assert(err, gc.ErrorMatches, `parse ("?)some %4("?): .*`)
 	c.Assert(url, gc.IsNil)
 }
 
