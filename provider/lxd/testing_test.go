@@ -428,6 +428,8 @@ type StubClient struct {
 	ServerCert         string
 	ServerHostArch     string
 	ServerVer          string
+	NetworkNames       []string
+	NetworkState       map[string]api.NetworkState
 }
 
 func (conn *StubClient) FilterContainers(prefix string, statuses ...string) ([]lxd.Container, error) {
@@ -704,6 +706,14 @@ func (conn *StubClient) Name() string {
 	return "server"
 }
 
+func (*StubClient) GetNetworkNames() ([]string, error) {
+	panic("this stub is deprecated; use mocks instead")
+}
+
+func (*StubClient) GetNetworkState(string) (*api.NetworkState, error) {
+	panic("this stub is deprecated; use mocks instead")
+}
+
 // TODO (manadart 2018-07-20): This exists to satisfy the testing stub
 // interface. It is temporary, pending replacement with mocks and
 // should not be called in tests.
@@ -738,7 +748,7 @@ type EnvironSuite struct {
 	testing.BaseSuite
 }
 
-func (s *EnvironSuite) NewEnviron(c *gc.C, svr Server, cfgEdit map[string]interface{}) environs.Environ {
+func (s *EnvironSuite) NewEnviron(c *gc.C, srv Server, cfgEdit map[string]interface{}) environs.Environ {
 	cfg, err := testing.ModelConfig(c).Apply(ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -755,13 +765,13 @@ func (s *EnvironSuite) NewEnviron(c *gc.C, svr Server, cfgEdit map[string]interf
 	c.Assert(err, jc.ErrorIsNil)
 
 	return &environ{
-		serverUnlocked: svr,
+		serverUnlocked: srv,
 		ecfgUnlocked:   eCfg,
 		namespace:      namespace,
 	}
 }
 
-func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C, svr ServerFactory, cfgEdit map[string]interface{}) environs.Environ {
+func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C, srv ServerFactory, cfgEdit map[string]interface{}) environs.Environ {
 	cfg, err := testing.ModelConfig(c).Apply(ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -778,7 +788,7 @@ func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C, svr ServerFactory, c
 	c.Assert(err, jc.ErrorIsNil)
 
 	provid := environProvider{
-		serverFactory: svr,
+		serverFactory: srv,
 	}
 
 	return &environ{

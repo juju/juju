@@ -5,14 +5,13 @@
 package lxd
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	lxd "github.com/juju/juju/container/lxd"
 	network "github.com/juju/juju/core/network"
 	environs "github.com/juju/juju/environs"
 	lxd1 "github.com/lxc/lxd/client"
 	api "github.com/lxc/lxd/shared/api"
+	reflect "reflect"
 )
 
 // MockServer is a mock of Server interface
@@ -346,6 +345,36 @@ func (m *MockServer) GetNICsFromProfile(arg0 string) (map[string]map[string]stri
 func (mr *MockServerMockRecorder) GetNICsFromProfile(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNICsFromProfile", reflect.TypeOf((*MockServer)(nil).GetNICsFromProfile), arg0)
+}
+
+// GetNetworkNames mocks base method
+func (m *MockServer) GetNetworkNames() ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkNames")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworkNames indicates an expected call of GetNetworkNames
+func (mr *MockServerMockRecorder) GetNetworkNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkNames", reflect.TypeOf((*MockServer)(nil).GetNetworkNames))
+}
+
+// GetNetworkState mocks base method
+func (m *MockServer) GetNetworkState(arg0 string) (*api.NetworkState, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkState", arg0)
+	ret0, _ := ret[0].(*api.NetworkState)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworkState indicates an expected call of GetNetworkState
+func (mr *MockServerMockRecorder) GetNetworkState(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkState", reflect.TypeOf((*MockServer)(nil).GetNetworkState), arg0)
 }
 
 // GetProfile mocks base method
