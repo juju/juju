@@ -167,7 +167,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithMissingParentSam
 		Type:       corenetwork.EthernetDevice,
 		ParentName: "br-eth0",
 	}
-	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `ParentName not valid: device "br-eth0" on machine "0" not found`)
+	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `ParentName not valid: device with ID .+ not found`)
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesNoParentSuccess(c *gc.C) {
@@ -340,7 +340,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesRefusesToAddParentAn
 	c.Assert(err, gc.ErrorMatches, `cannot set link-layer devices to machine "0": `+
 		`invalid device "child1": `+
 		`ParentName not valid: `+
-		`device "parent1" on machine "0" not found`,
+		`device with ID .+ not found`,
 	)
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
@@ -439,7 +439,7 @@ func (s *linkLayerDevicesStateSuite) TestMachineLinkLayerDeviceReturnsNotFoundEr
 	result, err := s.machine.LinkLayerDevice("missing")
 	c.Assert(result, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `device "missing" on machine "0" not found`)
+	c.Assert(err, gc.ErrorMatches, "device with ID .+ not found")
 }
 
 func (s *linkLayerDevicesStateSuite) TestMachineLinkLayerDeviceReturnsLinkLayerDevice(c *gc.C) {

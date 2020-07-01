@@ -320,8 +320,8 @@ func (addr *Address) Remove() error {
 	return errors.Annotatef(addr.st.db().RunTransaction(addr.RemoveOps()), "removing address %s", addr)
 }
 
-// RemoveOp returns a transaction operation that will ensure that the
-// device is not present in the collection, and that if set,
+// RemoveOps returns transaction operations that will ensure that the
+// address is not present in the collection and that if set,
 // its provider ID is removed from the global register.
 func (addr *Address) RemoveOps() []txn.Op {
 	ops := []txn.Op{{
