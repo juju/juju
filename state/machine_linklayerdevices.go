@@ -366,7 +366,7 @@ func (m *Machine) verifyHostMachineParentDeviceExistsAndIsABridgeDevice(hostMach
 		return errors.Trace(err)
 	}
 
-	if parentDevice.Type() != corenetwork.BridgeDevice {
+	if !parentDevice.isBridge() {
 		errorMessage := fmt.Sprintf(
 			"parent device %q on host machine %q must be of type %q, not type %q",
 			parentDeviceName, hostMachineID, corenetwork.BridgeDevice, parentDevice.Type(),

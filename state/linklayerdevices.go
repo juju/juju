@@ -473,7 +473,7 @@ func (dev *LinkLayerDevice) RemoveAddresses() error {
 // device with the input name and this device as its parent.
 // If the device is not a bridge, an error is returned.
 func (dev *LinkLayerDevice) EthernetDeviceForBridge(name string) (LinkLayerDeviceArgs, error) {
-	if dev.Type() != network.BridgeDevice {
+	if !dev.isBridge() {
 		return LinkLayerDeviceArgs{}, errors.Errorf("device must be a Bridge Device, receiver has type %q", dev.Type())
 	}
 	return LinkLayerDeviceArgs{
@@ -485,4 +485,18 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(name string) (LinkLayerDevic
 		IsAutoStart: true,
 		ParentName:  dev.globalKey(),
 	}, nil
+}
+
+func (dev *LinkLayerDevice) isBridge() bool {
+	if dev.Type() == network.BridgeDevice {
+		return true
+	}
+
+	// OVS bridges expose their internal port as a plain NIC with the
+	// same name as the bridge.
+	if dev.VirtualPortType() == network.OvsPort {
+		return true
+	}
+
+	return false
 }

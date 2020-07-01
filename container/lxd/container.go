@@ -44,12 +44,6 @@ type ContainerSpec struct {
 // MiB suffix for memory constraints. By default we use "MB".
 var minMiBVersion = &version.DottedVersion{Major: 3, Minor: 10}
 
-// maybeRemovePortsFromOvsBridge attempts to remove portName from all OVS
-// bridges it is attached to. This function is overridden by tests.
-var maybeRemovePortFromOvsBridge = func(portName string) error {
-	return corenetwork.MaybeRemovePortFromOvsBridge(portName)
-}
-
 // ApplyConstraints applies the input constraints as valid LXD container
 // configuration to the container spec.
 // Note that we pass these through as supplied. If an instance type constraint
@@ -328,12 +322,11 @@ func (s *Server) RemoveContainer(name string) error {
 		}
 	}
 
-	// Attempt to manually remove ports from the system's OVS bridges. If
-	// the container is not bridged via OVS this is a no-op. This step is
-	// required for lxd versions older than 4.2.
-	if err = maybeRemovePortsFromOvsBridge(state); err != nil {
-		return errors.Trace(err)
-	}
+	// NOTE(achilleasa): the (apt) lxd version that ships with bionic
+	// does not automatically remove veth devices if attached to an OVS
+	// bridge. The operator must manually remove these devices from the
+	// bridge by running "ovs-vsctl --if-exists del-port X". This issue
+	// has been fixed in newer lxd versions.
 
 	// LXD has issues deleting containers, even if they've been stopped. The
 	// general advice passed back from the LXD team is to retry it again, to
@@ -363,26 +356,6 @@ func (s *Server) RemoveContainer(name string) error {
 	if err := retry.Call(retryArgs); err != nil {
 		return errors.Trace(errors.Cause(err))
 	}
-	return nil
-}
-
-// maybeRemovePortsFromOvsBridge attempts to remove the container virtual
-// ethernet devices from the OVS bridge they were attached to as LXD seems
-// unable to do this automatically. If none of the container devices were
-// attached to an OVS bridge, or the system does not support OVS, then this is
-// a no-op.
-func maybeRemovePortsFromOvsBridge(containerState *api.ContainerState) error {
-	for _, nic := range containerState.Network {
-		// We are only interested in NICs for which juju has explicitly
-		// specified a host interface name
-		if nic.HostName == "" {
-			continue
-		}
-		if err := maybeRemovePortFromOvsBridge(nic.HostName); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	return nil
 }
 

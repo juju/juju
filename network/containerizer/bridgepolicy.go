@@ -203,6 +203,27 @@ func (p *BridgePolicy) findSpacesAndDevicesForContainer(
 			guest.Id(), err)
 		return nil, nil, errors.Trace(err)
 	}
+
+	// OVS bridges expose one of the internal ports as a device with the
+	// same name as the bridge. These special interfaces are not detected
+	// as bridge devices but rather appear as regular NICs. If the configured
+	// networking method is "provider", we need to patch the type of these
+	// devices so they appear as bridges to allow the bridge policy logic
+	// to make use of them.
+	if p.containerNetworkingMethod == "provider" {
+		for spaceID, devsInSpace := range devicesPerSpace {
+			for devIdx, dev := range devsInSpace {
+				if dev.VirtualPortType() != corenetwork.OvsPort {
+					continue
+				}
+
+				devicesPerSpace[spaceID][devIdx] = ovsBridgeDevice{
+					wrappedDev: dev,
+				}
+			}
+		}
+	}
+
 	return containerSpaces, devicesPerSpace, nil
 }
 
@@ -580,4 +601,29 @@ func formatDeviceMap(spacesToDevices map[string][]LinkLayerDevice) string {
 		out = append(out, start+strings.Join(quotedNames, ",")+"]")
 	}
 	return "map{" + strings.Join(out, ", ") + "}"
+}
+
+// ovsBridgeDevice wraps a LinkLayerDevice and overrides its reported type to
+// BridgeDevice.
+type ovsBridgeDevice struct {
+	wrappedDev LinkLayerDevice
+}
+
+// The wrapped device's type is always reported as bridge.
+func (dev ovsBridgeDevice) Type() corenetwork.LinkLayerDeviceType { return corenetwork.BridgeDevice }
+func (dev ovsBridgeDevice) Name() string                          { return dev.wrappedDev.Name() }
+func (dev ovsBridgeDevice) MACAddress() string                    { return dev.wrappedDev.MACAddress() }
+func (dev ovsBridgeDevice) ParentName() string                    { return dev.wrappedDev.ParentName() }
+func (dev ovsBridgeDevice) ParentDevice() (LinkLayerDevice, error) {
+	return dev.wrappedDev.ParentDevice()
+}
+func (dev ovsBridgeDevice) Addresses() ([]*state.Address, error) { return dev.wrappedDev.Addresses() }
+func (dev ovsBridgeDevice) MTU() uint                            { return dev.wrappedDev.MTU() }
+func (dev ovsBridgeDevice) IsUp() bool                           { return dev.wrappedDev.IsUp() }
+func (dev ovsBridgeDevice) IsAutoStart() bool                    { return dev.wrappedDev.IsAutoStart() }
+func (dev ovsBridgeDevice) EthernetDeviceForBridge(name string) (state.LinkLayerDeviceArgs, error) {
+	return dev.wrappedDev.EthernetDeviceForBridge(name)
+}
+func (dev ovsBridgeDevice) VirtualPortType() corenetwork.VirtualPortType {
+	return dev.wrappedDev.VirtualPortType()
 }

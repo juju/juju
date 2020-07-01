@@ -30,6 +30,7 @@ type LinkLayerDevice interface {
 	ParentDevice() (LinkLayerDevice, error)
 	EthernetDeviceForBridge(name string) (state.LinkLayerDeviceArgs, error)
 	Addresses() ([]*state.Address, error)
+	VirtualPortType() network.VirtualPortType
 
 	// These are recruited in tests. See comment on Machine below.
 	MTU() uint
