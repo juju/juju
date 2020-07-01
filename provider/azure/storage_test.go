@@ -455,7 +455,7 @@ func (s *storageSuite) TestCreateVolumesLegacy(c *gc.C) {
 			Volume:  names.NewVolumeTag(volumeId),
 			Machine: names.NewMachineTag(machineId),
 			VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
-				BusAddress: fmt.Sprintf("scsi@5:0.0.%d", lun),
+				DeviceLink: fmt.Sprintf("/dev/disk/azure/scsi1/lun%d", lun),
 			},
 		}
 	}

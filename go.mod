@@ -38,7 +38,7 @@ require (
 	github.com/joyent/gosdc v0.0.0-20140524000815-2f11feadd2d9
 	github.com/joyent/gosign v0.0.0-20140524000734-0da0d5f13420
 	github.com/juju/ansiterm v0.0.0-20160907234532-b99631de12cf
-	github.com/juju/bundlechanges v0.0.0-20200625095418-8b1912834d29
+	github.com/juju/bundlechanges v1.0.0
 	github.com/juju/charm/v7 v7.0.0-20200625165032-ef717232a815
 	github.com/juju/charmrepo/v5 v5.0.0-20200626080438-30e3069e6e8e
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
@@ -114,7 +114,7 @@ require (
 	google.golang.org/api v0.4.0
 	gopkg.in/amz.v3 v3.0.0-20191122063134-7ba11a47c789
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
-	gopkg.in/goose.v2 v2.0.0-20200403131220-0c829f62c42a
+	gopkg.in/goose.v2 v2.0.1
 	gopkg.in/httprequest.v1 v1.2.0
 	gopkg.in/ini.v1 v1.10.1
 	gopkg.in/juju/blobstore.v2 v2.0.0-20160125023703-51fa6e26128d
