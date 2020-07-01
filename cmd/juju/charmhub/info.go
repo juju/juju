@@ -7,7 +7,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-
 	"github.com/juju/juju/api/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -23,9 +22,7 @@ Examples:
     juju info postgresql
 
 See also:
-    download
     find
-    refresh
 `
 )
 
@@ -61,6 +58,8 @@ func (c *infoCommand) Info() *cmd.Info {
 // It implements part of the cmd.Command interface.
 func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	// TODO (hml)
+	// add --config
 }
 
 // Init initializes the info command, including validating the provided
@@ -85,7 +84,12 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = client.Close() }()
 
-	return errors.NotImplementedf("business logic of info command")
+	info, err := client.Info(c.charmOrBundle)
+	if err != nil {
+		return err
+	}
+
+	return makeInfoWriter(ctx, &info).Print()
 }
 
 func (c *infoCommand) validateCharmOrBundle(_ string) error {
