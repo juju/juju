@@ -34,7 +34,10 @@ are displayed.
 
 Supplying one key name returns only the value for the key. Supplying key=value
 will set the supplied key to the supplied value, this can be repeated for
-multiple keys. You can also specify a yaml file containing key values.
+multiple keys. You can also specify a yaml file containing key values to the
+command to update the values of model. Using --all flag will output all the
+key values that then can be passed directly to the model config command.
+
 `
 	modelConfigHelpDocKeys = `
 The following keys are available:
@@ -48,6 +51,8 @@ Examples:
     juju model-config path/to/file.yaml
     juju model-config -m othercontroller:mymodel default-series=yakkety test-mode=false
     juju model-config --reset default-series test-mode
+    juju model-config --format=yaml
+    juju model-config --format=consumable-yaml
 
 See also:
     models
@@ -71,12 +76,12 @@ type configCommand struct {
 	modelcmd.ModelCommandBase
 	out cmd.Output
 
-	action           func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
-	keys             []string
-	reset            []string // Holds the keys to be reset until parsed.
-	resetKeys        []string // Holds the keys to be reset once parsed.
-	setOptions       common.ConfigFlag
-	outputSimpleYAML bool
+	action               func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
+	keys                 []string
+	reset                []string // Holds the keys to be reset until parsed.
+	resetKeys            []string // Holds the keys to be reset once parsed.
+	setOptions           common.ConfigFlag
+	outputConsumableYAML bool
 }
 
 // configCommandAPI defines an API interface to be used during testing.
@@ -116,13 +121,13 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
-		"json":        cmd.FormatJson,
-		"tabular":     c.formatConfigTabular,
-		"yaml":        cmd.FormatYaml,
-		"simple-yaml": formatSimpleYaml,
+		"json":            cmd.FormatJson,
+		"tabular":         c.formatConfigTabular,
+		"yaml":            cmd.FormatYaml,
+		"consumable-yaml": formatConsumableYAML,
 	})
 	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
-	f.BoolVar(&c.outputSimpleYAML, "all", false, "Show all values in a simplified YAML format, that model-config can also consume")
+	f.BoolVar(&c.outputConsumableYAML, "all", false, "Show all values in a simplified YAML format, that model-config can also consume")
 }
 
 // Init implements part of the cmd.Command interface.
@@ -361,7 +366,7 @@ func (c *configCommand) handleIsKeyOfModel(attrs config.ConfigValues, ctx *cmd.C
 	if len(c.keys) == 1 {
 		key := c.keys[0]
 		if value, found := attrs[key]; found {
-			if !c.outputSimpleYAML && c.out.Name() == "tabular" {
+			if !c.outputConsumableYAML && c.out.Name() == "tabular" {
 				// The user has not specified that they want
 				// YAML or JSON formatting, so we print out
 				// the value unadorned.
@@ -380,7 +385,7 @@ func (c *configCommand) handleIsKeyOfModel(attrs config.ConfigValues, ctx *cmd.C
 
 	// In tabular format, don't print "cloudinit-userdata" it can be very long,
 	// instead give instructions on how to print specifically.
-	if value, ok := attrs[config.CloudInitUserDataKey]; ok && !c.outputSimpleYAML && c.out.Name() == "tabular" && value.Value.(string) != "" {
+	if value, ok := attrs[config.CloudInitUserDataKey]; ok && !c.outputConsumableYAML && c.out.Name() == "tabular" && value.Value.(string) != "" {
 		value.Value = "<value set, see juju model-config cloudinit-userdata>"
 		attrs["cloudinit-userdata"] = value
 	}
@@ -422,8 +427,8 @@ func isModelAttribute(attr string) bool {
 func (c *configCommand) formatConfigTabular(writer io.Writer, value interface{}) error {
 	// The operator has asked for a simple yaml. This new yaml format can output
 	// the same yaml, that model-config can also consume.
-	if c.outputSimpleYAML {
-		return formatSimpleYaml(writer, value)
+	if c.outputConsumableYAML {
+		return formatConsumableYAML(writer, value)
 	}
 
 	configValues, ok := value.(config.ConfigValues)
@@ -478,7 +483,7 @@ func ConfigDetails() (map[string]interface{}, error) {
 	return specifics, nil
 }
 
-func formatSimpleYaml(writer io.Writer, value interface{}) error {
+func formatConsumableYAML(writer io.Writer, value interface{}) error {
 	configValues, ok := value.(config.ConfigValues)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", configValues, value)
