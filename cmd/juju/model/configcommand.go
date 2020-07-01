@@ -15,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/environschema.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
@@ -70,11 +71,12 @@ type configCommand struct {
 	modelcmd.ModelCommandBase
 	out cmd.Output
 
-	action     func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
-	keys       []string
-	reset      []string // Holds the keys to be reset until parsed.
-	resetKeys  []string // Holds the keys to be reset once parsed.
-	setOptions common.ConfigFlag
+	action           func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
+	keys             []string
+	reset            []string // Holds the keys to be reset until parsed.
+	resetKeys        []string // Holds the keys to be reset once parsed.
+	setOptions       common.ConfigFlag
+	outputSimpleYAML bool
 }
 
 // configCommandAPI defines an API interface to be used during testing.
@@ -114,11 +116,13 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
-		"json":    cmd.FormatJson,
-		"tabular": formatConfigTabular,
-		"yaml":    cmd.FormatYaml,
+		"json":        cmd.FormatJson,
+		"tabular":     c.formatConfigTabular,
+		"yaml":        cmd.FormatYaml,
+		"simple-yaml": formatSimpleYaml,
 	})
 	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
+	f.BoolVar(&c.outputSimpleYAML, "all", false, "Show all values in a simplified YAML format, that model-config can also consume")
 }
 
 // Init implements part of the cmd.Command interface.
@@ -309,7 +313,8 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 	if err != nil {
 		return err
 	}
-	attrs, err, finished := c.handleIsKeyOfModel(attrs, ctx)
+
+	attrs, finished, err := c.handleIsKeyOfModel(attrs, ctx)
 	if err != nil {
 		return err
 	} else if attrs != nil && finished {
@@ -317,11 +322,11 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 	} else if len(c.keys) > 0 && !finished {
 		if isFileLike(c.keys[0]) {
 			return errors.Errorf("%q seems to be a file but not found", c.keys[0])
-		} else {
-			mod, _ := c.ModelIdentifier()
-			return errors.Errorf("%q seems to be neither a file nor a key of the currently targeted model: %q",
-				c.keys[0], mod)
 		}
+
+		mod, _ := c.ModelIdentifier()
+		return errors.Errorf("%q seems to be neither a file nor a key of the currently targeted model: %q",
+			c.keys[0], mod)
 	}
 	return nil
 }
@@ -352,7 +357,7 @@ func isFileLike(fileLike string) bool {
 	return true
 }
 
-func (c *configCommand) handleIsKeyOfModel(attrs config.ConfigValues, ctx *cmd.Context) (config.ConfigValues, error, bool) {
+func (c *configCommand) handleIsKeyOfModel(attrs config.ConfigValues, ctx *cmd.Context) (config.ConfigValues, bool, error) {
 	if len(c.keys) == 1 {
 		key := c.keys[0]
 		if value, found := attrs[key]; found {
@@ -360,25 +365,27 @@ func (c *configCommand) handleIsKeyOfModel(attrs config.ConfigValues, ctx *cmd.C
 				// The user has not specified that they want
 				// YAML or JSON formatting, so we print out
 				// the value unadorned.
-				return nil, c.out.WriteFormatter(ctx, cmd.FormatSmart, value.Value), true
-			} else {
-				return config.ConfigValues{key: config.ConfigValue{Source: value.Source, Value: value.Value}}, nil, true
+				return nil, true, c.out.WriteFormatter(ctx, cmd.FormatSmart, value.Value)
 			}
-		} else {
-			return attrs, nil, false
+			return config.ConfigValues{
+				key: config.ConfigValue{
+					Source: value.Source,
+					Value:  value.Value,
+				},
+			}, true, nil
 		}
-	} else {
-		// In tabular format, don't print "cloudinit-userdata" it can be very long,
-		// instead give instructions on how to print specifically.
-		if value, ok := attrs[config.CloudInitUserDataKey]; ok && c.out.Name() == "tabular" {
-			if value.Value.(string) != "" {
-				value.Value = "<value set, see juju model-config cloudinit-userdata>"
-				attrs["cloudinit-userdata"] = value
-			}
-			return attrs, nil, true
-		}
+
+		return attrs, false, nil
 	}
-	return attrs, nil, true
+
+	// In tabular format, don't print "cloudinit-userdata" it can be very long,
+	// instead give instructions on how to print specifically.
+	if value, ok := attrs[config.CloudInitUserDataKey]; ok && c.out.Name() == "tabular" && value.Value.(string) != "" {
+		value.Value = "<value set, see juju model-config cloudinit-userdata>"
+		attrs["cloudinit-userdata"] = value
+	}
+
+	return attrs, true, nil
 }
 
 // verifyKnownKeys is a helper to validate the keys we are operating with
@@ -412,14 +419,20 @@ func isModelAttribute(attr string) bool {
 }
 
 // formatConfigTabular writes a tabular summary of config information.
-func formatConfigTabular(writer io.Writer, value interface{}) error {
+func (c *configCommand) formatConfigTabular(writer io.Writer, value interface{}) error {
+	// The operator has asked for a simple yaml. This new yaml format can output
+	// the same yaml, that model-config can also consume.
+	if c.outputSimpleYAML {
+		return formatSimpleYaml(writer, value)
+	}
+
 	configValues, ok := value.(config.ConfigValues)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", configValues, value)
 	}
 
 	tw := output.TabWriter(writer)
-	w := output.Wrapper{tw}
+	w := output.Wrapper{TabWriter: tw}
 
 	var valueNames []string
 	for name := range configValues {
@@ -441,8 +454,7 @@ func formatConfigTabular(writer io.Writer, value interface{}) error {
 		w.Println(name, info.Source, valString)
 	}
 
-	tw.Flush()
-	return nil
+	return tw.Flush()
 }
 
 // ConfigDetails gets ModelDetails when a model is not available
@@ -464,4 +476,31 @@ func ConfigDetails() (map[string]interface{}, error) {
 		}
 	}
 	return specifics, nil
+}
+
+func formatSimpleYaml(writer io.Writer, value interface{}) error {
+	configValues, ok := value.(config.ConfigValues)
+	if !ok {
+		return errors.Errorf("expected value of type %T, got %T", configValues, value)
+	}
+
+	result := make(map[string]interface{}, len(configValues))
+	for key, value := range configValues {
+		val := value.Value
+
+		// Unfortunately we can not simply printout the resource-tags, instead
+		// we have to encode them as they would be decoded.
+		if key == "resource-tags" {
+			if tags, ok := val.(map[string]interface{}); ok {
+				resources := make([]string, 0, len(tags))
+				for k, v := range tags {
+					resources = append(resources, fmt.Sprintf("%s=%v", k, v))
+				}
+				val = strings.Join(resources, " ")
+			}
+		}
+		result[key] = val
+	}
+
+	return yaml.NewEncoder(writer).Encode(result)
 }
