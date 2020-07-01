@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -36,6 +37,9 @@ type Relation interface {
 	// OtherApplication returns the name of the application on the other
 	// end of the relation (from this unit's perspective).
 	OtherApplication() string
+
+	// Life returns the relation's current life state.
+	Life() life.Value
 }
 
 type RelationUnit interface {
@@ -184,4 +188,9 @@ func (ctx *ContextRelation) SetStatus(status relation.Status) error {
 // relation from the perspective of this unit.
 func (ctx *ContextRelation) RemoteApplicationName() string {
 	return ctx.ru.Relation().OtherApplication()
+}
+
+// Life returns the relation's current life state.
+func (ctx *ContextRelation) Life() life.Value {
+	return ctx.ru.Relation().Life()
 }

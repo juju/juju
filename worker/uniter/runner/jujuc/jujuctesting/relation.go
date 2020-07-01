@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -30,6 +31,8 @@ type Relation struct {
 	LocalApplicationSettings Settings
 	// RemoteApplicationName is data for jujuc.ContextRelation
 	RemoteApplicationName string
+	// The current life value.
+	Life life.Value
 }
 
 // Reset clears the Relation's settings.
@@ -85,6 +88,14 @@ func (r *ContextRelation) FakeId() string {
 	r.stub.NextErr()
 
 	return fmt.Sprintf("%s:%d", r.info.Name, r.info.Id)
+}
+
+// Life implements jujuc.ContextRelation.
+func (r *ContextRelation) Life() life.Value {
+	r.stub.AddCall("Life")
+	r.stub.NextErr()
+
+	return r.info.Life
 }
 
 // Settings implements jujuc.ContextRelation.

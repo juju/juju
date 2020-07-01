@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/storage"
@@ -321,6 +322,9 @@ type ContextRelation interface {
 	// RemoteApplicationName returns the application on the other end of
 	// the relation from the perspective of this unit.
 	RemoteApplicationName() string
+
+	// Life returns the relation's current life state.
+	Life() life.Value
 }
 
 // ContextStorageAttachment expresses the capabilities of a hook with

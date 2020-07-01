@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -32,12 +33,17 @@ func (r *Relations) SetRelation(id int, relCtx jujuc.ContextRelation) {
 
 // SetNewRelation adds the relation to the set of known relations.
 func (r *Relations) SetNewRelation(id int, name string, stub *testing.Stub) *Relation {
+	return r.SetNewRelationWithLife(id, name, life.Alive, stub)
+}
+
+func (r *Relations) SetNewRelationWithLife(id int, name string, life life.Value, stub *testing.Stub) *Relation {
 	if name == "" {
 		name = fmt.Sprintf("relation-%d", id)
 	}
 	rel := &Relation{
 		Id:   id,
 		Name: name,
+		Life: life,
 	}
 	relCtx := &ContextRelation{info: rel}
 	relCtx.stub = stub
