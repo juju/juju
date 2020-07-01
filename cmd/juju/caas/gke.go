@@ -31,9 +31,9 @@ func (g *gke) cloud() string {
 }
 
 func (g *gke) ensureExecutable() error {
-	cmd := []string{"which", "gcloud"}
-	err := collapseRunError(runCommand(g, cmd, ""))
-	errAnnotationMessage := "gcloud command not found, please 'snap install gcloud' then try again"
+	whichCmd := []string{"which", "gcloud"}
+	err := collapseRunError(runCommand(g, whichCmd, ""))
+	errAnnotationMessage := "gcloud command not found, please 'snap install google-cloud-sdk --classic' then try again"
 	if err != nil {
 		return errors.Annotate(err, errAnnotationMessage)
 	}
@@ -41,25 +41,25 @@ func (g *gke) ensureExecutable() error {
 }
 
 func (g *gke) getKubeConfig(p *clusterParams) (io.ReadCloser, string, error) {
-	cmd := []string{
+	gcloudCmd := []string{
 		"gcloud", "container", "clusters", "get-credentials", p.name,
 	}
 	qualifiedClusterName := "gke_"
 	if p.credential != "" {
-		cmd = append(cmd, "--account", p.credential)
+		gcloudCmd = append(gcloudCmd, "--account", p.credential)
 	}
 	if p.project != "" {
-		cmd = append(cmd, "--project", p.project)
+		gcloudCmd = append(gcloudCmd, "--project", p.project)
 		qualifiedClusterName += p.project + "_"
 	}
 	if p.zone != "" {
-		cmd = append(cmd, "--zone", p.zone)
+		gcloudCmd = append(gcloudCmd, "--zone", p.zone)
 		qualifiedClusterName += p.zone + "_"
 	}
 	qualifiedClusterName += p.name
 
 	kubeconfig := clientconfig.GetKubeConfigPath()
-	result, err := runCommand(g, cmd, kubeconfig)
+	result, err := runCommand(g, gcloudCmd, kubeconfig)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -99,10 +99,10 @@ func (g *gke) interactiveParams(ctxt *cmd.Context, p *clusterParams) (*clusterPa
 }
 
 func (g *gke) listAccounts() ([]string, string, error) {
-	cmd := []string{
+	gcloudCmd := []string{
 		"gcloud", "auth", "list", "--format", "value\\(account,status\\)",
 	}
-	result, err := runCommand(g, cmd, "")
+	result, err := runCommand(g, gcloudCmd, "")
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -149,10 +149,10 @@ func (g *gke) queryAccount(pollster *interact.Pollster) (string, error) {
 }
 
 func (g *gke) listProjects(account string) ([]string, error) {
-	cmd := []string{
+	gcloudCmd := []string{
 		"gcloud", "projects", "list", "--account", account, "--filter", "lifecycleState:ACTIVE", "--format", "value\\(projectId\\)",
 	}
-	result, err := runCommand(g, cmd, "")
+	result, err := runCommand(g, gcloudCmd, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -184,10 +184,10 @@ func (g *gke) queryProject(pollster *interact.Pollster, account string) (string,
 var extractRegionFromZone = regexp.MustCompile(`([a-z]+-[a-z0-9]+)`).FindStringSubmatch
 
 func (g *gke) listClusters(account, project, region string) (map[string]cluster, error) {
-	cmd := []string{
+	gcloudCmd := []string{
 		"gcloud", "container", "clusters", "list", "--filter", "status:RUNNING", "--account", account, "--project", project, "--format", "value\\(name,zone\\)",
 	}
-	result, err := runCommand(g, cmd, "")
+	result, err := runCommand(g, gcloudCmd, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

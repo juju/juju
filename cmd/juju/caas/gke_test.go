@@ -274,5 +274,5 @@ func (s *gkeSuite) TestEnsureExecutableGcloudNotFound(c *gc.C) {
 			}, nil),
 	)
 	err := gke.ensureExecutable()
-	c.Assert(err, gc.ErrorMatches, "gcloud command not found, please 'snap install gcloud' then try again: ")
+	c.Assert(err, gc.ErrorMatches, "gcloud command not found, please 'snap install google-cloud-sdk --classic' then try again: ")
 }
