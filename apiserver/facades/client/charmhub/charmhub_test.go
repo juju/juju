@@ -13,7 +13,6 @@ import (
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/charmhub/mocks"
-	"github.com/juju/juju/charmhub"
 )
 
 var _ = gc.Suite(&charmHubAPISuite{})
@@ -35,9 +34,7 @@ func (s *charmHubAPISuite) TestInfo(c *gc.C) {
 
 func (s *charmHubAPISuite) newCharmHubAPIForTest(c *gc.C) *CharmHubAPI {
 	s.expectAuth()
-	api, err := newCharmHubAPI(s.authorizer, func(p charmhub.Config) (Client, error) {
-		return s.client, nil
-	})
+	api, err := newCharmHubAPI(s.authorizer, s.client)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }

@@ -39,13 +39,13 @@ func (s charmHubSuite) TestFind(c *gc.C) {
 
 	arg := params.Query{Query: "wordpress"}
 	resultSource := params.CharmHubCharmFindResult{
-		Result: getParamsFindResponse(),
+		Results: getParamsFindResponses(),
 	}
 	s.facade.EXPECT().FacadeCall("Find", arg, gomock.Any()).SetArg(2, resultSource)
 
 	obtained, err := s.newClientFromFacadeForTest().Find("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	assertFindResponseSameContents(c, obtained, getFindResponse())
+	assertFindResponsesSameContents(c, obtained, getFindResponses())
 }
 
 func (s *charmHubSuite) newClientFromFacadeForTest() *Client {
@@ -73,16 +73,16 @@ func getInfoResponse() InfoResponse {
 	}
 }
 
-func getFindResponse() FindResponse {
+func getFindResponses() []FindResponse {
 	channelMaps, charm, defaultChannelMap := getChannelMapResponse()
-	return FindResponse{
+	return []FindResponse{{
 		Name:           "wordpress",
 		Type:           "object",
 		ID:             "charmCHARMcharmCHARMcharmCHARM01",
 		ChannelMap:     channelMaps,
 		Charm:          charm,
 		DefaultRelease: defaultChannelMap,
-	}
+	}}
 }
 
 func getChannelMapResponse() ([]ChannelMap, Charm, ChannelMap) {
@@ -174,13 +174,18 @@ func assertInfoResponseSameContents(c *gc.C, obtained, expected InfoResponse) {
 	c.Assert(obtained.DefaultRelease, gc.DeepEquals, expected.DefaultRelease)
 }
 
-func assertFindResponseSameContents(c *gc.C, obtained, expected FindResponse) {
-	c.Assert(obtained.Type, gc.Equals, expected.Type)
-	c.Assert(obtained.ID, gc.Equals, expected.ID)
-	c.Assert(obtained.Name, gc.Equals, expected.Name)
-	assertCharmSameContents(c, obtained.Charm, expected.Charm)
-	c.Assert(obtained.ChannelMap, gc.DeepEquals, expected.ChannelMap)
-	c.Assert(obtained.DefaultRelease, gc.DeepEquals, expected.DefaultRelease)
+func assertFindResponsesSameContents(c *gc.C, obtained, expected []FindResponse) {
+	c.Assert(obtained, gc.HasLen, 1)
+	c.Assert(expected, gc.HasLen, 1)
+
+	want := obtained[0]
+	got := expected[0]
+	c.Assert(want.Type, gc.Equals, got.Type)
+	c.Assert(want.ID, gc.Equals, got.ID)
+	c.Assert(want.Name, gc.Equals, got.Name)
+	assertCharmSameContents(c, want.Charm, got.Charm)
+	c.Assert(want.ChannelMap, gc.DeepEquals, got.ChannelMap)
+	c.Assert(want.DefaultRelease, gc.DeepEquals, got.DefaultRelease)
 }
 
 func assertCharmSameContents(c *gc.C, obtained, expected Charm) {
@@ -205,16 +210,16 @@ func getParamsInfoResponse() params.InfoResponse {
 	}
 }
 
-func getParamsFindResponse() params.FindResponse {
+func getParamsFindResponses() []params.FindResponse {
 	channelMaps, charm, defaultChannelMap := getParamsChannelMapResponse()
-	return params.FindResponse{
+	return []params.FindResponse{{
 		Name:           "wordpress",
 		Type:           "object",
 		ID:             "charmCHARMcharmCHARMcharmCHARM01",
 		ChannelMap:     channelMaps,
 		Charm:          charm,
 		DefaultRelease: defaultChannelMap,
-	}
+	}}
 }
 
 func getParamsChannelMapResponse() ([]params.ChannelMap, params.CharmHubCharm, params.ChannelMap) {

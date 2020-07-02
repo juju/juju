@@ -47,12 +47,12 @@ func (c *Client) Info(name string) (InfoResponse, error) {
 
 // Find queries the charmhub API finding potential charms or bundles for the
 // given query.
-func (c *Client) Find(query string) (FindResponse, error) {
+func (c *Client) Find(query string) ([]FindResponse, error) {
 	args := params.Query{Query: query}
 	var result params.CharmHubCharmFindResult
 	if err := c.facade.FacadeCall("Find", args, &result); err != nil {
-		return FindResponse{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	return convertCharmFindResult(result.Result), nil
+	return convertCharmFindResults(result.Results), nil
 }

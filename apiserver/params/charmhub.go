@@ -27,8 +27,8 @@ type InfoResponse struct {
 }
 
 type CharmHubCharmFindResult struct {
-	Result FindResponse  `json:"result"`
-	Errors ErrorResponse `json:"errors"`
+	Results []FindResponse `json:"result"`
+	Errors  ErrorResponse  `json:"errors"`
 }
 
 type FindResponse struct {

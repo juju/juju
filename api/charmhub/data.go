@@ -18,6 +18,14 @@ func convertCharmInfoResult(info params.InfoResponse) InfoResponse {
 	}
 }
 
+func convertCharmFindResults(responses []params.FindResponse) []FindResponse {
+	results := make([]FindResponse, len(responses))
+	for i, resp := range responses {
+		results[i] = convertCharmFindResult(resp)
+	}
+	return results
+}
+
 func convertCharmFindResult(info params.FindResponse) FindResponse {
 	return FindResponse{
 		Type:           info.Type,

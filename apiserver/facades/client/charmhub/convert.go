@@ -19,6 +19,25 @@ func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
 	}
 }
 
+func convertCharmFindResults(responses []transport.FindResponse) []params.FindResponse {
+	results := make([]params.FindResponse, len(responses))
+	for k, response := range responses {
+		results[k] = convertCharmFindResult(response)
+	}
+	return results
+}
+
+func convertCharmFindResult(resp transport.FindResponse) params.FindResponse {
+	return params.FindResponse{
+		Type:           resp.Type,
+		ID:             resp.ID,
+		Name:           resp.Name,
+		Charm:          convertCharm(resp.Charm),
+		ChannelMap:     convertChannelMap(resp.ChannelMap),
+		DefaultRelease: convertOneChannelMap(resp.DefaultRelease),
+	}
+}
+
 func convertCharm(ch transport.Charm) params.CharmHubCharm {
 	return params.CharmHubCharm{
 		Categories:  convertCategories(ch.Categories),
