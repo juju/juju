@@ -210,7 +210,9 @@ func (i *InterfaceInfo) IsVLAN() bool {
 	return i.VLANTag > 0
 }
 
-// CIDRAddress returns Address.Value combined with CIDR mask.
+// CIDRAddress returns Address.Value combined with subnet mask.
+// TODO (manadart 2020-07-02): Usage of this method should be phased out
+// in favour of calling ValueForCIDR on each member of the addresses slice.
 func (i *InterfaceInfo) CIDRAddress() (string, error) {
 	primaryAddr := i.PrimaryAddress()
 
@@ -218,18 +220,8 @@ func (i *InterfaceInfo) CIDRAddress() (string, error) {
 		return "", errors.NotFoundf("address and CIDR pair (%q, %q)", primaryAddr.Value, i.CIDR)
 	}
 
-	_, ipNet, err := net.ParseCIDR(i.CIDR)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	ip := primaryAddr.IP()
-	if ip == nil {
-		return "", errors.Errorf("cannot parse IP address %q", primaryAddr.Value)
-	}
-
-	ipNet.IP = ip
-	return ipNet.String(), nil
+	withMask, err := primaryAddr.ValueForCIDR(i.CIDR)
+	return withMask, errors.Trace(err)
 }
 
 // PrimaryAddress returns the primary address for the interface.
