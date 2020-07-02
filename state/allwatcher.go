@@ -1209,6 +1209,14 @@ func (s *backingStatus) updated(ctx *allWatcherContext) error {
 	case *multiwatcher.UnitInfo:
 		newInfo := *info
 		switch suffix {
+		case "":
+			if err := s.updatedUnitAgentStatus(ctx, &newInfo); err != nil {
+				return err
+			}
+		case "#charm":
+			s.updatedUnitWorkloadStatus(ctx, &newInfo)
+		case "#charm#container":
+			newInfo.ContainerStatus = s.toStatusInfo()
 		// I have no idea what the original author was thinking about when
 		// they added "sat" as part of the key.
 		case "#charm#sat#workload-version":
@@ -1218,18 +1226,6 @@ func (s *backingStatus) updated(ctx *allWatcherContext) error {
 			s.updateApplicationWorkload(ctx, info)
 			// No need to touch the unit for now, so we can exit the function here.
 			return nil
-		case "#charm#container":
-			newInfo.ContainerStatus = s.toStatusInfo()
-		case "#charm", "":
-			// Get the unit's current recorded status from state.
-			// It's needed to reset the unit status when a unit comes off error.
-			statusInfo, err := ctx.getStatus(unitGlobalKey(newInfo.Name), "unit")
-			if err != nil {
-				return err
-			}
-			if err := s.updatedUnitStatus(ctx, statusInfo, &newInfo); err != nil {
-				return err
-			}
 		default:
 			allWatcherLogger.Tracef("charm status suffix %q unhandled", suffix)
 			return nil
@@ -1294,27 +1290,55 @@ func (s *backingStatus) updateApplicationWorkload(ctx *allWatcherContext, unit *
 	ctx.store.Update(&updated)
 }
 
-func (s *backingStatus) updatedUnitStatus(ctx *allWatcherContext, unitStatus multiwatcher.StatusInfo, newInfo *multiwatcher.UnitInfo) error {
-	// Unit or workload status - display the agent status or any error.
-	// NOTE: thumper 2016-06-27, this is truly horrible, and we are lying to our users.
-	// however, this is explicitly what has been asked for as much as we dislike it.
-	if strings.HasSuffix(ctx.id, "#charm") || s.Status == status.Error {
-		newInfo.WorkloadStatus = s.toStatusInfo()
-	} else {
-		// Preserve the agent version that is set on the agent status.
-		agentVersion := newInfo.AgentStatus.Version
-		newInfo.AgentStatus = s.toStatusInfo()
-		// If the unit was in error and now it's not, we need to reset its
-		// status back to what was previously recorded.
-		if newInfo.WorkloadStatus.Current == status.Error {
-			newInfo.WorkloadStatus.Current = unitStatus.Current
-			newInfo.WorkloadStatus.Message = unitStatus.Message
-			newInfo.WorkloadStatus.Data = unitStatus.Data
-			newInfo.WorkloadStatus.Since = unitStatus.Since
+func (s *backingStatus) updatedUnitAgentStatus(ctx *allWatcherContext, unitInfo *multiwatcher.UnitInfo) error {
+	// Preserve the agent version that is set on the agent status.
+	agentVersion := unitInfo.AgentStatus.Version
+
+	// If the agent status used to be "error", then the units workload status will be error.
+	if unitInfo.WorkloadStatus.Current == status.Error {
+		// If we were in an error state, and continue in an error state, just update the workload
+		// status with the new error info.
+		if s.Status == status.Error {
+			unitInfo.WorkloadStatus = s.toStatusInfo()
+			return nil
 		}
-		newInfo.AgentStatus.Version = agentVersion
+		// Agent is coming out of error status, so we need to read the workload status.
+		workloadStatus, err := ctx.getStatus(unitGlobalKey(unitInfo.Name), "unit")
+		if err != nil {
+			return err
+		}
+		unitInfo.WorkloadStatus = workloadStatus
+		unitInfo.AgentStatus = s.toStatusInfo()
+		unitInfo.AgentStatus.Version = agentVersion
+		return nil
+	}
+	// We weren't in an error state before.
+	if s.Status != status.Error {
+		// We aren't entering an error state, so just update the value.
+		unitInfo.AgentStatus = s.toStatusInfo()
+		unitInfo.AgentStatus.Version = agentVersion
+		return nil
+	}
+	// Otherwise we need to do the annoying dance with errors.
+	errorState := s.toStatusInfo()
+	unitInfo.WorkloadStatus = errorState
+	unitInfo.AgentStatus = multiwatcher.StatusInfo{
+		Current: status.Idle,
+		Data:    normaliseStatusData(nil),
+		Since:   errorState.Since,
+		Version: agentVersion,
 	}
 	return nil
+}
+
+func (s *backingStatus) updatedUnitWorkloadStatus(ctx *allWatcherContext, unitInfo *multiwatcher.UnitInfo) {
+	// If we aren't in an error state, update the workload.
+	if unitInfo.WorkloadStatus.Current != status.Error {
+		unitInfo.WorkloadStatus = s.toStatusInfo()
+	}
+	// We don't need to look up the current value of the agent status
+	// because any change to that will cause the unit to be updated again,
+	// and it will read the workload status if needed.
 }
 
 func (s *backingStatus) removed(ctx *allWatcherContext) error {

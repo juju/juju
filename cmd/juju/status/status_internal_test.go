@@ -16,7 +16,6 @@ import (
 	"github.com/juju/charm/v7"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -5038,8 +5037,6 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 }
 
 func (s *StatusSuite) TestStatusWithFormatTabularValidModelUUID(c *gc.C) {
-	loggo.GetLogger("dummy.modelcache").SetLogLevel(loggo.TRACE)
-	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	ctx := s.prepareTabularData(c)
 	defer s.resetContext(c, ctx)
 
