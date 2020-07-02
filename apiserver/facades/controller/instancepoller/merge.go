@@ -175,8 +175,3 @@ func (o *mergeMachineLinkLayerOp) processNewDevices() {
 		}
 	}
 }
-
-// Done (state.ModelOperation) returns the result of running the operation.
-func (o *mergeMachineLinkLayerOp) Done(err error) error {
-	return err
-}
