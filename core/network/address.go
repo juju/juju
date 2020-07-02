@@ -144,6 +144,23 @@ func (a MachineAddress) IP() net.IP {
 	return net.ParseIP(a.Value)
 }
 
+// ValueForCIDR returns the value of the address combined with a subnet mask
+// indicated by the input CIDR.
+func (a MachineAddress) ValueForCIDR(cidr string) (string, error) {
+	_, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	ip := a.IP()
+	if ip == nil {
+		return "", errors.Errorf("cannot parse IP address %q", a.Value)
+	}
+
+	ipNet.IP = ip
+	return ipNet.String(), nil
+}
+
 // sortOrder calculates the "weight" of the address when sorting:
 // - public IPs first;
 // - hostnames after that, but "localhost" will be last if present;
@@ -753,16 +770,4 @@ func MergedAddresses(machineAddresses, providerAddresses []SpaceAddress) []Space
 		}
 	}
 	return merged
-}
-
-// IPToCIDRNotation receives as input an IP and a CIDR value and returns back
-// the IP in CIDR notation.
-func IPToCIDRNotation(ip, cidr string) (string, error) {
-	_, netIP, err := net.ParseCIDR(cidr)
-	if err != nil {
-		return "", err
-	}
-
-	netIP.IP = net.ParseIP(ip)
-	return netIP.String(), nil
 }
