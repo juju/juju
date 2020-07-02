@@ -13,8 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	// jujuos "github.com/juju/utils/os"
-	"github.com/juju/utils/series"
+	"github.com/juju/os/series"
 
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"

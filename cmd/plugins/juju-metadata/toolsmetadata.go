@@ -13,7 +13,6 @@ import (
 	"github.com/juju/utils"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -24,13 +23,12 @@ import (
 )
 
 func newToolsMetadataCommand() cmd.Command {
-	return modelcmd.Wrap(&toolsMetadataCommand{})
+	return &toolsMetadataCommand{}
 }
 
 // toolsMetadataCommand is used to generate simplestreams metadata for juju agents.
 type toolsMetadataCommand struct {
-	modelcmd.ModelCommandBase
-	modelcmd.IAASOnlyCommand
+	cmd.CommandBase
 	fetch       bool
 	metadataDir string
 	stream      string
@@ -44,8 +42,9 @@ generate-agents creates the simplestreams metadata for agents.
 This command works by scanning a directory for agent binary tarballs from which to generate
 simplestreams agent metadata. The working directory is specified using the -d argument
 (defaults to $JUJU_DATA or if not defined $XDG_DATA_HOME/juju or if that is not defined
-~/.local/share/juju). The working directory is expected to contain a named subdirectory
-containing agent binary tarballs, and is where the resulting metadata is written.
+~/.local/share/juju). The working directory path must contain a "tools" subdirectory.
+This "tools" directory is expected to contain a named subdirectory containing agent binary
+tarballs, and is where the resulting metadata is written.
 
 The stream for which metadata is generated is specified using the --stream parameter
 (default is "released"). Metadata can be generated for any supported stream - released,

@@ -652,8 +652,9 @@ func SignMetadata(fileName string, fileData []byte) (string, []byte, error) {
 
 // SourceDetails stored some details that need to be checked about data source.
 type SourceDetails struct {
-	URL string
-	Key string
+	URL           string
+	Key           string
+	RequireSigned bool
 }
 
 func AssertExpectedSources(c *gc.C, obtained []simplestreams.DataSource, dsDetails []SourceDetails) {
@@ -669,6 +670,7 @@ func AssertExpectedSources(c *gc.C, obtained []simplestreams.DataSource, dsDetai
 		expected := dsDetails[i]
 		c.Assert(url, gc.DeepEquals, expected.URL)
 		c.Assert(source.PublicSigningKey(), gc.DeepEquals, expected.Key)
+		c.Assert(source.RequireSigned(), gc.Equals, expected.RequireSigned)
 	}
 	c.Assert(obtained, gc.HasLen, len(dsDetails))
 }

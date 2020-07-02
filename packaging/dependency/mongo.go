@@ -38,7 +38,7 @@ func (dep mongoDependency) PackageList(series string) ([]packaging.Package, erro
 	}
 
 	switch series {
-	case "centos7", "opensuseleap", "precise":
+	case "centos7", "centos8", "opensuseleap", "precise":
 		return nil, errors.NotSupportedf("installing mongo on series %q", series)
 	case "trusty":
 		aptPkgList = append(aptPkgList, "juju-mongodb")

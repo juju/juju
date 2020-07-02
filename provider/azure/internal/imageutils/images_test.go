@@ -86,7 +86,9 @@ func (s *imageutilsSuite) TestSeriesImageWindows(c *gc.C) {
 }
 
 func (s *imageutilsSuite) TestSeriesImageCentOS(c *gc.C) {
-	s.assertImageId(c, "centos7", "released", "OpenLogic:CentOS:7.3:latest")
+	for _, series := range []string{"centos7", "centos8"} {
+		s.assertImageId(c, series, "released", "OpenLogic:CentOS:7.3:latest")
+	}
 }
 
 func (s *imageutilsSuite) TestSeriesImageGenericLinux(c *gc.C) {

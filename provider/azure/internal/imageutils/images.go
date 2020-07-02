@@ -94,7 +94,7 @@ func SeriesImage(
 		publisher = centOSPublisher
 		offering = centOSOffering
 		switch series {
-		case "centos7":
+		case "centos7", "centos8":
 			sku = "7.3"
 		default:
 			return nil, errors.NotSupportedf("deploying %s", series)

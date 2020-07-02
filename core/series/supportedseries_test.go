@@ -41,7 +41,7 @@ func (s *SupportedSeriesSuite) TestSeriesForTypes(c *gc.C) {
 
 	wrkSeries := info.WorkloadSeries()
 	sort.Strings(wrkSeries)
-	c.Assert(wrkSeries, gc.DeepEquals, []string{"bionic", "centos7", "eoan", "genericlinux", "kubernetes", "opensuseleap", "trusty", "win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81", "xenial"})
+	c.Assert(wrkSeries, gc.DeepEquals, []string{"bionic", "centos7", "centos8", "eoan", "genericlinux", "kubernetes", "opensuseleap", "trusty", "win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81", "xenial"})
 }
 
 func (s *SupportedSeriesSuite) TestSeriesForTypesUsingImageStream(c *gc.C) {
@@ -59,7 +59,7 @@ func (s *SupportedSeriesSuite) TestSeriesForTypesUsingImageStream(c *gc.C) {
 
 	wrkSeries := info.WorkloadSeries()
 	sort.Strings(wrkSeries)
-	c.Assert(wrkSeries, gc.DeepEquals, []string{"bionic", "centos7", "eoan", "focal", "genericlinux", "kubernetes", "opensuseleap", "trusty", "win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81", "xenial"})
+	c.Assert(wrkSeries, gc.DeepEquals, []string{"bionic", "centos7", "centos8", "eoan", "focal", "genericlinux", "kubernetes", "opensuseleap", "trusty", "win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81", "xenial"})
 }
 
 func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidImageStream(c *gc.C) {
@@ -77,7 +77,7 @@ func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidImageStream(c *gc.C
 
 	wrkSeries := info.WorkloadSeries()
 	sort.Strings(wrkSeries)
-	c.Assert(wrkSeries, gc.DeepEquals, []string{"bionic", "centos7", "eoan", "genericlinux", "kubernetes", "opensuseleap", "trusty", "win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81", "xenial"})
+	c.Assert(wrkSeries, gc.DeepEquals, []string{"bionic", "centos7", "centos8", "eoan", "genericlinux", "kubernetes", "opensuseleap", "trusty", "win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81", "xenial"})
 }
 
 func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidSeries(c *gc.C) {
@@ -95,7 +95,7 @@ func (s *SupportedSeriesSuite) TestSeriesForTypesUsingInvalidSeries(c *gc.C) {
 
 	wrkSeries := info.WorkloadSeries()
 	sort.Strings(wrkSeries)
-	c.Assert(wrkSeries, gc.DeepEquals, []string{"bionic", "centos7", "eoan", "genericlinux", "kubernetes", "opensuseleap", "trusty", "win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81", "xenial"})
+	c.Assert(wrkSeries, gc.DeepEquals, []string{"bionic", "centos7", "centos8", "eoan", "genericlinux", "kubernetes", "opensuseleap", "trusty", "win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2016", "win2016hv", "win2016nano", "win2019", "win7", "win8", "win81", "xenial"})
 }
 
 func makeTempFile(c *gc.C, content string) (*os.File, func()) {
