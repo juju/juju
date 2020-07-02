@@ -3,14 +3,35 @@
 
 package params
 
+// Query holds the query information when attempting to find possible charms or
+// bundles for searching the charmhub.
+type Query struct {
+	Query string `json:"query"`
+}
+
 // TODO (hml) 2020-06-17
-// Create actual params.InfoResponse and params.ErrorResponse structs for use here.
+// Create actual params.InfoResponse and params.ErrorResponse structs for use
+// here.
 type CharmHubCharmInfoResult struct {
 	Result InfoResponse  `json:"result"`
 	Errors ErrorResponse `json:"errors"`
 }
 
 type InfoResponse struct {
+	Type           string        `json:"type"`
+	ID             string        `json:"id"`
+	Name           string        `json:"name"`
+	Charm          CharmHubCharm `json:"charm,omitempty"`
+	ChannelMap     []ChannelMap  `json:"channel-map"`
+	DefaultRelease ChannelMap    `json:"default-release,omitempty"`
+}
+
+type CharmHubCharmFindResult struct {
+	Result FindResponse  `json:"result"`
+	Errors ErrorResponse `json:"errors"`
+}
+
+type FindResponse struct {
 	Type           string        `json:"type"`
 	ID             string        `json:"id"`
 	Name           string        `json:"name"`

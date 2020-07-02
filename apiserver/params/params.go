@@ -1319,7 +1319,8 @@ type WatchContainerStartArg struct {
 	Container string `json:"container,omitempty"`
 }
 
-// WatchContainerStartArgs holds the details to watch many containers for start events.
+// WatchContainerStartArgs holds the details to watch many containers for start
+// events.
 type WatchContainerStartArgs struct {
 	Args []WatchContainerStartArg `json:"args"`
 }

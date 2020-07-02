@@ -18,6 +18,17 @@ func convertCharmInfoResult(info params.InfoResponse) InfoResponse {
 	}
 }
 
+func convertCharmFindResult(info params.FindResponse) FindResponse {
+	return FindResponse{
+		Type:           info.Type,
+		ID:             info.ID,
+		Name:           info.Name,
+		Charm:          convertCharm(info.Charm),
+		ChannelMap:     convertChannelMap(info.ChannelMap),
+		DefaultRelease: convertOneChannelMap(info.DefaultRelease),
+	}
+}
+
 func convertCharm(ch params.CharmHubCharm) Charm {
 	return Charm{
 		Categories:  convertCategories(ch.Categories),
@@ -81,7 +92,19 @@ func convertPlatforms(platforms []params.Platform) []Platform {
 	return result
 }
 
+// Although InfoResponse or FindResponse are similar, they will change once the
+// charmhub API has settled.
+
 type InfoResponse struct {
+	Type           string       `json:"type"`
+	ID             string       `json:"id"`
+	Name           string       `json:"name"`
+	Charm          Charm        `json:"charm"`
+	ChannelMap     []ChannelMap `json:"channel-map"`
+	DefaultRelease ChannelMap   `json:"default-release,omitempty"`
+}
+
+type FindResponse struct {
 	Type           string       `json:"type"`
 	ID             string       `json:"id"`
 	Name           string       `json:"name"`

@@ -34,6 +34,20 @@ func (s charmHubSuite) TestInfo(c *gc.C) {
 	assertInfoResponseSameContents(c, obtained, getInfoResponse())
 }
 
+func (s charmHubSuite) TestFind(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	arg := params.Query{Query: "wordpress"}
+	resultSource := params.CharmHubCharmFindResult{
+		Result: getParamsFindResponse(),
+	}
+	s.facade.EXPECT().FacadeCall("Find", arg, gomock.Any()).SetArg(2, resultSource)
+
+	obtained, err := s.newClientFromFacadeForTest().Find("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	assertFindResponseSameContents(c, obtained, getFindResponse())
+}
+
 func (s *charmHubSuite) newClientFromFacadeForTest() *Client {
 	return newClientFromFacade(s.client, s.facade)
 }
@@ -48,11 +62,31 @@ func (s *charmHubSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func getInfoResponse() InfoResponse {
+	channelMaps, charm, defaultChannelMap := getChannelMapResponse()
 	return InfoResponse{
-		Name: "wordpress",
-		Type: "object",
-		ID:   "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap: []ChannelMap{{
+		Name:           "wordpress",
+		Type:           "object",
+		ID:             "charmCHARMcharmCHARMcharmCHARM01",
+		ChannelMap:     channelMaps,
+		Charm:          charm,
+		DefaultRelease: defaultChannelMap,
+	}
+}
+
+func getFindResponse() FindResponse {
+	channelMaps, charm, defaultChannelMap := getChannelMapResponse()
+	return FindResponse{
+		Name:           "wordpress",
+		Type:           "object",
+		ID:             "charmCHARMcharmCHARMcharmCHARM01",
+		ChannelMap:     channelMaps,
+		Charm:          charm,
+		DefaultRelease: defaultChannelMap,
+	}
+}
+
+func getChannelMapResponse() ([]ChannelMap, Charm, ChannelMap) {
+	return []ChannelMap{{
 			Channel: Channel{
 				Name: "latest/stable",
 				Platform: Platform{
@@ -79,8 +113,7 @@ func getInfoResponse() InfoResponse {
 				Revision: 16,
 				Version:  "1.0.3",
 			},
-		}},
-		Charm: Charm{
+		}}, Charm{
 			Categories: []Category{{
 				Featured: true,
 				Name:     "blog",
@@ -102,8 +135,7 @@ func getInfoResponse() InfoResponse {
 				"wordpress-jorge",
 				"wordpress-site",
 			},
-		},
-		DefaultRelease: ChannelMap{
+		}, ChannelMap{
 			Channel: Channel{
 				Name: "latest/stable",
 				Platform: Platform{
@@ -130,11 +162,19 @@ func getInfoResponse() InfoResponse {
 				Revision: 16,
 				Version:  "1.0.3",
 			},
-		},
-	}
+		}
 }
 
 func assertInfoResponseSameContents(c *gc.C, obtained, expected InfoResponse) {
+	c.Assert(obtained.Type, gc.Equals, expected.Type)
+	c.Assert(obtained.ID, gc.Equals, expected.ID)
+	c.Assert(obtained.Name, gc.Equals, expected.Name)
+	assertCharmSameContents(c, obtained.Charm, expected.Charm)
+	c.Assert(obtained.ChannelMap, gc.DeepEquals, expected.ChannelMap)
+	c.Assert(obtained.DefaultRelease, gc.DeepEquals, expected.DefaultRelease)
+}
+
+func assertFindResponseSameContents(c *gc.C, obtained, expected FindResponse) {
 	c.Assert(obtained.Type, gc.Equals, expected.Type)
 	c.Assert(obtained.ID, gc.Equals, expected.ID)
 	c.Assert(obtained.Name, gc.Equals, expected.Name)
@@ -154,11 +194,31 @@ func assertCharmSameContents(c *gc.C, obtained, expected Charm) {
 }
 
 func getParamsInfoResponse() params.InfoResponse {
+	channelMaps, charm, defaultChannelMap := getParamsChannelMapResponse()
 	return params.InfoResponse{
-		Name: "wordpress",
-		Type: "object",
-		ID:   "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap: []params.ChannelMap{{
+		Name:           "wordpress",
+		Type:           "object",
+		ID:             "charmCHARMcharmCHARMcharmCHARM01",
+		ChannelMap:     channelMaps,
+		Charm:          charm,
+		DefaultRelease: defaultChannelMap,
+	}
+}
+
+func getParamsFindResponse() params.FindResponse {
+	channelMaps, charm, defaultChannelMap := getParamsChannelMapResponse()
+	return params.FindResponse{
+		Name:           "wordpress",
+		Type:           "object",
+		ID:             "charmCHARMcharmCHARMcharmCHARM01",
+		ChannelMap:     channelMaps,
+		Charm:          charm,
+		DefaultRelease: defaultChannelMap,
+	}
+}
+
+func getParamsChannelMapResponse() ([]params.ChannelMap, params.CharmHubCharm, params.ChannelMap) {
+	return []params.ChannelMap{{
 			Channel: params.Channel{
 				Name: "latest/stable",
 				Platform: params.Platform{
@@ -185,8 +245,7 @@ func getParamsInfoResponse() params.InfoResponse {
 				Revision: 16,
 				Version:  "1.0.3",
 			},
-		}},
-		Charm: params.CharmHubCharm{
+		}}, params.CharmHubCharm{
 			Categories: []params.Category{{
 				Featured: true,
 				Name:     "blog",
@@ -208,8 +267,7 @@ func getParamsInfoResponse() params.InfoResponse {
 				"wordpress-jorge",
 				"wordpress-site",
 			},
-		},
-		DefaultRelease: params.ChannelMap{
+		}, params.ChannelMap{
 			Channel: params.Channel{
 				Name: "latest/stable",
 				Platform: params.Platform{
@@ -236,6 +294,5 @@ func getParamsInfoResponse() params.InfoResponse {
 				Revision: 16,
 				Version:  "1.0.3",
 			},
-		},
-	}
+		}
 }
