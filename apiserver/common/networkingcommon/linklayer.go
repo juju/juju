@@ -77,6 +77,9 @@ type LinkLayerAccessor interface {
 type LinkLayerMachine interface {
 	LinkLayerAccessor
 
+	// Id returns the ID for the machine.
+	Id() string
+
 	// AssertAliveOp returns a transaction operation for asserting
 	// that the machine is currently alive.
 	AssertAliveOp() txn.Op
@@ -103,6 +106,8 @@ type MachineLinkLayerOp struct {
 // NewMachineLinkLayerOp returns a reference that can be embedded in a model
 // operation for updating the input machine's link layer data.
 func NewMachineLinkLayerOp(machine LinkLayerMachine, incoming network.InterfaceInfos) *MachineLinkLayerOp {
+	logger.Debugf("processing link-layer devices for machine %q", machine.Id())
+
 	return &MachineLinkLayerOp{
 		machine:   machine,
 		incoming:  incoming,
