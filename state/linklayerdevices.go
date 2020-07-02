@@ -446,10 +446,6 @@ func (dev *LinkLayerDevice) String() string {
 	return fmt.Sprintf("%s device %q on machine %q", dev.doc.Type, dev.doc.Name, dev.doc.MachineID)
 }
 
-func (dev *LinkLayerDevice) globalKey() string {
-	return linkLayerDeviceGlobalKey(dev.doc.MachineID, dev.doc.Name)
-}
-
 func linkLayerDeviceGlobalKey(machineID, deviceName string) string {
 	if machineID == "" || deviceName == "" {
 		return ""
@@ -503,6 +499,12 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(name string) (LinkLayerDevic
 	if dev.Type() != network.BridgeDevice {
 		return LinkLayerDeviceArgs{}, errors.Errorf("device must be a Bridge Device, receiver has type %q", dev.Type())
 	}
+
+	parentName, err := dev.st.strictLocalID(dev.DocID())
+	if err != nil {
+		return LinkLayerDeviceArgs{}, errors.Trace(err)
+	}
+
 	return LinkLayerDeviceArgs{
 		Name:        name,
 		Type:        network.EthernetDevice,
@@ -510,6 +512,6 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(name string) (LinkLayerDevic
 		MTU:         dev.MTU(),
 		IsUp:        true,
 		IsAutoStart: true,
-		ParentName:  dev.globalKey(),
+		ParentName:  parentName,
 	}, nil
 }
