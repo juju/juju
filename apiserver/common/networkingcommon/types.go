@@ -7,12 +7,10 @@ import (
 	"net"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -222,35 +220,6 @@ func NetworkInterfacesToStateArgs(ifaces corenetwork.InterfaceInfos) (
 	logger.Tracef("seen devices: %+v", seenDeviceNames.SortedValues())
 	logger.Tracef("network interface list transformed to state args:\n%+v\n%+v", devicesArgs, devicesAddrs)
 	return devicesArgs, devicesAddrs
-}
-
-// NetworkingEnvironFromModelConfig constructs and returns
-// environs.NetworkingEnviron using the given configGetter. Returns an error
-// satisfying errors.IsNotSupported() if the model config does not support
-// networking features.
-func NetworkingEnvironFromModelConfig(configGetter environs.EnvironConfigGetter) (environs.NetworkingEnviron, error) {
-	modelConfig, err := configGetter.ModelConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to get model config")
-	}
-	cloudSpec, err := configGetter.CloudSpec()
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to get cloudspec")
-	}
-	if cloudSpec.Type == cloud.CloudTypeCAAS {
-		return nil, errors.NotSupportedf("CAAS model %q networking", modelConfig.Name())
-	}
-
-	env, err := environs.GetEnviron(configGetter, environs.New)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to construct a model from config")
-	}
-	netEnviron, supported := environs.SupportsNetworking(env)
-	if !supported {
-		// " not supported" will be appended to the message below.
-		return nil, errors.NotSupportedf("model %q networking", modelConfig.Name())
-	}
-	return netEnviron, nil
 }
 
 // NetworkConfigSource defines the necessary calls to obtain the network
