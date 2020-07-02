@@ -55,7 +55,7 @@ func (s *CAASProvisionerSuite) TestUpgradeOperator(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
-	s.broker.CheckCall(c, 0, "Upgrade", "app", vers)
+	s.broker.CheckCall(c, 0, "Upgrade", s.authorizer.Tag.String(), vers)
 }
 
 func (s *CAASProvisionerSuite) assertUpgradeController(c *gc.C, tag names.Tag) {
@@ -74,7 +74,7 @@ func (s *CAASProvisionerSuite) assertUpgradeController(c *gc.C, tag names.Tag) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
-	s.broker.CheckCall(c, 0, "Upgrade", "controller", vers)
+	s.broker.CheckCall(c, 0, "Upgrade", tag.String(), vers)
 }
 
 func (s *CAASProvisionerSuite) TestUpgradeLegacyController(c *gc.C) {

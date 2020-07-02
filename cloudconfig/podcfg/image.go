@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	jujudOCINamespace = "jujusolutions"
-	jujudOCIName      = "jujud-operator"
-	jujudbOCIName     = "juju-db"
+	JujudOCINamespace = "jujusolutions"
+	JujudOCIName      = "jujud-operator"
+	JujudbOCIName     = "juju-db"
 )
 
 // GetControllerImagePath returns oci image path of jujud for a controller.
@@ -27,15 +27,15 @@ func (cfg *ControllerPodConfig) GetControllerImagePath() string {
 func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() string {
 	imageRepo := cfg.Controller.Config.CAASImageRepo()
 	if imageRepo == "" {
-		imageRepo = jujudOCINamespace
+		imageRepo = JujudOCINamespace
 	}
 	v := jujudbVersion
-	return fmt.Sprintf("%s/%s:%d.%d", imageRepo, jujudbOCIName, v.Major, v.Minor)
+	return fmt.Sprintf("%s/%s:%d.%d", imageRepo, JujudbOCIName, v.Major, v.Minor)
 }
 
 // IsJujuOCIImage returns true if the image path is for a Juju operator.
 func IsJujuOCIImage(imagePath string) bool {
-	return strings.Contains(imagePath, jujudOCIName+":")
+	return strings.Contains(imagePath, JujudOCIName+":")
 }
 
 // GetJujuOCIImagePath returns the jujud oci image path.
@@ -78,8 +78,8 @@ func tagImagePath(path string, ver version.Number) string {
 
 func imageRepoToPath(imageRepo string, ver version.Number) string {
 	if imageRepo == "" {
-		imageRepo = jujudOCINamespace
+		imageRepo = JujudOCINamespace
 	}
-	path := fmt.Sprintf("%s/%s", imageRepo, jujudOCIName)
+	path := fmt.Sprintf("%s/%s", imageRepo, JujudOCIName)
 	return tagImagePath(path, ver)
 }
