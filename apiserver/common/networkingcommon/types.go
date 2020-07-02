@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -185,41 +186,51 @@ func NetworkInterfacesToStateArgs(ifaces corenetwork.InterfaceInfos) (
 			devicesArgs = append(devicesArgs, args)
 		}
 
-		cidrAddress, err := iface.CIDRAddress()
+		addr, err := networkAddressToStateArgs(iface, iface.PrimaryAddress())
 		if err != nil {
 			logger.Warningf("ignoring address for device %q: %v", iface.InterfaceName, err)
 			continue
 		}
 
-		var derivedConfigMethod corenetwork.AddressConfigMethod
-		switch method := corenetwork.AddressConfigMethod(iface.ConfigType); method {
-		case corenetwork.StaticAddress, corenetwork.DynamicAddress,
-			corenetwork.LoopbackAddress, corenetwork.ManualAddress:
-			derivedConfigMethod = method
-		case "dhcp": // awkward special case
-			derivedConfigMethod = corenetwork.DynamicAddress
-		default:
-			derivedConfigMethod = corenetwork.StaticAddress
-		}
-
-		addr := state.LinkLayerDeviceAddress{
-			DeviceName:        iface.InterfaceName,
-			ProviderID:        iface.ProviderAddressId,
-			ProviderNetworkID: iface.ProviderNetworkId,
-			ProviderSubnetID:  iface.ProviderSubnetId,
-			ConfigMethod:      derivedConfigMethod,
-			CIDRAddress:       cidrAddress,
-			DNSServers:        iface.DNSServers.ToIPAddresses(),
-			DNSSearchDomains:  iface.DNSSearchDomains,
-			GatewayAddress:    iface.GatewayAddress.Value,
-			IsDefaultGateway:  iface.IsDefaultGateway,
-		}
 		logger.Tracef("state address args for device: %+v", addr)
 		devicesAddrs = append(devicesAddrs, addr)
 	}
 	logger.Tracef("seen devices: %+v", seenDeviceNames.SortedValues())
 	logger.Tracef("network interface list transformed to state args:\n%+v\n%+v", devicesArgs, devicesAddrs)
 	return devicesArgs, devicesAddrs
+}
+
+func networkAddressToStateArgs(
+	dev corenetwork.InterfaceInfo, addr corenetwork.ProviderAddress,
+) (state.LinkLayerDeviceAddress, error) {
+	cidrAddress, err := addr.ValueForCIDR(dev.CIDR)
+	if err != nil {
+		return state.LinkLayerDeviceAddress{}, errors.Trace(err)
+	}
+
+	var derivedConfigMethod corenetwork.AddressConfigMethod
+	switch method := corenetwork.AddressConfigMethod(dev.ConfigType); method {
+	case corenetwork.StaticAddress, corenetwork.DynamicAddress,
+		corenetwork.LoopbackAddress, corenetwork.ManualAddress:
+		derivedConfigMethod = method
+	case "dhcp": // awkward special case
+		derivedConfigMethod = corenetwork.DynamicAddress
+	default:
+		derivedConfigMethod = corenetwork.StaticAddress
+	}
+
+	return state.LinkLayerDeviceAddress{
+		DeviceName:        dev.InterfaceName,
+		ProviderID:        dev.ProviderAddressId,
+		ProviderNetworkID: dev.ProviderNetworkId,
+		ProviderSubnetID:  dev.ProviderSubnetId,
+		ConfigMethod:      derivedConfigMethod,
+		CIDRAddress:       cidrAddress,
+		DNSServers:        dev.DNSServers.ToIPAddresses(),
+		DNSSearchDomains:  dev.DNSSearchDomains,
+		GatewayAddress:    dev.GatewayAddress.Value,
+		IsDefaultGateway:  dev.IsDefaultGateway,
+	}, nil
 }
 
 // NetworkConfigSource defines the necessary calls to obtain the network
