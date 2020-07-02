@@ -396,6 +396,7 @@ func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error
 	if err != nil {
 		return err
 	}
+
 	if len(c.keys) == 1 {
 		logger.Infof("format %v is ignored", c.out.Name())
 		key := c.keys[0]
@@ -408,11 +409,8 @@ func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error
 		}
 		v, ok := info["value"]
 		if !ok || v == nil {
-			// Note that unlike the output with a non-nil and non-empty value
-			// below, this output should never have a newline.
-			return nil
+			v = ""
 		}
-
 		_, err = fmt.Fprintln(ctx.Stdout, v)
 		return errors.Trace(err)
 	}
