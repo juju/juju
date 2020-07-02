@@ -153,7 +153,7 @@ func (s *ipAddressesStateSuite) TestDeviceMethodReturnsNotFoundErrorWhenMissing(
 	result, err := addresses[0].Device()
 	c.Assert(result, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `device "eth0" on machine "0" not found`)
+	c.Assert(err, gc.ErrorMatches, `device with ID .+ not found`)
 }
 
 func (s *ipAddressesStateSuite) TestSubnetMethodReturnsSubnet(c *gc.C) {

@@ -4,6 +4,8 @@
 package action
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"strings"
@@ -182,7 +184,18 @@ func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
 	tw := output.TabWriter(writer)
 	fmt.Fprintf(tw, "%s\t%s\n", "Action", "Description")
 	for _, value := range list {
-		fmt.Fprintf(tw, "%s\t%s\n", value.action, strings.TrimSpace(value.description))
+		scanner := bufio.NewScanner(bytes.NewBufferString(strings.TrimSpace(value.description)))
+		scanner.Split(bufio.ScanLines)
+
+		var lines []string
+		for scanner.Scan() {
+			var prefix string
+			if len(lines) > 0 {
+				prefix = "\t"
+			}
+			lines = append(lines, fmt.Sprintf("%s%s", prefix, scanner.Text()))
+		}
+		fmt.Fprintf(tw, "%s\t%s\n", value.action, strings.Join(lines, "\n"))
 	}
 	tw.Flush()
 	return nil

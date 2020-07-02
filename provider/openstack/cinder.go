@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
@@ -247,35 +248,15 @@ func (s *cinderVolumeSource) createVolume(
 		return nil, errors.Trace(err)
 	}
 
-	// If this volume is being attached to an instance, attempt to provision
-	// the storage in the same availability zone.
-	// This helps to avoid a situation with all storage residing in a single
-	// AZ that upon failure would effectively take down attached instances
-	// whatever zone they were in.
-	az := ""
-	if arg.Attachment != nil {
-		instanceID := arg.Attachment.InstanceId
-		if instanceID != "" {
-			aZones, err := s.zonedEnv.InstanceAvailabilityZoneNames(ctx, []instance.Id{instanceID})
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if len(aZones) > 0 {
-				az = aZones[0]
-			} else {
-				// All instances should have an availability zone.
-				// The default is "nova" so something is wrong if nothing
-				// is returned from this call.
-				logger.Warningf("no availability zone detected for instance %q", instanceID)
-			}
-		}
-	}
-
 	var metadata interface{}
 	if len(arg.ResourceTags) > 0 {
 		metadata = arg.ResourceTags
 	}
 
+	az, err := s.availabilityZoneForVolume(ctx, arg.Tag.Id(), arg.Attachment)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	cinderVolume, err := s.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
 		// The Cinder documentation incorrectly states the
 		// size parameter is in GB. It is actually GiB.
@@ -304,6 +285,60 @@ func (s *cinderVolumeSource) createVolume(
 	}
 	logger.Debugf("created volume: %+v", cinderVolume)
 	return &storage.Volume{Tag: arg.Tag, VolumeInfo: cinderToJujuVolumeInfo(cinderVolume)}, nil
+}
+
+func (s *cinderVolumeSource) availabilityZoneForVolume(
+	ctx context.ProviderCallContext, volName string, attachment *storage.VolumeAttachmentParams,
+) (string, error) {
+	// If this volume is being attached to an instance, attempt to provision
+	// the storage in the same availability zone.
+	// This helps to avoid a situation with all storage residing in a single
+	// AZ that upon failure would effectively take down attached instances
+	// whatever zone they were in.
+	// However, we first attempt to query the possible volume availability zones.
+	// If the API is old and does not support explicit volume AZs, or volumes can
+	// only be provisioned in say the default "nova" zone and the instance is in
+	// a different zone, we won't attempt to use the instance zone because that
+	// won't work and we'll get a 400 error back.
+	if attachment == nil || attachment.InstanceId == "" {
+		return "", nil
+	}
+
+	volumeZones, err := s.storageAdapter.ListVolumeAvailabilityZones()
+	if err != nil && !gooseerrors.IsNotImplemented(err) {
+		logger.Infof("block volume zones not supported, not using availability zone for volume %q", volName)
+		return "", errors.Trace(err)
+	}
+	vZones := set.NewStrings()
+	for _, vz := range volumeZones {
+		if vz.State.Available {
+			vZones.Add(vz.Name)
+		}
+	}
+	if vZones.Size() == 0 {
+		logger.Infof("no block volume zones defined, not using availability zone for volume %q", volName)
+		return "", nil
+	}
+	logger.Debugf("possible block volume zones: %v", vZones.SortedValues())
+	aZones, err := s.zonedEnv.InstanceAvailabilityZoneNames(ctx, []instance.Id{attachment.InstanceId})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(aZones) == 0 {
+		// All instances should have an availability zone.
+		// The default is "nova" so something is wrong if nothing
+		// is returned from this call.
+		logger.Warningf("no availability zone detected for instance %q", attachment.InstanceId)
+		return "", nil
+	}
+	// Only choose an AZ from the instance if there's a matching volume AZ.
+	az := aZones[0]
+	if vZones.Contains(az) {
+		logger.Debugf("using availability zone %q to create cinder volume %q", az, volName)
+		return az, nil
+	}
+	logger.Warningf("no compatible availability zone detected for volume %q", volName)
+	return "", nil
 }
 
 // ListVolumes is specified on the storage.VolumeSource interface.
@@ -658,6 +693,7 @@ type OpenstackStorage interface {
 	DetachVolume(serverId, attachmentId string) error
 	ListVolumeAttachments(serverId string) ([]nova.VolumeAttachment, error)
 	SetVolumeMetadata(volumeId string, metadata map[string]string) (map[string]string, error)
+	ListVolumeAvailabilityZones() ([]cinder.AvailabilityZone, error)
 }
 
 type endpointResolver interface {

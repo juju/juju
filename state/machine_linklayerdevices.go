@@ -22,20 +22,8 @@ import (
 // error satisfying errors.IsNotFound() is returned when no such device exists
 // on the machine.
 func (m *Machine) LinkLayerDevice(name string) (*LinkLayerDevice, error) {
-	linkLayerDevices, closer := m.st.db().GetCollection(linkLayerDevicesC)
-	defer closer()
-
-	linkLayerDeviceDocID := m.linkLayerDeviceDocIDFromName(name)
-	deviceAsString := m.deviceAsStringFromName(name)
-
-	var doc linkLayerDeviceDoc
-	err := linkLayerDevices.FindId(linkLayerDeviceDocID).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("%s", deviceAsString)
-	} else if err != nil {
-		return nil, errors.Annotatef(err, "cannot get %s", deviceAsString)
-	}
-	return newLinkLayerDevice(m.st, doc), nil
+	dev, err := m.st.LinkLayerDevice(m.linkLayerDeviceDocIDFromName(name))
+	return dev, errors.Trace(err)
 }
 
 func (m *Machine) linkLayerDeviceDocIDFromName(deviceName string) string {
@@ -44,10 +32,6 @@ func (m *Machine) linkLayerDeviceDocIDFromName(deviceName string) string {
 
 func (m *Machine) linkLayerDeviceGlobalKeyFromName(deviceName string) string {
 	return linkLayerDeviceGlobalKey(m.doc.Id, deviceName)
-}
-
-func (m *Machine) deviceAsStringFromName(deviceName string) string {
-	return fmt.Sprintf("device %q on machine %q", deviceName, m.doc.Id)
 }
 
 // AllLinkLayerDevices returns all exiting link-layer devices of the machine.

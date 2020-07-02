@@ -218,9 +218,9 @@ def assert_change_password(client, user, password):
     try:
         child = client.expect('change-user-password', (user.name,),
                               include_e=False)
-        child.expect('(?i)password')
+        child.expect(u'(?i)password')
         child.sendline(password)
-        child.expect('(?i)password')
+        child.expect(u'(?i)password')
         child.sendline(password)
         client._end_pexpect_session(child)
     except pexpect.TIMEOUT:

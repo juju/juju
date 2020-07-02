@@ -4984,6 +4984,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 	for _, s := range steps {
 		s.step(c, ctx)
 	}
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	return ctx
 }
 

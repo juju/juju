@@ -71,15 +71,18 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 	// Not all providers (such as AWS) have names for NIC devices.
 	incomingDev := o.Incoming().GetByHardwareAddress(dev.MACAddress())
 
+	var ops []txn.Op
+	var err error
+
 	// If this device was not observed by the provider,
 	// ensure that responsibility for the addresses is relinquished
 	// to the machine agent.
 	if incomingDev == nil {
-		return o.opsForDeviceOriginRelinquishment(dev), nil
+		ops, err = o.opsForDeviceOriginRelinquishment(dev)
+		return ops, errors.Trace(err)
 	}
 
 	// Warn the user that we will not change a provider ID that is already set.
-	// The ops generated for this scenario will be nil.
 	// TODO (manadart 2020-06-09): If this is seen in the wild, we should look
 	// into removing/reassigning provider IDs for devices.
 	providerID := dev.ProviderID()
@@ -88,11 +91,11 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 			"not changing provider ID for device %s from %q to %q",
 			dev.MACAddress(), providerID, incomingDev.ProviderId,
 		)
-	}
-
-	ops, err := dev.SetProviderIDOps(incomingDev.ProviderId)
-	if err != nil {
-		return nil, errors.Trace(err)
+	} else {
+		ops, err = dev.SetProviderIDOps(incomingDev.ProviderId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	for _, addr := range o.DeviceAddresses(dev) {
@@ -108,14 +111,21 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 }
 
 // opsForDeviceOriginRelinquishment returns transaction operations required to
-// ensure that the origin for all addresses on the device is relinquished to
-// the machine.
-func (o *mergeMachineLinkLayerOp) opsForDeviceOriginRelinquishment(dev networkingcommon.LinkLayerDevice) []txn.Op {
-	var ops []txn.Op
+// ensure that a device has no provider ID and that the origin for all
+// addresses on the device is relinquished to the machine.
+func (o *mergeMachineLinkLayerOp) opsForDeviceOriginRelinquishment(
+	dev networkingcommon.LinkLayerDevice,
+) ([]txn.Op, error) {
+	ops, err := dev.SetProviderIDOps("")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	for _, addr := range o.DeviceAddresses(dev) {
 		ops = append(ops, addr.SetOriginOps(network.OriginMachine)...)
 	}
-	return ops
+
+	return ops, nil
 }
 
 func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
@@ -164,9 +174,4 @@ func (o *mergeMachineLinkLayerOp) processNewDevices() {
 			)
 		}
 	}
-}
-
-// Done (state.ModelOperation) returns the result of running the operation.
-func (o *mergeMachineLinkLayerOp) Done(err error) error {
-	return err
 }

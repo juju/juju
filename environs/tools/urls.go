@@ -109,7 +109,7 @@ func GetMetadataSources(env environs.BootstrapEnviron) ([]simplestreams.DataSour
 			PublicSigningKey:     keys.JujuPublicKey,
 			HostnameVerification: utils.VerifySSLHostnames,
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
-			RequireSigned:        true,
+			RequireSigned:        DefaultBaseURL == streamsAgentURL,
 		}
 		if err := dataSourceConfig.Validate(); err != nil {
 			return nil, errors.Annotate(err, "simplestreams config validation failed")
