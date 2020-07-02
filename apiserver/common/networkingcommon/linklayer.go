@@ -25,6 +25,10 @@ type LinkLayerDevice interface {
 	// SetProviderIDOps returns the operations required to set the input
 	// provider ID for the link-layer device.
 	SetProviderIDOps(id network.Id) ([]txn.Op, error)
+
+	// RemoveOps returns the transaction operations required to remove this
+	// device and if required, its provider ID.
+	RemoveOps() []txn.Op
 }
 
 // LinkLayerAddress describes a single layer-3 network address
@@ -50,6 +54,10 @@ type LinkLayerAddress interface {
 	// SetProviderNetIDsOps returns the transaction operations required to ensure
 	// that the input provider IDs are set against the address.
 	SetProviderNetIDsOps(networkID, subnetID network.Id) []txn.Op
+
+	// RemoveOps returns the transaction operations required to remove this
+	// address and if required, its provider ID.
+	RemoveOps() []txn.Op
 }
 
 // LinkLayerAccessor describes an entity that can

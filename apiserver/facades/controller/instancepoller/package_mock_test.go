@@ -76,6 +76,20 @@ func (mr *MockLinkLayerDeviceMockRecorder) ProviderID() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProviderID", reflect.TypeOf((*MockLinkLayerDevice)(nil).ProviderID))
 }
 
+// RemoveOps mocks base method
+func (m *MockLinkLayerDevice) RemoveOps() []txn.Op {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveOps")
+	ret0, _ := ret[0].([]txn.Op)
+	return ret0
+}
+
+// RemoveOps indicates an expected call of RemoveOps
+func (mr *MockLinkLayerDeviceMockRecorder) RemoveOps() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveOps", reflect.TypeOf((*MockLinkLayerDevice)(nil).RemoveOps))
+}
+
 // SetProviderIDOps mocks base method
 func (m *MockLinkLayerDevice) SetProviderIDOps(arg0 network.Id) ([]txn.Op, error) {
 	m.ctrl.T.Helper()
@@ -140,6 +154,20 @@ func (m *MockLinkLayerAddress) Origin() network.Origin {
 func (mr *MockLinkLayerAddressMockRecorder) Origin() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Origin", reflect.TypeOf((*MockLinkLayerAddress)(nil).Origin))
+}
+
+// RemoveOps mocks base method
+func (m *MockLinkLayerAddress) RemoveOps() []txn.Op {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveOps")
+	ret0, _ := ret[0].([]txn.Op)
+	return ret0
+}
+
+// RemoveOps indicates an expected call of RemoveOps
+func (mr *MockLinkLayerAddressMockRecorder) RemoveOps() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveOps", reflect.TypeOf((*MockLinkLayerAddress)(nil).RemoveOps))
 }
 
 // SetOriginOps mocks base method
