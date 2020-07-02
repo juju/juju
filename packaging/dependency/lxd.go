@@ -29,7 +29,7 @@ func (dep lxdDependency) PackageList(series string) ([]packaging.Package, error)
 	var pkg packaging.Package
 
 	switch series {
-	case "centos7", "opensuseleap", "precise":
+	case "centos7", "centos8", "opensuseleap", "precise":
 		return nil, errors.NotSupportedf("LXD containers on series %q", series)
 	case "trusty", "xenial", "bionic", blankSeries:
 		pkg.Name = "lxd"

@@ -20,7 +20,7 @@ type kvmDependency struct {
 
 // PackageList implements packaging.Dependency.
 func (dep kvmDependency) PackageList(series string) ([]packaging.Package, error) {
-	if series == "centos7" || series == "opensuseleap" {
+	if series == "centos7" || series == "centos8" || series == "opensuseleap" {
 		return nil, errors.NotSupportedf("installing kvm on series %q", series)
 	}
 
