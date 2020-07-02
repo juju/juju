@@ -7,7 +7,7 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
     - name: Set up Go 1.14
-      uses: actions/setup-go@v1
+      uses: actions/setup-go@v2.1.0
       with:
         go-version: "1.14"
       id: go
@@ -23,7 +23,7 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
     - name: Set up Go 1.14
-      uses: actions/setup-go@v1
+      uses: actions/setup-go@v2.1.0
       with:
         go-version: "1.14"
       id: go
@@ -39,7 +39,7 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
     - name: Set up Go 1.14
-      uses: actions/setup-go@v1
+      uses: actions/setup-go@v2.1.0
       with:
         go-version: "1.14"
       id: go
@@ -55,7 +55,7 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
     - name: Set up Go 1.14
-      uses: actions/setup-go@v1
+      uses: actions/setup-go@v2.1.0
       with:
         go-version: "1.14"
       id: go
@@ -71,7 +71,7 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
     - name: Set up Go 1.14
-      uses: actions/setup-go@v1
+      uses: actions/setup-go@v2.1.0
       with:
         go-version: "1.14"
       id: go
@@ -87,7 +87,7 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
     - name: Set up Go 1.14
-      uses: actions/setup-go@v1
+      uses: actions/setup-go@v2.1.0
       with:
         go-version: "1.14"
       id: go
