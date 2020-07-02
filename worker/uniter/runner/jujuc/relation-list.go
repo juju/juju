@@ -16,10 +16,11 @@ import (
 // RelationListCommand implements the relation-list command.
 type RelationListCommand struct {
 	cmd.CommandBase
-	ctx             Context
-	RelationId      int
-	relationIdProxy gnuflag.Value
-	out             cmd.Output
+	ctx                   Context
+	RelationId            int
+	relationIdProxy       gnuflag.Value
+	ListRemoteApplication bool
+	out                   cmd.Output
 }
 
 func NewRelationListCommand(ctx Context) (cmd.Command, error) {
@@ -49,8 +50,9 @@ func (c *RelationListCommand) Info() *cmd.Info {
 
 func (c *RelationListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters.Formatters())
-	f.Var(c.relationIdProxy, "r", "specify a relation by id")
+	f.Var(c.relationIdProxy, "r", "Specify a relation by id")
 	f.Var(c.relationIdProxy, "relation", "")
+	f.BoolVar(&c.ListRemoteApplication, "app", false, "List remote application instead of participating units")
 }
 
 func (c *RelationListCommand) Init(args []string) (err error) {
@@ -65,6 +67,11 @@ func (c *RelationListCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	if c.ListRemoteApplication {
+		return c.out.Write(ctx, r.RemoteApplicationName())
+	}
+
 	unitNames := r.UnitNames()
 	if unitNames == nil {
 		unitNames = []string{}

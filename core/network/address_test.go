@@ -850,7 +850,7 @@ func (s *AddressSuite) TestSpaceAddressesToProviderAddresses(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *AddressSuite) TestIPToCIDRNotation(c *gc.C) {
+func (s *AddressSuite) TestAddressValueForCIDR(c *gc.C) {
 	type test struct {
 		IP   string
 		CIDR string
@@ -868,8 +868,8 @@ func (s *AddressSuite) TestIPToCIDRNotation(c *gc.C) {
 	}}
 
 	for i, t := range tests {
-		c.Logf("test %d: IPToCIDRNotation(%q, %q)", i, t.IP, t.CIDR)
-		got, err := network.IPToCIDRNotation(t.IP, t.CIDR)
+		c.Logf("test %d: ValueForCIDR(%q, %q)", i, t.IP, t.CIDR)
+		got, err := network.NewMachineAddress(t.IP).ValueForCIDR(t.CIDR)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(got, gc.Equals, t.exp)
 	}

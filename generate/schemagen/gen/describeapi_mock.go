@@ -34,6 +34,20 @@ func (m *MockAPIServer) EXPECT() *MockAPIServerMockRecorder {
 	return m.recorder
 }
 
+// AdminFacadeDetails mocks base method
+func (m *MockAPIServer) AdminFacadeDetails() []facade.Details {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AdminFacadeDetails")
+	ret0, _ := ret[0].([]facade.Details)
+	return ret0
+}
+
+// AdminFacadeDetails indicates an expected call of AdminFacadeDetails
+func (mr *MockAPIServerMockRecorder) AdminFacadeDetails() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AdminFacadeDetails", reflect.TypeOf((*MockAPIServer)(nil).AdminFacadeDetails))
+}
+
 // AllFacades mocks base method
 func (m *MockAPIServer) AllFacades() Registry {
 	m.ctrl.T.Helper()

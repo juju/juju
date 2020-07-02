@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -188,35 +187,12 @@ func NetworkInterfacesToStateArgs(ifaces corenetwork.InterfaceInfos) (
 			devicesArgs = append(devicesArgs, args)
 		}
 
-		cidrAddress, err := iface.CIDRAddress()
+		addr, err := networkAddressToStateArgs(iface, iface.PrimaryAddress())
 		if err != nil {
 			logger.Warningf("ignoring address for device %q: %v", iface.InterfaceName, err)
 			continue
 		}
 
-		var derivedConfigMethod corenetwork.AddressConfigMethod
-		switch method := corenetwork.AddressConfigMethod(iface.ConfigType); method {
-		case corenetwork.StaticAddress, corenetwork.DynamicAddress,
-			corenetwork.LoopbackAddress, corenetwork.ManualAddress:
-			derivedConfigMethod = method
-		case "dhcp": // awkward special case
-			derivedConfigMethod = corenetwork.DynamicAddress
-		default:
-			derivedConfigMethod = corenetwork.StaticAddress
-		}
-
-		addr := state.LinkLayerDeviceAddress{
-			DeviceName:        iface.InterfaceName,
-			ProviderID:        iface.ProviderAddressId,
-			ProviderNetworkID: iface.ProviderNetworkId,
-			ProviderSubnetID:  iface.ProviderSubnetId,
-			ConfigMethod:      derivedConfigMethod,
-			CIDRAddress:       cidrAddress,
-			DNSServers:        iface.DNSServers.ToIPAddresses(),
-			DNSSearchDomains:  iface.DNSSearchDomains,
-			GatewayAddress:    iface.GatewayAddress.Value,
-			IsDefaultGateway:  iface.IsDefaultGateway,
-		}
 		logger.Tracef("state address args for device: %+v", addr)
 		devicesAddrs = append(devicesAddrs, addr)
 	}
@@ -225,33 +201,37 @@ func NetworkInterfacesToStateArgs(ifaces corenetwork.InterfaceInfos) (
 	return devicesArgs, devicesAddrs
 }
 
-// NetworkingEnvironFromModelConfig constructs and returns
-// environs.NetworkingEnviron using the given configGetter. Returns an error
-// satisfying errors.IsNotSupported() if the model config does not support
-// networking features.
-func NetworkingEnvironFromModelConfig(configGetter environs.EnvironConfigGetter) (environs.NetworkingEnviron, error) {
-	modelConfig, err := configGetter.ModelConfig()
+func networkAddressToStateArgs(
+	dev corenetwork.InterfaceInfo, addr corenetwork.ProviderAddress,
+) (state.LinkLayerDeviceAddress, error) {
+	cidrAddress, err := addr.ValueForCIDR(dev.CIDR)
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to get model config")
-	}
-	cloudSpec, err := configGetter.CloudSpec()
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to get cloudspec")
-	}
-	if cloudSpec.Type == cloud.CloudTypeCAAS {
-		return nil, errors.NotSupportedf("CAAS model %q networking", modelConfig.Name())
+		return state.LinkLayerDeviceAddress{}, errors.Trace(err)
 	}
 
-	env, err := environs.GetEnviron(configGetter, environs.New)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to construct a model from config")
+	var derivedConfigMethod corenetwork.AddressConfigMethod
+	switch method := corenetwork.AddressConfigMethod(dev.ConfigType); method {
+	case corenetwork.StaticAddress, corenetwork.DynamicAddress,
+		corenetwork.LoopbackAddress, corenetwork.ManualAddress:
+		derivedConfigMethod = method
+	case "dhcp": // awkward special case
+		derivedConfigMethod = corenetwork.DynamicAddress
+	default:
+		derivedConfigMethod = corenetwork.StaticAddress
 	}
-	netEnviron, supported := environs.SupportsNetworking(env)
-	if !supported {
-		// " not supported" will be appended to the message below.
-		return nil, errors.NotSupportedf("model %q networking", modelConfig.Name())
-	}
-	return netEnviron, nil
+
+	return state.LinkLayerDeviceAddress{
+		DeviceName:        dev.InterfaceName,
+		ProviderID:        dev.ProviderAddressId,
+		ProviderNetworkID: dev.ProviderNetworkId,
+		ProviderSubnetID:  dev.ProviderSubnetId,
+		ConfigMethod:      derivedConfigMethod,
+		CIDRAddress:       cidrAddress,
+		DNSServers:        dev.DNSServers.ToIPAddresses(),
+		DNSSearchDomains:  dev.DNSSearchDomains,
+		GatewayAddress:    dev.GatewayAddress.Value,
+		IsDefaultGateway:  dev.IsDefaultGateway,
+	}, nil
 }
 
 // NetworkConfigSource defines the necessary calls to obtain the network

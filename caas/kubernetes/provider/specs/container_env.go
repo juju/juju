@@ -235,6 +235,10 @@ func (cv configValue) to(name string) (envVars []core.EnvVar, envFromSources []c
 
 // JSON Unmarshal types - https://golang.org/pkg/encoding/json/#Unmarshal
 func stringify(i interface{}) (string, error) {
+	type stringer interface {
+		String() string
+	}
+
 	switch v := i.(type) {
 	case string:
 		return v, nil
@@ -243,6 +247,8 @@ func stringify(i interface{}) (string, error) {
 	case float64:
 		// All the numbers are float64 - https://golang.org/pkg/encoding/json/#Number
 		return fmt.Sprintf("%g", v), nil
+	case stringer:
+		return v.(stringer).String(), nil
 	default:
 		return "", errors.NotSupportedf("%v with type %T", i, i)
 	}

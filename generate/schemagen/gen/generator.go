@@ -21,6 +21,7 @@ import (
 //go:generate go run github.com/golang/mock/mockgen -package gen -destination describeapi_mock.go github.com/juju/juju/generate/schemagen/gen APIServer,Registry,PackageRegistry,Linker
 type APIServer interface {
 	AllFacades() Registry
+	AdminFacadeDetails() []facade.Details
 }
 
 type Registry interface {
@@ -37,8 +38,33 @@ type Linker interface {
 	Links(string, facade.Factory) []string
 }
 
+// Option to be passed to Connect to customize the resulting instance.
+type Option func(*options)
+
+type options struct {
+	adminFacades bool
+}
+
+func newOptions() *options {
+	return &options{
+		adminFacades: false,
+	}
+}
+
+// WithAdminFacades sets the adminFacades on the option
+func WithAdminFacades(adminFacades bool) Option {
+	return func(options *options) {
+		options.adminFacades = adminFacades
+	}
+}
+
 // Generate a FacadeSchema from the APIServer
-func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer) ([]FacadeSchema, error) {
+func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer, options ...Option) ([]FacadeSchema, error) {
+	opts := newOptions()
+	for _, option := range options {
+		option(opts)
+	}
+
 	pkg, err := pkgRegistry.LoadPackage()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -46,6 +72,11 @@ func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer) ([]F
 
 	registry := client.AllFacades()
 	facades := registry.ListDetails()
+
+	if opts.adminFacades {
+		adminFacades := client.AdminFacadeDetails()
+		facades = append(facades, adminFacades...)
+	}
 
 	latest := make(map[string]facade.Details)
 	for _, facade := range facades {
@@ -71,11 +102,16 @@ func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer) ([]F
 		result[i].Version = version
 		result[i].AvailableTo = linker.Links(facade.Name, facade.Factory)
 
+		var objType *rpcreflect.ObjType
 		kind, err := registry.GetType(facade.Name, version)
-		if err != nil {
-			return nil, errors.Annotatef(err, "getting type for facade %s at version %d", facade.Name, version)
+		if err == nil {
+			objType = rpcreflect.ObjTypeOf(kind)
+		} else {
+			objType = rpcreflect.ObjTypeOf(facade.Type)
+			if objType == nil {
+				return nil, errors.Annotatef(err, "getting type for facade %s at version %d", facade.Name, version)
+			}
 		}
-		objType := rpcreflect.ObjTypeOf(kind)
 
 		result[i].Schema = jsonschema.ReflectFromObjType(objType)
 

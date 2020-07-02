@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	// HubWatcherIdleFunc allows tets to be able to get callbacks
+	// HubWatcherIdleFunc allows tests to be able to get callbacks
 	// when the hub watcher hasn't notified any watchers for a specified time.
 	HubWatcherIdleFunc func(string)
 

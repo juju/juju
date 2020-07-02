@@ -8,13 +8,14 @@ import (
 	"path"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
+	jujuos "github.com/juju/os"
+	jujuseries "github.com/juju/os/series"
 	jujuarch "github.com/juju/utils/arch"
-	jujuos "github.com/juju/utils/os"
-	jujuseries "github.com/juju/utils/series"
 	lxd "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
+
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs"
 )
 
 // SourcedImage is the result of a successful image acquisition.
@@ -186,8 +187,15 @@ func seriesRemoteAliases(series, arch string) ([]string, error) {
 	case jujuos.Ubuntu:
 		return []string{path.Join(series, arch)}, nil
 	case jujuos.CentOS:
-		if series == "centos7" && arch == jujuarch.AMD64 {
-			return []string{"centos/7/amd64"}, nil
+		if arch == jujuarch.AMD64 {
+			switch series {
+			case "centos7":
+				return []string{"centos/7/amd64"}, nil
+			case "centos8":
+				return []string{"centos/8/amd64"}, nil
+			default:
+				return nil, errors.NotSupportedf("series %q", series)
+			}
 		}
 	case jujuos.OpenSUSE:
 		if series == "opensuseleap" && arch == jujuarch.AMD64 {

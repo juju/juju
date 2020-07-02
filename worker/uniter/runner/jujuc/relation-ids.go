@@ -12,6 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/core/life"
 )
 
 // RelationIdsCommand implements the relation-ids command.
@@ -73,7 +74,7 @@ func (c *RelationIdsCommand) Run(ctx *cmd.Context) error {
 	}
 	for _, id := range ids {
 		r, err := c.ctx.Relation(id)
-		if err == nil && r.Name() == c.Name {
+		if err == nil && r.Name() == c.Name && r.Life() != life.Dead {
 			result = append(result, r.FakeId())
 		} else if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)

@@ -154,9 +154,9 @@ rebuild-schema:
 ## rebuild-schema: Rebuild the schema for clients with the latest facades
 	@echo "Generating facade schema..."
 ifdef SCHEMA_PATH
-	@go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen "$(SCHEMA_PATH)"
+	@go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades "$(SCHEMA_PATH)"
 else
-	@go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen \
+	@go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades \
 		./apiserver/facades/schema.json
 endif
 

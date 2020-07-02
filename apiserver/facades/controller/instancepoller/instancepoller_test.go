@@ -914,8 +914,10 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *gc
 
 	// Hardware address not matched.
 	dev := instancepoller.NewMockLinkLayerDevice(ctrl)
-	dev.EXPECT().MACAddress().Return("01:01:01:01:01:01")
-	dev.EXPECT().Name().Return("eth0")
+	dExp := dev.EXPECT()
+	dExp.MACAddress().Return("01:01:01:01:01:01")
+	dExp.Name().Return("eth0")
+	dExp.SetProviderIDOps(network.Id("")).Return([]txn.Op{{C: "dev-provider-id"}}, nil)
 
 	// Address should be set back to machine origin.
 	addr := instancepoller.NewMockLinkLayerAddress(ctrl)
@@ -947,6 +949,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *gc
 			buildCalled = true
 			c.Check(call.Args, gc.DeepEquals, []interface{}{[]txn.Op{
 				{C: "machine-alive"},
+				{C: "dev-provider-id"},
 				{C: "address-origin-manual"},
 			}})
 		}
@@ -960,7 +963,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 
 	s.setDefaultSpaceInfo()
 
-	// Hardware address will match; prover ID will be set.
+	// Hardware address will match; provider ID will be set.
 	dev := instancepoller.NewMockLinkLayerDevice(ctrl)
 	dExp := dev.EXPECT()
 	dExp.MACAddress().Return("00:00:00:00:00:00").Times(2)

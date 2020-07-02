@@ -318,6 +318,7 @@ const (
 	Win81        SeriesName = "win81"
 	Win10        SeriesName = "win10"
 	Centos7      SeriesName = "centos7"
+	Centos8      SeriesName = "centos8"
 	OpenSUSELeap SeriesName = "opensuseleap"
 	GenericLinux SeriesName = "genericlinux"
 	Kubernetes   SeriesName = "kubernetes"
@@ -392,6 +393,11 @@ var nonUbuntuSeries = map[SeriesName]SeriesVersion{
 	Centos7: {
 		WorkloadType: OtherWorkloadType,
 		Version:      "centos7",
+		Supported:    true,
+	},
+	Centos8: {
+		WorkloadType: OtherWorkloadType,
+		Version:      "centos8",
 		Supported:    true,
 	},
 	OpenSUSELeap: {

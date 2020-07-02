@@ -3019,7 +3019,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
-				about: "status is changed with additional status data",
+				about: "agent status is changed with additional status data",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
 					ModelUUID:   st.ModelUUID(),
 					Name:        "wordpress/0",
@@ -3038,6 +3038,74 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				change: watcher.Change{
 					C:  "statuses",
 					Id: st.docID("u#wordpress/0"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						ModelUUID:   st.ModelUUID(),
+						Name:        "wordpress/0",
+						Application: "wordpress",
+						WorkloadStatus: multiwatcher.StatusInfo{
+							Current: "error",
+							Message: "hook error",
+							Data: map[string]interface{}{
+								"1st-key": "one",
+								"2nd-key": 2,
+								"3rd-key": true,
+							},
+							Since: &now,
+						},
+						AgentStatus: multiwatcher.StatusInfo{
+							Current: "idle",
+							Message: "",
+							Data:    map[string]interface{}{},
+							Since:   &now,
+						},
+					}}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			u, err := wordpress.AddUnit(AddUnitParams{})
+			c.Assert(err, jc.ErrorIsNil)
+			now := st.clock().Now()
+			sInfo := status.StatusInfo{
+				Status:  status.Error,
+				Message: "hook error",
+				Data: map[string]interface{}{
+					"1st-key": "one",
+					"2nd-key": 2,
+					"3rd-key": true,
+				},
+				Since: &now,
+			}
+			err = u.SetAgentStatus(sInfo)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return changeTestCase{
+				about: "workload status takes into account agent error",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
+					ModelUUID:   st.ModelUUID(),
+					Name:        "wordpress/0",
+					Application: "wordpress",
+					WorkloadStatus: multiwatcher.StatusInfo{
+						Current: "error",
+						Message: "hook error",
+						Data: map[string]interface{}{
+							"1st-key": "one",
+							"2nd-key": 2,
+							"3rd-key": true,
+						},
+						Since: &now,
+					},
+					AgentStatus: multiwatcher.StatusInfo{
+						Current: "idle",
+						Message: "",
+						Data:    map[string]interface{}{},
+						Since:   &now,
+					},
+				}},
+				change: watcher.Change{
+					C:  "statuses",
+					Id: st.docID("u#wordpress/0#charm"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{

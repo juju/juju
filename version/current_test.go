@@ -37,7 +37,7 @@ func (*CurrentSuite) TestCurrentSeries(c *gc.C) {
 			if s != "n/a" {
 				// There is no lsb_release command on CentOS.
 				if current_os == os.CentOS {
-					c.Check(s, gc.Matches, `centos7`)
+					c.Check(s, gc.Matches, `centos7|centos8`)
 				}
 			}
 		}

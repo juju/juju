@@ -9,6 +9,44 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// machineShim wraps a state.Machine reference in order to
+// implement the LinkLayerMachine indirection.
+type machineShim struct {
+	*state.Machine
+}
+
+// AllLinkLayerDevices returns all layer-2 devices for the machine
+// as a slice of the LinkLayerDevice indirection.
+func (s machineShim) AllLinkLayerDevices() ([]LinkLayerDevice, error) {
+	devList, err := s.Machine.AllLinkLayerDevices()
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]LinkLayerDevice, len(devList))
+	for i, dev := range devList {
+		out[i] = dev
+	}
+
+	return out, nil
+}
+
+// AllLinkLayerDevices returns all layer-3 addresses for the machine
+// as a slice of the LinkLayerAddress indirection.
+func (s machineShim) AllAddresses() ([]LinkLayerAddress, error) {
+	addrList, err := s.Machine.AllAddresses()
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]LinkLayerAddress, len(addrList))
+	for i, addr := range addrList {
+		out[i] = addr
+	}
+
+	return out, nil
+}
+
 // NOTE: All of the following code is only tested with a feature test.
 
 // NewSubnetShim creates new subnet shim to be used by subnets and spaces Facades.

@@ -188,6 +188,9 @@ func (s *imageSuite) TestSeriesRemoteAliasesNotSupported(c *gc.C) {
 	_, err := lxd.SeriesRemoteAliases("centos7", "arm64")
 	c.Assert(err, gc.ErrorMatches, `series "centos7" not supported`)
 
+	_, err = lxd.SeriesRemoteAliases("centos8", "arm64")
+	c.Assert(err, gc.ErrorMatches, `series "centos8" not supported`)
+
 	_, err = lxd.SeriesRemoteAliases("opensuseleap", "s390x")
 	c.Assert(err, gc.ErrorMatches, `series "opensuseleap" not supported`)
 }
