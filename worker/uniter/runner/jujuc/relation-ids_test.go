@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -155,4 +156,32 @@ Options:
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, expect)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	}
+}
+
+func (s *RelationIdsSuite) TestFilterNonLiveRelations(c *gc.C) {
+	hctx, info := s.newHookContext(1, "")
+
+	// Relations starts as alive so they all will end up in the output.
+	exp := "x:0\nx:1\nx:2\n"
+	s.assertOutputMatches(c, hctx, exp)
+
+	// Change relation 1 life to dying and ensure it still shows up in the output
+	info.rels[1].Life = life.Dying
+	exp = "x:0\nx:1\nx:2\n"
+	s.assertOutputMatches(c, hctx, exp)
+
+	// Change relation 0 life to dead and ensure it doesn't show up in the output
+	info.rels[0].Life = life.Dead
+	exp = "x:1\nx:2\n"
+	s.assertOutputMatches(c, hctx, exp)
+}
+
+func (s *RelationIdsSuite) assertOutputMatches(c *gc.C, hctx jujuc.Context, expOutput string) {
+	com, err := jujuc.NewCommand(hctx, cmdString("relation-ids"))
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := cmdtesting.Context(c)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, nil)
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, expOutput)
 }
