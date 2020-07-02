@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -121,9 +120,7 @@ var expectedOutputDirectoryTemplate = expectedOutputCommon + `
 `
 
 func newToolsMetadataCommandForTest() cmd.Command {
-	cmd := &toolsMetadataCommand{}
-	cmd.SetClientStore(jujuclienttesting.MinimalStore())
-	return modelcmd.Wrap(cmd)
+	return &toolsMetadataCommand{}
 }
 
 func (s *ToolsMetadataSuite) TestGenerateToDirectory(c *gc.C) {

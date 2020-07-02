@@ -43,12 +43,15 @@ const (
 
 	// IndexFileVersion is used to construct the streams index file.
 	IndexFileVersion = 2
+
+	// streamsAgentURL is the path to the default simplestreams agent metadata.
+	streamsAgentURL = "https://streams.canonical.com/juju/tools"
 )
 
 var currentStreamsVersion = StreamsVersionV1
 
 // This needs to be a var so we can override it for testing.
-var DefaultBaseURL = "https://streams.canonical.com/juju/tools"
+var DefaultBaseURL = streamsAgentURL
 
 const (
 	// Used to specify the released tools metadata.
