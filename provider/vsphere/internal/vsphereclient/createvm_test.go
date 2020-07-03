@@ -611,23 +611,3 @@ func baseCisp() types.OvfCreateImportSpecParams {
 func newBool(v bool) *bool {
 	return &v
 }
-
-func findStubCall(c *gc.C, calls []testing.StubCall, name string) testing.StubCall {
-	c.Logf("finding stub \"%s\"", name)
-	for i, call := range calls {
-		c.Logf("stub %d: %s(%v)", i, call.FuncName, call.Args)
-		if call.FuncName == name {
-			return call
-		}
-	}
-	c.Fatalf("failed to find call %q", name)
-	panic("unreachable")
-}
-
-func assertNoCall(c *gc.C, calls []testing.StubCall, name string) {
-	for _, call := range calls {
-		if call.FuncName == name {
-			c.Fatalf("found call %q", name)
-		}
-	}
-}

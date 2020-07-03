@@ -116,8 +116,12 @@ func (c *Client) FindFolder(ctx context.Context, folderPath string) (vmFolder *o
 		return dcfolders.VmFolder, nil
 	}
 
+	// We either have a folder that is a relative path or an absolute path.
+	// We'll accept an absolute path as is. Relative paths will use the DC vm folder as a parent.
 	folderPath = strings.TrimPrefix(folderPath, "./")
-	if !strings.HasPrefix(folderPath, dcfolders.VmFolder.InventoryPath) {
+	if strings.HasPrefix(folderPath, "/") {
+		c.logger.Debugf("using absolute folder path %q", folderPath)
+	} else if !strings.HasPrefix(folderPath, dcfolders.VmFolder.InventoryPath) {
 		c.logger.Debugf("relative folderPath %q found, join with DC vm folder %q now", folderPath, dcfolders.VmFolder.InventoryPath)
 		folderPath = path.Join(dcfolders.VmFolder.InventoryPath, folderPath)
 	}
