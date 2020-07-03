@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -1484,6 +1485,60 @@ func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `model "foo" of type dummy does not support instances running on "s390x"`)
 }
 
+func (s *bootstrapSuite) TestTargetSeriesOverride(c *gc.C) {
+	env := newBootstrapEnvironWithHardwareDetection("foo", "artful", "amd64", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		s.callContext, bootstrap.BootstrapParams{
+			AdminSecret:              "fake-moon-landing",
+			CAPrivateKey:             coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			SupportedBootstrapSeries: supportedJujuSeries,
+		})
+
+	c.Assert(err, gc.ErrorMatches, ".*artful not supported.*", gc.Commentf("expected bootstrap series to be overridden using the value returned by the environment"))
+}
+
+func (s *bootstrapSuite) TestTargetArchOverride(c *gc.C) {
+	env := newBootstrapEnvironWithHardwareDetection("foo", "bionic", "riscv", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		s.callContext, bootstrap.BootstrapParams{
+			AdminSecret:              "fake-moon-landing",
+			CAPrivateKey:             coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			SupportedBootstrapSeries: supportedJujuSeries,
+			BuildAgentTarball: func(build bool, ver *version.Number, _ string) (*sync.BuiltAgent, error) {
+				c.Logf("BuildAgentTarball version %s", ver)
+				c.Assert(build, jc.IsTrue)
+				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+			},
+		})
+
+	c.Assert(err, gc.ErrorMatches, "(?s)invalid constraint value: arch=riscv.*", gc.Commentf("expected bootstrap arch to be overridden using the value returned by the environment"))
+}
+
+func (s *bootstrapSuite) TestTargetSeriesAndArchOverridePriority(c *gc.C) {
+	env := newBootstrapEnvironWithHardwareDetection("foo", "haiku", "riscv", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		s.callContext, bootstrap.BootstrapParams{
+			AdminSecret:              "fake-moon-landing",
+			CAPrivateKey:             coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			SupportedBootstrapSeries: supportedJujuSeries,
+			BuildAgentTarball: func(build bool, ver *version.Number, _ string) (*sync.BuiltAgent, error) {
+				c.Logf("BuildAgentTarball version %s", ver)
+				c.Assert(build, jc.IsTrue)
+				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+			},
+			// Operator provided constraints must always supesede
+			// any values reported by the environment.
+			BootstrapSeries:      "bionic",
+			BootstrapConstraints: constraints.MustParse("arch=amd64"),
+		})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.bootstrapEnviron.instanceConfig.ToolsList().String(), gc.Matches, ".*-bionic-amd64", gc.Commentf("expected bootstrap constraints to supersede the values detected by the environment"))
+}
+
 type bootstrapEnviron struct {
 	cfg              *config.Config
 	environs.Environ // stub out all methods we don't care about.
@@ -1603,4 +1658,32 @@ func (e bootstrapEnvironNoExplicitArchitectures) ConstraintsValidator(context.Pr
 	e.constraintsValidatorCount++
 	v := constraints.NewValidator()
 	return v, nil
+}
+
+// A bootstrapEnviron that implements environs.HardwareCharacteristicsDetector.
+type bootstrapEnvironWithHardwareDetection struct {
+	*bootstrapEnviron
+
+	detectedSeries string
+	detectedHW     *instance.HardwareCharacteristics
+}
+
+func newBootstrapEnvironWithHardwareDetection(name, detectedSeries, detectedArch string, defaultKeys bool, extraAttrs map[string]interface{}) *bootstrapEnvironWithHardwareDetection {
+	var hw = new(instance.HardwareCharacteristics)
+	if detectedArch != "" {
+		hw.Arch = &detectedArch
+	}
+
+	return &bootstrapEnvironWithHardwareDetection{
+		bootstrapEnviron: newEnviron(name, defaultKeys, extraAttrs),
+		detectedSeries:   detectedSeries,
+		detectedHW:       hw,
+	}
+}
+
+func (e bootstrapEnvironWithHardwareDetection) DetectSeries() (string, error) {
+	return e.detectedSeries, nil
+}
+func (e bootstrapEnvironWithHardwareDetection) DetectHardware() (*instance.HardwareCharacteristics, error) {
+	return e.detectedHW, nil
 }
