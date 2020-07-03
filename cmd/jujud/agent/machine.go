@@ -549,7 +549,7 @@ func (a *MachineAgent) makeEngineCreator(
 		// statePoolReporter is an introspection.IntrospectionReporter,
 		// which is set to the current StatePool managed by the state
 		// tracker in controller agents.
-		var statePoolReporter addons.StatePoolIntrospectionReporter
+		var statePoolReporter statePoolIntrospectionReporter
 		registerIntrospectionHandlers := func(handle func(path string, h http.Handler)) {
 			introspection.RegisterHTTPHandlers(introspection.ReportSources{
 				DependencyEngine:   engine,
@@ -1365,4 +1365,27 @@ func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
 // otherwise be restricted.
 var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) deployer.Context {
 	return deployer.NewSimpleContext(agentConfig, st)
+}
+
+// statePoolIntrospectionReporter wraps a (possibly nil) state.StatePool,
+// calling its IntrospectionReport method or returning a message if it
+// is nil.
+type statePoolIntrospectionReporter struct {
+	mu   sync.Mutex
+	pool *state.StatePool
+}
+
+func (h *statePoolIntrospectionReporter) Set(pool *state.StatePool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.pool = pool
+}
+
+func (h *statePoolIntrospectionReporter) IntrospectionReport() string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.pool == nil {
+		return "agent has no pool set"
+	}
+	return h.pool.IntrospectionReport()
 }

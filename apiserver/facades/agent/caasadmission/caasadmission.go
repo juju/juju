@@ -5,6 +5,7 @@ package caasadmission
 
 import (
 	"github.com/juju/juju/apiserver/common"
+	errors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -16,7 +17,7 @@ type Facade struct {
 func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthMachineAgent() {
-		return nil, common.ErrPerm
+		return nil, errors.ErrPerm
 	}
 
 	return &Facade{

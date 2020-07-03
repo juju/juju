@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
@@ -67,11 +68,11 @@ func (s cloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, 
 	for i, arg := range args.Entities {
 		tag, err := names.ParseModelTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if !authFunc(tag) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			results.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		results.Results[i] = s.GetCloudSpec(tag)
@@ -84,7 +85,7 @@ func (s cloudSpecAPI) GetCloudSpec(tag names.ModelTag) params.CloudSpecResult {
 	var result params.CloudSpecResult
 	spec, err := s.getCloudSpec(tag)
 	if err != nil {
-		result.Error = common.ServerError(err)
+		result.Error = commonerrors.ServerError(err)
 		return result
 	}
 	var paramsCloudCredential *params.CloudCredential
@@ -119,18 +120,18 @@ func (s cloudSpecAPI) WatchCloudSpecsChanges(args params.Entities) (params.Notif
 	for i, arg := range args.Entities {
 		tag, err := names.ParseModelTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if !authFunc(tag) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			results.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		w, err := s.watchCloudSpecChanges(tag)
 		if err == nil {
 			results.Results[i] = w
 		} else {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 		}
 	}
 	return results, nil

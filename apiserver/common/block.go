@@ -6,6 +6,7 @@ package common
 import (
 	"github.com/juju/errors"
 
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/state"
 )
 
@@ -63,7 +64,7 @@ func (c *BlockChecker) checkBlock(blockType state.BlockType) error {
 		return errors.Trace(err)
 	}
 	if isEnabled {
-		return OperationBlockedError(aBlock.Message())
+		return commonerrors.OperationBlockedError(aBlock.Message())
 	}
 	return nil
 }

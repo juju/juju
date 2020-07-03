@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/state"
@@ -34,7 +35,7 @@ func (lg *LifeGetter) oneLife(tag names.Tag) (life.Value, error) {
 	}
 	entity, ok := entity0.(state.Lifer)
 	if !ok {
-		return "", NotSupportedError(tag, "life cycles")
+		return "", commonerrors.NotSupportedError(tag, "life cycles")
 	}
 	return life.Value(entity.Life().String()), nil
 }
@@ -54,14 +55,14 @@ func (lg *LifeGetter) Life(args params.Entities) (params.LifeResults, error) {
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
-		err = ErrPerm
+		err = commonerrors.ErrPerm
 		if canRead(tag) {
 			result.Results[i].Life, err = lg.oneLife(tag)
 		}
-		result.Results[i].Error = ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }

@@ -893,7 +893,7 @@ func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 		return nil, errors.Trace(err)
 	}
 	if !doc.PendingUpload {
-		return nil, errors.Trace(&ErrCharmAlreadyUploaded{info.ID})
+		return nil, errors.Trace(NewErrCharmAlreadyUploaded(info.ID))
 	}
 
 	ops, err := updateCharmOps(st, info, stillPending)

@@ -217,7 +217,7 @@ func (st *State) User(tag names.UserTag) (*User, error) {
 		// client. So we don't annotate with information regarding deletion.
 		// TODO(redir): We'll return a deletedUserError in the future so we can
 		// return more appropriate errors, e.g. username not available.
-		return nil, DeletedUserError{UserName: user.Name()}
+		return nil, NewDeletedUserError(user.Name())
 	}
 	return user, nil
 }
@@ -346,27 +346,12 @@ func (u *User) LastLogin() (time.Time, error) {
 	err := lastLogins.FindId(u.doc.DocID).Select(bson.D{{"last-login", 1}}).One(&lastLogin)
 	if err != nil {
 		if err == mgo.ErrNotFound {
-			err = errors.Wrap(err, NeverLoggedInError(u.UserTag().Name()))
+			err = errors.Wrap(err, NewNeverLoggedInError(u.UserTag().Name()))
 		}
 		return time.Time{}, errors.Trace(err)
 	}
 
 	return lastLogin.LastLogin.UTC(), nil
-}
-
-// NeverLoggedInError is used to indicate that a user has never logged in.
-type NeverLoggedInError string
-
-// Error returns the error string for a user who has never logged
-// in.
-func (e NeverLoggedInError) Error() string {
-	return `never logged in: "` + string(e) + `"`
-}
-
-// IsNeverLoggedInError returns true if err is of type NeverLoggedInError.
-func IsNeverLoggedInError(err error) bool {
-	_, ok := errors.Cause(err).(NeverLoggedInError)
-	return ok
 }
 
 // UpdateLastLogin sets the LastLogin time of the user to be now (to the
@@ -526,17 +511,6 @@ func (u *User) IsDeleted() bool {
 	return u.doc.Deleted
 }
 
-// DeletedUserError is used to indicate when an attempt to mutate a deleted
-// user is attempted.
-type DeletedUserError struct {
-	UserName string
-}
-
-// Error implements the error interface.
-func (e DeletedUserError) Error() string {
-	return fmt.Sprintf("user %q is permanently deleted", e.UserName)
-}
-
 // ensureNotDeleted refreshes the user to ensure it wasn't deleted since we
 // acquired it.
 func (u *User) ensureNotDeleted() error {
@@ -544,7 +518,7 @@ func (u *User) ensureNotDeleted() error {
 		return errors.Trace(err)
 	}
 	if u.doc.Deleted {
-		return DeletedUserError{u.Name()}
+		return NewDeletedUserError(u.Name())
 	}
 	return nil
 }

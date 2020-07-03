@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
@@ -62,18 +63,18 @@ func (s *ApplicationStatusSetter) SetStatus(args params.SetStatus) (params.Error
 		// to services in this method).
 		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if !canModify(tag) {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		unitTag, ok := tag.(names.UnitTag)
 		if !ok {
 			// No matter what the canModify says, if this entity is not
 			// a unit, we say "NO".
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		unitId := unitTag.Id()
@@ -82,12 +83,12 @@ func (s *ApplicationStatusSetter) SetStatus(args params.SetStatus) (params.Error
 		// specified in the first place...
 		serviceId, err := names.UnitApplication(unitId)
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		service, err := s.st.Application(serviceId)
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
@@ -97,10 +98,10 @@ func (s *ApplicationStatusSetter) SetStatus(args params.SetStatus) (params.Error
 
 		// TODO(fwereade) pass token into SetStatus instead of checking here.
 		if err := token.Check(0, nil); err != nil {
-			// TODO(fwereade) this should probably be ErrPerm is certain cases,
+			// TODO(fwereade) this should probably be commonerrors.ErrPerm is certain cases,
 			// but I don't think I implemented an exported ErrNotLeader. I
 			// should have done, though.
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		// TODO(perrito666) 2016-05-02 lp:1558657
@@ -112,7 +113,7 @@ func (s *ApplicationStatusSetter) SetStatus(args params.SetStatus) (params.Error
 			Since:   &now,
 		}
 		if err := service.SetStatus(sInfo); err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 		}
 
 	}
@@ -143,7 +144,7 @@ func (s *StatusSetter) setEntityStatus(tag names.Tag, entityStatus status.Status
 	}
 	switch entity := entity.(type) {
 	case *state.Application:
-		return ErrPerm
+		return commonerrors.ErrPerm
 	case status.StatusSetter:
 		sInfo := status.StatusInfo{
 			Status:  entityStatus,
@@ -153,7 +154,7 @@ func (s *StatusSetter) setEntityStatus(tag names.Tag, entityStatus status.Status
 		}
 		return entity.SetStatus(sInfo)
 	default:
-		return NotSupportedError(tag, fmt.Sprintf("setting status, %T", entity))
+		return commonerrors.NotSupportedError(tag, fmt.Sprintf("setting status, %T", entity))
 	}
 }
 
@@ -174,14 +175,14 @@ func (s *StatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, er
 	for i, arg := range args.Entities {
 		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
-		err = ErrPerm
+		err = commonerrors.ErrPerm
 		if canModify(tag) {
 			err = s.setEntityStatus(tag, status.Status(arg.Status), arg.Info, arg.Data, &now)
 		}
-		result.Results[i].Error = ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -193,7 +194,7 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 	}
 	statusGetter, ok := entity0.(status.StatusGetter)
 	if !ok {
-		return NotSupportedError(tag, "getting status")
+		return commonerrors.NotSupportedError(tag, "getting status")
 	}
 	existingStatusInfo, err := statusGetter.Status()
 	if err != nil {
@@ -209,7 +210,7 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 	}
 	entity, ok := entity0.(status.StatusSetter)
 	if !ok {
-		return NotSupportedError(tag, "updating status")
+		return commonerrors.NotSupportedError(tag, "updating status")
 	}
 	if len(newData) > 0 && existingStatusInfo.Status != status.Error {
 		return fmt.Errorf("%s is not in an error state", names.ReadableString(tag))
@@ -243,14 +244,14 @@ func (s *StatusSetter) UpdateStatus(args params.SetStatus) (params.ErrorResults,
 	for i, arg := range args.Entities {
 		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
-		err = ErrPerm
+		err = commonerrors.ErrPerm
 		if canModify(tag) {
 			err = s.updateEntityStatusData(tag, arg.Data)
 		}
-		result.Results[i].Error = ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }

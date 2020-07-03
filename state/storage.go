@@ -360,17 +360,6 @@ func (sb *storageBackend) storageInstances(query bson.D) (storageInstances []*st
 	return storageInstances, nil
 }
 
-type storageAttachedError struct {
-	error
-}
-
-// IsStorageAttachedError reports whether or not the given error was caused
-// by an operation on storage that should not be, but is, attached.
-func IsStorageAttachedError(err error) bool {
-	_, ok := errors.Cause(err).(storageAttachedError)
-	return ok
-}
-
 // DestroyStorageInstance ensures that the storage instance will be removed at
 // some point, after the cloud storage resources have been destroyed.
 //
@@ -453,7 +442,7 @@ func (sb *storageBackend) destroyStorageInstanceOps(
 	if !destroyAttachments {
 		// There are storage attachments, and we've been instructed
 		// not to destroy them.
-		return nil, storageAttachedError{errors.New("storage is attached")}
+		return nil, NewStorageAttachedError("storage is attached")
 	}
 
 	// Check that removing the storage from its owner (if any) is permitted.

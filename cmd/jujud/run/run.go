@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	jujucmd "github.com/juju/juju/cmd"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/jujud/agent/config"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/juju/sockets"
@@ -238,11 +238,11 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 
 func (c *RunCommand) getSocket(op *caas.OperatorClientInfo) (sockets.Socket, error) {
 	if op == nil {
-		paths := uniter.NewPaths(cmdutil.DataDir, c.unit, nil)
+		paths := uniter.NewPaths(config.DataDir, c.unit, nil)
 		return paths.Runtime.LocalJujuRunSocket.Client, nil
 	}
 
-	baseDir := agent.Dir(cmdutil.DataDir, c.unit)
+	baseDir := agent.Dir(config.DataDir, c.unit)
 	caCertFile := filepath.Join(baseDir, caas.CACertFile)
 	caCert, err := ioutil.ReadFile(caCertFile)
 	if err != nil {
@@ -265,12 +265,12 @@ func (c *RunCommand) getSocket(op *caas.OperatorClientInfo) (sockets.Socket, err
 			ServerName: application,
 		},
 	}
-	paths := uniter.NewPaths(cmdutil.DataDir, c.unit, socketConfig)
+	paths := uniter.NewPaths(config.DataDir, c.unit, socketConfig)
 	return paths.Runtime.RemoteJujuRunSocket.Client, nil
 }
 
 func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
-	unitDir := agent.Dir(cmdutil.DataDir, c.unit)
+	unitDir := agent.Dir(config.DataDir, c.unit)
 	logger.Debugf("looking for unit dir %s", unitDir)
 	// make sure the unit exists
 	_, err := os.Stat(unitDir)

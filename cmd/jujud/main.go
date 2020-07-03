@@ -30,10 +30,10 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
+	"github.com/juju/juju/cmd/jujud/agent/config"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
 	"github.com/juju/juju/cmd/jujud/introspect"
 	"github.com/juju/juju/cmd/jujud/run"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/core/machinelock"
 	jujunames "github.com/juju/juju/juju/names"
@@ -294,7 +294,7 @@ func Main(args []string) int {
 			AgentName:   "juju-run",
 			Clock:       clock.WallClock,
 			Logger:      loggo.GetLogger("juju.machinelock"),
-			LogFilename: filepath.Join(cmdutil.LogDir, machinelock.Filename),
+			LogFilename: filepath.Join(config.LogDir, machinelock.Filename),
 		})
 		if err != nil {
 			code = exit_err

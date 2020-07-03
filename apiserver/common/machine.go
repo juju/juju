@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -98,7 +99,7 @@ func destroyMachines(st stateInterface, force bool, maxWait time.Duration, ids .
 			errs = append(errs, err)
 		}
 	}
-	return DestroyErr("machines", ids, errs)
+	return commonerrors.DestroyErr("machines", ids, errs)
 }
 
 // ModelMachineInfo returns information about machine hardware for

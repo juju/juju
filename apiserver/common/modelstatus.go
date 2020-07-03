@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
@@ -36,7 +37,7 @@ func (c *ModelStatusAPI) ModelStatus(req params.Entities) (params.ModelStatusRes
 	for i, model := range models {
 		modelStatus, err := c.modelStatus(model.Tag)
 		if err != nil {
-			status[i].Error = ServerError(err)
+			status[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		status[i] = modelStatus
@@ -69,7 +70,7 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		return status, errors.Trace(err)
 	}
 	if !isAdmin {
-		return status, ErrPerm
+		return status, commonerrors.ErrPerm
 	}
 
 	machines, err := st.AllMachines()

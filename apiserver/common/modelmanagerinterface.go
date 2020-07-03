@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
@@ -198,7 +199,7 @@ func (st modelManagerStateShim) GetBackend(modelUUID string) (ModelManagerBacken
 			return nil, nil, errors.Trace(mErr)
 		}
 
-		return nil, nil, &RedirectError{
+		return nil, nil, &commonerrors.RedirectError{
 			Servers:         []network.ProviderHostPorts{hps},
 			CACert:          target.CACert,
 			ControllerAlias: target.ControllerAlias,

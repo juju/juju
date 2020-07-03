@@ -8,6 +8,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -45,15 +46,15 @@ func (pc *PasswordChanger) SetPasswords(args params.EntityPasswords) (params.Err
 	for i, param := range args.Changes {
 		tag, err := names.ParseTag(param.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		if !canChange(tag) {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		if err := pc.setPassword(tag, param.Password); err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 		}
 	}
 	return result, nil
@@ -75,7 +76,7 @@ func (pc *PasswordChanger) setMongoPassword(entity state.Entity, password string
 		return nil
 	}
 	// TODO(dfc) fix
-	return NotSupportedError(entity.Tag(), "mongo access")
+	return commonerrors.NotSupportedError(entity.Tag(), "mongo access")
 }
 
 func (pc *PasswordChanger) setPassword(tag names.Tag, password string) error {
@@ -89,7 +90,7 @@ func (pc *PasswordChanger) setPassword(tag names.Tag, password string) error {
 	}
 	entity, ok := entity0.(state.Authenticator)
 	if !ok {
-		return NotSupportedError(tag, "authentication")
+		return commonerrors.NotSupportedError(tag, "authentication")
 	}
 	if entity, ok := entity0.(isManager); ok && entity.IsManager() {
 		err = pc.setMongoPassword(entity0, password)

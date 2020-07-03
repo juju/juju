@@ -32,7 +32,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/common"
-	servercommon "github.com/juju/juju/apiserver/common"
+	servercommonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	jujunames "github.com/juju/juju/juju/names"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -721,7 +721,7 @@ func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
 
 func (s *clientSuite) TestWebsocketDialWithErrorsJSON(c *gc.C) {
 	errorResult := params.ErrorResult{
-		Error: servercommon.ServerError(errors.New("kablooie")),
+		Error: servercommonerrors.ServerError(errors.New("kablooie")),
 	}
 	data, err := json.Marshal(errorResult)
 	c.Assert(err, jc.ErrorIsNil)

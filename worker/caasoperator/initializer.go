@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/jujud/agent/config"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/wrench"
 )
@@ -151,9 +151,9 @@ func initializeUnit(params initializeUnitParams, cancel <-chan struct{}) error {
 
 	initArgs := []string{"--unit", params.UnitTag.String()}
 
-	rootToolsDir := tools.ToolsDir(cmdutil.DataDir, "")
+	rootToolsDir := tools.ToolsDir(config.DataDir, "")
 	jujudPath := filepath.Join(rootToolsDir, "jujud")
-	unitPaths := uniter.NewPaths(cmdutil.DataDir, params.UnitTag, nil)
+	unitPaths := uniter.NewPaths(config.DataDir, params.UnitTag, nil)
 	operatorPaths := params.Paths
 	tempDir, err := params.TempDir(os.TempDir(), params.UnitTag.String())
 	if err != nil {
@@ -218,7 +218,7 @@ func initializeUnit(params initializeUnitParams, cancel <-chan struct{}) error {
 		Commands:      command,
 		PodName:       params.ProviderID,
 		ContainerName: container,
-		WorkingDir:    cmdutil.DataDir,
+		WorkingDir:    config.DataDir,
 		Stdout:        stdout,
 		Stderr:        stdout,
 	}, cancel)

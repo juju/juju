@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
@@ -106,12 +107,12 @@ func (api *NetworkConfigAPI) getMachineForSettingNetworkConfig(machineTag string
 		return nil, errors.Trace(err)
 	}
 	if !canModify(tag) {
-		return nil, errors.Trace(common.ErrPerm)
+		return nil, errors.Trace(commonerrors.ErrPerm)
 	}
 
 	m, err := api.getMachine(tag)
 	if errors.IsNotFound(err) {
-		return nil, errors.Trace(common.ErrPerm)
+		return nil, errors.Trace(commonerrors.ErrPerm)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -54,28 +54,12 @@ func (m *Model) LastModelConnection(user names.UserTag) (time.Time, error) {
 	err := lastConnections.FindId(m.st.docID(username)).Select(bson.D{{"last-connection", 1}}).One(&lastConn)
 	if err != nil {
 		if err == mgo.ErrNotFound {
-			err = errors.Wrap(err, NeverConnectedError(username))
+			err = errors.Wrap(err, NewNeverConnectedError(username))
 		}
 		return time.Time{}, errors.Trace(err)
 	}
 
 	return lastConn.LastConnection.UTC(), nil
-}
-
-// NeverConnectedError is used to indicate that a user has never connected to
-// an model.
-type NeverConnectedError string
-
-// Error returns the error string for a user who has never connected to an
-// model.
-func (e NeverConnectedError) Error() string {
-	return `never connected: "` + string(e) + `"`
-}
-
-// IsNeverConnectedError returns true if err is of type NeverConnectedError.
-func IsNeverConnectedError(err error) bool {
-	_, ok := errors.Cause(err).(NeverConnectedError)
-	return ok
 }
 
 // UpdateLastModelConnection updates the last connection time of the model user.

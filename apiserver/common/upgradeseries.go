@@ -8,6 +8,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
@@ -124,22 +125,22 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(args params.Entities)
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 
 		if !canAccess(tag) {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		machine, err := u.GetMachine(tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		w, err := machine.WatchUpgradeSeriesNotifications()
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		watcherId := u.resources.Register(w)
@@ -212,26 +213,26 @@ func (u *UpgradeSeriesAPI) setUnitStatus(args params.UpgradeSeriesStatusParams) 
 		//TODO[externalreality] refactor all of this, its being copied often.
 		tag, err := names.ParseUnitTag(p.Entity.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		if !canAccess(tag) {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		unit, err := u.getUnit(tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		status, err := model.ValidateUpgradeSeriesStatus(p.Status)
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		err = unit.SetUpgradeSeriesStatus(status, p.Message)
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 	}
@@ -248,21 +249,21 @@ func (u *UpgradeSeriesAPI) unitStatus(args params.Entities) (params.UpgradeSerie
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			results[i].Error = ServerError(ErrPerm)
+			results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		if !canAccess(tag) {
-			results[i].Error = ServerError(ErrPerm)
+			results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		unit, err := u.getUnit(tag)
 		if err != nil {
-			results[i].Error = ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		status, err := unit.UpgradeSeriesStatus()
 		if err != nil {
-			results[i].Error = ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		results[i].Status = status

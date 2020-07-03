@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.cloud")
@@ -455,7 +456,7 @@ func (api *CloudAPI) getCloudInfo(tag names.CloudTag) (*params.CloudInfo, error)
 		if userTag.IsLocal() {
 			u, err := api.backend.User(userTag)
 			if err != nil {
-				if _, ok := err.(state.DeletedUserError); !ok {
+				if !stateerrors.IsDeletedUserError(err) {
 					// We ignore deleted users for now. So if it is not a
 					// DeletedUserError we return the error.
 					return nil, errors.Trace(err)

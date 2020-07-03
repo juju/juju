@@ -1,7 +1,7 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common_test
+package errors_test
 
 import (
 	"encoding/json"
@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/testing"
 )
 
@@ -52,17 +52,17 @@ var errorTransformTests = []struct {
 	status:     http.StatusUnauthorized,
 	helperFunc: params.IsCodeUnauthorized,
 }, {
-	err:        state.ErrCannotEnterScopeYet,
+	err:        stateerrors.ErrCannotEnterScopeYet,
 	code:       params.CodeCannotEnterScopeYet,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeCannotEnterScopeYet,
 }, {
-	err:        state.ErrCannotEnterScope,
+	err:        stateerrors.ErrCannotEnterScope,
 	code:       params.CodeCannotEnterScope,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeCannotEnterScope,
 }, {
-	err:        state.ErrDead,
+	err:        stateerrors.ErrDead,
 	code:       params.CodeDead,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeDead,
@@ -72,7 +72,7 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeExcessiveContention,
 }, {
-	err:        state.ErrUnitHasSubordinates,
+	err:        stateerrors.ErrUnitHasSubordinates,
 	code:       params.CodeUnitHasSubordinates,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeUnitHasSubordinates,
@@ -127,7 +127,7 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeStopped,
 }, {
-	err:        &state.HasAssignedUnitsError{"42", []string{"a"}},
+	err:        stateerrors.NewHasAssignedUnitsError("42", []string{"a"}),
 	code:       params.CodeHasAssignedUnits,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeHasAssignedUnits,

@@ -854,22 +854,12 @@ func (u *Unit) removeOps(asserts bson.D, op *ForcedOperation, destroyStorage boo
 	return app.removeUnitOps(u, asserts, op, destroyStorage)
 }
 
-// ErrUnitHasSubordinates is a standard error to indicate that a Unit
-// cannot complete an operation to end its life because it still has
-// subordinate applications.
-var ErrUnitHasSubordinates = errors.New("unit has subordinates")
-
 var unitHasNoSubordinates = bson.D{{
 	"$or", []bson.D{
 		{{"subordinates", bson.D{{"$size", 0}}}},
 		{{"subordinates", bson.D{{"$exists", false}}}},
 	},
 }}
-
-// ErrUnitHasStorageAttachments is a standard error to indicate that
-// a Unit cannot complete an operation to end its life because it still
-// has storage attachments.
-var ErrUnitHasStorageAttachments = errors.New("unit has storage attachments")
 
 var unitHasNoStorageAttachments = bson.D{{
 	"$or", []bson.D{

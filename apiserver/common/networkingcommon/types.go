@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/life"
@@ -287,7 +287,7 @@ func networkToParamsNetworkInfo(info network.NetworkInfo) params.NetworkInfo {
 
 func MachineNetworkInfoResultToNetworkInfoResult(inResult state.MachineNetworkInfoResult) params.NetworkInfoResult {
 	if inResult.Error != nil {
-		return params.NetworkInfoResult{Error: common.ServerError(inResult.Error)}
+		return params.NetworkInfoResult{Error: commonerrors.ServerError(inResult.Error)}
 	}
 	infos := make([]params.NetworkInfo, len(inResult.NetworkInfos))
 	for i, info := range inResult.NetworkInfos {

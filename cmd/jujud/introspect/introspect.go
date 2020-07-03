@@ -20,7 +20,7 @@ import (
 	apiagent "github.com/juju/juju/api/agent"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/addons"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/jujud/agent/config"
 )
 
 type IntrospectCommand struct {
@@ -75,7 +75,7 @@ func (c *IntrospectCommand) Info() *cmd.Info {
 
 func (c *IntrospectCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.StringVar(&c.dataDir, "data-dir", cmdutil.DataDir, "Juju base data directory")
+	f.StringVar(&c.dataDir, "data-dir", config.DataDir, "Juju base data directory")
 	f.StringVar(&c.agent, "agent", "", "agent to introspect (defaults to machine agent)")
 	f.StringVar(&c.listen, "listen", "", "address on which to expose the introspection socket")
 }
