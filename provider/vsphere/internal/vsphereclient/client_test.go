@@ -660,6 +660,37 @@ func (s *clientSuite) TestEnsureVMFolder(c *gc.C) {
 	})
 }
 
+func (s *clientSuite) TestFindFolder(c *gc.C) {
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	folder, err := client.FindFolder(context.Background(), "foo/bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(folder, gc.NotNil)
+	c.Assert(folder.InventoryPath, gc.Equals, "/dc0/vm/foo/bar")
+}
+
+func (s *clientSuite) TestFindFolderRelativePath(c *gc.C) {
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	folder, err := client.FindFolder(context.Background(), "./foo/bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(folder, gc.NotNil)
+	c.Assert(folder.InventoryPath, gc.Equals, "/dc0/vm/foo/bar")
+}
+
+func (s *clientSuite) TestFindFolderAbsolutePath(c *gc.C) {
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	_, err := client.FindFolder(context.Background(), "/foo/bar")
+	// mock not set up to have a /foo/bar folder
+	c.Assert(err, gc.ErrorMatches, `folder path "/foo/bar" not found`)
+}
+
+func (s *clientSuite) TestFindFolderSubPath(c *gc.C) {
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	folder, err := client.FindFolder(context.Background(), "/dc0/vm/foo/bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(folder, gc.NotNil)
+	c.Assert(folder.InventoryPath, gc.Equals, "/dc0/vm/foo/bar")
+}
+
 func (s *clientSuite) TestMoveVMFolderInto(c *gc.C) {
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	err := client.MoveVMFolderInto(context.Background(), "foo", "foo/bar")
