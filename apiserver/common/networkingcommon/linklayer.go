@@ -13,6 +13,9 @@ import (
 
 // LinkLayerDevice describes a single layer-2 network device.
 type LinkLayerDevice interface {
+	// DocID returns the globally unique identifier for the device.
+	DocID() string
+
 	// MACAddress is the hardware address of the device.
 	MACAddress() string
 
@@ -25,6 +28,10 @@ type LinkLayerDevice interface {
 	// SetProviderIDOps returns the operations required to set the input
 	// provider ID for the link-layer device.
 	SetProviderIDOps(id network.Id) ([]txn.Op, error)
+
+	// ParentID returns the globally unique identifier
+	// for this device's parent if it has one.
+	ParentID() string
 
 	// RemoveOps returns the transaction operations required to remove this
 	// device and if required, its provider ID.
