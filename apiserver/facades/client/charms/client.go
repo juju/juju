@@ -89,7 +89,7 @@ func (a *API) CharmInfo(args params.CharmURL) (params.Charm, error) {
 	info := params.Charm{
 		Revision: aCharm.Revision(),
 		URL:      curl.String(),
-		Config:   convertCharmConfig(aCharm.Config()),
+		Config:   params.ToCharmOptionMap(aCharm.Config()),
 		Meta:     convertCharmMeta(aCharm.Meta()),
 		Actions:  convertCharmActions(aCharm.Actions()),
 		Metrics:  convertCharmMetrics(aCharm.Metrics()),
@@ -150,25 +150,6 @@ func (a *API) IsMetered(args params.CharmURL) (params.IsMeteredResult, error) {
 		return params.IsMeteredResult{Metered: true}, nil
 	}
 	return params.IsMeteredResult{Metered: false}, nil
-}
-
-func convertCharmConfig(config *charm.Config) map[string]params.CharmOption {
-	if config == nil {
-		return nil
-	}
-	result := make(map[string]params.CharmOption)
-	for key, value := range config.Options {
-		result[key] = convertCharmOption(value)
-	}
-	return result
-}
-
-func convertCharmOption(opt charm.Option) params.CharmOption {
-	return params.CharmOption{
-		Type:        opt.Type,
-		Description: opt.Description,
-		Default:     opt.Default,
-	}
 }
 
 func convertCharmMeta(meta *charm.Meta) *params.CharmMeta {
