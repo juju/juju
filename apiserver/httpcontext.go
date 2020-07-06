@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/stateauthenticator"
@@ -46,7 +47,7 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (
 ) {
 	authInfo, ok := httpcontext.RequestAuthInfo(r)
 	if !ok {
-		return nil, nil, common.ErrPerm
+		return nil, nil, commonerrors.ErrPerm
 	}
 	st, err := ctxt.stateForRequestUnauthenticated(r)
 	if err != nil {
@@ -95,7 +96,7 @@ func (ctxt *httpContext) stateForMigration(
 	}()
 	model, err := migrationSt.Model()
 	if errors.IsNotFound(err) {
-		return nil, errors.Wrap(err, common.UnknownModelError(modelUUID))
+		return nil, errors.Wrap(err, commonerrors.UnknownModelError(modelUUID))
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -184,7 +185,7 @@ func sendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface
 // sendError sends a JSON-encoded error response
 // for errors encountered during processing.
 func sendError(w http.ResponseWriter, errToSend error) error {
-	paramsErr, statusCode := common.ServerErrorAndStatus(errToSend)
+	paramsErr, statusCode := commonerrors.ServerErrorAndStatus(errToSend)
 	logger.Debugf("sending error: %d %v", statusCode, paramsErr)
 	return errors.Trace(sendStatusAndJSON(w, statusCode, &params.ErrorResult{
 		Error: paramsErr,

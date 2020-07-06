@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -98,7 +98,7 @@ func (lsa *LeadershipSettingsAccessor) Merge(bulkArgs params.MergeLeadershipSett
 		// use an actual auth func to determine permissions.
 		applicationTag, err := names.ParseApplicationTag(arg.ApplicationTag)
 		if err != nil {
-			result.Error = common.ServerError(err)
+			result.Error = commonerrors.ServerError(err)
 			continue
 		}
 
@@ -106,27 +106,27 @@ func (lsa *LeadershipSettingsAccessor) Merge(bulkArgs params.MergeLeadershipSett
 		if arg.UnitTag != "" {
 			unitTag, err := names.ParseUnitTag(arg.UnitTag)
 			if err != nil {
-				result.Error = common.ServerError(err)
+				result.Error = commonerrors.ServerError(err)
 				continue
 			}
 			callerUnitId = unitTag.Id()
 			unitAppName, err := names.UnitApplication(callerUnitId)
 			if err != nil || unitAppName != requireAppName {
-				result.Error = common.ServerError(common.ErrPerm)
+				result.Error = commonerrors.ServerError(commonerrors.ErrPerm)
 				continue
 			}
 		}
 
 		appName := applicationTag.Id()
 		if appName != requireAppName {
-			result.Error = common.ServerError(common.ErrPerm)
+			result.Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 
 		token := lsa.leaderCheckFn(appName, callerUnitId)
 		err = lsa.mergeSettingsChunkFn(token, appName, arg.Settings)
 		if err != nil {
-			result.Error = common.ServerError(err)
+			result.Error = commonerrors.ServerError(err)
 		}
 	}
 
@@ -150,19 +150,19 @@ func (lsa *LeadershipSettingsAccessor) Read(bulkArgs params.Entities) (params.Ge
 		// use an actual auth func to determine permissions.
 		applicationTag, err := names.ParseApplicationTag(arg.Tag)
 		if err != nil {
-			result.Error = common.ServerError(err)
+			result.Error = commonerrors.ServerError(err)
 			continue
 		}
 
 		appName := applicationTag.Id()
 		if appName != requireAppName {
-			result.Error = common.ServerError(common.ErrPerm)
+			result.Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 
 		settings, err := lsa.getSettingsFn(appName)
 		if err != nil {
-			result.Error = common.ServerError(err)
+			result.Error = commonerrors.ServerError(err)
 			continue
 		}
 
@@ -189,19 +189,19 @@ func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(bulkArgs params.E
 		// use an actual auth func to determine permissions.
 		applicationTag, err := names.ParseApplicationTag(arg.Tag)
 		if err != nil {
-			result.Error = common.ServerError(err)
+			result.Error = commonerrors.ServerError(err)
 			continue
 		}
 
 		appName := applicationTag.Id()
 		if appName != requireAppName {
-			result.Error = common.ServerError(common.ErrPerm)
+			result.Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 
 		watcherId, err := lsa.registerWatcherFn(appName)
 		if err != nil {
-			result.Error = common.ServerError(err)
+			result.Error = commonerrors.ServerError(err)
 			continue
 		}
 

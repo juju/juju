@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/mocks"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"

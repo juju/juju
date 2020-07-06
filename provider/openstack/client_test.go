@@ -12,7 +12,6 @@ import (
 	gooselogging "gopkg.in/goose.v2/logging"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/testing"
 )

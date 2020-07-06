@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state"
 )
@@ -27,7 +28,7 @@ func NewTestAPI(
 	machineFunc EntityMachineFunc,
 ) (*InstanceMutaterAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)

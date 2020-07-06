@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	netmocks "github.com/juju/juju/apiserver/common/networkingcommon/mocks"
 	"github.com/juju/juju/apiserver/facades/client/spaces"
@@ -711,7 +712,7 @@ func (s *LegacySuite) TestNewAPIWithBacking(c *gc.C) {
 		Resources:  s.resources,
 		Authorizer: agentAuthorizer,
 	})
-	c.Assert(err, jc.DeepEquals, common.ErrPerm)
+	c.Assert(err, jc.DeepEquals, commonerrors.ErrPerm)
 	c.Assert(facade, gc.IsNil)
 	// No calls so far.
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
@@ -1044,7 +1045,7 @@ func (s *LegacySuite) TestListSpacesNotSupportedError(c *gc.C) {
 }
 
 func (s *LegacySuite) TestCreateSpacesBlocked(c *gc.C) {
-	s.blockChecker.SetErrors(common.ServerError(common.OperationBlockedError("test block")))
+	s.blockChecker.SetErrors(commonerrors.ServerError(commonerrors.OperationBlockedError("test block")))
 	_, err := s.facade.CreateSpaces(params.CreateSpacesParams{})
 	c.Assert(err, gc.ErrorMatches, "test block")
 	c.Assert(err, jc.Satisfies, params.IsCodeOperationBlocked)

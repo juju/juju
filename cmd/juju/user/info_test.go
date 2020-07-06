@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/usermanager"
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/user"
 )
@@ -63,7 +63,7 @@ func (*fakeUserInfoAPI) UserInfo(usernames []string, all usermanager.IncludeDisa
 		info.DisplayName = "Fred External"
 		info.Access = "add-model"
 	default:
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	return []params.UserInfo{info}, nil
 }

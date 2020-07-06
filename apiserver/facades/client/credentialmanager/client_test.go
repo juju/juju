@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facades/client/credentialmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -67,7 +68,7 @@ func (s *CredentialManagerSuite) TestInvalidateModelCredentialError(c *gc.C) {
 	s.backend.SetErrors(expected)
 	result, err := s.api.InvalidateModelCredential(params.InvalidateCredentialArg{"not again"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: common.ServerError(expected)})
+	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: commonerrors.ServerError(expected)})
 	s.backend.CheckCalls(c, []testing.StubCall{
 		{"InvalidateModelCredential", []interface{}{"not again"}},
 	})

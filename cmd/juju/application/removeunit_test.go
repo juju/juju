@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiapplication "github.com/juju/juju/api/application"
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/model"
@@ -155,7 +155,7 @@ func (s *RemoveUnitSuite) TestRemoveUnitNoWaitWithoutForce(c *gc.C) {
 
 func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *gc.C) {
 	// Block operation
-	s.fake.err = common.OperationBlockedError("TestBlockRemoveUnit")
+	s.fake.err = commonerrors.OperationBlockedError("TestBlockRemoveUnit")
 	s.runRemoveUnit(c, "some-unit-name/0")
 
 	// msg is logged
@@ -182,7 +182,7 @@ func (s *RemoveUnitSuite) TestCAASRemoveUnitNotSupported(c *gc.C) {
 	m.ModelType = model.CAAS
 	s.store.Models["arthur"].Models["king/sword"] = m
 
-	s.fake.err = common.ServerError(errors.NotSupportedf(`scale a "daemon" charm`))
+	s.fake.err = commonerrors.ServerError(errors.NotSupportedf(`scale a "daemon" charm`))
 
 	_, err := s.runRemoveUnit(c, "some-application-name", "--num-units", "2")
 	c.Assert(err, gc.ErrorMatches, `can not remove unit: scale a "daemon" charm not supported`)

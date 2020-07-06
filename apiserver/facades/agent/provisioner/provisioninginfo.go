@@ -13,7 +13,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -53,7 +53,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		machine, err := api.getMachine(canAccess, tag)
@@ -61,7 +61,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 			result.Results[i].Result, err = api.getProvisioningInfo(machine, env, allSpaceInfos)
 		}
 
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -72,12 +72,12 @@ func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 ) (*params.ProvisioningInfoV10, error) {
 	endpointBindings, err := api.machineEndpointBindings(m)
 	if err != nil {
-		return nil, common.ServerError(errors.Annotate(err, "cannot determine machine endpoint bindings"))
+		return nil, commonerrors.ServerError(errors.Annotate(err, "cannot determine machine endpoint bindings"))
 	}
 
 	spaceBindings, err := api.translateEndpointBindingsToSpaces(spaceInfos, endpointBindings)
 	if err != nil {
-		return nil, common.ServerError(errors.Annotate(err, "cannot determine spaces for endpoint bindings"))
+		return nil, commonerrors.ServerError(errors.Annotate(err, "cannot determine spaces for endpoint bindings"))
 	}
 
 	var result params.ProvisioningInfoV10
@@ -121,14 +121,14 @@ func (api *ProvisionerAPIV9) ProvisioningInfo(args params.Entities) (params.Prov
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
 			result.Results[i].Result, err = api.getProvisioningInfo(machine, env, spaceInfos)
 		}
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -139,12 +139,12 @@ func (api *ProvisionerAPIV9) getProvisioningInfo(m *state.Machine,
 ) (*params.ProvisioningInfo, error) {
 	endpointBindings, err := api.machineEndpointBindings(m)
 	if err != nil {
-		return nil, common.ServerError(errors.Annotate(err, "cannot determine machine endpoint bindings"))
+		return nil, commonerrors.ServerError(errors.Annotate(err, "cannot determine machine endpoint bindings"))
 	}
 
 	spaceBindings, err := api.translateEndpointBindingsToSpaces(spaceInfos, endpointBindings)
 	if err != nil {
-		return nil, common.ServerError(errors.Annotate(err, "cannot determine spaces for endpoint bindings"))
+		return nil, commonerrors.ServerError(errors.Annotate(err, "cannot determine spaces for endpoint bindings"))
 	}
 
 	base, err := api.getProvisioningInfoBase(m, env, spaceBindings)

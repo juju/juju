@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -73,7 +73,7 @@ func ExtractEndpointDetails(url *url.URL) (application, name string) {
 // SendHTTPError sends a JSON-encoded error response
 // for errors encountered during processing.
 func SendHTTPError(w http.ResponseWriter, err error) {
-	err1, statusCode := common.ServerErrorAndStatus(err)
+	err1, statusCode := commonerrors.ServerErrorAndStatus(err)
 	logger.Debugf("sending error: %d %v", statusCode, err1)
 	SendHTTPStatusAndJSON(w, statusCode, &params.ErrorResult{
 		Error: err1,

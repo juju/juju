@@ -25,7 +25,7 @@ import (
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machinelock"
@@ -211,7 +211,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				LeadershipTrackerFunc: leadershipTrackerFunc,
 				UniterFacadeFunc:      newUniterFunc,
 				ExecClientGetter: func() (exec.Executor, error) {
-					return config.NewExecClient(os.Getenv(provider.OperatorNamespaceEnvName))
+					return config.NewExecClient(os.Getenv(caasconstants.OperatorNamespaceEnvName))
 				},
 			}
 
@@ -262,14 +262,14 @@ func socketConfig(info *caas.OperatorInfo) (*uniter.SocketConfig, error) {
 	tlsConfig := utils.SecureTLSConfig()
 	tlsConfig.Certificates = []tls.Certificate{tlsCert}
 
-	serviceAddress := os.Getenv(provider.OperatorServiceIPEnvName)
+	serviceAddress := os.Getenv(caasconstants.OperatorServiceIPEnvName)
 	if serviceAddress == "" {
-		return nil, errors.Errorf("env %s missing", provider.OperatorServiceIPEnvName)
+		return nil, errors.Errorf("env %s missing", caasconstants.OperatorServiceIPEnvName)
 	}
 
-	operatorAddress := os.Getenv(provider.OperatorPodIPEnvName)
+	operatorAddress := os.Getenv(caasconstants.OperatorPodIPEnvName)
 	if operatorAddress == "" {
-		return nil, errors.Errorf("env %s missing", provider.OperatorPodIPEnvName)
+		return nil, errors.Errorf("env %s missing", caasconstants.OperatorPodIPEnvName)
 	}
 
 	sc := &uniter.SocketConfig{

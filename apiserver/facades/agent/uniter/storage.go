@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -56,7 +57,7 @@ func (s *StorageAPI) UnitStorageAttachments(args params.Entities) (params.Storag
 				storageAttachmentIds,
 			}
 		}
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -64,11 +65,11 @@ func (s *StorageAPI) UnitStorageAttachments(args params.Entities) (params.Storag
 func (s *StorageAPI) getOneUnitStorageAttachmentIds(canAccess common.AuthFunc, unitTag string) ([]params.StorageAttachmentId, error) {
 	tag, err := names.ParseUnitTag(unitTag)
 	if err != nil || !canAccess(tag) {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	stateStorageAttachments, err := s.storage.UnitStorageAttachments(tag)
 	if errors.IsNotFound(err) {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	} else if err != nil {
 		return nil, err
 	}
@@ -98,13 +99,13 @@ func (s *StorageAPI) DestroyUnitStorageAttachments(args params.Entities) (params
 			return err
 		}
 		if !canAccess(unitTag) {
-			return common.ErrPerm
+			return commonerrors.ErrPerm
 		}
 		return s.storage.DestroyUnitStorageAttachments(unitTag)
 	}
 	for i, entity := range args.Entities {
 		err := one(entity.Tag)
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -123,7 +124,7 @@ func (s *StorageAPI) StorageAttachments(args params.StorageAttachmentIds) (param
 		if err == nil {
 			result.Results[i].Result = storageAttachment
 		}
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -144,7 +145,7 @@ func (s *StorageAPI) StorageAttachmentLife(args params.StorageAttachmentIds) (pa
 			life := stateStorageAttachment.Life()
 			result.Results[i].Life = life.Value()
 		}
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -163,7 +164,7 @@ func (s *StorageAPI) getOneStateStorageAttachment(canAccess common.AuthFunc, id 
 		return nil, err
 	}
 	if !canAccess(unitTag) {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	storageTag, err := names.ParseStorageTag(id.StorageTag)
 	if err != nil {
@@ -225,7 +226,7 @@ func (s *StorageAPI) WatchUnitStorageAttachments(args params.Entities) (params.S
 		if err == nil {
 			results.Results[i] = result
 		}
-		results.Results[i].Error = common.ServerError(err)
+		results.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return results, nil
 }
@@ -234,7 +235,7 @@ func (s *StorageAPI) watchOneUnitStorageAttachments(tag string, canAccess func(n
 	nothing := params.StringsWatchResult{}
 	unitTag, err := names.ParseUnitTag(tag)
 	if err != nil || !canAccess(unitTag) {
-		return nothing, common.ErrPerm
+		return nothing, commonerrors.ErrPerm
 	}
 	watch := s.storage.WatchStorageAttachments(unitTag)
 	if changes, ok := <-watch.Changes(); ok {
@@ -262,7 +263,7 @@ func (s *StorageAPI) WatchStorageAttachments(args params.StorageAttachmentIds) (
 		if err == nil {
 			results.Results[i] = result
 		}
-		results.Results[i].Error = common.ServerError(err)
+		results.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return results, nil
 }
@@ -276,7 +277,7 @@ func (s *StorageAPI) watchOneStorageAttachment(id params.StorageAttachmentId, ca
 	nothing := params.NotifyWatchResult{}
 	unitTag, err := names.ParseUnitTag(id.UnitTag)
 	if err != nil || !canAccess(unitTag) {
-		return nothing, common.ErrPerm
+		return nothing, commonerrors.ErrPerm
 	}
 	storageTag, err := names.ParseStorageTag(id.StorageTag)
 	if err != nil {
@@ -321,7 +322,7 @@ func (s *StorageAPI) RemoveStorageAttachments(args params.StorageAttachmentIds) 
 	for i, id := range args.Ids {
 		err := s.removeOneStorageAttachment(id, canAccess)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 		}
 	}
 	return results, nil
@@ -333,7 +334,7 @@ func (s *StorageAPI) removeOneStorageAttachment(id params.StorageAttachmentId, c
 		return err
 	}
 	if !canAccess(unitTag) {
-		return common.ErrPerm
+		return commonerrors.ErrPerm
 	}
 	storageTag, err := names.ParseStorageTag(id.StorageTag)
 	if err != nil {
@@ -363,7 +364,7 @@ func (s *StorageAPI) AddUnitStorage(
 	}
 
 	serverErr := func(err error) params.ErrorResult {
-		return params.ErrorResult{Error: common.ServerError(err)}
+		return params.ErrorResult{Error: commonerrors.ServerError(err)}
 	}
 
 	result := make([]params.ErrorResult, len(args.Storages))
@@ -442,7 +443,7 @@ func accessUnitTag(tag string, canAccess func(names.Tag) bool) (names.UnitTag, e
 		return names.UnitTag{}, errors.Annotatef(err, "parsing unit tag %v", tag)
 	}
 	if !canAccess(u) {
-		return names.UnitTag{}, common.ErrPerm
+		return names.UnitTag{}, commonerrors.ErrPerm
 	}
 	return u, nil
 }

@@ -22,6 +22,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	appFacade "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
@@ -127,7 +128,7 @@ func NewBundleAPI(
 	tag names.ModelTag,
 ) (*BundleAPI, error) {
 	if !auth.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	return &BundleAPI{
@@ -156,7 +157,7 @@ func (b *BundleAPI) checkCanRead() error {
 		return errors.Trace(err)
 	}
 	if !canRead {
-		return common.ErrPerm
+		return commonerrors.ErrPerm
 	}
 	return nil
 }
@@ -356,7 +357,7 @@ func getChangesMapArgs(
 // ExportBundle exports the current model configuration as bundle.
 func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 	fail := func(failErr error) (params.StringResult, error) {
-		return params.StringResult{}, common.ServerError(failErr)
+		return params.StringResult{}, commonerrors.ServerError(failErr)
 	}
 
 	if err := b.checkCanRead(); err != nil {

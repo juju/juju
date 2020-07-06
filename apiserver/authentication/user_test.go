@@ -22,7 +22,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -189,7 +189,7 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *gc.C) {
 		names.NewUserTag("bobbrown"),
 		params.LoginRequest{},
 	)
-	c.Assert(err, gc.FitsTypeOf, &common.DischargeRequiredError{})
+	c.Assert(err, gc.FitsTypeOf, &commonerrors.DischargeRequiredError{})
 
 	service.CheckCallNames(c, "Auth", "ExpireStorageAfter", "NewMacaroon")
 	calls := service.Calls()
@@ -345,7 +345,7 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 		})
 
 		// Discharge the macaroon.
-		dischargeErr := errors.Cause(err).(*common.DischargeRequiredError)
+		dischargeErr := errors.Cause(err).(*commonerrors.DischargeRequiredError)
 		client := httpbakery.NewClient()
 		ms, err := client.DischargeAll(context.Background(), dischargeErr.Macaroon)
 		c.Assert(err, jc.ErrorIsNil)

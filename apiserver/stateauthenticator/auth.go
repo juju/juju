@@ -20,7 +20,7 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -131,7 +131,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	authenticator := a.authContext.authenticator(serverHost)
 	authInfo, err := a.checkCreds(ctx, st.State, req, authTag, true, authenticator)
 	if err != nil {
-		if common.IsDischargeRequiredError(err) || errors.IsNotProvisioned(err) {
+		if commonerrors.IsDischargeRequiredError(err) || errors.IsNotProvisioned(err) {
 			// TODO(axw) move out of common?
 			return httpcontext.AuthInfo{}, errors.Trace(err)
 		}

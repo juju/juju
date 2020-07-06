@@ -31,7 +31,6 @@ var (
 	IsParentDeviceHasChildrenError = stateerrors.IsParentDeviceHasChildrenError
 	IsIncompatibleSeriesError      = stateerrors.IsIncompatibleSeriesError
 	IsNotAlive                     = stateerrors.IsNotAlive
-	IsUpgradeInProgressError       = stateerrors.IsUpgradeInProgressError
 	IsHasAssignedUnitsError        = stateerrors.IsHasAssignedUnitsError
 	IsHasContainersError           = stateerrors.IsHasContainersError
 	IsHasAttachmentsError          = stateerrors.IsHasAttachmentsError
@@ -53,7 +52,6 @@ var (
 	spaceNotAliveErr       = stateerrors.NewNotAliveError("space")
 	subnetNotAliveErr      = stateerrors.NewNotAliveError("subnet")
 	notAliveErr            = stateerrors.NewNotAliveError("")
-	errUpgradeInProgress   = stateerrors.ErrUpgradeInProgress
 )
 
 func onAbort(txnErr, err error) error {

@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
-	servercommon "github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/watcher"
@@ -1313,7 +1313,7 @@ func (c *stubConnection) APICall(objType string, version int, id, request string
 			results := response.(*params.ErrorResults)
 			for _, msg := range c.machineErrs {
 				results.Results = append(results.Results, params.ErrorResult{
-					Error: servercommon.ServerError(errors.Errorf(msg)),
+					Error: commonerrors.ServerError(errors.Errorf(msg)),
 				})
 			}
 			return c.checkMachineErr

@@ -65,7 +65,6 @@ var (
 	CloudGlobalKey                = cloudGlobalKey
 	RegionSettingsGlobalKey       = regionSettingsGlobalKey
 	ModelGlobalKey                = modelGlobalKey
-	UpgradeInProgressError        = errUpgradeInProgress
 	DBCollectionSizeToInt         = dbCollectionSizeToInt
 	NewEntityWatcher              = newEntityWatcher
 	ApplicationHasConnectedOffers = applicationHasConnectedOffers

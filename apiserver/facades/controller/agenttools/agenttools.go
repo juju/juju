@@ -8,7 +8,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -139,7 +139,7 @@ func updateToolsAvailability(modelGetter ModelGetter, newEnviron newEnvironFunc,
 // for new patches of the current tool versions.
 func (api *AgentToolsAPI) UpdateToolsAvailable() error {
 	if !api.authorizer.AuthController() {
-		return common.ErrPerm
+		return commonerrors.ErrPerm
 	}
 	return updateToolsAvailability(api.modelGetter, api.newEnviron, api.findTools, api.envVersionUpdate)
 }

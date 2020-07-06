@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
@@ -118,30 +118,30 @@ func (api *API) MoveSubnets(args params.MoveSubnetsParams) (params.MoveSubnetsRe
 		// We need to retrieve the space in order to use its ID.
 		spaceTag, err := names.ParseSpaceTag(toSpaceParams.SpaceTag)
 		if err != nil {
-			results[i].Error = common.ServerError(errors.Trace(err))
+			results[i].Error = commonerrors.ServerError(errors.Trace(err))
 			continue
 		}
 		spaceName := spaceTag.Id()
 
 		subnets, err := api.getMovingSubnets(toSpaceParams.SubnetTags)
 		if err != nil {
-			results[i].Error = common.ServerError(errors.Trace(err))
+			results[i].Error = commonerrors.ServerError(errors.Trace(err))
 			continue
 		}
 
 		if err := api.ensureSubnetsCanBeMoved(subnets, spaceName, toSpaceParams.Force); err != nil {
-			results[i].Error = common.ServerError(errors.Trace(err))
+			results[i].Error = commonerrors.ServerError(errors.Trace(err))
 			continue
 		}
 
 		operation, err := api.opFactory.NewMoveSubnetsOp(spaceName, subnets)
 		if err != nil {
-			results[i].Error = common.ServerError(errors.Trace(err))
+			results[i].Error = commonerrors.ServerError(errors.Trace(err))
 			continue
 		}
 
 		if err = api.backing.ApplyOperation(operation); err != nil {
-			results[i].Error = common.ServerError(errors.Trace(err))
+			results[i].Error = commonerrors.ServerError(errors.Trace(err))
 			continue
 		}
 

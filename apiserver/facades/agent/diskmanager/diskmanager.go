@@ -7,6 +7,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -32,7 +33,7 @@ func NewDiskManagerAPI(
 ) (*DiskManagerAPI, error) {
 
 	if !authorizer.AuthMachineAgent() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	authEntityTag := authorizer.GetAuthTag()
@@ -61,11 +62,11 @@ func (d *DiskManagerAPI) SetMachineBlockDevices(args params.SetMachineBlockDevic
 	for i, arg := range args.MachineBlockDevices {
 		tag, err := names.ParseMachineTag(arg.Machine)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		if !canAccess(tag) {
-			err = common.ErrPerm
+			err = commonerrors.ErrPerm
 		} else {
 			// TODO(axw) create volumes for block devices without matching
 			// volumes, if and only if the block device has a serial. Under
@@ -81,7 +82,7 @@ func (d *DiskManagerAPI) SetMachineBlockDevices(args params.SetMachineBlockDevic
 			err = d.st.SetMachineBlockDevices(tag.Id(), stateBlockDeviceInfo(arg.BlockDevices))
 			// TODO(axw) set volume/filesystem attachment info.
 		}
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }

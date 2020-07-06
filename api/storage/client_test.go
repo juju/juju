@@ -14,7 +14,7 @@ import (
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/storage"
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	jujustorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -63,7 +63,7 @@ func (s *storageMockSuite) TestStorageDetails(c *gc.C) {
 						},
 					},
 					{
-						Error: common.ServerError(errors.New(msg)),
+						Error: commonerrors.ServerError(errors.New(msg)),
 					},
 				}
 				results.Results = instances
@@ -576,7 +576,7 @@ func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
 	}
 
 	storageN := 3
-	expectedError := common.ServerError(errors.NotValidf("storage directive"))
+	expectedError := commonerrors.ServerError(errors.NotValidf("storage directive"))
 	expectedDetails := &params.AddStorageDetails{[]string{"a/0", "b/1"}}
 	one := func(u, s string, attrs params.StorageConstraints) params.AddStorageResult {
 		result := params.AddStorageResult{}

@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiapplication "github.com/juju/juju/api/application"
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/instance"
@@ -189,7 +189,7 @@ func (s *AddUnitSuite) TestAddUnitAttachStorageNotSupported(c *gc.C) {
 
 func (s *AddUnitSuite) TestBlockAddUnit(c *gc.C) {
 	// Block operation
-	s.fake.err = common.OperationBlockedError("TestBlockAddUnit")
+	s.fake.err = commonerrors.OperationBlockedError("TestBlockAddUnit")
 	s.runAddUnit(c, "some-application-name")
 
 	// msg is logged
@@ -280,7 +280,7 @@ func (s *AddUnitSuite) TestCAASAddUnitNotSupported(c *gc.C) {
 	m.ModelType = model.CAAS
 	s.store.Models["arthur"].Models["king/sword"] = m
 
-	s.fake.err = common.ServerError(errors.NotSupportedf(`scale a "daemon" charm`))
+	s.fake.err = commonerrors.ServerError(errors.NotSupportedf(`scale a "daemon" charm`))
 	err := s.runAddUnit(c, "some-application-name")
 	c.Check(err, gc.ErrorMatches, `can not add unit: scale a "daemon" charm not supported`)
 }

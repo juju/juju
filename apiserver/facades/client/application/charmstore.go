@@ -316,7 +316,7 @@ func StoreCharmArchive(st State, archive CharmArchive) error {
 	if err != nil {
 		alreadyUploaded := err == stateerrors.ErrCharmRevisionAlreadyModified ||
 			errors.Cause(err) == stateerrors.ErrCharmRevisionAlreadyModified ||
-			state.IsCharmAlreadyUploadedError(err)
+			stateerrors.IsCharmAlreadyUploadedError(err)
 		if err := storage.Remove(storagePath); err != nil {
 			if alreadyUploaded {
 				logger.Errorf("cannot remove duplicated charm archive from storage: %v", err)

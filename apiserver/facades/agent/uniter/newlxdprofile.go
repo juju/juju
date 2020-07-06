@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
@@ -159,21 +160,21 @@ func (u *LXDProfileAPIv2) WatchInstanceData(args params.Entities) (params.Notify
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		if !canAccess(tag) {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		machine, err := u.getLXDProfileMachineV2(tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		watcherId, err := u.watchOneInstanceData(machine)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
@@ -206,22 +207,22 @@ func (u *LXDProfileAPIv2) LXDProfileName(args params.Entities) (params.StringRes
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 
 		if !canAccess(tag) {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		unit, machine, err := u.getLXDProfileUnitMachineV2(tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		name, err := u.getOneLXDProfileName(unit, machine)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
@@ -263,22 +264,22 @@ func (u *LXDProfileAPIv2) CanApplyLXDProfile(args params.Entities) (params.BoolR
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 
 		if !canAccess(tag) {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		machine, err := u.getLXDProfileMachineV2(tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		name, err := u.getOneCanApplyLXDProfile(machine, providerType)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
@@ -330,13 +331,13 @@ func (u *LXDProfileAPIv2) LXDProfileRequired(args params.CharmURLs) (params.Bool
 	for i, arg := range args.URLs {
 		curl, err := charm.ParseURL(arg.URL)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 
 		required, err := u.getOneLXDProfileRequired(curl)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 

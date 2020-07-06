@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -37,7 +38,7 @@ type MachinerAPI struct {
 // NewMachinerAPI creates a new instance of the Machiner API.
 func NewMachinerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	getCanModify := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
@@ -62,9 +63,9 @@ func NewMachinerAPI(st *state.State, resources facade.Resources, authorizer faca
 func (api *MachinerAPI) getMachine(tag string, authChecker common.AuthFunc) (*state.Machine, error) {
 	mtag, err := names.ParseMachineTag(tag)
 	if err != nil {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	} else if !authChecker(mtag) {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	entity, err := api.st.FindEntity(mtag)
@@ -85,16 +86,16 @@ func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (p
 	for i, arg := range args.MachineAddresses {
 		m, err := api.getMachine(arg.Tag, canModify)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		addresses, err := params.ToProviderAddresses(arg.Addresses...).ToSpaceAddresses(api.st)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if err := m.SetMachineAddresses(addresses...); err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 		}
 	}
 	return results, nil
@@ -114,7 +115,7 @@ func (api *MachinerAPI) Jobs(args params.Entities) (params.JobsResults, error) {
 	for i, agent := range args.Entities {
 		machine, err := api.getMachine(agent.Tag, canRead)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		machineJobs := machine.Jobs()
@@ -140,11 +141,11 @@ func (api *MachinerAPI) RecordAgentStartTime(args params.Entities) (params.Error
 	for i, entity := range args.Entities {
 		m, err := api.getMachine(entity.Tag, canModify)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if err := m.RecordAgentStartTime(); err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 		}
 	}
 	return results, nil

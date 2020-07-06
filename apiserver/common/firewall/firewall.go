@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/charm/v7"
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
@@ -59,7 +59,7 @@ func WatchEgressAddressesForRelations(resources facade.Resources, st State, rela
 
 		changes, ok := <-w.Changes()
 		if !ok {
-			return "", nil, common.ServerError(watcher.EnsureErr(w))
+			return "", nil, commonerrors.ServerError(watcher.EnsureErr(w))
 		}
 		return resources.Register(w), changes, nil
 	}
@@ -67,7 +67,7 @@ func WatchEgressAddressesForRelations(resources facade.Resources, st State, rela
 	for i, e := range relations.Entities {
 		watcherId, changes, err := one(e.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		results.Results[i].StringsWatcherId = watcherId

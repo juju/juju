@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/testing"
@@ -61,12 +61,12 @@ func (f *fakeRetryProvisioningClient) RetryProvisioning(machines ...names.Machin
 				// status data "transient" : true.
 				m.data["transient"] = true
 			} else {
-				results[i].Error = common.ServerError(
+				results[i].Error = commonerrors.ServerError(
 					errors.Errorf("%s is not in an error state",
 						names.ReadableString(machine)))
 			}
 		} else {
-			results[i].Error = common.ServerError(
+			results[i].Error = commonerrors.ServerError(
 				errors.NotFoundf("machine %s", machine.Id()))
 		}
 	}
@@ -142,7 +142,7 @@ func (s *retryProvisioningSuite) TestRetryProvisioning(c *gc.C) {
 }
 
 func (s *retryProvisioningSuite) TestBlockRetryProvisioning(c *gc.C) {
-	s.fake.err = common.OperationBlockedError("TestBlockRetryProvisioning")
+	s.fake.err = commonerrors.OperationBlockedError("TestBlockRetryProvisioning")
 
 	for i, t := range resolvedMachineTests {
 		c.Logf("test %d: %v", i, t.args)

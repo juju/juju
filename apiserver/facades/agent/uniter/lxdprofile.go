@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -118,22 +119,22 @@ func (u *LXDProfileAPI) WatchUnitLXDProfileUpgradeNotifications(args params.Enti
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 
 		if !canAccess(tag) {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		unit, err := u.getLXDProfileUnit(tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		watcherId, initial, err := u.watchOneChangeUnitLXDProfileUpgradeNotifications(unit)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
@@ -171,23 +172,23 @@ func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.LXDProfi
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 
 		if !canAccess(tag) {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		machine, err := u.getLXDProfileMachine(tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
 		watcherId, initial, err := u.watchOneChangeLXDProfileUpgradeNotifications(machine, args.ApplicationName)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -23,7 +24,7 @@ type Facade struct {
 func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthModelAgent() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	resources := ctx.Resources()

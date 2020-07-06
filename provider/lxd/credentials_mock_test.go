@@ -5,10 +5,9 @@
 package lxd
 
 import (
+	gomock "github.com/golang/mock/gomock"
 	net "net"
 	reflect "reflect"
-
-	gomock "github.com/golang/mock/gomock"
 )
 
 // MockCertificateReadWriter is a mock of CertificateReadWriter interface

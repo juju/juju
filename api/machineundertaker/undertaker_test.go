@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/machineundertaker"
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
@@ -81,7 +81,7 @@ func (s *undertakerSuite) TestAllMachineRemovals_ErrorResult(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.EntitiesResults{})
 		*result.(*params.EntitiesResults) = params.EntitiesResults{
 			Results: []params.EntitiesResult{{
-				Error: common.ServerError(errors.New("everythingisterrible")),
+				Error: commonerrors.ServerError(errors.New("everythingisterrible")),
 			}},
 		}
 		return nil

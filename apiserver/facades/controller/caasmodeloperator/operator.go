@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/podcfg"
@@ -40,7 +41,7 @@ func NewAPI(
 	st CAASModelOperatorState) (*API, error) {
 
 	if !authorizer.AuthController() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	return &API{

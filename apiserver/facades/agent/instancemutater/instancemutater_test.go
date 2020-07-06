@@ -15,7 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater/mocks"
@@ -783,7 +783,7 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
-			Error: common.ServerError(common.ErrPerm),
+			Error: commonerrors.ServerError(commonerrors.ErrPerm),
 		}},
 	})
 }
@@ -802,7 +802,7 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
-			Error: common.ServerError(errors.New("cannot obtain initial machine watch application LXD profiles")),
+			Error: commonerrors.ServerError(errors.New("cannot obtain initial machine watch application LXD profiles")),
 		}},
 	})
 }
@@ -821,7 +821,7 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
-			Error: common.ServerError(errors.NotSupportedf("watching lxd profiles on manual machines")),
+			Error: commonerrors.ServerError(errors.NotSupportedf("watching lxd profiles on manual machines")),
 		}},
 	})
 }
@@ -840,7 +840,7 @@ func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDP
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
-			Error: common.ServerError(errors.New("error from model cache")),
+			Error: commonerrors.ServerError(errors.New("error from model cache")),
 		}},
 	})
 }

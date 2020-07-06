@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
@@ -44,7 +45,7 @@ func NewUpgradeSeriesAPI(
 	leadership *common.LeadershipPinning,
 ) (*API, error) {
 	if !authorizer.AuthMachineAgent() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	accessMachine := func() (common.AuthFunc, error) {
@@ -80,12 +81,12 @@ func (a *API) MachineStatus(args params.Entities) (params.UpgradeSeriesStatusRes
 	for i, entity := range args.Entities {
 		machine, err := a.authAndGetMachine(entity, canAccess)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		status, err := machine.UpgradeSeriesStatus()
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		results[i].Status = status
@@ -108,12 +109,12 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 	for i, param := range args.Params {
 		machine, err := a.authAndGetMachine(param.Entity, canAccess)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		err = machine.SetUpgradeSeriesStatus(param.Status, param.Message)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 		}
 	}
 
@@ -137,7 +138,7 @@ func (a *API) CurrentSeries(args params.Entities) (params.StringResults, error) 
 	for i, entity := range args.Entities {
 		machine, err := a.authAndGetMachine(entity, canAccess)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		results[i].Result = machine.Series()
@@ -161,12 +162,12 @@ func (a *API) TargetSeries(args params.Entities) (params.StringResults, error) {
 	for i, entity := range args.Entities {
 		machine, err := a.authAndGetMachine(entity, canAccess)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		target, err := machine.UpgradeSeriesTarget()
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 		}
 		results[i].Result = target
 	}
@@ -188,12 +189,12 @@ func (a *API) StartUnitCompletion(args params.UpgradeSeriesStartUnitCompletionPa
 	for i, entity := range args.Entities {
 		machine, err := a.authAndGetMachine(entity, canAccess)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		err = machine.StartUpgradeSeriesUnitCompletion(args.Message)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 	}
@@ -215,7 +216,7 @@ func (a *API) FinishUpgradeSeries(args params.UpdateSeriesArgs) (params.ErrorRes
 	for i, arg := range args.Args {
 		machine, err := a.authAndGetMachine(arg.Entity, canAccess)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
@@ -229,14 +230,14 @@ func (a *API) FinishUpgradeSeries(args params.UpdateSeriesArgs) (params.ErrorRes
 			logger.Debugf("%q series is unchanged from %q", arg.Entity.Tag, ms)
 		} else {
 			if err := machine.UpdateMachineSeries(arg.Series, true); err != nil {
-				result.Results[i].Error = common.ServerError(err)
+				result.Results[i].Error = commonerrors.ServerError(err)
 				continue
 			}
 		}
 
 		err = machine.RemoveUpgradeSeriesLock()
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 	}
@@ -270,13 +271,13 @@ func (a *API) unitsInState(args params.Entities, status model.UpgradeSeriesStatu
 	for i, entity := range args.Entities {
 		machine, err := a.authAndGetMachine(entity, canAccess)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
 		statuses, err := machine.UpgradeSeriesUnitStatuses()
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
@@ -299,7 +300,7 @@ func (a *API) authAndGetMachine(e params.Entity, canAccess common.AuthFunc) (com
 		return nil, err
 	}
 	if !canAccess(tag) {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	return a.GetMachine(tag)
 }

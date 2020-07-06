@@ -10,7 +10,6 @@ import (
 	"gopkg.in/goose.v2/client"
 	"gopkg.in/goose.v2/identity"
 
-	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
 

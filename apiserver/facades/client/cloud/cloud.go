@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -259,7 +260,7 @@ func NewFacadeV1(context facade.Context) (*CloudAPIV1, error) {
 // cloud definition and cloud credentials.
 func NewCloudAPI(backend, ctlrBackend Backend, pool ModelPoolBackend, authorizer facade.Authorizer) (*CloudAPI, error) {
 	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	authUser, _ := authorizer.GetAuthTag().(names.UserTag)
@@ -361,7 +362,7 @@ func (api *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 	for i, arg := range args.Entities {
 		aCloud, err := one(arg)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 		} else {
 			results.Results[i].Cloud = aCloud
 		}
@@ -386,7 +387,7 @@ func (api *CloudAPI) CloudInfo(args params.Entities) (params.CloudInfoResults, e
 	for i, arg := range args.Entities {
 		cloudInfo, err := oneCloudInfo(arg)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = cloudInfo
@@ -477,7 +478,7 @@ func (api *CloudAPI) getCloudInfo(tag names.CloudTag) (*params.CloudInfo, error)
 	if len(info.Users) == 0 {
 		// No users, which means the authenticated user doesn't
 		// have access to the cloud.
-		return nil, errors.Trace(common.ErrPerm)
+		return nil, errors.Trace(commonerrors.ErrPerm)
 	}
 	return &info, nil
 }
@@ -532,27 +533,27 @@ func (api *CloudAPI) UserCredentials(args params.UserClouds) (params.StringsResu
 	for i, arg := range args.UserClouds {
 		userTag, err := names.ParseUserTag(arg.UserTag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if !authFunc(userTag) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			results.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		cloudTag, err := names.ParseCloudTag(arg.CloudTag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		cloudCredentials, err := api.backend.CloudCredentials(userTag, cloudTag.Id())
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		out := make([]string, 0, len(cloudCredentials))
 		for tagId := range cloudCredentials {
 			if !names.IsValidCloudCredential(tagId) {
-				results.Results[i].Error = common.ServerError(errors.NotValidf("cloud credential ID %q", tagId))
+				results.Results[i].Error = commonerrors.ServerError(errors.NotValidf("cloud credential ID %q", tagId))
 				continue
 			}
 			out = append(out, names.NewCloudCredentialTag(tagId).String())
@@ -578,13 +579,13 @@ func (api *CloudAPI) AddCredentials(args params.TaggedCredentials) (params.Error
 	for i, arg := range args.Credentials {
 		tag, err := names.ParseCloudCredentialTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		// NOTE(axw) if we add ACLs for cloud credentials, we'll need
 		// to change this auth check.
 		if !authFunc(tag.Owner()) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			results.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 
@@ -593,7 +594,7 @@ func (api *CloudAPI) AddCredentials(args params.TaggedCredentials) (params.Error
 			arg.Credential.Attributes,
 		)
 		if err := api.backend.UpdateCloudCredential(tag, in); err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 	}
@@ -639,7 +640,7 @@ func (api *CloudAPI) commonUpdateCredentials(update bool, force, legacy bool, ar
 			return params.UpdateCredentialResults{}, errors.Trace(err)
 		}
 		if !isControllerAdmin {
-			return params.UpdateCredentialResults{}, errors.Annotatef(common.ErrBadRequest, "unexpected force specified")
+			return params.UpdateCredentialResults{}, errors.Annotatef(commonerrors.ErrBadRequest, "unexpected force specified")
 		}
 	}
 
@@ -653,13 +654,13 @@ func (api *CloudAPI) commonUpdateCredentials(update bool, force, legacy bool, ar
 		results[i].CredentialTag = arg.Tag
 		tag, err := names.ParseCloudCredentialTag(arg.Tag)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		// NOTE(axw) if we add ACLs for cloud credentials, we'll need
 		// to change this auth check.
 		if !authFunc(tag.Owner()) {
-			results[i].Error = common.ServerError(common.ErrPerm)
+			results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		in := cloud.NewCredential(
@@ -670,7 +671,7 @@ func (api *CloudAPI) commonUpdateCredentials(update bool, force, legacy bool, ar
 		models, err := api.credentialModels(tag)
 		if err != nil {
 			if legacy || !force {
-				results[i].Error = common.ServerError(err)
+				results[i].Error = commonerrors.ServerError(err)
 			}
 			if !force {
 				// Could not determine if credential has models - do not continue updating this credential...
@@ -702,7 +703,7 @@ func (api *CloudAPI) commonUpdateCredentials(update bool, force, legacy bool, ar
 
 		if modelsErred {
 			if legacy {
-				results[i].Error = common.ServerError(errors.New("some models are no longer visible"))
+				results[i].Error = commonerrors.ServerError(errors.New("some models are no longer visible"))
 			}
 			if !force {
 				// Some models that use this credential do not like the new content, do not update the credential...
@@ -717,7 +718,7 @@ func (api *CloudAPI) commonUpdateCredentials(update bool, force, legacy bool, ar
 						"cannot update credential %q: controller does not manage cloud %q",
 						tag.Name(), tag.Cloud().Id())
 				}
-				results[i].Error = common.ServerError(err)
+				results[i].Error = commonerrors.ServerError(err)
 			}
 		}
 	}
@@ -737,7 +738,7 @@ func (api *CloudAPI) validateCredentialForModel(modelUUID string, tag names.Clou
 
 	m, callContext, err := api.pool.GetModelCallContext(modelUUID)
 	if err != nil {
-		return append(result, params.ErrorResult{common.ServerError(err)})
+		return append(result, params.ErrorResult{commonerrors.ServerError(err)})
 	}
 
 	modelErrors, err := validateNewCredentialForModelFunc(
@@ -748,7 +749,7 @@ func (api *CloudAPI) validateCredentialForModel(modelUUID string, tag names.Clou
 		false,
 	)
 	if err != nil {
-		return append(result, params.ErrorResult{common.ServerError(err)})
+		return append(result, params.ErrorResult{commonerrors.ServerError(err)})
 	}
 	if len(modelErrors.Results) > 0 {
 		return append(result, modelErrors.Results...)
@@ -799,7 +800,7 @@ func (api *CloudAPIV2) UpdateCredentials(args params.TaggedCredentials) (params.
 			if len(m.Errors) > 0 {
 				modelErors := params.ErrorResults{m.Errors}
 				combined := errors.Annotatef(modelErors.Combine(), "model %q (uuid %v)", m.ModelName, m.ModelUUID)
-				resultErrors = append(resultErrors, params.ErrorResult{common.ServerError(combined)})
+				resultErrors = append(resultErrors, params.ErrorResult{commonerrors.ServerError(combined)})
 			}
 		}
 		if len(resultErrors) == 1 {
@@ -808,7 +809,7 @@ func (api *CloudAPIV2) UpdateCredentials(args params.TaggedCredentials) (params.
 		}
 		if len(resultErrors) > 1 {
 			credentialError := params.ErrorResults{resultErrors}
-			results.Results[i].Error = common.ServerError(credentialError.Combine())
+			results.Results[i].Error = commonerrors.ServerError(credentialError.Combine())
 		}
 	}
 	return results, nil
@@ -833,13 +834,13 @@ func (api *CloudAPIV2) RevokeCredentials(args params.Entities) (params.ErrorResu
 	for i, arg := range args.Entities {
 		tag, err := names.ParseCloudCredentialTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		// NOTE(axw) if we add ACLs for cloud credentials, we'll need
 		// to change this auth check.
 		if !authFunc(tag.Owner()) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			results.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 
@@ -854,7 +855,7 @@ func (api *CloudAPIV2) RevokeCredentials(args params.Entities) (params.ErrorResu
 		}
 
 		if err := api.backend.RemoveCloudCredential(tag); err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 		}
 	}
 	return results, nil
@@ -916,13 +917,13 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialAr
 	for i, arg := range args.Credentials {
 		tag, err := names.ParseCloudCredentialTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		// NOTE(axw) if we add ACLs for cloud credentials, we'll need
 		// to change this auth check.
 		if !authFunc(tag.Owner()) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			results.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 
@@ -930,7 +931,7 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialAr
 		if err != nil {
 			if !arg.Force {
 				// Could not determine if credential has models - do not continue revoking this credential...
-				results.Results[i].Error = common.ServerError(err)
+				results.Results[i].Error = commonerrors.ServerError(err)
 				continue
 			}
 			logger.Warningf("could not get models that use credential %v: %v", tag, err)
@@ -943,18 +944,18 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialAr
 			)
 			if !arg.Force {
 				// Some models still use this credential - do not delete this credential...
-				results.Results[i].Error = common.ServerError(errors.Errorf("cannot revoke credential %v: it is still used by %d model%v", tag, len(models), plural(len(models))))
+				results.Results[i].Error = commonerrors.ServerError(errors.Errorf("cannot revoke credential %v: it is still used by %d model%v", tag, len(models), plural(len(models))))
 				continue
 			}
 		}
 		err = api.backend.RemoveCloudCredential(tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 		} else {
 			// If credential was successfully removed, we also want to clear all references to it from the models.
 			// lp#1841885
 			if err := api.backend.RemoveModelsCredential(tag); err != nil {
-				results.Results[i].Error = common.ServerError(err)
+				results.Results[i].Error = commonerrors.ServerError(err)
 			}
 		}
 	}
@@ -974,11 +975,11 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 	for i, arg := range args.Entities {
 		credentialTag, err := names.ParseCloudCredentialTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if !authFunc(credentialTag.Owner()) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			results.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 
@@ -1003,19 +1004,19 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 		}
 		cloudCredentials, err := api.backend.CloudCredentials(credentialTag.Owner(), credentialTag.Cloud().Id())
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
 		cred, ok := cloudCredentials[credentialTag.Id()]
 		if !ok {
-			results.Results[i].Error = common.ServerError(errors.NotFoundf("credential %q", credentialTag.Name()))
+			results.Results[i].Error = commonerrors.ServerError(errors.NotFoundf("credential %q", credentialTag.Name()))
 			continue
 		}
 
 		schemas, err := credentialSchemas()
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
@@ -1045,7 +1046,7 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	} else if !isAdmin {
-		return common.ServerError(common.ErrPerm)
+		return commonerrors.ServerError(commonerrors.ErrPerm)
 	}
 
 	if cloudArgs.Cloud.Type != string(provider.K8s_ProviderType) {
@@ -1060,7 +1061,7 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 		}
 		if err := cloud.CurrentWhiteList().Check(controllerCloud.Type, cloudArgs.Cloud.Type); err != nil {
 			if cloudArgs.Force == nil || !*cloudArgs.Force {
-				return common.ServerError(params.Error{Code: params.CodeIncompatibleClouds, Message: err.Error()})
+				return commonerrors.ServerError(params.Error{Code: params.CodeIncompatibleClouds, Message: err.Error()})
 			}
 			logger.Infof("force adding cloud %q of type %q to controller bootstrapped on cloud type %q", cloudArgs.Name, cloudArgs.Cloud.Type, controllerCloud.Type)
 		}
@@ -1085,11 +1086,11 @@ func (api *CloudAPI) UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.Error
 	if err != nil && !errors.IsNotFound(err) {
 		return results, errors.Trace(err)
 	} else if !isAdmin {
-		return results, common.ServerError(common.ErrPerm)
+		return results, commonerrors.ServerError(commonerrors.ErrPerm)
 	}
 	for i, aCloud := range cloudArgs.Clouds {
 		err := api.backend.UpdateCloud(common.CloudFromParams(aCloud.Name, aCloud.Cloud))
-		results.Results[i].Error = common.ServerError(err)
+		results.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return results, nil
 }
@@ -1114,23 +1115,23 @@ func (api *CloudAPI) RemoveClouds(args params.Entities) (params.ErrorResults, er
 	for i, entity := range args.Entities {
 		tag, err := names.ParseCloudTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		// Ensure user has permission to remove the cloud.
 		if !isAdmin {
 			canAccess, err := api.canAccessCloud(tag.Id(), api.apiUser, permission.AdminAccess)
 			if err != nil {
-				result.Results[i].Error = common.ServerError(err)
+				result.Results[i].Error = commonerrors.ServerError(err)
 				continue
 			}
 			if !canAccess {
-				result.Results[i].Error = common.ServerError(common.ErrPerm)
+				result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 				continue
 			}
 		}
 		err = api.backend.RemoveCloud(tag.Id())
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1179,7 +1180,7 @@ func (api *CloudAPI) internalCredentialContents(args params.CloudCredentialArgs,
 	stateIntoParam := func(credential state.Credential, includeSecrets bool) params.CredentialContentResult {
 		schemas, err := credentialSchemas(credential.Cloud)
 		if err != nil {
-			return params.CredentialContentResult{Error: common.ServerError(err)}
+			return params.CredentialContentResult{Error: commonerrors.ServerError(err)}
 		}
 		attrs := map[string]string{}
 		// Filter out the secrets.
@@ -1209,12 +1210,12 @@ func (api *CloudAPI) internalCredentialContents(args params.CloudCredentialArgs,
 		// get models
 		tag, err := credential.CloudCredentialTag()
 		if err != nil {
-			return params.CredentialContentResult{Error: common.ServerError(err)}
+			return params.CredentialContentResult{Error: commonerrors.ServerError(err)}
 		}
 
 		models, err := api.backend.CredentialModelsAndOwnerAccess(tag)
 		if err != nil && !errors.IsNotFound(err) {
-			return params.CredentialContentResult{Error: common.ServerError(err)}
+			return params.CredentialContentResult{Error: commonerrors.ServerError(err)}
 		}
 		info.Models = make([]params.ModelAccess, len(models))
 		for i, m := range models {
@@ -1247,7 +1248,7 @@ func (api *CloudAPI) internalCredentialContents(args params.CloudCredentialArgs,
 			id := credId(given.CloudName, given.CredentialName)
 			if !names.IsValidCloudCredential(id) {
 				result[i] = params.CredentialContentResult{
-					Error: common.ServerError(errors.NotValidf("cloud credential ID %q", id)),
+					Error: commonerrors.ServerError(errors.NotValidf("cloud credential ID %q", id)),
 				}
 				continue
 			}
@@ -1255,7 +1256,7 @@ func (api *CloudAPI) internalCredentialContents(args params.CloudCredentialArgs,
 			credential, err := api.backend.CloudCredential(tag)
 			if err != nil {
 				result[i] = params.CredentialContentResult{
-					Error: common.ServerError(err),
+					Error: commonerrors.ServerError(err),
 				}
 				continue
 			}
@@ -1277,49 +1278,49 @@ func (c *CloudAPI) ModifyCloudAccess(args params.ModifyCloudAccessRequest) (para
 	for i, arg := range args.Changes {
 		cloudTag, err := names.ParseCloudTag(arg.CloudTag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		_, err = c.backend.Cloud(cloudTag.Id())
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if c.apiUser.String() == arg.UserTag {
-			result.Results[i].Error = common.ServerError(errors.New("cannot change your own cloud access"))
+			result.Results[i].Error = commonerrors.ServerError(errors.New("cannot change your own cloud access"))
 			continue
 		}
 
 		isAdmin, err := c.authorizer.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if !isAdmin {
 			callerAccess, err := c.backend.GetCloudAccess(cloudTag.Id(), c.apiUser)
 			if err != nil {
-				result.Results[i].Error = common.ServerError(err)
+				result.Results[i].Error = commonerrors.ServerError(err)
 				continue
 			}
 			if callerAccess != permission.AdminAccess {
-				result.Results[i].Error = common.ServerError(common.ErrPerm)
+				result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 				continue
 			}
 		}
 
 		cloudAccess := permission.Access(arg.Access)
 		if err := permission.ValidateCloudAccess(cloudAccess); err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
 		targetUserTag, err := names.ParseUserTag(arg.UserTag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not modify cloud access"))
+			result.Results[i].Error = commonerrors.ServerError(errors.Annotate(err, "could not modify cloud access"))
 			continue
 		}
 
-		result.Results[i].Error = common.ServerError(
+		result.Results[i].Error = commonerrors.ServerError(
 			ChangeCloudAccess(c.backend, cloudTag.Id(), targetUserTag, arg.Action, cloudAccess))
 	}
 	return result, nil

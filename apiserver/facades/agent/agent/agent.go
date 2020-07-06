@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
@@ -39,7 +40,7 @@ type AgentAPIV2 struct {
 func NewAgentAPIV2(st *state.State, resources facade.Resources, auth facade.Authorizer) (*AgentAPIV2, error) {
 	// Agents are defined to be any user that's not a client user.
 	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	getCanChange := func() (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
@@ -75,11 +76,11 @@ func (api *AgentAPIV2) GetEntities(args params.Entities) params.AgentGetEntities
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			results.Entities[i].Error = common.ServerError(err)
+			results.Entities[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		result, err := api.getEntity(tag)
-		result.Error = common.ServerError(err)
+		result.Error = commonerrors.ServerError(err)
 		results.Entities[i] = result
 	}
 	return results
@@ -90,7 +91,7 @@ func (api *AgentAPIV2) getEntity(tag names.Tag) (result params.AgentGetEntitiesR
 	// Note: having a bulk API call for this is utter madness, given that
 	// this check means we can only ever return a single object.
 	if !api.auth.AuthOwner(tag) {
-		err = common.ErrPerm
+		err = commonerrors.ErrPerm
 		return
 	}
 	entity0, err := api.st.FindEntity(tag)
@@ -99,7 +100,7 @@ func (api *AgentAPIV2) getEntity(tag names.Tag) (result params.AgentGetEntitiesR
 	}
 	entity, ok := entity0.(state.Lifer)
 	if !ok {
-		err = common.NotSupportedError(tag, "life cycles")
+		err = commonerrors.NotSupportedError(tag, "life cycles")
 		return
 	}
 	result.Life = life.Value(entity.Life().String())
@@ -112,7 +113,7 @@ func (api *AgentAPIV2) getEntity(tag names.Tag) (result params.AgentGetEntitiesR
 
 func (api *AgentAPIV2) StateServingInfo() (result params.StateServingInfo, err error) {
 	if !api.auth.AuthController() {
-		err = common.ErrPerm
+		err = commonerrors.ErrPerm
 		return
 	}
 	info, err := api.st.StateServingInfo()
@@ -146,14 +147,14 @@ var MongoIsMaster = mongo.IsMaster
 
 func (api *AgentAPIV2) IsMaster() (params.IsMasterResult, error) {
 	if !api.auth.AuthController() {
-		return params.IsMasterResult{}, common.ErrPerm
+		return params.IsMasterResult{}, commonerrors.ErrPerm
 	}
 
 	switch tag := api.auth.GetAuthTag().(type) {
 	case names.MachineTag:
 		machine, err := api.st.Machine(tag.Id())
 		if err != nil {
-			return params.IsMasterResult{}, common.ErrPerm
+			return params.IsMasterResult{}, commonerrors.ErrPerm
 		}
 
 		session := api.st.MongoSession()
@@ -175,7 +176,7 @@ func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []model.MachineJob {
 // WatchCredentials watches for changes to the specified credentials.
 func (api *AgentAPIV2) WatchCredentials(args params.Entities) (params.NotifyWatchResults, error) {
 	if !api.auth.AuthController() {
-		return params.NotifyWatchResults{}, common.ErrPerm
+		return params.NotifyWatchResults{}, commonerrors.ErrPerm
 	}
 
 	results := params.NotifyWatchResults{
@@ -184,7 +185,7 @@ func (api *AgentAPIV2) WatchCredentials(args params.Entities) (params.NotifyWatc
 	for i, entity := range args.Entities {
 		credentialTag, err := names.ParseCloudCredentialTag(entity.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		watch := api.st.WatchCredential(credentialTag)
@@ -195,7 +196,7 @@ func (api *AgentAPIV2) WatchCredentials(args params.Entities) (params.NotifyWatc
 			results.Results[i].NotifyWatcherId = api.resources.Register(watch)
 		} else {
 			err = watcher.EnsureErr(watch)
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 		}
 	}
 	return results, nil

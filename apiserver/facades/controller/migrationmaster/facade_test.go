@@ -18,6 +18,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster/mocks"
@@ -69,7 +70,7 @@ func (s *Suite) TestNotController(c *gc.C) {
 
 	api, err := s.makeAPI()
 	c.Assert(api, gc.IsNil)
-	c.Assert(err, gc.Equals, common.ErrPerm)
+	c.Assert(err, gc.Equals, commonerrors.ErrPerm)
 }
 
 func (s *Suite) TestWatch(c *gc.C) {

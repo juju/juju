@@ -6,8 +6,8 @@ package credentialmanager
 import (
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -34,7 +34,7 @@ func NewCredentialManagerAPI(ctx facade.Context) (*CredentialManagerAPI, error) 
 
 func internalNewCredentialManagerAPI(backend credentialcommon.StateBackend, resources facade.Resources, authorizer facade.Authorizer) (*CredentialManagerAPI, error) {
 	if authorizer.GetAuthTag() == nil || !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	return &CredentialManagerAPI{

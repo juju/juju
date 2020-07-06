@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/permission"
@@ -38,7 +38,7 @@ func NewAPI(
 	authorizer facade.Authorizer,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	m, err := st.Model()
 	if err != nil {
@@ -57,7 +57,7 @@ func (api *API) checkCanRead() error {
 		return errors.Trace(err)
 	}
 	if !canRead {
-		return common.ErrPerm
+		return commonerrors.ErrPerm
 	}
 	return nil
 }
@@ -68,7 +68,7 @@ func (api *API) checkCanWrite() error {
 		return errors.Trace(err)
 	}
 	if !canWrite {
-		return common.ErrPerm
+		return commonerrors.ErrPerm
 	}
 	return nil
 }
@@ -80,7 +80,7 @@ func (api *API) Get(args params.Entities) params.AnnotationsGetResults {
 	if err := api.checkCanRead(); err != nil {
 		result := make([]params.AnnotationsGetResult, len(args.Entities))
 		for i := range result {
-			result[i].Error = params.ErrorResult{Error: common.ServerError(err)}
+			result[i].Error = params.ErrorResult{Error: commonerrors.ServerError(err)}
 		}
 		return params.AnnotationsGetResults{Results: result}
 	}
@@ -103,7 +103,7 @@ func (api *API) Set(args params.AnnotationsSet) params.ErrorResults {
 	if err := api.checkCanWrite(); err != nil {
 		errorResults := make([]params.ErrorResult, len(args.Annotations))
 		for i := range errorResults {
-			errorResults[i].Error = common.ServerError(err)
+			errorResults[i].Error = commonerrors.ServerError(err)
 		}
 		return params.ErrorResults{Results: errorResults}
 	}
@@ -119,7 +119,7 @@ func (api *API) Set(args params.AnnotationsSet) params.ErrorResults {
 }
 
 func annotateError(err error, tag, op string) *params.Error {
-	return common.ServerError(
+	return commonerrors.ServerError(
 		errors.Trace(
 			errors.Annotatef(
 				err, "while %v annotations to %q", op, tag)))
@@ -145,13 +145,13 @@ func (api *API) findEntity(tag names.Tag) (state.GlobalEntity, error) {
 	entity0, err := api.access.FindEntity(tag)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, common.ErrPerm
+			return nil, commonerrors.ErrPerm
 		}
 		return nil, err
 	}
 	entity, ok := entity0.(state.GlobalEntity)
 	if !ok {
-		return nil, common.NotSupportedError(tag, "annotations")
+		return nil, commonerrors.NotSupportedError(tag, "annotations")
 	}
 	return entity, nil
 }

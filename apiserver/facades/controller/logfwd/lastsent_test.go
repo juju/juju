@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facades/controller/logfwd"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -200,7 +200,7 @@ func (s *LastSentSuite) TestSetLastSentBulk(c *gc.C) {
 		Results: []params.ErrorResult{{
 			Error: nil,
 		}, {
-			Error: common.ServerError(failure),
+			Error: commonerrors.ServerError(failure),
 		}, {
 			Error: nil,
 		}},

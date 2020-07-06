@@ -8,7 +8,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
@@ -210,7 +210,7 @@ func Result2api(result payload.Result) params.PayloadResult {
 	}
 
 	if result.Error != nil {
-		res.Error = common.ServerError(result.Error)
+		res.Error = commonerrors.ServerError(result.Error)
 	}
 
 	return res

@@ -6,7 +6,7 @@ package payloads
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
@@ -17,7 +17,7 @@ import (
 // NewFacade provides the signature required for facade registration.
 func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
 	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	backend, err := st.ModelPayloads()
 	if err != nil {

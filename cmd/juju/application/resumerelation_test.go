@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -70,7 +70,7 @@ func (s *ResumeRelationSuite) TestResumeRelationFail(c *gc.C) {
 }
 
 func (s *ResumeRelationSuite) TestResumeRelationBlocked(c *gc.C) {
-	s.mockAPI.SetErrors(common.OperationBlockedError("TestResumeRelationBlocked"))
+	s.mockAPI.SetErrors(commonerrors.OperationBlockedError("TestResumeRelationBlocked"))
 	err := s.runResumeRelation(c, "123")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestResumeRelationBlocked.*")
 	s.mockAPI.CheckCall(c, 0, "SetRelationSuspended", []int{123}, false, "")

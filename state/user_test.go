@@ -141,11 +141,6 @@ func (s *UserSuite) TestRemoveUserNonExistent(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
-func isDeletedUserError(err error) bool {
-	_, ok := errors.Cause(err).(state.DeletedUserError)
-	return ok
-}
-
 func (s *UserSuite) TestAllUsersSkipsDeletedUsers(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "one"})
 	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "two"})
@@ -192,21 +187,21 @@ func (s *UserSuite) TestRemoveUser(c *gc.C) {
 	// Check that we cannot update last login.
 	err = u.UpdateLastLogin()
 	c.Check(err, gc.NotNil)
-	c.Check(isDeletedUserError(err), jc.IsTrue)
+	c.Check(err, jc.Satisfies, state.IsDeletedUserError)
 	c.Check(err.Error(), jc.DeepEquals,
 		fmt.Sprintf("cannot update last login: user %q is permanently deleted", user.Name()))
 
 	// Check that we cannot set a password.
 	err = u.SetPassword("should fail too")
 	c.Check(err, gc.NotNil)
-	c.Check(isDeletedUserError(err), jc.IsTrue)
+	c.Check(err, jc.Satisfies, state.IsDeletedUserError)
 	c.Check(err.Error(), jc.DeepEquals,
 		fmt.Sprintf("cannot set password: user %q is permanently deleted", user.Name()))
 
 	// Check that we cannot set the password hash.
 	err = u.SetPasswordHash("also", "fail")
 	c.Check(err, gc.NotNil)
-	c.Check(isDeletedUserError(err), jc.IsTrue)
+	c.Check(err, jc.Satisfies, state.IsDeletedUserError)
 	c.Check(err.Error(), jc.DeepEquals,
 		fmt.Sprintf("cannot set password hash: user %q is permanently deleted", user.Name()))
 
@@ -216,14 +211,14 @@ func (s *UserSuite) TestRemoveUser(c *gc.C) {
 	// Check that we cannot enable the user.
 	err = u.Enable()
 	c.Check(err, gc.NotNil)
-	c.Check(isDeletedUserError(err), jc.IsTrue)
+	c.Check(err, jc.Satisfies, state.IsDeletedUserError)
 	c.Check(err.Error(), jc.DeepEquals,
 		fmt.Sprintf("cannot enable: user %q is permanently deleted", user.Name()))
 
 	// Check that we cannot disable the user.
 	err = u.Disable()
 	c.Check(err, gc.NotNil)
-	c.Check(isDeletedUserError(err), jc.IsTrue)
+	c.Check(err, jc.Satisfies, state.IsDeletedUserError)
 	c.Check(err.Error(), jc.DeepEquals,
 		fmt.Sprintf("cannot disable: user %q is permanently deleted", user.Name()))
 

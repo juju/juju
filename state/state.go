@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	stateerrors "github.com/juju/juju/state/errors"
 	raftleasestore "github.com/juju/juju/state/raftlease"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
@@ -666,7 +667,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, ignoreAgentVers
 		// return a more helpful error message in the case of an
 		// active upgradeInfo document being in place.
 		if upgrading, _ := st.IsUpgrading(); upgrading {
-			err = errUpgradeInProgress
+			err = stateerrors.ErrUpgradeInProgress
 		} else {
 			err = errors.Annotate(err, "cannot set agent version")
 		}

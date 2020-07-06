@@ -4,7 +4,7 @@
 package imagemetadata
 
 import (
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -14,7 +14,7 @@ type API struct{}
 // NewAPI returns a new cloud image metadata API facade.
 func NewAPI(ctx facade.Context) (*API, error) {
 	if !ctx.Auth().AuthController() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	return &API{}, nil

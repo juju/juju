@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	pscontroller "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"

@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/cache"
@@ -44,7 +44,7 @@ func NewLoggerAPI(ctx facade.Context) (*LoggerAPI, error) {
 		!authorizer.AuthUnitAgent() &&
 		!authorizer.AuthApplicationAgent() &&
 		!authorizer.AuthModelAgent() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	m, err := ctx.Controller().Model(st.ModelUUID())
 	if err != nil {
@@ -68,10 +68,10 @@ func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatch
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result[i].Error = common.ServerError(err)
+			result[i].Error = commonerrors.ServerError(err)
 			continue
 		}
-		err = common.ErrPerm
+		err = commonerrors.ErrPerm
 		if api.authorizer.AuthOwner(tag) {
 			watch := api.model.WatchConfig("logging-config")
 			// Consume the initial event. Technically, API calls to Watch
@@ -84,7 +84,7 @@ func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatch
 				err = errors.New("programming error: channel should not be closed")
 			}
 		}
-		result[i].Error = common.ServerError(err)
+		result[i].Error = commonerrors.ServerError(err)
 	}
 	return params.NotifyWatchResults{Results: result}
 }
@@ -100,10 +100,10 @@ func (api *LoggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
-		err = common.ErrPerm
+		err = commonerrors.ErrPerm
 		if api.authorizer.AuthOwner(tag) {
 			if configErr == nil {
 				results[i].Result = config.LoggingConfig()
@@ -112,7 +112,7 @@ func (api *LoggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
 				err = configErr
 			}
 		}
-		results[i].Error = common.ServerError(err)
+		results[i].Error = commonerrors.ServerError(err)
 	}
 	return params.StringResults{Results: results}
 }

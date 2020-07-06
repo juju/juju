@@ -23,7 +23,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/resource"
@@ -143,7 +143,7 @@ func (s *ResourcesHandlerSuite) TestPutChangeBlocked(c *gc.C) {
 	s.backend.ReturnGetResource = stored
 	s.backend.ReturnSetResource = res
 
-	expectedError := common.OperationBlockedError("test block")
+	expectedError := commonerrors.OperationBlockedError("test block")
 	s.handler.ChangeAllowedFunc = func(*http.Request) error {
 		return expectedError
 	}
@@ -151,7 +151,7 @@ func (s *ResourcesHandlerSuite) TestPutChangeBlocked(c *gc.C) {
 	req, _ := newUploadRequest(c, "spam", "a-application", uploadContent)
 	s.handler.ServeHTTP(s.recorder, req)
 
-	expected := mustMarshalJSON(&params.ErrorResult{common.ServerError(expectedError)})
+	expected := mustMarshalJSON(&params.ErrorResult{commonerrors.ServerError(expectedError)})
 	s.checkResp(c, http.StatusBadRequest, "application/json", string(expected))
 }
 

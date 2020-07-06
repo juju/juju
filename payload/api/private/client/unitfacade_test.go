@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
@@ -199,7 +199,7 @@ func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 			},
 			Payload:  nil,
 			NotFound: true,
-			Error:    common.ServerError(errors.NotFoundf("payload")),
+			Error:    commonerrors.ServerError(errors.NotFoundf("payload")),
 		}, {
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id2).String(),

@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/params"
@@ -284,7 +285,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 	expected := params.ModelStatusResults{
 		Results: []params.ModelStatus{
 			{
-				Error: common.ServerError(errors.New(`"fail.me" is not a valid tag`))},
+				Error: commonerrors.ServerError(errors.New(`"fail.me" is not a valid tag`))},
 			{
 				ModelTag: s.Model.ModelTag().String(),
 				Life:     life.Value(s.Model.Life().String()),

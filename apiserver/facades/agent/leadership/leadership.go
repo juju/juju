@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -72,12 +72,12 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 		result := &results[pIdx]
 		applicationTag, unitTag, err := parseApplicationAndUnitTags(p.ApplicationTag, p.UnitTag)
 		if err != nil {
-			result.Error = common.ServerError(err)
+			result.Error = commonerrors.ServerError(err)
 			continue
 		}
 		duration := time.Duration(p.DurationSeconds * float64(time.Second))
 		if duration > MaxLeaseRequest || duration < MinLeaseRequest {
-			result.Error = common.ServerError(errors.New("invalid duration"))
+			result.Error = commonerrors.ServerError(errors.New("invalid duration"))
 			continue
 		}
 
@@ -93,11 +93,11 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 			canClaim = m.authorizer.AuthOwner(applicationTag)
 		}
 		if !canClaim {
-			result.Error = common.ServerError(common.ErrPerm)
+			result.Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		if err = m.claimer.ClaimLeadership(applicationTag.Id(), unitTag.Id(), duration); err != nil {
-			result.Error = common.ServerError(err)
+			result.Error = commonerrors.ServerError(err)
 		}
 	}
 
@@ -116,11 +116,11 @@ func (m *leadershipService) BlockUntilLeadershipReleased(ctx context.Context, ap
 	}
 
 	if !hasPerm {
-		return params.ErrorResult{Error: common.ServerError(common.ErrPerm)}, nil
+		return params.ErrorResult{Error: commonerrors.ServerError(commonerrors.ErrPerm)}, nil
 	}
 
 	if err := m.claimer.BlockUntilLeadershipReleased(applicationTag.Id(), ctx.Done()); err != nil {
-		return params.ErrorResult{Error: common.ServerError(err)}, nil
+		return params.ErrorResult{Error: commonerrors.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
 }
@@ -152,12 +152,12 @@ func parseApplicationAndUnitTags(
 	// error only triggers when the strings fail to match that format.
 	applicationTag, err := names.ParseApplicationTag(applicationTagString)
 	if err != nil {
-		return names.ApplicationTag{}, names.UnitTag{}, common.ErrPerm
+		return names.ApplicationTag{}, names.UnitTag{}, commonerrors.ErrPerm
 	}
 
 	unitTag, err := names.ParseUnitTag(unitTagString)
 	if err != nil {
-		return names.ApplicationTag{}, names.UnitTag{}, common.ErrPerm
+		return names.ApplicationTag{}, names.UnitTag{}, commonerrors.ErrPerm
 	}
 
 	return applicationTag, unitTag, nil

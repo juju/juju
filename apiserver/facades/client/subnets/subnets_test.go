@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	networkcommonmocks "github.com/juju/juju/apiserver/common/networkingcommon/mocks"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -207,7 +208,7 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 		s.callContext,
 		s.resources, agentAuthorizer,
 	)
-	c.Assert(err, jc.DeepEquals, common.ErrPerm)
+	c.Assert(err, jc.DeepEquals, commonerrors.ErrPerm)
 	c.Assert(facade, gc.IsNil)
 	// No calls so far.
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)

@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/cmd/jujud/agent/config"
 	"github.com/juju/juju/worker/uniter"
@@ -249,7 +249,7 @@ func setupRemoteConfiguration(params initializeUnitParams, cancel <-chan struct{
 		return "", "", errors.Trace(err)
 	}
 
-	serviceAddress := os.Getenv(provider.OperatorServiceIPEnvName)
+	serviceAddress := os.Getenv(caasconstants.OperatorServiceIPEnvName)
 	params.Logger.Debugf("operator service address: %v", serviceAddress)
 	token, err := utils.RandomPassword()
 	if err != nil {

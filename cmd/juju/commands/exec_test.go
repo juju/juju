@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -806,7 +806,7 @@ func (m *mockExecAPI) RunOnAllMachines(commands string, timeout time.Duration) (
 	var result []params.ActionResult
 
 	if m.block {
-		return result, common.OperationBlockedError("the operation has been blocked")
+		return result, commonerrors.OperationBlockedError("the operation has been blocked")
 	}
 	sortedMachineIds := make([]string, 0, len(m.machines))
 	for machineId := range m.machines {
@@ -837,7 +837,7 @@ func (m *mockExecAPI) Run(runParams params.RunParams) ([]params.ActionResult, er
 	m.execParams = &runParams
 
 	if m.block {
-		return result, common.OperationBlockedError("the operation has been blocked")
+		return result, commonerrors.OperationBlockedError("the operation has been blocked")
 	}
 	// Just add in ids that match in order.
 	for _, id := range runParams.Machines {

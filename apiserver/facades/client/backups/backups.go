@@ -12,6 +12,7 @@ import (
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
@@ -70,7 +71,7 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 	}
 
 	if !authorizer.AuthClient() || !isControllerAdmin {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	// For now, backup operations are only permitted on the controller model.

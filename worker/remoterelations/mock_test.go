@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
 	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
@@ -158,7 +158,7 @@ func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.Remot
 			}
 		} else {
 			result[i] = params.RemoteApplicationResult{
-				Error: common.ServerError(errors.NotFoundf(name))}
+				Error: commonerrors.ServerError(errors.NotFoundf(name))}
 		}
 	}
 	return result, nil
@@ -192,7 +192,7 @@ func (m *mockRelationsFacade) Relations(keys []string) ([]params.RemoteRelationR
 				result[i].Result.ApplicationName = epInfo.localApplicationName
 			}
 		} else {
-			result[i].Error = common.ServerError(errors.NotFoundf(key))
+			result[i].Error = commonerrors.ServerError(errors.NotFoundf(key))
 		}
 	}
 	return result, nil

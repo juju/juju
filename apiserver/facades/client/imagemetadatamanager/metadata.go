@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/imagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -37,14 +37,14 @@ func createAPI(
 	authorizer facade.Authorizer,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	admin, err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
 	if err != nil {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	if !admin {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	return &API{
@@ -82,7 +82,7 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 		RootStorageType: filter.RootStorageType,
 	})
 	if err != nil {
-		return params.ListCloudImageMetadataResult{}, common.ServerError(err)
+		return params.ListCloudImageMetadataResult{}, commonerrors.ServerError(err)
 	}
 
 	var all []params.CloudImageMetadata
@@ -128,7 +128,7 @@ func (api *API) Delete(images params.MetadataImageIds) (params.ErrorResults, err
 	all := make([]params.ErrorResult, len(images.Ids))
 	for i, imageId := range images.Ids {
 		err := api.metadata.DeleteMetadata(imageId)
-		all[i] = params.ErrorResult{common.ServerError(err)}
+		all[i] = params.ErrorResult{commonerrors.ServerError(err)}
 	}
 	return params.ErrorResults{Results: all}, nil
 }

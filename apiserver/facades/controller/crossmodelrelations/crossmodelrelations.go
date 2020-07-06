@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -151,16 +152,16 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 				logger.Debugf("no relation tag %+v in model %v, exit early", change.RelationToken, api.st.ModelUUID())
 				continue
 			}
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		logger.Debugf("relation tag for token %+v is %v", change.RelationToken, relationTag)
 		if err := api.checkMacaroonsForRelation(relationTag, change.Macaroons, change.BakeryVersion); err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if err := commoncrossmodel.PublishRelationChange(api.st, relationTag, change); err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if change.Life != life.Alive {
@@ -181,7 +182,7 @@ func (api *CrossModelRelationsAPI) RegisterRemoteRelations(
 	for i, relation := range relations.Relations {
 		id, err := api.registerRemoteRelation(relation)
 		results.Results[i].Result = id
-		results.Results[i].Error = common.ServerError(err)
+		results.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return results, nil
 }
@@ -206,7 +207,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	// The macaroon needs to be attenuated to a user.
 	username, ok := attr["username"]
 	if username == "" || !ok {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	localApplicationName := appOffer.ApplicationName
 	localApp, err := api.st.Application(localApplicationName)
@@ -348,21 +349,21 @@ func (api *CrossModelRelationsAPIV1) WatchRelationUnits(remoteRelationArgs param
 	for i, arg := range remoteRelationArgs.Args {
 		relationTag, err := api.st.GetRemoteEntity(arg.Token)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		w, err := commoncrossmodel.WatchRelationUnits(api.st, relationTag.(names.RelationTag))
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		changes, ok := <-w.Changes()
 		if !ok {
-			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
+			results.Results[i].Error = commonerrors.ServerError(watcher.EnsureErr(w))
 			continue
 		}
 		results.Results[i].RelationUnitsWatcherId = api.resources.Register(w)
@@ -392,7 +393,7 @@ func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs param
 		}
 		relationTag, ok := tag.(names.RelationTag)
 		if !ok {
-			return nil, empty, common.ErrPerm
+			return nil, empty, commonerrors.ErrPerm
 		}
 		relationToken, appToken, err := commoncrossmodel.GetOfferingRelationTokens(api.st, relationTag)
 		if err != nil {
@@ -423,7 +424,7 @@ func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs param
 		w, changes, err := watchOne(arg)
 		if err != nil {
 			logger.Tracef("not found watching relation %s: %s", arg.Token, errors.ErrorStack(err))
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
@@ -450,11 +451,11 @@ func (api *CrossModelRelationsAPIV1) RelationUnitSettings(relationUnits params.R
 	for i, arg := range relationUnits.RelationUnits {
 		relationTag, err := api.st.GetRemoteEntity(arg.RelationToken)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
@@ -464,7 +465,7 @@ func (api *CrossModelRelationsAPIV1) RelationUnitSettings(relationUnits params.R
 		}
 		settings, err := commoncrossmodel.RelationUnitSettings(api.st, ru)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Settings = settings
@@ -492,28 +493,28 @@ func (api *CrossModelRelationsAPI) WatchRelationsSuspendedStatus(
 	for i, arg := range remoteRelationArgs.Args {
 		relationTag, err := api.st.GetRemoteEntity(arg.Token)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		w, err := api.relationStatusWatcher(api.st, relationTag.(names.RelationTag))
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		changes, ok := <-w.Changes()
 		if !ok {
-			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
+			results.Results[i].Error = commonerrors.ServerError(watcher.EnsureErr(w))
 			continue
 		}
 		changesParams := make([]params.RelationLifeSuspendedStatusChange, len(changes))
 		for j, key := range changes {
 			change, err := commoncrossmodel.GetRelationLifeSuspendedStatusChange(api.st, key)
 			if err != nil {
-				results.Results[i].Error = common.ServerError(err)
+				results.Results[i].Error = commonerrors.ServerError(err)
 				changesParams = nil
 				w.Stop()
 				break
@@ -575,23 +576,23 @@ func (api *CrossModelRelationsAPI) WatchOfferStatus(
 		auth := api.authCtxt.Authenticator(api.st.ModelUUID(), arg.OfferUUID)
 		_, err := auth.CheckOfferMacaroons(api.ctx, arg.OfferUUID, arg.Macaroons, arg.BakeryVersion)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		// TODO: move full watcher to the model cache.
 		w, err := api.offerStatusWatcher(api.st, arg.OfferUUID)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		_, ok := <-w.Changes()
 		if !ok {
-			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
+			results.Results[i].Error = commonerrors.ServerError(watcher.EnsureErr(w))
 			continue
 		}
 		change, err := commoncrossmodel.GetOfferStatusChange(api.model, api.st, arg.OfferUUID, w.OfferName())
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			w.Stop()
 			break
 		}
@@ -612,17 +613,17 @@ func (api *CrossModelRelationsAPI) PublishIngressNetworkChanges(
 	for i, change := range changes.Changes {
 		relationTag, err := api.st.GetRemoteEntity(change.RelationToken)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		logger.Debugf("relation tag for token %+v is %v", change.RelationToken, relationTag)
 
 		if err := api.checkMacaroonsForRelation(relationTag, change.Macaroons, change.BakeryVersion); err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if err := commoncrossmodel.PublishIngressNetworkChange(api.st, relationTag, change); err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 	}
@@ -640,11 +641,11 @@ func (api *CrossModelRelationsAPI) WatchEgressAddressesForRelations(remoteRelati
 	for i, arg := range remoteRelationArgs.Args {
 		relationTag, err := api.st.GetRemoteEntity(arg.Token)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		relations.Entities = append(relations.Entities, params.Entity{Tag: relationTag.String()})

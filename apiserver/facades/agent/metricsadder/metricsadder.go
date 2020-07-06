@@ -6,7 +6,7 @@ package metricsadder
 import (
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -35,7 +35,7 @@ func NewMetricsAdderAPI(
 	// TODO(cmars): remove unit agent auth, once worker/metrics/sender manifold
 	// can be righteously relocated to machine agent.
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	return &MetricsAdderAPI{
 		state: st,
@@ -50,7 +50,7 @@ func (api *MetricsAdderAPI) AddMetricBatches(args params.MetricBatchParams) (par
 	for i, batch := range args.Batches {
 		tag, err := names.ParseUnitTag(batch.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		metrics := make([]state.Metric, len(batch.Batch.Metrics))
@@ -71,7 +71,7 @@ func (api *MetricsAdderAPI) AddMetricBatches(args params.MetricBatchParams) (par
 				Unit:     tag,
 			},
 		)
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }

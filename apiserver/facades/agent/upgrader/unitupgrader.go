@@ -8,6 +8,7 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -31,7 +32,7 @@ func NewUnitUpgraderAPI(
 	authorizer facade.Authorizer,
 ) (*UnitUpgraderAPI, error) {
 	if !authorizer.AuthUnitAgent() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	getCanWrite := func() (common.AuthFunc, error) {
@@ -71,10 +72,10 @@ func (u *UnitUpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWa
 	for i, agent := range args.Entities {
 		tag, err := names.ParseTag(agent.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
-		err = common.ErrPerm
+		err = commonerrors.ErrPerm
 		if u.authorizer.AuthOwner(tag) {
 			var watcherId string
 			watcherId, err = u.watchAssignedMachine(tag)
@@ -82,7 +83,7 @@ func (u *UnitUpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWa
 				result.Results[i].NotifyWatcherId = watcherId
 			}
 		}
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -94,14 +95,14 @@ func (u *UnitUpgraderAPI) DesiredVersion(args params.Entities) (params.VersionRe
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result[i].Error = common.ServerError(common.ErrPerm)
+			result[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
-		err = common.ErrPerm
+		err = commonerrors.ErrPerm
 		if u.authorizer.AuthOwner(tag) {
 			result[i].Version, err = u.getMachineToolsVersion(tag)
 		}
-		result[i].Error = common.ServerError(err)
+		result[i].Error = commonerrors.ServerError(err)
 	}
 	return params.VersionResults{Results: result}, nil
 }
@@ -112,7 +113,7 @@ func (u *UnitUpgraderAPI) Tools(args params.Entities) (params.ToolsResults, erro
 		Results: make([]params.ToolsResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		result.Results[i].Error = common.ServerError(common.ErrPerm)
+		result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
 			continue
@@ -130,7 +131,7 @@ func (u *UnitUpgraderAPI) getAssignedMachine(tag names.Tag) (*state.Machine, err
 	case names.UnitTag:
 		unit, err := u.st.Unit(tag.Id())
 		if err != nil {
-			return nil, common.ErrPerm
+			return nil, commonerrors.ErrPerm
 		}
 		id, err := unit.AssignedMachineId()
 		if err != nil {
@@ -138,7 +139,7 @@ func (u *UnitUpgraderAPI) getAssignedMachine(tag names.Tag) (*state.Machine, err
 		}
 		return u.st.Machine(id)
 	default:
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 }
 
@@ -146,12 +147,12 @@ func (u *UnitUpgraderAPI) getMachineTools(tag names.Tag) params.ToolsResult {
 	var result params.ToolsResult
 	machine, err := u.getAssignedMachine(tag)
 	if err != nil {
-		result.Error = common.ServerError(err)
+		result.Error = commonerrors.ServerError(err)
 		return result
 	}
 	machineTools, err := machine.AgentTools()
 	if err != nil {
-		result.Error = common.ServerError(err)
+		result.Error = commonerrors.ServerError(err)
 		return result
 	}
 	// We are okay returning the tools for just the one API server

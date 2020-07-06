@@ -24,6 +24,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
@@ -283,7 +284,7 @@ func NewAPIBase(
 	caasBroker caasBrokerInterface,
 ) (*APIBase, error) {
 	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	return &APIBase{
 		backend:               backend,
@@ -308,7 +309,7 @@ func (api *APIBase) checkPermission(tag names.Tag, perm permission.Access) error
 		return errors.Trace(err)
 	}
 	if !allowed {
-		return common.ErrPerm
+		return commonerrors.ErrPerm
 	}
 	return nil
 }
@@ -335,12 +336,12 @@ func (api *APIBase) SetMetricCredentials(args params.ApplicationMetricCredential
 	for i, a := range args.Creds {
 		oneApplication, err := api.backend.Application(a.ApplicationName)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		err = oneApplication.SetMetricCredentials(a.MetricCredentials)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 		}
 	}
 	return result, nil
@@ -424,7 +425,7 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 			api.registry,
 			api.caasBroker,
 		)
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 
 		if err != nil && len(arg.Resources) != 0 {
 			// Remove any pending resources - these would have been
@@ -970,7 +971,7 @@ func (api *APIBase) UpdateApplicationSeries(args params.UpdateSeriesArgs) (param
 	}
 	for i, arg := range args.Args {
 		err := api.updateOneApplicationSeries(arg)
-		results.Results[i].Error = common.ServerError(err)
+		results.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return results, nil
 }
@@ -1478,7 +1479,7 @@ func (api *APIBase) DestroyUnits(args params.DestroyApplicationUnits) error {
 			errs = append(errs, result.Error)
 		}
 	}
-	return common.DestroyErr("units", args.UnitNames, errs)
+	return commonerrors.DestroyErr("units", args.UnitNames, errs)
 }
 
 // DestroyUnit removes a given set of application units.
@@ -1559,7 +1560,7 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 	for i, entity := range args.Units {
 		info, err := destroyUnit(entity)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		results[i].Info = info
@@ -1591,7 +1592,7 @@ func (api *APIBase) Destroy(in params.ApplicationDestroy) error {
 		return errors.Trace(err)
 	}
 	if err := results.Results[0].Error; err != nil {
-		return common.ServerError(err)
+		return commonerrors.ServerError(err)
 	}
 	return nil
 }
@@ -1691,7 +1692,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 	for i, arg := range args.Applications {
 		info, err := destroyApp(arg)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		results[i].Info = info
@@ -1711,12 +1712,12 @@ func (api *APIBase) DestroyConsumedApplications(args params.DestroyConsumedAppli
 	for i, arg := range args.Applications {
 		appTag, err := names.ParseApplicationTag(arg.ApplicationTag)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		app, err := api.backend.RemoteApplication(appTag.Id())
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		force := false
@@ -1732,7 +1733,7 @@ func (api *APIBase) DestroyConsumedApplications(args params.DestroyConsumedAppli
 			logger.Warningf("operational error encountered destroying consumed application %v: %v", appTag.Id(), op.Errors)
 		}
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 	}
@@ -1803,7 +1804,7 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 	for i, entity := range args.Applications {
 		info, err := scaleApplication(entity)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		results[i].Info = info
@@ -1822,7 +1823,7 @@ func (api *APIBase) GetConstraints(args params.Entities) (params.ApplicationGetC
 	for i, arg := range args.Entities {
 		cons, err := api.getConstraints(arg.Tag)
 		results.Results[i].Constraints = cons
-		results.Results[i].Error = common.ServerError(err)
+		results.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return results, nil
 }
@@ -1992,7 +1993,7 @@ func (api *APIBase) SetRelationsSuspended(args params.RelationSuspendedArgs) (pa
 	results := make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
 		err := changeOne(arg)
-		results[i].Error = common.ServerError(err)
+		results[i].Error = commonerrors.ServerError(err)
 	}
 	statusResults.Results = results
 	return statusResults, nil
@@ -2012,7 +2013,7 @@ func (api *APIBase) Consume(args params.ConsumeApplicationArgs) (params.ErrorRes
 	results := make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
 		err := api.consumeOne(arg)
-		results[i].Error = common.ServerError(err)
+		results[i].Error = commonerrors.ServerError(err)
 	}
 	consumeResults.Results = results
 	return consumeResults, nil
@@ -2229,7 +2230,7 @@ func (api *APIBase) CharmConfig(args params.ApplicationGetArgs) (params.Applicat
 	for i, arg := range args.Args {
 		config, err := api.getCharmConfig(arg.BranchName, arg.ApplicationName)
 		results.Results[i].Config = config
-		results.Results[i].Error = common.ServerError(err)
+		results.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return results, nil
 }
@@ -2245,11 +2246,11 @@ func (api *APIBase) GetConfig(args params.Entities) (params.ApplicationGetConfig
 	for i, arg := range args.Entities {
 		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if tag.Kind() != names.ApplicationTagKind {
-			results.Results[i].Error = common.ServerError(
+			results.Results[i].Error = commonerrors.ServerError(
 				errors.Errorf("unexpected tag type, expected application, got %s", tag.Kind()))
 			continue
 		}
@@ -2257,7 +2258,7 @@ func (api *APIBase) GetConfig(args params.Entities) (params.ApplicationGetConfig
 		// Always deal with the master branch version of config.
 		config, err := api.getCharmConfig(model.GenerationMaster, tag.Id())
 		results.Results[i].Config = config
-		results.Results[i].Error = common.ServerError(err)
+		results.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return results, nil
 }
@@ -2295,7 +2296,7 @@ func (api *APIBase) SetApplicationsConfig(args params.ApplicationConfigSetArgs) 
 	result.Results = make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
 		err := api.setApplicationConfig(arg)
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -2373,7 +2374,7 @@ func (api *APIBase) UnsetApplicationsConfig(args params.ApplicationConfigUnsetAr
 	result.Results = make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
 		err := api.unsetApplicationConfig(arg)
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -2449,16 +2450,16 @@ func (api *APIBase) ResolveUnitErrors(p params.UnitsResolved) (params.ErrorResul
 	for i, entity := range p.Tags.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		unit, err := api.backend.Unit(tag.Id())
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		err = unit.Resolve(p.Retry)
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -2471,37 +2472,37 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 	// Get all the space infos before iterating over the application infos.
 	allSpaceInfosLookup, err := api.backend.AllSpaceInfos()
 	if err != nil {
-		return params.ApplicationInfoResults{}, common.ServerError(err)
+		return params.ApplicationInfoResults{}, commonerrors.ServerError(err)
 	}
 
 	out := make([]params.ApplicationInfoResult, len(in.Entities))
 	for i, one := range in.Entities {
 		tag, err := names.ParseApplicationTag(one.Tag)
 		if err != nil {
-			out[i].Error = common.ServerError(err)
+			out[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		app, err := api.backend.Application(tag.Name)
 		if err != nil {
-			out[i].Error = common.ServerError(err)
+			out[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
 		details, err := api.getConfig(params.ApplicationGet{ApplicationName: tag.Name}, describe)
 		if err != nil {
-			out[i].Error = common.ServerError(err)
+			out[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
 		bindings, err := app.EndpointBindings()
 		if err != nil {
-			out[i].Error = common.ServerError(err)
+			out[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
 		bindingsMap, err := bindings.MapWithSpaceNames(allSpaceInfosLookup)
 		if err != nil {
-			out[i].Error = common.ServerError(err)
+			out[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
@@ -2535,23 +2536,23 @@ func (api *APIBase) MergeBindings(in params.ApplicationMergeBindingsArgs) (param
 	for i, arg := range in.Args {
 		tag, err := names.ParseApplicationTag(arg.ApplicationTag)
 		if err != nil {
-			res[i].Error = common.ServerError(err)
+			res[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		app, err := api.backend.Application(tag.Name)
 		if err != nil {
-			res[i].Error = common.ServerError(err)
+			res[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
 		bindings, err := state.NewBindings(api.backend, arg.Bindings)
 		if err != nil {
-			res[i].Error = common.ServerError(err)
+			res[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
 		if err := app.MergeBindings(bindings, arg.Force); err != nil {
-			res[i].Error = common.ServerError(err)
+			res[i].Error = commonerrors.ServerError(err)
 		}
 	}
 	return params.ErrorResults{Results: res}, nil
@@ -2660,24 +2661,24 @@ func (api *APIBase) UnitsInfo(in params.Entities) (params.UnitInfoResults, error
 	for i, one := range in.Entities {
 		tag, err := names.ParseUnitTag(one.Tag)
 		if err != nil {
-			out[i].Error = common.ServerError(err)
+			out[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		unit, err := api.backend.Unit(tag.Id())
 		if err != nil {
-			out[i].Error = common.ServerError(err)
+			out[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		app, err := api.backend.Application(unit.ApplicationName())
 		if err != nil {
-			out[i].Error = common.ServerError(err)
+			out[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		curl, _ := app.CharmURL()
 		machineId, _ := unit.AssignedMachineId()
 		workloadVersion, err := unit.WorkloadVersion()
 		if err != nil {
-			out[i].Error = common.ServerError(err)
+			out[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
@@ -2693,7 +2694,7 @@ func (api *APIBase) UnitsInfo(in params.Entities) (params.UnitInfoResults, error
 		if machineId != "" {
 			machine, err := api.backend.Machine(machineId)
 			if err != nil {
-				out[i].Error = common.ServerError(err)
+				out[i].Error = commonerrors.ServerError(err)
 				continue
 			}
 			publicAddress, err := machine.PublicAddress()
@@ -2702,14 +2703,14 @@ func (api *APIBase) UnitsInfo(in params.Entities) (params.UnitInfoResults, error
 			}
 			openPorts, err := api.openPortsOnMachine(unit.Name(), machineId)
 			if err != nil {
-				out[i].Error = common.ServerError(err)
+				out[i].Error = commonerrors.ServerError(err)
 				continue
 			}
 			result.OpenedPorts = openPorts
 		}
 		container, err := unit.ContainerInfo()
 		if err != nil && !errors.IsNotFound(err) {
-			out[i].Error = common.ServerError(err)
+			out[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if err == nil {
@@ -2723,7 +2724,7 @@ func (api *APIBase) UnitsInfo(in params.Entities) (params.UnitInfoResults, error
 		}
 		result.RelationData, err = api.relationData(app, unit)
 		if err != nil {
-			out[i].Error = common.ServerError(err)
+			out[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 

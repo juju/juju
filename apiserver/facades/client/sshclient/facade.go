@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
@@ -40,7 +40,7 @@ func NewFacade(ctx facade.Context) (*Facade, error) {
 
 func internalFacade(backend Backend, auth facade.Authorizer, callCtx context.ProviderCallContext) (*Facade, error) {
 	if !auth.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	return &Facade{backend: backend, authorizer: auth, callContext: callCtx}, nil
@@ -52,7 +52,7 @@ func (facade *Facade) checkIsModelAdmin() error {
 		return errors.Trace(err)
 	}
 	if !isModelAdmin {
-		return common.ErrPerm
+		return commonerrors.ErrPerm
 	}
 	return nil
 }
@@ -129,11 +129,11 @@ func (facade *Facade) getAllEntityAddresses(args params.Entities, getter func(SS
 	for i, entity := range args.Entities {
 		machine, err := facade.backend.GetMachineForEntity(entity.Tag)
 		if err != nil {
-			out.Results[i].Error = common.ServerError(err)
+			out.Results[i].Error = commonerrors.ServerError(err)
 		} else {
 			addresses, err := getter(machine)
 			if err != nil {
-				out.Results[i].Error = common.ServerError(err)
+				out.Results[i].Error = commonerrors.ServerError(err)
 				continue
 			}
 
@@ -190,11 +190,11 @@ func (facade *Facade) PublicKeys(args params.Entities) (params.SSHPublicKeysResu
 	for i, entity := range args.Entities {
 		machine, err := facade.backend.GetMachineForEntity(entity.Tag)
 		if err != nil {
-			out.Results[i].Error = common.ServerError(err)
+			out.Results[i].Error = commonerrors.ServerError(err)
 		} else {
 			keys, err := facade.backend.GetSSHHostKeys(machine.MachineTag())
 			if err != nil {
-				out.Results[i].Error = common.ServerError(err)
+				out.Results[i].Error = commonerrors.ServerError(err)
 			} else {
 				out.Results[i].PublicKeys = []string(keys)
 			}

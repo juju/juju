@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facades/controller/modelupgrader"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -71,7 +71,7 @@ func (s *ModelUpgraderSuite) TestAuthNonController(c *gc.C) {
 	s.authorizer.Controller = false
 	s.authorizer.Tag = names.NewUserTag("admin")
 	_, err := modelupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
-	c.Assert(err, gc.Equals, common.ErrPerm)
+	c.Assert(err, gc.Equals, commonerrors.ErrPerm)
 }
 
 func (s *ModelUpgraderSuite) TestModelEnvironVersion(c *gc.C) {

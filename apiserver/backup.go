@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	apiserverbackups "github.com/juju/juju/apiserver/facades/client/backups"
 	"github.com/juju/juju/apiserver/httpattachment"
 	"github.com/juju/juju/apiserver/params"
@@ -179,7 +179,7 @@ func (h *backupHandler) sendFile(file io.Reader, checksum string, resp http.Resp
 // the sendError function - the error is encoded directly
 // rather than in the Error field.
 func (h *backupHandler) sendError(w http.ResponseWriter, err error) {
-	err, status := common.ServerErrorAndStatus(err)
+	err, status := commonerrors.ServerErrorAndStatus(err)
 	if err := sendStatusAndJSON(w, status, err); err != nil {
 		logger.Errorf("%v", err)
 	}

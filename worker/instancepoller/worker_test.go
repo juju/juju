@@ -17,7 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -424,7 +424,7 @@ func (s *workerSuite) TestBatchPollingOfGroupMembers(c *gc.C) {
 	// has a "created" machine status and a "running" instance status.
 	machineTag0 := names.NewMachineTag("0")
 	machine0 := mocks.NewMockMachine(ctrl)
-	machine0.EXPECT().InstanceId().Return(instance.Id(""), common.ServerError(errors.NotProvisionedf("not there")))
+	machine0.EXPECT().InstanceId().Return(instance.Id(""), commonerrors.ServerError(errors.NotProvisionedf("not there")))
 	updWorker.appendToShortPollGroup(machineTag0, machine0)
 
 	machineTag1 := names.NewMachineTag("1")
@@ -463,7 +463,7 @@ func (s *workerSuite) TestBatchPollingOfGroupMembersWithProviderNotSupportingNet
 	// has a "created" machine status and a "running" instance status.
 	machineTag0 := names.NewMachineTag("0")
 	machine0 := mocks.NewMockMachine(ctrl)
-	machine0.EXPECT().InstanceId().Return(instance.Id(""), common.ServerError(errors.NotProvisionedf("not there")))
+	machine0.EXPECT().InstanceId().Return(instance.Id(""), commonerrors.ServerError(errors.NotProvisionedf("not there")))
 	updWorker.appendToShortPollGroup(machineTag0, machine0)
 
 	machineTag1 := names.NewMachineTag("1")

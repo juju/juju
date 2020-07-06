@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/testing"
 )
@@ -316,7 +316,7 @@ func (s *ConfigCommandSuite) TestSettingUnknownValue(c *gc.C) {
 }
 
 func (s *ConfigCommandSuite) TestBlockedError(c *gc.C) {
-	s.fake.err = common.OperationBlockedError("TestBlockedError")
+	s.fake.err = commonerrors.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c, "special=extra")
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedError.*")
 }
@@ -337,7 +337,7 @@ func (s *ConfigCommandSuite) TestResettingUnKnownValue(c *gc.C) {
 }
 
 func (s *ConfigCommandSuite) TestResetBlockedError(c *gc.C) {
-	s.fake.err = common.OperationBlockedError("TestBlockedError")
+	s.fake.err = commonerrors.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c, "--reset", "special")
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedError.*")
 }

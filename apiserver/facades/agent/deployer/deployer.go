@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -33,7 +34,7 @@ type DeployerAPI struct {
 func NewDeployerAPI(ctx facade.Context) (*DeployerAPI, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthMachineAgent() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	st := ctx.State()

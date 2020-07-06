@@ -94,18 +94,6 @@ const (
 	// InformerResyncPeriod is the default resync period set on IndexInformers
 	InformerResyncPeriod = time.Minute * 5
 
-	// OperatorPodIPEnvName is the environment name for operator pod IP.
-	OperatorPodIPEnvName = "JUJU_OPERATOR_POD_IP"
-
-	// OperatorServiceIPEnvName is the environment name for operator service IP.
-	OperatorServiceIPEnvName = "JUJU_OPERATOR_SERVICE_IP"
-
-	// OperatorNamespaceEnvName is the environment name for k8s namespace the operator is in.
-	OperatorNamespaceEnvName = "JUJU_OPERATOR_NAMESPACE"
-
-	// JujuRunServerSocketPort is the port used by juju run callbacks.
-	JujuRunServerSocketPort = 30666
-
 	// A set of constants defining history limits for certain k8s deployment
 	// types.
 	// TODO We may want to make these configurable in the future.

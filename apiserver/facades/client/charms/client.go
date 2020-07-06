@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/permission"
@@ -36,7 +36,7 @@ func (a *API) checkCanRead() error {
 		return errors.Trace(err)
 	}
 	if !canRead {
-		return common.ErrPerm
+		return commonerrors.ErrPerm
 	}
 	return nil
 }
@@ -45,7 +45,7 @@ func (a *API) checkCanRead() error {
 func NewFacade(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	st := ctx.State()

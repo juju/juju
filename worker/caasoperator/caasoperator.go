@@ -23,7 +23,7 @@ import (
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
@@ -327,7 +327,7 @@ func toBinaryVersion(vers version.Number) version.Binary {
 func runListenerSocket(sc *uniter.SocketConfig) (*sockets.Socket, error) {
 	socket := sockets.Socket{
 		Network:   "tcp",
-		Address:   fmt.Sprintf(":%d", provider.JujuRunServerSocketPort),
+		Address:   fmt.Sprintf(":%d", caasconstants.JujuRunServerSocketPort),
 		TLSConfig: sc.TLSConfig,
 	}
 	return &socket, nil

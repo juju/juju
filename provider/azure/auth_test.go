@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"

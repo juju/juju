@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
@@ -92,7 +93,7 @@ func NewModelGenerationAPI(
 	mc ModelCache,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
@@ -130,13 +131,13 @@ func (api *API) AddBranch(arg params.BranchArg) (params.ErrorResult, error) {
 		return result, errors.Trace(err)
 	}
 	if !isModelAdmin && !api.isControllerAdmin {
-		return result, common.ErrPerm
+		return result, commonerrors.ErrPerm
 	}
 
 	if err := model.ValidateBranchName(arg.BranchName); err != nil {
-		result.Error = common.ServerError(err)
+		result.Error = commonerrors.ServerError(err)
 	} else {
-		result.Error = common.ServerError(api.model.AddBranch(arg.BranchName, api.apiUser.Name()))
+		result.Error = commonerrors.ServerError(api.model.AddBranch(arg.BranchName, api.apiUser.Name()))
 	}
 	return result, nil
 }
@@ -157,7 +158,7 @@ func (api *API) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, err
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	if !isModelAdmin && !api.isControllerAdmin {
-		return params.ErrorResults{}, common.ErrPerm
+		return params.ErrorResults{}, commonerrors.ErrPerm
 	}
 	// Ensure we guard against the numUnits being greater than 0 and the number
 	// units/applications greater than 1. This is because we don't know how to
@@ -178,16 +179,16 @@ func (api *API) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, err
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		switch tag.Kind() {
 		case names.ApplicationTagKind:
-			result.Results[i].Error = common.ServerError(branch.AssignUnits(tag.Id(), arg.NumUnits))
+			result.Results[i].Error = commonerrors.ServerError(branch.AssignUnits(tag.Id(), arg.NumUnits))
 		case names.UnitTagKind:
-			result.Results[i].Error = common.ServerError(branch.AssignUnit(tag.Id()))
+			result.Results[i].Error = commonerrors.ServerError(branch.AssignUnit(tag.Id()))
 		default:
-			result.Results[i].Error = common.ServerError(
+			result.Results[i].Error = commonerrors.ServerError(
 				errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag))
 		}
 	}
@@ -204,7 +205,7 @@ func (api *API) CommitBranch(arg params.BranchArg) (params.IntResult, error) {
 		return result, errors.Trace(err)
 	}
 	if !isModelAdmin && !api.isControllerAdmin {
-		return result, common.ErrPerm
+		return result, commonerrors.ErrPerm
 	}
 
 	branch, err := api.model.Branch(arg.BranchName)
@@ -213,7 +214,7 @@ func (api *API) CommitBranch(arg params.BranchArg) (params.IntResult, error) {
 	}
 
 	if genId, err := branch.Commit(api.apiUser.Name()); err != nil {
-		result.Error = common.ServerError(err)
+		result.Error = commonerrors.ServerError(err)
 	} else {
 		result.Result = genId
 	}
@@ -231,17 +232,17 @@ func (api *API) AbortBranch(arg params.BranchArg) (params.ErrorResult, error) {
 		return result, errors.Trace(err)
 	}
 	if !isModelAdmin && !api.isControllerAdmin {
-		return result, common.ErrPerm
+		return result, commonerrors.ErrPerm
 	}
 
 	branch, err := api.model.Branch(arg.BranchName)
 	if err != nil {
-		result.Error = common.ServerError(err)
+		result.Error = commonerrors.ServerError(err)
 		return result, nil
 	}
 
 	if err := branch.Abort(api.apiUser.Name()); err != nil {
-		result.Error = common.ServerError(err)
+		result.Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -259,7 +260,7 @@ func (api *API) BranchInfo(
 		return result, errors.Trace(err)
 	}
 	if !isModelAdmin && !api.isControllerAdmin {
-		return result, common.ErrPerm
+		return result, commonerrors.ErrPerm
 	}
 
 	// From clients, we expect a single branch name or none,
@@ -300,7 +301,7 @@ func (api *API) ShowCommit(arg params.GenerationId) (params.GenerationResult, er
 		return result, errors.Trace(err)
 	}
 	if !isModelAdmin && !api.isControllerAdmin {
-		return result, common.ErrPerm
+		return result, commonerrors.ErrPerm
 	}
 	if arg.GenerationId < 1 {
 		err := errors.Errorf("supplied generation id has to be higher than 0")
@@ -309,7 +310,7 @@ func (api *API) ShowCommit(arg params.GenerationId) (params.GenerationResult, er
 
 	branch, err := api.model.Generation(arg.GenerationId)
 	if err != nil {
-		result.Error = common.ServerError(err)
+		result.Error = commonerrors.ServerError(err)
 		return result, nil
 	}
 
@@ -332,7 +333,7 @@ func (api *API) ListCommits() (params.BranchResults, error) {
 		return result, errors.Trace(err)
 	}
 	if !isModelAdmin && !api.isControllerAdmin {
-		return result, common.ErrPerm
+		return result, commonerrors.ErrPerm
 	}
 
 	var branches []Generation
@@ -428,14 +429,14 @@ func (api *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error)
 		return result, errors.Trace(err)
 	}
 	if !isModelAdmin && !api.isControllerAdmin {
-		return result, common.ErrPerm
+		return result, commonerrors.ErrPerm
 	}
 
 	if _, err := api.modelCache.Branch(arg.BranchName); err != nil {
 		if errors.IsNotFound(err) {
 			result.Result = false
 		} else {
-			result.Error = common.ServerError(err)
+			result.Error = commonerrors.ServerError(err)
 		}
 	} else {
 		result.Result = true
@@ -444,13 +445,13 @@ func (api *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error)
 }
 
 func branchResultsError(err error) (params.BranchResults, error) {
-	return params.BranchResults{Error: common.ServerError(err)}, nil
+	return params.BranchResults{Error: commonerrors.ServerError(err)}, nil
 }
 
 func generationResultError(err error) (params.GenerationResult, error) {
-	return params.GenerationResult{Error: common.ServerError(err)}, nil
+	return params.GenerationResult{Error: commonerrors.ServerError(err)}, nil
 }
 
 func intResultsError(err error) (params.IntResult, error) {
-	return params.IntResult{Error: common.ServerError(err)}, nil
+	return params.IntResult{Error: commonerrors.ServerError(err)}, nil
 }

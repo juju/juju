@@ -4,21 +4,21 @@
 package joyent
 
 import (
-  "bytes"
-  "fmt"
-  "html/template"
+	"bytes"
+	"fmt"
+	"html/template"
 
-  "github.com/joyent/gosign/auth"
-  gc "gopkg.in/check.v1"
+	"github.com/joyent/gosign/auth"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
-  "github.com/juju/juju/cloud"
-  "github.com/juju/juju/core/constraints"
-  "github.com/juju/juju/environs"
-  environscloudspec "github.com/juju/juju/environs/cloudspec"
-  "github.com/juju/juju/environs/imagemetadata"
-  "github.com/juju/juju/environs/instances"
-  sstesting "github.com/juju/juju/environs/simplestreams/testing"
-  jc "github.com/juju/testing/checkers"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/instances"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 )
 
 var indexData = `
@@ -152,64 +152,64 @@ var imagesData = `
 `
 
 func parseIndexData(creds *auth.Credentials) bytes.Buffer {
-  var metadata bytes.Buffer
+	var metadata bytes.Buffer
 
-  t := template.Must(template.New("").Parse(indexData))
-  if err := t.Execute(&metadata, creds); err != nil {
-    panic(fmt.Errorf("cannot generate index metdata: %v", err))
-  }
+	t := template.Must(template.New("").Parse(indexData))
+	if err := t.Execute(&metadata, creds); err != nil {
+		panic(fmt.Errorf("cannot generate index metdata: %v", err))
+	}
 
-  return metadata
+	return metadata
 }
 
 // Set Metadata requests to be served by the filecontent supplied.
 func UseExternalTestImageMetadata(c *gc.C, creds *auth.Credentials) {
-  metadata := parseIndexData(creds)
-  files := map[string]string{
-    "/streams/v1/index.json":                            metadata.String(),
-    "/streams/v1/com.ubuntu.cloud:released:joyent.json": imagesData,
-  }
-  sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
+	metadata := parseIndexData(creds)
+	files := map[string]string{
+		"/streams/v1/index.json":                            metadata.String(),
+		"/streams/v1/com.ubuntu.cloud:released:joyent.json": imagesData,
+	}
+	sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
 }
 
 func UnregisterExternalTestImageMetadata() {
-  sstesting.SetRoundTripperFiles(nil, nil)
+	sstesting.SetRoundTripperFiles(nil, nil)
 }
 
 // RegisterMachinesEndpoint creates a fake endpoint so that
 // machines api calls succeed.
 func RegisterMachinesEndpoint() {
-  files := map[string]string{
-    "/test/machines": "",
-  }
-  sstesting.SetRoundTripperFiles(files, nil)
+	files := map[string]string{
+		"/test/machines": "",
+	}
+	sstesting.SetRoundTripperFiles(files, nil)
 }
 
 // UnregisterMachinesEndpoint resets the machines endpoint.
 func UnregisterMachinesEndpoint() {
-  sstesting.SetRoundTripperFiles(nil, nil)
+	sstesting.SetRoundTripperFiles(nil, nil)
 }
 
 func FindInstanceSpec(
-  e environs.Environ, series, arch, cons string,
-  imageMetadata []*imagemetadata.ImageMetadata,
+	e environs.Environ, series, arch, cons string,
+	imageMetadata []*imagemetadata.ImageMetadata,
 ) (spec *instances.InstanceSpec, err error) {
-  env := e.(*joyentEnviron)
-  spec, err = env.FindInstanceSpec(&instances.InstanceConstraint{
-    Series:      series,
-    Arches:      []string{arch},
-    Region:      env.cloud.Region,
-    Constraints: constraints.MustParse(cons),
-  }, imageMetadata)
-  return
+	env := e.(*joyentEnviron)
+	spec, err = env.FindInstanceSpec(&instances.InstanceConstraint{
+		Series:      series,
+		Arches:      []string{arch},
+		Region:      env.cloud.Region,
+		Constraints: constraints.MustParse(cons),
+	}, imageMetadata)
+	return
 }
 
 // MakeCredentials creates credentials for a test.
 func MakeCredentials(c *gc.C, endpoint string, cloudCredential cloud.Credential) *auth.Credentials {
-  creds, err := credentials(environscloudspec.CloudSpec{
-    Endpoint:   endpoint,
-    Credential: &cloudCredential,
-  })
-  c.Assert(err, jc.ErrorIsNil)
-  return creds
+	creds, err := credentials(environscloudspec.CloudSpec{
+		Endpoint:   endpoint,
+		Credential: &cloudCredential,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return creds
 }

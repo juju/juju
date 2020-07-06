@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -67,14 +67,14 @@ func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, getCAAS
 
 func checkAuth(authorizer facade.Authorizer, st *state.State) error {
 	if !authorizer.AuthClient() {
-		return errors.Trace(common.ErrPerm)
+		return errors.Trace(commonerrors.ErrPerm)
 	}
 
 	if isAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag()); err != nil {
 		return errors.Trace(err)
 	} else if !isAdmin {
 		// The entire facade is only accessible to controller administrators.
-		return errors.Trace(common.ErrPerm)
+		return errors.Trace(commonerrors.ErrPerm)
 	}
 	return nil
 }

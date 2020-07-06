@@ -12,7 +12,7 @@ import (
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/common"
-	srvcommon "github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -53,7 +53,7 @@ func (s *unitStateSuite) TestSetStateReturnsQuotaExceededError(c *gc.C) {
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		result := response.(*params.ErrorResults)
 		result.Results = []params.ErrorResult{{
-			Error: srvcommon.ServerError(errors.NewQuotaLimitExceeded(nil, "cake slice limit exceeded; try again later")),
+			Error: commonerrors.ServerError(errors.NewQuotaLimitExceeded(nil, "cake slice limit exceeded; try again later")),
 		}}
 		return nil
 	}

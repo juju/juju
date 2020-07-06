@@ -8,7 +8,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -44,7 +44,7 @@ func NewCAASOperatorUpgraderAPI(
 	broker caas.Upgrader,
 ) (*API, error) {
 	if !authorizer.AuthController() && !authorizer.AuthApplicationAgent() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	return &API{
 		auth:   authorizer,
@@ -55,14 +55,14 @@ func NewCAASOperatorUpgraderAPI(
 // UpgradeOperator upgrades the operator for the specified agents.
 func (api *API) UpgradeOperator(arg params.KubernetesUpgradeArg) (params.ErrorResult, error) {
 	serverErr := func(err error) params.ErrorResult {
-		return params.ErrorResult{common.ServerError(err)}
+		return params.ErrorResult{commonerrors.ServerError(err)}
 	}
 	tag, err := names.ParseTag(arg.AgentTag)
 	if err != nil {
 		return serverErr(err), nil
 	}
 	if !api.auth.AuthOwner(tag) {
-		return serverErr(common.ErrPerm), nil
+		return serverErr(commonerrors.ErrPerm), nil
 	}
 	appName := tag.Id()
 

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -51,7 +52,7 @@ func createOffersAPI(
 	authContext *commoncrossmodel.AuthContext,
 ) (*OffersAPI, error) {
 	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	dataDir := resources.Get("dataDir").(common.StringResource)
@@ -125,28 +126,28 @@ func (api *OffersAPI) Offer(all params.AddApplicationOffers) (params.ErrorResult
 	for i, one := range all.Offers {
 		modelTag, err := names.ParseModelTag(one.ModelTag)
 		if err != nil {
-			result[i].Error = common.ServerError(err)
+			result[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		backend, releaser, err := api.StatePool.Get(modelTag.Id())
 		if err != nil {
-			result[i].Error = common.ServerError(err)
+			result[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		defer releaser()
 
 		if err := api.checkAdmin(backend); err != nil {
-			result[i].Error = common.ServerError(err)
+			result[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
 		applicationOfferParams, err := api.makeAddOfferArgsFromParams(backend, one)
 		if err != nil {
-			result[i].Error = common.ServerError(err)
+			result[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		_, err = api.GetApplicationOffers(backend).AddOffer(applicationOfferParams)
-		result[i].Error = common.ServerError(err)
+		result[i].Error = commonerrors.ServerError(err)
 	}
 	return params.ErrorResults{Results: result}, nil
 }
@@ -185,7 +186,7 @@ func (api *OffersAPI) ListApplicationOffers(filters params.OfferFilters) (params
 	var result params.QueryApplicationOffersResults
 	offers, err := api.getApplicationOffersDetails(filters, permission.AdminAccess)
 	if err != nil {
-		return result, common.ServerError(err)
+		return result, commonerrors.ServerError(err)
 	}
 	result.Results = offers
 	return result, nil
@@ -216,11 +217,11 @@ func (api *OffersAPI) ModifyOfferAccess(args params.ModifyOfferAccessRequest) (r
 
 	for i, arg := range args.Changes {
 		if models[i].err != nil {
-			result.Results[i].Error = common.ServerError(models[i].err)
+			result.Results[i].Error = commonerrors.ServerError(models[i].err)
 			continue
 		}
 		err = api.modifyOneOfferAccess(models[i].model.UUID(), isControllerAdmin, arg)
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -254,7 +255,7 @@ func (api *OffersAPI) modifyOneOfferAccess(modelUUID string, isControllerAdmin b
 		apiUser := api.Authorizer.GetAuthTag().(names.UserTag)
 		offer, err := backend.ApplicationOffer(offerTag.Id())
 		if err != nil {
-			return common.ErrPerm
+			return commonerrors.ErrPerm
 		}
 		access, err := backend.GetOfferAccess(offer.OfferUUID, apiUser)
 		if err != nil && !errors.IsNotFound(err) {
@@ -264,7 +265,7 @@ func (api *OffersAPI) modifyOneOfferAccess(modelUUID string, isControllerAdmin b
 		}
 	}
 	if !canModifyOffer {
-		return common.ErrPerm
+		return commonerrors.ErrPerm
 	}
 
 	targetUserTag, err := names.ParseUserTag(arg.UserTag)
@@ -302,7 +303,7 @@ func (api *OffersAPI) grantOfferAccess(backend Backend, offerTag names.Applicati
 	if errors.IsAlreadyExists(err) {
 		offer, err := backend.ApplicationOffer(offerTag.Id())
 		if err != nil {
-			return common.ErrPerm
+			return commonerrors.ErrPerm
 		}
 		offerAccess, err := backend.GetOfferAccess(offer.OfferUUID, targetUserTag)
 		if errors.IsNotFound(err) {
@@ -360,19 +361,19 @@ func (api *OffersAPI) ApplicationOffers(urls params.OfferURLs) (params.Applicati
 	for i, urlStr := range urls.OfferURLs {
 		url, err := jujucrossmodel.ParseOfferURL(urlStr)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if url.User == "" {
 			url.User = api.Authorizer.GetAuthTag().Id()
 		}
 		if url.HasEndpoint() {
-			results.Results[i].Error = common.ServerError(
+			results.Results[i].Error = commonerrors.ServerError(
 				errors.Errorf("remote application %q shouldn't include endpoint", url))
 			continue
 		}
 		if url.Source != "" {
-			results.Results[i].Error = common.ServerError(
+			results.Results[i].Error = commonerrors.ServerError(
 				errors.NotSupportedf("query for non-local application offers"))
 			continue
 		}
@@ -384,7 +385,7 @@ func (api *OffersAPI) ApplicationOffers(urls params.OfferURLs) (params.Applicati
 	}
 	offers, err := api.getApplicationOffersDetails(params.OfferFilters{filters}, permission.ReadAccess)
 	if err != nil {
-		return results, common.ServerError(err)
+		return results, commonerrors.ServerError(err)
 	}
 	offersByURL := make(map[string]params.ApplicationOfferAdminDetails)
 	for _, offer := range offers {
@@ -395,7 +396,7 @@ func (api *OffersAPI) ApplicationOffers(urls params.OfferURLs) (params.Applicati
 		offer, ok := offersByURL[urlStr]
 		if !ok {
 			err = errors.NotFoundf("application offer %q", urlStr)
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = &offer
@@ -432,7 +433,7 @@ func (api *OffersAPI) FindApplicationOffers(filters params.OfferFilters) (params
 	}
 	offers, err := api.getApplicationOffersDetails(filtersToUse, permission.ReadAccess)
 	if err != nil {
-		return result, common.ServerError(err)
+		return result, commonerrors.ServerError(err)
 	}
 	result.Results = offers
 	return result, nil
@@ -446,12 +447,12 @@ func (api *OffersAPI) GetConsumeDetails(args params.OfferURLs) (params.ConsumeOf
 
 	offers, err := api.ApplicationOffers(args)
 	if err != nil {
-		return consumeResults, common.ServerError(err)
+		return consumeResults, commonerrors.ServerError(err)
 	}
 
 	addrs, caCert, err := api.getControllerInfo()
 	if err != nil {
-		return consumeResults, common.ServerError(err)
+		return consumeResults, commonerrors.ServerError(err)
 	}
 
 	controllerInfo := &params.ExternalControllerInfo{
@@ -471,7 +472,7 @@ func (api *OffersAPI) GetConsumeDetails(args params.OfferURLs) (params.ConsumeOf
 		results[i].ControllerInfo = controllerInfo
 		offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(api.ctx, offerDetails, api.Authorizer.GetAuthTag().Id(), args.BakeryVersion)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		results[i].Macaroon = offerMacaroon.M()
@@ -487,7 +488,7 @@ func (api *OffersAPI) RemoteApplicationInfo(args params.OfferURLs) (params.Remot
 	for i, url := range args.OfferURLs {
 		info, err := api.oneRemoteApplicationInfo(url)
 		results[i].Result = info
-		results[i].Error = common.ServerError(err)
+		results[i].Error = commonerrors.ServerError(err)
 	}
 	return params.RemoteApplicationInfoResults{results}, nil
 }
@@ -557,26 +558,26 @@ func destroyOffers(api *OffersAPI, offerURLs []string, force bool) (params.Error
 	for i, one := range offerURLs {
 		url, err := jujucrossmodel.ParseOfferURL(one)
 		if err != nil {
-			result[i].Error = common.ServerError(err)
+			result[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if models[i].err != nil {
-			result[i].Error = common.ServerError(models[i].err)
+			result[i].Error = commonerrors.ServerError(models[i].err)
 			continue
 		}
 		backend, releaser, err := api.StatePool.Get(models[i].model.UUID())
 		if err != nil {
-			result[i].Error = common.ServerError(err)
+			result[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		defer releaser()
 
 		if err := api.checkAdmin(backend); err != nil {
-			result[i].Error = common.ServerError(err)
+			result[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		err = api.GetApplicationOffers(backend).Remove(url.ApplicationName, force)
-		result[i].Error = common.ServerError(err)
+		result[i].Error = commonerrors.ServerError(err)
 	}
 	return params.ErrorResults{Results: result}, nil
 }

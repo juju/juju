@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/logfwd"
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -35,7 +35,7 @@ func (s *LastSentSuite) TestGetLastSent(c *gc.C) {
 			RecordID:        20,
 			RecordTimestamp: 200,
 		}, {
-			Error: common.ServerError(errors.NewNotFound(state.ErrNeverForwarded, "")),
+			Error: commonerrors.ServerError(errors.NewNotFound(state.ErrNeverForwarded, "")),
 		}},
 	}
 	client := logfwd.NewLastSentClient(caller.newFacadeCaller)
@@ -79,7 +79,7 @@ func (s *LastSentSuite) TestGetLastSent(c *gc.C) {
 				Sink:  "ham",
 			},
 		},
-		Error: common.RestoreError(&params.Error{
+		Error: commonerrors.RestoreError(&params.Error{
 			Message: `cannot find ID of the last forwarded record`,
 			Code:    params.CodeNotFound,
 		}),
@@ -103,7 +103,7 @@ func (s *LastSentSuite) TestGetLastSent(c *gc.C) {
 func (s *LastSentSuite) TestSetLastSent(c *gc.C) {
 	stub := &testing.Stub{}
 	caller := &stubFacadeCaller{stub: stub}
-	apiError := common.ServerError(errors.New("<failed>"))
+	apiError := commonerrors.ServerError(errors.New("<failed>"))
 	caller.ReturnFacadeCallSet = params.ErrorResults{
 		Results: []params.ErrorResult{{
 			Error: nil,
@@ -168,7 +168,7 @@ func (s *LastSentSuite) TestSetLastSent(c *gc.C) {
 			RecordID:        15,
 			RecordTimestamp: time.Unix(0, 150),
 		},
-		Error: common.RestoreError(apiError),
+		Error: commonerrors.RestoreError(apiError),
 	}})
 	stub.CheckCallNames(c, "newFacadeCaller", "FacadeCall")
 	stub.CheckCall(c, 0, "newFacadeCaller", "LogForwarding")

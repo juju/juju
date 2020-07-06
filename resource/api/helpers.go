@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 )
@@ -32,7 +32,7 @@ func APIResult2ApplicationResources(apiResult params.ResourcesResult) (resource.
 
 	if apiResult.Error != nil {
 		// TODO(ericsnow) Return the resources too?
-		err := common.RestoreError(apiResult.Error)
+		err := commonerrors.RestoreError(apiResult.Error)
 		return resource.ApplicationResources{}, errors.Trace(err)
 	}
 

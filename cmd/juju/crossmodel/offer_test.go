@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/crossmodel"
 )
@@ -139,7 +139,7 @@ func (s *mockOfferAPI) Offer(modelUUID, application string, endpoints []string, 
 	}
 	result := make([]params.ErrorResult, 1)
 	if s.errData {
-		result[0].Error = common.ServerError(errors.New("failed"))
+		result[0].Error = commonerrors.ServerError(errors.New("failed"))
 		return result, nil
 	}
 	s.modelUUID = modelUUID

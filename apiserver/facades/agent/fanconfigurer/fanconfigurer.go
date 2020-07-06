@@ -3,7 +3,7 @@
 package fanconfigurer
 
 import (
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -36,7 +36,7 @@ func NewFanConfigurerAPI(st *state.State, resources facade.Resources, authorizer
 func NewFanConfigurerAPIForModel(model state.ModelAccessor, resources facade.Resources, authorizer facade.Authorizer) (*FanConfigurerAPI, error) {
 	// Only machine agents have access to the fanconfigurer service.
 	if !authorizer.AuthMachineAgent() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	return &FanConfigurerAPI{

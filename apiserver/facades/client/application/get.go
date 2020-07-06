@@ -10,7 +10,7 @@ import (
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/constraints"
@@ -99,7 +99,7 @@ func (api *APIBase) getConfig(
 
 	allSpaceInfosLookup, err := api.backend.AllSpaceInfos()
 	if err != nil {
-		return params.ApplicationGetResults{}, common.ServerError(err)
+		return params.ApplicationGetResults{}, commonerrors.ServerError(err)
 	}
 
 	bindingMap, err := endpoints.MapWithSpaceNames(allSpaceInfosLookup)

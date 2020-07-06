@@ -88,15 +88,6 @@ func IsNotAlive(err error) bool {
 	return ok
 }
 
-var (
-	machineNotAliveErr     = notAliveError{"machine"}
-	applicationNotAliveErr = notAliveError{"application"}
-	unitNotAliveErr        = notAliveError{"unit"}
-	spaceNotAliveErr       = notAliveError{"space"}
-	subnetNotAliveErr      = notAliveError{"subnet"}
-	notAliveErr            = notAliveError{""}
-)
-
 func onAbort(txnErr, err error) error {
 	if txnErr == txn.ErrAborted ||
 		errors.Cause(txnErr) == txn.ErrAborted {

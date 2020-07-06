@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 )
@@ -233,7 +233,7 @@ func (s *RunActionSuite) TestRun(c *gc.C) {
 		withArgs: []string{validUnitId, "some-action"},
 		withActionResults: []params.ActionResult{{
 			Action: &params.Action{Tag: validActionTagString},
-			Error:  common.ServerError(errors.New("database error")),
+			Error:  commonerrors.ServerError(errors.New("database error")),
 		}},
 		expectedErr: "database error",
 	}, {

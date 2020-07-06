@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -102,7 +103,7 @@ func (s *actionsSuite) TestAuthAndActionFromTagFn(c *gc.C) {
 		errString: `invalid actionreceiver name "masterexploder"`,
 	}, {
 		tag: unauthorizedActionTag.String(),
-		err: common.ErrPerm,
+		err: commonerrors.ErrPerm,
 	}, {
 		tag:            authorizedActionTag.String(),
 		expectedAction: authorizedAction,
@@ -135,8 +136,8 @@ func (s *actionsSuite) TestBeginActions(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		[]params.ErrorResult{
 			{},
-			{common.ServerError(expectErr)},
-			{common.ServerError(actionNotFoundErr)},
+			{commonerrors.ServerError(expectErr)},
+			{commonerrors.ServerError(actionNotFoundErr)},
 		},
 	})
 }
@@ -153,8 +154,8 @@ func (s *actionsSuite) TestGetActions(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ActionResults{
 		[]params.ActionResult{
 			{Action: &params.Action{Name: "floosh"}},
-			{Error: common.ServerError(actionNotFoundErr)},
-			{Error: common.ServerError(common.ErrActionNotAvailable)},
+			{Error: commonerrors.ServerError(actionNotFoundErr)},
+			{Error: commonerrors.ServerError(commonerrors.ErrActionNotAvailable)},
 		},
 	})
 }
@@ -178,9 +179,9 @@ func (s *actionsSuite) TestFinishActions(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		[]params.ErrorResult{
 			{},
-			{common.ServerError(actionNotFoundErr)},
-			{common.ServerError(errors.New("unrecognized action status 'failStatus'"))},
-			{common.ServerError(expectErr)},
+			{commonerrors.ServerError(actionNotFoundErr)},
+			{commonerrors.ServerError(errors.New("unrecognized action status 'failStatus'"))},
+			{commonerrors.ServerError(expectErr)},
 		},
 	})
 }
@@ -202,9 +203,9 @@ func (s *actionsSuite) TestWatchActionNotifications(c *gc.C) {
 
 	c.Assert(results, jc.DeepEquals, params.StringsWatchResults{
 		[]params.StringsWatchResult{
-			{Error: common.ServerError(errors.New(`invalid actionreceiver tag "invalid-actionreceiver"`))},
-			{Error: common.ServerError(common.ErrPerm)},
-			{Error: common.ServerError(errors.New("pax"))},
+			{Error: commonerrors.ServerError(errors.New(`invalid actionreceiver tag "invalid-actionreceiver"`))},
+			{Error: commonerrors.ServerError(commonerrors.ErrPerm)},
+			{Error: commonerrors.ServerError(errors.New("pax"))},
 			{StringsWatcherId: "orosu"},
 		},
 	})

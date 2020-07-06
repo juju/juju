@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/cmd/juju/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
@@ -63,7 +63,7 @@ func (s *grantRevokeCloudSuite) TestAccess(c *gc.C) {
 }
 
 func (s *grantRevokeCloudSuite) TestBlockGrant(c *gc.C) {
-	s.fakeCloudAPI.err = common.OperationBlockedError("TestBlockGrant")
+	s.fakeCloudAPI.err = commonerrors.OperationBlockedError("TestBlockGrant")
 	_, err := s.run(c, "sam", "admin", "foo", "cloud")
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockGrant.*")
 }

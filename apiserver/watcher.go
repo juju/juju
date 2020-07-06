@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
@@ -40,11 +41,11 @@ func NewAllWatcher(context facade.Context) (facade.Facade, error) {
 		// both the WatchAll (requires model access rights) and
 		// the WatchAllModels (requring controller superuser
 		// rights) API calls.
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(multiwatcher.Watcher)
 	if !ok {
-		return nil, common.ErrUnknownWatcher
+		return nil, commonerrors.ErrUnknownWatcher
 	}
 	return &SrvAllWatcher{
 		watcherCommon: newWatcherCommon(context),
@@ -488,12 +489,12 @@ func newNotifyWatcher(context facade.Context) (facade.Facade, error) {
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
 	if auth.GetAuthTag() != nil && !isAgentOrUser(auth) {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	watcher, ok := resources.Get(id).(cache.NotifyWatcher)
 	if !ok {
-		return nil, common.ErrUnknownWatcher
+		return nil, commonerrors.ErrUnknownWatcher
 	}
 
 	return &srvNotifyWatcher{
@@ -527,7 +528,7 @@ func (w *srvNotifyWatcher) Next() error {
 		err = e.Err()
 	}
 	if err == nil {
-		err = common.ErrStoppedWatcher
+		err = commonerrors.ErrStoppedWatcher
 	}
 	return err
 }
@@ -549,11 +550,11 @@ func newStringsWatcher(context facade.Context) (facade.Facade, error) {
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
 	if auth.GetAuthTag() != nil && !isAgentOrUser(auth) {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(cache.StringsWatcher)
 	if !ok {
-		return nil, common.ErrUnknownWatcher
+		return nil, commonerrors.ErrUnknownWatcher
 	}
 	return &srvStringsWatcher{
 		watcherCommon: newWatcherCommon(context),
@@ -575,7 +576,7 @@ func (w *srvStringsWatcher) Next() (params.StringsWatchResult, error) {
 		err = e.Err()
 	}
 	if err == nil {
-		err = common.ErrStoppedWatcher
+		err = commonerrors.ErrStoppedWatcher
 	}
 	return params.StringsWatchResult{}, err
 }
@@ -596,11 +597,11 @@ func newRelationUnitsWatcher(context facade.Context) (facade.Facade, error) {
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(common.RelationUnitsWatcher)
 	if !ok {
-		return nil, common.ErrUnknownWatcher
+		return nil, commonerrors.ErrUnknownWatcher
 	}
 	return &srvRelationUnitsWatcher{
 		watcherCommon: newWatcherCommon(context),
@@ -619,7 +620,7 @@ func (w *srvRelationUnitsWatcher) Next() (params.RelationUnitsWatchResult, error
 	}
 	err := w.watcher.Err()
 	if err == nil {
-		err = common.ErrStoppedWatcher
+		err = commonerrors.ErrStoppedWatcher
 	}
 	return params.RelationUnitsWatchResult{}, err
 }
@@ -642,11 +643,11 @@ func newRemoteRelationWatcher(context facade.Context) (facade.Facade, error) {
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(*crossmodel.WrappedUnitsWatcher)
 	if !ok {
-		return nil, common.ErrUnknownWatcher
+		return nil, commonerrors.ErrUnknownWatcher
 	}
 	return &srvRemoteRelationWatcher{
 		watcherCommon: newWatcherCommon(context),
@@ -666,7 +667,7 @@ func (w *srvRemoteRelationWatcher) Next() (params.RemoteRelationWatchResult, err
 		)
 		if err != nil {
 			return params.RemoteRelationWatchResult{
-				Error: common.ServerError(err),
+				Error: commonerrors.ServerError(err),
 			}, nil
 		}
 		return params.RemoteRelationWatchResult{
@@ -675,7 +676,7 @@ func (w *srvRemoteRelationWatcher) Next() (params.RemoteRelationWatchResult, err
 	}
 	err := w.watcher.Err()
 	if err == nil {
-		err = common.ErrStoppedWatcher
+		err = commonerrors.ErrStoppedWatcher
 	}
 	return params.RemoteRelationWatchResult{}, err
 }
@@ -695,11 +696,11 @@ func newRelationStatusWatcher(context facade.Context) (facade.Facade, error) {
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(state.StringsWatcher)
 	if !ok {
-		return nil, common.ErrUnknownWatcher
+		return nil, commonerrors.ErrUnknownWatcher
 	}
 	return &srvRelationStatusWatcher{
 		watcherCommon: newWatcherCommon(context),
@@ -718,7 +719,7 @@ func (w *srvRelationStatusWatcher) Next() (params.RelationLifeSuspendedStatusWat
 			change, err := crossmodel.GetRelationLifeSuspendedStatusChange(crossmodel.GetBackend(w.st), key)
 			if err != nil {
 				return params.RelationLifeSuspendedStatusWatchResult{
-					Error: common.ServerError(err),
+					Error: commonerrors.ServerError(err),
 				}, nil
 			}
 			changesParams[i] = *change
@@ -729,7 +730,7 @@ func (w *srvRelationStatusWatcher) Next() (params.RelationLifeSuspendedStatusWat
 	}
 	err := w.watcher.Err()
 	if err == nil {
-		err = common.ErrStoppedWatcher
+		err = commonerrors.ErrStoppedWatcher
 	}
 	return params.RelationLifeSuspendedStatusWatchResult{}, err
 }
@@ -756,11 +757,11 @@ func newOfferStatusWatcher(context facade.Context) (facade.Facade, error) {
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(crossmodelrelations.OfferWatcher)
 	if !ok {
-		return nil, common.ErrUnknownWatcher
+		return nil, commonerrors.ErrUnknownWatcher
 	}
 	return &srvOfferStatusWatcher{
 		watcherCommon: newWatcherCommon(context),
@@ -781,7 +782,7 @@ func (w *srvOfferStatusWatcher) Next() (params.OfferStatusWatchResult, error) {
 			w.watcher.OfferUUID(), w.watcher.OfferName())
 		if err != nil {
 			return params.OfferStatusWatchResult{
-				Error: common.ServerError(err),
+				Error: commonerrors.ServerError(err),
 			}, nil
 		}
 		return params.OfferStatusWatchResult{
@@ -790,7 +791,7 @@ func (w *srvOfferStatusWatcher) Next() (params.OfferStatusWatchResult, error) {
 	}
 	err := w.watcher.Err()
 	if err == nil {
-		err = common.ErrStoppedWatcher
+		err = commonerrors.ErrStoppedWatcher
 	}
 	return params.OfferStatusWatchResult{}, err
 }
@@ -837,11 +838,11 @@ func newMachineStorageIdsWatcher(
 	auth := context.Auth()
 	resources := context.Resources()
 	if !isAgent(auth) {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(state.StringsWatcher)
 	if !ok {
-		return nil, common.ErrUnknownWatcher
+		return nil, commonerrors.ErrUnknownWatcher
 	}
 	return &srvMachineStorageIdsWatcher{
 		watcherCommon: newWatcherCommon(context),
@@ -865,7 +866,7 @@ func (w *srvMachineStorageIdsWatcher) Next() (params.MachineStorageIdsWatchResul
 	}
 	err := w.watcher.Err()
 	if err == nil {
-		err = common.ErrStoppedWatcher
+		err = commonerrors.ErrStoppedWatcher
 	}
 	return params.MachineStorageIdsWatchResult{}, err
 }
@@ -898,11 +899,11 @@ func newEntitiesWatcher(context facade.Context) (facade.Facade, error) {
 	resources := context.Resources()
 
 	if !isAgent(auth) {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(EntitiesWatcher)
 	if !ok {
-		return nil, common.ErrUnknownWatcher
+		return nil, commonerrors.ErrUnknownWatcher
 	}
 	return &srvEntitiesWatcher{
 		watcherCommon: newWatcherCommon(context),
@@ -925,7 +926,7 @@ func (w *srvEntitiesWatcher) Next() (params.EntitiesWatchResult, error) {
 	}
 	err := w.watcher.Err()
 	if err == nil {
-		err = common.ErrStoppedWatcher
+		err = commonerrors.ErrStoppedWatcher
 	}
 	return params.EntitiesWatchResult{}, err
 }
@@ -949,11 +950,11 @@ func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
 	st := context.State()
 
 	if !isAgent(auth) {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	w, ok := resources.Get(id).(state.NotifyWatcher)
 	if !ok {
-		return nil, common.ErrUnknownWatcher
+		return nil, commonerrors.ErrUnknownWatcher
 	}
 	return &srvMigrationStatusWatcher{
 		watcherCommon: newWatcherCommon(context),
@@ -977,7 +978,7 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 	if _, ok := <-w.watcher.Changes(); !ok {
 		err := w.watcher.Err()
 		if err == nil {
-			err = common.ErrStoppedWatcher
+			err = commonerrors.ErrStoppedWatcher
 		}
 		return empty, err
 	}
@@ -1078,11 +1079,11 @@ func NewModelSummaryWatcher(context facade.Context) (*SrvModelSummaryWatcher, er
 		// both the WatchAll (requires model access rights) and
 		// the WatchAllModels (requring controller superuser
 		// rights) API calls.
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(cache.ModelSummaryWatcher)
 	if !ok {
-		return nil, errors.Annotatef(common.ErrUnknownWatcher, "watcher id: %s", id)
+		return nil, errors.Annotatef(commonerrors.ErrUnknownWatcher, "watcher id: %s", id)
 	}
 	return &SrvModelSummaryWatcher{
 		watcherCommon: newWatcherCommon(context),
@@ -1105,7 +1106,7 @@ func (w *SrvModelSummaryWatcher) Next() (params.SummaryWatcherNextResults, error
 			Models: w.translate(summaries),
 		}, nil
 	}
-	return params.SummaryWatcherNextResults{}, common.ErrStoppedWatcher
+	return params.SummaryWatcherNextResults{}, commonerrors.ErrStoppedWatcher
 }
 
 func (w *SrvModelSummaryWatcher) translate(summaries []cache.ModelSummary) []params.ModelAbstract {

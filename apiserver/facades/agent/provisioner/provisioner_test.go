@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner/mocks"
@@ -1491,14 +1492,14 @@ func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
 	c.Assert(results, gc.HasLen, 6)
 	c.Check(results[0].Error, gc.IsNil)
 	c.Check(*results[1].Error, jc.DeepEquals,
-		*common.ServerError(errors.NotFoundf("machine 100")))
+		*commonerrors.ServerError(errors.NotFoundf("machine 100")))
 	c.Check(*results[1].Error, jc.Satisfies, params.IsCodeNotFound)
 	c.Check(results[2].Error, gc.IsNil)
 	c.Check(*results[3].Error, jc.DeepEquals,
-		*common.ServerError(errors.New("cannot remove machine 1: machine is not dead")))
+		*commonerrors.ServerError(errors.New("cannot remove machine 1: machine is not dead")))
 	c.Check(*results[4].Error, jc.DeepEquals, *apiservertesting.ErrUnauthorized)
 	c.Check(*results[5].Error, jc.DeepEquals,
-		*common.ServerError(errors.New(`"application-thing" is not a valid machine tag`)))
+		*commonerrors.ServerError(errors.New(`"application-thing" is not a valid machine tag`)))
 
 	removals, err := s.State.AllMachineRemovals()
 	c.Assert(err, jc.ErrorIsNil)

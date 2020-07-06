@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -35,7 +35,7 @@ type Facade struct {
 // NewFacade creates a new authorized Facade.
 func NewFacade(backend Backend, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
 	if !auth.AuthController() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	return &Facade{
 		backend:   backend,
@@ -65,7 +65,7 @@ func (facade *Facade) Rescale(args params.Entities) params.ErrorResults {
 	}
 	for i, entity := range args.Entities {
 		err := facade.rescaleOne(entity.Tag)
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = commonerrors.ServerError(err)
 	}
 	return result
 }
@@ -79,7 +79,7 @@ func (facade *Facade) rescaleOne(tagString string) error {
 	}
 	ApplicationTag, ok := tag.(names.ApplicationTag)
 	if !ok {
-		return common.ErrPerm
+		return commonerrors.ErrPerm
 	}
 	return facade.backend.RescaleService(ApplicationTag.Id())
 }

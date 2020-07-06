@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -145,7 +146,7 @@ type apiConfig struct {
 func newAPIWithBacking(cfg apiConfig) (*API, error) {
 	// Only clients can access the Spaces facade.
 	if !cfg.Authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	return &API{
@@ -167,13 +168,13 @@ func (api *API) CreateSpaces(args params.CreateSpacesParams) (results params.Err
 		return results, errors.Trace(err)
 	}
 	if !isAdmin {
-		return results, common.ServerError(common.ErrPerm)
+		return results, commonerrors.ServerError(commonerrors.ErrPerm)
 	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return results, errors.Trace(err)
 	}
 	if err = api.checkSupportsSpaces(); err != nil {
-		return results, common.ServerError(errors.Trace(err))
+		return results, commonerrors.ServerError(errors.Trace(err))
 	}
 
 	results.Results = make([]params.ErrorResult, len(args.Spaces))
@@ -183,7 +184,7 @@ func (api *API) CreateSpaces(args params.CreateSpacesParams) (results params.Err
 		if err == nil {
 			continue
 		}
-		results.Results[i].Error = common.ServerError(errors.Trace(err))
+		results.Results[i].Error = commonerrors.ServerError(errors.Trace(err))
 	}
 
 	return results, nil
@@ -197,13 +198,13 @@ func (api *APIv4) CreateSpaces(args params.CreateSpacesParamsV4) (params.ErrorRe
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	if !isAdmin {
-		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
+		return params.ErrorResults{}, commonerrors.ServerError(commonerrors.ErrPerm)
 	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	if err := api.checkSupportsSpaces(); err != nil {
-		return params.ErrorResults{}, common.ServerError(errors.Trace(err))
+		return params.ErrorResults{}, commonerrors.ServerError(errors.Trace(err))
 	}
 
 	results := params.ErrorResults{
@@ -213,7 +214,7 @@ func (api *APIv4) CreateSpaces(args params.CreateSpacesParamsV4) (params.ErrorRe
 	for i, space := range args.Spaces {
 		cidrs, err := convertOldSubnetTagToCIDR(space.SubnetTags)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		csParams := params.CreateSpaceParams{
@@ -226,7 +227,7 @@ func (api *APIv4) CreateSpaces(args params.CreateSpacesParamsV4) (params.ErrorRe
 		if err == nil {
 			continue
 		}
-		results.Results[i].Error = common.ServerError(errors.Trace(err))
+		results.Results[i].Error = commonerrors.ServerError(errors.Trace(err))
 	}
 
 	return results, nil
@@ -282,12 +283,12 @@ func (api *API) ListSpaces() (results params.ListSpacesResults, err error) {
 		return results, errors.Trace(err)
 	}
 	if !canRead {
-		return results, common.ServerError(common.ErrPerm)
+		return results, commonerrors.ServerError(commonerrors.ErrPerm)
 	}
 
 	err = api.checkSupportsSpaces()
 	if err != nil {
-		return results, common.ServerError(errors.Trace(err))
+		return results, commonerrors.ServerError(errors.Trace(err))
 	}
 
 	spaces, err := api.backing.AllSpaces()
@@ -304,7 +305,7 @@ func (api *API) ListSpaces() (results params.ListSpacesResults, err error) {
 		subnets, err := space.Subnets()
 		if err != nil {
 			err = errors.Annotatef(err, "fetching subnets")
-			result.Error = common.ServerError(err)
+			result.Error = commonerrors.ServerError(err)
 			results.Results[i] = result
 			continue
 		}
@@ -327,25 +328,25 @@ func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, er
 		return params.ShowSpaceResults{}, errors.Trace(err)
 	}
 	if !canRead {
-		return params.ShowSpaceResults{}, common.ServerError(common.ErrPerm)
+		return params.ShowSpaceResults{}, commonerrors.ServerError(commonerrors.ErrPerm)
 	}
 
 	err = api.checkSupportsSpaces()
 	if err != nil {
-		return params.ShowSpaceResults{}, common.ServerError(errors.Trace(err))
+		return params.ShowSpaceResults{}, commonerrors.ServerError(errors.Trace(err))
 	}
 	results := make([]params.ShowSpaceResult, len(entities.Entities))
 	for i, entity := range entities.Entities {
 		spaceName, err := names.ParseSpaceTag(entity.Tag)
 		if err != nil {
-			results[i].Error = common.ServerError(errors.Trace(err))
+			results[i].Error = commonerrors.ServerError(errors.Trace(err))
 			continue
 		}
 		var result params.ShowSpaceResult
 		space, err := api.backing.SpaceByName(spaceName.Id())
 		if err != nil {
 			newErr := errors.Annotatef(err, "fetching space %q", spaceName)
-			results[i].Error = common.ServerError(newErr)
+			results[i].Error = commonerrors.ServerError(newErr)
 			continue
 		}
 		result.Space.Name = space.Name()
@@ -353,7 +354,7 @@ func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, er
 		subnets, err := space.Subnets()
 		if err != nil {
 			newErr := errors.Annotatef(err, "fetching subnets")
-			results[i].Error = common.ServerError(newErr)
+			results[i].Error = commonerrors.ServerError(newErr)
 			continue
 		}
 
@@ -365,7 +366,7 @@ func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, er
 		applications, err := api.applicationsBoundToSpace(space.Id())
 		if err != nil {
 			newErr := errors.Annotatef(err, "fetching applications")
-			results[i].Error = common.ServerError(newErr)
+			results[i].Error = commonerrors.ServerError(newErr)
 			continue
 		}
 		result.Applications = applications
@@ -373,7 +374,7 @@ func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, er
 		machineCount, err := api.getMachineCountBySpaceID(space.Id())
 		if err != nil {
 			newErr := errors.Annotatef(err, "fetching machine count")
-			results[i].Error = common.ServerError(newErr)
+			results[i].Error = commonerrors.ServerError(newErr)
 			continue
 		}
 
@@ -449,13 +450,13 @@ func (api *API) ensureSpacesAreMutable() error {
 		return errors.Trace(err)
 	}
 	if !isAdmin {
-		return common.ServerError(common.ErrPerm)
+		return commonerrors.ServerError(commonerrors.ErrPerm)
 	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
 	if err = api.ensureSpacesNotProviderSourced(); err != nil {
-		return common.ServerError(errors.Trace(err))
+		return commonerrors.ServerError(errors.Trace(err))
 	}
 	return nil
 }

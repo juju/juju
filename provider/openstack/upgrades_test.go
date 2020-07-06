@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v2/identity"
 
-	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
 

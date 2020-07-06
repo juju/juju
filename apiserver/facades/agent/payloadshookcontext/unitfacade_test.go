@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	unitfacade "github.com/juju/juju/apiserver/facades/agent/payloadshookcontext"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
@@ -237,7 +237,7 @@ func (s *suite) TestLookUpMixed(c *gc.C) {
 				Tag: "",
 			},
 			NotFound: true,
-			Error:    common.ServerError(notFound),
+			Error:    commonerrors.ServerError(notFound),
 		}, {
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag("ce5bc2a7-65d8-4800-8199-a7c3356ab311").String(),

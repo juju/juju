@@ -11,12 +11,11 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
 	client "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	containerLXD "github.com/juju/juju/container/lxd"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/provider/lxd"

@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"

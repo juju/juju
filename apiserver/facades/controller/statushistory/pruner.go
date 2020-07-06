@@ -5,6 +5,7 @@ package statushistory
 
 import (
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -36,7 +37,7 @@ func NewAPI(st *state.State, r facade.Resources, auth facade.Authorizer) (*API, 
 // the history is smaller than p.MaxHistoryMB.
 func (api *API) Prune(p params.StatusHistoryPruneArgs) error {
 	if !api.authorizer.AuthController() {
-		return common.ErrPerm
+		return commonerrors.ErrPerm
 	}
 	return state.PruneStatusHistory(api.st, p.MaxHistoryTime, p.MaxHistoryMB)
 }

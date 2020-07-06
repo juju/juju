@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -37,7 +38,7 @@ func NewFacade(
 	authorizer facade.Authorizer,
 ) (*Facade, error) {
 	if !authorizer.AuthMachineAgent() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	return &Facade{
 		backend:       backend,
@@ -88,19 +89,19 @@ func (f *Facade) RunningActions(args params.Entities) params.ActionsByReceivers 
 		currentResult := &response.Actions[i]
 		receiver, err := tagToActionReceiver(entity.Tag)
 		if err != nil {
-			currentResult.Error = common.ServerError(common.ErrBadId)
+			currentResult.Error = commonerrors.ServerError(commonerrors.ErrBadId)
 			continue
 		}
 		currentResult.Receiver = receiver.Tag().String()
 
 		if !canAccess(receiver.Tag()) {
-			currentResult.Error = common.ServerError(common.ErrPerm)
+			currentResult.Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 
 		results, err := f.backend.ConvertActions(receiver, receiver.RunningActions)
 		if err != nil {
-			currentResult.Error = common.ServerError(err)
+			currentResult.Error = commonerrors.ServerError(err)
 			continue
 		}
 		currentResult.Actions = results

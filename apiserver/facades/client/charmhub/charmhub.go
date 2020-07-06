@@ -10,7 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
@@ -41,7 +41,7 @@ func NewFacade(ctx facade.Context) (*CharmHubAPI, error) {
 
 func newCharmHubAPI(authorizer facade.Authorizer, newClientFunc func(charmhub.Config) (Client, error)) (*CharmHubAPI, error) {
 	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 	return &CharmHubAPI{auth: authorizer, newClientFunc: newClientFunc}, nil
 }

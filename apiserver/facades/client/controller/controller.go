@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	corecontroller "github.com/juju/juju/controller"
@@ -186,7 +187,7 @@ func NewControllerAPI(
 	controller *cache.Controller,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
-		return nil, errors.Trace(common.ErrPerm)
+		return nil, errors.Trace(commonerrors.ErrPerm)
 	}
 
 	// Since we know this is a user tag (because AuthClient is true),
@@ -230,7 +231,7 @@ func (c *ControllerAPI) checkIsSuperUser() error {
 		return errors.Trace(err)
 	}
 	if !isAdmin {
-		return common.ServerError(common.ErrPerm)
+		return commonerrors.ServerError(commonerrors.ErrPerm)
 	}
 	return nil
 }
@@ -472,7 +473,7 @@ func (c *ControllerAPI) HostedModelConfigs() (params.HostedModelConfigsResults, 
 		}
 		modelConf, err := model.Config()
 		if err != nil {
-			config.Error = common.ServerError(err)
+			config.Error = commonerrors.ServerError(err)
 		} else {
 			config.Config = modelConf.AllAttrs()
 		}
@@ -555,16 +556,16 @@ func (c *ControllerAPI) GetControllerAccess(req params.Entities) (params.UserAcc
 	for i, user := range users {
 		userTag, err := names.ParseUserTag(user.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		if !isAdmin && !c.authorizer.AuthOwner(userTag) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			results.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 		access, err := c.state.UserPermission(userTag, c.state.ControllerTag())
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = &params.UserAccess{
@@ -591,7 +592,7 @@ func (c *ControllerAPI) InitiateMigration(reqArgs params.InitiateMigrationArgs) 
 		result.ModelTag = spec.ModelTag
 		id, err := c.initiateOneMigration(spec)
 		if err != nil {
-			result.Error = common.ServerError(err)
+			result.Error = commonerrors.ServerError(err)
 		} else {
 			result.MigrationId = id
 		}
@@ -676,7 +677,7 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 
 	for i, arg := range args.Changes {
 		if !hasPermission {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 			continue
 		}
 
@@ -685,18 +686,18 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 			// TODO(wallyworld) - remove in Juju 3.0
 			// Backwards compatibility requires us to accept add-model.
 			if controllerAccess != permission.AddModelAccess {
-				result.Results[i].Error = common.ServerError(err)
+				result.Results[i].Error = commonerrors.ServerError(err)
 				continue
 			}
 		}
 
 		targetUserTag, err := names.ParseUserTag(arg.UserTag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not modify controller access"))
+			result.Results[i].Error = commonerrors.ServerError(errors.Annotate(err, "could not modify controller access"))
 			continue
 		}
 
-		result.Results[i].Error = common.ServerError(
+		result.Results[i].Error = commonerrors.ServerError(
 			ChangeControllerAccess(c.state, c.apiUser, targetUserTag, arg.Action, controllerAccess))
 	}
 	return result, nil

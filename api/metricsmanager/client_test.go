@@ -8,7 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/metricsmanager"
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
@@ -64,7 +64,7 @@ func (s *metricsManagerSuite) TestSendMetricsFails(c *gc.C) {
 		c.Assert(request, gc.Equals, "SendMetrics")
 		result := response.(*params.ErrorResults)
 		result.Results = make([]params.ErrorResult, 1)
-		result.Results[0].Error = common.ServerError(common.ErrPerm)
+		result.Results[0].Error = commonerrors.ServerError(commonerrors.ErrPerm)
 		return result.OneError()
 	})
 	err := s.manager.SendMetrics()

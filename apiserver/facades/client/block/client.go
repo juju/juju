@@ -6,7 +6,7 @@ package block
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/permission"
@@ -42,7 +42,7 @@ func NewAPI(
 ) (*API, error) {
 
 	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, commonerrors.ErrPerm
 	}
 
 	m, err := st.Model()
@@ -66,7 +66,7 @@ func (a *API) checkCanRead() error {
 		return errors.Trace(err)
 	}
 	if !canRead {
-		return common.ErrPerm
+		return commonerrors.ErrPerm
 	}
 	return nil
 }
@@ -77,7 +77,7 @@ func (a *API) checkCanWrite() error {
 		return errors.Trace(err)
 	}
 	if !canWrite {
-		return common.ErrPerm
+		return commonerrors.ErrPerm
 	}
 	return nil
 }
@@ -90,7 +90,7 @@ func (a *API) List() (params.BlockResults, error) {
 
 	all, err := a.access.AllBlocks()
 	if err != nil {
-		return params.BlockResults{}, common.ServerError(err)
+		return params.BlockResults{}, commonerrors.ServerError(err)
 	}
 	found := make([]params.BlockResult, len(all))
 	for i, one := range all {
@@ -104,7 +104,7 @@ func convertBlock(b state.Block) params.BlockResult {
 	tag, err := b.Tag()
 	if err != nil {
 		err := errors.Annotatef(err, "getting block %v", b.Type().String())
-		result.Error = common.ServerError(err)
+		result.Error = commonerrors.ServerError(err)
 	}
 	result.Result = params.Block{
 		Id:      b.Id(),
@@ -118,19 +118,19 @@ func convertBlock(b state.Block) params.BlockResult {
 // SwitchBlockOn implements Block.SwitchBlockOn().
 func (a *API) SwitchBlockOn(args params.BlockSwitchParams) params.ErrorResult {
 	if err := a.checkCanWrite(); err != nil {
-		return params.ErrorResult{Error: common.ServerError(err)}
+		return params.ErrorResult{Error: commonerrors.ServerError(err)}
 	}
 
 	err := a.access.SwitchBlockOn(state.ParseBlockType(args.Type), args.Message)
-	return params.ErrorResult{Error: common.ServerError(err)}
+	return params.ErrorResult{Error: commonerrors.ServerError(err)}
 }
 
 // SwitchBlockOff implements Block.SwitchBlockOff().
 func (a *API) SwitchBlockOff(args params.BlockSwitchParams) params.ErrorResult {
 	if err := a.checkCanWrite(); err != nil {
-		return params.ErrorResult{Error: common.ServerError(err)}
+		return params.ErrorResult{Error: commonerrors.ServerError(err)}
 	}
 
 	err := a.access.SwitchBlockOff(state.ParseBlockType(args.Type))
-	return params.ErrorResult{Error: common.ServerError(err)}
+	return params.ErrorResult{Error: commonerrors.ServerError(err)}
 }

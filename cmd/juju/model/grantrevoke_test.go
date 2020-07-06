@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/core/crossmodel"
 	coremodel "github.com/juju/juju/core/model"
@@ -106,7 +106,7 @@ func (s *grantRevokeSuite) TestModelAccess(c *gc.C) {
 }
 
 func (s *grantRevokeSuite) TestModelBlockGrant(c *gc.C) {
-	s.fakeModelAPI.err = common.OperationBlockedError("TestBlockGrant")
+	s.fakeModelAPI.err = commonerrors.OperationBlockedError("TestBlockGrant")
 	_, err := s.run(c, "sam", "read", "foo")
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockGrant.*")
 }
