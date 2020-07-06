@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -1289,7 +1290,7 @@ func (s *UnitSuite) TestSetCharmURLFailures(c *gc.C) {
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetCharmURL(s.charm.URL())
-	c.Assert(err, gc.Equals, state.ErrDead)
+	c.Assert(err, gc.Equals, stateerrors.ErrDead)
 }
 
 func (s *UnitSuite) TestSetCharmURLWithRemovedUnit(c *gc.C) {
@@ -1298,7 +1299,7 @@ func (s *UnitSuite) TestSetCharmURLWithRemovedUnit(c *gc.C) {
 	assertRemoved(c, s.unit)
 
 	err = s.unit.SetCharmURL(s.charm.URL())
-	c.Assert(err, gc.Equals, state.ErrDead)
+	c.Assert(err, gc.Equals, stateerrors.ErrDead)
 }
 
 func (s *UnitSuite) TestSetCharmURLWithDyingUnit(c *gc.C) {
@@ -1327,7 +1328,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDeadUnit(c *gc.C) {
 	}).Check()
 
 	err := s.unit.SetCharmURL(s.charm.URL())
-	c.Assert(err, gc.Equals, state.ErrDead)
+	c.Assert(err, gc.Equals, stateerrors.ErrDead)
 }
 
 func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
@@ -2151,13 +2152,13 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *gc.C) {
 
 	// Check the unit cannot become Dead, but can become Dying...
 	err = u.EnsureDead()
-	c.Assert(err, gc.Equals, state.ErrUnitHasSubordinates)
+	c.Assert(err, gc.Equals, stateerrors.ErrUnitHasSubordinates)
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ...and that it still can't become Dead now it's Dying.
 	err = u.EnsureDead()
-	c.Assert(err, gc.Equals, state.ErrUnitHasSubordinates)
+	c.Assert(err, gc.Equals, stateerrors.ErrUnitHasSubordinates)
 
 	// Make the subordinate Dead and check the principal still cannot be removed.
 	sub, err := s.State.Unit("logging/0")
@@ -2165,7 +2166,7 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *gc.C) {
 	err = sub.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.EnsureDead()
-	c.Assert(err, gc.Equals, state.ErrUnitHasSubordinates)
+	c.Assert(err, gc.Equals, stateerrors.ErrUnitHasSubordinates)
 
 	// remove the subordinate and check the principal can finally become Dead.
 	err = sub.Remove()

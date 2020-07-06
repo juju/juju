@@ -16,6 +16,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // RelationUnit holds information about a single unit in a relation, and
@@ -162,7 +164,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	if alive, err := isAliveWithSession(relations, relationDocID); err != nil {
 		return err
 	} else if !alive {
-		return ErrCannotEnterScope
+		return stateerrors.ErrCannotEnterScope
 	}
 	if ru.isLocalUnit {
 		units, closer := db.GetCollection(unitsC)
@@ -170,7 +172,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		if alive, err := isAliveWithSession(units, ru.unitName); err != nil {
 			return err
 		} else if !alive {
-			return ErrCannotEnterScope
+			return stateerrors.ErrCannotEnterScope
 		}
 
 		// Maybe a subordinate used to exist, but is no longer alive. If that is
@@ -179,7 +181,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 			if alive, err := isAliveWithSession(units, existingSubName); err != nil {
 				return err
 			} else if !alive {
-				return ErrCannotEnterScopeYet
+				return stateerrors.ErrCannotEnterScopeYet
 			}
 		}
 	}
@@ -274,7 +276,7 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 	} else if err != nil {
 		return nil, "", err
 	} else if lDoc.Life != Alive {
-		return nil, "", ErrCannotEnterScopeYet
+		return nil, "", stateerrors.ErrCannotEnterScopeYet
 	}
 	return []txn.Op{{
 		C:      unitsC,

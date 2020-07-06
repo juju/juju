@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/storage"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -893,7 +894,7 @@ func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 		return nil, errors.Trace(err)
 	}
 	if !doc.PendingUpload {
-		return nil, errors.Trace(NewErrCharmAlreadyUploaded(info.ID))
+		return nil, errors.Trace(newErrCharmAlreadyUploaded(info.ID))
 	}
 
 	ops, err := updateCharmOps(st, info, stillPending)
@@ -901,7 +902,7 @@ func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 		return nil, errors.Trace(err)
 	}
 	if err := st.db().RunTransaction(ops); err != nil {
-		return nil, onAbort(err, ErrCharmRevisionAlreadyModified)
+		return nil, onAbort(err, stateerrors.ErrCharmRevisionAlreadyModified)
 	}
 	return st.Charm(info.ID)
 }

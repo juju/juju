@@ -105,18 +105,18 @@ func onAbort(txnErr, err error) error {
 	return errors.Trace(txnErr)
 }
 
-// ErrProviderIDNotUnique is a standard error to indicate the value specified
+// errProviderIDNotUnique is a standard error to indicate the value specified
 // for a ProviderID field is not unique within the current model.
-type ErrProviderIDNotUnique struct {
+type errProviderIDNotUnique struct {
 	duplicateIDs []string
 }
 
-func (e *ErrProviderIDNotUnique) Error() string {
+func (e *errProviderIDNotUnique) Error() string {
 	idList := strings.Join(e.duplicateIDs, ", ")
 	return fmt.Sprintf("provider IDs not unique: %s", idList)
 }
 
-// NewProviderIDNotUniqueError returns an instance of ErrProviderIDNotUnique
+// NewProviderIDNotUniqueError returns an instance of errProviderIDNotUnique
 // initialized with the given duplicate provider IDs.
 func NewProviderIDNotUniqueError(providerIDs ...network.Id) error {
 	stringIDs := make([]string, len(providerIDs))
@@ -127,13 +127,13 @@ func NewProviderIDNotUniqueError(providerIDs ...network.Id) error {
 }
 
 func newProviderIDNotUniqueErrorFromStrings(providerIDs []string) error {
-	return &ErrProviderIDNotUnique{
+	return &errProviderIDNotUnique{
 		duplicateIDs: providerIDs,
 	}
 }
 
 // IsProviderIDNotUniqueError returns if the given error or its cause is
-// ErrProviderIDNotUnique.
+// errProviderIDNotUnique.
 func IsProviderIDNotUniqueError(err interface{}) bool {
 	if err == nil {
 		return false
@@ -144,31 +144,31 @@ func IsProviderIDNotUniqueError(err interface{}) bool {
 	if cause != nil {
 		value = cause
 	}
-	_, ok := value.(*ErrProviderIDNotUnique)
+	_, ok := value.(*errProviderIDNotUnique)
 	return ok
 }
 
-// ErrParentDeviceHasChildren is a standard error to indicate a network
+// errParentDeviceHasChildren is a standard error to indicate a network
 // link-layer device cannot be removed because other existing devices refer to
 // it as their parent.
-type ErrParentDeviceHasChildren struct {
+type errParentDeviceHasChildren struct {
 	parentName  string
 	numChildren int
 }
 
-func (e *ErrParentDeviceHasChildren) Error() string {
+func (e *errParentDeviceHasChildren) Error() string {
 	return fmt.Sprintf("parent device %q has %d children", e.parentName, e.numChildren)
 }
 
 func NewParentDeviceHasChildrenError(parentName string, numChildren int) error {
-	return &ErrParentDeviceHasChildren{
+	return &errParentDeviceHasChildren{
 		parentName:  parentName,
 		numChildren: numChildren,
 	}
 }
 
 // IsParentDeviceHasChildrenError returns if the given error or its cause is
-// ErrParentDeviceHasChildren.
+// errParentDeviceHasChildren.
 func IsParentDeviceHasChildrenError(err interface{}) bool {
 	if err == nil {
 		return false
@@ -179,25 +179,33 @@ func IsParentDeviceHasChildrenError(err interface{}) bool {
 	if cause != nil {
 		value = cause
 	}
-	_, ok := value.(*ErrParentDeviceHasChildren)
+	_, ok := value.(*errParentDeviceHasChildren)
 	return ok
 }
 
-// ErrIncompatibleSeries is a standard error to indicate that the series
+// errIncompatibleSeries is a standard error to indicate that the series
 // requested is not compatible with the charm of the application.
-type ErrIncompatibleSeries struct {
-	SeriesList []string
-	Series     string
-	CharmName  string
+type errIncompatibleSeries struct {
+	seriesList []string
+	series     string
+	charmName  string
 }
 
-func (e *ErrIncompatibleSeries) Error() string {
+func NewErrIncompatibleSeries(seriesList []string, series, charmName string) error {
+	return &errIncompatibleSeries{
+		seriesList: seriesList,
+		series:     series,
+		charmName:  charmName,
+	}
+}
+
+func (e *errIncompatibleSeries) Error() string {
 	return fmt.Sprintf("series %q not supported by charm %q, supported series are: %s",
-		e.Series, e.CharmName, strings.Join(e.SeriesList, ", "))
+		e.series, e.charmName, strings.Join(e.seriesList, ", "))
 }
 
 // IsIncompatibleSeriesError returns if the given error or its cause is
-// ErrIncompatibleSeries.
+// errIncompatibleSeries.
 func IsIncompatibleSeriesError(err interface{}) bool {
 	if err == nil {
 		return false
@@ -208,7 +216,7 @@ func IsIncompatibleSeriesError(err interface{}) bool {
 	if cause != nil {
 		value = cause
 	}
-	_, ok := value.(*ErrIncompatibleSeries)
+	_, ok := value.(*errIncompatibleSeries)
 	return ok
 }
 

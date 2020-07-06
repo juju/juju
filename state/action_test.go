@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -626,7 +627,7 @@ func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
 
 	// cannot add action to a dead unit
 	_, err = unit.AddAction(operationID, "snapshot", map[string]interface{}{})
-	c.Assert(err, gc.Equals, state.ErrDead)
+	c.Assert(err, gc.Equals, stateerrors.ErrDead)
 }
 
 func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
@@ -645,7 +646,7 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = unit.AddAction(operationID, "snapshot", map[string]interface{}{})
-	c.Assert(err, gc.Equals, state.ErrDead)
+	c.Assert(err, gc.Equals, stateerrors.ErrDead)
 }
 
 func (s *ActionSuite) TestFail(c *gc.C) {

@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // upgradeSeriesLockDoc holds the attributes relevant to lock a machine during a
@@ -94,7 +95,7 @@ func (m *Machine) CreateUpgradeSeriesLock(unitNames []string, toSeries string) e
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
-		err = onAbort(err, ErrDead)
+		err = onAbort(err, stateerrors.ErrDead)
 		logger.Errorf("cannot prepare series upgrade for machine %q: %v", m, err)
 		return err
 	}
@@ -234,7 +235,7 @@ func (m *Machine) StartUpgradeSeriesUnitCompletion(message string) error {
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
-		err = onAbort(err, ErrDead)
+		err = onAbort(err, stateerrors.ErrDead)
 		return err
 	}
 	return nil
@@ -285,7 +286,7 @@ func (m *Machine) CompleteUpgradeSeries() error {
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
-		err = onAbort(err, ErrDead)
+		err = onAbort(err, stateerrors.ErrDead)
 		return err
 	}
 	return errors.Trace(m.setUpgradeSeriesInstanceStatus(model.UpgradeSeriesCompleteStarted))
@@ -338,7 +339,7 @@ func (m *Machine) RemoveUpgradeSeriesLock() error {
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
-		err = onAbort(err, ErrDead)
+		err = onAbort(err, stateerrors.ErrDead)
 		return err
 	}
 	return nil
@@ -425,7 +426,7 @@ func (m *Machine) SetUpgradeSeriesUnitStatus(unitName string, status model.Upgra
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
-		err = onAbort(err, ErrDead)
+		err = onAbort(err, stateerrors.ErrDead)
 		return err
 	}
 	return nil
@@ -509,7 +510,7 @@ func (m *Machine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, messa
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
-		err = onAbort(err, ErrDead)
+		err = onAbort(err, stateerrors.ErrDead)
 		return err
 	}
 	return errors.Trace(m.setUpgradeSeriesInstanceStatus(status))
@@ -576,7 +577,7 @@ func (m *Machine) SetUpgradeSeriesMessagesAsSeen(messages []UpgradeSeriesMessage
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
-		err = onAbort(err, ErrDead)
+		err = onAbort(err, stateerrors.ErrDead)
 		return err
 	}
 	return nil

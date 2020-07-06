@@ -36,7 +36,7 @@ func (st *State) ProcessDyingModel() (err error) {
 			return errors.Trace(err)
 		}
 		if n := len(modelUUIDs) - 1; n > 0 {
-			return errors.Trace(NewHasHostedModelsError(n))
+			return errors.Trace(newHasHostedModelsError(n))
 		}
 	}
 

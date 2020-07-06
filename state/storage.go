@@ -442,7 +442,7 @@ func (sb *storageBackend) destroyStorageInstanceOps(
 	if !destroyAttachments {
 		// There are storage attachments, and we've been instructed
 		// not to destroy them.
-		return nil, NewStorageAttachedError("storage is attached")
+		return nil, newStorageAttachedError("storage is attached")
 	}
 
 	// Check that removing the storage from its owner (if any) is permitted.

@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/tools"
 )
 
@@ -278,7 +279,7 @@ func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
 		Update: bson.D{{"$set", bson.D{{"tools", versionedTool}}}},
 	}}
 	if err := u.st.db().RunTransaction(ops); err != nil {
-		return onAbort(err, ErrDead)
+		return onAbort(err, stateerrors.ErrDead)
 	}
 	u.doc.Tools = versionedTool
 	return nil
@@ -304,7 +305,7 @@ func (u *Unit) setPasswordHash(passwordHash string) error {
 	}}
 	err := u.st.db().RunTransaction(ops)
 	if err != nil {
-		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, ErrDead))
+		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, stateerrors.ErrDead))
 	}
 	u.doc.PasswordHash = passwordHash
 	return nil
@@ -907,9 +908,9 @@ func (u *Unit) EnsureDead() (err error) {
 		return err
 	}
 	if len(u.doc.Subordinates) > 0 {
-		return ErrUnitHasSubordinates
+		return stateerrors.ErrUnitHasSubordinates
 	}
-	return ErrUnitHasStorageAttachments
+	return stateerrors.ErrUnitHasStorageAttachments
 }
 
 // RemoveOperation returns a model operation that will remove the unit.
@@ -1569,7 +1570,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 			if notDead, err := isNotDeadWithSession(units, u.doc.DocID); err != nil {
 				return nil, errors.Trace(err)
 			} else if !notDead {
-				return nil, ErrDead
+				return nil, stateerrors.ErrDead
 			}
 		}
 		sel := bson.D{{"_id", u.doc.DocID}, {"charmurl", curl}}
@@ -2927,7 +2928,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	if ok, err := isNotDead(u.st, unitsC, u.doc.DocID); err != nil {
 		return err
 	} else if !ok {
-		return ErrDead
+		return stateerrors.ErrDead
 	}
 	// For now, the only remaining assert is that resolved was unset.
 	return fmt.Errorf("already resolved")

@@ -217,7 +217,7 @@ func (st *State) User(tag names.UserTag) (*User, error) {
 		// client. So we don't annotate with information regarding deletion.
 		// TODO(redir): We'll return a deletedUserError in the future so we can
 		// return more appropriate errors, e.g. username not available.
-		return nil, NewDeletedUserError(user.Name())
+		return nil, newDeletedUserError(user.Name())
 	}
 	return user, nil
 }
@@ -346,7 +346,7 @@ func (u *User) LastLogin() (time.Time, error) {
 	err := lastLogins.FindId(u.doc.DocID).Select(bson.D{{"last-login", 1}}).One(&lastLogin)
 	if err != nil {
 		if err == mgo.ErrNotFound {
-			err = errors.Wrap(err, NewNeverLoggedInError(u.UserTag().Name()))
+			err = errors.Wrap(err, newNeverLoggedInError(u.UserTag().Name()))
 		}
 		return time.Time{}, errors.Trace(err)
 	}
@@ -518,7 +518,7 @@ func (u *User) ensureNotDeleted() error {
 		return errors.Trace(err)
 	}
 	if u.doc.Deleted {
-		return NewDeletedUserError(u.Name())
+		return newDeletedUserError(u.Name())
 	}
 	return nil
 }

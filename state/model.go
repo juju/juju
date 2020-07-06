@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/utils"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/storage"
 )
 
@@ -579,7 +580,7 @@ func (m *Model) SetPassword(password string) error {
 	}}
 	err := m.st.db().RunTransaction(ops)
 	if err != nil {
-		return fmt.Errorf("cannot set password of model %q: %v", m, onAbort(err, ErrDead))
+		return fmt.Errorf("cannot set password of model %q: %v", m, onAbort(err, stateerrors.ErrDead))
 	}
 	m.doc.PasswordHash = passwordHash
 	return nil
@@ -1278,7 +1279,7 @@ func (m *Model) destroyOps(
 			// destroying the models and waiting for them to
 			// become Dead.
 			return nil, errors.Trace(
-				NewHasHostedModelsError(dying + aliveNonEmpty + aliveEmpty),
+				newHasHostedModelsError(dying + aliveNonEmpty + aliveEmpty),
 			)
 		}
 		// Ensure that the number of active models has not changed
@@ -1390,7 +1391,7 @@ func (model *Model) State() *State {
 func checkModelEntityRefsEmpty(doc *modelEntityRefsDoc) ([]txn.Op, error) {
 	// These errors could be potentially swallowed as we re-try to destroy model.
 	// Let's, at least, log them for observation.
-	err := NewModelNotEmptyError(
+	err := newModelNotEmptyError(
 		len(doc.Machines),
 		len(doc.Applications),
 		len(doc.Volumes),
@@ -1437,7 +1438,7 @@ func checkModelEntityRefsNoPersistentStorage(
 			return nil, errors.Trace(err)
 		}
 		if detachable {
-			return nil, NewHasPersistentStorageError()
+			return nil, newHasPersistentStorageError()
 		}
 	}
 	for _, filesystemId := range doc.Filesystems {
@@ -1447,7 +1448,7 @@ func checkModelEntityRefsNoPersistentStorage(
 			return nil, errors.Trace(err)
 		}
 		if detachable {
-			return nil, NewHasPersistentStorageError()
+			return nil, newHasPersistentStorageError()
 		}
 	}
 	return noNewStorageModelEntityRefs(doc), nil

@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	jujunetwork "github.com/juju/juju/network"
+	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // Space represents the state of a juju network space.
@@ -203,7 +204,7 @@ func (st *State) AddSpace(
 
 	err = st.db().Run(buildTxn)
 	if err != nil {
-		err = onAbort(err, ErrDead)
+		err = onAbort(err, stateerrors.ErrDead)
 		logger.Errorf("cannot add space to the model: %v", err)
 		return nil, errors.Trace(err)
 	}

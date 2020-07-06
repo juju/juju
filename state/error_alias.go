@@ -10,36 +10,21 @@ import (
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
-type (
-	// TODO: remove once fixed all the other imports outside of state.
-	ErrProviderIDNotUnique     = stateerrors.ErrProviderIDNotUnique
-	ErrParentDeviceHasChildren = stateerrors.ErrParentDeviceHasChildren
-	ErrIncompatibleSeries      = stateerrors.ErrIncompatibleSeries
-)
-
 var (
-	// TODO: remove once fixed all the other imports outside of state.
-	ErrCharmRevisionAlreadyModified = stateerrors.ErrCharmRevisionAlreadyModified
-	ErrDead                         = stateerrors.ErrDead
-	ErrCannotEnterScope             = stateerrors.ErrCannotEnterScope
-	ErrCannotEnterScopeYet          = stateerrors.ErrCannotEnterScopeYet
-	ErrUnitHasSubordinates          = stateerrors.ErrUnitHasSubordinates
-	ErrUnitHasStorageAttachments    = stateerrors.ErrUnitHasStorageAttachments
-
-	NewProviderIDNotUniqueError     = stateerrors.NewProviderIDNotUniqueError
+	newProviderIDNotUniqueError     = stateerrors.NewProviderIDNotUniqueError
 	newParentDeviceHasChildrenError = stateerrors.NewParentDeviceHasChildrenError
-	NewErrCharmAlreadyUploaded      = stateerrors.NewErrCharmAlreadyUploaded
-	NewHasAssignedUnitsError        = stateerrors.NewHasAssignedUnitsError
-	NewHasContainersError           = stateerrors.NewHasContainersError
-	NewHasAttachmentsError          = stateerrors.NewHasAttachmentsError
-	NewHasHostedModelsError         = stateerrors.NewHasHostedModelsError
-	NewHasPersistentStorageError    = stateerrors.NewHasPersistentStorageError
-	NewModelNotEmptyError           = stateerrors.NewModelNotEmptyError
-	NewStorageAttachedError         = stateerrors.NewStorageAttachedError
-	NewDeletedUserError             = stateerrors.NewDeletedUserError
-	NewNeverLoggedInError           = stateerrors.NewNeverLoggedInError
-	NewNeverConnectedError          = stateerrors.NewNeverConnectedError
-	NewVersionInconsistentError     = stateerrors.NewVersionInconsistentError
+	newErrCharmAlreadyUploaded      = stateerrors.NewErrCharmAlreadyUploaded
+	newHasAssignedUnitsError        = stateerrors.NewHasAssignedUnitsError
+	newHasContainersError           = stateerrors.NewHasContainersError
+	newHasAttachmentsError          = stateerrors.NewHasAttachmentsError
+	newHasHostedModelsError         = stateerrors.NewHasHostedModelsError
+	newHasPersistentStorageError    = stateerrors.NewHasPersistentStorageError
+	newModelNotEmptyError           = stateerrors.NewModelNotEmptyError
+	newStorageAttachedError         = stateerrors.NewStorageAttachedError
+	newDeletedUserError             = stateerrors.NewDeletedUserError
+	newNeverLoggedInError           = stateerrors.NewNeverLoggedInError
+	newNeverConnectedError          = stateerrors.NewNeverConnectedError
+	newVersionInconsistentError     = stateerrors.NewVersionInconsistentError
 
 	IsCharmAlreadyUploadedError    = stateerrors.IsCharmAlreadyUploadedError
 	IsProviderIDNotUniqueError     = stateerrors.IsProviderIDNotUniqueError

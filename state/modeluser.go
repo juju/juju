@@ -54,7 +54,7 @@ func (m *Model) LastModelConnection(user names.UserTag) (time.Time, error) {
 	err := lastConnections.FindId(m.st.docID(username)).Select(bson.D{{"last-connection", 1}}).One(&lastConn)
 	if err != nil {
 		if err == mgo.ErrNotFound {
-			err = errors.Wrap(err, NewNeverConnectedError(username))
+			err = errors.Wrap(err, newNeverConnectedError(username))
 		}
 		return time.Time{}, errors.Trace(err)
 	}

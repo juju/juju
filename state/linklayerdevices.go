@@ -216,7 +216,7 @@ func (dev *LinkLayerDevice) SetProviderIDOps(id network.Id) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 	if exists {
-		return nil, NewProviderIDNotUniqueError(id)
+		return nil, newProviderIDNotUniqueError(id)
 	}
 
 	return []txn.Op{

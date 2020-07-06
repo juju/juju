@@ -591,7 +591,7 @@ func (st *State) checkCanUpgradeIAAS(currentVersion, newVersion string) error {
 		}
 	}
 	if len(agentTags) > 0 {
-		err := NewVersionInconsistentError(version.MustParse(currentVersion), agentTags)
+		err := newVersionInconsistentError(version.MustParse(currentVersion), agentTags)
 		return errors.Trace(err)
 	}
 	return nil

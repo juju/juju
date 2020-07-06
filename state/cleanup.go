@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
+	stateerrors "github.com/juju/juju/state/errors"
 )
 
 type cleanupKind string
@@ -933,7 +934,7 @@ func (st *State) cleanupForceDestroyedUnit(unitId string, cleanupArgs []bson.Raw
 
 	// Mark the unit dead.
 	err = unit.EnsureDead()
-	if err == ErrUnitHasSubordinates || err == ErrUnitHasStorageAttachments {
+	if err == stateerrors.ErrUnitHasSubordinates || err == stateerrors.ErrUnitHasStorageAttachments {
 		// In this case we do want to die and try again - we can't set
 		// the unit to dead until the subordinates and storage are
 		// gone, so we should give them time to be removed.
