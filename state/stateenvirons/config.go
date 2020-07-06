@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -40,7 +41,7 @@ type EnvironConfigGetter struct {
 }
 
 // CloudAPIVersion returns the cloud API version for the cloud with the given spec.
-func (g EnvironConfigGetter) CloudAPIVersion(spec environs.CloudSpec) (string, error) {
+func (g EnvironConfigGetter) CloudAPIVersion(spec environscloudspec.CloudSpec) (string, error) {
 	// Only CAAS models have an API version we care about right now.
 	if g.Model.Type() == state.ModelTypeIAAS {
 		return "", nil
@@ -70,20 +71,20 @@ func (g EnvironConfigGetter) ModelConfig() (*config.Config, error) {
 }
 
 // CloudSpec implements environs.EnvironConfigGetter.
-func (g EnvironConfigGetter) CloudSpec() (environs.CloudSpec, error) {
+func (g EnvironConfigGetter) CloudSpec() (environscloudspec.CloudSpec, error) {
 	return CloudSpecForModel(g.Model)
 }
 
 // CloudSpecForModel returns a CloudSpec for the specified model.
-func CloudSpecForModel(m baseModel) (environs.CloudSpec, error) {
+func CloudSpecForModel(m baseModel) (environscloudspec.CloudSpec, error) {
 	cloud, err := m.Cloud()
 	if err != nil {
-		return environs.CloudSpec{}, errors.Trace(err)
+		return environscloudspec.CloudSpec{}, errors.Trace(err)
 	}
 	regionName := m.CloudRegion()
 	credentialValue, ok, err := m.CloudCredential()
 	if err != nil {
-		return environs.CloudSpec{}, errors.Trace(err)
+		return environscloudspec.CloudSpec{}, errors.Trace(err)
 	}
 	var credential *state.Credential
 	if ok {
@@ -92,13 +93,13 @@ func CloudSpecForModel(m baseModel) (environs.CloudSpec, error) {
 	return CloudSpec(cloud, regionName, credential)
 }
 
-// CloudSpec returns an environs.CloudSpec from a *state.State,
+// CloudSpec returns an environscloudspec.CloudSpec from a *state.State,
 // given the cloud, region and credential names.
 func CloudSpec(
 	modelCloud cloud.Cloud,
 	regionName string,
 	credential *state.Credential,
-) (environs.CloudSpec, error) {
+) (environscloudspec.CloudSpec, error) {
 	var cloudCredential *cloud.Credential
 	if credential != nil {
 		cloudCredentialValue := cloud.NewNamedCredential(credential.Name,
@@ -109,7 +110,7 @@ func CloudSpec(
 		cloudCredential = &cloudCredentialValue
 	}
 
-	return environs.MakeCloudSpec(modelCloud, regionName, cloudCredential)
+	return environscloudspec.MakeCloudSpec(modelCloud, regionName, cloudCredential)
 }
 
 // NewEnvironFunc defines the type of a function that, given a state.State,

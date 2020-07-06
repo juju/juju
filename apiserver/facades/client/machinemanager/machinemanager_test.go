@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -808,11 +809,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareIncompatibleSeries(c *gc.C
 	defer s.setup(c).Finish()
 
 	s.setupUpgradeSeries(c)
-	s.st.machines["0"].SetErrors(&state.ErrIncompatibleSeries{
-		SeriesList: []string{"yakkety", "zesty"},
-		Series:     "xenial",
-		CharmName:  "TestCharm",
-	})
+	s.st.machines["0"].SetErrors(&stateerrors.NewErrIncompatibleSeries([]string{"yakkety", "zesty"}, "xenial", "TestCharm"))
 	apiV5 := s.apiV5()
 	result, err := apiV5.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{

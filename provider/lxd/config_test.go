@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/testing"
@@ -264,13 +265,13 @@ func (s *configSuite) TestSchema(c *gc.C) {
 	}
 }
 
-func lxdCloudSpec() environs.CloudSpec {
+func lxdCloudSpec() environscloudspec.CloudSpec {
 	cred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 		"client-cert": "client.crt",
 		"client-key":  "client.key",
 		"server-cert": "servert.crt",
 	})
-	return environs.CloudSpec{
+	return environscloudspec.CloudSpec{
 		Type:       "lxd",
 		Name:       "localhost",
 		Credential: &cred,

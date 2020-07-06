@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
@@ -21,7 +22,7 @@ import (
 
 type ProviderSuite struct {
 	testing.IsolationSuite
-	spec     environs.CloudSpec
+	spec     environscloudspec.CloudSpec
 	provider environs.EnvironProvider
 }
 
@@ -37,7 +38,7 @@ func (s *ProviderSuite) SetUpTest(c *gc.C) {
 			"secret-key": "bar",
 		},
 	)
-	s.spec = environs.CloudSpec{
+	s.spec = environscloudspec.CloudSpec{
 		Type:       "ec2",
 		Name:       "aws",
 		Region:     "us-east-1",
@@ -121,7 +122,7 @@ func (s *ProviderSuite) TestOpenUnsupportedCredential(c *gc.C) {
 	s.testOpenError(c, s.spec, `validating cloud spec: "userpass" auth-type not supported`)
 }
 
-func (s *ProviderSuite) testOpenError(c *gc.C, spec environs.CloudSpec, expect string) {
+func (s *ProviderSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
 	_, err := environs.Open(s.provider, environs.OpenParams{
 		Cloud:  spec,
 		Config: coretesting.ModelConfig(c),

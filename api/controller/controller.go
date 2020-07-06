@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
 
 // Client provides methods that the Juju client command uses to interact
@@ -72,7 +72,7 @@ func (c *Client) AllModels() ([]base.UserModel, error) {
 }
 
 // CloudSpec returns a CloudSpec for the specified model.
-func (c *Client) CloudSpec(modelTag names.ModelTag) (environs.CloudSpec, error) {
+func (c *Client) CloudSpec(modelTag names.ModelTag) (environscloudspec.CloudSpec, error) {
 	api := cloudspec.NewCloudSpecAPI(c.facade, modelTag)
 	return api.CloudSpec()
 }
@@ -95,7 +95,7 @@ type HostedConfig struct {
 	Name      string
 	Owner     names.UserTag
 	Config    map[string]interface{}
-	CloudSpec environs.CloudSpec
+	CloudSpec environscloudspec.CloudSpec
 	Error     error
 }
 

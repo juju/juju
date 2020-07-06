@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd/lxdnames"
@@ -398,7 +399,7 @@ func (*environProvider) Schema() environschema.Fields {
 	return fields
 }
 
-func (p *environProvider) validateCloudSpec(spec environs.CloudSpec) error {
+func (p *environProvider) validateCloudSpec(spec environscloudspec.CloudSpec) error {
 	if err := spec.Validate(); err != nil {
 		return errors.Trace(err)
 	}

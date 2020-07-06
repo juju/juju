@@ -11,6 +11,7 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/oracle"
 	"github.com/juju/juju/testing"
@@ -61,7 +62,7 @@ func (e *environProviderSuite) TestPrepareConfig(c *gc.C) {
 		},
 	)
 	_, err := provider.PrepareConfig(environs.PrepareConfigParams{
-		Cloud: environs.CloudSpec{
+		Cloud: environscloudspec.CloudSpec{
 			Type:       "oracle",
 			Name:       "oracle",
 			Credential: &credentials,
@@ -82,7 +83,7 @@ func (e *environProviderSuite) TestOpen(c *gc.C) {
 		},
 	)
 	_, err := environs.Open(provider, environs.OpenParams{
-		Cloud: environs.CloudSpec{
+		Cloud: environscloudspec.CloudSpec{
 			Type:       "oracle",
 			Name:       "oracle",
 			Credential: &credentials,

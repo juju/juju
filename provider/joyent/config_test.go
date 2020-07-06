@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	jp "github.com/juju/juju/provider/joyent"
 	coretesting "github.com/juju/juju/testing"
@@ -29,9 +30,9 @@ func validAttrs() coretesting.Attrs {
 	})
 }
 
-func fakeCloudSpec() environs.CloudSpec {
+func fakeCloudSpec() environscloudspec.CloudSpec {
 	cred := fakeCredential()
-	return environs.CloudSpec{
+	return environscloudspec.CloudSpec{
 		Type:       "joyent",
 		Name:       "joyent",
 		Region:     "whatever",

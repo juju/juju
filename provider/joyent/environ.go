@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/simplestreams"
@@ -25,7 +26,7 @@ import (
 
 type joyentEnviron struct {
 	name    string
-	cloud   environs.CloudSpec
+	cloud   environscloudspec.CloudSpec
 	compute *joyentCompute
 
 	lock sync.Mutex // protects ecfg
@@ -33,7 +34,7 @@ type joyentEnviron struct {
 }
 
 // newEnviron create a new Joyent environ instance from config.
-func newEnviron(cloud environs.CloudSpec, cfg *config.Config) (*joyentEnviron, error) {
+func newEnviron(cloud environscloudspec.CloudSpec, cfg *config.Config) (*joyentEnviron, error) {
 	env := &joyentEnviron{
 		name:  cfg.Name(),
 		cloud: cloud,

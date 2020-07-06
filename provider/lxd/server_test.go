@@ -18,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	containerLXD "github.com/juju/juju/container/lxd"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/provider/lxd"
 )
 
@@ -328,7 +329,7 @@ func (s *serverSuite) TestLocalServerWithStorageNotSupported(c *gc.C) {
 		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
 	)
 
-	svr, err := factory.RemoteServer(environs.CloudSpec{
+	svr, err := factory.RemoteServer(environscloudspec.CloudSpec{
 		Endpoint: "",
 	})
 	c.Assert(svr, gc.Not(gc.IsNil))
@@ -369,7 +370,7 @@ func (s *serverSuite) TestRemoteServerWithEmptyEndpointYieldsLocalServer(c *gc.C
 		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
 	)
 
-	svr, err := factory.RemoteServer(environs.CloudSpec{
+	svr, err := factory.RemoteServer(environscloudspec.CloudSpec{
 		Endpoint: "",
 	})
 	c.Assert(svr, gc.Not(gc.IsNil))
@@ -402,7 +403,7 @@ func (s *serverSuite) TestRemoteServer(c *gc.C) {
 		"client-key":  "client-key",
 		"server-cert": "server-cert",
 	})
-	svr, err := factory.RemoteServer(environs.CloudSpec{
+	svr, err := factory.RemoteServer(environscloudspec.CloudSpec{
 		Endpoint:   "https://10.0.0.9:8443",
 		Credential: &creds,
 	})
@@ -434,7 +435,7 @@ func (s *serverSuite) TestRemoteServerWithNoStorage(c *gc.C) {
 		"client-key":  "client-key",
 		"server-cert": "server-cert",
 	})
-	svr, err := factory.RemoteServer(environs.CloudSpec{
+	svr, err := factory.RemoteServer(environscloudspec.CloudSpec{
 		Endpoint:   "https://10.0.0.9:8443",
 		Credential: &creds,
 	})
@@ -450,7 +451,7 @@ func (s *serverSuite) TestRemoteServerMissingCertificates(c *gc.C) {
 	factory, _ := s.newRemoteServerFactory(ctrl)
 
 	creds := cloud.NewCredential("any", map[string]string{})
-	svr, err := factory.RemoteServer(environs.CloudSpec{
+	svr, err := factory.RemoteServer(environscloudspec.CloudSpec{
 		Endpoint:   "https://10.0.0.9:8443",
 		Credential: &creds,
 	})
@@ -474,7 +475,7 @@ func (s *serverSuite) TestRemoteServerWithGetServerError(c *gc.C) {
 		"client-key":  "client-key",
 		"server-cert": "server-cert",
 	})
-	_, err := factory.RemoteServer(environs.CloudSpec{
+	_, err := factory.RemoteServer(environscloudspec.CloudSpec{
 		Endpoint:   "https://10.0.0.9:8443",
 		Credential: &creds,
 	})

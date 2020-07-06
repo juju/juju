@@ -11,7 +11,7 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 )
 
@@ -40,7 +40,7 @@ type Client interface {
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/client_mock.go github.com/juju/juju/provider/vsphere Client
 func dialClient(
 	ctx context.Context,
-	cloudSpec environs.CloudSpec,
+	cloudSpec environscloudspec.CloudSpec,
 	dial DialFunc,
 ) (Client, error) {
 	datacenter := cloudSpec.Region

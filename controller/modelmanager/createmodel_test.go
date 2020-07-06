@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/provider/all"
 	_ "github.com/juju/juju/provider/azure"
@@ -61,7 +62,7 @@ func (s *ModelConfigCreatorSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ModelConfigCreatorSuite) newModelConfig(attrs map[string]interface{}) (*config.Config, error) {
-	cloudSpec := environs.CloudSpec{Type: "fake"}
+	cloudSpec := environscloudspec.CloudSpec{Type: "fake"}
 	return s.creator.NewModelConfig(cloudSpec, s.baseConfig, attrs)
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -23,7 +24,7 @@ var logger interface{}
 // ConfigAPI exposes a model configuration and a watch constructor
 // that allows clients to be informed of changes to the configuration.
 type ConfigAPI interface {
-	CloudSpec() (environs.CloudSpec, error)
+	CloudSpec() (environscloudspec.CloudSpec, error)
 	ModelConfig() (*config.Config, error)
 	ControllerConfig() (controller.Config, error)
 	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
@@ -60,7 +61,7 @@ type Tracker struct {
 	config           Config
 	catacomb         catacomb.Catacomb
 	broker           caas.Broker
-	currentCloudSpec environs.CloudSpec
+	currentCloudSpec environscloudspec.CloudSpec
 }
 
 // NewTracker returns a new Tracker, or an error if anything goes wrong.

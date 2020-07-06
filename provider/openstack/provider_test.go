@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 )
@@ -607,7 +608,7 @@ func (s *providerUnitTests) TestNewCredentialsWithVersion3(c *gc.C) {
 		"tenant-name": "someTenant",
 		"tenant-id":   "someID",
 	})
-	clouldSpec := environs.CloudSpec{
+	clouldSpec := environscloudspec.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
 		Name:       "openstack",
@@ -639,7 +640,7 @@ func (s *providerUnitTests) TestNewCredentialsWithFaultVersion(c *gc.C) {
 		"tenant-name": "someTenant",
 		"tenant-id":   "someID",
 	})
-	clouldSpec := environs.CloudSpec{
+	clouldSpec := environscloudspec.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
 		Name:       "openstack",
@@ -658,7 +659,7 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersion(c *gc.C) {
 		"tenant-name": "someTenant",
 		"tenant-id":   "someID",
 	})
-	clouldSpec := environs.CloudSpec{
+	clouldSpec := environscloudspec.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
 		Name:       "openstack",
@@ -690,7 +691,7 @@ func (s *providerUnitTests) TestNewCredentialsWithFaultVersionAndProjectDomainNa
 		"tenant-id":           "someID",
 		"project-domain-name": "openstack_projectdomain",
 	})
-	clouldSpec := environs.CloudSpec{
+	clouldSpec := environscloudspec.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
 		Name:       "openstack",
@@ -710,7 +711,7 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersionWithProjectDomain(c 
 		"tenant-id":           "someID",
 		"project-domain-name": "openstack_projectdomain",
 	})
-	clouldSpec := environs.CloudSpec{
+	clouldSpec := environscloudspec.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
 		Name:       "openstack",
@@ -741,7 +742,7 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersionWithUserDomain(c *gc
 		"tenant-id":        "someID",
 		"user-domain-name": "openstack_userdomain",
 	})
-	clouldSpec := environs.CloudSpec{
+	clouldSpec := environscloudspec.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
 		Name:       "openstack",
@@ -773,7 +774,7 @@ func (s *providerUnitTests) TestNewCredentialsWithVersion2(c *gc.C) {
 		"tenant-name": "someTenant",
 		"tenant-id":   "someID",
 	})
-	clouldSpec := environs.CloudSpec{
+	clouldSpec := environscloudspec.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
 		Name:       "openstack",
@@ -806,7 +807,7 @@ func (s *providerUnitTests) TestNewCredentialsWithVersion2AndDomain(c *gc.C) {
 		"tenant-id":           "someID",
 		"project-domain-name": "openstack_projectdomain",
 	})
-	clouldSpec := environs.CloudSpec{
+	clouldSpec := environscloudspec.CloudSpec{
 		Type:       "openstack",
 		Region:     "openstack_region",
 		Name:       "openstack",

@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/maas"
@@ -75,11 +76,11 @@ func getSimpleTestConfig(c *gc.C, extraAttrs coretesting.Attrs) *config.Config {
 	return cfg
 }
 
-func getSimpleCloudSpec() environs.CloudSpec {
+func getSimpleCloudSpec() environscloudspec.CloudSpec {
 	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
 		"maas-oauth": "a:b:c",
 	})
-	return environs.CloudSpec{
+	return environscloudspec.CloudSpec{
 		Type:       "maas",
 		Name:       "maas",
 		Endpoint:   "http://maas.testing.invalid",
@@ -157,7 +158,7 @@ type badEndpointSuite struct {
 	coretesting.BaseSuite
 
 	fakeServer *httptest.Server
-	cloudSpec  environs.CloudSpec
+	cloudSpec  environscloudspec.CloudSpec
 }
 
 var _ = gc.Suite(&badEndpointSuite{})
@@ -176,7 +177,7 @@ func (s *badEndpointSuite) SetUpTest(c *gc.C) {
 	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
 		"maas-oauth": "a:b:c",
 	})
-	s.cloudSpec = environs.CloudSpec{
+	s.cloudSpec = environscloudspec.CloudSpec{
 		Type:       "maas",
 		Name:       "maas",
 		Endpoint:   s.fakeServer.URL,

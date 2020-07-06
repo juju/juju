@@ -1,12 +1,12 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
-package environs_test
+package cloudspec_test
 
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
 
 type cloudSpecSuite struct {
@@ -18,7 +18,7 @@ func (s *cloudSpecSuite) TestNewRegionSpec(c *gc.C) {
 	tests := []struct {
 		description, cloud, region, errMatch string
 		nilErr                               bool
-		want                                 *environs.CloudRegionSpec
+		want                                 *environscloudspec.CloudRegionSpec
 	}{
 		{
 			description: "test empty cloud",
@@ -31,18 +31,18 @@ func (s *cloudSpecSuite) TestNewRegionSpec(c *gc.C) {
 			cloud:       "acloud",
 			region:      "",
 			nilErr:      true,
-			want:        &environs.CloudRegionSpec{Cloud: "acloud"},
+			want:        &environscloudspec.CloudRegionSpec{Cloud: "acloud"},
 		}, {
 			description: "test valid",
 			cloud:       "acloud",
 			region:      "aregion",
 			nilErr:      true,
-			want:        &environs.CloudRegionSpec{Cloud: "acloud", Region: "aregion"},
+			want:        &environscloudspec.CloudRegionSpec{Cloud: "acloud", Region: "aregion"},
 		},
 	}
 	for i, test := range tests {
 		c.Logf("Test %d: %s", i, test.description)
-		rspec, err := environs.NewCloudRegionSpec(test.cloud, test.region)
+		rspec, err := environscloudspec.NewCloudRegionSpec(test.cloud, test.region)
 		if !test.nilErr {
 			c.Check(err, gc.ErrorMatches, test.errMatch)
 		} else {

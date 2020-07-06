@@ -720,7 +720,7 @@ func (m *MockServerFactory) EXPECT() *MockServerFactoryMockRecorder {
 }
 
 // InsecureRemoteServer mocks base method
-func (m *MockServerFactory) InsecureRemoteServer(arg0 environs.CloudSpec) (Server, error) {
+func (m *MockServerFactory) InsecureRemoteServer(arg0 environscloudspec.CloudSpec) (Server, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InsecureRemoteServer", arg0)
 	ret0, _ := ret[0].(Server)
@@ -765,7 +765,7 @@ func (mr *MockServerFactoryMockRecorder) LocalServerAddress() *gomock.Call {
 }
 
 // RemoteServer mocks base method
-func (m *MockServerFactory) RemoteServer(arg0 environs.CloudSpec) (Server, error) {
+func (m *MockServerFactory) RemoteServer(arg0 environscloudspec.CloudSpec) (Server, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoteServer", arg0)
 	ret0, _ := ret[0].(Server)

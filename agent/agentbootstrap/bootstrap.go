@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/space"
@@ -194,7 +195,7 @@ func InitializeState(
 		return nil, errors.Errorf("cannot set state serving info: %v", err)
 	}
 
-	cloudSpec, err := environs.MakeCloudSpec(
+	cloudSpec, err := environscloudspec.MakeCloudSpec(
 		args.ControllerCloud,
 		args.ControllerCloudRegion,
 		args.ControllerCloudCredential,
@@ -293,7 +294,7 @@ func getCloudCredentials(
 
 // ensureHostedModel ensures hosted model.
 func ensureHostedModel(
-	cloudSpec environs.CloudSpec,
+	cloudSpec environscloudspec.CloudSpec,
 	provider environs.EnvironProvider,
 	args InitializeStateParams,
 	st *state.State,
@@ -377,7 +378,7 @@ func ensureHostedModel(
 
 func getEnviron(
 	controllerUUID string,
-	cloudSpec environs.CloudSpec,
+	cloudSpec environscloudspec.CloudSpec,
 	modelConfig *config.Config,
 	provider environs.EnvironProvider,
 ) (env environs.BootstrapEnviron, err error) {
@@ -487,7 +488,7 @@ func initBootstrapNode(
 
 // initControllerCloudService creates cloud service for controller service.
 func initControllerCloudService(
-	cloudSpec environs.CloudSpec,
+	cloudSpec environscloudspec.CloudSpec,
 	provider environs.EnvironProvider,
 	st *state.State,
 	args InitializeStateParams,

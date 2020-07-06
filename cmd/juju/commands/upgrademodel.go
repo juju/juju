@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
@@ -323,7 +324,7 @@ type modelConfigAPI interface {
 }
 
 type controllerAPI interface {
-	CloudSpec(modelTag names.ModelTag) (environs.CloudSpec, error)
+	CloudSpec(modelTag names.ModelTag) (environscloudspec.CloudSpec, error)
 	ControllerConfig() (controller.Config, error)
 	ModelConfig() (map[string]interface{}, error)
 	Close() error
@@ -574,7 +575,7 @@ func (e environConfigGetter) ModelConfig() (*config.Config, error) {
 
 // CloudSpec returns the cloud specification for the model associated
 // with the upgrade command.
-func (e environConfigGetter) CloudSpec() (environs.CloudSpec, error) {
+func (e environConfigGetter) CloudSpec() (environscloudspec.CloudSpec, error) {
 	return e.controllerAPI.CloudSpec(e.modelTag)
 }
 

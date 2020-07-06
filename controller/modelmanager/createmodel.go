@@ -12,6 +12,7 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/tools"
 )
@@ -47,7 +48,7 @@ type ModelConfigCreator struct {
 //
 // The config will be validated with the provider before being returned.
 func (c ModelConfigCreator) NewModelConfig(
-	cloud environs.CloudSpec,
+	cloud environscloudspec.CloudSpec,
 	base *config.Config,
 	attrs map[string]interface{},
 ) (*config.Config, error) {
@@ -135,7 +136,7 @@ func (c *ModelConfigCreator) checkVersion(base *config.Config, attrs map[string]
 // and calls EnvironProvider.PrepareConfig.
 func finalizeConfig(
 	provider environs.EnvironProvider,
-	cloud environs.CloudSpec,
+	cloud environscloudspec.CloudSpec,
 	attrs map[string]interface{},
 ) (*config.Config, error) {
 	cfg, err := config.New(config.UseDefaults, attrs)

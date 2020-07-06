@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/jujuclient"
@@ -108,7 +109,7 @@ type destroyControllerAPI interface {
 	BestAPIVersion() int
 	ModelConfig() (map[string]interface{}, error)
 	HostedModelConfigs() ([]controllerapi.HostedConfig, error)
-	CloudSpec(names.ModelTag) (environs.CloudSpec, error)
+	CloudSpec(names.ModelTag) (environscloudspec.CloudSpec, error)
 	DestroyController(controllerapi.DestroyControllerParams) error
 	ListBlockedModels() ([]params.ModelBlockInfo, error)
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)

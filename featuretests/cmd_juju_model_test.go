@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -142,7 +142,7 @@ special    -        known
 }
 
 func (s *cmdModelSuite) TestModelDefaultsGetCloud(c *gc.C) {
-	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environs.CloudRegionSpec{Cloud: "dummy"})
+	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environscloudspec.CloudRegionSpec{Cloud: "dummy"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	context := s.run(c, "model-defaults", "dummy", "special")
@@ -154,7 +154,7 @@ special    -        known
 }
 
 func (s *cmdModelSuite) TestModelDefaultsGetRegion(c *gc.C) {
-	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environs.CloudRegionSpec{"dummy", "dummy-region"})
+	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environscloudspec.CloudRegionSpec{"dummy", "dummy-region"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	context := s.run(c, "model-defaults", "dummy-region", "special")
@@ -207,7 +207,7 @@ func (s *cmdModelSuite) TestModelDefaultsReset(c *gc.C) {
 }
 
 func (s *cmdModelSuite) TestModelDefaultsResetCloud(c *gc.C) {
-	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environs.CloudRegionSpec{Cloud: "dummy"})
+	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environscloudspec.CloudRegionSpec{Cloud: "dummy"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "model-defaults", "dummy", "--reset", "special")
@@ -218,7 +218,7 @@ func (s *cmdModelSuite) TestModelDefaultsResetCloud(c *gc.C) {
 }
 
 func (s *cmdModelSuite) TestModelDefaultsResetRegion(c *gc.C) {
-	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environs.CloudRegionSpec{"dummy", "dummy-region"})
+	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environscloudspec.CloudRegionSpec{"dummy", "dummy-region"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "model-defaults", "dummy-region", "--reset", "special")

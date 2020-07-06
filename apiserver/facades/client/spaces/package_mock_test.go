@@ -150,10 +150,10 @@ func (mr *MockBackingMockRecorder) ApplyOperation(arg0 interface{}) *gomock.Call
 }
 
 // CloudSpec mocks base method
-func (m *MockBacking) CloudSpec() (environs.CloudSpec, error) {
+func (m *MockBacking) CloudSpec() (environscloudspec.CloudSpec, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudSpec")
-	ret0, _ := ret[0].(environs.CloudSpec)
+	ret0, _ := ret[0].(environscloudspec.CloudSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1268,10 +1268,10 @@ func (m *MockReloadSpacesEnviron) EXPECT() *MockReloadSpacesEnvironMockRecorder 
 }
 
 // CloudSpec mocks base method
-func (m *MockReloadSpacesEnviron) CloudSpec() (environs.CloudSpec, error) {
+func (m *MockReloadSpacesEnviron) CloudSpec() (environscloudspec.CloudSpec, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudSpec")
-	ret0, _ := ret[0].(environs.CloudSpec)
+	ret0, _ := ret[0].(environscloudspec.CloudSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

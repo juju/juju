@@ -198,7 +198,7 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *gc.
 	c.Assert(two.OwnerTag, gc.Equals, remoteUserTag.String())
 }
 
-func (s *controllerSuite) makeCloudSpec(c *gc.C, pSpec *params.CloudSpec) environs.CloudSpec {
+func (s *controllerSuite) makeCloudSpec(c *gc.C, pSpec *params.CloudSpec) environscloudspec.CloudSpec {
 	c.Assert(pSpec, gc.NotNil)
 	var credential *cloud.Credential
 	if pSpec.Credential != nil {
@@ -208,7 +208,7 @@ func (s *controllerSuite) makeCloudSpec(c *gc.C, pSpec *params.CloudSpec) enviro
 		)
 		credential = &credentialValue
 	}
-	spec := environs.CloudSpec{
+	spec := environscloudspec.CloudSpec{
 		Type:             pSpec.Type,
 		Name:             pSpec.Name,
 		Region:           pSpec.Region,

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
@@ -116,7 +117,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 
 func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
 	env, err := environs.New(environs.OpenParams{
-		Cloud: environs.CloudSpec{
+		Cloud: environscloudspec.CloudSpec{
 			Type: "wondercloud",
 		},
 	})

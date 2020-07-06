@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/simplestreams"
@@ -53,7 +54,7 @@ func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error
 
 // isBrokenCloud reports whether the given CloudSpec is from an old,
 // broken version of public-clouds.yaml.
-func isBrokenCloud(cloud environs.CloudSpec) bool {
+func isBrokenCloud(cloud environscloudspec.CloudSpec) bool {
 	// The public-clouds.yaml from 2.0-rc2 and before was
 	// complete nonsense for general regions and for
 	// govcloud. The cn-north-1 region has a trailing slash,
@@ -72,7 +73,7 @@ func isBrokenCloud(cloud environs.CloudSpec) bool {
 	return false
 }
 
-func awsClient(cloud environs.CloudSpec) (*ec2.EC2, error) {
+func awsClient(cloud environscloudspec.CloudSpec) (*ec2.EC2, error) {
 	if err := validateCloudSpec(cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
@@ -120,7 +121,7 @@ func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*conf
 	return args.Config.Apply(attrs)
 }
 
-func validateCloudSpec(c environs.CloudSpec) error {
+func validateCloudSpec(c environscloudspec.CloudSpec) error {
 	if err := c.Validate(); err != nil {
 		return errors.Trace(err)
 	}

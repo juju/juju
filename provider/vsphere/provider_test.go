@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
 
 type providerSuite struct {
@@ -60,7 +61,7 @@ func (s *providerSuite) TestOpenUnsupportedCredential(c *gc.C) {
 	s.testOpenError(c, spec, `validating cloud spec: "oauth1" auth-type not supported`)
 }
 
-func (s *providerSuite) testOpenError(c *gc.C, spec environs.CloudSpec, expect string) {
+func (s *providerSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
 	_, err := s.provider.Open(environs.OpenParams{
 		Cloud:  spec,
 		Config: fakeConfig(c),

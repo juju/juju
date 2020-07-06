@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
 
 const rbacLabelKeyName = provider.RBACLabelKeyName
@@ -79,7 +79,7 @@ func cleanUpCredentialRBAC(cloud jujucloud.Cloud, credential jujucloud.Credentia
 		return nil
 	}
 
-	cloudSpec, err := environs.MakeCloudSpec(cloud, "", &credential)
+	cloudSpec, err := environscloudspec.MakeCloudSpec(cloud, "", &credential)
 	if err != nil {
 		return errors.Trace(err)
 	}

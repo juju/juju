@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider/lxd/lxdnames"
 )
@@ -382,7 +383,7 @@ func (p environProviderCredentials) finalizeRemoteCredential(
 	}
 
 	insecureCreds := cloud.NewCredential(cloud.CertificateAuthType, credAttrs)
-	server, err := p.serverFactory.InsecureRemoteServer(environs.CloudSpec{
+	server, err := p.serverFactory.InsecureRemoteServer(environscloudspec.CloudSpec{
 		Endpoint:   endpoint,
 		Credential: &insecureCreds,
 	})
@@ -436,7 +437,7 @@ func (p environProviderCredentials) finalizeRemoteCredential(
 	attributes[credAttrServerCert] = lxdServerCert
 
 	secureCreds := cloud.NewCredential(cloud.CertificateAuthType, attributes)
-	server, err = p.serverFactory.RemoteServer(environs.CloudSpec{
+	server, err = p.serverFactory.RemoteServer(environscloudspec.CloudSpec{
 		Endpoint:   endpoint,
 		Credential: &secureCreds,
 	})

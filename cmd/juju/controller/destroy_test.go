@@ -24,6 +24,7 @@ import (
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/jujuclient"
@@ -62,7 +63,7 @@ type baseDestroySuite struct {
 // fakeDestroyAPI mocks out the controller API
 type fakeDestroyAPI struct {
 	gitjujutesting.Stub
-	cloud          environs.CloudSpec
+	cloud          environscloudspec.CloudSpec
 	env            map[string]interface{}
 	blocks         []params.ModelBlockInfo
 	envStatus      map[string]base.ModelStatus
@@ -80,10 +81,10 @@ func (f *fakeDestroyAPI) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeDestroyAPI) CloudSpec(tag names.ModelTag) (environs.CloudSpec, error) {
+func (f *fakeDestroyAPI) CloudSpec(tag names.ModelTag) (environscloudspec.CloudSpec, error) {
 	f.MethodCall(f, "CloudSpec", tag)
 	if err := f.NextErr(); err != nil {
-		return environs.CloudSpec{}, err
+		return environscloudspec.CloudSpec{}, err
 	}
 	return f.cloud, nil
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cloud"
 	containerLXD "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider/lxd"
@@ -616,7 +617,7 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *gc.C) {
 		"client-key":     coretesting.CAKey,
 		"trust-password": "fred",
 	})
-	insecureSpec := environs.CloudSpec{
+	insecureSpec := environscloudspec.CloudSpec{
 		Endpoint:   "8.8.8.8",
 		Credential: &insecureCred,
 	}
@@ -625,7 +626,7 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *gc.C) {
 		"client-key":  coretesting.CAKey,
 		"server-cert": coretesting.ServerCert,
 	})
-	secureSpec := environs.CloudSpec{
+	secureSpec := environscloudspec.CloudSpec{
 		Endpoint:   "8.8.8.8",
 		Credential: &secureCred,
 	}
@@ -682,7 +683,7 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocalWithCertAlreadyExists(c
 		"client-key":     coretesting.CAKey,
 		"trust-password": "fred",
 	})
-	insecureSpec := environs.CloudSpec{
+	insecureSpec := environscloudspec.CloudSpec{
 		Endpoint:   "8.8.8.8",
 		Credential: &insecureCred,
 	}
@@ -691,7 +692,7 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocalWithCertAlreadyExists(c
 		"client-key":  coretesting.CAKey,
 		"server-cert": coretesting.ServerCert,
 	})
-	secureSpec := environs.CloudSpec{
+	secureSpec := environscloudspec.CloudSpec{
 		Endpoint:   "8.8.8.8",
 		Credential: &secureCred,
 	}
@@ -737,7 +738,7 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithInsecureError(c *gc.C
 		"client-key":     coretesting.CAKey,
 		"trust-password": "fred",
 	})
-	insecureSpec := environs.CloudSpec{
+	insecureSpec := environscloudspec.CloudSpec{
 		Endpoint:   "8.8.8.8",
 		Credential: &insecureCred,
 	}
@@ -765,7 +766,7 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithCreateCertificateErro
 		"client-key":     coretesting.CAKey,
 		"trust-password": "fred",
 	})
-	insecureSpec := environs.CloudSpec{
+	insecureSpec := environscloudspec.CloudSpec{
 		Endpoint:   "8.8.8.8",
 		Credential: &insecureCred,
 	}
@@ -808,7 +809,7 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoveWithGetServerError(c *gc.
 		"client-key":     coretesting.CAKey,
 		"trust-password": "fred",
 	})
-	insecureSpec := environs.CloudSpec{
+	insecureSpec := environscloudspec.CloudSpec{
 		Endpoint:   "8.8.8.8",
 		Credential: &insecureCred,
 	}
@@ -852,7 +853,7 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithNewRemoteServerError(
 		"client-key":     coretesting.CAKey,
 		"trust-password": "fred",
 	})
-	insecureSpec := environs.CloudSpec{
+	insecureSpec := environscloudspec.CloudSpec{
 		Endpoint:   "8.8.8.8",
 		Credential: &insecureCred,
 	}
@@ -861,7 +862,7 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithNewRemoteServerError(
 		"client-key":  coretesting.CAKey,
 		"server-cert": coretesting.ServerCert,
 	})
-	secureSpec := environs.CloudSpec{
+	secureSpec := environscloudspec.CloudSpec{
 		Endpoint:   "8.8.8.8",
 		Credential: &secureCred,
 	}

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	envjujutesting "github.com/juju/juju/environs/testing"
@@ -52,7 +53,7 @@ func (suite *maas2EnvironSuite) getEnvWithServer(c *gc.C) (*maasEnviron, error) 
 	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
 		"maas-oauth": "a:b:c",
 	})
-	cloud := environs.CloudSpec{
+	cloud := environscloudspec.CloudSpec{
 		Type:       "maas",
 		Name:       "maas",
 		Endpoint:   testServer.Server.URL,

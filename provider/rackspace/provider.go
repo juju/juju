@@ -10,6 +10,7 @@ import (
 	"github.com/juju/jsonschema"
 
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 )
@@ -43,7 +44,7 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 	return p.CloudEnvironProvider.Open(args)
 }
 
-func transformCloudSpec(spec environs.CloudSpec) environs.CloudSpec {
+func transformCloudSpec(spec environscloudspec.CloudSpec) environscloudspec.CloudSpec {
 	// Rackspace regions are expected to be uppercase, but Juju
 	// stores and displays them in lowercase in the CLI. Ensure
 	// they're uppercase when they get to the Rackspace API.

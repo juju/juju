@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/sync"
@@ -663,7 +664,7 @@ to create a new model to deploy k8s workloads.
 		ModelConfig:      bootstrapCfg.bootstrapModel,
 		ControllerConfig: bootstrapCfg.controller,
 		ControllerName:   c.controllerName,
-		Cloud: environs.CloudSpec{
+		Cloud: environscloudspec.CloudSpec{
 			Type:             cloud.Type,
 			Name:             cloud.Name,
 			Region:           region.Name,

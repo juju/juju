@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -338,8 +339,8 @@ func prepareForBootstrap(
 	return env
 }
 
-func fakeCloudSpec() environs.CloudSpec {
-	return environs.CloudSpec{
+func fakeCloudSpec() environscloudspec.CloudSpec {
+	return environscloudspec.CloudSpec{
 		Type:             "azure",
 		Name:             "azure",
 		Region:           "westus",

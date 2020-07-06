@@ -55,6 +55,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
@@ -341,7 +342,7 @@ func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (k *kubernetesClient) SetCloudSpec(spec environs.CloudSpec) error {
+func (k *kubernetesClient) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 	k.lock.Lock()
 	defer k.lock.Unlock()
 

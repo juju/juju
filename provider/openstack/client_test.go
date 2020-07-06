@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/testing"
 )
 
@@ -76,7 +77,7 @@ func (s *clientSuite) setupMockFactory(ctrl *gomock.Controller, times int) *Clie
 		CredAttrVersion:           "3",
 	})
 
-	spec := environs.CloudSpec{
+	spec := environscloudspec.CloudSpec{
 		Region:     "default",
 		Endpoint:   "https://sharedhost.foo:443/identity/v3/",
 		Credential: &cred,

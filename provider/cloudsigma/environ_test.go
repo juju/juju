@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/testing"
@@ -34,7 +35,7 @@ func (s *environSuite) TearDownSuite(c *gc.C) {
 
 func (s *environSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(&newClient, func(environs.CloudSpec, string) (*environClient, error) {
+	s.PatchValue(&newClient, func(environscloudspec.CloudSpec, string) (*environClient, error) {
 		return nil, nil
 	})
 }

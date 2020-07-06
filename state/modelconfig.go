@@ -9,7 +9,7 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -152,7 +152,7 @@ func (model *Model) modelConfigValues(modelCfg attrValues) (config.ConfigValues,
 }
 
 // UpdateModelConfigDefaultValues updates the inherited settings used when creating a new model.
-func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, removed []string, regionSpec *environs.CloudRegionSpec) error {
+func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, removed []string, regionSpec *environscloudspec.CloudRegionSpec) error {
 	var key string
 
 	if regionSpec != nil {
@@ -239,7 +239,7 @@ func (st *State) ModelConfigDefaultValues(cloudName string) (config.ModelDefault
 	}
 	// Region config
 	for _, region := range cloud.Regions {
-		rspec := &environs.CloudRegionSpec{Cloud: cloudName, Region: region.Name}
+		rspec := &environscloudspec.CloudRegionSpec{Cloud: cloudName, Region: region.Name}
 		riCfg, err := st.regionInheritedConfig(rspec)()
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -381,7 +381,7 @@ type modelConfigSource struct {
 // sources, in hierarchical order. Starting from the first source,
 // config is retrieved and each subsequent source adds to the
 // overall config values, later values override earlier ones.
-func modelConfigSources(st *State, regionSpec *environs.CloudRegionSpec) []modelConfigSource {
+func modelConfigSources(st *State, regionSpec *environscloudspec.CloudRegionSpec) []modelConfigSource {
 	return []modelConfigSource{
 		{config.JujuDefaultSource, st.defaultInheritedConfig(regionSpec.Cloud)},
 		{config.JujuControllerSource, st.controllerInheritedConfig(regionSpec.Cloud)},
@@ -429,11 +429,11 @@ func (st *State) controllerInheritedConfig(cloudName string) func() (attrValues,
 
 // regionInheritedConfig returns the configuration attributes for the region in
 // the cloud where the model is targeted.
-func (st *State) regionInheritedConfig(regionSpec *environs.CloudRegionSpec) func() (attrValues, error) {
+func (st *State) regionInheritedConfig(regionSpec *environscloudspec.CloudRegionSpec) func() (attrValues, error) {
 	if regionSpec == nil {
 		return func() (attrValues, error) {
 			return nil, errors.New(
-				"no environs.CloudRegionSpec provided")
+				"no environscloudspec.CloudRegionSpec provided")
 		}
 	}
 	if regionSpec.Region == "" {
@@ -455,14 +455,14 @@ func (st *State) regionInheritedConfig(regionSpec *environs.CloudRegionSpec) fun
 	}
 }
 
-// regionSpec returns a suitable environs.CloudRegionSpec for use in
+// regionSpec returns a suitable environscloudspec.CloudRegionSpec for use in
 // regionInheritedConfig.
-func (st *State) regionSpec() (*environs.CloudRegionSpec, error) {
+func (st *State) regionSpec() (*environscloudspec.CloudRegionSpec, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	rspec := &environs.CloudRegionSpec{
+	rspec := &environscloudspec.CloudRegionSpec{
 		Cloud:  model.CloudName(),
 		Region: model.CloudRegion(),
 	}
@@ -500,7 +500,7 @@ func composeModelConfigAttributes(
 
 // ComposeNewModelConfig returns a complete map of config attributes suitable for
 // creating a new model, by combining user specified values with system defaults.
-func (st *State) ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.CloudRegionSpec) (map[string]interface{}, error) {
+func (st *State) ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environscloudspec.CloudRegionSpec) (map[string]interface{}, error) {
 	configSources := modelConfigSources(st, regionSpec)
 	return composeModelConfigAttributes(modelAttr, configSources...)
 }

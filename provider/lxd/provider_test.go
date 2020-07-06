@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/lxd"
@@ -545,7 +546,7 @@ func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedEndpointScheme(c *
 func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedAuthType(c *gc.C) {
 	cred := cloud.NewCredential("foo", nil)
 	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
-		Cloud: environs.CloudSpec{
+		Cloud: environscloudspec.CloudSpec{
 			Type:       "lxd",
 			Name:       "remotehost",
 			Credential: &cred,
@@ -557,7 +558,7 @@ func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedAuthType(c *gc.C) 
 func (s *ProviderFunctionalSuite) TestPrepareConfigInvalidCertificateAttrs(c *gc.C) {
 	cred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{})
 	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
-		Cloud: environs.CloudSpec{
+		Cloud: environscloudspec.CloudSpec{
 			Type:       "lxd",
 			Name:       "remotehost",
 			Credential: &cred,
@@ -569,7 +570,7 @@ func (s *ProviderFunctionalSuite) TestPrepareConfigInvalidCertificateAttrs(c *gc
 func (s *ProviderFunctionalSuite) TestPrepareConfigEmptyAuthNonLocal(c *gc.C) {
 	cred := cloud.NewEmptyCredential()
 	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
-		Cloud: environs.CloudSpec{
+		Cloud: environscloudspec.CloudSpec{
 			Type:       "lxd",
 			Name:       "remotehost",
 			Endpoint:   "8.8.8.8",

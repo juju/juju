@@ -6,6 +6,7 @@ package common
 import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -15,7 +16,7 @@ import (
 // in a pluggable way.
 type EnvironConfigGetterFuncs struct {
 	ModelConfigFunc func() (*config.Config, error)
-	CloudSpecFunc   func() (environs.CloudSpec, error)
+	CloudSpecFunc   func() (environscloudspec.CloudSpec, error)
 }
 
 // ModelConfig implements EnvironConfigGetter.
@@ -24,7 +25,7 @@ func (f EnvironConfigGetterFuncs) ModelConfig() (*config.Config, error) {
 }
 
 // CloudSpec implements environs.EnvironConfigGetter.
-func (f EnvironConfigGetterFuncs) CloudSpec() (environs.CloudSpec, error) {
+func (f EnvironConfigGetterFuncs) CloudSpec() (environscloudspec.CloudSpec, error) {
 	return f.CloudSpecFunc()
 }
 

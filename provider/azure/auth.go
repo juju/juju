@@ -13,14 +13,14 @@ import (
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/useragent"
 )
 
 // cloudSpecAuth is an implementation of autorest.Authorizer.
 type cloudSpecAuth struct {
-	cloud  environs.CloudSpec
+	cloud  environscloudspec.CloudSpec
 	sender autorest.Sender
 	mu     sync.Mutex
 	token  *adal.ServicePrincipalToken
@@ -68,7 +68,7 @@ func (c *cloudSpecAuth) getToken() (*adal.ServicePrincipalToken, error) {
 
 // AuthToken returns a service principal token, suitable for authorizing
 // Resource Manager API requests, based on the supplied CloudSpec.
-func AuthToken(cloud environs.CloudSpec, sender autorest.Sender) (*adal.ServicePrincipalToken, error) {
+func AuthToken(cloud environscloudspec.CloudSpec, sender autorest.Sender) (*adal.ServicePrincipalToken, error) {
 	if authType := cloud.Credential.AuthType(); authType != clientCredentialsAuthType {
 		// We currently only support a single auth-type for
 		// non-interactive authentication. Interactive auth

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 )
@@ -62,7 +63,7 @@ func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*conf
 	return configWithDefaults(args.Config)
 }
 
-func validateCloudSpec(spec environs.CloudSpec) error {
+func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 	if err := spec.Validate(); err != nil {
 		return errors.Trace(err)
 	}

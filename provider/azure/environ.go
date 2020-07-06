@@ -35,12 +35,12 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
-
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
@@ -85,7 +85,7 @@ type azureEnviron struct {
 	provider *azureEnvironProvider
 
 	// cloud defines the cloud configuration for this environment.
-	cloud environs.CloudSpec
+	cloud environscloudspec.CloudSpec
 
 	// location is the canonicalized location name. Use this instead
 	// of cloud.Region in API calls.
@@ -130,7 +130,7 @@ var _ environs.Environ = (*azureEnviron)(nil)
 // newEnviron creates a new azureEnviron.
 func newEnviron(
 	provider *azureEnvironProvider,
-	cloud environs.CloudSpec,
+	cloud environscloudspec.CloudSpec,
 	cfg *config.Config,
 ) (*azureEnviron, error) {
 

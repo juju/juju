@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -18,8 +19,8 @@ type configSuite struct {
 
 var _ = gc.Suite(&configSuite{})
 
-func CloudSpec() environs.CloudSpec {
-	return environs.CloudSpec{
+func CloudSpec() environscloudspec.CloudSpec {
+	return environscloudspec.CloudSpec{
 		Name:     "manual",
 		Type:     "manual",
 		Endpoint: "hostname",

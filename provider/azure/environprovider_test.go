@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/azurecli"
@@ -23,7 +24,7 @@ import (
 type environProviderSuite struct {
 	testing.BaseSuite
 	provider environs.EnvironProvider
-	spec     environs.CloudSpec
+	spec     environscloudspec.CloudSpec
 	requests []*http.Request
 	sender   azuretesting.Senders
 }
@@ -37,7 +38,7 @@ func (s *environProviderSuite) SetUpTest(c *gc.C) {
 		RequestInspector:           azuretesting.RequestRecorder(&s.requests),
 		RandomWindowsAdminPassword: func() string { return "sorandom" },
 	})
-	s.spec = environs.CloudSpec{
+	s.spec = environscloudspec.CloudSpec{
 		Type:             "azure",
 		Name:             "azure",
 		Region:           "westus",
@@ -92,7 +93,7 @@ func (s *environProviderSuite) TestOpenUnsupportedCredential(c *gc.C) {
 	s.testOpenError(c, s.spec, `validating cloud spec: "oauth1" auth-type not supported`)
 }
 
-func (s *environProviderSuite) testOpenError(c *gc.C, spec environs.CloudSpec, expect string) {
+func (s *environProviderSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
 	_, err := environs.Open(s.provider, environs.OpenParams{
 		Cloud:  spec,
 		Config: makeTestModelConfig(c),

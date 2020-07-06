@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	providercommon "github.com/juju/juju/provider/common"
@@ -383,7 +384,7 @@ type StubBacking struct {
 	*testing.Stub
 
 	EnvConfig *config.Config
-	Cloud     environs.CloudSpec
+	Cloud     environscloudspec.CloudSpec
 
 	Zones   []providercommon.AvailabilityZone
 	Spaces  []networkingcommon.BackingSpace
@@ -416,7 +417,7 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 		"name": envName,
 	}
 	sb.EnvConfig = coretesting.CustomModelConfig(c, extraAttrs)
-	sb.Cloud = environs.CloudSpec{
+	sb.Cloud = environscloudspec.CloudSpec{
 		Type:             StubProviderType,
 		Name:             "cloud-name",
 		Endpoint:         "endpoint",
@@ -506,10 +507,10 @@ func (sb *StubBacking) ModelTag() names.ModelTag {
 	return names.NewModelTag("dbeef-2f18-4fd2-967d-db9663db7bea")
 }
 
-func (sb *StubBacking) CloudSpec() (environs.CloudSpec, error) {
+func (sb *StubBacking) CloudSpec() (environscloudspec.CloudSpec, error) {
 	sb.MethodCall(sb, "CloudSpec")
 	if err := sb.NextErr(); err != nil {
-		return environs.CloudSpec{}, err
+		return environscloudspec.CloudSpec{}, err
 	}
 	return sb.Cloud, nil
 }

@@ -23,6 +23,7 @@ import (
 	ociIdentity "github.com/oracle/oci-go-sdk/identity"
 
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/oci"
@@ -275,7 +276,7 @@ type commonSuite struct {
 
 	env         *oci.Environ
 	provider    environs.EnvironProvider
-	spec        environs.CloudSpec
+	spec        environscloudspec.CloudSpec
 	config      *config.Config
 	ociInstance *ociCore.Instance
 	tags        map[string]string

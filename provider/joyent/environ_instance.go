@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -36,7 +37,7 @@ type joyentCompute struct {
 	cloudapi *cloudapi.Client
 }
 
-func newCompute(cloud environs.CloudSpec) (*joyentCompute, error) {
+func newCompute(cloud environscloudspec.CloudSpec) (*joyentCompute, error) {
 	creds, err := credentials(cloud)
 	if err != nil {
 		return nil, err

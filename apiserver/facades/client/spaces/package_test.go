@@ -13,6 +13,7 @@ import (
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	environmocks "github.com/juju/juju/environs/mocks"
 )
@@ -66,7 +67,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
 	s.authorizer.EXPECT().AuthClient().Return(true)
 
-	cloudSpec := environs.CloudSpec{
+	cloudSpec := environscloudspec.CloudSpec{
 		Type:             "mock-provider",
 		Name:             "cloud-name",
 		Endpoint:         "endpoint",

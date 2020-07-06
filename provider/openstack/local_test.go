@@ -49,6 +49,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
@@ -2960,9 +2961,9 @@ func prepareParams(attrs map[string]interface{}, cred *identity.Credentials) boo
 	}
 }
 
-func makeCloudSpec(cred *identity.Credentials) environs.CloudSpec {
+func makeCloudSpec(cred *identity.Credentials) environscloudspec.CloudSpec {
 	credential := makeCredential(cred)
-	return environs.CloudSpec{
+	return environscloudspec.CloudSpec{
 		Type:       "openstack",
 		Name:       "openstack",
 		Endpoint:   cred.URL,

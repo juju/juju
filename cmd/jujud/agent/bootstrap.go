@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -163,7 +164,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	// Get the bootstrap machine's addresses from the provider.
-	cloudSpec, err := environs.MakeCloudSpec(
+	cloudSpec, err := environscloudspec.MakeCloudSpec(
 		args.ControllerCloud,
 		args.ControllerCloudRegion,
 		args.ControllerCloudCredential,

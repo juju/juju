@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
@@ -31,7 +32,7 @@ type baseProvider interface {
 }
 
 type environ struct {
-	cloud    environs.CloudSpec
+	cloud    environscloudspec.CloudSpec
 	provider *environProvider
 
 	name string
@@ -52,7 +53,7 @@ type environ struct {
 
 func newEnviron(
 	p *environProvider,
-	spec environs.CloudSpec,
+	spec environscloudspec.CloudSpec,
 	cfg *config.Config,
 ) (*environ, error) {
 	ecfg, err := newValidConfig(cfg)
@@ -147,7 +148,7 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (env *environ) SetCloudSpec(spec environs.CloudSpec) error {
+func (env *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
 

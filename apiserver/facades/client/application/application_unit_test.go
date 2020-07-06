@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
@@ -1591,7 +1592,7 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesOfSubordinate(c *gc.C) {
 
 func (s *ApplicationSuite) TestApplicationUpdateSeriesIncompatibleSeries(c *gc.C) {
 	app := s.backend.applications["postgresql"]
-	app.SetErrors(nil, nil, &state.ErrIncompatibleSeries{[]string{"yakkety", "zesty"}, "xenial", "testCharm"})
+	app.SetErrors(nil, nil, &stateerrors.NewErrIncompatibleSeries([]string{"yakkety", "zesty"}, "xenial", "testCharm"))
 	results, err := s.api.UpdateApplicationSeries(
 		params.UpdateSeriesArgs{
 			Args: []params.UpdateSeriesArg{{

@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/storage"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -313,8 +314,8 @@ func StoreCharmArchive(st State, archive CharmArchive) error {
 	// Now update the charm data in state and mark it as no longer pending.
 	_, err = st.UpdateUploadedCharm(info)
 	if err != nil {
-		alreadyUploaded := err == state.ErrCharmRevisionAlreadyModified ||
-			errors.Cause(err) == state.ErrCharmRevisionAlreadyModified ||
+		alreadyUploaded := err == stateerrors.ErrCharmRevisionAlreadyModified ||
+			errors.Cause(err) == stateerrors.ErrCharmRevisionAlreadyModified ||
 			state.IsCharmAlreadyUploadedError(err)
 		if err := storage.Remove(storagePath); err != nil {
 			if alreadyUploaded {

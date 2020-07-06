@@ -12,11 +12,11 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
 
 // CloudSpecAPI provides common client-side API functions
-// to call into apiserver/common/cloudspec.CloudSpec.
+// to call into apiserver/common/environscloudspec.CloudSpec.
 type CloudSpecAPI struct {
 	facade   base.FacadeCaller
 	modelTag names.ModelTag
@@ -49,28 +49,28 @@ func (api *CloudSpecAPI) WatchCloudSpecChanges() (watcher.NotifyWatcher, error) 
 
 // CloudSpec returns the cloud specification for the model associated
 // with the API facade.
-func (api *CloudSpecAPI) CloudSpec() (environs.CloudSpec, error) {
+func (api *CloudSpecAPI) CloudSpec() (environscloudspec.CloudSpec, error) {
 	var results params.CloudSpecResults
 	args := params.Entities{Entities: []params.Entity{{api.modelTag.String()}}}
 	err := api.facade.FacadeCall("CloudSpec", args, &results)
 	if err != nil {
-		return environs.CloudSpec{}, err
+		return environscloudspec.CloudSpec{}, err
 	}
 	if n := len(results.Results); n != 1 {
-		return environs.CloudSpec{}, errors.Errorf("expected 1 result, got %d", n)
+		return environscloudspec.CloudSpec{}, errors.Errorf("expected 1 result, got %d", n)
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return environs.CloudSpec{}, errors.Annotate(result.Error, "API request failed")
+		return environscloudspec.CloudSpec{}, errors.Annotate(result.Error, "API request failed")
 	}
 	return api.MakeCloudSpec(result.Result)
 }
 
-// MakeCloudSpec creates an environs.CloudSpec from a params.CloudSpec
+// MakeCloudSpec creates an environscloudspec.CloudSpec from a params.CloudSpec
 // that has been returned from the apiserver.
-func (api *CloudSpecAPI) MakeCloudSpec(pSpec *params.CloudSpec) (environs.CloudSpec, error) {
+func (api *CloudSpecAPI) MakeCloudSpec(pSpec *params.CloudSpec) (environscloudspec.CloudSpec, error) {
 	if pSpec == nil {
-		return environs.CloudSpec{}, errors.NotValidf("nil value")
+		return environscloudspec.CloudSpec{}, errors.NotValidf("nil value")
 	}
 	var credential *cloud.Credential
 	if pSpec.Credential != nil {
@@ -80,7 +80,7 @@ func (api *CloudSpecAPI) MakeCloudSpec(pSpec *params.CloudSpec) (environs.CloudS
 		)
 		credential = &credentialValue
 	}
-	spec := environs.CloudSpec{
+	spec := environscloudspec.CloudSpec{
 		Type:             pSpec.Type,
 		Name:             pSpec.Name,
 		Region:           pSpec.Region,
@@ -91,7 +91,7 @@ func (api *CloudSpecAPI) MakeCloudSpec(pSpec *params.CloudSpec) (environs.CloudS
 		Credential:       credential,
 	}
 	if err := spec.Validate(); err != nil {
-		return environs.CloudSpec{}, errors.Annotate(err, "validating CloudSpec")
+		return environscloudspec.CloudSpec{}, errors.Annotate(err, "validating CloudSpec")
 	}
 	return spec, nil
 }

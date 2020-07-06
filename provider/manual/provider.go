@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
@@ -142,7 +143,7 @@ func (p ManualProvider) Open(args environs.OpenParams) (environs.Environ, error)
 	return p.open(host, user, envConfig)
 }
 
-func validateCloudSpec(spec environs.CloudSpec) error {
+func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 	if spec.Endpoint == "" {
 		return errors.Errorf(
 			"missing address of host to bootstrap: " +

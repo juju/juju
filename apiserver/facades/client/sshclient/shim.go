@@ -8,7 +8,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -17,7 +17,7 @@ import (
 // Backend defines the State API used by the sshclient facade.
 type Backend interface {
 	ModelConfig() (*config.Config, error)
-	CloudSpec() (environs.CloudSpec, error)
+	CloudSpec() (environscloudspec.CloudSpec, error)
 	GetMachineForEntity(tag string) (SSHMachine, error)
 	GetSSHHostKeys(names.MachineTag) (state.SSHHostKeys, error)
 	ModelTag() names.ModelTag

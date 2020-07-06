@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/upgrade"
@@ -1766,17 +1767,17 @@ func cloudSpec(
 	st *State,
 	cloudName, regionName string,
 	credentialTag names.CloudCredentialTag,
-) (environs.CloudSpec, error) {
+) (environscloudspec.CloudSpec, error) {
 	modelCloud, err := st.Cloud(cloudName)
 	if err != nil {
-		return environs.CloudSpec{}, errors.Trace(err)
+		return environscloudspec.CloudSpec{}, errors.Trace(err)
 	}
 
 	var credential *cloud.Credential
 	if credentialTag != (names.CloudCredentialTag{}) {
 		credentialValue, err := st.CloudCredential(credentialTag)
 		if err != nil {
-			return environs.CloudSpec{}, errors.Trace(err)
+			return environscloudspec.CloudSpec{}, errors.Trace(err)
 		}
 		cloudCredential := cloud.NewNamedCredential(credentialValue.Name,
 			cloud.AuthType(credentialValue.AuthType),
@@ -1786,7 +1787,7 @@ func cloudSpec(
 		credential = &cloudCredential
 	}
 
-	return environs.MakeCloudSpec(modelCloud, regionName, credential)
+	return environscloudspec.MakeCloudSpec(modelCloud, regionName, credential)
 }
 
 // NewBroker returns a CAAS broker.

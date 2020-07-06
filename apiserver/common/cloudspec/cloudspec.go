@@ -11,7 +11,7 @@ import (
 	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -32,7 +32,7 @@ type CloudSpecAPI interface {
 type cloudSpecAPI struct {
 	resources facade.Resources
 
-	getCloudSpec                           func(names.ModelTag) (environs.CloudSpec, error)
+	getCloudSpec                           func(names.ModelTag) (environscloudspec.CloudSpec, error)
 	watchCloudSpec                         func(tag names.ModelTag) (state.NotifyWatcher, error)
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error)
 	watchCloudSpecCredentialContent        func(tag names.ModelTag) (state.NotifyWatcher, error)
@@ -42,7 +42,7 @@ type cloudSpecAPI struct {
 // NewCloudSpec returns a new CloudSpecAPI.
 func NewCloudSpec(
 	resources facade.Resources,
-	getCloudSpec func(names.ModelTag) (environs.CloudSpec, error),
+	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
 	watchCloudSpec func(tag names.ModelTag) (state.NotifyWatcher, error),
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error),
 	watchCloudSpecCredentialContent func(tag names.ModelTag) (state.NotifyWatcher, error),

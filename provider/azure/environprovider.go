@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure/internal/azurestorage"
@@ -159,7 +160,7 @@ func (prov *azureEnvironProvider) PrepareConfig(args environs.PrepareConfigParam
 	return args.Config.Apply(attrs)
 }
 
-func validateCloudSpec(spec environs.CloudSpec) error {
+func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 	if err := spec.Validate(); err != nil {
 		return errors.Trace(err)
 	}

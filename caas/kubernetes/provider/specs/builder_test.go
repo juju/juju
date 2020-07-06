@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/cloud"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/testing"
 )
 
@@ -135,7 +136,7 @@ func (s *builderSuite) setupRestClients(c *gc.C, restClientAssertions ...restCli
 		"ClientCertificateData": "cert-data",
 		"ClientKeyData":         "cert-key",
 	})
-	cloudSpec := environs.CloudSpec{
+	cloudSpec := environscloudspec.CloudSpec{
 		Endpoint:       "some-host",
 		Credential:     &cred,
 		CACertificates: []string{testing.CACert},

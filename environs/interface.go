@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -68,7 +69,7 @@ type OpenParams struct {
 	ControllerUUID string
 
 	// Cloud is the cloud specification to use to connect to the cloud.
-	Cloud CloudSpec
+	Cloud environscloudspec.CloudSpec
 
 	// Config is the base configuration for the provider.
 	Config *config.Config
@@ -88,7 +89,7 @@ type ProviderSchema interface {
 // PrepareConfigParams contains the parameters for EnvironProvider.PrepareConfig.
 type PrepareConfigParams struct {
 	// Cloud is the cloud specification to use to connect to the cloud.
-	Cloud CloudSpec
+	Cloud environscloudspec.CloudSpec
 
 	// Config is the base configuration for the provider. This should
 	// be updated with the region, endpoint and credentials.
@@ -271,7 +272,7 @@ type ConfigSetter interface {
 // CloudSpecSetter implements access to an environment's cloud spec.
 type CloudSpecSetter interface {
 	// SetConfig updates the Environ's configuration.
-	SetCloudSpec(spec CloudSpec) error
+	SetCloudSpec(spec environscloudspec.CloudSpec) error
 }
 
 // Bootstrapper provides the way for bootstrapping controller.

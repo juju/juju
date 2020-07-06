@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -373,7 +373,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 				})},
 		}
 	} else {
-		rspec := &environs.CloudRegionSpec{Cloud: args.CloudName, Region: args.CloudRegion}
+		rspec := &environscloudspec.CloudRegionSpec{Cloud: args.CloudName, Region: args.CloudRegion}
 		configSources = modelConfigSources(st, rspec)
 	}
 	modelCfg, err := composeModelConfigAttributes(args.Config.AllAttrs(), configSources...)

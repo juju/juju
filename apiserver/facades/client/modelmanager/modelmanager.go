@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/space"
@@ -345,7 +346,7 @@ type ConfigSource interface {
 }
 
 func (m *ModelManagerAPI) newModelConfig(
-	cloudSpec environs.CloudSpec,
+	cloudSpec environscloudspec.CloudSpec,
 	args params.ModelCreateArgs,
 	source ConfigSource,
 ) (*config.Config, error) {
@@ -372,7 +373,7 @@ func (m *ModelManagerAPI) newModelConfig(
 		return nil, errors.Trace(err)
 	}
 
-	regionSpec := &environs.CloudRegionSpec{Cloud: cloudSpec.Name, Region: cloudSpec.Region}
+	regionSpec := &environscloudspec.CloudRegionSpec{Cloud: cloudSpec.Name, Region: cloudSpec.Region}
 	if joint, err = m.state.ComposeNewModelConfig(joint, regionSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -524,7 +525,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 		credential = &cloudCredential
 	}
 
-	cloudSpec, err := environs.MakeCloudSpec(cloud, cloudRegionName, credential)
+	cloudSpec, err := environscloudspec.MakeCloudSpec(cloud, cloudRegionName, credential)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -556,7 +557,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 }
 
 func (m *ModelManagerAPI) newCAASModel(
-	cloudSpec environs.CloudSpec,
+	cloudSpec environscloudspec.CloudSpec,
 	createArgs params.ModelCreateArgs,
 	controllerModel common.Model,
 	cloudTag names.CloudTag,
@@ -618,7 +619,7 @@ Please choose a different model name.
 }
 
 func (m *ModelManagerAPI) newModel(
-	cloudSpec environs.CloudSpec,
+	cloudSpec environscloudspec.CloudSpec,
 	createArgs params.ModelCreateArgs,
 	controllerModel common.Model,
 	cloudTag names.CloudTag,
@@ -1470,7 +1471,7 @@ func (m *ModelManagerAPI) setModelDefaults(args params.ModelDefaultValues) error
 		return errors.New("agent-version cannot have a default value")
 	}
 
-	var rspec *environs.CloudRegionSpec
+	var rspec *environscloudspec.CloudRegionSpec
 	if args.CloudTag != "" {
 		spec, err := m.makeRegionSpec(args.CloudTag, args.CloudRegion)
 		if err != nil {
@@ -1493,7 +1494,7 @@ func (m *ModelManagerAPI) UnsetModelDefaults(args params.UnsetModelDefaults) (pa
 	}
 
 	for i, arg := range args.Keys {
-		var rspec *environs.CloudRegionSpec
+		var rspec *environscloudspec.CloudRegionSpec
 		if arg.CloudTag != "" {
 			spec, err := m.makeRegionSpec(arg.CloudTag, arg.CloudRegion)
 			if err != nil {
@@ -1512,12 +1513,12 @@ func (m *ModelManagerAPI) UnsetModelDefaults(args params.UnsetModelDefaults) (pa
 
 // makeRegionSpec is a helper method for methods that call
 // state.UpdateModelConfigDefaultValues.
-func (m *ModelManagerAPI) makeRegionSpec(cloudTag, r string) (*environs.CloudRegionSpec, error) {
+func (m *ModelManagerAPI) makeRegionSpec(cloudTag, r string) (*environscloudspec.CloudRegionSpec, error) {
 	cTag, err := names.ParseCloudTag(cloudTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	rspec, err := environs.NewCloudRegionSpec(cTag.Id(), r)
+	rspec, err := environscloudspec.NewCloudRegionSpec(cTag.Id(), r)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -264,7 +265,7 @@ func BaseKubeCloudOpenParams(cloud cloud.Cloud, credential cloud.Credential) (en
 		return environs.OpenParams{}, errors.Trace(err)
 	}
 
-	cloudSpec, err := environs.MakeCloudSpec(cloud, "", &credential)
+	cloudSpec, err := environscloudspec.MakeCloudSpec(cloud, "", &credential)
 	if err != nil {
 		return environs.OpenParams{}, errors.Trace(err)
 	}

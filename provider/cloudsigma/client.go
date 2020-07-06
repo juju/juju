@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/imagemetadata"
 )
 
@@ -28,7 +29,7 @@ func (tracer) Logf(format string, args ...interface{}) {
 }
 
 // newClient returns an instance of the CloudSigma client.
-var newClient = func(cloud environs.CloudSpec, uuid string) (client *environClient, err error) {
+var newClient = func(cloud environscloudspec.CloudSpec, uuid string) (client *environClient, err error) {
 	logger.Debugf("creating CloudSigma client: id=%q", uuid)
 
 	credAttrs := cloud.Credential.Attributes()

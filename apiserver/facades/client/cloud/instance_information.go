@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -22,10 +23,10 @@ type cloudEnvironConfigGetter struct {
 }
 
 // CloudSpec implements environs.EnvironConfigGetter.
-func (g cloudEnvironConfigGetter) CloudSpec() (environs.CloudSpec, error) {
+func (g cloudEnvironConfigGetter) CloudSpec() (environscloudspec.CloudSpec, error) {
 	model, err := g.Model()
 	if err != nil {
-		return environs.CloudSpec{}, errors.Trace(err)
+		return environscloudspec.CloudSpec{}, errors.Trace(err)
 	}
 	return stateenvirons.CloudSpecForModel(model)
 }

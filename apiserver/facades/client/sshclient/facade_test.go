@@ -16,6 +16,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/dummy"
@@ -240,7 +241,7 @@ func (backend *mockBackend) GetSSHHostKeys(tag names.MachineTag) (state.SSHHostK
 	return nil, errors.New("machine not found")
 }
 
-func (backend *mockBackend) CloudSpec() (environs.CloudSpec, error) {
+func (backend *mockBackend) CloudSpec() (environscloudspec.CloudSpec, error) {
 	backend.stub.AddCall("CloudSpec")
 	return dummy.SampleCloudSpec(), nil
 }

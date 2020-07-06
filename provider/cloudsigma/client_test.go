@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -60,7 +61,7 @@ func testNewClient(c *gc.C, endpoint, username, password string) (*environClient
 		"username": username,
 		"password": password,
 	})
-	spec := environs.CloudSpec{
+	spec := environscloudspec.CloudSpec{
 		Region:     "testregion",
 		Endpoint:   endpoint,
 		Credential: &cred,

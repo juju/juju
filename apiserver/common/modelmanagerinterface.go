@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -43,14 +44,14 @@ type ModelManagerBackend interface {
 	GetModel(string) (Model, func() bool, error)
 	GetBackend(string) (ModelManagerBackend, func() bool, error)
 
-	ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.CloudRegionSpec) (map[string]interface{}, error)
+	ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environscloudspec.CloudRegionSpec) (map[string]interface{}, error)
 	ControllerModelUUID() string
 	ControllerModelTag() names.ModelTag
 	IsController() bool
 	ControllerConfig() (controller.Config, error)
 	ControllerNodes() ([]ControllerNode, error)
 	ModelConfigDefaultValues(cloudName string) (config.ModelDefaultAttributes, error)
-	UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environs.CloudRegionSpec) error
+	UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environscloudspec.CloudRegionSpec) error
 	Unit(name string) (*state.Unit, error)
 	Name() string
 	ModelTag() names.ModelTag
@@ -156,7 +157,7 @@ func (st modelManagerStateShim) ModelConfigDefaultValues(cloudName string) (conf
 }
 
 // UpdateModelConfigDefaultValues implements the ModelManagerBackend method.
-func (st modelManagerStateShim) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environs.CloudRegionSpec) error {
+func (st modelManagerStateShim) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environscloudspec.CloudRegionSpec) error {
 	return st.State.UpdateModelConfigDefaultValues(update, remove, regionSpec)
 }
 

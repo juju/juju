@@ -28,6 +28,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -62,7 +63,7 @@ var (
 
 type environ struct {
 	name  string
-	cloud environs.CloudSpec
+	cloud environscloudspec.CloudSpec
 	ec2   *ec2.EC2
 
 	// ecfgMutex protects the *Unlocked fields below.
@@ -2325,7 +2326,7 @@ func (e *environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (e *environ) SetCloudSpec(spec environs.CloudSpec) error {
+func (e *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 
