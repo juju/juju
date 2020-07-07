@@ -133,7 +133,7 @@ func getBundleInfoResponse() charmhub.InfoResponse {
 					Version:  "1.0.3",
 				},
 			}},
-		Charm: charmhub.Charm{
+		Entity: charmhub.Entity{
 			Categories: []charmhub.Category{{
 				Featured: true,
 				Name:     "blog",
@@ -243,7 +243,7 @@ func getCharmInfoResponse() charmhub.InfoResponse {
 					Version:      "1.0.3",
 				},
 			}},
-		Charm: charmhub.Charm{
+		Entity: charmhub.Entity{
 			Categories: []charmhub.Category{{
 				Featured: true,
 				Name:     "blog",

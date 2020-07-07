@@ -111,7 +111,7 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 					Version:  "1.0.3",
 				},
 			}},
-			Charm: transport.Charm{
+			Entity: transport.Entity{
 				Categories: []transport.Category{{
 					Featured: true,
 					Name:     "blog",

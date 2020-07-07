@@ -56,7 +56,7 @@ func (iw infoWriter) print(info interface{}) error {
 }
 
 func (iw infoWriter) publisher() string {
-	publisher, _ := iw.in.Charm.Publisher["display-name"]
+	publisher, _ := iw.in.Entity.Publisher["display-name"]
 	return publisher
 }
 
@@ -119,9 +119,9 @@ func (b bundleInfoWriter) Print() error {
 	out := &bundleInfoOutput{
 		Name:        b.in.Name,
 		ID:          b.in.ID,
-		Summary:     b.in.Charm.Summary,
+		Summary:     b.in.Entity.Summary,
 		Publisher:   b.publisher(),
-		Description: b.in.Charm.Description,
+		Description: b.in.Entity.Description,
 		Channels:    b.channels(),
 	}
 	return b.print(out)
@@ -155,12 +155,12 @@ func (c charmInfoWriter) Print() error {
 	out := &charmInfoOutput{
 		Name:        c.in.Name,
 		ID:          c.in.ID,
-		Summary:     c.in.Charm.Summary,
+		Summary:     c.in.Entity.Summary,
 		Publisher:   c.publisher(),
 		Supports:    c.supports(),
 		Tags:        c.tags(),
 		Subordinate: c.subordinate(),
-		Description: c.in.Charm.Description,
+		Description: c.in.Entity.Description,
 		Channels:    c.channels(),
 	}
 	if rels, err := c.relations(); err == nil {

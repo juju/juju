@@ -51,29 +51,29 @@ func newCharmHubAPI(authorizer facade.Authorizer, client Client) (*CharmHubAPI, 
 }
 
 // Info queries the charmhub API with a given entity ID.
-func (api *CharmHubAPI) Info(arg params.Entity) (params.CharmHubCharmInfoResult, error) {
+func (api *CharmHubAPI) Info(arg params.Entity) (params.CharmHubEntityInfoResult, error) {
 	logger.Tracef("Info(%v)", arg.Tag)
 
 	tag, err := names.ParseApplicationTag(arg.Tag)
 	if err != nil {
-		return params.CharmHubCharmInfoResult{}, errors.BadRequestf("arg value is empty")
+		return params.CharmHubEntityInfoResult{}, errors.BadRequestf("arg value is empty")
 	}
 	// TODO (stickupkid): Create a proper context to be used here.
 	info, err := api.client.Info(context.TODO(), tag.Id())
 	if err != nil {
-		return params.CharmHubCharmInfoResult{}, errors.Trace(err)
+		return params.CharmHubEntityInfoResult{}, errors.Trace(err)
 	}
-	return params.CharmHubCharmInfoResult{Result: convertCharmInfoResult(info)}, nil
+	return params.CharmHubEntityInfoResult{Result: convertCharmInfoResult(info)}, nil
 }
 
 // Find queries the charmhub API with a given entity ID.
-func (api *CharmHubAPI) Find(arg params.Query) (params.CharmHubCharmFindResult, error) {
+func (api *CharmHubAPI) Find(arg params.Query) (params.CharmHubEntityFindResult, error) {
 	logger.Tracef("Find(%v)", arg.Query)
 
 	// TODO (stickupkid): Create a proper context to be used here.
 	results, err := api.client.Find(context.TODO(), arg.Query)
 	if err != nil {
-		return params.CharmHubCharmFindResult{}, errors.Trace(err)
+		return params.CharmHubEntityFindResult{}, errors.Trace(err)
 	}
-	return params.CharmHubCharmFindResult{Results: convertCharmFindResults(results)}, nil
+	return params.CharmHubEntityFindResult{Results: convertCharmFindResults(results)}, nil
 }

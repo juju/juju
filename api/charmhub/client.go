@@ -37,7 +37,7 @@ func newClientFromFacade(frontend base.ClientFacade, backend base.FacadeCaller) 
 // Info queries the charmhub API for information for a given name.
 func (c *Client) Info(name string) (InfoResponse, error) {
 	args := params.Entity{Tag: names.NewApplicationTag(name).String()}
-	var result params.CharmHubCharmInfoResult
+	var result params.CharmHubEntityInfoResult
 	if err := c.facade.FacadeCall("Info", args, &result); err != nil {
 		return InfoResponse{}, errors.Trace(err)
 	}
@@ -49,7 +49,7 @@ func (c *Client) Info(name string) (InfoResponse, error) {
 // given query.
 func (c *Client) Find(query string) ([]FindResponse, error) {
 	args := params.Query{Query: query}
-	var result params.CharmHubCharmFindResult
+	var result params.CharmHubEntityFindResult
 	if err := c.facade.FacadeCall("Find", args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}

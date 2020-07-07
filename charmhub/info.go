@@ -37,5 +37,6 @@ func (c *InfoClient) Info(ctx context.Context, name string) (transport.InfoRespo
 	if err := c.client.Get(ctx, path, &resp); err != nil {
 		return resp, errors.Trace(err)
 	}
+
 	return resp, nil
 }

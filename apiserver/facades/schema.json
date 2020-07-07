@@ -9239,7 +9239,7 @@
                             "$ref": "#/definitions/Query"
                         },
                         "Result": {
-                            "$ref": "#/definitions/CharmHubCharmFindResult"
+                            "$ref": "#/definitions/CharmHubEntityFindResult"
                         }
                     },
                     "description": "Find queries the charmhub API with a given entity ID."
@@ -9251,7 +9251,7 @@
                             "$ref": "#/definitions/Entity"
                         },
                         "Result": {
-                            "$ref": "#/definitions/CharmHubCharmInfoResult"
+                            "$ref": "#/definitions/CharmHubEntityInfoResult"
                         }
                     },
                     "description": "Info queries the charmhub API with a given entity ID."
@@ -9306,7 +9306,7 @@
                     },
                     "additionalProperties": false
                 },
-                "CharmHubCharm": {
+                "CharmHubEntity": {
                     "type": "object",
                     "properties": {
                         "categories": {
@@ -9356,7 +9356,7 @@
                         "used-by"
                     ]
                 },
-                "CharmHubCharmFindResult": {
+                "CharmHubEntityFindResult": {
                     "type": "object",
                     "properties": {
                         "errors": {
@@ -9375,7 +9375,7 @@
                         "errors"
                     ]
                 },
-                "CharmHubCharmInfoResult": {
+                "CharmHubEntityInfoResult": {
                     "type": "object",
                     "properties": {
                         "errors": {
@@ -9460,11 +9460,11 @@
                                 "$ref": "#/definitions/ChannelMap"
                             }
                         },
-                        "charm": {
-                            "$ref": "#/definitions/CharmHubCharm"
-                        },
                         "default-release": {
                             "$ref": "#/definitions/ChannelMap"
+                        },
+                        "entity": {
+                            "$ref": "#/definitions/CharmHubEntity"
                         },
                         "id": {
                             "type": "string"
@@ -9481,6 +9481,7 @@
                         "type",
                         "id",
                         "name",
+                        "entity",
                         "channel-map"
                     ]
                 },
@@ -9493,11 +9494,11 @@
                                 "$ref": "#/definitions/ChannelMap"
                             }
                         },
-                        "charm": {
-                            "$ref": "#/definitions/CharmHubCharm"
-                        },
                         "default-release": {
                             "$ref": "#/definitions/ChannelMap"
+                        },
+                        "entity": {
+                            "$ref": "#/definitions/CharmHubEntity"
                         },
                         "id": {
                             "type": "string"
@@ -9514,6 +9515,7 @@
                         "type",
                         "id",
                         "name",
+                        "entity",
                         "channel-map"
                     ]
                 },

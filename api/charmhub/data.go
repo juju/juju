@@ -12,7 +12,7 @@ func convertCharmInfoResult(info params.InfoResponse) InfoResponse {
 		Type:           info.Type,
 		ID:             info.ID,
 		Name:           info.Name,
-		Charm:          convertCharm(info.Charm),
+		Entity:         convertEntity(info.Entity),
 		ChannelMap:     convertChannelMap(info.ChannelMap),
 		DefaultRelease: convertOneChannelMap(info.DefaultRelease),
 	}
@@ -31,14 +31,14 @@ func convertCharmFindResult(info params.FindResponse) FindResponse {
 		Type:           info.Type,
 		ID:             info.ID,
 		Name:           info.Name,
-		Charm:          convertCharm(info.Charm),
+		Entity:         convertEntity(info.Entity),
 		ChannelMap:     convertChannelMap(info.ChannelMap),
 		DefaultRelease: convertOneChannelMap(info.DefaultRelease),
 	}
 }
 
-func convertCharm(ch params.CharmHubCharm) Charm {
-	return Charm{
+func convertEntity(ch params.CharmHubEntity) Entity {
+	return Entity{
 		Categories:  convertCategories(ch.Categories),
 		Description: ch.Description,
 		License:     ch.License,
@@ -107,7 +107,7 @@ type InfoResponse struct {
 	Type           string       `json:"type"`
 	ID             string       `json:"id"`
 	Name           string       `json:"name"`
-	Charm          Charm        `json:"charm"`
+	Entity         Entity       `json:"entity"`
 	ChannelMap     []ChannelMap `json:"channel-map"`
 	DefaultRelease ChannelMap   `json:"default-release,omitempty"`
 }
@@ -116,7 +116,7 @@ type FindResponse struct {
 	Type           string       `json:"type"`
 	ID             string       `json:"id"`
 	Name           string       `json:"name"`
-	Charm          Charm        `json:"charm"`
+	Entity         Entity       `json:"entity"`
 	ChannelMap     []ChannelMap `json:"channel-map"`
 	DefaultRelease ChannelMap   `json:"default-release,omitempty"`
 }
@@ -154,7 +154,7 @@ type Download struct {
 	URL        string `json:"url"`
 }
 
-type Charm struct {
+type Entity struct {
 	Categories  []Category        `json:"categories"`
 	Description string            `json:"description"`
 	License     string            `json:"license"`

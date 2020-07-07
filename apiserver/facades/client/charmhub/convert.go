@@ -13,7 +13,7 @@ func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
 		Type:           info.Type,
 		ID:             info.ID,
 		Name:           info.Name,
-		Charm:          convertCharm(info.Charm),
+		Entity:         convertEntity(info.Entity),
 		ChannelMap:     convertChannelMap(info.ChannelMap),
 		DefaultRelease: convertOneChannelMap(info.DefaultRelease),
 	}
@@ -32,14 +32,14 @@ func convertCharmFindResult(resp transport.FindResponse) params.FindResponse {
 		Type:           resp.Type,
 		ID:             resp.ID,
 		Name:           resp.Name,
-		Charm:          convertCharm(resp.Charm),
+		Entity:         convertEntity(resp.Entity),
 		ChannelMap:     convertChannelMap(resp.ChannelMap),
 		DefaultRelease: convertOneChannelMap(resp.DefaultRelease),
 	}
 }
 
-func convertCharm(ch transport.Charm) params.CharmHubCharm {
-	return params.CharmHubCharm{
+func convertEntity(ch transport.Entity) params.CharmHubEntity {
+	return params.CharmHubEntity{
 		Categories:  convertCategories(ch.Categories),
 		Description: ch.Description,
 		License:     ch.License,

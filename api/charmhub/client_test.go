@@ -24,7 +24,7 @@ func (s charmHubSuite) TestInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	arg := params.Entity{Tag: names.NewApplicationTag("wordpress").String()}
-	resultSource := params.CharmHubCharmInfoResult{
+	resultSource := params.CharmHubEntityInfoResult{
 		Result: getParamsInfoResponse(),
 	}
 	s.facade.EXPECT().FacadeCall("Info", arg, gomock.Any()).SetArg(2, resultSource)
@@ -38,7 +38,7 @@ func (s charmHubSuite) TestFind(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	arg := params.Query{Query: "wordpress"}
-	resultSource := params.CharmHubCharmFindResult{
+	resultSource := params.CharmHubEntityFindResult{
 		Results: getParamsFindResponses(),
 	}
 	s.facade.EXPECT().FacadeCall("Find", arg, gomock.Any()).SetArg(2, resultSource)
@@ -62,30 +62,30 @@ func (s *charmHubSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func getInfoResponse() InfoResponse {
-	channelMaps, charm, defaultChannelMap := getChannelMapResponse()
+	channelMaps, entity, defaultChannelMap := getChannelMapResponse()
 	return InfoResponse{
 		Name:           "wordpress",
 		Type:           "object",
 		ID:             "charmCHARMcharmCHARMcharmCHARM01",
 		ChannelMap:     channelMaps,
-		Charm:          charm,
+		Entity:         entity,
 		DefaultRelease: defaultChannelMap,
 	}
 }
 
 func getFindResponses() []FindResponse {
-	channelMaps, charm, defaultChannelMap := getChannelMapResponse()
+	channelMaps, entity, defaultChannelMap := getChannelMapResponse()
 	return []FindResponse{{
 		Name:           "wordpress",
 		Type:           "object",
 		ID:             "charmCHARMcharmCHARMcharmCHARM01",
 		ChannelMap:     channelMaps,
-		Charm:          charm,
+		Entity:         entity,
 		DefaultRelease: defaultChannelMap,
 	}}
 }
 
-func getChannelMapResponse() ([]ChannelMap, Charm, ChannelMap) {
+func getChannelMapResponse() ([]ChannelMap, Entity, ChannelMap) {
 	return []ChannelMap{{
 			Channel: Channel{
 				Name: "latest/stable",
@@ -113,7 +113,7 @@ func getChannelMapResponse() ([]ChannelMap, Charm, ChannelMap) {
 				Revision: 16,
 				Version:  "1.0.3",
 			},
-		}}, Charm{
+		}}, Entity{
 			Categories: []Category{{
 				Featured: true,
 				Name:     "blog",
@@ -169,7 +169,7 @@ func assertInfoResponseSameContents(c *gc.C, obtained, expected InfoResponse) {
 	c.Assert(obtained.Type, gc.Equals, expected.Type)
 	c.Assert(obtained.ID, gc.Equals, expected.ID)
 	c.Assert(obtained.Name, gc.Equals, expected.Name)
-	assertCharmSameContents(c, obtained.Charm, expected.Charm)
+	assertEntitySameContents(c, obtained.Entity, expected.Entity)
 	c.Assert(obtained.ChannelMap, gc.DeepEquals, expected.ChannelMap)
 	c.Assert(obtained.DefaultRelease, gc.DeepEquals, expected.DefaultRelease)
 }
@@ -183,12 +183,12 @@ func assertFindResponsesSameContents(c *gc.C, obtained, expected []FindResponse)
 	c.Assert(want.Type, gc.Equals, got.Type)
 	c.Assert(want.ID, gc.Equals, got.ID)
 	c.Assert(want.Name, gc.Equals, got.Name)
-	assertCharmSameContents(c, want.Charm, got.Charm)
+	assertEntitySameContents(c, want.Entity, got.Entity)
 	c.Assert(want.ChannelMap, gc.DeepEquals, got.ChannelMap)
 	c.Assert(want.DefaultRelease, gc.DeepEquals, got.DefaultRelease)
 }
 
-func assertCharmSameContents(c *gc.C, obtained, expected Charm) {
+func assertEntitySameContents(c *gc.C, obtained, expected Entity) {
 	c.Assert(obtained.Categories, gc.DeepEquals, expected.Categories)
 	c.Assert(obtained.Description, gc.Equals, expected.Description)
 	c.Assert(obtained.License, gc.Equals, expected.License)
@@ -199,30 +199,30 @@ func assertCharmSameContents(c *gc.C, obtained, expected Charm) {
 }
 
 func getParamsInfoResponse() params.InfoResponse {
-	channelMaps, charm, defaultChannelMap := getParamsChannelMapResponse()
+	channelMaps, entity, defaultChannelMap := getParamsChannelMapResponse()
 	return params.InfoResponse{
 		Name:           "wordpress",
 		Type:           "object",
 		ID:             "charmCHARMcharmCHARMcharmCHARM01",
 		ChannelMap:     channelMaps,
-		Charm:          charm,
+		Entity:         entity,
 		DefaultRelease: defaultChannelMap,
 	}
 }
 
 func getParamsFindResponses() []params.FindResponse {
-	channelMaps, charm, defaultChannelMap := getParamsChannelMapResponse()
+	channelMaps, entity, defaultChannelMap := getParamsChannelMapResponse()
 	return []params.FindResponse{{
 		Name:           "wordpress",
 		Type:           "object",
 		ID:             "charmCHARMcharmCHARMcharmCHARM01",
 		ChannelMap:     channelMaps,
-		Charm:          charm,
+		Entity:         entity,
 		DefaultRelease: defaultChannelMap,
 	}}
 }
 
-func getParamsChannelMapResponse() ([]params.ChannelMap, params.CharmHubCharm, params.ChannelMap) {
+func getParamsChannelMapResponse() ([]params.ChannelMap, params.CharmHubEntity, params.ChannelMap) {
 	return []params.ChannelMap{{
 			Channel: params.Channel{
 				Name: "latest/stable",
@@ -250,7 +250,7 @@ func getParamsChannelMapResponse() ([]params.ChannelMap, params.CharmHubCharm, p
 				Revision: 16,
 				Version:  "1.0.3",
 			},
-		}}, params.CharmHubCharm{
+		}}, params.CharmHubEntity{
 			Categories: []params.Category{{
 				Featured: true,
 				Name:     "blog",

@@ -41,7 +41,7 @@ type Download struct {
 	URL        string `json:"url"`
 }
 
-type Charm struct {
+type Entity struct {
 	Categories  []Category        `json:"categories"`
 	Description string            `json:"description"`
 	License     string            `json:"license"`
