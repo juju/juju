@@ -3,6 +3,7 @@
 package model
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -136,11 +137,12 @@ type configCommand struct {
 	modelcmd.ModelCommandBase
 	out cmd.Output
 
-	action     func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
-	keys       []string
-	reset      []string // Holds the keys to be reset until parsed.
-	resetKeys  []string // Holds the keys to be reset once parsed.
-	setOptions common.ConfigFlag
+	action             func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
+	keys               []string
+	reset              []string // Holds the keys to be reset until parsed.
+	resetKeys          []string // Holds the keys to be reset once parsed.
+	setOptions         common.ConfigFlag
+	ignoreAgentVersion bool
 }
 
 // configCommandAPI defines an API interface to be used during testing.
@@ -185,6 +187,7 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml":    cmd.FormatYaml,
 	})
 	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
+	f.BoolVar(&c.ignoreAgentVersion, "ignore-agent-version", false, "Skip the error when passing in the agent version configuration")
 }
 
 // Init implements part of the cmd.Command interface.
@@ -219,10 +222,16 @@ func (c *configCommand) handleZeroArgs() error {
 
 // handleOneArg handles the case where there is one positional arg.
 func (c *configCommand) handleOneArg(arg string) error {
+	if arg == "-" {
+		// If we can't read the stdin, then continue onwards to fall back to the
+		// previous logic.
+		if err := c.parseStdin(); err == nil {
+			return nil
+		}
+	}
+
 	// We may have a single config.yaml file
-	_, err := os.Stat(arg)
-	if err == nil {
-		// Handle yaml files
+	if _, err := os.Stat(arg); err == nil {
 		return c.parseYAMLFile(arg)
 	} else if strings.Contains(arg, "=") {
 		return c.parseSetKeys([]string{arg})
@@ -250,6 +259,26 @@ func (c *configCommand) handleArgs(args []string) error {
 			return errors.New("can only retrieve a single value, or all values")
 		}
 	}
+	return nil
+}
+
+// parseStdin ensures that we handle stdin correctly.
+func (c *configCommand) parseStdin() error {
+	reader := bufio.NewReader(os.Stdin)
+
+	var input []byte
+	for {
+		b, err := reader.ReadByte()
+		if err != nil && err == io.EOF {
+			break
+		}
+		input = append(input, b)
+	}
+
+	if err := c.setOptions.SetAttrsFromYAML(input); err != nil {
+		return errors.Trace(err)
+	}
+	c.action = c.setConfig
 	return nil
 }
 
@@ -358,6 +387,9 @@ func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) err
 	values := make(attributes)
 	for k, v := range attrs {
 		if k == config.AgentVersionKey {
+			if c.ignoreAgentVersion {
+				continue
+			}
 			return errors.Errorf(`"agent-version"" must be set via "upgrade-model"`)
 		}
 

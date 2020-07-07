@@ -58,6 +58,28 @@ func (f *ConfigFlag) Set(s string) error {
 	return nil
 }
 
+// SetAttrsFromYAML sets the attributes from a slice of bytes. The bytes are
+// expected to be YAML parsable and align to the attrs type of
+// map[string]interface{}.
+// This will over write any attributes that already exist if found in the YAML
+// configuration.
+func (f *ConfigFlag) SetAttrsFromYAML(input []byte) error {
+	if len(input) == 0 {
+		return errors.NotValidf("empty yaml")
+	}
+	attrs := make(map[string]interface{})
+	if err := yaml.Unmarshal(input, &attrs); err != nil {
+		return errors.Trace(err)
+	}
+	if f.attrs == nil {
+		f.attrs = make(map[string]interface{})
+	}
+	for k, attr := range attrs {
+		f.attrs[k] = attr
+	}
+	return nil
+}
+
 // ReadAttrs reads attributes from the specified files, and then overlays
 // the results with the k=v attributes.
 func (f *ConfigFlag) ReadAttrs(ctx *cmd.Context) (map[string]interface{}, error) {
