@@ -6,6 +6,7 @@ package networkingcommon
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/state"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/network"
@@ -36,6 +37,10 @@ type LinkLayerDevice interface {
 	// RemoveOps returns the transaction operations required to remove this
 	// device and if required, its provider ID.
 	RemoveOps() []txn.Op
+
+	// UpdateOps returns the transaction operations required to update the
+	// device so that it reflects the incoming arguments.
+	UpdateOps(args state.LinkLayerDeviceArgs) []txn.Op
 }
 
 // LinkLayerAddress describes a single layer-3 network address

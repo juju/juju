@@ -7,6 +7,7 @@ package instancepoller
 import (
 	gomock "github.com/golang/mock/gomock"
 	network "github.com/juju/juju/core/network"
+	state "github.com/juju/juju/state"
 	txn "gopkg.in/mgo.v2/txn"
 	reflect "reflect"
 )
@@ -131,6 +132,20 @@ func (m *MockLinkLayerDevice) SetProviderIDOps(arg0 network.Id) ([]txn.Op, error
 func (mr *MockLinkLayerDeviceMockRecorder) SetProviderIDOps(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProviderIDOps", reflect.TypeOf((*MockLinkLayerDevice)(nil).SetProviderIDOps), arg0)
+}
+
+// UpdateOps mocks base method
+func (m *MockLinkLayerDevice) UpdateOps(arg0 state.LinkLayerDeviceArgs) []txn.Op {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateOps", arg0)
+	ret0, _ := ret[0].([]txn.Op)
+	return ret0
+}
+
+// UpdateOps indicates an expected call of UpdateOps
+func (mr *MockLinkLayerDeviceMockRecorder) UpdateOps(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateOps", reflect.TypeOf((*MockLinkLayerDevice)(nil).UpdateOps), arg0)
 }
 
 // MockLinkLayerAddress is a mock of LinkLayerAddress interface
