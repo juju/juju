@@ -349,3 +349,47 @@ echo "$@" >&2
 `), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+
+// DebugSuite is for tests of methods/functions that don't need complex setup.
+type DebugSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&DebugSuite{})
+
+func checkBuildRunHookCommand(c *gc.C, expected, hookName, hookRunner, charmDir string) {
+	c.Check(expected, gc.Equals, buildRunHookCmd(hookName, hookRunner, charmDir))
+}
+
+func (s *DebugSuite) Test_buildRunHookCmd_legacy(c *gc.C) {
+	checkBuildRunHookCommand(c, "./$JUJU_DISPATCH_PATH", "install",
+		"hooks/install",
+		"/var/lib/juju")
+	checkBuildRunHookCommand(c, "./$JUJU_DISPATCH_PATH", "install",
+		"/var/lib/juju/charm/hooks/install",
+		"/var/lib/juju/charm")
+}
+
+func (s *DebugSuite) Test_buildRunHookCmd_dispatch_subdir(c *gc.C) {
+	checkBuildRunHookCommand(c, "./dispatch", "install",
+		"/var/lib/juju/charm/dispatch",
+		"/var/lib/juju/charm/")
+	checkBuildRunHookCommand(c, "./hooks/foo", "install",
+		"/var/lib/juju/charm/hooks/foo",
+		"/var/lib/juju/charm/")
+}
+
+func (s *DebugSuite) Test_buildRunHookCmd_dispatch_neigbor(c *gc.C) {
+	checkBuildRunHookCommand(c, "./../../not-charm/dispatch",
+		"install",
+		"/var/lib/juju/not-charm/dispatch",
+		"/var/lib/juju/charm/dispatch")
+}
+
+func (s *DebugSuite) Test_buildRunHookCmd_dispatch_relative(c *gc.C) {
+	checkBuildRunHookCommand(c, "./dispatch",
+		"install",
+		"./dispatch",
+		"/var/lib/juju/not-charm/dispatch")
+}

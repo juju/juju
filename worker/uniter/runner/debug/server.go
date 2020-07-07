@@ -57,7 +57,7 @@ func (s *ServerSession) RunHook(hookName, charmDir string, env []string, hookRun
 		return errors.Trace(err)
 	}
 	defer func() { _ = os.RemoveAll(debugDir) }()
-	help := buildRunHookCmd(hookName, hookRunner)
+	help := buildRunHookCmd(hookName, hookRunner, charmDir)
 	if err := s.writeDebugFiles(debugDir, help, hookRunner); err != nil {
 		return errors.Trace(err)
 	}
@@ -88,11 +88,15 @@ func (s *ServerSession) RunHook(hookName, charmDir string, env []string, hookRun
 	return cmd.Wait()
 }
 
-func buildRunHookCmd(hookName, hookRunner string) string {
+func buildRunHookCmd(hookName, hookRunner, charmDir string) string {
 	if hookName == filepath.Base(hookRunner) {
 		return "./$JUJU_DISPATCH_PATH"
 	}
-	return "./" + hookRunner
+	relPath, err := filepath.Rel(charmDir, hookRunner)
+	if err == nil {
+		return "./" + relPath
+	}
+	return hookRunner
 }
 
 func (s *ServerSession) writeDebugFiles(debugDir, help, hookRunner string) error {
