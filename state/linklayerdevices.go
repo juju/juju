@@ -235,6 +235,31 @@ func (dev *LinkLayerDevice) RemoveOps() []txn.Op {
 	return ops
 }
 
+// UpdateOps returns the transaction operations required to update the device
+// so that it reflects the incoming arguments.
+// This method is intended for updating a device based on args gleaned from the
+// host/container directly. As such it does not update provider IDs.
+// There are separate methods for generating those operations.
+func (dev *LinkLayerDevice) UpdateOps(args LinkLayerDeviceArgs) []txn.Op {
+	newDoc := &linkLayerDeviceDoc{
+		DocID:       dev.doc.DocID,
+		Name:        args.Name,
+		ModelUUID:   dev.doc.ModelUUID,
+		MTU:         args.MTU,
+		MachineID:   dev.doc.MachineID,
+		Type:        args.Type,
+		MACAddress:  args.MACAddress,
+		IsAutoStart: args.IsAutoStart,
+		IsUp:        args.IsUp,
+		ParentName:  args.ParentName,
+	}
+
+	if op, hasUpdates := updateLinkLayerDeviceDocOp(&dev.doc, newDoc); hasUpdates {
+		return []txn.Op{op}
+	}
+	return nil
+}
+
 // Remove removes the device, if it exists. No error is returned when the device
 // was already removed. ErrParentDeviceHasChildren is returned if this device is
 // a parent to one or more existing devices and therefore cannot be removed.
