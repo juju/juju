@@ -14,6 +14,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/api/modelconfig"
@@ -33,7 +34,8 @@ are displayed.
 
 Supplying one key name returns only the value for the key. Supplying key=value
 will set the supplied key to the supplied value, this can be repeated for
-multiple keys. You can also specify a yaml file containing key values.
+multiple keys. You can also specify a yaml file containing key values, that can
+be used for the input for the command.
 `
 	modelConfigHelpDocKeys = `
 The following keys are available:
@@ -63,6 +65,70 @@ func NewConfigCommand() cmd.Command {
 
 type attributes map[string]interface{}
 
+// CoerceFormat attempts to convert the attributes values from the complex type
+// to the more simple type. This is because the output of this command outputs
+// in the following format:
+//
+//     resource-name:
+//        value: foo
+//        source: default
+//
+// Where the consuming side of the command expects it in the following format:
+//
+//     resource-name: foo
+//
+// CoerceFormat attempts to diagnose this and attempt to do this correctly.
+func (a attributes) CoerceFormat() (attributes, error) {
+	coerced := make(map[string]interface{})
+
+	fields := schema.FieldMap(schema.Fields{
+		"value":  schema.Any(),
+		"source": schema.String(),
+	}, nil)
+
+	for k, v := range a {
+		out, err := fields.Coerce(v, []string{})
+		if err != nil {
+			// Fallback to the old format and just pass through the value.
+			coerced[k] = v
+			continue
+		}
+
+		m := out.(map[string]interface{})
+		v = m["value"]
+
+		// Resource tags in the new output format is a map[string]interface{},
+		// but it should be of the format `foo=bar baz=boo`.
+		if k == "resource-tags" {
+			tags, err := coerceResourceTags(v)
+			if err != nil {
+				return nil, errors.Annotate(err, "unable to read resource-tags")
+			}
+			v = tags
+		}
+
+		coerced[k] = v
+	}
+
+	return coerced, nil
+}
+
+func coerceResourceTags(resourceTags interface{}) (string, error) {
+	tags := schema.StringMap(schema.Any())
+	out, err := tags.Coerce(resourceTags, []string{})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	m := out.(map[string]interface{})
+	result := make([]string, 0, len(m))
+	for k, v := range m {
+		result = append(result, fmt.Sprintf("%s=%v", k, v))
+	}
+
+	return strings.Join(result, " "), nil
+}
+
 // configCommand is the simplified command for accessing and setting
 // attributes related to model configuration.
 type configCommand struct {
@@ -70,11 +136,12 @@ type configCommand struct {
 	modelcmd.ModelCommandBase
 	out cmd.Output
 
-	action     func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
-	keys       []string
-	reset      []string // Holds the keys to be reset until parsed.
-	resetKeys  []string // Holds the keys to be reset once parsed.
-	setOptions common.ConfigFlag
+	action             func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
+	keys               []string
+	reset              []string // Holds the keys to be reset until parsed.
+	resetKeys          []string // Holds the keys to be reset once parsed.
+	setOptions         common.ConfigFlag
+	ignoreAgentVersion bool
 }
 
 // configCommandAPI defines an API interface to be used during testing.
@@ -119,6 +186,7 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml":    cmd.FormatYaml,
 	})
 	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
+	f.BoolVar(&c.ignoreAgentVersion, "ignore-agent-version", false, "Skip the error when passing in the agent version configuration")
 }
 
 // Init implements part of the cmd.Command interface.
@@ -153,9 +221,18 @@ func (c *configCommand) handleZeroArgs() error {
 
 // handleOneArg handles the case where there is one positional arg.
 func (c *configCommand) handleOneArg(arg string) error {
+	if arg == "-" {
+		// If we can't read the stdin, then continue onwards to fall back to the
+		// previous logic.
+		if err := c.parseStdin(); err == nil {
+			return nil
+		}
+	}
+
 	// We may have a single config.yaml file
-	_, err := os.Stat(arg)
-	if err == nil || strings.Contains(arg, "=") {
+	if _, err := os.Stat(arg); err == nil {
+		return c.parseYAMLFile(arg)
+	} else if strings.Contains(arg, "=") {
 		return c.parseSetKeys([]string{arg})
 	}
 	// If we are not setting a value, then we are retrieving one so we need to
@@ -181,6 +258,24 @@ func (c *configCommand) handleArgs(args []string) error {
 			return errors.New("can only retrieve a single value, or all values")
 		}
 	}
+	return nil
+}
+
+// parseStdin ensures that we handle stdin correctly.
+func (c *configCommand) parseStdin() error {
+	if err := c.setOptions.SetAttrsFromReader(os.Stdin); err != nil {
+		return errors.Trace(err)
+	}
+	c.action = c.setConfig
+	return nil
+}
+
+// parseYAMLFile ensures that we handle the YAML file passed in.
+func (c *configCommand) parseYAMLFile(file string) error {
+	if err := c.setOptions.Set(file); err != nil {
+		return errors.Trace(err)
+	}
+	c.action = c.setConfig
 	return nil
 }
 
@@ -260,7 +355,7 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 	return c.action(client, ctx)
 }
 
-// reset unsets the keys provided to the command.
+// resetConfig unsets the keys provided to the command.
 func (c *configCommand) resetConfig(client configCommandAPI, ctx *cmd.Context) error {
 	// ctx unused in this method
 	if err := c.verifyKnownKeys(client, c.resetKeys); err != nil {
@@ -270,7 +365,7 @@ func (c *configCommand) resetConfig(client configCommandAPI, ctx *cmd.Context) e
 	return block.ProcessBlockedError(client.ModelUnset(c.resetKeys...), block.BlockChange)
 }
 
-// set sets the provided key/value pairs on the model.
+// setConfig sets the provided key/value pairs on the model.
 func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) error {
 	attrs, err := c.setOptions.ReadAttrs(ctx)
 	if err != nil {
@@ -280,14 +375,23 @@ func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) err
 	values := make(attributes)
 	for k, v := range attrs {
 		if k == config.AgentVersionKey {
+			if c.ignoreAgentVersion {
+				continue
+			}
 			return errors.Errorf(`"agent-version"" must be set via "upgrade-model"`)
 		}
+
 		values[k] = v
 		keys = append(keys, k)
 	}
 
+	coerced, err := values.CoerceFormat()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for _, k := range c.resetKeys {
-		if _, ok := values[k]; ok {
+		if _, ok := coerced[k]; ok {
 			return errors.Errorf(
 				"key %q cannot be both set and reset in the same command", k)
 		}
@@ -296,7 +400,8 @@ func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) err
 	if err := c.verifyKnownKeys(client, keys); err != nil {
 		return errors.Trace(err)
 	}
-	return block.ProcessBlockedError(client.ModelSet(values), block.BlockChange)
+
+	return block.ProcessBlockedError(client.ModelSet(coerced), block.BlockChange)
 }
 
 // get writes the value of a single key or the full output for the model to the cmd.Context.
