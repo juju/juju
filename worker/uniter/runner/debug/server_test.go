@@ -350,7 +350,6 @@ echo "$@" >&2
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-
 // DebugSuite is for tests of methods/functions that don't need complex setup.
 type DebugSuite struct {
 	testing.BaseSuite
