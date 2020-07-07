@@ -105,6 +105,31 @@ func (*nicSuite) TestCIDRAddress(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid CIDR address: invalid`)
 }
 
+func (*nicSuite) TestInterfaceInfoValidate(c *gc.C) {
+	dev := network.InterfaceInfo{InterfaceName: ""}
+	c.Check(dev.Validate(), jc.Satisfies, errors.IsNotValid)
+
+	dev = network.InterfaceInfo{MACAddress: "do you even MAC bro?"}
+	c.Check(dev.Validate(), jc.Satisfies, errors.IsNotValid)
+
+	dev = network.InterfaceInfo{
+		InterfaceName: "eth0",
+		MACAddress:    network.GenerateVirtualMACAddress(),
+		InterfaceType: "invalid",
+	}
+	c.Check(dev.Validate(), jc.Satisfies, errors.IsNotValid)
+
+	dev = network.InterfaceInfo{
+		InterfaceName: "not#valid",
+		InterfaceType: "bond",
+	}
+	c.Check(dev.Validate(), jc.ErrorIsNil)
+}
+
+func (*nicSuite) TestInterfaceInfosValidate(c *gc.C) {
+	c.Check(getInterFaceInfos().Validate(), jc.ErrorIsNil)
+}
+
 func (*nicSuite) TestInterfaceInfosChildren(c *gc.C) {
 	interfaces := getInterFaceInfos()
 
@@ -146,25 +171,30 @@ func getInterFaceInfos() network.InterfaceInfos {
 		{
 			DeviceIndex:   0,
 			InterfaceName: "br-bond0",
+			InterfaceType: network.BondInterface,
 		},
 		{
 			DeviceIndex:   1,
 			InterfaceName: "eth2",
+			InterfaceType: network.EthernetInterface,
 		},
 		{
 			DeviceIndex:         2,
 			InterfaceName:       "bond0",
 			ParentInterfaceName: "br-bond0",
+			InterfaceType:       network.BondInterface,
 		},
 		{
 			DeviceIndex:         3,
 			InterfaceName:       "eth0",
 			ParentInterfaceName: "bond0",
+			InterfaceType:       network.BondInterface,
 		},
 		{
 			DeviceIndex:         4,
 			InterfaceName:       "eth1",
 			ParentInterfaceName: "bond0",
+			InterfaceType:       network.BondInterface,
 		},
 	}
 }
