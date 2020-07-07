@@ -9224,7 +9224,7 @@
     },
     {
         "Name": "CharmHub",
-        "Description": "API provides the charmhub API facade for version 1.",
+        "Description": "CharmHubAPI API provides the charmhub API facade for version 1.",
         "Version": 1,
         "AvailableTo": [
             "model-user"
@@ -9232,6 +9232,18 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "Find": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Query"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/CharmHubCharmFindResult"
+                        }
+                    },
+                    "description": "Find queries the charmhub API with a given entity ID."
+                },
                 "Info": {
                     "type": "object",
                     "properties": {
@@ -9241,7 +9253,8 @@
                         "Result": {
                             "$ref": "#/definitions/CharmHubCharmInfoResult"
                         }
-                    }
+                    },
+                    "description": "Info queries the charmhub API with a given entity ID."
                 }
             },
             "definitions": {
@@ -9343,6 +9356,25 @@
                         "used-by"
                     ]
                 },
+                "CharmHubCharmFindResult": {
+                    "type": "object",
+                    "properties": {
+                        "errors": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        },
+                        "result": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/FindResponse"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result",
+                        "errors"
+                    ]
+                },
                 "CharmHubCharmInfoResult": {
                     "type": "object",
                     "properties": {
@@ -9419,6 +9451,39 @@
                         "error-list"
                     ]
                 },
+                "FindResponse": {
+                    "type": "object",
+                    "properties": {
+                        "channel-map": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ChannelMap"
+                            }
+                        },
+                        "charm": {
+                            "$ref": "#/definitions/CharmHubCharm"
+                        },
+                        "default-release": {
+                            "$ref": "#/definitions/ChannelMap"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type",
+                        "id",
+                        "name",
+                        "channel-map"
+                    ]
+                },
                 "InfoResponse": {
                     "type": "object",
                     "properties": {
@@ -9492,6 +9557,18 @@
                         "architecture",
                         "os",
                         "series"
+                    ]
+                },
+                "Query": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "query"
                     ]
                 },
                 "Revision": {
