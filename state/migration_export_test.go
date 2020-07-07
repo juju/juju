@@ -1217,8 +1217,26 @@ func (s *MigrationExportSuite) TestInstanceDataSkipped(c *gc.C) {
 
 	listMachines := model.Machines()
 
-	instance := listMachines[0].Instance()
-	c.Assert(instance, gc.Equals, nil)
+	instData := listMachines[0].Instance()
+	c.Assert(instData, gc.Equals, nil)
+}
+
+func (s *MigrationExportSuite) TestMissingInstanceDataIgnored(c *gc.C) {
+	_, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "bionic",
+		Jobs:   []state.MachineJob{state.JobManageModel},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		IgnoreIncompleteModel: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	listMachines := model.Machines()
+
+	instData := listMachines[0].Instance()
+	c.Assert(instData, gc.Equals, nil)
 }
 
 func (s *MigrationBaseSuite) TestMachineAgentBinariesSkipped(c *gc.C) {
@@ -1228,6 +1246,23 @@ func (s *MigrationBaseSuite) TestMachineAgentBinariesSkipped(c *gc.C) {
 
 	model, err := s.State.ExportPartial(state.ExportConfig{
 		SkipMachineAgentBinaries: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	listMachines := model.Machines()
+	tools := listMachines[0].Tools()
+	c.Assert(tools, gc.Equals, nil)
+}
+
+func (s *MigrationBaseSuite) TestMissingMachineAgentBinariesIgnored(c *gc.C) {
+	_, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "bionic",
+		Jobs:   []state.MachineJob{state.JobManageModel},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		IgnoreIncompleteModel: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1253,6 +1288,23 @@ func (s *MigrationBaseSuite) TestUnitAgentBinariesSkipped(c *gc.C) {
 	c.Assert(unit[0].Tools(), gc.Equals, nil)
 }
 
+func (s *MigrationBaseSuite) TestMissingUnitAgentBinariesIgnored(c *gc.C) {
+	dummyCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "dummy", Charm: dummyCharm})
+
+	_, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		IgnoreIncompleteModel: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	listApplications := model.Applications()
+	unit := listApplications[0].Units()
+	c.Assert(unit[0].Tools(), gc.Equals, nil)
+}
+
 func (s *MigrationBaseSuite) TestRelationScopeSkipped(c *gc.C) {
 	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
 	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
@@ -1266,6 +1318,25 @@ func (s *MigrationBaseSuite) TestRelationScopeSkipped(c *gc.C) {
 
 	model, err := s.State.ExportPartial(state.ExportConfig{
 		SkipRelationData: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Relations(), gc.HasLen, 1)
+}
+
+func (s *MigrationBaseSuite) TestMissingRelationScopeIgnored(c *gc.C) {
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	// InferEndpoints will always return provider, requirer
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		IgnoreIncompleteModel: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
