@@ -4,6 +4,7 @@
 package common
 
 import (
+	"bytes"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -53,28 +54,28 @@ func (*FlagsSuite) TestConfigFlagSetErrors(c *gc.C) {
 	c.Assert(f.Set("x=%"), gc.ErrorMatches, "yaml: could not find expected directive name")
 }
 
-func (*FlagsSuite) TestConfigFlagSetAttrsFromYAML(c *gc.C) {
+func (*FlagsSuite) TestConfigFlagSetAttrsFromReader(c *gc.C) {
 	yaml := `
 foo: 1
 bar: 2
 `[1:]
 
 	var f ConfigFlag
-	c.Assert(f.SetAttrsFromYAML([]byte(yaml)), jc.ErrorIsNil)
+	c.Assert(f.SetAttrsFromReader(bytes.NewBufferString(yaml)), jc.ErrorIsNil)
 	assertConfigFlag(c, f, nil, map[string]interface{}{"foo": 1, "bar": 2})
 
 	yaml = `
 foo: 3
 baz: 4
 `[1:]
-	c.Assert(f.SetAttrsFromYAML([]byte(yaml)), jc.ErrorIsNil)
+	c.Assert(f.SetAttrsFromReader(bytes.NewBufferString(yaml)), jc.ErrorIsNil)
 	assertConfigFlag(c, f, nil, map[string]interface{}{"foo": 3, "bar": 2, "baz": 4})
 }
 
-func (*FlagsSuite) TestConfigFlagSetAttrsFromYAMLErrors(c *gc.C) {
+func (*FlagsSuite) TestConfigFlagSetAttrsFromReaderErrors(c *gc.C) {
 	var f ConfigFlag
-	c.Assert(f.SetAttrsFromYAML([]byte{}), gc.ErrorMatches, "empty yaml not valid")
-	c.Assert(f.SetAttrsFromYAML([]byte("!?@>£")), gc.ErrorMatches, "yaml: did not find expected whitespace or line break")
+	c.Assert(f.SetAttrsFromReader(nil), gc.ErrorMatches, "empty reader not valid")
+	c.Assert(f.SetAttrsFromReader(bytes.NewBufferString("!?@>£")), gc.ErrorMatches, "yaml: did not find expected whitespace or line break")
 }
 
 func (*FlagsSuite) TestConfigFlagString(c *gc.C) {

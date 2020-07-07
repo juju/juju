@@ -3,7 +3,6 @@
 package model
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -264,18 +263,7 @@ func (c *configCommand) handleArgs(args []string) error {
 
 // parseStdin ensures that we handle stdin correctly.
 func (c *configCommand) parseStdin() error {
-	reader := bufio.NewReader(os.Stdin)
-
-	var input []byte
-	for {
-		b, err := reader.ReadByte()
-		if err != nil && err == io.EOF {
-			break
-		}
-		input = append(input, b)
-	}
-
-	if err := c.setOptions.SetAttrsFromYAML(input); err != nil {
+	if err := c.setOptions.SetAttrsFromReader(os.Stdin); err != nil {
 		return errors.Trace(err)
 	}
 	c.action = c.setConfig
