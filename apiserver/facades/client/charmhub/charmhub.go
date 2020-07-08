@@ -19,52 +19,61 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.charmhub")
 
+// Client represents a charmhub Client for making queries to the charmhub API.
 type Client interface {
 	Info(ctx context.Context, name string) (transport.InfoResponse, error)
+	Find(ctx context.Context, query string) ([]transport.FindResponse, error)
 }
 
-// API provides the charmhub API facade for version 1.
+// CharmHubAPI API provides the charmhub API facade for version 1.
 type CharmHubAPI struct {
 	auth facade.Authorizer
 
 	// newClientFunc is for testing purposes to facilitate using mocks.
-	newClientFunc func(charmhub.Config) (Client, error)
+	client Client
 }
 
+// NewFacade creates a new CharmHubAPI facade.
 func NewFacade(ctx facade.Context) (*CharmHubAPI, error) {
 	auth := ctx.Auth()
-	newClientFunc := func(p charmhub.Config) (Client, error) {
-		return charmhub.NewClient(p)
+	client, err := charmhub.NewClient(charmhub.CharmhubConfig())
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return newCharmHubAPI(auth, newClientFunc)
+	return newCharmHubAPI(auth, client)
 }
 
-func newCharmHubAPI(authorizer facade.Authorizer, newClientFunc func(charmhub.Config) (Client, error)) (*CharmHubAPI, error) {
+func newCharmHubAPI(authorizer facade.Authorizer, client Client) (*CharmHubAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	return &CharmHubAPI{auth: authorizer, newClientFunc: newClientFunc}, nil
+	return &CharmHubAPI{auth: authorizer, client: client}, nil
 }
 
-func (api *CharmHubAPI) Info(arg params.Entity) (params.CharmHubCharmInfoResult, error) {
-	logger.Tracef("Info()")
+// Info queries the charmhub API with a given entity ID.
+func (api *CharmHubAPI) Info(arg params.Entity) (params.CharmHubEntityInfoResult, error) {
+	logger.Tracef("Info(%v)", arg.Tag)
+
 	tag, err := names.ParseApplicationTag(arg.Tag)
 	if err != nil {
-		return params.CharmHubCharmInfoResult{}, errors.BadRequestf("arg value is empty")
+		return params.CharmHubEntityInfoResult{}, errors.BadRequestf("arg value is empty")
 	}
-	// TODO: (hml) 2020-06-17
-	// Add model config value for charmhub-url to charmhub client New().
-	// once implemented.
-	// TODO: (hml) 2020-06-19
-	// PR Comment
-	// "I think it's fair to say we should cache this, as generating
-	// a new client for every info is wasteful. Lets tackle at a later point."
-	chClient, err := api.newClientFunc(charmhub.CharmhubConfig())
+	// TODO (stickupkid): Create a proper context to be used here.
+	info, err := api.client.Info(context.TODO(), tag.Id())
 	if err != nil {
-		return params.CharmHubCharmInfoResult{}, errors.Annotate(err, "could not get charm hub client")
+		return params.CharmHubEntityInfoResult{}, errors.Trace(err)
 	}
-	// TODO:
-	// Create a proper context to be used here.
-	info, err := chClient.Info(context.TODO(), tag.Id())
-	return params.CharmHubCharmInfoResult{Result: convertCharmInfoResult(info)}, err
+	return params.CharmHubEntityInfoResult{Result: convertCharmInfoResult(info)}, nil
+}
+
+// Find queries the charmhub API with a given entity ID.
+func (api *CharmHubAPI) Find(arg params.Query) (params.CharmHubEntityFindResult, error) {
+	logger.Tracef("Find(%v)", arg.Query)
+
+	// TODO (stickupkid): Create a proper context to be used here.
+	results, err := api.client.Find(context.TODO(), arg.Query)
+	if err != nil {
+		return params.CharmHubEntityFindResult{}, errors.Trace(err)
+	}
+	return params.CharmHubEntityFindResult{Results: convertCharmFindResults(results)}, nil
 }

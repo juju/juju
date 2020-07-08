@@ -13,7 +13,6 @@ import (
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/charmhub/mocks"
-	"github.com/juju/juju/charmhub"
 )
 
 var _ = gc.Suite(&charmHubAPISuite{})
@@ -33,11 +32,20 @@ func (s *charmHubAPISuite) TestInfo(c *gc.C) {
 	assertInfoResponseSameContents(c, obtained.Result, getParamsInfoResponse())
 }
 
+func (s *charmHubAPISuite) TestFind(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectFind()
+	arg := params.Query{Query: "wordpress"}
+	obtained, err := s.newCharmHubAPIForTest(c).Find(arg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(obtained.Results, gc.HasLen, 1)
+	assertFindResponseSameContents(c, obtained.Results[0], getParamsFindResponse())
+}
+
 func (s *charmHubAPISuite) newCharmHubAPIForTest(c *gc.C) *CharmHubAPI {
 	s.expectAuth()
-	api, err := newCharmHubAPI(s.authorizer, func(p charmhub.Config) (Client, error) {
-		return s.client, nil
-	})
+	api, err := newCharmHubAPI(s.authorizer, s.client)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
@@ -57,16 +65,28 @@ func (s *charmHubAPISuite) expectInfo() {
 	s.client.EXPECT().Info(gomock.Any(), "wordpress").Return(getCharmHubInfoResponse(), nil)
 }
 
+func (s *charmHubAPISuite) expectFind() {
+	s.client.EXPECT().Find(gomock.Any(), "wordpress").Return(getCharmHubFindResponses(), nil)
+}
+
 func assertInfoResponseSameContents(c *gc.C, obtained, expected params.InfoResponse) {
 	c.Assert(obtained.Type, gc.Equals, expected.Type)
 	c.Assert(obtained.ID, gc.Equals, expected.ID)
 	c.Assert(obtained.Name, gc.Equals, expected.Name)
-	assertCharmSameContents(c, obtained.Charm, expected.Charm)
+	assertEntitySameContents(c, obtained.Entity, expected.Entity)
 	c.Assert(obtained.ChannelMap, gc.DeepEquals, expected.ChannelMap)
 	c.Assert(obtained.DefaultRelease, gc.DeepEquals, expected.DefaultRelease)
 }
 
-func assertCharmSameContents(c *gc.C, obtained, expected params.CharmHubCharm) {
+func assertFindResponseSameContents(c *gc.C, obtained, expected params.FindResponse) {
+	c.Assert(obtained.Type, gc.Equals, expected.Type)
+	c.Assert(obtained.ID, gc.Equals, expected.ID)
+	c.Assert(obtained.Name, gc.Equals, expected.Name)
+	assertEntitySameContents(c, obtained.Entity, expected.Entity)
+	c.Assert(obtained.DefaultRelease, gc.DeepEquals, expected.DefaultRelease)
+}
+
+func assertEntitySameContents(c *gc.C, obtained, expected params.CharmHubEntity) {
 	c.Assert(obtained.Categories, gc.DeepEquals, expected.Categories)
 	c.Assert(obtained.Description, gc.Equals, expected.Description)
 	c.Assert(obtained.License, gc.Equals, expected.License)
@@ -77,11 +97,30 @@ func assertCharmSameContents(c *gc.C, obtained, expected params.CharmHubCharm) {
 }
 
 func getCharmHubInfoResponse() transport.InfoResponse {
+	channelMap, entity, defaultRelease := getCharmHubResponse()
 	return transport.InfoResponse{
-		Name: "wordpress",
-		Type: "object",
-		ID:   "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap: []transport.ChannelMap{{
+		Name:           "wordpress",
+		Type:           "object",
+		ID:             "charmCHARMcharmCHARMcharmCHARM01",
+		ChannelMap:     channelMap,
+		Entity:         entity,
+		DefaultRelease: defaultRelease,
+	}
+}
+
+func getCharmHubFindResponses() []transport.FindResponse {
+	_, entity, defaultRelease := getCharmHubResponse()
+	return []transport.FindResponse{{
+		Name:           "wordpress",
+		Type:           "object",
+		ID:             "charmCHARMcharmCHARMcharmCHARM01",
+		Entity:         entity,
+		DefaultRelease: defaultRelease,
+	}}
+}
+
+func getCharmHubResponse() ([]transport.ChannelMap, transport.Entity, transport.ChannelMap) {
+	return []transport.ChannelMap{{
 			Channel: transport.Channel{
 				Name: "latest/stable",
 				Platform: transport.Platform{
@@ -110,8 +149,7 @@ func getCharmHubInfoResponse() transport.InfoResponse {
 				Revision: 16,
 				Version:  "1.0.3",
 			},
-		}},
-		Charm: transport.Charm{
+		}}, transport.Entity{
 			Categories: []transport.Category{{
 				Featured: true,
 				Name:     "blog",
@@ -133,8 +171,7 @@ func getCharmHubInfoResponse() transport.InfoResponse {
 				"wordpress-jorge",
 				"wordpress-site",
 			},
-		},
-		DefaultRelease: transport.ChannelMap{
+		}, transport.ChannelMap{
 			Channel: transport.Channel{
 				Name: "latest/stable",
 				Platform: transport.Platform{
@@ -163,16 +200,34 @@ func getCharmHubInfoResponse() transport.InfoResponse {
 				Revision: 16,
 				Version:  "1.0.3",
 			},
-		},
-	}
+		}
 }
 
 func getParamsInfoResponse() params.InfoResponse {
+	channelMap, entity, defaultRelease := getParamsResponse()
 	return params.InfoResponse{
-		Name: "wordpress",
-		Type: "object",
-		ID:   "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap: []params.ChannelMap{{
+		Name:           "wordpress",
+		Type:           "object",
+		ID:             "charmCHARMcharmCHARMcharmCHARM01",
+		ChannelMap:     channelMap,
+		Entity:         entity,
+		DefaultRelease: defaultRelease,
+	}
+}
+
+func getParamsFindResponse() params.FindResponse {
+	_, entity, defaultRelease := getParamsResponse()
+	return params.FindResponse{
+		Name:           "wordpress",
+		Type:           "object",
+		ID:             "charmCHARMcharmCHARMcharmCHARM01",
+		Entity:         entity,
+		DefaultRelease: defaultRelease,
+	}
+}
+
+func getParamsResponse() ([]params.ChannelMap, params.CharmHubEntity, params.ChannelMap) {
+	return []params.ChannelMap{{
 			Channel: params.Channel{
 				Name: "latest/stable",
 				Platform: params.Platform{
@@ -199,8 +254,7 @@ func getParamsInfoResponse() params.InfoResponse {
 				Revision: 16,
 				Version:  "1.0.3",
 			},
-		}},
-		Charm: params.CharmHubCharm{
+		}}, params.CharmHubEntity{
 			Categories: []params.Category{{
 				Featured: true,
 				Name:     "blog",
@@ -222,8 +276,7 @@ func getParamsInfoResponse() params.InfoResponse {
 				"wordpress-jorge",
 				"wordpress-site",
 			},
-		},
-		DefaultRelease: params.ChannelMap{
+		}, params.ChannelMap{
 			Channel: params.Channel{
 				Name: "latest/stable",
 				Platform: params.Platform{
@@ -250,6 +303,5 @@ func getParamsInfoResponse() params.InfoResponse {
 				Revision: 16,
 				Version:  "1.0.3",
 			},
-		},
-	}
+		}
 }

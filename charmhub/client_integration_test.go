@@ -31,3 +31,14 @@ func (s *ClientSuite) TestLiveInfoRequest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.Name, gc.Equals, "wordpress")
 }
+
+func (s *ClientSuite) TestLiveFindRequest(c *gc.C) {
+	config := charmhub.CharmhubConfig()
+
+	client, err := charmhub.NewClient(config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	responses, err := client.Find(context.TODO(), "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(responses[0].Name, gc.Equals, "wordpress")
+}
