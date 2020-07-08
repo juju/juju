@@ -99,7 +99,7 @@ type BackingSpace interface {
 }
 
 // NetworkBacking defines the methods needed by the API facade to store and
-// retrieve information from the underlying persistency layer (state
+// retrieve information from the underlying persistence layer (state
 // DB).
 type NetworkBacking interface {
 	environs.EnvironConfigGetter
@@ -168,21 +168,7 @@ func NetworkInterfacesToStateArgs(ifaces corenetwork.InterfaceInfos) (
 		if !seenDeviceNames.Contains(iface.InterfaceName) {
 			// First time we see this, add it to devicesArgs.
 			seenDeviceNames.Add(iface.InterfaceName)
-			var mtu uint
-			if iface.MTU >= 0 {
-				mtu = uint(iface.MTU)
-			}
-			args := state.LinkLayerDeviceArgs{
-				Name:            iface.InterfaceName,
-				MTU:             mtu,
-				ProviderID:      iface.ProviderId,
-				Type:            corenetwork.LinkLayerDeviceType(iface.InterfaceType),
-				MACAddress:      iface.MACAddress,
-				IsAutoStart:     !iface.NoAutoStart,
-				IsUp:            !iface.Disabled,
-				ParentName:      iface.ParentInterfaceName,
-				VirtualPortType: iface.VirtualPortType,
-			}
+			args := networkDeviceToStateArgs(iface)
 			logger.Tracef("state device args for device: %+v", args)
 			devicesArgs = append(devicesArgs, args)
 		}
@@ -199,6 +185,25 @@ func NetworkInterfacesToStateArgs(ifaces corenetwork.InterfaceInfos) (
 	logger.Tracef("seen devices: %+v", seenDeviceNames.SortedValues())
 	logger.Tracef("network interface list transformed to state args:\n%+v\n%+v", devicesArgs, devicesAddrs)
 	return devicesArgs, devicesAddrs
+}
+
+func networkDeviceToStateArgs(dev corenetwork.InterfaceInfo) state.LinkLayerDeviceArgs {
+	var mtu uint
+	if dev.MTU >= 0 {
+		mtu = uint(dev.MTU)
+	}
+
+	return state.LinkLayerDeviceArgs{
+		Name:            dev.InterfaceName,
+		MTU:             mtu,
+		ProviderID:      dev.ProviderId,
+		Type:            corenetwork.LinkLayerDeviceType(dev.InterfaceType),
+		MACAddress:      dev.MACAddress,
+		IsAutoStart:     !dev.NoAutoStart,
+		IsUp:            !dev.Disabled,
+		ParentName:      dev.ParentInterfaceName,
+		VirtualPortType: dev.VirtualPortType,
+	}
 }
 
 func networkAddressToStateArgs(
@@ -279,9 +284,9 @@ func MachineNetworkInfoResultToNetworkInfoResult(inResult state.MachineNetworkIn
 }
 
 func FanConfigToFanConfigResult(config network.FanConfig) params.FanConfigResult {
-	result := params.FanConfigResult{make([]params.FanConfigEntry, len(config))}
+	result := params.FanConfigResult{Fans: make([]params.FanConfigEntry, len(config))}
 	for i, entry := range config {
-		result.Fans[i] = params.FanConfigEntry{entry.Underlay.String(), entry.Overlay.String()}
+		result.Fans[i] = params.FanConfigEntry{Underlay: entry.Underlay.String(), Overlay: entry.Overlay.String()}
 	}
 	return result
 }
@@ -289,16 +294,16 @@ func FanConfigToFanConfigResult(config network.FanConfig) params.FanConfigResult
 func FanConfigResultToFanConfig(config params.FanConfigResult) (network.FanConfig, error) {
 	rv := make(network.FanConfig, len(config.Fans))
 	for i, entry := range config.Fans {
-		_, ipnet, err := net.ParseCIDR(entry.Underlay)
+		_, ipNet, err := net.ParseCIDR(entry.Underlay)
 		if err != nil {
 			return nil, err
 		}
-		rv[i].Underlay = ipnet
-		_, ipnet, err = net.ParseCIDR(entry.Overlay)
+		rv[i].Underlay = ipNet
+		_, ipNet, err = net.ParseCIDR(entry.Overlay)
 		if err != nil {
 			return nil, err
 		}
-		rv[i].Overlay = ipnet
+		rv[i].Overlay = ipNet
 	}
 	return rv, nil
 }

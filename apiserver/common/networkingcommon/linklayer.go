@@ -9,10 +9,14 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/state"
 )
 
 // LinkLayerDevice describes a single layer-2 network device.
 type LinkLayerDevice interface {
+	// ID returns the unique identifier for the device.
+	ID() string
+
 	// MACAddress is the hardware address of the device.
 	MACAddress() string
 
@@ -25,6 +29,18 @@ type LinkLayerDevice interface {
 	// SetProviderIDOps returns the operations required to set the input
 	// provider ID for the link-layer device.
 	SetProviderIDOps(id network.Id) ([]txn.Op, error)
+
+	// ParentID returns the globally unique identifier
+	// for this device's parent if it has one.
+	ParentID() string
+
+	// RemoveOps returns the transaction operations required to remove this
+	// device and if required, its provider ID.
+	RemoveOps() []txn.Op
+
+	// UpdateOps returns the transaction operations required to update the
+	// device so that it reflects the incoming arguments.
+	UpdateOps(args state.LinkLayerDeviceArgs) []txn.Op
 }
 
 // LinkLayerAddress describes a single layer-3 network address
@@ -50,6 +66,10 @@ type LinkLayerAddress interface {
 	// SetProviderNetIDsOps returns the transaction operations required to ensure
 	// that the input provider IDs are set against the address.
 	SetProviderNetIDsOps(networkID, subnetID network.Id) []txn.Op
+
+	// RemoveOps returns the transaction operations required to remove this
+	// address and if required, its provider ID.
+	RemoveOps() []txn.Op
 }
 
 // LinkLayerAccessor describes an entity that can
@@ -68,6 +88,9 @@ type LinkLayerAccessor interface {
 // and assert that it is alive in preparation for updating such data.
 type LinkLayerMachine interface {
 	LinkLayerAccessor
+
+	// Id returns the ID for the machine.
+	Id() string
 
 	// AssertAliveOp returns a transaction operation for asserting
 	// that the machine is currently alive.
@@ -95,6 +118,8 @@ type MachineLinkLayerOp struct {
 // NewMachineLinkLayerOp returns a reference that can be embedded in a model
 // operation for updating the input machine's link layer data.
 func NewMachineLinkLayerOp(machine LinkLayerMachine, incoming network.InterfaceInfos) *MachineLinkLayerOp {
+	logger.Debugf("processing link-layer devices for machine %q", machine.Id())
+
 	return &MachineLinkLayerOp{
 		machine:   machine,
 		incoming:  incoming,

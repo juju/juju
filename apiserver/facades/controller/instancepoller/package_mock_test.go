@@ -7,6 +7,7 @@ package instancepoller
 import (
 	gomock "github.com/golang/mock/gomock"
 	network "github.com/juju/juju/core/network"
+	state "github.com/juju/juju/state"
 	txn "gopkg.in/mgo.v2/txn"
 	reflect "reflect"
 )
@@ -32,6 +33,20 @@ func NewMockLinkLayerDevice(ctrl *gomock.Controller) *MockLinkLayerDevice {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockLinkLayerDevice) EXPECT() *MockLinkLayerDeviceMockRecorder {
 	return m.recorder
+}
+
+// ID mocks base method
+func (m *MockLinkLayerDevice) ID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ID indicates an expected call of ID
+func (mr *MockLinkLayerDeviceMockRecorder) ID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ID", reflect.TypeOf((*MockLinkLayerDevice)(nil).ID))
 }
 
 // MACAddress mocks base method
@@ -62,6 +77,20 @@ func (mr *MockLinkLayerDeviceMockRecorder) Name() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockLinkLayerDevice)(nil).Name))
 }
 
+// ParentID mocks base method
+func (m *MockLinkLayerDevice) ParentID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ParentID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ParentID indicates an expected call of ParentID
+func (mr *MockLinkLayerDeviceMockRecorder) ParentID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ParentID", reflect.TypeOf((*MockLinkLayerDevice)(nil).ParentID))
+}
+
 // ProviderID mocks base method
 func (m *MockLinkLayerDevice) ProviderID() network.Id {
 	m.ctrl.T.Helper()
@@ -74,6 +103,20 @@ func (m *MockLinkLayerDevice) ProviderID() network.Id {
 func (mr *MockLinkLayerDeviceMockRecorder) ProviderID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProviderID", reflect.TypeOf((*MockLinkLayerDevice)(nil).ProviderID))
+}
+
+// RemoveOps mocks base method
+func (m *MockLinkLayerDevice) RemoveOps() []txn.Op {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveOps")
+	ret0, _ := ret[0].([]txn.Op)
+	return ret0
+}
+
+// RemoveOps indicates an expected call of RemoveOps
+func (mr *MockLinkLayerDeviceMockRecorder) RemoveOps() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveOps", reflect.TypeOf((*MockLinkLayerDevice)(nil).RemoveOps))
 }
 
 // SetProviderIDOps mocks base method
@@ -89,6 +132,20 @@ func (m *MockLinkLayerDevice) SetProviderIDOps(arg0 network.Id) ([]txn.Op, error
 func (mr *MockLinkLayerDeviceMockRecorder) SetProviderIDOps(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProviderIDOps", reflect.TypeOf((*MockLinkLayerDevice)(nil).SetProviderIDOps), arg0)
+}
+
+// UpdateOps mocks base method
+func (m *MockLinkLayerDevice) UpdateOps(arg0 state.LinkLayerDeviceArgs) []txn.Op {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateOps", arg0)
+	ret0, _ := ret[0].([]txn.Op)
+	return ret0
+}
+
+// UpdateOps indicates an expected call of UpdateOps
+func (mr *MockLinkLayerDeviceMockRecorder) UpdateOps(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateOps", reflect.TypeOf((*MockLinkLayerDevice)(nil).UpdateOps), arg0)
 }
 
 // MockLinkLayerAddress is a mock of LinkLayerAddress interface
@@ -140,6 +197,20 @@ func (m *MockLinkLayerAddress) Origin() network.Origin {
 func (mr *MockLinkLayerAddressMockRecorder) Origin() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Origin", reflect.TypeOf((*MockLinkLayerAddress)(nil).Origin))
+}
+
+// RemoveOps mocks base method
+func (m *MockLinkLayerAddress) RemoveOps() []txn.Op {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveOps")
+	ret0, _ := ret[0].([]txn.Op)
+	return ret0
+}
+
+// RemoveOps indicates an expected call of RemoveOps
+func (mr *MockLinkLayerAddressMockRecorder) RemoveOps() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveOps", reflect.TypeOf((*MockLinkLayerAddress)(nil).RemoveOps))
 }
 
 // SetOriginOps mocks base method
