@@ -10,6 +10,7 @@ type Printer interface {
 	Print() error
 }
 
+// Log describes a log format function to output to.
 type Log = func(format string, params ...interface{})
 
 // InfoCommandAPI describes API methods required
