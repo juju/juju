@@ -32,7 +32,6 @@ func convertCharmFindResult(info params.FindResponse) FindResponse {
 		ID:             info.ID,
 		Name:           info.Name,
 		Entity:         convertEntity(info.Entity),
-		ChannelMap:     convertChannelMap(info.ChannelMap),
 		DefaultRelease: convertOneChannelMap(info.DefaultRelease),
 	}
 }
@@ -113,12 +112,11 @@ type InfoResponse struct {
 }
 
 type FindResponse struct {
-	Type           string       `json:"type"`
-	ID             string       `json:"id"`
-	Name           string       `json:"name"`
-	Entity         Entity       `json:"entity"`
-	ChannelMap     []ChannelMap `json:"channel-map"`
-	DefaultRelease ChannelMap   `json:"default-release,omitempty"`
+	Type           string     `json:"type"`
+	ID             string     `json:"id"`
+	Name           string     `json:"name"`
+	Entity         Entity     `json:"entity"`
+	DefaultRelease ChannelMap `json:"default-release,omitempty"`
 }
 
 type ChannelMap struct {

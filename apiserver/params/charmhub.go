@@ -36,7 +36,6 @@ type FindResponse struct {
 	ID             string         `json:"id"`
 	Name           string         `json:"name"`
 	Entity         CharmHubEntity `json:"entity"`
-	ChannelMap     []ChannelMap   `json:"channel-map"`
 	DefaultRelease ChannelMap     `json:"default-release,omitempty"`
 }
 

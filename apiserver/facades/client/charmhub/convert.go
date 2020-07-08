@@ -33,7 +33,6 @@ func convertCharmFindResult(resp transport.FindResponse) params.FindResponse {
 		ID:             resp.ID,
 		Name:           resp.Name,
 		Entity:         convertEntity(resp.Entity),
-		ChannelMap:     convertChannelMap(resp.ChannelMap),
 		DefaultRelease: convertOneChannelMap(resp.DefaultRelease),
 	}
 }

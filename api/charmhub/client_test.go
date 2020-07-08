@@ -74,12 +74,11 @@ func getInfoResponse() InfoResponse {
 }
 
 func getFindResponses() []FindResponse {
-	channelMaps, entity, defaultChannelMap := getChannelMapResponse()
+	_, entity, defaultChannelMap := getChannelMapResponse()
 	return []FindResponse{{
 		Name:           "wordpress",
 		Type:           "object",
 		ID:             "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap:     channelMaps,
 		Entity:         entity,
 		DefaultRelease: defaultChannelMap,
 	}}
@@ -184,7 +183,6 @@ func assertFindResponsesSameContents(c *gc.C, obtained, expected []FindResponse)
 	c.Assert(want.ID, gc.Equals, got.ID)
 	c.Assert(want.Name, gc.Equals, got.Name)
 	assertEntitySameContents(c, want.Entity, got.Entity)
-	c.Assert(want.ChannelMap, gc.DeepEquals, got.ChannelMap)
 	c.Assert(want.DefaultRelease, gc.DeepEquals, got.DefaultRelease)
 }
 
@@ -211,12 +209,11 @@ func getParamsInfoResponse() params.InfoResponse {
 }
 
 func getParamsFindResponses() []params.FindResponse {
-	channelMaps, entity, defaultChannelMap := getParamsChannelMapResponse()
+	_, entity, defaultChannelMap := getParamsChannelMapResponse()
 	return []params.FindResponse{{
 		Name:           "wordpress",
 		Type:           "object",
 		ID:             "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap:     channelMaps,
 		Entity:         entity,
 		DefaultRelease: defaultChannelMap,
 	}}

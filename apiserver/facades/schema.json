@@ -9454,12 +9454,6 @@
                 "FindResponse": {
                     "type": "object",
                     "properties": {
-                        "channel-map": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ChannelMap"
-                            }
-                        },
                         "default-release": {
                             "$ref": "#/definitions/ChannelMap"
                         },
@@ -9481,8 +9475,7 @@
                         "type",
                         "id",
                         "name",
-                        "entity",
-                        "channel-map"
+                        "entity"
                     ]
                 },
                 "InfoResponse": {

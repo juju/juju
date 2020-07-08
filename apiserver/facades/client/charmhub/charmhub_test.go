@@ -83,7 +83,6 @@ func assertFindResponseSameContents(c *gc.C, obtained, expected params.FindRespo
 	c.Assert(obtained.ID, gc.Equals, expected.ID)
 	c.Assert(obtained.Name, gc.Equals, expected.Name)
 	assertEntitySameContents(c, obtained.Entity, expected.Entity)
-	c.Assert(obtained.ChannelMap, gc.DeepEquals, expected.ChannelMap)
 	c.Assert(obtained.DefaultRelease, gc.DeepEquals, expected.DefaultRelease)
 }
 
@@ -110,12 +109,11 @@ func getCharmHubInfoResponse() transport.InfoResponse {
 }
 
 func getCharmHubFindResponses() []transport.FindResponse {
-	channelMap, entity, defaultRelease := getCharmHubResponse()
+	_, entity, defaultRelease := getCharmHubResponse()
 	return []transport.FindResponse{{
 		Name:           "wordpress",
 		Type:           "object",
 		ID:             "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap:     channelMap,
 		Entity:         entity,
 		DefaultRelease: defaultRelease,
 	}}
@@ -218,12 +216,11 @@ func getParamsInfoResponse() params.InfoResponse {
 }
 
 func getParamsFindResponse() params.FindResponse {
-	channelMap, entity, defaultRelease := getParamsResponse()
+	_, entity, defaultRelease := getParamsResponse()
 	return params.FindResponse{
 		Name:           "wordpress",
 		Type:           "object",
 		ID:             "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap:     channelMap,
 		Entity:         entity,
 		DefaultRelease: defaultRelease,
 	}
