@@ -37,11 +37,11 @@ func (f findWriter) Print() error {
 
 	tw := output.TabWriter(buffer)
 
-	fmt.Fprintf(tw, "Name\tVersion\tPublisher\tNotes\tSummary\n")
+	fmt.Fprintf(tw, "Name\tBundle\tVersion\tPublisher\tSummary\n")
 	for _, result := range f.in {
 		entity := result.Entity
 
-		fmt.Fprintf(tw, "%s\t%s\t%s\t-\t%s\n", result.Name, f.version(result), f.publisher(entity), f.summary(entity))
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", result.Name, f.bundle(result), f.version(result), f.publisher(entity), f.summary(entity))
 	}
 
 	if err := tw.Flush(); err != nil {
@@ -50,6 +50,13 @@ func (f findWriter) Print() error {
 
 	_, err := fmt.Fprintf(f.w, "%s\n", buffer.String())
 	return err
+}
+
+func (f findWriter) bundle(result charmhub.FindResponse) string {
+	if result.Type == "bundle" {
+		return "Y"
+	}
+	return "-"
 }
 
 func (f findWriter) version(result charmhub.FindResponse) string {

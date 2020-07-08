@@ -24,8 +24,9 @@ func (s *printFindSuite) TestCharmPrintFind(c *gc.C) {
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `
-Name       Version  Publisher           Notes  Summary
-wordpress  1.0.3    Wordpress Charmers  -      WordPress is a full featured web blogging tool, this charm deploys it.
+Name       Bundle  Version   Publisher           Summary
+wordpress  -       1.0.3     Wordpress Charmers  WordPress is a full featured web blogging tool, this charm deploys it.
+osm        Y       31.12.33  charmed-osm         Single instance OSM bundle.
 
 `[1:]
 	c.Assert(obtained, gc.Equals, expected)
@@ -44,8 +45,9 @@ func (s *printFindSuite) TestCharmPrintFindWithMissingData(c *gc.C) {
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `
-Name       Version  Publisher  Notes  Summary
-wordpress                      -      
+Name       Bundle  Version   Publisher    Summary
+wordpress  -                              
+osm        Y       31.12.33  charmed-osm  Single instance OSM bundle.
 
 `[1:]
 	c.Assert(obtained, gc.Equals, expected)
@@ -124,6 +126,34 @@ func getCharmFindResponse() []charmhub.FindResponse {
 				Version:      "1.0.3",
 			},
 		},
+	}, {
+		Name:   "osm",
+		Type:   "bundle",
+		ID:     "bundleBUNDLEbundleBUNDLEbundleBUNDLE01",
+		Entity: getBundleEntity(),
+		DefaultRelease: charmhub.ChannelMap{
+			Channel: charmhub.Channel{
+				Name: "latest/stable",
+				Platform: charmhub.Platform{
+					Architecture: "all",
+					OS:           "ubuntu",
+					Series:       "bionic",
+				},
+				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
+			},
+			Revision: charmhub.Revision{
+				ConfigYAML: config,
+				CreatedAt:  "2019-12-16T19:20:26.673192+00:00",
+				Download: charmhub.Download{
+					HashSHA265: "4a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab492a8b825ed1108ab64863b19e544a908ec83c4",
+					Size:       32042240,
+					URL:        "https://api.snapcraft.io/api/v1/snaps/download/LfVfcQLnTZiPFnmfIKB2vB60Gcig5ZY7_16.snap",
+				},
+				MetadataYAML: "name: myname\nversion: 1.0.3\nsubordinate: false\nsummary: A charm or bundle.\ndescription: |\n  This will install and setup services optimized to run in the cloud.\n  By default it will place Ngnix configured to scale horizontally\n  with Nginx's reverse proxy.\ntags: [app, seven]\nseries: [bionic, xenial]\n",
+				Revision:     12,
+				Version:      "31.12.33",
+			},
+		},
 	}}
 }
 
@@ -138,5 +168,19 @@ func getCharmEntity() charmhub.Entity {
 			"display-name": "Wordpress Charmers",
 		},
 		Summary: "WordPress is a full featured web blogging tool, this charm deploys it.\nFor blogging.",
+	}
+}
+
+func getBundleEntity() charmhub.Entity {
+	return charmhub.Entity{
+		Categories: []charmhub.Category{{
+			Featured: true,
+			Name:     "blog",
+		}},
+		Description: "Charmed OSM is an OSM distribution, developed and maintained by Canonical, which uses Juju charms to simplify its deployments and operations.",
+		Publisher: map[string]string{
+			"display-name": "charmed-osm",
+		},
+		Summary: "Single instance OSM bundle.",
 	}
 }

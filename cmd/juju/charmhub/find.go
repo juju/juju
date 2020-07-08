@@ -18,7 +18,7 @@ import (
 const (
 	findSummary = "Queries the charmhub store for available charms or bundles."
 	findDoc     = `
-The find command queries the charmhub store for available charms of bundles.
+The find command queries the charmhub store for available charms or bundles.
 
 Examples:
     juju find wordpress
@@ -39,8 +39,7 @@ type findCommand struct {
 
 	api FindCommandAPI
 
-	verbose bool
-	query   string
+	query string
 }
 
 // Find returns help related info about the command, it implements
@@ -61,7 +60,6 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	// TODO (stickupkid): add the following:
 	// --narrow
-	// --private
 }
 
 // Init initializes the find command, including validating the provided

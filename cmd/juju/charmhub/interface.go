@@ -5,7 +5,7 @@ package charmhub
 
 import "github.com/juju/juju/api/charmhub"
 
-// Printer defines what is needed to print info.
+// Printer defines an interface for printing out values.
 type Printer interface {
 	Print() error
 }
@@ -21,7 +21,7 @@ type InfoCommandAPI interface {
 }
 
 // FindCommandAPI describes API methods required
-// to execute the info command.
+// to execute the find command.
 type FindCommandAPI interface {
 	Find(string) ([]charmhub.FindResponse, error)
 	Close() error
