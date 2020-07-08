@@ -5,6 +5,7 @@ package common
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"strings"
 
@@ -34,15 +35,25 @@ func (f *ConfigFlag) SetPreserveStringValue(val bool) {
 }
 
 // Set implements gnuflag.Value.Set.
+// TODO (stickupkid): Clean this up to correctly handle stdin. Additionally the
+// method is confusing and cryptic, we should improve this at some point!
 func (f *ConfigFlag) Set(s string) error {
 	if s == "" {
 		return errors.NotValidf("empty string")
 	}
+
+	// Attempt to work out if we're dealing with key value pairs or a string
+	// for a file.
+	// If the key value pairs don't contain a `=` sign, then it's assumed it's
+	// a file, so append that and bail out.
 	fields := strings.SplitN(s, "=", 2)
 	if len(fields) == 1 {
 		f.files = append(f.files, fields[0])
 		return nil
 	}
+
+	// It's assumed that we have a set of key value pairs. So attempt to extract
+	// the key value pairs accordingly.
 	var value interface{}
 	if fields[1] == "" || f.preserveStringValue {
 		value = fields[1]
@@ -58,8 +69,32 @@ func (f *ConfigFlag) Set(s string) error {
 	return nil
 }
 
+// SetAttrsFromReader sets the attributes from a slice of bytes. The bytes are
+// expected to be YAML parsable and align to the attrs type of
+// map[string]interface{}.
+// This will over write any attributes that already exist if found in the YAML
+// configuration.
+func (f *ConfigFlag) SetAttrsFromReader(reader io.Reader) error {
+	if reader == nil {
+		return errors.NotValidf("empty reader")
+	}
+	attrs := make(map[string]interface{})
+	if err := yaml.NewDecoder(reader).Decode(&attrs); err != nil {
+		return errors.Trace(err)
+	}
+	if f.attrs == nil {
+		f.attrs = make(map[string]interface{})
+	}
+	for k, attr := range attrs {
+		f.attrs[k] = attr
+	}
+	return nil
+}
+
 // ReadAttrs reads attributes from the specified files, and then overlays
 // the results with the k=v attributes.
+// TODO (stickupkid): This should only know about io.Readers and correctly
+// handle the various path ways from that abstraction.
 func (f *ConfigFlag) ReadAttrs(ctx *cmd.Context) (map[string]interface{}, error) {
 	attrs := make(map[string]interface{})
 	for _, f := range f.files {

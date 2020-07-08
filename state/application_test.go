@@ -3905,8 +3905,8 @@ func (s *ApplicationSuite) TestUnitStatusesWithUnits(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	check := jc.NewMultiChecker()
-	check.AddRegex(`\[.*\]\.Since`, jc.Ignore)
-	check.AddRegex(`\[.*\]\.Data`, jc.Ignore)
+	check.AddExpr(`_[_].Since`, jc.Ignore)
+	check.AddExpr(`_[_].Data`, jc.Ignore)
 	c.Assert(statuses, check, map[string]status.StatusInfo{
 		"mysql/0": {
 			Status: status.Maintenance,

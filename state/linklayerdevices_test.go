@@ -699,6 +699,30 @@ func (s *linkLayerDevicesStateSuite) TestRemoveOps(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *linkLayerDevicesStateSuite) TestUpdateOps(c *gc.C) {
+	dev := s.addNamedDevice(c, "eth0")
+
+	ops := dev.UpdateOps(state.LinkLayerDeviceArgs{
+		Name: "eth0",
+		Type: corenetwork.EthernetDevice,
+	})
+	c.Check(ops, gc.HasLen, 0)
+
+	mac := corenetwork.GenerateVirtualMACAddress()
+	ops = dev.UpdateOps(state.LinkLayerDeviceArgs{
+		Name:       "eth0",
+		Type:       corenetwork.EthernetDevice,
+		MACAddress: mac,
+	})
+	c.Assert(ops, gc.HasLen, 1)
+
+	state.RunTransaction(c, s.State, ops)
+
+	dev, err := s.machine.LinkLayerDevice("eth0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(dev.MACAddress(), gc.Equals, mac)
+}
+
 func (s *linkLayerDevicesStateSuite) createSpaceAndSubnet(c *gc.C, spaceName, CIDR string) {
 	s.createSpaceAndSubnetWithProviderID(c, spaceName, CIDR, "")
 }

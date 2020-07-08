@@ -239,6 +239,24 @@ func (s *ConfigCommandSuite) TestSetFromFile(c *gc.C) {
 	c.Assert(s.fake.values, jc.DeepEquals, expected)
 }
 
+func (s *ConfigCommandSuite) TestSetFromFileUsingYAML(c *gc.C) {
+	tmpdir := c.MkDir()
+	configFile := filepath.Join(tmpdir, "config.yaml")
+	err := ioutil.WriteFile(configFile, []byte(`
+special:
+  value: extra
+  source: default
+`), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.run(c, configFile)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := map[string]interface{}{
+		"special": "extra",
+	}
+	c.Assert(s.fake.values, jc.DeepEquals, expected)
+}
+
 func (s *ConfigCommandSuite) TestSetFromFileCombined(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")

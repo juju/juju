@@ -73,18 +73,6 @@ func (s *linkLayerDevicesInternalSuite) TestLinkLayerDeviceGlobalKeyHelper(c *gc
 	c.Assert(result, gc.Equals, "")
 }
 
-func (s *linkLayerDevicesInternalSuite) TestGlobalKeyMethod(c *gc.C) {
-	doc := linkLayerDeviceDoc{
-		MachineID: "42",
-		Name:      "foo",
-	}
-	config := s.newLinkLayerDeviceWithDummyState(doc)
-	c.Check(config.globalKey(), gc.Equals, "m#42#d#foo")
-
-	config = s.newLinkLayerDeviceWithDummyState(linkLayerDeviceDoc{})
-	c.Check(config.globalKey(), gc.Equals, "")
-}
-
 func (s *linkLayerDevicesInternalSuite) TestParseLinkLayerParentNameAsGlobalKey(c *gc.C) {
 	for i, test := range []struct {
 		about              string
