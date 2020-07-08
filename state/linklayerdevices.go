@@ -68,10 +68,15 @@ func newLinkLayerDevice(st *State, doc linkLayerDeviceDoc) *LinkLayerDevice {
 	return &LinkLayerDevice{st: st, doc: doc}
 }
 
-// DocID returns the globally unique ID of the link-layer device, including the
-// model UUID as prefix.
+// DocID returns the globally unique ID of the link-layer device,
+// including the model UUID as prefix.
 func (dev *LinkLayerDevice) DocID() string {
 	return dev.st.docID(dev.doc.DocID)
+}
+
+// ID returns the unique ID of this device within the model.
+func (dev *LinkLayerDevice) ID() string {
+	return dev.st.localID(dev.doc.DocID)
 }
 
 // Name returns the name of the device, as it appears on the machine.
@@ -133,21 +138,19 @@ func (dev *LinkLayerDevice) ParentName() string {
 	return dev.doc.ParentName
 }
 
-// ParentID uses the rules for ParentName (above) to return the global ID of
-// this device's parent if it has one.
+// ParentID uses the rules for ParentName (above) to return
+// the ID of this device's parent if it has one.
 func (dev *LinkLayerDevice) ParentID() string {
 	parent := dev.doc.ParentName
 	if parent == "" {
 		return ""
 	}
 
-	prefix := dev.doc.ModelUUID + ":"
 	if strings.Contains(parent, "#") {
-		return prefix + parent
+		return parent
 	}
 
-	prefix = prefix + "m"
-	return strings.Join([]string{prefix, dev.doc.MachineID, "d", dev.doc.ParentName}, "#")
+	return strings.Join([]string{"m", dev.doc.MachineID, "d", dev.doc.ParentName}, "#")
 }
 
 // ParentDevice returns the LinkLayerDevice corresponding to the parent device
@@ -355,9 +358,7 @@ func removeLinkLayerDeviceOps(st *State, linkLayerDeviceDocID, parentDeviceDocID
 
 	var ops []txn.Op
 	if parentDeviceDocID != "" {
-		localID, _ := st.strictLocalID(parentDeviceDocID)
-		ops = append(ops, decrementDeviceNumChildrenOp(localID))
-		//ops = append(ops, decrementDeviceNumChildrenOp(parentDeviceDocID))
+		ops = append(ops, decrementDeviceNumChildrenOp(parentDeviceDocID))
 	}
 
 	addressesQuery := findAddressesQuery(machineID, deviceName)
@@ -525,11 +526,6 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(name string) (LinkLayerDevic
 		return LinkLayerDeviceArgs{}, errors.Errorf("device must be a Bridge Device, receiver has type %q", dev.Type())
 	}
 
-	parentName, err := dev.st.strictLocalID(dev.DocID())
-	if err != nil {
-		return LinkLayerDeviceArgs{}, errors.Trace(err)
-	}
-
 	return LinkLayerDeviceArgs{
 		Name:        name,
 		Type:        network.EthernetDevice,
@@ -537,6 +533,6 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(name string) (LinkLayerDevic
 		MTU:         dev.MTU(),
 		IsUp:        true,
 		IsAutoStart: true,
-		ParentName:  parentName,
+		ParentName:  dev.ID(),
 	}, nil
 }

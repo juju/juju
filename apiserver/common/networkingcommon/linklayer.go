@@ -6,16 +6,16 @@ package networkingcommon
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/state"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/state"
 )
 
 // LinkLayerDevice describes a single layer-2 network device.
 type LinkLayerDevice interface {
-	// DocID returns the globally unique identifier for the device.
-	DocID() string
+	// ID returns the unique identifier for the device.
+	ID() string
 
 	// MACAddress is the hardware address of the device.
 	MACAddress() string

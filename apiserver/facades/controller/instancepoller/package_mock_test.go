@@ -35,18 +35,18 @@ func (m *MockLinkLayerDevice) EXPECT() *MockLinkLayerDeviceMockRecorder {
 	return m.recorder
 }
 
-// DocID mocks base method
-func (m *MockLinkLayerDevice) DocID() string {
+// ID mocks base method
+func (m *MockLinkLayerDevice) ID() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DocID")
+	ret := m.ctrl.Call(m, "ID")
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// DocID indicates an expected call of DocID
-func (mr *MockLinkLayerDeviceMockRecorder) DocID() *gomock.Call {
+// ID indicates an expected call of ID
+func (mr *MockLinkLayerDeviceMockRecorder) ID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DocID", reflect.TypeOf((*MockLinkLayerDevice)(nil).DocID))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ID", reflect.TypeOf((*MockLinkLayerDevice)(nil).ID))
 }
 
 // MACAddress mocks base method
