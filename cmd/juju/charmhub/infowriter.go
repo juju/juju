@@ -26,12 +26,7 @@ import (
 // There are exceptions, slices of strings and tables.  These
 // are transformed into strings.
 
-// InfoWriter defines what is needed to print info.
-type InfoWriter interface {
-	Print() error
-}
-
-func makeInfoWriter(ctx *cmd.Context, in *charmhub.InfoResponse) InfoWriter {
+func makeInfoWriter(ctx *cmd.Context, in *charmhub.InfoResponse) Printer {
 	iw := infoWriter{
 		w:        ctx.Stdout,
 		warningf: ctx.Warningf,
@@ -44,7 +39,7 @@ func makeInfoWriter(ctx *cmd.Context, in *charmhub.InfoResponse) InfoWriter {
 }
 
 type infoWriter struct {
-	warningf func(format string, params ...interface{})
+	warningf Log
 	w        io.Writer
 	in       *charmhub.InfoResponse
 }
@@ -74,8 +69,10 @@ func (iw infoWriter) channels() string {
 		return ""
 	}
 	buffer := bytes.NewBufferString("")
+
 	tw := output.TabWriter(buffer)
-	w := output.Wrapper{tw}
+	w := output.Wrapper{TabWriter: tw}
+
 	for _, ch := range iw.in.ChannelMap {
 		w.Printf("%s:", ch.Channel.Name)
 		w.Print(ch.Revision.Version)
@@ -83,7 +80,7 @@ func (iw infoWriter) channels() string {
 		if err != nil {
 			// This should not fail, if it does, warn on the error
 			// rather than ignoring.
-			iw.warningf("%s", errors.Annotate(err, "could not parse released at time").Error())
+			iw.warningf("%v", errors.Annotate(err, "could not parse released at time"))
 			w.Print(" ")
 		} else {
 			w.Print(releasedAt.Format("2006-01-02"))
@@ -92,7 +89,7 @@ func (iw infoWriter) channels() string {
 		w.Println(sizeToStr(ch.Revision.Download.Size))
 	}
 	if err := w.Flush(); err != nil {
-		iw.warningf("%s", errors.Annotate(err, "could not flush channel data to buffer").Error())
+		iw.warningf("%v", errors.Annotate(err, "could not flush channel data to buffer"))
 	}
 	return buffer.String()
 }

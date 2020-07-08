@@ -4,10 +4,7 @@
 package charmhub
 
 import (
-	"bytes"
-
 	"github.com/golang/mock/gomock"
-	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -51,13 +48,4 @@ func (s *infoSuite) setUpMocks(c *gc.C) *gomock.Controller {
 
 func (s *infoSuite) expectInfo() {
 	s.api.EXPECT().Info("test").Return(charmhub.InfoResponse{}, nil)
-}
-
-func commandContextForTest(c *gc.C) *cmd.Context {
-	var stdout, stderr bytes.Buffer
-	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx.Stdout = &stdout
-	ctx.Stderr = &stderr
-	return ctx
 }

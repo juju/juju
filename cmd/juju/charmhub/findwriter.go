@@ -1,0 +1,87 @@
+// Copyright 2020 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package charmhub
+
+import (
+	"bufio"
+	"bytes"
+	"fmt"
+	"io"
+	"strings"
+
+	"github.com/juju/cmd"
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/api/charmhub"
+	"github.com/juju/juju/cmd/output"
+)
+
+func makeFindWriter(ctx *cmd.Context, in []charmhub.FindResponse) Printer {
+	writer := findWriter{
+		w:        ctx.Stdout,
+		warningf: ctx.Warningf,
+		in:       in,
+	}
+	return writer
+}
+
+type findWriter struct {
+	warningf Log
+	w        io.Writer
+	in       []charmhub.FindResponse
+}
+
+func (f findWriter) Print() error {
+	buffer := bytes.NewBufferString("")
+
+	tw := output.TabWriter(buffer)
+
+	fmt.Fprintf(tw, "Name\tBundle\tVersion\tPublisher\tSummary\n")
+	for _, result := range f.in {
+		entity := result.Entity
+
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", result.Name, f.bundle(result), f.version(result), f.publisher(entity), f.summary(entity))
+	}
+
+	if err := tw.Flush(); err != nil {
+		f.warningf("%v", errors.Annotate(err, "could not flush data to buffer"))
+	}
+
+	_, err := fmt.Fprintf(f.w, "%s\n", buffer.String())
+	return err
+}
+
+func (f findWriter) bundle(result charmhub.FindResponse) string {
+	if result.Type == "bundle" {
+		return "Y"
+	}
+	return "-"
+}
+
+func (f findWriter) version(result charmhub.FindResponse) string {
+	return result.DefaultRelease.Revision.Version
+}
+
+func (f findWriter) publisher(entity charmhub.Entity) string {
+	publisher, _ := entity.Publisher["display-name"]
+	return publisher
+}
+
+func (f findWriter) summary(entity charmhub.Entity) string {
+	// To ensure we don't break the tabular output, we select the first line
+	// from the summary and output the first one.
+	scanner := bufio.NewScanner(bytes.NewBufferString(strings.TrimSpace(entity.Summary)))
+	scanner.Split(bufio.ScanLines)
+
+	var summary string
+	for scanner.Scan() {
+		summary = scanner.Text()
+		break
+	}
+	if err := scanner.Err(); err != nil {
+		f.warningf("%v", errors.Annotate(err, "could not gather summary"))
+	}
+
+	return summary
+}

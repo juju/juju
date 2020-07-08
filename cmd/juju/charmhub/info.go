@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	infoSummary = "Displays detailed information about charm hub charms."
+	infoSummary = "Displays detailed information about charmhub charms."
 	infoDoc     = `
 The charm can be specified by name or by path. Names are looked for both in the
 store and in the deployed charms.
