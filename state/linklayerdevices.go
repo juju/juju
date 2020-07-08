@@ -68,10 +68,15 @@ func newLinkLayerDevice(st *State, doc linkLayerDeviceDoc) *LinkLayerDevice {
 	return &LinkLayerDevice{st: st, doc: doc}
 }
 
-// DocID returns the globally unique ID of the link-layer device, including the
-// model UUID as prefix.
+// DocID returns the globally unique ID of the link-layer device,
+// including the model UUID as prefix.
 func (dev *LinkLayerDevice) DocID() string {
 	return dev.st.docID(dev.doc.DocID)
+}
+
+// ID returns the unique ID of this device within the model.
+func (dev *LinkLayerDevice) ID() string {
+	return dev.st.localID(dev.doc.DocID)
 }
 
 // Name returns the name of the device, as it appears on the machine.
@@ -133,21 +138,19 @@ func (dev *LinkLayerDevice) ParentName() string {
 	return dev.doc.ParentName
 }
 
-// ParentID uses the rules for ParentName (above) to return the global ID of
-// this device's parent if it has one.
+// ParentID uses the rules for ParentName (above) to return
+// the ID of this device's parent if it has one.
 func (dev *LinkLayerDevice) ParentID() string {
 	parent := dev.doc.ParentName
 	if parent == "" {
 		return ""
 	}
 
-	prefix := dev.doc.ModelUUID + ":"
 	if strings.Contains(parent, "#") {
-		return prefix + parent
+		return parent
 	}
 
-	prefix = prefix + "m"
-	return strings.Join([]string{prefix, dev.doc.MachineID, "d", dev.doc.ParentName}, "#")
+	return strings.Join([]string{"m", dev.doc.MachineID, "d", dev.doc.ParentName}, "#")
 }
 
 // ParentDevice returns the LinkLayerDevice corresponding to the parent device
@@ -233,6 +236,31 @@ func (dev *LinkLayerDevice) RemoveOps() []txn.Op {
 	}
 
 	return ops
+}
+
+// UpdateOps returns the transaction operations required to update the device
+// so that it reflects the incoming arguments.
+// This method is intended for updating a device based on args gleaned from the
+// host/container directly. As such it does not update provider IDs.
+// There are separate methods for generating those operations.
+func (dev *LinkLayerDevice) UpdateOps(args LinkLayerDeviceArgs) []txn.Op {
+	newDoc := &linkLayerDeviceDoc{
+		DocID:       dev.doc.DocID,
+		Name:        args.Name,
+		ModelUUID:   dev.doc.ModelUUID,
+		MTU:         args.MTU,
+		MachineID:   dev.doc.MachineID,
+		Type:        args.Type,
+		MACAddress:  args.MACAddress,
+		IsAutoStart: args.IsAutoStart,
+		IsUp:        args.IsUp,
+		ParentName:  args.ParentName,
+	}
+
+	if op, hasUpdates := updateLinkLayerDeviceDocOp(&dev.doc, newDoc); hasUpdates {
+		return []txn.Op{op}
+	}
+	return nil
 }
 
 // Remove removes the device, if it exists. No error is returned when the device
@@ -330,9 +358,7 @@ func removeLinkLayerDeviceOps(st *State, linkLayerDeviceDocID, parentDeviceDocID
 
 	var ops []txn.Op
 	if parentDeviceDocID != "" {
-		localID, _ := st.strictLocalID(parentDeviceDocID)
-		ops = append(ops, decrementDeviceNumChildrenOp(localID))
-		//ops = append(ops, decrementDeviceNumChildrenOp(parentDeviceDocID))
+		ops = append(ops, decrementDeviceNumChildrenOp(parentDeviceDocID))
 	}
 
 	addressesQuery := findAddressesQuery(machineID, deviceName)
@@ -446,10 +472,6 @@ func (dev *LinkLayerDevice) String() string {
 	return fmt.Sprintf("%s device %q on machine %q", dev.doc.Type, dev.doc.Name, dev.doc.MachineID)
 }
 
-func (dev *LinkLayerDevice) globalKey() string {
-	return linkLayerDeviceGlobalKey(dev.doc.MachineID, dev.doc.Name)
-}
-
 func linkLayerDeviceGlobalKey(machineID, deviceName string) string {
 	if machineID == "" || deviceName == "" {
 		return ""
@@ -503,6 +525,7 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(name string) (LinkLayerDevic
 	if dev.Type() != network.BridgeDevice {
 		return LinkLayerDeviceArgs{}, errors.Errorf("device must be a Bridge Device, receiver has type %q", dev.Type())
 	}
+
 	return LinkLayerDeviceArgs{
 		Name:        name,
 		Type:        network.EthernetDevice,
@@ -510,6 +533,6 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(name string) (LinkLayerDevic
 		MTU:         dev.MTU(),
 		IsUp:        true,
 		IsAutoStart: true,
-		ParentName:  dev.globalKey(),
+		ParentName:  dev.ID(),
 	}, nil
 }
