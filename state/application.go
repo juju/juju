@@ -51,6 +51,7 @@ type applicationDoc struct {
 	Series               string       `bson:"series"`
 	Subordinate          bool         `bson:"subordinate"`
 	CharmURL             *charm.URL   `bson:"charmurl"`
+	CharmOrigin          *CharmOrigin `bson:"charm-origin"`
 	Channel              string       `bson:"cs-channel"`
 	CharmModifiedVersion int          `bson:"charmmodifiedversion"`
 	ForceCharm           bool         `bson:"forcecharm"`
@@ -671,6 +672,11 @@ func (a *Application) Charm() (ch *Charm, force bool, err error) {
 		return nil, false, err
 	}
 	return ch, a.doc.ForceCharm, nil
+}
+
+// CharmOrigin returns the origin of a charm associated with a application.
+func (a *Application) CharmOrigin() *CharmOrigin {
+	return a.doc.CharmOrigin
 }
 
 // IsPrincipal returns whether units of the application can

@@ -47,6 +47,14 @@ func (m MacaroonCache) Get(u *charm.URL) (macaroon.Slice, error) {
 	return c.Macaroon()
 }
 
+// CharmOrigin holds the original source of a charm. Information about where the
+// charm was installed from (charmhub, charmstore, local) and any additional
+// information we can utilise when making modelling decisions for upgrading or
+// changing.
+type CharmOrigin struct {
+	Source string `bson:"source"`
+}
+
 // charmDoc represents the internal state of a charm in MongoDB.
 type charmDoc struct {
 	ModelUUID string     `bson:"model-uuid"`

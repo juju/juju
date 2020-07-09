@@ -65,10 +65,39 @@ func (c *Client) ModelUUID() string {
 	return tag.Id()
 }
 
+// CharmOriginSource represents the source of the charm.
+type CharmOriginSource string
+
+func (c CharmOriginSource) String() string {
+	return string(c)
+}
+
+const (
+	// OriginLocal represents a local charm.
+	OriginLocal CharmOriginSource = "local"
+	// OriginCharmStore represents a charm from the now old charmstore.
+	OriginCharmStore CharmOriginSource = "charm-store"
+	// OriginCharmhub represents a charm from the new charmhub.
+	OriginCharmhub CharmOriginSource = "charmhub"
+	// OriginUnknown represents that we don't know where this charm came from.
+	// Either the charm was migrated up from an older version of Juju or we
+	//  didn't have enough information when we set the charm.
+	OriginUnknown CharmOriginSource = "unknown"
+)
+
+// CharmOrigin holds the information about where the charm originates.
+type CharmOrigin struct {
+	Source CharmOriginSource
+}
+
 // DeployArgs holds the arguments to be sent to Client.ApplicationDeploy.
 type DeployArgs struct {
 	// CharmID identifies the charm to deploy.
 	CharmID charmstore.CharmID
+
+	// CharmOrigin holds information about where the charm originally came from,
+	// this includes the store.
+	CharmOrigin CharmOrigin
 
 	// ApplicationName is the name to give the application.
 	ApplicationName string
@@ -137,9 +166,12 @@ func (c *Client) Deploy(args DeployArgs) error {
 	}
 	deployArgs := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			ApplicationName:  args.ApplicationName,
-			Series:           args.Series,
-			CharmURL:         args.CharmID.URL.String(),
+			ApplicationName: args.ApplicationName,
+			Series:          args.Series,
+			CharmURL:        args.CharmID.URL.String(),
+			CharmOrigin: &params.CharmOrigin{
+				Source: args.CharmOrigin.Source.String(),
+			},
 			Channel:          string(args.CharmID.Channel),
 			NumUnits:         args.NumUnits,
 			ConfigYAML:       args.ConfigYAML,

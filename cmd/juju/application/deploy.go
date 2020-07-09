@@ -957,6 +957,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 
 func (c *DeployCommand) deployCharm(
 	id charmstore.CharmID,
+	origin application.CharmOrigin,
 	csMac *macaroon.Macaroon,
 	series string,
 	ctx *cmd.Context,
@@ -1117,6 +1118,7 @@ func (c *DeployCommand) deployCharm(
 
 	args := application.DeployArgs{
 		CharmID:          id,
+		CharmOrigin:      origin,
 		Cons:             c.Constraints,
 		ApplicationName:  applicationName,
 		Series:           series,
@@ -1318,6 +1320,7 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 		ctx.Infof("Deploying charm %q.", formattedCharmURL)
 		return errors.Trace(c.deployCharm(
 			charmstore.CharmID{URL: userCharmURL},
+			deduceOrigin(userCharmURL),
 			(*macaroon.Macaroon)(nil),
 			userCharmURL.Series,
 			ctx,
@@ -1468,6 +1471,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 		ctx.Infof("Deploying charm %q.", curl.String())
 		return errors.Trace(c.deployCharm(
 			id,
+			deduceOrigin(curl),
 			(*macaroon.Macaroon)(nil), // local charms don't need one.
 			curl.Series,
 			ctx,
@@ -1677,12 +1681,36 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		}
 		return errors.Trace(c.deployCharm(
 			id,
+			deduceOrigin(curl),
 			csMac,
 			series,
 			ctx,
 			apiRoot,
 		))
 	}, nil
+}
+
+func deduceOrigin(url *charm.URL) application.CharmOrigin {
+	if url == nil {
+		return application.CharmOrigin{
+			Source: application.OriginUnknown,
+		}
+	}
+
+	switch url.Schema {
+	case "cs":
+		return application.CharmOrigin{
+			Source: application.OriginCharmStore,
+		}
+	case "local":
+		return application.CharmOrigin{
+			Source: application.OriginLocal,
+		}
+	default:
+		return application.CharmOrigin{
+			Source: application.OriginUnknown,
+		}
+	}
 }
 
 // Returns the first string that isn't empty.
