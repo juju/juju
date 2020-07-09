@@ -232,8 +232,8 @@ func (s *Client) FinishUpgradeSeries(hostSeries string) error {
 	return nil
 }
 
-// SetStatus sets the machine status in remote state.
-func (s *Client) SetStatus(sts model.UpgradeSeriesStatus, msg string) error {
+// SetInstanceStatus sets the machine status in remote state.
+func (s *Client) SetInstanceStatus(sts model.UpgradeSeriesStatus, msg string) error {
 	var results params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
@@ -243,7 +243,7 @@ func (s *Client) SetStatus(sts model.UpgradeSeriesStatus, msg string) error {
 		}},
 	}
 
-	err := s.facade.FacadeCall("SetStatus", args, &results)
+	err := s.facade.FacadeCall("SetInstanceStatus", args, &results)
 	if err != nil {
 		return err
 	}

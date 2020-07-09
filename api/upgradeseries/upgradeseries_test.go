@@ -237,9 +237,9 @@ func (s *upgradeSeriesSuite) TestSetStatus(c *gc.C) {
 		},
 	}
 	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}
-	fCaller.EXPECT().FacadeCall("SetStatus", args, gomock.Any()).SetArg(2, resultSource)
+	fCaller.EXPECT().FacadeCall("SetInstanceStatus", args, gomock.Any()).SetArg(2, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	err := api.SetStatus(model.UpgradeSeriesCompleteStarted, "waiting for something")
+	err := api.SetInstanceStatus(model.UpgradeSeriesCompleteStarted, "waiting for something")
 	c.Assert(err, gc.IsNil)
 }

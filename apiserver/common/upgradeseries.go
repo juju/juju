@@ -35,7 +35,7 @@ type UpgradeSeriesMachine interface {
 	UpgradeSeriesTarget() (string, error)
 	Series() string
 	UpdateMachineSeries(series string, force bool) error
-	SetStatus(status.StatusInfo) error
+	SetInstanceStatus(status.StatusInfo) error
 }
 
 // UpgradeSeriesUnit describes unit-receiver state methods

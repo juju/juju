@@ -197,12 +197,12 @@ func (s *upgradeSeriesSuite) TestSetStatus(c *gc.C) {
 	msg := "series upgrade: " + string(model.UpgradeSeriesPrepareStarted)
 
 	exp := s.machine.EXPECT()
-	exp.SetStatus(status.StatusInfo{
+	exp.SetInstanceStatus(status.StatusInfo{
 		Status:  status.Running,
 		Message: msg,
 	}).Return(nil)
 
-	results, err := s.api.SetStatus(params.SetStatus{
+	results, err := s.api.SetInstanceStatus(params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{
 				Tag:    s.machineTag.String(),

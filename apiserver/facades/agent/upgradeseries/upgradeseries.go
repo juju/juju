@@ -97,7 +97,6 @@ func (a *API) MachineStatus(args params.Entities) (params.UpgradeSeriesStatusRes
 }
 
 // SetMachineStatus sets the current upgrade-series status of a machine.
-// The addition of SetStatus to this API makes this method poorly named.
 func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{}
 
@@ -324,8 +323,8 @@ func (a *API) UnpinMachineApplications() (params.PinApplicationsResults, error) 
 	return a.leadership.UnpinApplicationLeaders()
 }
 
-// SetStatus sets the status of the machine.
-func (a *API) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
+// SetInstanceStatus sets the status of the machine.
+func (a *API) SetInstanceStatus(args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{}
 
 	canAccess, err := a.AccessMachine()
@@ -341,7 +340,7 @@ func (a *API) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
 			continue
 		}
 
-		if err := machine.SetStatus(status.StatusInfo{
+		if err := machine.SetInstanceStatus(status.StatusInfo{
 			Status:  status.Status(entity.Status),
 			Message: entity.Info,
 		}); err != nil {
