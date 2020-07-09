@@ -49,7 +49,7 @@ type applicationSuite struct {
 	jujutesting.JujuConnSuite
 	commontesting.BlockHelper
 
-	applicationAPI *application.APIv12
+	applicationAPI *application.APIv13
 	application    *state.Application
 	authorizer     *apiservertesting.FakeAuthorizer
 	repo           *mockRepo
@@ -113,7 +113,7 @@ func (s *applicationSuite) UploadCharmMultiSeries(c *gc.C, url, name string) (*c
 	return s.UploadCharm(c, url, name)
 }
 
-func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv12 {
+func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv13 {
 	resources := common.NewResources()
 	c.Assert(resources.RegisterNamed("dataDir", common.StringResource(c.MkDir())), jc.ErrorIsNil)
 	storageAccess, err := application.GetStorageState(s.State)
@@ -138,7 +138,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv12 {
 		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return &application.APIv12{api}
+	return &application.APIv13{api}
 }
 
 func (s *applicationSuite) TestCharmConfig(c *gc.C) {
@@ -163,7 +163,9 @@ func (s *applicationSuite) TestCharmConfigV8(c *gc.C) {
 		APIv9: &application.APIv9{
 			APIv10: &application.APIv10{
 				APIv11: &application.APIv11{
-					s.applicationAPI,
+					APIv12: &application.APIv12{
+						s.applicationAPI,
+					},
 				},
 			},
 		},

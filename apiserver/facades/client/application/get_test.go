@@ -29,7 +29,7 @@ import (
 type getSuite struct {
 	jujutesting.JujuConnSuite
 
-	applicationAPI *application.APIv12
+	applicationAPI *application.APIv13
 	authorizer     apiservertesting.FakeAuthorizer
 }
 
@@ -61,12 +61,30 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.applicationAPI = &application.APIv12{api}
+	s.applicationAPI = &application.APIv13{api}
 }
 
 func (s *getSuite) TestClientApplicationGetSmokeTestV4(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v4 := &application.APIv4{&application.APIv5{&application.APIv6{&application.APIv7{&application.APIv8{&application.APIv9{&application.APIv10{&application.APIv11{s.applicationAPI}}}}}}}}
+	v4 := &application.APIv4{
+		&application.APIv5{
+			&application.APIv6{
+				&application.APIv7{
+					&application.APIv8{
+						&application.APIv9{
+							&application.APIv10{
+								&application.APIv11{
+									&application.APIv12{
+										s.applicationAPI,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 	results, err := v4.Get(params.ApplicationGet{ApplicationName: "wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
@@ -86,7 +104,23 @@ func (s *getSuite) TestClientApplicationGetSmokeTestV4(c *gc.C) {
 
 func (s *getSuite) TestClientApplicationGetSmokeTestV5(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v5 := &application.APIv5{&application.APIv6{&application.APIv7{&application.APIv8{&application.APIv9{&application.APIv10{&application.APIv11{s.applicationAPI}}}}}}}
+	v5 := &application.APIv5{
+		&application.APIv6{
+			&application.APIv7{
+				&application.APIv8{
+					&application.APIv9{
+						&application.APIv10{
+							&application.APIv11{
+								&application.APIv12{
+									s.applicationAPI,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 	results, err := v5.Get(params.ApplicationGet{ApplicationName: "wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
@@ -215,7 +249,19 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	apiV8 := &application.APIv8{&application.APIv9{&application.APIv10{&application.APIv11{&application.APIv12{api}}}}}
+	apiV8 := &application.APIv8{
+		&application.APIv9{
+			&application.APIv10{
+				&application.APIv11{
+					&application.APIv12{
+						&application.APIv13{
+							api,
+						},
+					},
+				},
+			},
+		},
+	}
 
 	results, err := apiV8.Get(params.ApplicationGet{ApplicationName: "dashboard4miner"})
 	c.Assert(err, jc.ErrorIsNil)

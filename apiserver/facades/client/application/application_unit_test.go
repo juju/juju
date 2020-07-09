@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -59,7 +60,7 @@ type ApplicationSuite struct {
 	env          environs.Environ
 	blockChecker mockBlockChecker
 	authorizer   apiservertesting.FakeAuthorizer
-	api          *application.APIv12
+	api          *application.APIv13
 	deployParams map[string]application.DeployApplicationParams
 }
 
@@ -90,7 +91,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		s.caasBroker,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &application.APIv12{api}
+	s.api = &application.APIv13{api}
 }
 
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {
@@ -748,6 +749,37 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results[1].Error, gc.ErrorMatches, "AttachStorage is non-empty, but NumUnits is 2")
 	c.Assert(results.Results[2].Error, gc.ErrorMatches, `"volume-baz-0" is not a valid volume tag`)
+}
+
+func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
+			NumUnits:        1,
+		}, {
+			ApplicationName: "bar",
+			CharmURL:        "local:bar-0",
+			CharmOrigin:     nil,
+			NumUnits:        1,
+		}, {
+			ApplicationName: "baz",
+			CharmURL:        "local:bar-0",
+			CharmOrigin:     &params.CharmOrigin{},
+			NumUnits:        1,
+		}},
+	}
+	results, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[1].Error, gc.IsNil)
+	c.Assert(results.Results[2].Error, gc.IsNil)
+
+	c.Assert(s.deployParams["foo"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-store"))
+	c.Assert(s.deployParams["bar"].CharmOrigin.Source, gc.Equals, corecharm.Source("unknown"))
+	c.Assert(s.deployParams["baz"].CharmOrigin.Source, gc.Equals, corecharm.Source("unknown"))
 }
 
 func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {

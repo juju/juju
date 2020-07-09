@@ -1989,8 +1989,8 @@
     },
     {
         "Name": "Application",
-        "Description": "APIv12 provides the Application API facade for version 12.\nIt adds the UnitsInfo method.",
-        "Version": 12,
+        "Description": "APIv13 provides the Application API facade for version 13.\nIt adds CharmOrigin.",
+        "Version": 13,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -2565,6 +2565,9 @@
                         "channel": {
                             "type": "string"
                         },
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
                         "charm-url": {
                             "type": "string"
                         },
@@ -3117,6 +3120,9 @@
                         "application": {
                             "type": "string"
                         },
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
                         "charm-url": {
                             "type": "string"
                         },
@@ -3174,6 +3180,18 @@
                     "additionalProperties": false,
                     "required": [
                         "applications"
+                    ]
+                },
+                "CharmOrigin": {
+                    "type": "object",
+                    "properties": {
+                        "source": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "source"
                     ]
                 },
                 "CharmRelation": {
