@@ -184,7 +184,7 @@ func (c charmInfoWriter) relations() (relationOutput, error) {
 	if !foundProvides && !foundRequires {
 		return relationOutput{}, errors.NotFoundf("charm meta data")
 	}
-	relations := relationOutput{}
+	var relations relationOutput
 	if foundProvides {
 		relations.Provides = provides
 	}
