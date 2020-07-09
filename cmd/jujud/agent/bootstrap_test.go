@@ -713,7 +713,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 			c.Assert(err, jc.ErrorIsNil)
 			hostos, err := series.GetOSFromSeries(series.MustHostSeries())
 			c.Assert(err, jc.ErrorIsNil)
-			if os == hostos {
+			if os == hostos || os.IsLinux() && hostos.IsLinux() {
 				expectedSeries.Add(ser)
 			}
 		}

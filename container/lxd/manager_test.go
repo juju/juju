@@ -53,9 +53,6 @@ var _ = gc.Suite(&managerSuite{})
 func (s *managerSuite) patch() {
 	lxd.PatchConnectRemote(s, map[string]lxdclient.ImageServer{"cloud-images.ubuntu.com": s.cSvr})
 	lxd.PatchGenerateVirtualMACAddress(s)
-	lxd.PatchMaybeRemovePortFromOvsBridge(s, func(string) error {
-		return nil
-	})
 }
 
 func (s *managerSuite) makeManager(c *gc.C) {
@@ -186,16 +183,8 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 	c.Check(instanceStatus.Status, gc.Equals, status.Running)
 	c.Check(*hc.AvailabilityZone, gc.Equals, "test-availability-zone")
 
-	var triedToRemoveFromOvsBridge bool
-	lxd.PatchMaybeRemovePortFromOvsBridge(s, func(portName string) error {
-		c.Assert(portName, gc.Equals, "1lxd2-0", gc.Commentf("expected manager to attempt removal of device 1lxd2-0 from OVS bridge"))
-		triedToRemoveFromOvsBridge = true
-		return nil
-	})
-
 	err = s.manager.DestroyContainer(instanceId)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(triedToRemoveFromOvsBridge, jc.IsTrue, gc.Commentf("expected manager to attempt removal of all bridged devices from OVS bridges"))
 }
 
 func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {

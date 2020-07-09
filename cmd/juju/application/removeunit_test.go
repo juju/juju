@@ -194,7 +194,7 @@ func (s *RemoveUnitSuite) TestCAASAllowsNumUnitsOnly(c *gc.C) {
 	s.store.Models["arthur"].Models["king/sword"] = m
 
 	_, err := s.runRemoveUnit(c, "some-application-name")
-	c.Assert(err, gc.ErrorMatches, "removing 0 units not valid")
+	c.Assert(err, gc.ErrorMatches, `specify the number of units \(> 0\) to remove using --num-units`)
 
 	_, err = s.runRemoveUnit(c, "some-application-name", "--destroy-storage")
 	c.Assert(err, gc.ErrorMatches, "k8s models only support --num-units")

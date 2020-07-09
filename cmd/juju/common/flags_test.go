@@ -4,6 +4,7 @@
 package common
 
 import (
+	"bytes"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -51,6 +52,30 @@ func (*FlagsSuite) TestConfigFlagSetErrors(c *gc.C) {
 	var f ConfigFlag
 	c.Assert(f.Set(""), gc.ErrorMatches, "empty string not valid")
 	c.Assert(f.Set("x=%"), gc.ErrorMatches, "yaml: could not find expected directive name")
+}
+
+func (*FlagsSuite) TestConfigFlagSetAttrsFromReader(c *gc.C) {
+	yaml := `
+foo: 1
+bar: 2
+`[1:]
+
+	var f ConfigFlag
+	c.Assert(f.SetAttrsFromReader(bytes.NewBufferString(yaml)), jc.ErrorIsNil)
+	assertConfigFlag(c, f, nil, map[string]interface{}{"foo": 1, "bar": 2})
+
+	yaml = `
+foo: 3
+baz: 4
+`[1:]
+	c.Assert(f.SetAttrsFromReader(bytes.NewBufferString(yaml)), jc.ErrorIsNil)
+	assertConfigFlag(c, f, nil, map[string]interface{}{"foo": 3, "bar": 2, "baz": 4})
+}
+
+func (*FlagsSuite) TestConfigFlagSetAttrsFromReaderErrors(c *gc.C) {
+	var f ConfigFlag
+	c.Assert(f.SetAttrsFromReader(nil), gc.ErrorMatches, "empty reader not valid")
+	c.Assert(f.SetAttrsFromReader(bytes.NewBufferString("!?@>£")), gc.ErrorMatches, "yaml: did not find expected whitespace or line break")
 }
 
 func (*FlagsSuite) TestConfigFlagString(c *gc.C) {

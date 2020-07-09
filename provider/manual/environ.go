@@ -44,7 +44,8 @@ const (
 )
 
 var (
-	logger = loggo.GetLogger("juju.provider.manual")
+	logger                                          = loggo.GetLogger("juju.provider.manual")
+	_      environs.HardwareCharacteristicsDetector = (*manualEnviron)(nil)
 )
 
 type manualEnviron struct {
@@ -383,4 +384,19 @@ func (*manualEnviron) Provider() environs.EnvironProvider {
 
 func isRunningController() bool {
 	return filepath.Base(os.Args[0]) == names.Jujud
+}
+
+// DetectSeries returns the series for the controller for this environment.
+// This method is part of the environs.HardwareCharacteristicsDetector interface.
+func (e *manualEnviron) DetectSeries() (string, error) {
+	_, series, err := e.seriesAndHardwareCharacteristics()
+	return series, err
+}
+
+// DetectHardware returns the hardware characteristics for the controller for
+// this environment. This method is part of the environs.HardwareCharacteristicsDetector
+// interface.
+func (e *manualEnviron) DetectHardware() (*instance.HardwareCharacteristics, error) {
+	hw, _, err := e.seriesAndHardwareCharacteristics()
+	return hw, err
 }

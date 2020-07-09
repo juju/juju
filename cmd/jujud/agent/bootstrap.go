@@ -14,9 +14,11 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/ssh"
@@ -533,11 +535,20 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Bootstrap
 		if err != nil {
 			return errors.Trace(err)
 		}
-		osSeries := series.OSSupportedSeries(opSys)
-		for _, s := range osSeries {
-			toolsVersion := agentTools.Version
-			toolsVersion.Series = s
-			toolsVersions = append(toolsVersions, toolsVersion)
+		osTypes := set.NewInts(int(opSys))
+		// If a Linux OS, we'll include all Linux OS's.
+		if opSys.IsLinux() {
+			for _, osType := range []jujuos.OSType{jujuos.Ubuntu, jujuos.CentOS, jujuos.GenericLinux, jujuos.OpenSUSE} {
+				osTypes.Add(int(osType))
+			}
+		}
+		for _, osType := range osTypes.SortedValues() {
+			osSeries := series.OSSupportedSeries(jujuos.OSType(osType))
+			for _, s := range osSeries {
+				toolsVersion := agentTools.Version
+				toolsVersion.Series = s
+				toolsVersions = append(toolsVersions, toolsVersion)
+			}
 		}
 	} else {
 		// Tools were downloaded from an external source: don't clone.

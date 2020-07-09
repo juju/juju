@@ -16,7 +16,6 @@ type StateMachine interface {
 	state.Entity
 	networkingcommon.LinkLayerMachine
 
-	Id() string
 	InstanceId() (instance.Id, error)
 	ProviderAddresses() network.SpaceAddresses
 	SetProviderAddresses(...network.SpaceAddress) error

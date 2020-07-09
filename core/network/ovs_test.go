@@ -73,17 +73,3 @@ func (s *ovsSuite) TestMissingOvsTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ovsIfaces, gc.HasLen, 0, gc.Commentf("expected ovs-managed bridge list to be empty"))
 }
-
-func (s *ovsSuite) TestRemovePortFromOvsBridge(c *gc.C) {
-	// Patch output for "ovs-vsctl del-port" and make sure exec.LookPath can
-	// detect it in the path
-	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
-	expArgs := []string{"ovs-vsctl", "--if-exists", "del-port", "the-port"}
-	s.PatchValue(&getCommandOutput, func(cmd *exec.Cmd) ([]byte, error) {
-		c.Assert(cmd.Args, gc.DeepEquals, expArgs, gc.Commentf("expected ovs-vsctl to be invoked with args: %v", expArgs))
-		return []byte("\n"), nil
-	})
-
-	err := MaybeRemovePortFromOvsBridge("the-port")
-	c.Assert(err, jc.ErrorIsNil)
-}

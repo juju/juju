@@ -849,6 +849,267 @@
         }
     },
     {
+        "Name": "Admin",
+        "Description": "admin is the only object that unlogged-in clients can access. It holds any\nmethods that are needed to log in.",
+        "Version": 3,
+        "AvailableTo": [
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
+            "controller-user",
+            "model-user"
+        ],
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "Login": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/LoginRequest"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/LoginResult"
+                        }
+                    },
+                    "description": "Login logs in with the provided credentials.  All subsequent requests on the\nconnection will act as the authenticated user."
+                },
+                "RedirectInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/RedirectInfoResult"
+                        }
+                    },
+                    "description": "RedirectInfo returns redirected host information for the model.\nIn Juju it always returns an error because the Juju controller\ndoes not multiplex controllers."
+                }
+            },
+            "definitions": {
+                "Address": {
+                    "type": "object",
+                    "properties": {
+                        "scope": {
+                            "type": "string"
+                        },
+                        "space-id": {
+                            "type": "string"
+                        },
+                        "space-name": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "value": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "value",
+                        "type",
+                        "scope"
+                    ]
+                },
+                "AuthUserInfo": {
+                    "type": "object",
+                    "properties": {
+                        "controller-access": {
+                            "type": "string"
+                        },
+                        "credentials": {
+                            "type": "string"
+                        },
+                        "display-name": {
+                            "type": "string"
+                        },
+                        "identity": {
+                            "type": "string"
+                        },
+                        "last-connection": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "model-access": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "display-name",
+                        "identity",
+                        "controller-access",
+                        "model-access"
+                    ]
+                },
+                "FacadeVersions": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        },
+                        "versions": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "versions"
+                    ]
+                },
+                "HostPort": {
+                    "type": "object",
+                    "properties": {
+                        "Address": {
+                            "$ref": "#/definitions/Address"
+                        },
+                        "port": {
+                            "type": "integer"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "space-id": {
+                            "type": "string"
+                        },
+                        "space-name": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "value": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "value",
+                        "type",
+                        "scope",
+                        "Address",
+                        "port"
+                    ]
+                },
+                "LoginRequest": {
+                    "type": "object",
+                    "properties": {
+                        "auth-tag": {
+                            "type": "string"
+                        },
+                        "bakery-version": {
+                            "type": "integer"
+                        },
+                        "cli-args": {
+                            "type": "string"
+                        },
+                        "credentials": {
+                            "type": "string"
+                        },
+                        "macaroons": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/Macaroon"
+                                }
+                            }
+                        },
+                        "nonce": {
+                            "type": "string"
+                        },
+                        "user-data": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "auth-tag",
+                        "credentials",
+                        "nonce",
+                        "macaroons",
+                        "user-data"
+                    ]
+                },
+                "LoginResult": {
+                    "type": "object",
+                    "properties": {
+                        "bakery-discharge-required": {
+                            "$ref": "#/definitions/Macaroon"
+                        },
+                        "controller-tag": {
+                            "type": "string"
+                        },
+                        "discharge-required": {
+                            "$ref": "#/definitions/Macaroon"
+                        },
+                        "discharge-required-error": {
+                            "type": "string"
+                        },
+                        "facades": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/FacadeVersions"
+                            }
+                        },
+                        "model-tag": {
+                            "type": "string"
+                        },
+                        "public-dns-name": {
+                            "type": "string"
+                        },
+                        "server-version": {
+                            "type": "string"
+                        },
+                        "servers": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/HostPort"
+                                }
+                            }
+                        },
+                        "user-info": {
+                            "$ref": "#/definitions/AuthUserInfo"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "Macaroon": {
+                    "type": "object",
+                    "additionalProperties": false
+                },
+                "RedirectInfoResult": {
+                    "type": "object",
+                    "properties": {
+                        "ca-cert": {
+                            "type": "string"
+                        },
+                        "servers": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/HostPort"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "servers",
+                        "ca-cert"
+                    ]
+                }
+            }
+        }
+    },
+    {
         "Name": "Agent",
         "Description": "AgentAPIV2 implements the version 2 of the API provided to an agent.",
         "Version": 2,
@@ -9224,7 +9485,7 @@
     },
     {
         "Name": "CharmHub",
-        "Description": "API provides the charmhub API facade for version 1.",
+        "Description": "CharmHubAPI API provides the charmhub API facade for version 1.",
         "Version": 1,
         "AvailableTo": [
             "model-user"
@@ -9232,6 +9493,18 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "Find": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Query"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/CharmHubEntityFindResult"
+                        }
+                    },
+                    "description": "Find queries the charmhub API with a given entity ID."
+                },
                 "Info": {
                     "type": "object",
                     "properties": {
@@ -9239,9 +9512,10 @@
                             "$ref": "#/definitions/Entity"
                         },
                         "Result": {
-                            "$ref": "#/definitions/CharmHubCharmInfoResult"
+                            "$ref": "#/definitions/CharmHubEntityInfoResult"
                         }
-                    }
+                    },
+                    "description": "Info queries the charmhub API with a given entity ID."
                 }
             },
             "definitions": {
@@ -9293,7 +9567,7 @@
                     },
                     "additionalProperties": false
                 },
-                "CharmHubCharm": {
+                "CharmHubEntity": {
                     "type": "object",
                     "properties": {
                         "categories": {
@@ -9343,7 +9617,26 @@
                         "used-by"
                     ]
                 },
-                "CharmHubCharmInfoResult": {
+                "CharmHubEntityFindResult": {
+                    "type": "object",
+                    "properties": {
+                        "errors": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        },
+                        "result": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/FindResponse"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result",
+                        "errors"
+                    ]
+                },
+                "CharmHubEntityInfoResult": {
                     "type": "object",
                     "properties": {
                         "errors": {
@@ -9419,20 +9712,14 @@
                         "error-list"
                     ]
                 },
-                "InfoResponse": {
+                "FindResponse": {
                     "type": "object",
                     "properties": {
-                        "channel-map": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ChannelMap"
-                            }
-                        },
-                        "charm": {
-                            "$ref": "#/definitions/CharmHubCharm"
-                        },
                         "default-release": {
                             "$ref": "#/definitions/ChannelMap"
+                        },
+                        "entity": {
+                            "$ref": "#/definitions/CharmHubEntity"
                         },
                         "id": {
                             "type": "string"
@@ -9449,6 +9736,40 @@
                         "type",
                         "id",
                         "name",
+                        "entity"
+                    ]
+                },
+                "InfoResponse": {
+                    "type": "object",
+                    "properties": {
+                        "channel-map": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ChannelMap"
+                            }
+                        },
+                        "default-release": {
+                            "$ref": "#/definitions/ChannelMap"
+                        },
+                        "entity": {
+                            "$ref": "#/definitions/CharmHubEntity"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type",
+                        "id",
+                        "name",
+                        "entity",
                         "channel-map"
                     ]
                 },
@@ -9492,6 +9813,18 @@
                         "architecture",
                         "os",
                         "series"
+                    ]
+                },
+                "Query": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "query"
                     ]
                 },
                 "Revision": {

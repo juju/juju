@@ -103,7 +103,7 @@ show_help() {
         # shellcheck disable=SC2086
         output="${output}\n    $(green ${test})|Runs the ${name} tests"
     done
-    echo "${output}" | column -t -s "|"
+    echo -e "${output}" | column -t -s "|"
 
     echo ""
     echo "Examples:"
@@ -124,7 +124,7 @@ show_help() {
     exit 1
 }
 
-while getopts "hH?:vVtAsaxrlpS" opt; do
+while getopts "hH?vVtAs:a:x:rl:p:S:" opt; do
     case "${opt}" in
     h|\?)
         show_help
@@ -134,52 +134,42 @@ while getopts "hH?:vVtAsaxrlpS" opt; do
         ;;
     v)
         VERBOSE=2
-        shift
         ;;
     V)
         VERBOSE=3
-        shift
         alias juju="juju --debug"
         ;;
     t)
         TEST_VERBOSE=3
-        shift
         alias juju="juju --debug"
         ;;
     A)
         RUN_ALL="true"
-        shift
         ;;
     s)
-        SKIP_LIST="${2}"
-        shift 2
+        SKIP_LIST="${OPTARG}"
         ;;
     a)
-        ARITFACT_FILE="${2}"
-        shift 2
+        ARITFACT_FILE="${OPTARG}"
         ;;
     x)
-        OUTPUT_FILE="${2}"
-        shift 2
+        OUTPUT_FILE="${OPTARG}"
         ;;
     r)
         export BOOTSTRAP_REUSE="true"
-        shift
         ;;
     l)
-        export BOOTSTRAP_REUSE_LOCAL="${2}"
+        export BOOTSTRAP_REUSE_LOCAL="${OPTARG}"
         export BOOTSTRAP_REUSE="true"
-        CLOUD=$(juju show-controller "${2}" --format=json | jq -r ".[\"${2}\"] | .details | .cloud")
-        export BOOTSTRAP_PROVIDER="${CLOUD}"
-        shift 2
+        CLOUD=$(juju show-controller "${OPTARG}" --format=json | jq -r ".[\"${OPTARG}\"] | .details | .cloud")
+        PROVIDER=$(juju clouds --client 2>/dev/null | grep "${CLOUD}" | awk '{print $4}' | head -n 1)
+        export BOOTSTRAP_PROVIDER="${PROVIDER}"
         ;;
     p)
-        export BOOTSTRAP_PROVIDER="${2}"
-        shift 2
+        export BOOTSTRAP_PROVIDER="${OPTARG}"
         ;;
     S)
-        export BOOTSTRAP_SERIES="${2}"
-        shift 2
+        export BOOTSTRAP_SERIES="${OPTARG}"
         ;;
     *)
         echo "Unexpected argument ${opt}" >&2
@@ -188,7 +178,6 @@ while getopts "hH?:vVtAsaxrlpS" opt; do
 done
 
 shift $((OPTIND-1))
-
 [ "${1:-}" = "--" ] && shift
 
 export VERBOSE="${VERBOSE}"

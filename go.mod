@@ -38,7 +38,7 @@ require (
 	github.com/joyent/gosdc v0.0.0-20140524000815-2f11feadd2d9
 	github.com/joyent/gosign v0.0.0-20140524000734-0da0d5f13420
 	github.com/juju/ansiterm v0.0.0-20160907234532-b99631de12cf
-	github.com/juju/bundlechanges v0.0.0-20200625095418-8b1912834d29
+	github.com/juju/bundlechanges v1.0.0
 	github.com/juju/charm/v7 v7.0.0-20200625165032-ef717232a815
 	github.com/juju/charmrepo/v5 v5.0.0-20200626080438-30e3069e6e8e
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
@@ -59,7 +59,7 @@ require (
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
 	github.com/juju/names/v4 v4.0.0-20200424054733-9a8294627524
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
-	github.com/juju/os v0.0.0-20200323101341-8e16ce76f45e
+	github.com/juju/os v0.0.0-20200701063157-8e6dd7a2b438
 	github.com/juju/packaging v0.0.0-20200421095529-970596d2622a
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
 	github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4
@@ -72,7 +72,7 @@ require (
 	github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
 	github.com/juju/terms-client v1.0.2-0.20200331164339-fab45ea044ae
-	github.com/juju/testing v0.0.0-20200608005635-e4eedbc6f7aa
+	github.com/juju/testing v0.0.0-20200706033705-4c23f9c453cd
 	github.com/juju/txn v0.0.0-20190416045819-5f348e78887d
 	github.com/juju/usso v0.0.0-20160401104424-68a59c96c178 // indirect
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
@@ -107,14 +107,14 @@ require (
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
+	golang.org/x/net v0.0.0-20200625001655-4c5254603344
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f
 	golang.org/x/tools v0.0.0-20190920225731-5eefd052ad72
 	google.golang.org/api v0.4.0
 	gopkg.in/amz.v3 v3.0.0-20191122063134-7ba11a47c789
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
-	gopkg.in/goose.v2 v2.0.0-20200403131220-0c829f62c42a
+	gopkg.in/goose.v2 v2.0.1
 	gopkg.in/httprequest.v1 v1.2.0
 	gopkg.in/ini.v1 v1.10.1
 	gopkg.in/juju/blobstore.v2 v2.0.0-20160125023703-51fa6e26128d

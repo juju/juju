@@ -21,15 +21,17 @@ func (s *DependencyManagerTestSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DependencyManagerTestSuite) TestInstallWithCentos(c *gc.C) {
-	s.assertInstallCallsCorrectBinary(c, assertParams{
-		series:       "centos7",
-		pkg:          "foo",
-		pm:           packaging.YumPackageManager,
-		expPkgBinary: "yum",
-		expArgs: []string{
-			"--assumeyes", "--debuglevel=1", "install", "foo",
-		},
-	})
+	for _, series := range []string{"centos7", "centos8"} {
+		s.assertInstallCallsCorrectBinary(c, assertParams{
+			series:       series,
+			pkg:          "foo",
+			pm:           packaging.YumPackageManager,
+			expPkgBinary: "yum",
+			expArgs: []string{
+				"--assumeyes", "--debuglevel=1", "install", "foo",
+			},
+		})
+	}
 }
 
 func (s *DependencyManagerTestSuite) TestInstallWithOpenSuse(c *gc.C) {

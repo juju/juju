@@ -7,6 +7,7 @@ package jujuc
 import (
 	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/apiserver/params"
+	life "github.com/juju/juju/core/life"
 	relation "github.com/juju/juju/core/relation"
 	reflect "reflect"
 )
@@ -77,6 +78,20 @@ func (mr *MockContextRelationMockRecorder) Id() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Id", reflect.TypeOf((*MockContextRelation)(nil).Id))
 }
 
+// Life mocks base method
+func (m *MockContextRelation) Life() life.Value {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Life")
+	ret0, _ := ret[0].(life.Value)
+	return ret0
+}
+
+// Life indicates an expected call of Life
+func (mr *MockContextRelationMockRecorder) Life() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Life", reflect.TypeOf((*MockContextRelation)(nil).Life))
+}
+
 // Name mocks base method
 func (m *MockContextRelation) Name() string {
 	m.ctrl.T.Helper()
@@ -119,6 +134,20 @@ func (m *MockContextRelation) ReadSettings(arg0 string) (params.Settings, error)
 func (mr *MockContextRelationMockRecorder) ReadSettings(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSettings", reflect.TypeOf((*MockContextRelation)(nil).ReadSettings), arg0)
+}
+
+// RemoteApplicationName mocks base method
+func (m *MockContextRelation) RemoteApplicationName() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoteApplicationName")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// RemoteApplicationName indicates an expected call of RemoteApplicationName
+func (mr *MockContextRelationMockRecorder) RemoteApplicationName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteApplicationName", reflect.TypeOf((*MockContextRelation)(nil).RemoteApplicationName))
 }
 
 // SetStatus mocks base method

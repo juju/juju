@@ -321,6 +321,30 @@ func bootstrapIAAS(
 		}
 	}
 
+	// If the provider allows advance discovery of the series and hw
+	// characteristics of the instance we are about to bootstrap, use this
+	// information to backfill in any missing series and/or arch contstraints.
+	if detector, supported := environ.(environs.HardwareCharacteristicsDetector); supported {
+		detectedSeries, err := detector.DetectSeries()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		detectedHW, err := detector.DetectHardware()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if args.BootstrapSeries == "" && detectedSeries != "" {
+			args.BootstrapSeries = detectedSeries
+			logger.Debugf("auto-selecting bootstrap series %q", args.BootstrapSeries)
+		}
+		if args.BootstrapConstraints.Arch == nil && args.ModelConstraints.Arch == nil && detectedHW.Arch != nil {
+			arch := *detectedHW.Arch
+			args.BootstrapConstraints.Arch = &arch
+			logger.Debugf("auto-selecting bootstrap arch %q", arch)
+		}
+	}
+
 	requestedBootstrapSeries, err := coreseries.ValidateSeries(
 		args.SupportedBootstrapSeries,
 		args.BootstrapSeries,
@@ -395,23 +419,18 @@ func bootstrapIAAS(
 	}
 	bootstrapParams.BootstrapConstraints = bootstrapConstraints
 
-	// The arch we use to find tools isn't the bootstrapConstraints arch.
-	// We copy the constraints arch to a separate variable and
-	// update it from the host arch if not specified.
-	// (axw) This is still not quite right:
-	// For e.g. if there is a MAAS with only ARM64 machines,
-	// on an AMD64 client, we're going to look for only AMD64 tools,
-	// limiting what the provider can bootstrap anyway.
 	var bootstrapArch string
 	if bootstrapConstraints.Arch != nil {
 		bootstrapArch = *bootstrapConstraints.Arch
 	} else {
-		// If no arch is specified as a constraint, we'll bootstrap
-		// on the same arch as the client used to bootstrap.
+		// If no arch is specified as a constraint and we couldn't
+		// auto-discover the arch from the provider, we'll fall back
+		// to bootstrapping on on the same arch as the CLI client.
 		bootstrapArch = localToolsArch()
-		// We no longer support controllers on i386.
-		// If we are bootstrapping from an i386 client,
-		// we'll look for amd64 tools.
+
+		// We no longer support controllers on i386. If we are
+		// bootstrapping from an i386 client, we'll look for amd64
+		// tools.
 		if bootstrapArch == arch.I386 {
 			bootstrapArch = arch.AMD64
 		}

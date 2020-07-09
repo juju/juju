@@ -167,7 +167,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithMissingParentSam
 		Type:       corenetwork.EthernetDevice,
 		ParentName: "br-eth0",
 	}
-	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `ParentName not valid: device "br-eth0" on machine "0" not found`)
+	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `ParentName not valid: device with ID .+ not found`)
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesNoParentSuccess(c *gc.C) {
@@ -340,7 +340,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesRefusesToAddParentAn
 	c.Assert(err, gc.ErrorMatches, `cannot set link-layer devices to machine "0": `+
 		`invalid device "child1": `+
 		`ParentName not valid: `+
-		`device "parent1" on machine "0" not found`,
+		`device with ID .+ not found`,
 	)
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
@@ -439,7 +439,7 @@ func (s *linkLayerDevicesStateSuite) TestMachineLinkLayerDeviceReturnsNotFoundEr
 	result, err := s.machine.LinkLayerDevice("missing")
 	c.Assert(result, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `device "missing" on machine "0" not found`)
+	c.Assert(err, gc.ErrorMatches, "device with ID .+ not found")
 }
 
 func (s *linkLayerDevicesStateSuite) TestMachineLinkLayerDeviceReturnsLinkLayerDevice(c *gc.C) {
@@ -674,6 +674,53 @@ func (s *linkLayerDevicesStateSuite) TestSetProviderIDOps(c *gc.C) {
 	dev2 := s.addNamedDevice(c, "bar")
 	_, err = dev2.SetProviderIDOps("p1")
 	c.Assert(err, gc.ErrorMatches, "provider IDs not unique: p1")
+
+	// Unset the ID.
+	ops, err = dev1.SetProviderIDOps("")
+	c.Assert(err, jc.ErrorIsNil)
+	state.RunTransaction(c, s.State, ops)
+
+	dev1, err = s.machine.LinkLayerDevice("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dev1.ProviderID().String(), gc.Equals, "")
+
+	// The global ID is unregistered, so we should be able to reset it.
+	ops, err = dev1.SetProviderIDOps("p1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.Not(gc.HasLen), 0)
+}
+
+func (s *linkLayerDevicesStateSuite) TestRemoveOps(c *gc.C) {
+	dev := s.addNamedDevice(c, "eth0")
+
+	state.RunTransaction(c, s.State, dev.RemoveOps())
+
+	_, err := s.State.LinkLayerDevice(dev.DocID())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *linkLayerDevicesStateSuite) TestUpdateOps(c *gc.C) {
+	dev := s.addNamedDevice(c, "eth0")
+
+	ops := dev.UpdateOps(state.LinkLayerDeviceArgs{
+		Name: "eth0",
+		Type: corenetwork.EthernetDevice,
+	})
+	c.Check(ops, gc.HasLen, 0)
+
+	mac := corenetwork.GenerateVirtualMACAddress()
+	ops = dev.UpdateOps(state.LinkLayerDeviceArgs{
+		Name:       "eth0",
+		Type:       corenetwork.EthernetDevice,
+		MACAddress: mac,
+	})
+	c.Assert(ops, gc.HasLen, 1)
+
+	state.RunTransaction(c, s.State, ops)
+
+	dev, err := s.machine.LinkLayerDevice("eth0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(dev.MACAddress(), gc.Equals, mac)
 }
 
 func (s *linkLayerDevicesStateSuite) createSpaceAndSubnet(c *gc.C, spaceName, CIDR string) {

@@ -211,6 +211,11 @@ func (s *ContextRelationSuite) TestSetStatus(c *gc.C) {
 	c.Assert(relStatus.Status, gc.Equals, status.Suspended)
 }
 
+func (s *ContextRelationSuite) TestRemoteApplicationName(c *gc.C) {
+	ctx := context.NewContextRelation(s.relUnit, nil)
+	c.Assert(ctx.RemoteApplicationName(), gc.Equals, "u")
+}
+
 type relUnitShim struct {
 	*apiuniter.RelationUnit
 }

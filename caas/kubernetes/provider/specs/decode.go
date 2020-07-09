@@ -82,6 +82,7 @@ func (d *YAMLOrJSONDecoder) Decode(into interface{}) error {
 	}
 	logger.Debugf("decoding stream as JSON")
 	decoder := json.NewDecoder(d.r)
+	decoder.UseNumber()
 	if d.strict {
 		decoder.DisallowUnknownFields()
 	}

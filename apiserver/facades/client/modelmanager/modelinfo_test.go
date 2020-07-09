@@ -685,6 +685,9 @@ func (st *mockState) Export() (description.Model, error) {
 
 func (st *mockState) ExportPartial(cfg state.ExportConfig) (description.Model, error) {
 	st.MethodCall(st, "ExportPartial", cfg)
+	if !cfg.IgnoreIncompleteModel {
+		return nil, errors.New("expected IgnoreIncompleteModel=true")
+	}
 	return st.Export()
 }
 

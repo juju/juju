@@ -5,10 +5,10 @@ package charmhub
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/charmhub"
 	"github.com/juju/juju/cmd/juju/charmhub/mocks"
 )
 
@@ -19,22 +19,24 @@ type infoSuite struct {
 var _ = gc.Suite(&infoSuite{})
 
 func (s *infoSuite) TestInitNoArgs(c *gc.C) {
-	cmd := &infoCommand{}
-	err := cmd.Init([]string{})
+	command := &infoCommand{}
+	err := command.Init([]string{})
 	c.Assert(err, gc.NotNil)
 }
 
 func (s *infoSuite) TestInitSuccess(c *gc.C) {
-	cmd := &infoCommand{}
-	err := cmd.Init([]string{"test"})
+	command := &infoCommand{}
+	err := command.Init([]string{"test"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *infoSuite) TestRunNotImplemented(c *gc.C) {
+func (s *infoSuite) TestRun(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
-	cmd := &infoCommand{api: s.api}
-	err := cmd.Run(nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	s.expectInfo()
+	command := &infoCommand{api: s.api, charmOrBundle: "test"}
+	ctx := commandContextForTest(c)
+	err := command.Run(ctx)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *infoSuite) setUpMocks(c *gc.C) *gomock.Controller {
@@ -42,4 +44,8 @@ func (s *infoSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	s.api = mocks.NewMockInfoCommandAPI(ctrl)
 	s.api.EXPECT().Close()
 	return ctrl
+}
+
+func (s *infoSuite) expectInfo() {
+	s.api.EXPECT().Info("test").Return(charmhub.InfoResponse{}, nil)
 }

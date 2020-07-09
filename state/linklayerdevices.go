@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -49,10 +50,10 @@ type linkLayerDeviceDoc struct {
 	// IsUp is true when the device is up (enabled).
 	IsUp bool `bson:"is-up"`
 
-	// ParentName is the name of the parent device, which may be empty. When set
-	// the parent device must be on the same machine, unless the current device
-	// is inside a container, in which case ParentName can be a global key of a
-	// BridgeDevice on the host machine of the container.
+	// ParentName is the name of the parent device, which may be empty.
+	// When set, the parent device must be on the same machine unless the
+	// current device is inside a container, in which case it can be a global
+	// key of a bridge device on the container host.
 	ParentName string `bson:"parent-name"`
 
 	// If this is device is part of a virtual switch, this field indicates
@@ -71,26 +72,15 @@ func newLinkLayerDevice(st *State, doc linkLayerDeviceDoc) *LinkLayerDevice {
 	return &LinkLayerDevice{st: st, doc: doc}
 }
 
-// AllLinkLayerDevices returns all link layer devices in the model.
-func (st *State) AllLinkLayerDevices() (devices []*LinkLayerDevice, err error) {
-	devicesCollection, closer := st.db().GetCollection(linkLayerDevicesC)
-	defer closer()
-
-	var sDocs []linkLayerDeviceDoc
-	err = devicesCollection.Find(nil).All(&sDocs)
-	if err != nil {
-		return nil, errors.Errorf("cannot get all link layer devices")
-	}
-	for _, d := range sDocs {
-		devices = append(devices, newLinkLayerDevice(st, d))
-	}
-	return devices, nil
-}
-
-// DocID returns the globally unique ID of the link-layer device, including the
-// model UUID as prefix.
+// DocID returns the globally unique ID of the link-layer device,
+// including the model UUID as prefix.
 func (dev *LinkLayerDevice) DocID() string {
 	return dev.st.docID(dev.doc.DocID)
+}
+
+// ID returns the unique ID of this device within the model.
+func (dev *LinkLayerDevice) ID() string {
+	return dev.st.localID(dev.doc.DocID)
 }
 
 // Name returns the name of the device, as it appears on the machine.
@@ -143,11 +133,11 @@ func (dev *LinkLayerDevice) IsUp() bool {
 	return dev.doc.IsUp
 }
 
-// ParentName returns the name of this device's parent device, if set. The
-// parent device is almost always on the same machine as the child device, but
-// as a special case a child device on a container machine can have a parent
-// BridgeDevice on the container's host machine. In the last case ParentName()
-// returns the global key of the parent device, not just its name.
+// ParentName returns the name of this device's parent device if set.
+// The parent device is almost always on the same machine as the child device,
+// but as a special case a child device on a container machine can have a
+// parent bridge device on the container's host machine.
+// In this case the global key of the parent device is returned.
 func (dev *LinkLayerDevice) ParentName() string {
 	return dev.doc.ParentName
 }
@@ -158,55 +148,63 @@ func (dev *LinkLayerDevice) VirtualPortType() network.VirtualPortType {
 	return dev.doc.VirtualPortType
 }
 
-func (dev *LinkLayerDevice) parentDeviceNameAndMachineID() (string, string) {
-	if dev.doc.ParentName == "" {
-		// No parent set, so no ID and name to return.
-		return "", ""
+// ParentID uses the rules for ParentName (above) to return
+// the ID of this device's parent if it has one.
+func (dev *LinkLayerDevice) ParentID() string {
+	parent := dev.doc.ParentName
+	if parent == "" {
+		return ""
 	}
-	// In case ParentName is a global key, try getting the host machine ID from
-	// there first.
-	hostMachineID, parentDeviceName, err := parseLinkLayerDeviceParentNameAsGlobalKey(dev.doc.ParentName)
-	if err != nil {
-		// We validate the ParentName before setting it, so this case cannot
-		// happen and we're only logging the error.
-		logger.Errorf("%s has invalid parent: %v", dev, err)
-		return "", ""
+
+	if strings.Contains(parent, "#") {
+		return parent
 	}
-	if hostMachineID == "" {
-		// Parent device is on the same machine and
-		// ParentName is not a global key.
-		return dev.doc.ParentName, dev.doc.MachineID
-	}
-	return parentDeviceName, hostMachineID
+
+	return strings.Join([]string{"m", dev.doc.MachineID, "d", dev.doc.ParentName}, "#")
 }
 
 // ParentDevice returns the LinkLayerDevice corresponding to the parent device
 // of this device, if set. When no parent device name is set, it returns nil and
 // no error.
 func (dev *LinkLayerDevice) ParentDevice() (*LinkLayerDevice, error) {
-	if dev.doc.ParentName == "" {
+	if dev.ParentID() == "" {
 		return nil, nil
 	}
 
-	parentDeviceName, parentMachineID := dev.parentDeviceNameAndMachineID()
-	return dev.machineProxy(parentMachineID).LinkLayerDevice(parentDeviceName)
-}
-
-func (dev *LinkLayerDevice) parentDocID() string {
-	parentDeviceName, parentMachineID := dev.parentDeviceNameAndMachineID()
-	parentGlobalKey := linkLayerDeviceGlobalKey(parentMachineID, parentDeviceName)
-	if parentGlobalKey == "" {
-		return ""
-	}
-	return dev.st.docID(parentGlobalKey)
+	dev, err := dev.st.LinkLayerDevice(dev.ParentID())
+	return dev, errors.Trace(err)
 }
 
 // SetProviderIDOps returns the operations required to set the input
 // provider ID for the link-layer device.
 func (dev *LinkLayerDevice) SetProviderIDOps(id network.Id) ([]txn.Op, error) {
-	// We only set the provider ID if it was previously empty.
-	if dev.doc.ProviderID != "" || id == "" || dev.doc.ProviderID == id.String() {
+	currentID := network.Id(dev.doc.ProviderID)
+
+	// If this provider ID is already set, we have nothing to do.
+	if id == currentID {
 		return nil, nil
+	}
+
+	// If the incoming provider ID is not empty, we will only set it on the
+	// device if it is currently empty.
+	// TODO (manadart 2020-06-30): This is a preservation of prior behaviour
+	// and probably bares re-evaluation.
+	if id != "" && currentID != "" {
+		return nil, nil
+	}
+
+	// If removing the provider ID from the device,
+	// also remove the ID from the global collection.
+	if id == "" {
+		return []txn.Op{
+			{
+				C:      linkLayerDevicesC,
+				Id:     dev.doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.M{"$unset": bson.M{"providerid": 1}},
+			},
+			dev.st.networkEntityGlobalKeyRemoveOp("linklayerdevice", currentID),
+		}, nil
 	}
 
 	// Since we assume that we are now setting the ID for the first time,
@@ -230,10 +228,50 @@ func (dev *LinkLayerDevice) SetProviderIDOps(id network.Id) ([]txn.Op, error) {
 	}, nil
 }
 
-// machineProxy is a convenience wrapper for calling Machine.LinkLayerDevice()
-// or Machine.forEachLinkLayerDeviceDoc() from a *LinkLayerDevice and machineID.
-func (dev *LinkLayerDevice) machineProxy(machineID string) *Machine {
-	return &Machine{st: dev.st, doc: machineDoc{Id: machineID}}
+// RemoveOps returns transaction operations that will ensure that the
+// device is not present in the collection and that if set,
+// its provider ID is removed from the global register.
+// Note that this method eschews responsibility for removing device
+// addresses and for ensuring that this device has no children.
+// That responsibility lies with the caller.
+func (dev *LinkLayerDevice) RemoveOps() []txn.Op {
+	ops := []txn.Op{{
+		C:      linkLayerDevicesC,
+		Id:     dev.DocID(),
+		Remove: true,
+	}}
+
+	if dev.ProviderID() != "" {
+		ops = append(ops, dev.st.networkEntityGlobalKeyRemoveOp("linklayerdevice", dev.ProviderID()))
+	}
+
+	return ops
+}
+
+// UpdateOps returns the transaction operations required to update the device
+// so that it reflects the incoming arguments.
+// This method is intended for updating a device based on args gleaned from the
+// host/container directly. As such it does not update provider IDs.
+// There are separate methods for generating those operations.
+func (dev *LinkLayerDevice) UpdateOps(args LinkLayerDeviceArgs) []txn.Op {
+	newDoc := &linkLayerDeviceDoc{
+		DocID:           dev.doc.DocID,
+		Name:            args.Name,
+		ModelUUID:       dev.doc.ModelUUID,
+		MTU:             args.MTU,
+		MachineID:       dev.doc.MachineID,
+		Type:            args.Type,
+		MACAddress:      args.MACAddress,
+		IsAutoStart:     args.IsAutoStart,
+		IsUp:            args.IsUp,
+		ParentName:      args.ParentName,
+		VirtualPortType: args.VirtualPortType,
+	}
+
+	if op, hasUpdates := updateLinkLayerDeviceDocOp(&dev.doc, newDoc); hasUpdates {
+		return []txn.Op{op}
+	}
+	return nil
 }
 
 // Remove removes the device, if it exists. No error is returned when the device
@@ -248,7 +286,7 @@ func (dev *LinkLayerDevice) Remove() (err error) {
 				return nil, err
 			}
 		}
-		ops, err := removeLinkLayerDeviceOps(dev.st, dev.DocID(), dev.parentDocID())
+		ops, err := removeLinkLayerDeviceOps(dev.st, dev.DocID(), dev.ParentID())
 		if err != nil {
 			return nil, err
 		}
@@ -262,13 +300,42 @@ func (dev *LinkLayerDevice) Remove() (err error) {
 }
 
 func (dev *LinkLayerDevice) errNoOperationsIfMissing() error {
-	_, err := dev.machineProxy(dev.doc.MachineID).LinkLayerDevice(dev.doc.Name)
+	_, err := dev.st.LinkLayerDevice(dev.DocID())
 	if errors.IsNotFound(err) {
 		return jujutxn.ErrNoOperations
-	} else if err != nil {
-		return errors.Trace(err)
 	}
-	return nil
+	return errors.Trace(err)
+}
+
+// AllLinkLayerDevices returns all link layer devices in the model.
+func (st *State) AllLinkLayerDevices() (devices []*LinkLayerDevice, err error) {
+	devicesCollection, closer := st.db().GetCollection(linkLayerDevicesC)
+	defer closer()
+
+	var sDocs []linkLayerDeviceDoc
+	err = devicesCollection.Find(nil).All(&sDocs)
+	if err != nil {
+		return nil, errors.Errorf("cannot get all link layer devices")
+	}
+	for _, d := range sDocs {
+		devices = append(devices, newLinkLayerDevice(st, d))
+	}
+	return devices, nil
+}
+
+func (st *State) LinkLayerDevice(id string) (*LinkLayerDevice, error) {
+	linkLayerDevices, closer := st.db().GetCollection(linkLayerDevicesC)
+	defer closer()
+
+	var doc linkLayerDeviceDoc
+	err := linkLayerDevices.FindId(id).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("device with ID %q", id)
+	} else if err != nil {
+		return nil, errors.Annotatef(err, "retrieving %q", id)
+	}
+
+	return newLinkLayerDevice(st, doc), nil
 }
 
 // removeLinkLayerDeviceOps returns the list of operations needed to remove the
@@ -419,10 +486,6 @@ func (dev *LinkLayerDevice) String() string {
 	return fmt.Sprintf("%s device %q on machine %q", dev.doc.Type, dev.doc.Name, dev.doc.MachineID)
 }
 
-func (dev *LinkLayerDevice) globalKey() string {
-	return linkLayerDeviceGlobalKey(dev.doc.MachineID, dev.doc.Name)
-}
-
 func linkLayerDeviceGlobalKey(machineID, deviceName string) string {
 	if machineID == "" || deviceName == "" {
 		return ""
@@ -473,16 +536,32 @@ func (dev *LinkLayerDevice) RemoveAddresses() error {
 // device with the input name and this device as its parent.
 // If the device is not a bridge, an error is returned.
 func (dev *LinkLayerDevice) EthernetDeviceForBridge(name string) (LinkLayerDeviceArgs, error) {
-	if dev.Type() != network.BridgeDevice {
+	if !dev.isBridge() {
 		return LinkLayerDeviceArgs{}, errors.Errorf("device must be a Bridge Device, receiver has type %q", dev.Type())
 	}
+
 	return LinkLayerDeviceArgs{
-		Name:        name,
-		Type:        network.EthernetDevice,
-		MACAddress:  network.GenerateVirtualMACAddress(),
-		MTU:         dev.MTU(),
-		IsUp:        true,
-		IsAutoStart: true,
-		ParentName:  dev.globalKey(),
+		Name:            name,
+		Type:            network.EthernetDevice,
+		MACAddress:      network.GenerateVirtualMACAddress(),
+		MTU:             dev.MTU(),
+		IsUp:            true,
+		IsAutoStart:     true,
+		ParentName:      dev.ID(),
+		VirtualPortType: dev.VirtualPortType(),
 	}, nil
+}
+
+func (dev *LinkLayerDevice) isBridge() bool {
+	if dev.Type() == network.BridgeDevice {
+		return true
+	}
+
+	// OVS bridges expose their internal port as a plain NIC with the
+	// same name as the bridge.
+	if dev.VirtualPortType() == network.OvsPort {
+		return true
+	}
+
+	return false
 }

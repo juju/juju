@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -43,7 +42,9 @@ func NewCAASOperatorUpgraderAPI(
 	authorizer facade.Authorizer,
 	broker caas.Upgrader,
 ) (*API, error) {
-	if !authorizer.AuthController() && !authorizer.AuthApplicationAgent() {
+	if !authorizer.AuthController() &&
+		!authorizer.AuthApplicationAgent() &&
+		!authorizer.AuthModelAgent() {
 		return nil, commonerrors.ErrPerm
 	}
 	return &API{
@@ -64,14 +65,9 @@ func (api *API) UpgradeOperator(arg params.KubernetesUpgradeArg) (params.ErrorRe
 	if !api.auth.AuthOwner(tag) {
 		return serverErr(commonerrors.ErrPerm), nil
 	}
-	appName := tag.Id()
 
-	// Nodes representing controllers really mean the controller operator.
-	if tag.Kind() == names.MachineTagKind || tag.Kind() == names.ControllerAgentTagKind {
-		appName = bootstrap.ControllerModelName
-	}
-	logger.Debugf("upgrading caas app %v", appName)
-	err = api.broker.Upgrade(appName, arg.Version)
+	logger.Debugf("upgrading caas agent for %s", tag)
+	err = api.broker.Upgrade(arg.AgentTag, arg.Version)
 	if err != nil {
 		return serverErr(err), nil
 	}

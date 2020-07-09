@@ -53,6 +53,7 @@ const maxStatusHistoryEntries = 20
 // during the export. The intent of this is to be able to get a partial
 // export to support other API calls, like status.
 type ExportConfig struct {
+	IgnoreIncompleteModel    bool
 	SkipActions              bool
 	SkipAnnotations          bool
 	SkipCloudImageMetadata   bool
@@ -478,25 +479,27 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 	// some instance data.
 	if !e.cfg.SkipInstanceData {
 		instData, found := instances[machine.doc.Id]
-		if !found {
+		if !found && !e.cfg.IgnoreIncompleteModel {
 			return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
 		}
-		exMachine.SetInstance(e.newCloudInstanceArgs(instData))
-		instance := exMachine.Instance()
-		instanceKey := machine.globalInstanceKey()
-		statusArgs, err := e.statusArgs(instanceKey)
-		if err != nil {
-			return nil, errors.Annotatef(err, "status for machine instance %s", machine.Id())
+		if found {
+			exMachine.SetInstance(e.newCloudInstanceArgs(instData))
+			instance := exMachine.Instance()
+			instanceKey := machine.globalInstanceKey()
+			statusArgs, err := e.statusArgs(instanceKey)
+			if err != nil {
+				return nil, errors.Annotatef(err, "status for machine instance %s", machine.Id())
+			}
+			instance.SetStatus(statusArgs)
+			instance.SetStatusHistory(e.statusHistoryArgs(instanceKey))
+			// Extract the modification status from the status dataset
+			modificationInstanceKey := machine.globalModificationKey()
+			modificationStatusArgs, err := e.statusArgs(modificationInstanceKey)
+			if err != nil {
+				return nil, errors.Annotatef(err, "modification status for machine instance %s", machine.Id())
+			}
+			instance.SetModificationStatus(modificationStatusArgs)
 		}
-		instance.SetStatus(statusArgs)
-		instance.SetStatusHistory(e.statusHistoryArgs(instanceKey))
-		// Extract the modification status from the status dataset
-		modificationInstanceKey := machine.globalModificationKey()
-		modificationStatusArgs, err := e.statusArgs(modificationInstanceKey)
-		if err != nil {
-			return nil, errors.Annotatef(err, "modification status for machine instance %s", machine.Id())
-		}
-		instance.SetModificationStatus(modificationStatusArgs)
 	}
 
 	// We don't rely on devices being there. If they aren't, we get an empty slice,
@@ -528,17 +531,18 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 
 	if !e.cfg.SkipMachineAgentBinaries {
 		tools, err := machine.AgentTools()
-		if err != nil {
+		if err != nil && !e.cfg.IgnoreIncompleteModel {
 			// This means the tools aren't set, but they should be.
 			return nil, errors.Trace(err)
 		}
-
-		exMachine.SetTools(description.AgentToolsArgs{
-			Version: tools.Version,
-			URL:     tools.URL,
-			SHA256:  tools.SHA256,
-			Size:    tools.Size,
-		})
+		if err == nil {
+			exMachine.SetTools(description.AgentToolsArgs{
+				Version: tools.Version,
+				URL:     tools.URL,
+				SHA256:  tools.SHA256,
+				Size:    tools.Size,
+			})
+		}
 	}
 
 	for _, args := range e.openedPortsArgsForMachine(machine.Id(), portsData) {
@@ -785,19 +789,33 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	leadershipKey := leadershipSettingsKey(appName)
 	storageConstraintsKey := application.storageConstraintsKey()
 
+	var charmConfig map[string]interface{}
 	applicationCharmSettingsDoc, found := e.modelSettings[charmConfigKey]
-	if !found && !e.cfg.SkipSettings {
+	if !found && !e.cfg.SkipSettings && !e.cfg.IgnoreIncompleteModel {
 		return errors.Errorf("missing charm settings for application %q", appName)
 	}
+	if found {
+		charmConfig = applicationCharmSettingsDoc.Settings
+	}
 	delete(e.modelSettings, charmConfigKey)
+
+	var applicationConfig map[string]interface{}
 	applicationConfigDoc, found := e.modelSettings[appConfigKey]
-	if !found && !e.cfg.SkipSettings {
+	if !found && !e.cfg.SkipSettings && !e.cfg.IgnoreIncompleteModel {
 		return errors.Errorf("missing config for application %q", appName)
 	}
+	if found {
+		applicationConfig = applicationConfigDoc.Settings
+	}
 	delete(e.modelSettings, appConfigKey)
+
+	var leadershipSettings map[string]interface{}
 	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
-	if !found && !e.cfg.SkipSettings {
+	if !found && !e.cfg.SkipSettings && !e.cfg.IgnoreIncompleteModel {
 		return errors.Errorf("missing leadership settings for application %q", appName)
+	}
+	if found {
+		leadershipSettings = leadershipSettingsDoc.Settings
 	}
 	delete(e.modelSettings, leadershipKey)
 
@@ -817,10 +835,10 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		DesiredScale:         application.doc.DesiredScale,
 		MinUnits:             application.doc.MinUnits,
 		EndpointBindings:     map[string]string(ctx.endpoingBindings[globalKey]),
-		ApplicationConfig:    applicationConfigDoc.Settings,
-		CharmConfig:          applicationCharmSettingsDoc.Settings,
+		ApplicationConfig:    applicationConfig,
+		CharmConfig:          charmConfig,
 		Leader:               ctx.leader,
-		LeadershipSettings:   leadershipSettingsDoc.Settings,
+		LeadershipSettings:   leadershipSettings,
 		MetricsCredentials:   application.doc.MetricCredentials,
 		PodSpec:              ctx.podSpecs[application.globalKey()],
 	}
@@ -974,16 +992,18 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 
 		if e.dbModel.Type() != ModelTypeCAAS && !e.cfg.SkipUnitAgentBinaries {
 			tools, err := unit.AgentTools()
-			if err != nil {
+			if err != nil && !e.cfg.IgnoreIncompleteModel {
 				// This means the tools aren't set, but they should be.
 				return errors.Trace(err)
 			}
-			exUnit.SetTools(description.AgentToolsArgs{
-				Version: tools.Version,
-				URL:     tools.URL,
-				SHA256:  tools.SHA256,
-				Size:    tools.Size,
-			})
+			if err == nil {
+				exUnit.SetTools(description.AgentToolsArgs{
+					Version: tools.Version,
+					URL:     tools.URL,
+					SHA256:  tools.SHA256,
+					Size:    tools.Size,
+				})
+			}
 		} else {
 			// TODO(caas) - Actually use the exported cloud container details and status history.
 			// Currently these are only grabbed to make the MigrationExportSuite tests happy.
@@ -1185,11 +1205,11 @@ func (e *exporter) relations() error {
 					continue
 				}
 				key := ru.key()
-				if !e.cfg.SkipRelationData && !relationScopes.Contains(key) {
+				if !e.cfg.SkipRelationData && !relationScopes.Contains(key) && !e.cfg.IgnoreIncompleteModel {
 					return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
 				}
 				settingsDoc, found := e.modelSettings[key]
-				if !found && !e.cfg.SkipSettings && !e.cfg.SkipRelationData {
+				if !found && !e.cfg.SkipSettings && !e.cfg.SkipRelationData && !e.cfg.IgnoreIncompleteModel {
 					return errors.Errorf("missing relation settings for %s and %s", relation, unit.Name())
 				}
 				delete(e.modelSettings, key)
@@ -2063,6 +2083,10 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 }
 
 func (e *exporter) checkUnexportedValues() error {
+	if e.cfg.IgnoreIncompleteModel {
+		return nil
+	}
+
 	var missing []string
 
 	// As annotations are saved into the model, they are removed from the

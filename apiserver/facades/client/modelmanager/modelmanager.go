@@ -724,7 +724,7 @@ func (m *ModelManagerAPI) dumpModel(args params.Entity, simplified bool) ([]byte
 	}
 	defer release()
 
-	var exportConfig state.ExportConfig
+	exportConfig := state.ExportConfig{IgnoreIncompleteModel: true}
 	if simplified {
 		exportConfig.SkipActions = true
 		exportConfig.SkipAnnotations = true

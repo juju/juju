@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -24,16 +25,21 @@ import (
 )
 
 func main() {
+	var adminFacades = flag.Bool("admin-facades", false, "add the admin facades when generating the schema")
+
+	flag.Parse()
+	args := flag.Args()
+
 	// the first argument here will be the name of the binary, so we ignore
 	// argument 0 when looking for the filepath.
-	if len(os.Args) != 2 {
+	if len(args) != 1 {
 		fmt.Fprintln(os.Stderr, "Expected one argument: filepath of json schema to save.")
 		os.Exit(1)
 	}
 
 	result, err := gen.Generate(defaultPackages{
 		path: "github.com/juju/juju/apiserver",
-	}, defaultLinker{}, apiServerShim{})
+	}, defaultLinker{}, apiServerShim{}, gen.WithAdminFacades(*adminFacades))
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -45,7 +51,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = ioutil.WriteFile(os.Args[1], jsonSchema, 0644)
+	err = ioutil.WriteFile(args[0], jsonSchema, 0644)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -56,6 +62,10 @@ type apiServerShim struct{}
 
 func (apiServerShim) AllFacades() gen.Registry {
 	return apiserver.AllFacades()
+}
+
+func (apiServerShim) AdminFacadeDetails() []facade.Details {
+	return apiserver.AdminFacadeDetails()
 }
 
 type defaultPackages struct {

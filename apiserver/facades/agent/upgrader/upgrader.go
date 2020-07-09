@@ -40,7 +40,7 @@ func NewUpgraderFacade(st *state.State, resources facade.Resources, auth facade.
 		return nil, commonerrors.ErrPerm
 	}
 	switch tag.(type) {
-	case names.MachineTag, names.ControllerAgentTag, names.ApplicationTag:
+	case names.MachineTag, names.ControllerAgentTag, names.ApplicationTag, names.ModelTag:
 		return NewUpgraderAPI(st, resources, auth)
 	case names.UnitTag:
 		return NewUnitUpgraderAPI(st, resources, auth)
@@ -73,7 +73,7 @@ func NewUpgraderAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*UpgraderAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthApplicationAgent() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthApplicationAgent() && !authorizer.AuthModelAgent() {
 		return nil, commonerrors.ErrPerm
 	}
 	getCanReadWrite := func() (common.AuthFunc, error) {

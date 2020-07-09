@@ -27,6 +27,8 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 // ModelCommand is a cmd.Command responsible for running a model agent.
@@ -38,6 +40,7 @@ type ModelCommand struct {
 	errReason        error
 	ModelUUID        string
 	runner           *worker.Runner
+	upgradeComplete  gate.Lock
 }
 
 // Done signals the model agent is finished
@@ -110,6 +113,8 @@ func (m *ModelCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "creating agent config from template")
 	}
 
+	m.upgradeComplete = upgradesteps.NewLock(m.CurrentConfig())
+
 	m.runner.StartWorker("modeloperator", m.Workers)
 	return cmdutil.AgentDone(logger, m.runner.Wait())
 }
@@ -166,6 +171,8 @@ func (m *ModelCommand) Workers() (worker.Worker, error) {
 		ServiceName:            svcName,
 		ServiceNamespace:       svcNamespace,
 		UpdateLoggerConfig:     updateAgentConfLogging,
+		PreviousAgentVersion:   m.CurrentConfig().UpgradedToVersion(),
+		UpgradeStepsLock:       m.upgradeComplete,
 	})
 
 	engine, err := dependency.NewEngine(engine.DependencyEngineConfig())

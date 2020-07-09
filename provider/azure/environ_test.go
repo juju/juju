@@ -714,13 +714,19 @@ func (s *environSuite) testStartInstanceWindows(
 }
 
 func (s *environSuite) TestStartInstanceCentOS(c *gc.C) {
+	for _, series := range []string{"centos7", "centos8"} {
+		s.assertStartInstanceCentOS(c, series)
+	}
+}
+
+func (s *environSuite) assertStartInstanceCentOS(c *gc.C, series string) {
 	// Starting a CentOS VM, we should not expect an image query.
 	s.PatchValue(&s.ubuntuServerSKUs, nil)
 
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(false)
 	s.requests = nil
-	args := makeStartInstanceParams(c, s.controllerUUID, "centos7")
+	args := makeStartInstanceParams(c, s.controllerUUID, series)
 	_, err := env.StartInstance(s.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
 

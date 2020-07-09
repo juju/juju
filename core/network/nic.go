@@ -224,7 +224,35 @@ func (i *InterfaceInfo) IsVLAN() bool {
 	return i.VLANTag > 0
 }
 
-// CIDRAddress returns Address.Value combined with CIDR mask.
+// Validate checks that the receiver looks like a real interface.
+// An error is returned if invalid members are detected.
+func (i *InterfaceInfo) Validate() error {
+	if i.MACAddress != "" {
+		if _, err := net.ParseMAC(i.MACAddress); err != nil {
+			return errors.NotValidf("link-layer device hardware address %q", i.MACAddress)
+		}
+	}
+
+	if i.InterfaceName == "" {
+		return errors.NotValidf("link-layer device %q, empty name", i.MACAddress)
+	}
+
+	if !IsValidLinkLayerDeviceName(i.InterfaceName) {
+		// TODO (manadart 2020-07-07): This preserves prior behaviour.
+		// If we are waving invalid names through, I'm not sure of the value.
+		logger.Warningf("link-layer device %q has an invalid name, %q", i.MACAddress, i.InterfaceName)
+	}
+
+	if !IsValidLinkLayerDeviceType(string(i.InterfaceType)) {
+		return errors.NotValidf("link-layer device %q, type %q", i.InterfaceName, i.InterfaceType)
+	}
+
+	return nil
+}
+
+// CIDRAddress returns Address.Value combined with subnet mask.
+// TODO (manadart 2020-07-02): Usage of this method should be phased out
+// in favour of calling ValueForCIDR on each member of the addresses slice.
 func (i *InterfaceInfo) CIDRAddress() (string, error) {
 	primaryAddr := i.PrimaryAddress()
 
@@ -232,18 +260,8 @@ func (i *InterfaceInfo) CIDRAddress() (string, error) {
 		return "", errors.NotFoundf("address and CIDR pair (%q, %q)", primaryAddr.Value, i.CIDR)
 	}
 
-	_, ipNet, err := net.ParseCIDR(i.CIDR)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	ip := primaryAddr.IP()
-	if ip == nil {
-		return "", errors.Errorf("cannot parse IP address %q", primaryAddr.Value)
-	}
-
-	ipNet.IP = ip
-	return ipNet.String(), nil
+	withMask, err := primaryAddr.ValueForCIDR(i.CIDR)
+	return withMask, errors.Trace(err)
 }
 
 // PrimaryAddress returns the primary address for the interface.
@@ -263,6 +281,16 @@ func (i *InterfaceInfo) PrimaryAddress() ProviderAddress {
 // InterfaceInfos is a slice of InterfaceInfo
 // for a single host/machine/container.
 type InterfaceInfos []InterfaceInfo
+
+// Validate validates each interface, returning an error if any are invalid
+func (s InterfaceInfos) Validate() error {
+	for _, dev := range s {
+		if err := dev.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
 
 // IterHierarchy runs the input function for every interface by processing each
 // device hierarchy, ensuring that no child device is processed before its

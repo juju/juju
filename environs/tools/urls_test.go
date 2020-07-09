@@ -62,7 +62,7 @@ func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
 	env := s.env(c, "")
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{{"https://streams.canonical.com/juju/tools/", keys.JujuPublicKey}})
+	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{{"https://streams.canonical.com/juju/tools/", keys.JujuPublicKey, true}})
 }
 
 func (s *URLsSuite) TestToolsSources(c *gc.C) {
@@ -70,8 +70,8 @@ func (s *URLsSuite) TestToolsSources(c *gc.C) {
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
-		{"config-tools-metadata-url/", keys.JujuPublicKey},
-		{"https://streams.canonical.com/juju/tools/", keys.JujuPublicKey},
+		{"config-tools-metadata-url/", keys.JujuPublicKey, false},
+		{"https://streams.canonical.com/juju/tools/", keys.JujuPublicKey, true},
 	})
 }
 
@@ -103,9 +103,9 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
-		{"config-tools-metadata-url/", keys.JujuPublicKey},
-		{"betwixt/releases/", ""},
-		{"https://streams.canonical.com/juju/tools/", keys.JujuPublicKey},
+		{"config-tools-metadata-url/", keys.JujuPublicKey, false},
+		{"betwixt/releases/", "", false},
+		{"https://streams.canonical.com/juju/tools/", keys.JujuPublicKey, true},
 	})
 }
 

@@ -21,6 +21,7 @@ func (s *DiskSuite) TestMinRootDiskSizeGiB(c *gc.C) {
 		{"trusty", 8},
 		{"win2012r2", 40},
 		{"centos7", 8},
+		{"centos8", 8},
 		{"opensuseleap", 8},
 		{"fake-series", 8},
 	}

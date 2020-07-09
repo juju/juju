@@ -12,7 +12,6 @@ import (
 
 	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -100,7 +99,7 @@ type BackingSpace interface {
 }
 
 // NetworkBacking defines the methods needed by the API facade to store and
-// retrieve information from the underlying persistency layer (state
+// retrieve information from the underlying persistence layer (state
 // DB).
 type NetworkBacking interface {
 	environs.EnvironConfigGetter
@@ -169,54 +168,17 @@ func NetworkInterfacesToStateArgs(ifaces corenetwork.InterfaceInfos) (
 		if !seenDeviceNames.Contains(iface.InterfaceName) {
 			// First time we see this, add it to devicesArgs.
 			seenDeviceNames.Add(iface.InterfaceName)
-			var mtu uint
-			if iface.MTU >= 0 {
-				mtu = uint(iface.MTU)
-			}
-			args := state.LinkLayerDeviceArgs{
-				Name:            iface.InterfaceName,
-				MTU:             mtu,
-				ProviderID:      iface.ProviderId,
-				Type:            corenetwork.LinkLayerDeviceType(iface.InterfaceType),
-				MACAddress:      iface.MACAddress,
-				IsAutoStart:     !iface.NoAutoStart,
-				IsUp:            !iface.Disabled,
-				ParentName:      iface.ParentInterfaceName,
-				VirtualPortType: iface.VirtualPortType,
-			}
+			args := networkDeviceToStateArgs(iface)
 			logger.Tracef("state device args for device: %+v", args)
 			devicesArgs = append(devicesArgs, args)
 		}
 
-		cidrAddress, err := iface.CIDRAddress()
+		addr, err := networkAddressToStateArgs(iface, iface.PrimaryAddress())
 		if err != nil {
 			logger.Warningf("ignoring address for device %q: %v", iface.InterfaceName, err)
 			continue
 		}
 
-		var derivedConfigMethod corenetwork.AddressConfigMethod
-		switch method := corenetwork.AddressConfigMethod(iface.ConfigType); method {
-		case corenetwork.StaticAddress, corenetwork.DynamicAddress,
-			corenetwork.LoopbackAddress, corenetwork.ManualAddress:
-			derivedConfigMethod = method
-		case "dhcp": // awkward special case
-			derivedConfigMethod = corenetwork.DynamicAddress
-		default:
-			derivedConfigMethod = corenetwork.StaticAddress
-		}
-
-		addr := state.LinkLayerDeviceAddress{
-			DeviceName:        iface.InterfaceName,
-			ProviderID:        iface.ProviderAddressId,
-			ProviderNetworkID: iface.ProviderNetworkId,
-			ProviderSubnetID:  iface.ProviderSubnetId,
-			ConfigMethod:      derivedConfigMethod,
-			CIDRAddress:       cidrAddress,
-			DNSServers:        iface.DNSServers.ToIPAddresses(),
-			DNSSearchDomains:  iface.DNSSearchDomains,
-			GatewayAddress:    iface.GatewayAddress.Value,
-			IsDefaultGateway:  iface.IsDefaultGateway,
-		}
 		logger.Tracef("state address args for device: %+v", addr)
 		devicesAddrs = append(devicesAddrs, addr)
 	}
@@ -225,33 +187,56 @@ func NetworkInterfacesToStateArgs(ifaces corenetwork.InterfaceInfos) (
 	return devicesArgs, devicesAddrs
 }
 
-// NetworkingEnvironFromModelConfig constructs and returns
-// environs.NetworkingEnviron using the given configGetter. Returns an error
-// satisfying errors.IsNotSupported() if the model config does not support
-// networking features.
-func NetworkingEnvironFromModelConfig(configGetter environs.EnvironConfigGetter) (environs.NetworkingEnviron, error) {
-	modelConfig, err := configGetter.ModelConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to get model config")
-	}
-	cloudSpec, err := configGetter.CloudSpec()
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to get cloudspec")
-	}
-	if cloudSpec.Type == cloud.CloudTypeCAAS {
-		return nil, errors.NotSupportedf("CAAS model %q networking", modelConfig.Name())
+func networkDeviceToStateArgs(dev corenetwork.InterfaceInfo) state.LinkLayerDeviceArgs {
+	var mtu uint
+	if dev.MTU >= 0 {
+		mtu = uint(dev.MTU)
 	}
 
-	env, err := environs.GetEnviron(configGetter, environs.New)
+	return state.LinkLayerDeviceArgs{
+		Name:            dev.InterfaceName,
+		MTU:             mtu,
+		ProviderID:      dev.ProviderId,
+		Type:            corenetwork.LinkLayerDeviceType(dev.InterfaceType),
+		MACAddress:      dev.MACAddress,
+		IsAutoStart:     !dev.NoAutoStart,
+		IsUp:            !dev.Disabled,
+		ParentName:      dev.ParentInterfaceName,
+		VirtualPortType: dev.VirtualPortType,
+	}
+}
+
+func networkAddressToStateArgs(
+	dev corenetwork.InterfaceInfo, addr corenetwork.ProviderAddress,
+) (state.LinkLayerDeviceAddress, error) {
+	cidrAddress, err := addr.ValueForCIDR(dev.CIDR)
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to construct a model from config")
+		return state.LinkLayerDeviceAddress{}, errors.Trace(err)
 	}
-	netEnviron, supported := environs.SupportsNetworking(env)
-	if !supported {
-		// " not supported" will be appended to the message below.
-		return nil, errors.NotSupportedf("model %q networking", modelConfig.Name())
+
+	var derivedConfigMethod corenetwork.AddressConfigMethod
+	switch method := corenetwork.AddressConfigMethod(dev.ConfigType); method {
+	case corenetwork.StaticAddress, corenetwork.DynamicAddress,
+		corenetwork.LoopbackAddress, corenetwork.ManualAddress:
+		derivedConfigMethod = method
+	case "dhcp": // awkward special case
+		derivedConfigMethod = corenetwork.DynamicAddress
+	default:
+		derivedConfigMethod = corenetwork.StaticAddress
 	}
-	return netEnviron, nil
+
+	return state.LinkLayerDeviceAddress{
+		DeviceName:        dev.InterfaceName,
+		ProviderID:        dev.ProviderAddressId,
+		ProviderNetworkID: dev.ProviderNetworkId,
+		ProviderSubnetID:  dev.ProviderSubnetId,
+		ConfigMethod:      derivedConfigMethod,
+		CIDRAddress:       cidrAddress,
+		DNSServers:        dev.DNSServers.ToIPAddresses(),
+		DNSSearchDomains:  dev.DNSSearchDomains,
+		GatewayAddress:    dev.GatewayAddress.Value,
+		IsDefaultGateway:  dev.IsDefaultGateway,
+	}, nil
 }
 
 // NetworkConfigSource defines the necessary calls to obtain the network
@@ -299,9 +284,9 @@ func MachineNetworkInfoResultToNetworkInfoResult(inResult state.MachineNetworkIn
 }
 
 func FanConfigToFanConfigResult(config network.FanConfig) params.FanConfigResult {
-	result := params.FanConfigResult{make([]params.FanConfigEntry, len(config))}
+	result := params.FanConfigResult{Fans: make([]params.FanConfigEntry, len(config))}
 	for i, entry := range config {
-		result.Fans[i] = params.FanConfigEntry{entry.Underlay.String(), entry.Overlay.String()}
+		result.Fans[i] = params.FanConfigEntry{Underlay: entry.Underlay.String(), Overlay: entry.Overlay.String()}
 	}
 	return result
 }
@@ -309,16 +294,16 @@ func FanConfigToFanConfigResult(config network.FanConfig) params.FanConfigResult
 func FanConfigResultToFanConfig(config params.FanConfigResult) (network.FanConfig, error) {
 	rv := make(network.FanConfig, len(config.Fans))
 	for i, entry := range config.Fans {
-		_, ipnet, err := net.ParseCIDR(entry.Underlay)
+		_, ipNet, err := net.ParseCIDR(entry.Underlay)
 		if err != nil {
 			return nil, err
 		}
-		rv[i].Underlay = ipnet
-		_, ipnet, err = net.ParseCIDR(entry.Overlay)
+		rv[i].Underlay = ipNet
+		_, ipNet, err = net.ParseCIDR(entry.Overlay)
 		if err != nil {
 			return nil, err
 		}
-		rv[i].Overlay = ipnet
+		rv[i].Overlay = ipNet
 	}
 	return rv, nil
 }

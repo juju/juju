@@ -92,6 +92,12 @@ var cloudinitDataVerifyTests = []cloudinitDataVerifyTest{
 		result:          expectedResult,
 	},
 	{
+		description:     "centos8 on centos8",
+		machineSeries:   "centos8",
+		containerSeries: "centos8",
+		result:          expectedResult,
+	},
+	{
 		description:     "win2012 on win2012",
 		machineSeries:   "win2012",
 		containerSeries: "win2012",

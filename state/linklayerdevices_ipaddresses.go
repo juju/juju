@@ -314,28 +314,27 @@ func (addr *Address) SetProviderNetIDsOps(networkID, subnetID network.Id) []txn.
 	}}
 }
 
-// Remove removes the IP address, if it exists. No error is returned when the
-// address was already removed.
-func (addr *Address) Remove() (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot remove %s", addr)
-
-	removeOp := removeIPAddressDocOp(addr.doc.DocID)
-	ops := []txn.Op{removeOp}
-	if addr.ProviderID() != "" {
-		op := addr.st.networkEntityGlobalKeyRemoveOp("address", addr.ProviderID())
-		ops = append(ops, op)
-	}
-	return addr.st.db().RunTransaction(ops)
+// Remove removes the IP address if it exists.
+// No error is returned if the address was already removed.
+func (addr *Address) Remove() error {
+	return errors.Annotatef(addr.st.db().RunTransaction(addr.RemoveOps()), "removing address %s", addr)
 }
 
-// removeIPAddressDocOpOp returns an operation to remove the ipAddressDoc
-// matching the given ipAddressDocID, without asserting it still exists.
-func removeIPAddressDocOp(ipAddressDocID string) txn.Op {
-	return txn.Op{
+// RemoveOps returns transaction operations that will ensure that the
+// address is not present in the collection and that if set,
+// its provider ID is removed from the global register.
+func (addr *Address) RemoveOps() []txn.Op {
+	ops := []txn.Op{{
 		C:      ipAddressesC,
-		Id:     ipAddressDocID,
+		Id:     addr.doc.DocID,
 		Remove: true,
+	}}
+
+	if addr.ProviderID() != "" {
+		ops = append(ops, addr.st.networkEntityGlobalKeyRemoveOp("address", addr.ProviderID()))
 	}
+
+	return ops
 }
 
 // insertIPAddressDocOp returns an operation inserting the given newDoc,
@@ -434,12 +433,8 @@ func findAddressesQuery(machineID, deviceName string) bson.D {
 func (st *State) removeMatchingIPAddressesDocOps(findQuery bson.D) ([]txn.Op, error) {
 	var ops []txn.Op
 	callbackFunc := func(resultDoc *ipAddressDoc) {
-		ops = append(ops, removeIPAddressDocOp(resultDoc.DocID))
-		if resultDoc.ProviderID != "" {
-			addrID := network.Id(resultDoc.ProviderID)
-			op := st.networkEntityGlobalKeyRemoveOp("address", addrID)
-			ops = append(ops, op)
-		}
+		addr := &Address{st: st, doc: *resultDoc}
+		ops = append(ops, addr.RemoveOps()...)
 	}
 
 	err := st.forEachIPAddressDoc(findQuery, callbackFunc)

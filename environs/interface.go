@@ -594,3 +594,14 @@ type DefaultConstraintsChecker interface {
 	// use default constraints
 	ShouldApplyControllerConstraints() bool
 }
+
+// HardwareCharacteristicsDetector is implemented by environments that can
+// provide advance information about the series and hardware for controller
+// instances that have not been provisioned yet.
+type HardwareCharacteristicsDetector interface {
+	// DetectSeries returns the series for the controller instance.
+	DetectSeries() (string, error)
+	// DetectHardware returns the hardware characteristics for the
+	// controller instance.
+	DetectHardware() (*instance.HardwareCharacteristics, error)
+}

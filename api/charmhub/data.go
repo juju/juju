@@ -12,14 +12,32 @@ func convertCharmInfoResult(info params.InfoResponse) InfoResponse {
 		Type:           info.Type,
 		ID:             info.ID,
 		Name:           info.Name,
-		Charm:          convertCharm(info.Charm),
+		Entity:         convertEntity(info.Entity),
 		ChannelMap:     convertChannelMap(info.ChannelMap),
 		DefaultRelease: convertOneChannelMap(info.DefaultRelease),
 	}
 }
 
-func convertCharm(ch params.CharmHubCharm) Charm {
-	return Charm{
+func convertCharmFindResults(responses []params.FindResponse) []FindResponse {
+	results := make([]FindResponse, len(responses))
+	for i, resp := range responses {
+		results[i] = convertCharmFindResult(resp)
+	}
+	return results
+}
+
+func convertCharmFindResult(info params.FindResponse) FindResponse {
+	return FindResponse{
+		Type:           info.Type,
+		ID:             info.ID,
+		Name:           info.Name,
+		Entity:         convertEntity(info.Entity),
+		DefaultRelease: convertOneChannelMap(info.DefaultRelease),
+	}
+}
+
+func convertEntity(ch params.CharmHubEntity) Entity {
+	return Entity{
 		Categories:  convertCategories(ch.Categories),
 		Description: ch.Description,
 		License:     ch.License,
@@ -81,13 +99,24 @@ func convertPlatforms(platforms []params.Platform) []Platform {
 	return result
 }
 
+// Although InfoResponse or FindResponse are similar, they will change once the
+// charmhub API has settled.
+
 type InfoResponse struct {
 	Type           string       `json:"type"`
 	ID             string       `json:"id"`
 	Name           string       `json:"name"`
-	Charm          Charm        `json:"charm"`
+	Entity         Entity       `json:"entity"`
 	ChannelMap     []ChannelMap `json:"channel-map"`
 	DefaultRelease ChannelMap   `json:"default-release,omitempty"`
+}
+
+type FindResponse struct {
+	Type           string     `json:"type"`
+	ID             string     `json:"id"`
+	Name           string     `json:"name"`
+	Entity         Entity     `json:"entity"`
+	DefaultRelease ChannelMap `json:"default-release,omitempty"`
 }
 
 type ChannelMap struct {
@@ -123,7 +152,7 @@ type Download struct {
 	URL        string `json:"url"`
 }
 
-type Charm struct {
+type Entity struct {
 	Categories  []Category        `json:"categories"`
 	Description string            `json:"description"`
 	License     string            `json:"license"`

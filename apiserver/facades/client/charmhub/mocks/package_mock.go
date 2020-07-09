@@ -34,6 +34,21 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// Find mocks base method
+func (m *MockClient) Find(arg0 context.Context, arg1 string) ([]transport.FindResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Find", arg0, arg1)
+	ret0, _ := ret[0].([]transport.FindResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Find indicates an expected call of Find
+func (mr *MockClientMockRecorder) Find(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Find", reflect.TypeOf((*MockClient)(nil).Find), arg0, arg1)
+}
+
 // Info mocks base method
 func (m *MockClient) Info(arg0 context.Context, arg1 string) (transport.InfoResponse, error) {
 	m.ctrl.T.Helper()
