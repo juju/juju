@@ -34,6 +34,12 @@ description: |-
   This will install and setup WordPress optimized to run in the cloud.
   By default it will place Ngnix and php-fpm configured to scale horizontally with
   Nginx's reverse proxy.
+relations:
+  provides:
+    one: two
+    three: four
+  requires:
+    five: six
 channels: |
   latest/stable:     1.0.3  2019-12-16  (16)  12MB
   latest/candidate:  1.0.3  2019-12-16  (17)  12MB
@@ -147,6 +153,15 @@ func getCharmInfoResponse() charmhub.InfoResponse {
 		Tags:        []string{"app", "seven"},
 		Charm: &charmhub.Charm{
 			Subordinate: true,
+			Relations: map[string]map[string]string{
+				"provides": {
+					"one":   "two",
+					"three": "four",
+				},
+				"requires": {
+					"five": "six",
+				},
+			},
 		},
 		Channels: map[string]charmhub.Channel{
 			"latest/stable": {
