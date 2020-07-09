@@ -41553,7 +41553,7 @@
     {
         "Name": "UpgradeSeries",
         "Description": "API serves methods required by the machine agent upgrade-series worker.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -41616,6 +41616,18 @@
                         }
                     },
                     "description": "PinnedLeadership returns all pinned applications and the entities that\nrequire their pinned behaviour, for leadership in the current model."
+                },
+                "SetInstanceStatus": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SetStatus"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "SetInstanceStatus sets the status of the machine."
                 },
                 "SetMachineStatus": {
                     "type": "object",
@@ -41784,6 +41796,36 @@
                         "tag"
                     ]
                 },
+                "EntityStatusArgs": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "info": {
+                            "type": "string"
+                        },
+                        "status": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag",
+                        "status",
+                        "info",
+                        "data"
+                    ]
+                },
                 "Error": {
                     "type": "object",
                     "properties": {
@@ -41909,6 +41951,21 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "SetStatus": {
+                    "type": "object",
+                    "properties": {
+                        "entities": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/EntityStatusArgs"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "entities"
+                    ]
                 },
                 "StringResult": {
                     "type": "object",

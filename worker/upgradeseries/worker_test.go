@@ -135,6 +135,8 @@ func (s *workerSuite) expectMachinePrepareStartedUnitsNotPrepareCompleteNoAction
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
 	s.expectPinLeadership()
 
+	s.expectSetInstanceStatus(model.UpgradeSeriesPrepareStarted, "preparing units")
+
 	// Only one of the two units has completed preparation.
 	s.expectUnitsPrepared("wordpress/0")
 
@@ -163,13 +165,16 @@ func (s *workerSuite) expectMachinePrepareStartedUnitFilesWrittenProgressPrepare
 	exp := s.facade.EXPECT()
 
 	exp.MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
+	s.expectSetInstanceStatus(model.UpgradeSeriesPrepareStarted, "preparing units")
 	s.expectUnitsPrepared("wordpress/0", "mysql/0")
 	exp.CurrentSeries().Return("trusty", nil)
 	exp.TargetSeries().Return("xenial", nil)
 
 	s.upgrader.EXPECT().PerformUpgrade().Return(nil)
+	s.expectSetInstanceStatus(model.UpgradeSeriesPrepareStarted, "completing preparation")
 
 	exp.SetMachineStatus(model.UpgradeSeriesPrepareCompleted, gomock.Any()).Return(nil)
+	s.expectSetInstanceStatus(model.UpgradeSeriesPrepareCompleted, "waiting for completion command")
 
 	s.expectServiceDiscovery(false)
 }
@@ -190,7 +195,10 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted
 
 func (s *workerSuite) expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted() {
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
+	s.expectSetInstanceStatus(model.UpgradeSeriesCompleteStarted, "waiting for units")
 	s.expectUnitsPrepared("wordpress/0", "mysql/0")
+
+	s.expectSetInstanceStatus(model.UpgradeSeriesCompleteStarted, "starting unit agents")
 	s.facade.EXPECT().StartUnitCompletion(gomock.Any()).Return(nil)
 
 	s.expectServiceDiscovery(true)
@@ -206,6 +214,7 @@ func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C)
 
 	exp := s.facade.EXPECT()
 	exp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
+	s.expectSetInstanceStatus(model.UpgradeSeriesCompleteStarted, "waiting for units")
 
 	// Machine with no units - API calls return none, no services discovered.
 	exp.UnitsPrepared().Return(nil, nil)
@@ -242,6 +251,8 @@ func (s *workerSuite) expectMachineCompleteStartedUnitsCompleteProgressComplete(
 	exp := s.facade.EXPECT()
 
 	exp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
+	s.expectSetInstanceStatus(model.UpgradeSeriesCompleteStarted, "waiting for units")
+
 	// No units are in the prepare-complete state.
 	// They have completed their workflow.
 	s.expectUnitsPrepared()
@@ -275,7 +286,10 @@ func (s *workerSuite) expectMachineCompletedFinishUpgradeSeries() {
 
 	exp := s.facade.EXPECT()
 	exp.MachineStatus().Return(model.UpgradeSeriesCompleted, nil)
+	s.expectSetInstanceStatus(model.UpgradeSeriesCompleted, "finalising upgrade")
 	exp.FinishUpgradeSeries("xenial").Return(nil)
+
+	s.expectSetInstanceStatus(model.UpgradeSeriesCompleted, "success")
 	exp.UnpinMachineApplications().Return(map[string]error{
 		"mysql":     nil,
 		"wordpress": nil,
@@ -358,6 +372,10 @@ func (s *workerSuite) expectServiceDiscovery(discover bool) {
 	// Note that the machine agent service listed above is ignored as non-unit.
 	sExp.DiscoverService("jujud-unit-wordpress-0").Return(s.wordPressAgent, nil)
 	sExp.DiscoverService("jujud-unit-mysql-0").Return(s.mySQLAgent, nil)
+}
+
+func (s *workerSuite) expectSetInstanceStatus(sts model.UpgradeSeriesStatus, msg string) {
+	s.facade.EXPECT().SetInstanceStatus(sts, msg).Return(nil)
 }
 
 // cleanKill waits for notifications to be processed, then waits for the input
