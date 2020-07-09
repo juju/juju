@@ -23,8 +23,8 @@ type InfoResponse struct {
 	Summary     string             `json:"summary"`
 	Series      []string           `json:"series"`
 	StoreURL    string             `json:"store-url"`
-	Charm       CharmHubCharm      `json:"charm,omitempty"`
-	Bundle      CharmHubBundle     `json:"bundle,omitempty"`
+	Charm       *CharmHubCharm     `json:"charm,omitempty"`
+	Bundle      *CharmHubBundle    `json:"bundle,omitempty"`
 	Channels    map[string]Channel `json:"channel-map"`
 	Tracks      []string           `json:"tracks"`
 }

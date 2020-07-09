@@ -26,9 +26,9 @@ func convertCharmInfoResult(info params.InfoResponse) InfoResponse {
 		Tracks:      info.Tracks,
 	}
 	switch ir.Type {
-	case "Bundle":
+	case "bundle":
 		ir.Bundle = convertBundle(info.Bundle)
-	case "Charm":
+	case "charm":
 		ir.Charm = convertCharm(info.Charm)
 	}
 	return ir
@@ -52,11 +52,15 @@ func convertCharmFindResult(info params.FindResponse) FindResponse {
 	}
 }
 
-func convertBundle(in interface{}) Bundle {
-	inB, ok := in.(params.CharmHubBundle)
+func convertBundle(in interface{}) *Bundle {
+	inB, ok := in.(*params.CharmHubBundle)
 	if !ok {
-		logger.Errorf("unexpected: InfoEntity is not a bundle")
-		return Bundle{}
+		logger.Errorf("unexpected: CharmHubBundle is not a bundle")
+		return nil
+	}
+	if inB == nil {
+		logger.Errorf("CharmHubBundle is nil")
+		return nil
 	}
 	out := Bundle{
 		Charms: make([]BundleCharm, len(inB.Charms)),
@@ -64,16 +68,20 @@ func convertBundle(in interface{}) Bundle {
 	for i, c := range inB.Charms {
 		out.Charms[i] = BundleCharm(c)
 	}
-	return out
+	return &out
 }
 
-func convertCharm(in interface{}) Charm {
-	inC, ok := in.(params.CharmHubCharm)
+func convertCharm(in interface{}) *Charm {
+	inC, ok := in.(*params.CharmHubCharm)
 	if !ok {
-		logger.Errorf("unexpected: InfoEntity is not a charm")
-		return Charm{}
+		logger.Errorf("unexpected: CharmHubCharm is not a charm")
+		return nil
 	}
-	return Charm{
+	if inC == nil {
+		logger.Errorf("CharmHubCharm is nil")
+		return nil
+	}
+	return &Charm{
 		Config:      params.FromCharmOptionMap(inC.Config),
 		Relations:   inC.Relations,
 		Subordinate: inC.Subordinate,
@@ -102,8 +110,8 @@ type InfoResponse struct {
 	Summary     string             `json:"summary"`
 	Series      []string           `json:"series"`
 	StoreURL    string             `json:"store-url"`
-	Charm       Charm              `json:"charm"`
-	Bundle      Bundle             `json:"bundle"`
+	Charm       *Charm             `json:"charm,omitempty"`
+	Bundle      *Bundle            `json:"bundle,omitempty"`
 	Channels    map[string]Channel `json:"channel-map"`
 	Tracks      []string           `json:"tracks"`
 }

@@ -24,9 +24,9 @@ func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
 		Summary:     info.Entity.Summary,
 	}
 	switch ir.Type {
-	case "Bundle":
+	case "bundle":
 		ir.Bundle = convertBundle()
-	case "Charm":
+	case "charm":
 		ir.Charm = convertCharm(info)
 	}
 	ir.Tracks, ir.Channels = transformChannelMap(info.ChannelMap)
@@ -94,7 +94,7 @@ func transformChannelMap(channelMap []transport.ChannelMap) ([]string, map[strin
 	return trackList, channels
 }
 
-func convertCharm(info transport.InfoResponse) params.CharmHubCharm {
+func convertCharm(info transport.InfoResponse) *params.CharmHubCharm {
 	charmHubCharm := params.CharmHubCharm{
 		UsedBy: info.Entity.UsedBy,
 	}
@@ -106,7 +106,7 @@ func convertCharm(info transport.InfoResponse) params.CharmHubCharm {
 	if cfg := unmarshalCharmConfig(info.DefaultRelease.Revision.ConfigYAML); cfg != nil {
 		charmHubCharm.Config = params.ToCharmOptionMap(cfg)
 	}
-	return charmHubCharm
+	return &charmHubCharm
 }
 
 func unmarshalCharmMetadata(metadataYAML string) *charm.Meta {
@@ -171,8 +171,8 @@ func formatRelationPart(rels map[string]charm.Relation) (map[string]string, bool
 	return relations, true
 }
 
-func convertBundle() params.CharmHubBundle {
+func convertBundle() *params.CharmHubBundle {
 	// TODO (hml) 2020-07-06
 	// Implemented once how to get charms in a bundle is defined by the api.
-	return params.CharmHubBundle{}
+	return nil
 }

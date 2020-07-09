@@ -65,7 +65,7 @@ func (s *charmHubSuite) setupMocks(c *gc.C) *gomock.Controller {
 func getInfoResponse() InfoResponse {
 	return InfoResponse{
 		Name:        "wordpress",
-		Type:        "Charm",
+		Type:        "charm",
 		ID:          "charmCHARMcharmCHARMcharmCHARM01",
 		Description: "This will install and setup WordPress optimized to run in the cloud.\nBy default it will place Ngnix configured to scale horizontally\nwith Nginx's reverse proxy.",
 		Publisher:   "Wordress Charmers",
@@ -82,7 +82,7 @@ func getInfoResponse() InfoResponse {
 				Revision:   16,
 				Version:    "1.0.3",
 			}},
-		Charm: Charm{
+		Charm: &Charm{
 			Subordinate: false,
 			Config: &charm.Config{
 				Options: map[string]charm.Option{
@@ -131,7 +131,7 @@ func assertInfoResponseSameContents(c *gc.C, obtained, expected InfoResponse) {
 	assertCharmSameContents(c, obtained.Charm, expected.Charm)
 }
 
-func assertCharmSameContents(c *gc.C, obtained, expected Charm) {
+func assertCharmSameContents(c *gc.C, obtained, expected *Charm) {
 	c.Assert(obtained.Config, gc.DeepEquals, expected.Config)
 	c.Assert(obtained.Relations, jc.DeepEquals, expected.Relations)
 	c.Assert(obtained.Subordinate, gc.Equals, expected.Subordinate)
@@ -155,7 +155,7 @@ func assertFindResponsesSameContents(c *gc.C, obtained, expected []FindResponse)
 func getParamsInfoResponse() params.InfoResponse {
 	return params.InfoResponse{
 		Name:        "wordpress",
-		Type:        "Charm",
+		Type:        "charm",
 		ID:          "charmCHARMcharmCHARMcharmCHARM01",
 		Description: "This will install and setup WordPress optimized to run in the cloud.\nBy default it will place Ngnix configured to scale horizontally\nwith Nginx's reverse proxy.",
 		Publisher:   "Wordress Charmers",
@@ -172,7 +172,7 @@ func getParamsInfoResponse() params.InfoResponse {
 				Revision:   16,
 				Version:    "1.0.3",
 			}},
-		Charm: params.CharmHubCharm{
+		Charm: &params.CharmHubCharm{
 			Subordinate: false,
 			Config: map[string]params.CharmOption{
 				"reticulate-splines": {Type: "boolean", Description: "Whether to reticulate splines on launch, or not."},

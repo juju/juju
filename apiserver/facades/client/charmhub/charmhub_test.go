@@ -89,7 +89,7 @@ func assertFindResponseSameContents(c *gc.C, obtained, expected params.FindRespo
 	c.Assert(obtained.DefaultRelease, gc.DeepEquals, expected.DefaultRelease)
 }
 
-func assertCharmSameContents(c *gc.C, obtained, expected params.CharmHubCharm) {
+func assertCharmSameContents(c *gc.C, obtained, expected *params.CharmHubCharm) {
 	c.Assert(obtained.Config, gc.DeepEquals, expected.Config)
 	c.Assert(obtained.Relations, jc.DeepEquals, expected.Relations)
 	c.Assert(obtained.Subordinate, gc.Equals, expected.Subordinate)
@@ -111,7 +111,7 @@ func getCharmHubFindResponses() []transport.FindResponse {
 func getCharmHubInfoResponse() transport.InfoResponse {
 	return transport.InfoResponse{
 		Name: "wordpress",
-		Type: "Charm",
+		Type: "charm",
 		ID:   "charmCHARMcharmCHARMcharmCHARM01",
 		ChannelMap: []transport.ChannelMap{{
 			Channel: transport.Channel{
@@ -214,7 +214,7 @@ func getParamsFindResponse() params.FindResponse {
 func getParamsInfoResponse() params.InfoResponse {
 	return params.InfoResponse{
 		Name:        "wordpress",
-		Type:        "Charm",
+		Type:        "charm",
 		ID:          "charmCHARMcharmCHARMcharmCHARM01",
 		Description: "This will install and setup WordPress optimized to run in the cloud.\nBy default it will place Ngnix configured to scale horizontally\nwith Nginx's reverse proxy.",
 		Publisher:   "Wordress Charmers",
@@ -231,7 +231,7 @@ func getParamsInfoResponse() params.InfoResponse {
 				Revision:   16,
 				Version:    "1.0.3",
 			}},
-		Charm: params.CharmHubCharm{
+		Charm: &params.CharmHubCharm{
 			Subordinate: false,
 			Config: map[string]params.CharmOption{
 				"reticulate-splines": {Type: "boolean", Description: "Whether to reticulate splines on launch, or not."},

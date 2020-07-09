@@ -167,10 +167,12 @@ func (c charmInfoWriter) Print() error {
 		Summary:     c.in.Summary,
 		Publisher:   c.in.Publisher,
 		Supports:    strings.Join(c.in.Series, ", "),
-		Tags:        strings.Join(c.in.Charm.Tags, ", "),
-		Subordinate: c.in.Charm.Subordinate,
 		Description: c.in.Description,
 		Channels:    c.channels(),
+	}
+	if c.in.Charm != nil {
+		out.Tags = strings.Join(c.in.Charm.Tags, ", ")
+		out.Subordinate = c.in.Charm.Subordinate
 	}
 	if rels, err := c.relations(); err == nil {
 		out.Relations = rels
@@ -179,10 +181,13 @@ func (c charmInfoWriter) Print() error {
 }
 
 func (c charmInfoWriter) relations() (relationOutput, error) {
+	if c.in.Charm == nil {
+		return relationOutput{}, errors.NotFoundf("charm")
+	}
 	requires, foundRequires := c.in.Charm.Relations["requires"]
 	provides, foundProvides := c.in.Charm.Relations["provides"]
 	if !foundProvides && !foundRequires {
-		return relationOutput{}, errors.NotFoundf("charm meta data")
+		return relationOutput{}, errors.NotFoundf("charm relations")
 	}
 	var relations relationOutput
 	if foundProvides {

@@ -89,13 +89,13 @@ channels: |
 
 func getBundleInfoResponse() charmhub.InfoResponse {
 	return charmhub.InfoResponse{
-		Type:        "bundle",
+		Type:        "Bundle",
 		ID:          "bundleBUNDLEbundleBUNDLEbundle01",
 		Name:        "osm",
 		Description: "Single instance OSM bundle.",
 		Publisher:   "charmed-osm",
 		Summary:     "A bundle by charmed-osm.",
-		Bundle:      charmhub.Bundle{},
+		Bundle:      nil,
 		Channels: map[string]charmhub.Channel{
 			"latest/stable": {
 				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
@@ -142,7 +142,7 @@ func getCharmInfoResponse() charmhub.InfoResponse {
 		Publisher:   "Wordress Charmers",
 		Description: "This will install and setup WordPress optimized to run in the cloud.\nBy default it will place Ngnix and php-fpm configured to scale horizontally with\nNginx's reverse proxy.",
 		Series:      []string{"bionic", "xenial"},
-		Charm: charmhub.Charm{
+		Charm: &charmhub.Charm{
 			Tags: []string{"app", "seven"},
 		},
 		Channels: map[string]charmhub.Channel{
