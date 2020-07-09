@@ -4,6 +4,8 @@
 package upgradeseries
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 )
 
 const upgradeSeriesFacade = "UpgradeSeries"
@@ -154,7 +157,7 @@ func (s *Client) unitsInState(facadeMethod string) ([]names.UnitTag, error) {
 	return nil, errors.Trace(r.Error)
 }
 
-// SetMachineStatus sets the machine status in remote state.
+// SetMachineStatus sets the series upgrade status in remote state.
 func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus, reason string) error {
 	var results params.ErrorResults
 	args := params.UpgradeSeriesStatusParams{
@@ -215,6 +218,32 @@ func (s *Client) FinishUpgradeSeries(hostSeries string) error {
 	}}}
 
 	err := s.facade.FacadeCall("FinishUpgradeSeries", args, &results)
+	if err != nil {
+		return err
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
+// SetInstanceStatus sets the machine status in remote state.
+func (s *Client) SetInstanceStatus(sts model.UpgradeSeriesStatus, msg string) error {
+	var results params.ErrorResults
+	args := params.SetStatus{
+		Entities: []params.EntityStatusArgs{{
+			Tag:    s.authTag.String(),
+			Status: string(status.Running),
+			Info:   strings.Join([]string{"series upgrade ", string(sts), ": ", msg}, ""),
+		}},
+	}
+
+	err := s.facade.FacadeCall("SetInstanceStatus", args, &results)
 	if err != nil {
 		return err
 	}

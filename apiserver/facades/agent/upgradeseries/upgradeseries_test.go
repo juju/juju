@@ -5,6 +5,7 @@ package upgradeseries_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -184,6 +185,32 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesNotUpgraded(c *gc.C) {
 	}
 
 	results, err := s.api.FinishUpgradeSeries(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *upgradeSeriesSuite) TestSetStatus(c *gc.C) {
+	defer s.arrangeTest(c).Finish()
+
+	msg := "series upgrade: " + string(model.UpgradeSeriesPrepareStarted)
+
+	exp := s.machine.EXPECT()
+	exp.SetInstanceStatus(status.StatusInfo{
+		Status:  status.Running,
+		Message: msg,
+	}).Return(nil)
+
+	results, err := s.api.SetInstanceStatus(params.SetStatus{
+		Entities: []params.EntityStatusArgs{
+			{
+				Tag:    s.machineTag.String(),
+				Status: status.Running.String(),
+				Info:   msg,
+			},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},

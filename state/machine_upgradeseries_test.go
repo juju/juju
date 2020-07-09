@@ -8,7 +8,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
@@ -36,11 +35,6 @@ func (s *MachineSuite) TestCreateUpgradeSeriesLock(c *gc.C) {
 		i++
 	}
 	c.Assert(lockedUnitsIds, jc.SameContents, unitIds)
-
-	sts, err := mach.InstanceStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sts.Status, gc.Equals, status.Running)
-	c.Check(sts.Message, gc.Equals, "Series upgrade: prepare started")
 }
 
 func (s *MachineSuite) TestIsParentLockedForSeriesUpgrade(c *gc.C) {
@@ -188,24 +182,6 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSetCompleteStatusOfMachine
 	sts, err := s.machine.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sts, gc.Equals, model.UpgradeSeriesCompleteStarted)
-
-	iStatus, err := s.machine.InstanceStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(iStatus.Status, gc.Equals, status.Running)
-	c.Check(iStatus.Message, gc.Equals, "Series upgrade: complete started")
-}
-
-func (s *MachineSuite) TestUpgradeSeriesCompletedResetsInstanceStatus(c *gc.C) {
-	err := s.machine.CreateUpgradeSeriesLock([]string{}, "cosmic")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.machine.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, "")
-	c.Assert(err, jc.ErrorIsNil)
-
-	iStatus, err := s.machine.InstanceStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(iStatus.Status, gc.Equals, status.Running)
-	c.Check(iStatus.Message, gc.Equals, "Running")
 }
 
 func (s *MachineSuite) TestCompleteSeriesUpgradeShouldFailIfAlreadyInCompleteState(c *gc.C) {

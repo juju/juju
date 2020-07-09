@@ -6,7 +6,9 @@ package upgradeseries_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/names/v4"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -14,11 +16,10 @@ import (
 	"github.com/juju/juju/api/upgradeseries"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type upgradeSeriesSuite struct {
-	jujutesting.BaseSuite
+	testing.IsolationSuite
 
 	tag                                  names.Tag
 	args                                 params.Entities
@@ -33,7 +34,7 @@ func (s *upgradeSeriesSuite) SetUpTest(c *gc.C) {
 	s.upgradeSeriesStartUnitCompletionArgs = params.UpgradeSeriesStartUnitCompletionParam{
 		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
-	s.BaseSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 }
 
 func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
@@ -217,5 +218,28 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeries(c *gc.C) {
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	err := api.FinishUpgradeSeries("xenial")
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *upgradeSeriesSuite) TestSetStatus(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	fCaller := mocks.NewMockFacadeCaller(ctrl)
+
+	args := params.SetStatus{
+		Entities: []params.EntityStatusArgs{
+			{
+				Tag:    s.tag.String(),
+				Status: status.Running.String(),
+				Info:   "series upgrade complete started: waiting for something",
+			},
+		},
+	}
+	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}
+	fCaller.EXPECT().FacadeCall("SetInstanceStatus", args, gomock.Any()).SetArg(2, resultSource)
+
+	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
+	err := api.SetInstanceStatus(model.UpgradeSeriesCompleteStarted, "waiting for something")
 	c.Assert(err, gc.IsNil)
 }

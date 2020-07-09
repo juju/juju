@@ -5,13 +5,13 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	common "github.com/juju/juju/apiserver/common"
 	model "github.com/juju/juju/core/model"
+	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
-	names_v3 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
+	reflect "reflect"
 )
 
 // MockUpgradeSeriesBackend is a mock of UpgradeSeriesBackend interface
@@ -116,6 +116,20 @@ func (m *MockUpgradeSeriesMachine) Series() string {
 func (mr *MockUpgradeSeriesMachineMockRecorder) Series() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Series", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).Series))
+}
+
+// SetInstanceStatus mocks base method
+func (m *MockUpgradeSeriesMachine) SetInstanceStatus(arg0 status.StatusInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetInstanceStatus", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetInstanceStatus indicates an expected call of SetInstanceStatus
+func (mr *MockUpgradeSeriesMachineMockRecorder) SetInstanceStatus(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceStatus", reflect.TypeOf((*MockUpgradeSeriesMachine)(nil).SetInstanceStatus), arg0)
 }
 
 // SetUpgradeSeriesStatus mocks base method
@@ -288,10 +302,10 @@ func (mr *MockUpgradeSeriesUnitMockRecorder) SetUpgradeSeriesStatus(arg0, arg1 i
 }
 
 // Tag mocks base method
-func (m *MockUpgradeSeriesUnit) Tag() names_v3.Tag {
+func (m *MockUpgradeSeriesUnit) Tag() names.Tag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(names_v3.Tag)
+	ret0, _ := ret[0].(names.Tag)
 	return ret0
 }
 
