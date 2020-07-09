@@ -5,10 +5,9 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
-	names_v3 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
+	reflect "reflect"
 )
 
 // MockAuthorizer is a mock of Authorizer interface
@@ -63,10 +62,10 @@ func (mr *MockAuthorizerMockRecorder) AuthMachineAgent() *gomock.Call {
 }
 
 // GetAuthTag mocks base method
-func (m *MockAuthorizer) GetAuthTag() names_v3.Tag {
+func (m *MockAuthorizer) GetAuthTag() names.Tag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAuthTag")
-	ret0, _ := ret[0].(names_v3.Tag)
+	ret0, _ := ret[0].(names.Tag)
 	return ret0
 }
 

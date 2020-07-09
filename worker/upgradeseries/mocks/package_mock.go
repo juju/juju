@@ -95,6 +95,20 @@ func (mr *MockFacadeMockRecorder) PinMachineApplications() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PinMachineApplications", reflect.TypeOf((*MockFacade)(nil).PinMachineApplications))
 }
 
+// SetInstanceStatus mocks base method
+func (m *MockFacade) SetInstanceStatus(arg0 model.UpgradeSeriesStatus, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetInstanceStatus", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetInstanceStatus indicates an expected call of SetInstanceStatus
+func (mr *MockFacadeMockRecorder) SetInstanceStatus(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceStatus", reflect.TypeOf((*MockFacade)(nil).SetInstanceStatus), arg0, arg1)
+}
+
 // SetMachineStatus mocks base method
 func (m *MockFacade) SetMachineStatus(arg0 model.UpgradeSeriesStatus, arg1 string) error {
 	m.ctrl.T.Helper()

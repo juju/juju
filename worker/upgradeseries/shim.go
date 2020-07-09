@@ -28,6 +28,7 @@ type Facade interface {
 	FinishUpgradeSeries(string) error
 	PinMachineApplications() (map[string]error, error)
 	UnpinMachineApplications() (map[string]error, error)
+	SetInstanceStatus(model.UpgradeSeriesStatus, string) error
 }
 
 // NewFacade creates a new upgrade-series client and returns its

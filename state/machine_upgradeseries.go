@@ -16,7 +16,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/status"
 )
 
 // upgradeSeriesLockDoc holds the attributes relevant to lock a machine during a
@@ -98,8 +97,7 @@ func (m *Machine) CreateUpgradeSeriesLock(unitNames []string, toSeries string) e
 		logger.Errorf("cannot prepare series upgrade for machine %q: %v", m, err)
 		return err
 	}
-
-	return errors.Trace(m.setUpgradeSeriesInstanceStatus(model.UpgradeSeriesPrepareStarted))
+	return nil
 }
 
 // IsParentLockedForSeriesUpgrade determines if a machine is a container who's
@@ -288,7 +286,7 @@ func (m *Machine) CompleteUpgradeSeries() error {
 		err = onAbort(err, ErrDead)
 		return err
 	}
-	return errors.Trace(m.setUpgradeSeriesInstanceStatus(model.UpgradeSeriesCompleteStarted))
+	return nil
 }
 
 func (m *Machine) isReadyForCompletion() (bool, error) {
@@ -512,7 +510,7 @@ func (m *Machine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, messa
 		err = onAbort(err, ErrDead)
 		return err
 	}
-	return errors.Trace(m.setUpgradeSeriesInstanceStatus(status))
+	return nil
 }
 
 // GetUpgradeSeriesMessages returns all 'unseen' upgrade series
@@ -593,7 +591,7 @@ func setUpgradeSeriesMessageTxnOps(machineDocID string, messages []UpgradeSeries
 	fields := bson.D{}
 	for i := range messages {
 		field := fmt.Sprintf("messages.%d.seen", i)
-		fields = append(fields, bson.DocElem{field, seen})
+		fields = append(fields, bson.DocElem{Name: field, Value: seen})
 	}
 	ops = append(ops, txn.Op{
 		C:      machineUpgradeSeriesLocksC,
@@ -629,23 +627,6 @@ func (st *State) getUpgradeSeriesLock(machineID string) (*upgradeSeriesLockDoc, 
 		return nil, errors.Annotatef(err, "retrieving upgrade series lock for machine %v", machineID)
 	}
 	return &lock, nil
-}
-
-var noInstanceMessage = set.NewStrings(string(model.UpgradeSeriesNotStarted), string(model.UpgradeSeriesCompleted))
-
-// setUpgradeSeriesInstanceStatus updates the instance status of a machine in
-// accordance with its progression through the upgrade-series workflow.
-func (m *Machine) setUpgradeSeriesInstanceStatus(usStatus model.UpgradeSeriesStatus) error {
-	msg := "Running"
-	if !noInstanceMessage.Contains(string(usStatus)) {
-		msg = "Series upgrade: " + string(usStatus)
-	}
-
-	sInfo := status.StatusInfo{
-		Status:  status.Running,
-		Message: msg,
-	}
-	return errors.Trace(m.SetInstanceStatus(sInfo))
 }
 
 func setMachineUpgradeSeriesTxnOps(
