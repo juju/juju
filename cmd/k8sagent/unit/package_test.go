@@ -6,7 +6,6 @@ package unit_test
 import (
 	"testing"
 
-	// "github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -129,7 +128,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"jujuclient",
 		"logfwd",
 		"logfwd/syslog",
-		"mongo", // REMOVE
+		"mongo", // TODO: move mongo dependency from JUJU CLI if we decide to split the `agent.Config` for controller and machineagent/unitagent/k8sagent.
 		"network",
 		"network/debinterfaces",
 		"network/netplan",
