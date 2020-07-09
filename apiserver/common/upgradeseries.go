@@ -5,6 +5,7 @@ package common
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
@@ -34,6 +35,7 @@ type UpgradeSeriesMachine interface {
 	UpgradeSeriesTarget() (string, error)
 	Series() string
 	UpdateMachineSeries(series string, force bool) error
+	SetStatus(status.StatusInfo) error
 }
 
 // UpgradeSeriesUnit describes unit-receiver state methods
