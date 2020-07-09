@@ -23,6 +23,7 @@ type InfoResponse struct {
 	Summary     string             `json:"summary"`
 	Series      []string           `json:"series"`
 	StoreURL    string             `json:"store-url"`
+	Tags        []string           `json:"tags"`
 	Charm       *CharmHubCharm     `json:"charm,omitempty"`
 	Bundle      *CharmHubBundle    `json:"bundle,omitempty"`
 	Channels    map[string]Channel `json:"channel-map"`
@@ -70,7 +71,6 @@ type CharmHubCharm struct {
 	Config      map[string]CharmOption       `json:"config"`
 	Relations   map[string]map[string]string `json:"relations"`
 	Subordinate bool                         `json:"subordinate"`
-	Tags        []string                     `json:"tags"`
 	UsedBy      []string                     `json:"used-by"` // bundles which use the charm
 }
 

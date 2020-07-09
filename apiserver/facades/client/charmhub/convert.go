@@ -22,6 +22,7 @@ func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
 		Description: info.Entity.Description,
 		Publisher:   publisher(info.Entity),
 		Summary:     info.Entity.Summary,
+		Tags:        categories(info.Entity.Categories),
 	}
 	switch ir.Type {
 	case "bundle":
@@ -31,6 +32,17 @@ func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
 	}
 	ir.Tracks, ir.Channels = transformChannelMap(info.ChannelMap)
 	return ir
+}
+
+func categories(cats []transport.Category) []string {
+	if len(cats) == 0 {
+		return nil
+	}
+	result := make([]string, len(cats))
+	for i, v := range cats {
+		result[i] = v.Name
+	}
+	return result
 }
 
 func convertCharmFindResults(responses []transport.FindResponse) []params.FindResponse {
@@ -100,7 +112,6 @@ func convertCharm(info transport.InfoResponse) *params.CharmHubCharm {
 	}
 	if meta := unmarshalCharmMetadata(info.DefaultRelease.Revision.MetadataYAML); meta != nil {
 		charmHubCharm.Subordinate = meta.Subordinate
-		charmHubCharm.Tags = meta.Tags
 		charmHubCharm.Relations = transformRelations(meta.Requires, meta.Provides)
 	}
 	if cfg := unmarshalCharmConfig(info.DefaultRelease.Revision.ConfigYAML); cfg != nil {

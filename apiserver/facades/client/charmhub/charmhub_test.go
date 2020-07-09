@@ -78,6 +78,7 @@ func assertInfoResponseSameContents(c *gc.C, obtained, expected params.InfoRespo
 	c.Assert(obtained.Summary, gc.Equals, expected.Summary)
 	c.Assert(obtained.Channels, jc.DeepEquals, expected.Channels)
 	c.Assert(obtained.Tracks, jc.SameContents, expected.Tracks)
+	c.Assert(obtained.Tags, gc.DeepEquals, expected.Tags)
 	assertCharmSameContents(c, obtained.Charm, expected.Charm)
 }
 
@@ -94,7 +95,6 @@ func assertCharmSameContents(c *gc.C, obtained, expected *params.CharmHubCharm) 
 	c.Assert(obtained.Relations, jc.DeepEquals, expected.Relations)
 	c.Assert(obtained.Subordinate, gc.Equals, expected.Subordinate)
 	c.Assert(obtained.UsedBy, gc.DeepEquals, expected.UsedBy)
-	c.Assert(obtained.Tags, gc.DeepEquals, expected.Tags)
 }
 
 func getCharmHubFindResponses() []transport.FindResponse {
@@ -222,6 +222,7 @@ func getParamsInfoResponse() params.InfoResponse {
 		Tracks:      []string{"latest"},
 		Series:      []string{"bionic", "xenial"},
 		StoreURL:    "https://someurl.com/wordpress",
+		Tags:        []string{"blog"},
 		Channels: map[string]params.Channel{
 			"latest/stable": {
 				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
@@ -242,7 +243,6 @@ func getParamsInfoResponse() params.InfoResponse {
 				"skill-level":        {Type: "int", Description: "A number indicating skill."},
 				"agility-ratio":      {Type: "float", Description: "A number from 0 to 1 indicating agility."},
 			},
-			Tags: []string{"app", "seven"},
 			Relations: map[string]map[string]string{
 				"provides": {"source": "dummy-token"},
 				"requires": {"sink": "dummy-token"}},
@@ -264,7 +264,6 @@ description: |
   This will install and setup services optimized to run in the cloud.
   By default it will place Ngnix configured to scale horizontally
   with Nginx's reverse proxy.
-tags: [app, seven]
 series: [bionic, xenial]
 provides:
   source:

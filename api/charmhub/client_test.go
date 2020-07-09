@@ -73,6 +73,7 @@ func getInfoResponse() InfoResponse {
 		Tracks:      []string{"latest"},
 		Series:      []string{"bionic", "xenial"},
 		StoreURL:    "https://someurl.com/wordpress",
+		Tags:        []string{"app", "seven"},
 		Channels: map[string]Channel{
 			"latest/stable": {
 				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
@@ -95,7 +96,6 @@ func getInfoResponse() InfoResponse {
 					"agility-ratio":      {Type: "float", Description: "A number from 0 to 1 indicating agility."},
 				},
 			},
-			Tags: []string{"app", "seven"},
 			Relations: map[string]map[string]string{
 				"provides": {"source": "dummy-token"},
 				"requires": {"sink": "dummy-token"}},
@@ -126,6 +126,7 @@ func assertInfoResponseSameContents(c *gc.C, obtained, expected InfoResponse) {
 	c.Assert(obtained.Description, gc.Equals, expected.Description)
 	c.Assert(obtained.Publisher, jc.DeepEquals, expected.Publisher)
 	c.Assert(obtained.Summary, gc.Equals, expected.Summary)
+	c.Assert(obtained.Tags, gc.DeepEquals, expected.Tags)
 	c.Assert(obtained.Channels, jc.DeepEquals, expected.Channels)
 	c.Assert(obtained.Tracks, jc.SameContents, expected.Tracks)
 	assertCharmSameContents(c, obtained.Charm, expected.Charm)
@@ -136,13 +137,11 @@ func assertCharmSameContents(c *gc.C, obtained, expected *Charm) {
 	c.Assert(obtained.Relations, jc.DeepEquals, expected.Relations)
 	c.Assert(obtained.Subordinate, gc.Equals, expected.Subordinate)
 	c.Assert(obtained.UsedBy, gc.DeepEquals, expected.UsedBy)
-	c.Assert(obtained.Tags, gc.DeepEquals, expected.Tags)
 }
 
 func assertFindResponsesSameContents(c *gc.C, obtained, expected []FindResponse) {
 	c.Assert(obtained, gc.HasLen, 1)
 	c.Assert(expected, gc.HasLen, 1)
-
 	want := obtained[0]
 	got := expected[0]
 	c.Assert(want.Type, gc.Equals, got.Type)
@@ -163,6 +162,7 @@ func getParamsInfoResponse() params.InfoResponse {
 		Tracks:      []string{"latest"},
 		Series:      []string{"bionic", "xenial"},
 		StoreURL:    "https://someurl.com/wordpress",
+		Tags:        []string{"app", "seven"},
 		Channels: map[string]params.Channel{
 			"latest/stable": {
 				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
@@ -183,7 +183,6 @@ func getParamsInfoResponse() params.InfoResponse {
 				"skill-level":        {Type: "int", Description: "A number indicating skill."},
 				"agility-ratio":      {Type: "float", Description: "A number from 0 to 1 indicating agility."},
 			},
-			Tags: []string{"app", "seven"},
 			Relations: map[string]map[string]string{
 				"provides": {"source": "dummy-token"},
 				"requires": {"sink": "dummy-token"}},
