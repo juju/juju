@@ -168,7 +168,9 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 	}
 
 	if err != nil {
-		_ = w.SetInstanceStatus(model.UpgradeSeriesError, err.Error())
+		if err := w.SetInstanceStatus(model.UpgradeSeriesError, err.Error()); err != nil {
+			w.logger.Errorf("failed to set series upgrade error status: %s", err.Error())
+		}
 	}
 	return errors.Trace(err)
 }
