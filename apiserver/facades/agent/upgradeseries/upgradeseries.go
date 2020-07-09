@@ -365,8 +365,8 @@ type APIv2 struct {
 	*API
 }
 
-// SetStatus was not available on version 2 of the API.
-func (api *APIv2) SetStatus(_, _ struct{}) {}
+// SetInstanceStatus was not available on version 2 of the API.
+func (api *APIv2) SetInstanceStatus(_, _ struct{}) {}
 
 // NewAPIv1 is a wrapper that creates a V1 upgrade-series API.
 func NewAPIv1(ctx facade.Context) (*APIv1, error) {
