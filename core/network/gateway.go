@@ -11,38 +11,11 @@ import (
 	"strings"
 )
 
-var simulatedOS = ""
-
-// GetDefaultRoute returns the IP address and device name of default gateway on the machine.
-// If we don't support OS, or we don't have a default route, we return nothing (not an error!).
-func GetDefaultRoute() (net.IP, string, error) {
-	os := simulatedOS
-	if os == "" {
-		os = runtime.GOOS
-	}
-	// TODO(wpk) 2017-11-20 Add Windows support here, hence the switch.
-	switch os {
-	case "linux":
-		return getDefaultRouteLinux()
-	default:
-		return nil, "", nil
-	}
+var goos = func() string {
+	return runtime.GOOS
 }
 
-func parseIpRouteShowLine(line string) (string, map[string]string) {
-	values := make(map[string]string)
-	fields := strings.Fields(line)
-	if len(fields) < 2 {
-		return "", values
-	}
-	to, fields := fields[0], fields[1:]
-	for ; len(fields) >= 2; fields = fields[2:] {
-		values[fields[0]] = fields[1]
-	}
-	return to, values
-}
-
-func launchIpRouteShowReal() (string, error) {
+var runIPRouteShow = func() (string, error) {
 	output, err := exec.Command("ip", "route", "show").CombinedOutput()
 	if err != nil {
 		return "", err
@@ -50,10 +23,20 @@ func launchIpRouteShowReal() (string, error) {
 	return string(output), nil
 }
 
-var launchIpRouteShow = launchIpRouteShowReal
+// GetDefaultRoute returns the IP address and device name of default gateway on the machine.
+// If we don't support OS, or we don't have a default route, we return nothing (not an error!).
+func GetDefaultRoute() (net.IP, string, error) {
+	// TODO(wpk) 2017-11-20 Add Windows support here, hence the switch.
+	switch goos() {
+	case "linux":
+		return getDefaultRouteLinux()
+	default:
+		return nil, "", nil
+	}
+}
 
 func getDefaultRouteLinux() (net.IP, string, error) {
-	output, err := launchIpRouteShow()
+	output, err := runIPRouteShow()
 	if err != nil {
 		return nil, "", err
 	}
@@ -94,4 +77,17 @@ func getDefaultRouteLinux() (net.IP, string, error) {
 		}
 	}
 	return net.ParseIP(defaultRoute), defaultRouteDevice, nil
+}
+
+func parseIpRouteShowLine(line string) (string, map[string]string) {
+	values := make(map[string]string)
+	fields := strings.Fields(line)
+	if len(fields) < 2 {
+		return "", values
+	}
+	to, fields := fields[0], fields[1:]
+	for ; len(fields) >= 2; fields = fields[2:] {
+		values[fields[0]] = fields[1]
+	}
+	return to, values
 }

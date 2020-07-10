@@ -1,14 +1,12 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package network_test
+package network
 
 import (
 	"testing"
 
-	jc "github.com/juju/testing/checkers"
-
-	coretesting "github.com/juju/juju/testing"
+	jujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 )
 
@@ -16,13 +14,19 @@ func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
-type ImportSuite struct{}
+// BaseSuite exposes base testing functionality to the network tests,
+// including patching package-private functions/variables.
+type BaseSuite struct {
+	jujutesting.IsolationSuite
+}
 
-var _ = gc.Suite(&ImportSuite{})
+// PatchGOOS allows us to simulate the running OS.
+func (s *BaseSuite) PatchGOOS(os string) {
+	s.PatchValue(&goos, func() string { return os })
+}
 
-func (*ImportSuite) TestImports(c *gc.C) {
-	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/network")
-
-	// This package only brings in other core packages.
-	c.Assert(found, jc.SameContents, []string{})
+// PatchUnIPRouteShow allows us to simulate the return from running
+// "ip route show" on the host.
+func (s *BaseSuite) PatchRunIPRouteShow(run func() (string, error)) {
+	s.PatchValue(&runIPRouteShow, run)
 }

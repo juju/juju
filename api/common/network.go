@@ -65,7 +65,7 @@ func (n *netPackageConfigSource) InterfaceAddresses(name string) ([]net.Addr, er
 
 // DefaultRoute implements NetworkConfigSource.
 func (n *netPackageConfigSource) DefaultRoute() (net.IP, string, error) {
-	return network.GetDefaultRoute()
+	return corenetwork.GetDefaultRoute()
 }
 
 // OvsManagedBridges returns the names of network interfaces that
