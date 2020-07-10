@@ -337,7 +337,7 @@ func (a *API) SetInstanceStatus(args params.SetStatus) (params.ErrorResults, err
 	for i, entity := range args.Entities {
 		machine, err := a.authAndGetMachine(entity.Tag, canAccess)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 			continue
 		}
 
@@ -345,7 +345,7 @@ func (a *API) SetInstanceStatus(args params.SetStatus) (params.ErrorResults, err
 			Status:  status.Status(entity.Status),
 			Message: entity.Info,
 		}); err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = commonerrors.ServerError(err)
 		}
 	}
 
