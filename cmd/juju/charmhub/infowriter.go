@@ -131,6 +131,7 @@ func (b bundleInfoWriter) Print() error {
 		Summary:     b.in.Summary,
 		Publisher:   b.in.Publisher,
 		Description: b.in.Description,
+		Tags:        strings.Join(b.in.Tags, ", "),
 		Channels:    b.channels(),
 	}
 	return b.print(out)
@@ -169,9 +170,9 @@ func (c charmInfoWriter) Print() error {
 		Supports:    strings.Join(c.in.Series, ", "),
 		Description: c.in.Description,
 		Channels:    c.channels(),
+		Tags:        strings.Join(c.in.Tags, ", "),
 	}
 	if c.in.Charm != nil {
-		out.Tags = strings.Join(c.in.Charm.Tags, ", ")
 		out.Subordinate = c.in.Charm.Subordinate
 	}
 	if rels, err := c.relations(); err == nil {

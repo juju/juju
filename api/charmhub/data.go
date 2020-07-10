@@ -22,6 +22,7 @@ func convertCharmInfoResult(info params.InfoResponse) InfoResponse {
 		Summary:     info.Summary,
 		Series:      info.Series,
 		StoreURL:    info.StoreURL,
+		Tags:        info.Tags,
 		Channels:    convertChannels(info.Channels),
 		Tracks:      info.Tracks,
 	}
@@ -85,7 +86,6 @@ func convertCharm(in interface{}) *Charm {
 		Config:      params.FromCharmOptionMap(inC.Config),
 		Relations:   inC.Relations,
 		Subordinate: inC.Subordinate,
-		Tags:        inC.Tags,
 		UsedBy:      inC.UsedBy,
 	}
 }
@@ -110,6 +110,7 @@ type InfoResponse struct {
 	Summary     string             `json:"summary"`
 	Series      []string           `json:"series"`
 	StoreURL    string             `json:"store-url"`
+	Tags        []string           `json:"tags"`
 	Charm       *Charm             `json:"charm,omitempty"`
 	Bundle      *Bundle            `json:"bundle,omitempty"`
 	Channels    map[string]Channel `json:"channel-map"`
@@ -153,7 +154,6 @@ type Charm struct {
 	Config      *charm.Config                `json:"config"`
 	Relations   map[string]map[string]string `json:"relations"`
 	Subordinate bool                         `json:"subordinate"`
-	Tags        []string                     `json:"tags"`
 	UsedBy      []string                     `json:"used-by"` // bundles which use the charm
 }
 

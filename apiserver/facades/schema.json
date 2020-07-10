@@ -9618,12 +9618,6 @@
                         "subordinate": {
                             "type": "boolean"
                         },
-                        "tags": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
                         "used-by": {
                             "type": "array",
                             "items": {
@@ -9636,7 +9630,6 @@
                         "config",
                         "relations",
                         "subordinate",
-                        "tags",
                         "used-by"
                     ]
                 },
@@ -9838,6 +9831,12 @@
                         "summary": {
                             "type": "string"
                         },
+                        "tags": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
                         "tracks": {
                             "type": "array",
                             "items": {
@@ -9858,6 +9857,7 @@
                         "summary",
                         "series",
                         "store-url",
+                        "tags",
                         "channel-map",
                         "tracks"
                     ]

@@ -29,11 +29,17 @@ summary: WordPress is a full featured web blogging tool, this charm deploys it.
 publisher: Wordress Charmers
 supports: bionic, xenial
 tags: app, seven
-subordinate: false
+subordinate: true
 description: |-
   This will install and setup WordPress optimized to run in the cloud.
   By default it will place Ngnix and php-fpm configured to scale horizontally with
   Nginx's reverse proxy.
+relations:
+  provides:
+    one: two
+    three: four
+  requires:
+    five: six
 channels: |
   latest/stable:     1.0.3  2019-12-16  (16)  12MB
   latest/candidate:  1.0.3  2019-12-16  (17)  12MB
@@ -77,6 +83,7 @@ func (s *printInfoSuite) TestBundlePrintInfo(c *gc.C) {
 bundle-id: bundleBUNDLEbundleBUNDLEbundle01
 summary: A bundle by charmed-osm.
 publisher: charmed-osm
+tags: networking
 description: Single instance OSM bundle.
 channels: |
   latest/stable:     1.0.3  2019-12-16  (16)  12MB
@@ -95,6 +102,7 @@ func getBundleInfoResponse() charmhub.InfoResponse {
 		Description: "Single instance OSM bundle.",
 		Publisher:   "charmed-osm",
 		Summary:     "A bundle by charmed-osm.",
+		Tags:        []string{"networking"},
 		Bundle:      nil,
 		Channels: map[string]charmhub.Channel{
 			"latest/stable": {
@@ -142,8 +150,18 @@ func getCharmInfoResponse() charmhub.InfoResponse {
 		Publisher:   "Wordress Charmers",
 		Description: "This will install and setup WordPress optimized to run in the cloud.\nBy default it will place Ngnix and php-fpm configured to scale horizontally with\nNginx's reverse proxy.",
 		Series:      []string{"bionic", "xenial"},
+		Tags:        []string{"app", "seven"},
 		Charm: &charmhub.Charm{
-			Tags: []string{"app", "seven"},
+			Subordinate: true,
+			Relations: map[string]map[string]string{
+				"provides": {
+					"one":   "two",
+					"three": "four",
+				},
+				"requires": {
+					"five": "six",
+				},
+			},
 		},
 		Channels: map[string]charmhub.Channel{
 			"latest/stable": {
