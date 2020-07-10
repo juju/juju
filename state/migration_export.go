@@ -901,6 +901,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	exApplication.SetStatus(statusArgs)
 	exApplication.SetStatusHistory(e.statusHistoryArgs(globalKey))
 	exApplication.SetAnnotations(e.getAnnotations(globalKey))
+	exApplication.SetCharmOrigin(e.getCharmOrigin(application.doc))
 
 	globalAppWorkloadKey := applicationGlobalOperatorKey(appName)
 	operatorStatusArgs, err := e.statusArgs(globalAppWorkloadKey)
@@ -1889,6 +1890,16 @@ func (e *exporter) getAnnotations(key string) map[string]string {
 		delete(e.annotations, key)
 	}
 	return result.Annotations
+}
+
+func (e *exporter) getCharmOrigin(doc applicationDoc) description.CharmOriginArgs {
+	source := "unknown"
+	if doc.CharmOrigin != nil {
+		source = doc.CharmOrigin.Source
+	}
+	return description.CharmOriginArgs{
+		Source: source,
+	}
 }
 
 func (e *exporter) readAllSettings() error {
