@@ -377,8 +377,7 @@ func discoverAuthSender() *azuretesting.MockSender {
 	}
 }
 
-func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {
-	resourceGroupName := "juju-testmodel-model-deadbeef-0bad-400d-8000-4b1d0d06f00d"
+func (s *environSuite) initResourceGroupSenders(resourceGroupName string) azuretesting.Senders {
 	senders := azuretesting.Senders{s.makeSender(".*/resourcegroups/"+resourceGroupName, s.group)}
 	return senders
 }
@@ -887,6 +886,7 @@ type assertStartInstanceRequestsParams struct {
 	diskSizeGB          int
 	osProfile           *compute.OSProfile
 	needsProviderInit   bool
+	customResourceGroup bool
 	unmanagedStorage    bool
 	instanceType        string
 }
@@ -1188,7 +1188,11 @@ func (s *environSuite) assertStartInstanceRequests(
 			c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests)
 		}
 		if args.needsProviderInit {
-			c.Assert(requests[nexti()].Method, gc.Equals, "PUT") // resource groups
+			if args.customResourceGroup {
+				c.Assert(requests[nexti()].Method, gc.Equals, "GET") // resource groups
+			} else {
+				c.Assert(requests[nexti()].Method, gc.Equals, "PUT") // resource groups
+			}
 			c.Assert(requests[nexti()].Method, gc.Equals, "GET") // skus
 			startInstanceRequests.resourceGroups = requests[0]
 			startInstanceRequests.skus = requests[1]
@@ -1244,13 +1248,15 @@ type startInstanceRequests struct {
 	deployment     *http.Request
 }
 
+const resourceGroupName = "juju-testmodel-model-deadbeef-0bad-400d-8000-4b1d0d06f00d"
+
 func (s *environSuite) TestBootstrap(c *gc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
-	s.sender = s.initResourceGroupSenders()
+	s.sender = s.initResourceGroupSenders(resourceGroupName)
 	s.sender = append(s.sender, s.startInstanceSenders(true)...)
 	s.requests = nil
 	result, err := env.Bootstrap(
@@ -1314,7 +1320,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
 	s.sender = append(s.sender, s.resourceSkusSender())
-	s.sender = append(s.sender, s.initResourceGroupSenders()...)
+	s.sender = append(s.sender, s.initResourceGroupSenders(resourceGroupName)...)
 	s.sender = append(s.sender, s.startInstanceSendersNoSizes()...)
 	s.requests = nil
 	err := bootstrap.Bootstrap(
@@ -1355,13 +1361,65 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	})
 }
 
+func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bootstrap not supported on Windows")
+	}
+	defer envtesting.DisableFinishBootstrap()()
+
+	ctx := envtesting.BootstrapContext(c)
+	env := prepareForBootstrap(c, ctx, s.provider, &s.sender, testing.Attrs{"resource-group-name": "foo"})
+
+	s.sender = append(s.sender, s.resourceSkusSender())
+	s.sender = append(s.sender, s.initResourceGroupSenders("foo")...)
+	s.sender = append(s.sender, s.startInstanceSendersNoSizes()...)
+	s.requests = nil
+	err := bootstrap.Bootstrap(
+		ctx, env, s.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: testing.FakeControllerConfig(),
+			AdminSecret:      jujutesting.AdminSecret,
+			CAPrivateKey:     testing.CAKey,
+			BootstrapSeries:  "bionic",
+			BuildAgentTarball: func(build bool, ver *version.Number, _ string) (*sync.BuiltAgent, error) {
+				c.Assert(build, jc.IsFalse)
+				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+			},
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+		},
+	)
+	// If we aren't on amd64, this should correctly fail. See also:
+	// lp#1638706: environSuite.TestBootstrapInstanceConstraints fails on rare archs and series
+	if arch.HostArch() != "amd64" {
+		wantErr := fmt.Sprintf("model %q of type %s does not support instances running on %q",
+			env.Config().Name(),
+			env.Config().Type(),
+			arch.HostArch())
+		c.Assert(err, gc.ErrorMatches, wantErr)
+		c.SucceedNow()
+	}
+	// amd64 should pass the rest of the test.
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(s.requests), gc.Equals, numExpectedStartInstanceRequests)
+	s.vmTags[tags.JujuIsController] = to.StringPtr("true")
+	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
+		availabilitySetName: "juju-controller",
+		imageReference:      &xenialImageReference,
+		diskSizeGB:          32,
+		osProfile:           &s.linuxOsProfile,
+		needsProviderInit:   true,
+		customResourceGroup: true,
+		instanceType:        "Standard_D1",
+	})
+}
+
 func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
-	s.sender = s.initResourceGroupSenders()
+	s.sender = s.initResourceGroupSenders(resourceGroupName)
 	s.sender = append(s.sender, s.startInstanceSenders(true)...)
 	s.requests = nil
 	config := testing.FakeControllerConfig()
@@ -1676,6 +1734,19 @@ func (s *environSuite) TestDestroyHostedModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.requests, gc.HasLen, 1)
 	c.Assert(s.requests[0].Method, gc.Equals, "DELETE")
+}
+
+func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
+	env := s.openEnviron(c,
+		testing.Attrs{"controller-uuid": utils.MustNewUUID().String(), "resource-group-name": "foo"})
+	s.sender = azuretesting.Senders{
+		s.makeSender("/deployments/purge-resource-group", nil), // PUT
+	}
+	err := env.Destroy(s.callCtx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.requests, gc.HasLen, 1)
+	c.Assert(s.requests[0].Method, gc.Equals, "PUT")
+	c.Assert(s.requests[0].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/resourcegroups/foo/providers/Microsoft.Resources/deployments/purge-resource-group")
 }
 
 func (s *environSuite) TestDestroyHostedModelWithInvalidCredential(c *gc.C) {

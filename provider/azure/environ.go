@@ -103,8 +103,8 @@ type azureEnviron struct {
 	// subscription that corresponds to the environment.
 	resourceGroup string
 
-	// envName is the name of the environment.
-	envName string
+	// modelName is the name of the model.
+	modelName string
 
 	// authorizer is the authorizer we use for Azure.
 	authorizer *cloudSpecAuth
@@ -154,9 +154,13 @@ func newEnviron(
 		return nil, errors.Trace(err)
 	}
 
-	modelTag := names.NewModelTag(cfg.UUID())
-	env.resourceGroup = resourceGroupName(modelTag, cfg.Name())
-	env.envName = cfg.Name()
+	env.resourceGroup = env.config.resourceGroupName
+	// If no user specified resource group, make one from the model UUID.
+	if env.resourceGroup == "" {
+		modelTag := names.NewModelTag(cfg.UUID())
+		env.resourceGroup = resourceGroupName(modelTag, cfg.Name())
+	}
+	env.modelName = cfg.Name()
 
 	// We need a deterministic storage account name, so that we can
 	// defer creation of the storage account to the VM deployment,
@@ -230,7 +234,7 @@ func (env *azureEnviron) Create(ctx context.ProviderCallContext, args environs.C
 	if err := verifyCredentials(env, ctx); err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(env.initResourceGroup(ctx, args.ControllerUUID, false))
+	return errors.Trace(env.initResourceGroup(ctx, args.ControllerUUID, env.config.resourceGroupName != "", false))
 }
 
 // Bootstrap is part of the Environ interface.
@@ -239,7 +243,7 @@ func (env *azureEnviron) Bootstrap(
 	callCtx context.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
-	if err := env.initResourceGroup(callCtx, args.ControllerConfig.ControllerUUID(), true); err != nil {
+	if err := env.initResourceGroup(callCtx, args.ControllerConfig.ControllerUUID(), env.config.resourceGroupName != "", true); err != nil {
 		return nil, errors.Annotate(err, "creating controller resource group")
 	}
 	result, err := common.Bootstrap(ctx, env, callCtx, args)
@@ -254,9 +258,7 @@ func (env *azureEnviron) Bootstrap(
 }
 
 // initResourceGroup creates a resource group for this environment.
-func (env *azureEnviron) initResourceGroup(ctx context.ProviderCallContext, controllerUUID string, controller bool) error {
-	resourceGroupsClient := resources.GroupsClient{env.resources}
-
+func (env *azureEnviron) initResourceGroup(ctx context.ProviderCallContext, controllerUUID string, existingResourceGroup, controller bool) error {
 	env.mu.Lock()
 	tags := tags.ResourceTags(
 		names.NewModelTag(env.config.Config.UUID()),
@@ -265,13 +267,25 @@ func (env *azureEnviron) initResourceGroup(ctx context.ProviderCallContext, cont
 	)
 	env.mu.Unlock()
 
-	logger.Debugf("creating resource group %q", env.resourceGroup)
 	sdkCtx := stdcontext.Background()
-	if _, err := resourceGroupsClient.CreateOrUpdate(sdkCtx, env.resourceGroup, resources.Group{
-		Location: to.StringPtr(env.location),
-		Tags:     *to.StringMapPtr(tags),
-	}); err != nil {
-		return errorutils.HandleCredentialError(errors.Annotate(err, "creating resource group"), ctx)
+	resourceGroupsClient := resources.GroupsClient{env.resources}
+	if existingResourceGroup {
+		logger.Debugf("using existing resource group %q for model %q", env.resourceGroup, env.modelName)
+		g, err := resourceGroupsClient.Get(sdkCtx, env.resourceGroup)
+		if err != nil {
+			return errorutils.HandleCredentialError(errors.Annotatef(err, "checking resource group %q", env.resourceGroup), ctx)
+		}
+		if region := to.String(g.Location); region != env.location {
+			return errors.Errorf("cannot use resource group in region %q when operating in region %q", region, env.location)
+		}
+	} else {
+		logger.Debugf("creating resource group %q for model %q", env.resourceGroup, env.modelName)
+		if _, err := resourceGroupsClient.CreateOrUpdate(sdkCtx, env.resourceGroup, resources.Group{
+			Location: to.StringPtr(env.location),
+			Tags:     *to.StringMapPtr(tags),
+		}); err != nil {
+			return errorutils.HandleCredentialError(errors.Annotate(err, "creating resource group"), ctx)
+		}
 	}
 
 	if !controller {
@@ -804,7 +818,7 @@ func (env *azureEnviron) createVirtualMachine(
 		})
 	}
 
-	logger.Debugf("- creating virtual machine deployment")
+	logger.Debugf("- creating virtual machine deployment in %q", env.resourceGroup)
 	template := armtemplates.Template{Resources: resources}
 	// NOTE(axw) VMs take a long time to go to "Succeeded", so we do not
 	// block waiting for them to be fully provisioned. This means we won't
@@ -1632,7 +1646,7 @@ func isControllerDeployment(deployment resources.DeploymentExtended) bool {
 
 // Destroy is specified in the Environ interface.
 func (env *azureEnviron) Destroy(ctx context.ProviderCallContext) error {
-	logger.Debugf("destroying model %q", env.envName)
+	logger.Debugf("destroying model %q", env.modelName)
 	logger.Debugf("- deleting resource group %q", env.resourceGroup)
 	sdkCtx := stdcontext.Background()
 	if err := env.deleteResourceGroup(ctx, sdkCtx, env.resourceGroup); err != nil {
@@ -1646,7 +1660,7 @@ func (env *azureEnviron) Destroy(ctx context.ProviderCallContext) error {
 
 // DestroyController is specified in the Environ interface.
 func (env *azureEnviron) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
-	logger.Debugf("destroying model %q", env.envName)
+	logger.Debugf("destroying model %q", env.modelName)
 	logger.Debugf("deleting resource groups")
 	if err := env.deleteControllerManagedResourceGroups(ctx, controllerUUID); err != nil {
 		return errors.Trace(err)
@@ -1723,6 +1737,10 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx context.Provi
 }
 
 func (env *azureEnviron) deleteResourceGroup(ctx context.ProviderCallContext, sdkCtx stdcontext.Context, resourceGroup string) error {
+	// For user specified, existing resource groups, delete the contents, not the group.
+	if env.config.resourceGroupName != "" {
+		return env.deleteResourcesInGroup(ctx, sdkCtx, resourceGroup)
+	}
 	client := resources.GroupsClient{env.resources}
 	future, err := client.Delete(sdkCtx, resourceGroup)
 	if err != nil {
@@ -1739,6 +1757,41 @@ func (env *azureEnviron) deleteResourceGroup(ctx context.ProviderCallContext, sd
 	result, err := future.Result(client)
 	if err != nil && !isNotFoundResult(result) {
 		return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
+	}
+	return nil
+}
+
+func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext, sdkCtx stdcontext.Context, resourceGroup string) error {
+	logger.Debugf("deleting all resources in %s", resourceGroup)
+
+	// We purge the contents of a resource group by deploying an empty deployment.
+	client := resources.DeploymentsClient{env.resources}
+	template := armtemplates.Template{
+		Resources: []armtemplates.Resource{},
+	}
+	templateMap, err := template.Map()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	deployment := resources.Deployment{
+		Properties: &resources.DeploymentProperties{
+			Mode:     resources.Complete,
+			Template: &templateMap,
+		},
+	}
+	future, err := client.CreateOrUpdate(
+		sdkCtx,
+		resourceGroup,
+		"purge-resource-group",
+		deployment,
+	)
+	if err != nil {
+		return errorutils.HandleCredentialError(errors.Annotatef(err, "purging resource group %q", resourceGroup), ctx)
+	}
+
+	err = future.WaitForCompletionRef(sdkCtx, client.Client)
+	if err != nil {
+		return errors.Annotatef(err, "purging resource group %q", resourceGroup)
 	}
 	return nil
 }

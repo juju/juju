@@ -464,6 +464,10 @@ var bootstrapTests = []bootstrapTest{{
 	info: "controller name cannot be set via config",
 	args: []string{"--config", "controller-name=test"},
 	err:  `controller name cannot be set via config, please use cmd args`,
+}, {
+	info: "resource-group-name needs --no-default-model",
+	args: []string{"--config", "resource-group-name=foo"},
+	err:  `if using resource-group-name "foo" then --no-default-model is required as well`,
 }}
 
 func (s *BootstrapSuite) TestRunCloudNameUnknown(c *gc.C) {
@@ -612,6 +616,25 @@ func (s *BootstrapSuite) TestBootstrapDefaultModel(c *gc.C) {
 	c.Assert(utils.IsValidUUIDString(bootstrapFuncs.args.ControllerConfig.ControllerUUID()), jc.IsTrue)
 	c.Assert(bootstrapFuncs.args.HostedModelConfig["name"], gc.Equals, "mymodel")
 	c.Assert(bootstrapFuncs.args.HostedModelConfig["foo"], gc.Equals, "bar")
+}
+
+func (s *BootstrapSuite) TestBootstrapNoDefaultModel(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	var bootstrapFuncs fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrapFuncs
+	})
+
+	cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--auto-upgrade",
+		"--no-default-model",
+		"--config", "foo=bar",
+	)
+	c.Assert(utils.IsValidUUIDString(bootstrapFuncs.args.ControllerConfig.ControllerUUID()), jc.IsTrue)
+	c.Assert(bootstrapFuncs.args.HostedModelConfig, gc.HasLen, 0)
 }
 
 func (s *BootstrapSuite) TestBootstrapTimeout(c *gc.C) {

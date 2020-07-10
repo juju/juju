@@ -749,9 +749,6 @@ func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	if cfg.BootstrapMachineInstanceId == "" {
 		return errors.New("missing bootstrap machine instance ID")
 	}
-	if len(cfg.HostedModelConfig) == 0 {
-		return errors.New("missing hosted model config")
-	}
 	return nil
 }
 

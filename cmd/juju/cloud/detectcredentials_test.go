@@ -159,7 +159,7 @@ func (s *detectCredentialsSuite) assertDetectCredential(c *gc.C, t detectCredent
 	s.aCredential = jujucloud.CloudCredential{
 		DefaultRegion: "default region",
 		AuthCredentials: map[string]jujucloud.Credential{
-			"test": s.credentialWithLabel(jujucloud.AccessKeyAuthType, "credential")},
+			"test cred": s.credentialWithLabel(jujucloud.AccessKeyAuthType, "credential")},
 	}
 	clouds := map[string]jujucloud.Cloud{
 		"test-cloud": {
@@ -194,7 +194,7 @@ func (s *detectCredentialsSuite) TestDetectCredentialOverwrites(c *gc.C) {
 	s.store.Credentials = map[string]jujucloud.CloudCredential{
 		"test-cloud": {
 			AuthCredentials: map[string]jujucloud.Credential{
-				"test": jujucloud.NewCredential(jujucloud.AccessKeyAuthType, nil),
+				"test_cred": jujucloud.NewCredential(jujucloud.AccessKeyAuthType, nil),
 			},
 		},
 	}
@@ -206,7 +206,7 @@ func (s *detectCredentialsSuite) TestDetectCredentialKeepsExistingRegion(c *gc.C
 		"test-cloud": {
 			DefaultRegion: "west",
 			AuthCredentials: map[string]jujucloud.Credential{
-				"test": jujucloud.NewCredential(jujucloud.AccessKeyAuthType, nil),
+				"test_cred": jujucloud.NewCredential(jujucloud.AccessKeyAuthType, nil),
 			},
 		},
 	}

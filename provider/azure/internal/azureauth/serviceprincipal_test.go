@@ -79,7 +79,7 @@ func currentUserSender() autorest.Sender {
 
 func createServicePrincipalSender() autorest.Sender {
 	return azuretesting.NewSenderWithValue(graphrbac.ServicePrincipal{
-		AppID:    to.StringPtr("cbb548f1-5039-4836-af0b-727e8571f6a9"),
+		AppID:    to.StringPtr("60a04dc9-1857-425f-8076-5ba81ca53d66"),
 		ObjectID: to.StringPtr("sp-object-id"),
 	})
 }
@@ -115,7 +115,7 @@ func createServicePrincipalNotReferenceSender() autorest.Sender {
 func servicePrincipalListSender() autorest.Sender {
 	return azuretesting.NewSenderWithValue(graphrbac.ServicePrincipalListResult{
 		Value: &[]graphrbac.ServicePrincipal{{
-			AppID:    to.StringPtr("cbb548f1-5039-4836-af0b-727e8571f6a9"),
+			AppID:    to.StringPtr("60a04dc9-1857-425f-8076-5ba81ca53d66"),
 			ObjectID: to.StringPtr("sp-object-id"),
 		}},
 	})
@@ -203,7 +203,7 @@ func (s *InteractiveSuite) TestInteractive(c *gc.C) {
 		SubscriptionId:            subscriptionId,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appId, gc.Equals, "cbb548f1-5039-4836-af0b-727e8571f6a9")
+	c.Assert(appId, gc.Equals, "60a04dc9-1857-425f-8076-5ba81ca53d66")
 	c.Assert(password, gc.Equals, "33333333-3333-3333-3333-333333333333")
 	c.Assert(stderr.String(), gc.Equals, `
 Initiating interactive authentication.
