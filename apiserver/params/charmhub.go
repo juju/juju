@@ -55,21 +55,12 @@ type Channel struct {
 	Version    string `json:"version"`
 }
 
-type CharmHubEntity struct {
-	//Categories  []Category        `json:"categories"`
-	Description string `json:"description"`
-	License     string `json:"license"`
-	//Media       []Media           `json:"media"`
-	Publisher map[string]string `json:"publisher"`
-	Summary   string            `json:"summary"`
-	UsedBy    []string          `json:"used-by"` // bundles which use the charm
-}
-
 type CharmHubCharm struct {
 	Config      map[string]CharmOption       `json:"config"`
 	Relations   map[string]map[string]string `json:"relations"`
 	Subordinate bool                         `json:"subordinate"`
 	UsedBy      []string                     `json:"used-by"` // bundles which use the charm
+	Series      []string                     `json:"series"`
 }
 
 type CharmHubBundle struct {

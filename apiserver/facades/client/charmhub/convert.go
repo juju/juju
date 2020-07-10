@@ -23,7 +23,6 @@ func convertCharmInfoResult(info transport.InfoResponse, clientURL string) param
 		Name:        info.Name,
 		Description: info.Entity.Description,
 		Publisher:   publisher(info.Entity),
-		Series:      transformSeries(info.DefaultRelease),
 		Summary:     info.Entity.Summary,
 		Tags:        categories(info.Entity.Categories),
 		StoreURL:    transformStoreURL(clientURL, info.Name),
@@ -31,9 +30,12 @@ func convertCharmInfoResult(info transport.InfoResponse, clientURL string) param
 	switch ir.Type {
 	case "bundle":
 		ir.Bundle = convertBundle()
+		// TODO (stickupkid): Get the Bundle.Series and set it to the
+		// InfoResponse at a high level.
 	case "charm":
-		ir.Charm = convertCharm(info)
+		ir.Charm, ir.Series = convertCharm(info)
 	}
+
 	ir.Tracks, ir.Channels = transformChannelMap(info.ChannelMap)
 	return ir
 }
@@ -77,6 +79,8 @@ func publisher(ch transport.Entity) string {
 
 // transformStoreURL converts the store url into something we can use in the
 // output.
+// TODO (stickupkid): The API should provide this URL or at least guidance on
+// how to construct it.
 func transformStoreURL(clientURL, name string) string {
 	url := strings.TrimSuffix(clientURL, "/")
 	return fmt.Sprintf("%s/%s", url, name)
@@ -84,10 +88,16 @@ func transformStoreURL(clientURL, name string) string {
 
 // transformSeries returns a slice of supported series for that revision.
 func transformSeries(channel transport.ChannelMap) []string {
-	platforms := channel.Revision.Platforms
+	if meta := unmarshalCharmMetadata(channel.Revision.MetadataYAML); meta != nil {
+		return uniqueStrings(meta.Series)
+	}
+	return nil
+}
+
+func uniqueStrings(strings []string) []string {
 	series := set.NewStrings()
-	for _, s := range platforms {
-		series.Add(s.Series)
+	for _, s := range strings {
+		series.Add(s)
 	}
 	return series.SortedValues()
 }
@@ -118,18 +128,22 @@ func transformChannelMap(channelMap []transport.ChannelMap) ([]string, map[strin
 	return trackList, channels
 }
 
-func convertCharm(info transport.InfoResponse) *params.CharmHubCharm {
+func convertCharm(info transport.InfoResponse) (*params.CharmHubCharm, []string) {
 	charmHubCharm := params.CharmHubCharm{
 		UsedBy: info.Entity.UsedBy,
 	}
+	var series []string
 	if meta := unmarshalCharmMetadata(info.DefaultRelease.Revision.MetadataYAML); meta != nil {
 		charmHubCharm.Subordinate = meta.Subordinate
 		charmHubCharm.Relations = transformRelations(meta.Requires, meta.Provides)
+
+		// Ensure the series is outputted correctly.
+		series = uniqueStrings(meta.Series)
 	}
 	if cfg := unmarshalCharmConfig(info.DefaultRelease.Revision.ConfigYAML); cfg != nil {
 		charmHubCharm.Config = params.ToCharmOptionMap(cfg)
 	}
-	return &charmHubCharm
+	return &charmHubCharm, series
 }
 
 func unmarshalCharmMetadata(metadataYAML string) *charm.Meta {

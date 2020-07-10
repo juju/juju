@@ -9606,6 +9606,12 @@
                                 }
                             }
                         },
+                        "series": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
                         "subordinate": {
                             "type": "boolean"
                         },
@@ -9621,7 +9627,8 @@
                         "config",
                         "relations",
                         "subordinate",
-                        "used-by"
+                        "used-by",
+                        "series"
                     ]
                 },
                 "CharmHubEntityFindResult": {

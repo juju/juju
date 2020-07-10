@@ -220,7 +220,7 @@ func getParamsInfoResponse() params.InfoResponse {
 		Publisher:   "Wordress Charmers",
 		Summary:     "WordPress is a full featured web blogging tool, this charm deploys it.",
 		Tracks:      []string{"latest"},
-		Series:      []string{"bionic"},
+		Series:      []string{"bionic", "xenial"},
 		StoreURL:    "https://someurl.com/wordpress",
 		Tags:        []string{"blog"},
 		Channels: map[string]params.Channel{
@@ -263,7 +263,7 @@ func getParamsFindResponse() params.FindResponse {
 		Publisher: "Wordress Charmers",
 		Summary:   "WordPress is a full featured web blogging tool, this charm deploys it.",
 		Version:   "1.0.3",
-		Series:    []string{"bionic"},
+		Series:    []string{"bionic", "xenial"},
 		StoreURL:  "https://someurl.com/wordpress",
 	}
 }
