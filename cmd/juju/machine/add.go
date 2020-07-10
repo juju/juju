@@ -34,63 +34,110 @@ import (
 )
 
 var addMachineDoc = `
-Juju supports adding machines using provider-specific machine instances
-(EC2 instances, OpenStack servers, MAAS nodes, etc.); existing machines
-running a supported operating system (see "manual provisioning" below),
-and containers on machines. Machines are created in a clean state and
-ready to have units deployed.
+Add a new machine to the model. The command operates in three modes,
+depending on the options provided:
 
-Without any parameters, add machine will allocate a new provider-specific
-machine (multiple, if "-n" is provided). When adding a new machine, you
-may specify constraints for the machine to be provisioned; the provider
-will interpret these constraints in order to decide what kind of machine
-to allocate.
+  - provision a new machine from the cloud (default, see "Provisioning
+    a new machine")
+  - create an operating system container (see "Container creation")
+  - connect to a live computer and allocate it as a machine (see "Manual 
+    provisioning")
 
-If a container type is specified (e.g. "lxd"), then add machine will
-allocate a container of that type on a new provider-specific machine. It is
-also possible to add containers to existing machines using the format
-<container type>:<machine number>. Constraints cannot be combined with
-deploying a container to an existing machine. The currently supported
-container types are: $CONTAINER_TYPES$.
+The add-machine command is unavailable in k8s clouds. Provisioning
+a new machine is unavailable on the manual cloud provider. 
+
+Once the add-machine command has finished, the machine's ID can be 
+used as a placement directive for deploying applications. Machine IDs 
+are also accessible via 'juju status' and 'juju machines'.
+
+
+Provisioning a new machine
+
+When add-machine is called without arguments, Juju provisions a new 
+machine instance from the current cloud. The machine's specifications, 
+including whether the machine is virtual or physical depends on the cloud.
+
+To control which instance type is provisioned, use the --constraints and 
+--series options.
+
+To add storage volumes to the instance, provide a whitespace-delimited
+list of storage constraints to the --disks option. 
+
+Add "placement directives" as an argument give Juju additional information 
+about how to allocate the machine in the cloud. For example, one can direct 
+the MAAS provider to acquire a particular node by specifying its hostname.
+
+
+Manual provisioning
+
+Call add-machine with the address of a network-accessible computer to 
+allocate that machine to the model. You should connect 
 
 Manual provisioning is the process of installing Juju on an existing machine
-and bringing it under Juju's management; currently this requires that the
-machine be running Ubuntu, that it be accessible via SSH, and be running on
-the same network as the API server.
+and bringing it under Juju's management. The Juju controller must be able to
+access the new machine over the network.
 
-It is possible to override or augment constraints by passing provider-specific
-"placement directives" as an argument; these give the provider additional
-information about how to allocate the machine. For example, one can direct the
-MAAS provider to acquire a particular node by specifying its hostname.
+
+Container creation
+
+If a operating system container type is specified (e.g. "lxd" or "kvm"), 
+then add-machine will allocate a container of that type on a new machine 
+instance. Both the new instance, and the new container will be available 
+as machines in the model.
+
+It is also possible to add containers to existing machines using the format
+<container-type>:<machine-id>. Constraints cannot be combined this mode.
+
 
 Examples:
-   juju add-machine                      (starts a new machine)
-   juju add-machine -n 2                 (starts 2 new machines)
-   juju add-machine lxd                  (starts a new machine with an lxd container)
-   juju add-machine lxd -n 2             (starts 2 new machines with an lxd container)
-   juju add-machine lxd:4                (starts a new lxd container on machine 4)
-   juju add-machine --constraints mem=8G (starts a machine with at least 8GB RAM)
-   juju add-machine ssh:user@10.10.0.3   (manually provisions machine with ssh)
-   juju add-machine winrm:user@10.10.0.3 (manually provisions machine with winrm)
-   juju add-machine zone=us-east-1a      (start a machine in zone us-east-1a on AWS)
-   juju add-machine maas2.name           (acquire machine maas2.name on MAAS)
+
+	# Start a new machine by requesting one from the cloud provider.
+	juju add-machine
+	
+	# Start 2 new machines.
+	juju add-machine -n 2
+
+	# Start a LXD container on a new machine instance and add both as machines. 
+	juju add-machine lxd
+
+	# Start two machine instances, each hosting a LXD container, then add all
+	# four as machines. 
+	juju add-machine lxd -n 2
+
+	# Create a container on machine 4 and add it as a machine.
+	juju add-machine lxd:4
+
+	# Start a new machine and require that it has 8GB RAM
+	juju add-machine --constraints mem=8G
+
+	# Start a new machine within the "us-east-1a" availability zone.
+	juju add-machine --constraints zone=us-east-1a
+
+	# Start a new machine with at least 4 CPU cores and 16GB RAM, and request
+	# three storage volumes to be attached to it. Two are large capacity (1TB)
+	# HDD and one is a lower capacity (100GB) SSD. Note: "ebs" and "ebs-ssd" 
+	# are storage pools specific to AWS. 
+	juju add-machine --constraints="cores=4 mem=16G" --disks="ebs,1T,2 ebs-ssd,100G,1"
+
+	# Allocate a machine to the model via SSH
+	juju add-machine ssh:user@10.10.0.3
+
+	# Allocate a machine to the model via WinRM
+	juju add-machine winrm:user@10.10.0.3
+
+	# Allocate a machine to the model. Note: specific to MAAS.
+	juju add-machine host.internal
+
+
+Further reading:
+	https://juju.is/docs/reference/commands/add-machine
+	https://juju.is/docs/reference/constraints
 
 See also:
-    remove-machine
+	remove-machine
+	get-model-constraints
+	set-model-constraints
 `
-
-func init() {
-	containerTypes := make([]string, len(instance.ContainerTypes))
-	for i, t := range instance.ContainerTypes {
-		containerTypes[i] = string(t)
-	}
-	addMachineDoc = strings.Replace(
-		addMachineDoc,
-		"$CONTAINER_TYPES$",
-		strings.Join(containerTypes, ", "),
-		-1,
-	)
-}
 
 // NewAddCommand returns a command that adds a machine to a model.
 func NewAddCommand() cmd.Command {
@@ -120,18 +167,18 @@ type addCommand struct {
 func (c *addCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "add-machine",
-		Args:    "[<container>:machine | <container> | ssh:[user@]host | winrm:[user@]host | placement]",
-		Purpose: "Start a new, empty machine and optionally a container, or add a container to a machine.",
+		Args:    "[<container-type>[:<machine-id>] | (ssh|winrm):[<user>@]<host> | <placement>]",
+		Purpose: "Provision a new machine or assign one to the model.",
 		Doc:     addMachineDoc,
 	})
 }
 
 func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.Series, "series", "", "The charm series")
+	f.StringVar(&c.Series, "series", "", "The operating system series to install on the new machine(s)")
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
-	f.StringVar(&c.ConstraintsStr, "constraints", "", "Additional machine constraints")
-	f.Var(disksFlag{&c.Disks}, "disks", "Constraints for disks to attach to the machine")
+	f.StringVar(&c.ConstraintsStr, "constraints", "", "Machine constraints that overwrite those available from 'juju get-model-constraints' and provider's defaults")
+	f.Var(disksFlag{&c.Disks}, "disks", "Storage constraints for disks to attach to the machine(s)")
 }
 
 func (c *addCommand) Init(args []string) error {
