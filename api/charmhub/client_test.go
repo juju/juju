@@ -109,13 +109,15 @@ func getInfoResponse() InfoResponse {
 }
 
 func getFindResponses() []FindResponse {
-	//_, entity, defaultChannelMap := getChannelMapResponse()
 	return []FindResponse{{
-		Name: "wordpress",
-		Type: "object",
-		ID:   "charmCHARMcharmCHARMcharmCHARM01",
-		//Entity:         entity,
-		//DefaultRelease: defaultChannelMap,
+		Name:      "wordpress",
+		Type:      "object",
+		ID:        "charmCHARMcharmCHARMcharmCHARM01",
+		Publisher: "Wordress Charmers",
+		Summary:   "WordPress is a full featured web blogging tool, this charm deploys it.",
+		Version:   "1.0.3",
+		Series:    []string{"bionic"},
+		StoreURL:  "https://someurl.com/wordpress",
 	}}
 }
 
@@ -147,8 +149,11 @@ func assertFindResponsesSameContents(c *gc.C, obtained, expected []FindResponse)
 	c.Assert(want.Type, gc.Equals, got.Type)
 	c.Assert(want.ID, gc.Equals, got.ID)
 	c.Assert(want.Name, gc.Equals, got.Name)
-	//assertEntitySameContents(c, want.Entity, got.Entity)
-	c.Assert(want.DefaultRelease, gc.DeepEquals, got.DefaultRelease)
+	c.Assert(want.Publisher, gc.Equals, got.Publisher)
+	c.Assert(want.Summary, gc.Equals, got.Summary)
+	c.Assert(want.Version, gc.Equals, got.Version)
+	c.Assert(want.Series, gc.DeepEquals, got.Series)
+	c.Assert(want.StoreURL, gc.Equals, got.StoreURL)
 }
 
 func getParamsInfoResponse() params.InfoResponse {
@@ -196,12 +201,14 @@ func getParamsInfoResponse() params.InfoResponse {
 }
 
 func getParamsFindResponses() []params.FindResponse {
-	//_, entity, defaultChannelMap := getParamsChannelMapResponse()
 	return []params.FindResponse{{
-		Name: "wordpress",
-		Type: "object",
-		ID:   "charmCHARMcharmCHARMcharmCHARM01",
-		//Entity:         entity,
-		//DefaultRelease: defaultChannelMap,
+		Type:      "object",
+		ID:        "charmCHARMcharmCHARMcharmCHARM01",
+		Name:      "wordpress",
+		Publisher: "Wordress Charmers",
+		Summary:   "WordPress is a full featured web blogging tool, this charm deploys it.",
+		Version:   "1.0.3",
+		Series:    []string{"bionic"},
+		StoreURL:  "https://someurl.com/wordpress",
 	}}
 }

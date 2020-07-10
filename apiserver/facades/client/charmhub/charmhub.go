@@ -21,6 +21,7 @@ var logger = loggo.GetLogger("juju.apiserver.charmhub")
 
 // Client represents a charmhub Client for making queries to the charmhub API.
 type Client interface {
+	URL() string
 	Info(ctx context.Context, name string) (transport.InfoResponse, error)
 	Find(ctx context.Context, query string) ([]transport.FindResponse, error)
 }
@@ -63,7 +64,7 @@ func (api *CharmHubAPI) Info(arg params.Entity) (params.CharmHubEntityInfoResult
 	if err != nil {
 		return params.CharmHubEntityInfoResult{}, errors.Trace(err)
 	}
-	return params.CharmHubEntityInfoResult{Result: convertCharmInfoResult(info)}, nil
+	return params.CharmHubEntityInfoResult{Result: convertCharmInfoResult(info, api.client.URL())}, nil
 }
 
 // Find queries the charmhub API with a given entity ID.
@@ -75,5 +76,5 @@ func (api *CharmHubAPI) Find(arg params.Query) (params.CharmHubEntityFindResult,
 	if err != nil {
 		return params.CharmHubEntityFindResult{}, errors.Trace(err)
 	}
-	return params.CharmHubEntityFindResult{Results: convertCharmFindResults(results)}, nil
+	return params.CharmHubEntityFindResult{Results: convertCharmFindResults(results, api.client.URL())}, nil
 }

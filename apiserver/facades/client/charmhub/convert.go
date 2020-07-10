@@ -5,6 +5,8 @@ package charmhub
 
 import (
 	"bytes"
+	"fmt"
+	"strings"
 
 	"github.com/juju/charm/v7"
 	"github.com/juju/collections/set"
@@ -14,15 +16,17 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 )
 
-func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
+func convertCharmInfoResult(info transport.InfoResponse, clientURL string) params.InfoResponse {
 	ir := params.InfoResponse{
 		Type:        info.Type,
 		ID:          info.ID,
 		Name:        info.Name,
 		Description: info.Entity.Description,
 		Publisher:   publisher(info.Entity),
+		Series:      transformSeries(info.DefaultRelease),
 		Summary:     info.Entity.Summary,
 		Tags:        categories(info.Entity.Categories),
+		StoreURL:    transformStoreURL(clientURL, info.Name),
 	}
 	switch ir.Type {
 	case "bundle":
@@ -45,39 +49,47 @@ func categories(cats []transport.Category) []string {
 	return result
 }
 
-func convertCharmFindResults(responses []transport.FindResponse) []params.FindResponse {
+func convertCharmFindResults(responses []transport.FindResponse, clientURL string) []params.FindResponse {
 	results := make([]params.FindResponse, len(responses))
 	for k, response := range responses {
-		results[k] = convertCharmFindResult(response)
+		results[k] = convertCharmFindResult(response, clientURL)
 	}
 	return results
 }
 
-func convertCharmFindResult(resp transport.FindResponse) params.FindResponse {
+func convertCharmFindResult(resp transport.FindResponse, clientURL string) params.FindResponse {
 	return params.FindResponse{
-		Type:   resp.Type,
-		ID:     resp.ID,
-		Name:   resp.Name,
-		Entity: convertEntity(resp.Entity),
-		//DefaultRelease: convertOneChannelMap(resp.DefaultRelease),
-	}
-}
-
-func convertEntity(ch transport.Entity) params.CharmHubEntity {
-	return params.CharmHubEntity{
-		//Categories:  convertCategories(ch.Categories),
-		Description: ch.Description,
-		License:     ch.License,
-		//Media:       convertMedia(ch.Media),
-		Publisher: ch.Publisher,
-		Summary:   ch.Summary,
-		UsedBy:    ch.UsedBy,
+		Type:      resp.Type,
+		ID:        resp.ID,
+		Name:      resp.Name,
+		Publisher: publisher(resp.Entity),
+		Summary:   resp.Entity.Summary,
+		Version:   resp.DefaultRelease.Revision.Version,
+		Series:    transformSeries(resp.DefaultRelease),
+		StoreURL:  transformStoreURL(clientURL, resp.Name),
 	}
 }
 
 func publisher(ch transport.Entity) string {
 	publisher, _ := ch.Publisher["display-name"]
 	return publisher
+}
+
+// transformStoreURL converts the store url into something we can use in the
+// output.
+func transformStoreURL(clientURL, name string) string {
+	url := strings.TrimSuffix(clientURL, "/")
+	return fmt.Sprintf("%s/%s", url, name)
+}
+
+// transformSeries returns a slice of supported series for that revision.
+func transformSeries(channel transport.ChannelMap) []string {
+	platforms := channel.Revision.Platforms
+	series := set.NewStrings()
+	for _, s := range platforms {
+		series.Add(s.Series)
+	}
+	return series.SortedValues()
 }
 
 // transformChannelMap returns channel map data in a format that facilitates

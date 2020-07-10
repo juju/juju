@@ -33,15 +33,26 @@ type findWriter struct {
 }
 
 func (f findWriter) Print() error {
+
 	buffer := bytes.NewBufferString("")
 
 	tw := output.TabWriter(buffer)
 
-	fmt.Fprintf(tw, "Name\tBundle\tVersion\tPublisher\tSummary\n")
+	fmt.Fprintf(tw, "Name\tBundle\tVersion\tSupports\tPublisher\tSummary\n")
 	for _, result := range f.in {
-		entity := result.Entity
+		summary, err := oneLine(result.Summary)
+		if err != nil {
+			f.warningf("%v", err)
+		}
 
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", result.Name, f.bundle(result), f.version(result), f.publisher(entity), f.summary(entity))
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+			result.Name,
+			f.bundle(result),
+			result.Version,
+			strings.Join(result.Series, ","),
+			result.Publisher,
+			summary,
+		)
 	}
 
 	if err := tw.Flush(); err != nil {
@@ -59,20 +70,10 @@ func (f findWriter) bundle(result charmhub.FindResponse) string {
 	return "-"
 }
 
-func (f findWriter) version(result charmhub.FindResponse) string {
-	//return result.DefaultRelease.Revision.Version
-	return ""
-}
-
-func (f findWriter) publisher(entity charmhub.Entity) string {
-	publisher, _ := entity.Publisher["display-name"]
-	return publisher
-}
-
-func (f findWriter) summary(entity charmhub.Entity) string {
+func oneLine(line string) (string, error) {
 	// To ensure we don't break the tabular output, we select the first line
 	// from the summary and output the first one.
-	scanner := bufio.NewScanner(bytes.NewBufferString(strings.TrimSpace(entity.Summary)))
+	scanner := bufio.NewScanner(bytes.NewBufferString(strings.TrimSpace(line)))
 	scanner.Split(bufio.ScanLines)
 
 	var summary string
@@ -81,8 +82,8 @@ func (f findWriter) summary(entity charmhub.Entity) string {
 		break
 	}
 	if err := scanner.Err(); err != nil {
-		f.warningf("%v", errors.Annotate(err, "could not gather summary"))
+		return summary, errors.Annotate(err, "could not gather summary")
 	}
 
-	return summary
+	return summary, nil
 }

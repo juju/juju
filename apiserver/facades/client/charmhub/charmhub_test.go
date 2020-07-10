@@ -62,10 +62,12 @@ func (s *charmHubAPISuite) expectAuth() {
 }
 
 func (s *charmHubAPISuite) expectInfo() {
+	s.client.EXPECT().URL().Return("https://someurl.com")
 	s.client.EXPECT().Info(gomock.Any(), "wordpress").Return(getCharmHubInfoResponse(), nil)
 }
 
 func (s *charmHubAPISuite) expectFind() {
+	s.client.EXPECT().URL().Return("https://someurl.com")
 	s.client.EXPECT().Find(gomock.Any(), "wordpress").Return(getCharmHubFindResponses(), nil)
 }
 
@@ -73,12 +75,13 @@ func assertInfoResponseSameContents(c *gc.C, obtained, expected params.InfoRespo
 	c.Assert(obtained.Type, gc.Equals, expected.Type)
 	c.Assert(obtained.ID, gc.Equals, expected.ID)
 	c.Assert(obtained.Name, gc.Equals, expected.Name)
-	//c.Assert(obtained.Description, gc.Equals, expected.Description)
 	c.Assert(obtained.Publisher, jc.DeepEquals, expected.Publisher)
 	c.Assert(obtained.Summary, gc.Equals, expected.Summary)
+	c.Assert(obtained.Series, gc.DeepEquals, expected.Series)
 	c.Assert(obtained.Channels, jc.DeepEquals, expected.Channels)
 	c.Assert(obtained.Tracks, jc.SameContents, expected.Tracks)
 	c.Assert(obtained.Tags, gc.DeepEquals, expected.Tags)
+	c.Assert(obtained.StoreURL, gc.Equals, expected.StoreURL)
 	assertCharmSameContents(c, obtained.Charm, expected.Charm)
 }
 
@@ -86,8 +89,11 @@ func assertFindResponseSameContents(c *gc.C, obtained, expected params.FindRespo
 	c.Assert(obtained.Type, gc.Equals, expected.Type)
 	c.Assert(obtained.ID, gc.Equals, expected.ID)
 	c.Assert(obtained.Name, gc.Equals, expected.Name)
-	//assertEntitySameContents(c, obtained.Entity, expected.Entity)
-	c.Assert(obtained.DefaultRelease, gc.DeepEquals, expected.DefaultRelease)
+	c.Assert(obtained.Publisher, gc.Equals, expected.Publisher)
+	c.Assert(obtained.Summary, gc.Equals, expected.Summary)
+	c.Assert(obtained.Version, gc.Equals, expected.Version)
+	c.Assert(obtained.StoreURL, gc.Equals, expected.StoreURL)
+	c.Assert(obtained.Series, gc.DeepEquals, expected.Series)
 }
 
 func assertCharmSameContents(c *gc.C, obtained, expected *params.CharmHubCharm) {
@@ -98,22 +104,30 @@ func assertCharmSameContents(c *gc.C, obtained, expected *params.CharmHubCharm) 
 }
 
 func getCharmHubFindResponses() []transport.FindResponse {
-	//_, entity, defaultRelease := getCharmHubResponse()
+	_, entity, defaultRelease := getCharmHubResponse()
 	return []transport.FindResponse{{
-		Name: "wordpress",
-		Type: "object",
-		ID:   "charmCHARMcharmCHARMcharmCHARM01",
-		//Entity:         entity,
-		//DefaultRelease: defaultRelease,
+		Name:           "wordpress",
+		Type:           "object",
+		ID:             "charmCHARMcharmCHARMcharmCHARM01",
+		Entity:         entity,
+		DefaultRelease: defaultRelease,
 	}}
 }
 
 func getCharmHubInfoResponse() transport.InfoResponse {
+	channelMap, entity, defaultRelease := getCharmHubResponse()
 	return transport.InfoResponse{
-		Name: "wordpress",
-		Type: "charm",
-		ID:   "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap: []transport.ChannelMap{{
+		Name:           "wordpress",
+		Type:           "charm",
+		ID:             "charmCHARMcharmCHARMcharmCHARM01",
+		ChannelMap:     channelMap,
+		Entity:         entity,
+		DefaultRelease: defaultRelease,
+	}
+}
+
+func getCharmHubResponse() ([]transport.ChannelMap, transport.Entity, transport.ChannelMap) {
+	return []transport.ChannelMap{{
 			Channel: transport.Channel{
 				Name: "latest/stable",
 				Platform: transport.Platform{
@@ -142,8 +156,7 @@ func getCharmHubInfoResponse() transport.InfoResponse {
 				Revision: 16,
 				Version:  "1.0.3",
 			},
-		}},
-		Entity: transport.Entity{
+		}}, transport.Entity{
 			Categories: []transport.Category{{
 				Featured: true,
 				Name:     "blog",
@@ -166,8 +179,7 @@ func getCharmHubInfoResponse() transport.InfoResponse {
 				"wordpress-jorge",
 				"wordpress-site",
 			},
-		},
-		DefaultRelease: transport.ChannelMap{
+		}, transport.ChannelMap{
 			Channel: transport.Channel{
 				Name: "latest/stable",
 				Platform: transport.Platform{
@@ -196,19 +208,7 @@ func getCharmHubInfoResponse() transport.InfoResponse {
 				Revision: 16,
 				Version:  "1.0.3",
 			},
-		},
-	}
-}
-
-func getParamsFindResponse() params.FindResponse {
-	//_, entity, defaultRelease := getParamsResponse()
-	return params.FindResponse{
-		Name: "wordpress",
-		Type: "object",
-		ID:   "charmCHARMcharmCHARMcharmCHARM01",
-		//Entity:         entity,
-		//DefaultRelease: defaultRelease,
-	}
+		}
 }
 
 func getParamsInfoResponse() params.InfoResponse {
@@ -220,7 +220,7 @@ func getParamsInfoResponse() params.InfoResponse {
 		Publisher:   "Wordress Charmers",
 		Summary:     "WordPress is a full featured web blogging tool, this charm deploys it.",
 		Tracks:      []string{"latest"},
-		Series:      []string{"bionic", "xenial"},
+		Series:      []string{"bionic"},
 		StoreURL:    "https://someurl.com/wordpress",
 		Tags:        []string{"blog"},
 		Channels: map[string]params.Channel{
@@ -252,6 +252,19 @@ func getParamsInfoResponse() params.InfoResponse {
 				"wordpress-site",
 			},
 		},
+	}
+}
+
+func getParamsFindResponse() params.FindResponse {
+	return params.FindResponse{
+		Type:      "object",
+		ID:        "charmCHARMcharmCHARMcharmCHARM01",
+		Name:      "wordpress",
+		Publisher: "Wordress Charmers",
+		Summary:   "WordPress is a full featured web blogging tool, this charm deploys it.",
+		Version:   "1.0.3",
+		Series:    []string{"bionic"},
+		StoreURL:  "https://someurl.com/wordpress",
 	}
 }
 
