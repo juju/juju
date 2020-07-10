@@ -488,9 +488,9 @@ func fetchData(source DataSource, path string, requireSigned bool) (data []byte,
 	rc, dataURL, err := source.Fetch(path)
 	if err != nil {
 		logger.Tracef("fetchData failed for %q: %v", dataURL, err)
-		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
+		return nil, dataURL, errors.NotFoundf("%q", dataURL)
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	if requireSigned {
 		data, err = DecodeCheckSignature(rc, source.PublicSigningKey())
 	} else {
@@ -525,7 +525,7 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat, mirrorsPath s
 			"unexpected index file format %q, expected %q at URL %q", indices.Format, indexFormat, url)
 	}
 
-	mirrors, url, err := getMirrorRefs(source, mirrorsPath, requireSigned, params)
+	mirrors, url, err := getMirrorRefs(source, mirrorsPath, requireSigned)
 	if err != nil && !errors.IsNotFound(err) && !errors.IsUnauthorized(err) {
 		return nil, fmt.Errorf("cannot load mirror metadata at URL %q: %v", url, err)
 	}
@@ -562,8 +562,7 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat, mirrorsPath s
 }
 
 // getMirrorRefs parses and returns a simplestreams mirror reference.
-func getMirrorRefs(source DataSource, baseMirrorsPath string, requireSigned bool,
-	params ValueParams) (MirrorRefs, string, error) {
+func getMirrorRefs(source DataSource, baseMirrorsPath string, requireSigned bool) (MirrorRefs, string, error) {
 
 	mirrorsPath := baseMirrorsPath + UnsignedSuffix
 	if requireSigned {

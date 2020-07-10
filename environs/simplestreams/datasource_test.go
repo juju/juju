@@ -73,7 +73,7 @@ func (s *datasourceHTTPSSuite) TestNormalClientFails(c *gc.C) {
 	reader, _, err := ds.Fetch("bar")
 	// The underlying failure is a x509: certificate signed by unknown authority
 	// However, the urlDataSource abstraction hides that as a simple NotFound
-	c.Assert(err, gc.ErrorMatches, "invalid URL \".*/bar\" not found")
+	c.Assert(err, gc.ErrorMatches, "\".*/bar\" not found")
 	c.Check(reader, gc.IsNil)
 }
 

@@ -166,7 +166,7 @@ func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	resp, err := client.Get(dataURL)
 	if err != nil {
 		logger.Tracef("Got error requesting %q: %v", dataURL, err)
-		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
+		return nil, dataURL, errors.NotFoundf("%q", dataURL)
 	}
 	if resp.StatusCode != http.StatusOK {
 		_ = resp.Body.Close()
