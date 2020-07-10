@@ -98,6 +98,9 @@ type Address interface {
 
 	// AddressCIDR returns the subnet CIDR of the address.
 	AddressCIDR() string
+
+	// AddressConfigType returns the configuration method of the address.
+	AddressConfigType() AddressConfigType
 }
 
 // ScopeMatchFunc is an alias for a function that accepts an Address,
@@ -133,6 +136,9 @@ type MachineAddress struct {
 	// CIDR is used for IP addresses to indicate
 	// the subnet that they are part of.
 	CIDR string
+
+	// ConfigType denotes how this address was configured.
+	ConfigType AddressConfigType
 }
 
 // Host returns the value for the host-name/IP address.
@@ -153,6 +159,11 @@ func (a MachineAddress) AddressScope() Scope {
 // AddressCIDR returns the subnet CIDR of the address.
 func (a MachineAddress) AddressCIDR() string {
 	return a.CIDR
+}
+
+// AddressConfigType returns the configuration method of the address.
+func (a MachineAddress) AddressConfigType() AddressConfigType {
+	return a.ConfigType
 }
 
 // GoString implements fmt.GoStringer.
