@@ -5,14 +5,14 @@ package charmhub
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/charmhub/mocks"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmhub/transport"
 )
 
 var _ = gc.Suite(&charmHubAPISuite{})
@@ -73,54 +73,47 @@ func assertInfoResponseSameContents(c *gc.C, obtained, expected params.InfoRespo
 	c.Assert(obtained.Type, gc.Equals, expected.Type)
 	c.Assert(obtained.ID, gc.Equals, expected.ID)
 	c.Assert(obtained.Name, gc.Equals, expected.Name)
-	assertEntitySameContents(c, obtained.Entity, expected.Entity)
-	c.Assert(obtained.ChannelMap, gc.DeepEquals, expected.ChannelMap)
-	c.Assert(obtained.DefaultRelease, gc.DeepEquals, expected.DefaultRelease)
+	//c.Assert(obtained.Description, gc.Equals, expected.Description)
+	c.Assert(obtained.Publisher, jc.DeepEquals, expected.Publisher)
+	c.Assert(obtained.Summary, gc.Equals, expected.Summary)
+	c.Assert(obtained.Channels, jc.DeepEquals, expected.Channels)
+	c.Assert(obtained.Tracks, jc.SameContents, expected.Tracks)
+	assertCharmSameContents(c, obtained.Charm, expected.Charm)
 }
 
 func assertFindResponseSameContents(c *gc.C, obtained, expected params.FindResponse) {
 	c.Assert(obtained.Type, gc.Equals, expected.Type)
 	c.Assert(obtained.ID, gc.Equals, expected.ID)
 	c.Assert(obtained.Name, gc.Equals, expected.Name)
-	assertEntitySameContents(c, obtained.Entity, expected.Entity)
+	//assertEntitySameContents(c, obtained.Entity, expected.Entity)
 	c.Assert(obtained.DefaultRelease, gc.DeepEquals, expected.DefaultRelease)
 }
 
-func assertEntitySameContents(c *gc.C, obtained, expected params.CharmHubEntity) {
-	c.Assert(obtained.Categories, gc.DeepEquals, expected.Categories)
-	c.Assert(obtained.Description, gc.Equals, expected.Description)
-	c.Assert(obtained.License, gc.Equals, expected.License)
-	c.Assert(obtained.Media, gc.DeepEquals, expected.Media)
-	c.Assert(obtained.Publisher, jc.DeepEquals, expected.Publisher)
-	c.Assert(obtained.Summary, gc.Equals, expected.Summary)
+func assertCharmSameContents(c *gc.C, obtained, expected *params.CharmHubCharm) {
+	c.Assert(obtained.Config, gc.DeepEquals, expected.Config)
+	c.Assert(obtained.Relations, jc.DeepEquals, expected.Relations)
+	c.Assert(obtained.Subordinate, gc.Equals, expected.Subordinate)
 	c.Assert(obtained.UsedBy, gc.DeepEquals, expected.UsedBy)
-}
-
-func getCharmHubInfoResponse() transport.InfoResponse {
-	channelMap, entity, defaultRelease := getCharmHubResponse()
-	return transport.InfoResponse{
-		Name:           "wordpress",
-		Type:           "object",
-		ID:             "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap:     channelMap,
-		Entity:         entity,
-		DefaultRelease: defaultRelease,
-	}
+	c.Assert(obtained.Tags, gc.DeepEquals, expected.Tags)
 }
 
 func getCharmHubFindResponses() []transport.FindResponse {
-	_, entity, defaultRelease := getCharmHubResponse()
+	//_, entity, defaultRelease := getCharmHubResponse()
 	return []transport.FindResponse{{
-		Name:           "wordpress",
-		Type:           "object",
-		ID:             "charmCHARMcharmCHARMcharmCHARM01",
-		Entity:         entity,
-		DefaultRelease: defaultRelease,
+		Name: "wordpress",
+		Type: "object",
+		ID:   "charmCHARMcharmCHARMcharmCHARM01",
+		//Entity:         entity,
+		//DefaultRelease: defaultRelease,
 	}}
 }
 
-func getCharmHubResponse() ([]transport.ChannelMap, transport.Entity, transport.ChannelMap) {
-	return []transport.ChannelMap{{
+func getCharmHubInfoResponse() transport.InfoResponse {
+	return transport.InfoResponse{
+		Name: "wordpress",
+		Type: "charm",
+		ID:   "charmCHARMcharmCHARMcharmCHARM01",
+		ChannelMap: []transport.ChannelMap{{
 			Channel: transport.Channel{
 				Name: "latest/stable",
 				Platform: transport.Platform{
@@ -149,13 +142,15 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.Entity, transport.
 				Revision: 16,
 				Version:  "1.0.3",
 			},
-		}}, transport.Entity{
+		}},
+		Entity: transport.Entity{
 			Categories: []transport.Category{{
 				Featured: true,
 				Name:     "blog",
 			}},
-			Description: "This will install and setup WordPress optimized to run in the cloud. By default it will place Ngnix and php-fpm configured to scale horizontally with Nginx's reverse proxy.",
 			License:     "Apache-2.0",
+			Description: "This will install and setup Wordpress optimized to run in the cloud.\nBy default it will place Ngnix configured to scale horizontally\nwith Nginx's reverse proxy.",
+
 			Media: []transport.Media{{
 				Height: 256,
 				Type:   "icon",
@@ -171,7 +166,8 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.Entity, transport.
 				"wordpress-jorge",
 				"wordpress-site",
 			},
-		}, transport.ChannelMap{
+		},
+		DefaultRelease: transport.ChannelMap{
 			Channel: transport.Channel{
 				Name: "latest/stable",
 				Platform: transport.Platform{
@@ -184,14 +180,14 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.Entity, transport.
 				Track:      "latest",
 			},
 			Revision: transport.Revision{
-				ConfigYAML: "one: 1\ntwo: 2\nitems: [1,2,3,4]\n\"",
+				ConfigYAML: config,
 				CreatedAt:  "2019-12-16T19:20:26.673192+00:00",
 				Download: transport.Download{
 					HashSHA265: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
 					Size:       12042240,
 					URL:        "https://api.snapcraft.io/api/v1/snaps/download/QLLfVfIKfcnTZiPFnmGcigB2vB605ZY7_16.snap",
 				},
-				MetadataYAML: "name: myname\nversion: 1.0.3\nsummary: A charm or bundle.\ndescription: |\n  This will install and setup services optimized to run in the cloud.\n  By default it will place Ngnix configured to scale horizontally\n  with Nginx's reverse proxy.\n",
+				MetadataYAML: meta,
 				Platforms: []transport.Platform{{
 					Architecture: "all",
 					OS:           "ubuntu",
@@ -200,108 +196,107 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.Entity, transport.
 				Revision: 16,
 				Version:  "1.0.3",
 			},
-		}
-}
-
-func getParamsInfoResponse() params.InfoResponse {
-	channelMap, entity, defaultRelease := getParamsResponse()
-	return params.InfoResponse{
-		Name:           "wordpress",
-		Type:           "object",
-		ID:             "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap:     channelMap,
-		Entity:         entity,
-		DefaultRelease: defaultRelease,
+		},
 	}
 }
 
 func getParamsFindResponse() params.FindResponse {
-	_, entity, defaultRelease := getParamsResponse()
+	//_, entity, defaultRelease := getParamsResponse()
 	return params.FindResponse{
-		Name:           "wordpress",
-		Type:           "object",
-		ID:             "charmCHARMcharmCHARMcharmCHARM01",
-		Entity:         entity,
-		DefaultRelease: defaultRelease,
+		Name: "wordpress",
+		Type: "object",
+		ID:   "charmCHARMcharmCHARMcharmCHARM01",
+		//Entity:         entity,
+		//DefaultRelease: defaultRelease,
 	}
 }
 
-func getParamsResponse() ([]params.ChannelMap, params.CharmHubEntity, params.ChannelMap) {
-	return []params.ChannelMap{{
-			Channel: params.Channel{
-				Name: "latest/stable",
-				Platform: params.Platform{
-					Architecture: "all",
-					OS:           "ubuntu",
-					Series:       "bionic",
-				},
+func getParamsInfoResponse() params.InfoResponse {
+	return params.InfoResponse{
+		Name:        "wordpress",
+		Type:        "charm",
+		ID:          "charmCHARMcharmCHARMcharmCHARM01",
+		Description: "This will install and setup WordPress optimized to run in the cloud.\nBy default it will place Ngnix configured to scale horizontally\nwith Nginx's reverse proxy.",
+		Publisher:   "Wordress Charmers",
+		Summary:     "WordPress is a full featured web blogging tool, this charm deploys it.",
+		Tracks:      []string{"latest"},
+		Series:      []string{"bionic", "xenial"},
+		StoreURL:    "https://someurl.com/wordpress",
+		Channels: map[string]params.Channel{
+			"latest/stable": {
 				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
-			},
-			Revision: params.Revision{
-				ConfigYAML: "one: 1\ntwo: 2\nitems: [1,2,3,4]\n\"",
-				CreatedAt:  "2019-12-16T19:20:26.673192+00:00",
-				Download: params.Download{
-					HashSHA265: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
-					Size:       12042240,
-					URL:        "https://api.snapcraft.io/api/v1/snaps/download/QLLfVfIKfcnTZiPFnmGcigB2vB605ZY7_16.snap",
-				},
-				MetadataYAML: "name: myname\nversion: 1.0.3\nsummary: A charm or bundle.\ndescription: |\n  This will install and setup services optimized to run in the cloud.\n  By default it will place Ngnix configured to scale horizontally\n  with Nginx's reverse proxy.\n",
-				Platforms: []params.Platform{{
-					Architecture: "all",
-					OS:           "ubuntu",
-					Series:       "bionic",
-				}},
-				Revision: 16,
-				Version:  "1.0.3",
-			},
-		}}, params.CharmHubEntity{
-			Categories: []params.Category{{
-				Featured: true,
-				Name:     "blog",
+				Track:      "latest",
+				Risk:       "stable",
+				Size:       12042240,
+				Revision:   16,
+				Version:    "1.0.3",
 			}},
-			Description: "This will install and setup WordPress optimized to run in the cloud. By default it will place Ngnix and php-fpm configured to scale horizontally with Nginx's reverse proxy.",
-			License:     "Apache-2.0",
-			Media: []params.Media{{
-				Height: 256,
-				Type:   "icon",
-				URL:    "https://dashboard.snapcraft.io/site_media/appmedia/2017/04/wpcom.png",
-				Width:  256,
-			}},
-			Publisher: map[string]string{
-				"display-name": "Wordress Charmers",
+		Charm: &params.CharmHubCharm{
+			Subordinate: false,
+			Config: map[string]params.CharmOption{
+				"reticulate-splines": {Type: "boolean", Description: "Whether to reticulate splines on launch, or not."},
+				"title":              {Type: "string", Description: "A descriptive title used for the application.", Default: "My Title"},
+				"subtitle":           {Type: "string", Description: "An optional subtitle used for the application.", Default: ""},
+				"outlook":            {Type: "string", Description: "No default outlook."},
+				"username":           {Type: "string", Description: "The name of the initial account (given admin permissions).", Default: "admin001"},
+				"skill-level":        {Type: "int", Description: "A number indicating skill."},
+				"agility-ratio":      {Type: "float", Description: "A number from 0 to 1 indicating agility."},
 			},
-			Summary: "WordPress is a full featured web blogging tool, this charm deploys it.",
+			Tags: []string{"app", "seven"},
+			Relations: map[string]map[string]string{
+				"provides": {"source": "dummy-token"},
+				"requires": {"sink": "dummy-token"}},
 			UsedBy: []string{
 				"wordpress-everlast",
 				"wordpress-jorge",
 				"wordpress-site",
 			},
-		}, params.ChannelMap{
-			Channel: params.Channel{
-				Name: "latest/stable",
-				Platform: params.Platform{
-					Architecture: "all",
-					OS:           "ubuntu",
-					Series:       "bionic",
-				},
-				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
-			},
-			Revision: params.Revision{
-				ConfigYAML: "one: 1\ntwo: 2\nitems: [1,2,3,4]\n\"",
-				CreatedAt:  "2019-12-16T19:20:26.673192+00:00",
-				Download: params.Download{
-					HashSHA265: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
-					Size:       12042240,
-					URL:        "https://api.snapcraft.io/api/v1/snaps/download/QLLfVfIKfcnTZiPFnmGcigB2vB605ZY7_16.snap",
-				},
-				MetadataYAML: "name: myname\nversion: 1.0.3\nsummary: A charm or bundle.\ndescription: |\n  This will install and setup services optimized to run in the cloud.\n  By default it will place Ngnix configured to scale horizontally\n  with Nginx's reverse proxy.\n",
-				Platforms: []params.Platform{{
-					Architecture: "all",
-					OS:           "ubuntu",
-					Series:       "bionic",
-				}},
-				Revision: 16,
-				Version:  "1.0.3",
-			},
-		}
+		},
+	}
 }
+
+var meta = `
+name: myname
+version: 1.0.3
+subordinate: false
+summary: A charm or bundle.
+description: |
+  This will install and setup services optimized to run in the cloud.
+  By default it will place Ngnix configured to scale horizontally
+  with Nginx's reverse proxy.
+tags: [app, seven]
+series: [bionic, xenial]
+provides:
+  source:
+    interface: dummy-token
+requires:
+  sink:
+    interface: dummy-token
+`
+
+var config = `
+options:
+  title:
+    default: My Title
+    description: A descriptive title used for the application.
+    type: string
+  subtitle:
+    default: ""
+    description: An optional subtitle used for the application.
+  outlook:
+    description: No default outlook.
+    # type defaults to string in python
+  username:
+    default: admin001
+    description: The name of the initial account (given admin permissions).
+    type: string
+  skill-level:
+    description: A number indicating skill.
+    type: int
+  agility-ratio:
+    description: A number from 0 to 1 indicating agility.
+    type: float
+  reticulate-splines:
+    description: Whether to reticulate splines on launch, or not.
+    type: boolean
+`

@@ -3,6 +3,8 @@
 
 package params
 
+import "github.com/juju/charm/v7"
+
 // ApplicationCharmResults contains a set of ApplicationCharmResults.
 type ApplicationCharmResults struct {
 	Results []ApplicationCharmResult `json:"results"`
@@ -196,4 +198,44 @@ type ContainerProfileResult struct {
 // on the container.
 type ContainerProfileResults struct {
 	Results []ContainerProfileResult `json:"results"`
+}
+
+func ToCharmOptionMap(config *charm.Config) map[string]CharmOption {
+	if config == nil {
+		return nil
+	}
+	result := make(map[string]CharmOption)
+	for key, value := range config.Options {
+		result[key] = toParamsCharmOption(value)
+	}
+	return result
+}
+
+func toParamsCharmOption(opt charm.Option) CharmOption {
+	return CharmOption{
+		Type:        opt.Type,
+		Description: opt.Description,
+		Default:     opt.Default,
+	}
+}
+
+func FromCharmOptionMap(config map[string]CharmOption) *charm.Config {
+	if len(config) == 0 {
+		return nil
+	}
+	result := &charm.Config{
+		Options: make(map[string]charm.Option),
+	}
+	for key, value := range config {
+		result.Options[key] = fromParamsCharmOption(value)
+	}
+	return result
+}
+
+func fromParamsCharmOption(opt CharmOption) charm.Option {
+	return charm.Option{
+		Type:        opt.Type,
+		Description: opt.Description,
+		Default:     opt.Default,
+	}
 }

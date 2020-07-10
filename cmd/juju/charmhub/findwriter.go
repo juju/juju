@@ -60,7 +60,8 @@ func (f findWriter) bundle(result charmhub.FindResponse) string {
 }
 
 func (f findWriter) version(result charmhub.FindResponse) string {
-	return result.DefaultRelease.Revision.Version
+	//return result.DefaultRelease.Revision.Version
+	return ""
 }
 
 func (f findWriter) publisher(entity charmhub.Entity) string {

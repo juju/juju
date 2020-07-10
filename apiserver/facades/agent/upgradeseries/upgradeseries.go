@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.upgradeseries")
@@ -79,7 +80,7 @@ func (a *API) MachineStatus(args params.Entities) (params.UpgradeSeriesStatusRes
 
 	results := make([]params.UpgradeSeriesStatusResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		machine, err := a.authAndGetMachine(entity, canAccess)
+		machine, err := a.authAndGetMachine(entity.Tag, canAccess)
 		if err != nil {
 			results[i].Error = commonerrors.ServerError(err)
 			continue
@@ -107,7 +108,7 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 
 	results := make([]params.ErrorResult, len(args.Params))
 	for i, param := range args.Params {
-		machine, err := a.authAndGetMachine(param.Entity, canAccess)
+		machine, err := a.authAndGetMachine(param.Entity.Tag, canAccess)
 		if err != nil {
 			results[i].Error = commonerrors.ServerError(err)
 			continue
@@ -136,7 +137,7 @@ func (a *API) CurrentSeries(args params.Entities) (params.StringResults, error) 
 
 	results := make([]params.StringResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		machine, err := a.authAndGetMachine(entity, canAccess)
+		machine, err := a.authAndGetMachine(entity.Tag, canAccess)
 		if err != nil {
 			results[i].Error = commonerrors.ServerError(err)
 			continue
@@ -160,7 +161,7 @@ func (a *API) TargetSeries(args params.Entities) (params.StringResults, error) {
 
 	results := make([]params.StringResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		machine, err := a.authAndGetMachine(entity, canAccess)
+		machine, err := a.authAndGetMachine(entity.Tag, canAccess)
 		if err != nil {
 			results[i].Error = commonerrors.ServerError(err)
 			continue
@@ -187,7 +188,7 @@ func (a *API) StartUnitCompletion(args params.UpgradeSeriesStartUnitCompletionPa
 		return params.ErrorResults{}, err
 	}
 	for i, entity := range args.Entities {
-		machine, err := a.authAndGetMachine(entity, canAccess)
+		machine, err := a.authAndGetMachine(entity.Tag, canAccess)
 		if err != nil {
 			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
@@ -214,7 +215,7 @@ func (a *API) FinishUpgradeSeries(args params.UpdateSeriesArgs) (params.ErrorRes
 		return params.ErrorResults{}, err
 	}
 	for i, arg := range args.Args {
-		machine, err := a.authAndGetMachine(arg.Entity, canAccess)
+		machine, err := a.authAndGetMachine(arg.Entity.Tag, canAccess)
 		if err != nil {
 			result.Results[i].Error = commonerrors.ServerError(err)
 			continue
@@ -269,7 +270,7 @@ func (a *API) unitsInState(args params.Entities, status model.UpgradeSeriesStatu
 
 	results := make([]params.EntitiesResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		machine, err := a.authAndGetMachine(entity, canAccess)
+		machine, err := a.authAndGetMachine(entity.Tag, canAccess)
 		if err != nil {
 			results[i].Error = commonerrors.ServerError(err)
 			continue
@@ -294,8 +295,8 @@ func (a *API) unitsInState(args params.Entities, status model.UpgradeSeriesStatu
 	return result, nil
 }
 
-func (a *API) authAndGetMachine(e params.Entity, canAccess common.AuthFunc) (common.UpgradeSeriesMachine, error) {
-	tag, err := names.ParseMachineTag(e.Tag)
+func (a *API) authAndGetMachine(entityTag string, canAccess common.AuthFunc) (common.UpgradeSeriesMachine, error) {
+	tag, err := names.ParseMachineTag(entityTag)
 	if err != nil {
 		return nil, err
 	}
@@ -323,19 +324,65 @@ func (a *API) UnpinMachineApplications() (params.PinApplicationsResults, error) 
 	return a.leadership.UnpinApplicationLeaders()
 }
 
+// SetInstanceStatus sets the status of the machine.
+func (a *API) SetInstanceStatus(args params.SetStatus) (params.ErrorResults, error) {
+	result := params.ErrorResults{}
+
+	canAccess, err := a.AccessMachine()
+	if err != nil {
+		return result, err
+	}
+
+	results := make([]params.ErrorResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		machine, err := a.authAndGetMachine(entity.Tag, canAccess)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if err := machine.SetInstanceStatus(status.StatusInfo{
+			Status:  status.Status(entity.Status),
+			Message: entity.Info,
+		}); err != nil {
+			results[i].Error = common.ServerError(err)
+		}
+	}
+
+	result.Results = results
+	return result, nil
+}
+
 // APIv1 provides the upgrade-series API facade for version 1.
 type APIv1 struct {
-	*API
+	*APIv2
 }
 
 // CurrentSeries was not available on version 1 of the API.
 func (api *APIv1) CurrentSeries(_, _ struct{}) {}
 
+// APIv2 provides the upgrade-series API facade for version 2.
+type APIv2 struct {
+	*API
+}
+
+// SetInstanceStatus was not available on version 2 of the API.
+func (api *APIv2) SetInstanceStatus(_, _ struct{}) {}
+
 // NewAPIv1 is a wrapper that creates a V1 upgrade-series API.
 func NewAPIv1(ctx facade.Context) (*APIv1, error) {
-	api, err := NewAPI(ctx)
+	api, err := NewAPIv2(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv1{api}, nil
+}
+
+// NewAPIv2 is a wrapper that creates a V2 upgrade-series API.
+func NewAPIv2(ctx facade.Context) (*APIv2, error) {
+	api, err := NewAPI(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv2{api}, nil
 }

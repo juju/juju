@@ -61,34 +61,13 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 	result := &CharmInfo{
 		Revision:   info.Revision,
 		URL:        info.URL,
-		Config:     convertCharmConfig(info.Config),
+		Config:     params.FromCharmOptionMap(info.Config),
 		Meta:       meta,
 		Actions:    convertCharmActions(info.Actions),
 		Metrics:    convertCharmMetrics(info.Metrics),
 		LXDProfile: convertCharmLXDProfile(info.LXDProfile),
 	}
 	return result, nil
-}
-
-func convertCharmConfig(config map[string]params.CharmOption) *charm.Config {
-	if len(config) == 0 {
-		return nil
-	}
-	result := &charm.Config{
-		Options: make(map[string]charm.Option),
-	}
-	for key, value := range config {
-		result.Options[key] = convertCharmOption(value)
-	}
-	return result
-}
-
-func convertCharmOption(opt params.CharmOption) charm.Option {
-	return charm.Option{
-		Type:        opt.Type,
-		Description: opt.Description,
-		Default:     opt.Default,
-	}
 }
 
 func convertCharmMeta(meta *params.CharmMeta) (*charm.Meta, error) {

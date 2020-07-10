@@ -9519,40 +9519,52 @@
                 }
             },
             "definitions": {
-                "Category": {
-                    "type": "object",
-                    "properties": {
-                        "featured": {
-                            "type": "boolean"
-                        },
-                        "name": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "featured",
-                        "name"
-                    ]
-                },
-                "Channel": {
+                "BundleCharm": {
                     "type": "object",
                     "properties": {
                         "name": {
                             "type": "string"
                         },
-                        "platform": {
-                            "$ref": "#/definitions/Platform"
-                        },
-                        "released-at": {
-                            "type": "string"
+                        "revision": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "name",
-                        "platform",
-                        "released-at"
+                        "revision"
+                    ]
+                },
+                "Channel": {
+                    "type": "object",
+                    "properties": {
+                        "released-at": {
+                            "type": "string"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "risk": {
+                            "type": "string"
+                        },
+                        "size": {
+                            "type": "integer"
+                        },
+                        "track": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "released-at",
+                        "track",
+                        "risk",
+                        "revision",
+                        "size",
+                        "version"
                     ]
                 },
                 "ChannelMap": {
@@ -9560,33 +9572,82 @@
                     "properties": {
                         "channel": {
                             "$ref": "#/definitions/Channel"
-                        },
-                        "revision": {
-                            "$ref": "#/definitions/Revision"
                         }
                     },
                     "additionalProperties": false
                 },
+                "CharmHubBundle": {
+                    "type": "object",
+                    "properties": {
+                        "charms": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/BundleCharm"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "charms"
+                    ]
+                },
+                "CharmHubCharm": {
+                    "type": "object",
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmOption"
+                                }
+                            }
+                        },
+                        "relations": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "patternProperties": {
+                                        ".*": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "subordinate": {
+                            "type": "boolean"
+                        },
+                        "tags": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "used-by": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "config",
+                        "relations",
+                        "subordinate",
+                        "tags",
+                        "used-by"
+                    ]
+                },
                 "CharmHubEntity": {
                     "type": "object",
                     "properties": {
-                        "categories": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Category"
-                            }
-                        },
                         "description": {
                             "type": "string"
                         },
                         "license": {
                             "type": "string"
-                        },
-                        "media": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Media"
-                            }
                         },
                         "publisher": {
                             "type": "object",
@@ -9608,10 +9669,8 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "categories",
                         "description",
                         "license",
-                        "media",
                         "publisher",
                         "summary",
                         "used-by"
@@ -9668,24 +9727,23 @@
                         "message"
                     ]
                 },
-                "Download": {
+                "CharmOption": {
                     "type": "object",
                     "properties": {
-                        "hash-sha-265": {
+                        "default": {
+                            "type": "object",
+                            "additionalProperties": true
+                        },
+                        "description": {
                             "type": "string"
                         },
-                        "size": {
-                            "type": "integer"
-                        },
-                        "url": {
+                        "type": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "hash-sha-265",
-                        "size",
-                        "url"
+                        "type"
                     ]
                 },
                 "Entity": {
@@ -9742,23 +9800,49 @@
                 "InfoResponse": {
                     "type": "object",
                     "properties": {
+                        "bundle": {
+                            "$ref": "#/definitions/CharmHubBundle"
+                        },
                         "channel-map": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ChannelMap"
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/Channel"
+                                }
                             }
                         },
-                        "default-release": {
-                            "$ref": "#/definitions/ChannelMap"
+                        "charm": {
+                            "$ref": "#/definitions/CharmHubCharm"
                         },
-                        "entity": {
-                            "$ref": "#/definitions/CharmHubEntity"
+                        "description": {
+                            "type": "string"
                         },
                         "id": {
                             "type": "string"
                         },
                         "name": {
                             "type": "string"
+                        },
+                        "publisher": {
+                            "type": "string"
+                        },
+                        "series": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "store-url": {
+                            "type": "string"
+                        },
+                        "summary": {
+                            "type": "string"
+                        },
+                        "tracks": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
                         },
                         "type": {
                             "type": "string"
@@ -9769,50 +9853,13 @@
                         "type",
                         "id",
                         "name",
-                        "entity",
-                        "channel-map"
-                    ]
-                },
-                "Media": {
-                    "type": "object",
-                    "properties": {
-                        "height": {
-                            "type": "integer"
-                        },
-                        "type": {
-                            "type": "string"
-                        },
-                        "url": {
-                            "type": "string"
-                        },
-                        "width": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "type",
-                        "url"
-                    ]
-                },
-                "Platform": {
-                    "type": "object",
-                    "properties": {
-                        "architecture": {
-                            "type": "string"
-                        },
-                        "os": {
-                            "type": "string"
-                        },
-                        "series": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "architecture",
-                        "os",
-                        "series"
+                        "description",
+                        "publisher",
+                        "summary",
+                        "series",
+                        "store-url",
+                        "channel-map",
+                        "tracks"
                     ]
                 },
                 "Query": {
@@ -9825,45 +9872,6 @@
                     "additionalProperties": false,
                     "required": [
                         "query"
-                    ]
-                },
-                "Revision": {
-                    "type": "object",
-                    "properties": {
-                        "config-yaml": {
-                            "type": "string"
-                        },
-                        "created-at": {
-                            "type": "string"
-                        },
-                        "download": {
-                            "$ref": "#/definitions/Download"
-                        },
-                        "metadata-yaml": {
-                            "type": "string"
-                        },
-                        "platforms": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Platform"
-                            }
-                        },
-                        "revision": {
-                            "type": "integer"
-                        },
-                        "version": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "created-at",
-                        "config-yaml",
-                        "download",
-                        "metadata-yaml",
-                        "platforms",
-                        "revision",
-                        "version"
                     ]
                 }
             }
@@ -41553,7 +41561,7 @@
     {
         "Name": "UpgradeSeries",
         "Description": "API serves methods required by the machine agent upgrade-series worker.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -41616,6 +41624,18 @@
                         }
                     },
                     "description": "PinnedLeadership returns all pinned applications and the entities that\nrequire their pinned behaviour, for leadership in the current model."
+                },
+                "SetInstanceStatus": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SetStatus"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "SetInstanceStatus sets the status of the machine."
                 },
                 "SetMachineStatus": {
                     "type": "object",
@@ -41784,6 +41804,36 @@
                         "tag"
                     ]
                 },
+                "EntityStatusArgs": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "info": {
+                            "type": "string"
+                        },
+                        "status": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag",
+                        "status",
+                        "info",
+                        "data"
+                    ]
+                },
                 "Error": {
                     "type": "object",
                     "properties": {
@@ -41909,6 +41959,21 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "SetStatus": {
+                    "type": "object",
+                    "properties": {
+                        "entities": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/EntityStatusArgs"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "entities"
+                    ]
                 },
                 "StringResult": {
                     "type": "object",

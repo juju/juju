@@ -347,7 +347,8 @@ func AllFacades() *facade.Registry {
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
 
 	reg("UpgradeSeries", 1, upgradeseries.NewAPIv1)
-	reg("UpgradeSeries", 2, upgradeseries.NewAPI) // Adds CurrentSeries.
+	reg("UpgradeSeries", 2, upgradeseries.NewAPIv2) // Adds CurrentSeries.
+	reg("UpgradeSeries", 3, upgradeseries.NewAPI)   // Adds SetStatus.
 
 	reg("UpgradeSteps", 1, upgradesteps.NewFacadeV1)
 	reg("UpgradeSteps", 2, upgradesteps.NewFacadeV2)

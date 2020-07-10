@@ -4,18 +4,34 @@
 package charmhub
 
 import (
+	"github.com/juju/charm/v7"
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/apiserver/params"
 )
 
+var logger = loggo.GetLogger("juju.api.charmhub")
+
 func convertCharmInfoResult(info params.InfoResponse) InfoResponse {
-	return InfoResponse{
-		Type:           info.Type,
-		ID:             info.ID,
-		Name:           info.Name,
-		Entity:         convertEntity(info.Entity),
-		ChannelMap:     convertChannelMap(info.ChannelMap),
-		DefaultRelease: convertOneChannelMap(info.DefaultRelease),
+	ir := InfoResponse{
+		Type:        info.Type,
+		ID:          info.ID,
+		Name:        info.Name,
+		Description: info.Description,
+		Publisher:   info.Publisher,
+		Summary:     info.Summary,
+		Series:      info.Series,
+		StoreURL:    info.StoreURL,
+		Channels:    convertChannels(info.Channels),
+		Tracks:      info.Tracks,
 	}
+	switch ir.Type {
+	case "bundle":
+		ir.Bundle = convertBundle(info.Bundle)
+	case "charm":
+		ir.Charm = convertCharm(info.Charm)
+	}
+	return ir
 }
 
 func convertCharmFindResults(responses []params.FindResponse) []FindResponse {
@@ -28,87 +44,76 @@ func convertCharmFindResults(responses []params.FindResponse) []FindResponse {
 
 func convertCharmFindResult(info params.FindResponse) FindResponse {
 	return FindResponse{
-		Type:           info.Type,
-		ID:             info.ID,
-		Name:           info.Name,
-		Entity:         convertEntity(info.Entity),
-		DefaultRelease: convertOneChannelMap(info.DefaultRelease),
+		Type: info.Type,
+		ID:   info.ID,
+		Name: info.Name,
+		//Entity:         convertEntity(info.Entity),
+		//DefaultRelease: convertOneChannelMap(info.DefaultRelease),
 	}
 }
 
-func convertEntity(ch params.CharmHubEntity) Entity {
-	return Entity{
-		Categories:  convertCategories(ch.Categories),
-		Description: ch.Description,
-		License:     ch.License,
-		Media:       convertMedia(ch.Media),
-		Publisher:   ch.Publisher,
-		Summary:     ch.Summary,
-		UsedBy:      ch.UsedBy,
+func convertBundle(in interface{}) *Bundle {
+	inB, ok := in.(*params.CharmHubBundle)
+	if !ok {
+		logger.Errorf("unexpected: CharmHubBundle is not a bundle")
+		return nil
+	}
+	if inB == nil {
+		logger.Errorf("CharmHubBundle is nil")
+		return nil
+	}
+	out := Bundle{
+		Charms: make([]BundleCharm, len(inB.Charms)),
+	}
+	for i, c := range inB.Charms {
+		out.Charms[i] = BundleCharm(c)
+	}
+	return &out
+}
+
+func convertCharm(in interface{}) *Charm {
+	inC, ok := in.(*params.CharmHubCharm)
+	if !ok {
+		logger.Errorf("unexpected: CharmHubCharm is not a charm")
+		return nil
+	}
+	if inC == nil {
+		logger.Errorf("CharmHubCharm is nil")
+		return nil
+	}
+	return &Charm{
+		Config:      params.FromCharmOptionMap(inC.Config),
+		Relations:   inC.Relations,
+		Subordinate: inC.Subordinate,
+		Tags:        inC.Tags,
+		UsedBy:      inC.UsedBy,
 	}
 }
 
-func convertMedia(media []params.Media) []Media {
-	result := make([]Media, len(media))
-	for i, m := range media {
-		result[i] = Media(m)
+func convertChannels(in map[string]params.Channel) map[string]Channel {
+	out := make(map[string]Channel, len(in))
+	for k, v := range in {
+		out[k] = Channel(v)
 	}
-	return result
-}
-
-func convertCategories(categories []params.Category) []Category {
-	result := make([]Category, len(categories))
-	for i, c := range categories {
-		result[i] = Category(c)
-	}
-	return result
-}
-
-func convertChannelMap(cms []params.ChannelMap) []ChannelMap {
-	result := make([]ChannelMap, len(cms))
-	for i, cm := range cms {
-		result[i] = convertOneChannelMap(cm)
-	}
-	return result
-}
-
-func convertOneChannelMap(defaultMap params.ChannelMap) ChannelMap {
-	return ChannelMap{
-		Channel: Channel{
-			Name:       defaultMap.Channel.Name,
-			Platform:   Platform(defaultMap.Channel.Platform),
-			ReleasedAt: defaultMap.Channel.ReleasedAt,
-		},
-		Revision: Revision{
-			CreatedAt:    defaultMap.Revision.CreatedAt,
-			ConfigYAML:   defaultMap.Revision.ConfigYAML,
-			Download:     Download(defaultMap.Revision.Download),
-			MetadataYAML: defaultMap.Revision.MetadataYAML,
-			Revision:     defaultMap.Revision.Revision,
-			Version:      defaultMap.Revision.Version,
-			Platforms:    convertPlatforms(defaultMap.Revision.Platforms),
-		},
-	}
-}
-
-func convertPlatforms(platforms []params.Platform) []Platform {
-	result := make([]Platform, len(platforms))
-	for i, p := range platforms {
-		result[i] = Platform(p)
-	}
-	return result
+	return out
 }
 
 // Although InfoResponse or FindResponse are similar, they will change once the
 // charmhub API has settled.
 
 type InfoResponse struct {
-	Type           string       `json:"type"`
-	ID             string       `json:"id"`
-	Name           string       `json:"name"`
-	Entity         Entity       `json:"entity"`
-	ChannelMap     []ChannelMap `json:"channel-map"`
-	DefaultRelease ChannelMap   `json:"default-release,omitempty"`
+	Type        string             `json:"type"`
+	ID          string             `json:"id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	Publisher   string             `json:"publisher"`
+	Summary     string             `json:"summary"`
+	Series      []string           `json:"series"`
+	StoreURL    string             `json:"store-url"`
+	Charm       *Charm             `json:"charm,omitempty"`
+	Bundle      *Bundle            `json:"bundle,omitempty"`
+	Channels    map[string]Channel `json:"channel-map"`
+	Tracks      []string           `json:"tracks"`
 }
 
 type FindResponse struct {
@@ -120,56 +125,43 @@ type FindResponse struct {
 }
 
 type ChannelMap struct {
-	Channel  Channel  `json:"channel,omitempty"`
-	Revision Revision `json:"revision,omitempty"`
+	Channel Channel `json:"channel,omitempty"`
+	//Revision Revision `json:"revision,omitempty"`
 }
 
 type Channel struct {
-	Name       string   `json:"name"` // track/risk
-	Platform   Platform `json:"platform"`
-	ReleasedAt string   `json:"released-at"`
-}
-
-type Platform struct {
-	Architecture string `json:"architecture"`
-	OS           string `json:"os"`
-	Series       string `json:"series"`
-}
-
-type Revision struct {
-	CreatedAt    string     `json:"created-at"`
-	ConfigYAML   string     `json:"config-yaml"`
-	Download     Download   `json:"download"`
-	MetadataYAML string     `json:"metadata-yaml"`
-	Platforms    []Platform `json:"platforms"`
-	Revision     int        `json:"revision"`
-	Version      string     `json:"version"`
-}
-
-type Download struct {
-	HashSHA265 string `json:"hash-sha-265"`
+	ReleasedAt string `json:"released-at"`
+	Track      string `json:"track"`
+	Risk       string `json:"risk"`
+	Revision   int    `json:"revision"`
 	Size       int    `json:"size"`
-	URL        string `json:"url"`
+	Version    string `json:"version"`
 }
 
 type Entity struct {
-	Categories  []Category        `json:"categories"`
-	Description string            `json:"description"`
-	License     string            `json:"license"`
-	Media       []Media           `json:"media"`
-	Publisher   map[string]string `json:"publisher"`
-	Summary     string            `json:"summary"`
-	UsedBy      []string          `json:"used-by"` // bundles which use the charm
+	//Categories  []Category        `json:"categories"`
+	Description string `json:"description"`
+	License     string `json:"license"`
+	//Media       []Media           `json:"media"`
+	Publisher map[string]string `json:"publisher"`
+	Summary   string            `json:"summary"`
+	UsedBy    []string          `json:"used-by"` // bundles which use the charm
 }
 
-type Media struct {
-	Type   string `json:"type"`
-	URL    string `json:"url"`
-	Width  int    `json:"width,omitempty"`
-	Height int    `json:"height,omitempty"`
+// Charm matches a params.CharmHubCharm
+type Charm struct {
+	Config      *charm.Config                `json:"config"`
+	Relations   map[string]map[string]string `json:"relations"`
+	Subordinate bool                         `json:"subordinate"`
+	Tags        []string                     `json:"tags"`
+	UsedBy      []string                     `json:"used-by"` // bundles which use the charm
 }
 
-type Category struct {
-	Featured bool   `json:"featured"`
+type Bundle struct {
+	Charms []BundleCharm `json:"charms,"`
+}
+
+type BundleCharm struct {
 	Name     string `json:"name"`
+	Revision int    `json:"revision"`
 }

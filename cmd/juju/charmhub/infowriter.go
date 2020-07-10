@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v7"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
@@ -50,48 +49,61 @@ func (iw infoWriter) print(info interface{}) error {
 	return encoder.Encode(info)
 }
 
-func (iw infoWriter) publisher() string {
-	publisher, _ := iw.in.Entity.Publisher["display-name"]
-	return publisher
-}
-
-func (iw infoWriter) storeURL() string {
-	// TODO (hml) 2020-06-24
-	// Implement once the data is available, not clear
-	// where it will be at this time.
-	return ""
-}
+var channelRisks = []string{"stable", "candidate", "beta", "edge"}
 
 func (iw infoWriter) channels() string {
-	// TODO (hml) 2020-06-24
-	// Implement up arrow for closed channels
-	if len(iw.in.ChannelMap) == 0 {
+	if len(iw.in.Channels) == 0 {
 		return ""
 	}
 	buffer := bytes.NewBufferString("")
 
 	tw := output.TabWriter(buffer)
 	w := output.Wrapper{TabWriter: tw}
-
-	for _, ch := range iw.in.ChannelMap {
-		w.Printf("%s:", ch.Channel.Name)
-		w.Print(ch.Revision.Version)
-		releasedAt, err := time.Parse(time.RFC3339, ch.Channel.ReleasedAt)
-		if err != nil {
-			// This should not fail, if it does, warn on the error
-			// rather than ignoring.
-			iw.warningf("%v", errors.Annotate(err, "could not parse released at time"))
-			w.Print(" ")
-		} else {
-			w.Print(releasedAt.Format("2006-01-02"))
+	for _, track := range iw.in.Tracks {
+		trackHasOpenChannel := false
+		for _, risk := range channelRisks {
+			chName := fmt.Sprintf("%s/%s", track, risk)
+			ch, ok := iw.in.Channels[chName]
+			if ok {
+				iw.writeOpenChanneltoBuffer(w, ch)
+				trackHasOpenChannel = true
+			} else {
+				iw.writeClosedChannelToBuffer(w, chName, trackHasOpenChannel)
+			}
 		}
-		w.Printf("(%s)", strconv.Itoa(ch.Revision.Revision))
-		w.Println(sizeToStr(ch.Revision.Download.Size))
 	}
 	if err := w.Flush(); err != nil {
 		iw.warningf("%v", errors.Annotate(err, "could not flush channel data to buffer"))
 	}
 	return buffer.String()
+}
+
+func (iw infoWriter) writeOpenChanneltoBuffer(w output.Wrapper, channel charmhub.Channel) {
+	w.Printf("%s/%s:", channel.Track, channel.Risk)
+	w.Print(channel.Version)
+	releasedAt, err := time.Parse(time.RFC3339, channel.ReleasedAt)
+	if err != nil {
+		// This should not fail, if it does, warn on the error
+		// rather than ignoring.
+		iw.warningf("%s", errors.Annotate(err, "could not parse released at time").Error())
+		w.Print(" ")
+	} else {
+		w.Print(releasedAt.Format("2006-01-02"))
+	}
+	w.Printf("(%s)", strconv.Itoa(channel.Revision))
+	w.Println(sizeToStr(channel.Size))
+}
+
+func (iw infoWriter) writeClosedChannelToBuffer(w output.Wrapper, name string, hasOpenChannel bool) {
+	// TODO (hml) 2020-07-07
+	// Add the ability to print unicode or ascii characters here
+	// for the closed channel symbols.
+	w.Printf("%s:", name)
+	if hasOpenChannel {
+		w.Println("^")
+		return
+	}
+	w.Println("--")
 }
 
 type bundleInfoOutput struct {
@@ -116,49 +128,51 @@ func (b bundleInfoWriter) Print() error {
 	out := &bundleInfoOutput{
 		Name:        b.in.Name,
 		ID:          b.in.ID,
-		Summary:     b.in.Entity.Summary,
-		Publisher:   b.publisher(),
-		Description: b.in.Entity.Description,
+		Summary:     b.in.Summary,
+		Publisher:   b.in.Publisher,
+		Description: b.in.Description,
 		Channels:    b.channels(),
 	}
 	return b.print(out)
 }
 
 type charmInfoOutput struct {
-	Name        string                       `yaml:"name,omitempty"`
-	ID          string                       `yaml:"charm-id,omitempty"`
-	Summary     string                       `yaml:"summary,omitempty"`
-	Publisher   string                       `yaml:"publisher,omitempty"`
-	Supports    string                       `yaml:"supports,omitempty"`
-	Tags        string                       `yaml:"tags,omitempty"`
-	Subordinate bool                         `yaml:"subordinate"`
-	StoreURL    string                       `yaml:"store-url,omitempty"`
-	Description string                       `yaml:"description,omitempty"`
-	Relations   map[string]map[string]string `yaml:"relations,omitempty"`
-	Channels    string                       `yaml:"channels,omitempty"`
-	Installed   string                       `yaml:"installed,omitempty"`
+	Name        string         `yaml:"name,omitempty"`
+	ID          string         `yaml:"charm-id,omitempty"`
+	Summary     string         `yaml:"summary,omitempty"`
+	Publisher   string         `yaml:"publisher,omitempty"`
+	Supports    string         `yaml:"supports,omitempty"`
+	Tags        string         `yaml:"tags,omitempty"`
+	Subordinate bool           `yaml:"subordinate"`
+	StoreURL    string         `yaml:"store-url,omitempty"`
+	Description string         `yaml:"description,omitempty"`
+	Relations   relationOutput `yaml:"relations,omitempty"`
+	Channels    string         `yaml:"channels,omitempty"`
+	Installed   string         `yaml:"installed,omitempty"`
+}
+
+type relationOutput struct {
+	Provides map[string]string `json:"provides,omitempty"`
+	Requires map[string]string `json:"requires,omitempty"`
 }
 
 type charmInfoWriter struct {
 	infoWriter
-	charmMeta   *charm.Meta
-	charmConfig *charm.Config
 }
 
 func (c charmInfoWriter) Print() error {
-	c.unmarshalCharmConfig()
-	c.unmarshalCharmMetadata()
-
 	out := &charmInfoOutput{
 		Name:        c.in.Name,
 		ID:          c.in.ID,
-		Summary:     c.in.Entity.Summary,
-		Publisher:   c.publisher(),
-		Supports:    c.supports(),
-		Tags:        c.tags(),
-		Subordinate: c.subordinate(),
-		Description: c.in.Entity.Description,
+		Summary:     c.in.Summary,
+		Publisher:   c.in.Publisher,
+		Supports:    strings.Join(c.in.Series, ", "),
+		Description: c.in.Description,
 		Channels:    c.channels(),
+	}
+	if c.in.Charm != nil {
+		out.Tags = strings.Join(c.in.Charm.Tags, ", ")
+		out.Subordinate = c.in.Charm.Subordinate
 	}
 	if rels, err := c.relations(); err == nil {
 		out.Relations = rels
@@ -166,91 +180,23 @@ func (c charmInfoWriter) Print() error {
 	return c.print(out)
 }
 
-func (c *charmInfoWriter) unmarshalCharmMetadata() {
-	if c.in.DefaultRelease.Revision.MetadataYAML == "" {
-		return
+func (c charmInfoWriter) relations() (relationOutput, error) {
+	if c.in.Charm == nil {
+		return relationOutput{}, errors.NotFoundf("charm")
 	}
-	m := c.in.DefaultRelease.Revision.MetadataYAML
-	meta, err := charm.ReadMeta(bytes.NewBufferString(m))
-	if err != nil {
-		// Do not fail on unmarshalling metadata, log instead.
-		// This should not happen, however at implementation
-		// we were dealing with handwritten data for test, not
-		// the real deal.  Usually charms are validated before
-		// being uploaded to the store.
-		c.warningf(errors.Annotate(err, "cannot unmarshal charm metadata").Error())
-		return
+	requires, foundRequires := c.in.Charm.Relations["requires"]
+	provides, foundProvides := c.in.Charm.Relations["provides"]
+	if !foundProvides && !foundRequires {
+		return relationOutput{}, errors.NotFoundf("charm relations")
 	}
-	c.charmMeta = meta
-	return
-}
-
-func (c *charmInfoWriter) unmarshalCharmConfig() {
-	if c.in.DefaultRelease.Revision.ConfigYAML == "" {
-		return
+	var relations relationOutput
+	if foundProvides {
+		relations.Provides = provides
 	}
-	cfgYaml := c.in.DefaultRelease.Revision.ConfigYAML
-	cfg, err := charm.ReadConfig(bytes.NewBufferString(cfgYaml))
-	if err != nil {
-		// Do not fail on unmarshalling metadata, log instead.
-		// This should not happen, however at implementation
-		// we were dealing with handwritten data for test, not
-		// the real deal.  Usually charms are validated before
-		// being uploaded to the store.
-		c.warningf(errors.Annotate(err, "cannot unmarshal charm config").Error())
-		return
-	}
-	c.charmConfig = cfg
-	return
-}
-
-func (c charmInfoWriter) relations() (map[string]map[string]string, error) {
-	if c.charmMeta == nil {
-		return nil, errors.NotFoundf("charm meta data")
-	}
-	if len(c.charmMeta.Requires) == 0 && len(c.charmMeta.Provides) == 0 {
-		return nil, errors.NotFoundf("charm meta data")
-	}
-	relations := make(map[string]map[string]string)
-	if provides, ok := formatRelationPart(c.charmMeta.Provides); ok {
-		relations["provides"] = provides
-	}
-	if requires, ok := formatRelationPart(c.charmMeta.Requires); ok {
-		relations["requires"] = requires
+	if foundRequires {
+		relations.Requires = requires
 	}
 	return relations, nil
-}
-
-func formatRelationPart(rels map[string]charm.Relation) (map[string]string, bool) {
-	if len(rels) <= 0 {
-		return nil, false
-	}
-	relations := make(map[string]string, len(rels))
-	for k, v := range rels {
-		relations[k] = v.Name
-	}
-	return relations, true
-}
-
-func (c charmInfoWriter) subordinate() bool {
-	if c.charmMeta == nil {
-		return false
-	}
-	return c.charmMeta.Subordinate
-}
-
-func (c charmInfoWriter) supports() string {
-	if c.charmMeta == nil || len(c.charmMeta.Series) == 0 {
-		return ""
-	}
-	return strings.Join(c.charmMeta.Series, ", ")
-}
-
-func (c charmInfoWriter) tags() string {
-	if c.charmMeta == nil || len(c.charmMeta.Tags) == 0 {
-		return ""
-	}
-	return strings.Join(c.charmMeta.Tags, ", ")
 }
 
 func sizeToStr(size int) string {
