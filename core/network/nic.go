@@ -10,18 +10,6 @@ import (
 	"github.com/juju/errors"
 )
 
-// InterfaceConfigType defines valid network interface configuration
-// types. See interfaces(5) for details
-type InterfaceConfigType string
-
-const (
-	ConfigUnknown  InterfaceConfigType = ""
-	ConfigDHCP     InterfaceConfigType = "dhcp"
-	ConfigStatic   InterfaceConfigType = "static"
-	ConfigManual   InterfaceConfigType = "manual"
-	ConfigLoopback InterfaceConfigType = "loopback"
-)
-
 // InterfaceType defines valid network interface types.
 type InterfaceType string
 
@@ -143,7 +131,7 @@ type InterfaceInfo struct {
 	// ConfigType determines whether the interface should be
 	// configured via DHCP, statically, manually, etc. See
 	// interfaces(5) for more information.
-	ConfigType InterfaceConfigType
+	ConfigType AddressConfigType
 
 	// Addresses contains an optional list of static IP address to
 	// configure for this network interface. The subnet mask to set will be
