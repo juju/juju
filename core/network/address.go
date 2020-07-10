@@ -33,6 +33,18 @@ func mustParseCIDR(s string) *net.IPNet {
 	return ipNet
 }
 
+// AddressConfigType defines valid network link configuration types.
+// See interfaces(5) for details.
+type AddressConfigType string
+
+const (
+	ConfigUnknown  AddressConfigType = ""
+	ConfigDHCP     AddressConfigType = "dhcp"
+	ConfigStatic   AddressConfigType = "static"
+	ConfigManual   AddressConfigType = "manual"
+	ConfigLoopback AddressConfigType = "loopback"
+)
+
 // AddressType represents the possible ways of specifying a machine location by
 // either a hostname resolvable by dns lookup, or IPv4 or IPv6 address.
 type AddressType string
@@ -83,6 +95,12 @@ type Address interface {
 
 	// AddressScope returns the scope of the address.
 	AddressScope() Scope
+
+	// AddressCIDR returns the subnet CIDR of the address.
+	AddressCIDR() string
+
+	// AddressConfigType returns the configuration method of the address.
+	AddressConfigType() AddressConfigType
 }
 
 // ScopeMatchFunc is an alias for a function that accepts an Address,
@@ -105,9 +123,22 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 // directly on a machine or container, or returned for requests where space
 // information is irrelevant to usage.
 type MachineAddress struct {
+	// Value is an IP address or hostname.
 	Value string
-	Type  AddressType
+
+	// Type indicates the form of the address value;
+	// IPv4, IPv6 or host-name.
+	Type AddressType
+
+	// Scope indicates the visibility of this address.
 	Scope Scope
+
+	// CIDR is used for IP addresses to indicate
+	// the subnet that they are part of.
+	CIDR string
+
+	// ConfigType denotes how this address was configured.
+	ConfigType AddressConfigType
 }
 
 // Host returns the value for the host-name/IP address.
@@ -123,6 +154,16 @@ func (a MachineAddress) AddressType() AddressType {
 // AddressScope returns the scope of the address.
 func (a MachineAddress) AddressScope() Scope {
 	return a.Scope
+}
+
+// AddressCIDR returns the subnet CIDR of the address.
+func (a MachineAddress) AddressCIDR() string {
+	return a.CIDR
+}
+
+// AddressConfigType returns the configuration method of the address.
+func (a MachineAddress) AddressConfigType() AddressConfigType {
+	return a.ConfigType
 }
 
 // GoString implements fmt.GoStringer.
@@ -146,6 +187,8 @@ func (a MachineAddress) IP() net.IP {
 
 // ValueForCIDR returns the value of the address combined with a subnet mask
 // indicated by the input CIDR.
+// TODO (manadart 2020-07-10): This should evolve to use the address CIDR
+// directly instead of receiving a value, once we clean up InterfaceInfo.
 func (a MachineAddress) ValueForCIDR(cidr string) (string, error) {
 	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
@@ -313,7 +356,7 @@ func (a ProviderAddress) String() string {
 		buf.WriteByte('@')
 		buf.WriteString(string(a.SpaceName))
 	}
-	if a.ProviderSpaceID != Id("") {
+	if a.ProviderSpaceID != "" {
 		if !spaceFound {
 			buf.WriteByte('@')
 		}
@@ -446,13 +489,6 @@ type SpaceAddress struct {
 // GoString implements fmt.GoStringer.
 func (a SpaceAddress) GoString() string {
 	return a.String()
-}
-
-// Converts the space address to a net.IP address assuming the space address is
-// either v4 or v6. If the SpaceAddress value is not a valid ip address nil is
-// returned
-func (a SpaceAddress) IP() net.IP {
-	return net.ParseIP(a.Value)
 }
 
 // String returns a string representation of the address, in the form:

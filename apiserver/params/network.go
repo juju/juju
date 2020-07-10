@@ -143,7 +143,7 @@ type NetworkConfig struct {
 	NoAutoStart bool `json:"no-auto-start,omitempty"`
 
 	// ConfigType, if set, defines what type of configuration to use.
-	// See network.InterfaceConfigType for more info. If not set, for
+	// See network.AddressConfigType for more info. If not set, for
 	// backwards-compatibility, "dhcp" is assumed.
 	ConfigType string `json:"config-type,omitempty"`
 
@@ -288,7 +288,7 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			InterfaceType:       network.InterfaceType(v.InterfaceType),
 			Disabled:            v.Disabled,
 			NoAutoStart:         v.NoAutoStart,
-			ConfigType:          network.InterfaceConfigType(v.ConfigType),
+			ConfigType:          network.AddressConfigType(v.ConfigType),
 			Addresses:           ToProviderAddresses(v.Addresses...),
 			ShadowAddresses:     ToProviderAddresses(v.ShadowAddresses...),
 			DNSServers:          network.NewProviderAddresses(v.DNSServers...),
