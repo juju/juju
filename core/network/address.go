@@ -33,6 +33,18 @@ func mustParseCIDR(s string) *net.IPNet {
 	return ipNet
 }
 
+// AddressConfigType defines valid network link configuration types.
+// See interfaces(5) for details.
+type AddressConfigType string
+
+const (
+	ConfigUnknown  AddressConfigType = ""
+	ConfigDHCP     AddressConfigType = "dhcp"
+	ConfigStatic   AddressConfigType = "static"
+	ConfigManual   AddressConfigType = "manual"
+	ConfigLoopback AddressConfigType = "loopback"
+)
+
 // AddressType represents the possible ways of specifying a machine location by
 // either a hostname resolvable by dns lookup, or IPv4 or IPv6 address.
 type AddressType string

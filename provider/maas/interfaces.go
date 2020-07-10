@@ -441,7 +441,7 @@ func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
 	return interfaces, nil
 }
 
-func maasLinkToInterfaceConfigType(mode string) corenetwork.InterfaceConfigType {
+func maasLinkToInterfaceConfigType(mode string) corenetwork.AddressConfigType {
 	switch maasLinkMode(mode) {
 	case modeUnknown:
 		return corenetwork.ConfigUnknown
