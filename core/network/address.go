@@ -468,13 +468,6 @@ func (a SpaceAddress) GoString() string {
 	return a.String()
 }
 
-// Converts the space address to a net.IP address assuming the space address is
-// either v4 or v6. If the SpaceAddress value is not a valid ip address nil is
-// returned
-func (a SpaceAddress) IP() net.IP {
-	return net.ParseIP(a.Value)
-}
-
 // String returns a string representation of the address, in the form:
 // `<scope>:<address-value>@space:<space-id>`; for example:
 //
