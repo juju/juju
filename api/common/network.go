@@ -60,7 +60,7 @@ func (n *netPackageConfigSource) InterfaceAddresses(name string) ([]net.Addr, er
 
 // DefaultRoute implements NetworkConfigSource.
 func (n *netPackageConfigSource) DefaultRoute() (net.IP, string, error) {
-	return network.GetDefaultRoute()
+	return corenetwork.GetDefaultRoute()
 }
 
 // DefaultNetworkConfigSource returns a NetworkConfigSource backed by the net

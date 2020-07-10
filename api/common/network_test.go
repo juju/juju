@@ -192,7 +192,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigInterfaceAddressesError(c *gc
 	s.stubConfigSource.SetErrors(
 		nil,                        // Interfaces
 		nil,                        // DefaultRoute
-		errors.New("no addresses"), // InterfaceAddressses
+		errors.New("no addresses"), // InterfaceAddresses
 	)
 
 	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
@@ -217,7 +217,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigNoInterfaceAddresses(c *gc.C)
 		InterfaceName: "br-eth1",
 		InterfaceType: "bridge",
 		ConfigType:    "manual",
-		NetworkOrigin: params.NetworkOrigin("machine"),
+		NetworkOrigin: "machine",
 	}})
 
 	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
@@ -238,7 +238,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigLoopbackInferred(c *gc.C) {
 		InterfaceName: "lo",
 		InterfaceType: "loopback", // inferred from the flags.
 		ConfigType:    "loopback", // since it is a loopback
-		NetworkOrigin: params.NetworkOrigin("machine"),
+		NetworkOrigin: "machine",
 	}, {
 		DeviceIndex:   1,
 		CIDR:          "::1/128",
@@ -247,7 +247,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigLoopbackInferred(c *gc.C) {
 		InterfaceName: "lo",
 		InterfaceType: "loopback",
 		ConfigType:    "loopback",
-		NetworkOrigin: params.NetworkOrigin("machine"),
+		NetworkOrigin: "machine",
 	}})
 
 	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
@@ -273,7 +273,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigVLANInferred(c *gc.C) {
 		InterfaceName: "eth0.100",
 		InterfaceType: "802.1q",
 		ConfigType:    "manual", // the IPv6 address treated as empty.
-		NetworkOrigin: params.NetworkOrigin("machine"),
+		NetworkOrigin: "machine",
 	}, {
 		DeviceIndex:   13,
 		CIDR:          "10.100.19.0/24",
@@ -283,7 +283,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigVLANInferred(c *gc.C) {
 		InterfaceName: "eth0.100",
 		InterfaceType: "802.1q",
 		ConfigType:    "static",
-		NetworkOrigin: params.NetworkOrigin("machine"),
+		NetworkOrigin: "machine",
 	}})
 
 	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
@@ -303,7 +303,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigEthernetInfrerred(c *gc.C) {
 		InterfaceName: "eth0",
 		InterfaceType: "ethernet",
 		ConfigType:    "manual", // the IPv6 address treated as empty.
-		NetworkOrigin: params.NetworkOrigin("machine"),
+		NetworkOrigin: "machine",
 	}})
 
 	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
@@ -329,7 +329,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *g
 		InterfaceType:       "ethernet",
 		ParentInterfaceName: "br-eth0",
 		ConfigType:          "manual",
-		NetworkOrigin:       params.NetworkOrigin("machine"),
+		NetworkOrigin:       "machine",
 	}, {
 		DeviceIndex:   10,
 		CIDR:          "10.20.19.0/24",
@@ -339,7 +339,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *g
 		InterfaceName: "br-eth0",
 		InterfaceType: "bridge",
 		ConfigType:    "static",
-		NetworkOrigin: params.NetworkOrigin("machine"),
+		NetworkOrigin: "machine",
 	}, {
 		DeviceIndex:   10,
 		CIDR:          "10.20.19.0/24",
@@ -349,7 +349,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *g
 		InterfaceName: "br-eth0",
 		InterfaceType: "bridge",
 		ConfigType:    "static",
-		NetworkOrigin: params.NetworkOrigin("machine"),
+		NetworkOrigin: "machine",
 	}, {
 		DeviceIndex:   10,
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
@@ -357,7 +357,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *g
 		InterfaceName: "br-eth0",
 		InterfaceType: "bridge",
 		ConfigType:    "manual",
-		NetworkOrigin: params.NetworkOrigin("machine"),
+		NetworkOrigin: "machine",
 	}, {
 		DeviceIndex:   11,
 		CIDR:          "10.20.19.0/24",
@@ -367,7 +367,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *g
 		InterfaceName: "br-eth1",
 		InterfaceType: "bridge",
 		ConfigType:    "static",
-		NetworkOrigin: params.NetworkOrigin("machine"),
+		NetworkOrigin: "machine",
 	}, {
 		DeviceIndex:   11,
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
@@ -375,7 +375,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *g
 		InterfaceName: "br-eth1",
 		InterfaceType: "bridge",
 		ConfigType:    "manual",
-		NetworkOrigin: params.NetworkOrigin("machine"),
+		NetworkOrigin: "machine",
 	}, {
 		DeviceIndex:         3,
 		MACAddress:          "aa:bb:cc:dd:ee:f1",
@@ -386,7 +386,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *g
 		ConfigType:          "manual",
 		GatewayAddress:      "1.2.3.4",
 		IsDefaultGateway:    true,
-		NetworkOrigin:       params.NetworkOrigin("machine"),
+		NetworkOrigin:       "machine",
 	}})
 
 	s.stubConfigSource.CheckCallNames(c,
@@ -423,7 +423,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigAddressNotInCIDRFormat(c *gc.
 		InterfaceName: "eth0",
 		InterfaceType: "ethernet",
 		ConfigType:    "static",
-		NetworkOrigin: params.NetworkOrigin("machine"),
+		NetworkOrigin: "machine",
 	}})
 
 	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
@@ -446,7 +446,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigEmptyAddressValue(c *gc.C) {
 		InterfaceName: "eth0",
 		InterfaceType: "ethernet",
 		ConfigType:    "manual",
-		NetworkOrigin: params.NetworkOrigin("machine"),
+		NetworkOrigin: "machine",
 	}})
 
 	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
