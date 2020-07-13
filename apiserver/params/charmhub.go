@@ -60,7 +60,6 @@ type CharmHubCharm struct {
 	Relations   map[string]map[string]string `json:"relations"`
 	Subordinate bool                         `json:"subordinate"`
 	UsedBy      []string                     `json:"used-by"` // bundles which use the charm
-	Series      []string                     `json:"series"`
 }
 
 type CharmHubBundle struct {
