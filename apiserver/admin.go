@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
@@ -54,7 +54,7 @@ func newAdminAPIV3(srv *Server, root *apiHandler, apiObserver observer.Observer)
 func (a *admin) Admin(id string) (*admin, error) {
 	if id != "" {
 		// Safeguard id for possible future use.
-		return nil, commonerrors.ErrBadId
+		return nil, apiservererrors.ErrBadId
 	}
 	return a, nil
 }
@@ -87,7 +87,7 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 	}
 
 	authResult, err := a.authenticate(ctx, req)
-	if err, ok := errors.Cause(err).(*commonerrors.DischargeRequiredError); ok {
+	if err, ok := errors.Cause(err).(*apiservererrors.DischargeRequiredError); ok {
 		loginResult := params.LoginResult{
 			DischargeRequired:       err.LegacyMacaroon,
 			BakeryDischargeRequired: err.Macaroon,
@@ -347,7 +347,7 @@ func (a *admin) maybeEmitRedirectError(modelUUID string, authTag names.Tag) erro
 		return errors.Trace(err)
 	}
 
-	return &commonerrors.RedirectError{
+	return &apiservererrors.RedirectError{
 		Servers:         []network.ProviderHostPorts{hps},
 		CACert:          target.CACert,
 		ControllerTag:   target.ControllerTag,
@@ -356,7 +356,7 @@ func (a *admin) maybeEmitRedirectError(modelUUID string, authTag names.Tag) erro
 }
 
 func (a *admin) handleAuthError(err error) error {
-	if err, ok := errors.Cause(err).(*commonerrors.DischargeRequiredError); ok {
+	if err, ok := errors.Cause(err).(*apiservererrors.DischargeRequiredError); ok {
 		return err
 	}
 	if a.maintenanceInProgress() {
@@ -433,7 +433,7 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 		var err error
 		modelAccess, err = a.root.state.UserPermission(userTag, a.root.model.ModelTag())
 		if err != nil && controllerAccess != permission.SuperuserAccess {
-			return nil, errors.Wrap(err, commonerrors.ErrPerm)
+			return nil, errors.Wrap(err, apiservererrors.ErrPerm)
 		}
 		if err != nil && controllerAccess == permission.SuperuserAccess {
 			modelAccess = permission.AdminAccess
@@ -450,7 +450,7 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 		// we must check that the user has access to the controller
 		// even though they're logging into a model.
 		if controllerAccess == permission.NoAccess {
-			return nil, errors.Trace(commonerrors.ErrPerm)
+			return nil, errors.Trace(apiservererrors.ErrPerm)
 		}
 	}
 	if controllerOnlyLogin {

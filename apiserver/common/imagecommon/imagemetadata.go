@@ -6,7 +6,7 @@ package imagecommon
 import (
 	"github.com/juju/errors"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -36,7 +36,7 @@ func Save(st ImageMetadataInterface, metadata params.MetadataSaveParams) ([]para
 	for i, one := range metadata.Metadata {
 		md := ParseMetadataListFromParams(one, modelCfg)
 		err := st.SaveMetadata(md)
-		all[i] = params.ErrorResult{Error: commonerrors.ServerError(err)}
+		all[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
 	}
 	return all, nil
 }

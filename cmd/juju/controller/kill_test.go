@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apicontroller "github.com/juju/juju/api/controller"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/core/life"
@@ -439,7 +439,7 @@ func (s *KillSuite) TestKillCommandControllerAlias(c *gc.C) {
 
 func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
 	testDialer := func(*api.Info, api.DialOpts) (api.Connection, error) {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock.WallClock, testDialer,
 		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },

@@ -7,7 +7,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state"
 )
@@ -19,7 +19,7 @@ type Backend interface {
 
 func NewFacade(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*Facade, error) {
 	if !authorizer.AuthController() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	expect := names.NewModelTag(backend.ModelUUID())
 	getCanAccess := func() (common.AuthFunc, error) {

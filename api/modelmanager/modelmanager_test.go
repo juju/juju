@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/modelmanager"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -439,7 +439,7 @@ func (s *modelmanagerSuite) TestModelStatus(c *gc.C) {
 						Status:     "pending",
 					}},
 				},
-				{Error: commonerrors.ServerError(errors.New("model error"))},
+				{Error: apiservererrors.ServerError(errors.New("model error"))},
 			}
 			return nil
 		},
@@ -525,7 +525,7 @@ func (s *modelmanagerSuite) TestListModelSummaries(c *gc.C) {
 			out := result.(*params.ModelSummaryResults)
 			out.Results = []params.ModelSummaryResult{
 				{Result: testModelInfo},
-				{Error: commonerrors.ServerError(errors.New("model error"))},
+				{Error: apiservererrors.ServerError(errors.New("model error"))},
 			}
 			return nil
 		},
@@ -683,7 +683,7 @@ func (s *modelmanagerSuite) TestChangeModelCredentialUpdateFailed(c *gc.C) {
 		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
 			called = true
 			out := result.(*params.ErrorResults)
-			out.Results = []params.ErrorResult{{Error: commonerrors.ServerError(errors.New("update error"))}}
+			out.Results = []params.ErrorResult{{Error: apiservererrors.ServerError(errors.New("update error"))}}
 			return nil
 		},
 	}

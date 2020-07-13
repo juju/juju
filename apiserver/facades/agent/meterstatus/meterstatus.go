@@ -10,7 +10,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
@@ -83,7 +83,7 @@ func NewMeterStatusAPI(
 	authorizer facade.Authorizer,
 ) (*MeterStatusAPI, error) {
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	var accessCheckerFn = func() (common.AuthFunc, error) {
@@ -159,16 +159,16 @@ func (m *MeterStatusAPI) WatchMeterStatus(args params.Entities) (params.NotifyWa
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		var watcherId string
 		if canAccess(tag) {
 			watcherId, err = m.watchOneUnitMeterStatus(tag)
 		}
 		result.Results[i].NotifyWatcherId = watcherId
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -192,15 +192,15 @@ func (m *MeterStatusAPI) GetMeterStatus(args params.Entities) (params.MeterStatu
 	}
 	canAccess, err := m.accessUnit()
 	if err != nil {
-		return params.MeterStatusResults{}, commonerrors.ErrPerm
+		return params.MeterStatusResults{}, apiservererrors.ErrPerm
 	}
 	for i, entity := range args.Entities {
 		unitTag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		var status state.MeterStatus
 		if canAccess(unitTag) {
 			var unit *state.Unit
@@ -211,7 +211,7 @@ func (m *MeterStatusAPI) GetMeterStatus(args params.Entities) (params.MeterStatu
 			result.Results[i].Code = status.Code.String()
 			result.Results[i].Info = status.Info
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }

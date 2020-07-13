@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -33,7 +33,7 @@ func (r *RebootRequester) oneRequest(tag names.Tag) error {
 	}
 	entity, ok := entity0.(state.RebootFlagSetter)
 	if !ok {
-		return commonerrors.NotSupportedError(tag, "request reboot")
+		return apiservererrors.NotSupportedError(tag, "request reboot")
 	}
 	return entity.SetRebootFlag(true)
 }
@@ -53,14 +53,14 @@ func (r *RebootRequester) RequestReboot(args params.Entities) (params.ErrorResul
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if auth(tag) {
 			err = r.oneRequest(tag)
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -85,7 +85,7 @@ func (r *RebootActionGetter) getOneAction(tag names.Tag) (params.RebootAction, e
 	}
 	entity, ok := entity0.(state.RebootActionGetter)
 	if !ok {
-		return "", commonerrors.NotSupportedError(tag, "request reboot")
+		return "", apiservererrors.NotSupportedError(tag, "request reboot")
 	}
 	rAction, err := entity.ShouldRebootOrShutdown()
 	if err != nil {
@@ -114,14 +114,14 @@ func (r *RebootActionGetter) GetRebootAction(args params.Entities) (params.Reboo
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if auth(tag) {
 			result.Results[i].Result, err = r.getOneAction(tag)
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -146,7 +146,7 @@ func (r *RebootFlagClearer) clearOneFlag(tag names.Tag) error {
 	}
 	entity, ok := entity0.(state.RebootFlagSetter)
 	if !ok {
-		return commonerrors.NotSupportedError(tag, "clear reboot flag")
+		return apiservererrors.NotSupportedError(tag, "clear reboot flag")
 	}
 	return entity.SetRebootFlag(false)
 }
@@ -166,14 +166,14 @@ func (r *RebootFlagClearer) ClearReboot(args params.Entities) (params.ErrorResul
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if auth(tag) {
 			err = r.clearOneFlag(tag)
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }

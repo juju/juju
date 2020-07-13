@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/agent/migrationminion"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -66,7 +66,7 @@ func (s *Suite) TestAuthApplicationAgent(c *gc.C) {
 func (s *Suite) TestAuthNotAgent(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("dorothy")
 	_, err := s.makeAPI()
-	c.Assert(err, gc.Equals, commonerrors.ErrPerm)
+	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *Suite) TestWatch(c *gc.C) {

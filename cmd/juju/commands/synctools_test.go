@@ -18,7 +18,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/sync"
@@ -239,7 +239,7 @@ func (s *syncToolsSuite) TestAPIAdapterFindTools(c *gc.C) {
 func (s *syncToolsSuite) TestAPIAdapterFindToolsNotFound(c *gc.C) {
 	fake := fakeSyncToolsAPI{
 		findTools: func(majorVersion, minorVersion int, series, arch, stream string) (params.FindToolsResult, error) {
-			err := commonerrors.ServerError(errors.NotFoundf("tools"))
+			err := apiservererrors.ServerError(errors.NotFoundf("tools"))
 			return params.FindToolsResult{Error: err}, nil
 		},
 	}
@@ -250,7 +250,7 @@ func (s *syncToolsSuite) TestAPIAdapterFindToolsNotFound(c *gc.C) {
 }
 
 func (s *syncToolsSuite) TestAPIAdapterFindToolsAPIError(c *gc.C) {
-	findToolsErr := commonerrors.ServerError(errors.NotFoundf("tools"))
+	findToolsErr := apiservererrors.ServerError(errors.NotFoundf("tools"))
 	fake := fakeSyncToolsAPI{
 		findTools: func(majorVersion, minorVersion int, series, arch, stream string) (params.FindToolsResult, error) {
 			return params.FindToolsResult{Error: findToolsErr}, findToolsErr
@@ -286,7 +286,7 @@ func (s *syncToolsSuite) TestAPIAdapterUploadTools(c *gc.C) {
 func (s *syncToolsSuite) TestAPIAdapterBlockUploadTools(c *gc.C) {
 	syncTools = func(sctx *sync.SyncContext) error {
 		// Block operation
-		return commonerrors.OperationBlockedError("TestAPIAdapterBlockUploadTools")
+		return apiservererrors.OperationBlockedError("TestAPIAdapterBlockUploadTools")
 	}
 	_, err := s.runSyncAgentBinariesCommand(c, "-m", "test-target", "--destination", c.MkDir(), "--stream", "released")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestAPIAdapterBlockUploadTools.*")

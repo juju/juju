@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/agent/resourceshookcontext"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
@@ -102,7 +102,7 @@ func (s *UnitFacadeSuite) TestGetResourceInfoNotFound(c *gc.C) {
 	c.Check(results, jc.DeepEquals, params.UnitResourcesResult{
 		Resources: []params.UnitResourceResult{{
 			ErrorResult: params.ErrorResult{
-				Error: commonerrors.ServerError(errors.NotFoundf(`resource "eggs"`)),
+				Error: apiservererrors.ServerError(errors.NotFoundf(`resource "eggs"`)),
 			},
 		}},
 	})

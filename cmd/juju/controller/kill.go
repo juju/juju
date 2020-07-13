@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/credentialmanager"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
@@ -113,7 +113,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	switch errors.Cause(err) {
 	case nil:
 		defer api.Close()
-	case commonerrors.ErrPerm:
+	case apiservererrors.ErrPerm:
 		return errors.Annotate(err, "cannot destroy controller")
 	default:
 		ctx.Infof("Unable to open API: %s\n", err)

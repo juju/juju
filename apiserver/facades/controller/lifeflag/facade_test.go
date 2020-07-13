@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/controller/lifeflag"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
@@ -24,7 +24,7 @@ var _ = gc.Suite(&FacadeSuite{})
 func (*FacadeSuite) TestFacadeAuthFailure(c *gc.C) {
 	facade, err := lifeflag.NewFacade(nil, nil, auth(false))
 	c.Check(facade, gc.IsNil)
-	c.Check(err, gc.Equals, commonerrors.ErrPerm)
+	c.Check(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (*FacadeSuite) TestLifeBadEntity(c *gc.C) {

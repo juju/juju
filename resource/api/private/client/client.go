@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
@@ -91,7 +91,7 @@ func (c *UnitFacadeClient) getResourceInfo(resourceName string) (resource.Resour
 		return resource.Resource{}, errors.Annotate(err, "could not get resource info")
 	}
 	if response.Error != nil {
-		err := commonerrors.RestoreError(response.Error)
+		err := apiservererrors.RestoreError(response.Error)
 		return resource.Resource{}, errors.Annotate(err, "request failed on server")
 	}
 
@@ -99,7 +99,7 @@ func (c *UnitFacadeClient) getResourceInfo(resourceName string) (resource.Resour
 		return resource.Resource{}, errors.New("got bad response from API server")
 	}
 	if response.Resources[0].Error != nil {
-		err := commonerrors.RestoreError(response.Error)
+		err := apiservererrors.RestoreError(response.Error)
 		return resource.Resource{}, errors.Annotate(err, "request failed for resource")
 	}
 	res, err := api.API2Resource(response.Resources[0].Resource)

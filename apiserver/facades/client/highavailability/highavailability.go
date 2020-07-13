@@ -14,7 +14,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
@@ -46,7 +46,7 @@ var _ HighAvailability = (*HighAvailabilityAPI)(nil)
 func NewHighAvailabilityAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*HighAvailabilityAPI, error) {
 	// Only clients can access the high availability facade.
 	if !authorizer.AuthClient() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	model, err := st.Model()
@@ -74,7 +74,7 @@ func (api *HighAvailabilityAPI) EnableHA(args params.ControllersSpecs) (params.C
 		return results, errors.Trace(err)
 	}
 	if !admin {
-		return results, commonerrors.ServerError(commonerrors.ErrPerm)
+		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
 	if len(args.Specs) == 0 {
@@ -87,7 +87,7 @@ func (api *HighAvailabilityAPI) EnableHA(args params.ControllersSpecs) (params.C
 	result, err := api.enableHASingle(api.state, args.Specs[0])
 	results.Results = make([]params.ControllersChangeResult, 1)
 	results.Results[0].Result = result
-	results.Results[0].Error = commonerrors.ServerError(err)
+	results.Results[0].Error = apiservererrors.ServerError(err)
 	return results, nil
 }
 

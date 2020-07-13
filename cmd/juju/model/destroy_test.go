@@ -18,7 +18,7 @@ import (
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/api/base"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/model"
@@ -520,7 +520,7 @@ Waiting for model to be removed....`[1:])
 }
 
 func (s *DestroySuite) TestBlockedDestroy(c *gc.C) {
-	s.stub.SetErrors(commonerrors.OperationBlockedError("TestBlockedDestroy"))
+	s.stub.SetErrors(apiservererrors.OperationBlockedError("TestBlockedDestroy"))
 	_, err := s.runDestroyCommand(c, "test2", "-y")
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedDestroy.*")
 }

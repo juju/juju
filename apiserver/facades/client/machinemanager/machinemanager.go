@@ -14,8 +14,8 @@ import (
 	"github.com/juju/os/series"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
@@ -143,7 +143,7 @@ func NewMachineManagerAPI(
 	leadership Leadership,
 ) (*MachineManagerAPI, error) {
 	if !auth.AuthClient() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return &MachineManagerAPI{
 		st:            backend,
@@ -172,7 +172,7 @@ func (mm *MachineManagerAPI) checkAccess(access permission.Access) error {
 		return errors.Trace(err)
 	}
 	if !canAccess {
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -190,7 +190,7 @@ func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMac
 	}
 	for i, p := range args.MachineParams {
 		m, err := mm.addOneMachine(p)
-		results.Machines[i].Error = commonerrors.ServerError(err)
+		results.Machines[i].Error = apiservererrors.ServerError(err)
 		if err == nil {
 			results.Machines[i].Machine = m.Id()
 		}
@@ -341,7 +341,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 	destroyMachine := func(entity params.Entity) params.DestroyMachineResult {
 		result := params.DestroyMachineResult{}
 		fail := func(e error) params.DestroyMachineResult {
-			result.Error = commonerrors.ServerError(e)
+			result.Error = apiservererrors.ServerError(e)
 			return result
 		}
 
@@ -370,7 +370,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 
 		var storageErrors []params.ErrorResult
 		storageError := func(e error) {
-			storageErrors = append(storageErrors, params.ErrorResult{Error: commonerrors.ServerError(e)})
+			storageErrors = append(storageErrors, params.ErrorResult{Error: apiservererrors.ServerError(e)})
 		}
 
 		storageSeen := names.NewSet()
@@ -481,25 +481,25 @@ func (mm *MachineManagerAPI) UpgradeSeriesValidate(
 		tag := arg.Entity.Tag
 		machine, err := mm.machineFromTag(tag)
 		if err != nil {
-			results[i].Error = commonerrors.ServerError(err)
+			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		if machine.IsManager() {
-			results[i].Error = commonerrors.ServerError(
+			results[i].Error = apiservererrors.ServerError(
 				errors.Errorf("%s is a controller and cannot be targeted for series upgrade", tag))
 			continue
 		}
 
 		err = mm.validateSeries(arg.Series, machine.Series(), tag)
 		if err != nil {
-			results[i].Error = commonerrors.ServerError(err)
+			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		unitNames, err := mm.verifiedUnits(machine, arg.Series, arg.Force)
 		if err != nil {
-			results[i].Error = commonerrors.ServerError(err)
+			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results[i].UnitNames = unitNames
@@ -518,7 +518,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesPrepare(args params.UpdateSeriesArg) (
 	}
 	err := mm.upgradeSeriesPrepare(args)
 	if err != nil {
-		return params.ErrorResult{Error: commonerrors.ServerError(err)}, nil
+		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
 }
@@ -572,7 +572,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesComplete(args params.UpdateSeriesArg) 
 	}
 	err := mm.completeUpgradeSeries(args)
 	if err != nil {
-		return params.ErrorResult{Error: commonerrors.ServerError(err)}, nil
+		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 
 	return params.ErrorResult{}, nil
@@ -606,18 +606,18 @@ func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(args params.Entitie
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		watcherId := ""
 		machine, err := mm.st.Machine(tag.Id())
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		w, err := machine.WatchUpgradeSeriesNotifications()
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		watcherId = mm.resources.Register(w)
@@ -640,19 +640,19 @@ func (mm *MachineManagerAPI) GetUpgradeSeriesMessages(args params.UpgradeSeriesN
 		machine, err := mm.machineFromTag(param.Entity.Tag)
 		if err != nil {
 			err = errors.Trace(err)
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		messages, finished, err := machine.GetUpgradeSeriesMessages()
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if finished {
 			// If there are no more messages we stop the watcher resource.
 			err = mm.resources.Stop(param.WatcherId)
 			if err != nil {
-				results.Results[i].Error = commonerrors.ServerError(err)
+				results.Results[i].Error = apiservererrors.ServerError(err)
 				continue
 			}
 		}
@@ -729,7 +729,7 @@ func isSeriesLessThan(series1, series2 string) (bool, error) {
 func (mm *MachineManagerAPIV4) UpdateMachineSeries(_ params.UpdateSeriesArgs) (params.ErrorResults, error) {
 	return params.ErrorResults{
 		Results: []params.ErrorResult{{
-			Error: commonerrors.ServerError(errors.New("UpdateMachineSeries is no longer supported")),
+			Error: apiservererrors.ServerError(errors.New("UpdateMachineSeries is no longer supported")),
 		}},
 	}, nil
 }

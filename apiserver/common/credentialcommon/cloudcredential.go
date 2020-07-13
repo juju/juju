@@ -4,7 +4,7 @@
 package credentialcommon
 
 import (
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -26,7 +26,7 @@ func NewCredentialManagerAPI(backend StateBackend) *CredentialManagerAPI {
 func (api *CredentialManagerAPI) InvalidateModelCredential(args params.InvalidateCredentialArg) (params.ErrorResult, error) {
 	err := api.backend.InvalidateModelCredential(args.Reason)
 	if err != nil {
-		return params.ErrorResult{Error: commonerrors.ServerError(err)}, nil
+		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
 }

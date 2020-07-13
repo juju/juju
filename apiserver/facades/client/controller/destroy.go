@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/permission"
@@ -51,7 +51,7 @@ func destroyController(
 		return errors.Trace(err)
 	}
 	if !hasPermission {
-		return errors.Trace(commonerrors.ErrPerm)
+		return errors.Trace(apiservererrors.ErrPerm)
 	}
 	if err := ensureNotBlocked(st); err != nil {
 		return errors.Trace(err)
@@ -80,7 +80,7 @@ func ensureNotBlocked(st *state.State) error {
 		return errors.Trace(err)
 	}
 	if len(blocks) > 0 {
-		return commonerrors.OperationBlockedError("found blocks in controller models")
+		return apiservererrors.OperationBlockedError("found blocks in controller models")
 	}
 	return nil
 }

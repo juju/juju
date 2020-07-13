@@ -8,7 +8,7 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/mgo.v2/txn"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
@@ -72,7 +72,7 @@ func (api *API) RemoveSpace(spaceParams params.RemoveSpaceParams) (params.Remove
 	for i, spaceParam := range spaceParams.SpaceParams {
 		spacesTag, err := names.ParseSpaceTag(spaceParam.Space.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(errors.Trace(err))
+			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
 			continue
 		}
 
@@ -82,7 +82,7 @@ func (api *API) RemoveSpace(spaceParams params.RemoveSpaceParams) (params.Remove
 
 		operation, err := api.opFactory.NewRemoveSpaceOp(spacesTag.Id())
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(errors.Trace(err))
+			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
 			continue
 		}
 
@@ -91,7 +91,7 @@ func (api *API) RemoveSpace(spaceParams params.RemoveSpaceParams) (params.Remove
 		}
 
 		if err = api.backing.ApplyOperation(operation); err != nil {
-			result.Results[i].Error = commonerrors.ServerError(errors.Trace(err))
+			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
 			continue
 		}
 	}
@@ -105,27 +105,27 @@ func (api *API) checkSpaceIsRemovable(
 
 	if spacesTag.Id() == network.AlphaSpaceName {
 		newErr := errors.New("the alpha space cannot be removed")
-		results.Results[index].Error = commonerrors.ServerError(newErr)
+		results.Results[index].Error = apiservererrors.ServerError(newErr)
 		return false
 	}
 	space, err := api.backing.SpaceByName(spacesTag.Id())
 	if err != nil {
-		results.Results[index].Error = commonerrors.ServerError(errors.Trace(err))
+		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
 		return false
 	}
 	bindingTags, err := api.applicationTagsForSpace(space.Id())
 	if err != nil {
-		results.Results[index].Error = commonerrors.ServerError(errors.Trace(err))
+		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
 		return false
 	}
 	constraintTags, err := api.entityTagsForSpaceConstraintsBlockingRemove(space.Name())
 	if err != nil {
-		results.Results[index].Error = commonerrors.ServerError(errors.Trace(err))
+		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
 		return false
 	}
 	settingMatches, err := api.getSpaceControllerSettings(space.Name())
 	if err != nil {
-		results.Results[index].Error = commonerrors.ServerError(errors.Trace(err))
+		results.Results[index].Error = apiservererrors.ServerError(errors.Trace(err))
 		return false
 	}
 

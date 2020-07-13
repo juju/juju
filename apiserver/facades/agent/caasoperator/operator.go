@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -68,7 +68,7 @@ func NewFacade(
 	leadershipRevoker leadership.Revoker,
 ) (*Facade, error) {
 	if !authorizer.AuthApplicationAgent() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	model, err := st.Model()
 	if err != nil {
@@ -135,11 +135,11 @@ func (f *Facade) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
 	for i, arg := range args.Entities {
 		tag, err := names.ParseApplicationTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if tag != authTag {
-			results.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		info := status.StatusInfo{
@@ -147,7 +147,7 @@ func (f *Facade) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
 			Message: arg.Info,
 			Data:    arg.Data,
 		}
-		results.Results[i].Error = commonerrors.ServerError(f.setStatus(tag, info))
+		results.Results[i].Error = apiservererrors.ServerError(f.setStatus(tag, info))
 	}
 	return results, nil
 }
@@ -169,21 +169,21 @@ func (f *Facade) Charm(args params.Entities) (params.ApplicationCharmResults, er
 	for i, entity := range args.Entities {
 		tag, err := names.ParseApplicationTag(entity.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if tag != authTag {
-			results.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		application, err := f.state.Application(tag.Id())
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		ch, force, err := application.Charm()
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = &params.ApplicationCharm{
@@ -210,18 +210,18 @@ func (f *Facade) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, 
 	for i, arg := range args.Specs {
 		tag, err := names.ParseApplicationTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		if !f.auth.AuthOwner(tag) {
-			results.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		if _, err := k8sspecs.ParsePodSpec(arg.Value); err != nil {
-			results.Results[i].Error = commonerrors.ServerError(errors.New("invalid pod spec"))
+			results.Results[i].Error = apiservererrors.ServerError(errors.New("invalid pod spec"))
 			continue
 		}
-		results.Results[i].Error = commonerrors.ServerError(
+		results.Results[i].Error = apiservererrors.ServerError(
 			// NOTE(achilleasa) the CAAS operator is a singleton so
 			// we can safely bypass the leadership checks when
 			// updating pod specs.
@@ -241,7 +241,7 @@ func (f *Facade) WatchUnits(args params.Entities) (params.StringsWatchResults, e
 	for i, arg := range args.Entities {
 		id, changes, err := f.watchUnits(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].StringsWatcherId = id
@@ -275,7 +275,7 @@ func (f *Facade) WatchContainerStart(args params.WatchContainerStartArgs) (param
 	for i, arg := range args.Args {
 		id, changes, err := f.watchContainerStart(arg.Entity.Tag, arg.Container)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].StringsWatcherId = id

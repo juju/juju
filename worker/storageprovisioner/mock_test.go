@@ -13,7 +13,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -184,7 +184,7 @@ func (v *mockVolumeAccessor) Volumes(volumes []names.VolumeTag) ([]params.Volume
 			result = append(result, params.VolumeResult{Result: vol})
 		} else {
 			result = append(result, params.VolumeResult{
-				Error: commonerrors.ServerError(errors.NotProvisionedf("volume %q", tag.Id())),
+				Error: apiservererrors.ServerError(errors.NotProvisionedf("volume %q", tag.Id())),
 			})
 		}
 	}
@@ -198,7 +198,7 @@ func (v *mockVolumeAccessor) VolumeAttachments(ids []params.MachineStorageId) ([
 			result = append(result, params.VolumeAttachmentResult{Result: att})
 		} else {
 			result = append(result, params.VolumeAttachmentResult{
-				Error: commonerrors.ServerError(errors.NotProvisionedf("volume attachment %v", id)),
+				Error: apiservererrors.ServerError(errors.NotProvisionedf("volume attachment %v", id)),
 			})
 		}
 	}
@@ -212,7 +212,7 @@ func (v *mockVolumeAccessor) VolumeBlockDevices(ids []params.MachineStorageId) (
 			result = append(result, params.BlockDeviceResult{Result: dev})
 		} else {
 			result = append(result, params.BlockDeviceResult{
-				Error: commonerrors.ServerError(errors.NotFoundf("block device for volume attachment %v", id)),
+				Error: apiservererrors.ServerError(errors.NotFoundf("block device for volume attachment %v", id)),
 			})
 		}
 	}
@@ -369,7 +369,7 @@ func (v *mockFilesystemAccessor) Filesystems(filesystems []names.FilesystemTag) 
 			result = append(result, params.FilesystemResult{Result: vol})
 		} else {
 			result = append(result, params.FilesystemResult{
-				Error: commonerrors.ServerError(errors.NotProvisionedf("filesystem %q", tag.Id())),
+				Error: apiservererrors.ServerError(errors.NotProvisionedf("filesystem %q", tag.Id())),
 			})
 		}
 	}
@@ -383,7 +383,7 @@ func (v *mockFilesystemAccessor) FilesystemAttachments(ids []params.MachineStora
 			result = append(result, params.FilesystemAttachmentResult{Result: att})
 		} else {
 			result = append(result, params.FilesystemAttachmentResult{
-				Error: commonerrors.ServerError(errors.NotProvisionedf("filesystem attachment %v", id)),
+				Error: apiservererrors.ServerError(errors.NotProvisionedf("filesystem attachment %v", id)),
 			})
 		}
 	}
@@ -515,7 +515,7 @@ func (m *mockLifecycleManager) AttachmentLife(ids []params.MachineStorageId) ([]
 			result = append(result, params.LifeResult{Life: life.Dying})
 		case missingVolumeAttachmentId:
 			result = append(result, params.LifeResult{
-				Error: commonerrors.ServerError(errors.NotFoundf("attachment %v", id)),
+				Error: apiservererrors.ServerError(errors.NotFoundf("attachment %v", id)),
 			})
 		default:
 			result = append(result, params.LifeResult{Life: life.Alive})

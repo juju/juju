@@ -11,8 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/action"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -309,7 +309,7 @@ func (s *runSuite) TestRunRequiresAdmin(c *gc.C) {
 	client, err := action.NewActionAPI(s.State, nil, auth)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.Run(params.RunParams{})
-	c.Assert(errors.Cause(err), gc.Equals, commonerrors.ErrPerm)
+	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 
 	auth.AdminTag = alpha
 	client, err = action.NewActionAPI(s.State, nil, auth)
@@ -327,7 +327,7 @@ func (s *runSuite) TestRunOnAllMachinesRequiresAdmin(c *gc.C) {
 	client, err := action.NewActionAPI(s.State, nil, auth)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.RunOnAllMachines(params.RunParams{})
-	c.Assert(errors.Cause(err), gc.Equals, commonerrors.ErrPerm)
+	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 
 	auth.AdminTag = alpha
 	client, err = action.NewActionAPI(s.State, nil, auth)

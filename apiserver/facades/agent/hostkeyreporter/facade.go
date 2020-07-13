@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -50,14 +50,14 @@ func (facade *Facade) ReportKeys(args params.SSHHostKeySet) (params.ErrorResults
 	for i, arg := range args.EntityKeys {
 		tag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canModify(tag) {
 			err = facade.backend.SetSSHHostKeys(tag, state.SSHHostKeys(arg.PublicKeys))
 		}
-		results.Results[i].Error = commonerrors.ServerError(err)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }

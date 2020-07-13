@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -60,7 +60,7 @@ func NewMetricsDebugAPI(
 	authorizer facade.Authorizer,
 ) (*MetricsDebugAPI, error) {
 	if !authorizer.AuthClient() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	return &MetricsDebugAPI{
@@ -87,7 +87,7 @@ func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricResul
 	for i, arg := range args.Entities {
 		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		var batches []state.MetricBatch
@@ -96,19 +96,19 @@ func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricResul
 			batches, err = api.state.MetricBatchesForUnit(tag.Id())
 			if err != nil {
 				err = errors.Annotate(err, "failed to get metrics")
-				results.Results[i].Error = commonerrors.ServerError(err)
+				results.Results[i].Error = apiservererrors.ServerError(err)
 				continue
 			}
 		case names.ApplicationTagKind:
 			batches, err = api.state.MetricBatchesForApplication(tag.Id())
 			if err != nil {
 				err = errors.Annotate(err, "failed to get metrics")
-				results.Results[i].Error = commonerrors.ServerError(err)
+				results.Results[i].Error = apiservererrors.ServerError(err)
 				continue
 			}
 		default:
 			err := errors.Errorf("invalid tag %v", arg.Tag)
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 		}
 		results.Results[i].Metrics = api.filterLastValuePerKeyPerUnit(batches)
 	}
@@ -174,7 +174,7 @@ func (api *MetricsDebugAPI) SetMeterStatus(args params.MeterStatusParams) (param
 	for i, arg := range args.Statuses {
 		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		err = api.setEntityMeterStatus(tag, state.MeterStatus{
@@ -182,7 +182,7 @@ func (api *MetricsDebugAPI) SetMeterStatus(args params.MeterStatusParams) (param
 			Info: arg.Info,
 		})
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 	}

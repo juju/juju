@@ -18,7 +18,7 @@ import (
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/state"
@@ -192,7 +192,7 @@ func (u *UserAuthenticator) authenticateMacaroons(
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot create macaroon")
 		}
-		return nil, &commonerrors.DischargeRequiredError{
+		return nil, &apiservererrors.DischargeRequiredError{
 			Cause:          cause,
 			LegacyMacaroon: m.M(),
 			Macaroon:       m,
@@ -202,12 +202,12 @@ func (u *UserAuthenticator) authenticateMacaroons(
 	declared := checkers.InferDeclared(charmstore.MacaroonNamespace, loginMac)
 	username := declared[usernameKey]
 	if tag.Id() != username {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	entity, err := entityFinder.FindEntity(tag)
 	if errors.IsNotFound(err) {
 		logger.Debugf("entity %s not found", tag.String())
-		return nil, errors.Trace(commonerrors.ErrBadCreds)
+		return nil, errors.Trace(apiservererrors.ErrBadCreds)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -216,7 +216,7 @@ func (u *UserAuthenticator) authenticateMacaroons(
 
 // ExternalMacaroonAuthenticator performs authentication for external users using
 // macaroons. If the authentication fails because provided macaroons are invalid,
-// and macaroon authentiction is enabled, it will return a *commonerrors.DischargeRequiredError
+// and macaroon authentiction is enabled, it will return a *apiservererrors.DischargeRequiredError
 // holding a macaroon to be discharged.
 type ExternalMacaroonAuthenticator struct {
 	// Bakery holds the bakery that is
@@ -243,7 +243,7 @@ func (m *ExternalMacaroonAuthenticator) Authenticate(ctx context.Context, entity
 		if dcMac, err := m.Bakery.Oven.NewMacaroon(ctx, req.BakeryVersion, de.Caveats, de.Ops...); err != nil {
 			return nil, errors.Annotatef(err, "cannot create macaroon")
 		} else {
-			return nil, &commonerrors.DischargeRequiredError{
+			return nil, &apiservererrors.DischargeRequiredError{
 				Cause:    identErr,
 				Macaroon: dcMac,
 			}
@@ -275,7 +275,7 @@ func (m *ExternalMacaroonAuthenticator) Authenticate(ctx context.Context, entity
 	}
 	entity, err := entityFinder.FindEntity(tag)
 	if errors.IsNotFound(err) {
-		return nil, errors.Trace(commonerrors.ErrBadCreds)
+		return nil, errors.Trace(apiservererrors.ErrBadCreds)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}

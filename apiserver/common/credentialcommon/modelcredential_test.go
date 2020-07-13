@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
@@ -162,7 +162,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceId(c *g
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{Error: commonerrors.ServerError(errors.Errorf("getting instance id for machine 2: retrieval failure"))},
+			{Error: apiservererrors.ServerError(errors.Errorf("getting instance id for machine 2: retrieval failure"))},
 		},
 	})
 }
@@ -179,8 +179,8 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFa
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{Error: commonerrors.ServerError(errors.New("getting instance id for machine 1: retrieval failure"))},
-			{Error: commonerrors.ServerError(errors.New("getting instance id for machine 2: retrieval failure"))},
+			{Error: apiservererrors.ServerError(errors.New("getting instance id for machine 1: retrieval failure"))},
+			{Error: apiservererrors.ServerError(errors.New("getting instance id for machine 2: retrieval failure"))},
 		},
 	})
 }
@@ -200,9 +200,9 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFa
 	// * 1 because we no longer can link test instance (s.instance) to a test machine (s.machine).
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{Error: commonerrors.ServerError(errors.New("getting instance id for machine 1: retrieval failure"))},
-			{Error: commonerrors.ServerError(errors.New("getting instance id for machine 2: retrieval failure"))},
-			{Error: commonerrors.ServerError(errors.New(`no machine with instance "wind-up"`))},
+			{Error: apiservererrors.ServerError(errors.New("getting instance id for machine 1: retrieval failure"))},
+			{Error: apiservererrors.ServerError(errors.New("getting instance id for machine 2: retrieval failure"))},
+			{Error: apiservererrors.ServerError(errors.New(`no machine with instance "wind-up"`))},
 		},
 	})
 }

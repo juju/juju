@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -98,7 +98,7 @@ func DefaultReloadSpacesAuthorizer(auth facade.Authorizer,
 			return errors.Trace(err)
 		}
 		if !canWrite {
-			return commonerrors.ServerError(commonerrors.ErrPerm)
+			return apiservererrors.ServerError(apiservererrors.ErrPerm)
 		}
 		if err := check.ChangeAllowed(); err != nil {
 			return errors.Trace(err)

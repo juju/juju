@@ -34,7 +34,7 @@ type Context interface {
 	// Auth represents information about the connected client. You
 	// should always be checking individual requests against Auth:
 	// both state changes *and* data retrieval should be blocked
-	// with commonerrors.ErrPerm for any targets for which the client is
+	// with apiservererrors.ErrPerm for any targets for which the client is
 	// not *known* to have a responsibility or requirement.
 	Auth() Authorizer
 

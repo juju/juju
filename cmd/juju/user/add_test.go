@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/testing"
@@ -171,7 +171,7 @@ type mockAddUserAPI struct {
 
 func (m *mockAddUserAPI) AddUser(username, displayname, password string) (names.UserTag, []byte, error) {
 	if m.blocked {
-		return names.UserTag{}, nil, commonerrors.OperationBlockedError("the operation has been blocked")
+		return names.UserTag{}, nil, apiservererrors.OperationBlockedError("the operation has been blocked")
 	}
 	if m.addError != nil {
 		return names.UserTag{}, nil, m.addError

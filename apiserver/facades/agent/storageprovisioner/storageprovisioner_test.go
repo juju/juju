@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -321,7 +321,7 @@ func (s *iaasProvisionerSuite) TestVolumesModel(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.VolumeResults{
 		Results: []params.VolumeResult{
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
-			{Error: commonerrors.ServerError(errors.NotProvisionedf(`volume "1"`))},
+			{Error: apiservererrors.ServerError(errors.NotProvisionedf(`volume "1"`))},
 			{Result: params.Volume{
 				VolumeTag: "volume-2",
 				Info: params.VolumeInfo{
@@ -358,7 +358,7 @@ func (s *iaasProvisionerSuite) TestFilesystems(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.FilesystemResults{
 		Results: []params.FilesystemResult{
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
-			{Error: commonerrors.ServerError(errors.NotProvisionedf(`filesystem "1"`))},
+			{Error: apiservererrors.ServerError(errors.NotProvisionedf(`filesystem "1"`))},
 			{Result: params.Filesystem{
 				FilesystemTag: "filesystem-2",
 				Info: params.FilesystemInfo{
@@ -1383,7 +1383,7 @@ func (s *iaasProvisionerSuite) TestLife(c *gc.C) {
 		Results: []params.LifeResult{
 			{Life: life.Alive},
 			{Life: life.Alive},
-			{Error: commonerrors.ServerError(errors.NotFoundf(`volume "42"`))},
+			{Error: apiservererrors.ServerError(errors.NotFoundf(`volume "42"`))},
 		},
 	})
 }
@@ -1430,9 +1430,9 @@ func (s *iaasProvisionerSuite) TestEnsureDead(c *gc.C) {
 	// TODO(wallyworld) - this test will be updated when EnsureDead is supported
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{Error: commonerrors.ServerError(commonerrors.NotSupportedError(names.NewVolumeTag("0/0"), "ensuring death"))},
-			{Error: commonerrors.ServerError(commonerrors.NotSupportedError(names.NewVolumeTag("1"), "ensuring death"))},
-			{Error: commonerrors.ServerError(errors.NotFoundf(`volume "42"`))},
+			{Error: apiservererrors.ServerError(apiservererrors.NotSupportedError(names.NewVolumeTag("0/0"), "ensuring death"))},
+			{Error: apiservererrors.ServerError(apiservererrors.NotSupportedError(names.NewVolumeTag("1"), "ensuring death"))},
+			{Error: apiservererrors.ServerError(errors.NotFoundf(`volume "42"`))},
 		},
 	})
 }

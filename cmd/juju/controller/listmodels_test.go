@@ -17,7 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/core/life"
@@ -392,7 +392,7 @@ func (s *BaseModelsSuite) TestInvalidUser(c *gc.C) {
 }
 
 func (s *BaseModelsSuite) TestModelsError(c *gc.C) {
-	s.api.err = commonerrors.ErrPerm
+	s.api.err = apiservererrors.ErrPerm
 	context, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, gc.ErrorMatches, ".*: permission denied")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")

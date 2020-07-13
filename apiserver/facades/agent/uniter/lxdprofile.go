@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -119,22 +119,22 @@ func (u *LXDProfileAPI) WatchUnitLXDProfileUpgradeNotifications(args params.Enti
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 
 		if !canAccess(tag) {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		unit, err := u.getLXDProfileUnit(tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		watcherId, initial, err := u.watchOneChangeUnitLXDProfileUpgradeNotifications(unit)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -172,23 +172,23 @@ func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.LXDProfi
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 
 		if !canAccess(tag) {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		machine, err := u.getLXDProfileMachine(tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		watcherId, initial, err := u.watchOneChangeLXDProfileUpgradeNotifications(machine, args.ApplicationName)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 

@@ -20,7 +20,7 @@ import (
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -1074,7 +1074,7 @@ func (s *ApplicationSuite) TestScaleApplicationsNotAllowedForDaemonSet(c *gc.C) 
 
 func (s *ApplicationSuite) TestScaleApplicationsBlocked(c *gc.C) {
 	application.SetModelType(s.api, state.ModelTypeCAAS)
-	s.blockChecker.SetErrors(commonerrors.ServerError(commonerrors.OperationBlockedError("test block")))
+	s.blockChecker.SetErrors(apiservererrors.ServerError(apiservererrors.OperationBlockedError("test block")))
 	_, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
 		Applications: []params.ScaleApplicationParams{{
 			ApplicationTag: "application-postgresql",

@@ -8,7 +8,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/permission"
@@ -57,7 +57,7 @@ type ModelConfigAPIV1 struct {
 // NewModelConfigAPI creates a new instance of the ModelConfig Facade.
 func NewModelConfigAPI(backend Backend, authorizer facade.Authorizer) (*ModelConfigAPIV2, error) {
 	if !authorizer.AuthClient() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	client := &ModelConfigAPI{
 		backend: backend,
@@ -73,7 +73,7 @@ func (c *ModelConfigAPI) checkCanWrite() error {
 		return errors.Trace(err)
 	}
 	if !canWrite {
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -84,7 +84,7 @@ func (c *ModelConfigAPI) isControllerAdmin() error {
 		return errors.Trace(err)
 	}
 	if !hasAccess {
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -99,7 +99,7 @@ func (c *ModelConfigAPI) canReadModel() error {
 		return errors.Trace(err)
 	}
 	if !isAdmin && !canRead {
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -181,7 +181,7 @@ func (c *ModelConfigAPI) checkLogTrace() state.ValidateConfigFunc {
 			return nil
 		}
 		if err := c.isControllerAdmin(); err != nil {
-			if errors.Cause(err) != commonerrors.ErrPerm {
+			if errors.Cause(err) != apiservererrors.ErrPerm {
 				return errors.Trace(err)
 			}
 			return errors.New("only controller admins can set a model's logging level to TRACE")

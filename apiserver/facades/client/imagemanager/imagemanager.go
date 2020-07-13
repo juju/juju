@@ -8,7 +8,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/permission"
@@ -43,7 +43,7 @@ var getState = func(st *state.State) stateInterface {
 func NewImageManagerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ImageManagerAPI, error) {
 	// Only clients can access the image manager service.
 	if !authorizer.AuthClient() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return &ImageManagerAPI{
 		state:      getState(st),
@@ -61,7 +61,7 @@ func (api *ImageManagerAPI) ListImages(arg params.ImageFilterParams) (params.Lis
 		return result, errors.Trace(err)
 	}
 	if !admin {
-		return result, commonerrors.ServerError(commonerrors.ErrPerm)
+		return result, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
 	if len(arg.Images) > 1 {
@@ -101,7 +101,7 @@ func (api *ImageManagerAPI) DeleteImages(arg params.ImageFilterParams) (params.E
 		return result, errors.Trace(err)
 	}
 	if !admin {
-		return result, commonerrors.ServerError(commonerrors.ErrPerm)
+		return result, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
 	if err := api.check.ChangeAllowed(); err != nil {
@@ -118,18 +118,18 @@ func (api *ImageManagerAPI) DeleteImages(arg params.ImageFilterParams) (params.E
 		}
 		imageMetadata, err := stor.ListImages(filter)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if len(imageMetadata) != 1 {
-			result.Results[i].Error = commonerrors.ServerError(
+			result.Results[i].Error = apiservererrors.ServerError(
 				errors.NotFoundf("image %s/%s/%s", filter.Kind, filter.Series, filter.Arch))
 			continue
 		}
 		logger.Infof("deleting image with metadata %+v", *imageMetadata[0])
 		err = stor.DeleteImage(imageMetadata[0])
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil

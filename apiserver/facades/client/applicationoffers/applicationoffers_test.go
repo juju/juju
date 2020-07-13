@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -121,7 +121,7 @@ func (s *applicationOffersSuite) TestOffer(c *gc.C) {
 
 func (s *applicationOffersSuite) TestOfferPermission(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("mary")
-	s.assertOffer(c, commonerrors.ErrPerm)
+	s.assertOffer(c, apiservererrors.ErrPerm)
 }
 
 func (s *applicationOffersSuite) TestOfferSomeFail(c *gc.C) {
@@ -308,7 +308,7 @@ func (s *applicationOffersSuite) TestListNoRelationNetworks(c *gc.C) {
 
 func (s *applicationOffersSuite) TestListPermission(c *gc.C) {
 	s.setupOffers(c, "test", false)
-	s.assertList(c, commonerrors.ErrPerm, nil)
+	s.assertList(c, apiservererrors.ErrPerm, nil)
 }
 
 func (s *applicationOffersSuite) TestListError(c *gc.C) {
@@ -435,7 +435,7 @@ func (s *applicationOffersSuite) TestShowNoPermission(c *gc.C) {
 
 	s.authorizer.Tag = user
 	expected := []params.ApplicationOfferResult{{
-		Error: commonerrors.ServerError(errors.NotFoundf("application offer %q", "fred/prod.hosted-db2")),
+		Error: apiservererrors.ServerError(errors.NotFoundf("application offer %q", "fred/prod.hosted-db2")),
 	}}
 	s.assertShow(c, "fred/prod.hosted-db2", expected)
 }
@@ -1109,7 +1109,7 @@ func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []params.ConsumeOfferDetailsResult{{
-		Error: commonerrors.ServerError(errors.NotFoundf("application offer %q", "fred/prod.hosted-mysql")),
+		Error: apiservererrors.ServerError(errors.NotFoundf("application offer %q", "fred/prod.hosted-mysql")),
 	}}
 	c.Assert(results.Results, jc.DeepEquals, expected)
 }
@@ -1401,5 +1401,5 @@ func (s *consumeSuite) TestDestroyOffersPermission(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, commonerrors.ErrPerm.Error())
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, apiservererrors.ErrPerm.Error())
 }

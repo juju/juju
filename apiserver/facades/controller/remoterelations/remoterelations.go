@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
@@ -57,7 +57,7 @@ func NewRemoteRelationsAPI(
 	authorizer facade.Authorizer,
 ) (*API, error) {
 	if !authorizer.AuthController() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
 		st:                  st,
@@ -74,7 +74,7 @@ func (api *API) ImportRemoteEntities(args params.RemoteEntityTokenArgs) (params.
 	}
 	for i, arg := range args.Args {
 		err := api.importRemoteEntity(arg)
-		results.Results[i].Error = commonerrors.ServerError(err)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }
@@ -95,12 +95,12 @@ func (api *API) ExportEntities(entities params.Entities) (params.TokenResults, e
 	for i, entity := range entities.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		token, err := api.st.ExportLocalEntity(tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			if !errors.IsAlreadyExists(err) {
 				continue
 			}
@@ -118,12 +118,12 @@ func (api *API) GetTokens(args params.GetTokenArgs) (params.StringResults, error
 	for i, arg := range args.Args {
 		entityTag, err := names.ParseTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		token, err := api.st.GetToken(entityTag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 		}
 		results.Results[i].Result = token
 	}
@@ -138,11 +138,11 @@ func (api *API) SaveMacaroons(args params.EntityMacaroonArgs) (params.ErrorResul
 	for i, arg := range args.Args {
 		entityTag, err := names.ParseTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		err = api.st.SaveMacaroon(entityTag, arg.Macaroon)
-		results.Results[i].Error = commonerrors.ServerError(err)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }
@@ -189,7 +189,7 @@ func (api *APIv1) RelationUnitSettings(relationUnits params.RelationUnits) (para
 	for i, ru := range relationUnits.RelationUnits {
 		settings, err := one(ru)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Settings = settings
@@ -249,7 +249,7 @@ func (api *API) Relations(entities params.Entities) (params.RemoteRelationResult
 	for i, entity := range entities.Entities {
 		remoteRelation, err := api.remoteRelation(entity)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = remoteRelation
@@ -288,7 +288,7 @@ func (api *API) RemoteApplications(entities params.Entities) (params.RemoteAppli
 	for i, entity := range entities.Entities {
 		remoteApplication, err := one(entity)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = remoteApplication
@@ -323,18 +323,18 @@ func (api *APIv1) WatchLocalRelationUnits(args params.Entities) (params.Relation
 	for i, arg := range args.Entities {
 		relationTag, err := names.ParseRelationTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		w, err := commoncrossmodel.WatchRelationUnits(api.st, relationTag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		// TODO(jam): 2019-10-27 Watching Changes() should be protected with a select with api.ctx.Cancel()
 		changes, ok := <-w.Changes()
 		if !ok {
-			results.Results[i].Error = commonerrors.ServerError(watcher.EnsureErr(w))
+			results.Results[i].Error = apiservererrors.ServerError(watcher.EnsureErr(w))
 			continue
 		}
 		results.Results[i].RelationUnitsWatcherId = api.resources.Register(w)
@@ -385,7 +385,7 @@ func (api *API) WatchLocalRelationChanges(args params.Entities) (params.RemoteRe
 	for i, arg := range args.Entities {
 		w, changes, err := watchOne(arg)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -413,19 +413,19 @@ func (api *API) WatchRemoteApplicationRelations(args params.Entities) (params.St
 	for i, arg := range args.Entities {
 		applicationTag, err := names.ParseApplicationTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		appName := applicationTag.Id()
 		w, err := api.st.WatchRemoteApplicationRelations(appName)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		// TODO(jam): 2019-10-27 Watching Changes() should be protected with a select with api.ctx.Cancel()
 		changes, ok := <-w.Changes()
 		if !ok {
-			results.Results[i].Error = commonerrors.ServerError(watcher.EnsureErr(w))
+			results.Results[i].Error = apiservererrors.ServerError(watcher.EnsureErr(w))
 			continue
 		}
 		results.Results[i].StringsWatcherId = api.resources.Register(w)
@@ -462,11 +462,11 @@ func (api *API) ConsumeRemoteRelationChanges(changes params.RemoteRelationsChang
 			if errors.IsNotFound(err) {
 				continue
 			}
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if err := commoncrossmodel.PublishRelationChange(api.st, relationTag, change); err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 	}
@@ -480,12 +480,12 @@ func (api *API) SetRemoteApplicationsStatus(args params.SetStatus) (params.Error
 	for i, entity := range args.Entities {
 		remoteAppTag, err := names.ParseApplicationTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		app, err := api.st.RemoteApplication(remoteAppTag.Id())
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		statusValue := status.Status(entity.Status)
@@ -498,7 +498,7 @@ func (api *API) SetRemoteApplicationsStatus(args params.SetStatus) (params.Error
 				Message: entity.Info,
 			})
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -518,13 +518,13 @@ func (api *API) UpdateControllersForModels(args params.UpdateControllersForModel
 
 		modelTag, err := names.ParseModelTag(change.ModelTag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		controllerTag, err := names.ParseControllerTag(cInfo.ControllerTag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -536,7 +536,7 @@ func (api *API) UpdateControllersForModels(args params.UpdateControllersForModel
 		}
 
 		if err := api.st.UpdateControllerForModel(controller, modelTag.Id()); err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 	}

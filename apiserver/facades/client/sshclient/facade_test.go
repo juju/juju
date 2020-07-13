@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/sshclient"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -59,13 +59,13 @@ func (s *facadeSuite) SetUpTest(c *gc.C) {
 func (s *facadeSuite) TestMachineAuthNotAllowed(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("0")
 	_, err := sshclient.InternalFacade(s.backend, s.authorizer, s.callContext)
-	c.Assert(err, gc.Equals, commonerrors.ErrPerm)
+	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *facadeSuite) TestUnitAuthNotAllowed(c *gc.C) {
 	s.authorizer.Tag = names.NewUnitTag("foo/0")
 	_, err := sshclient.InternalFacade(s.backend, s.authorizer, s.callContext)
-	c.Assert(err, gc.Equals, commonerrors.ErrPerm)
+	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *facadeSuite) TestPublicAddress(c *gc.C) {

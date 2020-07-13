@@ -10,7 +10,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
@@ -60,7 +60,7 @@ func NewInstancePollerAPI(
 
 	if !authorizer.AuthController() {
 		// InstancePoller must run as a controller.
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	accessMachine := common.AuthFuncForTagKind(names.MachineTagKind)
 	sti := getState(st, m)
@@ -114,7 +114,7 @@ func (a *InstancePollerAPI) getOneMachine(tag string, canAccess common.AuthFunc)
 		return nil, err
 	}
 	if !canAccess(machineTag) {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return a.st.Machine(machineTag.Id())
 }
@@ -144,25 +144,25 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(req params.SetProviderNetwo
 	for i, arg := range req.Args {
 		machine, err := a.getOneMachine(arg.Tag, canAccess)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		newProviderAddrs, err := mapNetworkConfigsToProviderAddresses(arg.Configs, spaceInfos)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		newSpaceAddrs, err := newProviderAddrs.ToSpaceAddresses(spaceInfos)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		modified, err := maybeUpdateMachineProviderAddresses(machine, newSpaceAddrs)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -270,13 +270,13 @@ func (a *InstancePollerAPI) ProviderAddresses(args params.Entities) (params.Mach
 	for i, arg := range args.Entities {
 		machine, err := a.getOneMachine(arg.Tag, canAccess)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		addrs, err := machine.ProviderAddresses().ToProviderAddresses(a.st)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -299,17 +299,17 @@ func (a *InstancePollerAPI) SetProviderAddresses(args params.SetMachinesAddresse
 	for i, arg := range args.MachineAddresses {
 		machine, err := a.getOneMachine(arg.Tag, canAccess)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		addrsToSet, err := params.ToProviderAddresses(arg.Addresses...).ToSpaceAddresses(a.st)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if err := machine.SetProviderAddresses(addrsToSet...); err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil
@@ -337,7 +337,7 @@ func (a *InstancePollerAPI) InstanceStatus(args params.Entities) (params.StatusR
 				result.Results[i].Since = statusInfo.Since
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -370,7 +370,7 @@ func (a *InstancePollerAPI) SetInstanceStatus(args params.SetStatus) (params.Err
 				}
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -390,7 +390,7 @@ func (a *InstancePollerAPI) AreManuallyProvisioned(args params.Entities) (params
 		if err == nil {
 			result.Results[i].Result, err = machine.IsManual()
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }

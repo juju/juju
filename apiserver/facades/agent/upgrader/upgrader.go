@@ -10,7 +10,7 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
@@ -37,7 +37,7 @@ func NewUpgraderFacade(st *state.State, resources facade.Resources, auth facade.
 	// TODO(dfc) this is redundant
 	tag, err := names.ParseTag(auth.GetAuthTag().String())
 	if err != nil {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	switch tag.(type) {
 	case names.MachineTag, names.ControllerAgentTag, names.ApplicationTag, names.ModelTag:
@@ -46,7 +46,7 @@ func NewUpgraderFacade(st *state.State, resources facade.Resources, auth facade.
 		return NewUnitUpgraderAPI(st, resources, auth)
 	}
 	// Not a machine or unit.
-	return nil, commonerrors.ErrPerm
+	return nil, apiservererrors.ErrPerm
 }
 
 type Upgrader interface {
@@ -74,7 +74,7 @@ func NewUpgraderAPI(
 	authorizer facade.Authorizer,
 ) (*UpgraderAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthApplicationAgent() && !authorizer.AuthModelAgent() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	getCanReadWrite := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
@@ -107,7 +107,7 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 		if err != nil {
 			return params.NotifyWatchResults{}, errors.Trace(err)
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if u.authorizer.AuthOwner(tag) {
 			watch := u.m.WatchForModelConfigChanges()
 			// Consume the initial event. Technically, API
@@ -121,7 +121,7 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 				err = watcher.EnsureErr(watch)
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -163,17 +163,17 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 	}
 	agentVersion, _, err := u.getGlobalAgentVersion()
 	if err != nil {
-		return params.VersionResults{}, commonerrors.ServerError(err)
+		return params.VersionResults{}, apiservererrors.ServerError(err)
 	}
 	// Is the desired version greater than the current API server version?
 	isNewerVersion := agentVersion.Compare(jujuversion.Current) > 0
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			results[i].Error = commonerrors.ServerError(err)
+			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if u.authorizer.AuthOwner(tag) {
 			// Only return the globally desired agent version if the
 			// asking entity is a machine agent with JobManageModel or
@@ -193,7 +193,7 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 			}
 			err = nil
 		}
-		results[i].Error = commonerrors.ServerError(err)
+		results[i].Error = apiservererrors.ServerError(err)
 	}
 	return params.VersionResults{Results: results}, nil
 }

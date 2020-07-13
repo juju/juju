@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apicaller"
@@ -203,7 +203,7 @@ func (s *ScaryConnectSuite) TestChangePasswordSuccessAfterUnauthorisedError(c *g
 
 func (s *ScaryConnectSuite) TestChangePasswordSuccessAfterBadCurrentPasswordError(c *gc.C) {
 	// This will try to login with old password if current one fails.
-	stub := createPasswordCheckStub(commonerrors.ErrBadCreds)
+	stub := createPasswordCheckStub(apiservererrors.ErrBadCreds)
 	s.assertChangePasswordSuccess(c, stub)
 }
 

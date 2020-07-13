@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/state"
@@ -48,7 +48,7 @@ func getAllUnitNames(st *state.State, units, services []string) (result []names.
 		app := strings.Split(unit, "/")[0]
 		leaderUnit, err := getLeader(app)
 		if err != nil {
-			return nil, commonerrors.ServerError(err)
+			return nil, apiservererrors.ServerError(err)
 		}
 
 		unitsSet.Add(leaderUnit)

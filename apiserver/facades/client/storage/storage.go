@@ -13,8 +13,8 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -80,7 +80,7 @@ func NewStorageAPI(ctx facade.Context) (*StorageAPI, error) {
 
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return newStorageAPI(stateShim{st}, model.Type(), storageAccessor, registry, pm, authorizer, context.CallContext(st)), nil
 }
@@ -151,7 +151,7 @@ func (a *StorageAPI) checkCanRead() error {
 	}
 
 	if !canRead {
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -162,7 +162,7 @@ func (a *StorageAPI) checkCanWrite() error {
 		return errors.Trace(err)
 	}
 	if !canWrite {
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -178,17 +178,17 @@ func (a *StorageAPI) StorageDetails(entities params.Entities) (params.StorageDet
 	for i, entity := range entities.Entities {
 		storageTag, err := names.ParseStorageTag(entity.Tag)
 		if err != nil {
-			results[i].Error = commonerrors.ServerError(err)
+			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		storageInstance, err := a.storageAccess.StorageInstance(storageTag)
 		if err != nil {
-			results[i].Error = commonerrors.ServerError(err)
+			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		details, err := createStorageDetails(a.backend, a.storageAccess, storageInstance)
 		if err != nil {
-			results[i].Error = commonerrors.ServerError(err)
+			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results[i].Result = details
@@ -207,7 +207,7 @@ func (a *StorageAPI) ListStorageDetails(filters params.StorageFilters) (params.S
 	for i, filter := range filters.Filters {
 		list, err := a.listStorageDetails(filter)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = list
@@ -224,7 +224,7 @@ func (a *StorageAPI) listStorageDetails(filter params.StorageFilter) ([]params.S
 	}
 	stateInstances, err := a.storageAccess.AllStorageInstances()
 	if err != nil {
-		return nil, commonerrors.ServerError(err)
+		return nil, apiservererrors.ServerError(err)
 	}
 	results := make([]params.StorageDetails, len(stateInstances))
 	for i, stateInstance := range stateInstances {
@@ -364,7 +364,7 @@ func (a *StorageAPI) ListPools(
 	for i, filter := range filters.Filters {
 		pools, err := a.listPools(a.ensureStoragePoolFilter(filter))
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = pools
@@ -503,7 +503,7 @@ func (a *StorageAPI) CreatePool(p params.StoragePoolArgs) (params.ErrorResults, 
 			pool.Name,
 			storage.ProviderType(pool.Provider),
 			pool.Attrs)
-		results.Results[i].Error = commonerrors.ServerError(err)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }
@@ -522,14 +522,14 @@ func (a *StorageAPI) ListVolumes(filters params.VolumeFilters) (params.VolumeDet
 	for i, filter := range filters.Filters {
 		volumes, volumeAttachments, err := filterVolumes(stVolumeAccess, filter)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		details, err := createVolumeDetailsList(
 			a.backend, a.storageAccess, volumes, volumeAttachments,
 		)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = details
@@ -688,14 +688,14 @@ func (a *StorageAPI) ListFilesystems(filters params.FilesystemFilters) (params.F
 	for i, filter := range filters.Filters {
 		filesystems, filesystemAttachments, err := filterFilesystems(stFileAccess, filter)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		details, err := createFilesystemDetailsList(
 			a.backend, a.storageAccess, filesystems, filesystemAttachments,
 		)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = details
@@ -885,7 +885,7 @@ func (a *StorageAPI) addToUnit(args params.StoragesAddParams) (params.AddStorage
 	for i, one := range args.Storages {
 		u, err := names.ParseUnitTag(one.UnitTag)
 		if err != nil {
-			result[i].Error = commonerrors.ServerError(err)
+			result[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -893,7 +893,7 @@ func (a *StorageAPI) addToUnit(args params.StoragesAddParams) (params.AddStorage
 			u, one.StorageName, paramsToState(one.Constraints),
 		)
 		if err != nil {
-			result[i].Error = commonerrors.ServerError(err)
+			result[i].Error = apiservererrors.ServerError(err)
 		}
 		tagStrings := make([]string, len(storageTags))
 		for i, tag := range storageTags {
@@ -929,7 +929,7 @@ func (a *StorageAPI) remove(args params.RemoveStorage) (params.ErrorResults, err
 	for i, arg := range args.Storage {
 		tag, err := names.ParseStorageTag(arg.Tag)
 		if err != nil {
-			result[i].Error = commonerrors.ServerError(err)
+			result[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		remove := a.storageAccess.DestroyStorageInstance
@@ -937,7 +937,7 @@ func (a *StorageAPI) remove(args params.RemoveStorage) (params.ErrorResults, err
 			remove = a.storageAccess.ReleaseStorageInstance
 		}
 		force := arg.Force != nil && *arg.Force
-		result[i].Error = commonerrors.ServerError(remove(tag, arg.DestroyAttachments, force, common.MaxWait(arg.MaxWait)))
+		result[i].Error = apiservererrors.ServerError(remove(tag, arg.DestroyAttachments, force, common.MaxWait(arg.MaxWait)))
 	}
 	return params.ErrorResults{result}, nil
 }
@@ -977,7 +977,7 @@ func (a *StorageAPI) internalDetach(args params.StorageAttachmentIds, force *boo
 
 	result := make([]params.ErrorResult, len(args.Ids))
 	for i, arg := range args.Ids {
-		result[i].Error = commonerrors.ServerError(detachOne(arg))
+		result[i].Error = apiservererrors.ServerError(detachOne(arg))
 	}
 	return params.ErrorResults{result}, nil
 }
@@ -1046,7 +1046,7 @@ func (a *StorageAPI) Attach(args params.StorageAttachmentIds) (params.ErrorResul
 
 	result := make([]params.ErrorResult, len(args.Ids))
 	for i, arg := range args.Ids {
-		result[i].Error = commonerrors.ServerError(attachOne(arg))
+		result[i].Error = apiservererrors.ServerError(attachOne(arg))
 	}
 	return params.ErrorResults{Results: result}, nil
 }
@@ -1071,7 +1071,7 @@ func (a *StorageAPI) Import(args params.BulkImportStorageParams) (params.ImportS
 	for i, arg := range args.Storage {
 		details, err := a.importStorage(arg)
 		if err != nil {
-			results[i].Error = commonerrors.ServerError(err)
+			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results[i].Result = details
@@ -1187,7 +1187,7 @@ func (a *StorageAPI) RemovePool(p params.StoragePoolDeleteArgs) (params.ErrorRes
 	for i, pool := range p.Pools {
 		err := a.storageAccess.RemoveStoragePool(pool.Name)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return results, nil
@@ -1204,7 +1204,7 @@ func (a *StorageAPI) UpdatePool(p params.StoragePoolArgs) (params.ErrorResults, 
 	for i, pool := range p.Pools {
 		err := a.poolManager.Replace(pool.Name, pool.Provider, pool.Attrs)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return results, nil

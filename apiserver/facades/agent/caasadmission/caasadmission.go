@@ -5,7 +5,7 @@ package caasadmission
 
 import (
 	"github.com/juju/juju/apiserver/common"
-	errors "github.com/juju/juju/apiserver/common/errors"
+	errors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 

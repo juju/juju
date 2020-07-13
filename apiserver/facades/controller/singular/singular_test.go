@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/controller/singular"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/lease"
@@ -33,7 +33,7 @@ func (s *SingularSuite) TestRequiresController(c *gc.C) {
 	auth := mockAuth{nonController: true}
 	facade, err := singular.NewFacade(nil, nil, auth)
 	c.Check(facade, gc.IsNil)
-	c.Check(err, gc.Equals, commonerrors.ErrPerm)
+	c.Check(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *SingularSuite) TestAcceptsController(c *gc.C) {

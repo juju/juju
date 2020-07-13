@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/permission"
@@ -37,7 +37,7 @@ func NewUserManagerAPI(
 	authorizer facade.Authorizer,
 ) (*UserManagerAPI, error) {
 	if !authorizer.AuthClient() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	// Since we know this is a user tag (because AuthClient is true),
@@ -88,7 +88,7 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 		return result, errors.Trace(err)
 	}
 	if !isSuperUser {
-		return result, commonerrors.ErrPerm
+		return result, apiservererrors.ErrPerm
 	}
 
 	for i, arg := range args.Users {
@@ -101,7 +101,7 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 		}
 		if err != nil {
 			err = errors.Annotate(err, "failed to create user")
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		} else {
 			result.Results[i] = params.AddUserResult{
@@ -139,28 +139,28 @@ func (api *UserManagerAPI) RemoveUser(entities params.Entities) (params.ErrorRes
 		return deletions, errors.Trace(err)
 	}
 	if !api.isAdmin && !isSuperUser {
-		return deletions, commonerrors.ErrPerm
+		return deletions, apiservererrors.ErrPerm
 	}
 
 	// Remove the entities.
 	for i, e := range entities.Entities {
 		user, err := names.ParseUserTag(e.Tag)
 		if err != nil {
-			deletions.Results[i].Error = commonerrors.ServerError(err)
+			deletions.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		if controllerOwner.Id() == user.Id() {
-			deletions.Results[i].Error = commonerrors.ServerError(
+			deletions.Results[i].Error = apiservererrors.ServerError(
 				errors.Errorf("cannot delete controller owner %q", user.Name()))
 			continue
 		}
 		err = api.state.RemoveUser(user)
 		if err != nil {
 			if errors.IsUserNotFound(err) {
-				deletions.Results[i].Error = commonerrors.ServerError(err)
+				deletions.Results[i].Error = apiservererrors.ServerError(err)
 			} else {
-				deletions.Results[i].Error = commonerrors.ServerError(
+				deletions.Results[i].Error = apiservererrors.ServerError(
 					errors.Annotatef(err, "failed to delete user %q", user.Name()))
 			}
 			continue
@@ -177,7 +177,7 @@ func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {
 	}
 	user, err := api.state.User(userTag)
 	if err != nil {
-		return nil, errors.Wrap(err, commonerrors.ErrPerm)
+		return nil, errors.Wrap(err, apiservererrors.ErrPerm)
 	}
 	return user, nil
 }
@@ -190,7 +190,7 @@ func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResult
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	if !isSuperUser {
-		return params.ErrorResults{}, commonerrors.ErrPerm
+		return params.ErrorResults{}, apiservererrors.ErrPerm
 	}
 
 	if err := api.check.ChangeAllowed(); err != nil {
@@ -207,7 +207,7 @@ func (api *UserManagerAPI) DisableUser(users params.Entities) (params.ErrorResul
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	if !isSuperUser {
-		return params.ErrorResults{}, commonerrors.ErrPerm
+		return params.ErrorResults{}, apiservererrors.ErrPerm
 	}
 
 	if err := api.check.ChangeAllowed(); err != nil {
@@ -229,7 +229,7 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 	}
 
 	if !api.isAdmin && isSuperUser {
-		return result, commonerrors.ErrPerm
+		return result, apiservererrors.ErrPerm
 	}
 
 	// Create the results list to populate.
@@ -238,12 +238,12 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 	for i, arg := range args.Entities {
 		user, err := api.getUser(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		err = method(user)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(errors.Errorf("failed to %s user: %s", action, err))
+			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf("failed to %s user: %s", action, err))
 		}
 	}
 	return result, nil
@@ -264,7 +264,7 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 			result.Result.Access = string(access)
 		} else if err != nil && !errors.IsNotFound(err) {
 			result.Result = nil
-			result.Error = commonerrors.ServerError(err)
+			result.Error = apiservererrors.ServerError(err)
 		}
 	}
 
@@ -316,11 +316,11 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 	for _, arg := range request.Entities {
 		userTag, err := names.ParseUserTag(arg.Tag)
 		if err != nil {
-			results.Results = append(results.Results, params.UserInfoResult{Error: commonerrors.ServerError(err)})
+			results.Results = append(results.Results, params.UserInfoResult{Error: apiservererrors.ServerError(err)})
 			continue
 		}
 		if !isAdmin && !api.authorizer.AuthOwner(userTag) {
-			results.Results = append(results.Results, params.UserInfoResult{Error: commonerrors.ServerError(commonerrors.ErrPerm)})
+			results.Results = append(results.Results, params.UserInfoResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)})
 			continue
 		}
 		if !userTag.IsLocal() {
@@ -336,7 +336,7 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 		}
 		user, err := api.getUser(arg.Tag)
 		if err != nil {
-			results.Results = append(results.Results, params.UserInfoResult{Error: commonerrors.ServerError(err)})
+			results.Results = append(results.Results, params.UserInfoResult{Error: apiservererrors.ServerError(err)})
 			continue
 		}
 		results.Results = append(results.Results, infoForUser(user))
@@ -361,7 +361,7 @@ func (api *UserManagerAPI) SetPassword(args params.EntityPasswords) (params.Erro
 	result.Results = make([]params.ErrorResult, len(args.Changes))
 	for i, arg := range args.Changes {
 		if err := api.setPassword(arg); err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil
@@ -379,7 +379,7 @@ func (api *UserManagerAPI) setPassword(arg params.EntityPassword) error {
 	}
 
 	if api.apiUser != user.UserTag() && !api.isAdmin && !isSuperUser {
-		return errors.Trace(commonerrors.ErrPerm)
+		return errors.Trace(apiservererrors.ErrPerm)
 	}
 	if arg.Password == "" {
 		return errors.New("cannot use an empty password")
@@ -415,18 +415,18 @@ func (api *UserManagerAPI) ResetPassword(args params.Entities) (params.AddUserRe
 		result.Results[i] = params.AddUserResult{Tag: arg.Tag}
 		user, err := api.getUser(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if isSuperUser && api.apiUser != user.Tag() {
 			key, err := user.ResetPassword()
 			if err != nil {
-				result.Results[i].Error = commonerrors.ServerError(err)
+				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
 			}
 			result.Results[i].SecretKey = key
 		} else {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 		}
 	}
 	return result, nil

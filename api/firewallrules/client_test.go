@@ -10,7 +10,7 @@ import (
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/firewallrules"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
 )
@@ -42,7 +42,7 @@ func (s *FirewallRulesSuite) TestSetFirewallRule(c *gc.C) {
 
 			if results, ok := result.(*params.ErrorResults); ok {
 				results.Results = []params.ErrorResult{{
-					Error: commonerrors.ServerError(errors.New("fail"))}}
+					Error: apiservererrors.ServerError(errors.New("fail"))}}
 			}
 			return nil
 		})

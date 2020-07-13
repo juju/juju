@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiapplication "github.com/juju/juju/api/application"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/jujuclient"
@@ -75,7 +75,7 @@ func (s *RemoveApplicationCmdSuite) setupRace(c *gc.C, raceyApplications []strin
 			for _, poison := range raceyApplications {
 				if app == poison {
 					err := errors.NewNotSupported(nil, "change detected")
-					results[i].Error = commonerrors.ServerError(err)
+					results[i].Error = apiservererrors.ServerError(err)
 				}
 			}
 		}

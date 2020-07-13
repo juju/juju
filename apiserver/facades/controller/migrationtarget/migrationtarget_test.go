@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
@@ -91,13 +91,13 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 func (s *Suite) TestNotUser(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("0")
 	_, err := s.newAPI(nil, nil)
-	c.Assert(errors.Cause(err), gc.Equals, commonerrors.ErrPerm)
+	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *Suite) TestNotControllerAdmin(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("jrandomuser")
 	_, err := s.newAPI(nil, nil)
-	c.Assert(errors.Cause(err), gc.Equals, commonerrors.ErrPerm)
+	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {

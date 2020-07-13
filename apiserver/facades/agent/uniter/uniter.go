@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
@@ -165,7 +165,7 @@ type UniterAPIV4 struct {
 func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	authorizer := context.Auth()
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	st := context.State()
 	aClock := context.StatePool().Clock()
@@ -421,21 +421,21 @@ func (u *UniterAPI) AssignedMachine(args params.Entities) (params.StringResults,
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		if !canAccess(tag) {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		unit, err := u.getUnit(tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		machineId, err := unit.AssignedMachineId()
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		} else {
 			result.Results[i].Result = names.NewMachineTag(machineId).String()
 		}
@@ -450,18 +450,18 @@ func (u *UniterAPI) getMachine(tag names.MachineTag) (*state.Machine, error) {
 func (u *UniterAPI) getOneMachinePorts(canAccess common.AuthFunc, machineTag string) params.MachinePortsResult {
 	tag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
-		return params.MachinePortsResult{Error: commonerrors.ServerError(commonerrors.ErrPerm)}
+		return params.MachinePortsResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}
 	}
 	if !canAccess(tag) {
-		return params.MachinePortsResult{Error: commonerrors.ServerError(commonerrors.ErrPerm)}
+		return params.MachinePortsResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}
 	}
 	machine, err := u.getMachine(tag)
 	if err != nil {
-		return params.MachinePortsResult{Error: commonerrors.ServerError(err)}
+		return params.MachinePortsResult{Error: apiservererrors.ServerError(err)}
 	}
 	allPorts, err := machine.AllPorts()
 	if err != nil {
-		return params.MachinePortsResult{Error: commonerrors.ServerError(err)}
+		return params.MachinePortsResult{Error: apiservererrors.ServerError(err)}
 	}
 	var resultPorts []params.MachinePortRange
 	for _, ports := range allPorts {
@@ -498,10 +498,10 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringResults, e
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
@@ -511,11 +511,11 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringResults, e
 				if err == nil {
 					result.Results[i].Result = address.Value
 				} else if network.IsNoAddressError(err) {
-					err = commonerrors.NoAddressSetError(tag, "public")
+					err = apiservererrors.NoAddressSetError(tag, "public")
 				}
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -532,10 +532,10 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringResults, 
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
@@ -545,11 +545,11 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringResults, 
 				if err == nil {
 					result.Results[i].Result = address.Value
 				} else if network.IsNoAddressError(err) {
-					err = commonerrors.NoAddressSetError(tag, "private")
+					err = apiservererrors.NoAddressSetError(tag, "private")
 				}
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -585,10 +585,10 @@ func (u *UniterAPI) AvailabilityZone(args params.Entities) (params.StringResults
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var zone string
 			zone, err = getZone(u.st, tag)
@@ -596,7 +596,7 @@ func (u *UniterAPI) AvailabilityZone(args params.Entities) (params.StringResults
 				results.Results[i].Result = zone
 			}
 		}
-		results.Results[i].Error = commonerrors.ServerError(err)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 
 	return results, nil
@@ -614,10 +614,10 @@ func (u *UniterAPI) Resolved(args params.Entities) (params.ResolvedModeResults, 
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
@@ -625,7 +625,7 @@ func (u *UniterAPI) Resolved(args params.Entities) (params.ResolvedModeResults, 
 				result.Results[i].Mode = params.ResolvedMode(unit.Resolved())
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -642,10 +642,10 @@ func (u *UniterAPI) ClearResolved(args params.Entities) (params.ErrorResults, er
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
@@ -653,7 +653,7 @@ func (u *UniterAPI) ClearResolved(args params.Entities) (params.ErrorResults, er
 				err = unit.ClearResolved()
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -671,10 +671,10 @@ func (u *UniterAPI) GetPrincipal(args params.Entities) (params.StringBoolResults
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
@@ -686,7 +686,7 @@ func (u *UniterAPI) GetPrincipal(args params.Entities) (params.StringBoolResults
 				result.Results[i].Ok = ok
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -704,10 +704,10 @@ func (u *UniterAPI) Destroy(args params.Entities) (params.ErrorResults, error) {
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
@@ -715,7 +715,7 @@ func (u *UniterAPI) Destroy(args params.Entities) (params.ErrorResults, error) {
 				err = unit.Destroy()
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -732,10 +732,10 @@ func (u *UniterAPI) DestroyAllSubordinates(args params.Entities) (params.ErrorRe
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
@@ -743,7 +743,7 @@ func (u *UniterAPI) DestroyAllSubordinates(args params.Entities) (params.ErrorRe
 				err = u.destroySubordinates(unit)
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -760,10 +760,10 @@ func (u *UniterAPI) HasSubordinates(args params.Entities) (params.BoolResults, e
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
@@ -772,7 +772,7 @@ func (u *UniterAPI) HasSubordinates(args params.Entities) (params.BoolResults, e
 				result.Results[i].Result = len(subordinates) > 0
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -792,7 +792,7 @@ func (u *UniterAPI) CharmModifiedVersion(args params.Entities) (params.IntResult
 	for i, entity := range args.Entities {
 		ver, err := u.charmModifiedVersion(entity.Tag, canAccess)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = ver
@@ -803,10 +803,10 @@ func (u *UniterAPI) CharmModifiedVersion(args params.Entities) (params.IntResult
 func (u *UniterAPI) charmModifiedVersion(tagStr string, canAccess func(names.Tag) bool) (int, error) {
 	tag, err := names.ParseTag(tagStr)
 	if err != nil {
-		return -1, commonerrors.ErrPerm
+		return -1, apiservererrors.ErrPerm
 	}
 	if !canAccess(tag) {
-		return -1, commonerrors.ErrPerm
+		return -1, apiservererrors.ErrPerm
 	}
 	unitOrApplication, err := u.st.FindEntity(tag)
 	if err != nil {
@@ -840,10 +840,10 @@ func (u *UniterAPI) CharmURL(args params.Entities) (params.StringBoolResults, er
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unitOrApplication state.Entity
 			unitOrApplication, err = u.st.FindEntity(tag)
@@ -858,7 +858,7 @@ func (u *UniterAPI) CharmURL(args params.Entities) (params.StringBoolResults, er
 				}
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -876,10 +876,10 @@ func (u *UniterAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResul
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
@@ -895,7 +895,7 @@ func (u *UniterAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResul
 				}
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -936,21 +936,21 @@ func (u *UniterAPI) WorkloadVersion(args params.Entities) (params.StringResults,
 		resultItem := &result.Results[i]
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			resultItem.Error = commonerrors.ServerError(err)
+			resultItem.Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if !canAccess(tag) {
-			resultItem.Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			resultItem.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		unit, err := u.getUnit(tag)
 		if err != nil {
-			resultItem.Error = commonerrors.ServerError(err)
+			resultItem.Error = apiservererrors.ServerError(err)
 			continue
 		}
 		version, err := unit.WorkloadVersion()
 		if err != nil {
-			resultItem.Error = commonerrors.ServerError(err)
+			resultItem.Error = apiservererrors.ServerError(err)
 			continue
 		}
 		resultItem.Result = version
@@ -972,21 +972,21 @@ func (u *UniterAPI) SetWorkloadVersion(args params.EntityWorkloadVersions) (para
 		resultItem := &result.Results[i]
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			resultItem.Error = commonerrors.ServerError(err)
+			resultItem.Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if !canAccess(tag) {
-			resultItem.Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			resultItem.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		unit, err := u.getUnit(tag)
 		if err != nil {
-			resultItem.Error = commonerrors.ServerError(err)
+			resultItem.Error = apiservererrors.ServerError(err)
 			continue
 		}
 		err = unit.SetWorkloadVersion(entity.WorkloadVersion)
 		if err != nil {
-			resultItem.Error = commonerrors.ServerError(err)
+			resultItem.Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil
@@ -1005,17 +1005,17 @@ func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResul
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		if !canAccess(tag) {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 
 		unit, err := u.getUnit(tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -1026,7 +1026,7 @@ func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResul
 		}}
 
 		err = unit.OpenClosePortsOnSubnet("", openPortRange, nil)
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1044,17 +1044,17 @@ func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResu
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		if !canAccess(tag) {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 
 		unit, err := u.getUnit(tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -1065,7 +1065,7 @@ func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResu
 		}}
 
 		err = unit.OpenClosePortsOnSubnet("", nil, closePortRange)
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1108,16 +1108,16 @@ func (u *UniterAPIV8) WatchSettings(args params.Entities, configWatcherFn func(u
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		watcherId := ""
 		if canAccess(tag) {
 			watcherId, err = u.watchOneUnitConfigSettings(tag, configWatcherFn)
 		}
 		result.Results[i].NotifyWatcherId = watcherId
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1161,10 +1161,10 @@ func (u *UniterAPI) ConfigSettings(args params.Entities) (params.ConfigSettingsR
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit cache.Unit
 			unit, err = u.getCacheUnit(tag)
@@ -1176,7 +1176,7 @@ func (u *UniterAPI) ConfigSettings(args params.Entities) (params.ConfigSettingsR
 				}
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1190,18 +1190,18 @@ func (u *UniterAPI) CharmArchiveSha256(args params.CharmURLs) (params.StringResu
 	for i, arg := range args.URLs {
 		curl, err := charm.ParseURL(arg.URL)
 		if err != nil {
-			err = commonerrors.ErrPerm
+			err = apiservererrors.ErrPerm
 		} else {
 			var sch *state.Charm
 			sch, err = u.st.Charm(curl)
 			if errors.IsNotFound(err) {
-				err = commonerrors.ErrPerm
+				err = apiservererrors.ErrPerm
 			}
 			if err == nil {
 				result.Results[i].Result = sch.BundleSha256()
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1221,7 +1221,7 @@ func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults,
 		if err == nil {
 			result.Results[i] = relParams
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1246,7 +1246,7 @@ func (u *UniterAPI) ActionStatus(args params.Entities) (params.StringResults, er
 	for k, entity := range args.Entities {
 		action, err := actionFn(entity.Tag)
 		if err != nil {
-			results.Results[k].Error = commonerrors.ServerError(err)
+			results.Results[k].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[k].Result = string(action.Status())
@@ -1328,7 +1328,7 @@ func (u *UniterAPI) LogActionsMessages(args params.ActionMessageParams) (params.
 		Results: make([]params.ErrorResult, len(args.Messages)),
 	}
 	for i, actionMessage := range args.Messages {
-		result.Results[i].Error = commonerrors.ServerError(
+		result.Results[i].Error = apiservererrors.ServerError(
 			oneActionMessage(actionMessage.Tag, actionMessage.Value))
 	}
 	return result, nil
@@ -1346,7 +1346,7 @@ func (u *UniterAPI) RelationById(args params.RelationIds) (params.RelationResult
 		if err == nil {
 			result.Results[i] = relParams
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1368,10 +1368,10 @@ func (u *UniterAPIV6) JoinedRelations(args params.Entities) (params.StringsResul
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canRead(tag) {
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
@@ -1379,7 +1379,7 @@ func (u *UniterAPIV6) JoinedRelations(args params.Entities) (params.StringsResul
 				result.Results[i].Result, err = relationsInScopeTags(unit)
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1437,10 +1437,10 @@ func (u *UniterAPI) RelationsStatus(args params.Entities) (params.RelationUnitSt
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canRead(tag) {
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
@@ -1448,7 +1448,7 @@ func (u *UniterAPI) RelationsStatus(args params.Entities) (params.RelationUnitSt
 				result.Results[i].RelationResults, err = relationResults(unit)
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1468,10 +1468,10 @@ func (u *UniterAPI) Refresh(args params.Entities) (params.UnitRefreshResults, er
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canRead(tag) {
 			var unit *state.Unit
 			if unit, err = u.getUnit(tag); err == nil {
@@ -1486,7 +1486,7 @@ func (u *UniterAPI) Refresh(args params.Entities) (params.UnitRefreshResults, er
 				}
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1595,12 +1595,12 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 	for i, arg := range args.RelationUnits {
 		tag, err := names.ParseUnitTag(arg.Unit)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		err = one(arg.Relation, tag, cfg.EgressSubnets())
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil
@@ -1620,14 +1620,14 @@ func (u *UniterAPI) LeaveScope(args params.RelationUnits) (params.ErrorResults, 
 	for i, arg := range args.RelationUnits {
 		unit, err := names.ParseUnitTag(arg.Unit)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, unit)
 		if err == nil {
 			err = relUnit.LeaveScope()
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1650,7 +1650,7 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.SettingsResu
 	readOneSettings := func(arg params.RelationUnit) (params.Settings, error) {
 		tag, err := names.ParseTag(arg.Unit)
 		if err != nil {
-			return nil, commonerrors.ErrPerm
+			return nil, apiservererrors.ErrPerm
 		}
 
 		var settings map[string]interface{}
@@ -1675,11 +1675,11 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.SettingsResu
 			authTag := u.auth.GetAuthTag()
 			if authTag.Kind() != names.UnitTagKind {
 				// See LP1876097
-				return nil, commonerrors.ErrPerm
+				return nil, apiservererrors.ErrPerm
 			}
 			settings, err = u.readLocalApplicationSettings(arg.Relation, tag, authTag.(names.UnitTag))
 		default:
-			return nil, commonerrors.ErrPerm
+			return nil, apiservererrors.ErrPerm
 		}
 
 		if err != nil {
@@ -1690,7 +1690,7 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.SettingsResu
 
 	for i, arg := range args.RelationUnits {
 		settings, err := readOneSettings(arg)
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 		result.Results[i].Settings = settings
 	}
 	return result, nil
@@ -1723,7 +1723,7 @@ func (u *UniterAPI) ReadLocalApplicationSettings(arg params.RelationUnit) (param
 		// In this case, the authentication tag must match the unit tag
 		// provided by the caller.
 		if authTag.String() != unitTag.String() {
-			return res, errors.Trace(commonerrors.ErrPerm)
+			return res, errors.Trace(apiservererrors.ErrPerm)
 		}
 	case names.ApplicationTagKind:
 		// In this case (k8s operator), we have no alternative than to
@@ -1732,7 +1732,7 @@ func (u *UniterAPI) ReadLocalApplicationSettings(arg params.RelationUnit) (param
 		// sanity check, ensure that the inferred application from the
 		// unit name matches the one currently logged on.
 		if authTag.String() != inferredAppTag.String() {
-			return res, errors.Trace(commonerrors.ErrPerm)
+			return res, errors.Trace(apiservererrors.ErrPerm)
 		}
 	default:
 		return res, errors.NotSupportedf("reading local application settings after authenticating as %q", authTag.Kind())
@@ -1794,7 +1794,7 @@ func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.Se
 	readOneSettings := func(arg params.RelationUnitPair) (params.Settings, error) {
 		unit, err := names.ParseUnitTag(arg.LocalUnit)
 		if err != nil {
-			return nil, commonerrors.ErrPerm
+			return nil, apiservererrors.ErrPerm
 		}
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, unit)
 		if err != nil {
@@ -1802,7 +1802,7 @@ func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.Se
 		}
 		remoteTag, err := names.ParseTag(arg.RemoteUnit)
 		if err != nil {
-			return nil, commonerrors.ErrPerm
+			return nil, apiservererrors.ErrPerm
 		}
 
 		var settings map[string]interface{}
@@ -1818,7 +1818,7 @@ func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.Se
 		case names.ApplicationTag:
 			settings, err = u.getRemoteRelationAppSettings(relUnit.Relation(), tag)
 		default:
-			return nil, commonerrors.ErrPerm
+			return nil, apiservererrors.ErrPerm
 		}
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1828,7 +1828,7 @@ func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.Se
 
 	for i, arg := range args.RelationUnitPairs {
 		settings, err := readOneSettings(arg)
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 		result.Results[i].Settings = settings
 	}
 
@@ -1850,16 +1850,16 @@ func (u *UniterAPI) UpdateSettings(args params.RelationUnitsSettings) (params.Er
 	for i, arg := range args.RelationUnits {
 		updateOp, err := u.updateUnitAndApplicationSettingsOp(arg, canAccess)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		if err = u.st.ApplyOperation(updateOp); err != nil {
 			if leadership.IsNotLeaderError(err) {
-				err = commonerrors.ErrPerm
+				err = apiservererrors.ErrPerm
 			}
 
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil
@@ -1868,7 +1868,7 @@ func (u *UniterAPI) UpdateSettings(args params.RelationUnitsSettings) (params.Er
 func (u *UniterAPI) updateUnitAndApplicationSettingsOp(arg params.RelationUnitSettings, canAccess common.AuthFunc) (state.ModelOperation, error) {
 	unitTag, err := names.ParseUnitTag(arg.Unit)
 	if err != nil {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	rel, unit, err := u.getRelationAndUnit(canAccess, arg.Relation, unitTag)
 	if err != nil {
@@ -1935,14 +1935,14 @@ func (u *UniterAPI) WatchRelationUnits(args params.RelationUnits) (params.Relati
 	for i, arg := range args.RelationUnits {
 		unit, err := names.ParseUnitTag(arg.Unit)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, unit)
 		if err == nil {
 			result.Results[i], err = u.watchOneRelationUnit(relUnit)
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1962,7 +1962,7 @@ func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.Er
 		}
 		unit, err := u.st.Unit(unitTag.Id())
 		if errors.IsNotFound(err) {
-			return nil, commonerrors.ErrPerm
+			return nil, apiservererrors.ErrPerm
 		}
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1991,13 +1991,13 @@ func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.Er
 
 		rel, err := u.st.Relation(arg.RelationId)
 		if errors.IsNotFound(err) {
-			return commonerrors.ErrPerm
+			return apiservererrors.ErrPerm
 		} else if err != nil {
 			return errors.Trace(err)
 		}
 		_, err = rel.Unit(unit)
 		if errors.IsNotFound(err) {
-			return commonerrors.ErrPerm
+			return apiservererrors.ErrPerm
 		} else if err != nil {
 			return errors.Trace(err)
 		}
@@ -2022,7 +2022,7 @@ func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.Er
 	results := make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
 		err := changeOne(arg)
-		results[i].Error = commonerrors.ServerError(err)
+		results[i].Error = apiservererrors.ServerError(err)
 	}
 	statusResults.Results = results
 	return statusResults, nil
@@ -2041,16 +2041,16 @@ func (u *UniterAPIV8) WatchUnitAddresses(args params.Entities) (params.NotifyWat
 	for i, entity := range args.Entities {
 		unit, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		watcherId := ""
 		if canAccess(unit) {
 			watcherId, err = u.watchOneUnitAddresses(unit)
 		}
 		result.Results[i].NotifyWatcherId = watcherId
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -2080,7 +2080,7 @@ func (u *UniterAPI) getOneRelationById(relId int) (params.RelationResult, error)
 	nothing := params.RelationResult{}
 	rel, err := u.st.Relation(relId)
 	if errors.IsNotFound(err) {
-		return nothing, commonerrors.ErrPerm
+		return nothing, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nothing, err
 	}
@@ -2105,7 +2105,7 @@ func (u *UniterAPI) getOneRelationById(relId int) (params.RelationResult, error)
 		// unit's application is not part of the requested
 		// relation. That's why it's appropriate to return ErrPerm
 		// here.
-		return nothing, commonerrors.ErrPerm
+		return nothing, apiservererrors.ErrPerm
 	}
 	return result, nil
 }
@@ -2113,11 +2113,11 @@ func (u *UniterAPI) getOneRelationById(relId int) (params.RelationResult, error)
 func (u *UniterAPI) getRelation(relTag string) (*state.Relation, error) {
 	tag, err := names.ParseRelationTag(relTag)
 	if err != nil {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	rel, err := u.st.KeyRelation(tag.Id())
 	if errors.IsNotFound(err) {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nil, err
 	}
@@ -2130,7 +2130,7 @@ func (u *UniterAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag string,
 		return nil, nil, errors.Trace(err)
 	}
 	if !canAccess(unitTag) {
-		return nil, nil, commonerrors.ErrPerm
+		return nil, nil, apiservererrors.ErrPerm
 	}
 	unit, err := u.getUnit(unitTag)
 	return rel, unit, err
@@ -2169,7 +2169,7 @@ func (u *UniterAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTag st
 	nothing := params.RelationResult{}
 	tag, err := names.ParseUnitTag(unitTag)
 	if err != nil {
-		return nothing, commonerrors.ErrPerm
+		return nothing, apiservererrors.ErrPerm
 	}
 	rel, unit, err := u.getRelationAndUnit(canAccess, relTag, tag)
 	if err != nil {
@@ -2181,22 +2181,22 @@ func (u *UniterAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTag st
 func (u *UniterAPI) getRelationAppSettings(canAccess common.AuthFunc, relTag string, appTag names.ApplicationTag) (map[string]interface{}, error) {
 	tag, err := names.ParseRelationTag(relTag)
 	if err != nil {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	rel, err := u.st.KeyRelation(tag.Id())
 	if errors.IsNotFound(err) {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	if !canAccess(appTag) {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	settings, err := rel.ApplicationSettings(appTag.Id())
 	if errors.IsNotFound(err) {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2218,7 +2218,7 @@ func (u *UniterAPI) getRemoteRelationAppSettings(rel *state.Relation, appTag nam
 	}
 	relatedEPs, err := rel.RelatedEndpoints(localAppName)
 	if err != nil {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	var isRelatedToLocalApp bool
@@ -2230,7 +2230,7 @@ func (u *UniterAPI) getRemoteRelationAppSettings(rel *state.Relation, appTag nam
 	}
 
 	if !isRelatedToLocalApp {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	return rel.ApplicationSettings(appTag.Id())
@@ -2319,7 +2319,7 @@ func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag n
 	switch tag := u.auth.GetAuthTag().(type) {
 	case names.UnitTag:
 		if remoteUnitTag == tag {
-			return "", commonerrors.ErrPerm
+			return "", apiservererrors.ErrPerm
 		}
 	case names.ApplicationTag:
 		endpoints := relUnit.Relation().Endpoints()
@@ -2339,7 +2339,7 @@ func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag n
 		}
 		for _, unit := range allUnits {
 			if remoteUnitTag == unit.Tag() {
-				return "", commonerrors.ErrPerm
+				return "", apiservererrors.ErrPerm
 			}
 		}
 	}
@@ -2351,12 +2351,12 @@ func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag n
 	remoteUnitName := remoteUnitTag.Id()
 	remoteApplicationName, err := names.UnitApplication(remoteUnitName)
 	if err != nil {
-		return "", commonerrors.ErrPerm
+		return "", apiservererrors.ErrPerm
 	}
 	rel := relUnit.Relation()
 	_, err = rel.RelatedEndpoints(remoteApplicationName)
 	if err != nil {
-		return "", commonerrors.ErrPerm
+		return "", apiservererrors.ErrPerm
 	}
 	return remoteUnitName, nil
 }
@@ -2434,16 +2434,16 @@ func (u *UniterAPI) AddMetricBatches(args params.MetricBatchParams) (params.Erro
 	canAccess, err := u.accessUnit()
 	if err != nil {
 		logger.Warningf("failed to check unit access: %v", err)
-		return params.ErrorResults{}, commonerrors.ErrPerm
+		return params.ErrorResults{}, apiservererrors.ErrPerm
 	}
 	for i, batch := range args.Batches {
 		tag, err := names.ParseUnitTag(batch.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if !canAccess(tag) {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		metrics := make([]state.Metric, len(batch.Batch.Metrics))
@@ -2462,7 +2462,7 @@ func (u *UniterAPI) AddMetricBatches(args params.MetricBatchParams) (params.Erro
 			Metrics:  metrics,
 			Unit:     tag,
 		})
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -2495,7 +2495,7 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 	}
 
 	if !canAccess(unitTag) {
-		return params.NetworkInfoResults{}, commonerrors.ErrPerm
+		return params.NetworkInfoResults{}, apiservererrors.ErrPerm
 	}
 
 	netInfo, err := NewNetworkInfo(u.st, unitTag)
@@ -2522,14 +2522,14 @@ func (u *UniterAPI) WatchUnitRelations(args params.Entities) (params.StringsWatc
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			result.Results[i], err = u.watchOneUnitRelations(tag)
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -2591,7 +2591,7 @@ func (u *UniterAPIV4) NetworkConfig(args params.UnitsNetworkConfig) (params.Unit
 		if err == nil {
 			result.Results[i].Config = netConfig
 		} else {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil
@@ -2608,7 +2608,7 @@ func (u *UniterAPIV4) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 	}
 
 	if !canAccess(unitTag) {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	unit, err := u.getUnit(unitTag)
@@ -2747,14 +2747,14 @@ func (u *UniterAPIV4) WatchApplicationRelations(args params.Entities) (params.St
 	for i, entity := range args.Entities {
 		tag, err := names.ParseApplicationTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			result.Results[i], err = u.watchOneApplicationRelations(tag)
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -2824,7 +2824,7 @@ func (u *UniterAPIV14) SetPodSpec(args params.SetPodSpecParams) (params.ErrorRes
 	canAccessApp := makeAppAuthChecker(authTag)
 
 	for i, arg := range args.Specs {
-		results.Results[i].Error = commonerrors.ServerError(
+		results.Results[i].Error = apiservererrors.ServerError(
 			// NOTE(achilleasa) The operator authenticates as the
 			// application so we cannot extract the unit id for
 			// leadership check purposes. To this end we pass
@@ -2866,7 +2866,7 @@ func (u *UniterAPI) setPodSpecOperation(appTag string, spec *string, unitTag nam
 		return nil, err
 	}
 	if !canAccessApp(parsedAppTag) {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	if spec != nil {
 		if _, err := k8sspecs.ParsePodSpec(*spec); err != nil {
@@ -2907,7 +2907,7 @@ func (u *UniterAPI) setRawK8sSpecOperation(appTag string, spec *string, unitTag 
 		return nil, err
 	}
 	if !canAccessApp(parsedAppTag) {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	if spec != nil {
 		if _, err := k8sspecs.ParseRawK8sSpec(*spec); err != nil {
@@ -2984,21 +2984,21 @@ func (u *UniterAPI) getContainerSpec(args params.Entities, getSpec getSpecFuncGe
 	for i, arg := range args.Entities {
 		tag, err := names.ParseApplicationTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if !canAccess(tag) {
-			results.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		cm, err := u.m.CAASModel()
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		spec, err := getSpec(cm)(tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = spec
@@ -3016,7 +3016,7 @@ func (u *UniterAPI) CloudSpec() (params.CloudSpecResult, error) {
 		return params.CloudSpecResult{}, err
 	}
 	if !canAccess() {
-		return params.CloudSpecResult{Error: commonerrors.ServerError(commonerrors.ErrPerm)}, nil
+		return params.CloudSpecResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
 	}
 
 	return u.cloudSpec.GetCloudSpec(u.m.Tag().(names.ModelTag)), nil
@@ -3035,21 +3035,21 @@ func (u *UniterAPI) GoalStates(args params.Entities) (params.GoalStateResults, e
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		if !canAccess(tag) {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		unit, err := u.getUnit(tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		result.Results[i].Result, err = u.oneGoalState(unit)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil
@@ -3224,26 +3224,26 @@ func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.String
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil || !canAccess(tag) {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 
 		unit, err := u.getCacheUnit(tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		w, err := unit.WatchConfigSettings()
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		// Consume the initial event.
 		changes, ok := <-w.Changes()
 		if !ok {
-			result.Results[i].Error = commonerrors.ServerError(watcher.EnsureErr(w))
+			result.Results[i].Error = apiservererrors.ServerError(watcher.EnsureErr(w))
 			continue
 		}
 
@@ -3316,10 +3316,10 @@ func (u *UniterAPI) watchHashes(args params.Entities, getWatcher func(u *state.U
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		watcherId := ""
 		var changes []string
 		if canAccess(tag) {
@@ -3327,7 +3327,7 @@ func (u *UniterAPI) watchHashes(args params.Entities, getWatcher func(u *state.U
 		}
 		result.Results[i].StringsWatcherId = watcherId
 		result.Results[i].Changes = changes
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -3358,11 +3358,11 @@ func (u *UniterAPI) CloudAPIVersion() (params.StringResult, error) {
 	configGetter := stateenvirons.EnvironConfigGetter{Model: u.m, NewContainerBroker: u.containerBrokerFunc}
 	spec, err := configGetter.CloudSpec()
 	if err != nil {
-		return result, commonerrors.ServerError(err)
+		return result, apiservererrors.ServerError(err)
 	}
 	apiVersion, err := configGetter.CloudAPIVersion(spec)
 	if err != nil {
-		return result, commonerrors.ServerError(err)
+		return result, apiservererrors.ServerError(err)
 	}
 	result.Result = apiVersion
 	return result, err
@@ -3380,17 +3380,17 @@ func (u *UniterAPI) UpdateNetworkInfo(args params.Entities) (params.ErrorResults
 	for i, entity := range args.Entities {
 		unitTag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			res[i].Error = commonerrors.ServerError(err)
+			res[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		if !canAccess(unitTag) {
-			res[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			res[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 
 		if err = u.updateUnitNetworkInfo(unitTag); err != nil {
-			res[i].Error = commonerrors.ServerError(err)
+			res[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 
@@ -3483,12 +3483,12 @@ func (u *UniterAPI) CommitHookChanges(args params.CommitHookChangesArgs) (params
 	for i, arg := range args.Args {
 		unitTag, err := names.ParseUnitTag(arg.Tag)
 		if err != nil {
-			res[i].Error = commonerrors.ServerError(err)
+			res[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		if !canAccessUnit(unitTag) {
-			res[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			res[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 
@@ -3497,7 +3497,7 @@ func (u *UniterAPI) CommitHookChanges(args params.CommitHookChangesArgs) (params
 			if errors.IsQuotaLimitExceeded(err) {
 				logger.Errorf("%s: %v", unitTag, err)
 			}
-			res[i].Error = commonerrors.ServerError(err)
+			res[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 
@@ -3534,7 +3534,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	for _, rus := range changes.RelationUnitSettings {
 		// Ensure the unit in the unit settings matches the root unit name
 		if rus.Unit != changes.Tag {
-			return commonerrors.ErrPerm
+			return apiservererrors.ErrPerm
 		}
 		modelOp, err := u.updateUnitAndApplicationSettingsOp(rus, canAccessUnit)
 		if err != nil {
@@ -3548,7 +3548,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		for _, r := range changes.OpenPorts {
 			// Ensure the tag in the port open request matches the root unit name
 			if r.Tag != changes.Tag {
-				return commonerrors.ErrPerm
+				return apiservererrors.ErrPerm
 			}
 			openPortRanges = append(openPortRanges, corenetwork.PortRange{
 				FromPort: r.FromPort,
@@ -3559,7 +3559,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		for _, r := range changes.ClosePorts {
 			// Ensure the tag in the port close request matches the root unit name
 			if r.Tag != changes.Tag {
-				return commonerrors.ErrPerm
+				return apiservererrors.ErrPerm
 			}
 			closePortRanges = append(closePortRanges, corenetwork.PortRange{
 				FromPort: r.FromPort,
@@ -3581,7 +3581,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	if changes.SetUnitState != nil {
 		// Ensure the tag in the set state request matches the root unit name
 		if changes.SetUnitState.Tag != changes.Tag {
-			return commonerrors.ErrPerm
+			return apiservererrors.ErrPerm
 		}
 
 		newUS := state.NewUnitState()
@@ -3620,7 +3620,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	for _, addParams := range changes.AddStorage {
 		// Ensure the tag in the request matches the root unit name.
 		if addParams.UnitTag != changes.Tag {
-			return commonerrors.ErrPerm
+			return apiservererrors.ErrPerm
 		}
 
 		curCons, err := unitStorageConstraints(u.StorageAPI.backend, unitTag)

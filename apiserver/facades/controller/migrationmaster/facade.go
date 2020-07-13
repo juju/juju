@@ -14,7 +14,7 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
@@ -77,7 +77,7 @@ func NewAPI(
 	presence facade.Presence,
 ) (*API, error) {
 	if !authorizer.AuthController() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
 		backend:         backend,
@@ -100,7 +100,7 @@ func (api *API) Watch() params.NotifyWatchResult {
 		}
 	}
 	return params.NotifyWatchResult{
-		Error: commonerrors.ServerError(watcher.EnsureErr(watch)),
+		Error: apiservererrors.ServerError(watcher.EnsureErr(watch)),
 	}
 }
 
@@ -276,12 +276,12 @@ func (api *API) Reap() error {
 func (api *API) WatchMinionReports() params.NotifyWatchResult {
 	mig, err := api.backend.LatestMigration()
 	if err != nil {
-		return params.NotifyWatchResult{Error: commonerrors.ServerError(err)}
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}
 	}
 
 	watch, err := mig.WatchMinionReports()
 	if err != nil {
-		return params.NotifyWatchResult{Error: commonerrors.ServerError(err)}
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}
 	}
 
 	if _, ok := <-watch.Changes(); ok {
@@ -290,7 +290,7 @@ func (api *API) WatchMinionReports() params.NotifyWatchResult {
 		}
 	}
 	return params.NotifyWatchResult{
-		Error: commonerrors.ServerError(watcher.EnsureErr(watch)),
+		Error: apiservererrors.ServerError(watcher.EnsureErr(watch)),
 	}
 }
 

@@ -7,7 +7,7 @@
 package cleaner
 
 import (
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -27,7 +27,7 @@ func NewCleanerAPI(
 	authorizer facade.Authorizer,
 ) (*CleanerAPI, error) {
 	if !authorizer.AuthController() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return &CleanerAPI{
 		st:        getState(st),
@@ -49,6 +49,6 @@ func (api *CleanerAPI) WatchCleanups() (params.NotifyWatchResult, error) {
 		}, nil
 	}
 	return params.NotifyWatchResult{
-		Error: commonerrors.ServerError(watcher.EnsureErr(watch)),
+		Error: apiservererrors.ServerError(watcher.EnsureErr(watch)),
 	}, nil
 }

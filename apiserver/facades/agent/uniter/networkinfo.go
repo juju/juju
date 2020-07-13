@@ -15,8 +15,8 @@ import (
 	"github.com/juju/retry"
 	k8score "k8s.io/api/core/v1"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	corenetwork "github.com/juju/juju/core/network"
@@ -131,7 +131,7 @@ func (n *NetworkInfo) ProcessAPIRequest(args params.NetworkInfoParams) (params.N
 				bindings[endpoint] = corenetwork.AlphaSpaceId
 			} else {
 				err := errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", endpoint))
-				result.Results[endpoint] = params.NetworkInfoResult{Error: commonerrors.ServerError(err)}
+				result.Results[endpoint] = params.NetworkInfoResult{Error: apiservererrors.ServerError(err)}
 			}
 		}
 		endpointEgressSubnets[endpoint] = n.defaultEgress

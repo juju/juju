@@ -9,7 +9,7 @@ import (
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
@@ -95,7 +95,7 @@ type Backend interface {
 // NewAPIBase creates a new server-side API facade with the given Backing.
 func NewAPIBase(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*APIBase, error) {
 	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent() || authorizer.AuthModelAgent()) {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return &APIBase{
 		backend:    backend,
@@ -116,7 +116,7 @@ func (api *APIBase) oneWatch() params.NotifyWatchResult {
 			NotifyWatcherId: api.resources.Register(watch),
 		}
 	} else {
-		result.Error = commonerrors.ServerError(watcher.EnsureErr(watch))
+		result.Error = apiservererrors.ServerError(watcher.EnsureErr(watch))
 	}
 	return result
 }
@@ -158,12 +158,12 @@ func (api *APIBase) authEntities(args params.Entities) (params.ErrorResults, boo
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if !api.authorizer.AuthOwner(tag) {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		ok = true
@@ -175,13 +175,13 @@ func (api *APIBase) proxyConfig() params.ProxyConfigResult {
 	var result params.ProxyConfigResult
 	config, err := api.backend.ModelConfig()
 	if err != nil {
-		result.Error = commonerrors.ServerError(err)
+		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
 
 	apiHostPorts, err := api.backend.APIHostPortsForAgents()
 	if err != nil {
-		result.Error = commonerrors.ServerError(err)
+		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
 

@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -36,7 +36,7 @@ func NewUnitsWatcher(st state.EntityFinder, resources facade.Resources, getCanWa
 func (u *UnitsWatcher) watchOneEntityUnits(canWatch AuthFunc, tag names.Tag) (params.StringsWatchResult, error) {
 	nothing := params.StringsWatchResult{}
 	if !canWatch(tag) {
-		return nothing, commonerrors.ErrPerm
+		return nothing, apiservererrors.ErrPerm
 	}
 	entity0, err := u.st.FindEntity(tag)
 	if err != nil {
@@ -44,7 +44,7 @@ func (u *UnitsWatcher) watchOneEntityUnits(canWatch AuthFunc, tag names.Tag) (pa
 	}
 	entity, ok := entity0.(state.UnitsWatcher)
 	if !ok {
-		return nothing, commonerrors.NotSupportedError(tag, "watching units")
+		return nothing, apiservererrors.NotSupportedError(tag, "watching units")
 	}
 	watch := entity.WatchUnits()
 	// Consume the initial event and forward it to the result.
@@ -73,12 +73,12 @@ func (u *UnitsWatcher) WatchUnits(args params.Entities) (params.StringsWatchResu
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		entityResult, err := u.watchOneEntityUnits(canWatch, tag)
 		result.Results[i] = entityResult
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }

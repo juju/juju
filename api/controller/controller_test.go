@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -132,7 +132,7 @@ func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
 func (s *Suite) TestInitiateMigrationError(c *gc.C) {
 	client, _ := makeInitiateMigrationClient(params.InitiateMigrationResults{
 		Results: []params.InitiateMigrationResult{{
-			Error: commonerrors.ServerError(errors.New("boom")),
+			Error: apiservererrors.ServerError(errors.New("boom")),
 		}},
 	})
 	id, err := client.InitiateMigration(makeSpec())
@@ -322,7 +322,7 @@ func (s *Suite) TestModelStatus(c *gc.C) {
 						Status:     "pending",
 					}},
 				},
-				{Error: commonerrors.ServerError(errors.New("model error"))},
+				{Error: apiservererrors.ServerError(errors.New("model error"))},
 			}
 			return nil
 		},

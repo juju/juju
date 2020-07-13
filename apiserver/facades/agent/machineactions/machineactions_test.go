@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/machineactions"
 	"github.com/juju/juju/apiserver/params"
@@ -34,7 +34,7 @@ func (*FacadeSuite) TestAcceptsMachineAgent(c *gc.C) {
 
 func (*FacadeSuite) TestOtherAgent(c *gc.C) {
 	facade, err := machineactions.NewFacade(nil, nil, agentAuth{})
-	c.Check(err, gc.Equals, commonerrors.ErrPerm)
+	c.Check(err, gc.Equals, apiservererrors.ErrPerm)
 	c.Check(facade, gc.IsNil)
 }
 
@@ -61,15 +61,15 @@ func (*FacadeSuite) TestRunningActions(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ActionsByReceivers{
 		Actions: []params.ActionsByReceiver{{
 			Receiver: "valid",
-			Error:    commonerrors.ServerError(errors.New("boom")),
+			Error:    apiservererrors.ServerError(errors.New("boom")),
 		}, {
 			Receiver: "valid",
 			Actions:  actions,
 		}, {
-			Error: commonerrors.ServerError(commonerrors.ErrBadId),
+			Error: apiservererrors.ServerError(apiservererrors.ErrBadId),
 		}, {
 			Receiver: "unauthorized",
-			Error:    commonerrors.ServerError(commonerrors.ErrPerm),
+			Error:    apiservererrors.ServerError(apiservererrors.ErrPerm),
 		}},
 	})
 	stub.CheckCallNames(c, "TagToActionReceiverFn", "ConvertActions", "ConvertActions")

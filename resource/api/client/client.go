@@ -14,7 +14,7 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
@@ -157,7 +157,7 @@ func (c Client) AddPendingResources(args AddPendingResourcesArgs) (pendingIDs []
 		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
-		err := commonerrors.RestoreError(result.Error)
+		err := apiservererrors.RestoreError(result.Error)
 		return nil, errors.Trace(err)
 	}
 

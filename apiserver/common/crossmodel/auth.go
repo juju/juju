@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/permission"
@@ -162,24 +162,24 @@ func (a *AuthContext) checkOfferAccess(st Backend, username, offerUUID string) e
 	userTag := names.NewUserTag(username)
 	isAdmin, err := a.hasControllerAdminAccess(st, userTag)
 	if err != nil {
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	if isAdmin {
 		return nil
 	}
 	isAdmin, err = a.hasModelAdminAccess(st, userTag)
 	if err != nil {
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	if isAdmin {
 		return nil
 	}
 	access, err := st.GetOfferAccess(offerUUID, userTag)
 	if err != nil && !errors.IsNotFound(err) {
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	if !access.EqualOrGreaterOfferAccessThan(permission.ConsumeAccess) {
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -350,7 +350,7 @@ func (a *authenticator) checkMacaroons(
 	logger.Debugf("check macaroons with declared attrs: %v", declared)
 	username, ok := declared[usernameKey]
 	if !ok {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	relation := declared[relationKey]
 	offer := declared[offeruuidKey]
@@ -363,7 +363,7 @@ func (a *authenticator) checkMacaroons(
 			return declared, nil
 		}
 		if _, ok := err.(*bakery.VerificationError); !ok {
-			return nil, commonerrors.ErrPerm
+			return nil, apiservererrors.ErrPerm
 		}
 	}
 
@@ -405,7 +405,7 @@ func (a *authenticator) checkMacaroons(
 		logger.Errorf("cannot create cross model macaroon: %v", err)
 		return nil, err
 	}
-	return nil, &commonerrors.DischargeRequiredError{
+	return nil, &apiservererrors.DischargeRequiredError{
 		Cause:          cause,
 		Macaroon:       m,
 		LegacyMacaroon: m.M(),

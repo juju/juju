@@ -8,7 +8,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -62,7 +62,7 @@ func (a *API) AssignUnits(args params.Entities) (params.ErrorResults, error) {
 
 	res, err := a.st.AssignStagedUnits(ids)
 	if err != nil {
-		return result, commonerrors.ServerError(err)
+		return result, apiservererrors.ServerError(err)
 	}
 
 	// The results come back from state in an undetermined order and do not
@@ -76,10 +76,10 @@ func (a *API) AssignUnits(args params.Entities) (params.ErrorResults, error) {
 	result.Results = make([]params.ErrorResult, len(args.Entities))
 	for i, id := range ids {
 		if err, ok := resultMap[id]; ok {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		} else {
 			result.Results[i].Error =
-				commonerrors.ServerError(errors.NotFoundf("unit %q", args.Entities[i].Tag))
+				apiservererrors.ServerError(errors.NotFoundf("unit %q", args.Entities[i].Tag))
 		}
 	}
 

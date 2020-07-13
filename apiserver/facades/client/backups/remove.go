@@ -4,7 +4,7 @@
 package backups
 
 import (
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -15,7 +15,7 @@ func (a *APIv2) Remove(args params.BackupsRemoveArgs) (params.ErrorResults, erro
 	results := make([]params.ErrorResult, len(args.IDs))
 	for i, id := range args.IDs {
 		err := backups.Remove(id)
-		results[i].Error = commonerrors.ServerError(err)
+		results[i].Error = apiservererrors.ServerError(err)
 	}
 	return params.ErrorResults{results}, nil
 }

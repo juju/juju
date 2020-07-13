@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/testing"
@@ -152,14 +152,14 @@ func (s *RemoveMachineSuite) TestRemoveKeep(c *gc.C) {
 }
 
 func (s *RemoveMachineSuite) TestBlockedError(c *gc.C) {
-	s.fake.removeError = commonerrors.OperationBlockedError("TestBlockedError")
+	s.fake.removeError = apiservererrors.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c, "1")
 	c.Assert(s.fake.forced, jc.IsFalse)
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedError.*")
 }
 
 func (s *RemoveMachineSuite) TestForceBlockedError(c *gc.C) {
-	s.fake.removeError = commonerrors.OperationBlockedError("TestForceBlockedError")
+	s.fake.removeError = apiservererrors.OperationBlockedError("TestForceBlockedError")
 	_, err := s.run(c, "--force", "1")
 	c.Assert(s.fake.forced, jc.IsTrue)
 	testing.AssertOperationWasBlocked(c, err, ".*TestForceBlockedError.*")

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -90,19 +90,19 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 			app := strings.Split(actionReceiver, "/")[0]
 			receiverName, err := getLeader(app)
 			if err != nil {
-				currentResult.Error = commonerrors.ServerError(err)
+				currentResult.Error = apiservererrors.ServerError(err)
 				continue
 			}
 			actionReceiver = names.NewUnitTag(receiverName).String()
 		}
 		receiver, err := tagToActionReceiver(actionReceiver)
 		if err != nil {
-			currentResult.Error = commonerrors.ServerError(err)
+			currentResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
 		enqueued, err := receiver.AddAction(operationID, action.Name, action.Parameters)
 		if err != nil {
-			currentResult.Error = commonerrors.ServerError(err)
+			currentResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -196,12 +196,12 @@ func (a *ActionAPI) Operations(arg params.Entities) (params.OperationResults, er
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseOperationTag(entity.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		op, err := a.model.OperationWithActions(tag.Id())
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 

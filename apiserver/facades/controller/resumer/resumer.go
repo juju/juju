@@ -6,7 +6,7 @@
 package resumer
 
 import (
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state"
 )
@@ -20,7 +20,7 @@ type ResumerAPI struct {
 // NewResumerAPI creates a new instance of the Resumer API.
 func NewResumerAPI(st *state.State, _ facade.Resources, authorizer facade.Authorizer) (*ResumerAPI, error) {
 	if !authorizer.AuthController() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return &ResumerAPI{
 		st:   getState(st),

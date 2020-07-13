@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher"
 )
@@ -153,7 +153,7 @@ func (client *Client) UpgradeSeriesPrepare(machineName, series string, force boo
 
 	err := result.Error
 	if err != nil {
-		return commonerrors.RestoreError(err)
+		return apiservererrors.RestoreError(err)
 	}
 	return nil
 }

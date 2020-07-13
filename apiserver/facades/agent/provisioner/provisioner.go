@@ -12,9 +12,9 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -74,7 +74,7 @@ type ProvisionerAPI struct {
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
 func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	getAuthFunc := func() (common.AuthFunc, error) {
 		isModelManager := authorizer.AuthController()
@@ -286,7 +286,7 @@ func NewProvisionerAPIV11(st *state.State, resources facade.Resources, authorize
 
 func (api *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
 	if !canAccess(tag) {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	entity, err := api.st.FindEntity(tag)
 	if err != nil {
@@ -301,14 +301,14 @@ func (api *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) 
 	nothing := params.StringsWatchResult{}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		return nothing, commonerrors.ErrPerm
+		return nothing, apiservererrors.ErrPerm
 	}
 	tag, err := names.ParseMachineTag(arg.MachineTag)
 	if err != nil {
-		return nothing, commonerrors.ErrPerm
+		return nothing, apiservererrors.ErrPerm
 	}
 	if !canAccess(tag) {
-		return nothing, commonerrors.ErrPerm
+		return nothing, apiservererrors.ErrPerm
 	}
 	machine, err := api.st.Machine(tag.Id())
 	if err != nil {
@@ -339,7 +339,7 @@ func (api *ProvisionerAPI) WatchContainers(args params.WatchContainers) (params.
 	for i, arg := range args.Params {
 		watcherResult, err := api.watchOneMachineContainers(arg)
 		result.Results[i] = watcherResult
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -377,12 +377,12 @@ func (api *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersP
 		tag, err := names.ParseMachineTag(arg.MachineTag)
 		if err != nil {
 			logger.Warningf("SetSupportedContainers called with %q which is not a valid machine tag: %v", arg.MachineTag, err)
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		machine, err := api.getMachine(canAccess, tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if len(arg.ContainerTypes) == 0 {
@@ -391,7 +391,7 @@ func (api *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersP
 			err = machine.SetSupportedContainers(arg.ContainerTypes)
 		}
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil
@@ -415,12 +415,12 @@ func (api *ProvisionerAPI) SupportedContainers(args params.Entities) (params.Mac
 		tag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
 			logger.Warningf("SupportedContainers called with %q which is not a valid machine tag: %v", arg.Tag, err)
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		machine, err := api.getMachine(canAccess, tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		containerTypes, determined := machine.SupportedContainers()
@@ -564,14 +564,14 @@ func (api *ProvisionerAPI) Series(args params.Entities) (params.StringResults, e
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
 			result.Results[i].Result = machine.Series()
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -588,7 +588,7 @@ func (api *ProvisionerAPI) AvailabilityZone(args params.Entities) (params.String
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		machine, err := api.getMachine(canAccess, tag)
@@ -601,7 +601,7 @@ func (api *ProvisionerAPI) AvailabilityZone(args params.Entities) (params.String
 					result.Results[i].Result = ""
 				}
 			} else {
-				result.Results[i].Error = commonerrors.ServerError(err)
+				result.Results[i].Error = apiservererrors.ServerError(err)
 			}
 		}
 	}
@@ -621,16 +621,16 @@ func (api *ProvisionerAPI) KeepInstance(args params.Entities) (params.BoolResult
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
 			keep, err := machine.KeepInstance()
 			result.Results[i].Result = keep
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -650,7 +650,7 @@ func (api *ProvisionerAPI) DistributionGroup(args params.Entities) (params.Distr
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		machine, err := api.getMachine(canAccess, tag)
@@ -665,7 +665,7 @@ func (api *ProvisionerAPI) DistributionGroup(args params.Entities) (params.Distr
 				result.Results[i].Result, err = commonServiceInstances(api.st, machine)
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -738,7 +738,7 @@ func (api *ProvisionerAPI) DistributionGroupByMachineId(args params.Entities) (p
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		machine, err := api.getMachine(canAccess, tag)
@@ -753,7 +753,7 @@ func (api *ProvisionerAPI) DistributionGroupByMachineId(args params.Entities) (p
 				result.Results[i].Result, err = commonApplicationMachineId(api.st, machine)
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -797,7 +797,7 @@ func (api *ProvisionerAPI) Constraints(args params.Entities) (params.Constraints
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		machine, err := api.getMachine(canAccess, tag)
@@ -808,7 +808,7 @@ func (api *ProvisionerAPI) Constraints(args params.Entities) (params.Constraints
 				result.Results[i].Constraints = cons
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -827,7 +827,7 @@ func (api *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Er
 	setInstanceInfo := func(arg params.InstanceInfo) error {
 		tag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-			return commonerrors.ErrPerm
+			return apiservererrors.ErrPerm
 		}
 		machine, err := api.getMachine(canAccess, tag)
 		if err != nil {
@@ -857,7 +857,7 @@ func (api *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Er
 	}
 	for i, arg := range args.Machines {
 		err := setInstanceInfo(arg)
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -867,7 +867,7 @@ func (api *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Er
 func (api *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 	if !api.authorizer.AuthController() {
-		return result, commonerrors.ErrPerm
+		return result, apiservererrors.ErrPerm
 	}
 	watch := newWatchMachineErrorRetry()
 	// Consume any initial event and forward it to the result.
@@ -909,7 +909,7 @@ func (api *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (para
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
 			logger.Warningf("failed to parse machine tag %q: %v", entity.Tag, err)
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 
@@ -919,11 +919,11 @@ func (api *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (para
 		guest, err := api.getMachine(canAccess, tag)
 		if err != nil {
 			logger.Warningf("failed to get machine %q: %v", tag, err)
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		} else if !guest.IsContainer() {
 			err = errors.Errorf("cannot mark addresses for removal for %q: not a container", tag)
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -932,7 +932,7 @@ func (api *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (para
 		err = guest.RemoveAllAddresses()
 		if err != nil {
 			logger.Warningf("failed to remove container %q addresses: %v", tag, err)
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 	}
@@ -1041,7 +1041,7 @@ type prepareOrGetContext struct {
 
 // Implements perContainerHandler.SetError
 func (ctx *prepareOrGetContext) SetError(idx int, err error) {
-	ctx.result.Results[idx].Error = commonerrors.ServerError(err)
+	ctx.result.Results[idx].Error = apiservererrors.ServerError(err)
 }
 
 // Implements perContainerHandler.ConfigType
@@ -1260,7 +1260,7 @@ func (ctx *hostChangesContext) ProcessOneContainer(
 
 // Implements perContainerHandler.SetError
 func (ctx *hostChangesContext) SetError(idx int, err error) {
-	ctx.result.Results[idx].Error = commonerrors.ServerError(err)
+	ctx.result.Results[idx].Error = apiservererrors.ServerError(err)
 }
 
 // Implements perContainerHandler.ConfigType
@@ -1294,7 +1294,7 @@ func (ctx *containerProfileContext) ProcessOneContainer(
 ) error {
 	units, err := guest.Units()
 	if err != nil {
-		ctx.result.Results[idx].Error = commonerrors.ServerError(err)
+		ctx.result.Results[idx].Error = apiservererrors.ServerError(err)
 		return errors.Trace(err)
 	}
 	var resPro []*params.ContainerLXDProfile
@@ -1330,7 +1330,7 @@ func (ctx *containerProfileContext) ProcessOneContainer(
 
 // Implements perContainerHandler.SetError
 func (ctx *containerProfileContext) SetError(idx int, err error) {
-	ctx.result.Results[idx].Error = commonerrors.ServerError(err)
+	ctx.result.Results[idx].Error = apiservererrors.ServerError(err)
 }
 
 // Implements perContainerHandler.ConfigType
@@ -1370,7 +1370,7 @@ func (api *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusRe
 		mTag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
 			logger.Warningf("InstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		machine, err := api.getMachine(canAccess, mTag)
@@ -1382,7 +1382,7 @@ func (api *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusRe
 			result.Results[i].Data = statusInfo.Data
 			result.Results[i].Since = statusInfo.Since
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1391,7 +1391,7 @@ func (api *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg p
 	mTag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
 		logger.Warningf("SetInstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	machine, err := api.getMachine(canAccess, mTag)
 	if err != nil {
@@ -1439,7 +1439,7 @@ func (api *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.Erro
 	}
 	for i, arg := range args.Entities {
 		err = api.setOneInstanceStatus(canAccess, arg)
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1465,7 +1465,7 @@ func (api *ProvisionerAPI) SetModificationStatus(args params.SetStatus) (params.
 	}
 	for i, arg := range args.Entities {
 		err = api.setOneModificationStatus(canAccess, arg)
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1474,7 +1474,7 @@ func (api *ProvisionerAPI) setOneModificationStatus(canAccess common.AuthFunc, a
 	logger.Tracef("SetModificationStatus called with: %#v", arg)
 	mTag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	machine, err := api.getMachine(canAccess, mTag)
 	if err != nil {
@@ -1511,7 +1511,7 @@ func (api *ProvisionerAPI) MarkMachinesForRemoval(machines params.Entities) (par
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, machine := range machines.Entities {
-		results[i].Error = commonerrors.ServerError(api.markOneMachineForRemoval(machine.Tag, canAccess))
+		results[i].Error = apiservererrors.ServerError(api.markOneMachineForRemoval(machine.Tag, canAccess))
 	}
 	return params.ErrorResults{Results: results}, nil
 }
@@ -1570,7 +1570,7 @@ func (api *ProvisionerAPI) SetCharmProfiles(args params.SetProfileArgs) (params.
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, a := range args.Args {
-		results[i].Error = commonerrors.ServerError(api.setOneMachineCharmProfiles(a.Entity.Tag, a.Profiles, canAccess))
+		results[i].Error = apiservererrors.ServerError(api.setOneMachineCharmProfiles(a.Entity.Tag, a.Profiles, canAccess))
 	}
 	return params.ErrorResults{Results: results}, nil
 }

@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/common/crossmodel"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/logsink"
@@ -453,7 +453,7 @@ func (srv *Server) getAgentToken() error {
 
 	// Try to take one token, but don't wait any time for it.
 	if _, ok := srv.agentRateLimit.TakeMaxDuration(1, 0); !ok {
-		return commonerrors.ErrTryAgain
+		return apiservererrors.ErrTryAgain
 	}
 	return nil
 }
@@ -974,7 +974,7 @@ func (srv *Server) serveConn(
 		h, err = newAPIHandler(srv, st.State, conn, modelUUID, connectionID, host)
 	}
 	if errors.IsNotFound(err) {
-		err = errors.Wrap(err, commonerrors.UnknownModelError(resolvedModelUUID))
+		err = errors.Wrap(err, apiservererrors.UnknownModelError(resolvedModelUUID))
 	}
 
 	if err != nil {
@@ -1006,7 +1006,7 @@ func (srv *Server) publicDNSName() string {
 }
 
 func serverError(err error) error {
-	return commonerrors.ServerError(err)
+	return apiservererrors.ServerError(err)
 }
 
 // GetAuditConfig returns a copy of the current audit logging

@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -103,7 +103,7 @@ func (s *actionsSuite) TestAuthAndActionFromTagFn(c *gc.C) {
 		errString: `invalid actionreceiver name "masterexploder"`,
 	}, {
 		tag: unauthorizedActionTag.String(),
-		err: commonerrors.ErrPerm,
+		err: apiservererrors.ErrPerm,
 	}, {
 		tag:            authorizedActionTag.String(),
 		expectedAction: authorizedAction,
@@ -136,8 +136,8 @@ func (s *actionsSuite) TestBeginActions(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		[]params.ErrorResult{
 			{},
-			{commonerrors.ServerError(expectErr)},
-			{commonerrors.ServerError(actionNotFoundErr)},
+			{apiservererrors.ServerError(expectErr)},
+			{apiservererrors.ServerError(actionNotFoundErr)},
 		},
 	})
 }
@@ -154,8 +154,8 @@ func (s *actionsSuite) TestGetActions(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ActionResults{
 		[]params.ActionResult{
 			{Action: &params.Action{Name: "floosh"}},
-			{Error: commonerrors.ServerError(actionNotFoundErr)},
-			{Error: commonerrors.ServerError(commonerrors.ErrActionNotAvailable)},
+			{Error: apiservererrors.ServerError(actionNotFoundErr)},
+			{Error: apiservererrors.ServerError(apiservererrors.ErrActionNotAvailable)},
 		},
 	})
 }
@@ -179,9 +179,9 @@ func (s *actionsSuite) TestFinishActions(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		[]params.ErrorResult{
 			{},
-			{commonerrors.ServerError(actionNotFoundErr)},
-			{commonerrors.ServerError(errors.New("unrecognized action status 'failStatus'"))},
-			{commonerrors.ServerError(expectErr)},
+			{apiservererrors.ServerError(actionNotFoundErr)},
+			{apiservererrors.ServerError(errors.New("unrecognized action status 'failStatus'"))},
+			{apiservererrors.ServerError(expectErr)},
 		},
 	})
 }
@@ -203,9 +203,9 @@ func (s *actionsSuite) TestWatchActionNotifications(c *gc.C) {
 
 	c.Assert(results, jc.DeepEquals, params.StringsWatchResults{
 		[]params.StringsWatchResult{
-			{Error: commonerrors.ServerError(errors.New(`invalid actionreceiver tag "invalid-actionreceiver"`))},
-			{Error: commonerrors.ServerError(commonerrors.ErrPerm)},
-			{Error: commonerrors.ServerError(errors.New("pax"))},
+			{Error: apiservererrors.ServerError(errors.New(`invalid actionreceiver tag "invalid-actionreceiver"`))},
+			{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)},
+			{Error: apiservererrors.ServerError(errors.New("pax"))},
 			{StringsWatcherId: "orosu"},
 		},
 	})

@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -82,7 +82,7 @@ func AuthAndActionFromTagFn(canAccess AuthFunc, getActionByTag func(names.Action
 			return nil, errors.Trace(err)
 		}
 		if !canAccess(receiverTag) {
-			return nil, commonerrors.ErrPerm
+			return nil, apiservererrors.ErrPerm
 		}
 		return action, nil
 	}
@@ -97,13 +97,13 @@ func BeginActions(args params.Entities, actionFn func(string) (state.Action, err
 	for i, arg := range args.Entities {
 		action, err := actionFn(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		_, err = action.Begin()
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 	}
@@ -120,18 +120,18 @@ func FinishActions(args params.ActionExecutionResults, actionFn func(string) (st
 	for i, arg := range args.Results {
 		action, err := actionFn(arg.ActionTag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		actionResults, err := ParamsActionExecutionResultsToStateActionResults(arg)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		_, err = action.Finish(actionResults)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 	}
@@ -151,11 +151,11 @@ func Actions(args params.Entities, actionFn func(string) (state.Action, error)) 
 	for i, arg := range args.Entities {
 		action, err := actionFn(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if action.Status() != state.ActionPending {
-			results.Results[i].Error = commonerrors.ServerError(commonerrors.ErrActionNotAvailable)
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrActionNotAvailable)
 			continue
 		}
 		results.Results[i].Action = &params.Action{
@@ -227,14 +227,14 @@ func WatchActionNotifications(args params.Entities, canAccess AuthFunc, watchOne
 	for i, entity := range args.Entities {
 		tag, err := names.ActionReceiverFromTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			result.Results[i], err = watchOne(tag)
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 
 	return result

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -47,7 +47,7 @@ type LogForwardingAPI struct {
 // NewLogForwardingAPI creates a new server-side logger API end point.
 func NewLogForwardingAPI(st LogForwardingState, auth facade.Authorizer) (*LogForwardingAPI, error) {
 	if !auth.AuthController() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	api := &LogForwardingAPI{
 		state: st,
@@ -71,14 +71,14 @@ func (api *LogForwardingAPI) get(id params.LogForwardingID) params.LogForwarding
 	var res params.LogForwardingGetLastSentResult
 	lst, err := api.newLastSentTracker(id)
 	if err != nil {
-		res.Error = commonerrors.ServerError(err)
+		res.Error = apiservererrors.ServerError(err)
 		return res
 	}
 	defer lst.Close()
 
 	recID, recTimestamp, err := lst.Get()
 	if err != nil {
-		res.Error = commonerrors.ServerError(err)
+		res.Error = apiservererrors.ServerError(err)
 		if errors.Cause(err) == state.ErrNeverForwarded {
 			res.Error.Code = params.CodeNotFound
 		}
@@ -104,12 +104,12 @@ func (api *LogForwardingAPI) SetLastSent(args params.LogForwardingSetLastSentPar
 func (api *LogForwardingAPI) set(arg params.LogForwardingSetLastSentParam) *params.Error {
 	lst, err := api.newLastSentTracker(arg.LogForwardingID)
 	if err != nil {
-		return commonerrors.ServerError(err)
+		return apiservererrors.ServerError(err)
 	}
 	defer lst.Close()
 
 	err = lst.Set(arg.RecordID, arg.RecordTimestamp)
-	return commonerrors.ServerError(err)
+	return apiservererrors.ServerError(err)
 }
 
 func (api *LogForwardingAPI) newLastSentTracker(id params.LogForwardingID) (LastSentTracker, error) {

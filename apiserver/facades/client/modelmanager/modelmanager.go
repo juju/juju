@@ -22,7 +22,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -200,7 +200,7 @@ func NewFacadeV8(ctx facade.Context) (*ModelManagerAPI, error) {
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
 	if !auth.AuthClient() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 
@@ -281,7 +281,7 @@ func NewModelManagerAPI(
 	callCtx context.ProviderCallContext,
 ) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
@@ -329,7 +329,7 @@ func (m *ModelManagerAPI) authCheck(user names.UserTag) error {
 	if m.apiUser == user {
 		return nil
 	}
-	return commonerrors.ErrPerm
+	return apiservererrors.ErrPerm
 }
 
 func (m *ModelManagerAPI) hasWriteAccess(modelTag names.ModelTag) (bool, error) {
@@ -445,7 +445,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 			return result, errors.Trace(err)
 		}
 		if !canAddModel {
-			return result, commonerrors.ErrPerm
+			return result, apiservererrors.ErrPerm
 		}
 	}
 
@@ -457,7 +457,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 	// a special case of ErrPerm will happen if the user has add-model permission but is trying to
 	// create a model for another person, which is not yet supported.
 	if !m.isAdmin && ownerTag != m.apiUser {
-		return result, errors.Annotatef(commonerrors.ErrPerm, "%q permission does not permit creation of models for different owners", permission.AddModelAccess)
+		return result, errors.Annotatef(apiservererrors.ErrPerm, "%q permission does not permit creation of models for different owners", permission.AddModelAccess)
 	}
 
 	cloud, err := m.state.Cloud(cloudTag.Id())
@@ -712,13 +712,13 @@ func (m *ModelManagerAPI) dumpModel(args params.Entity, simplified bool) ([]byte
 		return nil, errors.Trace(err)
 	}
 	if !isModelAdmin && !m.isAdmin {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	st, release, err := m.state.GetBackend(modelTag.Id())
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, errors.Trace(commonerrors.ErrBadId)
+			return nil, errors.Trace(apiservererrors.ErrBadId)
 		}
 		return nil, errors.Trace(err)
 	}
@@ -780,14 +780,14 @@ func (m *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface{
 		return nil, errors.Trace(err)
 	}
 	if !isModelAdmin && !m.isAdmin {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	st := m.state
 	if st.ModelTag() != modelTag {
 		newSt, release, err := m.state.GetBackend(modelTag.Id())
 		if errors.IsNotFound(err) {
-			return nil, errors.Trace(commonerrors.ErrBadId)
+			return nil, errors.Trace(apiservererrors.ErrBadId)
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -808,7 +808,7 @@ func (m *ModelManagerAPI) DumpModels(args params.DumpModelRequest) params.String
 	for i, entity := range args.Entities {
 		bytes, err := m.dumpModel(entity, args.Simplified)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		// We know here that the bytes are valid YAML.
@@ -827,7 +827,7 @@ func (m *ModelManagerAPIV2) DumpModels(args params.Entities) params.MapResults {
 	for i, entity := range args.Entities {
 		dumped, err := m.dumpModel(entity)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = dumped
@@ -845,7 +845,7 @@ func (m *ModelManagerAPI) DumpModelsDB(args params.Entities) params.MapResults {
 	for i, entity := range args.Entities {
 		dumped, err := m.dumpModelDB(entity)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = dumped
@@ -1030,7 +1030,7 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 				return errors.Trace(err)
 			}
 			if !hasAdmin {
-				return errors.Trace(commonerrors.ErrPerm)
+				return errors.Trace(apiservererrors.ErrPerm)
 			}
 		}
 
@@ -1040,11 +1040,11 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 	for i, arg := range args.Models {
 		tag, err := names.ParseModelTag(arg.ModelTag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if err := destroyModel(tag.Id(), arg.DestroyStorage, arg.Force, arg.MaxWait); err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 	}
@@ -1093,7 +1093,7 @@ func (m *ModelManagerAPI) internalModelInfo(args params.Entities, includeCredent
 	for i, arg := range args.Entities {
 		modelInfo, err := getModelInfo(arg)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = &modelInfo
@@ -1104,7 +1104,7 @@ func (m *ModelManagerAPI) internalModelInfo(args params.Entities, includeCredent
 func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, error) {
 	st, release, err := m.state.GetBackend(tag.Id())
 	if errors.IsNotFound(err) {
-		return params.ModelInfo{}, errors.Trace(commonerrors.ErrPerm)
+		return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
 	} else if err != nil {
 		return params.ModelInfo{}, errors.Trace(err)
 	}
@@ -1112,7 +1112,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 
 	model, err := st.Model()
 	if errors.IsNotFound(err) {
-		return params.ModelInfo{}, errors.Trace(commonerrors.ErrPerm)
+		return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
 	} else if err != nil {
 		return params.ModelInfo{}, errors.Trace(err)
 	}
@@ -1207,7 +1207,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		if len(info.Users) == 0 {
 			// No users, which means the authenticated user doesn't
 			// have access to the model.
-			return params.ModelInfo{}, errors.Trace(commonerrors.ErrPerm)
+			return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
 		}
 	}
 
@@ -1262,13 +1262,13 @@ func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest
 		modelAccess := permission.Access(arg.Access)
 		if err := permission.ValidateModelAccess(modelAccess); err != nil {
 			err = errors.Annotate(err, "could not modify model access")
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		modelTag, err := names.ParseModelTag(arg.ModelTag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(errors.Annotate(err, "could not modify model access"))
+			result.Results[i].Error = apiservererrors.ServerError(errors.Annotate(err, "could not modify model access"))
 			continue
 		}
 		canModifyModel, err := m.authorizer.HasPermission(permission.AdminAccess, modelTag)
@@ -1278,17 +1278,17 @@ func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest
 		canModify := canModifyController || canModifyModel
 
 		if !canModify {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 
 		targetUserTag, err := names.ParseUserTag(arg.UserTag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(errors.Annotate(err, "could not modify model access"))
+			result.Results[i].Error = apiservererrors.ServerError(errors.Annotate(err, "could not modify model access"))
 			continue
 		}
 
-		result.Results[i].Error = commonerrors.ServerError(
+		result.Results[i].Error = apiservererrors.ServerError(
 			changeModelAccess(m.state, modelTag, m.apiUser, targetUserTag, arg.Action, modelAccess, m.isAdmin))
 	}
 	return result, nil
@@ -1310,12 +1310,12 @@ func userAuthorizedToChangeAccess(st common.ModelManagerBackend, userIsAdmin boo
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// No, this user doesn't have permission.
-			return commonerrors.ErrPerm
+			return apiservererrors.ErrPerm
 		}
 		return errors.Annotate(err, "could not retrieve user")
 	}
 	if currentUser.Access != permission.AdminAccess {
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -1398,13 +1398,13 @@ func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 func (m *ModelManagerAPI) ModelDefaultsForClouds(args params.Entities) (params.ModelDefaultsResults, error) {
 	result := params.ModelDefaultsResults{}
 	if !m.isAdmin {
-		return result, commonerrors.ErrPerm
+		return result, apiservererrors.ErrPerm
 	}
 	result.Results = make([]params.ModelDefaultsResult, len(args.Entities))
 	for i, entity := range args.Entities {
 		cloudTag, err := names.ParseCloudTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		result.Results[i] = m.modelDefaults(cloudTag.Id())
@@ -1416,7 +1416,7 @@ func (m *ModelManagerAPI) ModelDefaultsForClouds(args params.Entities) (params.M
 func (m *ModelManagerAPIV5) ModelDefaults() (params.ModelDefaultsResult, error) {
 	result := params.ModelDefaultsResult{}
 	if !m.isAdmin {
-		return result, commonerrors.ErrPerm
+		return result, apiservererrors.ErrPerm
 	}
 	return m.modelDefaults(m.model.CloudName()), nil
 }
@@ -1425,7 +1425,7 @@ func (m *ModelManagerAPI) modelDefaults(cloud string) params.ModelDefaultsResult
 	result := params.ModelDefaultsResult{}
 	values, err := m.ctlrState.ModelConfigDefaultValues(cloud)
 	if err != nil {
-		result.Error = commonerrors.ServerError(err)
+		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
 	result.Config = make(map[string]params.ModelDefaults)
@@ -1452,7 +1452,7 @@ func (m *ModelManagerAPI) SetModelDefaults(args params.SetModelDefaults) (params
 		return results, errors.Trace(err)
 	}
 	for i, arg := range args.Config {
-		results.Results[i].Error = commonerrors.ServerError(
+		results.Results[i].Error = apiservererrors.ServerError(
 			m.setModelDefaults(arg),
 		)
 	}
@@ -1461,7 +1461,7 @@ func (m *ModelManagerAPI) SetModelDefaults(args params.SetModelDefaults) (params
 
 func (m *ModelManagerAPI) setModelDefaults(args params.ModelDefaultValues) error {
 	if !m.isAdmin {
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 
 	if err := m.check.ChangeAllowed(); err != nil {
@@ -1487,7 +1487,7 @@ func (m *ModelManagerAPI) setModelDefaults(args params.ModelDefaultValues) error
 func (m *ModelManagerAPI) UnsetModelDefaults(args params.UnsetModelDefaults) (params.ErrorResults, error) {
 	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Keys))}
 	if !m.isAdmin {
-		return results, commonerrors.ErrPerm
+		return results, apiservererrors.ErrPerm
 	}
 
 	if err := m.check.ChangeAllowed(); err != nil {
@@ -1499,13 +1499,13 @@ func (m *ModelManagerAPI) UnsetModelDefaults(args params.UnsetModelDefaults) (pa
 		if arg.CloudTag != "" {
 			spec, err := m.makeRegionSpec(arg.CloudTag, arg.CloudRegion)
 			if err != nil {
-				results.Results[i].Error = commonerrors.ServerError(
+				results.Results[i].Error = apiservererrors.ServerError(
 					errors.Trace(err))
 				continue
 			}
 			rspec = spec
 		}
-		results.Results[i].Error = commonerrors.ServerError(
+		results.Results[i].Error = apiservererrors.ServerError(
 			m.ctlrState.UpdateModelConfigDefaultValues(nil, arg.Keys, rspec),
 		)
 	}
@@ -1579,7 +1579,7 @@ func (m *ModelManagerAPI) ChangeModelCredential(args params.ChangeModelCredentia
 		if modelAdmin {
 			return nil
 		}
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 
 	replaceModelCredential := func(arg params.ChangeModelCredentialParams) error {
@@ -1613,7 +1613,7 @@ func (m *ModelManagerAPI) ChangeModelCredential(args params.ChangeModelCredentia
 	results := make([]params.ErrorResult, len(args.Models))
 	for i, arg := range args.Models {
 		if err := replaceModelCredential(arg); err != nil {
-			results[i].Error = commonerrors.ServerError(err)
+			results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return params.ErrorResults{results}, nil

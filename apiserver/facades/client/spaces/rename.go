@@ -8,7 +8,7 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/mgo.v2/txn"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
@@ -146,37 +146,37 @@ func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults
 	for i, spaceRename := range args.Changes {
 		fromTag, err := names.ParseSpaceTag(spaceRename.FromSpaceTag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(errors.Trace(err))
+			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
 			continue
 		}
 		if fromTag.Id() == network.AlphaSpaceName {
 			newErr := errors.Errorf("the %q space cannot be renamed", network.AlphaSpaceName)
-			result.Results[i].Error = commonerrors.ServerError(newErr)
+			result.Results[i].Error = apiservererrors.ServerError(newErr)
 			continue
 		}
 		toTag, err := names.ParseSpaceTag(spaceRename.ToSpaceTag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(errors.Trace(err))
+			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
 			continue
 		}
 		toSpace, err := api.backing.SpaceByName(toTag.Id())
 		if err != nil && !errors.IsNotFound(err) {
 			newErr := errors.Annotatef(err, "retrieving space %q", toTag.Id())
-			result.Results[i].Error = commonerrors.ServerError(errors.Trace(newErr))
+			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
 			continue
 		}
 		if toSpace != nil {
 			newErr := errors.AlreadyExistsf("space %q", toTag.Id())
-			result.Results[i].Error = commonerrors.ServerError(errors.Trace(newErr))
+			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
 			continue
 		}
 		operation, err := api.opFactory.NewRenameSpaceOp(fromTag.Id(), toTag.Id())
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(errors.Trace(err))
+			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
 			continue
 		}
 		if err = api.backing.ApplyOperation(operation); err != nil {
-			result.Results[i].Error = commonerrors.ServerError(errors.Trace(err))
+			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
 			continue
 		}
 	}

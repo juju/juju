@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
@@ -115,7 +115,7 @@ func (s *EnableHASuite) TestEnableHA(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestBlockEnableHA(c *gc.C) {
-	s.fake.err = commonerrors.OperationBlockedError("TestBlockEnableHA")
+	s.fake.err = apiservererrors.OperationBlockedError("TestBlockEnableHA")
 	_, err := s.runEnableHA(c, "-n", "1")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestBlockEnableHA.*")
 }

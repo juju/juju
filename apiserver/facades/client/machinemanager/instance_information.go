@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
@@ -58,7 +58,7 @@ func instanceTypes(mm *MachineManagerAPI,
 		)
 		it, err := common.InstanceTypes(itCons)
 		if err != nil {
-			it = params.InstanceTypesResult{Error: commonerrors.ServerError(err)}
+			it = params.InstanceTypesResult{Error: apiservererrors.ServerError(err)}
 		}
 		result[i] = it
 	}

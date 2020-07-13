@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
@@ -69,7 +69,7 @@ func NewFacade(
 	auth facade.Authorizer,
 ) (*Facade, error) {
 	if !auth.AuthController() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return &Facade{
 		backend:       backend,
@@ -89,7 +89,7 @@ func (f *Facade) ModelEnvironVersion(args params.Entities) (params.IntResults, e
 	for i, arg := range args.Entities {
 		v, err := f.modelEnvironVersion(arg)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		result.Results[i].Result = v
@@ -120,7 +120,7 @@ func (f *Facade) ModelTargetEnvironVersion(args params.Entities) (params.IntResu
 	for i, arg := range args.Entities {
 		v, err := f.modelTargetEnvironVersion(arg)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		result.Results[i].Result = v
@@ -158,7 +158,7 @@ func (f *Facade) SetModelEnvironVersion(args params.SetModelEnvironVersions) (pa
 	for i, arg := range args.Models {
 		err := f.setModelEnvironVersion(arg)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil

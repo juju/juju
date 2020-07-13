@@ -17,7 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/feature"
@@ -429,7 +429,7 @@ func (s *configCommandSuite) TestResetAppConfig(c *gc.C) {
 
 func (s *configCommandSuite) TestBlockSetConfig(c *gc.C) {
 	// Block operation
-	s.fake.err = commonerrors.OperationBlockedError("TestBlockSetConfig")
+	s.fake.err = apiservererrors.OperationBlockedError("TestBlockSetConfig")
 	cmd := application.NewConfigCommandForTest(s.fake, s.store)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommandInDir(c, cmd, []string{

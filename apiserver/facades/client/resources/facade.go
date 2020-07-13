@@ -12,7 +12,7 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
@@ -59,7 +59,7 @@ type Facade struct {
 // used for API registration.
 func NewPublicFacade(st *state.State, _ facade.Resources, authorizer facade.Authorizer) (*Facade, error) {
 	if !authorizer.AuthClient() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	rst, err := st.Resources()
@@ -144,7 +144,7 @@ func (f Facade) AddPendingResources(args params.AddPendingResourcesArgs) (params
 	channel := csparams.Channel(args.Channel)
 	ids, err := f.addPendingResources(applicationID, args.URL, channel, args.CharmStoreMacaroon, args.Resources)
 	if err != nil {
-		result.Error = commonerrors.ServerError(err)
+		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
 	result.PendingIDs = ids
@@ -341,7 +341,7 @@ func parseApplicationTag(tagStr string) (names.ApplicationTag, *params.Error) { 
 func errorResult(err error) params.ResourcesResult {
 	return params.ResourcesResult{
 		ErrorResult: params.ErrorResult{
-			Error: commonerrors.ServerError(err),
+			Error: apiservererrors.ServerError(err),
 		},
 	}
 }

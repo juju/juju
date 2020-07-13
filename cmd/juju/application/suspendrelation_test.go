@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
@@ -71,7 +71,7 @@ func (s *SuspendRelationSuite) TestSuspendRelationFail(c *gc.C) {
 }
 
 func (s *SuspendRelationSuite) TestSuspendRelationBlocked(c *gc.C) {
-	s.mockAPI.SetErrors(commonerrors.OperationBlockedError("TestSuspendRelationBlocked"))
+	s.mockAPI.SetErrors(apiservererrors.OperationBlockedError("TestSuspendRelationBlocked"))
 	err := s.runSuspendRelation(c, "123")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestSuspendRelationBlocked.*")
 	s.mockAPI.CheckCall(c, 0, "SetRelationSuspended", []int{123}, true, "")

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -47,7 +47,7 @@ func (r *Remover) removeEntity(tag names.Tag) error {
 		state.EnsureDeader
 	})
 	if !ok {
-		return commonerrors.NotSupportedError(tag, "removal")
+		return apiservererrors.NotSupportedError(tag, "removal")
 	}
 	// Only remove entites that are not Alive.
 	if life := remover.Life(); life == state.Alive {
@@ -81,14 +81,14 @@ func (r *Remover) Remove(args params.Entities) (params.ErrorResults, error) {
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = commonerrors.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canModify(tag) {
 			err = r.removeEntity(tag)
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }

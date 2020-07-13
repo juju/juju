@@ -14,7 +14,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -42,7 +42,7 @@ func (api *BaseAPI) checkPermission(tag names.Tag, perm permission.Access) error
 		return errors.Trace(err)
 	}
 	if !allowed {
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -60,7 +60,7 @@ func (api *BaseAPI) checkAdmin(backend Backend) error {
 		return errors.Trace(err)
 	}
 	if !allowed {
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -121,12 +121,12 @@ func (api *BaseAPI) applicationOffersFromModel(
 	// or model admin to proceed.
 	var isAdmin bool
 	err = api.checkAdmin(backend)
-	if err != nil && err != commonerrors.ErrPerm {
+	if err != nil && err != apiservererrors.ErrPerm {
 		return nil, errors.Trace(err)
 	}
 	isAdmin = err == nil
 	if requiredAccess == permission.AdminAccess && !isAdmin {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	offers, err := api.GetApplicationOffers(backend).ListOffers(filters...)

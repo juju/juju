@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -98,7 +98,7 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		agentToolsList, err := t.oneAgentTools(canRead, tag, agentVersion, toolsStorage)
@@ -108,7 +108,7 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 			// are known to ignore the flag.
 			result.Results[i].DisableSSLHostnameVerification = true
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -129,7 +129,7 @@ func (t *ToolsGetter) getGlobalAgentVersion() (version.Number, error) {
 
 func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersion version.Number, storage binarystorage.Storage) (coretools.List, error) {
 	if !canRead(tag) {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	entity, err := t.entityFinder.FindEntity(tag)
 	if err != nil {
@@ -137,7 +137,7 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 	}
 	tooler, ok := entity.(state.AgentTooler)
 	if !ok {
-		return nil, commonerrors.NotSupportedError(tag, "agent binaries")
+		return nil, apiservererrors.NotSupportedError(tag, "agent binaries")
 	}
 	existingTools, err := tooler.AgentTools()
 	if err != nil {
@@ -185,18 +185,18 @@ func (t *ToolsSetter) SetTools(args params.EntitiesVersion) (params.ErrorResults
 	for i, agentTools := range args.AgentTools {
 		tag, err := names.ParseTag(agentTools.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		err = t.setOneAgentVersion(tag, agentTools.Tools.Version, canWrite)
-		results.Results[i].Error = commonerrors.ServerError(err)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }
 
 func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, canWrite AuthFunc) error {
 	if !canWrite(tag) {
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	entity0, err := t.st.FindEntity(tag)
 	if err != nil {
@@ -204,7 +204,7 @@ func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, can
 	}
 	entity, ok := entity0.(state.AgentTooler)
 	if !ok {
-		return commonerrors.NotSupportedError(tag, "agent binaries")
+		return apiservererrors.NotSupportedError(tag, "agent binaries")
 	}
 	return entity.SetAgentVersion(vers)
 }
@@ -230,7 +230,7 @@ func (f *ToolsFinder) FindTools(args params.FindToolsParams) (params.FindToolsRe
 	result := params.FindToolsResult{}
 	list, err := f.findTools(args)
 	if err != nil {
-		result.Error = commonerrors.ServerError(err)
+		result.Error = apiservererrors.ServerError(err)
 	} else {
 		result.List = list
 	}

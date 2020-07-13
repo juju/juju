@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -34,7 +34,7 @@ type RebootAPI struct {
 // NewRebootAPI creates a new server-side RebootAPI facade.
 func NewRebootAPI(st *state.State, resources facade.Resources, auth facade.Authorizer) (*RebootAPI, error) {
 	if !auth.AuthMachineAgent() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	tag, ok := auth.GetAuthTag().(names.MachineTag)
@@ -64,7 +64,7 @@ func NewRebootAPI(st *state.State, resources facade.Resources, auth facade.Autho
 // WatchForRebootEvent starts a watcher to track if there is a new
 // reboot request on the machines ID or any of its parents (in case we are a container).
 func (r *RebootAPI) WatchForRebootEvent() (params.NotifyWatchResult, error) {
-	err := commonerrors.ErrPerm
+	err := apiservererrors.ErrPerm
 	var watch state.NotifyWatcher
 	var result params.NotifyWatchResult
 
@@ -81,6 +81,6 @@ func (r *RebootAPI) WatchForRebootEvent() (params.NotifyWatchResult, error) {
 			err = watcher.EnsureErr(watch)
 		}
 	}
-	result.Error = commonerrors.ServerError(err)
+	result.Error = apiservererrors.ServerError(err)
 	return result, nil
 }

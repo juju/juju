@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
@@ -77,27 +77,27 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeUnitHasSubordinates,
 }, {
-	err:        commonerrors.ErrBadId,
+	err:        apiservererrors.ErrBadId,
 	code:       params.CodeNotFound,
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeNotFound,
 }, {
-	err:        commonerrors.NoAddressSetError(names.NewUnitTag("mysql/0"), "public"),
+	err:        apiservererrors.NoAddressSetError(names.NewUnitTag("mysql/0"), "public"),
 	code:       params.CodeNoAddressSet,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeNoAddressSet,
 }, {
-	err:        commonerrors.ErrBadCreds,
+	err:        apiservererrors.ErrBadCreds,
 	code:       params.CodeUnauthorized,
 	status:     http.StatusUnauthorized,
 	helperFunc: params.IsCodeUnauthorized,
 }, {
-	err:        commonerrors.ErrPerm,
+	err:        apiservererrors.ErrPerm,
 	code:       params.CodeUnauthorized,
 	status:     http.StatusUnauthorized,
 	helperFunc: params.IsCodeUnauthorized,
 }, {
-	err:        commonerrors.ErrNotLoggedIn,
+	err:        apiservererrors.ErrNotLoggedIn,
 	code:       params.CodeUnauthorized,
 	status:     http.StatusUnauthorized,
 	helperFunc: params.IsCodeUnauthorized,
@@ -112,7 +112,7 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeAlreadyExists,
 }, {
-	err:        commonerrors.ErrUnknownWatcher,
+	err:        apiservererrors.ErrUnknownWatcher,
 	code:       params.CodeNotFound,
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeNotFound,
@@ -122,7 +122,7 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeNotAssigned,
 }, {
-	err:        commonerrors.ErrStoppedWatcher,
+	err:        apiservererrors.ErrStoppedWatcher,
 	code:       params.CodeStopped,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeStopped,
@@ -132,7 +132,7 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeHasAssignedUnits,
 }, {
-	err:        commonerrors.ErrTryAgain,
+	err:        apiservererrors.ErrTryAgain,
 	code:       params.CodeTryAgain,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeTryAgain,
@@ -147,7 +147,7 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeLeaseClaimDenied,
 }, {
-	err:        commonerrors.OperationBlockedError("test"),
+	err:        apiservererrors.OperationBlockedError("test"),
 	code:       params.CodeOperationBlocked,
 	status:     http.StatusBadRequest,
 	helperFunc: params.IsCodeOperationBlocked,
@@ -171,7 +171,7 @@ var errorTransformTests = []struct {
 	status: http.StatusInternalServerError,
 	code:   "",
 }, {
-	err: &commonerrors.DischargeRequiredError{
+	err: &apiservererrors.DischargeRequiredError{
 		Cause:          errors.New("something"),
 		LegacyMacaroon: sampleMacaroon,
 	},
@@ -190,7 +190,7 @@ var errorTransformTests = []struct {
 	status: http.StatusInternalServerError,
 	code:   "",
 }, {
-	err:        commonerrors.UnknownModelError("dead-beef-123456"),
+	err:        apiservererrors.UnknownModelError("dead-beef-123456"),
 	code:       params.CodeModelNotFound,
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeModelNotFound,
@@ -228,9 +228,9 @@ var sampleMacaroon = func() *macaroon.Macaroon {
 	return m
 }()
 
-var sampleRedirectError = func() *commonerrors.RedirectError {
+var sampleRedirectError = func() *apiservererrors.RedirectError {
 	hps, _ := network.ParseProviderHostPorts("1.1.1.1:12345", "2.2.2.2:7337")
-	return &commonerrors.RedirectError{
+	return &apiservererrors.RedirectError{
 		Servers: []network.ProviderHostPorts{hps},
 		CACert:  testing.ServerCert,
 	}
@@ -253,10 +253,10 @@ func (err unhashableError) Error() string {
 func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 	for i, t := range errorTransformTests {
 		c.Logf("running test %d: %T{%q}", i, t.err, t.err)
-		err1, status := commonerrors.ServerErrorAndStatus(t.err)
+		err1, status := apiservererrors.ServerErrorAndStatus(t.err)
 
 		// Sanity check that ServerError returns the same thing.
-		err2 := commonerrors.ServerError(t.err)
+		err2 := apiservererrors.ServerError(t.err)
 		c.Assert(err2, gc.DeepEquals, err1)
 		c.Assert(status, gc.Equals, t.status)
 
@@ -288,7 +288,7 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 		}
 
 		c.Logf("  checking restore (%#v)", err1)
-		restored := commonerrors.RestoreError(err1)
+		restored := apiservererrors.RestoreError(err1)
 		if t.err == nil {
 			c.Check(restored, jc.ErrorIsNil)
 		} else if t.code == "" {
@@ -302,7 +302,7 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 }
 
 func (s *errorsSuite) TestUnknownModel(c *gc.C) {
-	err := commonerrors.UnknownModelError("dead-beef")
+	err := apiservererrors.UnknownModelError("dead-beef")
 	c.Check(err, gc.ErrorMatches, `unknown model: "dead-beef"`)
 }
 
@@ -318,11 +318,11 @@ func (s *errorsSuite) TestDestroyErr(c *gc.C) {
 		"id3",
 	}
 
-	c.Assert(commonerrors.DestroyErr("entities", ids, nil), jc.ErrorIsNil)
+	c.Assert(apiservererrors.DestroyErr("entities", ids, nil), jc.ErrorIsNil)
 
-	err := commonerrors.DestroyErr("entities", ids, errs)
+	err := apiservererrors.DestroyErr("entities", ids, errs)
 	c.Assert(err, gc.ErrorMatches, "no entities were destroyed: error one; error two; error three")
 
-	err = commonerrors.DestroyErr("entities", ids, errs[1:])
+	err = apiservererrors.DestroyErr("entities", ids, errs[1:])
 	c.Assert(err, gc.ErrorMatches, "some entities were not destroyed: error two; error three")
 }

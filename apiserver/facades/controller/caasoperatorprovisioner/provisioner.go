@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -71,7 +71,7 @@ func NewCAASOperatorProvisionerAPI(
 	registry storage.ProviderRegistry,
 ) (*API, error) {
 	if !authorizer.AuthController() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
 		PasswordChanger:    common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
@@ -144,13 +144,13 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 		if storageRequired {
 			if storageClassName == "" {
 				return params.OperatorProvisioningInfo{
-					Error: commonerrors.ServerError(errors.New("no operator storage defined")),
+					Error: apiservererrors.ServerError(errors.New("no operator storage defined")),
 				}
 			} else {
 				charmStorageParams, err = CharmStorageParams(cfg.ControllerUUID(), storageClassName, modelConfig, "", a.storagePoolManager, a.registry)
 				if err != nil {
 					return params.OperatorProvisioningInfo{
-						Error: commonerrors.ServerError(errors.Annotatef(err, "getting operator storage parameters")),
+						Error: apiservererrors.ServerError(errors.Annotatef(err, "getting operator storage parameters")),
 					}
 				}
 				charmStorageParams.Tags = resourceTags
@@ -168,17 +168,17 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 	for i, entity := range args.Entities {
 		appName, err := names.ParseApplicationTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		app, err := a.state.Application(appName.Id())
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		ch, _, err := app.Charm()
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		needStorage := provider.RequireOperatorStorage(ch.Meta().MinJujuVersion)
@@ -215,7 +215,7 @@ func (a *API) IssueOperatorCertificate(args params.Entities) (params.IssueOperat
 		appTag, err := names.ParseApplicationTag(entity.Tag)
 		if err != nil {
 			res.Results[i] = params.IssueOperatorCertificateResult{
-				Error: commonerrors.ServerError(err),
+				Error: apiservererrors.ServerError(err),
 			}
 			continue
 		}
@@ -226,7 +226,7 @@ func (a *API) IssueOperatorCertificate(args params.Entities) (params.IssueOperat
 
 		if err != nil {
 			res.Results[i] = params.IssueOperatorCertificateResult{
-				Error: commonerrors.ServerError(err),
+				Error: apiservererrors.ServerError(err),
 			}
 			continue
 		}
@@ -234,7 +234,7 @@ func (a *API) IssueOperatorCertificate(args params.Entities) (params.IssueOperat
 		cert, privateKey, err := leaf.ToPemParts()
 		if err != nil {
 			res.Results[i] = params.IssueOperatorCertificateResult{
-				Error: commonerrors.ServerError(err),
+				Error: apiservererrors.ServerError(err),
 			}
 			continue
 		}

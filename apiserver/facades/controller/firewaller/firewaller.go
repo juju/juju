@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/firewall"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	corefirewall "github.com/juju/juju/core/firewall"
@@ -105,7 +105,7 @@ func NewFirewallerAPI(
 ) (*FirewallerAPIV3, error) {
 	if !authorizer.AuthController() {
 		// Firewaller must run as a controller.
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	// Set up the various authorization checkers.
 	accessModel := common.AuthFuncForTagKind(names.ModelTagKind)
@@ -184,16 +184,16 @@ func (f *FirewallerAPIV3) WatchOpenedPorts(args params.Entities) (params.Strings
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		if !canWatch(tag) {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		watcherId, initial, err := f.watchOneModelOpenedPorts(tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		result.Results[i].StringsWatcherId = watcherId
@@ -227,25 +227,25 @@ func (f *FirewallerAPIV3) GetMachinePorts(args params.MachinePortsParams) (param
 	for i, param := range args.Params {
 		machineTag, err := names.ParseMachineTag(param.MachineTag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		var subnetTag names.SubnetTag
 		if param.SubnetTag != "" {
 			subnetTag, err = names.ParseSubnetTag(param.SubnetTag)
 			if err != nil {
-				result.Results[i].Error = commonerrors.ServerError(err)
+				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
 			}
 		}
 		machine, err := f.getMachine(canAccess, machineTag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		ports, err := machine.OpenedPorts(subnetTag.Id())
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if ports != nil {
@@ -282,17 +282,17 @@ func (f *FirewallerAPIV3) GetMachineActiveSubnets(args params.Entities) (params.
 	for i, entity := range args.Entities {
 		machineTag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		machine, err := f.getMachine(canAccess, machineTag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		ports, err := machine.AllPorts()
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		for _, port := range ports {
@@ -321,14 +321,14 @@ func (f *FirewallerAPIV3) GetExposed(args params.Entities) (params.BoolResults, 
 	for i, entity := range args.Entities {
 		tag, err := names.ParseApplicationTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		application, err := f.getApplication(canAccess, tag)
 		if err == nil {
 			result.Results[i].Result = application.IsExposed()
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -346,7 +346,7 @@ func (f *FirewallerAPIV3) GetAssignedMachine(args params.Entities) (params.Strin
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		unit, err := f.getUnit(canAccess, tag)
@@ -357,14 +357,14 @@ func (f *FirewallerAPIV3) GetAssignedMachine(args params.Entities) (params.Strin
 				result.Results[i].Result = names.NewMachineTag(machineId).String()
 			}
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
 func (f *FirewallerAPIV3) getEntity(canAccess common.AuthFunc, tag names.Tag) (state.Entity, error) {
 	if !canAccess(tag) {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return f.st.FindEntity(tag)
 }
@@ -427,7 +427,7 @@ func (f *FirewallerAPIV4) WatchIngressAddressesForRelations(relations params.Ent
 		w := rel.WatchRelationIngressNetworks()
 		changes, ok := <-w.Changes()
 		if !ok {
-			return "", nil, commonerrors.ServerError(watcher.EnsureErr(w))
+			return "", nil, apiservererrors.ServerError(watcher.EnsureErr(w))
 		}
 		return f.resources.Register(w), changes, nil
 	}
@@ -435,7 +435,7 @@ func (f *FirewallerAPIV4) WatchIngressAddressesForRelations(relations params.Ent
 	for i, e := range relations.Entities {
 		watcherId, changes, err := one(e.Tag)
 		if err != nil {
-			results.Results[i].Error = commonerrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].StringsWatcherId = watcherId
@@ -451,12 +451,12 @@ func (f *FirewallerAPIV4) MacaroonForRelations(args params.Entities) (params.Mac
 	for i, entity := range args.Entities {
 		relationTag, err := names.ParseRelationTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		mac, err := f.st.GetMacaroon(relationTag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		result.Results[i].Result = mac
@@ -471,19 +471,19 @@ func (f *FirewallerAPIV4) SetRelationsStatus(args params.SetStatus) (params.Erro
 	for i, entity := range args.Entities {
 		relationTag, err := names.ParseRelationTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		rel, err := f.st.KeyRelation(relationTag.Id())
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		err = rel.SetStatus(status.StatusInfo{
 			Status:  status.Status(entity.Status),
 			Message: entity.Info,
 		})
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -494,7 +494,7 @@ func (f *FirewallerAPIV4) FirewallRules(args params.KnownServiceArgs) (params.Li
 	for _, knownService := range args.KnownServices {
 		rule, err := f.st.FirewallRule(corefirewall.WellKnownServiceType(knownService))
 		if err != nil && !errors.IsNotFound(err) {
-			return result, commonerrors.ServerError(err)
+			return result, apiservererrors.ServerError(err)
 		}
 		if err != nil {
 			continue
@@ -520,14 +520,14 @@ func (f *FirewallerAPIV5) AreManuallyProvisioned(args params.Entities) (params.B
 	for i, arg := range args.Entities {
 		machineTag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = commonerrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		machine, err := f.getMachine(canAccess, machineTag)
 		if err == nil {
 			result.Results[i].Result, err = machine.IsManual()
 		}
-		result.Results[i].Error = commonerrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }

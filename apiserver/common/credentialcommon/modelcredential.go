@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
@@ -104,7 +104,7 @@ func checkMachineInstances(backend PersistentBackend, provider CloudProvider, ca
 	var results []params.ErrorResult
 
 	serverError := func(received error) params.ErrorResult {
-		return params.ErrorResult{Error: commonerrors.ServerError(received)}
+		return params.ErrorResult{Error: apiservererrors.ServerError(received)}
 	}
 
 	machinesByInstance := make(map[string]string)

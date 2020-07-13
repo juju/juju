@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/crossmodel"
@@ -75,7 +75,7 @@ func (s *AddRelationSuite) TestAddRelationFail(c *gc.C) {
 }
 
 func (s *AddRelationSuite) TestAddRelationBlocked(c *gc.C) {
-	s.mockAPI.SetErrors(commonerrors.OperationBlockedError("TestBlockAddRelation"))
+	s.mockAPI.SetErrors(apiservererrors.OperationBlockedError("TestBlockAddRelation"))
 	err := s.runAddRelation(c, "application1", "application2")
 	jtesting.AssertOperationWasBlocked(c, err, ".*TestBlockAddRelation.*")
 	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"}, []string(nil))

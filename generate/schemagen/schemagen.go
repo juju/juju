@@ -17,7 +17,7 @@ import (
 	"golang.org/x/tools/go/packages"
 
 	"github.com/juju/juju/apiserver"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/generate/schemagen/gen"
@@ -126,7 +126,7 @@ func (defaultLinker) isAvailable(facadeName string, factory facade.Factory, kind
 		},
 	}
 	_, err := factory(ctx)
-	return errors.Cause(err) != commonerrors.ErrPerm
+	return errors.Cause(err) != apiservererrors.ErrPerm
 }
 
 type entityKind int

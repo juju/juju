@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/credentialvalidator"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -132,7 +132,7 @@ func (s *CredentialValidatorSuite) TestInvalidateModelCredential(c *gc.C) {
 
 func (s *CredentialValidatorSuite) TestInvalidateModelCredentialBackendFailure(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.ErrorResult)) = params.ErrorResult{Error: commonerrors.ServerError(errors.New("boom"))}
+		*(result.(*params.ErrorResult)) = params.ErrorResult{Error: apiservererrors.ServerError(errors.New("boom"))}
 		return nil
 	})
 

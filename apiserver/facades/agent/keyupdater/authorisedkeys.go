@@ -9,7 +9,7 @@ import (
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -42,7 +42,7 @@ func NewKeyUpdaterAPI(
 ) (*KeyUpdaterAPI, error) {
 	// Only machine agents have access to the keyupdater service.
 	if !authorizer.AuthMachineAgent() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	// No-one else except the machine itself can only read a machine's own credentials.
 	getCanRead := func() (common.AuthFunc, error) {
@@ -69,20 +69,20 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.Notif
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			results[i].Error = commonerrors.ServerError(err)
+			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		// 1. Check permissions
 		if !canRead(tag) {
-			results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		// 2. Check entity exists
 		if _, err := api.state.FindEntity(tag); err != nil {
 			if errors.IsNotFound(err) {
-				results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+				results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			} else {
-				results[i].Error = commonerrors.ServerError(err)
+				results[i].Error = apiservererrors.ServerError(err)
 			}
 			continue
 		}
@@ -94,7 +94,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.Notif
 		} else {
 			err = watcher.EnsureErr(watch)
 		}
-		results[i].Error = commonerrors.ServerError(err)
+		results[i].Error = apiservererrors.ServerError(err)
 	}
 	return params.NotifyWatchResults{Results: results}, nil
 }
@@ -122,20 +122,20 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(arg params.Entities) (params.StringsRes
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			results[i].Error = commonerrors.ServerError(err)
+			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		// 1. Check permissions
 		if !canRead(tag) {
-			results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+			results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		// 2. Check entity exists
 		if _, err := api.state.FindEntity(tag); err != nil {
 			if errors.IsNotFound(err) {
-				results[i].Error = commonerrors.ServerError(commonerrors.ErrPerm)
+				results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			} else {
-				results[i].Error = commonerrors.ServerError(err)
+				results[i].Error = apiservererrors.ServerError(err)
 			}
 			continue
 		}
@@ -145,7 +145,7 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(arg params.Entities) (params.StringsRes
 		} else {
 			err = configErr
 		}
-		results[i].Error = commonerrors.ServerError(err)
+		results[i].Error = apiservererrors.ServerError(err)
 	}
 	return params.StringsResults{Results: results}, nil
 }

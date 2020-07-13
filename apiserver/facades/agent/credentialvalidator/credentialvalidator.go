@@ -8,7 +8,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
@@ -65,7 +65,7 @@ func NewCredentialValidatorAPIv1(ctx facade.Context) (*CredentialValidatorAPIV1,
 
 func internalNewCredentialValidatorAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*CredentialValidatorAPI, error) {
 	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent()) {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	return &CredentialValidatorAPI{
@@ -79,7 +79,7 @@ func internalNewCredentialValidatorAPI(backend Backend, resources facade.Resourc
 // changes to a given cloud credential.
 func (api *CredentialValidatorAPI) WatchCredential(tag params.Entity) (params.NotifyWatchResult, error) {
 	fail := func(failure error) (params.NotifyWatchResult, error) {
-		return params.NotifyWatchResult{}, commonerrors.ServerError(failure)
+		return params.NotifyWatchResult{}, apiservererrors.ServerError(failure)
 	}
 
 	credentialTag, err := names.ParseCloudCredentialTag(tag.Tag)
@@ -92,7 +92,7 @@ func (api *CredentialValidatorAPI) WatchCredential(tag params.Entity) (params.No
 		return fail(err)
 	}
 	if !isUsed {
-		return fail(commonerrors.ErrPerm)
+		return fail(apiservererrors.ErrPerm)
 	}
 
 	result := params.NotifyWatchResult{}
@@ -104,7 +104,7 @@ func (api *CredentialValidatorAPI) WatchCredential(tag params.Entity) (params.No
 		result.NotifyWatcherId = api.resources.Register(watch)
 	} else {
 		err = watcher.EnsureErr(watch)
-		result.Error = commonerrors.ServerError(err)
+		result.Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -113,7 +113,7 @@ func (api *CredentialValidatorAPI) WatchCredential(tag params.Entity) (params.No
 func (api *CredentialValidatorAPI) ModelCredential() (params.ModelCredential, error) {
 	c, err := api.backend.ModelCredential()
 	if err != nil {
-		return params.ModelCredential{}, commonerrors.ServerError(err)
+		return params.ModelCredential{}, apiservererrors.ServerError(err)
 	}
 
 	return params.ModelCredential{
@@ -136,7 +136,7 @@ func (api *CredentialValidatorAPI) WatchModelCredential() (params.NotifyWatchRes
 	result := params.NotifyWatchResult{}
 	watch, err := api.backend.WatchModelCredential()
 	if err != nil {
-		return result, commonerrors.ServerError(err)
+		return result, apiservererrors.ServerError(err)
 	}
 
 	// Consume the initial event. Technically, API calls to Watch
@@ -146,7 +146,7 @@ func (api *CredentialValidatorAPI) WatchModelCredential() (params.NotifyWatchRes
 		result.NotifyWatcherId = api.resources.Register(watch)
 	} else {
 		err = watcher.EnsureErr(watch)
-		result.Error = commonerrors.ServerError(err)
+		result.Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }

@@ -53,7 +53,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"api/upgrader",
 		"api/usermanager",
 		"api/watcher",
-		"apiserver/common/errors",
+		"apiserver/errors",
 		"apiserver/params",
 		"caas",
 		"caas/kubernetes/clientconfig",

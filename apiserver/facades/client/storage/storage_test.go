@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facadestorage "github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -874,7 +874,7 @@ func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *gc.C) {
 
 	// ListStorageDetails should fail with perm error
 	_, err = s.api.ListStorageDetails(params.StorageFilters{})
-	c.Assert(errors.Cause(err), gc.Equals, commonerrors.ErrPerm)
+	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 }
 
 type filesystemImporter struct {

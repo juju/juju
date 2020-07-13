@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
@@ -43,7 +43,7 @@ func NewCharmRevisionUpdaterAPI(
 	authorizer facade.Authorizer,
 ) (*CharmRevisionUpdaterAPI, error) {
 	if !authorizer.AuthController() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return &CharmRevisionUpdaterAPI{
 		state: st, resources: resources, authorizer: authorizer}, nil
@@ -53,7 +53,7 @@ func NewCharmRevisionUpdaterAPI(
 // and records this information in state.
 func (api *CharmRevisionUpdaterAPI) UpdateLatestRevisions() (params.ErrorResult, error) {
 	if err := api.updateLatestRevisions(); err != nil {
-		return params.ErrorResult{Error: commonerrors.ServerError(err)}, nil
+		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
 }

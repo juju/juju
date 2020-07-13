@@ -10,7 +10,7 @@ import (
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -77,7 +77,7 @@ func (s *Suite) TestIdentityProviderURLWithErrorResult(c *gc.C) {
 
 			out := result.(*params.StringResult)
 			out.Result = "garbage"
-			out.Error = commonerrors.ServerError(errors.New("version error"))
+			out.Error = apiservererrors.ServerError(errors.New("version error"))
 			return nil
 		},
 	}

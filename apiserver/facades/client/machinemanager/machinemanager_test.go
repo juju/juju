@@ -17,8 +17,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
 	"github.com/juju/juju/apiserver/params"
@@ -263,7 +263,7 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval(c *gc.
 		[]params.Entity{{Tag: "machine-0"}},
 		params.DestroyMachineResults{
 			Results: []params.DestroyMachineResult{{
-				Error: commonerrors.ServerError(errors.New("getting storage for unit foo/0: kaboom\ngetting storage for unit foo/1: kaboom\ngetting storage for unit foo/2: kaboom")),
+				Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/0: kaboom\ngetting storage for unit foo/1: kaboom\ngetting storage for unit foo/2: kaboom")),
 			}},
 		},
 		"ModelTag",
@@ -287,7 +287,7 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedAllStorageClassification(c
 		[]params.Entity{{Tag: "machine-0"}},
 		params.DestroyMachineResults{
 			Results: []params.DestroyMachineResult{{
-				Error: commonerrors.ServerError(errors.New("classifying storage for destruction for unit foo/0: boom")),
+				Error: apiservererrors.ServerError(errors.New("classifying storage for destruction for unit foo/0: boom")),
 			}},
 		},
 		"ModelTag",
@@ -324,7 +324,7 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetrieval(c
 		[]params.Entity{{Tag: "machine-0"}},
 		params.DestroyMachineResults{
 			Results: []params.DestroyMachineResult{{
-				Error: commonerrors.ServerError(errors.New("getting storage for unit foo/1: kaboom")),
+				Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom")),
 			}},
 		},
 		"ModelTag",
@@ -373,7 +373,7 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMa
 		},
 		params.DestroyMachineResults{
 			Results: []params.DestroyMachineResult{
-				{Error: commonerrors.ServerError(errors.New("getting storage for unit foo/1: kaboom"))},
+				{Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom"))},
 				{Info: &params.DestroyMachineInfo{
 					DestroyedUnits: []params.Entity{
 						{"unit-bar-0"},

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -64,7 +64,7 @@ func Serve(w http.ResponseWriter, req *http.Request, handler func(ws *Conn)) {
 // character for message based connections, which is all of them now.
 func (conn *Conn) SendInitialErrorV0(err error) error {
 	wrapped := &params.ErrorResult{
-		Error: commonerrors.ServerError(err),
+		Error: apiservererrors.ServerError(err),
 	}
 
 	body, err := json.Marshal(wrapped)

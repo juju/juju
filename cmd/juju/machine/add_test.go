@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/core/model"
@@ -188,7 +188,7 @@ failed to create 2 machines
 }
 
 func (s *AddMachineSuite) TestBlockedError(c *gc.C) {
-	s.fakeMachineManager.addError = commonerrors.OperationBlockedError("TestBlockedError")
+	s.fakeMachineManager.addError = apiservererrors.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c)
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedError.*")
 }

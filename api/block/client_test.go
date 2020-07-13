@@ -10,7 +10,7 @@ import (
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/block"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -67,7 +67,7 @@ func (s *blockMockSuite) TestSwitchBlockOnError(c *gc.C) {
 			called = true
 			result, ok := response.(*params.ErrorResult)
 			c.Assert(ok, jc.IsTrue)
-			result.Error = commonerrors.ServerError(errors.New(errmsg))
+			result.Error = apiservererrors.ServerError(errors.New(errmsg))
 
 			return nil
 		})
@@ -122,7 +122,7 @@ func (s *blockMockSuite) TestSwitchBlockOffError(c *gc.C) {
 			called = true
 			result, ok := response.(*params.ErrorResult)
 			c.Assert(ok, jc.IsTrue)
-			result.Error = commonerrors.ServerError(errors.New(errmsg))
+			result.Error = apiservererrors.ServerError(errors.New(errmsg))
 
 			return nil
 		})
@@ -144,7 +144,7 @@ func (s *blockMockSuite) TestList(c *gc.C) {
 	}
 	errmsg := "another test error"
 	two := params.BlockResult{
-		Error: commonerrors.ServerError(errors.New(errmsg)),
+		Error: apiservererrors.ServerError(errors.New(errmsg)),
 	}
 	apiCaller := basetesting.APICallerFunc(
 		func(

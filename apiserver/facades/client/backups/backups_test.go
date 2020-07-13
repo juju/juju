@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	backupsAPI "github.com/juju/juju/apiserver/facades/client/backups"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
@@ -96,7 +96,7 @@ func (s *backupsSuite) TestNewAPIOkay(c *gc.C) {
 func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {
 	s.authorizer.Tag = names.NewApplicationTag("eggs")
 	_, err := backupsAPI.NewAPIv2(&stateShim{State: s.State, Model: s.Model}, s.resources, s.authorizer)
-	c.Check(errors.Cause(err), gc.Equals, commonerrors.ErrPerm)
+	c.Check(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *backupsSuite) TestNewAPIHostedEnvironmentFails(c *gc.C) {

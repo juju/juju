@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	commonerrors "github.com/juju/juju/apiserver/common/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
@@ -30,10 +30,10 @@ type Facade struct {
 
 // New creates a Facade backed by backend and resources. If auth
 // doesn't identity the client as a machine agent or a unit agent,
-// it will return commonerrors.ErrPerm.
+// it will return apiservererrors.ErrPerm.
 func New(backend Backend, resources facade.Resources, auth facade.Authorizer) (*Facade, error) {
 	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() && !auth.AuthApplicationAgent() {
-		return nil, commonerrors.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return &Facade{
 		backend:   backend,
@@ -49,7 +49,7 @@ func (facade *Facade) auth(tagString string) error {
 		return errors.Trace(err)
 	}
 	if tag.Id() != facade.backend.ModelUUID() {
-		return commonerrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -64,7 +64,7 @@ func (facade *Facade) Phase(entities params.Entities) params.PhaseResults {
 	for i, entity := range entities.Entities {
 		phase, err := facade.onePhase(entity.Tag)
 		results.Results[i].Phase = phase
-		results.Results[i].Error = commonerrors.ServerError(err)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results
 }
@@ -91,7 +91,7 @@ func (facade *Facade) Watch(entities params.Entities) params.NotifyWatchResults 
 	for i, entity := range entities.Entities {
 		id, err := facade.oneWatch(entity.Tag)
 		results.Results[i].NotifyWatcherId = id
-		results.Results[i].Error = commonerrors.ServerError(err)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results
 }
