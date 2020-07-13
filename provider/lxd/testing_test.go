@@ -309,6 +309,7 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
+	testing.SkipLXDNotSupported(c)
 	s.BaseSuiteUnpatched.SetUpTest(c)
 
 	s.Stub = &gitjujutesting.Stub{}
