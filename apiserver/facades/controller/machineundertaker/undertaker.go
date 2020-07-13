@@ -8,7 +8,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
@@ -30,7 +30,7 @@ type API struct {
 // machine goes away.
 func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
 	if !authorizer.AuthController() {
-		return nil, errors.Trace(common.ErrPerm)
+		return nil, errors.Trace(apiservererrors.ErrPerm)
 	}
 
 	api := &API{
@@ -55,7 +55,7 @@ func (m *API) AllMachineRemovals(models params.Entities) params.EntitiesResults 
 	for i, entity := range models.Entities {
 		entities, err := m.allRemovalsForTag(entity.Tag)
 		results[i].Entities = entities
-		results[i].Error = common.ServerError(err)
+		results[i].Error = apiservererrors.ServerError(err)
 	}
 	return params.EntitiesResults{Results: results}
 }
@@ -87,7 +87,7 @@ func (m *API) GetMachineProviderInterfaceInfo(machines params.Entities) params.P
 
 		interfaces, err := m.getInterfaceInfoForOneMachine(entity.Tag)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -137,7 +137,7 @@ func (m *API) WatchMachineRemovals(models params.Entities) params.NotifyWatchRes
 	for i, entity := range models.Entities {
 		id, err := m.watchRemovalsForTag(entity.Tag)
 		results[i].NotifyWatcherId = id
-		results[i].Error = common.ServerError(err)
+		results[i].Error = apiservererrors.ServerError(err)
 	}
 	return params.NotifyWatchResults{Results: results}
 }
@@ -161,7 +161,7 @@ func (m *API) checkModelAuthorization(tag string) error {
 		return errors.Trace(err)
 	}
 	if !m.canManageModel(modelTag.Id()) {
-		return errors.Trace(common.ErrPerm)
+		return errors.Trace(apiservererrors.ErrPerm)
 	}
 	return nil
 }

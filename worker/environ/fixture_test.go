@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -21,9 +22,9 @@ import (
 type fixture struct {
 	watcherErr    error
 	observerErrs  []error
-	cloud         environs.CloudSpec
+	cloud         environscloudspec.CloudSpec
 	initialConfig map[string]interface{}
-	initialSpec   environs.CloudSpec
+	initialSpec   environscloudspec.CloudSpec
 }
 
 func (fix *fixture) Run(c *gc.C, test func(*runContext)) {
@@ -44,7 +45,7 @@ func (fix *fixture) Run(c *gc.C, test func(*runContext)) {
 type runContext struct {
 	mu           sync.Mutex
 	stub         testing.Stub
-	cloud        environs.CloudSpec
+	cloud        environscloudspec.CloudSpec
 	config       map[string]interface{}
 	watcher      *notifyWatcher
 	cloudWatcher *notifyWatcher
@@ -59,19 +60,19 @@ func (context *runContext) SetConfig(c *gc.C, extraAttrs coretesting.Attrs) {
 }
 
 // SetCloudSpec updates the spec returned by CloudSpec.
-func (context *runContext) SetCloudSpec(c *gc.C, spec environs.CloudSpec) {
+func (context *runContext) SetCloudSpec(c *gc.C, spec environscloudspec.CloudSpec) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.cloud = spec
 }
 
 // CloudSpec is part of the environ.ConfigObserver interface.
-func (context *runContext) CloudSpec() (environs.CloudSpec, error) {
+func (context *runContext) CloudSpec() (environscloudspec.CloudSpec, error) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.stub.AddCall("CloudSpec")
 	if err := context.stub.NextErr(); err != nil {
-		return environs.CloudSpec{}, err
+		return environscloudspec.CloudSpec{}, err
 	}
 	return context.cloud, nil
 }
@@ -205,7 +206,7 @@ type mockEnviron struct {
 	environs.Environ
 	testing.Stub
 	cfg  *config.Config
-	spec environs.CloudSpec
+	spec environscloudspec.CloudSpec
 	mu   sync.Mutex
 }
 
@@ -228,13 +229,13 @@ func (e *mockEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *mockEnviron) CloudSpec() environs.CloudSpec {
+func (e *mockEnviron) CloudSpec() environscloudspec.CloudSpec {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.spec
 }
 
-func (e *mockEnviron) SetCloudSpec(spec environs.CloudSpec) error {
+func (e *mockEnviron) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.MethodCall(e, "SetCloudSpec", spec)

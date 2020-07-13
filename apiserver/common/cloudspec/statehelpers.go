@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -20,17 +20,17 @@ type Pool interface {
 
 // MakeCloudSpecGetter returns a function which returns a CloudSpec
 // for a given model, using the given Pool.
-func MakeCloudSpecGetter(pool Pool) func(names.ModelTag) (environs.CloudSpec, error) {
-	return func(tag names.ModelTag) (environs.CloudSpec, error) {
+func MakeCloudSpecGetter(pool Pool) func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+	return func(tag names.ModelTag) (environscloudspec.CloudSpec, error) {
 		st, err := pool.Get(tag.Id())
 		if err != nil {
-			return environs.CloudSpec{}, errors.Trace(err)
+			return environscloudspec.CloudSpec{}, errors.Trace(err)
 		}
 		defer st.Release()
 
 		m, err := st.Model()
 		if err != nil {
-			return environs.CloudSpec{}, errors.Trace(err)
+			return environscloudspec.CloudSpec{}, errors.Trace(err)
 		}
 		// TODO - CAAS(externalreality): Once cloud methods are migrated
 		// to model EnvironConfigGetter will no longer need to contain
@@ -45,16 +45,16 @@ func MakeCloudSpecGetter(pool Pool) func(names.ModelTag) (environs.CloudSpec, er
 // CloudSpec for a single model. Attempts to request a CloudSpec for
 // any other model other than the one associated with the given
 // state.State results in an error.
-func MakeCloudSpecGetterForModel(st *state.State) func(names.ModelTag) (environs.CloudSpec, error) {
-	return func(tag names.ModelTag) (environs.CloudSpec, error) {
+func MakeCloudSpecGetterForModel(st *state.State) func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+	return func(tag names.ModelTag) (environscloudspec.CloudSpec, error) {
 		m, err := st.Model()
 		if err != nil {
-			return environs.CloudSpec{}, errors.Trace(err)
+			return environscloudspec.CloudSpec{}, errors.Trace(err)
 		}
 		configGetter := stateenvirons.EnvironConfigGetter{Model: m}
 
 		if tag.Id() != st.ModelUUID() {
-			return environs.CloudSpec{}, errors.New("cannot get cloud spec for this model")
+			return environscloudspec.CloudSpec{}, errors.New("cannot get cloud spec for this model")
 		}
 		return configGetter.CloudSpec()
 	}

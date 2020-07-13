@@ -5,14 +5,13 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	networkingcommon "github.com/juju/juju/apiserver/common/networkingcommon"
-	environs "github.com/juju/juju/environs"
+	cloudspec "github.com/juju/juju/environs/cloudspec"
 	config "github.com/juju/juju/environs/config"
 	common "github.com/juju/juju/provider/common"
 	names "github.com/juju/names/v4"
+	reflect "reflect"
 )
 
 // MockBacking is a mock of Backing interface
@@ -99,10 +98,10 @@ func (mr *MockBackingMockRecorder) AvailabilityZones() *gomock.Call {
 }
 
 // CloudSpec mocks base method
-func (m *MockBacking) CloudSpec() (environs.CloudSpec, error) {
+func (m *MockBacking) CloudSpec() (cloudspec.CloudSpec, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudSpec")
-	ret0, _ := ret[0].(environs.CloudSpec)
+	ret0, _ := ret[0].(cloudspec.CloudSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

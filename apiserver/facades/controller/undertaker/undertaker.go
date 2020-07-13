@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
@@ -34,7 +35,7 @@ func NewUndertakerAPI(st *state.State, resources facade.Resources, authorizer fa
 
 func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Authorizer) (*UndertakerAPI, error) {
 	if !authorizer.AuthController() {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	model, err := st.Model()
 	if err != nil {
@@ -100,7 +101,7 @@ func (u *UndertakerAPI) modelEntitiesWatcher() params.NotifyWatchResult {
 			NotifyWatcherId: u.resources.Register(watch),
 		}
 	}
-	nothing.Error = common.ServerError(watcher.EnsureErr(watch))
+	nothing.Error = apiservererrors.ServerError(watcher.EnsureErr(watch))
 	return nothing
 }
 

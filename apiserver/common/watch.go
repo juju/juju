@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/tomb.v2"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -43,7 +44,7 @@ func (a *AgentEntityWatcher) watchEntity(tag names.Tag) (string, error) {
 	}
 	entity, ok := entity0.(state.NotifyWatcherFactory)
 	if !ok {
-		return "", NotSupportedError(tag, "watching")
+		return "", apiservererrors.NotSupportedError(tag, "watching")
 	}
 	watch := entity.Watch()
 	// Consume the initial event. Technically, API
@@ -71,16 +72,16 @@ func (a *AgentEntityWatcher) Watch(args params.Entities) (params.NotifyWatchResu
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = ErrPerm
+		err = apiservererrors.ErrPerm
 		watcherId := ""
 		if canWatch(tag) {
 			watcherId, err = a.watchEntity(tag)
 		}
 		result.Results[i].NotifyWatcherId = watcherId
-		result.Results[i].Error = ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }

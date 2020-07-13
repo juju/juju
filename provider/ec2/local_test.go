@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
@@ -2063,7 +2064,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			ModelConfig:      localConfigAttrs,
 			ControllerName:   localConfigAttrs["name"].(string),
-			Cloud: environs.CloudSpec{
+			Cloud: environscloudspec.CloudSpec{
 				Type:       "ec2",
 				Region:     region.Name,
 				Endpoint:   region.EC2Endpoint,

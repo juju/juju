@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // loginEntity defines the interface needed to log in as a user.
@@ -143,16 +144,16 @@ func (u *modelUserEntity) LastLogin() (time.Time, error) {
 	if !permission.IsEmptyUserAccess(u.modelUser) {
 		t, err = model.LastModelConnection(u.modelUser.UserTag)
 	} else {
-		err = state.NeverConnectedError("controller user")
+		err = stateerrors.NewNeverConnectedError("controller user")
 	}
-	if state.IsNeverConnectedError(err) || permission.IsEmptyUserAccess(u.modelUser) {
+	if stateerrors.IsNeverConnectedError(err) || permission.IsEmptyUserAccess(u.modelUser) {
 		if u.user != nil {
 			// There's a global user, so use that login time instead.
 			return u.user.LastLogin()
 		}
 		// Since we're implementing LastLogin, we need
 		// to implement LastLogin error semantics too.
-		err = state.NeverLoggedInError(err.Error())
+		err = stateerrors.NewNeverLoggedInError(err.Error())
 	}
 	return t, errors.Trace(err)
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -92,7 +93,7 @@ func (a *LeadershipPinning) PinnedLeadership() (params.PinnedLeadershipResult, e
 		return result, errors.Trace(err)
 	}
 	if !canAccess {
-		return result, ErrPerm
+		return result, apiservererrors.ErrPerm
 	}
 
 	result.Result = a.pinner.PinnedLeadership()
@@ -103,7 +104,7 @@ func (a *LeadershipPinning) PinnedLeadership() (params.PinnedLeadershipResult, e
 // tag provided.
 func (a *LeadershipPinning) PinApplicationLeaders() (params.PinApplicationsResults, error) {
 	if !a.authorizer.AuthMachineAgent() {
-		return params.PinApplicationsResults{}, ErrPerm
+		return params.PinApplicationsResults{}, apiservererrors.ErrPerm
 	}
 
 	tag := a.authorizer.GetAuthTag()
@@ -111,7 +112,7 @@ func (a *LeadershipPinning) PinApplicationLeaders() (params.PinApplicationsResul
 	case names.MachineTagKind:
 		return a.pinMachineApplications(tag)
 	default:
-		return params.PinApplicationsResults{}, ErrPerm
+		return params.PinApplicationsResults{}, apiservererrors.ErrPerm
 	}
 }
 
@@ -119,7 +120,7 @@ func (a *LeadershipPinning) PinApplicationLeaders() (params.PinApplicationsResul
 // tag provided.
 func (a *LeadershipPinning) UnpinApplicationLeaders() (params.PinApplicationsResults, error) {
 	if !a.authorizer.AuthMachineAgent() {
-		return params.PinApplicationsResults{}, ErrPerm
+		return params.PinApplicationsResults{}, apiservererrors.ErrPerm
 	}
 
 	tag := a.authorizer.GetAuthTag()
@@ -127,7 +128,7 @@ func (a *LeadershipPinning) UnpinApplicationLeaders() (params.PinApplicationsRes
 	case names.MachineTagKind:
 		return a.unpinMachineApplications(tag)
 	default:
-		return params.PinApplicationsResults{}, ErrPerm
+		return params.PinApplicationsResults{}, apiservererrors.ErrPerm
 	}
 }
 
@@ -162,7 +163,7 @@ func (a *LeadershipPinning) UnpinApplicationLeadersByName(tag names.Tag, appName
 func (a *LeadershipPinning) pinMachineApplications(tag names.Tag) (params.PinApplicationsResults, error) {
 	appNames, err := a.GetMachineApplicationNames(tag.Id())
 	if err != nil {
-		return params.PinApplicationsResults{}, ErrPerm
+		return params.PinApplicationsResults{}, apiservererrors.ErrPerm
 	}
 	return a.pinAppLeadersOps(tag, appNames, a.pinner.PinLeadership)
 }
@@ -172,7 +173,7 @@ func (a *LeadershipPinning) pinMachineApplications(tag names.Tag) (params.PinApp
 func (a *LeadershipPinning) unpinMachineApplications(tag names.Tag) (params.PinApplicationsResults, error) {
 	appNames, err := a.GetMachineApplicationNames(tag.Id())
 	if err != nil {
-		return params.PinApplicationsResults{}, ErrPerm
+		return params.PinApplicationsResults{}, apiservererrors.ErrPerm
 	}
 	return a.pinAppLeadersOps(tag, appNames, a.pinner.UnpinLeadership)
 }
@@ -190,7 +191,7 @@ func (a *LeadershipPinning) pinAppLeadersOps(tag names.Tag, appNames []string, o
 			ApplicationName: app,
 		}
 		if err := op(app, tag.String()); err != nil {
-			results[i].Error = ServerError(err)
+			results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	result.Results = results

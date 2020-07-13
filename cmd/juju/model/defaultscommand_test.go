@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/environs/config"
@@ -296,7 +296,7 @@ func (s *DefaultsCommandSuite) TestResetRegionAttr(c *gc.C) {
 }
 
 func (s *DefaultsCommandSuite) TestResetBlockedError(c *gc.C) {
-	s.fakeDefaultsAPI.err = common.OperationBlockedError("TestBlockedError")
+	s.fakeDefaultsAPI.err = apiservererrors.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c, "--reset", "attr")
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedError.*")
 }
@@ -409,7 +409,7 @@ func (s *DefaultsCommandSuite) TestSetConveysCloudRegion(c *gc.C) {
 }
 
 func (s *DefaultsCommandSuite) TestBlockedErrorOnSet(c *gc.C) {
-	s.fakeDefaultsAPI.err = common.OperationBlockedError("TestBlockedError")
+	s.fakeDefaultsAPI.err = apiservererrors.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c, "special=extra")
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedError.*")
 }

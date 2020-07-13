@@ -16,18 +16,17 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	coretesting "github.com/juju/juju/testing"
-
 	jujutesting "github.com/juju/juju/testing"
 )
 
 type fixture struct {
 	watcherErr    error
 	observerErrs  []error
-	cloud         environs.CloudSpec
+	cloud         environscloudspec.CloudSpec
 	initialConfig map[string]interface{}
-	initialSpec   environs.CloudSpec
+	initialSpec   environscloudspec.CloudSpec
 }
 
 func (fix *fixture) Run(c *gc.C, test func(*runContext)) {
@@ -48,7 +47,7 @@ func (fix *fixture) Run(c *gc.C, test func(*runContext)) {
 type runContext struct {
 	mu           sync.Mutex
 	stub         testing.Stub
-	cloud        environs.CloudSpec
+	cloud        environscloudspec.CloudSpec
 	config       map[string]interface{}
 	watcher      *notifyWatcher
 	cloudWatcher *notifyWatcher
@@ -56,26 +55,26 @@ type runContext struct {
 }
 
 // SetConfig updates the configuration returned by ModelConfig.
-func (context *runContext) SetConfig(c *gc.C, extraAttrs coretesting.Attrs) {
+func (context *runContext) SetConfig(c *gc.C, extraAttrs jujutesting.Attrs) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.config = newModelConfig(c, extraAttrs)
 }
 
 // SetCloudSpec updates the spec returned by CloudSpec.
-func (context *runContext) SetCloudSpec(c *gc.C, spec environs.CloudSpec) {
+func (context *runContext) SetCloudSpec(c *gc.C, spec environscloudspec.CloudSpec) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.cloud = spec
 }
 
 // CloudSpec is part of the environ.ConfigObserver interface.
-func (context *runContext) CloudSpec() (environs.CloudSpec, error) {
+func (context *runContext) CloudSpec() (environscloudspec.CloudSpec, error) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.stub.AddCall("CloudSpec")
 	if err := context.stub.NextErr(); err != nil {
-		return environs.CloudSpec{}, err
+		return environscloudspec.CloudSpec{}, err
 	}
 	return context.cloud, nil
 }
@@ -211,14 +210,14 @@ func (w *notifyWatcher) Changes() watcher.NotifyChannel {
 
 // newModelConfig returns an environment config map with the supplied attrs
 // (on top of some default set), or fails the test.
-func newModelConfig(c *gc.C, extraAttrs coretesting.Attrs) map[string]interface{} {
-	return coretesting.CustomModelConfig(c, extraAttrs).AllAttrs()
+func newModelConfig(c *gc.C, extraAttrs jujutesting.Attrs) map[string]interface{} {
+	return jujutesting.CustomModelConfig(c, extraAttrs).AllAttrs()
 }
 
 type mockBroker struct {
 	caas.Broker
 	testing.Stub
-	spec      environs.CloudSpec
+	spec      environscloudspec.CloudSpec
 	cfg       *config.Config
 	namespace string
 	mu        sync.Mutex
@@ -228,13 +227,13 @@ func newMockBroker(args environs.OpenParams) (caas.Broker, error) {
 	return &mockBroker{spec: args.Cloud, namespace: args.Config.Name(), cfg: args.Config}, nil
 }
 
-func (e *mockBroker) CloudSpec() environs.CloudSpec {
+func (e *mockBroker) CloudSpec() environscloudspec.CloudSpec {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.spec
 }
 
-func (e *mockBroker) SetCloudSpec(spec environs.CloudSpec) error {
+func (e *mockBroker) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.MethodCall(e, "SetCloudSpec", spec)

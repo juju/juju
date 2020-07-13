@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
@@ -34,7 +34,7 @@ func API2Result(r params.PayloadResult) (payload.Result, error) {
 	}
 
 	if r.Error != nil {
-		result.Error = common.RestoreError(r.Error)
+		result.Error = apiservererrors.RestoreError(r.Error)
 	}
 
 	return result, nil

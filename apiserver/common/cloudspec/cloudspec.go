@@ -8,9 +8,10 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -31,7 +32,7 @@ type CloudSpecAPI interface {
 type cloudSpecAPI struct {
 	resources facade.Resources
 
-	getCloudSpec                           func(names.ModelTag) (environs.CloudSpec, error)
+	getCloudSpec                           func(names.ModelTag) (environscloudspec.CloudSpec, error)
 	watchCloudSpec                         func(tag names.ModelTag) (state.NotifyWatcher, error)
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error)
 	watchCloudSpecCredentialContent        func(tag names.ModelTag) (state.NotifyWatcher, error)
@@ -41,7 +42,7 @@ type cloudSpecAPI struct {
 // NewCloudSpec returns a new CloudSpecAPI.
 func NewCloudSpec(
 	resources facade.Resources,
-	getCloudSpec func(names.ModelTag) (environs.CloudSpec, error),
+	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
 	watchCloudSpec func(tag names.ModelTag) (state.NotifyWatcher, error),
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error),
 	watchCloudSpecCredentialContent func(tag names.ModelTag) (state.NotifyWatcher, error),
@@ -67,11 +68,11 @@ func (s cloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, 
 	for i, arg := range args.Entities {
 		tag, err := names.ParseModelTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if !authFunc(tag) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		results.Results[i] = s.GetCloudSpec(tag)
@@ -84,7 +85,7 @@ func (s cloudSpecAPI) GetCloudSpec(tag names.ModelTag) params.CloudSpecResult {
 	var result params.CloudSpecResult
 	spec, err := s.getCloudSpec(tag)
 	if err != nil {
-		result.Error = common.ServerError(err)
+		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
 	var paramsCloudCredential *params.CloudCredential
@@ -119,18 +120,18 @@ func (s cloudSpecAPI) WatchCloudSpecsChanges(args params.Entities) (params.Notif
 	for i, arg := range args.Entities {
 		tag, err := names.ParseModelTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if !authFunc(tag) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		w, err := s.watchCloudSpecChanges(tag)
 		if err == nil {
 			results.Results[i] = w
 		} else {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return results, nil

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -93,7 +93,7 @@ func (c LastSentClient) GetLastSent(ids []LastSentID) ([]LastSentResult, error) 
 				LastSentID: ids[i],
 				RecordID:   apiRes.RecordID,
 			},
-			Error: common.RestoreError(apiRes.Error),
+			Error: apiservererrors.RestoreError(apiRes.Error),
 		}
 		if apiRes.RecordTimestamp > 0 {
 			results[i].RecordTimestamp = time.Unix(0, apiRes.RecordTimestamp)
@@ -128,7 +128,7 @@ func (c LastSentClient) SetLastSent(reqs []LastSentInfo) ([]LastSentResult, erro
 	for i, apiRes := range apiResults.Results {
 		results[i] = LastSentResult{
 			LastSentInfo: reqs[i],
-			Error:        common.RestoreError(apiRes.Error),
+			Error:        apiservererrors.RestoreError(apiRes.Error),
 		}
 	}
 	return results, nil

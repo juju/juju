@@ -4,7 +4,6 @@
 package state
 
 import (
-	stderrors "errors"
 	"fmt"
 	"strings"
 	"time"
@@ -17,6 +16,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // RelationUnit holds information about a single unit in a relation, and
@@ -50,15 +51,6 @@ func (ru *RelationUnit) Endpoint() Endpoint {
 func (ru *RelationUnit) UnitName() string {
 	return ru.unitName
 }
-
-// ErrCannotEnterScope indicates that a relation unit failed to enter its scope
-// due to either the unit or the relation not being Alive.
-var ErrCannotEnterScope = stderrors.New("cannot enter scope: unit or relation is not alive")
-
-// ErrCannotEnterScopeYet indicates that a relation unit failed to enter its
-// scope due to a required and pre-existing subordinate unit that is not Alive.
-// Once that subordinate has been removed, a new one can be created.
-var ErrCannotEnterScopeYet = stderrors.New("cannot enter scope yet: non-alive subordinate unit has not been removed")
 
 // EnterScope ensures that the unit has entered its scope in the relation.
 // When the unit has already entered its relation scope, EnterScope will report
@@ -172,7 +164,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	if alive, err := isAliveWithSession(relations, relationDocID); err != nil {
 		return err
 	} else if !alive {
-		return ErrCannotEnterScope
+		return stateerrors.ErrCannotEnterScope
 	}
 	if ru.isLocalUnit {
 		units, closer := db.GetCollection(unitsC)
@@ -180,7 +172,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		if alive, err := isAliveWithSession(units, ru.unitName); err != nil {
 			return err
 		} else if !alive {
-			return ErrCannotEnterScope
+			return stateerrors.ErrCannotEnterScope
 		}
 
 		// Maybe a subordinate used to exist, but is no longer alive. If that is
@@ -189,7 +181,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 			if alive, err := isAliveWithSession(units, existingSubName); err != nil {
 				return err
 			} else if !alive {
-				return ErrCannotEnterScopeYet
+				return stateerrors.ErrCannotEnterScopeYet
 			}
 		}
 	}
@@ -284,7 +276,7 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 	} else if err != nil {
 		return nil, "", err
 	} else if lDoc.Life != Alive {
-		return nil, "", ErrCannotEnterScopeYet
+		return nil, "", stateerrors.ErrCannotEnterScopeYet
 	}
 	return []txn.Op{{
 		C:      unitsC,

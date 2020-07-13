@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
@@ -97,7 +99,7 @@ func NewFacade(
 	clock clock.Clock,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return &Facade{
 		LifeGetter: common.NewLifeGetter(
@@ -138,7 +140,7 @@ func (f *Facade) WatchApplicationsScale(args params.Entities) (params.NotifyWatc
 	for i, arg := range args.Entities {
 		id, err := f.watchApplicationScale(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].NotifyWatcherId = id
@@ -175,7 +177,7 @@ func (f *Facade) WatchPodSpec(args params.Entities) (params.NotifyWatchResults, 
 	for i, arg := range args.Entities {
 		id, err := f.watchPodSpec(model, arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].NotifyWatcherId = id
@@ -206,7 +208,7 @@ func (f *Facade) ApplicationsScale(args params.Entities) (params.IntResults, err
 	for i, arg := range args.Entities {
 		scale, err := f.applicationScale(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = scale
@@ -235,7 +237,7 @@ func (f *Facade) DeploymentMode(args params.Entities) (params.StringResults, err
 	for i, arg := range args.Entities {
 		mode, err := f.applicationDeploymentMode(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = mode
@@ -278,7 +280,7 @@ func (f *Facade) ProvisioningInfo(args params.Entities) (params.KubernetesProvis
 	for i, arg := range args.Entities {
 		info, err := f.provisioningInfo(model, arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = info
@@ -489,7 +491,7 @@ func (f *Facade) ApplicationsConfig(args params.Entities) (params.ApplicationGet
 	for i, arg := range args.Entities {
 		result, err := f.getApplicationConfig(arg.Tag)
 		results.Results[i].Config = result
-		results.Results[i].Error = common.ServerError(err)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }
@@ -518,12 +520,12 @@ func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 	for i, appUpdate := range args.Args {
 		appTag, err := names.ParseApplicationTag(appUpdate.ApplicationTag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		app, err := a.state.Application(appTag.Id())
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		appStatus := appUpdate.Status
@@ -536,7 +538,7 @@ func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 				Since:   &now,
 			})
 			if err != nil {
-				result.Results[i].Error = common.ServerError(err)
+				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
 			}
 		}
@@ -544,7 +546,7 @@ func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 		if err != nil {
 			// Mask any not found errors as the worker (caller) treats them specially
 			// and they are not relevant here.
-			result.Results[i].Error = common.ServerError(errors.Mask(err))
+			result.Results[i].Error = apiservererrors.ServerError(errors.Mask(err))
 		}
 
 		// Errors from SetScale will also include unit info.
@@ -1024,7 +1026,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 	}
 	err := app.UpdateUnits(&unitUpdate)
 	// We ignore any updates for dying applications.
-	if state.IsNotAlive(err) {
+	if stateerrors.IsNotAlive(err) {
 		return nil
 	}
 
@@ -1300,17 +1302,17 @@ func (a *Facade) ClearApplicationsResources(args params.Entities) (params.ErrorR
 	for i, entity := range args.Entities {
 		appTag, err := names.ParseApplicationTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		app, err := a.state.Application(appTag.Id())
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		err = app.ClearResources()
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil
@@ -1328,23 +1330,23 @@ func (a *Facade) UpdateApplicationsService(args params.UpdateApplicationServiceA
 	for i, appUpdate := range args.Args {
 		appTag, err := names.ParseApplicationTag(appUpdate.ApplicationTag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		app, err := a.state.Application(appTag.Id())
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		sAddrs, err := params.ToProviderAddresses(appUpdate.Addresses...).ToSpaceAddresses(a.state)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		if err := app.UpdateCloudService(appUpdate.ProviderId, sAddrs); err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 		if appUpdate.Scale != nil {
 			var generation int64
@@ -1352,7 +1354,7 @@ func (a *Facade) UpdateApplicationsService(args params.UpdateApplicationServiceA
 				generation = *appUpdate.Generation
 			}
 			if err := app.SetScale(*appUpdate.Scale, generation, false); err != nil {
-				result.Results[i].Error = common.ServerError(err)
+				result.Results[i].Error = apiservererrors.ServerError(err)
 			}
 		}
 	}
@@ -1367,12 +1369,12 @@ func (a *Facade) SetOperatorStatus(args params.SetStatus) (params.ErrorResults, 
 	for i, arg := range args.Entities {
 		appTag, err := names.ParseApplicationTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		app, err := a.state.Application(appTag.Id())
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		now := a.clock.Now()
@@ -1383,7 +1385,7 @@ func (a *Facade) SetOperatorStatus(args params.SetStatus) (params.ErrorResults, 
 			Since:   &now,
 		}
 		if err := app.SetOperatorStatus(s); err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/leadership/mocks"
@@ -89,7 +90,7 @@ func (s *LeadershipSuite) TestPinApplicationLeadersPartialError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	results := s.pinApplicationsSuccessResults()
-	results[2].Error = common.ServerError(errorRes)
+	results[2].Error = apiservererrors.ServerError(errorRes)
 	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: results})
 }
 
@@ -117,7 +118,7 @@ func (s *LeadershipSuite) TestUnpinApplicationLeadersPartialError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	results := s.pinApplicationsSuccessResults()
-	results[1].Error = common.ServerError(errorRes)
+	results[1].Error = apiservererrors.ServerError(errorRes)
 	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: results})
 }
 
@@ -164,7 +165,7 @@ func (s *LeadershipSuite) TestPinApplicationLeadersByNamePartialError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	results := s.pinApplicationsSuccessResults()
-	results[1].Error = common.ServerError(errorRes)
+	results[1].Error = apiservererrors.ServerError(errorRes)
 	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: results})
 }
 
@@ -192,7 +193,7 @@ func (s *LeadershipSuite) TestUnpinApplicationLeadersByNamePartialError(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results := s.pinApplicationsSuccessResults()
-	results[1].Error = common.ServerError(errorRes)
+	results[1].Error = apiservererrors.ServerError(errorRes)
 	c.Check(res, gc.DeepEquals, params.PinApplicationsResults{Results: results})
 }
 

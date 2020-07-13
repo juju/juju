@@ -27,6 +27,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -919,7 +920,7 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 
 func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
 	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
-	fakeAPI.setVersionErr = common.OperationBlockedError("the operation has been blocked")
+	fakeAPI.setVersionErr = apiservererrors.OperationBlockedError("the operation has been blocked")
 
 	command := s.upgradeJujuCommand(nil, fakeAPI, fakeAPI, fakeAPI)
 	err := cmdtesting.InitCommand(command, []string{})
@@ -1107,7 +1108,7 @@ func (a *fakeUpgradeJujuAPINoState) Close() error {
 func (a *fakeUpgradeJujuAPINoState) FindTools(majorVersion, minorVersion int, series, arch, stream string) (params.FindToolsResult, error) {
 	var result params.FindToolsResult
 	if len(a.tools) == 0 {
-		result.Error = common.ServerError(errors.NotFoundf("tools"))
+		result.Error = apiservererrors.ServerError(errors.NotFoundf("tools"))
 	} else {
 		result.List = a.tools
 	}

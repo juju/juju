@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api/private"
@@ -90,7 +90,7 @@ func (internalHelpersSuite) TestAPI2ResultError(c *gc.C) {
 		},
 		Payload:  nil,
 		NotFound: false,
-		Error:    common.ServerError(failure),
+		Error:    apiservererrors.ServerError(failure),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -112,7 +112,7 @@ func (internalHelpersSuite) TestAPI2ResultNotFound(c *gc.C) {
 		},
 		Payload:  nil,
 		NotFound: false,
-		Error:    common.ServerError(notFound),
+		Error:    apiservererrors.ServerError(notFound),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

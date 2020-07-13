@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -63,7 +63,7 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 		"auth-type",
 		map[string]string{"k": "v"},
 	)
-	c.Assert(cloudSpec, jc.DeepEquals, environs.CloudSpec{
+	c.Assert(cloudSpec, jc.DeepEquals, environscloudspec.CloudSpec{
 		Type:             "type",
 		Name:             "name",
 		Region:           "region",

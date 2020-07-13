@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
 	"github.com/juju/juju/apiserver/params"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -261,7 +263,7 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval(c *gc.
 		[]params.Entity{{Tag: "machine-0"}},
 		params.DestroyMachineResults{
 			Results: []params.DestroyMachineResult{{
-				Error: common.ServerError(errors.New("getting storage for unit foo/0: kaboom\ngetting storage for unit foo/1: kaboom\ngetting storage for unit foo/2: kaboom")),
+				Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/0: kaboom\ngetting storage for unit foo/1: kaboom\ngetting storage for unit foo/2: kaboom")),
 			}},
 		},
 		"ModelTag",
@@ -285,7 +287,7 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedAllStorageClassification(c
 		[]params.Entity{{Tag: "machine-0"}},
 		params.DestroyMachineResults{
 			Results: []params.DestroyMachineResult{{
-				Error: common.ServerError(errors.New("classifying storage for destruction for unit foo/0: boom")),
+				Error: apiservererrors.ServerError(errors.New("classifying storage for destruction for unit foo/0: boom")),
 			}},
 		},
 		"ModelTag",
@@ -322,7 +324,7 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetrieval(c
 		[]params.Entity{{Tag: "machine-0"}},
 		params.DestroyMachineResults{
 			Results: []params.DestroyMachineResult{{
-				Error: common.ServerError(errors.New("getting storage for unit foo/1: kaboom")),
+				Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom")),
 			}},
 		},
 		"ModelTag",
@@ -371,7 +373,7 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMa
 		},
 		params.DestroyMachineResults{
 			Results: []params.DestroyMachineResult{
-				{Error: common.ServerError(errors.New("getting storage for unit foo/1: kaboom"))},
+				{Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom"))},
 				{Info: &params.DestroyMachineInfo{
 					DestroyedUnits: []params.Entity{
 						{"unit-bar-0"},
@@ -808,11 +810,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareIncompatibleSeries(c *gc.C
 	defer s.setup(c).Finish()
 
 	s.setupUpgradeSeries(c)
-	s.st.machines["0"].SetErrors(&state.ErrIncompatibleSeries{
-		SeriesList: []string{"yakkety", "zesty"},
-		Series:     "xenial",
-		CharmName:  "TestCharm",
-	})
+	s.st.machines["0"].SetErrors(stateerrors.NewErrIncompatibleSeries([]string{"yakkety", "zesty"}, "xenial", "TestCharm"))
 	apiV5 := s.apiV5()
 	result, err := apiV5.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{

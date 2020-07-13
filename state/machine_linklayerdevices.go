@@ -189,7 +189,7 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 			for _, args := range devicesArgs {
 				if allIds.Contains(string(args.ProviderID)) {
 					return nil, errors.Annotatef(
-						NewProviderIDNotUniqueError(args.ProviderID), "invalid device %q", args.Name)
+						newProviderIDNotUniqueError(args.ProviderID), "invalid device %q", args.Name)
 				}
 			}
 		}
@@ -828,7 +828,7 @@ func (m *Machine) maybeAddAddressProviderIDOps(
 			return nil, nil
 		}
 		return nil, errors.Annotatef(
-			NewProviderIDNotUniqueError(corenetwork.Id(doc.ProviderID)), "multiple addresses %q, %q", addr, doc.Value)
+			newProviderIDNotUniqueError(corenetwork.Id(doc.ProviderID)), "multiple addresses %q, %q", addr, doc.Value)
 	}
 
 	providerIDAddrs[doc.ProviderID] = doc.Value

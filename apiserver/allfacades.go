@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/agent"
 	"github.com/juju/juju/apiserver/facades/agent/caasadmission"
@@ -425,7 +425,7 @@ func regHookContextFacade(
 		st := context.State()
 
 		if !authorizer.AuthUnitAgent() {
-			return nil, common.ErrPerm
+			return nil, apiservererrors.ErrPerm
 		}
 		// Verify that the unit's ID matches a unit that we know about.
 		tag := authorizer.GetAuthTag()

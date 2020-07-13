@@ -5,6 +5,7 @@ package actionpruner
 
 import (
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -32,7 +33,7 @@ func NewAPI(st *state.State, r facade.Resources, auth facade.Authorizer) (*API, 
 
 func (api *API) Prune(p params.ActionPruneArgs) error {
 	if !api.authorizer.AuthController() {
-		return common.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 
 	return state.PruneOperations(api.st, p.MaxHistoryTime, p.MaxHistoryMB)

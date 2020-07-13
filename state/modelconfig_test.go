@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -136,7 +136,7 @@ func (s *ModelConfigSuite) TestComposeNewModelConfig(c *gc.C) {
 	}
 
 	cfgAttrs, err := s.State.ComposeNewModelConfig(
-		attrs, &environs.CloudRegionSpec{
+		attrs, &environscloudspec.CloudRegionSpec{
 			Cloud:  "dummy",
 			Region: "dummy-region"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -162,7 +162,7 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionMisses(c *gc.C) {
 		"name":            "test",
 		"resource-tags":   map[string]string{"a": "b", "c": "d"},
 	}
-	rspec := &environs.CloudRegionSpec{Cloud: "dummy", Region: "dummy-region"}
+	rspec := &environscloudspec.CloudRegionSpec{Cloud: "dummy", Region: "dummy-region"}
 	cfgAttrs, err := s.State.ComposeNewModelConfig(attrs, rspec)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCfg, err := config.New(config.UseDefaults, attrs)
@@ -187,7 +187,7 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionInherits(c *gc.C) {
 		"name":            "test",
 		"resource-tags":   map[string]string{"a": "b", "c": "d"},
 	}
-	rspec := &environs.CloudRegionSpec{Cloud: "dummy", Region: "nether-region"}
+	rspec := &environscloudspec.CloudRegionSpec{Cloud: "dummy", Region: "nether-region"}
 	cfgAttrs, err := s.State.ComposeNewModelConfig(attrs, rspec)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCfg, err := config.New(config.UseDefaults, attrs)
@@ -497,7 +497,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 		"no-proxy": "changed-proxy",
 	}
 
-	rspec, err := environs.NewCloudRegionSpec("dummy", "dummy-region")
+	rspec, err := environscloudspec.NewCloudRegionSpec("dummy", "dummy-region")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.UpdateModelConfigDefaultValues(attrs, nil, rspec)
@@ -563,7 +563,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultValuesUnknownRegion
 		"no-proxy": "changed-proxy",
 	}
 
-	rspec, err := environs.NewCloudRegionSpec("dummy", "unused-region")
+	rspec, err := environscloudspec.NewCloudRegionSpec("dummy", "unused-region")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We add this to the unused-region which has not been created in mongo

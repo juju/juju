@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
@@ -61,7 +62,7 @@ func (s *environSuite) TestCloudSpec(c *gc.C) {
 	emptyCredential.Label = "empty-credential"
 	cloudSpec, err := stateenvirons.EnvironConfigGetter{Model: m}.CloudSpec()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudSpec, jc.DeepEquals, environs.CloudSpec{
+	c.Assert(cloudSpec, jc.DeepEquals, environscloudspec.CloudSpec{
 		Type:             "dummy",
 		Name:             "dummy",
 		Region:           "dummy-region",
@@ -93,7 +94,7 @@ func (s *environSuite) TestCloudSpecForModel(c *gc.C) {
 	emptyCredential.Label = "empty-credential"
 	cloudSpec, err := stateenvirons.CloudSpecForModel(m)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudSpec, jc.DeepEquals, environs.CloudSpec{
+	c.Assert(cloudSpec, jc.DeepEquals, environscloudspec.CloudSpec{
 		Type:             "dummy",
 		Name:             "dummy",
 		Region:           "dummy-region",
@@ -140,7 +141,7 @@ func (s *environSuite) TestCloudAPIVersion(c *gc.C) {
 
 	cred := cloud.NewNamedCredential("dummy-credential", "userpass", nil, false)
 	newBrokerFunc := func(args environs.OpenParams) (caas.Broker, error) {
-		c.Assert(args.Cloud, jc.DeepEquals, environs.CloudSpec{
+		c.Assert(args.Cloud, jc.DeepEquals, environscloudspec.CloudSpec{
 			Name:       "caascloud",
 			Type:       "kubernetes",
 			Credential: &cred,

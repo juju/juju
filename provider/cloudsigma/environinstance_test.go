@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -25,7 +26,7 @@ import (
 
 type environInstanceSuite struct {
 	testing.BaseSuite
-	cloud      environs.CloudSpec
+	cloud      environscloudspec.CloudSpec
 	baseConfig *config.Config
 
 	callCtx context.ProviderCallContext
@@ -137,7 +138,7 @@ func (s *environInstanceSuite) TestInstances(c *gc.C) {
 
 func (s *environInstanceSuite) TestInstancesFail(c *gc.C) {
 	newClientFunc := newClient
-	s.PatchValue(&newClient, func(spec environs.CloudSpec, uuid string) (*environClient, error) {
+	s.PatchValue(&newClient, func(spec environscloudspec.CloudSpec, uuid string) (*environClient, error) {
 		spec.Endpoint = "https://0.1.2.3:2000/api/2.0/"
 		cli, err := newClientFunc(spec, uuid)
 		if cli != nil {

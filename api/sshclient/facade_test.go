@@ -12,7 +12,7 @@ import (
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/sshclient"
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -91,7 +91,7 @@ func (s *FacadeSuite) TestAddressesError(c *gc.C) {
 
 func (s *FacadeSuite) TestAddressesTargetError(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		serverError := common.ServerError(errors.New("boom"))
+		serverError := apiservererrors.ServerError(errors.New("boom"))
 
 		switch request {
 		case "PublicAddress", "PrivateAddress":
@@ -215,7 +215,7 @@ func (s *FacadeSuite) TestPublicKeysTargetError(c *gc.C) {
 		stub.AddCall(objType+"."+request, arg)
 		c.Check(id, gc.Equals, "")
 		*result.(*params.SSHPublicKeysResults) = params.SSHPublicKeysResults{
-			Results: []params.SSHPublicKeysResult{{Error: common.ServerError(errors.New("boom"))}},
+			Results: []params.SSHPublicKeysResult{{Error: apiservererrors.ServerError(errors.New("boom"))}},
 		}
 		return nil
 	})

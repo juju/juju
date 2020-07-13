@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/juju/sockets"
 )
 
@@ -159,7 +159,7 @@ func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string, socket
 				port = jujucServerSocketPort + unitTag.Number()
 				address = socketConfig.OperatorAddress
 			case "run":
-				port = provider.JujuRunServerSocketPort
+				port = caasconstants.JujuRunServerSocketPort
 				address = socketConfig.ServiceAddress
 			default:
 				return SocketPair{}

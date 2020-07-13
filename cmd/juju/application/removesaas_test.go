@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
@@ -51,7 +51,7 @@ func (s *RemoveSaasSuite) TestRemove(c *gc.C) {
 }
 
 func (s *RemoveSaasSuite) TestBlockRemoveSaas(c *gc.C) {
-	s.mockAPI.SetErrors(common.OperationBlockedError("TestRemoveSaasBlocked"))
+	s.mockAPI.SetErrors(apiservererrors.OperationBlockedError("TestRemoveSaasBlocked"))
 	_, err := s.runRemoveSaas(c, "foo")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestRemoveSaasBlocked.*")
 	destroyParams := application.DestroyConsumedApplicationParams{
@@ -106,7 +106,7 @@ func (s mockRemoveSaasAPI) DestroyConsumedApplication(destroyParams application.
 	saasNames := destroyParams.SaasNames
 	result := make([]params.ErrorResult, len(saasNames))
 	for i := range saasNames {
-		result[i].Error = common.ServerError(s.err)
+		result[i].Error = apiservererrors.ServerError(s.err)
 	}
 	return result, s.NextErr()
 }

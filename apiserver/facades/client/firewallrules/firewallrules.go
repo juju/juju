@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/firewall"
@@ -46,7 +47,7 @@ func NewAPI(
 	blockChecker BlockChecker,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
 		backend:    backend,
@@ -61,7 +62,7 @@ func (api *API) checkPermission(tag names.Tag, perm permission.Access) error {
 		return errors.Trace(err)
 	}
 	if !allowed {
-		return common.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -89,7 +90,7 @@ func (api *API) SetFirewallRules(args params.FirewallRuleArgs) (params.ErrorResu
 		logger.Debugf("saving firewall rule %+v", arg)
 		err := api.backend.SaveFirewallRule(state.NewFirewallRule(
 			firewall.WellKnownServiceType(arg.KnownService), arg.WhitelistCIDRS))
-		results[i].Error = common.ServerError(err)
+		results[i].Error = apiservererrors.ServerError(err)
 	}
 	errResults.Results = results
 	return errResults, nil

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/params"
@@ -151,7 +152,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
 		Auth_:      s.authorizer,
 		ID_:        id,
 	})
-	c.Assert(err, gc.Equals, common.ErrPerm)
+	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
 type machineStorageIdsWatcher interface {

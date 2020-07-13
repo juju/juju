@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
 	"github.com/juju/juju/apiserver/params"
@@ -75,7 +76,7 @@ func NewMetricsManagerAPI(
 	clock clock.Clock,
 ) (*MetricsManagerAPI, error) {
 	if !authorizer.AuthController() {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	m, err := st.Model()
@@ -129,16 +130,16 @@ func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.Er
 	for i, arg := range args.Entities {
 		tag, err := names.ParseModelTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		if !canAccess(tag) {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		modelState, release, err := api.getModelState(tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		defer release()
@@ -146,7 +147,7 @@ func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.Er
 		err = modelState.CleanupOldMetrics()
 		if err != nil {
 			err = errors.Annotatef(err, "failed to cleanup old metrics for %s", tag)
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil
@@ -224,23 +225,23 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 	for i, arg := range args.Entities {
 		tag, err := names.ParseModelTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if !canAccess(tag) {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		modelState, release, err := api.getModelState(tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		defer release()
 
 		txVendorMetrics, err := transmitVendorMetrics(api.model)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -252,7 +253,7 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 		if err != nil {
 			err = errors.Annotatef(err, "failed to send metrics for %s", tag)
 			logger.Warningf("%v", err)
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 	}

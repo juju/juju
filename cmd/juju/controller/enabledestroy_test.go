@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/jujuclient"
 )
@@ -48,7 +48,7 @@ func (s *enableDestroyControllerSuite) TestUnrecognizedArg(c *gc.C) {
 }
 
 func (s *enableDestroyControllerSuite) TestEnvironmentsError(c *gc.C) {
-	s.api.err = common.ErrPerm
+	s.api.err = apiservererrors.ErrPerm
 	_, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

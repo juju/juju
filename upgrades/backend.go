@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	raftleasestore "github.com/juju/juju/state/raftlease"
@@ -90,7 +90,7 @@ type StateBackend interface {
 // controller.
 type Model interface {
 	Config() (*config.Config, error)
-	CloudSpec() (environs.CloudSpec, error)
+	CloudSpec() (environscloudspec.CloudSpec, error)
 }
 
 // NewStateBackend returns a new StateBackend using a *state.StatePool object.

@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
 	jujucmd "github.com/juju/juju/cmd"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/jujud/agent/config"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -160,15 +160,15 @@ func (c *CAASUnitInitCommand) Run(ctx *cmd.Context) (errOut error) {
 		return errors.Trace(err)
 	}
 
-	jujudPath := filepath.Join(tools.ToolsDir(cmdutil.DataDir, ""), "jujud")
-	jujucPath := filepath.Join(tools.ToolsDir(cmdutil.DataDir, ""), "jujuc")
+	jujudPath := filepath.Join(tools.ToolsDir(config.DataDir, ""), "jujud")
+	jujucPath := filepath.Join(tools.ToolsDir(config.DataDir, ""), "jujuc")
 	// If jujuc doesn't exist use jujud
 	if _, err = c.statFunc(jujucPath); os.IsNotExist(err) {
 		jujucPath = jujudPath
 	} else if err != nil {
 		return errors.Annotatef(err, "failed to stat %s", jujucPath)
 	}
-	unitPaths := uniter.NewPaths(cmdutil.DataDir, unitTag, nil)
+	unitPaths := uniter.NewPaths(config.DataDir, unitTag, nil)
 	if err = c.removeAllFunc(unitPaths.ToolsDir); err != nil && !os.IsNotExist(err) {
 		return errors.Annotatef(err, "failed to remove unit tools dir %s",
 			unitPaths.ToolsDir)

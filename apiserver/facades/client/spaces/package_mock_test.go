@@ -13,6 +13,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	settings "github.com/juju/juju/core/settings"
 	environs "github.com/juju/juju/environs"
+	cloudspec "github.com/juju/juju/environs/cloudspec"
 	config "github.com/juju/juju/environs/config"
 	context "github.com/juju/juju/environs/context"
 	space "github.com/juju/juju/environs/space"
@@ -150,10 +151,10 @@ func (mr *MockBackingMockRecorder) ApplyOperation(arg0 interface{}) *gomock.Call
 }
 
 // CloudSpec mocks base method
-func (m *MockBacking) CloudSpec() (environs.CloudSpec, error) {
+func (m *MockBacking) CloudSpec() (cloudspec.CloudSpec, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudSpec")
-	ret0, _ := ret[0].(environs.CloudSpec)
+	ret0, _ := ret[0].(cloudspec.CloudSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1268,10 +1269,10 @@ func (m *MockReloadSpacesEnviron) EXPECT() *MockReloadSpacesEnvironMockRecorder 
 }
 
 // CloudSpec mocks base method
-func (m *MockReloadSpacesEnviron) CloudSpec() (environs.CloudSpec, error) {
+func (m *MockReloadSpacesEnviron) CloudSpec() (cloudspec.CloudSpec, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudSpec")
-	ret0, _ := ret[0].(environs.CloudSpec)
+	ret0, _ := ret[0].(cloudspec.CloudSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

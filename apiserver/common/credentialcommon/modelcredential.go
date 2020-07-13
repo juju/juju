@@ -8,11 +8,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 )
@@ -103,7 +104,7 @@ func checkMachineInstances(backend PersistentBackend, provider CloudProvider, ca
 	var results []params.ErrorResult
 
 	serverError := func(received error) params.ErrorResult {
-		return params.ErrorResult{Error: common.ServerError(received)}
+		return params.ErrorResult{Error: apiservererrors.ServerError(received)}
 	}
 
 	machinesByInstance := make(map[string]string)
@@ -190,7 +191,7 @@ func buildOpenParams(backend PersistentBackend, credentialTag names.CloudCredent
 		return fail(errors.Trace(err))
 	}
 
-	tempCloudSpec, err := environs.MakeCloudSpec(modelCloud, model.CloudRegion(), credential)
+	tempCloudSpec, err := environscloudspec.MakeCloudSpec(modelCloud, model.CloudRegion(), credential)
 	if err != nil {
 		return fail(errors.Trace(err))
 	}

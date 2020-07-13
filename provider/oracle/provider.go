@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 )
@@ -55,7 +56,7 @@ func (e EnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*conf
 }
 
 // validateCloudSpec validates the given configuration against the oracle cloud spec
-func (e EnvironProvider) validateCloudSpec(spec environs.CloudSpec) error {
+func (e EnvironProvider) validateCloudSpec(spec environscloudspec.CloudSpec) error {
 	if err := spec.Validate(); err != nil {
 		return errors.Trace(err)
 	}

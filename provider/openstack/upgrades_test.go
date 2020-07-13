@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v2/identity"
 
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
 
 type precheckUpgradesSuite struct {
@@ -55,7 +55,7 @@ func (s *precheckUpgradesSuite) TestPrecheckUpgradeOperationsFail(c *gc.C) {
 func (s *precheckUpgradesSuite) newEnvironForPrecheckUpgradeTest() *Environ {
 	return &Environ{
 		clientUnlocked: s.client,
-		cloudUnlocked: environs.CloudSpec{
+		cloudUnlocked: environscloudspec.CloudSpec{
 			Region: "Region",
 		},
 	}

@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/mongo/utils"
+	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // itemChange is the state representation of a core settings ItemChange.
@@ -669,7 +670,7 @@ func (st *State) AddBranch(branchName, userName string) error {
 	}
 	err = st.db().Run(buildTxn)
 	if err != nil {
-		err = onAbort(err, ErrDead)
+		err = onAbort(err, stateerrors.ErrDead)
 		logger.Errorf("cannot add branch to the model: %v", err)
 	}
 	return err

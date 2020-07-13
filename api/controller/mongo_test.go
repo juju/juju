@@ -10,7 +10,7 @@ import (
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -76,7 +76,7 @@ func (s *Suite) TestMongoVersionWithErrorResult(c *gc.C) {
 
 			out := result.(*params.StringResult)
 			out.Result = "3.5.12"
-			out.Error = common.ServerError(errors.New("version error"))
+			out.Error = apiservererrors.ServerError(errors.New("version error"))
 			return nil
 		},
 	}

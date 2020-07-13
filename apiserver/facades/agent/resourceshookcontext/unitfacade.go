@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
@@ -30,7 +30,7 @@ func NewStateFacade(ctx facade.Context) (*UnitFacade, error) {
 	st := ctx.State()
 
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	var (
@@ -109,14 +109,14 @@ func (uf UnitFacade) GetResourceInfo(args params.ListUnitResourcesArgs) (params.
 
 	resources, err := uf.DataStore.ListResources()
 	if err != nil {
-		r.Error = common.ServerError(err)
+		r.Error = apiservererrors.ServerError(err)
 		return r, nil
 	}
 
 	for i, name := range args.ResourceNames {
 		res, ok := lookUpResource(name, resources.Resources)
 		if !ok {
-			r.Resources[i].Error = common.ServerError(errors.NotFoundf("resource %q", name))
+			r.Resources[i].Error = apiservererrors.ServerError(errors.NotFoundf("resource %q", name))
 			continue
 		}
 

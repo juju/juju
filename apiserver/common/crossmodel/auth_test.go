@@ -21,8 +21,8 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/permission"
 	coretesting "github.com/juju/juju/testing"
@@ -323,7 +323,7 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequired(c *gc.C) {
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
 	)
-	dischargeErr, ok := err.(*common.DischargeRequiredError)
+	dischargeErr, ok := err.(*apiservererrors.DischargeRequiredError)
 	c.Assert(ok, jc.IsTrue)
 	cav := dischargeErr.LegacyMacaroon.Caveats()
 	c.Assert(cav, gc.HasLen, 2)
@@ -415,7 +415,7 @@ func (s *authSuite) TestCheckRelationMacaroonsDischargeRequired(c *gc.C) {
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
 	)
-	dischargeErr, ok := err.(*common.DischargeRequiredError)
+	dischargeErr, ok := err.(*apiservererrors.DischargeRequiredError)
 	c.Assert(ok, jc.IsTrue)
 	cav := dischargeErr.LegacyMacaroon.Caveats()
 	c.Assert(cav, gc.HasLen, 2)

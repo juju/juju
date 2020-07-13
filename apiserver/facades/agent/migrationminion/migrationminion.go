@@ -6,7 +6,7 @@ package migrationminion
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
@@ -28,7 +28,7 @@ func NewAPI(
 	authorizer facade.Authorizer,
 ) (*API, error) {
 	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent()) {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
 		backend:    backend,

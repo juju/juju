@@ -44,6 +44,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -315,7 +316,7 @@ type Environ struct {
 
 	ecfgMutex       sync.Mutex
 	ecfgUnlocked    *environConfig
-	cloudUnlocked   environs.CloudSpec
+	cloudUnlocked   environscloudspec.CloudSpec
 	clientUnlocked  client.AuthenticatingClient
 	novaUnlocked    *nova.Client
 	neutronUnlocked *neutron.Client
@@ -540,7 +541,7 @@ func (e *Environ) ecfg() *environConfig {
 	return ecfg
 }
 
-func (e *Environ) cloud() environs.CloudSpec {
+func (e *Environ) cloud() environscloudspec.CloudSpec {
 	e.ecfgMutex.Lock()
 	cloud := e.cloudUnlocked
 	e.ecfgMutex.Unlock()
@@ -802,7 +803,7 @@ func (e *Environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func newCredentials(spec environs.CloudSpec) (identity.Credentials, identity.AuthMode, error) {
+func newCredentials(spec environscloudspec.CloudSpec) (identity.Credentials, identity.AuthMode, error) {
 	credAttrs := spec.Credential.Attributes()
 	cred := identity.Credentials{
 		Region:     spec.Region,
@@ -894,7 +895,7 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (e *Environ) SetCloudSpec(spec environs.CloudSpec) error {
+func (e *Environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 
@@ -2198,7 +2199,7 @@ func (e *Environ) SetClock(clock clock.Clock) {
 	e.clock = clock
 }
 
-func validateCloudSpec(spec environs.CloudSpec) error {
+func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 	if err := spec.Validate(); err != nil {
 		return errors.Trace(err)
 	}

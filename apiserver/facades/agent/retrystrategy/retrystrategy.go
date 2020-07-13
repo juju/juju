@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -49,7 +50,7 @@ func NewRetryStrategyAPI(
 	authorizer facade.Authorizer,
 ) (*RetryStrategyAPI, error) {
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	model, err := st.Model()
@@ -84,10 +85,10 @@ func (h *RetryStrategyAPI) RetryStrategy(args params.Entities) (params.RetryStra
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = common.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			// Right now the only real configurable value is ShouldRetry,
 			// which is taken from the model.
@@ -101,7 +102,7 @@ func (h *RetryStrategyAPI) RetryStrategy(args params.Entities) (params.RetryStra
 			}
 			err = nil
 		}
-		results.Results[i].Error = common.ServerError(err)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }
@@ -119,10 +120,10 @@ func (h *RetryStrategyAPI) WatchRetryStrategy(args params.Entities) (params.Noti
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = common.ErrPerm
+		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			watch := h.model.WatchForModelConfigChanges()
 			// Consume the initial event. Technically, API calls to Watch
@@ -135,7 +136,7 @@ func (h *RetryStrategyAPI) WatchRetryStrategy(args params.Entities) (params.Noti
 				err = watcher.EnsureErr(watch)
 			}
 		}
-		results.Results[i].Error = common.ServerError(err)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }

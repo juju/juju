@@ -10,7 +10,7 @@ import (
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/bundle"
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -332,7 +332,7 @@ func (s *bundleMockSuite) TestExportBundleNotNilParamsErrorv2(c *gc.C) {
 		) error {
 			result := response.(*params.StringResult)
 			result.Result = ""
-			*(response.(*params.StringResult)) = params.StringResult{Error: common.ServerError(
+			*(response.(*params.StringResult)) = params.StringResult{Error: apiservererrors.ServerError(
 				errors.New("export failed nothing to export as there are no applications"))}
 			return result.Error
 		}, 2,

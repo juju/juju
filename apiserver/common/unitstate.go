@@ -8,6 +8,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
@@ -100,23 +101,23 @@ func (u *UnitStateAPI) State(args params.Entities) (params.UnitStateResults, err
 	for i, entity := range args.Entities {
 		unitTag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			res[i].Error = ServerError(err)
+			res[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		if !canAccess(unitTag) {
-			res[i].Error = ServerError(ErrPerm)
+			res[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 
 		unit, err := u.getUnit(unitTag)
 		if err != nil {
-			res[i].Error = ServerError(err)
+			res[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		unitState, err := unit.State()
 		if err != nil {
-			res[i].Error = ServerError(err)
+			res[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -147,18 +148,18 @@ func (u *UnitStateAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResul
 	for i, arg := range args.Args {
 		unitTag, err := names.ParseUnitTag(arg.Tag)
 		if err != nil {
-			res[i].Error = ServerError(err)
+			res[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		if !canAccess(unitTag) {
-			res[i].Error = ServerError(ErrPerm)
+			res[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 
 		unit, err := u.getUnit(unitTag)
 		if err != nil {
-			res[i].Error = ServerError(err)
+			res[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -191,7 +192,7 @@ func (u *UnitStateAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResul
 			if errors.IsQuotaLimitExceeded(err) {
 				logger.Errorf("%s: %v", unitTag, err)
 			}
-			res[i].Error = ServerError(err)
+			res[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 

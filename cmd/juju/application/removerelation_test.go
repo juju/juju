@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -83,7 +83,7 @@ func (s *RemoveRelationSuite) TestRemoveRelationFail(c *gc.C) {
 }
 
 func (s *RemoveRelationSuite) TestRemoveRelationBlocked(c *gc.C) {
-	s.mockAPI.SetErrors(common.OperationBlockedError("TestRemoveRelationBlocked"))
+	s.mockAPI.SetErrors(apiservererrors.OperationBlockedError("TestRemoveRelationBlocked"))
 	err := s.runRemoveRelation(c, "application1", "application2")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestRemoveRelationBlocked.*")
 	s.mockAPI.CheckCall(c, 0, "DestroyRelation", (*bool)(nil), (*time.Duration)(nil), []string{"application1", "application2"})

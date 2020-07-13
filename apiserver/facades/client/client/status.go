@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/cache"
@@ -119,7 +120,7 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 		}
 		if err := c.checkCanRead(); err != nil {
 			history := params.StatusHistoryResult{
-				Error: common.ServerError(err),
+				Error: apiservererrors.ServerError(err),
 			}
 			results.Results = append(results.Results, history)
 			continue
@@ -128,7 +129,7 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 
 		if err := filter.Validate(); err != nil {
 			history := params.StatusHistoryResult{
-				Error: common.ServerError(errors.Annotate(err, "cannot validate status history filter")),
+				Error: apiservererrors.ServerError(errors.Annotate(err, "cannot validate status history filter")),
 			}
 			results.Results = append(results.Results, history)
 			continue
@@ -159,7 +160,7 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 		results.Results = append(results.Results,
 			params.StatusHistoryResult{
 				History: params.History{Statuses: hist},
-				Error:   common.ServerError(errors.Annotatef(err, "fetching status history for %q", request.Tag)),
+				Error:   apiservererrors.ServerError(errors.Annotatef(err, "fetching status history for %q", request.Tag)),
 			})
 	}
 	return results
@@ -1163,7 +1164,7 @@ func (context *statusContext) processApplications() map[string]params.Applicatio
 func (context *statusContext) processApplication(application *state.Application) params.ApplicationStatus {
 	applicationCharm, _, err := application.Charm()
 	if err != nil {
-		return params.ApplicationStatus{Err: common.ServerError(err)}
+		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 	}
 
 	var charmProfileName string
@@ -1190,14 +1191,14 @@ func (context *statusContext) processApplication(application *state.Application)
 
 	processedStatus.Relations, processedStatus.SubordinateTo, err = context.processApplicationRelations(application)
 	if err != nil {
-		processedStatus.Err = common.ServerError(err)
+		processedStatus.Err = apiservererrors.ServerError(err)
 		return processedStatus
 	}
 	units := context.allAppsUnitsCharmBindings.units[application.Name()]
 	if application.IsPrincipal() {
 		expectWorkload, err := state.CheckApplicationExpectsWorkload(context.model, application.Name())
 		if err != nil {
-			return params.ApplicationStatus{Err: common.ServerError(err)}
+			return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 		}
 		processedStatus.Units = context.processUnits(units, applicationCharm.URL().String(), expectWorkload)
 	}
@@ -1226,7 +1227,7 @@ func (context *statusContext) processApplication(application *state.Application)
 		for _, unit := range units {
 			workloadVersion, err := context.status.FullUnitWorkloadVersion(unit.Name())
 			if err != nil {
-				processedStatus.Err = common.ServerError(err)
+				processedStatus.Err = apiservererrors.ServerError(err)
 				return processedStatus
 			}
 			versions = append(versions, workloadVersion)
@@ -1239,17 +1240,17 @@ func (context *statusContext) processApplication(application *state.Application)
 		// We'll punt on using the docker image name.
 		caasModel, err := context.model.CAASModel()
 		if err != nil {
-			return params.ApplicationStatus{Err: common.ServerError(err)}
+			return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 		}
 		specStr, err := caasModel.PodSpec(application.ApplicationTag())
 		if err != nil && !errors.IsNotFound(err) {
-			return params.ApplicationStatus{Err: common.ServerError(err)}
+			return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 		}
 		// TODO(caas): get WorkloadVersion from rawSpec once `ParseRawK8sSpec` is implemented.
 		if specStr != "" {
 			spec, err := k8sspecs.ParsePodSpec(specStr)
 			if err != nil {
-				return params.ApplicationStatus{Err: common.ServerError(err)}
+				return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 			}
 			// Container zero is the primary.
 			processedStatus.WorkloadVersion = fmt.Sprintf("%v", spec.Containers[0].Image)
@@ -1282,7 +1283,7 @@ func (context *statusContext) processRemoteApplication(application *state.Remote
 	status.OfferName = application.Name()
 	eps, err := application.Endpoints()
 	if err != nil {
-		status.Err = common.ServerError(err)
+		status.Err = apiservererrors.ServerError(err)
 		return
 	}
 	status.Endpoints = make([]params.RemoteEndpoint, len(eps))
@@ -1297,7 +1298,7 @@ func (context *statusContext) processRemoteApplication(application *state.Remote
 
 	status.Relations, err = context.processRemoteApplicationRelations(application)
 	if err != nil {
-		status.Err = common.ServerError(err)
+		status.Err = apiservererrors.ServerError(err)
 		return
 	}
 	applicationStatus, err := application.Status()
@@ -1317,7 +1318,7 @@ func (context *statusContext) processOffers() map[string]params.ApplicationOffer
 	offers := make(map[string]params.ApplicationOfferStatus)
 	for name, offer := range context.offers {
 		offerStatus := params.ApplicationOfferStatus{
-			Err:                  common.ServerError(offer.err),
+			Err:                  apiservererrors.ServerError(offer.err),
 			ApplicationName:      offer.ApplicationName,
 			OfferName:            offer.OfferName,
 			CharmURL:             offer.charmURL,
@@ -1570,7 +1571,7 @@ func (c *statusContext) processUnitAndAgentStatus(unit *state.Unit, expectWorklo
 // of a status getter.
 // TODO: make this a function that just returns a type.
 func populateStatusFromStatusInfoAndErr(agent *params.DetailedStatus, statusInfo status.StatusInfo, err error) {
-	agent.Err = common.ServerError(err)
+	agent.Err = apiservererrors.ServerError(err)
 	agent.Status = statusInfo.Status.String()
 	agent.Info = statusInfo.Message
 	agent.Data = filterStatusData(statusInfo.Data)

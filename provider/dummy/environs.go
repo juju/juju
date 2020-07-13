@@ -69,6 +69,7 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -96,11 +97,11 @@ const BootstrapInstanceId = "localhost"
 
 var errNotPrepared = errors.New("model is not prepared")
 
-// SampleCloudSpec returns an environs.CloudSpec that can be used to
+// SampleCloudSpec returns an environscloudspec.CloudSpec that can be used to
 // open a dummy Environ.
-func SampleCloudSpec() environs.CloudSpec {
+func SampleCloudSpec() environscloudspec.CloudSpec {
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"username": "dummy", "password": "secret"})
-	return environs.CloudSpec{
+	return environscloudspec.CloudSpec{
 		Type:             "dummy",
 		Name:             "dummy",
 		Endpoint:         "dummy-endpoint",
@@ -286,7 +287,7 @@ type environ struct {
 	storage.ProviderRegistry
 	name         string
 	modelUUID    string
-	cloud        environs.CloudSpec
+	cloud        environscloudspec.CloudSpec
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
 	spacesMutex  sync.RWMutex

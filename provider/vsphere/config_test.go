@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/vsphere"
 	"github.com/juju/juju/testing"
@@ -33,9 +34,9 @@ func fakeConfigAttrs(attrs ...testing.Attrs) testing.Attrs {
 	return merged
 }
 
-func fakeCloudSpec() environs.CloudSpec {
+func fakeCloudSpec() environscloudspec.CloudSpec {
 	cred := fakeCredential()
-	return environs.CloudSpec{
+	return environscloudspec.CloudSpec{
 		Type:       "vsphere",
 		Name:       "vsphere",
 		Region:     "/datacenter1",

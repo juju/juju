@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
@@ -74,7 +75,7 @@ func NewUpgradeStepsAPI(st UpgradeStepsState,
 	authorizer facade.Authorizer,
 ) (*UpgradeStepsAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	getMachineAuthFunc := common.AuthFuncForMachineAgent(authorizer)
@@ -114,13 +115,13 @@ func (api *UpgradeStepsAPI) ResetKVMMachineModificationStatusIdle(arg params.Ent
 
 	modStatus, err := m.ModificationStatus()
 	if err != nil {
-		result.Error = common.ServerError(err)
+		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
 
 	if modStatus.Status == status.Error {
 		err = m.SetModificationStatus(status.StatusInfo{Status: status.Idle})
-		result.Error = common.ServerError(err)
+		result.Error = apiservererrors.ServerError(err)
 	}
 
 	return result, nil
@@ -178,7 +179,7 @@ func (api *UpgradeStepsAPI) WriteAgentState(args params.SetUnitStateArgs) (param
 				MaxAgentStateSize: ctrlCfg.MaxAgentStateSize(),
 			},
 		)
-		results.Results[i].Error = common.ServerError(api.st.ApplyOperation(op))
+		results.Results[i].Error = apiservererrors.ServerError(api.st.ApplyOperation(op))
 	}
 
 	return results, nil
@@ -186,7 +187,7 @@ func (api *UpgradeStepsAPI) WriteAgentState(args params.SetUnitStateArgs) (param
 
 func (api *UpgradeStepsAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (Machine, error) {
 	if !canAccess(tag) {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	entity, err := api.st.FindEntity(tag)
 	if err != nil {
@@ -205,7 +206,7 @@ func (api *UpgradeStepsAPI) getMachine(canAccess common.AuthFunc, tag names.Mach
 func (api *UpgradeStepsAPI) getUnit(canAccess common.AuthFunc, tag names.UnitTag) (Unit, error) {
 	if !canAccess(tag) {
 		logger.Criticalf("getUnit kind=%q, name=%q", tag.Kind(), tag.Id())
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	entity, err := api.st.FindEntity(tag)
 	if err != nil {

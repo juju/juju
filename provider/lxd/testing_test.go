@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -157,7 +158,7 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 		"server-cert": testing.ServerCert,
 	})
 	s.Env = &environ{
-		cloud: environs.CloudSpec{
+		cloud: environscloudspec.CloudSpec{
 			Name:       "localhost",
 			Type:       "lxd",
 			Credential: &certCred,

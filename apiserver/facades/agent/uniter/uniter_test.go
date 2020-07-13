@@ -22,6 +22,7 @@ import (
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
@@ -960,8 +961,8 @@ func (s *uniterSuite) TestWorkloadVersion(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Result: "capulet"},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: common.ServerError(errors.New(`"application-wordpress" is not a valid unit tag`))},
-			{Error: common.ServerError(errors.New(`"just-foo" is not a valid tag`))},
+			{Error: apiservererrors.ServerError(errors.New(`"application-wordpress" is not a valid unit tag`))},
+			{Error: apiservererrors.ServerError(errors.New(`"just-foo" is not a valid tag`))},
 		},
 	})
 }
@@ -1859,7 +1860,7 @@ func (s *uniterSuite) TestFinishActionsAuthAccess(c *gc.C) {
 		err       error
 	}{
 		{actionTag: good.ActionTag(), err: nil},
-		{actionTag: bad.ActionTag(), err: common.ErrPerm},
+		{actionTag: bad.ActionTag(), err: apiservererrors.ErrPerm},
 	}
 
 	// Queue up actions from tests
@@ -2450,7 +2451,7 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsWhenNotLeader(c *gc.C) {
 		Unit:     "unit-wordpress-1",
 	}
 	_, err = s.uniter.ReadLocalApplicationSettings(arg)
-	c.Assert(errors.Cause(err), gc.Equals, common.ErrPerm)
+	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *uniterSuite) TestReadLocalApplicationSettingsForAnotherApplicationAsAnOperator(c *gc.C) {
@@ -2477,7 +2478,7 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsForAnotherApplicationAsAnO
 		Unit:     "unit-wordpress-0",
 	}
 	_, err = uniter.ReadLocalApplicationSettings(arg)
-	c.Assert(errors.Cause(err), gc.Equals, common.ErrPerm, gc.Commentf("expected ErrPerm due to mismatch in logged in app and inferred app from provided unit name"))
+	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm, gc.Commentf("expected ErrPerm due to mismatch in logged in app and inferred app from provided unit name"))
 }
 
 func (s *uniterSuite) TestReadLocalApplicationSettingsInPeerRelation(c *gc.C) {

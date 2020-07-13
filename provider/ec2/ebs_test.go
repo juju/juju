@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
@@ -76,7 +77,7 @@ func (s *ebsSuite) ebsProvider(c *gc.C) storage.Provider {
 		},
 	)
 	env, err := environs.Open(provider, environs.OpenParams{
-		Cloud: environs.CloudSpec{
+		Cloud: environscloudspec.CloudSpec{
 			Type:       "ec2",
 			Name:       "ec2test",
 			Region:     s.srv.region.Name,

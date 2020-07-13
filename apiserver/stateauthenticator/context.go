@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/bakeryutil"
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/state"
@@ -198,7 +198,7 @@ func (a authenticator) authenticatorForTag(tag names.Tag) (authentication.Entity
 	if tag == nil {
 		auth, err := a.ctxt.externalMacaroonAuth(nil)
 		if errors.Cause(err) == errMacaroonAuthNotConfigured {
-			err = errors.Trace(common.ErrNoCreds)
+			err = errors.Trace(apiservererrors.ErrNoCreds)
 		}
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -213,7 +213,7 @@ func (a authenticator) authenticatorForTag(tag names.Tag) (authentication.Entity
 	if tag.Kind() == names.UserTagKind {
 		return a.localUserAuth(), nil
 	}
-	return nil, errors.Annotatef(common.ErrBadRequest, "unexpected login entity tag")
+	return nil, errors.Annotatef(apiservererrors.ErrBadRequest, "unexpected login entity tag")
 }
 
 // localUserAuth returns an authenticator that can authenticate logins for

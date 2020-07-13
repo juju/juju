@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/rackspace"
@@ -45,7 +46,7 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 
 func (s *providerSuite) TestPrepareConfig(c *gc.C) {
 	args := environs.PrepareConfigParams{
-		Cloud: environs.CloudSpec{
+		Cloud: environscloudspec.CloudSpec{
 			Region: "dfw",
 		},
 	}

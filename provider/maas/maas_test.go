@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -150,7 +150,7 @@ func (suite *providerSuite) makeEnvironWithURL(url string, getCapabilities MaasC
 	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
 		"maas-oauth": "a:b:c",
 	})
-	cloud := environs.CloudSpec{
+	cloud := environscloudspec.CloudSpec{
 		Type:       "maas",
 		Name:       "maas",
 		Endpoint:   url,

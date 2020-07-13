@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -36,9 +37,9 @@ func fakeConfigAttrs(attrs ...coretesting.Attrs) coretesting.Attrs {
 	return merged
 }
 
-func fakeCloudSpec() environs.CloudSpec {
+func fakeCloudSpec() environscloudspec.CloudSpec {
 	cred := fakeCredential()
-	return environs.CloudSpec{
+	return environscloudspec.CloudSpec{
 		Type:       "kubernetes",
 		Name:       "k8s",
 		Endpoint:   "host1",
@@ -102,7 +103,7 @@ func (s *providerSuite) TestOpenUnsupportedCredential(c *gc.C) {
 	s.testOpenError(c, spec, `validating cloud spec: "oauth1" auth-type not supported`)
 }
 
-func (s *providerSuite) testOpenError(c *gc.C, spec environs.CloudSpec, expect string) {
+func (s *providerSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
 	_, err := s.provider.Open(environs.OpenParams{
 		Cloud:  spec,
 		Config: fakeConfig(c),

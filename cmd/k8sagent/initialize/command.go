@@ -5,19 +5,14 @@ package initialize
 
 import (
 	"github.com/juju/cmd"
-	"github.com/juju/os/series"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/cmd/k8sagent/config"
 )
 
 var (
-	jujuRun        = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
-	jujuDumpLogs   = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
-	jujuIntrospect = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
-
 	// TODO(ycliuhw): ensure below symlinks with hooktool symlinks(->jujuc) together in init subcommand of k8sagent.
-	k8sAgentSymlinks = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
+	k8sAgentSymlinks = []string{config.JujuRun, config.JujuDumpLogs, config.JujuIntrospect}
 	// TODO(ycliuhw): prepare paths, agent.conf etc(what caas operator has been done).
 )
 

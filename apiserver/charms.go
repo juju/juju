@@ -24,6 +24,7 @@ import (
 	ziputil "github.com/juju/utils/zip"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -494,7 +495,7 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (
 // object.
 func sendJSONError(w http.ResponseWriter, req *http.Request, err error) error {
 	logger.Errorf("returning error from %s %s: %s", req.Method, req.URL, errors.Details(err))
-	perr, status := common.ServerErrorAndStatus(err)
+	perr, status := apiservererrors.ServerErrorAndStatus(err)
 	return errors.Trace(sendStatusAndJSON(w, status, &params.CharmsResponse{
 		Error:     perr.Message,
 		ErrorCode: perr.Code,

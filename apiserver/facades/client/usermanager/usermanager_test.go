@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/facades/client/usermanager"
 	"github.com/juju/juju/apiserver/params"
@@ -900,7 +901,7 @@ func (s *userManagerSuite) TestResetPasswordControllerAdminForSelf(c *gc.C) {
 	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
 		{
 			Tag:   alex.Tag().String(),
-			Error: common.ServerError(common.ErrPerm),
+			Error: apiservererrors.ServerError(apiservererrors.ErrPerm),
 		},
 	})
 	c.Assert(alex.PasswordValid("dummy-secret"), jc.IsTrue)
@@ -929,11 +930,11 @@ func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
 	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
 		{
 			Tag:   alex.Tag().String(),
-			Error: common.ServerError(common.ErrPerm),
+			Error: apiservererrors.ServerError(apiservererrors.ErrPerm),
 		},
 		{
 			Tag:   barb.Tag().String(),
-			Error: common.ServerError(common.ErrPerm),
+			Error: apiservererrors.ServerError(apiservererrors.ErrPerm),
 		},
 	})
 
@@ -953,11 +954,11 @@ func (s *userManagerSuite) TestResetPasswordFail(c *gc.C) {
 	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
 		{
 			Tag:   "user-invalid",
-			Error: common.ServerError(common.ErrPerm),
+			Error: apiservererrors.ServerError(apiservererrors.ErrPerm),
 		},
 		{
 			Tag:   alex.Tag().String(),
-			Error: common.ServerError(fmt.Errorf("cannot reset password for user \"alex\": user deactivated")),
+			Error: apiservererrors.ServerError(fmt.Errorf("cannot reset password for user \"alex\": user deactivated")),
 		},
 	})
 }
@@ -977,7 +978,7 @@ func (s *userManagerSuite) TestResetPasswordMixedResult(c *gc.C) {
 	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
 		{
 			Tag:   "user-invalid",
-			Error: common.ServerError(common.ErrPerm),
+			Error: apiservererrors.ServerError(apiservererrors.ErrPerm),
 		},
 		{
 			Tag:       alex.Tag().String(),

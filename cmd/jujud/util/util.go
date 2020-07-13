@@ -9,19 +9,15 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/os/series"
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
-	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/mongo"
 	jworker "github.com/juju/juju/worker"
 )
 
 var (
 	logger            = loggo.GetLogger("juju.cmd.jujud.util")
-	DataDir           = paths.MustSucceed(paths.DataDir(series.MustHostSeries()))
-	LogDir            = paths.MustSucceed(paths.LogDir(series.MustHostSeries()))
 	EnsureMongoServer = mongo.EnsureServer
 )
 

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -37,7 +38,7 @@ func (d *DeadEnsurer) ensureEntityDead(tag names.Tag) error {
 	}
 	entity, ok := entity0.(state.EnsureDeader)
 	if !ok {
-		return NotSupportedError(tag, "ensuring death")
+		return apiservererrors.NotSupportedError(tag, "ensuring death")
 	}
 	if err := entity.EnsureDead(); err != nil {
 		return errors.Trace(err)
@@ -68,11 +69,11 @@ func (d *DeadEnsurer) EnsureDead(args params.Entities) (params.ErrorResults, err
 			return params.ErrorResults{}, errors.Trace(err)
 		}
 
-		err = ErrPerm
+		err = apiservererrors.ErrPerm
 		if canModify(tag) {
 			err = d.ensureEntityDead(tag)
 		}
-		result.Results[i].Error = ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }

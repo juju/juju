@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/permission"
@@ -52,7 +53,7 @@ var _ KeyManager = (*KeyManagerAPI)(nil)
 func NewKeyManagerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*KeyManagerAPI, error) {
 	// Only clients can access the key manager service.
 	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	m, err := st.Model()
 	if err != nil {
@@ -71,12 +72,12 @@ func NewKeyManagerAPI(st *state.State, resources facade.Resources, authorizer fa
 func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
 	if err := api.checkCanWrite(sshUser); err == nil {
 		return nil
-	} else if err != common.ErrPerm {
+	} else if err != apiservererrors.ErrPerm {
 		return errors.Trace(err)
 	}
 	if sshUser == config.JujuSystemKey {
 		// users cannot read the system key.
-		return common.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	ok, err := common.HasPermission(
 		api.state.UserPermission,
@@ -88,7 +89,7 @@ func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
 		return errors.Trace(err)
 	}
 	if !ok {
-		return common.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -96,7 +97,7 @@ func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
 func (api *KeyManagerAPI) checkCanWrite(sshUser string) error {
 	if sshUser == config.JujuSystemKey {
 		// users cannot modify the system key.
-		return common.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	model, err := api.state.Model()
 	if err != nil {
@@ -107,7 +108,7 @@ func (api *KeyManagerAPI) checkCanWrite(sshUser string) error {
 		return errors.Trace(err)
 	}
 	if !ok {
-		return common.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -130,14 +131,14 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 	for i, entity := range arg.Entities.Entities {
 		// NOTE: entity.Tag isn't a tag, but a username.
 		if err := api.checkCanRead(entity.Tag); err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		// All keys are global, no need to look up the user.
 		if configErr == nil {
 			results[i].Result = keyInfo
 		}
-		results[i].Error = common.ServerError(configErr)
+		results[i].Error = apiservererrors.ServerError(configErr)
 	}
 	return params.StringsResults{Results: results}, nil
 }
@@ -211,13 +212,13 @@ func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorRes
 	}
 
 	if err := api.checkCanWrite(arg.User); err != nil {
-		return params.ErrorResults{}, common.ServerError(err)
+		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
 
 	// For now, authorised keys are global, common to all users.
 	sshKeys, currentFingerprints, err := api.currentKeyDataForAdd()
 	if err != nil {
-		return params.ErrorResults{}, common.ServerError(fmt.Errorf("reading current key data: %v", err))
+		return params.ErrorResults{}, apiservererrors.ServerError(fmt.Errorf("reading current key data: %v", err))
 	}
 
 	// Ensure we are not going to add invalid or duplicate keys.
@@ -225,18 +226,18 @@ func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorRes
 	for i, key := range arg.Keys {
 		fingerprint, _, err := ssh.KeyFingerprint(key)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("invalid ssh key: %s", key))
+			result.Results[i].Error = apiservererrors.ServerError(fmt.Errorf("invalid ssh key: %s", key))
 			continue
 		}
 		if currentFingerprints.Contains(fingerprint) {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("duplicate ssh key: %s", key))
+			result.Results[i].Error = apiservererrors.ServerError(fmt.Errorf("duplicate ssh key: %s", key))
 			continue
 		}
 		sshKeys = append(sshKeys, key)
 	}
 	err = api.writeSSHKeys(sshKeys)
 	if err != nil {
-		return params.ErrorResults{}, common.ServerError(err)
+		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -303,13 +304,13 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 	}
 
 	if err := api.checkCanWrite(arg.User); err != nil {
-		return params.ErrorResults{}, common.ServerError(err)
+		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
 
 	// For now, authorised keys are global, common to all users.
 	sshKeys, currentFingerprints, err := api.currentKeyDataForAdd()
 	if err != nil {
-		return params.ErrorResults{}, common.ServerError(fmt.Errorf("reading current key data: %v", err))
+		return params.ErrorResults{}, apiservererrors.ServerError(fmt.Errorf("reading current key data: %v", err))
 	}
 
 	importedKeyInfo := runSSHKeyImport(arg.Keys)
@@ -329,13 +330,13 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 			sshKeys = append(sshKeys, keyInfo.key)
 		}
 		if compoundErr != "" {
-			result.Results[i].Error = common.ServerError(errors.Errorf(strings.TrimSuffix(compoundErr, "\n")))
+			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf(strings.TrimSuffix(compoundErr, "\n")))
 		}
 
 	}
 	err = api.writeSSHKeys(sshKeys)
 	if err != nil {
-		return params.ErrorResults{}, common.ServerError(err)
+		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -382,12 +383,12 @@ func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.Error
 	}
 
 	if err := api.checkCanWrite(arg.User); err != nil {
-		return params.ErrorResults{}, common.ServerError(err)
+		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
 
 	allKeys, byFingerprint, byComment, err := api.currentKeyDataForDelete()
 	if err != nil {
-		return params.ErrorResults{}, common.ServerError(fmt.Errorf("reading current key data: %v", err))
+		return params.ErrorResults{}, apiservererrors.ServerError(fmt.Errorf("reading current key data: %v", err))
 	}
 
 	// Record the keys to be deleted in the second pass.
@@ -405,13 +406,13 @@ func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.Error
 		key, ok = byComment[keyId]
 		if ok {
 			if internalComments.Contains(keyId) {
-				result.Results[i].Error = common.ServerError(fmt.Errorf("may not delete internal key: %s", keyId))
+				result.Results[i].Error = apiservererrors.ServerError(fmt.Errorf("may not delete internal key: %s", keyId))
 				continue
 			}
 			keysToDelete.Add(key)
 			continue
 		}
-		result.Results[i].Error = common.ServerError(fmt.Errorf("invalid ssh key: %s", keyId))
+		result.Results[i].Error = apiservererrors.ServerError(fmt.Errorf("invalid ssh key: %s", keyId))
 	}
 
 	var keysToWrite []string
@@ -424,12 +425,12 @@ func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.Error
 	}
 
 	if len(keysToWrite) == 0 {
-		return params.ErrorResults{}, common.ServerError(fmt.Errorf("cannot delete all keys"))
+		return params.ErrorResults{}, apiservererrors.ServerError(fmt.Errorf("cannot delete all keys"))
 	}
 
 	err = api.writeSSHKeys(keysToWrite)
 	if err != nil {
-		return params.ErrorResults{}, common.ServerError(err)
+		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
 	return result, nil
 }

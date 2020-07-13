@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
@@ -619,7 +620,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 		return nil, nil, errors.Trace(err)
 	}
 	return bootstrapConfig, &environs.PrepareConfigParams{
-		Cloud: environs.CloudSpec{
+		Cloud: environscloudspec.CloudSpec{
 			Type:             bootstrapConfig.CloudType,
 			Name:             bootstrapConfig.Cloud,
 			Region:           bootstrapConfig.CloudRegion,

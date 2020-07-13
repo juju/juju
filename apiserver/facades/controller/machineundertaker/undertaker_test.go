@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/controller/machineundertaker"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -127,7 +128,7 @@ func (*undertakerSuite) TestGetMachineProviderInterfaceInfo(c *gc.C) {
 			}},
 		}, {
 			MachineTag: "machine-100",
-			Error: common.ServerError(
+			Error: apiservererrors.ServerError(
 				errors.NotFoundf("no machine 100 fool!"),
 			),
 		}, {
@@ -143,7 +144,7 @@ func (*undertakerSuite) TestGetMachineProviderInterfaceInfo(c *gc.C) {
 			}},
 		}, {
 			MachineTag: "machine-inv",
-			Error: common.ServerError(
+			Error: apiservererrors.ServerError(
 				errors.New(`"machine-inv" is not a valid machine tag`),
 			),
 		}},
@@ -160,7 +161,7 @@ func (*undertakerSuite) TestGetMachineProviderInterfaceInfoHandlesError(c *gc.C)
 
 	c.Assert(result.Results, gc.DeepEquals, []params.ProviderInterfaceInfoResult{{
 		MachineTag: "machine-0",
-		Error:      common.ServerError(errors.New("oops - problem getting interface infos")),
+		Error:      apiservererrors.ServerError(errors.New("oops - problem getting interface infos")),
 	}})
 }
 

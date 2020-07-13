@@ -6,10 +6,12 @@ package common
 import (
 	"fmt"
 
+	"github.com/juju/names/v4"
+
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/names/v4"
 )
 
 // StatusGetter implements a common Status method for use by
@@ -33,7 +35,7 @@ func (s *StatusGetter) getEntityStatus(tag names.Tag) params.StatusResult {
 	var result params.StatusResult
 	entity, err := s.st.FindEntity(tag)
 	if err != nil {
-		result.Error = ServerError(err)
+		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
 	switch getter := entity.(type) {
@@ -43,9 +45,9 @@ func (s *StatusGetter) getEntityStatus(tag names.Tag) params.StatusResult {
 		result.Info = statusInfo.Message
 		result.Data = statusInfo.Data
 		result.Since = statusInfo.Since
-		result.Error = ServerError(err)
+		result.Error = apiservererrors.ServerError(err)
 	default:
-		result.Error = ServerError(NotSupportedError(tag, fmt.Sprintf("getting status, %T", getter)))
+		result.Error = apiservererrors.ServerError(apiservererrors.NotSupportedError(tag, fmt.Sprintf("getting status, %T", getter)))
 	}
 	return result
 }
@@ -62,11 +64,11 @@ func (s *StatusGetter) Status(args params.Entities) (params.StatusResults, error
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if !canAccess(tag) {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		result.Results[i] = s.getEntityStatus(tag)

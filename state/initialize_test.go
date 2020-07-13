@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -594,7 +594,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
 	s.openState(c, modelTag)
 
 	var attrs map[string]interface{}
-	rspec := &environs.CloudRegionSpec{Cloud: "dummy", Region: "c-region"}
+	rspec := &environscloudspec.CloudRegionSpec{Cloud: "dummy", Region: "c-region"}
 	got, err := s.State.ComposeNewModelConfig(attrs, rspec)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(got["no-proxy"], gc.Equals, "local")
@@ -653,7 +653,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
 
 	var attrs map[string]interface{}
 	for r := range regionInheritedConfigIn {
-		rspec := &environs.CloudRegionSpec{Cloud: "dummy", Region: r}
+		rspec := &environscloudspec.CloudRegionSpec{Cloud: "dummy", Region: r}
 		got, err := s.State.ComposeNewModelConfig(attrs, rspec)
 		c.Check(err, jc.ErrorIsNil)
 		c.Assert(got["no-proxy"], gc.Equals, regionInheritedConfigIn[r]["no-proxy"])

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 )
@@ -116,7 +116,7 @@ timing:
 			OperationTag: names.NewOperationTag(operationId).String(),
 			Summary:      "an operation",
 			Status:       "failed",
-			Error:        common.ServerError(errors.New("an apiserver error")),
+			Error:        apiservererrors.ServerError(errors.New("an apiserver error")),
 		}},
 		expectedOutput: `
 summary: an operation

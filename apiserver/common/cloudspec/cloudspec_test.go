@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -25,7 +25,7 @@ import (
 type CloudSpecSuite struct {
 	testing.IsolationSuite
 	testing.Stub
-	result   environs.CloudSpec
+	result   environscloudspec.CloudSpec
 	authFunc common.AuthFunc
 	api      cloudspec.CloudSpecAPI
 }
@@ -45,7 +45,7 @@ func (s *CloudSpecSuite) SetUpTest(c *gc.C) {
 		"auth-type",
 		map[string]string{"k": "v"},
 	)
-	s.result = environs.CloudSpec{
+	s.result = environscloudspec.CloudSpec{
 		Type:             "type",
 		Name:             "name",
 		Region:           "region",
@@ -60,7 +60,7 @@ func (s *CloudSpecSuite) SetUpTest(c *gc.C) {
 func (s *CloudSpecSuite) getTestCloudSpec(credentialContentWatcher state.NotifyWatcher) cloudspec.CloudSpecAPI {
 	return cloudspec.NewCloudSpec(
 		common.NewResources(),
-		func(tag names.ModelTag) (environs.CloudSpec, error) {
+		func(tag names.ModelTag) (environscloudspec.CloudSpec, error) {
 			s.AddCall("CloudSpec", tag)
 			return s.result, s.NextErr()
 		},

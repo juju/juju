@@ -20,6 +20,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 )
@@ -82,7 +83,7 @@ func newK8sClient(c *rest.Config) (
 }
 
 // CloudSpecToK8sRestConfig translates cloudspec to k8s rest config.
-func CloudSpecToK8sRestConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
+func CloudSpecToK8sRestConfig(cloudSpec environscloudspec.CloudSpec) (*rest.Config, error) {
 	if cloudSpec.Credential == nil {
 		return nil, errors.Errorf("cloud %v has no credential", cloudSpec.Name)
 	}
@@ -180,7 +181,7 @@ func (p kubernetesEnvironProvider) DetectRegions() ([]cloud.Region, error) {
 	return nil, errors.NotFoundf("regions")
 }
 
-func (p kubernetesEnvironProvider) validateCloudSpec(spec environs.CloudSpec) error {
+func (p kubernetesEnvironProvider) validateCloudSpec(spec environscloudspec.CloudSpec) error {
 
 	if err := spec.Validate(); err != nil {
 		return errors.Trace(err)

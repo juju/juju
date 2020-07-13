@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/api/application"
 	basetesting "github.com/juju/juju/api/base/testing"
 	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/constraints"
@@ -75,7 +75,7 @@ func (s *applicationSuite) TestSetApplicationMetricCredentialsFails(c *gc.C) {
 		c.Assert(request, gc.Equals, "SetMetricCredentials")
 		result := response.(*params.ErrorResults)
 		result.Results = make([]params.ErrorResult, 1)
-		result.Results[0].Error = common.ServerError(common.ErrPerm)
+		result.Results[0].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 		return result.OneError()
 	})
 	err := client.SetMetricCredentials("application", []byte("creds"))

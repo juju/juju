@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/common"
-	apiservercommon "github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -59,7 +59,7 @@ func (s *LeadershipSuite) TestPinMachineApplicationsSuccess(c *gc.C) {
 func (s *LeadershipSuite) TestPinMachineApplicationsPartialError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	errorRes := apiservercommon.ServerError(errors.New("boom"))
+	errorRes := apiservererrors.ServerError(errors.New("boom"))
 	results := s.pinApplicationsServerSuccessResults()
 	results[2].Error = errorRes
 	resultSource := params.PinApplicationsResults{Results: results}
@@ -96,7 +96,7 @@ func (s *LeadershipSuite) setup(c *gc.C) *gomock.Controller {
 func (s *LeadershipSuite) TestUnpinMachineApplicationsPartialError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	errorRes := apiservercommon.ServerError(errors.New("boom"))
+	errorRes := apiservererrors.ServerError(errors.New("boom"))
 	results := s.pinApplicationsServerSuccessResults()
 	results[1].Error = errorRes
 	resultSource := params.PinApplicationsResults{Results: results}

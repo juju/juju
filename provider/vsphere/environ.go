@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	callcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/common"
@@ -23,7 +24,7 @@ import (
 
 type environ struct {
 	name     string
-	cloud    environs.CloudSpec
+	cloud    environscloudspec.CloudSpec
 	provider *environProvider
 
 	// namespace is used to create the machine and device hostnames.
@@ -35,7 +36,7 @@ type environ struct {
 
 func newEnviron(
 	provider *environProvider,
-	cloud environs.CloudSpec,
+	cloud environscloudspec.CloudSpec,
 	cfg *config.Config,
 ) (*environ, error) {
 	ecfg, err := newValidConfig(cfg)

@@ -10,12 +10,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/sshclient"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/dummy"
@@ -59,13 +59,13 @@ func (s *facadeSuite) SetUpTest(c *gc.C) {
 func (s *facadeSuite) TestMachineAuthNotAllowed(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("0")
 	_, err := sshclient.InternalFacade(s.backend, s.authorizer, s.callContext)
-	c.Assert(err, gc.Equals, common.ErrPerm)
+	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *facadeSuite) TestUnitAuthNotAllowed(c *gc.C) {
 	s.authorizer.Tag = names.NewUnitTag("foo/0")
 	_, err := sshclient.InternalFacade(s.backend, s.authorizer, s.callContext)
-	c.Assert(err, gc.Equals, common.ErrPerm)
+	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *facadeSuite) TestPublicAddress(c *gc.C) {
@@ -240,7 +240,7 @@ func (backend *mockBackend) GetSSHHostKeys(tag names.MachineTag) (state.SSHHostK
 	return nil, errors.New("machine not found")
 }
 
-func (backend *mockBackend) CloudSpec() (environs.CloudSpec, error) {
+func (backend *mockBackend) CloudSpec() (environscloudspec.CloudSpec, error) {
 	backend.stub.AddCall("CloudSpec")
 	return dummy.SampleCloudSpec(), nil
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
@@ -99,7 +100,7 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 	authorizer facade.Authorizer,
 ) (*InstanceMutaterAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)
@@ -127,17 +128,17 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.Entity) (params.Cha
 	}
 	tag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
-		result.Error = common.ServerError(common.ErrPerm)
+		result.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 		return result, nil
 	}
 	m, err := api.getMachine(canAccess, tag)
 	if err != nil {
-		result.Error = common.ServerError(err)
+		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
 	lxdProfileInfo, err := api.machineLXDProfileInfo(m)
 	if err != nil {
-		result.Error = common.ServerError(errors.Annotatef(err, "%s", tag))
+		result.Error = apiservererrors.ServerError(errors.Annotatef(err, "%s", tag))
 	}
 
 	// use the results from the machineLXDProfileInfo and apply them to the
@@ -159,12 +160,12 @@ func (api *InstanceMutaterAPI) ContainerType(arg params.Entity) (params.Containe
 	}
 	tag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
-		result.Error = common.ServerError(common.ErrPerm)
+		result.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 		return result, nil
 	}
 	m, err := api.getCacheMachine(canAccess, tag)
 	if err != nil {
-		result.Error = common.ServerError(err)
+		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
 	result.Type = m.ContainerType()
@@ -189,7 +190,7 @@ func (api *InstanceMutaterAPI) SetModificationStatus(args params.SetStatus) (par
 	}
 	for i, arg := range args.Entities {
 		err = api.setOneModificationStatus(canAccess, arg)
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -203,7 +204,7 @@ func (api *InstanceMutaterAPI) SetCharmProfiles(args params.SetProfileArgs) (par
 	}
 	for i, a := range args.Args {
 		err := api.setOneMachineCharmProfiles(a.Entity.Tag, a.Profiles, canAccess)
-		results[i].Error = common.ServerError(err)
+		results[i].Error = apiservererrors.ServerError(err)
 	}
 	return params.ErrorResults{Results: results}, nil
 }
@@ -214,7 +215,7 @@ func (api *InstanceMutaterAPI) SetCharmProfiles(args params.SetProfileArgs) (par
 func (api *InstanceMutaterAPI) WatchMachines() (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	if !api.authorizer.AuthController() {
-		return result, common.ErrPerm
+		return result, apiservererrors.ErrPerm
 	}
 
 	watch, err := api.model.WatchMachines()
@@ -275,12 +276,12 @@ func (api *InstanceMutaterAPI) WatchLXDProfileVerificationNeeded(args params.Ent
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		entityResult, err := api.watchOneEntityApplication(canAccess, tag)
 		result.Results[i] = entityResult
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -309,7 +310,7 @@ func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFu
 
 func (api *InstanceMutaterAPI) getCacheMachine(canAccess common.AuthFunc, tag names.MachineTag) (ModelCacheMachine, error) {
 	if !canAccess(tag) {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	machine, err := api.model.Machine(tag.Id())
 	if err != nil {
@@ -320,7 +321,7 @@ func (api *InstanceMutaterAPI) getCacheMachine(canAccess common.AuthFunc, tag na
 
 func (api *InstanceMutaterAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (Machine, error) {
 	if !canAccess(tag) {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	entity, err := api.st.FindEntity(tag)
 	if err != nil {
@@ -372,13 +373,13 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine) (lxdProfileInfo,
 		appName := unit.Application()
 		app, err := api.st.Application(appName)
 		if err != nil {
-			changeResults[i].Error = common.ServerError(err)
+			changeResults[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		chURL := app.CharmURL()
 		ch, err := api.st.Charm(chURL)
 		if err != nil {
-			changeResults[i].Error = common.ServerError(err)
+			changeResults[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -420,7 +421,7 @@ func (api *InstanceMutaterAPI) setOneModificationStatus(canAccess common.AuthFun
 	logger.Tracef("SetInstanceStatus called with: %#v", arg)
 	mTag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
-		return common.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	machine, err := api.getMachine(canAccess, mTag)
 	if err != nil {

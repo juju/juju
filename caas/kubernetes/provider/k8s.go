@@ -55,6 +55,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
@@ -92,18 +93,6 @@ const (
 
 	// InformerResyncPeriod is the default resync period set on IndexInformers
 	InformerResyncPeriod = time.Minute * 5
-
-	// OperatorPodIPEnvName is the environment name for operator pod IP.
-	OperatorPodIPEnvName = "JUJU_OPERATOR_POD_IP"
-
-	// OperatorServiceIPEnvName is the environment name for operator service IP.
-	OperatorServiceIPEnvName = "JUJU_OPERATOR_SERVICE_IP"
-
-	// OperatorNamespaceEnvName is the environment name for k8s namespace the operator is in.
-	OperatorNamespaceEnvName = "JUJU_OPERATOR_NAMESPACE"
-
-	// JujuRunServerSocketPort is the port used by juju run callbacks.
-	JujuRunServerSocketPort = 30666
 
 	// A set of constants defining history limits for certain k8s deployment
 	// types.
@@ -341,7 +330,7 @@ func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (k *kubernetesClient) SetCloudSpec(spec environs.CloudSpec) error {
+func (k *kubernetesClient) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 	k.lock.Lock()
 	defer k.lock.Unlock()
 

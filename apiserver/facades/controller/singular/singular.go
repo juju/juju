@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/lease"
@@ -64,7 +64,7 @@ type Backend interface {
 // state, so long as the authorizer represents a controller machine.
 func NewFacade(backend Backend, claimer lease.Claimer, auth facade.Authorizer) (*Facade, error) {
 	if !auth.AuthController() {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return &Facade{
 		auth:            auth,
@@ -91,14 +91,14 @@ func (facade *Facade) Wait(ctx context.Context, args params.Entities) (result pa
 	for i, entity := range args.Entities {
 		leaseId, err := facade.tagLeaseId(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		// TODO(axw) 2017-10-30 #1728594
 		// We should be waiting for the leases in parallel,
 		// so the waits do not affect one another.
 		err = facade.singularClaimer.WaitUntilExpired(leaseId, ctx.Done())
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result
 }
@@ -110,14 +110,14 @@ func (facade *Facade) Claim(args params.SingularClaims) (result params.ErrorResu
 	result.Results = make([]params.ErrorResult, len(args.Claims))
 	for i, claim := range args.Claims {
 		err := facade.claim(claim)
-		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result
 }
 
 func (facade *Facade) claim(claim params.SingularClaim) error {
 	if !allowedDuration(claim.Duration) {
-		return common.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	leaseId, err := facade.tagLeaseId(claim.EntityTag)
 	if err != nil {
@@ -125,7 +125,7 @@ func (facade *Facade) claim(claim params.SingularClaim) error {
 	}
 	holder := facade.auth.GetAuthTag().String()
 	if claim.ClaimantTag != holder {
-		return common.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return facade.singularClaimer.Claim(leaseId, holder, claim.Duration)
 }
@@ -139,7 +139,7 @@ func (facade *Facade) tagLeaseId(tagString string) (string, error) {
 	case facade.modelTag, facade.controllerTag:
 		return tag.Id(), nil
 	}
-	return "", common.ErrPerm
+	return "", apiservererrors.ErrPerm
 }
 
 // allowedDuration returns true if the supplied duration is at least one second,

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/utils/proxy"
 
 	lxdclient "github.com/lxc/lxd/client"
@@ -96,13 +97,13 @@ type ServerFactory interface {
 	// RemoteServer creates a new server that connects to a remote lxd server.
 	// If the cloudSpec endpoint is nil or empty, it will assume that you want
 	// to connection to a local server and will instead use that one.
-	RemoteServer(environs.CloudSpec) (Server, error)
+	RemoteServer(environscloudspec.CloudSpec) (Server, error)
 
 	// InsecureRemoteServer creates a new server that connect to a remote lxd
 	// server in a insecure manner.
 	// If the cloudSpec endpoint is nil or empty, it will assume that you want
 	// to connection to a local server and will instead use that one.
-	InsecureRemoteServer(environs.CloudSpec) (Server, error)
+	InsecureRemoteServer(environscloudspec.CloudSpec) (Server, error)
 }
 
 // InterfaceAddress groups methods that is required to find addresses
@@ -182,7 +183,7 @@ func (s *serverFactory) LocalServerAddress() (string, error) {
 	return s.localServerAddress, nil
 }
 
-func (s *serverFactory) RemoteServer(spec environs.CloudSpec) (Server, error) {
+func (s *serverFactory) RemoteServer(spec environscloudspec.CloudSpec) (Server, error) {
 	if spec.Endpoint == "" {
 		return s.LocalServer()
 	}
@@ -208,7 +209,7 @@ func (s *serverFactory) RemoteServer(spec environs.CloudSpec) (Server, error) {
 	return svr, errors.Trace(err)
 }
 
-func (s *serverFactory) InsecureRemoteServer(spec environs.CloudSpec) (Server, error) {
+func (s *serverFactory) InsecureRemoteServer(spec environscloudspec.CloudSpec) (Server, error) {
 	if spec.Endpoint == "" {
 		return s.LocalServer()
 	}

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
@@ -42,6 +43,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -166,7 +168,7 @@ func (t *LiveTests) prepareForBootstrapParams(c *gc.C) bootstrap.PrepareParams {
 	return bootstrap.PrepareParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		ModelConfig:      t.TestConfig,
-		Cloud: environs.CloudSpec{
+		Cloud: environscloudspec.CloudSpec{
 			Type:       t.TestConfig["type"].(string),
 			Name:       t.TestConfig["type"].(string),
 			Region:     t.CloudRegion,
@@ -748,7 +750,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 		if err == nil {
 			break
 		}
-		c.Assert(err, gc.FitsTypeOf, &state.HasAssignedUnitsError{})
+		c.Assert(err, jc.Satisfies, stateerrors.IsHasAssignedUnitsError)
 		time.Sleep(5 * time.Second)
 		err = m1.Refresh()
 		if errors.IsNotFound(err) {

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/replicaset"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
@@ -94,7 +95,7 @@ func (c *Client) checkCanRead() error {
 		return errors.Trace(err)
 	}
 	if !canRead && !isAdmin {
-		return common.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -110,7 +111,7 @@ func (c *Client) checkCanWrite() error {
 		return errors.Trace(err)
 	}
 	if !canWrite && !isAdmin {
-		return common.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -126,7 +127,7 @@ func (c *Client) checkIsAdmin() error {
 		return errors.Trace(err)
 	}
 	if !isModelAdmin && !isAdmin {
-		return common.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -220,7 +221,7 @@ func NewClient(
 	openCSRepo application.OpenCSRepoFunc,
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	client := &Client{
 		ModelConfigAPIV1: modelConfigAPI,
@@ -420,7 +421,7 @@ func (c *Client) AddMachinesV2(args params.AddMachines) (params.AddMachinesResul
 	}
 	for i, p := range args.MachineParams {
 		m, err := c.addOneMachine(p)
-		results.Machines[i].Error = common.ServerError(err)
+		results.Machines[i].Error = apiservererrors.ServerError(err)
 		if err == nil {
 			results.Machines[i].Machine = m.Id()
 		}
@@ -521,7 +522,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	var result params.ProvisioningScriptResult
 	icfg, err := InstanceConfig(c.api.state(), args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
-		return result, common.ServerError(errors.Annotate(
+		return result, apiservererrors.ServerError(errors.Annotate(
 			err, "getting instance config",
 		))
 	}
@@ -535,7 +536,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 		icfg.EnableOSRefreshUpdate = false
 		icfg.EnableOSUpgrade = false
 	} else if cfg, err := c.api.stateAccessor.ModelConfig(); err != nil {
-		return result, common.ServerError(errors.Annotate(
+		return result, apiservererrors.ServerError(errors.Annotate(
 			err, "getting model config",
 		))
 	} else {
@@ -545,7 +546,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 
 	osSeries, err := series.GetOSFromSeries(icfg.Series)
 	if err != nil {
-		return result, common.ServerError(errors.Annotatef(err,
+		return result, apiservererrors.ServerError(errors.Annotatef(err,
 			"cannot decide which provisioning script to generate based on this series %q", icfg.Series))
 	}
 
@@ -556,7 +557,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 
 	result.Script, err = getProvisioningScript(icfg)
 	if err != nil {
-		return result, common.ServerError(errors.Annotate(
+		return result, apiservererrors.ServerError(errors.Annotate(
 			err, "getting provisioning script",
 		))
 	}
@@ -646,7 +647,7 @@ func (c *Client) ModelUserInfo() (params.ModelUserInfoResults, error) {
 		var result params.ModelUserInfoResult
 		userInfo, err := modelInfo(c.api.state(), user)
 		if err != nil {
-			result.Error = common.ServerError(err)
+			result.Error = apiservererrors.ServerError(err)
 		} else {
 			result.Result = &userInfo
 		}

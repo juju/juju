@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/tools"
 )
 
@@ -468,7 +469,7 @@ func (m *Machine) SetStopMongoUntilVersion(v mongo.Version) error {
 		Update: bson.D{{"$set", bson.D{{"stopmongountilversion", v.String()}}}},
 	}}
 	if err := m.st.db().RunTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set StopMongoUntilVersion %v: %v", m, onAbort(err, ErrDead))
+		return fmt.Errorf("cannot set StopMongoUntilVersion %v: %v", m, onAbort(err, stateerrors.ErrDead))
 	}
 	m.doc.StopMongoUntilVersion = v.String()
 	return nil
@@ -550,7 +551,7 @@ func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
 	// called before database migrations have run so we don't
 	// necessarily want the model UUID added to the id.
 	if err := m.st.runRawTransaction(ops); err != nil {
-		return onAbort(err, ErrDead)
+		return onAbort(err, stateerrors.ErrDead)
 	}
 	m.doc.Tools = tools
 	return nil
@@ -597,7 +598,7 @@ func (m *Machine) SetPassword(password string) error {
 
 func (m *Machine) setPasswordHashOps(passwordHash string) ([]txn.Op, error) {
 	if m.doc.Life == Dead {
-		return nil, ErrDead
+		return nil, stateerrors.ErrDead
 	}
 	ops := []txn.Op{{
 		C:      machinesC,
@@ -692,20 +693,6 @@ func (m *Machine) EnsureDead() error {
 	return m.advanceLifecycle(Dead, false, 0)
 }
 
-type HasAssignedUnitsError struct {
-	MachineId string
-	UnitNames []string
-}
-
-func (e *HasAssignedUnitsError) Error() string {
-	return fmt.Sprintf("machine %s has unit %q assigned", e.MachineId, e.UnitNames[0])
-}
-
-func IsHasAssignedUnitsError(err error) bool {
-	_, ok := errors.Cause(err).(*HasAssignedUnitsError)
-	return ok
-}
-
 // Containers returns the container ids belonging to a parent machine.
 // TODO(wallyworld): move this method to a service
 func (m *Machine) Containers() ([]string, error) {
@@ -735,45 +722,6 @@ func (m *Machine) IsContainer() bool {
 	return isContainer
 }
 
-type HasContainersError struct {
-	MachineId    string
-	ContainerIds []string
-}
-
-func (e *HasContainersError) Error() string {
-	return fmt.Sprintf("machine %s is hosting containers %q", e.MachineId, strings.Join(e.ContainerIds, ","))
-}
-
-// IsHasContainersError reports whether or not the error is a
-// HasContainersError, indicating that an attempt to destroy
-// a machine failed due to it having containers.
-func IsHasContainersError(err error) bool {
-	_, ok := errors.Cause(err).(*HasContainersError)
-	return ok
-}
-
-// HasAttachmentsError is the error returned by EnsureDead if the machine
-// has attachments to resources that must be cleaned up first.
-type HasAttachmentsError struct {
-	MachineId   string
-	Attachments []names.Tag
-}
-
-func (e *HasAttachmentsError) Error() string {
-	return fmt.Sprintf(
-		"machine %s has attachments %s",
-		e.MachineId, e.Attachments,
-	)
-}
-
-// IsHasAttachmentsError reports whether or not the error is a
-// HasAttachmentsError, indicating that an attempt to destroy
-// a machine failed due to it having storage attachments.
-func IsHasAttachmentsError(err error) bool {
-	_, ok := errors.Cause(err).(*HasAttachmentsError)
-	return ok
-}
-
 // advanceLifecycle ensures that the machine's lifecycle is no earlier
 // than the supplied value. If the machine already has that lifecycle
 // value, or a later one, no changes will be made to remote state. If
@@ -785,10 +733,7 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 		return err
 	}
 	if len(containers) > 0 {
-		return &HasContainersError{
-			MachineId:    original.doc.Id,
-			ContainerIds: containers,
-		}
+		return newHasContainersError(original.doc.Id, containers)
 	}
 
 	locked, err := original.IsLockedForSeriesUpgrade()
@@ -963,10 +908,7 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 		}
 
 		if len(m.doc.Principals) > 0 {
-			return nil, &HasAssignedUnitsError{
-				MachineId: m.doc.Id,
-				UnitNames: m.doc.Principals,
-			}
+			return nil, newHasAssignedUnitsError(m.doc.Id, m.doc.Principals)
 		}
 		asserts = append(asserts, bson.DocElem{
 			Name: "$or", Value: []bson.D{
@@ -1025,10 +967,7 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 		}
 	}
 	if len(attachments) > 0 {
-		return nil, &HasAttachmentsError{
-			MachineId:   m.doc.Id,
-			Attachments: attachments.SortedValues(),
-		}
+		return nil, newHasAttachmentsError(m.doc.Id, attachments.SortedValues())
 	}
 	if m.doc.Life == Dying {
 		return nil, nil
@@ -1755,7 +1694,7 @@ func (m *Machine) setAddressesOps(
 ) (_ []txn.Op, machineStateAddresses, providerStateAddresses []address, newPrivate, newPublic *address, _ error) {
 
 	if m.doc.Life == Dead {
-		return nil, nil, nil, nil, nil, ErrDead
+		return nil, nil, nil, nil, nil, stateerrors.ErrDead
 	}
 
 	fromNetwork := func(in corenetwork.SpaceAddresses, origin corenetwork.Origin) []address {
@@ -1986,7 +1925,7 @@ func (m *Machine) updateSupportedContainers(supportedContainers []instance.Conta
 		},
 	}
 	if err = m.st.db().RunTransaction(ops); err != nil {
-		err = onAbort(err, ErrDead)
+		err = onAbort(err, stateerrors.ErrDead)
 		logger.Errorf("cannot update supported containers of machine %v: %v", m, err)
 		return err
 	}

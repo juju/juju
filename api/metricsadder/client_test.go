@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/metricsadder"
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -72,7 +72,7 @@ func (s *metricsAdderSuite) TestAddMetricBatchesFails(c *gc.C) {
 		c.Assert(request, gc.Equals, "AddMetricBatches")
 		result := response.(*params.ErrorResults)
 		result.Results = make([]params.ErrorResult, 1)
-		result.Results[0].Error = common.ServerError(common.ErrPerm)
+		result.Results[0].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 		return nil
 	})
 

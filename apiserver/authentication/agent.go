@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -29,17 +29,17 @@ type taggedAuthenticator interface {
 func (*AgentAuthenticator) Authenticate(ctx context.Context, entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error) {
 	entity, err := entityFinder.FindEntity(tag)
 	if errors.IsNotFound(err) {
-		return nil, errors.Trace(common.ErrBadCreds)
+		return nil, errors.Trace(apiservererrors.ErrBadCreds)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	authenticator, ok := entity.(taggedAuthenticator)
 	if !ok {
-		return nil, errors.Trace(common.ErrBadRequest)
+		return nil, errors.Trace(apiservererrors.ErrBadRequest)
 	}
 	if !authenticator.PasswordValid(req.Credentials) {
-		return nil, errors.Trace(common.ErrBadCreds)
+		return nil, errors.Trace(apiservererrors.ErrBadCreds)
 	}
 
 	// If this is a machine agent connecting, we need to check the

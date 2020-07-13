@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/permission"
@@ -96,7 +97,7 @@ func NewActionAPIV6(ctx facade.Context) (*APIv6, error) {
 
 func newActionAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 
 	m, err := st.Model()
@@ -119,7 +120,7 @@ func (a *ActionAPI) checkCanRead() error {
 		return errors.Trace(err)
 	}
 	if !canRead {
-		return common.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -130,7 +131,7 @@ func (a *ActionAPI) checkCanWrite() error {
 		return errors.Trace(err)
 	}
 	if !canWrite {
-		return common.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -141,7 +142,7 @@ func (a *ActionAPI) checkCanAdmin() error {
 		return errors.Trace(err)
 	}
 	if !canAdmin {
-		return common.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }
@@ -170,12 +171,12 @@ func (a *ActionAPI) actions(arg params.Entities, compat bool) (params.ActionResu
 		currentResult := &response.Results[i]
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			currentResult.Error = common.ServerError(common.ErrBadId)
+			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
 		actionTag, ok := tag.(names.ActionTag)
 		if !ok {
-			currentResult.Error = common.ServerError(common.ErrBadId)
+			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
 		m, err := a.state.Model()
@@ -184,12 +185,12 @@ func (a *ActionAPI) actions(arg params.Entities, compat bool) (params.ActionResu
 		}
 		action, err := m.ActionByTag(actionTag)
 		if err != nil {
-			currentResult.Error = common.ServerError(common.ErrBadId)
+			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
 		receiverTag, err := names.ActionReceiverTag(action.Receiver())
 		if err != nil {
-			currentResult.Error = common.ServerError(err)
+			currentResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
 		response.Results[i] = common.MakeActionResult(receiverTag, action, compat)
@@ -241,13 +242,13 @@ func (a *ActionAPI) FindActionsByNames(arg params.FindActionsByNames) (params.Ac
 
 		actions, err := m.FindActionsByName(name)
 		if err != nil {
-			currentResult.Error = common.ServerError(err)
+			currentResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
 		for _, action := range actions {
 			recvTag, err := names.ActionReceiverTag(action.Receiver())
 			if err != nil {
-				currentResult.Actions = append(currentResult.Actions, params.ActionResult{Error: common.ServerError(err)})
+				currentResult.Actions = append(currentResult.Actions, params.ActionResult{Error: apiservererrors.ServerError(err)})
 				continue
 			}
 			currentAction := common.MakeActionResult(recvTag, action, true)
@@ -288,12 +289,12 @@ func (a *ActionAPI) cancel(arg params.Entities, compat bool) (params.ActionResul
 		currentResult.Action = &params.Action{Tag: entity.Tag}
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			currentResult.Error = common.ServerError(common.ErrBadId)
+			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
 		actionTag, ok := tag.(names.ActionTag)
 		if !ok {
-			currentResult.Error = common.ServerError(common.ErrBadId)
+			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
 
@@ -304,17 +305,17 @@ func (a *ActionAPI) cancel(arg params.Entities, compat bool) (params.ActionResul
 
 		action, err := m.ActionByTag(actionTag)
 		if err != nil {
-			currentResult.Error = common.ServerError(err)
+			currentResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
 		result, err := action.Cancel()
 		if err != nil {
-			currentResult.Error = common.ServerError(err)
+			currentResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
 		receiverTag, err := names.ActionReceiverTag(result.Receiver())
 		if err != nil {
-			currentResult.Error = common.ServerError(err)
+			currentResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -335,18 +336,18 @@ func (a *ActionAPI) ApplicationsCharmsActions(args params.Entities) (params.Appl
 		currentResult := &result.Results[i]
 		svcTag, err := names.ParseApplicationTag(entity.Tag)
 		if err != nil {
-			currentResult.Error = common.ServerError(common.ErrBadId)
+			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
 		currentResult.ApplicationTag = svcTag.String()
 		svc, err := a.state.Application(svcTag.Id())
 		if err != nil {
-			currentResult.Error = common.ServerError(err)
+			currentResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
 		ch, _, err := svc.Charm()
 		if err != nil {
-			currentResult.Error = common.ServerError(err)
+			currentResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if actions := ch.Actions(); actions != nil {
@@ -371,7 +372,7 @@ func (api *ActionAPI) WatchActionsProgress(actions params.Entities) (params.Stri
 	for i, arg := range actions.Entities {
 		actionTag, err := names.ParseActionTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -379,7 +380,7 @@ func (api *ActionAPI) WatchActionsProgress(actions params.Entities) (params.Stri
 		// Consume the initial event.
 		changes, ok := <-w.Changes()
 		if !ok {
-			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
+			results.Results[i].Error = apiservererrors.ServerError(watcher.EnsureErr(w))
 			continue
 		}
 

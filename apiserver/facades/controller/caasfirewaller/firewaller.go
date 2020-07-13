@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
@@ -38,7 +39,7 @@ func NewFacade(
 	st CAASFirewallerState,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	accessApplication := common.AuthFuncForTagKind(names.ApplicationTagKind)
 	return &Facade{
@@ -79,7 +80,7 @@ func (f *Facade) IsExposed(args params.Entities) (params.BoolResults, error) {
 	for i, arg := range args.Entities {
 		exposed, err := f.isExposed(f.state, arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = exposed
@@ -107,7 +108,7 @@ func (f *Facade) ApplicationsConfig(args params.Entities) (params.ApplicationGet
 	for i, arg := range args.Entities {
 		result, err := f.getApplicationConfig(arg.Tag)
 		results.Results[i].Config = result
-		results.Results[i].Error = common.ServerError(err)
+		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }

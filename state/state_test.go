@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -3725,9 +3726,9 @@ func (s *StateSuite) TestContainerTypeFromId(c *gc.C) {
 }
 
 func (s *StateSuite) TestIsUpgradeInProgressError(c *gc.C) {
-	c.Assert(state.IsUpgradeInProgressError(errors.New("foo")), jc.IsFalse)
-	c.Assert(state.IsUpgradeInProgressError(state.UpgradeInProgressError), jc.IsTrue)
-	c.Assert(state.IsUpgradeInProgressError(errors.Trace(state.UpgradeInProgressError)), jc.IsTrue)
+	c.Assert(stateerrors.IsUpgradeInProgressError(errors.New("foo")), jc.IsFalse)
+	c.Assert(stateerrors.IsUpgradeInProgressError(stateerrors.ErrUpgradeInProgress), jc.IsTrue)
+	c.Assert(stateerrors.IsUpgradeInProgressError(errors.Trace(stateerrors.ErrUpgradeInProgress)), jc.IsTrue)
 }
 
 func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
@@ -3966,7 +3967,7 @@ func (s *StateSuite) TestSetModelAgentVersionFailsIfUpgrading(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.SetModelAgentVersion(nextVersion, false)
-	c.Assert(err, jc.Satisfies, state.IsUpgradeInProgressError)
+	c.Assert(err, jc.Satisfies, stateerrors.IsUpgradeInProgressError)
 }
 
 func (s *StateSuite) TestSetModelAgentVersionFailsReportsCorrectError(c *gc.C) {

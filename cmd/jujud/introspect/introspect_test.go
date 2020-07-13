@@ -24,8 +24,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/jujud/agent/config"
 	"github.com/juju/juju/cmd/jujud/introspect"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/testing"
 )
 
@@ -38,7 +38,7 @@ func (s *IntrospectCommandSuite) SetUpTest(c *gc.C) {
 		c.Skip("introspection socket does not run on windows")
 	}
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(&cmdutil.DataDir, c.MkDir())
+	s.PatchValue(&config.DataDir, c.MkDir())
 }
 
 var _ = gc.Suite(&IntrospectCommandSuite{})
@@ -57,13 +57,13 @@ func (*IntrospectCommandSuite) assertInitError(c *gc.C, expect string, args ...s
 func (*IntrospectCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, &introspect.IntrospectCommand{
 		IntrospectionSocketName: func(tag names.Tag) string {
-			return filepath.Join(cmdutil.DataDir, "jujud-"+tag.String())
+			return filepath.Join(config.DataDir, "jujud-"+tag.String())
 		},
 	}, args...)
 }
 
 func (s *IntrospectCommandSuite) TestAutoDetectMachineAgent(c *gc.C) {
-	machineDir := filepath.Join(cmdutil.DataDir, "agents", "machine-1024")
+	machineDir := filepath.Join(config.DataDir, "agents", "machine-1024")
 	err := os.MkdirAll(machineDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -72,7 +72,7 @@ func (s *IntrospectCommandSuite) TestAutoDetectMachineAgent(c *gc.C) {
 }
 
 func (s *IntrospectCommandSuite) TestAutoDetectMachineAgentFails(c *gc.C) {
-	machineDir := filepath.Join(cmdutil.DataDir, "agents")
+	machineDir := filepath.Join(config.DataDir, "agents")
 	err := os.MkdirAll(machineDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -86,7 +86,7 @@ func (s *IntrospectCommandSuite) TestAgentSpecified(c *gc.C) {
 }
 
 func (s *IntrospectCommandSuite) TestQuery(c *gc.C) {
-	listener, err := net.Listen("unix", "@"+filepath.Join(cmdutil.DataDir, "jujud-machine-0"))
+	listener, err := net.Listen("unix", "@"+filepath.Join(config.DataDir, "jujud-machine-0"))
 	c.Assert(err, jc.ErrorIsNil)
 	defer listener.Close()
 
@@ -100,7 +100,7 @@ func (s *IntrospectCommandSuite) TestQuery(c *gc.C) {
 }
 
 func (s *IntrospectCommandSuite) TestQueryFails(c *gc.C) {
-	listener, err := net.Listen("unix", "@"+filepath.Join(cmdutil.DataDir, "jujud-machine-0"))
+	listener, err := net.Listen("unix", "@"+filepath.Join(config.DataDir, "jujud-machine-0"))
 	c.Assert(err, jc.ErrorIsNil)
 	defer listener.Close()
 
@@ -113,7 +113,7 @@ func (s *IntrospectCommandSuite) TestQueryFails(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
 Querying @%s introspection socket: missing
 404 page not found
-`[1:], filepath.Join(cmdutil.DataDir, "jujud-machine-0")))
+`[1:], filepath.Join(config.DataDir, "jujud-machine-0")))
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 
 	ctx, err = s.run(c, "badness", "--agent=machine-0")
@@ -121,12 +121,12 @@ Querying @%s introspection socket: missing
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
 Querying @%s introspection socket: badness
 argh
-`[1:], filepath.Join(cmdutil.DataDir, "jujud-machine-0")))
+`[1:], filepath.Join(config.DataDir, "jujud-machine-0")))
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
 func (s *IntrospectCommandSuite) TestListen(c *gc.C) {
-	socketName := filepath.Join(cmdutil.DataDir, "jujud-machine-0")
+	socketName := filepath.Join(config.DataDir, "jujud-machine-0")
 	listener, err := net.Listen("unix", "@"+socketName)
 	c.Assert(err, jc.ErrorIsNil)
 	defer listener.Close()

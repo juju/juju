@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -75,7 +76,7 @@ func (s *CredentialValidatorSuite) TestWatchCredential(c *gc.C) {
 func (s *CredentialValidatorSuite) TestWatchCredentialNotUsedInThisModel(c *gc.C) {
 	s.backend.isUsed = false
 	_, err := s.api.WatchCredential(params.Entity{credentialTag.String()})
-	c.Assert(err, gc.ErrorMatches, common.ErrPerm.Error())
+	c.Assert(err, gc.ErrorMatches, apiservererrors.ErrPerm.Error())
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 }
 
@@ -99,7 +100,7 @@ func (s *CredentialValidatorSuite) TestInvalidateModelCredentialError(c *gc.C) {
 	s.backend.SetErrors(expected)
 	result, err := s.api.InvalidateModelCredential(params.InvalidateCredentialArg{"not again"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: common.ServerError(expected)})
+	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: apiservererrors.ServerError(expected)})
 	s.backend.CheckCalls(c, []testing.StubCall{
 		{"InvalidateModelCredential", []interface{}{"not again"}},
 	})

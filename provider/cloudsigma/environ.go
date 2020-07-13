@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/simplestreams"
@@ -25,7 +26,7 @@ const (
 // This file contains the core of the Environ implementation.
 type environ struct {
 	name   string
-	cloud  environs.CloudSpec
+	cloud  environscloudspec.CloudSpec
 	client *environClient
 	lock   sync.Mutex
 	ecfg   *environConfig

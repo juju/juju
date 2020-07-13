@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
+	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
@@ -160,7 +161,12 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			Selector: map[string]string{labelOperator: appName},
 			Type:     core.ServiceTypeClusterIP,
 			Ports: []core.ServicePort{
-				{Protocol: core.ProtocolTCP, Port: JujuRunServerSocketPort, TargetPort: intstr.FromInt(JujuRunServerSocketPort)}},
+				{
+					Protocol:   core.ProtocolTCP,
+					Port:       caasconstants.JujuRunServerSocketPort,
+					TargetPort: intstr.FromInt(caasconstants.JujuRunServerSocketPort),
+				},
+			},
 		},
 	}
 	if err := k.ensureK8sService(service); err != nil {
@@ -687,9 +693,9 @@ func operatorPod(
 				},
 				Env: []core.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
-					{Name: OperatorServiceIPEnvName, Value: operatorServiceIP},
+					{Name: caasconstants.OperatorServiceIPEnvName, Value: operatorServiceIP},
 					{
-						Name: OperatorPodIPEnvName,
+						Name: caasconstants.OperatorPodIPEnvName,
 						ValueFrom: &core.EnvVarSource{
 							FieldRef: &core.ObjectFieldSelector{
 								FieldPath: "status.podIP",
@@ -697,7 +703,7 @@ func operatorPod(
 						},
 					},
 					{
-						Name: OperatorNamespaceEnvName,
+						Name: caasconstants.OperatorNamespaceEnvName,
 						ValueFrom: &core.EnvVarSource{
 							FieldRef: &core.ObjectFieldSelector{
 								FieldPath: "metadata.namespace",

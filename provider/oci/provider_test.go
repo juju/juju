@@ -16,19 +16,19 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/provider/oci"
 	ocitesting "github.com/juju/juju/provider/oci/testing"
 	jujutesting "github.com/juju/juju/testing"
-
-	"github.com/juju/juju/provider/oci"
 )
 
 type credentialsSuite struct {
 	testing.FakeHomeSuite
 
 	provider environs.EnvironProvider
-	spec     environs.CloudSpec
+	spec     environscloudspec.CloudSpec
 }
 
 var _ = gc.Suite(&credentialsSuite{})
@@ -49,9 +49,9 @@ func newConfig(c *gc.C, attrs jujutesting.Attrs) *config.Config {
 	return cfg
 }
 
-func fakeCloudSpec() environs.CloudSpec {
+func fakeCloudSpec() environscloudspec.CloudSpec {
 	cred := fakeCredential()
-	return environs.CloudSpec{
+	return environscloudspec.CloudSpec{
 		Type:       "oci",
 		Name:       "oci",
 		Region:     "us-phoenix-1",

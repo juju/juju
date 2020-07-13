@@ -12,7 +12,7 @@ import (
 	"gopkg.in/goose.v2/neutron"
 	"gopkg.in/goose.v2/nova"
 
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
 
 // SSLHostnameConfig defines the options for host name verification
@@ -32,7 +32,7 @@ type ClientFunc = func(cred identity.Credentials,
 // TODO (stickupkid): This should be moved into goose and the factory should
 // accept a configuration returning back goose clients.
 type ClientFactory struct {
-	spec              environs.CloudSpec
+	spec              environscloudspec.CloudSpec
 	sslHostnameConfig SSLHostnameConfig
 
 	// We store the auth client, so nova can reuse it.
@@ -44,7 +44,7 @@ type ClientFactory struct {
 
 // NewClientFactory creates a new ClientFactory from the CloudSpec and environ
 // config arguments.
-func NewClientFactory(spec environs.CloudSpec, sslHostnameConfig SSLHostnameConfig) *ClientFactory {
+func NewClientFactory(spec environscloudspec.CloudSpec, sslHostnameConfig SSLHostnameConfig) *ClientFactory {
 	return &ClientFactory{
 		spec:              spec,
 		sslHostnameConfig: sslHostnameConfig,

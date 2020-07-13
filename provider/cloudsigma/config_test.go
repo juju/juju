@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 )
@@ -27,9 +28,9 @@ func validAttrs() testing.Attrs {
 	})
 }
 
-func fakeCloudSpec() environs.CloudSpec {
+func fakeCloudSpec() environscloudspec.CloudSpec {
 	cred := fakeCredential()
-	return environs.CloudSpec{
+	return environscloudspec.CloudSpec{
 		Type:       "cloudsigma",
 		Name:       "cloudsigma",
 		Region:     "testregion",
@@ -56,7 +57,7 @@ func (s *configSuite) SetUpSuite(c *gc.C) {
 func (s *configSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	// speed up tests, do not create heavy stuff inside providers created within this test suite
-	s.PatchValue(&newClient, func(environs.CloudSpec, string) (*environClient, error) {
+	s.PatchValue(&newClient, func(environscloudspec.CloudSpec, string) (*environClient, error) {
 		return nil, nil
 	})
 }

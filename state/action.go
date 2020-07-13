@@ -18,6 +18,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	stateerrors "github.com/juju/juju/state/errors"
 )
 
 const (
@@ -731,7 +733,7 @@ func (m *Model) EnqueueAction(operationID string, receiver names.Tag, actionName
 		if notDead, err := isNotDead(m.st, receiverCollectionName, receiverId); err != nil {
 			return nil, err
 		} else if !notDead {
-			return nil, ErrDead
+			return nil, stateerrors.ErrDead
 		} else if attempt != 0 {
 			_, err := m.Operation(operationID)
 			if err != nil {

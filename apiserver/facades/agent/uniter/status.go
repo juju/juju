@@ -7,6 +7,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
@@ -115,18 +116,18 @@ func (s *StatusAPI) ApplicationStatus(args params.Entities) (params.ApplicationS
 		// to applications in this method).
 		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if !canAccess(tag) {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		unitTag, ok := tag.(names.UnitTag)
 		if !ok {
 			// No matter what the canAccess says, if this entity is not
 			// a unit, we say "NO".
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		unitId := unitTag.Id()
@@ -135,12 +136,12 @@ func (s *StatusAPI) ApplicationStatus(args params.Entities) (params.ApplicationS
 		// specified in the first place...
 		applicationId, err := names.UnitApplication(unitId)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		application, err := s.st.Application(applicationId)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -150,7 +151,7 @@ func (s *StatusAPI) ApplicationStatus(args params.Entities) (params.ApplicationS
 			// TODO(fwereade) this should probably be ErrPerm is certain cases,
 			// but I don't think I implemented an exported ErrNotLeader. I
 			// should have done, though.
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
@@ -185,7 +186,7 @@ func (s *StatusAPI) getAppAndUnitStatus(application *state.Application) params.A
 
 	unitStatuses, err := application.UnitStatuses()
 	if err != nil {
-		result.Error = common.ServerError(err)
+		result.Error = apiservererrors.ServerError(err)
 	} else {
 		for name, status := range unitStatuses {
 			result.Units[name] = s.toStatusResult(status)

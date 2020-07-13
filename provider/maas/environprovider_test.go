@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/testing"
@@ -32,9 +33,9 @@ type EnvironProviderSuite struct {
 
 var _ = gc.Suite(&EnvironProviderSuite{})
 
-func (s *EnvironProviderSuite) cloudSpec() environs.CloudSpec {
+func (s *EnvironProviderSuite) cloudSpec() environscloudspec.CloudSpec {
 	credential := oauthCredential("aa:bb:cc")
-	return environs.CloudSpec{
+	return environscloudspec.CloudSpec{
 		Type:       "maas",
 		Name:       "maas",
 		Endpoint:   "http://maas.testing.invalid/maas/",

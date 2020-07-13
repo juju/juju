@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
@@ -260,7 +260,7 @@ func (s *listCredentialsSuite) TestListAllCredentials(c *gc.C) {
 	s.testAPI.credentialContentsF = func(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error) {
 		return []params.CredentialContentResult{
 			{Result: &params.ControllerCredentialInfo{Content: params.CredentialContent{Cloud: "remote-cloud", Name: "remote-name"}}},
-			{Error: common.ServerError(errors.New("kabbom"))},
+			{Error: apiservererrors.ServerError(errors.New("kabbom"))},
 		}, nil
 	}
 	out := s.listCredentials(c)

@@ -12,8 +12,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
@@ -109,7 +109,7 @@ func (api *API) checkCanRead() error {
 		return errors.Trace(err)
 	}
 	if !canRead {
-		return common.ServerError(common.ErrPerm)
+		return apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 	return nil
 }
@@ -120,7 +120,7 @@ func (api *API) checkCanWrite() error {
 		return errors.Trace(err)
 	}
 	if !canWrite {
-		return common.ServerError(common.ErrPerm)
+		return apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 	return nil
 }
@@ -130,7 +130,7 @@ func (api *API) checkCanWrite() error {
 func newAPIWithBacking(backing Backing, ctx context.ProviderCallContext, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
 	// Only clients can access the Subnets facade.
 	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
 		backing:    backing,
@@ -197,7 +197,7 @@ func (api *APIv2) AddSubnets(args params.AddSubnetsParamsV2) (params.ErrorResult
 		results := params.ErrorResults{
 			Results: make([]params.ErrorResult, len(args.Subnets)),
 		}
-		results.Results[errIndex].Error = common.ServerError(err)
+		results.Results[errIndex].Error = apiservererrors.ServerError(err)
 	}
 	return api.addSubnets(newArgs)
 }
@@ -215,7 +215,7 @@ func (api *API) addSubnets(args params.AddSubnetsParams) (params.ErrorResults, e
 	for i, arg := range args.Subnets {
 		err := addOneSubnet(api.context, api.backing, arg, cache)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return results, nil
@@ -276,13 +276,13 @@ func (api *API) SubnetsByCIDR(arg params.CIDRParams) (params.SubnetsResults, err
 	results := make([]params.SubnetsResult, len(arg.CIDRS))
 	for i, cidr := range arg.CIDRS {
 		if !network.IsValidCIDR(cidr) {
-			results[i].Error = common.ServerError(errors.NotValidf("CIDR %q", cidr))
+			results[i].Error = apiservererrors.ServerError(errors.NotValidf("CIDR %q", cidr))
 			continue
 		}
 
 		subnets, err := api.backing.SubnetsByCIDR(cidr)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 

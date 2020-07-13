@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/simplestreams"
@@ -94,7 +95,7 @@ var verifyCredentials = func(e *joyentEnviron) error {
 	return nil
 }
 
-func credentials(cloud environs.CloudSpec) (*auth.Credentials, error) {
+func credentials(cloud environscloudspec.CloudSpec) (*auth.Credentials, error) {
 	credAttrs := cloud.Credential.Attributes()
 	sdcUser := credAttrs[credAttrSDCUser]
 	sdcKeyID := credAttrs[credAttrSDCKeyID]
@@ -162,7 +163,7 @@ func (p joyentProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 	return &environConfig{valid, valid.UnknownAttrs()}, nil
 }
 
-func validateCloudSpec(spec environs.CloudSpec) error {
+func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 	if err := spec.Validate(); err != nil {
 		return errors.Trace(err)
 	}

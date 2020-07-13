@@ -5,7 +5,6 @@ package addons
 
 import (
 	"runtime"
-	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/introspection"
 )
 
@@ -94,27 +92,4 @@ func NewPrometheusRegistry() (*prometheus.Registry, error) {
 		return nil, errors.Trace(err)
 	}
 	return r, nil
-}
-
-// StatePoolIntrospectionReporter wraps a (possibly nil) state.StatePool,
-// calling its IntrospectionReport method or returning a message if it
-// is nil.
-type StatePoolIntrospectionReporter struct {
-	mu   sync.Mutex
-	pool *state.StatePool
-}
-
-func (h *StatePoolIntrospectionReporter) Set(pool *state.StatePool) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.pool = pool
-}
-
-func (h *StatePoolIntrospectionReporter) IntrospectionReport() string {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.pool == nil {
-		return "agent has no pool set"
-	}
-	return h.pool.IntrospectionReport()
 }

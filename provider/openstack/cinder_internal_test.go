@@ -10,7 +10,7 @@ import (
 	"gopkg.in/goose.v2/client"
 	"gopkg.in/goose.v2/identity"
 
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
 
 // TODO(axw) 2016-10-03 #1629721
@@ -26,7 +26,7 @@ var _ = gc.Suite(&cinderInternalSuite{})
 
 func (s *cinderInternalSuite) TestStorageProviderTypes(c *gc.C) {
 	env := &Environ{
-		cloudUnlocked: environs.CloudSpec{
+		cloudUnlocked: environscloudspec.CloudSpec{
 			Region: "foo",
 		},
 		clientUnlocked: &testAuthClient{

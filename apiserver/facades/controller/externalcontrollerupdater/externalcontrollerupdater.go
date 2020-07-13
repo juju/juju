@@ -7,7 +7,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
@@ -41,7 +41,7 @@ func NewAPI(
 	externalControllers state.ExternalControllers,
 ) (*ExternalControllerUpdaterAPI, error) {
 	if !auth.AuthController() {
-		return nil, common.ErrPerm
+		return nil, apiservererrors.ErrPerm
 	}
 	return &ExternalControllerUpdaterAPI{
 		externalControllers,
@@ -57,7 +57,7 @@ func (api *ExternalControllerUpdaterAPI) WatchExternalControllers() (params.Stri
 	if !ok {
 		return params.StringsWatchResults{
 			[]params.StringsWatchResult{{
-				Error: common.ServerError(watcher.EnsureErr(w)),
+				Error: apiservererrors.ServerError(watcher.EnsureErr(w)),
 			}},
 		}, nil
 	}
@@ -77,12 +77,12 @@ func (s *ExternalControllerUpdaterAPI) ExternalControllerInfo(args params.Entiti
 	for i, entity := range args.Entities {
 		controllerTag, err := names.ParseControllerTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		controller, err := s.externalControllers.Controller(controllerTag.Id())
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		info := controller.ControllerInfo()
@@ -104,7 +104,7 @@ func (s *ExternalControllerUpdaterAPI) SetExternalControllerInfo(args params.Set
 	for i, arg := range args.Controllers {
 		controllerTag, err := names.ParseControllerTag(arg.Info.ControllerTag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if _, err := s.externalControllers.Save(crossmodel.ControllerInfo{
@@ -113,7 +113,7 @@ func (s *ExternalControllerUpdaterAPI) SetExternalControllerInfo(args params.Set
 			Addrs:         arg.Info.Addrs,
 			CACert:        arg.Info.CACert,
 		}); err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 	}

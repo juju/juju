@@ -16,7 +16,7 @@ import (
 	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -135,7 +135,7 @@ func sendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface
 // sendError sends a JSON-encoded error response
 // for errors encountered during processing.
 func sendError(w http.ResponseWriter, errToSend error) error {
-	paramsErr, statusCode := common.ServerErrorAndStatus(errToSend)
+	paramsErr, statusCode := apiservererrors.ServerErrorAndStatus(errToSend)
 	logger.Debugf("sending error: %d %v", statusCode, paramsErr)
 	return errors.Trace(sendStatusAndJSON(w, statusCode, &params.ErrorResult{
 		Error: paramsErr,
@@ -147,7 +147,7 @@ func (h *BasicAuthHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	authInfo, err := h.Authenticator.Authenticate(req)
 	if err != nil {
 		w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-		if common.IsDischargeRequiredError(err) {
+		if apiservererrors.IsDischargeRequiredError(err) {
 			sendErr := sendError(w, err)
 			if sendErr != nil {
 				logger.Errorf("%v", sendErr)

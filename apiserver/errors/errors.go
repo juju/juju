@@ -1,7 +1,7 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common
+package errors
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/txn"
 	"gopkg.in/macaroon-bakery.v2/bakery"
@@ -18,8 +19,10 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.common.errors")
 
 func NotSupportedError(tag names.Tag, operation string) error {
 	return errors.Errorf("entity %q does not support %s", tag, operation)
@@ -83,7 +86,7 @@ func IsDischargeRequiredError(err error) bool {
 // IsUpgradeInProgress returns true if this error is caused
 // by an upgrade in progress.
 func IsUpgradeInProgressError(err error) bool {
-	if state.IsUpgradeInProgressError(err) {
+	if stateerrors.IsUpgradeInProgressError(err) {
 		return true
 	}
 	return errors.Cause(err) == params.UpgradeInProgressError
@@ -148,23 +151,23 @@ func OperationBlockedError(msg string) error {
 }
 
 var singletonErrorCodes = map[error]string{
-	state.ErrCannotEnterScopeYet: params.CodeCannotEnterScopeYet,
-	state.ErrCannotEnterScope:    params.CodeCannotEnterScope,
-	state.ErrUnitHasSubordinates: params.CodeUnitHasSubordinates,
-	state.ErrDead:                params.CodeDead,
-	txn.ErrExcessiveContention:   params.CodeExcessiveContention,
-	leadership.ErrClaimDenied:    params.CodeLeadershipClaimDenied,
-	lease.ErrClaimDenied:         params.CodeLeaseClaimDenied,
-	ErrBadId:                     params.CodeNotFound,
-	ErrBadCreds:                  params.CodeUnauthorized,
-	ErrNoCreds:                   params.CodeNoCreds,
-	ErrLoginExpired:              params.CodeLoginExpired,
-	ErrPerm:                      params.CodeUnauthorized,
-	ErrNotLoggedIn:               params.CodeUnauthorized,
-	ErrUnknownWatcher:            params.CodeNotFound,
-	ErrStoppedWatcher:            params.CodeStopped,
-	ErrTryAgain:                  params.CodeTryAgain,
-	ErrActionNotAvailable:        params.CodeActionNotAvailable,
+	stateerrors.ErrCannotEnterScopeYet: params.CodeCannotEnterScopeYet,
+	stateerrors.ErrCannotEnterScope:    params.CodeCannotEnterScope,
+	stateerrors.ErrUnitHasSubordinates: params.CodeUnitHasSubordinates,
+	stateerrors.ErrDead:                params.CodeDead,
+	txn.ErrExcessiveContention:         params.CodeExcessiveContention,
+	leadership.ErrClaimDenied:          params.CodeLeadershipClaimDenied,
+	lease.ErrClaimDenied:               params.CodeLeaseClaimDenied,
+	ErrBadId:                           params.CodeNotFound,
+	ErrBadCreds:                        params.CodeUnauthorized,
+	ErrNoCreds:                         params.CodeNoCreds,
+	ErrLoginExpired:                    params.CodeLoginExpired,
+	ErrPerm:                            params.CodeUnauthorized,
+	ErrNotLoggedIn:                     params.CodeUnauthorized,
+	ErrUnknownWatcher:                  params.CodeNotFound,
+	ErrStoppedWatcher:                  params.CodeStopped,
+	ErrTryAgain:                        params.CodeTryAgain,
+	ErrActionNotAvailable:              params.CodeActionNotAvailable,
 }
 
 func singletonCode(err error) (string, bool) {
@@ -253,13 +256,13 @@ func ServerError(err error) *params.Error {
 		code = params.CodeAlreadyExists
 	case errors.IsNotAssigned(err):
 		code = params.CodeNotAssigned
-	case state.IsHasAssignedUnitsError(err):
+	case stateerrors.IsHasAssignedUnitsError(err):
 		code = params.CodeHasAssignedUnits
-	case state.IsHasHostedModelsError(err):
+	case stateerrors.IsHasHostedModelsError(err):
 		code = params.CodeHasHostedModels
-	case state.IsHasPersistentStorageError(err):
+	case stateerrors.IsHasPersistentStorageError(err):
 		code = params.CodeHasPersistentStorage
-	case state.IsModelNotEmptyError(err):
+	case stateerrors.IsModelNotEmptyError(err):
 		code = params.CodeModelNotEmpty
 	case isNoAddressSetError(err):
 		code = params.CodeNoAddressSet
@@ -267,9 +270,9 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotProvisioned
 	case IsUpgradeInProgressError(err):
 		code = params.CodeUpgradeInProgress
-	case state.IsHasAttachmentsError(err):
+	case stateerrors.IsHasAttachmentsError(err):
 		code = params.CodeMachineHasAttachedStorage
-	case state.IsStorageAttachedError(err):
+	case stateerrors.IsStorageAttachedError(err):
 		code = params.CodeStorageAttached
 	case isUnknownModelError(err):
 		code = params.CodeModelNotFound
@@ -283,7 +286,7 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotImplemented
 	case errors.IsForbidden(err):
 		code = params.CodeForbidden
-	case state.IsIncompatibleSeriesError(err):
+	case stateerrors.IsIncompatibleSeriesError(err):
 		code = params.CodeIncompatibleSeries
 	case IsDischargeRequiredError(err):
 		dischErr := errors.Cause(err).(*DischargeRequiredError)
@@ -374,7 +377,7 @@ func RestoreError(err error) error {
 	case params.IsCodeNotAssigned(err):
 		return errors.NewNotAssigned(nil, msg)
 	case params.IsCodeHasAssignedUnits(err):
-		// TODO(ericsnow) Handle state.HasAssignedUnitsError here.
+		// TODO(ericsnow) Handle stateerrors.HasAssignedUnitsError here.
 		// ...by parsing msg?
 		return err
 	case params.IsCodeHasHostedModels(err):
@@ -390,11 +393,11 @@ func RestoreError(err error) error {
 	case params.IsCodeNotProvisioned(err):
 		return errors.NewNotProvisioned(nil, msg)
 	case params.IsCodeUpgradeInProgress(err):
-		// TODO(ericsnow) Handle state.UpgradeInProgressError here.
+		// TODO(ericsnow) Handle stateerrors.UpgradeInProgressError here.
 		// ...by parsing msg?
 		return err
 	case params.IsCodeMachineHasAttachedStorage(err):
-		// TODO(ericsnow) Handle state.HasAttachmentsError here.
+		// TODO(ericsnow) Handle stateerrors.HasAttachmentsError here.
 		// ...by parsing msg?
 		return err
 	case params.IsCodeStorageAttached(err):

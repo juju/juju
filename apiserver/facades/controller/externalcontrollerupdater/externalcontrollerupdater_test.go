@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/controller/externalcontrollerupdater"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
@@ -47,7 +48,7 @@ func (s *CrossControllerSuite) SetUpTest(c *gc.C) {
 func (s *CrossControllerSuite) TestNewAPINonController(c *gc.C) {
 	s.auth.Controller = false
 	_, err := externalcontrollerupdater.NewAPI(s.auth, s.resources, s.externalControllers)
-	c.Assert(err, gc.Equals, common.ErrPerm)
+	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *CrossControllerSuite) TestExternalControllerInfo(c *gc.C) {

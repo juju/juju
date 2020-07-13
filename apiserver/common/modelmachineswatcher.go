@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -44,7 +45,7 @@ func NewModelMachinesWatcher(st state.ModelMachinesWatcher, resources facade.Res
 func (e *ModelMachinesWatcher) WatchModelMachines() (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	if !e.authorizer.AuthController() {
-		return result, ErrPerm
+		return result, apiservererrors.ErrPerm
 	}
 	watch := e.st.WatchModelMachines()
 	// Consume the initial event and forward it to the result.
@@ -63,7 +64,7 @@ func (e *ModelMachinesWatcher) WatchModelMachines() (params.StringsWatchResult, 
 func (e *ModelMachinesWatcher) WatchModelMachineStartTimes() (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	if !e.authorizer.AuthController() {
-		return result, ErrPerm
+		return result, apiservererrors.ErrPerm
 	}
 	watch := e.st.WatchModelMachineStartTimes(watchMachinesQuiesceInterval)
 	// Consume the initial event and forward it to the result.

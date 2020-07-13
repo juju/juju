@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
 	_ "github.com/juju/juju/provider/dummy"
@@ -35,7 +35,7 @@ func (s *addSuite) SetUpTest(c *gc.C) {
 			result := make([]params.AddStorageResult, len(storages))
 			for i, one := range storages {
 				if strings.HasPrefix(one.StorageName, "err") {
-					result[i].Error = common.ServerError(errors.Errorf("test failure"))
+					result[i].Error = apiservererrors.ServerError(errors.Errorf("test failure"))
 					continue
 				}
 				result[i].Result = &params.AddStorageDetails{
@@ -158,10 +158,10 @@ failed to add storage "storage42" to tst/123: storage "storage42" not found
 		result := make([]params.AddStorageResult, len(storages))
 		for i, one := range storages {
 			if one.StorageName == "storage2" {
-				result[i].Error = common.ServerError(errors.Errorf(`storage pool "barf" not found`))
+				result[i].Error = apiservererrors.ServerError(errors.Errorf(`storage pool "barf" not found`))
 			}
 			if one.StorageName == "storage42" {
-				result[i].Error = common.ServerError(errors.Errorf(`storage "storage42" not found`))
+				result[i].Error = apiservererrors.ServerError(errors.Errorf(`storage "storage42" not found`))
 			}
 		}
 		return result, nil
@@ -182,7 +182,7 @@ failed to add storage "storage42" to tst/123: storage "storage42" not found
 		result := make([]params.AddStorageResult, len(storages))
 		for i, one := range storages {
 			if one.StorageName == "storage42" || one.StorageName == "storage2" {
-				result[i].Error = common.ServerError(errors.Errorf(`storage "%v" not found`, one.StorageName))
+				result[i].Error = apiservererrors.ServerError(errors.Errorf(`storage "%v" not found`, one.StorageName))
 			}
 		}
 		return result, nil
@@ -203,9 +203,9 @@ storage "storage0" not found
 		result := make([]params.AddStorageResult, len(storages))
 		for i, one := range storages {
 			if one.StorageName == "storage42" || one.StorageName == "storage2" {
-				result[i].Error = common.ServerError(errors.New(unitErr))
+				result[i].Error = apiservererrors.ServerError(errors.New(unitErr))
 			} else {
-				result[i].Error = common.ServerError(errors.Errorf(`storage "%v" not found`, one.StorageName))
+				result[i].Error = apiservererrors.ServerError(errors.Errorf(`storage "%v" not found`, one.StorageName))
 			}
 		}
 		return result, nil
@@ -221,7 +221,7 @@ func (s *addSuite) TestCollapseUnitErrors(c *gc.C) {
 	s.mockAPI.addToUnitFunc = func(storages []params.StorageAddParams) ([]params.AddStorageResult, error) {
 		result := make([]params.AddStorageResult, len(storages))
 		for i := range storages {
-			result[i].Error = common.ServerError(errors.New(expectedErr))
+			result[i].Error = apiservererrors.ServerError(errors.New(expectedErr))
 		}
 		return result, nil
 	}

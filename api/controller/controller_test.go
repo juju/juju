@@ -17,10 +17,10 @@ import (
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -132,7 +132,7 @@ func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
 func (s *Suite) TestInitiateMigrationError(c *gc.C) {
 	client, _ := makeInitiateMigrationClient(params.InitiateMigrationResults{
 		Results: []params.InitiateMigrationResult{{
-			Error: common.ServerError(errors.New("boom")),
+			Error: apiservererrors.ServerError(errors.New("boom")),
 		}},
 	})
 	id, err := client.InitiateMigration(makeSpec())
@@ -228,7 +228,7 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *gc.C) {
 	c.Assert(first.Config, gc.DeepEquals, map[string]interface{}{
 		"name": "first",
 	})
-	c.Assert(first.CloudSpec, gc.DeepEquals, environs.CloudSpec{
+	c.Assert(first.CloudSpec, gc.DeepEquals, environscloudspec.CloudSpec{
 		Type: "magic",
 		Name: "first",
 	})
@@ -322,7 +322,7 @@ func (s *Suite) TestModelStatus(c *gc.C) {
 						Status:     "pending",
 					}},
 				},
-				{Error: common.ServerError(errors.New("model error"))},
+				{Error: apiservererrors.ServerError(errors.New("model error"))},
 			}
 			return nil
 		},

@@ -336,11 +336,11 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Destroy()
-	c.Assert(errors.Cause(err), gc.FitsTypeOf, &state.HasContainersError{})
+	c.Assert(errors.Cause(err), jc.Satisfies, state.IsHasContainersError)
 	c.Assert(err, gc.ErrorMatches, `machine 1 is hosting containers "1/lxd/0"`)
 
 	err = s.machine.EnsureDead()
-	c.Assert(errors.Cause(err), gc.FitsTypeOf, &state.HasContainersError{})
+	c.Assert(errors.Cause(err), jc.Satisfies, state.IsHasContainersError)
 	c.Assert(err, gc.ErrorMatches, `machine 1 is hosting containers "1/lxd/0"`)
 
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)

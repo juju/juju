@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
@@ -93,7 +93,7 @@ func mockAPICaller(c *gc.C, callNumber *int32, apiCalls ...apiCall) apitesting.A
 			c.Check(request, gc.Equals, call.request)
 			c.Check(arg, jc.DeepEquals, call.args)
 			if call.err != nil {
-				return common.ServerError(call.err)
+				return apiservererrors.ServerError(call.err)
 			}
 			testing.PatchValue(result, call.result)
 		default:

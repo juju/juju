@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	stateerrors "github.com/juju/juju/state/errors"
 )
 
 func isController(mdoc *machineDoc) bool {
@@ -639,7 +640,7 @@ func (c *controllerNode) SetHasVote(hasVote bool) error {
 		}
 		if err == nil {
 			if host.Life() == Dead {
-				return nil, ErrDead
+				return nil, stateerrors.ErrDead
 			}
 			ops = []txn.Op{{
 				C:      machinesC,

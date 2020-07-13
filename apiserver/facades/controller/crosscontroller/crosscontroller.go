@@ -7,6 +7,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -57,7 +58,7 @@ func (api *CrossControllerAPI) WatchControllerInfo() (params.NotifyWatchResults,
 	}
 	w := api.watchLocalControllerInfo()
 	if _, ok := <-w.Changes(); !ok {
-		results.Results[0].Error = common.ServerError(watcher.EnsureErr(w))
+		results.Results[0].Error = apiservererrors.ServerError(watcher.EnsureErr(w))
 		return results, nil
 	}
 	results.Results[0].NotifyWatcherId = api.resources.Register(w)
@@ -71,7 +72,7 @@ func (api *CrossControllerAPI) ControllerInfo() (params.ControllerAPIInfoResults
 	}
 	addrs, caCert, err := api.localControllerInfo()
 	if err != nil {
-		results.Results[0].Error = common.ServerError(err)
+		results.Results[0].Error = apiservererrors.ServerError(err)
 		return results, nil
 	}
 	results.Results[0].Addresses = addrs

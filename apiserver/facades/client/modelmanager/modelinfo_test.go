@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
@@ -770,7 +771,7 @@ func (st *mockState) ControllerTag() names.ControllerTag {
 	return names.NewControllerTag(st.controllerUUID)
 }
 
-func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environs.CloudRegionSpec) (map[string]interface{}, error) {
+func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environscloudspec.CloudRegionSpec) (map[string]interface{}, error) {
 	st.MethodCall(st, "ComposeNewModelConfig")
 	attr := make(map[string]interface{})
 	for attrName, val := range modelAttr {
@@ -882,7 +883,7 @@ func (st *mockState) ModelConfigDefaultValues(cloud string) (config.ModelDefault
 	return st.cfgDefaults, nil
 }
 
-func (st *mockState) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, rspec *environs.CloudRegionSpec) error {
+func (st *mockState) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, rspec *environscloudspec.CloudRegionSpec) error {
 	st.MethodCall(st, "UpdateModelConfigDefaultValues", update, remove, rspec)
 	for k, v := range update {
 		if rspec != nil {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 )
@@ -298,7 +299,7 @@ func prepareConfigParams(cfg *config.Config) environs.PrepareConfigParams {
 	})
 	return environs.PrepareConfigParams{
 		Config: cfg,
-		Cloud: environs.CloudSpec{
+		Cloud: environscloudspec.CloudSpec{
 			Type:       "openstack",
 			Name:       "canonistack",
 			Region:     "region",

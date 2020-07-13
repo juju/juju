@@ -9,15 +9,16 @@ import (
 	"html/template"
 
 	"github.com/joyent/gosign/auth"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 var indexData = `
@@ -205,7 +206,7 @@ func FindInstanceSpec(
 
 // MakeCredentials creates credentials for a test.
 func MakeCredentials(c *gc.C, endpoint string, cloudCredential cloud.Credential) *auth.Credentials {
-	creds, err := credentials(environs.CloudSpec{
+	creds, err := credentials(environscloudspec.CloudSpec{
 		Endpoint:   endpoint,
 		Credential: &cloudCredential,
 	})

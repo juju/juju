@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/agent/metricsender/testing"
 	"github.com/juju/juju/apiserver/facades/controller/metricsmanager"
 	"github.com/juju/juju/apiserver/params"
@@ -104,7 +104,7 @@ func (s *metricsManagerSuite) TestCleanupOldMetricsInvalidArg(c *gc.C) {
 	result, err := s.metricsmanager.CleanupOldMetrics(args)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedError := common.ServerError(common.ErrPerm)
+	expectedError := apiservererrors.ServerError(apiservererrors.ErrPerm)
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
 }
 
@@ -116,7 +116,7 @@ func (s *metricsManagerSuite) TestCleanupArgsIndependent(c *gc.C) {
 	result, err := s.metricsmanager.CleanupOldMetrics(args)
 	c.Assert(result.Results, gc.HasLen, 2)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedError := common.ServerError(common.ErrPerm)
+	expectedError := apiservererrors.ServerError(apiservererrors.ErrPerm)
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
 	c.Assert(result.Results[1], gc.DeepEquals, params.ErrorResult{Error: nil})
 }

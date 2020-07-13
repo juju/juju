@@ -7,9 +7,11 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -30,7 +32,7 @@ func instanceTypes(mm *MachineManagerAPI,
 		return params.InstanceTypesResults{}, errors.Trace(err)
 	}
 
-	cloudSpec := func() (environs.CloudSpec, error) {
+	cloudSpec := func() (environscloudspec.CloudSpec, error) {
 		return stateenvirons.CloudSpecForModel(model)
 	}
 	backend := common.EnvironConfigGetterFuncs{
@@ -56,7 +58,7 @@ func instanceTypes(mm *MachineManagerAPI,
 		)
 		it, err := common.InstanceTypes(itCons)
 		if err != nil {
-			it = params.InstanceTypesResult{Error: common.ServerError(err)}
+			it = params.InstanceTypesResult{Error: apiservererrors.ServerError(err)}
 		}
 		result[i] = it
 	}

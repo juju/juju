@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	envinstance "github.com/juju/juju/environs/instances"
@@ -46,7 +47,7 @@ type OracleEnviron struct {
 
 	mutex     *sync.Mutex
 	p         *EnvironProvider
-	spec      environs.CloudSpec
+	spec      environscloudspec.CloudSpec
 	cfg       *config.Config
 	client    EnvironAPI
 	namespace instance.Namespace

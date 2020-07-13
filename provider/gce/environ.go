@@ -13,6 +13,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/simplestreams"
@@ -74,7 +75,7 @@ type gceConnection interface {
 type environ struct {
 	name  string
 	uuid  string
-	cloud environs.CloudSpec
+	cloud environscloudspec.CloudSpec
 	gce   gceConnection
 
 	lock sync.Mutex // lock protects access to ecfg
@@ -97,7 +98,7 @@ var (
 	bootstrap  = common.Bootstrap
 )
 
-func newEnviron(cloud environs.CloudSpec, cfg *config.Config) (*environ, error) {
+func newEnviron(cloud environscloudspec.CloudSpec, cfg *config.Config) (*environ, error) {
 	ecfg, err := newConfig(cfg, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
@@ -121,7 +122,7 @@ func newEnviron(cloud environs.CloudSpec, cfg *config.Config) (*environ, error) 
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (e *environ) SetCloudSpec(spec environs.CloudSpec) error {
+func (e *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 

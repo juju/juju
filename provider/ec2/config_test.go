@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/testing"
@@ -55,7 +56,7 @@ func (t configTest) check(c *gc.C) {
 			"secret-key": "y",
 		},
 	)
-	cloudSpec := environs.CloudSpec{
+	cloudSpec := environscloudspec.CloudSpec{
 		Type:       "ec2",
 		Name:       "ec2test",
 		Region:     "us-east-1",
@@ -330,7 +331,7 @@ func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *gc.C) {
 	)
 	cfg, err = providerInstance.PrepareConfig(environs.PrepareConfigParams{
 		Config: cfg,
-		Cloud: environs.CloudSpec{
+		Cloud: environscloudspec.CloudSpec{
 			Type:       "ec2",
 			Name:       "aws",
 			Region:     "test",
@@ -360,7 +361,7 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 	)
 	cfg, err := providerInstance.PrepareConfig(environs.PrepareConfigParams{
 		Config: baseConfig,
-		Cloud: environs.CloudSpec{
+		Cloud: environscloudspec.CloudSpec{
 			Type:       "ec2",
 			Name:       "aws",
 			Region:     "test",

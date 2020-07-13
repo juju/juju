@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/environ"
 )
@@ -118,7 +119,7 @@ func (s *TrackerSuite) TestModelConfigValid(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestCloudSpec(c *gc.C) {
-	cloudSpec := environs.CloudSpec{
+	cloudSpec := environscloudspec.CloudSpec{
 		Name:   "foo",
 		Type:   "bar",
 		Region: "baz",
@@ -259,14 +260,14 @@ func (s *TrackerSuite) TestWatchedModelConfigUpdates(c *gc.C) {
 
 func (s *TrackerSuite) TestWatchedCloudSpecUpdates(c *gc.C) {
 	fix := &fixture{
-		initialSpec: environs.CloudSpec{Name: "cloud", Type: "lxd"},
+		initialSpec: environscloudspec.CloudSpec{Name: "cloud", Type: "lxd"},
 	}
 	fix.Run(c, func(context *runContext) {
 		tracker, err := environ.NewTracker(s.validConfig(context))
 		c.Check(err, jc.ErrorIsNil)
 		defer workertest.CleanKill(c, tracker)
 
-		context.SetCloudSpec(c, environs.CloudSpec{Name: "lxd", Type: "lxd", Endpoint: "http://api"})
+		context.SetCloudSpec(c, environscloudspec.CloudSpec{Name: "lxd", Type: "lxd", Endpoint: "http://api"})
 		gotEnviron := tracker.Environ().(*mockEnviron)
 		c.Assert(gotEnviron.CloudSpec(), jc.DeepEquals, fix.initialSpec)
 
@@ -306,14 +307,14 @@ func (s *TrackerSuite) TestWatchedCloudSpecCredentialsUpdates(c *gc.C) {
 		},
 	)
 	fix := &fixture{
-		initialSpec: environs.CloudSpec{Name: "cloud", Type: "lxd", Credential: &original},
+		initialSpec: environscloudspec.CloudSpec{Name: "cloud", Type: "lxd", Credential: &original},
 	}
 	fix.Run(c, func(context *runContext) {
 		tracker, err := environ.NewTracker(s.validConfig(context))
 		c.Check(err, jc.ErrorIsNil)
 		defer workertest.CleanKill(c, tracker)
 
-		context.SetCloudSpec(c, environs.CloudSpec{Name: "lxd", Type: "lxd", Credential: &differentContent})
+		context.SetCloudSpec(c, environscloudspec.CloudSpec{Name: "lxd", Type: "lxd", Credential: &differentContent})
 		gotEnviron := tracker.Environ().(*mockEnviron)
 		c.Assert(gotEnviron.CloudSpec(), jc.DeepEquals, fix.initialSpec)
 

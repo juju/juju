@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
 
 // logger is here to stop the desire of creating a package level logger.
@@ -55,7 +56,7 @@ type Tracker struct {
 	config           Config
 	catacomb         catacomb.Catacomb
 	environ          environs.Environ
-	currentCloudSpec environs.CloudSpec
+	currentCloudSpec environscloudspec.CloudSpec
 }
 
 // NewTracker loads an environment from the observer and returns a new Tracker,

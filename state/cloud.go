@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/mongo/utils"
 )
 
@@ -264,7 +264,7 @@ func (st *State) updateConfigDefaults(cloudName string, config cloud.Attrs, regi
 		}
 		cfg[k] = v
 	}
-	regionSpec, err := environs.NewCloudRegionSpec(cloudName, "")
+	regionSpec, err := environscloudspec.NewCloudRegionSpec(cloudName, "")
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -272,7 +272,7 @@ func (st *State) updateConfigDefaults(cloudName string, config cloud.Attrs, regi
 		return errors.Trace(err)
 	}
 	for r, regionConfig := range regionConfig {
-		regionSpec, err := environs.NewCloudRegionSpec(cloudName, r)
+		regionSpec, err := environscloudspec.NewCloudRegionSpec(cloudName, r)
 		if err != nil {
 			return errors.Trace(err)
 		}

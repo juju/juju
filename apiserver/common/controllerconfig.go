@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
@@ -48,12 +49,12 @@ func (s *ControllerConfigAPI) ControllerAPIInfoForModels(args params.Entities) (
 	for i, entity := range args.Entities {
 		modelTag, err := names.ParseModelTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		addrs, caCert, err := s.st.ControllerInfo(modelTag.Id())
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		result.Results[i].Addresses = addrs

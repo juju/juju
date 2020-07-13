@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/api/applicationoffers"
 	basetesting "github.com/juju/juju/api/base/testing"
 	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/testing"
@@ -60,7 +60,7 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 				all := make([]params.ErrorResult, len(args.Offers))
 				// add one error to make sure it's catered for.
 				all = append(all, params.ErrorResult{
-					Error: common.ServerError(errors.New(msg))})
+					Error: apiservererrors.ServerError(errors.New(msg))})
 				results.Results = all
 			}
 
@@ -74,7 +74,7 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 	c.Assert(results, jc.DeepEquals,
 		[]params.ErrorResult{
 			{},
-			{Error: common.ServerError(errors.New(msg))},
+			{Error: apiservererrors.ServerError(errors.New(msg))},
 		})
 }
 
@@ -342,7 +342,7 @@ func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
 
 			if points, ok := result.(*params.ApplicationOffersResults); ok {
 				points.Results = []params.ApplicationOfferResult{
-					{Error: common.ServerError(errors.New(msg))}}
+					{Error: apiservererrors.ServerError(errors.New(msg))}}
 			}
 			return nil
 		})

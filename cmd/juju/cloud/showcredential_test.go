@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
@@ -186,7 +186,7 @@ func (s *ShowCredentialSuite) TestShowCredentialMany(c *gc.C) {
 				// Don't have models here.
 			},
 		}, {
-			Error: common.ServerError(errors.New("boom")),
+			Error: apiservererrors.ServerError(errors.New("boom")),
 		}, {
 			Result: &params.ControllerCredentialInfo{
 				Content: params.CredentialContent{

@@ -17,7 +17,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
@@ -490,14 +490,14 @@ func (s *updateCredentialSuite) TestUpdateRemoteWithModels(c *gc.C) {
 					{
 						ModelName: "model-a",
 						Errors: []params.ErrorResult{
-							{common.ServerError(errors.New("kaboom"))},
-							{common.ServerError(errors.New("kaboom 2"))},
+							{apiservererrors.ServerError(errors.New("kaboom"))},
+							{apiservererrors.ServerError(errors.New("kaboom 2"))},
 						},
 					},
 					{
 						ModelName: "model-b",
 						Errors: []params.ErrorResult{
-							{common.ServerError(errors.New("one failure"))},
+							{apiservererrors.ServerError(errors.New("one failure"))},
 						},
 					},
 					{
@@ -534,21 +534,21 @@ func (s *updateCredentialSuite) TestUpdateRemoteWithModelsError(c *gc.C) {
 					{
 						ModelName: "model-a",
 						Errors: []params.ErrorResult{
-							{common.ServerError(errors.New("kaboom"))},
-							{common.ServerError(errors.New("kaboom 2"))},
+							{apiservererrors.ServerError(errors.New("kaboom"))},
+							{apiservererrors.ServerError(errors.New("kaboom 2"))},
 						},
 					},
 					{
 						ModelName: "model-b",
 						Errors: []params.ErrorResult{
-							{common.ServerError(errors.New("one failure"))},
+							{apiservererrors.ServerError(errors.New("one failure"))},
 						},
 					},
 					{
 						ModelName: "model-c",
 					},
 				},
-				Error: common.ServerError(errors.New("models issues")),
+				Error: apiservererrors.ServerError(errors.New("models issues")),
 			},
 		}, nil
 	}
@@ -580,21 +580,21 @@ func (s *updateCredentialSuite) TestUpdateRemoteWithModelsForce(c *gc.C) {
 					{
 						ModelName: "model-a",
 						Errors: []params.ErrorResult{
-							{common.ServerError(errors.New("kaboom"))},
-							{common.ServerError(errors.New("kaboom 2"))},
+							{apiservererrors.ServerError(errors.New("kaboom"))},
+							{apiservererrors.ServerError(errors.New("kaboom 2"))},
 						},
 					},
 					{
 						ModelName: "model-b",
 						Errors: []params.ErrorResult{
-							{common.ServerError(errors.New("one failure"))},
+							{apiservererrors.ServerError(errors.New("one failure"))},
 						},
 					},
 					{
 						ModelName: "model-c",
 					},
 				},
-				Error: common.ServerError(errors.New("update error")),
+				Error: apiservererrors.ServerError(errors.New("update error")),
 			},
 		}, nil
 	}

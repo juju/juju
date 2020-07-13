@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -48,7 +49,7 @@ func (s *CleanerSuite) TestNewCleanerAPIRequiresController(c *gc.C) {
 	api, err := cleaner.NewCleanerAPI(nil, nil, anAuthoriser)
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(common.ServerError(err), jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(apiservererrors.ServerError(err), jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *CleanerSuite) TestWatchCleanupsSuccess(c *gc.C) {

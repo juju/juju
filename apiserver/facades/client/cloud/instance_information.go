@@ -8,9 +8,11 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -22,10 +24,10 @@ type cloudEnvironConfigGetter struct {
 }
 
 // CloudSpec implements environs.EnvironConfigGetter.
-func (g cloudEnvironConfigGetter) CloudSpec() (environs.CloudSpec, error) {
+func (g cloudEnvironConfigGetter) CloudSpec() (environscloudspec.CloudSpec, error) {
 	model, err := g.Model()
 	if err != nil {
-		return environs.CloudSpec{}, errors.Trace(err)
+		return environscloudspec.CloudSpec{}, errors.Trace(err)
 	}
 	return stateenvirons.CloudSpecForModel(model)
 }
@@ -65,11 +67,11 @@ func instanceTypes(api *CloudAPI,
 		}
 		cloudTag, err := names.ParseCloudTag(cons.CloudTag)
 		if err != nil {
-			result[i] = params.InstanceTypesResult{Error: common.ServerError(err)}
+			result[i] = params.InstanceTypesResult{Error: apiservererrors.ServerError(err)}
 			continue
 		}
 		if m.CloudName() != cloudTag.Id() {
-			result[i] = params.InstanceTypesResult{Error: common.ServerError(errors.NotValidf("asking %s cloud information to %s cloud", cloudTag.Id(), m.CloudName()))}
+			result[i] = params.InstanceTypesResult{Error: apiservererrors.ServerError(errors.NotValidf("asking %s cloud information to %s cloud", cloudTag.Id(), m.CloudName()))}
 			continue
 		}
 
@@ -84,7 +86,7 @@ func instanceTypes(api *CloudAPI,
 		)
 		it, err := common.InstanceTypes(itCons)
 		if err != nil {
-			result[i] = params.InstanceTypesResult{Error: common.ServerError(err)}
+			result[i] = params.InstanceTypesResult{Error: apiservererrors.ServerError(err)}
 			continue
 		}
 		result[i] = it

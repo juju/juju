@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/tools"
 )
 
@@ -194,7 +195,7 @@ func (a *Application) SetAgentVersion(v version.Binary) (err error) {
 		Update: bson.D{{"$set", bson.D{{"tools", versionedTool}}}},
 	}}
 	if err := a.st.db().RunTransaction(ops); err != nil {
-		return onAbort(err, ErrDead)
+		return onAbort(err, stateerrors.ErrDead)
 	}
 	a.doc.Tools = versionedTool
 	return nil
@@ -1381,7 +1382,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		// applications and units, so that bugs in departed/broken
 		// hooks can be addressed at runtime.
 		if a.Life() == Dead {
-			return nil, ErrDead
+			return nil, stateerrors.ErrDead
 		}
 
 		// Record the current value of charmModifiedVersion, so we can
@@ -1650,11 +1651,7 @@ func (a *Application) VerifySupportedSeries(series string, force bool) error {
 	}
 	_, seriesSupportedErr := charm.SeriesForCharm(series, supportedSeries)
 	if seriesSupportedErr != nil && !force {
-		return &ErrIncompatibleSeries{
-			SeriesList: supportedSeries,
-			Series:     series,
-			CharmName:  ch.String(),
-		}
+		return stateerrors.NewErrIncompatibleSeries(supportedSeries, series, ch.String())
 	}
 	return nil
 }
@@ -3007,7 +3004,7 @@ func (a *Application) SetPassword(password string) error {
 	}}
 	err := a.st.db().RunTransaction(ops)
 	if err != nil {
-		return fmt.Errorf("cannot set password of application %q: %v", a, onAbort(err, ErrDead))
+		return fmt.Errorf("cannot set password of application %q: %v", a, onAbort(err, stateerrors.ErrDead))
 	}
 	a.doc.PasswordHash = passwordHash
 	return nil

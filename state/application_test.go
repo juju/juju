@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -1023,7 +1024,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 		ForceUnits: true,
 	}
 	err := s.mysql.SetCharm(cfg)
-	c.Assert(errors.Cause(err), gc.Equals, state.ErrDead)
+	c.Assert(errors.Cause(err), gc.Equals, stateerrors.ErrDead)
 }
 
 func (s *ApplicationSuite) TestSetCharmWithRemovedApplication(c *gc.C) {

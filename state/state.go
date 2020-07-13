@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	stateerrors "github.com/juju/juju/state/errors"
 	raftleasestore "github.com/juju/juju/state/raftlease"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
@@ -549,38 +550,6 @@ type WatchParams struct {
 	IncludeOffers bool
 }
 
-// versionInconsistentError indicates one or more agents have a
-// different version from the current one (even empty, when not yet
-// set).
-type versionInconsistentError struct {
-	currentVersion version.Number
-	agents         []string
-}
-
-func (e *versionInconsistentError) Error() string {
-	sort.Strings(e.agents)
-	return fmt.Sprintf("some agents have not upgraded to the current model version %s: %s", e.currentVersion, strings.Join(e.agents, ", "))
-}
-
-// newVersionInconsistentError returns a new instance of
-// versionInconsistentError.
-func newVersionInconsistentError(currentVersion version.Number, agents []string) *versionInconsistentError {
-	return &versionInconsistentError{currentVersion, agents}
-}
-
-// IsVersionInconsistentError returns if the given error is
-// versionInconsistentError.
-func IsVersionInconsistentError(e interface{}) bool {
-	value := e
-	// In case of a wrapped error, check the cause first.
-	cause := errors.Cause(e.(error))
-	if cause != nil {
-		value = cause
-	}
-	_, ok := value.(*versionInconsistentError)
-	return ok
-}
-
 func (st *State) checkCanUpgradeCAAS(currentVersion, newVersion string) error {
 	// TODO(caas)
 	return nil
@@ -627,14 +596,6 @@ func (st *State) checkCanUpgradeIAAS(currentVersion, newVersion string) error {
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-var errUpgradeInProgress = errors.New("upgrade in progress")
-
-// IsUpgradeInProgressError returns true if the error is caused by an
-// in-progress upgrade.
-func IsUpgradeInProgressError(err error) bool {
-	return errors.Cause(err) == errUpgradeInProgress
 }
 
 // SetModelAgentVersion changes the agent version for the model to the
@@ -706,7 +667,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, ignoreAgentVers
 		// return a more helpful error message in the case of an
 		// active upgradeInfo document being in place.
 		if upgrading, _ := st.IsUpgrading(); upgrading {
-			err = errUpgradeInProgress
+			err = stateerrors.ErrUpgradeInProgress
 		} else {
 			err = errors.Annotate(err, "cannot set agent version")
 		}

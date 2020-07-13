@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/manual"
@@ -56,7 +57,7 @@ func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string
 	minimal := manual.MinimalConfigValues()
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
-	cloudSpec := environs.CloudSpec{
+	cloudSpec := environscloudspec.CloudSpec{
 		Endpoint: endpoint,
 		Region:   region,
 	}

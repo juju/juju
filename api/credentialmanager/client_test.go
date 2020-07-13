@@ -11,7 +11,7 @@ import (
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/credentialmanager"
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -38,7 +38,7 @@ func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *gc.C) {
 
 func (s *CredentialManagerSuite) TestInvalidateModelCredentialBackendFailure(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.ErrorResult)) = params.ErrorResult{Error: common.ServerError(errors.New("boom"))}
+		*(result.(*params.ErrorResult)) = params.ErrorResult{Error: apiservererrors.ServerError(errors.New("boom"))}
 		return nil
 	})
 

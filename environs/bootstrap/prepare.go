@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
@@ -38,7 +39,7 @@ type PrepareParams struct {
 
 	// Cloud is the specification of the cloud that the controller is
 	// being prepared for.
-	Cloud environs.CloudSpec
+	Cloud environscloudspec.CloudSpec
 
 	// CredentialName is the name of the credential to use to bootstrap.
 	// This will be empty for auto-detected credentials.

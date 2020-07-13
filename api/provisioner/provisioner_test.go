@@ -22,7 +22,7 @@ import (
 	apibasetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/provisioner"
 	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/constraints"
@@ -814,7 +814,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		result := response.(*params.FindToolsResult)
 		result.List = toolsList
 		if logicError != nil {
-			result.Error = common.ServerError(logicError)
+			result.Error = apiservererrors.ServerError(logicError)
 		}
 		return apiError
 	})

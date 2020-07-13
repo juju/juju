@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -89,14 +90,14 @@ func (a *ActionAPI) internalList(arg params.Entities, fn extractorFn, compat boo
 		currentResult := &response.Actions[i]
 		receiver, err := tagToActionReceiver(entity.Tag)
 		if err != nil {
-			currentResult.Error = common.ServerError(common.ErrBadId)
+			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
 		currentResult.Receiver = receiver.Tag().String()
 
 		results, err := fn(receiver, compat)
 		if err != nil {
-			currentResult.Error = common.ServerError(err)
+			currentResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
 		currentResult.Actions = results

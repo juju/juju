@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -40,7 +41,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	leadership := mocks.NewMockLeadership(ctrl)
 
 	backend := &mockBackend{
-		cloudSpec: environs.CloudSpec{},
+		cloudSpec: environscloudspec.CloudSpec{},
 	}
 	pool := &mockPool{}
 	authorizer := testing.FakeAuthorizer{Tag: names.NewUserTag("admin"),
@@ -107,7 +108,7 @@ type mockBackend struct {
 	machinemanager.Backend
 	storagecommon.StorageAccess
 
-	cloudSpec environs.CloudSpec
+	cloudSpec environscloudspec.CloudSpec
 }
 
 func (st *mockBackend) VolumeAccess() storagecommon.VolumeAccess {
@@ -126,7 +127,7 @@ func (b *mockBackend) Model() (machinemanager.Model, error) {
 	return &mockModel{}, nil
 }
 
-func (b *mockBackend) CloudSpec(names.ModelTag) (environs.CloudSpec, error) {
+func (b *mockBackend) CloudSpec(names.ModelTag) (environscloudspec.CloudSpec, error) {
 	return b.cloudSpec, nil
 }
 

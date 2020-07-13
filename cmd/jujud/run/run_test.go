@@ -22,7 +22,7 @@ import (
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/jujud/agent/config"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testing"
@@ -37,7 +37,7 @@ type RunTestSuite struct {
 
 func (s *RunTestSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(&cmdutil.DataDir, c.MkDir())
+	s.PatchValue(&config.DataDir, c.MkDir())
 	s.machinelock = &fakemachinelock{}
 }
 
@@ -275,7 +275,7 @@ func (s *RunTestSuite) TestMissingSocket(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("Current implementation of named pipes loops if the socket is missing")
 	}
-	agentDir := filepath.Join(cmdutil.DataDir, "agents", "unit-foo-1")
+	agentDir := filepath.Join(config.DataDir, "agents", "unit-foo-1")
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -373,7 +373,7 @@ func (s *RunTestSuite) TestCheckRelationIdValid(c *gc.C) {
 }
 
 func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
-	agentDir := filepath.Join(cmdutil.DataDir, "agents", agent)
+	agentDir := filepath.Join(config.DataDir, "agents", agent)
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	socket := sockets.Socket{}

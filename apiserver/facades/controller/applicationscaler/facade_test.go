@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -27,7 +27,7 @@ func (s *FacadeSuite) TestModelManager(c *gc.C) {
 
 func (s *FacadeSuite) TestNotModelManager(c *gc.C) {
 	facade, err := applicationscaler.NewFacade(nil, nil, auth(false))
-	c.Check(err, gc.Equals, common.ErrPerm)
+	c.Check(err, gc.Equals, apiservererrors.ErrPerm)
 	c.Check(facade, gc.IsNil)
 }
 

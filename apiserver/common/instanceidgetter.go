@@ -4,10 +4,12 @@
 package common
 
 import (
+	"github.com/juju/names/v4"
+
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
-	"github.com/juju/names/v4"
 )
 
 // InstanceIdGetter implements a common InstanceId method for use by
@@ -34,7 +36,7 @@ func (ig *InstanceIdGetter) getInstanceId(tag names.Tag) (instance.Id, error) {
 	}
 	entity, ok := entity0.(state.InstanceIdGetter)
 	if !ok {
-		return "", NotSupportedError(tag, "instance id")
+		return "", apiservererrors.NotSupportedError(tag, "instance id")
 	}
 	return entity.InstanceId()
 }
@@ -52,10 +54,10 @@ func (ig *InstanceIdGetter) InstanceId(args params.Entities) (params.StringResul
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = ErrPerm
+		err = apiservererrors.ErrPerm
 		if canRead(tag) {
 			var instanceId instance.Id
 			instanceId, err = ig.getInstanceId(tag)
@@ -63,7 +65,7 @@ func (ig *InstanceIdGetter) InstanceId(args params.Entities) (params.StringResul
 				result.Results[i].Result = string(instanceId)
 			}
 		}
-		result.Results[i].Error = ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }

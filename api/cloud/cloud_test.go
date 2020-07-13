@@ -15,6 +15,7 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	cloudapi "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	coretesting "github.com/juju/juju/testing"
@@ -244,7 +245,7 @@ func (s *cloudSuite) TestUpdateCredentialErrorV2(c *gc.C) {
 			) error {
 				c.Check(request, gc.Equals, "UpdateCredentials")
 				*result.(*params.ErrorResults) = params.ErrorResults{
-					Results: []params.ErrorResult{{common.ServerError(errors.New("validation failure"))}},
+					Results: []params.ErrorResult{{apiservererrors.ServerError(errors.New("validation failure"))}},
 				}
 				s.called = true
 				return nil
@@ -271,7 +272,7 @@ func (s *cloudSuite) TestUpdateCredentialError(c *gc.C) {
 				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
 					Results: []params.UpdateCredentialResult{
 						{CredentialTag: "cloudcred-foo_bob_bar",
-							Error: common.ServerError(errors.New("validation failure")),
+							Error: apiservererrors.ServerError(errors.New("validation failure")),
 						},
 					},
 				}
@@ -405,8 +406,8 @@ func (s *cloudSuite) TestUpdateCredentialModelErrors(c *gc.C) {
 									ModelUUID: coretesting.ModelTag.Id(),
 									ModelName: "test-model",
 									Errors: []params.ErrorResult{
-										{common.ServerError(errors.New("validation failure one"))},
-										{common.ServerError(errors.New("validation failure two"))},
+										{apiservererrors.ServerError(errors.New("validation failure one"))},
+										{apiservererrors.ServerError(errors.New("validation failure two"))},
 									},
 								},
 							},
@@ -764,7 +765,7 @@ func (s *cloudSuite) TestCredentialContentsAll(c *gc.C) {
 				},
 			},
 		}, {
-			Error: common.ServerError(errors.New("boom")),
+			Error: apiservererrors.ServerError(errors.New("boom")),
 		},
 	}
 	apiCaller := basetesting.BestVersionCaller{
@@ -1124,7 +1125,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsErrorV2(c *gc.C) {
 			) error {
 				c.Check(request, gc.Equals, "UpdateCredentials")
 				*result.(*params.ErrorResults) = params.ErrorResults{
-					Results: []params.ErrorResult{{common.ServerError(errors.New("validation failure"))}},
+					Results: []params.ErrorResult{{apiservererrors.ServerError(errors.New("validation failure"))}},
 				}
 				s.called = true
 				return nil
@@ -1153,7 +1154,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsError(c *gc.C) {
 				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
 					Results: []params.UpdateCredentialResult{
 						{CredentialTag: "cloudcred-foo_bob_bar0",
-							Error: common.ServerError(errors.New("validation failure")),
+							Error: apiservererrors.ServerError(errors.New("validation failure")),
 						},
 					},
 				}
@@ -1167,7 +1168,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsError(c *gc.C) {
 	errs, err := client.UpdateCloudsCredentials(createCredentials(1), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialResult{
-		{CredentialTag: "cloudcred-foo_bob_bar0", Error: common.ServerError(errors.New("validation failure"))},
+		{CredentialTag: "cloudcred-foo_bob_bar0", Error: apiservererrors.ServerError(errors.New("validation failure"))},
 	})
 	c.Assert(s.called, jc.IsTrue)
 }
@@ -1184,7 +1185,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsMasksLegacyError(c *gc.C) {
 				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
 					Results: []params.UpdateCredentialResult{
 						{CredentialTag: "cloudcred-foo_bob_bar0",
-							Error: common.ServerError(errors.New("some models are no longer visible")),
+							Error: apiservererrors.ServerError(errors.New("some models are no longer visible")),
 						},
 					},
 				}
@@ -1381,8 +1382,8 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *gc.C) {
 									ModelUUID: coretesting.ModelTag.Id(),
 									ModelName: "test-model",
 									Errors: []params.ErrorResult{
-										{common.ServerError(errors.New("validation failure one"))},
-										{common.ServerError(errors.New("validation failure two"))},
+										{apiservererrors.ServerError(errors.New("validation failure one"))},
+										{apiservererrors.ServerError(errors.New("validation failure two"))},
 									},
 								},
 							},
@@ -1403,8 +1404,8 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *gc.C) {
 				{ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 					ModelName: "test-model",
 					Errors: []params.ErrorResult{
-						{common.ServerError(errors.New("validation failure one"))},
-						{common.ServerError(errors.New("validation failure two"))},
+						{apiservererrors.ServerError(errors.New("validation failure one"))},
+						{apiservererrors.ServerError(errors.New("validation failure two"))},
 					},
 				},
 			},

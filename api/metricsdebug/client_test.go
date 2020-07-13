@@ -12,7 +12,7 @@ import (
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/metricsdebug"
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -73,7 +73,7 @@ func (s *metricsdebugSuiteMock) TestGetMetricsFails(c *gc.C) {
 			c.Assert(request, gc.Equals, "GetMetrics")
 			result := response.(*params.MetricResults)
 			result.Results = []params.EntityMetrics{{
-				Error: common.ServerError(errors.New("an error")),
+				Error: apiservererrors.ServerError(errors.New("an error")),
 			}}
 			called = true
 			return nil
@@ -202,7 +202,7 @@ func (s *metricsdebugSuiteMock) TestSetMeterStatusAPIServerError(c *gc.C) {
 			})
 			result := response.(*params.ErrorResults)
 			result.Results = []params.ErrorResult{{
-				Error: common.ServerError(errors.New("an error")),
+				Error: apiservererrors.ServerError(errors.New("an error")),
 			}}
 			called = true
 			return nil

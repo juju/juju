@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -83,9 +84,9 @@ var (
 	})
 )
 
-func MakeTestCloudSpec() environs.CloudSpec {
+func MakeTestCloudSpec() environscloudspec.CloudSpec {
 	cred := MakeTestCredential()
-	return environs.CloudSpec{
+	return environscloudspec.CloudSpec{
 		Type:       "gce",
 		Name:       "google",
 		Region:     "us-east1",

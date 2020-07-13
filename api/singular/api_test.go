@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/singular"
-	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/lease"
 	coretesting "github.com/juju/juju/testing"
@@ -82,7 +82,7 @@ func (s *APISuite) TestClaimDenied(c *gc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(result *params.ErrorResults) error {
 		result.Results = []params.ErrorResult{{
-			Error: common.ServerError(lease.ErrClaimDenied),
+			Error: apiservererrors.ServerError(lease.ErrClaimDenied),
 		}}
 		return nil
 	})
@@ -104,7 +104,7 @@ func (s *APISuite) TestClaimError(c *gc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(result *params.ErrorResults) error {
 		result.Results = []params.ErrorResult{{
-			Error: common.ServerError(errors.New("zap pow splat oof")),
+			Error: apiservererrors.ServerError(errors.New("zap pow splat oof")),
 		}}
 		return nil
 	})
@@ -144,7 +144,7 @@ func (s *APISuite) TestWaitError(c *gc.C) {
 	stub := &testing.Stub{}
 	apiCaller := apiCaller(c, stub, func(result *params.ErrorResults) error {
 		result.Results = []params.ErrorResult{{
-			Error: common.ServerError(errors.New("crunch squelch")),
+			Error: apiservererrors.ServerError(errors.New("crunch squelch")),
 		}}
 		return nil
 	})

@@ -22,7 +22,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	agentconfig "github.com/juju/juju/cmd/jujud/agent/config"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runcommands"
@@ -180,7 +180,7 @@ func (r *RunListener) RunCommands(args RunCommandsArgs) (results *exec.ExecRespo
 
 	if r.requiresAuth {
 		// TODO: Cache unit password
-		baseDir := agent.Dir(cmdutil.DataDir, names.NewUnitTag(args.UnitName))
+		baseDir := agent.Dir(agentconfig.DataDir, names.NewUnitTag(args.UnitName))
 		infoFilePath := filepath.Join(baseDir, caas.OperatorClientInfoCacheFile)
 		d, err := ioutil.ReadFile(infoFilePath)
 		if err != nil {

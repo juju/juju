@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 )
@@ -24,7 +24,7 @@ type AuthSuite struct {
 var _ = gc.Suite(&AuthSuite{})
 
 func (s *AuthSuite) TestAuthTokenServicePrincipalSecret(c *gc.C) {
-	spec := environs.CloudSpec{
+	spec := environscloudspec.CloudSpec{
 		Type:             "azure",
 		Name:             "azure",
 		Region:           "westus",
@@ -42,7 +42,7 @@ func (s *AuthSuite) TestAuthTokenServicePrincipalSecret(c *gc.C) {
 }
 
 func (s *AuthSuite) TestAuthTokenInteractive(c *gc.C) {
-	spec := environs.CloudSpec{
+	spec := environscloudspec.CloudSpec{
 		Type:             "azure",
 		Name:             "azure",
 		Region:           "westus",

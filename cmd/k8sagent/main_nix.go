@@ -20,10 +20,9 @@ import (
 	proxyutils "github.com/juju/proxy"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/jujud/dumplogs"
 	"github.com/juju/juju/cmd/jujud/introspect"
 	"github.com/juju/juju/cmd/jujud/run"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/k8sagent/config"
 	initcommand "github.com/juju/juju/cmd/k8sagent/initialize"
 	unitcommand "github.com/juju/juju/cmd/k8sagent/unit"
 	"github.com/juju/juju/core/machinelock"
@@ -161,7 +160,7 @@ func main() {
 				Clock:     clock.WallClock,
 				Logger:    loggo.GetLogger("juju.machinelock"),
 				// TODO(ycliuhw): consider to rename machinelock package to something more generic for k8s pod lock.
-				LogFilename: filepath.Join(cmdutil.LogDir, machinelock.Filename),
+				LogFilename: filepath.Join(config.LogDir, machinelock.Filename),
 			})
 			if err != nil {
 				err = errors.Annotatef(err, "acquiring machine lock for juju-run")
@@ -169,9 +168,6 @@ func main() {
 				os.Exit(1)
 			}
 			return cmd.Main(&run.RunCommand{MachineLock: lock}, ctx, args[1:])
-		},
-		jujuDumpLogs: func(ctx *cmd.Context, args []string) int {
-			return cmd.Main(dumplogs.NewCommand(), ctx, args[1:])
 		},
 		jujuIntrospect: func(ctx *cmd.Context, args []string) int {
 			return cmd.Main(introspect.New(nil), ctx, args[1:])

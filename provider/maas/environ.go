@@ -32,6 +32,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -116,7 +117,7 @@ var _ environs.Networking = (*maasEnviron)(nil)
 // installation.
 type MaasCapabilities func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error)
 
-func NewEnviron(cloud environs.CloudSpec, cfg *config.Config, getCaps MaasCapabilities) (*maasEnviron, error) {
+func NewEnviron(cloud environscloudspec.CloudSpec, cfg *config.Config, getCaps MaasCapabilities) (*maasEnviron, error) {
 	if getCaps == nil {
 		getCaps = getCapabilities
 	}
@@ -273,7 +274,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (env *maasEnviron) SetCloudSpec(spec environs.CloudSpec) error {
+func (env *maasEnviron) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 	env.ecfgMutex.Lock()
 	defer env.ecfgMutex.Unlock()
 

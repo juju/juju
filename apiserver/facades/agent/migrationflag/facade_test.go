@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/agent/migrationflag"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
@@ -41,7 +42,7 @@ func (*FacadeSuite) TestAcceptsApplicationAgent(c *gc.C) {
 
 func (*FacadeSuite) TestRejectsNonAgent(c *gc.C) {
 	facade, err := migrationflag.New(nil, nil, agentAuth{})
-	c.Check(err, gc.Equals, common.ErrPerm)
+	c.Check(err, gc.Equals, apiservererrors.ErrPerm)
 	c.Check(facade, gc.IsNil)
 }
 

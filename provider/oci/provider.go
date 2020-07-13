@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/oci/common"
@@ -196,7 +197,7 @@ func (e *EnvironProvider) Ping(ctx context.ProviderCallContext, endpoint string)
 	return errors.NotImplementedf("Ping")
 }
 
-func validateCloudSpec(c environs.CloudSpec) error {
+func validateCloudSpec(c environscloudspec.CloudSpec) error {
 	if err := c.Validate(); err != nil {
 		return errors.Trace(err)
 	}

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
@@ -62,12 +63,12 @@ func (t *Tests) Open(c *gc.C, cfg *config.Config) environs.Environ {
 	return e
 }
 
-func (t *Tests) CloudSpec() environs.CloudSpec {
+func (t *Tests) CloudSpec() environscloudspec.CloudSpec {
 	credential := t.Credential
 	if credential.AuthType() == "" {
 		credential = cloud.NewEmptyCredential()
 	}
-	return environs.CloudSpec{
+	return environscloudspec.CloudSpec{
 		Type:       t.TestConfig["type"].(string),
 		Name:       t.TestConfig["type"].(string),
 		Region:     t.CloudRegion,

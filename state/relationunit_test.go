@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -396,7 +397,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertNotInScope(c, pru)
 	err = pru.EnterScope(nil)
-	c.Assert(err, gc.Equals, state.ErrCannotEnterScopeYet)
+	c.Assert(err, gc.Equals, stateerrors.ErrCannotEnterScopeYet)
 	assertNotInScope(c, pru)
 
 	// Remove the subordinate, and enter scope again; this should work, and
@@ -437,7 +438,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	// Check that we can't add a new unit now.
 	assertNotInScope(c, pr.ru2)
 	err = pr.ru2.EnterScope(nil)
-	c.Assert(err, gc.Equals, state.ErrCannotEnterScope)
+	c.Assert(err, gc.Equals, stateerrors.ErrCannotEnterScope)
 	assertNotInScope(c, pr.ru2)
 
 	// Check that we created no settings for the unit we failed to add.
@@ -527,7 +528,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertNotInScope(c, pr.ru3)
 	err = pr.ru3.EnterScope(nil)
-	c.Assert(err, gc.Equals, state.ErrCannotEnterScope)
+	c.Assert(err, gc.Equals, stateerrors.ErrCannotEnterScope)
 	assertNotInScope(c, pr.ru3)
 }
 
