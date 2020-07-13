@@ -81,6 +81,7 @@ func (c Config) BasePath() (charmhubpath.Path, error) {
 
 // Client represents the client side of a charm store.
 type Client struct {
+	url        string
 	infoClient *InfoClient
 	findClient *FindClient
 }
@@ -107,9 +108,15 @@ func NewClient(config Config) (*Client, error) {
 	restClient := NewHTTPRESTClient(apiRequester)
 
 	return &Client{
+		url:        base.String(),
 		infoClient: NewInfoClient(infoPath, restClient),
 		findClient: NewFindClient(findPath, restClient),
 	}, nil
+}
+
+// URL returns the underlying store URL.
+func (c *Client) URL() string {
+	return c.url
 }
 
 // Info returns charm info on the provided charm name from charmhub.

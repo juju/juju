@@ -36,16 +36,14 @@ type CharmHubEntityFindResult struct {
 }
 
 type FindResponse struct {
-	Type           string         `json:"type"`
-	ID             string         `json:"id"`
-	Name           string         `json:"name"`
-	Entity         CharmHubEntity `json:"entity"`
-	DefaultRelease ChannelMap     `json:"default-release,omitempty"`
-}
-
-type ChannelMap struct {
-	Channel Channel `json:"channel,omitempty"`
-	//Revision Revision `json:"revision,omitempty"`
+	Type      string   `json:"type"`
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	Publisher string   `json:"publisher"`
+	Summary   string   `json:"summary"`
+	Version   string   `json:"version"`
+	Series    []string `json:"series"`
+	StoreURL  string   `json:"store-url"`
 }
 
 type Channel struct {
@@ -55,16 +53,6 @@ type Channel struct {
 	Revision   int    `json:"revision"`
 	Size       int    `json:"size"`
 	Version    string `json:"version"`
-}
-
-type CharmHubEntity struct {
-	//Categories  []Category        `json:"categories"`
-	Description string `json:"description"`
-	License     string `json:"license"`
-	//Media       []Media           `json:"media"`
-	Publisher map[string]string `json:"publisher"`
-	Summary   string            `json:"summary"`
-	UsedBy    []string          `json:"used-by"` // bundles which use the charm
 }
 
 type CharmHubCharm struct {

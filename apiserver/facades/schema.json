@@ -9567,15 +9567,6 @@
                         "version"
                     ]
                 },
-                "ChannelMap": {
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "$ref": "#/definitions/Channel"
-                        }
-                    },
-                    "additionalProperties": false
-                },
                 "CharmHubBundle": {
                     "type": "object",
                     "properties": {
@@ -9630,42 +9621,6 @@
                         "config",
                         "relations",
                         "subordinate",
-                        "used-by"
-                    ]
-                },
-                "CharmHubEntity": {
-                    "type": "object",
-                    "properties": {
-                        "description": {
-                            "type": "string"
-                        },
-                        "license": {
-                            "type": "string"
-                        },
-                        "publisher": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "summary": {
-                            "type": "string"
-                        },
-                        "used-by": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "description",
-                        "license",
-                        "publisher",
-                        "summary",
                         "used-by"
                     ]
                 },
@@ -9766,19 +9721,31 @@
                 "FindResponse": {
                     "type": "object",
                     "properties": {
-                        "default-release": {
-                            "$ref": "#/definitions/ChannelMap"
-                        },
-                        "entity": {
-                            "$ref": "#/definitions/CharmHubEntity"
-                        },
                         "id": {
                             "type": "string"
                         },
                         "name": {
                             "type": "string"
                         },
+                        "publisher": {
+                            "type": "string"
+                        },
+                        "series": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "store-url": {
+                            "type": "string"
+                        },
+                        "summary": {
+                            "type": "string"
+                        },
                         "type": {
+                            "type": "string"
+                        },
+                        "version": {
                             "type": "string"
                         }
                     },
@@ -9787,7 +9754,11 @@
                         "type",
                         "id",
                         "name",
-                        "entity"
+                        "publisher",
+                        "summary",
+                        "version",
+                        "series",
+                        "store-url"
                     ]
                 },
                 "InfoResponse": {

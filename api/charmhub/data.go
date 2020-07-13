@@ -43,13 +43,16 @@ func convertCharmFindResults(responses []params.FindResponse) []FindResponse {
 	return results
 }
 
-func convertCharmFindResult(info params.FindResponse) FindResponse {
+func convertCharmFindResult(resp params.FindResponse) FindResponse {
 	return FindResponse{
-		Type: info.Type,
-		ID:   info.ID,
-		Name: info.Name,
-		//Entity:         convertEntity(info.Entity),
-		//DefaultRelease: convertOneChannelMap(info.DefaultRelease),
+		Type:      resp.Type,
+		ID:        resp.ID,
+		Name:      resp.Name,
+		Publisher: resp.Publisher,
+		Summary:   resp.Summary,
+		Version:   resp.Version,
+		Series:    resp.Series,
+		StoreURL:  resp.StoreURL,
 	}
 }
 
@@ -118,16 +121,14 @@ type InfoResponse struct {
 }
 
 type FindResponse struct {
-	Type           string     `json:"type"`
-	ID             string     `json:"id"`
-	Name           string     `json:"name"`
-	Entity         Entity     `json:"entity"`
-	DefaultRelease ChannelMap `json:"default-release,omitempty"`
-}
-
-type ChannelMap struct {
-	Channel Channel `json:"channel,omitempty"`
-	//Revision Revision `json:"revision,omitempty"`
+	Type      string   `json:"type"`
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	Publisher string   `json:"publisher"`
+	Summary   string   `json:"summary"`
+	Version   string   `json:"version"`
+	Series    []string `json:"series"`
+	StoreURL  string   `json:"store-url"`
 }
 
 type Channel struct {
@@ -137,16 +138,6 @@ type Channel struct {
 	Revision   int    `json:"revision"`
 	Size       int    `json:"size"`
 	Version    string `json:"version"`
-}
-
-type Entity struct {
-	//Categories  []Category        `json:"categories"`
-	Description string `json:"description"`
-	License     string `json:"license"`
-	//Media       []Media           `json:"media"`
-	Publisher map[string]string `json:"publisher"`
-	Summary   string            `json:"summary"`
-	UsedBy    []string          `json:"used-by"` // bundles which use the charm
 }
 
 // Charm matches a params.CharmHubCharm

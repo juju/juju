@@ -63,3 +63,17 @@ func (mr *MockClientMockRecorder) Info(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockClient)(nil).Info), arg0, arg1)
 }
+
+// URL mocks base method
+func (m *MockClient) URL() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "URL")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// URL indicates an expected call of URL
+func (mr *MockClientMockRecorder) URL() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "URL", reflect.TypeOf((*MockClient)(nil).URL))
+}
