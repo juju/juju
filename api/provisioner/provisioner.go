@@ -314,7 +314,7 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 			InterfaceType:       corenetwork.InterfaceType(cfg.InterfaceType),
 			Disabled:            cfg.Disabled,
 			NoAutoStart:         cfg.NoAutoStart,
-			ConfigType:          corenetwork.InterfaceConfigType(cfg.ConfigType),
+			ConfigType:          corenetwork.AddressConfigType(cfg.ConfigType),
 			Addresses:           corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(cfg.Address)},
 			DNSServers:          corenetwork.NewProviderAddresses(cfg.DNSServers...),
 			DNSSearchDomains:    cfg.DNSSearchDomains,
