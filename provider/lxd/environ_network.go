@@ -59,6 +59,13 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 	for _, networkName := range networkNames {
 		state, err := srv.GetNetworkState(networkName)
 		if err != nil {
+			// Unfortunately, LXD on bionic and earlier does not
+			// support the network_state extension out of the box
+			// so this call will fail. If that's the case then
+			// use a fallback method for detecting subnets.
+			if isErrMissingAPIExtension(err, "network_state") {
+				return e.subnetDetectionFallback(srv, inst, keepList)
+			}
 			return nil, errors.Annotatef(err, "querying lxd server for state of network %q", networkName)
 		}
 
@@ -86,6 +93,79 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 
 			uniqueSubnetIDs.Add(subnetID)
 			subnets = append(subnets, makeSubnetInfo(network.Id(subnetID), makeNetworkID(networkName), cidr))
+		}
+	}
+
+	return subnets, nil
+}
+
+// subnetDetectionFallback provides a fallback mechanism for subnet discovery
+// on older LXD versions (e.g. the ones that ship with xenial and bionic) which
+// do not come with the network_state API extension enabled.
+//
+// The fallback exploits the fact that subnet discovery is performed after the
+// controller spins up. To this end, the method will query any of the available
+// juju containers and attempt to reconstruct the subnet information based on
+// the devices present inside the container.
+//
+// Caveat: this method offers lower data fidelity compared to Subnets() as it
+// cannot accurately detect the CIDRs for any host devices that are not bridged
+// into the container.
+func (e *environ) subnetDetectionFallback(srv Server, inst instance.Id, keepSubnetIDs set.Strings) ([]network.SubnetInfo, error) {
+	logger.Warningf("falling back to subnet discovery via introspection of devices bridged to the controller container; consider upgrading to a newer LXD version and running 'juju reload-spaces' to get full subnet discovery for the LXD host")
+
+	// If no instance ID is specified, list the alive containers, query the
+	// state of the first one on the list and use it to extrapolate the
+	// subnet layout.
+	if inst == instance.UnknownId {
+		aliveConts, err := srv.AliveContainers("juju-")
+		if err != nil {
+			return nil, errors.Trace(err)
+		} else if len(aliveConts) == 0 {
+			return nil, errors.New("no alive containers detected")
+		}
+		inst = instance.Id(aliveConts[0].Name)
+	}
+
+	container, state, err := getContainerDetails(srv, string(inst))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var (
+		subnets         []network.SubnetInfo
+		uniqueSubnetIDs = set.NewStrings()
+	)
+
+	for guestNetworkName, netInfo := range state.Network {
+		// Ignore loopback devices and NICs in down state.
+		if detectInterfaceType(netInfo.Type) == network.LoopbackInterface || netInfo.State != "up" {
+			continue
+		}
+
+		hostNetworkName := hostNetworkForGuestNetwork(container, guestNetworkName)
+
+		for _, guestAddr := range netInfo.Addresses {
+			netAddr := network.NewProviderAddress(guestAddr.Address)
+			if netAddr.Scope == network.ScopeLinkLocal || netAddr.Scope == network.ScopeMachineLocal {
+				continue
+			}
+
+			// Use the detected host network name and the guest
+			// address details to generate a subnetID for the host.
+			subnetID, cidr, err := makeSubnetIDForNetwork(hostNetworkName, guestAddr.Address, guestAddr.Netmask)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			if uniqueSubnetIDs.Contains(subnetID) {
+				continue
+			} else if keepSubnetIDs != nil && !keepSubnetIDs.Contains(subnetID) {
+				continue
+			}
+
+			uniqueSubnetIDs.Add(subnetID)
+			subnets = append(subnets, makeSubnetInfo(network.Id(subnetID), makeNetworkID(hostNetworkName), cidr))
 		}
 	}
 
@@ -142,22 +222,22 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 
 		// Sort interfaces by name to ensure consistent device indexes
 		// across calls when we iterate the container's network map.
-		networkNames := make([]string, 0, len(state.Network))
+		guestNetworkNames := make([]string, 0, len(state.Network))
 		for network := range state.Network {
-			networkNames = append(networkNames, network)
+			guestNetworkNames = append(guestNetworkNames, network)
 		}
-		sort.Strings(networkNames)
+		sort.Strings(guestNetworkNames)
 
 		var devIdx int
-		for _, networkName := range networkNames {
-			netInfo := state.Network[networkName]
+		for _, guestNetworkName := range guestNetworkNames {
+			netInfo := state.Network[guestNetworkName]
 
 			// Ignore loopback devices
 			if detectInterfaceType(netInfo.Type) == network.LoopbackInterface {
 				continue
 			}
 
-			ni, err := makeInterfaceInfo(container, networkName, netInfo)
+			ni, err := makeInterfaceInfo(container, guestNetworkName, netInfo)
 			if err != nil {
 				return nil, errors.Annotatef(err, "retrieving network interface info for instane %q", id)
 			} else if len(ni.Addresses) == 0 {
@@ -181,12 +261,12 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 	return res, nil
 }
 
-func makeInterfaceInfo(container *lxdapi.Container, networkName string, netInfo lxdapi.ContainerStateNetwork) (network.InterfaceInfo, error) {
+func makeInterfaceInfo(container *lxdapi.Container, guestNetworkName string, netInfo lxdapi.ContainerStateNetwork) (network.InterfaceInfo, error) {
 	var ni = network.InterfaceInfo{
 		MACAddress:          netInfo.Hwaddr,
 		MTU:                 netInfo.Mtu,
-		InterfaceName:       networkName,
-		ParentInterfaceName: hostNetworkForGuestNetwork(container, networkName),
+		InterfaceName:       guestNetworkName,
+		ParentInterfaceName: hostNetworkForGuestNetwork(container, guestNetworkName),
 		InterfaceType:       detectInterfaceType(netInfo.Type),
 		Origin:              network.OriginProvider,
 
@@ -247,24 +327,27 @@ func detectInterfaceType(lxdIfaceType string) network.InterfaceType {
 	}
 }
 
-func hostNetworkForGuestNetwork(container *lxdapi.Container, network string) string {
+func hostNetworkForGuestNetwork(container *lxdapi.Container, guestNetwork string) string {
 	if container.ExpandedDevices == nil {
 		return ""
 	}
-	devInfo, found := container.ExpandedDevices[network]
+	devInfo, found := container.ExpandedDevices[guestNetwork]
 	if !found {
 		return ""
 	}
 
-	return devInfo["network"]
+	if name, found := devInfo["network"]; found { // lxd 4+
+		return name
+	} else if name, found := devInfo["parent"]; found { // lxd 3
+		return name
+	}
+	return ""
 }
 
 func getContainerDetails(srv Server, containerID string) (*lxdapi.Container, *lxdapi.ContainerState, error) {
 	cont, _, err := srv.GetContainer(containerID)
 	if err != nil {
-		// Unfortunately the lxd client does not expose error
-		// codes so we need to match against a string here.
-		if strings.Contains(err.Error(), "not found") {
+		if isErrNotFound(err) {
 			return nil, nil, errors.NotFoundf("container %q", containerID)
 		}
 		return nil, nil, errors.Trace(err)
@@ -272,15 +355,28 @@ func getContainerDetails(srv Server, containerID string) (*lxdapi.Container, *lx
 
 	state, _, err := srv.GetContainerState(containerID)
 	if err != nil {
-		// Unfortunately the lxd client does not expose error
-		// codes so we need to match against a string here.
-		if strings.Contains(err.Error(), "not found") {
+		if isErrNotFound(err) {
 			return nil, nil, errors.NotFoundf("container %q", containerID)
 		}
 		return nil, nil, errors.Trace(err)
 	}
 
 	return cont, state, nil
+}
+
+// isErrNotFound returns true if the LXD server returned back a "not found" error.
+func isErrNotFound(err error) bool {
+	// Unfortunately the lxd client does not expose error
+	// codes so we need to match against a string here.
+	return strings.Contains(err.Error(), "not found")
+}
+
+// isErrMissingAPIExtension returns true if the LXD server returned back an
+// "API extension not found" error.
+func isErrMissingAPIExtension(err error, ext string) bool {
+	// Unfortunately the lxd client does not expose error
+	// codes so we need to match against a string here.
+	return strings.Contains(err.Error(), fmt.Sprintf("server is missing the required %q API extension", ext))
 }
 
 // SuperSubnets returns information about aggregated subnet.
