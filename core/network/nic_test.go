@@ -159,11 +159,17 @@ func (*nicSuite) TestInterfaceInfosIterHierarchy(c *gc.C) {
 }
 
 func (s *nicSuite) TestInterfaceInfosGetByHardwareAddress(c *gc.C) {
-	dev := s.info.GetByHardwareAddress("not-there")
-	c.Assert(dev, gc.IsNil)
+	devs := s.info.GetByHardwareAddress("not-there")
+	c.Assert(devs, gc.IsNil)
 
-	dev = s.info.GetByHardwareAddress("00:16:3e:aa:bb:cc")
-	c.Assert(dev.InterfaceName, gc.Equals, "eth0")
+	hwAddr := "00:16:3e:aa:bb:cc"
+
+	devs = s.info.GetByHardwareAddress(hwAddr)
+	c.Assert(devs, gc.HasLen, 1)
+	c.Assert(devs[0].InterfaceName, gc.Equals, "eth0")
+
+	devs = append(s.info, network.InterfaceInfo{MACAddress: hwAddr}).GetByHardwareAddress(hwAddr)
+	c.Assert(devs, gc.HasLen, 2)
 }
 
 func getInterFaceInfos() network.InterfaceInfos {

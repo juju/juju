@@ -298,16 +298,16 @@ func (s InterfaceInfos) Children(parentName string) InterfaceInfos {
 	return children
 }
 
-// GetByHardwareAddress returns a reference to the interface with the input
-// hardware address (such as a MAC address) if it exists in the collection,
-// otherwise nil is returned.
-func (s InterfaceInfos) GetByHardwareAddress(hwAddr string) *InterfaceInfo {
+// GetByHardwareAddress returns a new collection containing any interfaces
+// with the input hardware (MAC) address.
+func (s InterfaceInfos) GetByHardwareAddress(hwAddr string) InterfaceInfos {
+	var res InterfaceInfos
 	for _, dev := range s {
 		if dev.MACAddress == hwAddr {
-			return &dev
+			res = append(res, dev)
 		}
 	}
-	return nil
+	return res
 }
 
 // ProviderInterfaceInfo holds enough information to identify an

@@ -69,7 +69,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 	// Match the incoming device by hardware address in order to
 	// identify addresses by device name.
 	// Not all providers (such as AWS) have names for NIC devices.
-	incomingDev := o.Incoming().GetByHardwareAddress(dev.MACAddress())
+	incomingDevs := o.Incoming().GetByHardwareAddress(dev.MACAddress())
 
 	var ops []txn.Op
 	var err error
@@ -77,10 +77,14 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 	// If this device was not observed by the provider,
 	// ensure that responsibility for the addresses is relinquished
 	// to the machine agent.
-	if incomingDev == nil {
+	if len(incomingDevs) == 0 {
 		ops, err = o.opsForDeviceOriginRelinquishment(dev)
 		return ops, errors.Trace(err)
 	}
+
+	// The MachineLinkLayerOp constructor normalises the incoming interfaces.
+	// This means there is at most one interface with any given MAC address.
+	incomingDev := incomingDevs[0]
 
 	// Warn the user that we will not change a provider ID that is already set.
 	// TODO (manadart 2020-06-09): If this is seen in the wild, we should look
@@ -129,7 +133,7 @@ func (o *mergeMachineLinkLayerOp) opsForDeviceOriginRelinquishment(
 }
 
 func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
-	addr networkingcommon.LinkLayerAddress, incomingDev *network.InterfaceInfo,
+	addr networkingcommon.LinkLayerAddress, incomingDev network.InterfaceInfo,
 ) ([]txn.Op, error) {
 	addrValue := addr.Value()
 
