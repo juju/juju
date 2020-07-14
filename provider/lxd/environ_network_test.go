@@ -151,6 +151,89 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C
 	c.Assert(subnets, gc.DeepEquals, expSubnets)
 }
 
+func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	srv := NewMockServer(ctrl)
+
+	// Even though ovs-br0 is returned by the LXD API, it is *not* bridged
+	// into the container we will be introspecting and so this subnet will
+	// not be reported back. This is a caveat of the fallback code.
+	srv.EXPECT().GetNetworkNames().Return([]string{"lo", "ovsbr0", "lxdbr0"}, nil)
+
+	// This error will trigger the fallback codepath
+	srv.EXPECT().GetNetworkState("lo").Return(nil, errors.New(`server is missing the required "network_state" API extension`))
+
+	// When instance.UnknownID is passed to Subnets, juju will pick the
+	// first juju-* container and introspect its bridged devices.
+	srv.EXPECT().AliveContainers("juju-").Return([]jujulxd.Container{
+		{Container: lxdapi.Container{Name: "juju-badn1c"}},
+	}, nil)
+	srv.EXPECT().GetContainer("juju-badn1c").Return(&lxdapi.Container{
+		ExpandedDevices: map[string]map[string]string{
+			"eth0": {
+				"name":    "eth0",
+				"network": "lxdbr0",
+				"type":    "nic",
+			},
+		},
+	}, "etag", nil)
+	srv.EXPECT().GetContainerState("juju-badn1c").Return(&lxdapi.ContainerState{
+		Network: map[string]lxdapi.ContainerStateNetwork{
+			"eth0": {
+				Type:   "broadcast",
+				State:  "up",
+				Mtu:    1500,
+				Hwaddr: "00:16:3e:19:29:cb",
+				Addresses: []lxdapi.ContainerStateNetworkAddress{
+					{
+						Family:  "inet",
+						Address: "10.55.158.99",
+						Netmask: "24",
+						Scope:   "global",
+					},
+					{
+						Family:  "inet6",
+						Address: "fe80::216:3eff:fe19:29cb",
+						Netmask: "64",
+						Scope:   "link", // should be ignored as it is link-local
+					},
+				},
+			},
+			"lo": {
+				Type:   "loopback", // skipped as this is a loopback device
+				State:  "up",
+				Mtu:    1500,
+				Hwaddr: "00:16:3e:19:39:39",
+				Addresses: []lxdapi.ContainerStateNetworkAddress{
+					{
+						Family:  "inet",
+						Address: "127.0.0.1",
+						Netmask: "8",
+						Scope:   "local",
+					},
+				},
+			},
+		},
+	}, "etag", nil)
+
+	env := s.NewEnviron(c, srv, nil).(*environ)
+
+	ctx := context.NewCloudCallContext()
+	subnets, err := env.Subnets(ctx, instance.UnknownId, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expSubnets := []network.SubnetInfo{
+		{
+			CIDR:              "10.55.158.0/24",
+			ProviderId:        "subnet-lxdbr0-10.55.158.0/24",
+			ProviderNetworkId: "net-lxdbr0",
+		},
+	}
+	c.Assert(subnets, gc.DeepEquals, expSubnets)
+}
+
 func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
