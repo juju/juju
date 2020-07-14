@@ -122,7 +122,7 @@ func NewMachineLinkLayerOp(machine LinkLayerMachine, incoming network.InterfaceI
 
 	return &MachineLinkLayerOp{
 		machine:   machine,
-		incoming:  incoming,
+		incoming:  incoming.Normalise(),
 		processed: set.NewStrings(),
 	}
 }
