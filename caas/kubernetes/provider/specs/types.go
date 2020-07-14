@@ -70,6 +70,7 @@ func (c *k8sContainer) ToContainerSpec() specs.ContainerSpec {
 type K8sContainerSpec struct {
 	LivenessProbe   *core.Probe           `json:"livenessProbe,omitempty" yaml:"livenessProbe,omitempty"`
 	ReadinessProbe  *core.Probe           `json:"readinessProbe,omitempty" yaml:"readinessProbe,omitempty"`
+	StartupProbe    *core.Probe           `json:"startupProbe,omitempty" yaml:"startupProbe,omitempty"`
 	SecurityContext *core.SecurityContext `json:"securityContext,omitempty" yaml:"securityContext,omitempty"`
 }
 
