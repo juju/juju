@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
@@ -582,6 +583,19 @@ var configTests = []configTest{
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"default-space": "bar",
 		}),
+	}, {
+		about:       "Valid charmhub api url",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"charmhub-url": "http://test.com",
+		}),
+	}, {
+		about:       "Invalid charmhub api url",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"charmhub-url": "http://t est.com",
+		}),
+		err: `charmhub url "http://t est.com" not valid`,
 	},
 }
 
@@ -870,6 +884,11 @@ var validationTests = []validationTest{{
 	old:   testing.Attrs{"uuid": "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9"},
 	new:   testing.Attrs{"uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4"},
 	err:   "cannot change uuid from \"90168e4c-2f10-4e9c-83c2-1fb55a58e5a9\" to \"dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4\"",
+}, {
+	about: "Can't change the charmhub-url (global->none)",
+	old:   testing.Attrs{"charmhub-url": "http://a.com"},
+	new:   testing.Attrs{"charmhub-url": "http://b.com"},
+	err:   `cannot change charmhub-url from "http://a.com" to "http://b.com"`,
 }}
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
@@ -1124,6 +1143,19 @@ func (s *ConfigSuite) TestAutoHookRetryTrueEnv(c *gc.C) {
 	config := newTestConfig(c, testing.Attrs{
 		"automatically-retry-hooks": "true"})
 	c.Assert(config.AutomaticallyRetryHooks(), gc.Equals, true)
+}
+
+func (s *ConfigSuite) TestCharmhubURL(c *gc.C) {
+	config := newTestConfig(c, testing.Attrs{})
+	c.Assert(config.CharmhubURL(), gc.Equals, charmhub.CharmhubServerURL)
+}
+
+func (s *ConfigSuite) TestCharmhubURLSettingValue(c *gc.C) {
+	url := "http://meshuggah-rocks.com/charmhub"
+	config := newTestConfig(c, testing.Attrs{
+		"charmhub-url": url,
+	})
+	c.Assert(config.CharmhubURL(), gc.Equals, url)
 }
 
 func (s *ConfigSuite) TestNoBothProxy(c *gc.C) {

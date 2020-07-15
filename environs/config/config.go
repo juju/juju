@@ -6,6 +6,7 @@ package config
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
@@ -251,6 +253,9 @@ const (
 	// LXDSnapChannel selects the channel to use when installing LXD from a snap.
 	LXDSnapChannel = "lxd-snap-channel"
 
+	// CharmhubURL is the key for the url to use for charmhub API calls
+	CharmhubURL = "charmhub-url"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -468,6 +473,8 @@ var defaultConfigValues = map[string]interface{}{
 	ContainerInheritPropertiesKey: "",
 	BackupDirKey:                  "",
 	LXDSnapChannel:                "latest/stable",
+
+	CharmhubURL: charmhub.CharmhubServerURL,
 
 	// Image and agent streams and URLs.
 	"image-stream":               "released",
@@ -730,6 +737,12 @@ func Validate(cfg, old *Config) error {
 
 		if !diffSet.IsEmpty() {
 			return fmt.Errorf("container-inherit-properties: %s not allowed", strings.Join(diffSet.SortedValues(), ", "))
+		}
+	}
+
+	if v, ok := cfg.defined[CharmhubURL].(string); ok && v != "" {
+		if _, err := url.Parse(v); err != nil {
+			return errors.NotValidf("charmhub url %q", v)
 		}
 	}
 
@@ -1281,6 +1294,15 @@ func (c *Config) GUIStream() string {
 	return "released"
 }
 
+// CharmhubURL returns the URL to use for charmhub api calls.
+func (c *Config) CharmhubURL() string {
+	url := c.asString(CharmhubURL)
+	if url == "" {
+		return charmhub.CharmhubServerURL
+	}
+	return url
+}
+
 // DisableNetworkManagement reports whether Juju is allowed to
 // configure and manage networking inside the environment.
 func (c *Config) DisableNetworkManagement() (bool, bool) {
@@ -1554,6 +1576,7 @@ var alwaysOptional = schema.Defaults{
 	BackupDirKey:                  schema.Omit,
 	DefaultSpace:                  schema.Omit,
 	LXDSnapChannel:                schema.Omit,
+	CharmhubURL:                   schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1587,6 +1610,10 @@ var immutableAttributes = []string{
 	TypeKey,
 	UUIDKey,
 	"firewall-mode",
+
+	// TODO (stickupkid): Currently this is immutable, but at some point we
+	// should allow the operator to change this.
+	CharmhubURL,
 }
 
 var (
@@ -2060,6 +2087,11 @@ data of the store. (default false)`,
 	},
 	LXDSnapChannel: {
 		Description: "The channel to use when installing LXD from a snap (cosmic and later)",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	CharmhubURL: {
+		Description: `The url for charmhub API calls`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

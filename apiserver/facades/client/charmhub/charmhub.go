@@ -15,9 +15,21 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/environs/config"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.charmhub")
+
+// Backend defines the state methods this facade needs, so they can be
+// mocked for testing.
+type Backend interface {
+	ModelConfig() (*config.Config, error)
+}
+
+// ClientFactory defines a factory for creating clients from a given url.
+type ClientFactory interface {
+	Client(string) (Client, error)
+}
 
 // Client represents a charmhub Client for making queries to the charmhub API.
 type Client interface {
@@ -28,27 +40,31 @@ type Client interface {
 
 // CharmHubAPI API provides the charmhub API facade for version 1.
 type CharmHubAPI struct {
-	auth facade.Authorizer
-
-	// newClientFunc is for testing purposes to facilitate using mocks.
-	client Client
+	backend       Backend
+	auth          facade.Authorizer
+	clientFactory ClientFactory
 }
 
 // NewFacade creates a new CharmHubAPI facade.
 func NewFacade(ctx facade.Context) (*CharmHubAPI, error) {
-	auth := ctx.Auth()
-	client, err := charmhub.NewClient(charmhub.CharmhubConfig())
+	st := ctx.State()
+	m, err := st.Model()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
-	return newCharmHubAPI(auth, client)
+
+	return newCharmHubAPI(m, ctx.Auth(), charmhubClientFactory{})
 }
 
-func newCharmHubAPI(authorizer facade.Authorizer, client Client) (*CharmHubAPI, error) {
+func newCharmHubAPI(backend Backend, authorizer facade.Authorizer, clientFactory ClientFactory) (*CharmHubAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-	return &CharmHubAPI{auth: authorizer, client: client}, nil
+	return &CharmHubAPI{
+		backend:       backend,
+		auth:          authorizer,
+		clientFactory: clientFactory,
+	}, nil
 }
 
 // Info queries the charmhub API with a given entity ID.
@@ -59,22 +75,57 @@ func (api *CharmHubAPI) Info(arg params.Entity) (params.CharmHubEntityInfoResult
 	if err != nil {
 		return params.CharmHubEntityInfoResult{}, errors.BadRequestf("arg value is empty")
 	}
-	// TODO (stickupkid): Create a proper context to be used here.
-	info, err := api.client.Info(context.TODO(), tag.Id())
+
+	client, err := api.client()
 	if err != nil {
 		return params.CharmHubEntityInfoResult{}, errors.Trace(err)
 	}
-	return params.CharmHubEntityInfoResult{Result: convertCharmInfoResult(info, api.client.URL())}, nil
+
+	// TODO (stickupkid): Create a proper context to be used here.
+	info, err := client.Info(context.TODO(), tag.Id())
+	if err != nil {
+		return params.CharmHubEntityInfoResult{}, errors.Trace(err)
+	}
+	return params.CharmHubEntityInfoResult{Result: convertCharmInfoResult(info, client.URL())}, nil
 }
 
 // Find queries the charmhub API with a given entity ID.
 func (api *CharmHubAPI) Find(arg params.Query) (params.CharmHubEntityFindResult, error) {
 	logger.Tracef("Find(%v)", arg.Query)
 
-	// TODO (stickupkid): Create a proper context to be used here.
-	results, err := api.client.Find(context.TODO(), arg.Query)
+	client, err := api.client()
 	if err != nil {
 		return params.CharmHubEntityFindResult{}, errors.Trace(err)
 	}
-	return params.CharmHubEntityFindResult{Results: convertCharmFindResults(results, api.client.URL())}, nil
+
+	// TODO (stickupkid): Create a proper context to be used here.
+	results, err := client.Find(context.TODO(), arg.Query)
+	if err != nil {
+		return params.CharmHubEntityFindResult{}, errors.Trace(err)
+	}
+	return params.CharmHubEntityFindResult{Results: convertCharmFindResults(results, client.URL())}, nil
+}
+
+func (api *CharmHubAPI) client() (Client, error) {
+	config, err := api.backend.ModelConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return api.clientFactory.Client(config.CharmhubURL())
+}
+
+type charmhubClientFactory struct{}
+
+func (charmhubClientFactory) Client(url string) (Client, error) {
+	// TODO (stickupkid): This is extremely wasteful as we create and throw away
+	// a client for every request. It would be better to have something like a
+	// map[string]Client type that handled model configuration changes.
+
+	client, err := charmhub.NewClient(charmhub.CharmhubConfigFromURL(url))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return client, nil
 }
