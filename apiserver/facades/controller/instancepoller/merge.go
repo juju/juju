@@ -7,12 +7,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/state"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/state"
 )
 
 // mergeMachineLinkLayerOp is a model operation used to merge incoming
@@ -101,11 +101,9 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 	}
 
 	// Collect normalised addresses for the incoming device.
-	// TODO (manadart 2020-07-15): Track which of these incoming
-	// addrs we have matches for in state.
-	// We should at least log any that the machine is not aware of.
-	// We also need to set shadow addresses - these are sent where appropriate
-	// by the provider, but we do not yet process them.
+	// TODO (manadart 2020-07-15): We also need to set shadow addresses.
+	// These are sent where appropriate by the provider,
+	// but we do not yet process them.
 	incomingAddrs, err := o.MatchingIncomingAddrs(dev)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -119,7 +117,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 		ops = append(ops, addrOps...)
 	}
 
-	o.MarkProcessed(dev)
+	o.MarkDevProcessed(dev)
 	return ops, nil
 }
 
@@ -150,6 +148,8 @@ func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
 	// return ops for setting the incoming provider IDs.
 	for _, incomingAddr := range incomingAddrs {
 		if strings.HasPrefix(incomingAddr.CIDRAddress, addrValue) {
+			o.MarkAddrProcessed(addrValue)
+
 			ops, err := addr.SetProviderIDOps(incomingAddr.ProviderID)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -169,9 +169,10 @@ func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
 // aware of devices that the machiner knows nothing about.
 // At the time of writing we preserve existing behaviour and do not add them.
 // Log for now and consider adding such devices in the future.
+// We should also handle unprocessed addresses on existing devices.
 func (o *mergeMachineLinkLayerOp) processNewDevices() {
 	for _, dev := range o.Incoming() {
-		if !o.IsProcessed(dev) {
+		if !o.IsDevProcessed(dev) {
 			logger.Debugf(
 				"ignoring unrecognised device %q (%s) with addresses %v",
 				dev.InterfaceName, dev.MACAddress, dev.Addresses,

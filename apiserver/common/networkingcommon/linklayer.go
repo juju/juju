@@ -107,9 +107,13 @@ type MachineLinkLayerOp struct {
 	// incoming is the network interface information supplied for update.
 	incoming network.InterfaceInfos
 
-	// processed is the set of hardware IDs that we have
+	// processedDevs is the set of hardware IDs that we have
 	// processed from the incoming interfaces.
-	processed set.Strings
+	processedDevs set.Strings
+
+	// processedAddrs is the set of IP addresses that we have
+	// processed from the incoming interfaces.
+	processedAddrs set.Strings
 
 	existingDevs  []LinkLayerDevice
 	existingAddrs []LinkLayerAddress
@@ -121,9 +125,10 @@ func NewMachineLinkLayerOp(machine LinkLayerMachine, incoming network.InterfaceI
 	logger.Debugf("processing link-layer devices for machine %q", machine.Id())
 
 	return &MachineLinkLayerOp{
-		machine:   machine,
-		incoming:  incoming,
-		processed: set.NewStrings(),
+		machine:        machine,
+		incoming:       incoming,
+		processedDevs:  set.NewStrings(),
+		processedAddrs: set.NewStrings(),
 	}
 }
 
@@ -199,16 +204,23 @@ func (o *MachineLinkLayerOp) AssertAliveOp() txn.Op {
 	return o.machine.AssertAliveOp()
 }
 
-// MarkProcessed indicates that the input (known) device was present in the
+// MarkDevProcessed indicates that the input (known) device was present in the
 // incoming data and its updates have been handled by the build step.
-func (o *MachineLinkLayerOp) MarkProcessed(dev LinkLayerDevice) {
-	o.processed.Add(dev.MACAddress())
+func (o *MachineLinkLayerOp) MarkDevProcessed(dev LinkLayerDevice) {
+	o.processedDevs.Add(dev.MACAddress())
 }
 
-// IsProcessed returns a boolean indicating whether the input incoming device
-// matches a known device that was marked as processed by the method above.
-func (o *MachineLinkLayerOp) IsProcessed(dev network.InterfaceInfo) bool {
-	return o.processed.Contains(dev.MACAddress)
+// IsDevProcessed returns a boolean indicating whether the input incoming
+// device matches a known device that was marked as processed by the method
+// above.
+func (o *MachineLinkLayerOp) IsDevProcessed(dev network.InterfaceInfo) bool {
+	return o.processedDevs.Contains(dev.MACAddress)
+}
+
+// MarkAddrProcessed indicates that the input (known) IP address was present in
+// the incoming data and its updates have been handled by the build step.
+func (o *MachineLinkLayerOp) MarkAddrProcessed(ipAddress string) {
+	o.processedAddrs.Add(ipAddress)
 }
 
 // Done (state.ModelOperation) returns the result of running the operation.
