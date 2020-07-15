@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 )
 
-// PortRange represents a single range of ports.
+// PortRange represents a single range of ports on a particular subnet.
 type PortRange struct {
 	FromPort int
 	ToPort   int
@@ -31,31 +31,55 @@ func (p PortRange) Validate() error {
 		}
 		return errors.Errorf(`protocol "icmp" doesn't support any ports; got "%v"`, p.FromPort)
 	}
-	err := errors.Errorf(
-		"invalid port range %d-%d/%s",
-		p.FromPort,
-		p.ToPort,
-		p.Protocol,
-	)
-	switch {
-	case p.FromPort > p.ToPort:
-		return err
-	case p.FromPort < 1 || p.FromPort > 65535:
-		return err
-	case p.ToPort < 1 || p.ToPort > 65535:
-		return err
+	if p.FromPort > p.ToPort {
+		return errors.Errorf("invalid port range %s", p)
+	} else if p.FromPort <= 0 || p.FromPort > 65535 || p.ToPort <= 0 || p.ToPort > 65535 {
+		return errors.Errorf("port range bounds must be between 1 and 65535, got %d-%d", p.FromPort, p.ToPort)
 	}
 	return nil
 }
 
-// ConflictsWith determines if the two port ranges conflict.
-func (a PortRange) ConflictsWith(b PortRange) bool {
-	if a.Protocol != b.Protocol {
-		return false
+// Length returns the number of ports in the range.  If the range is not valid,
+// it returns 0. If this range uses ICMP as the protocol then a -1 is returned
+// instead.
+func (p PortRange) Length() int {
+	if err := p.Validate(); err != nil {
+		return 0
 	}
-	return a.ToPort >= b.FromPort && b.ToPort >= a.FromPort
+	return (p.ToPort - p.FromPort) + 1
 }
 
+// ConflictsWith determines if the two port ranges conflict.
+func (p PortRange) ConflictsWith(other PortRange) bool {
+	if p.Protocol != other.Protocol {
+		return false
+	}
+	return p.ToPort >= other.FromPort && other.ToPort >= p.FromPort
+}
+
+// Sanitize returns a copy of the port range, which is guaranteed to have
+// FromPort >= ToPort and both FromPort and ToPort fit into the valid range
+// from 1 to 65535, inclusive.
+func (p PortRange) SanitizeBounds() PortRange {
+	res := p
+	if res.Protocol == "icmp" {
+		return res
+	}
+	if res.FromPort > res.ToPort {
+		res.FromPort, res.ToPort = res.ToPort, res.FromPort
+	}
+	for _, bound := range []*int{&res.FromPort, &res.ToPort} {
+		switch {
+		case *bound <= 0:
+			*bound = 1
+		case *bound > 65535:
+			*bound = 65535
+		}
+	}
+	return res
+}
+
+// String returns a formatted representation of this port range.
 func (p PortRange) String() string {
 	protocol := strings.ToLower(p.Protocol)
 	if protocol == "icmp" {
@@ -90,55 +114,6 @@ func (p portRangeSlice) Less(i, j int) bool {
 // SortPortRanges sorts the given ports, first by protocol, then by number.
 func SortPortRanges(portRanges []PortRange) {
 	sort.Sort(portRangeSlice(portRanges))
-}
-
-// CollapsePorts collapses a slice of ports into port ranges.
-//
-// NOTE(dimitern): This is deprecated and should be removed when
-// possible. It still exists, because in a few places slices of Ports
-// are converted to PortRanges internally.
-func CollapsePorts(ports []Port) (result []PortRange) {
-	// First, convert ports to ranges, then sort them.
-	var portRanges []PortRange
-	for _, p := range ports {
-		portRanges = append(portRanges, PortRange{p.Number, p.Number, p.Protocol})
-	}
-	SortPortRanges(portRanges)
-	fromPort := 0
-	toPort := 0
-	protocol := ""
-	// Now merge single port ranges while preserving the order.
-	for _, pr := range portRanges {
-		if fromPort == 0 {
-			// new port range
-			fromPort = pr.FromPort
-			toPort = pr.ToPort
-			protocol = pr.Protocol
-		} else if pr.FromPort == toPort+1 && protocol == pr.Protocol {
-			// continuing port range
-			toPort = pr.FromPort
-		} else {
-			// break in port range
-			result = append(result,
-				PortRange{
-					Protocol: protocol,
-					FromPort: fromPort,
-					ToPort:   toPort,
-				})
-			fromPort = pr.FromPort
-			toPort = pr.ToPort
-			protocol = pr.Protocol
-		}
-	}
-	if fromPort != 0 {
-		result = append(result, PortRange{
-			Protocol: protocol,
-			FromPort: fromPort,
-			ToPort:   toPort,
-		})
-
-	}
-	return
 }
 
 // ParsePortRange builds a PortRange from the provided string. If the
