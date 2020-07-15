@@ -21,7 +21,6 @@ import (
 const (
 	credAttrAppId          = "application-id"
 	credAttrSubscriptionId = "subscription-id"
-	credAttrTenantId       = "tenant-id"
 	credAttrAppPassword    = "application-password"
 
 	// clientCredentialsAuthType is the auth-type for the
@@ -116,7 +115,7 @@ func (c environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 	}
 	var defaultCredential string
 	authCredentials := make(map[string]cloud.Credential)
-	for i, acc := range accounts {
+	for _, acc := range accounts {
 		cloudInfo, ok := cloudMap[acc.CloudName]
 		if !ok {
 			continue
@@ -124,13 +123,6 @@ func (c environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 		cred, err := c.accountCredential(acc, cloudInfo)
 		if err != nil {
 			logger.Debugf("cannot get credential for %s: %s", acc.Name, err)
-			if i == 0 {
-				// Assume that if this fails the first
-				// time then it will always fail and
-				// don't attempt to create any further
-				// credentials.
-				return nil, errors.NotFoundf("credentials")
-			}
 			continue
 		}
 		cred.Label = fmt.Sprintf("%s subscription %s", cloudInfo.Name, acc.Name)
