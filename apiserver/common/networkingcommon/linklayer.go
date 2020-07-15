@@ -170,6 +170,17 @@ func (o *MachineLinkLayerOp) MatchingIncoming(dev LinkLayerDevice) *network.Inte
 	return nil
 }
 
+// MatchingIncomingAddrs finds all the primary addresses on devices matching
+// the hardware address of the input, and returns them as state args.
+// TODO (manadart 2020-07-15): We should investigate making an enhanced
+// core/network address type instead of this state type.
+// It would embed ProviderAddress and could be obtained directly via a method
+// or property of InterfaceInfos.
+func (o *MachineLinkLayerOp) MatchingIncomingAddrs(dev LinkLayerDevice) ([]state.LinkLayerDeviceAddress, error) {
+	addrs, err := networkAddressStateArgsForHWAddr(o.Incoming(), dev.MACAddress())
+	return addrs, errors.Trace(err)
+}
+
 // DeviceAddresses returns all currently known
 // IP addresses assigned to the input device.
 func (o *MachineLinkLayerOp) DeviceAddresses(dev LinkLayerDevice) []LinkLayerAddress {

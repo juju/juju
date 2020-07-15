@@ -206,12 +206,12 @@ func networkDeviceToStateArgs(dev corenetwork.InterfaceInfo) state.LinkLayerDevi
 	}
 }
 
-// NetworkAddressStateArgsForHWAddr accommodates the fact that network
+// networkAddressStateArgsForHWAddr accommodates the fact that network
 // configuration is sometimes supplied with a duplicated device for each
 // address.
 // This is a normalisation that returns state args for all primary addresses
 // of interfaces with the input hardware address.
-func NetworkAddressStateArgsForHWAddr(
+func networkAddressStateArgsForHWAddr(
 	devs corenetwork.InterfaceInfos, hwAddr string,
 ) ([]state.LinkLayerDeviceAddress, error) {
 	var res []state.LinkLayerDeviceAddress

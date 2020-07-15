@@ -106,7 +106,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 	// We should at least log any that the machine is not aware of.
 	// We also need to set shadow addresses - these are sent where appropriate
 	// by the provider, but we do not yet process them.
-	incomingAddrs, err := networkingcommon.NetworkAddressStateArgsForHWAddr(o.Incoming(), incomingDev.MACAddress)
+	incomingAddrs, err := o.MatchingIncomingAddrs(dev)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
