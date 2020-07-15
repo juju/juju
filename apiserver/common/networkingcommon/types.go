@@ -211,20 +211,19 @@ func networkDeviceToStateArgs(dev corenetwork.InterfaceInfo) state.LinkLayerDevi
 // address.
 // This is a normalisation that returns state args for all primary addresses
 // of interfaces with the input hardware address.
-func networkAddressStateArgsForHWAddr(
-	devs corenetwork.InterfaceInfos, hwAddr string,
-) ([]state.LinkLayerDeviceAddress, error) {
+func networkAddressStateArgsForHWAddr(devs corenetwork.InterfaceInfos, hwAddr string) []state.LinkLayerDeviceAddress {
 	var res []state.LinkLayerDeviceAddress
 
 	for _, dev := range devs.GetByHardwareAddress(hwAddr) {
 		addr, err := networkAddressToStateArgs(dev, dev.PrimaryAddress())
 		if err != nil {
-			return nil, errors.Trace(err)
+			logger.Warningf("ignoring address for device %q: %v", dev.InterfaceName, err)
+			continue
 		}
 		res = append(res, addr)
 	}
 
-	return res, nil
+	return res
 }
 
 func networkAddressToStateArgs(

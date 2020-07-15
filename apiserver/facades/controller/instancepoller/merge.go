@@ -104,10 +104,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 	// TODO (manadart 2020-07-15): We also need to set shadow addresses.
 	// These are sent where appropriate by the provider,
 	// but we do not yet process them.
-	incomingAddrs, err := o.MatchingIncomingAddrs(dev)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	incomingAddrs := o.MatchingIncomingAddrs(dev)
 
 	for _, addr := range o.DeviceAddresses(dev) {
 		addrOps, err := o.processExistingDeviceAddress(addr, incomingAddrs)

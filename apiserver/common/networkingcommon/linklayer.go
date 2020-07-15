@@ -181,9 +181,8 @@ func (o *MachineLinkLayerOp) MatchingIncoming(dev LinkLayerDevice) *network.Inte
 // core/network address type instead of this state type.
 // It would embed ProviderAddress and could be obtained directly via a method
 // or property of InterfaceInfos.
-func (o *MachineLinkLayerOp) MatchingIncomingAddrs(dev LinkLayerDevice) ([]state.LinkLayerDeviceAddress, error) {
-	addrs, err := networkAddressStateArgsForHWAddr(o.Incoming(), dev.MACAddress())
-	return addrs, errors.Trace(err)
+func (o *MachineLinkLayerOp) MatchingIncomingAddrs(dev LinkLayerDevice) []state.LinkLayerDeviceAddress {
+	return networkAddressStateArgsForHWAddr(o.Incoming(), dev.MACAddress())
 }
 
 // DeviceAddresses returns all currently known

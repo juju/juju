@@ -915,7 +915,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *gc
 	// Hardware address not matched.
 	dev := instancepoller.NewMockLinkLayerDevice(ctrl)
 	dExp := dev.EXPECT()
-	dExp.MACAddress().Return("01:01:01:01:01:01")
+	dExp.MACAddress().Return("01:01:01:01:01:01").MinTimes(1)
 	dExp.Name().Return("eth0")
 	dExp.SetProviderIDOps(network.Id("")).Return([]txn.Op{{C: "dev-provider-id"}}, nil)
 
@@ -966,7 +966,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 	// Hardware address will match; provider ID will be set.
 	dev := instancepoller.NewMockLinkLayerDevice(ctrl)
 	dExp := dev.EXPECT()
-	dExp.MACAddress().Return("00:00:00:00:00:00").Times(2)
+	dExp.MACAddress().Return("00:00:00:00:00:00").MinTimes(1)
 	dExp.Name().Return("eth0")
 	dExp.ProviderID().Return(network.Id(""))
 	dExp.SetProviderIDOps(network.Id("p-dev")).Return([]txn.Op{{C: "dev-provider-id"}}, nil)
