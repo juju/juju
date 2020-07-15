@@ -10,17 +10,16 @@ import (
 	"io"
 	"strings"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/charmhub"
 	"github.com/juju/juju/cmd/output"
 )
 
-func makeFindWriter(ctx *cmd.Context, in []charmhub.FindResponse) Printer {
+func makeFindWriter(w io.Writer, warning Log, in []charmhub.FindResponse) Printer {
 	writer := findWriter{
-		w:        ctx.Stdout,
-		warningf: ctx.Warningf,
+		w:        w,
+		warningf: warning,
 		in:       in,
 	}
 	return writer

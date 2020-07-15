@@ -4,6 +4,8 @@
 package charmhub
 
 import (
+	"io"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -35,6 +37,8 @@ func NewInfoCommand() cmd.Command {
 // about charm snaps.
 type infoCommand struct {
 	modelcmd.ModelCommandBase
+	out        cmd.Output
+	warningLog Log
 
 	api InfoCommandAPI
 
@@ -58,6 +62,11 @@ func (c *infoCommand) Info() *cmd.Info {
 // It implements part of the cmd.Command interface.
 func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "human", map[string]cmd.Formatter{
+		"yaml":  cmd.FormatYaml,
+		"json":  cmd.FormatJson,
+		"human": c.formatter,
+	})
 	// TODO (hml)
 	// add --config
 }
@@ -89,7 +98,13 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	return makeInfoWriter(ctx, &info).Print()
+	// This is a side effect of the formatting code not wanting to error out
+	// when we get invalid data from the API.
+	// We store it on the command before attempting to output, so we can pick
+	// it up later.
+	c.warningLog = ctx.Warningf
+
+	return c.out.Write(ctx, &info)
 }
 
 func (c *infoCommand) validateCharmOrBundle(_ string) error {
@@ -111,4 +126,17 @@ func (c *infoCommand) getAPI() (InfoCommandAPI, error) {
 	}
 	client := charmhub.NewClient(api)
 	return client, nil
+}
+
+func (c *infoCommand) formatter(writer io.Writer, value interface{}) error {
+	results, ok := value.(*charmhub.InfoResponse)
+	if !ok {
+		return errors.Errorf("unexpected results")
+	}
+
+	if err := makeInfoWriter(writer, c.warningLog, results).Print(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }

@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -36,6 +37,8 @@ func NewFindCommand() cmd.Command {
 // findCommand supplies the "find" CLI command used to display find information.
 type findCommand struct {
 	modelcmd.ModelCommandBase
+	out        cmd.Output
+	warningLog Log
 
 	api FindCommandAPI
 
@@ -58,6 +61,11 @@ func (c *findCommand) Info() *cmd.Info {
 // It implements part of the cmd.Command interface.
 func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "human", map[string]cmd.Formatter{
+		"yaml":  cmd.FormatYaml,
+		"json":  cmd.FormatJson,
+		"human": c.formatter,
+	})
 	// TODO (stickupkid): add the following:
 	// --narrow
 }
@@ -87,28 +95,13 @@ func (c *findCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	// If the results are empty, we should return a helpful message to the
-	// operator.
-	if len(results) == 0 {
-		fmt.Fprintf(ctx.Stderr, "No matching charms for %q\n", c.query)
-		return nil
-	}
+	// This is a side effect of the formatting code not wanting to error out
+	// when we get invalid data from the API.
+	// We store it on the command before attempting to output, so we can pick
+	// it up later.
+	c.warningLog = ctx.Warningf
 
-	// Output some helpful errors messages for operators if the query is empty
-	// or not.
-	emptyQuery := c.query == ""
-	if emptyQuery {
-		fmt.Fprintf(ctx.Stdout, "No search term specified. Here are some interesting charms:\n\n")
-	}
-
-	if err := makeFindWriter(ctx, results).Print(); err != nil {
-		return errors.Trace(err)
-	}
-
-	if emptyQuery {
-		fmt.Fprintln(ctx.Stdout, "Provide a search term for more specific results.")
-	}
-	return nil
+	return c.output(ctx, results)
 }
 
 // getAPI returns the API that supplies methods
@@ -123,4 +116,45 @@ func (c *findCommand) getAPI() (FindCommandAPI, error) {
 	}
 	client := charmhub.NewClient(api)
 	return client, nil
+}
+
+func (c *findCommand) output(ctx *cmd.Context, results []charmhub.FindResponse) error {
+	tabular := c.out.Name() == "tabular"
+	if tabular {
+		// If the results are empty, we should return a helpful message to the
+		// operator.
+		if len(results) == 0 {
+			fmt.Fprintf(ctx.Stderr, "No matching charms for %q\n", c.query)
+			return nil
+		}
+
+		// Output some helpful errors messages for operators if the query is empty
+		// or not.
+		if c.query == "" {
+			fmt.Fprintf(ctx.Stdout, "No search term specified. Here are some interesting charms:\n\n")
+		}
+	}
+
+	if err := c.out.Write(ctx, results); err != nil {
+		return errors.Trace(err)
+	}
+
+	if tabular && c.query == "" {
+		fmt.Fprintln(ctx.Stdout, "Provide a search term for more specific results.")
+	}
+
+	return nil
+}
+
+func (c *findCommand) formatter(writer io.Writer, value interface{}) error {
+	results, ok := value.([]charmhub.FindResponse)
+	if !ok {
+		return errors.Errorf("unexpected results")
+	}
+
+	if err := makeFindWriter(writer, c.warningLog, results).Print(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }

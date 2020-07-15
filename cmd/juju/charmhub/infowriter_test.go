@@ -18,7 +18,7 @@ var _ = gc.Suite(&printInfoSuite{})
 func (s *printInfoSuite) TestCharmPrintInfo(c *gc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, &ir)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -52,7 +52,7 @@ channels: |
 func (s *printInfoSuite) TestBundleChannelClosed(c *gc.C) {
 	ir := getBundleInfoClosedTrack()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, &ir)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -74,7 +74,7 @@ channels: |
 func (s *printInfoSuite) TestBundlePrintInfo(c *gc.C) {
 	ir := getBundleInfoResponse()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, &ir)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
@@ -25,10 +24,10 @@ import (
 // There are exceptions, slices of strings and tables.  These
 // are transformed into strings.
 
-func makeInfoWriter(ctx *cmd.Context, in *charmhub.InfoResponse) Printer {
+func makeInfoWriter(w io.Writer, warningLog Log, in *charmhub.InfoResponse) Printer {
 	iw := infoWriter{
-		w:        ctx.Stdout,
-		warningf: ctx.Warningf,
+		w:        w,
+		warningf: warningLog,
 		in:       in,
 	}
 	if iw.in.Type == "charm" {
