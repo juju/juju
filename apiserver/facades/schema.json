@@ -9488,6 +9488,9 @@
         "Description": "CharmHubAPI API provides the charmhub API facade for version 1.",
         "Version": 1,
         "AvailableTo": [
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
             "model-user"
         ],
         "Schema": {
