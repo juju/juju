@@ -160,6 +160,18 @@ func (o *MachineLinkLayerOp) PopulateExistingAddresses() error {
 	return errors.Trace(err)
 }
 
+// MatchingIncoming returns the incoming interface info that
+// matches the input known device, based on hardware address.
+// Nil is returned if there is no match.
+// The constructor normalises the incoming data, so we can safely assume that
+// there is at most one device with any given hardware address.
+func (o *MachineLinkLayerOp) MatchingIncoming(dev LinkLayerDevice) *network.InterfaceInfo {
+	if matches := o.incoming.GetByHardwareAddress(dev.MACAddress()); len(matches) > 0 {
+		return &matches[0]
+	}
+	return nil
+}
+
 // DeviceAddresses returns all currently known
 // IP addresses assigned to the input device.
 func (o *MachineLinkLayerOp) DeviceAddresses(dev LinkLayerDevice) []LinkLayerAddress {
