@@ -1002,6 +1002,17 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 						CIDR:              "10.0.0.0/24",
 						Addresses:         []params.Address{{Value: "10.0.0.42"}},
 					},
+					{
+						// A duplicate (MAC and addresses) should make no difference.
+						InterfaceName:     "more-provider-esoteria",
+						MACAddress:        "00:00:00:00:00:00",
+						ProviderId:        "p-dev",
+						ProviderAddressId: "p-addr",
+						ProviderNetworkId: "p-net",
+						ProviderSubnetId:  "p-sub",
+						CIDR:              "10.0.0.0/24",
+						Addresses:         []params.Address{{Value: "10.0.0.42"}},
+					},
 				},
 			},
 		},

@@ -107,12 +107,14 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 	incomingAddrs := o.MatchingIncomingAddrs(dev)
 
 	for _, addr := range o.DeviceAddresses(dev) {
-		addrOps, err := o.processExistingDeviceAddress(addr, incomingAddrs)
+		addrOps, err := o.processExistingDeviceAddress(dev, addr, incomingAddrs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		ops = append(ops, addrOps...)
 	}
+
+	// TODO (manadart 2020-07-15): Process (log) new addresses on the device.
 
 	o.MarkDevProcessed(dev)
 	return ops, nil
@@ -137,20 +139,28 @@ func (o *mergeMachineLinkLayerOp) opsForDeviceOriginRelinquishment(
 }
 
 func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
-	addr networkingcommon.LinkLayerAddress, incomingAddrs []state.LinkLayerDeviceAddress,
+	dev networkingcommon.LinkLayerDevice,
+	addr networkingcommon.LinkLayerAddress,
+	incomingAddrs []state.LinkLayerDeviceAddress,
 ) ([]txn.Op, error) {
 	addrValue := addr.Value()
+	hwAddr := dev.MACAddress()
 
 	// If one of the incoming addresses matches the existing one,
 	// return ops for setting the incoming provider IDs.
 	for _, incomingAddr := range incomingAddrs {
 		if strings.HasPrefix(incomingAddr.CIDRAddress, addrValue) {
-			o.MarkAddrProcessed(addrValue)
+			if o.IsAddrProcessed(hwAddr, addrValue) {
+				continue
+			}
 
 			ops, err := addr.SetProviderIDOps(incomingAddr.ProviderID)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+
+			o.MarkAddrProcessed(hwAddr, addrValue)
+
 			return append(ops, addr.SetProviderNetIDsOps(
 				incomingAddr.ProviderNetworkID, incomingAddr.ProviderSubnetID)...), nil
 		}
@@ -166,7 +176,6 @@ func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
 // aware of devices that the machiner knows nothing about.
 // At the time of writing we preserve existing behaviour and do not add them.
 // Log for now and consider adding such devices in the future.
-// We should also handle unprocessed addresses on existing devices.
 func (o *mergeMachineLinkLayerOp) processNewDevices() {
 	for _, dev := range o.Incoming() {
 		if !o.IsDevProcessed(dev) {
