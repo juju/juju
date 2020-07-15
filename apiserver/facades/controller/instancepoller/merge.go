@@ -4,8 +4,10 @@
 package instancepoller
 
 import (
-	"github.com/juju/collections/set"
+	"strings"
+
 	"github.com/juju/errors"
+	"github.com/juju/juju/state"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/txn"
 
@@ -98,8 +100,19 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 		}
 	}
 
+	// Collect normalised addresses for the incoming device.
+	// TODO (manadart 2020-07-15): Track which of these incoming
+	// addrs we have matches for in state.
+	// We should at least log any that the machine is not aware of.
+	// We also need to set shadow addresses - these are sent where appropriate
+	// by the provider, but we do not yet process them.
+	incomingAddrs, err := networkingcommon.NetworkAddressStateArgsForHWAddr(o.Incoming(), incomingDev.MACAddress)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	for _, addr := range o.DeviceAddresses(dev) {
-		addrOps, err := o.processExistingDeviceAddress(addr, *incomingDev)
+		addrOps, err := o.processExistingDeviceAddress(addr, incomingAddrs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -129,34 +142,25 @@ func (o *mergeMachineLinkLayerOp) opsForDeviceOriginRelinquishment(
 }
 
 func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
-	addr networkingcommon.LinkLayerAddress, incomingDev network.InterfaceInfo,
+	addr networkingcommon.LinkLayerAddress, incomingAddrs []state.LinkLayerDeviceAddress,
 ) ([]txn.Op, error) {
 	addrValue := addr.Value()
 
-	// TODO (manadart 2020-06-09): This is where we see a cardinality mismatch.
-	// The InterfaceInfo type has one provider address ID, but a collection of
-	// addresses and shadow addresses.
-	// This should change so that addresses are collections of types that
-	// include a provider ID, instead of assuming that the provider ID applies
-	// to the primary address (index 0).
-	// We should also be adding shadow addresses to the link-layer device here.
-	// For now, if the provider does not recognise the address,
-	// give responsibility for it to the machine.
-	if !set.NewStrings(incomingDev.Addresses.ToIPAddresses()...).Contains(addrValue) {
-		return addr.SetOriginOps(network.OriginMachine), nil
+	// If one of the incoming addresses matches the existing one,
+	// return ops for setting the incoming provider IDs.
+	for _, incomingAddr := range incomingAddrs {
+		if strings.HasPrefix(incomingAddr.CIDRAddress, addrValue) {
+			ops, err := addr.SetProviderIDOps(incomingAddr.ProviderID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return append(ops, addr.SetProviderNetIDsOps(
+				incomingAddr.ProviderNetworkID, incomingAddr.ProviderSubnetID)...), nil
+		}
 	}
 
-	// If the address is the incoming primary address, assign the provider IDs.
-	// Otherwise simply indicate that the provider is aware of this address.
-	if addrValue == incomingDev.PrimaryAddress().Value {
-		ops, err := addr.SetProviderIDOps(incomingDev.ProviderAddressId)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return append(ops, addr.SetProviderNetIDsOps(
-			incomingDev.ProviderNetworkId, incomingDev.ProviderSubnetId)...), nil
-	}
-	return addr.SetOriginOps(network.OriginProvider), nil
+	// Otherwise relinquish responsibility for this device to the machiner.
+	return addr.SetOriginOps(network.OriginMachine), nil
 }
 
 // processNewDevices handles incoming devices that did not match any we already

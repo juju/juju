@@ -122,7 +122,7 @@ func NewMachineLinkLayerOp(machine LinkLayerMachine, incoming network.InterfaceI
 
 	return &MachineLinkLayerOp{
 		machine:   machine,
-		incoming:  incoming.Normalise(),
+		incoming:  incoming,
 		processed: set.NewStrings(),
 	}
 }
@@ -160,11 +160,9 @@ func (o *MachineLinkLayerOp) PopulateExistingAddresses() error {
 	return errors.Trace(err)
 }
 
-// MatchingIncoming returns the incoming interface info that
+// MatchingIncoming returns the first incoming interface that
 // matches the input known device, based on hardware address.
 // Nil is returned if there is no match.
-// The constructor normalises the incoming data, so we can safely assume that
-// there is at most one device with any given hardware address.
 func (o *MachineLinkLayerOp) MatchingIncoming(dev LinkLayerDevice) *network.InterfaceInfo {
 	if matches := o.incoming.GetByHardwareAddress(dev.MACAddress()); len(matches) > 0 {
 		return &matches[0]
