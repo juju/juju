@@ -11,11 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/api/charmhub"
 	"github.com/juju/juju/cmd/output"
 )
 
@@ -25,10 +23,10 @@ import (
 // There are exceptions, slices of strings and tables.  These
 // are transformed into strings.
 
-func makeInfoWriter(ctx *cmd.Context, in *charmhub.InfoResponse) Printer {
+func makeInfoWriter(w io.Writer, warningLog Log, in *InfoResponse) Printer {
 	iw := infoWriter{
-		w:        ctx.Stdout,
-		warningf: ctx.Warningf,
+		w:        w,
+		warningf: warningLog,
 		in:       in,
 	}
 	if iw.in.Type == "charm" {
@@ -40,7 +38,7 @@ func makeInfoWriter(ctx *cmd.Context, in *charmhub.InfoResponse) Printer {
 type infoWriter struct {
 	warningf Log
 	w        io.Writer
-	in       *charmhub.InfoResponse
+	in       *InfoResponse
 }
 
 func (iw infoWriter) print(info interface{}) error {
@@ -78,7 +76,7 @@ func (iw infoWriter) channels() string {
 	return buffer.String()
 }
 
-func (iw infoWriter) writeOpenChanneltoBuffer(w output.Wrapper, channel charmhub.Channel) {
+func (iw infoWriter) writeOpenChanneltoBuffer(w output.Wrapper, channel Channel) {
 	w.Printf("%s/%s:", channel.Track, channel.Risk)
 	w.Print(channel.Version)
 	releasedAt, err := time.Parse(time.RFC3339, channel.ReleasedAt)

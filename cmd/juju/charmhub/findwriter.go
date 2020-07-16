@@ -10,17 +10,15 @@ import (
 	"io"
 	"strings"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/charmhub"
 	"github.com/juju/juju/cmd/output"
 )
 
-func makeFindWriter(ctx *cmd.Context, in []charmhub.FindResponse) Printer {
+func makeFindWriter(w io.Writer, warning Log, in []FindResponse) Printer {
 	writer := findWriter{
-		w:        ctx.Stdout,
-		warningf: ctx.Warningf,
+		w:        w,
+		warningf: warning,
 		in:       in,
 	}
 	return writer
@@ -29,7 +27,7 @@ func makeFindWriter(ctx *cmd.Context, in []charmhub.FindResponse) Printer {
 type findWriter struct {
 	warningf Log
 	w        io.Writer
-	in       []charmhub.FindResponse
+	in       []FindResponse
 }
 
 func (f findWriter) Print() error {
@@ -63,7 +61,7 @@ func (f findWriter) Print() error {
 	return err
 }
 
-func (f findWriter) bundle(result charmhub.FindResponse) string {
+func (f findWriter) bundle(result FindResponse) string {
 	if result.Type == "bundle" {
 		return "Y"
 	}

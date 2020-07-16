@@ -111,9 +111,9 @@ type InfoResponse struct {
 	Description string             `json:"description"`
 	Publisher   string             `json:"publisher"`
 	Summary     string             `json:"summary"`
-	Series      []string           `json:"series"`
+	Series      []string           `json:"series,omitempty"`
 	StoreURL    string             `json:"store-url"`
-	Tags        []string           `json:"tags"`
+	Tags        []string           `json:"tags,omitempty"`
 	Charm       *Charm             `json:"charm,omitempty"`
 	Bundle      *Bundle            `json:"bundle,omitempty"`
 	Channels    map[string]Channel `json:"channel-map"`
@@ -127,7 +127,7 @@ type FindResponse struct {
 	Publisher string   `json:"publisher"`
 	Summary   string   `json:"summary"`
 	Version   string   `json:"version"`
-	Series    []string `json:"series"`
+	Series    []string `json:"series,omitempty"`
 	StoreURL  string   `json:"store-url"`
 }
 
@@ -142,14 +142,14 @@ type Channel struct {
 
 // Charm matches a params.CharmHubCharm
 type Charm struct {
-	Config      *charm.Config                `json:"config"`
-	Relations   map[string]map[string]string `json:"relations"`
-	Subordinate bool                         `json:"subordinate"`
-	UsedBy      []string                     `json:"used-by"` // bundles which use the charm
+	Config      *charm.Config                `json:"config,omitempty"`
+	Relations   map[string]map[string]string `json:"relations,omitempty"`
+	Subordinate bool                         `json:"subordinate,omitempty"`
+	UsedBy      []string                     `json:"used-by,omitempty"` // bundles which use the charm
 }
 
 type Bundle struct {
-	Charms []BundleCharm `json:"charms,"`
+	Charms []BundleCharm `json:"charms,omitempty"`
 }
 
 type BundleCharm struct {

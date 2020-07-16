@@ -6,7 +6,6 @@ package charmhub
 import (
 	"bytes"
 
-	"github.com/juju/juju/api/charmhub"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
@@ -18,7 +17,7 @@ var _ = gc.Suite(&printFindSuite{})
 func (s *printFindSuite) TestCharmPrintFind(c *gc.C) {
 	fr := getCharmFindResponse()
 	ctx := commandContextForTest(c)
-	fw := makeFindWriter(ctx, fr)
+	fw := makeFindWriter(ctx.Stdout, ctx.Warningf, fr)
 	err := fw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -39,7 +38,7 @@ func (s *printFindSuite) TestCharmPrintFindWithMissingData(c *gc.C) {
 	fr[0].Summary = ""
 
 	ctx := commandContextForTest(c)
-	fw := makeFindWriter(ctx, fr)
+	fw := makeFindWriter(ctx.Stdout, ctx.Warningf, fr)
 	err := fw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -71,8 +70,8 @@ func (s *printFindSuite) TestSummaryEmpty(c *gc.C) {
 	c.Assert(obtained, gc.Equals, expected)
 }
 
-func getCharmFindResponse() []charmhub.FindResponse {
-	return []charmhub.FindResponse{{
+func getCharmFindResponse() []FindResponse {
+	return []FindResponse{{
 		Name:      "wordpress",
 		Type:      "charm",
 		ID:        "charmCHARMcharmCHARMcharmCHARM01",
