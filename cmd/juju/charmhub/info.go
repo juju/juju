@@ -62,13 +62,11 @@ func (c *infoCommand) Info() *cmd.Info {
 // It implements part of the cmd.Command interface.
 func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "human", map[string]cmd.Formatter{
-		"yaml":  cmd.FormatYaml,
-		"json":  cmd.FormatJson,
-		"human": c.formatter,
+	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
+		"yaml":    cmd.FormatYaml,
+		"json":    cmd.FormatJson,
+		"tabular": c.formatter,
 	})
-	// TODO (hml)
-	// add --config
 }
 
 // Init initializes the info command, including validating the provided
@@ -104,7 +102,12 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 	// it up later.
 	c.warningLog = ctx.Warningf
 
-	return c.out.Write(ctx, &info)
+	view, err := convertCharmInfoResult(info)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return c.out.Write(ctx, &view)
 }
 
 func (c *infoCommand) validateCharmOrBundle(_ string) error {
@@ -129,7 +132,7 @@ func (c *infoCommand) getAPI() (InfoCommandAPI, error) {
 }
 
 func (c *infoCommand) formatter(writer io.Writer, value interface{}) error {
-	results, ok := value.(*charmhub.InfoResponse)
+	results, ok := value.(*InfoResponse)
 	if !ok {
 		return errors.Errorf("unexpected results")
 	}

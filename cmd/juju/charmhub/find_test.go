@@ -71,7 +71,7 @@ func (s *findSuite) TestRunYAML(c *gc.C) {
   version: 1.0.3
   series:
   - bionic
-  storeurl: https://someurl.com/wordpress
+  store-url: https://someurl.com/wordpress
 `[1:])
 }
 

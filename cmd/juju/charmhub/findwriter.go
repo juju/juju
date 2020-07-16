@@ -12,11 +12,10 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/charmhub"
 	"github.com/juju/juju/cmd/output"
 )
 
-func makeFindWriter(w io.Writer, warning Log, in []charmhub.FindResponse) Printer {
+func makeFindWriter(w io.Writer, warning Log, in []FindResponse) Printer {
 	writer := findWriter{
 		w:        w,
 		warningf: warning,
@@ -28,7 +27,7 @@ func makeFindWriter(w io.Writer, warning Log, in []charmhub.FindResponse) Printe
 type findWriter struct {
 	warningf Log
 	w        io.Writer
-	in       []charmhub.FindResponse
+	in       []FindResponse
 }
 
 func (f findWriter) Print() error {
@@ -62,7 +61,7 @@ func (f findWriter) Print() error {
 	return err
 }
 
-func (f findWriter) bundle(result charmhub.FindResponse) string {
+func (f findWriter) bundle(result FindResponse) string {
 	if result.Type == "bundle" {
 		return "Y"
 	}

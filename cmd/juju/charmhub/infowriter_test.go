@@ -6,7 +6,6 @@ package charmhub
 import (
 	"bytes"
 
-	"github.com/juju/juju/api/charmhub"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
@@ -94,8 +93,8 @@ channels: |
 	c.Assert(obtained, gc.Equals, expected)
 }
 
-func getBundleInfoResponse() charmhub.InfoResponse {
-	return charmhub.InfoResponse{
+func getBundleInfoResponse() InfoResponse {
+	return InfoResponse{
 		Type:        "Bundle",
 		ID:          "bundleBUNDLEbundleBUNDLEbundle01",
 		Name:        "osm",
@@ -104,7 +103,7 @@ func getBundleInfoResponse() charmhub.InfoResponse {
 		Summary:     "A bundle by charmed-osm.",
 		Tags:        []string{"networking"},
 		Bundle:      nil,
-		Channels: map[string]charmhub.Channel{
+		Channels: map[string]Channel{
 			"latest/stable": {
 				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
 				Track:      "latest",
@@ -141,8 +140,8 @@ func getBundleInfoResponse() charmhub.InfoResponse {
 	}
 }
 
-func getCharmInfoResponse() charmhub.InfoResponse {
-	return charmhub.InfoResponse{
+func getCharmInfoResponse() InfoResponse {
+	return InfoResponse{
 		Type:        "charm",
 		ID:          "charmCHARMcharmCHARMcharmCHARM01",
 		Name:        "wordpress",
@@ -151,7 +150,7 @@ func getCharmInfoResponse() charmhub.InfoResponse {
 		Description: "This will install and setup WordPress optimized to run in the cloud.\nBy default it will place Ngnix and php-fpm configured to scale horizontally with\nNginx's reverse proxy.",
 		Series:      []string{"bionic", "xenial"},
 		Tags:        []string{"app", "seven"},
-		Charm: &charmhub.Charm{
+		Charm: &Charm{
 			Subordinate: true,
 			Relations: map[string]map[string]string{
 				"provides": {
@@ -163,7 +162,7 @@ func getCharmInfoResponse() charmhub.InfoResponse {
 				},
 			},
 		},
-		Channels: map[string]charmhub.Channel{
+		Channels: map[string]Channel{
 			"latest/stable": {
 				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
 				Track:      "latest",
@@ -200,11 +199,11 @@ func getCharmInfoResponse() charmhub.InfoResponse {
 	}
 }
 
-func getBundleInfoClosedTrack() charmhub.InfoResponse {
-	return charmhub.InfoResponse{
+func getBundleInfoClosedTrack() InfoResponse {
+	return InfoResponse{
 		Name: "osm",
 		Type: "bundle",
-		Channels: map[string]charmhub.Channel{
+		Channels: map[string]Channel{
 			"latest/stable": {
 				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
 				Track:      "latest",

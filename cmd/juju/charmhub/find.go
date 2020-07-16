@@ -61,10 +61,10 @@ func (c *findCommand) Info() *cmd.Info {
 // It implements part of the cmd.Command interface.
 func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "human", map[string]cmd.Formatter{
-		"yaml":  cmd.FormatYaml,
-		"json":  cmd.FormatJson,
-		"human": c.formatter,
+	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
+		"yaml":    cmd.FormatYaml,
+		"json":    cmd.FormatJson,
+		"tabular": c.formatter,
 	})
 	// TODO (stickupkid): add the following:
 	// --narrow
@@ -135,7 +135,8 @@ func (c *findCommand) output(ctx *cmd.Context, results []charmhub.FindResponse) 
 		}
 	}
 
-	if err := c.out.Write(ctx, results); err != nil {
+	view := convertCharmFindResults(results)
+	if err := c.out.Write(ctx, view); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -147,7 +148,7 @@ func (c *findCommand) output(ctx *cmd.Context, results []charmhub.FindResponse) 
 }
 
 func (c *findCommand) formatter(writer io.Writer, value interface{}) error {
-	results, ok := value.([]charmhub.FindResponse)
+	results, ok := value.([]FindResponse)
 	if !ok {
 		return errors.Errorf("unexpected results")
 	}

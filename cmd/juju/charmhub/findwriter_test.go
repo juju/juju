@@ -6,7 +6,6 @@ package charmhub
 import (
 	"bytes"
 
-	"github.com/juju/juju/api/charmhub"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
@@ -71,8 +70,8 @@ func (s *printFindSuite) TestSummaryEmpty(c *gc.C) {
 	c.Assert(obtained, gc.Equals, expected)
 }
 
-func getCharmFindResponse() []charmhub.FindResponse {
-	return []charmhub.FindResponse{{
+func getCharmFindResponse() []FindResponse {
+	return []FindResponse{{
 		Name:      "wordpress",
 		Type:      "charm",
 		ID:        "charmCHARMcharmCHARMcharmCHARM01",
