@@ -108,10 +108,6 @@ func (api *CharmHubAPI) Find(arg params.Query) (params.CharmHubEntityFindResult,
 type charmhubClientFactory struct{}
 
 func (charmhubClientFactory) Client(url string) (Client, error) {
-	// TODO (stickupkid): This is extremely wasteful as we create and throw away
-	// a client for every request. It would be better to have something like a
-	// map[string]Client type that handled model configuration changes.
-
 	client, err := charmhub.NewClient(charmhub.CharmhubConfigFromURL(url))
 	if err != nil {
 		return nil, errors.Trace(err)
