@@ -1624,9 +1624,6 @@ var immutableAttributes = []string{
 	TypeKey,
 	UUIDKey,
 	"firewall-mode",
-
-	// TODO (stickupkid): Currently this is immutable, but at some point we
-	// should allow the user to change this.
 	CharmhubURLKey,
 }
 
