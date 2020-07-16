@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
@@ -2944,5 +2945,18 @@ func ReplaceNeverSetWithUnset(pool *StatePool) (err error) {
 		}
 
 		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}
+
+// AddCharmhubToModelConfig in the status documents.
+func AddCharmhubToModelConfig(pool *StatePool) error {
+	st := pool.SystemState()
+	return errors.Trace(applyToAllModelSettings(st, func(doc *settingsDoc) (bool, error) {
+		_, keySet := doc.Settings[config.CharmhubURLKey]
+		if !keySet {
+			doc.Settings[config.CharmhubURLKey] = charmhub.CharmhubServerURL
+			return true, nil
+		}
+		return false, nil
 	}))
 }

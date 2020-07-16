@@ -23,6 +23,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
@@ -4367,6 +4368,85 @@ func (s *upgradesSuite) TestReplaceNeverSetWithUnset(c *gc.C) {
 
 	checkDocs()
 	checkNoNeverSetAttribute()
+}
+
+func (s *upgradesSuite) TestAddCharmhubToModelConfig(c *gc.C) {
+	// Value not set
+	m1 := s.makeModel(c, "m1", coretesting.Attrs{
+		"other-setting":  "val",
+		"dotted.setting": "value",
+		"dollar$setting": "value",
+	})
+	defer m1.Close()
+	// Value set to the empty string
+	m2 := s.makeModel(c, "m2", coretesting.Attrs{
+		"charmhub-url":  "",
+		"other-setting": "val",
+	})
+	defer m2.Close()
+	// Value set to something other that default
+	m3 := s.makeModel(c, "m3", coretesting.Attrs{
+		"charmhub-url": "http://meshuggah.rocks",
+	})
+	defer m3.Close()
+
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
+	defer settingsCloser()
+	// To simulate a 2.9.0 without any setting, delete the record from it.
+	err := settingsColl.UpdateId(m1.ModelUUID()+":e",
+		bson.M{"$unset": bson.M{"settings.charmhub-url": 1}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	// And an extra document from somewhere else that we shouldn't touch
+	err = settingsColl.Insert(
+		bson.M{
+			"_id":      "not-a-model",
+			"settings": bson.M{"other-setting": "val"},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Read all the settings from the database, but make sure to change the
+	// documents we think we're changing, and the rest should go through
+	// unchanged.
+	var rawSettings bson.M
+	iter := settingsColl.Find(nil).Sort("_id").Iter()
+	defer iter.Close()
+
+	expectedSettings := []bson.M{}
+
+	expectedChanges := map[string]bson.M{
+		m1.ModelUUID() + ":e": {"charmhub-url": charmhub.CharmhubServerURL, "other-setting": "val"},
+		m2.ModelUUID() + ":e": {"charmhub-url": "", "other-setting": "val"},
+		m3.ModelUUID() + ":e": {"charmhub-url": "http://meshuggah.rocks"},
+		"not-a-model":         {"other-setting": "val"},
+	}
+	for iter.Next(&rawSettings) {
+		expSettings := copyMap(rawSettings, nil)
+		delete(expSettings, "txn-queue")
+		delete(expSettings, "txn-revno")
+		delete(expSettings, "version")
+		id, ok := expSettings["_id"]
+		c.Assert(ok, jc.IsTrue)
+		idStr, ok := id.(string)
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(idStr, gc.Not(gc.Equals), "")
+		if changes, ok := expectedChanges[idStr]; ok {
+			raw, ok := expSettings["settings"]
+			c.Assert(ok, jc.IsTrue)
+			settings, ok := raw.(bson.M)
+			c.Assert(ok, jc.IsTrue)
+			for k, v := range changes {
+				settings[k] = v
+			}
+		}
+		expectedSettings = append(expectedSettings, expSettings)
+	}
+	c.Assert(iter.Close(), jc.ErrorIsNil)
+
+	s.assertUpgradedData(c, AddCharmhubToModelConfig,
+		upgradedData(settingsColl, expectedSettings),
+	)
 }
 
 type docById []bson.M
