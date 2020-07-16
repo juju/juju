@@ -4,6 +4,10 @@
 package unit
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
 	"runtime"
 	"time"
 
@@ -22,16 +26,19 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/machinelock"
+	jnames "github.com/juju/juju/juju/names"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
+	uniterworker "github.com/juju/juju/worker/uniter"
 )
 
 var logger = loggo.GetLogger("juju.cmd.k8sagent.unit")
@@ -40,17 +47,14 @@ type k8sUnitAgent struct {
 	cmd.CommandBase
 	agentconf.AgentConf
 	configChangedVal *voyeur.Value
-	// Unit command of k8sagent only knows application name but not unit name.
-	// It will configure out the unit name from agent.conf file by itself.
-	applicationName string
-	clk             clock.Clock
-	runner          *worker.Runner
-	bufferedLogger  *logsender.BufferedLogWriter
-	setupLogging    func(agent.Config) error
-	ctx             *cmd.Context
-	dead            chan struct{}
-	errReason       error
-	machineLock     machinelock.Lock
+	clk              clock.Clock
+	runner           *worker.Runner
+	bufferedLogger   *logsender.BufferedLogWriter
+	setupLogging     func(agent.Config) error
+	ctx              *cmd.Context
+	dead             chan struct{}
+	errReason        error
+	machineLock      machinelock.Lock
 
 	prometheusRegistry *prometheus.Registry
 }
@@ -82,17 +86,10 @@ func (c *k8sUnitAgent) Info() *cmd.Info {
 // SetFlags implements Command.
 func (c *k8sUnitAgent) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
-	f.StringVar(&c.applicationName, "application-name", "", "name of the application")
 }
 
 // Init initializes the command for running.
 func (c *k8sUnitAgent) Init(args []string) error {
-	if c.applicationName == "" {
-		return agenterrors.RequiredError("application-name")
-	}
-	if !names.IsValidApplication(c.applicationName) {
-		return errors.Errorf(`--application-name option expects "<application>" argument`)
-	}
 	if err := c.AgentConf.CheckArgs(args); err != nil {
 		return err
 	}
@@ -102,16 +99,62 @@ func (c *k8sUnitAgent) Init(args []string) error {
 		RestartDelay:  jworker.RestartDelay,
 	})
 
-	// Note: agent.conf file is at /var/lib/juju/agents/<application-tag>/agent.conf
-	// Tag in agent.conf is unit tag.
-	if err := c.ReadConfig(c.applicationTag().String()); err != nil {
+	dataDir := c.DataDir()
+	templateConfigPath := path.Join(dataDir, provider.TemplateFileNameAgentConf)
+	fmt.Printf("template config path %s\n", templateConfigPath)
+	config, err := agent.ReadConfig(templateConfigPath)
+	if err != nil {
+		return errors.Annotate(err, "reading template agent config file")
+	}
+	unitTag := config.Tag()
+	configPath := agent.ConfigPath(dataDir, unitTag)
+	fmt.Printf("config path %s\n", configPath)
+	if err := os.MkdirAll(path.Dir(configPath), 0755); err != nil {
+		return errors.Annotate(err, "making agent directory")
+	}
+	configBytes, err := config.Render()
+	if err != nil {
 		return errors.Trace(err)
 	}
+	if err := ioutil.WriteFile(configPath, configBytes, 0644); err != nil {
+		return errors.Annotate(err, "writing agent config file")
+	}
 
-	tag := c.CurrentConfig().Tag()
-	if _, ok := tag.(names.UnitTag); !ok {
+	if err := c.ReadConfig(unitTag.String()); err != nil {
+		return errors.Annotate(err, "reading agent config file")
+	}
+
+	tag, ok := c.CurrentConfig().Tag().(names.UnitTag)
+	if !ok {
 		return errors.NotValidf("expected a unit tag; got %q", tag)
 	}
+
+	// Setup tool symlinks
+	uniterPaths := uniterworker.NewPaths(dataDir, tag, nil)
+	toolsDir := uniterPaths.GetToolsDir()
+	err = os.MkdirAll(toolsDir, 0755)
+	if err != nil {
+		return errors.Annotate(err, "creating tools dir")
+	}
+	arg0 := os.Args[0]
+	srcBins := path.Dir(arg0)
+	err = os.Symlink(path.Join(srcBins, jnames.K8sAgent), path.Join(toolsDir, jnames.K8sAgent))
+	if err != nil {
+		return errors.Annotate(err, "symlinking k8sagent")
+	}
+	err = os.Symlink(path.Join(srcBins, jnames.K8sAgent), path.Join(toolsDir, jnames.JujuRun))
+	if err != nil {
+		return errors.Annotate(err, "symlinking juju-run")
+	}
+	err = os.Symlink(path.Join(srcBins, jnames.K8sAgent), path.Join(toolsDir, jnames.JujuIntrospect))
+	if err != nil {
+		return errors.Annotate(err, "symlinking juju-introspect")
+	}
+	err = os.Symlink(path.Join(srcBins, jnames.Jujuc), path.Join(toolsDir, jnames.Jujuc))
+	if err != nil {
+		return errors.Annotate(err, "symlinking jujuc")
+	}
+
 	return nil
 }
 
@@ -138,10 +181,6 @@ func (c *k8sUnitAgent) Tag() names.UnitTag {
 	// TODO(ycliuhw): Currently CAAS operator logs in using application tag and no password setup for units now.
 	// Because k8sagent unit command logs in as an unit,  we need initialize password for CAAS unit.
 	return c.CurrentConfig().Tag().(names.UnitTag)
-}
-
-func (c *k8sUnitAgent) applicationTag() names.Tag {
-	return names.NewApplicationTag(c.applicationName)
 }
 
 // ChangeConfig implements Agent.

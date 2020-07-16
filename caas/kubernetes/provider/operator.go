@@ -319,11 +319,11 @@ func (k *kubernetesClient) validateOperatorStorage() (string, error) {
 
 // OperatorExists indicates if the operator for the specified
 // application exists, and whether the operator is terminating.
-func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, error) {
+func (k *kubernetesClient) OperatorExists(appName string) (caas.DeploymentState, error) {
 	operatorName := k.operatorName(appName)
 	exists, terminating, err := k.operatorStatefulSetExists(appName, operatorName)
 	if err != nil {
-		return caas.OperatorState{}, errors.Trace(err)
+		return caas.DeploymentState{}, errors.Trace(err)
 	}
 	if exists || terminating {
 		if terminating {
@@ -331,7 +331,7 @@ func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, e
 		} else {
 			logger.Tracef("operator %q exists")
 		}
-		return caas.OperatorState{Exists: exists, Terminating: terminating}, nil
+		return caas.DeploymentState{Exists: exists, Terminating: terminating}, nil
 	}
 	checks := []struct {
 		label string
@@ -348,16 +348,16 @@ func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, e
 	for _, c := range checks {
 		exists, _, err := c.check(appName, operatorName)
 		if err != nil {
-			return caas.OperatorState{}, errors.Annotatef(err, "%s resource check", c.label)
+			return caas.DeploymentState{}, errors.Annotatef(err, "%s resource check", c.label)
 		}
 		if exists {
 			// Terminating is always set to true regardless of whether the resource is failed as terminating
 			// since it's the overall state that is reported back.
 			logger.Debugf("operator %q exists and is terminating due to dangling %s resource(s)", operatorName, c.label)
-			return caas.OperatorState{Exists: true, Terminating: true}, nil
+			return caas.DeploymentState{Exists: true, Terminating: true}, nil
 		}
 	}
-	return caas.OperatorState{}, nil
+	return caas.DeploymentState{}, nil
 }
 
 func (k *kubernetesClient) operatorStatefulSetExists(appName string, operatorName string) (exists bool, terminating bool, err error) {

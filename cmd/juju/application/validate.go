@@ -10,7 +10,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
-	apicharms "github.com/juju/juju/api/charms"
+	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/core/lxdprofile"
 )
 
@@ -76,7 +76,7 @@ func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
 // lxdCharmInfoProfiler massages a *apicharms.CharmInfo into a LXDProfiler
 // inside of the core package.
 type lxdCharmInfoProfiler struct {
-	CharmInfo *apicharms.CharmInfo
+	CharmInfo *apicommoncharms.CharmInfo
 }
 
 // LXDProfile implements core.lxdprofile.LXDProfiler

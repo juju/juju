@@ -6,6 +6,8 @@ package caas
 import (
 	"fmt"
 
+	"github.com/juju/charm/v7"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version"
@@ -99,6 +101,7 @@ type DeploymentMode string
 const (
 	ModeOperator DeploymentMode = "operator"
 	ModeWorkload DeploymentMode = "workload"
+	ModeEmbedded DeploymentMode = "embedded"
 )
 
 // ServiceType defines a service type.
@@ -153,12 +156,12 @@ type ServiceParams struct {
 	CharmModifiedVersion int
 }
 
-// OperatorState is returned by the OperatorExists call.
-type OperatorState struct {
-	// Exists is true if the operator exists in the cluster.
+// DeploymentState is returned by the OperatorExists call.
+type DeploymentState struct {
+	// Exists is true if the operator/application exists in the cluster.
 	Exists bool
 
-	// Terminating is true if the operator is in Terminating state.
+	// Terminating is true if the operator/application is in Terminating state.
 	Terminating bool
 }
 
@@ -188,7 +191,7 @@ type Broker interface {
 
 	// OperatorExists indicates if the operator for the specified
 	// application exists, and whether the operator is terminating.
-	OperatorExists(appName string) (OperatorState, error)
+	OperatorExists(appName string) (DeploymentState, error)
 
 	// DeleteOperator deletes the specified operator.
 	DeleteOperator(appName string) error
@@ -221,6 +224,9 @@ type Broker interface {
 
 	// Operator returns an Operator with current status and life details.
 	Operator(string) (*Operator, error)
+
+	// Application returns the broker interface for an Application
+	Application(string) Application
 
 	// ClusterMetadataChecker provides an API to query cluster metadata.
 	ClusterMetadataChecker
@@ -426,4 +432,27 @@ type OperatorConfig struct {
 	// map for consistency in Read after Write and Write after Write.
 	// A value of 0 is ignored.
 	ConfigMapGeneration int64
+}
+
+// ApplicationConfig is the config passed to the application units.
+type ApplicationConfig struct {
+	// AgentVersion is the Juju version of the agent image.
+	AgentVersion version.Number
+	// AgentImagePath is the docker registry URL for the image.
+	AgentImagePath string
+
+	// IntroductionSecret
+	IntroductionSecret string
+	// ControllerAddresses is a comma seperated list of controller addresses.
+	// TODO: Use model-operator service instead for introduction, so controller addresses can change
+	// without having to update deployed application.
+	ControllerAddresses string
+	// ControllerCertBundle is a PEM cert bundle for talking to the Juju controller.
+	ControllerCertBundle string
+
+	// Charm of the Application
+	Charm charm.Charm
+
+	// ResourceTags is a set of tags to set on the operator pod.
+	ResourceTags map[string]string
 }

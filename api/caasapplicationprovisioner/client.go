@@ -1,0 +1,188 @@
+// Copyright 2020 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package caasapplicationprovisioner
+
+import (
+	"github.com/juju/charm/v7"
+	"github.com/juju/errors"
+	"github.com/juju/names/v4"
+	"github.com/juju/version"
+
+	"github.com/juju/juju/api/base"
+	charmscommon "github.com/juju/juju/api/common/charms"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/storage"
+)
+
+// Client allows access to the CAAS application provisioner API endpoint.
+type Client struct {
+	facade base.FacadeCaller
+	*charmscommon.CharmsClient
+}
+
+// NewClient returns a client used to access the CAAS Application Provisioner API.
+func NewClient(caller base.APICaller) *Client {
+	facadeCaller := base.NewFacadeCaller(caller, "CAASApplicationProvisioner")
+	charmsClient := charmscommon.NewCharmsClient(facadeCaller)
+	return &Client{
+		facade:       facadeCaller,
+		CharmsClient: charmsClient,
+	}
+}
+
+// WatchApplications returns a StringsWatcher that notifies of
+// changes to the lifecycles of CAAS applications in the current model.
+func (c *Client) WatchApplications() (watcher.StringsWatcher, error) {
+	var result params.StringsWatchResult
+	if err := c.facade.FacadeCall("WatchApplications", nil, &result); err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// SetPassword sets API password for the specified application.
+func (c *Client) SetPassword(appName string, password string) error {
+	var result params.ErrorResults
+	args := params.EntityPasswords{Changes: []params.EntityPassword{{
+		Tag:      names.NewApplicationTag(appName).String(),
+		Password: password,
+	}}}
+	err := c.facade.FacadeCall("SetPasswords", args, &result)
+	if err != nil {
+		return err
+	}
+	if len(result.Results) != 1 {
+		return errors.Errorf("invalid number of results %d expected 1", len(result.Results))
+	}
+	if result.Results[0].Error != nil {
+		return errors.Trace(result.Results[0].Error)
+	}
+	return nil
+}
+
+// maybeNotFound returns an error satisfying errors.IsNotFound
+// if the supplied error has a CodeNotFound error.
+func maybeNotFound(err *params.Error) error {
+	if err == nil || !params.IsCodeNotFound(err) {
+		return err
+	}
+	return errors.NewNotFound(err, "")
+}
+
+// Life returns the lifecycle state for the specified CAAS application
+// or unit in the current model.
+func (c *Client) Life(appName string) (life.Value, error) {
+	if !names.IsValidApplication(appName) {
+		return "", errors.NotValidf("application name %q", appName)
+	}
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewApplicationTag(appName).String()}},
+	}
+
+	var results params.LifeResults
+	if err := c.facade.FacadeCall("Life", args, &results); err != nil {
+		return "", err
+	}
+	if n := len(results.Results); n != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", n)
+	}
+	if err := results.Results[0].Error; err != nil {
+		return "", maybeNotFound(err)
+	}
+	return results.Results[0].Life, nil
+}
+
+// ProvisioningInfo holds the info needed to provision an operator.
+type ProvisioningInfo struct {
+	ImagePath    string
+	Version      version.Number
+	APIAddresses []string
+	CACert       string
+	Tags         map[string]string
+	CharmStorage *storage.KubernetesFilesystemParams
+}
+
+// ProvisioningInfo returns the info needed to provision an operator for an application.
+func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, error) {
+	args := params.Entities{[]params.Entity{
+		{Tag: names.NewApplicationTag(applicationName).String()},
+	}}
+	var result params.CAASApplicationProvisioningInfoResults
+	if err := c.facade.FacadeCall("ProvisioningInfo", args, &result); err != nil {
+		return ProvisioningInfo{}, err
+	}
+	if len(result.Results) != 1 {
+		return ProvisioningInfo{}, errors.Errorf("expected one result, got %d", len(result.Results))
+	}
+	info := result.Results[0]
+	if err := info.Error; err != nil {
+		return ProvisioningInfo{}, errors.Trace(err)
+	}
+	return ProvisioningInfo{
+		ImagePath:    info.ImagePath,
+		Version:      info.Version,
+		APIAddresses: info.APIAddresses,
+		CACert:       info.CACert,
+		Tags:         info.Tags,
+		CharmStorage: filesystemFromParams(info.CharmStorage),
+	}, nil
+}
+
+func filesystemFromParams(in *params.KubernetesFilesystemParams) *storage.KubernetesFilesystemParams {
+	if in == nil {
+		return nil
+	}
+	return &storage.KubernetesFilesystemParams{
+		StorageName:  in.StorageName,
+		Provider:     storage.ProviderType(in.Provider),
+		Size:         in.Size,
+		Attributes:   in.Attributes,
+		ResourceTags: in.Tags,
+	}
+}
+
+// ApplicationCharmURL finds the CharmURL for an application.
+func (c *Client) ApplicationCharmURL(appName string) (*charm.URL, error) {
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: names.NewApplicationTag(appName).String(),
+	}}}
+	var result params.StringResults
+	if err := c.facade.FacadeCall("ApplicationCharmURLs", args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(result.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %s",
+			len(result.Results))
+	}
+	res := result.Results[0]
+	if res.Error != nil {
+		return nil, errors.Annotatef(res.Error, "unable to fetch charm url for %s", appName)
+	}
+	url, err := charm.ParseURL(res.Result)
+	if err != nil {
+		return nil, errors.Annotatef(err, "invalid charm url %q", res.Result)
+	}
+	return url, nil
+}
+
+// SetOperatorStatus updates the provisioning status of an operator.
+func (c *Client) SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error {
+	var result params.ErrorResults
+	args := params.SetStatus{Entities: []params.EntityStatusArgs{
+		{Tag: names.NewApplicationTag(appName).String(), Status: status.String(), Info: message, Data: data},
+	}}
+	err := c.facade.FacadeCall("SetOperatorStatus", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}

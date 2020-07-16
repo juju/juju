@@ -1029,6 +1029,8 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 	// We ignore any updates for dying applications.
 	if stateerrors.IsNotAlive(err) {
 		return nil
+	} else if err != nil {
+		return errors.Trace(err)
 	}
 
 	// Now update filesystem info - attachment data and status.

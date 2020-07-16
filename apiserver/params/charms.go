@@ -122,6 +122,7 @@ type CharmMeta struct {
 	Series         []string                     `json:"series,omitempty"`
 	Storage        map[string]CharmStorage      `json:"storage,omitempty"`
 	Devices        map[string]CharmDevice       `json:"devices,omitempty"`
+	Deployment     *CharmDeployment             `json:"deployment,omitempty"`
 	PayloadClasses map[string]CharmPayloadClass `json:"payload-classes,omitempty"`
 	Resources      map[string]CharmResourceMeta `json:"resources,omitempty"`
 	Terms          []string                     `json:"terms,omitempty"`
@@ -166,6 +167,27 @@ type CharmPlan struct {
 type CharmMetrics struct {
 	Metrics map[string]CharmMetric `json:"metrics"`
 	Plan    CharmPlan              `json:"plan"`
+}
+
+// CharmDeployment mirrors charm.Deployment.
+type CharmDeployment struct {
+	DeploymentType string `json:"type"`
+	DeploymentMode string `json:"mode"`
+	ServiceType    string `json:"service"`
+	MinVersion     string `json:"min-version"`
+
+	// HACK: These are added for embedded k8s charms
+	ContainerImageName string             `json:"container-image-name"`
+	ServicePorts       []CharmServicePort `json:"service-ports"`
+}
+
+// CharmServicePort represents service ports mapping from Unit to Service
+type CharmServicePort struct {
+	Name        string `json:"name"`
+	Port        int    `json:"port"`
+	TargetPort  int    `json:"target-port"`
+	Protocol    string `json:"protocol"`
+	AppProtocol string `json:"app-protocol"`
 }
 
 // CharmLXDProfile mirrors charm.LXDProfile

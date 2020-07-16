@@ -38,6 +38,7 @@ type RemoteStateWatcher struct {
 	unit        Unit
 	application Application
 	modelType   model.ModelType
+	embedded    bool
 	logger      Logger
 
 	relations                     map[names.RelationTag]*wrappedRelationUnitsWatcher
@@ -85,12 +86,13 @@ type WatcherConfig struct {
 	ContainerRunningStatusFunc    ContainerRunningStatusFunc
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
+	Embedded                      bool
 	Logger                        Logger
 	CanApplyCharmProfile          bool
 }
 
 func (w WatcherConfig) validate() error {
-	if w.ModelType == model.CAAS {
+	if w.ModelType == model.CAAS && !w.Embedded {
 		if w.ApplicationChannel == nil {
 			return errors.NotValidf("watcher config for CAAS model with nil application channel")
 		}
@@ -138,6 +140,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 			ActionsBlocked: config.ContainerRunningStatusChannel != nil,
 			ActionChanged:  make(map[string]int),
 		},
+		embedded: config.Embedded,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -321,11 +324,11 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 
 	// CAAS models don't use an application watcher
 	// which fires an initial event.
-	if w.modelType == model.CAAS {
+	if w.modelType == model.CAAS && !w.embedded {
 		seenApplicationChange = true
 	}
 
-	if w.modelType == model.IAAS {
+	if w.modelType == model.IAAS || w.embedded {
 		// This is in IAAS model so we need to watch state for application
 		// charm changes instead of being informed by the operator.
 		applicationw, err := w.application.Watch()
@@ -337,7 +340,9 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		}
 		w.applicationChannel = applicationw.Changes()
 		requiredEvents++
+	}
 
+	if w.modelType == model.IAAS {
 		// Only IAAS models support upgrading the machine series.
 		// TODO(externalreality) This pattern should probably be extracted
 		upgradeSeriesw, err := w.unit.WatchUpgradeSeriesNotifications()

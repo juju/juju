@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/applicationoffers"
 	apicharms "github.com/juju/juju/api/charms"
+	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/api/spaces"
@@ -90,7 +91,7 @@ type MeteredDeployAPI interface {
 // CharmDeployAPI represents the methods of the API the deploy
 // command needs for charms.
 type CharmDeployAPI interface {
-	CharmInfo(string) (*apicharms.CharmInfo, error)
+	CharmInfo(string) (*apicommoncharms.CharmInfo, error)
 }
 
 // OfferAPI represents the methods of the API the deploy command needs
@@ -672,7 +673,7 @@ type DeploymentInfo struct {
 	CharmID         charmstore.CharmID
 	ApplicationName string
 	ModelUUID       string
-	CharmInfo       *apicharms.CharmInfo
+	CharmInfo       *apicommoncharms.CharmInfo
 	ApplicationPlan string
 	Force           bool
 }

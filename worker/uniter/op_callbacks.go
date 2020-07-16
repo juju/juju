@@ -143,7 +143,7 @@ func (opc *operationCallbacks) SetUpgradeSeriesStatus(upgradeSeriesStatus model.
 
 // RemoteInit is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error {
-	if opc.u.modelType != model.CAAS {
+	if opc.u.modelType != model.CAAS && !opc.u.embedded {
 		return nil
 	}
 	if opc.u.remoteInitFunc == nil {

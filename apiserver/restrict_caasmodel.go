@@ -77,6 +77,8 @@ var caasModelFacadeNames = set.NewStrings(
 	"CAASOperatorProvisioner",
 	"CAASOperatorUpgrader",
 	"CAASUnitProvisioner",
+	"CAASApplicationProvisioner",
+	"CAASApplication",
 )
 
 func caasModelFacadesOnly(facadeName, _ string) error {

@@ -4,35 +4,77 @@
 package initialize
 
 import (
+	"io/ioutil"
+	"os"
+	"path"
+
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/caasapplication"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/k8sagent/config"
+	corepaths "github.com/juju/juju/core/paths"
 )
 
-var (
-	// TODO(ycliuhw): ensure below symlinks with hooktool symlinks(->jujuc) together in init subcommand of k8sagent.
-	k8sAgentSymlinks = []string{config.JujuRun, config.JujuDumpLogs, config.JujuIntrospect}
-	// TODO(ycliuhw): prepare paths, agent.conf etc(what caas operator has been done).
-)
-
-type initCommand struct {
+type InitCommand struct {
 	cmd.CommandBase
+	Connect  ConnectFunc
+	Config   ConfigFunc
+	Identity IdentityFunc
 }
 
 func New() cmd.Command {
-	return &initCommand{}
+	return &InitCommand{
+		Connect:  DefaultConnect,
+		Config:   DefaultConfig,
+		Identity: DefaultIdentity,
+	}
 }
 
 // Info returns a description of the command.
-func (c *initCommand) Info() *cmd.Info {
+func (c *InitCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "init",
 		Purpose: "initialize k8sagent state",
 	})
 }
 
-func (c *initCommand) Run(ctx *cmd.Context) error {
+func (c *InitCommand) Run(ctx *cmd.Context) error {
 	ctx.Infof("starting k8sagent init command")
+
+	identity := c.Identity()
+	connection, err := c.Connect(c)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	client := caasapplication.NewClient(connection)
+	unitConfig, err := client.UnitIntroduction(identity.PodName, identity.PodUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	dataDir, _ := corepaths.DataDir("kubernetes")
+	err = os.MkdirAll(dataDir, 0755)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	templateConfigPath := path.Join(dataDir, provider.TemplateFileNameAgentConf)
+	err = ioutil.WriteFile(templateConfigPath, unitConfig.AgentConf, 0644)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
+}
+
+func (c *InitCommand) CurrentConfig() agent.Config {
+	return c.Config()
+}
+
+func (c *InitCommand) ChangeConfig(agent.ConfigMutator) error {
+	return errors.NotSupportedf("cannot change config")
 }

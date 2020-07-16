@@ -10,6 +10,7 @@ import (
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 )
 
@@ -175,6 +176,9 @@ func (p *provisioner) loop() error {
 					if err != nil {
 						return errors.Trace(err)
 					}
+					if mode == caas.ModeEmbedded {
+						continue
+					}
 					uw, err := newApplicationUndertaker(
 						appId,
 						mode,
@@ -189,14 +193,20 @@ func (p *provisioner) loop() error {
 					p.catacomb.Add(uw)
 					continue
 				}
-				if _, ok := p.getApplicationWorker(appId); ok || appLife == life.Dead {
-					// Already watching the application. or we're
-					// not yet watching it and it's dead.
-					continue
-				}
 				mode, err := p.config.ApplicationGetter.DeploymentMode(appId)
 				if err != nil {
 					return errors.Trace(err)
+				}
+				if _, ok := p.getApplicationWorker(appId); ok || appLife == life.Dead {
+					// Already watching the application. or we're
+					// not yet watching it and it's dead.
+					if mode == caas.ModeEmbedded {
+						p.deleteApplicationWorker(appId)
+					}
+					continue
+				}
+				if mode == caas.ModeEmbedded {
+					continue
 				}
 				w, err := newApplicationWorker(
 					appId,

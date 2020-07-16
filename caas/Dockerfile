@@ -27,10 +27,10 @@ COPY requirements.txt /tmp/wheelhouse/requirements.txt
 RUN pip3 install -r /tmp/wheelhouse/requirements.txt
 
 WORKDIR /var/lib/juju
+COPY jujuc /opt/
 # copy Juju executables.
 # in-pod agent binary will be "k8sagent".
 ARG AGENT_BINARY_NAME=jujud
 COPY $AGENT_BINARY_NAME /opt/
-COPY jujuc /opt/
 
 ENTRYPOINT ["sh", "-c"]

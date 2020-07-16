@@ -241,35 +241,24 @@ k8sagent-image: image-check-build
 ## k8sagent-image: Build k8sagent image via docker
 	$(BUILD_K8SAGENT_IMAGE)
 
-push-operator-image: operator-image
+push-operator-image: operator-image k8sagent-image
 ## push-operator-image: Push up the newly built operator image via docker
 	@:$(if $(value JUJU_BUILD_NUMBER),, $(error Undefined JUJU_BUILD_NUMBER))
 	docker push "$(shell ${OPERATOR_IMAGE_PATH})"
-
-
-push-k8sagent-image: k8sagent-image
-## push-k8sagent-image: Push up the newly built k8sagent image via docker
-	@:$(if $(value JUJU_BUILD_NUMBER),, $(error Undefined JUJU_BUILD_NUMBER))
 	docker push "$(shell ${K8SAGENT_IMAGE_PATH})"
 
-push-release-operator-image: operator-image
+push-release-operator-image: operator-image k8sagent-image
 ## push-release-operator-image: Push up the newly built release operator image via docker
 	docker push "$(shell ${OPERATOR_IMAGE_RELEASE_PATH})"
-	
-push-release-k8sagent-image: k8sagent-image
-## push-release-k8sagent-image: Push up the newly built release k8sagent image via docker
 	docker push "$(shell ${K8SAGENT_IMAGE_RELEASE_PATH})"
 
 host-install:
 ## install juju for host os/architecture
 	GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) make install
 
-microk8s-operator-update: host-install operator-image
+microk8s-operator-update: host-install operator-image k8sagent-image
 ## microk8s-operator-update: Push up the newly built operator image for use with microk8s
 	docker save "$(shell ${OPERATOR_IMAGE_PATH})" | microk8s.ctr --namespace k8s.io image import -
-	
-microk8s-k8sagent-update: host-install k8sagent-image
-## microk8s-k8sagent-update: Push up the newly built k8sagent image for use with microk8s
 	docker save "$(shell ${K8SAGENT_IMAGE_PATH})" | microk8s.ctr --namespace k8s.io image import -
 
 check-k8s-model:

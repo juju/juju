@@ -24,6 +24,8 @@ import (
 
 type mockState struct {
 	testing.Stub
+
+	*state.State
 	common.AddressAndCertGetter
 	model              *mockModel
 	applicationWatcher *mockStringsWatcher

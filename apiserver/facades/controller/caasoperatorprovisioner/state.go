@@ -39,6 +39,7 @@ type Application interface {
 
 type Charm interface {
 	Meta() *charm.Meta
+	URL() *charm.URL
 }
 
 type stateShim struct {

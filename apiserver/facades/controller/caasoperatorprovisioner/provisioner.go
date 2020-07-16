@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -34,6 +35,7 @@ type API struct {
 	*common.PasswordChanger
 	*common.LifeGetter
 	*common.APIAddresser
+	*charmscommon.CharmsAPI
 
 	auth      facade.Authorizer
 	resources facade.Resources
@@ -59,27 +61,34 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*API, error) {
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
 
-	return NewCAASOperatorProvisionerAPI(resources, authorizer, stateShim{ctx.State()}, pm, registry)
+	return NewCAASOperatorProvisionerAPI(ctx.State(), resources, authorizer, pm, registry)
 }
 
 // NewCAASOperatorProvisionerAPI returns a new CAAS operator provisioner API facade.
 func NewCAASOperatorProvisionerAPI(
+	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	st CAASOperatorProvisionerState,
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
+
+	commonCharmsAPI, err := charmscommon.NewCharmsAPI(st, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &API{
 		PasswordChanger:    common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		LifeGetter:         common.NewLifeGetter(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		APIAddresser:       common.NewAPIAddresser(st, resources),
+		CharmsAPI:          commonCharmsAPI,
 		auth:               authorizer,
 		resources:          resources,
-		state:              st,
+		state:              stateShim{st},
 		storagePoolManager: storagePoolManager,
 		registry:           registry,
 	}, nil
@@ -146,15 +155,14 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 				return params.OperatorProvisioningInfo{
 					Error: apiservererrors.ServerError(errors.New("no operator storage defined")),
 				}
-			} else {
-				charmStorageParams, err = CharmStorageParams(cfg.ControllerUUID(), storageClassName, modelConfig, "", a.storagePoolManager, a.registry)
-				if err != nil {
-					return params.OperatorProvisioningInfo{
-						Error: apiservererrors.ServerError(errors.Annotatef(err, "getting operator storage parameters")),
-					}
-				}
-				charmStorageParams.Tags = resourceTags
 			}
+			charmStorageParams, err = CharmStorageParams(cfg.ControllerUUID(), storageClassName, modelConfig, "", a.storagePoolManager, a.registry)
+			if err != nil {
+				return params.OperatorProvisioningInfo{
+					Error: apiservererrors.ServerError(errors.Annotatef(err, "getting operator storage parameters")),
+				}
+			}
+			charmStorageParams.Tags = resourceTags
 		}
 		return params.OperatorProvisioningInfo{
 			ImagePath:    imagePath,
@@ -326,4 +334,30 @@ func poolStorageProvider(poolManager poolmanager.PoolManager, registry storage.P
 	}
 	providerType := pool.Provider()
 	return providerType, pool.Attrs(), nil
+}
+
+// ApplicationCharmURLs finds the CharmURL for an application.
+func (a *API) ApplicationCharmURLs(args params.Entities) (params.StringResults, error) {
+	res := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		appTag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		app, err := a.state.Application(appTag.Id())
+		if err != nil {
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		ch, _, err := app.Charm()
+		if err != nil {
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		res.Results[i].Result = ch.URL().String()
+	}
+	return res, nil
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
+	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
@@ -93,7 +94,7 @@ type CharmUpgradeClient interface {
 // CharmClient defines a subset of the charms facade, as required
 // by the upgrade-charm command.
 type CharmClient interface {
-	CharmInfo(string) (*charms.CharmInfo, error)
+	CharmInfo(string) (*apicommoncharms.CharmInfo, error)
 }
 
 // ResourceLister defines a subset of the resources facade, as required
@@ -725,7 +726,7 @@ func (c *upgradeCharmCommand) addCharm(params addCharmParams) (charmstore.CharmI
 	return id, csMac, nil
 }
 
-func allEndpoints(ci *charms.CharmInfo) set.Strings {
+func allEndpoints(ci *apicommoncharms.CharmInfo) set.Strings {
 	epSet := set.NewStrings()
 	for n := range ci.Meta.ExtraBindings {
 		epSet.Add(n)

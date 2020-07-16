@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v7"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/caasoperatorprovisioner"
 	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
+	charmscommon "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -37,6 +39,8 @@ type CAASProvisionerFacade interface {
 	SetPasswords([]apicaasprovisioner.ApplicationPassword) (params.ErrorResults, error)
 	Life(string) (life.Value, error)
 	IssueOperatorCertificate(string) (apicaasprovisioner.OperatorCertificate, error)
+	CharmInfo(string) (*charmscommon.CharmInfo, error)
+	ApplicationCharmURLs([]string) ([]*charm.URL, error)
 }
 
 // Config defines the operation of a Worker.
@@ -169,9 +173,19 @@ func (p *provisioner) waitForOperatorTerminated(app string) error {
 
 // ensureOperators creates operator pods for the specified app names -> api passwords.
 func (p *provisioner) ensureOperators(apps []string) error {
+	charmURLs, err := p.provisionerFacade.ApplicationCharmURLs(apps)
+	if err != nil {
+		return errors.Annotatef(err, "failed to get charm urls for applications")
+	}
+
 	var appPasswords []apicaasprovisioner.ApplicationPassword
 	operatorConfig := make([]*caas.OperatorConfig, len(apps))
 	for i, app := range apps {
+		charmInfo, err := p.provisionerFacade.CharmInfo(charmURLs[i].String())
+		if err != nil {
+			return errors.Annotatef(err, "failed to get application charm deployment metadata for %q", app)
+		}
+
 		opState, err := p.broker.OperatorExists(app)
 		if err != nil {
 			return errors.Annotatef(err, "failed to find operator for %q", app)
@@ -184,6 +198,22 @@ func (p *provisioner) ensureOperators(apps []string) error {
 				return errors.Annotatef(err, "operator for %q was terminating and there was an error waiting for it to stop", app)
 			}
 			opState.Exists = false
+		}
+
+		// Skip embedded charms.
+		if charmInfo != nil &&
+			charmInfo.Meta != nil &&
+			charmInfo.Meta.Deployment != nil &&
+			charmInfo.Meta.Deployment.DeploymentMode == charm.ModeEmbedded {
+			p.logger.Debugf("skipping embedded application %q", app)
+			// Destroy old operator if we are upgrading to a embedded charm.
+			if opState.Exists {
+				err = p.broker.DeleteOperator(app)
+				if err != nil {
+					return errors.Annotatef(err, "failed to delete operator %q previously deployed with operators", app)
+				}
+			}
+			continue
 		}
 
 		op, err := p.broker.Operator(app)
@@ -227,6 +257,9 @@ func (p *provisioner) ensureOperators(apps []string) error {
 	// the operators themselves.
 	var errorStrings []string
 	for i, app := range apps {
+		if operatorConfig[i] == nil {
+			continue
+		}
 		if err := p.ensureOperator(app, operatorConfig[i]); err != nil {
 			errorStrings = append(errorStrings, err.Error())
 			continue

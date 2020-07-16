@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/agent"
 	"github.com/juju/juju/apiserver/facades/agent/caasadmission"
 	"github.com/juju/juju/apiserver/facades/agent/caasagent"
+	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
@@ -75,6 +76,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/actionpruner"
 	"github.com/juju/juju/apiserver/facades/controller/agenttools"
 	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
+	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
@@ -189,8 +191,10 @@ func AllFacades() *facade.Registry {
 	reg("CAASAgent", 1, caasagent.NewStateFacade)
 	reg("CAASModelOperator", 1, caasmodeloperator.NewAPIFromContext)
 	reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
+	reg("CAASApplicationProvisioner", 1, caasapplicationprovisioner.NewStateCAASApplicationProvisionerAPI)
 	reg("CAASOperatorUpgrader", 1, caasoperatorupgrader.NewStateCAASOperatorUpgraderAPI)
 	reg("CAASUnitProvisioner", 1, caasunitprovisioner.NewStateFacade)
+	reg("CAASApplication", 1, caasapplication.NewStateFacade)
 
 	reg("Controller", 3, controller.NewControllerAPIv3)
 	reg("Controller", 4, controller.NewControllerAPIv4)

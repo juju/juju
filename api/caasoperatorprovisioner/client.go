@@ -4,11 +4,13 @@
 package caasoperatorprovisioner
 
 import (
+	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/api/base"
+	charmscommon "github.com/juju/juju/api/common/charms"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
@@ -19,13 +21,16 @@ import (
 // Client allows access to the CAAS operator provisioner API endpoint.
 type Client struct {
 	facade base.FacadeCaller
+	*charmscommon.CharmsClient
 }
 
 // NewClient returns a client used to access the CAAS Operator Provisioner API.
 func NewClient(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, "CAASOperatorProvisioner")
+	charmsClient := charmscommon.NewCharmsClient(facadeCaller)
 	return &Client{
-		facade: facadeCaller,
+		facade:       facadeCaller,
+		CharmsClient: charmsClient,
 	}
 }
 
@@ -180,4 +185,42 @@ func (c *Client) IssueOperatorCertificate(applicationName string) (OperatorCerti
 		Cert:       certInfo.Cert,
 		PrivateKey: certInfo.PrivateKey,
 	}, nil
+}
+
+// ApplicationCharmURLs finds the CharmURL for an application.
+func (c *Client) ApplicationCharmURLs(applicationNames []string) ([]*charm.URL, error) {
+	args := params.Entities{}
+	for _, applicationName := range applicationNames {
+		if !names.IsValidApplication(applicationName) {
+			return nil, errors.NotValidf("application name %q", applicationName)
+		}
+		ent := params.Entity{
+			Tag: names.NewApplicationTag(applicationName).String(),
+		}
+		args.Entities = append(args.Entities, ent)
+	}
+
+	var result params.StringResults
+	if err := c.facade.FacadeCall("ApplicationCharmURLs", args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if len(result.Results) != len(applicationNames) {
+		return nil, errors.Errorf("expected %d results, got %s",
+			len(applicationNames),
+			len(result.Results))
+	}
+
+	urls := make([]*charm.URL, len(applicationNames))
+	for k, v := range result.Results {
+		if v.Error != nil {
+			return nil, errors.Annotatef(v.Error, "unable to fetch charm url for %s", applicationNames[k])
+		}
+		url, err := charm.ParseURL(v.Result)
+		if err != nil {
+			return nil, errors.Annotatef(err, "invalid charm url %q", v.Result)
+		}
+		urls[k] = url
+	}
+	return urls, nil
 }
