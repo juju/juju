@@ -136,12 +136,13 @@ type configCommand struct {
 	modelcmd.ModelCommandBase
 	out cmd.Output
 
-	action             func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
-	keys               []string
-	reset              []string // Holds the keys to be reset until parsed.
-	resetKeys          []string // Holds the keys to be reset once parsed.
-	setOptions         common.ConfigFlag
-	ignoreAgentVersion bool
+	action              func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
+	keys                []string
+	reset               []string // Holds the keys to be reset until parsed.
+	resetKeys           []string // Holds the keys to be reset once parsed.
+	setOptions          common.ConfigFlag
+	ignoreAgentVersion  bool
+	skipImmutableErrors bool
 }
 
 // configCommandAPI defines an API interface to be used during testing.
@@ -186,7 +187,8 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml":    cmd.FormatYaml,
 	})
 	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
-	f.BoolVar(&c.ignoreAgentVersion, "ignore-agent-version", false, "Skip the error when passing in the agent version configuration")
+	f.BoolVar(&c.ignoreAgentVersion, "ignore-agent-version", false, "Skip the error when passing in the agent version configuration (deprecated)")
+	f.BoolVar(&c.skipImmutableErrors, "skip-immutable-errors", false, "Skip immutable errors when passing in the configurations")
 }
 
 // Init implements part of the cmd.Command interface.
@@ -305,8 +307,8 @@ func (c *configCommand) parseResetKeys() error {
 	}
 
 	for _, k := range resetKeys {
-		if k == config.AgentVersionKey {
-			return errors.Errorf("%q cannot be reset", config.AgentVersionKey)
+		if k == config.AgentVersionKey || k == config.CharmhubURLKey {
+			return errors.Errorf("%q cannot be reset", k)
 		}
 		if strings.Contains(k, "=") {
 			return errors.Errorf(
@@ -375,10 +377,15 @@ func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) err
 	values := make(attributes)
 	for k, v := range attrs {
 		if k == config.AgentVersionKey {
-			if c.ignoreAgentVersion {
+			if c.ignoreAgentVersion || c.skipImmutableErrors {
 				continue
 			}
-			return errors.Errorf(`"agent-version"" must be set via "upgrade-model"`)
+			return errors.Errorf(`"agent-version" must be set via "upgrade-model"`)
+		} else if k == config.CharmhubURLKey {
+			if c.skipImmutableErrors {
+				continue
+			}
+			return errors.Errorf(`"charmhub-url" must be set via "add-model"`)
 		}
 
 		values[k] = v

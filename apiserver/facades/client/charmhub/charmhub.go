@@ -40,17 +40,16 @@ type Client interface {
 
 // CharmHubAPI API provides the charmhub API facade for version 1.
 type CharmHubAPI struct {
-	backend       Backend
-	auth          facade.Authorizer
-	clientFactory ClientFactory
+	backend Backend
+	auth    facade.Authorizer
+	client  Client
 }
 
 // NewFacade creates a new CharmHubAPI facade.
 func NewFacade(ctx facade.Context) (*CharmHubAPI, error) {
-	st := ctx.State()
-	m, err := st.Model()
+	m, err := ctx.State().Model()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	return newCharmHubAPI(m, ctx.Auth(), charmhubClientFactory{})
@@ -60,10 +59,20 @@ func newCharmHubAPI(backend Backend, authorizer facade.Authorizer, clientFactory
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
+
+	modelCfg, err := backend.ModelConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	url, _ := modelCfg.CharmhubURL()
+	client, err := clientFactory.Client(url)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &CharmHubAPI{
-		backend:       backend,
-		auth:          authorizer,
-		clientFactory: clientFactory,
+		auth:   authorizer,
+		client: client,
 	}, nil
 }
 
@@ -76,43 +85,24 @@ func (api *CharmHubAPI) Info(arg params.Entity) (params.CharmHubEntityInfoResult
 		return params.CharmHubEntityInfoResult{}, errors.BadRequestf("arg value is empty")
 	}
 
-	client, err := api.client()
-	if err != nil {
-		return params.CharmHubEntityInfoResult{}, errors.Trace(err)
-	}
-
 	// TODO (stickupkid): Create a proper context to be used here.
-	info, err := client.Info(context.TODO(), tag.Id())
+	info, err := api.client.Info(context.TODO(), tag.Id())
 	if err != nil {
 		return params.CharmHubEntityInfoResult{}, errors.Trace(err)
 	}
-	return params.CharmHubEntityInfoResult{Result: convertCharmInfoResult(info, client.URL())}, nil
+	return params.CharmHubEntityInfoResult{Result: convertCharmInfoResult(info, api.client.URL())}, nil
 }
 
 // Find queries the charmhub API with a given entity ID.
 func (api *CharmHubAPI) Find(arg params.Query) (params.CharmHubEntityFindResult, error) {
 	logger.Tracef("Find(%v)", arg.Query)
 
-	client, err := api.client()
-	if err != nil {
-		return params.CharmHubEntityFindResult{}, errors.Trace(err)
-	}
-
 	// TODO (stickupkid): Create a proper context to be used here.
-	results, err := client.Find(context.TODO(), arg.Query)
+	results, err := api.client.Find(context.TODO(), arg.Query)
 	if err != nil {
 		return params.CharmHubEntityFindResult{}, errors.Trace(err)
 	}
-	return params.CharmHubEntityFindResult{Results: convertCharmFindResults(results, client.URL())}, nil
-}
-
-func (api *CharmHubAPI) client() (Client, error) {
-	config, err := api.backend.ModelConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return api.clientFactory.Client(config.CharmhubURL())
+	return params.CharmHubEntityFindResult{Results: convertCharmFindResults(results, api.client.URL())}, nil
 }
 
 type charmhubClientFactory struct{}

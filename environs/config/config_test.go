@@ -590,12 +590,19 @@ var configTests = []configTest{
 			"charmhub-url": "http://test.com",
 		}),
 	}, {
-		about:       "Invalid charmhub api url",
+		about:       "Malformed charmhub api url",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"charmhub-url": "http://t est.com",
 		}),
 		err: `charmhub url "http://t est.com" not valid`,
+	}, {
+		about:       "Invalid charmhub api url",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"charmhub-url": "meshuggah",
+		}),
+		err: `charmhub url "meshuggah" not valid`,
 	},
 }
 
@@ -1147,7 +1154,9 @@ func (s *ConfigSuite) TestAutoHookRetryTrueEnv(c *gc.C) {
 
 func (s *ConfigSuite) TestCharmhubURL(c *gc.C) {
 	config := newTestConfig(c, testing.Attrs{})
-	c.Assert(config.CharmhubURL(), gc.Equals, charmhub.CharmhubServerURL)
+	chURL, ok := config.CharmhubURL()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(chURL, gc.Equals, charmhub.CharmhubServerURL)
 }
 
 func (s *ConfigSuite) TestCharmhubURLSettingValue(c *gc.C) {
@@ -1155,7 +1164,9 @@ func (s *ConfigSuite) TestCharmhubURLSettingValue(c *gc.C) {
 	config := newTestConfig(c, testing.Attrs{
 		"charmhub-url": url,
 	})
-	c.Assert(config.CharmhubURL(), gc.Equals, url)
+	chURL, ok := config.CharmhubURL()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(chURL, gc.Equals, url)
 }
 
 func (s *ConfigSuite) TestNoBothProxy(c *gc.C) {
