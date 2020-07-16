@@ -154,29 +154,29 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 
 // NetworkInterfacesToStateArgs splits the given interface list into a slice of
 // state.LinkLayerDeviceArgs and a slice of state.LinkLayerDeviceAddress.
-func NetworkInterfacesToStateArgs(ifaces corenetwork.InterfaceInfos) (
+func NetworkInterfacesToStateArgs(devs corenetwork.InterfaceInfos) (
 	[]state.LinkLayerDeviceArgs,
 	[]state.LinkLayerDeviceAddress,
 ) {
 	var devicesArgs []state.LinkLayerDeviceArgs
 	var devicesAddrs []state.LinkLayerDeviceAddress
 
-	logger.Tracef("transforming network interface list to state args: %+v", ifaces)
+	logger.Tracef("transforming network interface list to state args: %+v", devs)
 	seenDeviceNames := set.NewStrings()
-	for _, iface := range ifaces {
-		logger.Tracef("transforming device %q", iface.InterfaceName)
-		if !seenDeviceNames.Contains(iface.InterfaceName) {
+	for _, dev := range devs {
+		logger.Tracef("transforming device %q", dev.InterfaceName)
+		if !seenDeviceNames.Contains(dev.InterfaceName) {
 			// First time we see this, add it to devicesArgs.
-			seenDeviceNames.Add(iface.InterfaceName)
+			seenDeviceNames.Add(dev.InterfaceName)
 
-			args := networkDeviceToStateArgs(iface)
+			args := networkDeviceToStateArgs(dev)
 			logger.Tracef("state device args for device: %+v", args)
 			devicesArgs = append(devicesArgs, args)
 		}
 
-		addr, err := networkAddressToStateArgs(iface, iface.PrimaryAddress())
+		addr, err := networkAddressToStateArgs(dev, dev.PrimaryAddress())
 		if err != nil {
-			logger.Warningf("ignoring address for device %q: %v", iface.InterfaceName, err)
+			logger.Warningf("ignoring address for device %q: %v", dev.InterfaceName, err)
 			continue
 		}
 
@@ -204,6 +204,26 @@ func networkDeviceToStateArgs(dev corenetwork.InterfaceInfo) state.LinkLayerDevi
 		IsUp:        !dev.Disabled,
 		ParentName:  dev.ParentInterfaceName,
 	}
+}
+
+// networkAddressStateArgsForHWAddr accommodates the fact that network
+// configuration is sometimes supplied with a duplicated device for each
+// address.
+// This is a normalisation that returns state args for all primary addresses
+// of interfaces with the input hardware address.
+func networkAddressStateArgsForHWAddr(devs corenetwork.InterfaceInfos, hwAddr string) []state.LinkLayerDeviceAddress {
+	var res []state.LinkLayerDeviceAddress
+
+	for _, dev := range devs.GetByHardwareAddress(hwAddr) {
+		addr, err := networkAddressToStateArgs(dev, dev.PrimaryAddress())
+		if err != nil {
+			logger.Warningf("ignoring address for device %q: %v", dev.InterfaceName, err)
+			continue
+		}
+		res = append(res, addr)
+	}
+
+	return res
 }
 
 func networkAddressToStateArgs(
