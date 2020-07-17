@@ -369,10 +369,8 @@ type UnitInfo struct {
 	PrivateAddress     string
 	MachineID          string
 	PortRangesBySubnet map[string][]network.PortRange
-	// TODO(achilleasa) remove it when network.Port is removed.
-	Ports       []network.Port
-	Principal   string
-	Subordinate bool
+	Principal          string
+	Subordinate        bool
 	// Workload and agent state are modelled separately.
 	WorkloadStatus  StatusInfo
 	AgentStatus     StatusInfo
@@ -396,12 +394,6 @@ func (i *UnitInfo) Clone() EntityInfo {
 		clone.Annotations = map[string]string{}
 		for k, v := range i.Annotations {
 			clone.Annotations[k] = v
-		}
-	}
-	if len(i.Ports) > 0 {
-		clone.Ports = make([]network.Port, len(i.Ports))
-		for i, p := range i.Ports {
-			clone.Ports[i] = p
 		}
 	}
 	clone.PortRangesBySubnet = make(map[string][]network.PortRange)

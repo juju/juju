@@ -119,7 +119,6 @@ var unitChange = cache.UnitChange{
 	PublicAddress:      "",
 	PrivateAddress:     "",
 	MachineId:          "0",
-	Ports:              nil,
 	PortRangesBySubnet: nil,
 	Subordinate:        false,
 	WorkloadStatus:     status.StatusInfo{Status: status.Active},

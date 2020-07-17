@@ -535,7 +535,6 @@ func (c *cacheWorker) translateUnit(d multiwatcher.Delta) interface{} {
 		PublicAddress:      value.PublicAddress,
 		PrivateAddress:     value.PrivateAddress,
 		MachineId:          value.MachineID,
-		Ports:              value.Ports,
 		PortRangesBySubnet: value.PortRangesBySubnet,
 		Principal:          value.Principal,
 		Subordinate:        value.Subordinate,

@@ -147,18 +147,16 @@ type RemoveCharm struct {
 // UnitChange represents either a new unit, or a change
 // to an existing unit in a model.
 type UnitChange struct {
-	ModelUUID      string
-	Name           string
-	Application    string
-	Series         string
-	Annotations    map[string]string
-	CharmURL       string
-	Life           life.Value
-	PublicAddress  string
-	PrivateAddress string
-	MachineId      string
-	// TODO(achilleas) remove deprecated Port type
-	Ports              []network.Port
+	ModelUUID          string
+	Name               string
+	Application        string
+	Series             string
+	Annotations        map[string]string
+	CharmURL           string
+	Life               life.Value
+	PublicAddress      string
+	PrivateAddress     string
+	MachineId          string
 	PortRangesBySubnet map[string][]network.PortRange
 	Principal          string
 	Subordinate        bool
@@ -170,16 +168,6 @@ type UnitChange struct {
 
 // copy returns a deep copy of the UnitChange.
 func (u UnitChange) copy() UnitChange {
-	var cPorts []network.Port
-	uPorts := u.Ports
-	if uPorts != nil {
-		cPorts = make([]network.Port, len(uPorts))
-		for i, p := range uPorts {
-			cPorts[i] = p
-		}
-	}
-	u.Ports = cPorts
-
 	u.PortRangesBySubnet = copyPortRangeMap(u.PortRangesBySubnet)
 	u.Annotations = copyStringMap(u.Annotations)
 	u.WorkloadStatus = copyStatusInfo(u.WorkloadStatus)
