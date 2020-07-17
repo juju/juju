@@ -11,6 +11,7 @@ import (
 
 const (
 	diskByID         = "/dev/disk/by-id"
+	diskByUUID       = "/dev/disk/by-uuid"
 	diskByWWN        = "/dev/disk/by-id/wwn-"
 	diskByDeviceName = "/dev"
 )
@@ -25,6 +26,9 @@ func BlockDevicePath(device BlockDevice) (string, error) {
 	}
 	if device.HardwareId != "" {
 		return path.Join(diskByID, device.HardwareId), nil
+	}
+	if device.UUID != "" {
+		return path.Join(diskByUUID, device.UUID), nil
 	}
 	if len(device.DeviceLinks) > 0 {
 		// return the first device link in the list

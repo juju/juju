@@ -148,6 +148,7 @@ type discoveredCredential struct {
 	credentialName   string
 	credential       jujucloud.Credential
 	isNew            bool
+	isDefault        bool
 }
 
 func (c *detectCredentialsCommand) credentialsAPI() (CredentialAPI, error) {
@@ -259,9 +260,14 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 			if errors.IsNotFound(err) || len(detected.AuthCredentials) == 0 {
 				continue
 			}
+			// Some providers, eg Azure can have spaces in cred names and we don't want that.
+			detected.DefaultCredential = strings.ReplaceAll(detected.DefaultCredential, " ", "_")
 			sortedName := []string{}
-			for credName := range detected.AuthCredentials {
-				sortedName = append(sortedName, credName)
+			for credName, cred := range detected.AuthCredentials {
+				formattedCredName := strings.ReplaceAll(credName, " ", "_")
+				sortedName = append(sortedName, formattedCredName)
+				delete(detected.AuthCredentials, credName)
+				detected.AuthCredentials[formattedCredName] = cred
 			}
 			naturalsort.Sort(sortedName)
 
@@ -286,6 +292,7 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 					cloudType:      providerName,
 					credentialName: credName,
 					credential:     newCred,
+					isDefault:      detected.DefaultCredential == credName,
 				}
 
 				// Fill in the default cloud and other meta information.
@@ -424,6 +431,9 @@ func (c *detectCredentialsCommand) interactiveCredentialsUpdate(ctxt *cmd.Contex
 		}
 		if cred.region != "" {
 			existing.DefaultRegion = cred.region
+		}
+		if existing.DefaultCredential == "" && cred.isDefault {
+			existing.DefaultCredential = cred.credentialName
 		}
 		existing.AuthCredentials[cred.credentialName] = cred.credential
 		addLoadedCredential(loaded, cloudName, cred)

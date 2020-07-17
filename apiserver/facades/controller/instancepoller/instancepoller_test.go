@@ -915,7 +915,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *gc
 	// Hardware address not matched.
 	dev := instancepoller.NewMockLinkLayerDevice(ctrl)
 	dExp := dev.EXPECT()
-	dExp.MACAddress().Return("01:01:01:01:01:01")
+	dExp.MACAddress().Return("01:01:01:01:01:01").MinTimes(1)
 	dExp.Name().Return("eth0")
 	dExp.SetProviderIDOps(network.Id("")).Return([]txn.Op{{C: "dev-provider-id"}}, nil)
 
@@ -966,7 +966,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 	// Hardware address will match; provider ID will be set.
 	dev := instancepoller.NewMockLinkLayerDevice(ctrl)
 	dExp := dev.EXPECT()
-	dExp.MACAddress().Return("00:00:00:00:00:00").Times(2)
+	dExp.MACAddress().Return("00:00:00:00:00:00").MinTimes(1)
 	dExp.Name().Return("eth0")
 	dExp.ProviderID().Return(network.Id(""))
 	dExp.SetProviderIDOps(network.Id("p-dev")).Return([]txn.Op{{C: "dev-provider-id"}}, nil)
@@ -990,16 +990,30 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 		Args: []params.ProviderNetworkConfig{
 			{
 				Tag: "machine-1",
-				Configs: []params.NetworkConfig{{
-					// This should still be matched based on hardware address.
-					InterfaceName:     "some-provider-esoteria",
-					MACAddress:        "00:00:00:00:00:00",
-					ProviderId:        "p-dev",
-					ProviderAddressId: "p-addr",
-					ProviderNetworkId: "p-net",
-					ProviderSubnetId:  "p-sub",
-					Addresses:         []params.Address{{Value: "10.0.0.42"}},
-				}},
+				Configs: []params.NetworkConfig{
+					{
+						// This should still be matched based on hardware address.
+						InterfaceName:     "some-provider-esoteria",
+						MACAddress:        "00:00:00:00:00:00",
+						ProviderId:        "p-dev",
+						ProviderAddressId: "p-addr",
+						ProviderNetworkId: "p-net",
+						ProviderSubnetId:  "p-sub",
+						CIDR:              "10.0.0.0/24",
+						Addresses:         []params.Address{{Value: "10.0.0.42"}},
+					},
+					{
+						// A duplicate (MAC and addresses) should make no difference.
+						InterfaceName:     "more-provider-esoteria",
+						MACAddress:        "00:00:00:00:00:00",
+						ProviderId:        "p-dev",
+						ProviderAddressId: "p-addr",
+						ProviderNetworkId: "p-net",
+						ProviderSubnetId:  "p-sub",
+						CIDR:              "10.0.0.0/24",
+						Addresses:         []params.Address{{Value: "10.0.0.42"}},
+					},
+				},
 			},
 		},
 	})

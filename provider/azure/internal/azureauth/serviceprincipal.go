@@ -36,7 +36,7 @@ const (
 	// for interactive authentication. When the user logs in, a service
 	// principal will be created in their Active Directory tenant for
 	// the application.
-	jujuApplicationId = "cbb548f1-5039-4836-af0b-727e8571f6a9"
+	jujuApplicationId = "60a04dc9-1857-425f-8076-5ba81ca53d66"
 
 	// passwordExpiryDuration is how long the application password we
 	// set will remain valid.
@@ -163,12 +163,12 @@ func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stde
 	fmt.Fprintln(stderr, "Initiating interactive authentication.")
 	fmt.Fprintln(stderr)
 	clientId := jujuApplicationId
-	deviceCode, err := adal.InitiateDeviceAuth(&client, *oauthConfig, clientId, params.ResourceManagerResourceId)
+	deviceCode, err := adal.InitiateDeviceAuthWithContext(sdkCtx, &client, *oauthConfig, clientId, params.ResourceManagerResourceId)
 	if err != nil {
 		return "", "", errors.Annotate(err, "initiating interactive authentication")
 	}
 	fmt.Fprintln(stderr, to.String(deviceCode.Message)+"\n")
-	token, err := adal.WaitForUserCompletion(&client, deviceCode)
+	token, err := adal.WaitForUserCompletionWithContext(sdkCtx, &client, deviceCode)
 	if err != nil {
 		return "", "", errors.Annotate(err, "waiting for interactive authentication to completed")
 	}

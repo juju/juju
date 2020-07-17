@@ -132,7 +132,8 @@ func processAliveVolumePlans(ctx *context, volumePlans []params.VolumeAttachment
 			return errors.Errorf("failed to publish block info to state: %s", result.Error)
 		}
 	}
-	return refreshVolumeBlockDevices(ctx, volumeTags)
+	_, err = refreshVolumeBlockDevices(ctx, volumeTags)
+	return err
 }
 
 func processDyingVolumePlans(ctx *context, volumePlans []params.VolumeAttachmentPlanResult) error {

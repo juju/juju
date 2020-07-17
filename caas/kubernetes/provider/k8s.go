@@ -2499,6 +2499,9 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 		if spec.ReadinessProbe != nil {
 			pc.ReadinessProbe = spec.ReadinessProbe
 		}
+		if spec.StartupProbe != nil {
+			pc.StartupProbe = spec.StartupProbe
+		}
 		if spec.SecurityContext != nil {
 			pc.SecurityContext = spec.SecurityContext
 		}

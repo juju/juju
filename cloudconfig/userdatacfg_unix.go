@@ -78,6 +78,9 @@ for path_to_unit in $(ls /etc/systemd/system/juju*); do
   rm -f "$path_to_unit"
 done
 
+echo "removing /var/lib/juju/tools/*"
+rm -rf /var/lib/juju/tools/*
+
 echo "removing /var/lib/juju/db/*"
 rm -rf /var/lib/juju/db/*
 

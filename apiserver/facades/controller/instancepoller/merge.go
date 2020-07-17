@@ -4,13 +4,15 @@
 package instancepoller
 
 import (
-	"github.com/juju/collections/set"
+	"strings"
+
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/state"
 )
 
 // mergeMachineLinkLayerOp is a model operation used to merge incoming
@@ -69,7 +71,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 	// Match the incoming device by hardware address in order to
 	// identify addresses by device name.
 	// Not all providers (such as AWS) have names for NIC devices.
-	incomingDev := o.Incoming().GetByHardwareAddress(dev.MACAddress())
+	incomingDev := o.MatchingIncoming(dev)
 
 	var ops []txn.Op
 	var err error
@@ -98,15 +100,23 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 		}
 	}
 
+	// Collect normalised addresses for the incoming device.
+	// TODO (manadart 2020-07-15): We also need to set shadow addresses.
+	// These are sent where appropriate by the provider,
+	// but we do not yet process them.
+	incomingAddrs := o.MatchingIncomingAddrs(dev)
+
 	for _, addr := range o.DeviceAddresses(dev) {
-		addrOps, err := o.processExistingDeviceAddress(addr, incomingDev)
+		addrOps, err := o.processExistingDeviceAddress(dev, addr, incomingAddrs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		ops = append(ops, addrOps...)
 	}
 
-	o.MarkProcessed(dev)
+	// TODO (manadart 2020-07-15): Process (log) new addresses on the device.
+
+	o.MarkDevProcessed(dev)
 	return ops, nil
 }
 
@@ -129,34 +139,35 @@ func (o *mergeMachineLinkLayerOp) opsForDeviceOriginRelinquishment(
 }
 
 func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
-	addr networkingcommon.LinkLayerAddress, incomingDev *network.InterfaceInfo,
+	dev networkingcommon.LinkLayerDevice,
+	addr networkingcommon.LinkLayerAddress,
+	incomingAddrs []state.LinkLayerDeviceAddress,
 ) ([]txn.Op, error) {
 	addrValue := addr.Value()
+	hwAddr := dev.MACAddress()
 
-	// TODO (manadart 2020-06-09): This is where we see a cardinality mismatch.
-	// The InterfaceInfo type has one provider address ID, but a collection of
-	// addresses and shadow addresses.
-	// This should change so that addresses are collections of types that
-	// include a provider ID, instead of assuming that the provider ID applies
-	// to the primary address (index 0).
-	// We should also be adding shadow addresses to the link-layer device here.
-	// For now, if the provider does not recognise the address,
-	// give responsibility for it to the machine.
-	if !set.NewStrings(incomingDev.Addresses.ToIPAddresses()...).Contains(addrValue) {
-		return addr.SetOriginOps(network.OriginMachine), nil
-	}
+	// If one of the incoming addresses matches the existing one,
+	// return ops for setting the incoming provider IDs.
+	for _, incomingAddr := range incomingAddrs {
+		if strings.HasPrefix(incomingAddr.CIDRAddress, addrValue) {
+			if o.IsAddrProcessed(hwAddr, addrValue) {
+				continue
+			}
 
-	// If the address is the incoming primary address, assign the provider IDs.
-	// Otherwise simply indicate that the provider is aware of this address.
-	if addrValue == incomingDev.PrimaryAddress().Value {
-		ops, err := addr.SetProviderIDOps(incomingDev.ProviderAddressId)
-		if err != nil {
-			return nil, errors.Trace(err)
+			ops, err := addr.SetProviderIDOps(incomingAddr.ProviderID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			o.MarkAddrProcessed(hwAddr, addrValue)
+
+			return append(ops, addr.SetProviderNetIDsOps(
+				incomingAddr.ProviderNetworkID, incomingAddr.ProviderSubnetID)...), nil
 		}
-		return append(ops, addr.SetProviderNetIDsOps(
-			incomingDev.ProviderNetworkId, incomingDev.ProviderSubnetId)...), nil
 	}
-	return addr.SetOriginOps(network.OriginProvider), nil
+
+	// Otherwise relinquish responsibility for this device to the machiner.
+	return addr.SetOriginOps(network.OriginMachine), nil
 }
 
 // processNewDevices handles incoming devices that did not match any we already
@@ -167,7 +178,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
 // Log for now and consider adding such devices in the future.
 func (o *mergeMachineLinkLayerOp) processNewDevices() {
 	for _, dev := range o.Incoming() {
-		if !o.IsProcessed(dev) {
+		if !o.IsDevProcessed(dev) {
 			logger.Debugf(
 				"ignoring unrecognised device %q (%s) with addresses %v",
 				dev.InterfaceName, dev.MACAddress, dev.Addresses,

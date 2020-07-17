@@ -68,6 +68,14 @@ func (s *configSuite) TestValidateModelNameLength(c *gc.C) {
 Please choose a model name of no more than 32 characters.`)
 }
 
+func (s *configSuite) TestValidateResourceGroupNameLength(c *gc.C) {
+	s.assertConfigInvalid(
+		c, testing.Attrs{"resource-group-name": "someextremelyoverlylongishresourcegroupname-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+		`resource group name "someextremelyoverlylongishresourcegroupname-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" is too long
+
+Please choose a name of no more than 80 characters.`)
+}
+
 func (s *configSuite) TestValidateStorageAccountTypeCantChange(c *gc.C) {
 	cfgOld := makeTestModelConfig(c, testing.Attrs{"storage-account-type": "Standard_LRS"})
 	_, err := s.provider.Validate(cfgOld, cfgOld)
@@ -89,6 +97,16 @@ func (s *configSuite) TestValidateLoadBalancerSkuNameCanChange(c *gc.C) {
 
 	_, err = s.provider.Validate(cfgOld, cfgNew)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *configSuite) TestValidateResourceGroupNameCantChange(c *gc.C) {
+	cfgOld := makeTestModelConfig(c, testing.Attrs{"resource-group-name": "foo"})
+	_, err := s.provider.Validate(cfgOld, cfgOld)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfgNew := makeTestModelConfig(c, testing.Attrs{"resource-group-name": "bar"})
+	_, err = s.provider.Validate(cfgNew, cfgOld)
+	c.Assert(err, gc.ErrorMatches, `cannot change immutable "resource-group-name" config \(foo -> bar\)`)
 }
 
 func (s *configSuite) assertConfigValid(c *gc.C, attrs testing.Attrs) {
