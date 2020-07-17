@@ -7,20 +7,19 @@ import (
 	"io"
 
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/provider/common"
 	jujustorage "github.com/juju/juju/storage"
 )
 
 type allInstancesFunc func(context.ProviderCallContext) ([]instances.Instance, error)
 type instancesFunc func(context.ProviderCallContext, []instance.Id) ([]instances.Instance, error)
-type startInstanceFunc func(context.ProviderCallContext, environs.StartInstanceParams) (instances.Instance, *instance.HardwareCharacteristics, corenetwork.InterfaceInfos, error)
+type startInstanceFunc func(context.ProviderCallContext, environs.StartInstanceParams) (instances.Instance, *instance.HardwareCharacteristics, network.InterfaceInfos, error)
 type stopInstancesFunc func(context.ProviderCallContext, []instance.Id) error
 type getToolsSourcesFunc func() ([]simplestreams.DataSource, error)
 type configFunc func() *config.Config
@@ -98,7 +97,7 @@ func (env *mockEnviron) StorageProvider(t jujustorage.ProviderType) (jujustorage
 	return env.storageProviders.StorageProvider(t)
 }
 
-type availabilityZonesFunc func(context.ProviderCallContext) ([]common.AvailabilityZone, error)
+type availabilityZonesFunc func(context.ProviderCallContext) (network.AvailabilityZones, error)
 type instanceAvailabilityZoneNamesFunc func(context.ProviderCallContext, []instance.Id) ([]string, error)
 type deriveAvailabilityZonesFunc func(context.ProviderCallContext, environs.StartInstanceParams) ([]string, error)
 
@@ -109,7 +108,7 @@ type mockZonedEnviron struct {
 	deriveAvailabilityZones       deriveAvailabilityZonesFunc
 }
 
-func (env *mockZonedEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+func (env *mockZonedEnviron) AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
 	return env.availabilityZones(ctx)
 }
 
@@ -123,7 +122,7 @@ func (env *mockZonedEnviron) DeriveAvailabilityZones(ctx context.ProviderCallCon
 
 type mockInstance struct {
 	id                 string
-	addresses          []corenetwork.ProviderAddress
+	addresses          network.ProviderAddresses
 	addressesErr       error
 	dnsName            string
 	dnsNameErr         error
@@ -139,7 +138,7 @@ func (inst *mockInstance) Status(context.ProviderCallContext) instance.Status {
 	return inst.status
 }
 
-func (inst *mockInstance) Addresses(context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (inst *mockInstance) Addresses(context.ProviderCallContext) (network.ProviderAddresses, error) {
 	return inst.addresses, inst.addressesErr
 }
 

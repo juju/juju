@@ -58,7 +58,7 @@ func (s StubNetwork) SetUpSuite(c *gc.C) {
 		}
 	}
 
-	ProviderInstance.Zones = []providercommon.AvailabilityZone{
+	ProviderInstance.Zones = network.AvailabilityZones{
 		&FakeZone{"zone1", true},
 		&FakeZone{"zone2", false},
 		&FakeZone{"zone3", true},
@@ -246,15 +246,6 @@ func ProviderCall(name string, args ...interface{}) StubMethodCall {
 	}
 }
 
-// EnvironCall makes it easy to check method calls on EnvironInstance.
-func EnvironCall(name string, args ...interface{}) StubMethodCall {
-	return StubMethodCall{
-		Receiver: EnvironInstance,
-		FuncName: name,
-		Args:     args,
-	}
-}
-
 // ZonedEnvironCall makes it easy to check method calls on
 // ZonedEnvironInstance.
 func ZonedEnvironCall(name string, args ...interface{}) StubMethodCall {
@@ -305,7 +296,7 @@ type FakeZone struct {
 	ZoneAvailable bool
 }
 
-var _ providercommon.AvailabilityZone = (*FakeZone)(nil)
+var _ network.AvailabilityZone = (*FakeZone)(nil)
 
 func (f *FakeZone) Name() string {
 	return f.ZoneName
@@ -386,7 +377,7 @@ type StubBacking struct {
 	EnvConfig *config.Config
 	Cloud     environscloudspec.CloudSpec
 
-	Zones   []providercommon.AvailabilityZone
+	Zones   network.AvailabilityZones
 	Spaces  []networkingcommon.BackingSpace
 	Subnets []networkingcommon.BackingSubnet
 }
@@ -424,9 +415,9 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 		IdentityEndpoint: "identity-endpoint",
 		StorageEndpoint:  "storage-endpoint",
 	}
-	sb.Zones = []providercommon.AvailabilityZone{}
+	sb.Zones = network.AvailabilityZones{}
 	if withZones {
-		sb.Zones = make([]providercommon.AvailabilityZone, len(ProviderInstance.Zones))
+		sb.Zones = make(network.AvailabilityZones, len(ProviderInstance.Zones))
 		copy(sb.Zones, ProviderInstance.Zones)
 	}
 	sb.Spaces = []networkingcommon.BackingSpace{}
@@ -515,7 +506,7 @@ func (sb *StubBacking) CloudSpec() (environscloudspec.CloudSpec, error) {
 	return sb.Cloud, nil
 }
 
-func (sb *StubBacking) AvailabilityZones() ([]providercommon.AvailabilityZone, error) {
+func (sb *StubBacking) AvailabilityZones() (network.AvailabilityZones, error) {
 	sb.MethodCall(sb, "AvailabilityZones")
 	if err := sb.NextErr(); err != nil {
 		return nil, err
@@ -523,7 +514,7 @@ func (sb *StubBacking) AvailabilityZones() ([]providercommon.AvailabilityZone, e
 	return sb.Zones, nil
 }
 
-func (sb *StubBacking) SetAvailabilityZones(zones []providercommon.AvailabilityZone) error {
+func (sb *StubBacking) SetAvailabilityZones(zones network.AvailabilityZones) error {
 	sb.MethodCall(sb, "SetAvailabilityZones", zones)
 	return sb.NextErr()
 }
@@ -627,7 +618,7 @@ func (sb *StubBacking) GoString() string {
 type StubProvider struct {
 	*testing.Stub
 
-	Zones   []providercommon.AvailabilityZone
+	Zones   network.AvailabilityZones
 	Subnets []network.SubnetInfo
 
 	environs.EnvironProvider // panic on any not implemented method call.
@@ -682,7 +673,7 @@ type StubZonedEnviron struct {
 
 var _ providercommon.ZonedEnviron = (*StubZonedEnviron)(nil)
 
-func (se *StubZonedEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([]providercommon.AvailabilityZone, error) {
+func (se *StubZonedEnviron) AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
 	se.MethodCall(se, "AvailabilityZones", ctx)
 	if err := se.NextErr(); err != nil {
 		return nil, err
@@ -770,7 +761,7 @@ func (se *StubZonedNetworkingEnviron) Subnets(
 	return ProviderInstance.Subnets, nil
 }
 
-func (se *StubZonedNetworkingEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([]providercommon.AvailabilityZone, error) {
+func (se *StubZonedNetworkingEnviron) AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
 	se.MethodCall(se, "AvailabilityZones", ctx)
 	if err := se.NextErr(); err != nil {
 		return nil, err

@@ -384,7 +384,7 @@ func networkingEnviron(getter environs.EnvironConfigGetter) (environs.Networking
 func allZones(ctx context.ProviderCallContext, api Backing) (params.ZoneResults, error) {
 	var results params.ZoneResults
 
-	zonesAsString := func(zones []providercommon.AvailabilityZone) string {
+	zonesAsString := func(zones network.AvailabilityZones) string {
 		results := make([]string, len(zones))
 		for i, zone := range zones {
 			results[i] = zone.Name()
@@ -423,7 +423,7 @@ func allZones(ctx context.ProviderCallContext, api Backing) (params.ZoneResults,
 // updateZones attempts to retrieve all availability zones from the environment
 // provider (if supported) and then updates the persisted list of zones in
 // state, returning them as well on success.
-func updateZones(ctx context.ProviderCallContext, api Backing) ([]providercommon.AvailabilityZone, error) {
+func updateZones(ctx context.ProviderCallContext, api Backing) (network.AvailabilityZones, error) {
 	zoned, err := zonedEnviron(api)
 	if err != nil {
 		return nil, errors.Trace(err)

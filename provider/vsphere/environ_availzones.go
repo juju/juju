@@ -11,9 +11,9 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/common"
 )
 
 // poolPathPrefixParts is the number of path components to chop off a
@@ -53,7 +53,7 @@ func (z *vmwareAvailZone) Available() bool {
 }
 
 // AvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (zones []common.AvailabilityZone, err error) {
+func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (zones network.AvailabilityZones, err error) {
 	err = env.withSession(ctx, func(env *sessionEnviron) error {
 		zones, err = env.AvailabilityZones(ctx)
 		return err
@@ -62,14 +62,14 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (zones []
 }
 
 // AvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
 	if env.zones == nil {
 		computeResources, err := env.client.ComputeResources(env.ctx)
 		if err != nil {
 			HandleCredentialError(err, env, ctx)
 			return nil, errors.Trace(err)
 		}
-		var zones []common.AvailabilityZone
+		var zones network.AvailabilityZones
 		for _, cr := range computeResources {
 			if cr.Summary.GetComputeResourceSummary().EffectiveCpu == 0 {
 				logger.Debugf("skipping empty compute resource %q", cr.Name)

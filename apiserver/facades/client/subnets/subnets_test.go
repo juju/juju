@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
-	providercommon "github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -163,7 +162,7 @@ func (s *SubnetsSuite) TearDownTest(c *gc.C) {
 }
 
 // AssertAllZonesResult makes it easier to verify AllZones results.
-func (s *SubnetsSuite) AssertAllZonesResult(c *gc.C, got params.ZoneResults, expected []providercommon.AvailabilityZone) {
+func (s *SubnetsSuite) AssertAllZonesResult(c *gc.C, got params.ZoneResults, expected network.AvailabilityZones) {
 	results := make([]params.ZoneResult, len(expected))
 	for i, zone := range expected {
 		results[i].Name = zone.Name()
@@ -476,12 +475,12 @@ func (s *SubnetsSuite) CheckAddSubnetsFails(
 
 	if !withZones && withSpaces {
 		// Set provider zones to empty for this test.
-		originalZones := make([]providercommon.AvailabilityZone, len(apiservertesting.ProviderInstance.Zones))
+		originalZones := make(network.AvailabilityZones, len(apiservertesting.ProviderInstance.Zones))
 		copy(originalZones, apiservertesting.ProviderInstance.Zones)
-		apiservertesting.ProviderInstance.Zones = []providercommon.AvailabilityZone{}
+		apiservertesting.ProviderInstance.Zones = network.AvailabilityZones{}
 
 		defer func() {
-			apiservertesting.ProviderInstance.Zones = make([]providercommon.AvailabilityZone, len(originalZones))
+			apiservertesting.ProviderInstance.Zones = make(network.AvailabilityZones, len(originalZones))
 			copy(apiservertesting.ProviderInstance.Zones, originalZones)
 		}()
 

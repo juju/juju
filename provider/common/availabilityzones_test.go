@@ -6,11 +6,11 @@ package common_test
 import (
 	"fmt"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -39,14 +39,14 @@ func (s *AvailabilityZoneSuite) SetUpSuite(c *gc.C) {
 		return allInstances, nil
 	}
 
-	availabilityZones := make([]common.AvailabilityZone, 3)
+	availabilityZones := make(network.AvailabilityZones, 3)
 	for i := range availabilityZones {
 		availabilityZones[i] = &mockAvailabilityZone{
 			name:      fmt.Sprintf("az%d", i),
 			available: i > 0,
 		}
 	}
-	s.env.availabilityZones = func(context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+	s.env.availabilityZones = func(context.ProviderCallContext) (network.AvailabilityZones, error) {
 		return availabilityZones, nil
 	}
 }
@@ -133,9 +133,9 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsNoZones(c *gc.C) 
 		calls = append(calls, "InstanceAvailabilityZoneNames")
 		return []string{"", "", ""}, nil
 	})
-	s.PatchValue(&s.env.availabilityZones, func(context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+	s.PatchValue(&s.env.availabilityZones, func(context.ProviderCallContext) (network.AvailabilityZones, error) {
 		calls = append(calls, "AvailabilityZones")
-		return []common.AvailabilityZone{}, nil
+		return network.AvailabilityZones{}, nil
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, s.callCtx, nil)
 	c.Assert(calls, gc.DeepEquals, []string{"InstanceAvailabilityZoneNames", "AvailabilityZones"})
@@ -151,7 +151,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsErrors(c *gc.C) {
 		return []string{"", "", ""}, nil
 	})
 	resultErr := fmt.Errorf("u can haz no az")
-	s.PatchValue(&s.env.availabilityZones, func(context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+	s.PatchValue(&s.env.availabilityZones, func(context.ProviderCallContext) (network.AvailabilityZones, error) {
 		calls = append(calls, "AvailabilityZones")
 		return nil, resultErr
 	})
@@ -159,32 +159,6 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsErrors(c *gc.C) {
 	c.Assert(calls, gc.DeepEquals, []string{"InstanceAvailabilityZoneNames", "AvailabilityZones"})
 	c.Assert(err, gc.Equals, resultErr)
 	c.Assert(zoneInstances, gc.HasLen, 0)
-}
-
-func (s *AvailabilityZoneSuite) TestValidateAvailabilityZone(c *gc.C) {
-	var calls []string
-	s.PatchValue(&s.env.availabilityZones, func(context.ProviderCallContext) ([]common.AvailabilityZone, error) {
-		availabilityZones := make([]common.AvailabilityZone, 2)
-		availabilityZones[0] = &mockAvailabilityZone{name: "az1", available: true}
-		availabilityZones[1] = &mockAvailabilityZone{name: "az2", available: false}
-		calls = append(calls, "AvailabilityZones")
-		return availabilityZones, nil
-	})
-	tests := map[string]error{
-		"az1": nil,
-		"az2": errors.Errorf("availability zone %q is unavailable", "az2"),
-		"az3": errors.NotValidf("availability zone %q", "az3"),
-	}
-	for i, t := range tests {
-		err := common.ValidateAvailabilityZone(&s.env, s.callCtx, i)
-		if t == nil {
-			c.Assert(err, jc.ErrorIsNil)
-		} else {
-			c.Assert(err, gc.ErrorMatches, err.Error())
-		}
-		c.Assert(calls, gc.DeepEquals, []string{"AvailabilityZones"})
-		calls = []string{}
-	}
 }
 
 func (s *AvailabilityZoneSuite) TestDistributeInstancesGroup(c *gc.C) {

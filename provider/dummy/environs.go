@@ -76,7 +76,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -653,7 +652,7 @@ func (*environProvider) DetectCredentials() (*cloud.CloudCredential, error) {
 	return cloud.NewEmptyCloudCredential(), nil
 }
 
-func (*environProvider) FinalizeCredential(ctx environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
+func (*environProvider) FinalizeCredential(_ environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
 	return &args.Credential, nil
 }
 
@@ -1503,9 +1502,9 @@ func (az azShim) Available() bool {
 }
 
 // AvailabilityZones implements environs.ZonedEnviron.
-func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (corenetwork.AvailabilityZones, error) {
 	// TODO(dimitern): Fix this properly.
-	return []common.AvailabilityZone{
+	return corenetwork.AvailabilityZones{
 		azShim{"zone1", true},
 		azShim{"zone2", false},
 		azShim{"zone3", true},

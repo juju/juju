@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 )
 
@@ -32,11 +31,11 @@ type Backing interface {
 
 	// AvailabilityZones returns all cached availability zones (i.e.
 	// not from the provider, but in state).
-	AvailabilityZones() ([]providercommon.AvailabilityZone, error)
+	AvailabilityZones() (network.AvailabilityZones, error)
 
 	// SetAvailabilityZones replaces the cached list of availability
 	// zones with the given zones.
-	SetAvailabilityZones([]providercommon.AvailabilityZone) error
+	SetAvailabilityZones(network.AvailabilityZones) error
 
 	// AddSubnet creates a backing subnet for an existing subnet.
 	AddSubnet(networkingcommon.BackingSubnetInfo) (networkingcommon.BackingSubnet, error)

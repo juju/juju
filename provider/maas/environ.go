@@ -100,7 +100,7 @@ type maasEnviron struct {
 	namespace instance.Namespace
 
 	availabilityZonesMutex sync.Mutex
-	availabilityZones      []common.AvailabilityZone
+	availabilityZones      corenetwork.AvailabilityZones
 
 	// apiVersion tells us if we are using the MAAS 1.0 or 2.0 api.
 	apiVersion string
@@ -514,11 +514,11 @@ func (z maasAvailabilityZone) Available() bool {
 
 // AvailabilityZones returns a slice of availability zones
 // for the configured region.
-func (env *maasEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+func (env *maasEnviron) AvailabilityZones(ctx context.ProviderCallContext) (corenetwork.AvailabilityZones, error) {
 	env.availabilityZonesMutex.Lock()
 	defer env.availabilityZonesMutex.Unlock()
 	if env.availabilityZones == nil {
-		var availabilityZones []common.AvailabilityZone
+		var availabilityZones corenetwork.AvailabilityZones
 		var err error
 		if env.usingMAAS2() {
 			availabilityZones, err = env.availabilityZones2(ctx)
@@ -536,7 +536,7 @@ func (env *maasEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([]co
 	return env.availabilityZones, nil
 }
 
-func (env *maasEnviron) availabilityZones1(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+func (env *maasEnviron) availabilityZones1(ctx context.ProviderCallContext) (corenetwork.AvailabilityZones, error) {
 	zonesObject := env.getMAASClient().GetSubObject("zones")
 	result, err := zonesObject.CallGet("", nil)
 	if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusNotFound {
@@ -551,7 +551,7 @@ func (env *maasEnviron) availabilityZones1(ctx context.ProviderCallContext) ([]c
 		return nil, err
 	}
 	logger.Debugf("availability zones: %+v", list)
-	availabilityZones := make([]common.AvailabilityZone, len(list))
+	availabilityZones := make(corenetwork.AvailabilityZones, len(list))
 	for i, obj := range list {
 		zone, err := obj.GetMap()
 		if err != nil {
@@ -566,13 +566,13 @@ func (env *maasEnviron) availabilityZones1(ctx context.ProviderCallContext) ([]c
 	return availabilityZones, nil
 }
 
-func (env *maasEnviron) availabilityZones2(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+func (env *maasEnviron) availabilityZones2(ctx context.ProviderCallContext) (corenetwork.AvailabilityZones, error) {
 	zones, err := env.maasController.Zones()
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Trace(err)
 	}
-	availabilityZones := make([]common.AvailabilityZone, len(zones))
+	availabilityZones := make(corenetwork.AvailabilityZones, len(zones))
 	for i, zone := range zones {
 		availabilityZones[i] = maasAvailabilityZone{zone.Name()}
 	}
@@ -630,12 +630,15 @@ func (env *maasEnviron) parsePlacement(ctx context.ProviderCallContext, placemen
 	}
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
-		availabilityZone := value
-		err := common.ValidateAvailabilityZone(env, ctx, availabilityZone)
+		zones, err := env.AvailabilityZones(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
-		return &maasPlacement{zoneName: availabilityZone}, nil
+		if err := zones.Validate(value); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return &maasPlacement{zoneName: value}, nil
 	case "system-id":
 		return &maasPlacement{systemId: value}, nil
 	}
@@ -958,7 +961,11 @@ func (env *maasEnviron) StartInstance(
 		}
 	}
 	if availabilityZone != "" {
-		if err := common.ValidateAvailabilityZone(env, ctx, availabilityZone); err != nil {
+		zones, err := env.AvailabilityZones(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := errors.Trace(zones.Validate(availabilityZone)); err != nil {
 			return nil, errors.Trace(err)
 		}
 		logger.Debugf("attempting to acquire node in zone %q", availabilityZone)
@@ -1269,11 +1276,11 @@ func (env *maasEnviron) deploymentStatus(ctx context.ProviderCallContext, ids ..
 	}
 	statusValues := make(map[string]string)
 	for systemId, jsonValue := range resultMap {
-		status, err := jsonValue.GetString()
+		sts, err := jsonValue.GetString()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		statusValues[systemId] = status
+		statusValues[systemId] = sts
 	}
 	return statusValues, nil
 }

@@ -331,7 +331,7 @@ type Environ struct {
 	keystoneToolsDataSource      simplestreams.DataSource
 
 	availabilityZonesMutex sync.Mutex
-	availabilityZones      []common.AvailabilityZone
+	availabilityZones      corenetwork.AvailabilityZones
 	firewaller             Firewaller
 	networking             Networking
 	configurator           ProviderConfigurator
@@ -614,7 +614,7 @@ func (z *openstackAvailabilityZone) Available() bool {
 }
 
 // AvailabilityZones returns a slice of availability zones.
-func (e *Environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+func (e *Environ) AvailabilityZones(ctx context.ProviderCallContext) (corenetwork.AvailabilityZones, error) {
 	e.availabilityZonesMutex.Lock()
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
@@ -626,7 +626,7 @@ func (e *Environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.A
 			handleCredentialError(err, ctx)
 			return nil, err
 		}
-		e.availabilityZones = make([]common.AvailabilityZone, len(zones))
+		e.availabilityZones = make(corenetwork.AvailabilityZones, len(zones))
 		for i, z := range zones {
 			e.availabilityZones[i] = &openstackAvailabilityZone{z}
 		}
@@ -676,13 +676,16 @@ func (e *Environ) parsePlacement(ctx context.ProviderCallContext, placement stri
 	}
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
-		availabilityZone := value
-		err := common.ValidateAvailabilityZone(e, ctx, availabilityZone)
+		zones, err := e.AvailabilityZones(ctx)
 		if err != nil {
 			handleCredentialError(err, ctx)
-			return nil, err
+			return nil, errors.Trace(err)
 		}
-		return &openstackPlacement{zoneName: availabilityZone}, nil
+		if err := zones.Validate(value); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return &openstackPlacement{zoneName: value}, nil
 	}
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
@@ -726,7 +729,7 @@ func (e *Environ) PrecheckInstance(ctx context.ProviderCallContext, args environ
 }
 
 // PrepareForBootstrap is part of the Environ interface.
-func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
+func (e *Environ) PrepareForBootstrap(_ environs.BootstrapContext, _ string) error {
 	// Verify credentials.
 	if err := authenticateClient(e.client()); err != nil {
 		return err
@@ -1351,7 +1354,12 @@ func (e *Environ) validateAvailabilityZone(ctx context.ProviderCallContext, args
 		return common.ZoneIndependentError(err)
 	}
 
-	return errors.Trace(common.ValidateAvailabilityZone(e, ctx, args.AvailabilityZone))
+	zones, err := e.AvailabilityZones(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(zones.Validate(args.AvailabilityZone))
+
 }
 
 // networksForInstance returns networks that will be attached

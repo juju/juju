@@ -7,9 +7,9 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	networkingcommon "github.com/juju/juju/apiserver/common/networkingcommon"
+	network "github.com/juju/juju/core/network"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
 	config "github.com/juju/juju/environs/config"
-	common "github.com/juju/juju/provider/common"
 	names "github.com/juju/names/v4"
 	reflect "reflect"
 )
@@ -83,10 +83,10 @@ func (mr *MockBackingMockRecorder) AllSubnets() *gomock.Call {
 }
 
 // AvailabilityZones mocks base method
-func (m *MockBacking) AvailabilityZones() ([]common.AvailabilityZone, error) {
+func (m *MockBacking) AvailabilityZones() (network.AvailabilityZones, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AvailabilityZones")
-	ret0, _ := ret[0].([]common.AvailabilityZone)
+	ret0, _ := ret[0].(network.AvailabilityZones)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -142,7 +142,7 @@ func (mr *MockBackingMockRecorder) ModelTag() *gomock.Call {
 }
 
 // SetAvailabilityZones mocks base method
-func (m *MockBacking) SetAvailabilityZones(arg0 []common.AvailabilityZone) error {
+func (m *MockBacking) SetAvailabilityZones(arg0 network.AvailabilityZones) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetAvailabilityZones", arg0)
 	ret0, _ := ret[0].(error)

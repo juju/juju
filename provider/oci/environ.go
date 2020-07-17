@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
@@ -177,7 +178,7 @@ func (e *Environ) ping() error {
 }
 
 // AvailabilityZones is defined in the common.ZonedEnviron interface
-func (e *Environ) AvailabilityZones(ctx envcontext.ProviderCallContext) ([]common.AvailabilityZone, error) {
+func (e *Environ) AvailabilityZones(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
 	request := ociIdentity.ListAvailabilityDomainsRequest{
 		CompartmentId: e.ecfg().compartmentID(),
 	}
@@ -190,7 +191,7 @@ func (e *Environ) AvailabilityZones(ctx envcontext.ProviderCallContext) ([]commo
 		return nil, errors.Trace(err)
 	}
 
-	zones := []common.AvailabilityZone{}
+	zones := network.AvailabilityZones{}
 
 	for _, val := range domains.Items {
 		zones = append(zones, NewAvailabilityZone(*val.Name))

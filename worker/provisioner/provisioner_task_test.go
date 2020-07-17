@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/juju/core/network"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -37,7 +39,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/common/mocks"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/provisioner"
@@ -585,7 +586,7 @@ func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller) *mocks
 	}
 
 	// Environ has 3 availability zones: az1, az2, az3.
-	zones := make([]common.AvailabilityZone, 3)
+	zones := make(network.AvailabilityZones, 3)
 	for i := 0; i < 3; i++ {
 		az := mocks.NewMockAvailabilityZone(ctrl)
 		az.EXPECT().Name().Return(fmt.Sprintf("az%d", i+1))

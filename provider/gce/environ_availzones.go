@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/common"
@@ -15,13 +16,13 @@ import (
 )
 
 // AvailabilityZones returns all availability zones in the environment.
-func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
 	zones, err := env.gce.AvailabilityZones(env.cloud.Region)
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
 
-	var result []common.AvailabilityZone
+	var result network.AvailabilityZones
 	for _, zone := range zones {
 		if zone.Deprecated() {
 			continue
