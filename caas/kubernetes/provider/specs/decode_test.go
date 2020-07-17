@@ -97,4 +97,45 @@ unknownkey: ops`
 		Foo: "foo1",
 		Bar: "bar1",
 	})
+
+	in = `
+{
+    "foo": "foo1"
+}
+{
+    "bar": "bar1"
+}`
+	// decode JSON in strict mode - good.
+	decoder = k8sspces.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in), true)
+	c.Assert(decoder.Decode(&out), jc.ErrorIsNil)
+	c.Assert(out, gc.DeepEquals, tS{
+		Foo: "foo1",
+		Bar: "bar1",
+	})
+	// decode JSON in non-strict mode - good.
+	decoder = k8sspces.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in), false)
+	c.Assert(decoder.Decode(&out), jc.ErrorIsNil)
+	c.Assert(out, gc.DeepEquals, tS{
+		Foo: "foo1",
+		Bar: "bar1",
+	})
+
+	in = `
+{
+    "foo": "foo1"
+}
+{
+	"bar": "bar1",
+	"unknownkey": "ops"
+}`
+	// decode JSON in strict mode - bad.
+	decoder = k8sspces.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in), true)
+	c.Assert(decoder.Decode(&out), gc.ErrorMatches, `json: unknown field "unknownkey"`)
+	// decode JSON in non-strict mode - unknown field ignored.
+	decoder = k8sspces.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in), false)
+	c.Assert(decoder.Decode(&out), jc.ErrorIsNil)
+	c.Assert(out, gc.DeepEquals, tS{
+		Foo: "foo1",
+		Bar: "bar1",
+	})
 }
