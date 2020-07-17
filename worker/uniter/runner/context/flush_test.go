@@ -196,12 +196,12 @@ func (s *FlushContextSuite) TestRebootNow(c *gc.C) {
 
 func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	// Initially, no port ranges are open on the unit or its machine.
-	unitRanges, err := s.unit.OpenedPorts()
+	unitRangesBySubnet, err := s.unit.OpenedPortsBySubnet()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitRanges, gc.HasLen, 0)
-	machinePorts, err := s.machine.AllPorts()
+	c.Assert(unitRangesBySubnet, gc.HasLen, 0)
+	machinePortsBySubnet, err := s.machine.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machinePorts, gc.HasLen, 0)
+	c.Assert(machinePortsBySubnet, gc.HasLen, 0)
 
 	// Add another unit on the same machine.
 	otherUnit, err := s.application.AddUnit(state.AddUnitParams{})
@@ -213,7 +213,7 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	s.AssertOpenUnitPorts(c, s.unit, "", "tcp", 100, 200)
 	s.AssertOpenUnitPorts(c, otherUnit, "", "udp", 200, 300)
 
-	unitRanges, err = s.unit.OpenedPorts()
+	unitRanges, err := s.unit.OpenedPortsInSubnet("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitRanges, jc.DeepEquals, []network.PortRange{
 		{100, 200, "tcp"},
@@ -250,7 +250,7 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil) // still pending -> no longer pending
 
 	// Ensure the ports are not actually changed on the unit yet.
-	unitRanges, err = s.unit.OpenedPorts()
+	unitRanges, err = s.unit.OpenedPortsInSubnet("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitRanges, jc.DeepEquals, []network.PortRange{
 		{100, 200, "tcp"},
@@ -264,7 +264,7 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	expectUnitRanges := []network.PortRange{
 		{FromPort: 10, ToPort: 20, Protocol: "udp"},
 	}
-	unitRanges, err = s.unit.OpenedPorts()
+	unitRanges, err = s.unit.OpenedPortsInSubnet("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitRanges, jc.DeepEquals, expectUnitRanges)
 }

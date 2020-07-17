@@ -4,6 +4,8 @@
 package firewaller
 
 import (
+	"sort"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -15,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	corefirewall "github.com/juju/juju/core/firewall"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -243,27 +244,29 @@ func (f *FirewallerAPIV3) GetMachinePorts(args params.MachinePortsParams) (param
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		ports, err := machine.OpenedPorts(subnetTag.Id())
+		openedPortsInSubnet, err := machine.OpenedPortsInSubnet(subnetTag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if ports != nil {
-			portRangeMap := ports.AllPortRanges()
-			var portRanges []network.PortRange
-			for portRange := range portRangeMap {
-				portRanges = append(portRanges, portRange)
-			}
-			network.SortPortRanges(portRanges)
-
-			for _, portRange := range portRanges {
-				unitTag := names.NewUnitTag(portRangeMap[portRange]).String()
-				result.Results[i].Ports = append(result.Results[i].Ports,
-					params.MachinePortRange{
+		if openedPortsInSubnet != nil {
+			var rangeList []params.MachinePortRange
+			for unitName, portRanges := range openedPortsInSubnet.PortRangesByUnit() {
+				unitTag := names.NewUnitTag(unitName).String()
+				for _, pr := range portRanges {
+					rangeList = append(rangeList, params.MachinePortRange{
 						UnitTag:   unitTag,
-						PortRange: params.FromNetworkPortRange(portRange),
+						PortRange: params.FromNetworkPortRange(pr),
 					})
+				}
 			}
+
+			sort.Slice(rangeList, func(i, j int) bool {
+				return rangeList[i].PortRange.NetworkPortRange().LessThan(
+					rangeList[j].PortRange.NetworkPortRange(),
+				)
+			})
+			result.Results[i].Ports = rangeList
 		}
 	}
 	return result, nil
@@ -290,13 +293,14 @@ func (f *FirewallerAPIV3) GetMachineActiveSubnets(args params.Entities) (params.
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		ports, err := machine.AllPorts()
+		ports, err := machine.OpenedPorts()
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		for _, port := range ports {
 			if port.SubnetID() == "" {
+				// TODO(achilleas) remove this when we stop using the empty subnet.
 				// TODO(dimitern): Empty subnet IDs for ports are still OK until
 				// we can enforce it across all providers.
 				result.Results[i].Result = append(result.Results[i].Result, "")

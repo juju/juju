@@ -38,6 +38,16 @@ func (s *machineSuite) TearDownTest(c *gc.C) {
 	s.firewallerSuite.TearDownTest(c)
 }
 
+func (s *machineSuite) assertRemoveMachinePortsDoc(c *gc.C, p state.MachineSubnetPorts) {
+	type remover interface {
+		Remove() error
+	}
+
+	portRemover, supports := p.(remover)
+	c.Assert(supports, jc.IsTrue, gc.Commentf("machine ports interface does not implement Remove()"))
+	c.Assert(portRemover.Remove(), jc.ErrorIsNil)
+}
+
 func (s *machineSuite) TestMachine(c *gc.C) {
 	apiMachine42, err := s.firewaller.Machine(names.NewMachineTag("42"))
 	c.Assert(err, gc.ErrorMatches, "machine 42 not found")
@@ -109,10 +119,9 @@ func (s *machineSuite) TestActiveSubnets(c *gc.C) {
 	c.Assert(subnets, jc.DeepEquals, []names.SubnetTag{{}})
 
 	// Remove all ports, no more active subnets.
-	ports, err := s.machines[0].OpenedPorts("")
+	ports, err := s.machines[0].OpenedPortsInSubnet("")
 	c.Assert(err, jc.ErrorIsNil)
-	err = ports.Remove()
-	c.Assert(err, jc.ErrorIsNil)
+	s.assertRemoveMachinePortsDoc(c, ports)
 	subnets, err = s.apiMachine.ActiveSubnets()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 0)

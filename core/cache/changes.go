@@ -157,10 +157,11 @@ type UnitChange struct {
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      string
-	Ports          []network.Port
-	PortRanges     []network.PortRange
-	Principal      string
-	Subordinate    bool
+	// TODO(achilleas) remove deprecated Port type
+	Ports              []network.Port
+	PortRangesBySubnet map[string][]network.PortRange
+	Principal          string
+	Subordinate        bool
 
 	WorkloadStatus  status.StatusInfo
 	AgentStatus     status.StatusInfo
@@ -179,16 +180,7 @@ func (u UnitChange) copy() UnitChange {
 	}
 	u.Ports = cPorts
 
-	var cPortRanges []network.PortRange
-	uPortRanges := u.PortRanges
-	if uPortRanges != nil {
-		cPortRanges = make([]network.PortRange, len(uPortRanges))
-		for i, p := range uPortRanges {
-			cPortRanges[i] = p
-		}
-	}
-	u.PortRanges = cPortRanges
-
+	u.PortRangesBySubnet = copyPortRangeMap(u.PortRangesBySubnet)
 	u.Annotations = copyStringMap(u.Annotations)
 	u.WorkloadStatus = copyStatusInfo(u.WorkloadStatus)
 	u.AgentStatus = copyStatusInfo(u.AgentStatus)
@@ -411,6 +403,18 @@ func copyStringMap(data map[string]string) map[string]string {
 		for i, d := range data {
 			cData[i] = d
 		}
+	}
+	return cData
+}
+
+func copyPortRangeMap(data map[string][]network.PortRange) map[string][]network.PortRange {
+	if data == nil {
+		return nil
+	}
+
+	cData := make(map[string][]network.PortRange, len(data))
+	for i, d := range data {
+		cData[i] = append([]network.PortRange(nil), d...)
 	}
 	return cData
 }

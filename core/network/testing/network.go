@@ -14,7 +14,7 @@ import (
 // assertions provided by FirewallHelper.
 type Unit interface {
 	Name() string
-	OpenClosePortsOnSubnet(subnetID string, openPortRanges, closePortRanges []network.PortRange) error
+	OpenClosePortsInSubnet(subnetID string, openPortRanges, closePortRanges []network.PortRange) error
 }
 
 // FirewallHelper can be used as a mixin to provide firewall-related assertions
@@ -35,7 +35,7 @@ func (FirewallHelper) AssertOpenUnitPorts(c *gc.C, u Unit, subnet, protocol stri
 		ToPort:   to,
 	}
 
-	err := u.OpenClosePortsOnSubnet(subnet, []network.PortRange{openRange}, nil)
+	err := u.OpenClosePortsInSubnet(subnet, []network.PortRange{openRange}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -52,6 +52,6 @@ func (FirewallHelper) AssertCloseUnitPorts(c *gc.C, u Unit, subnet, protocol str
 		ToPort:   to,
 	}
 
-	err := u.OpenClosePortsOnSubnet(subnet, nil, []network.PortRange{closeRange})
+	err := u.OpenClosePortsInSubnet(subnet, nil, []network.PortRange{closeRange})
 	c.Assert(err, jc.ErrorIsNil)
 }

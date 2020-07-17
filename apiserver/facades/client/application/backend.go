@@ -189,7 +189,7 @@ type Model interface {
 	Type() state.ModelType
 	ModelConfig() (*config.Config, error)
 	AgentVersion() (version.Number, error)
-	AllPorts() ([]Ports, error)
+	OpenedPortsForMachine(string) ([]state.MachineSubnetPorts, error)
 }
 
 // Resources defines a subset of the functionality provided by the
@@ -209,18 +209,6 @@ type stateShim struct {
 
 type modelShim struct {
 	*state.Model
-}
-
-func (m modelShim) AllPorts() ([]Ports, error) {
-	ports, err := m.Model.AllPorts()
-	if err != nil {
-		return nil, err
-	}
-	out := make([]Ports, len(ports))
-	for i, p := range ports {
-		out[i] = statePortsShim{p}
-	}
-	return out, nil
 }
 
 type ExternalController state.ExternalController
@@ -527,11 +515,5 @@ type Subnet interface {
 }
 
 type statePortsShim struct {
-	*state.MachineSubnetPorts
-}
-
-type Ports interface {
-	SubnetID() string
-	MachineID() string
-	PortsForUnit(unitName string) []state.PortRange
+	state.MachineSubnetPorts
 }

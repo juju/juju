@@ -2701,7 +2701,11 @@ func (api *APIBase) UnitsInfo(in params.Entities) (params.UnitInfoResults, error
 			if err == nil {
 				result.PublicAddress = publicAddress.Value
 			}
-			openPorts, err := api.openPortsOnMachine(unit.Name(), machineId)
+			// NOTE(achilleasa): this call completely ignores
+			// subnets and lumps all port ranges together in a
+			// single group. This works fine for pre 2.9 agents
+			// as ports where always opened across all subnets.
+			openPorts, err := api.openPortsOnMachineForUnit(unit.Name(), machineId)
 			if err != nil {
 				out[i].Error = apiservererrors.ServerError(err)
 				continue
@@ -2733,29 +2737,20 @@ func (api *APIBase) UnitsInfo(in params.Entities) (params.UnitInfoResults, error
 	return params.UnitInfoResults{out}, nil
 }
 
-func (api *APIBase) openPortsOnMachine(unitName, machineID string) ([]string, error) {
+// openPortsOnMachineForUnit returns the unique set of opened ports for the
+// specified unit and machine arguments without distinguishing between port
+// ranges across subnets. This method is provided for backwards compatibility
+// with pre 2.9 agents which assume open-ports apply to all subnets.
+func (api *APIBase) openPortsOnMachineForUnit(unitName, machineID string) ([]string, error) {
 	var result []string
-	allOpenPorts, err := api.model.AllPorts()
+	allPorts, err := api.model.OpenedPortsForMachine(machineID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// We are only looking for the open ports on the "" subnet.
-	for _, openPorts := range allOpenPorts {
-		if openPorts.MachineID() != machineID || openPorts.SubnetID() != "" {
-			continue
-		}
-		var corePorts []network.PortRange
-		for _, port := range openPorts.PortsForUnit(unitName) {
-			corePorts = append(corePorts, network.PortRange{
-				Protocol: port.Protocol,
-				FromPort: port.FromPort,
-				ToPort:   port.ToPort,
-			})
-		}
-		network.SortPortRanges(corePorts)
-		for _, port := range corePorts {
-			result = append(result, port.String())
-		}
+
+	unitPorts := state.UnitPortsFromMachineSubnetPorts(unitName, machineID, allPorts)
+	for _, portRange := range unitPorts.UniquePortRanges() {
+		result = append(result, portRange.String())
 	}
 	return result, nil
 }

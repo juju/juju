@@ -6,6 +6,7 @@ package uniter
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -459,28 +460,39 @@ func (u *UniterAPI) getOneMachinePorts(canAccess common.AuthFunc, machineTag str
 	if err != nil {
 		return params.MachinePortsResult{Error: apiservererrors.ServerError(err)}
 	}
-	allPorts, err := machine.AllPorts()
+	allPorts, err := machine.OpenedPorts()
 	if err != nil {
 		return params.MachinePortsResult{Error: apiservererrors.ServerError(err)}
 	}
-	var resultPorts []params.MachinePortRange
-	for _, ports := range allPorts {
-		// AllPortRanges gives a map, but apis require a stable order
-		// for results, so sort the port ranges.
-		portRangesToUnits := ports.AllPortRanges()
-		portRanges := make([]corenetwork.PortRange, 0, len(portRangesToUnits))
-		for portRange := range portRangesToUnits {
-			portRanges = append(portRanges, portRange)
-		}
-		corenetwork.SortPortRanges(portRanges)
-		for _, portRange := range portRanges {
-			unitName := portRangesToUnits[portRange]
-			resultPorts = append(resultPorts, params.MachinePortRange{
-				UnitTag:   names.NewUnitTag(unitName).String(),
-				PortRange: params.FromNetworkPortRange(portRange),
-			})
+
+	var (
+		resultPorts []params.MachinePortRange
+		processed   = make(map[corenetwork.PortRange]struct{})
+	)
+	for _, openedPortsInSubnet := range allPorts {
+		for unitName, portRanges := range openedPortsInSubnet.PortRangesByUnit() {
+			unitTag := names.NewUnitTag(unitName).String()
+			for _, pr := range portRanges {
+				if _, seen := processed[pr]; seen {
+					continue
+				}
+
+				processed[pr] = struct{}{}
+				resultPorts = append(resultPorts, params.MachinePortRange{
+					UnitTag:   unitTag,
+					PortRange: params.FromNetworkPortRange(pr),
+				})
+			}
 		}
 	}
+
+	// Sort result by port range to ensure stable order for returned ranges.
+	sort.Slice(resultPorts, func(i, j int) bool {
+		return resultPorts[i].PortRange.NetworkPortRange().LessThan(
+			resultPorts[j].PortRange.NetworkPortRange(),
+		)
+	})
+
 	return params.MachinePortsResult{
 		Ports: resultPorts,
 	}
@@ -1025,8 +1037,7 @@ func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResul
 			Protocol: entity.Protocol,
 		}}
 
-		err = unit.OpenClosePortsOnSubnet("", openPortRange, nil)
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(unit.OpenClosePortsInSubnet("", openPortRange, nil))
 	}
 	return result, nil
 }
@@ -1064,8 +1075,7 @@ func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResu
 			Protocol: entity.Protocol,
 		}}
 
-		err = unit.OpenClosePortsOnSubnet("", nil, closePortRange)
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(unit.OpenClosePortsInSubnet("", nil, closePortRange))
 	}
 	return result, nil
 }
@@ -3571,7 +3581,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		// TODO(achilleas): we should be using endpoints instead of subnets
 		// here. This emulates the existing behavior for the individual
 		// Open/ClosePort API calls.
-		modelOp, err := unit.OpenClosePortsOnSubnetOperation("", openPortRanges, closePortRanges)
+		modelOp, err := unit.OpenClosePortsInSubnetOperation("", openPortRanges, closePortRanges)
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -31,27 +31,27 @@ func (s *PortsSuite) TestValidatePortRange(c *gc.C) {
 		about:     "invalid range - 0-0/tcp",
 		proto:     "tcp",
 		ports:     []int{0, 0},
-		expectErr: "invalid port range 0-0/tcp",
+		expectErr: "port range bounds must be between 1 and 65535, got 0-0",
 	}, {
 		about:     "invalid range - 0-1/tcp",
 		proto:     "tcp",
 		ports:     []int{0, 1},
-		expectErr: "invalid port range 0-1/tcp",
+		expectErr: "port range bounds must be between 1 and 65535, got 0-1",
 	}, {
 		about:     "invalid range - -1-1/tcp",
 		proto:     "tcp",
 		ports:     []int{-1, 1},
-		expectErr: "invalid port range -1-1/tcp",
+		expectErr: "port range bounds must be between 1 and 65535, got -1-1",
 	}, {
 		about:     "invalid range - 1-99999/tcp",
 		proto:     "tcp",
 		ports:     []int{1, 99999},
-		expectErr: "invalid port range 1-99999/tcp",
+		expectErr: "port range bounds must be between 1 and 65535, got 1-99999",
 	}, {
 		about:     "invalid range - 88888-99999/tcp",
 		proto:     "tcp",
 		ports:     []int{88888, 99999},
-		expectErr: "invalid port range 88888-99999/tcp",
+		expectErr: "port range bounds must be between 1 and 65535, got 88888-99999",
 	}, {
 		about:     "invalid protocol - 1-65535/foo",
 		proto:     "foo",
@@ -160,7 +160,7 @@ func (s *PortsSuite) TestTryOpenPorts(c *gc.C) {
 	tests := []portsTest{{
 		about:     "invalid port range",
 		ports:     []int{0, 0},
-		expectErr: "invalid port range 0-0/tcp",
+		expectErr: "port range bounds must be between 1 and 65535, got 0-0",
 	}, {
 		about:     "invalid protocol - 10-20/foo",
 		proto:     "foo",
@@ -222,7 +222,7 @@ func (s *PortsSuite) TestTryClosePorts(c *gc.C) {
 	tests := []portsTest{{
 		about:     "invalid port range",
 		ports:     []int{0, 0},
-		expectErr: "invalid port range 0-0/tcp",
+		expectErr: "port range bounds must be between 1 and 65535, got 0-0",
 	}, {
 		about:     "invalid protocol - 10-20/foo",
 		proto:     "foo",

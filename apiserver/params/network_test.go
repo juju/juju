@@ -247,15 +247,6 @@ func (s *NetworkSuite) TestMachinePortRange(c *gc.C) {
 	}
 }
 
-func (s *NetworkSuite) TestPortConvenience(c *gc.C) {
-	networkPort := network.Port{
-		Protocol: "udp",
-		Number:   55555,
-	}
-	paramsPort := params.FromNetworkPort(networkPort)
-	c.Assert(networkPort, jc.DeepEquals, paramsPort.NetworkPort())
-}
-
 func (s *NetworkSuite) TestPortRangeConvenience(c *gc.C) {
 	networkPortRange := network.PortRange{
 		FromPort: 61001,

@@ -169,7 +169,7 @@ func UnitChange(c *gc.C, modelUUID string, unit *state.Unit) cache.UnitChange {
 		charmURL = cURL.String()
 	}
 
-	pr, err := unit.OpenedPorts()
+	pr, err := unit.OpenedPortsBySubnet()
 	if !errors.IsNotAssigned(err) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -183,19 +183,19 @@ func UnitChange(c *gc.C, modelUUID string, unit *state.Unit) cache.UnitChange {
 	principal, _ := unit.PrincipalName()
 
 	return cache.UnitChange{
-		ModelUUID:      modelUUID,
-		Name:           unit.Name(),
-		Application:    unit.ApplicationName(),
-		Series:         unit.Series(),
-		CharmURL:       charmURL,
-		Life:           life.Value(unit.Life().String()),
-		PublicAddress:  publicAddr.String(),
-		PrivateAddress: privateAddr.String(),
-		MachineId:      machineId,
-		PortRanges:     pr,
-		Principal:      principal,
-		WorkloadStatus: sts,
-		AgentStatus:    aSts,
+		ModelUUID:          modelUUID,
+		Name:               unit.Name(),
+		Application:        unit.ApplicationName(),
+		Series:             unit.Series(),
+		CharmURL:           charmURL,
+		Life:               life.Value(unit.Life().String()),
+		PublicAddress:      publicAddr.String(),
+		PrivateAddress:     privateAddr.String(),
+		MachineId:          machineId,
+		PortRangesBySubnet: pr,
+		Principal:          principal,
+		WorkloadStatus:     sts,
+		AgentStatus:        aSts,
 		// TODO: Subordinate
 	}
 }
