@@ -101,6 +101,7 @@ func mustUUID() string {
 func CustomModelConfig(c *gc.C, extra Attrs) *config.Config {
 	attrs := FakeConfig().Merge(Attrs{
 		"agent-version": "1.2.3",
+		"charmhub-url":  "http://meshuggah.rocks",
 	}).Merge(extra).Delete("admin-secret")
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
