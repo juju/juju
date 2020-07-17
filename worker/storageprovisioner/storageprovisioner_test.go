@@ -1074,7 +1074,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 	filesystemAccessor := newMockFilesystemAccessor()
 	filesystemAccessor.setFilesystemAttachmentInfo = func(attachments []params.FilesystemAttachment) ([]params.ErrorResult, error) {
 		infoSet <- attachments
-		return nil, nil
+		return make([]params.ErrorResult, len(attachments)), nil
 	}
 
 	args := &workerArgs{
@@ -1120,6 +1120,32 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 			ReadOnly:   true,
 		},
 	}})
+
+	// Update the UUID of the block device and check attachment update.
+	args.volumes.blockDevices[params.MachineStorageId{
+		MachineTag:    "machine-0",
+		AttachmentTag: "volume-0-0",
+	}] = storage.BlockDevice{
+		DeviceName: "xvdf1",
+		Size:       123,
+		UUID:       "deadbeaf",
+	}
+	s.managedFilesystemSource.attachedFilesystems = make(chan interface{}, 1)
+	args.volumes.blockDevicesWatcher.changes <- struct{}{}
+	attachInfo := waitChannel(
+		c, s.managedFilesystemSource.attachedFilesystems,
+		"waiting for filesystem attachements",
+	).([]storage.AttachFilesystemsResult)
+	c.Assert(attachInfo, jc.DeepEquals, []storage.AttachFilesystemsResult{{
+		FilesystemAttachment: &storage.FilesystemAttachment{
+			Filesystem: names.NewFilesystemTag("0/0"),
+			FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
+				Path:     "/mnt/xvdf1",
+				ReadOnly: true,
+			},
+		},
+	}})
+
 }
 
 func (s *storageProvisionerSuite) TestResourceTags(c *gc.C) {
