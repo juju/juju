@@ -15,7 +15,7 @@ var (
 )
 
 type openClosePortsOperation struct {
-	p               *Ports
+	p               *MachineSubnetPorts
 	openPortRanges  []PortRange
 	closePortRanges []PortRange
 

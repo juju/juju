@@ -527,7 +527,7 @@ type Subnet interface {
 }
 
 type statePortsShim struct {
-	*state.Ports
+	*state.MachineSubnetPorts
 }
 
 type Ports interface {

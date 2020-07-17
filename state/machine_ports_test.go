@@ -26,8 +26,8 @@ type PortsDocSuite struct {
 	unit2              *state.Unit
 	machine            *state.Machine
 	subnet             *state.Subnet
-	portsOnSubnet      *state.Ports
-	portsWithoutSubnet *state.Ports
+	portsOnSubnet      *state.MachineSubnetPorts
+	portsWithoutSubnet *state.MachineSubnetPorts
 }
 
 var _ = gc.Suite(&PortsDocSuite{})
@@ -54,7 +54,7 @@ func (s *PortsDocSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.portsWithoutSubnet, gc.NotNil)
 }
 
-func (s *PortsDocSuite) openPorts(c *gc.C, ports *state.Ports, unitname string) {
+func (s *PortsDocSuite) openPorts(c *gc.C, ports *state.MachineSubnetPorts, unitname string) {
 	err := ports.OpenPorts(state.PortRange{
 		FromPort: 100,
 		ToPort:   200,
