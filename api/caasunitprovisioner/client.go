@@ -162,8 +162,9 @@ func (c *Client) WatchPodSpec(application string) (watcher.NotifyWatcher, error)
 
 // DeploymentInfo holds deployment info from charm metadata.
 type DeploymentInfo struct {
-	DeploymentType string
-	ServiceType    string
+	DeploymentType       string
+	ServiceType          string
+	CharmModifiedVersion int `json:"charm-modified-version"`
 }
 
 // ProvisioningInfo holds unit provisioning info.
@@ -207,8 +208,9 @@ func (c *Client) ProvisioningInfo(appName string) (*ProvisioningInfo, error) {
 	}
 	if result.DeploymentInfo != nil {
 		info.DeploymentInfo = DeploymentInfo{
-			DeploymentType: result.DeploymentInfo.DeploymentType,
-			ServiceType:    result.DeploymentInfo.ServiceType,
+			DeploymentType:       result.DeploymentInfo.DeploymentType,
+			ServiceType:          result.DeploymentInfo.ServiceType,
+			CharmModifiedVersion: result.DeploymentInfo.CharmModifiedVersion,
 		}
 	}
 

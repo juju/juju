@@ -371,8 +371,9 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	deployInfo := ch.Meta().Deployment
 	if deployInfo != nil {
 		info.DeploymentInfo = &params.KubernetesDeploymentInfo{
-			DeploymentType: string(deployInfo.DeploymentType),
-			ServiceType:    string(deployInfo.ServiceType),
+			DeploymentType:       string(deployInfo.DeploymentType),
+			ServiceType:          string(deployInfo.ServiceType),
+			CharmModifiedVersion: app.CharmModifiedVersion(),
 		}
 	}
 	return info, nil

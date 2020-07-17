@@ -8851,6 +8851,9 @@
                 "KubernetesDeploymentInfo": {
                     "type": "object",
                     "properties": {
+                        "charm-modified-version": {
+                            "type": "integer"
+                        },
                         "deployment-type": {
                             "type": "string"
                         },
@@ -8861,7 +8864,8 @@
                     "additionalProperties": false,
                     "required": [
                         "deployment-type",
-                        "service-type"
+                        "service-type",
+                        "charm-modified-version"
                     ]
                 },
                 "KubernetesDeviceParams": {

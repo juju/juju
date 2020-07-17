@@ -11,8 +11,9 @@ import (
 
 // KubernetesDeploymentInfo holds deployment info from charm metadata.
 type KubernetesDeploymentInfo struct {
-	DeploymentType string `json:"deployment-type"`
-	ServiceType    string `json:"service-type"`
+	DeploymentType       string `json:"deployment-type"`
+	ServiceType          string `json:"service-type"`
+	CharmModifiedVersion int    `json:"charm-modified-version"`
 }
 
 // KubernetesProvisioningInfo holds unit provisioning info.
