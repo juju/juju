@@ -6,8 +6,8 @@ package vsphere
 import (
 	"golang.org/x/net/context"
 
+	"github.com/juju/juju/core/network"
 	callcontext "github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/common"
 )
 
 // sessionEnviron implements common.ZonedEnviron. An instance of
@@ -30,7 +30,7 @@ type sessionEnviron struct {
 	// the number of API calls required by StartInstance.
 	// We only cache per session, so there is no issue of
 	// staleness.
-	zones []common.AvailabilityZone
+	zones network.AvailabilityZones
 }
 
 func (env *environ) withSession(callCtx callcontext.ProviderCallContext, f func(*sessionEnviron) error) error {

@@ -16,7 +16,6 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
-	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 )
 
@@ -106,11 +105,11 @@ type NetworkBacking interface {
 
 	// AvailabilityZones returns all cached availability zones (i.e.
 	// not from the provider, but in state).
-	AvailabilityZones() ([]providercommon.AvailabilityZone, error)
+	AvailabilityZones() (corenetwork.AvailabilityZones, error)
 
 	// SetAvailabilityZones replaces the cached list of availability
 	// zones with the given zones.
-	SetAvailabilityZones([]providercommon.AvailabilityZone) error
+	SetAvailabilityZones(corenetwork.AvailabilityZones) error
 
 	// AddSpace creates a space
 	AddSpace(string, corenetwork.Id, []string, bool) (BackingSpace, error)

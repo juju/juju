@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -116,7 +116,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
-		corenetwork.InterfaceInfos,
+		network.InterfaceInfos,
 		error,
 	) {
 		c.Assert(args.Placement, gc.DeepEquals, checkPlacement)
@@ -290,7 +290,7 @@ func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {
 	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
-		corenetwork.InterfaceInfos,
+		network.InterfaceInfos,
 		error,
 	) {
 		c.Assert(args.AvailabilityZone, gc.Equals, "derived-zone")
@@ -318,11 +318,11 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *gc.C) {
 		deriveAvailabilityZones: func(context.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
-		availabilityZones: func(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+		availabilityZones: func(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
 			z0 := &mockAvailabilityZone{"z0", true}
 			z1 := &mockAvailabilityZone{"z1", false}
 			z2 := &mockAvailabilityZone{"z2", true}
-			return []common.AvailabilityZone{z0, z1, z2}, nil
+			return network.AvailabilityZones{z0, z1, z2}, nil
 		},
 	}
 
@@ -330,7 +330,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *gc.C) {
 	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
-		corenetwork.InterfaceInfos,
+		network.InterfaceInfos,
 		error,
 	) {
 		callZones = append(callZones, args.AvailabilityZone)
@@ -359,12 +359,12 @@ func (s *BootstrapSuite) TestStartInstanceAttemptZoneConstrained(c *gc.C) {
 		deriveAvailabilityZones: func(context.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
-		availabilityZones: func(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+		availabilityZones: func(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
 			z0 := &mockAvailabilityZone{"z0", true}
 			z1 := &mockAvailabilityZone{"z1", true}
 			z2 := &mockAvailabilityZone{"z2", true}
 			z3 := &mockAvailabilityZone{"z3", true}
-			return []common.AvailabilityZone{z0, z1, z2, z3}, nil
+			return network.AvailabilityZones{z0, z1, z2, z3}, nil
 		},
 	}
 
@@ -372,7 +372,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptZoneConstrained(c *gc.C) {
 	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
-		corenetwork.InterfaceInfos,
+		network.InterfaceInfos,
 		error,
 	) {
 		callZones = append(callZones, args.AvailabilityZone)
@@ -404,12 +404,12 @@ func (s *BootstrapSuite) TestStartInstanceNoMatchingConstraintZones(c *gc.C) {
 		deriveAvailabilityZones: func(context.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
-		availabilityZones: func(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+		availabilityZones: func(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
 			z0 := &mockAvailabilityZone{"z0", true}
 			z1 := &mockAvailabilityZone{"z1", true}
 			z2 := &mockAvailabilityZone{"z2", true}
 			z3 := &mockAvailabilityZone{"z3", true}
-			return []common.AvailabilityZone{z0, z1, z2, z3}, nil
+			return network.AvailabilityZones{z0, z1, z2, z3}, nil
 		},
 	}
 
@@ -417,7 +417,7 @@ func (s *BootstrapSuite) TestStartInstanceNoMatchingConstraintZones(c *gc.C) {
 	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
-		corenetwork.InterfaceInfos,
+		network.InterfaceInfos,
 		error,
 	) {
 		callZones = append(callZones, args.AvailabilityZone)
@@ -449,10 +449,10 @@ func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *gc.C) {
 		deriveAvailabilityZones: func(context.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
-		availabilityZones: func(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+		availabilityZones: func(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
 			z0 := &mockAvailabilityZone{"z0", true}
 			z1 := &mockAvailabilityZone{"z1", true}
-			return []common.AvailabilityZone{z0, z1}, nil
+			return network.AvailabilityZones{z0, z1}, nil
 		},
 	}
 
@@ -460,7 +460,7 @@ func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *gc.C) {
 	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
-		corenetwork.InterfaceInfos,
+		network.InterfaceInfos,
 		error,
 	) {
 		callZones = append(callZones, args.AvailabilityZone)
@@ -487,9 +487,9 @@ func (s *BootstrapSuite) TestStartInstanceNoUsableZones(c *gc.C) {
 		deriveAvailabilityZones: func(context.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
-		availabilityZones: func(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+		availabilityZones: func(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
 			z0 := &mockAvailabilityZone{"z0", false}
-			return []common.AvailabilityZone{z0}, nil
+			return network.AvailabilityZones{z0}, nil
 		},
 	}
 
@@ -511,12 +511,12 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	var innerInstanceConfig *instancecfg.InstanceConfig
 	inst := &mockInstance{
 		id:        checkInstanceId,
-		addresses: corenetwork.NewProviderAddresses("testing.invalid"),
+		addresses: network.NewProviderAddresses("testing.invalid"),
 	}
 	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
-		corenetwork.InterfaceInfos,
+		network.InterfaceInfos,
 		error,
 	) {
 		icfg := args.InstanceConfig
@@ -618,12 +618,12 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 	var innerInstanceConfig *instancecfg.InstanceConfig
 	inst := &mockInstance{
 		id:        "i-success",
-		addresses: corenetwork.NewProviderAddresses("testing.invalid"),
+		addresses: network.NewProviderAddresses("testing.invalid"),
 	}
 	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
-		corenetwork.InterfaceInfos,
+		network.InterfaceInfos,
 		error,
 	) {
 		icfg := args.InstanceConfig
@@ -693,7 +693,7 @@ type neverAddresses struct {
 	neverRefreshes
 }
 
-func (neverAddresses) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (neverAddresses) Addresses(ctx context.ProviderCallContext) (network.ProviderAddresses, error) {
 	return nil, nil
 }
 
@@ -702,7 +702,7 @@ type failsProvisioning struct {
 	message string
 }
 
-func (f failsProvisioning) Status(ctx context.ProviderCallContext) instance.Status {
+func (f failsProvisioning) Status(_ context.ProviderCallContext) instance.Status {
 	return instance.Status{
 		Status:  status.ProvisioningError,
 		Message: f.message,
@@ -755,7 +755,7 @@ type brokenAddresses struct {
 	neverRefreshes
 }
 
-func (brokenAddresses) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (brokenAddresses) Addresses(ctx context.ProviderCallContext) (network.ProviderAddresses, error) {
 	return nil, errors.Errorf("Addresses will never work")
 }
 
@@ -774,8 +774,8 @@ type neverOpensPort struct {
 	addr string
 }
 
-func (n *neverOpensPort) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
-	return corenetwork.NewProviderAddresses(n.addr), nil
+func (n *neverOpensPort) Addresses(ctx context.ProviderCallContext) (network.ProviderAddresses, error) {
+	return network.NewProviderAddresses(n.addr), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
@@ -799,7 +799,7 @@ type interruptOnDial struct {
 	returned    bool
 }
 
-func (i *interruptOnDial) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (i *interruptOnDial) Addresses(ctx context.ProviderCallContext) (network.ProviderAddresses, error) {
 	// kill the tomb the second time Addresses is called
 	if !i.returned {
 		i.returned = true
@@ -809,7 +809,7 @@ func (i *interruptOnDial) Addresses(ctx context.ProviderCallContext) (corenetwor
 			i.interrupted = nil
 		}
 	}
-	return corenetwork.NewProviderAddresses(i.name), nil
+	return network.NewProviderAddresses(i.name), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
@@ -843,8 +843,8 @@ func (ac *addressesChange) Status(ctx context.ProviderCallContext) instance.Stat
 	return instance.Status{}
 }
 
-func (ac *addressesChange) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
-	return corenetwork.NewProviderAddresses(ac.addrs[0]...), nil
+func (ac *addressesChange) Addresses(ctx context.ProviderCallContext) (network.ProviderAddresses, error) {
+	return network.NewProviderAddresses(ac.addrs[0]...), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {
@@ -937,7 +937,7 @@ func fakeAvailableTools() tools.List {
 func fakeStartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 	instances.Instance,
 	*instance.HardwareCharacteristics,
-	corenetwork.InterfaceInfos,
+	network.InterfaceInfos,
 	error,
 ) {
 	checkInstanceId := "i-success"

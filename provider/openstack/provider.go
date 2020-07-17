@@ -331,7 +331,7 @@ type Environ struct {
 	keystoneToolsDataSource      simplestreams.DataSource
 
 	availabilityZonesMutex sync.Mutex
-	availabilityZones      []common.AvailabilityZone
+	availabilityZones      corenetwork.AvailabilityZones
 	firewaller             Firewaller
 	networking             Networking
 	configurator           ProviderConfigurator
@@ -614,7 +614,7 @@ func (z *openstackAvailabilityZone) Available() bool {
 }
 
 // AvailabilityZones returns a slice of availability zones.
-func (e *Environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+func (e *Environ) AvailabilityZones(ctx context.ProviderCallContext) (corenetwork.AvailabilityZones, error) {
 	e.availabilityZonesMutex.Lock()
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
@@ -626,7 +626,7 @@ func (e *Environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.A
 			handleCredentialError(err, ctx)
 			return nil, err
 		}
-		e.availabilityZones = make([]common.AvailabilityZone, len(zones))
+		e.availabilityZones = make(corenetwork.AvailabilityZones, len(zones))
 		for i, z := range zones {
 			e.availabilityZones[i] = &openstackAvailabilityZone{z}
 		}
@@ -726,7 +726,7 @@ func (e *Environ) PrecheckInstance(ctx context.ProviderCallContext, args environ
 }
 
 // PrepareForBootstrap is part of the Environ interface.
-func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
+func (e *Environ) PrepareForBootstrap(_ environs.BootstrapContext, _ string) error {
 	// Verify credentials.
 	if err := authenticateClient(e.client()); err != nil {
 		return err

@@ -9,19 +9,10 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 )
-
-// AvailabilityZone describes a provider availability zone.
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/availability_zone.go github.com/juju/juju/provider/common AvailabilityZone
-type AvailabilityZone interface {
-	// Name returns the name of the availability zone.
-	Name() string
-
-	// Available reports whether the availability zone is currently available.
-	Available() bool
-}
 
 // ZonedEnviron is an environs.Environ that has support for availability zones.
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/zoned_environ.go github.com/juju/juju/provider/common ZonedEnviron
@@ -29,7 +20,7 @@ type ZonedEnviron interface {
 	environs.Environ
 
 	// AvailabilityZones returns all availability zones in the environment.
-	AvailabilityZones(ctx context.ProviderCallContext) ([]AvailabilityZone, error)
+	AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error)
 
 	// InstanceAvailabilityZoneNames returns the names of the availability
 	// zones for the specified instances. The error returned follows the same

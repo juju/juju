@@ -82,8 +82,8 @@ type EnvironAPI interface {
 }
 
 // AvailabilityZones is defined in the common.ZonedEnviron interface
-func (o *OracleEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
-	return []common.AvailabilityZone{
+func (o *OracleEnviron) AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
+	return network.AvailabilityZones{
 		oraclenet.NewAvailabilityZone("default"),
 	}, nil
 }
@@ -132,7 +132,7 @@ func NewOracleEnviron(p *EnvironProvider, args environs.OpenParams, client Envir
 }
 
 // PrepareForBootstrap is part of the Environ interface.
-func (o *OracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
+func (o *OracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, _ string) error {
 	if ctx.ShouldVerifyCredentials() {
 		logger.Infof("Logging into the oracle cloud infrastructure")
 		if err := o.client.Authenticate(); err != nil {

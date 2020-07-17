@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -178,7 +179,7 @@ func (env *environ) Config() *config.Config {
 }
 
 // PrepareForBootstrap implements environs.Environ.
-func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
+func (env *environ) PrepareForBootstrap(_ environs.BootstrapContext, _ string) error {
 	return nil
 }
 
@@ -268,13 +269,13 @@ func (z *lxdAvailabilityZone) Available() bool {
 
 // AvailabilityZones (ZonedEnviron) returns all availability zones in the
 // environment. For LXD, this means the cluster node names.
-func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
 	// If we are not using a clustered server (which includes those not
 	// supporting the clustering API) just represent the single server as the
 	// only availability zone.
 	server := env.server()
 	if !server.IsClustered() {
-		return []common.AvailabilityZone{
+		return network.AvailabilityZones{
 			&lxdAvailabilityZone{
 				ClusterMember: api.ClusterMember{
 					ServerName: server.Name(),
@@ -289,7 +290,7 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Annotate(err, "listing cluster members")
 	}
-	aZones := make([]common.AvailabilityZone, len(nodes))
+	aZones := make(network.AvailabilityZones, len(nodes))
 	for i, n := range nodes {
 		aZones[i] = &lxdAvailabilityZone{n}
 	}

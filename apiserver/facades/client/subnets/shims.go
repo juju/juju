@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/core/network"
-	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -85,14 +84,14 @@ func (s *stateShim) SubnetsByCIDR(cidr string) ([]networkingcommon.BackingSubnet
 	return result, nil
 }
 
-func (s *stateShim) AvailabilityZones() ([]providercommon.AvailabilityZone, error) {
+func (s *stateShim) AvailabilityZones() (network.AvailabilityZones, error) {
 	// TODO (hml) 2019-09-13
 	// now available... include.
 	// AvailabilityZones() is defined in the common.ZonedEnviron interface
 	return nil, nil
 }
 
-func (s *stateShim) SetAvailabilityZones(zones []providercommon.AvailabilityZone) error {
+func (s *stateShim) SetAvailabilityZones(_ network.AvailabilityZones) error {
 	return nil
 }
 

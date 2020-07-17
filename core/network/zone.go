@@ -15,8 +15,12 @@ type AvailabilityZone interface {
 	Available() bool
 }
 
+// AvailabilityZones is a collection of AvailabilityZone.
 type AvailabilityZones []AvailabilityZone
 
+// Validate checks that a zone with the input name exists and is available
+// according to the topology represented by the receiver.
+// An error is returned if either of these conditions are not met.
 func (a AvailabilityZones) Validate(zoneName string) error {
 	for _, az := range a {
 		if az.Name() == zoneName {

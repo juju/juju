@@ -71,7 +71,7 @@ type environ struct {
 	ecfgUnlocked *environConfig
 
 	availabilityZonesMutex sync.Mutex
-	availabilityZones      []common.AvailabilityZone
+	availabilityZones      corenetwork.AvailabilityZones
 
 	instTypesMutex sync.Mutex
 	instTypes      []instances.InstanceType
@@ -223,7 +223,7 @@ func (z *ec2AvailabilityZone) Available() bool {
 
 // AvailabilityZones returns a slice of availability zones
 // for the configured region.
-func (e *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+func (e *environ) AvailabilityZones(ctx context.ProviderCallContext) (corenetwork.AvailabilityZones, error) {
 	e.availabilityZonesMutex.Lock()
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
@@ -234,7 +234,7 @@ func (e *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.A
 			return nil, maybeConvertCredentialError(err, ctx)
 		}
 		logger.Debugf("availability zones: %+v", resp)
-		e.availabilityZones = make([]common.AvailabilityZone, len(resp.Zones))
+		e.availabilityZones = make(corenetwork.AvailabilityZones, len(resp.Zones))
 		for i, z := range resp.Zones {
 			e.availabilityZones[i] = &ec2AvailabilityZone{z}
 		}

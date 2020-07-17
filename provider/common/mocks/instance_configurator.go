@@ -5,10 +5,9 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	network "github.com/juju/juju/network"
+	reflect "reflect"
 )
 
 // MockInstanceConfigurator is a mock of InstanceConfigurator interface
@@ -36,6 +35,7 @@ func (m *MockInstanceConfigurator) EXPECT() *MockInstanceConfiguratorMockRecorde
 
 // ChangeIngressRules mocks base method
 func (m *MockInstanceConfigurator) ChangeIngressRules(arg0 string, arg1 bool, arg2 []network.IngressRule) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ChangeIngressRules", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -43,11 +43,13 @@ func (m *MockInstanceConfigurator) ChangeIngressRules(arg0 string, arg1 bool, ar
 
 // ChangeIngressRules indicates an expected call of ChangeIngressRules
 func (mr *MockInstanceConfiguratorMockRecorder) ChangeIngressRules(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeIngressRules", reflect.TypeOf((*MockInstanceConfigurator)(nil).ChangeIngressRules), arg0, arg1, arg2)
 }
 
 // ConfigureExternalIpAddress mocks base method
 func (m *MockInstanceConfigurator) ConfigureExternalIpAddress(arg0 int) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConfigureExternalIpAddress", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -55,11 +57,13 @@ func (m *MockInstanceConfigurator) ConfigureExternalIpAddress(arg0 int) error {
 
 // ConfigureExternalIpAddress indicates an expected call of ConfigureExternalIpAddress
 func (mr *MockInstanceConfiguratorMockRecorder) ConfigureExternalIpAddress(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigureExternalIpAddress", reflect.TypeOf((*MockInstanceConfigurator)(nil).ConfigureExternalIpAddress), arg0)
 }
 
 // DropAllPorts mocks base method
 func (m *MockInstanceConfigurator) DropAllPorts(arg0 []int, arg1 string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DropAllPorts", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -67,11 +71,13 @@ func (m *MockInstanceConfigurator) DropAllPorts(arg0 []int, arg1 string) error {
 
 // DropAllPorts indicates an expected call of DropAllPorts
 func (mr *MockInstanceConfiguratorMockRecorder) DropAllPorts(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DropAllPorts", reflect.TypeOf((*MockInstanceConfigurator)(nil).DropAllPorts), arg0, arg1)
 }
 
 // FindIngressRules mocks base method
 func (m *MockInstanceConfigurator) FindIngressRules() ([]network.IngressRule, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindIngressRules")
 	ret0, _ := ret[0].([]network.IngressRule)
 	ret1, _ := ret[1].(error)
@@ -80,5 +86,6 @@ func (m *MockInstanceConfigurator) FindIngressRules() ([]network.IngressRule, er
 
 // FindIngressRules indicates an expected call of FindIngressRules
 func (mr *MockInstanceConfiguratorMockRecorder) FindIngressRules() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindIngressRules", reflect.TypeOf((*MockInstanceConfigurator)(nil).FindIngressRules))
 }
