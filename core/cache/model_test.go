@@ -253,7 +253,7 @@ func (s *ModelSuite) TestUnitReturnsCopy(c *gc.C) {
 
 	ch := unitChange
 	ch.PortRangesBySubnet = map[string][]network.PortRange{
-		"subnet-1": []network.PortRange{network.MustParsePortRange("54321/tcp")},
+		"subnet-1": {network.MustParsePortRange("54321/tcp")},
 	}
 
 	m.UpdateUnit(ch, s.Manager)
