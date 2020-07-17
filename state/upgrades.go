@@ -2952,8 +2952,9 @@ func ReplaceNeverSetWithUnset(pool *StatePool) (err error) {
 func AddCharmhubToModelConfig(pool *StatePool) error {
 	st := pool.SystemState()
 	return errors.Trace(applyToAllModelSettings(st, func(doc *settingsDoc) (bool, error) {
-		_, keySet := doc.Settings[config.CharmhubURLKey]
-		if !keySet {
+		value, keySet := doc.Settings[config.CharmhubURLKey]
+		// Charmhub URL should be a valid URL.
+		if !keySet || value == "" {
 			doc.Settings[config.CharmhubURLKey] = charmhub.CharmhubServerURL
 			return true, nil
 		}

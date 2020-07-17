@@ -58,9 +58,6 @@ func checkModelConfig(cfg *config.Config) error {
 	if _, ok := cfg.AgentVersion(); !ok {
 		return errors.Errorf("agent-version must always be set in state")
 	}
-	if _, ok := cfg.CharmhubURL(); !ok {
-		return errors.Errorf("charmhub-url must always be set in state")
-	}
 	for attr := range allAttrs {
 		if controller.ControllerOnlyAttribute(attr) {
 			return errors.Errorf("cannot set controller attribute %q on a model", attr)

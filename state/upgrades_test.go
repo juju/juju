@@ -4378,17 +4378,11 @@ func (s *upgradesSuite) TestAddCharmhubToModelConfig(c *gc.C) {
 		"dollar$setting": "value",
 	})
 	defer m1.Close()
-	// Value set to the empty string
-	m2 := s.makeModel(c, "m2", coretesting.Attrs{
-		"charmhub-url":  "",
-		"other-setting": "val",
-	})
-	defer m2.Close()
 	// Value set to something other that default
-	m3 := s.makeModel(c, "m3", coretesting.Attrs{
+	m2 := s.makeModel(c, "m3", coretesting.Attrs{
 		"charmhub-url": "http://meshuggah.rocks",
 	})
-	defer m3.Close()
+	defer m2.Close()
 
 	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
 	defer settingsCloser()
@@ -4417,8 +4411,7 @@ func (s *upgradesSuite) TestAddCharmhubToModelConfig(c *gc.C) {
 
 	expectedChanges := map[string]bson.M{
 		m1.ModelUUID() + ":e": {"charmhub-url": charmhub.CharmhubServerURL, "other-setting": "val"},
-		m2.ModelUUID() + ":e": {"charmhub-url": "", "other-setting": "val"},
-		m3.ModelUUID() + ":e": {"charmhub-url": "http://meshuggah.rocks"},
+		m2.ModelUUID() + ":e": {"charmhub-url": "http://meshuggah.rocks"},
 		"not-a-model":         {"other-setting": "val"},
 	}
 	for iter.Next(&rawSettings) {
