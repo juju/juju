@@ -403,7 +403,7 @@ func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertOpenUnitPort(c, unit, "", "tcp", 8080)
-	ports, err := state.GetPorts(s.State, s.machine.Id(), "")
+	ports, err := s.machine.OpenedPortsInSubnet("")
 	c.Assert(ports, gc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.UnassignFromMachine()
@@ -415,9 +415,9 @@ func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	// once the machine is destroyed, there should be no ports documents present for it
-	ports, err = state.GetPorts(s.State, s.machine.Id(), "")
-	c.Assert(ports, gc.IsNil)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	ports, err = s.machine.OpenedPortsInSubnet("")
+	c.Assert(err, jc.ErrorIsNil)
+	assertMachinePortsPersisted(c, ports, false) // we should get back a blank fresh doc
 }
 
 func (s *MachineSuite) TestDestroyOps(c *gc.C) {

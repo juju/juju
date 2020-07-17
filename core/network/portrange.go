@@ -95,25 +95,23 @@ func (p PortRange) GoString() string {
 	return p.String()
 }
 
-type portRangeSlice []PortRange
-
-func (p portRangeSlice) Len() int      { return len(p) }
-func (p portRangeSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
-func (p portRangeSlice) Less(i, j int) bool {
-	p1 := p[i]
-	p2 := p[j]
-	if p1.Protocol != p2.Protocol {
-		return p1.Protocol < p2.Protocol
+// LessThan returns true if other should appear after p when sorting a port
+// range list.
+func (p PortRange) LessThan(other PortRange) bool {
+	if p.Protocol != other.Protocol {
+		return p.Protocol < other.Protocol
 	}
-	if p1.FromPort != p2.FromPort {
-		return p1.FromPort < p2.FromPort
+	if p.FromPort != other.FromPort {
+		return p.FromPort < other.FromPort
 	}
-	return p1.ToPort < p2.ToPort
+	return p.ToPort < other.ToPort
 }
 
 // SortPortRanges sorts the given ports, first by protocol, then by number.
 func SortPortRanges(portRanges []PortRange) {
-	sort.Sort(portRangeSlice(portRanges))
+	sort.Slice(portRanges, func(i, j int) bool {
+		return portRanges[i].LessThan(portRanges[j])
+	})
 }
 
 // ParsePortRange builds a PortRange from the provided string. If the

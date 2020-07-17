@@ -1775,12 +1775,12 @@ func (s *UnitSuite) TestGetSetClearResolved(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenedPortsOnInvalidSubnet(c *gc.C) {
-	s.testOpenedPorts(c, "bad CIDR", `invalid subnet ID "bad CIDR"`)
+	s.testOpenedPorts(c, "bad CIDR", `subnet "bad CIDR" not found`)
 }
 
 func (s *UnitSuite) TestOpenedPortsOnUnknownSubnet(c *gc.C) {
 	// We're not adding the 127.0.0.0/8 subnet to test the "not found" case.
-	s.testOpenedPorts(c, "4", `subnet "4" not found or not alive`)
+	s.testOpenedPorts(c, "4", `subnet "4" not found`)
 }
 
 func (s *UnitSuite) TestOpenedPortsOnDeadSubnet(c *gc.C) {
@@ -1791,7 +1791,7 @@ func (s *UnitSuite) TestOpenedPortsOnDeadSubnet(c *gc.C) {
 	err = subnet.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.testOpenedPorts(c, subnet.ID(), fmt.Sprintf(`subnet %q not found or not alive`, subnet.ID()))
+	s.testOpenedPorts(c, subnet.ID(), fmt.Sprintf(`subnet %q not alive`, subnet.ID()))
 }
 
 func (s *UnitSuite) TestOpenedPortsOnAliveIPv4Subnet(c *gc.C) {
@@ -1815,7 +1815,6 @@ func (s *UnitSuite) TestOpenedPortsOnEmptySubnet(c *gc.C) {
 }
 
 func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches string) {
-
 	checkExpectedError := func(err error) bool {
 		if expectedErrorCauseMatches == "" {
 			c.Check(err, jc.ErrorIsNil)
@@ -1828,11 +1827,11 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 	// Verify ports can be opened and closed only when the unit has
 	// assigned machine.
 	portRange := []corenetwork.PortRange{{FromPort: 10, ToPort: 20, Protocol: "tcp"}}
-	err := s.unit.OpenClosePortsOnSubnet(subnetID, portRange, nil)
+	err := s.unit.OpenClosePortsInSubnet(subnetID, portRange, nil)
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
-	err = s.unit.OpenClosePortsOnSubnet(subnetID, nil, portRange)
+	err = s.unit.OpenClosePortsInSubnet(subnetID, nil, portRange)
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
-	open, err := s.unit.OpenedPortsOnSubnet(subnetID)
+	open, err := s.unit.OpenedPortsInSubnet(subnetID)
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
 	c.Check(open, gc.HasLen, 0)
 
@@ -1842,21 +1841,21 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 	c.Check(err, jc.ErrorIsNil)
 
 	// Verify no open ports before activity.
-	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	open, err = s.unit.OpenedPortsInSubnet(subnetID)
 	if checkExpectedError(err) {
 		c.Check(open, gc.HasLen, 0)
 	}
 
 	// Now open and close ports and ranges and check.
 	onePort := []corenetwork.PortRange{{FromPort: 80, ToPort: 80, Protocol: "tcp"}}
-	err = s.unit.OpenClosePortsOnSubnet(subnetID, onePort, nil)
+	err = s.unit.OpenClosePortsInSubnet(subnetID, onePort, nil)
 	checkExpectedError(err)
 
 	portRange = []corenetwork.PortRange{{FromPort: 100, ToPort: 200, Protocol: "udp"}}
-	err = s.unit.OpenClosePortsOnSubnet(subnetID, portRange, nil)
+	err = s.unit.OpenClosePortsInSubnet(subnetID, portRange, nil)
 	checkExpectedError(err)
 
-	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	open, err = s.unit.OpenedPortsInSubnet(subnetID)
 	if checkExpectedError(err) {
 		c.Check(open, gc.DeepEquals, []corenetwork.PortRange{
 			{80, 80, "tcp"},
@@ -1865,9 +1864,9 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 	}
 
 	onePort = []corenetwork.PortRange{{FromPort: 53, ToPort: 53, Protocol: "udp"}}
-	err = s.unit.OpenClosePortsOnSubnet(subnetID, onePort, nil)
+	err = s.unit.OpenClosePortsInSubnet(subnetID, onePort, nil)
 	checkExpectedError(err)
-	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	open, err = s.unit.OpenedPortsInSubnet(subnetID)
 	if checkExpectedError(err) {
 		c.Check(open, gc.DeepEquals, []corenetwork.PortRange{
 			{80, 80, "tcp"},
@@ -1877,9 +1876,9 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 	}
 
 	portRange = []corenetwork.PortRange{{FromPort: 53, ToPort: 55, Protocol: "tcp"}}
-	err = s.unit.OpenClosePortsOnSubnet(subnetID, portRange, nil)
+	err = s.unit.OpenClosePortsInSubnet(subnetID, portRange, nil)
 	checkExpectedError(err)
-	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	open, err = s.unit.OpenedPortsInSubnet(subnetID)
 	if checkExpectedError(err) {
 		c.Check(open, gc.DeepEquals, []corenetwork.PortRange{
 			{53, 55, "tcp"},
@@ -1890,9 +1889,9 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 	}
 
 	onePort = []corenetwork.PortRange{{FromPort: 443, ToPort: 443, Protocol: "tcp"}}
-	err = s.unit.OpenClosePortsOnSubnet(subnetID, onePort, nil)
+	err = s.unit.OpenClosePortsInSubnet(subnetID, onePort, nil)
 	checkExpectedError(err)
-	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	open, err = s.unit.OpenedPortsInSubnet(subnetID)
 	if checkExpectedError(err) {
 		c.Check(open, gc.DeepEquals, []corenetwork.PortRange{
 			{53, 55, "tcp"},
@@ -1904,9 +1903,9 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 	}
 
 	onePort = []corenetwork.PortRange{{FromPort: 80, ToPort: 80, Protocol: "tcp"}}
-	err = s.unit.OpenClosePortsOnSubnet(subnetID, nil, onePort)
+	err = s.unit.OpenClosePortsInSubnet(subnetID, nil, onePort)
 	checkExpectedError(err)
-	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	open, err = s.unit.OpenedPortsInSubnet(subnetID)
 	if checkExpectedError(err) {
 		c.Check(open, gc.DeepEquals, []corenetwork.PortRange{
 			{53, 55, "tcp"},
@@ -1917,9 +1916,9 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 	}
 
 	portRange = []corenetwork.PortRange{{FromPort: 100, ToPort: 200, Protocol: "udp"}}
-	err = s.unit.OpenClosePortsOnSubnet(subnetID, nil, portRange)
+	err = s.unit.OpenClosePortsInSubnet(subnetID, nil, portRange)
 	checkExpectedError(err)
-	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	open, err = s.unit.OpenedPortsInSubnet(subnetID)
 	if checkExpectedError(err) {
 		c.Check(open, gc.DeepEquals, []corenetwork.PortRange{
 			{53, 55, "tcp"},
@@ -1940,11 +1939,11 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
 		onePort := []corenetwork.PortRange{{FromPort: 20, ToPort: 20, Protocol: "tcp"}}
 		portRange := []corenetwork.PortRange{{FromPort: 10, ToPort: 15, Protocol: "tcp"}}
 
-		err := s.unit.OpenClosePortsOnSubnet("", onePort, nil)
+		err := s.unit.OpenClosePortsInSubnet("", onePort, nil)
 		if err != nil {
 			return err
 		}
-		err = s.unit.OpenClosePortsOnSubnet("", portRange, nil)
+		err = s.unit.OpenClosePortsInSubnet("", portRange, nil)
 		if err != nil {
 			return err
 		}
@@ -1952,11 +1951,11 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
 		if err != nil {
 			return err
 		}
-		err = s.unit.OpenClosePortsOnSubnet("", nil, onePort)
+		err = s.unit.OpenClosePortsInSubnet("", nil, onePort)
 		if err != nil {
 			return err
 		}
-		return s.unit.OpenClosePortsOnSubnet("", nil, portRange)
+		return s.unit.OpenClosePortsInSubnet("", nil, portRange)
 	})
 }
 
@@ -1966,17 +1965,17 @@ func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ports, err := machine.AllPorts()
+	ports, err := machine.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
 	s.AssertOpenUnitPorts(c, s.unit, "", "tcp", 100, 200)
 
-	ports, err = machine.AllPorts()
+	ports, err = machine.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 1)
-	c.Assert(ports[0].PortsForUnit(s.unit.Name()), jc.DeepEquals, []state.PortRange{
-		{s.unit.Name(), 100, 200, "tcp"},
+	c.Assert(ports[0].PortRangesForUnit(s.unit.Name()), jc.DeepEquals, []corenetwork.PortRange{
+		corenetwork.MustParsePortRange("100-200/tcp"),
 	})
 
 	// Now remove the unit and check again.
@@ -1989,7 +1988,7 @@ func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
 
 	// Because that was the only range open, the ports doc will be
 	// removed as well.
-	ports, err = machine.AllPorts()
+	ports, err = machine.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
 }
@@ -2007,21 +2006,21 @@ func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
 	err = otherUnit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ports, err := machine.AllPorts()
+	ports, err := machine.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
 	s.AssertOpenUnitPorts(c, s.unit, "", "tcp", 100, 200)
 	s.AssertOpenUnitPorts(c, otherUnit, "", "udp", 300, 400)
 
-	ports, err = machine.AllPorts()
+	ports, err = machine.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 1)
-	c.Assert(ports[0].PortsForUnit(s.unit.Name()), jc.DeepEquals, []state.PortRange{
-		{s.unit.Name(), 100, 200, "tcp"},
+	c.Assert(ports[0].PortRangesForUnit(s.unit.Name()), jc.DeepEquals, []corenetwork.PortRange{
+		corenetwork.MustParsePortRange("100-200/tcp"),
 	})
-	c.Assert(ports[0].PortsForUnit(otherUnit.Name()), jc.DeepEquals, []state.PortRange{
-		{otherUnit.Name(), 300, 400, "udp"},
+	c.Assert(ports[0].PortRangesForUnit(otherUnit.Name()), jc.DeepEquals, []corenetwork.PortRange{
+		corenetwork.MustParsePortRange("300-400/udp"),
 	})
 
 	// Now remove the first unit and check again.
@@ -2033,12 +2032,12 @@ func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Verify only otherUnit still has open ports.
-	ports, err = machine.AllPorts()
+	ports, err = machine.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 1)
-	c.Assert(ports[0].PortsForUnit(s.unit.Name()), gc.HasLen, 0)
-	c.Assert(ports[0].PortsForUnit(otherUnit.Name()), jc.DeepEquals, []state.PortRange{
-		{otherUnit.Name(), 300, 400, "udp"},
+	c.Assert(ports[0].PortRangesForUnit(s.unit.Name()), gc.HasLen, 0)
+	c.Assert(ports[0].PortRangesForUnit(otherUnit.Name()), jc.DeepEquals, []corenetwork.PortRange{
+		corenetwork.MustParsePortRange("300-400/udp"),
 	})
 }
 

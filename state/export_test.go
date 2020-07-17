@@ -58,8 +58,6 @@ var (
 	BinarystorageNew              = &binarystorageNew
 	ImageStorageNewStorage        = &imageStorageNewStorage
 	MachineIdLessThan             = machineIdLessThan
-	GetOrCreatePorts              = getOrCreatePorts
-	GetPorts                      = getPorts
 	CombineMeterStatus            = combineMeterStatus
 	ApplicationGlobalKey          = applicationGlobalKey
 	CloudGlobalKey                = cloudGlobalKey

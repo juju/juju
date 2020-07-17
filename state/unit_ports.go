@@ -16,6 +16,25 @@ type UnitPorts struct {
 	portsBySubnet map[string][]network.PortRange
 }
 
+// UnitPortsFromMachineSubnetPorts creates a UnitPorts instance by scanning the
+// provided MachinePorts document for a machine's subnets and isolating the
+// port ranges that apply to the specified unit name.
+func UnitPortsFromMachineSubnetPorts(unitName, machineID string, openMachinePorts []MachineSubnetPorts) *UnitPorts {
+	up := &UnitPorts{
+		unitName:      unitName,
+		machineID:     machineID,
+		portsBySubnet: make(map[string][]network.PortRange),
+	}
+
+	for _, openInSubnet := range openMachinePorts {
+		ranges := openInSubnet.PortRangesForUnit(unitName)
+		network.SortPortRanges(ranges)
+		up.portsBySubnet[openInSubnet.SubnetID()] = ranges
+	}
+
+	return up
+}
+
 // UnitName returns the unit name associated with this set of ports.
 func (p *UnitPorts) UnitName() string {
 	return p.unitName

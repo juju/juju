@@ -1386,8 +1386,11 @@ func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	imported, err := newSt.Unit(unit.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
-	ports, err := imported.OpenedPorts()
+	portsBySubnet, err := imported.OpenedPortsBySubnet()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(portsBySubnet, gc.HasLen, 1)
+
+	ports := portsBySubnet[""]
 	c.Assert(ports, gc.HasLen, 1)
 	c.Assert(ports[0], gc.Equals, network.PortRange{
 		FromPort: 1234,
