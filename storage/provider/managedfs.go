@@ -5,6 +5,7 @@ package provider
 
 import (
 	"bufio"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -154,7 +156,7 @@ func (s *managedFilesystemSource) attachFilesystem(arg storage.FilesystemAttachm
 	if isDiskDevice(devicePath) {
 		devicePath = partitionDevicePath(devicePath)
 	}
-	if err := mountFilesystem(s.run, s.dirFuncs, devicePath, arg.Path, arg.ReadOnly); err != nil {
+	if err := mountFilesystem(s.run, s.dirFuncs, devicePath, blockDevice.UUID, arg.Path, arg.ReadOnly); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &storage.FilesystemAttachment{
@@ -207,7 +209,7 @@ func createFilesystem(run runCommandFunc, devicePath string) error {
 	return nil
 }
 
-func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, mountPoint string, readOnly bool) error {
+func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, UUID, mountPoint string, readOnly bool) error {
 	logger.Debugf("attempting to mount filesystem on %q at %q", devicePath, mountPoint)
 	if err := dirFuncs.mkDirAll(mountPoint, 0755); err != nil {
 		return errors.Annotate(err, "creating mount point")
@@ -218,18 +220,17 @@ func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, mountPoi
 	}
 	if mounted {
 		logger.Debugf("filesystem on %q already mounted at %q", mountSource, mountPoint)
-		return nil
+	} else {
+		var args []string
+		if readOnly {
+			args = append(args, "-o", "ro")
+		}
+		args = append(args, devicePath, mountPoint)
+		if _, err := run("mount", args...); err != nil {
+			return errors.Annotate(err, "mount failed")
+		}
+		logger.Debugf("mounted filesystem on %q at %q", devicePath, mountPoint)
 	}
-	var args []string
-	if readOnly {
-		args = append(args, "-o", "ro")
-	}
-	args = append(args, devicePath, mountPoint)
-	if _, err := run("mount", args...); err != nil {
-		return errors.Annotate(err, "mount failed")
-	}
-	logger.Infof("mounted filesystem on %q at %q", devicePath, mountPoint)
-
 	// Look for the mtab entry resulting from the mount and copy it to fstab.
 	// This ensures the mount is available available after a reboot.
 	etcDir := dirFuncs.etcDir()
@@ -240,7 +241,7 @@ func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, mountPoi
 	if mtabEntry == "" {
 		return nil
 	}
-	return addFstabEntry(etcDir, devicePath, mountPoint, mtabEntry)
+	return ensureFstabEntry(etcDir, devicePath, UUID, mountPoint, mtabEntry)
 }
 
 // extractMtabEntry returns any /etc/mtab entry for the specified
@@ -270,33 +271,98 @@ func extractMtabEntry(etcDir string, devicePath, mountPoint string) (string, err
 	return "", nil
 }
 
-// addFstabEntry creates an entry in /etc/fstab for the specified
+// ensureFstabEntry creates an entry in /etc/fstab for the specified
 // device path and mount point so long as there's no existing entry already.
-func addFstabEntry(etcDir string, devicePath, mountPoint, entry string) error {
-	f, err := os.OpenFile(filepath.Join(etcDir, "fstab"), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
-	if err != nil {
+func ensureFstabEntry(etcDir, devicePath, UUID, mountPoint, entry string) error {
+	f, err := os.Open(filepath.Join(etcDir, "fstab"))
+	if err != nil && !os.IsNotExist(err) {
 		return errors.Annotate(err, "opening /etc/fstab")
 	}
-	defer f.Close()
+	if err == nil {
+		defer f.Close()
+	}
 
-	// Ensure there's no entry there already
+	newFsTab, err := ioutil.TempFile(etcDir, "juju-fstab-")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer func() {
+		newFsTab.Close()
+		os.Remove(newFsTab.Name())
+	}()
+	if err := os.Chmod(newFsTab.Name(), 0644); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Add nofail if not there already
+	resultFields := strings.Fields(entry)
+	options := set.NewStrings()
+	if len(resultFields) >= 4 {
+		options = set.NewStrings(strings.Split(resultFields[3], ",")...)
+	}
+	if !options.Contains("nofail") {
+		options.Add("nofail")
+		opts := strings.Join(options.SortedValues(), ",")
+		if len(resultFields) >= 4 {
+			resultFields[3] = opts
+		} else {
+			resultFields = append(resultFields, opts)
+		}
+	}
+
+	uuidField := "UUID=" + UUID
+	addNewEntry := true
+	// Scan all the fstab lines, searching for one
+	// which describes the entry we want to create.
 	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
+	for f != nil && scanner.Scan() {
 		line := scanner.Text()
 		fields := strings.Fields(line)
-		if len(fields) >= 2 && fields[0] == devicePath && fields[1] == mountPoint {
-			return nil
+		if len(fields) < 2 || fields[1] != mountPoint {
+			goto writeLine
+		}
+		// Is the line the UUID based mount entry we want.
+		if fields[0] == uuidField {
+			addNewEntry = false
+			goto writeLine
+		}
+		// Is the line for some other entry.
+		if fields[0] != devicePath {
+			goto writeLine
+		}
+		// We have a match, if UUID is not yet known, retain the line.
+		if UUID == "" {
+			addNewEntry = false
+			goto writeLine
+		}
+		continue
+	writeLine:
+		_, err := newFsTab.WriteString(line + "\n")
+		if err != nil {
+			return errors.Trace(err)
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		return errors.Trace(err)
 	}
 
-	// The entry will be written at the end of the fstab file.
-	if _, err = f.WriteString("\n" + entry + "\n"); err != nil {
-		return errors.Annotate(err, "writing /etc/fstab")
+	if addNewEntry {
+		if UUID != "" {
+			if len(resultFields) >= 2 { // just being defensive, check should never fail.
+				_, err := newFsTab.WriteString(fmt.Sprintf("# %s was on %s during installation\n", resultFields[1], resultFields[0]))
+				if err != nil {
+					return errors.Trace(err)
+				}
+			}
+			resultFields[0] = uuidField
+		}
+		_, err := newFsTab.WriteString(strings.Join(resultFields, " ") + "\n")
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 	}
-	return nil
+	return os.Rename(newFsTab.Name(), filepath.Join(etcDir, "fstab"))
 }
 
 func maybeUnmount(run runCommandFunc, dirFuncs dirFuncs, mountPoint string) error {

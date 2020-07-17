@@ -752,8 +752,9 @@ func (s *dummyFilesystemSource) DetachFilesystems(ctx context.ProviderCallContex
 }
 
 type mockManagedFilesystemSource struct {
-	blockDevices map[names.VolumeTag]storage.BlockDevice
-	filesystems  map[names.FilesystemTag]storage.Filesystem
+	blockDevices        map[names.VolumeTag]storage.BlockDevice
+	filesystems         map[names.FilesystemTag]storage.Filesystem
+	attachedFilesystems chan interface{}
 }
 
 func (s *mockManagedFilesystemSource) ValidateFilesystemParams(params storage.FilesystemParams) error {
@@ -790,12 +791,6 @@ func (s *mockManagedFilesystemSource) ReleaseFilesystems(ctx context.ProviderCal
 func (s *mockManagedFilesystemSource) AttachFilesystems(ctx context.ProviderCallContext, args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
 	results := make([]storage.AttachFilesystemsResult, len(args))
 	for i, arg := range args {
-		if arg.FilesystemId == "" {
-			panic("AttachFilesystems called with unprovisioned filesystem")
-		}
-		if arg.InstanceId == "" {
-			panic("AttachFilesystems called with unprovisioned machine")
-		}
 		filesystem, ok := s.filesystems[arg.Filesystem]
 		if !ok {
 			results[i].Error = errors.Errorf("filesystem %v has not been created", arg.Filesystem.Id())
@@ -814,6 +809,9 @@ func (s *mockManagedFilesystemSource) AttachFilesystems(ctx context.ProviderCall
 				ReadOnly: arg.ReadOnly,
 			},
 		}
+	}
+	if s.attachedFilesystems != nil {
+		s.attachedFilesystems <- results
 	}
 	return results, nil
 }

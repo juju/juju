@@ -233,6 +233,7 @@ func volumeAttachmentDevicePath(
 		return storage.BlockDevicePath(storage.BlockDevice{
 			HardwareId:  volumeInfo.HardwareId,
 			WWN:         volumeInfo.WWN,
+			UUID:        blockDevice.UUID,
 			DeviceName:  deviceName,
 			DeviceLinks: deviceLinks,
 		})
