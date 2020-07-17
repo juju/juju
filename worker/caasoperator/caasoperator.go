@@ -677,6 +677,11 @@ func (op *caasOperator) remoteInit(client exec.Executor, unit names.UnitTag, run
 	default:
 		return errors.NotFoundf("container not running")
 	}
+	if params.InitType == UnitUpgrade {
+		op.config.Logger.Debugf("init process has been disabled for upgrade-charm for CAAS.")
+		// TODO(caas): remove remote-init for upgrade-charm process.
+		return nil
+	}
 	return errors.Trace(initializeUnit(params, cancel))
 }
 

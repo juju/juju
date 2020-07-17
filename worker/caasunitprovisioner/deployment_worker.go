@@ -227,8 +227,9 @@ func provisionInfoToServiceParams(info *apicaasunitprovisioner.ProvisioningInfo)
 		Devices:           info.Devices,
 		OperatorImagePath: info.OperatorImagePath,
 		Deployment: caas.DeploymentParams{
-			DeploymentType: caas.DeploymentType(info.DeploymentInfo.DeploymentType),
-			ServiceType:    caas.ServiceType(info.DeploymentInfo.ServiceType),
+			DeploymentType:       caas.DeploymentType(info.DeploymentInfo.DeploymentType),
+			ServiceType:          caas.ServiceType(info.DeploymentInfo.ServiceType),
+			CharmModifiedVersion: info.DeploymentInfo.CharmModifiedVersion,
 		},
 	}
 	if len(info.PodSpec) > 0 {
@@ -245,16 +246,15 @@ func provisionInfoToServiceParams(info *apicaasunitprovisioner.ProvisioningInfo)
 
 // isProvisionInfoChanged checks if podspec or raw k8s spec changed or not.
 func isProvisionInfoEqual(newInfo, oldInfo *apicaasunitprovisioner.ProvisioningInfo) bool {
-	var newK8sSpec, newRawK8sSpec, oldK8sSpec, oldRawK8sSpec string
-	if newInfo != nil {
-		newK8sSpec = newInfo.PodSpec
-		newRawK8sSpec = newInfo.RawK8sSpec
+	if newInfo == nil && oldInfo == nil {
+		return true
+	} else if newInfo == nil || oldInfo == nil {
+		return false
 	}
-	if oldInfo != nil {
-		oldK8sSpec = oldInfo.PodSpec
-		oldRawK8sSpec = oldInfo.RawK8sSpec
-	}
-	return newK8sSpec == oldK8sSpec && newRawK8sSpec == oldRawK8sSpec
+
+	return newInfo.PodSpec == oldInfo.PodSpec &&
+		newInfo.RawK8sSpec == oldInfo.RawK8sSpec &&
+		newInfo.DeploymentInfo.CharmModifiedVersion == oldInfo.DeploymentInfo.CharmModifiedVersion
 }
 
 func updateApplicationService(appTag names.ApplicationTag, svc *caas.Service, updater ApplicationUpdater) error {

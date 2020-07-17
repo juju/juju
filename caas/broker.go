@@ -118,8 +118,9 @@ const (
 
 // DeploymentParams defines parameters for specifying how a service is deployed.
 type DeploymentParams struct {
-	DeploymentType DeploymentType
-	ServiceType    ServiceType
+	DeploymentType       DeploymentType
+	ServiceType          ServiceType
+	CharmModifiedVersion int
 }
 
 // ServiceParams defines parameters used to create a service.

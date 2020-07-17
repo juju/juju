@@ -131,6 +131,7 @@ var (
 	annotationControllerUUIDKey         = jujuAnnotationKey("controller")
 	annotationControllerIsControllerKey = jujuAnnotationKey("is-controller")
 	annotationUnit                      = jujuAnnotationKey("unit")
+	annotationCharmModifiedVersionKey   = jujuAnnotationKey("charm-modified-version")
 )
 
 type kubernetesClient struct {
@@ -1011,7 +1012,13 @@ func (k *kubernetesClient) ensureService(
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
 
-	annotations := resourceTagsToAnnotations(params.ResourceTags)
+	annotations := resourceTagsToAnnotations(params.ResourceTags).
+		// To solve https://bugs.launchpad.net/juju/+bug/1875481/comments/23 (`jujud caas-unit-init --upgrade`
+		// does NOT work on containers are not using root as default USER),
+		// CharmModifiedVersion is added for triggering rolling upgrade on workload pods to synchronise
+		// charm files to workload pods via init container when charm was upgraded.
+		// This approach was inspired from `kubectl rollout restart`.
+		Add(annotationCharmModifiedVersionKey, strconv.Itoa(params.Deployment.CharmModifiedVersion))
 
 	// ensure configmap.
 	if len(workloadSpec.ConfigMaps) > 0 {
