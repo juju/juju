@@ -1544,7 +1544,7 @@ func (s *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 func (s *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	placement := "zone=test-unavailable"
 	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Placement: placement})
-	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is unavailable`)
+	c.Assert(err, gc.ErrorMatches, `zone "test-unavailable" is unavailable`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
@@ -1652,7 +1652,7 @@ func (s *localServerSuite) TestDeriveAvailabilityZonesUnavailable(c *gc.C) {
 		environs.StartInstanceParams{
 			Placement: placement,
 		})
-	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is unavailable`)
+	c.Assert(err, gc.ErrorMatches, `zone "test-unavailable" is unavailable`)
 	c.Assert(zones, gc.HasLen, 0)
 }
 

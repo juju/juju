@@ -676,13 +676,16 @@ func (e *Environ) parsePlacement(ctx context.ProviderCallContext, placement stri
 	}
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
-		availabilityZone := value
-		err := common.ValidateAvailabilityZone(e, ctx, availabilityZone)
+		zones, err := e.AvailabilityZones(ctx)
 		if err != nil {
 			handleCredentialError(err, ctx)
-			return nil, err
+			return nil, errors.Trace(err)
 		}
-		return &openstackPlacement{zoneName: availabilityZone}, nil
+		if err := zones.Validate(value); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return &openstackPlacement{zoneName: value}, nil
 	}
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
@@ -1351,7 +1354,12 @@ func (e *Environ) validateAvailabilityZone(ctx context.ProviderCallContext, args
 		return common.ZoneIndependentError(err)
 	}
 
-	return errors.Trace(common.ValidateAvailabilityZone(e, ctx, args.AvailabilityZone))
+	zones, err := e.AvailabilityZones(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(zones.Validate(args.AvailabilityZone))
+
 }
 
 // networksForInstance returns networks that will be attached

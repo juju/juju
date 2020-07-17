@@ -284,7 +284,11 @@ func (env *environ) parsePlacement(ctx context.ProviderCallContext, placement st
 		return &lxdPlacement{}, nil
 	}
 
-	if err := common.ValidateAvailabilityZone(env, ctx, node); err != nil {
+	zones, err := env.AvailabilityZones(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := zones.Validate(node); err != nil {
 		return nil, errors.Trace(err)
 	}
 

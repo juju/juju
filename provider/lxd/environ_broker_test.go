@@ -250,7 +250,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *gc.C)
 	args.Placement = "zone=node01"
 
 	_, err := env.StartInstance(s.callCtx, args)
-	c.Assert(err, gc.ErrorMatches, "availability zone \"node01\" is unavailable")
+	c.Assert(err, gc.ErrorMatches, "zone \"node01\" is unavailable")
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithPlacementBadArgument(c *gc.C) {

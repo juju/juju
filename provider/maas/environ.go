@@ -630,12 +630,15 @@ func (env *maasEnviron) parsePlacement(ctx context.ProviderCallContext, placemen
 	}
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
-		availabilityZone := value
-		err := common.ValidateAvailabilityZone(env, ctx, availabilityZone)
+		zones, err := env.AvailabilityZones(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
-		return &maasPlacement{zoneName: availabilityZone}, nil
+		if err := zones.Validate(value); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return &maasPlacement{zoneName: value}, nil
 	case "system-id":
 		return &maasPlacement{systemId: value}, nil
 	}
@@ -958,7 +961,11 @@ func (env *maasEnviron) StartInstance(
 		}
 	}
 	if availabilityZone != "" {
-		if err := common.ValidateAvailabilityZone(env, ctx, availabilityZone); err != nil {
+		zones, err := env.AvailabilityZones(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := errors.Trace(zones.Validate(availabilityZone)); err != nil {
 			return nil, errors.Trace(err)
 		}
 		logger.Debugf("attempting to acquire node in zone %q", availabilityZone)
@@ -1269,11 +1276,11 @@ func (env *maasEnviron) deploymentStatus(ctx context.ProviderCallContext, ids ..
 	}
 	statusValues := make(map[string]string)
 	for systemId, jsonValue := range resultMap {
-		status, err := jsonValue.GetString()
+		sts, err := jsonValue.GetString()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		statusValues[systemId] = status
+		statusValues[systemId] = sts
 	}
 	return statusValues, nil
 }
