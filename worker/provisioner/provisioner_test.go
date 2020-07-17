@@ -1935,7 +1935,7 @@ func (b *mockBroker) getRetryCount(id string) int {
 // ZonedEnviron necessary for provisionerTask.populateAvailabilityZoneMachines where
 // mockBroker used.
 
-func (b *mockBroker) AvailabilityZones(ctx context.ProviderCallContext) ([]providercommon.AvailabilityZone, error) {
+func (b *mockBroker) AvailabilityZones(ctx context.ProviderCallContext) (corenetwork.AvailabilityZones, error) {
 	return b.Environ.(providercommon.ZonedEnviron).AvailabilityZones(ctx)
 }
 
