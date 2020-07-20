@@ -14,7 +14,6 @@ export CURRENT_LTS="focal"
 
 OPTIND=1
 VERBOSE=1
-TEST_VERBOSE=1
 RUN_ALL="false"
 SKIP_LIST=""
 ARITFACT_FILE=""
@@ -76,19 +75,17 @@ show_help() {
     echo "¯¯¯¯¯¯"
     echo "Flags should appear $(red 'before') arguments."
     echo ""
-    echo "cmd [-h] [-vV] [-A] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws>]"
+    echo "cmd [-h] [-v] [-A] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws|manual|microk8s>]"
     echo ""
     echo "    $(green 'cmd -h')        Display this help message"
     echo "    $(green 'cmd -v')        Verbose and debug messages"
-    echo "    $(green 'cmd -V')        Very verbose and debug messages"
-    echo "    $(green 'cmd -t')        Test Verbose and debug messages"
     echo "    $(green 'cmd -A')        Run all the test suites"
     echo "    $(green 'cmd -s')        Skip tests using a comma seperated list"
     echo "    $(green 'cmd -a')        Create an artifact file"
     echo "    $(green 'cmd -x')        Output file from streaming the output"
     echo "    $(green 'cmd -r')        Reuse bootstrapped controller between testing suites"
     echo "    $(green 'cmd -l')        Local bootstrapped controller name to reuse"
-    echo "    $(green 'cmd -p')        Bootstrap provider to use when bootstrapping <lxd|aws>"
+    echo "    $(green 'cmd -p')        Bootstrap provider to use when bootstrapping <lxd|aws|manual|microk8s>"
     echo "    $(green 'cmd -S')        Bootstrap series to use <default is host>, priority over -l"
     echo ""
     echo "Tests:"
@@ -124,7 +121,7 @@ show_help() {
     exit 1
 }
 
-while getopts "hH?vVtAs:a:x:rl:p:S:" opt; do
+while getopts "hH?vAs:a:x:rl:p:S:" opt; do
     case "${opt}" in
     h|\?)
         show_help
@@ -134,13 +131,6 @@ while getopts "hH?vVtAs:a:x:rl:p:S:" opt; do
         ;;
     v)
         VERBOSE=2
-        ;;
-    V)
-        VERBOSE=3
-        alias juju="juju --debug"
-        ;;
-    t)
-        TEST_VERBOSE=3
         alias juju="juju --debug"
         ;;
     A)
@@ -181,7 +171,6 @@ shift $((OPTIND-1))
 [ "${1:-}" = "--" ] && shift
 
 export VERBOSE="${VERBOSE}"
-export TEST_VERBOSE="${TEST_VERBOSE}"
 export SKIP_LIST="${SKIP_LIST}"
 
 if [ "$#" -eq 0 ]; then

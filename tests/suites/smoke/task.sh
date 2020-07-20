@@ -11,9 +11,10 @@ test_smoke() {
 
     file="${TEST_DIR}/test-smoke.log"
 
+    test_build
+
     bootstrap "test-smoke" "${file}"
 
-    test_build
     test_deploy "${file}"
 
     destroy_controller "test-smoke"
