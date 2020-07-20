@@ -189,6 +189,11 @@ func (a *mockApplication) ClearResources() error {
 	return nil
 }
 
+func (a *mockApplication) CharmModifiedVersion() int {
+	a.MethodCall(a, "CharmModifiedVersion")
+	return 888
+}
+
 func (a *mockApplication) StorageConstraints() (map[string]state.StorageConstraints, error) {
 	return map[string]state.StorageConstraints{
 		"data": {

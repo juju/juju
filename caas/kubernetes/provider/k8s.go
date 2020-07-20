@@ -1012,13 +1012,7 @@ func (k *kubernetesClient) ensureService(
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
 
-	annotations := resourceTagsToAnnotations(params.ResourceTags).
-		// To solve https://bugs.launchpad.net/juju/+bug/1875481/comments/23 (`jujud caas-unit-init --upgrade`
-		// does NOT work on containers are not using root as default USER),
-		// CharmModifiedVersion is added for triggering rolling upgrade on workload pods to synchronise
-		// charm files to workload pods via init container when charm was upgraded.
-		// This approach was inspired from `kubectl rollout restart`.
-		Add(annotationCharmModifiedVersionKey, strconv.Itoa(params.Deployment.CharmModifiedVersion))
+	annotations := resourceTagsToAnnotations(params.ResourceTags)
 
 	// ensure configmap.
 	if len(workloadSpec.ConfigMaps) > 0 {
@@ -1179,24 +1173,32 @@ func (k *kubernetesClient) ensureService(
 	}
 
 	numPods := int32(numUnits)
+	workloadResourceAnnotations := annotations.Copy().
+		// To solve https://bugs.launchpad.net/juju/+bug/1875481/comments/23 (`jujud caas-unit-init --upgrade`
+		// does NOT work on containers are not using root as default USER),
+		// CharmModifiedVersion is added for triggering rolling upgrade on workload pods to synchronise
+		// charm files to workload pods via init container when charm was upgraded.
+		// This approach was inspired from `kubectl rollout restart`.
+		Add(annotationCharmModifiedVersionKey, strconv.Itoa(params.CharmModifiedVersion))
+
 	switch params.Deployment.DeploymentType {
 	case caas.DeploymentStateful:
 		if err := k.configureHeadlessService(appName, deploymentName, annotations.Copy()); err != nil {
 			return errors.Annotate(err, "creating or updating headless service")
 		}
 		cleanups = append(cleanups, func() { _ = k.deleteService(headlessServiceName(deploymentName)) })
-		if err := k.configureStatefulSet(appName, deploymentName, annotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
+		if err := k.configureStatefulSet(appName, deploymentName, workloadResourceAnnotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
 		}
 		cleanups = append(cleanups, func() { _ = k.deleteDeployment(appName) })
 	case caas.DeploymentStateless:
-		cleanUpDeployment, err := k.configureDeployment(appName, deploymentName, annotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems)
+		cleanUpDeployment, err := k.configureDeployment(appName, deploymentName, workloadResourceAnnotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems)
 		cleanups = append(cleanups, cleanUpDeployment...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating Deployment")
 		}
 	case caas.DeploymentDaemon:
-		cleanUpDaemonSet, err := k.configureDaemonSet(appName, deploymentName, annotations.Copy(), workloadSpec, params.PodSpec.Containers, params.Filesystems)
+		cleanUpDaemonSet, err := k.configureDaemonSet(appName, deploymentName, workloadResourceAnnotations.Copy(), workloadSpec, params.PodSpec.Containers, params.Filesystems)
 		cleanups = append(cleanups, cleanUpDaemonSet...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating DaemonSet")

@@ -1710,8 +1710,9 @@ func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *ap
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju-app-uuid":      "appuuid",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju.io/charm-modified-version": "0",
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -1727,6 +1728,7 @@ func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *ap
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -1979,9 +1981,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"juju-app-uuid":      "appuuid",
+				"fred":                           "mary",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -1998,8 +2001,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred":               "mary",
-						"juju.io/controller": testing.ControllerTag.Id(),
+						"fred":                           "mary",
+						"juju.io/controller":             testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version": "0",
 					},
 				},
 				Spec: podSpec,
@@ -2151,9 +2155,10 @@ password: shhhh`[1:],
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
-				"juju-app-uuid":      "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"fred":                           "mary",
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -2170,8 +2175,9 @@ password: shhhh`[1:],
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred":               "mary",
-						"juju.io/controller": testing.ControllerTag.Id(),
+						"fred":                           "mary",
+						"juju.io/controller":             testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version": "0",
 					},
 				},
 				Spec: podSpec,
@@ -2439,8 +2445,9 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithStatefulSet(c *gc.C, mode c
 			Name:   appName,
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju-app-uuid":      "appuuid",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju.io/charm-modified-version": "0",
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -2455,6 +2462,7 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithStatefulSet(c *gc.C, mode c
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -2527,8 +2535,9 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithDeployment(c *gc.C, mode ca
 			Name:   appName,
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"fred":                           "mary",
+				"juju.io/charm-modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -2544,8 +2553,9 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithDeployment(c *gc.C, mode ca
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred":               "mary",
-						"juju.io/controller": testing.ControllerTag.Id(),
+						"fred":                           "mary",
+						"juju.io/controller":             testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version": "0",
 					},
 				},
 				Spec: podSpec,
@@ -2602,9 +2612,13 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDaemonSet(c *gc.C) {
 
 	workload := &appsv1.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "app-name",
-			Labels:      map[string]string{"juju-app": "app-name"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()}},
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju.io/charm-modified-version": "0",
+			},
+		},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{"juju-app": "app-name"},
@@ -2617,6 +2631,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDaemonSet(c *gc.C) {
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -2700,9 +2715,10 @@ password: shhhh`[1:],
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
-				"juju-app-uuid":      "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"fred":                           "mary",
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -2719,8 +2735,9 @@ password: shhhh`[1:],
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred":               "mary",
-						"juju.io/controller": testing.ControllerTag.Id(),
+						"fred":                           "mary",
+						"juju.io/controller":             testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version": "0",
 					},
 				},
 				Spec: podSpec,
@@ -2883,8 +2900,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju-app-uuid":      "appuuid",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju.io/charm-modified-version": "0",
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -2900,6 +2918,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -2965,8 +2984,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju-app-uuid":      "appuuid",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju.io/charm-modified-version": "0",
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -2982,6 +3002,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -3095,9 +3116,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"juju-app-uuid":      "appuuid",
+				"fred":                           "mary",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -3114,8 +3136,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred":               "mary",
-						"juju.io/controller": testing.ControllerTag.Id(),
+						"fred":                           "mary",
+						"juju.io/controller":             testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version": "0",
 					},
 				},
 				Spec: provider.PodSpec(workloadSpec),
@@ -3255,9 +3278,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"juju-app-uuid":      "appuuid",
+				"fred":                           "mary",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -3274,8 +3298,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred":               "mary",
-						"juju.io/controller": testing.ControllerTag.Id(),
+						"fred":                           "mary",
+						"juju.io/controller":             testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version": "0",
 					},
 				},
 				Spec: provider.PodSpec(workloadSpec),
@@ -3453,9 +3478,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"juju-app-uuid":      "appuuid",
+				"fred":                           "mary",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -3472,8 +3498,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred":               "mary",
-						"juju.io/controller": testing.ControllerTag.Id(),
+						"fred":                           "mary",
+						"juju.io/controller":             testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version": "0",
 					},
 				},
 				Spec: provider.PodSpec(workloadSpec),
@@ -3629,9 +3656,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"juju-app-uuid":      "appuuid",
+				"fred":                           "mary",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -3648,8 +3676,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred":               "mary",
-						"juju.io/controller": testing.ControllerTag.Id(),
+						"fred":                           "mary",
+						"juju.io/controller":             testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version": "0",
 					},
 				},
 				Spec: provider.PodSpec(workloadSpec),
@@ -3839,9 +3868,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"juju-app-uuid":      "appuuid",
+				"fred":                           "mary",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -3858,8 +3888,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred":               "mary",
-						"juju.io/controller": testing.ControllerTag.Id(),
+						"fred":                           "mary",
+						"juju.io/controller":             testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version": "0",
 					},
 				},
 				Spec: provider.PodSpec(workloadSpec),
@@ -4098,9 +4129,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
-				"juju-app-uuid":      "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"fred":                           "mary",
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -4120,6 +4152,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"juju.io/controller":                       testing.ControllerTag.Id(),
 						"fred":                                     "mary",
+						"juju.io/charm-modified-version":           "0",
 					},
 				},
 				Spec: provider.PodSpec(workloadSpec),
@@ -4376,9 +4409,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
-				"juju-app-uuid":      "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"fred":                           "mary",
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -4398,6 +4432,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"juju.io/controller":                       testing.ControllerTag.Id(),
 						"fred":                                     "mary",
+						"juju.io/charm-modified-version":           "0",
 					},
 				},
 				Spec: provider.PodSpec(workloadSpec),
@@ -4748,8 +4783,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"juju-app-uuid":      "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -4765,6 +4801,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -4873,8 +4910,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"juju-app-uuid":      "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -4890,6 +4928,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -5018,8 +5057,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"juju-app-uuid":      "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -5035,6 +5075,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -5185,8 +5226,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"juju-app-uuid":      "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
 			}},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &v1.LabelSelector{
@@ -5201,6 +5243,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -5349,8 +5392,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"juju-app-uuid":      "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
 			}},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &v1.LabelSelector{
@@ -5365,6 +5409,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -5490,8 +5535,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsC
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"juju-app-uuid":      "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
 			}},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &v1.LabelSelector{
@@ -5506,6 +5552,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsC
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -5605,8 +5652,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"juju-app-uuid":      "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
 			}},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &v1.LabelSelector{
@@ -5621,6 +5669,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version":           "0",
 					},
 				},
 				Spec: podSpec,

@@ -118,9 +118,8 @@ const (
 
 // DeploymentParams defines parameters for specifying how a service is deployed.
 type DeploymentParams struct {
-	DeploymentType       DeploymentType
-	ServiceType          ServiceType
-	CharmModifiedVersion int
+	DeploymentType DeploymentType
+	ServiceType    ServiceType
 }
 
 // ServiceParams defines parameters used to create a service.
@@ -149,6 +148,9 @@ type ServiceParams struct {
 
 	// OperatorImagePath is the path to the OCI image shared by the operator and pod init.
 	OperatorImagePath string
+
+	// CharmModifiedVersion increases when the charm changes in some way.
+	CharmModifiedVersion int
 }
 
 // OperatorState is returned by the OperatorExists call.
