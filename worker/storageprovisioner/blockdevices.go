@@ -4,10 +4,12 @@
 package storageprovisioner
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/storage"
 )
 
 // machineBlockDevicesChanged is called when the block devices of the scoped
@@ -57,10 +59,70 @@ func machineBlockDevicesChanged(ctx *context) error {
 			volumeTags = append(volumeTags, filesystem.Volume)
 		}
 	}
+	// Gather any already attached volume backed filesystem attachments
+	// so we can see if the UUID of the attachment has been newly set.
+	mountedAttachments := make([]storage.FilesystemAttachmentParams, 0, len(ctx.filesystemAttachments))
+	for _, attach := range ctx.filesystemAttachments {
+		filesystem, ok := ctx.filesystems[attach.Filesystem]
+		if !ok {
+			continue
+		}
+		if filesystem.Volume == (names.VolumeTag{}) {
+			// Filesystem is not volume-backed.
+			continue
+		}
+		if _, ok := ctx.volumeBlockDevices[filesystem.Volume]; !ok {
+			continue
+		}
+		mountedAttachments = append(mountedAttachments, storage.FilesystemAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				ReadOnly: attach.ReadOnly,
+			},
+			Filesystem: attach.Filesystem,
+			Path:       attach.Path,
+		})
+		var found bool
+		for _, tag := range volumeTags {
+			if filesystem.Volume == tag {
+				found = true
+				break
+			}
+		}
+		if !found {
+			volumeTags = append(volumeTags, filesystem.Volume)
+		}
+	}
 	if len(volumeTags) == 0 {
 		return nil
 	}
-	return refreshVolumeBlockDevices(ctx, volumeTags)
+	updatedVolumes, err := refreshVolumeBlockDevices(ctx, volumeTags)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// For filesystems backed by volumes (managed filesystems), we re-run the attachment logic
+	// to allow for the fact that the mount (and its UUID) may have become available after
+	// we noticed that the volume appeared.
+	volumes := set.NewStrings()
+	for _, v := range updatedVolumes {
+		volumes.Add(v.String())
+	}
+	var toUpdate []storage.FilesystemAttachmentParams
+	for _, a := range mountedAttachments {
+		filesystem, ok := ctx.filesystems[a.Filesystem]
+		if !ok {
+			continue
+		}
+		if volumes.Contains(filesystem.Volume.String()) {
+			toUpdate = append(toUpdate, a)
+		}
+	}
+	if len(toUpdate) == 0 {
+		return nil
+	}
+	ctx.config.Logger.Debugf("refreshing mounted filesystems: %#v", toUpdate)
+	_, err = ctx.managedFilesystemSource.AttachFilesystems(ctx.config.CloudCallContext, toUpdate)
+	return err
 }
 
 // processPendingVolumeBlockDevices is called before waiting for any events,
@@ -77,18 +139,19 @@ func processPendingVolumeBlockDevices(ctx *context) error {
 	}
 	// Clear out the pending set, so we don't force-refresh again.
 	ctx.pendingVolumeBlockDevices = names.NewSet()
-	return refreshVolumeBlockDevices(ctx, volumeTags)
+	_, err := refreshVolumeBlockDevices(ctx, volumeTags)
+	return err
 }
 
-// refreshVolumeBlockDevices refreshes the block devices for the specified
-// volumes.
-func refreshVolumeBlockDevices(ctx *context, volumeTags []names.VolumeTag) error {
+// refreshVolumeBlockDevices refreshes the block devices for the specified volumes.
+// It returns any volumes which have had the UUID newly set.
+func refreshVolumeBlockDevices(ctx *context, volumeTags []names.VolumeTag) ([]names.VolumeTag, error) {
 	machineTag, ok := ctx.config.Scope.(names.MachineTag)
 	if !ok {
 		// This function should only be called by machine-scoped
 		// storage provisioners.
 		ctx.config.Logger.Warningf("refresh block devices, expected machine tag, got %v", ctx.config.Scope)
-		return nil
+		return nil, nil
 	}
 	ids := make([]params.MachineStorageId, len(volumeTags))
 	for i, volumeTag := range volumeTags {
@@ -97,12 +160,17 @@ func refreshVolumeBlockDevices(ctx *context, volumeTags []names.VolumeTag) error
 			AttachmentTag: volumeTag.String(),
 		}
 	}
+	var volumesWithUpdatedUUID []names.VolumeTag
 	results, err := ctx.config.Volumes.VolumeBlockDevices(ids)
 	if err != nil {
-		return errors.Annotate(err, "refreshing volume block devices")
+		return nil, errors.Annotate(err, "refreshing volume block devices")
 	}
 	for i, result := range results {
 		if result.Error == nil {
+			existing, ok := ctx.volumeBlockDevices[volumeTags[i]]
+			if ok && existing.UUID == "" && result.Result.UUID != "" {
+				volumesWithUpdatedUUID = append(volumesWithUpdatedUUID, volumeTags[i])
+			}
 			ctx.volumeBlockDevices[volumeTags[i]] = result.Result
 			for _, params := range ctx.incompleteFilesystemParams {
 				if params.Volume == volumeTags[i] {
@@ -125,11 +193,11 @@ func refreshVolumeBlockDevices(ctx *context, volumeTags []names.VolumeTag) error
 			// Neither of these errors is fatal; we just wait for
 			// the block device watcher to notify us again.
 		} else {
-			return errors.Annotatef(
+			return nil, errors.Annotatef(
 				err, "getting block device info for volume attachment %v",
 				ids[i],
 			)
 		}
 	}
-	return nil
+	return volumesWithUpdatedUUID, nil
 }

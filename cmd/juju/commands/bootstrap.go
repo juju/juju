@@ -196,13 +196,15 @@ type bootstrapCommand struct {
 	showClouds          bool
 	showRegionsForCloud string
 	controllerName      string
-	hostedModelName     string
 	CredentialName      string
 	Cloud               string
 	Region              string
 	noGUI               bool
 	noSwitch            bool
 	interactive         bool
+
+	hostedModelName string
+	noHostedModel   bool
 
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
@@ -277,6 +279,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
 	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
 	f.BoolVar(&c.Force, "force", false, "Allow the bypassing of checks such as supported series")
+	f.BoolVar(&c.noHostedModel, "no-default-model", false, "Do not create a default model")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -469,6 +472,9 @@ func (c *bootstrapCommand) initializeHostedModel(
 	environ environs.BootstrapEnviron,
 	bootstrapParams *bootstrap.BootstrapParams,
 ) (*jujuclient.ModelDetails, error) {
+	if c.noHostedModel {
+		return nil, nil
+	}
 	if isCAASController && c.hostedModelName == defaultHostedModelName {
 		// k8s controller does NOT have "default" hosted model
 		// if the user didn't specify a preferred hosted model name.
@@ -519,16 +525,22 @@ func (c *bootstrapCommand) initializeHostedModel(
 // the user is informed how to create one.
 func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	var hostedModel *jujuclient.ModelDetails
+	var isCAASController bool
 	defer func() {
 		resultErr = handleChooseCloudRegionError(ctx, resultErr)
 		if !c.showClouds && resultErr == nil {
 			var msg string
 			if hostedModel == nil {
-				msg = `
+				workloadType := ""
+				if isCAASController {
+					workloadType = "k8s "
+				}
+				msg = fmt.Sprintf(`
 Now you can run
 	juju add-model <model-name>
-to create a new model to deploy k8s workloads.
-`
+to create a new model to deploy %sworkloads.
+`, workloadType)
+
 			} else {
 				msg = fmt.Sprintf("Initial model %q added", c.hostedModelName)
 			}
@@ -560,6 +572,36 @@ to create a new model to deploy k8s workloads.
 	cloud, provider, err := c.cloud(ctx)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	// If region is specified by the user, validate it here.
+	// lp#1632735
+	if c.Region != "" {
+		_, err := jujucloud.RegionByName(cloud.Regions, c.Region)
+		if err != nil {
+			allRegions := make([]string, len(cloud.Regions))
+			for i, one := range cloud.Regions {
+				allRegions[i] = one.Name
+			}
+			if len(allRegions) > 0 {
+				naturalsort.Sort(allRegions)
+				plural := "s are"
+				if len(allRegions) == 1 {
+					plural = " is"
+				}
+				ctx.Infof("Available cloud region%v %v", plural, strings.Join(allRegions, ", "))
+			}
+			return errors.NotValidf("region %q for cloud %q", c.Region, c.Cloud)
+		}
+	}
+
+	// Custom clouds may not have explicitly declared support for any auth-
+	// types, in which case we'll assume that they support everything that
+	// the provider supports.
+	if len(cloud.AuthTypes) == 0 {
+		for authType := range provider.CredentialSchemas() {
+			cloud.AuthTypes = append(cloud.AuthTypes, authType)
+		}
 	}
 
 	credentials, regionName, err := c.credentialsAndRegionName(ctx, provider, cloud)
@@ -602,7 +644,7 @@ to create a new model to deploy k8s workloads.
 		return errors.Trace(err)
 	}
 
-	isCAASController := jujucloud.CloudIsCAAS(cloud)
+	isCAASController = jujucloud.CloudIsCAAS(cloud)
 	if !isCAASController {
 		if bootstrapCfg.bootstrap.ControllerServiceType != "" ||
 			bootstrapCfg.bootstrap.ControllerExternalName != "" ||
@@ -1347,6 +1389,17 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	if err := common.FinalizeAuthorizedKeys(ctx, bootstrapModelConfig); err != nil {
 		return bootstrapConfigs{}, errors.Annotate(err, "finalizing authorized-keys")
 	}
+
+	// We need to do an Azure specific check here.
+	// This won't be needed once the "default" model is banished.
+	// Until it is, we need to ensure that if a resource-group-name is specified,
+	// the user has also disabled the default model, otherwise we end up with 2
+	// models with the same resource group name.
+	resourceGroupName, ok := bootstrapModelConfig["resource-group-name"]
+	if ok && resourceGroupName != "" && !c.noHostedModel {
+		return bootstrapConfigs{}, errors.Errorf("if using resource-group-name %q then --no-default-model is required as well", resourceGroupName)
+	}
+
 	logger.Debugf("preparing controller with config: %v", bootstrapModelConfig)
 
 	configs := bootstrapConfigs{

@@ -128,8 +128,9 @@ func (s *managedfsSuite) TestAttachFilesystems(c *gc.C) {
 	err := ioutil.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(nonRelatedFstabEntry), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	mtabEntry := fmt.Sprintf("/dev/sda1 %s other mtab stuff", testMountPoint)
-	s.testAttachFilesystems(c, false, false, mtabEntry, nonRelatedFstabEntry+"\n"+mtabEntry+"\n")
+	mtabEntry := fmt.Sprintf("/dev/sda1 %s other relatime 0 0", testMountPoint)
+	fstabEntry := fmt.Sprintf("/dev/sda1 %s other nofail,relatime 0 0", testMountPoint)
+	s.testAttachFilesystems(c, false, false, "", mtabEntry, nonRelatedFstabEntry+"\n"+fstabEntry+"\n")
 }
 
 func (s *managedfsSuite) TestAttachFilesystemsMissingMtab(c *gc.C) {
@@ -137,7 +138,7 @@ func (s *managedfsSuite) TestAttachFilesystemsMissingMtab(c *gc.C) {
 	err := ioutil.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(nonRelatedFstabEntry), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.testAttachFilesystems(c, false, false, "", nonRelatedFstabEntry)
+	s.testAttachFilesystems(c, false, false, "", "", nonRelatedFstabEntry)
 }
 
 func (s *managedfsSuite) TestAttachFilesystemsExistingFstabEntry(c *gc.C) {
@@ -146,20 +147,30 @@ func (s *managedfsSuite) TestAttachFilesystemsExistingFstabEntry(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	mtabEntry := fmt.Sprintf("/dev/sda1 %s other mtab stuff", testMountPoint)
-	s.testAttachFilesystems(c, false, false, mtabEntry, existingFstabEntry)
+	s.testAttachFilesystems(c, false, false, "", mtabEntry, existingFstabEntry)
+}
+
+func (s *managedfsSuite) TestAttachFilesystemsUpdateExistingFstabEntryWithUUID(c *gc.C) {
+	existingFstabEntry := fmt.Sprintf("/dev/sda1 %s existing mtab stuff\n", testMountPoint)
+	err := ioutil.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(existingFstabEntry), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedFstabEntry := fmt.Sprintf("# %s was on /dev/sda1 during installation\nUUID=deadbeaf %s other mtab,nofail stuff\n", testMountPoint, testMountPoint)
+	mtabEntry := fmt.Sprintf("/dev/sda1 %s other mtab stuff", testMountPoint)
+	s.testAttachFilesystems(c, false, false, "deadbeaf", mtabEntry, expectedFstabEntry)
 }
 
 func (s *managedfsSuite) TestAttachFilesystemsReadOnly(c *gc.C) {
-	mtabEntry := fmt.Sprintf("\n/dev/sda1 %s other mtab stuff", testMountPoint)
-	s.testAttachFilesystems(c, true, false, mtabEntry, mtabEntry+"\n")
+	mtabEntry := fmt.Sprintf("/dev/sda1 %s other nofail,relatime 0 0", testMountPoint)
+	s.testAttachFilesystems(c, true, false, "", mtabEntry, mtabEntry+"\n")
 }
 
 func (s *managedfsSuite) TestAttachFilesystemsReattach(c *gc.C) {
-	mtabEntry := fmt.Sprintf("/dev/sda1 %s other mtab stuff", testMountPoint)
-	s.testAttachFilesystems(c, true, true, mtabEntry, "")
+	mtabEntry := fmt.Sprintf("/dev/sda1 %s other nofail,relatime 0 0", testMountPoint)
+	s.testAttachFilesystems(c, true, true, "", mtabEntry, "")
 }
 
-func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool, mtab, fstab string) {
+func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool, UUID, mtab, fstab string) {
 	source := s.initSource(c)
 	cmd := s.commands.expect("df", "--output=source", filepath.Dir(testMountPoint))
 	cmd.respond("headers\n/same/as/rootfs", nil)
@@ -186,6 +197,7 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool,
 		DeviceName: "sda",
 		HardwareId: "capncrunch",
 		Size:       2,
+		UUID:       UUID,
 	}
 	s.filesystems[names.NewFilesystemTag("0/0")] = storage.Filesystem{
 		Tag:    names.NewFilesystemTag("0/0"),

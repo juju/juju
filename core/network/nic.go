@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 )
 
@@ -331,16 +332,72 @@ func (s InterfaceInfos) Filter(predicateFn InterfaceFilterFunc) InterfaceInfos {
 	return out
 }
 
-// GetByHardwareAddress returns a reference to the interface with the input
-// hardware address (such as a MAC address) if it exists in the collection,
-// otherwise nil is returned.
-func (s InterfaceInfos) GetByHardwareAddress(hwAddr string) *InterfaceInfo {
+// GetByHardwareAddress returns a new collection containing any interfaces
+// with the input hardware (MAC) address.
+func (s InterfaceInfos) GetByHardwareAddress(hwAddr string) InterfaceInfos {
+	var res InterfaceInfos
 	for _, dev := range s {
 		if dev.MACAddress == hwAddr {
-			return &dev
+			res = append(res, dev)
 		}
 	}
-	return nil
+	return res
+}
+
+// Normalise ensures that where interfaces are duplicated for the purpose of
+// supplying multiple addresses, they are reflected in the result as a single
+// interface with multiple addresses.
+// It also ensures that members of the interface that *should* be members of
+// its addresses are copied to the address where appropriate.
+// TODO (manadart 2020-07-14): This is a temporary solution in lieu of having
+// upstream suppliers of this data populate the new fields for CIDR and
+// ConfigType on member addresses.
+// The ultimate solution should consist of the following:
+// - The fields mentioned above are populated on addresses and removed from
+//   InterfaceInfo, so that devices are never duplicated.
+// - This change is reflected in the DTO and in the to/from transformations.
+//   This may require waiting for Juju 3 to break prior version compatibility.
+// - This method is no longer required the therefore removed.
+func (s InterfaceInfos) Normalise() InterfaceInfos {
+	var res InterfaceInfos
+	seen := set.NewStrings()
+
+	for _, dev := range s {
+		if seen.Contains(dev.MACAddress) {
+			continue
+		}
+
+		dev.Addresses = s.GetByHardwareAddress(dev.MACAddress).addresses()
+		res = append(res, dev)
+		seen.Add(dev.MACAddress)
+	}
+
+	return res
+}
+
+// addresses services Normalise above and should be removed
+// with that method when it is no longer required.
+func (s InterfaceInfos) addresses() ProviderAddresses {
+	addrs := ProviderAddresses{}
+
+	for _, dev := range s {
+		if len(dev.Addresses) == 0 {
+			continue
+		}
+
+		// Due to the cardinality mismatch,
+		// we can only populate the first address.
+		dev.Addresses[0].CIDR = dev.CIDR
+		dev.Addresses[0].ConfigType = dev.ConfigType
+
+		for _, addr := range dev.Addresses {
+			if !set.NewStrings(addrs.ToIPAddresses()...).Contains(addr.Value) {
+				addrs = append(addrs, addr)
+			}
+		}
+	}
+
+	return addrs
 }
 
 // ProviderInterfaceInfo holds enough information to identify an

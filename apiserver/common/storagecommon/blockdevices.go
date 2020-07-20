@@ -115,13 +115,32 @@ func MatchingBlockDevice(
 	}
 
 	if attachmentInfo.DeviceLink != "" {
+		// We'll prefer to use a mounted partition if available.
+		// This will be the case for filesystem storage; it will be part1.
+		var devWithUUID, parentDev *state.BlockDeviceInfo
+	devMatch:
 		for _, dev := range blockDevices {
 			for _, link := range dev.DeviceLinks {
-				if attachmentInfo.DeviceLink == link {
-					logger.Tracef("device link match on %v", attachmentInfo.DeviceLink)
-					return &dev, true
+				if attachmentInfo.DeviceLink == link || attachmentInfo.DeviceLink+"-part1" == link {
+					devCopy := dev
+					if dev.UUID != "" {
+						devWithUUID = &devCopy
+					} else {
+						parentDev = &devCopy
+					}
+				}
+				if devWithUUID != nil {
+					break devMatch
 				}
 			}
+		}
+		if devWithUUID != nil {
+			logger.Tracef("device link with UUID match on %v", attachmentInfo.DeviceLink)
+			return devWithUUID, true
+		}
+		if parentDev != nil {
+			logger.Tracef("device link without UUID match on %v", attachmentInfo.DeviceLink)
+			return parentDev, true
 		}
 		logger.Tracef("no match for block device dev link: %v", attachmentInfo.DeviceLink)
 	}

@@ -176,11 +176,11 @@ func (u *UpgradeSeriesAPI) GetMachine(tag names.Tag) (UpgradeSeriesMachine, erro
 	case names.UnitTagKind:
 		unit, err := u.backend.Unit(tag.Id())
 		if err != nil {
-
+			return nil, errors.Trace(err)
 		}
 		id, err = unit.AssignedMachineId()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	default:
 	}

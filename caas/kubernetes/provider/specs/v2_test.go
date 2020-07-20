@@ -66,6 +66,12 @@ containers:
         httpGet:
           path: /pingReady
           port: www
+      startupProbe:
+        httpGet:
+          path: /healthz
+          port: liveness-port
+        failureThreshold: 30
+        periodSeconds: 10
     config:
       attr: foo=bar; name["fred"]="blogs";
       foo: bar
@@ -403,6 +409,19 @@ echo "do some stuff here for gitlab container"
 							HTTPGet: &core.HTTPGetAction{
 								Path: "/pingReady",
 								Port: intstr.IntOrString{StrVal: "www", Type: 1},
+							},
+						},
+					},
+					StartupProbe: &core.Probe{
+						PeriodSeconds:    10,
+						FailureThreshold: 30,
+						Handler: core.Handler{
+							HTTPGet: &core.HTTPGetAction{
+								Path: "/healthz",
+								Port: intstr.IntOrString{
+									Type:   intstr.String,
+									StrVal: "liveness-port",
+								},
 							},
 						},
 					},

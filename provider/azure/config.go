@@ -25,6 +25,10 @@ const (
 	// configAttrLoadBalancerSkuName mirrors the LoadBalancerSkuName type in the Azure SDK
 	configAttrLoadBalancerSkuName = "load-balancer-sku-name"
 
+	// configResourceGroupName specifies an existing resource group to use
+	// rather than Juju creating it.
+	configResourceGroupName = "resource-group-name"
+
 	// The below bits are internal book-keeping things, rather than
 	// configuration. Config is just what we have to work with.
 
@@ -36,21 +40,25 @@ const (
 var configFields = schema.Fields{
 	configAttrStorageAccountType:  schema.String(),
 	configAttrLoadBalancerSkuName: schema.String(),
+	configResourceGroupName:       schema.String(),
 }
 
 var configDefaults = schema.Defaults{
 	configAttrStorageAccountType:  string(storage.StandardLRS),
 	configAttrLoadBalancerSkuName: string(network.LoadBalancerSkuNameStandard),
+	configResourceGroupName:       schema.Omit,
 }
 
 var immutableConfigAttributes = []string{
 	configAttrStorageAccountType,
+	configResourceGroupName,
 }
 
 type azureModelConfig struct {
 	*config.Config
 	storageAccountType  string
 	loadBalancerSkuName string
+	resourceGroupName   string
 }
 
 // knownStorageAccountTypes returns a list of valid storage SKU names.
@@ -119,16 +127,30 @@ func validateConfig(newCfg, oldCfg *config.Config) (*azureModelConfig, error) {
 	// Resource group names must not exceed 80 characters. Resource group
 	// names are based on the model UUID and model name, the latter of
 	// which the model creator controls.
-	modelTag := names.NewModelTag(newCfg.UUID())
-	resourceGroup := resourceGroupName(modelTag, newCfg.Name())
-	if n := len(resourceGroup); n > resourceNameLengthMax {
-		smallestResourceGroup := resourceGroupName(modelTag, "")
-		return nil, errors.Errorf(`resource group name %q is too long
+	var userSpecifiedResourceGroup string
+	resourceGroup, ok := validated[configResourceGroupName].(string)
+	if ok {
+		userSpecifiedResourceGroup = resourceGroup
+		if len(resourceGroup) > resourceNameLengthMax {
+			return nil, errors.Errorf(`resource group name %q is too long
+
+Please choose a name of no more than %d characters.`,
+				resourceGroup,
+				resourceNameLengthMax,
+			)
+		}
+	} else {
+		modelTag := names.NewModelTag(newCfg.UUID())
+		resourceGroup = resourceGroupName(modelTag, newCfg.Name())
+		if n := len(resourceGroup); n > resourceNameLengthMax {
+			smallestResourceGroup := resourceGroupName(modelTag, "")
+			return nil, errors.Errorf(`resource group name %q is too long
 
 Please choose a model name of no more than %d characters.`,
-			resourceGroup,
-			resourceNameLengthMax-len(smallestResourceGroup),
-		)
+				resourceGroup,
+				resourceNameLengthMax-len(smallestResourceGroup),
+			)
+		}
 	}
 
 	if newCfg.FirewallMode() == config.FwGlobal {
@@ -164,6 +186,7 @@ Please choose a model name of no more than %d characters.`,
 		newCfg,
 		storageAccountType,
 		loadBalancerSkuName,
+		userSpecifiedResourceGroup,
 	}
 	return azureConfig, nil
 }

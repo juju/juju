@@ -37,7 +37,7 @@ operator_image_release_path() {
     echo "${DOCKER_USERNAME}/jujud-operator:$(_image_version)"
 }
 operator_image_path() {
-    if [ -z "${JUJU_BUILD_NUMBER}" ]; then
+    if [ -z "${JUJU_BUILD_NUMBER}" ] || [ ${JUJU_BUILD_NUMBER} -eq 0 ]; then
         operator_image_release_path
     else
         echo "${DOCKER_USERNAME}/jujud-operator:$(_image_version).${JUJU_BUILD_NUMBER}"
