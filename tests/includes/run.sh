@@ -15,13 +15,16 @@ run() {
 
   START_TIME=$(date +%s)
   set_test_verbosity
-  $CMD "$@" > "${TEST_DIR}/${TEST_CURRENT}.log" 2>&1
   case "${VERBOSE}" in
+  1)
+      $CMD "$@" > "${TEST_DIR}/${TEST_CURRENT}.log" 2>&1
+      ;;
   2)
+      $CMD "$@" 2>&1 | tee "${TEST_DIR}/${TEST_CURRENT}.log"
       cat "${TEST_DIR}/${TEST_CURRENT}.log"
       ;;
   3)
-      cat "${TEST_DIR}/${TEST_CURRENT}.log"
+      $CMD "$@" > "${TEST_DIR}/${TEST_CURRENT}.log" 2>&1
       ;;
   esac
   set_verbosity

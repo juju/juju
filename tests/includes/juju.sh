@@ -184,8 +184,22 @@ juju_bootstrap() {
         # When double quotes are added to ${series}, the juju bootstrap
         # command looks correct, and works outside of the harness, but
         # does not run, goes directly to cleanup.
-        #shellcheck disable=SC2086
-        juju bootstrap ${series} --debug="${debug}" --build-agent=${BUILD_AGENT} "${provider}" "${name}" -d "${model}" "$@" > "${output}" 2>&1
+        set_test_verbosity
+        case "${VERBOSE}" in
+        1)
+            #shellcheck disable=SC2086
+            juju bootstrap ${series} --debug="${debug}" --build-agent=${BUILD_AGENT} "${provider}" "${name}" -d "${model}" "$@" > "${output}" 2>&1
+            ;;
+        2)
+            #shellcheck disable=SC2086
+            juju bootstrap ${series} --debug="${debug}" --build-agent=${BUILD_AGENT} "${provider}" "${name}" -d "${model}" "$@" 2>&1 | tee "${output}"
+            ;;
+        3)
+            #shellcheck disable=SC2086
+            juju bootstrap ${series} --debug="${debug}" --build-agent=${BUILD_AGENT} "${provider}" "${name}" -d "${model}" "$@" > "${output}" 2>&1
+            ;;
+        esac
+        set_verbosity
     else
         #shellcheck disable=SC2086
         juju bootstrap ${series} --debug="${debug}" --build-agent=${BUILD_AGENT} "${provider}" "${name}" -d "${model}" "$@"
