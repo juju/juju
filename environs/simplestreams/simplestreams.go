@@ -436,7 +436,7 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 	logger.Tracef("looking for data index using URL %s", indexURL)
 	if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
 		legacyIndexPath := makeIndexPath(defaultLegacyIndexPath)
-		logger.Tracef("%s not accessed, actual error: %v", indexPath, err)
+		logger.Tracef("%s not accessed, actual error: %v", indexPath, errors.Details(err))
 		logger.Tracef("%s not accessed, trying legacy index path: %s", indexPath, legacyIndexPath)
 		indexPath = legacyIndexPath
 		indexRef, indexURL, err = fetchIndex(
@@ -488,7 +488,7 @@ func fetchData(source DataSource, path string, requireSigned bool) (data []byte,
 	rc, dataURL, err := source.Fetch(path)
 	if err != nil {
 		logger.Tracef("fetchData failed for %q: %v", dataURL, err)
-		return nil, dataURL, errors.NotFoundf("%q", dataURL)
+		return nil, dataURL, err
 	}
 	defer func() { _ = rc.Close() }()
 	if requireSigned {
@@ -963,7 +963,7 @@ func (indexRef *IndexReference) GetCloudMetadataWithFormat(cons LookupConstraint
 	data, url, err := fetchData(indexRef.Source, productFilesPath, requireSigned)
 	if err != nil {
 		logger.Tracef("can't read product data: %v", err)
-		return nil, fmt.Errorf("cannot read product data, %v", err)
+		return nil, errors.Annotate(err, "cannot read product data")
 	}
 	return ParseCloudMetadata(data, format, url, indexRef.valueParams.ValueTemplate)
 }

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -73,7 +74,7 @@ func (s *datasourceHTTPSSuite) TestNormalClientFails(c *gc.C) {
 	reader, _, err := ds.Fetch("bar")
 	// The underlying failure is a x509: certificate signed by unknown authority
 	// However, the urlDataSource abstraction hides that as a simple NotFound
-	c.Assert(err, gc.ErrorMatches, "\".*/bar\" not found")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(reader, gc.IsNil)
 }
 

@@ -162,7 +162,7 @@ var fetchMetadataTests = []struct {
 	about:         "error: stream file not found",
 	stream:        "no-such",
 	jujuVersion:   "2.0.0",
-	expectedError: `error fetching simplestreams metadata: cannot read product data, "test:/streams/v1/com.canonical.streams-no-such-gui.json" not found`,
+	expectedError: `error fetching simplestreams metadata: cannot read product data: "test:/streams/v1/com.canonical.streams-no-such-gui.json" not found`,
 }}
 
 func (s *simplestreamsSuite) TestFetchMetadata(c *gc.C) {
