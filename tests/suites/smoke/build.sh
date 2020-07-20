@@ -1,4 +1,6 @@
 run_build() {
+    echo
+
     make go-build 2>&1
 }
 

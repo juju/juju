@@ -14,19 +14,8 @@ run() {
   echo -n "===> [   ] Running: ${DESC}"
 
   START_TIME=$(date +%s)
-  set_test_verbosity
-  case "${VERBOSE}" in
-  1)
-      $CMD "$@" > "${TEST_DIR}/${TEST_CURRENT}.log" 2>&1
-      ;;
-  2)
-      $CMD "$@" 2>&1 | tee "${TEST_DIR}/${TEST_CURRENT}.log"
-      cat "${TEST_DIR}/${TEST_CURRENT}.log"
-      ;;
-  3)
-      $CMD "$@" > "${TEST_DIR}/${TEST_CURRENT}.log" 2>&1
-      ;;
-  esac
+  set_verbosity
+  $CMD "$@" | OUTPUT "${TEST_DIR}/${TEST_CURRENT}.log"
   set_verbosity
   END_TIME=$(date +%s)
 
