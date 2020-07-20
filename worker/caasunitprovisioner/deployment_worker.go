@@ -221,15 +221,15 @@ func provisionInfoToServiceParams(info *apicaasunitprovisioner.ProvisioningInfo)
 	}
 
 	serviceParams = &caas.ServiceParams{
-		Constraints:       info.Constraints,
-		ResourceTags:      info.Tags,
-		Filesystems:       info.Filesystems,
-		Devices:           info.Devices,
-		OperatorImagePath: info.OperatorImagePath,
+		Constraints:          info.Constraints,
+		ResourceTags:         info.Tags,
+		Filesystems:          info.Filesystems,
+		Devices:              info.Devices,
+		OperatorImagePath:    info.OperatorImagePath,
+		CharmModifiedVersion: info.CharmModifiedVersion,
 		Deployment: caas.DeploymentParams{
-			DeploymentType:       caas.DeploymentType(info.DeploymentInfo.DeploymentType),
-			ServiceType:          caas.ServiceType(info.DeploymentInfo.ServiceType),
-			CharmModifiedVersion: info.DeploymentInfo.CharmModifiedVersion,
+			DeploymentType: caas.DeploymentType(info.DeploymentInfo.DeploymentType),
+			ServiceType:    caas.ServiceType(info.DeploymentInfo.ServiceType),
 		},
 	}
 	if len(info.PodSpec) > 0 {
@@ -254,7 +254,7 @@ func isProvisionInfoEqual(newInfo, oldInfo *apicaasunitprovisioner.ProvisioningI
 
 	return newInfo.PodSpec == oldInfo.PodSpec &&
 		newInfo.RawK8sSpec == oldInfo.RawK8sSpec &&
-		newInfo.DeploymentInfo.CharmModifiedVersion == oldInfo.DeploymentInfo.CharmModifiedVersion
+		newInfo.CharmModifiedVersion == oldInfo.CharmModifiedVersion
 }
 
 func updateApplicationService(appTag names.ApplicationTag, svc *caas.Service, updater ApplicationUpdater) error {

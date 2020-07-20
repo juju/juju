@@ -360,20 +360,20 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	}
 
 	info := &params.KubernetesProvisioningInfo{
-		PodSpec:           podSpec,
-		RawK8sSpec:        rawSpec,
-		Filesystems:       filesystemParams,
-		Devices:           devices,
-		Constraints:       mergedCons,
-		Tags:              resourceTags,
-		OperatorImagePath: operatorImagePath,
+		PodSpec:              podSpec,
+		RawK8sSpec:           rawSpec,
+		Filesystems:          filesystemParams,
+		Devices:              devices,
+		Constraints:          mergedCons,
+		Tags:                 resourceTags,
+		OperatorImagePath:    operatorImagePath,
+		CharmModifiedVersion: app.CharmModifiedVersion(),
 	}
 	deployInfo := ch.Meta().Deployment
 	if deployInfo != nil {
 		info.DeploymentInfo = &params.KubernetesDeploymentInfo{
-			DeploymentType:       string(deployInfo.DeploymentType),
-			ServiceType:          string(deployInfo.ServiceType),
-			CharmModifiedVersion: app.CharmModifiedVersion(),
+			DeploymentType: string(deployInfo.DeploymentType),
+			ServiceType:    string(deployInfo.ServiceType),
 		}
 	}
 	return info, nil

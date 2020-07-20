@@ -11,22 +11,22 @@ import (
 
 // KubernetesDeploymentInfo holds deployment info from charm metadata.
 type KubernetesDeploymentInfo struct {
-	DeploymentType       string `json:"deployment-type"`
-	ServiceType          string `json:"service-type"`
-	CharmModifiedVersion int    `json:"charm-modified-version"`
+	DeploymentType string `json:"deployment-type"`
+	ServiceType    string `json:"service-type"`
 }
 
 // KubernetesProvisioningInfo holds unit provisioning info.
 type KubernetesProvisioningInfo struct {
-	DeploymentInfo    *KubernetesDeploymentInfo    `json:"deployment-info,omitempty"`
-	PodSpec           string                       `json:"pod-spec"`
-	RawK8sSpec        string                       `json:"raw-k8s-spec,omitempty"`
-	Constraints       constraints.Value            `json:"constraints"`
-	Tags              map[string]string            `json:"tags,omitempty"`
-	Filesystems       []KubernetesFilesystemParams `json:"filesystems,omitempty"`
-	Volumes           []KubernetesVolumeParams     `json:"volumes,omitempty"`
-	Devices           []KubernetesDeviceParams     `json:"devices,omitempty"`
-	OperatorImagePath string                       `json:"operator-image-path,omitempty"`
+	DeploymentInfo       *KubernetesDeploymentInfo    `json:"deployment-info,omitempty"`
+	PodSpec              string                       `json:"pod-spec"`
+	RawK8sSpec           string                       `json:"raw-k8s-spec,omitempty"`
+	Constraints          constraints.Value            `json:"constraints"`
+	Tags                 map[string]string            `json:"tags,omitempty"`
+	Filesystems          []KubernetesFilesystemParams `json:"filesystems,omitempty"`
+	Volumes              []KubernetesVolumeParams     `json:"volumes,omitempty"`
+	Devices              []KubernetesDeviceParams     `json:"devices,omitempty"`
+	OperatorImagePath    string                       `json:"operator-image-path,omitempty"`
+	CharmModifiedVersion int                          `json:"charm-modified-version"`
 }
 
 // KubernetesProvisioningInfoResult holds unit provisioning info or an error.

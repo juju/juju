@@ -8851,9 +8851,6 @@
                 "KubernetesDeploymentInfo": {
                     "type": "object",
                     "properties": {
-                        "charm-modified-version": {
-                            "type": "integer"
-                        },
                         "deployment-type": {
                             "type": "string"
                         },
@@ -8864,8 +8861,7 @@
                     "additionalProperties": false,
                     "required": [
                         "deployment-type",
-                        "service-type",
-                        "charm-modified-version"
+                        "service-type"
                     ]
                 },
                 "KubernetesDeviceParams": {
@@ -9005,6 +9001,9 @@
                 "KubernetesProvisioningInfo": {
                     "type": "object",
                     "properties": {
+                        "charm-modified-version": {
+                            "type": "integer"
+                        },
                         "constraints": {
                             "$ref": "#/definitions/Value"
                         },
@@ -9050,7 +9049,8 @@
                     "additionalProperties": false,
                     "required": [
                         "pod-spec",
-                        "constraints"
+                        "constraints",
+                        "charm-modified-version"
                     ]
                 },
                 "KubernetesProvisioningInfoResult": {
