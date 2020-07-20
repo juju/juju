@@ -73,6 +73,10 @@ func (s *environProviderSuite) TestPrepareConfig(c *gc.C) {
 }
 
 func (s *environProviderSuite) TestOpen(c *gc.C) {
+	s.sender = azuretesting.Senders{
+		makeResourceGroupNotFoundSender(".*/resourcegroups/juju-testmodel-model-deadbeef-.*"),
+		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
+	}
 	env, err := environs.Open(s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
@@ -93,6 +97,10 @@ func (s *environProviderSuite) TestOpenUnsupportedCredential(c *gc.C) {
 }
 
 func (s *environProviderSuite) testOpenError(c *gc.C, spec environs.CloudSpec, expect string) {
+	s.sender = azuretesting.Senders{
+		makeResourceGroupNotFoundSender(".*/resourcegroups/juju-testmodel-model-deadbeef-.*"),
+		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
+	}
 	_, err := environs.Open(s.provider, environs.OpenParams{
 		Cloud:  spec,
 		Config: makeTestModelConfig(c),
