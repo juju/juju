@@ -513,7 +513,3 @@ type Subnet interface {
 	ProviderId() network.Id
 	ProviderNetworkId() network.Id
 }
-
-type statePortsShim struct {
-	state.MachineSubnetPorts
-}

@@ -57,7 +57,7 @@ func (p PortRange) ConflictsWith(other PortRange) bool {
 	return p.ToPort >= other.FromPort && other.ToPort >= p.FromPort
 }
 
-// Sanitize returns a copy of the port range, which is guaranteed to have
+// SanitizeBounds returns a copy of the port range, which is guaranteed to have
 // FromPort >= ToPort and both FromPort and ToPort fit into the valid range
 // from 1 to 65535, inclusive.
 func (p PortRange) SanitizeBounds() PortRange {
