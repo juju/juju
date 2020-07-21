@@ -50,17 +50,51 @@ func (op *openClosePortsOperation) Build(attempt int) ([]txn.Op, error) {
 		assertUnitNotDeadOp(op.p.st, op.unitName),
 	}
 
-	// Start with a clean copy of the ranges from the ports document
-	var portListModified bool
+	// Start with a clean copy of the ranges from the ports document; then
+	// append docs for opening port ranges and remove docs for any closed
+	// port ranges
 	op.updatedPortList = append(op.updatedPortList[0:0], op.p.doc.Ports...)
+	portListModifiedForOpen, err := op.addPortDocsForOpenedPortRanges()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	portListModifiedForClose, err := op.removePortDocsForClosedPortRanges()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-	// Check for conflicts opening each port range and update the final port list
+	// Bail out if we don't need to mutate the DB document.
+	portListModified := portListModifiedForOpen || portListModifiedForClose
+	if !portListModified || (createPortsDoc && len(op.updatedPortList) == 0) {
+		return nil, jujutxn.ErrNoOperations
+	}
+
+	if createPortsDoc {
+		assert := txn.DocMissing
+		ops = append(ops, addPortsDocOps(op.p.st, &op.p.doc, assert, op.updatedPortList...)...)
+	} else if len(op.updatedPortList) == 0 {
+		// Port list is empty; get rid of ports document.
+		ops = append(ops, op.p.removeOps()...)
+	} else {
+		assert := bson.D{{"txn-revno", op.p.doc.TxnRevno}}
+		ops = append(ops, setPortsDocOps(op.p.st, op.p.doc, assert, op.updatedPortList...)...)
+	}
+
+	return ops, nil
+}
+
+// addPortDocsForOpenedPortRanges compares the set of new port ranges to open
+// to the set of currently opened port range documents and appends a document
+// for each port range that is not present in the current list. The method
+// returns a boolean value to indicate whether new documents were generated.
+func (op *openClosePortsOperation) addPortDocsForOpenedPortRanges() (bool, error) {
+	var portListModified bool
 	for _, openPortRange := range op.openPortRanges {
 		var alreadyExists bool
 		for _, existing := range op.updatedPortList {
 			identical, err := checkForPortRangeConflict(existing.asPortRange(), existing.UnitName, openPortRange, op.unitName)
 			if err != nil {
-				return nil, errors.Annotatef(err, "cannot open ports %v", openPortRange)
+				return false, errors.Annotatef(err, "cannot open ports %v", openPortRange)
 			} else if identical {
 				alreadyExists = true
 				break // nothing to do
@@ -78,13 +112,21 @@ func (op *openClosePortsOperation) Build(attempt int) ([]txn.Op, error) {
 		}
 	}
 
-	// Check for conflicts closing each port range and update the final port list
+	return portListModified, nil
+}
+
+// removePortDocsForClosedPortRanges compares the set of port ranges to close
+// to the set of currently opened port range documents and removes the
+// documents for the port ranges that should be closed. The method returns a
+// boolean value to indicate whether any documents were removed.
+func (op *openClosePortsOperation) removePortDocsForClosedPortRanges() (bool, error) {
+	var portListModified bool
 	for _, closePortRange := range op.closePortRanges {
 		var foundAtIndex = -1
 		for i, existing := range op.updatedPortList {
 			identical, err := checkForPortRangeConflict(existing.asPortRange(), existing.UnitName, closePortRange, op.unitName)
 			if err != nil && existing.UnitName == op.unitName {
-				return nil, errors.Annotatef(err, "cannot close ports %v", closePortRange)
+				return false, errors.Annotatef(err, "cannot close ports %v", closePortRange)
 			} else if identical {
 				foundAtIndex = i
 				continue
@@ -100,23 +142,7 @@ func (op *openClosePortsOperation) Build(attempt int) ([]txn.Op, error) {
 		}
 	}
 
-	// Nothing to do
-	if !portListModified || (createPortsDoc && len(op.updatedPortList) == 0) {
-		return nil, jujutxn.ErrNoOperations
-	}
-
-	if createPortsDoc {
-		assert := txn.DocMissing
-		ops = append(ops, addPortsDocOps(op.p.st, &op.p.doc, assert, op.updatedPortList...)...)
-	} else if len(op.updatedPortList) == 0 {
-		// Port list is empty; get rid of ports document.
-		ops = append(ops, op.p.removeOps()...)
-	} else {
-		assert := bson.D{{"txn-revno", op.p.doc.TxnRevno}}
-		ops = append(ops, setPortsDocOps(op.p.st, op.p.doc, assert, op.updatedPortList...)...)
-	}
-
-	return ops, nil
+	return portListModified, nil
 }
 
 // Done implements ModelOperation.
