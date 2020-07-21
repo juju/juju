@@ -178,8 +178,11 @@ func (k *kubernetesClient) EnsureModelOperator(
 			return err
 		},
 		ensureDeployment: k.ensureDeployment,
-		ensureService:    k.ensureK8sService,
-		namespace:        func() string { return k.namespace },
+		ensureService: func(svc *core.Service) error {
+			_, err := k.ensureK8sService(svc)
+			return err
+		},
+		namespace: func() string { return k.namespace },
 	}
 
 	return ensureModelOperator(modelUUID, agentPath, config, bridge)
