@@ -37,9 +37,11 @@ supplied key to the supplied value. This can be repeated for multiple keys.
 You can also specify a yaml file containing key values.
 By default, the model is the current model.
 
-Model default configuration settings are specific to the cloud on which the model runs.
-If the controller host more then one cloud, the cloud (and optionally region) must be specified.
+Model default configuration settings are specific to the cloud on which the
+model runs.
 
+If the controller host more then one cloud, the cloud (and optionally region)
+must be specified.
 
 Examples:
     juju model-defaults
@@ -47,14 +49,12 @@ Examples:
     juju model-defaults aws http-proxy
     juju model-defaults aws/us-east-1 http-proxy
     juju model-defaults us-east-1 http-proxy
-    juju model-defaults -m mymodel type
     juju model-defaults ftp-proxy=10.0.0.1:8000
     juju model-defaults aws ftp-proxy=10.0.0.1:8000
     juju model-defaults aws/us-east-1 ftp-proxy=10.0.0.1:8000
     juju model-defaults us-east-1 ftp-proxy=10.0.0.1:8000
     juju model-defaults us-east-1 ftp-proxy=10.0.0.1:8000 path/to/file.yaml
     juju model-defaults us-east-1 path/to/file.yaml    
-    juju model-defaults -m othercontroller:mymodel default-series=yakkety test-mode=false
     juju model-defaults --reset default-series test-mode
     juju model-defaults aws --reset http-proxy
     juju model-defaults aws/us-east-1 --reset http-proxy
@@ -230,7 +230,7 @@ func (c *defaultsCommand) Run(ctx *cmd.Context) error {
 //     juju model-defaults a=b c=d --reset e,f
 //
 // cloud/region may also be specified so above examples with that option might
-// be like the following invokation.
+// be like the following invocation.
 //     juju model-defaults us-east-1 a=b c=d --reset e,f
 //
 // Finally one can also ask for the all the defaults or the defaults for one
@@ -569,13 +569,11 @@ func (c *defaultsCommand) handleExtraArgs(args []string) error {
 	}
 
 	if !regionSpecified {
-		if resetSpecified {
-			if numArgs == 2 {
-				// It makes no sense to supply a positional arg that isn't a
-				// region if we are resetting a region, so we must have gotten
-				// an invalid region.
-				return errors.Errorf("invalid region specified: %q", args[0])
-			}
+		if resetSpecified && numArgs == 2 {
+			// It makes no sense to supply a positional arg that isn't a
+			// region if we are resetting a region, so we must have gotten
+			// an invalid region.
+			return errors.Errorf("invalid region specified: %q", args[0])
 		}
 		if !resetSpecified {
 			// If we land here it is because there are extraneous positional
@@ -721,7 +719,9 @@ func formatDefaultConfigTabular(writer io.Writer, value interface{}) error {
 	}
 
 	tw := output.TabWriter(writer)
-	w := output.Wrapper{tw}
+	w := output.Wrapper{
+		TabWriter: tw,
+	}
 
 	p := func(name string, value config.AttributeDefaultValues) {
 		var c, d interface{}
@@ -751,7 +751,6 @@ func formatDefaultConfigTabular(writer io.Writer, value interface{}) error {
 		valueNames = append(valueNames, name)
 	}
 	sort.Strings(valueNames)
-
 	w.Println("Attribute", "Default", "Controller")
 
 	for _, name := range valueNames {

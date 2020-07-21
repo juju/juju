@@ -59,8 +59,8 @@ bootstrap() {
             provider="${manual_name}"
             ;;
         "microk8s")
-          provider="microk8s"
-          ;;
+            provider="microk8s"
+            ;;
         *)
             echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."
             exit 1

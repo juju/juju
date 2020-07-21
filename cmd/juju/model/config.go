@@ -429,11 +429,11 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 	} else if len(c.keys) > 0 && !finished {
 		if isFileLike(c.keys[0]) {
 			return errors.Errorf("%q seems to be a file but not found", c.keys[0])
-		} else {
-			mod, _ := c.ModelIdentifier()
-			return errors.Errorf("%q seems to be neither a file nor a key of the currently targeted model: %q",
-				c.keys[0], mod)
 		}
+
+		mod, _ := c.ModelIdentifier()
+		return errors.Errorf("%q seems to be neither a file nor a key of the currently targeted model: %q",
+			c.keys[0], mod)
 	}
 	return nil
 }
@@ -473,23 +473,23 @@ func (c *configCommand) handleIsKeyOfModel(attrs config.ConfigValues, ctx *cmd.C
 				// YAML or JSON formatting, so we print out
 				// the value unadorned.
 				return nil, c.out.WriteFormatter(ctx, cmd.FormatSmart, value.Value), true
-			} else {
-				return config.ConfigValues{key: config.ConfigValue{Source: value.Source, Value: value.Value}}, nil, true
 			}
-		} else {
-			return attrs, nil, false
+			return config.ConfigValues{key: config.ConfigValue{Source: value.Source, Value: value.Value}}, nil, true
 		}
-	} else {
-		// In tabular format, don't print "cloudinit-userdata" it can be very long,
-		// instead give instructions on how to print specifically.
-		if value, ok := attrs[config.CloudInitUserDataKey]; ok && c.out.Name() == "tabular" {
-			if value.Value.(string) != "" {
-				value.Value = "<value set, see juju model-config cloudinit-userdata>"
-				attrs["cloudinit-userdata"] = value
-			}
-			return attrs, nil, true
-		}
+
+		return attrs, nil, false
 	}
+
+	// In tabular format, don't print "cloudinit-userdata" it can be very long,
+	// instead give instructions on how to print specifically.
+	if value, ok := attrs[config.CloudInitUserDataKey]; ok && c.out.Name() == "tabular" {
+		if value.Value.(string) != "" {
+			value.Value = "<value set, see juju model-config cloudinit-userdata>"
+			attrs["cloudinit-userdata"] = value
+		}
+		return attrs, nil, true
+	}
+
 	return attrs, nil, true
 }
 
@@ -531,7 +531,9 @@ func formatConfigTabular(writer io.Writer, value interface{}) error {
 	}
 
 	tw := output.TabWriter(writer)
-	w := output.Wrapper{tw}
+	w := output.Wrapper{
+		TabWriter: tw,
+	}
 
 	var valueNames []string
 	for name := range configValues {
