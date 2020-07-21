@@ -175,6 +175,7 @@ type defaultsCommand struct {
 	cloudName, regionName string
 	reset                 []string // Holds the keys to be reset until parsed.
 	setOptions            common.ConfigFlag
+	skipImmutableErrors   bool
 }
 
 // cloudAPI defines an API to be passed in for testing.
@@ -226,6 +227,7 @@ func (c *defaultsCommand) SetFlags(f *gnuflag.FlagSet) {
 		"tabular": formatDefaultConfigTabular,
 	})
 	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
+	f.BoolVar(&c.skipImmutableErrors, "skip-immutable-errors", false, "Skip immutable errors when passing in the configurations")
 }
 
 // Init implements cmd.Command.Init.
@@ -725,6 +727,9 @@ func (c *defaultsCommand) setDefaults(client defaultsCommandAPI, ctx *cmd.Contex
 	values := make(defaultAttrs)
 	for k, v := range attrs {
 		if k == config.AgentVersionKey {
+			if c.skipImmutableErrors {
+				continue
+			}
 			return errors.Errorf(`"agent-version" must be set via "upgrade-model"`)
 		}
 		values[k] = v
