@@ -33,16 +33,6 @@ type unitInitializer struct {
 	unitTag names.UnitTag
 }
 
-// UnitInitType describes how to initialize the remote pod.
-type UnitInitType string
-
-const (
-	// UnitInit initializes the caas init container.
-	UnitInit UnitInitType = "init"
-	// UnitUpgrade re-initializes the caas workload container.
-	UnitUpgrade UnitInitType = "upgrade"
-)
-
 // initializeUnitParams contains parameters and dependencies for initializing
 // a unit.
 type initializeUnitParams struct {
@@ -51,9 +41,6 @@ type initializeUnitParams struct {
 
 	// ProviderID is the pod-name or pod-uid
 	ProviderID string
-
-	// InitType of how to initialize the pod.
-	InitType UnitInitType
 
 	// Logger for the worker.
 	Logger Logger
@@ -97,12 +84,6 @@ func (p initializeUnitParams) Validate() error {
 	if p.TempDir == nil {
 		return errors.NotValidf("missing TempDir")
 	}
-	switch p.InitType {
-	case UnitInit:
-	case UnitUpgrade:
-	default:
-		return errors.NotValidf("invalid InitType %q", string(p.InitType))
-	}
 	return nil
 }
 
@@ -141,14 +122,7 @@ func initializeUnit(params initializeUnitParams, cancel <-chan struct{}) error {
 	}
 
 	params.Logger.Infof("started pod init on %q", params.UnitTag.Id())
-	container := ""
-	switch params.InitType {
-	case UnitInit:
-		container = caas.InitContainerName
-	case UnitUpgrade:
-		container = ""
-	}
-
+	container := caas.InitContainerName
 	initArgs := []string{"--unit", params.UnitTag.String()}
 
 	rootToolsDir := tools.ToolsDir(cmdutil.DataDir, "")
@@ -195,22 +169,16 @@ func initializeUnit(params initializeUnitParams, cancel <-chan struct{}) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	initArgs = append(initArgs,
-		"--charm-dir", tempCharmDir)
-
-	if params.InitType == UnitInit {
-		tempOperatorCacheFile, tempCACertFile, err := setupRemoteConfiguration(params, cancel, unitPaths, tempDir, container)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		initArgs = append(initArgs,
-			"--send", // Init container will wait for us to send the data.
-			"--operator-file", tempOperatorCacheFile,
-			"--operator-ca-cert-file", tempCACertFile)
-	} else if params.InitType == UnitUpgrade {
-		initArgs = append(initArgs,
-			"--upgrade")
+	tempOperatorCacheFile, tempCACertFile, err := setupRemoteConfiguration(params, cancel, unitPaths, tempDir, container)
+	if err != nil {
+		return errors.Trace(err)
 	}
+	initArgs = append(initArgs,
+		"--charm-dir", tempCharmDir,
+		"--send", // Init container will wait for us to send the data.
+		"--operator-file", tempOperatorCacheFile,
+		"--operator-ca-cert-file", tempCACertFile,
+	)
 
 	stdout = &bytes.Buffer{}
 	command = append([]string{jujudPath, "caas-unit-init"}, initArgs...)
@@ -225,7 +193,6 @@ func initializeUnit(params initializeUnitParams, cancel <-chan struct{}) error {
 	if err != nil {
 		return errors.Annotatef(err, "caas-unit-init for unit %q with command: %q failed: %s", params.UnitTag.Id(), strings.Join(command, " "), string(stdout.Bytes()))
 	}
-
 	return nil
 }
 

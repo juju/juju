@@ -9049,8 +9049,7 @@
                     "additionalProperties": false,
                     "required": [
                         "pod-spec",
-                        "constraints",
-                        "charm-modified-version"
+                        "constraints"
                     ]
                 },
                 "KubernetesProvisioningInfoResult": {
