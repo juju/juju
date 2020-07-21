@@ -569,6 +569,21 @@ type LinkLayerDeviceAddress struct {
 	Origin corenetwork.Origin
 }
 
+// TODO (manadart 2020-07-21): This is silly. We already received the args
+// as an address/subnet pair and validated them when transforming them to
+// the CIDAddress. Now we unpack and validate again.
+// When the old link-layer update logic is removed, just pass it all
+// through as-is.
+// This method can then be removed and previous callers
+// then need not include an error return.
+func (a *LinkLayerDeviceAddress) addressAndSubnet() (string, string, error) {
+	ip, ipNet, err := net.ParseCIDR(a.CIDRAddress)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	return ip.String(), ipNet.String(), nil
+}
+
 // SetDevicesAddresses sets the addresses of all devices in devicesAddresses,
 // adding new or updating existing assignments as needed, in a single
 // transaction. ProviderID field can be empty if not supported by the provider,
