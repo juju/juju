@@ -40,7 +40,11 @@ type LinkLayerDevice interface {
 
 	// UpdateOps returns the transaction operations required to update the
 	// device so that it reflects the incoming arguments.
-	UpdateOps(args state.LinkLayerDeviceArgs) []txn.Op
+	UpdateOps(state.LinkLayerDeviceArgs) []txn.Op
+
+	// AddAddressOps returns transaction operations required
+	// to add the input address to the device.
+	AddAddressOps(state.LinkLayerDeviceAddress) ([]txn.Op, error)
 }
 
 // LinkLayerAddress describes a single layer-3 network address
@@ -70,6 +74,10 @@ type LinkLayerAddress interface {
 	// RemoveOps returns the transaction operations required to remove this
 	// address and if required, its provider ID.
 	RemoveOps() []txn.Op
+
+	// UpdateOps returns the transaction operations required to update the device
+	// so that it reflects the incoming arguments.
+	UpdateOps(state.LinkLayerDeviceAddress) ([]txn.Op, error)
 }
 
 // LinkLayerAccessor describes an entity that can
