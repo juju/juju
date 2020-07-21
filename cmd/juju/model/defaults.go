@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	"github.com/juju/schema"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -78,6 +79,80 @@ func NewDefaultsCommand() cmd.Command {
 	}
 	defaultsCmd.newAPIRoot = defaultsCmd.NewAPIRoot
 	return modelcmd.WrapController(defaultsCmd)
+}
+
+type defaultAttrs map[string]interface{}
+
+// CoerceFormat attempts to convert the defaultAttrs values from the complex
+// type to the more simple type. This is because the output of this command
+// outputs in the following format:
+//
+//     resource-name:
+//        default: foo
+//        controller: baz
+//        regions:
+//        - name: cloud-region-name
+//          value: bar
+//
+// Where the consuming side of the command expects it in the following format:
+//
+//     resource-name: bar
+//
+// CoerceFormat attempts to diagnose this and attempt to do this correctly.
+func (a defaultAttrs) CoerceFormat(region string) (defaultAttrs, error) {
+	coerced := make(map[string]interface{})
+
+	fields := schema.FieldMap(schema.Fields{
+		"default":    schema.Any(),
+		"controller": schema.Any(),
+		"regions": schema.List(schema.FieldMap(schema.Fields{
+			"name":  schema.String(),
+			"value": schema.Any(),
+		}, nil)),
+	}, schema.Defaults{
+		"controller": schema.Omit,
+		"regions":    schema.Omit,
+	})
+
+	for k, v := range a {
+		out, err := fields.Coerce(v, []string{})
+		if err != nil {
+			// Fallback to the old format and just pass through the value.
+			coerced[k] = v
+			continue
+		}
+
+		m := out.(map[string]interface{})
+		v = m["default"]
+		if ctrl, ok := m["controller"]; ok && region == "" {
+			v = ctrl
+		}
+		if regions, ok := m["regions"].([]interface{}); ok && regions != nil {
+			for _, r := range regions {
+				regionMap, ok := r.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				if regionMap["name"] == region {
+					v = regionMap["value"]
+				}
+			}
+		}
+
+		// Resource tags in the new output format is a map[string]interface{},
+		// but it should be of the format `foo=bar baz=boo`.
+		if k == "resource-tags" {
+			tags, err := coerceResourceTags(v)
+			if err != nil {
+				return nil, errors.Annotate(err, "unable to read resource-tags")
+			}
+			v = tags
+		}
+
+		coerced[k] = v
+	}
+
+	return coerced, nil
 }
 
 // defaultsCommand is compound command for accessing and setting attributes
@@ -647,7 +722,7 @@ func (c *defaultsCommand) setDefaults(client defaultsCommandAPI, ctx *cmd.Contex
 		return errors.Trace(err)
 	}
 	var keys []string
-	values := make(attributes)
+	values := make(defaultAttrs)
 	for k, v := range attrs {
 		if k == config.AgentVersionKey {
 			return errors.Errorf(`"agent-version" must be set via "upgrade-model"`)
@@ -656,8 +731,13 @@ func (c *defaultsCommand) setDefaults(client defaultsCommandAPI, ctx *cmd.Contex
 		keys = append(keys, k)
 	}
 
+	coerced, err := values.CoerceFormat(c.regionName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for _, k := range c.resetKeys {
-		if _, ok := values[k]; ok {
+		if _, ok := coerced[k]; ok {
 			return errors.Errorf(
 				"key %q cannot be both set and unset in the same command", k)
 		}
@@ -668,7 +748,7 @@ func (c *defaultsCommand) setDefaults(client defaultsCommandAPI, ctx *cmd.Contex
 	}
 	return block.ProcessBlockedError(
 		client.SetModelDefaults(
-			c.cloudName, c.regionName, values), block.BlockChange)
+			c.cloudName, c.regionName, coerced), block.BlockChange)
 }
 
 // resetDefaults resets the keys in resetKeys.

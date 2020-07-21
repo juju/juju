@@ -63,9 +63,9 @@ func NewConfigCommand() cmd.Command {
 	return modelcmd.Wrap(&configCommand{})
 }
 
-type attributes map[string]interface{}
+type configAttrs map[string]interface{}
 
-// CoerceFormat attempts to convert the attributes values from the complex type
+// CoerceFormat attempts to convert the configAttrs values from the complex type
 // to the more simple type. This is because the output of this command outputs
 // in the following format:
 //
@@ -78,7 +78,7 @@ type attributes map[string]interface{}
 //     resource-name: foo
 //
 // CoerceFormat attempts to diagnose this and attempt to do this correctly.
-func (a attributes) CoerceFormat() (attributes, error) {
+func (a configAttrs) CoerceFormat() (configAttrs, error) {
 	coerced := make(map[string]interface{})
 
 	fields := schema.FieldMap(schema.Fields{
@@ -114,6 +114,16 @@ func (a attributes) CoerceFormat() (attributes, error) {
 }
 
 func coerceResourceTags(resourceTags interface{}) (string, error) {
+	// When coercing a resource tag, the tags in question might already be in
+	// the correct format of a string. If that's the case, we should pass on
+	// doing the coercion.
+	if tags, ok := resourceTags.(string); ok {
+		return tags, nil
+	}
+
+	// It's not what we expect the resourceTags to be, so try and coerce the
+	// tags from a string to a map[string]interface{} and put it back into a
+	// format that we can consume.
 	tags := schema.StringMap(schema.Any())
 	out, err := tags.Coerce(resourceTags, []string{})
 	if err != nil {
@@ -374,7 +384,7 @@ func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) err
 		return errors.Trace(err)
 	}
 	var keys []string
-	values := make(attributes)
+	values := make(configAttrs)
 	for k, v := range attrs {
 		if k == config.AgentVersionKey {
 			if c.ignoreAgentVersion || c.skipImmutableErrors {
