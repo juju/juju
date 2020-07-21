@@ -537,7 +537,7 @@ type statusContext struct {
 	consumerRemoteApplications map[string]*state.RemoteApplication
 
 	// opened ports by subnet.
-	openPortsBySubnet map[string][]state.MachineSubnetPorts
+	openPortsBySubnet map[string][]state.MachinePortRanges
 
 	// offers: offer name -> offer
 	offers map[string]offerStatus
@@ -600,7 +600,7 @@ func (context *statusContext) fetchOpenPorts(st Backend) error {
 		return nil
 	}
 
-	context.openPortsBySubnet = make(map[string][]state.MachineSubnetPorts)
+	context.openPortsBySubnet = make(map[string][]state.MachinePortRanges)
 	allOpenPorts, err := context.model.OpenedPortsForAllMachines()
 	if err != nil {
 		return err

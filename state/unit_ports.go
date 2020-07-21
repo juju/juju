@@ -19,7 +19,7 @@ type UnitPorts struct {
 // UnitPortsFromMachineSubnetPorts creates a UnitPorts instance by scanning the
 // provided MachinePorts document for a machine's subnets and isolating the
 // port ranges that apply to the specified unit name.
-func UnitPortsFromMachineSubnetPorts(unitName, machineID string, openMachinePorts []MachineSubnetPorts) *UnitPorts {
+func UnitPortsFromMachineSubnetPorts(unitName, machineID string, openMachinePorts []MachinePortRanges) *UnitPorts {
 	up := &UnitPorts{
 		unitName:      unitName,
 		machineID:     machineID,

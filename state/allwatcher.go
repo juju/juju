@@ -2157,7 +2157,7 @@ func (ctx *allWatcherContext) getUnitPortRangesBySubnet(unit *Unit) (map[string]
 	}
 
 	// No cached port ranges available; make a direct DB lookup instead.
-	var machPortList []MachineSubnetPorts
+	var machPortList []MachinePortRanges
 	if ctx.openPortRanges == nil {
 		if machPortList, err = getOpenedMachinePortsInAllSubnets(ctx.state, machineID); err != nil {
 			return nil, errors.Trace(err)
@@ -2169,12 +2169,12 @@ func (ctx *allWatcherContext) getUnitPortRangesBySubnet(unit *Unit) (map[string]
 	return UnitPortsFromMachineSubnetPorts(unit.Name(), machineID, machPortList).BySubnet(), nil
 }
 
-func convMachineSubnetPorts(list []*machineSubnetPorts) []MachineSubnetPorts {
+func convMachineSubnetPorts(list []*machineSubnetPorts) []MachinePortRanges {
 	if len(list) == 0 {
 		return nil
 	}
 
-	out := make([]MachineSubnetPorts, len(list))
+	out := make([]MachinePortRanges, len(list))
 	for i, in := range list {
 		out[i] = in
 	}

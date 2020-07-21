@@ -25,8 +25,8 @@ type MachinePortsDocSuite struct {
 	unit2              *state.Unit
 	machine            *state.Machine
 	subnet             *state.Subnet
-	portsInSubnet      state.MachineSubnetPorts
-	portsWithoutSubnet state.MachineSubnetPorts
+	portsInSubnet      state.MachinePortRanges
+	portsWithoutSubnet state.MachinePortRanges
 }
 
 var _ = gc.Suite(&MachinePortsDocSuite{})
@@ -53,7 +53,7 @@ func (s *MachinePortsDocSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.portsWithoutSubnet, gc.NotNil)
 }
 
-func assertRefreshMachinePortsDoc(c *gc.C, p state.MachineSubnetPorts, errSatisfier func(error) bool) {
+func assertRefreshMachinePortsDoc(c *gc.C, p state.MachinePortRanges, errSatisfier func(error) bool) {
 	type refresher interface {
 		Refresh() error
 	}
@@ -69,7 +69,7 @@ func assertRefreshMachinePortsDoc(c *gc.C, p state.MachineSubnetPorts, errSatisf
 	}
 }
 
-func assertRemoveMachinePortsDoc(c *gc.C, p state.MachineSubnetPorts) {
+func assertRemoveMachinePortsDoc(c *gc.C, p state.MachinePortRanges) {
 	type remover interface {
 		Remove() error
 	}
@@ -79,7 +79,7 @@ func assertRemoveMachinePortsDoc(c *gc.C, p state.MachineSubnetPorts) {
 	c.Assert(portRemover.Remove(), jc.ErrorIsNil)
 }
 
-func assertMachinePortsPersisted(c *gc.C, p state.MachineSubnetPorts, persisted bool) {
+func assertMachinePortsPersisted(c *gc.C, p state.MachinePortRanges, persisted bool) {
 	type persistChecker interface {
 		Persisted() bool
 	}
@@ -89,11 +89,11 @@ func assertMachinePortsPersisted(c *gc.C, p state.MachineSubnetPorts, persisted 
 	c.Assert(checker.Persisted(), gc.Equals, persisted)
 }
 
-func (s *MachinePortsDocSuite) mustOpenCloseMachinePorts(c *gc.C, ports state.MachineSubnetPorts, unitName string, openRange, closeRange []network.PortRange) {
+func (s *MachinePortsDocSuite) mustOpenCloseMachinePorts(c *gc.C, ports state.MachinePortRanges, unitName string, openRange, closeRange []network.PortRange) {
 	c.Assert(s.openCloseMachinePorts(ports, unitName, openRange, closeRange), jc.ErrorIsNil)
 }
 
-func (s *MachinePortsDocSuite) openCloseMachinePorts(ports state.MachineSubnetPorts, unitName string, openRange, closeRange []network.PortRange) error {
+func (s *MachinePortsDocSuite) openCloseMachinePorts(ports state.MachinePortRanges, unitName string, openRange, closeRange []network.PortRange) error {
 	op, err := ports.OpenClosePortsOperation(unitName, openRange, closeRange)
 	if err != nil {
 		return err

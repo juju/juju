@@ -44,10 +44,9 @@ func extractPortsIDParts(globalKey string) ([]string, error) {
 	return nil, errors.NotValidf("ports document key %q", globalKey)
 }
 
-// MachineSubnetPorts is implemented by types that can query and/or manipulate
-// the set of port ranges opened by one or more units in a particular machine
-// subnet.
-type MachineSubnetPorts interface {
+// MachinePortRanges is implemented by types that can query and/or
+// manipulate the set of port ranges opened by one or more units in a machine.
+type MachinePortRanges interface {
 	// SubnetID returns the ID of the subnet that these port ranges relate to.
 	SubnetID() string
 
@@ -208,7 +207,7 @@ func (p *machineSubnetPorts) Remove() error {
 }
 
 // OpenedPortsInSubnet returns this machine ports document for the given subnetID.
-func (m *Machine) OpenedPortsInSubnet(subnetID string) (MachineSubnetPorts, error) {
+func (m *Machine) OpenedPortsInSubnet(subnetID string) (MachinePortRanges, error) {
 	portsInSubnet, err := getOrCreateOpenedMachinePortsInSubnet(m.st, m.Id(), subnetID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -218,14 +217,14 @@ func (m *Machine) OpenedPortsInSubnet(subnetID string) (MachineSubnetPorts, erro
 
 // OpenedPorts returns a list of MachineSubnetPorts that correspond to the set
 // of opened ports in each machine subnet.
-func (m *Machine) OpenedPorts() ([]MachineSubnetPorts, error) {
+func (m *Machine) OpenedPorts() ([]MachinePortRanges, error) {
 	return getOpenedMachinePortsInAllSubnets(m.st, m.Id())
 }
 
 // OpenedPortsForAllMachines returns a list of MachineSubnetPorts that correspond to
 // the set of opened ports in each subnet for all machines managed by this
 // model.
-func (m *Model) OpenedPortsForAllMachines() ([]MachineSubnetPorts, error) {
+func (m *Model) OpenedPortsForAllMachines() ([]MachinePortRanges, error) {
 	openedPorts, closer := m.st.db().GetCollection(openedPortsC)
 	defer closer()
 
@@ -234,7 +233,7 @@ func (m *Model) OpenedPortsForAllMachines() ([]MachineSubnetPorts, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	results := make([]MachineSubnetPorts, len(docs))
+	results := make([]MachinePortRanges, len(docs))
 	for i, doc := range docs {
 		results[i] = &machineSubnetPorts{st: m.st, doc: doc}
 	}
@@ -243,7 +242,7 @@ func (m *Model) OpenedPortsForAllMachines() ([]MachineSubnetPorts, error) {
 
 // OpenedPortsForMachine returns a list of MachineSubnetPorts that correspond to the
 // set of opened ports in each subnet for the specified machine ID.
-func (m *Model) OpenedPortsForMachine(machineID string) ([]MachineSubnetPorts, error) {
+func (m *Model) OpenedPortsForMachine(machineID string) ([]MachinePortRanges, error) {
 	return getOpenedMachinePortsInAllSubnets(m.st, machineID)
 }
 
@@ -385,7 +384,7 @@ func getOrCreateOpenedMachinePortsInSubnet(st *State, machineID, subnetID string
 
 // getOpenedMachinePortsInAllSubnets returns a list of MachineSubnetPorts instances
 // for each subnet the machine has opened ports in.
-func getOpenedMachinePortsInAllSubnets(st *State, machineID string) ([]MachineSubnetPorts, error) {
+func getOpenedMachinePortsInAllSubnets(st *State, machineID string) ([]MachinePortRanges, error) {
 	openedPorts, closer := st.db().GetCollection(openedPortsC)
 	defer closer()
 
@@ -394,7 +393,7 @@ func getOpenedMachinePortsInAllSubnets(st *State, machineID string) ([]MachineSu
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	results := make([]MachineSubnetPorts, len(docs))
+	results := make([]MachinePortRanges, len(docs))
 	for i, doc := range docs {
 		results[i] = &machineSubnetPorts{st: st, doc: doc}
 	}
