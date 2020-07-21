@@ -545,7 +545,7 @@ func (i *importer) machinePortsOps(m description.Machine) ([]txn.Op, error) {
 			SubnetID:  subnetID,
 		}
 		for _, opened := range ports.OpenPorts() {
-			doc.Ports = append(doc.Ports, PortRange{
+			doc.Ports = append(doc.Ports, portRangeDoc{
 				UnitName: opened.UnitName(),
 				FromPort: opened.FromPort(),
 				ToPort:   opened.ToPort(),

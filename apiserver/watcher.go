@@ -304,6 +304,9 @@ func (aw *SrvAllWatcher) translateUnit(info multiwatcher.EntityInfo) params.Enti
 		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
 		return nil
 	}
+
+	translatedPortRanges := aw.translatePortRanges(orig.PortRangesBySubnet)
+
 	return &params.UnitInfo{
 		ModelUUID:      orig.ModelUUID,
 		Name:           orig.Name,
@@ -314,8 +317,8 @@ func (aw *SrvAllWatcher) translateUnit(info multiwatcher.EntityInfo) params.Enti
 		PublicAddress:  orig.PublicAddress,
 		PrivateAddress: orig.PrivateAddress,
 		MachineId:      orig.MachineID,
-		Ports:          aw.translatePorts(orig.Ports),
-		PortRanges:     aw.translatePortRanges(orig.PortRanges),
+		Ports:          aw.mapRangesIntoPorts(translatedPortRanges),
+		PortRanges:     translatedPortRanges,
 		Principal:      orig.Principal,
 		Subordinate:    orig.Subordinate,
 		WorkloadStatus: aw.translateStatus(orig.WorkloadStatus),
@@ -323,25 +326,51 @@ func (aw *SrvAllWatcher) translateUnit(info multiwatcher.EntityInfo) params.Enti
 	}
 }
 
-func (aw *SrvAllWatcher) translatePorts(ports []network.Port) []params.Port {
-	if ports == nil {
+func (aw *SrvAllWatcher) mapRangesIntoPorts(portRanges []params.PortRange) []params.Port {
+	if portRanges == nil {
 		return nil
 	}
-	result := make([]params.Port, 0, len(ports))
-	for _, port := range ports {
-		result = append(result, params.FromNetworkPort(port))
+	result := make([]params.Port, 0, len(portRanges))
+	for _, pr := range portRanges {
+		for portNum := pr.FromPort; portNum <= pr.ToPort; portNum++ {
+			result = append(result, params.Port{
+				Protocol: pr.Protocol,
+				Number:   portNum,
+			})
+		}
 	}
 	return result
 }
 
-func (aw *SrvAllWatcher) translatePortRanges(ports []network.PortRange) []params.PortRange {
-	if ports == nil {
+// translatePortRanges flattens a set of port ranges grouped by subnet ID into
+// a list of unique port ranges. This method ignores subnet IDs and is provided
+// for backwards compatibility with pre 2.9 clients that assume that open-ports
+// applies to all subnets.
+func (aw *SrvAllWatcher) translatePortRanges(portsBySubnet map[string][]network.PortRange) []params.PortRange {
+	if portsBySubnet == nil {
 		return nil
 	}
-	result := make([]params.PortRange, 0, len(ports))
-	for _, port := range ports {
-		result = append(result, params.FromNetworkPortRange(port))
+
+	var (
+		processed        = make(map[network.PortRange]struct{})
+		uniquePortRanges []network.PortRange
+	)
+	for _, openedInSubnet := range portsBySubnet {
+		for _, pr := range openedInSubnet {
+			if _, seen := processed[pr]; seen {
+				continue
+			}
+			processed[pr] = struct{}{}
+			uniquePortRanges = append(uniquePortRanges, pr)
+		}
 	}
+	network.SortPortRanges(uniquePortRanges)
+
+	result := make([]params.PortRange, len(uniquePortRanges))
+	for i, pr := range uniquePortRanges {
+		result[i] = params.FromNetworkPortRange(pr)
+	}
+
 	return result
 }
 

@@ -77,16 +77,16 @@ func getRules(envName string, fwrules []cloudapi.FirewallRule) ([]network.Ingres
 					continue
 				}
 				protocol := parts[1]
-				var ports []corenetwork.Port
+				var singePortRanges []corenetwork.PortRange
 				portStrings := strings.Split(parts[2], " AND ")
 				for _, portString := range portStrings {
 					portString = portString[strings.LastIndex(portString, "PORT")+5:]
 					port, _ := strconv.Atoi(portString)
-					ports = append(ports, corenetwork.Port{Protocol: protocol, Number: port})
+					singePortRanges = append(singePortRanges, corenetwork.PortRange{Protocol: protocol, FromPort: port, ToPort: port})
 				}
-				portRange := corenetwork.CollapsePorts(ports)
-				for _, port := range portRange {
-					rule, _ := network.NewIngressRule(port.Protocol, port.FromPort, port.ToPort, "0.0.0.0/0")
+				combined := corenetwork.CombinePortRanges(singePortRanges...)
+				for _, pr := range combined {
+					rule, _ := network.NewIngressRule(pr.Protocol, pr.FromPort, pr.ToPort, "0.0.0.0/0")
 					rules = append(rules, rule)
 				}
 			}

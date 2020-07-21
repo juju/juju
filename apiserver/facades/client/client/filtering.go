@@ -184,14 +184,19 @@ func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
 }
 
 func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
-	portRanges, err := u.OpenedPorts()
+	portsBySubnet, err := u.OpenedPortsBySubnet()
 	if err != nil {
 		if errors.IsNotAssigned(err) {
 			return false, false, nil
 		}
 		return false, false, err
 	}
-	return matchPortRanges(patterns, portRanges...)
+
+	var allRanges []network.PortRange
+	for _, portRanges := range portsBySubnet {
+		allRanges = append(allRanges, portRanges...)
+	}
+	return matchPortRanges(patterns, allRanges...)
 }
 
 // buildApplicationMatcherShims adds matchers for application name, application units and

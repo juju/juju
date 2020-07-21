@@ -516,8 +516,14 @@ func (m *mockModel) AgentVersion() (version.Number, error) {
 	return ver, nil
 }
 
-func (m *mockModel) AllPorts() ([]application.Ports, error) {
-	return []application.Ports{
+func (m *mockModel) OpenedPortsForMachine(machineID string) ([]state.MachineSubnetPorts, error) {
+	return []state.MachineSubnetPorts{
+		mockPorts{machineID},
+	}, nil
+}
+
+func (m *mockModel) AllPorts() ([]state.MachineSubnetPorts, error) {
+	return []state.MachineSubnetPorts{
 		mockPorts{"0"},
 		mockPorts{"1"},
 	}, nil
@@ -535,12 +541,20 @@ func (m mockPorts) MachineID() string {
 	return m.machineId
 }
 
-func (mockPorts) PortsForUnit(unitName string) []state.PortRange {
-	return []state.PortRange{{
+func (mockPorts) PortRangesByUnit() map[string][]network.PortRange {
+	panic("not implemented")
+}
+
+func (mockPorts) PortRangesForUnit(unitName string) []network.PortRange {
+	return []network.PortRange{{
 		FromPort: 100,
 		ToPort:   102,
 		Protocol: "IP",
 	}}
+}
+
+func (mockPorts) OpenClosePortsOperation(unitName string, openPortRanges []network.PortRange, closePortRanges []network.PortRange) (state.ModelOperation, error) {
+	panic("not implemented")
 }
 
 type mockMachine struct {

@@ -124,7 +124,7 @@ func (*PortRangeSuite) TestValidate(c *gc.C) {
 	}, {
 		"both FromPort and ToPort too large",
 		network.PortRange{88888, 99999, "tcp"},
-		"invalid port range 88888-99999/tcp",
+		"port range bounds must be between 1 and 65535, got 88888-99999",
 	}, {
 		"FromPort too large",
 		network.PortRange{88888, 65535, "tcp"},
@@ -132,15 +132,15 @@ func (*PortRangeSuite) TestValidate(c *gc.C) {
 	}, {
 		"FromPort too small",
 		network.PortRange{0, 80, "tcp"},
-		"invalid port range 0-80/tcp",
+		"port range bounds must be between 1 and 65535, got 0-80",
 	}, {
 		"ToPort too large",
 		network.PortRange{1, 99999, "tcp"},
-		"invalid port range 1-99999/tcp",
+		"port range bounds must be between 1 and 65535, got 1-99999",
 	}, {
 		"both ports 0",
 		network.PortRange{0, 0, "tcp"},
-		"invalid port range 0-0/tcp",
+		"port range bounds must be between 1 and 65535, got 0-0",
 	}, {
 		"invalid protocol",
 		network.PortRange{80, 80, "some protocol"},
@@ -174,54 +174,6 @@ func (*PortRangeSuite) TestSortPortRanges(c *gc.C) {
 	}
 	network.SortPortRanges(ranges)
 	c.Assert(ranges, gc.DeepEquals, expected)
-}
-
-func (*PortRangeSuite) TestCollapsePorts(c *gc.C) {
-	testCases := []struct {
-		about    string
-		ports    []network.Port
-		expected []network.PortRange
-	}{{
-		"single port",
-		[]network.Port{{"tcp", 80}},
-		[]network.PortRange{{80, 80, "tcp"}},
-	}, {
-		"continuous port range (increasing)",
-		[]network.Port{{"tcp", 80}, {"tcp", 81}, {"tcp", 82}, {"tcp", 83}},
-		[]network.PortRange{{80, 83, "tcp"}},
-	}, {
-		"continuous port range (decreasing)",
-		[]network.Port{{"tcp", 83}, {"tcp", 82}, {"tcp", 81}, {"tcp", 80}},
-		[]network.PortRange{{80, 83, "tcp"}},
-	}, {
-		"non-continuous port range (increasing)",
-		[]network.Port{{"tcp", 80}, {"tcp", 81}, {"tcp", 82}, {"tcp", 84}, {"tcp", 85}},
-		[]network.PortRange{{80, 82, "tcp"}, {84, 85, "tcp"}},
-	}, {
-		"non-continuous port range (decreasing)",
-		[]network.Port{{"tcp", 85}, {"tcp", 84}, {"tcp", 82}, {"tcp", 81}, {"tcp", 80}},
-		[]network.PortRange{{80, 82, "tcp"}, {84, 85, "tcp"}},
-	}, {
-		"alternating tcp / udp ports (increasing)",
-		[]network.Port{{"tcp", 80}, {"udp", 81}, {"tcp", 82}, {"udp", 83}, {"tcp", 84}},
-		[]network.PortRange{{80, 80, "tcp"}, {82, 82, "tcp"}, {84, 84, "tcp"}, {81, 81, "udp"}, {83, 83, "udp"}},
-	}, {
-		"alternating tcp / udp ports (decreasing)",
-		[]network.Port{{"tcp", 84}, {"udp", 83}, {"tcp", 82}, {"udp", 81}, {"tcp", 80}},
-		[]network.PortRange{{80, 80, "tcp"}, {82, 82, "tcp"}, {84, 84, "tcp"}, {81, 81, "udp"}, {83, 83, "udp"}},
-	}, {
-		"non-continuous port range (udp vs tcp - increasing)",
-		[]network.Port{{"tcp", 80}, {"tcp", 81}, {"tcp", 82}, {"udp", 84}, {"tcp", 83}},
-		[]network.PortRange{{80, 83, "tcp"}, {84, 84, "udp"}},
-	}, {
-		"non-continuous port range (udp vs tcp - decreasing)",
-		[]network.Port{{"tcp", 83}, {"udp", 84}, {"tcp", 82}, {"tcp", 81}, {"tcp", 80}},
-		[]network.PortRange{{80, 83, "tcp"}, {84, 84, "udp"}},
-	}}
-	for i, t := range testCases {
-		c.Logf("test %d: %s", i, t.about)
-		c.Check(network.CollapsePorts(t.ports), jc.DeepEquals, t.expected)
-	}
 }
 
 func (*PortRangeSuite) TestParsePortRange(c *gc.C) {
@@ -339,5 +291,102 @@ func (*PortRangeSuite) TestCombinePortRanges(c *gc.C) {
 	for i, t := range testCases {
 		c.Logf("test %d", i)
 		c.Check(network.CombinePortRanges(t.in...), jc.DeepEquals, t.expected)
+	}
+}
+
+func (p *PortRangeSuite) TestPortRangeLength(c *gc.C) {
+	testCases := []struct {
+		about        string
+		ports        network.PortRange
+		expectLength int
+	}{{
+		"single valid port",
+		network.MustParsePortRange("80/tcp"),
+		1,
+	}, {
+		"tcp port range",
+		network.MustParsePortRange("80-90/tcp"),
+		11,
+	}, {
+		"udp port range",
+		network.MustParsePortRange("80-90/udp"),
+		11,
+	}, {
+		"ICMP range",
+		network.PortRange{Protocol: "icmp", FromPort: -1, ToPort: -1},
+		1,
+	}, {
+		"longest valid range",
+		network.MustParsePortRange("1-65535/tcp"),
+		65535,
+	}}
+
+	for i, t := range testCases {
+		c.Logf("test %d: %s", i, t.about)
+		c.Check(t.ports.Length(), gc.Equals, t.expectLength)
+	}
+}
+
+func (p *PortRangeSuite) TestSanitizeBounds(c *gc.C) {
+	tests := []struct {
+		about  string
+		input  network.PortRange
+		output network.PortRange
+	}{{
+		"valid range",
+		network.PortRange{FromPort: 100, ToPort: 200},
+		network.PortRange{FromPort: 100, ToPort: 200},
+	}, {
+		"negative lower bound",
+		network.PortRange{FromPort: -10, ToPort: 10},
+		network.PortRange{FromPort: 1, ToPort: 10},
+	}, {
+		"zero lower bound",
+		network.PortRange{FromPort: 0, ToPort: 10},
+		network.PortRange{FromPort: 1, ToPort: 10},
+	}, {
+		"negative upper bound",
+		network.PortRange{FromPort: 42, ToPort: -20},
+		network.PortRange{FromPort: 1, ToPort: 42},
+	}, {
+		"zero upper bound",
+		network.PortRange{FromPort: 42, ToPort: 0},
+		network.PortRange{FromPort: 1, ToPort: 42},
+	}, {
+		"both bounds negative",
+		network.PortRange{FromPort: -10, ToPort: -20},
+		network.PortRange{FromPort: 1, ToPort: 1},
+	}, {
+		"both bounds zero",
+		network.PortRange{FromPort: 0, ToPort: 0},
+		network.PortRange{FromPort: 1, ToPort: 1},
+	}, {
+		"swapped bounds",
+		network.PortRange{FromPort: 20, ToPort: 10},
+		network.PortRange{FromPort: 10, ToPort: 20},
+	}, {
+		"too large upper bound",
+		network.PortRange{FromPort: 20, ToPort: 99999},
+		network.PortRange{FromPort: 20, ToPort: 65535},
+	}, {
+		"too large lower bound",
+		network.PortRange{FromPort: 99999, ToPort: 10},
+		network.PortRange{FromPort: 10, ToPort: 65535},
+	}, {
+		"both bounds too large",
+		network.PortRange{FromPort: 88888, ToPort: 99999},
+		network.PortRange{FromPort: 65535, ToPort: 65535},
+	}, {
+		"lower negative, upper too large",
+		network.PortRange{FromPort: -10, ToPort: 99999},
+		network.PortRange{FromPort: 1, ToPort: 65535},
+	}, {
+		"lower zero, upper too large",
+		network.PortRange{FromPort: 0, ToPort: 99999},
+		network.PortRange{FromPort: 1, ToPort: 65535},
+	}}
+	for i, t := range tests {
+		c.Logf("test %d: %s", i, t.about)
+		c.Check(t.input.SanitizeBounds(), jc.DeepEquals, t.output)
 	}
 }

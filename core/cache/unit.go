@@ -73,9 +73,10 @@ func (u *Unit) CharmURL() string {
 	return u.details.CharmURL
 }
 
-// Ports returns the exposed ports for the unit.
-func (u *Unit) Ports() []network.Port {
-	return u.details.Ports
+// PortRangesBySubnet returns a map where keys are subnet IDs and values are
+// the port ranges opened by the unit on each subnet.
+func (u *Unit) PortRangesBySubnet() map[string][]network.PortRange {
+	return u.details.PortRangesBySubnet
 }
 
 // AgentStatus returns the agent status of the unit.

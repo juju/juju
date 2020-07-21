@@ -1004,13 +1004,13 @@ func (m *Machine) removePortsOps() ([]txn.Op, error) {
 	if m.doc.Life != Dead {
 		return nil, errors.Errorf("machine is not dead")
 	}
-	ports, err := m.AllPorts()
+	ports, err := m.OpenedPorts()
 	if err != nil {
 		return nil, err
 	}
 	var ops []txn.Op
 	for _, p := range ports {
-		ops = append(ops, p.removeOps()...)
+		ops = append(ops, p.(*machineSubnetPorts).removeOps()...)
 	}
 	return ops, nil
 }
@@ -1597,29 +1597,54 @@ func (m *Machine) ProviderAddresses() (addresses corenetwork.SpaceAddresses) {
 // returns the result as a map where the space id is used a the key.
 // Loopback addresses are skipped.
 func (m *Machine) AddressesBySpaceID() (map[string][]corenetwork.SpaceAddress, error) {
+	res := make(map[string][]corenetwork.SpaceAddress)
+	err := m.visitAddressesInSpaces(func(subnet *Subnet, address *Address) {
+		spaceID := subnet.SpaceID()
+		res[spaceID] = append(res[spaceID], address.NetworkAddress())
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return res, nil
+}
+
+// SubnetsBySpaceID resolves the subnet assignments for each space the machine
+// is associated with and returns them back as a map where keys are space IDs
+// and each value is a slice of subnet IDs assigned to a particular space.
+func (m *Machine) SubnetsBySpaceID() (map[string][]string, error) {
+	res := make(map[string][]string)
+	err := m.visitAddressesInSpaces(func(subnet *Subnet, address *Address) {
+		spaceID := subnet.SpaceID()
+		res[spaceID] = append(res[spaceID], subnet.ID())
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return res, nil
+}
+
+// visitAddressesInSpaces invokes visitFn for each non-loopback machine address
+// that is assigned to a space.
+func (m *Machine) visitAddressesInSpaces(visitFn func(subnet *Subnet, address *Address)) error {
 	addresses, err := m.AllAddresses()
 	if err != nil {
-		return nil, err
+		return errors.Trace(err)
 	}
 
-	res := make(map[string][]corenetwork.SpaceAddress)
 	for _, address := range addresses {
-		// TODO(achilleasa): currently, addresses do not come with
-		// resolved space IDs (except MAAS). For the time being, we
-		// need to pull out the space ID information from the
-		// associated subnet.
-		// we need to ignore the loopback else it will fail
+		// Juju does not keep track of loopback subnets so we need
+		// to skip loopback addresses as the subnet lookup below will
+		// fail.
 		if address.LoopbackConfigMethod() {
 			continue
 		}
 		subnet, err := address.Subnet()
 		if err != nil {
-			return nil, err
+			return errors.Trace(err)
 		}
-		spaceID := subnet.SpaceID()
-		res[spaceID] = append(res[spaceID], address.NetworkAddress())
+		visitFn(subnet, address)
 	}
-	return res, nil
+	return nil
 }
 
 // MachineAddresses returns any hostnames and ips associated with a machine,

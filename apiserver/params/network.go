@@ -354,24 +354,6 @@ type Port struct {
 	Number   int    `json:"number"`
 }
 
-// FromNetworkPort is a convenience helper to create a parameter
-// out of the network type, here for Port.
-func FromNetworkPort(p network.Port) Port {
-	return Port{
-		Protocol: p.Protocol,
-		Number:   p.Number,
-	}
-}
-
-// NetworkPort is a convenience helper to return the parameter
-// as network type, here for Port.
-func (p Port) NetworkPort() network.Port {
-	return network.Port{
-		Protocol: p.Protocol,
-		Number:   p.Number,
-	}
-}
-
 // PortRange represents a single range of ports. It is used in API
 // requests/responses. See also network.PortRange, from/to which this is
 // transformed.

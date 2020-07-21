@@ -536,8 +536,8 @@ type statusContext struct {
 	// remote applications: application name -> application
 	consumerRemoteApplications map[string]*state.RemoteApplication
 
-	// open ports: map machine ID -> Ports
-	openPorts map[string]*state.Ports
+	// opened ports by subnet.
+	openPortsBySubnet map[string][]state.MachineSubnetPorts
 
 	// offers: offer name -> offer
 	offers map[string]offerStatus
@@ -599,17 +599,14 @@ func (context *statusContext) fetchOpenPorts(st Backend) error {
 	if context.model.Type() == state.ModelTypeCAAS {
 		return nil
 	}
-	context.openPorts = make(map[string]*state.Ports)
-	allOpenPorts, err := context.model.AllPorts()
+
+	context.openPortsBySubnet = make(map[string][]state.MachineSubnetPorts)
+	allOpenPorts, err := context.model.OpenedPortsForAllMachines()
 	if err != nil {
 		return err
 	}
-	// We are only looking for the open ports on the "" subnet.
 	for _, openPorts := range allOpenPorts {
-		if openPorts.SubnetID() != "" {
-			continue
-		}
-		context.openPorts[openPorts.MachineID()] = openPorts
+		context.openPortsBySubnet[openPorts.MachineID()] = append(context.openPortsBySubnet[openPorts.MachineID()], openPorts)
 	}
 	return nil
 }
@@ -1397,14 +1394,20 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 	if context.model.Type() == state.ModelTypeIAAS {
 		result.PublicAddress = context.unitPublicAddress(unit)
 
-		if ports := context.openPorts[context.unitMachineID(unit)]; ports != nil {
-			var corePorts []network.PortRange
-			for _, port := range ports.PortsForUnit(unit.Name()) {
-				corePorts = append(corePorts, network.PortRange{
-					Protocol: port.Protocol,
-					FromPort: port.FromPort,
-					ToPort:   port.ToPort,
-				})
+		if allMachinePorts := context.openPortsBySubnet[context.unitMachineID(unit)]; allMachinePorts != nil {
+			var (
+				corePorts []network.PortRange
+				processed = make(map[network.PortRange]struct{})
+			)
+
+			for _, openedInSubnet := range allMachinePorts {
+				for _, pr := range openedInSubnet.PortRangesForUnit(unit.Name()) {
+					if _, seen := processed[pr]; seen {
+						continue
+					}
+					processed[pr] = struct{}{}
+					corePorts = append(corePorts, pr)
+				}
 			}
 			network.SortPortRanges(corePorts)
 

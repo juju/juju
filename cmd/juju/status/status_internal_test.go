@@ -4346,7 +4346,7 @@ func (oup openUnitPort) step(c *gc.C, ctx *context) {
 		ToPort:   oup.number,
 		Protocol: oup.protocol,
 	}
-	err = u.OpenClosePortsOnSubnet("", []network.PortRange{openPortRange}, nil)
+	err = u.OpenClosePortsInSubnet("", []network.PortRange{openPortRange}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

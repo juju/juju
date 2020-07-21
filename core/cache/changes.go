@@ -147,20 +147,19 @@ type RemoveCharm struct {
 // UnitChange represents either a new unit, or a change
 // to an existing unit in a model.
 type UnitChange struct {
-	ModelUUID      string
-	Name           string
-	Application    string
-	Series         string
-	Annotations    map[string]string
-	CharmURL       string
-	Life           life.Value
-	PublicAddress  string
-	PrivateAddress string
-	MachineId      string
-	Ports          []network.Port
-	PortRanges     []network.PortRange
-	Principal      string
-	Subordinate    bool
+	ModelUUID          string
+	Name               string
+	Application        string
+	Series             string
+	Annotations        map[string]string
+	CharmURL           string
+	Life               life.Value
+	PublicAddress      string
+	PrivateAddress     string
+	MachineId          string
+	PortRangesBySubnet map[string][]network.PortRange
+	Principal          string
+	Subordinate        bool
 
 	WorkloadStatus  status.StatusInfo
 	AgentStatus     status.StatusInfo
@@ -169,26 +168,7 @@ type UnitChange struct {
 
 // copy returns a deep copy of the UnitChange.
 func (u UnitChange) copy() UnitChange {
-	var cPorts []network.Port
-	uPorts := u.Ports
-	if uPorts != nil {
-		cPorts = make([]network.Port, len(uPorts))
-		for i, p := range uPorts {
-			cPorts[i] = p
-		}
-	}
-	u.Ports = cPorts
-
-	var cPortRanges []network.PortRange
-	uPortRanges := u.PortRanges
-	if uPortRanges != nil {
-		cPortRanges = make([]network.PortRange, len(uPortRanges))
-		for i, p := range uPortRanges {
-			cPortRanges[i] = p
-		}
-	}
-	u.PortRanges = cPortRanges
-
+	u.PortRangesBySubnet = copyPortRangeMap(u.PortRangesBySubnet)
 	u.Annotations = copyStringMap(u.Annotations)
 	u.WorkloadStatus = copyStatusInfo(u.WorkloadStatus)
 	u.AgentStatus = copyStatusInfo(u.AgentStatus)
@@ -411,6 +391,18 @@ func copyStringMap(data map[string]string) map[string]string {
 		for i, d := range data {
 			cData[i] = d
 		}
+	}
+	return cData
+}
+
+func copyPortRangeMap(data map[string][]network.PortRange) map[string][]network.PortRange {
+	if data == nil {
+		return nil
+	}
+
+	cData := make(map[string][]network.PortRange, len(data))
+	for i, d := range data {
+		cData[i] = append([]network.PortRange(nil), d...)
 	}
 	return cData
 }
