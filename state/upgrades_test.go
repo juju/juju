@@ -2677,16 +2677,16 @@ func (s *upgradesSuite) TestSetEnableDiskUUIDOnVsphere(c *gc.C) {
 	m1 := s.makeModel(c, "m1", coretesting.Attrs{
 		"type": "someprovider",
 	})
-	defer m1.Close()
+	defer func() { _ = m1.Close() }()
 	m2 := s.makeModel(c, "m2", coretesting.Attrs{
 		"type": "vsphere",
 	})
-	defer m2.Close()
+	defer func() { _ = m2.Close() }()
 	m3 := s.makeModel(c, "m3", coretesting.Attrs{
 		"type":             "vsphere",
 		"enable-disk-uuid": true,
 	})
-	defer m3.Close()
+	defer func() { _ = m3.Close() }()
 
 	err = coll.Insert(bson.M{
 		"_id": "someothersettingshouldnotbetouched",
@@ -4377,12 +4377,12 @@ func (s *upgradesSuite) TestAddCharmhubToModelConfig(c *gc.C) {
 		"dotted.setting": "value",
 		"dollar$setting": "value",
 	})
-	defer m1.Close()
+	defer func() { _ = m1.Close() }()
 	// Value set to something other that default
 	m2 := s.makeModel(c, "m3", coretesting.Attrs{
 		"charmhub-url": "http://meshuggah.rocks",
 	})
-	defer m2.Close()
+	defer func() { _ = m2.Close() }()
 
 	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
 	defer settingsCloser()
