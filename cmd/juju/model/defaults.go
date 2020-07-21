@@ -602,6 +602,15 @@ func (c *defaultsCommand) parseSetKeys(args []string) error {
 	return nil
 }
 
+// parseStdin ensures that we handle stdin correctly.
+func (c *defaultsCommand) parseStdin() error {
+	if err := c.setOptions.SetAttrsFromReader(os.Stdin); err != nil {
+		return errors.Trace(err)
+	}
+	c.action = c.setDefaults
+	return nil
+}
+
 // handleOneArg handles the case where we have one positional arg after
 // processing for a region and the reset flag.
 func (c *defaultsCommand) handleOneArg(arg string) error {
@@ -622,6 +631,14 @@ func (c *defaultsCommand) handleOneArg(arg string) error {
 		// region.
 		return errors.Errorf("invalid region specified: %q", arg)
 	}
+
+	// Handle piping in confing from stdin.
+	if arg == "-" {
+		if err := c.parseStdin(); err == nil {
+			return nil
+		}
+	}
+
 	// We can retrieve a value.
 	c.key = arg
 	c.action = c.getDefaults
