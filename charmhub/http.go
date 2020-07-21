@@ -52,17 +52,28 @@ func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	var potentialInvalidURL bool
+	if resp.StatusCode == http.StatusNotFound {
+		potentialInvalidURL = true
+	}
+
 	// Parse the response error.
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot read response body")
 	}
 	if contentType := resp.Header.Get("Content-Type"); contentType != "application/json" {
-		return nil, errors.Errorf(`expected "application/json" contentType from server: %v`, contentType)
+		if potentialInvalidURL {
+			return nil, errors.Errorf(`unexpected charmhub url %q when parsing headers`, req.URL.String())
+		}
+		return nil, errors.Errorf(`unexpected content-type from server %q`, contentType)
 	}
 
 	var apiError transport.APIError
 	if err := json.Unmarshal(data, &apiError); err != nil {
+		if potentialInvalidURL {
+			return nil, errors.Errorf(`unexpected charmhub url %q when parsing response`, req.URL.String())
+		}
 		return nil, errors.Trace(err)
 	}
 

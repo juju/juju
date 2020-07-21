@@ -6,6 +6,7 @@ package config
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
@@ -251,6 +253,9 @@ const (
 	// LXDSnapChannel selects the channel to use when installing LXD from a snap.
 	LXDSnapChannel = "lxd-snap-channel"
 
+	// CharmhubURLKey is the key for the url to use for charmhub API calls
+	CharmhubURLKey = "charmhub-url"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -468,6 +473,8 @@ var defaultConfigValues = map[string]interface{}{
 	ContainerInheritPropertiesKey: "",
 	BackupDirKey:                  "",
 	LXDSnapChannel:                "latest/stable",
+
+	CharmhubURLKey: charmhub.CharmhubServerURL,
 
 	// Image and agent streams and URLs.
 	"image-stream":               "released",
@@ -733,6 +740,10 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
+	if err := cfg.validateCharmhubURL(); err != nil {
+		return err
+	}
+
 	if err := cfg.validateDefaultSpace(); err != nil {
 		return err
 	}
@@ -751,6 +762,11 @@ func Validate(cfg, old *Config) error {
 		if _, oldFound := old.AgentVersion(); oldFound {
 			if _, newFound := cfg.AgentVersion(); !newFound {
 				return errors.New("cannot clear agent-version")
+			}
+		}
+		if _, oldFound := old.CharmhubURL(); oldFound {
+			if _, newFound := cfg.CharmhubURL(); !newFound {
+				return errors.New("cannot clear charmhub-url")
 			}
 		}
 	}
@@ -1281,6 +1297,26 @@ func (c *Config) GUIStream() string {
 	return "released"
 }
 
+// CharmhubURL returns the URL to use for charmhub api calls.
+func (c *Config) CharmhubURL() (string, bool) {
+	if v, ok := c.defined[CharmhubURLKey].(string); ok && v != "" {
+		return v, true
+	}
+	return charmhub.CharmhubServerURL, false
+}
+
+func (c *Config) validateCharmhubURL() error {
+	if v, ok := c.defined[CharmhubURLKey].(string); ok {
+		if v == "" {
+			return errors.NotValidf("charmhub url")
+		}
+		if _, err := url.ParseRequestURI(v); err != nil {
+			return errors.NotValidf("charmhub url %q", v)
+		}
+	}
+	return nil
+}
+
 // DisableNetworkManagement reports whether Juju is allowed to
 // configure and manage networking inside the environment.
 func (c *Config) DisableNetworkManagement() (bool, bool) {
@@ -1554,6 +1590,7 @@ var alwaysOptional = schema.Defaults{
 	BackupDirKey:                  schema.Omit,
 	DefaultSpace:                  schema.Omit,
 	LXDSnapChannel:                schema.Omit,
+	CharmhubURLKey:                schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1587,6 +1624,7 @@ var immutableAttributes = []string{
 	TypeKey,
 	UUIDKey,
 	"firewall-mode",
+	CharmhubURLKey,
 }
 
 var (
@@ -2060,6 +2098,11 @@ data of the store. (default false)`,
 	},
 	LXDSnapChannel: {
 		Description: "The channel to use when installing LXD from a snap (cosmic and later)",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	CharmhubURLKey: {
+		Description: `The url for charmhub API calls`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

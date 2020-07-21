@@ -61,8 +61,14 @@ type Config struct {
 // CharmhubConfig defines a charmhub client configuration for targeting the
 // snapcraft API.
 func CharmhubConfig() Config {
+	return CharmhubConfigFromURL(CharmhubServerURL)
+}
+
+// CharmhubConfigFromURL defines a charmhub client configuration with a given
+// URL for targeting the API.
+func CharmhubConfigFromURL(url string) Config {
 	return Config{
-		URL:     CharmhubServerURL,
+		URL:     url,
 		Version: CharmhubServerVersion,
 		Entity:  CharmhubServerEntity,
 	}

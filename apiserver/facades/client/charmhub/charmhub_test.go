@@ -10,16 +10,19 @@ import (
 	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	"github.com/juju/juju/apiserver/facades/client/charmhub/mocks"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&charmHubAPISuite{})
 
 type charmHubAPISuite struct {
-	authorizer *facademocks.MockAuthorizer
-	client     *mocks.MockClient
+	backend       *MockBackend
+	authorizer    *facademocks.MockAuthorizer
+	clientFactory *MockClientFactory
+	client        *MockClient
 }
 
 func (s *charmHubAPISuite) TestInfo(c *gc.C) {
@@ -44,21 +47,40 @@ func (s *charmHubAPISuite) TestFind(c *gc.C) {
 }
 
 func (s *charmHubAPISuite) newCharmHubAPIForTest(c *gc.C) *CharmHubAPI {
+	s.expectModelConfig(c)
 	s.expectAuth()
-	api, err := newCharmHubAPI(s.authorizer, s.client)
+	s.expectClient()
+	api, err := newCharmHubAPI(s.backend, s.authorizer, s.clientFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
 
 func (s *charmHubAPISuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+	s.backend = NewMockBackend(ctrl)
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
-	s.client = mocks.NewMockClient(ctrl)
+	s.clientFactory = NewMockClientFactory(ctrl)
+	s.client = NewMockClient(ctrl)
 	return ctrl
+}
+
+func (s *charmHubAPISuite) expectModelConfig(c *gc.C) {
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"charmhub-url": "https://someurl.com",
+		"type":         "my-type",
+		"name":         "my-name",
+		"uuid":         testing.ModelTag.Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.EXPECT().ModelConfig().Return(cfg, nil)
 }
 
 func (s *charmHubAPISuite) expectAuth() {
 	s.authorizer.EXPECT().AuthClient().Return(true)
+}
+
+func (s *charmHubAPISuite) expectClient() {
+	s.clientFactory.EXPECT().Client("https://someurl.com").Return(s.client, nil)
 }
 
 func (s *charmHubAPISuite) expectInfo() {
@@ -192,14 +214,14 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.Entity, transport.
 				Track:      "latest",
 			},
 			Revision: transport.Revision{
-				ConfigYAML: config,
+				ConfigYAML: entityConfig,
 				CreatedAt:  "2019-12-16T19:20:26.673192+00:00",
 				Download: transport.Download{
 					HashSHA265: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
 					Size:       12042240,
 					URL:        "https://api.snapcraft.io/api/v1/snaps/download/QLLfVfIKfcnTZiPFnmGcigB2vB605ZY7_16.snap",
 				},
-				MetadataYAML: meta,
+				MetadataYAML: entityMeta,
 				Platforms: []transport.Platform{{
 					Architecture: "all",
 					OS:           "ubuntu",
@@ -268,7 +290,7 @@ func getParamsFindResponse() params.FindResponse {
 	}
 }
 
-var meta = `
+var entityMeta = `
 name: myname
 version: 1.0.3
 subordinate: false
@@ -286,7 +308,7 @@ requires:
     interface: dummy-token
 `
 
-var config = `
+var entityConfig = `
 options:
   title:
     default: My Title

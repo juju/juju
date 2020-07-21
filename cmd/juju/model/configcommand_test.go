@@ -217,7 +217,12 @@ func (s *ConfigCommandSuite) TestAllValuesTabular(c *gc.C) {
 
 func (s *ConfigCommandSuite) TestSetAgentVersion(c *gc.C) {
 	_, err := s.run(c, "agent-version=2.0.0")
-	c.Assert(err, gc.ErrorMatches, `"agent-version"" must be set via "upgrade-model"`)
+	c.Assert(err, gc.ErrorMatches, `"agent-version" must be set via "upgrade-model"`)
+}
+
+func (s *ConfigCommandSuite) TestSetCharmhubURL(c *gc.C) {
+	_, err := s.run(c, "charmhub-url=http://meshuggah.rocks")
+	c.Assert(err, gc.ErrorMatches, `"charmhub-url" must be set via "add-model"`)
 }
 
 func (s *ConfigCommandSuite) TestSetAndReset(c *gc.C) {

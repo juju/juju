@@ -84,6 +84,7 @@ type StateBackend interface {
 	RemoveUnsupportedLinkLayer() error
 	AddBakeryConfig() error
 	ReplaceNeverSetWithUnset() error
+	AddCharmhubToModelConfig() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -347,4 +348,8 @@ func (s stateBackend) AddBakeryConfig() error {
 
 func (s stateBackend) ReplaceNeverSetWithUnset() error {
 	return state.ReplaceNeverSetWithUnset(s.pool)
+}
+
+func (s stateBackend) AddCharmhubToModelConfig() error {
+	return state.AddCharmhubToModelConfig(s.pool)
 }

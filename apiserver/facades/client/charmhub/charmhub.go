@@ -15,9 +15,21 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/environs/config"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.charmhub")
+
+// Backend defines the state methods this facade needs, so they can be
+// mocked for testing.
+type Backend interface {
+	ModelConfig() (*config.Config, error)
+}
+
+// ClientFactory defines a factory for creating clients from a given url.
+type ClientFactory interface {
+	Client(string) (Client, error)
+}
 
 // Client represents a charmhub Client for making queries to the charmhub API.
 type Client interface {
@@ -28,27 +40,40 @@ type Client interface {
 
 // CharmHubAPI API provides the charmhub API facade for version 1.
 type CharmHubAPI struct {
-	auth facade.Authorizer
-
-	// newClientFunc is for testing purposes to facilitate using mocks.
-	client Client
+	backend Backend
+	auth    facade.Authorizer
+	client  Client
 }
 
 // NewFacade creates a new CharmHubAPI facade.
 func NewFacade(ctx facade.Context) (*CharmHubAPI, error) {
-	auth := ctx.Auth()
-	client, err := charmhub.NewClient(charmhub.CharmhubConfig())
+	m, err := ctx.State().Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newCharmHubAPI(auth, client)
+
+	return newCharmHubAPI(m, ctx.Auth(), charmhubClientFactory{})
 }
 
-func newCharmHubAPI(authorizer facade.Authorizer, client Client) (*CharmHubAPI, error) {
+func newCharmHubAPI(backend Backend, authorizer facade.Authorizer, clientFactory ClientFactory) (*CharmHubAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-	return &CharmHubAPI{auth: authorizer, client: client}, nil
+
+	modelCfg, err := backend.ModelConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	url, _ := modelCfg.CharmhubURL()
+	client, err := clientFactory.Client(url)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &CharmHubAPI{
+		auth:   authorizer,
+		client: client,
+	}, nil
 }
 
 // Info queries the charmhub API with a given entity ID.
@@ -59,6 +84,7 @@ func (api *CharmHubAPI) Info(arg params.Entity) (params.CharmHubEntityInfoResult
 	if err != nil {
 		return params.CharmHubEntityInfoResult{}, errors.BadRequestf("arg value is empty")
 	}
+
 	// TODO (stickupkid): Create a proper context to be used here.
 	info, err := api.client.Info(context.TODO(), tag.Id())
 	if err != nil {
@@ -77,4 +103,15 @@ func (api *CharmHubAPI) Find(arg params.Query) (params.CharmHubEntityFindResult,
 		return params.CharmHubEntityFindResult{}, errors.Trace(err)
 	}
 	return params.CharmHubEntityFindResult{Results: convertCharmFindResults(results, api.client.URL())}, nil
+}
+
+type charmhubClientFactory struct{}
+
+func (charmhubClientFactory) Client(url string) (Client, error) {
+	client, err := charmhub.NewClient(charmhub.CharmhubConfigFromURL(url))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return client, nil
 }
