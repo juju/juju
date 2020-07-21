@@ -740,6 +740,28 @@ func (s *linkLayerDevicesStateSuite) TestEthernetDeviceForBridge(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
+func (s *linkLayerDevicesStateSuite) TestAddAddressOps(c *gc.C) {
+	dev := s.addNamedDevice(c, "eth0")
+
+	ops, err := dev.AddAddressOps(state.LinkLayerDeviceAddress{
+		DeviceName:  "", // Not required.
+		CIDRAddress: "10.1.1.1/24",
+		Origin:      corenetwork.OriginMachine,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.RunTransaction(c, s.State, ops)
+
+	dev, err = s.machine.LinkLayerDevice("eth0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrs, err := dev.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(addrs, gc.HasLen, 1)
+	c.Assert(addrs[0].Value(), gc.Equals, "10.1.1.1")
+}
+
 func (s *linkLayerDevicesStateSuite) createSpaceAndSubnet(c *gc.C, spaceName, CIDR string) {
 	s.createSpaceAndSubnetWithProviderID(c, spaceName, CIDR, "")
 }

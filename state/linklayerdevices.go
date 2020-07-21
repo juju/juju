@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/juju/errors"
@@ -261,6 +262,43 @@ func (dev *LinkLayerDevice) UpdateOps(args LinkLayerDeviceArgs) []txn.Op {
 		return []txn.Op{op}
 	}
 	return nil
+}
+
+// AddAddressOps returns transaction operations required
+// to add the input address to the device.
+func (dev *LinkLayerDevice) AddAddressOps(args LinkLayerDeviceAddress) ([]txn.Op, error) {
+	// TODO (manadart 2020-07-21): This is silly. We already received the args
+	// as an address/subnet pair and validated them when transforming them to
+	// the CIDAddress. Not we unpack and validate again.
+	// When the old link-layer update logic is removed, just pass it all
+	// through as-is. This method then need not include an error return.
+	ip, ipNet, err := net.ParseCIDR(args.CIDRAddress)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	addressValue := ip.String()
+	subnetCIDR := ipNet.String()
+
+	newDoc := ipAddressDoc{
+		// Note that using this method means that the device name
+		// is no longer required in the incoming arguments.
+		DeviceName:        dev.doc.Name,
+		DocID:             dev.doc.DocID + "#ip#" + addressValue,
+		ModelUUID:         dev.doc.ModelUUID,
+		ProviderID:        args.ProviderID.String(),
+		ProviderNetworkID: args.ProviderNetworkID.String(),
+		ProviderSubnetID:  args.ProviderSubnetID.String(),
+		MachineID:         dev.doc.MachineID,
+		SubnetCIDR:        subnetCIDR,
+		ConfigMethod:      args.ConfigMethod,
+		Value:             addressValue,
+		DNSServers:        args.DNSServers,
+		DNSSearchDomains:  args.DNSSearchDomains,
+		GatewayAddress:    args.GatewayAddress,
+		IsDefaultGateway:  args.IsDefaultGateway,
+		Origin:            args.Origin,
+	}
+	return []txn.Op{insertIPAddressDocOp(&newDoc)}, nil
 }
 
 // Remove removes the device, if it exists. No error is returned when the device
