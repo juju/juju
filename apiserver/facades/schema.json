@@ -9001,6 +9001,9 @@
                 "KubernetesProvisioningInfo": {
                     "type": "object",
                     "properties": {
+                        "charm-modified-version": {
+                            "type": "integer"
+                        },
                         "constraints": {
                             "$ref": "#/definitions/Value"
                         },
