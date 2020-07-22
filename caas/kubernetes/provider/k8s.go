@@ -2318,7 +2318,7 @@ type workloadSpec struct {
 	Pod     core.PodSpec `json:"pod"`
 	Service *specs.ServiceSpec
 
-	Secrets                         []k8sspecs.Secret
+	Secrets                         []k8sspecs.K8sSecret
 	Services                        []k8sspecs.K8sService
 	ConfigMaps                      map[string]specs.ConfigMap
 	ServiceAccounts                 []k8sspecs.K8sRBACSpecConverter

@@ -714,7 +714,7 @@ func (s *K8sBrokerSuite) assertFileSetToVolume(c *gc.C, fs specs.FileSet, result
 			"log_level": "INFO",
 		},
 	}
-	workloadSpec.Secrets = []k8sspecs.Secret{
+	workloadSpec.Secrets = []k8sspecs.K8sSecret{
 		{Name: "mysecret2"},
 	}
 
@@ -1049,7 +1049,7 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 			"log_level": "INFO",
 		},
 	}
-	workloadSpec.Secrets = []k8sspecs.Secret{
+	workloadSpec.Secrets = []k8sspecs.K8sSecret{
 		{Name: "mysecret2"},
 	}
 
@@ -2139,7 +2139,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithExtraServicesConfigMapAndSecretsCr
 					},
 				},
 			},
-			Secrets: []k8sspecs.Secret{
+			Secrets: []k8sspecs.K8sSecret{
 				{
 					Name: "build-robot-secret",
 					Type: core.SecretTypeOpaque,
@@ -2388,7 +2388,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithExtraServicesConfigMapAndSecretsUp
 					},
 				},
 			},
-			Secrets: []k8sspecs.Secret{
+			Secrets: []k8sspecs.K8sSecret{
 				{
 					Name: "build-robot-secret",
 					Type: core.SecretTypeOpaque,

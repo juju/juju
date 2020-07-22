@@ -801,7 +801,7 @@ echo "do some stuff here for gitlab-init container"
 					HostNetwork: true,
 					HostPID:     true,
 				},
-				Secrets: []k8sspecs.Secret{
+				Secrets: []k8sspecs.K8sSecret{
 					{
 						Name: "build-robot-secret",
 						Type: core.SecretTypeOpaque,

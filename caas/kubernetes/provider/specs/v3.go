@@ -314,7 +314,7 @@ func (s K8sService) Validate() error {
 type KubernetesResources struct {
 	Pod *PodSpec `json:"pod,omitempty" yaml:"pod,omitempty"`
 
-	Secrets                   []Secret                               `json:"secrets" yaml:"secrets"`
+	Secrets                   []K8sSecret                            `json:"secrets" yaml:"secrets"`
 	Services                  []K8sService                           `json:"services" yaml:"services"`
 	CustomResourceDefinitions []K8sCustomResourceDefinitionSpec      `json:"customResourceDefinitions" yaml:"customResourceDefinitions"`
 	CustomResources           map[string][]unstructured.Unstructured `json:"customResources,omitempty" yaml:"customResources,omitempty"`
