@@ -35,6 +35,21 @@ func (m *MockLinkLayerDevice) EXPECT() *MockLinkLayerDeviceMockRecorder {
 	return m.recorder
 }
 
+// AddAddressOps mocks base method
+func (m *MockLinkLayerDevice) AddAddressOps(arg0 state.LinkLayerDeviceAddress) ([]txn.Op, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddAddressOps", arg0)
+	ret0, _ := ret[0].([]txn.Op)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddAddressOps indicates an expected call of AddAddressOps
+func (mr *MockLinkLayerDeviceMockRecorder) AddAddressOps(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddAddressOps", reflect.TypeOf((*MockLinkLayerDevice)(nil).AddAddressOps), arg0)
+}
+
 // ID mocks base method
 func (m *MockLinkLayerDevice) ID() string {
 	m.ctrl.T.Helper()
@@ -254,6 +269,21 @@ func (m *MockLinkLayerAddress) SetProviderNetIDsOps(arg0, arg1 network.Id) []txn
 func (mr *MockLinkLayerAddressMockRecorder) SetProviderNetIDsOps(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProviderNetIDsOps", reflect.TypeOf((*MockLinkLayerAddress)(nil).SetProviderNetIDsOps), arg0, arg1)
+}
+
+// UpdateOps mocks base method
+func (m *MockLinkLayerAddress) UpdateOps(arg0 state.LinkLayerDeviceAddress) ([]txn.Op, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateOps", arg0)
+	ret0, _ := ret[0].([]txn.Op)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateOps indicates an expected call of UpdateOps
+func (mr *MockLinkLayerAddressMockRecorder) UpdateOps(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateOps", reflect.TypeOf((*MockLinkLayerAddress)(nil).UpdateOps), arg0)
 }
 
 // Value mocks base method

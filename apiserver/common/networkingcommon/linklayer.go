@@ -92,10 +92,19 @@ type LinkLayerAccessor interface {
 	AllAddresses() ([]LinkLayerAddress, error)
 }
 
+// LinkLayerWriter describes an entity that can have link-layer
+// devices added to it.
+type LinkLayerWriter interface {
+	// AddLinkLayerDeviceOps returns transaction operations for adding the
+	// input link-layer device and the supplied addresses to the machine.
+	AddLinkLayerDeviceOps(state.LinkLayerDeviceArgs, ...state.LinkLayerDeviceAddress) ([]txn.Op, error)
+}
+
 // LinkLayerMachine describes a machine that can return its link-layer data
 // and assert that it is alive in preparation for updating such data.
 type LinkLayerMachine interface {
 	LinkLayerAccessor
+	LinkLayerWriter
 
 	// Id returns the ID for the machine.
 	Id() string
