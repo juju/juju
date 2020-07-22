@@ -446,8 +446,6 @@ func (m *Machine) setDevicesFromDocsOps(newDocs []linkLayerDeviceDoc) ([]txn.Op,
 }
 
 func (m *Machine) insertLinkLayerDeviceOps(newDoc *linkLayerDeviceDoc) ([]txn.Op, error) {
-	modelUUID, linkLayerDeviceDocID := newDoc.ModelUUID, newDoc.DocID
-
 	var ops []txn.Op
 	if newDoc.ParentName != "" {
 		newParentDocID, err := m.parentDocIDFromDeviceDoc(newDoc)
@@ -456,17 +454,13 @@ func (m *Machine) insertLinkLayerDeviceOps(newDoc *linkLayerDeviceDoc) ([]txn.Op
 		}
 		if newParentDocID != "" {
 			ops = append(ops, assertLinkLayerDeviceExistsOp(newParentDocID))
-			ops = append(ops, incrementDeviceNumChildrenOp(newParentDocID))
 		}
 	}
 	if newDoc.ProviderID != "" {
 		id := corenetwork.Id(newDoc.ProviderID)
 		ops = append(ops, m.st.networkEntityGlobalKeyOp("linklayerdevice", id))
 	}
-	return append(ops,
-		insertLinkLayerDeviceDocOp(newDoc),
-		insertLinkLayerDevicesRefsOp(modelUUID, linkLayerDeviceDocID),
-	), nil
+	return append(ops, insertLinkLayerDeviceDocOp(newDoc)), nil
 }
 
 func (m *Machine) parentDocIDFromDeviceDoc(doc *linkLayerDeviceDoc) (string, error) {
@@ -503,16 +497,12 @@ func (m *Machine) updateLinkLayerDeviceOps(existingDoc, newDoc *linkLayerDeviceD
 	if newParentDocID != "" && existingParentDocID != "" && newParentDocID != existingParentDocID {
 		ops = append(ops,
 			assertLinkLayerDeviceExistsOp(newParentDocID),
-			incrementDeviceNumChildrenOp(newParentDocID),
 			assertLinkLayerDeviceExistsOp(existingParentDocID),
-			decrementDeviceNumChildrenOp(existingParentDocID),
 		)
 	} else if newParentDocID != "" && existingParentDocID == "" {
 		ops = append(ops, assertLinkLayerDeviceExistsOp(newParentDocID))
-		ops = append(ops, incrementDeviceNumChildrenOp(newParentDocID))
 	} else if newParentDocID == "" && existingParentDocID != "" {
 		ops = append(ops, assertLinkLayerDeviceExistsOp(existingParentDocID))
-		ops = append(ops, decrementDeviceNumChildrenOp(existingParentDocID))
 	}
 	updateDeviceOp, deviceHasChanges := updateLinkLayerDeviceDocOp(existingDoc, newDoc)
 	if deviceHasChanges {

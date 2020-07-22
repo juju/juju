@@ -46,9 +46,8 @@ func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
 		ReTrier: func(f func() error, _ func(error) bool, _ caasoperator.Logger, _ jujuclock.Clock, _ <-chan struct{}) error {
 			return f()
 		},
-		InitType: caasoperator.UnitInit,
-		UnitTag:  names.NewUnitTag("gitlab/0"),
-		Logger:   loggo.GetLogger("test"),
+		UnitTag: names.NewUnitTag("gitlab/0"),
+		Logger:  loggo.GetLogger("test"),
 		Paths: caasoperator.Paths{
 			State: caasoperator.StatePaths{
 				CharmDir: "dir/charm",
@@ -139,9 +138,8 @@ func (s *UnitInitializerSuite) TestInitializeUnitMissingProviderID(c *gc.C) {
 		ReTrier: func(f func() error, _ func(error) bool, _ caasoperator.Logger, _ jujuclock.Clock, _ <-chan struct{}) error {
 			return f()
 		},
-		InitType: caasoperator.UnitInit,
-		UnitTag:  names.NewUnitTag("gitlab/0"),
-		Logger:   loggo.GetLogger("test"),
+		UnitTag: names.NewUnitTag("gitlab/0"),
+		Logger:  loggo.GetLogger("test"),
 		Paths: caasoperator.Paths{
 			State: caasoperator.StatePaths{
 				CharmDir: "dir/charm",
@@ -177,9 +175,8 @@ func (s *UnitInitializerSuite) TestInitializeContainerMissing(c *gc.C) {
 		ReTrier: func(f func() error, _ func(error) bool, _ caasoperator.Logger, _ jujuclock.Clock, _ <-chan struct{}) error {
 			return f()
 		},
-		InitType: caasoperator.UnitInit,
-		UnitTag:  names.NewUnitTag("gitlab/0"),
-		Logger:   loggo.GetLogger("test"),
+		UnitTag: names.NewUnitTag("gitlab/0"),
+		Logger:  loggo.GetLogger("test"),
 		Paths: caasoperator.Paths{
 			State: caasoperator.StatePaths{
 				CharmDir: "dir/charm",
@@ -233,9 +230,8 @@ func (s *UnitInitializerSuite) TestInitializePodNotFound(c *gc.C) {
 		ReTrier: func(f func() error, _ func(error) bool, _ caasoperator.Logger, _ jujuclock.Clock, _ <-chan struct{}) error {
 			return f()
 		},
-		InitType: caasoperator.UnitInit,
-		UnitTag:  names.NewUnitTag("gitlab/0"),
-		Logger:   loggo.GetLogger("test"),
+		UnitTag: names.NewUnitTag("gitlab/0"),
+		Logger:  loggo.GetLogger("test"),
 		Paths: caasoperator.Paths{
 			State: caasoperator.StatePaths{
 				CharmDir: "dir/charm",

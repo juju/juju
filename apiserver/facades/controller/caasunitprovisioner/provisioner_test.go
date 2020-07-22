@@ -267,6 +267,7 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 	c.Assert(obtained.RawK8sSpec, jc.DeepEquals, expectedResult.RawK8sSpec)
 	c.Assert(obtained.DeploymentInfo, jc.DeepEquals, expectedResult.DeploymentInfo)
 	c.Assert(obtained.OperatorImagePath, gc.Equals, expectedResult.OperatorImagePath)
+	c.Assert(obtained.CharmModifiedVersion, jc.DeepEquals, 888)
 	c.Assert(len(obtained.Filesystems), gc.Equals, len(expectedFileSystems))
 	for _, fs := range obtained.Filesystems {
 		c.Assert(fs, gc.DeepEquals, expectedFileSystems[fs.StorageName])

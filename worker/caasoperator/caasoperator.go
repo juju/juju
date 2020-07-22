@@ -657,27 +657,27 @@ func (op *caasOperator) remoteInitForUniter(client exec.Executor, unit names.Uni
 
 func (op *caasOperator) remoteInit(client exec.Executor, unit names.UnitTag, runningStatus uniterremotestate.ContainerRunningStatus, cancel <-chan struct{}) error {
 	op.config.Logger.Debugf("remote init for %q %+v", unit.String(), runningStatus)
-	params := initializeUnitParams{
-		ExecClient:   client,
-		Logger:       op.config.Logger,
-		OperatorInfo: op.config.OperatorInfo,
-		Paths:        op.paths,
-		UnitTag:      unit,
-		ProviderID:   runningStatus.PodName,
-		WriteFile:    ioutil.WriteFile,
-		TempDir:      ioutil.TempDir,
-		Clock:        op.config.Clock,
-		ReTrier:      runnerWithRetry,
-	}
 	switch {
 	case runningStatus.Initialising:
-		params.InitType = UnitInit
+		// all good, continue to do remote-init.
+		return errors.Trace(initializeUnit(initializeUnitParams{
+			ExecClient:   client,
+			Logger:       op.config.Logger,
+			OperatorInfo: op.config.OperatorInfo,
+			Paths:        op.paths,
+			UnitTag:      unit,
+			ProviderID:   runningStatus.PodName,
+			WriteFile:    ioutil.WriteFile,
+			TempDir:      ioutil.TempDir,
+			Clock:        op.config.Clock,
+			ReTrier:      runnerWithRetry,
+		}, cancel))
 	case runningStatus.Running:
-		params.InitType = UnitUpgrade
+		op.config.Logger.Debugf("no need to do remote-init for a running container")
+		return nil
 	default:
 		return errors.NotFoundf("container not running")
 	}
-	return errors.Trace(initializeUnit(params, cancel))
 }
 
 func (op *caasOperator) charmModified(local *LocalState, remote remotestate.Snapshot) bool {
