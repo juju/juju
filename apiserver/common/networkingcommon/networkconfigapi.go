@@ -157,6 +157,7 @@ func newUpdateMachineLinkLayerOp(
 ) *updateMachineLinkLayerOp {
 	return &updateMachineLinkLayerOp{
 		MachineLinkLayerOp: NewMachineLinkLayerOp(machine, incoming),
+		observedParentIDs:  set.NewStrings(),
 	}
 }
 
@@ -233,6 +234,8 @@ func (o *updateMachineLinkLayerOp) processExistingDevice(dev LinkLayerDevice) ([
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	o.MarkDevProcessed(dev.MACAddress())
 	return append(ops, newAddrOps...), nil
 }
 
@@ -276,8 +279,10 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceAddress(
 	// If one of the incoming addresses matches the existing one,
 	// update it.
 	for _, incomingAddr := range incomingAddrs {
-		if strings.HasPrefix(incomingAddr.CIDRAddress, addrValue) {
+		if strings.HasPrefix(incomingAddr.CIDRAddress, addrValue) &&
+			!o.IsAddrProcessed(dev.MACAddress(), incomingAddr.CIDRAddress) {
 			o.MarkAddrProcessed(dev.MACAddress(), incomingAddr.CIDRAddress)
+
 			ops, err := addr.UpdateOps(incomingAddr)
 			return ops, errors.Trace(err)
 		}
@@ -305,6 +310,8 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNewAddresses(
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, addOps...)
+
+			o.MarkAddrProcessed(dev.MACAddress(), addr.CIDRAddress)
 		}
 	}
 	return ops, nil
@@ -325,6 +332,8 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, addOps...)
+
+			o.MarkDevProcessed(dev.MACAddress)
 		}
 	}
 	return ops, nil
@@ -340,6 +349,7 @@ func (o *updateMachineLinkLayerOp) processRemovalCandidates() []txn.Op {
 	var ops []txn.Op
 	for _, dev := range o.removalCandidates {
 		if !o.observedParentIDs.Contains(dev.ID()) {
+			logger.Debugf("removing device %q (%s)", dev.Name(), dev.MACAddress())
 			ops = append(ops, dev.RemoveOps()...)
 		}
 	}

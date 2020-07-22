@@ -222,10 +222,10 @@ func (o *MachineLinkLayerOp) AssertAliveOp() txn.Op {
 	return o.machine.AssertAliveOp()
 }
 
-// MarkDevProcessed indicates that the input (known) device was present in the
-// incoming data and its updates have been handled by the build step.
-func (o *MachineLinkLayerOp) MarkDevProcessed(dev LinkLayerDevice) {
-	o.processedDevs.Add(dev.MACAddress())
+// MarkDevProcessed indicates that the input hardware address was present in
+// the incoming data and its updates have been handled by the build step.
+func (o *MachineLinkLayerOp) MarkDevProcessed(hwAddr string) {
+	o.processedDevs.Add(hwAddr)
 }
 
 // IsDevProcessed returns a boolean indicating whether the input incoming

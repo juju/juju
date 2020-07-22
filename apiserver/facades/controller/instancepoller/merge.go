@@ -116,7 +116,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 
 	// TODO (manadart 2020-07-15): Process (log) new addresses on the device.
 
-	o.MarkDevProcessed(dev)
+	o.MarkDevProcessed(dev.MACAddress())
 	return ops, nil
 }
 

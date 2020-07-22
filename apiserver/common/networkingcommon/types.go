@@ -174,6 +174,9 @@ func NetworkInterfacesToStateArgs(devs corenetwork.InterfaceInfos) (
 			devicesArgs = append(devicesArgs, args)
 		}
 
+		if dev.PrimaryAddress().Value == "" {
+			continue
+		}
 		addr, err := networkAddressToStateArgs(dev, dev.PrimaryAddress())
 		if err != nil {
 			logger.Warningf("ignoring address for device %q: %v", dev.InterfaceName, err)
@@ -215,6 +218,10 @@ func networkAddressStateArgsForHWAddr(devs corenetwork.InterfaceInfos, hwAddr st
 	var res []state.LinkLayerDeviceAddress
 
 	for _, dev := range devs.GetByHardwareAddress(hwAddr) {
+		if dev.PrimaryAddress().Value == "" {
+			continue
+		}
+
 		addr, err := networkAddressToStateArgs(dev, dev.PrimaryAddress())
 		if err != nil {
 			logger.Warningf("ignoring address for device %q: %v", dev.InterfaceName, err)
