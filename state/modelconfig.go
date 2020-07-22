@@ -152,7 +152,7 @@ func (model *Model) modelConfigValues(modelCfg attrValues) (config.ConfigValues,
 }
 
 // UpdateModelConfigDefaultValues updates the inherited settings used when creating a new model.
-func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, removed []string, regionSpec *environscloudspec.CloudRegionSpec) error {
+func (st *State) UpdateModelConfigDefaultValues(updateAttrs map[string]interface{}, removeAttrs []string, regionSpec *environscloudspec.CloudRegionSpec) error {
 	var key string
 
 	if regionSpec != nil {
@@ -175,7 +175,7 @@ func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, re
 			return errors.Annotatef(err, "model %q", st.ModelUUID())
 		}
 		// We haven't created settings for this region yet.
-		_, err := createSettings(st.db(), globalSettingsC, key, attrs)
+		_, err := createSettings(st.db(), globalSettingsC, key, updateAttrs)
 		if err != nil {
 			return errors.Annotatef(err, "model %q", st.ModelUUID())
 		}
@@ -188,8 +188,25 @@ func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, re
 	// applied as a delta to what's on disk; if there has
 	// been a concurrent update, the change may not be what
 	// the user asked for.
-	settings.Update(attrs)
-	for _, r := range removed {
+
+	// Attempt to validate against the current old model and the new model, that
+	// should be enough to verify the config against.
+	// If there are additional fields in the config, then this should be fine
+	// and should not throw a validation error.
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	oldConfig, err := model.ModelConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := st.buildAndValidateModelConfig(updateAttrs, removeAttrs, oldConfig); err != nil {
+		return errors.Trace(err)
+	}
+
+	settings.Update(updateAttrs)
+	for _, r := range removeAttrs {
 		settings.Delete(r)
 	}
 	_, err = settings.Write()

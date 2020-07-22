@@ -488,6 +488,62 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 	c.Assert(cfg, jc.DeepEquals, expectedValues)
 }
 
+func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultsArbitraryConfig(c *gc.C) {
+	attrs := map[string]interface{}{
+		"hello": "world",
+	}
+	err := s.State.UpdateModelConfigDefaultValues(attrs, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
+	c.Assert(err, jc.ErrorIsNil)
+	expectedValues := make(config.ModelDefaultAttributes)
+	for attr, val := range config.ConfigDefaults() {
+		expectedValues[attr] = config.AttributeDefaultValues{
+			Default: val,
+		}
+	}
+
+	expectedValues["hello"] = config.AttributeDefaultValues{
+		Controller: "world",
+		Default:    nil,
+	}
+	expectedValues["http-proxy"] = config.AttributeDefaultValues{
+		Controller: "http://proxy",
+		Default:    "",
+	}
+	expectedValues["apt-mirror"] = config.AttributeDefaultValues{
+		Controller: "http://mirror",
+		Default:    "",
+		Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "http://dummy-mirror",
+		}}}
+	expectedValues["no-proxy"] = config.AttributeDefaultValues{
+		Default: "127.0.0.1,localhost,::1",
+		Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "dummy-proxy",
+		}}}
+	c.Assert(cfg, jc.DeepEquals, expectedValues)
+}
+
+func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultsWithValidationError(c *gc.C) {
+	// Set up values that will be removed.
+	attrs := map[string]interface{}{
+		"http-proxy":  "http://http-proxy",
+		"https-proxy": "https://https-proxy",
+	}
+	err := s.State.UpdateModelConfigDefaultValues(attrs, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	attrs = map[string]interface{}{
+		"test-mode": "baz",
+	}
+	err = s.State.UpdateModelConfigDefaultValues(attrs, []string{"http-proxy", "https-proxy"}, nil)
+	c.Assert(err, gc.ErrorMatches, `test-mode: expected bool, got string\("baz"\)`)
+}
+
 func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 	// The test env is setup with dummy/dummy-region having a no-proxy
 	// dummy-proxy value and nether-region with a nether-proxy value.
