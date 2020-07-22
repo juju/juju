@@ -286,9 +286,18 @@ func (dev *LinkLayerDevice) Remove() (err error) {
 				return nil, err
 			}
 		}
+
+		children, err := dev.childCount()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if children > 0 {
+			return nil, newParentDeviceHasChildrenError(dev.doc.Name, children)
+		}
+
 		ops, err := removeLinkLayerDeviceOps(dev.st, dev.DocID(), dev.ParentID())
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		if dev.ProviderID() != "" {
 			op := dev.st.networkEntityGlobalKeyRemoveOp("linklayerdevice", dev.ProviderID())
@@ -296,7 +305,29 @@ func (dev *LinkLayerDevice) Remove() (err error) {
 		}
 		return ops, nil
 	}
-	return dev.st.db().Run(buildTxn)
+
+	return errors.Trace(dev.st.db().Run(buildTxn))
+}
+
+func (dev *LinkLayerDevice) childCount() (int, error) {
+	col, closer := dev.st.db().GetCollection(linkLayerDevicesC)
+	defer closer()
+
+	children, err := col.Find(bson.M{"$or": []bson.M{
+		// Devices on the same machine with a parent name
+		// matching this device name.
+		{
+			"machine-id":  dev.doc.MachineID,
+			"parent-name": dev.doc.Name,
+		},
+		// devices on other machines (containers or VMs)
+		// with this device as the parent.
+		{
+			"parent-name": strings.Join([]string{"m", dev.doc.MachineID, "d", dev.doc.Name}, "#"),
+		},
+	}}).Count()
+
+	return children, errors.Trace(err)
 }
 
 func (dev *LinkLayerDevice) errNoOperationsIfMissing() error {
@@ -344,16 +375,6 @@ func (st *State) LinkLayerDevice(id string) (*LinkLayerDevice, error) {
 // be non-empty and the operations includes decrementing the parent's
 // NumChildren.
 func removeLinkLayerDeviceOps(st *State, linkLayerDeviceDocID, parentDeviceDocID string) ([]txn.Op, error) {
-	var numChildren int
-	if parentDeviceDocID == "" {
-		// If not a child, verify it has no children.
-		var err error
-		numChildren, err = getParentDeviceNumChildrenRefs(st, linkLayerDeviceDocID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
 	// We know the DocID has a valid format for a global key, hence the last
 	// return below is ignored.
 	machineID, deviceName, canBeGlobalKey := parseLinkLayerDeviceGlobalKey(linkLayerDeviceDocID)
@@ -363,15 +384,8 @@ func removeLinkLayerDeviceOps(st *State, linkLayerDeviceDocID, parentDeviceDocID
 			machineID, deviceName,
 		)
 	}
-	if numChildren > 0 {
-		return nil, newParentDeviceHasChildrenError(deviceName, numChildren)
-	}
 
 	var ops []txn.Op
-	if parentDeviceDocID != "" {
-		ops = append(ops, decrementDeviceNumChildrenOp(parentDeviceDocID))
-	}
-
 	addressesQuery := findAddressesQuery(machineID, deviceName)
 	if addressesOps, err := st.removeMatchingIPAddressesDocOps(addressesQuery); err == nil {
 		ops = append(ops, addressesOps...)
@@ -381,7 +395,6 @@ func removeLinkLayerDeviceOps(st *State, linkLayerDeviceDocID, parentDeviceDocID
 
 	return append(ops,
 		removeLinkLayerDeviceDocOp(linkLayerDeviceDocID),
-		removeLinkLayerDevicesRefsOp(linkLayerDeviceDocID),
 	), nil
 }
 
@@ -405,13 +418,7 @@ func removeLinkLayerDeviceUnconditionallyOps(linkLayerDeviceDocID string) []txn.
 	// Reuse the regular remove ops, but drop their asserts.
 	removeDeviceDocOp := removeLinkLayerDeviceDocOp(linkLayerDeviceDocID)
 	removeDeviceDocOp.Assert = nil
-	removeRefsOp := removeLinkLayerDevicesRefsOp(linkLayerDeviceDocID)
-	removeRefsOp.Assert = nil
-
-	return []txn.Op{
-		removeDeviceDocOp,
-		removeRefsOp,
-	}
+	return []txn.Op{removeDeviceDocOp}
 }
 
 // insertLinkLayerDeviceDocOp returns an operation inserting the given newDoc,

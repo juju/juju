@@ -115,7 +115,7 @@ bootstrap() {
             exit 1
         fi
 
-        add_model "${model}" "${provider}" "${bootstrapped_name}"
+        add_model "${model}" "${provider}" "${bootstrapped_name}" "${output}"
         name="${bootstrapped_name}"
     else
         echo "====> Bootstrapping juju ($(green "${version}:${provider}"))"
@@ -136,12 +136,13 @@ add_model() {
     model=${1}
     provider=${2}
     controller=${3}
+    output=${4}
 
     OUT=$(juju controllers --format=json | jq '.controllers | .["${bootstrapped_name}"] | .cloud' | grep "${provider}" || true)
     if [ -n "${OUT}" ]; then
-        juju add-model -c "${controller}" "${model}" "${provider}"
+        juju add-model -c "${controller}" "${model}" "${provider}" 2>&1 | OUTPUT "${output}"
     else
-        juju add-model -c "${controller}" "${model}"
+        juju add-model -c "${controller}" "${model}" 2>&1 | OUTPUT "${output}"
     fi
     echo "${model}" >> "${TEST_DIR}/models"
 }
@@ -174,22 +175,14 @@ juju_bootstrap() {
         series="--bootstrap-series=${BOOTSTRAP_SERIES}"
     esac
 
-    debug="false"
-    if [ "${VERBOSE}" -gt 1 ]; then
-        debug="true"
-    fi
+    # When double quotes are added to ${series}, the juju bootstrap
+    # command looks correct, and works outside of the harness, but
+    # does not run, goes directly to cleanup.
+    #shellcheck disable=SC2086
+    juju bootstrap ${series} \
+        --build-agent=${BUILD_AGENT} \
+        "${provider}" "${name}" -d "${model}" "$@" 2>&1 | OUTPUT "${output}"
 
-
-    if [ -n "${output}" ]; then
-        # When double quotes are added to ${series}, the juju bootstrap
-        # command looks correct, and works outside of the harness, but
-        # does not run, goes directly to cleanup.
-        #shellcheck disable=SC2086
-        juju bootstrap ${series} --debug="${debug}" --build-agent=${BUILD_AGENT} "${provider}" "${name}" -d "${model}" "$@" > "${output}" 2>&1
-    else
-        #shellcheck disable=SC2086
-        juju bootstrap ${series} --debug="${debug}" --build-agent=${BUILD_AGENT} "${provider}" "${name}" -d "${model}" "$@"
-    fi
     echo "${name}" >> "${TEST_DIR}/jujus"
 }
 

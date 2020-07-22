@@ -91,6 +91,7 @@ type Application interface {
 	SetStatus(statusInfo status.StatusInfo) error
 	Charm() (Charm, bool, error)
 	ClearResources() error
+	CharmModifiedVersion() int
 }
 
 type stateShim struct {

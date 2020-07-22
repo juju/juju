@@ -39,8 +39,9 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, IngressResources []k8ss
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju-app-uuid":      "appuuid",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju.io/charm-modified-version": "0",
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -56,6 +57,7 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, IngressResources []k8ss
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version":           "0",
 					},
 				},
 				Spec: podSpec,

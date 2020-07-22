@@ -168,14 +168,15 @@ type DeploymentInfo struct {
 
 // ProvisioningInfo holds unit provisioning info.
 type ProvisioningInfo struct {
-	DeploymentInfo    DeploymentInfo
-	PodSpec           string
-	RawK8sSpec        string
-	Constraints       constraints.Value
-	Filesystems       []storage.KubernetesFilesystemParams
-	Devices           []devices.KubernetesDeviceParams
-	Tags              map[string]string
-	OperatorImagePath string
+	DeploymentInfo       DeploymentInfo
+	PodSpec              string
+	RawK8sSpec           string
+	Constraints          constraints.Value
+	Filesystems          []storage.KubernetesFilesystemParams
+	Devices              []devices.KubernetesDeviceParams
+	Tags                 map[string]string
+	OperatorImagePath    string
+	CharmModifiedVersion int
 }
 
 // ProvisioningInfo returns the provisioning info for the specified CAAS
@@ -199,11 +200,12 @@ func (c *Client) ProvisioningInfo(appName string) (*ProvisioningInfo, error) {
 	}
 	result := results.Results[0].Result
 	info := &ProvisioningInfo{
-		PodSpec:           result.PodSpec,
-		RawK8sSpec:        result.RawK8sSpec,
-		Constraints:       result.Constraints,
-		Tags:              result.Tags,
-		OperatorImagePath: result.OperatorImagePath,
+		PodSpec:              result.PodSpec,
+		RawK8sSpec:           result.RawK8sSpec,
+		Constraints:          result.Constraints,
+		Tags:                 result.Tags,
+		OperatorImagePath:    result.OperatorImagePath,
+		CharmModifiedVersion: result.CharmModifiedVersion,
 	}
 	if result.DeploymentInfo != nil {
 		info.DeploymentInfo = DeploymentInfo{
