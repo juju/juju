@@ -151,6 +151,10 @@ type LinkLayerDeviceArgs struct {
 
 // AddLinkLayerDeviceOps returns transaction operations for adding the input
 // link-layer device and the supplied addresses to the machine.
+// TODO (manadart 2020-07-22): This method is currently used only for adding
+// machine sourced devices and addresses.
+// If it is used in future to set provider devices, the provider ID args must
+// be included and the global ID collection must be maintained and verified.
 func (m *Machine) AddLinkLayerDeviceOps(
 	devArgs LinkLayerDeviceArgs, addrArgs ...LinkLayerDeviceAddress,
 ) ([]txn.Op, error) {
@@ -163,21 +167,18 @@ func (m *Machine) AddLinkLayerDeviceOps(
 		}
 
 		newDoc := ipAddressDoc{
-			DeviceName:        devDoc.Name,
-			DocID:             devDoc.DocID + "#ip#" + address,
-			ModelUUID:         m.doc.ModelUUID,
-			ProviderID:        addr.ProviderID.String(),
-			ProviderNetworkID: addr.ProviderNetworkID.String(),
-			ProviderSubnetID:  addr.ProviderSubnetID.String(),
-			MachineID:         m.doc.Id,
-			SubnetCIDR:        subnet,
-			ConfigMethod:      addr.ConfigMethod,
-			Value:             address,
-			DNSServers:        addr.DNSServers,
-			DNSSearchDomains:  addr.DNSSearchDomains,
-			GatewayAddress:    addr.GatewayAddress,
-			IsDefaultGateway:  addr.IsDefaultGateway,
-			Origin:            addr.Origin,
+			DeviceName:       devDoc.Name,
+			DocID:            devDoc.DocID + "#ip#" + address,
+			ModelUUID:        m.doc.ModelUUID,
+			MachineID:        m.doc.Id,
+			SubnetCIDR:       subnet,
+			ConfigMethod:     addr.ConfigMethod,
+			Value:            address,
+			DNSServers:       addr.DNSServers,
+			DNSSearchDomains: addr.DNSSearchDomains,
+			GatewayAddress:   addr.GatewayAddress,
+			IsDefaultGateway: addr.IsDefaultGateway,
+			Origin:           addr.Origin,
 		}
 		ops = append(ops, insertIPAddressDocOp(&newDoc))
 	}
@@ -607,7 +608,7 @@ type LinkLayerDeviceAddress struct {
 
 // TODO (manadart 2020-07-21): This is silly. We already received the args
 // as an address/subnet pair and validated them when transforming them to
-// the CIDAddress. Now we unpack and validate again.
+// the CIDRAddress. Now we unpack and validate again.
 // When the old link-layer update logic is removed, just pass it all
 // through as-is.
 // This method can then be removed and previous callers

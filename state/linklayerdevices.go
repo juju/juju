@@ -265,6 +265,10 @@ func (dev *LinkLayerDevice) UpdateOps(args LinkLayerDeviceArgs) []txn.Op {
 
 // AddAddressOps returns transaction operations required
 // to add the input address to the device.
+// TODO (manadart 2020-07-22): This method is currently used only for adding
+// machine sourced addresses.
+// If it is used in future to set provider addresses, the provider ID args must
+// be included and the global ID collection must be maintained and verified.
 func (dev *LinkLayerDevice) AddAddressOps(args LinkLayerDeviceAddress) ([]txn.Op, error) {
 	address, subnet, err := args.addressAndSubnet()
 	if err != nil {
@@ -272,23 +276,18 @@ func (dev *LinkLayerDevice) AddAddressOps(args LinkLayerDeviceAddress) ([]txn.Op
 	}
 
 	newDoc := ipAddressDoc{
-		// Note that using this method means that the device name
-		// is no longer required in the incoming arguments.
-		DeviceName:        dev.doc.Name,
-		DocID:             dev.doc.DocID + "#ip#" + address,
-		ModelUUID:         dev.doc.ModelUUID,
-		ProviderID:        args.ProviderID.String(),
-		ProviderNetworkID: args.ProviderNetworkID.String(),
-		ProviderSubnetID:  args.ProviderSubnetID.String(),
-		MachineID:         dev.doc.MachineID,
-		SubnetCIDR:        subnet,
-		ConfigMethod:      args.ConfigMethod,
-		Value:             address,
-		DNSServers:        args.DNSServers,
-		DNSSearchDomains:  args.DNSSearchDomains,
-		GatewayAddress:    args.GatewayAddress,
-		IsDefaultGateway:  args.IsDefaultGateway,
-		Origin:            args.Origin,
+		DeviceName:       dev.doc.Name,
+		DocID:            dev.doc.DocID + "#ip#" + address,
+		ModelUUID:        dev.doc.ModelUUID,
+		MachineID:        dev.doc.MachineID,
+		SubnetCIDR:       subnet,
+		ConfigMethod:     args.ConfigMethod,
+		Value:            address,
+		DNSServers:       args.DNSServers,
+		DNSSearchDomains: args.DNSSearchDomains,
+		GatewayAddress:   args.GatewayAddress,
+		IsDefaultGateway: args.IsDefaultGateway,
+		Origin:           args.Origin,
 	}
 	return []txn.Op{insertIPAddressDocOp(&newDoc)}, nil
 }
