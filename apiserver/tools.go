@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -15,7 +16,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	jujuhttp "github.com/juju/http"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/common"
@@ -182,18 +183,19 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	if err != nil {
 		return md, nil, err
 	}
-	tools, err := envtools.FindExactTools(env, v.Number, v.Series, v.Arch)
+	exactTools, err := envtools.FindExactTools(env, v.Number, v.Series, v.Arch)
 	if err != nil {
 		return md, nil, err
 	}
 
 	// No need to verify the server's identity because we verify the SHA-256 hash.
-	logger.Infof("fetching %v agent binaries from %v", v, tools.URL)
-	resp, err := utils.GetNonValidatingHTTPClient().Get(tools.URL)
+	logger.Infof("fetching %v agent binaries from %v", v, exactTools.URL)
+	client := jujuhttp.NewClient(jujuhttp.Config{SkipHostnameVerification: true})
+	resp, err := client.Get(context.TODO(), exactTools.URL)
 	if err != nil {
 		return md, nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		msg := fmt.Sprintf("bad HTTP response: %v", resp.Status)
 		if body, err := ioutil.ReadAll(resp.Body); err == nil {
@@ -202,18 +204,18 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 		return md, nil, errors.New(msg)
 	}
 
-	data, sha256, err := readAndHash(resp.Body)
+	data, respSha256, err := readAndHash(resp.Body)
 	if err != nil {
 		return md, nil, err
 	}
-	if int64(len(data)) != tools.Size {
-		return md, nil, errors.Errorf("size mismatch for %s", tools.URL)
+	if int64(len(data)) != exactTools.Size {
+		return md, nil, errors.Errorf("size mismatch for %s", exactTools.URL)
 	}
-	md.Size = tools.Size
-	if sha256 != tools.SHA256 {
-		return md, nil, errors.Errorf("hash mismatch for %s", tools.URL)
+	md.Size = exactTools.Size
+	if respSha256 != exactTools.SHA256 {
+		return md, nil, errors.Errorf("hash mismatch for %s", exactTools.URL)
 	}
-	md.SHA256 = tools.SHA256
+	md.SHA256 = exactTools.SHA256
 
 	if err := stor.Add(bytes.NewReader(data), md); err != nil {
 		return md, nil, errors.Annotate(err, "error caching agent binaries")

@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -1031,44 +1032,20 @@ type signedSuite struct {
 
 func (s *signedSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	var imageData = map[string]string{
-		"/unsigned/streams/v1/index.json":          unsignedIndex,
-		"/unsigned/streams/v1/tools_metadata.json": unsignedProduct,
-	}
-
-	// Set up some signed data from the unsigned data.
-	// Overwrite the product path to use the sjson suffix.
-	rawUnsignedIndex := strings.Replace(
-		unsignedIndex, "streams/v1/tools_metadata.json", "streams/v1/tools_metadata.sjson", -1)
-	r := bytes.NewReader([]byte(rawUnsignedIndex))
-	signedData, err := simplestreams.Encode(
-		r, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
-	c.Assert(err, jc.ErrorIsNil)
-	imageData["/signed/streams/v1/index.sjson"] = string(signedData)
-
-	// Replace the tools path in the unsigned data with a different one so we can test that the right
-	// tools path is used.
-	rawUnsignedProduct := strings.Replace(
-		unsignedProduct, "juju-1.13.0", "juju-1.13.1", -1)
-	r = bytes.NewReader([]byte(rawUnsignedProduct))
-	signedData, err = simplestreams.Encode(
-		r, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
-	c.Assert(err, jc.ErrorIsNil)
-	imageData["/signed/streams/v1/tools_metadata.sjson"] = string(signedData)
-	sstesting.SetRoundTripperFiles(imageData, map[string]int{"signedtest://unauth": http.StatusUnauthorized})
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *signedSuite) TearDownSuite(c *gc.C) {
-	sstesting.SetRoundTripperFiles(nil, nil)
 	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
+	ts := httptest.NewServer(&sstreamsHandler{})
+	defer ts.Close()
 	signedSource := simplestreams.NewDataSource(
 		simplestreams.Config{
 			Description:          "test",
-			BaseURL:              "signedtest://host/signed",
+			BaseURL:              fmt.Sprintf("%s/signed", ts.URL),
 			PublicSigningKey:     sstesting.SignedMetadataPublicKey,
 			HostnameVerification: utils.VerifySSLHostnames,
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
@@ -1089,9 +1066,48 @@ func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
 	c.Assert(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    true,
-		IndexURL:  "signedtest://host/signed/streams/v1/index.sjson",
+		IndexURL:  fmt.Sprintf("%s/signed/streams/v1/index.sjson", ts.URL),
 		MirrorURL: "",
 	})
+}
+
+type sstreamsHandler struct{}
+
+func (h *sstreamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case "/unsigned/streams/v1/index.json":
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, unsignedIndex)
+	case "/unsigned/streams/v1/image_metadata.json":
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, unsignedProduct)
+	case "/signed/streams/v1/tools_metadata.sjson":
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		rawUnsignedProduct := strings.Replace(
+			unsignedProduct, "juju-1.13.0", "juju-1.13.1", -1)
+		_, _ = io.WriteString(w, encode(rawUnsignedProduct))
+		return
+	case "/signed/streams/v1/index.sjson":
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		rawUnsignedIndex := strings.Replace(
+			unsignedIndex, "streams/v1/tools_metadata.json", "streams/v1/tools_metadata.sjson", -1)
+		_, _ = io.WriteString(w, encode(rawUnsignedIndex))
+		return
+	default:
+		http.Error(w, r.URL.Path, 404)
+		return
+	}
+}
+
+func encode(data string) string {
+	reader := bytes.NewReader([]byte(data))
+	signedData, _ := simplestreams.Encode(
+		reader, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
+	return string(signedData)
 }
 
 var unsignedIndex = `

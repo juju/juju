@@ -4,6 +4,7 @@
 package upgrader
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,11 +13,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
-	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2/catacomb"
 
+	jujuhttp "github.com/juju/http"
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/upgrader"
@@ -268,11 +269,12 @@ func (u *Upgrader) ensureTools(agentTools *coretools.Tools) error {
 	u.config.Logger.Infof("fetching agent binaries from %q", agentTools.URL)
 	// The reader MUST verify the tools' hash, so there is no
 	// need to validate the peer. We cannot anyway: see http://pad.lv/1261780.
-	resp, err := utils.GetNonValidatingHTTPClient().Get(agentTools.URL)
+	client := jujuhttp.NewClient(jujuhttp.Config{SkipHostnameVerification: true})
+	resp, err := client.Get(context.TODO(), agentTools.URL)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("bad HTTP response: %v", resp.Status)
 	}

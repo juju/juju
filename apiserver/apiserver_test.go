@@ -16,6 +16,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/clock"
+	jujuhttp "github.com/juju/http"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -285,7 +286,7 @@ func dialWebsocketFromURL(c *gc.C, server string, header http.Header) (*websocke
 	header.Set("Origin", "http://localhost/")
 	caCerts := x509.NewCertPool()
 	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), jc.IsTrue)
-	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig := jujuhttp.SecureTLSConfig()
 	tlsConfig.RootCAs = caCerts
 	tlsConfig.ServerName = "juju-apiserver"
 

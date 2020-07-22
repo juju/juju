@@ -21,6 +21,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/http"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -856,7 +857,7 @@ func tlsConfig(certStrs []string) *tls.Config {
 	for _, cert := range certStrs {
 		pool.AppendCertsFromPEM([]byte(cert))
 	}
-	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig := http.SecureTLSConfig()
 	tlsConfig.RootCAs = pool
 	return tlsConfig
 }

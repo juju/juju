@@ -4,6 +4,7 @@
 package simplestreams
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http"
 	"github.com/juju/utils"
 )
 
@@ -70,7 +72,7 @@ const (
 type urlDataSource struct {
 	description          string
 	baseURL              string
-	hostnameVerification utils.SSLHostnameVerification
+	hostnameVerification bool
 	publicSigningKey     string
 	priority             int
 	requireSigned        bool
@@ -87,6 +89,10 @@ type Config struct {
 
 	// HostnameVerification indicates whether to use self-signed credentials
 	// and not try to verify the hostname on the TLS/SSL certificates.
+	//
+	// TODO (hml) 2020-07-16
+	// It would be lovely to get rid of the SSLHostnameVerification
+	// type and use the model-config value more.
 	HostnameVerification utils.SSLHostnameVerification
 
 	// PublicSigningKey is the public key used to validate signed metadata.
@@ -128,7 +134,7 @@ func NewDataSource(cfg Config) DataSource {
 	return &urlDataSource{
 		description:          cfg.Description,
 		baseURL:              cfg.BaseURL,
-		hostnameVerification: cfg.HostnameVerification,
+		hostnameVerification: bool(cfg.HostnameVerification),
 		publicSigningKey:     cfg.PublicSigningKey,
 		priority:             cfg.Priority,
 		requireSigned:        cfg.RequireSigned,
@@ -159,11 +165,16 @@ func urlJoin(baseURL, relpath string) string {
 // Fetch is defined in simplestreams.DataSource.
 func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	dataURL := urlJoin(h.baseURL, path)
-	client := utils.GetHTTPClient(h.hostnameVerification, h.caCertificates...)
 	// dataURL can be http:// or file://
 	// MakeFileURL will only modify the URL if it's a file URL
 	dataURL = utils.MakeFileURL(dataURL)
-	resp, err := client.Get(dataURL)
+	cfg := jujuhttp.Config{
+		SkipHostnameVerification: !h.hostnameVerification,
+		CACertificates:           h.caCertificates,
+		Logger:                   logger.Child("http"),
+	}
+	client := jujuhttp.NewClient(cfg)
+	resp, err := client.Get(context.TODO(), dataURL)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			// Callers of this mask the actual error.  Therefore warn here.

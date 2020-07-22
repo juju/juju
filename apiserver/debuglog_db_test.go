@@ -8,8 +8,8 @@ import (
 	"net/url"
 
 	"github.com/gorilla/websocket"
+	jujuhttp "github.com/juju/http"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -54,7 +54,7 @@ func (s *debugLogDBSuite) TestNoAuth(c *gc.C) {
 
 func (s *debugLogDBSuite) TestUnitLoginsRejected(c *gc.C) {
 	u, password := s.Factory.MakeUnitReturningPassword(c, nil)
-	header := utils.BasicAuthHeader(u.Tag().String(), password)
+	header := jujuhttp.BasicAuthHeader(u.Tag().String(), password)
 
 	conn, _, err := s.dialWebsocketInternal(c, nil, header)
 	c.Assert(err, jc.ErrorIsNil)
@@ -70,7 +70,7 @@ func (s *debugLogDBSuite) TestUserLoginsAccepted(c *gc.C) {
 		Name:     "oryx",
 		Password: "gardener",
 	})
-	header := utils.BasicAuthHeader(u.Tag().String(), "gardener")
+	header := jujuhttp.BasicAuthHeader(u.Tag().String(), "gardener")
 	conn, _, err := s.dialWebsocketInternal(c, noResultsPlease, header)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.NotNil)
@@ -84,7 +84,7 @@ func (s *debugLogDBSuite) TestMachineLoginsAccepted(c *gc.C) {
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: "foo-nonce",
 	})
-	header := utils.BasicAuthHeader(m.Tag().String(), password)
+	header := jujuhttp.BasicAuthHeader(m.Tag().String(), password)
 	header.Add(params.MachineNonceHeader, "foo-nonce")
 	conn, _, err := s.dialWebsocketInternal(c, noResultsPlease, header)
 	c.Assert(err, jc.ErrorIsNil)
@@ -101,7 +101,7 @@ func (s *debugLogDBSuite) logURL(scheme string, queryParams url.Values) *url.URL
 }
 
 func (s *debugLogDBSuite) dialWebsocket(c *gc.C, queryParams url.Values) *websocket.Conn {
-	header := utils.BasicAuthHeader(s.Owner.String(), ownerPassword)
+	header := jujuhttp.BasicAuthHeader(s.Owner.String(), ownerPassword)
 	conn, _, err := s.dialWebsocketInternal(c, queryParams, header)
 	c.Assert(err, jc.ErrorIsNil)
 	return conn

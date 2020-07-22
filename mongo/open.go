@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/http"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils"
 	"github.com/juju/utils/cert"
 	"gopkg.in/mgo.v2"
 )
@@ -132,7 +132,7 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		pool := x509.NewCertPool()
 		pool.AddCert(xcert)
 
-		tlsConfig = utils.SecureTLSConfig()
+		tlsConfig = http.SecureTLSConfig()
 		tlsConfig.RootCAs = pool
 		tlsConfig.ServerName = "juju-mongodb"
 

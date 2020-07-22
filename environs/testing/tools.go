@@ -5,6 +5,7 @@ package testing
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,9 +13,9 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/http"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -134,7 +135,8 @@ func PrimeTools(c *gc.C, stor storage.Storage, dataDir, toolsDir string, vers ve
 	c.Assert(err, jc.ErrorIsNil)
 	agentTools, err := uploadFakeToolsVersion(stor, toolsDir, vers)
 	c.Assert(err, jc.ErrorIsNil)
-	resp, err := utils.GetValidatingHTTPClient().Get(agentTools.URL)
+	client := http.NewClient(http.Config{})
+	resp, err := client.Get(context.TODO(), agentTools.URL)
 	c.Assert(err, jc.ErrorIsNil)
 	defer resp.Body.Close()
 	err = agenttools.UnpackTools(dataDir, agentTools, resp.Body)

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 
+	jujuhttp "github.com/juju/http"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -686,6 +687,7 @@ type LocalLiveSimplestreamsSuite struct {
 
 func (s *LocalLiveSimplestreamsSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
+	s.PatchValue(&jujuhttp.OutgoingAccessAllowed, false)
 }
 
 func (s *LocalLiveSimplestreamsSuite) TearDownSuite(c *gc.C) {
@@ -695,7 +697,6 @@ func (s *LocalLiveSimplestreamsSuite) TearDownSuite(c *gc.C) {
 const (
 	Index_v1   = "index:1.0"
 	Product_v1 = "products:1.0"
-	Mirror_v1  = "mirrors:1.0"
 )
 
 type testConstraint struct {

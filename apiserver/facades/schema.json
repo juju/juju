@@ -28589,7 +28589,7 @@
                             "$ref": "#/definitions/MachineNetworkConfigResults"
                         }
                     },
-                    "description": "GetContainerInterfaceInfo returns information to configure networking for a\ncontainer. It accepts container tags as arguments."
+                    "description": "GetContainerInterfaceInfo returns information to configure networking for a\ncontainer. It accepts container tags as arguments.\nTODO (manadart 2020-07-23): This method is not used and can be removed when\nnext this facade version is bumped.\nWe then don't need the parameterised prepareOrGet..."
                 },
                 "GetContainerProfileInfo": {
                     "type": "object",

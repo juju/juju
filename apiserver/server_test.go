@@ -12,6 +12,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -179,7 +180,7 @@ func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {
 	header.Set("Origin", "http://localhost/")
 	caCerts := x509.NewCertPool()
 	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), jc.IsTrue)
-	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig := jujuhttp.SecureTLSConfig()
 	tlsConfig.RootCAs = caCerts
 	tlsConfig.ServerName = "anything"
 

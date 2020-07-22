@@ -206,11 +206,12 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	err = stor.Remove(envtools.StorageName(newTools.Version, "released"))
 	c.Assert(err, jc.ErrorIsNil)
 	u := s.makeUpgrader(c)
-	defer workertest.CheckKilled(c, u)
+	defer func() { _ = workertest.CheckKilled(c, u) }()
 	s.expectInitialUpgradeCheckNotDone(c)
 
 	for i := 0; i < 3; i++ {
-		s.clock.WaitAdvance(5*time.Second, coretesting.LongWait, 1)
+		err := s.clock.WaitAdvance(5*time.Second, coretesting.LongWait, 1)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	// Make it upgrade to some newer tools that can be

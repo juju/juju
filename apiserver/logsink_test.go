@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	jujuhttp "github.com/juju/http"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -68,7 +69,7 @@ func (s *logsinkSuite) TestNoAuth(c *gc.C) {
 
 func (s *logsinkSuite) TestRejectsUserLogins(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "sekrit"})
-	header := utils.BasicAuthHeader(user.Tag().String(), "sekrit")
+	header := jujuhttp.BasicAuthHeader(user.Tag().String(), "sekrit")
 	s.checkAuthFails(c, header, http.StatusForbidden, "authorization failed: tag kind user not valid")
 }
 
@@ -232,7 +233,7 @@ func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {
 }
 
 func (s *logsinkSuite) makeAuthHeader() http.Header {
-	header := utils.BasicAuthHeader(s.machineTag.String(), s.password)
+	header := jujuhttp.BasicAuthHeader(s.machineTag.String(), s.password)
 	header.Add(params.MachineNonceHeader, s.nonce)
 	return header
 }
