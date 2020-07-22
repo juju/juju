@@ -770,7 +770,7 @@ func (ps *backingPodSpec) asPodSpec() *multiwatcher.PodSpec {
 		Spec:    ps.Spec,
 		Counter: ps.UpgradeCounter,
 	}
-	if podSpec.Spec == "" {
+	if len(podSpec.Spec) == 0 && len(ps.RawSpec) > 0 {
 		podSpec.Spec = ps.RawSpec
 		podSpec.Raw = true
 	}

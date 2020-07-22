@@ -68,7 +68,8 @@ func (s *CAASUnitInitSuite) newCommand(c *gc.C, st *testing.Stub) *CAASUnitInitC
 
 func (s *CAASUnitInitSuite) checkCommand(c *gc.C, cmd *CAASUnitInitCommand, args []string,
 	unit string, operatorFile string,
-	operatorCACertFile string, charmDir string, upgrade bool) []testing.StubCall {
+	operatorCACertFile string, charmDir string,
+) []testing.StubCall {
 	ctx, err := cmdtesting.RunCommand(c, cmd, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
@@ -82,18 +83,11 @@ func (s *CAASUnitInitSuite) checkCommand(c *gc.C, cmd *CAASUnitInitCommand, args
 		{FuncName: "RemoveAll", Args: []interface{}{toolsPath}},
 		{FuncName: "MkdirAll", Args: []interface{}{toolsPath, os.FileMode(0775)}},
 	}
-	if upgrade {
-		if charmDir != "" {
-			calls = append(calls,
-				testing.StubCall{FuncName: "RemoveAll", Args: []interface{}{agentPath + "/charm"}},
-			)
-		}
-	} else {
-		calls = append(calls,
-			testing.StubCall{FuncName: "RemoveAll", Args: []interface{}{agentPath}},
-			testing.StubCall{FuncName: "MkdirAll", Args: []interface{}{agentPath, os.FileMode(0775)}},
-		)
-	}
+
+	calls = append(calls,
+		testing.StubCall{FuncName: "RemoveAll", Args: []interface{}{agentPath}},
+		testing.StubCall{FuncName: "MkdirAll", Args: []interface{}{agentPath, os.FileMode(0775)}},
+	)
 
 	// Symlinks
 	calls = append(calls,
@@ -133,7 +127,7 @@ func (s *CAASUnitInitSuite) TestInitUnit(c *gc.C) {
 	st := &testing.Stub{}
 	cmd := s.newCommand(c, st)
 	calls := s.checkCommand(c, cmd, args, "unit-wow-0",
-		"operator/file/path", "operator/cert/file/path", "charm/dir", false)
+		"operator/file/path", "operator/cert/file/path", "charm/dir")
 	st.CheckCalls(c, calls)
 }
 
@@ -153,7 +147,7 @@ func (s *CAASUnitInitSuite) TestInitUnitWaitSend(c *gc.C) {
 			return l, err
 		}
 		calls := s.checkCommand(c, cmd, []string{"--wait"}, "unit-wow-0",
-			"operator/file/path", "operator/cert/file/path", "charm/dir", false)
+			"operator/file/path", "operator/cert/file/path", "charm/dir")
 		calls = append(calls,
 			testing.StubCall{FuncName: "waitForPID", Args: []interface{}{os.Getpid()}})
 		st.CheckCalls(c, calls)
@@ -180,17 +174,6 @@ func (s *CAASUnitInitSuite) TestInitUnitWaitSend(c *gc.C) {
 	c.Assert(stdErr.Bytes(), gc.Not(gc.HasLen), 0)
 
 	wg.Wait()
-}
-
-func (s *CAASUnitInitSuite) TestUpgradeUnit(c *gc.C) {
-	args := []string{"--unit", "unit-wow-0",
-		"--upgrade",
-		"--charm-dir", "charm/dir"}
-	st := &testing.Stub{}
-	cmd := s.newCommand(c, st)
-	calls := s.checkCommand(c, cmd, args, "unit-wow-0",
-		"", "", "charm/dir", true)
-	st.CheckCalls(c, calls)
 }
 
 func (s *CAASUnitInitSuite) TestWaitPID(c *gc.C) {

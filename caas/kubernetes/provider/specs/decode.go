@@ -86,5 +86,12 @@ func (d *YAMLOrJSONDecoder) Decode(into interface{}) error {
 	if d.strict {
 		decoder.DisallowUnknownFields()
 	}
-	return d.processError(decoder.Decode(into), decoder)
+
+	for decoder.More() {
+		if err := decoder.Decode(into); err != nil {
+			return d.processError(err, decoder)
+		}
+	}
+
+	return nil
 }

@@ -45,8 +45,9 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju-app-uuid":      "appuuid",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju.io/charm-modified-version": "0",
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -62,6 +63,7 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -338,8 +340,9 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"juju-app-uuid":      "appuuid",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju.io/charm-modified-version": "0",
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -355,6 +358,7 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version":           "0",
 					},
 				},
 				Spec: podSpec,

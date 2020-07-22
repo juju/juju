@@ -56,39 +56,53 @@ const (
 type controllerServiceSpec struct {
 	// ServiceType is required.
 	ServiceType core.ServiceType
+
+	// ExternalName is optional.
+	ExternalName string
+
+	// ExternalIP is optional.
+	ExternalIP string
+
 	// ExternalIPs is optional.
 	ExternalIPs []string
+
 	// Annotations is optional.
 	Annotations k8sannotations.Annotation
 }
 
-var controllerServiceSpecs = map[string]controllerServiceSpec{
-	caas.K8sCloudAzure: {
-		ServiceType: core.ServiceTypeLoadBalancer,
-	},
-	caas.K8sCloudEC2: {
-		ServiceType: core.ServiceTypeLoadBalancer,
-		Annotations: k8sannotations.New(nil).
-			Add("service.beta.kubernetes.io/aws-load-balancer-backend-protocol", "tcp"),
-	},
-	caas.K8sCloudGCE: {
-		ServiceType: core.ServiceTypeLoadBalancer,
-	},
-	caas.K8sCloudMicrok8s: {
-		ServiceType: core.ServiceTypeClusterIP,
-	},
-	caas.K8sCloudOpenStack: {
-		ServiceType: core.ServiceTypeLoadBalancer,
-	},
-	caas.K8sCloudMAAS: {
-		ServiceType: core.ServiceTypeLoadBalancer, // TODO(caas): test and verify this.
-	},
-	caas.K8sCloudLXD: {
-		ServiceType: core.ServiceTypeClusterIP, // TODO(caas): test and verify this.
-	},
-	caas.K8sCloudOther: {
-		ServiceType: core.ServiceTypeClusterIP, // Default svc spec for any other cloud is not listed above.
-	},
+func getDefaultControllerServiceSpecs(cloudType string) *controllerServiceSpec {
+	specs := map[string]*controllerServiceSpec{
+		caas.K8sCloudAzure: {
+			ServiceType: core.ServiceTypeLoadBalancer,
+		},
+		caas.K8sCloudEC2: {
+			ServiceType: core.ServiceTypeLoadBalancer,
+			Annotations: k8sannotations.New(nil).
+				Add("service.beta.kubernetes.io/aws-load-balancer-backend-protocol", "tcp"),
+		},
+		caas.K8sCloudGCE: {
+			ServiceType: core.ServiceTypeLoadBalancer,
+		},
+		caas.K8sCloudMicrok8s: {
+			ServiceType: core.ServiceTypeClusterIP,
+		},
+		caas.K8sCloudOpenStack: {
+			ServiceType: core.ServiceTypeLoadBalancer,
+		},
+		caas.K8sCloudMAAS: {
+			ServiceType: core.ServiceTypeLoadBalancer, // TODO(caas): test and verify this.
+		},
+		caas.K8sCloudLXD: {
+			ServiceType: core.ServiceTypeClusterIP, // TODO(caas): test and verify this.
+		},
+		caas.K8sCloudOther: {
+			ServiceType: core.ServiceTypeClusterIP, // Default svc spec for any other cloud is not listed above.
+		},
+	}
+	if out, ok := specs[cloudType]; ok {
+		return out
+	}
+	return specs[caas.K8sCloudOther]
 }
 
 type controllerStack struct {
@@ -342,26 +356,41 @@ func (c *controllerStack) Deploy() (err error) {
 	return nil
 }
 
-func (c *controllerStack) getControllerSvcSpec(cloudType string, cfg *podcfg.BootstrapConfig) (*controllerServiceSpec, error) {
-	spec, ok := controllerServiceSpecs[cloudType]
-	if !ok {
-		logger.Debugf("fallback to default svc spec for %q", cloudType)
-		spec = controllerServiceSpecs[caas.K8sCloudOther]
+func (c *controllerStack) getControllerSvcSpec(cloudType string, cfg *podcfg.BootstrapConfig) (spec *controllerServiceSpec, err error) {
+	defer func() {
+		if spec != nil && len(spec.ServiceType) == 0 {
+			// ServiceType is required.
+			err = errors.NotValidf("service type is empty for %q", cloudType)
+		}
+	}()
+
+	spec = getDefaultControllerServiceSpecs(cloudType)
+	if cfg == nil {
+		return spec, nil
 	}
-	if cfg != nil && cfg.ControllerServiceType != "" {
-		var err error
+	if len(cfg.ControllerServiceType) > 0 {
 		if spec.ServiceType, err = caasServiceToK8s(caas.ServiceType(cfg.ControllerServiceType)); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	if spec.ServiceType == "" {
-		// ServiceType is required.
-		return nil, errors.NotValidf("service type is empty for %q", cloudType)
+
+	spec.ExternalIPs = append([]string(nil), cfg.ControllerExternalIPs...)
+
+	switch spec.ServiceType {
+	case core.ServiceTypeExternalName:
+		spec.ExternalName = cfg.ControllerExternalName
+	case core.ServiceTypeLoadBalancer:
+		if len(cfg.ControllerExternalName) > 0 {
+			return nil, errors.NewNotValid(nil, fmt.Sprintf(
+				"external name %q provided but service type was set to %q",
+				cfg.ControllerExternalName, spec.ServiceType,
+			))
+		}
+		if len(cfg.ControllerExternalIPs) > 0 {
+			spec.ExternalIP = cfg.ControllerExternalIPs[0]
+		}
 	}
-	if cfg != nil {
-		spec.ExternalIPs = append([]string(nil), cfg.ControllerExternalIPs...)
-	}
-	return &spec, nil
+	return spec, nil
 }
 
 func (c *controllerStack) createControllerService() error {
@@ -372,14 +401,7 @@ func (c *controllerStack) createControllerService() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	externalName := ""
-	if controllerSvcSpec.ServiceType == core.ServiceTypeExternalName {
-		externalName = c.pcfg.Bootstrap.ControllerExternalName
-	}
-	loadBalancerIP := ""
-	if controllerSvcSpec.ServiceType == core.ServiceTypeLoadBalancer && len(c.pcfg.Bootstrap.ControllerExternalIPs) > 0 {
-		loadBalancerIP = c.pcfg.Bootstrap.ControllerExternalIPs[0]
-	}
+
 	spec := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        svcName,
@@ -397,11 +419,12 @@ func (c *controllerStack) createControllerService() error {
 					Port:       int32(c.portAPIServer),
 				},
 			},
-			ExternalName:   externalName,
+			ExternalName:   controllerSvcSpec.ExternalName,
 			ExternalIPs:    controllerSvcSpec.ExternalIPs,
-			LoadBalancerIP: loadBalancerIP,
+			LoadBalancerIP: controllerSvcSpec.ExternalIP,
 		},
 	}
+
 	if controllerSvcSpec.Annotations != nil {
 		spec.SetAnnotations(controllerSvcSpec.Annotations.ToMap())
 	}

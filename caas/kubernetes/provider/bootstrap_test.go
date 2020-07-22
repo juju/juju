@@ -106,6 +106,13 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *bootstrapSuite) TearDownTest(c *gc.C) {
+	s.pcfg = nil
+	s.controllerCfg = nil
+	s.controllerStackerGetter = nil
+	s.BaseSuite.TearDownTest(c)
+}
+
 func (s *bootstrapSuite) TestControllerCorelation(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
@@ -144,40 +151,123 @@ func (s *bootstrapSuite) TestControllerCorelation(c *gc.C) {
 	c.Assert(ns, jc.DeepEquals, "controller-1")
 }
 
+type svcSpecTC struct {
+	cloudType string
+	spec      *provider.ControllerServiceSpec
+	errStr    string
+	cfg       *podcfg.BootstrapConfig
+}
+
 func (s *bootstrapSuite) TestGetControllerSvcSpec(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	for cloudType, out := range map[string]*provider.ControllerServiceSpec{
-		"azure": {
-			ServiceType: core.ServiceTypeLoadBalancer,
+	getCfg := func(externalName, controllerServiceType string, controllerExternalIPs []string) *podcfg.BootstrapConfig {
+		o := new(podcfg.BootstrapConfig)
+		*o = *s.pcfg.Bootstrap
+		if len(externalName) > 0 {
+			o.ControllerExternalName = externalName
+		}
+		if len(controllerServiceType) > 0 {
+			o.ControllerServiceType = controllerServiceType
+		}
+		if len(controllerExternalIPs) > 0 {
+			o.ControllerExternalIPs = controllerExternalIPs
+		}
+		return o
+	}
+
+	for i, t := range []svcSpecTC{
+		{
+			cloudType: "azure",
+			spec: &provider.ControllerServiceSpec{
+				ServiceType: core.ServiceTypeLoadBalancer,
+			},
 		},
-		"ec2": {
-			ServiceType: core.ServiceTypeLoadBalancer,
-			Annotations: k8sannotations.New(nil).
-				Add("service.beta.kubernetes.io/aws-load-balancer-backend-protocol", "tcp"),
+		{
+			cloudType: "ec2",
+			spec: &provider.ControllerServiceSpec{
+				ServiceType: core.ServiceTypeLoadBalancer,
+				Annotations: k8sannotations.New(nil).
+					Add("service.beta.kubernetes.io/aws-load-balancer-backend-protocol", "tcp"),
+			},
 		},
-		"gce": {
-			ServiceType: core.ServiceTypeLoadBalancer,
+		{
+			cloudType: "gce",
+			spec: &provider.ControllerServiceSpec{
+				ServiceType: core.ServiceTypeLoadBalancer,
+			},
 		},
-		"microk8s": {
-			ServiceType: core.ServiceTypeClusterIP,
+		{
+			cloudType: "microk8s",
+			spec: &provider.ControllerServiceSpec{
+				ServiceType: core.ServiceTypeClusterIP,
+			},
 		},
-		"openstack": {
-			ServiceType: core.ServiceTypeLoadBalancer,
+		{
+			cloudType: "openstack",
+			spec: &provider.ControllerServiceSpec{
+				ServiceType: core.ServiceTypeLoadBalancer,
+			},
 		},
-		"maas": {
-			ServiceType: core.ServiceTypeLoadBalancer,
+		{
+			cloudType: "maas",
+			spec: &provider.ControllerServiceSpec{
+				ServiceType: core.ServiceTypeLoadBalancer,
+			},
 		},
-		"lxd": {
-			ServiceType: core.ServiceTypeClusterIP,
+		{
+			cloudType: "lxd",
+			spec: &provider.ControllerServiceSpec{
+				ServiceType: core.ServiceTypeClusterIP,
+			},
 		},
-		"unknown-cloud": {
-			ServiceType: core.ServiceTypeClusterIP,
+		{
+			cloudType: "unknown-cloud",
+			spec: &provider.ControllerServiceSpec{
+				ServiceType: core.ServiceTypeClusterIP,
+			},
+		},
+		{
+			cloudType: "microk8s",
+			spec: &provider.ControllerServiceSpec{
+				ServiceType: core.ServiceTypeLoadBalancer,
+				ExternalIP:  "1.1.1.1",
+				ExternalIPs: []string{"1.1.1.1"},
+			},
+			cfg: getCfg("", "loadbalancer", []string{"1.1.1.1"}),
+		},
+		{
+			cloudType: "microk8s",
+			errStr:    `external name "example.com" provided but service type was set to "LoadBalancer"`,
+			cfg:       getCfg("example.com", "loadbalancer", []string{"1.1.1.1"}),
+		},
+		{
+			cloudType: "microk8s",
+			spec: &provider.ControllerServiceSpec{
+				ServiceType:  core.ServiceTypeExternalName,
+				ExternalName: "example.com",
+				ExternalIPs:  []string{"1.1.1.1"},
+			},
+			cfg: getCfg("example.com", "external", []string{"1.1.1.1"}),
+		},
+		{
+			cloudType: "microk8s",
+			spec: &provider.ControllerServiceSpec{
+				ServiceType:  core.ServiceTypeExternalName,
+				ExternalName: "example.com",
+			},
+			cfg: getCfg("example.com", "external", nil),
 		},
 	} {
-		spec, _ := s.controllerStackerGetter().GetControllerSvcSpec(cloudType, nil)
-		c.Check(spec, jc.DeepEquals, out)
+		c.Logf("testing %d %q", i, t.cloudType)
+		spec, err := s.controllerStackerGetter().GetControllerSvcSpec(t.cloudType, t.cfg)
+		if len(t.errStr) == 0 {
+			c.Check(err, jc.ErrorIsNil)
+		} else {
+			c.Check(err, gc.ErrorMatches, t.errStr)
+		}
+		c.Check(spec, jc.DeepEquals, t.spec)
 	}
 }
 

@@ -40,7 +40,6 @@ type CAASUnitInitCommand struct {
 		OperatorFile       string `json:"operator-file"`
 		OperatorCACertFile string `json:"operator-ca-cert-file"`
 		CharmDir           string `json:"charm-dir"`
-		Upgrade            bool   `json:"upgrade"`
 		CallerPID          int    `json:"caller-pid"`
 	}
 
@@ -81,7 +80,6 @@ func (c *CAASUnitInitCommand) Info() *cmd.Info {
 func (c *CAASUnitInitCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Wait, "wait", false, "wait for args init via socket")
 	f.BoolVar(&c.Send, "send", false, "send args for init via socket")
-	f.BoolVar(&c.Args.Upgrade, "upgrade", false, "upgrade only")
 	f.StringVar(&c.Args.Unit, "unit", "", "unit name")
 	f.StringVar(&c.Args.OperatorFile, "operator-file", "", "operator client info file")
 	f.StringVar(&c.Args.OperatorCACertFile, "operator-ca-cert-file", "", "ca cert for operator")
@@ -177,22 +175,14 @@ func (c *CAASUnitInitCommand) Run(ctx *cmd.Context) (errOut error) {
 		return errors.Annotatef(err, "failed to make unit tools dir %s",
 			unitPaths.ToolsDir)
 	}
-	if c.Args.Upgrade {
-		if c.Args.CharmDir != "" {
-			if err = c.removeAllFunc(unitPaths.State.CharmDir); err != nil && !os.IsNotExist(err) {
-				return errors.Annotatef(err, "failed to remove unit charm dir %s",
-					unitPaths.State.CharmDir)
-			}
-		}
-	} else {
-		if err = c.removeAllFunc(unitPaths.State.BaseDir); err != nil && !os.IsNotExist(err) {
-			return errors.Annotatef(err, "failed to remove unit base dir %s",
-				unitPaths.State.BaseDir)
-		}
-		if err = c.mkdirAllFunc(unitPaths.State.BaseDir, 0775); err != nil {
-			return errors.Annotatef(err, "failed to make unit base dir %s",
-				unitPaths.State.BaseDir)
-		}
+
+	if err = c.removeAllFunc(unitPaths.State.BaseDir); err != nil && !os.IsNotExist(err) {
+		return errors.Annotatef(err, "failed to remove unit base dir %s",
+			unitPaths.State.BaseDir)
+	}
+	if err = c.mkdirAllFunc(unitPaths.State.BaseDir, 0775); err != nil {
+		return errors.Annotatef(err, "failed to make unit base dir %s",
+			unitPaths.State.BaseDir)
 	}
 
 	// symlink jujud

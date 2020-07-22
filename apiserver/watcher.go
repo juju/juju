@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
@@ -54,9 +55,10 @@ func NewAllWatcher(context facade.Context) (facade.Facade, error) {
 }
 
 type watcherCommon struct {
-	id        string
-	resources facade.Resources
-	dispose   func()
+	id         string
+	resources  facade.Resources
+	dispose    func()
+	controller *cache.Controller
 }
 
 func newWatcherCommon(context facade.Context) watcherCommon {
@@ -64,6 +66,7 @@ func newWatcherCommon(context facade.Context) watcherCommon {
 		context.ID(),
 		context.Resources(),
 		context.Dispose,
+		context.Controller(),
 	}
 }
 
@@ -177,6 +180,20 @@ func (aw *SrvAllWatcher) translateApplication(info multiwatcher.EntityInfo) para
 		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
 		return nil
 	}
+
+	// Get the application status from the cache if it is unset.
+	applicationStatus := multiwatcher.StatusInfo{Current: status.Unknown}
+	if orig.Status.Current == status.Unset {
+		if model, err := aw.controller.Model(orig.ModelUUID); err == nil {
+			cachedApp, err := model.Application(orig.Name)
+			if err == nil {
+				applicationStatus = multiwatcher.NewStatusInfo(cachedApp.Status(), nil)
+			}
+		}
+	} else {
+		applicationStatus = orig.Status
+	}
+
 	return &params.ApplicationInfo{
 		ModelUUID:       orig.ModelUUID,
 		Name:            orig.Name,
@@ -188,7 +205,7 @@ func (aw *SrvAllWatcher) translateApplication(info multiwatcher.EntityInfo) para
 		Constraints:     orig.Constraints,
 		Config:          orig.Config,
 		Subordinate:     orig.Subordinate,
-		Status:          aw.translateStatus(orig.Status),
+		Status:          aw.translateStatus(applicationStatus),
 		WorkloadVersion: orig.WorkloadVersion,
 	}
 }
