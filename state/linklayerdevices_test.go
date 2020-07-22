@@ -383,11 +383,6 @@ func (s *linkLayerDevicesStateSuite) addNamedParentDeviceWithChildrenAndCheckAll
 	return parent, children
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesMultipleChildrenOfExistingParentIdempotent(c *gc.C) {
-	s.addNamedParentDeviceWithChildrenAndCheckAllAdded(c, "parent", "child1", "child2")
-	s.addNamedParentDeviceWithChildrenAndCheckAllAdded(c, "parent", "child1", "child2")
-}
-
 func (s *linkLayerDevicesStateSuite) addSimpleDevice(c *gc.C) *state.LinkLayerDevice {
 	return s.addNamedDevice(c, "foo")
 }
@@ -397,8 +392,10 @@ func (s *linkLayerDevicesStateSuite) addNamedDevice(c *gc.C, name string) *state
 		Name: name,
 		Type: corenetwork.EthernetDevice,
 	}
-	err := s.machine.SetLinkLayerDevices(args)
+	ops, err := s.machine.AddLinkLayerDeviceOps(args)
 	c.Assert(err, jc.ErrorIsNil)
+	state.RunTransaction(c, s.State, ops)
+
 	device, err := s.machine.LinkLayerDevice(name)
 	c.Assert(err, jc.ErrorIsNil)
 	return device
@@ -751,6 +748,38 @@ func (s *linkLayerDevicesStateSuite) TestAddAddressOps(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	state.RunTransaction(c, s.State, ops)
+
+	dev, err = s.machine.LinkLayerDevice("eth0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrs, err := dev.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(addrs, gc.HasLen, 1)
+	c.Assert(addrs[0].Value(), gc.Equals, "10.1.1.1")
+}
+
+func (s *linkLayerDevicesStateSuite) TestAddDeviceOpsWithAddresses(c *gc.C) {
+	devName := "eth0"
+
+	devArgs := state.LinkLayerDeviceArgs{
+		Name: devName,
+		Type: corenetwork.EthernetDevice,
+	}
+
+	addrArgs := state.LinkLayerDeviceAddress{
+		DeviceName:  devName,
+		CIDRAddress: "10.1.1.1/24",
+		Origin:      corenetwork.OriginMachine,
+	}
+
+	ops, err := s.machine.AddLinkLayerDeviceOps(devArgs, addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.RunTransaction(c, s.State, ops)
+
+	dev, err := s.machine.LinkLayerDevice(devName)
+	c.Assert(err, jc.ErrorIsNil)
 
 	dev, err = s.machine.LinkLayerDevice("eth0")
 	c.Assert(err, jc.ErrorIsNil)

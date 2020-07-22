@@ -149,6 +149,42 @@ type LinkLayerDeviceArgs struct {
 	ParentName string
 }
 
+// AddLinkLayerDeviceOps returns transaction operations for adding the input
+// link-layer device and the supplied addresses to the machine.
+func (m *Machine) AddLinkLayerDeviceOps(
+	devArgs LinkLayerDeviceArgs, addrArgs ...LinkLayerDeviceAddress,
+) ([]txn.Op, error) {
+	devDoc := m.newLinkLayerDeviceDocFromArgs(&devArgs)
+	ops := []txn.Op{insertLinkLayerDeviceDocOp(devDoc)}
+	for _, addr := range addrArgs {
+		address, subnet, err := addr.addressAndSubnet()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		newDoc := ipAddressDoc{
+			DeviceName:        devDoc.Name,
+			DocID:             devDoc.DocID + "#ip#" + address,
+			ModelUUID:         m.doc.ModelUUID,
+			ProviderID:        addr.ProviderID.String(),
+			ProviderNetworkID: addr.ProviderNetworkID.String(),
+			ProviderSubnetID:  addr.ProviderSubnetID.String(),
+			MachineID:         m.doc.Id,
+			SubnetCIDR:        subnet,
+			ConfigMethod:      addr.ConfigMethod,
+			Value:             address,
+			DNSServers:        addr.DNSServers,
+			DNSSearchDomains:  addr.DNSSearchDomains,
+			GatewayAddress:    addr.GatewayAddress,
+			IsDefaultGateway:  addr.IsDefaultGateway,
+			Origin:            addr.Origin,
+		}
+		ops = append(ops, insertIPAddressDocOp(&newDoc))
+	}
+
+	return ops, nil
+}
+
 // SetLinkLayerDevices sets link-layer devices on the machine, adding or
 // updating existing devices as needed, in a single transaction. ProviderID
 // field can be empty if not supported by the provider, but when set must be
