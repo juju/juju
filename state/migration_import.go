@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -1243,6 +1244,30 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		return nil, errors.Trace(err)
 	}
 
+	co := a.CharmOrigin()
+	rev := co.Revision()
+
+	var channel *Channel
+	if serialized := co.Channel(); serialized != "" {
+		c, err := corecharm.ParseChannel(serialized)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		channel = &Channel{
+			Track:  c.Track,
+			Risk:   string(c.Risk),
+			Branch: c.Branch,
+		}
+	}
+
+	origin := &CharmOrigin{
+		Source:   co.Source(),
+		ID:       co.ID(),
+		Hash:     co.Hash(),
+		Revision: &rev,
+		Channel:  channel,
+	}
+
 	return &applicationDoc{
 		Name:                 a.Name(),
 		Series:               a.Series(),
@@ -1250,6 +1275,7 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		CharmURL:             charmURL,
 		Channel:              a.Channel(),
 		CharmModifiedVersion: a.CharmModifiedVersion(),
+		CharmOrigin:          origin,
 		ForceCharm:           a.ForceCharm(),
 		PasswordHash:         a.PasswordHash(),
 		Life:                 Alive,

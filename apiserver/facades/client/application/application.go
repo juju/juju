@@ -773,11 +773,15 @@ func deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	origin, err := convertCharmOrigin(args.CharmOrigin)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	_, err = deployApplicationFunc(backend, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Series:            args.Series,
 		Charm:             stateCharm(ch),
-		CharmOrigin:       safeCharmOrigin(args.CharmOrigin),
+		CharmOrigin:       origin,
 		Channel:           csparams.Channel(args.Channel),
 		NumUnits:          args.NumUnits,
 		ApplicationConfig: applicationConfig,
@@ -793,13 +797,37 @@ func deployApplication(
 	return errors.Trace(err)
 }
 
-func safeCharmOrigin(origin *params.CharmOrigin) corecharm.Origin {
-	if origin == nil || origin.Source == "" {
-		return corecharm.Origin{Source: corecharm.Unknown}
+func convertCharmOrigin(origin *params.CharmOrigin) (corecharm.Origin, error) {
+	switch {
+	case origin == nil || origin.Source == "":
+		return corecharm.Origin{Source: corecharm.Unknown}, nil
+	case origin.Source == "local":
+		return corecharm.Origin{Source: corecharm.Local}, nil
+	case origin.Source == "charmstore":
+		return corecharm.Origin{Source: corecharm.CharmStore}, nil
 	}
+
+	// Charmhub code can not tell us about the exact charm we want to install.
+	if origin.Revision == nil && origin.Channel == nil {
+		return corecharm.Origin{}, errors.Errorf("unexpected charm origin")
+	}
+
+	var channel *corecharm.Channel
+	if origin.Channel != nil {
+		ch, err := corecharm.ParseChannel(*origin.Channel)
+		if err != nil {
+			return corecharm.Origin{}, errors.Trace(err)
+		}
+		channel = &ch
+	}
+
 	return corecharm.Origin{
-		Source: corecharm.Source(origin.Source),
-	}
+		Source:   corecharm.Source(origin.Source),
+		ID:       origin.ID,
+		Hash:     origin.Hash,
+		Revision: origin.Revision,
+		Channel:  channel,
+	}, nil
 }
 
 // checkMachinePlacement does a non-exhaustive validation of any supplied

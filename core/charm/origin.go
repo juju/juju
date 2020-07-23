@@ -1,3 +1,6 @@
+// Copyright 2020 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package charm
 
 // Source represents the source of the charm.
@@ -26,4 +29,11 @@ const (
 // changing.
 type Origin struct {
 	Source Source
+	ID     string
+	Hash   string
+
+	// Users can request a revision to be installed instead of a channel, so
+	// we should model that correctly here.
+	Revision *int
+	Channel  *Channel
 }

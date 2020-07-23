@@ -16,6 +16,7 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
@@ -898,10 +899,16 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	if err != nil {
 		return errors.Annotatef(err, "status for application %s", appName)
 	}
+
+	charmOriginArgs, err := e.getCharmOrigin(application.doc)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	exApplication.SetStatus(statusArgs)
 	exApplication.SetStatusHistory(e.statusHistoryArgs(globalKey))
 	exApplication.SetAnnotations(e.getAnnotations(globalKey))
-	exApplication.SetCharmOrigin(e.getCharmOrigin(application.doc))
+	exApplication.SetCharmOrigin(charmOriginArgs)
 
 	globalAppWorkloadKey := applicationGlobalOperatorKey(appName)
 	operatorStatusArgs, err := e.statusArgs(globalAppWorkloadKey)
@@ -1892,14 +1899,33 @@ func (e *exporter) getAnnotations(key string) map[string]string {
 	return result.Annotations
 }
 
-func (e *exporter) getCharmOrigin(doc applicationDoc) description.CharmOriginArgs {
-	source := "unknown"
-	if doc.CharmOrigin != nil {
-		source = doc.CharmOrigin.Source
+func (e *exporter) getCharmOrigin(doc applicationDoc) (description.CharmOriginArgs, error) {
+	// Everything should be migrated, but in the case that it's not, handle
+	// that case.
+	if doc.CharmOrigin == nil {
+		return description.CharmOriginArgs{
+			Source: "unknown",
+		}, nil
+	}
+	origin := doc.CharmOrigin
+
+	// If the channel is empty, then we fallback to the Revision.
+	var revision int
+	if rev := origin.Revision; rev != nil {
+		revision = *rev
+	}
+
+	channel, err := charm.MakeChannel(origin.Channel.Track, origin.Channel.Risk, origin.Channel.Branch)
+	if err != nil {
+		return description.CharmOriginArgs{}, errors.Trace(err)
 	}
 	return description.CharmOriginArgs{
-		Source: source,
-	}
+		Source:   origin.Source,
+		ID:       origin.ID,
+		Hash:     origin.Hash,
+		Revision: revision,
+		Channel:  channel.String(),
+	}, nil
 }
 
 func (e *exporter) readAllSettings() error {

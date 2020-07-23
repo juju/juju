@@ -20,7 +20,11 @@ type ApplicationsDeploy struct {
 // CharmOrigin holds the parameters for the optional location of the source of
 // the charm.
 type CharmOrigin struct {
-	Source string `json:"source"`
+	Source   string  `json:"source"`
+	ID       string  `json:"id"`
+	Hash     string  `json:"hash,omitempty"`
+	Revision *int    `json:"revision,omitempty"`
+	Channel  *string `json:"channel,omitempty"`
 }
 
 // ApplicationDeploy holds the parameters for making the application Deploy
