@@ -6,21 +6,12 @@ package application
 import (
 	"time"
 
-	charmresource "github.com/juju/charm/v7/resource"
-	"github.com/juju/charmrepo/v5"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/annotations"
-	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
-	apicharms "github.com/juju/juju/api/charms"
-	"github.com/juju/juju/api/modelconfig"
-	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -29,73 +20,7 @@ import (
 	"github.com/juju/juju/resource/resourceadapters"
 )
 
-// NewDeployCommandForTest returns a command to deploy applications intended to be used only in tests.
-func NewDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelCommand {
-	deployCmd := &DeployCommand{
-		NewAPIRoot: func() (DeployAPI, error) {
-			return fakeApi, nil
-		},
-		DeployResources: func(
-			applicationID string,
-			chID jujucharmstore.CharmID,
-			csMac *macaroon.Macaroon,
-			filesAndRevisions map[string]string,
-			resources map[string]charmresource.Meta,
-			conn base.APICallCloser,
-		) (ids map[string]string, err error) {
-			return nil, nil
-		},
-		NewCharmRepo: func() (*store.CharmStoreAdaptor, error) {
-			return fakeApi.CharmStoreAdaptor, nil
-		},
-	}
-	if fakeApi == nil {
-		deployCmd.NewAPIRoot = func() (DeployAPI, error) {
-			apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			mURL, err := deployCmd.getMeteringAPIURL(controllerAPIRoot)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			return &deployAPIAdapter{
-				Connection:        apiRoot,
-				apiClient:         &apiClient{Client: apiRoot.Client()},
-				charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
-				applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
-				modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-				annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
-				plansClient:       &plansClient{planURL: mURL},
-			}, nil
-		}
-		deployCmd.NewCharmRepo = func() (*store.CharmStoreAdaptor, error) {
-			controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			bakeryClient, err := deployCmd.BakeryClient()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
-			return &store.CharmStoreAdaptor{
-				MacaroonGetter:     cstoreClient,
-				CharmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),
-			}, nil
-		}
-	}
-	return modelcmd.Wrap(deployCmd)
-}
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deployer_mock.go github.com/juju/juju/cmd/juju/application/deployer Deployer,DeployerFactory
 
 func NewUpgradeCharmCommandForTest(
 	store jujuclient.ClientStore,

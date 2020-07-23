@@ -189,6 +189,7 @@ func newDeployCommand() *DeployCommand {
 		}
 		return applicationoffers.NewClient(root), nil
 	}
+	deployCmd.NewDeployerFactory = deployer.NewDeployerFactory
 	return deployCmd
 }
 
@@ -252,18 +253,20 @@ type DeployCommand struct {
 
 	// UseExisting machines when deploying the bundle.
 	UseExisting bool
+
 	// BundleMachines is a mapping for machines in the bundle to machines
 	// in the model.
 	BundleMachines map[string]string
-	//
+
 	// NewAPIRoot stores a function which returns a new API root.
 	NewAPIRoot func() (DeployAPI, error)
 
-	//
 	// NewCharmRepo stores a function which returns a charm store client.
 	NewCharmRepo func() (*store.CharmStoreAdaptor, error)
 
-	//
+	// NewDeployerFactory stores a function which returns a deployer factory.
+	NewDeployerFactory func(dep deployer.DeployerDependencies) deployer.DeployerFactory
+
 	// NewConsumeDetailsAPI stores a function which will return a new API
 	// for consume details API using the url as the source.
 	NewConsumeDetailsAPI func(url *charm.OfferURL) (deployer.ConsumeDetails, error)
@@ -739,7 +742,7 @@ func (c *DeployCommand) getMeteringAPIURL(controllerAPIRoot api.Connection) (str
 	return controllerCfg.MeteringURL(), nil
 }
 
-func (c *DeployCommand) getDeployerFactory() (*deployer.DeployerFactory, deployer.DeployerConfig) {
+func (c *DeployCommand) getDeployerFactory() (deployer.DeployerFactory, deployer.DeployerConfig) {
 	dep := deployer.DeployerDependencies{
 		Model:                c,
 		NewConsumeDetailsAPI: c.NewConsumeDetailsAPI, // only used here
@@ -770,5 +773,5 @@ func (c *DeployCommand) getDeployerFactory() (*deployer.DeployerFactory, deploye
 		Trust:             c.Trust,
 		UseExisting:       c.UseExisting,
 	}
-	return deployer.NewDeployerFactory(dep), cfg
+	return c.NewDeployerFactory(dep), cfg
 }

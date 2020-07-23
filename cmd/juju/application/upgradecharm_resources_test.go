@@ -5,6 +5,8 @@ package application
 
 import (
 	"bytes"
+	"github.com/juju/juju/cmd/juju/application/store"
+	"github.com/juju/juju/cmd/juju/application/utils"
 	"io/ioutil"
 	"path"
 	"sort"
@@ -141,7 +143,7 @@ func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 	) (ids map[string]string, err error) {
 		return deployResources(s.State, applicationID, resources)
 	}
-	deploy.NewCharmRepo = func() (*CharmStoreAdaptor, error) {
+	deploy.NewCharmRepo = func() (*store.CharmStoreAdaptor, error) {
 		return s.fakeAPI.CharmStoreAdaptor, nil
 	}
 
@@ -245,13 +247,13 @@ Deploying charm "cs:bionic/starsay-1".`
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) charmrepoForDeploy {
+		) store.CharmrepoForDeploy {
 			return s.fakeAPI
 		},
-		func(conn api.Connection) CharmAdder {
+		func(conn api.Connection) store.CharmAdder {
 			return charmAdder
 		},
-		func(conn base.APICallCloser) CharmClient {
+		func(conn base.APICallCloser) utils.CharmClient {
 			return charmClient
 		},
 		func(applicationID string,

@@ -39,7 +39,7 @@ func ResolveCharm(
 	return resultURL, channel, supportedSeries, nil
 }
 
-// ResolveBundleURL tries to interpret maybeBundle as a eharmstorr
+// ResolveBundleURL tries to interpret maybeBundle as a eharmstore
 // bundle. If it turns out to be a bundle, the resolved URL and
 // channel are returned. If it isn't but there wasn't a problem
 // checking it, it returns a nil charm URL.

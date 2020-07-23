@@ -35,10 +35,14 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.juju.application.deployer")
 
-// NewDeployerFactory returns a DeployerFactory setup with the API and
-// function dependencies required by every deployerr.
-func NewDeployerFactory(dep DeployerDependencies) *DeployerFactory {
-	d := &DeployerFactory{
+type DeployerFactory interface {
+	GetDeployer(DeployerConfig, ModelConfigGetter, *store.CharmStoreAdaptor) (Deployer, error)
+}
+
+// NewDeployerFactory returns a factory setup with the API and
+// function dependencies required by every deployer.
+func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
+	d := &factory{
 		clock:                jujuclock.WallClock,
 		model:                dep.Model,
 		newConsumeDetailsAPI: dep.NewConsumeDetailsAPI,
@@ -51,7 +55,7 @@ func NewDeployerFactory(dep DeployerDependencies) *DeployerFactory {
 }
 
 // Deployer defines the functionality of a deployer returned by the
-// DeployerFactory.
+// factory.
 type Deployer interface {
 	// PrepareAndDeploy finishes preparing to deploy a charm or bundle,
 	// then deploys it.  This is done as one step to accomidate the
@@ -60,8 +64,8 @@ type Deployer interface {
 }
 
 // GetDeployer returns the correct deployer to use based on the cfg provided.
-// A ModelConfigGetter and CharmStoreAdaptor nneded to find the deployer.
-func (d *DeployerFactory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, cstoreAPI *store.CharmStoreAdaptor) (Deployer, error) {
+// A ModelConfigGetter and CharmStoreAdaptor needed to find the deployer.
+func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, cstoreAPI *store.CharmStoreAdaptor) (Deployer, error) {
 	d.setConfig(cfg)
 	maybeDeployers := []func() (Deployer, error){
 		d.maybeReadLocalBundle,
@@ -80,7 +84,7 @@ func (d *DeployerFactory) GetDeployer(cfg DeployerConfig, getter ModelConfigGett
 	return nil, errors.NotFoundf("suitable Deployer")
 }
 
-func (d *DeployerFactory) setConfig(cfg DeployerConfig) {
+func (d *factory) setConfig(cfg DeployerConfig) {
 	d.placementSpec = cfg.PlacementSpec
 	d.placement = cfg.Placement
 	d.numUnits = cfg.NumUnits
@@ -147,7 +151,7 @@ type DeployerConfig struct {
 	UseExisting          bool
 }
 
-type DeployerFactory struct {
+type factory struct {
 	// DeployerDependencies
 	model                ModelCommand
 	deployResources      resourceadapters.DeployResourcesFunc
@@ -183,7 +187,7 @@ type DeployerFactory struct {
 	clock jujuclock.Clock
 }
 
-func (d *DeployerFactory) maybePredeployedLocalCharm() (Deployer, error) {
+func (d *factory) maybePredeployedLocalCharm() (Deployer, error) {
 	// If the charm's schema is local, we should definitively attempt
 	// to deploy a charm that's already deployed in the
 	// environment.
@@ -204,7 +208,7 @@ func (d *DeployerFactory) maybePredeployedLocalCharm() (Deployer, error) {
 // newDeployCharm returns the config needed to eventually call
 // deployCharm.deploy.  This is used by all types of charms to
 // be deployed
-func (d *DeployerFactory) newDeployCharm() deployCharm {
+func (d *factory) newDeployCharm() deployCharm {
 	return deployCharm{
 		applicationName: d.applicationName,
 		attachStorage:   d.attachStorage,
@@ -229,7 +233,7 @@ func (d *DeployerFactory) newDeployCharm() deployCharm {
 	}
 }
 
-func (d *DeployerFactory) maybeReadLocalBundle() (Deployer, error) {
+func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 	bundleFile := d.charmOrBundle
 	_, statErr := os.Stat(bundleFile)
 	if statErr == nil && !charm.IsValidLocalCharmOrBundlePath(bundleFile) {
@@ -259,7 +263,7 @@ func (d *DeployerFactory) maybeReadLocalBundle() (Deployer, error) {
 // newDeployBundle returns the config needed to eventually call
 // deployBundle.deploy.  This is used by all types of bundles to
 // be deployed
-func (d *DeployerFactory) newDeployBundle(ds charm.BundleDataSource) deployBundle {
+func (d *factory) newDeployBundle(ds charm.BundleDataSource) deployBundle {
 	return deployBundle{
 		model:                d.model,
 		steps:                d.steps,
@@ -277,7 +281,7 @@ func (d *DeployerFactory) newDeployBundle(ds charm.BundleDataSource) deployBundl
 	}
 }
 
-func (d *DeployerFactory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error) {
+func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error) {
 	// NOTE: Here we select the series using the algorithm defined by
 	// `seriesSelector.CharmSeries`. This serves to override the algorithm found in
 	// `charmrepo.NewCharmAtPath` which is outdated (but must still be
@@ -363,7 +367,7 @@ func (d *DeployerFactory) maybeReadLocalCharm(getter ModelConfigGetter) (Deploye
 	}, err
 }
 
-func (d *DeployerFactory) maybeReadCharmstoreBundle(cstore *store.CharmStoreAdaptor) (Deployer, error) {
+func (d *factory) maybeReadCharmstoreBundle(cstore *store.CharmStoreAdaptor) (Deployer, error) {
 	// validate this is a charmstore bundle
 	bundleURL, channel, err := store.ResolveBundleURL(cstore, d.charmOrBundle, d.channel)
 	if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
@@ -403,7 +407,7 @@ func (d *DeployerFactory) maybeReadCharmstoreBundle(cstore *store.CharmStoreAdap
 	return &charmstoreBundle{deployBundle: db}, nil
 }
 
-func (d *DeployerFactory) charmStoreCharm() (Deployer, error) {
+func (d *factory) charmStoreCharm() (Deployer, error) {
 	// Validate we have a charm store change
 	userRequestedURL, err := charm.ParseURL(d.charmOrBundle)
 	if err != nil {
@@ -453,7 +457,7 @@ var getModelConfig = func(api ModelConfigGetter) (*config.Config, error) {
 	return config.New(config.NoDefaults, attrs)
 }
 
-func (d *DeployerFactory) validateCharmSeries(seriesName string, imageStream string) error {
+func (d *factory) validateCharmSeries(seriesName string, imageStream string) error {
 	// attempt to locate the charm series from the list of known juju series
 	// that we currently support.
 	workloadSeries, err := supportedJujuSeries(d.clock.Now(), seriesName, imageStream)
@@ -482,7 +486,7 @@ func (d *DeployerFactory) validateCharmSeries(seriesName string, imageStream str
 // validateCharmSeriesWithName calls the validateCharmSeries, but handles the
 // error return value to check for NotSupported error and returns a custom error
 // message if that's found.
-func (d *DeployerFactory) validateCharmSeriesWithName(series, name string, imageStream string) error {
+func (d *factory) validateCharmSeriesWithName(series, name string, imageStream string) error {
 	err := d.validateCharmSeries(series, imageStream)
 	return charmValidationError(series, name, errors.Trace(err))
 }
@@ -500,7 +504,7 @@ func charmValidationError(charmSeries, name string, err error) error {
 	return nil
 }
 
-func (d *DeployerFactory) validateResourcesNeededForLocalDeploy(charmMeta *charm.Meta) error {
+func (d *factory) validateResourcesNeededForLocalDeploy(charmMeta *charm.Meta) error {
 	modelType, err := d.model.ModelType()
 	if err != nil {
 		return errors.Trace(err)
@@ -522,7 +526,7 @@ func (d *DeployerFactory) validateResourcesNeededForLocalDeploy(charmMeta *charm
 	return nil
 }
 
-func (d *DeployerFactory) validateBundleFlags() error {
+func (d *factory) validateBundleFlags() error {
 	if flags := utils.GetFlags(d.flagSet, CharmOnlyFlags()); len(flags) > 0 {
 		return errors.Errorf("options provided but not supported when deploying a bundle: %s", strings.Join(flags, ", "))
 	}

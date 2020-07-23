@@ -19,18 +19,21 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -2007,4 +2010,52 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundlePassesSequences(c *gc.C) {
 		"django/2": "2",
 		"django/3": "3",
 	})
+}
+
+type fakeProvider struct {
+	caas.ContainerEnvironProvider
+}
+
+func (*fakeProvider) Open(_ environs.OpenParams) (caas.Broker, error) {
+	return &fakeBroker{}, nil
+}
+
+func (*fakeProvider) Validate(cfg, old *config.Config) (valid *config.Config, _ error) {
+	return cfg, nil
+}
+
+type fakeBroker struct {
+	caas.Broker
+}
+
+type mockProvider struct {
+	storage.Provider
+}
+
+func (m *mockProvider) Supports(kind storage.StorageKind) bool {
+	return kind == storage.StorageKindFilesystem
+}
+
+func (*fakeBroker) StorageProvider(p storage.ProviderType) (storage.Provider, error) {
+	if p == k8sprovider.K8s_ProviderType {
+		return &mockProvider{}, nil
+	}
+	return nil, errors.NotFoundf("provider type %q", p)
+}
+
+func (*fakeBroker) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
+	return constraints.NewValidator(), nil
+}
+
+func (*fakeBroker) PrecheckInstance(context.ProviderCallContext, environs.PrecheckInstanceParams) error {
+	return nil
+}
+
+func (*fakeBroker) Version() (*version.Number, error) {
+	ver := version.MustParse("1.15.1")
+	return &ver, nil
+}
+
+func (*fakeBroker) ValidateStorageClass(_ map[string]interface{}) error {
+	return nil
 }

@@ -31,6 +31,9 @@ import (
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
 	jujucharmstore "github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cmd/juju/application/deployer"
+	"github.com/juju/juju/cmd/juju/application/store"
+	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/instance"
@@ -52,7 +55,7 @@ type BaseUpgradeCharmSuite struct {
 
 	deployResources   resourceadapters.DeployResourcesFunc
 	fakeAPI           *fakeDeployAPI
-	resolveCharm      ResolveCharmFunc
+	resolveCharm      store.ResolveCharmFunc
 	resolvedCharmURL  *charm.URL
 	resolvedChannel   csclientparams.Channel
 	apiConnection     mockAPIConnection
@@ -146,18 +149,18 @@ func (s *BaseUpgradeCharmSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *BaseUpgradeCharmSuite) upgradeCommand() cmd.Command {
-	store := jujuclient.NewMemStore()
-	store.CurrentControllerName = "foo"
-	store.Controllers["foo"] = jujuclient.ControllerDetails{
+	memStore := jujuclient.NewMemStore()
+	memStore.CurrentControllerName = "foo"
+	memStore.Controllers["foo"] = jujuclient.ControllerDetails{
 		APIEndpoints: []string{"0.1.2.3:1234"},
 	}
-	store.Models["foo"] = &jujuclient.ControllerModels{
+	memStore.Models["foo"] = &jujuclient.ControllerModels{
 		CurrentModel: "admin/bar",
 		Models: map[string]jujuclient.ModelDetails{
 			"admin/bar": {ActiveBranch: model.GenerationMaster},
 		},
 	}
-	store.Accounts["foo"] = jujuclient.AccountDetails{
+	memStore.Accounts["foo"] = jujuclient.AccountDetails{
 		User: "admin", Password: "hunter2",
 	}
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
@@ -166,7 +169,7 @@ func (s *BaseUpgradeCharmSuite) upgradeCommand() cmd.Command {
 	}
 
 	cmd := NewUpgradeCharmCommandForTest(
-		store,
+		memStore,
 		apiOpen,
 		s.deployResources,
 		s.resolveCharm,
@@ -174,16 +177,16 @@ func (s *BaseUpgradeCharmSuite) upgradeCommand() cmd.Command {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) charmrepoForDeploy {
+		) store.CharmrepoForDeploy {
 			s.AddCall("NewCharmStore", csURL)
 			return s.fakeAPI
 		},
-		func(conn api.Connection) CharmAdder {
+		func(conn api.Connection) store.CharmAdder {
 			s.AddCall("NewCharmAdder", conn)
 			s.PopNoErr()
 			return &s.charmAdder
 		},
-		func(conn base.APICallCloser) CharmClient {
+		func(conn base.APICallCloser) utils.CharmClient {
 			s.AddCall("NewCharmClient", conn)
 			s.PopNoErr()
 			return &s.charmClient
@@ -193,7 +196,7 @@ func (s *BaseUpgradeCharmSuite) upgradeCommand() cmd.Command {
 			s.PopNoErr()
 			return &s.charmAPIClient
 		},
-		func(conn base.APICallCloser) (ResourceLister, error) {
+		func(conn base.APICallCloser) (utils.ResourceLister, error) {
 			s.AddCall("NewResourceLister", conn)
 			return &s.resourceLister, s.NextErr()
 		},
@@ -368,13 +371,13 @@ func (s *UpgradeCharmErrorsStateSuite) SetUpTest(c *gc.C) {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) charmrepoForDeploy {
+		) store.CharmrepoForDeploy {
 			return s.fakeAPI
 		},
-		func(conn api.Connection) CharmAdder {
+		func(conn api.Connection) store.CharmAdder {
 			return s.fakeAPI
 		},
-		func(conn base.APICallCloser) CharmClient {
+		func(conn base.APICallCloser) utils.CharmClient {
 			return s.fakeAPI
 		},
 		resourceadapters.DeployResources,
@@ -485,13 +488,13 @@ func (s *UpgradeCharmSuccessStateSuite) SetUpTest(c *gc.C) {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) charmrepoForDeploy {
+		) store.CharmrepoForDeploy {
 			return s.fakeAPI
 		},
-		func(conn api.Connection) CharmAdder {
+		func(conn api.Connection) store.CharmAdder {
 			return &apiClient{Client: conn.Client()}
 		},
-		func(conn base.APICallCloser) CharmClient {
+		func(conn base.APICallCloser) utils.CharmClient {
 			return &s.charmClient
 		},
 		resourceadapters.DeployResources,
@@ -892,7 +895,7 @@ func (*mockAPIConnection) Close() error {
 }
 
 type mockCharmAdder struct {
-	CharmAdder
+	store.CharmAdder
 	testing.Stub
 }
 
@@ -907,7 +910,7 @@ func (m *mockCharmAdder) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bo
 }
 
 type mockCharmClient struct {
-	CharmClient
+	utils.CharmClient
 	testing.Stub
 	charmInfo *charms.CharmInfo
 }
@@ -950,7 +953,7 @@ func newMockModelConfigGetter() mockModelConfigGetter {
 }
 
 type mockModelConfigGetter struct {
-	ModelConfigGetter
+	deployer.ModelConfigGetter
 	testing.Stub
 
 	cfg map[string]interface{}
@@ -966,7 +969,7 @@ func (m *mockModelConfigGetter) SetDefaultSpace(name string) {
 }
 
 type mockResourceLister struct {
-	ResourceLister
+	utils.ResourceLister
 	testing.Stub
 }
 
