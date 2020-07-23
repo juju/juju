@@ -76,10 +76,9 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 		return nil, errors.Trace(err)
 	}
 
-	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
+	preparedInfo, err := prepareContainerInterfaceInfo(
 		broker.api,
 		containerMachineID,
-		true, // allocate if possible, do not maintain existing.
 		kvmLogger,
 	)
 	if err != nil {
@@ -89,7 +88,7 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 	// Something to fallback to if there are no devices given in args.NetworkInfo
 	// TODO(jam): 2017-02-07, this feels like something that should never need
 	// to be invoked, because either StartInstance or
-	// prepareOrGetContainerInterfaceInfo should always return a value. The
+	// prepareContainerInterfaceInfo should always return a value. The
 	// test suite currently doesn't think so, and I'm hesitant to munge it too
 	// much.
 	interfaces, err := finishNetworkConfig(bridgeDevice, preparedInfo)
@@ -158,20 +157,9 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 	}, nil
 }
 
-// MaintainInstance ensures the container's host has the required iptables and
-// routing rules to make the container visible to both the host and other
-// machines on the same subnet.
-func (broker *kvmBroker) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	machineID := args.InstanceConfig.MachineId
-
-	// There's no InterfaceInfo we expect to get below.
-	_, err := prepareOrGetContainerInterfaceInfo(
-		broker.api,
-		machineID,
-		false, // maintain, do not allocate.
-		kvmLogger,
-	)
-	return err
+// MaintainInstance is a no-op.
+func (broker *kvmBroker) MaintainInstance(_ context.ProviderCallContext, _ environs.StartInstanceParams) error {
+	return nil
 }
 
 // StopInstances shuts down the given instances.
