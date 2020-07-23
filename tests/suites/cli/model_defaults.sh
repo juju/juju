@@ -3,7 +3,7 @@ run_model_defaults_isomorphic() {
 
   FILE=$(mktemp)
 
-  juju model-defaults --format=yaml | juju model-defaults -
+  juju model-defaults --format=yaml | juju model-defaults --ignore-read-only-fields -
 }
 
 run_model_defaults_cloudinit_userdata() {

@@ -36,6 +36,11 @@ Supplying one key name returns only the value for the key. Supplying key=value
 will set the supplied key to the supplied value, this can be repeated for
 multiple keys. You can also specify a yaml file containing key values, that can
 be used for the input for the command.
+
+Model config yaml can be piped from stdin from the output of the command stdout.
+Some model-config configuration are read-only, to prevent the command exiting on
+read-only fields, setting "ignore-read-only-fields" will cause it to skip over
+the fields when they're encountered.
 `
 	modelConfigHelpDocKeys = `
 The following keys are available:
@@ -146,13 +151,13 @@ type configCommand struct {
 	modelcmd.ModelCommandBase
 	out cmd.Output
 
-	action              func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
-	keys                []string
-	reset               []string // Holds the keys to be reset until parsed.
-	resetKeys           []string // Holds the keys to be reset once parsed.
-	setOptions          common.ConfigFlag
-	ignoreAgentVersion  bool
-	skipImmutableErrors bool
+	action               func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
+	keys                 []string
+	reset                []string // Holds the keys to be reset until parsed.
+	resetKeys            []string // Holds the keys to be reset once parsed.
+	setOptions           common.ConfigFlag
+	ignoreAgentVersion   bool
+	ignoreReadOnlyFields bool
 }
 
 // configCommandAPI defines an API interface to be used during testing.
@@ -198,7 +203,7 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
 	f.BoolVar(&c.ignoreAgentVersion, "ignore-agent-version", false, "Skip the error when passing in the agent version configuration (deprecated)")
-	f.BoolVar(&c.skipImmutableErrors, "skip-immutable-errors", false, "Skip immutable errors when passing in the configurations")
+	f.BoolVar(&c.ignoreReadOnlyFields, "ignore-read-only-fields", false, "Ignore read only fields that might error during parsing of yaml")
 }
 
 // Init implements part of the cmd.Command interface.
@@ -387,12 +392,12 @@ func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) err
 	values := make(configAttrs)
 	for k, v := range attrs {
 		if k == config.AgentVersionKey {
-			if c.ignoreAgentVersion || c.skipImmutableErrors {
+			if c.ignoreAgentVersion || c.ignoreReadOnlyFields {
 				continue
 			}
 			return errors.Errorf(`"agent-version" must be set via "upgrade-model"`)
 		} else if k == config.CharmhubURLKey {
-			if c.skipImmutableErrors {
+			if c.ignoreReadOnlyFields {
 				continue
 			}
 			return errors.Errorf(`"charmhub-url" must be set via "add-model"`)

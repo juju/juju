@@ -39,10 +39,15 @@ You can also specify a yaml file containing key values.
 By default, the model is the current model.
 
 Model default configuration settings are specific to the cloud on which the
-model runs.
+model is deployed.
 
 If the controller host more then one cloud, the cloud (and optionally region)
 must be specified.
+
+Model defaults yaml configuration can be piped from stdin from the output of
+the command stdout. Some model-defaults configuration are read-only, to prevent
+the command exiting on read-only fields, setting "ignore-read-only-fields" will
+cause it to skip over the fields when they're encountered.
 
 Examples:
     juju model-defaults
@@ -175,7 +180,7 @@ type defaultsCommand struct {
 	cloudName, regionName string
 	reset                 []string // Holds the keys to be reset until parsed.
 	setOptions            common.ConfigFlag
-	skipImmutableErrors   bool
+	ignoreReadOnlyFields  bool
 }
 
 // cloudAPI defines an API to be passed in for testing.
@@ -227,7 +232,7 @@ func (c *defaultsCommand) SetFlags(f *gnuflag.FlagSet) {
 		"tabular": formatDefaultConfigTabular,
 	})
 	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
-	f.BoolVar(&c.skipImmutableErrors, "skip-immutable-errors", false, "Skip immutable errors when passing in the configurations")
+	f.BoolVar(&c.ignoreReadOnlyFields, "ignore-read-only-fields", false, "Ignore read only fields that might error during parsing of yaml")
 }
 
 // Init implements cmd.Command.Init.
@@ -744,7 +749,7 @@ func (c *defaultsCommand) setDefaults(client defaultsCommandAPI, ctx *cmd.Contex
 	values := make(defaultAttrs)
 	for k, v := range attrs {
 		if k == config.AgentVersionKey {
-			if c.skipImmutableErrors {
+			if c.ignoreReadOnlyFields {
 				continue
 			}
 			return errors.Errorf(`"agent-version" must be set via "upgrade-model"`)
