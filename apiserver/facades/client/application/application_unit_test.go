@@ -752,12 +752,21 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
+	ch := "latest/stable"
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
 			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
 			NumUnits:        1,
+		}, {
+			ApplicationName: "hub",
+			CharmURL:        "local:hub-0",
+			CharmOrigin: &params.CharmOrigin{
+				Source:  "charmhub",
+				Channel: &ch,
+			},
+			NumUnits: 1,
 		}, {
 			ApplicationName: "bar",
 			CharmURL:        "local:bar-0",
@@ -772,12 +781,14 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 	}
 	results, err := s.api.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results, gc.HasLen, 4)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results[1].Error, gc.IsNil)
 	c.Assert(results.Results[2].Error, gc.IsNil)
+	c.Assert(results.Results[3].Error, gc.IsNil)
 
 	c.Assert(s.deployParams["foo"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-store"))
+	c.Assert(s.deployParams["hub"].CharmOrigin.Source, gc.Equals, corecharm.Source("charmhub"))
 	c.Assert(s.deployParams["bar"].CharmOrigin.Source, gc.Equals, corecharm.Source("unknown"))
 	c.Assert(s.deployParams["baz"].CharmOrigin.Source, gc.Equals, corecharm.Source("unknown"))
 }

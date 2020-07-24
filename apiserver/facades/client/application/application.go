@@ -799,11 +799,11 @@ func deployApplication(
 
 func convertCharmOrigin(origin *params.CharmOrigin) (corecharm.Origin, error) {
 	switch {
-	case origin == nil || origin.Source == "":
+	case origin == nil || origin.Source == "" || origin.Source == "unknown":
 		return corecharm.Origin{Source: corecharm.Unknown}, nil
 	case origin.Source == "local":
 		return corecharm.Origin{Source: corecharm.Local}, nil
-	case origin.Source == "charmstore":
+	case origin.Source == "charm-store":
 		return corecharm.Origin{Source: corecharm.CharmStore}, nil
 	}
 

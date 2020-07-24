@@ -87,7 +87,12 @@ const (
 
 // CharmOrigin holds the information about where the charm originates.
 type CharmOrigin struct {
-	Source CharmOriginSource
+	Source   CharmOriginSource
+	ID       string
+	Hash     string
+	Risk     string
+	Revision *int
+	Channel  *string
 }
 
 // DeployArgs holds the arguments to be sent to Client.ApplicationDeploy.
@@ -170,7 +175,11 @@ func (c *Client) Deploy(args DeployArgs) error {
 			Series:          args.Series,
 			CharmURL:        args.CharmID.URL.String(),
 			CharmOrigin: &params.CharmOrigin{
-				Source: args.CharmOrigin.Source.String(),
+				Source:   args.CharmOrigin.Source.String(),
+				ID:       args.CharmOrigin.ID,
+				Hash:     args.CharmOrigin.Hash,
+				Revision: args.CharmOrigin.Revision,
+				Channel:  args.CharmOrigin.Channel,
 			},
 			Channel:          string(args.CharmID.Channel),
 			NumUnits:         args.NumUnits,

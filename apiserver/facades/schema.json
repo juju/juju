@@ -3185,13 +3185,26 @@
                 "CharmOrigin": {
                     "type": "object",
                     "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "hash": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
                         "source": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "source"
+                        "source",
+                        "id"
                     ]
                 },
                 "CharmRelation": {
