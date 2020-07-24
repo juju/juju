@@ -145,9 +145,8 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 	}
 
 	return &environs.StartInstanceResult{
-		Instance:    inst,
-		Hardware:    hardware,
-		NetworkInfo: interfaces,
+		Instance: inst,
+		Hardware: hardware,
 	}, nil
 }
 

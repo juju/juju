@@ -106,29 +106,6 @@ func (s *lxdBrokerSuite) TestStartInstanceWithoutHostNetworkChanges(c *gc.C) {
 	c.Assert(instanceConfig.ToolsList().Arches(), jc.DeepEquals, []string{"amd64"})
 }
 
-func (s *lxdBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
-	broker, brokerErr := s.newLXDBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
-
-	patchResolvConf(s, c)
-
-	result, err := s.startInstance(c, broker, "1/lxd/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.NetworkInfo, gc.HasLen, 1)
-	iface := result.NetworkInfo[0]
-	c.Assert(iface, jc.DeepEquals, corenetwork.InterfaceInfo{
-		DeviceIndex:         0,
-		CIDR:                "0.1.2.0/24",
-		InterfaceName:       "dummy0",
-		ParentInterfaceName: "lxdbr0",
-		MACAddress:          "aa:bb:cc:dd:ee:ff",
-		Addresses:           corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.1.2.3")},
-		GatewayAddress:      corenetwork.NewProviderAddress("0.1.2.1"),
-		DNSServers:          corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
-		DNSSearchDomains:    []string{"dummy", "invalid"},
-	})
-}
-
 func (s *lxdBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) {
 	broker, brokerErr := s.newLXDBroker(c)
 	c.Assert(brokerErr, jc.ErrorIsNil)
