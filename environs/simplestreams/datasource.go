@@ -165,14 +165,19 @@ func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	dataURL = utils.MakeFileURL(dataURL)
 	resp, err := client.Get(dataURL)
 	if err != nil {
-		logger.Tracef("Got error requesting %q: %v", dataURL, err)
-		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
+		if !errors.IsNotFound(err) {
+			// Callers of this mask the actual error.  Therefore warn here.
+			// This is called multiple times when a machine is created, we
+			// only need one success for images and one for tools.
+			logger.Warningf("Got error requesting %q: %v", dataURL, err)
+		}
+		return nil, dataURL, errors.NewNotFound(err, fmt.Sprintf("%q", dataURL))
 	}
 	if resp.StatusCode != http.StatusOK {
 		_ = resp.Body.Close()
 		switch resp.StatusCode {
 		case http.StatusNotFound:
-			return nil, dataURL, errors.NotFoundf("cannot find URL %q", dataURL)
+			return nil, dataURL, errors.NotFoundf("%q", dataURL)
 		case http.StatusUnauthorized:
 			return nil, dataURL, errors.Unauthorizedf("unauthorised access to URL %q", dataURL)
 		}
