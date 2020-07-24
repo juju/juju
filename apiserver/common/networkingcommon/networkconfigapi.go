@@ -41,9 +41,7 @@ func (api *NetworkConfigAPI) SetObservedNetworkConfig(args params.SetMachineNetw
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if m.IsContainer() {
-		return nil
-	}
+
 	observedConfig := args.Config
 	logger.Tracef("observed network config of machine %q: %+v", m.Id(), observedConfig)
 	if len(observedConfig) == 0 {
@@ -114,10 +112,6 @@ func (api *NetworkConfigAPI) getMachineForSettingNetworkConfig(machineTag string
 		return nil, errors.Trace(common.ErrPerm)
 	} else if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	if m.IsContainer() {
-		logger.Debugf("not updating network config for container %q", m.Id())
 	}
 
 	return m, nil

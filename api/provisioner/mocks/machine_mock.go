@@ -5,16 +5,15 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/apiserver/params"
 	instance "github.com/juju/juju/core/instance"
 	life "github.com/juju/juju/core/life"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
-	names_v3 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
 	version "github.com/juju/version"
+	reflect "reflect"
 )
 
 // MockMachineProvisioner is a mock of MachineProvisioner interface
@@ -159,10 +158,10 @@ func (mr *MockMachineProvisionerMockRecorder) Life() *gomock.Call {
 }
 
 // MachineTag mocks base method
-func (m *MockMachineProvisioner) MachineTag() names_v3.MachineTag {
+func (m *MockMachineProvisioner) MachineTag() names.MachineTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MachineTag")
-	ret0, _ := ret[0].(names_v3.MachineTag)
+	ret0, _ := ret[0].(names.MachineTag)
 	return ret0
 }
 
@@ -407,10 +406,10 @@ func (mr *MockMachineProvisionerMockRecorder) SupportsNoContainers() *gomock.Cal
 }
 
 // Tag mocks base method
-func (m *MockMachineProvisioner) Tag() names_v3.Tag {
+func (m *MockMachineProvisioner) Tag() names.Tag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(names_v3.Tag)
+	ret0, _ := ret[0].(names.Tag)
 	return ret0
 }
 

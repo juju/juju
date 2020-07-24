@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	environtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network/containerizer"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -1903,18 +1902,23 @@ func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(
 
 func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainers() {
 	s.expectNetworkingEnviron()
-	s.expectLinkLayerDevices()
 
 	cExp := s.container.EXPECT()
 	cExp.InstanceId().Return(instance.UnknownId, errors.NotProvisionedf("idk-lol"))
 
-	s.policy.EXPECT().PopulateContainerLinkLayerDevices(s.host, s.container).Return(nil)
+	s.policy.EXPECT().PopulateContainerLinkLayerDevices(s.host, s.container, false).Return(
+		network.InterfaceInfos{
+			{
+				InterfaceName: "eth0",
+				ConfigType:    network.ConfigDHCP,
+			},
+		}, nil)
 
 	cExp.Id().Return("lxd/0").AnyTimes()
-	cExp.AllLinkLayerDevices().Return([]containerizer.LinkLayerDevice{s.device}, nil)
 
 	hExp := s.host.EXPECT()
-	// Crucial behavioural trait. Set false to test failure.
+	// Crucial behavioural trait. Set false to test failure, whereupon the
+	// PopulateContainerLinkLayerDevices expectation will not be satisfied.
 	hExp.IsManual().Return(true, nil)
 	hExp.InstanceId().Return(instance.Id("manual:10.0.0.66"), nil)
 }
