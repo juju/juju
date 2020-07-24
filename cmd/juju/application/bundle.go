@@ -727,6 +727,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	// Deploy the application.
 	if err := h.api.Deploy(application.DeployArgs{
 		CharmID:          chID,
+		CharmOrigin:      deduceOrigin(chID.URL),
 		Cons:             cons,
 		ApplicationName:  p.Application,
 		Series:           series,
