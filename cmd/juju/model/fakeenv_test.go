@@ -158,8 +158,22 @@ func (f *fakeModelDefaultsAPI) SetModelDefaults(cloud, region string, cfg map[st
 	}
 	f.cloud = cloud
 	f.region = region
+
 	for name, val := range cfg {
-		f.defaults[name] = config.AttributeDefaultValues{Controller: val}
+		var defaultValues config.AttributeDefaultValues
+		if region != "" {
+			defaultValues = config.AttributeDefaultValues{
+				Regions: []config.RegionDefaultValue{{
+					Name:  region,
+					Value: val,
+				}},
+			}
+		} else {
+			defaultValues = config.AttributeDefaultValues{
+				Controller: val,
+			}
+		}
+		f.defaults[name] = defaultValues
 	}
 	return nil
 }

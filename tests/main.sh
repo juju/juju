@@ -153,6 +153,9 @@ while getopts "hH?vAs:a:x:rl:p:S:" opt; do
         export BOOTSTRAP_REUSE="true"
         CLOUD=$(juju show-controller "${OPTARG}" --format=json | jq -r ".[\"${OPTARG}\"] | .details | .cloud")
         PROVIDER=$(juju clouds --client 2>/dev/null | grep "${CLOUD}" | awk '{print $4}' | head -n 1)
+        if [ -z "${PROVIDER}" ]; then
+            PROVIDER="${CLOUD}"
+        fi
         export BOOTSTRAP_PROVIDER="${PROVIDER}"
         ;;
     p)

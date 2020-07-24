@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	"github.com/juju/schema"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -37,9 +38,16 @@ supplied key to the supplied value. This can be repeated for multiple keys.
 You can also specify a yaml file containing key values.
 By default, the model is the current model.
 
-Model default configuration settings are specific to the cloud on which the model runs.
-If the controller host more then one cloud, the cloud (and optionally region) must be specified.
+Model default configuration settings are specific to the cloud on which the
+model is deployed.
 
+If the controller host more then one cloud, the cloud (and optionally region)
+must be specified.
+
+Model defaults yaml configuration can be piped from stdin from the output of
+the command stdout. Some model-defaults configuration are read-only, to prevent
+the command exiting on read-only fields, setting "ignore-read-only-fields" will
+cause it to skip over the fields when they're encountered.
 
 Examples:
     juju model-defaults
@@ -47,14 +55,12 @@ Examples:
     juju model-defaults aws http-proxy
     juju model-defaults aws/us-east-1 http-proxy
     juju model-defaults us-east-1 http-proxy
-    juju model-defaults -m mymodel type
     juju model-defaults ftp-proxy=10.0.0.1:8000
     juju model-defaults aws ftp-proxy=10.0.0.1:8000
     juju model-defaults aws/us-east-1 ftp-proxy=10.0.0.1:8000
     juju model-defaults us-east-1 ftp-proxy=10.0.0.1:8000
     juju model-defaults us-east-1 ftp-proxy=10.0.0.1:8000 path/to/file.yaml
     juju model-defaults us-east-1 path/to/file.yaml    
-    juju model-defaults -m othercontroller:mymodel default-series=yakkety test-mode=false
     juju model-defaults --reset default-series test-mode
     juju model-defaults aws --reset http-proxy
     juju model-defaults aws/us-east-1 --reset http-proxy
@@ -80,6 +86,80 @@ func NewDefaultsCommand() cmd.Command {
 	return modelcmd.WrapController(defaultsCmd)
 }
 
+type defaultAttrs map[string]interface{}
+
+// CoerceFormat attempts to convert the defaultAttrs values from the complex
+// type to the more simple type. This is because the output of this command
+// outputs in the following format:
+//
+//     resource-name:
+//        default: foo
+//        controller: baz
+//        regions:
+//        - name: cloud-region-name
+//          value: bar
+//
+// Where the consuming side of the command expects it in the following format:
+//
+//     resource-name: bar
+//
+// CoerceFormat attempts to diagnose this and attempt to do this correctly.
+func (a defaultAttrs) CoerceFormat(region string) (defaultAttrs, error) {
+	coerced := make(map[string]interface{})
+
+	fields := schema.FieldMap(schema.Fields{
+		"default":    schema.Any(),
+		"controller": schema.Any(),
+		"regions": schema.List(schema.FieldMap(schema.Fields{
+			"name":  schema.String(),
+			"value": schema.Any(),
+		}, nil)),
+	}, schema.Defaults{
+		"controller": schema.Omit,
+		"regions":    schema.Omit,
+	})
+
+	for k, v := range a {
+		out, err := fields.Coerce(v, []string{})
+		if err != nil {
+			// Fallback to the old format and just pass through the value.
+			coerced[k] = v
+			continue
+		}
+
+		m := out.(map[string]interface{})
+		v = m["default"]
+		if ctrl, ok := m["controller"]; ok && region == "" {
+			v = ctrl
+		}
+		if regions, ok := m["regions"].([]interface{}); ok && regions != nil {
+			for _, r := range regions {
+				regionMap, ok := r.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				if regionMap["name"] == region {
+					v = regionMap["value"]
+				}
+			}
+		}
+
+		// Resource tags in the new output format is a map[string]interface{},
+		// but it should be of the format `foo=bar baz=boo`.
+		if k == "resource-tags" {
+			tags, err := coerceResourceTags(v)
+			if err != nil {
+				return nil, errors.Annotate(err, "unable to read resource-tags")
+			}
+			v = tags
+		}
+
+		coerced[k] = v
+	}
+
+	return coerced, nil
+}
+
 // defaultsCommand is compound command for accessing and setting attributes
 // related to default model configuration.
 type defaultsCommand struct {
@@ -100,6 +180,7 @@ type defaultsCommand struct {
 	cloudName, regionName string
 	reset                 []string // Holds the keys to be reset until parsed.
 	setOptions            common.ConfigFlag
+	ignoreReadOnlyFields  bool
 }
 
 // cloudAPI defines an API to be passed in for testing.
@@ -151,6 +232,7 @@ func (c *defaultsCommand) SetFlags(f *gnuflag.FlagSet) {
 		"tabular": formatDefaultConfigTabular,
 	})
 	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
+	f.BoolVar(&c.ignoreReadOnlyFields, "ignore-read-only-fields", false, "Ignore read only fields that might cause errors to be emitted while processing yaml documents")
 }
 
 // Init implements cmd.Command.Init.
@@ -230,7 +312,7 @@ func (c *defaultsCommand) Run(ctx *cmd.Context) error {
 //     juju model-defaults a=b c=d --reset e,f
 //
 // cloud/region may also be specified so above examples with that option might
-// be like the following invokation.
+// be like the following invocation.
 //     juju model-defaults us-east-1 a=b c=d --reset e,f
 //
 // Finally one can also ask for the all the defaults or the defaults for one
@@ -525,6 +607,15 @@ func (c *defaultsCommand) parseSetKeys(args []string) error {
 	return nil
 }
 
+// parseStdin ensures that we handle stdin correctly.
+func (c *defaultsCommand) parseStdin() error {
+	if err := c.setOptions.SetAttrsFromReader(os.Stdin); err != nil {
+		return errors.Trace(err)
+	}
+	c.action = c.setDefaults
+	return nil
+}
+
 // handleOneArg handles the case where we have one positional arg after
 // processing for a region and the reset flag.
 func (c *defaultsCommand) handleOneArg(arg string) error {
@@ -545,6 +636,14 @@ func (c *defaultsCommand) handleOneArg(arg string) error {
 		// region.
 		return errors.Errorf("invalid region specified: %q", arg)
 	}
+
+	// Handle piping in confing from stdin.
+	if arg == "-" {
+		if err := c.parseStdin(); err == nil {
+			return nil
+		}
+	}
+
 	// We can retrieve a value.
 	c.key = arg
 	c.action = c.getDefaults
@@ -569,13 +668,11 @@ func (c *defaultsCommand) handleExtraArgs(args []string) error {
 	}
 
 	if !regionSpecified {
-		if resetSpecified {
-			if numArgs == 2 {
-				// It makes no sense to supply a positional arg that isn't a
-				// region if we are resetting a region, so we must have gotten
-				// an invalid region.
-				return errors.Errorf("invalid region specified: %q", args[0])
-			}
+		if resetSpecified && numArgs == 2 {
+			// It makes no sense to supply a positional arg that isn't a
+			// region if we are resetting a region, so we must have gotten
+			// an invalid region.
+			return errors.Errorf("invalid region specified: %q", args[0])
 		}
 		if !resetSpecified {
 			// If we land here it is because there are extraneous positional
@@ -649,17 +746,25 @@ func (c *defaultsCommand) setDefaults(client defaultsCommandAPI, ctx *cmd.Contex
 		return errors.Trace(err)
 	}
 	var keys []string
-	values := make(attributes)
+	values := make(defaultAttrs)
 	for k, v := range attrs {
 		if k == config.AgentVersionKey {
+			if c.ignoreReadOnlyFields {
+				continue
+			}
 			return errors.Errorf(`"agent-version" must be set via "upgrade-model"`)
 		}
 		values[k] = v
 		keys = append(keys, k)
 	}
 
+	coerced, err := values.CoerceFormat(c.regionName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for _, k := range c.resetKeys {
-		if _, ok := values[k]; ok {
+		if _, ok := coerced[k]; ok {
 			return errors.Errorf(
 				"key %q cannot be both set and unset in the same command", k)
 		}
@@ -670,7 +775,7 @@ func (c *defaultsCommand) setDefaults(client defaultsCommandAPI, ctx *cmd.Contex
 	}
 	return block.ProcessBlockedError(
 		client.SetModelDefaults(
-			c.cloudName, c.regionName, values), block.BlockChange)
+			c.cloudName, c.regionName, coerced), block.BlockChange)
 }
 
 // resetDefaults resets the keys in resetKeys.
@@ -721,7 +826,9 @@ func formatDefaultConfigTabular(writer io.Writer, value interface{}) error {
 	}
 
 	tw := output.TabWriter(writer)
-	w := output.Wrapper{tw}
+	w := output.Wrapper{
+		TabWriter: tw,
+	}
 
 	p := func(name string, value config.AttributeDefaultValues) {
 		var c, d interface{}
@@ -751,7 +858,6 @@ func formatDefaultConfigTabular(writer io.Writer, value interface{}) error {
 		valueNames = append(valueNames, name)
 	}
 	sort.Strings(valueNames)
-
 	w.Println("Attribute", "Default", "Controller")
 
 	for _, name := range valueNames {
