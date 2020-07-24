@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -1069,19 +1068,6 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 		return errors.Trace(err)
 	}
 
-	// TODO(jam): 2017-01-31 PopulateContainerLinkLayerDevices should really
-	// just be returning the ones we'd like to exist, and then we turn those
-	// into things we'd like to tell the Host machine to create, and then *it*
-	// reports back what actually exists when its done.
-	if err := policy.PopulateContainerLinkLayerDevices(host, guest); err != nil {
-		return errors.Trace(err)
-	}
-
-	containerDevices, err := guest.AllLinkLayerDevices()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	// We do not ask the provider to allocate addresses for manually provisioned
 	// machines as we do not expect such machines to be recognised (LP:1796106).
 	askProviderForAddress := false
@@ -1093,18 +1079,14 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 		askProviderForAddress = environs.SupportsContainerAddresses(callContext, env)
 	}
 
-	preparedInfo := make(corenetwork.InterfaceInfos, len(containerDevices))
-	for i, device := range containerDevices {
-		info, err := ctx.infoForDevice(device, askProviderForAddress)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		preparedInfo[i] = info
+	preparedInfo, err := policy.PopulateContainerLinkLayerDevices(host, guest, askProviderForAddress)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	hostInstanceId, err := host.InstanceId()
 	if err != nil {
-		// this should have already been checked in the processEachContainer helper
+		// This should have already been checked in the processEachContainer helper.
 		return errors.Trace(err)
 	}
 
@@ -1126,65 +1108,6 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 	logger.Debugf("allocated network config: %+v", allocatedConfig)
 	ctx.result.Results[idx].Config = allocatedConfig
 	return nil
-}
-
-// infoForDevice returns interface information for a link-layer device.
-func (ctx *prepareOrGetContext) infoForDevice(
-	device containerizer.LinkLayerDevice, askProviderForAddress bool) (corenetwork.InterfaceInfo, error) {
-	parentDevice, err := device.ParentDevice()
-	if err != nil || parentDevice == nil {
-		return corenetwork.InterfaceInfo{}, errors.Errorf("cannot get parent %q of container device %q: %v",
-			device.ParentName(), device.Name(), err)
-	}
-	parentAddrs, err := parentDevice.Addresses()
-	if err != nil {
-		return corenetwork.InterfaceInfo{}, errors.Trace(err)
-	}
-
-	info := corenetwork.InterfaceInfo{
-		InterfaceName:       device.Name(),
-		MACAddress:          device.MACAddress(),
-		ConfigType:          corenetwork.ConfigManual,
-		InterfaceType:       corenetwork.InterfaceType(device.Type()),
-		NoAutoStart:         !device.IsAutoStart(),
-		Disabled:            !device.IsUp(),
-		MTU:                 int(device.MTU()),
-		ParentInterfaceName: parentDevice.Name(),
-	}
-
-	if len(parentAddrs) > 0 {
-		logger.Debugf("host machine device %q has addresses %v", parentDevice.Name(), parentAddrs)
-		firstAddress := parentAddrs[0]
-		if askProviderForAddress {
-			parentDeviceSubnet, err := firstAddress.Subnet()
-			if err != nil {
-				return info, errors.Annotatef(err,
-					"cannot get subnet %q used by address %q of host machine device %q",
-					firstAddress.SubnetCIDR(), firstAddress.Value(), parentDevice.Name(),
-				)
-			}
-			info.ConfigType = corenetwork.ConfigStatic
-			info.CIDR = parentDeviceSubnet.CIDR()
-			info.ProviderSubnetId = parentDeviceSubnet.ProviderId()
-			info.VLANTag = parentDeviceSubnet.VLANTag()
-			info.IsDefaultGateway = firstAddress.IsDefaultGateway()
-		} else {
-			info.ConfigType = corenetwork.ConfigDHCP
-			info.CIDR = firstAddress.SubnetCIDR()
-			info.ProviderSubnetId = ""
-			info.VLANTag = 0
-		}
-	} else {
-		logger.Infof("host machine device %q has no addresses %v", parentDevice.Name(), parentAddrs)
-		// TODO(jam): 2017-02-15, have a concrete test for this case, as it
-		// seems to be the common case in the wild.
-		info.ConfigType = corenetwork.ConfigDHCP
-		info.ProviderSubnetId = ""
-		info.VLANTag = 0
-	}
-
-	logger.Tracef("prepared info for container interface %q: %+v", info.InterfaceName, info)
-	return info, nil
 }
 
 func (api *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(

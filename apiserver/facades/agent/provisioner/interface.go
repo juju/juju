@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/network/containerizer"
 )
@@ -36,7 +37,9 @@ type BridgePolicy interface {
 	// PopulateContainerLinkLayerDevices sets the link-layer devices of the input
 	// guest, setting each device to be a child of the corresponding bridge on the
 	// host machine.
-	PopulateContainerLinkLayerDevices(containerizer.Machine, containerizer.Container) error
+	PopulateContainerLinkLayerDevices(
+		containerizer.Machine, containerizer.Container, bool,
+	) (corenetwork.InterfaceInfos, error)
 }
 
 // Unit is an indirection for state.Unit.
