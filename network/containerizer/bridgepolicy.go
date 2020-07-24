@@ -17,7 +17,6 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.network.containerizer")
@@ -468,19 +467,17 @@ func BridgeNameForDevice(device string) string {
 	}
 }
 
-// PopulateContainerLinkLayerDevices sets the link-layer devices of the input
-// guest, setting each device to be a child of the corresponding bridge on the
-// host machine.
+// PopulateContainerLinkLayerDevices generates and returns link-layer devices
+// for the input guest, setting each device to be a child of the corresponding
+// bridge on the host machine.
 // It also records when one of the desired spaces is available on the host
 // machine, but not currently bridged.
-func (p *BridgePolicy) PopulateContainerLinkLayerDevices(host Machine, guest Container) error {
-	// TODO(jam): 2017-01-31 This doesn't quite feel right that we would be
-	// defining devices that 'will' exist in the container, but don't exist
-	// yet. If anything, this feels more like "Provider" level devices, because
-	// it is defining the devices from the outside, not the inside.
+func (p *BridgePolicy) PopulateContainerLinkLayerDevices(
+	host Machine, guest Container, askProviderForAddress bool,
+) (corenetwork.InterfaceInfos, error) {
 	guestSpaces, devicesPerSpace, err := p.findSpacesAndDevicesForContainer(host, guest)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	logger.Debugf("for container %q, found host devices spaces: %s", guest.Id(), formatDeviceMap(devicesPerSpace))
 	localBridgeForType := map[instance.ContainerType]string{
@@ -529,31 +526,27 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(host Machine, guest Con
 		logger.Warningf("container %q wants spaces %s could not find host %q bridges for %s, found bridges %s",
 			guest.Id(), guestSpaces,
 			host.Id(), missingSpacesNames, bridgeDeviceNames)
-		return errors.Errorf("unable to find host bridge for space(s) %s for container %q",
+		return nil, errors.Errorf("unable to find host bridge for space(s) %s for container %q",
 			missingSpacesNames, guest.Id())
 	}
 
 	sortedBridgeDeviceNames := network.NaturallySortDeviceNames(bridgeDeviceNames...)
 	logger.Debugf("for container %q using host machine %q bridge devices: %s",
 		guest.Id(), host.Id(), network.QuoteSpaces(sortedBridgeDeviceNames))
-	containerDevicesArgs := make([]state.LinkLayerDeviceArgs, len(bridgeDeviceNames))
+
+	interfaces := make(corenetwork.InterfaceInfos, len(bridgeDeviceNames))
 
 	for i, hostBridgeName := range sortedBridgeDeviceNames {
 		hostBridge := devicesByName[hostBridgeName]
-		newLLD, err := hostBridge.EthernetDeviceForBridge(fmt.Sprintf("eth%d", i))
+		newDevice, err := hostBridge.EthernetDeviceForBridge(fmt.Sprintf("eth%d", i), askProviderForAddress)
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
-		containerDevicesArgs[i] = newLLD
-	}
-	logger.Debugf("prepared container %q network config: %+v", guest.Id(), containerDevicesArgs)
-
-	if err := guest.SetLinkLayerDevices(containerDevicesArgs...); err != nil {
-		return errors.Trace(err)
+		interfaces[i] = newDevice
 	}
 
-	logger.Debugf("container %q network config set", guest.Id())
-	return nil
+	logger.Debugf("prepared container %q network config: %+v", guest.Id(), interfaces)
+	return interfaces, nil
 }
 
 func formatDeviceMap(spacesToDevices map[string][]LinkLayerDevice) string {
