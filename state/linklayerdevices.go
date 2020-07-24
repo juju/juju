@@ -525,7 +525,7 @@ func (dev *LinkLayerDevice) RemoveAddresses() error {
 	return dev.st.db().RunTransaction(ops)
 }
 
-// EthernetDeviceForBridge an InterfaceInfo representing an ethernet
+// EthernetDeviceForBridge returns an InterfaceInfo representing an ethernet
 // device with the input name and this device as its parent.
 // The detail supplied reflects whether the provider is expected to supply the
 // interface's eventual address.
@@ -547,7 +547,7 @@ func (dev *LinkLayerDevice) EthernetDeviceForBridge(
 	newDev = network.InterfaceInfo{
 		InterfaceName:       name,
 		MACAddress:          network.GenerateVirtualMACAddress(),
-		ConfigType:          network.ConfigManual,
+		ConfigType:          network.ConfigDHCP,
 		InterfaceType:       network.EthernetInterface,
 		MTU:                 int(dev.MTU()),
 		ParentInterfaceName: dev.Name(),

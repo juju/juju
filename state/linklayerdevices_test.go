@@ -732,7 +732,7 @@ func (s *linkLayerDevicesStateSuite) TestEthernetDeviceForBridge(c *gc.C) {
 	child, err = dev.EthernetDeviceForBridge("eth0", false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(child.ConfigType, gc.Equals, corenetwork.ConfigManual)
+	c.Check(child.ConfigType, gc.Equals, corenetwork.ConfigDHCP)
 	c.Check(child.ProviderSubnetId, gc.Equals, corenetwork.Id(""))
 
 	dev = s.addNamedDevice(c, "bond0")
