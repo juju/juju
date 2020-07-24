@@ -232,7 +232,7 @@ func (c *defaultsCommand) SetFlags(f *gnuflag.FlagSet) {
 		"tabular": formatDefaultConfigTabular,
 	})
 	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
-	f.BoolVar(&c.ignoreReadOnlyFields, "ignore-read-only-fields", false, "Ignore read only fields that might error during parsing of yaml")
+	f.BoolVar(&c.ignoreReadOnlyFields, "ignore-read-only-fields", false, "Ignore read only fields that might cause errors to be emitted while processing yaml documents")
 }
 
 // Init implements cmd.Command.Init.
