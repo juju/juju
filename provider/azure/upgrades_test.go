@@ -47,6 +47,7 @@ func (s *environUpgradeSuite) SetUpTest(c *gc.C) {
 		RandomWindowsAdminPassword: func() string { return "sorandom" },
 	})
 	s.env = openEnviron(c, s.provider, &s.sender)
+	s.requests = nil
 	s.invalidCredential = false
 	s.callCtx = &context.CloudCallContext{
 		InvalidateCredentialFunc: func(string) error {
@@ -188,8 +189,8 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentControllerModel(c *gc.C) {
 	s.sender = nil
-	s.requests = nil
 	env := openEnviron(c, s.provider, &s.sender, testing.Attrs{"name": "controller"})
+	s.requests = nil
 	upgrader := env.(environs.Upgrader)
 
 	controllerTags := make(map[string]*string)

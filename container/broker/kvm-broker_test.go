@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/container/kvm/mock"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	coretesting "github.com/juju/juju/testing"
@@ -206,30 +205,6 @@ func (s *kvmBrokerSuite) kvmContainerDir(result *environs.StartInstanceResult) s
 func (s *kvmBrokerSuite) kvmRemovedContainerDir(result *environs.StartInstanceResult) string {
 	inst := result.Instance
 	return filepath.Join(s.RemovedDir, string(inst.Id()))
-}
-
-func (s *kvmBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
-	broker, brokerErr := s.newKVMBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
-
-	patchResolvConf(s, c)
-
-	result, err := s.startInstance(c, broker, "1/kvm/42")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(result.NetworkInfo, gc.HasLen, 1)
-	iface := result.NetworkInfo[0]
-	c.Assert(iface, jc.DeepEquals, corenetwork.InterfaceInfo{
-		DeviceIndex:         0,
-		CIDR:                "0.1.2.0/24",
-		InterfaceName:       "dummy0",
-		ParentInterfaceName: "virbr0",
-		MACAddress:          "aa:bb:cc:dd:ee:ff",
-		Addresses:           corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.1.2.3")},
-		GatewayAddress:      corenetwork.NewProviderAddress("0.1.2.1"),
-		DNSServers:          corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
-		DNSSearchDomains:    []string{"dummy", "invalid"},
-	})
 }
 
 func (s *kvmBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) {

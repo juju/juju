@@ -612,7 +612,7 @@ echo "do some stuff here for gitlab-init container"
 					DNSPolicy:   "ClusterFirstWithHostNet",
 					HostNetwork: true,
 				},
-				Secrets: []k8sspecs.Secret{
+				Secrets: []k8sspecs.K8sSecret{
 					{
 						Name: "build-robot-secret",
 						Type: core.SecretTypeOpaque,

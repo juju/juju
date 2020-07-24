@@ -169,7 +169,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			},
 		},
 	}
-	if err := k.ensureK8sService(service); err != nil {
+	if _, err := k.ensureK8sService(service); err != nil {
 		return errors.Annotatef(err, "creating or updating service for %v operator", appName)
 	}
 	cleanups = append(cleanups, func() { _ = k.deleteService(operatorName) })
