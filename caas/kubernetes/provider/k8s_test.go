@@ -714,7 +714,7 @@ func (s *K8sBrokerSuite) assertFileSetToVolume(c *gc.C, fs specs.FileSet, result
 			"log_level": "INFO",
 		},
 	}
-	workloadSpec.Secrets = []k8sspecs.Secret{
+	workloadSpec.Secrets = []k8sspecs.K8sSecret{
 		{Name: "mysecret2"},
 	}
 
@@ -1049,7 +1049,7 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 			"log_level": "INFO",
 		},
 	}
-	workloadSpec.Secrets = []k8sspecs.Secret{
+	workloadSpec.Secrets = []k8sspecs.K8sSecret{
 		{Name: "mysecret2"},
 	}
 
@@ -2109,7 +2109,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceStatelessWithScalePolicyInvalid(c *gc.
 	c.Assert(err, gc.ErrorMatches, `ScalePolicy is only supported for stateful applications`)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithConfigMapAndSecretsCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithExtraServicesConfigMapAndSecretsCreate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -2123,7 +2123,278 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConfigMapAndSecretsCreate(c *gc.C)
 	}
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
-			Secrets: []k8sspecs.Secret{
+			Services: []k8sspecs.K8sService{
+				{
+					Meta: k8sspecs.Meta{
+						Name:        "my-service1",
+						Labels:      map[string]string{"foo": "bar"},
+						Annotations: map[string]string{"cloud.google.com/load-balancer-type": "Internal"},
+					},
+					Spec: core.ServiceSpec{
+						Selector: map[string]string{"app": "MyApp"},
+						Ports: []core.ServicePort{
+							{
+								Protocol:   core.ProtocolTCP,
+								Port:       80,
+								TargetPort: intstr.IntOrString{IntVal: 9376},
+							},
+						},
+						Type: core.ServiceTypeLoadBalancer,
+					},
+				},
+			},
+			Secrets: []k8sspecs.K8sSecret{
+				{
+					Name: "build-robot-secret",
+					Type: core.SecretTypeOpaque,
+					StringData: map[string]string{
+						"config.yaml": `
+apiUrl: "https://my.api.com/api/v1"
+username: fred
+password: shhhh`[1:],
+					},
+				},
+				{
+					Name: "another-build-robot-secret",
+					Type: core.SecretTypeOpaque,
+					Data: map[string]string{
+						"username": "YWRtaW4=",
+						"password": "MWYyZDFlMmU2N2Rm",
+					},
+				},
+			},
+		},
+	}
+
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.PodSpec(workloadSpec)
+
+	deploymentArg := &appsv1.Deployment{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"fred":                           "mary",
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
+			}},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &numUnits,
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{"juju-app": "app-name"},
+			},
+			RevisionHistoryLimit: int32Ptr(0),
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					GenerateName: "app-name-",
+					Labels: map[string]string{
+						"juju-app": "app-name",
+					},
+					Annotations: map[string]string{
+						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
+						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"fred":                           "mary",
+						"juju.io/controller":             testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version": "0",
+					},
+				},
+				Spec: podSpec,
+			},
+		},
+	}
+	serviceArg := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+				"a":                  "b",
+			}},
+		Spec: core.ServiceSpec{
+			Selector: map[string]string{"juju-app": "app-name"},
+			Type:     "nodeIP",
+			Ports: []core.ServicePort{
+				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
+				{Port: 8080, Protocol: "TCP", Name: "fred"},
+			},
+			LoadBalancerIP: "10.0.0.1",
+			ExternalName:   "ext-name",
+		},
+	}
+	svc1 := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "my-service1",
+			Namespace: "test",
+			Labels:    map[string]string{"foo": "bar", "juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller":                  testing.ControllerTag.Id(),
+				"fred":                                "mary",
+				"cloud.google.com/load-balancer-type": "Internal",
+			}},
+		Spec: core.ServiceSpec{
+			Selector: map[string]string{"app": "MyApp"},
+			Type:     core.ServiceTypeLoadBalancer,
+			Ports: []core.ServicePort{
+				{
+					Protocol:   core.ProtocolTCP,
+					Port:       80,
+					TargetPort: intstr.IntOrString{IntVal: 9376},
+				},
+			},
+		},
+	}
+
+	cm := &core.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "myData",
+			Namespace: "test",
+			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+			},
+		},
+		Data: map[string]string{
+			"foo":   "bar",
+			"hello": "world",
+		},
+	}
+	secrets1 := &core.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "build-robot-secret",
+			Namespace: "test",
+			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+			},
+		},
+		Type: core.SecretTypeOpaque,
+		StringData: map[string]string{
+			"config.yaml": `
+apiUrl: "https://my.api.com/api/v1"
+username: fred
+password: shhhh`[1:],
+		},
+	}
+
+	secrets2Data, err := provider.ProcessSecretData(
+		map[string]string{
+			"username": "YWRtaW4=",
+			"password": "MWYyZDFlMmU2N2Rm",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	secrets2 := &core.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "another-build-robot-secret",
+			Namespace: "test",
+			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+			},
+		},
+		Type: core.SecretTypeOpaque,
+		Data: secrets2Data,
+	}
+
+	ociImageSecret := s.getOCIImageSecret(c, map[string]string{"fred": "mary"})
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+
+		// ensure services.
+		s.mockServices.EXPECT().Get(svc1.GetName(), v1.GetOptions{}).
+			Return(svc1, nil),
+		s.mockServices.EXPECT().Update(svc1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(svc1).
+			Return(svc1, nil),
+
+		// ensure configmaps.
+		s.mockConfigMaps.EXPECT().Create(cm).
+			Return(cm, nil),
+
+		// ensure secrets.
+		s.mockSecrets.EXPECT().Create(secrets1).
+			Return(secrets1, nil),
+		s.mockSecrets.EXPECT().Create(secrets2).
+			Return(secrets2, nil),
+
+		s.mockSecrets.EXPECT().Create(ociImageSecret).
+			Return(ociImageSecret, nil),
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(serviceArg).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(serviceArg).
+			Return(nil, nil),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Update(deploymentArg).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Create(deploymentArg).
+			Return(nil, nil),
+	)
+
+	params := &caas.ServiceParams{
+		PodSpec:           basicPodSpec,
+		OperatorImagePath: "operator/image-path",
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+			"fred":                 "mary",
+		},
+	}
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureServiceWithExtraServicesConfigMapAndSecretsUpdate(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	numUnits := int32(2)
+	basicPodSpec := getBasicPodspec()
+	basicPodSpec.ConfigMaps = map[string]specs.ConfigMap{
+		"myData": {
+			"foo":   "bar",
+			"hello": "world",
+		},
+	}
+	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
+		KubernetesResources: &k8sspecs.KubernetesResources{
+			Services: []k8sspecs.K8sService{
+				{
+					Meta: k8sspecs.Meta{
+						Name:        "my-service1",
+						Labels:      map[string]string{"foo": "bar"},
+						Annotations: map[string]string{"cloud.google.com/load-balancer-type": "Internal"},
+					},
+					Spec: core.ServiceSpec{
+						Selector: map[string]string{"app": "MyApp"},
+						Ports: []core.ServicePort{
+							{
+								Protocol:   core.ProtocolTCP,
+								Port:       80,
+								TargetPort: intstr.IntOrString{IntVal: 9376},
+							},
+						},
+						Type: core.ServiceTypeLoadBalancer,
+					},
+				},
+			},
+			Secrets: []k8sspecs.K8sSecret{
 				{
 					Name: "build-robot-secret",
 					Type: core.SecretTypeOpaque,
@@ -2205,6 +2476,29 @@ password: shhhh`[1:],
 		},
 	}
 
+	svc1 := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "my-service1",
+			Namespace: "test",
+			Labels:    map[string]string{"foo": "bar", "juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller":                  testing.ControllerTag.Id(),
+				"fred":                                "mary",
+				"cloud.google.com/load-balancer-type": "Internal",
+			}},
+		Spec: core.ServiceSpec{
+			Selector: map[string]string{"app": "MyApp"},
+			Type:     core.ServiceTypeLoadBalancer,
+			Ports: []core.ServicePort{
+				{
+					Protocol:   core.ProtocolTCP,
+					Port:       80,
+					TargetPort: intstr.IntOrString{IntVal: 9376},
+				},
+			},
+		},
+	}
+
 	cm := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "myData",
@@ -2265,14 +2559,32 @@ password: shhhh`[1:],
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 
+		// ensure services.
+		s.mockServices.EXPECT().Get(svc1.GetName(), v1.GetOptions{}).
+			Return(svc1, nil),
+		s.mockServices.EXPECT().Update(svc1).
+			Return(svc1, nil),
+
 		// ensure configmaps.
 		s.mockConfigMaps.EXPECT().Create(cm).
+			Return(nil, s.k8sAlreadyExistsError()),
+		s.mockConfigMaps.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+			Return(&core.ConfigMapList{Items: []core.ConfigMap{*cm}}, nil),
+		s.mockConfigMaps.EXPECT().Update(cm).
 			Return(cm, nil),
 
 		// ensure secrets.
 		s.mockSecrets.EXPECT().Create(secrets1).
+			Return(nil, s.k8sAlreadyExistsError()),
+		s.mockSecrets.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+			Return(&core.SecretList{Items: []core.Secret{*secrets1}}, nil),
+		s.mockSecrets.EXPECT().Update(secrets1).
 			Return(secrets1, nil),
 		s.mockSecrets.EXPECT().Create(secrets2).
+			Return(nil, s.k8sAlreadyExistsError()),
+		s.mockSecrets.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+			Return(&core.SecretList{Items: []core.Secret{*secrets2}}, nil),
+		s.mockSecrets.EXPECT().Update(secrets2).
 			Return(secrets2, nil),
 
 		s.mockSecrets.EXPECT().Create(ociImageSecret).
@@ -2294,12 +2606,12 @@ password: shhhh`[1:],
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           basicPodSpec,
-		OperatorImagePath: "operator/image-path",
+		PodSpec: basicPodSpec,
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
+		OperatorImagePath: "operator/image-path",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
@@ -2667,219 +2979,6 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDaemonSet(c *gc.C) {
 			listOptionsFieldSelectorMatcher("involvedObject.name=app-name,involvedObject.kind=DaemonSet"),
 		).Return(&core.EventList{}, nil),
 	)
-}
-
-func (s *K8sBrokerSuite) TestEnsureServiceWithConfigMapAndSecretsUpdate(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	numUnits := int32(2)
-	basicPodSpec := getBasicPodspec()
-	basicPodSpec.ConfigMaps = map[string]specs.ConfigMap{
-		"myData": {
-			"foo":   "bar",
-			"hello": "world",
-		},
-	}
-	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
-		KubernetesResources: &k8sspecs.KubernetesResources{
-			Secrets: []k8sspecs.Secret{
-				{
-					Name: "build-robot-secret",
-					Type: core.SecretTypeOpaque,
-					StringData: map[string]string{
-						"config.yaml": `
-apiUrl: "https://my.api.com/api/v1"
-username: fred
-password: shhhh`[1:],
-					},
-				},
-				{
-					Name: "another-build-robot-secret",
-					Type: core.SecretTypeOpaque,
-					Data: map[string]string{
-						"username": "YWRtaW4=",
-						"password": "MWYyZDFlMmU2N2Rm",
-					},
-				},
-			},
-		},
-	}
-
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
-	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
-
-	deploymentArg := &appsv1.Deployment{
-		ObjectMeta: v1.ObjectMeta{
-			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
-			Annotations: map[string]string{
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"fred":                           "mary",
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
-			}},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: &numUnits,
-			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
-			},
-			RevisionHistoryLimit: int32Ptr(0),
-			Template: core.PodTemplateSpec{
-				ObjectMeta: v1.ObjectMeta{
-					GenerateName: "app-name-",
-					Labels: map[string]string{
-						"juju-app": "app-name",
-					},
-					Annotations: map[string]string{
-						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
-						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred":                           "mary",
-						"juju.io/controller":             testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version": "0",
-					},
-				},
-				Spec: podSpec,
-			},
-		},
-	}
-	serviceArg := &core.Service{
-		ObjectMeta: v1.ObjectMeta{
-			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
-			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
-				"a":                  "b",
-			}},
-		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-app": "app-name"},
-			Type:     "nodeIP",
-			Ports: []core.ServicePort{
-				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
-				{Port: 8080, Protocol: "TCP", Name: "fred"},
-			},
-			LoadBalancerIP: "10.0.0.1",
-			ExternalName:   "ext-name",
-		},
-	}
-
-	cm := &core.ConfigMap{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      "myData",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
-			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
-			},
-		},
-		Data: map[string]string{
-			"foo":   "bar",
-			"hello": "world",
-		},
-	}
-	secrets1 := &core.Secret{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      "build-robot-secret",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
-			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
-			},
-		},
-		Type: core.SecretTypeOpaque,
-		StringData: map[string]string{
-			"config.yaml": `
-apiUrl: "https://my.api.com/api/v1"
-username: fred
-password: shhhh`[1:],
-		},
-	}
-
-	secrets2Data, err := provider.ProcessSecretData(
-		map[string]string{
-			"username": "YWRtaW4=",
-			"password": "MWYyZDFlMmU2N2Rm",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	secrets2 := &core.Secret{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      "another-build-robot-secret",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
-			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
-			},
-		},
-		Type: core.SecretTypeOpaque,
-		Data: secrets2Data,
-	}
-
-	ociImageSecret := s.getOCIImageSecret(c, map[string]string{"fred": "mary"})
-	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-
-		// ensure configmaps.
-		s.mockConfigMaps.EXPECT().Create(cm).
-			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockConfigMaps.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
-			Return(&core.ConfigMapList{Items: []core.ConfigMap{*cm}}, nil),
-		s.mockConfigMaps.EXPECT().Update(cm).
-			Return(cm, nil),
-
-		// ensure secrets.
-		s.mockSecrets.EXPECT().Create(secrets1).
-			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockSecrets.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
-			Return(&core.SecretList{Items: []core.Secret{*secrets1}}, nil),
-		s.mockSecrets.EXPECT().Update(secrets1).
-			Return(secrets1, nil),
-		s.mockSecrets.EXPECT().Create(secrets2).
-			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockSecrets.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
-			Return(&core.SecretList{Items: []core.Secret{*secrets2}}, nil),
-		s.mockSecrets.EXPECT().Update(secrets2).
-			Return(secrets2, nil),
-
-		s.mockSecrets.EXPECT().Create(ociImageSecret).
-			Return(ociImageSecret, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(serviceArg).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(serviceArg).
-			Return(nil, nil),
-		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Update(deploymentArg).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Create(deploymentArg).
-			Return(nil, nil),
-	)
-
-	params := &caas.ServiceParams{
-		PodSpec: basicPodSpec,
-		ResourceTags: map[string]string{
-			"juju-controller-uuid": testing.ControllerTag.Id(),
-			"fred":                 "mary",
-		},
-		OperatorImagePath: "operator/image-path",
-	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
-		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
-		"kubernetes-service-externalname":    "ext-name",
-		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {

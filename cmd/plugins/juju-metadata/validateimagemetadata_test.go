@@ -144,11 +144,12 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclient.MemStore) {
 
 	azureUUID := utils.MustNewUUID().String()
 	azureConfig, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":            "azure",
-		"type":            "azure",
-		"controller-uuid": coretesting.ControllerTag.Id(),
-		"uuid":            azureUUID,
-		"default-series":  "raring",
+		"name":                "azure",
+		"type":                "azure",
+		"controller-uuid":     coretesting.ControllerTag.Id(),
+		"uuid":                azureUUID,
+		"default-series":      "raring",
+		"resource-group-name": "rg",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	store.Controllers["azure-controller"] = jujuclient.ControllerDetails{

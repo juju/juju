@@ -5,13 +5,14 @@
 package containerizer
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
-	reflect "reflect"
 )
 
 // MockContainer is a mock of Container interface
@@ -345,18 +346,18 @@ func (mr *MockLinkLayerDeviceMockRecorder) Addresses() *gomock.Call {
 }
 
 // EthernetDeviceForBridge mocks base method
-func (m *MockLinkLayerDevice) EthernetDeviceForBridge(arg0 string) (state.LinkLayerDeviceArgs, error) {
+func (m *MockLinkLayerDevice) EthernetDeviceForBridge(arg0 string, arg1 bool) (network.InterfaceInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EthernetDeviceForBridge", arg0)
-	ret0, _ := ret[0].(state.LinkLayerDeviceArgs)
+	ret := m.ctrl.Call(m, "EthernetDeviceForBridge", arg0, arg1)
+	ret0, _ := ret[0].(network.InterfaceInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // EthernetDeviceForBridge indicates an expected call of EthernetDeviceForBridge
-func (mr *MockLinkLayerDeviceMockRecorder) EthernetDeviceForBridge(arg0 interface{}) *gomock.Call {
+func (mr *MockLinkLayerDeviceMockRecorder) EthernetDeviceForBridge(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EthernetDeviceForBridge", reflect.TypeOf((*MockLinkLayerDevice)(nil).EthernetDeviceForBridge), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EthernetDeviceForBridge", reflect.TypeOf((*MockLinkLayerDevice)(nil).EthernetDeviceForBridge), arg0, arg1)
 }
 
 // IsAutoStart mocks base method

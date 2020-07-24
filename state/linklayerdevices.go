@@ -539,24 +539,56 @@ func (dev *LinkLayerDevice) RemoveAddresses() error {
 	return dev.st.db().RunTransaction(ops)
 }
 
-// EthernetDeviceForBridge returns LinkLayerDeviceArgs representing an ethernet
+// EthernetDeviceForBridge returns an InterfaceInfo representing an ethernet
 // device with the input name and this device as its parent.
+// The detail supplied reflects whether the provider is expected to supply the
+// interface's eventual address.
 // If the device is not a bridge, an error is returned.
-func (dev *LinkLayerDevice) EthernetDeviceForBridge(name string) (LinkLayerDeviceArgs, error) {
+func (dev *LinkLayerDevice) EthernetDeviceForBridge(
+	name string, askProviderForAddress bool,
+) (network.InterfaceInfo, error) {
+	var newDev network.InterfaceInfo
+
 	if !dev.isBridge() {
-		return LinkLayerDeviceArgs{}, errors.Errorf("device must be a Bridge Device, receiver has type %q", dev.Type())
+		return newDev, errors.Errorf("device must be a Bridge Device, but is type %q", dev.Type())
 	}
 
-	return LinkLayerDeviceArgs{
-		Name:            name,
-		Type:            network.EthernetDevice,
-		MACAddress:      network.GenerateVirtualMACAddress(),
-		MTU:             dev.MTU(),
-		IsUp:            true,
-		IsAutoStart:     true,
-		ParentName:      dev.ID(),
-		VirtualPortType: dev.VirtualPortType(),
-	}, nil
+	addrs, err := dev.Addresses()
+	if err != nil {
+		return network.InterfaceInfo{}, errors.Trace(err)
+	}
+
+	newDev = network.InterfaceInfo{
+		InterfaceName:       name,
+		MACAddress:          network.GenerateVirtualMACAddress(),
+		ConfigType:          network.ConfigDHCP,
+		InterfaceType:       network.EthernetInterface,
+		MTU:                 int(dev.MTU()),
+		ParentInterfaceName: dev.Name(),
+		VirtualPortType:     dev.VirtualPortType(),
+	}
+
+	if len(addrs) > 0 {
+		addr := addrs[0]
+		if askProviderForAddress {
+			sub, err := addr.Subnet()
+			if err != nil {
+				return newDev, errors.Annotatef(err,
+					"retrieving subnet %q used by address %q of host machine device %q",
+					addr.SubnetCIDR(), addr.Value(), dev.Name(),
+				)
+			}
+			newDev.ConfigType = network.ConfigStatic
+			newDev.CIDR = sub.CIDR()
+			newDev.ProviderSubnetId = sub.ProviderId()
+			newDev.VLANTag = sub.VLANTag()
+			newDev.IsDefaultGateway = addr.IsDefaultGateway()
+		} else {
+			newDev.CIDR = addr.SubnetCIDR()
+		}
+	}
+
+	return newDev, nil
 }
 
 func (dev *LinkLayerDevice) isBridge() bool {

@@ -1003,6 +1003,15 @@ func (k *kubernetesClient) ensureService(
 
 	annotations := resourceTagsToAnnotations(params.ResourceTags)
 
+	// ensure services.
+	if len(workloadSpec.Services) > 0 {
+		servicesCleanUps, err := k.ensureServicesForApp(appName, annotations, workloadSpec.Services)
+		cleanups = append(cleanups, servicesCleanUps...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating services")
+		}
+	}
+
 	// ensure configmap.
 	if len(workloadSpec.ConfigMaps) > 0 {
 		cmsCleanUps, err := k.ensureConfigMaps(appName, annotations, workloadSpec.ConfigMaps)
@@ -1773,7 +1782,8 @@ func (k *kubernetesClient) configureService(
 			ExternalName:             config.GetString(serviceExternalNameKey, ""),
 		},
 	}
-	return k.ensureK8sService(service)
+	_, err = k.ensureK8sService(service)
+	return err
 }
 
 func (k *kubernetesClient) configureHeadlessService(
@@ -1795,57 +1805,8 @@ func (k *kubernetesClient) configureHeadlessService(
 			PublishNotReadyAddresses: true,
 		},
 	}
-	return k.ensureK8sService(service)
-}
-
-// ensureK8sService ensures a k8s service resource.
-func (k *kubernetesClient) ensureK8sService(spec *core.Service) error {
-	services := k.client().CoreV1().Services(k.namespace)
-	// Set any immutable fields if the service already exists.
-	existing, err := services.Get(spec.Name, v1.GetOptions{})
-	if err == nil {
-		spec.Spec.ClusterIP = existing.Spec.ClusterIP
-		spec.ObjectMeta.ResourceVersion = existing.ObjectMeta.ResourceVersion
-	}
-	_, err = services.Update(spec)
-	if k8serrors.IsNotFound(err) {
-		_, err = services.Create(spec)
-	}
-	return errors.Trace(err)
-}
-
-// deleteService deletes a service resource.
-func (k *kubernetesClient) deleteService(serviceName string) error {
-	services := k.client().CoreV1().Services(k.namespace)
-	err := services.Delete(serviceName, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteServices(appName string) error {
-	// Service API does not have `DeleteCollection` implemented, so we have to do it like this.
-	api := k.client().CoreV1().Services(k.namespace)
-	services, err := api.List(
-		v1.ListOptions{
-			LabelSelector: labelSetToSelector(LabelsForApp(appName)).String(),
-		},
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, svc := range services.Items {
-		if err := k.deleteService(svc.GetName()); err != nil {
-			if errors.IsNotFound(err) {
-				continue
-			}
-			return errors.Trace(err)
-		}
-	}
-	return nil
+	_, err := k.ensureK8sService(service)
+	return err
 }
 
 // ExposeService sets up external access to the specified application.
@@ -2355,7 +2316,8 @@ type workloadSpec struct {
 	Pod     core.PodSpec `json:"pod"`
 	Service *specs.ServiceSpec
 
-	Secrets                         []k8sspecs.Secret
+	Secrets                         []k8sspecs.K8sSecret
+	Services                        []k8sspecs.K8sService
 	ConfigMaps                      map[string]specs.ConfigMap
 	ServiceAccounts                 []k8sspecs.K8sRBACSpecConverter
 	CustomResourceDefinitions       []k8sspecs.K8sCustomResourceDefinitionSpec
@@ -2436,6 +2398,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 		k8sResources := pSpec.KubernetesResources
 		if k8sResources != nil {
 			spec.Secrets = k8sResources.Secrets
+			spec.Services = k8sResources.Services
 			spec.CustomResourceDefinitions = k8sResources.CustomResourceDefinitions
 			spec.CustomResources = k8sResources.CustomResources
 			spec.MutatingWebhookConfigurations = k8sResources.MutatingWebhookConfigurations

@@ -7,9 +7,9 @@ import (
 	core "k8s.io/api/core/v1"
 )
 
-// Secret is a subset of v1.Secret which defines
+// K8sSecret is a subset of v1.Secret which defines
 // attributes we expose for charms to set.
-type Secret struct {
+type K8sSecret struct {
 	Name        string            `json:"name" yaml:"name"`
 	Type        core.SecretType   `json:"type" yaml:"type"`
 	Annotations map[string]string `json:"annotations,omitempty"`

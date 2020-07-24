@@ -723,6 +723,38 @@ func (s *linkLayerDevicesStateSuite) TestUpdateOps(c *gc.C) {
 	c.Check(dev.MACAddress(), gc.Equals, mac)
 }
 
+func (s *linkLayerDevicesStateSuite) TestEthernetDeviceForBridge(c *gc.C) {
+	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{
+		CIDR:       "10.0.0.0/24",
+		ProviderId: "ps-01",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.createBridgeWithIP(c, s.machine, "br0", "10.0.0.9/24")
+
+	dev, err := s.machine.LinkLayerDevice("br0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	child, err := dev.EthernetDeviceForBridge("eth0", true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(child.InterfaceName, gc.Equals, "eth0")
+	c.Check(child.ConfigType, gc.Equals, corenetwork.ConfigStatic)
+	c.Check(child.ParentInterfaceName, gc.Equals, "br0")
+	c.Check(child.CIDR, gc.Equals, "10.0.0.0/24")
+	c.Check(child.ProviderSubnetId, gc.Equals, corenetwork.Id("ps-01"))
+
+	child, err = dev.EthernetDeviceForBridge("eth0", false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(child.ConfigType, gc.Equals, corenetwork.ConfigDHCP)
+	c.Check(child.ProviderSubnetId, gc.Equals, corenetwork.Id(""))
+
+	dev = s.addNamedDevice(c, "bond0")
+	_, err = dev.EthernetDeviceForBridge("eth0", false)
+	c.Assert(err, gc.NotNil)
+}
+
 func (s *linkLayerDevicesStateSuite) createSpaceAndSubnet(c *gc.C, spaceName, CIDR string) {
 	s.createSpaceAndSubnetWithProviderID(c, spaceName, CIDR, "")
 }

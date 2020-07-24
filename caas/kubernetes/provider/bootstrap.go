@@ -430,7 +430,7 @@ func (c *controllerStack) createControllerService() error {
 	}
 
 	logger.Debugf("creating controller service: \n%+v", spec)
-	if err := c.broker.ensureK8sService(spec); err != nil {
+	if _, err := c.broker.ensureK8sService(spec); err != nil {
 		return errors.Trace(err)
 	}
 
