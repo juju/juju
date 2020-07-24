@@ -70,11 +70,7 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 		return nil, errors.Trace(err)
 	}
 
-	preparedInfo, err := prepareContainerInterfaceInfo(
-		broker.api,
-		containerMachineID,
-		lxdLogger,
-	)
+	preparedInfo, err := prepareContainerInterfaceInfo(broker.api, containerMachineID, lxdLogger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

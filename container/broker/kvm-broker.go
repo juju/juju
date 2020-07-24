@@ -76,11 +76,7 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 		return nil, errors.Trace(err)
 	}
 
-	preparedInfo, err := prepareContainerInterfaceInfo(
-		broker.api,
-		containerMachineID,
-		kvmLogger,
-	)
+	preparedInfo, err := prepareContainerInterfaceInfo(broker.api, containerMachineID, kvmLogger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
