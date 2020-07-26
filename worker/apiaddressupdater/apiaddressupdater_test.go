@@ -143,6 +143,63 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	}
 }
 
+func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
+	setter := &apiAddressSetter{servers: make(chan []corenetwork.HostPorts, 1)}
+	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(
+		apiaddressupdater.Config{
+			Addresser: apimachiner.NewState(st),
+			Setter:    setter,
+			Logger:    loggo.GetLogger("test"),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+	s.BackingState.StartSync()
+
+	// SetAPIHostPorts should be called with the initial value (empty),
+	// and then the updated value.
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for SetAPIHostPorts to be called initially")
+	case servers := <-setter.servers:
+		c.Assert(servers, gc.HasLen, 0)
+	}
+
+	updatedServers := []corenetwork.SpaceHostPorts{
+		corenetwork.NewSpaceHostPorts(1234, "localhost", "127.0.0.1"),
+	}
+
+	err = s.State.SetAPIHostPorts(updatedServers)
+	c.Assert(err, jc.ErrorIsNil)
+	s.BackingState.StartSync()
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
+	case servers := <-setter.servers:
+		expServer := corenetwork.ProviderHostPorts{
+			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewProviderAddress("localhost"), NetPort: 1234},
+			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewProviderAddress("127.0.0.1"), NetPort: 1234},
+		}.HostPorts()
+		c.Assert(servers, gc.DeepEquals, []corenetwork.HostPorts{expServer})
+	}
+
+	updatedServers = []corenetwork.SpaceHostPorts{}
+	err = s.State.SetAPIHostPorts(updatedServers)
+	c.Assert(err, jc.ErrorIsNil)
+	s.BackingState.StartSync()
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
+	case servers := <-setter.servers:
+		expServer := corenetwork.ProviderHostPorts{
+			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewProviderAddress("localhost"), NetPort: 1234},
+			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewProviderAddress("127.0.0.1"), NetPort: 1234},
+		}.HostPorts()
+		c.Assert(servers, gc.DeepEquals, []corenetwork.HostPorts{expServer})
+	}
+}
+
 func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *gc.C) {
 	lxcFakeNetConfig := filepath.Join(c.MkDir(), "lxc-net")
 	netConf := []byte(`
