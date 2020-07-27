@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -203,6 +204,28 @@ func (s *NestedContextSuite) TestReport(c *gc.C) {
 	check := jc.NewMultiChecker()
 	check.AddExpr(`_["units"][_][_][_][_][_]["started"]`, jc.Ignore)
 	check.AddExpr(`_["units"][_][_]["started"]`, jc.Ignore)
+	report := ctx.Report()
+	// There is a race condition here between the worker, which says the
+	// start function was called, and the engine report itself having recorded
+	// that the worker has started, and updated the engine report. In manual
+	// testing locally it passed 30 odd times before failing, but on slower
+	// machines it may well be more frequent, so have a loop here to test.
+	maxTime := time.After(testing.LongWait)
+	for {
+		units := report["units"].(map[string]interface{})
+		workers := units["workers"].(map[string]interface{})
+		third := workers["third/0"].(map[string]interface{})
+		if third["state"] == "started" {
+			break
+		}
+		select {
+		case <-time.After(testing.ShortWait):
+			report = ctx.Report()
+		case <-maxTime:
+			c.Fatal("third unit worker did not start")
+		}
+	}
+
 	// Dates are shown here as an example, but are ignored by the checker.
 	c.Assert(ctx.Report(), check, map[string]interface{}{
 		"deployed": []string{"first/0", "second/0", "third/0"},
