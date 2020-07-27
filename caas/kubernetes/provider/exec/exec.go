@@ -24,6 +24,9 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
+
+	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/environs/cloudspec"
 )
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.exec")
@@ -69,6 +72,19 @@ func NewInCluster(namespace string) (Executor, error) {
 	return New(namespace, c, config), nil
 }
 
+// NewForJujuCloudCloudSpec returns a exec client.
+func NewForJujuCloudCloudSpec(namespace string, cloudSpec cloudspec.CloudSpec) (Executor, error) {
+	restCfg, err := provider.CloudSpecToK8sRestConfig(cloudSpec)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	c, err := kubernetes.NewForConfig(restCfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return New(namespace, c, restCfg), nil
+}
+
 // New contructs an executor.
 // no cross model/namespace allowed.
 func New(namespace string, clientset kubernetes.Interface, config *rest.Config) Executor {
@@ -110,6 +126,7 @@ type ExecParams struct {
 	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
+	Tty    bool
 
 	Signal <-chan syscall.Signal
 }
@@ -181,7 +198,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 			Stdin:     opts.Stdin != nil,
 			Stdout:    opts.Stdout != nil,
 			Stderr:    opts.Stderr != nil,
-			TTY:       false,
+			TTY:       opts.Tty,
 		}, scheme.ParameterCodec)
 
 	executor, err := c.remoteCmdExecutorGetter("POST", req.URL())
@@ -195,7 +212,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 			Stdin:  opts.Stdin,
 			Stdout: opts.Stdout,
 			Stderr: opts.Stderr,
-			Tty:    false,
+			Tty:    opts.Tty,
 		})
 	}()
 
