@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -134,15 +135,13 @@ func (c *SSHCommon) setHostChecker(checker jujussh.ReachableChecker) {
 // command's Run method.
 //
 // The apiClient, apiAddr and proxy fields are initialized after this call.
-func (c *SSHCommon) initRun() error {
-	if err := c.ensureAPIClient(); err != nil {
+func (c *SSHCommon) initRun() (err error) {
+	if err = c.ensureAPIClient(); err != nil {
 		return errors.Trace(err)
 	}
-
-	if proxy, err := c.proxySSH(); err != nil {
+	c.proxy, err = c.proxySSH()
+	if err != nil {
 		return errors.Trace(err)
-	} else {
-		c.proxy = proxy
 	}
 
 	// Used mostly for testing, but useful for debugging and/or
@@ -203,6 +202,19 @@ func (c *SSHCommon) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*
 	}
 
 	return &options, nil
+}
+
+func (c *SSHCommon) ssh(ctx *cmd.Context, enablePty bool, target *resolvedTarget) error {
+	options, err := c.getSSHOptions(enablePty, target)
+	if err != nil {
+		return err
+	}
+
+	cmd := ssh.Command(target.userHost(), c.Args, options)
+	cmd.Stdin = ctx.Stdin
+	cmd.Stdout = ctx.Stdout
+	cmd.Stderr = ctx.Stderr
+	return cmd.Run()
 }
 
 // generateKnownHosts takes the provided targets, retrieves the SSH

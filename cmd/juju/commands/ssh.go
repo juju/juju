@@ -10,10 +10,10 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/ssh"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	jujussh "github.com/juju/juju/network/ssh"
 )
 
@@ -76,20 +76,35 @@ func newSSHCommand(
 	isTerminal func(interface{}) bool,
 ) cmd.Command {
 	c := new(sshCommand)
-	c.setHostChecker(hostChecker)
+	c.hostChecker = hostChecker
 	c.isTerminal = isTerminal
 	return modelcmd.Wrap(c)
 }
 
+type sshBaseCommand interface {
+	SetFlags(f *gnuflag.FlagSet)
+	setHostChecker(jujussh.ReachableChecker)
+	initRun()
+	cleanupRun()
+	resolveTarget(string) (*resolvedTarget, error)
+	ssh(ctx *cmd.Context, enablePty bool, target *resolvedTarget) error
+
+	// GetTarget() string
+	// SetTarget(string)
+}
+
 // sshCommand is responsible for launching a ssh shell on a given unit or machine.
 type sshCommand struct {
-	SSHCommon
-	isTerminal func(interface{}) bool
-	pty        autoBoolValue
+	// SSHCommon
+	SSHContainer
+	hostChecker jujussh.ReachableChecker
+	isTerminal  func(interface{}) bool
+	pty         autoBoolValue
 }
 
 func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.SSHCommon.SetFlags(f)
+	// c.SSHCommon.SetFlags(f)
+	c.SSHContainer.SetFlags(f)
 	f.Var(&c.pty, "pty", "Enable pseudo-tty allocation")
 }
 
@@ -106,20 +121,35 @@ func (c *sshCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.Errorf("no target name specified")
 	}
-	c.Target, c.Args = args[0], args[1:]
+	modelType, err := c.ModelType()
+	if err != nil {
+		return err
+	}
+	if modelType == model.CAAS {
+	} else {
+	}
+	c.SSHContainer.Target, c.SSHContainer.Args = args[0], args[1:]
+	c.setHostChecker(c.hostChecker)
 	return nil
+}
+
+func (c *sshCommand) getTarget() string {
+	return c.SSHContainer.Target
+}
+func (c *sshCommand) setTarget(target string) {
+	c.SSHContainer.Target = target
 }
 
 // Run resolves c.Target to a machine, to the address of a i
 // machine or unit forks ssh passing any arguments provided.
 func (c *sshCommand) Run(ctx *cmd.Context) error {
-	err := c.initRun()
+	err := c.SSHContainer.initRun()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer c.cleanupRun()
+	defer c.SSHContainer.cleanupRun()
 
-	target, err := c.resolveTarget(c.Target)
+	target, err := c.SSHContainer.resolveTarget(c.Target)
 	if err != nil {
 		return err
 	}
@@ -129,7 +159,7 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 		pty = *c.pty.b
 	} else {
 		// Flag was not specified: create a pty
-		// on the remote side iff this process
+		// on the remote side if this process
 		// has a terminal.
 		isTerminal := isTerminal
 		if c.isTerminal != nil {
@@ -137,20 +167,10 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 		}
 		pty = isTerminal(ctx.Stdin)
 	}
-
-	options, err := c.getSSHOptions(pty, target)
-	if err != nil {
-		return err
-	}
-
-	cmd := ssh.Command(target.userHost(), c.Args, options)
-	cmd.Stdin = ctx.Stdin
-	cmd.Stdout = ctx.Stdout
-	cmd.Stderr = ctx.Stderr
-	return cmd.Run()
+	return c.SSHContainer.ssh(ctx, pty, target)
 }
 
-// autoBoolValue is like gnuflag.boolValue, but remembers
+// autoBoolValue is like gnuflag.boolValue, bu, t remembers
 // whether or not a value has been set, so its behaviour
 // can be determined dynamically, during command execution.
 type autoBoolValue struct {
