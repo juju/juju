@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package deployer_test
@@ -74,6 +74,48 @@ func (s *NestedContextSuite) TestConfigMissingAgentConfig(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "missing AgentConfig not valid")
 }
 
+func (s *NestedContextSuite) TestConfigMissingClock(c *gc.C) {
+	s.config.Clock = nil
+	err := s.config.Validate()
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing Clock not valid")
+}
+
+func (s *NestedContextSuite) TestConfigMissingLogger(c *gc.C) {
+	s.config.Logger = nil
+	err := s.config.Validate()
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing Logger not valid")
+}
+
+func (s *NestedContextSuite) TestConfigMissingSetupLogging(c *gc.C) {
+	s.config.SetupLogging = nil
+	err := s.config.Validate()
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing SetupLogging not valid")
+}
+
+func (s *NestedContextSuite) TestConfigMissingUnitEngineConfig(c *gc.C) {
+	s.config.UnitEngineConfig = nil
+	err := s.config.Validate()
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing UnitEngineConfig not valid")
+}
+
+func (s *NestedContextSuite) TestConfigMissingUpdateConfigValue(c *gc.C) {
+	s.config.UpdateConfigValue = nil
+	err := s.config.Validate()
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing UpdateConfigValue not valid")
+}
+
+func (s *NestedContextSuite) TestConfigMissingUnitManifolds(c *gc.C) {
+	s.config.UnitManifolds = nil
+	err := s.config.Validate()
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing UnitManifolds not valid")
+}
+
 func (s *NestedContextSuite) newContext(c *gc.C) deployer.Context {
 	context, err := deployer.NewNestedContext(s.config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -89,9 +131,6 @@ func (s *NestedContextSuite) newContext(c *gc.C) deployer.Context {
 	// Make that directory.
 	err = os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	// 	jujudPath := filepath.Join(toolsDir, "jujud")
-	// 	err = ioutil.WriteFile(jujudPath, []byte(fakeJujud), 0755)
-	// 	c.Assert(err, jc.ErrorIsNil)
 	toolsPath := filepath.Join(toolsDir, "downloaded-tools.txt")
 	testTools := coretools.Tools{Version: current, URL: "http://testing.invalid/tools"}
 	data, err := json.Marshal(testTools)

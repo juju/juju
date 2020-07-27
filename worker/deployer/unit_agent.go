@@ -84,7 +84,11 @@ func (u *UnitAgentConfig) Validate() error {
 
 // NewUnitAgent constructs an "agent" that is responsible for
 // defining the workers for the unit and wraps access and updates
-// to the agent.conf file for the unit.
+// to the agent.conf file for the unit. The method expects that there
+// is an agent.conf file written in the <datadir>/agents/unit-<name>
+// directory. It would be good to remove this need moving forwards
+// and have unit agent logging overrides allowable in the machine
+// agent config file.
 func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
