@@ -18,6 +18,7 @@ package charmhub
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"path"
 	"strings"
@@ -26,6 +27,7 @@ import (
 
 	charmhubpath "github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/version"
 )
 
 // ServerURL holds the default location of the global charm hub.
@@ -37,9 +39,9 @@ const (
 	CharmhubServerEntity  = "charms"
 )
 
-const (
+var (
 	userAgentKey   = "User-Agent"
-	userAgentValue = "Golang_CSClient/4.0"
+	userAgentValue = "Juju/" + version.Current.String()
 )
 
 const defaultMinMultipartUploadSize = 5 * 1024 * 1024
@@ -56,6 +58,11 @@ type Config struct {
 
 	// Entity holds the entity to target when querying the API (charm or snaps).
 	Entity string
+
+	// Headers allow the defining of a set of default headers when sending the
+	// requests. These headers augment the headers required for sending requests
+	// and allow overriding existing headers.
+	Headers http.Header
 }
 
 // CharmhubConfig defines a charmhub client configuration for targeting the
@@ -67,10 +74,16 @@ func CharmhubConfig() Config {
 // CharmhubConfigFromURL defines a charmhub client configuration with a given
 // URL for targeting the API.
 func CharmhubConfigFromURL(url string) Config {
+	// By default we want to specify a default user-agent here. In the future
+	// we should ensure this probably contains model UUID and cloud.
+	headers := make(http.Header)
+	headers.Set(userAgentKey, userAgentValue)
+
 	return Config{
 		URL:     url,
 		Version: CharmhubServerVersion,
 		Entity:  CharmhubServerEntity,
+		Headers: headers,
 	}
 }
 
@@ -111,7 +124,7 @@ func NewClient(config Config) (*Client, error) {
 
 	httpClient := DefaultHTTPTransport()
 	apiRequester := NewAPIRequester(httpClient)
-	restClient := NewHTTPRESTClient(apiRequester)
+	restClient := NewHTTPRESTClient(apiRequester, config.Headers)
 
 	return &Client{
 		url:        base.String(),

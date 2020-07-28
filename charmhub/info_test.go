@@ -183,7 +183,7 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiRequester := NewAPIRequester(DefaultHTTPTransport())
-	restClient := NewHTTPRESTClient(apiRequester)
+	restClient := NewHTTPRESTClient(apiRequester, nil)
 
 	client := NewInfoClient(infoPath, restClient)
 	response, err := client.Info(context.TODO(), "wordpress")
