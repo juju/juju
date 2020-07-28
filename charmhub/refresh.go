@@ -204,7 +204,7 @@ func InstallOneFromChannel(id string, channel, os, series string) (RefreshConfig
 // Build a refresh request that can be past to the API.
 func (c installOne) Build() (transport.RefreshRequest, error) {
 	return transport.RefreshRequest{
-		// Context is required here, even
+		// Context is required here, even if it looks optional.
 		Context: []transport.RefreshRequestContext{},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      string(InstallAction),
