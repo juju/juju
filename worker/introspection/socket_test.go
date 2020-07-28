@@ -4,14 +4,14 @@
 package introspection_test
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
-	"regexp"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -92,66 +92,93 @@ func (s *introspectionSuite) startWorker(c *gc.C) {
 	})
 }
 
-func (s *introspectionSuite) call(c *gc.C, url string) []byte {
-	path := "@" + s.name
-	conn, err := net.Dial("unix", path)
-	c.Assert(err, jc.ErrorIsNil)
-	defer conn.Close()
-
-	_, err = fmt.Fprintf(conn, "GET %s HTTP/1.0\r\n\r\n", url)
+func (s *introspectionSuite) call(c *gc.C, path string) *http.Response {
+	client := unixSocketHTTPClient("@" + s.name)
+	c.Assert(strings.HasPrefix(path, "/"), jc.IsTrue)
+	targetURL, err := url.Parse("http://unix.socket" + path)
 	c.Assert(err, jc.ErrorIsNil)
 
-	buf, err := ioutil.ReadAll(conn)
+	resp, err := client.Get(targetURL.String())
 	c.Assert(err, jc.ErrorIsNil)
-	return buf
+	return resp
+}
+
+func (s *introspectionSuite) post(c *gc.C, path string, values url.Values) *http.Response {
+	client := unixSocketHTTPClient("@" + s.name)
+	c.Assert(strings.HasPrefix(path, "/"), jc.IsTrue)
+	targetURL, err := url.Parse("http://unix.socket" + path)
+	c.Assert(err, jc.ErrorIsNil)
+
+	resp, err := client.PostForm(targetURL.String(), values)
+	c.Assert(err, jc.ErrorIsNil)
+	return resp
+}
+
+func (s *introspectionSuite) body(c *gc.C, r *http.Response) string {
+	response, err := ioutil.ReadAll(r.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	return string(response)
+}
+
+func (s *introspectionSuite) assertBody(c *gc.C, response *http.Response, value string) {
+	body := s.body(c, response)
+	c.Assert(body, gc.Equals, value+"\n")
+}
+
+func (s *introspectionSuite) assertContains(c *gc.C, value, expected string) {
+	c.Assert(strings.Contains(value, expected), jc.IsTrue,
+		gc.Commentf("missing %q in %v", expected, value))
+}
+
+func (s *introspectionSuite) assertBodyContains(c *gc.C, response *http.Response, value string) {
+	body := s.body(c, response)
+	s.assertContains(c, body, value)
 }
 
 func (s *introspectionSuite) TestCmdLine(c *gc.C) {
-	buf := s.call(c, "/debug/pprof/cmdline")
-	c.Assert(buf, gc.NotNil)
-	matches(c, buf, ".*/introspection.test")
+	response := s.call(c, "/debug/pprof/cmdline")
+	s.assertBodyContains(c, response, "/introspection.test")
 }
 
 func (s *introspectionSuite) TestGoroutineProfile(c *gc.C) {
-	buf := s.call(c, "/debug/pprof/goroutine?debug=1")
-	c.Assert(buf, gc.NotNil)
-	matches(c, buf, `^goroutine profile: total \d+`)
+	response := s.call(c, "/debug/pprof/goroutine?debug=1")
+	body := s.body(c, response)
+	c.Check(body, gc.Matches, `(?s)^goroutine profile: total \d+.*`)
 }
 
 func (s *introspectionSuite) TestTrace(c *gc.C) {
-	buf := s.call(c, "/debug/pprof/trace?seconds=1")
-	c.Assert(buf, gc.NotNil)
-	matches(c, buf, `^Content-Type: application/octet-stream*`)
+	response := s.call(c, "/debug/pprof/trace?seconds=1")
+	c.Assert(response.Header.Get("Content-Type"), gc.Equals, "application/octet-stream")
 }
 
 func (s *introspectionSuite) TestMissingDepEngineReporter(c *gc.C) {
-	buf := s.call(c, "/depengine")
-	matches(c, buf, "404 Not Found")
-	matches(c, buf, "missing dependency engine reporter")
+	response := s.call(c, "/depengine")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
+	s.assertBody(c, response, "missing dependency engine reporter")
 }
 
 func (s *introspectionSuite) TestMissingStatePoolReporter(c *gc.C) {
-	buf := s.call(c, "/statepool")
-	matches(c, buf, "404 Not Found")
-	matches(c, buf, "State Pool Report: missing reporter")
+	response := s.call(c, "/statepool")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
+	s.assertBody(c, response, "State Pool Report: missing reporter")
 }
 
 func (s *introspectionSuite) TestMissingPubSubReporter(c *gc.C) {
-	buf := s.call(c, "/pubsub")
-	matches(c, buf, "404 Not Found")
-	matches(c, buf, "PubSub Report: missing reporter")
+	response := s.call(c, "/pubsub")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
+	s.assertBody(c, response, "PubSub Report: missing reporter")
 }
 
 func (s *introspectionSuite) TestMissingMachineLock(c *gc.C) {
-	buf := s.call(c, "/machinelock/")
-	matches(c, buf, "404 Not Found")
-	matches(c, buf, "missing machine lock reporter")
+	response := s.call(c, "/machinelock/")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
+	s.assertBody(c, response, "missing machine lock reporter")
 }
 
 func (s *introspectionSuite) TestStateTrackerReporter(c *gc.C) {
-	buf := s.call(c, "/debug/pprof/juju/state/tracker?debug=1")
-	matches(c, buf, "200 OK")
-	matches(c, buf, "juju/state/tracker profile: total")
+	response := s.call(c, "/debug/pprof/juju/state/tracker?debug=1")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	s.assertBodyContains(c, response, "juju/state/tracker profile: total")
 }
 
 func (s *introspectionSuite) TestEngineReporter(c *gc.C) {
@@ -164,16 +191,20 @@ func (s *introspectionSuite) TestEngineReporter(c *gc.C) {
 		},
 	}
 	s.startWorker(c)
-	buf := s.call(c, "/depengine")
+	response := s.call(c, "/depengine")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	// TODO: perhaps make the output of the dependency engine YAML parseable.
+	// This could be done by having the first line start with a '#'.
+	s.assertBody(c, response, `
+Dependency Engine Report
 
-	matches(c, buf, "200 OK")
-	matches(c, buf, "working: true")
+working: true`[1:])
 }
 
 func (s *introspectionSuite) TestMissingPresenceReporter(c *gc.C) {
-	buf := s.call(c, "/presence/")
-	matches(c, buf, "404 Not Found")
-	matches(c, buf, "page not found")
+	response := s.call(c, "/presence/")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
+	s.assertBody(c, response, "404 page not found")
 }
 
 func (s *introspectionSuite) TestDisabledPresenceReporter(c *gc.C) {
@@ -183,9 +214,9 @@ func (s *introspectionSuite) TestDisabledPresenceReporter(c *gc.C) {
 	s.recorder = presence.New(testclock.NewClock(time.Now()))
 	s.startWorker(c)
 
-	buf := s.call(c, "/presence/")
-	matches(c, buf, "404 Not Found")
-	matches(c, buf, "agent is not an apiserver")
+	response := s.call(c, "/presence/")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
+	s.assertBody(c, response, "agent is not an apiserver")
 }
 
 func (s *introspectionSuite) TestEnabledPresenceReporter(c *gc.C) {
@@ -197,34 +228,23 @@ func (s *introspectionSuite) TestEnabledPresenceReporter(c *gc.C) {
 	s.recorder.Connect("server", "model-uuid", "agent-1", 42, false, "")
 	s.startWorker(c)
 
-	buf := s.call(c, "/presence/")
-	matches(c, buf, "200 OK")
-	matches(c, buf, "AGENT    SERVER  CONN ID  STATUS")
-	matches(c, buf, "agent-1  server  42       alive")
+	response := s.call(c, "/presence/")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	s.assertBody(c, response, `
+[model-uuid]
+
+AGENT    SERVER  CONN ID  STATUS
+agent-1  server  42       alive
+`[1:])
 }
 
 func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {
-	buf := s.call(c, "/metrics/")
-	c.Assert(buf, gc.NotNil)
-	matches(c, buf, "# HELP tau Tau")
-	matches(c, buf, "# TYPE tau counter")
-	matches(c, buf, "tau 6.283185")
-}
-
-// matches fails if regex is not found in the contents of b.
-// b is expected to be the response from the pprof http server, and will
-// contain some HTTP preamble that should be ignored.
-func matches(c *gc.C, b []byte, regex string) {
-	re, err := regexp.Compile(regex)
-	c.Assert(err, jc.ErrorIsNil)
-	r := bytes.NewReader(b)
-	sc := bufio.NewScanner(r)
-	for sc.Scan() {
-		if re.MatchString(sc.Text()) {
-			return
-		}
-	}
-	c.Fatalf("%q did not match regex %q", string(b), regex)
+	response := s.call(c, "/metrics/")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	body := s.body(c, response)
+	s.assertContains(c, body, "# HELP tau Tau")
+	s.assertContains(c, body, "# TYPE tau counter")
+	s.assertContains(c, body, "tau 6.283185")
 }
 
 type reporter struct {
@@ -241,4 +261,18 @@ func newPrometheusGatherer() prometheus.Gatherer {
 	r := prometheus.NewPedanticRegistry()
 	r.MustRegister(counter)
 	return r
+}
+
+func unixSocketHTTPClient(socketPath string) *http.Client {
+	return &http.Client{
+		Transport: unixSocketHTTPTransport(socketPath),
+	}
+}
+
+func unixSocketHTTPTransport(socketPath string) *http.Transport {
+	return &http.Transport{
+		Dial: func(proto, addr string) (net.Conn, error) {
+			return net.Dial("unix", socketPath)
+		},
+	}
 }
