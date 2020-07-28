@@ -5,6 +5,7 @@ package exec
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/url"
@@ -311,14 +312,14 @@ func getValidatedPod(podGetter typedcorev1.PodInterface, podName string) (*core.
 		return nil, errors.Trace(err)
 	}
 	var pod *core.Pod
-	pod, err = podGetter.Get(podName, metav1.GetOptions{})
+	pod, err = podGetter.Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
 		logger.Debugf("no pod named %q found", podName)
 		logger.Debugf("try get pod by UID for %q", podName)
-		pods, err := podGetter.List(metav1.ListOptions{})
+		pods, err := podGetter.List(context.TODO(), metav1.ListOptions{})
 		// TODO(caas): remove getting pod by Id (a bit expensive) once we started to store podName in cloudContainer doc.
 		if err != nil {
 			return nil, errors.Trace(err)

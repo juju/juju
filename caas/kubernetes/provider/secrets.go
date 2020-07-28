@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	"encoding/base64"
 
 	"github.com/juju/errors"
@@ -12,14 +13,16 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/caas/specs"
 	k8sannotations "github.com/juju/juju/core/annotations"
 )
 
 func (k *kubernetesClient) getSecretLabels(appName string) map[string]string {
 	return map[string]string{
-		labelApplication: appName,
+		constants.LabelApplication: appName,
 	}
 }
 
@@ -116,7 +119,7 @@ func (k *kubernetesClient) ensureSecret(sec *core.Secret) (func(), error) {
 
 // updateSecret updates a secret resource.
 func (k *kubernetesClient) updateSecret(sec *core.Secret) error {
-	_, err := k.client().CoreV1().Secrets(k.namespace).Update(sec)
+	_, err := k.client().CoreV1().Secrets(k.namespace).Update(context.TODO(), sec, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf("secret %q", sec.GetName())
 	}
@@ -125,7 +128,7 @@ func (k *kubernetesClient) updateSecret(sec *core.Secret) error {
 
 // getSecret return a secret resource.
 func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
-	secret, err := k.client().CoreV1().Secrets(k.namespace).Get(secretName, v1.GetOptions{})
+	secret, err := k.client().CoreV1().Secrets(k.namespace).Get(context.TODO(), secretName, v1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, errors.NotFoundf("secret %q", secretName)
@@ -137,8 +140,8 @@ func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
 
 // createSecret creates a secret resource.
 func (k *kubernetesClient) createSecret(secret *core.Secret) (*core.Secret, error) {
-	purifyResource(secret)
-	out, err := k.client().CoreV1().Secrets(k.namespace).Create(secret)
+	utils.PurifyResource(secret)
+	out, err := k.client().CoreV1().Secrets(k.namespace).Create(context.TODO(), secret, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("secret %q", secret.GetName())
 	}
@@ -147,7 +150,7 @@ func (k *kubernetesClient) createSecret(secret *core.Secret) (*core.Secret, erro
 
 // deleteSecret deletes a secret resource.
 func (k *kubernetesClient) deleteSecret(secretName string, uid types.UID) error {
-	err := k.client().CoreV1().Secrets(k.namespace).Delete(secretName, newPreconditionDeleteOptions(uid))
+	err := k.client().CoreV1().Secrets(k.namespace).Delete(context.TODO(), secretName, utils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -156,9 +159,9 @@ func (k *kubernetesClient) deleteSecret(secretName string, uid types.UID) error 
 
 func (k *kubernetesClient) listSecrets(labels map[string]string) ([]core.Secret, error) {
 	listOps := v1.ListOptions{
-		LabelSelector: labelSetToSelector(labels).String(),
+		LabelSelector: utils.LabelSetToSelector(labels).String(),
 	}
-	secList, err := k.client().CoreV1().Secrets(k.namespace).List(listOps)
+	secList, err := k.client().CoreV1().Secrets(k.namespace).List(context.TODO(), listOps)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -169,10 +172,10 @@ func (k *kubernetesClient) listSecrets(labels map[string]string) ([]core.Secret,
 }
 
 func (k *kubernetesClient) deleteSecrets(appName string) error {
-	err := k.client().CoreV1().Secrets(k.namespace).DeleteCollection(&v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
+	err := k.client().CoreV1().Secrets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
+		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector: labelSetToSelector(k.getSecretLabels(appName)).String(),
+		LabelSelector: utils.LabelSetToSelector(k.getSecretLabels(appName)).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

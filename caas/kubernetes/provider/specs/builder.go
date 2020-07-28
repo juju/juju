@@ -378,13 +378,12 @@ func (d deployer) apply(ctx context.Context, wg *sync.WaitGroup, info resourceIn
 	}
 
 	doRequest := func(r *rest.Request) error {
-		err := r.Context(ctx).
-			NamespaceIfScoped(info.namespace, isNameSpaced).
+		err := r.NamespaceIfScoped(info.namespace, isNameSpaced).
 			Resource(info.mapping.Resource.Resource).
 			Name(info.name).
 			VersionedParams(options, metav1.ParameterCodec).
 			Body(data).
-			Do().
+			Do(ctx).
 			Error()
 		errMsg := fmt.Sprintf("resource %s/%s in namespace %q", info.mapping.GroupVersionKind.Kind, info.name, d.namespace)
 		if k8serrors.IsNotFound(err) {

@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 )
 
 type patchOperation struct {
@@ -179,7 +179,7 @@ func patchEscape(s string) string {
 func patchForLabels(labels map[string]string, appName string) []patchOperation {
 	patches := []patchOperation{}
 
-	neededLabels := provider.LabelsForApp(appName)
+	neededLabels := k8sutils.LabelsForApp(appName)
 
 	if len(labels) == 0 {
 		patches = append(patches, patchOperation{

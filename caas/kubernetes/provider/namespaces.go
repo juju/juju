@@ -4,8 +4,7 @@
 package provider
 
 import (
-	k8sannotations "github.com/juju/juju/core/annotations"
-	"github.com/juju/juju/core/watcher"
+	"context"
 
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
@@ -13,10 +12,15 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/informers"
+
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/core/watcher"
 )
 
 var requireAnnotationsForNameSpace = []string{
-	annotationControllerUUIDKey, annotationModelUUIDKey,
+	constants.AnnotationControllerUUIDKey, constants.AnnotationModelUUIDKey,
 }
 
 func checkNamespaceOwnedByJuju(ns *core.Namespace, annotationMap map[string]string) error {
@@ -35,7 +39,7 @@ func checkNamespaceOwnedByJuju(ns *core.Namespace, annotationMap map[string]stri
 // Namespaces returns names of the namespaces on the cluster.
 func (k *kubernetesClient) Namespaces() ([]string, error) {
 	namespaces := k.client().CoreV1().Namespaces()
-	ns, err := namespaces.List(v1.ListOptions{})
+	ns, err := namespaces.List(context.TODO(), v1.ListOptions{})
 	if err != nil {
 		return nil, errors.Annotate(err, "listing namespaces")
 	}
@@ -64,7 +68,7 @@ func (k *kubernetesClient) GetNamespace(name string) (*core.Namespace, error) {
 // getNamespaceByName is used internally for bootstrap.
 // Note: it should be never used by something else. "GetNamespace" is what you should use.
 func (k *kubernetesClient) getNamespaceByName(name string) (*core.Namespace, error) {
-	ns, err := k.client().CoreV1().Namespaces().Get(name, v1.GetOptions{})
+	ns, err := k.client().CoreV1().Namespaces().Get(context.TODO(), name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("namespace %q", name)
 	}
@@ -76,7 +80,7 @@ func (k *kubernetesClient) getNamespaceByName(name string) (*core.Namespace, err
 
 // listNamespacesByAnnotations filters namespaces by annotations.
 func (k *kubernetesClient) listNamespacesByAnnotations(annotations k8sannotations.Annotation) ([]core.Namespace, error) {
-	namespaces, err := k.client().CoreV1().Namespaces().List(v1.ListOptions{})
+	namespaces, err := k.client().CoreV1().Namespaces().List(context.TODO(), v1.ListOptions{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -106,7 +110,7 @@ func (k *kubernetesClient) GetCurrentNamespace() string {
 
 func (k *kubernetesClient) ensureNamespaceAnnotations(ns *core.Namespace) error {
 	annotations := k8sannotations.New(ns.GetAnnotations()).Merge(k.annotations)
-	// check required keys are set: annotationControllerUUIDKey, annotationModelUUIDKey.
+	// check required keys are set: constants.AnnotationControllerUUIDKey, constants.AnnotationModelUUIDKey.
 	if err := annotations.CheckKeysNonEmpty(requireAnnotationsForNameSpace...); err != nil {
 		return errors.Trace(err)
 	}
@@ -117,12 +121,12 @@ func (k *kubernetesClient) ensureNamespaceAnnotations(ns *core.Namespace) error 
 // createNamespace creates a named namespace.
 func (k *kubernetesClient) createNamespace(name string) error {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
-	ns.SetLabels(AppendLabels(ns.GetLabels(), LabelsForModel(k.CurrentModel())))
+	ns.SetLabels(utils.AppendLabels(ns.GetLabels(), utils.LabelsForModel(k.CurrentModel())))
 	if err := k.ensureNamespaceAnnotations(ns); err != nil {
 		return errors.Trace(err)
 	}
 
-	_, err := k.client().CoreV1().Namespaces().Create(ns)
+	_, err := k.client().CoreV1().Namespaces().Create(context.TODO(), ns, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return errors.AlreadyExistsf("namespace %q", name)
 	}
@@ -145,8 +149,8 @@ func (k *kubernetesClient) deleteNamespace() error {
 		return errors.Trace(err)
 	}
 
-	err = k.client().CoreV1().Namespaces().Delete(k.namespace, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
+	err = k.client().CoreV1().Namespaces().Delete(context.TODO(), k.namespace, v1.DeleteOptions{
+		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

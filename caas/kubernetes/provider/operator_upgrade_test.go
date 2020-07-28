@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -73,7 +74,7 @@ func (o *OperatorUpgraderSuite) TestStatefulSetInitUpgrade(c *gc.C) {
 		newImagePath = fmt.Sprintf("%s/%s:9.9.9", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
 	)
 
-	_, err := o.broker.Client().AppsV1().StatefulSets(o.broker.Namespace()).Create(
+	_, err := o.broker.Client().AppsV1().StatefulSets(o.broker.Namespace()).Create(context.TODO(),
 		&apps.StatefulSet{
 			ObjectMeta: meta.ObjectMeta{
 				Name: o.broker.DeploymentName(appName, true),
@@ -95,18 +96,18 @@ func (o *OperatorUpgraderSuite) TestStatefulSetInitUpgrade(c *gc.C) {
 					},
 				},
 			},
-		})
+		}, meta.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	podChecker, err := operatorInitUpgrade(appName, newImagePath, o.broker)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ss, err := o.broker.Client().AppsV1().StatefulSets(o.broker.Namespace()).
-		Get(o.broker.DeploymentName(appName, true), meta.GetOptions{})
+		Get(context.TODO(), o.broker.DeploymentName(appName, true), meta.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ss.Spec.Template.Spec.InitContainers[0].Image, gc.Equals, newImagePath)
 
-	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Create(&core.Pod{
+	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Create(context.TODO(), &core.Pod{
 		ObjectMeta: meta.ObjectMeta{
 			Name: "pod1",
 			Labels: map[string]string{
@@ -124,14 +125,14 @@ func (o *OperatorUpgraderSuite) TestStatefulSetInitUpgrade(c *gc.C) {
 		Status: core.PodStatus{
 			Phase: core.PodPending,
 		},
-	})
+	}, meta.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ready, err := podChecker()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ready, jc.IsFalse)
 
-	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Update(&core.Pod{
+	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Update(context.TODO(), &core.Pod{
 		ObjectMeta: meta.ObjectMeta{
 			Name: "pod1",
 			Labels: map[string]string{
@@ -149,7 +150,7 @@ func (o *OperatorUpgraderSuite) TestStatefulSetInitUpgrade(c *gc.C) {
 		Status: core.PodStatus{
 			Phase: core.PodRunning,
 		},
-	})
+	}, meta.UpdateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ready, err = podChecker()
@@ -164,7 +165,7 @@ func (o *OperatorUpgraderSuite) TestDaemonSetInitUpgrade(c *gc.C) {
 		newImagePath = fmt.Sprintf("%s/%s:9.9.9", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
 	)
 
-	_, err := o.broker.Client().AppsV1().DaemonSets(o.broker.Namespace()).Create(
+	_, err := o.broker.Client().AppsV1().DaemonSets(o.broker.Namespace()).Create(context.TODO(),
 		&apps.DaemonSet{
 			ObjectMeta: meta.ObjectMeta{
 				Name: o.broker.DeploymentName(appName, true),
@@ -186,18 +187,18 @@ func (o *OperatorUpgraderSuite) TestDaemonSetInitUpgrade(c *gc.C) {
 					},
 				},
 			},
-		})
+		}, meta.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	podChecker, err := operatorInitUpgrade(appName, newImagePath, o.broker)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ds, err := o.broker.Client().AppsV1().DaemonSets(o.broker.Namespace()).
-		Get(o.broker.DeploymentName(appName, true), meta.GetOptions{})
+		Get(context.TODO(), o.broker.DeploymentName(appName, true), meta.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ds.Spec.Template.Spec.InitContainers[0].Image, gc.Equals, newImagePath)
 
-	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Create(&core.Pod{
+	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Create(context.TODO(), &core.Pod{
 		ObjectMeta: meta.ObjectMeta{
 			Name: "pod1",
 			Labels: map[string]string{
@@ -215,14 +216,14 @@ func (o *OperatorUpgraderSuite) TestDaemonSetInitUpgrade(c *gc.C) {
 		Status: core.PodStatus{
 			Phase: core.PodPending,
 		},
-	})
+	}, meta.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ready, err := podChecker()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ready, jc.IsFalse)
 
-	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Update(&core.Pod{
+	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Update(context.TODO(), &core.Pod{
 		ObjectMeta: meta.ObjectMeta{
 			Name: "pod1",
 			Labels: map[string]string{
@@ -240,7 +241,7 @@ func (o *OperatorUpgraderSuite) TestDaemonSetInitUpgrade(c *gc.C) {
 		Status: core.PodStatus{
 			Phase: core.PodRunning,
 		},
-	})
+	}, meta.UpdateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ready, err = podChecker()
@@ -255,7 +256,7 @@ func (o *OperatorUpgraderSuite) TestDeploymentInitUpgrade(c *gc.C) {
 		newImagePath = fmt.Sprintf("%s/%s:9.9.9", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
 	)
 
-	_, err := o.broker.Client().AppsV1().Deployments(o.broker.Namespace()).Create(
+	_, err := o.broker.Client().AppsV1().Deployments(o.broker.Namespace()).Create(context.TODO(),
 		&apps.Deployment{
 			ObjectMeta: meta.ObjectMeta{
 				Name: o.broker.DeploymentName(appName, true),
@@ -277,18 +278,18 @@ func (o *OperatorUpgraderSuite) TestDeploymentInitUpgrade(c *gc.C) {
 					},
 				},
 			},
-		})
+		}, meta.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	podChecker, err := operatorInitUpgrade(appName, newImagePath, o.broker)
 	c.Assert(err, jc.ErrorIsNil)
 
 	de, err := o.broker.Client().AppsV1().Deployments(o.broker.Namespace()).
-		Get(o.broker.DeploymentName(appName, true), meta.GetOptions{})
+		Get(context.TODO(), o.broker.DeploymentName(appName, true), meta.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(de.Spec.Template.Spec.InitContainers[0].Image, gc.Equals, newImagePath)
 
-	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Create(&core.Pod{
+	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Create(context.TODO(), &core.Pod{
 		ObjectMeta: meta.ObjectMeta{
 			Name: "pod1",
 			Labels: map[string]string{
@@ -306,14 +307,14 @@ func (o *OperatorUpgraderSuite) TestDeploymentInitUpgrade(c *gc.C) {
 		Status: core.PodStatus{
 			Phase: core.PodPending,
 		},
-	})
+	}, meta.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ready, err := podChecker()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ready, jc.IsFalse)
 
-	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Update(&core.Pod{
+	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Update(context.TODO(), &core.Pod{
 		ObjectMeta: meta.ObjectMeta{
 			Name: "pod1",
 			Labels: map[string]string{
@@ -331,7 +332,7 @@ func (o *OperatorUpgraderSuite) TestDeploymentInitUpgrade(c *gc.C) {
 		Status: core.PodStatus{
 			Phase: core.PodRunning,
 		},
-	})
+	}, meta.UpdateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ready, err = podChecker()

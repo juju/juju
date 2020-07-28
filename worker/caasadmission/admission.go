@@ -12,6 +12,7 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/pki"
 )
 
@@ -64,7 +65,7 @@ func NewAdmissionCreator(
 	// MutatingWebjook Obj
 	obj := admission.MutatingWebhookConfiguration{
 		ObjectMeta: meta.ObjectMeta{
-			Labels:    provider.LabelsForModel(modelName),
+			Labels:    k8sutils.LabelsForModel(modelName),
 			Name:      fmt.Sprintf("juju-model-admission-%s", namespace),
 			Namespace: namespace,
 		},
@@ -79,7 +80,7 @@ func NewAdmissionCreator(
 				MatchPolicy:   &matchPolicy,
 				Name:          provider.MakeK8sDomain(Component),
 				NamespaceSelector: &meta.LabelSelector{
-					MatchLabels: provider.LabelsForModel(modelName),
+					MatchLabels: k8sutils.LabelsForModel(modelName),
 				},
 				Rules: []admission.RuleWithOperations{
 					{

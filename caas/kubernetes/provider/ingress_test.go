@@ -72,7 +72,7 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, IngressResources []k8ss
 
 	assertCalls = append(
 		[]*gomock.Call{
-			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+			s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
 		},
 		assertCalls...,
@@ -82,23 +82,23 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, IngressResources []k8ss
 	if expectedErrString == "" {
 		// no error expected, so continue to check following assertions.
 		assertCalls = append(assertCalls, []*gomock.Call{
-			s.mockSecrets.EXPECT().Create(ociImageSecret).
+			s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, v1.CreateOptions{}).
 				Return(ociImageSecret, nil),
-			s.mockServices.EXPECT().Get("app-name", v1.GetOptions{}).
+			s.mockServices.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
-			s.mockServices.EXPECT().Update(&serviceArg).
+			s.mockServices.EXPECT().Update(gomock.Any(), &serviceArg, v1.UpdateOptions{}).
 				Return(nil, s.k8sNotFoundError()),
-			s.mockServices.EXPECT().Create(&serviceArg).
+			s.mockServices.EXPECT().Create(gomock.Any(), &serviceArg, v1.CreateOptions{}).
 				Return(nil, nil),
-			s.mockServices.EXPECT().Get("app-name-endpoints", v1.GetOptions{}).
+			s.mockServices.EXPECT().Get(gomock.Any(), "app-name-endpoints", v1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
-			s.mockServices.EXPECT().Update(basicHeadlessServiceArg).
+			s.mockServices.EXPECT().Update(gomock.Any(), basicHeadlessServiceArg, v1.UpdateOptions{}).
 				Return(nil, s.k8sNotFoundError()),
-			s.mockServices.EXPECT().Create(basicHeadlessServiceArg).
+			s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 				Return(nil, nil),
-			s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 				Return(statefulSetArg, nil),
-			s.mockStatefulSets.EXPECT().Create(statefulSetArg).
+			s.mockStatefulSets.EXPECT().Create(gomock.Any(), statefulSetArg, v1.CreateOptions{}).
 				Return(nil, nil),
 		}...)
 	}
@@ -177,7 +177,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreate(c *gc.C) {
 	}
 	s.assertIngressResources(
 		c, IngressResources, "",
-		s.mockIngressInterface.EXPECT().Create(ingress).Return(ingress, nil),
+		s.mockIngressInterface.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(ingress, nil),
 	)
 }
 
@@ -232,9 +232,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdate(c *gc.C) {
 	}
 	s.assertIngressResources(
 		c, IngressResources, "",
-		s.mockIngressInterface.EXPECT().Create(ingress).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockIngressInterface.EXPECT().Get("test-ingress", v1.GetOptions{}).Return(ingress, nil),
-		s.mockIngressInterface.EXPECT().Update(ingress).Return(ingress, nil),
+		s.mockIngressInterface.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
+		s.mockIngressInterface.EXPECT().Get(gomock.Any(), "test-ingress", v1.GetOptions{}).Return(ingress, nil),
+		s.mockIngressInterface.EXPECT().Update(gomock.Any(), ingress, v1.UpdateOptions{}).Return(ingress, nil),
 	)
 }
 
@@ -295,8 +295,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 	existingNonJujuManagedIngress.SetLabels(map[string]string{})
 	s.assertIngressResources(
 		c, IngressResources, `creating or updating ingress resources: existing ingress "test-ingress" found which does not belong to "app-name"`,
-		s.mockIngressInterface.EXPECT().Create(ingress).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockIngressInterface.EXPECT().Get("test-ingress", v1.GetOptions{}).Return(existingNonJujuManagedIngress, nil),
+		s.mockIngressInterface.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
+		s.mockIngressInterface.EXPECT().Get(gomock.Any(), "test-ingress", v1.GetOptions{}).Return(existingNonJujuManagedIngress, nil),
 	)
 }
 

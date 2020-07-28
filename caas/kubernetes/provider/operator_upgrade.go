@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloudconfig/podcfg"
 )
 
@@ -90,9 +92,9 @@ func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBr
 		broker UpgradeCAASOperatorBroker) func() (bool, error) {
 
 		return func() (done bool, err error) {
-			labelSelector := labelSetToSelector(labelSet).String()
+			labelSelector := utils.LabelSetToSelector(labelSet).String()
 			podList, err := broker.Client().CoreV1().Pods(broker.Namespace()).
-				List(meta.ListOptions{
+				List(context.TODO(), meta.ListOptions{
 					LabelSelector: labelSelector,
 				})
 			if k8serrors.IsNotFound(err) {
@@ -121,7 +123,7 @@ func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBr
 	}
 
 	ssInterface := broker.Client().AppsV1().StatefulSets(broker.Namespace())
-	sResource, err := ssInterface.Get(deploymentName, meta.GetOptions{})
+	sResource, err := ssInterface.Get(context.TODO(), deploymentName, meta.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Annotatef(err, "getting statefulset %q", deploymentName)
 	} else if err == nil {
@@ -132,12 +134,12 @@ func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBr
 		if data, err = json.Marshal(apps.StatefulSet{Spec: sResource.Spec}); err != nil {
 			return nil, errors.Trace(err)
 		}
-		_, err = ssInterface.Patch(sResource.GetName(), types.StrategicMergePatchType, data)
+		_, err = ssInterface.Patch(context.TODO(), sResource.GetName(), types.StrategicMergePatchType, data, meta.PatchOptions{})
 		return podChecker(deploymentName, selector, broker), errors.Trace(err)
 	}
 
 	deInterface := broker.Client().AppsV1().Deployments(broker.Namespace())
-	deResource, err := deInterface.Get(deploymentName, meta.GetOptions{})
+	deResource, err := deInterface.Get(context.TODO(), deploymentName, meta.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	} else if err == nil {
@@ -148,12 +150,12 @@ func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBr
 		if data, err = json.Marshal(apps.Deployment{Spec: deResource.Spec}); err != nil {
 			return nil, errors.Trace(err)
 		}
-		_, err = deInterface.Patch(deResource.GetName(), types.StrategicMergePatchType, data)
+		_, err = deInterface.Patch(context.TODO(), deResource.GetName(), types.StrategicMergePatchType, data, meta.PatchOptions{})
 		return podChecker(deploymentName, selector, broker), errors.Trace(err)
 	}
 
 	dsInterface := broker.Client().AppsV1().DaemonSets(broker.Namespace())
-	dsResource, err := dsInterface.Get(deploymentName, meta.GetOptions{})
+	dsResource, err := dsInterface.Get(context.TODO(), deploymentName, meta.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	} else if err == nil {
@@ -164,7 +166,7 @@ func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBr
 		if data, err = json.Marshal(apps.DaemonSet{Spec: dsResource.Spec}); err != nil {
 			return nil, errors.Trace(err)
 		}
-		_, err = dsInterface.Patch(dsResource.GetName(), types.StrategicMergePatchType, data)
+		_, err = dsInterface.Patch(context.TODO(), dsResource.GetName(), types.StrategicMergePatchType, data, meta.PatchOptions{})
 		return podChecker(deploymentName, selector, broker), errors.Trace(err)
 	}
 

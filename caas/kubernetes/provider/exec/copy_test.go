@@ -189,7 +189,7 @@ func (s *execSuite) TestCopyToPod(c *gc.C) {
 	var stderr bytes.Buffer
 	gomock.InOrder(
 		// check remote path is dir or not.
-		s.mockPodGetter.EXPECT().Get("gitlab-k8s-0", metav1.GetOptions{}).Return(&pod, nil),
+		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-0", metav1.GetOptions{}).Return(&pod, nil),
 		s.restClient.EXPECT().Post().Return(checkRemotePathRequest),
 		s.mockRemoteCmdExecutor.EXPECT().Stream(
 			remotecommand.StreamOptions{
@@ -200,7 +200,7 @@ func (s *execSuite) TestCopyToPod(c *gc.C) {
 		).Return(nil),
 
 		// copy files.
-		s.mockPodGetter.EXPECT().Get("gitlab-k8s-0", metav1.GetOptions{}).Return(&pod, nil),
+		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-0", metav1.GetOptions{}).Return(&pod, nil),
 		s.restClient.EXPECT().Post().Return(copyRequest),
 		s.mockRemoteCmdExecutor.EXPECT().Stream(
 			remotecommand.StreamOptions{

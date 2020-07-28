@@ -60,6 +60,8 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"caas/kubernetes/provider",
 		"caas/kubernetes/provider/constants",
 		"caas/kubernetes/provider/specs",
+		"caas/kubernetes/provider/utils",
+		"caas/kubernetes/provider/watcher",
 		"caas/specs",
 		"charmhub",
 		"charmhub/path",

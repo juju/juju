@@ -4,6 +4,7 @@
 package clientconfig
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -149,12 +150,12 @@ func removeJujuAdminServiceAccount(clientset kubernetes.Interface, UID string) e
 }
 
 type rbacDeleter interface {
-	DeleteCollection(*metav1.DeleteOptions, metav1.ListOptions) error
+	DeleteCollection(context.Context, metav1.DeleteOptions, metav1.ListOptions) error
 }
 
 func deleteRBACResource(api rbacDeleter, labels map[string]string) error {
 	propagationPolicy := metav1.DeletePropagationForeground
-	err := api.DeleteCollection(&metav1.DeleteOptions{
+	err := api.DeleteCollection(context.TODO(), metav1.DeleteOptions{
 		PropagationPolicy: &propagationPolicy,
 	}, metav1.ListOptions{
 		LabelSelector: k8slabels.SelectorFromValidatedSet(labels).String(),
@@ -171,13 +172,13 @@ func getOrCreateClusterRole(
 ) (cr *rbacv1.ClusterRole, cleanUps cleanUpFuncs, err error) {
 	api := clientset.RbacV1().ClusterRoles()
 
-	cr, err = api.Get(name, metav1.GetOptions{})
+	cr, err = api.Get(context.TODO(), name, metav1.GetOptions{})
 	if !k8serrors.IsNotFound(err) {
 		return cr, cleanUps, errors.Trace(err)
 	}
 	// This cluster role will be granted extra privileges which requires proper
 	// permissions setup for the credential in kubeconfig file.
-	cr, err = api.Create(&rbacv1.ClusterRole{
+	cr, err = api.Create(context.TODO(), &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -194,7 +195,7 @@ func getOrCreateClusterRole(
 				Verbs:           []string{rbacv1.VerbAll},
 			},
 		},
-	})
+	}, metav1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		// This should not happen.
 		return nil, cleanUps, errors.AlreadyExistsf("cluster role %q", name)
@@ -217,13 +218,13 @@ func getOrCreateServiceAccount(
 	}
 
 	api := clientset.CoreV1().ServiceAccounts(namespace)
-	_, err = api.Create(&core.ServiceAccount{
+	_, err = api.Create(context.TODO(), &core.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			Labels:    labels,
 		},
-	})
+	}, metav1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		// This should not happen.
 		return nil, cleanUps, errors.AlreadyExistsf("service account %q", name)
@@ -241,7 +242,7 @@ func getOrCreateServiceAccount(
 }
 
 func getServiceAccount(clientset kubernetes.Interface, name, namespace string) (*core.ServiceAccount, error) {
-	sa, err := clientset.CoreV1().ServiceAccounts(namespace).Get(name, metav1.GetOptions{})
+	sa, err := clientset.CoreV1().ServiceAccounts(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("service account %q", name)
 	}
@@ -257,12 +258,12 @@ func getOrCreateClusterRoleBinding(
 ) (rb *rbacv1.ClusterRoleBinding, cleanUps cleanUpFuncs, err error) {
 	api := clientset.RbacV1().ClusterRoleBindings()
 
-	rb, err = api.Get(name, metav1.GetOptions{})
+	rb, err = api.Get(context.TODO(), name, metav1.GetOptions{})
 	if !k8serrors.IsNotFound(err) {
 		return rb, cleanUps, errors.Trace(err)
 	}
 
-	rb, err = api.Create(&rbacv1.ClusterRoleBinding{
+	rb, err = api.Create(context.TODO(), &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
 			Labels: labels,
@@ -278,7 +279,7 @@ func getOrCreateClusterRoleBinding(
 				Namespace: sa.Namespace,
 			},
 		},
-	})
+	}, metav1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		// This should not happen.
 		return nil, cleanUps, errors.AlreadyExistsf("cluster role binding %q", name)
@@ -299,7 +300,7 @@ func getServiceAccountSecret(clientset kubernetes.Interface, saName, namespace s
 	if len(sa.Secrets) == 0 {
 		return nil, errors.NotFoundf("secret for service account %q", sa.Name)
 	}
-	return clientset.CoreV1().Secrets(sa.Namespace).Get(sa.Secrets[0].Name, metav1.GetOptions{})
+	return clientset.CoreV1().Secrets(sa.Namespace).Get(context.TODO(), sa.Secrets[0].Name, metav1.GetOptions{})
 }
 
 func replaceAuthProviderWithServiceAccountAuthData(

@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -14,7 +15,8 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	jujucontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 )
@@ -223,15 +225,15 @@ type volumeSource struct {
 var _ storage.VolumeSource = (*volumeSource)(nil)
 
 // CreateVolumes is specified on the storage.VolumeSource interface.
-func (v *volumeSource) CreateVolumes(ctx context.ProviderCallContext, params []storage.VolumeParams) (_ []storage.CreateVolumesResult, err error) {
+func (v *volumeSource) CreateVolumes(ctx jujucontext.ProviderCallContext, params []storage.VolumeParams) (_ []storage.CreateVolumesResult, err error) {
 	// noop
 	return nil, nil
 }
 
 // ListVolumes is specified on the storage.VolumeSource interface.
-func (v *volumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, error) {
+func (v *volumeSource) ListVolumes(ctx jujucontext.ProviderCallContext) ([]string, error) {
 	pVolumes := v.client.client().CoreV1().PersistentVolumes()
-	vols, err := pVolumes.List(v1.ListOptions{})
+	vols, err := pVolumes.List(context.TODO(), v1.ListOptions{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -243,9 +245,9 @@ func (v *volumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, e
 }
 
 // DescribeVolumes is specified on the storage.VolumeSource interface.
-func (v *volumeSource) DescribeVolumes(ctx context.ProviderCallContext, volIds []string) ([]storage.DescribeVolumesResult, error) {
+func (v *volumeSource) DescribeVolumes(ctx jujucontext.ProviderCallContext, volIds []string) ([]storage.DescribeVolumesResult, error) {
 	pVolumes := v.client.client().CoreV1().PersistentVolumes()
-	vols, err := pVolumes.List(v1.ListOptions{
+	vols, err := pVolumes.List(context.TODO(), v1.ListOptions{
 		// TODO(caas) - filter on volumes for the current model
 	})
 	if err != nil {
@@ -273,25 +275,25 @@ func (v *volumeSource) DescribeVolumes(ctx context.ProviderCallContext, volIds [
 }
 
 // DestroyVolumes is specified on the storage.VolumeSource interface.
-func (v *volumeSource) DestroyVolumes(ctx context.ProviderCallContext, volIds []string) ([]error, error) {
+func (v *volumeSource) DestroyVolumes(ctx jujucontext.ProviderCallContext, volIds []string) ([]error, error) {
 	logger.Debugf("destroy k8s volumes: %v", volIds)
 	pVolumes := v.client.client().CoreV1().PersistentVolumes()
 	return foreachVolume(volIds, func(volumeId string) error {
-		vol, err := pVolumes.Get(volumeId, v1.GetOptions{})
+		vol, err := pVolumes.Get(context.TODO(), volumeId, v1.GetOptions{})
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return errors.Annotatef(err, "getting volume %v to delete", volumeId)
 		}
 		if err == nil && vol.Spec.ClaimRef != nil {
 			claimRef := vol.Spec.ClaimRef
 			pClaims := v.client.client().CoreV1().PersistentVolumeClaims(claimRef.Namespace)
-			err := pClaims.Delete(claimRef.Name, &v1.DeleteOptions{PropagationPolicy: &defaultPropagationPolicy})
+			err := pClaims.Delete(context.TODO(), claimRef.Name, v1.DeleteOptions{PropagationPolicy: &constants.DefaultPropagationPolicy})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return errors.Annotatef(err, "destroying volume claim %v", claimRef.Name)
 			}
 		}
-		if err := pVolumes.Delete(
+		if err := pVolumes.Delete(context.TODO(),
 			volumeId,
-			&v1.DeleteOptions{PropagationPolicy: &defaultPropagationPolicy},
+			v1.DeleteOptions{PropagationPolicy: &constants.DefaultPropagationPolicy},
 		); !k8serrors.IsNotFound(err) {
 			return errors.Annotate(err, "destroying k8s volumes")
 		}
@@ -300,7 +302,7 @@ func (v *volumeSource) DestroyVolumes(ctx context.ProviderCallContext, volIds []
 }
 
 // ReleaseVolumes is specified on the storage.VolumeSource interface.
-func (v *volumeSource) ReleaseVolumes(ctx context.ProviderCallContext, volIds []string) ([]error, error) {
+func (v *volumeSource) ReleaseVolumes(ctx jujucontext.ProviderCallContext, volIds []string) ([]error, error) {
 	// noop
 	return make([]error, len(volIds)), nil
 }
@@ -312,13 +314,13 @@ func (v *volumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
 }
 
 // AttachVolumes is specified on the storage.VolumeSource interface.
-func (v *volumeSource) AttachVolumes(ctx context.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+func (v *volumeSource) AttachVolumes(ctx jujucontext.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	// noop
 	return nil, nil
 }
 
 // DetachVolumes is specified on the storage.VolumeSource interface.
-func (v *volumeSource) DetachVolumes(ctx context.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]error, error) {
+func (v *volumeSource) DetachVolumes(ctx jujucontext.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]error, error) {
 	// noop
 	return make([]error, len(attachParams)), nil
 }

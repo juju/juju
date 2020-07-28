@@ -98,14 +98,14 @@ func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockPersistentVolumes.EXPECT().Get("vol-1", v1.GetOptions{}).
+		s.mockPersistentVolumes.EXPECT().Get(gomock.Any(), "vol-1", v1.GetOptions{}).
 			Return(&core.PersistentVolume{
 				Spec: core.PersistentVolumeSpec{
 					ClaimRef: &core.ObjectReference{Namespace: "test", Name: "vol-1-pvc"},
 				}}, nil),
-		s.mockPersistentVolumeClaims.EXPECT().Delete("vol-1-pvc", s.deleteOptions(v1.DeletePropagationForeground, "")).
+		s.mockPersistentVolumeClaims.EXPECT().Delete(gomock.Any(), "vol-1-pvc", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
-		s.mockPersistentVolumes.EXPECT().Delete("vol-1", s.deleteOptions(v1.DeletePropagationForeground, "")).
+		s.mockPersistentVolumes.EXPECT().Delete(gomock.Any(), "vol-1", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(nil),
 	)
 
@@ -123,14 +123,14 @@ func (s *storageSuite) TestDestroyVolumesNotFoundIgnored(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockPersistentVolumes.EXPECT().Get("vol-1", v1.GetOptions{}).
+		s.mockPersistentVolumes.EXPECT().Get(gomock.Any(), "vol-1", v1.GetOptions{}).
 			Return(&core.PersistentVolume{
 				Spec: core.PersistentVolumeSpec{
 					ClaimRef: &core.ObjectReference{Namespace: "test", Name: "vol-1-pvc"},
 				}}, nil),
-		s.mockPersistentVolumeClaims.EXPECT().Delete("vol-1-pvc", s.deleteOptions(v1.DeletePropagationForeground, "")).
+		s.mockPersistentVolumeClaims.EXPECT().Delete(gomock.Any(), "vol-1-pvc", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
-		s.mockPersistentVolumes.EXPECT().Delete("vol-1", s.deleteOptions(v1.DeletePropagationForeground, "")).
+		s.mockPersistentVolumes.EXPECT().Delete(gomock.Any(), "vol-1", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
 	)
 
@@ -148,7 +148,7 @@ func (s *storageSuite) TestListVolumes(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockPersistentVolumes.EXPECT().List(v1.ListOptions{}).
+		s.mockPersistentVolumes.EXPECT().List(gomock.Any(), v1.ListOptions{}).
 			Return(&core.PersistentVolumeList{Items: []core.PersistentVolume{
 				{ObjectMeta: v1.ObjectMeta{Name: "vol-1"}}}}, nil),
 	)
@@ -167,7 +167,7 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockPersistentVolumes.EXPECT().List(v1.ListOptions{}).
+		s.mockPersistentVolumes.EXPECT().List(gomock.Any(), v1.ListOptions{}).
 			Return(&core.PersistentVolumeList{Items: []core.PersistentVolume{
 				{ObjectMeta: v1.ObjectMeta{Name: "vol-id"},
 					Spec: core.PersistentVolumeSpec{
