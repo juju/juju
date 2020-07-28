@@ -76,7 +76,7 @@ func newSSHCommand(
 	isTerminal func(interface{}) bool,
 ) cmd.Command {
 	c := new(sshCommand)
-	c.hostChecker = hostChecker
+	c.setHostChecker(hostChecker)
 	c.isTerminal = isTerminal
 	return modelcmd.Wrap(c)
 }
@@ -88,18 +88,14 @@ type sshBaseCommand interface {
 	cleanupRun()
 	resolveTarget(string) (*resolvedTarget, error)
 	ssh(ctx *cmd.Context, enablePty bool, target *resolvedTarget) error
-
-	// GetTarget() string
-	// SetTarget(string)
 }
 
 // sshCommand is responsible for launching a ssh shell on a given unit or machine.
 type sshCommand struct {
 	// SSHCommon
 	SSHContainer
-	hostChecker jujussh.ReachableChecker
-	isTerminal  func(interface{}) bool
-	pty         autoBoolValue
+	isTerminal func(interface{}) bool
+	pty        autoBoolValue
 }
 
 func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -121,23 +117,8 @@ func (c *sshCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.Errorf("no target name specified")
 	}
-	modelType, err := c.ModelType()
-	if err != nil {
-		return err
-	}
-	if modelType == model.CAAS {
-	} else {
-	}
 	c.SSHContainer.Target, c.SSHContainer.Args = args[0], args[1:]
-	c.setHostChecker(c.hostChecker)
 	return nil
-}
-
-func (c *sshCommand) getTarget() string {
-	return c.SSHContainer.Target
-}
-func (c *sshCommand) setTarget(target string) {
-	c.SSHContainer.Target = target
 }
 
 // Run resolves c.Target to a machine, to the address of a i
@@ -170,7 +151,7 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 	return c.SSHContainer.ssh(ctx, pty, target)
 }
 
-// autoBoolValue is like gnuflag.boolValue, bu, t remembers
+// autoBoolValue is like gnuflag.boolValue, but remembers
 // whether or not a value has been set, so its behaviour
 // can be determined dynamically, during command execution.
 type autoBoolValue struct {

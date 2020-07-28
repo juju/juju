@@ -4,19 +4,18 @@
 package commands
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/kr/pretty"
 
+	"github.com/juju/juju/api/application"
 	apicloud "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/api/sshclient"
 	"github.com/juju/juju/apiserver/params"
-	// "github.com/juju/juju/caas/kubernetes/provider"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -25,31 +24,31 @@ import (
 )
 
 // SSHContainer implements functionality shared by sshCommand, SCPCommand
-// and DebugHooksCommand.
+// and DebugHooksCommand for CAAS model.
 type SSHContainer struct {
 	modelcmd.ModelCommandBase
 	modelcmd.CAASOnlyCommand
-	proxy           bool
-	remote          bool
-	noHostKeyChecks bool
-	Target          string
-	Args            []string
-	apiAddr         string
-	knownHostsPath  string
-	hostChecker     jujussh.ReachableChecker
+	// remote indicates if it should target to the operator or workload pod.
+	remote bool
+	Target string
+	Args   []string
 
-	apiClient sshAPIClient
 	cloudCredentialAPI
 	modelAPI
+	applicationAPI
 	execClientGetter func(string, cloudspec.CloudSpec) (k8sexec.Executor, error)
 }
 
 type cloudCredentialAPI interface {
 	Cloud(tag names.CloudTag) (jujucloud.Cloud, error)
-	Close() error
-
 	CredentialContents(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error)
 	BestAPIVersion() int
+	Close() error
+}
+
+type applicationAPI interface {
+	Close() error
+	UnitsInfo(units []names.UnitTag) ([]application.UnitInfo, error)
 }
 
 type modelAPI interface {
@@ -57,24 +56,16 @@ type modelAPI interface {
 	ModelInfo([]names.ModelTag) ([]params.ModelInfoResult, error)
 }
 
+// SetFlags sets up options and flags for the command.
 func (c *SSHContainer) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.remote, "remote", false, "Target to workload container")
 }
 
-func (c *SSHContainer) setHostChecker(checker jujussh.ReachableChecker) {
-	if checker == nil {
-		// TODO CAAS checker!!!
-		checker = defaultReachableChecker()
-	}
-	c.hostChecker = checker
-}
+func (c *SSHContainer) setHostChecker(checker jujussh.ReachableChecker) {}
 
-// initRun initializes the API connection if required, and determines
-// if SSH proxying is required. It must be called at the top of the
-// command's Run method.
-//
-// The apiClient, apiAddr and proxy fields are initialized after this call.
+// initRun initializes the API connection if required. It must be called
+// at the top of the command's Run method.
 func (c *SSHContainer) initRun() error {
 	if err := c.ensureAPIClient(); err != nil {
 		return errors.Trace(err)
@@ -82,15 +73,8 @@ func (c *SSHContainer) initRun() error {
 	return nil
 }
 
-// cleanupRun removes the temporary SSH known_hosts file (if one was
-// created) and closes the API connection. It must be called at the
-// end of the command's Run (i.e. as a defer).
+// cleanupRun closes API connections.
 func (c *SSHContainer) cleanupRun() {
-	if c.apiClient != nil {
-		c.apiClient.Close()
-		c.apiClient = nil
-	}
-
 	if c.cloudCredentialAPI != nil {
 		c.cloudCredentialAPI.Close()
 		c.cloudCredentialAPI = nil
@@ -99,98 +83,80 @@ func (c *SSHContainer) cleanupRun() {
 		c.modelAPI.Close()
 		c.modelAPI = nil
 	}
+	if c.applicationAPI != nil {
+		c.applicationAPI.Close()
+		c.applicationAPI = nil
+	}
 
 }
 
 func (c *SSHContainer) ensureAPIClient() error {
-	if c.apiClient != nil {
+	if c.cloudCredentialAPI != nil || c.modelAPI != nil || c.applicationAPI != nil {
 		return nil
 	}
 	return errors.Trace(c.initAPIClient())
 }
 
-// initAPIClient initialises the API connection.
+// initAPIClient initialises the API connections.
 func (c *SSHContainer) initAPIClient() error {
-	conn, err := c.NewAPIRoot()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	c.apiClient = sshclient.NewFacade(conn)
-	c.apiAddr = conn.Addr()
-
 	cAPI, err := c.NewControllerAPIRoot()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	c.cloudCredentialAPI = apicloud.NewClient(cAPI)
 	c.modelAPI = modelmanager.NewClient(cAPI)
-	// TODO: move to constructor for better test!!
 	c.execClientGetter = k8sexec.NewForJujuCloudCloudSpec
+
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.applicationAPI = application.NewClient(root)
 	return nil
 }
 
 func (c *SSHContainer) resolveTarget(target string) (*resolvedTarget, error) {
-	// out, ok := c.resolveAsAgent(target)
-	// if !ok {
-	// 	// Not a machine or unit agent target - use directly.
-	// 	return out, nil
-	// }
-
-	// getAddress := c.reachableAddressGetter
-	// if c.apiClient.BestAPIVersion() < 2 || c.forceAPIv1 {
-	// 	logger.Debugf("using legacy SSHClient API v1: no support for AllAddresses()")
-	// 	getAddress = c.legacyAddressGetter
-	// } else if c.proxy {
-	// 	// Ideally a reachability scan would be done from the
-	// 	// controller's perspective but that isn't possible yet, so
-	// 	// fall back to the legacy mode (i.e. use the instance's
-	// 	// "private" address).
-	// 	//
-	// 	// This is in some ways better anyway as a both the external
-	// 	// and internal addresses of an instance (if it has both) are
-	// 	// likely to be accessible from the controller. With a
-	// 	// reachability scan juju ssh could inadvertently end up using
-	// 	// the public address when it really should be using the
-	// 	// internal/private address.
-	// 	logger.Debugf("proxy-ssh enabled so not doing reachability scan")
-	// 	getAddress = c.legacyAddressGetter
-	// }
-
-	// return c.resolveWithRetry(*out, getAddress)
-	logger.Criticalf("target -> %q", target)
-	return nil, nil
+	if !names.IsValidUnit(target) {
+		return nil, errors.Errorf("invalid unit name %q", target)
+	}
+	unitTag := names.NewUnitTag(target)
+	results, err := c.applicationAPI.UnitsInfo([]names.UnitTag{unitTag})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unit := results[0]
+	if unit.Error != nil {
+		return nil, errors.Annotatef(unit.Error, "getting unit %q", target)
+	}
+	return &resolvedTarget{entity: unit.ProviderId}, nil
 }
 
-func (c *SSHContainer) ssh(ctx *cmd.Context, enablePty bool, target *resolvedTarget) error {
+func (c *SSHContainer) ssh(ctx *cmd.Context, enablePty bool, target *resolvedTarget) (err error) {
 	execClient, err := c.getExecClient(ctx)
 	if err != nil {
 		return err
 	}
 	ch := make(chan os.Signal, 1)
+	defer close(ch)
 	cancel := make(chan struct{})
 	ctx.InterruptNotify(ch)
 	defer ctx.StopInterruptNotify(ch)
-	defer close(ch)
 
 	go func() {
-		for range ch {
-			select {
-			case _, ok := <-cancel:
-				if ok {
-					close(cancel)
-				}
-			default:
-			}
+		select {
+		case <-ch:
+			close(cancel)
 		}
 	}()
+
 	return execClient.Exec(
 		k8sexec.ExecParams{
-			PodName:  "mariadb-k8s-operator-0",
+			PodName:  target.entity,
 			Commands: []string{"bash"},
 			Stdout:   ctx.GetStdout(),
 			Stderr:   ctx.GetStdout(),
 			Stdin:    ctx.GetStdin(),
-			Tty:      true,
+			Tty:      enablePty,
 		},
 		cancel,
 	)
@@ -206,11 +172,11 @@ func (c *SSHContainer) getExecClient(ctxt *cmd.Context) (k8sexec.Executor, error
 	}
 
 	modelTag := names.NewModelTag(mDetails.ModelUUID)
-	results, err := c.modelAPI.ModelInfo([]names.ModelTag{modelTag})
+	mInfoResults, err := c.modelAPI.ModelInfo([]names.ModelTag{modelTag})
 	if err != nil {
 		return nil, err
 	}
-	mInfo := results[0]
+	mInfo := mInfoResults[0]
 	if mInfo.Error != nil {
 		return nil, errors.Annotatef(mInfo.Error, "getting model information")
 	}
@@ -225,16 +191,16 @@ func (c *SSHContainer) getExecClient(ctxt *cmd.Context) (k8sexec.Executor, error
 		return nil, errors.Annotatef(cred.Error, "getting credential")
 	}
 	if cred.Result.Content.Valid != nil && !*cred.Result.Content.Valid {
-		return nil, errors.NotValidf("model credential %q", cred.Result.Content.Name)
+		return nil, errors.NewNotValid(nil, fmt.Sprintf("model credential %q is not valid anymore", cred.Result.Content.Name))
 	}
-	jujuCred := jujucloud.NewCredential(jujucloud.AuthType(cred.Result.Content.AuthType), cred.Result.Content.Attributes)
 
+	jujuCred := jujucloud.NewCredential(jujucloud.AuthType(cred.Result.Content.AuthType), cred.Result.Content.Attributes)
 	cloud, err := c.cloudCredentialAPI.Cloud(names.NewCloudTag(cred.Result.Content.Cloud))
 	if err != nil {
 		return nil, err
 	}
 	if !jujucloud.CloudIsCAAS(cloud) {
-		return nil, errors.NotValidf("cloud %q is not kubernetes cloud type", cloud.Name)
+		return nil, errors.NewNotValid(nil, fmt.Sprintf("cloud %q is not kubernetes cloud type", cloud.Name))
 	}
 	cloudSpec, err := cloudspec.MakeCloudSpec(cloud, "", &jujuCred)
 	if err != nil {
