@@ -99,7 +99,7 @@ func (s *RESTSuite) TestGet(c *gc.C) {
 
 	base := MustMakePath(c, "http://api.foo.bar")
 
-	client := NewHTTPRESTClient(mockTransport)
+	client := NewHTTPRESTClient(mockTransport, nil)
 
 	var result interface{}
 	err := client.Get(context.TODO(), base, &result)
@@ -112,7 +112,7 @@ func (s *RESTSuite) TestGetWithInvalidContext(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockTransport := NewMockTransport(ctrl)
-	client := NewHTTPRESTClient(mockTransport)
+	client := NewHTTPRESTClient(mockTransport, nil)
 
 	base := MustMakePath(c, "http://api.foo.bar")
 
@@ -128,7 +128,7 @@ func (s *RESTSuite) TestGetWithFailure(c *gc.C) {
 	mockTransport := NewMockTransport(ctrl)
 	mockTransport.EXPECT().Do(gomock.Any()).Return(emptyResponse(), errors.Errorf("boom"))
 
-	client := NewHTTPRESTClient(mockTransport)
+	client := NewHTTPRESTClient(mockTransport, nil)
 
 	base := MustMakePath(c, "http://api.foo.bar")
 
@@ -144,7 +144,7 @@ func (s *RESTSuite) TestGetWithUnmarshalFailure(c *gc.C) {
 	mockTransport := NewMockTransport(ctrl)
 	mockTransport.EXPECT().Do(gomock.Any()).Return(invalidResponse(), nil)
 
-	client := NewHTTPRESTClient(mockTransport)
+	client := NewHTTPRESTClient(mockTransport, nil)
 
 	base := MustMakePath(c, "http://api.foo.bar")
 
