@@ -460,7 +460,7 @@ func (u *UniterAPI) getOneMachinePorts(canAccess common.AuthFunc, machineTag str
 	if err != nil {
 		return params.MachinePortsResult{Error: apiservererrors.ServerError(err)}
 	}
-	allPorts, err := machine.OpenedPorts()
+	machPorts, err := machine.OpenedPortRanges()
 	if err != nil {
 		return params.MachinePortsResult{Error: apiservererrors.ServerError(err)}
 	}
@@ -469,20 +469,18 @@ func (u *UniterAPI) getOneMachinePorts(canAccess common.AuthFunc, machineTag str
 		resultPorts []params.MachinePortRange
 		processed   = make(map[corenetwork.PortRange]struct{})
 	)
-	for _, openedPortsInSubnet := range allPorts {
-		for unitName, portRanges := range openedPortsInSubnet.PortRangesByUnit() {
-			unitTag := names.NewUnitTag(unitName).String()
-			for _, pr := range portRanges {
-				if _, seen := processed[pr]; seen {
-					continue
-				}
-
-				processed[pr] = struct{}{}
-				resultPorts = append(resultPorts, params.MachinePortRange{
-					UnitTag:   unitTag,
-					PortRange: params.FromNetworkPortRange(pr),
-				})
+	for unitName, unitPortRanges := range machPorts.ByUnit() {
+		unitTag := names.NewUnitTag(unitName).String()
+		for _, pr := range unitPortRanges.UniquePortRanges() {
+			if _, seen := processed[pr]; seen {
+				continue
 			}
+
+			processed[pr] = struct{}{}
+			resultPorts = append(resultPorts, params.MachinePortRange{
+				UnitTag:   unitTag,
+				PortRange: params.FromNetworkPortRange(pr),
+			})
 		}
 	}
 
@@ -1031,13 +1029,24 @@ func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResul
 			continue
 		}
 
-		openPortRange := []corenetwork.PortRange{{
+		unitPortRanges, portChangesFn, err := unit.OpenedPortRanges()
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// This API method never supported opening a port across multiple
+		// subnets. Instead, it was assumed that the port range was
+		// always opened in all subnets. To emulate this behavior, we
+		// simply open the requested port range for all endpoints.
+		unitPortRanges.Open("", corenetwork.PortRange{
 			FromPort: entity.FromPort,
 			ToPort:   entity.ToPort,
 			Protocol: entity.Protocol,
-		}}
+		})
 
-		result.Results[i].Error = apiservererrors.ServerError(unit.OpenClosePortsInSubnet("", openPortRange, nil))
+		err = u.st.ApplyOperation(portChangesFn())
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -1069,13 +1078,24 @@ func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResu
 			continue
 		}
 
-		closePortRange := []corenetwork.PortRange{{
+		unitPortRanges, portChangesFn, err := unit.OpenedPortRanges()
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// This API method never supported opening a port across multiple
+		// subnets. Instead, it was assumed that the port range was
+		// always opened in all subnets. To emulate this behavior, we
+		// simply close the requested port range for all endpoints.
+		unitPortRanges.Close("", corenetwork.PortRange{
 			FromPort: entity.FromPort,
 			ToPort:   entity.ToPort,
 			Protocol: entity.Protocol,
-		}}
+		})
 
-		result.Results[i].Error = apiservererrors.ServerError(unit.OpenClosePortsInSubnet("", nil, closePortRange))
+		err = u.st.ApplyOperation(portChangesFn())
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -3554,13 +3574,21 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	}
 
 	if len(changes.OpenPorts)+len(changes.ClosePorts) > 0 {
-		var openPortRanges, closePortRanges []corenetwork.PortRange
+		unitPortRanges, portChangesFn, err := unit.OpenedPortRanges()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		// This API method never supported opening a port across multiple
+		// subnets. Instead, it was assumed that the port range was
+		// always opened in all subnets. To emulate this behavior, we
+		// simply open/close the requested port ranges for all endpoints.
 		for _, r := range changes.OpenPorts {
 			// Ensure the tag in the port open request matches the root unit name
 			if r.Tag != changes.Tag {
 				return apiservererrors.ErrPerm
 			}
-			openPortRanges = append(openPortRanges, corenetwork.PortRange{
+			unitPortRanges.Open("", corenetwork.PortRange{
 				FromPort: r.FromPort,
 				ToPort:   r.ToPort,
 				Protocol: r.Protocol,
@@ -3571,21 +3599,14 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			if r.Tag != changes.Tag {
 				return apiservererrors.ErrPerm
 			}
-			closePortRanges = append(closePortRanges, corenetwork.PortRange{
+			unitPortRanges.Close("", corenetwork.PortRange{
 				FromPort: r.FromPort,
 				ToPort:   r.ToPort,
 				Protocol: r.Protocol,
 			})
 		}
 
-		// TODO(achilleas): we should be using endpoints instead of subnets
-		// here. This emulates the existing behavior for the individual
-		// Open/ClosePort API calls.
-		modelOp, err := unit.OpenClosePortsInSubnetOperation("", openPortRanges, closePortRanges)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		modelOps = append(modelOps, modelOp)
+		modelOps = append(modelOps, portChangesFn())
 	}
 
 	if changes.SetUnitState != nil {

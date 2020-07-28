@@ -2743,13 +2743,12 @@ func (api *APIBase) UnitsInfo(in params.Entities) (params.UnitInfoResults, error
 // with pre 2.9 agents which assume open-ports apply to all subnets.
 func (api *APIBase) openPortsOnMachineForUnit(unitName, machineID string) ([]string, error) {
 	var result []string
-	allPorts, err := api.model.OpenedPortsForMachine(machineID)
+	machinePortRanges, err := api.model.OpenedPortRangesForMachine(machineID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	unitPorts := state.UnitPortsFromMachineSubnetPorts(unitName, machineID, allPorts)
-	for _, portRange := range unitPorts.UniquePortRanges() {
+	for _, portRange := range machinePortRanges.ForUnit(unitName).UniquePortRanges() {
 		result = append(result, portRange.String())
 	}
 	return result, nil

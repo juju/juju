@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -20,9 +19,10 @@ import (
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
 )
 
+const allEndpoints = ""
+
 type FlushContextSuite struct {
 	HookContextSuite
-	networktesting.FirewallHelper
 	stub testing.Stub
 }
 
@@ -196,12 +196,9 @@ func (s *FlushContextSuite) TestRebootNow(c *gc.C) {
 
 func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	// Initially, no port ranges are open on the unit or its machine.
-	unitRangesBySubnet, err := s.unit.OpenedPortsBySubnet()
+	machPortRanges, err := s.machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitRangesBySubnet, gc.HasLen, 0)
-	machinePortsBySubnet, err := s.machine.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machinePortsBySubnet, gc.HasLen, 0)
+	c.Assert(machPortRanges.UniquePortRanges(), gc.HasLen, 0)
 
 	// Add another unit on the same machine.
 	otherUnit, err := s.application.AddUnit(state.AddUnitParams{})
@@ -210,13 +207,11 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Open some ports on both units.
-	s.AssertOpenUnitPorts(c, s.unit, "", "tcp", 100, 200)
-	s.AssertOpenUnitPorts(c, otherUnit, "", "udp", 200, 300)
-
-	unitRanges, err := s.unit.OpenedPortsInSubnet("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitRanges, jc.DeepEquals, []network.PortRange{
-		{100, 200, "tcp"},
+	mustOpenPortRanges(c, s.State, s.unit, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("100-200/tcp"),
+	})
+	mustOpenPortRanges(c, s.State, otherUnit, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("200-300/udp"),
 	})
 
 	ctx := s.context(c)
@@ -250,10 +245,10 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil) // still pending -> no longer pending
 
 	// Ensure the ports are not actually changed on the unit yet.
-	unitRanges, err = s.unit.OpenedPortsInSubnet("")
+	unitPortRanges, _, err := s.unit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitRanges, jc.DeepEquals, []network.PortRange{
-		{100, 200, "tcp"},
+	c.Assert(unitPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{
+		network.MustParsePortRange("100-200/tcp"),
 	})
 
 	// Flush the context with a success.
@@ -261,12 +256,11 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify the unit ranges are now open.
-	expectUnitRanges := []network.PortRange{
-		{FromPort: 10, ToPort: 20, Protocol: "udp"},
-	}
-	unitRanges, err = s.unit.OpenedPortsInSubnet("")
+	unitPortRanges, _, err = s.unit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitRanges, jc.DeepEquals, expectUnitRanges)
+	c.Assert(unitPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{
+		network.MustParsePortRange("10-20/udp"),
+	})
 }
 
 func (s *FlushContextSuite) TestRunHookAddStorageOnFailure(c *gc.C) {
@@ -331,4 +325,26 @@ func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {
 	batches, err := reader.Read()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 0)
+}
+
+func mustOpenPortRanges(c *gc.C, st *state.State, u *state.Unit, endpointName string, portRanges []network.PortRange) {
+	unitPortRanges, portChangesFn, err := u.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, pr := range portRanges {
+		unitPortRanges.Open(endpointName, pr)
+	}
+
+	c.Assert(st.ApplyOperation(portChangesFn()), jc.ErrorIsNil)
+}
+
+func mustClosePortRanges(c *gc.C, st *state.State, u *state.Unit, endpointName string, portRanges []network.PortRange) {
+	unitPortRanges, portChangesFn, err := u.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, pr := range portRanges {
+		unitPortRanges.Close(endpointName, pr)
+	}
+
+	c.Assert(st.ApplyOperation(portChangesFn()), jc.ErrorIsNil)
 }

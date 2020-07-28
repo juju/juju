@@ -516,44 +516,66 @@ func (m *mockModel) AgentVersion() (version.Number, error) {
 	return ver, nil
 }
 
-func (m *mockModel) OpenedPortsForMachine(machineID string) ([]state.MachineSubnetPorts, error) {
-	return []state.MachineSubnetPorts{
-		mockPorts{machineID},
-	}, nil
+func (m *mockModel) OpenedPortRangesForMachine(machineID string) (state.MachinePortRanges, error) {
+	return mockMachinePortRanges{machineID}, nil
 }
 
-func (m *mockModel) AllPorts() ([]state.MachineSubnetPorts, error) {
-	return []state.MachineSubnetPorts{
-		mockPorts{"0"},
-		mockPorts{"1"},
-	}, nil
-}
-
-type mockPorts struct {
+type mockMachinePortRanges struct {
 	machineId string
 }
 
-func (mockPorts) SubnetID() string {
-	return ""
-}
-
-func (m mockPorts) MachineID() string {
-	return m.machineId
-}
-
-func (mockPorts) PortRangesByUnit() map[string][]network.PortRange {
+func (m mockMachinePortRanges) Changes() state.ModelOperation {
 	panic("not implemented")
 }
 
-func (mockPorts) PortRangesForUnit(unitName string) []network.PortRange {
-	return []network.PortRange{{
-		FromPort: 100,
-		ToPort:   102,
-		Protocol: "IP",
-	}}
+func (m mockMachinePortRanges) MachineID() string {
+	return m.machineId
 }
 
-func (mockPorts) OpenClosePortsOperation(unitName string, openPortRanges []network.PortRange, closePortRanges []network.PortRange) (state.ModelOperation, error) {
+func (m mockMachinePortRanges) UniquePortRanges() []network.PortRange {
+	return new(mockUnitPortRanges).UniquePortRanges()
+}
+
+func (mockMachinePortRanges) ByUnit() map[string]state.UnitPortRanges {
+	panic("not implemented")
+}
+
+func (mockMachinePortRanges) ForUnit(unitName string) state.UnitPortRanges {
+	return mockUnitPortRanges{unitName}
+}
+
+type mockUnitPortRanges struct {
+	unitName string
+}
+
+func (m mockUnitPortRanges) UnitName() string { return m.unitName }
+
+func (mockUnitPortRanges) ForEndpoint(endpointName string) []network.PortRange {
+	if endpointName == "" {
+		return []network.PortRange{
+			network.MustParsePortRange("100-102/tcp"),
+		}
+	}
+	return nil
+}
+
+func (mockUnitPortRanges) ByEndpoint() map[string][]network.PortRange {
+	return map[string][]network.PortRange{
+		"": {
+			network.MustParsePortRange("100-102/tcp"),
+		},
+	}
+}
+
+func (m mockUnitPortRanges) UniquePortRanges() []network.PortRange {
+	return m.ForEndpoint("")
+}
+
+func (mockUnitPortRanges) Open(endpoint string, portRange network.PortRange) {
+	panic("not implemented")
+}
+
+func (mockUnitPortRanges) Close(endpoint string, portRange network.PortRange) {
 	panic("not implemented")
 }
 

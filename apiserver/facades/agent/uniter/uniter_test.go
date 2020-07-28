@@ -36,7 +36,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -49,12 +48,13 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
+const allEndpoints = ""
+
 // uniterSuiteBase implements common testing suite for all API versions.
 // It is not intended to be used directly or registered as a suite,
 // but embedded.
 type uniterSuiteBase struct {
 	testing.JujuConnSuite
-	networktesting.FirewallHelper
 
 	authorizer        apiservertesting.FakeAuthorizer
 	resources         *common.Resources
@@ -1015,9 +1015,9 @@ func (s *uniterSuite) TestCharmModifiedVersion(c *gc.C) {
 }
 
 func (s *uniterSuite) TestOpenPorts(c *gc.C) {
-	openedPortsBySubnet, err := s.wordpressUnit.OpenedPortsBySubnet()
+	unitPortRanges, _, err := s.wordpressUnit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPortsBySubnet, gc.HasLen, 0)
+	c.Assert(unitPortRanges.UniquePortRanges(), gc.HasLen, 0, gc.Commentf("expected unit not to have any port ranges open"))
 
 	args := params.EntitiesPortRanges{Entities: []params.EntityPortRange{
 		{Tag: "unit-mysql-0", Protocol: "tcp", FromPort: 1234, ToPort: 1400},
@@ -1035,22 +1035,21 @@ func (s *uniterSuite) TestOpenPorts(c *gc.C) {
 	})
 
 	// Verify the wordpressUnit's port is opened.
-	openedPortsInSubnet, err := s.wordpressUnit.OpenedPortsInSubnet("")
+	unitPortRanges, _, err = s.wordpressUnit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPortsInSubnet, gc.DeepEquals, []network.PortRange{
-		{Protocol: "udp", FromPort: 4321, ToPort: 5000},
+	c.Assert(unitPortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
+		network.MustParsePortRange("4321-5000/udp"),
 	})
 }
 
 func (s *uniterSuite) TestClosePorts(c *gc.C) {
 	// Open port udp:4321 in advance on wordpressUnit.
-	s.AssertOpenUnitPorts(c, s.wordpressUnit, "", "udp", 4321, 5000)
-	openedPorts, err := s.wordpressUnit.OpenedPortsInSubnet("")
+	unitPortRanges, portChangesFn, err := s.wordpressUnit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
-		{Protocol: "udp", FromPort: 4321, ToPort: 5000},
-	})
+	unitPortRanges.Open(allEndpoints, network.MustParsePortRange("4321-5000/udp"))
+	c.Assert(s.State.ApplyOperation(portChangesFn()), jc.ErrorIsNil)
 
+	// Issue close ports call
 	args := params.EntitiesPortRanges{Entities: []params.EntityPortRange{
 		{Tag: "unit-mysql-0", Protocol: "tcp", FromPort: 1234, ToPort: 1400},
 		{Tag: "unit-wordpress-0", Protocol: "udp", FromPort: 4321, ToPort: 5000},
@@ -1067,9 +1066,9 @@ func (s *uniterSuite) TestClosePorts(c *gc.C) {
 	})
 
 	// Verify the wordpressUnit's port is closed.
-	openedPortsBySubnet, err := s.wordpressUnit.OpenedPortsBySubnet()
+	unitPortRanges, _, err = s.wordpressUnit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPortsBySubnet, gc.HasLen, 0)
+	c.Assert(unitPortRanges.UniquePortRanges(), gc.HasLen, 0)
 }
 
 func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
@@ -3415,13 +3414,10 @@ func (s *uniterSuite) TestAssignedMachine(c *gc.C) {
 }
 
 func (s *uniterSuite) TestAllMachinePorts(c *gc.C) {
-	// Verify no ports are opened yet on the machine or unit.
-	machinePorts, err := s.machine0.OpenedPorts()
+	// Verify no ports are opened yet on the machine (or unit).
+	machinePortRanges, err := s.machine0.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machinePorts, gc.HasLen, 0)
-	unitPortsBySubnet, err := s.wordpressUnit.OpenedPortsBySubnet()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitPortsBySubnet, gc.HasLen, 0)
+	c.Assert(machinePortRanges.UniquePortRanges(), gc.HasLen, 0)
 
 	// Add another mysql unit on machine 0.
 	mysqlUnit1, err := s.mysql.AddUnit(state.AddUnitParams{})
@@ -3430,11 +3426,17 @@ func (s *uniterSuite) TestAllMachinePorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Open some ports on both units.
-	s.AssertOpenUnitPorts(c, s.wordpressUnit, "", "tcp", 100, 200)
-	s.AssertOpenUnitPorts(c, s.wordpressUnit, "", "udp", 10, 20)
-	s.AssertOpenUnitPorts(c, mysqlUnit1, "", "tcp", 201, 250)
-	s.AssertOpenUnitPorts(c, mysqlUnit1, "", "udp", 1, 8)
+	wpPortRanges := machinePortRanges.ForUnit(s.wordpressUnit.Name())
+	wpPortRanges.Open(allEndpoints, network.MustParsePortRange("100-200/tcp"))
+	wpPortRanges.Open(allEndpoints, network.MustParsePortRange("10-20/udp"))
 
+	msPortRanges := machinePortRanges.ForUnit(mysqlUnit1.Name())
+	msPortRanges.Open(allEndpoints, network.MustParsePortRange("201-250/tcp"))
+	msPortRanges.Open(allEndpoints, network.MustParsePortRange("1-8/udp"))
+
+	c.Assert(s.State.ApplyOperation(machinePortRanges.Changes()), jc.ErrorIsNil)
+
+	// Get the open port ranges
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "machine-0"},
@@ -5010,9 +5012,9 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	}
 	c.Assert(relSettings.Map(), jc.DeepEquals, expRelSettings, gc.Commentf("composed model operations did not yield expected result for unit relation settings"))
 
-	portRangesInSubnet, err := s.wordpressUnit.OpenedPortsInSubnet("")
+	unitPortRanges, _, err := s.wordpressUnit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(portRangesInSubnet, jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
+	c.Assert(unitPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
 
 	unitState, err := s.wordpressUnit.State()
 	c.Assert(err, jc.ErrorIsNil)
@@ -5094,9 +5096,9 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	})
 
 	// Verify state
-	portRangesInSubnet, err := unit.OpenedPortsInSubnet("")
+	unitPortRanges, _, err := unit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(portRangesInSubnet, jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
+	c.Assert(unitPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
 
 	unitState, err := unit.State()
 	c.Assert(err, jc.ErrorIsNil)

@@ -211,8 +211,8 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if err = context.fetchMachines(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch machines")
 	}
-	if err = context.fetchOpenPorts(c.api.stateAccessor); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch open ports")
+	if err = context.fetchOpenPortRangesForAllMachines(c.api.stateAccessor); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch open port ranges")
 	}
 	if context.controllerNodes, err = fetchControllerNodes(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch controller nodes")
@@ -536,8 +536,8 @@ type statusContext struct {
 	// remote applications: application name -> application
 	consumerRemoteApplications map[string]*state.RemoteApplication
 
-	// opened ports by subnet.
-	openPortsBySubnet map[string][]state.MachinePortRanges
+	// opened ports by machine.
+	openPortRangesByMachine map[string]state.MachinePortRanges
 
 	// offers: offer name -> offer
 	offers map[string]offerStatus
@@ -595,18 +595,18 @@ func (context *statusContext) fetchMachines(st Backend) error {
 	return nil
 }
 
-func (context *statusContext) fetchOpenPorts(st Backend) error {
+func (context *statusContext) fetchOpenPortRangesForAllMachines(st Backend) error {
 	if context.model.Type() == state.ModelTypeCAAS {
 		return nil
 	}
 
-	context.openPortsBySubnet = make(map[string][]state.MachinePortRanges)
-	allOpenPorts, err := context.model.OpenedPortsForAllMachines()
+	context.openPortRangesByMachine = make(map[string]state.MachinePortRanges)
+	allMachPortRanges, err := context.model.OpenedPortRangesForAllMachines()
 	if err != nil {
 		return err
 	}
-	for _, openPorts := range allOpenPorts {
-		context.openPortsBySubnet[openPorts.MachineID()] = append(context.openPortsBySubnet[openPorts.MachineID()], openPorts)
+	for _, machPortRanges := range allMachPortRanges {
+		context.openPortRangesByMachine[machPortRanges.MachineID()] = machPortRanges
 	}
 	return nil
 }
@@ -1394,25 +1394,9 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 	if context.model.Type() == state.ModelTypeIAAS {
 		result.PublicAddress = context.unitPublicAddress(unit)
 
-		if allMachinePorts := context.openPortsBySubnet[context.unitMachineID(unit)]; allMachinePorts != nil {
-			var (
-				corePorts []network.PortRange
-				processed = make(map[network.PortRange]struct{})
-			)
-
-			for _, openedInSubnet := range allMachinePorts {
-				for _, pr := range openedInSubnet.PortRangesForUnit(unit.Name()) {
-					if _, seen := processed[pr]; seen {
-						continue
-					}
-					processed[pr] = struct{}{}
-					corePorts = append(corePorts, pr)
-				}
-			}
-			network.SortPortRanges(corePorts)
-
-			for _, port := range corePorts {
-				result.OpenedPorts = append(result.OpenedPorts, port.String())
+		if machPortRanges, found := context.openPortRangesByMachine[context.unitMachineID(unit)]; found {
+			for _, pr := range machPortRanges.ForUnit(unit.Name()).UniquePortRanges() {
+				result.OpenedPorts = append(result.OpenedPorts, pr.String())
 			}
 		}
 	} else {
