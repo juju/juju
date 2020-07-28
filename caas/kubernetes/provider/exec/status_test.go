@@ -47,9 +47,9 @@ func (s *statusSuite) TestStatus(c *gc.C) {
 	pod.SetName("gitlab-k8s-0")
 
 	gomock.InOrder(
-		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).
+		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-uid", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).
+		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
 
@@ -94,9 +94,9 @@ func (s *statusSuite) TestStatusInit(c *gc.C) {
 	pod.SetName("gitlab-k8s-0")
 
 	gomock.InOrder(
-		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).
+		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-uid", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).
+		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
 
@@ -141,9 +141,9 @@ func (s *statusSuite) TestStatusEphemeral(c *gc.C) {
 	pod.SetName("gitlab-k8s-0")
 
 	gomock.InOrder(
-		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).
+		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-uid", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).
+		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
 
@@ -172,9 +172,9 @@ func (s *statusSuite) TestStatusPodNotFound(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).
+		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-uid", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).
+		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{}, nil),
 	)
 

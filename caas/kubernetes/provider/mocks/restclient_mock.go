@@ -5,13 +5,12 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
+	reflect "reflect"
 )
 
 // MockRestClientInterface is a mock of Interface interface
@@ -39,6 +38,7 @@ func (m *MockRestClientInterface) EXPECT() *MockRestClientInterfaceMockRecorder 
 
 // APIVersion mocks base method
 func (m *MockRestClientInterface) APIVersion() schema.GroupVersion {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "APIVersion")
 	ret0, _ := ret[0].(schema.GroupVersion)
 	return ret0
@@ -46,11 +46,13 @@ func (m *MockRestClientInterface) APIVersion() schema.GroupVersion {
 
 // APIVersion indicates an expected call of APIVersion
 func (mr *MockRestClientInterfaceMockRecorder) APIVersion() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIVersion", reflect.TypeOf((*MockRestClientInterface)(nil).APIVersion))
 }
 
 // Delete mocks base method
 func (m *MockRestClientInterface) Delete() *rest.Request {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete")
 	ret0, _ := ret[0].(*rest.Request)
 	return ret0
@@ -58,11 +60,13 @@ func (m *MockRestClientInterface) Delete() *rest.Request {
 
 // Delete indicates an expected call of Delete
 func (mr *MockRestClientInterfaceMockRecorder) Delete() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockRestClientInterface)(nil).Delete))
 }
 
 // Get mocks base method
 func (m *MockRestClientInterface) Get() *rest.Request {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get")
 	ret0, _ := ret[0].(*rest.Request)
 	return ret0
@@ -70,11 +74,13 @@ func (m *MockRestClientInterface) Get() *rest.Request {
 
 // Get indicates an expected call of Get
 func (mr *MockRestClientInterfaceMockRecorder) Get() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockRestClientInterface)(nil).Get))
 }
 
 // GetRateLimiter mocks base method
 func (m *MockRestClientInterface) GetRateLimiter() flowcontrol.RateLimiter {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRateLimiter")
 	ret0, _ := ret[0].(flowcontrol.RateLimiter)
 	return ret0
@@ -82,11 +88,13 @@ func (m *MockRestClientInterface) GetRateLimiter() flowcontrol.RateLimiter {
 
 // GetRateLimiter indicates an expected call of GetRateLimiter
 func (mr *MockRestClientInterfaceMockRecorder) GetRateLimiter() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRateLimiter", reflect.TypeOf((*MockRestClientInterface)(nil).GetRateLimiter))
 }
 
 // Patch mocks base method
 func (m *MockRestClientInterface) Patch(arg0 types.PatchType) *rest.Request {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Patch", arg0)
 	ret0, _ := ret[0].(*rest.Request)
 	return ret0
@@ -94,11 +102,13 @@ func (m *MockRestClientInterface) Patch(arg0 types.PatchType) *rest.Request {
 
 // Patch indicates an expected call of Patch
 func (mr *MockRestClientInterfaceMockRecorder) Patch(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Patch", reflect.TypeOf((*MockRestClientInterface)(nil).Patch), arg0)
 }
 
 // Post mocks base method
 func (m *MockRestClientInterface) Post() *rest.Request {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Post")
 	ret0, _ := ret[0].(*rest.Request)
 	return ret0
@@ -106,11 +116,13 @@ func (m *MockRestClientInterface) Post() *rest.Request {
 
 // Post indicates an expected call of Post
 func (mr *MockRestClientInterfaceMockRecorder) Post() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Post", reflect.TypeOf((*MockRestClientInterface)(nil).Post))
 }
 
 // Put mocks base method
 func (m *MockRestClientInterface) Put() *rest.Request {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Put")
 	ret0, _ := ret[0].(*rest.Request)
 	return ret0
@@ -118,11 +130,13 @@ func (m *MockRestClientInterface) Put() *rest.Request {
 
 // Put indicates an expected call of Put
 func (mr *MockRestClientInterfaceMockRecorder) Put() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockRestClientInterface)(nil).Put))
 }
 
 // Verb mocks base method
 func (m *MockRestClientInterface) Verb(arg0 string) *rest.Request {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Verb", arg0)
 	ret0, _ := ret[0].(*rest.Request)
 	return ret0
@@ -130,5 +144,6 @@ func (m *MockRestClientInterface) Verb(arg0 string) *rest.Request {
 
 // Verb indicates an expected call of Verb
 func (mr *MockRestClientInterfaceMockRecorder) Verb(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Verb", reflect.TypeOf((*MockRestClientInterface)(nil).Verb), arg0)
 }

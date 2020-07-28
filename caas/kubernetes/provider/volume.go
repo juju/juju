@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"time"
@@ -19,6 +20,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/storage"
@@ -39,8 +42,8 @@ func (k *kubernetesClient) StorageProvider(t storage.ProviderType) (storage.Prov
 }
 
 func (k *kubernetesClient) deleteStorageClasses(selector k8slabels.Selector) error {
-	err := k.client().StorageV1().StorageClasses().DeleteCollection(&v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
+	err := k.client().StorageV1().StorageClasses().DeleteCollection(context.TODO(), v1.DeleteOptions{
+		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	}, v1.ListOptions{
 		LabelSelector: selector.String(),
 	})
@@ -54,7 +57,7 @@ func (k *kubernetesClient) listStorageClasses(selector k8slabels.Selector) ([]st
 	listOps := v1.ListOptions{
 		LabelSelector: selector.String(),
 	}
-	list, err := k.client().StorageV1().StorageClasses().List(listOps)
+	list, err := k.client().StorageV1().StorageClasses().List(context.TODO(), listOps)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -87,7 +90,7 @@ func (k *kubernetesClient) ensurePVC(pvc *core.PersistentVolumeClaim) (*core.Per
 }
 
 func (k *kubernetesClient) createPVC(pvc *core.PersistentVolumeClaim) (*core.PersistentVolumeClaim, error) {
-	out, err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Create(pvc)
+	out, err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Create(context.TODO(), pvc, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("PVC %q", pvc.GetName())
 	}
@@ -95,7 +98,7 @@ func (k *kubernetesClient) createPVC(pvc *core.PersistentVolumeClaim) (*core.Per
 }
 
 func (k *kubernetesClient) updatePVC(pvc *core.PersistentVolumeClaim) (*core.PersistentVolumeClaim, error) {
-	out, err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Update(pvc)
+	out, err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Update(context.TODO(), pvc, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("PVC %q", pvc.GetName())
 	}
@@ -103,7 +106,7 @@ func (k *kubernetesClient) updatePVC(pvc *core.PersistentVolumeClaim) (*core.Per
 }
 
 func (k *kubernetesClient) deletePVC(name string, uid types.UID) error {
-	err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Delete(name, newPreconditionDeleteOptions(uid))
+	err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -111,7 +114,7 @@ func (k *kubernetesClient) deletePVC(name string, uid types.UID) error {
 }
 
 func (k *kubernetesClient) getPVC(name string) (*core.PersistentVolumeClaim, error) {
-	pvc, err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Get(name, v1.GetOptions{})
+	pvc, err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Get(context.TODO(), name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("pvc %q", name)
 	} else if err != nil {
@@ -176,9 +179,9 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner)
 		sc.VolumeBindingMode = &bindMode
 	}
 	if cfg.Namespace != "" {
-		sc.Labels = map[string]string{labelModel: k.namespace}
+		sc.Labels = map[string]string{constants.LabelModel: k.namespace}
 	}
-	_, err = k.client().StorageV1().StorageClasses().Create(sc)
+	_, err = k.client().StorageV1().StorageClasses().Create(context.TODO(), sc, v1.CreateOptions{})
 	if err != nil {
 		return nil, false, errors.Annotatef(err, "creating storage class %q", cfg.Name)
 	}
@@ -310,8 +313,8 @@ func (k *kubernetesClient) filesystemToVolumeInfo(
 	pvc = &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
 			Name: params.pvcName,
-			Annotations: resourceTagsToAnnotations(fs.ResourceTags).
-				Add(labelStorage, fs.StorageName).ToMap(),
+			Annotations: utils.ResourceTagsToAnnotations(fs.ResourceTags).
+				Add(constants.LabelStorage, fs.StorageName).ToMap(),
 		},
 		Spec: *pvcSpec,
 	}
@@ -346,7 +349,7 @@ func (k *kubernetesClient) volumeInfoForEmptyDir(vol core.Volume, volMount core.
 
 func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.VolumeMount, claimName string, now time.Time) (*caas.FilesystemInfo, error) {
 	pvClaims := k.client().CoreV1().PersistentVolumeClaims(k.namespace)
-	pvc, err := pvClaims.Get(claimName, v1.GetOptions{})
+	pvc, err := pvClaims.Get(context.TODO(), claimName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		// Ignore claims which don't exist (yet).
 		return nil, nil
@@ -360,7 +363,7 @@ func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.Volum
 		return nil, nil
 	}
 
-	storageName := pvc.Labels[labelStorage]
+	storageName := pvc.Labels[constants.LabelStorage]
 	if storageName == "" {
 		if valid := legacyJujuPVNameRegexp.MatchString(volMount.Name); valid {
 			storageName = legacyJujuPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
@@ -389,7 +392,7 @@ func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.Volum
 	}
 
 	pVolumes := k.client().CoreV1().PersistentVolumes()
-	pv, err := pVolumes.Get(pvc.Spec.VolumeName, v1.GetOptions{})
+	pv, err := pVolumes.Get(context.TODO(), pvc.Spec.VolumeName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		// Ignore volumes which don't exist (yet).
 		return nil, nil

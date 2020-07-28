@@ -4,6 +4,8 @@
 package provider
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
@@ -36,10 +38,6 @@ func newLabelRequirements(rs ...requirementParams) k8slabels.Selector {
 func labelSetToRequirements(labels k8slabels.Set) []k8slabels.Requirement {
 	out, _ := k8slabels.SelectorFromValidatedSet(labels).Requirements()
 	return out
-}
-
-func labelSetToSelector(labels k8slabels.Set) k8slabels.Selector {
-	return k8slabels.SelectorFromValidatedSet(labels)
 }
 
 func mergeSelectors(selectors ...k8slabels.Selector) k8slabels.Selector {
@@ -122,7 +120,7 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 	}
 
 	if storageClass != "" {
-		sc, err := k.client().StorageV1().StorageClasses().Get(storageClass, v1.GetOptions{})
+		sc, err := k.client().StorageV1().StorageClasses().Get(context.TODO(), storageClass, v1.GetOptions{})
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
@@ -133,7 +131,7 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 	}
 
 	// We may have the workload storage but still need to look for operator storage.
-	storageClasses, err := k.client().StorageV1().StorageClasses().List(v1.ListOptions{})
+	storageClasses, err := k.client().StorageV1().StorageClasses().List(context.TODO(), v1.ListOptions{})
 	if err != nil {
 		return nil, errors.Annotate(err, "listing storage classes")
 	}
@@ -216,7 +214,7 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 func (k *kubernetesClient) listHostCloudRegions() (string, set.Strings, error) {
 	// we only check 5 worker nodes as of now just run in the one region and
 	// we are just looking for a running worker to sniff its region.
-	nodes, err := k.client().CoreV1().Nodes().List(v1.ListOptions{Limit: 5})
+	nodes, err := k.client().CoreV1().Nodes().List(context.TODO(), v1.ListOptions{Limit: 5})
 	if err != nil {
 		return "", nil, errors.Annotate(err, "listing nodes")
 	}

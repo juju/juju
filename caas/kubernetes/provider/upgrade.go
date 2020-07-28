@@ -4,6 +4,8 @@
 package provider
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version"
@@ -12,6 +14,7 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	appstyped "k8s.io/client-go/kubernetes/typed/apps/v1"
 
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	k8sannotations "github.com/juju/juju/core/annotations"
 )
@@ -37,7 +40,7 @@ func (k *kubernetesClient) Upgrade(agentTag string, vers version.Number) error {
 }
 
 func upgradeDeployment(name, imagePath string, vers version.Number, broker appstyped.DeploymentInterface) error {
-	de, err := broker.Get(name, meta.GetOptions{})
+	de, err := broker.Get(context.TODO(), name, meta.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf(
 			"deployment %q", name)
@@ -57,14 +60,14 @@ func upgradeDeployment(name, imagePath string, vers version.Number, broker appst
 	// just ensure juju-version to current version for now.
 	de.SetAnnotations(
 		k8sannotations.New(de.GetAnnotations()).
-			Add(labelVersion, vers.String()).ToMap(),
+			Add(constants.LabelVersion, vers.String()).ToMap(),
 	)
 	de.Spec.Template.SetAnnotations(
 		k8sannotations.New(de.Spec.Template.GetAnnotations()).
-			Add(labelVersion, vers.String()).ToMap(),
+			Add(constants.LabelVersion, vers.String()).ToMap(),
 	)
 
-	if _, err := broker.Update(de); err != nil {
+	if _, err := broker.Update(context.TODO(), de, meta.UpdateOptions{}); err != nil {
 		return errors.Annotatef(err, "updating deployment %q to %s",
 			name, vers)
 	}
@@ -72,7 +75,7 @@ func upgradeDeployment(name, imagePath string, vers version.Number, broker appst
 }
 
 func upgradeStatefulSet(name, imagePath string, vers version.Number, broker appstyped.StatefulSetInterface) error {
-	ss, err := broker.Get(name, meta.GetOptions{})
+	ss, err := broker.Get(context.TODO(), name, meta.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf(
 			"statefulset %q", name)
@@ -92,14 +95,14 @@ func upgradeStatefulSet(name, imagePath string, vers version.Number, broker apps
 	// just ensure juju-version to current version for now.
 	ss.SetAnnotations(
 		k8sannotations.New(ss.GetAnnotations()).
-			Add(labelVersion, vers.String()).ToMap(),
+			Add(constants.LabelVersion, vers.String()).ToMap(),
 	)
 	ss.Spec.Template.SetAnnotations(
 		k8sannotations.New(ss.Spec.Template.GetAnnotations()).
-			Add(labelVersion, vers.String()).ToMap(),
+			Add(constants.LabelVersion, vers.String()).ToMap(),
 	)
 
-	if _, err := broker.Update(ss); err != nil {
+	if _, err := broker.Update(context.TODO(), ss, meta.UpdateOptions{}); err != nil {
 		return errors.Annotatef(err, "updating statefulset %q to %s",
 			name, vers)
 	}

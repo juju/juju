@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
+	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
@@ -87,7 +88,7 @@ func (m *ModelCommand) maybeCopyAgentConfig() error {
 		return errors.Trace(err)
 	}
 
-	templateFile := filepath.Join(agent.Dir(m.DataDir(), m.Tag()), caasprovider.TemplateFileNameAgentConf)
+	templateFile := filepath.Join(agent.Dir(m.DataDir(), m.Tag()), caasconstants.TemplateFileNameAgentConf)
 	if err := copyFile(agent.ConfigPath(m.DataDir(), m.Tag()), templateFile); err != nil {
 		logger.Errorf("copying agent config file template: %v", err)
 		return errors.Trace(err)

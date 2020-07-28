@@ -78,7 +78,7 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8ssp
 
 	assertCalls = append(
 		[]*gomock.Call{
-			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+			s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
 		},
 		assertCalls...,
@@ -86,23 +86,23 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8ssp
 
 	ociImageSecret := s.getOCIImageSecret(c, nil)
 	assertCalls = append(assertCalls, []*gomock.Call{
-		s.mockSecrets.EXPECT().Create(ociImageSecret).
+		s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, v1.CreateOptions{}).
 			Return(ociImageSecret, nil),
-		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{}).
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(&serviceArg).
+		s.mockServices.EXPECT().Update(gomock.Any(), &serviceArg, v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(&serviceArg).
+		s.mockServices.EXPECT().Create(gomock.Any(), &serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("app-name-endpoints", v1.GetOptions{}).
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name-endpoints", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).
+		s.mockServices.EXPECT().Update(gomock.Any(), basicHeadlessServiceArg, v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(basicHeadlessServiceArg).
+		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
+		s.mockStatefulSets.EXPECT().Create(gomock.Any(), statefulSetArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	}...)
 	gomock.InOrder(assertCalls...)
@@ -233,7 +233,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreate(c *gc.
 
 	s.assertCustomerResourceDefinitions(
 		c, crds,
-		s.mockCustomResourceDefinition.EXPECT().Create(crd).Return(crd, nil),
+		s.mockCustomResourceDefinition.EXPECT().Create(gomock.Any(), crd, v1.CreateOptions{}).Return(crd, nil),
 	)
 }
 
@@ -345,9 +345,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdate(c *gc.
 
 	s.assertCustomerResourceDefinitions(
 		c, crds,
-		s.mockCustomResourceDefinition.EXPECT().Create(crd).Return(crd, s.k8sAlreadyExistsError()),
-		s.mockCustomResourceDefinition.EXPECT().Get("tfjobs.kubeflow.org", v1.GetOptions{}).Return(crd, nil),
-		s.mockCustomResourceDefinition.EXPECT().Update(crd).Return(crd, nil),
+		s.mockCustomResourceDefinition.EXPECT().Create(gomock.Any(), crd, v1.CreateOptions{}).Return(crd, s.k8sAlreadyExistsError()),
+		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Return(crd, nil),
+		s.mockCustomResourceDefinition.EXPECT().Update(gomock.Any(), crd, v1.UpdateOptions{}).Return(crd, nil),
 	)
 }
 
@@ -402,7 +402,7 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 
 	assertCalls = append(
 		[]*gomock.Call{
-			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+			s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
 		},
 		assertCalls...,
@@ -410,23 +410,23 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 
 	ociImageSecret := s.getOCIImageSecret(c, nil)
 	assertCalls = append(assertCalls, []*gomock.Call{
-		s.mockSecrets.EXPECT().Create(ociImageSecret).
+		s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, v1.CreateOptions{}).
 			Return(ociImageSecret, nil),
-		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{}).
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(&serviceArg).
+		s.mockServices.EXPECT().Update(gomock.Any(), &serviceArg, v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(&serviceArg).
+		s.mockServices.EXPECT().Create(gomock.Any(), &serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("app-name-endpoints", v1.GetOptions{}).
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name-endpoints", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).
+		s.mockServices.EXPECT().Update(gomock.Any(), basicHeadlessServiceArg, v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(basicHeadlessServiceArg).
+		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
+		s.mockStatefulSets.EXPECT().Create(gomock.Any(), statefulSetArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	}...)
 	gomock.InOrder(assertCalls...)
@@ -637,7 +637,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 			// CRD is ready in 1st time checking.
 		},
 		// waits CRD stablised.
-		s.mockCustomResourceDefinition.EXPECT().Get("tfjobs.kubeflow.org", v1.GetOptions{}).Return(crd, nil),
+		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Return(crd, nil),
 		s.mockDynamicClient.EXPECT().Resource(
 			schema.GroupVersionResource{
 				Group:    crd.Spec.Group,
@@ -645,7 +645,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 				Resource: crd.Spec.Names.Plural,
 			},
 		).Return(s.mockNamespaceableResourceClient),
-		s.mockResourceClient.EXPECT().List(v1.ListOptions{}).Return(&unstructured.UnstructuredList{}, nil),
+		s.mockResourceClient.EXPECT().List(gomock.Any(), v1.ListOptions{}).Return(&unstructured.UnstructuredList{}, nil),
 
 		// ensuring cr1.
 		s.mockDynamicClient.EXPECT().Resource(
@@ -655,7 +655,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 				Resource: crd.Spec.Names.Plural,
 			},
 		).Return(s.mockNamespaceableResourceClient),
-		s.mockResourceClient.EXPECT().Create(&cr1, v1.CreateOptions{}).Return(&cr1, nil),
+		s.mockResourceClient.EXPECT().Create(gomock.Any(), &cr1, v1.CreateOptions{}).Return(&cr1, nil),
 
 		// ensuring cr2.
 		s.mockDynamicClient.EXPECT().Resource(
@@ -665,7 +665,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 				Resource: crd.Spec.Names.Plural,
 			},
 		).Return(s.mockNamespaceableResourceClient),
-		s.mockResourceClient.EXPECT().Create(&cr2, v1.CreateOptions{}).Return(&cr2, nil),
+		s.mockResourceClient.EXPECT().Create(gomock.Any(), &cr2, v1.CreateOptions{}).Return(&cr2, nil),
 	)
 }
 
@@ -770,9 +770,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 		},
 		// waits CRD stabilised.
 		// 1. CRD not found.
-		s.mockCustomResourceDefinition.EXPECT().Get("tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(nil, s.k8sNotFoundError()),
+		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(nil, s.k8sNotFoundError()),
 		// 2. CRD resource type not ready yet.
-		s.mockCustomResourceDefinition.EXPECT().Get("tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
+		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
 		s.mockDynamicClient.EXPECT().Resource(
 			schema.GroupVersionResource{
 				Group:    crd.Spec.Group,
@@ -780,9 +780,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 				Resource: crd.Spec.Names.Plural,
 			},
 		).Times(1).Return(s.mockNamespaceableResourceClient),
-		s.mockResourceClient.EXPECT().List(v1.ListOptions{}).Times(1).Return(nil, s.k8sNotFoundError()),
+		s.mockResourceClient.EXPECT().List(gomock.Any(), v1.ListOptions{}).Times(1).Return(nil, s.k8sNotFoundError()),
 		// 3. CRD is ready.
-		s.mockCustomResourceDefinition.EXPECT().Get("tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
+		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
 		s.mockDynamicClient.EXPECT().Resource(
 			schema.GroupVersionResource{
 				Group:    crd.Spec.Group,
@@ -790,7 +790,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 				Resource: crd.Spec.Names.Plural,
 			},
 		).Times(1).Return(s.mockNamespaceableResourceClient),
-		s.mockResourceClient.EXPECT().List(v1.ListOptions{}).Times(1).Return(&unstructured.UnstructuredList{}, nil),
+		s.mockResourceClient.EXPECT().List(gomock.Any(), v1.ListOptions{}).Times(1).Return(&unstructured.UnstructuredList{}, nil),
 
 		// ensuring cr1.
 		s.mockDynamicClient.EXPECT().Resource(
@@ -800,9 +800,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 				Resource: crd.Spec.Names.Plural,
 			},
 		).Return(s.mockNamespaceableResourceClient),
-		s.mockResourceClient.EXPECT().Create(&cr1, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockResourceClient.EXPECT().Get("dist-mnist-for-e2e-test-1", v1.GetOptions{}).Return(&crUpdatedResourceVersion1, nil),
-		s.mockResourceClient.EXPECT().Update(&crUpdatedResourceVersion1, v1.UpdateOptions{}).Return(&crUpdatedResourceVersion1, nil),
+		s.mockResourceClient.EXPECT().Create(gomock.Any(), &cr1, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
+		s.mockResourceClient.EXPECT().Get(gomock.Any(), "dist-mnist-for-e2e-test-1", v1.GetOptions{}).Return(&crUpdatedResourceVersion1, nil),
+		s.mockResourceClient.EXPECT().Update(gomock.Any(), &crUpdatedResourceVersion1, v1.UpdateOptions{}).Return(&crUpdatedResourceVersion1, nil),
 
 		// ensuring cr2.
 		s.mockDynamicClient.EXPECT().Resource(
@@ -812,9 +812,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 				Resource: crd.Spec.Names.Plural,
 			},
 		).Return(s.mockNamespaceableResourceClient),
-		s.mockResourceClient.EXPECT().Create(&cr2, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockResourceClient.EXPECT().Get("dist-mnist-for-e2e-test-2", v1.GetOptions{}).Return(&crUpdatedResourceVersion2, nil),
-		s.mockResourceClient.EXPECT().Update(&crUpdatedResourceVersion2, v1.UpdateOptions{}).Return(&crUpdatedResourceVersion2, nil),
+		s.mockResourceClient.EXPECT().Create(gomock.Any(), &cr2, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
+		s.mockResourceClient.EXPECT().Get(gomock.Any(), "dist-mnist-for-e2e-test-2", v1.GetOptions{}).Return(&crUpdatedResourceVersion2, nil),
+		s.mockResourceClient.EXPECT().Update(gomock.Any(), &crUpdatedResourceVersion2, v1.UpdateOptions{}).Return(&crUpdatedResourceVersion2, nil),
 	)
 }
 
@@ -877,7 +877,7 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 
 	// Test 1: Invalid CRD found - no version.
 	gomock.InOrder(
-		s.mockCustomResourceDefinition.EXPECT().Get("tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(badCRDNoVersion, nil),
+		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(badCRDNoVersion, nil),
 	)
 	result, err := crdGetter.Get("tfjobs.kubeflow.org")
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
@@ -937,7 +937,7 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 
 	// Test 2: not found CRD.
 	gomock.InOrder(
-		s.mockCustomResourceDefinition.EXPECT().Get("tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(nil, s.k8sNotFoundError()),
+		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(nil, s.k8sNotFoundError()),
 	)
 	result, err = crdGetter.Get("tfjobs.kubeflow.org")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -945,7 +945,7 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 
 	// Test 3: found CRD but CRD is not stablised yet.
 	gomock.InOrder(
-		s.mockCustomResourceDefinition.EXPECT().Get("tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
+		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
 		s.mockDynamicClient.EXPECT().Resource(
 			schema.GroupVersionResource{
 				Group:    crd.Spec.Group,
@@ -953,7 +953,7 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 				Resource: crd.Spec.Names.Plural,
 			},
 		).Times(1).Return(s.mockNamespaceableResourceClient),
-		s.mockResourceClient.EXPECT().List(v1.ListOptions{}).Times(1).Return(nil, s.k8sNotFoundError()),
+		s.mockResourceClient.EXPECT().List(gomock.Any(), v1.ListOptions{}).Times(1).Return(nil, s.k8sNotFoundError()),
 	)
 	result, err = crdGetter.Get("tfjobs.kubeflow.org")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -961,7 +961,7 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 
 	// Test 4: all good.
 	gomock.InOrder(
-		s.mockCustomResourceDefinition.EXPECT().Get("tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
+		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
 		s.mockDynamicClient.EXPECT().Resource(
 			schema.GroupVersionResource{
 				Group:    crd.Spec.Group,
@@ -969,7 +969,7 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 				Resource: crd.Spec.Names.Plural,
 			},
 		).Times(1).Return(s.mockNamespaceableResourceClient),
-		s.mockResourceClient.EXPECT().List(v1.ListOptions{}).Times(1).Return(&unstructured.UnstructuredList{}, nil),
+		s.mockResourceClient.EXPECT().List(gomock.Any(), v1.ListOptions{}).Times(1).Return(&unstructured.UnstructuredList{}, nil),
 	)
 	result, err = crdGetter.Get("tfjobs.kubeflow.org")
 	c.Assert(err, jc.ErrorIsNil)

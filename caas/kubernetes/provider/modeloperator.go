@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -18,6 +19,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/paths"
 )
 
@@ -54,7 +57,6 @@ type modelOperatorBrokerBridge struct {
 }
 
 const (
-	labelModelOperator     = "juju-modeloperator"
 	modelOperatorPortLabel = "api"
 
 	EnvModelAgentCAASServiceName      = "SERVICE_NAME"
@@ -127,7 +129,7 @@ func ensureModelOperator(
 				Items: []core.KeyToPath{
 					{
 						Key:  modelOperatorConfigMapAgentConfKey(modelOperatorName),
-						Path: TemplateFileNameAgentConf,
+						Path: constants.TemplateFileNameAgentConf,
 					},
 				},
 			},
@@ -137,8 +139,8 @@ func ensureModelOperator(
 	volumeMounts := []core.VolumeMount{
 		{
 			Name:      configMap.Name,
-			MountPath: filepath.Join(agent.Dir(agentPath, modelTag), TemplateFileNameAgentConf),
-			SubPath:   TemplateFileNameAgentConf,
+			MountPath: filepath.Join(agent.Dir(agentPath, modelTag), constants.TemplateFileNameAgentConf),
+			SubPath:   constants.TemplateFileNameAgentConf,
 		},
 	}
 
@@ -202,7 +204,7 @@ func (k *kubernetesClient) ModelOperator() (*caas.ModelOperatorConfig, error) {
 
 	modelOperatorCfg := caas.ModelOperatorConfig{}
 	cm, err := k.client().CoreV1().ConfigMaps(k.namespace).
-		Get(operatorName, meta.GetOptions{})
+		Get(context.TODO(), operatorName, meta.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -227,7 +229,7 @@ func modelOperatorConfigMap(
 		ObjectMeta: meta.ObjectMeta{
 			Name:      operatorName,
 			Namespace: namespace,
-			Labels:    AppendLabels(labels, moLabels),
+			Labels:    utils.AppendLabels(labels, moLabels),
 		},
 		Data: map[string]string{
 			modelOperatorConfigMapAgentConfKey(operatorName): string(agentConf),
@@ -259,7 +261,7 @@ func modelOperatorDeployment(
 		ObjectMeta: meta.ObjectMeta{
 			Name:      operatorName,
 			Namespace: namespace,
-			Labels:    AppendLabels(labels, moLabels),
+			Labels:    utils.AppendLabels(labels, moLabels),
 		},
 		Spec: apps.DeploymentSpec{
 			Replicas: int32Ptr(1),
@@ -331,7 +333,7 @@ func (k *kubernetesClient) ModelOperatorExists() (bool, error) {
 
 func (k *kubernetesClient) modelOperatorDeploymentExists(operatorName string) (bool, error) {
 	_, err := k.client().AppsV1().Deployments(k.namespace).
-		Get(operatorName, meta.GetOptions{})
+		Get(context.TODO(), operatorName, meta.GetOptions{})
 
 	if k8serrors.IsNotFound(err) {
 		return false, nil
@@ -344,7 +346,7 @@ func (k *kubernetesClient) modelOperatorDeploymentExists(operatorName string) (b
 
 func modelOperatorLabels(operatorName string) map[string]string {
 	return map[string]string{
-		labelModelOperator: operatorName,
+		constants.LabelModelOperator: operatorName,
 	}
 }
 

@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -13,9 +14,11 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
 )
 
@@ -51,7 +54,7 @@ func (s *ControllerUpgraderSuite) TestControllerUpgrade(c *gc.C) {
 		oldImagePath = fmt.Sprintf("%s/%s:9.9.8", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
 		newImagePath = fmt.Sprintf("%s/%s:9.9.9", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
 	)
-	_, err := s.broker.Client().AppsV1().StatefulSets(s.broker.Namespace()).Create(
+	_, err := s.broker.Client().AppsV1().StatefulSets(s.broker.Namespace()).Create(context.TODO(),
 		&apps.StatefulSet{
 			ObjectMeta: meta.ObjectMeta{
 				Name: appName,
@@ -73,18 +76,18 @@ func (s *ControllerUpgraderSuite) TestControllerUpgrade(c *gc.C) {
 					},
 				},
 			},
-		})
+		}, v1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(controllerUpgrade(appName, version.MustParse("9.9.9"), s.broker), jc.ErrorIsNil)
 
 	ss, err := s.broker.Client().AppsV1().StatefulSets(s.broker.Namespace()).
-		Get(appName, meta.GetOptions{})
+		Get(context.TODO(), appName, meta.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ss.Spec.Template.Spec.Containers[0].Image, gc.Equals, newImagePath)
 
-	c.Assert(ss.Annotations[labelVersion], gc.Equals, version.MustParse("9.9.9").String())
-	c.Assert(ss.Spec.Template.Annotations[labelVersion], gc.Equals, version.MustParse("9.9.9").String())
+	c.Assert(ss.Annotations[constants.LabelVersion], gc.Equals, version.MustParse("9.9.9").String())
+	c.Assert(ss.Spec.Template.Annotations[constants.LabelVersion], gc.Equals, version.MustParse("9.9.9").String())
 }
 
 func (s *ControllerUpgraderSuite) TestControllerDoesNotExist(c *gc.C) {

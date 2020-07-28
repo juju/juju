@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	apicaasoperator "github.com/juju/juju/api/caasoperator"
-	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
+	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
@@ -155,7 +155,7 @@ func (op *CaasOperatorAgent) maybeCopyAgentConfig() error {
 		logger.Errorf("reading initial agent config file: %v", err)
 		return errors.Trace(err)
 	}
-	templateFile := filepath.Join(agent.Dir(op.DataDir(), op.Tag()), caasprovider.TemplateFileNameAgentConf)
+	templateFile := filepath.Join(agent.Dir(op.DataDir(), op.Tag()), caasconstants.TemplateFileNameAgentConf)
 	if err := copyFile(agent.ConfigPath(op.DataDir(), op.Tag()), templateFile); err != nil {
 		logger.Errorf("copying agent config file template: %v", err)
 		return errors.Trace(err)

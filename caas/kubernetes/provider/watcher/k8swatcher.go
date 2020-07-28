@@ -1,19 +1,22 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provider
+package watcher
 
 import (
 	"time"
 
 	jujuclock "github.com/juju/clock"
-	"github.com/juju/juju/core/watcher"
+	"github.com/juju/loggo"
 	"github.com/juju/worker/v2/catacomb"
-
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/juju/juju/core/watcher"
 )
+
+var logger = loggo.GetLogger("juju.kubernetes.provider.watcher")
 
 type KubernetesNotifyWatcher interface {
 	watcher.CoreWatcher
@@ -48,7 +51,7 @@ var (
 	WatchEventUpdate WatchEvent = "update"
 )
 
-func newKubernetesNotifyWatcher(informer cache.SharedIndexInformer, name string, clock jujuclock.Clock) (KubernetesNotifyWatcher, error) {
+func NewKubernetesNotifyWatcher(informer cache.SharedIndexInformer, name string, clock jujuclock.Clock) (KubernetesNotifyWatcher, error) {
 	w := &kubernetesNotifyWatcher{
 		clock:    clock,
 		informer: informer,
@@ -159,7 +162,7 @@ type NewK8sStringsWatcherFunc func(
 	clock jujuclock.Clock, initialEvents []string,
 	filterFunc K8sStringsWatcherFilterFunc) (KubernetesStringsWatcher, error)
 
-func newKubernetesStringsWatcher(informer cache.SharedIndexInformer, name string, clock jujuclock.Clock,
+func NewKubernetesStringsWatcher(informer cache.SharedIndexInformer, name string, clock jujuclock.Clock,
 	initialEvents []string, filterFunc K8sStringsWatcherFilterFunc) (KubernetesStringsWatcher, error) {
 	w := &kubernetesStringsWatcher{
 		clock:         clock,

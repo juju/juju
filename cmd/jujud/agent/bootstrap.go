@@ -29,6 +29,7 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
+	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
@@ -125,7 +126,7 @@ func (c *BootstrapCommand) ensureConfigFilesForCaas() error {
 			to: agent.ConfigPath(c.AgentConf.DataDir(), tag),
 			from: filepath.Join(
 				agent.Dir(c.AgentConf.DataDir(), tag),
-				caasprovider.TemplateFileNameAgentConf,
+				caasconstants.TemplateFileNameAgentConf,
 			),
 		},
 		{
