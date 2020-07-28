@@ -100,9 +100,10 @@ func (c Config) BasePath() (charmhubpath.Path, error) {
 
 // Client represents the client side of a charm store.
 type Client struct {
-	url        string
-	infoClient *InfoClient
-	findClient *FindClient
+	url           string
+	infoClient    *InfoClient
+	findClient    *FindClient
+	refreshClient *RefreshClient
 }
 
 // NewClient creates a new charmhub client from the supplied configuration.
@@ -122,14 +123,20 @@ func NewClient(config Config) (*Client, error) {
 		return nil, errors.Annotate(err, "constructing find path")
 	}
 
+	refreshPath, err := base.Join("refresh")
+	if err != nil {
+		return nil, errors.Annotate(err, "constructing refresh path")
+	}
+
 	httpClient := DefaultHTTPTransport()
 	apiRequester := NewAPIRequester(httpClient)
 	restClient := NewHTTPRESTClient(apiRequester, config.Headers)
 
 	return &Client{
-		url:        base.String(),
-		infoClient: NewInfoClient(infoPath, restClient),
-		findClient: NewFindClient(findPath, restClient),
+		url:           base.String(),
+		infoClient:    NewInfoClient(infoPath, restClient),
+		findClient:    NewFindClient(findPath, restClient),
+		refreshClient: NewRefreshClient(refreshPath, restClient),
 	}, nil
 }
 
@@ -146,4 +153,10 @@ func (c *Client) Info(ctx context.Context, name string) (transport.InfoResponse,
 // Find searches for a given charm for a given name from charmhub.
 func (c *Client) Find(ctx context.Context, name string) ([]transport.FindResponse, error) {
 	return c.findClient.Find(ctx, name)
+}
+
+// Refresh defines a client for making refresh API calls, that allow for
+// updating a series of charms to the latest version.
+func (c *Client) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
+	return c.refreshClient.Refresh(ctx, config)
 }
