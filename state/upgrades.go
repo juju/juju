@@ -2364,7 +2364,7 @@ func ReplacePortsDocSubnetIDCIDR(pool *StatePool) (err error) {
 		col, closer := st.db().GetCollection(openedPortsC)
 		defer closer()
 
-		var docs []portsDoc
+		var docs []upgrade.OldPortsDoc28
 		err := col.Find(nil).All(&docs)
 		if err != nil {
 			return errors.Trace(err)
@@ -2394,7 +2394,7 @@ func ReplacePortsDocSubnetIDCIDR(pool *StatePool) (err error) {
 
 			newDoc := oldDoc
 			newDoc.TxnRevno = 0
-			newDoc.DocID = portsGlobalKey(newDoc.MachineID, subnet.ID())
+			newDoc.DocID = fmt.Sprintf("m#%s#%s", newDoc.MachineID, subnet.ID())
 			newDoc.SubnetID = subnet.ID()
 
 			ops = append(ops, txn.Op{

@@ -1431,6 +1431,28 @@ func (u *Unit) OpenClosePortsInSubnet(subnetID string, openPortRanges, closePort
 	return nil
 }
 
+// OpenedPortRanges returns a UnitPortRanges object that can be used to query
+// and/or mutate the port ranges opened by the unit on the machine it is
+// assigned to. After manipulating the open port ranges, the caller can invoke
+// the returned changes function to obtain a ModelOperation for committing the
+// changes.
+//
+// Calls to OpenPortRanges will return back an error if the unit is not assigned
+// to a machine.
+func (u *Unit) OpenedPortRanges() (UnitPortRanges, func() ModelOperation, error) {
+	machineID, err := u.AssignedMachineId()
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "cannot retrieve ports for unit %q", u.Name())
+	}
+
+	machinePorts, err := getOpenedMachinePortRanges(u.st, machineID)
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "cannot retrieve ports for unit %q", u.Name())
+	}
+
+	return machinePorts.ForUnit(u.Name()), machinePorts.Changes, nil
+}
+
 // OpenClosePortsInSubnetOperation returns a ModelOperation that opens and
 // closes the given port ranges for the unit on the given subnet, which can be
 // empty. When non-empty, subnetID must refer to an existing, alive subnet,
@@ -1439,42 +1461,20 @@ func (u *Unit) OpenClosePortsInSubnet(subnetID string, openPortRanges, closePort
 // Either of the open or close PortRange arguments can be nil to indicate
 // that they should be ignored (e.g. for open- or close-only calls).
 func (u *Unit) OpenClosePortsInSubnetOperation(subnetID string, openRanges, closeRanges []corenetwork.PortRange) (ModelOperation, error) {
-	machineID, err := u.AssignedMachineId()
-	if err != nil {
-		return nil, errors.Annotatef(err, "unit %q has no assigned machine", u)
-	}
-
-	if err := verifySubnetAlive(u.st, subnetID); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	machinePorts, err := getOrCreateOpenedMachinePortsInSubnet(u.st, machineID, subnetID)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get or create ports for unit %q", u.Name())
-	}
-
-	return machinePorts.OpenClosePortsOperation(u.Name(), openRanges, closeRanges)
+	panic("TODO(achilleasa): refactor facades to use OpenPortRanges")
 }
 
 // OpenedPortsInSubnet returns a slice containing the open port ranges of the
 // unit on the given subnet ID. When subnetID is not empty, it must refer to an
 // existing, alive subnet, otherwise an error is returned.
 func (u *Unit) OpenedPortsInSubnet(subnetID string) ([]corenetwork.PortRange, error) {
-	machineID, err := u.AssignedMachineId()
-	if err != nil {
-		return nil, errors.Annotatef(err, "unit %q has no assigned machine", u)
-	}
+	panic("TODO(achilleasa): refactor facades to use OpenPortRanges")
+}
 
-	if err := verifySubnetAlive(u.st, subnetID); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	machinePorts, err := getOrCreateOpenedMachinePortsInSubnet(u.st, machineID, subnetID)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get or create ports for unit %q", u.Name())
-	}
-
-	return machinePorts.PortRangesForUnit(u.Name()), nil
+// OpenedPortsBySubnet returns a map where keys are subnet IDs and values are
+// the list of PortRanges opened in each subnet by this unit.
+func (u *Unit) OpenedPortsBySubnet() (map[string][]corenetwork.PortRange, error) {
+	panic("TODO(achilleasa): refactor facades to use OpenPortRanges")
 }
 
 // CharmURL returns the charm URL this unit is currently using.
@@ -2999,22 +2999,6 @@ func (u *Unit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, message 
 	return machine.SetUpgradeSeriesUnitStatus(u.Name(), status, message)
 }
 
-// OpenedPortsBySubnet returns a map where keys are subnet IDs and values are
-// the list of PortRanges opened in each subnet by this unit.
-func (u *Unit) OpenedPortsBySubnet() (map[string][]corenetwork.PortRange, error) {
-	machineID, err := u.AssignedMachineId()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	machPortList, err := getOpenedMachinePortsInAllSubnets(u.st, machineID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return UnitPortsFromMachineSubnetPorts(u.Name(), machineID, machPortList).BySubnet(), nil
-}
-
 // assertUnitNotDeadOp returns a txn.Op that asserts the given unit name is
 // not dead.
 func assertUnitNotDeadOp(st *State, unitName string) txn.Op {
@@ -3022,5 +3006,15 @@ func assertUnitNotDeadOp(st *State, unitName string) txn.Op {
 		C:      unitsC,
 		Id:     st.docID(unitName),
 		Assert: notDeadDoc,
+	}
+}
+
+// assertUnitAssignedToMachineOp returns a txn.Op that asserts the given unit
+// name is assigned to the specified machine.
+func assertUnitAssignedToMachineOp(st *State, unitName, machineID string) txn.Op {
+	return txn.Op{
+		C:      unitsC,
+		Id:     st.docID(unitName),
+		Assert: bson.D{{"machineid", machineID}},
 	}
 }

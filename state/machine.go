@@ -1004,15 +1004,16 @@ func (m *Machine) removePortsOps() ([]txn.Op, error) {
 	if m.doc.Life != Dead {
 		return nil, errors.Errorf("machine is not dead")
 	}
-	ports, err := m.OpenedPorts()
+	machRanges, err := m.OpenedPortRanges()
 	if err != nil {
 		return nil, err
 	}
-	var ops []txn.Op
-	for _, p := range ports {
-		ops = append(ops, p.(*machineSubnetPorts).removeOps()...)
+
+	mpr := machRanges.(*machinePortRanges)
+	if !mpr.Persisted() {
+		return nil, nil
 	}
-	return ops, nil
+	return mpr.removeOps(), nil
 }
 
 func (m *Machine) removeOps() ([]txn.Op, error) {
@@ -2180,6 +2181,16 @@ func (m *Machine) AssertAliveOp() txn.Op {
 		C:      machinesC,
 		Id:     m.doc.DocID,
 		Assert: isAliveDoc,
+	}
+}
+
+// assertMachineNotDeadOp returns an assert-only transaction operation that
+// ensures the machine is not dead.
+func assertMachineNotDeadOp(st *State, machineID string) txn.Op {
+	return txn.Op{
+		C:      machinesC,
+		Id:     st.docID(machineID),
+		Assert: notDeadDoc,
 	}
 }
 

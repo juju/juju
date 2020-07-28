@@ -368,15 +368,10 @@ func (e *exporter) machines() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	// Read all the open ports documents.
-	openedPorts, closer := e.st.db().GetCollection(openedPortsC)
-	defer closer()
-	var portsData []portsDoc
-	if err := openedPorts.Find(nil).All(&portsData); err != nil {
-		return errors.Annotate(err, "opened ports")
+	openedPorts, err := e.loadOpenedPortRanges()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	e.logger.Debugf("found %d openedPorts docs", len(portsData))
 
 	// We are iterating through a flat list of machines, but the migration
 	// model stores the nesting. The AllMachines method assures us that the
@@ -396,7 +391,7 @@ func (e *exporter) machines() error {
 			}
 		}
 
-		exMachine, err := e.newMachine(exParent, machine, instances, portsData, blockDevices)
+		exMachine, err := e.newMachine(exParent, machine, instances, openedPorts, blockDevices)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -404,6 +399,21 @@ func (e *exporter) machines() error {
 	}
 
 	return nil
+}
+
+func (e *exporter) loadOpenedPortRanges() (map[string]*machinePortRanges, error) {
+	mprs, err := getOpenedPortRangesForAllMachines(e.st)
+	if err != nil {
+		return nil, errors.Annotate(err, "opened port ranges")
+	}
+
+	openedPortsByMachine := make(map[string]*machinePortRanges)
+	for _, mpr := range mprs {
+		openedPortsByMachine[mpr.MachineID()] = mpr
+	}
+
+	e.logger.Debugf("found %d openedPorts docs", len(openedPortsByMachine))
+	return openedPortsByMachine, nil
 }
 
 func (e *exporter) loadMachineInstanceData() (map[string]instanceData, error) {
@@ -438,7 +448,7 @@ func (e *exporter) loadMachineBlockDevices() (map[string][]BlockDeviceInfo, erro
 	return result, nil
 }
 
-func (e *exporter) newMachine(exParent description.Machine, machine *Machine, instances map[string]instanceData, portsData []portsDoc, blockDevices map[string][]BlockDeviceInfo) (description.Machine, error) {
+func (e *exporter) newMachine(exParent description.Machine, machine *Machine, instances map[string]instanceData, portsData map[string]*machinePortRanges, blockDevices map[string][]BlockDeviceInfo) (description.Machine, error) {
 	args := description.MachineArgs{
 		Id:            machine.MachineTag(),
 		Nonce:         machine.doc.Nonce,
@@ -545,8 +555,8 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 		}
 	}
 
-	for _, args := range e.openedPortsArgsForMachine(machine.Id(), portsData) {
-		exMachine.AddOpenedPorts(args)
+	for _, args := range e.openedPortRangesArgsForMachine(machine.Id(), portsData) {
+		exMachine.AddOpenedPortRange(args)
 	}
 
 	exMachine.SetAnnotations(e.getAnnotations(globalKey))
@@ -560,21 +570,23 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 	return exMachine, nil
 }
 
-func (e *exporter) openedPortsArgsForMachine(machineId string, portsData []portsDoc) []description.OpenedPortsArgs {
-	var result []description.OpenedPortsArgs
-	for _, doc := range portsData {
-		// Don't bother including a subnet if there are no ports open on it.
-		if doc.MachineID == machineId && len(doc.Ports) > 0 {
-			args := description.OpenedPortsArgs{SubnetID: doc.SubnetID}
-			for _, p := range doc.Ports {
-				args.OpenedPorts = append(args.OpenedPorts, description.PortRangeArgs{
-					UnitName: p.UnitName,
-					FromPort: p.FromPort,
-					ToPort:   p.ToPort,
-					Protocol: p.Protocol,
+func (e *exporter) openedPortRangesArgsForMachine(machineID string, portsData map[string]*machinePortRanges) []description.OpenedPortRangeArgs {
+	if portsData[machineID] == nil {
+		return nil
+	}
+
+	var result []description.OpenedPortRangeArgs
+	for unitName, unitPorts := range portsData[machineID].ByUnit() {
+		for endpointName, portRanges := range unitPorts.ByEndpoint() {
+			for _, pr := range portRanges {
+				result = append(result, description.OpenedPortRangeArgs{
+					UnitName:     unitName,
+					EndpointName: endpointName,
+					FromPort:     pr.FromPort,
+					ToPort:       pr.ToPort,
+					Protocol:     pr.Protocol,
 				})
 			}
-			result = append(result, args)
 		}
 	}
 	return result

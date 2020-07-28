@@ -67,3 +67,21 @@ func (a OldAddress27) Upgrade(lookup network.SpaceInfos) (OldAddress27, error) {
 	}
 	return a, nil
 }
+
+// OldPortsDoc28 represents a ports document prior to the 2.9 schema changes.
+type OldPortsDoc28 struct {
+	DocID     string              `bson:"_id"`
+	ModelUUID string              `bson:"model-uuid"`
+	MachineID string              `bson:"machine-id"`
+	SubnetID  string              `bson:"subnet-id"`
+	Ports     []OldPortRangeDoc28 `bson:"ports"`
+	TxnRevno  int64               `bson:"txn-revno"`
+}
+
+// OldPortsDoc28 represents a port range entry document prior to the 2.9 schema changes.
+type OldPortRangeDoc28 struct {
+	UnitName string
+	FromPort int
+	ToPort   int
+	Protocol string
+}

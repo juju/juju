@@ -26,14 +26,13 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testing"
 )
 
-const emptySubnet = ""
+const allEndpoints = ""
 
 var (
 	_ backingEntityDoc = (*backingMachine)(nil)
@@ -61,7 +60,6 @@ options:
 
 type allWatcherBaseSuite struct {
 	internalStateSuite
-	networktesting.FirewallHelper
 	currentTime time.Time
 }
 
@@ -272,15 +270,15 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
 		add(&multiwatcher.UnitInfo{
-			ModelUUID:          modelUUID,
-			Name:               fmt.Sprintf("wordpress/%d", i),
-			Application:        wordpress.Name(),
-			Series:             m.Series(),
-			Life:               life.Alive,
-			MachineID:          m.Id(),
-			PortRangesBySubnet: make(map[string][]network.PortRange),
-			Annotations:        pairs,
-			Subordinate:        false,
+			ModelUUID:                modelUUID,
+			Name:                     fmt.Sprintf("wordpress/%d", i),
+			Application:              wordpress.Name(),
+			Series:                   m.Series(),
+			Life:                     life.Alive,
+			MachineID:                m.Id(),
+			OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
+			Annotations:              pairs,
+			Subordinate:              false,
 			WorkloadStatus: multiwatcher.StatusInfo{
 				Current: "waiting",
 				Message: "waiting for machine",
@@ -354,15 +352,15 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		c.Assert(lu.IsPrincipal(), jc.IsFalse)
 		unitName := fmt.Sprintf("wordpress/%d", i)
 		add(&multiwatcher.UnitInfo{
-			ModelUUID:          modelUUID,
-			Name:               fmt.Sprintf("logging/%d", i),
-			Application:        "logging",
-			Series:             "quantal",
-			Life:               life.Alive,
-			PortRangesBySubnet: make(map[string][]network.PortRange),
-			MachineID:          m.Id(),
-			Principal:          unitName,
-			Subordinate:        true,
+			ModelUUID:                modelUUID,
+			Name:                     fmt.Sprintf("logging/%d", i),
+			Application:              "logging",
+			Series:                   "quantal",
+			Life:                     life.Alive,
+			OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
+			MachineID:                m.Id(),
+			Principal:                unitName,
+			Subordinate:              true,
 			WorkloadStatus: multiwatcher.StatusInfo{
 				Current: "waiting",
 				Message: "waiting for machine",
@@ -817,12 +815,12 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID:          caasSt.ModelUUID(),
-						Name:               "mysql/0",
-						Application:        "mysql",
-						Series:             "kubernetes",
-						Life:               "alive",
-						PortRangesBySubnet: make(map[string][]corenetwork.PortRange),
+						ModelUUID:                caasSt.ModelUUID(),
+						Name:                     "mysql/0",
+						Application:              "mysql",
+						Series:                   "kubernetes",
+						Life:                     "alive",
+						OpenPortRangesByEndpoint: make(map[string][]corenetwork.PortRange),
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "waiting",
 							Message: "agent initializing",
@@ -866,11 +864,11 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 				about: "container status updates existing unit",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID:          caasSt.ModelUUID(),
-						Name:               "mysql/0",
-						Application:        "mysql",
-						Series:             "kubernetes",
-						PortRangesBySubnet: make(map[string][]network.PortRange),
+						ModelUUID:                caasSt.ModelUUID(),
+						Name:                     "mysql/0",
+						Application:              "mysql",
+						Series:                   "kubernetes",
+						OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 					},
 				},
 				change: watcher.Change{
@@ -879,11 +877,11 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID:          caasSt.ModelUUID(),
-						Name:               "mysql/0",
-						Application:        "mysql",
-						Series:             "kubernetes",
-						PortRangesBySubnet: make(map[string][]network.PortRange),
+						ModelUUID:                caasSt.ModelUUID(),
+						Name:                     "mysql/0",
+						Application:              "mysql",
+						Series:                   "kubernetes",
+						OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 						ContainerStatus: multiwatcher.StatusInfo{
 							Current: "maintenance",
 							Message: "setting up",
@@ -1047,7 +1045,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	publicAddress := network.NewScopedSpaceAddress("1.2.3.4", network.ScopePublic)
 	privateAddress := network.NewScopedSpaceAddress("4.3.2.1", network.ScopeCloudLocal)
-	s.AssertOpenUnitPort(c, u, emptySubnet, "tcp", 12345)
+	MustOpenUnitPortRange(c, s.state, m, u.Name(), allEndpoints, corenetwork.MustParsePortRange("12345/tcp"))
 	// Create all watcher state backing.
 	b := NewAllWatcherBacking(s.pool)
 	all := multiwatcher.NewStore(loggo.GetLogger("test"))
@@ -1076,8 +1074,8 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 			MachineID:      "0",
 			PublicAddress:  "1.2.3.4",
 			PrivateAddress: "4.3.2.1",
-			PortRangesBySubnet: map[string][]network.PortRange{
-				"": {corenetwork.MustParsePortRange("12345/tcp")},
+			OpenPortRangesByEndpoint: map[string][]network.PortRange{
+				allEndpoints: {corenetwork.MustParsePortRange("12345/tcp")},
 			},
 			WorkloadStatus: multiwatcher.StatusInfo{
 				Current: "waiting",
@@ -1094,24 +1092,24 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 		machineInfo,
 	})
 	// Close the ports.
-	s.AssertCloseUnitPort(c, u, emptySubnet, "tcp", 12345)
+	MustCloseUnitPortRange(c, s.state, m, u.Name(), allEndpoints, corenetwork.MustParsePortRange("12345/tcp"))
 	err = b.Changed(all, watcher.Change{
 		C:  openedPortsC,
-		Id: s.state.docID("m#0#0.1.2.0/24"),
+		Id: s.state.docID("0"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	entities = all.All()
 	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
 		&multiwatcher.UnitInfo{
-			ModelUUID:          s.state.ModelUUID(),
-			Name:               "wordpress/0",
-			Application:        "wordpress",
-			Series:             "quantal",
-			MachineID:          "0",
-			Life:               life.Alive,
-			PublicAddress:      "1.2.3.4",
-			PrivateAddress:     "4.3.2.1",
-			PortRangesBySubnet: make(map[string][]network.PortRange),
+			ModelUUID:                s.state.ModelUUID(),
+			Name:                     "wordpress/0",
+			Application:              "wordpress",
+			Series:                   "quantal",
+			MachineID:                "0",
+			Life:                     life.Alive,
+			PublicAddress:            "1.2.3.4",
+			PrivateAddress:           "4.3.2.1",
+			OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 			WorkloadStatus: multiwatcher.StatusInfo{
 				Current: "waiting",
 				Message: "waiting for machine",
@@ -2177,10 +2175,10 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 				about: "workload version is updated when set on a unit",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID:          st.ModelUUID(),
-						Name:               "wordpress/0",
-						Application:        "wordpress",
-						PortRangesBySubnet: make(map[string][]network.PortRange),
+						ModelUUID:                st.ModelUUID(),
+						Name:                     "wordpress/0",
+						Application:              "wordpress",
+						OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 					},
 					&multiwatcher.ApplicationInfo{
 						ModelUUID: st.ModelUUID(),
@@ -2200,10 +2198,10 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 						WorkloadVersion: "42.47",
 					},
 					&multiwatcher.UnitInfo{
-						ModelUUID:          st.ModelUUID(),
-						Name:               "wordpress/0",
-						Application:        "wordpress",
-						PortRangesBySubnet: make(map[string][]network.PortRange),
+						ModelUUID:                st.ModelUUID(),
+						Name:                     "wordpress/0",
+						Application:              "wordpress",
+						OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 					},
 				},
 			}
@@ -2218,10 +2216,10 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 				about: "workload version is not updated when empty",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID:          st.ModelUUID(),
-						Name:               "wordpress/0",
-						Application:        "wordpress",
-						PortRangesBySubnet: make(map[string][]network.PortRange),
+						ModelUUID:                st.ModelUUID(),
+						Name:                     "wordpress/0",
+						Application:              "wordpress",
+						OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 					},
 					&multiwatcher.ApplicationInfo{
 						ModelUUID:       st.ModelUUID(),
@@ -2242,10 +2240,10 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 						WorkloadVersion: "ultimate",
 					},
 					&multiwatcher.UnitInfo{
-						ModelUUID:          st.ModelUUID(),
-						Name:               "wordpress/0",
-						Application:        "wordpress",
-						PortRangesBySubnet: make(map[string][]network.PortRange),
+						ModelUUID:                st.ModelUUID(),
+						Name:                     "wordpress/0",
+						Application:              "wordpress",
+						OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 					},
 				},
 			}
@@ -2526,7 +2524,6 @@ func testChangeApplicationsConstraints(c *gc.C, owner names.UserTag, runChangeTe
 }
 
 func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []changeTestFunc)) {
-	var fw networktesting.FirewallHelper
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
@@ -2541,10 +2538,10 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				about: "unit is removed if it's not in backing",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID:          st.ModelUUID(),
-						Name:               "wordpress/1",
-						Life:               life.Alive,
-						PortRangesBySubnet: make(map[string][]network.PortRange),
+						ModelUUID:                st.ModelUUID(),
+						Name:                     "wordpress/1",
+						Life:                     life.Alive,
+						OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 					},
 				},
 				change: watcher.Change{
@@ -2560,9 +2557,11 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
-			fw.AssertOpenUnitPort(c, u, emptySubnet, "tcp", 12345)
-			fw.AssertOpenUnitPort(c, u, emptySubnet, "udp", 54321)
-			fw.AssertOpenUnitPorts(c, u, emptySubnet, "tcp", 5555, 5558)
+			MustOpenUnitPortRanges(c, u.st, m, u.Name(), allEndpoints, []corenetwork.PortRange{
+				corenetwork.MustParsePortRange("12345/tcp"),
+				corenetwork.MustParsePortRange("54321/udp"),
+				corenetwork.MustParsePortRange("5555-5558/tcp"),
+			})
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
@@ -2587,8 +2586,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						Series:      "quantal",
 						Life:        life.Alive,
 						MachineID:   "0",
-						PortRangesBySubnet: map[string][]network.PortRange{
-							"": {
+						OpenPortRangesByEndpoint: map[string][]network.PortRange{
+							allEndpoints: {
 								corenetwork.MustParsePortRange("5555-5558/tcp"),
 								corenetwork.MustParsePortRange("12345/tcp"),
 								corenetwork.MustParsePortRange("54321/udp"),
@@ -2616,7 +2615,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
-			fw.AssertOpenUnitPort(c, u, emptySubnet, "udp", 17070)
+			MustOpenUnitPortRange(c, st, m, u.Name(), allEndpoints, corenetwork.MustParsePortRange("17070/udp"))
 			err = u.SetAgentVersion(version.MustParseBinary("2.4.1-bionic-amd64"))
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
@@ -2638,8 +2637,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						Data:    map[string]interface{}{},
 						Since:   &now,
 					},
-					PortRangesBySubnet: map[string][]network.PortRange{
-						"": {
+					OpenPortRangesByEndpoint: map[string][]network.PortRange{
+						allEndpoints: {
 							corenetwork.MustParsePortRange("17070/udp"),
 						},
 					},
@@ -2656,8 +2655,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						Series:      "quantal",
 						Life:        life.Alive,
 						MachineID:   "0",
-						PortRangesBySubnet: map[string][]network.PortRange{
-							"": {
+						OpenPortRangesByEndpoint: map[string][]network.PortRange{
+							allEndpoints: {
 								corenetwork.MustParsePortRange("17070/udp"),
 							},
 						},
@@ -2684,15 +2683,15 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
-			fw.AssertOpenUnitPort(c, u, emptySubnet, "tcp", 4242)
+			MustOpenUnitPortRange(c, st, m, u.Name(), allEndpoints, corenetwork.MustParsePortRange("4242/tcp"))
 
 			return changeTestCase{
 				about: "unit info is updated if a port is opened on the machine it is placed in",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID:          st.ModelUUID(),
-						Name:               "wordpress/0",
-						PortRangesBySubnet: make(map[string][]network.PortRange),
+						ModelUUID:                st.ModelUUID(),
+						Name:                     "wordpress/0",
+						OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 					},
 					&multiwatcher.MachineInfo{
 						ModelUUID: st.ModelUUID(),
@@ -2701,14 +2700,14 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				change: watcher.Change{
 					C:  openedPortsC,
-					Id: st.docID("m#0#"),
+					Id: st.docID("0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
 						ModelUUID: st.ModelUUID(),
 						Name:      "wordpress/0",
-						PortRangesBySubnet: map[string][]network.PortRange{
-							"": {
+						OpenPortRangesByEndpoint: map[string][]network.PortRange{
+							allEndpoints: {
 								corenetwork.MustParsePortRange("4242/tcp"),
 							},
 						},
@@ -2727,7 +2726,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
-			fw.AssertOpenUnitPorts(c, u, emptySubnet, "tcp", 21, 22)
+			MustOpenUnitPortRange(c, st, m, u.Name(), allEndpoints, corenetwork.MustParsePortRange("21-22/tcp"))
 			now := st.clock().Now()
 			return changeTestCase{
 				about: "unit is created if a port is opened on the machine it is placed in",
@@ -2760,8 +2759,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 							Data:    map[string]interface{}{},
 							Since:   &now,
 						},
-						PortRangesBySubnet: map[string][]network.PortRange{
-							"": {
+						OpenPortRangesByEndpoint: map[string][]network.PortRange{
+							allEndpoints: {
 								corenetwork.MustParsePortRange("21-22/tcp"),
 							},
 						},
@@ -2780,7 +2779,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
-			fw.AssertOpenUnitPort(c, u, emptySubnet, "tcp", 12345)
+			MustOpenUnitPortRange(c, st, m, u.Name(), allEndpoints, corenetwork.MustParsePortRange("12345/tcp"))
 			publicAddress := network.NewScopedSpaceAddress("public", network.ScopePublic)
 			privateAddress := network.NewScopedSpaceAddress("private", network.ScopeCloudLocal)
 			now := st.clock().Now()
@@ -2816,8 +2815,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						PublicAddress:  "public",
 						PrivateAddress: "private",
 						MachineID:      "0",
-						PortRangesBySubnet: map[string][]network.PortRange{
-							"": {
+						OpenPortRangesByEndpoint: map[string][]network.PortRange{
+							allEndpoints: {
 								corenetwork.MustParsePortRange("12345/tcp"),
 							},
 						},
@@ -2856,10 +2855,10 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			return changeTestCase{
 				about: "no change if status is not in backing",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
-					ModelUUID:          st.ModelUUID(),
-					Name:               "wordpress/0",
-					Application:        "wordpress",
-					PortRangesBySubnet: make(map[string][]network.PortRange),
+					ModelUUID:                st.ModelUUID(),
+					Name:                     "wordpress/0",
+					Application:              "wordpress",
+					OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 					AgentStatus: multiwatcher.StatusInfo{
 						Current: "idle",
 						Message: "",
@@ -2879,10 +2878,10 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID:          st.ModelUUID(),
-						Name:               "wordpress/0",
-						Application:        "wordpress",
-						PortRangesBySubnet: make(map[string][]network.PortRange),
+						ModelUUID:                st.ModelUUID(),
+						Name:                     "wordpress/0",
+						Application:              "wordpress",
+						OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 						AgentStatus: multiwatcher.StatusInfo{
 							Current: "idle",
 							Message: "",
@@ -2915,10 +2914,10 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			return changeTestCase{
 				about: "status is changed if the unit exists in the store",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
-					ModelUUID:          st.ModelUUID(),
-					Name:               "wordpress/0",
-					Application:        "wordpress",
-					PortRangesBySubnet: make(map[string][]network.PortRange),
+					ModelUUID:                st.ModelUUID(),
+					Name:                     "wordpress/0",
+					Application:              "wordpress",
+					OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 					AgentStatus: multiwatcher.StatusInfo{
 						Current: "idle",
 						Message: "",
@@ -2938,10 +2937,10 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID:          st.ModelUUID(),
-						Name:               "wordpress/0",
-						Application:        "wordpress",
-						PortRangesBySubnet: make(map[string][]network.PortRange),
+						ModelUUID:                st.ModelUUID(),
+						Name:                     "wordpress/0",
+						Application:              "wordpress",
+						OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "maintenance",
 							Message: "working",
@@ -2981,10 +2980,10 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			return changeTestCase{
 				about: "unit status is changed if the agent comes off error state",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
-					ModelUUID:          st.ModelUUID(),
-					Name:               "wordpress/0",
-					Application:        "wordpress",
-					PortRangesBySubnet: make(map[string][]network.PortRange),
+					ModelUUID:                st.ModelUUID(),
+					Name:                     "wordpress/0",
+					Application:              "wordpress",
+					OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 					AgentStatus: multiwatcher.StatusInfo{
 						Current: "idle",
 						Message: "",
@@ -3004,10 +3003,10 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID:          st.ModelUUID(),
-						Name:               "wordpress/0",
-						Application:        "wordpress",
-						PortRangesBySubnet: make(map[string][]network.PortRange),
+						ModelUUID:                st.ModelUUID(),
+						Name:                     "wordpress/0",
+						Application:              "wordpress",
+						OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "maintenance",
 							Message: "doing work",
@@ -3043,10 +3042,10 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			return changeTestCase{
 				about: "agent status is changed with additional status data",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
-					ModelUUID:          st.ModelUUID(),
-					Name:               "wordpress/0",
-					Application:        "wordpress",
-					PortRangesBySubnet: make(map[string][]network.PortRange),
+					ModelUUID:                st.ModelUUID(),
+					Name:                     "wordpress/0",
+					Application:              "wordpress",
+					OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 					AgentStatus: multiwatcher.StatusInfo{
 						Current: "idle",
 						Message: "",
@@ -3064,10 +3063,10 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID:          st.ModelUUID(),
-						Name:               "wordpress/0",
-						Application:        "wordpress",
-						PortRangesBySubnet: make(map[string][]network.PortRange),
+						ModelUUID:                st.ModelUUID(),
+						Name:                     "wordpress/0",
+						Application:              "wordpress",
+						OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "error",
 							Message: "hook error",
@@ -3107,10 +3106,10 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			return changeTestCase{
 				about: "workload status takes into account agent error",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
-					ModelUUID:          st.ModelUUID(),
-					Name:               "wordpress/0",
-					Application:        "wordpress",
-					PortRangesBySubnet: make(map[string][]network.PortRange),
+					ModelUUID:                st.ModelUUID(),
+					Name:                     "wordpress/0",
+					Application:              "wordpress",
+					OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 					WorkloadStatus: multiwatcher.StatusInfo{
 						Current: "error",
 						Message: "hook error",
@@ -3134,10 +3133,10 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID:          st.ModelUUID(),
-						Name:               "wordpress/0",
-						Application:        "wordpress",
-						PortRangesBySubnet: make(map[string][]network.PortRange),
+						ModelUUID:                st.ModelUUID(),
+						Name:                     "wordpress/0",
+						Application:              "wordpress",
+						OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "error",
 							Message: "hook error",
@@ -3189,20 +3188,21 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 			err = m.SetProviderAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
 
-			openRange := []corenetwork.PortRange{{FromPort: 12345, ToPort: 12345, Protocol: "tcp"}}
-			err = u.OpenClosePortsInSubnet(emptySubnet, openRange, nil)
-			if flag&assignUnit != 0 {
-				c.Assert(err, jc.ErrorIsNil)
-			} else {
-				c.Assert(err, gc.ErrorMatches, `cannot open ports 12345/tcp for unit "wordpress/0".*`)
+			unitPortRanges, changeFn, err := u.OpenedPortRanges()
+			if flag&assignUnit == 0 {
 				c.Assert(err, jc.Satisfies, errors.IsNotAssigned)
+			} else {
+				c.Assert(err, jc.ErrorIsNil)
+				unitPortRanges.Open(allEndpoints, corenetwork.MustParsePortRange("12345/tcp"))
+				c.Assert(st.ApplyOperation(changeFn()), jc.ErrorIsNil)
 			}
 		}
 		if flag&closePorts != 0 {
 			// Close the port again (only if been opened before).
-			closeRange := []corenetwork.PortRange{{FromPort: 12345, ToPort: 12345, Protocol: "tcp"}}
-			err = u.OpenClosePortsInSubnet(emptySubnet, nil, closeRange)
+			unitPortRanges, changeFn, err := u.OpenedPortRanges()
 			c.Assert(err, jc.ErrorIsNil)
+			unitPortRanges.Close(allEndpoints, corenetwork.MustParsePortRange("12345/tcp"))
+			c.Assert(st.ApplyOperation(changeFn()), jc.ErrorIsNil)
 		}
 	}
 	changeTestFuncs := []changeTestFunc{
@@ -3217,13 +3217,13 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID:          st.ModelUUID(),
-						Name:               "wordpress/0",
-						Application:        "wordpress",
-						Series:             "quantal",
-						Life:               life.Alive,
-						MachineID:          "0",
-						PortRangesBySubnet: make(map[string][]network.PortRange),
+						ModelUUID:                st.ModelUUID(),
+						Name:                     "wordpress/0",
+						Application:              "wordpress",
+						Series:                   "quantal",
+						Life:                     life.Alive,
+						MachineID:                "0",
+						OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "waiting",
 							Message: "waiting for machine",
@@ -3256,8 +3256,8 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						Series:      "quantal",
 						Life:        life.Alive,
 						MachineID:   "0",
-						PortRangesBySubnet: map[string][]network.PortRange{
-							"": {corenetwork.MustParsePortRange("12345/tcp")},
+						OpenPortRangesByEndpoint: map[string][]network.PortRange{
+							allEndpoints: {corenetwork.MustParsePortRange("12345/tcp")},
 						},
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "waiting",
@@ -3285,13 +3285,13 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID:          st.ModelUUID(),
-						Name:               "wordpress/0",
-						Application:        "wordpress",
-						Series:             "quantal",
-						Life:               life.Alive,
-						MachineID:          "0",
-						PortRangesBySubnet: make(map[string][]network.PortRange),
+						ModelUUID:                st.ModelUUID(),
+						Name:                     "wordpress/0",
+						Application:              "wordpress",
+						Series:                   "quantal",
+						Life:                     life.Alive,
+						MachineID:                "0",
+						OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "waiting",
 							Message: "waiting for machine",
@@ -3318,12 +3318,12 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						ModelUUID:          st.ModelUUID(),
-						Name:               "wordpress/0",
-						Application:        "wordpress",
-						Series:             "quantal",
-						Life:               life.Alive,
-						PortRangesBySubnet: make(map[string][]network.PortRange),
+						ModelUUID:                st.ModelUUID(),
+						Name:                     "wordpress/0",
+						Application:              "wordpress",
+						Series:                   "quantal",
+						Life:                     life.Alive,
+						OpenPortRangesByEndpoint: make(map[string][]network.PortRange),
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "waiting",
 							Message: "waiting for machine",
