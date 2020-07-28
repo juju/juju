@@ -16,6 +16,7 @@ type ExitError interface {
 	error
 	String() string
 	ExitStatus() int
+	Exited() bool
 }
 
 var _ ExitError = exec.CodeExitError{}
