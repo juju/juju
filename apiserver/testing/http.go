@@ -8,9 +8,9 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	jujuhttp "github.com/juju/http"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -89,14 +89,15 @@ func SendHTTPRequest(c *gc.C, p HTTPRequestParams) *http.Response {
 		hp.Header.Set(params.MachineNonceHeader, p.Nonce)
 	}
 	if hp.Do == nil {
-		hp.Do = utils.GetNonValidatingHTTPClient().Do
+		client := jujuhttp.NewClient(jujuhttp.Config{SkipHostnameVerification: true})
+		hp.Do = client.Do
 	}
 	return httptesting.Do(c, hp)
 }
 
 func AssertResponse(c *gc.C, resp *http.Response, expHTTPStatus int, expContentType string) []byte {
 	body, err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(resp.StatusCode, gc.Equals, expHTTPStatus, gc.Commentf("body: %s", body))
 	ctype := resp.Header.Get("Content-Type")

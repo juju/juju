@@ -13,8 +13,8 @@ import (
 
 	"github.com/bmizerany/pat"
 	"github.com/gorilla/websocket"
+	jujuhttp "github.com/juju/http"
 	"github.com/juju/rpcreflect"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
@@ -61,7 +61,7 @@ func NewAPIServer(newRoot func(modelUUID string) interface{}) *Server {
 
 	srv.Server = httptest.NewUnstartedServer(pmux)
 
-	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig := jujuhttp.SecureTLSConfig()
 	tlsConfig.Certificates = []tls.Certificate{tlsCert}
 	srv.Server.TLS = tlsConfig
 

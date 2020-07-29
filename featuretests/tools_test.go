@@ -13,10 +13,10 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -258,11 +258,10 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithLocalLogin(c *gc.C) {
 	// to trigger httpbakery to query the authentication methods and
 	// bypass browser authentication.
 	var prompted bool
-	jar := apitesting.NewClearableCookieJar()
-	client := utils.GetNonValidatingHTTPClient()
-	client.Jar = jar
 	bakeryClient := httpbakery.NewClient()
-	bakeryClient.Client = client
+	jar := apitesting.NewClearableCookieJar()
+	client := jujuhttp.NewClient(jujuhttp.Config{SkipHostnameVerification: true, Jar: jar})
+	bakeryClient.Client = client.Client()
 	bakeryClient.AddInteractor(apiauthentication.NewInteractor(
 		user.UserTag().Id(),
 		func(username string) (string, error) {
@@ -294,18 +293,18 @@ func (s *toolsWithMacaroonsSuite) doer() func(*http.Request) (*http.Response, er
 }
 
 // bakeryDo provides a function suitable for using in HTTPRequestParams.Do
-// that will use the given http client (or utils.GetNonValidatingHTTPClient()
-// if client is nil) and use the given getBakeryError function
-// to translate errors in responses.
+// that will use the given http client (or bakery created client with a
+// non verifying secure TLS config if client is nil) and use the given
+// getBakeryError function to translate errors in responses.
 func bakeryDo(client *http.Client, getBakeryError func(*http.Response) error) func(*http.Request) (*http.Response, error) {
 	bclient := httpbakery.NewClient()
 	if client != nil {
 		bclient.Client = client
 	} else {
 		// Configure the default client to skip verification/
-		tlsConfig := utils.SecureTLSConfig()
+		tlsConfig := jujuhttp.SecureTLSConfig()
 		tlsConfig.InsecureSkipVerify = true
-		bclient.Client.Transport = utils.NewHttpTLSTransport(tlsConfig)
+		bclient.Client.Transport = jujuhttp.NewHttpTLSTransport(tlsConfig)
 	}
 	return func(req *http.Request) (*http.Response, error) {
 		return bclient.DoWithCustomError(req, getBakeryError)

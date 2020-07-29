@@ -6,6 +6,7 @@ package sync_test
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,10 +20,10 @@ import (
 	"testing"
 
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http"
 	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/tar"
 	"github.com/juju/version"
@@ -341,9 +342,10 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, expectSer
 
 // downloadToolsRaw downloads the supplied tools and returns the raw bytes.
 func downloadToolsRaw(c *gc.C, t *coretools.Tools) []byte {
-	resp, err := utils.GetValidatingHTTPClient().Get(t.URL)
+	client := jujuhttp.NewClient(jujuhttp.Config{})
+	resp, err := client.Get(context.TODO(), t.URL)
 	c.Assert(err, jc.ErrorIsNil)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 	var buf bytes.Buffer
 	_, err = io.Copy(&buf, resp.Body)
@@ -354,8 +356,8 @@ func downloadToolsRaw(c *gc.C, t *coretools.Tools) []byte {
 func bundleTools(c *gc.C) (version.Binary, bool, string, error) {
 	f, err := ioutil.TempFile("", "juju-tgz")
 	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
-	defer os.Remove(f.Name())
+	defer func() { _ = f.Close() }()
+	defer func() { _ = os.Remove(f.Name()) }()
 
 	return envtools.BundleTools(true, f, &jujuversion.Current)
 }

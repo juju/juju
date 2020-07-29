@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/featureflag"
+	"github.com/juju/http"
 	"github.com/juju/loggo"
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
@@ -191,7 +192,7 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
 	// JujuOSEnvSuite does not have a suite setup.
-	s.PatchValue(&utils.OutgoingAccessAllowed, false)
+	s.PatchValue(&http.OutgoingAccessAllowed, false)
 	// LTS-dependent requires new entry upon new LTS release.
 	s.oldLtsForTesting = series.SetLatestLtsForTesting("xenial")
 }
@@ -207,7 +208,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
-	c.Assert(utils.OutgoingAccessAllowed, gc.Equals, false)
+	c.Assert(http.OutgoingAccessAllowed, gc.Equals, false)
 	if s.InitialLoggingConfig != "" {
 		loggo.ConfigureLoggers(s.InitialLoggingConfig)
 	}

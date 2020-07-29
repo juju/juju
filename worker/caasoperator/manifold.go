@@ -13,9 +13,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/http"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 
@@ -259,7 +259,7 @@ func socketConfig(info *caas.OperatorInfo) (*uniter.SocketConfig, error) {
 
 	block, _ := pem.Decode([]byte(info.CACert))
 	tlsCert.Certificate = append(tlsCert.Certificate, block.Bytes)
-	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig := http.SecureTLSConfig()
 	tlsConfig.Certificates = []tls.Certificate{tlsCert}
 
 	serviceAddress := os.Getenv(caasconstants.OperatorServiceIPEnvName)

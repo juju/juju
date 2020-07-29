@@ -5,12 +5,14 @@ package sync
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/http"
 	"github.com/juju/loggo"
 	jujuseries "github.com/juju/os/series"
 	"github.com/juju/utils"
@@ -186,11 +188,12 @@ func copyTools(toolsDir, stream string, tools []*coretools.Tools, u ToolsUploade
 func copyOneToolsPackage(toolsDir, stream string, tools *coretools.Tools, u ToolsUploader) error {
 	toolsName := envtools.StorageName(tools.Version, toolsDir)
 	logger.Infof("downloading %q %v (%v)", stream, toolsName, tools.URL)
-	resp, err := utils.GetValidatingHTTPClient().Get(tools.URL)
+	client := http.NewClient(http.Config{})
+	resp, err := client.Get(context.TODO(), tools.URL)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	// Verify SHA-256 hash.
 	var buf bytes.Buffer
 	sha256, size, err := utils.ReadSHA256(io.TeeReader(resp.Body, &buf))
