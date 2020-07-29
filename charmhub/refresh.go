@@ -27,6 +27,9 @@ const (
 	// InstallAction defines a install action.
 	InstallAction Action = "install"
 
+	// DownloadAction defines a download action.
+	DownloadAction Action = "download"
+
 	// RefreshAction defines a refresh action.
 	RefreshAction Action = "refresh"
 )
@@ -141,7 +144,7 @@ func (c refreshOne) Ensure(responses []transport.RefreshResponse) error {
 	return errors.NotValidf("refresh action key")
 }
 
-type installOne struct {
+type executeOne struct {
 	ID       string
 	Revision *int
 	Channel  *string
@@ -149,6 +152,7 @@ type installOne struct {
 	Series   string
 	// instanceKey is a private unique key that we construct for charmhub API
 	// asynchronous calls.
+	action      Action
 	instanceKey string
 }
 
@@ -158,7 +162,8 @@ func InstallOne(id string, revision int, channel, os, series string) (RefreshCon
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return installOne{
+	return executeOne{
+		action:      InstallAction,
 		instanceKey: uuid.String(),
 		ID:          id,
 		Revision:    &revision,
@@ -175,7 +180,8 @@ func InstallOneFromRevision(id string, revision int, os, series string) (Refresh
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return installOne{
+	return executeOne{
+		action:      InstallAction,
 		instanceKey: uuid.String(),
 		ID:          id,
 		Revision:    &revision,
@@ -191,7 +197,59 @@ func InstallOneFromChannel(id string, channel, os, series string) (RefreshConfig
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return installOne{
+	return executeOne{
+		action:      InstallAction,
+		instanceKey: uuid.String(),
+		ID:          id,
+		Channel:     &channel,
+		OS:          os,
+		Series:      series,
+	}, nil
+}
+
+// DownloadOne creates a request config for requesting only one charm.
+func DownloadOne(id string, revision int, channel, os, series string) (RefreshConfig, error) {
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return executeOne{
+		action:      DownloadAction,
+		instanceKey: uuid.String(),
+		ID:          id,
+		Revision:    &revision,
+		Channel:     &channel,
+		OS:          os,
+		Series:      series,
+	}, nil
+}
+
+// DownloadOneFromRevision creates a request config using the revision and not
+// the channel for requesting only one charm.
+func DownloadOneFromRevision(id string, revision int, os, series string) (RefreshConfig, error) {
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return executeOne{
+		action:      DownloadAction,
+		instanceKey: uuid.String(),
+		ID:          id,
+		Revision:    &revision,
+		OS:          os,
+		Series:      series,
+	}, nil
+}
+
+// DownloadOneFromChannel creates a request config using the channel and not the
+// revision for requesting only one charm.
+func DownloadOneFromChannel(id string, channel, os, series string) (RefreshConfig, error) {
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return executeOne{
+		action:      DownloadAction,
 		instanceKey: uuid.String(),
 		ID:          id,
 		Channel:     &channel,
@@ -201,12 +259,12 @@ func InstallOneFromChannel(id string, channel, os, series string) (RefreshConfig
 }
 
 // Build a refresh request that can be past to the API.
-func (c installOne) Build() (transport.RefreshRequest, error) {
+func (c executeOne) Build() (transport.RefreshRequest, error) {
 	return transport.RefreshRequest{
 		// Context is required here, even if it looks optional.
 		Context: []transport.RefreshRequestContext{},
 		Actions: []transport.RefreshRequestAction{{
-			Action:      string(InstallAction),
+			Action:      string(c.action),
 			InstanceKey: c.instanceKey,
 			ID:          c.ID,
 			Revision:    c.Revision,
@@ -221,13 +279,13 @@ func (c installOne) Build() (transport.RefreshRequest, error) {
 }
 
 // Ensure that the request back contains the information we requested.
-func (c installOne) Ensure(responses []transport.RefreshResponse) error {
+func (c executeOne) Ensure(responses []transport.RefreshResponse) error {
 	for _, resp := range responses {
 		if resp.InstanceKey == c.instanceKey {
 			return nil
 		}
 	}
-	return errors.NotValidf("install action key")
+	return errors.NotValidf("%v action key", string(c.action))
 }
 
 type refreshMany struct {

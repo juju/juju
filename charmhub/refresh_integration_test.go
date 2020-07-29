@@ -38,7 +38,36 @@ func (s *RefreshClientSuite) TestLiveRefreshRequest(c *gc.C) {
 
 	response, err := client.Refresh(context.TODO(), charmConfig)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(response, gc.HasLen, 1)
 	c.Assert(response[0].Result, gc.Equals, "refresh")
+}
+
+func (s *RefreshClientSuite) TestLiveRefreshManyRequest(c *gc.C) {
+	config := charmhub.CharmhubConfig()
+	basePath, err := config.BasePath()
+	c.Assert(err, jc.ErrorIsNil)
+
+	refreshPath, err := basePath.Join("refresh")
+	c.Assert(err, jc.ErrorIsNil)
+
+	apiRequester := charmhub.NewAPIRequester(charmhub.DefaultHTTPTransport())
+	restClient := charmhub.NewHTTPRESTClient(apiRequester, nil)
+
+	client := charmhub.NewRefreshClient(refreshPath, restClient)
+
+	wordpressConfig, err := charmhub.RefreshOne("wordpress", 16, "latest/stable", "ubuntu", "focal")
+	c.Assert(err, jc.ErrorIsNil)
+
+	mysqlConfig, err := charmhub.RefreshOne("mysql", 1, "latest/stable", "ubuntu", "focal")
+	c.Assert(err, jc.ErrorIsNil)
+
+	charmsConfig := charmhub.RefreshMany(wordpressConfig, mysqlConfig)
+
+	response, err := client.Refresh(context.TODO(), charmsConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(response, gc.HasLen, 2)
+	c.Assert(response[0].Result, gc.Equals, "refresh")
+	c.Assert(response[1].Result, gc.Equals, "refresh")
 }
 
 func (s *RefreshClientSuite) TestLiveInstallRequest(c *gc.C) {
