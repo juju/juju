@@ -36,6 +36,8 @@ type Deployer struct {
 // strategies; where a Deployer is responsible for what to deploy, a Context
 // is responsible for how to deploy.
 type Context interface {
+	worker.Worker
+
 	// DeployUnit causes the agent for the specified unit to be started and run
 	// continuously until further notice without further intervention. It will
 	// return an error if the agent is already deployed.
@@ -52,6 +54,8 @@ type Context interface {
 	// AgentConfig returns the agent config for the machine agent that is
 	// running the deployer.
 	AgentConfig() agent.Config
+
+	Report() map[string]interface{}
 }
 
 // NewDeployer returns a Worker that deploys and recalls unit agents

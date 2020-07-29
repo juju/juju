@@ -94,6 +94,18 @@ func NewSimpleContext(agentConfig agent.Config, api APICalls) *SimpleContext {
 	}
 }
 
+// Kill is here to satisfy the Worker interface, but is unused by the simple
+// context.
+func (ctx *SimpleContext) Kill() {}
+
+// Wait is here to satisfy the Worker interface, but is unused by the simple
+// context.
+func (ctx *SimpleContext) Wait() error { return nil }
+
+// Report is here to satisfy the new methods for Context but is unused
+// by the simple context.
+func (ctx *SimpleContext) Report() map[string]interface{} { return nil }
+
 func (ctx *SimpleContext) AgentConfig() agent.Config {
 	return ctx.agentConfig
 }
@@ -130,7 +142,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		Series: hostSeries,
 	}
 	toolsDir := tools.ToolsDir(dataDir, tag.String())
-	defer removeOnErr(&err, toolsDir)
+	defer removeOnErr(&err, logger, toolsDir)
 	_, err = tools.ChangeAgentTools(dataDir, tag.String(), current)
 	if err != nil {
 		return errors.Trace(err)
@@ -169,7 +181,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	if err := conf.Write(); err != nil {
 		return errors.Trace(err)
 	}
-	defer removeOnErr(&err, conf.Dir())
+	defer removeOnErr(&err, logger, conf.Dir())
 
 	// Install an init service that runs the unit agent.
 	if err := service.InstallAndStart(svc); err != nil {
@@ -293,7 +305,7 @@ func (ctx *SimpleContext) service(unitName string, renderer shell.Renderer) (dep
 	return ctx.discoverService(svcName, conf)
 }
 
-func removeOnErr(err *error, path string) {
+func removeOnErr(err *error, logger Logger, path string) {
 	if *err != nil {
 		if err := os.RemoveAll(path); err != nil {
 			logger.Errorf("installer: cannot remove %q: %v", path, err)
