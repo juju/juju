@@ -76,13 +76,17 @@ See also:
 
 func newSCPCommand(hostChecker jujussh.ReachableChecker) cmd.Command {
 	c := new(scpCommand)
-	c.setHostChecker(hostChecker)
+	c.hostChecker = hostChecker
 	return modelcmd.Wrap(c)
 }
 
 // scpCommand is responsible for launching a scp command to copy files to/from remote machine(s)
 type scpCommand struct {
+	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 	SSHCommon
+
+	hostChecker jujussh.ReachableChecker
 }
 
 func (c *scpCommand) Info() *cmd.Info {
@@ -98,20 +102,21 @@ func (c *scpCommand) Init(args []string) error {
 	if len(args) < 2 {
 		return errors.Errorf("at least two arguments required")
 	}
-	c.Args = args
+	c.SetArgs(args)
+	c.setHostChecker(c.hostChecker)
 	return nil
 }
 
 // Run resolves c.Target to a machine, or host of a unit and
 // forks ssh with c.Args, if provided.
 func (c *scpCommand) Run(ctx *cmd.Context) error {
-	err := c.initRun()
+	err := c.initRun(c.ModelCommandBase)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer c.cleanupRun()
 
-	args, targets, err := expandArgs(c.Args, c.resolveTarget)
+	args, targets, err := expandArgs(c.GetArgs(), c.resolveTarget)
 	if err != nil {
 		return err
 	}

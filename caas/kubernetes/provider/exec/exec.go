@@ -262,12 +262,6 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 	for {
 		select {
 		case err := <-errChan:
-			if exitErr, ok := err.(ExitError); ok && exitErr.Exited() {
-				// Ignore exitcode from kill, as the process may have already exited or
-				// the pid file hasn't yet been written.
-				logger.Debugf("exec request %q exited with code %d", req.URL(), exitErr.ExitStatus())
-				return nil
-			}
 			return errors.Trace(err)
 		case <-cancel:
 			cancel = nil

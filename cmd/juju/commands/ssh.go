@@ -75,31 +75,30 @@ func newSSHCommand(
 	hostChecker jujussh.ReachableChecker,
 	isTerminal func(interface{}) bool,
 ) cmd.Command {
-	c := new(sshCommand)
-	c.setHostChecker(hostChecker)
-	c.isTerminal = isTerminal
+	c := &sshCommand{
+		hostChecker: hostChecker,
+		isTerminal:  isTerminal,
+	}
 	return modelcmd.Wrap(c)
-}
-
-type sshBaseCommand interface {
-	SetFlags(f *gnuflag.FlagSet)
-	setHostChecker(jujussh.ReachableChecker)
-	initRun()
-	cleanupRun()
-	resolveTarget(string) (*resolvedTarget, error)
-	ssh(ctx *cmd.Context, enablePty bool, target *resolvedTarget) error
 }
 
 // sshCommand is responsible for launching a ssh shell on a given unit or machine.
 type sshCommand struct {
-	// SSHCommon
+	modelType model.ModelType
+	modelcmd.ModelCommandBase
+
+	SSHCommon
 	SSHContainer
-	isTerminal func(interface{}) bool
-	pty        autoBoolValue
+
+	provider sshProvider
+
+	hostChecker jujussh.ReachableChecker
+	isTerminal  func(interface{}) bool
+	pty         autoBoolValue
 }
 
 func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
-	// c.SSHCommon.SetFlags(f)
+	c.SSHCommon.SetFlags(f)
 	c.SSHContainer.SetFlags(f)
 	f.Var(&c.pty, "pty", "Enable pseudo-tty allocation")
 }
@@ -113,24 +112,48 @@ func (c *sshCommand) Info() *cmd.Info {
 	})
 }
 
-func (c *sshCommand) Init(args []string) error {
+func (c *sshCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
 		return errors.Errorf("no target name specified")
 	}
-	c.SSHContainer.Target, c.SSHContainer.Args = args[0], args[1:]
+	c.modelType, err = c.ModelType()
+	if err != nil {
+		return err
+	}
+	if c.modelType == model.CAAS {
+		c.provider = &c.SSHContainer
+	} else {
+		c.provider = &c.SSHCommon
+	}
+	c.provider.SetTarget(args[0])
+	c.provider.SetArgs(args[1:])
+	c.provider.setHostChecker(c.hostChecker)
 	return nil
+}
+
+type sshProvider interface {
+	initRun(modelcmd.ModelCommandBase) error
+	cleanupRun()
+	setHostChecker(checker jujussh.ReachableChecker)
+	resolveTarget(string) (*resolvedTarget, error)
+	ssh(ctx *cmd.Context, enablePty bool, target *resolvedTarget) error
+
+	GetTarget() string
+	SetTarget(target string)
+
+	GetArgs() []string
+	SetArgs(Args []string)
 }
 
 // Run resolves c.Target to a machine, to the address of a i
 // machine or unit forks ssh passing any arguments provided.
 func (c *sshCommand) Run(ctx *cmd.Context) error {
-	err := c.SSHContainer.initRun()
-	if err != nil {
+	if err := c.provider.initRun(c.ModelCommandBase); err != nil {
 		return errors.Trace(err)
 	}
-	defer c.SSHContainer.cleanupRun()
+	defer c.provider.cleanupRun()
 
-	target, err := c.SSHContainer.resolveTarget(c.Target)
+	target, err := c.provider.resolveTarget(c.provider.GetTarget())
 	if err != nil {
 		return err
 	}
@@ -148,7 +171,7 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 		}
 		pty = isTerminal(ctx.Stdin)
 	}
-	return c.SSHContainer.ssh(ctx, pty, target)
+	return c.provider.ssh(ctx, pty, target)
 }
 
 // autoBoolValue is like gnuflag.boolValue, but remembers

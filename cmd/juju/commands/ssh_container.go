@@ -26,12 +26,11 @@ import (
 // SSHContainer implements functionality shared by sshCommand, SCPCommand
 // and DebugHooksCommand for CAAS model.
 type SSHContainer struct {
-	modelcmd.ModelCommandBase
-	modelcmd.CAASOnlyCommand
 	// remote indicates if it should target to the operator or workload pod.
-	remote bool
-	Target string
-	Args   []string
+	remote    bool
+	target    string
+	args      []string
+	modelUUID string
 
 	cloudCredentialAPI
 	modelAPI
@@ -58,16 +57,34 @@ type modelAPI interface {
 
 // SetFlags sets up options and flags for the command.
 func (c *SSHContainer) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.remote, "remote", false, "Target to workload container")
 }
 
 func (c *SSHContainer) setHostChecker(checker jujussh.ReachableChecker) {}
 
+// GetTarget returns the target.
+func (c *SSHContainer) GetTarget() string {
+	return c.target
+}
+
+// SetTarget sets the target.
+func (c *SSHContainer) SetTarget(target string) {
+	c.target = target
+}
+
+// GetArgs returns the args.
+func (c *SSHContainer) GetArgs() []string {
+	return c.args
+}
+
+// SetArgs sets the args.
+func (c *SSHContainer) SetArgs(args []string) {
+	c.args = args
+}
+
 // initRun initializes the API connection if required. It must be called
 // at the top of the command's Run method.
-func (c *SSHContainer) initRun() error {
-	if err := c.ensureAPIClient(); err != nil {
+func (c *SSHContainer) initRun(mc modelcmd.ModelCommandBase) error {
+	if err := c.ensureAPIClient(mc); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -90,16 +107,22 @@ func (c *SSHContainer) cleanupRun() {
 
 }
 
-func (c *SSHContainer) ensureAPIClient() error {
+func (c *SSHContainer) ensureAPIClient(mc modelcmd.ModelCommandBase) error {
 	if c.cloudCredentialAPI != nil || c.modelAPI != nil || c.applicationAPI != nil {
 		return nil
 	}
-	return errors.Trace(c.initAPIClient())
+	return errors.Trace(c.initAPIClient(mc))
 }
 
 // initAPIClient initialises the API connections.
-func (c *SSHContainer) initAPIClient() error {
-	cAPI, err := c.NewControllerAPIRoot()
+func (c *SSHContainer) initAPIClient(mc modelcmd.ModelCommandBase) error {
+	_, mDetails, err := mc.ModelDetails()
+	if err != nil {
+		return err
+	}
+	c.modelUUID = mDetails.ModelUUID
+
+	cAPI, err := mc.NewControllerAPIRoot()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -107,7 +130,7 @@ func (c *SSHContainer) initAPIClient() error {
 	c.modelAPI = modelmanager.NewClient(cAPI)
 	c.execClientGetter = k8sexec.NewForJujuCloudCloudSpec
 
-	root, err := c.NewAPIRoot()
+	root, err := mc.NewAPIRoot()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -152,7 +175,7 @@ func (c *SSHContainer) ssh(ctx *cmd.Context, enablePty bool, target *resolvedTar
 	return execClient.Exec(
 		k8sexec.ExecParams{
 			PodName:  target.entity,
-			Commands: []string{"bash"},
+			Commands: c.args,
 			Stdout:   ctx.GetStdout(),
 			Stderr:   ctx.GetStdout(),
 			Stdin:    ctx.GetStdin(),
@@ -166,12 +189,8 @@ func (c *SSHContainer) getExecClient(ctxt *cmd.Context) (k8sexec.Executor, error
 	if v := c.cloudCredentialAPI.BestAPIVersion(); v < 2 {
 		return nil, errors.NotSupportedf("credential content lookup on the controller in Juju v%d", v)
 	}
-	_, mDetails, err := c.ModelDetails()
-	if err != nil {
-		return nil, err
-	}
 
-	modelTag := names.NewModelTag(mDetails.ModelUUID)
+	modelTag := names.NewModelTag(c.modelUUID)
 	mInfoResults, err := c.modelAPI.ModelInfo([]names.ModelTag{modelTag})
 	if err != nil {
 		return nil, err

@@ -32,12 +32,12 @@ import (
 // SSHCommon implements functionality shared by sshCommand, SCPCommand
 // and DebugHooksCommand.
 type SSHCommon struct {
-	modelcmd.ModelCommandBase
-	modelcmd.IAASOnlyCommand
+	modelName string
+
 	proxy           bool
 	noHostKeyChecks bool
-	Target          string
-	Args            []string
+	target          string
+	args            []string
 	apiClient       sshAPIClient
 	apiAddr         string
 	knownHostsPath  string
@@ -112,9 +112,28 @@ var sshHostFromTargetAttemptStrategy attemptStarter = attemptStrategy{
 }
 
 func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.proxy, "proxy", false, "Proxy through the API server")
 	f.BoolVar(&c.noHostKeyChecks, "no-host-key-checks", false, "Skip host key checking (INSECURE)")
+}
+
+// GetTarget returns the target.
+func (c *SSHCommon) GetTarget() string {
+	return c.target
+}
+
+// SetTarget sets the target.
+func (c *SSHCommon) SetTarget(target string) {
+	c.target = target
+}
+
+// GetArgs returns the args.
+func (c *SSHCommon) GetArgs() []string {
+	return c.args
+}
+
+// SetArgs sets the args.
+func (c *SSHCommon) SetArgs(args []string) {
+	c.args = args
 }
 
 // defaultReachableChecker returns a jujussh.ReachableChecker with a connection
@@ -135,8 +154,12 @@ func (c *SSHCommon) setHostChecker(checker jujussh.ReachableChecker) {
 // command's Run method.
 //
 // The apiClient, apiAddr and proxy fields are initialized after this call.
-func (c *SSHCommon) initRun() (err error) {
-	if err = c.ensureAPIClient(); err != nil {
+func (c *SSHCommon) initRun(mc modelcmd.ModelCommandBase) (err error) {
+	if c.modelName, err = mc.ModelIdentifier(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err = c.ensureAPIClient(mc); err != nil {
 		return errors.Trace(err)
 	}
 	c.proxy, err = c.proxySSH()
@@ -210,7 +233,7 @@ func (c *SSHCommon) ssh(ctx *cmd.Context, enablePty bool, target *resolvedTarget
 		return err
 	}
 
-	cmd := ssh.Command(target.userHost(), c.Args, options)
+	cmd := ssh.Command(target.userHost(), c.args, options)
 	cmd.Stdin = ctx.Stdin
 	cmd.Stdout = ctx.Stdout
 	cmd.Stderr = ctx.Stderr
@@ -285,10 +308,6 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 		return errors.Errorf("failed to get juju executable path: %v", err)
 	}
 
-	modelName, err := c.ModelIdentifier()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	// TODO(mjs) 2016-05-09 LP #1579592 - It would be good to check the
 	// host key of the controller machine being used for proxying
 	// here. This isn't too serious as all traffic passing through the
@@ -297,7 +316,7 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 	// this extra level of checking.
 	options.SetProxyCommand(
 		juju, "ssh",
-		"--model="+modelName,
+		"--model="+c.modelName,
 		"--proxy=false",
 		"--no-host-key-checks",
 		"--pty=false",
@@ -308,16 +327,16 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 	return nil
 }
 
-func (c *SSHCommon) ensureAPIClient() error {
+func (c *SSHCommon) ensureAPIClient(mc modelcmd.ModelCommandBase) error {
 	if c.apiClient != nil {
 		return nil
 	}
-	return errors.Trace(c.initAPIClient())
+	return errors.Trace(c.initAPIClient(mc))
 }
 
 // initAPIClient initialises the API connection.
-func (c *SSHCommon) initAPIClient() error {
-	conn, err := c.NewAPIRoot()
+func (c *SSHCommon) initAPIClient(mc modelcmd.ModelCommandBase) error {
+	conn, err := mc.NewAPIRoot()
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -25,7 +25,7 @@ import (
 func newDebugHooksCommand(hostChecker ssh.ReachableChecker) cmd.Command {
 	c := new(debugHooksCommand)
 	c.getActionAPI = c.newActionsAPI
-	c.setHostChecker(hostChecker)
+	c.hostChecker = hostChecker
 	return modelcmd.Wrap(c)
 }
 
@@ -58,9 +58,11 @@ func (c *debugHooksCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.Errorf("no unit name specified")
 	}
-	c.Target = args[0]
-	if !names.IsValidUnit(c.Target) {
-		return errors.Errorf("%q is not a valid unit name", c.Target)
+	c.sshCommand.Init(args)
+
+	c.provider.SetTarget(args[0])
+	if !names.IsValidUnit(c.provider.GetTarget()) {
+		return errors.Errorf("%q is not a valid unit name", c.provider.GetTarget())
 	}
 
 	// If any of the hooks is "*", then debug all hooks.
@@ -102,7 +104,7 @@ func (c *debugHooksCommand) validateHooksOrActions() error {
 	if len(c.hooks) == 0 {
 		return nil
 	}
-	appName, err := names.UnitApplication(c.Target)
+	appName, err := names.UnitApplication(c.provider.GetTarget())
 	if err != nil {
 		return err
 	}
@@ -125,7 +127,7 @@ func (c *debugHooksCommand) validateHooksOrActions() error {
 	for _, hook := range c.hooks {
 		if !allValid.Contains(hook) {
 			return errors.Errorf("unit %q contains neither hook nor action %q, valid actions are %v and valid hooks are %v",
-				c.Target,
+				c.provider.GetTarget(),
 				hook,
 				validActions.SortedValues(),
 				validHooks.SortedValues(),
@@ -184,12 +186,11 @@ func (c *debugHooksCommand) commonRun(
 	hooks []string,
 	debugAt string,
 ) error {
-
-	err := c.initRun()
+	err := c.provider.initRun(c.ModelCommandBase)
 	if err != nil {
 		return err
 	}
-	defer c.cleanupRun()
+	defer c.provider.cleanupRun()
 	err = c.validateHooksOrActions()
 	if err != nil {
 		return err
@@ -199,13 +200,13 @@ func (c *debugHooksCommand) commonRun(
 	b64Script := base64.StdEncoding.EncodeToString([]byte(clientScript))
 	innercmd := fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, b64Script)
 	args := []string{fmt.Sprintf("sudo /bin/bash -c '%s'", innercmd)}
-	c.Args = args
+	c.provider.SetArgs(args)
 	return c.sshCommand.Run(ctx)
 }
 
-// Run ensures c.Target is a unit, and resolves its address,
+// Run ensures Target is a unit, and resolves its address,
 // and connects to it via SSH to execute the debug-hooks
 // script.
 func (c *debugHooksCommand) Run(ctx *cmd.Context) error {
-	return c.commonRun(ctx, c.Target, c.hooks, "")
+	return c.commonRun(ctx, c.provider.GetTarget(), c.hooks, "")
 }

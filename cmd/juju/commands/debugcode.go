@@ -17,7 +17,7 @@ import (
 func newDebugCodeCommand(hostChecker ssh.ReachableChecker) cmd.Command {
 	c := new(debugCodeCommand)
 	c.getActionAPI = c.debugHooksCommand.newActionsAPI
-	c.setHostChecker(hostChecker)
+	c.hostChecker = hostChecker
 	return modelcmd.Wrap(c)
 }
 
@@ -54,9 +54,9 @@ func (c *debugCodeCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.Errorf("no unit name specified")
 	}
-	c.Target = args[0]
-	if !names.IsValidUnit(c.Target) {
-		return errors.Errorf("%q is not a valid unit name", c.Target)
+	c.provider.SetTarget(args[0])
+	if !names.IsValidUnit(c.provider.GetTarget()) {
+		return errors.Errorf("%q is not a valid unit name", c.provider.GetTarget())
 	}
 
 	// If any of the hooks is "*", then debug all hooks.
@@ -79,5 +79,5 @@ func (c *debugCodeCommand) SetFlags(f *gnuflag.FlagSet) {
 // and connects to it via SSH to execute the debug-hooks
 // script.
 func (c *debugCodeCommand) Run(ctx *cmd.Context) error {
-	return c.commonRun(ctx, c.Target, c.hooks, c.debugAt)
+	return c.commonRun(ctx, c.provider.GetTarget(), c.hooks, c.debugAt)
 }
