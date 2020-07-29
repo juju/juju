@@ -214,8 +214,8 @@ func (f *FirewallerAPIV3) watchOneModelOpenedPorts(tag names.Tag) (string, []str
 	return "", nil, watcher.EnsureErr(watch)
 }
 
-// GetMachinePorts returns the port ranges opened on a machine for the specified
-// subnet as a map mapping port ranges to the tags of the units that opened
+// GetMachinePorts returns the port ranges opened on a machine across all
+// subnets as a map mapping port ranges to the tags of the units that opened
 // them.
 func (f *FirewallerAPIV3) GetMachinePorts(args params.MachinePortsParams) (params.MachinePortsResults, error) {
 	result := params.MachinePortsResults{
@@ -231,43 +231,48 @@ func (f *FirewallerAPIV3) GetMachinePorts(args params.MachinePortsParams) (param
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		var subnetTag names.SubnetTag
+
+		// Pre 2.9 controllers always open ports in all subnets. The
+		// per-subnet functionality was implemented by the controller
+		// but never exposed via the API. As such, we can change this
+		// method so that always returns *all* open port ranges and
+		// simply return an error if a subnet is provided
 		if param.SubnetTag != "" {
-			subnetTag, err = names.ParseSubnetTag(param.SubnetTag)
-			if err != nil {
-				result.Results[i].Error = apiservererrors.ServerError(err)
-				continue
+			if _, err = names.ParseSubnetTag(param.SubnetTag); err == nil {
+				err = errors.NotSupportedf("retrieving machine ports for specific subnets")
 			}
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
 		machine, err := f.getMachine(canAccess, machineTag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		openedPortsInSubnet, err := machine.OpenedPortsInSubnet(subnetTag.Id())
+		machPortRanges, err := machine.OpenedPortRanges()
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if openedPortsInSubnet != nil {
-			var rangeList []params.MachinePortRange
-			for unitName, portRanges := range openedPortsInSubnet.PortRangesByUnit() {
-				unitTag := names.NewUnitTag(unitName).String()
-				for _, pr := range portRanges {
-					rangeList = append(rangeList, params.MachinePortRange{
-						UnitTag:   unitTag,
-						PortRange: params.FromNetworkPortRange(pr),
-					})
-				}
-			}
 
-			sort.Slice(rangeList, func(i, j int) bool {
-				return rangeList[i].PortRange.NetworkPortRange().LessThan(
-					rangeList[j].PortRange.NetworkPortRange(),
-				)
-			})
-			result.Results[i].Ports = rangeList
+		// Emulate old behavior and return opened ports for all endpoints.
+		var rangeList []params.MachinePortRange
+		for unitName, unitPortRanges := range machPortRanges.ByUnit() {
+			unitTag := names.NewUnitTag(unitName).String()
+			for _, pr := range unitPortRanges.UniquePortRanges() {
+				rangeList = append(rangeList, params.MachinePortRange{
+					UnitTag:   unitTag,
+					PortRange: params.FromNetworkPortRange(pr),
+				})
+			}
 		}
+
+		sort.Slice(rangeList, func(i, j int) bool {
+			return rangeList[i].PortRange.NetworkPortRange().LessThan(
+				rangeList[j].PortRange.NetworkPortRange(),
+			)
+		})
+		result.Results[i].Ports = rangeList
 	}
 	return result, nil
 }
@@ -293,21 +298,16 @@ func (f *FirewallerAPIV3) GetMachineActiveSubnets(args params.Entities) (params.
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		ports, err := machine.OpenedPorts()
+
+		// Pre 2.9 controllers always open ports in all subnets. If
+		// at least one port range is open, return the wildcard subnet
+		machPorts, err := machine.OpenedPortRanges()
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		for _, port := range ports {
-			if port.SubnetID() == "" {
-				// TODO(achilleas) remove this when we stop using the empty subnet.
-				// TODO(dimitern): Empty subnet IDs for ports are still OK until
-				// we can enforce it across all providers.
-				result.Results[i].Result = append(result.Results[i].Result, "")
-				continue
-			}
-			subnetTag := names.NewSubnetTag(port.SubnetID()).String()
-			result.Results[i].Result = append(result.Results[i].Result, subnetTag)
+		if len(machPorts.UniquePortRanges()) != 0 {
+			result.Results[i].Result = append(result.Results[i].Result, "")
 		}
 	}
 	return result, nil

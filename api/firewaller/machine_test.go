@@ -12,14 +12,14 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/state"
 )
 
+const allEndpoints = ""
+
 type machineSuite struct {
 	firewallerSuite
-	networktesting.FirewallHelper
 
 	apiMachine *firewaller.Machine
 }
@@ -38,7 +38,7 @@ func (s *machineSuite) TearDownTest(c *gc.C) {
 	s.firewallerSuite.TearDownTest(c)
 }
 
-func (s *machineSuite) assertRemoveMachinePortsDoc(c *gc.C, p state.MachineSubnetPorts) {
+func (s *machineSuite) assertRemoveMachinePortsDoc(c *gc.C, p state.MachinePortRanges) {
 	type remover interface {
 		Remove() error
 	}
@@ -113,15 +113,17 @@ func (s *machineSuite) TestActiveSubnets(c *gc.C) {
 	c.Assert(subnets, gc.HasLen, 0)
 
 	// Open a port and check again.
-	s.AssertOpenUnitPort(c, s.units[0], "", "tcp", 1234)
+	mustOpenPortRanges(c, s.State, s.units[0], allEndpoints, []network.PortRange{
+		network.MustParsePortRange("1234/tcp"),
+	})
 	subnets, err = s.apiMachine.ActiveSubnets()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, jc.DeepEquals, []names.SubnetTag{{}})
 
 	// Remove all ports, no more active subnets.
-	ports, err := s.machines[0].OpenedPortsInSubnet("")
+	machPortRanges, err := s.machines[0].OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertRemoveMachinePortsDoc(c, ports)
+	s.assertRemoveMachinePortsDoc(c, machPortRanges)
 	subnets, err = s.apiMachine.ActiveSubnets()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 0)
@@ -131,13 +133,15 @@ func (s *machineSuite) TestOpenedPorts(c *gc.C) {
 	unitTag := s.units[0].Tag().(names.UnitTag)
 
 	// No ports opened at first.
-	ports, err := s.apiMachine.OpenedPorts(names.SubnetTag{})
+	machPortRanges, err := s.machines[0].OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.HasLen, 0)
+	c.Assert(machPortRanges.UniquePortRanges(), gc.HasLen, 0)
 
 	// Open a port and check again.
-	s.AssertOpenUnitPort(c, s.units[0], "", "tcp", 1234)
-	ports, err = s.apiMachine.OpenedPorts(names.SubnetTag{})
+	mustOpenPortRanges(c, s.State, s.units[0], allEndpoints, []network.PortRange{
+		network.MustParsePortRange("1234/tcp"),
+	})
+	ports, err := s.apiMachine.OpenedPorts(names.SubnetTag{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, jc.DeepEquals, map[network.PortRange]names.UnitTag{
 		{FromPort: 1234, ToPort: 1234, Protocol: "tcp"}: unitTag,
@@ -160,4 +164,26 @@ func (s *machineSuite) TestIsManual(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(answer, jc.IsTrue)
 
+}
+
+func mustOpenPortRanges(c *gc.C, st *state.State, u *state.Unit, endpointName string, portRanges []network.PortRange) {
+	unitPortRanges, portChangesFn, err := u.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, pr := range portRanges {
+		unitPortRanges.Open(endpointName, pr)
+	}
+
+	c.Assert(st.ApplyOperation(portChangesFn()), jc.ErrorIsNil)
+}
+
+func mustClosePortRanges(c *gc.C, st *state.State, u *state.Unit, endpointName string, portRanges []network.PortRange) {
+	unitPortRanges, portChangesFn, err := u.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, pr := range portRanges {
+		unitPortRanges.Close(endpointName, pr)
+	}
+
+	c.Assert(st.ApplyOperation(portChangesFn()), jc.ErrorIsNil)
 }

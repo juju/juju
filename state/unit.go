@@ -1388,49 +1388,6 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 	})
 }
 
-// OpenClosePortsInSubnet opens and closes the given port ranges for the unit
-// on the given subnet, which can be empty. When non-empty, subnetID must refer
-// to an existing, alive subnet, otherwise an error is returned. Returns an
-// error if opening the requested range conflicts with another already opened
-// range on the same subnet and and the unit's assigned machine.
-//
-// Either of the open or close PortRange arguments can be nil to indicate that
-// they should be ignored (e.g. for open- or close-only calls).
-//
-// NOTE(achilleasa): we should probably refactor this in the future to work
-// with endpoints instead of subnet IDs.
-func (u *Unit) OpenClosePortsInSubnet(subnetID string, openPortRanges, closePortRanges []corenetwork.PortRange) error {
-	annotateErr := func(err error) error {
-		openIsEmpty := len(openPortRanges) == 0
-		closeIsEmpty := len(closePortRanges) == 0
-
-		if !openIsEmpty && !closeIsEmpty {
-			return errors.Annotatef(err, "cannot open ports %v / close ports %v for unit %q", openPortRanges, closePortRanges, u)
-		} else if !openIsEmpty {
-			// Improve error messages when opening a single port fails.
-			if len(openPortRanges) == 1 {
-				return errors.Annotatef(err, "cannot open ports %v for unit %q", openPortRanges[0], u)
-			}
-			return errors.Annotatef(err, "cannot open ports %v for unit %q", openPortRanges, u)
-		}
-		// Improve error messages when closing a single port fails.
-		if len(closePortRanges) == 1 {
-			return errors.Annotatef(err, "cannot close ports %v for unit %q", closePortRanges[0], u)
-		}
-		return errors.Annotatef(err, "cannot close ports %v for unit %q", closePortRanges, u)
-	}
-
-	modelOp, err := u.OpenClosePortsInSubnetOperation(subnetID, openPortRanges, closePortRanges)
-	if err != nil {
-		return annotateErr(errors.Trace(err))
-	}
-
-	if err = u.st.ApplyOperation(modelOp); err != nil {
-		return annotateErr(errors.Trace(err))
-	}
-	return nil
-}
-
 // OpenedPortRanges returns a UnitPortRanges object that can be used to query
 // and/or mutate the port ranges opened by the unit on the machine it is
 // assigned to. After manipulating the open port ranges, the caller can invoke
@@ -1451,30 +1408,6 @@ func (u *Unit) OpenedPortRanges() (UnitPortRanges, func() ModelOperation, error)
 	}
 
 	return machinePorts.ForUnit(u.Name()), machinePorts.Changes, nil
-}
-
-// OpenClosePortsInSubnetOperation returns a ModelOperation that opens and
-// closes the given port ranges for the unit on the given subnet, which can be
-// empty. When non-empty, subnetID must refer to an existing, alive subnet,
-// otherwise an error is returned.
-//
-// Either of the open or close PortRange arguments can be nil to indicate
-// that they should be ignored (e.g. for open- or close-only calls).
-func (u *Unit) OpenClosePortsInSubnetOperation(subnetID string, openRanges, closeRanges []corenetwork.PortRange) (ModelOperation, error) {
-	panic("TODO(achilleasa): refactor facades to use OpenPortRanges")
-}
-
-// OpenedPortsInSubnet returns a slice containing the open port ranges of the
-// unit on the given subnet ID. When subnetID is not empty, it must refer to an
-// existing, alive subnet, otherwise an error is returned.
-func (u *Unit) OpenedPortsInSubnet(subnetID string) ([]corenetwork.PortRange, error) {
-	panic("TODO(achilleasa): refactor facades to use OpenPortRanges")
-}
-
-// OpenedPortsBySubnet returns a map where keys are subnet IDs and values are
-// the list of PortRanges opened in each subnet by this unit.
-func (u *Unit) OpenedPortsBySubnet() (map[string][]corenetwork.PortRange, error) {
-	panic("TODO(achilleasa): refactor facades to use OpenPortRanges")
 }
 
 // CharmURL returns the charm URL this unit is currently using.

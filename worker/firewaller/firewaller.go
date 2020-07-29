@@ -5,7 +5,6 @@ package firewaller
 
 import (
 	"io"
-	"strings"
 	"time"
 
 	"github.com/EvilSuperstars/go-cidrman"
@@ -284,11 +283,13 @@ func (fw *Firewaller) loop() error {
 				return errors.New("ports watcher closed")
 			}
 			for _, portsGlobalKey := range change {
-				machineTag, subnetTag, err := parsePortsKey(portsGlobalKey)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if err := fw.openedPortsChanged(machineTag, subnetTag); err != nil {
+				machineTag := names.NewMachineTag(portsGlobalKey)
+				// TODO(achilleasa): This emulates the pre 2.9
+				// behavior where ports where implicitly opened
+				// in all subnets (the empty subnet tag is used
+				// to signify this). This code needs to be
+				// updated to work with endpoints instead.
+				if err := fw.openedPortsChanged(machineTag, names.SubnetTag{}); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -1161,25 +1162,6 @@ func (ad *applicationData) Kill() {
 // Wait is part of the worker.Worker interface.
 func (ad *applicationData) Wait() error {
 	return ad.catacomb.Wait()
-}
-
-// parsePortsKey parses a ports document global key coming from the ports
-// watcher (e.g. "42:0.1.2.0/24") and returns the machine and subnet tags from
-// its components (in the last example "machine-42" and "subnet-0.1.2.0/24").
-func parsePortsKey(change string) (machineTag names.MachineTag, subnetTag names.SubnetTag, err error) {
-	defer errors.DeferredAnnotatef(&err, "invalid ports change %q", change)
-
-	parts := strings.SplitN(change, ":", 2)
-	if len(parts) != 2 {
-		return names.MachineTag{}, names.SubnetTag{}, errors.Errorf("unexpected format")
-	}
-	machineID, subnetID := parts[0], parts[1]
-
-	machineTag = names.NewMachineTag(machineID)
-	if subnetID != "" {
-		subnetTag = names.NewSubnetTag(subnetID)
-	}
-	return machineTag, subnetTag, nil
 }
 
 func diffRanges(currentRules, wantedRules []network.IngressRule) (toOpen, toClose []network.IngressRule) {
