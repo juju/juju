@@ -28,8 +28,11 @@ import (
 	jt "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jv "github.com/juju/juju/version"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/deployer"
 )
+
+const veryShortWait = 5 * time.Millisecond
 
 type NestedContextSuite struct {
 	testing.IsolationSuite
@@ -181,6 +184,7 @@ func (s *NestedContextSuite) TestRecallUnit(c *gc.C) {
 	s.workers.waitForStart(c, unitName)
 
 	err = ctx.RecallUnit(unitName)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Unit agent dir no longer exists.
 	unitAgentDir := agent.Dir(s.agent.DataDir(), names.NewUnitTag(unitName))
@@ -188,6 +192,47 @@ func (s *NestedContextSuite) TestRecallUnit(c *gc.C) {
 
 	// Unit written into the config value as deployed units.
 	c.Assert(s.agent.Value("deployed-units"), gc.HasLen, 0)
+
+	// Recall is idempotent.
+	err = ctx.RecallUnit(unitName)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *NestedContextSuite) TestErrTerminateAgentFromAgentWorker(c *gc.C) {
+	s.workers.workerError = jworker.ErrTerminateAgent
+	ctx := s.newContext(c)
+	unitName := "something/0"
+	err := ctx.DeployUnit(unitName, "password")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Wait for unit to start.
+	s.workers.waitForStart(c, unitName)
+
+	// Unit is marked as stopped. There is a potential race due to the
+	// number of goroutines that need to fire to get the information back
+	// to the nested context.
+	report := ctx.Report()
+	maxTime := time.After(testing.LongWait)
+	for {
+		stopped := report["stopped"]
+		if stopped != nil {
+			break
+		}
+		select {
+		case <-time.After(veryShortWait):
+			report = ctx.Report()
+		case <-maxTime:
+			c.Fatal("unit not stopped")
+		}
+	}
+
+	c.Assert(ctx.Report(), jc.DeepEquals, map[string]interface{}{
+		"deployed": []string{"something/0"},
+		"stopped":  []string{"something/0"},
+		"units": map[string]interface{}{
+			"workers": map[string]interface{}{},
+		},
+	})
 }
 
 func (s *NestedContextSuite) TestReport(c *gc.C) {
@@ -219,7 +264,7 @@ func (s *NestedContextSuite) TestReport(c *gc.C) {
 			break
 		}
 		select {
-		case <-time.After(testing.ShortWait):
+		case <-time.After(veryShortWait):
 			report = ctx.Report()
 		case <-maxTime:
 			c.Fatal("third unit worker did not start")
