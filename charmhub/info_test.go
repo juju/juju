@@ -11,11 +11,12 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	path "github.com/juju/juju/charmhub/path"
-	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	path "github.com/juju/juju/charmhub/path"
+	"github.com/juju/juju/charmhub/transport"
 )
 
 type InfoSuite struct {
@@ -183,7 +184,7 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiRequester := NewAPIRequester(DefaultHTTPTransport())
-	restClient := NewHTTPRESTClient(apiRequester)
+	restClient := NewHTTPRESTClient(apiRequester, nil)
 
 	client := NewInfoClient(infoPath, restClient)
 	response, err := client.Info(context.TODO(), "wordpress")

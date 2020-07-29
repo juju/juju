@@ -30,7 +30,7 @@ func (s *FindClientSuite) TestLiveFindRequest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiRequester := charmhub.NewAPIRequester(charmhub.DefaultHTTPTransport())
-	restClient := charmhub.NewHTTPRESTClient(apiRequester)
+	restClient := charmhub.NewHTTPRESTClient(apiRequester, nil)
 
 	client := charmhub.NewFindClient(findPath, restClient)
 	responses, err := client.Find(context.TODO(), "wordpress")
