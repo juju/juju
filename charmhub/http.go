@@ -11,9 +11,10 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
+	httprequest "gopkg.in/httprequest.v1"
+
 	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
-	httprequest "gopkg.in/httprequest.v1"
 )
 
 // Transport defines a type for making the actual request.

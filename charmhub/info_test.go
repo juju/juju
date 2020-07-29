@@ -11,11 +11,12 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	path "github.com/juju/juju/charmhub/path"
-	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	path "github.com/juju/juju/charmhub/path"
+	"github.com/juju/juju/charmhub/transport"
 )
 
 type InfoSuite struct {

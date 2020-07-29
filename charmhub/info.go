@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
 )
