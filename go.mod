@@ -54,7 +54,7 @@ require (
 	github.com/juju/go4 v0.0.0-20160222163258-40d72ab9641a // indirect
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
 	github.com/juju/gomaasapi v0.0.0-20190826212825-0ab1eb636aba
-	github.com/juju/http v0.0.0-20200728131122-3e6739b1fad6
+	github.com/juju/http v0.0.0-20200729125253-fb155b41a3e2
 	github.com/juju/jsonschema v0.0.0-20161102181919-a0ef8b74ebcf
 	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
 	github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e
