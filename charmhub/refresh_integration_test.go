@@ -8,10 +8,11 @@ package charmhub_test
 import (
 	"context"
 
-	"github.com/juju/juju/charmhub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/charmhub"
 )
 
 type RefreshClientSuite struct {
