@@ -524,6 +524,21 @@ func (s *localServerSuite) TestStartInstanceNetwork(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *localServerSuite) TestStartInstanceMultiNetworkFound(c *gc.C) {
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network": "",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	c.Check(inst, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `no network provided and multiple available: .*
+	To resolve this error, set a value for "network" in model-config or model-defaults;
+	or supply it via --config when creating a new model`)
+}
+
 func (s *localServerSuite) TestStartInstanceExternalNetwork(c *gc.C) {
 	cfg, err := s.env.Config().Apply(coretesting.Attrs{
 		// A label that corresponds to a neutron test service external network
@@ -586,21 +601,6 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
 		"caused by: "+
 		"request \\(http://.*/networks/.*\\) returned unexpected status: "+
 		"404; error info: .*itemNotFound.*")
-}
-
-func (s *localServerSuite) TestStartInstanceNetworkNotSetReturnsError(c *gc.C) {
-	cfg, err := s.env.Config().Apply(coretesting.Attrs{
-		"network": "",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
-	c.Check(inst, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `multiple networks with label .*
-	To resolve this error, set a value for "network" in model-config or model-defaults;
-	or supply it via --config when creating a new model`)
 }
 
 func (s *localServerSuite) TestStartInstanceNoNetworksNetworkNotSetNoError(c *gc.C) {
@@ -1357,6 +1357,34 @@ func (s *localServerSuite) TestSubnetsFindAllWithExternal(c *gc.C) {
 	}
 
 	c.Check(obtainedSubnetMap, jc.DeepEquals, expectedSubnetMap)
+}
+
+func (s *localServerSuite) TestFindNetworksInternal(c *gc.C) {
+	s.testFindNetworks(c, true)
+}
+
+func (s *localServerSuite) TestFindNetworksExternal(c *gc.C) {
+	s.testFindNetworks(c, false)
+}
+
+func (s *localServerSuite) testFindNetworks(c *gc.C, internal bool) {
+	env := s.prepareNetworkingEnviron(c, s.env.Config())
+	obtainedNetworks, err := openstack.FindNetworks(env, internal)
+	c.Assert(err, jc.ErrorIsNil)
+	neutronClient := openstack.GetNeutronClient(s.env)
+	openstackNetworks, err := neutronClient.ListNetworksV2()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedNetworks := set.NewStrings()
+	for _, oNet := range openstackNetworks {
+		if oNet.External == internal {
+			continue
+		}
+		expectedNetworks.Add(oNet.Name)
+	}
+
+	c.Check(obtainedNetworks.Values(), jc.SameContents, expectedNetworks.Values())
+
 }
 
 func (s *localServerSuite) TestSubnetsWithMissingSubnet(c *gc.C) {

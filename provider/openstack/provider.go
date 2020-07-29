@@ -1275,12 +1275,16 @@ func (e *Environ) startInstance(
 
 	server, err := tryStartNovaInstance(shortAttempt, e.nova(), opts)
 	if err != nil || server == nil {
+		err := errors.Annotate(err, "cannot run instance")
+		// Improve the error message if there is no valid network.
+		if isInvalidNetworkError(err) {
+			msg := "\n\tNo network has been configured, nor could juju find a single internal network;\n\tThis error was caused by juju attempting to create an instance with no network defined."
+			err = errors.New(fmt.Sprintf("%s%s", err.Error(), msg))
+		}
 		// 'No valid host available' is typically a resource error,
 		// let the provisioner know it is a good idea to try another
 		// AZ if available.
-		err := errors.Annotate(err, "cannot run instance")
-		zoneSpecific := isNoValidHostsError(err)
-		if !zoneSpecific {
+		if !isNoValidHostsError(err) {
 			err = common.ZoneIndependentError(err)
 		}
 		return nil, err
@@ -1492,7 +1496,10 @@ func (e *Environ) networksForModel() ([]nova.ServerNetworks, error) {
 		return nil, errors.Annotate(err, "getting initial networks")
 	}
 
-	usingNetwork := e.ecfg().network()
+	usingNetwork, err := e.useNetwork()
+	if err != nil {
+		return nil, err
+	}
 	networkID, err := e.networking.ResolveNetwork(usingNetwork, false)
 	if err != nil {
 		if usingNetwork == "" {
@@ -1510,6 +1517,47 @@ func (e *Environ) networksForModel() ([]nova.ServerNetworks, error) {
 
 	logger.Debugf("using network id %q", networkID)
 	return append(networks, nova.ServerNetworks{NetworkId: networkID}), nil
+}
+
+// useNetwork returns the name of the network to use.
+// First check the model config.  If that is empty, look
+// for internal networks.  If there is more than one, error.
+// If there is only one, use it and set the network model
+// config to use it in the future.
+func (e *Environ) useNetwork() (string, error) {
+	usingNetwork := e.ecfg().network()
+	if usingNetwork != "" {
+		return usingNetwork, nil
+	}
+	var err error
+	usingNetwork, err = e.findOneInternalNetwork()
+	if err != nil {
+		return "", err
+	}
+	cfg, err := e.ecfg().Apply(map[string]interface{}{NetworkKey: usingNetwork})
+	if err != nil {
+		return "", err
+	}
+	if err := e.SetConfig(cfg); err != nil {
+		return "", errors.Annotatef(err, "updating network in config")
+	}
+	logger.Warningf("no network provided, only one internal network found, added network %q to model-config", usingNetwork)
+	return usingNetwork, nil
+}
+
+func (e *Environ) findOneInternalNetwork() (string, error) {
+	networks, err := e.networking.FindNetworks(true)
+	if err != nil {
+		return "", err
+	}
+	if networks.IsEmpty() {
+		return "", nil
+	}
+	if networks.Size() > 1 {
+		err := errors.Errorf("no network provided and multiple available: %q", strings.Join(networks.SortedValues(), ", "))
+		return "", errors.New(noNetConfigMsg(err))
+	}
+	return networks.Values()[0], nil
 }
 
 func (e *Environ) configureRootDisk(ctx context.ProviderCallContext, args environs.StartInstanceParams,
@@ -1624,6 +1672,13 @@ func (e *Environ) volumeAttachmentsZone(volumeAttachments []storage.VolumeAttach
 func isNoValidHostsError(err error) bool {
 	if cause := errors.Cause(err); cause != nil {
 		return strings.Contains(cause.Error(), "No valid host was found")
+	}
+	return false
+}
+
+func isInvalidNetworkError(err error) bool {
+	if errors.IsBadRequest(err) {
+		return strings.Contains(errors.Cause(err).Error(), "Invalid input for field/attribute networks")
 	}
 	return false
 }

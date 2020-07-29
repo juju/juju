@@ -49,6 +49,10 @@ type Networking interface {
 	// interfaces on the given list of instances.
 	// Needed for Environ.Networking
 	NetworkInterfaces(ids []instance.Id) ([]corenetwork.InterfaceInfos, error)
+
+	// FindNetworks returns a set of names of internal or external network
+	// names depending on the provided argument.
+	FindNetworks(internal bool) (set.Strings, error)
 }
 
 // NetworkingDecorator is an interface that provides a means of overriding
@@ -80,16 +84,41 @@ type NeutronNetworking struct {
 	networkingBase
 }
 
-func newNetworking(e *Environ) Networking {
-	return &NeutronNetworking{networkingBase: networkingBase{env: e}}
+// projectIDFilter returns a neutron.Filter to match Neutron Networks with
+// the give projectID.
+func projectIDFilter(projectID string) *neutron.Filter {
+	filter := neutron.NewFilter()
+	filter.Set(neutron.FilterProjectId, projectID)
+	return filter
+}
+
+// externalNetworkFilter returns a neutron.Filter to match Neutron Networks with
+// router:external = true.
+func externalNetworkFilter() *neutron.Filter {
+	filter := neutron.NewFilter()
+	filter.Set(neutron.FilterRouterExternal, "true")
+	return filter
+}
+
+// internalNetworkFilter returns a neutron.Filter to match Neutron Networks with
+// router:external = false.
+func internalNetworkFilter() *neutron.Filter {
+	filter := neutron.NewFilter()
+	filter.Set(neutron.FilterRouterExternal, "false")
+	return filter
 }
 
 // networkFilter returns a neutron.Filter to match Neutron Networks with
 // the exact given name AND router:external boolean result.
-func projectIdFilter(projectId string) *neutron.Filter {
+func networkFilter(name string, external bool) *neutron.Filter {
 	filter := neutron.NewFilter()
-	filter.Set(neutron.FilterProjectId, projectId)
+	filter.Set(neutron.FilterNetwork, fmt.Sprintf("%s", name))
+	filter.Set(neutron.FilterRouterExternal, fmt.Sprintf("%t", external))
 	return filter
+}
+
+func newNetworking(e *Environ) Networking {
+	return &NeutronNetworking{networkingBase: networkingBase{env: e}}
 }
 
 // AllocatePublicIP is part of the Networking interface.
@@ -137,7 +166,7 @@ func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error
 
 	// Look for FIPs in same project as the credentials.
 	// Admins have visibility into other projects.
-	fips, err := n.env.neutron().ListFloatingIPsV2(projectIdFilter(n.env.client().TenantId()))
+	fips, err := n.env.neutron().ListFloatingIPsV2(projectIDFilter(n.env.client().TenantId()))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -171,14 +200,6 @@ func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error
 
 	logger.Debugf("Unable to allocate a public IP")
 	return nil, lastErr
-}
-
-// externalNetworkFilter returns a neutron.Filter to match Neutron Networks with
-// router:external = true.
-func externalNetworkFilter() *neutron.Filter {
-	filter := neutron.NewFilter()
-	filter.Set(neutron.FilterRouterExternal, "true")
-	return filter
 }
 
 // getExternalNeutronNetworksByAZ returns all external networks within the
@@ -241,6 +262,28 @@ func (n *NeutronNetworking) DeletePortByID(portID string) error {
 	return client.DeletePortV2(portID)
 }
 
+// FindNetworks returns a set of names of internal or external network
+// names depending on the provided argument.
+func (n *NeutronNetworking) FindNetworks(internal bool) (set.Strings, error) {
+	var filter *neutron.Filter
+	switch internal {
+	case true:
+		filter = internalNetworkFilter()
+	case false:
+		filter = externalNetworkFilter()
+	}
+	client := n.env.neutron()
+	networks, err := client.ListNetworksV2(filter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	names := set.NewStrings()
+	for _, network := range networks {
+		names.Add(network.Name)
+	}
+	return names, nil
+}
+
 // ResolveNetwork is part of the Networking interface.
 func (n *NeutronNetworking) ResolveNetwork(name string, external bool) (string, error) {
 	return resolveNeutronNetwork(n.env.neutron(), name, external)
@@ -249,15 +292,6 @@ func (n *NeutronNetworking) ResolveNetwork(name string, external bool) (string, 
 func generateUniquePortName(name string) string {
 	unique := utils.RandomString(8, append(utils.LowerAlpha, utils.Digits...))
 	return fmt.Sprintf("juju-%s-%s", name, unique)
-}
-
-// networkFilter returns a neutron.Filter to match Neutron Networks with
-// the exact given name AND router:external boolean result.
-func networkFilter(name string, external bool) *neutron.Filter {
-	filter := neutron.NewFilter()
-	filter.Set(neutron.FilterNetwork, fmt.Sprintf("%s", name))
-	filter.Set(neutron.FilterRouterExternal, fmt.Sprintf("%t", external))
-	return filter
 }
 
 func resolveNeutronNetwork(neutron *neutron.Client, name string, external bool) (string, error) {

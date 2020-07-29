@@ -6,6 +6,7 @@ package openstack
 import (
 	"regexp"
 
+	"github.com/juju/collections/set"
 	"gopkg.in/goose.v2/neutron"
 	"gopkg.in/goose.v2/nova"
 	"gopkg.in/goose.v2/swift"
@@ -131,6 +132,11 @@ func ResolveNetwork(e environs.Environ, networkName string, external bool) (stri
 	return e.(*Environ).networking.ResolveNetwork(networkName, external)
 }
 
+// ResolveNetwork exposes environ helper function resolveNetwork for testing
+func FindNetworks(e environs.Environ, internal bool) (set.Strings, error) {
+	return e.(*Environ).networking.FindNetworks(internal)
+}
+
 var PortsToRuleInfo = rulesToRuleInfo
 var SecGroupMatchesIngressRule = secGroupMatchesIngressRule
 
@@ -161,4 +167,8 @@ func GetModelGroupNames(e environs.Environ) ([]string, error) {
 func GetFirewaller(e environs.Environ) Firewaller {
 	env := e.(*Environ)
 	return env.firewaller
+}
+
+func GetEnvironConfigNetwork(e environs.Environ) string {
+	return e.(*Environ).ecfg().network()
 }
