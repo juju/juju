@@ -8,9 +8,10 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
+
 	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
-	"github.com/juju/utils"
 )
 
 const (
@@ -28,9 +29,6 @@ const (
 
 	// RefreshAction defines a refresh action.
 	RefreshAction Action = "refresh"
-
-	// RefreshAllAction defines a refresh all action.
-	RefreshAllAction Action = "refresh-all"
 )
 
 // RefreshClient defines a client for refresh requests.
@@ -170,8 +168,8 @@ func InstallOne(id string, revision int, channel, os, series string) (RefreshCon
 	}, nil
 }
 
-// InstallOneFromRevision creates a request config for requesting only one
-// charm.
+// InstallOneFromRevision creates a request config using the revision and not
+// the channel for requesting only one charm.
 func InstallOneFromRevision(id string, revision int, os, series string) (RefreshConfig, error) {
 	uuid, err := utils.NewUUID()
 	if err != nil {
@@ -186,7 +184,8 @@ func InstallOneFromRevision(id string, revision int, os, series string) (Refresh
 	}, nil
 }
 
-// InstallOneFromChannel creates a request config for requesting only one charm.
+// InstallOneFromChannel creates a request config using the channel and not the
+// revision for requesting only one charm.
 func InstallOneFromChannel(id string, channel, os, series string) (RefreshConfig, error) {
 	uuid, err := utils.NewUUID()
 	if err != nil {
