@@ -114,6 +114,21 @@ type LinkLayerMachine interface {
 	AssertAliveOp() txn.Op
 }
 
+// LinkLayerState describes methods required for sanitising and persisting
+// link-layer data sourced from a single machine.
+type LinkLayerState interface {
+	// Machine returns the machine for which link-layer data is being set.
+	Machine(string) (LinkLayerMachine, error)
+
+	// AllSubnetInfos returns all known model subnets.
+	// It is used for correctly setting the subnet
+	// of addresses in Fan networks.
+	AllSubnetInfos() (network.SubnetInfos, error)
+
+	// ApplyOperation applied the model operation that sets link-layer data.
+	ApplyOperation(state.ModelOperation) error
+}
+
 // MachineLinkLayerOp is a base type for model operations that update
 // link-layer data for a single machine/host/container.
 type MachineLinkLayerOp struct {

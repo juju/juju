@@ -25,13 +25,13 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.common.networkingcommon")
 
 type NetworkConfigAPI struct {
-	st           *state.State
+	st           LinkLayerState
 	getCanModify common.GetAuthFunc
 }
 
 func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) *NetworkConfigAPI {
 	return &NetworkConfigAPI{
-		st:           st,
+		st:           &linkLayerState{st},
 		getCanModify: getCanModify,
 	}
 }
@@ -63,47 +63,45 @@ func (api *NetworkConfigAPI) SetObservedNetworkConfig(args params.SetMachineNetw
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(api.st.ApplyOperation(newUpdateMachineLinkLayerOp(&machineShim{m}, devs)))
+	return errors.Trace(api.st.ApplyOperation(newUpdateMachineLinkLayerOp(m, devs)))
 }
 
-// fixUpFanSubnets takes network config and updates Fan subnets
-// with proper CIDR, providerId and providerSubnetId.
+// fixUpFanSubnets takes network config and updates
+// Fan subnets with proper CIDR.
 // See network/fan.go for more detail on how Fan overlays
 // are divided into segments.
 func (api *NetworkConfigAPI) fixUpFanSubnets(networkConfig []params.NetworkConfig) ([]params.NetworkConfig, error) {
-	subnets, err := api.st.AllSubnets()
+	subnets, err := api.st.AllSubnetInfos()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var fanSubnets []*state.Subnet
-	var fanCIDRs []*net.IPNet
+	var fanSubnets network.SubnetInfos
 	for _, subnet := range subnets {
 		if subnet.FanOverlay() != "" {
 			fanSubnets = append(fanSubnets, subnet)
-			_, aNet, err := net.ParseCIDR(subnet.CIDR())
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			fanCIDRs = append(fanCIDRs, aNet)
 		}
 	}
 	for i := range networkConfig {
 		localIP := net.ParseIP(networkConfig[i].Address)
-		for j, fanSubnet := range fanSubnets {
-			if len(fanCIDRs) >= j && fanCIDRs[j].Contains(localIP) {
-				networkConfig[i].CIDR = fanSubnet.CIDR()
-				networkConfig[i].ProviderId = string(fanSubnet.ProviderId())
-				networkConfig[i].ProviderSubnetId = string(fanSubnet.ProviderNetworkId())
+
+		for _, sub := range fanSubnets {
+			fanNet, err := sub.ParsedCIDRNetwork()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if fanNet != nil && fanNet.Contains(localIP) {
+				networkConfig[i].CIDR = sub.CIDR
 				break
 			}
 		}
 	}
-	logger.Tracef("Final network config after fixing up FAN subnets %+v", networkConfig)
+
+	logger.Tracef("final network config after fixing up Fan subnets %+v", networkConfig)
 	return networkConfig, nil
 }
 
-func (api *NetworkConfigAPI) getMachineForSettingNetworkConfig(machineTag string) (*state.Machine, error) {
+func (api *NetworkConfigAPI) getMachineForSettingNetworkConfig(machineTag string) (LinkLayerMachine, error) {
 	canModify, err := api.getCanModify()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -127,12 +125,9 @@ func (api *NetworkConfigAPI) getMachineForSettingNetworkConfig(machineTag string
 	return m, nil
 }
 
-func (api *NetworkConfigAPI) getMachine(tag names.MachineTag) (*state.Machine, error) {
-	entity, err := api.st.FindEntity(tag)
-	if err != nil {
-		return nil, err
-	}
-	return entity.(*state.Machine), nil
+func (api *NetworkConfigAPI) getMachine(tag names.MachineTag) (LinkLayerMachine, error) {
+	m, err := api.st.Machine(tag.Id())
+	return m, errors.Trace(err)
 }
 
 // mergeMachineLinkLayerOp is a model operation used to merge incoming
