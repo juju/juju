@@ -793,7 +793,7 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 	}
 
 	registry := &stubRegistry{stub: stub}
-	registry.names = append(registry.names, "help", "version") // implicit
+	registry.names = append(registry.names, "help") // implicit
 	registerCommands(registry, cmdtesting.Context(c))
 	sort.Strings(registry.names)
 

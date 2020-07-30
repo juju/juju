@@ -1,13 +1,12 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd_test
+package commands
 
 import (
 	"bytes"
 	"fmt"
 
-	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/os/series"
 	"github.com/juju/testing"
@@ -16,23 +15,19 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	jujucmd "github.com/juju/juju/cmd"
 	jujuversion "github.com/juju/juju/version"
 )
 
-type SuperCommandSuite struct {
+type VersionSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&SuperCommandSuite{})
+var _ = gc.Suite(&VersionSuite{})
 
-func (s *SuperCommandSuite) TestVersion(c *gc.C) {
+func (s *VersionSuite) TestVersion(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, version.MustParse("2.99.0"))
-	params := cmd.SuperCommandParams{
-		Name: "juju-test-command",
-	}
-	command := jujucmd.NewSuperCommand(params)
-	cctx, err := cmdtesting.RunCommand(c, command, "version")
+	command := newVersionCommand()
+	cctx, err := cmdtesting.RunCommand(c, command)
 	c.Assert(err, jc.ErrorIsNil)
 	output := fmt.Sprintf("2.99.0-%s-%s\n",
 		series.MustHostSeries(), arch.HostArch())
@@ -41,16 +36,13 @@ func (s *SuperCommandSuite) TestVersion(c *gc.C) {
 	c.Assert(cctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 }
 
-func (s *SuperCommandSuite) TestVersionDetail(c *gc.C) {
+func (s *VersionSuite) TestVersionDetail(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, version.MustParse("2.99.0"))
 	s.PatchValue(&jujuversion.GitCommit, "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f")
 	s.PatchValue(&jujuversion.GitTreeState, "clean")
 	s.PatchValue(&jujuversion.Compiler, "gc")
-	params := cmd.SuperCommandParams{
-		Name: "juju-test-command",
-	}
-	command := jujucmd.NewSuperCommand(params)
-	cctx, err := cmdtesting.RunCommand(c, command, "version", "--all")
+	command := newVersionCommand()
+	cctx, err := cmdtesting.RunCommand(c, command, "--all")
 	c.Assert(err, jc.ErrorIsNil)
 	outputTemplate := `
 version: 2.99.0-%s-%s
@@ -64,16 +56,13 @@ compiler: gc
 	c.Assert(cctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 }
 
-func (s *SuperCommandSuite) TestVersionDetailJSON(c *gc.C) {
+func (s *VersionSuite) TestVersionDetailJSON(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, version.MustParse("2.99.0"))
 	s.PatchValue(&jujuversion.GitCommit, "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f")
 	s.PatchValue(&jujuversion.GitTreeState, "clean")
 	s.PatchValue(&jujuversion.Compiler, "gc")
-	params := cmd.SuperCommandParams{
-		Name: "juju-test-command",
-	}
-	command := jujucmd.NewSuperCommand(params)
-	cctx, err := cmdtesting.RunCommand(c, command, "version", "--all", "--format", "json")
+	command := newVersionCommand()
+	cctx, err := cmdtesting.RunCommand(c, command, "--all", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	outputTemplate := `
 {"version":"2.99.0-%s-%s","git-commit":"0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f","git-tree-state":"clean","compiler":"gc"}
@@ -84,16 +73,13 @@ func (s *SuperCommandSuite) TestVersionDetailJSON(c *gc.C) {
 	c.Assert(cctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 }
 
-func (s *SuperCommandSuite) TestVersionDetailYAML(c *gc.C) {
+func (s *VersionSuite) TestVersionDetailYAML(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, version.MustParse("2.99.0"))
 	s.PatchValue(&jujuversion.GitCommit, "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f")
 	s.PatchValue(&jujuversion.GitTreeState, "clean")
 	s.PatchValue(&jujuversion.Compiler, "gc")
-	params := cmd.SuperCommandParams{
-		Name: "juju-test-command",
-	}
-	command := jujucmd.NewSuperCommand(params)
-	cctx, err := cmdtesting.RunCommand(c, command, "version", "--all", "--format", "yaml")
+	command := newVersionCommand()
+	cctx, err := cmdtesting.RunCommand(c, command, "--all", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	outputTemplate := `
 version: 2.99.0-%s-%s
