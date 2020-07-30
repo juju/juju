@@ -75,10 +75,10 @@ func (c CharmOriginSource) String() string {
 const (
 	// OriginLocal represents a local charm.
 	OriginLocal CharmOriginSource = "local"
-	// OriginCharmStore represents a charm from the now old charmstore.
+	// OriginCharmStore represents a charm from the now old charm-store.
 	OriginCharmStore CharmOriginSource = "charm-store"
-	// OriginCharmhub represents a charm from the new charmhub.
-	OriginCharmhub CharmOriginSource = "charmhub"
+	// OriginCharmHub represents a charm from the new charm-hub.
+	OriginCharmHub CharmOriginSource = "charm-hub"
 	// OriginUnknown represents that we don't know where this charm came from.
 	// Either the charm was migrated up from an older version of Juju or we
 	//  didn't have enough information when we set the charm.

@@ -253,8 +253,8 @@ const (
 	// LXDSnapChannel selects the channel to use when installing LXD from a snap.
 	LXDSnapChannel = "lxd-snap-channel"
 
-	// CharmhubURLKey is the key for the url to use for charmhub API calls
-	CharmhubURLKey = "charmhub-url"
+	// CharmHubURLKey is the key for the url to use for CharmHub API calls
+	CharmHubURLKey = "charm-hub-url"
 
 	//
 	// Deprecated Settings Attributes
@@ -474,7 +474,7 @@ var defaultConfigValues = map[string]interface{}{
 	BackupDirKey:                  "",
 	LXDSnapChannel:                "latest/stable",
 
-	CharmhubURLKey: charmhub.CharmhubServerURL,
+	CharmHubURLKey: charmhub.CharmHubServerURL,
 
 	// Image and agent streams and URLs.
 	"image-stream":               "released",
@@ -740,7 +740,7 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if err := cfg.validateCharmhubURL(); err != nil {
+	if err := cfg.validateCharmHubURL(); err != nil {
 		return err
 	}
 
@@ -764,9 +764,9 @@ func Validate(cfg, old *Config) error {
 				return errors.New("cannot clear agent-version")
 			}
 		}
-		if _, oldFound := old.CharmhubURL(); oldFound {
-			if _, newFound := cfg.CharmhubURL(); !newFound {
-				return errors.New("cannot clear charmhub-url")
+		if _, oldFound := old.CharmHubURL(); oldFound {
+			if _, newFound := cfg.CharmHubURL(); !newFound {
+				return errors.New("cannot clear charm-hub-url")
 			}
 		}
 	}
@@ -1297,21 +1297,21 @@ func (c *Config) GUIStream() string {
 	return "released"
 }
 
-// CharmhubURL returns the URL to use for charmhub api calls.
-func (c *Config) CharmhubURL() (string, bool) {
-	if v, ok := c.defined[CharmhubURLKey].(string); ok && v != "" {
+// CharmHubURL returns the URL to use for CharmHub API calls.
+func (c *Config) CharmHubURL() (string, bool) {
+	if v, ok := c.defined[CharmHubURLKey].(string); ok && v != "" {
 		return v, true
 	}
-	return charmhub.CharmhubServerURL, false
+	return charmhub.CharmHubServerURL, false
 }
 
-func (c *Config) validateCharmhubURL() error {
-	if v, ok := c.defined[CharmhubURLKey].(string); ok {
+func (c *Config) validateCharmHubURL() error {
+	if v, ok := c.defined[CharmHubURLKey].(string); ok {
 		if v == "" {
-			return errors.NotValidf("charmhub url")
+			return errors.NotValidf("charm-hub url")
 		}
 		if _, err := url.ParseRequestURI(v); err != nil {
-			return errors.NotValidf("charmhub url %q", v)
+			return errors.NotValidf("charm-hub url %q", v)
 		}
 	}
 	return nil
@@ -1590,7 +1590,7 @@ var alwaysOptional = schema.Defaults{
 	BackupDirKey:                  schema.Omit,
 	DefaultSpace:                  schema.Omit,
 	LXDSnapChannel:                schema.Omit,
-	CharmhubURLKey:                schema.Omit,
+	CharmHubURLKey:                schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1624,7 +1624,7 @@ var immutableAttributes = []string{
 	TypeKey,
 	UUIDKey,
 	"firewall-mode",
-	CharmhubURLKey,
+	CharmHubURLKey,
 }
 
 var (
@@ -2101,8 +2101,8 @@ data of the store. (default false)`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	CharmhubURLKey: {
-		Description: `The url for charmhub API calls`,
+	CharmHubURLKey: {
+		Description: `The url for CharmHub API calls`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

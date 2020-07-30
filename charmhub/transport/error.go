@@ -3,7 +3,7 @@
 
 package transport
 
-// APIError represents the error from the charmhub api.
+// APIError represents the error from the CharmHub API.
 type APIError struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`

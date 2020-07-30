@@ -4,7 +4,7 @@
 package params
 
 // Query holds the query information when attempting to find possible charms or
-// bundles for searching the charmhub.
+// bundles for searching the CharmHub.
 type Query struct {
 	Query string `json:"query"`
 }

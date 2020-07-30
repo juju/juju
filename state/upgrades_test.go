@@ -4370,7 +4370,7 @@ func (s *upgradesSuite) TestReplaceNeverSetWithUnset(c *gc.C) {
 	checkNoNeverSetAttribute()
 }
 
-func (s *upgradesSuite) TestAddCharmhubToModelConfig(c *gc.C) {
+func (s *upgradesSuite) TestAddCharmHubToModelConfig(c *gc.C) {
 	// Value not set
 	m1 := s.makeModel(c, "m1", coretesting.Attrs{
 		"other-setting":  "val",
@@ -4380,7 +4380,7 @@ func (s *upgradesSuite) TestAddCharmhubToModelConfig(c *gc.C) {
 	defer func() { _ = m1.Close() }()
 	// Value set to something other that default
 	m2 := s.makeModel(c, "m3", coretesting.Attrs{
-		"charmhub-url": "http://meshuggah.rocks",
+		"charm-hub-url": "http://meshuggah.rocks",
 	})
 	defer func() { _ = m2.Close() }()
 
@@ -4388,7 +4388,7 @@ func (s *upgradesSuite) TestAddCharmhubToModelConfig(c *gc.C) {
 	defer settingsCloser()
 	// To simulate a 2.9.0 without any setting, delete the record from it.
 	err := settingsColl.UpdateId(m1.ModelUUID()+":e",
-		bson.M{"$unset": bson.M{"settings.charmhub-url": 1}},
+		bson.M{"$unset": bson.M{"settings.charm-hub-url": 1}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	// And an extra document from somewhere else that we shouldn't touch
@@ -4410,8 +4410,8 @@ func (s *upgradesSuite) TestAddCharmhubToModelConfig(c *gc.C) {
 	expectedSettings := []bson.M{}
 
 	expectedChanges := map[string]bson.M{
-		m1.ModelUUID() + ":e": {"charmhub-url": charmhub.CharmhubServerURL, "other-setting": "val"},
-		m2.ModelUUID() + ":e": {"charmhub-url": "http://meshuggah.rocks"},
+		m1.ModelUUID() + ":e": {"charm-hub-url": charmhub.CharmHubServerURL, "other-setting": "val"},
+		m2.ModelUUID() + ":e": {"charm-hub-url": "http://meshuggah.rocks"},
 		"not-a-model":         {"other-setting": "val"},
 	}
 	for iter.Next(&rawSettings) {
@@ -4437,7 +4437,7 @@ func (s *upgradesSuite) TestAddCharmhubToModelConfig(c *gc.C) {
 	}
 	c.Assert(iter.Close(), jc.ErrorIsNil)
 
-	s.assertUpgradedData(c, AddCharmhubToModelConfig,
+	s.assertUpgradedData(c, AddCharmHubToModelConfig,
 		upgradedData(settingsColl, expectedSettings),
 	)
 }

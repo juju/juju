@@ -81,14 +81,14 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 	return resp.Results, config.Ensure(resp.Results)
 }
 
-// refreshOne holds the config for making refresh calls to the charmhub API.
+// refreshOne holds the config for making refresh calls to the CharmHub API.
 type refreshOne struct {
 	ID       string
 	Revision int
 	Channel  string
 	OS       string
 	Series   string
-	// instanceKey is a private unique key that we construct for charmhub API
+	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
 	instanceKey string
 }
@@ -150,7 +150,7 @@ type executeOne struct {
 	Channel  *string
 	OS       string
 	Series   string
-	// instanceKey is a private unique key that we construct for charmhub API
+	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
 	action      Action
 	instanceKey string

@@ -56,7 +56,7 @@ type Channel struct {
 }
 
 // CharmOrigin holds the original source of a charm. Information about where the
-// charm was installed from (charmhub, charmstore, local) and any additional
+// charm was installed from (charm-hub, charm-store, local) and any additional
 // information we can utilise when making modelling decisions for upgrading or
 // changing.
 type CharmOrigin struct {

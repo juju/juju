@@ -322,7 +322,7 @@ func (c *configCommand) parseResetKeys() error {
 	}
 
 	for _, k := range resetKeys {
-		if k == config.AgentVersionKey || k == config.CharmhubURLKey {
+		if k == config.AgentVersionKey || k == config.CharmHubURLKey {
 			return errors.Errorf("%q cannot be reset", k)
 		}
 		if strings.Contains(k, "=") {
@@ -396,11 +396,11 @@ func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) err
 				continue
 			}
 			return errors.Errorf(`"agent-version" must be set via "upgrade-model"`)
-		} else if k == config.CharmhubURLKey {
+		} else if k == config.CharmHubURLKey {
 			if c.ignoreReadOnlyFields {
 				continue
 			}
-			return errors.Errorf(`"charmhub-url" must be set via "add-model"`)
+			return errors.Errorf(`"charm-hub-url" must be set via "add-model"`)
 		}
 
 		values[k] = v

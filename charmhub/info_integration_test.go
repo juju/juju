@@ -22,7 +22,7 @@ type InfoClientSuite struct {
 var _ = gc.Suite(&InfoClientSuite{})
 
 func (s *InfoClientSuite) TestLiveInfoRequest(c *gc.C) {
-	config := charmhub.CharmhubConfig()
+	config := charmhub.CharmHubConfig()
 	basePath, err := config.BasePath()
 	c.Assert(err, jc.ErrorIsNil)
 

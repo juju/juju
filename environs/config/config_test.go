@@ -587,20 +587,20 @@ var configTests = []configTest{
 		about:       "Valid charmhub api url",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"charmhub-url": "http://test.com",
+			"charm-hub-url": "http://test.com",
 		}),
 	}, {
 		about:       "Malformed charmhub api url",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"charmhub-url": "http://t est.com",
+			"charm-hub-url": "http://t est.com",
 		}),
 		err: `charmhub url "http://t est.com" not valid`,
 	}, {
 		about:       "Invalid charmhub api url",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"charmhub-url": "meshuggah",
+			"charm-hub-url": "meshuggah",
 		}),
 		err: `charmhub url "meshuggah" not valid`,
 	},
@@ -892,10 +892,10 @@ var validationTests = []validationTest{{
 	new:   testing.Attrs{"uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4"},
 	err:   "cannot change uuid from \"90168e4c-2f10-4e9c-83c2-1fb55a58e5a9\" to \"dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4\"",
 }, {
-	about: "Can't change the charmhub-url (global->none)",
-	old:   testing.Attrs{"charmhub-url": "http://a.com"},
-	new:   testing.Attrs{"charmhub-url": "http://b.com"},
-	err:   `cannot change charmhub-url from "http://a.com" to "http://b.com"`,
+	about: "Can't change the charm-hub-url (global->none)",
+	old:   testing.Attrs{"charm-hub-url": "http://a.com"},
+	new:   testing.Attrs{"charm-hub-url": "http://b.com"},
+	err:   `cannot change charm-hub-url from "http://a.com" to "http://b.com"`,
 }}
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
@@ -1156,13 +1156,13 @@ func (s *ConfigSuite) TestCharmhubURL(c *gc.C) {
 	config := newTestConfig(c, testing.Attrs{})
 	chURL, ok := config.CharmhubURL()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(chURL, gc.Equals, charmhub.CharmhubServerURL)
+	c.Assert(chURL, gc.Equals, charmhub.CharmHubServerURL)
 }
 
 func (s *ConfigSuite) TestCharmhubURLSettingValue(c *gc.C) {
 	url := "http://meshuggah-rocks.com/charmhub"
 	config := newTestConfig(c, testing.Attrs{
-		"charmhub-url": url,
+		"charm-hub-url": url,
 	})
 	chURL, ok := config.CharmhubURL()
 	c.Assert(ok, jc.IsTrue)

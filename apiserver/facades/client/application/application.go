@@ -807,7 +807,7 @@ func convertCharmOrigin(origin *params.CharmOrigin) (corecharm.Origin, error) {
 		return corecharm.Origin{Source: corecharm.CharmStore}, nil
 	}
 
-	// Charmhub code can not tell us about the exact charm we want to install.
+	// CharmHub code can not tell us about the exact charm we want to install.
 	if origin.Revision == nil && origin.Channel == nil {
 		return corecharm.Origin{}, errors.Errorf("unexpected charm origin")
 	}

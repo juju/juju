@@ -66,10 +66,10 @@ func (s *charmHubAPISuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *charmHubAPISuite) expectModelConfig(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"charmhub-url": "https://someurl.com",
-		"type":         "my-type",
-		"name":         "my-name",
-		"uuid":         testing.ModelTag.Id(),
+		"charm-hub-url": "https://someurl.com",
+		"type":          "my-type",
+		"name":          "my-name",
+		"uuid":          testing.ModelTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.EXPECT().ModelConfig().Return(cfg, nil)
