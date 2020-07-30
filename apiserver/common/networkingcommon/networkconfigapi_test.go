@@ -179,7 +179,6 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 	lbDev := mocks.NewMockLinkLayerDevice(ctrl)
 	lbExp := lbDev.EXPECT()
 	lbExp.MACAddress().Return("").MinTimes(1)
-	lbExp.ParentID().Return("")
 	lbExp.Name().Return("lo").MinTimes(1)
 	lbExp.UpdateOps(state.LinkLayerDeviceArgs{
 		Name:        "lo",
@@ -203,7 +202,6 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 	ethDev := mocks.NewMockLinkLayerDevice(ctrl)
 	ethExp := ethDev.EXPECT()
 	ethExp.MACAddress().Return(ethMAC).MinTimes(1)
-	ethExp.ParentID().Return("")
 	ethExp.Name().Return("eth0").MinTimes(1)
 	ethExp.UpdateOps(state.LinkLayerDeviceArgs{
 		Name:        "eth0",
@@ -228,7 +226,6 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 	delExp.MACAddress().Return("aa:aa:aa:aa:aa:aa").MinTimes(1)
 	delExp.Name().Return("eth99").MinTimes(1)
 	delExp.ProviderID().Return(network.Id(""))
-	delExp.ID().Return("some-model-uuid:m#0#eth99")
 	delExp.RemoveOps().Return([]txn.Op{{}})
 
 	delAddr := mocks.NewMockLinkLayerAddress(ctrl)
@@ -304,6 +301,65 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 	// - Deleting the address from the unobserved device.
 	// - Deleting the unobserved device.
 	c.Check(ops, gc.HasLen, 5)
+}
+
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemoved(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Device eth99 exists with an address.
+	// The address will be deleted.
+	// The device is a parent of an incoming device,
+	// and therefore will not be deleted.
+	delDev := mocks.NewMockLinkLayerDevice(ctrl)
+	delExp := delDev.EXPECT()
+	delExp.MACAddress().Return("aa:aa:aa:aa:aa:aa").MinTimes(1)
+	delExp.Name().Return("eth99").MinTimes(1)
+	delExp.ProviderID().Return(network.Id(""))
+
+	delAddr := mocks.NewMockLinkLayerAddress(ctrl)
+	delAddrExp := delAddr.EXPECT()
+	delAddrExp.DeviceName().Return("eth99").MinTimes(1)
+	delAddrExp.Origin().Return(network.OriginMachine)
+	delAddrExp.Value().Return("10.0.0.1")
+	delAddrExp.RemoveOps().Return([]txn.Op{{}})
+
+	s.expectMachine()
+	mExp := s.machine.EXPECT()
+	mExp.AllLinkLayerDevices().Return([]networkingcommon.LinkLayerDevice{delDev}, nil)
+	mExp.AllAddresses().Return([]networkingcommon.LinkLayerAddress{delAddr}, nil)
+	mExp.AddLinkLayerDeviceOps(
+		state.LinkLayerDeviceArgs{
+			Name:        "eth1",
+			Type:        "ethernet",
+			MACAddress:  "aa:bb:cc:dd:ee:f1",
+			IsAutoStart: true,
+			IsUp:        true,
+			ParentName:  "eth99",
+		},
+		state.LinkLayerDeviceAddress{
+			DeviceName:     "eth1",
+			ConfigMethod:   "static",
+			CIDRAddress:    "0.20.0.2/24",
+			GatewayAddress: "0.20.0.1",
+		},
+	).Return([]txn.Op{{}, {}}, nil)
+
+	op := s.NewUpdateMachineLinkLayerOp(s.machine, network.InterfaceInfos{
+		{
+			// New device and addresses for eth1 with eth99 as the parent.
+			InterfaceName:       "eth1",
+			InterfaceType:       "ethernet",
+			MACAddress:          "aa:bb:cc:dd:ee:f1",
+			CIDR:                "0.20.0.0/24",
+			Addresses:           network.NewProviderAddresses("0.20.0.2"),
+			GatewayAddress:      network.NewProviderAddress("0.20.0.1"),
+			ParentInterfaceName: "eth99",
+		},
+	})
+
+	_, err := op.Build(0)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *networkConfigSuite) setupMocks(c *gc.C) *gomock.Controller {

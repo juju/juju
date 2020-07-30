@@ -145,18 +145,18 @@ type updateMachineLinkLayerOp struct {
 	// We check that these can be deleted after processing all devices.
 	removalCandidates []LinkLayerDevice
 
-	// observedParentIDs are the IDs of link-layer devices that are parents of
-	// children that we are *not* deleting, thus preventing such parents from
-	// being deleted.
-	observedParentIDs set.Strings
+	// observedParentDevices are the names of link-layer devices that are
+	// parents of children that we are *not* deleting, thus preventing such
+	// parents from being deleted.
+	observedParentDevices set.Strings
 }
 
 func newUpdateMachineLinkLayerOp(
 	machine LinkLayerMachine, incoming network.InterfaceInfos,
 ) *updateMachineLinkLayerOp {
 	return &updateMachineLinkLayerOp{
-		MachineLinkLayerOp: NewMachineLinkLayerOp(machine, incoming),
-		observedParentIDs:  set.NewStrings(),
+		MachineLinkLayerOp:    NewMachineLinkLayerOp(machine, incoming),
+		observedParentDevices: set.NewStrings(),
 	}
 }
 
@@ -171,14 +171,7 @@ func (o *updateMachineLinkLayerOp) Build(_ int) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// TODO: Consider walking the hierarchy here (maybe) and removing incoming
-	// child devices that don't have a parent either incoming also, or residing
-	// in state. This would prevent us having to check whether removal
-	// candidates have an incoming first-time child - however unlikely this is.
-
-	// InterfaceInfo validation is now called before this model Op is
-	// validated, but the logic does not yet replicate validation of parents as
-	// is currently done is state.
+	o.noteObservedParentDevices()
 
 	var ops []txn.Op
 	for _, existingDev := range o.ExistingDevices() {
@@ -200,21 +193,27 @@ func (o *updateMachineLinkLayerOp) Build(_ int) ([]txn.Op, error) {
 	return ops, nil
 }
 
+// noteObservedParentDevices records any parent device names from the incoming
+// set. This is used later to ensure that we do not remove unobserved devices
+// that are parents of NICs in the incoming set.
+// This *should* be impossible, but we can be defensive without throwing an
+// error - any unobserved devices will always have their addresses removed
+// provided that they are under the authority of the machine.
+// See processRemovalCandidates.
+func (o *updateMachineLinkLayerOp) noteObservedParentDevices() {
+	for _, dev := range o.incoming {
+		if dev.ParentInterfaceName != "" {
+			o.observedParentDevices.Add(dev.ParentInterfaceName)
+		}
+	}
+}
+
 func (o *updateMachineLinkLayerOp) processExistingDevice(dev LinkLayerDevice) ([]txn.Op, error) {
 	incomingDev := o.MatchingIncoming(dev)
 
 	if incomingDev == nil {
 		ops, err := o.processExistingDeviceNotObserved(dev)
 		return ops, errors.Trace(err)
-	}
-
-	// At this point we know that we are dealing with a device that is both in
-	// state and observed once again on the machine.
-	// We want to ensure that if it has a parent device,
-	// then that device can not be deleted.
-	parentID := dev.ParentID()
-	if parentID != "" {
-		o.observedParentIDs.Add(parentID)
 	}
 
 	ops := dev.UpdateOps(networkDeviceToStateArgs(*incomingDev))
@@ -347,7 +346,9 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 func (o *updateMachineLinkLayerOp) processRemovalCandidates() []txn.Op {
 	var ops []txn.Op
 	for _, dev := range o.removalCandidates {
-		if !o.observedParentIDs.Contains(dev.ID()) {
+		if o.observedParentDevices.Contains(dev.Name()) {
+			logger.Warningf("device %q (%s) not removed; it has incoming child devices", dev.Name(), dev.MACAddress())
+		} else {
 			logger.Debugf("removing device %q (%s)", dev.Name(), dev.MACAddress())
 			ops = append(ops, dev.RemoveOps()...)
 		}

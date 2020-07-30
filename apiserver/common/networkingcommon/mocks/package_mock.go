@@ -295,20 +295,6 @@ func (mr *MockLinkLayerDeviceMockRecorder) AddAddressOps(arg0 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddAddressOps", reflect.TypeOf((*MockLinkLayerDevice)(nil).AddAddressOps), arg0)
 }
 
-// ID mocks base method
-func (m *MockLinkLayerDevice) ID() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ID")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// ID indicates an expected call of ID
-func (mr *MockLinkLayerDeviceMockRecorder) ID() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ID", reflect.TypeOf((*MockLinkLayerDevice)(nil).ID))
-}
-
 // MACAddress mocks base method
 func (m *MockLinkLayerDevice) MACAddress() string {
 	m.ctrl.T.Helper()
@@ -335,20 +321,6 @@ func (m *MockLinkLayerDevice) Name() string {
 func (mr *MockLinkLayerDeviceMockRecorder) Name() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockLinkLayerDevice)(nil).Name))
-}
-
-// ParentID mocks base method
-func (m *MockLinkLayerDevice) ParentID() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ParentID")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// ParentID indicates an expected call of ParentID
-func (mr *MockLinkLayerDeviceMockRecorder) ParentID() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ParentID", reflect.TypeOf((*MockLinkLayerDevice)(nil).ParentID))
 }
 
 // ProviderID mocks base method
