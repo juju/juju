@@ -760,6 +760,36 @@ func (s *ipAddressesStateSuite) TestSetProviderNetIDsOps(c *gc.C) {
 	c.Assert(addr.ProviderSubnetID().String(), gc.Equals, "p-sub-2")
 }
 
+func (s *ipAddressesStateSuite) TestUpdateOps(c *gc.C) {
+	dev := s.addNamedDevice(c, "eth0")
+
+	addrArgs := state.LinkLayerDeviceAddress{
+		DeviceName:   "eth0",
+		ConfigMethod: network.ManualAddress,
+		CIDRAddress:  "0.1.2.3/24",
+		Origin:       network.OriginMachine,
+	}
+	err := s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrs, err := dev.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+
+	ops, err := addrs[0].UpdateOps(state.LinkLayerDeviceAddress{
+		DeviceName:     "eth0",
+		ConfigMethod:   network.ManualAddress,
+		CIDRAddress:    "0.1.2.3/24",
+		Origin:         network.OriginMachine,
+		GatewayAddress: "0.1.2.0",
+	})
+
+	state.RunTransaction(c, s.State, ops)
+
+	addrs, err = dev.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs[0].GatewayAddress(), gc.Equals, "0.1.2.0")
+}
+
 func (s *ipAddressesStateSuite) TestUpdateAddressFailsToChangeProviderID(c *gc.C) {
 	s.addNamedDevice(c, "eth0")
 	addrArgs := state.LinkLayerDeviceAddress{

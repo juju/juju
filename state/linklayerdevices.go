@@ -263,6 +263,35 @@ func (dev *LinkLayerDevice) UpdateOps(args LinkLayerDeviceArgs) []txn.Op {
 	return nil
 }
 
+// AddAddressOps returns transaction operations required
+// to add the input address to the device.
+// TODO (manadart 2020-07-22): This method is currently used only for adding
+// machine sourced addresses.
+// If it is used in future to set provider addresses, the provider ID args must
+// be included and the global ID collection must be maintained and verified.
+func (dev *LinkLayerDevice) AddAddressOps(args LinkLayerDeviceAddress) ([]txn.Op, error) {
+	address, subnet, err := args.addressAndSubnet()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	newDoc := ipAddressDoc{
+		DeviceName:       dev.doc.Name,
+		DocID:            dev.doc.DocID + "#ip#" + address,
+		ModelUUID:        dev.doc.ModelUUID,
+		MachineID:        dev.doc.MachineID,
+		SubnetCIDR:       subnet,
+		ConfigMethod:     args.ConfigMethod,
+		Value:            address,
+		DNSServers:       args.DNSServers,
+		DNSSearchDomains: args.DNSSearchDomains,
+		GatewayAddress:   args.GatewayAddress,
+		IsDefaultGateway: args.IsDefaultGateway,
+		Origin:           args.Origin,
+	}
+	return []txn.Op{insertIPAddressDocOp(&newDoc)}, nil
+}
+
 // Remove removes the device, if it exists. No error is returned when the device
 // was already removed. ErrParentDeviceHasChildren is returned if this device is
 // a parent to one or more existing devices and therefore cannot be removed.

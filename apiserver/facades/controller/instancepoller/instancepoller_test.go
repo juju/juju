@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
+	"github.com/juju/juju/apiserver/common/networkingcommon/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -913,14 +914,14 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *gc
 	s.setDefaultSpaceInfo()
 
 	// Hardware address not matched.
-	dev := instancepoller.NewMockLinkLayerDevice(ctrl)
+	dev := mocks.NewMockLinkLayerDevice(ctrl)
 	dExp := dev.EXPECT()
 	dExp.MACAddress().Return("01:01:01:01:01:01").MinTimes(1)
 	dExp.Name().Return("eth0")
 	dExp.SetProviderIDOps(network.Id("")).Return([]txn.Op{{C: "dev-provider-id"}}, nil)
 
 	// Address should be set back to machine origin.
-	addr := instancepoller.NewMockLinkLayerAddress(ctrl)
+	addr := mocks.NewMockLinkLayerAddress(ctrl)
 	addr.EXPECT().DeviceName().Return("eth0")
 	addr.EXPECT().SetOriginOps(network.OriginMachine).Return([]txn.Op{{C: "address-origin-manual"}})
 
@@ -964,7 +965,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 	s.setDefaultSpaceInfo()
 
 	// Hardware address will match; provider ID will be set.
-	dev := instancepoller.NewMockLinkLayerDevice(ctrl)
+	dev := mocks.NewMockLinkLayerDevice(ctrl)
 	dExp := dev.EXPECT()
 	dExp.MACAddress().Return("00:00:00:00:00:00").MinTimes(1)
 	dExp.Name().Return("eth0")
@@ -972,7 +973,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 	dExp.SetProviderIDOps(network.Id("p-dev")).Return([]txn.Op{{C: "dev-provider-id"}}, nil)
 
 	// Address matched on device/value will have provider IDs set.
-	addr := instancepoller.NewMockLinkLayerAddress(ctrl)
+	addr := mocks.NewMockLinkLayerAddress(ctrl)
 	aExp := addr.EXPECT()
 	aExp.DeviceName().Return("eth0")
 	aExp.Value().Return("10.0.0.42")
