@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -227,16 +226,16 @@ func (c *SSHCommon) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*
 	return &options, nil
 }
 
-func (c *SSHCommon) ssh(ctx *cmd.Context, enablePty bool, target *resolvedTarget) error {
+func (c *SSHCommon) ssh(ctx Context, enablePty bool, target *resolvedTarget) error {
 	options, err := c.getSSHOptions(enablePty, target)
 	if err != nil {
 		return err
 	}
 
 	cmd := ssh.Command(target.userHost(), c.args, options)
-	cmd.Stdin = ctx.Stdin
-	cmd.Stdout = ctx.Stdout
-	cmd.Stderr = ctx.Stderr
+	cmd.Stdin = ctx.GetStdin()
+	cmd.Stdout = ctx.GetStdout()
+	cmd.Stderr = ctx.GetStderr()
 	return cmd.Run()
 }
 

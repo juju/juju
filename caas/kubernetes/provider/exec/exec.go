@@ -385,7 +385,7 @@ func getValidatedPodContainer(
 		containerStatus = pod.Status.ContainerStatuses
 	default:
 		return "", "", errors.New(fmt.Sprintf(
-			"cannot exec into a container within a %s pod", pod.Status.Phase,
+			"cannot exec into a container within the %s pod %q", pod.Status.Phase, pod.GetName(),
 		))
 	}
 

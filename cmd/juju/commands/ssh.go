@@ -88,7 +88,7 @@ type sshCommand struct {
 	modelcmd.ModelCommandBase
 
 	SSHCommon
-	SSHContainer
+	sshContainer
 
 	provider sshProvider
 
@@ -99,7 +99,7 @@ type sshCommand struct {
 
 func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SSHCommon.SetFlags(f)
-	c.SSHContainer.SetFlags(f)
+	c.sshContainer.SetFlags(f)
 	f.Var(&c.pty, "pty", "Enable pseudo-tty allocation")
 }
 
@@ -121,7 +121,7 @@ func (c *sshCommand) Init(args []string) (err error) {
 		return err
 	}
 	if c.modelType == model.CAAS {
-		c.provider = &c.SSHContainer
+		c.provider = &c.sshContainer
 	} else {
 		c.provider = &c.SSHCommon
 	}
@@ -136,7 +136,7 @@ type sshProvider interface {
 	cleanupRun()
 	setHostChecker(checker jujussh.ReachableChecker)
 	resolveTarget(string) (*resolvedTarget, error)
-	ssh(ctx *cmd.Context, enablePty bool, target *resolvedTarget) error
+	ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 
 	GetTarget() string
 	SetTarget(target string)
