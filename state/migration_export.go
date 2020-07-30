@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	jujucharm "github.com/juju/charm/v7"
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v2"
 	"github.com/juju/errors"
@@ -1903,9 +1904,7 @@ func (e *exporter) getCharmOrigin(doc applicationDoc) (description.CharmOriginAr
 	// Everything should be migrated, but in the case that it's not, handle
 	// that case.
 	if doc.CharmOrigin == nil {
-		return description.CharmOriginArgs{
-			Source: "unknown",
-		}, nil
+		return deduceOrigin(doc.CharmURL)
 	}
 	origin := doc.CharmOrigin
 
@@ -1926,6 +1925,27 @@ func (e *exporter) getCharmOrigin(doc applicationDoc) (description.CharmOriginAr
 		Revision: revision,
 		Channel:  channel.String(),
 	}, nil
+}
+
+func deduceOrigin(url *jujucharm.URL) (description.CharmOriginArgs, error) {
+	if url == nil {
+		return description.CharmOriginArgs{}, errors.NotValidf("charm url")
+	}
+
+	switch url.Schema {
+	case "cs":
+		return description.CharmOriginArgs{
+			Source: charm.CharmStore.String(),
+		}, nil
+	case "local":
+		return description.CharmOriginArgs{
+			Source: charm.Local.String(),
+		}, nil
+	default:
+		return description.CharmOriginArgs{
+			Source: charm.CharmHub.String(),
+		}, nil
+	}
 }
 
 func (e *exporter) readAllSettings() error {
