@@ -6505,6 +6505,18 @@
                     },
                     "description": "ApplicationCharmURLs finds the CharmURL for an application."
                 },
+                "CAASApplicationGarbageCollect": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/CAASApplicationGarbageCollectArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "CAASApplicationGarbageCollect cleans up units that have gone away permanently.\nOnly observed units will be deleted as new units could have surfaced between\nthe capturing of kuberentes pod state/application state and this call."
+                },
                 "CharmInfo": {
                     "type": "object",
                     "properties": {
@@ -6565,6 +6577,18 @@
                     },
                     "description": "SetPasswords sets the given password for each supplied entity, if possible."
                 },
+                "Units": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/EntitiesResults"
+                        }
+                    },
+                    "description": "Units returns all the units for each application specified."
+                },
                 "WatchApplications": {
                     "type": "object",
                     "properties": {
@@ -6576,6 +6600,48 @@
                 }
             },
             "definitions": {
+                "CAASApplicationGarbageCollectArg": {
+                    "type": "object",
+                    "properties": {
+                        "active-pod-names": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "application": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "desired-replicas": {
+                            "type": "integer"
+                        },
+                        "observed-units": {
+                            "$ref": "#/definitions/Entities"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application",
+                        "observed-units",
+                        "desired-replicas",
+                        "active-pod-names"
+                    ]
+                },
+                "CAASApplicationGarbageCollectArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CAASApplicationGarbageCollectArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
+                },
                 "CAASApplicationProvisioningInfo": {
                     "type": "object",
                     "properties": {
@@ -7163,6 +7229,39 @@
                     "additionalProperties": false,
                     "required": [
                         "entities"
+                    ]
+                },
+                "EntitiesResult": {
+                    "type": "object",
+                    "properties": {
+                        "entities": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Entity"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "entities"
+                    ]
+                },
+                "EntitiesResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/EntitiesResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "Entity": {
@@ -30306,7 +30405,7 @@
                             "$ref": "#/definitions/MachineNetworkConfigResults"
                         }
                     },
-                    "description": "GetContainerInterfaceInfo returns information to configure networking for a\ncontainer. It accepts container tags as arguments."
+                    "description": "GetContainerInterfaceInfo returns information to configure networking for a\ncontainer. It accepts container tags as arguments.\nTODO (manadart 2020-07-23): This method is not used and can be removed when\nnext this facade version is bumped.\nWe then don't need the parameterised prepareOrGet..."
                 },
                 "GetContainerProfileInfo": {
                     "type": "object",

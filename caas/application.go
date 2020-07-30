@@ -3,7 +3,12 @@
 
 package caas
 
-import "github.com/juju/juju/core/watcher"
+import (
+	"github.com/juju/charm/v7"
+	"github.com/juju/version"
+
+	"github.com/juju/juju/core/watcher"
+)
 
 // Application broker interface
 type Application interface {
@@ -11,4 +16,34 @@ type Application interface {
 	Exists() (DeploymentState, error)
 	Delete() error
 	Watch() (watcher.NotifyWatcher, error)
+	WatchReplicas() (watcher.NotifyWatcher, error)
+	State() (ApplicationState, error)
+}
+
+type ApplicationState struct {
+	DesiredReplicas int
+	Replicas        []string
+}
+
+// ApplicationConfig is the config passed to the application units.
+type ApplicationConfig struct {
+	// AgentVersion is the Juju version of the agent image.
+	AgentVersion version.Number
+	// AgentImagePath is the docker registry URL for the image.
+	AgentImagePath string
+
+	// IntroductionSecret
+	IntroductionSecret string
+	// ControllerAddresses is a comma seperated list of controller addresses.
+	// TODO: Use model-operator service instead for introduction, so controller addresses can change
+	// without having to update deployed application.
+	ControllerAddresses string
+	// ControllerCertBundle is a PEM cert bundle for talking to the Juju controller.
+	ControllerCertBundle string
+
+	// Charm of the Application
+	Charm charm.Charm
+
+	// ResourceTags is a set of tags to set on the operator pod.
+	ResourceTags map[string]string
 }

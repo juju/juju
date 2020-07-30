@@ -98,11 +98,10 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 		return errResp(err)
 	}
 
+	containerID := args.PodName
 	var unitName *string
-	containerID := ""
 	switch ch.Meta().Deployment.DeploymentType {
 	case charm.DeploymentStateful:
-		containerID = args.PodName
 		splitPodName := strings.Split(args.PodName, "-")
 		ord, err := strconv.Atoi(splitPodName[len(splitPodName)-1])
 		if err != nil {

@@ -32,16 +32,24 @@ type CAASApplicationProvisionerState interface {
 type Model interface {
 	UUID() string
 	ModelConfig() (*config.Config, error)
+	Containers(providerIds ...string) ([]state.CloudContainer, error)
 }
 
 type Application interface {
 	Charm() (ch Charm, force bool, err error)
 	SetOperatorStatus(status.StatusInfo) error
+	AllUnits() ([]Unit, error)
+	UpdateUnits(unitsOp *state.UpdateUnitsOperation) error
 }
 
 type Charm interface {
 	Meta() *charm.Meta
 	URL() *charm.URL
+}
+
+type Unit interface {
+	Tag() names.Tag
+	DestroyOperation() *state.DestroyUnitOperation
 }
 
 type stateShim struct {
@@ -70,4 +78,16 @@ type applicationShim struct {
 
 func (a *applicationShim) Charm() (Charm, bool, error) {
 	return a.Application.Charm()
+}
+
+func (a *applicationShim) AllUnits() ([]Unit, error) {
+	units, err := a.Application.AllUnits()
+	if err != nil {
+		return nil, err
+	}
+	res := make([]Unit, 0, len(units))
+	for _, unit := range units {
+		res = append(res, unit)
+	}
+	return res, nil
 }

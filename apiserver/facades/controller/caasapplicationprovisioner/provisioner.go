@@ -5,10 +5,16 @@ package caasapplicationprovisioner
 
 import (
 	"fmt"
+	"time"
+
+	"github.com/davecgh/go-spew/spew"
+
+	"github.com/juju/charm/v7"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
@@ -234,6 +240,136 @@ func (a *API) setStatus(tag names.ApplicationTag, info status.StatusInfo) error 
 		return errors.Trace(err)
 	}
 	return app.SetOperatorStatus(info)
+}
+
+// Units returns all the units for each application specified.
+func (a *API) Units(args params.Entities) (params.EntitiesResults, error) {
+	result := params.EntitiesResults{
+		Results: make([]params.EntitiesResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		appName, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		app, err := a.state.Application(appName.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		units, err := app.AllUnits()
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		entities := make([]params.Entity, 0, len(units))
+		for _, unit := range units {
+			entities = append(entities, params.Entity{
+				Tag: unit.Tag().String(),
+			})
+		}
+		result.Results[i].Entities = entities
+	}
+	return result, nil
+}
+
+// CAASApplicationGarbageCollect cleans up units that have gone away permanently.
+// Only observed units will be deleted as new units could have surfaced between
+// the capturing of kuberentes pod state/application state and this call.
+func (a *API) CAASApplicationGarbageCollect(args params.CAASApplicationGarbageCollectArgs) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	for i, arg := range args.Args {
+		err := a.garbageCollectOneApplication(arg)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+	}
+	return result, nil
+}
+
+func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCollectArg) error {
+	logger.Errorf("got %s", spew.Sdump(args))
+
+	appName, err := names.ParseApplicationTag(args.Application.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	observedUnitTags := set.NewTags()
+	for _, v := range args.ObservedUnits.Entities {
+		tag, err := names.ParseUnitTag(v.Tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		observedUnitTags.Add(tag)
+	}
+	app, err := a.state.Application(appName.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ch, _, err := app.Charm()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if ch.Meta() == nil ||
+		ch.Meta().Deployment == nil {
+		return errors.Errorf("charm missing deployment info")
+	}
+	deploymentType := ch.Meta().Deployment.DeploymentType
+
+	model, err := a.state.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	containers, err := model.Containers(args.ActivePodNames...)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	foundUnits := set.NewTags()
+	for _, v := range containers {
+		foundUnits.Add(names.NewUnitTag(v.Unit()))
+	}
+
+	units, err := app.AllUnits()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	op := state.UpdateUnitsOperation{}
+	for _, unit := range units {
+		tag := unit.Tag()
+		if !observedUnitTags.Contains(tag) {
+			// Was not known yet when pulling kuberentes state.
+			logger.Debugf("skipping unit %q because it was not known to the worker", tag.String())
+			continue
+		}
+		if foundUnits.Contains(tag) {
+			// Not ready to be deleted.
+			logger.Debugf("skipping unit %q because the pod still exists", tag.String())
+			continue
+		}
+		if deploymentType == charm.DeploymentStateful {
+			ordinal := tag.(names.UnitTag).Number()
+			if ordinal < args.DesiredReplicas {
+				// Don't delete units that will reappear.
+				logger.Debugf("skipping unit %q because its still needed", tag.String())
+				continue
+			}
+		}
+		logger.Debugf("deleting unit %q", tag.String())
+		destroyOp := unit.DestroyOperation()
+		destroyOp.Force = true
+		destroyOp.MaxWait = 1 * time.Second
+		op.Deletes = append(op.Deletes, destroyOp)
+	}
+	if len(op.Deletes) == 0 {
+		return nil
+	}
+
+	return app.UpdateUnits(&op)
 }
 
 // CharmStorageParams returns filesystem parameters needed

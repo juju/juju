@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 )
 
 type appWorker struct {
@@ -80,24 +81,27 @@ func (a *appWorker) loop() error {
 	var appLife life.Value = life.Dead
 
 	charmURL, err := a.facade.ApplicationCharmURL(a.name)
-	if errors.IsNotFound(err) {
-		// Application might be dead.
-	} else if err != nil {
+	if err != nil {
 		return errors.Annotatef(err, "failed to get charm urls for application")
-	} else {
-		charmInfo, err := a.facade.CharmInfo(charmURL.String())
-		if err != nil {
-			return errors.Annotatef(err, "failed to get application charm deployment metadata for %q", a.name)
-		}
-		if charmInfo == nil ||
-			charmInfo.Meta == nil ||
-			charmInfo.Meta.Deployment == nil ||
-			charmInfo.Meta.Deployment.DeploymentMode != charm.ModeEmbedded {
-			a.logger.Debugf("skipping non-embedded application %q", a.name)
-			a.catacomb.Kill(nil)
-			return nil
-		}
 	}
+	charmInfo, err := a.facade.CharmInfo(charmURL.String())
+	if err != nil {
+		return errors.Annotatef(err, "failed to get application charm deployment metadata for %q", a.name)
+	}
+	if charmInfo == nil ||
+		charmInfo.Meta == nil ||
+		charmInfo.Meta.Deployment == nil ||
+		charmInfo.Meta.Deployment.DeploymentMode != charm.ModeEmbedded {
+		a.logger.Debugf("skipping non-embedded application %q", a.name)
+		a.catacomb.Kill(nil)
+		return nil
+	}
+
+	app := a.broker.Application(a.name,
+		caas.DeploymentType(charmInfo.Meta.Deployment.DeploymentType))
+
+	var appChanges watcher.NotifyChannel
+	var replicaChanges watcher.NotifyChannel
 
 	for {
 		select {
@@ -112,23 +116,75 @@ func (a *appWorker) loop() error {
 			}
 			switch appLife {
 			case life.Alive:
-				err = a.alive()
+				err = a.alive(app)
 				if err != nil {
 					return errors.Trace(err)
 				}
+				if appChanges == nil {
+					appWatcher, err := app.Watch()
+					if err != nil {
+						return errors.Annotatef(err, "failed to watch for changes to application %q", a.name)
+					}
+					a.catacomb.Add(appWatcher)
+					if err != nil {
+						appWatcher.Kill()
+						return errors.Trace(err)
+					}
+					appChanges = appWatcher.Changes()
+				}
+				if replicaChanges == nil {
+					replicaWatcher, err := app.WatchReplicas()
+					if err != nil {
+						return errors.Annotatef(err, "failed to watch for changes to replicas %q", a.name)
+					}
+					a.catacomb.Add(replicaWatcher)
+					if err != nil {
+						replicaWatcher.Kill()
+						return errors.Trace(err)
+					}
+					replicaChanges = replicaWatcher.Changes()
+				}
 			case life.Dying:
-				err = a.dying()
+				err = a.dying(app)
 				if err != nil {
 					return errors.Trace(err)
 				}
 			case life.Dead:
-				return a.dead()
+				return a.dead(app)
+			}
+		case <-appChanges:
+			err = a.updateState(app)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		case <-replicaChanges:
+			err = a.updateState(app)
+			if err != nil {
+				return errors.Trace(err)
 			}
 		}
 	}
 }
 
-func (a *appWorker) alive() error {
+func (a *appWorker) updateState(app caas.Application) error {
+	// Fetching the units here is to ensure happens-before consistency
+	// on the deletion of units.
+	observedUnits, err := a.facade.Units(a.name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	st, err := app.State()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = a.facade.GarbageCollect(a.name, observedUnits, st.DesiredReplicas, st.Replicas)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (a *appWorker) alive(app caas.Application) error {
 	charmURL, err := a.facade.ApplicationCharmURL(a.name)
 	if err != nil {
 		return errors.Annotatef(err, "failed to get charm urls for application")
@@ -139,17 +195,13 @@ func (a *appWorker) alive() error {
 		return errors.Annotatef(err, "failed to get application charm deployment metadata for %q", a.name)
 	}
 
-	config := &caas.ApplicationConfig{
-		ApplicationName: a.name,
-		ModelUUID:       a.modelTag.Id(),
+	appState, err := app.Exists()
+	if err != nil {
+		return errors.Annotatef(err, "failed get application state for %q", a.name)
 	}
 
-	appState, err := a.broker.ApplicationExists(config)
-	if err != nil {
-		return errors.Annotatef(err, "failed to find application for %q", a.name)
-	}
 	if appState.Exists && appState.Terminating {
-		if err := a.waitForTerminated(config); err != nil {
+		if err := a.waitForTerminated(app); err != nil {
 			return errors.Annotatef(err, "%q was terminating and there was an error waiting for it to stop", a.name)
 		}
 	}
@@ -168,15 +220,16 @@ func (a *appWorker) alive() error {
 		return errors.Annotate(err, "failed to get provisioning info")
 	}
 
-	config.Charm = charmInfo.Charm()
-	config.IntroductionSecret = password
-	config.AgentVersion = provisionInfo.Version
-	config.AgentImagePath = provisionInfo.ImagePath
-	config.ControllerAddresses = strings.Join(provisionInfo.APIAddresses, ",")
-	config.ControllerCertBundle = provisionInfo.CACert
-	config.ResourceTags = provisionInfo.Tags
-
-	err = a.broker.EnsureApplication(config)
+	config := &caas.ApplicationConfig{
+		Charm:                charmInfo.Charm(),
+		IntroductionSecret:   password,
+		AgentVersion:         provisionInfo.Version,
+		AgentImagePath:       provisionInfo.ImagePath,
+		ControllerAddresses:  strings.Join(provisionInfo.APIAddresses, ","),
+		ControllerCertBundle: provisionInfo.CACert,
+		ResourceTags:         provisionInfo.Tags,
+	}
+	err = app.Ensure(config)
 	if err != nil {
 		return errors.Annotate(err, "ensuring application")
 	}
@@ -193,38 +246,30 @@ func (a *appWorker) alive() error {
 	return nil
 }
 
-func (a *appWorker) dying() error {
-	config := &caas.ApplicationConfig{
-		ApplicationName: a.name,
-		ModelUUID:       a.modelTag.Id(),
-	}
-	err := a.broker.DeleteApplication(config)
+func (a *appWorker) dying(app caas.Application) error {
+	err := app.Delete()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (a *appWorker) dead() error {
-	err := a.dying()
+func (a *appWorker) dead(app caas.Application) error {
+	err := a.dying(app)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	config := &caas.ApplicationConfig{
-		ApplicationName: a.name,
-		ModelUUID:       a.modelTag.Id(),
-	}
-	err = a.waitForTerminated(config)
+	err = a.waitForTerminated(app)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (a *appWorker) waitForTerminated(config *caas.ApplicationConfig) error {
+func (a *appWorker) waitForTerminated(app caas.Application) error {
 	tryAgain := errors.New("try again")
 	existsFunc := func() error {
-		appState, err := a.broker.ApplicationExists(config)
+		appState, err := app.Exists()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -232,7 +277,7 @@ func (a *appWorker) waitForTerminated(config *caas.ApplicationConfig) error {
 			return nil
 		}
 		if appState.Exists && !appState.Terminating {
-			return errors.Errorf("application %q should be terminating but is now running", config.ApplicationName)
+			return errors.Errorf("application %q should be terminating but is now running", a.name)
 		}
 		return tryAgain
 	}

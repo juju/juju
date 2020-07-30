@@ -7,21 +7,21 @@ import (
 	"context"
 	"path"
 
-	"github.com/juju/charm/v7"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	cache "k8s.io/client-go/tools/cache"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/core/annotations"
@@ -32,27 +32,30 @@ import (
 var logger = loggo.GetLogger("juju.kubernetes.provider.application")
 
 type app struct {
-	name       string
-	namespace  string
-	model      string
-	client     kubernetes.Interface
-	newWatcher k8swatcher.NewK8sWatcherFunc
-	clock      clock.Clock
+	name           string
+	namespace      string
+	model          string
+	deploymentType caas.DeploymentType
+	client         kubernetes.Interface
+	newWatcher     k8swatcher.NewK8sWatcherFunc
+	clock          clock.Clock
 }
 
 func NewApplication(name string,
 	namespace string,
 	model string,
+	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock) caas.Application {
 	return &app{
-		name:       name,
-		namespace:  namespace,
-		model:      model,
-		client:     client,
-		newWatcher: newWatcher,
-		clock:      clock,
+		name:           name,
+		namespace:      namespace,
+		model:          model,
+		deploymentType: deploymentType,
+		client:         client,
+		newWatcher:     newWatcher,
+		clock:          clock,
 	}
 }
 
@@ -66,32 +69,42 @@ func (a *app) Ensure(config *caas.ApplicationConfig) (err error) {
 		return errors.NotValidf("charm missing deployment config for %v application", a.name)
 	}
 
-	var cleanups []func()
-	defer func() {
-		if err == nil {
-			return
-		}
-		for _, f := range cleanups {
-			f()
-		}
-	}()
-
-	secret := a.secret(config)
-	if cleanUp, err := a.ensureSecret(secret); err != nil {
-		return errors.Annotatef(err, "creating or updating secret for %v application", a.name)
-	} else {
-		cleanups = append(cleanups, cleanUp)
+	if string(a.deploymentType) != string(charmDeployment.DeploymentType) {
+		return errors.NotValidf("charm deployment type mismatch with application")
 	}
 
-	service := &corev1.Service{
-		ObjectMeta: v1.ObjectMeta{
-			Name:        a.name,
-			Labels:      a.labels(),
-			Annotations: a.annotations(config),
+	applier := resources.Applier{}
+	secret := resources.Secret{
+		Secret: corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.secretName(),
+				Namespace:   a.namespace,
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			Data: map[string][]byte{
+				"JUJU_K8S_APPLICATION":          []byte(a.name),
+				"JUJU_K8S_MODEL":                []byte(a.model),
+				"JUJU_K8S_APPLICATION_PASSWORD": []byte(config.IntroductionSecret),
+				"JUJU_K8S_CONTROLLER_ADDRESSES": []byte(config.ControllerAddresses),
+				"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(config.ControllerCertBundle),
+			},
 		},
-		Spec: corev1.ServiceSpec{
-			Selector: a.labels(),
-			Type:     corev1.ServiceTypeClusterIP,
+	}
+	applier.Apply(&secret)
+
+	service := resources.Service{
+		Service: corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.name,
+				Namespace:   a.namespace,
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
+			},
+			Spec: corev1.ServiceSpec{
+				Selector: a.labels(),
+				Type:     corev1.ServiceTypeClusterIP,
+			},
 		},
 	}
 	for _, v := range charmDeployment.ServicePorts {
@@ -104,10 +117,7 @@ func (a *app) Ensure(config *caas.ApplicationConfig) (err error) {
 		}
 		service.Spec.Ports = append(service.Spec.Ports, port)
 	}
-	if err := a.ensureService(service); err != nil {
-		return errors.Annotatef(err, "creating or updating service for %v application", a.name)
-	}
-	cleanups = append(cleanups, func() { _ = a.deleteService(a.name) })
+	applier.Apply(&service)
 
 	// Set up the parameters for creating charm storage (if required).
 	pod, err := a.applicationPod(config)
@@ -115,39 +125,43 @@ func (a *app) Ensure(config *caas.ApplicationConfig) (err error) {
 		return errors.Annotate(err, "generating application podspec")
 	}
 
-	switch charmDeployment.DeploymentType {
-	case charm.DeploymentStateful:
+	switch a.deploymentType {
+	case caas.DeploymentStateful:
 		numPods := int32(1)
-		statefulset := &appsv1.StatefulSet{
-			ObjectMeta: v1.ObjectMeta{
-				Name:        a.name,
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			Spec: appsv1.StatefulSetSpec{
-				Replicas: &numPods,
-				Selector: &v1.LabelSelector{
-					MatchLabels: a.labels(),
+		statefulset := resources.StatefulSet{
+			StatefulSet: appsv1.StatefulSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        a.name,
+					Namespace:   a.namespace,
+					Labels:      a.labels(),
+					Annotations: a.annotations(config),
 				},
-				Template: corev1.PodTemplateSpec{
-					ObjectMeta: v1.ObjectMeta{
-						Labels:      a.labels(),
-						Annotations: pod.Annotations,
+				Spec: appsv1.StatefulSetSpec{
+					Replicas: &numPods,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: a.labels(),
 					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels:      a.labels(),
+							Annotations: pod.Annotations,
+						},
+					},
+					PodManagementPolicy: appsv1.ParallelPodManagement,
 				},
-				PodManagementPolicy: appsv1.ParallelPodManagement,
 			},
 		}
 		statefulset.Spec.Template.Spec = pod.Spec
-		err = a.ensureStatefulSet(statefulset, pod.Spec)
-		return errors.Annotatef(err, "creating or updating %v application StatefulSet", a.name)
-	case charm.DeploymentStateless:
+		applier.Apply(&statefulset)
+	case caas.DeploymentStateless:
 		return errors.NotSupportedf("deployment type stateless")
-	case charm.DeploymentDaemon:
+	case caas.DeploymentDaemon:
 		return errors.NotSupportedf("deployment type daemon")
 	default:
 		return errors.NotSupportedf("unknown deployment type")
 	}
+
+	return applier.Run(context.Background(), a.client)
 }
 
 // Exists indicates if the application for the specified
@@ -158,11 +172,22 @@ func (a *app) Exists() (caas.DeploymentState, error) {
 		check            func() (bool, bool, error)
 		forceTerminating bool
 	}{
-		{"statefulset", a.statefulSetExists, false},
-		//{"deployment", a.deploymentExists, false},
+		{},
 		{"secret", a.secretExists, false},
 		{"service", a.serviceExists, false},
 	}
+	switch a.deploymentType {
+	case caas.DeploymentStateful:
+		checks[0].label = "statefulset"
+		checks[0].check = a.statefulSetExists
+	case caas.DeploymentStateless:
+		return caas.DeploymentState{}, errors.NotSupportedf("deployment type stateless")
+	case caas.DeploymentDaemon:
+		return caas.DeploymentState{}, errors.NotSupportedf("deployment type daemon")
+	default:
+		return caas.DeploymentState{}, errors.NotSupportedf("unknown deployment type")
+	}
+
 	state := caas.DeploymentState{}
 	for _, c := range checks {
 		exists, terminating, err := c.check()
@@ -184,65 +209,55 @@ func (a *app) Exists() (caas.DeploymentState, error) {
 }
 
 func (a *app) statefulSetExists() (exists bool, terminating bool, err error) {
-	statefulSets := a.client.AppsV1().StatefulSets(a.namespace)
-	application, err := statefulSets.Get(context.TODO(), a.name, v1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
+	ss := resources.NewStatefulSet(a.name, a.namespace)
+	err = ss.Get(context.Background(), a.client)
+	if errors.IsNotFound(err) {
 		return false, false, nil
-	}
-	if err != nil {
+	} else if err != nil {
 		return false, false, errors.Trace(err)
 	}
-	return true, application.DeletionTimestamp != nil, nil
+	return true, ss.DeletionTimestamp != nil, nil
 }
 
 func (a *app) secretExists() (exists bool, terminating bool, err error) {
-	secrets := a.client.CoreV1().Secrets(a.namespace)
-	s, err := secrets.Get(context.TODO(), a.secretName(), v1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
+	ss := resources.NewSecret(a.secretName(), a.namespace)
+	err = ss.Get(context.Background(), a.client)
+	if errors.IsNotFound(err) {
 		return false, false, nil
 	} else if err != nil {
 		return false, false, errors.Trace(err)
 	}
-	return true, s.DeletionTimestamp != nil, nil
+	return true, ss.DeletionTimestamp != nil, nil
 }
 
 func (a *app) serviceExists() (exists bool, terminating bool, err error) {
-	services := a.client.CoreV1().Services(a.namespace)
-	s, err := services.Get(context.TODO(), a.name, v1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
+	ss := resources.NewService(a.name, a.namespace)
+	err = ss.Get(context.Background(), a.client)
+	if errors.IsNotFound(err) {
 		return false, false, nil
 	} else if err != nil {
 		return false, false, errors.Trace(err)
 	}
-	return true, s.DeletionTimestamp != nil, nil
-}
-
-func (a *app) deploymentExists() (exists bool, terminating bool, err error) {
-	deployments := a.client.AppsV1().Deployments(a.namespace)
-	application, err := deployments.Get(context.TODO(), a.name, v1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		return false, false, nil
-	} else if err != nil {
-		return false, false, errors.Trace(err)
-	}
-	return true, application.DeletionTimestamp != nil, nil
+	return true, ss.DeletionTimestamp != nil, nil
 }
 
 // Delete deletes the specified application.
 func (a *app) Delete() error {
 	logger.Debugf("deleting %s application", a.name)
-	if err := a.deleteStatefulSet(a.name); err != nil {
-		return errors.Trace(err)
+	applier := &resources.Applier{}
+	switch a.deploymentType {
+	case caas.DeploymentStateful:
+		applier.Delete(resources.NewStatefulSet(a.name, a.namespace))
+	case caas.DeploymentStateless:
+		return errors.NotSupportedf("deployment type stateless")
+	case caas.DeploymentDaemon:
+		return errors.NotSupportedf("deployment type daemon")
+	default:
+		return errors.NotSupportedf("unknown deployment type")
 	}
-	if err := a.deleteService(a.name); err != nil {
-		return errors.Trace(err)
-	}
-	secrets := a.client.CoreV1().Secrets(a.namespace)
-	err := secrets.Delete(context.TODO(), a.secretName(), v1.DeleteOptions{})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-	return nil
+	applier.Delete(resources.NewService(a.name, a.namespace))
+	applier.Delete(resources.NewSecret(a.secretName(), a.namespace))
+	return applier.Run(context.Background(), a.client)
 }
 
 // Watch returns a watcher which notifies when there
@@ -250,11 +265,72 @@ func (a *app) Delete() error {
 func (a *app) Watch() (watcher.NotifyWatcher, error) {
 	factory := informers.NewSharedInformerFactoryWithOptions(a.client, 0,
 		informers.WithNamespace(a.namespace),
-		informers.WithTweakListOptions(func(o *v1.ListOptions) {
+		informers.WithTweakListOptions(func(o *metav1.ListOptions) {
+			o.FieldSelector = a.fieldSelector()
+		}),
+	)
+	var informer cache.SharedIndexInformer
+	switch a.deploymentType {
+	case caas.DeploymentStateful:
+		informer = factory.Apps().V1().StatefulSets().Informer()
+	case caas.DeploymentStateless:
+		return nil, errors.NotSupportedf("deployment type stateless")
+	case caas.DeploymentDaemon:
+		return nil, errors.NotSupportedf("deployment type daemon")
+	default:
+		return nil, errors.NotSupportedf("unknown deployment type")
+	}
+	return a.newWatcher(informer, a.name, a.clock)
+}
+
+func (a *app) WatchReplicas() (watcher.NotifyWatcher, error) {
+	factory := informers.NewSharedInformerFactoryWithOptions(a.client, 0,
+		informers.WithNamespace(a.namespace),
+		informers.WithTweakListOptions(func(o *metav1.ListOptions) {
 			o.LabelSelector = a.labelSelector()
 		}),
 	)
 	return a.newWatcher(factory.Core().V1().Pods().Informer(), a.name, a.clock)
+}
+
+func (a *app) State() (caas.ApplicationState, error) {
+	state := caas.ApplicationState{}
+	switch a.deploymentType {
+	case caas.DeploymentStateful:
+		ss := resources.NewStatefulSet(a.name, a.namespace)
+		err := ss.Get(context.Background(), a.client)
+		if err != nil {
+			return caas.ApplicationState{}, errors.Trace(err)
+		}
+		if ss.Spec.Replicas == nil {
+			return caas.ApplicationState{}, errors.Errorf("missing replicas")
+		}
+		state.DesiredReplicas = int(*ss.Spec.Replicas)
+	case caas.DeploymentStateless:
+		return caas.ApplicationState{}, errors.NotSupportedf("deployment type stateless")
+	case caas.DeploymentDaemon:
+		return caas.ApplicationState{}, errors.NotSupportedf("deployment type daemon")
+	default:
+		return caas.ApplicationState{}, errors.NotSupportedf("unknown deployment type")
+	}
+	next := ""
+	for {
+		res, err := a.client.CoreV1().Pods(a.namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: a.labelSelector(),
+			Continue:      next,
+		})
+		if err != nil {
+			return caas.ApplicationState{}, errors.Trace(err)
+		}
+		for _, pod := range res.Items {
+			state.Replicas = append(state.Replicas, pod.Name)
+		}
+		if res.RemainingItemCount == nil || *res.RemainingItemCount == 0 {
+			break
+		}
+		next = res.Continue
+	}
+	return state, nil
 }
 
 // applicationPod returns a *core.Pod for the application pod
@@ -287,7 +363,7 @@ func (a *app) applicationPod(config *caas.ApplicationConfig) (*corev1.Pod, error
 	automountToken := false
 	readOnly := true
 	return &corev1.Pod{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:        a.name,
 			Annotations: a.annotations(config),
 			Labels:      a.labels(),
@@ -369,23 +445,6 @@ func (a *app) applicationPod(config *caas.ApplicationConfig) (*corev1.Pod, error
 	}, nil
 }
 
-func (a *app) secret(config *caas.ApplicationConfig) *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: v1.ObjectMeta{
-			Name:        a.secretName(),
-			Labels:      a.labels(),
-			Annotations: a.annotations(config),
-		},
-		Data: map[string][]byte{
-			"JUJU_K8S_APPLICATION":          []byte(a.name),
-			"JUJU_K8S_MODEL":                []byte(a.model),
-			"JUJU_K8S_APPLICATION_PASSWORD": []byte(config.IntroductionSecret),
-			"JUJU_K8S_CONTROLLER_ADDRESSES": []byte(config.ControllerAddresses),
-			"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(config.ControllerCertBundle),
-		},
-	}
-}
-
 func (a *app) annotations(config *caas.ApplicationConfig) annotations.Annotation {
 	annotations := utils.ResourceTagsToAnnotations(config.ResourceTags).
 		Add(constants.LabelVersion, config.AgentVersion.String())
@@ -402,177 +461,13 @@ func (a *app) labelSelector() string {
 	}).String()
 }
 
+func (a *app) fieldSelector() string {
+	return fields.AndSelectors(
+		fields.OneTermEqualSelector("metadata.name", a.name),
+		fields.OneTermEqualSelector("metadata.namespace", a.namespace),
+	).String()
+}
+
 func (a *app) secretName() string {
 	return a.name + "-application-config"
-}
-
-// ensureService ensures a k8s service resource.
-func (a *app) ensureService(spec *corev1.Service) error {
-	services := a.client.CoreV1().Services(a.namespace)
-	// Set any immutable fields if the service already exists.
-	existing, err := services.Get(context.TODO(), spec.Name, v1.GetOptions{})
-	if err == nil {
-		spec.Spec.ClusterIP = existing.Spec.ClusterIP
-		spec.ObjectMeta.ResourceVersion = existing.ObjectMeta.ResourceVersion
-	}
-	_, err = services.Update(context.TODO(), spec, v1.UpdateOptions{})
-	if k8serrors.IsNotFound(err) {
-		_, err = services.Create(context.TODO(), spec, v1.CreateOptions{})
-	}
-	return errors.Trace(err)
-}
-
-// deleteService deletes a service resource.
-func (a *app) deleteService(serviceName string) error {
-	services := a.client.CoreV1().Services(a.namespace)
-	err := services.Delete(context.TODO(), serviceName, v1.DeleteOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
-}
-
-func (a *app) ensureStatefulSet(spec *appsv1.StatefulSet, existingPodSpec corev1.PodSpec) error {
-	_, err := a.createStatefulSet(spec)
-	if errors.IsNotValid(err) {
-		return errors.Annotatef(err, "ensuring stateful set %q", spec.GetName())
-	} else if errors.IsAlreadyExists(err) {
-		// continue
-	} else if err != nil {
-		return errors.Trace(err)
-	} else {
-		return nil
-	}
-	// The statefulset already exists so all we are allowed to update is replicas,
-	// template, update strategy. Juju may hand out info with a slightly different
-	// requested volume size due to trying to adapt the unit model to the k8s world.
-	existing, err := a.getStatefulSet(spec.GetName())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	existing.Spec.Replicas = spec.Spec.Replicas
-	// TODO(caas) - allow storage `request` configurable - currently we only allow `limit`.
-	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
-	existing.Spec.Template.Spec.ServiceAccountName = existingPodSpec.ServiceAccountName
-	existing.Spec.Template.Spec.AutomountServiceAccountToken = existingPodSpec.AutomountServiceAccountToken
-	// NB: we can't update the Spec.ServiceName as it is immutable.
-	_, err = a.updateStatefulSet(existing)
-	return errors.Trace(err)
-}
-
-func (a *app) createStatefulSet(spec *appsv1.StatefulSet) (*appsv1.StatefulSet, error) {
-	out, err := a.client.AppsV1().StatefulSets(a.namespace).Create(context.TODO(), spec, v1.CreateOptions{})
-	if k8serrors.IsAlreadyExists(err) {
-		return nil, errors.AlreadyExistsf("stateful set %q", spec.GetName())
-	}
-	if k8serrors.IsInvalid(err) {
-		return nil, errors.NotValidf("stateful set %q", spec.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
-func (a *app) updateStatefulSet(spec *appsv1.StatefulSet) (*appsv1.StatefulSet, error) {
-	out, err := a.client.AppsV1().StatefulSets(a.namespace).Update(context.TODO(), spec, v1.UpdateOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("stateful set %q", spec.GetName())
-	}
-	if k8serrors.IsInvalid(err) {
-		return nil, errors.NotValidf("stateful set %q", spec.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
-func (a *app) getStatefulSet(name string) (*appsv1.StatefulSet, error) {
-	out, err := a.client.AppsV1().StatefulSets(a.namespace).Get(context.TODO(), name, v1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("stateful set %q", name)
-	}
-	return out, errors.Trace(err)
-}
-
-// deleteStatefulSet deletes a statefulset resource.
-func (a *app) deleteStatefulSet(name string) error {
-	err := a.client.AppsV1().StatefulSets(a.namespace).Delete(context.TODO(), name, v1.DeleteOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
-}
-
-func (a *app) ensureSecret(sec *corev1.Secret) (func(), error) {
-	cleanUp := func() {}
-	out, err := a.createSecret(sec)
-	if err == nil {
-		logger.Debugf("secret %q created", out.GetName())
-		cleanUp = func() { _ = a.deleteSecret(out.GetName(), out.GetUID()) }
-		return cleanUp, nil
-	}
-	if !errors.IsAlreadyExists(err) {
-		return cleanUp, errors.Trace(err)
-	}
-	_, err = a.listSecrets(sec.GetLabels())
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// sec.Name is already used for an existing secret.
-			return cleanUp, errors.AlreadyExistsf("secret %q", sec.GetName())
-		}
-		return cleanUp, errors.Trace(err)
-	}
-	err = a.updateSecret(sec)
-	logger.Debugf("updating secret %q", sec.GetName())
-	return cleanUp, errors.Trace(err)
-}
-
-// updateSecret updates a secret resource.
-func (a *app) updateSecret(sec *corev1.Secret) error {
-	_, err := a.client.CoreV1().Secrets(a.namespace).Update(context.TODO(), sec, v1.UpdateOptions{})
-	if k8serrors.IsNotFound(err) {
-		return errors.NotFoundf("secret %q", sec.GetName())
-	}
-	return errors.Trace(err)
-}
-
-// getSecret return a secret resource.
-func (a *app) getSecret(secretName string) (*corev1.Secret, error) {
-	secret, err := a.client.CoreV1().Secrets(a.namespace).Get(context.TODO(), secretName, v1.GetOptions{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, errors.NotFoundf("secret %q", secretName)
-		}
-		return nil, errors.Trace(err)
-	}
-	return secret, nil
-}
-
-// createSecret creates a secret resource.
-func (a *app) createSecret(secret *corev1.Secret) (*corev1.Secret, error) {
-	utils.PurifyResource(secret)
-	out, err := a.client.CoreV1().Secrets(a.namespace).Create(context.TODO(), secret, v1.CreateOptions{})
-	if k8serrors.IsAlreadyExists(err) {
-		return nil, errors.AlreadyExistsf("secret %q", secret.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
-// deleteSecret deletes a secret resource.
-func (a *app) deleteSecret(secretName string, uid types.UID) error {
-	err := a.client.CoreV1().Secrets(a.namespace).Delete(context.TODO(), secretName, utils.NewPreconditionDeleteOptions(uid))
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
-}
-
-func (a *app) listSecrets(labels map[string]string) ([]corev1.Secret, error) {
-	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(labels).String(),
-	}
-	secList, err := a.client.CoreV1().Secrets(a.namespace).List(context.TODO(), listOps)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(secList.Items) == 0 {
-		return nil, errors.NotFoundf("secret with labels %v", labels)
-	}
-	return secList.Items, nil
 }

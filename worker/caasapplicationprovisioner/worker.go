@@ -35,6 +35,8 @@ type CAASProvisionerFacade interface {
 	CharmInfo(string) (*charmscommon.CharmInfo, error)
 	ApplicationCharmURL(string) (*charm.URL, error)
 	SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error
+	Units(appName string) ([]names.Tag, error)
+	GarbageCollect(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string) error
 }
 
 // Config defines the operation of a Worker.
@@ -112,7 +114,11 @@ func (p *provisioner) loop() error {
 			}
 			for _, app := range apps {
 				existingWorker, err := p.runner.Worker(app, nil)
-				if err != nil && !errors.IsNotFound(err) {
+				if err == worker.ErrNotFound {
+					// Ignore.
+				} else if err == worker.ErrDead {
+					existingWorker = nil
+				} else if err != nil {
 					return errors.Trace(err)
 				}
 

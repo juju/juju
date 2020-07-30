@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/caasapplication"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
 	corepaths "github.com/juju/juju/core/paths"
 )
@@ -62,7 +62,7 @@ func (c *InitCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	templateConfigPath := path.Join(dataDir, provider.TemplateFileNameAgentConf)
+	templateConfigPath := path.Join(dataDir, k8sconstants.TemplateFileNameAgentConf)
 	err = ioutil.WriteFile(templateConfigPath, unitConfig.AgentConf, 0644)
 	if err != nil {
 		return errors.Trace(err)

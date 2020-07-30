@@ -29,7 +29,7 @@ type CAASApplicationProvisioningInfoResults struct {
 	Results []CAASApplicationProvisioningInfo `json:"results"`
 }
 
-// CAASApplicationProvisioningInfo holds info need to provision a caas application.
+// CAASApplicationProvisioningInfo holds info needed to provision a caas application.
 type CAASApplicationProvisioningInfo struct {
 	ImagePath    string                      `json:"image-path"`
 	Version      version.Number              `json:"version"`
@@ -38,4 +38,19 @@ type CAASApplicationProvisioningInfo struct {
 	Tags         map[string]string           `json:"tags,omitempty"`
 	CharmStorage *KubernetesFilesystemParams `json:"charm-storage,omitempty"`
 	Error        *Error                      `json:"error,omitempty"`
+}
+
+// CAASApplicationGarbageCollectArg holds info needed to cleanup units that have
+// gone away permanently.
+type CAASApplicationGarbageCollectArg struct {
+	Application     Entity   `json:"application"`
+	ObservedUnits   Entities `json:"observed-units"`
+	DesiredReplicas int      `json:"desired-replicas"`
+	ActivePodNames  []string `json:"active-pod-names"`
+}
+
+// CAASApplicationGarbageCollectArgs holds info needed to cleanup units that have
+// gone away permanently.
+type CAASApplicationGarbageCollectArgs struct {
+	Args []CAASApplicationGarbageCollectArg `json:"args"`
 }

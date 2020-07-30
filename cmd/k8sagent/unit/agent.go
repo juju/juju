@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
@@ -100,7 +100,7 @@ func (c *k8sUnitAgent) Init(args []string) error {
 	})
 
 	dataDir := c.DataDir()
-	templateConfigPath := path.Join(dataDir, provider.TemplateFileNameAgentConf)
+	templateConfigPath := path.Join(dataDir, k8sconstants.TemplateFileNameAgentConf)
 	fmt.Printf("template config path %s\n", templateConfigPath)
 	config, err := agent.ReadConfig(templateConfigPath)
 	if err != nil {

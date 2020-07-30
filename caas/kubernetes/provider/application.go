@@ -8,6 +8,12 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/application"
 )
 
-func (k *kubernetesClient) Application(name string) caas.Application {
-	return application.NewApplication(name, k.namespace, k.modelUUID, k.client(), k.newWatcher, k.clock)
+func (k *kubernetesClient) Application(name string, deploymentType caas.DeploymentType) caas.Application {
+	return application.NewApplication(name,
+		k.namespace,
+		k.modelUUID,
+		deploymentType,
+		k.client(),
+		k.newWatcher,
+		k.clock)
 }

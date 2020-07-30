@@ -186,3 +186,56 @@ func (c *Client) SetOperatorStatus(appName string, status status.Status, message
 	}
 	return result.OneError()
 }
+
+// Units returns all the units for an Application.
+func (c *Client) Units(appName string) ([]names.Tag, error) {
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: names.NewApplicationTag(appName).String(),
+	}}}
+	var result params.EntitiesResults
+	if err := c.facade.FacadeCall("Units", args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(result.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %s",
+			len(result.Results))
+	}
+	res := result.Results[0]
+	if res.Error != nil {
+		return nil, errors.Annotatef(res.Error, "unable to fetch units for %s", appName)
+	}
+	tags := make([]names.Tag, 0, len(res.Entities))
+	for _, v := range res.Entities {
+		tag, err := names.ParseUnitTag(v.Tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		tags = append(tags, tag)
+	}
+	return tags, nil
+}
+
+// GarbageCollect cleans up units that have gone away permanently.
+// Only observed units will be deleted as new units could have surfaced between
+// the capturing of kuberentes pod state/application state and this call.
+func (c *Client) GarbageCollect(
+	appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string) error {
+	var result params.ErrorResults
+	observedEntities := params.Entities{
+		Entities: make([]params.Entity, len(observedUnits)),
+	}
+	for i, v := range observedUnits {
+		observedEntities.Entities[i].Tag = v.String()
+	}
+	args := params.CAASApplicationGarbageCollectArgs{Args: []params.CAASApplicationGarbageCollectArg{{
+		Application:     params.Entity{Tag: names.NewApplicationTag(appName).String()},
+		ObservedUnits:   observedEntities,
+		DesiredReplicas: desiredReplicas,
+		ActivePodNames:  activePodNames,
+	}}}
+	err := c.facade.FacadeCall("CAASApplicationGarbageCollect", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
