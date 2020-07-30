@@ -1390,24 +1390,22 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 
 // OpenedPortRanges returns a UnitPortRanges object that can be used to query
 // and/or mutate the port ranges opened by the unit on the machine it is
-// assigned to. After manipulating the open port ranges, the caller can invoke
-// the returned changes function to obtain a ModelOperation for committing the
-// changes.
+// assigned to.
 //
 // Calls to OpenPortRanges will return back an error if the unit is not assigned
 // to a machine.
-func (u *Unit) OpenedPortRanges() (UnitPortRanges, func() ModelOperation, error) {
+func (u *Unit) OpenedPortRanges() (UnitPortRanges, error) {
 	machineID, err := u.AssignedMachineId()
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "cannot retrieve ports for unit %q", u.Name())
+		return nil, errors.Annotatef(err, "cannot retrieve ports for unit %q", u.Name())
 	}
 
 	machinePorts, err := getOpenedMachinePortRanges(u.st, machineID)
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "cannot retrieve ports for unit %q", u.Name())
+		return nil, errors.Annotatef(err, "cannot retrieve ports for unit %q", u.Name())
 	}
 
-	return machinePorts.ForUnit(u.Name()), machinePorts.Changes, nil
+	return machinePorts.ForUnit(u.Name()), nil
 }
 
 // CharmURL returns the charm URL this unit is currently using.

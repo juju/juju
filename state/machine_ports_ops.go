@@ -19,6 +19,10 @@ var _ ModelOperation = (*openClosePortRangesOperation)(nil)
 type openClosePortRangesOperation struct {
 	mpr *machinePortRanges
 
+	// unitSelector allows us to specify a unit name and limit the scope
+	// of changes to that particular unit only.
+	unitSelector string
+
 	// The following fields are populated when the operation steps are being
 	// assembled.
 	openedPortRangeToUnit map[network.PortRange]string
@@ -119,8 +123,20 @@ func (op *openClosePortRangesOperation) Done(err error) error {
 	// Document has been persisted to state.
 	op.mpr.docExists = true
 	op.mpr.doc.UnitRanges = op.updatedUnitPortRanges
-	op.mpr.pendingOpenRanges = nil
-	op.mpr.pendingCloseRanges = nil
+
+	// If we applied all pending changes, clean up the pending maps
+	if op.unitSelector == "" {
+		op.mpr.pendingOpenRanges = nil
+		op.mpr.pendingCloseRanges = nil
+	} else {
+		// Just remove the map entries for the selected unit.
+		if op.mpr.pendingOpenRanges != nil {
+			delete(op.mpr.pendingOpenRanges, op.unitSelector)
+		}
+		if op.mpr.pendingCloseRanges != nil {
+			delete(op.mpr.pendingCloseRanges, op.unitSelector)
+		}
+	}
 	return nil
 }
 
@@ -199,6 +215,11 @@ func (op *openClosePortRangesOperation) lookupUnitEndpoints() error {
 func (op *openClosePortRangesOperation) mergePendingOpenPortRanges() (bool, error) {
 	var portListModified bool
 	for pendingUnitName, pendingRangesByEndpoint := range op.mpr.pendingOpenRanges {
+		// If we are only interested in the changes for a particular
+		// unit only, exclude any pending changes for other units.
+		if op.unitSelector != "" && op.unitSelector != pendingUnitName {
+			continue
+		}
 		for pendingEndpointName, pendingRanges := range pendingRangesByEndpoint {
 			for _, pendingRange := range pendingRanges {
 				// If this port range has already been opened by the same unit this is a no-op
@@ -280,6 +301,11 @@ func (op *openClosePortRangesOperation) pruneOpenPorts() bool {
 func (op *openClosePortRangesOperation) mergePendingClosePortRanges() (bool, error) {
 	var portListModified bool
 	for pendingUnitName, pendingRangesByEndpoint := range op.mpr.pendingCloseRanges {
+		// If we are only interested in the changes for a particular
+		// unit only, exclude any pending changes for other units.
+		if op.unitSelector != "" && op.unitSelector != pendingUnitName {
+			continue
+		}
 		for pendingEndpointName, pendingRanges := range pendingRangesByEndpoint {
 			for _, pendingRange := range pendingRanges {
 				// If the port range has not been opened by
@@ -295,7 +321,7 @@ func (op *openClosePortRangesOperation) mergePendingClosePortRanges() (bool, err
 					continue
 				}
 
-				portListModified = portListModified || op.removePortRange(pendingUnitName, pendingEndpointName, pendingRange)
+				portListModified = op.removePortRange(pendingUnitName, pendingEndpointName, pendingRange) || portListModified
 			}
 		}
 	}

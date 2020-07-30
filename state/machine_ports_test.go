@@ -6,6 +6,7 @@ package state_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/txn"
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 
@@ -473,4 +474,54 @@ func (s *MachinePortsDocSuite) TestWatchMachinePorts(c *gc.C) {
 	// And again - no change.
 	assertRemoveMachinePortsDoc(c, s.machPortRanges)
 	wc.AssertNoChange()
+}
+
+func (s *MachinePortsDocSuite) TestChangesForIndividualUnits(c *gc.C) {
+	unit1PortRanges := s.machPortRanges.ForUnit(s.unit1.Name())
+	unit1PortRanges.Open(allEndpoints, network.MustParsePortRange("100-200/tcp"))
+
+	unit2PortRanges := s.machPortRanges.ForUnit(s.unit2.Name())
+	unit2PortRanges.Open(allEndpoints, network.MustParsePortRange("8080/tcp"))
+
+	// Apply changes scoped to unit 1. The recorded changes for unit 2
+	// in the machine port ranges instance should remain intact.
+	c.Assert(s.State.ApplyOperation(unit1PortRanges.Changes()), jc.ErrorIsNil)
+
+	// Check that the existing machine port ranges instance reflects the
+	// unit 1 changes we just applied.
+	c.Assert(s.machPortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
+		network.MustParsePortRange("100-200/tcp"),
+	}, gc.Commentf("machine port ranges instance not updated correctly after unit-scoped port change application"))
+
+	// Grab a fresh copy of the machine ranges and verify the expected ports
+	// have been correctly persisted.
+	freshMachPortRanges, err := s.machine.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(freshMachPortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
+		network.MustParsePortRange("100-200/tcp"),
+	}, gc.Commentf("unit 1 changes were not correctly persisted to DB"))
+
+	// Apply pending changes scoped to unit 2.
+	c.Assert(s.State.ApplyOperation(unit2PortRanges.Changes()), jc.ErrorIsNil)
+
+	// Check that the existing machine port ranges instance reflects both
+	// unit 1 and unit 2 changes
+	c.Assert(s.machPortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
+		network.MustParsePortRange("100-200/tcp"),
+		network.MustParsePortRange("8080/tcp"),
+	}, gc.Commentf("machine port ranges instance not updated correctly after unit-scoped port change application"))
+
+	// Grab a fresh copy of the machine ranges and verify the expected ports
+	// have been correctly persisted.
+	freshMachPortRanges, err = s.machine.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(freshMachPortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
+		network.MustParsePortRange("100-200/tcp"),
+		network.MustParsePortRange("8080/tcp"),
+	}, gc.Commentf("unit changes were not correctly persisted to DB"))
+
+	// Verify that if we call changes on the machine ports instance we
+	// get no ops as everything has been committed.
+	_, err = s.machPortRanges.Changes().Build(0)
+	c.Assert(err, gc.Equals, txn.ErrNoOperations, gc.Commentf("machine port range was not synced correctly after applying changes"))
 }

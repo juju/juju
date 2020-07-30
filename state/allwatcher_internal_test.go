@@ -3188,21 +3188,21 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 			err = m.SetProviderAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
 
-			unitPortRanges, changeFn, err := u.OpenedPortRanges()
+			unitPortRanges, err := u.OpenedPortRanges()
 			if flag&assignUnit == 0 {
 				c.Assert(err, jc.Satisfies, errors.IsNotAssigned)
 			} else {
 				c.Assert(err, jc.ErrorIsNil)
 				unitPortRanges.Open(allEndpoints, corenetwork.MustParsePortRange("12345/tcp"))
-				c.Assert(st.ApplyOperation(changeFn()), jc.ErrorIsNil)
+				c.Assert(st.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
 			}
 		}
 		if flag&closePorts != 0 {
 			// Close the port again (only if been opened before).
-			unitPortRanges, changeFn, err := u.OpenedPortRanges()
+			unitPortRanges, err := u.OpenedPortRanges()
 			c.Assert(err, jc.ErrorIsNil)
 			unitPortRanges.Close(allEndpoints, corenetwork.MustParsePortRange("12345/tcp"))
-			c.Assert(st.ApplyOperation(changeFn()), jc.ErrorIsNil)
+			c.Assert(st.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
 		}
 	}
 	changeTestFuncs := []changeTestFunc{

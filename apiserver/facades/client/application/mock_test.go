@@ -579,6 +579,10 @@ func (mockUnitPortRanges) Close(endpoint string, portRange network.PortRange) {
 	panic("not implemented")
 }
 
+func (mockUnitPortRanges) Changes() state.ModelOperation {
+	panic("not implemented")
+}
+
 type mockMachine struct {
 	jtesting.Stub
 

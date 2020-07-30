@@ -4339,7 +4339,7 @@ func (oup openUnitPort) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(oup.unitName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	unitPortRanges, portChangesFn, err := u.OpenedPortRanges()
+	unitPortRanges, err := u.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 
 	const allEndpoints = ""
@@ -4348,7 +4348,7 @@ func (oup openUnitPort) step(c *gc.C, ctx *context) {
 		ToPort:   oup.number,
 		Protocol: oup.protocol,
 	})
-	c.Assert(ctx.st.ApplyOperation(portChangesFn()), jc.ErrorIsNil)
+	c.Assert(ctx.st.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
 }
 
 type ensureDyingUnit struct {

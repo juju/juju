@@ -1015,7 +1015,7 @@ func (s *uniterSuite) TestCharmModifiedVersion(c *gc.C) {
 }
 
 func (s *uniterSuite) TestOpenPorts(c *gc.C) {
-	unitPortRanges, _, err := s.wordpressUnit.OpenedPortRanges()
+	unitPortRanges, err := s.wordpressUnit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitPortRanges.UniquePortRanges(), gc.HasLen, 0, gc.Commentf("expected unit not to have any port ranges open"))
 
@@ -1035,7 +1035,7 @@ func (s *uniterSuite) TestOpenPorts(c *gc.C) {
 	})
 
 	// Verify the wordpressUnit's port is opened.
-	unitPortRanges, _, err = s.wordpressUnit.OpenedPortRanges()
+	unitPortRanges, err = s.wordpressUnit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitPortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
 		network.MustParsePortRange("4321-5000/udp"),
@@ -1044,10 +1044,10 @@ func (s *uniterSuite) TestOpenPorts(c *gc.C) {
 
 func (s *uniterSuite) TestClosePorts(c *gc.C) {
 	// Open port udp:4321 in advance on wordpressUnit.
-	unitPortRanges, portChangesFn, err := s.wordpressUnit.OpenedPortRanges()
+	unitPortRanges, err := s.wordpressUnit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	unitPortRanges.Open(allEndpoints, network.MustParsePortRange("4321-5000/udp"))
-	c.Assert(s.State.ApplyOperation(portChangesFn()), jc.ErrorIsNil)
+	c.Assert(s.State.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
 
 	// Issue close ports call
 	args := params.EntitiesPortRanges{Entities: []params.EntityPortRange{
@@ -1066,7 +1066,7 @@ func (s *uniterSuite) TestClosePorts(c *gc.C) {
 	})
 
 	// Verify the wordpressUnit's port is closed.
-	unitPortRanges, _, err = s.wordpressUnit.OpenedPortRanges()
+	unitPortRanges, err = s.wordpressUnit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitPortRanges.UniquePortRanges(), gc.HasLen, 0)
 }
@@ -5012,7 +5012,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	}
 	c.Assert(relSettings.Map(), jc.DeepEquals, expRelSettings, gc.Commentf("composed model operations did not yield expected result for unit relation settings"))
 
-	unitPortRanges, _, err := s.wordpressUnit.OpenedPortRanges()
+	unitPortRanges, err := s.wordpressUnit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
 
@@ -5096,7 +5096,7 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	})
 
 	// Verify state
-	unitPortRanges, _, err := unit.OpenedPortRanges()
+	unitPortRanges, err := unit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
 

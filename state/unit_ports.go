@@ -35,6 +35,10 @@ type UnitPortRanges interface {
 	// UniquePortRanges returns a slice of unique open PortRanges across
 	// all endpoints.
 	UniquePortRanges() []network.PortRange
+
+	// Changes returns a ModelOperation for applying any changes that were
+	// made to the port ranges for this unit.
+	Changes() ModelOperation
 }
 
 // unitPortRanges is a view on the machinePortRanges type that provides
@@ -136,4 +140,13 @@ func (p *unitPortRanges) Close(endpoint string, portRange network.PortRange) {
 		p.machinePortRanges.pendingCloseRanges[p.unitName][endpoint],
 		portRange,
 	)
+}
+
+// Changes returns a ModelOperation for applying any changes that were made to
+// the port ranges for this unit.
+func (p *unitPortRanges) Changes() ModelOperation {
+	return &openClosePortRangesOperation{
+		mpr:          p.machinePortRanges,
+		unitSelector: p.unitName,
+	}
 }

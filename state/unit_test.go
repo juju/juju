@@ -1774,7 +1774,7 @@ func (s *UnitSuite) TestGetSetClearResolved(c *gc.C) {
 
 func (s *UnitSuite) TesOpenedPorts(c *gc.C) {
 	// Accessing the port ranges for the unit should fail if it's not assigned to a machine.
-	_, _, err := s.unit.OpenedPortRanges()
+	_, err := s.unit.OpenedPortRanges()
 	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
 
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -1783,7 +1783,7 @@ func (s *UnitSuite) TesOpenedPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify no open ports before activity.
-	unitPortRanges, _, err := s.unit.OpenedPortRanges()
+	unitPortRanges, err := s.unit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitPortRanges.UniquePortRanges(), gc.HasLen, 0)
 
@@ -1854,7 +1854,7 @@ func (s *UnitSuite) TesOpenedPorts(c *gc.C) {
 }
 
 func (s *UnitSuite) assertPortRangesAfterOpenClose(c *gc.C, u *state.Unit, openRanges, closeRanges, exp []corenetwork.PortRange) {
-	unitPortRanges, changesFn, err := u.OpenedPortRanges()
+	unitPortRanges, err := u.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, pr := range openRanges {
 		unitPortRanges.Open(allEndpoints, pr)
@@ -1862,10 +1862,10 @@ func (s *UnitSuite) assertPortRangesAfterOpenClose(c *gc.C, u *state.Unit, openR
 	for _, pr := range closeRanges {
 		unitPortRanges.Close(allEndpoints, pr)
 	}
-	c.Assert(s.State.ApplyOperation(changesFn()), jc.ErrorIsNil)
+	c.Assert(s.State.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
 
 	// Reload ranges
-	unitPortRanges, _, err = u.OpenedPortRanges()
+	unitPortRanges, err = u.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitPortRanges.UniquePortRanges(), gc.DeepEquals, exp)
 }
@@ -1884,7 +1884,7 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
 	nextPort := 1337
 	testWhenDying(c, s.unit, noErr, contentionErr, func() error {
 		// Open a port range
-		unitPortRanges, changesFn, err := s.unit.OpenedPortRanges()
+		unitPortRanges, err := s.unit.OpenedPortRanges()
 		if err != nil {
 			return errors.Annotatef(err, "cannot open port ranges")
 		}
@@ -1892,7 +1892,7 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
 		toOpen := fmt.Sprintf("%d/tcp", nextPort)
 		nextPort++
 		unitPortRanges.Open(allEndpoints, corenetwork.MustParsePortRange(toOpen))
-		if err = s.State.ApplyOperation(changesFn()); err != nil {
+		if err = s.State.ApplyOperation(unitPortRanges.Changes()); err != nil {
 			return errors.Annotatef(err, "cannot open port ranges")
 		}
 
@@ -1904,12 +1904,12 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
 		// Open another port range
 		toOpen = fmt.Sprintf("%d/tcp", nextPort)
 		nextPort++
-		unitPortRanges, changesFn, err = s.unit.OpenedPortRanges()
+		unitPortRanges, err = s.unit.OpenedPortRanges()
 		if err != nil {
 			return errors.Annotatef(err, "cannot open port ranges")
 		}
 		unitPortRanges.Open(allEndpoints, corenetwork.MustParsePortRange(toOpen))
-		if err = s.State.ApplyOperation(changesFn()); err != nil {
+		if err = s.State.ApplyOperation(unitPortRanges.Changes()); err != nil {
 			return errors.Annotatef(err, "cannot open port ranges")
 		}
 		return nil

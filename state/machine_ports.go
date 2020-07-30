@@ -29,7 +29,7 @@ type MachinePortRanges interface {
 	ForUnit(unitName string) UnitPortRanges
 
 	// Changes returns a ModelOperation for applying any changes that were
-	// made to this port range instance.
+	// made to this port range instance for all machine units.
 	Changes() ModelOperation
 
 	// UniquePortRanges returns a slice of unique open PortRanges for
@@ -115,7 +115,7 @@ func (p *machinePortRanges) UniquePortRanges() []network.PortRange {
 }
 
 // Changes returns a ModelOperation for applying any changes that were made to
-// this port range instance.
+// this port range instance for all machine units.
 func (p *machinePortRanges) Changes() ModelOperation {
 	return &openClosePortRangesOperation{
 		mpr: p,

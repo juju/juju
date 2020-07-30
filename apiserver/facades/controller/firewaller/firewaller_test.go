@@ -112,14 +112,14 @@ func (s *firewallerSuite) openPorts(c *gc.C) {
 }
 
 func (s *firewallerSuite) mustOpenPorts(c *gc.C, unit *state.Unit, endpointName string, portRanges []network.PortRange) {
-	unitPortRanges, portChangesFn, err := unit.OpenedPortRanges()
+	unitPortRanges, err := unit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, pr := range portRanges {
 		unitPortRanges.Open(endpointName, pr)
 	}
 
-	c.Assert(s.State.ApplyOperation(portChangesFn()), jc.ErrorIsNil)
+	c.Assert(s.State.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
 }
 
 func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {

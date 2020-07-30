@@ -478,10 +478,10 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				u, err := st.Unit("mysql/0")
 				c.Assert(err, jc.ErrorIsNil)
 
-				unitPortRange, changeFn, err := u.OpenedPortRanges()
+				unitPortRange, err := u.OpenedPortRanges()
 				c.Assert(err, jc.ErrorIsNil)
 				unitPortRange.Open(allEndpoints, network.MustParsePortRange("100-200/tcp"))
-				c.Assert(st.ApplyOperation(changeFn()), jc.ErrorIsNil)
+				c.Assert(st.ApplyOperation(unitPortRange.Changes()), jc.ErrorIsNil)
 			},
 		}, {
 			about: "cleanups",

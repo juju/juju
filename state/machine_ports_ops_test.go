@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/collections/set"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -12,6 +13,7 @@ import (
 )
 
 type MachinePortsOpsSuite struct {
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&MachinePortsOpsSuite{})

@@ -1359,10 +1359,10 @@ func (s *MigrationImportSuite) TestNilEndpointBindings(c *gc.C) {
 func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, nil)
 
-	unitPortRange, changeFn, err := unit.OpenedPortRanges()
+	unitPortRanges, err := unit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	unitPortRange.Open(allEndpoints, network.MustParsePortRange("1234-2345/tcp"))
-	c.Assert(s.State.ApplyOperation(changeFn()), jc.ErrorIsNil)
+	unitPortRanges.Open(allEndpoints, network.MustParsePortRange("1234-2345/tcp"))
+	c.Assert(s.State.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c, s.State)
 
@@ -1371,11 +1371,11 @@ func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	imported, err := newSt.Unit(unit.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
-	unitPortRange, _, err = imported.OpenedPortRanges()
+	unitPortRanges, err = imported.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitPortRange.UniquePortRanges(), gc.HasLen, 1)
+	c.Assert(unitPortRanges.UniquePortRanges(), gc.HasLen, 1)
 
-	portRanges := unitPortRange.ForEndpoint(allEndpoints)
+	portRanges := unitPortRanges.ForEndpoint(allEndpoints)
 	c.Assert(portRanges, gc.HasLen, 1)
 	c.Assert(portRanges[0], gc.Equals, network.PortRange{
 		FromPort: 1234,

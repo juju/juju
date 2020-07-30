@@ -184,7 +184,7 @@ func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
 }
 
 func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
-	unitPortRanges, _, err := u.OpenedPortRanges()
+	unitPortRanges, err := u.OpenedPortRanges()
 	if err != nil {
 		if errors.IsNotAssigned(err) {
 			return false, false, nil

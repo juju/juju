@@ -1029,7 +1029,7 @@ func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResul
 			continue
 		}
 
-		unitPortRanges, portChangesFn, err := unit.OpenedPortRanges()
+		unitPortRanges, err := unit.OpenedPortRanges()
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -1045,7 +1045,7 @@ func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResul
 			Protocol: entity.Protocol,
 		})
 
-		err = u.st.ApplyOperation(portChangesFn())
+		err = u.st.ApplyOperation(unitPortRanges.Changes())
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
@@ -1078,7 +1078,7 @@ func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResu
 			continue
 		}
 
-		unitPortRanges, portChangesFn, err := unit.OpenedPortRanges()
+		unitPortRanges, err := unit.OpenedPortRanges()
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -1094,7 +1094,7 @@ func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResu
 			Protocol: entity.Protocol,
 		})
 
-		err = u.st.ApplyOperation(portChangesFn())
+		err = u.st.ApplyOperation(unitPortRanges.Changes())
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
@@ -3574,7 +3574,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	}
 
 	if len(changes.OpenPorts)+len(changes.ClosePorts) > 0 {
-		unitPortRanges, portChangesFn, err := unit.OpenedPortRanges()
+		unitPortRanges, err := unit.OpenedPortRanges()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -3606,7 +3606,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			})
 		}
 
-		modelOps = append(modelOps, portChangesFn())
+		modelOps = append(modelOps, unitPortRanges.Changes())
 	}
 
 	if changes.SetUnitState != nil {

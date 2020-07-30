@@ -2150,7 +2150,7 @@ func (ctx *allWatcherContext) getUnitPortRangesByEndpoint(unit *Unit) (map[strin
 
 	// No cached port ranges available; make a direct DB lookup instead.
 	if ctx.openPortRanges == nil || ctx.openPortRanges[machineID] == nil {
-		unitPortRanges, _, err := unit.OpenedPortRanges()
+		unitPortRanges, err := unit.OpenedPortRanges()
 		return unitPortRanges.ByEndpoint(), err
 	}
 

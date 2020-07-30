@@ -245,7 +245,7 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil) // still pending -> no longer pending
 
 	// Ensure the ports are not actually changed on the unit yet.
-	unitPortRanges, _, err := s.unit.OpenedPortRanges()
+	unitPortRanges, err := s.unit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{
 		network.MustParsePortRange("100-200/tcp"),
@@ -256,7 +256,7 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify the unit ranges are now open.
-	unitPortRanges, _, err = s.unit.OpenedPortRanges()
+	unitPortRanges, err = s.unit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{
 		network.MustParsePortRange("10-20/udp"),
@@ -328,23 +328,23 @@ func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {
 }
 
 func mustOpenPortRanges(c *gc.C, st *state.State, u *state.Unit, endpointName string, portRanges []network.PortRange) {
-	unitPortRanges, portChangesFn, err := u.OpenedPortRanges()
+	unitPortRanges, err := u.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, pr := range portRanges {
 		unitPortRanges.Open(endpointName, pr)
 	}
 
-	c.Assert(st.ApplyOperation(portChangesFn()), jc.ErrorIsNil)
+	c.Assert(st.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
 }
 
 func mustClosePortRanges(c *gc.C, st *state.State, u *state.Unit, endpointName string, portRanges []network.PortRange) {
-	unitPortRanges, portChangesFn, err := u.OpenedPortRanges()
+	unitPortRanges, err := u.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, pr := range portRanges {
 		unitPortRanges.Close(endpointName, pr)
 	}
 
-	c.Assert(st.ApplyOperation(portChangesFn()), jc.ErrorIsNil)
+	c.Assert(st.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
 }
