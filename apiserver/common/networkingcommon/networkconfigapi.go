@@ -27,12 +27,16 @@ var logger = loggo.GetLogger("juju.apiserver.common.networkingcommon")
 type NetworkConfigAPI struct {
 	st           LinkLayerState
 	getCanModify common.GetAuthFunc
+	getModelOp   func(machine LinkLayerMachine, incoming network.InterfaceInfos) state.ModelOperation
 }
 
 func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) *NetworkConfigAPI {
 	return &NetworkConfigAPI{
 		st:           &linkLayerState{st},
 		getCanModify: getCanModify,
+		getModelOp: func(machine LinkLayerMachine, incoming network.InterfaceInfos) state.ModelOperation {
+			return newUpdateMachineLinkLayerOp(machine, incoming)
+		},
 	}
 }
 
@@ -63,7 +67,7 @@ func (api *NetworkConfigAPI) SetObservedNetworkConfig(args params.SetMachineNetw
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(api.st.ApplyOperation(newUpdateMachineLinkLayerOp(m, devs)))
+	return errors.Trace(api.st.ApplyOperation(api.getModelOp(m, devs)))
 }
 
 // fixUpFanSubnets takes network config and updates
