@@ -320,19 +320,21 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNewAddresses(
 func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 	var ops []txn.Op
 	for _, dev := range o.Incoming() {
-		if !o.IsDevProcessed(dev) {
-			logger.Debugf("adding new device %q (%s) with addresses %v",
-				dev.InterfaceName, dev.MACAddress, dev.Addresses)
-
-			addOps, err := o.machine.AddLinkLayerDeviceOps(
-				networkDeviceToStateArgs(dev), o.MatchingIncomingAddrs(dev.MACAddress)...)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			ops = append(ops, addOps...)
-
-			o.MarkDevProcessed(dev.MACAddress)
+		if o.IsDevProcessed(dev) {
+			continue
 		}
+
+		logger.Debugf("adding new device %q (%s) with addresses %v",
+			dev.InterfaceName, dev.MACAddress, dev.Addresses)
+
+		addOps, err := o.machine.AddLinkLayerDeviceOps(
+			networkDeviceToStateArgs(dev), o.MatchingIncomingAddrs(dev.MACAddress)...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, addOps...)
+
+		o.MarkDevProcessed(dev.MACAddress)
 	}
 	return ops, nil
 }

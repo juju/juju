@@ -6,9 +6,9 @@ package networkingcommon_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
@@ -18,17 +18,17 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// modelOpStub is a no-op model operation that can store the
+// modelOpRecorder is a no-op model operation that can store the
 // devices passed to to it for later interrogation.
-type modelOpStub struct {
+type modelOpRecorder struct {
 	devs network.InterfaceInfos
 }
 
-func (modelOpStub) Build(_ int) ([]txn.Op, error) {
+func (modelOpRecorder) Build(_ int) ([]txn.Op, error) {
 	return nil, nil
 }
 
-func (modelOpStub) Done(_ error) error {
+func (modelOpRecorder) Done(_ error) error {
 	return nil
 }
 
@@ -40,7 +40,7 @@ type networkConfigSuite struct {
 	state   *mocks.MockLinkLayerState
 	machine *mocks.MockLinkLayerMachine
 
-	modelOp modelOpStub
+	modelOp modelOpRecorder
 }
 
 var _ = gc.Suite(&networkConfigSuite{})
