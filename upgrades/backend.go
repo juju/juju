@@ -86,6 +86,7 @@ type StateBackend interface {
 	ReplaceNeverSetWithUnset() error
 	RollUpAndConvertOpenedPortDocuments() error
 	AddCharmHubToModelConfig() error
+	AddCharmOriginToApplications() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -357,4 +358,8 @@ func (s stateBackend) AddCharmHubToModelConfig() error {
 
 func (s stateBackend) RollUpAndConvertOpenedPortDocuments() error {
 	return state.RollUpAndConvertOpenedPortDocuments(s.pool)
+}
+
+func (s stateBackend) AddCharmOriginToApplications() error {
+	return state.AddCharmOriginToApplications(s.pool)
 }

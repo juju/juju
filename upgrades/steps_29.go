@@ -33,6 +33,13 @@ func stateStepsFor29() []Step {
 				return context.State().RollUpAndConvertOpenedPortDocuments()
 			},
 		},
+		&upgradeStep{
+			description: "add charm-origin to applications",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().AddCharmOriginToApplications()
+			},
+		},
 	}
 }
 
