@@ -132,7 +132,7 @@ func ResolveNetwork(e environs.Environ, networkName string, external bool) (stri
 	return e.(*Environ).networking.ResolveNetwork(networkName, external)
 }
 
-// ResolveNetwork exposes environ helper function resolveNetwork for testing
+// FindNetworks exposes environ helper function FindNetworks for testing
 func FindNetworks(e environs.Environ, internal bool) (set.Strings, error) {
 	return e.(*Environ).networking.FindNetworks(internal)
 }
@@ -167,8 +167,4 @@ func GetModelGroupNames(e environs.Environ) ([]string, error) {
 func GetFirewaller(e environs.Environ) Firewaller {
 	env := e.(*Environ)
 	return env.firewaller
-}
-
-func GetEnvironConfigNetwork(e environs.Environ) string {
-	return e.(*Environ).ecfg().network()
 }

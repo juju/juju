@@ -50,8 +50,8 @@ type Networking interface {
 	// Needed for Environ.Networking
 	NetworkInterfaces(ids []instance.Id) ([]corenetwork.InterfaceInfos, error)
 
-	// FindNetworks returns a set of names of internal or external network
-	// names depending on the provided argument.
+	// FindNetworks returns a set of internal or external network names
+	// depending on the provided argument.
 	FindNetworks(internal bool) (set.Strings, error)
 }
 
@@ -85,7 +85,7 @@ type NeutronNetworking struct {
 }
 
 // projectIDFilter returns a neutron.Filter to match Neutron Networks with
-// the give projectID.
+// the given projectID.
 func projectIDFilter(projectID string) *neutron.Filter {
 	filter := neutron.NewFilter()
 	filter.Set(neutron.FilterProjectId, projectID)
@@ -262,8 +262,8 @@ func (n *NeutronNetworking) DeletePortByID(portID string) error {
 	return client.DeletePortV2(portID)
 }
 
-// FindNetworks returns a set of names of internal or external network
-// names depending on the provided argument.
+// FindNetworks returns a set of internal or external network names
+// depending on the provided argument.
 func (n *NeutronNetworking) FindNetworks(internal bool) (set.Strings, error) {
 	var filter *neutron.Filter
 	switch internal {
