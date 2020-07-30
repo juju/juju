@@ -274,6 +274,7 @@ type commandRegistry interface {
 
 // registerCommands registers commands in the specified registry.
 func registerCommands(r commandRegistry, ctx *cmd.Context) {
+	r.Register(newVersionCommand())
 	// Creation commands.
 	r.Register(newBootstrapCommand())
 	r.Register(application.NewAddRelationCommand())
