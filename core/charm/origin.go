@@ -17,10 +17,6 @@ const (
 	CharmStore Source = "charm-store"
 	// CharmHub represents a charm from the new charmHub.
 	CharmHub Source = "charm-hub"
-	// Unknown represents that we don't know where this charm came from. Either
-	// the charm was migrated up from an older version of Juju or we didn't
-	// have enough information when we set the charm.
-	Unknown Source = "unknown"
 )
 
 // Origin holds the original source of a charm. Information about where the

@@ -406,6 +406,7 @@ func (s *applicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
+		CharmOrigin:     createCharmOriginFromURL(c, curl),
 		NumUnits:        1,
 		Constraints:     cons,
 		Storage:         storageConstraints,
@@ -463,6 +464,7 @@ func (s *applicationSuite) TestApplicationDeployWithInvalidStoragePool(c *gc.C) 
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
+		CharmOrigin:     createCharmOriginFromURL(c, curl),
 		NumUnits:        1,
 		Constraints:     cons,
 		Storage:         storageConstraints,
@@ -485,6 +487,7 @@ func (s *applicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
+		CharmOrigin:     createCharmOriginFromURL(c, curl),
 		NumUnits:        1,
 		Constraints:     cons,
 	}
@@ -517,6 +520,7 @@ func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
+		CharmOrigin:     createCharmOriginFromURL(c, curl),
 		NumUnits:        1,
 		Constraints:     cons,
 		Placement: []*instance.Placement{
@@ -546,6 +550,7 @@ func (s *applicationSuite) TestApplicationDeployWithInvalidPlacement(c *gc.C) {
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
+		CharmOrigin:     createCharmOriginFromURL(c, curl),
 		NumUnits:        1,
 		Constraints:     cons,
 		Placement: []*instance.Placement{
@@ -599,6 +604,7 @@ func (s *applicationSuite) testApplicationDeployWithPlacementLockedError(
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
+		CharmOrigin:     createCharmOriginFromURL(c, curl),
 		NumUnits:        1,
 		Constraints:     cons,
 		Placement:       []*instance.Placement{&placement},
@@ -627,6 +633,7 @@ func (s *applicationSuite) TestApplicationDeploymentRemovesPendingResourcesOnFai
 			ApplicationName: "haha/borken",
 			NumUnits:        1,
 			CharmURL:        charm.URL().String(),
+			CharmOrigin:     createCharmOriginFromURL(c, charm.URL()),
 			Resources:       map[string]string{"dummy": pendingID},
 		}},
 	})
@@ -654,6 +661,7 @@ func (s *applicationSuite) TestApplicationDeploymentLeavesResourcesOnSuccess(c *
 			ApplicationName: "unborken",
 			NumUnits:        1,
 			CharmURL:        charm.URL().String(),
+			CharmOrigin:     createCharmOriginFromURL(c, charm.URL()),
 			Resources:       map[string]string{"dummy": pendingID},
 		}},
 	})
@@ -679,6 +687,7 @@ func (s *applicationSuite) TestApplicationDeploymentWithTrust(c *gc.C) {
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
+		CharmOrigin:     createCharmOriginFromURL(c, curl),
 		NumUnits:        1,
 		Config:          config,
 		Placement: []*instance.Placement{
@@ -715,6 +724,7 @@ func (s *applicationSuite) TestApplicationDeploymentNoTrust(c *gc.C) {
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
+		CharmOrigin:     createCharmOriginFromURL(c, curl),
 		NumUnits:        1,
 		Placement: []*instance.Placement{
 			{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "valid"},
@@ -746,6 +756,7 @@ func (s *applicationSuite) testClientApplicationsDeployWithBindings(c *gc.C, end
 	args := params.ApplicationDeploy{
 		ApplicationName:  "application",
 		CharmURL:         curl.String(),
+		CharmOrigin:      &params.CharmOrigin{Source: "charm-store"},
 		NumUnits:         1,
 		Constraints:      cons,
 		EndpointBindings: endpointBindings,
@@ -969,6 +980,7 @@ func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
 			ApplicationName: "application",
 			NumUnits:        numUnits,
 		}}})
@@ -1016,6 +1028,7 @@ func (s *applicationSuite) setupApplicationSetCharm(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
 			ApplicationName: "application",
 			NumUnits:        numUnits,
 		}}})
@@ -1091,6 +1104,7 @@ func (s *applicationSuite) TestApplicationSetCharmForceUnits(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
 			ApplicationName: "application",
 			NumUnits:        numUnits,
 		}}})
@@ -1170,6 +1184,7 @@ func (s *applicationSuite) TestApplicationSetCharmLegacy(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
 			ApplicationName: "application",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1200,6 +1215,7 @@ func (s *applicationSuite) TestApplicationSetCharmUnsupportedSeries(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
 			ApplicationName: "application",
 			Series:          "precise",
 		}}})
@@ -1228,6 +1244,7 @@ func (s *applicationSuite) assertApplicationSetCharmSeries(c *gc.C, upgradeCharm
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
 			ApplicationName: "application",
 			Series:          "precise",
 		}}})
@@ -1275,6 +1292,7 @@ func (s *applicationSuite) TestApplicationSetCharmWrongOS(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
 			ApplicationName: "application",
 			Series:          "precise",
 		}}})
@@ -1305,10 +1323,22 @@ func (s *applicationSuite) setupApplicationDeploy(c *gc.C, args string) (*charm.
 	return curl, ch, cons
 }
 
+func createCharmOriginFromURL(c *gc.C, curl *charm.URL) *params.CharmOrigin {
+	switch curl.Schema {
+	case "cs":
+		return &params.CharmOrigin{Source: "charm-store"}
+	case "local":
+		return &params.CharmOrigin{Source: "local"}
+	default:
+		return &params.CharmOrigin{Source: "charm-hub"}
+	}
+}
+
 func (s *applicationSuite) assertApplicationDeployPrincipal(c *gc.C, curl *charm.URL, ch charm.Charm, mem4g constraints.Value) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
+			CharmOrigin:     createCharmOriginFromURL(c, curl),
 			ApplicationName: "application",
 			NumUnits:        3,
 			Constraints:     mem4g,
@@ -1323,6 +1353,7 @@ func (s *applicationSuite) assertApplicationDeployPrincipalBlocked(c *gc.C, msg 
 	_, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
+			CharmOrigin:     createCharmOriginFromURL(c, curl),
 			ApplicationName: "application",
 			NumUnits:        3,
 			Constraints:     mem4g,
@@ -1357,6 +1388,7 @@ func (s *applicationSuite) TestApplicationDeploySubordinate(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
+			CharmOrigin:     createCharmOriginFromURL(c, curl),
 			ApplicationName: "application-name",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1394,6 +1426,7 @@ func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
+			CharmOrigin:     createCharmOriginFromURL(c, curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			ConfigYAML:      "application-name:\n  username: fred",
@@ -1422,6 +1455,7 @@ func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
+			CharmOrigin:     createCharmOriginFromURL(c, curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			ConfigYAML:      "application-name:\n  skill-level: fred",
@@ -1445,6 +1479,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
+			CharmOrigin:     createCharmOriginFromURL(c, curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			ConfigYAML:      "application-name:\n  username: fred",
@@ -1487,6 +1522,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
+			CharmOrigin:     createCharmOriginFromURL(c, curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 		}}})
@@ -1538,6 +1574,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
+			CharmOrigin:     createCharmOriginFromURL(c, curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 		}}})
@@ -1572,6 +1609,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        "cs:precise/application-name-1",
+			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			Placement:       []*instance.Placement{instance.MustParsePlacement("42")},
@@ -1593,6 +1631,7 @@ func (s *applicationSuite) deployApplicationForUpdateTests(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
+			CharmOrigin:     createCharmOriginFromURL(c, curl),
 			ApplicationName: "application",
 			NumUnits:        1,
 		}}})

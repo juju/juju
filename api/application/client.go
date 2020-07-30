@@ -79,10 +79,6 @@ const (
 	OriginCharmStore CharmOriginSource = "charm-store"
 	// OriginCharmHub represents a charm from the new charm-hub.
 	OriginCharmHub CharmOriginSource = "charm-hub"
-	// OriginUnknown represents that we don't know where this charm came from.
-	// Either the charm was migrated up from an older version of Juju or we
-	//  didn't have enough information when we set the charm.
-	OriginUnknown CharmOriginSource = "unknown"
 )
 
 // CharmOrigin holds the information about where the charm originates.

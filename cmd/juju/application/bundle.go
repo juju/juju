@@ -724,10 +724,16 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	if h.data.Type == "kubernetes" {
 		numUnits = p.NumUnits
 	}
+
+	origin, err := deduceOrigin(chID.URL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// Deploy the application.
 	if err := h.api.Deploy(application.DeployArgs{
 		CharmID:          chID,
-		CharmOrigin:      deduceOrigin(chID.URL),
+		CharmOrigin:      origin,
 		Cons:             cons,
 		ApplicationName:  p.Application,
 		Series:           series,

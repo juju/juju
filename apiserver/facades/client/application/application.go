@@ -800,16 +800,11 @@ func deployApplication(
 func convertCharmOrigin(origin *params.CharmOrigin) (corecharm.Origin, error) {
 	switch {
 	case origin == nil || origin.Source == "" || origin.Source == "unknown":
-		return corecharm.Origin{Source: corecharm.Unknown}, nil
+		return corecharm.Origin{}, errors.Errorf("unexpected charm origin")
 	case origin.Source == "local":
 		return corecharm.Origin{Source: corecharm.Local}, nil
 	case origin.Source == "charm-store":
 		return corecharm.Origin{Source: corecharm.CharmStore}, nil
-	}
-
-	// CharmHub code can not tell us about the exact charm we want to install.
-	if origin.Revision == nil && origin.Channel == nil {
-		return corecharm.Origin{}, errors.Errorf("unexpected charm origin")
 	}
 
 	var channel *corecharm.Channel

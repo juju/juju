@@ -351,6 +351,7 @@ func (s *ApplicationSuite) TestDeployCAASOperatorProtectedByFlag(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 		}},
 	}
@@ -729,16 +730,19 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 			AttachStorage:   []string{"storage-foo-0"},
 		}, {
 			ApplicationName: "bar",
 			CharmURL:        "local:bar-1",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        2,
 			AttachStorage:   []string{"storage-bar-0"},
 		}, {
 			ApplicationName: "baz",
 			CharmURL:        "local:baz-2",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 			AttachStorage:   []string{"volume-baz-0"},
 		}},
@@ -757,40 +761,35 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store"},
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 		}, {
-			ApplicationName: "hub",
-			CharmURL:        "local:hub-0",
+			ApplicationName: "bar",
+			CharmURL:        "cs:bar-0",
 			CharmOrigin: &params.CharmOrigin{
-				Source:  "charmhub",
+				Source:  "charm-store",
 				Channel: &ch,
 			},
 			NumUnits: 1,
 		}, {
-			ApplicationName: "bar",
-			CharmURL:        "local:bar-0",
-			CharmOrigin:     nil,
-			NumUnits:        1,
-		}, {
-			ApplicationName: "baz",
-			CharmURL:        "local:bar-0",
-			CharmOrigin:     &params.CharmOrigin{},
-			NumUnits:        1,
+			ApplicationName: "hub",
+			CharmURL:        "hub-0",
+			CharmOrigin: &params.CharmOrigin{
+				Source: "charm-hub",
+			},
+			NumUnits: 1,
 		}},
 	}
 	results, err := s.api.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 4)
+	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results[1].Error, gc.IsNil)
 	c.Assert(results.Results[2].Error, gc.IsNil)
-	c.Assert(results.Results[3].Error, gc.IsNil)
 
-	c.Assert(s.deployParams["foo"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-store"))
-	c.Assert(s.deployParams["hub"].CharmOrigin.Source, gc.Equals, corecharm.Source("charmhub"))
-	c.Assert(s.deployParams["bar"].CharmOrigin.Source, gc.Equals, corecharm.Source("unknown"))
-	c.Assert(s.deployParams["baz"].CharmOrigin.Source, gc.Equals, corecharm.Source("unknown"))
+	c.Assert(s.deployParams["foo"].CharmOrigin.Source, gc.Equals, corecharm.Source("local"))
+	c.Assert(s.deployParams["bar"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-store"))
+	c.Assert(s.deployParams["hub"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-hub"))
 }
 
 func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {
@@ -812,6 +811,7 @@ func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 			Config:          map[string]string{"kubernetes-service-annotations": "a=b c="},
 		}},
@@ -840,23 +840,27 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 			Config:          map[string]string{"kubernetes-service-annotations": "a=b c="},
 			ConfigYAML:      "foo:\n  stringOption: fred\n  kubernetes-service-type: NodeIP",
 		}, {
 			ApplicationName: "foobar",
 			CharmURL:        "local:foobar-0",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 			Config:          map[string]string{"kubernetes-service-type": "ClusterIP", "intOption": "2"},
 			ConfigYAML:      "foobar:\n  intOption: 1\n  kubernetes-service-type: NodeIP\n  kubernetes-ingress-ssl-redirect: true",
 		}, {
 			ApplicationName: "bar",
 			CharmURL:        "local:bar-0",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 			AttachStorage:   []string{"storage-bar-0"},
 		}, {
 			ApplicationName: "baz",
 			CharmURL:        "local:baz-0",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 			Placement:       []*instance.Placement{{}, {}},
 		}},
@@ -889,6 +893,7 @@ func (s *ApplicationSuite) TestDeployCAASBlockStorageRejected(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 		}},
 	}
@@ -905,6 +910,7 @@ func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 		}},
 	}
@@ -929,6 +935,7 @@ func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 		}},
 	}
@@ -945,6 +952,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 		}},
 	}
@@ -961,6 +969,7 @@ func (s *ApplicationSuite) TestDeployCAASModelWrongOperatorStorageType(c *gc.C) 
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 		}},
 	}
@@ -978,6 +987,7 @@ func (s *ApplicationSuite) TestDeployCAASModelInvalidStorage(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 			Storage: map[string]storage.Constraints{
 				"database": {},
@@ -996,6 +1006,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
+			CharmOrigin:     &params.CharmOrigin{Source: "local"},
 			NumUnits:        1,
 			Storage: map[string]storage.Constraints{
 				"database": {},
