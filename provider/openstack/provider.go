@@ -1125,12 +1125,12 @@ func (e *Environ) startInstance(
 	)
 
 	if e.ecfg().useOpenstackGBP() {
-		client := e.neutron()
+		neutronClient := e.neutron()
 		ptArg := neutron.PolicyTargetV2{
 			Name:                fmt.Sprintf("juju-policytarget-%s", machineName),
 			PolicyTargetGroupId: e.ecfg().policyTargetGroup(),
 		}
-		pt, err := client.CreatePolicyTargetV2(ptArg)
+		pt, err := neutronClient.CreatePolicyTargetV2(ptArg)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1143,13 +1143,13 @@ func (e *Environ) startInstance(
 	// false, don't create security groups, instance boot will fail.
 	createSecurityGroups := true
 	if len(networks) > 0 && e.supportsNeutron() {
-		client := e.neutron()
+		neutronClient := e.neutron()
 		for _, n := range networks {
 			if n.NetworkId == "" {
 				// It's a GBP network.
 				continue
 			}
-			net, err := client.GetNetworkV2(n.NetworkId)
+			net, err := neutronClient.GetNetworkV2(n.NetworkId)
 			if err != nil {
 				return nil, common.ZoneIndependentError(err)
 			}
@@ -1278,7 +1278,7 @@ func (e *Environ) startInstance(
 		err := errors.Annotate(err, "cannot run instance")
 		// Improve the error message if there is no valid network.
 		if isInvalidNetworkError(err) {
-			msg := "\n\tNo network has been configured, nor could juju find a single internal network;\n\tThis error was caused by juju attempting to create an instance with no network defined."
+			msg := "\n\tThis error was caused by juju attempting to create an OpenStack instance with no network defined.\n\tNo network has been configured, nor could juju find an internal OpenStack network to suggest."
 			err = errors.New(fmt.Sprintf("%s%s", err.Error(), msg))
 		}
 		// 'No valid host available' is typically a resource error,
@@ -1529,20 +1529,22 @@ func (e *Environ) useNetwork() (string, error) {
 	if usingNetwork != "" {
 		return usingNetwork, nil
 	}
-	var err error
-	usingNetwork, err = e.findOneInternalNetwork()
+	foundNetwork, err := e.findOneInternalNetwork()
 	if err != nil {
 		return "", err
 	}
-	cfg, err := e.ecfg().Apply(map[string]interface{}{NetworkKey: usingNetwork})
-	if err != nil {
-		return "", err
+	// TODO (hml) 2020-07-30
+	// Ideally juju would start using the single network found and add it to
+	// the model and default configs.  If you call SetConfig() during bootstrap,
+	// the network is added to the controller model.  Subsequently, deploy
+	// also find a network, however it is not added to the model config.
+	// A method of getting the new config to the save config out the environ
+	// is needed.
+	if foundNetwork != "" {
+		err := errors.Errorf("no network provided and one network is available: %q", foundNetwork)
+		return "", errors.New(noNetConfigMsg(err))
 	}
-	if err := e.SetConfig(cfg); err != nil {
-		return "", errors.Annotatef(err, "updating network in config")
-	}
-	logger.Warningf("no network provided, only one internal network found, added network %q to model-config", usingNetwork)
-	return usingNetwork, nil
+	return "", nil
 }
 
 func (e *Environ) findOneInternalNetwork() (string, error) {
@@ -1677,7 +1679,7 @@ func isNoValidHostsError(err error) bool {
 }
 
 func isInvalidNetworkError(err error) bool {
-	if errors.IsBadRequest(err) {
+	if cause := errors.Cause(err); cause != nil {
 		return strings.Contains(errors.Cause(err).Error(), "Invalid input for field/attribute networks")
 	}
 	return false
