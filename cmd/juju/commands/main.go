@@ -13,6 +13,7 @@ import (
 	"text/template"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
@@ -142,6 +143,19 @@ func (m main) Run(args []string) int {
 		}
 	}
 
+	// See if we need to invoke the juju interactive shell.
+	// It is invoked by:
+	// $ juju
+	// We also run the repl command so that it prints help and exits
+	// if the user types:
+	// $ juju --help | -h | help
+	jujuArgs := set.NewStrings(args[1:]...)
+	helpArgs := set.NewStrings("help", "-h", "--help")
+	showHelp := jujuArgs.Intersection(helpArgs).Size() > 0
+	jujuArgs = jujuArgs.Difference(helpArgs)
+	if showHelp && len(args) == 1 || len(jujuArgs) == 0 {
+		return cmd.Main(newReplCommand(showHelp), ctx, nil)
+	}
 	jcmd := NewJujuCommand(ctx, jujuMsg)
 	return cmd.Main(jcmd, ctx, args[1:])
 }
