@@ -3003,7 +3003,12 @@ func RollUpAndConvertOpenedPortDocuments(pool *StatePool) error {
 				Remove: true,
 			})
 
-			if newDocs[oldDoc.MachineID] == nil {
+			if newDocs[oldDoc.MachineID] != nil {
+				// We should never encounter multiple docs for a
+				// given machine in a pre-2.9 controller. In the
+				// off-chance this happens emit a warning.
+				logger.Warningf("encountered multiple open port documents for machine %q; the port ranges will be rolled up and exposed to all subnets", oldDoc.MachineID)
+			} else {
 				newDocs[oldDoc.MachineID] = &machinePortRangesDoc{
 					// New docs use the machineID as their ID.
 					// whereas old docs use "machineID#subnetID".

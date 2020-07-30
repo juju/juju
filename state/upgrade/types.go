@@ -80,8 +80,8 @@ type OldPortsDoc28 struct {
 
 // OldPortsDoc28 represents a port range entry document prior to the 2.9 schema changes.
 type OldPortRangeDoc28 struct {
-	UnitName string
-	FromPort int
-	ToPort   int
-	Protocol string
+	UnitName string `bson:"unitname"`
+	FromPort int    `bson:"fromport"`
+	ToPort   int    `bson:"toport"`
+	Protocol string `bson:"protocol"`
 }
