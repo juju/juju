@@ -33,8 +33,8 @@ func DefaultIntrospectionSocketName(entityTag names.Tag) string {
 type IntrospectionConfig struct {
 	Agent              agent.Agent
 	Engine             *dependency.Engine
-	StatePoolReporter  introspection.IntrospectionReporter
-	PubSubReporter     introspection.IntrospectionReporter
+	StatePoolReporter  introspection.Reporter
+	PubSubReporter     introspection.Reporter
 	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
 	PresenceRecorder   presence.Recorder

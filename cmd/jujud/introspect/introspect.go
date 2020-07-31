@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -29,6 +30,9 @@ type IntrospectCommand struct {
 	agent   string
 	path    string
 	listen  string
+
+	post bool
+	form url.Values
 
 	// IntrospectionSocketName returns the socket name
 	// for a given tag. If IntrospectionSocketName is nil,
@@ -67,7 +71,7 @@ agent using --agent. e.g.
 func (c *IntrospectCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "juju-introspect",
-		Args:    "(--listen=...|<path>)",
+		Args:    "(--listen=...|<path> [key=value [...]])",
 		Purpose: "introspect Juju agents running on this machine",
 		Doc:     introspectCommandDoc,
 	})
@@ -78,6 +82,7 @@ func (c *IntrospectCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.dataDir, "data-dir", config.DataDir, "Juju base data directory")
 	f.StringVar(&c.agent, "agent", "", "agent to introspect (defaults to machine agent)")
 	f.StringVar(&c.listen, "listen", "", "address on which to expose the introspection socket")
+	f.BoolVar(&c.post, "post", false, "perform a POST action rather than a GET")
 }
 
 func (c *IntrospectCommand) Init(args []string) error {
@@ -90,7 +95,22 @@ func (c *IntrospectCommand) Init(args []string) error {
 	if c.path != "" && c.listen != "" {
 		return errors.New("a query path may not be specified with --listen")
 	}
-	return c.CommandBase.Init(args)
+	if c.post == false {
+		// No args expected for post.
+		return c.CommandBase.Init(args)
+	}
+	// Additional args are expected to be "key=value", and are added
+	// to url form arguments.
+	c.form = url.Values{}
+	for _, arg := range args {
+		parts := strings.SplitN(arg, "=", 2)
+		if len(parts) < 2 {
+			return errors.New("form value missing '='")
+		}
+		key, value := parts[0], parts[1]
+		c.form[key] = append(c.form[key], value)
+	}
+	return nil
 }
 
 func (c *IntrospectCommand) Run(ctx *cmd.Context) error {
@@ -123,7 +143,12 @@ func (c *IntrospectCommand) Run(ctx *cmd.Context) error {
 
 	ctx.Infof("Querying %s introspection socket: %s", socketName, c.path)
 	client := unixSocketHTTPClient(socketName)
-	resp, err := client.Get(targetURL.String())
+	var resp *http.Response
+	if c.post {
+		resp, err = client.PostForm(targetURL.String(), c.form)
+	} else {
+		resp, err = client.Get(targetURL.String())
+	}
 	if err != nil {
 		return err
 	}
