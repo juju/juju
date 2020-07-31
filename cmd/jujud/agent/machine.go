@@ -29,6 +29,7 @@ import (
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -551,12 +552,7 @@ func (a *MachineAgent) makeEngineCreator(
 		// tracker in controller agents.
 		var statePoolReporter statePoolIntrospectionReporter
 		registerIntrospectionHandlers := func(handle func(path string, h http.Handler)) {
-			introspection.RegisterHTTPHandlers(introspection.ReportSources{
-				DependencyEngine:   engine,
-				StatePool:          &statePoolReporter,
-				PubSub:             pubsubReporter,
-				PrometheusGatherer: a.prometheusRegistry,
-			}, handle)
+			handle("/metrics/", promhttp.HandlerFor(a.prometheusRegistry, promhttp.HandlerOpts{}))
 		}
 
 		manifoldsCfg := machine.ManifoldsConfig{
