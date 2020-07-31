@@ -1152,19 +1152,19 @@ func (s *ConfigSuite) TestAutoHookRetryTrueEnv(c *gc.C) {
 	c.Assert(config.AutomaticallyRetryHooks(), gc.Equals, true)
 }
 
-func (s *ConfigSuite) TestCharmhubURL(c *gc.C) {
+func (s *ConfigSuite) TestCharmHubURL(c *gc.C) {
 	config := newTestConfig(c, testing.Attrs{})
-	chURL, ok := config.CharmhubURL()
+	chURL, ok := config.CharmHubURL()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(chURL, gc.Equals, charmhub.CharmHubServerURL)
 }
 
-func (s *ConfigSuite) TestCharmhubURLSettingValue(c *gc.C) {
+func (s *ConfigSuite) TestCharmHubURLSettingValue(c *gc.C) {
 	url := "http://meshuggah-rocks.com/charmhub"
 	config := newTestConfig(c, testing.Attrs{
 		"charm-hub-url": url,
 	})
-	chURL, ok := config.CharmhubURL()
+	chURL, ok := config.CharmHubURL()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(chURL, gc.Equals, url)
 }
