@@ -164,6 +164,15 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 			Arch:   arch.HostArch(),
 			Series: series.MustHostSeries(),
 		}.String() + "\n",
+	}, {
+		summary: "check --version command returns a fully qualified version string",
+		args:    []string{"--version"},
+		code:    0,
+		out: version.Binary{
+			Number: jujuversion.Current,
+			Arch:   arch.HostArch(),
+			Series: series.MustHostSeries(),
+		}.String() + "\n",
 	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)
