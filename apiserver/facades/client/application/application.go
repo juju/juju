@@ -426,7 +426,6 @@ func (api *APIv12) Deploy(args params.ApplicationsDeployV12) (params.ErrorResult
 			ApplicationName:  value.ApplicationName,
 			Series:           value.Series,
 			CharmURL:         value.CharmURL,
-			CharmOrigin:      &params.CharmOrigin{Source: "unknown"},
 			Channel:          value.Channel,
 			NumUnits:         value.NumUnits,
 			Config:           value.Config,
@@ -773,7 +772,7 @@ func deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	origin, err := convertCharmOrigin(args.CharmOrigin)
+	origin, err := convertCharmOrigin(args.CharmOrigin, curl, args.Channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -797,14 +796,21 @@ func deployApplication(
 	return errors.Trace(err)
 }
 
-func convertCharmOrigin(origin *params.CharmOrigin) (corecharm.Origin, error) {
+func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreChannel string) (corecharm.Origin, error) {
 	switch {
-	case origin == nil || origin.Source == "" || origin.Source == "unknown":
-		return corecharm.Origin{}, errors.Errorf("unexpected charm origin")
+	case origin == nil || origin.Source == "" || origin.Source == "charm-store":
+		return corecharm.Origin{
+			Source:   corecharm.CharmStore,
+			Revision: &curl.Revision,
+			Channel: &corecharm.Channel{
+				Risk: corecharm.Risk(charmStoreChannel),
+			},
+		}, nil
 	case origin.Source == "local":
-		return corecharm.Origin{Source: corecharm.Local}, nil
-	case origin.Source == "charm-store":
-		return corecharm.Origin{Source: corecharm.CharmStore}, nil
+		return corecharm.Origin{
+			Source:   corecharm.Local,
+			Revision: &curl.Revision,
+		}, nil
 	}
 
 	var channel *corecharm.Channel
