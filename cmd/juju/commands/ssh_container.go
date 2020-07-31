@@ -108,7 +108,7 @@ func (c *sshContainer) initRun(mc modelcmd.ModelCommandBase) error {
 	}
 
 	if c.execClientGetter == nil {
-		c.execClientGetter = k8sexec.NewForJujuCloudCloudSpec
+		c.execClientGetter = k8sexec.NewForJujuCloudSpec
 	}
 
 	if c.applicationAPI == nil {

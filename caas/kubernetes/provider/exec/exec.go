@@ -19,6 +19,7 @@ import (
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
+	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
 )
 
@@ -72,8 +74,8 @@ func NewInCluster(namespace string) (Executor, error) {
 	return New(namespace, c, config), nil
 }
 
-// NewForJujuCloudCloudSpec returns a exec client.
-func NewForJujuCloudCloudSpec(namespace string, cloudSpec cloudspec.CloudSpec) (Executor, error) {
+// NewForJujuCloudSpec returns a exec client.
+func NewForJujuCloudSpec(modelName string, cloudSpec cloudspec.CloudSpec) (Executor, error) {
 	restCfg, err := provider.CloudSpecToK8sRestConfig(cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -82,7 +84,31 @@ func NewForJujuCloudCloudSpec(namespace string, cloudSpec cloudspec.CloudSpec) (
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	namespace := modelName
+	if modelName == environsbootstrap.ControllerModelName {
+		namespace, err = modelNameToNameSpace(modelName, c.CoreV1().Namespaces())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	return New(namespace, c, restCfg), nil
+}
+
+func modelNameToNameSpace(modelName string, client typedcorev1.NamespaceInterface) (string, error) {
+	out, err := client.List(metav1.ListOptions{
+		LabelSelector: k8slabels.SelectorFromValidatedSet(provider.LabelsForModel(modelName)).String(),
+	})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(out.Items) == 0 {
+		return "", errors.NotFoundf("namespace for model %q", modelName)
+	}
+	if len(out.Items) == 1 {
+		return out.Items[0].GetName(), nil
+	}
+	// This should never happen.
+	return "", errors.New("multiple controllers running on the cluster")
 }
 
 // New contructs an executor.
@@ -322,37 +348,29 @@ func parsePodName(podName string) (string, error) {
 	return podName, nil
 }
 
-func getValidatedPod(podGetter typedcorev1.PodInterface, podName string) (*core.Pod, error) {
-	var err error
+func getValidatedPod(podGetter typedcorev1.PodInterface, podName string) (pod *core.Pod, err error) {
 	if podName, err = parsePodName(podName); err != nil {
 		return nil, errors.Trace(err)
 	}
-	var pod *core.Pod
-	pod, err = podGetter.Get(podName, metav1.GetOptions{})
+	if pod, err = podGetter.Get(podName, metav1.GetOptions{}); err == nil {
+		return pod, nil
+	} else if !k8serrors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+
+	logger.Debugf("no pod named %q found", podName)
+	logger.Debugf("try get pod by UID for %q", podName)
+	pods, err := podGetter.List(metav1.ListOptions{})
+	// TODO(caas): remove getting pod by Id (a bit expensive) once we started to store podName in cloudContainer doc.
 	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return nil, errors.Trace(err)
-		}
-		logger.Debugf("no pod named %q found", podName)
-		logger.Debugf("try get pod by UID for %q", podName)
-		pods, err := podGetter.List(metav1.ListOptions{})
-		// TODO(caas): remove getting pod by Id (a bit expensive) once we started to store podName in cloudContainer doc.
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, v := range pods.Items {
-			if string(v.GetUID()) == podName {
-				p := v
-				podName = p.GetName()
-				pod = &p
-				break
-			}
+		return nil, errors.Trace(err)
+	}
+	for _, v := range pods.Items {
+		if string(v.GetUID()) == podName {
+			return &v, nil
 		}
 	}
-	if pod == nil {
-		return nil, errors.NotFoundf("pod %q", podName)
-	}
-	return pod, nil
+	return nil, errors.NotFoundf("pod %q", podName)
 }
 
 func getValidatedPodContainer(
@@ -385,7 +403,7 @@ func getValidatedPodContainer(
 		containerStatus = pod.Status.ContainerStatuses
 	default:
 		return "", "", errors.New(fmt.Sprintf(
-			"cannot exec into a container within the %s pod %q", pod.Status.Phase, pod.GetName(),
+			"cannot exec into a container within the %q pod %q", pod.Status.Phase, pod.GetName(),
 		))
 	}
 
