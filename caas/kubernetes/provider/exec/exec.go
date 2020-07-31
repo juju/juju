@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"os"
 	"strings"
 	"syscall"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/kballard/go-shellquote"
+	"golang.org/x/crypto/ssh/terminal"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -152,7 +154,7 @@ type ExecParams struct {
 	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
-	Tty    bool
+	TTY    bool
 
 	Signal <-chan syscall.Signal
 }
@@ -192,6 +194,26 @@ func processEnv(env []string) (string, error) {
 	return out, nil
 }
 
+func (c client) safe(opts ExecParams, executor remotecommand.Executor) (err error) {
+	if opts.TTY {
+		var inFd int
+		if file, ok := opts.Stdin.(*os.File); ok {
+			inFd = int(file.Fd())
+		}
+		oldState, err := terminal.MakeRaw(inFd)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer func() { err = terminal.Restore(inFd, oldState) }()
+	}
+	return executor.Stream(remotecommand.StreamOptions{
+		Stdin:  opts.Stdin,
+		Stdout: opts.Stdout,
+		Stderr: opts.Stderr,
+		Tty:    opts.TTY,
+	})
+}
+
 func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 	defer func() {
 		err = handleExecRetryableError(err)
@@ -224,7 +246,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 			Stdin:     opts.Stdin != nil,
 			Stdout:    opts.Stdout != nil,
 			Stderr:    opts.Stderr != nil,
-			TTY:       opts.Tty,
+			TTY:       opts.TTY,
 		}, scheme.ParameterCodec)
 
 	executor, err := c.remoteCmdExecutorGetter("POST", req.URL())
@@ -234,12 +256,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- executor.Stream(remotecommand.StreamOptions{
-			Stdin:  opts.Stdin,
-			Stdout: opts.Stdout,
-			Stderr: opts.Stderr,
-			Tty:    opts.Tty,
-		})
+		errChan <- c.safe(opts, executor)
 	}()
 
 	sendSignal := func(sig syscall.Signal, group bool) error {

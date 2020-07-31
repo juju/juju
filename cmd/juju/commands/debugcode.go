@@ -62,5 +62,5 @@ func (c *debugCodeCommand) SetFlags(f *gnuflag.FlagSet) {
 // and connects to it via SSH to execute the debug-hooks
 // script.
 func (c *debugCodeCommand) Run(ctx *cmd.Context) error {
-	return c.commonRun(ctx, c.provider.GetTarget(), c.hooks, c.debugAt)
+	return c.commonRun(ctx, c.provider.getTarget(), c.hooks, c.debugAt)
 }

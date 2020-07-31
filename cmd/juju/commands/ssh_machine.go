@@ -28,9 +28,9 @@ import (
 	jujussh "github.com/juju/juju/network/ssh"
 )
 
-// SSHCommon implements functionality shared by sshCommand, SCPCommand
+// SSHMachine implements functionality shared by sshCommand, SCPCommand
 // and DebugHooksCommand.
-type SSHCommon struct {
+type SSHMachine struct {
 	modelName string
 
 	proxy           bool
@@ -110,28 +110,28 @@ var sshHostFromTargetAttemptStrategy attemptStarter = attemptStrategy{
 	Delay: SSHRetryDelay,
 }
 
-func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
+func (c *SSHMachine) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.proxy, "proxy", false, "Proxy through the API server")
 	f.BoolVar(&c.noHostKeyChecks, "no-host-key-checks", false, "Skip host key checking (INSECURE)")
 }
 
-// GetTarget returns the target.
-func (c *SSHCommon) GetTarget() string {
+// getTarget returns the target.
+func (c *SSHMachine) getTarget() string {
 	return c.target
 }
 
-// SetTarget sets the target.
-func (c *SSHCommon) SetTarget(target string) {
+// setTarget sets the target.
+func (c *SSHMachine) setTarget(target string) {
 	c.target = target
 }
 
-// GetArgs returns the args.
-func (c *SSHCommon) GetArgs() []string {
+// getArgs returns the args.
+func (c *SSHMachine) getArgs() []string {
 	return c.args
 }
 
-// SetArgs sets the args.
-func (c *SSHCommon) SetArgs(args []string) {
+// setArgs sets the args.
+func (c *SSHMachine) setArgs(args []string) {
 	c.args = args
 }
 
@@ -141,7 +141,7 @@ func defaultReachableChecker() jujussh.ReachableChecker {
 	return jujussh.NewReachableChecker(&net.Dialer{Timeout: SSHRetryDelay}, SSHTimeout)
 }
 
-func (c *SSHCommon) setHostChecker(checker jujussh.ReachableChecker) {
+func (c *SSHMachine) setHostChecker(checker jujussh.ReachableChecker) {
 	if checker == nil {
 		checker = defaultReachableChecker()
 	}
@@ -153,7 +153,7 @@ func (c *SSHCommon) setHostChecker(checker jujussh.ReachableChecker) {
 // command's Run method.
 //
 // The apiClient, apiAddr and proxy fields are initialized after this call.
-func (c *SSHCommon) initRun(mc modelcmd.ModelCommandBase) (err error) {
+func (c *SSHMachine) initRun(mc modelcmd.ModelCommandBase) (err error) {
 	if c.modelName, err = mc.ModelIdentifier(); err != nil {
 		return errors.Trace(err)
 	}
@@ -175,7 +175,7 @@ func (c *SSHCommon) initRun(mc modelcmd.ModelCommandBase) (err error) {
 // cleanupRun removes the temporary SSH known_hosts file (if one was
 // created) and closes the API connection. It must be called at the
 // end of the command's Run (i.e. as a defer).
-func (c *SSHCommon) cleanupRun() {
+func (c *SSHMachine) cleanupRun() {
 	if c.knownHostsPath != "" {
 		os.Remove(c.knownHostsPath)
 		c.knownHostsPath = ""
@@ -188,7 +188,7 @@ func (c *SSHCommon) cleanupRun() {
 
 // getSSHOptions configures SSH options based on command line
 // arguments and the SSH targets specified.
-func (c *SSHCommon) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*ssh.Options, error) {
+func (c *SSHMachine) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*ssh.Options, error) {
 	var options ssh.Options
 
 	if c.noHostKeyChecks {
@@ -226,7 +226,7 @@ func (c *SSHCommon) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*
 	return &options, nil
 }
 
-func (c *SSHCommon) ssh(ctx Context, enablePty bool, target *resolvedTarget) error {
+func (c *SSHMachine) ssh(ctx Context, enablePty bool, target *resolvedTarget) error {
 	options, err := c.getSSHOptions(enablePty, target)
 	if err != nil {
 		return err
@@ -242,7 +242,7 @@ func (c *SSHCommon) ssh(ctx Context, enablePty bool, target *resolvedTarget) err
 // generateKnownHosts takes the provided targets, retrieves the SSH
 // public host keys for them and generates a temporary known_hosts
 // file for them.
-func (c *SSHCommon) generateKnownHosts(targets []*resolvedTarget) (string, error) {
+func (c *SSHMachine) generateKnownHosts(targets []*resolvedTarget) (string, error) {
 	knownHosts := newKnownHostsBuilder()
 	agentCount := 0
 	nonAgentCount := 0
@@ -282,7 +282,7 @@ func (c *SSHCommon) generateKnownHosts(targets []*resolvedTarget) (string, error
 
 // proxySSH returns false if both c.proxy and the proxy-ssh model
 // configuration are false -- otherwise it returns true.
-func (c *SSHCommon) proxySSH() (bool, error) {
+func (c *SSHMachine) proxySSH() (bool, error) {
 	if c.proxy {
 		// No need to check the API if user explicitly requested
 		// proxying.
@@ -297,7 +297,7 @@ func (c *SSHCommon) proxySSH() (bool, error) {
 }
 
 // setProxyCommand sets the proxy command option.
-func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
+func (c *SSHMachine) setProxyCommand(options *ssh.Options) error {
 	apiServerHost, _, err := net.SplitHostPort(c.apiAddr)
 	if err != nil {
 		return errors.Errorf("failed to get proxy address: %v", err)
@@ -326,7 +326,7 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 	return nil
 }
 
-func (c *SSHCommon) ensureAPIClient(mc modelcmd.ModelCommandBase) error {
+func (c *SSHMachine) ensureAPIClient(mc modelcmd.ModelCommandBase) error {
 	if c.apiClient != nil {
 		return nil
 	}
@@ -334,7 +334,7 @@ func (c *SSHCommon) ensureAPIClient(mc modelcmd.ModelCommandBase) error {
 }
 
 // initAPIClient initialises the API connection.
-func (c *SSHCommon) initAPIClient(mc modelcmd.ModelCommandBase) error {
+func (c *SSHMachine) initAPIClient(mc modelcmd.ModelCommandBase) error {
 	conn, err := mc.NewAPIRoot()
 	if err != nil {
 		return errors.Trace(err)
@@ -344,7 +344,7 @@ func (c *SSHCommon) initAPIClient(mc modelcmd.ModelCommandBase) error {
 	return nil
 }
 
-func (c *SSHCommon) resolveTarget(target string) (*resolvedTarget, error) {
+func (c *SSHMachine) resolveTarget(target string) (*resolvedTarget, error) {
 	out, ok := c.resolveAsAgent(target)
 	if !ok {
 		// Not a machine or unit agent target - use directly.
@@ -374,7 +374,7 @@ func (c *SSHCommon) resolveTarget(target string) (*resolvedTarget, error) {
 	return c.resolveWithRetry(*out, getAddress)
 }
 
-func (c *SSHCommon) resolveAsAgent(target string) (*resolvedTarget, bool) {
+func (c *SSHMachine) resolveAsAgent(target string) (*resolvedTarget, bool) {
 	out := new(resolvedTarget)
 	out.user, out.entity = splitUserTarget(target)
 	isAgent := out.isAgent()
@@ -391,7 +391,7 @@ func (c *SSHCommon) resolveAsAgent(target string) (*resolvedTarget, bool) {
 
 type addressGetterFunc func(target string) (string, error)
 
-func (c *SSHCommon) resolveWithRetry(target resolvedTarget, getAddress addressGetterFunc) (*resolvedTarget, error) {
+func (c *SSHMachine) resolveWithRetry(target resolvedTarget, getAddress addressGetterFunc) (*resolvedTarget, error) {
 	// A target may not initially have an address (e.g. the
 	// address updater hasn't yet run), so we must do this in
 	// a loop.
@@ -419,7 +419,7 @@ func (c *SSHCommon) resolveWithRetry(target resolvedTarget, getAddress addressGe
 // legacyAddressGetter returns the preferred public or private address of the
 // given entity (private when c.proxy is true), using the apiClient. Only used
 // when the SSHClient API facade v2 is not available or when proxy-ssh is set.
-func (c *SSHCommon) legacyAddressGetter(entity string) (string, error) {
+func (c *SSHMachine) legacyAddressGetter(entity string) (string, error) {
 	if c.proxy {
 		return c.apiClient.PrivateAddress(entity)
 	}
@@ -430,7 +430,7 @@ func (c *SSHCommon) legacyAddressGetter(entity string) (string, error) {
 // reachableAddressGetter dials all addresses of the given entity, returning the
 // first one that succeeds. Only used with SSHClient API facade v2 or later is
 // available. It does not try to dial if only one address is available.
-func (c *SSHCommon) reachableAddressGetter(entity string) (string, error) {
+func (c *SSHMachine) reachableAddressGetter(entity string) (string, error) {
 	addresses, err := c.apiClient.AllAddresses(entity)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -460,7 +460,7 @@ func (c *SSHCommon) reachableAddressGetter(entity string) (string, error) {
 // AllowInterspersedFlags for ssh/scp is set to false so that
 // flags after the unit name are passed through to ssh, for eg.
 // `juju ssh -v application-name/0 uname -a`.
-func (c *SSHCommon) AllowInterspersedFlags() bool {
+func (c *SSHMachine) AllowInterspersedFlags() bool {
 	return false
 }
 

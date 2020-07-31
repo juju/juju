@@ -67,23 +67,23 @@ func (c *sshContainer) SetFlags(f *gnuflag.FlagSet) {}
 
 func (c *sshContainer) setHostChecker(checker jujussh.ReachableChecker) {}
 
-// GetTarget returns the target.
-func (c *sshContainer) GetTarget() string {
+// getTarget returns the target.
+func (c *sshContainer) getTarget() string {
 	return c.target
 }
 
-// SetTarget sets the target.
-func (c *sshContainer) SetTarget(target string) {
+// setTarget sets the target.
+func (c *sshContainer) setTarget(target string) {
 	c.target = target
 }
 
-// GetArgs returns the args.
-func (c *sshContainer) GetArgs() []string {
+// getArgs returns the args.
+func (c *sshContainer) getArgs() []string {
 	return c.args
 }
 
-// SetArgs sets the args.
-func (c *sshContainer) SetArgs(args []string) {
+// setArgs sets the args.
+func (c *sshContainer) setArgs(args []string) {
 	c.args = args
 }
 
@@ -153,6 +153,9 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 	if unit.Error != nil {
 		return nil, errors.Annotatef(unit.Error, "getting unit %q", target)
 	}
+	if len(unit.ProviderId) == 0 {
+		return nil, errors.New(fmt.Sprintf("container for unit %q is not ready yet", unitTag.Id()))
+	}
 	return &resolvedTarget{entity: unit.ProviderId}, nil
 }
 
@@ -193,7 +196,7 @@ func (c *sshContainer) ssh(ctx Context, enablePty bool, target *resolvedTarget) 
 			Stdout:   ctx.GetStdout(),
 			Stderr:   ctx.GetStderr(),
 			Stdin:    ctx.GetStdin(),
-			Tty:      enablePty,
+			TTY:      enablePty,
 		},
 		cancel,
 	)

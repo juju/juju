@@ -97,6 +97,20 @@ func (s *sshContainerSuite) TestResolveTarget(c *gc.C) {
 	c.Assert(target.GetEntity(), gc.DeepEquals, "mariadb-k8s-0")
 }
 
+func (s *sshContainerSuite) TestResolveTargetNotProviderID(c *gc.C) {
+	ctrl := s.setUpController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.applicationAPI.EXPECT().UnitsInfo([]names.UnitTag{names.NewUnitTag("mariadb-k8s/0")}).
+			Return([]application.UnitInfo{
+				{ProviderId: ""},
+			}, nil),
+	)
+	_, err := s.sshC.ResolveTarget("mariadb-k8s/0")
+	c.Assert(err, gc.ErrorMatches, `container for unit "mariadb-k8s/0" is not ready yet`)
+}
+
 func (s *sshContainerSuite) TestGetExecClient(c *gc.C) {
 	ctrl := s.setUpController(c)
 	defer ctrl.Finish()
@@ -254,7 +268,7 @@ func (s *sshContainerSuite) TestSSH(c *gc.C) {
 		s.execClient.EXPECT().Exec(k8sexec.ExecParams{
 			PodName:  "mariadb-k8s-0",
 			Commands: []string{"bash"},
-			Tty:      true,
+			TTY:      true,
 			Stdout:   buffer,
 			Stderr:   buffer,
 			Stdin:    buffer,
@@ -316,7 +330,7 @@ func (s *sshContainerSuite) TestSSHCancelled(c *gc.C) {
 		s.execClient.EXPECT().Exec(k8sexec.ExecParams{
 			PodName:  "mariadb-k8s-0",
 			Commands: []string{"bash"},
-			Tty:      true,
+			TTY:      true,
 			Stdout:   buffer,
 			Stderr:   buffer,
 			Stdin:    buffer,

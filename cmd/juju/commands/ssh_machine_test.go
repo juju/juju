@@ -115,7 +115,7 @@ func (s *argsSpec) expectedKnownHosts() string {
 	return out
 }
 
-type SSHCommonSuite struct {
+type SSHMachineSuite struct {
 	testing.JujuConnSuite
 	knownHostsDir string
 	binDir        string
@@ -167,7 +167,7 @@ func validAddresses(acceptedAddresses ...string) *fakeHostChecker {
 	}
 }
 
-func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
+func (s *SSHMachineSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	ssh.ClearClientKeys()
 	s.PatchValue(&getJujuExecutable, func() (string, error) { return "juju", nil })
@@ -188,7 +188,7 @@ func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&ssh.DefaultClient, client)
 }
 
-func (s *SSHCommonSuite) setForceAPIv1(enabled bool) {
+func (s *SSHMachineSuite) setForceAPIv1(enabled bool) {
 	if enabled {
 		os.Setenv(jujuSSHClientForceAPIv1, "1")
 	} else {
@@ -196,11 +196,11 @@ func (s *SSHCommonSuite) setForceAPIv1(enabled bool) {
 	}
 }
 
-func (s *SSHCommonSuite) setHostChecker(hostChecker jujussh.ReachableChecker) {
+func (s *SSHMachineSuite) setHostChecker(hostChecker jujussh.ReachableChecker) {
 	s.hostChecker = hostChecker
 }
 
-func (s *SSHCommonSuite) setupModel(c *gc.C) {
+func (s *SSHMachineSuite) setupModel(c *gc.C) {
 	// Add machine-0 with a mysql application and mysql/0 unit
 	u := s.Factory.MakeUnit(c, nil)
 
@@ -222,7 +222,7 @@ func (s *SSHCommonSuite) setupModel(c *gc.C) {
 	s.setKeys(c, m2)
 }
 
-func (s *SSHCommonSuite) getMachineForUnit(c *gc.C, u *state.Unit) *state.Machine {
+func (s *SSHMachineSuite) getMachineForUnit(c *gc.C, u *state.Unit) *state.Machine {
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.State.Machine(machineId)
@@ -230,7 +230,7 @@ func (s *SSHCommonSuite) getMachineForUnit(c *gc.C, u *state.Unit) *state.Machin
 	return m
 }
 
-func (s *SSHCommonSuite) setAddresses(c *gc.C, m *state.Machine) {
+func (s *SSHMachineSuite) setAddresses(c *gc.C, m *state.Machine) {
 	addrPub := network.NewScopedSpaceAddress(
 		fmt.Sprintf("%s.public", m.Id()),
 		network.ScopePublic,
@@ -243,7 +243,7 @@ func (s *SSHCommonSuite) setAddresses(c *gc.C, m *state.Machine) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *SSHCommonSuite) setLinkLayerDevicesAddresses(c *gc.C, m *state.Machine) {
+func (s *SSHMachineSuite) setLinkLayerDevicesAddresses(c *gc.C, m *state.Machine) {
 	devicesArgs := []state.LinkLayerDeviceArgs{{
 		Name: "lo",
 		Type: network.LoopbackDevice,
@@ -267,14 +267,14 @@ func (s *SSHCommonSuite) setLinkLayerDevicesAddresses(c *gc.C, m *state.Machine)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *SSHCommonSuite) setAddresses6(c *gc.C, m *state.Machine) {
+func (s *SSHMachineSuite) setAddresses6(c *gc.C, m *state.Machine) {
 	addrPub := network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic)
 	addrPriv := network.NewScopedSpaceAddress("fc00:bbb::1", network.ScopeCloudLocal)
 	err := m.SetProviderAddresses(addrPub, addrPriv)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *SSHCommonSuite) setKeys(c *gc.C, m *state.Machine) {
+func (s *SSHMachineSuite) setKeys(c *gc.C, m *state.Machine) {
 	id := m.Id()
 	keys := state.SSHHostKeys{"dsa-" + id, "rsa-" + id}
 	err := s.State.SetSSHHostKeys(m.MachineTag(), keys)

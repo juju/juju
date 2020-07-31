@@ -20,7 +20,7 @@ import (
 var _ = gc.Suite(&DebugHooksSuite{})
 
 type DebugHooksSuite struct {
-	SSHCommonSuite
+	SSHMachineSuite
 }
 
 var debugHooksTests = []struct {

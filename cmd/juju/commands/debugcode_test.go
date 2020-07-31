@@ -18,7 +18,7 @@ import (
 var _ = gc.Suite(&DebugCodeSuite{})
 
 type DebugCodeSuite struct {
-	SSHCommonSuite
+	SSHMachineSuite
 }
 
 func (s *DebugCodeSuite) TestArgFormatting(c *gc.C) {

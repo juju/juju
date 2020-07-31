@@ -37,13 +37,17 @@ func (c *sshContainer) GetExecClient() (k8sexec.Executor, error) {
 	return c.getExecClient()
 }
 
+func (c *sshContainer) SetArgs(args []string) {
+	c.setArgs(args)
+}
+
 type SSHContainerInterfaceForTest interface {
 	CleanupRun()
 	ResolveTarget(string) (*resolvedTarget, error)
 	SSH(Context, bool, *resolvedTarget) error
 	GetExecClient() (k8sexec.Executor, error)
 
-	SetArgs(Args []string)
+	SetArgs([]string)
 }
 
 func NewSSHContainer(

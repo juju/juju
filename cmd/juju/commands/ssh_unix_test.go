@@ -20,7 +20,7 @@ import (
 )
 
 type SSHSuite struct {
-	SSHCommonSuite
+	SSHMachineSuite
 }
 
 var _ = gc.Suite(&SSHSuite{})

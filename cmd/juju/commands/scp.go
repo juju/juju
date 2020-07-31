@@ -84,7 +84,7 @@ func newSCPCommand(hostChecker jujussh.ReachableChecker) cmd.Command {
 type scpCommand struct {
 	modelcmd.ModelCommandBase
 	modelcmd.IAASOnlyCommand
-	SSHCommon
+	SSHMachine
 
 	hostChecker jujussh.ReachableChecker
 }
@@ -102,7 +102,7 @@ func (c *scpCommand) Init(args []string) error {
 	if len(args) < 2 {
 		return errors.Errorf("at least two arguments required")
 	}
-	c.SetArgs(args)
+	c.setArgs(args)
 	c.setHostChecker(c.hostChecker)
 	return nil
 }
@@ -116,7 +116,7 @@ func (c *scpCommand) Run(ctx *cmd.Context) error {
 	}
 	defer c.cleanupRun()
 
-	args, targets, err := expandArgs(c.GetArgs(), c.resolveTarget)
+	args, targets, err := expandArgs(c.getArgs(), c.resolveTarget)
 	if err != nil {
 		return err
 	}

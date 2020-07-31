@@ -87,7 +87,7 @@ type sshCommand struct {
 	modelType model.ModelType
 	modelcmd.ModelCommandBase
 
-	SSHCommon
+	SSHMachine
 	sshContainer
 
 	provider sshProvider
@@ -98,7 +98,7 @@ type sshCommand struct {
 }
 
 func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.SSHCommon.SetFlags(f)
+	c.SSHMachine.SetFlags(f)
 	c.sshContainer.SetFlags(f)
 	f.Var(&c.pty, "pty", "Enable pseudo-tty allocation")
 }
@@ -123,14 +123,15 @@ func (c *sshCommand) Init(args []string) (err error) {
 	if c.modelType == model.CAAS {
 		c.provider = &c.sshContainer
 	} else {
-		c.provider = &c.SSHCommon
+		c.provider = &c.SSHMachine
 	}
-	c.provider.SetTarget(args[0])
-	c.provider.SetArgs(args[1:])
+	c.provider.setTarget(args[0])
+	c.provider.setArgs(args[1:])
 	c.provider.setHostChecker(c.hostChecker)
 	return nil
 }
 
+// sshProvider is implemented by either either a CaaS or IaaS model instance.
 type sshProvider interface {
 	initRun(modelcmd.ModelCommandBase) error
 	cleanupRun()
@@ -138,11 +139,11 @@ type sshProvider interface {
 	resolveTarget(string) (*resolvedTarget, error)
 	ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 
-	GetTarget() string
-	SetTarget(target string)
+	getTarget() string
+	setTarget(target string)
 
-	GetArgs() []string
-	SetArgs(Args []string)
+	getArgs() []string
+	setArgs(Args []string)
 }
 
 // Run resolves c.Target to a machine, to the address of a i
@@ -153,7 +154,7 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 	}
 	defer c.provider.cleanupRun()
 
-	target, err := c.provider.resolveTarget(c.provider.GetTarget())
+	target, err := c.provider.resolveTarget(c.provider.getTarget())
 	if err != nil {
 		return err
 	}
