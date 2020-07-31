@@ -4,11 +4,7 @@
 package state
 
 import (
-	"fmt"
-	"regexp"
-
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -17,277 +13,183 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
-// A regular expression for parsing ports document id into corresponding machine
-// and subnet ids.
-var portsIDRe = regexp.MustCompile(fmt.Sprintf("m#(?P<machine>%s)#(?P<subnet>.*)$", names.MachineSnippet))
-
-type portIDPart int
-
-const (
-	_ portIDPart = iota
-	machineIDPart
-	subnetIDPart
-)
-
-// portsGlobalKey returns the global database key for the opened ports
-// document for the given machine and subnet.
-func portsGlobalKey(machineID, subnetID string) string {
-	return fmt.Sprintf("m#%s#%s", machineID, subnetID)
-}
-
-// extractPortsIDParts parses the given ports global key and extracts
-// its parts.
-func extractPortsIDParts(globalKey string) ([]string, error) {
-	if parts := portsIDRe.FindStringSubmatch(globalKey); len(parts) == 3 {
-		return parts, nil
-	}
-	return nil, errors.NotValidf("ports document key %q", globalKey)
-}
-
-// MachineSubnetPorts is implemented by types that can query and/or manipulate
-// the set of port ranges opened by one or more units in a particular machine
-// subnet.
-type MachineSubnetPorts interface {
-	// SubnetID returns the ID of the subnet that these port ranges relate to.
-	SubnetID() string
-
-	// MachineID returns the ID of the machine that these ports are opened in.
+// MachinePortRanges is implemented by types that can query and/or
+// manipulate the set of port ranges opened by one or more units in a machine.
+type MachinePortRanges interface {
+	// MachineID returns the ID of the machine that this set of port ranges
+	// applies to.
 	MachineID() string
 
-	// OpenClosePortsOperation creates a ModelOperation that opens and
-	// closes the requested set of PortRange arguments. Each of the
-	// PortRange arguments can be left empty to indicate that they should
-	// not be ignored.
-	OpenClosePortsOperation(unitName string, openPortRanges, closePortRanges []network.PortRange) (ModelOperation, error)
+	// ByUnit returns the set of port ranges opened by each unit in a
+	// particular machine subnet grouped by unit name.
+	ByUnit() map[string]UnitPortRanges
 
-	// PortRangesByUnit returns the set of port ranges opened by each unit
-	// in a particular machine subnet grouped by unit name.
-	PortRangesByUnit() map[string][]network.PortRange
+	// ForUnit returns the set of port ranges opened by the specified unit
+	// in a particular machine subnet.
+	ForUnit(unitName string) UnitPortRanges
 
-	// PortRangesForUnit returns the set of port ranges opened by the
-	// specified unit in a particular machine subnet.
-	PortRangesForUnit(unitName string) []network.PortRange
+	// Changes returns a ModelOperation for applying any changes that were
+	// made to this port range instance for all machine units.
+	Changes() ModelOperation
+
+	// UniquePortRanges returns a slice of unique open PortRanges for
+	// all units on this machine.
+	UniquePortRanges() []network.PortRange
 }
 
-// portsDoc represents the state of ports opened on machines for networks
-type portsDoc struct {
-	DocID     string         `bson:"_id"`
-	ModelUUID string         `bson:"model-uuid"`
-	MachineID string         `bson:"machine-id"`
-	SubnetID  string         `bson:"subnet-id"`
-	Ports     []portRangeDoc `bson:"ports"`
-	TxnRevno  int64          `bson:"txn-revno"`
+// machinePortRangesDoc represents the state of ports opened on machines by
+// individual units.
+type machinePortRangesDoc struct {
+	DocID      string                       `bson:"_id"`
+	ModelUUID  string                       `bson:"model-uuid"`
+	MachineID  string                       `bson:"machine-id"`
+	UnitRanges map[string]unitPortRangesDoc `bson:"unit-port-ranges"`
+	TxnRevno   int64                        `bson:"txn-revno"`
 }
 
-// portRangeDoc represents a port range for a particular unit that is nested
-// in a portsDoc.
-type portRangeDoc struct {
-	UnitName string
-	FromPort int
-	ToPort   int
-	Protocol string
-}
+// unitPortRangesDoc describes the port ranges opened by a unit for multiple
+// endpoints.
+type unitPortRangesDoc map[string][]network.PortRange
 
-func (doc portRangeDoc) asPortRange() network.PortRange {
-	return network.PortRange{
-		FromPort: doc.FromPort,
-		ToPort:   doc.ToPort,
-		Protocol: doc.Protocol,
-	}
-}
-
-// machineSubnetPorts represents the state of ports on a machine subnet.
-type machineSubnetPorts struct {
+// machinePortRanges implements MachineUnitPortRanges using the DB as the
+// backing store.
+type machinePortRanges struct {
 	st  *State
-	doc portsDoc
-	// areNew is true for documents not in state yet.
-	areNew bool
+	doc machinePortRangesDoc
+
+	// docExists is false if the port range doc has not yet been persisted
+	// to the backing store.
+	docExists bool
+
+	// The set of pending port ranges that have not yet been persisted.
+	pendingOpenRanges  map[string]unitPortRangesDoc
+	pendingCloseRanges map[string]unitPortRangesDoc
 }
 
-// String returns p as a user-readable string.
-func (p *machineSubnetPorts) String() string {
-	return fmt.Sprintf("ports for machine %q, subnet %q", p.doc.MachineID, p.doc.SubnetID)
-}
-
-// MachineID returns the machine ID associated with this ports document.
-func (p *machineSubnetPorts) MachineID() string {
+// MachineID returns the machine ID associated with this set of port ranges.
+func (p *machinePortRanges) MachineID() string {
 	return p.doc.MachineID
 }
 
-// SubnetID returns the subnet ID associated with this ports document.
-func (p *machineSubnetPorts) SubnetID() string {
-	return p.doc.SubnetID
+// Persisted returns true if the underlying document for this instance exists
+// in the database.
+func (p *machinePortRanges) Persisted() bool {
+	return p.docExists
 }
 
-// Persisted returns true if the underlying document for this set of ports
-// exists in the database.
-func (p *machineSubnetPorts) Persisted() bool {
-	return !p.areNew
-}
-
-// OpenClosePortsOperation creates a ModelOperation that opens and closes the
-// requested set of PortRange arguments. Each of the PortRange arguments can be
-// left empty to indicate that they should not be ignored.
-func (p *machineSubnetPorts) OpenClosePortsOperation(unitName string, openPortRanges, closePortRanges []network.PortRange) (ModelOperation, error) {
-	// pre-flight checks
-	for _, r := range openPortRanges {
-		if err := r.Validate(); err != nil {
-			return nil, errors.Annotatef(errors.Trace(err), "cannot open ports %v", r)
+// ByUnit returns the set of port ranges opened by each unit in a particular
+// machine subnet grouped by unit name.
+func (p *machinePortRanges) ByUnit() map[string]UnitPortRanges {
+	if len(p.doc.UnitRanges) == 0 {
+		return nil
+	}
+	res := make(map[string]UnitPortRanges)
+	for unitName := range p.doc.UnitRanges {
+		res[unitName] = &unitPortRanges{
+			unitName:          unitName,
+			machinePortRanges: p,
 		}
-	}
-	for _, r := range closePortRanges {
-		if err := r.Validate(); err != nil {
-			return nil, errors.Annotatef(errors.Trace(err), "cannot close ports %v", r)
-		}
-	}
-
-	return &openClosePortsOperation{
-		p:               p,
-		unitName:        unitName,
-		openPortRanges:  openPortRanges,
-		closePortRanges: closePortRanges,
-	}, nil
-}
-
-// PortRangesByUnit returns back a map where keys are unit names and values
-// are the list of PortRanges opened by the unit on the subnet represented by
-// this MachineSubnetPorts instance.
-func (p *machineSubnetPorts) PortRangesByUnit() map[string][]network.PortRange {
-	res := make(map[string][]network.PortRange)
-	for _, pr := range p.doc.Ports {
-		res[pr.UnitName] = append(res[pr.UnitName], pr.asPortRange())
-	}
-	for unitName := range res {
-		network.SortPortRanges(res[unitName])
 	}
 	return res
 }
 
-// PortRangesForUnit returns back a list of PortRanges opened by the specified
-// unit on the subnet represented by this MachineSubnetPorts instance.
-func (p *machineSubnetPorts) PortRangesForUnit(unitName string) []network.PortRange {
-	var res []network.PortRange
-	for _, pr := range p.doc.Ports {
-		if pr.UnitName == unitName {
-			res = append(res, pr.asPortRange())
-		}
+// ForUnit returns the set of port ranges opened by the specified unit
+// in a particular machine subnet.
+func (p *machinePortRanges) ForUnit(unitName string) UnitPortRanges {
+	return &unitPortRanges{
+		unitName:          unitName,
+		machinePortRanges: p,
 	}
-	network.SortPortRanges(res)
-	return res
+}
+
+// UniquePortRanges returns a slice of unique open PortRanges for all units on
+// this machine.
+func (p *machinePortRanges) UniquePortRanges() []network.PortRange {
+	var allRanges []network.PortRange
+	for _, unitRanges := range p.ByUnit() {
+		allRanges = append(allRanges, unitRanges.UniquePortRanges()...)
+	}
+
+	network.SortPortRanges(allRanges)
+	return allRanges
+}
+
+// Changes returns a ModelOperation for applying any changes that were made to
+// this port range instance for all machine units.
+func (p *machinePortRanges) Changes() ModelOperation {
+	return &openClosePortRangesOperation{
+		mpr: p,
+	}
 }
 
 // Refresh refreshes the port document from state.
-func (p *machineSubnetPorts) Refresh() error {
+func (p *machinePortRanges) Refresh() error {
 	openedPorts, closer := p.st.db().GetCollection(openedPortsC)
 	defer closer()
 
 	err := openedPorts.FindId(p.doc.DocID).One(&p.doc)
 	if err == mgo.ErrNotFound {
-		return errors.NotFoundf(p.String())
+		return errors.NotFoundf("open port ranges for machine %q", p.MachineID())
 	} else if err != nil {
-		return errors.Annotatef(err, "cannot refresh %s", p)
+		return errors.Annotatef(err, "refresh open port ranges for machine %q", p.MachineID())
 	}
 	return nil
 }
 
 // Remove removes the ports document from state.
-func (p *machineSubnetPorts) Remove() error {
-	ports := &machineSubnetPorts{st: p.st, doc: p.doc}
+func (p *machinePortRanges) Remove() error {
+	doc := &machinePortRanges{st: p.st, doc: p.doc, docExists: p.docExists}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			err := ports.Refresh()
+			err := doc.Refresh()
 			if errors.IsNotFound(err) {
 				return nil, jujutxn.ErrNoOperations
 			} else if err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
-		return ports.removeOps(), nil
+		return doc.removeOps(), nil
 	}
-	return p.st.db().Run(buildTxn)
-}
-
-// OpenedPortsInSubnet returns this machine ports document for the given subnetID.
-func (m *Machine) OpenedPortsInSubnet(subnetID string) (MachineSubnetPorts, error) {
-	portsInSubnet, err := getOrCreateOpenedMachinePortsInSubnet(m.st, m.Id(), subnetID)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if err := p.st.db().Run(buildTxn); err != nil {
+		return errors.Trace(err)
 	}
-	return portsInSubnet, nil
+
+	p.docExists = false
+	return nil
 }
 
-// OpenedPorts returns a list of MachineSubnetPorts that correspond to the set
-// of opened ports in each machine subnet.
-func (m *Machine) OpenedPorts() ([]MachineSubnetPorts, error) {
-	return getOpenedMachinePortsInAllSubnets(m.st, m.Id())
-}
+func insertPortsDocOps(st *State, doc *machinePortRangesDoc, asserts interface{}, unitRanges map[string]unitPortRangesDoc) []txn.Op {
+	// As the following insert operation might be rolled back, we should
+	// not mutate our internal doc but instead work on a copy of the
+	// machinePortRangesDoc.
+	docCopy := new(machinePortRangesDoc)
+	*docCopy = *doc
+	docCopy.UnitRanges = unitRanges
 
-// OpenedPortsForAllMachines returns a list of MachineSubnetPorts that correspond to
-// the set of opened ports in each subnet for all machines managed by this
-// model.
-func (m *Model) OpenedPortsForAllMachines() ([]MachineSubnetPorts, error) {
-	openedPorts, closer := m.st.db().GetCollection(openedPortsC)
-	defer closer()
-
-	docs := []portsDoc{}
-	err := openedPorts.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Trace(err)
+	return []txn.Op{
+		assertMachineNotDeadOp(st, docCopy.MachineID),
+		{
+			C:      openedPortsC,
+			Id:     docCopy.DocID,
+			Assert: asserts,
+			Insert: docCopy,
+		},
 	}
-	results := make([]MachineSubnetPorts, len(docs))
-	for i, doc := range docs {
-		results[i] = &machineSubnetPorts{st: m.st, doc: doc}
+}
+
+func updatePortsDocOps(st *State, doc *machinePortRangesDoc, asserts interface{}, unitRanges map[string]unitPortRangesDoc) []txn.Op {
+	return []txn.Op{
+		assertMachineNotDeadOp(st, doc.MachineID),
+		{
+			C:      openedPortsC,
+			Id:     doc.DocID,
+			Assert: asserts,
+			Update: bson.D{{"$set", bson.D{{"unit-port-ranges", unitRanges}}}},
+		},
 	}
-	return results, nil
 }
 
-// OpenedPortsForMachine returns a list of MachineSubnetPorts that correspond to the
-// set of opened ports in each subnet for the specified machine ID.
-func (m *Model) OpenedPortsForMachine(machineID string) ([]MachineSubnetPorts, error) {
-	return getOpenedMachinePortsInAllSubnets(m.st, machineID)
-}
-
-// addPortsDocOps returns the ops for adding a number of port ranges
-// to a new ports document. portsAssert allows specifying an assert
-// statement for on the openedPorts collection op.
-var addPortsDocOps = addPortsDocOpsFunc
-
-func addPortsDocOpsFunc(st *State, pDoc *portsDoc, portsAssert interface{}, ports ...portRangeDoc) []txn.Op {
-	ops := assertMachineNotDeadAndSubnetNotDeadWhenSetOps(st, pDoc)
-
-	// As the following insert operation might be rolled back, we shouldn't
-	// mutate pDoc yet; instead we need to create a copy and assign the
-	// port range list to the copy.
-	docCopy := new(portsDoc)
-	*docCopy = *pDoc
-	docCopy.Ports = ports
-
-	return append(ops, txn.Op{
-		C:      openedPortsC,
-		Id:     docCopy.DocID,
-		Assert: portsAssert,
-		Insert: docCopy,
-	})
-}
-
-// setPortsDocOps returns the ops for setting given port ranges to an
-// existing ports document. portsAssert allows specifying an assert
-// statement on the openedPorts collection op.
-var setPortsDocOps = setPortsDocOpsFunc
-
-func setPortsDocOpsFunc(st *State, pDoc portsDoc, portsAssert interface{}, ports ...portRangeDoc) []txn.Op {
-	ops := assertMachineNotDeadAndSubnetNotDeadWhenSetOps(st, &pDoc)
-	return append(ops, txn.Op{
-		C:      openedPortsC,
-		Id:     pDoc.DocID,
-		Assert: portsAssert,
-		Update: bson.D{{"$set", bson.D{{"ports", ports}}}},
-	})
-}
-
-// removeOps returns the ops for removing the ports document from
-// state.
-func (p *machineSubnetPorts) removeOps() []txn.Op {
+func (p *machinePortRanges) removeOps() []txn.Op {
 	return []txn.Op{{
 		C:      openedPortsC,
 		Id:     p.doc.DocID,
@@ -296,107 +198,113 @@ func (p *machineSubnetPorts) removeOps() []txn.Op {
 	}}
 }
 
-func assertMachineNotDeadAndSubnetNotDeadWhenSetOps(st *State, pDoc *portsDoc) []txn.Op {
-	ops := []txn.Op{{
-		C:      machinesC,
-		Id:     st.docID(pDoc.MachineID),
-		Assert: notDeadDoc,
-	}}
-
-	if pDoc.SubnetID != "" {
-		ops = append(ops, txn.Op{
-			C:      subnetsC,
-			Id:     st.docID(pDoc.SubnetID),
-			Assert: notDeadDoc,
-		})
-	}
-	return ops
-}
-
 // removePortsForUnitOps returns the ops needed to remove all opened
 // ports for the given unit on its assigned machine.
 func removePortsForUnitOps(st *State, unit *Unit) ([]txn.Op, error) {
-	machineId, err := unit.AssignedMachineId()
+	machineID, err := unit.AssignedMachineId()
 	if err != nil {
 		// No assigned machine, so there won't be any ports.
 		return nil, nil
 	}
-	machine, err := st.Machine(machineId)
-	if errors.IsNotFound(err) {
+
+	machinePortRanges, err := getOpenedMachinePortRanges(st, machineID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	} else if !machinePortRanges.docExists {
 		// Machine is removed, so there won't be a ports doc for it.
 		return nil, nil
-	} else if err != nil {
-		return nil, errors.Trace(err)
 	}
 
-	// Get opened machine ports for all units across all subnets.
-	openedPorts, err := machine.OpenedPorts()
-	if err != nil {
-		return nil, errors.Trace(err)
+	unitName := unit.Name()
+	if machinePortRanges.doc.UnitRanges == nil || machinePortRanges.doc.UnitRanges[unitName] == nil {
+		// No entry for the unit; nothing to do here
+		return nil, nil
 	}
 
-	var (
-		ops         []txn.Op
-		removedUnit = unit.Name()
-	)
-
-	for _, openedPort := range openedPorts {
-		ports := openedPort.(*machineSubnetPorts)
-		var keepPorts []portRangeDoc
-		for _, doc := range ports.doc.Ports {
-			if doc.UnitName == removedUnit {
-				continue
-			}
-			keepPorts = append(keepPorts, doc)
-		}
-		if len(keepPorts) > 0 {
-			assert := bson.D{{"txn-revno", ports.doc.TxnRevno}}
-			ops = append(ops, setPortsDocOps(st, ports.doc, assert, keepPorts...)...)
-		} else {
-			// No other ports left, remove the doc.
-			ops = append(ops, ports.removeOps()...)
-		}
+	// Drop unit rules and write the doc back if non-empty or remove it if empty
+	delete(machinePortRanges.doc.UnitRanges, unitName)
+	if len(machinePortRanges.doc.UnitRanges) != 0 {
+		assert := bson.D{{"txn-revno", machinePortRanges.doc.TxnRevno}}
+		return updatePortsDocOps(st, &machinePortRanges.doc, assert, machinePortRanges.doc.UnitRanges), nil
 	}
-	return ops, nil
+	return machinePortRanges.removeOps(), nil
 }
 
-// getOrCreateOpenedMachinePortsInSubnet attempts to retrieve a ports document
-// and returns a newly created one if it does not exist.
-func getOrCreateOpenedMachinePortsInSubnet(st *State, machineID, subnetID string) (*machineSubnetPorts, error) {
-	openedPorts, closer := st.db().GetCollection(openedPortsC)
-	defer closer()
-
-	var doc portsDoc
-	key := portsGlobalKey(machineID, subnetID)
-	err := openedPorts.FindId(key).One(&doc)
-	if err != nil {
-		if err != mgo.ErrNotFound {
-			return nil, errors.Annotatef(err, "cannot get ports for machine %q, subnet %q", machineID, subnetID)
-		}
-		doc.DocID = st.docID(key)
-		doc.MachineID = machineID
-		doc.SubnetID = subnetID
-		doc.ModelUUID = st.ModelUUID()
-		return &machineSubnetPorts{st, doc, true}, nil
-	}
-
-	return &machineSubnetPorts{st, doc, false}, nil
+// OpenedPortRanges returns the set of opened port ranges for this machine.
+func (m *Machine) OpenedPortRanges() (MachinePortRanges, error) {
+	return getOpenedMachinePortRanges(m.st, m.Id())
 }
 
-// getOpenedMachinePortsInAllSubnets returns a list of MachineSubnetPorts instances
-// for each subnet the machine has opened ports in.
-func getOpenedMachinePortsInAllSubnets(st *State, machineID string) ([]MachineSubnetPorts, error) {
-	openedPorts, closer := st.db().GetCollection(openedPortsC)
-	defer closer()
+// OpenedPortRangesForMachine returns the set of opened port ranges for one of
+// the model's machines.
+func (m *Model) OpenedPortRangesForMachine(machineID string) (MachinePortRanges, error) {
+	return getOpenedMachinePortRanges(m.st, machineID)
+}
 
-	docs := []portsDoc{}
-	err := openedPorts.Find(bson.D{{"machine-id", machineID}}).All(&docs)
+// OpenedPortRangesForAllMachines returns a slice of opened port ranges for all
+// machines managed by this model.
+func (m *Model) OpenedPortRangesForAllMachines() ([]MachinePortRanges, error) {
+	mprResults, err := getOpenedPortRangesForAllMachines(m.st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	results := make([]MachineSubnetPorts, len(docs))
-	for i, doc := range docs {
-		results[i] = &machineSubnetPorts{st: st, doc: doc}
+
+	results := make([]MachinePortRanges, len(mprResults))
+	for i, res := range mprResults {
+		results[i] = res
 	}
 	return results, nil
+}
+
+// getOpenedPortRangesForAllMachines returns a slice of machine port ranges for
+// all machines managed by this model.
+func getOpenedPortRangesForAllMachines(st *State) ([]*machinePortRanges, error) {
+	openedPorts, closer := st.db().GetCollection(openedPortsC)
+	defer closer()
+
+	docs := []machinePortRangesDoc{}
+	err := openedPorts.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	results := make([]*machinePortRanges, len(docs))
+	for i, doc := range docs {
+		results[i] = &machinePortRanges{
+			st:        st,
+			doc:       doc,
+			docExists: true,
+		}
+	}
+	return results, nil
+}
+
+// getOpenedMachinePortRanges attempts to retrieve the set of opened ports for
+// a particular machine. If the underlying document does not exist, a blank
+// machinePortRanges instance with the docExists flag set to true will be
+// returned instead.
+func getOpenedMachinePortRanges(st *State, machineID string) (*machinePortRanges, error) {
+	openedPorts, closer := st.db().GetCollection(openedPortsC)
+	defer closer()
+
+	var doc machinePortRangesDoc
+	err := openedPorts.FindId(machineID).One(&doc)
+	if err != nil {
+		if err != mgo.ErrNotFound {
+			return nil, errors.Annotatef(err, "cannot get opened port ranges for machine %q", machineID)
+		}
+		doc.DocID = st.docID(machineID)
+		doc.MachineID = machineID
+		doc.ModelUUID = st.ModelUUID()
+		return &machinePortRanges{
+			st:        st,
+			doc:       doc,
+			docExists: false,
+		}, nil
+	}
+
+	return &machinePortRanges{
+		st:        st,
+		doc:       doc,
+		docExists: true,
+	}, nil
 }

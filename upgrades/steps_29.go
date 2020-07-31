@@ -26,6 +26,13 @@ func stateStepsFor29() []Step {
 				return context.State().AddCharmhubToModelConfig()
 			},
 		},
+		&upgradeStep{
+			description: "roll up and convert opened port documents into the new endpoint-aware format",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().RollUpAndConvertOpenedPortDocuments()
+			},
+		},
 	}
 }
 

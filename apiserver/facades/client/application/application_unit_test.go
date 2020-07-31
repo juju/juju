@@ -1950,7 +1950,7 @@ func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 		Tag:             "unit-postgresql-0",
 		WorkloadVersion: "666",
 		Machine:         "0",
-		OpenedPorts:     []string{"100-102/ip"},
+		OpenedPorts:     []string{"100-102/tcp"},
 		PublicAddress:   "10.0.0.1",
 		Charm:           "cs:postgresql-42",
 		Leader:          true,

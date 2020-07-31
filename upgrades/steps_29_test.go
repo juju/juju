@@ -37,6 +37,15 @@ func (s *steps29Suite) TestStoreDeployedUnitsInMachineAgentConf(c *gc.C) {
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.HostMachine})
 }
 
+func (s *steps29Suite) TestAddCharmhubToModelConfig(c *gc.C) {
+	step := findStateStep(c, v290, "add charmhub-url to model config")
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
+func (s *steps29Suite) TestRollUpAndConvertOpenedPortDocuments(c *gc.C) {
+	step := findStateStep(c, v290, "roll up and convert opened port documents into the new endpoint-aware format")
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
+
 type mergeAgents29Suite struct {
 	testing.BaseSuite
 

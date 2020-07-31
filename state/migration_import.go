@@ -465,11 +465,7 @@ func (i *importer) machine(m description.Machine) error {
 	ops := append(prereqOps, machineOp)
 
 	// 5. add any ops that we may need to add the opened ports information.
-	portOps, err := i.machinePortsOps(m)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	ops = append(ops, portOps...)
+	ops = append(ops, i.machinePortsOp(m))
 
 	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
@@ -525,42 +521,40 @@ func (i *importer) importMachineBlockDevices(machine *Machine, m description.Mac
 	return nil
 }
 
-func (i *importer) machinePortsOps(m description.Machine) ([]txn.Op, error) {
-	var result []txn.Op
+func (i *importer) machinePortsOp(m description.Machine) txn.Op {
+	modelUUID := i.st.ModelUUID()
 	machineID := m.Id()
 
-	for _, ports := range m.OpenedPorts() {
-		subnetID := ports.SubnetID()
-		if network.IsValidCIDR(subnetID) {
-			// If we're migrating from a controller which has cidrs for
-			// subnetIDs, there can be only 1 of that cidr in the model.
-			subnet, err := i.st.SubnetByCIDR(subnetID)
-			if err != nil {
-				return []txn.Op{}, errors.Trace(err)
-			}
-			subnetID = subnet.ID()
-		}
-		doc := &portsDoc{
-			MachineID: machineID,
-			SubnetID:  subnetID,
-		}
-		for _, opened := range ports.OpenPorts() {
-			doc.Ports = append(doc.Ports, portRangeDoc{
-				UnitName: opened.UnitName(),
-				FromPort: opened.FromPort(),
-				ToPort:   opened.ToPort(),
-				Protocol: opened.Protocol(),
-			})
-		}
-		result = append(result, txn.Op{
-			C:      openedPortsC,
-			Id:     portsGlobalKey(machineID, subnetID),
-			Assert: txn.DocMissing,
-			Insert: doc,
-		})
+	portRangeDoc := machinePortRangesDoc{
+		DocID:      i.st.docID(machineID),
+		MachineID:  machineID,
+		ModelUUID:  modelUUID,
+		UnitRanges: make(map[string]unitPortRangesDoc),
 	}
 
-	return result, nil
+	for unitName, unitPorts := range m.OpenedPortRanges().ByUnit() {
+		portRangeDoc.UnitRanges[unitName] = make(unitPortRangesDoc)
+
+		for endpointName, portRanges := range unitPorts.ByEndpoint() {
+			portRangeList := make([]network.PortRange, len(portRanges))
+			for i, pr := range portRanges {
+				portRangeList[i] = network.PortRange{
+					FromPort: pr.FromPort(),
+					ToPort:   pr.ToPort(),
+					Protocol: pr.Protocol(),
+				}
+			}
+
+			portRangeDoc.UnitRanges[unitName][endpointName] = portRangeList
+		}
+	}
+
+	return txn.Op{
+		C:      openedPortsC,
+		Id:     machineID,
+		Assert: txn.DocMissing,
+		Insert: portRangeDoc,
+	}
 }
 
 func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudInstance) txn.Op {

@@ -4,7 +4,6 @@
 package firewaller_test
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/juju/names/v4"
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -28,7 +26,6 @@ import (
 type firewallerSuite struct {
 	firewallerBaseSuite
 	*commontesting.ModelWatcherTest
-	networktesting.FirewallHelper
 
 	firewaller *firewaller.FirewallerAPIV3
 	subnet     *state.Subnet
@@ -104,19 +101,34 @@ func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
 
 func (s *firewallerSuite) openPorts(c *gc.C) {
 	// Open some ports on the units.
-	s.AssertOpenUnitPorts(c, s.units[0], s.subnet.ID(), "tcp", 1234, 1400)
-	s.AssertOpenUnitPort(c, s.units[0], "", "tcp", 4321)
-	s.AssertOpenUnitPorts(c, s.units[2], "", "udp", 1111, 2222)
+	allEndpoints := ""
+	s.mustOpenPorts(c, s.units[0], allEndpoints, []network.PortRange{
+		network.MustParsePortRange("1234-1400/tcp"),
+		network.MustParsePortRange("4321/tcp"),
+	})
+	s.mustOpenPorts(c, s.units[2], allEndpoints, []network.PortRange{
+		network.MustParsePortRange("1111-2222/udp"),
+	})
+}
+
+func (s *firewallerSuite) mustOpenPorts(c *gc.C, unit *state.Unit, endpointName string, portRanges []network.PortRange) {
+	unitPortRanges, err := unit.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, pr := range portRanges {
+		unitPortRanges.Open(endpointName, pr)
+	}
+
+	c.Assert(s.State.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
 }
 
 func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	s.openPorts(c)
-	expectChanges := []string{
-		"0:", // empty subnet is ok (until it can be made mandatory)
-		fmt.Sprintf("0:%s", s.subnet.ID()),
-		"2:",
+	expectChanges := []string{ // machine IDs
+		"0",
+		"2",
 	}
 
 	fakeModelTag := names.NewModelTag("deadbeef-deaf-face-feed-0123456789ab")
@@ -172,14 +184,12 @@ func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
 		},
 	}
 	unit0Tag := s.units[0].Tag().String()
-	expectPortsMachine0NoSubnet := []params.MachinePortRange{
-		{UnitTag: unit0Tag, PortRange: params.PortRange{
-			FromPort: 4321, ToPort: 4321, Protocol: "tcp",
-		}},
-	}
-	expectPortsMachine0WithSubnet := []params.MachinePortRange{
+	expectPortsMachine0 := []params.MachinePortRange{
 		{UnitTag: unit0Tag, PortRange: params.PortRange{
 			FromPort: 1234, ToPort: 1400, Protocol: "tcp",
+		}},
+		{UnitTag: unit0Tag, PortRange: params.PortRange{
+			FromPort: 4321, ToPort: 4321, Protocol: "tcp",
 		}},
 	}
 	unit2Tag := s.units[2].Tag().String()
@@ -192,8 +202,8 @@ func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.MachinePortsResults{
 		Results: []params.MachinePortsResult{
-			{Ports: expectPortsMachine0NoSubnet},
-			{Ports: expectPortsMachine0WithSubnet},
+			{Ports: expectPortsMachine0},
+			{Error: apiservertesting.NotSupportedError(`retrieving machine ports for specific subnets`)},
 			{Error: nil, Ports: nil},
 			{Ports: expectPortsMachine2},
 			{Error: apiservertesting.ServerError(`"invalid" is not a valid tag`)},
@@ -207,7 +217,6 @@ func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
 func (s *firewallerSuite) TestGetMachineActiveSubnets(c *gc.C) {
 	s.openPorts(c)
 
-	subnetTag := names.NewSubnetTag(s.subnet.ID()).String()
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
 		{Tag: s.machines[1].Tag().String()},
@@ -215,7 +224,7 @@ func (s *firewallerSuite) TestGetMachineActiveSubnets(c *gc.C) {
 		{Tag: s.application.Tag().String()},
 		{Tag: s.units[0].Tag().String()},
 	}})
-	expectResultsMachine0 := []string{subnetTag, ""}
+	expectResultsMachine0 := []string{""}
 	expectResultsMachine2 := []string{""}
 	result, err := s.firewaller.GetMachineActiveSubnets(args)
 	c.Assert(err, jc.ErrorIsNil)

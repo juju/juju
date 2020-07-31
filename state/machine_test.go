@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -40,7 +39,6 @@ import (
 
 type MachineSuite struct {
 	ConnSuite
-	networktesting.FirewallHelper
 	machine0    *state.Machine
 	machine     *state.Machine
 	unit        *state.Unit
@@ -402,10 +400,13 @@ func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertOpenUnitPort(c, unit, "", "tcp", 8080)
-	ports, err := s.machine.OpenedPortsInSubnet("")
-	c.Assert(ports, gc.NotNil)
+
+	state.MustOpenUnitPortRange(c, s.State, s.machine, unit.Name(), allEndpoints, corenetwork.MustParsePortRange("8080/tcp"))
+
+	machPortRanges, err := s.machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machPortRanges.UniquePortRanges(), gc.HasLen, 1)
+
 	err = unit.UnassignFromMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Destroy()
@@ -414,10 +415,11 @@ func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
+
 	// once the machine is destroyed, there should be no ports documents present for it
-	ports, err = s.machine.OpenedPortsInSubnet("")
+	machPortRanges, err = s.machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	assertMachinePortsPersisted(c, ports, false) // we should get back a blank fresh doc
+	assertMachinePortsPersisted(c, machPortRanges, false) // we should get back a blank fresh doc
 }
 
 func (s *MachineSuite) TestDestroyOps(c *gc.C) {

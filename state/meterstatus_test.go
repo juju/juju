@@ -74,7 +74,7 @@ func (s *MeterStateSuite) TestSetMeterStatusIncorrect(c *gc.C) {
 
 func (s *MeterStateSuite) TestSetMeterStatusWhenDying(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
-	testWhenDying(c, s.unit, contentionErr, contentionErr, func() error {
+	testWhenDying(c, s.unit, ".*"+contentionErr, contentionErr, func() error {
 		err := s.unit.SetMeterStatus("GREEN", "Additional information.")
 		if err != nil {
 			return err

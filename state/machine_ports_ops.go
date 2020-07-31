@@ -4,191 +4,472 @@
 package state
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/network"
+	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/network"
 )
 
-var (
-	_ ModelOperation = (*openClosePortsOperation)(nil)
-)
+var _ ModelOperation = (*openClosePortRangesOperation)(nil)
 
-type openClosePortsOperation struct {
-	p               *machineSubnetPorts
-	unitName        string
-	openPortRanges  []network.PortRange
-	closePortRanges []network.PortRange
+type openClosePortRangesOperation struct {
+	mpr *machinePortRanges
 
-	updatedPortList []portRangeDoc
+	// unitSelector allows us to specify a unit name and limit the scope
+	// of changes to that particular unit only.
+	unitSelector string
+
+	// The following fields are populated when the operation steps are being
+	// assembled.
+	openedPortRangeToUnit map[network.PortRange]string
+	endpointsNamesByApp   map[string]set.Strings
+	updatedUnitPortRanges map[string]unitPortRangesDoc
 }
 
 // Build implements ModelOperation.
-func (op *openClosePortsOperation) Build(attempt int) ([]txn.Op, error) {
-	var createPortsDoc = op.p.areNew
+func (op *openClosePortRangesOperation) Build(attempt int) ([]txn.Op, error) {
+	if err := checkModelNotDead(op.mpr.st); err != nil {
+		return nil, errors.Annotate(err, "cannot open/close ports")
+	}
+
+	var createDoc = !op.mpr.docExists
 	if attempt > 0 {
-		if err := checkModelNotDead(op.p.st); err != nil {
-			return nil, errors.Annotate(err, "cannot open/close ports")
-		}
-		if err := op.p.Refresh(); err != nil {
+		if err := op.mpr.Refresh(); err != nil {
 			if !errors.IsNotFound(err) {
 				return nil, errors.Annotate(err, "cannot open/close ports")
 			}
 
-			// Ports doc not found; we need to add a new one.
-			createPortsDoc = true
+			// Doc not found; we need to create it.
+			createDoc = true
 		}
 	}
 
-	if err := verifySubnetAlive(op.p.st, op.p.doc.SubnetID); err != nil {
+	ops := []txn.Op{
+		assertModelNotDeadOp(op.mpr.st.ModelUUID()),
+		assertMachineNotDeadOp(op.mpr.st, op.mpr.doc.MachineID),
+	}
+
+	// Start with a clean copy of the existing opened port ranges and set
+	// up an auxiliary Portrange->unitName map for detecting port conflicts
+	// in a more efficient manner.
+	op.cloneExistingUnitPortRanges()
+	op.buildPortRangeToUnitMap()
+
+	// Find the endpoints for the applications with existing opened ports
+	// and the applications with pending open port requests.
+	if err := op.lookupUnitEndpoints(); err != nil {
 		return nil, errors.Annotate(err, "cannot open/close ports")
 	}
 
-	ops := []txn.Op{
-		assertModelNotDeadOp(op.p.st.ModelUUID()),
-		assertUnitNotDeadOp(op.p.st, op.unitName),
+	// Append docs for opening each one of the pending port ranges.
+	portListModified, err := op.mergePendingOpenPortRanges()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	// Start with a clean copy of the ranges from the ports document; then
-	// append docs for opening port ranges and remove docs for any closed
-	// port ranges
-	op.updatedPortList = append(op.updatedPortList[0:0], op.p.doc.Ports...)
-	portListModifiedForOpen, err := op.addPortDocsForOpenedPortRanges()
+	// Scan the port ranges for each unit and prune endpoint-specific
+	// entries for which we already have a rule in the wildcard endpoint
+	// section.
+	portListModified = op.pruneOpenPorts() || portListModified
+
+	// Remove entries that match the pending close port requests.
+	modified, err := op.mergePendingClosePortRanges()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	portListModifiedForClose, err := op.removePortDocsForClosedPortRanges()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	portListModified = portListModified || modified
+
+	// Run a final prune pass and remove empty sections
+	portListModified = op.pruneEmptySections() || portListModified
 
 	// Bail out if we don't need to mutate the DB document.
-	portListModified := portListModifiedForOpen || portListModifiedForClose
-	if !portListModified || (createPortsDoc && len(op.updatedPortList) == 0) {
+	if !portListModified || (createDoc && len(op.updatedUnitPortRanges) == 0) {
 		return nil, jujutxn.ErrNoOperations
 	}
 
-	if createPortsDoc {
+	// Ensure that none of the units with open port ranges are dead and
+	// that all are assigned to this machine.
+	for unitName := range op.updatedUnitPortRanges {
+		ops = append(ops,
+			assertUnitNotDeadOp(op.mpr.st, unitName),
+			assertUnitAssignedToMachineOp(op.mpr.st, unitName, op.mpr.doc.MachineID),
+		)
+	}
+
+	if createDoc {
 		assert := txn.DocMissing
-		ops = append(ops, addPortsDocOps(op.p.st, &op.p.doc, assert, op.updatedPortList...)...)
-	} else if len(op.updatedPortList) == 0 {
+		ops = append(ops, insertPortsDocOps(op.mpr.st, &op.mpr.doc, assert, op.updatedUnitPortRanges)...)
+	} else if len(op.updatedUnitPortRanges) == 0 {
 		// Port list is empty; get rid of ports document.
-		ops = append(ops, op.p.removeOps()...)
+		ops = append(ops, op.mpr.removeOps()...)
 	} else {
-		assert := bson.D{{"txn-revno", op.p.doc.TxnRevno}}
-		ops = append(ops, setPortsDocOps(op.p.st, op.p.doc, assert, op.updatedPortList...)...)
+		assert := bson.D{{"txn-revno", op.mpr.doc.TxnRevno}}
+		ops = append(ops, updatePortsDocOps(op.mpr.st, &op.mpr.doc, assert, op.updatedUnitPortRanges)...)
 	}
 
 	return ops, nil
 }
 
-// addPortDocsForOpenedPortRanges compares the set of new port ranges to open
-// to the set of currently opened port range documents and appends a document
-// for each port range that is not present in the current list. The method
-// returns a boolean value to indicate whether new documents were generated.
-func (op *openClosePortsOperation) addPortDocsForOpenedPortRanges() (bool, error) {
-	var portListModified bool
-	for _, openPortRange := range op.openPortRanges {
-		var alreadyExists bool
-		for _, existing := range op.updatedPortList {
-			identical, err := checkForPortRangeConflict(existing.asPortRange(), existing.UnitName, openPortRange, op.unitName)
-			if err != nil {
-				return false, errors.Annotatef(err, "cannot open ports %v", openPortRange)
-			} else if identical {
-				alreadyExists = true
-				break // nothing to do
-			}
-		}
-
-		if !alreadyExists {
-			op.updatedPortList = append(op.updatedPortList, portRangeDoc{
-				FromPort: openPortRange.FromPort,
-				ToPort:   openPortRange.ToPort,
-				Protocol: openPortRange.Protocol,
-				UnitName: op.unitName,
-			})
-			portListModified = true
-		}
-	}
-
-	return portListModified, nil
-}
-
-// removePortDocsForClosedPortRanges compares the set of port ranges to close
-// to the set of currently opened port range documents and removes the
-// documents for the port ranges that should be closed. The method returns a
-// boolean value to indicate whether any documents were removed.
-func (op *openClosePortsOperation) removePortDocsForClosedPortRanges() (bool, error) {
-	var portListModified bool
-	for _, closePortRange := range op.closePortRanges {
-		var foundAtIndex = -1
-		for i, existing := range op.updatedPortList {
-			identical, err := checkForPortRangeConflict(existing.asPortRange(), existing.UnitName, closePortRange, op.unitName)
-			if err != nil && existing.UnitName == op.unitName {
-				return false, errors.Annotatef(err, "cannot close ports %v", closePortRange)
-			} else if identical {
-				foundAtIndex = i
-				continue
-			}
-		}
-
-		if foundAtIndex != -1 {
-			// Delete portrange at foundAtIndex by copying the last
-			// element of the list over and trimming the slice len.
-			op.updatedPortList[foundAtIndex] = op.updatedPortList[len(op.updatedPortList)-1]
-			op.updatedPortList = op.updatedPortList[:len(op.updatedPortList)-1]
-			portListModified = true
-		}
-	}
-
-	return portListModified, nil
-}
-
 // Done implements ModelOperation.
-func (op *openClosePortsOperation) Done(err error) error {
+func (op *openClosePortRangesOperation) Done(err error) error {
 	if err != nil {
 		return err
 	}
 
 	// Document has been persisted to state.
-	op.p.areNew = false
-	op.p.doc.Ports = op.updatedPortList
+	op.mpr.docExists = true
+	op.mpr.doc.UnitRanges = op.updatedUnitPortRanges
+
+	// If we applied all pending changes, clean up the pending maps
+	if op.unitSelector == "" {
+		op.mpr.pendingOpenRanges = nil
+		op.mpr.pendingCloseRanges = nil
+	} else {
+		// Just remove the map entries for the selected unit.
+		if op.mpr.pendingOpenRanges != nil {
+			delete(op.mpr.pendingOpenRanges, op.unitSelector)
+		}
+		if op.mpr.pendingCloseRanges != nil {
+			delete(op.mpr.pendingCloseRanges, op.unitSelector)
+		}
+	}
 	return nil
 }
 
-func verifySubnetAlive(st *State, subnetID string) error {
-	if subnetID == "" {
-		return nil
+func (op *openClosePortRangesOperation) cloneExistingUnitPortRanges() {
+	op.updatedUnitPortRanges = make(map[string]unitPortRangesDoc)
+	for unitName, existingDoc := range op.mpr.doc.UnitRanges {
+		newDoc := make(unitPortRangesDoc)
+		for endpointName, portRanges := range existingDoc {
+			newDoc[endpointName] = append([]network.PortRange(nil), portRanges...)
+		}
+		op.updatedUnitPortRanges[unitName] = newDoc
+	}
+}
+
+func (op *openClosePortRangesOperation) buildPortRangeToUnitMap() {
+	op.openedPortRangeToUnit = make(map[network.PortRange]string)
+	for existingUnitName, existingRangeDoc := range op.updatedUnitPortRanges {
+		for _, existingRanges := range existingRangeDoc {
+			for _, portRange := range existingRanges {
+				op.openedPortRangeToUnit[portRange] = existingUnitName
+			}
+		}
+	}
+}
+
+// lookupUnitEndpoints loads the bound endpoints for any applications already
+// deployed to the target machine as well as any additional applications that
+// have pending open port requests.
+func (op *openClosePortRangesOperation) lookupUnitEndpoints() error {
+	// Find the unique set of applications with opened port ranges on the machine.
+	appsWithOpenedPorts := set.NewStrings()
+	for unitName := range op.mpr.doc.UnitRanges {
+		appName, err := names.UnitApplication(unitName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		appsWithOpenedPorts.Add(appName)
 	}
 
-	subnet, err := st.Subnet(subnetID)
-	if err != nil {
+	// Augment list with the applications in the pending open port list.
+	for unitName := range op.mpr.pendingOpenRanges {
+		appName, err := names.UnitApplication(unitName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		appsWithOpenedPorts.Add(appName)
+	}
+
+	// Lookup the endpoint bindings for each application
+	op.endpointsNamesByApp = make(map[string]set.Strings)
+	for appName := range appsWithOpenedPorts {
+		appGlobalID := applicationGlobalKey(appName)
+		endpointToSpaceIDMap, _, err := readEndpointBindings(op.mpr.st, appGlobalID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		appEndpoints := set.NewStrings()
+		for endpointName := range endpointToSpaceIDMap {
+			if endpointName == "" {
+				continue
+			}
+			appEndpoints.Add(endpointName)
+		}
+		op.endpointsNamesByApp[appName] = appEndpoints
+	}
+
+	return nil
+}
+
+// mergePendingOpenPortRanges compares the set of new port ranges to open to
+// the set of currently opened port ranges and appends a new entry for each
+// port range that is not present in the current list and does not conflict
+// with any pre-existing entries. The method returns a boolean value to
+// indicate whether new documents were generated.
+func (op *openClosePortRangesOperation) mergePendingOpenPortRanges() (bool, error) {
+	var portListModified bool
+	for pendingUnitName, pendingRangesByEndpoint := range op.mpr.pendingOpenRanges {
+		// If we are only interested in the changes for a particular
+		// unit only, exclude any pending changes for other units.
+		if op.unitSelector != "" && op.unitSelector != pendingUnitName {
+			continue
+		}
+		for pendingEndpointName, pendingRanges := range pendingRangesByEndpoint {
+			for _, pendingRange := range pendingRanges {
+				// If this port range has already been opened by the same unit this is a no-op
+				// when the range is opened for all endpoints. Otherwise, we still need to add
+				// an entry for the appropriate endpoint.
+				if op.openedPortRangeToUnit[pendingRange] == pendingUnitName {
+					if op.rangeExistsForEndpoint(pendingUnitName, "", pendingRange) || op.rangeExistsForEndpoint(pendingUnitName, pendingEndpointName, pendingRange) {
+						continue
+					}
+
+					// Still need to add an entry for the specified endpoint.
+				} else if err := op.checkForPortRangeConflict(pendingUnitName, pendingRange); err != nil {
+					return false, errors.Annotatef(err, "cannot open ports %v", pendingRange)
+				}
+
+				// We can safely add the new port range to the updated port list.
+				if op.updatedUnitPortRanges[pendingUnitName] == nil {
+					op.updatedUnitPortRanges[pendingUnitName] = make(unitPortRangesDoc)
+				}
+				op.updatedUnitPortRanges[pendingUnitName][pendingEndpointName] = append(
+					op.updatedUnitPortRanges[pendingUnitName][pendingEndpointName],
+					pendingRange,
+				)
+				op.openedPortRangeToUnit[pendingRange] = pendingUnitName
+				portListModified = true
+			}
+		}
+	}
+
+	return portListModified, nil
+}
+
+// pruneOpenPorts examines the open ports for each unit and removes any
+// endpoint-specific ranges that are also present in the wildcard (all
+// endpoints) section for the unit. The method returns a boolean value to
+// indicate whether any ranges where pruned.
+func (op *openClosePortRangesOperation) pruneOpenPorts() bool {
+	var portListModified bool
+	for unitName, unitRangeDoc := range op.updatedUnitPortRanges {
+		for endpointName, portRanges := range unitRangeDoc {
+			if endpointName == "" {
+				continue
+			}
+
+			for i := 0; i < len(portRanges); i++ {
+				for _, wildcardPortRange := range unitRangeDoc[""] {
+					if portRanges[i] != wildcardPortRange {
+						continue
+					}
+
+					// This port is redundant as it already
+					// exists in the wildcard section.
+					// Remove it from the port range list.
+					portRanges[i] = portRanges[len(portRanges)-1]
+					portRanges = portRanges[:len(portRanges)-1]
+					portListModified = true
+					i--
+					break
+				}
+			}
+			unitRangeDoc[endpointName] = portRanges
+		}
+		op.updatedUnitPortRanges[unitName] = unitRangeDoc
+	}
+	return portListModified
+}
+
+// mergePendingClosePortRanges compares the set of port ranges to close to the
+// set of currently opened port range documents and removes the entries that
+// correspond to the port ranges that should be closed.
+//
+// The implementation contains additional logic to detect cases where a port
+// range is currently opened for all endpoints and we attempt to close it
+// for a specific endpoint. In this case, the port range will be removed from
+// the wildcard slot of the unitPortRanges document and new entries will be
+// added for all bound endpoints except the one where the port range is closed.
+//
+// The method returns a boolean value to indicate whether any changes were made.
+func (op *openClosePortRangesOperation) mergePendingClosePortRanges() (bool, error) {
+	var portListModified bool
+	for pendingUnitName, pendingRangesByEndpoint := range op.mpr.pendingCloseRanges {
+		// If we are only interested in the changes for a particular
+		// unit only, exclude any pending changes for other units.
+		if op.unitSelector != "" && op.unitSelector != pendingUnitName {
+			continue
+		}
+		for pendingEndpointName, pendingRanges := range pendingRangesByEndpoint {
+			for _, pendingRange := range pendingRanges {
+				// If the port range has not been opened by
+				// this unit we only need to ensure that it
+				// doesn't cause a conflict with port ranges
+				// opened by other units.
+				if op.openedPortRangeToUnit[pendingRange] != pendingUnitName {
+					if err := op.checkForPortRangeConflict(pendingUnitName, pendingRange); err != nil {
+						return false, errors.Annotatef(err, "cannot close ports %v", pendingRange)
+					}
+
+					// This port range is not open so this is a no-op.
+					continue
+				}
+
+				portListModified = op.removePortRange(pendingUnitName, pendingEndpointName, pendingRange) || portListModified
+			}
+		}
+	}
+
+	return portListModified, nil
+}
+
+func (op *openClosePortRangesOperation) removePortRange(unitName, endpointName string, portRange network.PortRange) bool {
+	var portListModified bool
+
+	// Sanity check
+	if len(op.updatedUnitPortRanges[unitName]) == 0 {
+		return false
+	}
+
+	// If we target all endpoints, remove the range from the wildcard entry
+	// as well as any other endpoint-specific entries (if present)
+	if endpointName == "" {
+		delete(op.openedPortRangeToUnit, portRange)
+		for existingEndpointName, existingRanges := range op.updatedUnitPortRanges[unitName] {
+			for i := 0; i < len(existingRanges); i++ {
+				if existingRanges[i] != portRange {
+					continue
+				}
+
+				// Remove entry from list
+				existingRanges[i] = existingRanges[len(existingRanges)-1]
+				op.updatedUnitPortRanges[unitName][existingEndpointName] = existingRanges[:len(existingRanges)-1]
+				portListModified = true
+				break
+			}
+		}
+
+		return portListModified
+	}
+
+	// If we target a specific endpoint, start by removing the port from
+	// the specified endpoint (if the range is present).
+	if existingRanges := op.updatedUnitPortRanges[unitName][endpointName]; len(existingRanges) != 0 {
+		for i := 0; i < len(existingRanges); i++ {
+			if existingRanges[i] != portRange {
+				continue
+			}
+
+			// Remove entry from list
+			existingRanges[i] = existingRanges[len(existingRanges)-1]
+			op.updatedUnitPortRanges[unitName][endpointName] = existingRanges[:len(existingRanges)-1]
+			portListModified = true
+			break
+		}
+	}
+
+	// If the port range is instead present in the wildcard slot, we
+	// need to remove it and replace it with entries for each bound endpoint
+	// except the one we just closed the port to.
+	if existingRanges := op.updatedUnitPortRanges[unitName][""]; len(existingRanges) != 0 {
+		for i := 0; i < len(existingRanges); i++ {
+			if existingRanges[i] != portRange {
+				continue
+			}
+
+			// Remove entry from list
+			existingRanges[i] = existingRanges[len(existingRanges)-1]
+			op.updatedUnitPortRanges[unitName][""] = existingRanges[:len(existingRanges)-1]
+			portListModified = true
+
+			// This has already been checked during endpoint lookup.
+			// The error can be safely ignored here.
+			appName, _ := names.UnitApplication(unitName)
+
+			// Iterate the set of application endpoints
+			for appEndpoint := range op.endpointsNamesByApp[appName] {
+				if appEndpoint == endpointName {
+					continue // the port is closed for this endpoint
+				}
+
+				// The port should remain open for the remaining endpoints.
+				op.updatedUnitPortRanges[unitName][appEndpoint] = append(
+					op.updatedUnitPortRanges[unitName][appEndpoint],
+					portRange,
+				)
+			}
+
+			break
+		}
+	}
+
+	// Finally, check if the port range is still open for any other endpoint.
+	// If not, remove it from the openedPortRangeToUnit map.
+	for endpointName := range op.updatedUnitPortRanges[unitName] {
+		if op.rangeExistsForEndpoint(unitName, endpointName, portRange) {
+			return portListModified
+		}
+	}
+
+	delete(op.openedPortRangeToUnit, portRange)
+	return portListModified
+}
+
+func (op *openClosePortRangesOperation) rangeExistsForEndpoint(unitName, endpointName string, portRange network.PortRange) bool {
+	if len(op.updatedUnitPortRanges[unitName]) == 0 || len(op.updatedUnitPortRanges[unitName][endpointName]) == 0 {
+		return false
+	}
+
+	for _, existingPortRange := range op.updatedUnitPortRanges[unitName][endpointName] {
+		if existingPortRange == portRange {
+			return true
+		}
+	}
+
+	return false
+}
+
+// pruneEmptySections removes empty port range sections from the updated unit
+// port range documents and removes the docs themselves if they end up empty.
+// The method returns a boolean value to indicate whether any changes where
+// made.
+func (op *openClosePortRangesOperation) pruneEmptySections() bool {
+	var portListModified bool
+	for unitName, unitRangeDoc := range op.updatedUnitPortRanges {
+		for endpointName, portRanges := range unitRangeDoc {
+			if len(portRanges) == 0 {
+				delete(unitRangeDoc, endpointName)
+				portListModified = true
+			}
+		}
+		if len(unitRangeDoc) == 0 {
+			delete(op.updatedUnitPortRanges, unitName)
+			portListModified = true
+			continue
+		}
+		op.updatedUnitPortRanges[unitName] = unitRangeDoc
+	}
+	return portListModified
+}
+
+// checkForPortRangeConflict returns an error if a pending port range conflicts
+// with any already opeend port range.
+func (op *openClosePortRangesOperation) checkForPortRangeConflict(pendingUnitName string, pendingRange network.PortRange) error {
+	if err := pendingRange.Validate(); err != nil {
 		return errors.Trace(err)
-	} else if subnet.Life() != Alive {
-		return errors.Errorf("subnet %q not alive", subnet.ID())
 	}
+
+	for existingRange, existingUnitName := range op.openedPortRangeToUnit {
+		if pendingRange.ConflictsWith(existingRange) {
+			return errors.Errorf("port ranges %v (%q) and %v (%q) conflict", existingRange, existingUnitName, pendingRange, pendingUnitName)
+		}
+	}
+
 	return nil
-}
-
-// checkForPortRangeConflict inspects two ranges that may or may not belong to
-// the same unit for conflicts. If a port conflict is detected, an error is
-// returned.
-func checkForPortRangeConflict(rangeA network.PortRange, unitA string, rangeB network.PortRange, unitB string) (identical bool, err error) {
-	if err := rangeA.Validate(); err != nil {
-		return false, errors.Trace(err)
-	} else if err := rangeB.Validate(); err != nil {
-		return false, errors.Trace(err)
-	}
-
-	// Same unit and range; no conflict.
-	if rangeA == rangeB && unitA == unitB {
-		return true, nil
-	}
-
-	if rangeA.ConflictsWith(rangeB) {
-		return false, errors.Errorf("port ranges %v (%q) and %v (%q) conflict", rangeA, unitA, rangeB, unitB)
-	}
-
-	return false, nil
 }

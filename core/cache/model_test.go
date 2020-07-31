@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+const allEndpoints = ""
+
 type ModelSuite struct {
 	cache.EntitySuite
 }
@@ -252,8 +254,8 @@ func (s *ModelSuite) TestUnitReturnsCopy(c *gc.C) {
 	m := s.NewModel(modelChange)
 
 	ch := unitChange
-	ch.PortRangesBySubnet = map[string][]network.PortRange{
-		"subnet-1": {network.MustParsePortRange("54321/tcp")},
+	ch.OpenPortRangesByEndpoint = map[string][]network.PortRange{
+		allEndpoints: {network.MustParsePortRange("54321/tcp")},
 	}
 
 	m.UpdateUnit(ch, s.Manager)
@@ -262,12 +264,12 @@ func (s *ModelSuite) TestUnitReturnsCopy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make a change to the slice returned in the copy.
-	u1.PortRangesBySubnet()["subnet-1"][0] = network.MustParsePortRange("65432/tcp")
+	u1.OpenPortRangesByEndpoint()[allEndpoints][0] = network.MustParsePortRange("65432/tcp")
 
 	// Get another copy from the model and ensure it is unchanged.
 	u2, err := m.Unit(unitChange.Name)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(u2.PortRangesBySubnet(), gc.DeepEquals, ch.PortRangesBySubnet)
+	c.Assert(u2.OpenPortRangesByEndpoint(), gc.DeepEquals, ch.OpenPortRangesByEndpoint)
 }
 
 func (s *ModelSuite) TestBranchNotFoundError(c *gc.C) {

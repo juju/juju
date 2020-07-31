@@ -3495,24 +3495,12 @@ func (w *openedPortsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-// transformId converts a global key for a ports document (e.g.
-// "m#42#0.1.2.0/24") into a colon-separated string with the machine and subnet
-// IDs (e.g. "42:0.1.2.0/24"). Subnet ID (a.k.a. CIDR) can be empty for
-// backwards-compatibility.
-func (w *openedPortsWatcher) transformID(globalKey string) (string, error) {
-	parts, err := extractPortsIDParts(globalKey)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return fmt.Sprintf("%s:%s", parts[machineIDPart], parts[subnetIDPart]), nil
-}
-
 func (w *openedPortsWatcher) initial() (set.Strings, error) {
 	ports, closer := w.db.GetCollection(openedPortsC)
 	defer closer()
 
 	portDocs := set.NewStrings()
-	var doc portsDoc
+	var doc machinePortRangesDoc
 	iter := ports.Find(nil).Select(bson.D{{"_id", 1}, {"txn-revno", 1}}).Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
@@ -3523,11 +3511,7 @@ func (w *openedPortsWatcher) initial() (set.Strings, error) {
 		if doc.TxnRevno != -1 {
 			w.known[id] = doc.TxnRevno
 		}
-		if changeID, err := w.transformID(id); err != nil {
-			logger.Errorf(err.Error())
-		} else {
-			portDocs.Add(changeID)
-		}
+		portDocs.Add(id)
 	}
 	return portDocs, errors.Trace(iter.Close())
 }
@@ -3572,13 +3556,9 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 		return errors.Trace(err)
 	}
 	if change.Revno < 0 {
+		// Report the removed id.
 		delete(w.known, localID)
-		if changeID, err := w.transformID(localID); err != nil {
-			logger.Errorf(err.Error())
-		} else {
-			// Report the removed id.
-			ids.Add(changeID)
-		}
+		ids.Add(localID)
 		return nil
 	}
 	openedPorts, closer := w.db.GetCollection(openedPortsC)
@@ -3590,12 +3570,8 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 	knownRevno, isKnown := w.known[localID]
 	w.known[localID] = currentRevno
 	if !isKnown || currentRevno > knownRevno {
-		if changeID, err := w.transformID(localID); err != nil {
-			logger.Errorf(err.Error())
-		} else {
-			// Report the unknown-so-far id.
-			ids.Add(changeID)
-		}
+		// Report the unknown-so-far id.
+		ids.Add(localID)
 	}
 	return nil
 }

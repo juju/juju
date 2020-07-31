@@ -17794,7 +17794,7 @@
                             "$ref": "#/definitions/MachinePortsResults"
                         }
                     },
-                    "description": "GetMachinePorts returns the port ranges opened on a machine for the specified\nsubnet as a map mapping port ranges to the tags of the units that opened\nthem."
+                    "description": "GetMachinePorts returns the port ranges opened on a machine across all\nsubnets as a map mapping port ranges to the tags of the units that opened\nthem."
                 },
                 "InstanceId": {
                     "type": "object",

@@ -147,19 +147,19 @@ type RemoveCharm struct {
 // UnitChange represents either a new unit, or a change
 // to an existing unit in a model.
 type UnitChange struct {
-	ModelUUID          string
-	Name               string
-	Application        string
-	Series             string
-	Annotations        map[string]string
-	CharmURL           string
-	Life               life.Value
-	PublicAddress      string
-	PrivateAddress     string
-	MachineId          string
-	PortRangesBySubnet map[string][]network.PortRange
-	Principal          string
-	Subordinate        bool
+	ModelUUID                string
+	Name                     string
+	Application              string
+	Series                   string
+	Annotations              map[string]string
+	CharmURL                 string
+	Life                     life.Value
+	PublicAddress            string
+	PrivateAddress           string
+	MachineId                string
+	OpenPortRangesByEndpoint map[string][]network.PortRange
+	Principal                string
+	Subordinate              bool
 
 	WorkloadStatus  status.StatusInfo
 	AgentStatus     status.StatusInfo
@@ -168,7 +168,7 @@ type UnitChange struct {
 
 // copy returns a deep copy of the UnitChange.
 func (u UnitChange) copy() UnitChange {
-	u.PortRangesBySubnet = copyPortRangeMap(u.PortRangesBySubnet)
+	u.OpenPortRangesByEndpoint = copyPortRangeMap(u.OpenPortRangesByEndpoint)
 	u.Annotations = copyStringMap(u.Annotations)
 	u.WorkloadStatus = copyStatusInfo(u.WorkloadStatus)
 	u.AgentStatus = copyStatusInfo(u.AgentStatus)
