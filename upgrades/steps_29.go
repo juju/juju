@@ -4,6 +4,7 @@
 package upgrades
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/juju/errors"
@@ -56,6 +57,7 @@ func storeDeployedUnitsInMachineAgentConf(ctx Context) error {
 		return nil
 	}
 
+	sort.Strings(unitNames)
 	var deployed []string
 	for _, tagStr := range unitNames {
 		// We know that these are all valid unit tags, but handle the
