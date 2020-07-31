@@ -948,11 +948,12 @@ func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (
 	return api.prepareOrGetContainerInterfaceInfo(args, false)
 }
 
-// GetContainerInterfaceInfo returns information to configure networking for a
-// container. It accepts container tags as arguments.
 // TODO (manadart 2020-07-23): This method is not used and can be removed when
 // next this facade version is bumped.
 // We then don't need the parameterised prepareOrGet...
+
+// GetContainerInterfaceInfo returns information to configure networking for a
+// container. It accepts container tags as arguments.
 func (api *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
 	params.MachineNetworkConfigResults,
 	error,

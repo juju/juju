@@ -52,9 +52,8 @@ func (s *k8sAgentSuite) TestRegisteredSubCommandsForK8sAgentCommand(c *gc.C) {
 	ctx, err = cmdtesting.RunCommand(c, k8sagentCmd, []string{"help", "commands"}...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-help     Show help on a command or other topic.
-init     initialize k8sagent state
-unit     starting a k8s agent
-version  Print the current version.
+help  Show help on a command or other topic.
+init  initialize k8sagent state
+unit  starting a k8s agent
 `[1:])
 }

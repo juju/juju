@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	set "github.com/juju/collections/set"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
 	neutron "gopkg.in/goose.v2/neutron"
@@ -131,6 +132,21 @@ func (m *MockNetworking) DeletePortByID(arg0 string) error {
 func (mr *MockNetworkingMockRecorder) DeletePortByID(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeletePortByID", reflect.TypeOf((*MockNetworking)(nil).DeletePortByID), arg0)
+}
+
+// FindNetworks mocks base method
+func (m *MockNetworking) FindNetworks(arg0 bool) (set.Strings, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindNetworks", arg0)
+	ret0, _ := ret[0].(set.Strings)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindNetworks indicates an expected call of FindNetworks
+func (mr *MockNetworkingMockRecorder) FindNetworks(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindNetworks", reflect.TypeOf((*MockNetworking)(nil).FindNetworks), arg0)
 }
 
 // NetworkInterfaces mocks base method
