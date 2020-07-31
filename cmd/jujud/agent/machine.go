@@ -574,7 +574,7 @@ func (a *MachineAgent) makeEngineCreator(
 			StartAPIWorkers:         a.startAPIWorkers,
 			PreUpgradeSteps:         a.preUpgradeSteps,
 			LogSource:               a.bufferedLogger.Logs(),
-			NewDeployContext:        deployer.NewNestedContext,
+			NewDeployContext:        newDeployContext,
 			Clock:                   clock.WallClock,
 			ValidateMigration:       a.validateMigration,
 			PrometheusRegisterer:    a.prometheusRegistry,
@@ -1358,6 +1358,15 @@ func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
 		}
 	}
 	return
+}
+
+// newDeployContext gives the tests the opportunity to create a deployer.Context
+// that can be used for testing so as to avoid (1) deploying units to the system
+// running the tests and (2) get access to the *State used internally, so that
+// tests can be run without waiting for the 5s watcher refresh time to which we would
+// otherwise be restricted.
+var newDeployContext = func(config deployer.ContextConfig) (deployer.Context, error) {
+	return deployer.NewNestedContext(config)
 }
 
 // statePoolIntrospectionReporter wraps a (possibly nil) state.StatePool,
