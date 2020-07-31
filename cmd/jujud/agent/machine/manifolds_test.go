@@ -71,6 +71,7 @@ func (ms *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"certificate-watcher",
 			"clock",
 			"controller-port",
+			"deployer",
 			"disk-manager",
 			"external-controller-updater",
 			"fan-configurer",
@@ -116,7 +117,6 @@ func (ms *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"tools-version-checker",
 			"transaction-pruner",
 			"unconverted-api-workers",
-			"unit-agent-deployer",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
 			"upgrade-database-flag",
@@ -467,6 +467,18 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"state-config-watcher",
 	},
 
+	"broker-tracker": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
+
 	"central-hub": {"agent", "state-config-watcher"},
 
 	"certificate-updater": {
@@ -497,7 +509,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"state-config-watcher",
 	},
 
-	"disk-manager": {
+	"deployer": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -509,7 +521,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"broker-tracker": {
+	"disk-manager": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -1001,18 +1013,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 	},
 
 	"unconverted-api-workers": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
-	"unit-agent-deployer": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
