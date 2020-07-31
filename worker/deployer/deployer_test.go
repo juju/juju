@@ -8,11 +8,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/core/status"
@@ -24,7 +27,6 @@ import (
 
 type deployerSuite struct {
 	jujutesting.JujuConnSuite
-	SimpleToolsFixture
 
 	machine       *state.Machine
 	stateAPI      api.Connection
@@ -35,22 +37,21 @@ var _ = gc.Suite(&deployerSuite{})
 
 func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.SimpleToolsFixture.SetUp(c, s.DataDir())
 	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c)
 	// Create the deployer facade.
 	s.deployerState = apideployer.NewState(s.stateAPI)
 	c.Assert(s.deployerState, gc.NotNil)
-}
-
-func (s *deployerSuite) TearDownTest(c *gc.C) {
-	s.SimpleToolsFixture.TearDown(c)
-	s.JujuConnSuite.TearDownTest(c)
+	loggo.GetLogger("test.deployer").SetLogLevel(loggo.TRACE)
 }
 
 func (s *deployerSuite) makeDeployerAndContext(c *gc.C) (worker.Worker, deployer.Context) {
 	// Create a deployer acting on behalf of the machine.
-	ctx := s.getContextForMachine(c, s.machine.Tag())
-	deployer, err := deployer.NewDeployer(s.deployerState, ctx)
+	ctx := &fakeContext{
+		config:   agentConfig(s.machine.Tag(), c.MkDir(), c.MkDir()),
+		deployed: set.NewStrings(),
+	}
+	api := deployer.MakeAPIShim(s.deployerState)
+	deployer, err := deployer.NewDeployer(api, loggo.GetLogger("test.deployer"), ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	return deployer, ctx
 }
@@ -290,4 +291,37 @@ func unitStatus(u *state.Unit, statusInfo status.StatusInfo) func(*gc.C) bool {
 
 func stop(c *gc.C, w worker.Worker) {
 	c.Assert(worker.Stop(w), gc.IsNil)
+}
+
+type fakeContext struct {
+	deployer.Context
+
+	config   agent.Config
+	deployed set.Strings
+}
+
+func (c *fakeContext) Kill() {
+}
+
+func (c *fakeContext) Wait() error {
+	return nil
+}
+
+func (c *fakeContext) DeployUnit(unitName, initialPassword string) error {
+	// Doesn't check for existence.
+	c.deployed.Add(unitName)
+	return nil
+}
+
+func (c *fakeContext) RecallUnit(unitName string) error {
+	c.deployed.Remove(unitName)
+	return nil
+}
+
+func (c *fakeContext) DeployedUnits() ([]string, error) {
+	return c.deployed.SortedValues(), nil
+}
+
+func (c *fakeContext) AgentConfig() agent.Config {
+	return c.config
 }

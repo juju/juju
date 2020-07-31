@@ -141,6 +141,7 @@ var (
 	}
 	notMigratingMachineWorkers = []string{
 		"api-address-updater",
+		"deployer",
 		"disk-manager",
 		"fan-configurer",
 		// "host-key-reporter", not stable, exits when done
@@ -154,7 +155,6 @@ var (
 		"storage-provisioner",
 		"upgrade-series",
 		"unconverted-api-workers",
-		"unit-agent-deployer",
 	}
 )
 

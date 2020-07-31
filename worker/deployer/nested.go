@@ -50,10 +50,11 @@ type Logger interface {
 var _ Context = (*nestedContext)(nil)
 
 type nestedContext struct {
-	logger            Logger
-	agentConfig       agent.Config
-	baseUnitConfig    UnitAgentConfig
-	updateConfigValue func(string, string) error
+	logger Logger
+	agent  agent.Agent
+	// agentConfig is a snapshot of the current configuration.
+	agentConfig    agent.Config
+	baseUnitConfig UnitAgentConfig
 
 	mu     sync.Mutex
 	units  map[string]*UnitAgent
@@ -66,19 +67,18 @@ type nestedContext struct {
 // ContextConfig contains all the information that the nested context
 // needs to run.
 type ContextConfig struct {
-	AgentConfig       agent.Config
-	Clock             clock.Clock
-	Logger            Logger
-	UnitEngineConfig  func() dependency.EngineConfig
-	SetupLogging      func(*loggo.Context, agent.Config)
-	UpdateConfigValue func(string, string) error
-	UnitManifolds     func(config UnitManifoldsConfig) dependency.Manifolds
+	Agent            agent.Agent
+	Clock            clock.Clock
+	Logger           Logger
+	UnitEngineConfig func() dependency.EngineConfig
+	SetupLogging     func(*loggo.Context, agent.Config)
+	UnitManifolds    func(config UnitManifoldsConfig) dependency.Manifolds
 }
 
 // Validate ensures all the required values are set.
 func (c *ContextConfig) Validate() error {
-	if c.AgentConfig == nil {
-		return errors.NotValidf("missing AgentConfig")
+	if c.Agent == nil {
+		return errors.NotValidf("missing Agent")
 	}
 	if c.Clock == nil {
 		return errors.NotValidf("missing Clock")
@@ -91,9 +91,6 @@ func (c *ContextConfig) Validate() error {
 	}
 	if c.UnitEngineConfig == nil {
 		return errors.NotValidf("missing UnitEngineConfig")
-	}
-	if c.UpdateConfigValue == nil {
-		return errors.NotValidf("missing UpdateConfigValue")
 	}
 	if c.UnitManifolds == nil {
 		return errors.NotValidf("missing UnitManifolds")
@@ -108,18 +105,19 @@ func NewNestedContext(config ContextConfig) (*nestedContext, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	agentConfig := config.Agent.CurrentConfig()
 	context := &nestedContext{
 		logger:      config.Logger,
-		agentConfig: config.AgentConfig,
+		agent:       config.Agent,
+		agentConfig: agentConfig,
 		baseUnitConfig: UnitAgentConfig{
-			DataDir:          config.AgentConfig.DataDir(),
+			DataDir:          agentConfig.DataDir(),
 			Clock:            config.Clock,
 			Logger:           config.Logger,
 			UnitEngineConfig: config.UnitEngineConfig,
 			UnitManifolds:    config.UnitManifolds,
 			SetupLogging:     config.SetupLogging,
 		},
-		updateConfigValue: config.UpdateConfigValue,
 
 		units:  make(map[string]*UnitAgent),
 		errors: make(map[string]error),
@@ -363,6 +361,15 @@ func (c *nestedContext) StopUnit(unitName string) error {
 	return nil
 }
 
+func (c *nestedContext) updateConfigValue(key, value string) error {
+	writeErr := c.agent.ChangeConfig(func(setter agent.ConfigSetter) error {
+		setter.SetValue(key, value)
+		return nil
+	})
+	c.agentConfig = c.agent.CurrentConfig()
+	return writeErr
+}
+
 func (c *nestedContext) createUnitAgentConfig(tag names.UnitTag, initialPassword string) (agent.Config, error) {
 	c.logger.Tracef("create unit agent config for %q", tag)
 	dataDir := c.agentConfig.DataDir()
@@ -453,4 +460,12 @@ func (c *nestedContext) DeployedUnits() ([]string, error) {
 
 func (c *nestedContext) AgentConfig() agent.Config {
 	return c.agentConfig
+}
+
+func removeOnErr(err *error, logger Logger, path string) {
+	if *err != nil {
+		if err := os.RemoveAll(path); err != nil {
+			logger.Errorf("installer: cannot remove %q: %v", path, err)
+		}
+	}
 }

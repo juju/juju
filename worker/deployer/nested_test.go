@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	jt "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -38,7 +39,7 @@ type NestedContextSuite struct {
 	testing.IsolationSuite
 
 	config  deployer.ContextConfig
-	agent   *fakeAgent
+	agent   agentconf.AgentConf
 	workers *unitWorkersStub
 }
 
@@ -49,33 +50,53 @@ func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 	logger := loggo.GetLogger("test.nestedcontext")
 	logger.SetLogLevel(loggo.TRACE)
 
-	s.agent = &fakeAgent{
-		c:      c,
-		values: make(map[string]string),
-	}
+	datadir := c.MkDir()
+	machine := names.NewMachineTag("42")
+	config, err := agent.NewAgentConfig(
+		agent.AgentConfigParams{
+			Paths: agent.Paths{
+				DataDir:         datadir,
+				LogDir:          c.MkDir(),
+				MetricsSpoolDir: c.MkDir(),
+			},
+			Tag:               machine,
+			Password:          "sekrit",
+			Nonce:             "unused",
+			Controller:        jt.ControllerTag,
+			Model:             jt.ModelTag,
+			APIAddresses:      []string{"a1:123", "a2:123"},
+			CACert:            "fake CACert",
+			UpgradedToVersion: jv.Current,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(config.Write(), jc.ErrorIsNil)
+
+	s.agent = agentconf.NewAgentConf(datadir)
+	err = s.agent.ReadConfig(machine.String())
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.workers = &unitWorkersStub{
 		started: make(chan string, 10), // eval size later
 		stopped: make(chan string, 10), // eval size later
 		logger:  logger,
 	}
 	s.config = deployer.ContextConfig{
-		AgentConfig:      s.agent,
+		Agent:            s.agent,
 		Clock:            clock.WallClock,
 		Logger:           logger,
 		UnitEngineConfig: engine.DependencyEngineConfig,
 		SetupLogging: func(c *loggo.Context, _ agent.Config) {
 			c.GetLogger("").SetLogLevel(loggo.DEBUG)
 		},
-		UpdateConfigValue: s.agent.setValue,
-		UnitManifolds:     s.workers.Manifolds,
+		UnitManifolds: s.workers.Manifolds,
 	}
 }
 
 func (s *NestedContextSuite) TestConfigMissingAgentConfig(c *gc.C) {
-	s.config.AgentConfig = nil
+	s.config.Agent = nil
 	err := s.config.Validate()
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-	c.Assert(err.Error(), gc.Equals, "missing AgentConfig not valid")
+	c.Assert(err.Error(), gc.Equals, "missing Agent not valid")
 }
 
 func (s *NestedContextSuite) TestConfigMissingClock(c *gc.C) {
@@ -104,13 +125,6 @@ func (s *NestedContextSuite) TestConfigMissingUnitEngineConfig(c *gc.C) {
 	err := s.config.Validate()
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 	c.Assert(err.Error(), gc.Equals, "missing UnitEngineConfig not valid")
-}
-
-func (s *NestedContextSuite) TestConfigMissingUpdateConfigValue(c *gc.C) {
-	s.config.UpdateConfigValue = nil
-	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-	c.Assert(err.Error(), gc.Equals, "missing UpdateConfigValue not valid")
 }
 
 func (s *NestedContextSuite) TestConfigMissingUnitManifolds(c *gc.C) {
@@ -171,7 +185,7 @@ func (s *NestedContextSuite) TestDeployUnit(c *gc.C) {
 	c.Assert(unitConfig, jc.IsNonEmptyFile)
 
 	// Unit written into the config value as deployed units.
-	c.Assert(s.agent.Value("deployed-units"), gc.Equals, unitName)
+	c.Assert(s.agent.CurrentConfig().Value("deployed-units"), gc.Equals, unitName)
 }
 
 func (s *NestedContextSuite) TestRecallUnit(c *gc.C) {
@@ -191,7 +205,7 @@ func (s *NestedContextSuite) TestRecallUnit(c *gc.C) {
 	c.Assert(unitAgentDir, jc.DoesNotExist)
 
 	// Unit written into the config value as deployed units.
-	c.Assert(s.agent.Value("deployed-units"), gc.HasLen, 0)
+	c.Assert(s.agent.CurrentConfig().Value("deployed-units"), gc.HasLen, 0)
 
 	// Recall is idempotent.
 	err = ctx.RecallUnit(unitName)
@@ -329,57 +343,4 @@ func (s *NestedContextSuite) TestReport(c *gc.C) {
 
 type fakeClock struct {
 	clock.Clock
-}
-
-type fakeAgent struct {
-	agent.Agent
-	agent.Config
-
-	c       *gc.C
-	dataDir string
-	logDir  string
-	values  map[string]string
-}
-
-func (f *fakeAgent) Model() names.ModelTag {
-	return jt.ModelTag
-}
-
-func (f *fakeAgent) Controller() names.ControllerTag {
-	return jt.ControllerTag
-}
-
-func (f *fakeAgent) UpgradedToVersion() version.Number {
-	return jv.Current
-}
-
-func (f *fakeAgent) CACert() string {
-	return "fake CACert"
-}
-
-func (f *fakeAgent) APIAddresses() ([]string, error) {
-	return []string{"a1:123", "a2:123"}, nil
-}
-
-func (f *fakeAgent) DataDir() string {
-	if f.dataDir == "" {
-		f.dataDir = f.c.MkDir()
-	}
-	return f.dataDir
-}
-
-func (f *fakeAgent) LogDir() string {
-	if f.logDir == "" {
-		f.logDir = f.c.MkDir()
-	}
-	return f.logDir
-}
-
-func (f *fakeAgent) setValue(key, value string) error {
-	f.values[key] = value
-	return nil
-}
-
-func (f *fakeAgent) Value(key string) string {
-	return f.values[key]
 }

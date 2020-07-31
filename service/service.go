@@ -23,6 +23,8 @@ import (
 	"github.com/juju/juju/service/windows"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/service.go github.com/juju/juju/service Service
+
 var logger = loggo.GetLogger("juju.service")
 
 // These are the names of the init systems recognized by juju.

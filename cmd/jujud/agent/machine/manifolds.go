@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/crosscontroller"
-	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	containerbroker "github.com/juju/juju/container/broker"
@@ -179,12 +178,9 @@ type ManifoldsConfig struct {
 	// structs within the machine agent.
 	LogSource logsender.LogRecordCh
 
-	// newDeployContext gives the tests the opportunity to create a deployer.Context
-	// that can be used for testing so as to avoid (1) deploying units to the system
-	// running the tests and (2) get access to the *State used internally, so that
-	// tests can be run without waiting for the 5s watcher refresh time to which we would
-	// otherwise be restricted.
-	NewDeployContext func(st *apideployer.State, agentConfig coreagent.Config) deployer.Context
+	// NewDeployContext gives the tests the opportunity to create a
+	// deployer.Context that can be used for testing.
+	NewDeployContext func(deployer.ContextConfig) (deployer.Context, error)
 
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
@@ -264,6 +260,14 @@ type ManifoldsConfig struct {
 
 	// IsCaasConfig is true if this config is for a caas agent.
 	IsCaasConfig bool
+
+	// UnitEngineConfig is used by the deployer to initialize the unit's
+	// dependency engine when running in the nested context.
+	UnitEngineConfig func() dependency.EngineConfig
+
+	// SetupLogging is used by the deployer to initialize the logging
+	// context for the unit.
+	SetupLogging func(*loggo.Context, coreagent.Config)
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -951,9 +955,14 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// final removal of its agents' units from state when they are no
 		// longer needed.
 		deployerName: ifNotMigrating(deployer.Manifold(deployer.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Clock:         config.Clock,
+			Logger:        loggo.GetLogger("juju.worker.deployer"),
+
+			UnitEngineConfig: config.UnitEngineConfig,
+			SetupLogging:     config.SetupLogging,
 			NewDeployContext: config.NewDeployContext,
-			AgentName:        agentName,
-			APICallerName:    apiCallerName,
 		})),
 
 		// The reboot manifold manages a worker which will reboot the
@@ -1115,7 +1124,7 @@ const (
 	apiAddressUpdaterName         = "api-address-updater"
 	machinerName                  = "machiner"
 	logSenderName                 = "log-sender"
-	deployerName                  = "unit-agent-deployer"
+	deployerName                  = "deployer"
 	authenticationWorkerName      = "ssh-authkeys-updater"
 	storageProvisionerName        = "storage-provisioner"
 	resumerName                   = "mgo-txn-resumer"

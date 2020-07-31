@@ -123,6 +123,11 @@ func (u *Upgrader) loop() error {
 		return errors.Annotate(err, "cannot set agent version")
 	}
 
+	if u.config.UpgradeStepsWaiter == nil {
+		u.config.Logger.Infof("no waiter, upgrader is done")
+		return nil
+	}
+
 	// We don't read on the dying channel until we have received the
 	// initial event from the API version watcher, thus ensuring
 	// that we attempt an upgrade even if other workers are dying
