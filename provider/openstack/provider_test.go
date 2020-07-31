@@ -836,7 +836,7 @@ func (s *providerUnitTests) TestNetworksForInstance(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockNetworking := NewMockNetworking(ctrl)
-	mockNetworking.EXPECT().ResolveNetwork("", false).Return("network-id-foo", nil)
+	mockNetworking.EXPECT().ResolveNetwork("network-id-foo", false).Return("network-id-foo", nil)
 	expectDefaultNetworks(mockNetworking)
 
 	netCfg := NewMockNetworkingConfig(ctrl)
@@ -862,7 +862,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockNetworking := NewMockNetworking(ctrl)
-	mockNetworking.EXPECT().ResolveNetwork("", false).Return("network-id-foo", nil)
+	mockNetworking.EXPECT().ResolveNetwork("network-id-foo", false).Return("network-id-foo", nil)
 	mockNetworking.EXPECT().CreatePort("", "network-id-foo", corenetwork.Id("subnet-foo")).Return(
 		&neutron.PortV2{
 			FixedIPs: []neutron.PortFixedIPsV2{{
@@ -910,7 +910,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithNoMatchingAZ(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockNetworking := NewMockNetworking(ctrl)
-	mockNetworking.EXPECT().ResolveNetwork("", false).Return("network-id-foo", nil)
+	mockNetworking.EXPECT().ResolveNetwork("network-id-foo", false).Return("network-id-foo", nil)
 	expectDefaultNetworks(mockNetworking)
 
 	netCfg := NewMockNetworkingConfig(ctrl)
@@ -930,7 +930,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithNoMatchingAZ(c *gc.C) {
 func envWithNetworking(net Networking) *Environ {
 	return &Environ{
 		ecfgUnlocked: &environConfig{
-			attrs: map[string]interface{}{NetworkKey: ""},
+			attrs: map[string]interface{}{NetworkKey: "network-id-foo"},
 		},
 		networking: net,
 	}

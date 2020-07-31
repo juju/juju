@@ -272,7 +272,6 @@ type machineInfo struct {
 	life              state.Life
 	isManual          bool
 
-	// See package_mock_test.go for these mocks.
 	linkLayerDevices []networkingcommon.LinkLayerDevice
 	addresses        []networkingcommon.LinkLayerAddress
 }

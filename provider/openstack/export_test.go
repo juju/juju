@@ -6,6 +6,7 @@ package openstack
 import (
 	"regexp"
 
+	"github.com/juju/collections/set"
 	"gopkg.in/goose.v2/neutron"
 	"gopkg.in/goose.v2/nova"
 	"gopkg.in/goose.v2/swift"
@@ -129,6 +130,11 @@ func GetNovaClient(e environs.Environ) *nova.Client {
 // ResolveNetwork exposes environ helper function resolveNetwork for testing
 func ResolveNetwork(e environs.Environ, networkName string, external bool) (string, error) {
 	return e.(*Environ).networking.ResolveNetwork(networkName, external)
+}
+
+// FindNetworks exposes environ helper function FindNetworks for testing
+func FindNetworks(e environs.Environ, internal bool) (set.Strings, error) {
+	return e.(*Environ).networking.FindNetworks(internal)
 }
 
 var PortsToRuleInfo = rulesToRuleInfo

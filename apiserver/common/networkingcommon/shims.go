@@ -9,16 +9,16 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// machineShim wraps a state.Machine reference in order to
+// linkLayerMachine wraps a state.Machine reference in order to
 // implement the LinkLayerMachine indirection.
-type machineShim struct {
+type linkLayerMachine struct {
 	*state.Machine
 }
 
 // AllLinkLayerDevices returns all layer-2 devices for the machine
 // as a slice of the LinkLayerDevice indirection.
-func (s machineShim) AllLinkLayerDevices() ([]LinkLayerDevice, error) {
-	devList, err := s.Machine.AllLinkLayerDevices()
+func (m *linkLayerMachine) AllLinkLayerDevices() ([]LinkLayerDevice, error) {
+	devList, err := m.Machine.AllLinkLayerDevices()
 	if err != nil {
 		return nil, err
 	}
@@ -33,8 +33,8 @@ func (s machineShim) AllLinkLayerDevices() ([]LinkLayerDevice, error) {
 
 // AllLinkLayerDevices returns all layer-3 addresses for the machine
 // as a slice of the LinkLayerAddress indirection.
-func (s machineShim) AllAddresses() ([]LinkLayerAddress, error) {
-	addrList, err := s.Machine.AllAddresses()
+func (m *linkLayerMachine) AllAddresses() ([]LinkLayerAddress, error) {
+	addrList, err := m.Machine.AllAddresses()
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +45,15 @@ func (s machineShim) AllAddresses() ([]LinkLayerAddress, error) {
 	}
 
 	return out, nil
+}
+
+type linkLayerState struct {
+	*state.State
+}
+
+func (s *linkLayerState) Machine(id string) (LinkLayerMachine, error) {
+	m, err := s.State.Machine(id)
+	return &linkLayerMachine{m}, errors.Trace(err)
 }
 
 // NOTE: All of the following code is only tested with a feature test.

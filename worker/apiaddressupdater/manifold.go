@@ -22,6 +22,7 @@ type Logger interface {
 	Errorf(string, ...interface{})
 	Infof(string, ...interface{})
 	Debugf(string, ...interface{})
+	Warningf(string, ...interface{})
 }
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.

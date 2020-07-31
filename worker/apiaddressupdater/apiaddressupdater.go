@@ -90,9 +90,19 @@ func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
 		return err
 	}
 
+	// Logging to identify lp: 1888453
+	if len(hps) == 0 {
+		c.config.Logger.Warningf("empty API host ports recieved. Updating using existing entries.")
+	}
+
 	c.config.Logger.Debugf("updating API hostPorts to %+v", hps)
 	c.mu.Lock()
-	c.current = hps
+	// Protection case to possible help with lp: 1888453
+	if len(hps) != 0 {
+		c.current = hps
+	} else {
+		hps = c.current
+	}
 	c.mu.Unlock()
 
 	// API host/port entries are stored in state as SpaceHostPorts.
@@ -120,7 +130,7 @@ func (c *APIAddressUpdater) getAddresses() ([]corenetwork.ProviderHostPorts, err
 
 	// Filter out any LXC or LXD bridge addresses.
 	// See LP bugs #1416928 and #1567683.
-	hpsToSet := make([]corenetwork.ProviderHostPorts, 0, len(addresses))
+	hpsToSet := make([]corenetwork.ProviderHostPorts, 0)
 	for _, hostPorts := range addresses {
 		// Strip ports, filter, then add ports again.
 		filtered := network.FilterBridgeAddresses(hostPorts.Addresses())
@@ -136,6 +146,12 @@ func (c *APIAddressUpdater) getAddresses() ([]corenetwork.ProviderHostPorts, err
 			hpsToSet = append(hpsToSet, hps)
 		}
 	}
+
+	// Logging to identify lp: 1888453
+	if len(hpsToSet) == 0 {
+		c.config.Logger.Warningf("get address returning zero results after filtering, non filtered list: %v", addresses)
+	}
+
 	return hpsToSet, nil
 }
 

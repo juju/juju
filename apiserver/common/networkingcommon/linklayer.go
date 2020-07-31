@@ -14,9 +14,6 @@ import (
 
 // LinkLayerDevice describes a single layer-2 network device.
 type LinkLayerDevice interface {
-	// ID returns the unique identifier for the device.
-	ID() string
-
 	// MACAddress is the hardware address of the device.
 	MACAddress() string
 
@@ -30,17 +27,17 @@ type LinkLayerDevice interface {
 	// provider ID for the link-layer device.
 	SetProviderIDOps(id network.Id) ([]txn.Op, error)
 
-	// ParentID returns the globally unique identifier
-	// for this device's parent if it has one.
-	ParentID() string
-
 	// RemoveOps returns the transaction operations required to remove this
 	// device and if required, its provider ID.
 	RemoveOps() []txn.Op
 
 	// UpdateOps returns the transaction operations required to update the
 	// device so that it reflects the incoming arguments.
-	UpdateOps(args state.LinkLayerDeviceArgs) []txn.Op
+	UpdateOps(state.LinkLayerDeviceArgs) []txn.Op
+
+	// AddAddressOps returns transaction operations required
+	// to add the input address to the device.
+	AddAddressOps(state.LinkLayerDeviceAddress) ([]txn.Op, error)
 }
 
 // LinkLayerAddress describes a single layer-3 network address
@@ -70,6 +67,10 @@ type LinkLayerAddress interface {
 	// RemoveOps returns the transaction operations required to remove this
 	// address and if required, its provider ID.
 	RemoveOps() []txn.Op
+
+	// UpdateOps returns the transaction operations required to update the device
+	// so that it reflects the incoming arguments.
+	UpdateOps(state.LinkLayerDeviceAddress) ([]txn.Op, error)
 }
 
 // LinkLayerAccessor describes an entity that can
@@ -84,10 +85,19 @@ type LinkLayerAccessor interface {
 	AllAddresses() ([]LinkLayerAddress, error)
 }
 
+// LinkLayerWriter describes an entity that can have link-layer
+// devices added to it.
+type LinkLayerWriter interface {
+	// AddLinkLayerDeviceOps returns transaction operations for adding the
+	// input link-layer device and the supplied addresses to the machine.
+	AddLinkLayerDeviceOps(state.LinkLayerDeviceArgs, ...state.LinkLayerDeviceAddress) ([]txn.Op, error)
+}
+
 // LinkLayerMachine describes a machine that can return its link-layer data
 // and assert that it is alive in preparation for updating such data.
 type LinkLayerMachine interface {
 	LinkLayerAccessor
+	LinkLayerWriter
 
 	// Id returns the ID for the machine.
 	Id() string
@@ -95,6 +105,21 @@ type LinkLayerMachine interface {
 	// AssertAliveOp returns a transaction operation for asserting
 	// that the machine is currently alive.
 	AssertAliveOp() txn.Op
+}
+
+// LinkLayerState describes methods required for sanitising and persisting
+// link-layer data sourced from a single machine.
+type LinkLayerState interface {
+	// Machine returns the machine for which link-layer data is being set.
+	Machine(string) (LinkLayerMachine, error)
+
+	// AllSubnetInfos returns all known model subnets.
+	// It is used for correctly setting the subnet
+	// of addresses in Fan networks.
+	AllSubnetInfos() (network.SubnetInfos, error)
+
+	// ApplyOperation applied the model operation that sets link-layer data.
+	ApplyOperation(state.ModelOperation) error
 }
 
 // MachineLinkLayerOp is a base type for model operations that update
@@ -178,13 +203,13 @@ func (o *MachineLinkLayerOp) MatchingIncoming(dev LinkLayerDevice) *network.Inte
 }
 
 // MatchingIncomingAddrs finds all the primary addresses on devices matching
-// the hardware address of the input, and returns them as state args.
+// the input hardware address, and returns them as state args.
 // TODO (manadart 2020-07-15): We should investigate making an enhanced
 // core/network address type instead of this state type.
 // It would embed ProviderAddress and could be obtained directly via a method
 // or property of InterfaceInfos.
-func (o *MachineLinkLayerOp) MatchingIncomingAddrs(dev LinkLayerDevice) []state.LinkLayerDeviceAddress {
-	return networkAddressStateArgsForHWAddr(o.Incoming(), dev.MACAddress())
+func (o *MachineLinkLayerOp) MatchingIncomingAddrs(hwAddress string) []state.LinkLayerDeviceAddress {
+	return networkAddressStateArgsForHWAddr(o.Incoming(), hwAddress)
 }
 
 // DeviceAddresses returns all currently known
@@ -205,10 +230,10 @@ func (o *MachineLinkLayerOp) AssertAliveOp() txn.Op {
 	return o.machine.AssertAliveOp()
 }
 
-// MarkDevProcessed indicates that the input (known) device was present in the
-// incoming data and its updates have been handled by the build step.
-func (o *MachineLinkLayerOp) MarkDevProcessed(dev LinkLayerDevice) {
-	o.processedDevs.Add(dev.MACAddress())
+// MarkDevProcessed indicates that the input hardware address was present in
+// the incoming data and its updates have been handled by the build step.
+func (o *MachineLinkLayerOp) MarkDevProcessed(hwAddr string) {
+	o.processedDevs.Add(hwAddr)
 }
 
 // IsDevProcessed returns a boolean indicating whether the input incoming

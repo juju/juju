@@ -314,6 +314,36 @@ func (addr *Address) SetProviderNetIDsOps(networkID, subnetID network.Id) []txn.
 	}}
 }
 
+func (addr *Address) UpdateOps(args LinkLayerDeviceAddress) ([]txn.Op, error) {
+	address, subnet, err := args.addressAndSubnet()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	newDoc := ipAddressDoc{
+		DocID:             addr.doc.DocID,
+		ModelUUID:         addr.doc.ModelUUID,
+		ProviderID:        args.ProviderID.String(),
+		ProviderNetworkID: args.ProviderNetworkID.String(),
+		ProviderSubnetID:  args.ProviderSubnetID.String(),
+		DeviceName:        args.DeviceName,
+		MachineID:         addr.doc.MachineID,
+		SubnetCIDR:        subnet,
+		ConfigMethod:      args.ConfigMethod,
+		Value:             address,
+		DNSServers:        args.DNSServers,
+		DNSSearchDomains:  args.DNSSearchDomains,
+		GatewayAddress:    args.GatewayAddress,
+		IsDefaultGateway:  args.IsDefaultGateway,
+		Origin:            args.Origin,
+	}
+
+	if op, updating := updateIPAddressDocOp(&addr.doc, &newDoc); updating {
+		return []txn.Op{op}, nil
+	}
+	return nil, nil
+}
+
 // Remove removes the IP address if it exists.
 // No error is returned if the address was already removed.
 func (addr *Address) Remove() error {
