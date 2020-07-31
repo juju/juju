@@ -402,6 +402,10 @@ type EntityPortRange struct {
 	Protocol string `json:"protocol"`
 	FromPort int    `json:"from-port"`
 	ToPort   int    `json:"to-port"`
+
+	// Endpoint can be left empty to indicate that this port range applies
+	// to all application endpoints.
+	Endpoint string `json:"endpoint"`
 }
 
 // EntitiesPortRanges holds the parameters for making an OpenPorts or

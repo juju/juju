@@ -19,6 +19,11 @@ import (
 type PortRangeInfo struct {
 	ShouldOpen  bool
 	RelationTag names.RelationTag
+
+	// The application endpoint that the port range refers to. It may
+	// be left empty to indicate that a port range applies to all known
+	// application endpoints.
+	Endpoint string
 }
 
 // PortRange contains a port range and a relation id. Used as key to
@@ -53,7 +58,7 @@ func tryOpenPorts(
 	// better to ensure it handles relations properly.
 	relationId := -1
 
-	//Validate the given range.
+	// Validate the given range.
 	newRange, err := validatePortRange(protocol, fromPort, toPort)
 	if err != nil {
 		return err
@@ -108,6 +113,11 @@ func tryOpenPorts(
 	}
 
 	rangeInfo = pendingPorts[rangeKey]
+
+	// TODO(achilleas) update this after changing the hook tools to work
+	// with endpoints. For now, just use an empty endpoint name to emulate
+	// the pre-2.9 behavior where ports are opened to all endpoints.
+	rangeInfo.Endpoint = ""
 	rangeInfo.ShouldOpen = true
 	pendingPorts[rangeKey] = rangeInfo
 	return nil

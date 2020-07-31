@@ -39,8 +39,8 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v16) of the Uniter API, which adds
-// LXDProfileAPIv2.
+// UniterAPI implements the latest version (v17) of the Uniter API, which
+// augments the payload of the CommitHookChanges API call.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -77,6 +77,12 @@ type UniterAPI struct {
 	// We do not need to use an AuthFunc, because we do not need to pass a tag.
 	accessCloudSpec func() (func() bool, error)
 	cloudSpec       cloudspec.CloudSpecAPI
+}
+
+// UniterAPIV16 implements version (v16) of the Uniter API, which adds
+// LXDPorfileAPIV2.
+type UniterAPIV16 struct {
+	UniterAPI
 }
 
 // UniterAPIV15 implements version (v15) of the Uniter API, which adds
@@ -249,6 +255,17 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		accessCloudSpec:   accessCloudSpec,
 		cloudSpec:         cloudSpec,
 		StorageAPI:        storageAPI,
+	}, nil
+}
+
+// NewUniterAPIV16 creates an instance of the V16 uniter API.
+func NewUniterAPIV16(context facade.Context) (*UniterAPIV16, error) {
+	uniterAPI, err := NewUniterAPI(context)
+	if err != nil {
+		return nil, err
+	}
+	return &UniterAPIV16{
+		UniterAPI: *uniterAPI,
 	}, nil
 }
 
@@ -3579,16 +3596,16 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			return errors.Trace(err)
 		}
 
-		// This API method never supported opening a port across multiple
-		// subnets. Instead, it was assumed that the port range was
-		// always opened in all subnets. To emulate this behavior, we
-		// simply open/close the requested port ranges for all endpoints.
 		for _, r := range changes.OpenPorts {
 			// Ensure the tag in the port open request matches the root unit name
 			if r.Tag != changes.Tag {
 				return apiservererrors.ErrPerm
 			}
-			unitPortRanges.Open("", corenetwork.PortRange{
+
+			// Pre-2.9 clients do not populate the new Endpoint
+			// field; this effectively opens the port for all
+			// endpoints and emulates pre-2.9 behavior.
+			unitPortRanges.Open(r.Endpoint, corenetwork.PortRange{
 				FromPort: r.FromPort,
 				ToPort:   r.ToPort,
 				Protocol: r.Protocol,
@@ -3599,7 +3616,11 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			if r.Tag != changes.Tag {
 				return apiservererrors.ErrPerm
 			}
-			unitPortRanges.Close("", corenetwork.PortRange{
+
+			// Pre-2.9 clients do not populate the new Endpoint
+			// field; this effectively close the port for all
+			// endpoints and emulates pre-2.9 behavior.
+			unitPortRanges.Close(r.Endpoint, corenetwork.PortRange{
 				FromPort: r.FromPort,
 				ToPort:   r.ToPort,
 				Protocol: r.Protocol,

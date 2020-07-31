@@ -1122,9 +1122,9 @@ func (ctx *HookContext) doFlush(process string) error {
 
 	for portRange, info := range ctx.pendingPorts {
 		if info.ShouldOpen {
-			b.OpenPortRange(portRange.Ports.Protocol, portRange.Ports.FromPort, portRange.Ports.ToPort)
+			b.OpenPortRange(info.Endpoint, portRange.Ports.Protocol, portRange.Ports.FromPort, portRange.Ports.ToPort)
 		} else {
-			b.ClosePortRange(portRange.Ports.Protocol, portRange.Ports.FromPort, portRange.Ports.ToPort)
+			b.ClosePortRange(info.Endpoint, portRange.Ports.Protocol, portRange.Ports.FromPort, portRange.Ports.ToPort)
 		}
 	}
 

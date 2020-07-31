@@ -4968,9 +4968,10 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
 	b.UpdateNetworkInfo()
 	b.UpdateRelationUnitSettings(relList[0].Tag().String(), params.Settings{"just": "added"}, params.Settings{"app_data": "updated"})
-	b.OpenPortRange("tcp", 80, 81)
-	b.OpenPortRange("tcp", 7337, 7337) // same port closed below; this should be a no-op
-	b.ClosePortRange("tcp", 7337, 7337)
+	// Manipulate ports for one of the charm's endpoints.
+	b.OpenPortRange("monitoring-port", "tcp", 80, 81)
+	b.OpenPortRange("monitoring-port", "tcp", 7337, 7337) // same port closed below; this should be a no-op
+	b.ClosePortRange("monitoring-port", "tcp", 7337, 7337)
 	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
 	req, _ := b.Build()
 
@@ -5015,6 +5016,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	unitPortRanges, err := s.wordpressUnit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
+	c.Assert(unitPortRanges.ForEndpoint("monitoring-port"), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}}, gc.Commentf("unit ports where not opened for the requested endpoint"))
 
 	unitState, err := s.wordpressUnit.State()
 	c.Assert(err, jc.ErrorIsNil)
@@ -5070,9 +5072,9 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	stCount := uint64(1)
 	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
 	b.UpdateNetworkInfo()
-	b.OpenPortRange("tcp", 80, 81)
-	b.OpenPortRange("tcp", 7337, 7337) // same port closed below; this should be a no-op
-	b.ClosePortRange("tcp", 7337, 7337)
+	b.OpenPortRange(allEndpoints, "tcp", 80, 81)
+	b.OpenPortRange(allEndpoints, "tcp", 7337, 7337) // same port closed below; this should be a no-op
+	b.ClosePortRange(allEndpoints, "tcp", 7337, 7337)
 	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
 	b.AddStorage(map[string][]params.StorageConstraints{
 		"multi1to10": {{Count: &stCount}},
