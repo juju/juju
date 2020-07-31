@@ -584,25 +584,25 @@ var configTests = []configTest{
 			"default-space": "bar",
 		}),
 	}, {
-		about:       "Valid charmhub api url",
+		about:       "Valid charm-hub api url",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"charm-hub-url": "http://test.com",
 		}),
 	}, {
-		about:       "Malformed charmhub api url",
+		about:       "Malformed charm-hub api url",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"charm-hub-url": "http://t est.com",
 		}),
-		err: `charmhub url "http://t est.com" not valid`,
+		err: `charm-hub url "http://t est.com" not valid`,
 	}, {
-		about:       "Invalid charmhub api url",
+		about:       "Invalid charm-hub api url",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"charm-hub-url": "meshuggah",
 		}),
-		err: `charmhub url "meshuggah" not valid`,
+		err: `charm-hub url "meshuggah" not valid`,
 	},
 }
 
