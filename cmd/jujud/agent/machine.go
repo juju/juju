@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
-	apideployer "github.com/juju/juju/api/deployer"
 	apimachiner "github.com/juju/juju/api/machiner"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
@@ -527,7 +526,8 @@ func (a *MachineAgent) makeEngineCreator(
 	agentName string, previousAgentVersion version.Number,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
-		engine, err := dependency.NewEngine(engine.DependencyEngineConfig())
+		engineConfigFunc := engine.DependencyEngineConfig
+		engine, err := dependency.NewEngine(engineConfigFunc())
 		if err != nil {
 			return nil, err
 		}
@@ -597,6 +597,8 @@ func (a *MachineAgent) makeEngineCreator(
 			NewContainerBrokerFunc:            newCAASBroker,
 			NewBrokerFunc:                     newBroker,
 			IsCaasConfig:                      a.isCaasAgent,
+			UnitEngineConfig:                  engineConfigFunc,
+			SetupLogging:                      agentconf.SetupAgentLogging,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {
@@ -1363,8 +1365,8 @@ func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
 // running the tests and (2) get access to the *State used internally, so that
 // tests can be run without waiting for the 5s watcher refresh time to which we would
 // otherwise be restricted.
-var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) deployer.Context {
-	return deployer.NewSimpleContext(agentConfig, st)
+var newDeployContext = func(config deployer.ContextConfig) (deployer.Context, error) {
+	return deployer.NewNestedContext(config)
 }
 
 // statePoolIntrospectionReporter wraps a (possibly nil) state.StatePool,

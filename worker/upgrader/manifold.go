@@ -73,10 +73,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			upgraderFacade := upgrader.NewState(apiCaller)
 
+			// If there is no UpgradeStepsGateName, the worker should
+			// report the running version and exit.
 			var upgradeStepsWaiter gate.Waiter
-			if config.UpgradeStepsGateName == "" {
-				upgradeStepsWaiter = gate.NewLock()
-			} else {
+			if config.UpgradeStepsGateName != "" {
 				if config.PreviousAgentVersion == version.Zero {
 					return nil, errors.New("previous agent version not specified")
 				}
@@ -86,9 +86,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			var initialCheckUnlocker gate.Unlocker
-			if config.UpgradeCheckGateName == "" {
-				initialCheckUnlocker = gate.NewLock()
-			} else {
+			if config.UpgradeCheckGateName != "" {
 				if err := context.Get(config.UpgradeCheckGateName, &initialCheckUnlocker); err != nil {
 					return nil, err
 				}

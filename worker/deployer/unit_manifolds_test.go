@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/worker/deployer"
 )
@@ -27,7 +28,7 @@ var _ = gc.Suite(&ManifoldsSuite{})
 func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = deployer.UnitManifoldsConfig{
-		Agent:          fakeAgent{},
+		Agent:          struct{ agent.Agent }{},
 		LoggingContext: loggo.NewContext(loggo.DEBUG),
 	}
 }

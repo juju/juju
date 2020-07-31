@@ -19,6 +19,7 @@ import (
 	msapi "github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -151,6 +152,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
+			// No Logger defined in migrationflag package.
 		}),
 		migrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
 			AgentName:         agentName,
@@ -161,6 +163,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
+			Logger:            config.LoggingContext.GetLogger("juju.worker.migrationminion"),
 		}),
 
 		// The logging config updater is a leaf worker that indirectly
@@ -181,6 +184,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 		apiAddressUpdaterName: ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.apiaddressupdater"),
 		})),
 
 		// The charmdir resource coordinates whether the charm directory is
@@ -216,6 +220,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 		// (and probably one for each component broken out).
 		uniterName: ifNotMigrating(uniter.Manifold(uniter.ManifoldConfig{
 			AgentName:             agentName,
+			ModelType:             model.IAAS,
 			APICallerName:         apiCallerName,
 			MachineLock:           config.MachineLock,
 			Clock:                 config.Clock,
@@ -223,6 +228,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			CharmDirName:          charmDirName,
 			HookRetryStrategyName: hookRetryStrategyName,
 			TranslateResolverErr:  uniter.TranslateFortressErrors,
+			Logger:                config.LoggingContext.GetLogger("juju.worker.uniter"),
 		})),
 
 		// TODO (mattyw) should be added to machine agent.
@@ -236,6 +242,8 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			AgentName:       agentName,
 			MetricSpoolName: metricSpoolName,
 			CharmDirName:    charmDirName,
+			Clock:           config.Clock,
+			Logger:          config.LoggingContext.GetLogger("juju.worker.metrics.collect"),
 		})),
 
 		// The meter status worker executes the meter-status-changed hook when it detects
@@ -245,6 +253,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			APICallerName:            apiCallerName,
 			MachineLock:              config.MachineLock,
 			Clock:                    config.Clock,
+			Logger:                   config.LoggingContext.GetLogger("juju.worker.meterstatus"),
 			NewHookRunner:            meterstatus.NewHookRunner,
 			NewMeterStatusAPIClient:  msapi.NewClient,
 			NewUniterStateAPIClient:  commonapi.NewUniterStateAPI,
@@ -264,7 +273,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 		upgraderName: upgrader.Manifold(upgrader.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-			Logger:        loggo.GetLogger("juju.worker.upgrader"),
+			Logger:        config.LoggingContext.GetLogger("juju.worker.upgrader"),
 			Clock:         config.Clock,
 		}),
 	}
