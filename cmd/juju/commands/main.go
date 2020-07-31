@@ -151,13 +151,23 @@ func (m main) Run(args []string) int {
 	// $ juju --help | -h | help
 	jujuArgs := set.NewStrings(args[1:]...)
 	helpArgs := set.NewStrings("help", "-h", "--help")
-	showHelp := jujuArgs.Intersection(helpArgs).Size() > 0
-	jujuArgs = jujuArgs.Difference(helpArgs)
-	if showHelp && len(args) == 1 || len(jujuArgs) == 0 {
+	showHelp := jujuArgs.Intersection(helpArgs).Size() > 0 && jujuArgs.Size() == 1
+	repl := jujuArgs.Size() == 0
+	if repl || showHelp {
 		return cmd.Main(newReplCommand(showHelp), ctx, nil)
 	}
+	// We have registered a juju "version" command to replace the inbuilt one.
+	// There's special processing to call the inbuilt version command if the
+	// --version flag is set. But we want to invoke the juju version command.
+	cmdArgs := make([]string, len(args)-1)
+	for i, arg := range args[1:] {
+		if arg == "--version" {
+			arg = "version"
+		}
+		cmdArgs[i] = arg
+	}
 	jcmd := NewJujuCommand(ctx, jujuMsg)
-	return cmd.Main(jcmd, ctx, args[1:])
+	return cmd.Main(jcmd, ctx, cmdArgs)
 }
 
 func installProxy() error {
