@@ -117,6 +117,7 @@ func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestControllerCorelation(c *gc.C) {
+	s.namespace = "controller-1"
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -162,6 +163,7 @@ type svcSpecTC struct {
 }
 
 func (s *bootstrapSuite) TestGetControllerSvcSpec(c *gc.C) {
+	s.namespace = "controller-1"
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -284,6 +286,9 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		return "appuuid", nil
 	}
 	s.namespace = "controller-1"
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.namespace, v1.GetOptions{}).
+		Return(nil, s.k8sNotFoundError())
+
 	s.setupBroker(c, ctrl, newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc)
 
 	// Broker's namespace is "controller" now - controllerModelConfig.Name()
@@ -322,21 +327,26 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	APIPort := s.controllerCfg.APIPort()
 	ns := &core.Namespace{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   s.getNamespace(),
-			Labels: utils.LabelsForModel("controller-1"),
+			Name: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForModel("controller-1", false),
+				utils.LabelsJuju),
 		},
 	}
 	ns.Name = s.getNamespace()
 	s.ensureJujuNamespaceAnnotations(true, ns)
 	svcNotProvisioned := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-service",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Name:      "juju-controller-test-service",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-app": "juju-controller-test"},
+			Selector: utils.LabelsForApp("juju-controller-test", false),
 			Type:     core.ServiceType("ClusterIP"),
 			Ports: []core.ServicePort{
 				{
@@ -352,13 +362,16 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	svcPublicIP := "1.1.1.1"
 	svcProvisioned := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-service",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Name:      "juju-controller-test-service",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-app": "juju-controller-test"},
+			Selector: utils.LabelsForApp("juju-controller-test", false),
 			Type:     core.ServiceType("LoadBalancer"),
 			Ports: []core.ServicePort{
 				{
@@ -373,18 +386,24 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 
 	emptySecret := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-secret",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Name:      "juju-controller-test-secret",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Type: core.SecretTypeOpaque,
 	}
 	secretWithSharedSecretAdded := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-secret",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Name:      "juju-controller-test-secret",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Type: core.SecretTypeOpaque,
@@ -394,9 +413,12 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	}
 	secretWithServerPEMAdded := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-secret",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Name:      "juju-controller-test-secret",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Type: core.SecretTypeOpaque,
@@ -408,9 +430,12 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 
 	emptyConfigMap := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-configmap",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Name:      "juju-controller-test-configmap",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 	}
@@ -419,9 +444,12 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 
 	configMapWithBootstrapParamsAdded := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-configmap",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Name:      "juju-controller-test-configmap",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Data: map[string]string{
@@ -430,9 +458,12 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	}
 	configMapWithAgentConfAdded := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-configmap",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Name:      "juju-controller-test-configmap",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Data: map[string]string{
@@ -445,22 +476,28 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	fileMode := int32(256)
 	statefulSetSpec := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Name:      "juju-controller-test",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: apps.StatefulSetSpec{
 			ServiceName: "juju-controller-test-service",
 			Replicas:    &numberOfPods,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "juju-controller-test"},
+				MatchLabels: utils.LabelsForApp("juju-controller-test", false),
 			},
 			VolumeClaimTemplates: []core.PersistentVolumeClaim{
 				{
 					ObjectMeta: v1.ObjectMeta{
-						Name:        "storage",
-						Labels:      map[string]string{"juju-app": "juju-controller-test"},
+						Name: "storage",
+						Labels: utils.LabelsMerge(
+							utils.LabelsForApp("juju-controller-test", false),
+							utils.LabelsJuju,
+						),
 						Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 					},
 					Spec: core.PersistentVolumeClaimSpec{
@@ -478,7 +515,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:        "controller-0",
 					Namespace:   s.getNamespace(),
-					Labels:      map[string]string{"juju-app": "juju-controller-test"},
+					Labels:      utils.LabelsForApp("juju-controller-test", false),
 					Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 				},
 				Spec: core.PodSpec{
@@ -777,7 +814,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 
 	gomock.InOrder(
 		// create namespace.
-		s.mockNamespaces.EXPECT().Create(gomock.Any(), ns, v1.CreateOptions{}).
+		s.mockNamespaces.EXPECT().Create(gomock.Any(), ns, gomock.Any()).
 			Return(ns, nil),
 
 		// ensure service
@@ -789,7 +826,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			Return(svcNotProvisioned, nil),
 
 		// below calls are for GetService - 1st address no provisioned yet.
-		s.mockServices.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=juju-controller-test"}).
+		s.mockServices.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=juju-controller-test"}).
 			Return(&core.ServiceList{Items: []core.Service{*svcNotProvisioned}}, nil),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-juju-controller-test", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
@@ -801,7 +838,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			Return(nil, s.k8sNotFoundError()),
 
 		// below calls are for GetService - 2nd address is ready.
-		s.mockServices.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=juju-controller-test"}).
+		s.mockServices.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=juju-controller-test"}).
 			Return(&core.ServiceList{Items: []core.Service{*svcProvisioned}}, nil),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-juju-controller-test", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
@@ -839,7 +876,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			Return(emptyConfigMap, nil),
 		s.mockConfigMaps.EXPECT().Create(gomock.Any(), configMapWithBootstrapParamsAdded, v1.CreateOptions{}).AnyTimes().
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockConfigMaps.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=juju-controller-test"}).
+		s.mockConfigMaps.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=juju-controller-test"}).
 			Return(&core.ConfigMapList{Items: []core.ConfigMap{*emptyConfigMap}}, nil),
 		s.mockConfigMaps.EXPECT().Update(gomock.Any(), configMapWithBootstrapParamsAdded, v1.UpdateOptions{}).AnyTimes().
 			Return(configMapWithBootstrapParamsAdded, nil),
@@ -849,7 +886,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			Return(configMapWithBootstrapParamsAdded, nil),
 		s.mockConfigMaps.EXPECT().Create(gomock.Any(), configMapWithAgentConfAdded, v1.CreateOptions{}).AnyTimes().
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockConfigMaps.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=juju-controller-test"}).
+		s.mockConfigMaps.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=juju-controller-test"}).
 			Return(&core.ConfigMapList{Items: []core.ConfigMap{*configMapWithBootstrapParamsAdded}}, nil),
 		s.mockConfigMaps.EXPECT().Update(gomock.Any(), configMapWithAgentConfAdded, v1.UpdateOptions{}).AnyTimes().
 			Return(configMapWithAgentConfAdded, nil),
@@ -868,18 +905,21 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 				return statefulSetSpec, nil
 			}),
 
-		s.mockEvents.EXPECT().List(gomock.Any(),
+		s.mockEvents.EXPECT().List(
+			gomock.Any(),
 			listOptionsFieldSelectorMatcher("involvedObject.name=controller-0,involvedObject.kind=Pod"),
 		).Return(&core.EventList{}, nil),
 
-		s.mockEvents.EXPECT().List(gomock.Any(),
+		s.mockEvents.EXPECT().List(
+			gomock.Any(),
 			listOptionsFieldSelectorMatcher("involvedObject.name=controller-0,involvedObject.kind=Pod"),
 		).DoAndReturn(func(...interface{}) (*core.EventList, error) {
 			podFirer()
 			return eventsPartial, nil
 		}),
 
-		s.mockEvents.EXPECT().List(gomock.Any(),
+		s.mockEvents.EXPECT().List(
+			gomock.Any(),
 			listOptionsFieldSelectorMatcher("involvedObject.name=controller-0,involvedObject.kind=Pod"),
 		).Return(eventsDone, nil),
 

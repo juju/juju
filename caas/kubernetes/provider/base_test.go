@@ -191,6 +191,10 @@ func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
 	randomPrefixFunc := func() (string, error) {
 		return "appuuid", nil
 	}
+
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).
+		Return(nil, s.k8sNotFoundError())
+
 	return s.setupBroker(c, ctrl, newK8sClientFunc, newK8sRestFunc, randomPrefixFunc)
 }
 

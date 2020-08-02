@@ -90,7 +90,7 @@ func (h *HandlerSuite) TestEmptyBodyFails(c *gc.C) {
 	req := httptest.NewRequest(http.MethodPost, "/", nil)
 	recorder := httptest.NewRecorder()
 
-	admissionHandler(h.logger, &rbacmappertest.Mapper{}).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacmappertest.Mapper{}, false).ServeHTTP(recorder, req)
 
 	c.Assert(recorder.Code, gc.Equals, http.StatusBadRequest)
 }
@@ -100,7 +100,7 @@ func (h *HandlerSuite) TestUnknownContentType(c *gc.C) {
 	req.Header.Set("junk", "junk")
 	recorder := httptest.NewRecorder()
 
-	admissionHandler(h.logger, &rbacmappertest.Mapper{}).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacmappertest.Mapper{}, false).ServeHTTP(recorder, req)
 
 	c.Assert(recorder.Code, gc.Equals, http.StatusUnsupportedMediaType)
 }
@@ -122,7 +122,7 @@ func (h *HandlerSuite) TestUnknownServiceAccount(c *gc.C) {
 	req.Header.Set(HeaderContentType, ExpectedContentType)
 	recorder := httptest.NewRecorder()
 
-	admissionHandler(h.logger, &rbacmappertest.Mapper{}).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacmappertest.Mapper{}, false).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 
@@ -157,7 +157,7 @@ func (h *HandlerSuite) TestRBACMapperFailure(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, false).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusInternalServerError)
 }
 
@@ -196,7 +196,7 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, false).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 
@@ -217,6 +217,7 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *gc.C) {
 
 	expectedLabels := providerutils.LabelForKeyValue(
 		providerconst.LabelJujuAppCreatedBy, appName)
+
 	for k, v := range expectedLabels {
 		found := false
 		for _, patchOp := range patchOperations[1:] {
@@ -283,7 +284,7 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, false).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 

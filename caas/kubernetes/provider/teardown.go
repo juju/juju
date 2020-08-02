@@ -13,16 +13,14 @@ import (
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/watcher"
 )
 
 func (k *kubernetesClient) deleteClusterScopeResourcesModelTeardown(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {
 	defer wg.Done()
 
-	labels := map[string]string{
-		constants.LabelModel: k.namespace,
-	}
+	labels := utils.LabelsForModel(k.CurrentModel(), k.IsLegacyLabels())
 	selector := k8slabels.NewSelector().Add(
 		labelSetToRequirements(labels)...,
 	)

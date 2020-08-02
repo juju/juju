@@ -32,6 +32,10 @@ type K8sBroker interface {
 	// when called and a subsequent error if there was a problem. If error is
 	// not nil then no other return values should be considered valid.
 	EnsureMutatingWebhookConfiguration(*admission.MutatingWebhookConfiguration) (func(), error)
+
+	// IsLegacyLabels reports if the k8s broker requires legacy labels to be
+	// used for the broker model/namespace
+	IsLegacyLabels() bool
 }
 
 // Logger represents the methods used by the worker to log details
@@ -124,6 +128,7 @@ func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error)
 	admissionPath := AdmissionPathForModel(currentConfig.Model().Id())
 	admissionCreator, err := NewAdmissionCreator(authority,
 		broker.GetCurrentNamespace(), broker.CurrentModel(),
+		broker.IsLegacyLabels(),
 		broker.EnsureMutatingWebhookConfiguration,
 		&admission.ServiceReference{
 			Name:      c.ServiceName,
@@ -140,6 +145,7 @@ func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error)
 		c.Logger,
 		mux,
 		AdmissionPathForModel(currentConfig.Model().Id()),
+		broker.IsLegacyLabels(),
 		admissionCreator,
 		rbacMapper)
 }

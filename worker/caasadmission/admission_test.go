@@ -57,7 +57,7 @@ func (a *AdmissionSuite) TestAdmissionCreatorObject(c *gc.C) {
 	}
 
 	admissionCreator, err := caasadmission.NewAdmissionCreator(
-		authority, "testns", "testmodel",
+		authority, "testns", "testmodel", false,
 		func(obj *admission.MutatingWebhookConfiguration) (func(), error) {
 			ensureWebhookCalled = true
 
