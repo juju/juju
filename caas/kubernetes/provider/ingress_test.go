@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/testing"
@@ -36,8 +37,11 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, IngressResources []k8ss
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   "app-name",
-			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
+			Name: "app-name",
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("app-name", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{
 				"juju-app-uuid":                  "appuuid",
 				"juju.io/controller":             testing.ControllerTag.Id(),
@@ -47,12 +51,12 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, IngressResources []k8ss
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
+				MatchLabels: utils.LabelsForApp("app-name", false),
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"app.kubernetes.io/name": "app-name"},
+					Labels: utils.LabelsForApp("app-name", false),
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
@@ -161,8 +165,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreate(c *gc.C) {
 	IngressResources := []k8sspecs.K8sIngressSpec{ingress1}
 	ingress := &extensionsv1beta1.Ingress{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   "test-ingress",
-			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "foo": "bar"},
+			Name: "test-ingress",
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("app-name", false),
+				utils.LabelsJuju,
+				utils.LabelForKeyValue("foo", "bar"),
+			),
 			Annotations: map[string]string{
 				"nginx.ingress.kubernetes.io/rewrite-target": "/",
 				"juju.io/controller":                         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
@@ -213,8 +221,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdate(c *gc.C) {
 	IngressResources := []k8sspecs.K8sIngressSpec{ingress1}
 	ingress := &extensionsv1beta1.Ingress{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   "test-ingress",
-			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "foo": "bar"},
+			Name: "test-ingress",
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("app-name", false),
+				utils.LabelsJuju,
+				utils.LabelForKeyValue("foo", "bar"),
+			),
 			Annotations: map[string]string{
 				"nginx.ingress.kubernetes.io/rewrite-target": "/",
 				"juju.io/controller":                         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
@@ -269,8 +281,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 	getIngress := func() *extensionsv1beta1.Ingress {
 		return &extensionsv1beta1.Ingress{
 			ObjectMeta: v1.ObjectMeta{
-				Name:   "test-ingress",
-				Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "foo": "bar"},
+				Name: "test-ingress",
+				Labels: utils.LabelsMerge(
+					utils.LabelsForApp("app-name", false),
+					utils.LabelsJuju,
+					utils.LabelForKeyValue("foo", "bar"),
+				),
 				Annotations: map[string]string{
 					"nginx.ingress.kubernetes.io/rewrite-target": "/",
 					"juju.io/controller":                         "deadbeef-1bad-500d-9000-4b1d0d06f00d",

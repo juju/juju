@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/caas/specs"
 )
 
 // AppNameForServiceAccount returns the juju application name associated with a
@@ -41,7 +42,23 @@ func RBACLabels(appName, model string, global, legacy bool) map[string]string {
 	if global {
 		labels = utils.LabelsMerge(labels, utils.LabelsForModel(model, legacy))
 	}
+	if !legacy {
+		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
+	}
 	return labels
+}
+
+func toK8sRules(rules []specs.PolicyRule) (out []rbacv1.PolicyRule) {
+	for _, r := range rules {
+		out = append(out, rbacv1.PolicyRule{
+			Verbs:           r.Verbs,
+			APIGroups:       r.APIGroups,
+			Resources:       r.Resources,
+			ResourceNames:   r.ResourceNames,
+			NonResourceURLs: r.NonResourceURLs,
+		})
+	}
+	return out
 }
 
 func (k *kubernetesClient) ensureServiceAccountForApp(
@@ -246,7 +263,7 @@ func (k *kubernetesClient) deleteServiceAccounts(selectors ...k8slabels.Selector
 		err := k.client().CoreV1().ServiceAccounts(k.namespace).DeleteCollection(
 			context.TODO(),
 			v1.DeleteOptions{
-				PropagationPolicy: constants.DefaultPropagationPolicy(),
+				PropagationPolicy: &constants.DefaultPropagationPolicy,
 			}, v1.ListOptions{
 				LabelSelector: selector.String(),
 			})
@@ -332,7 +349,7 @@ func (k *kubernetesClient) deleteRoles(selectors ...k8slabels.Selector) error {
 		err := k.client().RbacV1().Roles(k.namespace).DeleteCollection(
 			context.TODO(),
 			v1.DeleteOptions{
-				PropagationPolicy: constants.DefaultPropagationPolicy(),
+				PropagationPolicy: &constants.DefaultPropagationPolicy,
 			}, v1.ListOptions{
 				LabelSelector: selector.String(),
 			})
@@ -415,7 +432,7 @@ func (k *kubernetesClient) deleteClusterRole(name string, uid types.UID) error {
 
 func (k *kubernetesClient) deleteClusterRoles(selector k8slabels.Selector) error {
 	err := k.client().RbacV1().ClusterRoles().DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
+		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	}, v1.ListOptions{
 		LabelSelector: selector.String(),
 	})
@@ -548,7 +565,7 @@ func (k *kubernetesClient) deleteRoleBindings(selectors ...k8slabels.Selector) e
 		err := k.client().RbacV1().RoleBindings(k.namespace).DeleteCollection(
 			context.TODO(),
 			v1.DeleteOptions{
-				PropagationPolicy: constants.DefaultPropagationPolicy(),
+				PropagationPolicy: &constants.DefaultPropagationPolicy,
 			}, v1.ListOptions{
 				LabelSelector: selector.String(),
 			})
@@ -648,7 +665,7 @@ func (k *kubernetesClient) deleteClusterRoleBinding(name string, uid types.UID) 
 
 func (k *kubernetesClient) deleteClusterRoleBindings(selector k8slabels.Selector) error {
 	err := k.client().RbacV1().ClusterRoleBindings().DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
+		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	}, v1.ListOptions{
 		LabelSelector: selector.String(),
 	})

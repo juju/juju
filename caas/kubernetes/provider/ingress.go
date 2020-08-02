@@ -21,7 +21,11 @@ import (
 )
 
 func (k *kubernetesClient) getIngressLabels(appName string) map[string]string {
-	return utils.LabelsForApp(appName, k.IsLegacyLabels())
+	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
+	if !k.IsLegacyLabels() {
+		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
+	}
+	return labels
 }
 
 // TODO(caas): should we overwrite the existing `juju expose` created ingress if user runs upgrade-charm with new ingress podspec v2.
@@ -122,7 +126,7 @@ func (k *kubernetesClient) listIngressResources(labels map[string]string) ([]v1b
 
 func (k *kubernetesClient) deleteIngressResources(appName string) error {
 	err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
+		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	}, v1.ListOptions{
 		LabelSelector: utils.LabelSetToSelector(k.getIngressLabels(appName)).String(),
 	})

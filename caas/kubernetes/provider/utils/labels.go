@@ -46,24 +46,14 @@ func IsLegacyModelLabels(model string, namespaceI core.NamespaceInterface) (bool
 	return !HasLabels(ns.Labels, LabelsForModel(model, false)), nil
 }
 
-// LabelSetToSelector converts a set of Kubernetes labels.
+// LabelSetToSelector converts a set of Kubernetes labels
 func LabelSetToSelector(l labels.Set) labels.Selector {
 	return labels.SelectorFromValidatedSet(l)
 }
 
 // LabelsForApp returns the labels that should be on a k8s object for a given
-// application name.
+// application name
 func LabelsForApp(name string, legacy bool) labels.Set {
-	result := SelectorLabelsForApp(name, legacy)
-	if legacy {
-		return result
-	}
-	return LabelsMerge(result, LabelsJuju)
-}
-
-// SelectorLabelsForApp returns the pod selector labels that should
-// be used to select pods belonging to an application.
-func SelectorLabelsForApp(name string, legacy bool) labels.Set {
 	if legacy {
 		return labels.Set{
 			constants.LegacyLabelKubernetesAppName: name,
@@ -81,8 +71,7 @@ func LabelForKeyValue(key, value string) labels.Set {
 	}
 }
 
-// LabelsMerge merges one or more sets of labels together into a new set. For
-// duplicate keys the last key found is used.
+// LabelsMerge
 func LabelsMerge(a labels.Set, merges ...labels.Set) labels.Set {
 	for _, merge := range merges {
 		a = labels.Merge(a, merge)
@@ -91,7 +80,7 @@ func LabelsMerge(a labels.Set, merges ...labels.Set) labels.Set {
 }
 
 // LabelsForModel returns the labels that should be on a k8s object for a given
-// model name.
+// model name
 func LabelsForModel(name string, legacy bool) labels.Set {
 	if legacy {
 		return map[string]string{
@@ -105,7 +94,7 @@ func LabelsForModel(name string, legacy bool) labels.Set {
 
 // LabelsForOperator returns the labels that should be placed on a juju operator
 // Takes the operator name, type and a legacy flag to indicate these labels are
-// being used on a model that is operating in "legacy" label mode.
+// being used on a model that is operating in "legacy" label mode
 func LabelsForOperator(name, target string, legacy bool) labels.Set {
 	if legacy {
 		return map[string]string{
@@ -137,8 +126,6 @@ func LabelsToSelector(ls labels.Set) labels.Selector {
 	return labels.SelectorFromValidatedSet(ls)
 }
 
-// StorageNameFromLabels returns the name of the Juju storage
-// from the supplied labels.
 func StorageNameFromLabels(labels labels.Set) string {
 	if labels[constants.LabelJujuStorageName] != "" {
 		return labels[constants.LabelJujuStorageName]

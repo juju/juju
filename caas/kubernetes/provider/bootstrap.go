@@ -142,7 +142,7 @@ type controllerStacker interface {
 
 func controllerCorelation(broker *kubernetesClient) (string, error) {
 	// ensure controller specific annotations.
-	_ = broker.addAnnotations(constants.AnnotationControllerIsControllerKey(), "true")
+	_ = broker.addAnnotations(constants.AnnotationControllerIsControllerKey, "true")
 
 	ns, err := broker.listNamespacesByAnnotations(broker.GetAnnotations())
 	if errors.IsNotFound(err) || ns == nil {
@@ -202,15 +202,18 @@ func newcontrollerStack(
 	agentConfig.SetStateServingInfo(si)
 	pcfg.Bootstrap.StateServingInfo = si
 
-	selectorLabels := providerutils.SelectorLabelsForApp(stackName, false)
-	labels := providerutils.LabelsForApp(stackName, false)
+	selectorLabels := providerutils.LabelsForApp(stackName, false)
+	labels := providerutils.LabelsMerge(
+		selectorLabels,
+		providerutils.LabelsJuju,
+	)
 
 	cs := &controllerStack{
 		ctx:              ctx,
 		stackName:        stackName,
 		selectorLabels:   selectorLabels,
 		stackLabels:      labels,
-		stackAnnotations: map[string]string{constants.AnnotationControllerUUIDKey(): pcfg.ControllerTag.Id()},
+		stackAnnotations: map[string]string{constants.AnnotationControllerUUIDKey: pcfg.ControllerTag.Id()},
 		broker:           broker,
 
 		pcfg:        pcfg,

@@ -6,7 +6,9 @@ package provider
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"fmt"
+	"io"
 	"regexp"
 	"sort"
 	"strconv"
@@ -25,7 +27,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
-	storagev1 "k8s.io/api/storage/v1"
+	k8sstorage "k8s.io/api/storage/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -42,7 +44,6 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	k8sstorage "github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/caas/specs"
@@ -135,7 +136,7 @@ type kubernetesClient struct {
 	isLegacyLabels bool
 
 	// randomPrefix generates an annotation for stateful sets.
-	randomPrefix utils.RandomPrefixFunc
+	randomPrefix RandomPrefixFunc
 }
 
 // To regenerate the mocks for the kubernetes Client used by this broker,
@@ -160,6 +161,9 @@ type kubernetesClient struct {
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error)
 
+// RandomPrefixFunc defines a function used to generate a random hex string.
+type RandomPrefixFunc func() (string, error)
+
 // newK8sBroker returns a kubernetes client for the specified k8s cluster.
 func newK8sBroker(
 	controllerUUID string,
@@ -170,7 +174,7 @@ func newK8sBroker(
 	newRestClient k8sspecs.NewK8sRestClientFunc,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	newStringsWatcher k8swatcher.NewK8sStringsWatcherFunc,
-	randomPrefix utils.RandomPrefixFunc,
+	randomPrefix RandomPrefixFunc,
 	clock jujuclock.Clock,
 ) (*kubernetesClient, error) {
 	k8sClient, apiextensionsClient, dynamicClient, err := newClient(k8sRestConfig)
@@ -190,7 +194,9 @@ func newK8sBroker(
 	isLegacy, err := utils.IsLegacyModelLabels(
 		newCfg.Config.Name(), k8sClient.CoreV1().Namespaces())
 	if err != nil {
-		return nil, errors.Trace(err)
+		logger.Warningf("determining legacy label status for model %s: %v",
+			newCfg.Config.Name(), err)
+		isLegacy = true
 	}
 
 	client := &kubernetesClient{
@@ -213,12 +219,12 @@ func newK8sBroker(
 		newRestClient:     newRestClient,
 		randomPrefix:      randomPrefix,
 		annotations: k8sannotations.New(nil).
-			Add(constants.AnnotationModelUUIDKey(), modelUUID),
+			Add(constants.AnnotationModelUUIDKey, modelUUID),
 		isLegacyLabels: isLegacy,
 	}
 	if controllerUUID != "" {
 		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
-		client.annotations.Add(constants.AnnotationControllerUUIDKey(), controllerUUID)
+		client.annotations.Add(constants.AnnotationControllerUUIDKey, controllerUUID)
 	}
 	return client, nil
 }
@@ -423,7 +429,7 @@ please choose a different hosted model name then try again.`, hostedModelName),
 			if errors.IsNotFound(err) {
 				// all good.
 				// ensure controller specific annotations.
-				_ = broker.addAnnotations(constants.AnnotationControllerIsControllerKey(), "true")
+				_ = broker.addAnnotations(constants.AnnotationControllerIsControllerKey, "true")
 				return nil
 			}
 			if err == nil {
@@ -461,8 +467,8 @@ func (k *kubernetesClient) DestroyController(ctx envcontext.ProviderCallContext,
 	// ensures all annnotations are set correctly, then we will accurately find the controller namespace to destroy it.
 	k.annotations.Merge(
 		k8sannotations.New(nil).
-			Add(constants.AnnotationControllerUUIDKey(), controllerUUID).
-			Add(constants.AnnotationControllerIsControllerKey(), "true"),
+			Add(constants.AnnotationControllerUUIDKey, controllerUUID).
+			Add(constants.AnnotationControllerIsControllerKey, "true"),
 	)
 	return k.Destroy(ctx)
 }
@@ -537,9 +543,9 @@ func (k *kubernetesClient) APIVersion() (string, error) {
 
 // getStorageClass returns a named storage class, first looking for
 // one which is qualified by the current namespace if it's available.
-func (k *kubernetesClient) getStorageClass(name string) (*storagev1.StorageClass, error) {
+func (k *kubernetesClient) getStorageClass(name string) (*k8sstorage.StorageClass, error) {
 	storageClasses := k.client().StorageV1().StorageClasses()
-	qualifiedName := constants.QualifiedStorageClassName(k.namespace, name)
+	qualifiedName := qualifiedStorageClassName(k.namespace, name)
 	sc, err := storageClasses.Get(context.TODO(), qualifiedName, v1.GetOptions{})
 	if err == nil {
 		return sc, nil
@@ -896,7 +902,7 @@ func (k *kubernetesClient) applyRawK8sSpec(
 	}
 
 	labelGetter := func(isNamespaced bool) map[string]string {
-		labels := utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())
+		labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
 		if !isNamespaced {
 			labels = utils.LabelsMerge(
 				labels,
@@ -1156,7 +1162,7 @@ func (k *kubernetesClient) ensureService(
 		// CharmModifiedVersion is added for triggering rolling upgrade on workload pods to synchronise
 		// charm files to workload pods via init container when charm was upgraded.
 		// This approach was inspired from `kubectl rollout restart`.
-		Add(constants.AnnotationCharmModifiedVersionKey(), strconv.Itoa(params.CharmModifiedVersion))
+		Add(constants.AnnotationCharmModifiedVersionKey, strconv.Itoa(params.CharmModifiedVersion))
 
 	switch params.Deployment.DeploymentType {
 	case caas.DeploymentStateful:
@@ -1197,6 +1203,14 @@ func validateDeploymentType(deploymentType caas.DeploymentType, params *caas.Ser
 		}
 	}
 	return nil
+}
+
+func randomPrefix() (string, error) {
+	var randPrefixBytes [4]byte
+	if _, err := io.ReadFull(rand.Reader, randPrefixBytes[0:4]); err != nil {
+		return "", errors.Trace(err)
+	}
+	return fmt.Sprintf("%x", randPrefixBytes), nil
 }
 
 func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
@@ -1292,7 +1306,7 @@ func (k *kubernetesClient) configurePodFiles(
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if err = k8sstorage.PushUniqueVolume(&workloadSpec.Pod.PodSpec, vol, false); err != nil {
+			if err = pushUniqueVolume(&workloadSpec.Pod.PodSpec, vol, false); err != nil {
 				return errors.Trace(err)
 			}
 			workloadSpec.Pod.Containers[i].VolumeMounts = append(workloadSpec.Pod.Containers[i].VolumeMounts, core.VolumeMount{
@@ -1334,10 +1348,10 @@ func (k *kubernetesClient) configureStorage(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		mountPath := k8sstorage.GetMountPathForFilesystem(i, appName, fs)
+		mountPath := getMountPathForFilesystem(i, appName, fs)
 		if vol != nil {
 			logger.Debugf("using volume for %s filesystem %s: %s", appName, fs.StorageName, pretty.Sprint(*vol))
-			if err = k8sstorage.PushUniqueVolume(podSpec, *vol, false); err != nil {
+			if err = pushUniqueVolume(podSpec, *vol, false); err != nil {
 				return errors.Trace(err)
 			}
 			podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
@@ -1372,25 +1386,25 @@ func ensureJujuInitContainer(podSpec *core.PodSpec, operatorImagePath string) er
 	}
 	replaceOrUpdateInitContainer()
 
-	if err = k8sstorage.PushUniqueVolume(podSpec, vol, true); err != nil {
+	if err = pushUniqueVolume(podSpec, vol, true); err != nil {
 		return errors.Trace(err)
 	}
 
 	for i := range podSpec.Containers {
 		container := &podSpec.Containers[i]
 		for _, volMount := range volMounts {
-			k8sstorage.PushUniqueVolumeMount(container, volMount)
+			pushUniqueVolumeMount(container, volMount)
 		}
 	}
 	return nil
 }
 
 func getJujuInitContainerAndStorageInfo(operatorImagePath string) (container core.Container, vol core.Volume, volMounts []core.VolumeMount, err error) {
-	dataDir, err := paths.DataDir(constants.CAASProviderType)
+	dataDir, err := paths.DataDir(CAASProviderType)
 	if err != nil {
 		return container, vol, volMounts, errors.Trace(err)
 	}
-	jujuRun, err := paths.JujuRun(constants.CAASProviderType)
+	jujuRun, err := paths.JujuRun(CAASProviderType)
 	if err != nil {
 		return container, vol, volMounts, errors.Trace(err)
 	}
@@ -1490,11 +1504,16 @@ func (k *kubernetesClient) configureDaemonSet(
 		return cleanUps, errors.Trace(err)
 	}
 
-	selectorLabels := utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())
+	selectorLabels := k.getDaemonSetLabels(appName)
+	labels := selectorLabels
+	if !k.IsLegacyLabels() {
+		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
+	}
+
 	daemonSet := &apps.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
-			Labels: k.getDaemonSetLabels(appName),
+			Labels: labels,
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
 				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
@@ -1502,7 +1521,7 @@ func (k *kubernetesClient) configureDaemonSet(
 		Spec: apps.DaemonSetSpec{
 			// TODO(caas): DaemonSetUpdateStrategy support.
 			Selector: &v1.LabelSelector{
-				MatchLabels: utils.SelectorLabelsForApp(appName, k.IsLegacyLabels()),
+				MatchLabels: selectorLabels,
 			},
 			RevisionHistoryLimit: int32Ptr(daemonsetRevisionHistoryLimit),
 			Template: core.PodTemplateSpec{
@@ -1589,13 +1608,13 @@ func (k *kubernetesClient) configureDeployment(
 	if err != nil {
 		return cleanUps, errors.Trace(err)
 	}
-
-	selectorLabels := utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())
-
 	deployment := &apps.Deployment{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   deploymentName,
-			Labels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
+			Name: deploymentName,
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp(appName, k.IsLegacyLabels()),
+				utils.LabelsJuju,
+			),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
 				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
@@ -1605,12 +1624,12 @@ func (k *kubernetesClient) configureDeployment(
 			Replicas:             replicas,
 			RevisionHistoryLimit: int32Ptr(deploymentRevisionHistoryLimit),
 			Selector: &v1.LabelSelector{
-				MatchLabels: selectorLabels,
+				MatchLabels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
-					Labels:       selectorLabels,
+					Labels:       utils.LabelsForApp(appName, k.IsLegacyLabels()),
 					Annotations:  podAnnotations(k8sannotations.New(workloadSpec.Pod.Annotations).Merge(annotations).Copy()).ToMap(),
 				},
 				Spec: workloadSpec.Pod.PodSpec,
@@ -1656,7 +1675,7 @@ func (k *kubernetesClient) configurePVCForStatelessResource(
 			},
 		},
 	}
-	if err = k8sstorage.PushUniqueVolume(podSpec, vol, false); err != nil {
+	if err = pushUniqueVolume(podSpec, vol, false); err != nil {
 		return cleanUps, errors.Trace(err)
 	}
 	podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
@@ -1685,7 +1704,7 @@ func (k *kubernetesClient) getDeployment(name string) (*apps.Deployment, error) 
 
 func (k *kubernetesClient) deleteDeployment(name string) error {
 	err := k.client().AppsV1().Deployments(k.namespace).Delete(context.TODO(), name, v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
+		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -1695,7 +1714,7 @@ func (k *kubernetesClient) deleteDeployment(name string) error {
 
 func (k *kubernetesClient) deleteDeployments(appName string) error {
 	err := k.client().AppsV1().Deployments(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
+		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	}, v1.ListOptions{
 		LabelSelector: utils.LabelSetToSelector(
 			utils.LabelsForApp(appName, k.IsLegacyLabels())).String(),
@@ -1742,7 +1761,7 @@ func (k *kubernetesClient) deleteVolumeClaims(appName string, p *core.Pod) ([]st
 		}
 		pvClaims := k.client().CoreV1().PersistentVolumeClaims(k.namespace)
 		err := pvClaims.Delete(context.TODO(), vol.PersistentVolumeClaim.ClaimName, v1.DeleteOptions{
-			PropagationPolicy: constants.DefaultPropagationPolicy(),
+			PropagationPolicy: &constants.DefaultPropagationPolicy,
 		})
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return nil, errors.Annotatef(err, "deleting persistent volume claim %v for %v",
@@ -1810,12 +1829,15 @@ func (k *kubernetesClient) configureService(
 	}
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        deploymentName,
-			Labels:      utils.LabelsForApp(appName, k.IsLegacyLabels()),
+			Name: deploymentName,
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp(appName, k.IsLegacyLabels()),
+				utils.LabelsJuju,
+			),
 			Annotations: annotations,
 		},
 		Spec: core.ServiceSpec{
-			Selector:                 utils.SelectorLabelsForApp(appName, k.IsLegacyLabels()),
+			Selector:                 utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			Type:                     serviceType,
 			Ports:                    ports,
 			ExternalIPs:              config.Get(serviceExternalIPsConfigKey, []string(nil)).([]string),
@@ -1834,14 +1856,17 @@ func (k *kubernetesClient) configureHeadlessService(
 	logger.Debugf("creating/updating headless service for %s", appName)
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   headlessServiceName(deploymentName),
-			Labels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
+			Name: headlessServiceName(deploymentName),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp(appName, k.IsLegacyLabels()),
+				utils.LabelsJuju,
+			),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
 				Add("service.alpha.kubernetes.io/tolerate-unready-endpoints", "true").ToMap(),
 		},
 		Spec: core.ServiceSpec{
-			Selector:                 utils.SelectorLabelsForApp(appName, k.IsLegacyLabels()),
+			Selector:                 utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			Type:                     core.ServiceTypeClusterIP,
 			ClusterIP:                "None",
 			PublishNotReadyAddresses: true,
@@ -1922,7 +1947,7 @@ func (k *kubernetesClient) applicationSelector(appName string, mode caas.Deploym
 		return operatorSelector(appName, k.IsLegacyLabels())
 	}
 	return utils.LabelSetToSelector(
-		utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())).String()
+		utils.LabelsForApp(appName, k.IsLegacyLabels())).String()
 }
 
 // AnnotateUnit annotates the specified pod (name or uid) with a unit tag.
@@ -1957,10 +1982,10 @@ func (k *kubernetesClient) AnnotateUnit(appName string, mode caas.DeploymentMode
 		pod.Annotations = make(map[string]string)
 	}
 	unitID := unit.Id()
-	if pod.Annotations[constants.AnnotationUnit()] == unitID {
+	if pod.Annotations[constants.AnnotationUnit] == unitID {
 		return nil
 	}
-	pod.Annotations[constants.AnnotationUnit()] = unitID
+	pod.Annotations[constants.AnnotationUnit] = unitID
 
 	_, err = pods.Update(context.TODO(), pod, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -1972,12 +1997,12 @@ func (k *kubernetesClient) AnnotateUnit(appName string, mode caas.DeploymentMode
 // WatchUnits returns a watcher which notifies when there
 // are changes to units of the specified application.
 func (k *kubernetesClient) WatchUnits(appName string, mode caas.DeploymentMode) (watcher.NotifyWatcher, error) {
-	selector := k.applicationSelector(appName, mode)
-	logger.Debugf("selecting units %q to watch", selector)
+	selector := utils.LabelSetToSelector(utils.LabelsForApp(appName, k.IsLegacyLabels()))
+	logger.Debugf("selecting units %q to watch", selector.String())
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
 		informers.WithTweakListOptions(func(o *v1.ListOptions) {
-			o.LabelSelector = selector
+			o.LabelSelector = selector.String()
 		}),
 	)
 	return k.newWatcher(factory.Core().V1().Pods().Informer(), appName, k.clock)
@@ -2011,7 +2036,7 @@ func (k *kubernetesClient) WatchContainerStart(appName string, containerName str
 	}
 
 	running := func(pod *core.Pod) set.Strings {
-		if _, ok := pod.Annotations[constants.AnnotationUnit()]; !ok {
+		if _, ok := pod.Annotations[constants.AnnotationUnit]; !ok {
 			// Ignore pods that aren't annotated as a unit yet.
 			return set.Strings{}
 		}
@@ -2098,6 +2123,14 @@ func (k *kubernetesClient) WatchService(appName string, mode caas.DeploymentMode
 	return watcher.NewMultiNotifyWatcher(w1, w2), nil
 }
 
+// legacyJujuPVNameRegexp matches how Juju labels persistent volumes.
+// The pattern is: juju-<storagename>-<digit>
+var legacyJujuPVNameRegexp = regexp.MustCompile(`^juju-(?P<storageName>\D+)-\d+$`)
+
+// jujuPVNameRegexp matches how Juju labels persistent volumes.
+// The pattern is: <storagename>-<digit>
+var jujuPVNameRegexp = regexp.MustCompile(`^(?P<storageName>\D+)-\w+$`)
+
 // Units returns all units and any associated filesystems of the specified application.
 // Filesystems are mounted via volumes bound to the unit.
 func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]caas.Unit, error) {
@@ -2166,10 +2199,10 @@ func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]ca
 				continue
 			}
 			if fsInfo.StorageName == "" {
-				if valid := constants.LegacyPVNameRegexp.MatchString(volMount.Name); valid {
-					fsInfo.StorageName = constants.LegacyPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
-				} else if valid := constants.PVNameRegexp.MatchString(volMount.Name); valid {
-					fsInfo.StorageName = constants.PVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
+				if valid := legacyJujuPVNameRegexp.MatchString(volMount.Name); valid {
+					fsInfo.StorageName = legacyJujuPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
+				} else if valid := jujuPVNameRegexp.MatchString(volMount.Name); valid {
+					fsInfo.StorageName = jujuPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
 				}
 			}
 			logger.Debugf("filesystem info for %v: %+v", volMount.Name, *fsInfo)
@@ -2288,6 +2321,34 @@ func (k *kubernetesClient) jujuStatus(podPhase core.PodPhase, terminated bool) s
 		return status.Error
 	case core.PodPending:
 		return status.Allocating
+	default:
+		return status.Unknown
+	}
+}
+
+func (k *kubernetesClient) jujuFilesystemStatus(pvcPhase core.PersistentVolumeClaimPhase) status.Status {
+	switch pvcPhase {
+	case core.ClaimPending:
+		return status.Pending
+	case core.ClaimBound:
+		return status.Attached
+	case core.ClaimLost:
+		return status.Detached
+	default:
+		return status.Unknown
+	}
+}
+
+func (k *kubernetesClient) jujuVolumeStatus(pvPhase core.PersistentVolumePhase) status.Status {
+	switch pvPhase {
+	case core.VolumePending:
+		return status.Pending
+	case core.VolumeBound:
+		return status.Attached
+	case core.VolumeAvailable, core.VolumeReleased:
+		return status.Detached
+	case core.VolumeFailed:
+		return status.Error
 	default:
 		return status.Unknown
 	}
@@ -2524,6 +2585,13 @@ func applicationConfigMapName(deploymentName, fileSetName string) string {
 func appSecretName(deploymentName, containerName string) string {
 	// A pod may have multiple containers with different images and thus different secrets
 	return deploymentName + "-" + containerName + "-secret"
+}
+
+func qualifiedStorageClassName(namespace, storageClass string) string {
+	if namespace == "" {
+		return storageClass
+	}
+	return namespace + "-" + storageClass
 }
 
 func mergeDeviceConstraints(device devices.KubernetesDeviceParams, resources *core.ResourceRequirements) error {

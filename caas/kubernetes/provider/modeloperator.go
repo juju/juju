@@ -15,6 +15,7 @@ import (
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/agent"
@@ -108,7 +109,7 @@ func (m *modelOperatorBrokerBridge) Namespace() string {
 
 func (m *modelOperatorBrokerBridge) IsLegacyLabels() bool {
 	if m.isLegacyLabels == nil {
-		return true
+		return false
 	}
 	return m.isLegacyLabels()
 }
@@ -122,7 +123,7 @@ func ensureModelOperator(
 	operatorName := modelOperatorName
 	modelTag := names.NewModelTag(modelUUID)
 
-	selectorLabels := utils.LabelsForOperator(operatorName, OperatorModelTarget, broker.IsLegacyLabels())
+	selectorLabels := modelOperatorLabels(operatorName, broker.IsLegacyLabels())
 	labels := selectorLabels
 	if !broker.IsLegacyLabels() {
 		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
@@ -361,6 +362,13 @@ func (k *kubernetesClient) modelOperatorDeploymentExists(operatorName string) (b
 		return false, errors.Trace(err)
 	}
 	return true, nil
+}
+
+func modelOperatorLabels(operatorName string, legacy bool) labels.Set {
+	if legacy {
+		return utils.LabelForKeyValue(constants.LegacyLabelModelOperator, operatorName)
+	}
+	return utils.LabelsForOperator(operatorName, OperatorModelTarget, legacy)
 }
 
 func modelOperatorService(

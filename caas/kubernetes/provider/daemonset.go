@@ -92,10 +92,15 @@ func (k *kubernetesClient) listDaemonSets(labels map[string]string) ([]apps.Daem
 }
 
 func (k *kubernetesClient) deleteDaemonSets(appName string) error {
+	labels := k.getDaemonSetLabels(appName)
+	if !k.IsLegacyLabels() {
+		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
+	}
+
 	err := k.client().AppsV1().DaemonSets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(k.getDaemonSetLabels(appName)).String(),
+		LabelSelector: utils.LabelSetToSelector(labels).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

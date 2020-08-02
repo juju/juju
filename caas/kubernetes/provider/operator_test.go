@@ -21,12 +21,12 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/testing"
 )
 
 type OperatorSuite struct {
-	testing.BaseSuite
 }
 
 var _ = gc.Suite(&OperatorSuite{})
@@ -39,8 +39,11 @@ var operatorAnnotations = map[string]string{
 
 var operatorServiceArg = &core.Service{
 	ObjectMeta: v1.ObjectMeta{
-		Name:   "test-operator",
-		Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+		Name: "test-operator",
+		Labels: utils.LabelsMerge(
+			utils.LabelsJuju,
+			utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+		),
 		Annotations: map[string]string{
 			"fred":               "mary",
 			"juju.is/version":    "2.99.0",
@@ -48,7 +51,7 @@ var operatorServiceArg = &core.Service{
 		},
 	},
 	Spec: core.ServiceSpec{
-		Selector: map[string]string{"operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+		Selector: utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
 		Type:     "ClusterIP",
 		Ports: []core.ServicePort{
 			{Port: 30666, TargetPort: intstr.FromInt(30666), Protocol: "TCP"},
@@ -139,18 +142,21 @@ $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 func operatorStatefulSetArg(numUnits int32, scName, serviceAccountName string, withStorage bool) *appsv1.StatefulSet {
 	ss := &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name: "test-operator",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+				MatchLabels: utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+					Labels: utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
 					Annotations: map[string]string{
 						"fred":               "mary",
 						"juju.is/version":    "2.99.0",
@@ -190,11 +196,11 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 		"fred":               "mary",
 		"juju.io/controller": testing.ControllerTag.Id(),
 	}
-	labels := map[string]string{"operator.juju.is/name": "gitlab", "operator.juju.is/target": "application"}
+	labels := utils.LabelsForOperator("gitlab", provider.OperatorAppTarget, false)
 	pod, err := provider.OperatorPod("gitlab", "gitlab", "10666", "/var/lib/juju", "jujusolutions/jujud-operator", "2.99.0", labels, tags, "operator-service-account")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pod.Name, gc.Equals, "gitlab")
-	c.Assert(pod.Labels, jc.DeepEquals, labels)
+	c.Assert(pod.Labels, jc.DeepEquals, map[string]string(labels))
 	c.Assert(pod.Annotations, jc.DeepEquals, map[string]string{
 		"fred":               "mary",
 		"juju.io/controller": testing.ControllerTag.Id(),
@@ -280,18 +286,24 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -309,9 +321,12 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -377,8 +392,11 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 
 	configMapArg := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator-config",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name: "test-operator-config",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		Data: map[string]string{
@@ -389,18 +407,24 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -418,9 +442,12 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -491,8 +518,11 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 
 	configMapArg := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator-config",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name: "test-operator-config",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 			Generation:  1234,
 		},
@@ -504,18 +534,24 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -533,9 +569,12 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -631,8 +670,11 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
 
 	configMapArg := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator-config",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name: "test-operator-config",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		Data: map[string]string{
@@ -643,18 +685,24 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -672,9 +720,12 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -763,8 +814,11 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
 
 	configMapArg := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator-config",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name: "test-operator-config",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		Data: map[string]string{
@@ -775,18 +829,24 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -804,9 +864,12 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -878,9 +941,12 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
@@ -888,9 +954,12 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 	svcAccountUID := svcAccount.GetUID()
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -909,9 +978,12 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 	roleUID := role.GetUID()
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: utils.LabelsMerge(
+				utils.LabelsJuju,
+				utils.LabelsForOperator("test", provider.OperatorAppTarget, false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -1091,7 +1163,7 @@ func (s *K8sBrokerSuite) TestOperatorExists(c *gc.C) {
 
 	exists, err := s.broker.OperatorExists("test-app")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.DeepEquals, caas.DeploymentState{
+	c.Assert(exists, jc.DeepEquals, caas.OperatorState{
 		Exists:      true,
 		Terminating: false,
 	})
@@ -1114,7 +1186,7 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminating(c *gc.C) {
 
 	exists, err := s.broker.OperatorExists("test-app")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.DeepEquals, caas.DeploymentState{
+	c.Assert(exists, jc.DeepEquals, caas.OperatorState{
 		Exists:      true,
 		Terminating: true,
 	})
@@ -1145,15 +1217,11 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminated(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Get(gomock.Any(), "test-app-operator", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockPods.EXPECT().List(gomock.Any(), v1.ListOptions{
-			LabelSelector: "operator.juju.is/name=test-app,operator.juju.is/target=application",
-		}).
-			Return(&core.PodList{}, nil),
 	)
 
 	exists, err := s.broker.OperatorExists("test-app")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.DeepEquals, caas.DeploymentState{
+	c.Assert(exists, jc.DeepEquals, caas.OperatorState{
 		Exists:      false,
 		Terminating: false,
 	})
@@ -1188,7 +1256,7 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminatedMostly(c *gc.C) {
 
 	exists, err := s.broker.OperatorExists("test-app")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.DeepEquals, caas.DeploymentState{
+	c.Assert(exists, jc.DeepEquals, caas.OperatorState{
 		Exists:      true,
 		Terminating: true,
 	})

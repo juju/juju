@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
 	"github.com/juju/juju/cloudconfig/podcfg"
@@ -326,21 +327,26 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	APIPort := s.controllerCfg.APIPort()
 	ns := &core.Namespace{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   s.getNamespace(),
-			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "model.juju.is/name": "controller-1"},
+			Name: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForModel("controller-1", false),
+				utils.LabelsJuju),
 		},
 	}
 	ns.Name = s.getNamespace()
 	s.ensureJujuNamespaceAnnotations(true, ns)
 	svcNotProvisioned := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-service",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
+			Name:      "juju-controller-test-service",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"app.kubernetes.io/name": "juju-controller-test"},
+			Selector: utils.LabelsForApp("juju-controller-test", false),
 			Type:     core.ServiceType("ClusterIP"),
 			Ports: []core.ServicePort{
 				{
@@ -356,13 +362,16 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	svcPublicIP := "1.1.1.1"
 	svcProvisioned := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-service",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
+			Name:      "juju-controller-test-service",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"app.kubernetes.io/name": "juju-controller-test"},
+			Selector: utils.LabelsForApp("juju-controller-test", false),
 			Type:     core.ServiceType("LoadBalancer"),
 			Ports: []core.ServicePort{
 				{
@@ -377,18 +386,24 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 
 	emptySecret := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-secret",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
+			Name:      "juju-controller-test-secret",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Type: core.SecretTypeOpaque,
 	}
 	secretWithSharedSecretAdded := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-secret",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
+			Name:      "juju-controller-test-secret",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Type: core.SecretTypeOpaque,
@@ -398,9 +413,12 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	}
 	secretWithServerPEMAdded := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-secret",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
+			Name:      "juju-controller-test-secret",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Type: core.SecretTypeOpaque,
@@ -412,9 +430,12 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 
 	emptyConfigMap := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-configmap",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
+			Name:      "juju-controller-test-configmap",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 	}
@@ -423,9 +444,12 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 
 	configMapWithBootstrapParamsAdded := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-configmap",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
+			Name:      "juju-controller-test-configmap",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Data: map[string]string{
@@ -434,9 +458,12 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	}
 	configMapWithAgentConfAdded := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-configmap",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
+			Name:      "juju-controller-test-configmap",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Data: map[string]string{
@@ -449,22 +476,28 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	fileMode := int32(256)
 	statefulSetSpec := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
+			Name:      "juju-controller-test",
+			Namespace: s.getNamespace(),
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("juju-controller-test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: apps.StatefulSetSpec{
 			ServiceName: "juju-controller-test-service",
 			Replicas:    &numberOfPods,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"app.kubernetes.io/name": "juju-controller-test"},
+				MatchLabels: utils.LabelsForApp("juju-controller-test", false),
 			},
 			VolumeClaimTemplates: []core.PersistentVolumeClaim{
 				{
 					ObjectMeta: v1.ObjectMeta{
-						Name:        "storage",
-						Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
+						Name: "storage",
+						Labels: utils.LabelsMerge(
+							utils.LabelsForApp("juju-controller-test", false),
+							utils.LabelsJuju,
+						),
 						Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 					},
 					Spec: core.PersistentVolumeClaimSpec{
@@ -482,7 +515,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:        "controller-0",
 					Namespace:   s.getNamespace(),
-					Labels:      map[string]string{"app.kubernetes.io/name": "juju-controller-test"},
+					Labels:      utils.LabelsForApp("juju-controller-test", false),
 					Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 				},
 				Spec: core.PodSpec{

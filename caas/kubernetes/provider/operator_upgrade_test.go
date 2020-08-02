@@ -65,6 +65,10 @@ func (d *DummyUpgradeCAASOperator) OperatorName(n string) string {
 	return n
 }
 
+func (d *DummyUpgradeCAASOperator) IsLegacyLabels() bool {
+	return false
+}
+
 func (o *OperatorUpgraderSuite) SetUpTest(c *gc.C) {
 	o.broker = &DummyUpgradeCAASOperator{
 		client: fake.NewSimpleClientset(),

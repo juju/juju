@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/mocks"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/testing"
@@ -42,8 +43,11 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8ssp
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   "app-name",
-			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
+			Name: "app-name",
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("app-name", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{
 				"juju-app-uuid":                  "appuuid",
 				"juju.io/controller":             testing.ControllerTag.Id(),
@@ -53,12 +57,12 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8ssp
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
+				MatchLabels: utils.LabelsForApp("app-name", false),
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"app.kubernetes.io/name": "app-name"},
+					Labels: utils.LabelsForApp("app-name", false),
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
@@ -181,8 +185,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreate(c *gc.
 
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "tfjobs.kubeflow.org",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Name: "tfjobs.kubeflow.org",
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("app-name", false),
+				utils.LabelsForModel("test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
@@ -293,8 +301,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdate(c *gc.
 
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "tfjobs.kubeflow.org",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Name: "tfjobs.kubeflow.org",
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("app-name", false),
+				utils.LabelsForModel("test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
@@ -366,8 +378,11 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   "app-name",
-			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
+			Name: "app-name",
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("app-name", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{
 				"juju-app-uuid":                  "appuuid",
 				"juju.io/controller":             testing.ControllerTag.Id(),
@@ -377,12 +392,12 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
+				MatchLabels: utils.LabelsForApp("app-name", false),
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"app.kubernetes.io/name": "app-name"},
+					Labels: utils.LabelsForApp("app-name", false),
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
@@ -560,10 +575,16 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 
 	cr1 := getCR1()
 	cr1.SetLabels(map[string]string{"juju-app": "app-name"})
-	cr1.SetLabels(map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"})
+	cr1.SetLabels(utils.LabelsMerge(
+		utils.LabelsForApp("app-name", false),
+		utils.LabelsJuju,
+	))
 	cr1.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
 	cr2 := getCR2()
-	cr2.SetLabels(map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"})
+	cr2.SetLabels(utils.LabelsMerge(
+		utils.LabelsForApp("app-name", false),
+		utils.LabelsJuju,
+	))
 	cr2.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
 
 	crs := map[string][]unstructured.Unstructured{
@@ -574,8 +595,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "tfjobs.kubeflow.org",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Name: "tfjobs.kubeflow.org",
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("app-name", false),
+				utils.LabelsForModel("test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
@@ -678,19 +703,31 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 	crRaw2 := getCR2()
 
 	cr1 := getCR1()
-	cr1.SetLabels(map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"})
+	cr1.SetLabels(utils.LabelsMerge(
+		utils.LabelsForApp("app-name", false),
+		utils.LabelsJuju,
+	))
 	cr1.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
 	cr2 := getCR2()
-	cr2.SetLabels(map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"})
+	cr2.SetLabels(utils.LabelsMerge(
+		utils.LabelsForApp("app-name", false),
+		utils.LabelsJuju,
+	))
 	cr2.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
 
 	crUpdatedResourceVersion1 := getCR1()
-	crUpdatedResourceVersion1.SetLabels(map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"})
+	crUpdatedResourceVersion1.SetLabels(utils.LabelsMerge(
+		utils.LabelsForApp("app-name", false),
+		utils.LabelsJuju,
+	))
 	crUpdatedResourceVersion1.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
 	crUpdatedResourceVersion1.SetResourceVersion("11111")
 
 	crUpdatedResourceVersion2 := getCR2()
-	crUpdatedResourceVersion2.SetLabels(map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"})
+	crUpdatedResourceVersion2.SetLabels(utils.LabelsMerge(
+		utils.LabelsForApp("app-name", false),
+		utils.LabelsJuju,
+	))
 	crUpdatedResourceVersion2.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
 	crUpdatedResourceVersion2.SetResourceVersion("11111")
 
@@ -702,8 +739,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "tfjobs.kubeflow.org",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Name: "tfjobs.kubeflow.org",
+			Labels: utils.LabelsMerge(
+				utils.LabelsForApp("app-name", false),
+				utils.LabelsForModel("test", false),
+				utils.LabelsJuju,
+			),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{

@@ -18,7 +18,11 @@ import (
 )
 
 func getServiceLabels(appName string, legacy bool) map[string]string {
-	return utils.LabelsForApp(appName, legacy)
+	labels := utils.LabelsForApp(appName, legacy)
+	if !legacy {
+		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
+	}
+	return labels
 }
 
 func (k *kubernetesClient) ensureServicesForApp(appName string, annotations k8sannotations.Annotation, services []k8sspecs.K8sService) (cleanUps []func(), err error) {
@@ -67,7 +71,7 @@ func (k *kubernetesClient) ensureK8sService(spec *core.Service) (func(), error) 
 func (k *kubernetesClient) deleteService(serviceName string) error {
 	services := k.client().CoreV1().Services(k.namespace)
 	err := services.Delete(context.TODO(), serviceName, v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
+		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

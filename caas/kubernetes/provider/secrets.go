@@ -21,7 +21,11 @@ import (
 )
 
 func getSecretLabels(appName string, legacy bool) map[string]string {
-	return utils.LabelsForApp(appName, legacy)
+	labels := utils.LabelsForApp(appName, legacy)
+	if !legacy {
+		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
+	}
+	return labels
 }
 
 func processSecretData(in map[string]string) (_ map[string][]byte, err error) {
@@ -171,7 +175,7 @@ func (k *kubernetesClient) listSecrets(labels map[string]string) ([]core.Secret,
 
 func (k *kubernetesClient) deleteSecrets(appName string) error {
 	err := k.client().CoreV1().Secrets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
+		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	}, v1.ListOptions{
 		LabelSelector: utils.LabelSetToSelector(
 			getSecretLabels(appName, k.IsLegacyLabels())).String(),

@@ -13,7 +13,6 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sstorage "github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/caas/specs"
 	k8sannotations "github.com/juju/juju/core/annotations"
@@ -65,12 +64,16 @@ func (k *kubernetesClient) configureStatefulSet(
 		return errors.Trace(err)
 	}
 
-	selectorLabels := utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())
+	selectorLabels := k.getStatefulSetLabels(appName)
+	labels := selectorLabels
+	if !k.IsLegacyLabels() {
+		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
+	}
 
 	statefulSet := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
-			Labels: k.getStatefulSetLabels(appName),
+			Labels: labels,
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
 				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
@@ -107,7 +110,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		if readOnly {
 			logger.Warningf("set storage mode to ReadOnlyMany if read only storage is needed")
 		}
-		if err := k8sstorage.PushUniqueVolumeClaimTemplate(&statefulSet.Spec, pvc); err != nil {
+		if err := pushUniqueVolumeClaimTemplate(&statefulSet.Spec, pvc); err != nil {
 			return errors.Trace(err)
 		}
 		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
@@ -187,7 +190,7 @@ func (k *kubernetesClient) getStatefulSet(name string) (*apps.StatefulSet, error
 // deleteStatefulSet deletes a statefulset resource.
 func (k *kubernetesClient) deleteStatefulSet(name string) error {
 	err := k.client().AppsV1().StatefulSets(k.namespace).Delete(context.TODO(), name, v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
+		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -197,10 +200,14 @@ func (k *kubernetesClient) deleteStatefulSet(name string) error {
 
 // deleteStatefulSet deletes all statefulset resources for an application.
 func (k *kubernetesClient) deleteStatefulSets(appName string) error {
+	labels := k.getStatefulSetLabels(appName)
+	if !k.IsLegacyLabels() {
+		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
+	}
 	err := k.client().AppsV1().StatefulSets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
+		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(k.getStatefulSetLabels(appName)).String(),
+		LabelSelector: utils.LabelSetToSelector(labels).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

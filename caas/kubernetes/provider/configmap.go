@@ -18,7 +18,11 @@ import (
 )
 
 func (k *kubernetesClient) getConfigMapLabels(appName string) map[string]string {
-	return utils.LabelsForApp(appName, k.IsLegacyLabels())
+	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
+	if !k.IsLegacyLabels() {
+		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
+	}
+	return labels
 }
 
 func (k *kubernetesClient) ensureConfigMaps(
@@ -142,7 +146,7 @@ func (k *kubernetesClient) listConfigMaps(labels map[string]string) ([]core.Conf
 
 func (k *kubernetesClient) deleteConfigMaps(appName string) error {
 	err := k.client().CoreV1().ConfigMaps(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
+		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	}, v1.ListOptions{
 		LabelSelector: utils.LabelSetToSelector(k.getConfigMapLabels(appName)).String(),
 	})
