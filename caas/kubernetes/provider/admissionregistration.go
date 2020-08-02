@@ -21,10 +21,14 @@ import (
 )
 
 func (k *kubernetesClient) getAdmissionControllerLabels(appName string) map[string]string {
-	return map[string]string{
-		constants.LabelApplication: appName,
-		constants.LabelModel:       k.namespace,
+	labels := utils.LabelsMerge(
+		utils.LabelsForApp(appName, k.IsLegacyLabels()),
+		utils.LabelsForModel(k.CurrentModel(), k.IsLegacyLabels()),
+	)
+	if !k.IsLegacyLabels() {
+		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
 	}
+	return labels
 }
 
 var annotationDisableNamePrefixKey = constants.AnnotationKey("disable-name-prefix")
@@ -47,7 +51,7 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurations(
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        decideNameForGlobalResource(v.Meta, k.namespace),
 				Namespace:   k.namespace,
-				Labels:      k8slabels.Merge(v.Labels, k.getAdmissionControllerLabels(appName)),
+				Labels:      utils.LabelsMerge(v.Labels, k.getAdmissionControllerLabels(appName)),
 				Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
 			},
 			Webhooks: v.Webhooks,

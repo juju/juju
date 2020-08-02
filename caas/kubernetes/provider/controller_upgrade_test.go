@@ -42,6 +42,10 @@ func (d *dummyUpgradeCAASController) Namespace() string {
 	return "test"
 }
 
+func (d *dummyUpgradeCAASController) IsLegacyLabels() bool {
+	return false
+}
+
 func (s *ControllerUpgraderSuite) SetUpTest(c *gc.C) {
 	s.broker = &dummyUpgradeCAASController{
 		client: fake.NewSimpleClientset(),
@@ -86,8 +90,8 @@ func (s *ControllerUpgraderSuite) TestControllerUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ss.Spec.Template.Spec.Containers[0].Image, gc.Equals, newImagePath)
 
-	c.Assert(ss.Annotations[constants.LabelVersion], gc.Equals, version.MustParse("9.9.9").String())
-	c.Assert(ss.Spec.Template.Annotations[constants.LabelVersion], gc.Equals, version.MustParse("9.9.9").String())
+	c.Assert(ss.Annotations[constants.AnnotationJujuVersion], gc.Equals, version.MustParse("9.9.9").String())
+	c.Assert(ss.Spec.Template.Annotations[constants.AnnotationJujuVersion], gc.Equals, version.MustParse("9.9.9").String())
 }
 
 func (s *ControllerUpgraderSuite) TestControllerDoesNotExist(c *gc.C) {

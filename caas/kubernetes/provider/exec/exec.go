@@ -82,7 +82,10 @@ func NewInCluster(namespace string) (Executor, error) {
 }
 
 // NewForJujuCloudSpec returns a exec client.
-func NewForJujuCloudSpec(modelName string, cloudSpec cloudspec.CloudSpec) (Executor, error) {
+func NewForJujuCloudSpec(
+	modelName string,
+	cloudSpec cloudspec.CloudSpec,
+) (Executor, error) {
 	restCfg, err := provider.CloudSpecToK8sRestConfig(cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -91,9 +94,15 @@ func NewForJujuCloudSpec(modelName string, cloudSpec cloudspec.CloudSpec) (Execu
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	legacyLabels, err := k8sutils.IsLegacyModelLabels(modelName, c.CoreV1().Namespaces())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	namespace := modelName
 	if modelName == environsbootstrap.ControllerModelName {
-		namespace, err = modelNameToNameSpace(modelName, c.CoreV1().Namespaces())
+		namespace, err = modelNameToNameSpace(modelName, legacyLabels, c.CoreV1().Namespaces())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -101,9 +110,14 @@ func NewForJujuCloudSpec(modelName string, cloudSpec cloudspec.CloudSpec) (Execu
 	return New(namespace, c, restCfg), nil
 }
 
-func modelNameToNameSpace(modelName string, client typedcorev1.NamespaceInterface) (string, error) {
+func modelNameToNameSpace(
+	modelName string,
+	legacyLabels bool,
+	client typedcorev1.NamespaceInterface,
+) (string, error) {
 	out, err := client.List(context.TODO(), metav1.ListOptions{
-		LabelSelector: k8slabels.SelectorFromValidatedSet(k8sutils.LabelsForModel(modelName)).String(),
+		LabelSelector: k8slabels.SelectorFromValidatedSet(
+			k8sutils.LabelsForModel(modelName, legacyLabels)).String(),
 	})
 	if err != nil {
 		return "", errors.Trace(err)

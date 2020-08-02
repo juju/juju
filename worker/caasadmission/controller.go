@@ -31,6 +31,7 @@ func NewController(
 	logger Logger,
 	mux Mux,
 	path string,
+	legacyLabels bool,
 	admissionCreator AdmissionCreator,
 	rbacMapper RBACMapper) (*Controller, error) {
 
@@ -41,7 +42,8 @@ func NewController(
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &c.catacomb,
 		Work: c.makeLoop(admissionCreator,
-			admissionHandler(logger, rbacMapper), logger, mux, path),
+			admissionHandler(logger, rbacMapper, legacyLabels),
+			logger, mux, path),
 	}); err != nil {
 		return c, errors.Trace(err)
 	}
