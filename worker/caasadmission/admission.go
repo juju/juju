@@ -46,6 +46,7 @@ func (a AdmissionCreatorFunc) EnsureMutatingWebhookConfiguration() (func(), erro
 func NewAdmissionCreator(
 	authority pki.Authority,
 	namespace, modelName string,
+	legacyLabels bool,
 	ensureConfig func(*admission.MutatingWebhookConfiguration) (func(), error),
 	service *admission.ServiceReference) (AdmissionCreator, error) {
 
@@ -64,7 +65,7 @@ func NewAdmissionCreator(
 	// MutatingWebjook Obj
 	obj := admission.MutatingWebhookConfiguration{
 		ObjectMeta: meta.ObjectMeta{
-			Labels:    provider.LabelsForModel(modelName),
+			Labels:    provider.LabelsForModel(modelName, legacyLabels),
 			Name:      fmt.Sprintf("juju-model-admission-%s", namespace),
 			Namespace: namespace,
 		},
@@ -79,7 +80,7 @@ func NewAdmissionCreator(
 				MatchPolicy:   &matchPolicy,
 				Name:          provider.MakeK8sDomain(Component),
 				NamespaceSelector: &meta.LabelSelector{
-					MatchLabels: provider.LabelsForModel(modelName),
+					MatchLabels: provider.LabelsForModel(modelName, legacyLabels),
 				},
 				Rules: []admission.RuleWithOperations{
 					{

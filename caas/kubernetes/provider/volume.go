@@ -176,7 +176,7 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner)
 		sc.VolumeBindingMode = &bindMode
 	}
 	if cfg.Namespace != "" {
-		sc.Labels = map[string]string{labelModel: k.namespace}
+		sc.Labels = LabelsForModel(k.CurrentModel(), k.IsLegacyLabels())
 	}
 	_, err = k.client().StorageV1().StorageClasses().Create(sc)
 	if err != nil {
@@ -307,11 +307,17 @@ func (k *kubernetesClient) filesystemToVolumeInfo(
 		return nil, nil, errors.Annotatef(err, "finding volume for %s", fs.StorageName)
 	}
 
+	labels := LabelsMerge(
+		LabelsForStorage(fs.StorageName, k.IsLegacyLabels()),
+		LabelsJuju)
+
 	pvc = &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
 			Name: params.pvcName,
 			Annotations: resourceTagsToAnnotations(fs.ResourceTags).
-				Add(labelStorage, fs.StorageName).ToMap(),
+				Merge(AnnotationsForStorage(fs.StorageName, k.IsLegacyLabels())).
+				ToMap(),
+			Labels: labels,
 		},
 		Spec: *pvcSpec,
 	}
@@ -360,7 +366,7 @@ func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.Volum
 		return nil, nil
 	}
 
-	storageName := pvc.Labels[labelStorage]
+	storageName := StorageNameFromLabels(pvc.Labels)
 	if storageName == "" {
 		if valid := legacyJujuPVNameRegexp.MatchString(volMount.Name); valid {
 			storageName = legacyJujuPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")

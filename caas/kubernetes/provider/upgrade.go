@@ -36,7 +36,13 @@ func (k *kubernetesClient) Upgrade(agentTag string, vers version.Number) error {
 	return errors.NotImplementedf("k8s upgrade for agent tag %q", agentTag)
 }
 
-func upgradeDeployment(name, imagePath string, vers version.Number, broker appstyped.DeploymentInterface) error {
+func upgradeDeployment(
+	name,
+	imagePath string,
+	vers version.Number,
+	legacyLabels bool,
+	broker appstyped.DeploymentInterface,
+) error {
 	de, err := broker.Get(name, meta.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf(
@@ -57,11 +63,11 @@ func upgradeDeployment(name, imagePath string, vers version.Number, broker appst
 	// just ensure juju-version to current version for now.
 	de.SetAnnotations(
 		k8sannotations.New(de.GetAnnotations()).
-			Add(labelVersion, vers.String()).ToMap(),
+			Merge(AnnotationsForVersion(vers.String(), legacyLabels)).ToMap(),
 	)
 	de.Spec.Template.SetAnnotations(
 		k8sannotations.New(de.Spec.Template.GetAnnotations()).
-			Add(labelVersion, vers.String()).ToMap(),
+			Merge(AnnotationsForVersion(vers.String(), legacyLabels)).ToMap(),
 	)
 
 	if _, err := broker.Update(de); err != nil {
@@ -71,7 +77,13 @@ func upgradeDeployment(name, imagePath string, vers version.Number, broker appst
 	return nil
 }
 
-func upgradeStatefulSet(name, imagePath string, vers version.Number, broker appstyped.StatefulSetInterface) error {
+func upgradeStatefulSet(
+	name,
+	imagePath string,
+	vers version.Number,
+	legacyLabels bool,
+	broker appstyped.StatefulSetInterface,
+) error {
 	ss, err := broker.Get(name, meta.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf(
@@ -92,11 +104,11 @@ func upgradeStatefulSet(name, imagePath string, vers version.Number, broker apps
 	// just ensure juju-version to current version for now.
 	ss.SetAnnotations(
 		k8sannotations.New(ss.GetAnnotations()).
-			Add(labelVersion, vers.String()).ToMap(),
+			Merge(AnnotationsForVersion(vers.String(), legacyLabels)).ToMap(),
 	)
 	ss.Spec.Template.SetAnnotations(
 		k8sannotations.New(ss.Spec.Template.GetAnnotations()).
-			Add(labelVersion, vers.String()).ToMap(),
+			Merge(AnnotationsForVersion(vers.String(), legacyLabels)).ToMap(),
 	)
 
 	if _, err := broker.Update(ss); err != nil {

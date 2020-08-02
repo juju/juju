@@ -12,9 +12,11 @@ import (
 )
 
 func (k *kubernetesClient) getDaemonSetLabels(appName string) map[string]string {
-	return map[string]string{
-		labelApplication: appName,
+	labels := LabelsForApp(appName, k.IsLegacyLabels())
+	if !k.IsLegacyLabels() {
+		labels = LabelsMerge(labels, LabelsJuju)
 	}
+	return labels
 }
 
 func (k *kubernetesClient) ensureDaemonSet(spec *apps.DaemonSet) (func(), error) {
@@ -76,7 +78,7 @@ func (k *kubernetesClient) deleteDaemonSet(name string, uid types.UID) error {
 
 func (k *kubernetesClient) listDaemonSets(labels map[string]string) ([]apps.DaemonSet, error) {
 	listOps := v1.ListOptions{
-		LabelSelector: labelSetToSelector(labels).String(),
+		LabelSelector: LabelSetToSelector(labels).String(),
 	}
 	out, err := k.client().AppsV1().DaemonSets(k.namespace).List(listOps)
 	if err != nil {
@@ -92,7 +94,7 @@ func (k *kubernetesClient) deleteDaemonSets(appName string) error {
 	err := k.client().AppsV1().DaemonSets(k.namespace).DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector: labelSetToSelector(k.getDaemonSetLabels(appName)).String(),
+		LabelSelector: LabelSetToSelector(k.getDaemonSetLabels(appName)).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

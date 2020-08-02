@@ -29,16 +29,22 @@ import (
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/crd_getter_mock.go github.com/juju/juju/caas/kubernetes/provider CRDGetterInterface
 
 func (k *kubernetesClient) getAPIExtensionLabelsGlobal(appName string) map[string]string {
-	return map[string]string{
-		labelApplication: appName,
-		labelModel:       k.namespace,
+	labels := LabelsMerge(
+		LabelsForApp(appName, k.IsLegacyLabels()),
+		LabelsForModel(k.CurrentModel(), k.IsLegacyLabels()),
+	)
+	if !k.IsLegacyLabels() {
+		labels = k8slabels.Merge(labels, LabelsJuju)
 	}
+	return labels
 }
 
 func (k *kubernetesClient) getAPIExtensionLabelsNamespaced(appName string) map[string]string {
-	return map[string]string{
-		labelApplication: appName,
+	labels := LabelsForApp(appName, k.IsLegacyLabels())
+	if !k.IsLegacyLabels() {
+		labels = k8slabels.Merge(labels, LabelsJuju)
 	}
+	return labels
 }
 
 func (k *kubernetesClient) getCRLabels(appName string, scope apiextensionsv1beta1.ResourceScope) map[string]string {
@@ -128,7 +134,7 @@ func (k *kubernetesClient) listCustomResourceDefinitions(selector k8slabels.Sele
 
 func (k *kubernetesClient) deleteCustomResourceDefinitionsForApp(appName string) error {
 	selector := mergeSelectors(
-		labelSetToSelector(k.getAPIExtensionLabelsGlobal(appName)),
+		LabelSetToSelector(k.getAPIExtensionLabelsGlobal(appName)),
 		lifecycleApplicationRemovalSelector,
 	)
 	return errors.Trace(k.deleteCustomResourceDefinitions(selector))
@@ -149,7 +155,7 @@ func (k *kubernetesClient) deleteCustomResourceDefinitions(selector k8slabels.Se
 func (k *kubernetesClient) deleteCustomResourcesForApp(appName string) error {
 	selectorGetter := func(crd apiextensionsv1beta1.CustomResourceDefinition) k8slabels.Selector {
 		return mergeSelectors(
-			labelSetToSelector(k.getCRLabels(appName, crd.Spec.Scope)),
+			LabelSetToSelector(k.getCRLabels(appName, crd.Spec.Scope)),
 			lifecycleApplicationRemovalSelector,
 		)
 	}

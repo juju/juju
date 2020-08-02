@@ -68,12 +68,6 @@ const (
 	// Kubernetes
 	Domain = "juju.is"
 
-	labelOperator    = "juju-operator"
-	labelStorage     = "juju-storage"
-	labelVersion     = "juju-version"
-	labelApplication = "juju-app"
-	labelModel       = "juju-model"
-
 	// annotationKeyApplicationUUID is the key of annotation for recording pvc unique ID.
 	annotationKeyApplicationUUID = "juju-app-uuid"
 
@@ -163,6 +157,10 @@ type kubernetesClient struct {
 	// informerFactoryUnlocked informer factory setup for tracking this model
 	informerFactoryUnlocked informers.SharedInformerFactory
 
+	// isLegacyLabels describes if this client should use and implement legacy
+	// labels or new ones
+	isLegacyLabels bool
+
 	// randomPrefix generates an annotation for stateful sets.
 	randomPrefix RandomPrefixFunc
 }
@@ -217,6 +215,13 @@ func newK8sBroker(
 		return nil, errors.NotValidf("modelUUID is required")
 	}
 
+	isLegacy, err := IsLegacyModelLabels(
+		newCfg.Config.Name(), k8sClient.CoreV1().Namespaces())
+	if err != nil {
+		return nil, errors.Annotatef(err,
+			"determining legacy label status for model %s", newCfg.Config.Name())
+	}
+
 	client := &kubernetesClient{
 		clock:                       clock,
 		clientUnlocked:              k8sClient,
@@ -238,6 +243,7 @@ func newK8sBroker(
 		randomPrefix:      randomPrefix,
 		annotations: k8sannotations.New(nil).
 			Add(annotationModelUUIDKey, modelUUID),
+		isLegacyLabels: isLegacy,
 	}
 	if controllerUUID != "" {
 		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
@@ -647,9 +653,16 @@ func getSvcAddresses(svc *core.Service, includeClusterIP bool) []network.Provide
 // GetService returns the service for the specified application.
 func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, includeClusterIP bool) (*caas.Service, error) {
 	services := k.client().CoreV1().Services(k.namespace)
+
+	appSelector, err := AppLabelSelector(appName)
+	if err != nil {
+		return nil, errors.Annotate(err, "generating service app label selector")
+	}
+
 	servicesList, err := services.List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName, mode),
+		LabelSelector: appSelector.String(),
 	})
+
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1630,7 +1643,7 @@ func (k *kubernetesClient) configureDeployment(
 	deployment := &apps.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
-			Labels: LabelsForApp(appName),
+			Labels: k8slabels.Merge(LabelsForApp(appName, k.IsLegacyLabels()), LabelsJuju),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
 				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
@@ -1640,12 +1653,12 @@ func (k *kubernetesClient) configureDeployment(
 			Replicas:             replicas,
 			RevisionHistoryLimit: int32Ptr(deploymentRevisionHistoryLimit),
 			Selector: &v1.LabelSelector{
-				MatchLabels: LabelsForApp(appName),
+				MatchLabels: LabelsForApp(appName, k.IsLegacyLabels()),
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
-					Labels:       LabelsForApp(appName),
+					Labels:       LabelsForApp(appName, k.IsLegacyLabels()),
 					Annotations:  podAnnotations(annotations.Copy()).ToMap(),
 				},
 				Spec: workloadSpec.Pod,
@@ -1732,7 +1745,7 @@ func (k *kubernetesClient) deleteDeployments(appName string) error {
 	err := k.client().AppsV1().Deployments(k.namespace).DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector: labelSetToSelector(LabelsForApp(appName)).String(),
+		LabelSelector: LabelSetToSelector(LabelsForApp(appName, k.IsLegacyLabels())).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -1845,11 +1858,11 @@ func (k *kubernetesClient) configureService(
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        deploymentName,
-			Labels:      LabelsForApp(appName),
+			Labels:      LabelsForApp(appName, k.IsLegacyLabels()),
 			Annotations: annotations,
 		},
 		Spec: core.ServiceSpec{
-			Selector:                 LabelsForApp(appName),
+			Selector:                 LabelsForApp(appName, k.IsLegacyLabels()),
 			Type:                     serviceType,
 			Ports:                    ports,
 			ExternalIPs:              config.Get(serviceExternalIPsConfigKey, []string(nil)).([]string),
@@ -1869,13 +1882,13 @@ func (k *kubernetesClient) configureHeadlessService(
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   headlessServiceName(deploymentName),
-			Labels: LabelsForApp(appName),
+			Labels: LabelsForApp(appName, k.IsLegacyLabels()),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
 				Add("service.alpha.kubernetes.io/tolerate-unready-endpoints", "true").ToMap(),
 		},
 		Spec: core.ServiceSpec{
-			Selector:                 LabelsForApp(appName),
+			Selector:                 LabelsForApp(appName, k.IsLegacyLabels()),
 			Type:                     core.ServiceTypeClusterIP,
 			ClusterIP:                "None",
 			PublishNotReadyAddresses: true,
@@ -1951,19 +1964,11 @@ func (k *kubernetesClient) UnexposeService(appName string) error {
 	return errors.Trace(k.deleteIngress(deploymentName, ""))
 }
 
-func operatorSelector(appName string) string {
-	return labelSetToSelector(map[string]string{
-		labelOperator: appName,
-	}).String()
-}
-
-func applicationSelector(appName string, mode caas.DeploymentMode) string {
+func (k *kubernetesClient) applicationSelector(appName string, mode caas.DeploymentMode) string {
 	if mode == caas.ModeOperator {
-		return operatorSelector(appName)
+		return k.operatorSelector(appName)
 	}
-	return labelSetToSelector(map[string]string{
-		labelApplication: appName,
-	}).String()
+	return LabelSetToSelector(LabelsForApp(appName, k.IsLegacyLabels())).String()
 }
 
 // AnnotateUnit annotates the specified pod (name or uid) with a unit tag.
@@ -1976,7 +1981,7 @@ func (k *kubernetesClient) AnnotateUnit(appName string, mode caas.DeploymentMode
 			return errors.Trace(err)
 		}
 		pods, err := pods.List(v1.ListOptions{
-			LabelSelector: applicationSelector(appName, mode),
+			LabelSelector: k.applicationSelector(appName, mode),
 		})
 		// TODO(caas): remove getting pod by Id (a bit expensive) once we started to store podName in cloudContainer doc.
 		if err != nil {
@@ -2013,12 +2018,15 @@ func (k *kubernetesClient) AnnotateUnit(appName string, mode caas.DeploymentMode
 // WatchUnits returns a watcher which notifies when there
 // are changes to units of the specified application.
 func (k *kubernetesClient) WatchUnits(appName string, mode caas.DeploymentMode) (watcher.NotifyWatcher, error) {
-	selector := applicationSelector(appName, mode)
-	logger.Debugf("selecting units %q to watch", selector)
+	selector, err := AppLabelSelector(appName)
+	if err != nil {
+		return nil, errors.Annotate(err, "generating application label selector")
+	}
+	logger.Debugf("selecting units %q to watch", selector.String())
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
 		informers.WithTweakListOptions(func(o *v1.ListOptions) {
-			o.LabelSelector = selector
+			o.LabelSelector = selector.String()
 		}),
 	)
 	return k.newWatcher(factory.Core().V1().Pods().Informer(), appName, k.clock)
@@ -2030,7 +2038,7 @@ func (k *kubernetesClient) WatchUnits(appName string, mode caas.DeploymentMode) 
 // is used.
 func (k *kubernetesClient) WatchContainerStart(appName string, containerName string) (watcher.StringsWatcher, error) {
 	pods := k.client().CoreV1().Pods(k.namespace)
-	selector := applicationSelector(appName, caas.ModeWorkload)
+	selector := k.applicationSelector(appName, caas.ModeWorkload)
 	logger.Debugf("selecting units %q to watch", selector)
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
@@ -2123,7 +2131,7 @@ func (k *kubernetesClient) WatchService(appName string, mode caas.DeploymentMode
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
 		informers.WithTweakListOptions(func(o *v1.ListOptions) {
-			o.LabelSelector = applicationSelector(appName, mode)
+			o.LabelSelector = k.applicationSelector(appName, mode)
 		}),
 	)
 
@@ -2152,7 +2160,7 @@ var jujuPVNameRegexp = regexp.MustCompile(`^(?P<storageName>\D+)-\w+$`)
 func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]caas.Unit, error) {
 	pods := k.client().CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName, mode),
+		LabelSelector: k.applicationSelector(appName, mode),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -16,9 +16,7 @@ import (
 )
 
 func (k *kubernetesClient) getStatefulSetLabels(appName string) map[string]string {
-	return map[string]string{
-		labelApplication: appName,
-	}
+	return LabelsForApp(appName, k.IsLegacyLabels())
 }
 
 func updateStrategyForStatefulSet(strategy specs.UpdateStrategy) (o apps.StatefulSetUpdateStrategy, err error) {
@@ -73,7 +71,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		Spec: apps.StatefulSetSpec{
 			Replicas: replicas,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{labelApplication: appName},
+				MatchLabels: k.getStatefulSetLabels(appName),
 			},
 			RevisionHistoryLimit: int32Ptr(statefulSetRevisionHistoryLimit),
 			Template: core.PodTemplateSpec{
@@ -195,7 +193,7 @@ func (k *kubernetesClient) deleteStatefulSets(appName string) error {
 	err := k.client().AppsV1().StatefulSets(k.namespace).DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector: labelSetToSelector(k.getStatefulSetLabels(appName)).String(),
+		LabelSelector: LabelSetToSelector(k.getStatefulSetLabels(appName)).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

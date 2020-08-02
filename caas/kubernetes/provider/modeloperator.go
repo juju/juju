@@ -227,7 +227,7 @@ func modelOperatorConfigMap(
 		ObjectMeta: meta.ObjectMeta{
 			Name:      operatorName,
 			Namespace: namespace,
-			Labels:    AppendLabels(labels, moLabels),
+			Labels:    LabelsMerge(labels, moLabels),
 		},
 		Data: map[string]string{
 			modelOperatorConfigMapAgentConfKey(operatorName): string(agentConf),
@@ -259,7 +259,7 @@ func modelOperatorDeployment(
 		ObjectMeta: meta.ObjectMeta{
 			Name:      operatorName,
 			Namespace: namespace,
-			Labels:    AppendLabels(labels, moLabels),
+			Labels:    LabelsMerge(labels, moLabels),
 		},
 		Spec: apps.DeploymentSpec{
 			Replicas: int32Ptr(1),

@@ -14,9 +14,7 @@ import (
 )
 
 func (k *kubernetesClient) getConfigMapLabels(appName string) map[string]string {
-	return map[string]string{
-		labelApplication: appName,
-	}
+	return LabelsForApp(appName, k.IsLegacyLabels())
 }
 
 func (k *kubernetesClient) ensureConfigMaps(
@@ -126,7 +124,7 @@ func (k *kubernetesClient) deleteConfigMap(name string, uid types.UID) error {
 
 func (k *kubernetesClient) listConfigMaps(labels map[string]string) ([]core.ConfigMap, error) {
 	listOps := v1.ListOptions{
-		LabelSelector: labelSetToSelector(labels).String(),
+		LabelSelector: LabelSetToSelector(labels).String(),
 	}
 	cmList, err := k.client().CoreV1().ConfigMaps(k.namespace).List(listOps)
 	if err != nil {
@@ -142,7 +140,7 @@ func (k *kubernetesClient) deleteConfigMaps(appName string) error {
 	err := k.client().CoreV1().ConfigMaps(k.namespace).DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector: labelSetToSelector(k.getConfigMapLabels(appName)).String(),
+		LabelSelector: LabelSetToSelector(k.getConfigMapLabels(appName)).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

@@ -25,6 +25,11 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+type OperatorSuite struct {
+}
+
+var _ = gc.Suite(&OperatorSuite{})
+
 var operatorAnnotations = map[string]string{
 	"fred":               "mary",
 	"juju-version":       "2.99.0",
@@ -188,7 +193,7 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 		"fred":               "mary",
 		"juju.io/controller": testing.ControllerTag.Id(),
 	}
-	pod, err := provider.OperatorPod("gitlab", "gitlab", "10666", "/var/lib/juju", "jujusolutions/jujud-operator", "2.99.0", tags, "operator-service-account")
+	pod, err := provider.OperatorPod("gitlab", "gitlab", "10666", "/var/lib/juju", "jujusolutions/jujud-operator", "2.99.0", map[string]string{}, tags, "operator-service-account")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pod.Name, gc.Equals, "gitlab")
 	c.Assert(pod.Labels, jc.DeepEquals, map[string]string{
@@ -1192,4 +1197,32 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminatedMostly(c *gc.C) {
 		Exists:      true,
 		Terminating: true,
 	})
+}
+
+func (o *OperatorSuite) TestOperatorLabels(c *gc.C) {
+	tests := []struct {
+		Expected     map[string]string
+		Legacy       bool
+		OperatorName string
+	}{
+		{
+			Expected: map[string]string{
+				"operator.juju.is/name": "wallyworld-operator",
+			},
+			Legacy:       false,
+			OperatorName: "wallyworld-operator",
+		},
+		{
+			Expected: map[string]string{
+				"juju-app": "tlm-operator",
+			},
+			Legacy:       true,
+			OperatorName: "tlm-operator",
+		},
+	}
+
+	for _, test := range tests {
+		rval := provider.OperatorLabels(test.OperatorName, test.Legacy)
+		c.Assert(rval, jc.DeepEquals, test.Expected)
+	}
 }

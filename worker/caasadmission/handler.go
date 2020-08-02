@@ -50,7 +50,7 @@ var (
 	}
 )
 
-func admissionHandler(logger Logger, rbacMapper RBACMapper) http.Handler {
+func admissionHandler(logger Logger, rbacMapper RBACMapper, legacyLabels bool) http.Handler {
 	codecFactory := serializer.NewCodecFactory(runtime.NewScheme())
 
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -139,7 +139,7 @@ func admissionHandler(logger Logger, rbacMapper RBACMapper) http.Handler {
 		}
 
 		patchJSON, err := json.Marshal(
-			patchForLabels(metaObj.Labels, appName))
+			patchForLabels(metaObj.Labels, appName, legacyLabels))
 		if err != nil {
 			http.Error(res,
 				fmt.Sprintf("marshalling patch object to json: %v", err),
@@ -176,10 +176,13 @@ func patchEscape(s string) string {
 	return r
 }
 
-func patchForLabels(labels map[string]string, appName string) []patchOperation {
+func patchForLabels(
+	labels map[string]string,
+	appName string,
+	legacyLabels bool) []patchOperation {
 	patches := []patchOperation{}
 
-	neededLabels := provider.LabelsForApp(appName)
+	neededLabels := provider.LabelsForApp(appName, legacyLabels)
 
 	if len(labels) == 0 {
 		patches = append(patches, patchOperation{

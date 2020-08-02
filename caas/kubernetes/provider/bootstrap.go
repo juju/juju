@@ -22,6 +22,7 @@ import (
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/agent"
@@ -201,10 +202,12 @@ func newcontrollerStack(
 	agentConfig.SetStateServingInfo(si)
 	pcfg.Bootstrap.StateServingInfo = si
 
+	labels := k8slabels.Merge(LabelsForApp(stackName, false), LabelsJuju)
+
 	cs := &controllerStack{
 		ctx:              ctx,
 		stackName:        stackName,
-		stackLabels:      map[string]string{labelApplication: stackName},
+		stackLabels:      labels,
 		stackAnnotations: map[string]string{annotationControllerUUIDKey: pcfg.ControllerTag.Id()},
 		broker:           broker,
 
@@ -466,6 +469,7 @@ func (c *controllerStack) createControllerService() error {
 			logger.Debugf("polling k8s controller svc DNS, in %d attempt, %v", attempt, err)
 		},
 	}
+
 	return errors.Trace(retry.Call(retryCallArgs))
 }
 

@@ -8,14 +8,13 @@ import (
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8slabels "k8s.io/apimachinery/pkg/labels"
 
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	k8sannotations "github.com/juju/juju/core/annotations"
 )
 
-func getServiceLabels(appName string) map[string]string {
-	return LabelsForApp(appName)
+func getServiceLabels(appName string, legacy bool) map[string]string {
+	return LabelsForApp(appName, legacy)
 }
 
 func (k *kubernetesClient) ensureServicesForApp(appName string, annotations k8sannotations.Annotation, services []k8sspecs.K8sService) (cleanUps []func(), err error) {
@@ -24,7 +23,7 @@ func (k *kubernetesClient) ensureServicesForApp(appName string, annotations k8sa
 			ObjectMeta: v1.ObjectMeta{
 				Name:        v.Name,
 				Namespace:   k.namespace,
-				Labels:      k8slabels.Merge(v.Labels, getServiceLabels(appName)),
+				Labels:      LabelsMerge(v.Labels, getServiceLabels(appName, k.IsLegacyLabels())),
 				Annotations: annotations.Copy().Merge(v.Annotations),
 			},
 			Spec: v.Spec,
@@ -77,7 +76,7 @@ func (k *kubernetesClient) deleteServices(appName string) error {
 	api := k.client().CoreV1().Services(k.namespace)
 	services, err := api.List(
 		v1.ListOptions{
-			LabelSelector: labelSetToSelector(getServiceLabels(appName)).String(),
+			LabelSelector: LabelSetToSelector(getServiceLabels(appName, k.IsLegacyLabels())).String(),
 		},
 	)
 	if err != nil {
