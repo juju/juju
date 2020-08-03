@@ -39,7 +39,7 @@ class AssessNetworkSpaces:
         log.info('Starting spaces tests.')
         self.testing_iterations(client)
         # if we get here, tests succeeded
-        log.info('SUCESS')
+        log.info('SUCCESS')
         return
 
     def testing_iterations(self, client):
@@ -378,18 +378,34 @@ class SpacesAWS(Spaces):
 
         if client.env.provider != 'ec2':
             log.info('Skipping tests. Requires AWS EC2.')
-            return(False)
+            return False
 
-        log.info('Setting up VPC in AWS region {}'.format(
-            client.env.get_region()))
         creds = client.env.get_cloud_credentials()
         ec2 = boto3.resource(
                 'ec2',
                 region_name=client.env.get_region(),
                 aws_access_key_id=creds['access-key'],
                 aws_secret_access_key=creds['secret-key'])
-        # set up vpc
+
+        # See if the VPC we want already exists.
+        vpc_response = ec2.meta.client.describe_vpcs(Filters=[{
+            'Name': 'tag:Name',
+            'Values': ['assess-network-spaces']
+        }])
+        vpcs = vpc_response['Vpcs']
+        if vpcs:
+            self.vpcid = vpcs[0]['VpcId']
+            log.info('Reusing VPC {}'.format(self.vpcid))
+            client.env.update_config({'vpc-id': self.vpcid})
+            return True
+
+        # Set up a VPC if we did not find one.
+        log.info('Setting up VPC in AWS region {}'.format(
+            client.env.get_region()))
         vpc = ec2.create_vpc(CidrBlock='10.0.0.0/16')
+        vpc.create_tags(Tags=[{'Key': 'Name', 'Value': 'assess-network-spaces'}])
+        vpc.wait_until_available()
+
         self.vpcid = vpc.id
         # get the first availability zone
         zones = ec2.meta.client.describe_availability_zones()
@@ -419,7 +435,7 @@ class SpacesAWS(Spaces):
             GatewayId=gateway.id)
         # finally, update the juju client environment with the vpcid
         client.env.update_config({'vpc-id': vpc.id})
-        return(True)
+        return True
 
     def cleanup(self, client):
         """Remove VPC from AWS
@@ -441,56 +457,10 @@ class SpacesAWS(Spaces):
                 aws_secret_access_key=creds['secret-key'])
         ec2client = ec2.meta.client
         vpc = ec2.Vpc(self.vpcid)
-        # detach and delete all gateways
-        for gw in vpc.internet_gateways.all():
-            vpc.detach_internet_gateway(InternetGatewayId=gw.id)
-            gw.delete()
-        # delete all route table associations
-        for rt in vpc.route_tables.all():
-            for rta in rt.associations:
-                if not rta.main:
-                    rta.delete()
-            main = False
-            for attrib in rt.associations_attribute:
-                if attrib['Main']:
-                        main = True
-            if not main:
-                rt.delete()
         # delete any instances
         for subnet in vpc.subnets.all():
             for instance in subnet.instances.all():
                 instance.terminate()
-        # delete our endpoints
-        for ep in ec2client.describe_vpc_endpoints(
-                Filters=[{
-                    'Name': 'vpc-id',
-                    'Values': [self.vpcid]
-                }])['VpcEndpoints']:
-            ec2client.delete_vpc_endpoints(
-                    VpcEndpointIds=[ep['VpcEndpointId']])
-        # delete our security groups
-        for sg in vpc.security_groups.all():
-            if sg.group_name != 'default':
-                sg.delete()
-        # delete any vpc peering connections
-        for vpcpeer in ec2client.describe_vpc_peering_connections(
-                Filters=[{
-                    'Name': 'requester-vpc-info.vpc-id',
-                    'Values': [self.vpcid]
-                }])['VpcPeeringConnections']:
-            ec2.VpcPeeringConnection(
-                    vpcpeer['VpcPeeringConnectionId']).delete()
-        # delete non-default network acls
-        for netacl in vpc.network_acls.all():
-            if not netacl.is_default:
-                netacl.delete()
-        # delete network interfaces and subnets
-        for subnet in vpc.subnets.all():
-            for interface in subnet.network_interfaces.all():
-                interface.delete()
-            subnet.delete()
-        # finally, delete the vpc
-        ec2client.delete_vpc(VpcId=self.vpcid)
 
 
 def main(argv=None):
