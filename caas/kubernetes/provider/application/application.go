@@ -154,9 +154,55 @@ func (a *app) Ensure(config *caas.ApplicationConfig) (err error) {
 		statefulset.Spec.Template.Spec = pod.Spec
 		applier.Apply(&statefulset)
 	case caas.DeploymentStateless:
-		return errors.NotSupportedf("deployment type stateless")
+		numPods := int32(1)
+		deployment := resources.Deployment{
+			Deployment: appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        a.name,
+					Namespace:   a.namespace,
+					Labels:      a.labels(),
+					Annotations: a.annotations(config),
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: &numPods,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: a.labels(),
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels:      a.labels(),
+							Annotations: pod.Annotations,
+						},
+					},
+				},
+			},
+		}
+		deployment.Spec.Template.Spec = pod.Spec
+		applier.Apply(&deployment)
 	case caas.DeploymentDaemon:
-		return errors.NotSupportedf("deployment type daemon")
+		daemonset := resources.DaemonSet{
+			DaemonSet: appsv1.DaemonSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        a.name,
+					Namespace:   a.namespace,
+					Labels:      a.labels(),
+					Annotations: a.annotations(config),
+				},
+				Spec: appsv1.DaemonSetSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: a.labels(),
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels:      a.labels(),
+							Annotations: pod.Annotations,
+						},
+					},
+				},
+			},
+		}
+		daemonset.Spec.Template.Spec = pod.Spec
+		applier.Apply(&daemonset)
 	default:
 		return errors.NotSupportedf("unknown deployment type")
 	}
@@ -181,9 +227,11 @@ func (a *app) Exists() (caas.DeploymentState, error) {
 		checks[0].label = "statefulset"
 		checks[0].check = a.statefulSetExists
 	case caas.DeploymentStateless:
-		return caas.DeploymentState{}, errors.NotSupportedf("deployment type stateless")
+		checks[0].label = "deployment"
+		checks[0].check = a.deploymentExists
 	case caas.DeploymentDaemon:
-		return caas.DeploymentState{}, errors.NotSupportedf("deployment type daemon")
+		checks[0].label = "daemonset"
+		checks[0].check = a.daemonSetExists
 	default:
 		return caas.DeploymentState{}, errors.NotSupportedf("unknown deployment type")
 	}
@@ -210,6 +258,28 @@ func (a *app) Exists() (caas.DeploymentState, error) {
 
 func (a *app) statefulSetExists() (exists bool, terminating bool, err error) {
 	ss := resources.NewStatefulSet(a.name, a.namespace)
+	err = ss.Get(context.Background(), a.client)
+	if errors.IsNotFound(err) {
+		return false, false, nil
+	} else if err != nil {
+		return false, false, errors.Trace(err)
+	}
+	return true, ss.DeletionTimestamp != nil, nil
+}
+
+func (a *app) deploymentExists() (exists bool, terminating bool, err error) {
+	ss := resources.NewDeployment(a.name, a.namespace)
+	err = ss.Get(context.Background(), a.client)
+	if errors.IsNotFound(err) {
+		return false, false, nil
+	} else if err != nil {
+		return false, false, errors.Trace(err)
+	}
+	return true, ss.DeletionTimestamp != nil, nil
+}
+
+func (a *app) daemonSetExists() (exists bool, terminating bool, err error) {
+	ss := resources.NewDaemonSet(a.name, a.namespace)
 	err = ss.Get(context.Background(), a.client)
 	if errors.IsNotFound(err) {
 		return false, false, nil
@@ -249,9 +319,9 @@ func (a *app) Delete() error {
 	case caas.DeploymentStateful:
 		applier.Delete(resources.NewStatefulSet(a.name, a.namespace))
 	case caas.DeploymentStateless:
-		return errors.NotSupportedf("deployment type stateless")
+		applier.Delete(resources.NewDeployment(a.name, a.namespace))
 	case caas.DeploymentDaemon:
-		return errors.NotSupportedf("deployment type daemon")
+		applier.Delete(resources.NewDaemonSet(a.name, a.namespace))
 	default:
 		return errors.NotSupportedf("unknown deployment type")
 	}
@@ -274,9 +344,9 @@ func (a *app) Watch() (watcher.NotifyWatcher, error) {
 	case caas.DeploymentStateful:
 		informer = factory.Apps().V1().StatefulSets().Informer()
 	case caas.DeploymentStateless:
-		return nil, errors.NotSupportedf("deployment type stateless")
+		informer = factory.Apps().V1().Deployments().Informer()
 	case caas.DeploymentDaemon:
-		return nil, errors.NotSupportedf("deployment type daemon")
+		informer = factory.Apps().V1().DaemonSets().Informer()
 	default:
 		return nil, errors.NotSupportedf("unknown deployment type")
 	}
@@ -307,9 +377,22 @@ func (a *app) State() (caas.ApplicationState, error) {
 		}
 		state.DesiredReplicas = int(*ss.Spec.Replicas)
 	case caas.DeploymentStateless:
-		return caas.ApplicationState{}, errors.NotSupportedf("deployment type stateless")
+		d := resources.NewDeployment(a.name, a.namespace)
+		err := d.Get(context.Background(), a.client)
+		if err != nil {
+			return caas.ApplicationState{}, errors.Trace(err)
+		}
+		if d.Spec.Replicas == nil {
+			return caas.ApplicationState{}, errors.Errorf("missing replicas")
+		}
+		state.DesiredReplicas = int(*d.Spec.Replicas)
 	case caas.DeploymentDaemon:
-		return caas.ApplicationState{}, errors.NotSupportedf("deployment type daemon")
+		d := resources.NewDeployment(a.name, a.namespace)
+		err := d.Get(context.Background(), a.client)
+		if err != nil {
+			return caas.ApplicationState{}, errors.Trace(err)
+		}
+		state.DesiredReplicas = int(d.Status.Replicas)
 	default:
 		return caas.ApplicationState{}, errors.NotSupportedf("unknown deployment type")
 	}

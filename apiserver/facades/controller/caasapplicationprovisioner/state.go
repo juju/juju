@@ -50,6 +50,8 @@ type Charm interface {
 type Unit interface {
 	Tag() names.Tag
 	DestroyOperation() *state.DestroyUnitOperation
+	EnsureDead() error
+	ContainerInfo() (state.CloudContainer, error)
 }
 
 type stateShim struct {

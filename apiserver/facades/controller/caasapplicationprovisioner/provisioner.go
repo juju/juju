@@ -5,9 +5,6 @@ package caasapplicationprovisioner
 
 import (
 	"fmt"
-	"time"
-
-	"github.com/davecgh/go-spew/spew"
 
 	"github.com/juju/charm/v7"
 
@@ -292,8 +289,6 @@ func (a *API) CAASApplicationGarbageCollect(args params.CAASApplicationGarbageCo
 }
 
 func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCollectArg) error {
-	logger.Errorf("got %s", spew.Sdump(args))
-
 	appName, err := names.ParseApplicationTag(args.Application.Tag)
 	if err != nil {
 		return errors.Trace(err)
@@ -351,18 +346,37 @@ func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCol
 			logger.Debugf("skipping unit %q because the pod still exists", tag.String())
 			continue
 		}
-		if deploymentType == charm.DeploymentStateful {
+		switch deploymentType {
+		case charm.DeploymentStateful:
 			ordinal := tag.(names.UnitTag).Number()
 			if ordinal < args.DesiredReplicas {
 				// Don't delete units that will reappear.
 				logger.Debugf("skipping unit %q because its still needed", tag.String())
 				continue
 			}
+		case charm.DeploymentStateless, charm.DeploymentDaemon:
+			ci, err := unit.ContainerInfo()
+			if errors.IsNotFound(err) {
+				logger.Debugf("skipping unit %q because it hasn't been assigned a pod", tag.String())
+				continue
+			} else if err != nil {
+				return errors.Trace(err)
+			}
+			if ci.ProviderId() == "" {
+				logger.Debugf("skipping unit %q because it hasn't been assigned a pod", tag.String())
+				continue
+			}
+		default:
+			return errors.Errorf("unknown deployment type %q", deploymentType)
+		}
+
+		err = unit.EnsureDead()
+		if err != nil {
+			return errors.Trace(err)
 		}
 		logger.Debugf("deleting unit %q", tag.String())
 		destroyOp := unit.DestroyOperation()
 		destroyOp.Force = true
-		destroyOp.MaxWait = 1 * time.Second
 		op.Deletes = append(op.Deletes, destroyOp)
 	}
 	if len(op.Deletes) == 0 {

@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/charm/v7"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent"
@@ -30,13 +33,14 @@ type Facade struct {
 	resources facade.Resources
 	state     *state.State
 	model     *state.CAASModel
+	clock     clock.Clock
 }
 
 // NewStateFacade provides the signature required for facade registration.
 func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
-	return NewFacade(resources, authorizer, ctx.State())
+	return NewFacade(resources, authorizer, ctx.State(), ctx.StatePool().Clock())
 }
 
 // NewFacade returns a new CAASOperator facade.
@@ -44,6 +48,7 @@ func NewFacade(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	st *state.State,
+	clock clock.Clock,
 ) (*Facade, error) {
 	if !authorizer.AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -61,6 +66,7 @@ func NewFacade(
 		resources: resources,
 		state:     st,
 		model:     caasModel,
+		clock:     clock,
 	}, nil
 }
 
@@ -110,7 +116,7 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 		n := fmt.Sprintf("%s/%d", application.Name(), ord)
 		unitName = &n
 	case charm.DeploymentStateless, charm.DeploymentDaemon:
-		return errResp(errors.NotSupportedf("stateless or daemon deployments not supported"))
+		// Both handled the same way.
 	default:
 		return errResp(errors.NotSupportedf("unknown deployment type"))
 	}
@@ -158,6 +164,39 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 			if unit != nil {
 				logger.Debugf("pod %q matched unused unit %q", args.PodName, unit.Tag().String())
 			}
+		}
+	}
+
+	if unit != nil && unit.Life() != state.Alive {
+		retryErr := errors.New("retry")
+		call := retry.CallArgs{
+			Clock:    f.clock,
+			Delay:    5 * time.Second,
+			Attempts: 12,
+			IsFatalError: func(err error) bool {
+				return err != retryErr
+			},
+			Func: func() error {
+				err := unit.Refresh()
+				if errors.IsNotFound(err) {
+					unit = nil
+					return nil
+				}
+				switch unit.Life() {
+				case state.Alive:
+					return nil
+				case state.Dying, state.Dead:
+					logger.Debugf("still waiting for old unit %q to cleanup", unit.Tag().String())
+					return retryErr
+				default:
+					return errors.Errorf("unknown life state")
+				}
+			},
+		}
+		err := retry.Call(call)
+		if err != nil {
+			return errResp(errors.Annotatef(err,
+				"failed waiting for old unit %q to cleanup", unit.Tag().String()))
 		}
 	}
 

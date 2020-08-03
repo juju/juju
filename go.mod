@@ -59,6 +59,7 @@ require (
 	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
 	github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e
 	github.com/juju/lru v0.0.0-20181205132344-305dec07bf2f // indirect
+	github.com/juju/mgo v0.0.0-20190418114320-e9d4866cb7fc // indirect
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
 	github.com/juju/names/v4 v4.0.0-20200424054733-9a8294627524
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
@@ -149,7 +150,7 @@ require (
 	k8s.io/apimachinery v0.18.6
 	k8s.io/client-go v0.18.6
 	k8s.io/klog/v2 v2.3.0 // indirect
-	k8s.io/utils v0.0.0-20200724153422-f32512634ab7 // indirect
+	k8s.io/utils v0.0.0-20200724153422-f32512634ab7
 	launchpad.net/xmlpath v0.0.0-20130614043138-000000000004 // indirect
 )
 
