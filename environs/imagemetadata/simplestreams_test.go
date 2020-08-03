@@ -6,7 +6,10 @@ package imagemetadata_test
 import (
 	"bytes"
 	"flag"
+	"fmt"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	stdtesting "testing"
@@ -352,39 +355,16 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 
 type signedSuite struct {
 	origKey string
+	server  *httptest.Server
 }
 
-func (s *signedSuite) SetUpSuite(c *gc.C) {
-	var imageData = map[string]string{
-		"/unsigned/streams/v1/index.json":          unsignedIndex,
-		"/unsigned/streams/v1/image_metadata.json": unsignedProduct,
-	}
-
-	// Set up some signed data from the unsigned data.
-	// Overwrite the product path to use the sjson suffix.
-	rawUnsignedIndex := strings.Replace(
-		unsignedIndex, "streams/v1/image_metadata.json", "streams/v1/image_metadata.sjson", -1)
-	r := bytes.NewReader([]byte(rawUnsignedIndex))
-	signedData, err := simplestreams.Encode(
-		r, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
-	c.Assert(err, jc.ErrorIsNil)
-	imageData["/signed/streams/v1/index.sjson"] = string(signedData)
-
-	// Replace the image id in the unsigned data with a different one so we can test that the right
-	// image id is used.
-	rawUnsignedProduct := strings.Replace(
-		unsignedProduct, "ami-26745463", "ami-123456", -1)
-	r = bytes.NewReader([]byte(rawUnsignedProduct))
-	signedData, err = simplestreams.Encode(
-		r, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
-	c.Assert(err, jc.ErrorIsNil)
-	imageData["/signed/streams/v1/image_metadata.sjson"] = string(signedData)
-	sstesting.SetRoundTripperFiles(imageData, map[string]int{"test://unauth": http.StatusUnauthorized})
+func (s *signedSuite) SetUpSuite(_ *gc.C) {
 	s.origKey = imagemetadata.SetSigningPublicKey(sstesting.SignedMetadataPublicKey)
+	s.server = httptest.NewServer(&sstreamsHandler{})
 }
 
-func (s *signedSuite) TearDownSuite(c *gc.C) {
-	sstesting.SetRoundTripperFiles(nil, nil)
+func (s *signedSuite) TearDownSuite(_ *gc.C) {
+	s.server.Close()
 	imagemetadata.SetSigningPublicKey(s.origKey)
 }
 
@@ -392,7 +372,7 @@ func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
 	signedSource := simplestreams.NewDataSource(
 		simplestreams.Config{
 			Description:          "test",
-			BaseURL:              "test://host/signed",
+			BaseURL:              fmt.Sprintf("%s/signed", s.server.URL),
 			PublicSigningKey:     sstesting.SignedMetadataPublicKey,
 			HostnameVerification: utils.VerifySSLHostnames,
 			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
@@ -411,7 +391,7 @@ func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    true,
-		IndexURL:  "test://host/signed/streams/v1/index.sjson",
+		IndexURL:  fmt.Sprintf("%s/signed/streams/v1/index.sjson", s.server.URL),
 		MirrorURL: "",
 	})
 }
@@ -419,7 +399,7 @@ func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
 func (s *signedSuite) TestSignedImageMetadataInvalidSignature(c *gc.C) {
 	signedSource := simplestreams.NewDataSource(simplestreams.Config{
 		Description:          "test",
-		BaseURL:              "test://host/signed",
+		BaseURL:              fmt.Sprintf("%s/signed", s.server.URL),
 		HostnameVerification: utils.VerifySSLHostnames,
 		Priority:             simplestreams.DEFAULT_CLOUD_DATA,
 		RequireSigned:        true,
@@ -432,6 +412,45 @@ func (s *signedSuite) TestSignedImageMetadataInvalidSignature(c *gc.C) {
 	imagemetadata.SetSigningPublicKey(s.origKey)
 	_, _, err := imagemetadata.Fetch([]simplestreams.DataSource{signedSource}, imageConstraint)
 	c.Assert(err, gc.ErrorMatches, "cannot read index data.*")
+}
+
+type sstreamsHandler struct{}
+
+func (h *sstreamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case "/unsigned/streams/v1/index.json":
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, unsignedIndex)
+	case "/unsigned/streams/v1/image_metadata.json":
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, unsignedProduct)
+	case "/signed/streams/v1/image_metadata.sjson":
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		rawUnsignedProduct := strings.Replace(
+			unsignedProduct, "ami-26745463", "ami-123456", -1)
+		_, _ = io.WriteString(w, encode(rawUnsignedProduct))
+		return
+	case "/signed/streams/v1/index.sjson":
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		rawUnsignedIndex := strings.Replace(
+			unsignedIndex, "streams/v1/image_metadata.json", "streams/v1/image_metadata.sjson", -1)
+		_, _ = io.WriteString(w, encode(rawUnsignedIndex))
+		return
+	default:
+		http.Error(w, r.URL.Path, 404)
+		return
+	}
+}
+
+func encode(data string) string {
+	reader := bytes.NewReader([]byte(data))
+	signedData, _ := simplestreams.Encode(
+		reader, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
+	return string(signedData)
 }
 
 var unsignedIndex = `

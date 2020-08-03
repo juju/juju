@@ -21,8 +21,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/os/series"
 	proxyutils "github.com/juju/proxy"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/exec"
+	"github.com/juju/version"
 
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucmd "github.com/juju/juju/cmd"
@@ -40,6 +43,7 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/proxy"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 
@@ -192,6 +196,22 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 	return resp.Code, nil
 }
 
+// versionDetail is populated with version information from juju/juju/cmd
+// and passed into each SuperCommand. It can be printed using `juju version --all`.
+type versionDetail struct {
+	// Version of the current binary.
+	Version string `json:"version" yaml:"version"`
+	// GitCommit of tree used to build the binary.
+	GitCommit string `json:"git-commit,omitempty" yaml:"git-commit,omitempty"`
+	// GitTreeState is "clean" if the working copy used to build the binary had no
+	// uncommitted changes or untracked files, otherwise "dirty".
+	GitTreeState string `json:"git-tree-state,omitempty" yaml:"git-tree-state,omitempty"`
+	// Compiler reported by runtime.Compiler
+	Compiler string `json:"compiler" yaml:"compiler"`
+	// OfficialBuild is a monotonic integer set by Jenkins.
+	OfficialBuild int `json:"official-build,omitempty" yaml:"official-build,omitempty"`
+}
+
 // Main registers subcommands for the jujud executable, and hands over control
 // to the cmd package.
 func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
@@ -212,9 +232,27 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		return 1, errors.Trace(err)
 	}
 
+	current := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: series.MustHostSeries(),
+	}
+	detail := versionDetail{
+		Version:       current.String(),
+		GitCommit:     jujuversion.GitCommit,
+		GitTreeState:  jujuversion.GitTreeState,
+		Compiler:      jujuversion.Compiler,
+		OfficialBuild: jujuversion.OfficialBuild,
+	}
+
 	jujud := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "jujud",
 		Doc:  jujudDoc,
+		// p.Version should be a version.Binary, but juju/cmd does not
+		// import juju/juju/version so this cannot happen. We have
+		// tests to assert that this string value is correct.
+		Version:       detail.Version,
+		VersionDetail: detail,
 	})
 
 	jujud.Log.NewWriter = func(target io.Writer) loggo.Writer {

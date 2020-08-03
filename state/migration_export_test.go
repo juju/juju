@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -65,7 +65,6 @@ var testAnnotations = map[string]string{
 
 type MigrationBaseSuite struct {
 	ConnWithWallClockSuite
-	networktesting.FirewallHelper
 }
 
 func (s *MigrationBaseSuite) setLatestTools(c *gc.C, latestTools version.Number) {
@@ -890,9 +889,14 @@ func (s *MigrationExportSuite) TestApplicationLeadership(c *gc.C) {
 	})
 }
 
-func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, nil)
-	s.AssertOpenUnitPorts(c, unit, "", "tcp", 1234, 2345)
+func (s *MigrationExportSuite) TestUnitOpenPortRanges(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Machine: machine,
+	})
+	c.Assert(unit.AssignToMachine(machine), jc.ErrorIsNil)
+
+	state.MustOpenUnitPortRange(c, s.State, machine, unit.Name(), allEndpoints, corenetwork.MustParsePortRange("1234-2345/tcp"))
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -900,14 +904,17 @@ func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
 	machines := model.Machines()
 	c.Assert(machines, gc.HasLen, 1)
 
-	ports := machines[0].OpenedPorts()
-	c.Assert(ports, gc.HasLen, 1)
+	unitPortRanges := machines[0].OpenedPortRanges().ByUnit()[unit.Name()]
+	c.Assert(unitPortRanges, gc.Not(gc.IsNil), gc.Commentf("opened port ranges for unit not included in exported model"))
 
-	port := ports[0]
-	c.Assert(port.SubnetID(), gc.Equals, "")
-	opened := port.OpenPorts()
-	c.Assert(opened, gc.HasLen, 1)
-	c.Assert(opened[0].UnitName(), gc.Equals, unit.Name())
+	unitPortRangesByEndpoint := unitPortRanges.ByEndpoint()
+	c.Assert(unitPortRangesByEndpoint, gc.HasLen, 1)
+	c.Assert(unitPortRangesByEndpoint[allEndpoints], gc.HasLen, 1)
+
+	portRange := unitPortRangesByEndpoint[allEndpoints][0]
+	c.Assert(portRange.FromPort(), gc.Equals, 1234)
+	c.Assert(portRange.ToPort(), gc.Equals, 2345)
+	c.Assert(portRange.Protocol(), gc.Equals, "tcp")
 }
 
 func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -63,7 +64,7 @@ func (s *logtransferSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *logtransferSuite) makeAuthHeader() http.Header {
-	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
+	header := jujuhttp.BasicAuthHeader(s.userTag.String(), s.password)
 	header.Add(params.MigrationModelHTTPHeader, s.State.ModelUUID())
 	return header
 }
@@ -91,14 +92,14 @@ func (s *logtransferSuite) checkAuthFails(c *gc.C, header http.Header, code int,
 }
 
 func (s *logtransferSuite) TestRejectsMissingModelHeader(c *gc.C) {
-	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
+	header := jujuhttp.BasicAuthHeader(s.userTag.String(), s.password)
 	ws := s.dialWebsocketInternal(c, header)
 	websockettest.AssertJSONError(c, ws, `initialising migration logsink session: unknown model: ""`)
 	websockettest.AssertWebsocketClosed(c, ws)
 }
 
 func (s *logtransferSuite) TestRejectsBadMigratingModelUUID(c *gc.C) {
-	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
+	header := jujuhttp.BasicAuthHeader(s.userTag.String(), s.password)
 	header.Add(params.MigrationModelHTTPHeader, "does-not-exist")
 	ws := s.dialWebsocketInternal(c, header)
 	websockettest.AssertJSONError(c, ws, `initialising migration logsink session: unknown model: "does-not-exist"`)
@@ -116,13 +117,13 @@ func (s *logtransferSuite) TestRejectsInvalidVersion(c *gc.C) {
 }
 
 func (s *logtransferSuite) TestRejectsMachineLogins(c *gc.C) {
-	header := utils.BasicAuthHeader(s.machineTag.String(), s.machinePassword)
+	header := jujuhttp.BasicAuthHeader(s.machineTag.String(), s.machinePassword)
 	header.Add(params.MachineNonceHeader, "nonce")
 	s.checkAuthFails(c, header, http.StatusForbidden, "authorization failed: machine 0 is not a user")
 }
 
 func (s *logtransferSuite) TestRejectsBadPasword(c *gc.C) {
-	header := utils.BasicAuthHeader(s.userTag.String(), "wrong")
+	header := jujuhttp.BasicAuthHeader(s.userTag.String(), "wrong")
 	header.Add(params.MigrationModelHTTPHeader, s.State.ModelUUID())
 	s.checkAuthFails(c, header, http.StatusUnauthorized, "authentication failed: invalid entity name or password")
 }

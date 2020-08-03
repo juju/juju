@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	stdtesting "testing"
 
@@ -47,6 +48,7 @@ func (s *IntrospectCommandSuite) TestInitErrors(c *gc.C) {
 	s.assertInitError(c, "either a query path or a --listen address must be specified")
 	s.assertInitError(c, "a query path may not be specified with --listen", "query-path", "--listen=foo")
 	s.assertInitError(c, `unrecognized args: \["path"\]`, "query", "path")
+	s.assertInitError(c, "form value missing '='", "--post", "query-path", "foo")
 }
 
 func (*IntrospectCommandSuite) assertInitError(c *gc.C, expect string, args ...string) {
@@ -109,7 +111,7 @@ func (s *IntrospectCommandSuite) TestQueryFails(c *gc.C) {
 	defer srv.Shutdown(context.Background())
 
 	ctx, err := s.run(c, "missing", "--agent=machine-0")
-	c.Assert(err, gc.ErrorMatches, `response returned 404 \(Not Found\)`)
+	c.Assert(err.Error(), gc.Equals, "response returned 404 (Not Found)")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
 Querying @%s introspection socket: missing
 404 page not found
@@ -117,12 +119,48 @@ Querying @%s introspection socket: missing
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 
 	ctx, err = s.run(c, "badness", "--agent=machine-0")
-	c.Assert(err, gc.ErrorMatches, `response returned 500 \(Internal Server Error\)`)
+	c.Assert(err.Error(), gc.Equals, "response returned 500 (Internal Server Error)")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
 Querying @%s introspection socket: badness
 argh
 `[1:], filepath.Join(config.DataDir, "jujud-machine-0")))
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+}
+
+func (s *IntrospectCommandSuite) TestGetToPostEndpoint(c *gc.C) {
+	listener, err := net.Listen("unix", "@"+filepath.Join(config.DataDir, "jujud-machine-0"))
+	c.Assert(err, jc.ErrorIsNil)
+	defer listener.Close()
+
+	srv := newServer(listener)
+	go srv.Serve(listener)
+	defer srv.Shutdown(context.Background())
+
+	ctx, err := s.run(c, "postonly", "--agent=machine-0")
+	c.Assert(err, gc.ErrorMatches, `response returned 405 \(Method Not Allowed\)`)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
+Querying @%s introspection socket: postonly
+postonly requires a POST request
+`[1:], filepath.Join(config.DataDir, "jujud-machine-0")))
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+}
+
+func (s *IntrospectCommandSuite) TestPost(c *gc.C) {
+	listener, err := net.Listen("unix", "@"+filepath.Join(config.DataDir, "jujud-machine-0"))
+	c.Assert(err, jc.ErrorIsNil)
+	defer listener.Close()
+
+	srv := newServer(listener)
+	go srv.Serve(listener)
+	defer srv.Shutdown(context.Background())
+
+	ctx, err := s.run(c, "--post", "postonly", "--agent=machine-0", "single=value", "double=foo", "double=bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+double="foo"
+double="bar"
+single="value"
+`[1:])
 }
 
 func (s *IntrospectCommandSuite) TestListen(c *gc.C) {
@@ -167,6 +205,25 @@ func newServer(l net.Listener) *http.Server {
 	})
 	mux.HandleFunc("/badness", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "argh", http.StatusInternalServerError)
+	})
+	mux.HandleFunc("/postonly", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			w.Write([]byte("postonly requires a POST request\n"))
+			return
+		}
+		_ = r.ParseForm()
+		var keys []string
+		for key := range r.Form {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			values := r.Form[key]
+			for _, v := range values {
+				fmt.Fprintf(w, "%s=%q\n", key, v)
+			}
+		}
 	})
 	srv := &http.Server{}
 	srv.Handler = mux

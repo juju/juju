@@ -28,7 +28,7 @@ type LinkLayerDevice interface {
 	MACAddress() string
 	ParentName() string
 	ParentDevice() (LinkLayerDevice, error)
-	EthernetDeviceForBridge(name string) (state.LinkLayerDeviceArgs, error)
+	EthernetDeviceForBridge(name string, askForProviderAddress bool) (network.InterfaceInfo, error)
 	Addresses() ([]*state.Address, error)
 	VirtualPortType() network.VirtualPortType
 

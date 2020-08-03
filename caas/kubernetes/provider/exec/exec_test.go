@@ -115,9 +115,9 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 	pod.SetUID("gitlab-k8s-uid")
 	pod.SetName("gitlab-k8s-0")
 	gomock.InOrder(
-		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).
+		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-uid", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).
+		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
 	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, `cannot exec into a container within the "Succeeded" pod "gitlab-k8s-0"`)
@@ -140,9 +140,9 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 	pod.SetUID("gitlab-k8s-uid")
 	pod.SetName("gitlab-k8s-0")
 	gomock.InOrder(
-		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).
+		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-uid", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).
+		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
 	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, `cannot exec into a container within the "Failed" pod "gitlab-k8s-0"`)
@@ -166,9 +166,9 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 	pod.SetUID("gitlab-k8s-uid")
 	pod.SetName("gitlab-k8s-0")
 	gomock.InOrder(
-		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).
+		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-uid", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).
+		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
 	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, `container "non-existing-container-name" not found`)
@@ -195,9 +195,9 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 	pod.SetUID("gitlab-k8s-uid")
 	pod.SetName("gitlab-k8s-0")
 	gomock.InOrder(
-		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).
+		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-uid", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).
+		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
 	c.Assert(params.Validate(s.mockPodGetter), jc.ErrorIsNil)
@@ -224,9 +224,9 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 	pod.SetUID("gitlab-k8s-uid")
 	pod.SetName("gitlab-k8s-0")
 	gomock.InOrder(
-		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).
+		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-uid", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).
+		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
 	c.Assert(params.Validate(s.mockPodGetter), jc.ErrorIsNil)
@@ -253,9 +253,9 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 	pod.SetUID("gitlab-k8s-uid")
 	pod.SetName("gitlab-k8s-0")
 	gomock.InOrder(
-		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).Times(1).
+		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-uid", metav1.GetOptions{}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).Times(1).
+		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).Times(1).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
 	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, `container \"gitlab-container\" not running`)
@@ -282,9 +282,9 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 	pod.SetUID("gitlab-k8s-uid")
 	pod.SetName("gitlab-k8s-0")
 	gomock.InOrder(
-		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).
+		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-uid", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).
+		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
 	c.Assert(params.Validate(s.mockPodGetter), jc.ErrorIsNil)
@@ -338,9 +338,9 @@ func (s *execSuite) TestExec(c *gc.C) {
 			TTY:       false,
 		}, scheme.ParameterCodec)
 	gomock.InOrder(
-		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).
+		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-uid", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).
+		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 
 		s.restClient.EXPECT().Post().Return(request),
@@ -425,9 +425,9 @@ func (s *execSuite) TestExecCancel(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).
+		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-uid", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).
+		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
 
@@ -491,7 +491,7 @@ func (s *execSuite) TestModelNameToNameSpace(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockNamespaces.EXPECT().List(metav1.ListOptions{LabelSelector: "juju-model=controller"}).
+		s.mockNamespaces.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "juju-model=controller"}).
 			Return(&core.NamespaceList{Items: []core.Namespace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "controller-k1"},

@@ -7,7 +7,7 @@ import (
 	"crypto/tls"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/http"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 
@@ -56,7 +56,7 @@ func newTLSConfig(
 	defaultSNI SNIGetterFunc,
 	logger Logger,
 ) *tls.Config {
-	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig := http.SecureTLSConfig()
 	if autocertDNSName == "" {
 		// No official DNS name, no certificate.
 		tlsConfig.GetCertificate = defaultSNI

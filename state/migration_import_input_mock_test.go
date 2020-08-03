@@ -5,11 +5,10 @@
 package state
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	description "github.com/juju/description/v2"
 	txn "gopkg.in/mgo.v2/txn"
+	reflect "reflect"
 )
 
 // MockRemoteEntitiesInput is a mock of RemoteEntitiesInput interface

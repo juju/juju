@@ -4,18 +4,22 @@
 package provider
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/caas/specs"
 )
 
 func (k *kubernetesClient) getConfigMapLabels(appName string) map[string]string {
 	return map[string]string{
-		labelApplication: appName,
+		constants.LabelApplication: appName,
 	}
 }
 
@@ -48,10 +52,10 @@ func (k *kubernetesClient) ensureConfigMaps(
 func (k *kubernetesClient) ensureConfigMapLegacy(cm *core.ConfigMap) (cleanUp func(), err error) {
 	cleanUp = func() {}
 	api := k.client().CoreV1().ConfigMaps(k.namespace)
-	_, err = api.Update(cm)
+	_, err = api.Update(context.TODO(), cm, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
 		var out *core.ConfigMap
-		if out, err = api.Create(cm); err == nil {
+		if out, err = api.Create(context.TODO(), cm, v1.CreateOptions{}); err == nil {
 			logger.Debugf("configmap %q created", out.GetName())
 			cleanUp = func() { _ = k.deleteConfigMap(out.GetName(), out.GetUID()) }
 			return cleanUp, nil
@@ -86,7 +90,7 @@ func (k *kubernetesClient) ensureConfigMap(cm *core.ConfigMap) (func(), error) {
 }
 
 func (k *kubernetesClient) updateConfigMap(cm *core.ConfigMap) error {
-	_, err := k.client().CoreV1().ConfigMaps(k.namespace).Update(cm)
+	_, err := k.client().CoreV1().ConfigMaps(k.namespace).Update(context.TODO(), cm, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf("configmap %q", cm.GetName())
 	}
@@ -95,7 +99,7 @@ func (k *kubernetesClient) updateConfigMap(cm *core.ConfigMap) error {
 
 // getConfigMap returns a ConfigMap resource.
 func (k *kubernetesClient) getConfigMap(name string) (*core.ConfigMap, error) {
-	cm, err := k.client().CoreV1().ConfigMaps(k.namespace).Get(name, v1.GetOptions{})
+	cm, err := k.client().CoreV1().ConfigMaps(k.namespace).Get(context.TODO(), name, v1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, errors.NotFoundf("configmap %q", name)
@@ -107,8 +111,8 @@ func (k *kubernetesClient) getConfigMap(name string) (*core.ConfigMap, error) {
 
 // createConfigMap creates a ConfigMap resource.
 func (k *kubernetesClient) createConfigMap(cm *core.ConfigMap) (*core.ConfigMap, error) {
-	purifyResource(cm)
-	out, err := k.client().CoreV1().ConfigMaps(k.namespace).Create(cm)
+	utils.PurifyResource(cm)
+	out, err := k.client().CoreV1().ConfigMaps(k.namespace).Create(context.TODO(), cm, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("configmap %q", cm.GetName())
 	}
@@ -117,7 +121,7 @@ func (k *kubernetesClient) createConfigMap(cm *core.ConfigMap) (*core.ConfigMap,
 
 // deleteConfigMap deletes a ConfigMap resource.
 func (k *kubernetesClient) deleteConfigMap(name string, uid types.UID) error {
-	err := k.client().CoreV1().ConfigMaps(k.namespace).Delete(name, newPreconditionDeleteOptions(uid))
+	err := k.client().CoreV1().ConfigMaps(k.namespace).Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -126,9 +130,9 @@ func (k *kubernetesClient) deleteConfigMap(name string, uid types.UID) error {
 
 func (k *kubernetesClient) listConfigMaps(labels map[string]string) ([]core.ConfigMap, error) {
 	listOps := v1.ListOptions{
-		LabelSelector: labelSetToSelector(labels).String(),
+		LabelSelector: utils.LabelSetToSelector(labels).String(),
 	}
-	cmList, err := k.client().CoreV1().ConfigMaps(k.namespace).List(listOps)
+	cmList, err := k.client().CoreV1().ConfigMaps(k.namespace).List(context.TODO(), listOps)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -139,10 +143,10 @@ func (k *kubernetesClient) listConfigMaps(labels map[string]string) ([]core.Conf
 }
 
 func (k *kubernetesClient) deleteConfigMaps(appName string) error {
-	err := k.client().CoreV1().ConfigMaps(k.namespace).DeleteCollection(&v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
+	err := k.client().CoreV1().ConfigMaps(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
+		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector: labelSetToSelector(k.getConfigMapLabels(appName)).String(),
+		LabelSelector: utils.LabelSetToSelector(k.getConfigMapLabels(appName)).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

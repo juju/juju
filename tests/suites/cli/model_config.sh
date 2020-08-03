@@ -3,7 +3,7 @@ run_model_config_isomorphic() {
 
   FILE=$(mktemp)
 
-  juju model-config --format=yaml | juju model-config --ignore-agent-version -
+  juju model-config --format=yaml | juju model-config --ignore-read-only-fields -
 }
 
 run_model_config_cloudinit_userdata() {

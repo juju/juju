@@ -547,11 +547,11 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 		if err != nil {
 			return errors.Annotatef(err, "retrieve unit and agent status for %q", u.Name)
 		}
-		portRangesBySubnet, err := ctx.getUnitPortRangesBySubnet(unit)
+		unitPortRangesByEndpoint, err := ctx.getUnitPortRangesByEndpoint(unit)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		info.PortRangesBySubnet = portRangesBySubnet
+		info.OpenPortRangesByEndpoint = unitPortRangesByEndpoint
 		if modelType == ModelTypeCAAS {
 			containerStatus, err := ctx.getStatus(globalCloudContainerKey(u.Name), "cloud container")
 			if err == nil {
@@ -566,7 +566,7 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 		info.AgentStatus = oldInfo.AgentStatus
 		info.WorkloadStatus = oldInfo.WorkloadStatus
 		info.ContainerStatus = oldInfo.ContainerStatus
-		info.PortRangesBySubnet = oldInfo.PortRangesBySubnet
+		info.OpenPortRangesByEndpoint = oldInfo.OpenPortRangesByEndpoint
 	}
 
 	u.updateAgentVersion(info)
@@ -1494,12 +1494,12 @@ func updateUnitPorts(ctx *allWatcherContext, u *Unit) error {
 		// the status until a unitInfo is included in the store.
 		return nil
 	case *multiwatcher.UnitInfo:
-		portRangesBySubnet, err := ctx.getUnitPortRangesBySubnet(u)
+		unitPortRangesByEndpoint, err := ctx.getUnitPortRangesByEndpoint(u)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		unitInfo := *oldInfo
-		unitInfo.PortRangesBySubnet = portRangesBySubnet
+		unitInfo.OpenPortRangesByEndpoint = unitPortRangesByEndpoint
 		ctx.store.Update(&unitInfo)
 	default:
 		return nil
@@ -1859,9 +1859,8 @@ type allWatcherContext struct {
 	constraints map[string]constraints.Value
 	statuses    map[string]status.StatusInfo
 	instances   map[string]instanceData
-	// A map where keys are machine IDs and values are slices with a
-	// MachineSubnetPorts instance for each subnet with opened port ranges.
-	openPortRanges map[string][]*machineSubnetPorts
+	// A map of the existing MachinePortRanges where the keys are machine IDs.
+	openPortRanges map[string]MachinePortRanges
 	userAccess     map[string]map[string]permission.Access
 }
 
@@ -1962,21 +1961,14 @@ func (ctx *allWatcherContext) loadInstanceData() error {
 }
 
 func (ctx *allWatcherContext) loadOpenedPortRanges() error {
-	col, closer := ctx.state.db().GetCollection(openedPortsC)
-	defer closer()
-
-	var docs []portsDoc
-	if err := col.Find(nil).All(&docs); err != nil {
+	openedMachineRanges, err := getOpenedPortRangesForAllMachines(ctx.state)
+	if err != nil {
 		return errors.Annotate(err, "cannot read all opened port ranges")
 	}
 
-	ctx.openPortRanges = make(map[string][]*machineSubnetPorts)
-	for _, doc := range docs {
-		docCopy := doc
-		ctx.openPortRanges[doc.MachineID] = append(
-			ctx.openPortRanges[doc.MachineID],
-			&machineSubnetPorts{st: ctx.state, doc: docCopy},
-		)
+	ctx.openPortRanges = make(map[string]MachinePortRanges)
+	for _, mpr := range openedMachineRanges {
+		ctx.openPortRanges[mpr.MachineID()] = mpr
 	}
 
 	return nil
@@ -2145,40 +2137,24 @@ func (ctx *allWatcherContext) permissionsForModel(uuid string) (map[string]permi
 	return result, nil
 }
 
-func (ctx *allWatcherContext) getUnitPortRangesBySubnet(unit *Unit) (map[string][]network.PortRange, error) {
+func (ctx *allWatcherContext) getUnitPortRangesByEndpoint(unit *Unit) (map[string][]network.PortRange, error) {
 	machineID, err := unit.AssignedMachineId()
 	if err != nil {
 		if errors.IsNotAssigned(err) {
 			// Not assigned, so there won't be any ports opened.
-			// Return an empty port list (see Bug #1425435).
-			return nil, nil
+			// Return an empty port map (see Bug #1425435).
+			return make(map[string][]network.PortRange), nil
 		}
 		return nil, errors.Trace(err)
 	}
 
 	// No cached port ranges available; make a direct DB lookup instead.
-	var machPortList []MachineSubnetPorts
-	if ctx.openPortRanges == nil {
-		if machPortList, err = getOpenedMachinePortsInAllSubnets(ctx.state, machineID); err != nil {
-			return nil, errors.Trace(err)
-		}
-	} else {
-		machPortList = convMachineSubnetPorts(ctx.openPortRanges[machineID])
+	if ctx.openPortRanges == nil || ctx.openPortRanges[machineID] == nil {
+		unitPortRanges, err := unit.OpenedPortRanges()
+		return unitPortRanges.ByEndpoint(), err
 	}
 
-	return UnitPortsFromMachineSubnetPorts(unit.Name(), machineID, machPortList).BySubnet(), nil
-}
-
-func convMachineSubnetPorts(list []*machineSubnetPorts) []MachineSubnetPorts {
-	if len(list) == 0 {
-		return nil
-	}
-
-	out := make([]MachineSubnetPorts, len(list))
-	for i, in := range list {
-		out[i] = in
-	}
-	return out
+	return ctx.openPortRanges[machineID].ForUnit(unit.Name()).ByEndpoint(), nil
 }
 
 // entityIDForGlobalKey returns the entity id for the given global key.
@@ -2264,12 +2240,7 @@ func (ctx *allWatcherContext) entityIDForSettingsKey(key string) (multiwatcher.E
 // entityIDForOpenedPortsKey returns the entity id for the given
 // openedPorts key. Any extra information in the key is discarded.
 func (ctx *allWatcherContext) entityIDForOpenedPortsKey(key string) (multiwatcher.EntityID, bool) {
-	parts, err := extractPortsIDParts(key)
-	if err != nil {
-		allWatcherLogger.Debugf("cannot parse ports key %q: %v", key, err)
-		return multiwatcher.EntityID{}, false
-	}
-	id, _, known := ctx.entityIDForGlobalKey(machineGlobalKey(parts[1]))
+	id, _, known := ctx.entityIDForGlobalKey(machineGlobalKey(key))
 	return id, known
 }
 

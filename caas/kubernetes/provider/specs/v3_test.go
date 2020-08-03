@@ -178,6 +178,30 @@ serviceAccount:
           resources: ["pods"]
           verbs: ["get", "watch", "list"]
 kubernetesResources:
+  services:
+    - name: my-service1
+      labels:
+        foo: bar
+      spec:
+        selector:
+          app: MyApp
+        ports:
+          - protocol: TCP
+            port: 80
+            targetPort: 9376
+    - name: my-service2
+      labels:
+        app: test
+      annotations:
+        cloud.google.com/load-balancer-type: "Internal"
+      spec:
+        selector:
+          app: MyApp
+        ports:
+          - protocol: TCP
+            port: 80
+            targetPort: 9376
+        type: LoadBalancer
   serviceAccounts:
     - name: k8sServiceAccount1
       automountServiceAccountToken: true
@@ -725,6 +749,42 @@ echo "do some stuff here for gitlab-init container"
 
 		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
 			KubernetesResources: &k8sspecs.KubernetesResources{
+				Services: []k8sspecs.K8sService{
+					{
+						Meta: k8sspecs.Meta{
+							Name:   "my-service1",
+							Labels: map[string]string{"foo": "bar"},
+						},
+						Spec: core.ServiceSpec{
+							Selector: map[string]string{"app": "MyApp"},
+							Ports: []core.ServicePort{
+								{
+									Protocol:   core.ProtocolTCP,
+									Port:       80,
+									TargetPort: intstr.IntOrString{IntVal: 9376},
+								},
+							},
+						},
+					},
+					{
+						Meta: k8sspecs.Meta{
+							Name:        "my-service2",
+							Labels:      map[string]string{"app": "test"},
+							Annotations: map[string]string{"cloud.google.com/load-balancer-type": "Internal"},
+						},
+						Spec: core.ServiceSpec{
+							Selector: map[string]string{"app": "MyApp"},
+							Ports: []core.ServicePort{
+								{
+									Protocol:   core.ProtocolTCP,
+									Port:       80,
+									TargetPort: intstr.IntOrString{IntVal: 9376},
+								},
+							},
+							Type: core.ServiceTypeLoadBalancer,
+						},
+					},
+				},
 				K8sRBACResources: rbacResources,
 				Pod: &k8sspecs.PodSpec{
 					ActiveDeadlineSeconds:         int64Ptr(10),
@@ -741,7 +801,7 @@ echo "do some stuff here for gitlab-init container"
 					HostNetwork: true,
 					HostPID:     true,
 				},
-				Secrets: []k8sspecs.Secret{
+				Secrets: []k8sspecs.K8sSecret{
 					{
 						Name: "build-robot-secret",
 						Type: core.SecretTypeOpaque,
@@ -914,6 +974,31 @@ password: shhhh`[1:],
 	spec, err := k8sspecs.ParsePodSpec(specStrBase)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spec, jc.DeepEquals, getExpectedPodSpecBase())
+}
+
+func (s *v3SpecsSuite) TestValidateServices(c *gc.C) {
+	specStr := version3Header + `
+containers:
+  - name: gitlab-helper
+    image: gitlab-helper/latest
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+kubernetesResources:
+  services:
+    - labels:
+        foo: bar
+      spec:
+        selector:
+          app: MyApp
+        ports:
+          - protocol: TCP
+            port: 80
+            targetPort: 9376
+`[1:]
+
+	_, err := k8sspecs.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `name is missing`)
 }
 
 func (s *v3SpecsSuite) TestValidateMissingContainers(c *gc.C) {

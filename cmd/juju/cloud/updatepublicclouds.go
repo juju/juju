@@ -5,6 +5,7 @@ package cloud
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,8 +16,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
 
@@ -107,12 +108,12 @@ func (c *updatePublicCloudsCommand) Init(args []string) error {
 }
 
 func PublishedPublicClouds(url, key string) (map[string]jujucloud.Cloud, error) {
-	client := utils.GetHTTPClient(utils.VerifySSLHostnames)
-	resp, err := client.Get(url)
+	client := jujuhttp.NewClient(jujuhttp.Config{})
+	resp, err := client.Get(context.TODO(), url)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		switch resp.StatusCode {

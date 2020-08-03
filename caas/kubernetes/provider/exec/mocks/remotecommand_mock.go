@@ -5,10 +5,9 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	remotecommand "k8s.io/client-go/tools/remotecommand"
+	reflect "reflect"
 )
 
 // MockExecutor is a mock of Executor interface
@@ -36,6 +35,7 @@ func (m *MockExecutor) EXPECT() *MockExecutorMockRecorder {
 
 // Stream mocks base method
 func (m *MockExecutor) Stream(arg0 remotecommand.StreamOptions) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stream", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -43,5 +43,6 @@ func (m *MockExecutor) Stream(arg0 remotecommand.StreamOptions) error {
 
 // Stream indicates an expected call of Stream
 func (mr *MockExecutorMockRecorder) Stream(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stream", reflect.TypeOf((*MockExecutor)(nil).Stream), arg0)
 }

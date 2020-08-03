@@ -358,19 +358,19 @@ func (i *ApplicationOfferInfo) Clone() EntityInfo {
 // UnitInfo holds the information about a unit
 // that is tracked by multiwatcherStore.
 type UnitInfo struct {
-	ModelUUID          string
-	Name               string
-	Application        string
-	Series             string
-	CharmURL           string
-	Life               life.Value
-	Annotations        map[string]string
-	PublicAddress      string
-	PrivateAddress     string
-	MachineID          string
-	PortRangesBySubnet map[string][]network.PortRange
-	Principal          string
-	Subordinate        bool
+	ModelUUID                string
+	Name                     string
+	Application              string
+	Series                   string
+	CharmURL                 string
+	Life                     life.Value
+	Annotations              map[string]string
+	PublicAddress            string
+	PrivateAddress           string
+	MachineID                string
+	OpenPortRangesByEndpoint map[string][]network.PortRange
+	Principal                string
+	Subordinate              bool
 	// Workload and agent state are modelled separately.
 	WorkloadStatus  StatusInfo
 	AgentStatus     StatusInfo
@@ -396,11 +396,17 @@ func (i *UnitInfo) Clone() EntityInfo {
 			clone.Annotations[k] = v
 		}
 	}
-	clone.PortRangesBySubnet = make(map[string][]network.PortRange)
-	for subnetID, rangeList := range i.PortRangesBySubnet {
-		clone.PortRangesBySubnet[subnetID] = append([]network.PortRange(nil), rangeList...)
-	}
+
+	clone.OpenPortRangesByEndpoint = copyPortRangeMap(i.OpenPortRangesByEndpoint)
 	return &clone
+}
+
+func copyPortRangeMap(input map[string][]network.PortRange) map[string][]network.PortRange {
+	out := make(map[string][]network.PortRange, len(input))
+	for k, v := range input {
+		out[k] = append([]network.PortRange(nil), v...)
+	}
+	return out
 }
 
 // ActionInfo holds the information about a action that is tracked by

@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas"
+	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -127,7 +128,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 	// controller namespace when we find it.
 	broker, err := newK8sBroker(
 		args.ControllerUUID, k8sRestConfig, args.Config, args.Config.Name(), newK8sClient, newRestClient,
-		newKubernetesNotifyWatcher, newKubernetesStringsWatcher, randomPrefix,
+		k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher, randomPrefix,
 		jujuclock.WallClock)
 	if err != nil {
 		return nil, err
@@ -146,7 +147,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 
 	return newK8sBroker(
 		args.ControllerUUID, k8sRestConfig, args.Config, ns,
-		newK8sClient, newRestClient, newKubernetesNotifyWatcher, newKubernetesStringsWatcher,
+		newK8sClient, newRestClient, k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher,
 		randomPrefix, jujuclock.WallClock)
 }
 

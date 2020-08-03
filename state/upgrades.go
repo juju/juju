@@ -2364,7 +2364,7 @@ func ReplacePortsDocSubnetIDCIDR(pool *StatePool) (err error) {
 		col, closer := st.db().GetCollection(openedPortsC)
 		defer closer()
 
-		var docs []portsDoc
+		var docs []upgrade.OldPortsDoc28
 		err := col.Find(nil).All(&docs)
 		if err != nil {
 			return errors.Trace(err)
@@ -2394,7 +2394,7 @@ func ReplacePortsDocSubnetIDCIDR(pool *StatePool) (err error) {
 
 			newDoc := oldDoc
 			newDoc.TxnRevno = 0
-			newDoc.DocID = portsGlobalKey(newDoc.MachineID, subnet.ID())
+			newDoc.DocID = fmt.Sprintf("m#%s#%s", newDoc.MachineID, subnet.ID())
 			newDoc.SubnetID = subnet.ID()
 
 			ops = append(ops, txn.Op{
@@ -2959,5 +2959,95 @@ func AddCharmhubToModelConfig(pool *StatePool) error {
 			return true, nil
 		}
 		return false, nil
+	}))
+}
+
+// RollUpAndConvertOpenedPortDocuments replaces pre-2.9 per-machine, per-subnet
+// opened port documents with a single document that references port ranges
+// by endpoint names.
+//
+// This upgrade step exploits the fact that pre-2.9 controllers open ports
+// in all subnets. As a result, the opened ports collection will always
+// contain a single document with an empty subnet ID to indicate that the
+// port ranges apply to all subnets.
+func RollUpAndConvertOpenedPortDocuments(pool *StatePool) error {
+	const allEndpoints = ""
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(openedPortsC)
+		defer closer()
+
+		var oldDocs []upgrade.OldPortsDoc28
+		err := col.Find(nil).All(&oldDocs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		// Roll up per-subnet docs (there should actually only be one
+		// per machine) and emit txn ops for removing them.
+		var ops []txn.Op
+		var newDocs = make(map[string]*machinePortRangesDoc)
+		for _, oldDoc := range oldDocs {
+			// Skip any docs without a populated "ports" field.
+			// This check makes the upgrade step idempotent as it
+			// ensures that we don't accidentally remove the
+			// documents with the new format if we run the upgrade
+			// step twice.
+			if len(oldDoc.Ports) == 0 {
+				continue
+			}
+
+			ops = append(ops, txn.Op{
+				C:      openedPortsC,
+				Id:     oldDoc.DocID,
+				Assert: txn.DocExists,
+				Remove: true,
+			})
+
+			if newDocs[oldDoc.MachineID] != nil {
+				// We should never encounter multiple docs for a
+				// given machine in a pre-2.9 controller. In the
+				// off-chance this happens emit a warning.
+				logger.Warningf("encountered multiple open port documents for machine %q; the port ranges will be rolled up and exposed to all subnets", oldDoc.MachineID)
+			} else {
+				newDocs[oldDoc.MachineID] = &machinePortRangesDoc{
+					// New docs use the machineID as their ID.
+					// whereas old docs use "machineID#subnetID".
+					DocID:      st.docID(oldDoc.MachineID),
+					MachineID:  oldDoc.MachineID,
+					ModelUUID:  oldDoc.ModelUUID,
+					UnitRanges: make(map[string]unitPortRangesDoc),
+				}
+			}
+
+			newDoc := newDocs[oldDoc.MachineID]
+
+			// Map each port range entry of the old Doc to the new
+			// format assuming it is open for all application endpoints.
+			for _, pr := range oldDoc.Ports {
+				if newDoc.UnitRanges[pr.UnitName] == nil {
+					newDoc.UnitRanges[pr.UnitName] = make(unitPortRangesDoc)
+				}
+
+				newDoc.UnitRanges[pr.UnitName][allEndpoints] = append(
+					newDoc.UnitRanges[pr.UnitName][allEndpoints],
+					network.PortRange{
+						FromPort: pr.FromPort,
+						ToPort:   pr.ToPort,
+						Protocol: pr.Protocol,
+					})
+			}
+		}
+
+		// Finally, generate an operation to insert the new docs.
+		for _, newDoc := range newDocs {
+			ops = append(ops, txn.Op{
+				C:      openedPortsC,
+				Id:     newDoc.DocID,
+				Assert: txn.DocMissing,
+				Insert: newDoc,
+			})
+		}
+
+		return errors.Trace(st.db().RunTransaction(ops))
 	}))
 }

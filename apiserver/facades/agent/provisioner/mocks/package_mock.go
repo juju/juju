@@ -5,17 +5,19 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v7"
 	set "github.com/juju/collections/set"
 	provisioner "github.com/juju/juju/apiserver/facades/agent/provisioner"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
-	network "github.com/juju/juju/network"
+	network "github.com/juju/juju/core/network"
+	network0 "github.com/juju/juju/network"
 	containerizer "github.com/juju/juju/network/containerizer"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
-	reflect "reflect"
 )
 
 // MockMachine is a mock of Machine interface
@@ -304,10 +306,10 @@ func (m *MockBridgePolicy) EXPECT() *MockBridgePolicyMockRecorder {
 }
 
 // FindMissingBridgesForContainer mocks base method
-func (m *MockBridgePolicy) FindMissingBridgesForContainer(arg0 containerizer.Machine, arg1 containerizer.Container) ([]network.DeviceToBridge, int, error) {
+func (m *MockBridgePolicy) FindMissingBridgesForContainer(arg0 containerizer.Machine, arg1 containerizer.Container) ([]network0.DeviceToBridge, int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindMissingBridgesForContainer", arg0, arg1)
-	ret0, _ := ret[0].([]network.DeviceToBridge)
+	ret0, _ := ret[0].([]network0.DeviceToBridge)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -320,17 +322,18 @@ func (mr *MockBridgePolicyMockRecorder) FindMissingBridgesForContainer(arg0, arg
 }
 
 // PopulateContainerLinkLayerDevices mocks base method
-func (m *MockBridgePolicy) PopulateContainerLinkLayerDevices(arg0 containerizer.Machine, arg1 containerizer.Container) error {
+func (m *MockBridgePolicy) PopulateContainerLinkLayerDevices(arg0 containerizer.Machine, arg1 containerizer.Container, arg2 bool) (network.InterfaceInfos, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PopulateContainerLinkLayerDevices", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "PopulateContainerLinkLayerDevices", arg0, arg1, arg2)
+	ret0, _ := ret[0].(network.InterfaceInfos)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // PopulateContainerLinkLayerDevices indicates an expected call of PopulateContainerLinkLayerDevices
-func (mr *MockBridgePolicyMockRecorder) PopulateContainerLinkLayerDevices(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockBridgePolicyMockRecorder) PopulateContainerLinkLayerDevices(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PopulateContainerLinkLayerDevices", reflect.TypeOf((*MockBridgePolicy)(nil).PopulateContainerLinkLayerDevices), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PopulateContainerLinkLayerDevices", reflect.TypeOf((*MockBridgePolicy)(nil).PopulateContainerLinkLayerDevices), arg0, arg1, arg2)
 }
 
 // MockUnit is a mock of Unit interface

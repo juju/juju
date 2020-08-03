@@ -116,32 +116,32 @@ func (s *k8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
 
 	// 1st call of ensuring related resources - CREATE.
 	gomock.InOrder(
-		s.mockClusterRoles.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockClusterRoles.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockClusterRoles.EXPECT().Create(cr).
+		s.mockClusterRoles.EXPECT().Create(gomock.Any(), cr, metav1.CreateOptions{}).
 			Return(cr, nil),
-		s.mockServiceAccounts.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServiceAccounts.EXPECT().Create(newSa).Times(1).
+		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), newSa, metav1.CreateOptions{}).Times(1).
 			Return(newSa, nil),
-		s.mockServiceAccounts.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(newSa, nil),
-		s.mockClusterRoleBindings.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockClusterRoleBindings.EXPECT().Create(clusterRoleBinding).Times(1).
+		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), clusterRoleBinding, metav1.CreateOptions{}).Times(1).
 			Return(clusterRoleBinding, nil),
 
 		// fetching secret of the service account.
 		// 1. not found sa.
-		s.mockServiceAccounts.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		// 2. sa without secret.
-		s.mockServiceAccounts.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(newSa, nil),
 		// 3. all good.
-		s.mockServiceAccounts.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(saWithSecret, nil),
-		s.mockSecrets.EXPECT().Get(saWithSecret.Secrets[0].Name, metav1.GetOptions{}).
+		s.mockSecrets.EXPECT().Get(gomock.Any(), saWithSecret.Secrets[0].Name, metav1.GetOptions{}).
 			Return(secret, nil),
 	)
 	errChan := make(chan error)
@@ -252,15 +252,15 @@ func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *gc.C)
 
 	// 2nd call of ensuring related resources - GET.
 	gomock.InOrder(
-		s.mockClusterRoles.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockClusterRoles.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(cr, nil),
-		s.mockServiceAccounts.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(newSa, nil),
-		s.mockClusterRoleBindings.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(clusterRoleBinding, nil),
-		s.mockServiceAccounts.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(saWithSecret, nil),
-		s.mockSecrets.EXPECT().Get(saWithSecret.Secrets[0].Name, metav1.GetOptions{}).
+		s.mockSecrets.EXPECT().Get(gomock.Any(), saWithSecret.Secrets[0].Name, metav1.GetOptions{}).
 			Return(secret, nil),
 	)
 	cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(s.k8sClient, s.UID, cfg, contextName, s.clock)
@@ -297,9 +297,9 @@ func (s *k8sRawClientSuite) TestGetOrCreateClusterRole(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockClusterRoles.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockClusterRoles.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockClusterRoles.EXPECT().Create(cr).Times(1).
+		s.mockClusterRoles.EXPECT().Create(gomock.Any(), cr, metav1.CreateOptions{}).Times(1).
 			Return(cr, nil),
 	)
 	crOut, cleanUps, err := clientconfig.GetOrCreateClusterRole(s.k8sClient, cr.Name, s.namespace, s.labels)
@@ -308,7 +308,7 @@ func (s *k8sRawClientSuite) TestGetOrCreateClusterRole(c *gc.C) {
 	c.Assert(len(cleanUps), jc.DeepEquals, 1)
 
 	gomock.InOrder(
-		s.mockClusterRoles.EXPECT().Get(cr.Name, metav1.GetOptions{}).Times(1).
+		s.mockClusterRoles.EXPECT().Get(gomock.Any(), cr.Name, metav1.GetOptions{}).Times(1).
 			Return(cr, nil),
 	)
 	crOut, cleanUps, err = clientconfig.GetOrCreateClusterRole(s.k8sClient, cr.Name, s.namespace, s.labels)
@@ -330,11 +330,11 @@ func (s *k8sRawClientSuite) TestGetOrCreateServiceAccount(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockServiceAccounts.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServiceAccounts.EXPECT().Create(sa).Times(1).
+		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), sa, metav1.CreateOptions{}).Times(1).
 			Return(sa, nil),
-		s.mockServiceAccounts.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(sa, nil),
 	)
 	saOut, cleanUps, err := clientconfig.GetOrCreateServiceAccount(s.k8sClient, sa.Name, s.namespace, s.labels)
@@ -343,7 +343,7 @@ func (s *k8sRawClientSuite) TestGetOrCreateServiceAccount(c *gc.C) {
 	c.Assert(len(cleanUps), jc.DeepEquals, 1)
 
 	gomock.InOrder(
-		s.mockServiceAccounts.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(sa, nil),
 	)
 	saOut, cleanUps, err = clientconfig.GetOrCreateServiceAccount(s.k8sClient, sa.Name, s.namespace, s.labels)
@@ -402,7 +402,7 @@ func (s *k8sRawClientSuite) TestGetOrCreateClusterRoleBinding(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockClusterRoleBindings.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(clusterRoleBinding, nil),
 	)
 	clusterRoleBindingOut, cleanUps, err := clientconfig.GetOrCreateClusterRoleBinding(s.k8sClient, clusterRoleBinding.Name, sa, cr, s.labels)
@@ -411,9 +411,9 @@ func (s *k8sRawClientSuite) TestGetOrCreateClusterRoleBinding(c *gc.C) {
 	c.Assert(len(cleanUps), jc.DeepEquals, 0)
 
 	gomock.InOrder(
-		s.mockClusterRoleBindings.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockClusterRoleBindings.EXPECT().Create(clusterRoleBinding).Times(1).
+		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), clusterRoleBinding, metav1.CreateOptions{}).Times(1).
 			Return(clusterRoleBinding, nil),
 	)
 	clusterRoleBindingOut, cleanUps, err = clientconfig.GetOrCreateClusterRoleBinding(s.k8sClient, clusterRoleBinding.Name, sa, cr, s.labels)
@@ -452,9 +452,9 @@ func (s *k8sRawClientSuite) TestGetServiceAccountSecret(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockServiceAccounts.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(sa, nil),
-		s.mockSecrets.EXPECT().Get(sa.Secrets[0].Name, metav1.GetOptions{}).Times(1).
+		s.mockSecrets.EXPECT().Get(gomock.Any(), sa.Secrets[0].Name, metav1.GetOptions{}).Times(1).
 			Return(secret, nil),
 	)
 	secretOut, err := clientconfig.GetServiceAccountSecret(s.k8sClient, s.name, s.namespace)
@@ -468,15 +468,15 @@ func (s *k8sRawClientSuite) TestRemoveJujuAdminServiceAccount(c *gc.C) {
 
 	labelSelector := fmt.Sprintf("juju-credential=%s", s.UID)
 	gomock.InOrder(
-		s.mockClusterRoleBindings.EXPECT().DeleteCollection(
+		s.mockClusterRoleBindings.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(metav1.DeletePropagationForeground),
 			metav1.ListOptions{LabelSelector: labelSelector},
 		).Times(1).Return(nil),
-		s.mockClusterRoles.EXPECT().DeleteCollection(
+		s.mockClusterRoles.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(metav1.DeletePropagationForeground),
 			metav1.ListOptions{LabelSelector: labelSelector},
 		).Times(1).Return(nil),
-		s.mockServiceAccounts.EXPECT().DeleteCollection(
+		s.mockServiceAccounts.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(metav1.DeletePropagationForeground),
 			metav1.ListOptions{LabelSelector: labelSelector},
 		).Times(1).Return(nil),
@@ -486,8 +486,8 @@ func (s *k8sRawClientSuite) TestRemoveJujuAdminServiceAccount(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *k8sRawClientSuite) deleteOptions(policy metav1.DeletionPropagation) *metav1.DeleteOptions {
-	return &metav1.DeleteOptions{
+func (s *k8sRawClientSuite) deleteOptions(policy metav1.DeletionPropagation) metav1.DeleteOptions {
+	return metav1.DeleteOptions{
 		PropagationPolicy: &policy,
 	}
 }

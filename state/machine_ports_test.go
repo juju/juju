@@ -4,10 +4,9 @@
 package state_test
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/txn"
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 
@@ -19,17 +18,18 @@ import (
 
 type MachinePortsDocSuite struct {
 	ConnSuite
-	charm              *state.Charm
-	application        *state.Application
-	unit1              *state.Unit
-	unit2              *state.Unit
-	machine            *state.Machine
-	subnet             *state.Subnet
-	portsInSubnet      state.MachineSubnetPorts
-	portsWithoutSubnet state.MachineSubnetPorts
+	charm          *state.Charm
+	application    *state.Application
+	unit1          *state.Unit
+	unit2          *state.Unit
+	machine        *state.Machine
+	subnet         *state.Subnet
+	machPortRanges state.MachinePortRanges
 }
 
 var _ = gc.Suite(&MachinePortsDocSuite{})
+
+const allEndpoints = ""
 
 func (s *MachinePortsDocSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
@@ -44,16 +44,12 @@ func (s *MachinePortsDocSuite) SetUpTest(c *gc.C) {
 	s.subnet, err = s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.portsInSubnet, err = s.machine.OpenedPortsInSubnet(s.subnet.ID())
+	s.machPortRanges, err = s.machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.portsInSubnet, gc.NotNil)
-
-	s.portsWithoutSubnet, err = s.machine.OpenedPortsInSubnet("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.portsWithoutSubnet, gc.NotNil)
+	c.Assert(s.machPortRanges.UniquePortRanges(), gc.HasLen, 0, gc.Commentf("expected no port ranges to be open for machine"))
 }
 
-func assertRefreshMachinePortsDoc(c *gc.C, p state.MachineSubnetPorts, errSatisfier func(error) bool) {
+func assertRefreshMachinePortsDoc(c *gc.C, p state.MachinePortRanges, errSatisfier func(error) bool) {
 	type refresher interface {
 		Refresh() error
 	}
@@ -69,7 +65,7 @@ func assertRefreshMachinePortsDoc(c *gc.C, p state.MachineSubnetPorts, errSatisf
 	}
 }
 
-func assertRemoveMachinePortsDoc(c *gc.C, p state.MachineSubnetPorts) {
+func assertRemoveMachinePortsDoc(c *gc.C, p state.MachinePortRanges) {
 	type remover interface {
 		Remove() error
 	}
@@ -79,7 +75,7 @@ func assertRemoveMachinePortsDoc(c *gc.C, p state.MachineSubnetPorts) {
 	c.Assert(portRemover.Remove(), jc.ErrorIsNil)
 }
 
-func assertMachinePortsPersisted(c *gc.C, p state.MachineSubnetPorts, persisted bool) {
+func assertMachinePortsPersisted(c *gc.C, p state.MachinePortRanges, persisted bool) {
 	type persistChecker interface {
 		Persisted() bool
 	}
@@ -89,60 +85,62 @@ func assertMachinePortsPersisted(c *gc.C, p state.MachineSubnetPorts, persisted 
 	c.Assert(checker.Persisted(), gc.Equals, persisted)
 }
 
-func (s *MachinePortsDocSuite) mustOpenCloseMachinePorts(c *gc.C, ports state.MachineSubnetPorts, unitName string, openRange, closeRange []network.PortRange) {
-	c.Assert(s.openCloseMachinePorts(ports, unitName, openRange, closeRange), jc.ErrorIsNil)
+func (s *MachinePortsDocSuite) mustOpenCloseMachinePorts(c *gc.C, machPorts state.MachinePortRanges, unitName, endpointName string, openRanges, closeRanges []network.PortRange) {
+	err := s.openCloseMachinePorts(machPorts, unitName, endpointName, openRanges, closeRanges)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MachinePortsDocSuite) openCloseMachinePorts(ports state.MachineSubnetPorts, unitName string, openRange, closeRange []network.PortRange) error {
-	op, err := ports.OpenClosePortsOperation(unitName, openRange, closeRange)
-	if err != nil {
-		return err
+func (s *MachinePortsDocSuite) openCloseMachinePorts(machPorts state.MachinePortRanges, unitName, endpointName string, openRanges, closeRanges []network.PortRange) error {
+	unitPorts := machPorts.ForUnit(unitName)
+	for _, pr := range openRanges {
+		unitPorts.Open(endpointName, pr)
 	}
-	return s.State.ApplyOperation(op)
+	for _, pr := range closeRanges {
+		unitPorts.Close(endpointName, pr)
+	}
+	return s.State.ApplyOperation(machPorts.Changes())
 }
 
-func (s *MachinePortsDocSuite) TestModelAllMachinePorts(c *gc.C) {
+func (s *MachinePortsDocSuite) TestModelAllOpenPortRanges(c *gc.C) {
+	toOpen := []network.PortRange{
+		network.MustParsePortRange("100-200/tcp"),
+		network.MustParsePortRange("300-400/tcp"),
+		network.MustParsePortRange("500-600/tcp"),
+	}
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), allEndpoints, toOpen[0:1], nil)
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit2.Name(), allEndpoints, toOpen[1:2], nil)
+
+	// Add a second machine with another unit and open the last port range
+	mach2 := s.Factory.MakeMachine(c, &factory.MachineParams{Series: "quantal"})
+	unit3 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application, Machine: mach2})
+	mach2Ports, err := mach2.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	s.mustOpenCloseMachinePorts(c, mach2Ports, unit3.Name(), allEndpoints, toOpen[2:3], nil)
+
+	allMachinePortRanges, err := s.Model.OpenedPortRangesForAllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allMachinePortRanges, gc.HasLen, 2)
+
+	c.Assert(allMachinePortRanges[0].UniquePortRanges(), gc.DeepEquals, toOpen[0:2])
+	c.Assert(allMachinePortRanges[1].UniquePortRanges(), gc.DeepEquals, toOpen[2:])
+}
+
+func (s *MachinePortsDocSuite) TestOpenMachinePortsForWildcardEndpoint(c *gc.C) {
+	s.testOpenPortsForEndpoint(c, allEndpoints)
+}
+
+func (s *MachinePortsDocSuite) TestOpenMachinePortsForEndpoint(c *gc.C) {
+	s.testOpenPortsForEndpoint(c, "monitoring-port")
+}
+
+func (s *MachinePortsDocSuite) testOpenPortsForEndpoint(c *gc.C, endpoint string) {
 	toOpen := []network.PortRange{network.MustParsePortRange("100-200/tcp")}
-	s.mustOpenCloseMachinePorts(c, s.portsInSubnet, s.unit1.Name(), toOpen, nil)
-	s.mustOpenCloseMachinePorts(c, s.portsWithoutSubnet, s.unit1.Name(), toOpen, nil)
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), endpoint, toOpen, nil)
 
-	machine := s.Factory.MakeMachine(c, &factory.MachineParams{Series: "quantal"})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application, Machine: machine})
-	ports, err := machine.OpenedPortsInSubnet(s.subnet.ID())
+	machPorts, err := s.machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	s.mustOpenCloseMachinePorts(c, ports, unit.Name(), toOpen, nil)
-
-	ports, err = machine.OpenedPortsInSubnet("")
-	c.Assert(err, jc.ErrorIsNil)
-	s.mustOpenCloseMachinePorts(c, ports, unit.Name(), toOpen, nil)
-
-	allMachinePorts, err := s.Model.OpenedPortsForAllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allMachinePorts, gc.HasLen, 4)
-}
-
-func (s *MachinePortsDocSuite) TestCreateMachinePortsWithSubnet(c *gc.C) {
-	s.testCreateMachinePortsWithSubnetID(c, s.subnet.ID())
-}
-
-func (s *MachinePortsDocSuite) testCreateMachinePortsWithSubnetID(c *gc.C, subnetID string) {
-	toOpen := []network.PortRange{network.MustParsePortRange("100-200/tcp")}
-	ports, err := s.machine.OpenedPortsInSubnet(subnetID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.NotNil)
-	s.mustOpenCloseMachinePorts(c, ports, s.unit1.Name(), toOpen, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ports, err = s.machine.OpenedPortsInSubnet(subnetID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports.MachineID(), gc.Equals, s.machine.Id())
-	c.Assert(ports.SubnetID(), gc.Equals, subnetID)
-
-	c.Assert(ports.PortRangesForUnit(s.unit1.Name()), gc.HasLen, 1)
-}
-
-func (s *MachinePortsDocSuite) TestCreateMachinePortsWithoutSubnet(c *gc.C) {
-	s.testCreateMachinePortsWithSubnetID(c, "")
+	c.Assert(machPorts.MachineID(), gc.Equals, s.machine.Id())
+	c.Assert(machPorts.UniquePortRanges(), gc.DeepEquals, toOpen)
 }
 
 func (s *MachinePortsDocSuite) TestOpenAndCloseMachinePorts(c *gc.C) {
@@ -193,7 +191,7 @@ func (s *MachinePortsDocSuite) TestOpenAndCloseMachinePorts(c *gc.C) {
 		},
 		expected: `cannot close ports 100-150/tcp: port ranges 100-200/tcp \("wordpress/0"\) and 100-150/tcp \("wordpress/0"\) conflict`,
 	}, {
-		about: "close an unopened port range with existing clash from other unit",
+		about: "close a port range opened by another unit",
 		existing: []unitPortRange{{
 			PortRange: network.MustParsePortRange("100-150/tcp"),
 			UnitName:  s.unit2.Name(),
@@ -203,7 +201,7 @@ func (s *MachinePortsDocSuite) TestOpenAndCloseMachinePorts(c *gc.C) {
 			PortRange: network.MustParsePortRange("100-150/tcp"),
 			UnitName:  s.unit1.Name(),
 		},
-		expected: "",
+		expected: `cannot close ports 100-150/tcp: port ranges 100-150/tcp \("wordpress/1"\) and 100-150/tcp \("wordpress/0"\) conflict`,
 	}, {
 		about: "open twice the same port range",
 		existing: []unitPortRange{{
@@ -285,19 +283,18 @@ func (s *MachinePortsDocSuite) TestOpenAndCloseMachinePorts(c *gc.C) {
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 
-		ports, err := s.machine.OpenedPortsInSubnet(s.subnet.ID())
+		ports, err := s.machine.OpenedPortRanges()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ports, gc.NotNil)
 
 		// open ports that should exist for the test case
 		for _, pr := range t.existing {
-			s.mustOpenCloseMachinePorts(c, ports, pr.UnitName, []network.PortRange{pr.PortRange}, nil)
+			s.mustOpenCloseMachinePorts(c, ports, pr.UnitName, allEndpoints, []network.PortRange{pr.PortRange}, nil)
 		}
 		if len(t.existing) != 0 {
 			assertRefreshMachinePortsDoc(c, ports, nil)
 		}
 		if t.toOpen != nil {
-			err := s.openCloseMachinePorts(ports, t.toOpen.UnitName, []network.PortRange{t.toOpen.PortRange}, nil)
+			err := s.openCloseMachinePorts(ports, t.toOpen.UnitName, allEndpoints, []network.PortRange{t.toOpen.PortRange}, nil)
 			if t.expected == "" {
 				c.Check(err, jc.ErrorIsNil)
 			} else {
@@ -307,7 +304,7 @@ func (s *MachinePortsDocSuite) TestOpenAndCloseMachinePorts(c *gc.C) {
 		}
 
 		if t.toClose != nil {
-			err := s.openCloseMachinePorts(ports, t.toClose.UnitName, nil, []network.PortRange{t.toClose.PortRange})
+			err := s.openCloseMachinePorts(ports, t.toClose.UnitName, allEndpoints, nil, []network.PortRange{t.toClose.PortRange})
 			if t.expected == "" {
 				c.Check(err, jc.ErrorIsNil)
 			} else {
@@ -318,118 +315,104 @@ func (s *MachinePortsDocSuite) TestOpenAndCloseMachinePorts(c *gc.C) {
 	}
 }
 
-func (s *MachinePortsDocSuite) TestComposedOpenCloseOperation(c *gc.C) {
+func (s *MachinePortsDocSuite) TestClosePortRangeOperationSucceedsForDyingModel(c *gc.C) {
 	// Open initial port range
 	toOpen := []network.PortRange{network.MustParsePortRange("200-210/tcp")}
-	s.mustOpenCloseMachinePorts(c, s.portsWithoutSubnet, s.unit1.Name(), toOpen, nil)
-
-	// Run a composed open/close operation
-	s.mustOpenCloseMachinePorts(c, s.portsWithoutSubnet, s.unit1.Name(),
-		[]network.PortRange{network.MustParsePortRange("400-500/tcp")},
-		[]network.PortRange{network.MustParsePortRange("200-210/tcp")},
-	)
-
-	// Enumerate ports
-	assertRefreshMachinePortsDoc(c, s.portsWithoutSubnet, nil)
-	unitRanges := s.portsWithoutSubnet.PortRangesForUnit(s.unit1.Name())
-	c.Assert(unitRanges, gc.DeepEquals, []network.PortRange{network.MustParsePortRange("400-500/tcp")})
-
-	// If we open and close the same set of ports the port doc should be deleted.
-	assertRefreshMachinePortsDoc(c, s.portsWithoutSubnet, nil)
-	s.mustOpenCloseMachinePorts(c, s.portsWithoutSubnet, s.unit1.Name(),
-		[]network.PortRange{network.MustParsePortRange("400-500/tcp")},
-		[]network.PortRange{network.MustParsePortRange("400-500/tcp")},
-	)
-
-	// The next refresh should fail with ErrNotFound as the document has been removed.
-	assertRefreshMachinePortsDoc(c, s.portsWithoutSubnet, errors.IsNotFound)
-}
-
-func (s *MachinePortsDocSuite) TestPortOperationSucceedsForDyingModel(c *gc.C) {
-	// Open initial port range
-	toOpen := []network.PortRange{network.MustParsePortRange("200-210/tcp")}
-	s.mustOpenCloseMachinePorts(c, s.portsWithoutSubnet, s.unit1.Name(), toOpen, nil)
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), allEndpoints, toOpen, nil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(s.Model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	}).Check()
 
 	// Close the initially opened ports
-	s.mustOpenCloseMachinePorts(c, s.portsWithoutSubnet, s.unit1.Name(),
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), allEndpoints,
 		nil,
 		[]network.PortRange{network.MustParsePortRange("200-210/tcp")},
 	)
 }
 
+func (s *MachinePortsDocSuite) TestComposedOpenCloseOperation(c *gc.C) {
+	// Open initial port range
+	toOpen := []network.PortRange{network.MustParsePortRange("200-210/tcp")}
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), allEndpoints, toOpen, nil)
+
+	// Run a composed open/close operation
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), allEndpoints,
+		[]network.PortRange{network.MustParsePortRange("400-500/tcp")},
+		[]network.PortRange{network.MustParsePortRange("200-210/tcp")},
+	)
+
+	// Enumerate ports
+	assertRefreshMachinePortsDoc(c, s.machPortRanges, nil)
+	unitRanges := s.machPortRanges.ForUnit(s.unit1.Name()).ForEndpoint(allEndpoints)
+	c.Assert(unitRanges, gc.DeepEquals, []network.PortRange{network.MustParsePortRange("400-500/tcp")})
+
+	// If we open and close the same set of ports the port doc should be deleted.
+	assertRefreshMachinePortsDoc(c, s.machPortRanges, nil)
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), allEndpoints,
+		[]network.PortRange{network.MustParsePortRange("400-500/tcp")},
+		[]network.PortRange{network.MustParsePortRange("400-500/tcp")},
+	)
+
+	// The next refresh should fail with ErrNotFound as the document has been removed.
+	assertRefreshMachinePortsDoc(c, s.machPortRanges, errors.IsNotFound)
+}
+
 func (s *MachinePortsDocSuite) TestComposedOpenCloseOperationNoEffectiveOps(c *gc.C) {
 	// Run a composed open/close operation
-	op, err := s.portsWithoutSubnet.OpenClosePortsOperation(s.unit1.Name(),
-		// Open 400-500
-		[]network.PortRange{
-			network.MustParsePortRange("400-500/tcp"),
-			// Duplicate range should be skipped
-			network.MustParsePortRange("400-500/tcp"),
-		},
-		// Close 400-500
-		[]network.PortRange{
-			network.MustParsePortRange("400-500/tcp"),
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
+	unitPortRanges := s.machPortRanges.ForUnit(s.unit1.Name())
+
+	// Duplicate range should be skipped
+	unitPortRanges.Open("monitor-port", network.MustParsePortRange("400-500/tcp"))
+	unitPortRanges.Open("monitor-port", network.MustParsePortRange("400-500/tcp"))
+
+	unitPortRanges.Close("monitor-port", network.MustParsePortRange("400-500/tcp"))
 
 	// As the doc does not exist and the end result is still an empty port range
 	// this should return ErrNoOperations
-	_, err = op.Build(0)
+	_, err := s.machPortRanges.Changes().Build(0)
 	c.Assert(err, gc.Equals, jujutxn.ErrNoOperations)
 }
 
 func (s *MachinePortsDocSuite) TestICMP(c *gc.C) {
 	// Open initial port range
 	toOpen := []network.PortRange{network.MustParsePortRange("icmp")}
-	s.mustOpenCloseMachinePorts(c, s.portsWithoutSubnet, s.unit1.Name(), toOpen, nil)
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), allEndpoints, toOpen, nil)
 
-	ranges := s.portsWithoutSubnet.PortRangesForUnit(s.unit1.Name())
+	ranges := s.machPortRanges.ForUnit(s.unit1.Name()).UniquePortRanges()
 	c.Assert(ranges, gc.HasLen, 1)
 }
 
 func (s *MachinePortsDocSuite) TestOpenInvalidRange(c *gc.C) {
 	toOpen := []network.PortRange{{FromPort: 400, ToPort: 200, Protocol: "tcp"}}
-	err := s.openCloseMachinePorts(s.portsWithoutSubnet, s.unit1.Name(), toOpen, nil)
+	err := s.openCloseMachinePorts(s.machPortRanges, s.unit1.Name(), allEndpoints, toOpen, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot open ports 400-200/tcp: invalid port range 400-200/tcp`)
 }
 
 func (s *MachinePortsDocSuite) TestCloseInvalidRange(c *gc.C) {
 	// Open initial port range
 	toOpen := []network.PortRange{network.MustParsePortRange("100-200/tcp")}
-	s.mustOpenCloseMachinePorts(c, s.portsWithoutSubnet, s.unit1.Name(), toOpen, nil)
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), allEndpoints, toOpen, nil)
 
-	assertRefreshMachinePortsDoc(c, s.portsWithoutSubnet, nil)
+	assertRefreshMachinePortsDoc(c, s.machPortRanges, nil)
 
 	toClose := []network.PortRange{{FromPort: 150, ToPort: 200, Protocol: "tcp"}}
-	err := s.openCloseMachinePorts(s.portsWithoutSubnet, s.unit1.Name(), nil, toClose)
+	err := s.openCloseMachinePorts(s.machPortRanges, s.unit1.Name(), allEndpoints, nil, toClose)
 	c.Assert(err, gc.ErrorMatches, `cannot close ports 150-200/tcp: port ranges 100-200/tcp \("wordpress/0"\) and 150-200/tcp \("wordpress/0"\) conflict`)
 }
 
 func (s *MachinePortsDocSuite) TestRemoveMachinePortsDoc(c *gc.C) {
 	// Open initial port range
 	toOpen := []network.PortRange{network.MustParsePortRange("100-200/tcp")}
-	s.mustOpenCloseMachinePorts(c, s.portsWithoutSubnet, s.unit1.Name(), toOpen, nil)
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), allEndpoints, toOpen, nil)
 
-	ports, err := s.machine.OpenedPortsInSubnet(s.subnet.ID())
+	// Remove document
+	assertRemoveMachinePortsDoc(c, s.machPortRanges)
+
+	// If we lookup the opened ports for the machine we should now get a blank doc.
+	machPorts, err := s.machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.NotNil)
-
-	// Remove all port documents
-	allMachinePorts, err := s.machine.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-
-	for _, prt := range allMachinePorts {
-		assertRemoveMachinePortsDoc(c, prt)
-	}
-
-	ports, err = s.machine.OpenedPortsInSubnet(s.subnet.ID())
-	c.Assert(err, jc.ErrorIsNil)
-	assertMachinePortsPersisted(c, ports, false) // we should get back a blank fresh doc
+	assertMachinePortsPersisted(c, machPorts, false)
 }
 
 func (s *MachinePortsDocSuite) TestWatchMachinePorts(c *gc.C) {
@@ -448,47 +431,97 @@ func (s *MachinePortsDocSuite) TestWatchMachinePorts(c *gc.C) {
 	portRange := network.MustParsePortRange("100-200/tcp")
 
 	// Open a port range, detect a change.
-	expectChange := fmt.Sprintf("%s:%s", s.machine.Id(), s.subnet.ID())
-	s.mustOpenCloseMachinePorts(c, s.portsInSubnet, s.unit1.Name(), []network.PortRange{portRange}, nil)
+	expectChange := s.machine.Id()
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), allEndpoints, []network.PortRange{portRange}, nil)
 	wc.AssertChange(expectChange)
 	wc.AssertNoChange()
 
 	// Close the port range, detect a change.
-	s.mustOpenCloseMachinePorts(c, s.portsInSubnet, s.unit1.Name(), nil, []network.PortRange{portRange})
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), allEndpoints, nil, []network.PortRange{portRange})
 	wc.AssertChange(expectChange)
 	wc.AssertNoChange()
 
 	// Close the port range again, no changes.
-	s.mustOpenCloseMachinePorts(c, s.portsInSubnet, s.unit1.Name(), nil, []network.PortRange{portRange})
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), allEndpoints, nil, []network.PortRange{portRange})
 	wc.AssertNoChange()
 
 	// Open another range, detect a change.
 	portRange = network.MustParsePortRange("999-1999/udp")
-	s.mustOpenCloseMachinePorts(c, s.portsInSubnet, s.unit1.Name(), []network.PortRange{portRange}, nil)
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), "foo", []network.PortRange{portRange}, nil)
 	wc.AssertChange(expectChange)
 	wc.AssertNoChange()
 
 	// Open the same range again, no changes.
-	s.mustOpenCloseMachinePorts(c, s.portsInSubnet, s.unit1.Name(), []network.PortRange{portRange}, nil)
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), "foo", []network.PortRange{portRange}, nil)
 	wc.AssertNoChange()
 
 	// Open another range, detect a change.
 	otherRange := network.MustParsePortRange("1-100/tcp")
-	s.mustOpenCloseMachinePorts(c, s.portsInSubnet, s.unit1.Name(), []network.PortRange{otherRange}, nil)
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), allEndpoints, []network.PortRange{otherRange}, nil)
 	wc.AssertChange(expectChange)
 	wc.AssertNoChange()
 
 	// Close the other range, detect a change.
-	s.mustOpenCloseMachinePorts(c, s.portsInSubnet, s.unit1.Name(), nil, []network.PortRange{otherRange})
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), allEndpoints, nil, []network.PortRange{otherRange})
 	wc.AssertChange(expectChange)
 	wc.AssertNoChange()
 
 	// Remove the ports document, detect a change.
-	assertRemoveMachinePortsDoc(c, s.portsInSubnet)
+	assertRemoveMachinePortsDoc(c, s.machPortRanges)
 	wc.AssertChange(expectChange)
 	wc.AssertNoChange()
 
 	// And again - no change.
-	assertRemoveMachinePortsDoc(c, s.portsInSubnet)
+	assertRemoveMachinePortsDoc(c, s.machPortRanges)
 	wc.AssertNoChange()
+}
+
+func (s *MachinePortsDocSuite) TestChangesForIndividualUnits(c *gc.C) {
+	unit1PortRanges := s.machPortRanges.ForUnit(s.unit1.Name())
+	unit1PortRanges.Open(allEndpoints, network.MustParsePortRange("100-200/tcp"))
+
+	unit2PortRanges := s.machPortRanges.ForUnit(s.unit2.Name())
+	unit2PortRanges.Open(allEndpoints, network.MustParsePortRange("8080/tcp"))
+
+	// Apply changes scoped to unit 1. The recorded changes for unit 2
+	// in the machine port ranges instance should remain intact.
+	c.Assert(s.State.ApplyOperation(unit1PortRanges.Changes()), jc.ErrorIsNil)
+
+	// Check that the existing machine port ranges instance reflects the
+	// unit 1 changes we just applied.
+	c.Assert(s.machPortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
+		network.MustParsePortRange("100-200/tcp"),
+	}, gc.Commentf("machine port ranges instance not updated correctly after unit-scoped port change application"))
+
+	// Grab a fresh copy of the machine ranges and verify the expected ports
+	// have been correctly persisted.
+	freshMachPortRanges, err := s.machine.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(freshMachPortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
+		network.MustParsePortRange("100-200/tcp"),
+	}, gc.Commentf("unit 1 changes were not correctly persisted to DB"))
+
+	// Apply pending changes scoped to unit 2.
+	c.Assert(s.State.ApplyOperation(unit2PortRanges.Changes()), jc.ErrorIsNil)
+
+	// Check that the existing machine port ranges instance reflects both
+	// unit 1 and unit 2 changes
+	c.Assert(s.machPortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
+		network.MustParsePortRange("100-200/tcp"),
+		network.MustParsePortRange("8080/tcp"),
+	}, gc.Commentf("machine port ranges instance not updated correctly after unit-scoped port change application"))
+
+	// Grab a fresh copy of the machine ranges and verify the expected ports
+	// have been correctly persisted.
+	freshMachPortRanges, err = s.machine.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(freshMachPortRanges.UniquePortRanges(), gc.DeepEquals, []network.PortRange{
+		network.MustParsePortRange("100-200/tcp"),
+		network.MustParsePortRange("8080/tcp"),
+	}, gc.Commentf("unit changes were not correctly persisted to DB"))
+
+	// Verify that if we call changes on the machine ports instance we
+	// get no ops as everything has been committed.
+	_, err = s.machPortRanges.Changes().Build(0)
+	c.Assert(err, gc.Equals, txn.ErrNoOperations, gc.Commentf("machine port range was not synced correctly after applying changes"))
 }

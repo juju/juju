@@ -4,76 +4,99 @@
 package state
 
 import (
-	"fmt"
-
 	"github.com/juju/juju/core/network"
 )
 
-// UnitPorts represents the set of open ports on the machine a unit is deployed to.
-type UnitPorts struct {
-	unitName      string
-	machineID     string
-	portsBySubnet map[string][]network.PortRange
+var _ UnitPortRanges = (*unitPortRanges)(nil)
+
+// UnitPortRanges is implemented by types that can query and/or manipulate
+// a set of opened port ranges for a particular unit in an endpoint-aware
+// manner.
+type UnitPortRanges interface {
+	// UnitName returns the name of the unit these ranges apply to.
+	UnitName() string
+
+	// ForEndpoint returns a list of open port ranges for a particular
+	// application endpoint.
+	ForEndpoint(endpointName string) []network.PortRange
+
+	// ByEndpoint returns the list of open port ranges grouped by
+	// application endpoint.
+	ByEndpoint() map[string][]network.PortRange
+
+	// Open records a request for opening the specified port range for the
+	// specified endpoint.
+	Open(endpoint string, portRange network.PortRange)
+
+	// Close records a request for closing a particular port range for the
+	// specified endpoint.
+	Close(endpoint string, portRange network.PortRange)
+
+	// UniquePortRanges returns a slice of unique open PortRanges across
+	// all endpoints.
+	UniquePortRanges() []network.PortRange
+
+	// Changes returns a ModelOperation for applying any changes that were
+	// made to the port ranges for this unit.
+	Changes() ModelOperation
 }
 
-// UnitPortsFromMachineSubnetPorts creates a UnitPorts instance by scanning the
-// provided MachinePorts document for a machine's subnets and isolating the
-// port ranges that apply to the specified unit name.
-func UnitPortsFromMachineSubnetPorts(unitName, machineID string, openMachinePorts []MachineSubnetPorts) *UnitPorts {
-	up := &UnitPorts{
-		unitName:      unitName,
-		machineID:     machineID,
-		portsBySubnet: make(map[string][]network.PortRange),
-	}
-
-	for _, openInSubnet := range openMachinePorts {
-		ranges := openInSubnet.PortRangesForUnit(unitName)
-		network.SortPortRanges(ranges)
-		up.portsBySubnet[openInSubnet.SubnetID()] = ranges
-	}
-
-	return up
+// unitPortRanges is a view on the machinePortRanges type that provides
+// unit-level information about the set of opened port ranges for various
+// application endpoints.
+type unitPortRanges struct {
+	unitName          string
+	machinePortRanges *machinePortRanges
 }
 
 // UnitName returns the unit name associated with this set of ports.
-func (p *UnitPorts) UnitName() string {
+func (p *unitPortRanges) UnitName() string {
 	return p.unitName
 }
 
 // UnitName returns the machine ID where this unit is deployed to.
-func (p *UnitPorts) MachineID() string {
-	return p.machineID
+func (p *unitPortRanges) MachineID() string {
+	return p.machinePortRanges.MachineID()
 }
 
-// String returns p as a user-readable string.
-func (p *UnitPorts) String() string {
-	return fmt.Sprintf("ports for unit %q on machine %q", p.unitName, p.machineID)
+// ForEndpoint returns a list of port ranges that the unit has opened for the
+// specified endpoint.
+func (p *unitPortRanges) ForEndpoint(endpointName string) []network.PortRange {
+	unitPortRangeDoc := p.machinePortRanges.doc.UnitRanges[p.unitName]
+	if len(unitPortRangeDoc) == 0 || len(unitPortRangeDoc[endpointName]) == 0 {
+		return nil
+	}
+	res := append([]network.PortRange(nil), unitPortRangeDoc[endpointName]...)
+	network.SortPortRanges(res)
+	return res
 }
 
-// InSubnet returns a list of opened ports for this unit on the specified subnet.
-func (p *UnitPorts) InSubnet(subnetID string) []network.PortRange {
-	return p.portsBySubnet[subnetID]
-}
+// ByEndpoint returns a map where keys are endpoint names and values are the
+// port ranges that the unit has opened for each endpoint.
+func (p *unitPortRanges) ByEndpoint() map[string][]network.PortRange {
+	unitPortRangeDoc := p.machinePortRanges.doc.UnitRanges[p.unitName]
+	if len(unitPortRangeDoc) == 0 {
+		return nil
+	}
 
-// BySubnet returns a map where keys are subnet IDs and values are the list of
-// open port ranges in each subnet.
-func (p *UnitPorts) BySubnet() map[string][]network.PortRange {
-	return p.portsBySubnet
+	res := make(map[string][]network.PortRange)
+	for endpointName, portRanges := range unitPortRangeDoc {
+		res[endpointName] = append([]network.PortRange(nil), portRanges...)
+		network.SortPortRanges(res[endpointName])
+	}
+	return res
 }
 
 // UniquePortRanges returns a slice of unique open PortRanges across all
-// subnets. This method is provided for backwards compatibility purposes for
-// cases where opened port ranges are assumed to apply across all subnets.
-//
-// Newer applications should always use the subnet-aware methods on this type.
-func (p *UnitPorts) UniquePortRanges() []network.PortRange {
+// endpoints.
+func (p *unitPortRanges) UniquePortRanges() []network.PortRange {
 	var (
 		res  []network.PortRange
 		seen = make(map[network.PortRange]struct{})
 	)
 
-	for _, portRangesInSubnet := range p.portsBySubnet {
-		for _, portRange := range portRangesInSubnet {
+	for _, portRangesForEndpoint := range p.machinePortRanges.doc.UnitRanges[p.unitName] {
+		for _, portRange := range portRangesForEndpoint {
 			if _, found := seen[portRange]; found {
 				continue
 			}
@@ -85,4 +108,45 @@ func (p *UnitPorts) UniquePortRanges() []network.PortRange {
 
 	network.SortPortRanges(res)
 	return res
+}
+
+// Open records a request for opening a particular port range for the specified
+// endpoint.
+func (p *unitPortRanges) Open(endpoint string, portRange network.PortRange) {
+	if p.machinePortRanges.pendingOpenRanges == nil {
+		p.machinePortRanges.pendingOpenRanges = make(map[string]unitPortRangesDoc)
+	}
+	if p.machinePortRanges.pendingOpenRanges[p.unitName] == nil {
+		p.machinePortRanges.pendingOpenRanges[p.unitName] = make(unitPortRangesDoc)
+	}
+
+	p.machinePortRanges.pendingOpenRanges[p.unitName][endpoint] = append(
+		p.machinePortRanges.pendingOpenRanges[p.unitName][endpoint],
+		portRange,
+	)
+}
+
+// Close records a request for closing a particular port range for the
+// specified endpoint.
+func (p *unitPortRanges) Close(endpoint string, portRange network.PortRange) {
+	if p.machinePortRanges.pendingCloseRanges == nil {
+		p.machinePortRanges.pendingCloseRanges = make(map[string]unitPortRangesDoc)
+	}
+	if p.machinePortRanges.pendingCloseRanges[p.unitName] == nil {
+		p.machinePortRanges.pendingCloseRanges[p.unitName] = make(unitPortRangesDoc)
+	}
+
+	p.machinePortRanges.pendingCloseRanges[p.unitName][endpoint] = append(
+		p.machinePortRanges.pendingCloseRanges[p.unitName][endpoint],
+		portRange,
+	)
+}
+
+// Changes returns a ModelOperation for applying any changes that were made to
+// the port ranges for this unit.
+func (p *unitPortRanges) Changes() ModelOperation {
+	return &openClosePortRangesOperation{
+		mpr:          p.machinePortRanges,
+		unitSelector: p.unitName,
+	}
 }

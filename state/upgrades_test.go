@@ -4442,6 +4442,113 @@ func (s *upgradesSuite) TestAddCharmhubToModelConfig(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestRollUpAndConvertOpenedPortDocuments(c *gc.C) {
+	col, closer := s.state.db().GetRawCollection(openedPortsC)
+	defer closer()
+
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	err := col.Insert(
+		// ---- model 1 ----
+		bson.M{
+			"_id":        ensureModelUUID(uuid1, "m#3"),
+			"model-uuid": uuid1,
+			"machine-id": "3",
+			"ports": []bson.M{
+				{"unitname": "foo/0", "fromport": 10, "toport": 42, "protocol": "tcp"},
+				{"unitname": "bar/0", "fromport": 20, "toport": 40, "protocol": "udp"},
+			},
+		},
+		bson.M{
+			"_id":        ensureModelUUID(uuid1, "m#3#42"),
+			"model-uuid": uuid1,
+			"machine-id": "3",
+			// NOTE(achilleasa) A doc with a non-empty subnet ID
+			// should never appear in a real juju deployment. It is
+			// added here to make sure the upgrade step does not
+			// choke if it sees one.
+			"subnet-id": "7007",
+			"ports": []bson.M{
+				{"unitname": "foo/0", "fromport": 1337, "toport": 1337, "protocol": "tcp"},
+			},
+		},
+		bson.M{
+			"_id":        ensureModelUUID(uuid1, "m#4#"),
+			"model-uuid": uuid1,
+			"machine-id": "4",
+			"ports": []bson.M{
+				{"unitname": "baz/0", "fromport": 10, "toport": 42, "protocol": "tcp"},
+			},
+		},
+		// ---- model 2 ----
+		bson.M{
+			"_id":        ensureModelUUID(uuid2, "m#4#42"),
+			"model-uuid": uuid2,
+			"machine-id": "4",
+			"subnet-id":  "42",
+			"ports": []bson.M{
+				{"unitname": "foo/0", "fromport": -1, "toport": -1, "protocol": "icmp"},
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		// The altered portDocs:
+		{
+			"_id":        uuid1 + ":3",
+			"model-uuid": uuid1,
+			"machine-id": "3",
+			"unit-port-ranges": bson.M{
+				"foo/0": bson.M{
+					allEndpoints: []interface{}{
+						bson.M{"fromport": 10, "toport": 42, "protocol": "tcp"},
+						bson.M{"fromport": 1337, "toport": 1337, "protocol": "tcp"},
+					},
+				},
+				"bar/0": bson.M{
+					allEndpoints: []interface{}{
+						bson.M{"fromport": 20, "toport": 40, "protocol": "udp"},
+					},
+				},
+			},
+		}, {
+			"_id":        uuid1 + ":4",
+			"model-uuid": uuid1,
+			"machine-id": "4",
+			"unit-port-ranges": bson.M{
+				"baz/0": bson.M{
+					allEndpoints: []interface{}{
+						bson.M{"fromport": 10, "toport": 42, "protocol": "tcp"},
+					},
+				},
+			},
+		}, {
+			"_id":        uuid2 + ":4",
+			"model-uuid": uuid2,
+			"machine-id": "4",
+			"unit-port-ranges": bson.M{
+				"foo/0": bson.M{
+					allEndpoints: []interface{}{
+						bson.M{"fromport": -1, "toport": -1, "protocol": "icmp"},
+					},
+				},
+			},
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, RollUpAndConvertOpenedPortDocuments, upgradedData(col, expected))
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

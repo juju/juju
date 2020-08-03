@@ -33,9 +33,9 @@ type DepEngineReporter interface {
 	Report() map[string]interface{}
 }
 
-// IntrospectionReporter provides a simple method that the introspection
+// Reporter provides a simple method that the introspection
 // worker will output for the entity.
-type IntrospectionReporter interface {
+type Reporter interface {
 	IntrospectionReport() string
 }
 
@@ -43,8 +43,8 @@ type IntrospectionReporter interface {
 type Config struct {
 	SocketName         string
 	DepEngine          DepEngineReporter
-	StatePool          IntrospectionReporter
-	PubSub             IntrospectionReporter
+	StatePool          Reporter
+	PubSub             Reporter
 	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
 	Presence           presence.Recorder
@@ -66,8 +66,8 @@ type socketListener struct {
 	tomb               tomb.Tomb
 	listener           *net.UnixListener
 	depEngine          DepEngineReporter
-	statePool          IntrospectionReporter
-	pubsub             IntrospectionReporter
+	statePool          Reporter
+	pubsub             Reporter
 	machineLock        machinelock.Lock
 	prometheusGatherer prometheus.Gatherer
 	presence           presence.Recorder
@@ -113,15 +113,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 func (w *socketListener) serve() {
 	mux := http.NewServeMux()
-	RegisterHTTPHandlers(
-		ReportSources{
-			DependencyEngine:   w.depEngine,
-			StatePool:          w.statePool,
-			PubSub:             w.pubsub,
-			MachineLock:        w.machineLock,
-			PrometheusGatherer: w.prometheusGatherer,
-			Presence:           w.presence,
-		}, mux.Handle)
+	w.RegisterHTTPHandlers(mux.Handle)
 
 	srv := http.Server{Handler: mux}
 	logger.Debugf("stats worker now serving")
@@ -150,23 +142,11 @@ func (w *socketListener) Wait() error {
 	return w.tomb.Wait()
 }
 
-// ReportSources are the various information sources that are exposed
-// through the introspection facility.
-type ReportSources struct {
-	DependencyEngine   DepEngineReporter
-	StatePool          IntrospectionReporter
-	PubSub             IntrospectionReporter
-	MachineLock        machinelock.Lock
-	PrometheusGatherer prometheus.Gatherer
-	Presence           presence.Recorder
-}
-
-// AddHandlers calls the given function with http.Handlers
+// RegisterHTTPHandlers calls the given function with http.Handlers
 // that serve agent introspection requests. The function will
 // be called with a path; the function may alter the path
 // as it sees fit.
-func RegisterHTTPHandlers(
-	sources ReportSources,
+func (w *socketListener) RegisterHTTPHandlers(
 	handle func(path string, h http.Handler),
 ) {
 	handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
@@ -174,21 +154,21 @@ func RegisterHTTPHandlers(
 	handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
 	handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 	handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
-	handle("/depengine", depengineHandler{sources.DependencyEngine})
+	handle("/depengine", depengineHandler{w.depEngine})
 	handle("/statepool", introspectionReporterHandler{
 		name:     "State Pool Report",
-		reporter: sources.StatePool,
+		reporter: w.statePool,
 	})
 	handle("/pubsub", introspectionReporterHandler{
 		name:     "PubSub Report",
-		reporter: sources.PubSub,
+		reporter: w.pubsub,
 	})
-	handle("/metrics/", promhttp.HandlerFor(sources.PrometheusGatherer, promhttp.HandlerOpts{}))
+	handle("/metrics/", promhttp.HandlerFor(w.prometheusGatherer, promhttp.HandlerOpts{}))
 	// Unit agents don't have a presence recorder to pass in.
-	if sources.Presence != nil {
-		handle("/presence/", presenceHandler{sources.Presence})
+	if w.presence != nil {
+		handle("/presence/", presenceHandler{w.presence})
 	}
-	handle("/machinelock/", machineLockHandler{sources.MachineLock})
+	handle("/machinelock/", machineLockHandler{w.machineLock})
 }
 
 type depengineHandler struct {
@@ -251,7 +231,7 @@ func (h machineLockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 type introspectionReporterHandler struct {
 	name     string
-	reporter IntrospectionReporter
+	reporter Reporter
 }
 
 // ServeHTTP is part of the http.Handler interface.

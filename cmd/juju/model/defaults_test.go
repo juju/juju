@@ -385,6 +385,96 @@ func (s *DefaultsCommandSuite) TestSetFromFileCombined(c *gc.C) {
 	})
 }
 
+func (s *DefaultsCommandSuite) TestSetFromFileUsingYAML(c *gc.C) {
+	tmpdir := c.MkDir()
+	configFile := filepath.Join(tmpdir, "config.yaml")
+	err := ioutil.WriteFile(configFile, []byte(`
+special:
+  default: meshuggah
+`), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.run(c, configFile, "attr=baz")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		"attr": {Controller: "baz", Default: nil, Regions: nil},
+		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "dummy-value",
+		}, {
+			Name:  "another-region",
+			Value: "another-value",
+		}}},
+		"special": {Controller: "meshuggah", Default: nil, Regions: nil},
+	})
+}
+
+func (s *DefaultsCommandSuite) TestSetFromFileUsingYAMLTargettingController(c *gc.C) {
+	tmpdir := c.MkDir()
+	configFile := filepath.Join(tmpdir, "config.yaml")
+	err := ioutil.WriteFile(configFile, []byte(`
+special:
+  default: meshuggah
+  controller: nadir
+`), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.run(c, configFile, "attr=baz")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		"attr": {Controller: "baz", Default: nil, Regions: nil},
+		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "dummy-value",
+		}, {
+			Name:  "another-region",
+			Value: "another-value",
+		}}},
+		"special": {Controller: "nadir", Default: nil, Regions: nil},
+	})
+}
+
+func (s *DefaultsCommandSuite) TestSetFromFileUsingYAMLTargettingCloudRegion(c *gc.C) {
+	table := []struct {
+		input, cloud, region string
+	}{
+		{"dummy-region", "dummy", "dummy-region"},
+		{"dummy/dummy-region", "dummy", "dummy-region"},
+		{"another-region", "dummy", "another-region"},
+	}
+	for i, test := range table {
+		c.Logf("test %d", i)
+		tmpdir := c.MkDir()
+		configFile := filepath.Join(tmpdir, "config.yaml")
+		err := ioutil.WriteFile(configFile, []byte(`
+special:
+  default: meshuggah
+  controller: nadir
+  regions:
+  - name: `+test.region+`
+    value: zenith
+`), 0644)
+		c.Assert(err, jc.ErrorIsNil)
+
+		_, err = s.run(c, test.input, configFile)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+			"attr": {Controller: nil, Default: "foo", Regions: nil},
+			"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
+				Name:  "dummy-region",
+				Value: "dummy-value",
+			}, {
+				Name:  "another-region",
+				Value: "another-value",
+			}}},
+			"special": {Controller: nil, Default: nil, Regions: []config.RegionDefaultValue{{
+				Name:  test.region,
+				Value: "zenith",
+			}}},
+		})
+	}
+}
+
 func (s *DefaultsCommandSuite) TestSetConveysCloudRegion(c *gc.C) {
 	table := []struct {
 		input, cloud, region string

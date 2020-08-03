@@ -86,3 +86,17 @@ func (mr *MockRESTClientMockRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockRESTClient)(nil).Get), arg0, arg1, arg2)
 }
+
+// Post mocks base method
+func (m *MockRESTClient) Post(arg0 context.Context, arg1 path.Path, arg2, arg3 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Post", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Post indicates an expected call of Post
+func (mr *MockRESTClientMockRecorder) Post(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Post", reflect.TypeOf((*MockRESTClient)(nil).Post), arg0, arg1, arg2, arg3)
+}

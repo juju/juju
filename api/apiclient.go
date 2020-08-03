@@ -23,6 +23,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils"
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
+
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -413,7 +415,7 @@ func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.
 	}
 	var requestHeader http.Header
 	if st.tag != "" {
-		requestHeader = utils.BasicAuthHeader(st.tag, st.password)
+		requestHeader = jujuhttp.BasicAuthHeader(st.tag, st.password)
 	} else {
 		requestHeader = make(http.Header)
 	}
@@ -1140,7 +1142,7 @@ func (d dialer) dial1() (jsoncodec.JSONConn, *tls.Config, error) {
 // API server. If certPool is non-nil, we use it as the config's RootCAs,
 // and the server name is set to "juju-apiserver".
 func NewTLSConfig(certPool *x509.CertPool) *tls.Config {
-	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig := jujuhttp.SecureTLSConfig()
 	if certPool != nil {
 		// We want to be specific here (rather than just using "anything").
 		// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).

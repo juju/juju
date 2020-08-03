@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2/workertest"
@@ -21,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
 	"github.com/juju/juju/testing"
 )
 
@@ -140,27 +142,27 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 	}
 
 	// timer +1.
-	s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model=test"}).
+	s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-model=test"}).
 		Return(&rbacv1.ClusterRoleBindingList{}, nil).
 		After(
-			s.mockClusterRoleBindings.EXPECT().DeleteCollection(
+			s.mockClusterRoleBindings.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
 				v1.ListOptions{LabelSelector: "juju-model=test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
-	s.mockClusterRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model=test"}).
+	s.mockClusterRoles.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-model=test"}).
 		Return(&rbacv1.ClusterRoleList{}, nil).
 		After(
-			s.mockClusterRoles.EXPECT().DeleteCollection(
+			s.mockClusterRoles.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
 				v1.ListOptions{LabelSelector: "juju-model=test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
-	s.mockNamespaceableResourceClient.EXPECT().List(
+	s.mockNamespaceableResourceClient.EXPECT().List(gomock.Any(),
 		// list all custom resources for crd "v1alpha2".
 		v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"},
 	).Return(&unstructured.UnstructuredList{}, nil).After(
@@ -173,7 +175,7 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 		).Return(s.mockNamespaceableResourceClient),
 	).After(
 		// list all custom resources for crd "v1".
-		s.mockNamespaceableResourceClient.EXPECT().List(
+		s.mockNamespaceableResourceClient.EXPECT().List(gomock.Any(),
 			v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"},
 		).Return(&unstructured.UnstructuredList{}, nil),
 	).After(
@@ -186,11 +188,11 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 		).Return(s.mockNamespaceableResourceClient),
 	).After(
 		// list cluster wide all custom resource definitions for listing custom resources.
-		s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{}).AnyTimes().
+		s.mockCustomResourceDefinition.EXPECT().List(gomock.Any(), v1.ListOptions{}).AnyTimes().
 			Return(&apiextensionsv1beta1.CustomResourceDefinitionList{Items: []apiextensionsv1beta1.CustomResourceDefinition{*crdClusterScope, *crdNamespacedScope}}, nil),
 	).After(
 		// delete all custom resources for crd "v1alpha2".
-		s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(
+		s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"},
 		).Return(nil),
@@ -204,7 +206,7 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 		).Return(s.mockNamespaceableResourceClient),
 	).After(
 		// delete all custom resources for crd "v1".
-		s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(
+		s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"},
 		).Return(nil),
@@ -218,45 +220,45 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 		).Return(s.mockNamespaceableResourceClient),
 	).After(
 		// list cluster wide all custom resource definitions for deleting custom resources.
-		s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{}).AnyTimes().
+		s.mockCustomResourceDefinition.EXPECT().List(gomock.Any(), v1.ListOptions{}).AnyTimes().
 			Return(&apiextensionsv1beta1.CustomResourceDefinitionList{Items: []apiextensionsv1beta1.CustomResourceDefinition{*crdClusterScope, *crdNamespacedScope}}, nil),
 	)
 
 	// timer +1.
-	s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"}).AnyTimes().
+	s.mockCustomResourceDefinition.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"}).AnyTimes().
 		Return(&apiextensionsv1beta1.CustomResourceDefinitionList{}, nil).
 		After(
-			s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
+			s.mockCustomResourceDefinition.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
 				v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
-	s.mockMutatingWebhookConfiguration.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model=test"}).
+	s.mockMutatingWebhookConfiguration.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-model=test"}).
 		Return(&admissionregistrationv1beta1.MutatingWebhookConfigurationList{}, nil).
 		After(
-			s.mockMutatingWebhookConfiguration.EXPECT().DeleteCollection(
+			s.mockMutatingWebhookConfiguration.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
 				v1.ListOptions{LabelSelector: "juju-model=test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
-	s.mockValidatingWebhookConfiguration.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model=test"}).
+	s.mockValidatingWebhookConfiguration.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-model=test"}).
 		Return(&admissionregistrationv1beta1.ValidatingWebhookConfigurationList{}, nil).
 		After(
-			s.mockValidatingWebhookConfiguration.EXPECT().DeleteCollection(
+			s.mockValidatingWebhookConfiguration.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
 				v1.ListOptions{LabelSelector: "juju-model=test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
-	s.mockStorageClass.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model=test"}).
+	s.mockStorageClass.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-model=test"}).
 		Return(&storagev1.StorageClassList{}, nil).
 		After(
-			s.mockStorageClass.EXPECT().DeleteCollection(
+			s.mockStorageClass.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
 				v1.ListOptions{LabelSelector: "juju-model=test"},
 			).Return(nil),
@@ -403,18 +405,18 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 		},
 	}
 
-	s.mockClusterRoleBindings.EXPECT().DeleteCollection(
+	s.mockClusterRoleBindings.EXPECT().DeleteCollection(gomock.Any(),
 		s.deleteOptions(v1.DeletePropagationForeground, ""),
 		v1.ListOptions{LabelSelector: "juju-model=test"},
 	).Return(s.k8sNotFoundError())
 
-	s.mockClusterRoles.EXPECT().DeleteCollection(
+	s.mockClusterRoles.EXPECT().DeleteCollection(gomock.Any(),
 		s.deleteOptions(v1.DeletePropagationForeground, ""),
 		v1.ListOptions{LabelSelector: "juju-model=test"},
 	).Return(s.k8sNotFoundError())
 
 	// delete all custom resources for crd "v1alpha2".
-	s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(
+	s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(gomock.Any(),
 		s.deleteOptions(v1.DeletePropagationForeground, ""),
 		v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"},
 	).Return(nil).After(
@@ -427,7 +429,7 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 		).Return(s.mockNamespaceableResourceClient),
 	).After(
 		// delete all custom resources for crd "v1".
-		s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(
+		s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"},
 		).Return(nil),
@@ -441,26 +443,26 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 		).Return(s.mockNamespaceableResourceClient),
 	).After(
 		// list cluster wide all custom resource definitions for deleting custom resources.
-		s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{}).AnyTimes().
+		s.mockCustomResourceDefinition.EXPECT().List(gomock.Any(), v1.ListOptions{}).AnyTimes().
 			Return(&apiextensionsv1beta1.CustomResourceDefinitionList{Items: []apiextensionsv1beta1.CustomResourceDefinition{*crdClusterScope, *crdNamespacedScope}}, nil),
 	)
 
-	s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
+	s.mockCustomResourceDefinition.EXPECT().DeleteCollection(gomock.Any(),
 		s.deleteOptions(v1.DeletePropagationForeground, ""),
 		v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"},
 	).Return(s.k8sNotFoundError())
 
-	s.mockMutatingWebhookConfiguration.EXPECT().DeleteCollection(
+	s.mockMutatingWebhookConfiguration.EXPECT().DeleteCollection(gomock.Any(),
 		s.deleteOptions(v1.DeletePropagationForeground, ""),
 		v1.ListOptions{LabelSelector: "juju-model=test"},
 	).Return(s.k8sNotFoundError())
 
-	s.mockValidatingWebhookConfiguration.EXPECT().DeleteCollection(
+	s.mockValidatingWebhookConfiguration.EXPECT().DeleteCollection(gomock.Any(),
 		s.deleteOptions(v1.DeletePropagationForeground, ""),
 		v1.ListOptions{LabelSelector: "juju-model=test"},
 	).Return(s.k8sNotFoundError())
 
-	s.mockStorageClass.EXPECT().DeleteCollection(
+	s.mockStorageClass.EXPECT().DeleteCollection(gomock.Any(),
 		s.deleteOptions(v1.DeletePropagationForeground, ""),
 		v1.ListOptions{LabelSelector: "juju-model=test"},
 	).Return(nil)
@@ -497,21 +499,21 @@ func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardown(c *gc.C) {
 	ns := &core.Namespace{}
 	ns.Name = "test"
 	s.ensureJujuNamespaceAnnotations(false, ns)
-	namespaceWatcher, namespaceFirer := newKubernetesTestWatcher()
-	s.k8sWatcherFn = newK8sWatcherFunc(namespaceWatcher)
+	namespaceWatcher, namespaceFirer := k8swatchertest.NewKubernetesTestWatcher()
+	s.k8sWatcherFn = k8swatchertest.NewKubernetesTestWatcherFunc(namespaceWatcher)
 
-	s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{}).
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).
 		Return(ns, nil)
-	s.mockNamespaces.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, "")).
+	s.mockNamespaces.EXPECT().Delete(gomock.Any(), "test", s.deleteOptions(v1.DeletePropagationForeground, "")).
 		Return(nil)
 	// still terminating.
-	s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{}).
-		DoAndReturn(func(_, _ interface{}) (*core.Namespace, error) {
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).
+		DoAndReturn(func(_, _, _ interface{}) (*core.Namespace, error) {
 			namespaceFirer()
 			return ns, nil
 		})
 	// terminated, not found returned.
-	s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{}).
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).
 		Return(nil, s.k8sNotFoundError())
 
 	var wg sync.WaitGroup
@@ -546,21 +548,21 @@ func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardownFailed(c *gc.C) {
 	ns := &core.Namespace{}
 	ns.Name = "test"
 	s.ensureJujuNamespaceAnnotations(false, ns)
-	namespaceWatcher, namespaceFirer := newKubernetesTestWatcher()
-	s.k8sWatcherFn = newK8sWatcherFunc(namespaceWatcher)
+	namespaceWatcher, namespaceFirer := k8swatchertest.NewKubernetesTestWatcher()
+	s.k8sWatcherFn = k8swatchertest.NewKubernetesTestWatcherFunc(namespaceWatcher)
 
-	s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{}).
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).
 		Return(ns, nil)
-	s.mockNamespaces.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, "")).
+	s.mockNamespaces.EXPECT().Delete(gomock.Any(), "test", s.deleteOptions(v1.DeletePropagationForeground, "")).
 		Return(nil)
 	// still terminating.
-	s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{}).
-		DoAndReturn(func(_, _ interface{}) (*core.Namespace, error) {
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).
+		DoAndReturn(func(_, _, _ interface{}) (*core.Namespace, error) {
 			namespaceFirer()
 			return ns, nil
 		})
 	// terminated, not found returned.
-	s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{}).
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).
 		Return(nil, errors.New("error bla"))
 
 	var wg sync.WaitGroup

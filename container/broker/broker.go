@@ -29,7 +29,6 @@ var logger = loggo.GetLogger("juju.container.broker")
 type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
 	PrepareContainerInterfaceInfo(names.MachineTag) (corenetwork.InterfaceInfos, error)
-	GetContainerInterfaceInfo(names.MachineTag) (corenetwork.InterfaceInfos, error)
 	GetContainerProfileInfo(names.MachineTag) ([]*apiprovisioner.LXDProfileResult, error)
 	ReleaseContainerAddresses(names.MachineTag) error
 	SetHostMachineNetworkConfig(names.MachineTag, []params.NetworkConfig) error
@@ -40,22 +39,9 @@ type APICalls interface {
 // system. Defined here so it can be overridden for testing.
 var resolvConfFiles = []string{"/etc/resolv.conf", "/etc/systemd/resolved.conf", "/run/systemd/resolve/resolv.conf"}
 
-func prepareOrGetContainerInterfaceInfo(
-	api APICalls,
-	machineID string,
-	allocateOrMaintain bool,
-	log loggo.Logger,
+func prepareContainerInterfaceInfo(
+	api APICalls, machineID string, log loggo.Logger,
 ) (corenetwork.InterfaceInfos, error) {
-	maintain := !allocateOrMaintain
-
-	if maintain {
-		// TODO(jam): 2016-12-14 The function is called
-		// 'prepareOrGet', but the only time we would handle the 'Get'
-		// side, we explicitly abort. Something seems wrong.
-		log.Debugf("not running maintenance for machine %q", machineID)
-		return nil, nil
-	}
-
 	log.Debugf("using multi-bridge networking for container %q", machineID)
 
 	containerTag := names.NewMachineTag(machineID)

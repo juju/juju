@@ -16,6 +16,7 @@ test_cli() {
     test_display_clouds
     test_local_charms
     test_model_config
+    test_model_defaults
 
     destroy_controller "test-cli"
 }

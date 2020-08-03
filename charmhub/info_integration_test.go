@@ -30,7 +30,7 @@ func (s *InfoClientSuite) TestLiveInfoRequest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiRequester := charmhub.NewAPIRequester(charmhub.DefaultHTTPTransport())
-	restClient := charmhub.NewHTTPRESTClient(apiRequester)
+	restClient := charmhub.NewHTTPRESTClient(apiRequester, nil)
 
 	client := charmhub.NewInfoClient(infoPath, restClient)
 	response, err := client.Info(context.TODO(), "wordpress")

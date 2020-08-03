@@ -158,7 +158,11 @@ func newEnviron(
 	// If no user specified resource group, make one from the model UUID.
 	if env.resourceGroup == "" {
 		modelTag := names.NewModelTag(cfg.UUID())
-		env.resourceGroup = resourceGroupName(modelTag, cfg.Name())
+		resourceGroupName, err := env.resourceGroupName(modelTag, cfg.Name())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		env.resourceGroup = resourceGroupName
 	}
 	env.modelName = cfg.Name()
 
@@ -1801,9 +1805,53 @@ func (env *azureEnviron) Provider() environs.EnvironProvider {
 	return env.provider
 }
 
+// resourceGroupName returns the name of the model's resource group to use.
+// It may be that a legacy group name is already in use, so use that if present.
+func (env *azureEnviron) resourceGroupName(modelTag names.ModelTag, modelName string) (string, error) {
+	env.mu.Lock()
+	defer env.mu.Unlock()
+
+	sdkCtx := stdcontext.Background()
+	resourceGroupsClient := resources.GroupsClient{env.resources}
+
+	// First look for a resource group name with the full model UUID.
+	legacyName := legacyResourceGroupName(modelTag, modelName)
+	g, err := resourceGroupsClient.Get(sdkCtx, legacyName)
+	if err == nil {
+		logger.Debugf("using existing legacy resource group %q for model %q", legacyName, modelName)
+		return legacyName, nil
+	}
+	if err2, ok := err.(autorest.DetailedError); !ok || err2.Response == nil || err2.Response.StatusCode != http.StatusNotFound {
+		return "", errors.Trace(err)
+	}
+
+	logger.Debugf("legacy resource group name doesn't exist, using short name")
+	resourceGroup := resourceGroupName(modelTag, modelName)
+	g, err = resourceGroupsClient.Get(sdkCtx, resourceGroup)
+	if err == nil {
+		mTag, ok := g.Tags[tags.JujuModel]
+		if !ok || to.String(mTag) != modelTag.Id() {
+			// This should never happen in practice - combination of model name and first 8
+			// digits of UUID should be unique.
+			return "", errors.Errorf("unexpected model UUID on resource group %q; expected %q, got %q", resourceGroup, modelTag.Id(), to.String(mTag))
+		}
+		return resourceGroup, nil
+	}
+	if err2, ok := err.(autorest.DetailedError); ok && err2.Response.StatusCode == http.StatusNotFound {
+		return resourceGroup, nil
+	}
+	return "", errors.Trace(err)
+}
+
+// resourceGroupName returns the name of the environment's resource group.
+func legacyResourceGroupName(modelTag names.ModelTag, modelName string) string {
+	return fmt.Sprintf("juju-%s-%s", modelName, resourceName(modelTag))
+}
+
 // resourceGroupName returns the name of the environment's resource group.
 func resourceGroupName(modelTag names.ModelTag, modelName string) string {
-	return fmt.Sprintf("juju-%s-%s", modelName, resourceName(modelTag))
+	// The first chunk of the UUID string plus model name should be good enough.
+	return fmt.Sprintf("juju-%s-%s", modelName, modelTag.Id()[:8])
 }
 
 // resourceName returns the string to use for a resource's Name tag,
@@ -1842,6 +1890,7 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 	}
 	instanceTypes := make(map[string]instances.InstanceType)
 	sdkCtx := stdcontext.Background()
+nextResource:
 	for ; res.NotDone(); err = res.NextWithContext(sdkCtx) {
 		if err != nil {
 			return nil, errors.Annotate(err, "listing resources")
@@ -1853,7 +1902,7 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 		if resource.Restrictions != nil {
 			for _, r := range *resource.Restrictions {
 				if r.ReasonCode == compute.NotAvailableForSubscription {
-					continue
+					continue nextResource
 				}
 			}
 		}

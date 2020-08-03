@@ -78,7 +78,7 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 
 	assertCalls = append(
 		[]*gomock.Call{
-			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", metav1.GetOptions{}).
+			s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", metav1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
 		},
 		assertCalls...,
@@ -86,27 +86,27 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 
 	ociImageSecret := s.getOCIImageSecret(c, nil)
 	assertCalls = append(assertCalls, []*gomock.Call{
-		s.mockSecrets.EXPECT().Create(ociImageSecret).
+		s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, metav1.CreateOptions{}).
 			Return(ociImageSecret, nil),
-		s.mockServices.EXPECT().Get("app-name", metav1.GetOptions{}).
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(&serviceArg).
+		s.mockServices.EXPECT().Update(gomock.Any(), &serviceArg, metav1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(&serviceArg).
+		s.mockServices.EXPECT().Create(gomock.Any(), &serviceArg, metav1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("app-name-endpoints", metav1.GetOptions{}).
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name-endpoints", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).
+		s.mockServices.EXPECT().Update(gomock.Any(), basicHeadlessServiceArg, metav1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(basicHeadlessServiceArg).
+		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, metav1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", metav1.GetOptions{}).
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", metav1.GetOptions{}).
 			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
+		s.mockStatefulSets.EXPECT().Create(gomock.Any(), statefulSetArg, metav1.CreateOptions{}).
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockStatefulSets.EXPECT().Get("app-name", metav1.GetOptions{}).
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", metav1.GetOptions{}).
 			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
+		s.mockStatefulSets.EXPECT().Update(gomock.Any(), statefulSetArg, metav1.UpdateOptions{}).
 			Return(nil, nil),
 	}...)
 	gomock.InOrder(assertCalls...)
@@ -186,7 +186,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreate(c *gc.C) 
 
 	s.assertMutatingWebhookConfigurations(
 		c, cfgs,
-		s.mockMutatingWebhookConfiguration.EXPECT().Create(cfg1).Return(cfg1, nil),
+		s.mockMutatingWebhookConfiguration.EXPECT().Create(gomock.Any(), cfg1, metav1.CreateOptions{}).Return(cfg1, nil),
 	)
 }
 
@@ -250,7 +250,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepName(c
 
 	s.assertMutatingWebhookConfigurations(
 		c, cfgs,
-		s.mockMutatingWebhookConfiguration.EXPECT().Create(cfg1).Return(cfg1, nil),
+		s.mockMutatingWebhookConfiguration.EXPECT().Create(gomock.Any(), cfg1, metav1.CreateOptions{}).Return(cfg1, nil),
 	)
 }
 
@@ -311,14 +311,14 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdate(c *gc.C) 
 
 	s.assertMutatingWebhookConfigurations(
 		c, cfgs,
-		s.mockMutatingWebhookConfiguration.EXPECT().Create(cfg1).Return(cfg1, s.k8sAlreadyExistsError()),
+		s.mockMutatingWebhookConfiguration.EXPECT().Create(gomock.Any(), cfg1, metav1.CreateOptions{}).Return(cfg1, s.k8sAlreadyExistsError()),
 		s.mockMutatingWebhookConfiguration.EXPECT().
-			List(metav1.ListOptions{LabelSelector: "juju-app=app-name,juju-model=test"}).
+			List(gomock.Any(), metav1.ListOptions{LabelSelector: "juju-app=app-name,juju-model=test"}).
 			Return(&admissionregistration.MutatingWebhookConfigurationList{Items: []admissionregistration.MutatingWebhookConfiguration{*cfg1}}, nil),
 		s.mockMutatingWebhookConfiguration.EXPECT().
-			Get("test-example-mutatingwebhookconfiguration", metav1.GetOptions{}).
+			Get(gomock.Any(), "test-example-mutatingwebhookconfiguration", metav1.GetOptions{}).
 			Return(cfg1, nil),
-		s.mockMutatingWebhookConfiguration.EXPECT().Update(cfg1).Return(cfg1, nil),
+		s.mockMutatingWebhookConfiguration.EXPECT().Update(gomock.Any(), cfg1, metav1.UpdateOptions{}).Return(cfg1, nil),
 	)
 }
 
@@ -373,7 +373,7 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 
 	assertCalls = append(
 		[]*gomock.Call{
-			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", metav1.GetOptions{}).
+			s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", metav1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
 		},
 		assertCalls...,
@@ -381,23 +381,23 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 
 	ociImageSecret := s.getOCIImageSecret(c, nil)
 	assertCalls = append(assertCalls, []*gomock.Call{
-		s.mockSecrets.EXPECT().Create(ociImageSecret).
+		s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, metav1.CreateOptions{}).
 			Return(ociImageSecret, nil),
-		s.mockServices.EXPECT().Get("app-name", metav1.GetOptions{}).
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(&serviceArg).
+		s.mockServices.EXPECT().Update(gomock.Any(), &serviceArg, metav1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(&serviceArg).
+		s.mockServices.EXPECT().Create(gomock.Any(), &serviceArg, metav1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("app-name-endpoints", metav1.GetOptions{}).
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name-endpoints", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).
+		s.mockServices.EXPECT().Update(gomock.Any(), basicHeadlessServiceArg, metav1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(basicHeadlessServiceArg).
+		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, metav1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", metav1.GetOptions{}).
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", metav1.GetOptions{}).
 			Return(statefulSetArg, nil),
-		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
+		s.mockStatefulSets.EXPECT().Create(gomock.Any(), statefulSetArg, metav1.CreateOptions{}).
 			Return(nil, nil),
 	}...)
 	gomock.InOrder(assertCalls...)
@@ -477,7 +477,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreate(c *gc.C
 
 	s.assertValidatingWebhookConfigurations(
 		c, cfgs,
-		s.mockValidatingWebhookConfiguration.EXPECT().Create(cfg1).Return(cfg1, nil),
+		s.mockValidatingWebhookConfiguration.EXPECT().Create(gomock.Any(), cfg1, metav1.CreateOptions{}).Return(cfg1, nil),
 	)
 }
 
@@ -541,7 +541,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepName
 
 	s.assertValidatingWebhookConfigurations(
 		c, cfgs,
-		s.mockValidatingWebhookConfiguration.EXPECT().Create(cfg1).Return(cfg1, nil),
+		s.mockValidatingWebhookConfiguration.EXPECT().Create(gomock.Any(), cfg1, metav1.CreateOptions{}).Return(cfg1, nil),
 	)
 }
 
@@ -602,13 +602,13 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdate(c *gc.C
 
 	s.assertValidatingWebhookConfigurations(
 		c, cfgs,
-		s.mockValidatingWebhookConfiguration.EXPECT().Create(cfg1).Return(cfg1, s.k8sAlreadyExistsError()),
+		s.mockValidatingWebhookConfiguration.EXPECT().Create(gomock.Any(), cfg1, metav1.CreateOptions{}).Return(cfg1, s.k8sAlreadyExistsError()),
 		s.mockValidatingWebhookConfiguration.EXPECT().
-			List(metav1.ListOptions{LabelSelector: "juju-app=app-name,juju-model=test"}).
+			List(gomock.Any(), metav1.ListOptions{LabelSelector: "juju-app=app-name,juju-model=test"}).
 			Return(&admissionregistration.ValidatingWebhookConfigurationList{Items: []admissionregistration.ValidatingWebhookConfiguration{*cfg1}}, nil),
 		s.mockValidatingWebhookConfiguration.EXPECT().
-			Get("test-example-validatingwebhookconfiguration", metav1.GetOptions{}).
+			Get(gomock.Any(), "test-example-validatingwebhookconfiguration", metav1.GetOptions{}).
 			Return(cfg1, nil),
-		s.mockValidatingWebhookConfiguration.EXPECT().Update(cfg1).Return(cfg1, nil),
+		s.mockValidatingWebhookConfiguration.EXPECT().Update(gomock.Any(), cfg1, metav1.UpdateOptions{}).Return(cfg1, nil),
 	)
 }

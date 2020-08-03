@@ -296,11 +296,26 @@ func (w K8sValidatingWebhookSpec) Validate() error {
 	return nil
 }
 
+// K8sService is a subset of v1.Service which defines
+// attributes we expose for charms to set.
+type K8sService struct {
+	Meta `json:",inline" yaml:",inline"`
+	Spec core.ServiceSpec `json:"spec" yaml:"spec"`
+}
+
+func (s K8sService) Validate() error {
+	if err := s.Meta.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // KubernetesResources is the k8s related resources.
 type KubernetesResources struct {
 	Pod *PodSpec `json:"pod,omitempty" yaml:"pod,omitempty"`
 
-	Secrets                   []Secret                               `json:"secrets" yaml:"secrets"`
+	Secrets                   []K8sSecret                            `json:"secrets" yaml:"secrets"`
+	Services                  []K8sService                           `json:"services" yaml:"services"`
 	CustomResourceDefinitions []K8sCustomResourceDefinitionSpec      `json:"customResourceDefinitions" yaml:"customResourceDefinitions"`
 	CustomResources           map[string][]unstructured.Unstructured `json:"customResources,omitempty" yaml:"customResources,omitempty"`
 
@@ -314,6 +329,12 @@ type KubernetesResources struct {
 
 // Validate is defined on ProviderPod.
 func (krs *KubernetesResources) Validate() error {
+	for _, svc := range krs.Services {
+		if err := svc.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	for _, crd := range krs.CustomResourceDefinitions {
 		if err := crd.Validate(); err != nil {
 			return errors.Trace(err)

@@ -5,6 +5,7 @@ package exec
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/url"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
 )
@@ -97,8 +99,8 @@ func NewForJujuCloudSpec(modelName string, cloudSpec cloudspec.CloudSpec) (Execu
 }
 
 func modelNameToNameSpace(modelName string, client typedcorev1.NamespaceInterface) (string, error) {
-	out, err := client.List(metav1.ListOptions{
-		LabelSelector: k8slabels.SelectorFromValidatedSet(provider.LabelsForModel(modelName)).String(),
+	out, err := client.List(context.TODO(), metav1.ListOptions{
+		LabelSelector: k8slabels.SelectorFromValidatedSet(k8sutils.LabelsForModel(modelName)).String(),
 	})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -369,7 +371,7 @@ func getValidatedPod(podGetter typedcorev1.PodInterface, podName string) (pod *c
 	if podName, err = parsePodName(podName); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if pod, err = podGetter.Get(podName, metav1.GetOptions{}); err == nil {
+	if pod, err = podGetter.Get(context.TODO(), podName, metav1.GetOptions{}); err == nil {
 		return pod, nil
 	} else if !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
@@ -377,14 +379,15 @@ func getValidatedPod(podGetter typedcorev1.PodInterface, podName string) (pod *c
 
 	logger.Debugf("no pod named %q found", podName)
 	logger.Debugf("try get pod by UID for %q", podName)
-	pods, err := podGetter.List(metav1.ListOptions{})
+	pods, err := podGetter.List(context.TODO(), metav1.ListOptions{})
 	// TODO(caas): remove getting pod by Id (a bit expensive) once we started to store podName in cloudContainer doc.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	for _, v := range pods.Items {
-		if string(v.GetUID()) == podName {
-			return &v, nil
+		p := v
+		if string(p.GetUID()) == podName {
+			return &p, nil
 		}
 	}
 	return nil, errors.NotFoundf("pod %q", podName)

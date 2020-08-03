@@ -11,9 +11,9 @@ import (
 	"net/http"
 	"strings"
 
+	jujuhttp "github.com/juju/http"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
-	"github.com/juju/utils"
 	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
 
@@ -48,8 +48,9 @@ func (s *registrationSuite) TestRegister(c *gc.C) {
 	ciphertext := s.sealBox(
 		c, validNonce, secretKey, fmt.Sprintf(`{"password": "%s"}`, password),
 	)
+	client := jujuhttp.NewClient(jujuhttp.Config{SkipHostnameVerification: true})
 	resp := httptesting.Do(c, httptesting.DoRequestParams{
-		Do:     utils.GetNonValidatingHTTPClient().Do,
+		Do:     client.Do,
 		URL:    s.registrationURL,
 		Method: "POST",
 		JSONBody: &params.SecretKeyLoginRequest{
@@ -87,8 +88,9 @@ func (s *registrationSuite) TestRegister(c *gc.C) {
 }
 
 func (s *registrationSuite) TestRegisterInvalidMethod(c *gc.C) {
+	client := jujuhttp.NewClient(jujuhttp.Config{SkipHostnameVerification: true})
 	httptesting.AssertJSONCall(c, httptesting.JSONCallParams{
-		Do:           utils.GetNonValidatingHTTPClient().Do,
+		Do:           client.Do,
 		URL:          s.registrationURL,
 		Method:       "GET",
 		ExpectStatus: http.StatusMethodNotAllowed,
@@ -161,8 +163,9 @@ func (s *registrationSuite) TestRegisterInvalidRequestPayload(c *gc.C) {
 }
 
 func (s *registrationSuite) testInvalidRequest(c *gc.C, requestBody, errorMessage, errorCode string, statusCode int) {
+	client := jujuhttp.NewClient(jujuhttp.Config{SkipHostnameVerification: true})
 	httptesting.AssertJSONCall(c, httptesting.JSONCallParams{
-		Do:           utils.GetNonValidatingHTTPClient().Do,
+		Do:           client.Do,
 		URL:          s.registrationURL,
 		Method:       "POST",
 		Body:         strings.NewReader(requestBody),

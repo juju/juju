@@ -322,7 +322,7 @@ func (aw *SrvAllWatcher) translateUnit(info multiwatcher.EntityInfo) params.Enti
 		return nil
 	}
 
-	translatedPortRanges := aw.translatePortRanges(orig.PortRangesBySubnet)
+	translatedPortRanges := aw.translatePortRanges(orig.OpenPortRangesByEndpoint)
 
 	return &params.UnitInfo{
 		ModelUUID:      orig.ModelUUID,

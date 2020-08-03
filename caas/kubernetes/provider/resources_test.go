@@ -29,44 +29,44 @@ func (s *ResourcesSuite) TestAdoptResources(c *gc.C) {
 	modelSelector := "juju-model-uuid==" + testing.ModelTag.Id()
 
 	gomock.InOrder(
-		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: modelSelector}).
+		s.mockPods.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: modelSelector}).
 			Return(&core.PodList{Items: []core.Pod{
 				{ObjectMeta: v1.ObjectMeta{Labels: map[string]string{}}},
 			}}, nil),
-		s.mockPods.EXPECT().Update(&core.Pod{ObjectMeta: v1.ObjectMeta{
-			Labels: map[string]string{"juju-controller-uuid": "uuid"}}}).
+		s.mockPods.EXPECT().Update(gomock.Any(), &core.Pod{ObjectMeta: v1.ObjectMeta{
+			Labels: map[string]string{"juju-controller-uuid": "uuid"}}}, v1.UpdateOptions{}).
 			Return(nil, nil),
 
-		s.mockPersistentVolumeClaims.EXPECT().List(v1.ListOptions{LabelSelector: modelSelector}).
+		s.mockPersistentVolumeClaims.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: modelSelector}).
 			Return(&core.PersistentVolumeClaimList{Items: []core.PersistentVolumeClaim{
 				{ObjectMeta: v1.ObjectMeta{Labels: map[string]string{}}},
 			}}, nil),
-		s.mockPersistentVolumeClaims.EXPECT().Update(&core.PersistentVolumeClaim{ObjectMeta: v1.ObjectMeta{
-			Labels: map[string]string{"juju-controller-uuid": "uuid"}}}).
+		s.mockPersistentVolumeClaims.EXPECT().Update(gomock.Any(), &core.PersistentVolumeClaim{ObjectMeta: v1.ObjectMeta{
+			Labels: map[string]string{"juju-controller-uuid": "uuid"}}}, v1.UpdateOptions{}).
 			Return(nil, nil),
 
-		s.mockPersistentVolumes.EXPECT().List(v1.ListOptions{LabelSelector: modelSelector}).
+		s.mockPersistentVolumes.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: modelSelector}).
 			Return(&core.PersistentVolumeList{Items: []core.PersistentVolume{
 				{ObjectMeta: v1.ObjectMeta{Labels: map[string]string{}}},
 			}}, nil),
-		s.mockPersistentVolumes.EXPECT().Update(&core.PersistentVolume{ObjectMeta: v1.ObjectMeta{
-			Labels: map[string]string{"juju-controller-uuid": "uuid"}}}).
+		s.mockPersistentVolumes.EXPECT().Update(gomock.Any(), &core.PersistentVolume{ObjectMeta: v1.ObjectMeta{
+			Labels: map[string]string{"juju-controller-uuid": "uuid"}}}, v1.UpdateOptions{}).
 			Return(nil, nil),
 
-		s.mockStatefulSets.EXPECT().List(v1.ListOptions{LabelSelector: modelSelector}).
+		s.mockStatefulSets.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: modelSelector}).
 			Return(&apps.StatefulSetList{Items: []apps.StatefulSet{
 				{ObjectMeta: v1.ObjectMeta{Labels: map[string]string{}}},
 			}}, nil),
-		s.mockStatefulSets.EXPECT().Update(&apps.StatefulSet{ObjectMeta: v1.ObjectMeta{
-			Labels: map[string]string{"juju-controller-uuid": "uuid"}}}).
+		s.mockStatefulSets.EXPECT().Update(gomock.Any(), &apps.StatefulSet{ObjectMeta: v1.ObjectMeta{
+			Labels: map[string]string{"juju-controller-uuid": "uuid"}}}, v1.UpdateOptions{}).
 			Return(nil, nil),
 
-		s.mockDeployments.EXPECT().List(v1.ListOptions{LabelSelector: modelSelector}).
+		s.mockDeployments.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: modelSelector}).
 			Return(&apps.DeploymentList{Items: []apps.Deployment{
 				{ObjectMeta: v1.ObjectMeta{Labels: map[string]string{}}},
 			}}, nil),
-		s.mockDeployments.EXPECT().Update(&apps.Deployment{ObjectMeta: v1.ObjectMeta{
-			Labels: map[string]string{"juju-controller-uuid": "uuid"}}}).
+		s.mockDeployments.EXPECT().Update(gomock.Any(), &apps.Deployment{ObjectMeta: v1.ObjectMeta{
+			Labels: map[string]string{"juju-controller-uuid": "uuid"}}}, v1.UpdateOptions{}).
 			Return(nil, nil),
 	)
 

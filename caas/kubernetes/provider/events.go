@@ -4,8 +4,9 @@
 package provider
 
 import (
-	"github.com/juju/errors"
+	"context"
 
+	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -49,7 +50,7 @@ func (k *kubernetesClient) getEvents(objName string, objKind string) ([]core.Eve
 		fields.OneTermEqualSelector("involvedObject.kind", objKind),
 	).String()
 	logger.Debugf("getting the latest event for %q", selector)
-	eventList, err := k.client().CoreV1().Events(k.namespace).List(v1.ListOptions{
+	eventList, err := k.client().CoreV1().Events(k.namespace).List(context.TODO(), v1.ListOptions{
 		FieldSelector: selector,
 	})
 	if err != nil {

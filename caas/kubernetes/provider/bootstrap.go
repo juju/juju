@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
@@ -44,8 +45,6 @@ const (
 var (
 	// TemplateFileNameServerPEM is the template server.pem file name.
 	TemplateFileNameServerPEM = "template-" + mongo.FileNameDBSSLKey
-	// TemplateFileNameAgentConf is the template agent.conf file name.
-	TemplateFileNameAgentConf = "template-" + agent.AgentConfigFilename
 )
 
 const (
@@ -141,7 +140,7 @@ type controllerStacker interface {
 
 func controllerCorelation(broker *kubernetesClient) (string, error) {
 	// ensure controller specific annotations.
-	_ = broker.addAnnotations(annotationControllerIsControllerKey, "true")
+	_ = broker.addAnnotations(constants.AnnotationControllerIsControllerKey, "true")
 
 	ns, err := broker.listNamespacesByAnnotations(broker.GetAnnotations())
 	if errors.IsNotFound(err) || ns == nil {
@@ -204,8 +203,8 @@ func newcontrollerStack(
 	cs := &controllerStack{
 		ctx:              ctx,
 		stackName:        stackName,
-		stackLabels:      map[string]string{labelApplication: stackName},
-		stackAnnotations: map[string]string{annotationControllerUUIDKey: pcfg.ControllerTag.Id()},
+		stackLabels:      map[string]string{constants.LabelApplication: stackName},
+		stackAnnotations: map[string]string{constants.AnnotationControllerUUIDKey: pcfg.ControllerTag.Id()},
 		broker:           broker,
 
 		pcfg:        pcfg,
@@ -221,7 +220,7 @@ func newcontrollerStack(
 		fileNameSSLKeyMount:     TemplateFileNameServerPEM,
 		fileNameBootstrapParams: cloudconfig.FileNameBootstrapParams,
 		fileNameAgentConf:       agent.AgentConfigFilename,
-		fileNameAgentConfMount:  TemplateFileNameAgentConf,
+		fileNameAgentConfMount:  constants.TemplateFileNameAgentConf,
 
 		resourceNameStatefulSet: stackName,
 	}
@@ -430,7 +429,7 @@ func (c *controllerStack) createControllerService() error {
 	}
 
 	logger.Debugf("creating controller service: \n%+v", spec)
-	if err := c.broker.ensureK8sService(spec); err != nil {
+	if _, err := c.broker.ensureK8sService(spec); err != nil {
 		return errors.Trace(err)
 	}
 

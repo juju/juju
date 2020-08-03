@@ -20,8 +20,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/macaroon-bakery.v2/bakery"
@@ -511,13 +511,12 @@ func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKe
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
-	httpClient := utils.GetNonValidatingHTTPClient()
-	httpClient.Jar = cookieJar
+	httpClient := jujuhttp.NewClient(jujuhttp.Config{SkipHostnameVerification: true, Jar: cookieJar})
 	httpResp, err := httpClient.Do(httpReq)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusOK {
 		var resp params.ErrorResult

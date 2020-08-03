@@ -34,7 +34,6 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
-	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/dynamic"
@@ -43,7 +42,10 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	k8sannotations "github.com/juju/juju/core/annotations"
@@ -58,7 +60,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/storage"
 )
 
@@ -69,12 +70,6 @@ const (
 	// Kubernetes
 	Domain = "juju.is"
 
-	labelOperator    = "juju-operator"
-	labelStorage     = "juju-storage"
-	labelVersion     = "juju-version"
-	labelApplication = "juju-app"
-	labelModel       = "juju-model"
-
 	// annotationKeyApplicationUUID is the key of annotation for recording pvc unique ID.
 	annotationKeyApplicationUUID = "juju-app-uuid"
 
@@ -84,8 +79,6 @@ const (
 	labelResourceLifeCycleValuePersistent = "persistent"
 
 	gpuAffinityNodeSelectorKey = "gpu"
-
-	annotationPrefix = "juju.io"
 
 	operatorContainerName = "juju-operator"
 
@@ -107,20 +100,6 @@ const (
 	// statefulSetRevisionHistoryLimit is the maximum number of revisions that
 	// will be maintained in the StatefulSet's revision history
 	statefulSetRevisionHistoryLimit int32 = 0
-)
-
-func jujuAnnotationKey(name string) string {
-	return annotationPrefix + "/" + name
-}
-
-var (
-	defaultPropagationPolicy = v1.DeletePropagationForeground
-
-	annotationModelUUIDKey              = jujuAnnotationKey("model")
-	annotationControllerUUIDKey         = jujuAnnotationKey("controller")
-	annotationControllerIsControllerKey = jujuAnnotationKey("is-controller")
-	annotationUnit                      = jujuAnnotationKey("unit")
-	annotationCharmModifiedVersionKey   = jujuAnnotationKey("charm-modified-version")
 )
 
 type kubernetesClient struct {
@@ -146,8 +125,8 @@ type kubernetesClient struct {
 	modelUUID string
 
 	// newWatcher is the k8s watcher generator.
-	newWatcher        NewK8sWatcherFunc
-	newStringsWatcher NewK8sStringsWatcherFunc
+	newWatcher        k8swatcher.NewK8sWatcherFunc
+	newStringsWatcher k8swatcher.NewK8sStringsWatcherFunc
 
 	// informerFactoryUnlocked informer factory setup for tracking this model
 	informerFactoryUnlocked informers.SharedInformerFactory
@@ -172,6 +151,8 @@ type kubernetesClient struct {
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/serviceaccountinformer_mock.go k8s.io/client-go/informers/core/v1 ServiceAccountInformer
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/serviceaccountlister_mock.go k8s.io/client-go/listers/core/v1 ServiceAccountLister,ServiceAccountNamespaceLister
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/sharedindexinformer_mock.go k8s.io/client-go/tools/cache SharedIndexInformer
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/restclient_mock.go -mock_names=Interface=MockRestClientInterface k8s.io/client-go/rest Interface
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/serviceaccount_mock.go k8s.io/client-go/kubernetes/typed/core/v1 ServiceAccountInterface
 
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error)
@@ -187,8 +168,8 @@ func newK8sBroker(
 	namespace string,
 	newClient NewK8sClientFunc,
 	newRestClient k8sspecs.NewK8sRestClientFunc,
-	newWatcher NewK8sWatcherFunc,
-	newStringsWatcher NewK8sStringsWatcherFunc,
+	newWatcher k8swatcher.NewK8sWatcherFunc,
+	newStringsWatcher k8swatcher.NewK8sStringsWatcherFunc,
 	randomPrefix RandomPrefixFunc,
 	clock jujuclock.Clock,
 ) (*kubernetesClient, error) {
@@ -226,11 +207,11 @@ func newK8sBroker(
 		newRestClient:     newRestClient,
 		randomPrefix:      randomPrefix,
 		annotations: k8sannotations.New(nil).
-			Add(annotationModelUUIDKey, modelUUID),
+			Add(constants.AnnotationModelUUIDKey, modelUUID),
 	}
 	if controllerUUID != "" {
 		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
-		client.annotations.Add(annotationControllerUUIDKey, controllerUUID)
+		client.annotations.Add(constants.AnnotationControllerUUIDKey, controllerUUID)
 	}
 	return client, nil
 }
@@ -279,15 +260,6 @@ func (k *kubernetesClient) client() kubernetes.Interface {
 	defer k.lock.Unlock()
 	client := k.clientUnlocked
 	return client
-}
-
-type resourcePurifier interface {
-	SetResourceVersion(string)
-}
-
-// purifyResource purifies read only fields before creating/updating the resource.
-func purifyResource(resource resourcePurifier) {
-	resource.SetResourceVersion("")
 }
 
 func (k *kubernetesClient) extendedClient() apiextensionsclientset.Interface {
@@ -444,7 +416,7 @@ please choose a different hosted model name then try again.`, hostedModelName),
 			if errors.IsNotFound(err) {
 				// all good.
 				// ensure controller specific annotations.
-				_ = broker.addAnnotations(annotationControllerIsControllerKey, "true")
+				_ = broker.addAnnotations(constants.AnnotationControllerIsControllerKey, "true")
 				return nil
 			}
 			if err == nil {
@@ -482,8 +454,8 @@ func (k *kubernetesClient) DestroyController(ctx envcontext.ProviderCallContext,
 	// ensures all annnotations are set correctly, then we will accurately find the controller namespace to destroy it.
 	k.annotations.Merge(
 		k8sannotations.New(nil).
-			Add(annotationControllerUUIDKey, controllerUUID).
-			Add(annotationControllerIsControllerKey, "true"),
+			Add(constants.AnnotationControllerUUIDKey, controllerUUID).
+			Add(constants.AnnotationControllerIsControllerKey, "true"),
 	)
 	return k.Destroy(ctx)
 }
@@ -561,14 +533,14 @@ func (k *kubernetesClient) APIVersion() (string, error) {
 func (k *kubernetesClient) getStorageClass(name string) (*k8sstorage.StorageClass, error) {
 	storageClasses := k.client().StorageV1().StorageClasses()
 	qualifiedName := qualifiedStorageClassName(k.namespace, name)
-	sc, err := storageClasses.Get(qualifiedName, v1.GetOptions{})
+	sc, err := storageClasses.Get(context.TODO(), qualifiedName, v1.GetOptions{})
 	if err == nil {
 		return sc, nil
 	}
 	if !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	return storageClasses.Get(name, v1.GetOptions{})
+	return storageClasses.Get(context.TODO(), name, v1.GetOptions{})
 }
 
 func getLoadBalancerAddress(svc *core.Service) string {
@@ -636,7 +608,7 @@ func getSvcAddresses(svc *core.Service, includeClusterIP bool) []network.Provide
 // GetService returns the service for the specified application.
 func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, includeClusterIP bool) (*caas.Service, error) {
 	services := k.client().CoreV1().Services(k.namespace)
-	servicesList, err := services.List(v1.ListOptions{
+	servicesList, err := services.List(context.TODO(), v1.ListOptions{
 		LabelSelector: applicationSelector(appName, mode),
 	})
 	if err != nil {
@@ -655,7 +627,7 @@ func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, 
 	}
 	deploymentName := k.deploymentName(appName, true)
 	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
-	ss, err := statefulsets.Get(deploymentName, v1.GetOptions{})
+	ss, err := statefulsets.Get(context.TODO(), deploymentName, v1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -678,7 +650,7 @@ func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, 
 	}
 
 	deployments := k.client().AppsV1().Deployments(k.namespace)
-	deployment, err := deployments.Get(deploymentName, v1.GetOptions{})
+	deployment, err := deployments.Get(context.TODO(), deploymentName, v1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -701,7 +673,7 @@ func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, 
 	}
 
 	daemonsets := k.client().AppsV1().DaemonSets(k.namespace)
-	ds, err := daemonsets.Get(deploymentName, v1.GetOptions{})
+	ds, err := daemonsets.Get(context.TODO(), deploymentName, v1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -788,22 +760,6 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-func resourceTagsToAnnotations(in map[string]string) k8sannotations.Annotation {
-	tagsAnnotationsMap := map[string]string{
-		tags.JujuController: annotationControllerUUIDKey,
-		tags.JujuModel:      annotationModelUUIDKey,
-	}
-
-	out := k8sannotations.New(nil)
-	for k, v := range in {
-		if annotationKey, ok := tagsAnnotationsMap[k]; ok {
-			k = annotationKey
-		}
-		out.Add(k, v)
-	}
-	return out
 }
 
 func processConstraints(pod *core.PodSpec, appName string, cons constraints.Value) error {
@@ -926,7 +882,7 @@ func (k *kubernetesClient) applyRawK8sSpec(
 	labelGetter := func(isNamespaced bool) map[string]string {
 		return k.getlabelsForApp(appName, isNamespaced)
 	}
-	annotations := resourceTagsToAnnotations(params.ResourceTags)
+	annotations := utils.ResourceTagsToAnnotations(params.ResourceTags)
 
 	builder := k8sspecs.New(
 		deploymentName, k.namespace, params.Deployment, k.k8sConfig(),
@@ -1001,7 +957,16 @@ func (k *kubernetesClient) ensureService(
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
 
-	annotations := resourceTagsToAnnotations(params.ResourceTags)
+	annotations := utils.ResourceTagsToAnnotations(params.ResourceTags)
+
+	// ensure services.
+	if len(workloadSpec.Services) > 0 {
+		servicesCleanUps, err := k.ensureServicesForApp(appName, annotations, workloadSpec.Services)
+		cleanups = append(cleanups, servicesCleanUps...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating services")
+		}
+	}
 
 	// ensure configmap.
 	if len(workloadSpec.ConfigMaps) > 0 {
@@ -1168,7 +1133,7 @@ func (k *kubernetesClient) ensureService(
 		// CharmModifiedVersion is added for triggering rolling upgrade on workload pods to synchronise
 		// charm files to workload pods via init container when charm was upgraded.
 		// This approach was inspired from `kubectl rollout restart`.
-		Add(annotationCharmModifiedVersionKey, strconv.Itoa(params.CharmModifiedVersion))
+		Add(constants.AnnotationCharmModifiedVersionKey, strconv.Itoa(params.CharmModifiedVersion))
 
 	switch params.Deployment.DeploymentType {
 	case caas.DeploymentStateful:
@@ -1219,18 +1184,18 @@ func randomPrefix() (string, error) {
 func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
 	zero := int32(0)
 	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
-	statefulSet, err := statefulsets.Get(deploymentName, v1.GetOptions{})
+	statefulSet, err := statefulsets.Get(context.TODO(), deploymentName, v1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 	if err == nil {
 		statefulSet.Spec.Replicas = &zero
-		_, err = statefulsets.Update(statefulSet)
+		_, err = statefulsets.Update(context.TODO(), statefulSet, v1.UpdateOptions{})
 		return errors.Trace(err)
 	}
 
 	deployments := k.client().AppsV1().Deployments(k.namespace)
-	deployment, err := deployments.Get(deploymentName, v1.GetOptions{})
+	deployment, err := deployments.Get(context.TODO(), deploymentName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -1238,7 +1203,7 @@ func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
 		return errors.Trace(err)
 	}
 	deployment.Spec.Replicas = &zero
-	_, err = deployments.Update(deployment)
+	_, err = deployments.Update(context.TODO(), deployment, v1.UpdateOptions{})
 	return errors.Trace(err)
 }
 
@@ -1550,7 +1515,7 @@ func (k *kubernetesClient) configureDeployment(
 	deployment := &apps.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
-			Labels: LabelsForApp(appName),
+			Labels: utils.LabelsForApp(appName),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
 				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
@@ -1560,12 +1525,12 @@ func (k *kubernetesClient) configureDeployment(
 			Replicas:             replicas,
 			RevisionHistoryLimit: int32Ptr(deploymentRevisionHistoryLimit),
 			Selector: &v1.LabelSelector{
-				MatchLabels: LabelsForApp(appName),
+				MatchLabels: utils.LabelsForApp(appName),
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
-					Labels:       LabelsForApp(appName),
+					Labels:       utils.LabelsForApp(appName),
 					Annotations:  podAnnotations(annotations.Copy()).ToMap(),
 				},
 				Spec: workloadSpec.Pod,
@@ -1618,15 +1583,15 @@ func (k *kubernetesClient) configurePVCForStatelessResource(
 
 func (k *kubernetesClient) ensureDeployment(spec *apps.Deployment) error {
 	deployments := k.client().AppsV1().Deployments(k.namespace)
-	_, err := deployments.Update(spec)
+	_, err := deployments.Update(context.TODO(), spec, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
-		_, err = deployments.Create(spec)
+		_, err = deployments.Create(context.TODO(), spec, v1.CreateOptions{})
 	}
 	return errors.Trace(err)
 }
 
 func (k *kubernetesClient) getDeployment(name string) (*apps.Deployment, error) {
-	out, err := k.client().AppsV1().Deployments(k.namespace).Get(name, v1.GetOptions{})
+	out, err := k.client().AppsV1().Deployments(k.namespace).Get(context.TODO(), name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("deployment %q", name)
 	}
@@ -1634,8 +1599,8 @@ func (k *kubernetesClient) getDeployment(name string) (*apps.Deployment, error) 
 }
 
 func (k *kubernetesClient) deleteDeployment(name string) error {
-	err := k.client().AppsV1().Deployments(k.namespace).Delete(name, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
+	err := k.client().AppsV1().Deployments(k.namespace).Delete(context.TODO(), name, v1.DeleteOptions{
+		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -1644,10 +1609,10 @@ func (k *kubernetesClient) deleteDeployment(name string) error {
 }
 
 func (k *kubernetesClient) deleteDeployments(appName string) error {
-	err := k.client().AppsV1().Deployments(k.namespace).DeleteCollection(&v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
+	err := k.client().AppsV1().Deployments(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
+		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector: labelSetToSelector(LabelsForApp(appName)).String(),
+		LabelSelector: utils.LabelSetToSelector(utils.LabelsForApp(appName)).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -1690,8 +1655,8 @@ func (k *kubernetesClient) deleteVolumeClaims(appName string, p *core.Pod) ([]st
 			continue
 		}
 		pvClaims := k.client().CoreV1().PersistentVolumeClaims(k.namespace)
-		err := pvClaims.Delete(vol.PersistentVolumeClaim.ClaimName, &v1.DeleteOptions{
-			PropagationPolicy: &defaultPropagationPolicy,
+		err := pvClaims.Delete(context.TODO(), vol.PersistentVolumeClaim.ClaimName, v1.DeleteOptions{
+			PropagationPolicy: &constants.DefaultPropagationPolicy,
 		})
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return nil, errors.Annotatef(err, "deleting persistent volume claim %v for %v",
@@ -1760,11 +1725,11 @@ func (k *kubernetesClient) configureService(
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        deploymentName,
-			Labels:      LabelsForApp(appName),
+			Labels:      utils.LabelsForApp(appName),
 			Annotations: annotations,
 		},
 		Spec: core.ServiceSpec{
-			Selector:                 LabelsForApp(appName),
+			Selector:                 utils.LabelsForApp(appName),
 			Type:                     serviceType,
 			Ports:                    ports,
 			ExternalIPs:              config.Get(serviceExternalIPsConfigKey, []string(nil)).([]string),
@@ -1773,7 +1738,8 @@ func (k *kubernetesClient) configureService(
 			ExternalName:             config.GetString(serviceExternalNameKey, ""),
 		},
 	}
-	return k.ensureK8sService(service)
+	_, err = k.ensureK8sService(service)
+	return err
 }
 
 func (k *kubernetesClient) configureHeadlessService(
@@ -1783,69 +1749,20 @@ func (k *kubernetesClient) configureHeadlessService(
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   headlessServiceName(deploymentName),
-			Labels: LabelsForApp(appName),
+			Labels: utils.LabelsForApp(appName),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
 				Add("service.alpha.kubernetes.io/tolerate-unready-endpoints", "true").ToMap(),
 		},
 		Spec: core.ServiceSpec{
-			Selector:                 LabelsForApp(appName),
+			Selector:                 utils.LabelsForApp(appName),
 			Type:                     core.ServiceTypeClusterIP,
 			ClusterIP:                "None",
 			PublishNotReadyAddresses: true,
 		},
 	}
-	return k.ensureK8sService(service)
-}
-
-// ensureK8sService ensures a k8s service resource.
-func (k *kubernetesClient) ensureK8sService(spec *core.Service) error {
-	services := k.client().CoreV1().Services(k.namespace)
-	// Set any immutable fields if the service already exists.
-	existing, err := services.Get(spec.Name, v1.GetOptions{})
-	if err == nil {
-		spec.Spec.ClusterIP = existing.Spec.ClusterIP
-		spec.ObjectMeta.ResourceVersion = existing.ObjectMeta.ResourceVersion
-	}
-	_, err = services.Update(spec)
-	if k8serrors.IsNotFound(err) {
-		_, err = services.Create(spec)
-	}
-	return errors.Trace(err)
-}
-
-// deleteService deletes a service resource.
-func (k *kubernetesClient) deleteService(serviceName string) error {
-	services := k.client().CoreV1().Services(k.namespace)
-	err := services.Delete(serviceName, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteServices(appName string) error {
-	// Service API does not have `DeleteCollection` implemented, so we have to do it like this.
-	api := k.client().CoreV1().Services(k.namespace)
-	services, err := api.List(
-		v1.ListOptions{
-			LabelSelector: labelSetToSelector(LabelsForApp(appName)).String(),
-		},
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, svc := range services.Items {
-		if err := k.deleteService(svc.GetName()); err != nil {
-			if errors.IsNotFound(err) {
-				continue
-			}
-			return errors.Trace(err)
-		}
-	}
-	return nil
+	_, err := k.ensureK8sService(service)
+	return err
 }
 
 // ExposeService sets up external access to the specified application.
@@ -1869,7 +1786,7 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 	}
 
 	deploymentName := k.deploymentName(appName, true)
-	svc, err := k.client().CoreV1().Services(k.namespace).Get(deploymentName, v1.GetOptions{})
+	svc, err := k.client().CoreV1().Services(k.namespace).Get(context.TODO(), deploymentName, v1.GetOptions{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1915,8 +1832,8 @@ func (k *kubernetesClient) UnexposeService(appName string) error {
 }
 
 func operatorSelector(appName string) string {
-	return labelSetToSelector(map[string]string{
-		labelOperator: appName,
+	return utils.LabelSetToSelector(map[string]string{
+		constants.LabelOperator: appName,
 	}).String()
 }
 
@@ -1924,8 +1841,8 @@ func applicationSelector(appName string, mode caas.DeploymentMode) string {
 	if mode == caas.ModeOperator {
 		return operatorSelector(appName)
 	}
-	return labelSetToSelector(map[string]string{
-		labelApplication: appName,
+	return utils.LabelSetToSelector(map[string]string{
+		constants.LabelApplication: appName,
 	}).String()
 }
 
@@ -1933,12 +1850,12 @@ func applicationSelector(appName string, mode caas.DeploymentMode) string {
 func (k *kubernetesClient) AnnotateUnit(appName string, mode caas.DeploymentMode, podName string, unit names.UnitTag) error {
 	pods := k.client().CoreV1().Pods(k.namespace)
 
-	pod, err := pods.Get(podName, v1.GetOptions{})
+	pod, err := pods.Get(context.TODO(), podName, v1.GetOptions{})
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
-		pods, err := pods.List(v1.ListOptions{
+		pods, err := pods.List(context.TODO(), v1.ListOptions{
 			LabelSelector: applicationSelector(appName, mode),
 		})
 		// TODO(caas): remove getting pod by Id (a bit expensive) once we started to store podName in cloudContainer doc.
@@ -1961,12 +1878,12 @@ func (k *kubernetesClient) AnnotateUnit(appName string, mode caas.DeploymentMode
 		pod.Annotations = make(map[string]string)
 	}
 	unitID := unit.Id()
-	if pod.Annotations[annotationUnit] == unitID {
+	if pod.Annotations[constants.AnnotationUnit] == unitID {
 		return nil
 	}
-	pod.Annotations[annotationUnit] = unitID
+	pod.Annotations[constants.AnnotationUnit] = unitID
 
-	_, err = pods.Update(pod)
+	_, err = pods.Update(context.TODO(), pod, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf("pod %q", podName)
 	}
@@ -2002,7 +1919,7 @@ func (k *kubernetesClient) WatchContainerStart(appName string, containerName str
 		}),
 	)
 
-	podsList, err := pods.List(v1.ListOptions{
+	podsList, err := pods.List(context.TODO(), v1.ListOptions{
 		LabelSelector: selector,
 	})
 	if err != nil {
@@ -2015,7 +1932,7 @@ func (k *kubernetesClient) WatchContainerStart(appName string, containerName str
 	}
 
 	running := func(pod *core.Pod) set.Strings {
-		if _, ok := pod.Annotations[annotationUnit]; !ok {
+		if _, ok := pod.Annotations[constants.AnnotationUnit]; !ok {
 			// Ignore pods that aren't annotated as a unit yet.
 			return set.Strings{}
 		}
@@ -2047,13 +1964,13 @@ func (k *kubernetesClient) WatchContainerStart(appName string, containerName str
 		}
 	}
 
-	filterEvent := func(evt WatchEvent, obj interface{}) (string, bool) {
+	filterEvent := func(evt k8swatcher.WatchEvent, obj interface{}) (string, bool) {
 		pod, ok := obj.(*core.Pod)
 		if !ok {
 			return "", false
 		}
 		key := string(pod.GetUID())
-		if evt == WatchEventDelete {
+		if evt == k8swatcher.WatchEventDelete {
 			delete(podInitState, key)
 			return "", false
 		}
@@ -2114,7 +2031,7 @@ var jujuPVNameRegexp = regexp.MustCompile(`^(?P<storageName>\D+)-\w+$`)
 // Filesystems are mounted via volumes bound to the unit.
 func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]caas.Unit, error) {
 	pods := k.client().CoreV1().Pods(k.namespace)
-	podsList, err := pods.List(v1.ListOptions{
+	podsList, err := pods.List(context.TODO(), v1.ListOptions{
 		LabelSelector: applicationSelector(appName, mode),
 	})
 	if err != nil {
@@ -2194,7 +2111,7 @@ func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]ca
 
 func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
 	pods := k.client().CoreV1().Pods(k.namespace)
-	pod, err := pods.Get(podName, v1.GetOptions{})
+	pod, err := pods.Get(context.TODO(), podName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("pod %q", podName)
 	} else if err != nil {
@@ -2355,7 +2272,8 @@ type workloadSpec struct {
 	Pod     core.PodSpec `json:"pod"`
 	Service *specs.ServiceSpec
 
-	Secrets                         []k8sspecs.Secret
+	Secrets                         []k8sspecs.K8sSecret
+	Services                        []k8sspecs.K8sService
 	ConfigMaps                      map[string]specs.ConfigMap
 	ServiceAccounts                 []k8sspecs.K8sRBACSpecConverter
 	CustomResourceDefinitions       []k8sspecs.K8sCustomResourceDefinitionSpec
@@ -2436,6 +2354,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 		k8sResources := pSpec.KubernetesResources
 		if k8sResources != nil {
 			spec.Secrets = k8sResources.Secrets
+			spec.Services = k8sResources.Services
 			spec.CustomResourceDefinitions = k8sResources.CustomResourceDefinitions
 			spec.CustomResources = k8sResources.CustomResources
 			spec.MutatingWebhookConfigurations = k8sResources.MutatingWebhookConfigurations
@@ -2542,21 +2461,6 @@ func (k *kubernetesClient) deploymentName(appName string, legacySupport bool) st
 		return "juju-" + appName
 	}
 	return appName
-}
-
-func newUIDPreconditions(uid k8stypes.UID) *v1.Preconditions {
-	if uid == "" {
-		return nil
-	}
-	return &v1.Preconditions{UID: &uid}
-}
-
-func newPreconditionDeleteOptions(uid k8stypes.UID) *v1.DeleteOptions {
-	// TODO(caas): refactor all deleting single resource operation has this UID ensured precondition.
-	return &v1.DeleteOptions{
-		Preconditions:     newUIDPreconditions(uid),
-		PropagationPolicy: &defaultPropagationPolicy,
-	}
 }
 
 func isLegacyName(resourceName string) bool {

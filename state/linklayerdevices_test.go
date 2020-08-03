@@ -383,11 +383,6 @@ func (s *linkLayerDevicesStateSuite) addNamedParentDeviceWithChildrenAndCheckAll
 	return parent, children
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesMultipleChildrenOfExistingParentIdempotent(c *gc.C) {
-	s.addNamedParentDeviceWithChildrenAndCheckAllAdded(c, "parent", "child1", "child2")
-	s.addNamedParentDeviceWithChildrenAndCheckAllAdded(c, "parent", "child1", "child2")
-}
-
 func (s *linkLayerDevicesStateSuite) addSimpleDevice(c *gc.C) *state.LinkLayerDevice {
 	return s.addNamedDevice(c, "foo")
 }
@@ -397,8 +392,10 @@ func (s *linkLayerDevicesStateSuite) addNamedDevice(c *gc.C, name string) *state
 		Name: name,
 		Type: corenetwork.EthernetDevice,
 	}
-	err := s.machine.SetLinkLayerDevices(args)
+	ops, err := s.machine.AddLinkLayerDeviceOps(args)
 	c.Assert(err, jc.ErrorIsNil)
+	state.RunTransaction(c, s.State, ops)
+
 	device, err := s.machine.LinkLayerDevice(name)
 	c.Assert(err, jc.ErrorIsNil)
 	return device
@@ -721,6 +718,92 @@ func (s *linkLayerDevicesStateSuite) TestUpdateOps(c *gc.C) {
 	dev, err := s.machine.LinkLayerDevice("eth0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(dev.MACAddress(), gc.Equals, mac)
+}
+
+func (s *linkLayerDevicesStateSuite) TestEthernetDeviceForBridge(c *gc.C) {
+	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{
+		CIDR:       "10.0.0.0/24",
+		ProviderId: "ps-01",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.createBridgeWithIP(c, s.machine, "br0", "10.0.0.9/24")
+
+	dev, err := s.machine.LinkLayerDevice("br0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	child, err := dev.EthernetDeviceForBridge("eth0", true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(child.InterfaceName, gc.Equals, "eth0")
+	c.Check(child.ConfigType, gc.Equals, corenetwork.ConfigStatic)
+	c.Check(child.ParentInterfaceName, gc.Equals, "br0")
+	c.Check(child.CIDR, gc.Equals, "10.0.0.0/24")
+	c.Check(child.ProviderSubnetId, gc.Equals, corenetwork.Id("ps-01"))
+
+	child, err = dev.EthernetDeviceForBridge("eth0", false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(child.ConfigType, gc.Equals, corenetwork.ConfigDHCP)
+	c.Check(child.ProviderSubnetId, gc.Equals, corenetwork.Id(""))
+
+	dev = s.addNamedDevice(c, "bond0")
+	_, err = dev.EthernetDeviceForBridge("eth0", false)
+	c.Assert(err, gc.NotNil)
+}
+
+func (s *linkLayerDevicesStateSuite) TestAddAddressOps(c *gc.C) {
+	dev := s.addNamedDevice(c, "eth0")
+
+	ops, err := dev.AddAddressOps(state.LinkLayerDeviceAddress{
+		DeviceName:  "", // Not required.
+		CIDRAddress: "10.1.1.1/24",
+		Origin:      corenetwork.OriginMachine,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.RunTransaction(c, s.State, ops)
+
+	dev, err = s.machine.LinkLayerDevice("eth0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrs, err := dev.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(addrs, gc.HasLen, 1)
+	c.Assert(addrs[0].Value(), gc.Equals, "10.1.1.1")
+}
+
+func (s *linkLayerDevicesStateSuite) TestAddDeviceOpsWithAddresses(c *gc.C) {
+	devName := "eth0"
+
+	devArgs := state.LinkLayerDeviceArgs{
+		Name: devName,
+		Type: corenetwork.EthernetDevice,
+	}
+
+	addrArgs := state.LinkLayerDeviceAddress{
+		DeviceName:  devName,
+		CIDRAddress: "10.1.1.1/24",
+		Origin:      corenetwork.OriginMachine,
+	}
+
+	ops, err := s.machine.AddLinkLayerDeviceOps(devArgs, addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.RunTransaction(c, s.State, ops)
+
+	dev, err := s.machine.LinkLayerDevice(devName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	dev, err = s.machine.LinkLayerDevice("eth0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrs, err := dev.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(addrs, gc.HasLen, 1)
+	c.Assert(addrs[0].Value(), gc.Equals, "10.1.1.1")
 }
 
 func (s *linkLayerDevicesStateSuite) createSpaceAndSubnet(c *gc.C, spaceName, CIDR string) {

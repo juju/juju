@@ -207,6 +207,23 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 			Name:  to.StringPtr("OSVhdSizeMB"),
 			Value: to.StringPtr("1047552"),
 		}},
+	}, {
+		Name:         to.StringPtr("Standard_D666"),
+		Locations:    to.StringSlicePtr([]string{"westus"}),
+		ResourceType: to.StringPtr("virtualMachines"),
+		Restrictions: &[]compute.ResourceSkuRestrictions{{
+			ReasonCode: compute.NotAvailableForSubscription,
+		}},
+		Capabilities: &[]compute.ResourceSkuCapabilities{{
+			Name:  to.StringPtr("MemoryGB"),
+			Value: to.StringPtr("7"),
+		}, {
+			Name:  to.StringPtr("vCPUs"),
+			Value: to.StringPtr("2"),
+		}, {
+			Name:  to.StringPtr("OSVhdSizeMB"),
+			Value: to.StringPtr("1047552"),
+		}},
 	}}
 	s.skus = &compute.ResourceSkusResult{Value: &resourceSkus}
 
@@ -279,7 +296,9 @@ func (s *environSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *environSuite) openEnviron(c *gc.C, attrs ...testing.Attrs) environs.Environ {
-	return openEnviron(c, s.provider, &s.sender, attrs...)
+	env := openEnviron(c, s.provider, &s.sender, attrs...)
+	s.requests = nil
+	return env
 }
 
 func openEnviron(
@@ -291,6 +310,10 @@ func openEnviron(
 	// Opening the environment should not incur network communication,
 	// so we don't set s.sender until after opening.
 	cfg := makeTestModelConfig(c, attrs...)
+	*sender = azuretesting.Senders{
+		makeResourceGroupNotFoundSender(fmt.Sprintf(".*/resourcegroups/juju-%s-model-deadbeef-.*", cfg.Name())),
+		makeSender(fmt.Sprintf(".*/resourcegroups/juju-%s-.*", cfg.Name()), makeResourceGroupResult()),
+	}
 	env, err := environs.Open(provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: cfg,
@@ -324,6 +347,10 @@ func prepareForBootstrap(
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	*sender = azuretesting.Senders{
+		makeResourceGroupNotFoundSender(".*/resourcegroups/juju-testmodel-model-deadbeef-.*"),
+		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
+	}
 	env, err := environs.Open(provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: cfg,
@@ -379,19 +406,19 @@ func discoverAuthSender() *azuretesting.MockSender {
 }
 
 func (s *environSuite) initResourceGroupSenders(resourceGroupName string) azuretesting.Senders {
-	senders := azuretesting.Senders{s.makeSender(".*/resourcegroups/"+resourceGroupName, s.group)}
+	senders := azuretesting.Senders{makeSender(".*/resourcegroups/"+resourceGroupName, s.group)}
 	return senders
 }
 
 func (s *environSuite) startInstanceSenders(bootstrap bool) azuretesting.Senders {
 	senders := azuretesting.Senders{s.resourceSkusSender()}
 	if s.ubuntuServerSKUs != nil {
-		senders = append(senders, s.makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs))
+		senders = append(senders, makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs))
 	}
 	if !bootstrap {
 		// When starting an instance, we must wait for the common
 		// deployment to complete.
-		senders = append(senders, s.makeSender("/deployments/common", s.commonDeployment))
+		senders = append(senders, makeSender("/deployments/common", s.commonDeployment))
 
 		// If the deployment has any providers, then we assume
 		// storage accounts are in use, for unmanaged storage.
@@ -403,36 +430,36 @@ func (s *environSuite) startInstanceSenders(bootstrap bool) azuretesting.Senders
 					},
 				},
 			}
-			senders = append(senders, s.makeSender("/storageAccounts/juju400d80004b1d0d06f00d", storageAccount))
+			senders = append(senders, makeSender("/storageAccounts/juju400d80004b1d0d06f00d", storageAccount))
 		}
 	}
-	senders = append(senders, s.makeSender("/deployments/machine-0", s.deployment))
+	senders = append(senders, makeSender("/deployments/machine-0", s.deployment))
 	return senders
 }
 
 func (s *environSuite) startInstanceSendersNoSizes() azuretesting.Senders {
 	senders := azuretesting.Senders{}
 	if s.ubuntuServerSKUs != nil {
-		senders = append(senders, s.makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs))
+		senders = append(senders, makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs))
 	}
-	senders = append(senders, s.makeSender("/deployments/machine-0", s.deployment))
+	senders = append(senders, makeSender("/deployments/machine-0", s.deployment))
 	return senders
 }
 
 func (s *environSuite) networkInterfacesSender(nics ...network.Interface) *azuretesting.MockSender {
-	return s.makeSender(".*/networkInterfaces", network.InterfaceListResult{Value: &nics})
+	return makeSender(".*/networkInterfaces", network.InterfaceListResult{Value: &nics})
 }
 
 func (s *environSuite) publicIPAddressesSender(pips ...network.PublicIPAddress) *azuretesting.MockSender {
-	return s.makeSender(".*/publicIPAddresses", network.PublicIPAddressListResult{Value: &pips})
+	return makeSender(".*/publicIPAddresses", network.PublicIPAddressListResult{Value: &pips})
 }
 
 func (s *environSuite) resourceSkusSender() *azuretesting.MockSender {
-	return s.makeSender(".*/skus", s.skus)
+	return makeSender(".*/skus", s.skus)
 }
 
 func (s *environSuite) storageAccountSender() *azuretesting.MockSender {
-	return s.makeSender(".*/storageAccounts/"+storageAccountName, s.storageAccount)
+	return makeSender(".*/storageAccounts/"+storageAccountName, s.storageAccount)
 }
 
 func (s *environSuite) storageAccountErrorSender(c *gc.C, err error, repeat int) *azuretesting.MockSender {
@@ -440,14 +467,23 @@ func (s *environSuite) storageAccountErrorSender(c *gc.C, err error, repeat int)
 }
 
 func (s *environSuite) storageAccountKeysSender() *azuretesting.MockSender {
-	return s.makeSender(".*/storageAccounts/.*/listKeys", s.storageAccountKeys)
+	return makeSender(".*/storageAccounts/.*/listKeys", s.storageAccountKeys)
 }
 
 func (s *environSuite) storageAccountKeysErrorSender(c *gc.C, err error, repeat int) *azuretesting.MockSender {
 	return s.makeErrorSenderWithContent(c, ".*/storageAccounts/.*/listKeys", s.storageAccountKeys, err, repeat)
 }
 
-func (s *environSuite) makeSender(pattern string, v interface{}) *azuretesting.MockSender {
+func makeResourceGroupNotFoundSender(pattern string) *azuretesting.MockSender {
+	sender := azuretesting.MockSender{Sender: mocks.NewSender()}
+	sender.PathPattern = pattern
+	sender.AppendAndRepeatResponse(mocks.NewResponseWithStatus(
+		"resource group not found", http.StatusNotFound,
+	), 1)
+	return &sender
+}
+
+func makeSender(pattern string, v interface{}) *azuretesting.MockSender {
 	sender := azuretesting.NewSenderWithValue(v)
 	sender.PathPattern = pattern
 	return sender
@@ -833,7 +869,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 	const failures = 60 // 5 minutes / 5 seconds
 	head, tail := senders[:2], senders[2:]
 	for i := 0; i < failures; i++ {
-		head = append(head, s.makeSender("/deployments/common", s.commonDeployment))
+		head = append(head, makeSender("/deployments/common", s.commonDeployment))
 	}
 	senders = append(head, tail...)
 	s.sender = senders
@@ -1249,7 +1285,7 @@ type startInstanceRequests struct {
 	deployment     *http.Request
 }
 
-const resourceGroupName = "juju-testmodel-model-deadbeef-0bad-400d-8000-4b1d0d06f00d"
+const resourceGroupName = "juju-testmodel-deadbeef"
 
 func (s *environSuite) TestBootstrap(c *gc.C) {
 	defer envtesting.DisableFinishBootstrap()()
@@ -1479,7 +1515,7 @@ func (s *environSuite) TestAllRunningInstancesIgnoresCommonDeployment(c *gc.C) {
 	}}
 	result := resources.DeploymentListResult{Value: &deployments}
 	s.sender = azuretesting.Senders{
-		s.makeSender("/deployments", result),
+		makeSender("/deployments", result),
 	}
 
 	instances, err := env.AllRunningInstances(s.callCtx)
@@ -1528,15 +1564,15 @@ func (s *environSuite) TestStopInstancesResourceGroupNotFound(c *gc.C) {
 	nsgSender := s.makeErrorSenderWithContent(c, ".*/networkSecurityGroups/juju-internal-nsg", makeSecurityGroup(), nsgErr, 2)
 
 	s.sender = azuretesting.Senders{
-		s.makeSender("/deployments/machine-0", s.deployment), // Cancel
+		makeSender("/deployments/machine-0", s.deployment), // Cancel
 		s.storageAccountSender(),
 		s.storageAccountKeysSender(),
-		s.networkInterfacesSender(),                       // GET: no NICs
-		s.publicIPAddressesSender(),                       // GET: no public IPs
-		s.makeSender(".*/virtualMachines/machine-0", nil), // DELETE
-		s.makeSender(".*/disks/machine-0", nil),           // DELETE
-		nsgSender,                                         // GET with failure
-		s.makeSender(".*/deployments/machine-0", nil),     // DELETE
+		s.networkInterfacesSender(),                     // GET: no NICs
+		s.publicIPAddressesSender(),                     // GET: no public IPs
+		makeSender(".*/virtualMachines/machine-0", nil), // DELETE
+		makeSender(".*/disks/machine-0", nil),           // DELETE
+		nsgSender,                                       // GET with failure
+		makeSender(".*/deployments/machine-0", nil),     // DELETE
 	}
 	err := env.StopInstances(s.callCtx, "machine-0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1559,18 +1595,18 @@ func (s *environSuite) TestStopInstances(c *gc.C) {
 	nic0 := makeNetworkInterface("nic-0", "machine-0", nic0IPConfiguration)
 
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/deployments/machine-0/cancel", nil), // POST
+		makeSender(".*/deployments/machine-0/cancel", nil), // POST
 		s.storageAccountSender(),
 		s.storageAccountKeysSender(),
 		s.networkInterfacesSender(nic0),
 		s.publicIPAddressesSender(makePublicIPAddress("pip-0", "machine-0", "1.2.3.4")),
-		s.makeSender(".*/virtualMachines/machine-0", nil),                                                 // DELETE
-		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", nsg),                                   // GET
-		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/machine-0-80", nil),        // DELETE
-		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/machine-0-1000-2000", nil), // DELETE
-		s.makeSender(".*/networkInterfaces/nic-0", nil),                                                   // DELETE
-		s.makeSender(".*/publicIPAddresses/pip-0", nil),                                                   // DELETE
-		s.makeSender(".*/deployments/machine-0", nil),                                                     // DELETE
+		makeSender(".*/virtualMachines/machine-0", nil),                                                 // DELETE
+		makeSender(".*/networkSecurityGroups/juju-internal-nsg", nsg),                                   // GET
+		makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/machine-0-80", nil),        // DELETE
+		makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/machine-0-1000-2000", nil), // DELETE
+		makeSender(".*/networkInterfaces/nic-0", nil),                                                   // DELETE
+		makeSender(".*/publicIPAddresses/pip-0", nil),                                                   // DELETE
+		makeSender(".*/deployments/machine-0", nil),                                                     // DELETE
 	}
 
 	machine0Blob := azuretesting.MockStorageBlob{Name_: "machine-0"}
@@ -1594,8 +1630,8 @@ func (s *environSuite) TestStopInstancesMultiple(c *gc.C) {
 	vmDeleteSender1 := s.makeErrorSender(c, ".*/virtualMachines/machine-[01]", errors.New("blargh"), 2)
 
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/deployments/machine-[01]/cancel", nil), // POST
-		s.makeSender(".*/deployments/machine-[01]/cancel", nil), // POST
+		makeSender(".*/deployments/machine-[01]/cancel", nil), // POST
+		makeSender(".*/deployments/machine-[01]/cancel", nil), // POST
 
 		// We should only query the NICs, public IPs, and storage
 		// account/keys, regardless of how many instances are deleted.
@@ -1637,15 +1673,15 @@ func (s *environSuite) TestStopInstancesStorageAccountNoFullKey(c *gc.C) {
 func (s *environSuite) testStopInstancesStorageAccountNotFound(c *gc.C) {
 	env := s.openEnviron(c)
 	s.sender = azuretesting.Senders{
-		s.makeSender("/deployments/machine-0", s.deployment), // Cancel
+		makeSender("/deployments/machine-0", s.deployment), // Cancel
 		s.storageAccountSender(),
 		s.storageAccountKeysSender(),
-		s.networkInterfacesSender(),                                                     // GET: no NICs
-		s.publicIPAddressesSender(),                                                     // GET: no public IPs
-		s.makeSender(".*/virtualMachines/machine-0", nil),                               // DELETE
-		s.makeSender(".*/disks/machine-0", nil),                                         // DELETE
-		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", makeSecurityGroup()), // GET: no rules
-		s.makeSender(".*/deployments/machine-0", nil),                                   // DELETE
+		s.networkInterfacesSender(),                                                   // GET: no NICs
+		s.publicIPAddressesSender(),                                                   // GET: no public IPs
+		makeSender(".*/virtualMachines/machine-0", nil),                               // DELETE
+		makeSender(".*/disks/machine-0", nil),                                         // DELETE
+		makeSender(".*/networkSecurityGroups/juju-internal-nsg", makeSecurityGroup()), // GET: no rules
+		makeSender(".*/deployments/machine-0", nil),                                   // DELETE
 	}
 	err := env.StopInstances(s.callCtx, "machine-0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1656,7 +1692,7 @@ func (s *environSuite) TestStopInstancesStorageAccountError(c *gc.C) {
 	azure.SetRetries(env)
 	errorSender := s.storageAccountErrorSender(c, errors.New("blargh"), 2)
 	s.sender = azuretesting.Senders{
-		s.makeSender("/deployments/machine-0", s.deployment), // Cancel
+		makeSender("/deployments/machine-0", s.deployment), // Cancel
 		errorSender,
 	}
 	err := env.StopInstances(s.callCtx, "machine-0")
@@ -1668,7 +1704,7 @@ func (s *environSuite) TestStopInstancesStorageAccountKeysError(c *gc.C) {
 	azure.SetRetries(env)
 	errorSender := s.storageAccountKeysErrorSender(c, errors.New("blargh"), 2)
 	s.sender = azuretesting.Senders{
-		s.makeSender("/deployments/machine-0", s.deployment), // Cancel
+		makeSender("/deployments/machine-0", s.deployment), // Cancel
 		s.storageAccountSender(),
 		errorSender,
 	}
@@ -1729,7 +1765,7 @@ func (s *environSuite) TestAgentMirror(c *gc.C) {
 func (s *environSuite) TestDestroyHostedModel(c *gc.C) {
 	env := s.openEnviron(c, testing.Attrs{"controller-uuid": utils.MustNewUUID().String()})
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/juju-testmodel-model-"+testing.ModelTag.Id(), nil), // DELETE
+		makeSender(".*/resourcegroups/juju-testmodel-"+testing.ModelTag.Id()[:8], nil), // DELETE
 	}
 	err := env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1741,7 +1777,7 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
 	env := s.openEnviron(c,
 		testing.Attrs{"controller-uuid": utils.MustNewUUID().String(), "resource-group-name": "foo"})
 	s.sender = azuretesting.Senders{
-		s.makeSender("/deployments/purge-resource-group", nil), // PUT
+		makeSender("/deployments/purge-resource-group", nil), // PUT
 	}
 	err := env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1771,9 +1807,9 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 
 	env := s.openEnviron(c)
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups", result),        // GET
-		s.makeSender(".*/resourcegroups/group[12]", nil), // DELETE
-		s.makeSender(".*/resourcegroups/group[12]", nil), // DELETE
+		makeSender(".*/resourcegroups", result),        // GET
+		makeSender(".*/resourcegroups/group[12]", nil), // DELETE
+		makeSender(".*/resourcegroups/group[12]", nil), // DELETE
 	}
 	err := env.DestroyController(s.callCtx, s.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1827,9 +1863,9 @@ func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
 	env := s.openEnviron(c)
 	s.requests = nil
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups", result), // GET
-		makeErrorSender("foo"),                    // DELETE
-		makeErrorSender("bar"),                    // DELETE
+		makeSender(".*/resourcegroups", result), // GET
+		makeErrorSender("foo"),                  // DELETE
+		makeErrorSender("bar"),                  // DELETE
 	}
 	destroyErr := env.DestroyController(s.callCtx, s.controllerUUID)
 	// checked below, once we know the order of deletions.
@@ -1892,20 +1928,20 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 	env := s.openEnviron(c)
 
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
-		s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
+		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
+		makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
 
-		s.makeSender(".*/providers", providersResult),
-		s.makeSender(".*/resourceGroups/juju-testmodel-.*/resources", resourcesResult),
+		makeSender(".*/providers", providersResult),
+		makeSender(".*/resourceGroups/juju-testmodel-.*/resources", resourcesResult),
 
 		// First request is the get, second is the update. (The
 		// lowercase resourcegroups here is a quirk of the
 		// autogenerated Go SDK.)
-		s.makeSender(".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues", res1),
-		s.makeSender(".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues", res1),
+		makeSender(".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues", res1),
+		makeSender(".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues", res1),
 
-		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
-		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
+		makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
+		makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
 	}
 
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))
@@ -1960,6 +1996,7 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 	gTags := to.StringMap(group.Tags)
 	c.Check(gTags["something else"], gc.Equals, "good")
 	c.Check(gTags[tags.JujuController], gc.Equals, "new-controller")
+	c.Check(gTags[tags.JujuModel], gc.Equals, "deadbeef-0bad-400d-8000-4b1d0d06f00d")
 }
 
 func makeProvidersResult() resources.ProviderListResult {
@@ -2017,6 +2054,7 @@ func makeResourceGroupResult() resources.Group {
 		},
 		Tags: map[string]*string{
 			tags.JujuController: to.StringPtr("old-controller"),
+			tags.JujuModel:      to.StringPtr("deadbeef-0bad-400d-8000-4b1d0d06f00d"),
 			"something else":    to.StringPtr("good"),
 		},
 	}
@@ -2044,7 +2082,7 @@ func (s *environSuite) TestAdoptResourcesErrorUpdatingGroup(c *gc.C) {
 		errors.New("uhoh"),
 		2)
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
+		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
 		errorSender,
 	}
 
@@ -2061,8 +2099,8 @@ func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *gc.C) {
 		errors.New("uhoh"),
 		2)
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
-		s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
+		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
+		makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
 		errorSender,
 	}
 
@@ -2079,9 +2117,9 @@ func (s *environSuite) TestAdoptResourcesErrorListingResources(c *gc.C) {
 		errors.New("ouch!"),
 		2)
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
-		s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
-		s.makeSender(".*/providers", resources.ProviderListResult{}),
+		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
+		makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
+		makeSender(".*/providers", resources.ProviderListResult{}),
 		errorSender,
 	}
 
@@ -2112,14 +2150,14 @@ func (s *environSuite) TestAdoptResourcesNoUpdateNeeded(c *gc.C) {
 	env := s.openEnviron(c)
 
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
-		s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
-		s.makeSender(".*/providers", providersResult),
-		s.makeSender(".*/resourceGroups/juju-testmodel-.*/resources", resourcesResult),
+		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
+		makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
+		makeSender(".*/providers", providersResult),
+		makeSender(".*/resourceGroups/juju-testmodel-.*/resources", resourcesResult),
 
 		// Doesn't bother updating res1, continues to do res2.
-		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
-		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
+		makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
+		makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
 	}
 
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))
@@ -2142,16 +2180,16 @@ func (s *environSuite) TestAdoptResourcesErrorGettingFullResource(c *gc.C) {
 		2)
 
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
-		s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
-		s.makeSender(".*/providers", providersResult),
-		s.makeSender(".*/resourceGroups/juju-testmodel-.*/resources", resourcesResult),
+		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
+		makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
+		makeSender(".*/providers", providersResult),
+		makeSender(".*/resourceGroups/juju-testmodel-.*/resources", resourcesResult),
 
 		// The first resource yields an error but the update continues.
 		errorSender,
 
-		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
-		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
+		makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
+		makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
 	}
 
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))
@@ -2175,17 +2213,17 @@ func (s *environSuite) TestAdoptResourcesErrorUpdating(c *gc.C) {
 		2)
 
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
-		s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
-		s.makeSender(".*/providers", providersResult),
-		s.makeSender(".*/resourceGroups/juju-testmodel-.*/resources", resourcesResult),
+		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
+		makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
+		makeSender(".*/providers", providersResult),
+		makeSender(".*/resourceGroups/juju-testmodel-.*/resources", resourcesResult),
 
 		// Updating the first resource yields an error but the update continues.
-		s.makeSender(".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues", res1),
+		makeSender(".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues", res1),
 		errorSender,
 
-		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
-		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
+		makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
+		makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
 	}
 
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))

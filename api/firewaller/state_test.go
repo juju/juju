@@ -9,14 +9,13 @@ import (
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/instance"
-	networktesting "github.com/juju/juju/core/network/testing"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/state"
 )
 
 type stateSuite struct {
 	firewallerSuite
-	networktesting.FirewallHelper
 	*apitesting.ModelWatcherTests
 }
 
@@ -62,8 +61,12 @@ func (s *stateSuite) TestWatchModelMachines(c *gc.C) {
 
 func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 	// Open some ports.
-	s.AssertOpenUnitPorts(c, s.units[0], "", "tcp", 1234, 1400)
-	s.AssertOpenUnitPort(c, s.units[2], "", "udp", 4321)
+	mustOpenPortRanges(c, s.State, s.units[0], allEndpoints, []network.PortRange{
+		network.MustParsePortRange("1234-1400/tcp"),
+	})
+	mustOpenPortRanges(c, s.State, s.units[2], allEndpoints, []network.PortRange{
+		network.MustParsePortRange("4321/udp"),
+	})
 
 	w, err := s.firewaller.WatchOpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
@@ -71,28 +74,36 @@ func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 	defer wc.AssertStops()
 
 	expectChanges := []string{
-		"0:",
-		"2:",
+		"0",
+		"2",
 	}
 	wc.AssertChangeInSingleEvent(expectChanges...)
 	wc.AssertNoChange()
 
 	// Close a port, make sure it's detected.
-	s.AssertCloseUnitPort(c, s.units[2], "", "udp", 4321)
+	mustClosePortRanges(c, s.State, s.units[2], allEndpoints, []network.PortRange{
+		network.MustParsePortRange("4321/udp"),
+	})
 
 	wc.AssertChange(expectChanges[1])
 	wc.AssertNoChange()
 
 	// Close it again, no changes.
-	s.AssertCloseUnitPort(c, s.units[2], "", "udp", 4321)
+	mustClosePortRanges(c, s.State, s.units[2], allEndpoints, []network.PortRange{
+		network.MustParsePortRange("4321/udp"),
+	})
 	wc.AssertNoChange()
 
 	// Close non-existing port, no changes.
-	s.AssertCloseUnitPort(c, s.units[2], "", "udp", 1234)
+	mustClosePortRanges(c, s.State, s.units[2], allEndpoints, []network.PortRange{
+		network.MustParsePortRange("1234/udp"),
+	})
 	wc.AssertNoChange()
 
 	// Open another port range, ensure it's detected.
-	s.AssertOpenUnitPorts(c, s.units[1], "", "tcp", 8080, 8088)
-	wc.AssertChange("1:")
+	mustOpenPortRanges(c, s.State, s.units[1], allEndpoints, []network.PortRange{
+		network.MustParsePortRange("8080-8088/udp"),
+	})
+	wc.AssertChange("1")
 	wc.AssertNoChange()
 }

@@ -926,7 +926,7 @@ func ApplicationBranches(m *Model, appName string) ([]*Generation, error) {
 
 func MachinePortOps(st *State, m description.Machine) ([]txn.Op, error) {
 	resolver := &importer{st: st}
-	return resolver.machinePortsOps(m)
+	return []txn.Op{resolver.machinePortsOp(m)}, nil
 }
 
 func NewBindingsForMergeTest(b map[string]string) *Bindings {

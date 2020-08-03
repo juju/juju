@@ -11,6 +11,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -24,7 +25,7 @@ import (
 
 //go:generate go run github.com/golang/mock/mockgen -package state -destination migration_import_mock_test.go github.com/juju/juju/state TransactionRunner,StateDocumentFactory,DocModelNamespace
 //go:generate go run github.com/golang/mock/mockgen -package state -destination migration_import_input_mock_test.go github.com/juju/juju/state RemoteEntitiesInput,RelationNetworksInput,RemoteApplicationsInput,ApplicationOfferStateDocumentFactory,ApplicationOfferInput,ExternalControllerStateDocumentFactory,ExternalControllersInput,FirewallRulesInput
-//go:generate go run github.com/golang/mock/mockgen -package state -destination migration_description_mock_test.go github.com/juju/description ApplicationOffer,ExternalController,FirewallRule,RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace,Status
+//go:generate go run github.com/golang/mock/mockgen -package state -destination migration_description_mock_test.go github.com/juju/description/v2 ApplicationOffer,ExternalController,FirewallRule,RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace,Status
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/operation_mock.go github.com/juju/juju/state ModelOperation
 
 func TestPackage(t *testing.T) {
@@ -64,4 +65,42 @@ func AddTestingApplicationWithEmptyBindings(c *gc.C, st *State, name string, ch 
 // RunTransaction exposes the transaction running capability of State.
 func RunTransaction(c *gc.C, st *State, ops []txn.Op) {
 	c.Assert(st.db().RunTransaction(ops), jc.ErrorIsNil)
+}
+
+// MustOpenUnitPortRange ensures that the provided port range is opened
+// for the specified unit and endpoint combination on the provided machine.
+func MustOpenUnitPortRange(c *gc.C, st *State, machine *Machine, unitName, endpointName string, portRange network.PortRange) {
+	MustOpenUnitPortRanges(c, st, machine, unitName, endpointName, []network.PortRange{portRange})
+}
+
+// MustOpenUnitPortRanges ensures that the provided port ranges are opened
+// for the specified unit and endpoint combination on the provided machine.
+func MustOpenUnitPortRanges(c *gc.C, st *State, machine *Machine, unitName, endpointName string, portRanges []network.PortRange) {
+	machPortRanges, err := machine.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	unitPortRanges := machPortRanges.ForUnit(unitName)
+	for _, pr := range portRanges {
+		unitPortRanges.Open(endpointName, pr)
+	}
+	c.Assert(st.ApplyOperation(machPortRanges.Changes()), jc.ErrorIsNil)
+}
+
+// MustCloseUnitPortRange ensures that the provided port range is closed
+// for the specified unit and endpoint combination on the provided machine.
+func MustCloseUnitPortRange(c *gc.C, st *State, machine *Machine, unitName, endpointName string, portRange network.PortRange) {
+	MustCloseUnitPortRanges(c, st, machine, unitName, endpointName, []network.PortRange{portRange})
+}
+
+// MustCloseUnitPortRanges ensures that the provided port ranges are closed
+// for the specified unit and endpoint combination on the provided machine.
+func MustCloseUnitPortRanges(c *gc.C, st *State, machine *Machine, unitName, endpointName string, portRanges []network.PortRange) {
+	machPortRanges, err := machine.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+
+	unitPortRanges := machPortRanges.ForUnit(unitName)
+	for _, pr := range portRanges {
+		unitPortRanges.Close(endpointName, pr)
+	}
+	c.Assert(st.ApplyOperation(machPortRanges.Changes()), jc.ErrorIsNil)
 }

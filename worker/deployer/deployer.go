@@ -8,34 +8,58 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils"
 	"github.com/juju/worker/v2"
 
 	"github.com/juju/juju/agent"
-	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
 
-var logger = loggo.GetLogger("juju.worker.deployer")
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead pass one through as config to the worker.
+var logger interface{}
 
 // Deployer is responsible for deploying and recalling unit agents, according
 // to changes in a set of state units; and for the final removal of its agents'
 // units from state when they are no longer needed.
 type Deployer struct {
-	st       *apideployer.State
+	st       API
+	logger   Logger
 	ctx      Context
 	deployed set.Strings
+}
+
+// API is used to define the methods that the deployer makes.
+type API interface {
+	Machine(names.MachineTag) (Machine, error)
+	Unit(names.UnitTag) (Unit, error)
+}
+
+// Machine defines the methods that the deployer makes on a machine in
+// the model.
+type Machine interface {
+	WatchUnits() (watcher.StringsWatcher, error)
+}
+
+// Unit defines the methods that the deployer makes on a unit in the model.
+type Unit interface {
+	Life() life.Value
+	Name() string
+	Remove() error
+	SetPassword(password string) error
+	SetStatus(unitStatus status.Status, info string, data map[string]interface{}) error
 }
 
 // Context abstracts away the differences between different unit deployment
 // strategies; where a Deployer is responsible for what to deploy, a Context
 // is responsible for how to deploy.
 type Context interface {
+	worker.Worker
+
 	// DeployUnit causes the agent for the specified unit to be started and run
 	// continuously until further notice without further intervention. It will
 	// return an error if the agent is already deployed.
@@ -52,13 +76,16 @@ type Context interface {
 	// AgentConfig returns the agent config for the machine agent that is
 	// running the deployer.
 	AgentConfig() agent.Config
+
+	Report() map[string]interface{}
 }
 
 // NewDeployer returns a Worker that deploys and recalls unit agents
 // via ctx, taking a machine id to operate on.
-func NewDeployer(st *apideployer.State, ctx Context) (worker.Worker, error) {
+func NewDeployer(st API, logger Logger, ctx Context) (worker.Worker, error) {
 	d := &Deployer{
 		st:       st,
+		logger:   logger,
 		ctx:      ctx,
 		deployed: make(set.Strings),
 	}
@@ -71,25 +98,39 @@ func NewDeployer(st *apideployer.State, ctx Context) (worker.Worker, error) {
 	return w, nil
 }
 
+// Report is shown in the engine report.
+func (d *Deployer) Report() map[string]interface{} {
+	// Get the report from the context.
+	return d.ctx.Report()
+}
+
+// SetUp is called by the NewStringsWorker to create the watcher that drives the
+// worker.
 func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
+	d.logger.Tracef("SetUp")
 	tag := d.ctx.AgentConfig().Tag()
 	machineTag, ok := tag.(names.MachineTag)
 	if !ok {
 		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
+	d.logger.Tracef("getting Machine %s", machineTag)
 	machine, err := d.st.Machine(machineTag)
 	if err != nil {
 		return nil, err
 	}
+	d.logger.Tracef("getting units watcher")
 	machineUnitsWatcher, err := machine.WatchUnits()
 	if err != nil {
+		d.logger.Tracef("error: %v", err)
 		return nil, err
 	}
+	d.logger.Tracef("looking for deployed units")
 
 	deployed, err := d.ctx.DeployedUnits()
 	if err != nil {
 		return nil, err
 	}
+	d.logger.Tracef("deployed units: %v", deployed)
 	for _, unitName := range deployed {
 		d.deployed.Add(unitName)
 		if err := d.changed(unitName); err != nil {
@@ -99,7 +140,9 @@ func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
 	return machineUnitsWatcher, nil
 }
 
+// Handle is called for new value in the StringsWatcher.
 func (d *Deployer) Handle(_ <-chan struct{}, unitNames []string) error {
+	d.logger.Tracef("Handle: %v", unitNames)
 	for _, unitName := range unitNames {
 		if err := d.changed(unitName); err != nil {
 			return err
@@ -113,7 +156,7 @@ func (d *Deployer) Handle(_ <-chan struct{}, unitNames []string) error {
 func (d *Deployer) changed(unitName string) error {
 	unitTag := names.NewUnitTag(unitName)
 	// Determine unit life state, and whether we're responsible for it.
-	logger.Infof("checking unit %q", unitName)
+	d.logger.Infof("checking unit %q", unitName)
 	var unitLife life.Value
 	unit, err := d.st.Unit(unitTag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
@@ -148,7 +191,7 @@ func (d *Deployer) changed(unitName string) error {
 
 // deploy will deploy the supplied unit with the deployer's manager. It will
 // panic if it observes inconsistent internal state.
-func (d *Deployer) deploy(unit *apideployer.Unit) error {
+func (d *Deployer) deploy(unit Unit) error {
 	unitName := unit.Name()
 	if d.deployed.Contains(unit.Name()) {
 		panic("must not re-deploy a deployed unit")
@@ -156,7 +199,7 @@ func (d *Deployer) deploy(unit *apideployer.Unit) error {
 	if err := unit.SetStatus(status.Waiting, status.MessageInstallingAgent, nil); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("deploying unit %q", unitName)
+	d.logger.Infof("deploying unit %q", unitName)
 	initialPassword, err := utils.RandomPassword()
 	if err != nil {
 		return err
@@ -177,7 +220,7 @@ func (d *Deployer) recall(unitName string) error {
 	if !d.deployed.Contains(unitName) {
 		panic("must not recall a unit that is not deployed")
 	}
-	logger.Infof("recalling unit %q", unitName)
+	d.logger.Infof("recalling unit %q", unitName)
 	if err := d.ctx.RecallUnit(unitName); err != nil {
 		return err
 	}
@@ -187,18 +230,19 @@ func (d *Deployer) recall(unitName string) error {
 
 // remove will remove the supplied unit from state. It will panic if it
 // observes inconsistent internal state.
-func (d *Deployer) remove(unit *apideployer.Unit) error {
+func (d *Deployer) remove(unit Unit) error {
 	unitName := unit.Name()
 	if d.deployed.Contains(unitName) {
 		panic("must not remove a deployed unit")
 	} else if unit.Life() == life.Alive {
 		panic("must not remove an Alive unit")
 	}
-	logger.Infof("removing unit %q", unitName)
+	d.logger.Infof("removing unit %q", unitName)
 	return unit.Remove()
 }
 
+// TearDown stops the embedded context.
 func (d *Deployer) TearDown() error {
-	// Nothing to do here.
-	return nil
+	d.ctx.Kill()
+	return d.ctx.Wait()
 }

@@ -189,7 +189,7 @@ type Model interface {
 	Type() state.ModelType
 	ModelConfig() (*config.Config, error)
 	AgentVersion() (version.Number, error)
-	OpenedPortsForMachine(string) ([]state.MachineSubnetPorts, error)
+	OpenedPortRangesForMachine(string) (state.MachinePortRanges, error)
 }
 
 // Resources defines a subset of the functionality provided by the

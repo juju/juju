@@ -443,7 +443,7 @@ func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
 	s.AssertExportedFields(c, unitDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestPortsDocFields(c *gc.C) {
+func (s *MigrationSuite) TestMachinePortRangesDocFields(c *gc.C) {
 	fields := set.NewStrings(
 		// DocID itself isn't migrated
 		"DocID",
@@ -452,12 +452,11 @@ func (s *MigrationSuite) TestPortsDocFields(c *gc.C) {
 		"ModelUUID",
 		// MachineID is implicit in the migration structure through containment.
 		"MachineID",
-		"SubnetID",
-		"Ports",
+		"UnitRanges",
 		// TxnRevno isn't migrated.
 		"TxnRevno",
 	)
-	s.AssertExportedFields(c, portsDoc{}, fields)
+	s.AssertExportedFields(c, machinePortRangesDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestMeterStatusDocFields(c *gc.C) {

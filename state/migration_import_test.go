@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -45,7 +44,6 @@ import (
 
 type MigrationImportSuite struct {
 	MigrationBaseSuite
-	networktesting.FirewallHelper
 }
 
 var _ = gc.Suite(&MigrationImportSuite{})
@@ -455,45 +453,28 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 	c.Check(devices, jc.DeepEquals, []state.BlockDeviceInfo{sda, sdb})
 }
 
-func (s *MigrationImportSuite) TestMachinePortOpsSubnetID(c *gc.C) {
-	subnet, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.0.0/24"})
-	c.Assert(err, jc.ErrorIsNil)
-	s.testMachinePortOps(c, subnet.ID(), subnet.ID())
-}
-
-func (s *MigrationImportSuite) TestMachinePortOpsSubnetCIDR(c *gc.C) {
-	subnet, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.0.0/24"})
-	c.Assert(err, jc.ErrorIsNil)
-	s.testMachinePortOps(c, subnet.CIDR(), subnet.ID())
-}
-
-func (s *MigrationImportSuite) TestMachinePortOpsSubnetEmpty(c *gc.C) {
-	s.testMachinePortOps(c, "", "")
-}
-
-func (s *MigrationImportSuite) testMachinePortOps(c *gc.C, setup, validate string) {
-	ctrl, mockMachine := setupMockOpenedPorts(c, "3", setup)
+func (s *MigrationImportSuite) TestMachinePortOps(c *gc.C) {
+	ctrl, mockMachine := setupMockOpenedPortRanges(c, "3")
 	defer ctrl.Finish()
 
 	ops, err := state.MachinePortOps(s.State, mockMachine)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.HasLen, 1)
-	c.Assert(ops[0].Id, gc.Equals, fmt.Sprintf("m#3#%s", validate))
+	c.Assert(ops[0].Id, gc.Equals, "3")
 }
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description Machine,OpenedPorts
-func setupMockOpenedPorts(c *gc.C, mID, subnetID string) (*gomock.Controller, *mocks.MockMachine) {
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description/v2 Machine,MachinePortRanges,UnitPortRanges
+func setupMockOpenedPortRanges(c *gc.C, mID string) (*gomock.Controller, *mocks.MockMachine) {
 	ctrl := gomock.NewController(c)
 	mockMachine := mocks.NewMockMachine(ctrl)
-	mockOpenedPorts := mocks.NewMockOpenedPorts(ctrl)
+	mockMachinePortRanges := mocks.NewMockMachinePortRanges(ctrl)
 
 	mExp := mockMachine.EXPECT()
 	mExp.Id().Return(mID)
-	mExp.OpenedPorts().Return([]description.OpenedPorts{mockOpenedPorts})
+	mExp.OpenedPortRanges().Return(mockMachinePortRanges)
 
-	opExp := mockOpenedPorts.EXPECT()
-	opExp.SubnetID().Return(subnetID)
-	opExp.OpenPorts().Return(nil)
+	opExp := mockMachinePortRanges.EXPECT()
+	opExp.ByUnit().Return(nil)
 
 	return ctrl, mockMachine
 }
@@ -1377,7 +1358,11 @@ func (s *MigrationImportSuite) TestNilEndpointBindings(c *gc.C) {
 
 func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, nil)
-	s.AssertOpenUnitPorts(c, unit, "", "tcp", 1234, 2345)
+
+	unitPortRanges, err := unit.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	unitPortRanges.Open(allEndpoints, network.MustParsePortRange("1234-2345/tcp"))
+	c.Assert(s.State.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c, s.State)
 
@@ -1386,13 +1371,13 @@ func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	imported, err := newSt.Unit(unit.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
-	portsBySubnet, err := imported.OpenedPortsBySubnet()
+	unitPortRanges, err = imported.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(portsBySubnet, gc.HasLen, 1)
+	c.Assert(unitPortRanges.UniquePortRanges(), gc.HasLen, 1)
 
-	ports := portsBySubnet[""]
-	c.Assert(ports, gc.HasLen, 1)
-	c.Assert(ports[0], gc.Equals, network.PortRange{
+	portRanges := unitPortRanges.ForEndpoint(allEndpoints)
+	c.Assert(portRanges, gc.HasLen, 1)
+	c.Assert(portRanges[0], gc.Equals, network.PortRange{
 		FromPort: 1234,
 		ToPort:   2345,
 		Protocol: "tcp",

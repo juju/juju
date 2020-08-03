@@ -13,6 +13,7 @@ import (
 	"text/template"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
@@ -143,8 +144,31 @@ func (m main) Run(args []string) int {
 		}
 	}
 
+	// See if we need to invoke the juju interactive shell.
+	// It is invoked by:
+	// $ juju
+	// We also run the repl command so that it prints help and exits
+	// if the user types:
+	// $ juju --help | -h | help
+	jujuArgs := set.NewStrings(args[1:]...)
+	helpArgs := set.NewStrings("help", "-h", "--help")
+	showHelp := jujuArgs.Intersection(helpArgs).Size() > 0 && jujuArgs.Size() == 1
+	repl := jujuArgs.Size() == 0
+	if repl || showHelp {
+		return cmd.Main(newReplCommand(showHelp), ctx, nil)
+	}
+	// We have registered a juju "version" command to replace the inbuilt one.
+	// There's special processing to call the inbuilt version command if the
+	// --version flag is set. But we want to invoke the juju version command.
+	cmdArgs := make([]string, len(args)-1)
+	for i, arg := range args[1:] {
+		if arg == "--version" {
+			arg = "version"
+		}
+		cmdArgs[i] = arg
+	}
 	jcmd := NewJujuCommand(ctx, jujuMsg)
-	return cmd.Main(jcmd, ctx, args[1:])
+	return cmd.Main(jcmd, ctx, cmdArgs)
 }
 
 func installProxy() error {
@@ -275,6 +299,7 @@ type commandRegistry interface {
 
 // registerCommands registers commands in the specified registry.
 func registerCommands(r commandRegistry, ctx *cmd.Context) {
+	r.Register(newVersionCommand())
 	// Creation commands.
 	r.Register(newBootstrapCommand())
 	r.Register(application.NewAddRelationCommand())

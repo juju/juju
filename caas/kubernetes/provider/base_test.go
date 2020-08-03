@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/mocks"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
+	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -41,8 +42,8 @@ type BaseSuite struct {
 	broker              *provider.KubernetesClient
 	cfg                 *config.Config
 	k8sRestConfig       *rest.Config
-	k8sWatcherFn        provider.NewK8sWatcherFunc
-	k8sStringsWatcherFn provider.NewK8sStringsWatcherFunc
+	k8sWatcherFn        k8swatcher.NewK8sWatcherFunc
+	k8sStringsWatcherFn k8swatcher.NewK8sStringsWatcherFunc
 
 	namespace string
 
@@ -85,7 +86,7 @@ type BaseSuite struct {
 
 	mockDiscovery *mocks.MockDiscoveryInterface
 
-	watchers []provider.KubernetesNotifyWatcher
+	watchers []k8swatcher.KubernetesNotifyWatcher
 }
 
 type genericMatcher struct {
@@ -199,7 +200,7 @@ func (s *BaseSuite) setupBroker(c *gc.C, ctrl *gomock.Controller,
 	randomPrefixFunc provider.RandomPrefixFunc) *gomock.Controller {
 	s.clock = testclock.NewClock(time.Time{})
 
-	watcherFn := provider.NewK8sWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock) (provider.KubernetesNotifyWatcher, error) {
+	watcherFn := k8swatcher.NewK8sWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
 		if s.k8sWatcherFn == nil {
 			return nil, errors.NewNotFound(nil, "undefined k8sWatcherFn for base test")
 		}
@@ -211,14 +212,13 @@ func (s *BaseSuite) setupBroker(c *gc.C, ctrl *gomock.Controller,
 		return w, err
 	})
 
-	stringsWatcherFn := provider.NewK8sStringsWatcherFunc(
-		func(i cache.SharedIndexInformer, n string, c jujuclock.Clock, e []string,
-			f provider.K8sStringsWatcherFilterFunc) (provider.KubernetesStringsWatcher, error) {
-			if s.k8sStringsWatcherFn == nil {
-				return nil, errors.NewNotFound(nil, "undefined k8sStringsWatcherFn for base test")
-			}
-			return s.k8sStringsWatcherFn(i, n, c, e, f)
-		})
+	stringsWatcherFn := k8swatcher.NewK8sStringsWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock, e []string,
+		f k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
+		if s.k8sStringsWatcherFn == nil {
+			return nil, errors.NewNotFound(nil, "undefined k8sStringsWatcherFn for base test")
+		}
+		return s.k8sStringsWatcherFn(i, n, c, e, f)
+	})
 
 	var err error
 	s.broker, err = provider.NewK8sBroker(testing.ControllerTag.Id(), s.k8sRestConfig, s.cfg, s.getNamespace(), newK8sClientFunc, newK8sRestFunc,
@@ -345,8 +345,8 @@ func (s *BaseSuite) k8sAlreadyExistsError() *k8serrors.StatusError {
 	return k8serrors.NewAlreadyExists(schema.GroupResource{}, "test")
 }
 
-func (s *BaseSuite) deleteOptions(policy v1.DeletionPropagation, uid types.UID) *v1.DeleteOptions {
-	ops := &v1.DeleteOptions{
+func (s *BaseSuite) deleteOptions(policy v1.DeletionPropagation, uid types.UID) v1.DeleteOptions {
+	ops := v1.DeleteOptions{
 		PropagationPolicy: &policy,
 	}
 	if uid != "" {

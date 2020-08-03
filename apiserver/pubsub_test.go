@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	jujuhttp "github.com/juju/http"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -63,7 +63,7 @@ func (s *pubsubSuite) TestNoAuth(c *gc.C) {
 
 func (s *pubsubSuite) TestRejectsUserLogins(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "sekrit"})
-	header := utils.BasicAuthHeader(user.Tag().String(), "sekrit")
+	header := jujuhttp.BasicAuthHeader(user.Tag().String(), "sekrit")
 	s.checkAuthFails(c, header, http.StatusForbidden, "authorization failed: user username-.* is not a controller")
 }
 
@@ -72,19 +72,19 @@ func (s *pubsubSuite) TestRejectsNonServerMachineLogins(c *gc.C) {
 		Nonce: "a-nonce",
 		Jobs:  []state.MachineJob{state.JobHostUnits},
 	})
-	header := utils.BasicAuthHeader(m.Tag().String(), password)
+	header := jujuhttp.BasicAuthHeader(m.Tag().String(), password)
 	header.Add(params.MachineNonceHeader, "a-nonce")
 	s.checkAuthFails(c, header, http.StatusForbidden, "authorization failed: machine .* is not a controller")
 }
 
 func (s *pubsubSuite) TestRejectsBadPassword(c *gc.C) {
-	header := utils.BasicAuthHeader(s.machineTag.String(), "wrong")
+	header := jujuhttp.BasicAuthHeader(s.machineTag.String(), "wrong")
 	header.Add(params.MachineNonceHeader, s.nonce)
 	s.checkAuthFails(c, header, http.StatusUnauthorized, "authentication failed: invalid entity name or password")
 }
 
 func (s *pubsubSuite) TestRejectsIncorrectNonce(c *gc.C) {
-	header := utils.BasicAuthHeader(s.machineTag.String(), s.password)
+	header := jujuhttp.BasicAuthHeader(s.machineTag.String(), s.password)
 	header.Add(params.MachineNonceHeader, "wrong")
 	s.checkAuthFails(c, header, http.StatusUnauthorized, "authentication failed: machine 0 not provisioned")
 }
@@ -170,7 +170,7 @@ func (s *pubsubSuite) dialWebsocketInternal(c *gc.C, header http.Header) (*webso
 }
 
 func (s *pubsubSuite) makeAuthHeader() http.Header {
-	header := utils.BasicAuthHeader(s.machineTag.String(), s.password)
+	header := jujuhttp.BasicAuthHeader(s.machineTag.String(), s.password)
 	header.Add(params.MachineNonceHeader, s.nonce)
 	return header
 }
