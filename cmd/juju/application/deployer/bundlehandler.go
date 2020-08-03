@@ -5,7 +5,6 @@ package deployer
 
 import (
 	"fmt"
-
 	"os"
 	"path/filepath"
 	"strconv"
@@ -26,6 +25,7 @@ import (
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
@@ -44,11 +44,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 )
-
-type allWatcher interface {
-	Next() ([]params.Delta, error)
-	Stop() error
-}
 
 // deploymentLogger is used to notify clients about the bundle deployment
 // progress.
@@ -189,7 +184,7 @@ type bundleHandler struct {
 
 	// watcher holds an environment mega-watcher used to keep the environment
 	// status up to date.
-	watcher allWatcher
+	watcher api.AllWatch
 
 	// warnedLXC indicates whether or not we have warned the user that the
 	// bundle they're deploying uses lxc containers, which will be treated as
@@ -356,17 +351,20 @@ func (h *bundleHandler) getChanges() error {
 	// changes required. That unfortunately is some re-factoring and would take
 	// some time to do that, hence why we're still using the library directly
 	// unlike other clients.
-	changes, err := bundlechanges.FromData(
-		bundlechanges.ChangesConfig{
-			Bundle:    h.data,
-			BundleURL: bundleURL,
-			Model:     h.model,
-			Logger:    logger,
-		})
+	cfg := bundlechanges.ChangesConfig{
+		Bundle:    h.data,
+		BundleURL: bundleURL,
+		Model:     h.model,
+		Logger:    logger,
+	}
+	logger.Tracef("bundlechanges.ChangesConfig.Bundle %s", pretty.Sprint(cfg.Bundle))
+	logger.Tracef("bundlechanges.ChangesConfig.BundleURL %s", pretty.Sprint(cfg.BundleURL))
+	logger.Tracef("bundlechanges.ChangesConfig.Model %s", pretty.Sprint(cfg.Model))
+	changes, err := bundlechanges.FromData(cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
+	logger.Tracef("changes %s", pretty.Sprint(changes))
 	h.changes = changes
 	return nil
 }
@@ -378,7 +376,7 @@ func (h *bundleHandler) handleChanges() error {
 	if err != nil {
 		return errors.Annotate(err, "cannot watch model")
 	}
-	defer h.watcher.Stop()
+	defer func() { _ = h.watcher.Stop() }()
 
 	if len(h.changes) == 0 {
 		h.ctx.Infof("No changes to apply.")

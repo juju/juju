@@ -3,4 +3,17 @@
 
 package deployer_test
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deploystepapi_mock.go github.com/juju/juju/cmd/juju/application/deployer DeployStepAPI
+import (
+	"testing"
+
+	gc "gopkg.in/check.v1"
+)
+
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deploy_mock.go github.com/juju/juju/cmd/juju/application/deployer DeployerAPI,DeployStepAPI
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/resolver_mock.go github.com/juju/juju/cmd/juju/application/deployer BundleResolver
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/api_mock.go github.com/juju/juju/api AllWatch
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/write_mock.go io Writer
+
+func TestPackage(t *testing.T) {
+	gc.TestingT(t)
+}

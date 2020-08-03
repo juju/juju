@@ -8,12 +8,12 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v7"
-	"github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
@@ -112,6 +112,10 @@ func (a *deployAPIAdapter) Client() *api.Client {
 
 func (a *deployAPIAdapter) ModelUUID() (string, bool) {
 	return a.apiClient.ModelUUID()
+}
+
+func (a *deployAPIAdapter) WatchAll() (api.AllWatch, error) {
+	return a.apiClient.WatchAll()
 }
 
 func (a *deployAPIAdapter) Deploy(args application.DeployArgs) error {

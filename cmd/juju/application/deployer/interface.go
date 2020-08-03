@@ -7,17 +7,17 @@ import (
 	"github.com/juju/charm/v7"
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/juju/application/store"
-	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/api"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/base"
 	apicharms "github.com/juju/juju/api/charms"
 	apiparams "github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/jujuclient"
 )
@@ -91,7 +91,7 @@ type DeployerAPI interface {
 
 	Deploy(application.DeployArgs) error
 	Status(patterns []string) (*apiparams.FullStatus, error)
-	WatchAll() (*api.AllWatcher, error)
+	WatchAll() (api.AllWatch, error)
 }
 
 type ApplicationAPI interface {
