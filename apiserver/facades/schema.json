@@ -23057,7 +23057,7 @@
                             "$ref": "#/definitions/SetMachineNetworkConfig"
                         }
                     },
-                    "description": "SetObservedNetworkConfig reads the network config for the machine identified\nby the input args. This config is merged with the new network config supplied\nin the same args and updated if it has changed."
+                    "description": "SetObservedNetworkConfig reads the network config for the machine\nidentified by the input args.\nThis config is merged with the new network config supplied in the\nsame args and updated if it has changed."
                 },
                 "SetStatus": {
                     "type": "object",
@@ -28589,7 +28589,7 @@
                             "$ref": "#/definitions/MachineNetworkConfigResults"
                         }
                     },
-                    "description": "GetContainerInterfaceInfo returns information to configure networking for a\ncontainer. It accepts container tags as arguments.\nTODO (manadart 2020-07-23): This method is not used and can be removed when\nnext this facade version is bumped.\nWe then don't need the parameterised prepareOrGet..."
+                    "description": "GetContainerInterfaceInfo returns information to configure networking for a\ncontainer. It accepts container tags as arguments."
                 },
                 "GetContainerProfileInfo": {
                     "type": "object",
@@ -28825,7 +28825,7 @@
                             "$ref": "#/definitions/SetMachineNetworkConfig"
                         }
                     },
-                    "description": "SetObservedNetworkConfig reads the network config for the machine identified\nby the input args. This config is merged with the new network config supplied\nin the same args and updated if it has changed."
+                    "description": "SetObservedNetworkConfig reads the network config for the machine\nidentified by the input args.\nThis config is merged with the new network config supplied in the\nsame args and updated if it has changed."
                 },
                 "SetPasswords": {
                     "type": "object",
@@ -38106,8 +38106,8 @@
     },
     {
         "Name": "Uniter",
-        "Description": "UniterAPI implements the latest version (v16) of the Uniter API, which adds\nLXDProfileAPIv2.",
-        "Version": 16,
+        "Description": "UniterAPI implements the latest version (v17) of the Uniter API, which\naugments the payload of the CommitHookChanges API call and introduces\nthe OpenedMachinePortRanges call as a replacement for AllMachinePorts.",
+        "Version": 17,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -38193,7 +38193,7 @@
                             "$ref": "#/definitions/MachinePortsResults"
                         }
                     },
-                    "description": "AllMachinePorts returns all opened port ranges for each given\nmachine (on all networks)."
+                    "description": "AllMachinePorts returns all opened port ranges for each given\nmachine (on all networks).\n\nDEPRECATED: clients should switch to the OpenedMachinePortRanges API call\nwhen using the V17+ API.\n\nTODO(achilleasa): remove from V17 once all client references to this API\nhave been changed to use the new API."
                 },
                 "ApplicationStatus": {
                     "type": "object",
@@ -38620,8 +38620,19 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
+                    }
+                },
+                "OpenedMachinePortRanges": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/OpenMachinePortRangesResults"
+                        }
                     },
-                    "description": "OpenPorts sets the policy of the port range with protocol to be\nopened, for all given units."
+                    "description": "OpenedMachinePortRanges returns the port ranges opened by each unit on the\nprovided machines grouped by application endpoint."
                 },
                 "PrivateAddress": {
                     "type": "object",
@@ -39785,6 +39796,9 @@
                 "EntityPortRange": {
                     "type": "object",
                     "properties": {
+                        "endpoint": {
+                            "type": "string"
+                        },
                         "from-port": {
                             "type": "integer"
                         },
@@ -39803,7 +39817,8 @@
                         "tag",
                         "protocol",
                         "from-port",
-                        "to-port"
+                        "to-port",
+                        "endpoint"
                     ]
                 },
                 "EntityStatusArgs": {
@@ -40531,6 +40546,67 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "OpenMachinePortRangesResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "group-key": {
+                            "type": "string"
+                        },
+                        "unit-port-ranges": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/OpenUnitPortRanges"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "group-key",
+                        "unit-port-ranges"
+                    ]
+                },
+                "OpenMachinePortRangesResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/OpenMachinePortRangesResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "OpenUnitPortRanges": {
+                    "type": "object",
+                    "properties": {
+                        "port-range-groups": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/definitions/PortRange"
+                                    }
+                                }
+                            }
+                        },
+                        "unit-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "unit-tag",
+                        "port-range-groups"
                     ]
                 },
                 "PodSpec": {
