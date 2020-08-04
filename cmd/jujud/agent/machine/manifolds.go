@@ -197,6 +197,11 @@ type ManifoldsConfig struct {
 	// CentralHub is the primary hub that exists in the apiserver.
 	CentralHub *pubsub.StructuredHub
 
+	// LocalHub is a simple pubsub that is used for internal agent
+	// messaging only. This is used for interactions between workers
+	// and the introspection worker.
+	LocalHub *pubsub.SimpleHub
+
 	// PubSubReporter is the introspection reporter for the pubsub forwarding
 	// worker.
 	PubSubReporter psworker.Reporter
@@ -958,6 +963,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
+			Hub:           config.LocalHub,
 			Logger:        loggo.GetLogger("juju.worker.deployer"),
 
 			UnitEngineConfig: config.UnitEngineConfig,

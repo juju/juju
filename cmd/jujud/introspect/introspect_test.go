@@ -112,18 +112,12 @@ func (s *IntrospectCommandSuite) TestQueryFails(c *gc.C) {
 
 	ctx, err := s.run(c, "missing", "--agent=machine-0")
 	c.Assert(err.Error(), gc.Equals, "response returned 404 (Not Found)")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
-Querying @%s introspection socket: missing
-404 page not found
-`[1:], filepath.Join(config.DataDir, "jujud-machine-0")))
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "404 page not found\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 
 	ctx, err = s.run(c, "badness", "--agent=machine-0")
 	c.Assert(err.Error(), gc.Equals, "response returned 500 (Internal Server Error)")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
-Querying @%s introspection socket: badness
-argh
-`[1:], filepath.Join(config.DataDir, "jujud-machine-0")))
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "argh\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
@@ -138,10 +132,7 @@ func (s *IntrospectCommandSuite) TestGetToPostEndpoint(c *gc.C) {
 
 	ctx, err := s.run(c, "postonly", "--agent=machine-0")
 	c.Assert(err, gc.ErrorMatches, `response returned 405 \(Method Not Allowed\)`)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
-Querying @%s introspection socket: postonly
-postonly requires a POST request
-`[1:], filepath.Join(config.DataDir, "jujud-machine-0")))
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "postonly requires a POST request\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 

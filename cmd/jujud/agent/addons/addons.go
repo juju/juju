@@ -6,9 +6,11 @@ package addons
 import (
 	"runtime"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/pubsub"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -38,8 +40,11 @@ type IntrospectionConfig struct {
 	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
 	PresenceRecorder   presence.Recorder
-	NewSocketName      func(names.Tag) string
-	WorkerFunc         func(config introspection.Config) (worker.Worker, error)
+	Clock              clock.Clock
+	LocalHub           *pubsub.SimpleHub
+
+	NewSocketName func(names.Tag) string
+	WorkerFunc    func(config introspection.Config) (worker.Worker, error)
 }
 
 // StartIntrospection creates the introspection worker. It cannot and should
@@ -63,6 +68,8 @@ func StartIntrospection(cfg IntrospectionConfig) error {
 		MachineLock:        cfg.MachineLock,
 		PrometheusGatherer: cfg.PrometheusGatherer,
 		Presence:           cfg.PresenceRecorder,
+		Clock:              cfg.Clock,
+		Hub:                cfg.LocalHub,
 	})
 	if err != nil {
 		return errors.Trace(err)

@@ -40,11 +40,7 @@ const bashFuncs = `
 juju_agent_call () {
   local agent=$1
   shift
-  local path=
-  for i in "$@"; do
-    path="$path/$i"
-  done
-  juju-introspect --agent=$agent $path
+  juju-introspect --agent=$agent $@
 }
 
 juju_machine_agent_name () {
@@ -63,28 +59,18 @@ juju_application_agent_name () {
 }
 
 juju_agent () {
-  # First arg is the path, second is optional agent name.
-  if [ "$#" -gt 2 ]; then
-    echo "expected no args (for machine agent) or one (unit agent)"
-    return 1
+  local agent=$(juju_machine_agent_name)
+  if [ -z "$agent" ]; then
+    agent=$(juju_controller_agent_name)
   fi
-  local agent
-  if [ "$#" -eq 2 ]; then
-    agent=$2
-  else
-    agent=$(juju_machine_agent_name)
-    if [ -z "$agent" ]; then
-      agent=$(juju_controller_agent_name)
-    fi
-    if [ -z "$agent" ]; then
-      agent=$(juju_application_agent_name)
-    fi
+  if [ -z "$agent" ]; then
+    agent=$(juju_application_agent_name)
   fi
-  juju_agent_call $agent $1
+  juju_agent_call $agent $@
 }
 
 juju_goroutines () {
-  juju_agent debug/pprof/goroutine?debug=1 $@
+  juju_agent debug/pprof/goroutine?debug=1
 }
 
 juju_cpu_profile () {
@@ -94,35 +80,35 @@ juju_cpu_profile () {
     shift
   fi
   echo "Sampling CPU for $N seconds." >&2
-  juju_agent "debug/pprof/profile?debug=1&seconds=$N" $@
+  juju_agent "debug/pprof/profile?debug=1&seconds=$N"
 }
 
 juju_heap_profile () {
-  juju_agent debug/pprof/heap?debug=1 $@
+  juju_agent debug/pprof/heap?debug=1
 }
 
 juju_engine_report () {
-  juju_agent depengine $@
+  juju_agent depengine
 }
 
 juju_statepool_report () {
-  juju_agent statepool $@
+  juju_agent statepool
 }
 
 juju_pubsub_report () {
-  juju_agent pubsub $@
+  juju_agent pubsub
 }
 
 juju_metrics () {
-  juju_agent metrics/ $@
+  juju_agent metrics
 }
 
 juju_presence_report () {
-  juju_agent presence/ $@
+  juju_agent presence
 }
 
 juju_statetracker_report () {
-  juju_agent debug/pprof/juju/state/tracker?debug=1 $@
+  juju_agent debug/pprof/juju/state/tracker?debug=1
 }
 
 juju_machine_lock () {
@@ -130,6 +116,29 @@ juju_machine_lock () {
     juju_agent machinelock $agent 2> /dev/null
   done
 }
+
+juju_unit_status () {
+  juju_agent units?action=status
+}
+
+juju_stop_unit () {
+  arr=("$@")
+  local -a args
+  for i in "${arr[@]}"; do
+    args+=("unit=$i")
+  done
+  juju_agent --post units action=stop "${args[@]}"
+}
+
+juju_start_unit () {
+  arr=("$@")
+  local -a args
+  for i in "${arr[@]}"; do
+    args+=("unit=$i")
+  done
+  juju_agent --post units action=start "${args[@]}"
+}
+
 
 # This asks for the command of the current pid.
 # Can't use $0 nor $SHELL due to this being wrong in various situations.
@@ -150,5 +159,8 @@ if [ "$shell" = "bash" ]; then
   export -f juju_pubsub_report
   export -f juju_presence_report
   export -f juju_machine_lock
+  export -f juju_unit_status
+  export -f juju_start_unit
+  export -f juju_stop_unit
 fi
 `

@@ -532,6 +532,9 @@ func (a *MachineAgent) makeEngineCreator(
 		if err != nil {
 			return nil, err
 		}
+		localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
+			Logger: loggo.GetLogger("juju.localhub"),
+		})
 		pubsubReporter := psworker.NewReporter()
 		presenceRecorder := presence.New(clock.WallClock)
 		updateAgentConfLogging := func(loggingConfig string) error {
@@ -570,11 +573,12 @@ func (a *MachineAgent) makeEngineCreator(
 			StartAPIWorkers:         a.startAPIWorkers,
 			PreUpgradeSteps:         a.preUpgradeSteps,
 			LogSource:               a.bufferedLogger.Logs(),
-			NewDeployContext:        newDeployContext,
+			NewDeployContext:        deployer.NewNestedContext,
 			Clock:                   clock.WallClock,
 			ValidateMigration:       a.validateMigration,
 			PrometheusRegisterer:    a.prometheusRegistry,
 			CentralHub:              a.centralHub,
+			LocalHub:                localHub,
 			PubSubReporter:          pubsubReporter,
 			PresenceRecorder:        presenceRecorder,
 			UpdateLoggerConfig:      updateAgentConfLogging,
@@ -616,6 +620,8 @@ func (a *MachineAgent) makeEngineCreator(
 			PrometheusGatherer: a.prometheusRegistry,
 			PresenceRecorder:   presenceRecorder,
 			WorkerFunc:         introspection.NewWorker,
+			Clock:              clock.WallClock,
+			LocalHub:           localHub,
 		}); err != nil {
 			// If the introspection worker failed to start, we just log error
 			// but continue. It is very unlikely to happen in the real world
@@ -1354,15 +1360,6 @@ func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
 		}
 	}
 	return
-}
-
-// newDeployContext gives the tests the opportunity to create a deployer.Context
-// that can be used for testing so as to avoid (1) deploying units to the system
-// running the tests and (2) get access to the *State used internally, so that
-// tests can be run without waiting for the 5s watcher refresh time to which we would
-// otherwise be restricted.
-var newDeployContext = func(config deployer.ContextConfig) (deployer.Context, error) {
-	return deployer.NewNestedContext(config)
 }
 
 // statePoolIntrospectionReporter wraps a (possibly nil) state.StatePool,
