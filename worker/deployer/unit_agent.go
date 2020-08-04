@@ -11,17 +11,21 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/os/series"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/voyeur"
+	"github.com/juju/version"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
 )
 
@@ -93,8 +97,34 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	config.Logger.Infof("creating new agent config for %q", config.Name)
+
+	// Create a symlink for the unit "agent" binaries.
+	// This is used because the uniter is still using the tools directory
+	// for the unit agent for creating the jujuc symlinks.
+	config.Logger.Tracef("creating symlink for %q to tools directory for jujuc", config.Name)
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		// We shouldn't ever get this error, but if we do there isn't much
+		// more we can do.
+		return nil, errors.Trace(err)
+	}
+	current := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: hostSeries,
+	}
 	tag := names.NewUnitTag(config.Name)
+	toolsDir := tools.ToolsDir(config.DataDir, tag.String())
+	defer removeOnErr(&err, config.Logger, toolsDir)
+	_, err = tools.ChangeAgentTools(config.DataDir, tag.String(), current)
+	if err != nil {
+		// Any error here is indicative of a disk issue, potentially out of
+		// space or inodes. Either way, bouncing the deployer and having the
+		// exponential backoff enter play is the right decision.
+		return nil, errors.Trace(err)
+	}
+
+	config.Logger.Infof("creating new agent config for %q", config.Name)
 	conf, err := agent.ReadConfig(agent.ConfigPath(config.DataDir, tag))
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -112,9 +142,9 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 	}
 	// Update the 'upgradedToVersion' in the agent.conf file if it is
 	// different to the current version.
-	if conf.UpgradedToVersion() != version.Current {
+	if conf.UpgradedToVersion() != jujuversion.Current {
 		unit.ChangeConfig(func(setter agent.ConfigSetter) error {
-			setter.SetUpgradedToVersion(version.Current)
+			setter.SetUpgradedToVersion(jujuversion.Current)
 			return nil
 		})
 	}

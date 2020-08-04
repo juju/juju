@@ -4,32 +4,23 @@
 package deployer_test
 
 import (
-	"encoding/json"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
-	"github.com/juju/version"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	message "github.com/juju/juju/pubsub/agent"
 	jt "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
 	jv "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/deployer"
@@ -38,7 +29,7 @@ import (
 const veryShortWait = 5 * time.Millisecond
 
 type NestedContextSuite struct {
-	testing.IsolationSuite
+	BaseSuite
 
 	config  deployer.ContextConfig
 	agent   agentconf.AgentConf
@@ -49,7 +40,7 @@ type NestedContextSuite struct {
 var _ = gc.Suite(&NestedContextSuite{})
 
 func (s *NestedContextSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	logger := loggo.GetLogger("test.nestedcontext")
 	logger.SetLogLevel(loggo.TRACE)
 	s.hub = pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
@@ -151,24 +142,7 @@ func (s *NestedContextSuite) newContext(c *gc.C) deployer.Context {
 	context, err := deployer.NewNestedContext(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, context) })
-	// Initialize the tools directory for the agent.
-	// This should be <DataDir>/tools/<version>-<series>-<arch>.
-	current := version.Binary{
-		Number: jv.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
-	toolsDir := tools.SharedToolsDir(s.agent.DataDir(), current)
-	// Make that directory.
-	err = os.MkdirAll(toolsDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	toolsPath := filepath.Join(toolsDir, "downloaded-tools.txt")
-	testTools := coretools.Tools{Version: current, URL: "http://testing.invalid/tools"}
-	data, err := json.Marshal(testTools)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(toolsPath, data, 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
+	s.InitializeCurrentToolsDir(c, s.agent.DataDir())
 	return context
 }
 

@@ -8,7 +8,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -21,7 +20,7 @@ import (
 )
 
 type UnitAgentSuite struct {
-	testing.IsolationSuite
+	BaseSuite
 
 	workers *unitWorkersStub
 	config  deployer.UnitAgentConfig
@@ -30,7 +29,7 @@ type UnitAgentSuite struct {
 var _ = gc.Suite(&UnitAgentSuite{})
 
 func (s *UnitAgentSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	logger := loggo.GetLogger("test.unitagent")
 	logger.SetLogLevel(loggo.TRACE)
 
@@ -127,6 +126,7 @@ func (s *UnitAgentSuite) writeAgentConf(c *gc.C) {
 }
 
 func (s *UnitAgentSuite) newUnitAgent(c *gc.C) *deployer.UnitAgent {
+	s.InitializeCurrentToolsDir(c, s.config.DataDir)
 	agent, err := deployer.NewUnitAgent(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	return agent

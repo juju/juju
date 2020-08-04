@@ -58,6 +58,9 @@ func (config Config) Validate() error {
 	if config.Service == nil {
 		return errors.NotValidf("nil Service")
 	}
+	if config.UpgraderFactory == nil {
+		return errors.NotValidf("nil UpgraderFactory")
+	}
 	return nil
 }
 
