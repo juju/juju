@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v2"
-	"github.com/kr/pretty"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/tomb.v2"
@@ -345,7 +344,6 @@ func (h unitsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "%s\n", err)
 		return
 	}
-	logger.Criticalf("%s, %s: %s", r.Method, r.URL.String(), pretty.Sprint(r.Form))
 
 	switch action := r.Form.Get("action"); action {
 	case "":

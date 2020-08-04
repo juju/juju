@@ -23057,7 +23057,7 @@
                             "$ref": "#/definitions/SetMachineNetworkConfig"
                         }
                     },
-                    "description": "SetObservedNetworkConfig reads the network config for the machine identified\nby the input args. This config is merged with the new network config supplied\nin the same args and updated if it has changed."
+                    "description": "SetObservedNetworkConfig reads the network config for the machine\nidentified by the input args.\nThis config is merged with the new network config supplied in the\nsame args and updated if it has changed."
                 },
                 "SetStatus": {
                     "type": "object",
@@ -28589,7 +28589,7 @@
                             "$ref": "#/definitions/MachineNetworkConfigResults"
                         }
                     },
-                    "description": "GetContainerInterfaceInfo returns information to configure networking for a\ncontainer. It accepts container tags as arguments.\nTODO (manadart 2020-07-23): This method is not used and can be removed when\nnext this facade version is bumped.\nWe then don't need the parameterised prepareOrGet..."
+                    "description": "GetContainerInterfaceInfo returns information to configure networking for a\ncontainer. It accepts container tags as arguments."
                 },
                 "GetContainerProfileInfo": {
                     "type": "object",
@@ -28825,7 +28825,7 @@
                             "$ref": "#/definitions/SetMachineNetworkConfig"
                         }
                     },
-                    "description": "SetObservedNetworkConfig reads the network config for the machine identified\nby the input args. This config is merged with the new network config supplied\nin the same args and updated if it has changed."
+                    "description": "SetObservedNetworkConfig reads the network config for the machine\nidentified by the input args.\nThis config is merged with the new network config supplied in the\nsame args and updated if it has changed."
                 },
                 "SetPasswords": {
                     "type": "object",
