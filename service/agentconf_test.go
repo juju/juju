@@ -7,7 +7,6 @@ package service_test
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"path"
 
@@ -106,9 +105,7 @@ func (s *agentConfSuite) setUpAgentConf(c *gc.C) {
 }
 
 func (s *agentConfSuite) setUpServices(c *gc.C) {
-	for _, fake := range append(s.unitNames, s.machineName) {
-		s.addService(c, "jujud-"+fake)
-	}
+	s.addService(c, "jujud-"+s.machineName)
 	s.PatchValue(&service.ListServices, s.listServices)
 }
 
@@ -222,38 +219,19 @@ func (s *agentConfSuite) agentUnitNames() []string {
 }
 
 func (s *agentConfSuite) TestStartAllAgents(c *gc.C) {
-	machineAgent, unitAgents, err := s.manager.StartAllAgents(s.machineName, s.unitNames, s.dataDir)
+	machineAgent, err := s.manager.StartAllAgents(s.machineName, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineAgent, gc.Equals, "jujud-"+s.machineName)
-	c.Assert(unitAgents, jc.SameContents, s.agentUnitNames())
-	s.assertServicesCalls(c, "Start", len(s.services))
-}
-
-func (s *agentConfSuite) TestStartAllAgentsFailSecondUnit(c *gc.C) {
-	s.services[0].SetErrors(
-		nil,
-		errors.New("fail me"),
-	)
-
-	machineAgent, unitAgents, err := s.manager.StartAllAgents(s.machineName, s.unitNames, s.dataDir)
-	c.Assert(err, gc.ErrorMatches, "failed to start jujud-unit-.* service: fail me")
-	c.Assert(machineAgent, gc.Equals, "")
-	c.Assert(unitAgents, gc.HasLen, 1)
-	s.assertServicesCalls(c, "Start", 2)
+	s.assertServicesCalls(c, "Start", 1)
 }
 
 func (s *agentConfSuite) TestStartAllAgentsFailMachine(c *gc.C) {
-	s.services[0].SetErrors(
-		nil,
-		nil,
-		errors.New("fail me"),
-	)
+	s.services[0].SetErrors(errors.New("fail me"))
 
-	machineAgent, unitAgents, err := s.manager.StartAllAgents(s.machineName, s.unitNames, s.dataDir)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed to start jujud-%s service: fail me", s.machineName))
+	machineAgent, err := s.manager.StartAllAgents(s.machineName, s.dataDir)
+	c.Assert(err, gc.ErrorMatches, "failed to start jujud-machine-.* service: fail me")
 	c.Assert(machineAgent, gc.Equals, "")
-	c.Assert(unitAgents, jc.SameContents, s.agentUnitNames())
-	s.assertServicesCalls(c, "Start", len(s.services))
+	s.assertServicesCalls(c, "Start", 1)
 }
 
 func (s *agentConfSuite) TestStartAllAgentsSystemdNotRunning(c *gc.C) {
@@ -262,7 +240,7 @@ func (s *agentConfSuite) TestStartAllAgentsSystemdNotRunning(c *gc.C) {
 		s.newService,
 	)
 
-	_, _, err := s.manager.StartAllAgents(s.machineName, s.unitNames, s.dataDir)
+	_, err := s.manager.StartAllAgents(s.machineName, s.dataDir)
 	c.Assert(err, gc.ErrorMatches, "cannot interact with systemd; reboot to start agents")
 	s.assertServicesCalls(c, "Start", 0)
 }
@@ -289,14 +267,11 @@ func (s *agentConfSuite) TestCopyAgentBinaryOriginalAgentBinariesNotFound(c *gc.
 }
 
 func (s *agentConfSuite) TestWriteSystemdAgents(c *gc.C) {
-	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
-		s.machineName, s.unitNames, s.systemdDataDir, s.systemdMultiUserDir)
+	err := s.manager.WriteSystemdAgents(
+		s.machineName, s.systemdDataDir, s.systemdMultiUserDir)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(startedSysServiceNames, gc.HasLen, 0)
-	c.Assert(startedSymLinkAgents, gc.DeepEquals, append(s.agentUnitNames(), "jujud-"+s.machineName))
-	c.Assert(errAgents, gc.HasLen, 0)
-	s.assertServicesCalls(c, "WriteService", len(s.services))
+	s.assertServicesCalls(c, "WriteService", 1)
 }
 
 func (s *agentConfSuite) TestWriteSystemdAgentsSystemdNotRunning(c *gc.C) {
@@ -305,47 +280,38 @@ func (s *agentConfSuite) TestWriteSystemdAgentsSystemdNotRunning(c *gc.C) {
 		s.newService,
 	)
 
-	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
-		s.machineName, s.unitNames, s.systemdDataDir, s.systemdMultiUserDir)
+	err := s.manager.WriteSystemdAgents(
+		s.machineName, s.systemdDataDir, s.systemdMultiUserDir)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(startedSymLinkAgents, gc.HasLen, 0)
-	c.Assert(startedSysServiceNames, gc.DeepEquals, append(s.agentUnitNames(), "jujud-"+s.machineName))
-	c.Assert(errAgents, gc.HasLen, 0)
-	s.assertServicesCalls(c, "WriteService", len(s.services))
+	s.assertServicesCalls(c, "WriteService", 1)
 }
 
 func (s *agentConfSuite) TestWriteSystemdAgentsDBusErrManualLink(c *gc.C) {
 	// nil errors are for calls to RemoveOldService.
 	err := errors.New("no such method 'LinkUnitFiles'")
-	s.services[0].SetErrors(nil, err, nil, err, nil, err)
+	s.services[0].SetErrors(nil, err)
 
-	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
-		s.machineName, s.unitNames, s.systemdDataDir, s.systemdMultiUserDir)
+	err = s.manager.WriteSystemdAgents(
+		s.machineName, s.systemdDataDir, s.systemdMultiUserDir)
 
 	c.Assert(err, jc.ErrorIsNil)
 
 	// This exhibits the same characteristics as for Systemd not running (above).
-	c.Assert(startedSymLinkAgents, gc.HasLen, 0)
-	c.Assert(startedSysServiceNames, gc.DeepEquals, append(s.agentUnitNames(), "jujud-"+s.machineName))
-	c.Assert(errAgents, gc.HasLen, 0)
-	s.assertServicesCalls(c, "RemoveOldService", len(s.services))
-	s.assertServicesCalls(c, "WriteService", len(s.services))
+	s.assertServicesCalls(c, "RemoveOldService", 1)
+	s.assertServicesCalls(c, "WriteService", 1)
 }
 
 func (s *agentConfSuite) TestWriteSystemdAgentsWriteServiceFail(c *gc.C) {
 	// Return an error for the machine agent.
-	s.services[0].SetErrors(nil, nil, nil, nil, nil, errors.New("fail me"))
+	s.services[0].SetErrors(nil, errors.New("fail me"))
 
-	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
-		s.machineName, s.unitNames, s.systemdDataDir, s.systemdMultiUserDir)
+	err := s.manager.WriteSystemdAgents(
+		s.machineName, s.systemdDataDir, s.systemdMultiUserDir)
 
 	c.Assert(err, gc.ErrorMatches, "fail me")
-	c.Assert(startedSysServiceNames, gc.HasLen, 0)
-	c.Assert(startedSymLinkAgents, gc.DeepEquals, s.agentUnitNames())
-	c.Assert(errAgents, gc.DeepEquals, []string{s.machineName})
-	s.assertServicesCalls(c, "RemoveOldService", len(s.services))
-	s.assertServicesCalls(c, "WriteService", len(s.services))
+	s.assertServicesCalls(c, "RemoveOldService", 1)
+	s.assertServicesCalls(c, "WriteService", 1)
 }
 
 func (s *agentConfSuite) assertToolsCopySymlink(c *gc.C, series string) {
