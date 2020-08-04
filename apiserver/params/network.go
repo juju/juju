@@ -795,6 +795,36 @@ type MachinePortsResults struct {
 	Results []MachinePortsResult `json:"results"`
 }
 
+// OpenMachinePortRangesResults holds the results of a request to the uniter's
+// OpenedMachinePortRanges API.
+type OpenMachinePortRangesResults struct {
+	Results []OpenMachinePortRangesResult `json:"results"`
+}
+
+// OpenMachinePortRangesResult holds a single result of a request to the uniter's
+// OpenedMachinePortRanges API. It provides information about the set of open
+// port ranges by each one of the units deployed to the machine.
+type OpenMachinePortRangesResult struct {
+	Error *Error `json:"error,omitempty"`
+
+	// GroupKey defines the attribute used to group the opened port ranges.
+	// Currently, this is always set to "endpoint".
+	// @TODO(achilleasa) similar to the legacy MachinePortsResult, this
+	// payload will also be used by the firewaller facade in the future; in
+	// that case, the grouping will be "subnetCIDR".
+	GroupKey string `json:"group-key"`
+
+	UnitPortRanges []OpenUnitPortRanges `json:"unit-port-ranges"`
+}
+
+// OpenUnitPortRanges describes the set of port ranges (grouped by a particular
+// attribute, eg. endpoint) that have been opened by a unit on the machine it
+// is deployed to.
+type OpenUnitPortRanges struct {
+	UnitTag         string                 `json:"unit-tag"`
+	PortRangeGroups map[string][]PortRange `json:"port-range-groups"`
+}
+
 // APIHostPortsResult holds the result of an APIHostPorts
 // call. Each element in the top level slice holds
 // the addresses for one API server.
