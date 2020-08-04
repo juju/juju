@@ -50,9 +50,9 @@ type SystemdServiceManager interface {
 	// host with specified series.
 	CreateAgentConf(agentName string, dataDir string) (common.Conf, error)
 
-	// CopyAgentBinary copies all the tools into the path specified for each agent.
+	// CopyAgentBinary copies the tools into the path specified for the machine agent.
 	CopyAgentBinary(
-		machineAgent string, unitAgents []string, dataDir, toSeries, fromSeries string, jujuVersion version.Number,
+		machineAgent string, dataDir, toSeries, fromSeries string, jujuVersion version.Number,
 	) error
 
 	// StartAllAgents starts all the agents in the machine with specified series.
@@ -231,9 +231,9 @@ func (s *systemdServiceManager) CreateAgentConf(name string, dataDir string) (_ 
 	return AgentConf(info, renderer), nil
 }
 
-// CopyAgentBinary copies all the tools into the path specified for each agent.
+// CopyAgentBinary copies the tools into the path specified for the machine agent.
 func (s *systemdServiceManager) CopyAgentBinary(
-	machineAgent string, unitAgents []string, dataDir, toSeries, fromSeries string, jujuVersion version.Number,
+	machineAgent string, dataDir, toSeries, fromSeries string, jujuVersion version.Number,
 ) (err error) {
 	defer func() {
 		if err != nil {
@@ -277,14 +277,12 @@ func (s *systemdServiceManager) CopyAgentBinary(
 		}
 	}
 
-	// Update Agent Tool links
-	for _, agentName := range append(unitAgents, machineAgent) {
-		toolPath := tools.ToolsDir(dataDir, toVer.String())
-		toolsDir := tools.ToolsDir(dataDir, agentName)
+	// Update machine agent tool link.
+	toolPath := tools.ToolsDir(dataDir, toVer.String())
+	toolsDir := tools.ToolsDir(dataDir, machineAgent)
 
-		if err = symlink.Replace(toolsDir, toolPath); err != nil {
-			return errors.Trace(err)
-		}
+	if err = symlink.Replace(toolsDir, toolPath); err != nil {
+		return errors.Trace(err)
 	}
 
 	return nil

@@ -44,7 +44,7 @@ func (s *upgraderSuite) TestNotToSystemdCopyToolsOnly(c *gc.C) {
 
 	// No systemd file changes; just the new tools for the target series.
 	s.manager.EXPECT().CopyAgentBinary(
-		s.machineService, s.unitServices, paths.NixDataDir, "trusty", "precise", version.Current,
+		s.machineService, paths.NixDataDir, "trusty", "precise", version.Current,
 	).Return(nil)
 
 	upg := s.newUpgrader(c, "precise", "trusty")
@@ -60,7 +60,7 @@ func (s *upgraderSuite) TestFromSystemdCopyToolsOnly(c *gc.C) {
 
 	// No systemd file changes; just the new tools for the target series.
 	s.manager.EXPECT().CopyAgentBinary(
-		s.machineService, s.unitServices, paths.NixDataDir, "bionic", "xenial", version.Current,
+		s.machineService, paths.NixDataDir, "bionic", "xenial", version.Current,
 	).Return(nil)
 
 	upg := s.newUpgrader(c, "xenial", "bionic")
@@ -77,7 +77,7 @@ func (s *upgraderSuite) TestFromSystemdCopyToolsForAlreadyUpgradedMachine(c *gc.
 
 	// No systemd file changes; just the new tools for the target series.
 	s.manager.EXPECT().CopyAgentBinary(
-		s.machineService, s.unitServices, paths.NixDataDir, "bionic", "xenial", version.Current,
+		s.machineService, paths.NixDataDir, "bionic", "xenial", version.Current,
 	).Return(nil)
 
 	// Juju thinks the machine is Xenial.
@@ -93,11 +93,11 @@ func (s *upgraderSuite) TestToSystemdServicesWritten(c *gc.C) {
 	s.patchFrom("trusty")
 
 	s.manager.EXPECT().WriteSystemdAgents(
-		s.machineService, s.unitServices, paths.NixDataDir, systemd.EtcSystemdMultiUserDir,
-	).Return(append(s.unitServices, s.machineService), nil, nil, nil)
+		s.machineService, paths.NixDataDir, systemd.EtcSystemdMultiUserDir,
+	).Return(nil)
 
 	s.manager.EXPECT().CopyAgentBinary(
-		s.machineService, s.unitServices, paths.NixDataDir, "xenial", "trusty", version.Current,
+		s.machineService, paths.NixDataDir, "xenial", "trusty", version.Current,
 	).Return(nil)
 
 	upg := s.newUpgrader(c, "trusty", "xenial")
