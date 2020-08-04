@@ -14,7 +14,6 @@ import (
 
 func newDebugCodeCommand(hostChecker ssh.ReachableChecker) cmd.Command {
 	c := new(debugCodeCommand)
-	c.getActionAPI = c.debugHooksCommand.newActionsAPI
 	c.hostChecker = hostChecker
 	return modelcmd.Wrap(c)
 }

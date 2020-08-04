@@ -18,13 +18,14 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/network/ssh"
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
 
 func newDebugHooksCommand(hostChecker ssh.ReachableChecker) cmd.Command {
 	c := new(debugHooksCommand)
-	c.getActionAPI = c.newActionsAPI
+	// c.getActionAPI = c.newActionsAPI
 	c.hostChecker = hostChecker
 	return modelcmd.Wrap(c)
 }
@@ -34,7 +35,8 @@ type debugHooksCommand struct {
 	sshCommand
 	hooks []string
 
-	getActionAPI func() (ActionsAPI, error)
+	actionsAPI
+	charmRelationsAPI
 }
 
 const debugHooksDoc = `
@@ -80,26 +82,42 @@ func (c *debugHooksCommand) Init(args []string) error {
 
 type charmRelationsAPI interface {
 	CharmRelations(applicationName string) ([]string, error)
+	Close() error
 }
 
-type ActionsAPI interface {
+type actionsAPI interface {
 	ApplicationCharmActions(params.Entity) (map[string]params.ActionSpec, error)
+	Close() error
 }
 
-func (c *debugHooksCommand) getApplicationAPI() (charmRelationsAPI, error) {
+func (c *debugHooksCommand) initAPIs() (err error) {
+	if c.actionsAPI != nil && c.charmRelationsAPI != nil {
+		return nil
+	}
+
 	root, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	return application.NewClient(root), nil
+
+	if c.actionsAPI == nil {
+		c.actionsAPI = action.NewClient(root)
+	}
+	if c.charmRelationsAPI == nil {
+		c.charmRelationsAPI = application.NewClient(root)
+	}
+	return nil
 }
 
-func (c *debugHooksCommand) newActionsAPI() (ActionsAPI, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, err
+func (c *debugHooksCommand) closeAPIs() {
+	if c.actionsAPI != nil {
+		_ = c.actionsAPI.Close()
+		c.actionsAPI = nil
 	}
-	return action.NewClient(root), nil
+	if c.charmRelationsAPI != nil {
+		_ = c.charmRelationsAPI.Close()
+		c.charmRelationsAPI = nil
+	}
 }
 
 func (c *debugHooksCommand) validateHooksOrActions() error {
@@ -141,12 +159,7 @@ func (c *debugHooksCommand) validateHooksOrActions() error {
 
 func (c *debugHooksCommand) getValidActions(appName string) (set.Strings, error) {
 	appTag := names.NewApplicationTag(appName)
-	actionAPI, err := c.getActionAPI()
-	if err != nil {
-		return nil, err
-	}
-
-	allActions, err := actionAPI.ApplicationCharmActions(params.Entity{Tag: appTag.String()})
+	allActions, err := c.actionsAPI.ApplicationCharmActions(params.Entity{Tag: appTag.String()})
 	if err != nil {
 		return nil, err
 	}
@@ -159,11 +172,7 @@ func (c *debugHooksCommand) getValidActions(appName string) (set.Strings, error)
 }
 
 func (c *debugHooksCommand) getValidHooks(appName string) (set.Strings, error) {
-	applicationAPI, err := c.getApplicationAPI()
-	if err != nil {
-		return nil, err
-	}
-	relations, err := applicationAPI.CharmRelations(appName)
+	relations, err := c.charmRelationsAPI.CharmRelations(appName)
 	if err != nil {
 		return nil, err
 	}
@@ -181,18 +190,24 @@ func (c *debugHooksCommand) getValidHooks(appName string) (set.Strings, error) {
 	return validHooks, nil
 }
 
+func (c *debugHooksCommand) decideEntryPoint(ctx *cmd.Context) string {
+	o := "/bin/bash -c '%s'"
+	if c.modelType == model.CAAS {
+		c.provider.setArgs([]string{"which", "sudo"})
+		if err := c.sshCommand.Run(ctx); err == nil {
+			o = "sudo " + o
+		}
+	}
+	return o
+}
+
 // commonRun is shared between debugHooks and debugCode
 func (c *debugHooksCommand) commonRun(
 	ctx *cmd.Context,
 	target string,
 	hooks []string,
 	debugAt string,
-) error {
-	err := c.provider.initRun(c.ModelCommandBase)
-	if err != nil {
-		return err
-	}
-	defer c.provider.cleanupRun()
+) (err error) {
 	err = c.validateHooksOrActions()
 	if err != nil {
 		return err
@@ -201,7 +216,7 @@ func (c *debugHooksCommand) commonRun(
 	clientScript := unitdebug.ClientScript(debugctx, hooks, debugAt)
 	b64Script := base64.StdEncoding.EncodeToString([]byte(clientScript))
 	innercmd := fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, b64Script)
-	args := []string{fmt.Sprintf("sudo /bin/bash -c '%s'", innercmd)}
+	args := []string{fmt.Sprintf(c.decideEntryPoint(ctx), innercmd)}
 	c.provider.setArgs(args)
 	return c.sshCommand.Run(ctx)
 }
@@ -210,5 +225,9 @@ func (c *debugHooksCommand) commonRun(
 // and connects to it via SSH to execute the debug-hooks
 // script.
 func (c *debugHooksCommand) Run(ctx *cmd.Context) error {
+	if err := c.initAPIs(); err != nil {
+		return err
+	}
+	defer c.closeAPIs()
 	return c.commonRun(ctx, c.provider.getTarget(), c.hooks, "")
 }
