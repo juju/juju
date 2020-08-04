@@ -363,7 +363,7 @@ func (c *nestedContext) startUnitWorkers(unitName string) error {
 	if agent == nil {
 		return errors.NotFoundf("unit %q", unitName)
 	}
-	if agent.running {
+	if agent.running() {
 		c.logger.Infof("unit workers for %q are already running", unitName)
 		return nil
 	}
@@ -379,7 +379,7 @@ func (c *nestedContext) stopUnitWorkers(unitName string) error {
 	if agent == nil {
 		return errors.NotFoundf("unit %q", unitName)
 	}
-	if !agent.running {
+	if !agent.running() {
 		c.logger.Infof("unit workers for %q not running", unitName)
 		return nil
 	}
@@ -388,7 +388,6 @@ func (c *nestedContext) stopUnitWorkers(unitName string) error {
 		// In that case, it is fine to return errors back to the deployer worker.
 		return errors.Annotatef(err, "unable to stop workers for %q", unitName)
 	}
-	agent.running = false
 	return nil
 }
 

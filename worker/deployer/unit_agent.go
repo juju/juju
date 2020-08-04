@@ -41,7 +41,7 @@ type UnitAgent struct {
 	unitManifolds    func(UnitManifoldsConfig) dependency.Manifolds
 
 	// Able to disable running units.
-	running bool
+	workerRunning bool
 }
 
 // UnitAgentConfig is a params struct with the values necessary to
@@ -178,9 +178,24 @@ func (a *UnitAgent) start() (worker.Worker, error) {
 		}
 		return nil, err
 	}
-	a.running = true
+	a.mu.Lock()
+	a.workerRunning = true
+	a.mu.Unlock()
+	go func() {
+		// Wait for the worker to finish, then mark not running.
+		engine.Wait()
+		a.mu.Lock()
+		a.workerRunning = false
+		a.mu.Unlock()
+	}()
 	a.logger.Tracef("engine for %q running", a.name)
 	return engine, nil
+}
+
+func (a *UnitAgent) running() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.workerRunning
 }
 
 func (a *UnitAgent) initLogging() (*loggo.Context, *logsender.BufferedLogWriter, error) {
