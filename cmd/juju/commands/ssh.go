@@ -68,6 +68,15 @@ Connect to a mysql unit with an identity not known to juju (ssh option -i):
 
     juju ssh mysql/0 -i ~/.ssh/my_private_key echo hello
 
+Connect to a k8s unit targeting the operator pod by default:
+
+	juju ssh mysql/0
+	juju ssh mysql/0 bash
+	
+Connect to a k8s unit targeting the workload pod by specifying --remote:
+
+	juju ssh mysql/0 --remote
+	
 See also: 
     scp`
 
