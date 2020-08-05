@@ -363,10 +363,10 @@ func (s *MachinePortsDocSuite) TestComposedOpenCloseOperationNoEffectiveOps(c *g
 	unitPortRanges := s.machPortRanges.ForUnit(s.unit1.Name())
 
 	// Duplicate range should be skipped
-	unitPortRanges.Open("monitor-port", network.MustParsePortRange("400-500/tcp"))
-	unitPortRanges.Open("monitor-port", network.MustParsePortRange("400-500/tcp"))
+	unitPortRanges.Open("monitoring-port", network.MustParsePortRange("400-500/tcp"))
+	unitPortRanges.Open("monitoring-port", network.MustParsePortRange("400-500/tcp"))
 
-	unitPortRanges.Close("monitor-port", network.MustParsePortRange("400-500/tcp"))
+	unitPortRanges.Close("monitoring-port", network.MustParsePortRange("400-500/tcp"))
 
 	// As the doc does not exist and the end result is still an empty port range
 	// this should return ErrNoOperations
@@ -447,12 +447,12 @@ func (s *MachinePortsDocSuite) TestWatchMachinePorts(c *gc.C) {
 
 	// Open another range, detect a change.
 	portRange = network.MustParsePortRange("999-1999/udp")
-	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), "foo", []network.PortRange{portRange}, nil)
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), "monitoring-port", []network.PortRange{portRange}, nil)
 	wc.AssertChange(expectChange)
 	wc.AssertNoChange()
 
 	// Open the same range again, no changes.
-	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), "foo", []network.PortRange{portRange}, nil)
+	s.mustOpenCloseMachinePorts(c, s.machPortRanges, s.unit1.Name(), "monitoring-port", []network.PortRange{portRange}, nil)
 	wc.AssertNoChange()
 
 	// Open another range, detect a change.

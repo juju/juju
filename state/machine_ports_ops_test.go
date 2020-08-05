@@ -346,3 +346,79 @@ func (MachinePortsOpsSuite) TestMergePendingClosePortRangesConflict(c *gc.C) {
 	_, err := op.mergePendingClosePortRanges()
 	c.Assert(err, gc.ErrorMatches, `.*port ranges 1234-1337/tcp \("enigma/0"\) and 1242/tcp \("codebreaker/0"\) conflict`)
 }
+
+func (MachinePortsOpsSuite) TestValidatePendingChanges(c *gc.C) {
+	specs := []struct {
+		descr              string
+		endpointNamesByApp map[string]set.Strings
+		pendingOpen        map[string]unitPortRangesDoc
+		pendingClose       map[string]unitPortRangesDoc
+		expErr             string
+	}{
+		{
+			descr: "unknown endpoint in open request",
+			endpointNamesByApp: map[string]set.Strings{
+				"foo": set.NewStrings("dmz"),
+			},
+			pendingOpen: map[string]unitPortRangesDoc{
+				"foo/0": unitPortRangesDoc{
+					"dmz":     []network.PortRange{network.MustParsePortRange("1337/tcp")},
+					"unknown": []network.PortRange{network.MustParsePortRange("8080/tcp")},
+				},
+			},
+			expErr: `open port range: endpoint "unknown" for unit "foo/0" not found`,
+		},
+		{
+			descr: "unknown endpoint in close request",
+			endpointNamesByApp: map[string]set.Strings{
+				"foo": set.NewStrings("dmz"),
+			},
+			pendingOpen: map[string]unitPortRangesDoc{
+				"foo/0": unitPortRangesDoc{
+					"dmz": []network.PortRange{network.MustParsePortRange("1337/tcp")},
+				},
+			},
+			pendingClose: map[string]unitPortRangesDoc{
+				"foo/0": unitPortRangesDoc{
+					"dmz":     []network.PortRange{network.MustParsePortRange("1337/tcp")},
+					"unknown": []network.PortRange{network.MustParsePortRange("8080/tcp")},
+				},
+			},
+			expErr: `close port range: endpoint "unknown" for unit "foo/0" not found`,
+		},
+		{
+			descr: "valid endpoints in open/close requests",
+			endpointNamesByApp: map[string]set.Strings{
+				"foo": set.NewStrings("dmz"),
+			},
+			pendingOpen: map[string]unitPortRangesDoc{
+				"foo/0": unitPortRangesDoc{
+					"dmz": []network.PortRange{network.MustParsePortRange("1337/tcp")},
+				},
+			},
+			pendingClose: map[string]unitPortRangesDoc{
+				"foo/0": unitPortRangesDoc{
+					"dmz": []network.PortRange{network.MustParsePortRange("1337/tcp")},
+				},
+			},
+		},
+	}
+
+	for i, spec := range specs {
+		c.Logf("%d: %s", i, spec.descr)
+		op := &openClosePortRangesOperation{
+			mpr: &machinePortRanges{
+				pendingOpenRanges:  spec.pendingOpen,
+				pendingCloseRanges: spec.pendingClose,
+			},
+			endpointsNamesByApp: spec.endpointNamesByApp,
+		}
+
+		err := op.validatePendingChanges()
+		if spec.expErr == "" {
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, spec.expErr)
+		}
+	}
+}
