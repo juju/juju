@@ -1914,9 +1914,13 @@ func (e *exporter) getCharmOrigin(doc applicationDoc) (description.CharmOriginAr
 		revision = *rev
 	}
 
-	channel, err := charm.MakeChannel(origin.Channel.Track, origin.Channel.Risk, origin.Channel.Branch)
-	if err != nil {
-		return description.CharmOriginArgs{}, errors.Trace(err)
+	var channel charm.Channel
+	if origin.Channel != nil {
+		var err error
+		channel, err = charm.MakeChannel(origin.Channel.Track, origin.Channel.Risk, origin.Channel.Branch)
+		if err != nil {
+			return description.CharmOriginArgs{}, errors.Trace(err)
+		}
 	}
 	return description.CharmOriginArgs{
 		Source:   origin.Source,
