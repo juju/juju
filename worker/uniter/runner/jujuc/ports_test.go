@@ -5,9 +5,6 @@
 package jujuc_test
 
 import (
-	"strconv"
-	"strings"
-
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
@@ -43,35 +40,7 @@ var portsTests = []struct {
 func makeRanges(stringRanges ...string) []network.PortRange {
 	var results []network.PortRange
 	for _, s := range stringRanges {
-		if s == "icmp" {
-			results = append(results, network.PortRange{
-				FromPort: -1,
-				ToPort:   -1,
-				Protocol: "icmp",
-			})
-			continue
-		}
-		if strings.Contains(s, "-") {
-			parts := strings.Split(s, "-")
-			fromPort, _ := strconv.Atoi(parts[0])
-			parts = strings.Split(parts[1], "/")
-			toPort, _ := strconv.Atoi(parts[0])
-			proto := parts[1]
-			results = append(results, network.PortRange{
-				FromPort: fromPort,
-				ToPort:   toPort,
-				Protocol: proto,
-			})
-		} else {
-			parts := strings.Split(s, "/")
-			port, _ := strconv.Atoi(parts[0])
-			proto := parts[1]
-			results = append(results, network.PortRange{
-				FromPort: port,
-				ToPort:   port,
-				Protocol: proto,
-			})
-		}
+		results = append(results, network.MustParsePortRange(s))
 	}
 	network.SortPortRanges(results)
 	return results
@@ -87,39 +56,9 @@ func (s *PortsSuite) TestOpenClose(c *gc.C) {
 		c.Check(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-		hctx.info.CheckPorts(c, t.expect)
-	}
-}
-
-var badPortsTests = []struct {
-	args []string
-	err  string
-}{
-	{nil, "no port or range specified"},
-	{[]string{"0"}, `port must be in the range \[1, 65535\]; got "0"`},
-	{[]string{"65536"}, `port must be in the range \[1, 65535\]; got "65536"`},
-	{[]string{"two"}, `expected <port>\[/<protocol>\] or <from>-<to>\[/<protocol>\] or icmp; got "two"`},
-	{[]string{"80/http"}, `protocol must be "tcp", "udp", or "icmp"; got "http"`},
-	{[]string{"blah/blah/blah"}, `expected <port>\[/<protocol>\] or <from>-<to>\[/<protocol>\] or icmp; got "blah/blah/blah"`},
-	{[]string{"123", "haha"}, `unrecognized args: \["haha"\]`},
-	{[]string{"1-0"}, `invalid port range 1-0/tcp; expected fromPort <= toPort`},
-	{[]string{"-42"}, `option provided but not defined: -4`},
-	{[]string{"99999/UDP"}, `port must be in the range \[1, 65535\]; got "99999"`},
-	{[]string{"9999/foo"}, `protocol must be "tcp", "udp", or "icmp"; got "foo"`},
-	{[]string{"80-90/http"}, `protocol must be "tcp", "udp", or "icmp"; got "http"`},
-	{[]string{"20-10/tcp"}, `invalid port range 20-10/tcp; expected fromPort <= toPort`},
-	{[]string{"80/icmp"}, `protocol "icmp" doesn't support any ports; got "80"`},
-}
-
-func (s *PortsSuite) TestBadArgs(c *gc.C) {
-	for _, name := range []string{"open-port", "close-port"} {
-		for _, t := range badPortsTests {
-			hctx := s.GetHookContext(c, -1, "")
-			com, err := jujuc.NewCommand(hctx, cmdString(name))
-			c.Assert(err, jc.ErrorIsNil)
-			err = cmdtesting.InitCommand(jujuc.NewJujucCommandWrappedForTest(com), t.args)
-			c.Assert(err, gc.ErrorMatches, t.err)
-		}
+		hctx.info.CheckPortRanges(c, map[string][]network.PortRange{
+			"": t.expect,
+		})
 	}
 }
 

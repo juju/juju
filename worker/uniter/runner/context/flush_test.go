@@ -220,17 +220,17 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	err = ctx.OpenPortRange("", network.MustParsePortRange("100-200/tcp"))
 	c.Assert(err, jc.ErrorIsNil) // duplicates are ignored
 	err = ctx.OpenPortRange("", network.MustParsePortRange("200-300/udp"))
-	c.Assert(err, gc.ErrorMatches, `cannot open 200-300/udp \(unit "u/0"\): conflicts with existing 200-300/udp \(unit "u/1"\)`)
+	c.Assert(err, gc.ErrorMatches, `cannot open 200-300/udp \(unit "u/0"\): port range conflicts with 200-300/udp \(unit "u/1"\)`)
 	err = ctx.OpenPortRange("", network.MustParsePortRange("100-200/udp"))
-	c.Assert(err, gc.ErrorMatches, `cannot open 100-200/udp \(unit "u/0"\): conflicts with existing 200-300/udp \(unit "u/1"\)`)
+	c.Assert(err, gc.ErrorMatches, `cannot open 100-200/udp \(unit "u/0"\): port range conflicts with 200-300/udp \(unit "u/1"\)`)
 	err = ctx.OpenPortRange("", network.MustParsePortRange("10-20/udp"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.OpenPortRange("", network.MustParsePortRange("50-100/tcp"))
-	c.Assert(err, gc.ErrorMatches, `cannot open 50-100/tcp \(unit "u/0"\): conflicts with existing 100-200/tcp \(unit "u/0"\)`)
+	c.Assert(err, gc.ErrorMatches, `cannot open 50-100/tcp \(unit "u/0"\): port range conflicts with 100-200/tcp \(unit "u/0"\)`)
 	err = ctx.OpenPortRange("", network.MustParsePortRange("50-80/tcp"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.OpenPortRange("", network.MustParsePortRange("40-90/tcp"))
-	c.Assert(err, gc.ErrorMatches, `cannot open 40-90/tcp \(unit "u/0"\): conflicts with 50-80/tcp requested earlier`)
+	c.Assert(err, gc.ErrorMatches, `cannot open 40-90/tcp \(unit "u/0"\): port range conflicts with 50-80/tcp \(unit "u/0"\) requested earlier`)
 
 	// Now try closing some ports as well.
 	err = ctx.ClosePortRange("", network.MustParsePortRange("8080-8088/udp"))
@@ -240,7 +240,7 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	err = ctx.ClosePortRange("", network.MustParsePortRange("100-200/tcp"))
 	c.Assert(err, jc.ErrorIsNil) // duplicates are ignored
 	err = ctx.ClosePortRange("", network.MustParsePortRange("200-300/udp"))
-	c.Assert(err, gc.ErrorMatches, `cannot close 200-300/udp \(opened by "u/1"\) from "u/0"`)
+	c.Assert(err, gc.ErrorMatches, `.*port range conflicts with 200-300/udp \(unit "u/1"\)`)
 	err = ctx.ClosePortRange("", network.MustParsePortRange("50-80/tcp"))
 	c.Assert(err, jc.ErrorIsNil) // still pending -> no longer pending
 

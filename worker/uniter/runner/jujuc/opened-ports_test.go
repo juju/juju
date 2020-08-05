@@ -22,15 +22,17 @@ type OpenedPortsSuite struct {
 var _ = gc.Suite(&OpenedPortsSuite{})
 
 func (s *OpenedPortsSuite) TestRunAllFormats(c *gc.C) {
-	expectedPorts := []network.PortRange{
-		{10, 20, "tcp"},
-		{80, 80, "tcp"},
-		{53, 55, "udp"},
-		{63, 63, "udp"},
+	expectedPorts := map[string][]network.PortRange{
+		"": []network.PortRange{
+			network.MustParsePortRange("10-20/tcp"),
+			network.MustParsePortRange("80/tcp"),
+			network.MustParsePortRange("53-55/udp"),
+			network.MustParsePortRange("63/udp"),
+		},
 	}
-	network.SortPortRanges(expectedPorts)
-	portsAsStrings := make([]string, len(expectedPorts))
-	for i, portRange := range expectedPorts {
+	network.SortPortRanges(expectedPorts[""])
+	portsAsStrings := make([]string, len(expectedPorts[""]))
+	for i, portRange := range expectedPorts[""] {
 		portsAsStrings[i] = portRange.String()
 	}
 	defaultOutput := strings.Join(portsAsStrings, "\n") + "\n"
@@ -54,7 +56,7 @@ func (s *OpenedPortsSuite) TestRunAllFormats(c *gc.C) {
 		}
 		c.Check(stdout, gc.Equals, expectedOutput)
 		c.Check(stderr, gc.Equals, "")
-		hctx.info.CheckPorts(c, expectedPorts)
+		hctx.info.CheckPortRanges(c, expectedPorts)
 	}
 }
 
@@ -85,10 +87,10 @@ Each list entry has format <port>/<protocol> (e.g. "80/tcp") or
 
 func (s *OpenedPortsSuite) getContextAndOpenPorts(c *gc.C) *Context {
 	hctx := s.GetHookContext(c, -1, "")
-	hctx.OpenPorts("tcp", 80, 80)
-	hctx.OpenPorts("tcp", 10, 20)
-	hctx.OpenPorts("udp", 63, 63)
-	hctx.OpenPorts("udp", 53, 55)
+	hctx.OpenPortRange("", network.MustParsePortRange("80/tcp"))
+	hctx.OpenPortRange("", network.MustParsePortRange("10-20/tcp"))
+	hctx.OpenPortRange("", network.MustParsePortRange("63/udp"))
+	hctx.OpenPortRange("", network.MustParsePortRange("53-55/udp"))
 	return hctx
 }
 

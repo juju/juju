@@ -8,6 +8,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/core/network"
 )
 
 // OpenedPortsCommand implements the opened-ports command.
@@ -40,10 +41,32 @@ func (c *OpenedPortsCommand) Init(args []string) error {
 }
 
 func (c *OpenedPortsCommand) Run(ctx *cmd.Context) error {
-	unitPorts := c.ctx.OpenedPorts()
-	results := make([]string, len(unitPorts))
-	for i, portRange := range unitPorts {
+	unitPortRanges := uniquePortRanges(c.ctx.OpenedPortRanges())
+	results := make([]string, len(unitPortRanges))
+	for i, portRange := range unitPortRanges {
 		results[i] = portRange.String()
 	}
 	return c.out.Write(ctx, results)
+}
+
+func uniquePortRanges(portRangesByEndpoint map[string][]network.PortRange) []network.PortRange {
+	var (
+		res       []network.PortRange
+		processed = make(map[network.PortRange]struct{})
+	)
+
+	for _, portRanges := range portRangesByEndpoint {
+		for _, pr := range portRanges {
+			if _, seen := processed[pr]; seen {
+				continue
+			}
+
+			processed[pr] = struct{}{}
+			res = append(res, pr)
+		}
+	}
+
+	network.SortPortRanges(res)
+	return res
+
 }

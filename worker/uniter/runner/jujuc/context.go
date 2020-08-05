@@ -183,19 +183,17 @@ type ContextNetworking interface {
 	// error if it is not available.
 	PrivateAddress() (string, error)
 
-	// OpenPorts marks the supplied port range for opening when the
-	// executing unit's application is exposed.
-	OpenPorts(protocol string, fromPort, toPort int) error
+	// OpenPortRange marks the supplied port range for opening.
+	OpenPortRange(endpointName string, portRange network.PortRange) error
 
-	// ClosePorts ensures the supplied port range is closed even when
+	// ClosePortRange ensures the supplied port range is closed even when
 	// the executing unit's application is exposed (unless it is opened
 	// separately by a co- located unit).
-	ClosePorts(protocol string, fromPort, toPort int) error
+	ClosePortRange(endpointName string, portRange network.PortRange) error
 
-	// OpenedPorts returns all port ranges currently opened by this
-	// unit on its assigned machine. The result is sorted first by
-	// protocol, then by number.
-	OpenedPorts() []network.PortRange
+	// OpenedPortRanges returns all port ranges currently opened by this
+	// unit on its assigned machine grouped by endpoint name.
+	OpenedPortRanges() map[string][]network.PortRange
 
 	// NetworkInfo returns the network info for the given bindings on the given relation.
 	NetworkInfo(bindingNames []string, relationId int) (map[string]params.NetworkInfoResult, error)
