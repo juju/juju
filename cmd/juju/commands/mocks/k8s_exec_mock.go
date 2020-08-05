@@ -7,6 +7,7 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	exec "github.com/juju/juju/caas/kubernetes/provider/exec"
+	kubernetes "k8s.io/client-go/kubernetes"
 	reflect "reflect"
 )
 
@@ -59,6 +60,34 @@ func (m *MockExecutor) Exec(arg0 exec.ExecParams, arg1 <-chan struct{}) error {
 func (mr *MockExecutorMockRecorder) Exec(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exec", reflect.TypeOf((*MockExecutor)(nil).Exec), arg0, arg1)
+}
+
+// NameSpace mocks base method
+func (m *MockExecutor) NameSpace() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NameSpace")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NameSpace indicates an expected call of NameSpace
+func (mr *MockExecutorMockRecorder) NameSpace() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NameSpace", reflect.TypeOf((*MockExecutor)(nil).NameSpace))
+}
+
+// RawClient mocks base method
+func (m *MockExecutor) RawClient() kubernetes.Interface {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RawClient")
+	ret0, _ := ret[0].(kubernetes.Interface)
+	return ret0
+}
+
+// RawClient indicates an expected call of RawClient
+func (mr *MockExecutorMockRecorder) RawClient() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RawClient", reflect.TypeOf((*MockExecutor)(nil).RawClient))
 }
 
 // Status mocks base method

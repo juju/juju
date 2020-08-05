@@ -75,7 +75,7 @@ Connect to a k8s unit targeting the operator pod by default:
 	
 Connect to a k8s unit targeting the workload pod by specifying --remote:
 
-	juju ssh mysql/0 --remote
+	juju ssh --remote mysql/0
 	
 See also: 
     scp`
