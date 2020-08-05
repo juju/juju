@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"os/signal"
 	"strings"
 	"syscall"
 	"time"
@@ -19,10 +20,12 @@ import (
 	"github.com/juju/utils"
 	"github.com/kballard/go-shellquote"
 	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/sys/unix"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -60,6 +63,8 @@ type Executor interface {
 	Status(params StatusParams) (*Status, error)
 	Exec(params ExecParams, cancel <-chan struct{}) error
 	Copy(params CopyParams, cancel <-chan struct{}) error
+	RawClient() kubernetes.Interface
+	NameSpace() string
 }
 
 // NewInCluster returns a in-cluster exec client.
@@ -174,6 +179,14 @@ func (ep *ExecParams) validate(podGetter typedcorev1.PodInterface) (err error) {
 	return nil
 }
 
+func (c client) RawClient() kubernetes.Interface {
+	return c.clientset
+}
+
+func (c client) NameSpace() string {
+	return c.namespace
+}
+
 // Exec runs commands on a pod in the cluster.
 func (c client) Exec(params ExecParams, cancel <-chan struct{}) error {
 	if err := params.validate(c.podGetter); err != nil {
@@ -196,24 +209,120 @@ func processEnv(env []string) (string, error) {
 	return out, nil
 }
 
-func (c client) safe(opts ExecParams, executor remotecommand.Executor) (err error) {
-	if opts.TTY {
-		var inFd int
-		if file, ok := opts.Stdin.(*os.File); ok {
-			inFd = int(file.Fd())
+func getFdInfo(in interface{}) uintptr {
+	var inFd uintptr
+	if file, ok := in.(*os.File); ok {
+		inFd = file.Fd()
+	}
+	return inFd
+}
+
+func getTermSize(fd uintptr) (*remotecommand.TerminalSize, error) {
+	uws, err := unix.IoctlGetWinsize(int(fd), unix.TIOCGWINSZ)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &remotecommand.TerminalSize{Width: uws.Col, Height: uws.Row}, nil
+}
+
+func setWinsize(fd uintptr, ws *unix.Winsize) error {
+	return unix.IoctlSetWinsize(int(fd), unix.TIOCSWINSZ, ws)
+}
+
+type sizeQueue struct {
+	resizeChan chan remotecommand.TerminalSize
+	done       chan struct{}
+}
+
+func newSizeQueue() *sizeQueue {
+	return &sizeQueue{
+		resizeChan: make(chan remotecommand.TerminalSize, 1),
+		done:       make(chan struct{}),
+	}
+}
+
+var _ remotecommand.TerminalSizeQueue = (*sizeQueue)(nil)
+
+// Next returns the new terminal size after the terminal has been resized. It returns nil when
+// monitoring has been stopped.
+func (s *sizeQueue) Next() *remotecommand.TerminalSize {
+	select {
+	case size, ok := <-s.resizeChan:
+		if !ok {
+
+			return nil
 		}
+		return &size
+	}
+}
+
+func (s *sizeQueue) stop() {
+	close(s.done)
+}
+
+func (s *sizeQueue) push(size remotecommand.TerminalSize) {
+	select {
+	case s.resizeChan <- size:
+	default:
+	}
+}
+
+func (s *sizeQueue) watch(getSize func() *remotecommand.TerminalSize) {
+	if size := getSize(); size != nil {
+		// Push initial size.
+		s.push(*size)
+	}
+
+	go func() {
+		defer runtime.HandleCrash()
+
+		winch := make(chan os.Signal, 1)
+		signal.Notify(winch, unix.SIGWINCH)
+		defer signal.Stop(winch)
+
+		for {
+			select {
+			case <-winch:
+				size := getSize()
+				if size == nil {
+					return
+				}
+				s.push(*size)
+			case <-s.done:
+				return
+			}
+		}
+	}()
+}
+
+func (c client) safeRun(opts ExecParams, executor remotecommand.Executor) (err error) {
+	streamOptions := remotecommand.StreamOptions{
+		Stdin:  opts.Stdin,
+		Stdout: opts.Stdout,
+		Stderr: opts.Stderr,
+		Tty:    opts.TTY,
+	}
+
+	if opts.TTY {
+		inFd := int(getFdInfo(opts.Stdin))
 		oldState, err := terminal.MakeRaw(inFd)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		defer func() { err = terminal.Restore(inFd, oldState) }()
+
+		sizeQ := newSizeQueue()
+		outFd := getFdInfo(opts.Stdout)
+		sizeQ.watch(func() *remotecommand.TerminalSize {
+			size, err := getTermSize(outFd)
+			// Ignores error and return nil size.
+			logger.Debugf("unable to get terminal size: %v", err)
+			return size
+		})
+		defer sizeQ.stop()
+		streamOptions.TerminalSizeQueue = sizeQ
 	}
-	return executor.Stream(remotecommand.StreamOptions{
-		Stdin:  opts.Stdin,
-		Stdout: opts.Stdout,
-		Stderr: opts.Stderr,
-		Tty:    opts.TTY,
-	})
+	return executor.Stream(streamOptions)
 }
 
 func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
@@ -258,7 +367,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- c.safe(opts, executor)
+		errChan <- c.safeRun(opts, executor)
 	}()
 
 	sendSignal := func(sig syscall.Signal, group bool) error {
