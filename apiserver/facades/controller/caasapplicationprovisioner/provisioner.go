@@ -5,6 +5,7 @@ package caasapplicationprovisioner
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/juju/charm/v7"
 
@@ -15,12 +16,16 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -46,12 +51,23 @@ type API struct {
 	state              CAASApplicationProvisionerState
 	storagePoolManager poolmanager.PoolManager
 	registry           storage.ProviderRegistry
+	storage            StorageBackend
+	devices            DeviceBackend
 }
 
 // NewStateCAASApplicationProvisionerAPI provides the signature required for facade registration.
 func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
+
+	sb, err := state.NewStorageBackend(ctx.State())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	db, err := state.NewDeviceBackend(ctx.State())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	model, err := ctx.State().Model()
 	if err != nil {
@@ -64,7 +80,8 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*API, error) {
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
 
-	return NewCAASApplicationProvisionerAPI(ctx.State(), resources, authorizer, pm, registry)
+	return NewCAASApplicationProvisionerAPI(ctx.State(),
+		resources, authorizer, pm, registry, sb, db)
 }
 
 // NewCAASApplicationProvisionerAPI returns a new CAAS operator provisioner API facade.
@@ -74,6 +91,8 @@ func NewCAASApplicationProvisionerAPI(
 	authorizer facade.Authorizer,
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
+	storage StorageBackend,
+	devices DeviceBackend,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -93,6 +112,8 @@ func NewCAASApplicationProvisionerAPI(
 		state:              stateShim{st},
 		storagePoolManager: storagePoolManager,
 		registry:           registry,
+		storage:            storage,
+		devices:            devices,
 	}, nil
 }
 
@@ -113,40 +134,78 @@ func (a *API) WatchApplications() (params.StringsWatchResult, error) {
 // ProvisioningInfo returns the info needed to provision a caas application.
 func (a *API) ProvisioningInfo(args params.Entities) (params.CAASApplicationProvisioningInfoResults, error) {
 	var result params.CAASApplicationProvisioningInfoResults
+	result.Results = make([]params.CAASApplicationProvisioningInfo, len(args.Entities))
+	for i, entity := range args.Entities {
+		appName, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		info, err := a.provisioningInfo(appName)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.Results[i] = *info
+	}
+	return result, nil
+}
+
+func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplicationProvisioningInfo, error) {
+	app, err := a.state.Application(appName.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	cfg, err := a.state.ControllerConfig()
 	if err != nil {
-		return result, err
+		return nil, errors.Trace(err)
 	}
 
 	model, err := a.state.Model()
 	if err != nil {
-		return result, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	modelConfig, err := model.ModelConfig()
 	if err != nil {
-		return result, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	vers, ok := modelConfig.AgentVersion()
-	if !ok {
-		return result, errors.NewNotValid(nil,
-			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
-		)
+	filesystemParams, err := a.applicationFilesystemParams(app, cfg, modelConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
+	devices, err := a.devicesParams(app)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cons, err := app.Constraints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	mergedCons, err := a.state.ResolveConstraints(cons)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	resourceTags := tags.ResourceTags(
-		names.NewModelTag(model.UUID()),
+		names.NewModelTag(modelConfig.UUID()),
 		names.NewControllerTag(cfg.ControllerUUID()),
 		modelConfig,
 	)
 
+	vers, ok := modelConfig.AgentVersion()
+	if !ok {
+		return nil, errors.NewNotValid(nil,
+			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
+		)
+	}
 	imagePath := podcfg.GetJujuK8sOCIImagePath(cfg, vers.ToPatch(), version.OfficialBuild)
 
 	apiHostPorts, err := a.state.APIHostPortsForAgents()
 	if err != nil {
-		return result, errors.Annotatef(err, "getting api addresses")
+		return nil, errors.Annotatef(err, "getting api addresses")
 	}
-
 	addrs := []string(nil)
 	for _, hostPorts := range apiHostPorts {
 		ordered := hostPorts.HostPorts().PrioritizedForScope(network.ScopeMatchCloudLocal)
@@ -156,58 +215,18 @@ func (a *API) ProvisioningInfo(args params.Entities) (params.CAASApplicationProv
 			}
 		}
 	}
-
 	caCert, _ := cfg.CACert()
 
-	oneProvisioningInfo := func(storageRequired bool) params.CAASApplicationProvisioningInfo {
-		var charmStorageParams *params.KubernetesFilesystemParams
-		storageClassName, _ := modelConfig.AllAttrs()[provider.WorkloadStorageKey].(string)
-		if storageRequired {
-			if storageClassName == "" {
-				return params.CAASApplicationProvisioningInfo{
-					Error: apiservererrors.ServerError(errors.New("no workload storage defined")),
-				}
-			}
-			charmStorageParams, err = CharmStorageParams(cfg.ControllerUUID(), storageClassName, modelConfig, "", a.storagePoolManager, a.registry)
-			if err != nil {
-				return params.CAASApplicationProvisioningInfo{
-					Error: apiservererrors.ServerError(errors.Annotatef(err, "getting workload storage parameters")),
-				}
-			}
-			charmStorageParams.Tags = resourceTags
-		}
-		return params.CAASApplicationProvisioningInfo{
-			ImagePath:    imagePath,
-			Version:      vers,
-			APIAddresses: addrs,
-			CACert:       caCert,
-			CharmStorage: charmStorageParams,
-			Tags:         resourceTags,
-		}
-	}
-	result.Results = make([]params.CAASApplicationProvisioningInfo, len(args.Entities))
-	for i, entity := range args.Entities {
-		appName, err := names.ParseApplicationTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		app, err := a.state.Application(appName.Id())
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		ch, _, err := app.Charm()
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		needStorage := provider.RequireOperatorStorage(ch.Meta().MinJujuVersion)
-		logger.Debugf("application %s has min-juju-version=%v, so charm storage is %v",
-			appName.String(), ch.Meta().MinJujuVersion, needStorage)
-		result.Results[i] = oneProvisioningInfo(needStorage)
-	}
-	return result, nil
+	return &params.CAASApplicationProvisioningInfo{
+		ImagePath:    imagePath,
+		Version:      vers,
+		APIAddresses: addrs,
+		CACert:       caCert,
+		Tags:         resourceTags,
+		Filesystems:  filesystemParams,
+		Devices:      devices,
+		Constraints:  mergedCons,
+	}, nil
 }
 
 // SetOperatorStatus sets the status of each given entity.
@@ -408,7 +427,7 @@ func CharmStorageParams(
 	result := &params.KubernetesFilesystemParams{
 		StorageName: "charm",
 		Size:        size,
-		Provider:    string(provider.K8s_ProviderType),
+		Provider:    string(k8sconstants.StorageProviderType),
 		Tags:        tags,
 		Attributes:  make(map[string]interface{}),
 	}
@@ -418,7 +437,7 @@ func CharmStorageParams(
 	// requested.
 	// First, blank out the fallback pool name used in previous
 	// versions of Juju.
-	if poolName == string(provider.K8s_ProviderType) {
+	if poolName == string(k8sconstants.StorageProviderType) {
 		poolName = ""
 	}
 	maybePoolName := poolName
@@ -436,8 +455,8 @@ func CharmStorageParams(
 			result.Attributes = attrs
 		}
 	}
-	if _, ok := result.Attributes[provider.StorageClass]; !ok && result.Provider == string(provider.K8s_ProviderType) {
-		result.Attributes[provider.StorageClass] = storageClassName
+	if _, ok := result.Attributes[k8sconstants.StorageClass]; !ok && result.Provider == string(k8sconstants.StorageProviderType) {
+		result.Attributes[k8sconstants.StorageClass] = storageClassName
 	}
 	return result, nil
 }
@@ -489,4 +508,105 @@ func (a *API) ApplicationCharmURLs(args params.Entities) (params.StringResults, 
 		res.Results[i].Result = ch.URL().String()
 	}
 	return res, nil
+}
+
+func (a *API) applicationFilesystemParams(
+	app Application,
+	controllerConfig controller.Config,
+	modelConfig *config.Config,
+) ([]params.KubernetesFilesystemParams, error) {
+	storageConstraints, err := app.StorageConstraints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ch, _, err := app.Charm()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var allFilesystemParams []params.KubernetesFilesystemParams
+	// To always guarantee the same order, sort by names.
+	var sNames []string
+	for name := range storageConstraints {
+		sNames = append(sNames, name)
+	}
+	sort.Strings(sNames)
+	for _, name := range sNames {
+		cons := storageConstraints[name]
+		fsParams, err := filesystemParams(
+			app, cons, name,
+			controllerConfig.ControllerUUID(),
+			modelConfig,
+			a.storagePoolManager, a.registry,
+		)
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting filesystem %q parameters", name)
+		}
+		for i := 0; i < int(cons.Count); i++ {
+			charmStorage := ch.Meta().Storage[name]
+			id := fmt.Sprintf("%s/%v", name, i)
+			tag := names.NewStorageTag(id)
+			location, err := state.FilesystemMountPoint(charmStorage, tag, "kubernetes")
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			filesystemAttachmentParams := params.KubernetesFilesystemAttachmentParams{
+				Provider:   fsParams.Provider,
+				MountPoint: location,
+				ReadOnly:   charmStorage.ReadOnly,
+			}
+			fsParams.Attachment = &filesystemAttachmentParams
+			allFilesystemParams = append(allFilesystemParams, *fsParams)
+		}
+	}
+	return allFilesystemParams, nil
+}
+
+func filesystemParams(
+	app Application,
+	cons state.StorageConstraints,
+	storageName string,
+	controllerUUID string,
+	modelConfig *config.Config,
+	poolManager poolmanager.PoolManager,
+	registry storage.ProviderRegistry,
+) (*params.KubernetesFilesystemParams, error) {
+
+	filesystemTags, err := storagecommon.StorageTags(nil, modelConfig.UUID(), controllerUUID, modelConfig)
+	if err != nil {
+		return nil, errors.Annotate(err, "computing storage tags")
+	}
+	filesystemTags[tags.JujuStorageOwner] = app.Name()
+
+	storageClassName, _ := modelConfig.AllAttrs()[provider.WorkloadStorageKey].(string)
+	if cons.Pool == "" && storageClassName == "" {
+		return nil, errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
+	}
+	fsParams, err := caasoperatorprovisioner.CharmStorageParams(controllerUUID, storageClassName, modelConfig, cons.Pool, poolManager, registry)
+	if err != nil {
+		return nil, errors.Maskf(err, "getting filesystem storage parameters")
+	}
+
+	fsParams.Size = cons.Size
+	fsParams.StorageName = storageName
+	fsParams.Tags = filesystemTags
+	return fsParams, nil
+}
+
+func (a *API) devicesParams(app Application) ([]params.KubernetesDeviceParams, error) {
+	devices, err := app.DeviceConstraints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Debugf("getting device constraints from state: %#v", devices)
+	var devicesParams []params.KubernetesDeviceParams
+	for _, d := range devices {
+		devicesParams = append(devicesParams, params.KubernetesDeviceParams{
+			Type:       params.DeviceType(d.Type),
+			Count:      d.Count,
+			Attributes: d.Attributes,
+		})
+	}
+	return devicesParams, nil
 }

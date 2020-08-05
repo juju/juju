@@ -6,55 +6,41 @@ package provider
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 
+	k8sstorage "github.com/juju/juju/caas/kubernetes/provider/storage"
+
 	"github.com/juju/errors"
-	"github.com/juju/schema"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
-)
-
-const (
-	// K8s_ProviderType defines the Juju storage type which can be used
-	// to provision storage on k8s models.
-	K8s_ProviderType = storage.ProviderType("kubernetes")
-
-	// K8s storage pool attributes.
-
-	// StorageClass is the name of a storage class resource.
-	StorageClass       = "storage-class"
-	storageProvisioner = "storage-provisioner"
-	storageMedium      = "storage-medium"
-	storageMode        = "storage-mode"
+	storageprovider "github.com/juju/juju/storage/provider"
 )
 
 //ValidateStorageProvider returns an error if the storage type and config is not valid
 // for a Kubernetes deployment.
 func ValidateStorageProvider(providerType storage.ProviderType, attributes map[string]interface{}) error {
 	switch providerType {
-	case K8s_ProviderType:
-	case provider.RootfsProviderType:
-	case provider.TmpfsProviderType:
+	case k8sconstants.StorageProviderType:
+	case storageprovider.RootfsProviderType:
+	case storageprovider.TmpfsProviderType:
 	default:
 		return errors.NotValidf("storage provider type %q", providerType)
 	}
 	if attributes == nil {
 		return nil
 	}
-	if mediumValue, ok := attributes[storageMedium]; ok {
+	if mediumValue, ok := attributes[k8sconstants.StorageMedium]; ok {
 		medium := core.StorageMedium(fmt.Sprintf("%v", mediumValue))
 		if medium != core.StorageMediumMemory && medium != core.StorageMediumHugePages {
 			return errors.NotValidf("storage medium %q", mediumValue)
 		}
 	}
-	if providerType == K8s_ProviderType {
+	if providerType == k8sconstants.StorageProviderType {
 		if err := validateStorageAttributes(attributes); err != nil {
 			return errors.Trace(err)
 		}
@@ -63,10 +49,10 @@ func ValidateStorageProvider(providerType storage.ProviderType, attributes map[s
 }
 
 func validateStorageAttributes(attributes map[string]interface{}) error {
-	if _, err := newStorageConfig(attributes); err != nil {
+	if _, err := k8sstorage.ParseStorageConfig(attributes); err != nil {
 		return errors.Trace(err)
 	}
-	if _, err := getStorageMode(attributes); err != nil {
+	if _, err := k8sstorage.ParseStorageMode(attributes); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -77,104 +63,6 @@ type storageProvider struct {
 }
 
 var _ storage.Provider = (*storageProvider)(nil)
-
-var storageConfigFields = schema.Fields{
-	StorageClass:       schema.String(),
-	storageProvisioner: schema.String(),
-}
-
-var storageConfigChecker = schema.FieldMap(
-	storageConfigFields,
-	schema.Defaults{
-		StorageClass:       schema.Omit,
-		storageProvisioner: schema.Omit,
-	},
-)
-
-type storageConfig struct {
-	// storageClass defines a storage class
-	// which will be created with the specified
-	// provisioner and parameters if it doesn't
-	// exist.
-	storageClass string
-
-	// storageProvisioner is the provisioner class to use.
-	storageProvisioner string
-
-	// parameters define attributes of the storage class.
-	parameters map[string]string
-
-	// reclaimPolicy defines the volume reclaim policy.
-	reclaimPolicy core.PersistentVolumeReclaimPolicy
-}
-
-const (
-	storageConfigParameterPrefix = "parameters."
-)
-
-func newStorageConfig(attrs map[string]interface{}) (*storageConfig, error) {
-	out, err := storageConfigChecker.Coerce(attrs, nil)
-	if err != nil {
-		return nil, errors.Annotate(err, "validating storage config")
-	}
-	coerced := out.(map[string]interface{})
-	storageConfig := &storageConfig{}
-	if storageClassName, ok := coerced[StorageClass].(string); ok {
-		storageConfig.storageClass = storageClassName
-	}
-	if storageProvisioner, ok := coerced[storageProvisioner].(string); ok {
-		storageConfig.storageProvisioner = storageProvisioner
-	}
-	if storageConfig.storageProvisioner != "" && storageConfig.storageClass == "" {
-		return nil, errors.New("storage-class must be specified if storage-provisioner is specified")
-	}
-	// By default, we'll retain volumes used for charm storage.
-	storageConfig.reclaimPolicy = core.PersistentVolumeReclaimRetain
-	storageConfig.parameters = make(map[string]string)
-	for k, v := range attrs {
-		if !strings.HasPrefix(k, storageConfigParameterPrefix) {
-			continue
-		}
-		k = strings.TrimPrefix(k, storageConfigParameterPrefix)
-		storageConfig.parameters[k] = fmt.Sprintf("%v", v)
-	}
-	return storageConfig, nil
-}
-
-var storageModeFields = schema.Fields{
-	storageMode: schema.String(),
-}
-
-var storageModeChecker = schema.FieldMap(
-	storageModeFields,
-	schema.Defaults{
-		storageMode: "ReadWriteOnce",
-	},
-)
-
-func getStorageMode(attrs map[string]interface{}) (*core.PersistentVolumeAccessMode, error) {
-	parseMode := func(m string) (*core.PersistentVolumeAccessMode, error) {
-		var out core.PersistentVolumeAccessMode
-		switch m {
-		case "ReadOnlyMany", "ROX":
-			out = core.ReadOnlyMany
-		case "ReadWriteMany", "RWX":
-			out = core.ReadWriteMany
-		case "ReadWriteOnce", "RWO":
-			out = core.ReadWriteOnce
-		default:
-			return nil, errors.NotSupportedf("storage mode %q", m)
-		}
-		return &out, nil
-	}
-
-	out, err := storageModeChecker.Coerce(attrs, nil)
-	if err != nil {
-		return nil, errors.Annotate(err, "validating storage mode")
-	}
-	coerced := out.(map[string]interface{})
-	return parseMode(coerced[storageMode].(string))
-}
 
 // ValidateConfig is defined on the storage.Provider interface.
 func (g *storageProvider) ValidateConfig(cfg *storage.Config) error {
@@ -286,14 +174,14 @@ func (v *volumeSource) DestroyVolumes(ctx jujucontext.ProviderCallContext, volId
 		if err == nil && vol.Spec.ClaimRef != nil {
 			claimRef := vol.Spec.ClaimRef
 			pClaims := v.client.client().CoreV1().PersistentVolumeClaims(claimRef.Namespace)
-			err := pClaims.Delete(context.TODO(), claimRef.Name, v1.DeleteOptions{PropagationPolicy: &constants.DefaultPropagationPolicy})
+			err := pClaims.Delete(context.TODO(), claimRef.Name, v1.DeleteOptions{PropagationPolicy: k8sconstants.DefaultPropagationPolicy()})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return errors.Annotatef(err, "destroying volume claim %v", claimRef.Name)
 			}
 		}
 		if err := pVolumes.Delete(context.TODO(),
 			volumeId,
-			v1.DeleteOptions{PropagationPolicy: &constants.DefaultPropagationPolicy},
+			v1.DeleteOptions{PropagationPolicy: k8sconstants.DefaultPropagationPolicy()},
 		); !k8serrors.IsNotFound(err) {
 			return errors.Annotate(err, "destroying k8s volumes")
 		}

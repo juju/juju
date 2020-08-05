@@ -19,7 +19,7 @@ import (
 
 func (k *kubernetesClient) getConfigMapLabels(appName string) map[string]string {
 	return map[string]string{
-		constants.LabelApplication: appName,
+		k8sconstants.LabelApplication: appName,
 	}
 }
 
@@ -111,7 +111,7 @@ func (k *kubernetesClient) getConfigMap(name string) (*core.ConfigMap, error) {
 
 // createConfigMap creates a ConfigMap resource.
 func (k *kubernetesClient) createConfigMap(cm *core.ConfigMap) (*core.ConfigMap, error) {
-	utils.PurifyResource(cm)
+	k8sutils.PurifyResource(cm)
 	out, err := k.client().CoreV1().ConfigMaps(k.namespace).Create(context.TODO(), cm, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("configmap %q", cm.GetName())
@@ -121,7 +121,7 @@ func (k *kubernetesClient) createConfigMap(cm *core.ConfigMap) (*core.ConfigMap,
 
 // deleteConfigMap deletes a ConfigMap resource.
 func (k *kubernetesClient) deleteConfigMap(name string, uid types.UID) error {
-	err := k.client().CoreV1().ConfigMaps(k.namespace).Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
+	err := k.client().CoreV1().ConfigMaps(k.namespace).Delete(context.TODO(), name, k8sutils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -130,7 +130,7 @@ func (k *kubernetesClient) deleteConfigMap(name string, uid types.UID) error {
 
 func (k *kubernetesClient) listConfigMaps(labels map[string]string) ([]core.ConfigMap, error) {
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(labels).String(),
+		LabelSelector: k8sutils.LabelSetToSelector(labels).String(),
 	}
 	cmList, err := k.client().CoreV1().ConfigMaps(k.namespace).List(context.TODO(), listOps)
 	if err != nil {
@@ -144,9 +144,9 @@ func (k *kubernetesClient) listConfigMaps(labels map[string]string) ([]core.Conf
 
 func (k *kubernetesClient) deleteConfigMaps(appName string) error {
 	err := k.client().CoreV1().ConfigMaps(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(k.getConfigMapLabels(appName)).String(),
+		LabelSelector: k8sutils.LabelSetToSelector(k.getConfigMapLabels(appName)).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

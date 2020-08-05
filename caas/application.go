@@ -7,7 +7,10 @@ import (
 	"github.com/juju/charm/v7"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/storage"
 )
 
 // Application broker interface
@@ -46,4 +49,14 @@ type ApplicationConfig struct {
 
 	// ResourceTags is a set of tags to set on the operator pod.
 	ResourceTags map[string]string
+
+	// Constraints is a set of constraints on
+	// the pod to create.
+	Constraints constraints.Value
+
+	// Filesystems is a set of parameters for filesystems that should be created.
+	Filesystems []storage.KubernetesFilesystemParams
+
+	// Devices is a set of parameters for Devices that is required.
+	Devices []devices.KubernetesDeviceParams
 }

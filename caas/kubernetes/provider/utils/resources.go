@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package utils
+package k8sutils
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,6 +26,6 @@ func NewPreconditionDeleteOptions(uid k8stypes.UID) metav1.DeleteOptions {
 	// TODO(caas): refactor all deleting single resource operation has this UID ensured precondition.
 	return metav1.DeleteOptions{
 		Preconditions:     NewUIDPreconditions(uid),
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	}
 }

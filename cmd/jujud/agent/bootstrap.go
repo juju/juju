@@ -158,7 +158,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	isCAAS := args.ControllerCloud.Type == caasprovider.CAASProviderType
+	isCAAS := args.ControllerCloud.Type == caasconstants.CAASProviderType
 
 	if isCAAS {
 		if err := c.ensureConfigFilesForCaas(); err != nil {

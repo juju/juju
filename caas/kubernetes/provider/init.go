@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
 const volBindModeWaitFirstConsumer = "WaitForFirstConsumer"
@@ -23,12 +23,10 @@ var (
 
 	// LifecycleModelTeardownSelector is the label selector for removing global resources for model teardown.
 	lifecycleModelTeardownSelector k8slabels.Selector
-
-	k8sStorageBaseDir string
 )
 
 func init() {
-	caas.RegisterContainerProvider(CAASProviderType, providerInstance)
+	caas.RegisterContainerProvider(k8sconstants.CAASProviderType, providerInstance)
 
 	// k8sCloudCheckers is a collection of k8s node selector requirement definitions
 	// used for detecting cloud provider from node labels.
@@ -75,8 +73,6 @@ func init() {
 
 	lifecycleApplicationRemovalSelector = compileLifecycleApplicationRemovalSelector()
 	lifecycleModelTeardownSelector = compileLifecycleModelTeardownSelector()
-
-	k8sStorageBaseDir = getK8sStorageBaseDir()
 }
 
 // compileK8sCloudCheckers compiles/validates the collection of
@@ -144,12 +140,4 @@ func compileLifecycleModelTeardownSelector() k8slabels.Selector {
 				labelResourceLifeCycleValuePersistent,
 			}},
 	)
-}
-
-func getK8sStorageBaseDir() string {
-	s, err := paths.StorageDir(CAASProviderType)
-	if err != nil {
-		panic(err)
-	}
-	return s
 }

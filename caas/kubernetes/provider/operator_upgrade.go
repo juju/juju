@@ -92,7 +92,7 @@ func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBr
 		broker UpgradeCAASOperatorBroker) func() (bool, error) {
 
 		return func() (done bool, err error) {
-			labelSelector := utils.LabelSetToSelector(labelSet).String()
+			labelSelector := k8sutils.LabelSetToSelector(labelSet).String()
 			podList, err := broker.Client().CoreV1().Pods(broker.Namespace()).
 				List(context.TODO(), meta.ListOptions{
 					LabelSelector: labelSelector,

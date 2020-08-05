@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package utils
+package k8sutils
 
 import (
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -11,8 +11,8 @@ import (
 
 func ResourceTagsToAnnotations(in map[string]string) annotations.Annotation {
 	tagsAnnotationsMap := map[string]string{
-		tags.JujuController: constants.AnnotationControllerUUIDKey,
-		tags.JujuModel:      constants.AnnotationModelUUIDKey,
+		tags.JujuController: k8sconstants.AnnotationControllerUUIDKey(),
+		tags.JujuModel:      k8sconstants.AnnotationModelUUIDKey(),
 	}
 
 	out := annotations.New(nil)

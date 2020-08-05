@@ -20,7 +20,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -1049,7 +1049,7 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 		return apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
-	if cloudArgs.Cloud.Type != string(provider.K8s_ProviderType) {
+	if cloudArgs.Cloud.Type != string(k8sconstants.StorageProviderType) {
 		// All non-k8s cloud need to go through whitelist.
 		controllerInfo, err := api.backend.ControllerInfo()
 		if err != nil {

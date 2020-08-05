@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resources
+package k8sresources
 
 import (
 	"context"
@@ -71,7 +71,7 @@ func (d *Deployment) Get(ctx context.Context, client kubernetes.Interface) error
 func (d *Deployment) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.AppsV1().Deployments(d.Namespace)
 	err := api.Delete(ctx, d.Name, metav1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

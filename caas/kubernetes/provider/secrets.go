@@ -22,7 +22,7 @@ import (
 
 func (k *kubernetesClient) getSecretLabels(appName string) map[string]string {
 	return map[string]string{
-		constants.LabelApplication: appName,
+		k8sconstants.LabelApplication: appName,
 	}
 }
 
@@ -140,7 +140,7 @@ func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
 
 // createSecret creates a secret resource.
 func (k *kubernetesClient) createSecret(secret *core.Secret) (*core.Secret, error) {
-	utils.PurifyResource(secret)
+	k8sutils.PurifyResource(secret)
 	out, err := k.client().CoreV1().Secrets(k.namespace).Create(context.TODO(), secret, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("secret %q", secret.GetName())
@@ -150,7 +150,7 @@ func (k *kubernetesClient) createSecret(secret *core.Secret) (*core.Secret, erro
 
 // deleteSecret deletes a secret resource.
 func (k *kubernetesClient) deleteSecret(secretName string, uid types.UID) error {
-	err := k.client().CoreV1().Secrets(k.namespace).Delete(context.TODO(), secretName, utils.NewPreconditionDeleteOptions(uid))
+	err := k.client().CoreV1().Secrets(k.namespace).Delete(context.TODO(), secretName, k8sutils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -159,7 +159,7 @@ func (k *kubernetesClient) deleteSecret(secretName string, uid types.UID) error 
 
 func (k *kubernetesClient) listSecrets(labels map[string]string) ([]core.Secret, error) {
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(labels).String(),
+		LabelSelector: k8sutils.LabelSetToSelector(labels).String(),
 	}
 	secList, err := k.client().CoreV1().Secrets(k.namespace).List(context.TODO(), listOps)
 	if err != nil {
@@ -173,9 +173,9 @@ func (k *kubernetesClient) listSecrets(labels map[string]string) ([]core.Secret,
 
 func (k *kubernetesClient) deleteSecrets(appName string) error {
 	err := k.client().CoreV1().Secrets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(k.getSecretLabels(appName)).String(),
+		LabelSelector: k8sutils.LabelSetToSelector(k.getSecretLabels(appName)).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

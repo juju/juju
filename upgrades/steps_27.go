@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/agent"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/paths"
 )
 
@@ -144,8 +144,8 @@ func resetLogPermissions(context Context) error {
 
 	// For now a CAAS cannot be machineTagKind so it will not come as far as here for k8.
 	// But to make sure for future refactoring, which are planned, we check here as well.
-	if context.AgentConfig().Value(agent.ProviderType) == k8sprovider.CAASProviderType {
-		logger.Infof("skipping agent %q, is CAAS", k8sprovider.CAASProviderType)
+	if context.AgentConfig().Value(agent.ProviderType) == caasconstants.CAASProviderType {
+		logger.Infof("skipping agent %q, is CAAS", caasconstants.CAASProviderType)
 		return nil
 	}
 

@@ -13,6 +13,8 @@ import (
 	charmscommon "github.com/juju/juju/api/common/charms"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -108,7 +110,9 @@ type ProvisioningInfo struct {
 	APIAddresses []string
 	CACert       string
 	Tags         map[string]string
-	CharmStorage *storage.KubernetesFilesystemParams
+	Constraints  constraints.Value
+	Filesystems  []storage.KubernetesFilesystemParams
+	Devices      []devices.KubernetesDeviceParams
 }
 
 // ProvisioningInfo returns the info needed to provision an operator for an application.
@@ -123,25 +127,37 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 	if len(result.Results) != 1 {
 		return ProvisioningInfo{}, errors.Errorf("expected one result, got %d", len(result.Results))
 	}
-	info := result.Results[0]
-	if err := info.Error; err != nil {
+	r := result.Results[0]
+	if err := r.Error; err != nil {
 		return ProvisioningInfo{}, errors.Trace(err)
 	}
-	return ProvisioningInfo{
-		ImagePath:    info.ImagePath,
-		Version:      info.Version,
-		APIAddresses: info.APIAddresses,
-		CACert:       info.CACert,
-		Tags:         info.Tags,
-		CharmStorage: filesystemFromParams(info.CharmStorage),
-	}, nil
+
+	info := ProvisioningInfo{
+		ImagePath:    r.ImagePath,
+		Version:      r.Version,
+		APIAddresses: r.APIAddresses,
+		CACert:       r.CACert,
+		Tags:         r.Tags,
+		Constraints:  r.Constraints,
+	}
+
+	for _, fs := range r.Filesystems {
+		info.Filesystems = append(info.Filesystems, filesystemFromParams(fs))
+	}
+
+	for _, device := range r.Devices {
+		info.Devices = append(info.Devices, devices.KubernetesDeviceParams{
+			Type:       devices.DeviceType(device.Type),
+			Count:      device.Count,
+			Attributes: device.Attributes,
+		})
+	}
+
+	return info, nil
 }
 
-func filesystemFromParams(in *params.KubernetesFilesystemParams) *storage.KubernetesFilesystemParams {
-	if in == nil {
-		return nil
-	}
-	return &storage.KubernetesFilesystemParams{
+func filesystemFromParams(in params.KubernetesFilesystemParams) storage.KubernetesFilesystemParams {
+	return storage.KubernetesFilesystemParams{
 		StorageName:  in.StorageName,
 		Provider:     storage.ProviderType(in.Provider),
 		Size:         in.Size,

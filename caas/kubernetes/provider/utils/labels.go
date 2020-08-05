@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package utils
+package k8sutils
 
 import (
 	k8slabels "k8s.io/apimachinery/pkg/labels"
@@ -35,7 +35,7 @@ func AppendLabels(dest map[string]string, sources ...map[string]string) map[stri
 // application name
 func LabelsForApp(name string) map[string]string {
 	return map[string]string{
-		constants.LabelApplication: name,
+		k8sconstants.LabelApplication: name,
 	}
 }
 
@@ -43,6 +43,6 @@ func LabelsForApp(name string) map[string]string {
 // model name
 func LabelsForModel(name string) map[string]string {
 	return map[string]string{
-		constants.LabelModel: name,
+		k8sconstants.LabelModel: name,
 	}
 }

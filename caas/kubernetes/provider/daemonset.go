@@ -18,7 +18,7 @@ import (
 
 func (k *kubernetesClient) getDaemonSetLabels(appName string) map[string]string {
 	return map[string]string{
-		constants.LabelApplication: appName,
+		k8sconstants.LabelApplication: appName,
 	}
 }
 
@@ -47,7 +47,7 @@ func (k *kubernetesClient) ensureDaemonSet(spec *apps.DaemonSet) (func(), error)
 }
 
 func (k *kubernetesClient) createDaemonSet(spec *apps.DaemonSet) (*apps.DaemonSet, error) {
-	utils.PurifyResource(spec)
+	k8sutils.PurifyResource(spec)
 	out, err := k.client().AppsV1().DaemonSets(k.namespace).Create(context.TODO(), spec, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("daemon set %q", spec.GetName())
@@ -72,7 +72,7 @@ func (k *kubernetesClient) updateDaemonSet(spec *apps.DaemonSet) (*apps.DaemonSe
 }
 
 func (k *kubernetesClient) deleteDaemonSet(name string, uid types.UID) error {
-	err := k.client().AppsV1().DaemonSets(k.namespace).Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
+	err := k.client().AppsV1().DaemonSets(k.namespace).Delete(context.TODO(), name, k8sutils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -81,7 +81,7 @@ func (k *kubernetesClient) deleteDaemonSet(name string, uid types.UID) error {
 
 func (k *kubernetesClient) listDaemonSets(labels map[string]string) ([]apps.DaemonSet, error) {
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(labels).String(),
+		LabelSelector: k8sutils.LabelSetToSelector(labels).String(),
 	}
 	out, err := k.client().AppsV1().DaemonSets(k.namespace).List(context.TODO(), listOps)
 	if err != nil {
@@ -95,9 +95,9 @@ func (k *kubernetesClient) listDaemonSets(labels map[string]string) ([]apps.Daem
 
 func (k *kubernetesClient) deleteDaemonSets(appName string) error {
 	err := k.client().AppsV1().DaemonSets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(k.getDaemonSetLabels(appName)).String(),
+		LabelSelector: k8sutils.LabelSetToSelector(k.getDaemonSetLabels(appName)).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

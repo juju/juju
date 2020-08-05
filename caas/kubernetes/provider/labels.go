@@ -8,9 +8,9 @@ import (
 )
 
 func (k *kubernetesClient) getlabelsForApp(appName string, isNamespaced bool) map[string]string {
-	labels := utils.LabelsForApp(appName)
+	labels := k8sutils.LabelsForApp(appName)
 	if !isNamespaced {
-		labels = utils.AppendLabels(labels, utils.LabelsForModel(k.CurrentModel()))
+		labels = k8sutils.AppendLabels(labels, k8sutils.LabelsForModel(k.CurrentModel()))
 	}
 	return labels
 }

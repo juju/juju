@@ -4,10 +4,13 @@
 package caasapplicationprovisioner
 
 import (
+	"time"
+
 	"github.com/juju/charm/v7"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -27,6 +30,7 @@ type CAASApplicationProvisionerState interface {
 	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
 	Application(string) (Application, error)
+	ResolveConstraints(cons constraints.Value) (constraints.Value, error)
 }
 
 type Model interface {
@@ -40,6 +44,10 @@ type Application interface {
 	SetOperatorStatus(status.StatusInfo) error
 	AllUnits() ([]Unit, error)
 	UpdateUnits(unitsOp *state.UpdateUnitsOperation) error
+	StorageConstraints() (map[string]state.StorageConstraints, error)
+	DeviceConstraints() (map[string]state.DeviceConstraints, error)
+	Name() string
+	Constraints() (constraints.Value, error)
 }
 
 type Charm interface {
@@ -92,4 +100,31 @@ func (a *applicationShim) AllUnits() ([]Unit, error) {
 		res = append(res, unit)
 	}
 	return res, nil
+}
+
+// StorageBackend provides the subset of backend storage
+// functionality required by the CAAS unit provisioner facade.
+type StorageBackend interface {
+	StorageInstance(names.StorageTag) (state.StorageInstance, error)
+	Filesystem(names.FilesystemTag) (state.Filesystem, error)
+	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
+	UnitStorageAttachments(unit names.UnitTag) ([]state.StorageAttachment, error)
+	SetFilesystemInfo(names.FilesystemTag, state.FilesystemInfo) error
+	SetFilesystemAttachmentInfo(names.Tag, names.FilesystemTag, state.FilesystemAttachmentInfo) error
+	Volume(tag names.VolumeTag) (state.Volume, error)
+	StorageInstanceVolume(tag names.StorageTag) (state.Volume, error)
+	SetVolumeInfo(names.VolumeTag, state.VolumeInfo) error
+	SetVolumeAttachmentInfo(names.Tag, names.VolumeTag, state.VolumeAttachmentInfo) error
+
+	// These are for cleanup up orphaned filesystems when pods are recreated.
+	// TODO(caas) - record unit id on the filesystem so we can query by unit
+	AllFilesystems() ([]state.Filesystem, error)
+	DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait time.Duration) (err error)
+	DestroyFilesystem(tag names.FilesystemTag, force bool) (err error)
+}
+
+// DeviceBackend provides the subset of backend Device
+// functionality required by the CAAS unit provisioner facade.
+type DeviceBackend interface {
+	DeviceConstraints(id string) (map[string]state.DeviceConstraints, error)
 }

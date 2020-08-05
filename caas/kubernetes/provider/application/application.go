@@ -1,17 +1,21 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package application
+package k8sapplication
 
 import (
 	"context"
+	"fmt"
 	"path"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
+	"github.com/kr/pretty"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -20,13 +24,15 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/resources"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sresources "github.com/juju/juju/caas/kubernetes/provider/resources"
+	k8sstorage "github.com/juju/juju/caas/kubernetes/provider/storage"
+	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/storage"
 )
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.application")
@@ -73,8 +79,8 @@ func (a *app) Ensure(config *caas.ApplicationConfig) (err error) {
 		return errors.NotValidf("charm deployment type mismatch with application")
 	}
 
-	applier := resources.Applier{}
-	secret := resources.Secret{
+	applier := k8sresources.Applier{}
+	secret := k8sresources.Secret{
 		Secret: corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        a.secretName(),
@@ -93,7 +99,7 @@ func (a *app) Ensure(config *caas.ApplicationConfig) (err error) {
 	}
 	applier.Apply(&secret)
 
-	service := resources.Service{
+	service := k8sresources.Service{
 		Service: corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        a.name,
@@ -120,15 +126,34 @@ func (a *app) Ensure(config *caas.ApplicationConfig) (err error) {
 	applier.Apply(&service)
 
 	// Set up the parameters for creating charm storage (if required).
-	pod, err := a.applicationPod(config)
+	podSpec, err := a.applicationPodSpec(config)
 	if err != nil {
 		return errors.Annotate(err, "generating application podspec")
+	}
+
+	var handleVolume handleVolumeFunc = func(v corev1.Volume) error {
+		podSpec.Volumes = append(podSpec.Volumes, v)
+		return nil
+	}
+	var handleVolumeMount handleVolumeMountFunc = func(m corev1.VolumeMount) error {
+		for i := range podSpec.Containers {
+			podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, m)
+		}
+		return nil
+	}
+	var createPVC handlePVCFunc = func(pvc corev1.PersistentVolumeClaim) error {
+		r := k8sresources.PersistentVolumeClaim{
+			PersistentVolumeClaim: pvc,
+		}
+		r.Namespace = a.namespace
+		applier.Apply(&r)
+		return nil
 	}
 
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
 		numPods := int32(1)
-		statefulset := resources.StatefulSet{
+		statefulset := k8sresources.StatefulSet{
 			StatefulSet: appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        a.name,
@@ -144,18 +169,25 @@ func (a *app) Ensure(config *caas.ApplicationConfig) (err error) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels:      a.labels(),
-							Annotations: pod.Annotations,
+							Annotations: a.annotations(config),
 						},
+						Spec: *podSpec,
 					},
 					PodManagementPolicy: appsv1.ParallelPodManagement,
 				},
 			},
 		}
-		statefulset.Spec.Template.Spec = pod.Spec
+		err = a.configureStorage(config.Filesystems, handleVolume, handleVolumeMount, func(pvc corev1.PersistentVolumeClaim) error {
+			statefulset.Spec.VolumeClaimTemplates = append(statefulset.Spec.VolumeClaimTemplates, pvc)
+			return nil
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
 		applier.Apply(&statefulset)
 	case caas.DeploymentStateless:
 		numPods := int32(1)
-		deployment := resources.Deployment{
+		deployment := k8sresources.Deployment{
 			Deployment: appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        a.name,
@@ -171,16 +203,20 @@ func (a *app) Ensure(config *caas.ApplicationConfig) (err error) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels:      a.labels(),
-							Annotations: pod.Annotations,
+							Annotations: a.annotations(config),
 						},
+						Spec: *podSpec,
 					},
 				},
 			},
 		}
-		deployment.Spec.Template.Spec = pod.Spec
+		err = a.configureStorage(config.Filesystems, handleVolume, handleVolumeMount, createPVC)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		applier.Apply(&deployment)
 	case caas.DeploymentDaemon:
-		daemonset := resources.DaemonSet{
+		daemonset := k8sresources.DaemonSet{
 			DaemonSet: appsv1.DaemonSet{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        a.name,
@@ -195,13 +231,17 @@ func (a *app) Ensure(config *caas.ApplicationConfig) (err error) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels:      a.labels(),
-							Annotations: pod.Annotations,
+							Annotations: a.annotations(config),
 						},
+						Spec: *podSpec,
 					},
 				},
 			},
 		}
-		daemonset.Spec.Template.Spec = pod.Spec
+		err = a.configureStorage(config.Filesystems, handleVolume, handleVolumeMount, createPVC)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		applier.Apply(&daemonset)
 	default:
 		return errors.NotSupportedf("unknown deployment type")
@@ -257,7 +297,7 @@ func (a *app) Exists() (caas.DeploymentState, error) {
 }
 
 func (a *app) statefulSetExists() (exists bool, terminating bool, err error) {
-	ss := resources.NewStatefulSet(a.name, a.namespace)
+	ss := k8sresources.NewStatefulSet(a.name, a.namespace)
 	err = ss.Get(context.Background(), a.client)
 	if errors.IsNotFound(err) {
 		return false, false, nil
@@ -268,7 +308,7 @@ func (a *app) statefulSetExists() (exists bool, terminating bool, err error) {
 }
 
 func (a *app) deploymentExists() (exists bool, terminating bool, err error) {
-	ss := resources.NewDeployment(a.name, a.namespace)
+	ss := k8sresources.NewDeployment(a.name, a.namespace)
 	err = ss.Get(context.Background(), a.client)
 	if errors.IsNotFound(err) {
 		return false, false, nil
@@ -279,7 +319,7 @@ func (a *app) deploymentExists() (exists bool, terminating bool, err error) {
 }
 
 func (a *app) daemonSetExists() (exists bool, terminating bool, err error) {
-	ss := resources.NewDaemonSet(a.name, a.namespace)
+	ss := k8sresources.NewDaemonSet(a.name, a.namespace)
 	err = ss.Get(context.Background(), a.client)
 	if errors.IsNotFound(err) {
 		return false, false, nil
@@ -290,7 +330,7 @@ func (a *app) daemonSetExists() (exists bool, terminating bool, err error) {
 }
 
 func (a *app) secretExists() (exists bool, terminating bool, err error) {
-	ss := resources.NewSecret(a.secretName(), a.namespace)
+	ss := k8sresources.NewSecret(a.secretName(), a.namespace)
 	err = ss.Get(context.Background(), a.client)
 	if errors.IsNotFound(err) {
 		return false, false, nil
@@ -301,7 +341,7 @@ func (a *app) secretExists() (exists bool, terminating bool, err error) {
 }
 
 func (a *app) serviceExists() (exists bool, terminating bool, err error) {
-	ss := resources.NewService(a.name, a.namespace)
+	ss := k8sresources.NewService(a.name, a.namespace)
 	err = ss.Get(context.Background(), a.client)
 	if errors.IsNotFound(err) {
 		return false, false, nil
@@ -314,19 +354,19 @@ func (a *app) serviceExists() (exists bool, terminating bool, err error) {
 // Delete deletes the specified application.
 func (a *app) Delete() error {
 	logger.Debugf("deleting %s application", a.name)
-	applier := &resources.Applier{}
+	applier := &k8sresources.Applier{}
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
-		applier.Delete(resources.NewStatefulSet(a.name, a.namespace))
+		applier.Delete(k8sresources.NewStatefulSet(a.name, a.namespace))
 	case caas.DeploymentStateless:
-		applier.Delete(resources.NewDeployment(a.name, a.namespace))
+		applier.Delete(k8sresources.NewDeployment(a.name, a.namespace))
 	case caas.DeploymentDaemon:
-		applier.Delete(resources.NewDaemonSet(a.name, a.namespace))
+		applier.Delete(k8sresources.NewDaemonSet(a.name, a.namespace))
 	default:
 		return errors.NotSupportedf("unknown deployment type")
 	}
-	applier.Delete(resources.NewService(a.name, a.namespace))
-	applier.Delete(resources.NewSecret(a.secretName(), a.namespace))
+	applier.Delete(k8sresources.NewService(a.name, a.namespace))
+	applier.Delete(k8sresources.NewSecret(a.secretName(), a.namespace))
 	return applier.Run(context.Background(), a.client)
 }
 
@@ -367,7 +407,7 @@ func (a *app) State() (caas.ApplicationState, error) {
 	state := caas.ApplicationState{}
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
-		ss := resources.NewStatefulSet(a.name, a.namespace)
+		ss := k8sresources.NewStatefulSet(a.name, a.namespace)
 		err := ss.Get(context.Background(), a.client)
 		if err != nil {
 			return caas.ApplicationState{}, errors.Trace(err)
@@ -377,7 +417,7 @@ func (a *app) State() (caas.ApplicationState, error) {
 		}
 		state.DesiredReplicas = int(*ss.Spec.Replicas)
 	case caas.DeploymentStateless:
-		d := resources.NewDeployment(a.name, a.namespace)
+		d := k8sresources.NewDeployment(a.name, a.namespace)
 		err := d.Get(context.Background(), a.client)
 		if err != nil {
 			return caas.ApplicationState{}, errors.Trace(err)
@@ -387,7 +427,7 @@ func (a *app) State() (caas.ApplicationState, error) {
 		}
 		state.DesiredReplicas = int(*d.Spec.Replicas)
 	case caas.DeploymentDaemon:
-		d := resources.NewDeployment(a.name, a.namespace)
+		d := k8sresources.NewDeployment(a.name, a.namespace)
 		err := d.Get(context.Background(), a.client)
 		if err != nil {
 			return caas.ApplicationState{}, errors.Trace(err)
@@ -416,9 +456,9 @@ func (a *app) State() (caas.ApplicationState, error) {
 	return state, nil
 }
 
-// applicationPod returns a *core.Pod for the application pod
+// applicationPodSpec returns a PodSpec for the application pod
 // of the specified application.
-func (a *app) applicationPod(config *caas.ApplicationConfig) (*corev1.Pod, error) {
+func (a *app) applicationPodSpec(config *caas.ApplicationConfig) (*corev1.PodSpec, error) {
 	appSecret := a.secretName()
 
 	if config.Charm.Meta().Deployment == nil {
@@ -445,102 +485,95 @@ func (a *app) applicationPod(config *caas.ApplicationConfig) (*corev1.Pod, error
 
 	automountToken := false
 	readOnly := true
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        a.name,
-			Annotations: a.annotations(config),
-			Labels:      a.labels(),
-		},
-		Spec: corev1.PodSpec{
-			AutomountServiceAccountToken: &automountToken,
-			InitContainers: []corev1.Container{{
-				Name:            "juju-unit-init",
-				ImagePullPolicy: corev1.PullIfNotPresent,
-				Image:           config.AgentImagePath,
-				WorkingDir:      jujuDataDir,
-				Command:         []string{"/opt/k8sagent"},
-				Args:            []string{"init"},
-				Env: []corev1.EnvVar{
-					{
-						Name: "JUJU_K8S_POD_NAME",
-						ValueFrom: &corev1.EnvVarSource{
-							FieldRef: &corev1.ObjectFieldSelector{
-								FieldPath: "metadata.name",
-							},
-						},
-					},
-					{
-						Name: "JUJU_K8S_POD_UUID",
-						ValueFrom: &corev1.EnvVarSource{
-							FieldRef: &corev1.ObjectFieldSelector{
-								FieldPath: "metadata.uid",
-							},
+	return &corev1.PodSpec{
+		AutomountServiceAccountToken: &automountToken,
+		InitContainers: []corev1.Container{{
+			Name:            "juju-unit-init",
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Image:           config.AgentImagePath,
+			WorkingDir:      jujuDataDir,
+			Command:         []string{"/opt/k8sagent"},
+			Args:            []string{"init"},
+			Env: []corev1.EnvVar{
+				{
+					Name: "JUJU_K8S_POD_NAME",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: "metadata.name",
 						},
 					},
 				},
-				EnvFrom: []corev1.EnvFromSource{{
-					SecretRef: &corev1.SecretEnvSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: appSecret,
+				{
+					Name: "JUJU_K8S_POD_UUID",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: "metadata.uid",
 						},
 					},
-				}},
-				VolumeMounts: []corev1.VolumeMount{{
-					Name:      "juju-data-dir",
-					MountPath: jujuDataDir,
-				}},
-			}},
-			Containers: []corev1.Container{{
-				Name:            config.Charm.Meta().Name,
-				ImagePullPolicy: corev1.PullIfNotPresent,
-				Image:           containerImageName,
-				WorkingDir:      jujuDataDir,
-				Command:         []string{"/juju/charm-base/opt/k8sagent"},
-				Args:            []string{"unit", "--data-dir", jujuDataDir},
-				VolumeMounts: []corev1.VolumeMount{{
-					Name:      "juju-data-dir",
-					MountPath: path.Join(jujuDataDir, constants.TemplateFileNameAgentConf),
-					SubPath:   constants.TemplateFileNameAgentConf,
-				}, {
-					Name:      "juju-k8s-agent",
-					MountPath: "/juju/charm-base",
-				}},
-				Ports: containerPorts,
-			}},
-			Volumes: []corev1.Volume{{
-				Name: "juju-data-dir",
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
+			},
+			EnvFrom: []corev1.EnvFromSource{{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: appSecret,
+					},
+				},
+			}},
+			VolumeMounts: []corev1.VolumeMount{{
+				Name:      "juju-data-dir",
+				MountPath: jujuDataDir,
+			}},
+		}},
+		Containers: []corev1.Container{{
+			Name:            config.Charm.Meta().Name,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Image:           containerImageName,
+			WorkingDir:      jujuDataDir,
+			Command:         []string{"/juju/charm-base/opt/k8sagent"},
+			Args:            []string{"unit", "--data-dir", jujuDataDir},
+			VolumeMounts: []corev1.VolumeMount{{
+				Name:      "juju-data-dir",
+				MountPath: path.Join(jujuDataDir, k8sconstants.TemplateFileNameAgentConf),
+				SubPath:   k8sconstants.TemplateFileNameAgentConf,
 			}, {
-				Name: "juju-k8s-agent",
-				VolumeSource: corev1.VolumeSource{
-					CSI: &corev1.CSIVolumeSource{
-						Driver:   "image.csi.k8s.juju.is",
-						ReadOnly: &readOnly,
-						VolumeAttributes: map[string]string{
-							"image": config.AgentImagePath,
-						},
+				Name:      "juju-k8s-agent",
+				MountPath: "/juju/charm-base",
+			}},
+			Ports: containerPorts,
+		}},
+		Volumes: []corev1.Volume{{
+			Name: "juju-data-dir",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		}, {
+			Name: "juju-k8s-agent",
+			VolumeSource: corev1.VolumeSource{
+				CSI: &corev1.CSIVolumeSource{
+					Driver:   "image.csi.k8s.juju.is",
+					ReadOnly: &readOnly,
+					VolumeAttributes: map[string]string{
+						"image": config.AgentImagePath,
 					},
 				},
-			}},
-		},
+			},
+		}},
 	}, nil
 }
 
 func (a *app) annotations(config *caas.ApplicationConfig) annotations.Annotation {
-	annotations := utils.ResourceTagsToAnnotations(config.ResourceTags).
-		Add(constants.LabelVersion, config.AgentVersion.String())
+	annotations := k8sutils.ResourceTagsToAnnotations(config.ResourceTags).
+		Add(k8sconstants.LabelVersion, config.AgentVersion.String())
 	return annotations
 }
 
 func (a *app) labels() map[string]string {
-	return map[string]string{constants.LabelApplication: a.name}
+	return map[string]string{k8sconstants.LabelApplication: a.name}
 }
 
 func (a *app) labelSelector() string {
-	return utils.LabelSetToSelector(map[string]string{
-		constants.LabelApplication: a.name,
+	return k8sutils.LabelSetToSelector(map[string]string{
+		k8sconstants.LabelApplication: a.name,
 	}).String()
 }
 
@@ -553,4 +586,91 @@ func (a *app) fieldSelector() string {
 
 func (a *app) secretName() string {
 	return a.name + "-application-config"
+}
+
+type handleVolumeFunc func(corev1.Volume) error
+type handleVolumeMountFunc func(corev1.VolumeMount) error
+type handlePVCFunc func(corev1.PersistentVolumeClaim) error
+
+func (a *app) configureStorage(filesystems []storage.KubernetesFilesystemParams,
+	handleVolume handleVolumeFunc,
+	handleVolumeMount handleVolumeMountFunc,
+	handlePVC handlePVCFunc,
+) error {
+	fsNames := set.NewStrings()
+	for index, fs := range filesystems {
+		if fsNames.Contains(fs.StorageName) {
+			return errors.NotValidf("duplicated storage name %q for %q", fs.StorageName, a.name)
+		}
+		fsNames.Add(fs.StorageName)
+
+		readOnly := false
+		if fs.Attachment != nil {
+			readOnly = fs.Attachment.ReadOnly
+		}
+
+		name := fmt.Sprintf("%s-%s", a.name, fs.StorageName)
+		vol, pvc, err := a.filesystemToVolumeInfo(name, fs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		mountPath := k8sstorage.GetMountPathForFilesystem(index, a.name, fs)
+		if vol != nil && handleVolume != nil {
+			logger.Debugf("using volume for %s filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(*vol))
+			err = handleVolume(*vol)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+		if pvc != nil && handlePVC != nil {
+			logger.Debugf("using persistent volume claim for %s filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(*pvc))
+			err = handlePVC(*pvc)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+		err = handleVolumeMount(corev1.VolumeMount{
+			Name:      name,
+			MountPath: mountPath,
+			ReadOnly:  readOnly,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (a *app) filesystemToVolumeInfo(name string, fs storage.KubernetesFilesystemParams) (*corev1.Volume, *corev1.PersistentVolumeClaim, error) {
+	fsSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", fs.Size))
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "invalid volume size %v", fs.Size)
+	}
+
+	volumeSource, err := k8sstorage.VolumeSourceForFilesystem(fs)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	if volumeSource != nil {
+		vol := &corev1.Volume{
+			Name:         name,
+			VolumeSource: *volumeSource,
+		}
+		return vol, nil, nil
+	}
+
+	params, err := k8sstorage.ParseVolumeParams(name, fsSize, fs.Attributes)
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "getting volume params for %s", fs.StorageName)
+	}
+	pvcSpec := k8sstorage.PersistantVolumeClaimSpec(*params)
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: params.Name,
+			Annotations: k8sutils.ResourceTagsToAnnotations(fs.ResourceTags).
+				Add(k8sconstants.LabelStorage, fs.StorageName).ToMap(),
+		},
+		Spec: *pvcSpec,
+	}
+	return nil, pvc, nil
 }

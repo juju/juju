@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 )
@@ -21,7 +22,7 @@ func attemptMicroK8sCloud(cmdRunner CommandRunner) (cloud.Cloud, jujucloud.Crede
 		ClusterName:   caas.MicroK8sClusterName,
 		CloudName:     caas.K8sCloudMicrok8s,
 		CredentialUID: caas.K8sCloudMicrok8s,
-		CaasType:      CAASProviderType,
+		CaasType:      k8sconstants.CAASProviderType,
 		ClientConfigGetter: func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			return clientconfig.NewClientConfigReader(caasType)
 		},

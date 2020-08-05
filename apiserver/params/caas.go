@@ -3,7 +3,10 @@
 
 package params
 
-import "github.com/juju/version"
+import (
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/version"
+)
 
 // CAASUnitIntroductionArgs is used by embedded units to introduce
 // themselves via CAASApplication facade.
@@ -31,13 +34,16 @@ type CAASApplicationProvisioningInfoResults struct {
 
 // CAASApplicationProvisioningInfo holds info needed to provision a caas application.
 type CAASApplicationProvisioningInfo struct {
-	ImagePath    string                      `json:"image-path"`
-	Version      version.Number              `json:"version"`
-	APIAddresses []string                    `json:"api-addresses"`
-	CACert       string                      `json:"ca-cert"`
-	Tags         map[string]string           `json:"tags,omitempty"`
-	CharmStorage *KubernetesFilesystemParams `json:"charm-storage,omitempty"`
-	Error        *Error                      `json:"error,omitempty"`
+	ImagePath    string                       `json:"image-path"`
+	Version      version.Number               `json:"version"`
+	APIAddresses []string                     `json:"api-addresses"`
+	CACert       string                       `json:"ca-cert"`
+	Constraints  constraints.Value            `json:"constraints"`
+	Tags         map[string]string            `json:"tags,omitempty"`
+	Filesystems  []KubernetesFilesystemParams `json:"filesystems,omitempty"`
+	Volumes      []KubernetesVolumeParams     `json:"volumes,omitempty"`
+	Devices      []KubernetesDeviceParams     `json:"devices,omitempty"`
+	Error        *Error                       `json:"error,omitempty"`
 }
 
 // CAASApplicationGarbageCollectArg holds info needed to cleanup units that have

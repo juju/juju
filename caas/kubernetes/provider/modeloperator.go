@@ -129,7 +129,7 @@ func ensureModelOperator(
 				Items: []core.KeyToPath{
 					{
 						Key:  modelOperatorConfigMapAgentConfKey(modelOperatorName),
-						Path: constants.TemplateFileNameAgentConf,
+						Path: k8sconstants.TemplateFileNameAgentConf,
 					},
 				},
 			},
@@ -139,8 +139,8 @@ func ensureModelOperator(
 	volumeMounts := []core.VolumeMount{
 		{
 			Name:      configMap.Name,
-			MountPath: filepath.Join(agent.Dir(agentPath, modelTag), constants.TemplateFileNameAgentConf),
-			SubPath:   constants.TemplateFileNameAgentConf,
+			MountPath: filepath.Join(agent.Dir(agentPath, modelTag), k8sconstants.TemplateFileNameAgentConf),
+			SubPath:   k8sconstants.TemplateFileNameAgentConf,
 		},
 	}
 
@@ -229,7 +229,7 @@ func modelOperatorConfigMap(
 		ObjectMeta: meta.ObjectMeta{
 			Name:      operatorName,
 			Namespace: namespace,
-			Labels:    utils.AppendLabels(labels, moLabels),
+			Labels:    k8sutils.AppendLabels(labels, moLabels),
 		},
 		Data: map[string]string{
 			modelOperatorConfigMapAgentConfKey(operatorName): string(agentConf),
@@ -261,7 +261,7 @@ func modelOperatorDeployment(
 		ObjectMeta: meta.ObjectMeta{
 			Name:      operatorName,
 			Namespace: namespace,
-			Labels:    utils.AppendLabels(labels, moLabels),
+			Labels:    k8sutils.AppendLabels(labels, moLabels),
 		},
 		Spec: apps.DeploymentSpec{
 			Replicas: int32Ptr(1),
@@ -346,7 +346,7 @@ func (k *kubernetesClient) modelOperatorDeploymentExists(operatorName string) (b
 
 func modelOperatorLabels(operatorName string) map[string]string {
 	return map[string]string{
-		constants.LabelModelOperator: operatorName,
+		k8sconstants.LabelModelOperator: operatorName,
 	}
 }
 

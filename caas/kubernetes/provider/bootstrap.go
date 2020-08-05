@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
@@ -140,7 +140,7 @@ type controllerStacker interface {
 
 func controllerCorelation(broker *kubernetesClient) (string, error) {
 	// ensure controller specific annotations.
-	_ = broker.addAnnotations(constants.AnnotationControllerIsControllerKey, "true")
+	_ = broker.addAnnotations(k8sconstants.AnnotationControllerIsControllerKey(), "true")
 
 	ns, err := broker.listNamespacesByAnnotations(broker.GetAnnotations())
 	if errors.IsNotFound(err) || ns == nil {
@@ -203,8 +203,8 @@ func newcontrollerStack(
 	cs := &controllerStack{
 		ctx:              ctx,
 		stackName:        stackName,
-		stackLabels:      map[string]string{constants.LabelApplication: stackName},
-		stackAnnotations: map[string]string{constants.AnnotationControllerUUIDKey: pcfg.ControllerTag.Id()},
+		stackLabels:      map[string]string{k8sconstants.LabelApplication: stackName},
+		stackAnnotations: map[string]string{k8sconstants.AnnotationControllerUUIDKey(): pcfg.ControllerTag.Id()},
 		broker:           broker,
 
 		pcfg:        pcfg,
@@ -220,7 +220,7 @@ func newcontrollerStack(
 		fileNameSSLKeyMount:     TemplateFileNameServerPEM,
 		fileNameBootstrapParams: cloudconfig.FileNameBootstrapParams,
 		fileNameAgentConf:       agent.AgentConfigFilename,
-		fileNameAgentConfMount:  constants.TemplateFileNameAgentConf,
+		fileNameAgentConfMount:  k8sconstants.TemplateFileNameAgentConf,
 
 		resourceNameStatefulSet: stackName,
 	}

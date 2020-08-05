@@ -228,6 +228,9 @@ func (a *appWorker) alive(app caas.Application) error {
 		ControllerAddresses:  strings.Join(provisionInfo.APIAddresses, ","),
 		ControllerCertBundle: provisionInfo.CACert,
 		ResourceTags:         provisionInfo.Tags,
+		Constraints:          provisionInfo.Constraints,
+		Filesystems:          provisionInfo.Filesystems,
+		Devices:              provisionInfo.Devices,
 	}
 	err = app.Ensure(config)
 	if err != nil {

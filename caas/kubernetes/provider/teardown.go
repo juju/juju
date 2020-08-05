@@ -21,7 +21,7 @@ func (k *kubernetesClient) deleteClusterScopeResourcesModelTeardown(ctx context.
 	defer wg.Done()
 
 	labels := map[string]string{
-		constants.LabelModel: k.namespace,
+		k8sconstants.LabelModel: k.namespace,
 	}
 	selector := k8slabels.NewSelector().Add(
 		labelSetToRequirements(labels)...,

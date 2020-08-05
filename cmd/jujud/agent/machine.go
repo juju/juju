@@ -42,7 +42,7 @@ import (
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
@@ -219,7 +219,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 	if err := os.MkdirAll(config.LogDir(), 0644); err != nil {
 		logger.Warningf("cannot create log dir: %v", err)
 	}
-	a.isCaas = config.Value(agent.ProviderType) == k8sprovider.CAASProviderType
+	a.isCaas = config.Value(agent.ProviderType) == caasconstants.CAASProviderType
 
 	if !a.logToStdErr {
 		// the context's stderr is set as the loggo writer in github.com/juju/cmd/logging.go

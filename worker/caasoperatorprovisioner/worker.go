@@ -22,7 +22,7 @@ import (
 	charmscommon "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/storage"
@@ -288,7 +288,7 @@ func (p *provisioner) updateOperatorConfig(appName, password string, prevCfg caa
 	// Operators may have storage configured because charms
 	// have persistent state which must be preserved between any
 	// operator restarts. Newer charms though store state in the controller.
-	if info.CharmStorage != nil && info.CharmStorage.Provider != provider.K8s_ProviderType {
+	if info.CharmStorage != nil && info.CharmStorage.Provider != k8sconstants.StorageProviderType {
 		if spType := info.CharmStorage.Provider; spType == "" {
 			return nil, errors.NotValidf("missing operator storage provider")
 		} else {

@@ -21,7 +21,7 @@ import (
 
 func (k *kubernetesClient) getStatefulSetLabels(appName string) map[string]string {
 	return map[string]string{
-		constants.LabelApplication: appName,
+		k8sconstants.LabelApplication: appName,
 	}
 }
 
@@ -54,7 +54,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		Spec: apps.StatefulSetSpec{
 			Replicas: replicas,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{constants.LabelApplication: appName},
+				MatchLabels: map[string]string{k8sconstants.LabelApplication: appName},
 			},
 			RevisionHistoryLimit: int32Ptr(statefulSetRevisionHistoryLimit),
 			Template: core.PodTemplateSpec{
@@ -156,7 +156,7 @@ func (k *kubernetesClient) getStatefulSet(name string) (*apps.StatefulSet, error
 // deleteStatefulSet deletes a statefulset resource.
 func (k *kubernetesClient) deleteStatefulSet(name string) error {
 	err := k.client().AppsV1().StatefulSets(k.namespace).Delete(context.TODO(), name, v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -167,9 +167,9 @@ func (k *kubernetesClient) deleteStatefulSet(name string) error {
 // deleteStatefulSet deletes all statefulset resources for an application.
 func (k *kubernetesClient) deleteStatefulSets(appName string) error {
 	err := k.client().AppsV1().StatefulSets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(k.getStatefulSetLabels(appName)).String(),
+		LabelSelector: k8sutils.LabelSetToSelector(k.getStatefulSetLabels(appName)).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

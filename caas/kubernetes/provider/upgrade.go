@@ -60,11 +60,11 @@ func upgradeDeployment(name, imagePath string, vers version.Number, broker appst
 	// just ensure juju-version to current version for now.
 	de.SetAnnotations(
 		k8sannotations.New(de.GetAnnotations()).
-			Add(constants.LabelVersion, vers.String()).ToMap(),
+			Add(k8sconstants.LabelVersion, vers.String()).ToMap(),
 	)
 	de.Spec.Template.SetAnnotations(
 		k8sannotations.New(de.Spec.Template.GetAnnotations()).
-			Add(constants.LabelVersion, vers.String()).ToMap(),
+			Add(k8sconstants.LabelVersion, vers.String()).ToMap(),
 	)
 
 	if _, err := broker.Update(context.TODO(), de, meta.UpdateOptions{}); err != nil {
@@ -95,11 +95,11 @@ func upgradeStatefulSet(name, imagePath string, vers version.Number, broker apps
 	// just ensure juju-version to current version for now.
 	ss.SetAnnotations(
 		k8sannotations.New(ss.GetAnnotations()).
-			Add(constants.LabelVersion, vers.String()).ToMap(),
+			Add(k8sconstants.LabelVersion, vers.String()).ToMap(),
 	)
 	ss.Spec.Template.SetAnnotations(
 		k8sannotations.New(ss.Spec.Template.GetAnnotations()).
-			Add(constants.LabelVersion, vers.String()).ToMap(),
+			Add(k8sconstants.LabelVersion, vers.String()).ToMap(),
 	)
 
 	if _, err := broker.Update(context.TODO(), ss, meta.UpdateOptions{}); err != nil {

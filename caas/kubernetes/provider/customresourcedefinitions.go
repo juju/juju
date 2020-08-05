@@ -32,14 +32,14 @@ import (
 
 func (k *kubernetesClient) getAPIExtensionLabelsGlobal(appName string) map[string]string {
 	return map[string]string{
-		constants.LabelApplication: appName,
-		constants.LabelModel:       k.namespace,
+		k8sconstants.LabelApplication: appName,
+		k8sconstants.LabelModel:       k.namespace,
 	}
 }
 
 func (k *kubernetesClient) getAPIExtensionLabelsNamespaced(appName string) map[string]string {
 	return map[string]string{
-		constants.LabelApplication: appName,
+		k8sconstants.LabelApplication: appName,
 	}
 }
 
@@ -99,7 +99,7 @@ func (k *kubernetesClient) ensureCustomResourceDefinition(crd *apiextensionsv1be
 }
 
 func (k *kubernetesClient) deleteCustomResourceDefinition(name string, uid types.UID) error {
-	err := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions().Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
+	err := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions().Delete(context.TODO(), name, k8sutils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -130,7 +130,7 @@ func (k *kubernetesClient) listCustomResourceDefinitions(selector k8slabels.Sele
 
 func (k *kubernetesClient) deleteCustomResourceDefinitionsForApp(appName string) error {
 	selector := mergeSelectors(
-		utils.LabelSetToSelector(k.getAPIExtensionLabelsGlobal(appName)),
+		k8sutils.LabelSetToSelector(k.getAPIExtensionLabelsGlobal(appName)),
 		lifecycleApplicationRemovalSelector,
 	)
 	return errors.Trace(k.deleteCustomResourceDefinitions(selector))
@@ -138,7 +138,7 @@ func (k *kubernetesClient) deleteCustomResourceDefinitionsForApp(appName string)
 
 func (k *kubernetesClient) deleteCustomResourceDefinitions(selector k8slabels.Selector) error {
 	err := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions().DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
 		LabelSelector: selector.String(),
 	})
@@ -151,7 +151,7 @@ func (k *kubernetesClient) deleteCustomResourceDefinitions(selector k8slabels.Se
 func (k *kubernetesClient) deleteCustomResourcesForApp(appName string) error {
 	selectorGetter := func(crd apiextensionsv1beta1.CustomResourceDefinition) k8slabels.Selector {
 		return mergeSelectors(
-			utils.LabelSetToSelector(k.getCRLabels(appName, crd.Spec.Scope)),
+			k8sutils.LabelSetToSelector(k.getCRLabels(appName, crd.Spec.Scope)),
 			lifecycleApplicationRemovalSelector,
 		)
 	}
@@ -176,7 +176,7 @@ func (k *kubernetesClient) deleteCustomResources(selectorGetter func(apiextensio
 				return errors.Trace(err)
 			}
 			err = crdClient.DeleteCollection(context.TODO(), v1.DeleteOptions{
-				PropagationPolicy: &constants.DefaultPropagationPolicy,
+				PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 			}, v1.ListOptions{
 				LabelSelector: selector.String(),
 			})
@@ -292,7 +292,7 @@ func ensureCustomResource(api dynamic.ResourceInterface, cr *unstructured.Unstru
 }
 
 func deleteCustomResourceDefinition(api dynamic.ResourceInterface, name string, uid types.UID) error {
-	err := api.Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
+	err := api.Delete(context.TODO(), name, k8sutils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}

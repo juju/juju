@@ -22,7 +22,7 @@ import (
 
 func (k *kubernetesClient) getIngressLabels(appName string) map[string]string {
 	return map[string]string{
-		constants.LabelApplication: appName,
+		k8sconstants.LabelApplication: appName,
 	}
 }
 
@@ -76,7 +76,7 @@ func (k *kubernetesClient) ensureIngress(appName string, spec *v1beta1.Ingress, 
 }
 
 func (k *kubernetesClient) createIngress(ingress *v1beta1.Ingress) (*v1beta1.Ingress, error) {
-	utils.PurifyResource(ingress)
+	k8sutils.PurifyResource(ingress)
 	out, err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).Create(context.TODO(), ingress, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("ingress resource %q", ingress.GetName())
@@ -101,7 +101,7 @@ func (k *kubernetesClient) updateIngress(ingress *v1beta1.Ingress) (*v1beta1.Ing
 }
 
 func (k *kubernetesClient) deleteIngress(name string, uid k8stypes.UID) error {
-	err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
+	err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).Delete(context.TODO(), name, k8sutils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -110,7 +110,7 @@ func (k *kubernetesClient) deleteIngress(name string, uid k8stypes.UID) error {
 
 func (k *kubernetesClient) listIngressResources(labels map[string]string) ([]v1beta1.Ingress, error) {
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(labels).String(),
+		LabelSelector: k8sutils.LabelSetToSelector(labels).String(),
 	}
 	ingList, err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).List(context.TODO(), listOps)
 	if err != nil {
@@ -124,9 +124,9 @@ func (k *kubernetesClient) listIngressResources(labels map[string]string) ([]v1b
 
 func (k *kubernetesClient) deleteIngressResources(appName string) error {
 	err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(k.getIngressLabels(appName)).String(),
+		LabelSelector: k8sutils.LabelSetToSelector(k.getIngressLabels(appName)).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

@@ -22,12 +22,12 @@ import (
 
 func (k *kubernetesClient) getAdmissionControllerLabels(appName string) map[string]string {
 	return map[string]string{
-		constants.LabelApplication: appName,
-		constants.LabelModel:       k.namespace,
+		k8sconstants.LabelApplication: appName,
+		k8sconstants.LabelModel:       k.namespace,
 	}
 }
 
-var annotationDisableNamePrefixKey = constants.AnnotationKey("disable-name-prefix")
+var annotationDisableNamePrefixKey = k8sconstants.AnnotationKey("disable-name-prefix")
 
 const annotationDisableNamePrefixValue = "true"
 
@@ -76,7 +76,7 @@ func (k *kubernetesClient) EnsureMutatingWebhookConfiguration(cfg *admissionregi
 	if !errors.IsAlreadyExists(err) {
 		return cleanUp, errors.Trace(err)
 	}
-	_, err = k.listMutatingWebhookConfigurations(utils.LabelSetToSelector(cfg.GetLabels()))
+	_, err = k.listMutatingWebhookConfigurations(k8sutils.LabelSetToSelector(cfg.GetLabels()))
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// cfg.Name is already used for an existing MutatingWebhookConfiguration.
@@ -95,7 +95,7 @@ func (k *kubernetesClient) EnsureMutatingWebhookConfiguration(cfg *admissionregi
 }
 
 func (k *kubernetesClient) createMutatingWebhookConfiguration(cfg *admissionregistration.MutatingWebhookConfiguration) (*admissionregistration.MutatingWebhookConfiguration, error) {
-	utils.PurifyResource(cfg)
+	k8sutils.PurifyResource(cfg)
 	out, err := k.client().AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(context.TODO(), cfg, metav1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("MutatingWebhookConfiguration %q", cfg.GetName())
@@ -123,7 +123,7 @@ func (k *kubernetesClient) updateMutatingWebhookConfiguration(cfg *admissionregi
 }
 
 func (k *kubernetesClient) deleteMutatingWebhookConfiguration(name string, uid types.UID) error {
-	err := k.client().AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
+	err := k.client().AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Delete(context.TODO(), name, k8sutils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -146,7 +146,7 @@ func (k *kubernetesClient) listMutatingWebhookConfigurations(selector k8slabels.
 
 func (k *kubernetesClient) deleteMutatingWebhookConfigurations(selector k8slabels.Selector) error {
 	err := k.client().AdmissionregistrationV1beta1().MutatingWebhookConfigurations().DeleteCollection(context.TODO(), metav1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	}, metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
@@ -157,7 +157,7 @@ func (k *kubernetesClient) deleteMutatingWebhookConfigurations(selector k8slabel
 }
 
 func (k *kubernetesClient) deleteMutatingWebhookConfigurationsForApp(appName string) error {
-	selector := utils.LabelSetToSelector(k.getAdmissionControllerLabels(appName))
+	selector := k8sutils.LabelSetToSelector(k.getAdmissionControllerLabels(appName))
 	return errors.Trace(k.deleteMutatingWebhookConfigurations(selector))
 }
 
@@ -194,7 +194,7 @@ func (k *kubernetesClient) ensureValidatingWebhookConfiguration(cfg *admissionre
 	if !errors.IsAlreadyExists(err) {
 		return cleanUp, errors.Trace(err)
 	}
-	_, err = k.listValidatingWebhookConfigurations(utils.LabelSetToSelector(cfg.GetLabels()))
+	_, err = k.listValidatingWebhookConfigurations(k8sutils.LabelSetToSelector(cfg.GetLabels()))
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// cfg.Name is already used for an existing ValidatingWebhookConfiguration.
@@ -213,7 +213,7 @@ func (k *kubernetesClient) ensureValidatingWebhookConfiguration(cfg *admissionre
 }
 
 func (k *kubernetesClient) createValidatingWebhookConfiguration(cfg *admissionregistration.ValidatingWebhookConfiguration) (*admissionregistration.ValidatingWebhookConfiguration, error) {
-	utils.PurifyResource(cfg)
+	k8sutils.PurifyResource(cfg)
 	out, err := k.client().AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(context.TODO(), cfg, metav1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("ValidatingWebhookConfiguration %q", cfg.GetName())
@@ -241,7 +241,7 @@ func (k *kubernetesClient) updateValidatingWebhookConfiguration(cfg *admissionre
 }
 
 func (k *kubernetesClient) deleteValidatingWebhookConfiguration(name string, uid types.UID) error {
-	err := k.client().AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
+	err := k.client().AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(context.TODO(), name, k8sutils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -264,7 +264,7 @@ func (k *kubernetesClient) listValidatingWebhookConfigurations(selector k8slabel
 
 func (k *kubernetesClient) deleteValidatingWebhookConfigurations(selector k8slabels.Selector) error {
 	err := k.client().AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().DeleteCollection(context.TODO(), metav1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	}, metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
@@ -275,6 +275,6 @@ func (k *kubernetesClient) deleteValidatingWebhookConfigurations(selector k8slab
 }
 
 func (k *kubernetesClient) deleteValidatingWebhookConfigurationsForApp(appName string) error {
-	selector := utils.LabelSetToSelector(k.getAdmissionControllerLabels(appName))
+	selector := k8sutils.LabelSetToSelector(k.getAdmissionControllerLabels(appName))
 	return errors.Trace(k.deleteValidatingWebhookConfigurations(selector))
 }

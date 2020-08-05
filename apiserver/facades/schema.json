@@ -6654,11 +6654,23 @@
                         "ca-cert": {
                             "type": "string"
                         },
-                        "charm-storage": {
-                            "$ref": "#/definitions/KubernetesFilesystemParams"
+                        "constraints": {
+                            "$ref": "#/definitions/Value"
+                        },
+                        "devices": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/KubernetesDeviceParams"
+                            }
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
+                        },
+                        "filesystems": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/KubernetesFilesystemParams"
+                            }
                         },
                         "image-path": {
                             "type": "string"
@@ -6673,6 +6685,12 @@
                         },
                         "version": {
                             "$ref": "#/definitions/Number"
+                        },
+                        "volumes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/KubernetesVolumeParams"
+                            }
                         }
                     },
                     "additionalProperties": false,
@@ -6680,7 +6698,8 @@
                         "image-path",
                         "version",
                         "api-addresses",
-                        "ca-cert"
+                        "ca-cert",
+                        "constraints"
                     ]
                 },
                 "CAASApplicationProvisioningInfoResults": {
@@ -7386,6 +7405,31 @@
                         "results"
                     ]
                 },
+                "KubernetesDeviceParams": {
+                    "type": "object",
+                    "properties": {
+                        "Attributes": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "Count": {
+                            "type": "integer"
+                        },
+                        "Type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Type",
+                        "Count",
+                        "Attributes"
+                    ]
+                },
                 "KubernetesFilesystemAttachmentParams": {
                     "type": "object",
                     "properties": {
@@ -7409,6 +7453,61 @@
                     "properties": {
                         "attachment": {
                             "$ref": "#/definitions/KubernetesFilesystemAttachmentParams"
+                        },
+                        "attributes": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "provider": {
+                            "type": "string"
+                        },
+                        "size": {
+                            "type": "integer"
+                        },
+                        "storagename": {
+                            "type": "string"
+                        },
+                        "tags": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "storagename",
+                        "size",
+                        "provider"
+                    ]
+                },
+                "KubernetesVolumeAttachmentParams": {
+                    "type": "object",
+                    "properties": {
+                        "provider": {
+                            "type": "string"
+                        },
+                        "read-only": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "provider"
+                    ]
+                },
+                "KubernetesVolumeParams": {
+                    "type": "object",
+                    "properties": {
+                        "attachment": {
+                            "$ref": "#/definitions/KubernetesVolumeAttachmentParams"
                         },
                         "attributes": {
                             "type": "object",
@@ -7567,6 +7666,57 @@
                     "required": [
                         "watcher-id"
                     ]
+                },
+                "Value": {
+                    "type": "object",
+                    "properties": {
+                        "arch": {
+                            "type": "string"
+                        },
+                        "container": {
+                            "type": "string"
+                        },
+                        "cores": {
+                            "type": "integer"
+                        },
+                        "cpu-power": {
+                            "type": "integer"
+                        },
+                        "instance-type": {
+                            "type": "string"
+                        },
+                        "mem": {
+                            "type": "integer"
+                        },
+                        "root-disk": {
+                            "type": "integer"
+                        },
+                        "root-disk-source": {
+                            "type": "string"
+                        },
+                        "spaces": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "tags": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "virt-type": {
+                            "type": "string"
+                        },
+                        "zones": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
                 }
             }
         }
