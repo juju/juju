@@ -9519,7 +9519,7 @@
     },
     {
         "Name": "CharmHub",
-        "Description": "CharmHubAPI API provides the charmhub API facade for version 1.",
+        "Description": "CharmHubAPI API provides the CharmHub API facade for version 1.",
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",
@@ -9540,7 +9540,7 @@
                             "$ref": "#/definitions/CharmHubEntityFindResult"
                         }
                     },
-                    "description": "Find queries the charmhub API with a given entity ID."
+                    "description": "Find queries the CharmHub API with a given entity ID."
                 },
                 "Info": {
                     "type": "object",
@@ -9552,7 +9552,7 @@
                             "$ref": "#/definitions/CharmHubEntityInfoResult"
                         }
                     },
-                    "description": "Info queries the charmhub API with a given entity ID."
+                    "description": "Info queries the CharmHub API with a given entity ID."
                 }
             },
             "definitions": {
