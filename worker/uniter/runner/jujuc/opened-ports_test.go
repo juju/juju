@@ -22,17 +22,15 @@ type OpenedPortsSuite struct {
 var _ = gc.Suite(&OpenedPortsSuite{})
 
 func (s *OpenedPortsSuite) TestRunAllFormats(c *gc.C) {
-	expectedPorts := map[string][]network.PortRange{
-		"": []network.PortRange{
-			network.MustParsePortRange("10-20/tcp"),
-			network.MustParsePortRange("80/tcp"),
-			network.MustParsePortRange("53-55/udp"),
-			network.MustParsePortRange("63/udp"),
-		},
+	expectedPorts := []network.PortRange{
+		network.MustParsePortRange("10-20/tcp"),
+		network.MustParsePortRange("80/tcp"),
+		network.MustParsePortRange("53-55/udp"),
+		network.MustParsePortRange("63/udp"),
 	}
-	network.SortPortRanges(expectedPorts[""])
-	portsAsStrings := make([]string, len(expectedPorts[""]))
-	for i, portRange := range expectedPorts[""] {
+	network.SortPortRanges(expectedPorts)
+	portsAsStrings := make([]string, len(expectedPorts))
+	for i, portRange := range expectedPorts {
 		portsAsStrings[i] = portRange.String()
 	}
 	defaultOutput := strings.Join(portsAsStrings, "\n") + "\n"
@@ -46,6 +44,7 @@ func (s *OpenedPortsSuite) TestRunAllFormats(c *gc.C) {
 		"yaml":  yamlOutput,
 	}
 	for format, expectedOutput := range formatToOutput {
+		c.Logf("testing format %q", format)
 		hctx := s.getContextAndOpenPorts(c)
 		stdout := ""
 		stderr := ""
@@ -56,7 +55,38 @@ func (s *OpenedPortsSuite) TestRunAllFormats(c *gc.C) {
 		}
 		c.Check(stdout, gc.Equals, expectedOutput)
 		c.Check(stderr, gc.Equals, "")
-		hctx.info.CheckPortRanges(c, expectedPorts)
+	}
+}
+
+func (s *OpenedPortsSuite) TestRunAllFormatsWithEndpointDetails(c *gc.C) {
+	portsAsStrings := []string{
+		"10-20/tcp (foo)",
+		"80/tcp (*)",
+		"53-55/udp (*)",
+		"63/udp (bar)",
+	}
+	defaultOutput := strings.Join(portsAsStrings, "\n") + "\n"
+	jsonOutput := `["` + strings.Join(portsAsStrings, `","`) + `"]` + "\n"
+	yamlOutput := "- " + strings.Join(portsAsStrings, "\n- ") + "\n"
+
+	formatToOutput := map[string]string{
+		"":      defaultOutput,
+		"smart": defaultOutput,
+		"json":  jsonOutput,
+		"yaml":  yamlOutput,
+	}
+	for format, expectedOutput := range formatToOutput {
+		c.Logf("testing format %q", format)
+		hctx := s.getContextAndOpenPorts(c)
+		stdout := ""
+		stderr := ""
+		if format == "" {
+			stdout, stderr = s.runCommand(c, hctx, "--endpoints")
+		} else {
+			stdout, stderr = s.runCommand(c, hctx, "--endpoints", "--format", format)
+		}
+		c.Check(stdout, gc.Equals, expectedOutput)
+		c.Check(stderr, gc.Equals, "")
 	}
 }
 
@@ -77,19 +107,29 @@ func (s *OpenedPortsSuite) TestHelp(c *gc.C) {
 Usage: opened-ports
 
 Summary:
-lists all ports or ranges opened by the unit
+list all ports or port ranges opened by the unit
 
 Details:
-Each list entry has format <port>/<protocol> (e.g. "80/tcp") or
-<from>-<to>/<protocol> (e.g. "8080-8088/udp").
+opened-ports lists all ports or port ranges opened by a unit.
+
+By default, the port range listing does not include information about the 
+application endpoints that each port range applies to. Each list entry is
+formatted as <port>/<protocol> (e.g. "80/tcp") or <from>-<to>/<protocol> 
+(e.g. "8080-8088/udp").
+
+If the --endpoints option is specified, each entry in the port list will be
+augmented with a comma-delimited list of endpoints that the port range 
+applies to (e.g. "80/tcp (endpoint1, endpoint2)"). If a port range applies to
+all endpoints, this will be indicated by the presence of a '*' character
+(e.g. "80/tcp (*)").
 `[1:])
 }
 
 func (s *OpenedPortsSuite) getContextAndOpenPorts(c *gc.C) *Context {
 	hctx := s.GetHookContext(c, -1, "")
 	hctx.OpenPortRange("", network.MustParsePortRange("80/tcp"))
-	hctx.OpenPortRange("", network.MustParsePortRange("10-20/tcp"))
-	hctx.OpenPortRange("", network.MustParsePortRange("63/udp"))
+	hctx.OpenPortRange("foo", network.MustParsePortRange("10-20/tcp"))
+	hctx.OpenPortRange("bar", network.MustParsePortRange("63/udp"))
 	hctx.OpenPortRange("", network.MustParsePortRange("53-55/udp"))
 	return hctx
 }

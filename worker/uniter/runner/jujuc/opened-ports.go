@@ -4,8 +4,13 @@
 package jujuc
 
 import (
+	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/set"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/core/network"
@@ -14,8 +19,9 @@ import (
 // OpenedPortsCommand implements the opened-ports command.
 type OpenedPortsCommand struct {
 	cmd.CommandBase
-	ctx Context
-	out cmd.Output
+	ctx           Context
+	showEndpoints bool
+	out           cmd.Output
 }
 
 func NewOpenedPortsCommand(ctx Context) (cmd.Command, error) {
@@ -23,17 +29,29 @@ func NewOpenedPortsCommand(ctx Context) (cmd.Command, error) {
 }
 
 func (c *OpenedPortsCommand) Info() *cmd.Info {
-	doc := `Each list entry has format <port>/<protocol> (e.g. "80/tcp") or
-<from>-<to>/<protocol> (e.g. "8080-8088/udp").`
 	return jujucmd.Info(&cmd.Info{
 		Name:    "opened-ports",
-		Purpose: "lists all ports or ranges opened by the unit",
-		Doc:     doc,
+		Purpose: "list all ports or port ranges opened by the unit",
+		Doc: `
+opened-ports lists all ports or port ranges opened by a unit.
+
+By default, the port range listing does not include information about the 
+application endpoints that each port range applies to. Each list entry is
+formatted as <port>/<protocol> (e.g. "80/tcp") or <from>-<to>/<protocol> 
+(e.g. "8080-8088/udp").
+
+If the --endpoints option is specified, each entry in the port list will be
+augmented with a comma-delimited list of endpoints that the port range 
+applies to (e.g. "80/tcp (endpoint1, endpoint2)"). If a port range applies to
+all endpoints, this will be indicated by the presence of a '*' character
+(e.g. "80/tcp (*)").
+`,
 	})
 }
 
 func (c *OpenedPortsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters.Formatters())
+	f.BoolVar(&c.showEndpoints, "endpoints", false, "display the list of target application endpoints for each port range")
 }
 
 func (c *OpenedPortsCommand) Init(args []string) error {
@@ -41,11 +59,57 @@ func (c *OpenedPortsCommand) Init(args []string) error {
 }
 
 func (c *OpenedPortsCommand) Run(ctx *cmd.Context) error {
-	unitPortRanges := uniquePortRanges(c.ctx.OpenedPortRanges())
-	results := make([]string, len(unitPortRanges))
-	for i, portRange := range unitPortRanges {
+	unitPortRanges := c.ctx.OpenedPortRanges()
+	if !c.showEndpoints {
+		return c.renderPortsWithoutEndpointDetails(ctx, unitPortRanges)
+	}
+
+	return c.renderPortsWithEndpointDetails(ctx, unitPortRanges)
+}
+
+func (c *OpenedPortsCommand) renderPortsWithoutEndpointDetails(ctx *cmd.Context, unitPortRanges map[string][]network.PortRange) error {
+	uniquePortRanges := uniquePortRanges(unitPortRanges)
+	results := make([]string, len(uniquePortRanges))
+	for i, portRange := range uniquePortRanges {
 		results[i] = portRange.String()
 	}
+	return c.out.Write(ctx, results)
+}
+
+func (c *OpenedPortsCommand) renderPortsWithEndpointDetails(ctx *cmd.Context, unitPortRanges map[string][]network.PortRange) error {
+	endpointsByPort := make(map[network.PortRange]set.Strings)
+	for endpointName, portRanges := range unitPortRanges {
+		for _, pr := range portRanges {
+			if endpointsByPort[pr] == nil {
+				endpointsByPort[pr] = set.NewStrings()
+			}
+			endpointsByPort[pr].Add(endpointName)
+		}
+	}
+
+	// Sort port ranges so we can generate consistent output
+	var uniquePortRanges []network.PortRange
+	for pr := range endpointsByPort {
+		uniquePortRanges = append(uniquePortRanges, pr)
+	}
+	network.SortPortRanges(uniquePortRanges)
+
+	// Convert to port range entries and sort them by port range
+	results := make([]string, len(uniquePortRanges))
+	for i, pr := range uniquePortRanges {
+		endpoints := endpointsByPort[pr]
+
+		var endpointDescr string
+		if endpoints.Contains("") { // all endpoints?
+			endpointDescr = "*"
+		} else { // sort them by name
+			endpointList := endpoints.Values()
+			sort.Strings(endpointList)
+			endpointDescr = strings.Join(endpointList, ", ")
+		}
+		results[i] = fmt.Sprintf("%s (%s)", pr, endpointDescr)
+	}
+
 	return c.out.Write(ctx, results)
 }
 
