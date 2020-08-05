@@ -22,28 +22,53 @@ var _ = gc.Suite(&PortsSuite{})
 
 var portsTests = []struct {
 	cmd    []string
-	expect []network.PortRange
+	expect map[string][]network.PortRange
 }{
-	{[]string{"open-port", "80"}, makeRanges("80/tcp")},
-	{[]string{"open-port", "99/tcp"}, makeRanges("80/tcp", "99/tcp")},
-	{[]string{"open-port", "100-200"}, makeRanges("80/tcp", "99/tcp", "100-200/tcp")},
-	{[]string{"open-port", "443/udp"}, makeRanges("80/tcp", "99/tcp", "100-200/tcp", "443/udp")},
-	{[]string{"close-port", "80/TCP"}, makeRanges("99/tcp", "100-200/tcp", "443/udp")},
-	{[]string{"close-port", "100-200/tcP"}, makeRanges("99/tcp", "443/udp")},
-	{[]string{"close-port", "443"}, makeRanges("99/tcp", "443/udp")},
-	{[]string{"close-port", "443/udp"}, makeRanges("99/tcp")},
-	{[]string{"open-port", "123/udp"}, makeRanges("99/tcp", "123/udp")},
-	{[]string{"close-port", "9999/UDP"}, makeRanges("99/tcp", "123/udp")},
-	{[]string{"open-port", "icmp"}, makeRanges("icmp", "99/tcp", "123/udp")},
+	{[]string{"open-port", "80"}, makeAllEndpointsRanges("80/tcp")},
+	{[]string{"open-port", "99/tcp"}, makeAllEndpointsRanges("80/tcp", "99/tcp")},
+	{[]string{"open-port", "100-200"}, makeAllEndpointsRanges("80/tcp", "99/tcp", "100-200/tcp")},
+	{[]string{"open-port", "443/udp"}, makeAllEndpointsRanges("80/tcp", "99/tcp", "100-200/tcp", "443/udp")},
+	{[]string{"close-port", "80/TCP"}, makeAllEndpointsRanges("99/tcp", "100-200/tcp", "443/udp")},
+	{[]string{"close-port", "100-200/tcP"}, makeAllEndpointsRanges("99/tcp", "443/udp")},
+	{[]string{"close-port", "443"}, makeAllEndpointsRanges("99/tcp", "443/udp")},
+	{[]string{"close-port", "443/udp"}, makeAllEndpointsRanges("99/tcp")},
+	{[]string{"open-port", "123/udp"}, makeAllEndpointsRanges("99/tcp", "123/udp")},
+	{[]string{"close-port", "9999/UDP"}, makeAllEndpointsRanges("99/tcp", "123/udp")},
+	{[]string{"open-port", "icmp"}, makeAllEndpointsRanges("icmp", "99/tcp", "123/udp")},
+	// Tests with --endpoints.
+	{[]string{"open-port", "--endpoints", "foo,bar", "1337/tcp"}, map[string][]network.PortRange{
+		// Pre-existing ports from previous tests
+		"": []network.PortRange{
+			network.MustParsePortRange("icmp"),
+			network.MustParsePortRange("99/tcp"),
+			network.MustParsePortRange("123/udp"),
+		},
+		// Endpoint-specific ports
+		"foo": []network.PortRange{network.MustParsePortRange("1337/tcp")},
+		"bar": []network.PortRange{network.MustParsePortRange("1337/tcp")},
+	}},
+	{[]string{"close-port", "--endpoints", "foo", "1337/tcp"}, map[string][]network.PortRange{
+		"": []network.PortRange{
+			network.MustParsePortRange("icmp"),
+			network.MustParsePortRange("99/tcp"),
+			network.MustParsePortRange("123/udp"),
+		},
+		"foo": []network.PortRange{
+			// Removed
+		},
+		"bar": []network.PortRange{network.MustParsePortRange("1337/tcp")},
+	}},
 }
 
-func makeRanges(stringRanges ...string) []network.PortRange {
+func makeAllEndpointsRanges(stringRanges ...string) map[string][]network.PortRange {
 	var results []network.PortRange
 	for _, s := range stringRanges {
 		results = append(results, network.MustParsePortRange(s))
 	}
 	network.SortPortRanges(results)
-	return results
+	return map[string][]network.PortRange{
+		"": results,
+	}
 }
 
 func (s *PortsSuite) TestOpenClose(c *gc.C) {
@@ -56,9 +81,7 @@ func (s *PortsSuite) TestOpenClose(c *gc.C) {
 		c.Check(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-		hctx.info.CheckPortRanges(c, map[string][]network.PortRange{
-			"": t.expect,
-		})
+		hctx.info.CheckPortRanges(c, t.expect)
 	}
 }
 
@@ -71,10 +94,14 @@ func (s *PortsSuite) TestHelp(c *gc.C) {
 Usage: open-port <port>[/<protocol>] or <from>-<to>[/<protocol>] or icmp
 
 Summary:
-register a port or range to open
+register a request to open a port or port range
 
 Details:
-The port range will only be open while the application is exposed.
+open-port registers a request to open the specified port or port range.
+
+By default, the specified port or port range will be opened for all defined
+application endpoints. The --endpoints option can be used to constrain the 
+open request to a comma-delimited list of application endpoints.
 `[1:])
 
 	close, err := jujuc.NewCommand(hctx, cmdString("close-port"))
@@ -83,13 +110,20 @@ The port range will only be open while the application is exposed.
 Usage: close-port <port>[/<protocol>] or <from>-<to>[/<protocol>] or icmp
 
 Summary:
-ensure a port or range is always closed
+register a request to close a port or port range
+
+Details:
+close-port registers a request to open the specified port or port range.
+
+By default, the specified port or port range will be closed for all defined
+application endpoints. The --endpoints option can be used to constrain the 
+close request to a comma-delimited list of application endpoints.
 `[1:])
 }
 
 // Since the deprecation warning gets output during Run, we really need
 // some valid commands to run
-var portsFormatDeprectaionTests = []struct {
+var portsFormatDeprecationTests = []struct {
 	cmd []string
 }{
 	{[]string{"open-port", "--format", "foo", "80"}},
@@ -98,7 +132,7 @@ var portsFormatDeprectaionTests = []struct {
 
 func (s *PortsSuite) TestOpenCloseDeprecation(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	for _, t := range portsFormatDeprectaionTests {
+	for _, t := range portsFormatDeprecationTests {
 		name := t.cmd[0]
 		com, err := jujuc.NewCommand(hctx, cmdString(name))
 		c.Assert(err, jc.ErrorIsNil)

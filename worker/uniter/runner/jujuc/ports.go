@@ -25,7 +25,9 @@ type portCommand struct {
 	info       *cmd.Info
 	action     func(*portCommand) error
 	portRange  network.PortRange
+	endpoints  string
 	formatFlag string // deprecated
+
 }
 
 func (c *portCommand) Info() *cmd.Info {
@@ -34,6 +36,7 @@ func (c *portCommand) Info() *cmd.Info {
 
 func (c *portCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.formatFlag, "format", "", "deprecated format flag")
+	f.StringVar(&c.endpoints, "endpoints", "", "a comma-delimited list of application endpoints to target with this operation")
 }
 
 func (c *portCommand) Init(args []string) error {
@@ -60,36 +63,57 @@ func (c *portCommand) Run(ctx *cmd.Context) error {
 var openPortInfo = &cmd.Info{
 	Name:    "open-port",
 	Args:    portFormat,
-	Purpose: "register a port or range to open",
-	Doc:     "The port range will only be open while the application is exposed.",
+	Purpose: "register a request to open a port or port range",
+	Doc: `
+open-port registers a request to open the specified port or port range.
+
+By default, the specified port or port range will be opened for all defined
+application endpoints. The --endpoints option can be used to constrain the 
+open request to a comma-delimited list of application endpoints.
+`,
 }
 
 func NewOpenPortCommand(ctx Context) (cmd.Command, error) {
 	return &portCommand{
-		info: openPortInfo,
-		action: func(c *portCommand) error {
-			// TODO(achilleas): parse endpoints and pass them along;
-			// for now emulate pre 2.9 behavior and open/close port
-			// range for all endpoints.
-			return ctx.OpenPortRange("", c.portRange)
-		},
+		info:   openPortInfo,
+		action: makePortRangeCommand(ctx.OpenPortRange),
 	}, nil
 }
 
 var closePortInfo = &cmd.Info{
 	Name:    "close-port",
 	Args:    portFormat,
-	Purpose: "ensure a port or range is always closed",
+	Purpose: "register a request to close a port or port range",
+	Doc: `
+close-port registers a request to open the specified port or port range.
+
+By default, the specified port or port range will be closed for all defined
+application endpoints. The --endpoints option can be used to constrain the 
+close request to a comma-delimited list of application endpoints.
+`,
 }
 
 func NewClosePortCommand(ctx Context) (cmd.Command, error) {
 	return &portCommand{
-		info: closePortInfo,
-		action: func(c *portCommand) error {
-			// TODO(achilleas): parse endpoints and pass them along;
-			// for now emulate pre 2.9 behavior and open/close port
-			// range for all endpoints.
-			return ctx.ClosePortRange("", c.portRange)
-		},
+		info:   closePortInfo,
+		action: makePortRangeCommand(ctx.ClosePortRange),
 	}, nil
+}
+
+func makePortRangeCommand(op func(string, network.PortRange) error) func(*portCommand) error {
+	return func(c *portCommand) error {
+		// Operation applies to all endpoints
+		if c.endpoints == "" {
+			return op("", c.portRange)
+		}
+
+		for _, endpoint := range strings.Split(c.endpoints, ",") {
+			endpoint = strings.TrimSpace(endpoint)
+			if err := op(endpoint, c.portRange); err != nil {
+				return errors.Trace(err)
+			}
+		}
+
+		return nil
+	}
 }
