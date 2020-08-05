@@ -130,34 +130,6 @@ func (*nicSuite) TestInterfaceInfosValidate(c *gc.C) {
 	c.Check(getInterFaceInfos().Validate(), jc.ErrorIsNil)
 }
 
-func (*nicSuite) TestInterfaceInfosChildren(c *gc.C) {
-	interfaces := getInterFaceInfos()
-
-	c.Check(interfaces.Children(""), gc.DeepEquals, interfaces[:2])
-	c.Check(interfaces.Children("bond0"), gc.DeepEquals, network.InterfaceInfos{
-		interfaces[3], interfaces[4],
-	})
-	c.Check(interfaces.Children("eth2"), gc.HasLen, 0)
-}
-
-func (*nicSuite) TestInterfaceInfosIterHierarchy(c *gc.C) {
-	var devs []string
-	f := func(info network.InterfaceInfo) error {
-		devs = append(devs, info.ParentInterfaceName+":"+info.InterfaceName)
-		return nil
-	}
-
-	c.Assert(getInterFaceInfos().IterHierarchy(f), jc.ErrorIsNil)
-
-	c.Check(devs, gc.DeepEquals, []string{
-		":br-bond0",
-		"br-bond0:bond0",
-		"bond0:eth0",
-		"bond0:eth1",
-		":eth2",
-	})
-}
-
 func (s *nicSuite) TestInterfaceInfosGetByHardwareAddress(c *gc.C) {
 	devs := s.info.GetByHardwareAddress("not-there")
 	c.Assert(devs, gc.IsNil)
@@ -170,86 +142,6 @@ func (s *nicSuite) TestInterfaceInfosGetByHardwareAddress(c *gc.C) {
 
 	devs = append(s.info, network.InterfaceInfo{MACAddress: hwAddr}).GetByHardwareAddress(hwAddr)
 	c.Assert(devs, gc.HasLen, 2)
-}
-
-func (s *nicSuite) TestInterfaceInfosSanitise(c *gc.C) {
-	sameMAC := network.GenerateVirtualMACAddress()
-	uniqueMAC := network.GenerateVirtualMACAddress()
-
-	devs := network.InterfaceInfos{
-		{
-			MACAddress: sameMAC,
-			CIDR:       "10.0.0.0/24",
-			ConfigType: network.ConfigStatic,
-			Addresses: network.ProviderAddresses{
-				network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
-			},
-		},
-		{
-			MACAddress: sameMAC,
-			CIDR:       "20.0.0.0/24",
-			ConfigType: network.ConfigDHCP,
-			Addresses: network.ProviderAddresses{
-				network.NewScopedProviderAddress("20.0.0.1", network.ScopeCloudLocal),
-			},
-		},
-		// Wholesale duplicated address should not be present in result.
-		{
-			MACAddress: sameMAC,
-			CIDR:       "20.0.0.0/24",
-			ConfigType: network.ConfigDHCP,
-			Addresses: network.ProviderAddresses{
-				network.NewScopedProviderAddress("20.0.0.1", network.ScopeCloudLocal),
-			},
-		},
-		{
-			MACAddress: uniqueMAC,
-			CIDR:       "20.0.0.0/24",
-			ConfigType: network.ConfigDHCP,
-			Addresses: network.ProviderAddresses{
-				network.NewScopedProviderAddress("20.0.0.2", network.ScopeCloudLocal),
-			},
-		},
-	}.Normalise()
-
-	c.Assert(devs, gc.HasLen, 2)
-
-	same := devs.GetByHardwareAddress(sameMAC)
-	c.Assert(same, gc.HasLen, 1)
-	c.Assert(same[0].Addresses, jc.SameContents, network.ProviderAddresses{
-		{
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeCloudLocal,
-				CIDR:       "10.0.0.0/24",
-				ConfigType: network.ConfigStatic,
-			},
-		},
-		{
-			MachineAddress: network.MachineAddress{
-				Value:      "20.0.0.1",
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeCloudLocal,
-				CIDR:       "20.0.0.0/24",
-				ConfigType: network.ConfigDHCP,
-			},
-		},
-	})
-
-	unique := devs.GetByHardwareAddress(uniqueMAC)
-	c.Assert(unique, gc.HasLen, 1)
-	c.Assert(unique[0].Addresses, jc.SameContents, network.ProviderAddresses{
-		{
-			MachineAddress: network.MachineAddress{
-				Value:      "20.0.0.2",
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeCloudLocal,
-				CIDR:       "20.0.0.0/24",
-				ConfigType: network.ConfigDHCP,
-			},
-		},
-	})
 }
 
 func getInterFaceInfos() network.InterfaceInfos {
