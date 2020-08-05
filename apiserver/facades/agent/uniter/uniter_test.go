@@ -5036,9 +5036,9 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	b.UpdateNetworkInfo()
 	b.UpdateRelationUnitSettings(relList[0].Tag().String(), params.Settings{"just": "added"}, params.Settings{"app_data": "updated"})
 	// Manipulate ports for one of the charm's endpoints.
-	b.OpenPortRange("monitoring-port", "tcp", 80, 81)
-	b.OpenPortRange("monitoring-port", "tcp", 7337, 7337) // same port closed below; this should be a no-op
-	b.ClosePortRange("monitoring-port", "tcp", 7337, 7337)
+	b.OpenPortRange("monitoring-port", network.MustParsePortRange("80-81/tcp"))
+	b.OpenPortRange("monitoring-port", network.MustParsePortRange("7337/tcp")) // same port closed below; this should be a no-op
+	b.ClosePortRange("monitoring-port", network.MustParsePortRange("7337/tcp"))
 	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
 	req, _ := b.Build()
 
@@ -5139,9 +5139,9 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	stCount := uint64(1)
 	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
 	b.UpdateNetworkInfo()
-	b.OpenPortRange(allEndpoints, "tcp", 80, 81)
-	b.OpenPortRange(allEndpoints, "tcp", 7337, 7337) // same port closed below; this should be a no-op
-	b.ClosePortRange(allEndpoints, "tcp", 7337, 7337)
+	b.OpenPortRange(allEndpoints, network.MustParsePortRange("80-81/tcp"))
+	b.OpenPortRange(allEndpoints, network.MustParsePortRange("7337/tcp")) // same port closed below; this should be a no-op
+	b.ClosePortRange(allEndpoints, network.MustParsePortRange("7337/tcp"))
 	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
 	b.AddStorage(map[string][]params.StorageConstraints{
 		"multi1to10": {{Count: &stCount}},
