@@ -271,18 +271,61 @@ func (s *NestedContextSuite) TestStopStartUnits(c *gc.C) {
 	ctx := s.newContext(c)
 	s.deployThreeUnits(c, ctx)
 
+	handledBothCalls := make(chan struct{})
+	count := 0
+	unsub := s.hub.Subscribe(message.StopUnitResponseTopic, func(_ string, data interface{}) {
+		c.Check(data, jc.DeepEquals, message.StartStopResponse{
+			"first/0":   "stopped",
+			"second/0":  "stopped",
+			"unknown/2": `unit "unknown/2" not found`,
+		})
+		count++
+		if count == 2 {
+			close(handledBothCalls)
+		}
+	})
+
 	handled := s.hub.Publish(message.StopUnitTopic, message.Units{
 		Names: []string{"first/0", "second/0", "unknown/2"},
 	})
 	s.waitForEventHandled(c, handled)
+	// Call the stop topic again, and the results are the same.
+	handled = s.hub.Publish(message.StopUnitTopic, message.Units{
+		Names: []string{"first/0", "second/0", "unknown/2"},
+	})
+	s.waitForEventHandled(c, handled)
+	s.waitForEventHandled(c, handledBothCalls)
+	unsub()
+
 	report := ctx.Report()
 	c.Assert(report["stopped"], jc.DeepEquals, []string{"first/0", "second/0"})
 
+	handledBothCalls = make(chan struct{})
+	count = 0
+	unsub = s.hub.Subscribe(message.StartUnitResponseTopic, func(_ string, data interface{}) {
+		c.Check(data, jc.DeepEquals, message.StartStopResponse{
+			"first/0":   "started",
+			"unknown/2": `unit "unknown/2" not found`,
+		})
+		count++
+		if count == 2 {
+			close(handledBothCalls)
+		}
+	})
+
 	// Start one back up again.
 	handled = s.hub.Publish(message.StartUnitTopic, message.Units{
-		Names: []string{"first/0", "third/0", "unknown/2"},
+		Names: []string{"first/0", "unknown/2"},
 	})
 	s.waitForEventHandled(c, handled)
+	// Called again gets the same results.
+	handled = s.hub.Publish(message.StartUnitTopic, message.Units{
+		Names: []string{"first/0", "unknown/2"},
+	})
+	s.waitForEventHandled(c, handled)
+	s.waitForEventHandled(c, handledBothCalls)
+	unsub()
+
 	report = ctx.Report()
 	c.Assert(report["stopped"], jc.DeepEquals, []string{"second/0"})
 }

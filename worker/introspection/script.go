@@ -122,6 +122,11 @@ juju_unit_status () {
 }
 
 juju_stop_unit () {
+  # This requires some arguments.
+  if [ "$#" -lt 1 ]; then
+    echo "usage: juju_stop_unit <unit-name> [<unit-name>...]"
+    return 1
+  fi
   arr=("$@")
   local -a args
   for i in "${arr[@]}"; do
@@ -131,6 +136,11 @@ juju_stop_unit () {
 }
 
 juju_start_unit () {
+  # This requires some arguments.
+  if [ "$#" -lt 1 ]; then
+    echo "usage: juju_start_unit <unit-name> [<unit-name>...]"
+    return 1
+  fi
   arr=("$@")
   local -a args
   for i in "${arr[@]}"; do

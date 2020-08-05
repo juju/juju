@@ -173,11 +173,15 @@ func (c *nestedContext) stopUnitRequest(topic string, data interface{}) {
 	if !ok {
 		c.logger.Errorf("data should be a Units structure")
 	}
+	response := message.StartStopResponse{}
 	for _, unitName := range units.Names {
 		if err := c.stopUnit(unitName); err != nil {
-			c.logger.Errorf("%v", err)
+			response[unitName] = err.Error()
+		} else {
+			response[unitName] = "stopped"
 		}
 	}
+	c.hub.Publish(message.StopUnitResponseTopic, response)
 }
 
 func (c *nestedContext) startUnitRequest(topic string, data interface{}) {
@@ -185,14 +189,18 @@ func (c *nestedContext) startUnitRequest(topic string, data interface{}) {
 	if !ok {
 		c.logger.Errorf("data should be a Units structure")
 	}
+	response := message.StartStopResponse{}
 	for _, unitName := range units.Names {
 		if err := c.startUnit(unitName); err != nil {
-			c.logger.Errorf("%v", err)
+			response[unitName] = err.Error()
+		} else {
+			response[unitName] = "started"
 		}
 	}
+	c.hub.Publish(message.StartUnitResponseTopic, response)
 }
 
-func (c *nestedContext) unitStatusRequest(topic string, data interface{}) {
+func (c *nestedContext) unitStatusRequest(topic string, _ interface{}) {
 	c.mu.Lock()
 	agentName := c.agentConfig.Tag()
 	deployed := c.deployedUnits()
@@ -359,8 +367,8 @@ func (c *nestedContext) DeployUnit(unitName, initialPassword string) error {
 func (c *nestedContext) startUnitWorkers(unitName string) error {
 	// Assumes lock is held.
 	c.logger.Infof("starting workers for %q", unitName)
-	agent := c.units[unitName]
-	if agent == nil {
+	agent, ok := c.units[unitName]
+	if !ok {
 		return errors.NotFoundf("unit %q", unitName)
 	}
 	if agent.running {
@@ -375,8 +383,8 @@ func (c *nestedContext) startUnitWorkers(unitName string) error {
 
 func (c *nestedContext) stopUnitWorkers(unitName string) error {
 	// Assumes lock is held.
-	agent := c.units[unitName]
-	if agent == nil {
+	agent, ok := c.units[unitName]
+	if !ok {
 		return errors.NotFoundf("unit %q", unitName)
 	}
 	if !agent.running {
@@ -392,7 +400,7 @@ func (c *nestedContext) stopUnitWorkers(unitName string) error {
 	return nil
 }
 
-// StopUnit will stop the workers for the unit specified, and record the
+// stopUnit will stop the workers for the unit specified, and record the
 // unit as one of the stopped ones so it won't be started when the deployer
 // is restarted.
 func (c *nestedContext) stopUnit(unitName string) error {
@@ -420,7 +428,7 @@ func (c *nestedContext) stopUnit(unitName string) error {
 	return nil
 }
 
-// StartUnit will start the workers for a stopped unit specified.
+// startUnit will start the workers for a stopped unit specified.
 func (c *nestedContext) startUnit(unitName string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
