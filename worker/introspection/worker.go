@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"runtime"
 	"sort"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/pubsub/agent"
 	"github.com/juju/juju/worker/introspection/pprof"
 )
 
@@ -39,6 +41,17 @@ type Reporter interface {
 	IntrospectionReport() string
 }
 
+// Clock represents the ability to wait for a bit.
+type Clock interface {
+	After(time.Duration) <-chan time.Time
+}
+
+// Hub is a pubsub hub used for internal messaging.
+type Hub interface {
+	Publish(topic string, data interface{}) <-chan struct{}
+	Subscribe(topic string, handler func(string, interface{})) func()
+}
+
 // Config describes the arguments required to create the introspection worker.
 type Config struct {
 	SocketName         string
@@ -48,6 +61,8 @@ type Config struct {
 	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
 	Presence           presence.Recorder
+	Clock              Clock
+	Hub                Hub
 }
 
 // Validate checks the config values to assert they are valid to create the worker.
@@ -71,6 +86,8 @@ type socketListener struct {
 	machineLock        machinelock.Lock
 	prometheusGatherer prometheus.Gatherer
 	presence           presence.Recorder
+	clock              Clock
+	hub                Hub
 	done               chan struct{}
 }
 
@@ -104,6 +121,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 		machineLock:        config.MachineLock,
 		prometheusGatherer: config.PrometheusGatherer,
 		presence:           config.Presence,
+		clock:              config.Clock,
+		hub:                config.Hub,
 		done:               make(chan struct{}),
 	}
 	go w.serve()
@@ -163,12 +182,20 @@ func (w *socketListener) RegisterHTTPHandlers(
 		name:     "PubSub Report",
 		reporter: w.pubsub,
 	})
+	handle("/metrics", promhttp.HandlerFor(w.prometheusGatherer, promhttp.HandlerOpts{}))
+	// The trailing slash is kept for metrics because we don't want to
+	// break the metrics exporting that is using the internal charm. Since
+	// we don't know if it is using the exported bash function, or calling
+	// the introspection endpoint directly.
 	handle("/metrics/", promhttp.HandlerFor(w.prometheusGatherer, promhttp.HandlerOpts{}))
 	// Unit agents don't have a presence recorder to pass in.
 	if w.presence != nil {
-		handle("/presence/", presenceHandler{w.presence})
+		handle("/presence", presenceHandler{w.presence})
 	}
-	handle("/machinelock/", machineLockHandler{w.machineLock})
+	handle("/machinelock", machineLockHandler{w.machineLock})
+	if w.hub != nil {
+		handle("/units", unitsHandler{w.clock, w.hub, w.done})
+	}
 }
 
 type depengineHandler struct {
@@ -301,4 +328,86 @@ func (a ValueSort) Less(i, j int) bool {
 		return a[i].Server < a[j].Server
 	}
 	return a[i].ConnectionID < a[j].ConnectionID
+}
+
+type unitsHandler struct {
+	clock Clock
+	hub   Hub
+	done  <-chan struct{}
+}
+
+// ServeHTTP is part of the http.Handler interface.
+func (h unitsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "%s\n", err)
+		return
+	}
+
+	switch action := r.Form.Get("action"); action {
+	case "":
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "missing action")
+	case "start":
+		h.publishUnitsAction(w, r, "start", agent.StartUnitTopic, agent.StartUnitResponseTopic)
+	case "stop":
+		h.publishUnitsAction(w, r, "stop", agent.StopUnitTopic, agent.StopUnitResponseTopic)
+	case "status":
+		h.status(w, r)
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "unknown action: %q\n", action)
+	}
+}
+
+func (h unitsHandler) publishUnitsAction(w http.ResponseWriter, r *http.Request,
+	action, topic, responseTopic string) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		fmt.Fprintf(w, "%s requires a POST request\n", action)
+		return
+	}
+
+	units := r.Form["unit"]
+	if len(units) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "missing unit")
+		return
+	}
+
+	h.publishAndAwaitResponse(w, topic, responseTopic, agent.Units{Names: units})
+}
+
+func (h unitsHandler) status(w http.ResponseWriter, r *http.Request) {
+	h.publishAndAwaitResponse(w, agent.UnitStatusTopic, agent.UnitStatusResponseTopic, nil)
+}
+
+func (h unitsHandler) publishAndAwaitResponse(w http.ResponseWriter, topic, responseTopic string, data interface{}) {
+	response := make(chan interface{})
+	unsubscribe := h.hub.Subscribe(responseTopic, func(topic string, body interface{}) {
+		select {
+		case response <- body:
+		case <-h.done:
+		}
+	})
+	defer unsubscribe()
+
+	h.hub.Publish(topic, data)
+
+	select {
+	case message := <-response:
+		bytes, err := yaml.Marshal(message)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "error: %v\n", err)
+			return
+		}
+		w.Write(bytes)
+	case <-h.done:
+		w.WriteHeader(http.StatusServiceUnavailable)
+		fmt.Fprintln(w, "introspection worker stopping")
+	case <-h.clock.After(10 * time.Second):
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintln(w, "response timed out")
+	}
 }

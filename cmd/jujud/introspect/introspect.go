@@ -17,6 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	"github.com/kr/pretty"
 
 	apiagent "github.com/juju/juju/api/agent"
 	jujucmd "github.com/juju/juju/cmd"
@@ -31,8 +32,9 @@ type IntrospectCommand struct {
 	path    string
 	listen  string
 
-	post bool
-	form url.Values
+	verbose bool
+	post    bool
+	form    url.Values
 
 	// IntrospectionSocketName returns the socket name
 	// for a given tag. If IntrospectionSocketName is nil,
@@ -83,6 +85,7 @@ func (c *IntrospectCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.agent, "agent", "", "agent to introspect (defaults to machine agent)")
 	f.StringVar(&c.listen, "listen", "", "address on which to expose the introspection socket")
 	f.BoolVar(&c.post, "post", false, "perform a POST action rather than a GET")
+	f.BoolVar(&c.verbose, "verbose", false, "show query path and args")
 }
 
 func (c *IntrospectCommand) Init(args []string) error {
@@ -141,12 +144,17 @@ func (c *IntrospectCommand) Run(ctx *cmd.Context) error {
 		return http.Serve(listener, proxy)
 	}
 
-	ctx.Infof("Querying %s introspection socket: %s", socketName, c.path)
 	client := unixSocketHTTPClient(socketName)
 	var resp *http.Response
 	if c.post {
+		if c.verbose {
+			ctx.Infof("Posting to %s introspection socket: %s %s", socketName, c.path, pretty.Sprint(c.form))
+		}
 		resp, err = client.PostForm(targetURL.String(), c.form)
 	} else {
+		if c.verbose {
+			ctx.Infof("Querying %s introspection socket: %s", socketName, c.path)
+		}
 		resp, err = client.Get(targetURL.String())
 	}
 	if err != nil {

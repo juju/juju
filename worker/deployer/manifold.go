@@ -17,11 +17,18 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 )
 
+// Hub is a pubsub hub used for internal messaging.
+type Hub interface {
+	Publish(topic string, data interface{}) <-chan struct{}
+	Subscribe(topic string, handler func(string, interface{})) func()
+}
+
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 	Clock         clock.Clock
+	Hub           Hub
 	Logger        Logger
 
 	UnitEngineConfig func() dependency.EngineConfig
@@ -56,6 +63,7 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 	contextConfig := ContextConfig{
 		Agent:            a,
 		Clock:            config.Clock,
+		Hub:              config.Hub,
 		Logger:           config.Logger,
 		UnitEngineConfig: config.UnitEngineConfig,
 		SetupLogging:     config.SetupLogging,

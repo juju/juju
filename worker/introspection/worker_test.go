@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
@@ -24,6 +26,7 @@ import (
 
 	// Bring in the state package for the tracker profile.
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/pubsub/agent"
 	_ "github.com/juju/juju/state"
 	"github.com/juju/juju/worker/introspection"
 )
@@ -61,6 +64,8 @@ type introspectionSuite struct {
 	reporter introspection.DepEngineReporter
 	gatherer prometheus.Gatherer
 	recorder presence.Recorder
+	hub      *pubsub.SimpleHub
+	clock    *testclock.Clock
 }
 
 var _ = gc.Suite(&introspectionSuite{})
@@ -74,6 +79,8 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 	s.worker = nil
 	s.recorder = nil
 	s.gatherer = newPrometheusGatherer()
+	s.hub = pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{Logger: loggo.GetLogger("test.hub")})
+	s.clock = testclock.NewClock(time.Now())
 	s.startWorker(c)
 }
 
@@ -84,11 +91,13 @@ func (s *introspectionSuite) startWorker(c *gc.C) {
 		DepEngine:          s.reporter,
 		PrometheusGatherer: s.gatherer,
 		Presence:           s.recorder,
+		Clock:              s.clock,
+		Hub:                s.hub,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.worker = w
 	s.AddCleanup(func(c *gc.C) {
-		workertest.CheckKill(c, w)
+		workertest.CleanKill(c, w)
 	})
 }
 
@@ -170,7 +179,7 @@ func (s *introspectionSuite) TestMissingPubSubReporter(c *gc.C) {
 }
 
 func (s *introspectionSuite) TestMissingMachineLock(c *gc.C) {
-	response := s.call(c, "/machinelock/")
+	response := s.call(c, "/machinelock")
 	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
 	s.assertBody(c, response, "missing machine lock reporter")
 }
@@ -202,7 +211,7 @@ working: true`[1:])
 }
 
 func (s *introspectionSuite) TestMissingPresenceReporter(c *gc.C) {
-	response := s.call(c, "/presence/")
+	response := s.call(c, "/presence")
 	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
 	s.assertBody(c, response, "404 page not found")
 }
@@ -214,7 +223,7 @@ func (s *introspectionSuite) TestDisabledPresenceReporter(c *gc.C) {
 	s.recorder = presence.New(testclock.NewClock(time.Now()))
 	s.startWorker(c)
 
-	response := s.call(c, "/presence/")
+	response := s.call(c, "/presence")
 	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
 	s.assertBody(c, response, "agent is not an apiserver")
 }
@@ -228,7 +237,7 @@ func (s *introspectionSuite) TestEnabledPresenceReporter(c *gc.C) {
 	s.recorder.Connect("server", "model-uuid", "agent-1", 42, false, "")
 	s.startWorker(c)
 
-	response := s.call(c, "/presence/")
+	response := s.call(c, "/presence")
 	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
 	s.assertBody(c, response, `
 [model-uuid]
@@ -239,12 +248,113 @@ agent-1  server  42       alive
 }
 
 func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {
-	response := s.call(c, "/metrics/")
+	response := s.call(c, "/metrics")
 	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
 	body := s.body(c, response)
 	s.assertContains(c, body, "# HELP tau Tau")
 	s.assertContains(c, body, "# TYPE tau counter")
 	s.assertContains(c, body, "tau 6.283185")
+}
+
+func (s *introspectionSuite) TestUnitMissingAction(c *gc.C) {
+	response := s.call(c, "/units")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
+	s.assertBody(c, response, "missing action")
+}
+
+func (s *introspectionSuite) TestUnitUnknownAction(c *gc.C) {
+	response := s.post(c, "/units", url.Values{"action": {"foo"}})
+	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
+	s.assertBody(c, response, `unknown action: "foo"`)
+}
+
+func (s *introspectionSuite) TestUnitStartWithGet(c *gc.C) {
+	response := s.call(c, "/units?action=start")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
+	s.assertBody(c, response, "start requires a POST request")
+}
+
+func (s *introspectionSuite) TestUnitStartMissingUnits(c *gc.C) {
+	response := s.post(c, "/units", url.Values{"action": {"start"}})
+	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
+	s.assertBody(c, response, "missing unit")
+}
+
+func (s *introspectionSuite) TestUnitStartUnits(c *gc.C) {
+	unsub := s.hub.Subscribe(agent.StartUnitTopic, func(topic string, data interface{}) {
+		_, ok := data.(agent.Units)
+		if !ok {
+			c.Fatalf("bad data type: %T", data)
+			return
+		}
+		s.hub.Publish(agent.StartUnitResponseTopic, agent.StartStopResponse{
+			"one": "started",
+			"two": "not found",
+		})
+	})
+	defer unsub()
+
+	response := s.post(c, "/units", url.Values{"action": {"start"}, "unit": {"one", "two"}})
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	s.assertBody(c, response, "one: started\ntwo: not found")
+}
+
+func (s *introspectionSuite) TestUnitStopWithGet(c *gc.C) {
+	response := s.call(c, "/units?action=stop")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
+	s.assertBody(c, response, "stop requires a POST request")
+}
+
+func (s *introspectionSuite) TestUnitStopMissingUnits(c *gc.C) {
+	response := s.post(c, "/units", url.Values{"action": {"stop"}})
+	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
+	s.assertBody(c, response, "missing unit")
+}
+
+func (s *introspectionSuite) TestUnitStopUnits(c *gc.C) {
+	unsub := s.hub.Subscribe(agent.StopUnitTopic, func(topic string, data interface{}) {
+		_, ok := data.(agent.Units)
+		if !ok {
+			c.Fatalf("bad data type: %T", data)
+			return
+		}
+		s.hub.Publish(agent.StopUnitResponseTopic, agent.StartStopResponse{
+			"one": "stopped",
+			"two": "not found",
+		})
+	})
+	defer unsub()
+
+	response := s.post(c, "/units", url.Values{"action": {"stop"}, "unit": {"one", "two"}})
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	s.assertBody(c, response, "one: stopped\ntwo: not found")
+}
+
+func (s *introspectionSuite) TestUnitStatus(c *gc.C) {
+	unsub := s.hub.Subscribe(agent.UnitStatusTopic, func(string, interface{}) {
+		s.hub.Publish(agent.UnitStatusResponseTopic, agent.Status{
+			"one": "running",
+			"two": "stopped",
+		})
+	})
+	defer unsub()
+
+	response := s.call(c, "/units?action=status")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	s.assertBody(c, response, `
+one: running
+two: stopped`[1:])
+}
+
+func (s *introspectionSuite) TestUnitStatusTimeout(c *gc.C) {
+	unsub := s.hub.Subscribe(agent.UnitStatusTopic, func(string, interface{}) {
+		s.clock.Advance(10 * time.Second)
+	})
+	defer unsub()
+
+	response := s.call(c, "/units?action=status")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusInternalServerError)
+	s.assertBody(c, response, "response timed out")
 }
 
 type reporter struct {

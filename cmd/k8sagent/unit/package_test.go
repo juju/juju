@@ -6,6 +6,7 @@ package unit_test
 import (
 	"testing"
 
+	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -21,10 +22,10 @@ type ImportSuite struct{}
 var _ = gc.Suite(&ImportSuite{})
 
 func (*ImportSuite) TestImports(c *gc.C) {
-	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/cmd/k8sagent/unit")
+	found := set.NewStrings(
+		coretesting.FindJujuCoreImports(c, "github.com/juju/juju/cmd/k8sagent/unit")...)
 
-	// TODO: review if there are any un-expected imports!
-	c.Assert(found, jc.SameContents, []string{
+	expected := set.NewStrings(
 		"agent",
 		"agent/tools",
 		"api",
@@ -141,6 +142,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"packaging/dependency",
 		"pki",
 		"provider/lxd/lxdnames",
+		"pubsub/agent",
 		"resource",
 		"rpc",
 		"rpc/jsoncodec",
@@ -193,5 +195,15 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"worker/uniter/upgradeseries",
 		"worker/uniter/verifycharmprofile",
 		"wrench",
-	})
+	)
+
+	unexpected := found.Difference(expected)
+	// TODO: review if there are any un-expected imports!
+	// Show the values rather than just checking the length so a failing
+	// test shows them.
+	c.Check(unexpected.SortedValues(), jc.DeepEquals, []string{})
+	// If unneeded show any values this is good as we've reduced
+	// dependencies, and they should be removed from expected above.
+	unneeded := expected.Difference(found)
+	c.Check(unneeded.SortedValues(), jc.DeepEquals, []string{})
 }

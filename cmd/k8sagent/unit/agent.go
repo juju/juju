@@ -192,6 +192,9 @@ func (c *k8sUnitAgent) workers() (worker.Worker, error) {
 		NewSocketName:      addons.DefaultIntrospectionSocketName,
 		PrometheusGatherer: c.prometheusRegistry,
 		WorkerFunc:         introspection.NewWorker,
+		// If the k8sagent gains the ability to interact with the introspection
+		// worker, the introspection worker should be configured with a clock
+		// and hub. See the machine agent.
 	}); err != nil {
 		// If the introspection worker failed to start, we just log error
 		// but continue. It is very unlikely to happen in the real world
