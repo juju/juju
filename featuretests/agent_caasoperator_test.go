@@ -16,6 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2/dependency"
 	gc "gopkg.in/check.v1"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
@@ -245,4 +246,12 @@ func (*mockExecutor) Exec(params exec.ExecParams, cancel <-chan struct{}) error 
 
 func (*mockExecutor) Copy(params exec.CopyParams, cancel <-chan struct{}) error {
 	return errors.NotImplementedf("exec copy")
+}
+
+func (m *mockExecutor) NameSpace() string {
+	return "test"
+}
+
+func (m *mockExecutor) RawClient() kubernetes.Interface {
+	return nil
 }

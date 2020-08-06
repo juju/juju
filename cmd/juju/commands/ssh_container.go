@@ -159,9 +159,7 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 	unitTag := names.NewUnitTag(target)
 	var providerID string
 	if !c.remote {
-		// TODO(caas): always target to operator pod for now.
 		appName, err := names.UnitApplication(unitTag.Id())
-		logger.Criticalf("appName %q, %#v", appName, err)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -169,6 +167,9 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 		podAPI := c.execClient.RawClient().CoreV1().Pods(c.execClient.NameSpace())
 		if providerID, err = k8sprovider.GetOperatorPodName(podAPI, appName); err != nil {
 			return nil, errors.Trace(err)
+		}
+		if len(providerID) == 0 {
+			return nil, errors.New(fmt.Sprintf("operator pod for unit %q is not ready yet", unitTag.Id()))
 		}
 	} else {
 		results, err := c.applicationAPI.UnitsInfo([]names.UnitTag{unitTag})

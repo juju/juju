@@ -18,10 +18,6 @@ var (
 	ModelNameToNameSpace         = modelNameToNameSpace
 )
 
-type (
-// SizeQueue = sizeQueue
-)
-
 func (ep *ExecParams) Validate(podGetter typedcorev1.PodInterface) error {
 	return ep.validate(podGetter)
 }

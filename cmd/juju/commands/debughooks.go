@@ -190,14 +190,13 @@ func (c *debugHooksCommand) getValidHooks(appName string) (set.Strings, error) {
 }
 
 func (c *debugHooksCommand) decideEntryPoint(ctx *cmd.Context) string {
-	o := "/bin/bash -c '%s'"
 	if c.modelType == model.CAAS {
 		c.provider.setArgs([]string{"which", "sudo"})
-		if err := c.sshCommand.Run(ctx); err == nil {
-			o = "sudo " + o
+		if err := c.sshCommand.Run(ctx); err != nil {
+			return "/bin/bash -c '%s'"
 		}
 	}
-	return o
+	return "sudo /bin/bash -c '%s'"
 }
 
 // commonRun is shared between debugHooks and debugCode

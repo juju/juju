@@ -1,6 +1,8 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build aix dragonfly freebsd js,wasm linux netbsd openbsd solaris
+
 package exec_test
 
 import (

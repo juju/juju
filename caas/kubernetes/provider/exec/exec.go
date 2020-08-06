@@ -175,10 +175,12 @@ func (ep *ExecParams) validate(podGetter typedcorev1.PodInterface) (err error) {
 	return nil
 }
 
+// RawClient returns raw the k8s clientset.
 func (c client) RawClient() kubernetes.Interface {
 	return c.clientset
 }
 
+// NameSpace returns current namespace.
 func (c client) NameSpace() string {
 	return c.namespace
 }
