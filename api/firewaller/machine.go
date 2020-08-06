@@ -6,6 +6,7 @@ package firewaller
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
@@ -110,6 +111,10 @@ func (m *Machine) ActiveSubnets() ([]names.SubnetTag, error) {
 
 // OpenedPorts returns a map of network.PortRange to unit tag for all opened
 // port ranges on the machine for the subnet matching given subnetTag.
+//
+// TODO(achilleasa): remove from client once we complete the migration to the
+// new API.
+// DEPRECATED: use OpenedPortRanges instead.
 func (m *Machine) OpenedPorts(subnetTag names.SubnetTag) (map[network.PortRange]names.UnitTag, error) {
 	var results params.MachinePortsResults
 	var subnetTagAsString string
@@ -162,4 +167,50 @@ func (m *Machine) IsManual() (bool, error) {
 		return false, result.Error
 	}
 	return result.Result, nil
+}
+
+// OpenedMachinePortRanges queries the open port ranges for all units on this
+// machine and returns back a map where keys are unit names and values are maps
+// of the opened port ranges by the unit grouped by subnet CIDR.
+func (m *Machine) OpenedMachinePortRanges() (map[names.UnitTag]map[string][]network.PortRange, error) {
+	if m.st.BestAPIVersion() < 6 {
+		// OpenedMachinePortRanges() was introduced in FirewallerAPIV6.
+		return nil, errors.NotImplementedf("OpenedMachinePortRanges() (need V6+)")
+	}
+
+	var results params.OpenMachinePortRangesResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag.String()}},
+	}
+	err := m.st.facade.FacadeCall("OpenedMachinePortRanges", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	} else if result.GroupKey != "cidr" {
+		return nil, fmt.Errorf("expected open unit port ranges to be grouped by subnet CIDR, got %s", result.GroupKey)
+	}
+
+	portRangeMap := make(map[names.UnitTag]map[string][]network.PortRange)
+	for _, unitPortRanges := range result.UnitPortRanges {
+		unitTag, err := names.ParseUnitTag(unitPortRanges.UnitTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		portRangeMap[unitTag] = make(map[string][]network.PortRange)
+
+		for cidr, portRanges := range unitPortRanges.PortRangeGroups {
+			portList := make([]network.PortRange, len(portRanges))
+			for i, pr := range portRanges {
+				portList[i] = pr.NetworkPortRange()
+			}
+			portRangeMap[unitTag][cidr] = portList
+		}
+	}
+	return portRangeMap, nil
 }
