@@ -1609,14 +1609,15 @@ func (m *Machine) AddressesBySpaceID() (map[string][]corenetwork.SpaceAddress, e
 	return res, nil
 }
 
-// SubnetsBySpaceID resolves the subnet assignments for each space the machine
-// is associated with and returns them back as a map where keys are space IDs
-// and each value is a slice of subnet IDs assigned to a particular space.
-func (m *Machine) SubnetsBySpaceID() (map[string][]string, error) {
+// SubnetCIDRsBySpaceID resolves the subnet assignments for each space the
+// machine is associated with and returns them back as a map where keys are
+// space IDs and each value is a slice of subnet CIDRs assigned to a particular
+// space.
+func (m *Machine) SubnetCIDRsBySpaceID() (map[string][]string, error) {
 	res := make(map[string][]string)
 	err := m.visitAddressesInSpaces(func(subnet *Subnet, address *Address) {
 		spaceID := subnet.SpaceID()
-		res[spaceID] = append(res[spaceID], subnet.ID())
+		res[spaceID] = append(res[spaceID], subnet.CIDR())
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

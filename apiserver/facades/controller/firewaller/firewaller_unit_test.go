@@ -16,6 +16,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/firewall"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -132,4 +133,135 @@ func (s *RemoteFirewallerSuite) TestFirewallRules(c *gc.C) {
 	c.Assert(result.Rules, gc.HasLen, 1)
 	c.Assert(result.Rules[0].KnownService, gc.Equals, params.KnownServiceValue("juju-application-offer"))
 	c.Assert(result.Rules[0].WhitelistCIDRS, jc.SameContents, []string{"192.168.0.0/16"})
+}
+
+var _ = gc.Suite(&OpenedMachinePortsSuite{})
+
+type OpenedMachinePortsSuite struct {
+	coretesting.BaseSuite
+
+	resources  *common.Resources
+	authorizer *apiservertesting.FakeAuthorizer
+	st         *mockState
+	api        *firewaller.FirewallerAPIV6
+}
+
+func (s *OpenedMachinePortsSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	s.resources = common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+
+	s.authorizer = &apiservertesting.FakeAuthorizer{
+		Tag:        names.NewMachineTag("0"),
+		Controller: true,
+	}
+
+	s.st = newMockState(coretesting.ModelTag.Id())
+
+	api, err := firewaller.NewFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.api = &firewaller.FirewallerAPIV6{
+		&firewaller.FirewallerAPIV5{
+			&firewaller.FirewallerAPIV4{
+				FirewallerAPIV3:     api,
+				ControllerConfigAPI: common.NewControllerConfig(newMockState(coretesting.ModelTag.Id())),
+			},
+		},
+	}
+}
+
+func (s *OpenedMachinePortsSuite) TestOpenedMachinePortRanges(c *gc.C) {
+	// Set up our mocks
+	mockMachine := newMockMachine("0")
+	mockMachine.openedPortRanges = newMockMachinePortRanges(
+		newMockUnitPortRanges(
+			"wordpress/0",
+			map[string][]network.PortRange{
+				"": []network.PortRange{
+					network.MustParsePortRange("80/tcp"),
+				},
+			},
+		),
+		newMockUnitPortRanges(
+			"mysql/0",
+			map[string][]network.PortRange{
+				"foo": []network.PortRange{
+					network.MustParsePortRange("3306/tcp"),
+				},
+			},
+		),
+	)
+	mockMachine.subnetCIDRsBySpaceID = map[string][]string{
+		network.AlphaSpaceId: []string{
+			"10.0.0.0/24",
+			"10.0.1.0/24",
+		},
+		"42": []string{
+			"192.168.0.0/24",
+			"192.168.1.0/24",
+		},
+	}
+	s.st.machines["0"] = mockMachine
+	s.st.applicationEndpointBindings = map[string]map[string]string{
+		"mysql": map[string]string{
+			"":    network.AlphaSpaceId,
+			"foo": "42",
+		},
+		"wordpress": map[string]string{
+			"":           network.AlphaSpaceId,
+			"monitoring": network.AlphaSpaceId,
+			"web":        "42",
+		},
+	}
+
+	// Test call output
+	req := params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewMachineTag("0").String()},
+		},
+	}
+	res, err := s.api.OpenedMachinePortRanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+
+	c.Assert(res.Results[0].Error, gc.IsNil)
+	c.Assert(res.Results[0].GroupKey, gc.Equals, "cidr", gc.Commentf("expected group key to be cidr; got %q", res.Results[0].GroupKey))
+	c.Assert(res.Results[0].UnitPortRanges, gc.DeepEquals, []params.OpenUnitPortRanges{
+		// NOTE: results are sorted by unit tag (each port ranges list
+		// is sorted as well).
+		{
+			UnitTag: "unit-mysql-0",
+			PortRangeGroups: map[string][]params.PortRange{
+				// The subnet CIDRs for space "42" that "foo"
+				// is bound to.
+				"192.168.0.0/24": []params.PortRange{
+					params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
+				},
+				"192.168.1.0/24": []params.PortRange{
+					params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
+				},
+			},
+		},
+		{
+			UnitTag: "unit-wordpress-0",
+			PortRangeGroups: map[string][]params.PortRange{
+				// Wordpress has opened port 80 to
+				// all bound spaces (alpha and 42). We should
+				// get an entry in each subnet
+				"10.0.0.0/24": []params.PortRange{
+					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+				},
+				"10.0.1.0/24": []params.PortRange{
+					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+				},
+				"192.168.0.0/24": []params.PortRange{
+					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+				},
+				"192.168.1.0/24": []params.PortRange{
+					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+				},
+			},
+		},
+	})
 }

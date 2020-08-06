@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	corefirewall "github.com/juju/juju/core/firewall"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -52,6 +54,11 @@ type FirewallerAPIV4 struct {
 // FirewallerAPIV5 provides access to the Firewaller v5 API facade.
 type FirewallerAPIV5 struct {
 	*FirewallerAPIV4
+}
+
+// FirewallerAPIV6 provides access to the Firewaller v6 API facade.
+type FirewallerAPIV6 struct {
+	*FirewallerAPIV5
 }
 
 // NewStateFirewallerAPIV3 creates a new server-side FirewallerAPIV3 facade.
@@ -94,6 +101,17 @@ func NewStateFirewallerAPIV5(context facade.Context) (*FirewallerAPIV5, error) {
 	}
 	return &FirewallerAPIV5{
 		FirewallerAPIV4: facadev4,
+	}, nil
+}
+
+// NewStateFirewallerAPIV5 creates a new server-side FirewallerAPIV6 facade.
+func NewStateFirewallerAPIV6(context facade.Context) (*FirewallerAPIV6, error) {
+	facadev5, err := NewStateFirewallerAPIV5(context)
+	if err != nil {
+		return nil, err
+	}
+	return &FirewallerAPIV6{
+		FirewallerAPIV5: facadev5,
 	}, nil
 }
 
@@ -393,14 +411,11 @@ func (f *FirewallerAPIV3) getApplication(canAccess common.AuthFunc, tag names.Ap
 	return entity.(*state.Application), nil
 }
 
-func (f *FirewallerAPIV3) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
-	entity, err := f.getEntity(canAccess, tag)
-	if err != nil {
-		return nil, err
+func (f *FirewallerAPIV3) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (firewall.Machine, error) {
+	if !canAccess(tag) {
+		return nil, apiservererrors.ErrPerm
 	}
-	// The authorization function guarantees that the tag represents a
-	// machine.
-	return entity.(*state.Machine), nil
+	return f.st.Machine(tag.Id())
 }
 
 // WatchEgressAddressesForRelations creates a watcher that notifies when addresses, from which
@@ -534,4 +549,165 @@ func (f *FirewallerAPIV5) AreManuallyProvisioned(args params.Entities) (params.B
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
+}
+
+// OpenedMachinePortRanges returns a list of the opened port ranges for the
+// specified machines where each result is broken down by unit and by subnet
+// CIDR.
+func (f *FirewallerAPIV6) OpenedMachinePortRanges(args params.Entities) (params.OpenMachinePortRangesResults, error) {
+	result := params.OpenMachinePortRangesResults{
+		Results: make([]params.OpenMachinePortRangesResult, len(args.Entities)),
+	}
+	canAccess, err := f.accessMachine()
+	if err != nil {
+		return result, err
+	}
+	for i, arg := range args.Entities {
+		machineTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		machine, err := f.getMachine(canAccess, machineTag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		unitPortRanges, err := f.openedPortRangesForOneMachine(machine)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+
+		}
+		result.Results[i].GroupKey = "cidr"
+		result.Results[i].UnitPortRanges = unitPortRanges
+	}
+	return result, nil
+}
+
+func (f *FirewallerAPIV6) openedPortRangesForOneMachine(machine firewall.Machine) ([]params.OpenUnitPortRanges, error) {
+	machPortRanges, err := machine.OpenedPortRanges()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	portRangesByUnit := machPortRanges.ByUnit()
+	if len(portRangesByUnit) == 0 { // no ports open
+		return nil, nil
+	}
+
+	// Look up space to subnet mappings
+	subnetCIDRsBySpaceID, err := machine.SubnetCIDRsBySpaceID()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Fetch application endpoint bindings
+	allApps := set.NewStrings()
+	for unitName := range portRangesByUnit {
+		appName, err := names.UnitApplication(unitName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		allApps.Add(appName)
+	}
+	allAppBindings, err := f.resolveApplicationBindings(allApps)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Map the port ranges for each unit to one or more subnet CIDRs
+	// depending on the endpoints they apply to.
+	var res []params.OpenUnitPortRanges
+	for unitName, unitPortRanges := range portRangesByUnit {
+		// Already checked for validity; error can be ignored
+		appName, _ := names.UnitApplication(unitName)
+		appBindings := allAppBindings[appName]
+
+		unitRes := params.OpenUnitPortRanges{
+			UnitTag:         names.NewUnitTag(unitName).String(),
+			PortRangeGroups: make(map[string][]params.PortRange),
+		}
+
+		portRangesByCIDR := mapUnitPortsToSubnetCIDRs(unitName, unitPortRanges.ByEndpoint(), appBindings, subnetCIDRsBySpaceID)
+		for cidr, portRanges := range portRangesByCIDR {
+			mappedPorts := make([]params.PortRange, len(portRanges))
+			for i, pr := range portRanges {
+				mappedPorts[i] = params.FromNetworkPortRange(pr)
+			}
+			unitRes.PortRangeGroups[cidr] = mappedPorts
+		}
+
+		res = append(res, unitRes)
+	}
+
+	// Sort by unit tag so we return consistent results
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].UnitTag < res[j].UnitTag
+	})
+
+	return res, nil
+}
+
+func (f *FirewallerAPIV6) resolveApplicationBindings(apps set.Strings) (map[string]map[string]string, error) {
+	res := make(map[string]map[string]string)
+	for appName := range apps {
+		bindings, err := f.st.ApplicationEndpointBindings(appName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		res[appName] = bindings
+	}
+
+	return res, nil
+}
+
+// mapUnitPortsToSubnetCIDRs maps the list of opened unit port ranges
+// grouped by endpoint into a list of port ranges grouped by subnet CIDR.
+//
+// To facilitate this conversion, the function consults the application
+// endpoint bindings for the unit in conjunction with the provided subnetCIDRs
+// by spaceID map. Using this information, each endpoint from the incoming
+// port range grouping is resolved to a space ID and the space ID is in turn
+// resolved into a list of subnet CIDRs (the wildcard endpoint is treated as
+// *all known* endpoints for this conversion step).
+//
+// After the above step, all opened port ranges are then grouped by subnet CIDR,
+// de-dupped and sorted before they are returned to the caller.
+func mapUnitPortsToSubnetCIDRs(unitName string, portRangesByEndpoint map[string][]network.PortRange, endpointBindings map[string]string, subnetCIDRsBySpaceID map[string][]string) map[string][]network.PortRange {
+	portRangesByCIDR := make(map[string][]network.PortRange)
+
+	for endpointName, portRanges := range portRangesByEndpoint {
+		// These port ranges target an explicit endpoint; just iterate
+		// the subnets that correspond to the space it is bound to and
+		// append the port ranges.
+		if endpointName != "" {
+			for _, cidr := range subnetCIDRsBySpaceID[endpointBindings[endpointName]] {
+				portRangesByCIDR[cidr] = append(portRangesByCIDR[cidr], portRanges...)
+			}
+			continue
+		}
+
+		// The wildcard endpoint expands to all known endpoints.
+		for boundEndpoint, spaceID := range endpointBindings {
+			if boundEndpoint == "" { // skip default endpoint entry
+				continue
+			}
+			for _, cidr := range subnetCIDRsBySpaceID[spaceID] {
+				portRangesByCIDR[cidr] = append(portRangesByCIDR[cidr], portRanges...)
+			}
+		}
+	}
+
+	// Make a final pass to remove duplicates (e.g same range opened for
+	// two endpoints that are both bound to the same space).
+	for cidr, portRanges := range portRangesByCIDR {
+		uniquePortRanges := network.UniquePortRanges(portRanges)
+		network.SortPortRanges(uniquePortRanges)
+		portRangesByCIDR[cidr] = uniquePortRanges
+	}
+
+	return portRangesByCIDR
 }

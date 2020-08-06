@@ -89,6 +89,9 @@ func (st stateShim) Unit(name string) (Unit, error) {
 type Machine interface {
 	Id() string
 	WatchAddresses() state.NotifyWatcher
+	OpenedPortRanges() (state.MachinePortRanges, error)
+	SubnetCIDRsBySpaceID() (map[string][]string, error)
+	IsManual() (bool, error)
 }
 
 func (st stateShim) Machine(id string) (Machine, error) {

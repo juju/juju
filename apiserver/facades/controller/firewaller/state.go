@@ -30,6 +30,8 @@ type State interface {
 	Subnet(id string) (Subnet, error)
 
 	SubnetByCIDR(cidr string) (Subnet, error)
+
+	ApplicationEndpointBindings(appName string) (map[string]string, error)
 }
 
 // TODO(wallyworld) - for tests, remove when remaining firewaller tests become unit tests.
@@ -75,4 +77,8 @@ func (st stateShim) Subnet(id string) (Subnet, error) {
 
 func (st stateShim) SubnetByCIDR(cidr string) (Subnet, error) {
 	return st.st.SubnetByCIDR(cidr)
+}
+
+func (st stateShim) ApplicationEndpointBindings(appName string) (map[string]string, error) {
+	return state.ReadApplicationEndpointBindings(st.st, appName)
 }
