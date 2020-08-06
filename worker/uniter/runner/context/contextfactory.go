@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -176,7 +177,6 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		assignedMachineTag: f.machineTag,
 		relations:          f.getContextRelations(),
 		relationId:         -1,
-		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		storage:            f.storage,
 		clock:              f.clock,
 		logger:             f.logger,
@@ -336,9 +336,9 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 		info: statusInfo,
 	}
 
+	var machPortRanges map[names.UnitTag]map[string][]network.PortRange
 	if f.modelType == model.IAAS {
-		ctx.machinePorts, err = f.state.AllMachinePorts(f.machineTag)
-		if err != nil {
+		if machPortRanges, err = f.state.OpenedMachinePortRanges(f.machineTag); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -354,6 +354,8 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 			f.logger.Warningf("cannot get legacy private address for %v: %v", f.unit.Name(), err)
 		}
 	}
+
+	ctx.portRangeChanges = newPortRangeChangeRecorder(f.unit.Tag(), machPortRanges)
 	return nil
 }
 

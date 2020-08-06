@@ -51,7 +51,7 @@ Currently available charm hook tools are:
     action-set               set action results
     add-metric               add metrics
     application-version-set  specify which version of the application is deployed
-    close-port               ensure a port or range is always closed
+    close-port               register a request to close a port or port range
     config-get               print application configuration
     credential-get           access cloud credentials
     goal-state               print the status of the charm's peers and related units
@@ -65,8 +65,8 @@ Currently available charm hook tools are:
     leader-get               print application leadership settings
     leader-set               write application leadership settings
     network-get              get network config
-    open-port                register a port or range to open
-    opened-ports             lists all ports or ranges opened by the unit
+    open-port                register a request to open a port or port range
+    opened-ports             list all ports or port ranges opened by the unit
     pod-spec-get             get k8s spec information (deprecated)
     pod-spec-set             set k8s spec information (deprecated)
     relation-get             get relation settings

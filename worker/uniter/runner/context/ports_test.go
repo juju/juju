@@ -1,7 +1,7 @@
 // Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package context_test
+package context
 
 import (
 	"github.com/juju/names/v4"
@@ -9,265 +9,267 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
-type PortsSuite struct {
+var _ = gc.Suite(&PortRangeChangeRecorderSuite{})
+
+type PortRangeChangeRecorderSuite struct {
 	envtesting.IsolationSuite
 }
 
-var _ = gc.Suite(&PortsSuite{})
+type portRangeTest struct {
+	about string
 
-func (s *PortsSuite) TestValidatePortRange(c *gc.C) {
-	tests := []struct {
-		about     string
-		proto     string
-		ports     []int
-		portRange network.PortRange
-		expectErr string
-	}{{
-		about:     "invalid range - 0-0/tcp",
-		proto:     "tcp",
-		ports:     []int{0, 0},
-		expectErr: "port range bounds must be between 1 and 65535, got 0-0",
-	}, {
-		about:     "invalid range - 0-1/tcp",
-		proto:     "tcp",
-		ports:     []int{0, 1},
-		expectErr: "port range bounds must be between 1 and 65535, got 0-1",
-	}, {
-		about:     "invalid range - -1-1/tcp",
-		proto:     "tcp",
-		ports:     []int{-1, 1},
-		expectErr: "port range bounds must be between 1 and 65535, got -1-1",
-	}, {
-		about:     "invalid range - 1-99999/tcp",
-		proto:     "tcp",
-		ports:     []int{1, 99999},
-		expectErr: "port range bounds must be between 1 and 65535, got 1-99999",
-	}, {
-		about:     "invalid range - 88888-99999/tcp",
-		proto:     "tcp",
-		ports:     []int{88888, 99999},
-		expectErr: "port range bounds must be between 1 and 65535, got 88888-99999",
-	}, {
-		about:     "invalid protocol - 1-65535/foo",
-		proto:     "foo",
-		ports:     []int{1, 65535},
-		expectErr: `invalid protocol "foo", expected "tcp", "udp", or "icmp"`,
-	}, {
-		about: "valid range - 100-200/udp",
-		proto: "UDP",
-		ports: []int{100, 200},
-		portRange: network.PortRange{
-			FromPort: 100,
-			ToPort:   200,
-			Protocol: "udp",
+	targetEndpoint  string
+	targetPortRange network.PortRange
+
+	machinePortRanges  map[names.UnitTag]map[string][]network.PortRange
+	pendingOpenRanges  map[string][]network.PortRange
+	pendingCloseRanges map[string][]network.PortRange
+
+	expectErr          string
+	expectPendingOpen  map[string][]network.PortRange
+	expectPendingClose map[string][]network.PortRange
+}
+
+func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
+	targetUnit := names.NewUnitTag("u/0")
+
+	tests := []portRangeTest{
+		{
+			about:           "open a new range - all endpoints (no machine ports yet)",
+			targetEndpoint:  "",
+			targetPortRange: network.MustParsePortRange("10-20/tcp"),
+			expectPendingOpen: map[string][]network.PortRange{
+				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+			},
 		},
-	}, {
-		about: "valid single port - 100/tcp",
-		proto: "TCP",
-		ports: []int{100, 100},
-		portRange: network.PortRange{
-			FromPort: 100,
-			ToPort:   100,
-			Protocol: "tcp",
+		{
+			about:           "open an existing range - all endpoints (ignored)",
+			targetEndpoint:  "",
+			targetPortRange: network.MustParsePortRange("10-20/tcp"),
+			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
+				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+				},
+			},
 		},
-	}}
+		{
+			about:           "open an existing range - same unit; different endpoint (accepted)",
+			targetEndpoint:  "foo",
+			targetPortRange: network.MustParsePortRange("10-20/tcp"),
+			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
+				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+				},
+			},
+			expectPendingOpen: map[string][]network.PortRange{
+				"foo": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+			},
+		},
+		{
+			about:           "open a range pending to be closed",
+			targetEndpoint:  "",
+			targetPortRange: network.MustParsePortRange("10-20/tcp"),
+			pendingCloseRanges: map[string][]network.PortRange{
+				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+			},
+			expectPendingOpen: map[string][]network.PortRange{
+				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+			},
+			expectPendingClose: map[string][]network.PortRange{
+				"": []network.PortRange{},
+			},
+		},
+		{
+			about:           "open a range pending to be opened already - same unit; same endpoint (ignored)",
+			targetEndpoint:  "",
+			targetPortRange: network.MustParsePortRange("10-20/tcp"),
+			pendingOpenRanges: map[string][]network.PortRange{
+				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+			},
+			expectPendingOpen: map[string][]network.PortRange{
+				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+			},
+		},
+		{
+			about:           "open a range conflicting with another unit",
+			targetEndpoint:  "",
+			targetPortRange: network.MustParsePortRange("10-20/tcp"),
+			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
+				names.NewUnitTag("other/0"): map[string][]network.PortRange{
+					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+				},
+			},
+			expectErr: `cannot open 10-20/tcp \(unit "u/0"\): port range conflicts with 10-20/tcp \(unit "other/0"\)`,
+		},
+		{
+			about:           "open a range conflicting with the same unit",
+			targetEndpoint:  "",
+			targetPortRange: network.MustParsePortRange("1-200/tcp"),
+			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
+				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+				},
+			},
+			expectErr: `cannot open 1-200/tcp \(unit "u/0"\): port range conflicts with 10-20/tcp \(unit "u/0"\)`,
+		},
+		{
+			about:           "open a range conflicting with a pending range for the same unit",
+			targetEndpoint:  "",
+			targetPortRange: network.MustParsePortRange("1-200/tcp"),
+			pendingOpenRanges: map[string][]network.PortRange{
+				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+			},
+			expectErr: `cannot open 1-200/tcp \(unit "u/0"\): port range conflicts with 10-20/tcp \(unit "u/0"\) requested earlier`,
+		},
+	}
+
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.about)
-		portRange, err := context.ValidatePortRange(
-			test.proto,
-			test.ports[0],
-			test.ports[1],
-		)
+
+		rec := newPortRangeChangeRecorder(targetUnit, test.machinePortRanges)
+		rec.pendingOpenRanges = test.pendingOpenRanges
+		rec.pendingCloseRanges = test.pendingCloseRanges
+
+		err := rec.OpenPortRange(test.targetEndpoint, test.targetPortRange)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
-			c.Check(portRange, jc.DeepEquals, network.PortRange{})
 		} else {
 			c.Check(err, jc.ErrorIsNil)
-			c.Check(portRange, jc.DeepEquals, test.portRange)
+
+			pendingOpenRanges, pendingCloseRanges := rec.PendingChanges()
+			c.Check(pendingOpenRanges, jc.DeepEquals, test.expectPendingOpen)
+			c.Check(pendingCloseRanges, jc.DeepEquals, test.expectPendingClose)
 		}
 	}
 }
 
-func makeMachinePorts(
-	unitName, proto string, fromPort, toPort int,
-) map[network.PortRange]params.RelationUnit {
-	result := make(map[network.PortRange]params.RelationUnit)
-	portRange := network.PortRange{
-		FromPort: fromPort,
-		ToPort:   toPort,
-		Protocol: proto,
-	}
-	unitTag := ""
-	if unitName != "invalid" {
-		unitTag = names.NewUnitTag(unitName).String()
-	} else {
-		unitTag = unitName
-	}
-	result[portRange] = params.RelationUnit{
-		Unit: unitTag,
-	}
-	return result
-}
+func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
+	targetUnit := names.NewUnitTag("u/0")
 
-func makePendingPorts(
-	proto string, fromPort, toPort int, shouldOpen bool,
-) map[context.PortRange]context.PortRangeInfo {
-	result := make(map[context.PortRange]context.PortRangeInfo)
-	portRange := network.PortRange{
-		FromPort: fromPort,
-		ToPort:   toPort,
-		Protocol: proto,
+	tests := []portRangeTest{
+		{
+			about:           "close a new range (no machine ports yet; ignored)",
+			targetEndpoint:  "",
+			targetPortRange: network.MustParsePortRange("10-20/tcp"),
+		},
+		{
+			about:           "close an existing range - all endpoints",
+			targetEndpoint:  "",
+			targetPortRange: network.MustParsePortRange("10-20/tcp"),
+			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
+				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+				},
+			},
+			expectPendingClose: map[string][]network.PortRange{
+				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+			},
+		},
+		{
+			about:           "close an existing range - same unit; different endpoint (accepted even if not opened for that endpoint)",
+			targetEndpoint:  "foo",
+			targetPortRange: network.MustParsePortRange("10-20/tcp"),
+			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
+				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+				},
+			},
+			expectPendingClose: map[string][]network.PortRange{
+				"foo": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+			},
+		},
+		{
+			about:           "close a range pending to be opened (removed from pending open)",
+			targetEndpoint:  "",
+			targetPortRange: network.MustParsePortRange("10-20/tcp"),
+			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
+				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+				},
+			},
+			pendingOpenRanges: map[string][]network.PortRange{
+				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+			},
+			expectPendingOpen: map[string][]network.PortRange{
+				"": []network.PortRange{},
+			},
+			expectPendingClose: map[string][]network.PortRange{
+				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+			},
+		},
+		{
+			about:           "close a range pending to be closed (ignored)",
+			targetEndpoint:  "",
+			targetPortRange: network.MustParsePortRange("10-20/tcp"),
+			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
+				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+				},
+			},
+			pendingCloseRanges: map[string][]network.PortRange{
+				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+			},
+			expectPendingClose: map[string][]network.PortRange{
+				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+			},
+		},
+		{
+			about:           "close a range opened by another unit",
+			targetEndpoint:  "",
+			targetPortRange: network.MustParsePortRange("10-20/tcp"),
+			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
+				names.NewUnitTag("other/0"): map[string][]network.PortRange{
+					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+				},
+			},
+			expectErr: `cannot close 10-20/tcp \(unit "u/0"\): port range conflicts with 10-20/tcp \(unit "other/0"\)`,
+		},
+		{
+			about:           "close a range conflicting with the same unit",
+			targetEndpoint:  "",
+			targetPortRange: network.MustParsePortRange("1-200/tcp"),
+			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
+				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+				},
+			},
+			expectErr: `cannot close 1-200/tcp \(unit "u/0"\): port range conflicts with 10-20/tcp \(unit "u/0"\)`,
+		},
+		{
+			about:           "close a range conflicting with a pending range for the same unit",
+			targetEndpoint:  "",
+			targetPortRange: network.MustParsePortRange("1-200/tcp"),
+			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
+				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+				},
+			},
+			pendingCloseRanges: map[string][]network.PortRange{
+				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
+			},
+			expectErr: `cannot close 1-200/tcp \(unit "u/0"\): port range conflicts with 10-20/tcp \(unit "u/0"\) requested earlier`,
+		},
 	}
-	key := context.PortRange{
-		Ports:      portRange,
-		RelationId: -1,
-	}
-	result[key] = context.PortRangeInfo{
-		ShouldOpen: shouldOpen,
-	}
-	return result
-}
 
-type portsTest struct {
-	about         string
-	proto         string
-	ports         []int
-	machinePorts  map[network.PortRange]params.RelationUnit
-	pendingPorts  map[context.PortRange]context.PortRangeInfo
-	expectErr     string
-	expectPending map[context.PortRange]context.PortRangeInfo
-}
-
-func (p portsTest) withDefaults(proto string, fromPort, toPort int) portsTest {
-	if p.proto == "" {
-		p.proto = proto
-	}
-	if len(p.ports) != 2 {
-		p.ports = []int{fromPort, toPort}
-	}
-	if p.pendingPorts == nil {
-		p.pendingPorts = make(map[context.PortRange]context.PortRangeInfo)
-	}
-	return p
-}
-
-func (s *PortsSuite) TestTryOpenPorts(c *gc.C) {
-	tests := []portsTest{{
-		about:     "invalid port range",
-		ports:     []int{0, 0},
-		expectErr: "port range bounds must be between 1 and 65535, got 0-0",
-	}, {
-		about:     "invalid protocol - 10-20/foo",
-		proto:     "foo",
-		expectErr: `invalid protocol "foo", expected "tcp", "udp", or "icmp"`,
-	}, {
-		about:         "open a new range (no machine ports yet)",
-		expectPending: makePendingPorts("tcp", 10, 20, true),
-	}, {
-		about:         "open an existing range (ignored)",
-		machinePorts:  makeMachinePorts("u/0", "tcp", 10, 20),
-		expectPending: map[context.PortRange]context.PortRangeInfo{},
-	}, {
-		about:         "open a range pending to be closed already",
-		pendingPorts:  makePendingPorts("tcp", 10, 20, false),
-		expectPending: makePendingPorts("tcp", 10, 20, true),
-	}, {
-		about:         "open a range pending to be opened already (ignored)",
-		pendingPorts:  makePendingPorts("tcp", 10, 20, true),
-		expectPending: makePendingPorts("tcp", 10, 20, true),
-	}, {
-		about:        "try opening a range when machine ports has invalid unit tag",
-		machinePorts: makeMachinePorts("invalid", "tcp", 80, 90),
-		expectErr:    `machine ports 80-90/tcp contain invalid unit tag: "invalid" is not a valid tag`,
-	}, {
-		about:        "try opening a range conflicting with another unit",
-		machinePorts: makeMachinePorts("u/1", "tcp", 10, 20),
-		expectErr:    `cannot open 10-20/tcp \(unit "u/0"\): conflicts with existing 10-20/tcp \(unit "u/1"\)`,
-	}, {
-		about:         "open a range conflicting with the same unit (ignored)",
-		machinePorts:  makeMachinePorts("u/0", "tcp", 10, 20),
-		expectPending: map[context.PortRange]context.PortRangeInfo{},
-	}, {
-		about:        "try opening a range conflicting with another pending range",
-		pendingPorts: makePendingPorts("tcp", 5, 25, true),
-		expectErr:    `cannot open 10-20/tcp \(unit "u/0"\): conflicts with 5-25/tcp requested earlier`,
-	}}
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.about)
 
-		test = test.withDefaults("tcp", 10, 20)
-		err := context.TryOpenPorts(
-			test.proto,
-			test.ports[0],
-			test.ports[1],
-			names.NewUnitTag("u/0"),
-			test.machinePorts,
-			test.pendingPorts,
-		)
+		rec := newPortRangeChangeRecorder(targetUnit, test.machinePortRanges)
+		rec.pendingOpenRanges = test.pendingOpenRanges
+		rec.pendingCloseRanges = test.pendingCloseRanges
+
+		err := rec.ClosePortRange(test.targetEndpoint, test.targetPortRange)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
-			c.Check(test.pendingPorts, jc.DeepEquals, test.expectPending)
-		}
-	}
-}
 
-func (s *PortsSuite) TestTryClosePorts(c *gc.C) {
-	tests := []portsTest{{
-		about:     "invalid port range",
-		ports:     []int{0, 0},
-		expectErr: "port range bounds must be between 1 and 65535, got 0-0",
-	}, {
-		about:     "invalid protocol - 10-20/foo",
-		proto:     "foo",
-		expectErr: `invalid protocol "foo", expected "tcp", "udp", or "icmp"`,
-	}, {
-		about:         "close a new range (no machine ports yet; ignored)",
-		expectPending: map[context.PortRange]context.PortRangeInfo{},
-	}, {
-		about:         "close an existing range",
-		machinePorts:  makeMachinePorts("u/0", "tcp", 10, 20),
-		expectPending: makePendingPorts("tcp", 10, 20, false),
-	}, {
-		about:         "close a range pending to be opened already (removed from pending)",
-		pendingPorts:  makePendingPorts("tcp", 10, 20, true),
-		expectPending: map[context.PortRange]context.PortRangeInfo{},
-	}, {
-		about:         "close a range pending to be closed already (ignored)",
-		pendingPorts:  makePendingPorts("tcp", 10, 20, false),
-		expectPending: makePendingPorts("tcp", 10, 20, false),
-	}, {
-		about:        "try closing an existing range when machine ports has invalid unit tag",
-		machinePorts: makeMachinePorts("invalid", "tcp", 10, 20),
-		expectErr:    `machine ports 10-20/tcp contain invalid unit tag: "invalid" is not a valid tag`,
-	}, {
-		about:        "try closing a range of another unit",
-		machinePorts: makeMachinePorts("u/1", "tcp", 10, 20),
-		expectErr:    `cannot close 10-20/tcp \(opened by "u/1"\) from "u/0"`,
-	}}
-	for i, test := range tests {
-		c.Logf("test %d: %s", i, test.about)
-
-		test = test.withDefaults("tcp", 10, 20)
-		err := context.TryClosePorts(
-			test.proto,
-			test.ports[0],
-			test.ports[1],
-			names.NewUnitTag("u/0"),
-			test.machinePorts,
-			test.pendingPorts,
-		)
-		if test.expectErr != "" {
-			c.Check(err, gc.ErrorMatches, test.expectErr)
-		} else {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(test.pendingPorts, jc.DeepEquals, test.expectPending)
+			pendingOpenRanges, pendingCloseRanges := rec.PendingChanges()
+			c.Check(pendingOpenRanges, jc.DeepEquals, test.expectPendingOpen)
+			c.Check(pendingCloseRanges, jc.DeepEquals, test.expectPendingClose)
 		}
 	}
 }
