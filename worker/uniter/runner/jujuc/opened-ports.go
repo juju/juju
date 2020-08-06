@@ -68,7 +68,13 @@ func (c *OpenedPortsCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *OpenedPortsCommand) renderPortsWithoutEndpointDetails(ctx *cmd.Context, unitPortRanges map[string][]network.PortRange) error {
-	uniquePortRanges := uniquePortRanges(unitPortRanges)
+	var allPorts []network.PortRange
+	for _, portRanges := range unitPortRanges {
+		allPorts = append(allPorts, portRanges...)
+	}
+	uniquePortRanges := network.UniquePortRanges(allPorts)
+	network.SortPortRanges(uniquePortRanges)
+
 	results := make([]string, len(uniquePortRanges))
 	for i, portRange := range uniquePortRanges {
 		results[i] = portRange.String()
@@ -111,26 +117,4 @@ func (c *OpenedPortsCommand) renderPortsWithEndpointDetails(ctx *cmd.Context, un
 	}
 
 	return c.out.Write(ctx, results)
-}
-
-func uniquePortRanges(portRangesByEndpoint map[string][]network.PortRange) []network.PortRange {
-	var (
-		res       []network.PortRange
-		processed = make(map[network.PortRange]struct{})
-	)
-
-	for _, portRanges := range portRangesByEndpoint {
-		for _, pr := range portRanges {
-			if _, seen := processed[pr]; seen {
-				continue
-			}
-
-			processed[pr] = struct{}{}
-			res = append(res, pr)
-		}
-	}
-
-	network.SortPortRanges(res)
-	return res
-
 }

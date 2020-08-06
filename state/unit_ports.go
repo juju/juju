@@ -90,22 +90,12 @@ func (p *unitPortRanges) ByEndpoint() map[string][]network.PortRange {
 // UniquePortRanges returns a slice of unique open PortRanges across all
 // endpoints.
 func (p *unitPortRanges) UniquePortRanges() []network.PortRange {
-	var (
-		res  []network.PortRange
-		seen = make(map[network.PortRange]struct{})
-	)
-
+	var res []network.PortRange
 	for _, portRangesForEndpoint := range p.machinePortRanges.doc.UnitRanges[p.unitName] {
-		for _, portRange := range portRangesForEndpoint {
-			if _, found := seen[portRange]; found {
-				continue
-			}
-
-			seen[portRange] = struct{}{}
-			res = append(res, portRange)
-		}
+		res = append(res, portRangesForEndpoint...)
 	}
 
+	res = network.UniquePortRanges(res)
 	network.SortPortRanges(res)
 	return res
 }

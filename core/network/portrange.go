@@ -114,6 +114,25 @@ func SortPortRanges(portRanges []PortRange) {
 	})
 }
 
+// UniquePortRanges removes any duplicate port ranges from the input and
+// returns de-dupped list back.
+func UniquePortRanges(portRanges []PortRange) []PortRange {
+	var (
+		res       []PortRange
+		processed = make(map[PortRange]struct{})
+	)
+
+	for _, pr := range portRanges {
+		if _, seen := processed[pr]; seen {
+			continue
+		}
+
+		res = append(res, pr)
+		processed[pr] = struct{}{}
+	}
+	return res
+}
+
 // ParsePortRange builds a PortRange from the provided string. If the
 // string does not include a protocol then "tcp" is used. Validate()
 // gets called on the result before returning. If validation fails the
