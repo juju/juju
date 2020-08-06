@@ -235,23 +235,6 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 
 }
 
-func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
-	// Add a couple of spaces.
-	space1, err := s.State.AddSpace("space1", "first space id", nil, true)
-	c.Assert(err, jc.ErrorIsNil)
-	space2, err := s.State.AddSpace("space2", "", nil, false) // no provider ID
-	c.Assert(err, jc.ErrorIsNil)
-	// Add 1 subnet into space1, and 2 into space2.
-	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
-	testing.AddSubnetsWithTemplate(c, s.State, 3, network.SubnetInfo{
-		CIDR:              "10.10.{{.}}.0/24",
-		ProviderId:        "subnet-{{.}}",
-		AvailabilityZones: []string{"zone{{.}}"},
-		SpaceID:           fmt.Sprintf("{{if (eq . 0)}}%s{{else}}%s{{end}}", space1.Id(), space2.Id()),
-		VLANTag:           42,
-	})
-}
-
 func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.C) {
 	s.addSpacesAndSubnets(c)
 
@@ -272,8 +255,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Use juju names for spaces in bindings, simulating ''juju deploy
-	// --bind...' was called.
+	// Simulates running `juju deploy --bind "..."`.
 	bindings := map[string]string{
 		"url": "space1", // has both name and provider ID
 		"db":  "space2", // has only name, no provider ID
@@ -343,8 +325,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAl
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Use juju names for spaces in bindings, simulating ''juju deploy
-	// --bind...' was called.
+	// Simulates running `juju deploy --bind "..."`.
 	bindings := map[string]string{
 		"url": "space1", // has both name and provider ID
 		"db":  "space2", // has only name, no provider ID
@@ -364,7 +345,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAl
 
 	expected := params.ProvisioningInfoResultsV10{
 		Results: []params.ProvisioningInfoResultV10{{
-			Error: apiservertesting.ServerError("matching subnets to zones: cannot use space \"alpha\" as deployment target: no subnets"),
+			Error: apiservertesting.ServerError(
+				"matching subnets to zones: cannot use space \"alpha\" as deployment target: no subnets"),
 		}},
 	}
 	c.Assert(result, jc.DeepEquals, expected)
@@ -379,8 +361,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithAlphaEndpointBindings(c
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Use juju names for spaces in bindings, simulating ''juju deploy
-	// --bind...' was called.
+	// Simulates running `juju deploy --bind "..."`.
 	bindings := map[string]string{
 		"url": "alpha",
 	}
@@ -419,6 +400,72 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithAlphaEndpointBindings(c
 		}},
 	}
 	c.Assert(result, jc.DeepEquals, expected)
+}
+
+func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingError(c *gc.C) {
+	s.addSpacesAndSubnets(c)
+
+	alphaSpace, err := s.State.SpaceByName("alpha")
+	c.Assert(err, jc.ErrorIsNil)
+
+	testing.AddSubnetsWithTemplate(c, s.State, 1, network.SubnetInfo{
+		CIDR:              "10.10.{{add 4 .}}.0/24",
+		ProviderId:        "subnet-alpha",
+		AvailabilityZones: []string{"zone-alpha"},
+		SpaceID:           alphaSpace.Id(),
+		VLANTag:           43,
+	})
+
+	cons := constraints.MustParse("spaces=^space1")
+	wordpressMachine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:      "quantal",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: cons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Simulates running `juju deploy --bind "..."`.
+	bindings := map[string]string{
+		"url": "space1", // has both name and provider ID
+		"db":  "space2", // has only name, no provider ID
+	}
+	wordpressCharm := s.AddTestingCharm(c, "wordpress")
+	wordpressService := s.AddTestingApplicationWithBindings(c, "wordpress", wordpressCharm, bindings)
+	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = wordpressUnit.AssignToMachine(wordpressMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: wordpressMachine.Tag().String()},
+	}}
+	result, err := s.provisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := params.ProvisioningInfoResultsV10{
+		Results: []params.ProvisioningInfoResultV10{{
+			Error: apiservertesting.ServerError(
+				`negative space constraint "space1" conflicts with wordpress endpoint binding for "url"`),
+		}},
+	}
+	c.Assert(result, jc.DeepEquals, expected)
+}
+
+func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
+	// Add a couple of spaces.
+	space1, err := s.State.AddSpace("space1", "first space id", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	space2, err := s.State.AddSpace("space2", "", nil, false) // no provider ID
+	c.Assert(err, jc.ErrorIsNil)
+	// Add 1 subnet into space1, and 2 into space2.
+	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
+	testing.AddSubnetsWithTemplate(c, s.State, 3, network.SubnetInfo{
+		CIDR:              "10.10.{{.}}.0/24",
+		ProviderId:        "subnet-{{.}}",
+		AvailabilityZones: []string{"zone{{.}}"},
+		SpaceID:           fmt.Sprintf("{{if (eq . 0)}}%s{{else}}%s{{end}}", space1.Id(), space2.Id()),
+		VLANTag:           42,
+	})
 }
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstraints(c *gc.C) {
