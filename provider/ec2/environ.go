@@ -450,11 +450,9 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		return annotateWrapError(received, "")
 	}
 
-	// Verify the provided availability zone to start the instance in.  It's
-	// provided via StartInstanceParams Constraints or AvailabilityZone.
-	// The availability zone of existing volumes that are to be
-	// attached to the machine must all match, and must be the same
-	// as specified zone (if any).
+	// Verify the supplied availability zone to start the instance in.
+	// It is provided via Constraints or AvailabilityZone in
+	// StartInstanceParams.
 	availabilityZone, placementSubnetID, err := e.deriveAvailabilityZoneAndSubnetID(ctx, args)
 	if err != nil {
 		// An IsNotValid error is returned if the zone is invalid;
@@ -465,8 +463,6 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		}
 		return nil, err
 	}
-
-	arches := args.Tools.Arches()
 
 	ec2Session := EC2Session(e.cloud.Region, e.ec2.AccessKey, e.ec2.SecretKey)
 	instanceTypes, err := e.supportedInstanceTypes(ec2Session, ctx)
@@ -481,7 +477,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		&instances.InstanceConstraint{
 			Region:      e.cloud.Region,
 			Series:      args.InstanceConfig.Series,
-			Arches:      arches,
+			Arches:      args.Tools.Arches(),
 			Constraints: args.Constraints,
 			Storage:     []string{ssdStorage, ebsStorage},
 		},
@@ -489,31 +485,17 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	if err != nil {
 		return nil, wrapError(err)
 	}
-	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
-	if err != nil {
-		return nil, common.ZoneIndependentError(
-			errors.Errorf("chosen architecture %v for image %q not present in %v", spec.Image.Arch, spec.Image.Id, arches),
-		)
-	}
 
-	if spec.InstanceType.Deprecated {
-		logger.Infof("deprecated instance type specified: %s", spec.InstanceType.Name)
-	}
-
-	if err := args.InstanceConfig.SetTools(tools); err != nil {
-		return nil, common.ZoneIndependentError(err)
-	}
-	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
+	if err := e.finishInstanceConfig(&args, spec); err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}
 
 	callback(status.Allocating, "Making user data", nil)
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, AmazonRenderer{})
 	if err != nil {
-		return nil, common.ZoneIndependentError(
-			errors.Annotate(err, "cannot make user data"),
-		)
+		return nil, common.ZoneIndependentError(errors.Annotate(err, "constructing user data"))
 	}
+
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
 	apiPorts := make([]int, 0, 2)
 	if args.InstanceConfig.Controller != nil {
@@ -525,6 +507,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	} else {
 		apiPorts = append(apiPorts, args.InstanceConfig.APIInfo.Ports()[0])
 	}
+
 	callback(status.Allocating, "Setting up groups", nil)
 	groups, err := e.setUpGroups(ctx, args.ControllerUUID, args.InstanceConfig.MachineId, apiPorts)
 	if err != nil {
@@ -633,6 +616,28 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		Instance: inst,
 		Hardware: &hc,
 	}, nil
+}
+
+func (e *environ) finishInstanceConfig(args *environs.StartInstanceParams, spec *instances.InstanceSpec) error {
+	matchingTools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
+	if err != nil {
+		return errors.Errorf("chosen architecture %v for image %q not present in %v",
+			spec.Image.Arch, spec.Image.Id, args.Tools.Arches())
+	}
+
+	if spec.InstanceType.Deprecated {
+		logger.Infof("deprecated instance type specified: %s", spec.InstanceType.Name)
+	}
+
+	if err := args.InstanceConfig.SetTools(matchingTools); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 func (e *environ) selectSubnetIDForInstance(ctx context.ProviderCallContext,
@@ -763,12 +768,16 @@ func filterSubnetsToZones(subnetsToZones []map[corenetwork.Id][]string) map[core
 	return subnetZones
 }
 
-func (e *environ) deriveAvailabilityZone(ctx context.ProviderCallContext, args environs.StartInstanceParams) (string, error) {
+func (e *environ) deriveAvailabilityZone(
+	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+) (string, error) {
 	availabilityZone, _, err := e.deriveAvailabilityZoneAndSubnetID(ctx, args)
-	return availabilityZone, err
+	return availabilityZone, errors.Trace(err)
 }
 
-func (e *environ) deriveAvailabilityZoneAndSubnetID(ctx context.ProviderCallContext, args environs.StartInstanceParams) (string, corenetwork.Id, error) {
+func (e *environ) deriveAvailabilityZoneAndSubnetID(
+	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+) (string, corenetwork.Id, error) {
 	// Determine the availability zones of existing volumes that are to be
 	// attached to the machine. They must all match, and must be the same
 	// as specified zone (if any).
