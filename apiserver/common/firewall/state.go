@@ -90,7 +90,6 @@ type Machine interface {
 	Id() string
 	WatchAddresses() state.NotifyWatcher
 	OpenedPortRanges() (state.MachinePortRanges, error)
-	SubnetCIDRsBySpaceID() (map[string][]string, error)
 	IsManual() (bool, error)
 }
 

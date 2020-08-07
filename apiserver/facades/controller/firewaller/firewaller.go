@@ -43,6 +43,10 @@ type FirewallerAPIV3 struct {
 	accessApplication common.GetAuthFunc
 	accessMachine     common.GetAuthFunc
 	accessModel       common.GetAuthFunc
+
+	// Fetched on demand and memoized
+	spaceInfos          network.SpaceInfos
+	appEndpointBindings map[string]map[string]string
 }
 
 // FirewallerAPIV4 provides access to the Firewaller v4 API facade.
@@ -384,6 +388,36 @@ func (f *FirewallerAPIV3) GetAssignedMachine(args params.Entities) (params.Strin
 	return result, nil
 }
 
+// getSpaceInfos returns the cached SpaceInfos or retrieves them from state
+// and memoizes it for future invocations.
+func (f *FirewallerAPIV3) getSpaceInfos() (network.SpaceInfos, error) {
+	if f.spaceInfos != nil {
+		return f.spaceInfos, nil
+	}
+
+	si, err := f.st.SpaceInfos()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return si, nil
+}
+
+// getApplicationBindings returns the cached endpoint bindings for all model
+// applications grouped by app name. If the application endpoints have not yet
+// been retrieved they will be retrieved and memoized for future calls.
+func (f *FirewallerAPIV3) getApplicationBindings() (map[string]map[string]string, error) {
+	if f.appEndpointBindings == nil {
+		bindings, err := f.st.AllEndpointBindings()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		f.appEndpointBindings = bindings
+	}
+
+	return f.appEndpointBindings, nil
+}
+
 func (f *FirewallerAPIV3) getEntity(canAccess common.AuthFunc, tag names.Tag) (state.Entity, error) {
 	if !canAccess(tag) {
 		return nil, apiservererrors.ErrPerm
@@ -562,6 +596,7 @@ func (f *FirewallerAPIV6) OpenedMachinePortRanges(args params.Entities) (params.
 	if err != nil {
 		return result, err
 	}
+
 	for i, arg := range args.Entities {
 		machineTag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
@@ -599,10 +634,11 @@ func (f *FirewallerAPIV6) openedPortRangesForOneMachine(machine firewall.Machine
 	}
 
 	// Look up space to subnet mappings
-	subnetCIDRsBySpaceID, err := machine.SubnetCIDRsBySpaceID()
+	spaceInfos, err := f.getSpaceInfos()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	subnetCIDRsBySpaceID := spaceInfos.SubnetCIDRsBySpaceID()
 
 	// Fetch application endpoint bindings
 	allApps := set.NewStrings()
@@ -613,7 +649,7 @@ func (f *FirewallerAPIV6) openedPortRangesForOneMachine(machine firewall.Machine
 		}
 		allApps.Add(appName)
 	}
-	allAppBindings, err := f.resolveApplicationBindings(allApps)
+	allAppBindings, err := f.getApplicationBindings()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -631,7 +667,7 @@ func (f *FirewallerAPIV6) openedPortRangesForOneMachine(machine firewall.Machine
 			PortRangeGroups: make(map[string][]params.PortRange),
 		}
 
-		portRangesByCIDR := mapUnitPortsToSubnetCIDRs(unitName, unitPortRanges.ByEndpoint(), appBindings, subnetCIDRsBySpaceID)
+		portRangesByCIDR := mapUnitPortsToSubnetCIDRs(unitPortRanges.ByEndpoint(), appBindings, subnetCIDRsBySpaceID)
 		for cidr, portRanges := range portRangesByCIDR {
 			mappedPorts := make([]params.PortRange, len(portRanges))
 			for i, pr := range portRanges {
@@ -651,19 +687,6 @@ func (f *FirewallerAPIV6) openedPortRangesForOneMachine(machine firewall.Machine
 	return res, nil
 }
 
-func (f *FirewallerAPIV6) resolveApplicationBindings(apps set.Strings) (map[string]map[string]string, error) {
-	res := make(map[string]map[string]string)
-	for appName := range apps {
-		bindings, err := f.st.ApplicationEndpointBindings(appName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		res[appName] = bindings
-	}
-
-	return res, nil
-}
-
 // mapUnitPortsToSubnetCIDRs maps the list of opened unit port ranges
 // grouped by endpoint into a list of port ranges grouped by subnet CIDR.
 //
@@ -676,7 +699,7 @@ func (f *FirewallerAPIV6) resolveApplicationBindings(apps set.Strings) (map[stri
 //
 // After the above step, all opened port ranges are then grouped by subnet CIDR,
 // de-dupped and sorted before they are returned to the caller.
-func mapUnitPortsToSubnetCIDRs(unitName string, portRangesByEndpoint network.GroupedPortRanges, endpointBindings map[string]string, subnetCIDRsBySpaceID map[string][]string) network.GroupedPortRanges {
+func mapUnitPortsToSubnetCIDRs(portRangesByEndpoint network.GroupedPortRanges, endpointBindings map[string]string, subnetCIDRsBySpaceID map[string][]string) network.GroupedPortRanges {
 	portRangesByCIDR := make(network.GroupedPortRanges)
 
 	for endpointName, portRanges := range portRangesByEndpoint {

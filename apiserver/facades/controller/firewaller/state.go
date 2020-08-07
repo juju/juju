@@ -4,11 +4,13 @@
 package firewaller
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common/firewall"
 	corefirewall "github.com/juju/juju/core/firewall"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -27,11 +29,13 @@ type State interface {
 
 	FirewallRule(service corefirewall.WellKnownServiceType) (*state.FirewallRule, error)
 
+	// TODO(achilleasa) remove
 	Subnet(id string) (Subnet, error)
-
 	SubnetByCIDR(cidr string) (Subnet, error)
 
-	ApplicationEndpointBindings(appName string) (map[string]string, error)
+	AllEndpointBindings() (map[string]map[string]string, error)
+
+	SpaceInfos() (network.SpaceInfos, error)
 }
 
 // TODO(wallyworld) - for tests, remove when remaining firewaller tests become unit tests.
@@ -79,6 +83,23 @@ func (st stateShim) SubnetByCIDR(cidr string) (Subnet, error) {
 	return st.st.SubnetByCIDR(cidr)
 }
 
-func (st stateShim) ApplicationEndpointBindings(appName string) (map[string]string, error) {
-	return state.ReadApplicationEndpointBindings(st.st, appName)
+func (st stateShim) AllEndpointBindings() (map[string]map[string]string, error) {
+	model, err := st.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	allEndpointBindings, err := model.AllEndpointBindings()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	res := make(map[string]map[string]string, len(allEndpointBindings))
+	for appName, bindings := range allEndpointBindings {
+		res[appName] = bindings.Map() // endpoint -> spaceID
+	}
+	return res, nil
+}
+
+func (st stateShim) SpaceInfos() (network.SpaceInfos, error) {
+	return st.st.AllSpaceInfos()
 }

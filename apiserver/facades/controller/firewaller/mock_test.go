@@ -45,6 +45,7 @@ type mockState struct {
 	modelWatcher   *mockNotifyWatcher
 	configAttrs    map[string]interface{}
 
+	spaceInfos                  network.SpaceInfos
 	applicationEndpointBindings map[string]map[string]string
 }
 
@@ -302,32 +303,34 @@ func (st *mockState) KeyRelation(key string) (firewall.Relation, error) {
 	return r, nil
 }
 
-func (st *mockState) ApplicationEndpointBindings(appName string) (map[string]string, error) {
-	st.MethodCall(st, "ApplicationEndpointBindings", appName)
+func (st *mockState) AllEndpointBindings() (map[string]map[string]string, error) {
+	st.MethodCall(st, "AllEndpointBindings")
 	if err := st.NextErr(); err != nil {
 		return nil, err
 	}
-	b, ok := st.applicationEndpointBindings[appName]
-	if !ok {
-		return nil, errors.NotFoundf("endpoint bindings for application %q", appName)
+	return st.applicationEndpointBindings, nil
+}
+
+func (st *mockState) SpaceInfos() (network.SpaceInfos, error) {
+	st.MethodCall(st, "SpaceInfos")
+	if err := st.NextErr(); err != nil {
+		return nil, err
 	}
-	return b, nil
+	return st.spaceInfos, nil
 }
 
 type mockMachine struct {
 	testing.Stub
 	firewall.Machine
 
-	id                   string
-	subnetCIDRsBySpaceID map[string][]string
-	openedPortRanges     *mockMachinePortRanges
-	isManual             bool
+	id               string
+	openedPortRanges *mockMachinePortRanges
+	isManual         bool
 }
 
 func newMockMachine(id string) *mockMachine {
 	return &mockMachine{
-		id:                   id,
-		subnetCIDRsBySpaceID: make(map[string][]string),
+		id: id,
 	}
 }
 
@@ -353,14 +356,6 @@ func (st *mockMachine) OpenedPortRanges() (state.MachinePortRanges, error) {
 		return nil, errors.NotFoundf("opened port ranges for machine %q", st.id)
 	}
 	return st.openedPortRanges, nil
-}
-
-func (st *mockMachine) SubnetCIDRsBySpaceID() (map[string][]string, error) {
-	st.MethodCall(st, "SubnetCIDRsBySpaceID")
-	if err := st.NextErr(); err != nil {
-		return nil, err
-	}
-	return st.subnetCIDRsBySpaceID, nil
 }
 
 type mockMachinePortRanges struct {

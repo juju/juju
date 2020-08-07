@@ -192,17 +192,17 @@ func (s *OpenedMachinePortsSuite) TestOpenedMachinePortRanges(c *gc.C) {
 			},
 		),
 	)
-	mockMachine.subnetCIDRsBySpaceID = map[string][]string{
-		network.AlphaSpaceId: []string{
-			"10.0.0.0/24",
-			"10.0.1.0/24",
-		},
-		"42": []string{
-			"192.168.0.0/24",
-			"192.168.1.0/24",
-		},
-	}
 	s.st.machines["0"] = mockMachine
+	s.st.spaceInfos = network.SpaceInfos{
+		{ID: network.AlphaSpaceId, Name: "alpha", Subnets: []network.SubnetInfo{
+			{ID: "11", CIDR: "10.0.0.0/24"},
+			{ID: "12", CIDR: "10.0.1.0/24"},
+		}},
+		{ID: "42", Name: "questions-about-the-universe", Subnets: []network.SubnetInfo{
+			{ID: "13", CIDR: "192.168.0.0/24"},
+			{ID: "14", CIDR: "192.168.1.0/24"},
+		}},
+	}
 	s.st.applicationEndpointBindings = map[string]map[string]string{
 		"mysql": map[string]string{
 			"":    network.AlphaSpaceId,

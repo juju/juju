@@ -17,7 +17,6 @@ type UnitToCIDRMappingSuite struct {
 }
 
 func (s *UnitToCIDRMappingSuite) TestBindingMapping(c *gc.C) {
-	unitName := "u/0"
 	portRangesByEndpoint := network.GroupedPortRanges{
 		"foo": []network.PortRange{
 			network.MustParsePortRange("123/tcp"),
@@ -38,18 +37,18 @@ func (s *UnitToCIDRMappingSuite) TestBindingMapping(c *gc.C) {
 		"bar": "42",
 	}
 
-	subnetCIDRsBySpaceID := map[string][]string{
-		network.AlphaSpaceId: []string{
-			"10.0.0.0/24",
-			"10.0.1.0/24",
-		},
-		"42": []string{
-			"192.168.0.0/24",
-			"192.168.1.0/24",
-		},
+	spaceInfos := network.SpaceInfos{
+		{ID: network.AlphaSpaceId, Name: "alpha", Subnets: []network.SubnetInfo{
+			{ID: "11", CIDR: "10.0.0.0/24"},
+			{ID: "12", CIDR: "10.0.1.0/24"},
+		}},
+		{ID: "42", Name: "questions-about-the-universe", Subnets: []network.SubnetInfo{
+			{ID: "13", CIDR: "192.168.0.0/24"},
+			{ID: "14", CIDR: "192.168.1.0/24"},
+		}},
 	}
 
-	got := mapUnitPortsToSubnetCIDRs(unitName, portRangesByEndpoint, endpointBindings, subnetCIDRsBySpaceID)
+	got := mapUnitPortsToSubnetCIDRs(portRangesByEndpoint, endpointBindings, spaceInfos.SubnetCIDRsBySpaceID())
 	exp := network.GroupedPortRanges{
 		"192.168.0.0/24": []network.PortRange{
 			network.MustParsePortRange("123/tcp"),
@@ -67,7 +66,6 @@ func (s *UnitToCIDRMappingSuite) TestBindingMapping(c *gc.C) {
 }
 
 func (s *UnitToCIDRMappingSuite) TestWildcardExpansion(c *gc.C) {
-	unitName := "u/0"
 	portRangesByEndpoint := network.GroupedPortRanges{
 		"": []network.PortRange{
 			// These ranges should be added to the CIDRs of each
@@ -85,18 +83,18 @@ func (s *UnitToCIDRMappingSuite) TestWildcardExpansion(c *gc.C) {
 		"bar": "42",
 	}
 
-	subnetCIDRsBySpaceID := map[string][]string{
-		network.AlphaSpaceId: []string{
-			"10.0.0.0/24",
-			"10.0.1.0/24",
-		},
-		"42": []string{
-			"192.168.0.0/24",
-			"192.168.1.0/24",
-		},
+	spaceInfos := network.SpaceInfos{
+		{ID: network.AlphaSpaceId, Name: "alpha", Subnets: []network.SubnetInfo{
+			{ID: "11", CIDR: "10.0.0.0/24"},
+			{ID: "12", CIDR: "10.0.1.0/24"},
+		}},
+		{ID: "42", Name: "questions-about-the-universe", Subnets: []network.SubnetInfo{
+			{ID: "13", CIDR: "192.168.0.0/24"},
+			{ID: "14", CIDR: "192.168.1.0/24"},
+		}},
 	}
 
-	got := mapUnitPortsToSubnetCIDRs(unitName, portRangesByEndpoint, endpointBindings, subnetCIDRsBySpaceID)
+	got := mapUnitPortsToSubnetCIDRs(portRangesByEndpoint, endpointBindings, spaceInfos.SubnetCIDRsBySpaceID())
 	exp := network.GroupedPortRanges{
 		"10.0.0.0/24": []network.PortRange{
 			network.MustParsePortRange("123/tcp"),

@@ -364,13 +364,6 @@ func removeEndpointBindingsOp(key string) txn.Op {
 	}
 }
 
-// ReadApplicationEndpointBindings returns a map where keys are application
-// endpoints and values are the IDs of the spaces they are bound to.
-func ReadApplicationEndpointBindings(st *State, appName string) (map[string]string, error) {
-	bindings, _, err := readEndpointBindings(st, applicationGlobalKey(appName))
-	return bindings, err
-}
-
 // readEndpointBindings returns the stored bindings and TxnRevno for the given
 // application global key, or an error satisfying errors.IsNotFound() otherwise.
 func readEndpointBindings(st *State, key string) (map[string]string, int64, error) {
