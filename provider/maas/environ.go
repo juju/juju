@@ -972,10 +972,15 @@ func (env *maasEnviron) StartInstance(
 	var interfaceBindings []interfaceBinding
 	if len(args.EndpointBindings) != 0 {
 		for endpoint, spaceProviderID := range args.EndpointBindings {
-			interfaceBindings = append(interfaceBindings, interfaceBinding{
-				Name:            endpoint,
-				SpaceProviderId: string(spaceProviderID),
-			})
+			// Ignore alpha space bindings, which we assume will be the result
+			// defaults. It doesn't have a provider ID, and so will be passed
+			// by name.
+			if spaceProviderID != corenetwork.AlphaSpaceName {
+				interfaceBindings = append(interfaceBindings, interfaceBinding{
+					Name:            endpoint,
+					SpaceProviderId: string(spaceProviderID),
+				})
+			}
 		}
 	}
 	selectNode := env.selectNode2
