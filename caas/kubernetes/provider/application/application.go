@@ -15,6 +15,7 @@ import (
 	"github.com/kr/pretty"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -149,6 +150,21 @@ func (a *app) Ensure(config *caas.ApplicationConfig) (err error) {
 		applier.Apply(&r)
 		return nil
 	}
+	storageClasses, err := k8sresources.ListStorageClass(context.Background(), a.client, metav1.ListOptions{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var handleStorageClass = func(sc storagev1.StorageClass) error {
+		applier.Apply(&k8sresources.StorageClass{StorageClass: sc})
+		return nil
+	}
+	var configureStorage = func(handlePVC handlePVCFunc) error {
+		err = a.configureStorage(config.Filesystems, storageClasses, handleVolume, handleVolumeMount, handlePVC, handleStorageClass)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}
 
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
@@ -177,7 +193,7 @@ func (a *app) Ensure(config *caas.ApplicationConfig) (err error) {
 				},
 			},
 		}
-		err = a.configureStorage(config.Filesystems, handleVolume, handleVolumeMount, func(pvc corev1.PersistentVolumeClaim) error {
+		err = configureStorage(func(pvc corev1.PersistentVolumeClaim) error {
 			statefulset.Spec.VolumeClaimTemplates = append(statefulset.Spec.VolumeClaimTemplates, pvc)
 			return nil
 		})
@@ -210,7 +226,7 @@ func (a *app) Ensure(config *caas.ApplicationConfig) (err error) {
 				},
 			},
 		}
-		err = a.configureStorage(config.Filesystems, handleVolume, handleVolumeMount, createPVC)
+		err = configureStorage(createPVC)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -238,7 +254,7 @@ func (a *app) Ensure(config *caas.ApplicationConfig) (err error) {
 				},
 			},
 		}
-		err = a.configureStorage(config.Filesystems, handleVolume, handleVolumeMount, createPVC)
+		err = configureStorage(createPVC)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -591,12 +607,20 @@ func (a *app) secretName() string {
 type handleVolumeFunc func(corev1.Volume) error
 type handleVolumeMountFunc func(corev1.VolumeMount) error
 type handlePVCFunc func(corev1.PersistentVolumeClaim) error
+type handleStorageClassFunc func(storagev1.StorageClass) error
 
 func (a *app) configureStorage(filesystems []storage.KubernetesFilesystemParams,
+	storageClasses []k8sresources.StorageClass,
 	handleVolume handleVolumeFunc,
 	handleVolumeMount handleVolumeMountFunc,
 	handlePVC handlePVCFunc,
+	handleStorageClass handleStorageClassFunc,
 ) error {
+	storageClassMap := make(map[string]k8sresources.StorageClass)
+	for _, v := range storageClasses {
+		storageClassMap[v.Name] = v
+	}
+
 	fsNames := set.NewStrings()
 	for index, fs := range filesystems {
 		if fsNames.Contains(fs.StorageName) {
@@ -604,13 +628,15 @@ func (a *app) configureStorage(filesystems []storage.KubernetesFilesystemParams,
 		}
 		fsNames.Add(fs.StorageName)
 
+		logger.Debugf("%s has filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(fs))
+
 		readOnly := false
 		if fs.Attachment != nil {
 			readOnly = fs.Attachment.ReadOnly
 		}
 
 		name := fmt.Sprintf("%s-%s", a.name, fs.StorageName)
-		vol, pvc, err := a.filesystemToVolumeInfo(name, fs)
+		vol, pvc, sc, err := a.filesystemToVolumeInfo(name, fs, storageClassMap)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -621,6 +647,14 @@ func (a *app) configureStorage(filesystems []storage.KubernetesFilesystemParams,
 			if err != nil {
 				return errors.Trace(err)
 			}
+		}
+		if sc != nil && handleStorageClass != nil {
+			logger.Debugf("creating storage class for %s filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(*sc))
+			err = handleStorageClass(*sc)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			storageClassMap[sc.Name] = k8sresources.StorageClass{StorageClass: *sc}
 		}
 		if pvc != nil && handlePVC != nil {
 			logger.Debugf("using persistent volume claim for %s filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(*pvc))
@@ -641,29 +675,44 @@ func (a *app) configureStorage(filesystems []storage.KubernetesFilesystemParams,
 	return nil
 }
 
-func (a *app) filesystemToVolumeInfo(name string, fs storage.KubernetesFilesystemParams) (*corev1.Volume, *corev1.PersistentVolumeClaim, error) {
+func (a *app) filesystemToVolumeInfo(name string,
+	fs storage.KubernetesFilesystemParams,
+	storageClasses map[string]k8sresources.StorageClass) (*corev1.Volume, *corev1.PersistentVolumeClaim, *storagev1.StorageClass, error) {
 	fsSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", fs.Size))
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "invalid volume size %v", fs.Size)
+		return nil, nil, nil, errors.Annotatef(err, "invalid volume size %v", fs.Size)
 	}
 
 	volumeSource, err := k8sstorage.VolumeSourceForFilesystem(fs)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, nil, errors.Trace(err)
 	}
 	if volumeSource != nil {
 		vol := &corev1.Volume{
 			Name:         name,
 			VolumeSource: *volumeSource,
 		}
-		return vol, nil, nil
+		return vol, nil, nil, nil
 	}
 
 	params, err := k8sstorage.ParseVolumeParams(name, fsSize, fs.Attributes)
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "getting volume params for %s", fs.StorageName)
+		return nil, nil, nil, errors.Annotatef(err, "getting volume params for %s", fs.StorageName)
 	}
-	pvcSpec := k8sstorage.PersistantVolumeClaimSpec(*params)
+
+	var newStorageClass *storagev1.StorageClass
+	qualifiedStorageClassName := k8sconstants.QualifiedStorageClassName(a.namespace, params.StorageConfig.StorageClass)
+	if _, ok := storageClasses[params.StorageConfig.StorageClass]; ok {
+		// Do nothing
+	} else if _, ok := storageClasses[qualifiedStorageClassName]; ok {
+		params.StorageConfig.StorageClass = qualifiedStorageClassName
+	} else {
+		sp := k8sstorage.StorageProvisioner(a.namespace, *params)
+		newStorageClass = k8sstorage.StorageClassSpec(sp)
+		params.StorageConfig.StorageClass = newStorageClass.Name
+	}
+
+	pvcSpec := k8sstorage.PersistentVolumeClaimSpec(*params)
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: params.Name,
@@ -672,5 +721,5 @@ func (a *app) filesystemToVolumeInfo(name string, fs storage.KubernetesFilesyste
 		},
 		Spec: *pvcSpec,
 	}
-	return nil, pvc, nil
+	return nil, pvc, newStorageClass, nil
 }

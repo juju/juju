@@ -48,6 +48,7 @@ type Application interface {
 	DeviceConstraints() (map[string]state.DeviceConstraints, error)
 	Name() string
 	Constraints() (constraints.Value, error)
+	Life() state.Life
 }
 
 type Charm interface {

@@ -6615,6 +6615,9 @@
                         "desired-replicas": {
                             "type": "integer"
                         },
+                        "force": {
+                            "type": "boolean"
+                        },
                         "observed-units": {
                             "$ref": "#/definitions/Entities"
                         }
@@ -6624,7 +6627,8 @@
                         "application",
                         "observed-units",
                         "desired-replicas",
-                        "active-pod-names"
+                        "active-pod-names",
+                        "force"
                     ]
                 },
                 "CAASApplicationGarbageCollectArgs": {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/juju/charm/v7"
 
 	"github.com/juju/errors"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -324,6 +324,11 @@ func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCol
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	if args.Force && app.Life() == state.Alive {
+		return errors.NotValidf("cannot force unit remove while alive")
+	}
+
 	ch, _, err := app.Charm()
 	if err != nil {
 		return errors.Trace(err)
@@ -352,41 +357,45 @@ func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCol
 		return errors.Trace(err)
 	}
 
+	logger.Errorf("CAASApplicationGarbageCollectArg %s", spew.Sdump(args))
+
 	op := state.UpdateUnitsOperation{}
 	for _, unit := range units {
 		tag := unit.Tag()
-		if !observedUnitTags.Contains(tag) {
-			// Was not known yet when pulling kuberentes state.
-			logger.Debugf("skipping unit %q because it was not known to the worker", tag.String())
-			continue
-		}
-		if foundUnits.Contains(tag) {
-			// Not ready to be deleted.
-			logger.Debugf("skipping unit %q because the pod still exists", tag.String())
-			continue
-		}
-		switch deploymentType {
-		case charm.DeploymentStateful:
-			ordinal := tag.(names.UnitTag).Number()
-			if ordinal < args.DesiredReplicas {
-				// Don't delete units that will reappear.
-				logger.Debugf("skipping unit %q because its still needed", tag.String())
+		if !args.Force {
+			if !observedUnitTags.Contains(tag) {
+				// Was not known yet when pulling kuberentes state.
+				logger.Debugf("skipping unit %q because it was not known to the worker", tag.String())
 				continue
 			}
-		case charm.DeploymentStateless, charm.DeploymentDaemon:
-			ci, err := unit.ContainerInfo()
-			if errors.IsNotFound(err) {
-				logger.Debugf("skipping unit %q because it hasn't been assigned a pod", tag.String())
-				continue
-			} else if err != nil {
-				return errors.Trace(err)
-			}
-			if ci.ProviderId() == "" {
-				logger.Debugf("skipping unit %q because it hasn't been assigned a pod", tag.String())
+			if foundUnits.Contains(tag) {
+				// Not ready to be deleted.
+				logger.Debugf("skipping unit %q because the pod still exists", tag.String())
 				continue
 			}
-		default:
-			return errors.Errorf("unknown deployment type %q", deploymentType)
+			switch deploymentType {
+			case charm.DeploymentStateful:
+				ordinal := tag.(names.UnitTag).Number()
+				if ordinal < args.DesiredReplicas {
+					// Don't delete units that will reappear.
+					logger.Debugf("skipping unit %q because its still needed", tag.String())
+					continue
+				}
+			case charm.DeploymentStateless, charm.DeploymentDaemon:
+				ci, err := unit.ContainerInfo()
+				if errors.IsNotFound(err) {
+					logger.Debugf("skipping unit %q because it hasn't been assigned a pod", tag.String())
+					continue
+				} else if err != nil {
+					return errors.Trace(err)
+				}
+				if ci.ProviderId() == "" {
+					logger.Debugf("skipping unit %q because it hasn't been assigned a pod", tag.String())
+					continue
+				}
+			default:
+				return errors.Errorf("unknown deployment type %q", deploymentType)
+			}
 		}
 
 		err = unit.EnsureDead()
@@ -583,7 +592,7 @@ func filesystemParams(
 	if cons.Pool == "" && storageClassName == "" {
 		return nil, errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
 	}
-	fsParams, err := caasoperatorprovisioner.CharmStorageParams(controllerUUID, storageClassName, modelConfig, cons.Pool, poolManager, registry)
+	fsParams, err := CharmStorageParams(controllerUUID, storageClassName, modelConfig, cons.Pool, poolManager, registry)
 	if err != nil {
 		return nil, errors.Maskf(err, "getting filesystem storage parameters")
 	}

@@ -142,7 +142,11 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 	}
 
 	for _, fs := range r.Filesystems {
-		info.Filesystems = append(info.Filesystems, filesystemFromParams(fs))
+		f, err := filesystemFromParams(fs)
+		if err != nil {
+			return info, errors.Trace(err)
+		}
+		info.Filesystems = append(info.Filesystems, *f)
 	}
 
 	for _, device := range r.Devices {
@@ -156,14 +160,33 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 	return info, nil
 }
 
-func filesystemFromParams(in params.KubernetesFilesystemParams) storage.KubernetesFilesystemParams {
-	return storage.KubernetesFilesystemParams{
+func filesystemFromParams(in params.KubernetesFilesystemParams) (*storage.KubernetesFilesystemParams, error) {
+	var attachment *storage.KubernetesFilesystemAttachmentParams
+	if in.Attachment != nil {
+		var err error
+		attachment, err = filesystemAttachmentFromParams(*in.Attachment)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return &storage.KubernetesFilesystemParams{
 		StorageName:  in.StorageName,
 		Provider:     storage.ProviderType(in.Provider),
 		Size:         in.Size,
 		Attributes:   in.Attributes,
 		ResourceTags: in.Tags,
-	}
+		Attachment:   attachment,
+	}, nil
+}
+
+func filesystemAttachmentFromParams(in params.KubernetesFilesystemAttachmentParams) (*storage.KubernetesFilesystemAttachmentParams, error) {
+	return &storage.KubernetesFilesystemAttachmentParams{
+		AttachmentParams: storage.AttachmentParams{
+			Provider: storage.ProviderType(in.Provider),
+			ReadOnly: in.ReadOnly,
+		},
+		Path: in.MountPoint,
+	}, nil
 }
 
 // ApplicationCharmURL finds the CharmURL for an application.
@@ -235,7 +258,7 @@ func (c *Client) Units(appName string) ([]names.Tag, error) {
 // Only observed units will be deleted as new units could have surfaced between
 // the capturing of kuberentes pod state/application state and this call.
 func (c *Client) GarbageCollect(
-	appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string) error {
+	appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
 	var result params.ErrorResults
 	observedEntities := params.Entities{
 		Entities: make([]params.Entity, len(observedUnits)),
@@ -248,6 +271,7 @@ func (c *Client) GarbageCollect(
 		ObservedUnits:   observedEntities,
 		DesiredReplicas: desiredReplicas,
 		ActivePodNames:  activePodNames,
+		Force:           force,
 	}}}
 	err := c.facade.FacadeCall("CAASApplicationGarbageCollect", args, &result)
 	if err != nil {

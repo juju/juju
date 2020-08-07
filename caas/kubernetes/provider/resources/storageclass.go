@@ -15,7 +15,7 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
 type StorageClass struct {
@@ -30,6 +30,25 @@ func NewStorageClass(name string) *StorageClass {
 			},
 		},
 	}
+}
+
+func ListStorageClass(ctx context.Context, client kubernetes.Interface, opts metav1.ListOptions) ([]StorageClass, error) {
+	api := client.StorageV1().StorageClasses()
+	var items []StorageClass
+	for {
+		res, err := api.List(ctx, opts)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, v := range res.Items {
+			items = append(items, StorageClass{StorageClass: v})
+		}
+		if res.RemainingItemCount == nil || *res.RemainingItemCount == 0 {
+			break
+		}
+		opts.Continue = res.Continue
+	}
+	return items, nil
 }
 
 func (ss *StorageClass) Clone() Resource {

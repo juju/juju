@@ -53,6 +53,7 @@ type CAASApplicationGarbageCollectArg struct {
 	ObservedUnits   Entities `json:"observed-units"`
 	DesiredReplicas int      `json:"desired-replicas"`
 	ActivePodNames  []string `json:"active-pod-names"`
+	Force           bool     `json:"force"`
 }
 
 // CAASApplicationGarbageCollectArgs holds info needed to cleanup units that have

@@ -91,11 +91,11 @@ func VolumeSourceForFilesystem(fs storage.KubernetesFilesystemParams) (*corev1.V
 func FindStorageClass(ctx context.Context,
 	client kubernetes.Interface,
 	name string,
-	namespace string) (*k8sresources.StorageClass, error) {
+	namespace string) (*storagev1.StorageClass, error) {
 	sc := k8sresources.NewStorageClass(k8sconstants.QualifiedStorageClassName(namespace, name))
 	err := sc.Get(ctx, client)
 	if err == nil {
-		return sc, nil
+		return &sc.StorageClass, nil
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -104,11 +104,12 @@ func FindStorageClass(ctx context.Context,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return fallbackSc, nil
+	return &fallbackSc.StorageClass, nil
 }
 
-func StorageClassSpec(cfg caas.StorageProvisioner) *k8sresources.StorageClass {
-	sc := k8sresources.NewStorageClass(k8sconstants.QualifiedStorageClassName(cfg.Namespace, cfg.Name))
+func StorageClassSpec(cfg caas.StorageProvisioner) *storagev1.StorageClass {
+	sc := storagev1.StorageClass{}
+	sc.Name = k8sconstants.QualifiedStorageClassName(cfg.Namespace, cfg.Name)
 	sc.Provisioner = cfg.Provisioner
 	sc.Parameters = cfg.Parameters
 	if cfg.ReclaimPolicy != "" {
@@ -122,7 +123,7 @@ func StorageClassSpec(cfg caas.StorageProvisioner) *k8sresources.StorageClass {
 	if cfg.Namespace != "" {
 		sc.Labels = map[string]string{k8sconstants.LabelModel: cfg.Namespace}
 	}
-	return nil
+	return &sc
 }
 
 func VolumeInfo(pv *k8sresources.PersistentVolume, now time.Time) caas.VolumeInfo {
@@ -199,9 +200,9 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 	}, nil
 }
 
-func PersistantVolumeClaimSpec(params VolumeParams) *corev1.PersistentVolumeClaimSpec {
+func PersistentVolumeClaimSpec(params VolumeParams) *corev1.PersistentVolumeClaimSpec {
 	return &corev1.PersistentVolumeClaimSpec{
-		StorageClassName: &params.Name,
+		StorageClassName: &params.StorageConfig.StorageClass,
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceStorage: params.Size,

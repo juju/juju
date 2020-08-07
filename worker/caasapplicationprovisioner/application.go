@@ -153,12 +153,12 @@ func (a *appWorker) loop() error {
 				return a.dead(app)
 			}
 		case <-appChanges:
-			err = a.updateState(app)
+			err = a.updateState(app, false)
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-replicaChanges:
-			err = a.updateState(app)
+			err = a.updateState(app, false)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -166,7 +166,7 @@ func (a *appWorker) loop() error {
 	}
 }
 
-func (a *appWorker) updateState(app caas.Application) error {
+func (a *appWorker) updateState(app caas.Application, force bool) error {
 	// Fetching the units here is to ensure happens-before consistency
 	// on the deletion of units.
 	observedUnits, err := a.facade.Units(a.name)
@@ -174,10 +174,12 @@ func (a *appWorker) updateState(app caas.Application) error {
 		return errors.Trace(err)
 	}
 	st, err := app.State()
-	if err != nil {
+	if errors.IsNotFound(err) {
+		// Do nothing
+	} else if err != nil {
 		return errors.Trace(err)
 	}
-	err = a.facade.GarbageCollect(a.name, observedUnits, st.DesiredReplicas, st.Replicas)
+	err = a.facade.GarbageCollect(a.name, observedUnits, st.DesiredReplicas, st.Replicas, force)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -263,6 +265,10 @@ func (a *appWorker) dead(app caas.Application) error {
 		return errors.Trace(err)
 	}
 	err = a.waitForTerminated(app)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = a.updateState(app, true)
 	if err != nil {
 		return errors.Trace(err)
 	}

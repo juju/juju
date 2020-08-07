@@ -36,7 +36,7 @@ type CAASProvisionerFacade interface {
 	ApplicationCharmURL(string) (*charm.URL, error)
 	SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error
 	Units(appName string) ([]names.Tag, error)
-	GarbageCollect(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string) error
+	GarbageCollect(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error
 }
 
 // Config defines the operation of a Worker.
