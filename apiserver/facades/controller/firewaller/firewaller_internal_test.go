@@ -18,7 +18,7 @@ type UnitToCIDRMappingSuite struct {
 
 func (s *UnitToCIDRMappingSuite) TestBindingMapping(c *gc.C) {
 	unitName := "u/0"
-	portRangesByEndpoint := map[string][]network.PortRange{
+	portRangesByEndpoint := network.GroupedPortRanges{
 		"foo": []network.PortRange{
 			network.MustParsePortRange("123/tcp"),
 			network.MustParsePortRange("456/tcp"),
@@ -50,7 +50,7 @@ func (s *UnitToCIDRMappingSuite) TestBindingMapping(c *gc.C) {
 	}
 
 	got := mapUnitPortsToSubnetCIDRs(unitName, portRangesByEndpoint, endpointBindings, subnetCIDRsBySpaceID)
-	exp := map[string][]network.PortRange{
+	exp := network.GroupedPortRanges{
 		"192.168.0.0/24": []network.PortRange{
 			network.MustParsePortRange("123/tcp"),
 			network.MustParsePortRange("456/tcp"),
@@ -68,7 +68,7 @@ func (s *UnitToCIDRMappingSuite) TestBindingMapping(c *gc.C) {
 
 func (s *UnitToCIDRMappingSuite) TestWildcardExpansion(c *gc.C) {
 	unitName := "u/0"
-	portRangesByEndpoint := map[string][]network.PortRange{
+	portRangesByEndpoint := network.GroupedPortRanges{
 		"": []network.PortRange{
 			// These ranges should be added to the CIDRs of each
 			// bound endpoint (so, both alpha and "42").
@@ -97,7 +97,7 @@ func (s *UnitToCIDRMappingSuite) TestWildcardExpansion(c *gc.C) {
 	}
 
 	got := mapUnitPortsToSubnetCIDRs(unitName, portRangesByEndpoint, endpointBindings, subnetCIDRsBySpaceID)
-	exp := map[string][]network.PortRange{
+	exp := network.GroupedPortRanges{
 		"10.0.0.0/24": []network.PortRange{
 			network.MustParsePortRange("123/tcp"),
 			network.MustParsePortRange("456/tcp"),

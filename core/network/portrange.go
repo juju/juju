@@ -12,6 +12,34 @@ import (
 	"github.com/juju/errors"
 )
 
+// GroupedPortRanges represents a list of PortRange instances grouped by a
+// particular feature.
+type GroupedPortRanges map[string][]PortRange
+
+// UniquePortRanges returns the unique set of PortRanges in this group.
+func (grp GroupedPortRanges) UniquePortRanges() []PortRange {
+	var allPorts []PortRange
+	for _, portRanges := range grp {
+		allPorts = append(allPorts, portRanges...)
+	}
+	uniquePortRanges := UniquePortRanges(allPorts)
+	SortPortRanges(uniquePortRanges)
+	return uniquePortRanges
+}
+
+// Clone returns a copy of this port range grouping.
+func (grp GroupedPortRanges) Clone() GroupedPortRanges {
+	if len(grp) == 0 {
+		return nil
+	}
+
+	grpCopy := make(GroupedPortRanges, len(grp))
+	for k, v := range grp {
+		grpCopy[k] = append([]PortRange(nil), v...)
+	}
+	return grpCopy
+}
+
 // PortRange represents a single range of ports on a particular subnet.
 type PortRange struct {
 	FromPort int

@@ -27,7 +27,7 @@ type openClosePortRangesOperation struct {
 	// assembled.
 	openedPortRangeToUnit map[network.PortRange]string
 	endpointsNamesByApp   map[string]set.Strings
-	updatedUnitPortRanges map[string]unitPortRangesDoc
+	updatedUnitPortRanges map[string]network.GroupedPortRanges
 }
 
 // Build implements ModelOperation.
@@ -146,9 +146,9 @@ func (op *openClosePortRangesOperation) Done(err error) error {
 }
 
 func (op *openClosePortRangesOperation) cloneExistingUnitPortRanges() {
-	op.updatedUnitPortRanges = make(map[string]unitPortRangesDoc)
+	op.updatedUnitPortRanges = make(map[string]network.GroupedPortRanges)
 	for unitName, existingDoc := range op.mpr.doc.UnitRanges {
-		newDoc := make(unitPortRangesDoc)
+		newDoc := make(network.GroupedPortRanges)
 		for endpointName, portRanges := range existingDoc {
 			newDoc[endpointName] = append([]network.PortRange(nil), portRanges...)
 		}
@@ -268,7 +268,7 @@ func (op *openClosePortRangesOperation) mergePendingOpenPortRanges() (bool, erro
 
 				// We can safely add the new port range to the updated port list.
 				if op.updatedUnitPortRanges[pendingUnitName] == nil {
-					op.updatedUnitPortRanges[pendingUnitName] = make(unitPortRangesDoc)
+					op.updatedUnitPortRanges[pendingUnitName] = make(network.GroupedPortRanges)
 				}
 				op.updatedUnitPortRanges[pendingUnitName][pendingEndpointName] = append(
 					op.updatedUnitPortRanges[pendingUnitName][pendingEndpointName],

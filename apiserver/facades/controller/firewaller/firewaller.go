@@ -676,8 +676,8 @@ func (f *FirewallerAPIV6) resolveApplicationBindings(apps set.Strings) (map[stri
 //
 // After the above step, all opened port ranges are then grouped by subnet CIDR,
 // de-dupped and sorted before they are returned to the caller.
-func mapUnitPortsToSubnetCIDRs(unitName string, portRangesByEndpoint map[string][]network.PortRange, endpointBindings map[string]string, subnetCIDRsBySpaceID map[string][]string) map[string][]network.PortRange {
-	portRangesByCIDR := make(map[string][]network.PortRange)
+func mapUnitPortsToSubnetCIDRs(unitName string, portRangesByEndpoint network.GroupedPortRanges, endpointBindings map[string]string, subnetCIDRsBySpaceID map[string][]string) network.GroupedPortRanges {
+	portRangesByCIDR := make(network.GroupedPortRanges)
 
 	for endpointName, portRanges := range portRangesByEndpoint {
 		// These port ranges target an explicit endpoint; just iterate

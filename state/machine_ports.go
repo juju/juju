@@ -40,16 +40,12 @@ type MachinePortRanges interface {
 // machinePortRangesDoc represents the state of ports opened on machines by
 // individual units.
 type machinePortRangesDoc struct {
-	DocID      string                       `bson:"_id"`
-	ModelUUID  string                       `bson:"model-uuid"`
-	MachineID  string                       `bson:"machine-id"`
-	UnitRanges map[string]unitPortRangesDoc `bson:"unit-port-ranges"`
-	TxnRevno   int64                        `bson:"txn-revno"`
+	DocID      string                               `bson:"_id"`
+	ModelUUID  string                               `bson:"model-uuid"`
+	MachineID  string                               `bson:"machine-id"`
+	UnitRanges map[string]network.GroupedPortRanges `bson:"unit-port-ranges"`
+	TxnRevno   int64                                `bson:"txn-revno"`
 }
-
-// unitPortRangesDoc describes the port ranges opened by a unit for multiple
-// endpoints.
-type unitPortRangesDoc map[string][]network.PortRange
 
 // machinePortRanges implements MachineUnitPortRanges using the DB as the
 // backing store.
@@ -62,8 +58,8 @@ type machinePortRanges struct {
 	docExists bool
 
 	// The set of pending port ranges that have not yet been persisted.
-	pendingOpenRanges  map[string]unitPortRangesDoc
-	pendingCloseRanges map[string]unitPortRangesDoc
+	pendingOpenRanges  map[string]network.GroupedPortRanges
+	pendingCloseRanges map[string]network.GroupedPortRanges
 }
 
 // MachineID returns the machine ID associated with this set of port ranges.
@@ -158,7 +154,7 @@ func (p *machinePortRanges) Remove() error {
 	return nil
 }
 
-func insertPortsDocOps(st *State, doc *machinePortRangesDoc, asserts interface{}, unitRanges map[string]unitPortRangesDoc) []txn.Op {
+func insertPortsDocOps(st *State, doc *machinePortRangesDoc, asserts interface{}, unitRanges map[string]network.GroupedPortRanges) []txn.Op {
 	// As the following insert operation might be rolled back, we should
 	// not mutate our internal doc but instead work on a copy of the
 	// machinePortRangesDoc.
@@ -177,7 +173,7 @@ func insertPortsDocOps(st *State, doc *machinePortRangesDoc, asserts interface{}
 	}
 }
 
-func updatePortsDocOps(st *State, doc *machinePortRangesDoc, asserts interface{}, unitRanges map[string]unitPortRangesDoc) []txn.Op {
+func updatePortsDocOps(st *State, doc *machinePortRangesDoc, asserts interface{}, unitRanges map[string]network.GroupedPortRanges) []txn.Op {
 	return []txn.Op{
 		assertMachineNotDeadOp(st, doc.MachineID),
 		{

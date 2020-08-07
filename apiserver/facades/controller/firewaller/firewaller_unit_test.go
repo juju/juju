@@ -177,7 +177,7 @@ func (s *OpenedMachinePortsSuite) TestOpenedMachinePortRanges(c *gc.C) {
 	mockMachine.openedPortRanges = newMockMachinePortRanges(
 		newMockUnitPortRanges(
 			"wordpress/0",
-			map[string][]network.PortRange{
+			network.GroupedPortRanges{
 				"": []network.PortRange{
 					network.MustParsePortRange("80/tcp"),
 				},
@@ -185,7 +185,7 @@ func (s *OpenedMachinePortsSuite) TestOpenedMachinePortRanges(c *gc.C) {
 		),
 		newMockUnitPortRanges(
 			"mysql/0",
-			map[string][]network.PortRange{
+			network.GroupedPortRanges{
 				"foo": []network.PortRange{
 					network.MustParsePortRange("3306/tcp"),
 				},

@@ -22,7 +22,7 @@ var _ = gc.Suite(&PortsSuite{})
 
 var portsTests = []struct {
 	cmd    []string
-	expect map[string][]network.PortRange
+	expect network.GroupedPortRanges
 }{
 	{[]string{"open-port", "80"}, makeAllEndpointsRanges("80/tcp")},
 	{[]string{"open-port", "99/tcp"}, makeAllEndpointsRanges("80/tcp", "99/tcp")},
@@ -36,7 +36,7 @@ var portsTests = []struct {
 	{[]string{"close-port", "9999/UDP"}, makeAllEndpointsRanges("99/tcp", "123/udp")},
 	{[]string{"open-port", "icmp"}, makeAllEndpointsRanges("icmp", "99/tcp", "123/udp")},
 	// Tests with --endpoints.
-	{[]string{"open-port", "--endpoints", "foo,bar", "1337/tcp"}, map[string][]network.PortRange{
+	{[]string{"open-port", "--endpoints", "foo,bar", "1337/tcp"}, network.GroupedPortRanges{
 		// Pre-existing ports from previous tests
 		"": []network.PortRange{
 			network.MustParsePortRange("icmp"),
@@ -47,7 +47,7 @@ var portsTests = []struct {
 		"foo": []network.PortRange{network.MustParsePortRange("1337/tcp")},
 		"bar": []network.PortRange{network.MustParsePortRange("1337/tcp")},
 	}},
-	{[]string{"close-port", "--endpoints", "foo", "1337/tcp"}, map[string][]network.PortRange{
+	{[]string{"close-port", "--endpoints", "foo", "1337/tcp"}, network.GroupedPortRanges{
 		"": []network.PortRange{
 			network.MustParsePortRange("icmp"),
 			network.MustParsePortRange("99/tcp"),
@@ -60,13 +60,13 @@ var portsTests = []struct {
 	}},
 }
 
-func makeAllEndpointsRanges(stringRanges ...string) map[string][]network.PortRange {
+func makeAllEndpointsRanges(stringRanges ...string) network.GroupedPortRanges {
 	var results []network.PortRange
 	for _, s := range stringRanges {
 		results = append(results, network.MustParsePortRange(s))
 	}
 	network.SortPortRanges(results)
-	return map[string][]network.PortRange{
+	return network.GroupedPortRanges{
 		"": results,
 	}
 }

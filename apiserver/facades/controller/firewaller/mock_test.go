@@ -393,16 +393,16 @@ type mockUnitPortRanges struct {
 	state.UnitPortRanges
 
 	unitName   string
-	byEndpoint map[string][]network.PortRange
+	byEndpoint network.GroupedPortRanges
 }
 
-func newMockUnitPortRanges(unitName string, byEndpoint map[string][]network.PortRange) *mockUnitPortRanges {
+func newMockUnitPortRanges(unitName string, byEndpoint network.GroupedPortRanges) *mockUnitPortRanges {
 	return &mockUnitPortRanges{
 		unitName:   unitName,
 		byEndpoint: byEndpoint,
 	}
 }
 
-func (st *mockUnitPortRanges) ByEndpoint() map[string][]network.PortRange {
+func (st *mockUnitPortRanges) ByEndpoint() network.GroupedPortRanges {
 	return st.byEndpoint
 }

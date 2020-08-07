@@ -3015,7 +3015,7 @@ func RollUpAndConvertOpenedPortDocuments(pool *StatePool) error {
 					DocID:      st.docID(oldDoc.MachineID),
 					MachineID:  oldDoc.MachineID,
 					ModelUUID:  oldDoc.ModelUUID,
-					UnitRanges: make(map[string]unitPortRangesDoc),
+					UnitRanges: make(map[string]network.GroupedPortRanges),
 				}
 			}
 
@@ -3025,7 +3025,7 @@ func RollUpAndConvertOpenedPortDocuments(pool *StatePool) error {
 			// format assuming it is open for all application endpoints.
 			for _, pr := range oldDoc.Ports {
 				if newDoc.UnitRanges[pr.UnitName] == nil {
-					newDoc.UnitRanges[pr.UnitName] = make(unitPortRangesDoc)
+					newDoc.UnitRanges[pr.UnitName] = make(network.GroupedPortRanges)
 				}
 
 				newDoc.UnitRanges[pr.UnitName][allEndpoints] = append(

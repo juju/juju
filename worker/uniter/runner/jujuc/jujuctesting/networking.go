@@ -16,19 +16,19 @@ import (
 type NetworkInterface struct {
 	PublicAddress        string
 	PrivateAddress       string
-	PortRangesByEndpoint map[string][]network.PortRange
+	PortRangesByEndpoint network.GroupedPortRanges
 	NetworkInfoResults   map[string]params.NetworkInfoResult
 }
 
 // CheckPorts checks the current ports.
-func (ni *NetworkInterface) CheckPortRanges(c *gc.C, expected map[string][]network.PortRange) {
+func (ni *NetworkInterface) CheckPortRanges(c *gc.C, expected network.GroupedPortRanges) {
 	c.Check(ni.PortRangesByEndpoint, jc.DeepEquals, expected)
 }
 
 // AddPortRanges adds the specified port range.
 func (ni *NetworkInterface) AddPortRange(endpoint string, portRange network.PortRange) {
 	if ni.PortRangesByEndpoint == nil {
-		ni.PortRangesByEndpoint = make(map[string][]network.PortRange)
+		ni.PortRangesByEndpoint = make(network.GroupedPortRanges)
 	}
 	ni.PortRangesByEndpoint[endpoint] = append(ni.PortRangesByEndpoint[endpoint], portRange)
 	network.SortPortRanges(ni.PortRangesByEndpoint[endpoint])
@@ -94,7 +94,7 @@ func (c *ContextNetworking) ClosePortRange(endpoint string, portRange network.Po
 }
 
 // OpenedPortRanges implements jujuc.ContextNetworking.
-func (c *ContextNetworking) OpenedPortRanges() map[string][]network.PortRange {
+func (c *ContextNetworking) OpenedPortRanges() network.GroupedPortRanges {
 	c.stub.AddCall("OpenedPortRanges")
 	c.stub.NextErr()
 

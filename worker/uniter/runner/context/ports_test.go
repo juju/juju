@@ -24,13 +24,13 @@ type portRangeTest struct {
 	targetEndpoint  string
 	targetPortRange network.PortRange
 
-	machinePortRanges  map[names.UnitTag]map[string][]network.PortRange
-	pendingOpenRanges  map[string][]network.PortRange
-	pendingCloseRanges map[string][]network.PortRange
+	machinePortRanges  map[names.UnitTag]network.GroupedPortRanges
+	pendingOpenRanges  network.GroupedPortRanges
+	pendingCloseRanges network.GroupedPortRanges
 
 	expectErr          string
-	expectPendingOpen  map[string][]network.PortRange
-	expectPendingClose map[string][]network.PortRange
+	expectPendingOpen  network.GroupedPortRanges
+	expectPendingClose network.GroupedPortRanges
 }
 
 func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
@@ -41,7 +41,7 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 			about:           "open a new range - all endpoints (no machine ports yet)",
 			targetEndpoint:  "",
 			targetPortRange: network.MustParsePortRange("10-20/tcp"),
-			expectPendingOpen: map[string][]network.PortRange{
+			expectPendingOpen: network.GroupedPortRanges{
 				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 			},
 		},
@@ -49,8 +49,8 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 			about:           "open an existing range - all endpoints (ignored)",
 			targetEndpoint:  "",
 			targetPortRange: network.MustParsePortRange("10-20/tcp"),
-			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
-				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+			machinePortRanges: map[names.UnitTag]network.GroupedPortRanges{
+				names.NewUnitTag("u/0"): network.GroupedPortRanges{
 					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 				},
 			},
@@ -59,12 +59,12 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 			about:           "open an existing range - same unit; different endpoint (accepted)",
 			targetEndpoint:  "foo",
 			targetPortRange: network.MustParsePortRange("10-20/tcp"),
-			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
-				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+			machinePortRanges: map[names.UnitTag]network.GroupedPortRanges{
+				names.NewUnitTag("u/0"): network.GroupedPortRanges{
 					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 				},
 			},
-			expectPendingOpen: map[string][]network.PortRange{
+			expectPendingOpen: network.GroupedPortRanges{
 				"foo": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 			},
 		},
@@ -72,13 +72,13 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 			about:           "open a range pending to be closed",
 			targetEndpoint:  "",
 			targetPortRange: network.MustParsePortRange("10-20/tcp"),
-			pendingCloseRanges: map[string][]network.PortRange{
+			pendingCloseRanges: network.GroupedPortRanges{
 				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 			},
-			expectPendingOpen: map[string][]network.PortRange{
+			expectPendingOpen: network.GroupedPortRanges{
 				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 			},
-			expectPendingClose: map[string][]network.PortRange{
+			expectPendingClose: network.GroupedPortRanges{
 				"": []network.PortRange{},
 			},
 		},
@@ -86,10 +86,10 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 			about:           "open a range pending to be opened already - same unit; same endpoint (ignored)",
 			targetEndpoint:  "",
 			targetPortRange: network.MustParsePortRange("10-20/tcp"),
-			pendingOpenRanges: map[string][]network.PortRange{
+			pendingOpenRanges: network.GroupedPortRanges{
 				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 			},
-			expectPendingOpen: map[string][]network.PortRange{
+			expectPendingOpen: network.GroupedPortRanges{
 				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 			},
 		},
@@ -97,8 +97,8 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 			about:           "open a range conflicting with another unit",
 			targetEndpoint:  "",
 			targetPortRange: network.MustParsePortRange("10-20/tcp"),
-			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
-				names.NewUnitTag("other/0"): map[string][]network.PortRange{
+			machinePortRanges: map[names.UnitTag]network.GroupedPortRanges{
+				names.NewUnitTag("other/0"): network.GroupedPortRanges{
 					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 				},
 			},
@@ -108,8 +108,8 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 			about:           "open a range conflicting with the same unit",
 			targetEndpoint:  "",
 			targetPortRange: network.MustParsePortRange("1-200/tcp"),
-			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
-				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+			machinePortRanges: map[names.UnitTag]network.GroupedPortRanges{
+				names.NewUnitTag("u/0"): network.GroupedPortRanges{
 					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 				},
 			},
@@ -119,7 +119,7 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 			about:           "open a range conflicting with a pending range for the same unit",
 			targetEndpoint:  "",
 			targetPortRange: network.MustParsePortRange("1-200/tcp"),
-			pendingOpenRanges: map[string][]network.PortRange{
+			pendingOpenRanges: network.GroupedPortRanges{
 				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 			},
 			expectErr: `cannot open 1-200/tcp \(unit "u/0"\): port range conflicts with 10-20/tcp \(unit "u/0"\) requested earlier`,
@@ -159,12 +159,12 @@ func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
 			about:           "close an existing range - all endpoints",
 			targetEndpoint:  "",
 			targetPortRange: network.MustParsePortRange("10-20/tcp"),
-			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
-				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+			machinePortRanges: map[names.UnitTag]network.GroupedPortRanges{
+				names.NewUnitTag("u/0"): network.GroupedPortRanges{
 					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 				},
 			},
-			expectPendingClose: map[string][]network.PortRange{
+			expectPendingClose: network.GroupedPortRanges{
 				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 			},
 		},
@@ -172,12 +172,12 @@ func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
 			about:           "close an existing range - same unit; different endpoint (accepted even if not opened for that endpoint)",
 			targetEndpoint:  "foo",
 			targetPortRange: network.MustParsePortRange("10-20/tcp"),
-			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
-				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+			machinePortRanges: map[names.UnitTag]network.GroupedPortRanges{
+				names.NewUnitTag("u/0"): network.GroupedPortRanges{
 					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 				},
 			},
-			expectPendingClose: map[string][]network.PortRange{
+			expectPendingClose: network.GroupedPortRanges{
 				"foo": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 			},
 		},
@@ -185,18 +185,18 @@ func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
 			about:           "close a range pending to be opened (removed from pending open)",
 			targetEndpoint:  "",
 			targetPortRange: network.MustParsePortRange("10-20/tcp"),
-			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
-				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+			machinePortRanges: map[names.UnitTag]network.GroupedPortRanges{
+				names.NewUnitTag("u/0"): network.GroupedPortRanges{
 					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 				},
 			},
-			pendingOpenRanges: map[string][]network.PortRange{
+			pendingOpenRanges: network.GroupedPortRanges{
 				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 			},
-			expectPendingOpen: map[string][]network.PortRange{
+			expectPendingOpen: network.GroupedPortRanges{
 				"": []network.PortRange{},
 			},
-			expectPendingClose: map[string][]network.PortRange{
+			expectPendingClose: network.GroupedPortRanges{
 				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 			},
 		},
@@ -204,15 +204,15 @@ func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
 			about:           "close a range pending to be closed (ignored)",
 			targetEndpoint:  "",
 			targetPortRange: network.MustParsePortRange("10-20/tcp"),
-			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
-				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+			machinePortRanges: map[names.UnitTag]network.GroupedPortRanges{
+				names.NewUnitTag("u/0"): network.GroupedPortRanges{
 					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 				},
 			},
-			pendingCloseRanges: map[string][]network.PortRange{
+			pendingCloseRanges: network.GroupedPortRanges{
 				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 			},
-			expectPendingClose: map[string][]network.PortRange{
+			expectPendingClose: network.GroupedPortRanges{
 				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 			},
 		},
@@ -220,8 +220,8 @@ func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
 			about:           "close a range opened by another unit",
 			targetEndpoint:  "",
 			targetPortRange: network.MustParsePortRange("10-20/tcp"),
-			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
-				names.NewUnitTag("other/0"): map[string][]network.PortRange{
+			machinePortRanges: map[names.UnitTag]network.GroupedPortRanges{
+				names.NewUnitTag("other/0"): network.GroupedPortRanges{
 					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 				},
 			},
@@ -231,8 +231,8 @@ func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
 			about:           "close a range conflicting with the same unit",
 			targetEndpoint:  "",
 			targetPortRange: network.MustParsePortRange("1-200/tcp"),
-			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
-				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+			machinePortRanges: map[names.UnitTag]network.GroupedPortRanges{
+				names.NewUnitTag("u/0"): network.GroupedPortRanges{
 					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 				},
 			},
@@ -242,12 +242,12 @@ func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
 			about:           "close a range conflicting with a pending range for the same unit",
 			targetEndpoint:  "",
 			targetPortRange: network.MustParsePortRange("1-200/tcp"),
-			machinePortRanges: map[names.UnitTag]map[string][]network.PortRange{
-				names.NewUnitTag("u/0"): map[string][]network.PortRange{
+			machinePortRanges: map[names.UnitTag]network.GroupedPortRanges{
+				names.NewUnitTag("u/0"): network.GroupedPortRanges{
 					"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 				},
 			},
-			pendingCloseRanges: map[string][]network.PortRange{
+			pendingCloseRanges: network.GroupedPortRanges{
 				"": []network.PortRange{network.MustParsePortRange("10-20/tcp")},
 			},
 			expectErr: `cannot close 1-200/tcp \(unit "u/0"\): port range conflicts with 10-20/tcp \(unit "u/0"\) requested earlier`,

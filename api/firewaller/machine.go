@@ -172,7 +172,7 @@ func (m *Machine) IsManual() (bool, error) {
 // OpenedMachinePortRanges queries the open port ranges for all units on this
 // machine and returns back a map where keys are unit names and values are maps
 // of the opened port ranges by the unit grouped by subnet CIDR.
-func (m *Machine) OpenedMachinePortRanges() (map[names.UnitTag]map[string][]network.PortRange, error) {
+func (m *Machine) OpenedMachinePortRanges() (map[names.UnitTag]network.GroupedPortRanges, error) {
 	if m.st.BestAPIVersion() < 6 {
 		// OpenedMachinePortRanges() was introduced in FirewallerAPIV6.
 		return nil, errors.NotImplementedf("OpenedMachinePortRanges() (need V6+)")
@@ -196,13 +196,13 @@ func (m *Machine) OpenedMachinePortRanges() (map[names.UnitTag]map[string][]netw
 		return nil, fmt.Errorf("expected open unit port ranges to be grouped by subnet CIDR, got %s", result.GroupKey)
 	}
 
-	portRangeMap := make(map[names.UnitTag]map[string][]network.PortRange)
+	portRangeMap := make(map[names.UnitTag]network.GroupedPortRanges)
 	for _, unitPortRanges := range result.UnitPortRanges {
 		unitTag, err := names.ParseUnitTag(unitPortRanges.UnitTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		portRangeMap[unitTag] = make(map[string][]network.PortRange)
+		portRangeMap[unitTag] = make(network.GroupedPortRanges)
 
 		for cidr, portRanges := range unitPortRanges.PortRangeGroups {
 			portList := make([]network.PortRange, len(portRanges))

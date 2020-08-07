@@ -267,8 +267,8 @@ func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
 
 	portsRangesByCIDR, err := mach.OpenedMachinePortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(portsRangesByCIDR, jc.DeepEquals, map[names.UnitTag]map[string][]network.PortRange{
-		names.NewUnitTag("mysql/0"): map[string][]network.PortRange{
+	c.Assert(portsRangesByCIDR, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
+		names.NewUnitTag("mysql/0"): network.GroupedPortRanges{
 			"192.168.0.0/24": []network.PortRange{
 				network.MustParsePortRange("3306/tcp"),
 			},
@@ -276,7 +276,7 @@ func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
 				network.MustParsePortRange("3306/tcp"),
 			},
 		},
-		names.NewUnitTag("wordpress/0"): map[string][]network.PortRange{
+		names.NewUnitTag("wordpress/0"): network.GroupedPortRanges{
 			"10.0.0.0/24": []network.PortRange{
 				network.MustParsePortRange("80/tcp"),
 			},

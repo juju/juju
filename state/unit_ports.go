@@ -22,7 +22,7 @@ type UnitPortRanges interface {
 
 	// ByEndpoint returns the list of open port ranges grouped by
 	// application endpoint.
-	ByEndpoint() map[string][]network.PortRange
+	ByEndpoint() network.GroupedPortRanges
 
 	// Open records a request for opening the specified port range for the
 	// specified endpoint.
@@ -73,13 +73,13 @@ func (p *unitPortRanges) ForEndpoint(endpointName string) []network.PortRange {
 
 // ByEndpoint returns a map where keys are endpoint names and values are the
 // port ranges that the unit has opened for each endpoint.
-func (p *unitPortRanges) ByEndpoint() map[string][]network.PortRange {
+func (p *unitPortRanges) ByEndpoint() network.GroupedPortRanges {
 	unitPortRangeDoc := p.machinePortRanges.doc.UnitRanges[p.unitName]
 	if len(unitPortRangeDoc) == 0 {
 		return nil
 	}
 
-	res := make(map[string][]network.PortRange)
+	res := make(network.GroupedPortRanges)
 	for endpointName, portRanges := range unitPortRangeDoc {
 		res[endpointName] = append([]network.PortRange(nil), portRanges...)
 		network.SortPortRanges(res[endpointName])
@@ -90,24 +90,19 @@ func (p *unitPortRanges) ByEndpoint() map[string][]network.PortRange {
 // UniquePortRanges returns a slice of unique open PortRanges across all
 // endpoints.
 func (p *unitPortRanges) UniquePortRanges() []network.PortRange {
-	var res []network.PortRange
-	for _, portRangesForEndpoint := range p.machinePortRanges.doc.UnitRanges[p.unitName] {
-		res = append(res, portRangesForEndpoint...)
-	}
-
-	res = network.UniquePortRanges(res)
-	network.SortPortRanges(res)
-	return res
+	uniquePortRanges := p.machinePortRanges.doc.UnitRanges[p.unitName].UniquePortRanges()
+	network.SortPortRanges(uniquePortRanges)
+	return uniquePortRanges
 }
 
 // Open records a request for opening a particular port range for the specified
 // endpoint.
 func (p *unitPortRanges) Open(endpoint string, portRange network.PortRange) {
 	if p.machinePortRanges.pendingOpenRanges == nil {
-		p.machinePortRanges.pendingOpenRanges = make(map[string]unitPortRangesDoc)
+		p.machinePortRanges.pendingOpenRanges = make(map[string]network.GroupedPortRanges)
 	}
 	if p.machinePortRanges.pendingOpenRanges[p.unitName] == nil {
-		p.machinePortRanges.pendingOpenRanges[p.unitName] = make(unitPortRangesDoc)
+		p.machinePortRanges.pendingOpenRanges[p.unitName] = make(network.GroupedPortRanges)
 	}
 
 	p.machinePortRanges.pendingOpenRanges[p.unitName][endpoint] = append(
@@ -120,10 +115,10 @@ func (p *unitPortRanges) Open(endpoint string, portRange network.PortRange) {
 // specified endpoint.
 func (p *unitPortRanges) Close(endpoint string, portRange network.PortRange) {
 	if p.machinePortRanges.pendingCloseRanges == nil {
-		p.machinePortRanges.pendingCloseRanges = make(map[string]unitPortRangesDoc)
+		p.machinePortRanges.pendingCloseRanges = make(map[string]network.GroupedPortRanges)
 	}
 	if p.machinePortRanges.pendingCloseRanges[p.unitName] == nil {
-		p.machinePortRanges.pendingCloseRanges[p.unitName] = make(unitPortRangesDoc)
+		p.machinePortRanges.pendingCloseRanges[p.unitName] = make(network.GroupedPortRanges)
 	}
 
 	p.machinePortRanges.pendingCloseRanges[p.unitName][endpoint] = append(

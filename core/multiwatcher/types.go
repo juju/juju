@@ -368,7 +368,7 @@ type UnitInfo struct {
 	PublicAddress            string
 	PrivateAddress           string
 	MachineID                string
-	OpenPortRangesByEndpoint map[string][]network.PortRange
+	OpenPortRangesByEndpoint network.GroupedPortRanges
 	Principal                string
 	Subordinate              bool
 	// Workload and agent state are modelled separately.
@@ -397,16 +397,8 @@ func (i *UnitInfo) Clone() EntityInfo {
 		}
 	}
 
-	clone.OpenPortRangesByEndpoint = copyPortRangeMap(i.OpenPortRangesByEndpoint)
+	clone.OpenPortRangesByEndpoint = i.OpenPortRangesByEndpoint.Clone()
 	return &clone
-}
-
-func copyPortRangeMap(input map[string][]network.PortRange) map[string][]network.PortRange {
-	out := make(map[string][]network.PortRange, len(input))
-	for k, v := range input {
-		out[k] = append([]network.PortRange(nil), v...)
-	}
-	return out
 }
 
 // ActionInfo holds the information about a action that is tracked by

@@ -397,7 +397,7 @@ func (st *State) AllMachinePorts(machineTag names.MachineTag) (map[network.PortR
 
 // OpenedMachinePortRanges returns all port ranges currently open on the given
 // machine, grouped by unit tag and application endpoint.
-func (st *State) OpenedMachinePortRanges(machineTag names.MachineTag) (map[names.UnitTag]map[string][]network.PortRange, error) {
+func (st *State) OpenedMachinePortRanges(machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
 	if st.BestAPIVersion() < 17 {
 		// OpenedMachinePortRanges() was introduced in UniterAPIV17.
 		return nil, errors.NotImplementedf("OpenedMachinePortRanges() (need V17+)")
@@ -420,13 +420,13 @@ func (st *State) OpenedMachinePortRanges(machineTag names.MachineTag) (map[names
 		return nil, fmt.Errorf("expected open unit port ranges to be grouped by endpoint, got %s", result.GroupKey)
 	}
 
-	portRangeMap := make(map[names.UnitTag]map[string][]network.PortRange)
+	portRangeMap := make(map[names.UnitTag]network.GroupedPortRanges)
 	for _, unitPortRanges := range result.UnitPortRanges {
 		unitTag, err := names.ParseUnitTag(unitPortRanges.UnitTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		portRangeMap[unitTag] = make(map[string][]network.PortRange)
+		portRangeMap[unitTag] = make(network.GroupedPortRanges)
 
 		for endpointName, portRanges := range unitPortRanges.PortRangeGroups {
 			portList := make([]network.PortRange, len(portRanges))

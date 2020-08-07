@@ -529,11 +529,11 @@ func (i *importer) machinePortsOp(m description.Machine) txn.Op {
 		DocID:      i.st.docID(machineID),
 		MachineID:  machineID,
 		ModelUUID:  modelUUID,
-		UnitRanges: make(map[string]unitPortRangesDoc),
+		UnitRanges: make(map[string]network.GroupedPortRanges),
 	}
 
 	for unitName, unitPorts := range m.OpenedPortRanges().ByUnit() {
-		portRangeDoc.UnitRanges[unitName] = make(unitPortRangesDoc)
+		portRangeDoc.UnitRanges[unitName] = make(network.GroupedPortRanges)
 
 		for endpointName, portRanges := range unitPorts.ByEndpoint() {
 			portRangeList := make([]network.PortRange, len(portRanges))
