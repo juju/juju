@@ -959,7 +959,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// agents, according to changes in a set of state units; and for the
 		// final removal of its agents' units from state when they are no
 		// longer needed.
-		deployerName: ifNotMigrating(deployer.Manifold(deployer.ManifoldConfig{
+		deployerName: ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
