@@ -29,10 +29,6 @@ type State interface {
 
 	FirewallRule(service corefirewall.WellKnownServiceType) (*state.FirewallRule, error)
 
-	// TODO(achilleasa) remove
-	Subnet(id string) (Subnet, error)
-	SubnetByCIDR(cidr string) (Subnet, error)
-
 	AllEndpointBindings() (map[string]map[string]string, error)
 
 	SpaceInfos() (network.SpaceInfos, error)
@@ -68,19 +64,6 @@ func (st stateShim) WatchOpenedPorts() state.StringsWatcher {
 func (st stateShim) FirewallRule(service corefirewall.WellKnownServiceType) (*state.FirewallRule, error) {
 	api := state.NewFirewallRules(st.st)
 	return api.Rule(service)
-}
-
-type Subnet interface {
-	ID() string
-	CIDR() string
-}
-
-func (st stateShim) Subnet(id string) (Subnet, error) {
-	return st.st.Subnet(id)
-}
-
-func (st stateShim) SubnetByCIDR(cidr string) (Subnet, error) {
-	return st.st.SubnetByCIDR(cidr)
 }
 
 func (st stateShim) AllEndpointBindings() (map[string]map[string]string, error) {

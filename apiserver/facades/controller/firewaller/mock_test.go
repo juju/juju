@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/firewall"
-	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
@@ -137,14 +136,6 @@ func (st *mockState) FirewallRule(service corefirewall.WellKnownServiceType) (*s
 		return nil, errors.NotFoundf("firewall rule for %q", service)
 	}
 	return r, nil
-}
-
-func (st *mockState) SubnetByCIDR(cidr string) (firewaller.Subnet, error) {
-	return nil, errors.NotImplementedf("SubnetByCIDR")
-}
-
-func (st *mockState) Subnet(id string) (firewaller.Subnet, error) {
-	return nil, errors.NotImplementedf("Subnet")
 }
 
 type mockWatcher struct {
