@@ -578,16 +578,6 @@ func (api *ProvisionerAPI) translateEndpointBindingsToSpaces(spaceInfos network.
 		}
 
 		for endpoint, spaceID := range bindings.Map() {
-			// All endpoint bindings having a value is a side effect of
-			// changing the endpoint bindings from a space name to id.
-			// For the provisioning code, assuming that the default space
-			// should be handled as unspecified was previously.
-			if spaceID == network.AlphaSpaceId {
-				// Skip unspecified bindings, as they won't affect the instance
-				// selected for provisioning.
-				continue
-			}
-
 			space := spaceInfos.GetByID(spaceID)
 			if space != nil {
 				bound := string(space.ProviderId)
