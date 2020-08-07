@@ -576,7 +576,7 @@ func (s *mockHookContextSuite) TestDeleteCharmStateValue(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
-	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
 	err := hookContext.DeleteCharmStateValue("one")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -589,7 +589,7 @@ func (s *mockHookContextSuite) TestDeleteCacheStateErr(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
-	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
 	err := hookContext.DeleteCharmStateValue("five")
 	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
 }
@@ -598,7 +598,7 @@ func (s *mockHookContextSuite) TestGetCharmState(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
-	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
 	obtainedCache, err := hookContext.GetCharmState()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedCache, gc.DeepEquals, s.mockCache.CharmState)
@@ -608,7 +608,7 @@ func (s *mockHookContextSuite) TestGetCharmStateStateErr(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
-	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
 	_, err := hookContext.GetCharmState()
 	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
 }
@@ -617,7 +617,7 @@ func (s *mockHookContextSuite) TestGetCharmStateValue(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
-	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
 	obtainedVale, err := hookContext.GetCharmStateValue("one")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedVale, gc.Equals, "two")
@@ -627,7 +627,7 @@ func (s *mockHookContextSuite) TestGetCharmStateValueEmpty(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
-	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
 	obtainedVale, err := hookContext.GetCharmStateValue("seven")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedVale, gc.Equals, "")
@@ -637,7 +637,7 @@ func (s *mockHookContextSuite) TestGetCharmStateValueNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
-	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
 	obtainedCache, err := hookContext.GetCharmStateValue("five")
 	c.Assert(err, gc.ErrorMatches, "\"five\" not found")
 	c.Assert(obtainedCache, gc.Equals, "")
@@ -647,7 +647,7 @@ func (s *mockHookContextSuite) TestGetCharmStateValueStateErr(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
-	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
 	_, err := hookContext.GetCharmStateValue("key")
 	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
 }
@@ -663,7 +663,7 @@ func (s *mockHookContextSuite) TestSetCache(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
-	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
 
 	// Test key len limit
 	err := hookContext.SetCharmStateValue(
@@ -690,7 +690,7 @@ func (s *mockHookContextSuite) TestSetCacheEmptyStartState(c *gc.C) {
 }
 
 func (s *mockHookContextSuite) testSetCache(c *gc.C) {
-	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
 	err := hookContext.SetCharmStateValue("five", "six")
 	c.Assert(err, jc.ErrorIsNil)
 	obtainedCache, err := hookContext.GetCharmState()
@@ -704,14 +704,14 @@ func (s *mockHookContextSuite) TestSetCacheStateErr(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
-	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
 	err := hookContext.SetCharmStateValue("five", "six")
 	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
 }
 
 func (s *mockHookContextSuite) TestFlushWithNonDirtyCache(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
 	s.expectStateValues()
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0"))
 
@@ -729,7 +729,7 @@ func (s *mockHookContextSuite) TestFlushWithNonDirtyCache(c *gc.C) {
 
 func (s *mockHookContextSuite) TestSequentialFlushOfCacheValues(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
 
 	// We expect a single call for the following API endpoints
 	s.expectStateValues()
@@ -811,7 +811,7 @@ func (s *mockHookContextSuite) TestActionAbort(c *gc.C) {
 		})
 		s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
 		st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-		hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, st)
+		hookContext := context.NewMockUnitHookContextWithState("wordpress/0", s.mockUnit, st)
 		cancel := make(chan struct{})
 		if test.Cancel {
 			close(cancel)
@@ -851,7 +851,7 @@ func (s *mockHookContextSuite) TestMissingAction(c *gc.C) {
 	})
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, st)
+	hookContext := context.NewMockUnitHookContextWithState("wordpress/0", s.mockUnit, st)
 
 	context.WithActionContext(hookContext, nil, nil)
 	err := hookContext.Flush("action", charmrunner.NewMissingHookError("noaction"))

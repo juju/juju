@@ -14,41 +14,39 @@ import (
 
 // NetworkInterface holds the values for the hook context.
 type NetworkInterface struct {
-	PublicAddress      string
-	PrivateAddress     string
-	Ports              []network.PortRange
-	NetworkInfoResults map[string]params.NetworkInfoResult
+	PublicAddress        string
+	PrivateAddress       string
+	PortRangesByEndpoint map[string][]network.PortRange
+	NetworkInfoResults   map[string]params.NetworkInfoResult
 }
 
 // CheckPorts checks the current ports.
-func (ni *NetworkInterface) CheckPorts(c *gc.C, expected []network.PortRange) {
-	c.Check(ni.Ports, jc.DeepEquals, expected)
+func (ni *NetworkInterface) CheckPortRanges(c *gc.C, expected map[string][]network.PortRange) {
+	c.Check(ni.PortRangesByEndpoint, jc.DeepEquals, expected)
 }
 
-// AddPorts adds the specified port range.
-func (ni *NetworkInterface) AddPorts(protocol string, from, to int) {
-	ni.Ports = append(ni.Ports, network.PortRange{
-		Protocol: protocol,
-		FromPort: from,
-		ToPort:   to,
-	})
-	network.SortPortRanges(ni.Ports)
-}
-
-// RemovePorts removes the specified port range.
-func (ni *NetworkInterface) RemovePorts(protocol string, from, to int) {
-	portRange := network.PortRange{
-		Protocol: protocol,
-		FromPort: from,
-		ToPort:   to,
+// AddPortRanges adds the specified port range.
+func (ni *NetworkInterface) AddPortRange(endpoint string, portRange network.PortRange) {
+	if ni.PortRangesByEndpoint == nil {
+		ni.PortRangesByEndpoint = make(map[string][]network.PortRange)
 	}
-	for i, port := range ni.Ports {
-		if port == portRange {
-			ni.Ports = append(ni.Ports[:i], ni.Ports[i+1:]...)
+	ni.PortRangesByEndpoint[endpoint] = append(ni.PortRangesByEndpoint[endpoint], portRange)
+	network.SortPortRanges(ni.PortRangesByEndpoint[endpoint])
+}
+
+// RemovePortRange removes the specified port range.
+func (ni *NetworkInterface) RemovePortRange(endpoint string, portRange network.PortRange) {
+	if ni.PortRangesByEndpoint == nil {
+		return
+	}
+
+	for i, existingPortRange := range ni.PortRangesByEndpoint[endpoint] {
+		if existingPortRange == portRange {
+			ni.PortRangesByEndpoint[endpoint] = append(ni.PortRangesByEndpoint[endpoint][:i], ni.PortRangesByEndpoint[endpoint][i+1:]...)
 			break
 		}
 	}
-	network.SortPortRanges(ni.Ports)
+	network.SortPortRanges(ni.PortRangesByEndpoint[endpoint])
 }
 
 // ContextNetworking is a test double for jujuc.ContextNetworking.
@@ -73,34 +71,34 @@ func (c *ContextNetworking) PrivateAddress() (string, error) {
 
 }
 
-// OpenPorts implements jujuc.ContextNetworking.
-func (c *ContextNetworking) OpenPorts(protocol string, from, to int) error {
-	c.stub.AddCall("OpenPorts", protocol, from, to)
+// OpenPortRange implements jujuc.ContextNetworking.
+func (c *ContextNetworking) OpenPortRange(endpoint string, portRange network.PortRange) error {
+	c.stub.AddCall("OpenPortRange", endpoint, portRange)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
-	c.info.AddPorts(protocol, from, to)
+	c.info.AddPortRange(endpoint, portRange)
 	return nil
 }
 
-// ClosePorts implements jujuc.ContextNetworking.
-func (c *ContextNetworking) ClosePorts(protocol string, from, to int) error {
-	c.stub.AddCall("ClosePorts", protocol, from, to)
+// ClosePortRange implements jujuc.ContextNetworking.
+func (c *ContextNetworking) ClosePortRange(endpoint string, portRange network.PortRange) error {
+	c.stub.AddCall("ClosePortRange", endpoint, portRange)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
-	c.info.RemovePorts(protocol, from, to)
+	c.info.RemovePortRange(endpoint, portRange)
 	return nil
 }
 
-// OpenedPorts implements jujuc.ContextNetworking.
-func (c *ContextNetworking) OpenedPorts() []network.PortRange {
-	c.stub.AddCall("OpenedPorts")
+// OpenedPortRanges implements jujuc.ContextNetworking.
+func (c *ContextNetworking) OpenedPortRanges() map[string][]network.PortRange {
+	c.stub.AddCall("OpenedPortRanges")
 	c.stub.NextErr()
 
-	return c.info.Ports
+	return c.info.PortRangesByEndpoint
 }
 
 // NetworkInfo implements jujuc.ContextNetworking.

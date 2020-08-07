@@ -5,9 +5,6 @@
 package jujuc_test
 
 import (
-	"strconv"
-	"strings"
-
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
@@ -25,56 +22,53 @@ var _ = gc.Suite(&PortsSuite{})
 
 var portsTests = []struct {
 	cmd    []string
-	expect []network.PortRange
+	expect map[string][]network.PortRange
 }{
-	{[]string{"open-port", "80"}, makeRanges("80/tcp")},
-	{[]string{"open-port", "99/tcp"}, makeRanges("80/tcp", "99/tcp")},
-	{[]string{"open-port", "100-200"}, makeRanges("80/tcp", "99/tcp", "100-200/tcp")},
-	{[]string{"open-port", "443/udp"}, makeRanges("80/tcp", "99/tcp", "100-200/tcp", "443/udp")},
-	{[]string{"close-port", "80/TCP"}, makeRanges("99/tcp", "100-200/tcp", "443/udp")},
-	{[]string{"close-port", "100-200/tcP"}, makeRanges("99/tcp", "443/udp")},
-	{[]string{"close-port", "443"}, makeRanges("99/tcp", "443/udp")},
-	{[]string{"close-port", "443/udp"}, makeRanges("99/tcp")},
-	{[]string{"open-port", "123/udp"}, makeRanges("99/tcp", "123/udp")},
-	{[]string{"close-port", "9999/UDP"}, makeRanges("99/tcp", "123/udp")},
-	{[]string{"open-port", "icmp"}, makeRanges("icmp", "99/tcp", "123/udp")},
+	{[]string{"open-port", "80"}, makeAllEndpointsRanges("80/tcp")},
+	{[]string{"open-port", "99/tcp"}, makeAllEndpointsRanges("80/tcp", "99/tcp")},
+	{[]string{"open-port", "100-200"}, makeAllEndpointsRanges("80/tcp", "99/tcp", "100-200/tcp")},
+	{[]string{"open-port", "443/udp"}, makeAllEndpointsRanges("80/tcp", "99/tcp", "100-200/tcp", "443/udp")},
+	{[]string{"close-port", "80/TCP"}, makeAllEndpointsRanges("99/tcp", "100-200/tcp", "443/udp")},
+	{[]string{"close-port", "100-200/tcP"}, makeAllEndpointsRanges("99/tcp", "443/udp")},
+	{[]string{"close-port", "443"}, makeAllEndpointsRanges("99/tcp", "443/udp")},
+	{[]string{"close-port", "443/udp"}, makeAllEndpointsRanges("99/tcp")},
+	{[]string{"open-port", "123/udp"}, makeAllEndpointsRanges("99/tcp", "123/udp")},
+	{[]string{"close-port", "9999/UDP"}, makeAllEndpointsRanges("99/tcp", "123/udp")},
+	{[]string{"open-port", "icmp"}, makeAllEndpointsRanges("icmp", "99/tcp", "123/udp")},
+	// Tests with --endpoints.
+	{[]string{"open-port", "--endpoints", "foo,bar", "1337/tcp"}, map[string][]network.PortRange{
+		// Pre-existing ports from previous tests
+		"": []network.PortRange{
+			network.MustParsePortRange("icmp"),
+			network.MustParsePortRange("99/tcp"),
+			network.MustParsePortRange("123/udp"),
+		},
+		// Endpoint-specific ports
+		"foo": []network.PortRange{network.MustParsePortRange("1337/tcp")},
+		"bar": []network.PortRange{network.MustParsePortRange("1337/tcp")},
+	}},
+	{[]string{"close-port", "--endpoints", "foo", "1337/tcp"}, map[string][]network.PortRange{
+		"": []network.PortRange{
+			network.MustParsePortRange("icmp"),
+			network.MustParsePortRange("99/tcp"),
+			network.MustParsePortRange("123/udp"),
+		},
+		"foo": []network.PortRange{
+			// Removed
+		},
+		"bar": []network.PortRange{network.MustParsePortRange("1337/tcp")},
+	}},
 }
 
-func makeRanges(stringRanges ...string) []network.PortRange {
+func makeAllEndpointsRanges(stringRanges ...string) map[string][]network.PortRange {
 	var results []network.PortRange
 	for _, s := range stringRanges {
-		if s == "icmp" {
-			results = append(results, network.PortRange{
-				FromPort: -1,
-				ToPort:   -1,
-				Protocol: "icmp",
-			})
-			continue
-		}
-		if strings.Contains(s, "-") {
-			parts := strings.Split(s, "-")
-			fromPort, _ := strconv.Atoi(parts[0])
-			parts = strings.Split(parts[1], "/")
-			toPort, _ := strconv.Atoi(parts[0])
-			proto := parts[1]
-			results = append(results, network.PortRange{
-				FromPort: fromPort,
-				ToPort:   toPort,
-				Protocol: proto,
-			})
-		} else {
-			parts := strings.Split(s, "/")
-			port, _ := strconv.Atoi(parts[0])
-			proto := parts[1]
-			results = append(results, network.PortRange{
-				FromPort: port,
-				ToPort:   port,
-				Protocol: proto,
-			})
-		}
+		results = append(results, network.MustParsePortRange(s))
 	}
 	network.SortPortRanges(results)
-	return results
+	return map[string][]network.PortRange{
+		"": results,
+	}
 }
 
 func (s *PortsSuite) TestOpenClose(c *gc.C) {
@@ -87,39 +81,7 @@ func (s *PortsSuite) TestOpenClose(c *gc.C) {
 		c.Check(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-		hctx.info.CheckPorts(c, t.expect)
-	}
-}
-
-var badPortsTests = []struct {
-	args []string
-	err  string
-}{
-	{nil, "no port or range specified"},
-	{[]string{"0"}, `port must be in the range \[1, 65535\]; got "0"`},
-	{[]string{"65536"}, `port must be in the range \[1, 65535\]; got "65536"`},
-	{[]string{"two"}, `expected <port>\[/<protocol>\] or <from>-<to>\[/<protocol>\] or icmp; got "two"`},
-	{[]string{"80/http"}, `protocol must be "tcp", "udp", or "icmp"; got "http"`},
-	{[]string{"blah/blah/blah"}, `expected <port>\[/<protocol>\] or <from>-<to>\[/<protocol>\] or icmp; got "blah/blah/blah"`},
-	{[]string{"123", "haha"}, `unrecognized args: \["haha"\]`},
-	{[]string{"1-0"}, `invalid port range 1-0/tcp; expected fromPort <= toPort`},
-	{[]string{"-42"}, `option provided but not defined: -4`},
-	{[]string{"99999/UDP"}, `port must be in the range \[1, 65535\]; got "99999"`},
-	{[]string{"9999/foo"}, `protocol must be "tcp", "udp", or "icmp"; got "foo"`},
-	{[]string{"80-90/http"}, `protocol must be "tcp", "udp", or "icmp"; got "http"`},
-	{[]string{"20-10/tcp"}, `invalid port range 20-10/tcp; expected fromPort <= toPort`},
-	{[]string{"80/icmp"}, `protocol "icmp" doesn't support any ports; got "80"`},
-}
-
-func (s *PortsSuite) TestBadArgs(c *gc.C) {
-	for _, name := range []string{"open-port", "close-port"} {
-		for _, t := range badPortsTests {
-			hctx := s.GetHookContext(c, -1, "")
-			com, err := jujuc.NewCommand(hctx, cmdString(name))
-			c.Assert(err, jc.ErrorIsNil)
-			err = cmdtesting.InitCommand(jujuc.NewJujucCommandWrappedForTest(com), t.args)
-			c.Assert(err, gc.ErrorMatches, t.err)
-		}
+		hctx.info.CheckPortRanges(c, t.expect)
 	}
 }
 
@@ -132,10 +94,14 @@ func (s *PortsSuite) TestHelp(c *gc.C) {
 Usage: open-port <port>[/<protocol>] or <from>-<to>[/<protocol>] or icmp
 
 Summary:
-register a port or range to open
+register a request to open a port or port range
 
 Details:
-The port range will only be open while the application is exposed.
+open-port registers a request to open the specified port or port range.
+
+By default, the specified port or port range will be opened for all defined
+application endpoints. The --endpoints option can be used to constrain the 
+open request to a comma-delimited list of application endpoints.
 `[1:])
 
 	close, err := jujuc.NewCommand(hctx, cmdString("close-port"))
@@ -144,13 +110,20 @@ The port range will only be open while the application is exposed.
 Usage: close-port <port>[/<protocol>] or <from>-<to>[/<protocol>] or icmp
 
 Summary:
-ensure a port or range is always closed
+register a request to close a port or port range
+
+Details:
+close-port registers a request to open the specified port or port range.
+
+By default, the specified port or port range will be closed for all defined
+application endpoints. The --endpoints option can be used to constrain the 
+close request to a comma-delimited list of application endpoints.
 `[1:])
 }
 
 // Since the deprecation warning gets output during Run, we really need
 // some valid commands to run
-var portsFormatDeprectaionTests = []struct {
+var portsFormatDeprecationTests = []struct {
 	cmd []string
 }{
 	{[]string{"open-port", "--format", "foo", "80"}},
@@ -159,7 +132,7 @@ var portsFormatDeprectaionTests = []struct {
 
 func (s *PortsSuite) TestOpenCloseDeprecation(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	for _, t := range portsFormatDeprectaionTests {
+	for _, t := range portsFormatDeprecationTests {
 		name := t.cmd[0]
 		com, err := jujuc.NewCommand(hctx, cmdString(name))
 		c.Assert(err, jc.ErrorIsNil)

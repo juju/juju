@@ -29,6 +29,7 @@ type BaseSuite struct {
 	restClient            *mocks.MockRestClientInterface
 	execClient            exec.Executor
 	mockPodGetter         *mocks.MockPodInterface
+	mockNamespaces        *mocks.MockNamespaceInterface
 	mockRemoteCmdExecutor *execmocks.MockExecutor
 	suiteMocks            *suiteMocks
 
@@ -63,6 +64,9 @@ func (s *BaseSuite) setupExecClient(c *gc.C) *gomock.Controller {
 
 	s.mockPodGetter = mocks.NewMockPodInterface(ctrl)
 	mockCoreV1.EXPECT().Pods(s.namespace).AnyTimes().Return(s.mockPodGetter)
+
+	s.mockNamespaces = mocks.NewMockNamespaceInterface(ctrl)
+	mockCoreV1.EXPECT().Namespaces().AnyTimes().Return(s.mockNamespaces)
 
 	s.mockRemoteCmdExecutor = execmocks.NewMockExecutor(ctrl)
 

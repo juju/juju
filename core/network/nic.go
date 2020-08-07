@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 )
 
@@ -281,38 +280,6 @@ func (s InterfaceInfos) Validate() error {
 	return nil
 }
 
-// IterHierarchy runs the input function for every interface by processing each
-// device hierarchy, ensuring that no child device is processed before its
-// parent.
-func (s InterfaceInfos) IterHierarchy(f func(InterfaceInfo) error) error {
-	return s.iterChildHierarchy("", f)
-}
-
-func (s InterfaceInfos) iterChildHierarchy(parentName string, f func(InterfaceInfo) error) error {
-	children := s.Children(parentName)
-	for _, child := range children {
-		if err := f(child); err != nil {
-			return err
-		}
-		if err := s.iterChildHierarchy(child.InterfaceName, f); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Children returns interfaces that are direct children
-// of the interface with the input name.
-func (s InterfaceInfos) Children(parentName string) InterfaceInfos {
-	var children InterfaceInfos
-	for _, dev := range s {
-		if dev.ParentInterfaceName == parentName {
-			children = append(children, dev)
-		}
-	}
-	return children
-}
-
 // InterfaceFilterFunc is a function that can be applied to filter a slice of
 // InterfaceInfo instances. Calls to this function should return false if
 // the specified InterfaceInfo should be filtered out.
@@ -342,62 +309,6 @@ func (s InterfaceInfos) GetByHardwareAddress(hwAddr string) InterfaceInfos {
 		}
 	}
 	return res
-}
-
-// Normalise ensures that where interfaces are duplicated for the purpose of
-// supplying multiple addresses, they are reflected in the result as a single
-// interface with multiple addresses.
-// It also ensures that members of the interface that *should* be members of
-// its addresses are copied to the address where appropriate.
-// TODO (manadart 2020-07-14): This is a temporary solution in lieu of having
-// upstream suppliers of this data populate the new fields for CIDR and
-// ConfigType on member addresses.
-// The ultimate solution should consist of the following:
-// - The fields mentioned above are populated on addresses and removed from
-//   InterfaceInfo, so that devices are never duplicated.
-// - This change is reflected in the DTO and in the to/from transformations.
-//   This may require waiting for Juju 3 to break prior version compatibility.
-// - This method is no longer required the therefore removed.
-func (s InterfaceInfos) Normalise() InterfaceInfos {
-	var res InterfaceInfos
-	seen := set.NewStrings()
-
-	for _, dev := range s {
-		if seen.Contains(dev.MACAddress) {
-			continue
-		}
-
-		dev.Addresses = s.GetByHardwareAddress(dev.MACAddress).addresses()
-		res = append(res, dev)
-		seen.Add(dev.MACAddress)
-	}
-
-	return res
-}
-
-// addresses services Normalise above and should be removed
-// with that method when it is no longer required.
-func (s InterfaceInfos) addresses() ProviderAddresses {
-	addrs := ProviderAddresses{}
-
-	for _, dev := range s {
-		if len(dev.Addresses) == 0 {
-			continue
-		}
-
-		// Due to the cardinality mismatch,
-		// we can only populate the first address.
-		dev.Addresses[0].CIDR = dev.CIDR
-		dev.Addresses[0].ConfigType = dev.ConfigType
-
-		for _, addr := range dev.Addresses {
-			if !set.NewStrings(addrs.ToIPAddresses()...).Contains(addr.Value) {
-				addrs = append(addrs, addr)
-			}
-		}
-	}
-
-	return addrs
 }
 
 // ProviderInterfaceInfo holds enough information to identify an

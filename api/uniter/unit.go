@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -951,26 +952,28 @@ func NewCommitHookParamsBuilder(unitTag names.UnitTag) *CommitHookParamsBuilder 
 }
 
 // OpenPortRange records a request to open a particular port range.
-func (b *CommitHookParamsBuilder) OpenPortRange(protocol string, fromPort, toPort int) {
+func (b *CommitHookParamsBuilder) OpenPortRange(endpoint string, portRange network.PortRange) {
 	b.arg.OpenPorts = append(b.arg.OpenPorts, params.EntityPortRange{
 		// The Tag is optional as the call uses the Tag from the
 		// CommitHookChangesArg; it is included here for consistency.
 		Tag:      b.arg.Tag,
-		Protocol: protocol,
-		FromPort: fromPort,
-		ToPort:   toPort,
+		Endpoint: endpoint,
+		Protocol: portRange.Protocol,
+		FromPort: portRange.FromPort,
+		ToPort:   portRange.ToPort,
 	})
 }
 
 // ClosePortRange records a request to close a particular port range.
-func (b *CommitHookParamsBuilder) ClosePortRange(protocol string, fromPort, toPort int) {
+func (b *CommitHookParamsBuilder) ClosePortRange(endpoint string, portRange network.PortRange) {
 	b.arg.ClosePorts = append(b.arg.ClosePorts, params.EntityPortRange{
 		// The Tag is optional as the call uses the Tag from the
 		// CommitHookChangesArg; it is included here for consistency.
 		Tag:      b.arg.Tag,
-		Protocol: protocol,
-		FromPort: fromPort,
-		ToPort:   toPort,
+		Endpoint: endpoint,
+		Protocol: portRange.Protocol,
+		FromPort: portRange.FromPort,
+		ToPort:   portRange.ToPort,
 	})
 }
 

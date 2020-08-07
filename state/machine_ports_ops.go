@@ -65,6 +65,11 @@ func (op *openClosePortRangesOperation) Build(attempt int) ([]txn.Op, error) {
 		return nil, errors.Annotate(err, "cannot open/close ports")
 	}
 
+	// Ensure that the pending request list does not contain any bogus endpoints.
+	if err := op.validatePendingChanges(); err != nil {
+		return nil, errors.Annotate(err, "cannot open/close ports")
+	}
+
 	// Append docs for opening each one of the pending port ranges.
 	portListModified, err := op.mergePendingOpenPortRanges()
 	if err != nil {
@@ -202,6 +207,32 @@ func (op *openClosePortRangesOperation) lookupUnitEndpoints() error {
 			appEndpoints.Add(endpointName)
 		}
 		op.endpointsNamesByApp[appName] = appEndpoints
+	}
+
+	return nil
+}
+
+// validatePendingChanges ensures that the none of the pending open/close
+// entries specifies an endpoint that is not defined by the unit's charm
+// metadata.
+func (op *openClosePortRangesOperation) validatePendingChanges() error {
+	for unitName, pendingRangesByEndpoint := range op.mpr.pendingOpenRanges {
+		// Already verified; ignore error
+		appName, _ := names.UnitApplication(unitName)
+		for pendingEndpointName := range pendingRangesByEndpoint {
+			if pendingEndpointName != "" && !op.endpointsNamesByApp[appName].Contains(pendingEndpointName) {
+				return errors.NotFoundf("open port range: endpoint %q for unit %q", pendingEndpointName, unitName)
+			}
+		}
+	}
+	for unitName, pendingRangesByEndpoint := range op.mpr.pendingCloseRanges {
+		// Already verified; ignore error
+		appName, _ := names.UnitApplication(unitName)
+		for pendingEndpointName := range pendingRangesByEndpoint {
+			if pendingEndpointName != "" && !op.endpointsNamesByApp[appName].Contains(pendingEndpointName) {
+				return errors.NotFoundf("close port range: endpoint %q for unit %q", pendingEndpointName, unitName)
+			}
+		}
 	}
 
 	return nil

@@ -14,9 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/loggo"
-
 	"github.com/juju/clock/testclock"
+	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -98,7 +97,7 @@ func (s *introspectionSuite) startWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.worker = w
 	s.AddCleanup(func(c *gc.C) {
-		workertest.CheckKill(c, w)
+		workertest.CleanKill(c, w)
 	})
 }
 
@@ -282,32 +281,22 @@ func (s *introspectionSuite) TestUnitStartMissingUnits(c *gc.C) {
 }
 
 func (s *introspectionSuite) TestUnitStartUnits(c *gc.C) {
-	values := make(chan []string)
 	unsub := s.hub.Subscribe(agent.StartUnitTopic, func(topic string, data interface{}) {
-		payload, ok := data.(agent.Units)
+		_, ok := data.(agent.Units)
 		if !ok {
 			c.Fatalf("bad data type: %T", data)
 			return
 		}
-		select {
-
-		case values <- payload.Names:
-		case <-time.After(testing.LongWait):
-			c.Fatalf("test did not grab the values %#v", values)
-		}
+		s.hub.Publish(agent.StartUnitResponseTopic, agent.StartStopResponse{
+			"one": "started",
+			"two": "not found",
+		})
 	})
 	defer unsub()
 
 	response := s.post(c, "/units", url.Values{"action": {"start"}, "unit": {"one", "two"}})
 	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
-	s.assertBody(c, response, "requested units one, two to start")
-
-	select {
-	case names := <-values:
-		c.Assert(names, jc.DeepEquals, []string{"one", "two"})
-	case <-time.After(testing.LongWait):
-		c.Fatalf("no values published")
-	}
+	s.assertBody(c, response, "one: started\ntwo: not found")
 }
 
 func (s *introspectionSuite) TestUnitStopWithGet(c *gc.C) {
@@ -323,32 +312,22 @@ func (s *introspectionSuite) TestUnitStopMissingUnits(c *gc.C) {
 }
 
 func (s *introspectionSuite) TestUnitStopUnits(c *gc.C) {
-	values := make(chan []string)
 	unsub := s.hub.Subscribe(agent.StopUnitTopic, func(topic string, data interface{}) {
-		payload, ok := data.(agent.Units)
+		_, ok := data.(agent.Units)
 		if !ok {
 			c.Fatalf("bad data type: %T", data)
 			return
 		}
-		select {
-
-		case values <- payload.Names:
-		case <-time.After(testing.LongWait):
-			c.Fatalf("test did not grab the values %#v", values)
-		}
+		s.hub.Publish(agent.StopUnitResponseTopic, agent.StartStopResponse{
+			"one": "stopped",
+			"two": "not found",
+		})
 	})
 	defer unsub()
 
 	response := s.post(c, "/units", url.Values{"action": {"stop"}, "unit": {"one", "two"}})
 	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
-	s.assertBody(c, response, "requested units one, two to stop")
-
-	select {
-	case names := <-values:
-		c.Assert(names, jc.DeepEquals, []string{"one", "two"})
-	case <-time.After(testing.LongWait):
-		c.Fatalf("no values published")
-	}
+	s.assertBody(c, response, "one: stopped\ntwo: not found")
 }
 
 func (s *introspectionSuite) TestUnitStatus(c *gc.C) {
@@ -363,9 +342,8 @@ func (s *introspectionSuite) TestUnitStatus(c *gc.C) {
 	response := s.call(c, "/units?action=status")
 	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
 	s.assertBody(c, response, `
-one: running,
-two: stopped,
-}`[1:])
+one: running
+two: stopped`[1:])
 }
 
 func (s *introspectionSuite) TestUnitStatusTimeout(c *gc.C) {
@@ -376,7 +354,7 @@ func (s *introspectionSuite) TestUnitStatusTimeout(c *gc.C) {
 
 	response := s.call(c, "/units?action=status")
 	c.Assert(response.StatusCode, gc.Equals, http.StatusInternalServerError)
-	s.assertBody(c, response, "status response timed out")
+	s.assertBody(c, response, "response timed out")
 }
 
 type reporter struct {

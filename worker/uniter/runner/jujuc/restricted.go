@@ -108,18 +108,18 @@ func (*RestrictedContext) PublicAddress() (string, error) { return "", ErrRestri
 // PrivateAddress implements hooks.Context.
 func (*RestrictedContext) PrivateAddress() (string, error) { return "", ErrRestrictedContext }
 
-// OpenPorts implements hooks.Context.
-func (*RestrictedContext) OpenPorts(protocol string, fromPort, toPort int) error {
+// OpenPortRange implements hooks.Context.
+func (*RestrictedContext) OpenPortRange(string, network.PortRange) error {
 	return ErrRestrictedContext
 }
 
-// ClosePorts implements hooks.Context.
-func (*RestrictedContext) ClosePorts(protocol string, fromPort, toPort int) error {
+// ClosePortRange implements hooks.Context.
+func (*RestrictedContext) ClosePortRange(string, network.PortRange) error {
 	return ErrRestrictedContext
 }
 
-// OpenedPorts implements hooks.Context.
-func (*RestrictedContext) OpenedPorts() []network.PortRange { return nil }
+// OpenedPortRanges implements hooks.Context.
+func (*RestrictedContext) OpenedPortRanges() map[string][]network.PortRange { return nil }
 
 // NetworkInfo implements hooks.Context.
 func (*RestrictedContext) NetworkInfo(bindingNames []string, relationId int) (map[string]params.NetworkInfoResult, error) {

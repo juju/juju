@@ -39,8 +39,9 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v16) of the Uniter API, which adds
-// LXDProfileAPIv2.
+// UniterAPI implements the latest version (v17) of the Uniter API, which
+// augments the payload of the CommitHookChanges API call and introduces
+// the OpenedMachinePortRanges call as a replacement for AllMachinePorts.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -77,6 +78,12 @@ type UniterAPI struct {
 	// We do not need to use an AuthFunc, because we do not need to pass a tag.
 	accessCloudSpec func() (func() bool, error)
 	cloudSpec       cloudspec.CloudSpecAPI
+}
+
+// UniterAPIV16 implements version (v16) of the Uniter API, which adds
+// LXDPorfileAPIV2.
+type UniterAPIV16 struct {
+	UniterAPI
 }
 
 // UniterAPIV15 implements version (v15) of the Uniter API, which adds
@@ -252,6 +259,17 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	}, nil
 }
 
+// NewUniterAPIV16 creates an instance of the V16 uniter API.
+func NewUniterAPIV16(context facade.Context) (*UniterAPIV16, error) {
+	uniterAPI, err := NewUniterAPI(context)
+	if err != nil {
+		return nil, err
+	}
+	return &UniterAPIV16{
+		UniterAPI: *uniterAPI,
+	}, nil
+}
+
 // NewUniterAPIV15 creates an instance of the V15 uniter API.
 func NewUniterAPIV15(context facade.Context) (*UniterAPIV15, error) {
 	uniterAPI, err := NewUniterAPI(context)
@@ -392,8 +410,57 @@ func NewUniterAPIV4(context facade.Context) (*UniterAPIV4, error) {
 	}, nil
 }
 
+// OpenedMachinePortRanges is not available in V16 of the API.
+func (u *UniterAPIV16) OpenedMachinePortRanges(_ struct{}) {}
+
+// OpenedMachinePortRanges returns the port ranges opened by each unit on the
+// provided machines grouped by application endpoint.
+func (u *UniterAPI) OpenedMachinePortRanges(args params.Entities) (params.OpenMachinePortRangesResults, error) {
+	result := params.OpenMachinePortRangesResults{
+		Results: make([]params.OpenMachinePortRangesResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessMachine()
+	if err != nil {
+		return params.OpenMachinePortRangesResults{}, err
+	}
+	for i, entity := range args.Entities {
+		machPortRanges, err := u.getOneMachineOpenedPortRanges(canAccess, entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		result.Results[i].GroupKey = "endpoint"
+
+		for unitName, unitPortRanges := range machPortRanges.ByUnit() {
+			byEp := make(map[string][]params.PortRange)
+			for endpointName, portRanges := range unitPortRanges.ByEndpoint() {
+				for _, pr := range portRanges {
+					byEp[endpointName] = append(byEp[endpointName], params.FromNetworkPortRange(pr))
+				}
+			}
+			result.Results[i].UnitPortRanges = append(result.Results[i].UnitPortRanges, params.OpenUnitPortRanges{
+				UnitTag:         names.NewUnitTag(unitName).String(),
+				PortRangeGroups: byEp,
+			})
+		}
+
+		// Sort result list by endpoint name to yield consistent results.
+		sort.Slice(result.Results[i].UnitPortRanges, func(a, b int) bool {
+			return result.Results[i].UnitPortRanges[a].UnitTag < result.Results[i].UnitPortRanges[b].UnitTag
+		})
+	}
+	return result, nil
+}
+
 // AllMachinePorts returns all opened port ranges for each given
 // machine (on all networks).
+//
+// DEPRECATED: clients should switch to the OpenedMachinePortRanges API call
+// when using the V17+ API.
+//
+// TODO(achilleasa): remove from V17 once all client references to this API
+// have been changed to use the new API.
 func (u *UniterAPI) AllMachinePorts(args params.Entities) (params.MachinePortsResults, error) {
 	result := params.MachinePortsResults{
 		Results: make([]params.MachinePortsResult, len(args.Entities)),
@@ -403,9 +470,54 @@ func (u *UniterAPI) AllMachinePorts(args params.Entities) (params.MachinePortsRe
 		return params.MachinePortsResults{}, err
 	}
 	for i, entity := range args.Entities {
-		result.Results[i] = u.getOneMachinePorts(canAccess, entity.Tag)
+		machPortRanges, err := u.getOneMachineOpenedPortRanges(canAccess, entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// This method is used by older clients that always open ports
+		// to all subnets; to emulate this behavior, we get the unique
+		// set of ports for each unit and return them back as a sorted
+		// list.
+		var resultPorts []params.MachinePortRange
+		for unitName, unitPortRanges := range machPortRanges.ByUnit() {
+			unitTag := names.NewUnitTag(unitName).String()
+			for _, pr := range unitPortRanges.UniquePortRanges() {
+				resultPorts = append(resultPorts, params.MachinePortRange{
+					UnitTag:   unitTag,
+					PortRange: params.FromNetworkPortRange(pr),
+				})
+			}
+		}
+
+		// Sort result by port range to ensure stable order for returned ranges.
+		sort.Slice(resultPorts, func(i, j int) bool {
+			return resultPorts[i].PortRange.NetworkPortRange().LessThan(
+				resultPorts[j].PortRange.NetworkPortRange(),
+			)
+		})
+
+		result.Results[i] = params.MachinePortsResult{
+			Ports: resultPorts,
+		}
 	}
 	return result, nil
+}
+
+func (u *UniterAPI) getOneMachineOpenedPortRanges(canAccess common.AuthFunc, machineTag string) (state.MachinePortRanges, error) {
+	tag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return nil, apiservererrors.ErrPerm
+	}
+	if !canAccess(tag) {
+		return nil, apiservererrors.ErrPerm
+	}
+	machine, err := u.getMachine(tag)
+	if err != nil {
+		return nil, err
+	}
+	return machine.OpenedPortRanges()
 }
 
 // AssignedMachine returns the machine tag for each given unit tag, or
@@ -446,54 +558,6 @@ func (u *UniterAPI) AssignedMachine(args params.Entities) (params.StringResults,
 
 func (u *UniterAPI) getMachine(tag names.MachineTag) (*state.Machine, error) {
 	return u.st.Machine(tag.Id())
-}
-
-func (u *UniterAPI) getOneMachinePorts(canAccess common.AuthFunc, machineTag string) params.MachinePortsResult {
-	tag, err := names.ParseMachineTag(machineTag)
-	if err != nil {
-		return params.MachinePortsResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}
-	}
-	if !canAccess(tag) {
-		return params.MachinePortsResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}
-	}
-	machine, err := u.getMachine(tag)
-	if err != nil {
-		return params.MachinePortsResult{Error: apiservererrors.ServerError(err)}
-	}
-	machPorts, err := machine.OpenedPortRanges()
-	if err != nil {
-		return params.MachinePortsResult{Error: apiservererrors.ServerError(err)}
-	}
-
-	var (
-		resultPorts []params.MachinePortRange
-		processed   = make(map[corenetwork.PortRange]struct{})
-	)
-	for unitName, unitPortRanges := range machPorts.ByUnit() {
-		unitTag := names.NewUnitTag(unitName).String()
-		for _, pr := range unitPortRanges.UniquePortRanges() {
-			if _, seen := processed[pr]; seen {
-				continue
-			}
-
-			processed[pr] = struct{}{}
-			resultPorts = append(resultPorts, params.MachinePortRange{
-				UnitTag:   unitTag,
-				PortRange: params.FromNetworkPortRange(pr),
-			})
-		}
-	}
-
-	// Sort result by port range to ensure stable order for returned ranges.
-	sort.Slice(resultPorts, func(i, j int) bool {
-		return resultPorts[i].PortRange.NetworkPortRange().LessThan(
-			resultPorts[j].PortRange.NetworkPortRange(),
-		)
-	})
-
-	return params.MachinePortsResult{
-		Ports: resultPorts,
-	}
 }
 
 // PublicAddress returns the public address for each given unit, if set.
@@ -1002,8 +1066,6 @@ func (u *UniterAPI) SetWorkloadVersion(args params.EntityWorkloadVersions) (para
 	return result, nil
 }
 
-// OpenPorts sets the policy of the port range with protocol to be
-// opened, for all given units.
 func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
@@ -3579,16 +3641,17 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			return errors.Trace(err)
 		}
 
-		// This API method never supported opening a port across multiple
-		// subnets. Instead, it was assumed that the port range was
-		// always opened in all subnets. To emulate this behavior, we
-		// simply open/close the requested port ranges for all endpoints.
 		for _, r := range changes.OpenPorts {
 			// Ensure the tag in the port open request matches the root unit name
 			if r.Tag != changes.Tag {
 				return apiservererrors.ErrPerm
 			}
-			unitPortRanges.Open("", corenetwork.PortRange{
+
+			// Pre-2.9 clients (using V15 or V16 of this API) do
+			// not populate the new Endpoint field; this
+			// effectively opens the port for all endpoints and
+			// emulates pre-2.9 behavior.
+			unitPortRanges.Open(r.Endpoint, corenetwork.PortRange{
 				FromPort: r.FromPort,
 				ToPort:   r.ToPort,
 				Protocol: r.Protocol,
@@ -3599,7 +3662,12 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			if r.Tag != changes.Tag {
 				return apiservererrors.ErrPerm
 			}
-			unitPortRanges.Close("", corenetwork.PortRange{
+
+			// Pre-2.9 clients (using V15 or V16 of this API) do
+			// not populate the new Endpoint field; this
+			// effectively closes the port for all endpoints and
+			// emulates pre-2.9 behavior.
+			unitPortRanges.Close(r.Endpoint, corenetwork.PortRange{
 				FromPort: r.FromPort,
 				ToPort:   r.ToPort,
 				Protocol: r.Protocol,

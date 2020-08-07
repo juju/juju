@@ -19,7 +19,7 @@ import (
 var _ = gc.Suite(&SCPSuite{})
 
 type SCPSuite struct {
-	SSHCommonSuite
+	SSHMachineSuite
 }
 
 var scpTests = []struct {
@@ -227,7 +227,7 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			// we suppress stdout from scp, so get the scp args used
 			// from the "scp.args" file that the fake scp executable
-			// installed by SSHCommonSuite generates.
+			// installed by SSHMachineSuite generates.
 			c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 			c.Check(cmdtesting.Stdout(ctx), gc.Equals, "")
 			actual, err := ioutil.ReadFile(filepath.Join(s.binDir, "scp.args"))

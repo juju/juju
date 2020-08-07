@@ -125,12 +125,10 @@ type HookProcess interface {
 type HookUnit interface {
 	Application() (*uniter.Application, error)
 	ApplicationName() string
-	ClosePorts(protocol string, fromPort, toPort int) error
 	ConfigSettings() (charm.Settings, error)
 	LogActionMessage(names.ActionTag, string) error
 	Name() string
 	NetworkInfo(bindings []string, relationId *int) (map[string]params.NetworkInfoResult, error)
-	OpenPorts(protocol string, fromPort, toPort int) error
 	RequestReboot() error
 	SetUnitStatus(unitStatus status.Status, info string, data map[string]interface{}) error
 	SetAgentStatus(agentStatus status.Status, info string, data map[string]interface{}) error
@@ -235,14 +233,8 @@ type HookContext struct {
 	// meterStatus is the status of the unit's metering.
 	meterStatus *meterStatus
 
-	// pendingPorts contains a list of port ranges to be opened or
-	// closed when the current hook is committed.
-	pendingPorts map[PortRange]PortRangeInfo
-
-	// machinePorts contains cached information about all opened port
-	// ranges on the unit's assigned machine, mapped to the unit that
-	// opened each range and the relevant relation.
-	machinePorts map[network.PortRange]params.RelationUnit
+	// a helper for recording requests to open/close port ranges for this unit.
+	portRangeChanges *portRangeChangeRecorder
 
 	// assignedMachineTag contains the tag of the unit's assigned
 	// machine.
@@ -697,42 +689,25 @@ func (ctx *HookContext) AddUnitStorage(cons map[string]params.StorageConstraints
 	return nil
 }
 
-// OpenPorts marks the supplied port range for opening when the
-// executing unit's application is exposed.
+// OpenPortRange marks the supplied port range for opening.
 // Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
-func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {
-	return tryOpenPorts(
-		protocol, fromPort, toPort,
-		ctx.unit.Tag(),
-		ctx.machinePorts, ctx.pendingPorts,
-	)
+func (ctx *HookContext) OpenPortRange(endpointName string, portRange network.PortRange) error {
+	return ctx.portRangeChanges.OpenPortRange(endpointName, portRange)
 }
 
-// ClosePorts ensures the supplied port range is closed even when
+// ClosePortRange ensures the supplied port range is closed even when
 // the executing unit's application is exposed (unless it is opened
 // separately by a co- located unit).
 // Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
-func (ctx *HookContext) ClosePorts(protocol string, fromPort, toPort int) error {
-	return tryClosePorts(
-		protocol, fromPort, toPort,
-		ctx.unit.Tag(),
-		ctx.machinePorts, ctx.pendingPorts,
-	)
+func (ctx *HookContext) ClosePortRange(endpointName string, portRange network.PortRange) error {
+	return ctx.portRangeChanges.ClosePortRange(endpointName, portRange)
 }
 
-// OpenedPorts returns all port ranges currently opened by this
-// unit on its assigned machine. The result is sorted first by
-// protocol, then by number.
+// OpenedPortRanges returns all port ranges currently opened by this
+// unit on its assigned machine grouped by endpoint.
 // Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
-func (ctx *HookContext) OpenedPorts() []network.PortRange {
-	var unitRanges []network.PortRange
-	for portRange, relUnit := range ctx.machinePorts {
-		if relUnit.Unit == ctx.unit.Tag().String() {
-			unitRanges = append(unitRanges, portRange)
-		}
-	}
-	network.SortPortRanges(unitRanges)
-	return unitRanges
+func (ctx *HookContext) OpenedPortRanges() map[string][]network.PortRange {
+	return ctx.portRangeChanges.OpenedUnitPortRanges()
 }
 
 // Config returns the current application configuration of the executing unit.
@@ -1120,11 +1095,14 @@ func (ctx *HookContext) doFlush(process string) error {
 		b.UpdateRelationUnitSettings(rctx.RelationTag().String(), unitSettings, appSettings)
 	}
 
-	for portRange, info := range ctx.pendingPorts {
-		if info.ShouldOpen {
-			b.OpenPortRange(portRange.Ports.Protocol, portRange.Ports.FromPort, portRange.Ports.ToPort)
-		} else {
-			b.ClosePortRange(portRange.Ports.Protocol, portRange.Ports.FromPort, portRange.Ports.ToPort)
+	for endpointName, portRanges := range ctx.portRangeChanges.pendingOpenRanges {
+		for _, pr := range portRanges {
+			b.OpenPortRange(endpointName, pr)
+		}
+	}
+	for endpointName, portRanges := range ctx.portRangeChanges.pendingCloseRanges {
+		for _, pr := range portRanges {
+			b.ClosePortRange(endpointName, pr)
 		}
 	}
 

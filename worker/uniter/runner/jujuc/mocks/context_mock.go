@@ -126,18 +126,18 @@ func (mr *MockContextMockRecorder) AvailabilityZone() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailabilityZone", reflect.TypeOf((*MockContext)(nil).AvailabilityZone))
 }
 
-// ClosePorts mocks base method
-func (m *MockContext) ClosePorts(arg0 string, arg1, arg2 int) error {
+// ClosePortRange mocks base method
+func (m *MockContext) ClosePortRange(arg0 string, arg1 network.PortRange) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ClosePorts", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ClosePortRange", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ClosePorts indicates an expected call of ClosePorts
-func (mr *MockContextMockRecorder) ClosePorts(arg0, arg1, arg2 interface{}) *gomock.Call {
+// ClosePortRange indicates an expected call of ClosePortRange
+func (mr *MockContextMockRecorder) ClosePortRange(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClosePorts", reflect.TypeOf((*MockContext)(nil).ClosePorts), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClosePortRange", reflect.TypeOf((*MockContext)(nil).ClosePortRange), arg0, arg1)
 }
 
 // CloudSpec mocks base method
@@ -363,32 +363,32 @@ func (mr *MockContextMockRecorder) NetworkInfo(arg0, arg1 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkInfo", reflect.TypeOf((*MockContext)(nil).NetworkInfo), arg0, arg1)
 }
 
-// OpenPorts mocks base method
-func (m *MockContext) OpenPorts(arg0 string, arg1, arg2 int) error {
+// OpenPortRange mocks base method
+func (m *MockContext) OpenPortRange(arg0 string, arg1 network.PortRange) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OpenPorts", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "OpenPortRange", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// OpenPorts indicates an expected call of OpenPorts
-func (mr *MockContextMockRecorder) OpenPorts(arg0, arg1, arg2 interface{}) *gomock.Call {
+// OpenPortRange indicates an expected call of OpenPortRange
+func (mr *MockContextMockRecorder) OpenPortRange(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenPorts", reflect.TypeOf((*MockContext)(nil).OpenPorts), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenPortRange", reflect.TypeOf((*MockContext)(nil).OpenPortRange), arg0, arg1)
 }
 
-// OpenedPorts mocks base method
-func (m *MockContext) OpenedPorts() []network.PortRange {
+// OpenedPortRanges mocks base method
+func (m *MockContext) OpenedPortRanges() map[string][]network.PortRange {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OpenedPorts")
-	ret0, _ := ret[0].([]network.PortRange)
+	ret := m.ctrl.Call(m, "OpenedPortRanges")
+	ret0, _ := ret[0].(map[string][]network.PortRange)
 	return ret0
 }
 
-// OpenedPorts indicates an expected call of OpenedPorts
-func (mr *MockContextMockRecorder) OpenedPorts() *gomock.Call {
+// OpenedPortRanges indicates an expected call of OpenedPortRanges
+func (mr *MockContextMockRecorder) OpenedPortRanges() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenedPorts", reflect.TypeOf((*MockContext)(nil).OpenedPorts))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenedPortRanges", reflect.TypeOf((*MockContext)(nil).OpenedPortRanges))
 }
 
 // PrivateAddress mocks base method

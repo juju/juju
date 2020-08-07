@@ -3413,6 +3413,69 @@ func (s *uniterSuite) TestAssignedMachine(c *gc.C) {
 	})
 }
 
+func (s *uniterSuite) TestOpenedMachinePortRanges(c *gc.C) {
+	// Verify no ports are opened yet on the machine (or unit).
+	machinePortRanges, err := s.machine0.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machinePortRanges.UniquePortRanges(), gc.HasLen, 0)
+
+	// Add another mysql unit on machine 0.
+	mysqlUnit1, err := s.mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlUnit1.AssignToMachine(s.machine0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Open some ports on both units using different endpoints.
+	wpPortRanges := machinePortRanges.ForUnit(s.wordpressUnit.Name())
+	wpPortRanges.Open(allEndpoints, network.MustParsePortRange("100-200/tcp"))
+	wpPortRanges.Open("monitoring-port", network.MustParsePortRange("10-20/udp"))
+
+	msPortRanges := machinePortRanges.ForUnit(mysqlUnit1.Name())
+	msPortRanges.Open("server", network.MustParsePortRange("3306/tcp"))
+
+	c.Assert(s.State.ApplyOperation(machinePortRanges.Changes()), jc.ErrorIsNil)
+
+	// Get the open port ranges
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "machine-0"},
+		{Tag: "machine-1"},
+		{Tag: "unit-foo-42"},
+		{Tag: "machine-42"},
+		{Tag: "application-wordpress"},
+	}}
+	expectPortRanges := []params.OpenUnitPortRanges{
+		// Result list is always sorted by unit name.
+		{
+			UnitTag: "unit-mysql-1",
+			PortRangeGroups: map[string][]params.PortRange{
+				"server": []params.PortRange{params.PortRange{3306, 3306, "tcp"}},
+			},
+		},
+		{
+			UnitTag: "unit-wordpress-0",
+			PortRangeGroups: map[string][]params.PortRange{
+				"":                []params.PortRange{params.PortRange{100, 200, "tcp"}},
+				"monitoring-port": []params.PortRange{params.PortRange{10, 20, "udp"}},
+			},
+		},
+	}
+	result, err := s.uniter.OpenedMachinePortRanges(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.OpenMachinePortRangesResults{
+		Results: []params.OpenMachinePortRangesResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{
+				GroupKey:       "endpoint",
+				UnitPortRanges: expectPortRanges,
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
 func (s *uniterSuite) TestAllMachinePorts(c *gc.C) {
 	// Verify no ports are opened yet on the machine (or unit).
 	machinePortRanges, err := s.machine0.OpenedPortRanges()
@@ -3436,6 +3499,10 @@ func (s *uniterSuite) TestAllMachinePorts(c *gc.C) {
 
 	c.Assert(s.State.ApplyOperation(machinePortRanges.Changes()), jc.ErrorIsNil)
 
+	// Method is only present in V16 or earlier
+	apiV16, err := uniter.NewUniterAPIV16(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Get the open port ranges
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
@@ -3451,7 +3518,7 @@ func (s *uniterSuite) TestAllMachinePorts(c *gc.C) {
 		{UnitTag: "unit-mysql-1", PortRange: params.PortRange{1, 8, "udp"}},
 		{UnitTag: "unit-wordpress-0", PortRange: params.PortRange{10, 20, "udp"}},
 	}
-	result, err := s.uniter.AllMachinePorts(args)
+	result, err := apiV16.AllMachinePorts(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.MachinePortsResults{
 		Results: []params.MachinePortsResult{
@@ -4968,9 +5035,10 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
 	b.UpdateNetworkInfo()
 	b.UpdateRelationUnitSettings(relList[0].Tag().String(), params.Settings{"just": "added"}, params.Settings{"app_data": "updated"})
-	b.OpenPortRange("tcp", 80, 81)
-	b.OpenPortRange("tcp", 7337, 7337) // same port closed below; this should be a no-op
-	b.ClosePortRange("tcp", 7337, 7337)
+	// Manipulate ports for one of the charm's endpoints.
+	b.OpenPortRange("monitoring-port", network.MustParsePortRange("80-81/tcp"))
+	b.OpenPortRange("monitoring-port", network.MustParsePortRange("7337/tcp")) // same port closed below; this should be a no-op
+	b.ClosePortRange("monitoring-port", network.MustParsePortRange("7337/tcp"))
 	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
 	req, _ := b.Build()
 
@@ -5015,6 +5083,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	unitPortRanges, err := s.wordpressUnit.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
+	c.Assert(unitPortRanges.ForEndpoint("monitoring-port"), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}}, gc.Commentf("unit ports where not opened for the requested endpoint"))
 
 	unitState, err := s.wordpressUnit.State()
 	c.Assert(err, jc.ErrorIsNil)
@@ -5070,9 +5139,9 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	stCount := uint64(1)
 	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
 	b.UpdateNetworkInfo()
-	b.OpenPortRange("tcp", 80, 81)
-	b.OpenPortRange("tcp", 7337, 7337) // same port closed below; this should be a no-op
-	b.ClosePortRange("tcp", 7337, 7337)
+	b.OpenPortRange(allEndpoints, network.MustParsePortRange("80-81/tcp"))
+	b.OpenPortRange(allEndpoints, network.MustParsePortRange("7337/tcp")) // same port closed below; this should be a no-op
+	b.ClosePortRange(allEndpoints, network.MustParsePortRange("7337/tcp"))
 	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
 	b.AddStorage(map[string][]params.StorageConstraints{
 		"multi1to10": {{Count: &stCount}},

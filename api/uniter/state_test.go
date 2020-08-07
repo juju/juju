@@ -70,3 +70,55 @@ func (s *stateSuite) TestAllMachinePorts(c *gc.C) {
 		{10, 20, "udp"}:   {Unit: "unit-mysql-1"},
 	})
 }
+
+func (s *stateSuite) TestOpenedMachinePortRanges(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "OpenedMachinePortRanges")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "machine-42"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.OpenMachinePortRangesResults{})
+		*(result.(*params.OpenMachinePortRangesResults)) = params.OpenMachinePortRangesResults{
+			Results: []params.OpenMachinePortRangesResult{
+				{
+					GroupKey: "endpoint",
+					UnitPortRanges: []params.OpenUnitPortRanges{
+						{
+							UnitTag: "unit-mysql-0",
+							PortRangeGroups: map[string][]params.PortRange{
+								"": []params.PortRange{
+									params.PortRange{100, 200, "tcp"},
+								},
+								"server": []params.PortRange{
+									params.PortRange{3306, 3306, "tcp"},
+								},
+							},
+						},
+						{
+							UnitTag: "unit-wordpress-0",
+							PortRangeGroups: map[string][]params.PortRange{
+								"monitoring-port": []params.PortRange{
+									params.PortRange{1337, 1337, "udp"},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 17}
+	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
+
+	portRangesMap, err := client.OpenedMachinePortRanges(names.NewMachineTag("42"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(portRangesMap, jc.DeepEquals, map[names.UnitTag]map[string][]network.PortRange{
+		names.NewUnitTag("mysql/0"): map[string][]network.PortRange{
+			"":       []network.PortRange{network.MustParsePortRange("100-200/tcp")},
+			"server": []network.PortRange{network.MustParsePortRange("3306/tcp")},
+		},
+		names.NewUnitTag("wordpress/0"): map[string][]network.PortRange{
+			"monitoring-port": []network.PortRange{network.MustParsePortRange("1337/udp")},
+		},
+	})
+}

@@ -120,7 +120,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, "cannot exec into a container within a Succeeded pod")
+	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, `cannot exec into a container within the "Succeeded" pod "gitlab-k8s-0"`)
 
 	// failed - failed pod
 	params = exec.ExecParams{
@@ -145,7 +145,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, "cannot exec into a container within a Failed pod")
+	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, `cannot exec into a container within the "Failed" pod "gitlab-k8s-0"`)
 
 	// failed - containerName not found
 	params = exec.ExecParams{
@@ -484,4 +484,22 @@ func (s *execSuite) TestErrorHandling(c *gc.C) {
 	c.Assert(err, gc.FitsTypeOf, &exec.ContainerNotRunningError{})
 	err = exec.HandleContainerNotFoundError(errors.New(`wow`))
 	c.Assert(err, gc.ErrorMatches, "wow")
+}
+
+func (s *execSuite) TestModelNameToNameSpace(c *gc.C) {
+	ctrl := s.setupExecClient(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockNamespaces.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "juju-model=controller"}).
+			Return(&core.NamespaceList{Items: []core.Namespace{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "controller-k1"},
+				},
+			}}, nil),
+	)
+
+	nsName, err := exec.ModelNameToNameSpace("controller", s.mockNamespaces)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nsName, gc.DeepEquals, "controller-k1")
 }

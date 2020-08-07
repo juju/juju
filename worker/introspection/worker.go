@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"runtime"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -350,9 +349,9 @@ func (h unitsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintln(w, "missing action")
 	case "start":
-		h.publishUnitsAction(w, r, "start", agent.StartUnitTopic)
+		h.publishUnitsAction(w, r, "start", agent.StartUnitTopic, agent.StartUnitResponseTopic)
 	case "stop":
-		h.publishUnitsAction(w, r, "stop", agent.StopUnitTopic)
+		h.publishUnitsAction(w, r, "stop", agent.StopUnitTopic, agent.StopUnitResponseTopic)
 	case "status":
 		h.status(w, r)
 	default:
@@ -361,7 +360,8 @@ func (h unitsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h unitsHandler) publishUnitsAction(w http.ResponseWriter, r *http.Request, action string, topic string) {
+func (h unitsHandler) publishUnitsAction(w http.ResponseWriter, r *http.Request,
+	action, topic, responseTopic string) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		fmt.Fprintf(w, "%s requires a POST request\n", action)
@@ -375,36 +375,28 @@ func (h unitsHandler) publishUnitsAction(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	h.hub.Publish(topic, agent.Units{Names: units})
-	if len(units) == 1 {
-		fmt.Fprintf(w, "requested unit %s to %s\n", units[0], action)
-	} else {
-		fmt.Fprintf(w, "requested units %s to %s\n", strings.Join(units, ", "), action)
-	}
+	h.publishAndAwaitResponse(w, topic, responseTopic, agent.Units{Names: units})
 }
 
 func (h unitsHandler) status(w http.ResponseWriter, r *http.Request) {
-	response := make(chan agent.Status)
-	done := make(chan struct{})
-	unsubscribe := h.hub.Subscribe(agent.UnitStatusResponseTopic, func(topic string, body interface{}) {
-		status, ok := body.(agent.Status)
-		if !ok {
-			logger.Criticalf("programming error, incorrect body type %T", body)
-			return
-		}
+	h.publishAndAwaitResponse(w, agent.UnitStatusTopic, agent.UnitStatusResponseTopic, nil)
+}
+
+func (h unitsHandler) publishAndAwaitResponse(w http.ResponseWriter, topic, responseTopic string, data interface{}) {
+	response := make(chan interface{})
+	unsubscribe := h.hub.Subscribe(responseTopic, func(topic string, body interface{}) {
 		select {
-		case response <- status:
-		case <-done:
+		case response <- body:
+		case <-h.done:
 		}
 	})
 	defer unsubscribe()
-	defer close(done)
 
-	h.hub.Publish(agent.UnitStatusTopic, nil)
+	h.hub.Publish(topic, data)
 
 	select {
-	case status := <-response:
-		bytes, err := yaml.Marshal(status)
+	case message := <-response:
+		bytes, err := yaml.Marshal(message)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, "error: %v\n", err)
@@ -416,6 +408,6 @@ func (h unitsHandler) status(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "introspection worker stopping")
 	case <-h.clock.After(10 * time.Second):
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintln(w, "status response timed out")
+		fmt.Fprintln(w, "response timed out")
 	}
 }

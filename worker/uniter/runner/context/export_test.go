@@ -17,12 +17,6 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-var (
-	ValidatePortRange = validatePortRange
-	TryOpenPorts      = tryOpenPorts
-	TryClosePorts     = tryClosePorts
-)
-
 type HookContextParams struct {
 	Unit                *uniter.Unit
 	State               *uniter.State
@@ -58,7 +52,6 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		legacyProxySettings: hcParams.LegacyProxySettings,
 		jujuProxySettings:   hcParams.JujuProxySettings,
 		actionData:          hcParams.ActionData,
-		pendingPorts:        make(map[PortRange]PortRangeInfo),
 		assignedMachineTag:  hcParams.AssignedMachineTag,
 		clock:               hcParams.Clock,
 		logger:              loggo.GetLogger("test"),
@@ -77,10 +70,11 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	if err != nil {
 		return nil, err
 	}
-	ctx.machinePorts, err = hcParams.State.AllMachinePorts(ctx.assignedMachineTag)
+	machPorts, err := hcParams.State.OpenedMachinePortRanges(ctx.assignedMachineTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	ctx.portRangeChanges = newPortRangeChangeRecorder(hcParams.Unit.Tag(), machPorts)
 
 	statusCode, statusInfo, err := hcParams.Unit.MeterStatus()
 	if err != nil {
@@ -93,19 +87,21 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	return ctx, nil
 }
 
-func NewMockUnitHookContext(mockUnit *mocks.MockHookUnit) *HookContext {
+func NewMockUnitHookContext(unitName string, mockUnit *mocks.MockHookUnit) *HookContext {
 	return &HookContext{
-		unit:   mockUnit,
-		logger: loggo.GetLogger("test"),
+		unit:             mockUnit,
+		logger:           loggo.GetLogger("test"),
+		portRangeChanges: newPortRangeChangeRecorder(names.NewUnitTag(unitName), nil),
 	}
 }
 
-func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter.State) *HookContext {
+func NewMockUnitHookContextWithState(unitName string, mockUnit *mocks.MockHookUnit, state *uniter.State) *HookContext {
 	return &HookContext{
-		unitName: mockUnit.Tag().Id(), //unitName used by the action finaliser method.
-		unit:     mockUnit,
-		state:    state,
-		logger:   loggo.GetLogger("test"),
+		unitName:         mockUnit.Tag().Id(), //unitName used by the action finaliser method.
+		unit:             mockUnit,
+		state:            state,
+		logger:           loggo.GetLogger("test"),
+		portRangeChanges: newPortRangeChangeRecorder(names.NewUnitTag(unitName), nil),
 	}
 }
 

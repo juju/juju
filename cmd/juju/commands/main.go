@@ -153,7 +153,7 @@ func (m main) Run(args []string) int {
 	jujuArgs := set.NewStrings(args[1:]...)
 	helpArgs := set.NewStrings("help", "-h", "--help")
 	showHelp := jujuArgs.Intersection(helpArgs).Size() > 0 && jujuArgs.Size() == 1
-	repl := jujuArgs.Size() == 0
+	repl := jujuArgs.Size() == 0 && isTerminal(ctx.Stdout) && isTerminal(ctx.Stdin)
 	if repl || showHelp {
 		return cmd.Main(newReplCommand(showHelp), ctx, nil)
 	}

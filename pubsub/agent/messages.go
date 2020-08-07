@@ -11,9 +11,17 @@ package agent
 // The payload for a StartUnitTopic is the Units structure.
 const StartUnitTopic = "unit.start"
 
+// StartUnitResponseTopic is the topic to respond to a start request.
+// The payload is the StartStopResponse type below.
+const StartUnitResponseTopic = "unit.start.response"
+
 // StopUnitTopic is used to request one or more units to stop.
 // The payload for a StopUnitTopic is the Units structure.
 const StopUnitTopic = "unit.stop"
+
+// StopUnitResponseTopic is the topic to respond to a stop request.
+// The payload is the StartStopResponse type below.
+const StopUnitResponseTopic = "unit.stop.response"
 
 // UnitStatusTopic is used to request the current status for the units.
 // There is no payload for this request.
@@ -27,6 +35,10 @@ const UnitStatusResponseTopic = "unit.status.response"
 type Units struct {
 	Names []string
 }
+
+// StartStopResponse returns a map of the requested unit names, and
+// whether they were stopped, started, or not found.
+type StartStopResponse map[string]interface{}
 
 // Status is a map of unit name to the status value. An interace{} value is returned
 // to allow for simple expansion later. The output of the status is expected to just

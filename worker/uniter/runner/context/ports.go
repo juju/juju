@@ -4,170 +4,178 @@
 package context
 
 import (
-	"strings"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 )
 
-// PortRangeInfo contains information about a pending open- or
-// close-port operation for a port range. This is only exported for
-// testing.
-type PortRangeInfo struct {
-	ShouldOpen  bool
-	RelationTag names.RelationTag
+type portRangeChangeRecorder struct {
+	machinePortRanges map[names.UnitTag]map[string][]network.PortRange
+
+	// The tag of the unit that the following pending open/close ranges apply to.
+	unitTag            names.UnitTag
+	pendingOpenRanges  map[string][]network.PortRange
+	pendingCloseRanges map[string][]network.PortRange
 }
 
-// PortRange contains a port range and a relation id. Used as key to
-// pendingRelations and is only exported for testing.
-type PortRange struct {
-	Ports      network.PortRange
-	RelationId int
+func newPortRangeChangeRecorder(unit names.UnitTag, machinePortRanges map[names.UnitTag]map[string][]network.PortRange) *portRangeChangeRecorder {
+	return &portRangeChangeRecorder{
+		machinePortRanges: machinePortRanges,
+		unitTag:           unit,
+	}
 }
 
-func validatePortRange(protocol string, fromPort, toPort int) (network.PortRange, error) {
-	// Validate the given range.
-	newRange := network.PortRange{
-		Protocol: strings.ToLower(protocol),
-		FromPort: fromPort,
-		ToPort:   toPort,
-	}
-	if err := newRange.Validate(); err != nil {
-		return network.PortRange{}, err
-	}
-	return newRange, nil
-}
-
-func tryOpenPorts(
-	protocol string,
-	fromPort, toPort int,
-	unitTag names.UnitTag,
-	machinePorts map[network.PortRange]params.RelationUnit,
-	pendingPorts map[PortRange]PortRangeInfo,
-) error {
-	// TODO(dimitern) Once port ranges are linked to relations in
-	// addition to networks, refactor this functions and test it
-	// better to ensure it handles relations properly.
-	relationId := -1
-
-	//Validate the given range.
-	newRange, err := validatePortRange(protocol, fromPort, toPort)
-	if err != nil {
-		return err
-	}
-	rangeKey := PortRange{
-		Ports:      newRange,
-		RelationId: relationId,
+// OpenPortRange registers a request to open the specified port range for the
+// provided endpoint name.
+func (r *portRangeChangeRecorder) OpenPortRange(endpointName string, portRange network.PortRange) error {
+	if err := portRange.Validate(); err != nil {
+		return errors.Trace(err)
 	}
 
-	rangeInfo, isKnown := pendingPorts[rangeKey]
-	if isKnown {
-		if !rangeInfo.ShouldOpen {
-			// If the same range is already pending to be closed, just
-			// mark is pending to be opened.
-			rangeInfo.ShouldOpen = true
-			pendingPorts[rangeKey] = rangeInfo
+	// Ensure port range does not conflict with the ones already recorded
+	// for opening by this unit.
+	if err := r.checkForConflict(endpointName, portRange, r.unitTag, r.pendingOpenRanges, true); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			return errors.Annotatef(err, "cannot open %v (unit %q)", portRange, r.unitTag.Id())
 		}
+
+		// Already exists; this is a no-op.
 		return nil
 	}
 
-	// Ensure there are no conflicts with existing ports on the
-	// machine.
-	for portRange, relUnit := range machinePorts {
-		relUnitTag, err := names.ParseUnitTag(relUnit.Unit)
-		if err != nil {
-			return errors.Annotatef(
-				err,
-				"machine ports %v contain invalid unit tag",
-				portRange,
-			)
-		}
-		if newRange.ConflictsWith(portRange) {
-			if portRange == newRange && relUnitTag == unitTag {
-				// The same unit trying to open the same range is just
-				// ignored.
-				return nil
+	// Ensure port range does not conflict with existing open port ranges
+	// for all units deployed to the machine.
+	for otherUnitTag, otherUnitRanges := range r.machinePortRanges {
+		if err := r.checkForConflict(endpointName, portRange, otherUnitTag, otherUnitRanges, false); err != nil {
+			if !errors.IsAlreadyExists(err) {
+				return errors.Annotatef(err, "cannot open %v (unit %q)", portRange, r.unitTag.Id())
 			}
-			return errors.Errorf(
-				"cannot open %v (unit %q): conflicts with existing %v (unit %q)",
-				newRange, unitTag.Id(), portRange, relUnitTag.Id(),
-			)
-		}
-	}
-	// Ensure other pending port ranges do not conflict with this one.
-	for rangeKey, rangeInfo := range pendingPorts {
-		if newRange.ConflictsWith(rangeKey.Ports) && rangeInfo.ShouldOpen {
-			return errors.Errorf(
-				"cannot open %v (unit %q): conflicts with %v requested earlier",
-				newRange, unitTag.Id(), rangeKey.Ports,
-			)
+
+			// Already exists; this is a no-op.
+			return nil
 		}
 	}
 
-	rangeInfo = pendingPorts[rangeKey]
-	rangeInfo.ShouldOpen = true
-	pendingPorts[rangeKey] = rangeInfo
+	// If a close request is pending for this port, remove it.
+	for i, pr := range r.pendingCloseRanges[endpointName] {
+		if pr == portRange {
+			r.pendingCloseRanges[endpointName] = append(r.pendingCloseRanges[endpointName][:i], r.pendingCloseRanges[endpointName][i+1:]...)
+			break
+		}
+	}
+
+	if r.pendingOpenRanges == nil {
+		r.pendingOpenRanges = make(map[string][]network.PortRange)
+	}
+	r.pendingOpenRanges[endpointName] = append(r.pendingOpenRanges[endpointName], portRange)
 	return nil
 }
 
-func tryClosePorts(
-	protocol string,
-	fromPort, toPort int,
-	unitTag names.UnitTag,
-	machinePorts map[network.PortRange]params.RelationUnit,
-	pendingPorts map[PortRange]PortRangeInfo,
-) error {
-	// TODO(dimitern) Once port ranges are linked to relations in
-	// addition to networks, refactor this functions and test it
-	// better to ensure it handles relations properly.
-	relationId := -1
-
-	// Validate the given range.
-	newRange, err := validatePortRange(protocol, fromPort, toPort)
-	if err != nil {
-		return err
-	}
-	rangeKey := PortRange{
-		Ports:      newRange,
-		RelationId: relationId,
+// ClosePortRange registers a request to close the specified port range for the
+// provided endpoint name. If the machine has no ports open yet, this is a no-op.
+func (r *portRangeChangeRecorder) ClosePortRange(endpointName string, portRange network.PortRange) error {
+	if err := portRange.Validate(); err != nil {
+		return errors.Trace(err)
 	}
 
-	rangeInfo, isKnown := pendingPorts[rangeKey]
-	if isKnown {
-		if rangeInfo.ShouldOpen {
-			// If the same range is already pending to be opened, just
-			// remove it from pending.
-			delete(pendingPorts, rangeKey)
+	// Ensure port range does not conflict with the ones already recorded
+	// for closing by this unit.
+	if err := r.checkForConflict(endpointName, portRange, r.unitTag, r.pendingCloseRanges, true); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			return errors.Annotatef(err, "cannot close %v (unit %q)", portRange, r.unitTag.Id())
 		}
+
+		// Already exists; this is a no-op.
 		return nil
 	}
 
-	// Ensure the range we're trying to close is opened on the
-	// machine.
-	relUnit, found := machinePorts[newRange]
-	if !found {
-		// Trying to close a range which is not open is ignored.
-		return nil
-	} else if relUnit.Unit != unitTag.String() {
-		relUnitTag, err := names.ParseUnitTag(relUnit.Unit)
-		if err != nil {
-			return errors.Annotatef(
-				err,
-				"machine ports %v contain invalid unit tag",
-				newRange,
-			)
+	// The port range should be accepted for closing if:
+	// - it exactly matches a an already open port for this unit, or
+	// - it doesn't conflict with any open port range; this could be either
+	//   because it matches an existing port range for this unit but the endpoints
+	//   do not match (e.g. open X for all endpoints, close X for endpoint "foo")
+	//   or because the port range is not open in which case this will be a
+	//   no-op and filtered out by the controller.
+	for otherUnitTag, otherUnitRanges := range r.machinePortRanges {
+		if err := r.checkForConflict(endpointName, portRange, otherUnitTag, otherUnitRanges, false); err != nil {
+			// Conflicts with an open port range for another unit.
+			if !errors.IsAlreadyExists(err) {
+				return errors.Annotatef(err, "cannot close %v (unit %q)", portRange, r.unitTag.Id())
+			}
 		}
-		return errors.Errorf(
-			"cannot close %v (opened by %q) from %q",
-			newRange, relUnitTag.Id(), unitTag.Id(),
-		)
 	}
 
-	rangeInfo = pendingPorts[rangeKey]
-	rangeInfo.ShouldOpen = false
-	pendingPorts[rangeKey] = rangeInfo
+	// If an open request is pending for this port, remove it.
+	for i, pr := range r.pendingOpenRanges[endpointName] {
+		if pr == portRange {
+			r.pendingOpenRanges[endpointName] = append(r.pendingOpenRanges[endpointName][:i], r.pendingOpenRanges[endpointName][i+1:]...)
+			break
+		}
+	}
+
+	// If the machine has no open ports then this is a no-op.
+	if len(r.machinePortRanges) == 0 {
+		return nil
+	}
+
+	if r.pendingCloseRanges == nil {
+		r.pendingCloseRanges = make(map[string][]network.PortRange)
+	}
+	r.pendingCloseRanges[endpointName] = append(r.pendingCloseRanges[endpointName], portRange)
 	return nil
+}
+
+// checkForConflict ensures the opening incomingPortRange for the current unit
+// does not conflict with the set of port ranges for another unit. If otherUnit
+// matches the current unit and incomingPortRange already exists in the known
+// port ranges, the method returns an AlreadyExists error.
+func (r *portRangeChangeRecorder) checkForConflict(incomingEndpoint string, incomingPortRange network.PortRange, otherUnitTag names.UnitTag, otherUnitRanges map[string][]network.PortRange, checkingAgainstPending bool) error {
+	for existingEndpoint, existingPortRanges := range otherUnitRanges {
+		for _, existingPortRange := range existingPortRanges {
+			if !incomingPortRange.ConflictsWith(existingPortRange) {
+				continue
+			}
+
+			// If these are different units then this is definitely a conflict.
+			if r.unitTag != otherUnitTag {
+				var extraDetails string
+				if checkingAgainstPending {
+					extraDetails = " requested earlier"
+				}
+				return errors.Errorf("port range conflicts with %v (unit %q)%s", existingPortRange, otherUnitTag.Id(), extraDetails)
+			} else if incomingPortRange == existingPortRange {
+				// Same unit and port range. If the endpoints
+				// do not match then this is a legal change.
+				// (e.g. open X for endpoint foo and then open
+				// X for endpoint bar).
+				if incomingEndpoint != existingEndpoint {
+					continue
+				}
+
+				return errors.AlreadyExistsf("%v (endpoint %q)", incomingPortRange, incomingEndpoint)
+			}
+
+			var extraDetails string
+			if checkingAgainstPending {
+				extraDetails = " requested earlier"
+			}
+			return errors.Errorf("port range conflicts with %v (unit %q)%s", existingPortRange, otherUnitTag.Id(), extraDetails)
+		}
+	}
+
+	// No conflict
+	return nil
+}
+
+// OpenedUnitPortRanges returns the set of port ranges currently open by the
+// current unit grouped by endpoint.
+func (r *portRangeChangeRecorder) OpenedUnitPortRanges() map[string][]network.PortRange {
+	return r.machinePortRanges[r.unitTag]
+}
+
+// PendingChanges returns the set of recorded open/close port range requests
+// (grouped by endpoint mame) for the current unit.
+func (r *portRangeChangeRecorder) PendingChanges() (map[string][]network.PortRange, map[string][]network.PortRange) {
+	return r.pendingOpenRanges, r.pendingCloseRanges
 }
