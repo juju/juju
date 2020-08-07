@@ -10,7 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
 
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/systemd"
 )
 
 // stateStepsFor24 returns upgrade steps for Juju 2.4.0 that manipulate state directly.
@@ -86,7 +88,7 @@ func writeServiceFiles(cleanupOld bool) func(Context) error {
 		}
 
 		if initName == service.InitSystemSystemd {
-			if err := service.NewServiceManagerWithDefaults().WriteServiceFiles(); err != nil {
+			if err := WriteServiceFiles(service.NewServiceManagerWithDefaults()); err != nil {
 				return errors.Annotate(err, "writing systemd service files")
 			}
 
@@ -99,4 +101,23 @@ func writeServiceFiles(cleanupOld bool) func(Context) error {
 		logger.Infof("skipping upgrade for non systemd series %s", hostSeries)
 		return nil
 	}
+}
+
+// WriteServiceFiles writes service files to the standard
+// /etc/systemd/system path. This implementation is moved here to allow
+// the upgrade from very early 2.x to 2.9.
+func WriteServiceFiles(s service.SystemdServiceManager) error {
+	machineAgent, unitAgents, _, err := s.FindAgents(paths.NixDataDir)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, name := range append([]string{machineAgent}, unitAgents...) {
+		err := s.WriteSystemdAgent(name, paths.NixDataDir, systemd.EtcSystemdMultiUserDir)
+		if err != nil {
+			return errors.Annotate(err, name)
+		}
+	}
+
+	return errors.Trace(systemd.SysdReload())
 }

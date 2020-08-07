@@ -218,33 +218,6 @@ func (s *agentConfSuite) agentUnitNames() []string {
 	return unitAgents
 }
 
-func (s *agentConfSuite) TestStartAllAgents(c *gc.C) {
-	machineAgent, err := s.manager.StartAllAgents(s.machineName, s.dataDir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineAgent, gc.Equals, "jujud-"+s.machineName)
-	s.assertServicesCalls(c, "Start", 1)
-}
-
-func (s *agentConfSuite) TestStartAllAgentsFailMachine(c *gc.C) {
-	s.services[0].SetErrors(errors.New("fail me"))
-
-	machineAgent, err := s.manager.StartAllAgents(s.machineName, s.dataDir)
-	c.Assert(err, gc.ErrorMatches, "failed to start jujud-machine-.* service: fail me")
-	c.Assert(machineAgent, gc.Equals, "")
-	s.assertServicesCalls(c, "Start", 1)
-}
-
-func (s *agentConfSuite) TestStartAllAgentsSystemdNotRunning(c *gc.C) {
-	s.manager = service.NewServiceManager(
-		func() bool { return false },
-		s.newService,
-	)
-
-	_, err := s.manager.StartAllAgents(s.machineName, s.dataDir)
-	c.Assert(err, gc.ErrorMatches, "cannot interact with systemd; reboot to start agents")
-	s.assertServicesCalls(c, "Start", 0)
-}
-
 func (s *agentConfSuite) TestCopyAgentBinaryIdempotent(c *gc.C) {
 	jujuVersion, err := agentconf.GetJujuVersion(s.machineName, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)

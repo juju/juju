@@ -115,8 +115,8 @@ func (u *upgrader) ensureSystemdFiles() error {
 	}
 
 	return errors.Annotatef(
-		u.manager.WriteSystemdAgents(u.machineAgent, paths.NixDataDir, systemdMultiUserDir),
-		"failed to write machine agent")
+		u.manager.WriteSystemdAgent(u.machineAgent, paths.NixDataDir, systemdMultiUserDir),
+		"writing machine agent")
 }
 
 // ensureAgentBinaries ensures that the jujud binary and links exist in the

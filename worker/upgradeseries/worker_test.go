@@ -35,14 +35,11 @@ func (w *fakeWatcher) Changes() watcher.NotifyChannel {
 type workerSuite struct {
 	testing.BaseSuite
 
-	logger       *MockLogger
-	facade       *MockFacade
-	service      *MockServiceAccess
-	upgrader     *MockUpgrader
-	notifyWorker *workermocks.MockWorker
-
-	wordPressAgent *MockAgentService
-	mySQLAgent     *MockAgentService
+	logger        upgradeseries.Logger
+	facade        *MockFacade
+	unitDiscovery *MockUnitDiscovery
+	upgrader      *MockUpgrader
+	notifyWorker  *workermocks.MockWorker
 
 	// The done channel is used by tests to indicate that
 	// the worker has accomplished the scenario and can be stopped.
@@ -53,6 +50,7 @@ var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.logger = loggo.GetLogger("test.upgradeseries")
 	s.done = make(chan struct{})
 }
 
@@ -62,18 +60,16 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// TODO (manadart 2018-09-05): The idea of passing behaviours into a
-	// scenario (as below) evolved so as to make itself redundant.
-	// All of the anonymous funcs passed could be called directly on the suite
-	// here, with the same effect and greater clarity.
+	s.notify(6)
+	s.expectUnitDiscovery()
+	s.expectMachinePrepareStartedUnitsNotPrepareCompleteNoAction()
+	s.expectMachinePrepareStartedUnitFilesWrittenProgressPrepareComplete()
+	s.expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted()
+	s.expectMachineCompleteStartedUnitsCompleteProgressComplete()
+	s.expectMachineCompletedFinishUpgradeSeries()
+	s.expectLockNotFoundNoAction()
 
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(6),
-		s.expectMachinePrepareStartedUnitsNotPrepareCompleteNoAction,
-		s.expectMachinePrepareStartedUnitFilesWrittenProgressPrepareComplete,
-		s.expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted,
-		s.expectMachineCompleteStartedUnitsCompleteProgressComplete,
-		s.expectMachineCompletedFinishUpgradeSeries,
-		s.expectLockNotFoundNoAction)
+	w := s.newWorker(c)
 
 	s.cleanKill(c, w)
 	expected := map[string]interface{}{
@@ -85,8 +81,9 @@ func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 func (s *workerSuite) TestLockNotFoundNoAction(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1),
-		s.expectLockNotFoundNoAction)
+	s.notify(1)
+	s.expectLockNotFoundNoAction()
+	w := s.newWorker(c)
 
 	s.cleanKill(c, w)
 	expected := map[string]interface{}{
@@ -105,10 +102,10 @@ func (s *workerSuite) TestCompleteNoAction(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// If the workflow is completed, no further processing occurs.
-	// This is the only call we expect to see.
+	s.expectUnitDiscovery()
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareCompleted, nil)
-
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1))
+	s.notify(1)
+	w := s.newWorker(c)
 
 	s.cleanKill(c, w)
 	expected := map[string]interface{}{
@@ -120,8 +117,11 @@ func (s *workerSuite) TestCompleteNoAction(c *gc.C) {
 func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1),
-		s.expectMachinePrepareStartedUnitsNotPrepareCompleteNoAction)
+	s.notify(1)
+	s.expectUnitDiscovery()
+	s.expectMachinePrepareStartedUnitsNotPrepareCompleteNoAction()
+
+	w := s.newWorker(c)
 
 	s.cleanKill(c, w)
 	expected := map[string]interface{}{
@@ -129,6 +129,13 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c
 		"prepared units": []string{"wordpress/0"},
 	}
 	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
+}
+
+func (s *workerSuite) expectUnitDiscovery() {
+	s.unitDiscovery.EXPECT().Units().Return([]names.UnitTag{
+		names.NewUnitTag("wordpress/0"),
+		names.NewUnitTag("mysql/0"),
+	}, nil)
 }
 
 func (s *workerSuite) expectMachinePrepareStartedUnitsNotPrepareCompleteNoAction() {
@@ -139,19 +146,16 @@ func (s *workerSuite) expectMachinePrepareStartedUnitsNotPrepareCompleteNoAction
 
 	// Only one of the two units has completed preparation.
 	s.expectUnitsPrepared("wordpress/0")
-
-	// After comparing the prepare-complete units with the services,
-	// no further action is taken.
-	s.expectServiceDiscovery(false)
 }
 
 func (s *workerSuite) TestMachinePrepareStartedUnitFilesWrittenProgressPrepareComplete(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1),
-		s.expectPinLeadership,
-		s.expectMachinePrepareStartedUnitFilesWrittenProgressPrepareComplete,
-	)
+	s.notify(1)
+	s.expectUnitDiscovery()
+	s.expectPinLeadership()
+	s.expectMachinePrepareStartedUnitFilesWrittenProgressPrepareComplete()
+	w := s.newWorker(c)
 
 	s.cleanKill(c, w)
 	expected := map[string]interface{}{
@@ -175,15 +179,15 @@ func (s *workerSuite) expectMachinePrepareStartedUnitFilesWrittenProgressPrepare
 
 	exp.SetMachineStatus(model.UpgradeSeriesPrepareCompleted, gomock.Any()).Return(nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesPrepareCompleted, "waiting for completion command")
-
-	s.expectServiceDiscovery(false)
 }
 
 func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1),
-		s.expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted)
+	s.notify(1)
+	s.expectUnitDiscovery()
+	s.expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted()
+	w := s.newWorker(c)
 
 	s.cleanKill(c, w)
 	expected := map[string]interface{}{
@@ -197,20 +201,16 @@ func (s *workerSuite) expectMachineCompleteStartedUnitsPrepareCompleteUnitsStart
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesCompleteStarted, "waiting for units")
 	s.expectUnitsPrepared("wordpress/0", "mysql/0")
-
-	s.expectSetInstanceStatus(model.UpgradeSeriesCompleteStarted, "starting unit agents")
-	s.facade.EXPECT().StartUnitCompletion(gomock.Any()).Return(nil)
-
-	s.expectServiceDiscovery(true)
-
-	s.wordPressAgent.EXPECT().Running().Return(false, nil)
-	s.wordPressAgent.EXPECT().Start().Return(nil)
-
-	s.mySQLAgent.EXPECT().Running().Return(true, nil)
+	s.facade.EXPECT().UnitsCompleted().Return(nil, nil)
+	// I think we can get away without this call...
+	//	s.facade.EXPECT().StartUnitCompletion(gomock.Any()).Return(nil)
 }
 
 func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	// No units for this test.
+	s.unitDiscovery.EXPECT().Units().Return(nil, nil)
 
 	exp := s.facade.EXPECT()
 	exp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
@@ -219,12 +219,12 @@ func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C)
 	// Machine with no units - API calls return none, no services discovered.
 	exp.UnitsPrepared().Return(nil, nil)
 	exp.UnitsCompleted().Return(nil, nil)
-	s.service.EXPECT().ListServices().Return(nil, nil).Times(2)
 
 	// Progress directly to completed.
 	exp.SetMachineStatus(model.UpgradeSeriesCompleted, gomock.Any()).Return(nil)
 
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1))
+	s.notify(1)
+	w := s.newWorker(c)
 
 	s.cleanKill(c, w)
 	expected := map[string]interface{}{
@@ -235,9 +235,10 @@ func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C)
 
 func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1),
-		s.expectMachineCompleteStartedUnitsCompleteProgressComplete)
+	s.notify(1)
+	s.expectUnitDiscovery()
+	s.expectMachineCompleteStartedUnitsCompleteProgressComplete()
+	w := s.newWorker(c)
 
 	s.cleanKill(c, w)
 	expected := map[string]interface{}{
@@ -261,18 +262,15 @@ func (s *workerSuite) expectMachineCompleteStartedUnitsCompleteProgressComplete(
 		names.NewUnitTag("mysql/0"),
 	}, nil)
 	exp.SetMachineStatus(model.UpgradeSeriesCompleted, gomock.Any()).Return(nil)
-
-	// TODO (manadart 2018-08-22): Modify the tested code so that the services
-	// are detected just the one time.
-	s.expectServiceDiscovery(false)
-	s.expectServiceDiscovery(false)
 }
 
 func (s *workerSuite) TestMachineCompletedFinishUpgradeSeries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w := s.workerForScenario(c, s.ignoreLogging(c), s.notify(1),
-		s.expectMachineCompletedFinishUpgradeSeries)
+	s.notify(1)
+	s.expectUnitDiscovery()
+	s.expectMachineCompletedFinishUpgradeSeries()
+	w := s.newWorker(c)
 
 	s.cleanKill(c, w)
 	expected := map[string]interface{}{
@@ -299,30 +297,23 @@ func (s *workerSuite) expectMachineCompletedFinishUpgradeSeries() {
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.logger = NewMockLogger(ctrl)
 	s.facade = NewMockFacade(ctrl)
-	s.service = NewMockServiceAccess(ctrl)
+	s.unitDiscovery = NewMockUnitDiscovery(ctrl)
 	s.upgrader = NewMockUpgrader(ctrl)
 	s.notifyWorker = workermocks.NewMockWorker(ctrl)
-	s.wordPressAgent = NewMockAgentService(ctrl)
-	s.mySQLAgent = NewMockAgentService(ctrl)
 
 	return ctrl
 }
 
-// workerForScenario creates worker config based on the suite's mocks.
+// newWorker creates worker config based on the suite's mocks.
 // Any supplied behaviour functions are executed,
 // then a new worker is started and returned.
-func (s *workerSuite) workerForScenario(c *gc.C, behaviours ...func()) worker.Worker {
+func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	cfg := upgradeseries.Config{
 		Logger:          s.logger,
 		Facade:          s.facade,
-		Service:         s.service,
+		UnitDiscovery:   s.unitDiscovery,
 		UpgraderFactory: func(_, _ string) (upgradeseries.Upgrader, error) { return s.upgrader, nil },
-	}
-
-	for _, b := range behaviours {
-		b()
 	}
 
 	w, err := upgradeseries.NewWorker(cfg)
@@ -352,28 +343,6 @@ func (s *workerSuite) expectPinLeadership() {
 	}, nil)
 }
 
-// expectServiceDiscovery is a convenience method for expectations that mimic
-// detection of unit agent services on the local machine.
-func (s *workerSuite) expectServiceDiscovery(discover bool) {
-	sExp := s.service.EXPECT()
-
-	sExp.ListServices().Return([]string{
-		"jujud-unit-wordpress-0",
-		"jujud-unit-mysql-0",
-		"jujud-machine-0",
-	}, nil)
-
-	// If discover is false, we are mocking a scenario where the worker does
-	// not interact with the services.
-	if !discover {
-		return
-	}
-
-	// Note that the machine agent service listed above is ignored as non-unit.
-	sExp.DiscoverService("jujud-unit-wordpress-0").Return(s.wordPressAgent, nil)
-	sExp.DiscoverService("jujud-unit-mysql-0").Return(s.mySQLAgent, nil)
-}
-
 func (s *workerSuite) expectSetInstanceStatus(sts model.UpgradeSeriesStatus, msg string) {
 	s.facade.EXPECT().SetInstanceStatus(sts, msg).Return(nil)
 }
@@ -396,53 +365,22 @@ func (s *workerSuite) patchHost(series string) {
 // notify returns a suite behaviour that will cause the upgrade-series watcher
 // to send a number of notifications equal to the supplied argument.
 // Once notifications have been consumed, we notify via the suite's channel.
-func (s *workerSuite) notify(times int) func() {
+func (s *workerSuite) notify(times int) {
 	ch := make(chan struct{})
 
-	return func() {
-		go func() {
-			for i := 0; i < times; i++ {
-				ch <- struct{}{}
-			}
-			close(s.done)
-		}()
+	go func() {
+		for i := 0; i < times; i++ {
+			ch <- struct{}{}
+		}
+		close(s.done)
+	}()
 
-		s.notifyWorker.EXPECT().Kill().AnyTimes()
-		s.notifyWorker.EXPECT().Wait().Return(nil).AnyTimes()
+	s.notifyWorker.EXPECT().Kill().AnyTimes()
+	s.notifyWorker.EXPECT().Wait().Return(nil).AnyTimes()
 
-		s.facade.EXPECT().WatchUpgradeSeriesNotifications().Return(
-			&fakeWatcher{
-				Worker: s.notifyWorker,
-				ch:     ch,
-			}, nil)
-	}
-}
-
-// ignoreLogging turns the suite's mock logger into a sink, with no validation.
-// Logs are still emitted via the test logger.
-func (s *workerSuite) ignoreLogging(c *gc.C) func() {
-	debugIt := func(message string, args ...interface{}) { logIt(c, loggo.DEBUG, message, args) }
-	infoIt := func(message string, args ...interface{}) { logIt(c, loggo.INFO, message, args) }
-	warnIt := func(message string, args ...interface{}) { logIt(c, loggo.WARNING, message, args) }
-	errorIt := func(message string, args ...interface{}) { logIt(c, loggo.ERROR, message, args) }
-
-	return func() {
-		e := s.logger.EXPECT()
-		e.Debugf(gomock.Any(), gomock.Any()).AnyTimes().Do(debugIt)
-		e.Infof(gomock.Any(), gomock.Any()).AnyTimes().Do(infoIt)
-		e.Warningf(gomock.Any(), gomock.Any()).AnyTimes().Do(errorIt)
-		e.Errorf(gomock.Any(), gomock.Any()).AnyTimes().Do(warnIt)
-	}
-}
-
-func logIt(c *gc.C, level loggo.Level, message string, args interface{}) {
-	var nArgs []interface{}
-	var ok bool
-	if nArgs, ok = args.([]interface{}); ok {
-		nArgs = append([]interface{}{level}, nArgs...)
-	} else {
-		nArgs = append([]interface{}{level}, args)
-	}
-
-	c.Logf("%s "+message, nArgs...)
+	s.facade.EXPECT().WatchUpgradeSeriesNotifications().Return(
+		&fakeWatcher{
+			Worker: s.notifyWorker,
+			ch:     ch,
+		}, nil)
 }

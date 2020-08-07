@@ -3,6 +3,7 @@
 package upgradeseries_test
 
 import (
+	"github.com/juju/loggo"
 	"github.com/juju/worker/v2"
 
 	"github.com/golang/mock/gomock"
@@ -18,9 +19,8 @@ import (
 func validManifoldConfig(ctrl *gomock.Controller) (upgradeseries.ManifoldConfig, upgradeseries.Facade, worker.Worker) {
 	facade := NewMockFacade(ctrl)
 	work := workermocks.NewMockWorker(ctrl)
-
 	cfg := newManifoldConfig(
-		voidLogger(ctrl),
+		loggo.GetLogger("test.upgradeseries"),
 		func(_ base.APICaller, _ names.Tag) upgradeseries.Facade { return facade },
 		func(_ upgradeseries.Config) (worker.Worker, error) { return work, nil },
 	)
@@ -42,18 +42,4 @@ func newManifoldConfig(
 		NewWorker:     newWorker,
 		Logger:        logger,
 	}
-}
-
-// voidLogger creates a new mock Logger that with no call verification.
-func voidLogger(ctrl *gomock.Controller) upgradeseries.Logger {
-	log := NewMockLogger(ctrl)
-
-	exp := log.EXPECT()
-	any := gomock.Any()
-	exp.Debugf(any, any).AnyTimes()
-	exp.Infof(any, any).AnyTimes()
-	exp.Warningf(any, any).AnyTimes()
-	exp.Errorf(any, any).AnyTimes()
-
-	return log
 }

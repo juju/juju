@@ -40,9 +40,9 @@ type SystemdServiceManager interface {
 	// FindAgents finds all the agents available in the machine.
 	FindAgents(dataDir string) (string, []string, []string, error)
 
-	// WriteSystemdAgents creates systemd files and create symlinks for the
+	// WriteSystemdAgent creates systemd files and create symlinks for the
 	// machine passed in the standard filepath.
-	WriteSystemdAgents(
+	WriteSystemdAgent(
 		machineAgent string, dataDir, symLinkSystemdMultiUserDir string,
 	) error
 
@@ -55,12 +55,9 @@ type SystemdServiceManager interface {
 		machineAgent string, dataDir, toSeries, fromSeries string, jujuVersion version.Number,
 	) error
 
-	// StartAllAgents starts all the agents in the machine with specified series.
-	StartAllAgents(machineAgent string, dataDir string) (string, error)
-
-	// WriteServiceFiles writes the service files for machine and unit agents
+	// WriteServiceFile writes the service files for machine and unit agents
 	// in the /etc/systemd/system path.
-	WriteServiceFiles() error
+	WriteServiceFile() error
 }
 
 type systemdServiceManager struct {
@@ -91,15 +88,17 @@ func NewServiceManager(
 	}
 }
 
-// WriteServiceFiles writes service files to the standard
+// WriteServiceFile writes the service file to the standard
 // /etc/systemd/system path.
-func (s *systemdServiceManager) WriteServiceFiles() error {
+func (s *systemdServiceManager) WriteServiceFile() error {
+	// FindAgents also returns the deployed units on the machine.
+	// We no longer write service files for units.
 	machineAgent, _, _, err := s.FindAgents(paths.NixDataDir)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	err = s.WriteSystemdAgents(
+	err = s.WriteSystemdAgent(
 		machineAgent,
 		paths.NixDataDir,
 		systemd.EtcSystemdMultiUserDir,
@@ -116,9 +115,9 @@ func (s *systemdServiceManager) FindAgents(dataDir string) (string, []string, []
 	return FindAgents(dataDir)
 }
 
-// WriteSystemdAgents creates systemd files and symlinks for the input machine
-// and unit agents, in the standard filepath '/var/lib/juju'.
-func (s *systemdServiceManager) WriteSystemdAgents(
+// WriteSystemdAgent creates systemd files and symlinks for the input machine
+// agents, in the standard filepath '/var/lib/juju'.
+func (s *systemdServiceManager) WriteSystemdAgent(
 	machineAgent string, dataDir, systemdMultiUserDir string,
 ) error {
 	systemdLinked, err := s.writeSystemdAgent(machineAgent, dataDir, systemdMultiUserDir)
@@ -286,22 +285,6 @@ func (s *systemdServiceManager) CopyAgentBinary(
 	}
 
 	return nil
-}
-
-// StartAllAgents starts all of the input agents.
-func (s *systemdServiceManager) StartAllAgents(machineAgent string, dataDir string) (string, error) {
-	if !s.isRunning() {
-		return "", errors.Errorf("cannot interact with systemd; reboot to start agents")
-	}
-
-	machineService := serviceName(machineAgent)
-	err := s.startAgent(machineAgent, AgentKindMachine, dataDir)
-	if err == nil {
-		logger.Infof("started %s service", machineService)
-		return machineService, nil
-	}
-
-	return "", errors.Annotatef(err, "failed to start %s service", machineService)
 }
 
 func (s *systemdServiceManager) startAgent(name string, kind AgentKind, dataDir string) (err error) {

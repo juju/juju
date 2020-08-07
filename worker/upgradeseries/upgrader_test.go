@@ -5,6 +5,7 @@ package upgradeseries_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -20,7 +21,6 @@ type upgraderSuite struct {
 	testing.BaseSuite
 
 	machineService string
-	unitServices   []string
 
 	logger  upgradeseries.Logger
 	manager *MockSystemdServiceManager
@@ -30,9 +30,8 @@ var _ = gc.Suite(&upgraderSuite{})
 
 func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-
+	s.logger = loggo.GetLogger("test.upgrader")
 	s.machineService = "jujud-machine-0"
-	s.unitServices = []string{"jujud-unit-ubuntu-0", "jujud-unit-redis-0"}
 }
 
 func (s *upgraderSuite) TestNotToSystemdCopyToolsOnly(c *gc.C) {
@@ -92,7 +91,7 @@ func (s *upgraderSuite) TestToSystemdServicesWritten(c *gc.C) {
 
 	s.patchFrom("trusty")
 
-	s.manager.EXPECT().WriteSystemdAgents(
+	s.manager.EXPECT().WriteSystemdAgent(
 		s.machineService, paths.NixDataDir, systemd.EtcSystemdMultiUserDir,
 	).Return(nil)
 
@@ -105,10 +104,11 @@ func (s *upgraderSuite) TestToSystemdServicesWritten(c *gc.C) {
 }
 
 func (s *upgraderSuite) setupMocks(ctrl *gomock.Controller) {
-	s.logger = voidLogger(ctrl)
 	s.manager = NewMockSystemdServiceManager(ctrl)
 
-	s.manager.EXPECT().FindAgents(paths.NixDataDir).Return(s.machineService, s.unitServices, nil, nil)
+	// FindAgents would look through the dataDir to find agents.
+	// Here we return unit agents, but they should have no impact on methods.
+	s.manager.EXPECT().FindAgents(paths.NixDataDir).Return(s.machineService, []string{"jujud-unit-ubuntu-0", "jujud-unit-redis-0"}, nil, nil)
 }
 
 func (s *upgraderSuite) newUpgrader(c *gc.C, currentSeries, toSeries string) upgradeseries.Upgrader {
