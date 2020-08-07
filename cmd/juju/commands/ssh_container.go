@@ -217,6 +217,9 @@ func (c *sshContainer) getExecClient() (k8sexec.Executor, error) {
 		return nil, errors.Annotatef(mInfo.Error, "getting model information")
 	}
 	credentialTag, err := names.ParseCloudCredentialTag(mInfo.Result.CloudCredentialTag)
+	if err != nil {
+		return nil, err
+	}
 	remoteContents, err := c.cloudCredentialAPI.CredentialContents(credentialTag.Cloud().Id(), credentialTag.Name(), true)
 	if err != nil {
 		return nil, err
