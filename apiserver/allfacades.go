@@ -156,6 +156,7 @@ func AllFacades() *facade.Registry {
 	reg("Application", 10, application.NewFacadeV10) // --force and --no-wait parameters
 	reg("Application", 11, application.NewFacadeV11) // Get call returns the endpoint bindings
 	reg("Application", 12, application.NewFacadeV12) // Adds UnitsInfo()
+	reg("Application", 13, application.NewFacadeV13) // Adds CharmOrigin to Deploy
 
 	reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
 	reg("ApplicationOffers", 2, applicationoffers.NewOffersAPIV2)

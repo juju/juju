@@ -404,6 +404,7 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		"CharmURL",
 		"Channel",
 		"CharmModifiedVersion",
+		"CharmOrigin",
 		"ForceCharm",
 		"Exposed",
 		"MinUnits",

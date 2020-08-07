@@ -17,8 +17,47 @@ type ApplicationsDeploy struct {
 	Applications []ApplicationDeploy `json:"applications"`
 }
 
-// ApplicationDeploy holds the parameters for making the application Deploy call.
+// CharmOrigin holds the parameters for the optional location of the source of
+// the charm.
+type CharmOrigin struct {
+	Source   string  `json:"source"`
+	ID       string  `json:"id"`
+	Hash     string  `json:"hash,omitempty"`
+	Revision *int    `json:"revision,omitempty"`
+	Channel  *string `json:"channel,omitempty"`
+}
+
+// ApplicationDeploy holds the parameters for making the application Deploy
+// call.
 type ApplicationDeploy struct {
+	ApplicationName  string                         `json:"application"`
+	Series           string                         `json:"series"`
+	CharmURL         string                         `json:"charm-url"`
+	CharmOrigin      *CharmOrigin                   `json:"charm-origin,omitempty"`
+	Channel          string                         `json:"channel"`
+	NumUnits         int                            `json:"num-units"`
+	Config           map[string]string              `json:"config,omitempty"`
+	ConfigYAML       string                         `json:"config-yaml"` // Takes precedence over config if both are present.
+	Constraints      constraints.Value              `json:"constraints"`
+	Placement        []*instance.Placement          `json:"placement,omitempty"`
+	Policy           string                         `json:"policy,omitempty"`
+	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
+	Devices          map[string]devices.Constraints `json:"devices,omitempty"`
+	AttachStorage    []string                       `json:"attach-storage,omitempty"`
+	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
+	Resources        map[string]string              `json:"resources,omitempty"`
+}
+
+// ApplicationsDeployV12 holds the parameters for deploying one or more
+// applications.
+type ApplicationsDeployV12 struct {
+	Applications []ApplicationDeployV12 `json:"applications"`
+}
+
+// ApplicationDeployV12 holds the parameters for making the application Deploy
+// call for application facades older than v12.
+// Missing the newer CharmOrigin.
+type ApplicationDeployV12 struct {
 	ApplicationName  string                         `json:"application"`
 	Series           string                         `json:"series"`
 	CharmURL         string                         `json:"charm-url"`
@@ -36,13 +75,14 @@ type ApplicationDeploy struct {
 	Resources        map[string]string              `json:"resources,omitempty"`
 }
 
-// ApplicationsDeployV5 holds the parameters for deploying one or more applications.
+// ApplicationsDeployV5 holds the parameters for deploying one or more
+// applications.
 type ApplicationsDeployV5 struct {
 	Applications []ApplicationDeployV5 `json:"applications"`
 }
 
-// ApplicationDeployV5 holds the parameters for making the application Deploy call for
-// application facades older than v6. Missing the newer Policy arg.
+// ApplicationDeployV5 holds the parameters for making the application Deploy
+// call for application facades older than v6. Missing the newer Policy arg.
 type ApplicationDeployV5 struct {
 	ApplicationName  string                         `json:"application"`
 	Series           string                         `json:"series"`
@@ -64,8 +104,8 @@ type ApplicationsDeployV6 struct {
 	Applications []ApplicationDeployV6 `json:"applications"`
 }
 
-// ApplicationDeployV6 holds the parameters for making the application Deploy call for
-// application facades older than v6. Missing the newer Device arg.
+// ApplicationDeployV6 holds the parameters for making the application Deploy
+// call for application facades older than v6. Missing the newer Device arg.
 type ApplicationDeployV6 struct {
 	ApplicationName  string                         `json:"application"`
 	Series           string                         `json:"series"`
@@ -87,6 +127,7 @@ type ApplicationDeployV6 struct {
 type ApplicationUpdate struct {
 	ApplicationName string             `json:"application"`
 	CharmURL        string             `json:"charm-url"`
+	CharmOrigin     *CharmOrigin       `json:"charm-origin,omitempty"`
 	ForceCharmURL   bool               `json:"force-charm-url"`
 	ForceSeries     bool               `json:"force-series"`
 	Force           bool               `json:"force"`

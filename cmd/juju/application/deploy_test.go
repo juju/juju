@@ -733,12 +733,14 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	deployURL.Series = "bionic"
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
 		CharmID:         jjcharmstore.CharmID{URL: &deployURL},
+		CharmOrigin:     application.CharmOrigin{Source: application.OriginCharmStore},
 		ApplicationName: inURL.Name,
 		Series:          "bionic",
 		ConfigYAML:      "aws-integrator:\n  trust: \"true\"\n",
 	}).Returns(error(nil))
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
 		CharmID:         jjcharmstore.CharmID{URL: &deployURL},
+		CharmOrigin:     application.CharmOrigin{Source: application.OriginCharmStore},
 		ApplicationName: inURL.Name,
 		Series:          "bionic",
 	}).Returns(errors.New("expected Deploy for aws-integrator to be called with 'trust: true'"))
@@ -1456,6 +1458,7 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 	)
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
 		CharmID:         jjcharmstore.CharmID{URL: curl, Channel: csclientparams.BetaChannel},
+		CharmOrigin:     application.CharmOrigin{Source: application.OriginCharmStore},
 		ApplicationName: curl.Name,
 		Series:          "bionic",
 		NumUnits:        1,
@@ -1837,6 +1840,7 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
 		CharmID:         jjcharmstore.CharmID{URL: curl},
+		CharmOrigin:     application.CharmOrigin{Source: application.OriginCharmStore},
 		ApplicationName: curl.Name,
 		Series:          "bionic",
 		NumUnits:        1,
@@ -2562,6 +2566,13 @@ func withCharmDeployableWithDevicesAndStorage(
 			deployURL.Revision = 1
 		}
 	}
+	var source application.CharmOriginSource
+	switch deployURL.Schema {
+	case "cs":
+		source = application.OriginCharmStore
+	case "local":
+		source = application.OriginLocal
+	}
 	fakeAPI.Call("AddCharm", &deployURL, csclientparams.Channel(""), force).Returns(error(nil))
 	fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
 		&charms.CharmInfo{
@@ -2572,7 +2583,10 @@ func withCharmDeployableWithDevicesAndStorage(
 		error(nil),
 	)
 	fakeAPI.Call("Deploy", application.DeployArgs{
-		CharmID:         jjcharmstore.CharmID{URL: &deployURL},
+		CharmID: jjcharmstore.CharmID{URL: &deployURL},
+		CharmOrigin: application.CharmOrigin{
+			Source: source,
+		},
 		ApplicationName: appName,
 		Series:          series,
 		NumUnits:        numUnits,

@@ -102,7 +102,7 @@ func convertChannels(in map[string]params.Channel) map[string]Channel {
 }
 
 // Although InfoResponse or FindResponse are similar, they will change once the
-// charmhub API has settled.
+// CharmHub API has settled.
 
 type InfoResponse struct {
 	Type        string             `json:"type"`

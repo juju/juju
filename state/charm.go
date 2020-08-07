@@ -47,6 +47,26 @@ func (m MacaroonCache) Get(u *charm.URL) (macaroon.Slice, error) {
 	return c.Macaroon()
 }
 
+// Channel identifies and describes completely a store channel.
+// TODO (stickupkid): Add architecture.
+type Channel struct {
+	Track  string `bson:"track,omitempty"`
+	Risk   string `bson:"risk"`
+	Branch string `bson:"branch,omitempty"`
+}
+
+// CharmOrigin holds the original source of a charm. Information about where the
+// charm was installed from (charm-hub, charm-store, local) and any additional
+// information we can utilise when making modelling decisions for upgrading or
+// changing.
+type CharmOrigin struct {
+	Source   string   `bson:"source"`
+	ID       string   `bson:"id"`
+	Hash     string   `bson:"hash"`
+	Revision *int     `bson:"revision,omitempty"`
+	Channel  *Channel `bson:"channel,omitempty"`
+}
+
 // charmDoc represents the internal state of a charm in MongoDB.
 type charmDoc struct {
 	ModelUUID string     `bson:"model-uuid"`

@@ -240,6 +240,7 @@ type addTestingApplicationParams struct {
 	st           *State
 	series, name string
 	ch           *Charm
+	origin       *CharmOrigin
 	bindings     map[string]string
 	storage      map[string]StorageConstraints
 	devices      map[string]DeviceConstraints
@@ -251,6 +252,7 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 		Name:             params.name,
 		Series:           params.series,
 		Charm:            params.ch,
+		CharmOrigin:      params.origin,
 		EndpointBindings: params.bindings,
 		Storage:          params.storage,
 		Devices:          params.devices,

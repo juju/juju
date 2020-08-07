@@ -41,7 +41,7 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 			"agent-version":   {"1.2.3.4", "model"},
 			"ftp-proxy":       {"http://proxy", "model"},
 			"authorized-keys": {testing.FakeAuthKeys, "model"},
-			"charmhub-url":    {"http://meshuggah.rocks", "model"},
+			"charm-hub-url":   {"http://meshuggah.rocks", "model"},
 		},
 	}
 	var err error
@@ -56,7 +56,7 @@ func (s *modelconfigSuite) TestModelGet(c *gc.C) {
 		"type":          {"dummy", "model"},
 		"ftp-proxy":     {"http://proxy", "model"},
 		"agent-version": {Value: "1.2.3.4", Source: "model"},
-		"charmhub-url":  {"http://meshuggah.rocks", "model"},
+		"charm-hub-url": {"http://meshuggah.rocks", "model"},
 	})
 }
 
@@ -128,23 +128,23 @@ func (s *modelconfigSuite) TestModelSetCannotChangeAgentVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelconfigSuite) TestModelSetCannotChangeCharmhubURL(c *gc.C) {
+func (s *modelconfigSuite) TestModelSetCannotChangeCharmHubURL(c *gc.C) {
 	old, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(testing.Attrs{
-		"charmhub-url": "http://meshuggah.rocks",
+		"charm-hub-url": "http://meshuggah.rocks",
 	}))
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.old = old
 	args := params.ModelSet{
-		map[string]interface{}{"charmhub-url": "http://another-url.com"},
+		map[string]interface{}{"charm-hub-url": "http://another-url.com"},
 	}
 	err = s.api.ModelSet(args)
-	c.Assert(err, gc.ErrorMatches, "charmhub-url cannot be changed")
+	c.Assert(err, gc.ErrorMatches, "charm-hub-url cannot be changed")
 
-	// It's okay to pass config back with the same charmhub-url.
+	// It's okay to pass config back with the same charm-hub-url.
 	result, err := s.api.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config["charmhub-url"], gc.NotNil)
-	args.Config["charmhub-url"] = result.Config["charmhub-url"].Value
+	c.Assert(result.Config["charm-hub-url"], gc.NotNil)
+	args.Config["charm-hub-url"] = result.Config["charm-hub-url"].Value
 	err = s.api.ModelSet(args)
 	c.Assert(err, jc.ErrorIsNil)
 }

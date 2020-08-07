@@ -1009,6 +1009,7 @@ type AddApplicationArgs struct {
 	Name              string
 	Series            string
 	Charm             *Charm
+	CharmOrigin       *CharmOrigin
 	Channel           csparams.Channel
 	Storage           map[string]StorageConstraints
 	Devices           map[string]DeviceConstraints
@@ -1151,6 +1152,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		Series:        args.Series,
 		Subordinate:   args.Charm.Meta().Subordinate,
 		CharmURL:      args.Charm.URL(),
+		CharmOrigin:   args.CharmOrigin,
 		Channel:       string(args.Channel),
 		RelationCount: len(peers),
 		Life:          Alive,

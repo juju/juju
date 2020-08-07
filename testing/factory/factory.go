@@ -101,6 +101,7 @@ type MachineParams struct {
 type ApplicationParams struct {
 	Name                    string
 	Charm                   *state.Charm
+	CharmOrigin             *state.CharmOrigin
 	Status                  *status.StatusInfo
 	ApplicationConfig       map[string]interface{}
 	ApplicationConfigFields environschema.Fields
@@ -480,6 +481,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	application, err := factory.st.AddApplication(state.AddApplicationArgs{
 		Name:              params.Name,
 		Charm:             params.Charm,
+		CharmOrigin:       params.CharmOrigin,
 		Series:            params.Charm.URL().Series,
 		CharmConfig:       charm.Settings(params.CharmConfig),
 		ApplicationConfig: appConfig,

@@ -22,7 +22,7 @@ type FindClientSuite struct {
 var _ = gc.Suite(&FindClientSuite{})
 
 func (s *FindClientSuite) TestLiveFindRequest(c *gc.C) {
-	config := charmhub.CharmhubConfig()
+	config := charmhub.CharmHubConfig()
 	basePath, err := config.BasePath()
 	c.Assert(err, jc.ErrorIsNil)
 

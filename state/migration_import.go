@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -1243,6 +1244,11 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		return nil, errors.Trace(err)
 	}
 
+	origin, err := makeCharmOrigin(a, charmURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &applicationDoc{
 		Name:                 a.Name(),
 		Series:               a.Series(),
@@ -1250,6 +1256,7 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		CharmURL:             charmURL,
 		Channel:              a.Channel(),
 		CharmModifiedVersion: a.CharmModifiedVersion(),
+		CharmOrigin:          origin,
 		ForceCharm:           a.ForceCharm(),
 		PasswordHash:         a.PasswordHash(),
 		Life:                 Alive,
@@ -1263,6 +1270,58 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		Placement:            a.Placement(),
 		HasResources:         a.HasResources(),
 	}, nil
+}
+
+func makeCharmOrigin(a description.Application, curl *charm.URL) (*CharmOrigin, error) {
+	co := a.CharmOrigin()
+	if co == nil {
+		return deduceCharmOrigin(curl)
+	}
+	rev := co.Revision()
+
+	var channel *Channel
+	if serialized := co.Channel(); serialized != "" {
+		c, err := corecharm.ParseChannel(serialized)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		channel = &Channel{
+			Track:  c.Track,
+			Risk:   string(c.Risk),
+			Branch: c.Branch,
+		}
+	}
+
+	return &CharmOrigin{
+		Source:   co.Source(),
+		ID:       co.ID(),
+		Hash:     co.Hash(),
+		Revision: &rev,
+		Channel:  channel,
+	}, nil
+}
+
+// TODO (hml) 2020-08-04
+// Investigate adding channel from application, appears to be
+// set for cs charms.
+func deduceCharmOrigin(url *charm.URL) (*CharmOrigin, error) {
+	if url == nil {
+		return &CharmOrigin{}, errors.NotValidf("charm url")
+	}
+
+	origin := &CharmOrigin{
+		Revision: &url.Revision,
+	}
+
+	switch url.Schema {
+	case "cs":
+		origin.Source = corecharm.CharmStore.String()
+	case "local":
+		origin.Source = corecharm.Local.String()
+	default:
+		origin.Source = corecharm.CharmHub.String()
+	}
+	return origin, nil
 }
 
 func (i *importer) relationCount(application string) int {

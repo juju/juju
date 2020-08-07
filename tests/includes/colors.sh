@@ -1,5 +1,5 @@
 red() {
-    if [ -n "${TERM}" ]; then
+    if [ -n "${TERM:-}" ]; then
         if which tput >/dev/null 2>&1; then
             tput sgr0
             echo "$(tput setaf 1)${1}$(tput sgr0)"
@@ -10,7 +10,7 @@ red() {
 }
 
 green() {
-    if [ -n "${TERM}" ]; then
+    if [ -n "${TERM:-}" ]; then
         if which tput >/dev/null 2>&1; then
             tput sgr0
             echo "$(tput setaf 2)${1}$(tput sgr0)"

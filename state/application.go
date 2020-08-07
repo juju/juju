@@ -45,13 +45,18 @@ type Application struct {
 // applicationDoc represents the internal state of an application in MongoDB.
 // Note the correspondence with ApplicationInfo in apiserver.
 type applicationDoc struct {
-	DocID                string       `bson:"_id"`
-	Name                 string       `bson:"name"`
-	ModelUUID            string       `bson:"model-uuid"`
-	Series               string       `bson:"series"`
-	Subordinate          bool         `bson:"subordinate"`
+	DocID       string `bson:"_id"`
+	Name        string `bson:"name"`
+	ModelUUID   string `bson:"model-uuid"`
+	Series      string `bson:"series"`
+	Subordinate bool   `bson:"subordinate"`
+	// CharmURL and channel should be moved to CharmOrigin. Attempting it should
+	// be relatively straight forward, but very time consuming.
+	// When moving to CharmHub or removing CharmStore from Juju it should be
+	// tackled then.
 	CharmURL             *charm.URL   `bson:"charmurl"`
 	Channel              string       `bson:"cs-channel"`
+	CharmOrigin          *CharmOrigin `bson:"charm-origin"`
 	CharmModifiedVersion int          `bson:"charmmodifiedversion"`
 	ForceCharm           bool         `bson:"forcecharm"`
 	Life                 Life         `bson:"life"`
@@ -671,6 +676,11 @@ func (a *Application) Charm() (ch *Charm, force bool, err error) {
 		return nil, false, err
 	}
 	return ch, a.doc.ForceCharm, nil
+}
+
+// CharmOrigin returns the origin of a charm associated with a application.
+func (a *Application) CharmOrigin() *CharmOrigin {
+	return a.doc.CharmOrigin
 }
 
 // IsPrincipal returns whether units of the application can

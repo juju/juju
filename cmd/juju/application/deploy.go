@@ -957,6 +957,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 
 func (c *DeployCommand) deployCharm(
 	id charmstore.CharmID,
+	origin application.CharmOrigin,
 	csMac *macaroon.Macaroon,
 	series string,
 	ctx *cmd.Context,
@@ -1117,6 +1118,7 @@ func (c *DeployCommand) deployCharm(
 
 	args := application.DeployArgs{
 		CharmID:          id,
+		CharmOrigin:      origin,
 		Cons:             c.Constraints,
 		ApplicationName:  applicationName,
 		Series:           series,
@@ -1316,8 +1318,15 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 		formattedCharmURL := userCharmURL.String()
 		ctx.Infof("Located charm %q.", formattedCharmURL)
 		ctx.Infof("Deploying charm %q.", formattedCharmURL)
+
+		origin, err := deduceOrigin(userCharmURL)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		return errors.Trace(c.deployCharm(
 			charmstore.CharmID{URL: userCharmURL},
+			origin,
 			(*macaroon.Macaroon)(nil),
 			userCharmURL.Series,
 			ctx,
@@ -1465,9 +1474,15 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 			// Local charms don't need a channel.
 		}
 
+		origin, err := deduceOrigin(curl)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		ctx.Infof("Deploying charm %q.", curl.String())
 		return errors.Trace(c.deployCharm(
 			id,
+			origin,
 			(*macaroon.Macaroon)(nil), // local charms don't need one.
 			curl.Series,
 			ctx,
@@ -1675,14 +1690,41 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 			URL:     curl,
 			Channel: channel,
 		}
+		origin, err := deduceOrigin(curl)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		return errors.Trace(c.deployCharm(
 			id,
+			origin,
 			csMac,
 			series,
 			ctx,
 			apiRoot,
 		))
 	}, nil
+}
+
+func deduceOrigin(url *charm.URL) (application.CharmOrigin, error) {
+	if url == nil {
+		return application.CharmOrigin{}, errors.NotValidf("charm url")
+	}
+
+	switch url.Schema {
+	case "cs":
+		return application.CharmOrigin{
+			Source: application.OriginCharmStore,
+		}, nil
+	case "local":
+		return application.CharmOrigin{
+			Source: application.OriginLocal,
+		}, nil
+	default:
+		return application.CharmOrigin{
+			Source: application.OriginCharmHub,
+		}, nil
+	}
 }
 
 // Returns the first string that isn't empty.

@@ -1,15 +1,15 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// CharmHub is a client for communication with charmhub.  Unlike
-// the charmhub client within juju, this package does not rely on
+// CharmHub is a client for communication with charmHub.  Unlike
+// the charmHub client within juju, this package does not rely on
 // wrapping an external package client. Generic client code for this
 // package has been copied from "github.com/juju/charmrepo/v5/csclient".
 //
 // TODO: (hml) 2020-06-17
 // Implement:
 // - use of macaroons, at that time consider refactoring the local
-//   charmhub pkg to share macaroonJar.
+//   charmHub pkg to share macaroonJar.
 // - user/password ?
 // - allow for use of the channel pieces
 
@@ -34,9 +34,9 @@ import (
 // An alternate location can be configured by changing the URL
 // field in the Params struct.
 const (
-	CharmhubServerURL     = "https://api.snapcraft.io"
-	CharmhubServerVersion = "v2"
-	CharmhubServerEntity  = "charms"
+	CharmHubServerURL     = "https://api.snapcraft.io"
+	CharmHubServerVersion = "v2"
+	CharmHubServerEntity  = "charms"
 )
 
 var (
@@ -48,12 +48,12 @@ const defaultMinMultipartUploadSize = 5 * 1024 * 1024
 
 // Config holds configuration for creating a new charm hub client.
 type Config struct {
-	// URL holds the base endpoint URL of the charmhub,
+	// URL holds the base endpoint URL of the charmHub,
 	// with no trailing slash, not including the version.
 	// For example https://api.snapcraft.io/v2/charms/
 	URL string
 
-	// Version holds the version attribute of the charmhub we're requesting.
+	// Version holds the version attribute of the charmHub we're requesting.
 	Version string
 
 	// Entity holds the entity to target when querying the API (charm or snaps).
@@ -65,15 +65,15 @@ type Config struct {
 	Headers http.Header
 }
 
-// CharmhubConfig defines a charmhub client configuration for targeting the
+// CharmHubConfig defines a charmHub client configuration for targeting the
 // snapcraft API.
-func CharmhubConfig() Config {
-	return CharmhubConfigFromURL(CharmhubServerURL)
+func CharmHubConfig() Config {
+	return CharmHubConfigFromURL(CharmHubServerURL)
 }
 
-// CharmhubConfigFromURL defines a charmhub client configuration with a given
+// CharmHubConfigFromURL defines a charmHub client configuration with a given
 // URL for targeting the API.
-func CharmhubConfigFromURL(url string) Config {
+func CharmHubConfigFromURL(url string) Config {
 	// By default we want to specify a default user-agent here. In the future
 	// we should ensure this probably contains model UUID and cloud.
 	headers := make(http.Header)
@@ -81,8 +81,8 @@ func CharmhubConfigFromURL(url string) Config {
 
 	return Config{
 		URL:     url,
-		Version: CharmhubServerVersion,
-		Entity:  CharmhubServerEntity,
+		Version: CharmHubServerVersion,
+		Entity:  CharmHubServerEntity,
 		Headers: headers,
 	}
 }
@@ -106,7 +106,7 @@ type Client struct {
 	refreshClient *RefreshClient
 }
 
-// NewClient creates a new charmhub client from the supplied configuration.
+// NewClient creates a new charmHub client from the supplied configuration.
 func NewClient(config Config) (*Client, error) {
 	base, err := config.BasePath()
 	if err != nil {
@@ -145,12 +145,12 @@ func (c *Client) URL() string {
 	return c.url
 }
 
-// Info returns charm info on the provided charm name from charmhub.
+// Info returns charm info on the provided charm name from CharmHub API.
 func (c *Client) Info(ctx context.Context, name string) (transport.InfoResponse, error) {
 	return c.infoClient.Info(ctx, name)
 }
 
-// Find searches for a given charm for a given name from charmhub.
+// Find searches for a given charm for a given name from CharmHub API.
 func (c *Client) Find(ctx context.Context, name string) ([]transport.FindResponse, error) {
 	return c.findClient.Find(ctx, name)
 }

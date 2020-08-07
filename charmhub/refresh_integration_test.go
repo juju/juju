@@ -22,7 +22,7 @@ type RefreshClientSuite struct {
 var _ = gc.Suite(&RefreshClientSuite{})
 
 func (s *RefreshClientSuite) TestLiveRefreshRequest(c *gc.C) {
-	config := charmhub.CharmhubConfig()
+	config := charmhub.CharmHubConfig()
 	basePath, err := config.BasePath()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -44,7 +44,7 @@ func (s *RefreshClientSuite) TestLiveRefreshRequest(c *gc.C) {
 }
 
 func (s *RefreshClientSuite) TestLiveRefreshManyRequest(c *gc.C) {
-	config := charmhub.CharmhubConfig()
+	config := charmhub.CharmHubConfig()
 	basePath, err := config.BasePath()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -74,7 +74,7 @@ func (s *RefreshClientSuite) TestLiveRefreshManyRequest(c *gc.C) {
 func (s *RefreshClientSuite) TestLiveInstallRequest(c *gc.C) {
 	c.Skip("install is not currently wired up, so the test fails")
 
-	config := charmhub.CharmhubConfig()
+	config := charmhub.CharmHubConfig()
 	basePath, err := config.BasePath()
 	c.Assert(err, jc.ErrorIsNil)
 

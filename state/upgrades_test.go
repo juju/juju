@@ -2938,6 +2938,11 @@ func (s *upgradesSuite) TestEnsureApplicationDeviceConstraints(c *gc.C) {
 	)
 }
 
+// makeApplication doesn't do what you think it does here. You can read the
+// applicationDoc, but you can't update it using the txn.Op. It will report that
+// the transaction failed because the `Assert: txn.DocExists` is wrong, even
+// though we got the application from the database.
+// We should move the Insert into a bson.M/bson.D
 func (s *upgradesSuite) makeApplication(c *gc.C, uuid, name string, life Life) {
 	coll, closer := s.state.db().GetRawCollection(applicationsC)
 	defer closer()
@@ -4370,7 +4375,7 @@ func (s *upgradesSuite) TestReplaceNeverSetWithUnset(c *gc.C) {
 	checkNoNeverSetAttribute()
 }
 
-func (s *upgradesSuite) TestAddCharmhubToModelConfig(c *gc.C) {
+func (s *upgradesSuite) TestAddCharmHubToModelConfig(c *gc.C) {
 	// Value not set
 	m1 := s.makeModel(c, "m1", coretesting.Attrs{
 		"other-setting":  "val",
@@ -4380,7 +4385,7 @@ func (s *upgradesSuite) TestAddCharmhubToModelConfig(c *gc.C) {
 	defer func() { _ = m1.Close() }()
 	// Value set to something other that default
 	m2 := s.makeModel(c, "m3", coretesting.Attrs{
-		"charmhub-url": "http://meshuggah.rocks",
+		"charm-hub-url": "http://meshuggah.rocks",
 	})
 	defer func() { _ = m2.Close() }()
 
@@ -4388,7 +4393,7 @@ func (s *upgradesSuite) TestAddCharmhubToModelConfig(c *gc.C) {
 	defer settingsCloser()
 	// To simulate a 2.9.0 without any setting, delete the record from it.
 	err := settingsColl.UpdateId(m1.ModelUUID()+":e",
-		bson.M{"$unset": bson.M{"settings.charmhub-url": 1}},
+		bson.M{"$unset": bson.M{"settings.charm-hub-url": 1}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	// And an extra document from somewhere else that we shouldn't touch
@@ -4410,8 +4415,8 @@ func (s *upgradesSuite) TestAddCharmhubToModelConfig(c *gc.C) {
 	expectedSettings := []bson.M{}
 
 	expectedChanges := map[string]bson.M{
-		m1.ModelUUID() + ":e": {"charmhub-url": charmhub.CharmhubServerURL, "other-setting": "val"},
-		m2.ModelUUID() + ":e": {"charmhub-url": "http://meshuggah.rocks"},
+		m1.ModelUUID() + ":e": {"charm-hub-url": charmhub.CharmHubServerURL, "other-setting": "val"},
+		m2.ModelUUID() + ":e": {"charm-hub-url": "http://meshuggah.rocks"},
 		"not-a-model":         {"other-setting": "val"},
 	}
 	for iter.Next(&rawSettings) {
@@ -4437,7 +4442,7 @@ func (s *upgradesSuite) TestAddCharmhubToModelConfig(c *gc.C) {
 	}
 	c.Assert(iter.Close(), jc.ErrorIsNil)
 
-	s.assertUpgradedData(c, AddCharmhubToModelConfig,
+	s.assertUpgradedData(c, AddCharmHubToModelConfig,
 		upgradedData(settingsColl, expectedSettings),
 	)
 }
@@ -4547,6 +4552,121 @@ func (s *upgradesSuite) TestRollUpAndConvertOpenedPortDocuments(c *gc.C) {
 
 	sort.Sort(expected)
 	s.assertUpgradedData(c, RollUpAndConvertOpenedPortDocuments, upgradedData(col, expected))
+}
+
+func (s *upgradesSuite) TestAddCharmOriginToApplication(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	coll, closer := s.state.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	err := coll.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "app1"),
+		"model-uuid": uuid1,
+		"charmurl":   charm.MustParseURL("cs:test").String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "app2"),
+		"model-uuid": uuid1,
+		"charmurl":   charm.MustParseURL("local:test").String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "app3"),
+		"model-uuid": uuid2,
+		"charmurl":   charm.MustParseURL("local:test").String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "app4"),
+		"model-uuid": uuid2,
+		"charmurl":   charm.MustParseURL("local:test").String(),
+		"charm-origin": bson.M{
+			"channel": bson.M{
+				"track": "latest",
+				"risk":  "edge",
+			},
+			"hash":     "xxxx",
+			"id":       "yyyy",
+			"revision": 12,
+			"source":   "charm-hub",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id":        ensureModelUUID(uuid1, "app1"),
+			"model-uuid": uuid1,
+			"charmurl":   "cs:test",
+			"charm-origin": bson.M{
+				"channel": bson.M{
+					"risk": "",
+				},
+				"hash":     "",
+				"id":       "cs:test",
+				"revision": -1,
+				"source":   "charm-store",
+			},
+		},
+		{
+			"_id":        ensureModelUUID(uuid1, "app2"),
+			"model-uuid": uuid1,
+			"charmurl":   "local:test",
+			"charm-origin": bson.M{
+				"channel": bson.M{
+					"risk": "",
+				},
+				"hash":     "",
+				"id":       "local:test",
+				"revision": -1,
+				"source":   "local",
+			},
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "app3"),
+			"model-uuid": uuid2,
+			"charmurl":   "local:test",
+			"charm-origin": bson.M{
+				"channel": bson.M{
+					"risk": "",
+				},
+				"hash":     "",
+				"id":       "local:test",
+				"revision": -1,
+				"source":   "local",
+			},
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "app4"),
+			"model-uuid": uuid2,
+			"charmurl":   "local:test",
+			"charm-origin": bson.M{
+				"channel": bson.M{
+					"track": "latest",
+					"risk":  "edge",
+				},
+				"hash":     "xxxx",
+				"id":       "yyyy",
+				"revision": 12,
+				"source":   "charm-hub",
+			},
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, AddCharmOriginToApplications,
+		upgradedData(coll, expected),
+	)
 }
 
 type docById []bson.M

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
@@ -2948,14 +2949,15 @@ func ReplaceNeverSetWithUnset(pool *StatePool) (err error) {
 	}))
 }
 
-// AddCharmhubToModelConfig in the status documents.
-func AddCharmhubToModelConfig(pool *StatePool) error {
+// AddCharmHubToModelConfig inserts the charm-hub-url into the model-config if
+// it's missing one.
+func AddCharmHubToModelConfig(pool *StatePool) error {
 	st := pool.SystemState()
 	return errors.Trace(applyToAllModelSettings(st, func(doc *settingsDoc) (bool, error) {
-		value, keySet := doc.Settings[config.CharmhubURLKey]
-		// Charmhub URL should be a valid URL.
+		value, keySet := doc.Settings[config.CharmHubURLKey]
+		// CharmHub URL should be a valid URL.
 		if !keySet || value == "" {
-			doc.Settings[config.CharmhubURLKey] = charmhub.CharmhubServerURL
+			doc.Settings[config.CharmHubURLKey] = charmhub.CharmHubServerURL
 			return true, nil
 		}
 		return false, nil
@@ -3049,5 +3051,69 @@ func RollUpAndConvertOpenedPortDocuments(pool *StatePool) error {
 		}
 
 		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}
+
+// AddCharmOriginToApplications adds a CharmOrigin to all applications. It will
+// attempt to deduce the source from the charmurl.
+func AddCharmOriginToApplications(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(applicationsC)
+		defer closer()
+
+		var docs []applicationDoc
+		if err := col.Find(nil).All(&docs); err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, application := range docs {
+			if application.CharmOrigin != nil {
+				continue
+			}
+
+			// It is expected that every application should have a charm URL.
+			charmURL := application.CharmURL
+			if charmURL == nil {
+				return errors.Errorf("charmurl is empty")
+			}
+
+			var source string
+			switch charmURL.Schema {
+			case "local":
+				source = corecharm.Local.String()
+			default:
+				// CharmURL is always local or cs, never anything else.
+				source = corecharm.CharmStore.String()
+			}
+
+			// Set the CharmOrigin on the application.
+			origin := CharmOrigin{
+				Source: source,
+				ID:     charmURL.String(),
+				Channel: &Channel{
+					// This is only ever set via the charm-store data, but as
+					// it's a string, we can safely set it here for local
+					// charms.
+					Risk: application.Channel,
+				},
+				Revision: &charmURL.Revision,
+			}
+
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     application.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{
+					"$set", bson.D{{
+						"charm-origin", origin,
+					}},
+				}},
+			})
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
 	}))
 }

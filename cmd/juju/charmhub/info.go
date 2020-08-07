@@ -9,13 +9,14 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+
 	"github.com/juju/juju/api/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const (
-	infoSummary = "Displays detailed information about charmhub charms."
+	infoSummary = "Displays detailed information about CharmHub charms."
 	infoDoc     = `
 The charm can be specified by name or by path. Names are looked for both in the
 store and in the deployed charms.

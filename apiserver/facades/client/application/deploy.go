@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -27,6 +28,7 @@ type DeployApplicationParams struct {
 	ApplicationName   string
 	Series            string
 	Charm             *state.Charm
+	CharmOrigin       corecharm.Origin
 	Channel           csparams.Channel
 	ApplicationConfig *application.Config
 	CharmConfig       charm.Settings
@@ -72,6 +74,7 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 		Name:              args.ApplicationName,
 		Series:            args.Series,
 		Charm:             args.Charm,
+		CharmOrigin:       stateCharmOrigin(args.CharmOrigin),
 		Channel:           args.Channel,
 		Storage:           stateStorageConstraints(args.Storage),
 		Devices:           stateDeviceConstraints(args.Devices),
@@ -160,4 +163,22 @@ func stateDeviceConstraints(cons map[string]devices.Constraints) map[string]stat
 		}
 	}
 	return result
+}
+
+func stateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
+	var ch *state.Channel
+	if c := origin.Channel; c != nil {
+		ch = &state.Channel{
+			Track:  c.Track,
+			Risk:   string(c.Risk),
+			Branch: c.Branch,
+		}
+	}
+	return &state.CharmOrigin{
+		Source:   string(origin.Source),
+		ID:       origin.ID,
+		Hash:     origin.Hash,
+		Revision: origin.Revision,
+		Channel:  ch,
+	}
 }

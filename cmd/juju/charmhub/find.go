@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	findSummary = "Queries the charmhub store for available charms or bundles."
+	findSummary = "Queries the CharmHub store for available charms or bundles."
 	findDoc     = `
-The find command queries the charmhub store for available charms or bundles.
+The find command queries the CharmHub store for available charms or bundles.
 
 Examples:
     juju find wordpress

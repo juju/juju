@@ -1989,8 +1989,8 @@
     },
     {
         "Name": "Application",
-        "Description": "APIv12 provides the Application API facade for version 12.\nIt adds the UnitsInfo method.",
-        "Version": 12,
+        "Description": "APIv13 provides the Application API facade for version 13.\nIt adds CharmOrigin.",
+        "Version": 13,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -2565,6 +2565,9 @@
                         "channel": {
                             "type": "string"
                         },
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
                         "charm-url": {
                             "type": "string"
                         },
@@ -3117,6 +3120,9 @@
                         "application": {
                             "type": "string"
                         },
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
                         "charm-url": {
                             "type": "string"
                         },
@@ -3174,6 +3180,31 @@
                     "additionalProperties": false,
                     "required": [
                         "applications"
+                    ]
+                },
+                "CharmOrigin": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "hash": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "source": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "source",
+                        "id"
                     ]
                 },
                 "CharmRelation": {
@@ -9488,7 +9519,7 @@
     },
     {
         "Name": "CharmHub",
-        "Description": "CharmHubAPI API provides the charmhub API facade for version 1.",
+        "Description": "CharmHubAPI API provides the CharmHub API facade for version 1.",
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",
@@ -9509,7 +9540,7 @@
                             "$ref": "#/definitions/CharmHubEntityFindResult"
                         }
                     },
-                    "description": "Find queries the charmhub API with a given entity ID."
+                    "description": "Find queries the CharmHub API with a given entity ID."
                 },
                 "Info": {
                     "type": "object",
@@ -9521,7 +9552,7 @@
                             "$ref": "#/definitions/CharmHubEntityInfoResult"
                         }
                     },
-                    "description": "Info queries the charmhub API with a given entity ID."
+                    "description": "Info queries the CharmHub API with a given entity ID."
                 }
             },
             "definitions": {

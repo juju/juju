@@ -95,6 +95,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 				c.Assert(args.Applications, gc.HasLen, 1)
 				app := args.Applications[0]
 				c.Assert(app.CharmURL, gc.Equals, "cs:trusty/a-charm-1")
+				c.Assert(app.CharmOrigin, gc.DeepEquals, &params.CharmOrigin{Source: "charm-store"})
 				c.Assert(app.ApplicationName, gc.Equals, "applicationA")
 				c.Assert(app.Series, gc.Equals, "series")
 				c.Assert(app.NumUnits, gc.Equals, 1)
@@ -118,6 +119,9 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 	args := application.DeployArgs{
 		CharmID: charmstore.CharmID{
 			URL: charm.MustParseURL("trusty/a-charm-1"),
+		},
+		CharmOrigin: application.CharmOrigin{
+			Source: "charm-store",
 		},
 		ApplicationName:  "applicationA",
 		Series:           "series",

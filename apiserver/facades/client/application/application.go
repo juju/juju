@@ -33,6 +33,7 @@ import (
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -100,6 +101,12 @@ type APIv11 struct {
 // APIv12 provides the Application API facade for version 12.
 // It adds the UnitsInfo method.
 type APIv12 struct {
+	*APIv13
+}
+
+// APIv13 provides the Application API facade for version 13.
+// It adds CharmOrigin.
+type APIv13 struct {
 	*APIBase
 }
 
@@ -207,11 +214,19 @@ func NewFacadeV11(ctx facade.Context) (*APIv11, error) {
 }
 
 func NewFacadeV12(ctx facade.Context) (*APIv12, error) {
-	api, err := newFacadeBase(ctx)
+	api, err := NewFacadeV13(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv12{api}, nil
+}
+
+func NewFacadeV13(ctx facade.Context) (*APIv13, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv13{api}, nil
 }
 
 type caasBrokerInterface interface {
@@ -392,6 +407,33 @@ func (api *APIv6) Deploy(args params.ApplicationsDeployV6) (params.ErrorResults,
 			Placement:        value.Placement,
 			Policy:           value.Policy,
 			Devices:          nil, // set Devices to nil because v6 and lower versions do not support it
+			Storage:          value.Storage,
+			AttachStorage:    value.AttachStorage,
+			EndpointBindings: value.EndpointBindings,
+			Resources:        value.Resources,
+		})
+	}
+	return api.APIBase.Deploy(newArgs)
+}
+
+// Deploy fetches the charms from the charm store and deploys them
+// using the specified placement directives.
+// V12 deploy did not CharmOrigin, so pass through an unknown source.
+func (api *APIv12) Deploy(args params.ApplicationsDeployV12) (params.ErrorResults, error) {
+	var newArgs params.ApplicationsDeploy
+	for _, value := range args.Applications {
+		newArgs.Applications = append(newArgs.Applications, params.ApplicationDeploy{
+			ApplicationName:  value.ApplicationName,
+			Series:           value.Series,
+			CharmURL:         value.CharmURL,
+			Channel:          value.Channel,
+			NumUnits:         value.NumUnits,
+			Config:           value.Config,
+			ConfigYAML:       value.ConfigYAML,
+			Constraints:      value.Constraints,
+			Placement:        value.Placement,
+			Policy:           value.Policy,
+			Devices:          value.Devices,
 			Storage:          value.Storage,
 			AttachStorage:    value.AttachStorage,
 			EndpointBindings: value.EndpointBindings,
@@ -730,10 +772,15 @@ func deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	origin, err := convertCharmOrigin(args.CharmOrigin, curl, args.Channel)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	_, err = deployApplicationFunc(backend, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Series:            args.Series,
 		Charm:             stateCharm(ch),
+		CharmOrigin:       origin,
 		Channel:           csparams.Channel(args.Channel),
 		NumUnits:          args.NumUnits,
 		ApplicationConfig: applicationConfig,
@@ -747,6 +794,41 @@ func deployApplication(
 		Resources:         args.Resources,
 	})
 	return errors.Trace(err)
+}
+
+func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreChannel string) (corecharm.Origin, error) {
+	switch {
+	case origin == nil || origin.Source == "" || origin.Source == "charm-store":
+		return corecharm.Origin{
+			Source:   corecharm.CharmStore,
+			Revision: &curl.Revision,
+			Channel: &corecharm.Channel{
+				Risk: corecharm.Risk(charmStoreChannel),
+			},
+		}, nil
+	case origin.Source == "local":
+		return corecharm.Origin{
+			Source:   corecharm.Local,
+			Revision: &curl.Revision,
+		}, nil
+	}
+
+	var channel *corecharm.Channel
+	if origin.Channel != nil {
+		ch, err := corecharm.ParseChannel(*origin.Channel)
+		if err != nil {
+			return corecharm.Origin{}, errors.Trace(err)
+		}
+		channel = &ch
+	}
+
+	return corecharm.Origin{
+		Source:   corecharm.Source(origin.Source),
+		ID:       origin.ID,
+		Hash:     origin.Hash,
+		Revision: origin.Revision,
+		Channel:  channel,
+	}, nil
 }
 
 // checkMachinePlacement does a non-exhaustive validation of any supplied

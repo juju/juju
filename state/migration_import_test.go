@@ -482,6 +482,7 @@ func setupMockOpenedPortRanges(c *gc.C, mID string) (*gomock.Controller, *mocks.
 func (s *MigrationImportSuite) setupSourceApplications(
 	c *gc.C, st *state.State, cons constraints.Value, primeStatusHistory bool,
 ) (*state.Charm, *state.Application, string) {
+	// Add a application with charm settings, app config, and leadership settings.
 	f := factory.NewFactory(st, s.StatePool)
 
 	testModel, err := st.Model()
@@ -498,6 +499,10 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	c.Assert(testCharm.Meta().Resources, gc.HasLen, 3)
 	application, pwd := f.MakeApplicationReturningPassword(c, &factory.ApplicationParams{
 		Charm: testCharm,
+		CharmOrigin: &state.CharmOrigin{
+			Source:   testCharm.URL().Schema,
+			Revision: &testCharm.URL().Revision,
+		},
 		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
@@ -542,6 +547,7 @@ func (s *MigrationImportSuite) assertImportedApplication(
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
 	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
+	c.Assert(imported.CharmOrigin(), jc.DeepEquals, exported.CharmOrigin())
 
 	exportedCharmConfig, err := exported.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)

@@ -66,7 +66,7 @@ func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
 	}
 	if contentType := resp.Header.Get("Content-Type"); contentType != "application/json" {
 		if potentialInvalidURL {
-			return nil, errors.Errorf(`unexpected charmhub url %q when parsing headers`, req.URL.String())
+			return nil, errors.Errorf(`unexpected charm-hub url %q when parsing headers`, req.URL.String())
 		}
 		return nil, errors.Errorf(`unexpected content-type from server %q`, contentType)
 	}
@@ -74,7 +74,7 @@ func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
 	var apiError transport.APIError
 	if err := json.Unmarshal(data, &apiError); err != nil {
 		if potentialInvalidURL {
-			return nil, errors.Errorf(`unexpected charmhub url %q when parsing response`, req.URL.String())
+			return nil, errors.Errorf(`unexpected charm-hub url %q when parsing response`, req.URL.String())
 		}
 		return nil, errors.Trace(err)
 	}
@@ -105,7 +105,7 @@ func NewHTTPRESTClient(transport Transport, headers http.Header) *HTTPRESTClient
 	}
 }
 
-// Get makes a GET request to the given path in the charmhub (not
+// Get makes a GET request to the given path in the CharmHub (not
 // including the host name or version prefix but including a leading /),
 // parsing the result as JSON into the given result value, which should
 // be a pointer to the expected data, but may be nil if no result is
@@ -128,7 +128,7 @@ func (c *HTTPRESTClient) Get(ctx context.Context, path path.Path, result interfa
 	return nil
 }
 
-// Post makes a POST request to the given path in the charmhub (not
+// Post makes a POST request to the given path in the CharmHub (not
 // including the host name or version prefix but including a leading /),
 // parsing the result as JSON into the given result value, which should
 // be a pointer to the expected data, but may be nil if no result is

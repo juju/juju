@@ -14,7 +14,7 @@ import (
 )
 
 // FindClient defines a client for querying information about a given charm or
-// bundle for a given charmhub store.
+// bundle for a given CharmHub store.
 type FindClient struct {
 	path   path.Path
 	client RESTClient

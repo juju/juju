@@ -38,11 +38,17 @@ func (s *steps29Suite) TestStoreDeployedUnitsInMachineAgentConf(c *gc.C) {
 }
 
 func (s *steps29Suite) TestAddCharmhubToModelConfig(c *gc.C) {
-	step := findStateStep(c, v290, "add charmhub-url to model config")
+	step := findStateStep(c, v290, "add charm-hub-url to model config")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
+
 func (s *steps29Suite) TestRollUpAndConvertOpenedPortDocuments(c *gc.C) {
 	step := findStateStep(c, v290, "roll up and convert opened port documents into the new endpoint-aware format")
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
+
+func (s *steps29Suite) TestAddCharmOriginToApplications(c *gc.C) {
+	step := findStateStep(c, v290, "add charm-origin to applications")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
 

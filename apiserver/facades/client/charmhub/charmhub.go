@@ -31,14 +31,14 @@ type ClientFactory interface {
 	Client(string) (Client, error)
 }
 
-// Client represents a charmhub Client for making queries to the charmhub API.
+// Client represents a CharmHub Client for making queries to the CharmHub API.
 type Client interface {
 	URL() string
 	Info(ctx context.Context, name string) (transport.InfoResponse, error)
 	Find(ctx context.Context, query string) ([]transport.FindResponse, error)
 }
 
-// CharmHubAPI API provides the charmhub API facade for version 1.
+// CharmHubAPI API provides the CharmHub API facade for version 1.
 type CharmHubAPI struct {
 	backend Backend
 	auth    facade.Authorizer
@@ -52,7 +52,7 @@ func NewFacade(ctx facade.Context) (*CharmHubAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return newCharmHubAPI(m, ctx.Auth(), charmhubClientFactory{})
+	return newCharmHubAPI(m, ctx.Auth(), charmHubClientFactory{})
 }
 
 func newCharmHubAPI(backend Backend, authorizer facade.Authorizer, clientFactory ClientFactory) (*CharmHubAPI, error) {
@@ -64,7 +64,7 @@ func newCharmHubAPI(backend Backend, authorizer facade.Authorizer, clientFactory
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	url, _ := modelCfg.CharmhubURL()
+	url, _ := modelCfg.CharmHubURL()
 	client, err := clientFactory.Client(url)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -76,7 +76,7 @@ func newCharmHubAPI(backend Backend, authorizer facade.Authorizer, clientFactory
 	}, nil
 }
 
-// Info queries the charmhub API with a given entity ID.
+// Info queries the CharmHub API with a given entity ID.
 func (api *CharmHubAPI) Info(arg params.Entity) (params.CharmHubEntityInfoResult, error) {
 	logger.Tracef("Info(%v)", arg.Tag)
 
@@ -93,7 +93,7 @@ func (api *CharmHubAPI) Info(arg params.Entity) (params.CharmHubEntityInfoResult
 	return params.CharmHubEntityInfoResult{Result: convertCharmInfoResult(info, api.client.URL())}, nil
 }
 
-// Find queries the charmhub API with a given entity ID.
+// Find queries the CharmHub API with a given entity ID.
 func (api *CharmHubAPI) Find(arg params.Query) (params.CharmHubEntityFindResult, error) {
 	logger.Tracef("Find(%v)", arg.Query)
 
@@ -105,10 +105,10 @@ func (api *CharmHubAPI) Find(arg params.Query) (params.CharmHubEntityFindResult,
 	return params.CharmHubEntityFindResult{Results: convertCharmFindResults(results, api.client.URL())}, nil
 }
 
-type charmhubClientFactory struct{}
+type charmHubClientFactory struct{}
 
-func (charmhubClientFactory) Client(url string) (Client, error) {
-	client, err := charmhub.NewClient(charmhub.CharmhubConfigFromURL(url))
+func (charmHubClientFactory) Client(url string) (Client, error) {
+	client, err := charmhub.NewClient(charmhub.CharmHubConfigFromURL(url))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
