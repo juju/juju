@@ -4369,6 +4369,102 @@ func (s *upgradesSuite) TestReplaceNeverSetWithUnset(c *gc.C) {
 	checkNoNeverSetAttribute()
 }
 
+func (s *upgradesSuite) TestResetDefaultRelationLimitInCharmMetadata(c *gc.C) {
+	col, closer := s.state.db().GetRawCollection(charmsC)
+	defer closer()
+
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	model3 := s.makeModel(c, "model-3", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+		_ = model3.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+	uuid3 := model3.ModelUUID()
+
+	// Setup charm metadata as it would appear when parsed by a 2.7
+	// controller (limit forced to 1 if not defined in the metadata).
+	err := col.Insert(
+		genCharmDocWithMetaAndRelationLimit(uuid1, 1),
+		genCharmDocWithMetaAndRelationLimit(uuid2, 1),
+		genCharmDocWithMetaAndRelationLimit(uuid3, 1),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		genCharmDocWithMetaAndRelationLimit(uuid1, 0),
+		genCharmDocWithMetaAndRelationLimit(uuid2, 0),
+		genCharmDocWithMetaAndRelationLimit(uuid3, 0),
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, ResetDefaultRelationLimitInCharmMetadata, upgradedData(col, expected))
+}
+
+func genCharmDocWithMetaAndRelationLimit(modelUUID string, relLimit int) bson.M {
+	return bson.M{
+		"_id":        modelUUID + ":cs:percona-cluster-290",
+		"model-uuid": modelUUID,
+		"meta": bson.M{
+			"name":        "percona-cluster",
+			"summary":     "",
+			"description": "",
+			"subordinate": false,
+			"provides": bson.M{
+				"db": bson.M{
+					"name":      "db",
+					"role":      "provider",
+					"interface": "mysql",
+					"optional":  false,
+					"limit":     42, // ensures that "provides" endpoints are not changed
+					"scope":     "global",
+				},
+				"master": bson.M{
+					"name":      "master",
+					"role":      "provider",
+					"interface": "mysql-async-replication",
+					"optional":  false,
+					"limit":     42, // ensures that "provides" endpoints are not changed
+					"scope":     "global",
+				},
+			},
+			"requires": bson.M{
+				"ha": bson.M{
+					"name":      "ha",
+					"role":      "requirer",
+					"interface": "hacluster",
+					"optional":  false,
+					"limit":     relLimit,
+					"scope":     "container",
+				},
+				"slave": bson.M{
+					"name":      "slave",
+					"role":      "requirer",
+					"interface": "mysql-async-replication",
+					"optional":  false,
+					"limit":     relLimit,
+					"scope":     "global",
+				},
+			},
+			"peers": bson.M{
+				"cluster": bson.M{
+					"name":      "cluster",
+					"role":      "peer",
+					"interface": "percona-cluster",
+					"optional":  false,
+					"limit":     relLimit,
+					"scope":     "global",
+				},
+			},
+		},
+	}
+
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }
