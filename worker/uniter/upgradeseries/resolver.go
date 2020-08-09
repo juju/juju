@@ -13,23 +13,33 @@ import (
 	"github.com/juju/juju/worker/uniter/resolver"
 )
 
-type upgradeSeriesResolver struct{}
+// Logger represents the logging methods used by this package.
+type Logger interface {
+	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
+}
+
+type upgradeSeriesResolver struct{ logger Logger }
 
 // NewResolver returns a new upgrade-series resolver.
-func NewResolver() resolver.Resolver {
-	return &upgradeSeriesResolver{}
+func NewResolver(logger Logger) resolver.Resolver {
+	return &upgradeSeriesResolver{logger}
 }
 
 // NextOp is defined on the Resolver interface.
-func (l *upgradeSeriesResolver) NextOp(
+func (r *upgradeSeriesResolver) NextOp(
 	localState resolver.LocalState, remoteState remotestate.Snapshot, opFactory operation.Factory,
 ) (operation.Operation, error) {
 	// If the unit has completed a pre-series-upgrade hook
 	// (as noted by its state) then the uniter should idle in the face of all
 	// remote state changes.
 	if remoteState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted {
+		r.logger.Debugf("remote state says all done")
 		return nil, resolver.ErrDoNotProceed
 	}
+
+	r.logger.Tracef("localState.Kind=%q, localState.UpgradeSeriesStatus=%q, remoteState.UpgradeSeriesStatus=%q",
+		localState.Kind, localState.UpgradeSeriesStatus, remoteState.UpgradeSeriesStatus)
 
 	if localState.Kind == operation.Continue {
 		if localState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted &&

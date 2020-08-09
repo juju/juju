@@ -271,6 +271,12 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 		return errors.Trace(err)
 	}
 
+	// If all the units are prepared, tell them to start.
+	prepared := names.NewSet(asGenericTags(w.preparedUnits)...)
+	if remaining := w.units.Difference(prepared); remaining.Size() == 0 {
+		return errors.Trace(w.StartUnitCompletion("start units after series upgrade"))
+	}
+
 	// If the units have all completed their workflow, then we are done.
 	// Make the final update to the lock to say the machine is completed.
 	if w.completedUnits, err = w.UnitsCompleted(); err != nil {

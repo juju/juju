@@ -465,7 +465,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				u.logger.Child("verifycharmprofile"),
 				u.modelType,
 			),
-			UpgradeSeries: upgradeseries.NewResolver(),
+			UpgradeSeries: upgradeseries.NewResolver(
+				u.logger.Child("upgradeseries"),
+			),
 			Leadership: uniterleadership.NewResolver(
 				u.logger.Child("leadership"),
 			),

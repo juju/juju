@@ -85,7 +85,7 @@ func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType) {
 		StartRetryHookTimer: func() { s.stub.AddCall("StartRetryHookTimer") },
 		StopRetryHookTimer:  func() { s.stub.AddCall("StopRetryHookTimer") },
 		ShouldRetryHooks:    true,
-		UpgradeSeries:       upgradeseries.NewResolver(),
+		UpgradeSeries:       upgradeseries.NewResolver(logger),
 		Leadership:          leadership.NewResolver(logger),
 		Actions:             uniteractions.NewResolver(logger),
 		VerifyCharmProfile:  verifycharmprofile.NewResolver(logger, modelType),
