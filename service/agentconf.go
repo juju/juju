@@ -55,8 +55,8 @@ type SystemdServiceManager interface {
 		machineAgent string, dataDir, toSeries, fromSeries string, jujuVersion version.Number,
 	) error
 
-	// WriteServiceFile writes the service files for machine and unit agents
-	// in the /etc/systemd/system path.
+	// WriteServiceFile writes the service file for machine agent in the
+	// /etc/systemd/system path.
 	WriteServiceFile() error
 }
 

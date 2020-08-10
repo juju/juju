@@ -34,7 +34,7 @@ func (r *upgradeSeriesResolver) NextOp(
 	// (as noted by its state) then the uniter should idle in the face of all
 	// remote state changes.
 	if remoteState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted {
-		r.logger.Debugf("remote state says all done")
+		r.logger.Debugf("unit prepared, waiting for complete request")
 		return nil, resolver.ErrDoNotProceed
 	}
 
