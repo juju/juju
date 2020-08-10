@@ -239,33 +239,33 @@ func (s *agentConfSuite) TestCopyAgentBinaryOriginalAgentBinariesNotFound(c *gc.
 	c.Assert(err, gc.ErrorMatches, "copying agent binaries: .* no such file or directory")
 }
 
-func (s *agentConfSuite) TestWriteSystemdAgents(c *gc.C) {
-	err := s.manager.WriteSystemdAgents(
+func (s *agentConfSuite) TestWriteSystemdAgent(c *gc.C) {
+	err := s.manager.WriteSystemdAgent(
 		s.machineName, s.systemdDataDir, s.systemdMultiUserDir)
 
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertServicesCalls(c, "WriteService", 1)
 }
 
-func (s *agentConfSuite) TestWriteSystemdAgentsSystemdNotRunning(c *gc.C) {
+func (s *agentConfSuite) TestWriteSystemdAgentSystemdNotRunning(c *gc.C) {
 	s.manager = service.NewServiceManager(
 		func() bool { return false },
 		s.newService,
 	)
 
-	err := s.manager.WriteSystemdAgents(
+	err := s.manager.WriteSystemdAgent(
 		s.machineName, s.systemdDataDir, s.systemdMultiUserDir)
 
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertServicesCalls(c, "WriteService", 1)
 }
 
-func (s *agentConfSuite) TestWriteSystemdAgentsDBusErrManualLink(c *gc.C) {
+func (s *agentConfSuite) TestWriteSystemdAgentDBusErrManualLink(c *gc.C) {
 	// nil errors are for calls to RemoveOldService.
 	err := errors.New("no such method 'LinkUnitFiles'")
 	s.services[0].SetErrors(nil, err)
 
-	err = s.manager.WriteSystemdAgents(
+	err = s.manager.WriteSystemdAgent(
 		s.machineName, s.systemdDataDir, s.systemdMultiUserDir)
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -275,11 +275,11 @@ func (s *agentConfSuite) TestWriteSystemdAgentsDBusErrManualLink(c *gc.C) {
 	s.assertServicesCalls(c, "WriteService", 1)
 }
 
-func (s *agentConfSuite) TestWriteSystemdAgentsWriteServiceFail(c *gc.C) {
+func (s *agentConfSuite) TestWriteSystemdAgentWriteServiceFail(c *gc.C) {
 	// Return an error for the machine agent.
 	s.services[0].SetErrors(nil, errors.New("fail me"))
 
-	err := s.manager.WriteSystemdAgents(
+	err := s.manager.WriteSystemdAgent(
 		s.machineName, s.systemdDataDir, s.systemdMultiUserDir)
 
 	c.Assert(err, gc.ErrorMatches, "fail me")
@@ -298,12 +298,10 @@ func (s *agentConfSuite) assertToolsCopySymlink(c *gc.C, series string) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(jujuTools.Version, gc.DeepEquals, ver)
 
-	for _, name := range append(s.unitNames, s.machineName) {
-		link := path.Join(s.dataDir, "tools", name)
-		linkResult, err := os.Readlink(link)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(linkResult, gc.Equals, path.Join(s.dataDir, "tools", ver.String()))
-	}
+	link := path.Join(s.dataDir, "tools", s.machineName)
+	linkResult, err := os.Readlink(link)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(linkResult, gc.Equals, path.Join(s.dataDir, "tools", ver.String()))
 }
 
 func (s *agentConfSuite) assertServicesCalls(c *gc.C, svc string, expectedCnt int) {
