@@ -2945,3 +2945,52 @@ func ReplaceNeverSetWithUnset(pool *StatePool) (err error) {
 		return errors.Trace(st.db().RunTransaction(ops))
 	}))
 }
+
+// ResetDefaultRelationLimitInCharmMetadata patches the persisted charm
+// metadata so that the limit attribute for each relation requirer/peer
+// endpoint is set to 0. The "provides" endpoints are left as-is.
+//
+// The charm metadata parser used in juju 2.7 (and before) would inject a limit
+// of 1 for each endpoint in the charm metadata (for requirer/peer relations)
+// when no limit was specified.  The limit was ignored prior to juju 2.8 so
+// this upgrade step allows us to reset the limit to prevent errors when
+// attempting to add new relations.
+//
+// Fixes LP1887095.
+func ResetDefaultRelationLimitInCharmMetadata(pool *StatePool) (err error) {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(charmsC)
+		defer closer()
+
+		var docs []charmDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, charmDoc := range docs {
+			for epName, rel := range charmDoc.Meta.Requires {
+				rel.Limit = 0
+				charmDoc.Meta.Requires[epName] = rel
+			}
+			for epName, rel := range charmDoc.Meta.Peers {
+				rel.Limit = 0
+				charmDoc.Meta.Peers[epName] = rel
+			}
+
+			ops = append(ops, txn.Op{
+				C:      charmsC,
+				Id:     charmDoc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.M{
+					"$set": bson.M{
+						"meta": charmDoc.Meta,
+					},
+				},
+			})
+		}
+
+		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}

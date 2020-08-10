@@ -22686,7 +22686,7 @@
                             "$ref": "#/definitions/SetMachineNetworkConfig"
                         }
                     },
-                    "description": "SetObservedNetworkConfig reads the network config for the machine identified\nby the input args. This config is merged with the new network config supplied\nin the same args and updated if it has changed."
+                    "description": "SetObservedNetworkConfig reads the network config for the machine\nidentified by the input args.\nThis config is merged with the new network config supplied in the\nsame args and updated if it has changed."
                 },
                 "SetStatus": {
                     "type": "object",
@@ -28451,7 +28451,7 @@
                             "$ref": "#/definitions/SetMachineNetworkConfig"
                         }
                     },
-                    "description": "SetObservedNetworkConfig reads the network config for the machine identified\nby the input args. This config is merged with the new network config supplied\nin the same args and updated if it has changed."
+                    "description": "SetObservedNetworkConfig reads the network config for the machine\nidentified by the input args.\nThis config is merged with the new network config supplied in the\nsame args and updated if it has changed."
                 },
                 "SetPasswords": {
                     "type": "object",
