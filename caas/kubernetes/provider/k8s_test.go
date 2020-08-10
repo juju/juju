@@ -2662,11 +2662,9 @@ func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) assertGetService(c *gc.C, mode caas.DeploymentMode, expectedSvcResult *caas.Service, assertCalls ...*gomock.Call) {
-	appName := "juju-operator-app-name"
 	labels := map[string]string{"juju-app": "app-name"}
 	selector := "juju-app=app-name"
 	if mode == caas.ModeOperator {
-		appName += "-operator"
 		labels = map[string]string{"juju-operator": "app-name"}
 		selector = "juju-operator=app-name"
 	}
@@ -6551,7 +6549,7 @@ func (s *K8sBrokerSuite) TestWatchContainerStartRegex(c *gc.C) {
 		},
 		Phase: core.PodPending,
 	}
-	evt, ok = filter(provider.WatchEventUpdate, copyPod(pod))
+	_, ok = filter(provider.WatchEventUpdate, copyPod(pod))
 	c.Assert(ok, jc.IsFalse)
 
 	select {

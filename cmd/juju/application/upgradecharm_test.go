@@ -108,7 +108,7 @@ func (s *BaseUpgradeCharmSuite) SetUpTest(c *gc.C) {
 		if s.resolvedChannel != "" {
 			preferredChannel = s.resolvedChannel
 		}
-		return s.resolvedCharmURL, s.resolvedChannel, []string{"quantal"}, nil
+		return s.resolvedCharmURL, preferredChannel, []string{"quantal"}, nil
 	}
 
 	currentCharmURL := charm.MustParseURL("cs:quantal/foo-1")

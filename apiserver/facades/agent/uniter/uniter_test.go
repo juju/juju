@@ -1256,6 +1256,7 @@ func (s *uniterSuite) TestWatchActionNotifications(c *gc.C) {
 	wc.AssertNoChange()
 
 	_, err = addedAction.Cancel()
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(addedAction.Id())
 	wc.AssertNoChange()
 }
@@ -3771,6 +3772,7 @@ func (s *uniterSuite) TestSetRawK8sSpec(c *gc.C) {
 	s.State = cm.State()
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
 	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
 
 	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
 	b.SetRawK8sSpec(app.ApplicationTag(), &rawK8sSpec)
@@ -3801,6 +3803,7 @@ func (s *uniterSuite) TestSetRawK8sSpecNil(c *gc.C) {
 	s.State = cm.State()
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
 	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
 
 	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
 	b.SetRawK8sSpec(app.ApplicationTag(), &rawK8sSpec)
@@ -3869,6 +3872,7 @@ func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
 	s.State = cm.State()
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
 	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
 
 	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
 	b.SetPodSpec(app.ApplicationTag(), &podSpec)
@@ -3895,6 +3899,7 @@ func (s *uniterSuite) TestSetPodSpecNil(c *gc.C) {
 	s.State = cm.State()
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
 	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
 
 	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
 	b.SetPodSpec(app.ApplicationTag(), &podSpec)
@@ -4995,6 +5000,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 
 	// Verify expected wordpress unit state
 	relUnit, err := relList[0].Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
 	relSettings, err := relUnit.Settings()
 	c.Assert(err, jc.ErrorIsNil)
 	expRelSettings := map[string]interface{}{
@@ -5597,6 +5603,7 @@ func (s *uniterV14Suite) TestWatchActionNotificationsLegacy(c *gc.C) {
 	wc.AssertNoChange()
 
 	_, err = addedAction.Cancel()
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
 

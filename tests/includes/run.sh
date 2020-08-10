@@ -14,12 +14,24 @@ run() {
   echo -n "===> [   ] Running: ${DESC}"
 
   START_TIME=$(date +%s)
-  set_verbosity
-  $CMD "$@" | OUTPUT "${TEST_DIR}/${TEST_CURRENT}.log"
+
+  # Prevent command from killing the script so we can capture its exit code
+  # AND output. Also, make sure to grab both STDOUT and STDERR. We should be
+  # using set -o pipefail here but that's unfortunately not supported by the shell.
+  set +e
+  cmd_output=$("${CMD}" "$@" 2>&1)
+  cmd_status=$?
+  echo "$cmd_output" | OUTPUT "${TEST_DIR}/${TEST_CURRENT}.log"
+
   set_verbosity
   END_TIME=$(date +%s)
 
-  echo "\r===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME-START_TIME))s)"
+  if [ "${cmd_status}" -eq 0 ]; then
+    echo -e "\r===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME-START_TIME))s)"
+  else
+    echo -e "\r===> [ $(red "x") ] Fail: ${DESC} ($((END_TIME-START_TIME))s)"
+    exit 1
+  fi
 }
 
 skip() {

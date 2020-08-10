@@ -412,6 +412,7 @@ func (s *builderSuite) fakeRequest(
 
 		// Check the namespace in raw spec has been reset from `ns-will-be-overwritten` to `test`.
 		ns, err := metadataAccessor.Namespace(reqObj)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ns, gc.DeepEquals, s.namespace)
 
 		c.Assert(req.URL.String(), gc.DeepEquals, expectedURL)

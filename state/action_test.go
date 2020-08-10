@@ -1485,7 +1485,7 @@ func (s *ActionPruningSuite) TestPruneOperationsBySizeOldestFirst(c *gc.C) {
 	}
 	c.Assert(len(youngerEntries), jc.GreaterThan, len(olderEntries))
 
-	ops, err = s.Model.AllOperations()
+	_, err = s.Model.AllOperations()
 	c.Assert(err, jc.ErrorIsNil)
 	olderEntries = nil
 	youngerEntries = nil

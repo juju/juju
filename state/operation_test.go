@@ -152,6 +152,7 @@ func (s *OperationSuite) setupOperations(c *gc.C) names.Tag {
 	anAction3, err := s.Model.EnqueueAction(operationID3, unit2.Tag(), "backup", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = anAction3.Begin()
+	c.Assert(err, jc.ErrorIsNil)
 
 	return unit.Tag()
 }

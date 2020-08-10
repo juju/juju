@@ -6,9 +6,12 @@
 
 package windows
 
-import "unsafe"
-import "syscall"
-import "golang.org/x/sys/windows"
+import (
+	"syscall"
+	"unsafe"
+
+	"golang.org/x/sys/windows"
+)
 
 var _ unsafe.Pointer
 
