@@ -201,9 +201,7 @@ func (s *workerSuite) expectMachineCompleteStartedUnitsPrepareCompleteUnitsStart
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesCompleteStarted, "waiting for units")
 	s.expectUnitsPrepared("wordpress/0", "mysql/0")
-	s.facade.EXPECT().UnitsCompleted().Return(nil, nil)
-	// I think we can get away without this call...
-	//	s.facade.EXPECT().StartUnitCompletion(gomock.Any()).Return(nil)
+	s.facade.EXPECT().StartUnitCompletion(gomock.Any()).Return(nil)
 }
 
 func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C) {

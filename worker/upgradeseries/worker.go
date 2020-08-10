@@ -273,7 +273,7 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 
 	// If all the units are prepared, tell them to start.
 	prepared := names.NewSet(asGenericTags(w.preparedUnits)...)
-	if remaining := w.units.Difference(prepared); remaining.Size() == 0 {
+	if remaining := w.units.Difference(prepared); remaining.Size() == 0 && len(w.units) > 0 {
 		return errors.Trace(w.StartUnitCompletion("start units after series upgrade"))
 	}
 
