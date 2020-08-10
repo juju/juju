@@ -342,6 +342,7 @@ func (s *UnitSuite) TestUnitStateDeleteState(c *gc.C) {
 
 	// Ensure state changed
 	uState, err := s.unit.State()
+	c.Assert(err, jc.ErrorIsNil)
 	st, _ := uState.CharmState()
 	c.Assert(st, gc.IsNil, gc.Commentf("expected to receive a nil map when no state doc is present"))
 
@@ -364,6 +365,7 @@ func (s *UnitSuite) TestUnitStateDeleteRelationState(c *gc.C) {
 
 	// Ensure state changed
 	uState, err := s.unit.State()
+	c.Assert(err, jc.ErrorIsNil)
 	st, _ := uState.RelationState()
 	c.Assert(st, gc.IsNil, gc.Commentf("expected to receive a nil map when no state doc is present"))
 

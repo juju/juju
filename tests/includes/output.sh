@@ -8,6 +8,7 @@ OUTPUT() {
         echo
     fi
 
+    # shellcheck disable=SC2162
     while read data; do
         # If there is no output, just dump straight to stdout.
         if [ -z "${output}" ]; then

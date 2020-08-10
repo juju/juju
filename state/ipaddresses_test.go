@@ -720,7 +720,7 @@ func (s *ipAddressesStateSuite) TestSetProviderIDOps(c *gc.C) {
 	c.Assert(addr.Origin(), gc.Equals, network.OriginProvider)
 
 	// No operations for setting the same ID.
-	addrs, err = dev.Addresses()
+	_, err = dev.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
 
 	ops, err = addr.SetProviderIDOps("p1")
@@ -782,6 +782,7 @@ func (s *ipAddressesStateSuite) TestUpdateOps(c *gc.C) {
 		Origin:         network.OriginMachine,
 		GatewayAddress: "0.1.2.0",
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	state.RunTransaction(c, s.State, ops)
 

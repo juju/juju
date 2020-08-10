@@ -90,7 +90,7 @@ rm -rf /var/lib/juju/raft/*
 echo "removing /var/run/juju/*"
 rm -rf /var/run/juju/*
 
-has_juju_db_snap=$(snap info juju-db | grep installed)
+has_juju_db_snap=$(snap info juju-db | grep installed:)
 if [ ! -z "$has_juju_db_snap" ]; then
   echo "removing juju-db snap and any persisted database data"
   snap remove --purge juju-db

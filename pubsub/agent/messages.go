@@ -40,7 +40,7 @@ type Units struct {
 // whether they were stopped, started, or not found.
 type StartStopResponse map[string]interface{}
 
-// Status is a map of unit name to the status value. An interace{} value is returned
+// Status is a map of unit name to the status value. An interface{} value is returned
 // to allow for simple expansion later. The output of the status is expected to just
 // show a nice string representation of the map.
 type Status map[string]interface{}
