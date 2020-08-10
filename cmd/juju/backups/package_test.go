@@ -140,6 +140,7 @@ func (s *BaseBackupsSuite) createCommandForGlobalOptionTesting(subcommand cmd.Co
 		Name:                "juju",
 		UserAliasesFilename: osenv.JujuXDGDataHomePath("aliases"),
 		FlagKnownAs:         "option",
+		Log:                 jujucmd.DefaultLog,
 	})
 	command.Register(subcommand)
 	return command

@@ -6,6 +6,8 @@ package jujuclient
 import (
 	"net/http"
 
+	"gopkg.in/macaroon.v2"
+
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
@@ -90,6 +92,11 @@ type AccountDetails struct {
 
 	// LastKnownAccess is the last known access level for the account.
 	LastKnownAccess string `yaml:"last-known-access,omitempty"`
+
+	// Macaroons, if set, are used for the account login.
+	// They are only set when using the MemStore implementation,
+	// and are used by embedded commands. The are not written to disk.
+	Macaroons []macaroon.Slice `yaml:"-"`
 }
 
 // BootstrapConfig holds the configuration used to bootstrap a controller.

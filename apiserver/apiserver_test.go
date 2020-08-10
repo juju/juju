@@ -4,8 +4,11 @@
 package apiserver_test
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -16,6 +19,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/clock"
+	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	jujuhttp "github.com/juju/http"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -30,11 +35,13 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/jujuclient"
 	psapiserver "github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
@@ -145,6 +152,30 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 			}))
 		},
 		MetricsCollector: apiserver.NewMetricsCollector(),
+		ExecEmbeddedCommand: func(ctx *cmd.Context, store jujuclient.ClientStore, whitelist []string, cmd string, args []string) {
+			allowed := set.NewStrings(whitelist...)
+			if !allowed.Contains(cmd) {
+				fmt.Fprintf(ctx.Stderr, "%q not allowed", cmd)
+				return
+			}
+			ctrl, err := store.CurrentController()
+			if err != nil {
+				fmt.Fprintf(ctx.Stderr, err.Error())
+				return
+			}
+			model, err := store.CurrentModel(ctrl)
+			if err != nil {
+				fmt.Fprintf(ctx.Stderr, err.Error())
+				return
+			}
+			ad, err := store.AccountDetails(ctrl)
+			if err != nil {
+				fmt.Fprintf(ctx.Stderr, err.Error())
+				return
+			}
+			cmdStr := fmt.Sprintf("%s@%s:%s -> %s", ad.User, ctrl, model, cmd)
+			fmt.Fprintf(ctx.Stdout, strings.Join(append([]string{cmdStr}, args...), " "))
+		},
 	}
 }
 
@@ -358,4 +389,61 @@ func (s *apiserverSuite) TestHealthStopping(c *gc.C) {
 			// Look again.
 		}
 	}
+}
+
+func (s *apiserverSuite) TestEmbeddedCommand(c *gc.C) {
+	cmdArgs := params.CLICommands{
+		ModelTag: s.Model.Tag().String(),
+		AuthTag:  "user-fred",
+		Commands: []params.CLICommandArgs{{
+			Command: "status",
+			Args:    []string{"--color"},
+		}},
+	}
+	s.assertEmbeddedCommand(c, cmdArgs, "fred@interactive:testmodel -> status --color", "")
+}
+
+func (s *apiserverSuite) TestEmbeddedCommandNotAllowed(c *gc.C) {
+	cmdArgs := params.CLICommands{
+		ModelTag: s.Model.Tag().String(),
+		AuthTag:  "user-fred",
+		Commands: []params.CLICommandArgs{{
+			Command: "bootstrap",
+			Args:    []string{"aws"},
+		}},
+	}
+	s.assertEmbeddedCommand(c, cmdArgs, `"bootstrap" not allowed`, "")
+}
+
+func (s *apiserverSuite) TestEmbeddedCommandMissingUser(c *gc.C) {
+	cmdArgs := params.CLICommands{
+		ModelTag: s.Model.Tag().String(),
+		Commands: []params.CLICommandArgs{{
+			Command: "status",
+			Args:    []string{"--color"},
+		}},
+	}
+	s.assertEmbeddedCommand(c, cmdArgs, "", `{"error":"CLI command for anonymous user not supported","error-code":"not supported"}`)
+}
+
+func (s *apiserverSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLICommands, expected, errTxt string) {
+	uri := s.server.URL + "/cli"
+	cmdData, err := json.Marshal(cmdArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+		Method: "POST", URL: uri, Body: bytes.NewBuffer(cmdData)})
+	body, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	if errTxt != "" {
+		c.Assert(string(body), gc.Equals, errTxt)
+		return
+	}
+	var result params.StringResults
+	err = json.Unmarshal(body, &result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{{
+			Result: expected,
+		}},
+	})
 }

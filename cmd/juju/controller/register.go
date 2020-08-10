@@ -125,6 +125,11 @@ func (c *registerCommand) Init(args []string) error {
 	return nil
 }
 
+// SetClientStore implements Command.SetClientStore.
+func (c *registerCommand) SetClientStore(store jujuclient.ClientStore) {
+	c.store = store
+}
+
 // Run implements Command.Run.
 func (c *registerCommand) Run(ctx *cmd.Context) error {
 	err := c.run(ctx)

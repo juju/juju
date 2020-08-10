@@ -66,6 +66,11 @@ func (c *listControllersCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
+// SetClientStore implements Command.SetClientStore.
+func (c *listControllersCommand) SetClientStore(store jujuclient.ClientStore) {
+	c.store = store
+}
+
 func (c *listControllersCommand) getAPI(controllerName string) (ControllerAccessAPI, error) {
 	if c.api != nil {
 		return c.api(controllerName), nil

@@ -122,7 +122,7 @@ func (c *replCommand) Run(ctx *cmd.Context) error {
 		loggo.ResetLogging()
 		_ = loggo.RegisterWriter(loggo.DefaultWriterName, defaultWriter)
 
-		jujuCmd := NewJujuCommand(ctx, "")
+		jujuCmd := NewJujuCommandWithStore(ctx, c.store, jujucmd.DefaultLog, "", nil, false)
 		if c.showHelp {
 			f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
 			f.SetOutput(ioutil.Discard)

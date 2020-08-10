@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/juju/clock"
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"github.com/juju/worker/v2"
@@ -17,11 +18,13 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
+	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
@@ -216,6 +219,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	execEmbeddedCommand := func(ctx *cmd.Context, store jujuclient.ClientStore, whitelist []string, cmdName string, args []string) int {
+		jujuCmd := commands.NewJujuCommandWithStore(ctx, store, nil, "", whitelist, true)
+		return cmd.Main(jujuCmd, ctx, append([]string{cmdName}, args...))
+	}
+
 	w, err := config.NewWorker(Config{
 		AgentConfig:                       agent.CurrentConfig(),
 		Clock:                             clock,
@@ -233,6 +241,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		GetAuditConfig:                    getAuditConfig,
 		NewServer:                         newServerShim,
 		MetricsCollector:                  metricsCollector,
+		EmbeddedCommand:                   execEmbeddedCommand,
 	})
 	if err != nil {
 		stTracker.Done()

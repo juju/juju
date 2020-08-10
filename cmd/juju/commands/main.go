@@ -23,6 +23,8 @@ import (
 	"github.com/juju/version"
 
 	// Import the providers.
+	_ "github.com/juju/juju/provider/all"
+
 	cloudfile "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
@@ -54,7 +56,6 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
@@ -245,12 +246,20 @@ func juju2xConfigDataExists() bool {
 	return err == nil
 }
 
-// NewJujuCommand ...
+// NewJujuCommand creates the "juju" super command.
 func NewJujuCommand(ctx *cmd.Context, jujuMsg string) cmd.Command {
+	return NewJujuCommandWithStore(ctx, jujuclient.NewFileClientStore(), jujucmd.DefaultLog, jujuMsg, nil, false)
+}
+
+// NewJujuCommandWithStore creates the "juju" super command with the specified parameters.
+func NewJujuCommandWithStore(
+	ctx *cmd.Context, store jujuclient.ClientStore, log *cmd.Log, jujuMsg string, whitelist []string, embedded bool,
+) cmd.Command {
 	var jcmd *cmd.SuperCommand
 	jcmd = jujucmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "juju",
 		Doc:  jujuDoc,
+		Log:  log,
 		MissingCallback: RunPlugin(func(ctx *cmd.Context, subcommand string, args []string) error {
 			if cmdName, _, ok := jcmd.FindClosestSubCommand(subcommand); ok {
 				return &NotFoundCommand{
@@ -268,7 +277,13 @@ func NewJujuCommand(ctx *cmd.Context, jujuMsg string) cmd.Command {
 			}
 		},
 	})
-	registerCommands(jcmd, ctx)
+	jujuRegistry := jujuCommandRegistry{
+		store:           store,
+		commandRegistry: jcmd,
+		whitelist:       set.NewStrings(whitelist...),
+		embedded:        embedded,
+	}
+	registerCommands(jujuRegistry)
 	return jcmd
 }
 
@@ -288,6 +303,39 @@ func (c NotFoundCommand) Error() string {
 	return fmt.Sprintf(notFoundCommandMessage, c.ArgName, c.CmdName)
 }
 
+type supportsEmbedded interface {
+	SetEmbedded(bool)
+}
+
+type hasClientStore interface {
+	SetClientStore(store jujuclient.ClientStore)
+}
+
+type jujuCommandRegistry struct {
+	commandRegistry
+
+	store     jujuclient.ClientStore
+	whitelist set.Strings
+	embedded  bool
+}
+
+// Register adds a command to the registry so it can be used.
+func (r jujuCommandRegistry) Register(c cmd.Command) {
+	if r.whitelist.Size() > 0 && !r.whitelist.Contains(c.Info().Name) {
+		logger.Tracef("command %q not allowed", c.Info().Name)
+		return
+	}
+	if se, ok := c.(supportsEmbedded); ok {
+		se.SetEmbedded(r.embedded)
+	} else {
+		logger.Tracef("command %q is not embeddable", c.Info().Name)
+	}
+	if csc, ok := c.(hasClientStore); ok {
+		csc.SetClientStore(r.store)
+	}
+	r.commandRegistry.Register(c)
+}
+
 type commandRegistry interface {
 	Register(cmd.Command)
 	RegisterSuperAlias(name, super, forName string, check cmd.DeprecationCheck)
@@ -298,7 +346,12 @@ type commandRegistry interface {
 // registry that can be passed to the supercommand separately.
 
 // registerCommands registers commands in the specified registry.
-func registerCommands(r commandRegistry, ctx *cmd.Context) {
+func registerCommands(r commandRegistry) {
+	// NOTE:
+	// When adding a new command here, consider if the command should also
+	// be whitelisted for being enabled as an embedded command accessible to
+	// the GUI Dashboard.
+	// Update allowedEmbeddedCommands in apiserver.go
 	r.Register(newVersionCommand())
 	// Creation commands.
 	r.Register(newBootstrapCommand())

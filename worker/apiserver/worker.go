@@ -44,6 +44,7 @@ type Config struct {
 	GetAuditConfig                    func() auditlog.Config
 	NewServer                         NewServerFunc
 	MetricsCollector                  *apiserver.Collector
+	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 }
 
 // NewServerFunc is the type of function that will be used
@@ -149,6 +150,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		LogSinkConfig:                 &logSinkConfig,
 		GetAuditConfig:                config.GetAuditConfig,
 		LeaseManager:                  config.LeaseManager,
+		ExecEmbeddedCommand:           config.EmbeddedCommand,
 	}
 	return config.NewServer(serverConfig)
 }

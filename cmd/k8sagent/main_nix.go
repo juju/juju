@@ -98,6 +98,7 @@ func k8sAgentCommand(ctx *cmd.Context) (cmd.Command, error) {
 	k8sAgent := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "k8sAgent",
 		Doc:  k8sAgentDoc,
+		Log:  jujucmd.DefaultLog,
 	})
 	k8sAgent.Log.NewWriter = func(target io.Writer) loggo.Writer {
 		return &k8sAgentLogWriter{target: target}

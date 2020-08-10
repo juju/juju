@@ -5,8 +5,10 @@ package apiserver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -36,6 +38,7 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/controller"
@@ -85,6 +88,7 @@ type Server struct {
 	restoreStatus          func() state.RestoreStatus
 	mux                    *apiserverhttp.Mux
 	metricsCollector       *Collector
+	execEmbeddedCommand    ExecEmbeddedCommandFunc
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -190,6 +194,9 @@ type ServerConfig struct {
 	// MetricsCollector defines all the metrics to be collected for the
 	// apiserver
 	MetricsCollector *Collector
+
+	// ExecEmbeddedCommand is a function which creates an embedded Juju CLI instance.
+	ExecEmbeddedCommand ExecEmbeddedCommandFunc
 }
 
 // Validate validates the API server configuration.
@@ -313,7 +320,8 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
 			dbLoggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
 		},
-		metricsCollector: cfg.MetricsCollector,
+		metricsCollector:    cfg.MetricsCollector,
+		execEmbeddedCommand: cfg.ExecEmbeddedCommand,
 
 		healthStatus: "starting",
 	}
@@ -584,6 +592,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	mainAPIHandler := http.HandlerFunc(srv.apiHandler)
 	healthHandler := http.HandlerFunc(srv.healthHandler)
 	logStreamHandler := newLogStreamEndpointHandler(httpCtxt)
+	embeddedCLIHandler := http.HandlerFunc(srv.embeddedCLIHandler)
 	debugLogHandler := newDebugLogDBHandler(
 		httpCtxt, srv.authenticator,
 		tagKindAuthorizer{names.MachineTagKind, names.ControllerAgentTagKind, names.UserTagKind, names.ApplicationTagKind})
@@ -781,6 +790,11 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		pattern:         "/api",
 		handler:         mainAPIHandler,
 		tracked:         true,
+		unauthenticated: true,
+		noModelUUID:     true,
+	}, {
+		pattern:         "/cli",
+		handler:         embeddedCLIHandler,
 		unauthenticated: true,
 		noModelUUID:     true,
 	}, {
@@ -1014,4 +1028,48 @@ func serverError(err error) error {
 func (srv *Server) GetAuditConfig() auditlog.Config {
 	// Delegates to the getter passed in.
 	return srv.getAuditConfig()
+}
+
+func (srv *Server) embeddedCLIHandler(w http.ResponseWriter, req *http.Request) {
+	var err error
+	var result params.StringResults
+	defer func() {
+		if err == nil {
+			err = sendStatusAndJSON(w, http.StatusOK, result)
+		}
+		if err != nil {
+			if err := sendJSONError(w, req, errors.Trace(err)); err != nil {
+				logger.Errorf("%v", errors.Annotate(err, "cannot return error to user"))
+			}
+		}
+	}()
+
+	switch req.Method {
+	case "POST":
+		if srv.execEmbeddedCommand == nil {
+			err = errors.NotSupportedf("running embedded commands")
+			return
+		}
+	default:
+		err = emitUnsupportedMethodErr(req.Method)
+		return
+	}
+
+	srv.metricsCollector.TotalConnections.Inc()
+	gauge := srv.metricsCollector.APIConnections.WithLabelValues("cli")
+	gauge.Inc()
+	defer gauge.Dec()
+
+	var data []byte
+	data, err = ioutil.ReadAll(req.Body)
+	if err != nil {
+		return
+	}
+
+	var commands params.CLICommands
+	err = json.Unmarshal(data, &commands)
+	if err != nil {
+		return
+	}
+	result, err = srv.runCLICommands(commands)
 }

@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
-	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
@@ -33,7 +32,6 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -55,6 +53,7 @@ func helpText(command cmd.Command, name string) string {
 	superJuju := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:        "juju",
 		FlagKnownAs: "option",
+		Log:         jujucmd.DefaultLog,
 	})
 	superF := gnuflag.NewFlagSetWithFlagKnownAs("juju", gnuflag.ContinueOnError, "option")
 	superJuju.SetFlags(superF)
@@ -805,7 +804,7 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 
 	registry := &stubRegistry{stub: stub}
 	registry.names = append(registry.names, "help") // implicit
-	registerCommands(registry, cmdtesting.Context(c))
+	registerCommands(registry)
 	sort.Strings(registry.names)
 
 	expected := make([]string, len(commandNames))
@@ -816,6 +815,36 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 	}
 	sort.Strings(expected)
 	c.Check(registry.names, jc.DeepEquals, expected)
+}
+
+func (s *MainSuite) TestRegisterCommandsWhitelist(c *gc.C) {
+	stubRegistry := &stubRegistry{stub: &gitjujutesting.Stub{}}
+	registry := jujuCommandRegistry{
+		commandRegistry: stubRegistry,
+		whitelist:       set.NewStrings("show-status"),
+	}
+	registerCommands(registry)
+	c.Assert(stubRegistry.names, jc.SameContents, []string{"show-status", "status"})
+}
+
+func (s *MainSuite) TestRegisterCommandsEmbedded(c *gc.C) {
+	store := jujuclienttesting.MinimalStore()
+	stubRegistry := &stubRegistry{stub: &gitjujutesting.Stub{}}
+	registry := jujuCommandRegistry{
+		commandRegistry: stubRegistry,
+		embedded:        true,
+		store:           store,
+	}
+	stubCmd := &stubCommand{
+		stub: &gitjujutesting.Stub{},
+		info: &cmd.Info{
+			Name: "test",
+		},
+	}
+	registry.Register(stubCmd)
+	c.Assert(stubRegistry.names, jc.SameContents, []string{"test"})
+	c.Assert(stubCmd.Embedded, jc.IsTrue)
+	c.Assert(stubCmd.ClientStore(), jc.DeepEquals, store)
 }
 
 type commands []cmd.Command
@@ -836,7 +865,7 @@ func (r *commands) RegisterSuperAlias(name, super, forName string, check cmd.Dep
 
 func (s *MainSuite) TestModelCommands(c *gc.C) {
 	var commands commands
-	registerCommands(&commands, cmdtesting.Context(c))
+	registerCommands(&commands)
 	// There should not be any ModelCommands registered.
 	// ModelCommands must be wrapped using modelcmd.Wrap.
 	for _, command := range commands {
@@ -859,7 +888,7 @@ func (s *MainSuite) TestAllCommandsPurpose(c *gc.C) {
 	// - Makes the Doc content either start like a sentence, or start
 	//   godoc-like by using the command's name in lowercase.
 	var commands commands
-	registerCommands(&commands, cmdtesting.Context(c))
+	registerCommands(&commands)
 	for _, command := range commands {
 		info := command.Info()
 		purpose := strings.TrimSpace(info.Purpose)

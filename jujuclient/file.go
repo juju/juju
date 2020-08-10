@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"time"
 
 	"github.com/juju/clock"
@@ -682,7 +683,7 @@ func (s *store) UpdateAccount(controllerName string, details AccountDetails) err
 	if accounts == nil {
 		accounts = make(map[string]AccountDetails)
 	}
-	if oldDetails, ok := accounts[controllerName]; ok && details == oldDetails {
+	if oldDetails, ok := accounts[controllerName]; ok && reflect.DeepEqual(details, oldDetails) {
 		return nil
 	} else {
 		// Only update last known access if it has a value.

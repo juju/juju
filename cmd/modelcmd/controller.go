@@ -408,14 +408,22 @@ type OptionalControllerCommand struct {
 	ReadOnly bool
 }
 
+// SetClientStore sets the client store to use.
+func (c *OptionalControllerCommand) SetClientStore(store jujuclient.ClientStore) {
+	c.Store = store
+}
+
 // SetFlags initializes the flags supported by the command.
 func (c *OptionalControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.Client, "client", false, "Client operation")
-	f.StringVar(&c.ControllerName, "c", "", "Controller to operate in")
-	f.StringVar(&c.ControllerName, "controller", "", "")
-	// TODO (juju3) remove me
-	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client): Local operation only; controller not affected")
+	// Embedded commands do not use the --client or --controller options.
+	if !c.Embedded {
+		f.BoolVar(&c.Client, "client", false, "Client operation")
+		f.StringVar(&c.ControllerName, "c", "", "Controller to operate in")
+		f.StringVar(&c.ControllerName, "controller", "", "")
+		// TODO (juju3) remove me
+		f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client): Local operation only; controller not affected")
+	}
 }
 
 // Init populates the command with the args from the command line.

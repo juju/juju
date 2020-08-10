@@ -248,6 +248,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	jujud := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "jujud",
 		Doc:  jujudDoc,
+		Log:  jujucmd.DefaultLog,
 		// p.Version should be a version.Binary, but juju/cmd does not
 		// import juju/juju/version so this cannot happen. We have
 		// tests to assert that this string value is correct.

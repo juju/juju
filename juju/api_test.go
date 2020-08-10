@@ -15,6 +15,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
@@ -163,6 +164,27 @@ func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 	st, err := newAPIConnectionFromNames(c, "noconfig", "", store, panicAPIOpen)
 	c.Assert(err, gc.ErrorMatches, "no API addresses")
 	c.Assert(st, gc.IsNil)
+}
+
+func (s *NewAPIClientSuite) TestWithMacaroons(c *gc.C) {
+	store := newClientStore(c, "withmac")
+	mac, err := apitesting.NewMacaroon("id")
+	c.Assert(err, jc.ErrorIsNil)
+	err = store.UpdateAccount("withmac", jujuclient.AccountDetails{
+		User:      "admin",
+		Password:  "",
+		Macaroons: []macaroon.Slice{{mac}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	ad, err := store.AccountDetails("withmac")
+	c.Assert(err, jc.ErrorIsNil)
+	info, _, err := juju.ConnectionInfo(juju.NewAPIConnectionParams{
+		ControllerName: "withmac",
+		Store:          store,
+		AccountDetails: ad,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.Macaroons, gc.DeepEquals, []macaroon.Slice{{mac}})
 }
 
 func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
