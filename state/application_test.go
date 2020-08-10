@@ -4562,6 +4562,7 @@ func (s *CAASApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	err = mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 	// App not removed since cluster resources not cleaned up yet.
 	assertLife(c, mysql, state.Dead)
 

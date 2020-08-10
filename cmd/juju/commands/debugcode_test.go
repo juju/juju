@@ -41,12 +41,14 @@ func (s *DebugCodeSuite) TestArgFormatting(c *gc.C) {
 	c.Check(strings.HasSuffix(rawContent, suffix), jc.IsTrue)
 	b64content := rawContent[len(prefix) : len(rawContent)-len(suffix)]
 	scriptContent, err := base64.StdEncoding.DecodeString(b64content)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(scriptContent), gc.Not(gc.Equals), "")
 	// Inside the script is another base64 encoded string telling us the debug-hook args
 	debugArgsRegex := regexp.MustCompile(`echo "([A-Z-a-z0-9+/]+=*)" \| base64.*-debug-hooks`)
 	debugArgsCommand := debugArgsRegex.FindString(string(scriptContent))
 	debugArgsB64 := debugArgsCommand[len(`echo "`):strings.Index(debugArgsCommand, `" | base64`)]
 	yamlContent, err := base64.StdEncoding.DecodeString(debugArgsB64)
+	c.Assert(err, jc.ErrorIsNil)
 	var args map[string]interface{}
 	err = goyaml.Unmarshal(yamlContent, &args)
 	c.Assert(err, jc.ErrorIsNil)

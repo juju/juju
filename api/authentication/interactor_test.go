@@ -140,6 +140,7 @@ func (s *InteractorSuite) TestInteractErrorResult(c *gc.C) {
 		URL: s.server.URL,
 	}
 	infoData, err := json.Marshal(info)
+	c.Assert(err, jc.ErrorIsNil)
 	msgData := json.RawMessage(infoData)
 	_, err = v.Interact(context.TODO(), s.client, "", &httpbakery.Error{
 		Code: httpbakery.ErrInteractionRequired,
