@@ -19,6 +19,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
@@ -33,6 +34,20 @@ import (
 
 func operatorLabels(appName string) map[string]string {
 	return map[string]string{constants.LabelOperator: appName}
+}
+
+// GetOperatorPodName returns operator pod name for an application.
+func GetOperatorPodName(api typedcorev1.PodInterface, appName string) (string, error) {
+	podsList, err := api.List(context.TODO(), v1.ListOptions{
+		LabelSelector: operatorSelector(appName),
+	})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(podsList.Items) == 0 {
+		return "", errors.NotFoundf("operator pod for application %q", appName)
+	}
+	return podsList.Items[0].GetName(), nil
 }
 
 func (k *kubernetesClient) deleteOperatorRBACResources(appName string) error {

@@ -1193,3 +1193,32 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminatedMostly(c *gc.C) {
 		Terminating: true,
 	})
 }
+
+func (s *K8sBrokerSuite) TestGetOperatorPodName(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockPods.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-operator=mariadb-k8s"}).AnyTimes().
+			Return(&core.PodList{Items: []core.Pod{
+				{ObjectMeta: v1.ObjectMeta{Name: "mariadb-k8s-operator-0"}},
+			}}, nil),
+	)
+
+	name, err := provider.GetOperatorPodName(s.mockPods, "mariadb-k8s")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, jc.DeepEquals, `mariadb-k8s-operator-0`)
+}
+
+func (s *K8sBrokerSuite) TestGetOperatorPodNameNotFound(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockPods.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-operator=mariadb-k8s"}).AnyTimes().
+			Return(&core.PodList{Items: []core.Pod{}}, nil),
+	)
+
+	_, err := provider.GetOperatorPodName(s.mockPods, "mariadb-k8s")
+	c.Assert(err, gc.ErrorMatches, `operator pod for application "mariadb-k8s" not found`)
+}

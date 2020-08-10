@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"os"
 	"strings"
 	"syscall"
 	"time"
@@ -60,6 +59,8 @@ type Executor interface {
 	Status(params StatusParams) (*Status, error)
 	Exec(params ExecParams, cancel <-chan struct{}) error
 	Copy(params CopyParams, cancel <-chan struct{}) error
+	RawClient() kubernetes.Interface
+	NameSpace() string
 }
 
 // NewInCluster returns a in-cluster exec client.
@@ -174,6 +175,16 @@ func (ep *ExecParams) validate(podGetter typedcorev1.PodInterface) (err error) {
 	return nil
 }
 
+// RawClient returns raw the k8s clientset.
+func (c client) RawClient() kubernetes.Interface {
+	return c.clientset
+}
+
+// NameSpace returns current namespace.
+func (c client) NameSpace() string {
+	return c.namespace
+}
+
 // Exec runs commands on a pod in the cluster.
 func (c client) Exec(params ExecParams, cancel <-chan struct{}) error {
 	if err := params.validate(c.podGetter); err != nil {
@@ -196,24 +207,29 @@ func processEnv(env []string) (string, error) {
 	return out, nil
 }
 
-func (c client) safe(opts ExecParams, executor remotecommand.Executor) (err error) {
+func (c client) safeRun(opts ExecParams, executor remotecommand.Executor) (err error) {
+	streamOptions := remotecommand.StreamOptions{
+		Stdin:  opts.Stdin,
+		Stdout: opts.Stdout,
+		Stderr: opts.Stderr,
+		Tty:    opts.TTY,
+	}
+
 	if opts.TTY {
-		var inFd int
-		if file, ok := opts.Stdin.(*os.File); ok {
-			inFd = int(file.Fd())
-		}
+		inFd := getFdInfo(opts.Stdin)
 		oldState, err := terminal.MakeRaw(inFd)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		defer func() { err = terminal.Restore(inFd, oldState) }()
+
+		if sizeQ := newSizeQueue(); sizeQ != nil {
+			sizeQ.watch(getFdInfo(opts.Stdout))
+			defer sizeQ.stop()
+			streamOptions.TerminalSizeQueue = sizeQ
+		}
 	}
-	return executor.Stream(remotecommand.StreamOptions{
-		Stdin:  opts.Stdin,
-		Stdout: opts.Stdout,
-		Stderr: opts.Stderr,
-		Tty:    opts.TTY,
-	})
+	return executor.Stream(streamOptions)
 }
 
 func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
@@ -258,7 +274,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- c.safe(opts, executor)
+		errChan <- c.safeRun(opts, executor)
 	}()
 
 	sendSignal := func(sig syscall.Signal, group bool) error {
