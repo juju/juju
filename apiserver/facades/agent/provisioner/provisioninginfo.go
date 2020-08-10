@@ -510,7 +510,11 @@ func (api *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs
 		pName := lxdprofile.Name(api.m.Name(), app.Name(), ch.Revision())
 		// Lock here, we get a new env for every call to ProvisioningInfo().
 		api.mu.Lock()
-		if err := profileEnv.MaybeWriteLXDProfile(pName, profile); err != nil {
+		if err := profileEnv.MaybeWriteLXDProfile(pName, lxdprofile.Profile{
+			Description: profile.Description,
+			Config:      profile.Config,
+			Devices:     profile.Devices,
+		}); err != nil {
 			api.mu.Unlock()
 			return nil, errors.Trace(err)
 		}

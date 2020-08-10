@@ -8,7 +8,6 @@ import (
 	"net"
 	"path/filepath"
 
-	"github.com/juju/charm/v7"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -245,7 +245,7 @@ func (m *fakeContainerManager) IsInitialized() bool {
 	return true
 }
 
-func (m *fakeContainerManager) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+func (m *fakeContainerManager) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) error {
 	m.MethodCall(m, "MaybeWriteLXDProfile")
 	return m.NextErr()
 }

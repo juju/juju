@@ -8,7 +8,6 @@ import (
 	stdtesting "testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v7"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -523,7 +522,7 @@ func (s *managerSuite) TestMaybeWriteLXDProfile(c *gc.C) {
 	proMgr, ok := s.manager.(container.LXDProfileManager)
 	c.Assert(ok, jc.IsTrue)
 
-	put := charm.LXDProfile{
+	put := lxdprofile.Profile{
 		Config: map[string]string{
 			"security.nesting":    "true",
 			"security.privileged": "true",
@@ -545,7 +544,7 @@ func (s *managerSuite) TestMaybeWriteLXDProfile(c *gc.C) {
 	expProfile := lxdapi.Profile{ProfilePut: lxdapi.ProfilePut(put)}
 	s.cSvr.EXPECT().GetProfile(post.Name).Return(&expProfile, "etag", nil)
 
-	err := proMgr.MaybeWriteLXDProfile("juju-default-lxd-0", &put)
+	err := proMgr.MaybeWriteLXDProfile("juju-default-lxd-0", put)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

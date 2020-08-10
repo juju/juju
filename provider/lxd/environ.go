@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/lxc/lxd/shared/api"
 
@@ -349,7 +348,7 @@ func (env *environ) DeriveAvailabilityZones(
 // removed, maybe change to take an lxdprofile.ProfilePost as
 // an arg.
 // MaybeWriteLXDProfile implements environs.LXDProfiler.
-func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+func (env *environ) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) error {
 	env.profileMutex.Lock()
 	defer env.profileMutex.Unlock()
 	server := env.server()
@@ -363,8 +362,12 @@ func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) er
 	}
 	logger.Debugf("attempting to write lxd profile %q %+v", pName, put)
 	post := api.ProfilesPost{
-		Name:       pName,
-		ProfilePut: api.ProfilePut(*put),
+		Name: pName,
+		ProfilePut: api.ProfilePut{
+			Description: put.Description,
+			Config:      put.Config,
+			Devices:     put.Devices,
+		},
 	}
 	if err = server.CreateProfile(post); err != nil {
 		return errors.Trace(err)
@@ -397,12 +400,12 @@ func (env *environ) LXDProfileNames(containerName string) ([]string, error) {
 }
 
 // AssignLXDProfiles implements environs.LXDProfiler.
-func (env *environ) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
+func (env *environ) AssignLXDProfiles(instID string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
 	report := func(err error) ([]string, error) {
 		// Always return the current profiles assigned to the instance.
-		currentProfiles, err2 := env.LXDProfileNames(instId)
+		currentProfiles, err2 := env.LXDProfileNames(instID)
 		if err != nil && err2 != nil {
-			logger.Errorf("retrieving profile names for %q: %s", instId, err2)
+			logger.Errorf("retrieving profile names for %q: %s", instID, err2)
 		}
 		return currentProfiles, err
 	}
@@ -412,8 +415,7 @@ func (env *environ) AssignLXDProfiles(instId string, profilesNames []string, pro
 	var deleteProfiles []string
 	for _, p := range profilePosts {
 		if p.Profile != nil {
-			pr := charm.LXDProfile(*p.Profile)
-			if err := env.MaybeWriteLXDProfile(p.Name, &pr); err != nil {
+			if err := env.MaybeWriteLXDProfile(p.Name, *p.Profile); err != nil {
 				return report(err)
 			}
 		} else {
@@ -422,7 +424,7 @@ func (env *environ) AssignLXDProfiles(instId string, profilesNames []string, pro
 	}
 
 	server := env.server()
-	if err := server.UpdateContainerProfiles(instId, profilesNames); err != nil {
+	if err := server.UpdateContainerProfiles(instID, profilesNames); err != nil {
 		return report(errors.Trace(err))
 	}
 

@@ -4,8 +4,6 @@
 package container
 
 import (
-	"github.com/juju/charm/v7"
-
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -86,11 +84,11 @@ type LXDProfileManager interface {
 	// AssignLXDProfiles assigns the given profile names to the lxd instance
 	// provided.  The slice of ProfilePosts provides details for adding to
 	// and removing profiles from the lxd server.
-	AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) ([]string, error)
+	AssignLXDProfiles(instID string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) ([]string, error)
 
 	// MaybeWriteLXDProfile, write given LXDProfile to machine if not already
 	// there.
-	MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error
+	MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) error
 }
 
 // LXDProfileNameRetriever defines an interface for dealing with lxd profile
