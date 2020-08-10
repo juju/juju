@@ -6,8 +6,10 @@
 
 package windows
 
-import "unsafe"
-import "syscall"
+import (
+	"syscall"
+	"unsafe"
+)
 
 var (
 	modnetapi32 = syscall.NewLazyDLL("netapi32.dll")

@@ -199,7 +199,7 @@ func (ing K8sIngressSpec) Validate() error {
 type KubernetesResourcesV2 struct {
 	Pod *PodSpec `json:"pod,omitempty" yaml:"pod,omitempty"`
 
-	Secrets                   []K8sSecret                                                     `json:"secrets" yaml:"secrets"`
+	Secrets                   []K8sSecret                                                  `json:"secrets" yaml:"secrets"`
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"customResourceDefinitions,omitempty" yaml:"customResourceDefinitions,omitempty"`
 	CustomResources           map[string][]unstructured.Unstructured                       `json:"customResources,omitempty" yaml:"customResources,omitempty"`
 
