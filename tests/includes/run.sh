@@ -21,7 +21,7 @@ run() {
   set +e
   cmd_output=$("${CMD}" "$@" 2>&1)
   cmd_status=$?
-  echo "$cmd_output" | OUTPUT "${TEST_DIR}/${TEST_CURRENT}.log"
+  echo -e "$cmd_output" | OUTPUT "${TEST_DIR}/${TEST_CURRENT}.log"
 
   set_verbosity
   END_TIME=$(date +%s)
