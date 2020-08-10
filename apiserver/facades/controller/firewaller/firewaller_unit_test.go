@@ -204,11 +204,11 @@ func (s *OpenedMachinePortsSuite) TestOpenedMachinePortRanges(c *gc.C) {
 		}},
 	}
 	s.st.applicationEndpointBindings = map[string]map[string]string{
-		"mysql": map[string]string{
+		"mysql": {
 			"":    network.AlphaSpaceId,
 			"foo": "42",
 		},
-		"wordpress": map[string]string{
+		"wordpress": {
 			"":           network.AlphaSpaceId,
 			"monitoring": network.AlphaSpaceId,
 			"web":        "42",
@@ -235,10 +235,10 @@ func (s *OpenedMachinePortsSuite) TestOpenedMachinePortRanges(c *gc.C) {
 			PortRangeGroups: map[string][]params.PortRange{
 				// The subnet CIDRs for space "42" that "foo"
 				// is bound to.
-				"192.168.0.0/24": []params.PortRange{
+				"192.168.0.0/24": {
 					params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
 				},
-				"192.168.1.0/24": []params.PortRange{
+				"192.168.1.0/24": {
 					params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
 				},
 			},
@@ -249,16 +249,16 @@ func (s *OpenedMachinePortsSuite) TestOpenedMachinePortRanges(c *gc.C) {
 				// Wordpress has opened port 80 to
 				// all bound spaces (alpha and 42). We should
 				// get an entry in each subnet
-				"10.0.0.0/24": []params.PortRange{
+				"10.0.0.0/24": {
 					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
 				},
-				"10.0.1.0/24": []params.PortRange{
+				"10.0.1.0/24": {
 					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
 				},
-				"192.168.0.0/24": []params.PortRange{
+				"192.168.0.0/24": {
 					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
 				},
-				"192.168.1.0/24": []params.PortRange{
+				"192.168.1.0/24": {
 					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
 				},
 			},

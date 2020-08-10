@@ -204,9 +204,9 @@ func (s *spaceSuite) TestMoveSubnets(c *gc.C) {
 func (s *spaceSuite) TestSubnetCIDRsBySpaceID(c *gc.C) {
 	res := s.spaces.SubnetCIDRsBySpaceID()
 	c.Assert(res, gc.DeepEquals, map[string][]string{
-		"1": []string{"10.0.0.0/24"},
-		"2": []string{"10.0.1.0/24"},
-		"3": []string{"10.0.2.0/24"},
+		"1": {"10.0.0.0/24"},
+		"2": {"10.0.1.0/24"},
+		"3": {"10.0.2.0/24"},
 	})
 }
 

@@ -3450,14 +3450,14 @@ func (s *uniterSuite) TestOpenedMachinePortRanges(c *gc.C) {
 		{
 			UnitTag: "unit-mysql-1",
 			PortRangeGroups: map[string][]params.PortRange{
-				"server": []params.PortRange{params.PortRange{3306, 3306, "tcp"}},
+				"server": {{3306, 3306, "tcp"}},
 			},
 		},
 		{
 			UnitTag: "unit-wordpress-0",
 			PortRangeGroups: map[string][]params.PortRange{
-				"":                []params.PortRange{params.PortRange{100, 200, "tcp"}},
-				"monitoring-port": []params.PortRange{params.PortRange{10, 20, "udp"}},
+				"":                {{100, 200, "tcp"}},
+				"monitoring-port": {{10, 20, "udp"}},
 			},
 		},
 	}

@@ -201,10 +201,10 @@ func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
 						PortRangeGroups: map[string][]params.PortRange{
 							// The subnet CIDRs for space "42" that "foo"
 							// is bound to.
-							"192.168.0.0/24": []params.PortRange{
+							"192.168.0.0/24": {
 								params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
 							},
-							"192.168.1.0/24": []params.PortRange{
+							"192.168.1.0/24": {
 								params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
 							},
 						},
@@ -215,16 +215,16 @@ func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
 							// Wordpress has opened port 80 to
 							// all bound spaces (alpha and 42). We should
 							// get an entry in each subnet
-							"10.0.0.0/24": []params.PortRange{
+							"10.0.0.0/24": {
 								params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
 							},
-							"10.0.1.0/24": []params.PortRange{
+							"10.0.1.0/24": {
 								params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
 							},
-							"192.168.0.0/24": []params.PortRange{
+							"192.168.0.0/24": {
 								params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
 							},
-							"192.168.1.0/24": []params.PortRange{
+							"192.168.1.0/24": {
 								params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
 							},
 						},
@@ -268,7 +268,7 @@ func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
 	portsRangesByCIDR, err := mach.OpenedMachinePortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(portsRangesByCIDR, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
-		names.NewUnitTag("mysql/0"): network.GroupedPortRanges{
+		names.NewUnitTag("mysql/0"): {
 			"192.168.0.0/24": []network.PortRange{
 				network.MustParsePortRange("3306/tcp"),
 			},
@@ -276,7 +276,7 @@ func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
 				network.MustParsePortRange("3306/tcp"),
 			},
 		},
-		names.NewUnitTag("wordpress/0"): network.GroupedPortRanges{
+		names.NewUnitTag("wordpress/0"): {
 			"10.0.0.0/24": []network.PortRange{
 				network.MustParsePortRange("80/tcp"),
 			},

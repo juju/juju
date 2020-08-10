@@ -361,7 +361,7 @@ func (MachinePortsOpsSuite) TestValidatePendingChanges(c *gc.C) {
 				"foo": set.NewStrings("dmz"),
 			},
 			pendingOpen: map[string]network.GroupedPortRanges{
-				"foo/0": network.GroupedPortRanges{
+				"foo/0": {
 					"dmz":     []network.PortRange{network.MustParsePortRange("1337/tcp")},
 					"unknown": []network.PortRange{network.MustParsePortRange("8080/tcp")},
 				},
@@ -374,12 +374,12 @@ func (MachinePortsOpsSuite) TestValidatePendingChanges(c *gc.C) {
 				"foo": set.NewStrings("dmz"),
 			},
 			pendingOpen: map[string]network.GroupedPortRanges{
-				"foo/0": network.GroupedPortRanges{
+				"foo/0": {
 					"dmz": []network.PortRange{network.MustParsePortRange("1337/tcp")},
 				},
 			},
 			pendingClose: map[string]network.GroupedPortRanges{
-				"foo/0": network.GroupedPortRanges{
+				"foo/0": {
 					"dmz":     []network.PortRange{network.MustParsePortRange("1337/tcp")},
 					"unknown": []network.PortRange{network.MustParsePortRange("8080/tcp")},
 				},
@@ -392,12 +392,12 @@ func (MachinePortsOpsSuite) TestValidatePendingChanges(c *gc.C) {
 				"foo": set.NewStrings("dmz"),
 			},
 			pendingOpen: map[string]network.GroupedPortRanges{
-				"foo/0": network.GroupedPortRanges{
+				"foo/0": {
 					"dmz": []network.PortRange{network.MustParsePortRange("1337/tcp")},
 				},
 			},
 			pendingClose: map[string]network.GroupedPortRanges{
-				"foo/0": network.GroupedPortRanges{
+				"foo/0": {
 					"dmz": []network.PortRange{network.MustParsePortRange("1337/tcp")},
 				},
 			},
