@@ -390,3 +390,41 @@ func (p *PortRangeSuite) TestSanitizeBounds(c *gc.C) {
 		c.Check(t.input.SanitizeBounds(), jc.DeepEquals, t.output)
 	}
 }
+
+func (p *PortRangeSuite) TestUniquePortRanges(c *gc.C) {
+	in := []network.PortRange{
+		network.MustParsePortRange("123/tcp"),
+		network.MustParsePortRange("123/tcp"),
+		network.MustParsePortRange("123/tcp"),
+		network.MustParsePortRange("456/tcp"),
+	}
+
+	exp := []network.PortRange{
+		network.MustParsePortRange("123/tcp"),
+		network.MustParsePortRange("456/tcp"),
+	}
+
+	got := network.UniquePortRanges(in)
+	c.Assert(got, gc.DeepEquals, exp, gc.Commentf("expected duplicate port ranges to be removed"))
+}
+
+func (p *PortRangeSuite) TestUniquePortRangesInGroup(c *gc.C) {
+	in := network.GroupedPortRanges{
+		"foxtrot": []network.PortRange{
+			network.MustParsePortRange("123/tcp"),
+			network.MustParsePortRange("123/tcp"),
+		},
+		"unicorn": []network.PortRange{
+			network.MustParsePortRange("123/tcp"),
+			network.MustParsePortRange("456/tcp"),
+		},
+	}
+
+	exp := []network.PortRange{
+		network.MustParsePortRange("123/tcp"),
+		network.MustParsePortRange("456/tcp"),
+	}
+
+	got := in.UniquePortRanges()
+	c.Assert(got, gc.DeepEquals, exp, gc.Commentf("expected duplicate port ranges to be removed"))
+}

@@ -359,28 +359,16 @@ func (aw *SrvAllWatcher) mapRangesIntoPorts(portRanges []params.PortRange) []par
 	return result
 }
 
-// translatePortRanges flattens a set of port ranges grouped by subnet ID into
+// translatePortRanges flattens a set of port ranges grouped by endpoint into
 // a list of unique port ranges. This method ignores subnet IDs and is provided
 // for backwards compatibility with pre 2.9 clients that assume that open-ports
 // applies to all subnets.
-func (aw *SrvAllWatcher) translatePortRanges(portsBySubnet map[string][]network.PortRange) []params.PortRange {
-	if portsBySubnet == nil {
+func (aw *SrvAllWatcher) translatePortRanges(portsByEndpoint network.GroupedPortRanges) []params.PortRange {
+	if portsByEndpoint == nil {
 		return nil
 	}
 
-	var (
-		processed        = make(map[network.PortRange]struct{})
-		uniquePortRanges []network.PortRange
-	)
-	for _, openedInSubnet := range portsBySubnet {
-		for _, pr := range openedInSubnet {
-			if _, seen := processed[pr]; seen {
-				continue
-			}
-			processed[pr] = struct{}{}
-			uniquePortRanges = append(uniquePortRanges, pr)
-		}
-	}
+	uniquePortRanges := portsByEndpoint.UniquePortRanges()
 	network.SortPortRanges(uniquePortRanges)
 
 	result := make([]params.PortRange, len(uniquePortRanges))

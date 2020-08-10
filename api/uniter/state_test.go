@@ -112,12 +112,12 @@ func (s *stateSuite) TestOpenedMachinePortRanges(c *gc.C) {
 
 	portRangesMap, err := client.OpenedMachinePortRanges(names.NewMachineTag("42"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(portRangesMap, jc.DeepEquals, map[names.UnitTag]map[string][]network.PortRange{
-		names.NewUnitTag("mysql/0"): map[string][]network.PortRange{
+	c.Assert(portRangesMap, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
+		names.NewUnitTag("mysql/0"): network.GroupedPortRanges{
 			"":       []network.PortRange{network.MustParsePortRange("100-200/tcp")},
 			"server": []network.PortRange{network.MustParsePortRange("3306/tcp")},
 		},
-		names.NewUnitTag("wordpress/0"): map[string][]network.PortRange{
+		names.NewUnitTag("wordpress/0"): network.GroupedPortRanges{
 			"monitoring-port": []network.PortRange{network.MustParsePortRange("1337/udp")},
 		},
 	})

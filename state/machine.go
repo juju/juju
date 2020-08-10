@@ -1609,21 +1609,6 @@ func (m *Machine) AddressesBySpaceID() (map[string][]corenetwork.SpaceAddress, e
 	return res, nil
 }
 
-// SubnetsBySpaceID resolves the subnet assignments for each space the machine
-// is associated with and returns them back as a map where keys are space IDs
-// and each value is a slice of subnet IDs assigned to a particular space.
-func (m *Machine) SubnetsBySpaceID() (map[string][]string, error) {
-	res := make(map[string][]string)
-	err := m.visitAddressesInSpaces(func(subnet *Subnet, address *Address) {
-		spaceID := subnet.SpaceID()
-		res[spaceID] = append(res[spaceID], subnet.ID())
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return res, nil
-}
-
 // visitAddressesInSpaces invokes visitFn for each non-loopback machine address
 // that is assigned to a space.
 func (m *Machine) visitAddressesInSpaces(visitFn func(subnet *Subnet, address *Address)) error {

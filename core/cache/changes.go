@@ -157,7 +157,7 @@ type UnitChange struct {
 	PublicAddress            string
 	PrivateAddress           string
 	MachineId                string
-	OpenPortRangesByEndpoint map[string][]network.PortRange
+	OpenPortRangesByEndpoint network.GroupedPortRanges
 	Principal                string
 	Subordinate              bool
 
@@ -168,7 +168,7 @@ type UnitChange struct {
 
 // copy returns a deep copy of the UnitChange.
 func (u UnitChange) copy() UnitChange {
-	u.OpenPortRangesByEndpoint = copyPortRangeMap(u.OpenPortRangesByEndpoint)
+	u.OpenPortRangesByEndpoint = u.OpenPortRangesByEndpoint.Clone()
 	u.Annotations = copyStringMap(u.Annotations)
 	u.WorkloadStatus = copyStatusInfo(u.WorkloadStatus)
 	u.AgentStatus = copyStatusInfo(u.AgentStatus)
@@ -391,18 +391,6 @@ func copyStringMap(data map[string]string) map[string]string {
 		for i, d := range data {
 			cData[i] = d
 		}
-	}
-	return cData
-}
-
-func copyPortRangeMap(data map[string][]network.PortRange) map[string][]network.PortRange {
-	if data == nil {
-		return nil
-	}
-
-	cData := make(map[string][]network.PortRange, len(data))
-	for i, d := range data {
-		cData[i] = append([]network.PortRange(nil), d...)
 	}
 	return cData
 }

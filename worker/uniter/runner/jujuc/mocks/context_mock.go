@@ -5,6 +5,9 @@
 package mocks
 
 import (
+	reflect "reflect"
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v7"
 	params "github.com/juju/juju/apiserver/params"
@@ -12,8 +15,6 @@ import (
 	network "github.com/juju/juju/core/network"
 	jujuc "github.com/juju/juju/worker/uniter/runner/jujuc"
 	names "github.com/juju/names/v4"
-	reflect "reflect"
-	time "time"
 )
 
 // MockContext is a mock of Context interface
@@ -378,10 +379,10 @@ func (mr *MockContextMockRecorder) OpenPortRange(arg0, arg1 interface{}) *gomock
 }
 
 // OpenedPortRanges mocks base method
-func (m *MockContext) OpenedPortRanges() map[string][]network.PortRange {
+func (m *MockContext) OpenedPortRanges() network.GroupedPortRanges {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenedPortRanges")
-	ret0, _ := ret[0].(map[string][]network.PortRange)
+	ret0, _ := ret[0].(network.GroupedPortRanges)
 	return ret0
 }
 

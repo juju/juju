@@ -20,7 +20,7 @@ var _ = gc.Suite(&MachinePortsOpsSuite{})
 
 func (MachinePortsOpsSuite) TestPruneOpenPorts(c *gc.C) {
 	op := &openClosePortRangesOperation{
-		updatedUnitPortRanges: map[string]unitPortRangesDoc{
+		updatedUnitPortRanges: map[string]network.GroupedPortRanges{
 			"enigma/0": {
 				"": []network.PortRange{
 					network.MustParsePortRange("1234-1337/tcp"),
@@ -42,7 +42,7 @@ func (MachinePortsOpsSuite) TestPruneOpenPorts(c *gc.C) {
 	modified := op.pruneOpenPorts()
 	c.Assert(modified, jc.IsTrue, gc.Commentf("expected pruneOpenPorts to modify the port list"))
 
-	exp := map[string]unitPortRangesDoc{
+	exp := map[string]network.GroupedPortRanges{
 		"enigma/0": {
 			"": []network.PortRange{
 				network.MustParsePortRange("1234-1337/tcp"),
@@ -59,7 +59,7 @@ func (MachinePortsOpsSuite) TestPruneOpenPorts(c *gc.C) {
 
 func (MachinePortsOpsSuite) TestPruneEmptySections(c *gc.C) {
 	op := &openClosePortRangesOperation{
-		updatedUnitPortRanges: map[string]unitPortRangesDoc{
+		updatedUnitPortRanges: map[string]network.GroupedPortRanges{
 			"enigma/0": {
 				"": []network.PortRange{
 					network.MustParsePortRange("1234-1337/tcp"),
@@ -82,7 +82,7 @@ func (MachinePortsOpsSuite) TestPruneEmptySections(c *gc.C) {
 	modified := op.pruneEmptySections()
 	c.Assert(modified, jc.IsTrue, gc.Commentf("expected pruneEmptySections to modify the port list"))
 
-	exp := map[string]unitPortRangesDoc{
+	exp := map[string]network.GroupedPortRanges{
 		"enigma/0": {
 			"": []network.PortRange{
 				network.MustParsePortRange("1234-1337/tcp"),
@@ -98,7 +98,7 @@ func (MachinePortsOpsSuite) TestMergePendingOpenPortRangesConflict(c *gc.C) {
 	op := &openClosePortRangesOperation{
 		mpr: &machinePortRanges{
 			doc: machinePortRangesDoc{
-				UnitRanges: map[string]unitPortRangesDoc{
+				UnitRanges: map[string]network.GroupedPortRanges{
 					"enigma/0": {
 						"": []network.PortRange{
 							network.MustParsePortRange("1234-1337/tcp"),
@@ -108,7 +108,7 @@ func (MachinePortsOpsSuite) TestMergePendingOpenPortRangesConflict(c *gc.C) {
 					},
 				},
 			},
-			pendingOpenRanges: map[string]unitPortRangesDoc{
+			pendingOpenRanges: map[string]network.GroupedPortRanges{
 				"enigma/1": {
 					"tea": []network.PortRange{
 						network.MustParsePortRange("1242/tcp"),
@@ -128,24 +128,24 @@ func (MachinePortsOpsSuite) TestMergePendingOpenPortRangesConflict(c *gc.C) {
 func (MachinePortsOpsSuite) TestMergePendingOpenPortRangeDupHandling(c *gc.C) {
 	specs := []struct {
 		descr       string
-		existing    map[string]unitPortRangesDoc
-		pendingOpen map[string]unitPortRangesDoc
-		exp         map[string]unitPortRangesDoc
+		existing    map[string]network.GroupedPortRanges
+		pendingOpen map[string]network.GroupedPortRanges
+		exp         map[string]network.GroupedPortRanges
 		expModified bool
 	}{
 		{
 			descr: "port range already opened by the unit for all endpoints",
-			existing: map[string]unitPortRangesDoc{
+			existing: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					"": []network.PortRange{network.MustParsePortRange("8080/tcp")},
 				},
 			},
-			pendingOpen: map[string]unitPortRangesDoc{
+			pendingOpen: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					"sky": []network.PortRange{network.MustParsePortRange("8080/tcp")},
 				},
 			},
-			exp: map[string]unitPortRangesDoc{
+			exp: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					"": []network.PortRange{network.MustParsePortRange("8080/tcp")},
 				},
@@ -154,17 +154,17 @@ func (MachinePortsOpsSuite) TestMergePendingOpenPortRangeDupHandling(c *gc.C) {
 		},
 		{
 			descr: "port range already opened by the unit for same endpoint",
-			existing: map[string]unitPortRangesDoc{
+			existing: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					"sky": []network.PortRange{network.MustParsePortRange("8080/tcp")},
 				},
 			},
-			pendingOpen: map[string]unitPortRangesDoc{
+			pendingOpen: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					"sky": []network.PortRange{network.MustParsePortRange("8080/tcp")},
 				},
 			},
-			exp: map[string]unitPortRangesDoc{
+			exp: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					"sky": []network.PortRange{network.MustParsePortRange("8080/tcp")},
 				},
@@ -173,17 +173,17 @@ func (MachinePortsOpsSuite) TestMergePendingOpenPortRangeDupHandling(c *gc.C) {
 		},
 		{
 			descr: "port range already opened by the unit for other endpoint",
-			existing: map[string]unitPortRangesDoc{
+			existing: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					"sky": []network.PortRange{network.MustParsePortRange("8080/tcp")},
 				},
 			},
-			pendingOpen: map[string]unitPortRangesDoc{
+			pendingOpen: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					"sea": []network.PortRange{network.MustParsePortRange("8080/tcp")},
 				},
 			},
-			exp: map[string]unitPortRangesDoc{
+			exp: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					"sky": []network.PortRange{network.MustParsePortRange("8080/tcp")},
 					"sea": []network.PortRange{network.MustParsePortRange("8080/tcp")},
@@ -217,14 +217,14 @@ func (MachinePortsOpsSuite) TestMergePendingClosePortRanges(c *gc.C) {
 	specs := []struct {
 		descr              string
 		endpointNamesByApp map[string]set.Strings
-		existing           map[string]unitPortRangesDoc
-		pendingClose       map[string]unitPortRangesDoc
-		exp                map[string]unitPortRangesDoc
+		existing           map[string]network.GroupedPortRanges
+		pendingClose       map[string]network.GroupedPortRanges
+		exp                map[string]network.GroupedPortRanges
 		expModified        bool
 	}{
 		{
 			descr: "port range opened by the unit for same endpoint",
-			existing: map[string]unitPortRangesDoc{
+			existing: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					"lava": []network.PortRange{
 						network.MustParsePortRange("8080/tcp"),
@@ -232,12 +232,12 @@ func (MachinePortsOpsSuite) TestMergePendingClosePortRanges(c *gc.C) {
 					},
 				},
 			},
-			pendingClose: map[string]unitPortRangesDoc{
+			pendingClose: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					"lava": []network.PortRange{network.MustParsePortRange("8080/tcp")},
 				},
 			},
-			exp: map[string]unitPortRangesDoc{
+			exp: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					"lava": []network.PortRange{network.MustParsePortRange("9999/tcp")},
 				},
@@ -246,17 +246,17 @@ func (MachinePortsOpsSuite) TestMergePendingClosePortRanges(c *gc.C) {
 		},
 		{
 			descr: "port range opened by the unit for another endpoint",
-			existing: map[string]unitPortRangesDoc{
+			existing: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					"lava": []network.PortRange{network.MustParsePortRange("8080/tcp")},
 				},
 			},
-			pendingClose: map[string]unitPortRangesDoc{
+			pendingClose: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					"volcano": []network.PortRange{network.MustParsePortRange("8080/tcp")},
 				},
 			},
-			exp: map[string]unitPortRangesDoc{
+			exp: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					// Close request is a no-op
 					"lava": []network.PortRange{network.MustParsePortRange("8080/tcp")},
@@ -269,7 +269,7 @@ func (MachinePortsOpsSuite) TestMergePendingClosePortRanges(c *gc.C) {
 			endpointNamesByApp: map[string]set.Strings{
 				"enigma": set.NewStrings("volcano", "lava", "sea"),
 			},
-			existing: map[string]unitPortRangesDoc{
+			existing: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					"": []network.PortRange{
 						network.MustParsePortRange("7337/tcp"),
@@ -277,12 +277,12 @@ func (MachinePortsOpsSuite) TestMergePendingClosePortRanges(c *gc.C) {
 					},
 				},
 			},
-			pendingClose: map[string]unitPortRangesDoc{
+			pendingClose: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					"lava": []network.PortRange{network.MustParsePortRange("8080/tcp")},
 				},
 			},
-			exp: map[string]unitPortRangesDoc{
+			exp: map[string]network.GroupedPortRanges{
 				"enigma/0": {
 					// range removed from wildcard and replaced with
 					// entries for the all _other_ known endpoints
@@ -320,7 +320,7 @@ func (MachinePortsOpsSuite) TestMergePendingClosePortRangesConflict(c *gc.C) {
 	op := &openClosePortRangesOperation{
 		mpr: &machinePortRanges{
 			doc: machinePortRangesDoc{
-				UnitRanges: map[string]unitPortRangesDoc{
+				UnitRanges: map[string]network.GroupedPortRanges{
 					"enigma/0": {
 						"": []network.PortRange{
 							network.MustParsePortRange("1234-1337/tcp"),
@@ -330,7 +330,7 @@ func (MachinePortsOpsSuite) TestMergePendingClosePortRangesConflict(c *gc.C) {
 					},
 				},
 			},
-			pendingCloseRanges: map[string]unitPortRangesDoc{
+			pendingCloseRanges: map[string]network.GroupedPortRanges{
 				"codebreaker/0": {
 					"tea": []network.PortRange{
 						network.MustParsePortRange("1242/tcp"),
@@ -351,8 +351,8 @@ func (MachinePortsOpsSuite) TestValidatePendingChanges(c *gc.C) {
 	specs := []struct {
 		descr              string
 		endpointNamesByApp map[string]set.Strings
-		pendingOpen        map[string]unitPortRangesDoc
-		pendingClose       map[string]unitPortRangesDoc
+		pendingOpen        map[string]network.GroupedPortRanges
+		pendingClose       map[string]network.GroupedPortRanges
 		expErr             string
 	}{
 		{
@@ -360,8 +360,8 @@ func (MachinePortsOpsSuite) TestValidatePendingChanges(c *gc.C) {
 			endpointNamesByApp: map[string]set.Strings{
 				"foo": set.NewStrings("dmz"),
 			},
-			pendingOpen: map[string]unitPortRangesDoc{
-				"foo/0": unitPortRangesDoc{
+			pendingOpen: map[string]network.GroupedPortRanges{
+				"foo/0": network.GroupedPortRanges{
 					"dmz":     []network.PortRange{network.MustParsePortRange("1337/tcp")},
 					"unknown": []network.PortRange{network.MustParsePortRange("8080/tcp")},
 				},
@@ -373,13 +373,13 @@ func (MachinePortsOpsSuite) TestValidatePendingChanges(c *gc.C) {
 			endpointNamesByApp: map[string]set.Strings{
 				"foo": set.NewStrings("dmz"),
 			},
-			pendingOpen: map[string]unitPortRangesDoc{
-				"foo/0": unitPortRangesDoc{
+			pendingOpen: map[string]network.GroupedPortRanges{
+				"foo/0": network.GroupedPortRanges{
 					"dmz": []network.PortRange{network.MustParsePortRange("1337/tcp")},
 				},
 			},
-			pendingClose: map[string]unitPortRangesDoc{
-				"foo/0": unitPortRangesDoc{
+			pendingClose: map[string]network.GroupedPortRanges{
+				"foo/0": network.GroupedPortRanges{
 					"dmz":     []network.PortRange{network.MustParsePortRange("1337/tcp")},
 					"unknown": []network.PortRange{network.MustParsePortRange("8080/tcp")},
 				},
@@ -391,13 +391,13 @@ func (MachinePortsOpsSuite) TestValidatePendingChanges(c *gc.C) {
 			endpointNamesByApp: map[string]set.Strings{
 				"foo": set.NewStrings("dmz"),
 			},
-			pendingOpen: map[string]unitPortRangesDoc{
-				"foo/0": unitPortRangesDoc{
+			pendingOpen: map[string]network.GroupedPortRanges{
+				"foo/0": network.GroupedPortRanges{
 					"dmz": []network.PortRange{network.MustParsePortRange("1337/tcp")},
 				},
 			},
-			pendingClose: map[string]unitPortRangesDoc{
-				"foo/0": unitPortRangesDoc{
+			pendingClose: map[string]network.GroupedPortRanges{
+				"foo/0": network.GroupedPortRanges{
 					"dmz": []network.PortRange{network.MustParsePortRange("1337/tcp")},
 				},
 			},

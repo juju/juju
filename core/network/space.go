@@ -292,6 +292,18 @@ func (s SpaceInfos) InferSpaceFromCIDRAndSubnetID(cidr, providerSubnetID string)
 		nil, fmt.Sprintf("unable to infer space for CIDR %q and provider subnet ID %q", cidr, providerSubnetID))
 }
 
+// SubnetCIDRsBySpaceID returns the set of known subnet CIDRs grouped by the
+// space ID they belong to.
+func (s SpaceInfos) SubnetCIDRsBySpaceID() map[string][]string {
+	res := make(map[string][]string)
+	for _, space := range s {
+		for _, sub := range space.Subnets {
+			res[space.ID] = append(res[space.ID], sub.CIDR)
+		}
+	}
+	return res
+}
+
 var (
 	invalidSpaceNameChars = regexp.MustCompile("[^0-9a-z-]")
 	dashPrefix            = regexp.MustCompile("^-*")
