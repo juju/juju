@@ -297,9 +297,9 @@ func (m MutaterMachine) gatherProfileData(info *instancemutater.UnitProfileInfo)
 	return result, nil
 }
 
-func (m MutaterMachine) verifyCurrentProfiles(instId string, expectedProfiles []string) (bool, error) {
+func (m MutaterMachine) verifyCurrentProfiles(instID string, expectedProfiles []string) (bool, error) {
 	broker := m.context.getBroker()
-	obtainedProfiles, err := broker.LXDProfileNames(instId)
+	obtainedProfiles, err := broker.LXDProfileNames(instID)
 	if err != nil {
 		return false, err
 	}

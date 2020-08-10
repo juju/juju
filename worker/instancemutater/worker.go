@@ -57,7 +57,7 @@ type Config struct {
 	// or a container broker.
 	GetMachineWatcher func() (watcher.StringsWatcher, error)
 
-	// GetRequiredLXPprofiles provides a slice of strings representing the
+	// GetRequiredLXDProfiles provides a slice of strings representing the
 	// lxd profiles to be included on every LXD machine used given the
 	// current model name.
 	GetRequiredLXDProfiles RequiredLXDProfilesFunc
@@ -226,7 +226,7 @@ func (w *mutaterWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// Stop stops the instancemutaterworker and returns any
+// Stop stops the mutaterWorker and returns any
 // error it encountered when running.
 func (w *mutaterWorker) Stop() error {
 	w.Kill()
