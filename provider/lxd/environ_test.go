@@ -5,7 +5,6 @@ package lxd_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v7"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
@@ -455,7 +454,7 @@ func (s *environProfileSuite) TestMaybeWriteLXDProfileYes(c *gc.C) {
 	profile := "testname"
 	s.expectMaybeWriteLXDProfile(false, profile)
 
-	err := s.lxdEnv.MaybeWriteLXDProfile(profile, &charm.LXDProfile{
+	err := s.lxdEnv.MaybeWriteLXDProfile(profile, lxdprofile.Profile{
 		Config: map[string]string{
 			"security.nesting": "true",
 		},
@@ -470,7 +469,7 @@ func (s *environProfileSuite) TestMaybeWriteLXDProfileNo(c *gc.C) {
 	profile := "testname"
 	s.expectMaybeWriteLXDProfile(true, profile)
 
-	err := s.lxdEnv.MaybeWriteLXDProfile(profile, nil)
+	err := s.lxdEnv.MaybeWriteLXDProfile(profile, lxdprofile.Profile{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
