@@ -77,7 +77,7 @@ run_unconvert() {
 run_ineffassign() {
   FOLDERS="${2}"
   # shellcheck disable=SC2086
-  OUT=$(ineffassign ${FOLDERS} | grep -v "_test.go" | grep "github.com/juju/juju" | sed -E "s/^(.+src\\/github\\.com\\/juju\\/juju\\/)(.+)/\2/")
+  OUT=$(ineffassign ${FOLDERS} | grep "github.com/juju/juju" | sed -E "s/^(.+src\\/github\\.com\\/juju\\/juju\\/)(.+)/\2/")
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues (ineffassign):')"

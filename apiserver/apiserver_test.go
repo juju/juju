@@ -88,6 +88,8 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 		Backing:              state.NewAllWatcherBacking(s.StatePool),
 		PrometheusRegisterer: noopRegisterer{},
 	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	// The worker itself is a coremultiwatcher.Factory.
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
 
