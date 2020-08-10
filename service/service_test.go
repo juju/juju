@@ -127,25 +127,6 @@ func (s *serviceSuite) TestInstallAndStartFail(c *gc.C) {
 	s.Service.CheckCallNames(c, "Install", "Stop", "Start", "Stop", "Start", "Stop", "Start")
 }
 
-func (s *serviceSuite) TestFindUnitServiceNames(c *gc.C) {
-	names := []string{
-		"jujud-unit-ubuntu-lite-0",
-		"jujud-unit-wordpress-0",
-		"jujud-unit-wordpress-1",
-		"jujud-machine-0",
-		"not-a-juju-service",
-	}
-
-	expected := map[string]string{
-		"ubuntu-lite/0": "jujud-unit-ubuntu-lite-0",
-		"wordpress/0":   "jujud-unit-wordpress-0",
-		"wordpress/1":   "jujud-unit-wordpress-1",
-	}
-
-	services := service.FindUnitServiceNames(names)
-	c.Check(services, gc.DeepEquals, expected)
-}
-
 type restartSuite struct {
 	service.BaseSuite
 }

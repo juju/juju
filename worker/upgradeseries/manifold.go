@@ -72,10 +72,33 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 	cfg := Config{
 		Logger:          config.Logger,
 		Facade:          config.NewFacade(apiCaller, tag),
-		Service:         &serviceAccess{},
+		UnitDiscovery:   &datadirAgents{agentCfg.DataDir()},
 		UpgraderFactory: newUpgrader,
 	}
 
 	w, err := config.NewWorker(cfg)
 	return w, errors.Annotate(err, "starting machine upgrade series worker")
+}
+
+type datadirAgents struct {
+	datadir string
+}
+
+// Units returns the unit tags of the deployed units on the machine.
+// This method uses the service.FindAgents method by looking for matching
+// names in the data directory. Calling an API method would be an alternative
+// except the current upgrader facade doesn't support the Units method.
+func (d *datadirAgents) Units() ([]names.UnitTag, error) {
+	_, units, _, err := service.FindAgents(d.datadir)
+	if err != nil {
+		return nil, errors.Annotate(err, "finding deployed units")
+	}
+	var result []names.UnitTag
+	for _, name := range units {
+		// We know that this string parses correctly and is a unit tag
+		// from the FindAgents function.
+		tag, _ := names.ParseTag(name)
+		result = append(result, tag.(names.UnitTag))
+	}
+	return result, nil
 }
