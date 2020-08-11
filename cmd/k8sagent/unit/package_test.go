@@ -183,6 +183,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"worker/uniter/hook",
 		"worker/uniter/leadership",
 		"worker/uniter/operation",
+		"worker/uniter/reboot",
 		"worker/uniter/relation",
 		"worker/uniter/remotestate",
 		"worker/uniter/resolver",
