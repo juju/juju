@@ -29,6 +29,7 @@ type ResolverConfig struct {
 	StopRetryHookTimer  func()
 	VerifyCharmProfile  resolver.Resolver
 	UpgradeSeries       resolver.Resolver
+	Reboot              resolver.Resolver
 	Leadership          resolver.Resolver
 	Actions             resolver.Resolver
 	CreatedRelations    resolver.Resolver
@@ -70,6 +71,12 @@ func (s *uniterResolver) NextOp(
 		if errors.Cause(err) == resolver.ErrDoNotProceed {
 			return nil, resolver.ErrNoOperation
 		}
+		return op, err
+	}
+
+	// Check if we need to notify the charms because a reboot was detected.
+	op, err = s.config.Reboot.NextOp(localState, remoteState, opFactory)
+	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
