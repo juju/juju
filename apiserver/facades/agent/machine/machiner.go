@@ -6,6 +6,7 @@
 package machine
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
@@ -40,23 +41,27 @@ func NewMachinerAPI(st *state.State, resources facade.Resources, authorizer faca
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
-	getCanModify := func() (common.AuthFunc, error) {
+
+	getCanAccess := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	getCanRead := func() (common.AuthFunc, error) {
-		return authorizer.AuthOwner, nil
+
+	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(st, getCanAccess)
+	if err != nil {
+		return nil, errors.Annotate(err, "instantiating network config API")
 	}
+
 	return &MachinerAPI{
-		LifeGetter:         common.NewLifeGetter(st, getCanRead),
-		StatusSetter:       common.NewStatusSetter(st, getCanModify),
-		DeadEnsurer:        common.NewDeadEnsurer(st, nil, getCanModify),
-		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanRead),
+		LifeGetter:         common.NewLifeGetter(st, getCanAccess),
+		StatusSetter:       common.NewStatusSetter(st, getCanAccess),
+		DeadEnsurer:        common.NewDeadEnsurer(st, nil, getCanAccess),
+		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanAccess),
 		APIAddresser:       common.NewAPIAddresser(st, resources),
-		NetworkConfigAPI:   networkingcommon.NewNetworkConfigAPI(st, getCanModify),
+		NetworkConfigAPI:   netConfigAPI,
 		st:                 st,
 		auth:               authorizer,
-		getCanModify:       getCanModify,
-		getCanRead:         getCanRead,
+		getCanModify:       getCanAccess,
+		getCanRead:         getCanAccess,
 	}, nil
 }
 

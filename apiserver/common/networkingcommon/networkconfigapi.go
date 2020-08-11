@@ -29,16 +29,37 @@ type NetworkConfigAPI struct {
 	st           LinkLayerState
 	getCanModify common.GetAuthFunc
 	getModelOp   func(machine LinkLayerMachine, incoming network.InterfaceInfos) state.ModelOperation
+
+	// discoverSubnets indicates whether we should add subnets from
+	// updated link-layer devices to the state subnets collection.
+	discoverSubnets bool
 }
 
-func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) *NetworkConfigAPI {
+func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) (*NetworkConfigAPI, error) {
+	// TODO (manadart 2020-08-11): This is a second access of the model when
+	// being instantiated by the provisioner API.
+	// We should ameliorate repeat model access at some point,
+	// as it queries state each time.
+	mod, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cloud, err := mod.Cloud()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &NetworkConfigAPI{
 		st:           &linkLayerState{st},
 		getCanModify: getCanModify,
 		getModelOp: func(machine LinkLayerMachine, incoming network.InterfaceInfos) state.ModelOperation {
 			return newUpdateMachineLinkLayerOp(machine, incoming)
 		},
-	}
+		// We discover subnets via reported link-layer devices for the manual
+		// provider, which allows us to use spaces there.
+		discoverSubnets: strings.ToLower(cloud.Type) == "manual",
+	}, nil
 }
 
 // SetObservedNetworkConfig reads the network config for the machine
