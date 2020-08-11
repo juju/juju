@@ -35,6 +35,7 @@ type sshContainer struct {
 	// remote indicates if it should target to the operator or workload pod.
 	remote    bool
 	target    string
+	container string
 	args      []string
 	modelUUID string
 
@@ -68,6 +69,7 @@ type ModelAPI interface {
 // SetFlags sets up options and flags for the command.
 func (c *sshContainer) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.remote, "remote", false, "Target on the workload or operator pod (k8s-only)")
+	f.StringVar(&c.container, "container", "", "the container name of the target pod")
 }
 
 func (c *sshContainer) setHostChecker(checker jujussh.ReachableChecker) {}
@@ -261,17 +263,13 @@ func (c *sshContainer) expandSCPArgs(arg string) (o k8sexec.FileResource, err er
 		return k8sexec.FileResource{Path: arg}, nil
 	} else if i > 0 {
 		o.Path = arg[i+1:]
-		targetPieces := strings.SplitN(arg[:i], "/", 2)
 
-		resolvedTarget, err := c.resolveTarget(targetPieces[0])
+		resolvedTarget, err := c.resolveTarget(arg[:i])
 		if err != nil {
 			return o, err
 		}
 		o.PodName = resolvedTarget.entity
-
-		if len(targetPieces) == 2 {
-			o.ContainerName = targetPieces[1]
-		}
+		o.ContainerName = c.container
 		return o, nil
 	}
 	return o, errors.New("target must match format: [pod[/container]:]path")

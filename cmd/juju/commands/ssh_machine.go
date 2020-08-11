@@ -256,7 +256,9 @@ func (c *sshMachine) copy(ctx Context) error {
 // 0:some/path or application/0:some/path, and translates them into
 // ubuntu@machine:some/path so they can be passed as arguments to scp, and pass
 // the rest verbatim on to scp
-func (c *sshMachine) expandSCPArgs(args []string) (outArgs []string, targets []*resolvedTarget, err error) {
+func (c *sshMachine) expandSCPArgs(args []string) ([]string, []*resolvedTarget, error) {
+	outArgs := make([]string, len(args))
+	var targets []*resolvedTarget
 	for i, arg := range args {
 		v := strings.SplitN(arg, ":", 2)
 		if strings.HasPrefix(arg, "-") || len(v) <= 1 {
