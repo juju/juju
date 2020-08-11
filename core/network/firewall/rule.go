@@ -106,3 +106,61 @@ func (rules IngressRules) Validate() error {
 	}
 	return nil
 }
+
+// Diff returns a list of IngressRules to open and/or close so that this
+// set of ingress rules matches the target.
+func (r IngressRules) Diff(target IngressRules) (toOpen, toClose IngressRules) {
+	currentPortCIDRs := r.cidrsByPortRange()
+	wantedPortCIDRs := target.cidrsByPortRange()
+	for portRange, wantedCIDRs := range wantedPortCIDRs {
+		existingCIDRs, ok := currentPortCIDRs[portRange]
+
+		// If the wanted port range doesn't exist at all, the entire rule is to be opened.
+		if !ok {
+			toOpen = append(toOpen, NewIngressRule(portRange, wantedCIDRs.Values()...))
+			continue
+		}
+
+		// Figure out the difference between CIDRs to get the rules to open/close.
+		toOpenCIDRs := wantedCIDRs.Difference(existingCIDRs)
+		if toOpenCIDRs.Size() > 0 {
+			toOpen = append(toOpen, NewIngressRule(portRange, toOpenCIDRs.Values()...))
+		}
+		toCloseCIDRs := existingCIDRs.Difference(wantedCIDRs)
+		if toCloseCIDRs.Size() > 0 {
+			toClose = append(toClose, NewIngressRule(portRange, toCloseCIDRs.Values()...))
+		}
+	}
+
+	// Close any port ranges in the current set that are not present in the target.
+	for portRange, currentCIDRs := range currentPortCIDRs {
+		if _, ok := wantedPortCIDRs[portRange]; !ok {
+			toClose = append(toClose, NewIngressRule(portRange, currentCIDRs.Values()...))
+		}
+	}
+
+	toOpen.Sort()
+	toClose.Sort()
+	return toOpen, toClose
+}
+
+func (rules IngressRules) cidrsByPortRange() map[network.PortRange]set.Strings {
+	result := make(map[network.PortRange]set.Strings, len(rules))
+	for _, rule := range rules {
+		cidrs, ok := result[rule.PortRange]
+		if !ok {
+			cidrs = set.NewStrings()
+			result[rule.PortRange] = cidrs
+		}
+		if rule.SourceCIDRs.IsEmpty() {
+			cidrs.Add(AllNetworksIPV4CIDR)
+			continue
+		}
+		for cidr := range rule.SourceCIDRs {
+			cidrs.Add(cidr)
+		}
+
+		result[rule.PortRange] = cidrs
+	}
+	return result
+}
