@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -185,9 +186,7 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 		}
 		providerID = unit.ProviderId
 	}
-	return &resolvedTarget{
-		entity: providerID,
-	}, nil
+	return &resolvedTarget{entity: providerID}, nil
 }
 
 // Context defines methods for command context.
@@ -200,22 +199,12 @@ type Context interface {
 }
 
 func (c *sshContainer) ssh(ctx Context, enablePty bool, target *resolvedTarget) (err error) {
-	ch := make(chan os.Signal, 1)
-	defer close(ch)
-	cancel := make(chan struct{})
-	ctx.InterruptNotify(ch)
-	defer ctx.StopInterruptNotify(ch)
-
-	go func() {
-		select {
-		case <-ch:
-			close(cancel)
-		}
-	}()
 	args := c.args
 	if len(args) == 0 {
 		args = []string{"sh"}
 	}
+	cancel, stop := getInterruptAbortChan(ctx)
+	defer stop()
 	return c.execClient.Exec(
 		k8sexec.ExecParams{
 			PodName:  target.entity,
@@ -227,6 +216,65 @@ func (c *sshContainer) ssh(ctx Context, enablePty bool, target *resolvedTarget) 
 		},
 		cancel,
 	)
+}
+
+func getInterruptAbortChan(ctx Context) (<-chan struct{}, func()) {
+	ch := make(chan os.Signal, 1)
+	cancel := make(chan struct{})
+	ctx.InterruptNotify(ch)
+
+	cleanUp := func() {
+		ctx.StopInterruptNotify(ch)
+		close(ch)
+	}
+
+	go func() {
+		select {
+		case <-ch:
+			close(cancel)
+		}
+	}()
+	return cancel, cleanUp
+}
+
+func (c *sshContainer) copy(ctx Context) error {
+	args := c.getArgs()
+	if len(args) < 2 {
+		return errors.New("source and destination are required")
+	}
+	srcSpec, err := c.expandSCPArgs(args[0])
+	if err != nil {
+		return err
+	}
+	destSpec, err := c.expandSCPArgs(args[1])
+	if err != nil {
+		return err
+	}
+
+	cancel, stop := getInterruptAbortChan(ctx)
+	defer stop()
+	return c.execClient.Copy(k8sexec.CopyParams{Src: srcSpec, Dest: destSpec}, cancel)
+}
+
+func (c *sshContainer) expandSCPArgs(arg string) (o k8sexec.FileResource, err error) {
+	if i := strings.Index(arg, ":"); i == -1 {
+		return k8sexec.FileResource{Path: arg}, nil
+	} else if i > 0 {
+		o.Path = arg[i+1:]
+		targetPieces := strings.SplitN(arg[:i], "/", 2)
+
+		resolvedTarget, err := c.resolveTarget(targetPieces[0])
+		if err != nil {
+			return o, err
+		}
+		o.PodName = resolvedTarget.entity
+
+		if len(targetPieces) == 2 {
+			o.ContainerName = targetPieces[1]
+		}
+		return o, nil
+	}
+	return o, errors.New("target must match format: [pod[/container]:]path")
 }
 
 func (c *sshContainer) getExecClient() (k8sexec.Executor, error) {
