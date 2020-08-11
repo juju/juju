@@ -769,8 +769,8 @@ google.golang.org/grpc v1.19.0/go.mod h1:mqu4LbDTu4XGKhr4mRzUsmM4RtVoemTSY81AxZi
 google.golang.org/grpc v1.23.1 h1:q4XQuHFC6I28BKZpo6IYyb3mNO+l7lSOxRuYTCiDfXk=
 google.golang.org/grpc v1.23.1/go.mod h1:Y5yQAOtifL1yxbo5wqy6BxZv8vAUGQwXBOALyacEbxg=
 gopkg.in/alecthomas/kingpin.v2 v2.2.6/go.mod h1:FMv+mEhP44yOT+4EoQTLFTRgOQ1FBLkstjWtayDeSgw=
-gopkg.in/amz.v3 v3.0.0-20191122063134-7ba11a47c789 h1:91RzSbXMxzSNCFCm8W3Q7Nc2Vcq3l7z9RdRuvkfluVM=
-gopkg.in/amz.v3 v3.0.0-20191122063134-7ba11a47c789/go.mod h1:cE0dCGx2UfBTjLFlzEx4EXJUmoX6BXBoX9GjKOvqha4=
+gopkg.in/amz.v3 v3.0.0-20200811022415-7b63e5e39741 h1:14qKyD3LDeuWJtTnYrkB8DafjhTslYsRFcg2Ky9w3nE=
+gopkg.in/amz.v3 v3.0.0-20200811022415-7b63e5e39741/go.mod h1:cE0dCGx2UfBTjLFlzEx4EXJUmoX6BXBoX9GjKOvqha4=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20160105164936-4f90aeace3a2/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
