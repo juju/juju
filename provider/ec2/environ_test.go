@@ -259,30 +259,16 @@ func (*Suite) TestSelectSubnetIDsForZoneWithIncorrectPlacement(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `subnets "boom" in AZ "foo" not found`)
 }
 
-func (*Suite) TestSelectSubnetIDsForZoneWithINFAN(c *gc.C) {
-	subnetZones := map[corenetwork.Id][]string{
-		corenetwork.Id("bar-INFAN-test"): {"foo"},
-		corenetwork.Id("baz"):            {"foo"},
-	}
-	placement := corenetwork.Id("")
-	az := "foo"
-
-	var env *environ
-	subnets, err := env.selectSubnetIDsForZone(subnetZones, placement, az)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, gc.DeepEquals, []corenetwork.Id{"baz"})
-}
-
 func (*Suite) TestSelectSubnetIDForInstance(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	mockContext := NewMockProviderCallContext(ctrl)
 
-	subnetZones := []map[corenetwork.Id][]string{{
-		corenetwork.Id("bar-INFAN-test"): []string{"foo"},
-		corenetwork.Id("baz"):            []string{"foo"},
-	}}
+	subnetZones := map[corenetwork.Id][]string{
+		corenetwork.Id("some-sub"): {"some-az"},
+		corenetwork.Id("baz"):      {"foo"},
+	}
 	placement := corenetwork.Id("")
 	az := "foo"
 
@@ -298,11 +284,10 @@ func (*Suite) TestSelectSubnetIDForInstanceSelection(c *gc.C) {
 
 	mockContext := NewMockProviderCallContext(ctrl)
 
-	subnetZones := []map[corenetwork.Id][]string{{
-		corenetwork.Id("bar-INFAN-test"): []string{"foo"},
-		corenetwork.Id("baz"):            []string{"foo"},
-		corenetwork.Id("taz"):            []string{"foo"},
-	}}
+	subnetZones := map[corenetwork.Id][]string{
+		corenetwork.Id("baz"): {"foo"},
+		corenetwork.Id("taz"): {"foo"},
+	}
 	placement := corenetwork.Id("")
 	az := "foo"
 
@@ -318,7 +303,7 @@ func (*Suite) TestSelectSubnetIDForInstanceWithNoMatchingZones(c *gc.C) {
 
 	mockContext := NewMockProviderCallContext(ctrl)
 
-	subnetZones := []map[corenetwork.Id][]string{}
+	subnetZones := map[corenetwork.Id][]string{}
 	placement := corenetwork.Id("")
 	az := "invalid"
 
@@ -326,4 +311,89 @@ func (*Suite) TestSelectSubnetIDForInstanceWithNoMatchingZones(c *gc.C) {
 	subnet, err := env.selectSubnetIDForInstance(mockContext, false, subnetZones, placement, az)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnet, gc.Equals, "")
+}
+
+func (*Suite) TestGetValidSubnetZoneMapOneSpaceConstraint(c *gc.C) {
+	allSubnetZones := []map[corenetwork.Id][]string{
+		{corenetwork.Id("sub-1"): {"az-1"}},
+	}
+
+	args := environs.StartInstanceParams{
+		Constraints:    constraints.MustParse("spaces=admin"),
+		SubnetsToZones: allSubnetZones,
+	}
+
+	subnetZones, err := getValidSubnetZoneMap(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(subnetZones, gc.DeepEquals, allSubnetZones[0])
+}
+
+func (*Suite) TestGetValidSubnetZoneMapOneBindingFanFiltered(c *gc.C) {
+	allSubnetZones := []map[corenetwork.Id][]string{{
+		corenetwork.Id("sub-1"):       {"az-1"},
+		corenetwork.Id("sub-INFAN-2"): {"az-2"},
+	}}
+
+	args := environs.StartInstanceParams{
+		SubnetsToZones: allSubnetZones,
+		EndpointBindings: map[string]corenetwork.Id{
+			"":    "space-1",
+			"ep1": "space-1",
+			"ep2": "space-1",
+		},
+	}
+
+	subnetZones, err := getValidSubnetZoneMap(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(subnetZones, gc.DeepEquals, map[corenetwork.Id][]string{
+		"sub-1": {"az-1"},
+	})
+}
+
+func (*Suite) TestGetValidSubnetZoneMapNoIntersectionError(c *gc.C) {
+	allSubnetZones := []map[corenetwork.Id][]string{
+		{corenetwork.Id("sub-1"): {"az-1"}},
+		{corenetwork.Id("sub-2"): {"az-2"}},
+	}
+
+	args := environs.StartInstanceParams{
+		SubnetsToZones: allSubnetZones,
+		Constraints:    constraints.MustParse("spaces=admin"),
+		EndpointBindings: map[string]corenetwork.Id{
+			"":    "space-1",
+			"ep1": "space-1",
+			"ep2": "space-1",
+		},
+	}
+
+	_, err := getValidSubnetZoneMap(args)
+	c.Assert(err, gc.ErrorMatches,
+		`unable to satisfy supplied space requirements; spaces: \[admin\], bindings: \[space-1\]`)
+}
+
+func (*Suite) TestGetValidSubnetZoneMapIntersectionSelectsCorrectIndex(c *gc.C) {
+	allSubnetZones := []map[corenetwork.Id][]string{
+		{corenetwork.Id("sub-1"): {"az-1"}},
+		{corenetwork.Id("sub-2"): {"az-2"}},
+		{corenetwork.Id("sub-3"): {"az-2"}},
+	}
+
+	args := environs.StartInstanceParams{
+		SubnetsToZones: allSubnetZones,
+		Constraints:    constraints.MustParse("spaces=space-2,space-3"),
+		EndpointBindings: map[string]corenetwork.Id{
+			"":    "space-1",
+			"ep1": "space-2",
+			"ep2": "space-2",
+		},
+	}
+
+	// space-2 is common to the bindings and constraints and is at index 1
+	// of the sorted union.
+	// This should result in the selection of the same index from the
+	// subnets-to-zones map.
+
+	subnetZones, err := getValidSubnetZoneMap(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(subnetZones, gc.DeepEquals, allSubnetZones[1])
 }
