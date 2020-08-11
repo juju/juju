@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package embeddedcli
 
 import (
 	"bytes"
@@ -15,11 +15,12 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/state"
 )
 
 // ExecEmbeddedCommandFunc defines a function which runs a named Juju command
 // with the whitelisted sub commands.
-type ExecEmbeddedCommandFunc func(ctx *cmd.Context, store jujuclient.ClientStore, whitelist []string, cmd string, args []string) int
+type ExecEmbeddedCommandFunc func(ctx *cmd.Context, store jujuclient.ClientStore, whitelist []string, cmdPlusArgs string) int
 
 // allowedEmbeddedCommands is a whitelist of Juju CLI commands which
 // are permissible to run embedded on a controller.
@@ -39,7 +40,6 @@ var allowedEmbeddedCommands = []string{
 	"bind",
 	"cached-images",
 	"cancel-task",
-	"change-user-password",
 	"charm-resources",
 	"clouds",
 	"config",
@@ -71,7 +71,6 @@ var allowedEmbeddedCommands = []string{
 	"offers",
 	"payloads",
 	"plans",
-	"register",
 	"relate",
 	"reload-spaces",
 	"remove-application",
@@ -134,32 +133,27 @@ var allowedEmbeddedCommands = []string{
 	"wallets",
 }
 
-// runCLICommands creates a CLI command instance with an in-memory copy of the controller,
+// RunCLICommands creates a CLI command instance with an in-memory copy of the controller,
 // model, and account details and runs the command against the host controller.
-func (srv *Server) runCLICommands(commands params.CLICommands) (params.StringResults, error) {
+func RunCLICommands(statePool *state.StatePool, commands params.CLICommands, execEmbeddedCommand ExecEmbeddedCommandFunc) (params.StringResults, error) {
 	result := params.StringResults{}
-	if commands.AuthTag == "" {
+	if commands.User == "" {
 		return result, errors.NotSupportedf("CLI command for anonymous user")
 	}
-	userTag, err := names.ParseTag(commands.AuthTag)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if userTag.Kind() != names.UserTagKind {
-		return result, errors.NotSupportedf("CLI command for tag %q", userTag.Kind())
+	// Check passed in username is valid.
+	if !names.IsValidUser(commands.User) {
+		return result, errors.NotValidf("user name %q", commands.User)
 	}
 
-	var resolvedModelUUID string
-	if commands.ModelTag == "" {
-		resolvedModelUUID = srv.shared.statePool.SystemState().ModelUUID()
-	} else {
-		modelTag, err := names.ParseModelTag(commands.ModelTag)
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		resolvedModelUUID = modelTag.Id()
+	resolvedModelUUID := commands.ModelUUID
+	if resolvedModelUUID == "" {
+		resolvedModelUUID = statePool.SystemState().ModelUUID()
 	}
-	m, closer, err := srv.shared.statePool.GetModel(resolvedModelUUID)
+	// Check passed in model UUID is valid.
+	if !names.IsValidModel(resolvedModelUUID) {
+		return result, errors.NotValidf("model UUID %q", resolvedModelUUID)
+	}
+	m, closer, err := statePool.GetModel(resolvedModelUUID)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -198,14 +192,14 @@ func (srv *Server) runCLICommands(commands params.CLICommands) (params.StringRes
 		CurrentModel: qualifiedModelName,
 	}
 	store.Accounts[controllerName] = jujuclient.AccountDetails{
-		User:      userTag.Id(),
+		User:      commands.User,
 		Password:  commands.Credentials,
 		Macaroons: commands.Macaroons,
 	}
 
 	result.Results = make([]params.StringResult, len(commands.Commands))
 	for i, cliCmd := range commands.Commands {
-		out, err := srv.runCLICommand(cliCmd, store)
+		out, err := runCLICommand(cliCmd, store, execEmbeddedCommand)
 		result.Results[i] = params.StringResult{
 			Error:  apiservererrors.ServerError(err),
 			Result: out,
@@ -214,7 +208,7 @@ func (srv *Server) runCLICommands(commands params.CLICommands) (params.StringRes
 	return result, nil
 }
 
-func (srv *Server) runCLICommand(cliCmd params.CLICommandArgs, store jujuclient.ClientStore) (string, error) {
+func runCLICommand(cliCmd string, store jujuclient.ClientStore, execEmbeddedCommand ExecEmbeddedCommandFunc) (string, error) {
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -223,7 +217,7 @@ func (srv *Server) runCLICommand(cliCmd params.CLICommandArgs, store jujuclient.
 	out := bytes.NewBuffer(buf)
 	ctx.Stdout = out
 	ctx.Stderr = out
-	code := srv.execEmbeddedCommand(ctx, store, allowedEmbeddedCommands, cliCmd.Command, cliCmd.Args)
+	code := execEmbeddedCommand(ctx, store, allowedEmbeddedCommands, cliCmd)
 	if code == 0 {
 		return out.String(), nil
 	}

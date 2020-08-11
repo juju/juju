@@ -152,29 +152,31 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 			}))
 		},
 		MetricsCollector: apiserver.NewMetricsCollector(),
-		ExecEmbeddedCommand: func(ctx *cmd.Context, store jujuclient.ClientStore, whitelist []string, cmd string, args []string) {
+		ExecEmbeddedCommand: func(ctx *cmd.Context, store jujuclient.ClientStore, whitelist []string, cmdPlusArgs string) int {
 			allowed := set.NewStrings(whitelist...)
-			if !allowed.Contains(cmd) {
-				fmt.Fprintf(ctx.Stderr, "%q not allowed", cmd)
-				return
+			args := strings.Split(cmdPlusArgs, " ")
+			if !allowed.Contains(args[0]) {
+				fmt.Fprintf(ctx.Stderr, "%q not allowed", args[0])
+				return 1
 			}
 			ctrl, err := store.CurrentController()
 			if err != nil {
 				fmt.Fprintf(ctx.Stderr, err.Error())
-				return
+				return 1
 			}
 			model, err := store.CurrentModel(ctrl)
 			if err != nil {
 				fmt.Fprintf(ctx.Stderr, err.Error())
-				return
+				return 1
 			}
 			ad, err := store.AccountDetails(ctrl)
 			if err != nil {
 				fmt.Fprintf(ctx.Stderr, err.Error())
-				return
+				return 1
 			}
-			cmdStr := fmt.Sprintf("%s@%s:%s -> %s", ad.User, ctrl, model, cmd)
-			fmt.Fprintf(ctx.Stdout, strings.Join(append([]string{cmdStr}, args...), " "))
+			cmdStr := fmt.Sprintf("%s@%s:%s -> %s", ad.User, ctrl, model, cmdPlusArgs)
+			fmt.Fprintf(ctx.Stdout, cmdStr)
+			return 0
 		},
 	}
 }
@@ -393,57 +395,70 @@ func (s *apiserverSuite) TestHealthStopping(c *gc.C) {
 
 func (s *apiserverSuite) TestEmbeddedCommand(c *gc.C) {
 	cmdArgs := params.CLICommands{
-		ModelTag: s.Model.Tag().String(),
-		AuthTag:  "user-fred",
-		Commands: []params.CLICommandArgs{{
-			Command: "status",
-			Args:    []string{"--color"},
-		}},
+		ModelUUID: s.Model.UUID(),
+		User:      "fred",
+		Commands:  []string{"status --color"},
 	}
-	s.assertEmbeddedCommand(c, cmdArgs, "fred@interactive:testmodel -> status --color", "")
+	s.assertEmbeddedCommand(c, cmdArgs, "fred@interactive:test-admin/testmodel -> status --color", "", "")
 }
 
 func (s *apiserverSuite) TestEmbeddedCommandNotAllowed(c *gc.C) {
 	cmdArgs := params.CLICommands{
-		ModelTag: s.Model.Tag().String(),
-		AuthTag:  "user-fred",
-		Commands: []params.CLICommandArgs{{
-			Command: "bootstrap",
-			Args:    []string{"aws"},
-		}},
+		ModelUUID: s.Model.UUID(),
+		User:      "fred",
+		Commands:  []string{"bootstrap aws"},
 	}
-	s.assertEmbeddedCommand(c, cmdArgs, `"bootstrap" not allowed`, "")
+	s.assertEmbeddedCommand(c, cmdArgs, "", `"bootstrap" not allowed`, "")
 }
 
 func (s *apiserverSuite) TestEmbeddedCommandMissingUser(c *gc.C) {
 	cmdArgs := params.CLICommands{
-		ModelTag: s.Model.Tag().String(),
-		Commands: []params.CLICommandArgs{{
-			Command: "status",
-			Args:    []string{"--color"},
-		}},
+		ModelUUID: s.Model.UUID(),
+		Commands:  []string{"status --color"},
 	}
-	s.assertEmbeddedCommand(c, cmdArgs, "", `{"error":"CLI command for anonymous user not supported","error-code":"not supported"}`)
+	s.assertEmbeddedCommand(c, cmdArgs, "", "", `{"error":"CLI command for anonymous user not supported","error-code":"not supported"}`)
 }
 
-func (s *apiserverSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLICommands, expected, errTxt string) {
-	uri := s.server.URL + "/cli"
+func (s *apiserverSuite) TestEmbeddedCommandInvalidUser(c *gc.C) {
+	cmdArgs := params.CLICommands{
+		ModelUUID: s.Model.UUID(),
+		User:      "123@",
+		Commands:  []string{"status --color"},
+	}
+	s.assertEmbeddedCommand(c, cmdArgs, "", "", `{"error":"user name \"123@\" not valid"}`)
+}
+
+func (s *apiserverSuite) TestEmbeddedCommandInvalidModel(c *gc.C) {
+	cmdArgs := params.CLICommands{
+		ModelUUID: "1234",
+		User:      "fred",
+		Commands:  []string{"status --color"},
+	}
+	s.assertEmbeddedCommand(c, cmdArgs, "", "", `{"error":"model UUID \"1234\" not valid"}`)
+}
+
+func (s *apiserverSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLICommands, expected, errTxt, respErrTxt string) {
+	uri := s.server.URL + "/commands"
 	cmdData, err := json.Marshal(cmdArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method: "POST", URL: uri, Body: bytes.NewBuffer(cmdData)})
 	body, err := ioutil.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
-	if errTxt != "" {
-		c.Assert(string(body), gc.Equals, errTxt)
+	if respErrTxt != "" {
+		c.Assert(string(body), gc.Equals, respErrTxt)
 		return
 	}
 	var result params.StringResults
 	err = json.Unmarshal(body, &result)
 	c.Assert(err, jc.ErrorIsNil)
+	oneResult := params.StringResult{
+		Result: expected,
+	}
+	if errTxt != "" {
+		oneResult.Error = &params.Error{Message: errTxt}
+	}
 	c.Assert(result, jc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{{
-			Result: expected,
-		}},
+		Results: []params.StringResult{oneResult},
 	})
 }

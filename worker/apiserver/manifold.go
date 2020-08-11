@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd"
@@ -219,9 +220,9 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	execEmbeddedCommand := func(ctx *cmd.Context, store jujuclient.ClientStore, whitelist []string, cmdName string, args []string) int {
+	execEmbeddedCommand := func(ctx *cmd.Context, store jujuclient.ClientStore, whitelist []string, cmdPlusARgs string) int {
 		jujuCmd := commands.NewJujuCommandWithStore(ctx, store, nil, "", whitelist, true)
-		return cmd.Main(jujuCmd, ctx, append([]string{cmdName}, args...))
+		return cmd.Main(jujuCmd, ctx, strings.Split(cmdPlusARgs, " "))
 	}
 
 	w, err := config.NewWorker(Config{

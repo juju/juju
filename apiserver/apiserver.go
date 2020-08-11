@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/common/crossmodel"
+	"github.com/juju/juju/apiserver/embeddedcli"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/httpcontext"
@@ -88,7 +89,7 @@ type Server struct {
 	restoreStatus          func() state.RestoreStatus
 	mux                    *apiserverhttp.Mux
 	metricsCollector       *Collector
-	execEmbeddedCommand    ExecEmbeddedCommandFunc
+	execEmbeddedCommand    embeddedcli.ExecEmbeddedCommandFunc
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -196,7 +197,7 @@ type ServerConfig struct {
 	MetricsCollector *Collector
 
 	// ExecEmbeddedCommand is a function which creates an embedded Juju CLI instance.
-	ExecEmbeddedCommand ExecEmbeddedCommandFunc
+	ExecEmbeddedCommand embeddedcli.ExecEmbeddedCommandFunc
 }
 
 // Validate validates the API server configuration.
@@ -793,7 +794,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		unauthenticated: true,
 		noModelUUID:     true,
 	}, {
-		pattern:         "/cli",
+		pattern:         "/commands",
 		handler:         embeddedCLIHandler,
 		unauthenticated: true,
 		noModelUUID:     true,
@@ -1034,9 +1035,12 @@ func (srv *Server) embeddedCLIHandler(w http.ResponseWriter, req *http.Request) 
 	var err error
 	var result params.StringResults
 	defer func() {
+		// If success, send the result with a 200.
 		if err == nil {
 			err = sendStatusAndJSON(w, http.StatusOK, result)
 		}
+		// We may have failed to send the result above, or there was another error,
+		// so send that error here.
 		if err != nil {
 			if err := sendJSONError(w, req, errors.Trace(err)); err != nil {
 				logger.Errorf("%v", errors.Annotate(err, "cannot return error to user"))
@@ -1071,5 +1075,5 @@ func (srv *Server) embeddedCLIHandler(w http.ResponseWriter, req *http.Request) 
 	if err != nil {
 		return
 	}
-	result, err = srv.runCLICommands(commands)
+	result, err = embeddedcli.RunCLICommands(srv.shared.statePool, commands, srv.execEmbeddedCommand)
 }

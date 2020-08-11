@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/apiserver/embeddedcli"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
@@ -44,7 +45,7 @@ type Config struct {
 	GetAuditConfig                    func() auditlog.Config
 	NewServer                         NewServerFunc
 	MetricsCollector                  *apiserver.Collector
-	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
+	EmbeddedCommand                   embeddedcli.ExecEmbeddedCommandFunc
 }
 
 // NewServerFunc is the type of function that will be used
