@@ -18,6 +18,7 @@ var logger interface{}
 
 // Logger represents the logging methods used in this package.
 type Logger interface {
+	Errorf(string, ...interface{})
 	Tracef(string, ...interface{})
 }
 
