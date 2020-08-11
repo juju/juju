@@ -11,6 +11,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v2"
@@ -52,6 +53,11 @@ type Hub interface {
 	Subscribe(topic string, handler func(string, interface{})) func()
 }
 
+// Leases provides the methods needed to expose the lease internals.
+type Leases interface {
+	Snapshot() (raft.FSMSnapshot, error)
+}
+
 // Config describes the arguments required to create the introspection worker.
 type Config struct {
 	SocketName         string
@@ -63,6 +69,7 @@ type Config struct {
 	Presence           presence.Recorder
 	Clock              Clock
 	Hub                Hub
+	Leases             Leases
 }
 
 // Validate checks the config values to assert they are valid to create the worker.
@@ -86,6 +93,7 @@ type socketListener struct {
 	machineLock        machinelock.Lock
 	prometheusGatherer prometheus.Gatherer
 	presence           presence.Recorder
+	leases             Leases
 	clock              Clock
 	hub                Hub
 	done               chan struct{}
@@ -121,6 +129,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		machineLock:        config.MachineLock,
 		prometheusGatherer: config.PrometheusGatherer,
 		presence:           config.Presence,
+		leases:             config.Leases,
 		clock:              config.Clock,
 		hub:                config.Hub,
 		done:               make(chan struct{}),
@@ -196,6 +205,7 @@ func (w *socketListener) RegisterHTTPHandlers(
 	if w.hub != nil {
 		handle("/units", unitsHandler{w.clock, w.hub, w.done})
 	}
+	handle("/leases", leaseHandler{w.leases})
 }
 
 type depengineHandler struct {
