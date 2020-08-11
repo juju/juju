@@ -115,7 +115,7 @@ require (
 	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f
 	golang.org/x/tools v0.0.0-20190920225731-5eefd052ad72
 	google.golang.org/api v0.4.0
-	gopkg.in/amz.v3 v3.0.0-20191122063134-7ba11a47c789
+	gopkg.in/amz.v3 v3.0.0-20200811022415-7b63e5e39741
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
 	gopkg.in/goose.v2 v2.0.1
 	gopkg.in/httprequest.v1 v1.2.0
