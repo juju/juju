@@ -1326,10 +1326,17 @@ func subnetZonesFromNetworkTopology(topology params.ProvisioningNetworkTopology)
 		return nil
 	}
 
-	subnetsToZones := make([]map[network.Id][]string, 0, len(topology.SpaceSubnets))
-	for _, subnets := range topology.SpaceSubnets {
+	// We want to ensure consistent ordering of the return based on the spaces.
+	spaceNames := make([]string, 0, len(topology.SpaceSubnets))
+	for spaceName := range topology.SpaceSubnets {
+		spaceNames = append(spaceNames, spaceName)
+	}
+	sort.Strings(spaceNames)
+
+	subnetsToZones := make([]map[network.Id][]string, 0, len(spaceNames))
+	for _, spaceName := range spaceNames {
 		subnetAZs := make(map[network.Id][]string)
-		for _, subnet := range subnets {
+		for _, subnet := range topology.SpaceSubnets[spaceName] {
 			subnetAZs[network.Id(subnet)] = topology.SubnetAZs[subnet]
 		}
 		subnetsToZones = append(subnetsToZones, subnetAZs)

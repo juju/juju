@@ -72,8 +72,13 @@ type StartInstanceParams struct {
 	// SubnetsToZones is an optional collection of maps of provider-specific
 	// subnet IDs to a list of availability zone names each subnet is available
 	// in.
-	// It is only populated when valid positive spaces constraints
-	// are present; one for each such constraint.
+	// It is populated when valid positive spaces constraints are present,
+	// or when the instance to be started will host an application with bound
+	// endpoints.
+	// The subnets present are derived from the union of
+	// constrained/bound spaces.
+	// Negative space constraints will have already been validated when
+	// retrieving `ProvisioningInfo`.
 	SubnetsToZones []map[corenetwork.Id][]string
 
 	// EndpointBindings holds the mapping between application endpoint names to

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
@@ -112,30 +113,30 @@ func (e *environ) Name() string {
 }
 
 // PrepareForBootstrap is part of the Environ interface.
-func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
+func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	callCtx := context.NewCloudCallContext()
 	// Cannot really invalidate a credential here since nothing is bootstrapped yet.
 	callCtx.InvalidateCredentialFunc = func(string) error { return nil }
 	if ctx.ShouldVerifyCredentials() {
-		if err := verifyCredentials(env, callCtx); err != nil {
+		if err := verifyCredentials(e, callCtx); err != nil {
 			return err
 		}
 	}
-	ecfg := env.ecfg()
+	ecfg := e.ecfg()
 	vpcID, forceVPCID := ecfg.vpcID(), ecfg.forceVPCID()
-	if err := validateBootstrapVPC(env.ec2, callCtx, env.cloud.Region, vpcID, forceVPCID, ctx); err != nil {
+	if err := validateBootstrapVPC(e.ec2, callCtx, e.cloud.Region, vpcID, forceVPCID, ctx); err != nil {
 		return errors.Trace(maybeConvertCredentialError(err, callCtx))
 	}
 	return nil
 }
 
 // Create is part of the Environ interface.
-func (env *environ) Create(ctx context.ProviderCallContext, args environs.CreateParams) error {
-	if err := verifyCredentials(env, ctx); err != nil {
+func (e *environ) Create(ctx context.ProviderCallContext, args environs.CreateParams) error {
+	if err := verifyCredentials(e, ctx); err != nil {
 		return err
 	}
-	vpcID := env.ecfg().vpcID()
-	if err := validateModelVPC(env.ec2, ctx, env.name, vpcID); err != nil {
+	vpcID := e.ecfg().vpcID()
+	if err := validateModelVPC(e.ec2, ctx, e.name, vpcID); err != nil {
 		return errors.Trace(maybeConvertCredentialError(err, ctx))
 	}
 	// TODO(axw) 2016-08-04 #1609643
@@ -361,7 +362,7 @@ func (e *environ) PrecheckInstance(ctx context.ProviderCallContext, args environ
 	return fmt.Errorf("invalid AWS instance type %q and arch %q specified", *args.Constraints.InstanceType, *args.Constraints.Arch)
 }
 
-// MetadataLookupParams returns parameters which are used to query simplestreams metadata.
+// MetadataLookupParams returns parameters which are used to query simple-streams metadata.
 func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	var endpoint string
 	if region == "" {
@@ -416,7 +417,9 @@ func resourceName(tag names.Tag, envName string) string {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (_ *environs.StartInstanceResult, resultErr error) {
+func (e *environ) StartInstance(
+	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+) (_ *environs.StartInstanceResult, resultErr error) {
 	var inst *ec2Instance
 	callback := args.StatusCallback
 	defer func() {
@@ -429,7 +432,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		}
 	}()
 
-	callback(status.Allocating, "Verifying availability zone", nil)
+	_ = callback(status.Allocating, "Verifying availability zone", nil)
 
 	annotateWrapError := func(received error, annotation string) error {
 		if received == nil {
@@ -437,9 +440,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		}
 		// If there is a problem with authentication/authorisation,
 		// we want a correctly typed error.
-		annotatedErr := errors.Annotate(
-			maybeConvertCredentialError(received, ctx),
-			annotation)
+		annotatedErr := errors.Annotate(maybeConvertCredentialError(received, ctx), annotation)
 		if common.IsCredentialNotValid(annotatedErr) {
 			return annotatedErr
 		}
@@ -450,11 +451,9 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		return annotateWrapError(received, "")
 	}
 
-	// Verify the provided availability zone to start the instance in.  It's
-	// provided via StartInstanceParams Constraints or AvailabilityZone.
-	// The availability zone of existing volumes that are to be
-	// attached to the machine must all match, and must be the same
-	// as specified zone (if any).
+	// Verify the supplied availability zone to start the instance in.
+	// It is provided via Constraints or AvailabilityZone in
+	// StartInstanceParams.
 	availabilityZone, placementSubnetID, err := e.deriveAvailabilityZoneAndSubnetID(ctx, args)
 	if err != nil {
 		// An IsNotValid error is returned if the zone is invalid;
@@ -463,10 +462,8 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		if !zoneSpecific {
 			return nil, wrapError(err)
 		}
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-
-	arches := args.Tools.Arches()
 
 	ec2Session := EC2Session(e.cloud.Region, e.ec2.AccessKey, e.ec2.SecretKey)
 	instanceTypes, err := e.supportedInstanceTypes(ec2Session, ctx)
@@ -481,7 +478,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		&instances.InstanceConstraint{
 			Region:      e.cloud.Region,
 			Series:      args.InstanceConfig.Series,
-			Arches:      arches,
+			Arches:      args.Tools.Arches(),
 			Constraints: args.Constraints,
 			Storage:     []string{ssdStorage, ebsStorage},
 		},
@@ -489,31 +486,17 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	if err != nil {
 		return nil, wrapError(err)
 	}
-	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
-	if err != nil {
-		return nil, common.ZoneIndependentError(
-			errors.Errorf("chosen architecture %v for image %q not present in %v", spec.Image.Arch, spec.Image.Id, arches),
-		)
-	}
 
-	if spec.InstanceType.Deprecated {
-		logger.Infof("deprecated instance type specified: %s", spec.InstanceType.Name)
-	}
-
-	if err := args.InstanceConfig.SetTools(tools); err != nil {
-		return nil, common.ZoneIndependentError(err)
-	}
-	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
+	if err := e.finishInstanceConfig(&args, spec); err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}
 
-	callback(status.Allocating, "Making user data", nil)
+	_ = callback(status.Allocating, "Making user data", nil)
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, AmazonRenderer{})
 	if err != nil {
-		return nil, common.ZoneIndependentError(
-			errors.Annotate(err, "cannot make user data"),
-		)
+		return nil, common.ZoneIndependentError(errors.Annotate(err, "constructing user data"))
 	}
+
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
 	apiPorts := make([]int, 0, 2)
 	if args.InstanceConfig.Controller != nil {
@@ -525,7 +508,8 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	} else {
 		apiPorts = append(apiPorts, args.InstanceConfig.APIInfo.Ports()[0])
 	}
-	callback(status.Allocating, "Setting up groups", nil)
+
+	_ = callback(status.Allocating, "Setting up groups", nil)
 	groups, err := e.setUpGroups(ctx, args.ControllerUUID, args.InstanceConfig.MachineId, apiPorts)
 	if err != nil {
 		return nil, annotateWrapError(err, "cannot set up groups")
@@ -537,19 +521,6 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		args.InstanceConfig.Controller != nil,
 	)
 	rootDiskSize := uint64(blockDeviceMappings[0].VolumeSize) * 1024
-
-	// If --constraints spaces=foo was passed, the provisioner will populate
-	// args.SubnetsToZones map. In AWS a subnet can span only one zone, so here
-	// we build the reverse map zonesToSubnets, which we will use to below in
-	// the RunInstance loop to provide an explicit subnet ID, rather than just
-	// AZ. This ensures instances in the same group (units of an application or all
-	// instances when adding a machine manually) will still be evenly
-	// distributed across AZs, but only within subnets of the space constraint.
-	//
-	// TODO(dimitern): This should be done in a provider-independent way.
-	if spaces := args.Constraints.IncludeSpaces(); len(spaces) > 1 {
-		logger.Infof("ignoring all but the first positive space from constraints: %v", spaces)
-	}
 
 	var instResp *ec2.RunInstancesResp
 	commonRunArgs := &ec2.RunInstances{
@@ -565,14 +536,21 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	runArgs := commonRunArgs
 	runArgs.AvailZone = availabilityZone
 
+	subnetZones, err := getValidSubnetZoneMap(args)
+	if err != nil {
+		return nil, common.ZoneIndependentError(err)
+	}
+
 	hasVPCID := isVPCIDSet(e.ecfg().vpcID())
 
-	runArgs.SubnetId, err = e.selectSubnetIDForInstance(ctx, hasVPCID, args.SubnetsToZones, placementSubnetID, availabilityZone)
+	runArgs.SubnetId, err = e.selectSubnetIDForInstance(ctx, hasVPCID, subnetZones, placementSubnetID, availabilityZone)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	callback(status.Allocating, fmt.Sprintf("Trying to start instance in availability zone %q", availabilityZone), nil)
+	_ = callback(status.Allocating,
+		fmt.Sprintf("Trying to start instance in availability zone %q", availabilityZone), nil)
+
 	instResp, err = runInstances(e.ec2, ctx, runArgs, callback)
 	if err != nil {
 		if !isZoneOrSubnetConstrainedError(err) {
@@ -635,23 +613,122 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	}, nil
 }
 
+func (e *environ) finishInstanceConfig(args *environs.StartInstanceParams, spec *instances.InstanceSpec) error {
+	matchingTools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
+	if err != nil {
+		return errors.Errorf("chosen architecture %v for image %q not present in %v",
+			spec.Image.Arch, spec.Image.Id, args.Tools.Arches())
+	}
+
+	if spec.InstanceType.Deprecated {
+		logger.Infof("deprecated instance type specified: %s", spec.InstanceType.Name)
+	}
+
+	if err := args.InstanceConfig.SetTools(matchingTools); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+// GetValidSubnetZoneMap ensures that (a single one of) any supplied space
+// requirements are congruent and can be met, and that the representative
+// subnet-zone map is returned, with Fan networks filtered out.
+// The returned map will be nil if there are no space requirements.
+func getValidSubnetZoneMap(args environs.StartInstanceParams) (map[corenetwork.Id][]string, error) {
+	spaceCons := args.Constraints.IncludeSpaces()
+
+	bindings := set.NewStrings()
+	for _, spaceName := range args.EndpointBindings {
+		bindings.Add(spaceName.String())
+	}
+
+	conCount := len(spaceCons)
+	bindCount := len(bindings)
+
+	// If there are no bindings or space constraints, we have no limitations
+	// and should not have even received start arguments with a subnet/zone
+	// mapping - just return nil and attempt provisioning in the current AZ.
+	if conCount == 0 && bindCount == 0 {
+		return nil, nil
+	}
+
+	sort.Strings(spaceCons)
+	allSpaceReqs := bindings.Union(set.NewStrings(spaceCons...)).SortedValues()
+
+	// We only need to validate if both bindings and constraints are present.
+	// If one is supplied without the other, we know that the value for
+	// args.SubnetsToZones correctly reflects the set of spaces.
+	var indexInCommon int
+	if conCount > 0 && bindCount > 0 {
+		// If we have spaces in common between bindings and constraints,
+		// the union count will be fewer than the sum.
+		// If it is not, just error out here.
+		if len(allSpaceReqs) == conCount+bindCount {
+			return nil, errors.Errorf("unable to satisfy supplied space requirements; spaces: %v, bindings: %v",
+				spaceCons, bindings.SortedValues())
+		}
+
+		// Now get the first index of the space in common.
+		for _, conSpaceName := range spaceCons {
+			if !bindings.Contains(conSpaceName) {
+				continue
+			}
+
+			for i, spaceName := range allSpaceReqs {
+				if conSpaceName == spaceName {
+					indexInCommon = i
+					break
+				}
+			}
+		}
+	}
+
+	// TODO (manadart 2020-02-07): We only take a single subnet/zones
+	// mapping to create a NIC for the instance.
+	// This is behaviour that dates from the original spaces MVP.
+	// It will not take too much effort to enable multi-NIC support for EC2
+	// if we use them all when constructing the instance creation request.
+	if conCount > 1 || bindCount > 1 {
+		logger.Warningf("only considering the space requirement for %q", allSpaceReqs[indexInCommon])
+	}
+
+	// We should always have a mapping if there are space requirements,
+	// and it should always have the same length as the union of
+	// constraints + bindings.
+	// However unlikely, rather than taking this for granted and possibly
+	// panicking, log a warning and let the provisioning continue.
+	mappingCount := len(args.SubnetsToZones)
+	if mappingCount == 0 || mappingCount <= indexInCommon {
+		logger.Warningf(
+			"got space requirements, but not a valid subnet-zone map; constraints/bindings not applied")
+		return nil, nil
+	}
+
+	// Select the subnet-zone mapping at the index we determined minus Fan
+	// networks which we can not consider for provisioning non-containers.
+	// We know that the index determined from the spaces union corresponds
+	// with the right mapping because of consistent sorting by the provisioner.
+	subnetZones := make(map[corenetwork.Id][]string)
+	for id, zones := range args.SubnetsToZones[indexInCommon] {
+		if !corenetwork.IsInFanNetwork(id) {
+			subnetZones[id] = zones
+		}
+	}
+
+	return subnetZones, nil
+}
+
 func (e *environ) selectSubnetIDForInstance(ctx context.ProviderCallContext,
 	hasVPCID bool,
-	subnetsToZones []map[corenetwork.Id][]string,
+	subnetZones map[corenetwork.Id][]string,
 	placementSubnetID corenetwork.Id,
 	availabilityZone string,
 ) (string, error) {
-	// TODO (manadart 2020-02-07): We only take the first subnet/zones
-	// mapping to create a NIC for the instance.
-	// This effectively uses a single positive space constraint if many are
-	// specified; behaviour that dates from the original spaces MVP.
-	// It will not take too much effort to enable multi-NIC support for EC2
-	// if we use them all when constructing the instance creation request.
-	var subnetZones map[corenetwork.Id][]string
-	if len(subnetsToZones) > 0 {
-		subnetZones = filterSubnetsToZones(subnetsToZones)
-	}
-
 	var (
 		subnetIDsForZone []corenetwork.Id
 		err              error
@@ -725,9 +802,6 @@ func (e *environ) selectSubnetIDsForZone(subnetZones map[corenetwork.Id][]string
 		return nil, errors.Errorf("availability zone %q has no subnets satisfying space constraints", availabilityZone)
 	}
 
-	// Filter out any fan networks.
-	subnets = corenetwork.FilterInFanNetwork(subnets)
-
 	// Use the placement to locate a subnet ID.
 	if placementSubnetID != "" {
 		asSet := corenetwork.MakeIDSet(subnets...)
@@ -740,35 +814,16 @@ func (e *environ) selectSubnetIDsForZone(subnetZones map[corenetwork.Id][]string
 	return subnets, nil
 }
 
-// FilterSubnetsToZones removes the INFAN network types from possible subnets.
-// We can't use the INFAN networks as they require you to use the underlay
-// network.
-// TODO (stickupkid): We should lift this to core package if more providers need
-// this.
-// TODO (stickupkid): We should consider removing them during the generation of
-// ProvisioningInfo provided that container provisioning was unaffected.
-func filterSubnetsToZones(subnetsToZones []map[corenetwork.Id][]string) map[corenetwork.Id][]string {
-	if len(subnetsToZones) == 0 {
-		return nil
-	}
-
-	subnetZones := make(map[corenetwork.Id][]string)
-	// Use the first subnets zones until we support multiple NIC
-	for id, zones := range subnetsToZones[0] {
-		if corenetwork.IsInFanNetwork(id) {
-			continue
-		}
-		subnetZones[id] = zones
-	}
-	return subnetZones
-}
-
-func (e *environ) deriveAvailabilityZone(ctx context.ProviderCallContext, args environs.StartInstanceParams) (string, error) {
+func (e *environ) deriveAvailabilityZone(
+	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+) (string, error) {
 	availabilityZone, _, err := e.deriveAvailabilityZoneAndSubnetID(ctx, args)
-	return availabilityZone, err
+	return availabilityZone, errors.Trace(err)
 }
 
-func (e *environ) deriveAvailabilityZoneAndSubnetID(ctx context.ProviderCallContext, args environs.StartInstanceParams) (string, corenetwork.Id, error) {
+func (e *environ) deriveAvailabilityZoneAndSubnetID(
+	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+) (string, corenetwork.Id, error) {
 	// Determine the availability zones of existing volumes that are to be
 	// attached to the machine. They must all match, and must be the same
 	// as specified zone (if any).
@@ -776,10 +831,12 @@ func (e *environ) deriveAvailabilityZoneAndSubnetID(ctx context.ProviderCallCont
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
+
 	placementZone, placementSubnetID, err := e.instancePlacementZone(ctx, args.Placement, volumeAttachmentsZone)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
+
 	var availabilityZone string
 	if placementZone != "" {
 		availabilityZone = placementZone

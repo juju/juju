@@ -145,14 +145,14 @@ const (
 var deviceInUseRegexp = regexp.MustCompile(".*Attachment point .* is already in use")
 
 // StorageProviderTypes implements storage.ProviderRegistry.
-func (env *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
+func (e *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
 	return []storage.ProviderType{EBS_ProviderType}, nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.
-func (env *environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
+func (e *environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
 	if t == EBS_ProviderType {
-		return &ebsProvider{env}, nil
+		return &ebsProvider{e}, nil
 	}
 	return nil, errors.NotFoundf("storage provider %q", t)
 }

@@ -347,6 +347,20 @@ func (api *ProvisionerAPI) machineTags(m *state.Machine, jobs []model.MachineJob
 	return machineTags, nil
 }
 
+// machineSpaces returns the list of spaces that the machine must be in.
+// Note that we will send a topology for the *union* of space constraints
+// and bindings.
+//
+// We need to do this because some providers need to *choose* an instance
+// fulfilling them all (MAAS/AWS) whereas others *create* an instance to
+// fulfill them (OpenStack will create the NICs it needs).
+//
+// This means there is a difference between add-machine, which will only
+// include the spaces based on constraints, and deploy/add-unit,
+// which will include spaces for any endpoint bindings.
+//
+// It is the responsibility of the provider to negotiate this information
+// appropriately.
 func (api *ProvisionerAPI) machineSpaces(m *state.Machine,
 	allSpaceInfos network.SpaceInfos,
 	endpointBindings map[string]*state.Bindings,
@@ -356,18 +370,25 @@ func (api *ProvisionerAPI) machineSpaces(m *state.Machine,
 		return nil, errors.Annotate(err, "retrieving machine constraints")
 	}
 
-	spaceNames := set.NewStrings(cons.IncludeSpaces()...)
-	for _, endpointBinding := range endpointBindings {
+	includeSpaces := set.NewStrings(cons.IncludeSpaces()...)
+	excludeSpaces := set.NewStrings(cons.ExcludeSpaces()...)
+
+	for appName, endpointBinding := range endpointBindings {
 		bindingSpaces, err := endpointBinding.MapWithSpaceNames(allSpaceInfos)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		for _, spaceName := range bindingSpaces {
-			spaceNames.Add(spaceName)
+		for endpoint, spaceName := range bindingSpaces {
+			if excludeSpaces.Contains(spaceName) {
+				return nil, errors.Errorf(
+					"negative space constraint %q conflicts with %s endpoint binding for %q",
+					spaceName, appName, endpoint)
+			}
+			includeSpaces.Add(spaceName)
 		}
 	}
 
-	return spaceNames.SortedValues(), nil
+	return includeSpaces.SortedValues(), nil
 }
 
 func (api *ProvisionerAPI) machineSpaceTopology(machineID string, spaceNames []string) (params.ProvisioningNetworkTopology, error) {
@@ -557,16 +578,6 @@ func (api *ProvisionerAPI) translateEndpointBindingsToSpaces(spaceInfos network.
 		}
 
 		for endpoint, spaceID := range bindings.Map() {
-			// All endpoint bindings having a value is a side effect of
-			// changing the endpoint bindings from a space name to id.
-			// For the provisioning code, assuming that the default space
-			// should be handled as unspecified was previously.
-			if spaceID == network.AlphaSpaceId {
-				// Skip unspecified bindings, as they won't affect the instance
-				// selected for provisioning.
-				continue
-			}
-
 			space := spaceInfos.GetByID(spaceID)
 			if space != nil {
 				bound := string(space.ProviderId)
