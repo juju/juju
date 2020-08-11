@@ -149,6 +149,31 @@ juju_start_unit () {
   juju_agent --post units action=start "${args[@]}"
 }
 
+juju_leases () {
+  # This requires some arguments.
+  local query
+  local model
+  if [ "$1" = "-m" ]; then
+    if [ "$#" -lt 2 ]; then
+      echo "usage: juju_leases [-m <partial-model-uuid>] [<partial-app-name>...]"
+      return 1
+    fi
+    shift
+    model=$1
+    shift
+    query="&model=$model"
+  fi
+  arr=("$@")
+  for i in "${arr[@]}"; do
+    query="$query&app=$i"
+  done
+  if [ -z "$query" ]; then
+    juju_agent leases
+  else
+    juju_agent "leases?q=y&$query"
+  fi
+}
+
 
 # This asks for the command of the current pid.
 # Can't use $0 nor $SHELL due to this being wrong in various situations.

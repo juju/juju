@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/worker/introspection"
 )
 
@@ -42,6 +43,7 @@ type IntrospectionConfig struct {
 	PresenceRecorder   presence.Recorder
 	Clock              clock.Clock
 	LocalHub           *pubsub.SimpleHub
+	LeaseFSM           *raftlease.FSM
 
 	NewSocketName func(names.Tag) string
 	WorkerFunc    func(config introspection.Config) (worker.Worker, error)
@@ -70,6 +72,7 @@ func StartIntrospection(cfg IntrospectionConfig) error {
 		Presence:           cfg.PresenceRecorder,
 		Clock:              cfg.Clock,
 		Hub:                cfg.LocalHub,
+		Leases:             cfg.LeaseFSM,
 	})
 	if err != nil {
 		return errors.Trace(err)

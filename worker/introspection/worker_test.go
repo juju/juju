@@ -1,9 +1,10 @@
-/// Copyright 2016 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package introspection_test
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -14,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/raft"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
@@ -25,7 +27,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	// Bring in the state package for the tracker profile.
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/pubsub/agent"
 	_ "github.com/juju/juju/state"
 	"github.com/juju/juju/worker/introspection"
@@ -66,6 +70,7 @@ type introspectionSuite struct {
 	recorder presence.Recorder
 	hub      *pubsub.SimpleHub
 	clock    *testclock.Clock
+	leases   *fakeLeases
 }
 
 var _ = gc.Suite(&introspectionSuite{})
@@ -81,6 +86,7 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 	s.gatherer = newPrometheusGatherer()
 	s.hub = pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{Logger: loggo.GetLogger("test.hub")})
 	s.clock = testclock.NewClock(time.Now())
+	s.leases = &fakeLeases{}
 	s.startWorker(c)
 }
 
@@ -93,6 +99,7 @@ func (s *introspectionSuite) startWorker(c *gc.C) {
 		Presence:           s.recorder,
 		Clock:              s.clock,
 		Hub:                s.hub,
+		Leases:             s.leases,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.worker = w
@@ -357,6 +364,179 @@ func (s *introspectionSuite) TestUnitStatusTimeout(c *gc.C) {
 	s.assertBody(c, response, "response timed out")
 }
 
+func (s *introspectionSuite) TestLeasesErr(c *gc.C) {
+	s.leases.err = errors.New("boom")
+	response := s.call(c, "/leases")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusInternalServerError)
+	s.assertBody(c, response, "error: boom")
+}
+
+func (s *introspectionSuite) TestLeasesNewerVersion(c *gc.C) {
+	s.leases.data = &raftlease.Snapshot{
+		Version: 42,
+	}
+	response := s.call(c, "/leases")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusInternalServerError)
+	s.assertBody(c, response, "only understand how to show version 1 snapshots")
+}
+
+func (s *introspectionSuite) TestLeasesDataNoFilter(c *gc.C) {
+	s.setLeaseData()
+	response := s.call(c, "/leases")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	s.assertBody(c, response, `
+controller-leases:
+  other-uuid:
+    holder: controller-1
+    lease-acquired: 10s ago
+    lease-expires: 50s
+  some-uuid:
+    holder: controller-0
+    lease-acquired: 10s ago
+    lease-expires: 50s
+model-leases:
+  other-uuid:
+    keystone:
+      holder: keystone/42
+      lease-acquired: 10s ago
+      lease-expires: 50s
+    mysql:
+      holder: mysql/1
+      lease-acquired: 10s ago
+      lease-expires: 50s
+  some-uuid:
+    mysql:
+      holder: mysql/0
+      lease-acquired: 10s ago
+      lease-expires: 50s
+    wordpress:
+      holder: wordpress/1
+      lease-acquired: 10s ago
+      lease-expires: 50s`[1:])
+}
+
+func (s *introspectionSuite) TestFilterModelUUID(c *gc.C) {
+	s.setLeaseData()
+	response := s.call(c, "/leases?model=some")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	s.assertBody(c, response, `
+controller-leases:
+  some-uuid:
+    holder: controller-0
+    lease-acquired: 10s ago
+    lease-expires: 50s
+model-leases:
+  some-uuid:
+    mysql:
+      holder: mysql/0
+      lease-acquired: 10s ago
+      lease-expires: 50s
+    wordpress:
+      holder: wordpress/1
+      lease-acquired: 10s ago
+      lease-expires: 50s`[1:])
+}
+
+func (s *introspectionSuite) TestLeasesDataFilterSingleApp(c *gc.C) {
+	s.setLeaseData()
+	response := s.call(c, "/leases?app=keystone")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	s.assertBody(c, response, `
+model-leases:
+  other-uuid:
+    keystone:
+      holder: keystone/42
+      lease-acquired: 10s ago
+      lease-expires: 50s`[1:])
+}
+
+func (s *introspectionSuite) TestLeasesDataFilterTwoApps(c *gc.C) {
+	s.setLeaseData()
+	response := s.call(c, "/leases?app=mysql&app=word")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	s.assertBody(c, response, `
+model-leases:
+  other-uuid:
+    mysql:
+      holder: mysql/1
+      lease-acquired: 10s ago
+      lease-expires: 50s
+  some-uuid:
+    mysql:
+      holder: mysql/0
+      lease-acquired: 10s ago
+      lease-expires: 50s
+    wordpress:
+      holder: wordpress/1
+      lease-acquired: 10s ago
+      lease-expires: 50s`[1:])
+}
+
+func (s *introspectionSuite) setLeaseData() {
+	now := time.Date(2020, 8, 11, 15, 34, 23, 0, time.UTC)
+	start := now.Add(-10 * time.Second)
+	s.leases.data = &raftlease.Snapshot{
+		Version:    1,
+		GlobalTime: now,
+		Entries: map[raftlease.SnapshotKey]raftlease.SnapshotEntry{
+			{
+				Namespace: lease.SingularControllerNamespace,
+				ModelUUID: "some-uuid",
+				Lease:     "some-uuid",
+			}: {
+				Holder:   "controller-0",
+				Start:    start,
+				Duration: time.Minute,
+			},
+			{
+				Namespace: lease.SingularControllerNamespace,
+				ModelUUID: "other-uuid",
+				Lease:     "other-uuid",
+			}: {
+				Holder:   "controller-1",
+				Start:    start,
+				Duration: time.Minute,
+			},
+			{
+				Namespace: lease.ApplicationLeadershipNamespace,
+				ModelUUID: "some-uuid",
+				Lease:     "mysql",
+			}: {
+				Holder:   "mysql/0",
+				Start:    start,
+				Duration: time.Minute,
+			},
+			{
+				Namespace: lease.ApplicationLeadershipNamespace,
+				ModelUUID: "some-uuid",
+				Lease:     "wordpress",
+			}: {
+				Holder:   "wordpress/1",
+				Start:    start,
+				Duration: time.Minute,
+			},
+			{
+				Namespace: lease.ApplicationLeadershipNamespace,
+				ModelUUID: "other-uuid",
+				Lease:     "mysql",
+			}: {
+				Holder:   "mysql/1",
+				Start:    start,
+				Duration: time.Minute,
+			},
+			{
+				Namespace: lease.ApplicationLeadershipNamespace,
+				ModelUUID: "other-uuid",
+				Lease:     "keystone",
+			}: {
+				Holder:   "keystone/42",
+				Start:    start,
+				Duration: time.Minute,
+			},
+		},
+	}
+}
+
 type reporter struct {
 	values map[string]interface{}
 }
@@ -385,4 +565,16 @@ func unixSocketHTTPTransport(socketPath string) *http.Transport {
 			return net.Dial("unix", socketPath)
 		},
 	}
+}
+
+type fakeLeases struct {
+	err  error
+	data *raftlease.Snapshot
+}
+
+func (f *fakeLeases) Snapshot() (raft.FSMSnapshot, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.data, nil
 }
