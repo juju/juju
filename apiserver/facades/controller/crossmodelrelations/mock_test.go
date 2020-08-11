@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/crossmodel"
-	corefirewall "github.com/juju/juju/core/firewall"
+	corefirewall "github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"

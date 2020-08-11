@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/core/firewall"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/state"
 )
 

@@ -23,10 +23,10 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"

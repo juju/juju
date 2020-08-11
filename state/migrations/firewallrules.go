@@ -7,7 +7,7 @@ import (
 	"github.com/juju/description/v2"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/firewall"
+	"github.com/juju/juju/core/network/firewall"
 )
 
 // MigrationFirewallRule represents a state.FirewallRule

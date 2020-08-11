@@ -9,8 +9,8 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common/firewall"
-	corefirewall "github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/core/network"
+	corefirewall "github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/state"
 )
 
