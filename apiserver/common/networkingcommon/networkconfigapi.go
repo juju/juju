@@ -35,6 +35,8 @@ type NetworkConfigAPI struct {
 	discoverSubnets bool
 }
 
+// NewNetworkConfigAPI constructs a new common network configuration API
+// and returns its reference.
 func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) (*NetworkConfigAPI, error) {
 	// TODO (manadart 2020-08-11): This is a second access of the model when
 	// being instantiated by the provisioner API.
