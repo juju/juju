@@ -73,7 +73,7 @@ func NewUpgradeStepsAPI(st UpgradeStepsState,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*UpgradeStepsAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() && !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
 
