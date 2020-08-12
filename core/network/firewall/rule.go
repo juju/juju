@@ -87,6 +87,26 @@ func (r IngressRule) LessThan(other IngressRule) bool {
 	return thisSrc < otherSrc
 }
 
+// EqualTo returns true if this rule is equal to the provided rule.
+func (r IngressRule) EqualTo(other IngressRule) bool {
+	// Check dst port ranges first.
+	if r.PortRange != other.PortRange {
+		return false
+	} else if len(r.SourceCIDRs) != len(other.SourceCIDRs) {
+		return false
+	}
+
+	// Compare CIDRs
+	thisSrc := r.SourceCIDRs.SortedValues()
+	otherSrc := other.SourceCIDRs.SortedValues()
+	for i, thisCIDR := range thisSrc {
+		if thisCIDR != otherSrc[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // IngressRules represents a collection of IngressRule instances.
 type IngressRules []IngressRule
 
@@ -105,6 +125,23 @@ func (rules IngressRules) Validate() error {
 		}
 	}
 	return nil
+}
+
+// EqualTo returns true if this rule list is equal to the provided rule list.
+func (rules IngressRules) EqualTo(other IngressRules) bool {
+	if len(rules) != len(other) {
+		return false
+	}
+
+	rules.Sort()
+	other.Sort()
+
+	for i, thisRule := range rules {
+		if !thisRule.EqualTo(other[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // Diff returns a list of IngressRules to open and/or close so that this

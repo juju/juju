@@ -47,6 +47,42 @@ func (IngressRuleSuite) TestRuleValidation(c *gc.C) {
 	c.Assert(r3.Validate(), jc.ErrorIsNil)
 }
 
+func (IngressRuleSuite) TestRuleEquality(c *gc.C) {
+	specs := []struct {
+		descr        string
+		ruleA, ruleB IngressRule
+		exp          bool
+	}{
+		{
+			descr: "same port and CIDRs",
+			ruleA: NewIngressRule(network.MustParsePortRange("80/tcp"), "10.0.0.0/24", "192.168.0.0/24"),
+			ruleB: NewIngressRule(network.MustParsePortRange("80/tcp"), "192.168.0.0/24", "10.0.0.0/24"),
+			exp:   true,
+		},
+		{
+			descr: "same port different CIDRs",
+			ruleA: NewIngressRule(network.MustParsePortRange("80/tcp"), "10.0.0.0/24", "192.168.42.0/24"),
+			ruleB: NewIngressRule(network.MustParsePortRange("80/tcp"), "192.168.0.0/24", "10.0.0.0/24"),
+			exp:   false,
+		},
+		{
+			descr: "different port same CIDRs",
+			ruleA: NewIngressRule(network.MustParsePortRange("90/tcp"), "10.0.0.0/24", "192.168.0.0/24"),
+			ruleB: NewIngressRule(network.MustParsePortRange("80/tcp"), "192.168.0.0/24", "10.0.0.0/24"),
+			exp:   false,
+		},
+	}
+
+	for specIndex, spec := range specs {
+		c.Logf("%d) %s", specIndex, spec.descr)
+		got := spec.ruleA.EqualTo(spec.ruleB)
+		c.Assert(got, gc.Equals, spec.exp)
+
+		got = spec.ruleB.EqualTo(spec.ruleA)
+		c.Assert(got, gc.Equals, spec.exp)
+	}
+}
+
 func (IngressRuleSuite) TestRuleSorting(c *gc.C) {
 	rules := IngressRules{
 		NewIngressRule(network.MustParsePortRange("10-100/udp"), "0.0.0.0/0", "192.168.1.0/24"),
@@ -66,6 +102,25 @@ func (IngressRuleSuite) TestRuleSorting(c *gc.C) {
 	}
 
 	c.Assert(rules, gc.DeepEquals, exp)
+}
+
+func (IngressRuleSuite) TestRulesEquality(c *gc.C) {
+	setA := IngressRules{
+		NewIngressRule(network.MustParsePortRange("80/tcp"), "10.0.0.0/24", "192.168.0.0/24"),
+		NewIngressRule(network.MustParsePortRange("80/tcp"), "192.168.0.0/24", "10.0.0.0/24"),
+	}
+	setB := IngressRules{
+		NewIngressRule(network.MustParsePortRange("80/tcp"), "192.168.0.0/24", "10.0.0.0/24"),
+		NewIngressRule(network.MustParsePortRange("80/tcp"), "10.0.0.0/24", "192.168.0.0/24"),
+	}
+	setC := IngressRules{
+		NewIngressRule(network.MustParsePortRange("80/tcp"), "192.168.0.0/24", "10.0.0.0/24"),
+		NewIngressRule(network.MustParsePortRange("90/tcp"), "10.0.0.0/24", "192.168.0.0/24"),
+	}
+
+	c.Assert(setA.EqualTo(setB), jc.IsTrue)
+	c.Assert(setA.EqualTo(setC), jc.IsFalse)
+	c.Assert(setB.EqualTo(setC), jc.IsFalse)
 }
 
 func (IngressRuleSuite) TestDiffOpenAll(c *gc.C) {
