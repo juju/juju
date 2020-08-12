@@ -124,6 +124,7 @@ type UpgradeCharmStoreResourceSuite struct {
 var _ = gc.Suite(&UpgradeCharmStoreResourceSuite{})
 
 func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
+	c.Skip("Test is trying to get resources from real api, not fake")
 	ch := s.setupCharm(c, "bionic/starsay-1", "starsay", "bionic")
 
 	// let's make a fake resource file to upload
