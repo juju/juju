@@ -14,12 +14,12 @@ import (
 	"github.com/juju/go-oracle-cloud/response"
 
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 	oraclenetwork "github.com/juju/juju/provider/oracle/network"
 )
 
@@ -368,8 +368,8 @@ func (o *oracleInstance) publicAddressesAssociations() ([]response.IpAssociation
 }
 
 // Addresses is defined on the instances.Instance interface.
-func (o *oracleInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
-	var addresses []corenetwork.ProviderAddress
+func (o *oracleInstance) Addresses(ctx context.ProviderCallContext) (network.ProviderAddresses, error) {
+	var addresses []network.ProviderAddress
 
 	ips, err := o.publicAddressesAssociations()
 	if err != nil {
@@ -379,7 +379,7 @@ func (o *oracleInstance) Addresses(ctx context.ProviderCallContext) (corenetwork
 	if len(o.machine.Attributes.Network) > 0 {
 		for name, val := range o.machine.Attributes.Network {
 			if _, ip, err := oraclenetwork.GetMacAndIP(val.Address); err == nil {
-				address := corenetwork.NewScopedProviderAddress(ip, corenetwork.ScopeCloudLocal)
+				address := network.NewScopedProviderAddress(ip, network.ScopeCloudLocal)
 				addresses = append(addresses, address)
 			} else {
 				logger.Errorf("failed to get IP address for NIC %q: %q", name, err)
@@ -388,7 +388,7 @@ func (o *oracleInstance) Addresses(ctx context.ProviderCallContext) (corenetwork
 	}
 
 	for _, val := range ips {
-		address := corenetwork.NewScopedProviderAddress(val.Ip, corenetwork.ScopePublic)
+		address := network.NewScopedProviderAddress(val.Ip, network.ScopePublic)
 		addresses = append(addresses, address)
 	}
 
@@ -396,7 +396,7 @@ func (o *oracleInstance) Addresses(ctx context.ProviderCallContext) (corenetwork
 }
 
 // OpenPorts is defined on the instances.Instance interface.
-func (o *oracleInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
+func (o *oracleInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	if o.env.Config().FirewallMode() != config.FwInstance {
 		return errors.Errorf(
 			"invalid firewall mode %q for opening ports on instance",
@@ -408,7 +408,7 @@ func (o *oracleInstance) OpenPorts(ctx context.ProviderCallContext, machineId st
 }
 
 // ClosePorts is defined on the instances.Instance interface.
-func (o *oracleInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
+func (o *oracleInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	if o.env.Config().FirewallMode() != config.FwInstance {
 		return errors.Errorf(
 			"invalid firewall mode %q for closing ports on instance",
@@ -420,6 +420,6 @@ func (o *oracleInstance) ClosePorts(ctx context.ProviderCallContext, machineId s
 }
 
 // IngressRules is defined on the instances.Instance interface.
-func (o *oracleInstance) IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
+func (o *oracleInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
 	return o.env.MachineIngressRules(ctx, machineId)
 }

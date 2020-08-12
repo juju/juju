@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -35,7 +36,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -1688,25 +1688,24 @@ func (e *environ) allModelVolumes(ctx context.ProviderCallContext, includeRootDi
 	return listVolumes(e.ec2, ctx, filter, includeRootDisks)
 }
 
-func rulesToIPPerms(rules []network.IngressRule) []ec2.IPPerm {
+func rulesToIPPerms(rules firewall.IngressRules) []ec2.IPPerm {
 	ipPerms := make([]ec2.IPPerm, len(rules))
 	for i, r := range rules {
 		ipPerms[i] = ec2.IPPerm{
-			Protocol: r.Protocol,
-			FromPort: r.FromPort,
-			ToPort:   r.ToPort,
+			Protocol: r.PortRange.Protocol,
+			FromPort: r.PortRange.FromPort,
+			ToPort:   r.PortRange.ToPort,
 		}
 		if len(r.SourceCIDRs) == 0 {
 			ipPerms[i].SourceIPs = []string{defaultRouteCIDRBlock}
 		} else {
-			ipPerms[i].SourceIPs = make([]string, len(r.SourceCIDRs))
-			copy(ipPerms[i].SourceIPs, r.SourceCIDRs)
+			ipPerms[i].SourceIPs = r.SourceCIDRs.SortedValues()
 		}
 	}
 	return ipPerms
 }
 
-func (e *environ) openPortsInGroup(ctx context.ProviderCallContext, name string, rules []network.IngressRule) error {
+func (e *environ) openPortsInGroup(ctx context.ProviderCallContext, name string, rules firewall.IngressRules) error {
 	if len(rules) == 0 {
 		return nil
 	}
@@ -1739,7 +1738,7 @@ func (e *environ) openPortsInGroup(ctx context.ProviderCallContext, name string,
 	return nil
 }
 
-func (e *environ) closePortsInGroup(ctx context.ProviderCallContext, name string, rules []network.IngressRule) error {
+func (e *environ) closePortsInGroup(ctx context.ProviderCallContext, name string, rules firewall.IngressRules) error {
 	if len(rules) == 0 {
 		return nil
 	}
@@ -1757,7 +1756,7 @@ func (e *environ) closePortsInGroup(ctx context.ProviderCallContext, name string
 	return nil
 }
 
-func (e *environ) ingressRulesInGroup(ctx context.ProviderCallContext, name string) (rules []network.IngressRule, err error) {
+func (e *environ) ingressRulesInGroup(ctx context.ProviderCallContext, name string) (rules firewall.IngressRules, err error) {
 	group, err := e.groupInfoByName(ctx, name)
 	if err != nil {
 		return nil, err
@@ -1767,17 +1766,17 @@ func (e *environ) ingressRulesInGroup(ctx context.ProviderCallContext, name stri
 		if len(ips) == 0 {
 			ips = []string{defaultRouteCIDRBlock}
 		}
-		rule, err := network.NewIngressRule(p.Protocol, p.FromPort, p.ToPort, ips...)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		rules = append(rules, rule)
+		portRange := corenetwork.PortRange{Protocol: p.Protocol, FromPort: p.FromPort, ToPort: p.ToPort}
+		rules = append(rules, firewall.NewIngressRule(portRange, ips...))
 	}
-	network.SortIngressRules(rules)
+	if err := rules.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	rules.Sort()
 	return rules, nil
 }
 
-func (e *environ) OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
+func (e *environ) OpenPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for opening ports on model", e.Config().FirewallMode())
 	}
@@ -1788,7 +1787,7 @@ func (e *environ) OpenPorts(ctx context.ProviderCallContext, rules []network.Ing
 	return nil
 }
 
-func (e *environ) ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
+func (e *environ) ClosePorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for closing ports on model", e.Config().FirewallMode())
 	}
@@ -1799,7 +1798,7 @@ func (e *environ) ClosePorts(ctx context.ProviderCallContext, rules []network.In
 	return nil
 }
 
-func (e *environ) IngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error) {
+func (e *environ) IngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, errors.Errorf("invalid firewall mode %q for retrieving ingress rules from model", e.Config().FirewallMode())
 	}

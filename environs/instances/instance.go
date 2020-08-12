@@ -6,8 +6,8 @@ package instances
 import (
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 )
 
 // Instance represents the the realization of a machine in state.
@@ -27,11 +27,11 @@ type Instance interface {
 type InstanceFirewaller interface {
 	// OpenPorts opens the given port ranges on the instance, which
 	// should have been started with the given machine id.
-	OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error
+	OpenPorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error
 
 	// ClosePorts closes the given port ranges on the instance, which
 	// should have been started with the given machine id.
-	ClosePorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error
+	ClosePorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error
 
 	// IngressRules returns the set of ingress rules for the instance,
 	// which should have been applied to the given machine id. The
@@ -39,5 +39,5 @@ type InstanceFirewaller interface {
 	// It is expected that there be only one ingress rule result for a given
 	// port range - the rule's SourceCIDRs will contain all applicable source
 	// address rules for that port range.
-	IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error)
+	IngressRules(ctx context.ProviderCallContext, machineId string) (firewall.IngressRules, error)
 }

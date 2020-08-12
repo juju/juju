@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/ssh"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/network/iptables"
 )
 
@@ -31,10 +31,10 @@ type InstanceConfigurator interface {
 	ConfigureExternalIpAddress(apiPort int) error
 
 	// Open or close ports.
-	ChangeIngressRules(ipAddress string, insert bool, rules []network.IngressRule) error
+	ChangeIngressRules(ipAddress string, insert bool, rules firewall.IngressRules) error
 
 	// List all ingress rules.
-	FindIngressRules() ([]network.IngressRule, error)
+	FindIngressRules() (firewall.IngressRules, error)
 }
 
 type sshInstanceConfigurator struct {
@@ -125,7 +125,7 @@ func (c *sshInstanceConfigurator) ConfigureExternalIpAddress(apiPort int) error 
 }
 
 // ChangeIngressRules implements InstanceConfigurator interface.
-func (c *sshInstanceConfigurator) ChangeIngressRules(ipAddress string, insert bool, rules []network.IngressRule) error {
+func (c *sshInstanceConfigurator) ChangeIngressRules(ipAddress string, insert bool, rules firewall.IngressRules) error {
 	var cmds []string
 	for _, rule := range rules {
 		cmds = append(cmds, iptables.IngressRuleCommand{
@@ -144,7 +144,7 @@ func (c *sshInstanceConfigurator) ChangeIngressRules(ipAddress string, insert bo
 }
 
 // FindIngressRules implements InstanceConfigurator interface.
-func (c *sshInstanceConfigurator) FindIngressRules() ([]network.IngressRule, error) {
+func (c *sshInstanceConfigurator) FindIngressRules() (firewall.IngressRules, error) {
 	output, err := c.runCommand("sudo iptables -L INPUT -n")
 	if err != nil {
 		return nil, errors.Errorf("failed to list open ports: %s", output)

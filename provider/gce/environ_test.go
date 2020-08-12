@@ -4,14 +4,17 @@
 package gce_test
 
 import (
+	"fmt"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/testing"
@@ -126,14 +129,22 @@ func (s *environSuite) checkAPIPorts(c *gc.C, config controller.Config, expected
 
 	called, calls := s.FakeConn.WasCalled("OpenPorts")
 	c.Check(called, gc.Equals, true)
-	c.Check(calls, gc.HasLen, len(expectedPorts))
-	for i, call := range calls {
-		port := expectedPorts[i]
-		c.Check(call.FirewallName, gc.Equals, gce.GlobalFirewallName(s.Env))
-		c.Check(call.Rules, jc.DeepEquals, []network.IngressRule{
-			network.MustNewIngressRule("tcp", port, port),
-		})
+	// NOTE(achilleasa): the bootstrap code will merge the port ranges
+	// for the API and port 80 when using autocert in a single OpenPorts
+	// call
+	c.Check(calls, gc.HasLen, 1)
+
+	var expRules firewall.IngressRules
+	for _, port := range expectedPorts {
+		expRules = append(
+			expRules,
+			firewall.NewIngressRule(network.MustParsePortRange(fmt.Sprintf("%d/tcp", port))),
+		)
 	}
+
+	call := calls[0]
+	c.Check(call.FirewallName, gc.Equals, gce.GlobalFirewallName(s.Env))
+	c.Check(call.Rules, jc.DeepEquals, expRules)
 }
 
 func (s *environSuite) TestBootstrapCommon(c *gc.C) {

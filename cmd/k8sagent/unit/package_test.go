@@ -99,6 +99,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"core/migration",
 		"core/model",
 		"core/network",
+		"core/network/firewall",
 		"core/paths",
 		"core/paths/transientfile",
 		"core/permission",

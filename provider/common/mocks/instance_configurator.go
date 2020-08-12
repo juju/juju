@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	network "github.com/juju/juju/network"
+	firewall "github.com/juju/juju/core/network/firewall"
 	reflect "reflect"
 )
 
@@ -34,7 +34,7 @@ func (m *MockInstanceConfigurator) EXPECT() *MockInstanceConfiguratorMockRecorde
 }
 
 // ChangeIngressRules mocks base method
-func (m *MockInstanceConfigurator) ChangeIngressRules(arg0 string, arg1 bool, arg2 []network.IngressRule) error {
+func (m *MockInstanceConfigurator) ChangeIngressRules(arg0 string, arg1 bool, arg2 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ChangeIngressRules", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -76,10 +76,10 @@ func (mr *MockInstanceConfiguratorMockRecorder) DropAllPorts(arg0, arg1 interfac
 }
 
 // FindIngressRules mocks base method
-func (m *MockInstanceConfigurator) FindIngressRules() ([]network.IngressRule, error) {
+func (m *MockInstanceConfigurator) FindIngressRules() (firewall.IngressRules, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindIngressRules")
-	ret0, _ := ret[0].([]network.IngressRule)
+	ret0, _ := ret[0].(firewall.IngressRules)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

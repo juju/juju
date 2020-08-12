@@ -13,12 +13,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/network"
 )
 
 // Ensure EC2 provider supports the expected interfaces,
@@ -113,11 +113,11 @@ func pInt(i uint64) *uint64 {
 func (*Suite) TestPortsToIPPerms(c *gc.C) {
 	testCases := []struct {
 		about    string
-		rules    []network.IngressRule
+		rules    firewall.IngressRules
 		expected []amzec2.IPPerm
 	}{{
 		about: "single port",
-		rules: []network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)},
+		rules: firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))},
 		expected: []amzec2.IPPerm{{
 			Protocol:  "tcp",
 			FromPort:  80,
@@ -126,7 +126,7 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 		}},
 	}, {
 		about: "multiple ports",
-		rules: []network.IngressRule{network.MustNewIngressRule("tcp", 80, 82)},
+		rules: firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80-82/tcp"))},
 		expected: []amzec2.IPPerm{{
 			Protocol:  "tcp",
 			FromPort:  80,
@@ -135,9 +135,9 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 		}},
 	}, {
 		about: "multiple port ranges",
-		rules: []network.IngressRule{
-			network.MustNewIngressRule("tcp", 80, 82),
-			network.MustNewIngressRule("tcp", 100, 120),
+		rules: firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("80-82/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("100-120/tcp")),
 		},
 		expected: []amzec2.IPPerm{{
 			Protocol:  "tcp",
@@ -152,12 +152,12 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 		}},
 	}, {
 		about: "source ranges",
-		rules: []network.IngressRule{network.MustNewIngressRule("tcp", 80, 82, "192.168.1.0/24", "0.0.0.0/0")},
+		rules: firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80-82/tcp"), "192.168.1.0/24", "0.0.0.0/0")},
 		expected: []amzec2.IPPerm{{
 			Protocol:  "tcp",
 			FromPort:  80,
 			ToPort:    82,
-			SourceIPs: []string{"192.168.1.0/24", "0.0.0.0/0"},
+			SourceIPs: []string{"0.0.0.0/0", "192.168.1.0/24"},
 		}},
 	}}
 
@@ -206,52 +206,52 @@ func (*Suite) TestSupportsContainerAddresses(c *gc.C) {
 }
 
 func (*Suite) TestSelectSubnetIDsForZone(c *gc.C) {
-	subnetZones := map[corenetwork.Id][]string{
-		corenetwork.Id("bar"): {"foo"},
+	subnetZones := map[network.Id][]string{
+		network.Id("bar"): {"foo"},
 	}
-	placement := corenetwork.Id("")
+	placement := network.Id("")
 	az := "foo"
 
 	var env *environ
 	subnets, err := env.selectSubnetIDsForZone(subnetZones, placement, az)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, gc.DeepEquals, []corenetwork.Id{"bar"})
+	c.Assert(subnets, gc.DeepEquals, []network.Id{"bar"})
 }
 
 func (*Suite) TestSelectSubnetIDsForZones(c *gc.C) {
-	subnetZones := map[corenetwork.Id][]string{
-		corenetwork.Id("bar"): {"foo"},
-		corenetwork.Id("baz"): {"foo"},
+	subnetZones := map[network.Id][]string{
+		network.Id("bar"): {"foo"},
+		network.Id("baz"): {"foo"},
 	}
-	placement := corenetwork.Id("")
+	placement := network.Id("")
 	az := "foo"
 
 	var env *environ
 	subnets, err := env.selectSubnetIDsForZone(subnetZones, placement, az)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, gc.DeepEquals, []corenetwork.Id{"bar", "baz"})
+	c.Assert(subnets, gc.DeepEquals, []network.Id{"bar", "baz"})
 }
 
 func (*Suite) TestSelectSubnetIDsForZoneWithPlacement(c *gc.C) {
-	subnetZones := map[corenetwork.Id][]string{
-		corenetwork.Id("bar"): {"foo"},
-		corenetwork.Id("baz"): {"foo"},
+	subnetZones := map[network.Id][]string{
+		network.Id("bar"): {"foo"},
+		network.Id("baz"): {"foo"},
 	}
-	placement := corenetwork.Id("baz")
+	placement := network.Id("baz")
 	az := "foo"
 
 	var env *environ
 	subnets, err := env.selectSubnetIDsForZone(subnetZones, placement, az)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, gc.DeepEquals, []corenetwork.Id{"baz"})
+	c.Assert(subnets, gc.DeepEquals, []network.Id{"baz"})
 }
 
 func (*Suite) TestSelectSubnetIDsForZoneWithIncorrectPlacement(c *gc.C) {
-	subnetZones := map[corenetwork.Id][]string{
-		corenetwork.Id("bar"): {"foo"},
-		corenetwork.Id("baz"): {"foo"},
+	subnetZones := map[network.Id][]string{
+		network.Id("bar"): {"foo"},
+		network.Id("baz"): {"foo"},
 	}
-	placement := corenetwork.Id("boom")
+	placement := network.Id("boom")
 	az := "foo"
 
 	var env *environ
@@ -265,11 +265,11 @@ func (*Suite) TestSelectSubnetIDForInstance(c *gc.C) {
 
 	mockContext := NewMockProviderCallContext(ctrl)
 
-	subnetZones := map[corenetwork.Id][]string{
-		corenetwork.Id("some-sub"): {"some-az"},
-		corenetwork.Id("baz"):      {"foo"},
+	subnetZones := map[network.Id][]string{
+		network.Id("some-sub"): {"some-az"},
+		network.Id("baz"):      {"foo"},
 	}
-	placement := corenetwork.Id("")
+	placement := network.Id("")
 	az := "foo"
 
 	var env *environ
@@ -284,11 +284,11 @@ func (*Suite) TestSelectSubnetIDForInstanceSelection(c *gc.C) {
 
 	mockContext := NewMockProviderCallContext(ctrl)
 
-	subnetZones := map[corenetwork.Id][]string{
-		corenetwork.Id("baz"): {"foo"},
-		corenetwork.Id("taz"): {"foo"},
+	subnetZones := map[network.Id][]string{
+		network.Id("baz"): {"foo"},
+		network.Id("taz"): {"foo"},
 	}
-	placement := corenetwork.Id("")
+	placement := network.Id("")
 	az := "foo"
 
 	var env *environ
@@ -303,8 +303,8 @@ func (*Suite) TestSelectSubnetIDForInstanceWithNoMatchingZones(c *gc.C) {
 
 	mockContext := NewMockProviderCallContext(ctrl)
 
-	subnetZones := map[corenetwork.Id][]string{}
-	placement := corenetwork.Id("")
+	subnetZones := map[network.Id][]string{}
+	placement := network.Id("")
 	az := "invalid"
 
 	var env *environ
@@ -314,8 +314,8 @@ func (*Suite) TestSelectSubnetIDForInstanceWithNoMatchingZones(c *gc.C) {
 }
 
 func (*Suite) TestGetValidSubnetZoneMapOneSpaceConstraint(c *gc.C) {
-	allSubnetZones := []map[corenetwork.Id][]string{
-		{corenetwork.Id("sub-1"): {"az-1"}},
+	allSubnetZones := []map[network.Id][]string{
+		{network.Id("sub-1"): {"az-1"}},
 	}
 
 	args := environs.StartInstanceParams{
@@ -329,14 +329,14 @@ func (*Suite) TestGetValidSubnetZoneMapOneSpaceConstraint(c *gc.C) {
 }
 
 func (*Suite) TestGetValidSubnetZoneMapOneBindingFanFiltered(c *gc.C) {
-	allSubnetZones := []map[corenetwork.Id][]string{{
-		corenetwork.Id("sub-1"):       {"az-1"},
-		corenetwork.Id("sub-INFAN-2"): {"az-2"},
+	allSubnetZones := []map[network.Id][]string{{
+		network.Id("sub-1"):       {"az-1"},
+		network.Id("sub-INFAN-2"): {"az-2"},
 	}}
 
 	args := environs.StartInstanceParams{
 		SubnetsToZones: allSubnetZones,
-		EndpointBindings: map[string]corenetwork.Id{
+		EndpointBindings: map[string]network.Id{
 			"":    "space-1",
 			"ep1": "space-1",
 			"ep2": "space-1",
@@ -345,21 +345,21 @@ func (*Suite) TestGetValidSubnetZoneMapOneBindingFanFiltered(c *gc.C) {
 
 	subnetZones, err := getValidSubnetZoneMap(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(subnetZones, gc.DeepEquals, map[corenetwork.Id][]string{
+	c.Check(subnetZones, gc.DeepEquals, map[network.Id][]string{
 		"sub-1": {"az-1"},
 	})
 }
 
 func (*Suite) TestGetValidSubnetZoneMapNoIntersectionError(c *gc.C) {
-	allSubnetZones := []map[corenetwork.Id][]string{
-		{corenetwork.Id("sub-1"): {"az-1"}},
-		{corenetwork.Id("sub-2"): {"az-2"}},
+	allSubnetZones := []map[network.Id][]string{
+		{network.Id("sub-1"): {"az-1"}},
+		{network.Id("sub-2"): {"az-2"}},
 	}
 
 	args := environs.StartInstanceParams{
 		SubnetsToZones: allSubnetZones,
 		Constraints:    constraints.MustParse("spaces=admin"),
-		EndpointBindings: map[string]corenetwork.Id{
+		EndpointBindings: map[string]network.Id{
 			"":    "space-1",
 			"ep1": "space-1",
 			"ep2": "space-1",
@@ -372,16 +372,16 @@ func (*Suite) TestGetValidSubnetZoneMapNoIntersectionError(c *gc.C) {
 }
 
 func (*Suite) TestGetValidSubnetZoneMapIntersectionSelectsCorrectIndex(c *gc.C) {
-	allSubnetZones := []map[corenetwork.Id][]string{
-		{corenetwork.Id("sub-1"): {"az-1"}},
-		{corenetwork.Id("sub-2"): {"az-2"}},
-		{corenetwork.Id("sub-3"): {"az-2"}},
+	allSubnetZones := []map[network.Id][]string{
+		{network.Id("sub-1"): {"az-1"}},
+		{network.Id("sub-2"): {"az-2"}},
+		{network.Id("sub-3"): {"az-2"}},
 	}
 
 	args := environs.StartInstanceParams{
 		SubnetsToZones: allSubnetZones,
 		Constraints:    constraints.MustParse("spaces=space-2,space-3"),
-		EndpointBindings: map[string]corenetwork.Id{
+		EndpointBindings: map[string]network.Id{
 			"":    "space-1",
 			"ep1": "space-2",
 			"ep2": "space-2",

@@ -8,7 +8,7 @@ import (
 	jtesting "github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/client/firewallrules"
-	"github.com/juju/juju/core/firewall"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/state"
 )
 

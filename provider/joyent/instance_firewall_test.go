@@ -7,7 +7,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/provider/joyent"
 )
 
@@ -20,7 +21,7 @@ func (s *InstanceFirewallSuite) TestGetPorts(c *gc.C) {
 		about    string
 		envName  string
 		rules    []cloudapi.FirewallRule
-		expected []network.IngressRule
+		expected firewall.IngressRules
 	}{
 		{
 			"single port instance rule",
@@ -30,7 +31,7 @@ func (s *InstanceFirewallSuite) TestGetPorts(c *gc.C) {
 				true,
 				"FROM tag switch TO vm machine ALLOW tcp PORT 80",
 			}},
-			[]network.IngressRule{network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0")},
+			firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), "0.0.0.0/0")},
 		},
 		{
 			"port range instance rule",
@@ -40,7 +41,7 @@ func (s *InstanceFirewallSuite) TestGetPorts(c *gc.C) {
 				true,
 				"FROM tag switch TO vm machine ALLOW tcp (PORT 80 AND PORT 81 AND PORT 82 AND PORT 83)",
 			}},
-			[]network.IngressRule{network.MustNewIngressRule("tcp", 80, 83, "0.0.0.0/0")},
+			firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80-83/tcp"), "0.0.0.0/0")},
 		},
 	}
 	for i, t := range testCases {
@@ -55,15 +56,15 @@ func (s *InstanceFirewallSuite) TestGetPorts(c *gc.C) {
 func (s *InstanceFirewallSuite) TestRuleCreation(c *gc.C) {
 	testCases := []struct {
 		about    string
-		ports    network.IngressRule
+		ports    firewall.IngressRule
 		expected string
 	}{{
 		"single port firewall rule",
-		network.MustNewIngressRule("tcp", 80, 80),
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp")),
 		"FROM tag switch TO vm machine ALLOW tcp PORT 80",
 	}, {
 		"multiple port firewall rule",
-		network.MustNewIngressRule("tcp", 80, 81),
+		firewall.NewIngressRule(network.MustParsePortRange("80-81/tcp")),
 		"FROM tag switch TO vm machine ALLOW tcp ( PORT 80 AND PORT 81 )",
 	}}
 

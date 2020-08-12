@@ -11,11 +11,11 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
+	firewall "github.com/juju/juju/core/network/firewall"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	context "github.com/juju/juju/environs/context"
 	instances "github.com/juju/juju/environs/instances"
-	network0 "github.com/juju/juju/network"
 	storage "github.com/juju/juju/storage"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version"
@@ -1132,7 +1132,7 @@ func (m *MockFirewaller) EXPECT() *MockFirewallerMockRecorder {
 }
 
 // ClosePorts mocks base method
-func (m *MockFirewaller) ClosePorts(arg0 context.ProviderCallContext, arg1 []network0.IngressRule) error {
+func (m *MockFirewaller) ClosePorts(arg0 context.ProviderCallContext, arg1 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClosePorts", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -1146,10 +1146,10 @@ func (mr *MockFirewallerMockRecorder) ClosePorts(arg0, arg1 interface{}) *gomock
 }
 
 // IngressRules mocks base method
-func (m *MockFirewaller) IngressRules(arg0 context.ProviderCallContext) ([]network0.IngressRule, error) {
+func (m *MockFirewaller) IngressRules(arg0 context.ProviderCallContext) (firewall.IngressRules, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IngressRules", arg0)
-	ret0, _ := ret[0].([]network0.IngressRule)
+	ret0, _ := ret[0].(firewall.IngressRules)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1161,7 +1161,7 @@ func (mr *MockFirewallerMockRecorder) IngressRules(arg0 interface{}) *gomock.Cal
 }
 
 // OpenPorts mocks base method
-func (m *MockFirewaller) OpenPorts(arg0 context.ProviderCallContext, arg1 []network0.IngressRule) error {
+func (m *MockFirewaller) OpenPorts(arg0 context.ProviderCallContext, arg1 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenPorts", arg0, arg1)
 	ret0, _ := ret[0].(error)

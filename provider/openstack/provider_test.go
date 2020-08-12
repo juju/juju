@@ -20,11 +20,11 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 )
 
 // localTests contains tests which do not require a live service or test double to run.
@@ -203,11 +203,11 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 	groupId := "groupid"
 	testCases := []struct {
 		about    string
-		rules    []network.IngressRule
+		rules    firewall.IngressRules
 		expected []neutron.RuleInfoV2
 	}{{
 		about: "single port",
-		rules: []network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)},
+		rules: firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))},
 		expected: []neutron.RuleInfoV2{{
 			Direction:      "ingress",
 			IPProtocol:     "tcp",
@@ -218,7 +218,7 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 		}},
 	}, {
 		about: "multiple ports",
-		rules: []network.IngressRule{network.MustNewIngressRule("tcp", 80, 82)},
+		rules: firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80-82/tcp"))},
 		expected: []neutron.RuleInfoV2{{
 			Direction:      "ingress",
 			IPProtocol:     "tcp",
@@ -229,9 +229,9 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 		}},
 	}, {
 		about: "multiple port ranges",
-		rules: []network.IngressRule{
-			network.MustNewIngressRule("tcp", 80, 82),
-			network.MustNewIngressRule("tcp", 100, 120),
+		rules: firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("80-82/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("100-120/tcp")),
 		},
 		expected: []neutron.RuleInfoV2{{
 			Direction:      "ingress",
@@ -250,8 +250,7 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 		}},
 	}, {
 		about: "source range",
-		rules: []network.IngressRule{network.MustNewIngressRule(
-			"tcp", 80, 100, "192.168.1.0/24", "0.0.0.0/0")},
+		rules: firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), "192.168.1.0/24", "0.0.0.0/0")},
 		expected: []neutron.RuleInfoV2{{
 			Direction:      "ingress",
 			IPProtocol:     "tcp",
@@ -285,12 +284,12 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 
 	testCases := []struct {
 		about        string
-		rule         network.IngressRule
+		rule         firewall.IngressRule
 		secGroupRule neutron.SecurityGroupRuleV2
 		expected     bool
 	}{{
 		about: "single port",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 80),
+		rule:  firewall.NewIngressRule(network.MustParsePortRange("80/tcp")),
 		secGroupRule: neutron.SecurityGroupRuleV2{
 			IPProtocol:   &proto_tcp,
 			PortRangeMin: &port_80,
@@ -299,7 +298,7 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 		expected: true,
 	}, {
 		about: "multiple port",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 85),
+		rule:  firewall.NewIngressRule(network.MustParsePortRange("80-85/tcp")),
 		secGroupRule: neutron.SecurityGroupRuleV2{
 			IPProtocol:   &proto_tcp,
 			PortRangeMin: &port_80,
@@ -308,7 +307,7 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 		expected: true,
 	}, {
 		about: "nil rule components",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 85),
+		rule:  firewall.NewIngressRule(network.MustParsePortRange("80-85/tcp")),
 		secGroupRule: neutron.SecurityGroupRuleV2{
 			IPProtocol:   nil,
 			PortRangeMin: nil,
@@ -317,7 +316,7 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 		expected: false,
 	}, {
 		about: "nil rule component: PortRangeMin",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
+		rule:  firewall.NewIngressRule(network.MustParsePortRange("80-85/tcp"), "0.0.0.0/0", "192.168.1.0/24"),
 		secGroupRule: neutron.SecurityGroupRuleV2{
 			IPProtocol:     &proto_tcp,
 			PortRangeMin:   nil,
@@ -327,7 +326,7 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 		expected: false,
 	}, {
 		about: "nil rule component: PortRangeMax",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
+		rule:  firewall.NewIngressRule(network.MustParsePortRange("80-85/tcp"), "0.0.0.0/0", "192.168.1.0/24"),
 		secGroupRule: neutron.SecurityGroupRuleV2{
 			IPProtocol:     &proto_tcp,
 			PortRangeMin:   &port_85,
@@ -337,7 +336,7 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 		expected: false,
 	}, {
 		about: "mismatched port range and rule",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 85),
+		rule:  firewall.NewIngressRule(network.MustParsePortRange("80-85/tcp")),
 		secGroupRule: neutron.SecurityGroupRuleV2{
 			IPProtocol:   &proto_udp,
 			PortRangeMin: &port_80,
@@ -346,7 +345,7 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 		expected: false,
 	}, {
 		about: "default RemoteIPPrefix",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 85),
+		rule:  firewall.NewIngressRule(network.MustParsePortRange("80-85/tcp")),
 		secGroupRule: neutron.SecurityGroupRuleV2{
 			IPProtocol:     &proto_tcp,
 			PortRangeMin:   &port_80,
@@ -356,7 +355,7 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 		expected: true,
 	}, {
 		about: "matching RemoteIPPrefix",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
+		rule:  firewall.NewIngressRule(network.MustParsePortRange("80-85/tcp"), "0.0.0.0/0", "192.168.1.0/24"),
 		secGroupRule: neutron.SecurityGroupRuleV2{
 			IPProtocol:     &proto_tcp,
 			PortRangeMin:   &port_80,
@@ -366,7 +365,7 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 		expected: true,
 	}, {
 		about: "non-matching RemoteIPPrefix",
-		rule:  network.MustNewIngressRule(proto_tcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
+		rule:  firewall.NewIngressRule(network.MustParsePortRange("80-85/tcp"), "0.0.0.0/0", "192.168.1.0/24"),
 		secGroupRule: neutron.SecurityGroupRuleV2{
 			IPProtocol:     &proto_tcp,
 			PortRangeMin:   &port_80,
@@ -863,7 +862,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 
 	mockNetworking := NewMockNetworking(ctrl)
 	mockNetworking.EXPECT().ResolveNetwork("network-id-foo", false).Return("network-id-foo", nil)
-	mockNetworking.EXPECT().CreatePort("", "network-id-foo", corenetwork.Id("subnet-foo")).Return(
+	mockNetworking.EXPECT().CreatePort("", "network-id-foo", network.Id("subnet-foo")).Return(
 		&neutron.PortV2{
 			FixedIPs: []neutron.PortFixedIPsV2{{
 				IPAddress: "10.10.10.1",
@@ -875,17 +874,17 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 	expectDefaultNetworks(mockNetworking)
 
 	netCfg := NewMockNetworkingConfig(ctrl)
-	netCfg.EXPECT().AddNetworkConfig(corenetwork.InterfaceInfos{{
+	netCfg.EXPECT().AddNetworkConfig(network.InterfaceInfos{{
 		InterfaceName: "eth0",
 		MACAddress:    "mac-address",
-		Addresses:     corenetwork.NewProviderAddresses("10.10.10.1"),
-		ConfigType:    corenetwork.ConfigDHCP,
-		Origin:        corenetwork.OriginProvider,
+		Addresses:     network.NewProviderAddresses("10.10.10.1"),
+		ConfigType:    network.ConfigDHCP,
+		Origin:        network.OriginProvider,
 	}}).Return(nil)
 
 	siParams := environs.StartInstanceParams{
 		AvailabilityZone: "eu-west-az",
-		SubnetsToZones:   []map[corenetwork.Id][]string{{"subnet-foo": {"eu-west-az", "eu-east-az"}}},
+		SubnetsToZones:   []map[network.Id][]string{{"subnet-foo": {"eu-west-az", "eu-east-az"}}},
 		Constraints: constraints.Value{
 			Spaces: &[]string{
 				"eu-west-az",
@@ -917,7 +916,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithNoMatchingAZ(c *gc.C) {
 
 	siParams := environs.StartInstanceParams{
 		AvailabilityZone: "us-east-az",
-		SubnetsToZones:   []map[corenetwork.Id][]string{{"subnet-foo": {"eu-west-az", "eu-east-az"}}},
+		SubnetsToZones:   []map[network.Id][]string{{"subnet-foo": {"eu-west-az", "eu-east-az"}}},
 		Constraints: constraints.Value{
 			Spaces: &[]string{"eu-west-az"},
 		},

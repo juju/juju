@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 )
 
 type kvmInstance struct {
@@ -50,17 +50,17 @@ func (kvm *kvmInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.
 }
 
 // OpenPorts implements instances.Instance.OpenPorts.
-func (kvm *kvmInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
+func (kvm *kvmInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	return fmt.Errorf("not implemented")
 }
 
 // ClosePorts implements instances.Instance.ClosePorts.
-func (kvm *kvmInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
+func (kvm *kvmInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	return fmt.Errorf("not implemented")
 }
 
 // IngressRules implements instances.Instance.IngressRules.
-func (kvm *kvmInstance) IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
+func (kvm *kvmInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

@@ -66,6 +66,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -75,7 +76,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -218,14 +218,14 @@ type OpOpenPorts struct {
 	Env        string
 	MachineId  string
 	InstanceId instance.Id
-	Rules      []network.IngressRule
+	Rules      firewall.IngressRules
 }
 
 type OpClosePorts struct {
 	Env        string
 	MachineId  string
 	InstanceId instance.Id
-	Rules      []network.IngressRule
+	Rules      firewall.IngressRules
 }
 
 type OpPutFile struct {
@@ -262,7 +262,7 @@ type environState struct {
 	maxId          int // maximum instance id allocated so far.
 	maxAddr        int // maximum allocated address last byte
 	insts          map[instance.Id]*dummyInstance
-	globalRules    network.IngressRuleSlice
+	globalRules    firewall.IngressRules
 	bootstrapped   bool
 	mux            *apiserverhttp.Mux
 	httpServer     *httptest.Server
@@ -1666,7 +1666,7 @@ func (e *environ) instancesForMethod(ctx context.ProviderCallContext, method str
 	return insts, nil
 }
 
-func (e *environ) OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
+func (e *environ) OpenPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on model", mode)
 	}
@@ -1678,7 +1678,7 @@ func (e *environ) OpenPorts(ctx context.ProviderCallContext, rules []network.Ing
 	defer estate.mu.Unlock()
 	for _, r := range rules {
 		if len(r.SourceCIDRs) == 0 {
-			r.SourceCIDRs = []string{"0.0.0.0/0"}
+			r.SourceCIDRs.Add(firewall.AllNetworksIPV4CIDR)
 		}
 		found := false
 		for _, rule := range estate.globalRules {
@@ -1694,7 +1694,7 @@ func (e *environ) OpenPorts(ctx context.ProviderCallContext, rules []network.Ing
 	return nil
 }
 
-func (e *environ) ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
+func (e *environ) ClosePorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on model", mode)
 	}
@@ -1714,7 +1714,7 @@ func (e *environ) ClosePorts(ctx context.ProviderCallContext, rules []network.In
 	return nil
 }
 
-func (e *environ) IngressRules(ctx context.ProviderCallContext) (rules []network.IngressRule, err error) {
+func (e *environ) IngressRules(ctx context.ProviderCallContext) (rules firewall.IngressRules, err error) {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from model", mode)
 	}
@@ -1727,7 +1727,7 @@ func (e *environ) IngressRules(ctx context.ProviderCallContext) (rules []network
 	for _, r := range estate.globalRules {
 		rules = append(rules, r)
 	}
-	network.SortIngressRules(rules)
+	rules.Sort()
 	return
 }
 
@@ -1737,7 +1737,7 @@ func (*environ) Provider() environs.EnvironProvider {
 
 type dummyInstance struct {
 	state        *environState
-	rules        network.IngressRuleSlice
+	rules        firewall.IngressRules
 	id           instance.Id
 	status       string
 	machineId    string
@@ -1819,7 +1819,7 @@ func (inst *dummyInstance) Addresses(ctx context.ProviderCallContext) (corenetwo
 	return append([]corenetwork.ProviderAddress{}, inst.addresses...), nil
 }
 
-func (inst *dummyInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
+func (inst *dummyInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	defer delay()
 	logger.Infof("openPorts %s, %#v", machineId, rules)
 	if inst.firewallMode != config.FwInstance {
@@ -1842,7 +1842,7 @@ func (inst *dummyInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 	}
 	for _, r := range rules {
 		if len(r.SourceCIDRs) == 0 {
-			r.SourceCIDRs = []string{"0.0.0.0/0"}
+			r.SourceCIDRs.Add(firewall.AllNetworksIPV4CIDR)
 		}
 		found := false
 		for i, rule := range inst.rules {
@@ -1864,7 +1864,7 @@ func (inst *dummyInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 	return nil
 }
 
-func (inst *dummyInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
+func (inst *dummyInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	defer delay()
 	if inst.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
@@ -1894,7 +1894,7 @@ func (inst *dummyInstance) ClosePorts(ctx context.ProviderCallContext, machineId
 	return nil
 }
 
-func (inst *dummyInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (rules []network.IngressRule, err error) {
+func (inst *dummyInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (rules firewall.IngressRules, err error) {
 	defer delay()
 	if inst.firewallMode != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from instance",
@@ -1911,7 +1911,7 @@ func (inst *dummyInstance) IngressRules(ctx context.ProviderCallContext, machine
 	for _, r := range inst.rules {
 		rules = append(rules, r)
 	}
-	network.SortIngressRules(rules)
+	rules.Sort()
 	return
 }
 

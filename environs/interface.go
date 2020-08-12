@@ -13,11 +13,11 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network/firewall"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
 )
 
@@ -474,12 +474,12 @@ type Firewaller interface {
 	// OpenPorts opens the given port ranges for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error
+	OpenPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error
 
 	// ClosePorts closes the given port ranges for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error
+	ClosePorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error
 
 	// IngressRules returns the ingress rules applied to the whole environment.
 	// Must only be used if the environment was setup with the
@@ -487,7 +487,7 @@ type Firewaller interface {
 	// It is expected that there be only one ingress rule result for a given
 	// port range - the rule's SourceCIDRs will contain all applicable source
 	// address rules for that port range.
-	IngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error)
+	IngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error)
 }
 
 // InstanceTagger is an interface that can be used for tagging instances.

@@ -7,7 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	description "github.com/juju/description/v2"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/firewall"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

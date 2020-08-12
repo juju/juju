@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 )
 
 type maas2Instance struct {
@@ -103,17 +103,17 @@ func (mi *maas2Instance) Status(ctx context.ProviderCallContext) instance.Status
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
-func (mi *maas2Instance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
+func (mi *maas2Instance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	logger.Debugf("unimplemented OpenPorts() called")
 	return nil
 }
 
-func (mi *maas2Instance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
+func (mi *maas2Instance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	logger.Debugf("unimplemented ClosePorts() called")
 	return nil
 }
 
-func (mi *maas2Instance) IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
+func (mi *maas2Instance) IngressRules(ctx context.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
 	logger.Debugf("unimplemented IngressRules() called")
 	return nil, nil
 }
