@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	jujucharm "github.com/juju/charm/v7"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/network/containerizer"
@@ -105,5 +106,28 @@ var _ Application = (*applicationShim)(nil)
 // state.Charm reference in returned collection with
 // the Charm implementation.
 func (a *applicationShim) Charm() (Charm, bool, error) {
-	return a.Application.Charm()
+	charm, ok, err := a.Application.Charm()
+	if err != nil {
+		return nil, ok, errors.Trace(err)
+	}
+	newCharm := &charmShim{
+		Charm: charm,
+	}
+	return newCharm, ok, nil
+}
+
+type charmShim struct {
+	*state.Charm
+}
+
+func (s *charmShim) LXDProfile() *jujucharm.LXDProfile {
+	profile := s.Charm.LXDProfile()
+	if profile == nil {
+		return nil
+	}
+	return &jujucharm.LXDProfile{
+		Description: profile.Description,
+		Config:      profile.Config,
+		Devices:     profile.Devices,
+	}
 }

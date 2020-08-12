@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujuarch "github.com/juju/utils/arch"
@@ -311,7 +310,7 @@ func (m *containerManager) networkDevicesFromConfig(netConfig *container.Network
 // removed, maybe change to take an lxdprofile.ProfilePost as
 // an arg.
 // MaybeWriteLXDProfile implements container.LXDProfileManager.
-func (m *containerManager) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+func (m *containerManager) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) error {
 	m.profileMutex.Lock()
 	defer m.profileMutex.Unlock()
 	hasProfile, err := m.server.HasProfile(pName)
@@ -324,8 +323,12 @@ func (m *containerManager) MaybeWriteLXDProfile(pName string, put *charm.LXDProf
 	}
 	logger.Debugf("attempting to write lxd profile %q %+v", pName, put)
 	post := api.ProfilesPost{
-		Name:       pName,
-		ProfilePut: api.ProfilePut(*put),
+		Name: pName,
+		ProfilePut: api.ProfilePut{
+			Description: put.Description,
+			Config:      put.Config,
+			Devices:     put.Devices,
+		},
 	}
 	if err = m.server.CreateProfile(post); err != nil {
 		return errors.Trace(err)
@@ -358,10 +361,10 @@ func (m *containerManager) LXDProfileNames(containerName string) ([]string, erro
 }
 
 // AssignLXDProfiles implements environs.LXDProfiler.
-func (m *containerManager) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
+func (m *containerManager) AssignLXDProfiles(instID string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
 	report := func(err error) ([]string, error) {
 		// Always return the current profiles assigned to the instance.
-		currentProfiles, err2 := m.LXDProfileNames(instId)
+		currentProfiles, err2 := m.LXDProfileNames(instID)
 		if err != nil && err2 != nil {
 			logger.Errorf("secondary error, retrieving profile names: %s", err2)
 		}
@@ -373,8 +376,7 @@ func (m *containerManager) AssignLXDProfiles(instId string, profilesNames []stri
 	var deleteProfiles []string
 	for _, p := range profilePosts {
 		if p.Profile != nil {
-			pr := charm.LXDProfile(*p.Profile)
-			if err := m.MaybeWriteLXDProfile(p.Name, &pr); err != nil {
+			if err := m.MaybeWriteLXDProfile(p.Name, *p.Profile); err != nil {
 				return report(err)
 			}
 		} else {
@@ -382,7 +384,7 @@ func (m *containerManager) AssignLXDProfiles(instId string, profilesNames []stri
 		}
 	}
 
-	if err := m.server.UpdateContainerProfiles(instId, profilesNames); err != nil {
+	if err := m.server.UpdateContainerProfiles(instID, profilesNames); err != nil {
 		return report(errors.Trace(err))
 	}
 

@@ -789,7 +789,11 @@ func fetchAllApplicationsAndUnits(
 		}
 		chName := lxdprofile.Name(model.Name(), app.Name(), ch.Revision())
 		if profile := ch.LXDProfile(); profile != nil {
-			lxdProfiles[chName] = profile
+			lxdProfiles[chName] = &charm.LXDProfile{
+				Description: profile.Description,
+				Config:      profile.Config,
+				Devices:     profile.Devices,
+			}
 		}
 	}
 

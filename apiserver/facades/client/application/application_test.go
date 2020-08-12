@@ -1538,7 +1538,13 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 	c.Assert(expected.URL(), gc.DeepEquals, curl)
 	c.Assert(expected.Meta(), gc.DeepEquals, ch.Meta())
 	c.Assert(expected.Config(), gc.DeepEquals, ch.Config())
-	c.Assert(expected.LXDProfile(), gc.DeepEquals, ch.(charm.LXDProfiler).LXDProfile())
+
+	expectedProfile := ch.(charm.LXDProfiler).LXDProfile()
+	c.Assert(expected.LXDProfile(), gc.DeepEquals, &state.LXDProfile{
+		Description: expectedProfile.Description,
+		Config:      expectedProfile.Config,
+		Devices:     expectedProfile.Devices,
+	})
 
 	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
 	c.Assert(errs, gc.DeepEquals, []error{nil})
@@ -1590,7 +1596,13 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 	c.Assert(expected.URL(), gc.DeepEquals, curl)
 	c.Assert(expected.Meta(), gc.DeepEquals, ch.Meta())
 	c.Assert(expected.Config(), gc.DeepEquals, ch.Config())
-	c.Assert(expected.LXDProfile(), gc.DeepEquals, ch.(charm.LXDProfiler).LXDProfile())
+
+	expectedProfile := ch.(charm.LXDProfiler).LXDProfile()
+	c.Assert(expected.LXDProfile(), gc.DeepEquals, &state.LXDProfile{
+		Description: expectedProfile.Description,
+		Config:      expectedProfile.Config,
+		Devices:     expectedProfile.Devices,
+	})
 
 	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
 	c.Assert(errs, gc.DeepEquals, []error{nil})

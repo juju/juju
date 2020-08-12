@@ -337,7 +337,7 @@ func convertCharmExtraBindingMap(bindings map[string]charm.ExtraBinding) map[str
 	return result
 }
 
-func convertCharmLXDProfile(profile *charm.LXDProfile) *params.CharmLXDProfile {
+func convertCharmLXDProfile(profile *state.LXDProfile) *params.CharmLXDProfile {
 	return &params.CharmLXDProfile{
 		Description: profile.Description,
 		Config:      convertCharmLXDProfileConfig(profile.Config),

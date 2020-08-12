@@ -1370,6 +1370,9 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	if profile := cfg.Charm.LXDProfile(); profile != nil {
 		// Validate the config devices, to ensure we don't apply an invalid
 		// profile, if we know it's never going to work.
+		// TODO (stickupkid): Validation of config devices is totally in the
+		// wrong place. Validation should be done at the API server layer, not
+		// at the state layer.
 		if err := profile.ValidateConfigDevices(); err != nil && !cfg.Force {
 			return errors.Annotate(err, "validating lxd profile")
 		}

@@ -190,17 +190,17 @@ func (s *lxdBrokerSuite) TestStartInstanceWithContainerInheritProperties(c *gc.C
 }
 
 func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *gc.C) {
-	ctlr := gomock.NewController(c)
-	defer ctlr.Finish()
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
 	machineId := "1/lxd/0"
 	containerTag := names.NewMachineTag("1-lxd-0")
 
-	mockApi := mocks.NewMockAPICalls(ctlr)
+	mockApi := mocks.NewMockAPICalls(ctrl)
 	mockApi.EXPECT().PrepareContainerInterfaceInfo(gomock.Eq(containerTag)).Return(corenetwork.InterfaceInfos{fakeInterfaceInfo}, nil)
 	mockApi.EXPECT().ContainerConfig().Return(fakeContainerConfig(), nil)
 
-	put := &charm.LXDProfile{
+	put := lxdprofile.Profile{
 		Config: map[string]string{
 			"security.nesting": "true",
 		},
@@ -218,8 +218,8 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *gc.C) {
 	}
 	mockApi.EXPECT().GetContainerProfileInfo(gomock.Eq(containerTag)).Return([]*apiprovisioner.LXDProfileResult{result}, nil)
 
-	mockManager := testing.NewMockTestLXDManager(ctlr)
-	mockManager.EXPECT().MaybeWriteLXDProfile("juju-test-profile", gomock.Eq(put)).Return(nil)
+	mockManager := testing.NewMockTestLXDManager(ctrl)
+	mockManager.EXPECT().MaybeWriteLXDProfile("juju-test-profile", put).Return(nil)
 
 	inst := mockInstance{id: "testinst"}
 	arch := "testarch"
@@ -237,13 +237,13 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *gc.C) {
 }
 
 func (s *lxdBrokerSuite) TestStartInstanceWithNoNameLXDProfile(c *gc.C) {
-	ctlr := gomock.NewController(c)
-	defer ctlr.Finish()
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
 	machineId := "1/lxd/0"
 	containerTag := names.NewMachineTag("1-lxd-0")
 
-	mockApi := mocks.NewMockAPICalls(ctlr)
+	mockApi := mocks.NewMockAPICalls(ctrl)
 	mockApi.EXPECT().PrepareContainerInterfaceInfo(gomock.Eq(containerTag)).Return(corenetwork.InterfaceInfos{fakeInterfaceInfo}, nil)
 	mockApi.EXPECT().ContainerConfig().Return(fakeContainerConfig(), nil)
 
@@ -258,7 +258,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithNoNameLXDProfile(c *gc.C) {
 	}
 	mockApi.EXPECT().GetContainerProfileInfo(gomock.Eq(containerTag)).Return([]*apiprovisioner.LXDProfileResult{result}, nil)
 
-	mockManager := testing.NewMockTestLXDManager(ctlr)
+	mockManager := testing.NewMockTestLXDManager(ctrl)
 
 	broker, err := broker.NewLXDBroker(
 		func(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error { return nil },

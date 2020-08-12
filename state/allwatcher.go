@@ -827,7 +827,7 @@ func (ch *backingCharm) mongoID() string {
 	return id
 }
 
-func toMultiwatcherProfile(profile *charm.LXDProfile) *multiwatcher.Profile {
+func toMultiwatcherProfile(profile *LXDProfile) *multiwatcher.Profile {
 	unescapedProfile := unescapeLXDProfile(profile)
 	return &multiwatcher.Profile{
 		Config:      unescapedProfile.Config,

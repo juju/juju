@@ -6,7 +6,6 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v7"
 	instance "github.com/juju/juju/core/instance"
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
 	environs "github.com/juju/juju/environs"
@@ -69,7 +68,7 @@ func (mr *MockLXDProfilerMockRecorder) LXDProfileNames(arg0 interface{}) *gomock
 }
 
 // MaybeWriteLXDProfile mocks base method
-func (m *MockLXDProfiler) MaybeWriteLXDProfile(arg0 string, arg1 *charm.LXDProfile) error {
+func (m *MockLXDProfiler) MaybeWriteLXDProfile(arg0 string, arg1 lxdprofile.Profile) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MaybeWriteLXDProfile", arg0, arg1)
 	ret0, _ := ret[0].(error)

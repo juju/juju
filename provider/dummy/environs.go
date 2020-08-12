@@ -31,7 +31,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v7"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
@@ -1949,17 +1948,17 @@ func (*environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space
 }
 
 // MaybeWriteLXDProfile implements environs.LXDProfiler.
-func (env *environ) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+func (*environ) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) error {
 	return nil
 }
 
 // LXDProfileNames implements environs.LXDProfiler.
-func (env *environ) LXDProfileNames(containerName string) ([]string, error) {
+func (*environ) LXDProfileNames(containerName string) ([]string, error) {
 	return nil, nil
 }
 
 // AssignLXDProfiles implements environs.LXDProfiler.
-func (env *environ) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
+func (*environ) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
 	return profilesNames, nil
 }
 

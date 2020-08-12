@@ -67,21 +67,6 @@ func (mr *MockStateMockRecorder) ContainerManagerConfig(arg0 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerManagerConfig", reflect.TypeOf((*MockState)(nil).ContainerManagerConfig), arg0)
 }
 
-// GetContainerInterfaceInfo mocks base method
-func (m *MockState) GetContainerInterfaceInfo(arg0 names.MachineTag) (network.InterfaceInfos, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerInterfaceInfo", arg0)
-	ret0, _ := ret[0].(network.InterfaceInfos)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContainerInterfaceInfo indicates an expected call of GetContainerInterfaceInfo
-func (mr *MockStateMockRecorder) GetContainerInterfaceInfo(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerInterfaceInfo", reflect.TypeOf((*MockState)(nil).GetContainerInterfaceInfo), arg0)
-}
-
 // GetContainerProfileInfo mocks base method
 func (m *MockState) GetContainerProfileInfo(arg0 names.MachineTag) ([]*provisioner.LXDProfileResult, error) {
 	m.ctrl.T.Helper()

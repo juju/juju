@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v7"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/names/v4"
@@ -400,14 +399,14 @@ func (e *minModelWorkersEnviron) Instances(ctx context.ProviderCallContext, ids 
 	return nil, environs.ErrNoInstances
 }
 
-func (env *minModelWorkersEnviron) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+func (*minModelWorkersEnviron) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) error {
 	return nil
 }
 
-func (env *minModelWorkersEnviron) LXDProfileNames(containerName string) ([]string, error) {
+func (*minModelWorkersEnviron) LXDProfileNames(containerName string) ([]string, error) {
 	return nil, nil
 }
 
-func (env *minModelWorkersEnviron) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
+func (*minModelWorkersEnviron) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
 	return profilesNames, nil
 }

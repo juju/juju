@@ -4,10 +4,12 @@
 package state
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/juju/charm/v7"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
@@ -101,11 +103,47 @@ type charmDoc struct {
 	// will we be writing on the assumption that all stored Metas have set
 	// some field? What fields might lose precision when they go into the
 	// database?
-	Meta       *charm.Meta       `bson:"meta"`
-	Config     *charm.Config     `bson:"config"`
-	Actions    *charm.Actions    `bson:"actions"`
-	Metrics    *charm.Metrics    `bson:"metrics"`
-	LXDProfile *charm.LXDProfile `bson:"lxd-profile"`
+	Meta       *charm.Meta    `bson:"meta"`
+	Config     *charm.Config  `bson:"config"`
+	Actions    *charm.Actions `bson:"actions"`
+	Metrics    *charm.Metrics `bson:"metrics"`
+	LXDProfile *LXDProfile    `bson:"lxd-profile"`
+}
+
+// LXDProfile is the same as ProfilePut defined in github.com/lxc/lxd/shared/api/profile.go
+type LXDProfile struct {
+	Config      map[string]string            `bson:"config"`
+	Description string                       `bson:"description"`
+	Devices     map[string]map[string]string `bson:"devices"`
+}
+
+// Empty returns true if neither devices nor config have been defined in the profile.
+func (profile *LXDProfile) Empty() bool {
+	return len(profile.Devices) < 1 && len(profile.Config) < 1
+}
+
+// ValidateConfigDevices validates the Config and Devices properties of the LXDProfile.
+// WhiteList devices: unix-char, unix-block, gpu, usb.
+// BlackList config: boot*, limits* and migration*.
+// An empty profile will not return an error.
+// TODO (stickupkid): Remove this by moving this up into the API server layer.
+func (profile *LXDProfile) ValidateConfigDevices() error {
+	for _, val := range profile.Devices {
+		goodDevs := set.NewStrings("unix-char", "unix-block", "gpu", "usb")
+		if devType, ok := val["type"]; ok {
+			if !goodDevs.Contains(devType) {
+				return fmt.Errorf("invalid lxd-profile.yaml: contains device type %q", devType)
+			}
+		}
+	}
+	for key := range profile.Config {
+		if strings.HasPrefix(key, "boot") ||
+			strings.HasPrefix(key, "limits") ||
+			strings.HasPrefix(key, "migration") {
+			return fmt.Errorf("invalid lxd-profile.yaml: contains config value %q", key)
+		}
+	}
+	return nil
 }
 
 // CharmInfo contains all the data necessary to store a charm's metadata.
@@ -352,11 +390,11 @@ func safeConfig(ch charm.Charm) *charm.Config {
 // safeLXDProfile ensures that the LXDProfile that we put into the mongo data
 // store, can in fact store the profile safely by escaping mongo-
 // significant characters in config options.
-func safeLXDProfile(profile *charm.LXDProfile) *charm.LXDProfile {
+func safeLXDProfile(profile *charm.LXDProfile) *LXDProfile {
 	if profile == nil {
 		return nil
 	}
-	escapedProfile := charm.NewLXDProfile()
+	escapedProfile := &LXDProfile{}
 	escapedProfile.Description = profile.Description
 	// we know the size and shape of the type, so let's use EscapeKey
 	escapedConfig := make(map[string]string, len(profile.Config))
@@ -409,11 +447,11 @@ func newCharm(st *State, cdoc *charmDoc) *Charm {
 
 // unescapeLXDProfile returns the LXDProfile back to normal after
 // reading from state.
-func unescapeLXDProfile(profile *charm.LXDProfile) *charm.LXDProfile {
+func unescapeLXDProfile(profile *LXDProfile) *LXDProfile {
 	if profile == nil {
 		return nil
 	}
-	unescapedProfile := charm.NewLXDProfile()
+	unescapedProfile := &LXDProfile{}
 	unescapedProfile.Description = profile.Description
 	// we know the size and shape of the type, so let's use UnescapeKey
 	unescapedConfig := make(map[string]string, len(profile.Config))
@@ -563,7 +601,7 @@ func (c *Charm) Actions() *charm.Actions {
 }
 
 // LXDProfile returns the lxd profile definition of the charm.
-func (c *Charm) LXDProfile() *charm.LXDProfile {
+func (c *Charm) LXDProfile() *LXDProfile {
 	return c.doc.LXDProfile
 }
 

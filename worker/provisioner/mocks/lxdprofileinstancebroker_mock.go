@@ -5,15 +5,13 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
-	charm_v6 "github.com/juju/charm/v7"
 	instance "github.com/juju/juju/core/instance"
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
 	environs "github.com/juju/juju/environs"
 	context "github.com/juju/juju/environs/context"
 	instances "github.com/juju/juju/environs/instances"
+	reflect "reflect"
 )
 
 // MockLXDProfileInstanceBroker is a mock of LXDProfileInstanceBroker interface
@@ -41,6 +39,7 @@ func (m *MockLXDProfileInstanceBroker) EXPECT() *MockLXDProfileInstanceBrokerMoc
 
 // AllInstances mocks base method
 func (m *MockLXDProfileInstanceBroker) AllInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllInstances", arg0)
 	ret0, _ := ret[0].([]instances.Instance)
 	ret1, _ := ret[1].(error)
@@ -49,11 +48,28 @@ func (m *MockLXDProfileInstanceBroker) AllInstances(arg0 context.ProviderCallCon
 
 // AllInstances indicates an expected call of AllInstances
 func (mr *MockLXDProfileInstanceBrokerMockRecorder) AllInstances(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllInstances", reflect.TypeOf((*MockLXDProfileInstanceBroker)(nil).AllInstances), arg0)
+}
+
+// AllRunningInstances mocks base method
+func (m *MockLXDProfileInstanceBroker) AllRunningInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllRunningInstances", arg0)
+	ret0, _ := ret[0].([]instances.Instance)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllRunningInstances indicates an expected call of AllRunningInstances
+func (mr *MockLXDProfileInstanceBrokerMockRecorder) AllRunningInstances(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRunningInstances", reflect.TypeOf((*MockLXDProfileInstanceBroker)(nil).AllRunningInstances), arg0)
 }
 
 // AssignLXDProfiles mocks base method
 func (m *MockLXDProfileInstanceBroker) AssignLXDProfiles(arg0 string, arg1 []string, arg2 []lxdprofile.ProfilePost) ([]string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AssignLXDProfiles", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
@@ -62,11 +78,13 @@ func (m *MockLXDProfileInstanceBroker) AssignLXDProfiles(arg0 string, arg1 []str
 
 // AssignLXDProfiles indicates an expected call of AssignLXDProfiles
 func (mr *MockLXDProfileInstanceBrokerMockRecorder) AssignLXDProfiles(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignLXDProfiles", reflect.TypeOf((*MockLXDProfileInstanceBroker)(nil).AssignLXDProfiles), arg0, arg1, arg2)
 }
 
 // LXDProfileNames mocks base method
 func (m *MockLXDProfileInstanceBroker) LXDProfileNames(arg0 string) ([]string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LXDProfileNames", arg0)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
@@ -75,11 +93,13 @@ func (m *MockLXDProfileInstanceBroker) LXDProfileNames(arg0 string) ([]string, e
 
 // LXDProfileNames indicates an expected call of LXDProfileNames
 func (mr *MockLXDProfileInstanceBrokerMockRecorder) LXDProfileNames(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfileNames", reflect.TypeOf((*MockLXDProfileInstanceBroker)(nil).LXDProfileNames), arg0)
 }
 
 // MaintainInstance mocks base method
 func (m *MockLXDProfileInstanceBroker) MaintainInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MaintainInstance", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -87,11 +107,13 @@ func (m *MockLXDProfileInstanceBroker) MaintainInstance(arg0 context.ProviderCal
 
 // MaintainInstance indicates an expected call of MaintainInstance
 func (mr *MockLXDProfileInstanceBrokerMockRecorder) MaintainInstance(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MaintainInstance", reflect.TypeOf((*MockLXDProfileInstanceBroker)(nil).MaintainInstance), arg0, arg1)
 }
 
 // MaybeWriteLXDProfile mocks base method
-func (m *MockLXDProfileInstanceBroker) MaybeWriteLXDProfile(arg0 string, arg1 *charm_v6.LXDProfile) error {
+func (m *MockLXDProfileInstanceBroker) MaybeWriteLXDProfile(arg0 string, arg1 lxdprofile.Profile) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MaybeWriteLXDProfile", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -99,24 +121,13 @@ func (m *MockLXDProfileInstanceBroker) MaybeWriteLXDProfile(arg0 string, arg1 *c
 
 // MaybeWriteLXDProfile indicates an expected call of MaybeWriteLXDProfile
 func (mr *MockLXDProfileInstanceBrokerMockRecorder) MaybeWriteLXDProfile(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MaybeWriteLXDProfile", reflect.TypeOf((*MockLXDProfileInstanceBroker)(nil).MaybeWriteLXDProfile), arg0, arg1)
-}
-
-// ReplaceOrAddInstanceProfile mocks base method
-func (m *MockLXDProfileInstanceBroker) ReplaceOrAddInstanceProfile(arg0, arg1, arg2 string, arg3 *charm_v6.LXDProfile) ([]string, error) {
-	ret := m.ctrl.Call(m, "ReplaceOrAddInstanceProfile", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ReplaceOrAddInstanceProfile indicates an expected call of ReplaceOrAddInstanceProfile
-func (mr *MockLXDProfileInstanceBrokerMockRecorder) ReplaceOrAddInstanceProfile(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplaceOrAddInstanceProfile", reflect.TypeOf((*MockLXDProfileInstanceBroker)(nil).ReplaceOrAddInstanceProfile), arg0, arg1, arg2, arg3)
 }
 
 // StartInstance mocks base method
 func (m *MockLXDProfileInstanceBroker) StartInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartInstance", arg0, arg1)
 	ret0, _ := ret[0].(*environs.StartInstanceResult)
 	ret1, _ := ret[1].(error)
@@ -125,11 +136,13 @@ func (m *MockLXDProfileInstanceBroker) StartInstance(arg0 context.ProviderCallCo
 
 // StartInstance indicates an expected call of StartInstance
 func (mr *MockLXDProfileInstanceBrokerMockRecorder) StartInstance(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartInstance", reflect.TypeOf((*MockLXDProfileInstanceBroker)(nil).StartInstance), arg0, arg1)
 }
 
 // StopInstances mocks base method
 func (m *MockLXDProfileInstanceBroker) StopInstances(arg0 context.ProviderCallContext, arg1 ...instance.Id) error {
+	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
@@ -141,6 +154,7 @@ func (m *MockLXDProfileInstanceBroker) StopInstances(arg0 context.ProviderCallCo
 
 // StopInstances indicates an expected call of StopInstances
 func (mr *MockLXDProfileInstanceBrokerMockRecorder) StopInstances(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopInstances", reflect.TypeOf((*MockLXDProfileInstanceBroker)(nil).StopInstances), varargs...)
 }

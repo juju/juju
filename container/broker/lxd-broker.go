@@ -4,7 +4,6 @@
 package broker
 
 import (
-	"github.com/juju/charm/v7"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -203,7 +202,7 @@ func (broker *lxdBroker) writeProfiles(machineID string) ([]string, error) {
 		if profile.Name == "" {
 			return nil, errors.Errorf("request to write LXD profile for machine %s with no profile name", machineID)
 		}
-		err := broker.MaybeWriteLXDProfile(profile.Name, &charm.LXDProfile{
+		err := broker.MaybeWriteLXDProfile(profile.Name, lxdprofile.Profile{
 			Config:      profile.Config,
 			Description: profile.Description,
 			Devices:     profile.Devices,
@@ -217,7 +216,7 @@ func (broker *lxdBroker) writeProfiles(machineID string) ([]string, error) {
 }
 
 // MaybeWriteLXDProfile implements environs.LXDProfiler.
-func (broker *lxdBroker) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+func (broker *lxdBroker) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) error {
 	profileMgr, ok := broker.manager.(container.LXDProfileManager)
 	if !ok {
 		return nil
@@ -226,10 +225,10 @@ func (broker *lxdBroker) MaybeWriteLXDProfile(pName string, put *charm.LXDProfil
 }
 
 // AssignLXDProfiles implements environs.LXDProfiler.
-func (broker *lxdBroker) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) ([]string, error) {
+func (broker *lxdBroker) AssignLXDProfiles(instID string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) ([]string, error) {
 	profileMgr, ok := broker.manager.(container.LXDProfileManager)
 	if !ok {
 		return []string{}, nil
 	}
-	return profileMgr.AssignLXDProfiles(instId, profilesNames, profilePosts)
+	return profileMgr.AssignLXDProfiles(instID, profilesNames, profilePosts)
 }
