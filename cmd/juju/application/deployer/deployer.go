@@ -278,6 +278,7 @@ func (d *factory) newDeployBundle(ds charm.BundleDataSource) deployBundle {
 		bundleMachines:       d.bundleMachines,
 		bundleStorage:        d.bundleStorage,
 		bundleDevices:        d.bundleDevices,
+		bundleOverlayFile:    d.bundleOverlayFile,
 	}
 }
 
