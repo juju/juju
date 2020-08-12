@@ -5,8 +5,11 @@ package application
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -1454,6 +1457,285 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
+	stub := &jujutesting.Stub{}
+	handler := &testMetricsRegistrationHandler{Stub: stub}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	meteredCharmURL := charm.MustParseURL("cs:bionic/metered-1")
+	charmDir := testcharms.RepoWithSeries("bionic").CharmDir("metered")
+
+	s.fakeAPI.planURL = server.URL
+	withCharmRepoResolvable(s.fakeAPI, meteredCharmURL)
+	withCharmDeployable(s.fakeAPI, meteredCharmURL, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
+
+	// `"hello registration"\n` (quotes and newline from json
+	// encoding) is returned by the fake http server. This is binary64
+	// encoded before the call into SetMetricCredentials.
+	creds := append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA)
+	s.fakeAPI.Call("SetMetricCredentials", meteredCharmURL.Name, creds).Returns(errors.New("IsMetered"))
+
+	deploy := s.deployCommand()
+	deploy.Steps = []deployer.DeployStep{&deployer.RegisterMeteredCharm{PlanURL: server.URL}}
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/metered-1", "--plan", "someplan")
+
+	c.Check(err, gc.ErrorMatches, "IsMetered")
+}
+
+func (s *DeploySuite) TestAddMetricCredentials(c *gc.C) {
+	stub := &jujutesting.Stub{}
+	handler := &testMetricsRegistrationHandler{Stub: stub}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	charmDir := testcharms.RepoWithSeries("bionic").CharmDir("metered")
+	meteredURL := charm.MustParseURL("cs:bionic/metered-1")
+	s.fakeAPI.planURL = server.URL
+	withCharmDeployable(s.fakeAPI, meteredURL, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
+	withCharmRepoResolvable(s.fakeAPI, meteredURL)
+
+	// `"hello registration"\n` (quotes and newline from json
+	// encoding) is returned by the fake http server. This is binary64
+	// encoded before the call into SetMetricCredentials.
+	creds := append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA)
+	setMetricCredentialsCall := s.fakeAPI.Call("SetMetricCredentials", meteredURL.Name, creds).Returns(error(nil))
+
+	deploy := s.deployCommand()
+	deploy.Steps = []deployer.DeployStep{&deployer.RegisterMeteredCharm{PlanURL: server.URL}}
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/metered-1", "--plan", "someplan")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(setMetricCredentialsCall(), gc.Equals, 1)
+
+	stub.CheckCalls(c, []jujutesting.StubCall{{
+		"Authorize", []interface{}{deployer.MetricRegistrationPost{
+			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			CharmURL:        "cs:bionic/metered-1",
+			ApplicationName: "metered",
+			PlanURL:         "someplan",
+			IncreaseBudget:  0,
+		}},
+	}})
+}
+
+func (s *DeploySuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
+	stub := &jujutesting.Stub{}
+	handler := &testMetricsRegistrationHandler{Stub: stub}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	charmDir := testcharms.RepoWithSeries("bionic").CharmDir("metered")
+
+	meteredURL := charm.MustParseURL("cs:bionic/metered-1")
+	s.fakeAPI.planURL = server.URL
+	withCharmDeployable(s.fakeAPI, meteredURL, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
+	withCharmRepoResolvable(s.fakeAPI, meteredURL)
+
+	creds := append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA)
+	setMetricCredentialsCall := s.fakeAPI.Call("SetMetricCredentials", meteredURL.Name, creds).Returns(error(nil))
+
+	deploy := s.deployCommand()
+	deploy.Steps = []deployer.DeployStep{&deployer.RegisterMeteredCharm{PlanURL: server.URL}}
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/metered-1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(setMetricCredentialsCall(), gc.Equals, 1)
+	stub.CheckCalls(c, []jujutesting.StubCall{{
+		"DefaultPlan", []interface{}{"cs:bionic/metered-1"},
+	}, {
+		"Authorize", []interface{}{deployer.MetricRegistrationPost{
+			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			CharmURL:        "cs:bionic/metered-1",
+			ApplicationName: "metered",
+			PlanURL:         "thisplan",
+			IncreaseBudget:  0,
+		}},
+	}})
+}
+
+func (s *DeploySuite) TestSetMetricCredentialsNotCalledForUnmeteredCharm(c *gc.C) {
+	charmDir := testcharms.RepoWithSeries("bionic").CharmDir("dummy")
+	charmURL := charm.MustParseURL("cs:bionic/dummy-1")
+	withCharmRepoResolvable(s.fakeAPI, charmURL)
+	withCharmDeployable(s.fakeAPI, charmURL, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+
+	deploy := s.deployCommand()
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/dummy-1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, call := range s.fakeAPI.Calls() {
+		if call.FuncName == "SetMetricCredentials" {
+			c.Fatal("call to SetMetricCredentials was not supposed to happen")
+		}
+	}
+}
+
+func (s *DeploySuite) TestAddMetricCredentialsNotNeededForOptionalPlan(c *gc.C) {
+	metricsYAML := `		
+plan:		
+required: false		
+metrics:		
+pings:		
+  type: gauge		
+  description: ping pongs		
+`
+	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "metered")
+	metadataPath := filepath.Join(charmDir.Path, "metrics.yaml")
+	file, err := os.OpenFile(metadataPath, os.O_TRUNC|os.O_RDWR, 0666)
+	if err != nil {
+		c.Fatal(errors.Annotate(err, "cannot open metrics.yaml"))
+	}
+	defer func() { _ = file.Close() }()
+
+	// Overwrite the metrics.yaml to contain an optional plan.
+	if _, err := file.WriteString(metricsYAML); err != nil {
+		c.Fatal("cannot write to metrics.yaml")
+	}
+
+	curl := charm.MustParseURL("local:bionic/metered")
+
+	withCharmRepoResolvable(s.fakeAPI, curl)
+	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
+
+	stub := &jujutesting.Stub{}
+	handler := &testMetricsRegistrationHandler{Stub: stub}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	deploy := s.deployCommand()
+	deploy.Steps = []deployer.DeployStep{&deployer.RegisterMeteredCharm{PlanURL: server.URL}}
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), curl.String())
+	c.Assert(err, jc.ErrorIsNil)
+	stub.CheckNoCalls(c)
+}
+
+func (s *DeploySuite) TestSetMetricCredentialsCalledWhenPlanSpecifiedWhenOptional(c *gc.C) {
+	metricsYAML := `		
+plan:		
+required: false		
+metrics:		
+pings:		
+  type: gauge		
+  description: ping pongs		
+`
+	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "metered")
+	metadataPath := filepath.Join(charmDir.Path, "metrics.yaml")
+	file, err := os.OpenFile(metadataPath, os.O_TRUNC|os.O_RDWR, 0666)
+	if err != nil {
+		c.Fatal(errors.Annotate(err, "cannot open metrics.yaml"))
+	}
+	defer file.Close()
+
+	// Overwrite the metrics.yaml to contain an optional plan.
+	if _, err := file.WriteString(metricsYAML); err != nil {
+		c.Fatal("cannot write to metrics.yaml")
+	}
+
+	curl := charm.MustParseURL("local:bionic/metered")
+
+	stub := &jujutesting.Stub{}
+	handler := &testMetricsRegistrationHandler{Stub: stub}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	s.fakeAPI.planURL = server.URL
+	withCharmRepoResolvable(s.fakeAPI, curl)
+	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
+
+	deploy := s.deployCommand()
+	deploy.Steps = []deployer.DeployStep{&deployer.RegisterMeteredCharm{PlanURL: server.URL}}
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), curl.String(), "--plan", "someplan")
+	c.Assert(err, jc.ErrorIsNil)
+	stub.CheckCalls(c, []jujutesting.StubCall{{
+		"Authorize", []interface{}{deployer.MetricRegistrationPost{
+			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			CharmURL:        "local:bionic/metered",
+			ApplicationName: "metered",
+			PlanURL:         "someplan",
+			IncreaseBudget:  0,
+		}},
+	}})
+}
+
+type availablePlanURL struct {
+	URL string `json:"url"`
+}
+
+// testMetricsRegistrationHandler duplicated from deployer/register_test.go
+// for MetricCredentials tests
+type testMetricsRegistrationHandler struct {
+	*jujutesting.Stub
+	availablePlans []availablePlanURL
+}
+
+type respErr struct {
+	Error string `json:"error"`
+}
+
+// ServeHTTP implements http.Handler.
+func (c *testMetricsRegistrationHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if req.Method == "POST" {
+		var registrationPost deployer.MetricRegistrationPost
+		decoder := json.NewDecoder(req.Body)
+		err := decoder.Decode(&registrationPost)
+		if err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		c.AddCall("Authorize", registrationPost)
+		rErr := c.NextErr()
+		if rErr != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			err = json.NewEncoder(w).Encode(respErr{Error: rErr.Error()})
+			if err != nil {
+				panic(err)
+			}
+			return
+		}
+		err = json.NewEncoder(w).Encode([]byte("hello registration"))
+		if err != nil {
+			panic(err)
+		}
+	} else if req.Method == "GET" {
+		if req.URL.Path == "/default" {
+			cURL := req.URL.Query().Get("charm-url")
+			c.AddCall("DefaultPlan", cURL)
+			rErr := c.NextErr()
+			if rErr != nil {
+				if errors.IsNotFound(rErr) {
+					http.Error(w, rErr.Error(), http.StatusNotFound)
+					return
+				}
+				http.Error(w, rErr.Error(), http.StatusInternalServerError)
+				return
+			}
+			result := struct {
+				URL string `json:"url"`
+			}{"thisplan"}
+			err := json.NewEncoder(w).Encode(result)
+			if err != nil {
+				panic(err)
+			}
+			return
+		}
+		cURL := req.URL.Query().Get("charm-url")
+		c.AddCall("ListPlans", cURL)
+		rErr := c.NextErr()
+		if rErr != nil {
+			http.Error(w, rErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		err := json.NewEncoder(w).Encode(c.availablePlans)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+}
+
 type FakeStoreStateSuite struct {
 	DeploySuiteBase
 	path string
@@ -2189,7 +2471,7 @@ func (f *fakeDeployAPI) Status(patterns []string) (*params.FullStatus, error) {
 	return results[0].(*params.FullStatus), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) WatchAll() (*api.AllWatcher, error) {
+func (f *fakeDeployAPI) WatchAll() (api.AllWatch, error) {
 	results := f.MethodCall(f, "WatchAll")
 	return results[0].(*api.AllWatcher), jujutesting.TypeAssertError(results[1])
 }
