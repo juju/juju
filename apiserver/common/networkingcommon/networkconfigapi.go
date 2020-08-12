@@ -332,15 +332,27 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNewAddresses(
 ) ([]txn.Op, error) {
 	var ops []txn.Op
 	for _, addr := range incomingAddrs {
-		if !o.IsAddrProcessed(dev.MACAddress(), addr.CIDRAddress) {
-			addOps, err := dev.AddAddressOps(addr)
+		if o.IsAddrProcessed(dev.MACAddress(), addr.CIDRAddress) {
+			continue
+		}
+
+		addOps, err := dev.AddAddressOps(addr)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, addOps...)
+
+		// Since this device has new or changing addresses,
+		// ensure we have discovered all the subnets it is connected to.
+		if o.discoverSubnets {
+			subNetOps, err := o.processSubnets(dev.MACAddress())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			ops = append(ops, addOps...)
-
-			o.MarkAddrProcessed(dev.MACAddress(), addr.CIDRAddress)
+			ops = append(ops, subNetOps...)
 		}
+
+		o.MarkAddrProcessed(dev.MACAddress(), addr.CIDRAddress)
 	}
 	return ops, nil
 }
@@ -364,7 +376,56 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 		}
 		ops = append(ops, addOps...)
 
+		// Since this is a new device, ensure that we have
+		// discovered all the subnets it is connected to.
+		if o.discoverSubnets {
+			subNetOps, err := o.processSubnets(dev.MACAddress)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, subNetOps...)
+		}
+
 		o.MarkDevProcessed(dev.MACAddress)
+	}
+	return ops, nil
+}
+
+// processSubnets takes an incoming NIC hardware address and ensures that the
+// subnets of addresses on the device are present in state.
+// Loopback subnets are ignored.
+func (o *updateMachineLinkLayerOp) processSubnets(hwAddress string) ([]txn.Op, error) {
+	// Accrue all incoming CIDRs matching the input device.
+	cidrSet := set.NewStrings()
+	var isVLAN bool
+	for _, matching := range o.Incoming().GetByHardwareAddress(hwAddress) {
+		cidr := matching.CIDR
+		if cidr == "" || matching.InterfaceType == network.LoopbackInterface {
+			continue
+		}
+
+		if matching.IsVLAN() {
+			isVLAN = true
+		}
+
+		cidrSet.Add(cidr)
+	}
+	cidrs := cidrSet.SortedValues()
+
+	if isVLAN {
+		logger.Warningf("ignoring VLAN tag for incoming device subnets: %v", cidrs)
+	}
+
+	var ops []txn.Op
+	for _, cidr := range cidrs {
+		addOps, err := o.st.AddSubnetOps(network.SubnetInfo{CIDR: cidr})
+		if err != nil {
+			if errors.IsAlreadyExists(err) {
+				continue
+			}
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, addOps...)
 	}
 	return ops, nil
 }

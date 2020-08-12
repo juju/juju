@@ -362,6 +362,58 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemo
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// A machine with no link-layer data.
+	s.expectMachine()
+	mExp := s.machine.EXPECT()
+	mExp.AllLinkLayerDevices().Return(nil, nil)
+	mExp.AllAddresses().Return(nil, nil)
+
+	// We expect 3 devices and their addresses to be added.
+	mExp.AddLinkLayerDeviceOps(gomock.Any(), gomock.Any()).Return([]txn.Op{{}, {}}, nil).Times(3)
+
+	// Simulate the first being added, and the 2nd already existing.
+	// There will be no addition of the loopback subnet.
+	s.state.EXPECT().AddSubnetOps(network.SubnetInfo{CIDR: "0.10.0.0/24"}).Return([]txn.Op{{}}, nil)
+	s.state.EXPECT().AddSubnetOps(network.SubnetInfo{CIDR: "0.20.0.0/24"}).Return(nil, errors.AlreadyExistsf("blat"))
+
+	op := s.NewUpdateMachineLinkLayerOp(s.machine, network.InterfaceInfos{
+		{
+			InterfaceName: "lo",
+			InterfaceType: "loopback",
+			CIDR:          "127.0.0.0/8",
+			Addresses:     network.NewProviderAddresses("127.0.0.1"),
+		}, {
+			InterfaceName:    "eth0",
+			InterfaceType:    "ethernet",
+			MACAddress:       "aa:bb:cc:dd:ee:ff",
+			CIDR:             "0.10.0.0/24",
+			Addresses:        network.NewProviderAddresses("0.10.0.2"),
+			GatewayAddress:   network.NewProviderAddress("0.10.0.1"),
+			IsDefaultGateway: true,
+		}, {
+			InterfaceName:  "eth1",
+			InterfaceType:  "ethernet",
+			MACAddress:     "aa:bb:cc:dd:ee:f1",
+			CIDR:           "0.20.0.0/24",
+			Addresses:      network.NewProviderAddresses("0.20.0.2"),
+			GatewayAddress: network.NewProviderAddress("0.20.0.1"),
+		},
+	}, true, s.state)
+
+	ops, err := op.Build(0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Expected ops are:
+	// - One each for the 3 new devices.
+	// - One each for the 3 new device addresses.
+	// - One for the not-yet-seen/non-loopback subnet.
+	c.Check(ops, gc.HasLen, 7)
+}
+
 func (s *networkConfigSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
