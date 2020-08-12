@@ -822,6 +822,7 @@ func (s *MainSuite) TestRegisterCommandsWhitelist(c *gc.C) {
 	registry := jujuCommandRegistry{
 		commandRegistry: stubRegistry,
 		whitelist:       set.NewStrings("show-status"),
+		excluded:        set.NewStrings(),
 	}
 	registerCommands(registry)
 	c.Assert(stubRegistry.names, jc.SameContents, []string{"show-status", "status"})
@@ -834,6 +835,7 @@ func (s *MainSuite) TestRegisterCommandsEmbedded(c *gc.C) {
 		commandRegistry: stubRegistry,
 		embedded:        true,
 		store:           store,
+		excluded:        set.NewStrings(),
 	}
 	stubCmd := &stubCommand{
 		stub: &gitjujutesting.Stub{},

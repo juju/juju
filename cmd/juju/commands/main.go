@@ -256,11 +256,16 @@ func NewJujuCommandWithStore(
 	ctx *cmd.Context, store jujuclient.ClientStore, log *cmd.Log, jujuMsg string, whitelist []string, embedded bool,
 ) cmd.Command {
 	var jcmd *cmd.SuperCommand
+	var jujuRegistry *jujuCommandRegistry
 	jcmd = jujucmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "juju",
 		Doc:  jujuDoc,
 		Log:  log,
 		MissingCallback: RunPlugin(func(ctx *cmd.Context, subcommand string, args []string) error {
+			excluded := jujuRegistry.excluded.Contains(subcommand)
+			if excluded {
+				return errors.Errorf("juju %q is not supported when run via a controller API call", subcommand)
+			}
 			if cmdName, _, ok := jcmd.FindClosestSubCommand(subcommand); ok {
 				return &NotFoundCommand{
 					ArgName: subcommand,
@@ -277,10 +282,11 @@ func NewJujuCommandWithStore(
 			}
 		},
 	})
-	jujuRegistry := jujuCommandRegistry{
+	jujuRegistry = &jujuCommandRegistry{
 		store:           store,
 		commandRegistry: jcmd,
 		whitelist:       set.NewStrings(whitelist...),
+		excluded:        set.NewStrings(),
 		embedded:        embedded,
 	}
 	registerCommands(jujuRegistry)
@@ -316,19 +322,22 @@ type jujuCommandRegistry struct {
 
 	store     jujuclient.ClientStore
 	whitelist set.Strings
+	excluded  set.Strings
 	embedded  bool
 }
 
 // Register adds a command to the registry so it can be used.
 func (r jujuCommandRegistry) Register(c cmd.Command) {
-	if r.whitelist.Size() > 0 && !r.whitelist.Contains(c.Info().Name) {
-		logger.Tracef("command %q not allowed", c.Info().Name)
+	cmdName := c.Info().Name
+	if r.whitelist.Size() > 0 && !r.whitelist.Contains(cmdName) {
+		logger.Tracef("command %q not allowed", cmdName)
+		r.excluded.Add(cmdName)
 		return
 	}
 	if se, ok := c.(supportsEmbedded); ok {
 		se.SetEmbedded(r.embedded)
 	} else {
-		logger.Tracef("command %q is not embeddable", c.Info().Name)
+		logger.Tracef("command %q is not embeddable", cmdName)
 	}
 	if csc, ok := c.(hasClientStore); ok {
 		csc.SetClientStore(r.store)

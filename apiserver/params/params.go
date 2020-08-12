@@ -1331,7 +1331,13 @@ type CLICommands struct {
 	Credentials string           `json:"credentials,omitempty"`
 	Macaroons   []macaroon.Slice `json:"macaroons,omitempty"`
 
-	ModelUUID    string   `json:"model-uuid,omitempty"`
 	ActiveBranch string   `json:"active-branch,omitempty"`
 	Commands     []string `json:"commands"`
+}
+
+// CLICommandStatus represents a status update for a CLI command.
+type CLICommandStatus struct {
+	Output []string `json:"output,omitempty"`
+	Done   bool     `json:"done,omitempty"`
+	Error  *Error   `json:"error,omitempty"`
 }

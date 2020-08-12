@@ -94,6 +94,7 @@ require (
 	github.com/lestrrat/go-structinfo v0.0.0-20160308131105-f74c056fe41f // indirect
 	github.com/lxc/lxd v0.0.0-20200306132355-582edb00c72c
 	github.com/mattn/go-isatty v0.0.12
+	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/oracle/oci-go-sdk v5.7.0+incompatible
 	github.com/pascaldekloe/goe v0.1.0 // indirect

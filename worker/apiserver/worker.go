@@ -8,14 +8,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/worker/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/embeddedcli"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
@@ -24,8 +22,6 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
 )
-
-var logger = loggo.GetLogger("juju.worker.apiserver")
 
 // Config is the configuration required for running an API server worker.
 type Config struct {
@@ -45,7 +41,7 @@ type Config struct {
 	GetAuditConfig                    func() auditlog.Config
 	NewServer                         NewServerFunc
 	MetricsCollector                  *apiserver.Collector
-	EmbeddedCommand                   embeddedcli.ExecEmbeddedCommandFunc
+	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 }
 
 // NewServerFunc is the type of function that will be used

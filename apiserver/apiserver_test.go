@@ -4,10 +4,8 @@
 package apiserver_test
 
 import (
-	"bytes"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -38,6 +36,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	apitesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/apiserver/websocket/websockettest"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/presence"
@@ -156,7 +155,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 			allowed := set.NewStrings(whitelist...)
 			args := strings.Split(cmdPlusArgs, " ")
 			if !allowed.Contains(args[0]) {
-				fmt.Fprintf(ctx.Stderr, "%q not allowed", args[0])
+				fmt.Fprintf(ctx.Stderr, "%q not allowed\n", args[0])
 				return 1
 			}
 			ctrl, err := store.CurrentController()
@@ -176,6 +175,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 			}
 			cmdStr := fmt.Sprintf("%s@%s:%s -> %s", ad.User, ctrl, model, cmdPlusArgs)
 			fmt.Fprintf(ctx.Stdout, cmdStr)
+			fmt.Fprintf(ctx.Stdout, "\n")
 			return 0
 		},
 	}
@@ -395,70 +395,88 @@ func (s *apiserverSuite) TestHealthStopping(c *gc.C) {
 
 func (s *apiserverSuite) TestEmbeddedCommand(c *gc.C) {
 	cmdArgs := params.CLICommands{
-		ModelUUID: s.Model.UUID(),
-		User:      "fred",
-		Commands:  []string{"status --color"},
+		User:     "fred",
+		Commands: []string{"status --color"},
 	}
-	s.assertEmbeddedCommand(c, cmdArgs, "fred@interactive:test-admin/testmodel -> status --color", "", "")
+	s.assertEmbeddedCommand(c, cmdArgs, "fred@interactive:test-admin/testmodel -> status --color", nil)
 }
 
 func (s *apiserverSuite) TestEmbeddedCommandNotAllowed(c *gc.C) {
 	cmdArgs := params.CLICommands{
-		ModelUUID: s.Model.UUID(),
-		User:      "fred",
-		Commands:  []string{"bootstrap aws"},
+		User:     "fred",
+		Commands: []string{"bootstrap aws"},
 	}
-	s.assertEmbeddedCommand(c, cmdArgs, "", `"bootstrap" not allowed`, "")
+	s.assertEmbeddedCommand(c, cmdArgs, `"bootstrap" not allowed`, nil)
 }
 
 func (s *apiserverSuite) TestEmbeddedCommandMissingUser(c *gc.C) {
 	cmdArgs := params.CLICommands{
-		ModelUUID: s.Model.UUID(),
-		Commands:  []string{"status --color"},
+		Commands: []string{"status --color"},
 	}
-	s.assertEmbeddedCommand(c, cmdArgs, "", "", `{"error":"CLI command for anonymous user not supported","error-code":"not supported"}`)
+	s.assertEmbeddedCommand(c, cmdArgs, "", &params.Error{Message: `CLI command for anonymous user not supported`, Code: "not supported"})
 }
 
 func (s *apiserverSuite) TestEmbeddedCommandInvalidUser(c *gc.C) {
 	cmdArgs := params.CLICommands{
-		ModelUUID: s.Model.UUID(),
-		User:      "123@",
-		Commands:  []string{"status --color"},
+		User:     "123@",
+		Commands: []string{"status --color"},
 	}
-	s.assertEmbeddedCommand(c, cmdArgs, "", "", `{"error":"user name \"123@\" not valid"}`)
+	s.assertEmbeddedCommand(c, cmdArgs, "", &params.Error{Message: `user name "123@" not valid`})
 }
 
-func (s *apiserverSuite) TestEmbeddedCommandInvalidModel(c *gc.C) {
-	cmdArgs := params.CLICommands{
-		ModelUUID: "1234",
-		User:      "fred",
-		Commands:  []string{"status --color"},
+func (s *apiserverSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLICommands, expected string, resultErr *params.Error) {
+	address := s.server.Listener.Addr().String()
+	path := fmt.Sprintf("/model/%s/commands", s.State.ModelUUID())
+	commandURL := &url.URL{
+		Scheme: "wss",
+		Host:   address,
+		Path:   path,
 	}
-	s.assertEmbeddedCommand(c, cmdArgs, "", "", `{"error":"model UUID \"1234\" not valid"}`)
-}
+	conn, _, err := dialWebsocketFromURL(c, commandURL.String(), http.Header{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer conn.Close()
 
-func (s *apiserverSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLICommands, expected, errTxt, respErrTxt string) {
-	uri := s.server.URL + "/commands"
-	cmdData, err := json.Marshal(cmdArgs)
+	// Read back the nil error, indicating that all is well.
+	websockettest.AssertJSONInitialErrorNil(c, conn)
+
+	done := make(chan struct{})
+	var result params.CLICommandStatus
+	go func() {
+		for {
+			var update params.CLICommandStatus
+			err := conn.ReadJSON(&update)
+			c.Assert(err, jc.ErrorIsNil)
+
+			result.Output = append(result.Output, update.Output...)
+			result.Done = update.Done
+			result.Error = update.Error
+			if result.Done {
+				done <- struct{}{}
+				break
+			}
+		}
+	}()
+
+	err = conn.WriteJSON(cmdArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
-		Method: "POST", URL: uri, Body: bytes.NewBuffer(cmdData)})
-	body, err := ioutil.ReadAll(resp.Body)
+
+	select {
+	case <-done:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("no command result")
+	}
+
+	// Close connection.
+	err = conn.Close()
 	c.Assert(err, jc.ErrorIsNil)
-	if respErrTxt != "" {
-		c.Assert(string(body), gc.Equals, respErrTxt)
-		return
+
+	var expectedOutput []string
+	if expected != "" {
+		expectedOutput = []string{expected}
 	}
-	var result params.StringResults
-	err = json.Unmarshal(body, &result)
-	c.Assert(err, jc.ErrorIsNil)
-	oneResult := params.StringResult{
-		Result: expected,
-	}
-	if errTxt != "" {
-		oneResult.Error = &params.Error{Message: errTxt}
-	}
-	c.Assert(result, jc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{oneResult},
+	c.Assert(result, jc.DeepEquals, params.CLICommandStatus{
+		Output: expectedOutput,
+		Done:   true,
+		Error:  resultErr,
 	})
 }
