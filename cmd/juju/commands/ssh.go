@@ -11,9 +11,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/api"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/jujuclient"
 	jujussh "github.com/juju/juju/network/ssh"
 )
 
@@ -139,9 +141,18 @@ func (c *sshCommand) Init(args []string) (err error) {
 	return nil
 }
 
+// ModelCommand defines methods of the model command.
+type ModelCommand interface {
+	// modelcmd.ModelCommand
+	NewControllerAPIRoot() (api.Connection, error)
+	ModelDetails() (string, *jujuclient.ModelDetails, error)
+	NewAPIRoot() (api.Connection, error)
+	ModelIdentifier() (string, error)
+}
+
 // sshProvider is implemented by either either a CaaS or IaaS model instance.
 type sshProvider interface {
-	initRun(modelcmd.ModelCommandBase) error
+	initRun(ModelCommand) error
 	cleanupRun()
 	setHostChecker(checker jujussh.ReachableChecker)
 	resolveTarget(string) (*resolvedTarget, error)
@@ -158,7 +169,7 @@ type sshProvider interface {
 // Run resolves c.Target to a machine, to the address of a i
 // machine or unit forks ssh passing any arguments provided.
 func (c *sshCommand) Run(ctx *cmd.Context) error {
-	if err := c.provider.initRun(c.ModelCommandBase); err != nil {
+	if err := c.provider.initRun(&c.ModelCommandBase); err != nil {
 		return errors.Trace(err)
 	}
 	defer c.provider.cleanupRun()

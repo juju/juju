@@ -55,7 +55,7 @@ func (s *sshContainerSuite) TearDownTest(c *gc.C) {
 	s.mockPods = nil
 }
 
-func (s *sshContainerSuite) setUpController(c *gc.C, remote bool) *gomock.Controller {
+func (s *sshContainerSuite) setUpController(c *gc.C, remote bool, containerName string) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.cloudCredentialAPI = mocks.NewMockCloudCredentialAPI(ctrl)
 	s.modelAPI = mocks.NewMockModelAPI(ctrl)
@@ -78,12 +78,13 @@ func (s *sshContainerSuite) setUpController(c *gc.C, remote bool) *gomock.Contro
 		s.applicationAPI,
 		s.execClient,
 		remote,
+		containerName,
 	)
 	return ctrl
 }
 
 func (s *sshContainerSuite) TestCleanupRun(c *gc.C) {
-	ctrl := s.setUpController(c, true)
+	ctrl := s.setUpController(c, true, "")
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -95,7 +96,7 @@ func (s *sshContainerSuite) TestCleanupRun(c *gc.C) {
 }
 
 func (s *sshContainerSuite) TestResolveTargetForWorkloadPod(c *gc.C) {
-	ctrl := s.setUpController(c, true)
+	ctrl := s.setUpController(c, true, "")
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -110,7 +111,7 @@ func (s *sshContainerSuite) TestResolveTargetForWorkloadPod(c *gc.C) {
 }
 
 func (s *sshContainerSuite) TestResolveTargetForOperatorPod(c *gc.C) {
-	ctrl := s.setUpController(c, false)
+	ctrl := s.setUpController(c, false, "")
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -126,7 +127,7 @@ func (s *sshContainerSuite) TestResolveTargetForOperatorPod(c *gc.C) {
 }
 
 func (s *sshContainerSuite) TestResolveTargetForOperatorPodNoProviderID(c *gc.C) {
-	ctrl := s.setUpController(c, false)
+	ctrl := s.setUpController(c, false, "")
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -141,7 +142,7 @@ func (s *sshContainerSuite) TestResolveTargetForOperatorPodNoProviderID(c *gc.C)
 }
 
 func (s *sshContainerSuite) TestResolveTargetForWorkloadPodNoProviderID(c *gc.C) {
-	ctrl := s.setUpController(c, true)
+	ctrl := s.setUpController(c, true, "")
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -155,7 +156,7 @@ func (s *sshContainerSuite) TestResolveTargetForWorkloadPodNoProviderID(c *gc.C)
 }
 
 func (s *sshContainerSuite) TestGetExecClient(c *gc.C) {
-	ctrl := s.setUpController(c, true)
+	ctrl := s.setUpController(c, true, "")
 	defer ctrl.Finish()
 
 	cloudCredentailTag, err := names.ParseCloudCredentialTag("cloudcred-microk8s_admin_microk8s")
@@ -191,7 +192,7 @@ func (s *sshContainerSuite) TestGetExecClient(c *gc.C) {
 }
 
 func (s *sshContainerSuite) TestGetExecClientNotSupportedAPIVersion(c *gc.C) {
-	ctrl := s.setUpController(c, true)
+	ctrl := s.setUpController(c, true, "")
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -203,7 +204,7 @@ func (s *sshContainerSuite) TestGetExecClientNotSupportedAPIVersion(c *gc.C) {
 }
 
 func (s *sshContainerSuite) TestGetExecClientFailedInvalidCredential(c *gc.C) {
-	ctrl := s.setUpController(c, true)
+	ctrl := s.setUpController(c, true, "")
 	defer ctrl.Finish()
 
 	cloudCredentailTag, err := names.ParseCloudCredentialTag("cloudcred-microk8s_admin_microk8s")
@@ -234,7 +235,7 @@ func (s *sshContainerSuite) TestGetExecClientFailedInvalidCredential(c *gc.C) {
 }
 
 func (s *sshContainerSuite) TestGetExecClientFailedForNonCAASCloud(c *gc.C) {
-	ctrl := s.setUpController(c, true)
+	ctrl := s.setUpController(c, true, "")
 	defer ctrl.Finish()
 
 	cloudCredentailTag, err := names.ParseCloudCredentialTag("cloudcred-microk8s_admin_microk8s")
@@ -268,8 +269,8 @@ func (s *sshContainerSuite) TestGetExecClientFailedForNonCAASCloud(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cloud "lxd" is not kubernetes cloud type`)
 }
 
-func (s *sshContainerSuite) TestSSH(c *gc.C) {
-	ctrl := s.setUpController(c, true)
+func (s *sshContainerSuite) TestSSHNoContainerSpecified(c *gc.C) {
+	ctrl := s.setUpController(c, false, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
 
@@ -300,8 +301,41 @@ func (s *sshContainerSuite) TestSSH(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *sshContainerSuite) TestSSHWithContainerSpecified(c *gc.C) {
+	ctrl := s.setUpController(c, true, "container1")
+	ctx := mocks.NewMockContext(ctrl)
+	defer ctrl.Finish()
+
+	s.sshC.SetArgs([]string{"bash"})
+
+	buffer := bytes.NewBuffer(nil)
+
+	gomock.InOrder(
+		ctx.EXPECT().InterruptNotify(gomock.Any()),
+		ctx.EXPECT().GetStdout().Return(buffer),
+		ctx.EXPECT().GetStderr().Return(buffer),
+		ctx.EXPECT().GetStdin().Return(buffer),
+		s.execClient.EXPECT().Exec(k8sexec.ExecParams{
+			PodName:       "mariadb-k8s-0",
+			ContainerName: "container1",
+			Commands:      []string{"bash"},
+			TTY:           true,
+			Stdout:        buffer,
+			Stderr:        buffer,
+			Stdin:         buffer,
+		}, gomock.Any()).
+			Return(nil),
+		ctx.EXPECT().StopInterruptNotify(gomock.Any()),
+	)
+
+	target := &commands.ResolvedTarget{}
+	target.SetEntity("mariadb-k8s-0")
+	err := s.sshC.SSH(ctx, true, target)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *sshContainerSuite) TestSSHCancelled(c *gc.C) {
-	ctrl := s.setUpController(c, true)
+	ctrl := s.setUpController(c, true, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
 
@@ -343,4 +377,138 @@ func (s *sshContainerSuite) TestSSHCancelled(c *gc.C) {
 	target.SetEntity("mariadb-k8s-0")
 	err := s.sshC.SSH(ctx, true, target)
 	c.Assert(err, gc.ErrorMatches, `cancelled`)
+}
+
+func (s *sshContainerSuite) TestGetInterruptAbortChanInterrupted(c *gc.C) {
+	ctrl := s.setUpController(c, true, "")
+	ctx := mocks.NewMockContext(ctrl)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		ctx.EXPECT().InterruptNotify(gomock.Any()).DoAndReturn(
+			func(ch chan<- os.Signal) {
+				ch <- os.Interrupt
+			},
+		),
+	)
+	cancel, _ := commands.GetInterruptAbortChan(ctx)
+
+	select {
+	case _, ok := <-cancel:
+		c.Assert(ok, jc.IsFalse)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for cancelling")
+	}
+}
+
+func (s *sshContainerSuite) TestGetInterruptAbortChanStopped(c *gc.C) {
+	ctrl := s.setUpController(c, false, "")
+	ctx := mocks.NewMockContext(ctrl)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		ctx.EXPECT().InterruptNotify(gomock.Any()),
+		ctx.EXPECT().StopInterruptNotify(gomock.Any()),
+	)
+	cancel, stop := commands.GetInterruptAbortChan(ctx)
+	stop()
+	select {
+	case _, ok := <-cancel:
+		c.Assert(ok, jc.IsFalse)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for cancelling")
+	}
+}
+
+func (s *sshContainerSuite) TestCopyToOperator(c *gc.C) {
+	ctrl := s.setUpController(c, false, "")
+	ctx := mocks.NewMockContext(ctrl)
+	defer ctrl.Finish()
+
+	s.sshC.SetArgs([]string{"./file1", "mariadb-k8s/0:/home/ubuntu/"})
+
+	gomock.InOrder(
+		s.execClient.EXPECT().NameSpace().AnyTimes().Return("test-ns"),
+		s.mockPods.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "juju-operator=mariadb-k8s"}).AnyTimes().
+			Return(&core.PodList{Items: []core.Pod{
+				{ObjectMeta: metav1.ObjectMeta{Name: "mariadb-k8s-operator-0"}},
+			}}, nil),
+
+		ctx.EXPECT().InterruptNotify(gomock.Any()),
+		s.execClient.EXPECT().Copy(k8sexec.CopyParams{
+			Src:  k8sexec.FileResource{Path: "./file1"},
+			Dest: k8sexec.FileResource{Path: "/home/ubuntu/", PodName: "mariadb-k8s-operator-0"},
+		}, gomock.Any()).
+			Return(nil),
+		ctx.EXPECT().StopInterruptNotify(gomock.Any()),
+	)
+
+	err := s.sshC.Copy(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *sshContainerSuite) TestCopyInvalidArgs(c *gc.C) {
+	ctrl := s.setUpController(c, false, "")
+	ctx := mocks.NewMockContext(ctrl)
+	defer ctrl.Finish()
+
+	s.sshC.SetArgs([]string{"./file1"})
+	err := s.sshC.Copy(ctx)
+	c.Assert(err, gc.ErrorMatches, `source and destination are required`)
+
+	s.sshC.SetArgs([]string{"./file1", "./file2", "mariadb-k8s/0:/home/ubuntu/"})
+	err = s.sshC.Copy(ctx)
+	c.Assert(err, gc.ErrorMatches, `only one source and one destination are allowed for a k8s application`)
+}
+
+func (s *sshContainerSuite) TestCopyWorkloadPodWithContainerSpecified(c *gc.C) {
+	ctrl := s.setUpController(c, true, "container1")
+	ctx := mocks.NewMockContext(ctrl)
+	defer ctrl.Finish()
+
+	s.sshC.SetArgs([]string{"./file1", "mariadb-k8s/0:/home/ubuntu/"})
+
+	gomock.InOrder(
+		s.applicationAPI.EXPECT().UnitsInfo([]names.UnitTag{names.NewUnitTag("mariadb-k8s/0")}).
+			Return([]application.UnitInfo{
+				{ProviderId: "mariadb-k8s-0"},
+			}, nil),
+
+		ctx.EXPECT().InterruptNotify(gomock.Any()),
+		s.execClient.EXPECT().Copy(k8sexec.CopyParams{
+			Src:  k8sexec.FileResource{Path: "./file1"},
+			Dest: k8sexec.FileResource{Path: "/home/ubuntu/", PodName: "mariadb-k8s-0", ContainerName: "container1"},
+		}, gomock.Any()).
+			Return(nil),
+		ctx.EXPECT().StopInterruptNotify(gomock.Any()),
+	)
+
+	err := s.sshC.Copy(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *sshContainerSuite) TestCopyWorkloadPodNoContainerSpecified(c *gc.C) {
+	ctrl := s.setUpController(c, true, "")
+	ctx := mocks.NewMockContext(ctrl)
+	defer ctrl.Finish()
+
+	s.sshC.SetArgs([]string{"./file1", "mariadb-k8s/0:/home/ubuntu/"})
+
+	gomock.InOrder(
+		s.applicationAPI.EXPECT().UnitsInfo([]names.UnitTag{names.NewUnitTag("mariadb-k8s/0")}).
+			Return([]application.UnitInfo{
+				{ProviderId: "mariadb-k8s-0"},
+			}, nil),
+
+		ctx.EXPECT().InterruptNotify(gomock.Any()),
+		s.execClient.EXPECT().Copy(k8sexec.CopyParams{
+			Src:  k8sexec.FileResource{Path: "./file1"},
+			Dest: k8sexec.FileResource{Path: "/home/ubuntu/", PodName: "mariadb-k8s-0"},
+		}, gomock.Any()).
+			Return(nil),
+		ctx.EXPECT().StopInterruptNotify(gomock.Any()),
+	)
+
+	err := s.sshC.Copy(ctx)
+	c.Assert(err, jc.ErrorIsNil)
 }

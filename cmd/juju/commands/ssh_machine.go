@@ -22,7 +22,7 @@ import (
 
 	"github.com/juju/juju/api/sshclient"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/modelcmd"
+	// "github.com/juju/juju/cmd/modelcmd"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	jujussh "github.com/juju/juju/network/ssh"
@@ -153,7 +153,7 @@ func (c *sshMachine) setHostChecker(checker jujussh.ReachableChecker) {
 // command's Run method.
 //
 // The apiClient, apiAddr and proxy fields are initialized after this call.
-func (c *sshMachine) initRun(mc modelcmd.ModelCommandBase) (err error) {
+func (c *sshMachine) initRun(mc ModelCommand) (err error) {
 	if c.modelName, err = mc.ModelIdentifier(); err != nil {
 		return errors.Trace(err)
 	}
@@ -369,7 +369,7 @@ func (c *sshMachine) setProxyCommand(options *ssh.Options) error {
 	return nil
 }
 
-func (c *sshMachine) ensureAPIClient(mc modelcmd.ModelCommandBase) error {
+func (c *sshMachine) ensureAPIClient(mc ModelCommand) error {
 	if c.apiClient != nil {
 		return nil
 	}
@@ -377,7 +377,7 @@ func (c *sshMachine) ensureAPIClient(mc modelcmd.ModelCommandBase) error {
 }
 
 // initAPIClient initialises the API connection.
-func (c *sshMachine) initAPIClient(mc modelcmd.ModelCommandBase) error {
+func (c *sshMachine) initAPIClient(mc ModelCommand) error {
 	conn, err := mc.NewAPIRoot()
 	if err != nil {
 		return errors.Trace(err)

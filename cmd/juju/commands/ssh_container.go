@@ -20,7 +20,7 @@ import (
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/modelcmd"
+	// "github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/cloudspec"
 	jujussh "github.com/juju/juju/network/ssh"
 )
@@ -96,7 +96,7 @@ func (c *sshContainer) setArgs(args []string) {
 
 // initRun initializes the API connection if required. It must be called
 // at the top of the command's Run method.
-func (c *sshContainer) initRun(mc modelcmd.ModelCommandBase) (err error) {
+func (c *sshContainer) initRun(mc ModelCommand) (err error) {
 	if len(c.modelUUID) == 0 {
 		_, mDetails, err := mc.ModelDetails()
 		if err != nil {
@@ -209,12 +209,13 @@ func (c *sshContainer) ssh(ctx Context, enablePty bool, target *resolvedTarget) 
 	defer stop()
 	return c.execClient.Exec(
 		k8sexec.ExecParams{
-			PodName:  target.entity,
-			Commands: args,
-			Stdout:   ctx.GetStdout(),
-			Stderr:   ctx.GetStderr(),
-			Stdin:    ctx.GetStdin(),
-			TTY:      enablePty,
+			PodName:       target.entity,
+			ContainerName: c.container,
+			Commands:      args,
+			Stdout:        ctx.GetStdout(),
+			Stderr:        ctx.GetStderr(),
+			Stdin:         ctx.GetStdin(),
+			TTY:           enablePty,
 		},
 		cancel,
 	)
@@ -240,15 +241,20 @@ func getInterruptAbortChan(ctx Context) (<-chan struct{}, func()) {
 }
 
 func (c *sshContainer) copy(ctx Context) error {
+	// TODO: enable exec framework to support copy from pod to local!!!
 	args := c.getArgs()
 	if len(args) < 2 {
 		return errors.New("source and destination are required")
 	}
-	srcSpec, err := c.expandSCPArgs(args[0])
+	if len(args) > 2 {
+		return errors.New("only one source and one destination are allowed for a k8s application")
+	}
+
+	srcSpec, err := c.expandSCPArg(args[0])
 	if err != nil {
 		return err
 	}
-	destSpec, err := c.expandSCPArgs(args[1])
+	destSpec, err := c.expandSCPArg(args[1])
 	if err != nil {
 		return err
 	}
@@ -258,7 +264,7 @@ func (c *sshContainer) copy(ctx Context) error {
 	return c.execClient.Copy(k8sexec.CopyParams{Src: srcSpec, Dest: destSpec}, cancel)
 }
 
-func (c *sshContainer) expandSCPArgs(arg string) (o k8sexec.FileResource, err error) {
+func (c *sshContainer) expandSCPArg(arg string) (o k8sexec.FileResource, err error) {
 	if i := strings.Index(arg, ":"); i == -1 {
 		return k8sexec.FileResource{Path: arg}, nil
 	} else if i > 0 {

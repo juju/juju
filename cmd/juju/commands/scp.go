@@ -115,8 +115,9 @@ func newSCPCommand(hostChecker jujussh.ReachableChecker) cmd.Command {
 
 // scpCommand is responsible for launching a scp command to copy files to/from remote machine(s)
 type scpCommand struct {
-	modelType model.ModelType
 	modelcmd.ModelCommandBase
+
+	modelType model.ModelType
 
 	sshMachine
 	sshContainer
@@ -161,21 +162,9 @@ func (c *scpCommand) Init(args []string) (err error) {
 // Run resolves c.Target to a machine, or host of a unit and
 // forks ssh with c.Args, if provided.
 func (c *scpCommand) Run(ctx *cmd.Context) error {
-	if err := c.provider.initRun(c.ModelCommandBase); err != nil {
+	if err := c.provider.initRun(&c.ModelCommandBase); err != nil {
 		return errors.Trace(err)
 	}
 	defer c.provider.cleanupRun()
-
-	// args, targets, err := expandArgs(c.provider.getArgs(), c.provider.resolveTarget)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// options, err := c.getSSHOptions(false, targets...)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// return ssh.Copy(args, options)
 	return c.provider.copy(ctx)
 }
