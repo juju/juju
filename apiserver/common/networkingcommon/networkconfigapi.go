@@ -26,19 +26,39 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.common.networkingcommon")
 
 type NetworkConfigAPI struct {
-	st           LinkLayerState
+	st           LinkLayerAndSubnetsState
 	getCanModify common.GetAuthFunc
-	getModelOp   func(machine LinkLayerMachine, incoming network.InterfaceInfos) state.ModelOperation
+	getModelOp   func(LinkLayerMachine, network.InterfaceInfos) state.ModelOperation
 }
 
-func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) *NetworkConfigAPI {
+// NewNetworkConfigAPI constructs a new common network configuration API
+// and returns its reference.
+func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) (*NetworkConfigAPI, error) {
+	// TODO (manadart 2020-08-11): This is a second access of the model when
+	// being instantiated by the provisioner API.
+	// We should ameliorate repeat model access at some point,
+	// as it queries state each time.
+	mod, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cloud, err := mod.Cloud()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	getModelOp := func(machine LinkLayerMachine, incoming network.InterfaceInfos) state.ModelOperation {
+		// We discover subnets via reported link-layer devices for the
+		// manual provider, which allows us to use spaces there.
+		return newUpdateMachineLinkLayerOp(machine, incoming, strings.ToLower(cloud.Type) == "manual", st)
+	}
+
 	return &NetworkConfigAPI{
 		st:           &linkLayerState{st},
 		getCanModify: getCanModify,
-		getModelOp: func(machine LinkLayerMachine, incoming network.InterfaceInfos) state.ModelOperation {
-			return newUpdateMachineLinkLayerOp(machine, incoming)
-		},
-	}
+		getModelOp:   getModelOp,
+	}, nil
 }
 
 // SetObservedNetworkConfig reads the network config for the machine
@@ -150,14 +170,23 @@ type updateMachineLinkLayerOp struct {
 	// parents of children that we are *not* deleting, thus preventing such
 	// parents from being deleted.
 	observedParentDevices set.Strings
+
+	// discoverSubnets indicates whether we should add subnets from
+	// updated link-layer devices to the state subnets collection.
+	discoverSubnets bool
+
+	// st is the state indirection required to persist discovered subnets.
+	st AddSubnetsState
 }
 
 func newUpdateMachineLinkLayerOp(
-	machine LinkLayerMachine, incoming network.InterfaceInfos,
+	machine LinkLayerMachine, incoming network.InterfaceInfos, discoverSubnets bool, st AddSubnetsState,
 ) *updateMachineLinkLayerOp {
 	return &updateMachineLinkLayerOp{
 		MachineLinkLayerOp:    NewMachineLinkLayerOp(machine, incoming),
 		observedParentDevices: set.NewStrings(),
+		discoverSubnets:       discoverSubnets,
+		st:                    st,
 	}
 }
 
@@ -303,15 +332,27 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNewAddresses(
 ) ([]txn.Op, error) {
 	var ops []txn.Op
 	for _, addr := range incomingAddrs {
-		if !o.IsAddrProcessed(dev.MACAddress(), addr.CIDRAddress) {
-			addOps, err := dev.AddAddressOps(addr)
+		if o.IsAddrProcessed(dev.MACAddress(), addr.CIDRAddress) {
+			continue
+		}
+
+		addOps, err := dev.AddAddressOps(addr)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, addOps...)
+
+		// Since this device has new or changing addresses,
+		// ensure we have discovered all the subnets it is connected to.
+		if o.discoverSubnets {
+			subNetOps, err := o.processSubnets(dev.MACAddress())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			ops = append(ops, addOps...)
-
-			o.MarkAddrProcessed(dev.MACAddress(), addr.CIDRAddress)
+			ops = append(ops, subNetOps...)
 		}
+
+		o.MarkAddrProcessed(dev.MACAddress(), addr.CIDRAddress)
 	}
 	return ops, nil
 }
@@ -335,7 +376,56 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 		}
 		ops = append(ops, addOps...)
 
+		// Since this is a new device, ensure that we have
+		// discovered all the subnets it is connected to.
+		if o.discoverSubnets {
+			subNetOps, err := o.processSubnets(dev.MACAddress)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, subNetOps...)
+		}
+
 		o.MarkDevProcessed(dev.MACAddress)
+	}
+	return ops, nil
+}
+
+// processSubnets takes an incoming NIC hardware address and ensures that the
+// subnets of addresses on the device are present in state.
+// Loopback subnets are ignored.
+func (o *updateMachineLinkLayerOp) processSubnets(hwAddress string) ([]txn.Op, error) {
+	// Accrue all incoming CIDRs matching the input device.
+	cidrSet := set.NewStrings()
+	var isVLAN bool
+	for _, matching := range o.Incoming().GetByHardwareAddress(hwAddress) {
+		cidr := matching.CIDR
+		if cidr == "" || matching.InterfaceType == network.LoopbackInterface {
+			continue
+		}
+
+		if matching.IsVLAN() {
+			isVLAN = true
+		}
+
+		cidrSet.Add(cidr)
+	}
+	cidrs := cidrSet.SortedValues()
+
+	if isVLAN {
+		logger.Warningf("ignoring VLAN tag for incoming device subnets: %v", cidrs)
+	}
+
+	var ops []txn.Op
+	for _, cidr := range cidrs {
+		addOps, err := o.st.AddSubnetOps(network.SubnetInfo{CIDR: cidr})
+		if err != nil {
+			if errors.IsAlreadyExists(err) {
+				continue
+			}
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, addOps...)
 	}
 	return ops, nil
 }

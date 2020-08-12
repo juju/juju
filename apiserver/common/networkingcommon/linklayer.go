@@ -122,6 +122,20 @@ type LinkLayerState interface {
 	ApplyOperation(state.ModelOperation) error
 }
 
+// AddSubnetsState describes methods required to add new subnets.
+type AddSubnetsState interface {
+	// AddSubnetOps returns transaction operations required to ensure that the
+	// input subnet is added to state.
+	AddSubnetOps(network.SubnetInfo) ([]txn.Op, error)
+}
+
+// LinkLayerAndSubnetsState describes a persistence indirection that includes
+// the ability to update link-layer data and add discovered subnets.
+type LinkLayerAndSubnetsState interface {
+	LinkLayerState
+	AddSubnetsState
+}
+
 // MachineLinkLayerOp is a base type for model operations that update
 // link-layer data for a single machine/host/container.
 type MachineLinkLayerOp struct {

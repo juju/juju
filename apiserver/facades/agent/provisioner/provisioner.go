@@ -127,6 +127,11 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	}
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 
+	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(st, getCanModify)
+	if err != nil {
+		return nil, errors.Annotate(err, "instantiating network config API")
+	}
+
 	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
 	callCtx := context.CallContext(st)
 	api := &ProvisionerAPI{
@@ -141,7 +146,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		ModelWatcher:            common.NewModelWatcher(model, resources, authorizer),
 		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI:     common.NewStateControllerConfig(st),
-		NetworkConfigAPI:        networkingcommon.NewNetworkConfigAPI(st, getCanModify),
+		NetworkConfigAPI:        netConfigAPI,
 		st:                      st,
 		m:                       model,
 		resources:               resources,

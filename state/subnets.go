@@ -390,11 +390,12 @@ func (st *State) AddSubnet(args network.SubnetInfo) (subnet *Subnet, err error) 
 	if err := args.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	var seq int
-	seq, err = sequence(st, "subnet")
-	if err != nil {
+	if seq, err = sequence(st, "subnet"); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt != 0 {
 			if err := checkModelActive(st); err != nil {
@@ -430,6 +431,18 @@ func (st *State) AddSubnet(args network.SubnetInfo) (subnet *Subnet, err error) 
 	return subnet, nil
 }
 
+// AddSubnetOps returns transaction operations required to ensure that the
+// input subnet is added to state.
+func (st *State) AddSubnetOps(args network.SubnetInfo) ([]txn.Op, error) {
+	seq, err := sequence(st, "subnet")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	_, ops, err := st.addSubnetOps(strconv.Itoa(seq), args)
+	return ops, errors.Trace(err)
+}
+
 func (st *State) addSubnetOps(id string, args network.SubnetInfo) (subnetDoc, []txn.Op, error) {
 	unique, err := st.uniqueSubnet(args.CIDR, string(args.ProviderId))
 	if err != nil {
@@ -438,11 +451,14 @@ func (st *State) addSubnetOps(id string, args network.SubnetInfo) (subnetDoc, []
 	if !unique {
 		return subnetDoc{}, nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
 	}
+
+	// Unless explicitly placed, new subnets go into the alpha space.
+	// TODO (manadart 2020-08-12): We should determine the model's configured
+	// default space and put it there instead.
 	if args.SpaceID == "" {
-		// Ensure the subnet is added to the default space
-		// if none is defined for the subnet.
 		args.SpaceID = network.AlphaSpaceId
 	}
+
 	subDoc := subnetDoc{
 		DocID:             st.docID(id),
 		ID:                id,
@@ -490,10 +506,10 @@ func (st *State) uniqueSubnet(cidr, providerID string) (bool, error) {
 		}}).Count()
 
 	if err == mgo.ErrNotFound {
-		return false, errors.NotFoundf("subnet cidr %q", cidr)
+		return false, errors.NotFoundf("subnet CIDR %q", cidr)
 	}
 	if err != nil {
-		return false, errors.Annotatef(err, "cannot get subnet cidr %q", cidr)
+		return false, errors.Annotatef(err, "querying subnet CIDR %q", cidr)
 	}
 	return count == 0, nil
 }

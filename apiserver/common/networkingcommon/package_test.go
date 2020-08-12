@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/common/networkingcommon BackingSpace,BackingSubnet,LinkLayerDevice,LinkLayerAddress,LinkLayerMachine,LinkLayerState
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/common/networkingcommon BackingSpace,BackingSubnet,LinkLayerDevice,LinkLayerAddress,LinkLayerMachine,LinkLayerState,AddSubnetsState,LinkLayerAndSubnetsState
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -25,13 +25,13 @@ type BaseSuite struct {
 }
 
 func (s *BaseSuite) NewUpdateMachineLinkLayerOp(
-	machine LinkLayerMachine, incoming network.InterfaceInfos,
+	machine LinkLayerMachine, incoming network.InterfaceInfos, discoverSubnets bool, st AddSubnetsState,
 ) *updateMachineLinkLayerOp {
-	return newUpdateMachineLinkLayerOp(machine, incoming)
+	return newUpdateMachineLinkLayerOp(machine, incoming, discoverSubnets, st)
 }
 
 func (s *BaseSuite) NewNetworkConfigAPI(
-	st LinkLayerState,
+	st LinkLayerAndSubnetsState,
 	getModelOp func(machine LinkLayerMachine, incoming network.InterfaceInfos) state.ModelOperation,
 ) *NetworkConfigAPI {
 	return &NetworkConfigAPI{
