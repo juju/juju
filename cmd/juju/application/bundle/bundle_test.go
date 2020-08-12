@@ -196,8 +196,9 @@ var _ = gc.Suite(&composeAndVerifyRepSuite{})
 
 func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleNoOverlay(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	obtained, err := ComposeAndVerifyBundle(s.bundleDataSource, nil)
+	_, err := ComposeAndVerifyBundle(s.bundleDataSource, nil)
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO Verify result
 }
 
 func (s *composeAndVerifyRepSuite) setupMocks(c *gc.C) *gomock.Controller {
