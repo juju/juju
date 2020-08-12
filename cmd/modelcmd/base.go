@@ -15,12 +15,12 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/api/authentication"
 	"github.com/juju/names/v4"
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/authentication"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
@@ -99,6 +99,9 @@ type Command interface {
 	// SetModelAPI sets the api used to access model information.
 	SetModelAPI(api ModelAPI)
 
+	// SetEmbedded sets whether the command is being run inside a controller.
+	SetEmbedded(bool)
+
 	// closeAPIContexts closes any API contexts that have been opened.
 	closeAPIContexts()
 	initContexts(*cmd.Context)
@@ -128,6 +131,9 @@ type CommandBase struct {
 
 	// CanClearCurrentModel indicates that this command can reset current model in local cache, aka client store.
 	CanClearCurrentModel bool
+
+	// Embedded is true if this command is being run inside a controller.
+	Embedded bool
 }
 
 func (c *CommandBase) assertRunStarted() {
@@ -149,6 +155,11 @@ func (c *CommandBase) closeAPIContexts() {
 		}
 		delete(c.apiContexts, name)
 	}
+}
+
+// SetEmbedded sets whether the command is embedded.
+func (c *CommandBase) SetEmbedded(embedded bool) {
+	c.Embedded = embedded
 }
 
 // SetFlags implements cmd.Command.SetFlags.
@@ -203,7 +214,17 @@ func (c *CommandBase) NewAPIRoot(
 	} else {
 		u := names.NewUserTag(accountDetails.User)
 		if !u.IsLocal() {
-			accountDetails = &jujuclient.AccountDetails{}
+			if len(accountDetails.Macaroons) == 0 {
+				accountDetails = &jujuclient.AccountDetails{}
+			} else {
+				// If the account has macaroon set, use those to login
+				// to avoid an unnecessary auth round trip.
+				// Used for embedded commands.
+				accountDetails = &jujuclient.AccountDetails{
+					User:      u.Id(),
+					Macaroons: accountDetails.Macaroons,
+				}
+			}
 		}
 	}
 	param, err := c.NewAPIConnectionParams(
@@ -472,6 +493,22 @@ func (w *baseCommandWrapper) inner() cmd.Command {
 	return w.Command
 }
 
+type hasClientStore interface {
+	SetClientStore(store jujuclient.ClientStore)
+}
+
+// SetClientStore sets the client store to use.
+func (w *baseCommandWrapper) SetClientStore(store jujuclient.ClientStore) {
+	if csc, ok := w.Command.(hasClientStore); ok {
+		csc.SetClientStore(store)
+	}
+}
+
+// SetEmbedded implements the ModelCommand interface.
+func (c *baseCommandWrapper) SetEmbedded(embedded bool) {
+	c.Command.SetEmbedded(embedded)
+}
+
 // Run implements Command.Run.
 func (w *baseCommandWrapper) Run(ctx *cmd.Context) error {
 	defer w.closeAPIContexts()
@@ -503,7 +540,8 @@ func newAPIConnectionParams(
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.BakeryClient = bakery
 
-	if accountDetails != nil {
+	// Embedded clients with macaroons cannot discharge.
+	if accountDetails != nil && len(accountDetails.Macaroons) == 0 {
 		bakery.InteractionMethods = []httpbakery.Interactor{
 			authentication.NewInteractor(accountDetails.User, getPassword),
 			httpbakery.WebBrowserInteractor{},

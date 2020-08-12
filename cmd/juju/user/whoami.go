@@ -60,6 +60,11 @@ func (c *whoAmICommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
+// SetClientStore implements Command.SetClientStore.
+func (c *whoAmICommand) SetClientStore(store jujuclient.ClientStore) {
+	c.store = store
+}
+
 type whoAmI struct {
 	ControllerName string `yaml:"controller" json:"controller"`
 	ModelName      string `yaml:"model,omitempty" json:"model,omitempty"`

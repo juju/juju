@@ -64,6 +64,11 @@ func (c *unregisterCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 }
 
+// SetClientStore implements Command.SetClientStore.
+func (c *unregisterCommand) SetClientStore(store jujuclient.ClientStore) {
+	c.store = store
+}
+
 // Init implements Command.Init.
 func (c *unregisterCommand) Init(args []string) error {
 	if len(args) < 1 {

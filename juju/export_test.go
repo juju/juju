@@ -3,4 +3,7 @@
 
 package juju
 
-var MoveToFront = moveToFront
+var (
+	MoveToFront    = moveToFront
+	ConnectionInfo = connectionInfo
+)

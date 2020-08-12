@@ -85,6 +85,7 @@ type Server struct {
 	restoreStatus          func() state.RestoreStatus
 	mux                    *apiserverhttp.Mux
 	metricsCollector       *Collector
+	execEmbeddedCommand    ExecEmbeddedCommandFunc
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -190,6 +191,9 @@ type ServerConfig struct {
 	// MetricsCollector defines all the metrics to be collected for the
 	// apiserver
 	MetricsCollector *Collector
+
+	// ExecEmbeddedCommand is a function which creates an embedded Juju CLI instance.
+	ExecEmbeddedCommand ExecEmbeddedCommandFunc
 }
 
 // Validate validates the API server configuration.
@@ -313,7 +317,8 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
 			dbLoggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
 		},
-		metricsCollector: cfg.MetricsCollector,
+		metricsCollector:    cfg.MetricsCollector,
+		execEmbeddedCommand: cfg.ExecEmbeddedCommand,
 
 		healthStatus: "starting",
 	}
@@ -584,6 +589,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	mainAPIHandler := http.HandlerFunc(srv.apiHandler)
 	healthHandler := http.HandlerFunc(srv.healthHandler)
 	logStreamHandler := newLogStreamEndpointHandler(httpCtxt)
+	embeddedCLIHandler := newEmbeddedCLIHandler(httpCtxt)
 	debugLogHandler := newDebugLogDBHandler(
 		httpCtxt, srv.authenticator,
 		tagKindAuthorizer{names.MachineTagKind, names.ControllerAgentTagKind, names.UserTagKind, names.ApplicationTagKind})
@@ -731,6 +737,11 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		tracked:         true,
 		unauthenticated: true,
 	}, {
+		pattern:         modelRoutePrefix + "/commands",
+		handler:         embeddedCLIHandler,
+		tracked:         true,
+		unauthenticated: true,
+	}, {
 		pattern: modelRoutePrefix + "/rest/1.0/:entity/:name/:attribute",
 		handler: modelRestServer,
 	}, {
@@ -781,6 +792,11 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		pattern:         "/api",
 		handler:         mainAPIHandler,
 		tracked:         true,
+		unauthenticated: true,
+		noModelUUID:     true,
+	}, {
+		pattern:         "/commands",
+		handler:         embeddedCLIHandler,
 		unauthenticated: true,
 		noModelUUID:     true,
 	}, {

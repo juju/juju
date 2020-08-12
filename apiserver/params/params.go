@@ -1324,3 +1324,20 @@ type WatchContainerStartArg struct {
 type WatchContainerStartArgs struct {
 	Args []WatchContainerStartArg `json:"args"`
 }
+
+// CLICommands holds credentials, model and a list of CLI commands to run.
+type CLICommands struct {
+	User        string           `json:"user"`
+	Credentials string           `json:"credentials,omitempty"`
+	Macaroons   []macaroon.Slice `json:"macaroons,omitempty"`
+
+	ActiveBranch string   `json:"active-branch,omitempty"`
+	Commands     []string `json:"commands"`
+}
+
+// CLICommandStatus represents a status update for a CLI command.
+type CLICommandStatus struct {
+	Output []string `json:"output,omitempty"`
+	Done   bool     `json:"done,omitempty"`
+	Error  *Error   `json:"error,omitempty"`
+}

@@ -85,6 +85,11 @@ func (c *showControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
+// SetClientStore implements Command.SetClientStore.
+func (c *showControllerCommand) SetClientStore(store jujuclient.ClientStore) {
+	c.store = store
+}
+
 // ControllerAccessAPI defines a subset of the api/controller/Client API.
 type ControllerAccessAPI interface {
 	GetControllerAccess(user string) (permission.Access, error)

@@ -192,6 +192,9 @@ func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.Control
 		// If no password is recorded, we'll attempt to
 		// authenticate using macaroons.
 		apiInfo.Password = account.Password
+	} else {
+		// Optionally the account may have macaroons to use.
+		apiInfo.Macaroons = account.Macaroons
 	}
 	return apiInfo, controller, nil
 }

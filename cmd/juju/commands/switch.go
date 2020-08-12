@@ -76,6 +76,11 @@ func (c *switchCommand) Init(args []string) error {
 	return err
 }
 
+// SetClientStore implements Command.SetClientStore.
+func (c *switchCommand) SetClientStore(store jujuclient.ClientStore) {
+	c.Store = store
+}
+
 func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 	store := modelcmd.QualifyingClientStore{c.Store}
 

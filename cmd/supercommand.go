@@ -27,6 +27,11 @@ func init() {
 
 var logger = loggo.GetLogger("juju.cmd")
 
+// DefaultLog is the default command logging implementation.
+var DefaultLog = &cmd.Log{
+	DefaultConfig: os.Getenv(osenv.JujuLoggingConfigEnvKey),
+}
+
 // NewSuperCommand is like cmd.NewSuperCommand but
 // it adds juju-specific functionality:
 // - The default logging configuration is taken from the environment;
@@ -34,9 +39,6 @@ var logger = loggo.GetLogger("juju.cmd")
 // - The additional version information is sourced from juju/juju/version;
 // - The command emits a log message when a command runs.
 func NewSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
-	p.Log = &cmd.Log{
-		DefaultConfig: os.Getenv(osenv.JujuLoggingConfigEnvKey),
-	}
 	if p.NotifyRun != nil {
 		messenger := p.NotifyRun
 		p.NotifyRun = func(str string) {

@@ -6,6 +6,7 @@ package apiserver_test
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -16,6 +17,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/clock"
+	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	jujuhttp "github.com/juju/http"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -30,11 +33,14 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	apitesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/apiserver/websocket/websockettest"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/jujuclient"
 	psapiserver "github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
@@ -145,6 +151,33 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 			}))
 		},
 		MetricsCollector: apiserver.NewMetricsCollector(),
+		ExecEmbeddedCommand: func(ctx *cmd.Context, store jujuclient.ClientStore, whitelist []string, cmdPlusArgs string) int {
+			allowed := set.NewStrings(whitelist...)
+			args := strings.Split(cmdPlusArgs, " ")
+			if !allowed.Contains(args[0]) {
+				fmt.Fprintf(ctx.Stderr, "%q not allowed\n", args[0])
+				return 1
+			}
+			ctrl, err := store.CurrentController()
+			if err != nil {
+				fmt.Fprintf(ctx.Stderr, err.Error())
+				return 1
+			}
+			model, err := store.CurrentModel(ctrl)
+			if err != nil {
+				fmt.Fprintf(ctx.Stderr, err.Error())
+				return 1
+			}
+			ad, err := store.AccountDetails(ctrl)
+			if err != nil {
+				fmt.Fprintf(ctx.Stderr, err.Error())
+				return 1
+			}
+			cmdStr := fmt.Sprintf("%s@%s:%s -> %s", ad.User, ctrl, model, cmdPlusArgs)
+			fmt.Fprintf(ctx.Stdout, cmdStr)
+			fmt.Fprintf(ctx.Stdout, "\n")
+			return 0
+		},
 	}
 }
 
@@ -358,4 +391,92 @@ func (s *apiserverSuite) TestHealthStopping(c *gc.C) {
 			// Look again.
 		}
 	}
+}
+
+func (s *apiserverSuite) TestEmbeddedCommand(c *gc.C) {
+	cmdArgs := params.CLICommands{
+		User:     "fred",
+		Commands: []string{"status --color"},
+	}
+	s.assertEmbeddedCommand(c, cmdArgs, "fred@interactive:test-admin/testmodel -> status --color", nil)
+}
+
+func (s *apiserverSuite) TestEmbeddedCommandNotAllowed(c *gc.C) {
+	cmdArgs := params.CLICommands{
+		User:     "fred",
+		Commands: []string{"bootstrap aws"},
+	}
+	s.assertEmbeddedCommand(c, cmdArgs, `"bootstrap" not allowed`, nil)
+}
+
+func (s *apiserverSuite) TestEmbeddedCommandMissingUser(c *gc.C) {
+	cmdArgs := params.CLICommands{
+		Commands: []string{"status --color"},
+	}
+	s.assertEmbeddedCommand(c, cmdArgs, "", &params.Error{Message: `CLI command for anonymous user not supported`, Code: "not supported"})
+}
+
+func (s *apiserverSuite) TestEmbeddedCommandInvalidUser(c *gc.C) {
+	cmdArgs := params.CLICommands{
+		User:     "123@",
+		Commands: []string{"status --color"},
+	}
+	s.assertEmbeddedCommand(c, cmdArgs, "", &params.Error{Message: `user name "123@" not valid`})
+}
+
+func (s *apiserverSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLICommands, expected string, resultErr *params.Error) {
+	address := s.server.Listener.Addr().String()
+	path := fmt.Sprintf("/model/%s/commands", s.State.ModelUUID())
+	commandURL := &url.URL{
+		Scheme: "wss",
+		Host:   address,
+		Path:   path,
+	}
+	conn, _, err := dialWebsocketFromURL(c, commandURL.String(), http.Header{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer conn.Close()
+
+	// Read back the nil error, indicating that all is well.
+	websockettest.AssertJSONInitialErrorNil(c, conn)
+
+	done := make(chan struct{})
+	var result params.CLICommandStatus
+	go func() {
+		for {
+			var update params.CLICommandStatus
+			err := conn.ReadJSON(&update)
+			c.Assert(err, jc.ErrorIsNil)
+
+			result.Output = append(result.Output, update.Output...)
+			result.Done = update.Done
+			result.Error = update.Error
+			if result.Done {
+				done <- struct{}{}
+				break
+			}
+		}
+	}()
+
+	err = conn.WriteJSON(cmdArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-done:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("no command result")
+	}
+
+	// Close connection.
+	err = conn.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var expectedOutput []string
+	if expected != "" {
+		expectedOutput = []string{expected}
+	}
+	c.Assert(result, jc.DeepEquals, params.CLICommandStatus{
+		Output: expectedOutput,
+		Done:   true,
+		Error:  resultErr,
+	})
 }

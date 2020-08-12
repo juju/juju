@@ -7,7 +7,6 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/juju/component/all"
-	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
 

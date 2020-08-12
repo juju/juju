@@ -173,6 +173,14 @@ func (s *OptionalControllerCommandSuite) TestControllerCommandLocal(c *gc.C) {
 	c.Assert(command.Client, jc.IsTrue)
 }
 
+func (s *OptionalControllerCommandSuite) TestEmbedded(c *gc.C) {
+	optCommand := modelcmd.OptionalControllerCommand{}
+	optCommand.Embedded = true
+	command := &testOptionalControllerCommand{OptionalControllerCommand: optCommand}
+	_, err := cmdtesting.RunCommand(c, command, "--client")
+	c.Assert(err, gc.ErrorMatches, `option provided but not defined: --client`)
+}
+
 func (s *OptionalControllerCommandSuite) assertPrompt(c *gc.C,
 	store jujuclient.ClientStore,
 	action string,
