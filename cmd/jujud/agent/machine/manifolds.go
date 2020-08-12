@@ -273,6 +273,10 @@ type ManifoldsConfig struct {
 	// SetupLogging is used by the deployer to initialize the logging
 	// context for the unit.
 	SetupLogging func(*loggo.Context, coreagent.Config)
+
+	// LeaseFSM represents the internal finite state machine for lease
+	// management.
+	LeaseFSM *raftlease.FSM
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -314,8 +318,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
 	agentTag := agentConfig.Tag()
 	controllerTag := agentConfig.Controller()
-
-	leaseFSM := raftlease.NewFSM()
 
 	manifolds := dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
@@ -774,7 +776,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:            clockName,
 			AgentName:            agentName,
 			TransportName:        raftTransportName,
-			FSM:                  leaseFSM,
+			FSM:                  config.LeaseFSM,
 			Logger:               loggo.GetLogger("juju.worker.raft"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            raft.NewWorker,
@@ -823,7 +825,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:            clockName,
 			CentralHubName:       centralHubName,
 			StateName:            stateName,
-			FSM:                  leaseFSM,
+			FSM:                  config.LeaseFSM,
 			RequestTopic:         leaseRequestTopic,
 			Logger:               loggo.GetLogger("juju.worker.lease.raft"),
 			LogDir:               agentConfig.LogDir(),
