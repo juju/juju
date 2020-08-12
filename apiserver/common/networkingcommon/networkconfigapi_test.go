@@ -288,7 +288,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 			Addresses:      network.NewProviderAddresses("0.20.0.2"),
 			GatewayAddress: network.NewProviderAddress("0.20.0.1"),
 		},
-	})
+	}, false)
 
 	ops, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -356,7 +356,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemo
 			GatewayAddress:      network.NewProviderAddress("0.20.0.1"),
 			ParentInterfaceName: "eth99",
 		},
-	})
+	}, false)
 
 	_, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)

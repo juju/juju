@@ -28,11 +28,7 @@ var logger = loggo.GetLogger("juju.apiserver.common.networkingcommon")
 type NetworkConfigAPI struct {
 	st           LinkLayerState
 	getCanModify common.GetAuthFunc
-	getModelOp   func(machine LinkLayerMachine, incoming network.InterfaceInfos) state.ModelOperation
-
-	// discoverSubnets indicates whether we should add subnets from
-	// updated link-layer devices to the state subnets collection.
-	discoverSubnets bool
+	getModelOp   func(LinkLayerMachine, network.InterfaceInfos) state.ModelOperation
 }
 
 // NewNetworkConfigAPI constructs a new common network configuration API
@@ -52,15 +48,16 @@ func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) (*Net
 		return nil, errors.Trace(err)
 	}
 
+	getModelOp := func(machine LinkLayerMachine, incoming network.InterfaceInfos) state.ModelOperation {
+		// We discover subnets via reported link-layer devices for the manual
+		// provider, which allows us to use spaces there.
+		return newUpdateMachineLinkLayerOp(machine, incoming, strings.ToLower(cloud.Type) == "manual")
+	}
+
 	return &NetworkConfigAPI{
 		st:           &linkLayerState{st},
 		getCanModify: getCanModify,
-		getModelOp: func(machine LinkLayerMachine, incoming network.InterfaceInfos) state.ModelOperation {
-			return newUpdateMachineLinkLayerOp(machine, incoming)
-		},
-		// We discover subnets via reported link-layer devices for the manual
-		// provider, which allows us to use spaces there.
-		discoverSubnets: strings.ToLower(cloud.Type) == "manual",
+		getModelOp:   getModelOp,
 	}, nil
 }
 
@@ -173,14 +170,19 @@ type updateMachineLinkLayerOp struct {
 	// parents of children that we are *not* deleting, thus preventing such
 	// parents from being deleted.
 	observedParentDevices set.Strings
+
+	// discoverSubnets indicates whether we should add subnets from
+	// updated link-layer devices to the state subnets collection.
+	discoverSubnets bool
 }
 
 func newUpdateMachineLinkLayerOp(
-	machine LinkLayerMachine, incoming network.InterfaceInfos,
+	machine LinkLayerMachine, incoming network.InterfaceInfos, discoverSubnets bool,
 ) *updateMachineLinkLayerOp {
 	return &updateMachineLinkLayerOp{
 		MachineLinkLayerOp:    NewMachineLinkLayerOp(machine, incoming),
 		observedParentDevices: set.NewStrings(),
+		discoverSubnets:       discoverSubnets,
 	}
 }
 

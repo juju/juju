@@ -25,9 +25,9 @@ type BaseSuite struct {
 }
 
 func (s *BaseSuite) NewUpdateMachineLinkLayerOp(
-	machine LinkLayerMachine, incoming network.InterfaceInfos,
+	machine LinkLayerMachine, incoming network.InterfaceInfos, discoverSubnets bool,
 ) *updateMachineLinkLayerOp {
-	return newUpdateMachineLinkLayerOp(machine, incoming)
+	return newUpdateMachineLinkLayerOp(machine, incoming, discoverSubnets)
 }
 
 func (s *BaseSuite) NewNetworkConfigAPI(
