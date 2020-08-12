@@ -37,7 +37,7 @@ type networkConfigSuite struct {
 
 	tag names.MachineTag
 
-	state   *mocks.MockLinkLayerState
+	state   *mocks.MockLinkLayerAndSubnetsState
 	machine *mocks.MockLinkLayerMachine
 
 	modelOp modelOpRecorder
@@ -288,7 +288,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 			Addresses:      network.NewProviderAddresses("0.20.0.2"),
 			GatewayAddress: network.NewProviderAddress("0.20.0.1"),
 		},
-	}, false)
+	}, false, s.state)
 
 	ops, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -356,7 +356,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemo
 			GatewayAddress:      network.NewProviderAddress("0.20.0.1"),
 			ParentInterfaceName: "eth99",
 		},
-	}, false)
+	}, false, s.state)
 
 	_, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -366,7 +366,7 @@ func (s *networkConfigSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.machine = mocks.NewMockLinkLayerMachine(ctrl)
-	s.state = mocks.NewMockLinkLayerState(ctrl)
+	s.state = mocks.NewMockLinkLayerAndSubnetsState(ctrl)
 
 	return ctrl
 }

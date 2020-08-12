@@ -26,7 +26,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.common.networkingcommon")
 
 type NetworkConfigAPI struct {
-	st           LinkLayerState
+	st           LinkLayerAndSubnetsState
 	getCanModify common.GetAuthFunc
 	getModelOp   func(LinkLayerMachine, network.InterfaceInfos) state.ModelOperation
 }
@@ -49,9 +49,9 @@ func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) (*Net
 	}
 
 	getModelOp := func(machine LinkLayerMachine, incoming network.InterfaceInfos) state.ModelOperation {
-		// We discover subnets via reported link-layer devices for the manual
-		// provider, which allows us to use spaces there.
-		return newUpdateMachineLinkLayerOp(machine, incoming, strings.ToLower(cloud.Type) == "manual")
+		// We discover subnets via reported link-layer devices for the
+		// manual provider, which allows us to use spaces there.
+		return newUpdateMachineLinkLayerOp(machine, incoming, strings.ToLower(cloud.Type) == "manual", st)
 	}
 
 	return &NetworkConfigAPI{
@@ -174,15 +174,19 @@ type updateMachineLinkLayerOp struct {
 	// discoverSubnets indicates whether we should add subnets from
 	// updated link-layer devices to the state subnets collection.
 	discoverSubnets bool
+
+	// st is the state indirection required to persist discovered subnets.
+	st AddSubnetsState
 }
 
 func newUpdateMachineLinkLayerOp(
-	machine LinkLayerMachine, incoming network.InterfaceInfos, discoverSubnets bool,
+	machine LinkLayerMachine, incoming network.InterfaceInfos, discoverSubnets bool, st AddSubnetsState,
 ) *updateMachineLinkLayerOp {
 	return &updateMachineLinkLayerOp{
 		MachineLinkLayerOp:    NewMachineLinkLayerOp(machine, incoming),
 		observedParentDevices: set.NewStrings(),
 		discoverSubnets:       discoverSubnets,
+		st:                    st,
 	}
 }
 
