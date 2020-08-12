@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/network/iptables"
 )
 
@@ -54,9 +54,7 @@ func (*IptablesSuite) TestAcceptInternalPortCommand(c *gc.C) {
 func (*IptablesSuite) TestIngressRuleCommand(c *gc.C) {
 	assertRender(c,
 		iptables.IngressRuleCommand{
-			Rule: network.IngressRule{
-				PortRange: corenetwork.PortRange{Protocol: "icmp"},
-			},
+			Rule: firewall.NewIngressRule(network.MustParsePortRange("icmp")),
 		},
 		"(sudo iptables -C INPUT -j ACCEPT -p icmp --icmp-type 8 -m comment --comment 'juju ingress') || "+
 			"(sudo iptables -I INPUT -j ACCEPT -p icmp --icmp-type 8 -m comment --comment 'juju ingress')",
@@ -66,9 +64,7 @@ func (*IptablesSuite) TestIngressRuleCommand(c *gc.C) {
 	// output is that "-D" is specified in place of "-I".
 	assertRender(c,
 		iptables.IngressRuleCommand{
-			Rule: network.IngressRule{
-				PortRange: corenetwork.PortRange{Protocol: "icmp"},
-			},
+			Rule:   firewall.NewIngressRule(network.MustParsePortRange("icmp")),
 			Delete: true,
 		},
 		"(sudo iptables -C INPUT -j ACCEPT -p icmp --icmp-type 8 -m comment --comment 'juju ingress') && "+
@@ -80,10 +76,7 @@ func (*IptablesSuite) TestIngressRuleCommand(c *gc.C) {
 	// joined with a comma.
 	assertRender(c,
 		iptables.IngressRuleCommand{
-			Rule: network.IngressRule{
-				PortRange:   corenetwork.PortRange{Protocol: "icmp"},
-				SourceCIDRs: []string{"1.2.3.4", "5.6.7.8"},
-			},
+			Rule: firewall.NewIngressRule(network.MustParsePortRange("icmp"), "1.2.3.4", "5.6.7.8"),
 		},
 		"(sudo iptables -C INPUT -j ACCEPT -p icmp --icmp-type 8 -s 1.2.3.4,5.6.7.8 -m comment --comment 'juju ingress') || "+
 			"(sudo iptables -I INPUT -j ACCEPT -p icmp --icmp-type 8 -s 1.2.3.4,5.6.7.8 -m comment --comment 'juju ingress')",
@@ -92,13 +85,7 @@ func (*IptablesSuite) TestIngressRuleCommand(c *gc.C) {
 	// UDP, single port.
 	assertRender(c,
 		iptables.IngressRuleCommand{
-			Rule: network.IngressRule{
-				PortRange: corenetwork.PortRange{
-					Protocol: "udp",
-					FromPort: 53,
-					ToPort:   53,
-				},
-			},
+			Rule: firewall.NewIngressRule(network.MustParsePortRange("53/udp")),
 		},
 		"(sudo iptables -C INPUT -j ACCEPT -p udp --dport 53 -m comment --comment 'juju ingress') || "+
 			"(sudo iptables -I INPUT -j ACCEPT -p udp --dport 53 -m comment --comment 'juju ingress')",
@@ -107,13 +94,7 @@ func (*IptablesSuite) TestIngressRuleCommand(c *gc.C) {
 	// TCP, port range.
 	assertRender(c,
 		iptables.IngressRuleCommand{
-			Rule: network.IngressRule{
-				PortRange: corenetwork.PortRange{
-					Protocol: "tcp",
-					FromPort: 6001,
-					ToPort:   6007,
-				},
-			},
+			Rule: firewall.NewIngressRule(network.MustParsePortRange("6001-6007/tcp")),
 		},
 		"(sudo iptables -C INPUT -j ACCEPT -p tcp -m multiport --dports 6001:6007 -m comment --comment 'juju ingress') || "+
 			"(sudo iptables -I INPUT -j ACCEPT -p tcp -m multiport --dports 6001:6007 -m comment --comment 'juju ingress')",
@@ -121,7 +102,7 @@ func (*IptablesSuite) TestIngressRuleCommand(c *gc.C) {
 }
 
 func (*IptablesSuite) TestParseIngressRulesEmpty(c *gc.C) {
-	assertParseIngressRules(c, ``, []network.IngressRule{})
+	assertParseIngressRules(c, ``, firewall.IngressRules{})
 }
 
 func (*IptablesSuite) TestParseIngressRulesGarbage(c *gc.C) {
@@ -130,7 +111,7 @@ b
 ACCEPT zing
 blargh
 
-`, []network.IngressRule{})
+`, firewall.IngressRules{})
 }
 
 func (*IptablesSuite) TestParseIngressRulesChecksComment(c *gc.C) {
@@ -141,14 +122,9 @@ ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:53 /* mana
 ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:53 /* juju ingress */
 ACCEPT     udp  --  0.0.0.0/0            0.0.0.0/0            udp dpt:53 /* managed by lxd-bridge */
 ACCEPT     udp  --  0.0.0.0/0            0.0.0.0/0            udp dpt:67
-`[1:], []network.IngressRule{{
-		PortRange: corenetwork.PortRange{
-			Protocol: "tcp",
-			FromPort: 53,
-			ToPort:   53,
-		},
-		SourceCIDRs: []string{"0.0.0.0/0"},
-	}})
+`[1:], firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("53/tcp"), firewall.AllNetworksIPV4CIDR),
+	})
 }
 
 func (*IptablesSuite) TestParseIngressRules(c *gc.C) {
@@ -160,39 +136,16 @@ ACCEPT     tcp  --  1.2.3.4/20           0.0.0.0/0    tcp dpt:12345 /* juju ingr
 ACCEPT     udp  --  1.2.3.4/20           0.0.0.0/0    udp dpt:12345 /* juju ingress */
 ACCEPT     icmp --  0.0.0.0/0            0.0.0.0/0    icmptype 8 /* juju ingress */
 `[1:],
-		[]network.IngressRule{{
-			PortRange: corenetwork.PortRange{
-				Protocol: "tcp",
-				FromPort: 3456,
-				ToPort:   3458,
-			},
-			SourceCIDRs: []string{"0.0.0.0/0"},
-		}, {
-			PortRange: corenetwork.PortRange{
-				Protocol: "tcp",
-				FromPort: 12345,
-				ToPort:   12345,
-			},
-			SourceCIDRs: []string{"1.2.3.4/20"},
-		}, {
-			PortRange: corenetwork.PortRange{
-				Protocol: "udp",
-				FromPort: 12345,
-				ToPort:   12345,
-			},
-			SourceCIDRs: []string{"1.2.3.4/20"},
-		}, {
-			PortRange: corenetwork.PortRange{
-				Protocol: "icmp",
-				FromPort: -1,
-				ToPort:   -1,
-			},
-			SourceCIDRs: []string{"0.0.0.0/0"},
-		}},
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("3456-3458/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("12345/tcp"), "1.2.3.4/20"),
+			firewall.NewIngressRule(network.MustParsePortRange("12345/udp"), "1.2.3.4/20"),
+			firewall.NewIngressRule(network.MustParsePortRange("icmp"), firewall.AllNetworksIPV4CIDR),
+		},
 	)
 }
 
-func assertParseIngressRules(c *gc.C, in string, expect []network.IngressRule) {
+func assertParseIngressRules(c *gc.C, in string, expect firewall.IngressRules) {
 	rules, err := iptables.ParseIngressRules(strings.NewReader(in))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, jc.DeepEquals, expect)

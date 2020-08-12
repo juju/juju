@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/common/mocks"
 	"github.com/juju/juju/provider/oci"
@@ -182,7 +182,7 @@ func (i *instanceSuite) TestInstanceConfiguratorUsesPublicAddress(c *gc.C) {
 	vnicID := "fakeVnicId"
 	i.setupListVnicsExpectations(i.testInstanceID, vnicID)
 
-	rules := []network.IngressRule{{
+	rules := firewall.IngressRules{{
 		PortRange: corenetwork.PortRange{
 			FromPort: 1234,
 			ToPort:   1234,

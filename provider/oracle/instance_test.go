@@ -12,11 +12,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oracle"
 	oracletesting "github.com/juju/juju/provider/oracle/testing"
 	"github.com/juju/juju/testing"
@@ -135,14 +135,8 @@ func (i instanceSuite) TestOpenPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance, gc.NotNil)
 
-	err = instance.OpenPorts(i.callCtx, "0", []jujunetwork.IngressRule{
-		{
-			PortRange: corenetwork.PortRange{
-				FromPort: 0,
-				ToPort:   0,
-			},
-			SourceCIDRs: nil,
-		},
+	err = instance.OpenPorts(i.callCtx, "0", []firewall.IngressRule{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp")),
 	})
 	c.Assert(err, gc.IsNil)
 }
@@ -161,14 +155,8 @@ func (i instanceSuite) TestClosePorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance, gc.NotNil)
 
-	err = instance.ClosePorts(i.callCtx, "0", []jujunetwork.IngressRule{
-		{
-			PortRange: corenetwork.PortRange{
-				FromPort: 0,
-				ToPort:   0,
-			},
-			SourceCIDRs: nil,
-		},
+	err = instance.ClosePorts(i.callCtx, "0", []firewall.IngressRule{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp")),
 	})
 	c.Assert(err, gc.IsNil)
 }

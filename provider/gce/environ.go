@@ -12,12 +12,13 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
 )
@@ -33,9 +34,9 @@ type gceConnection interface {
 	RemoveInstances(prefix string, ids ...string) error
 	UpdateMetadata(key, value string, ids ...string) error
 
-	IngressRules(fwname string) ([]network.IngressRule, error)
-	OpenPorts(fwname string, rules ...network.IngressRule) error
-	ClosePorts(fwname string, rules ...network.IngressRule) error
+	IngressRules(fwname string) (firewall.IngressRules, error)
+	OpenPorts(fwname string, rules firewall.IngressRules) error
+	ClosePorts(fwname string, rules firewall.IngressRules) error
 
 	AvailabilityZones(region string) ([]google.AvailabilityZone, error)
 	// Subnetworks returns the subnetworks that machines can be
@@ -221,20 +222,22 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Pro
 	// Ensure the API server port is open (globally for all instances
 	// on the network, not just for the specific node of the state
 	// server). See LP bug #1436191 for details.
-	rule := network.NewOpenIngressRule(
-		"tcp",
-		params.ControllerConfig.APIPort(),
-		params.ControllerConfig.APIPort(),
-	)
-	if err := env.gce.OpenPorts(env.globalFirewallName(), rule); err != nil {
-		return nil, google.HandleCredentialError(errors.Trace(err), callCtx)
+	rules := firewall.IngressRules{
+		firewall.NewIngressRule(
+			network.PortRange{
+				FromPort: params.ControllerConfig.APIPort(),
+				ToPort:   params.ControllerConfig.APIPort(),
+				Protocol: "tcp",
+			},
+		),
 	}
 	if params.ControllerConfig.AutocertDNSName() != "" {
 		// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
-		rule = network.NewOpenIngressRule("tcp", 80, 80)
-		if err := env.gce.OpenPorts(env.globalFirewallName(), rule); err != nil {
-			return nil, google.HandleCredentialError(errors.Trace(err), callCtx)
-		}
+		rules = append(rules, firewall.NewIngressRule(network.MustParsePortRange("80/tcp")))
+	}
+
+	if err := env.gce.OpenPorts(env.globalFirewallName(), rules); err != nil {
+		return nil, google.HandleCredentialError(errors.Trace(err), callCtx)
 	}
 	return bootstrap(ctx, env, callCtx, params)
 }

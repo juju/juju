@@ -13,7 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 )
 
 var logger = loggo.GetLogger("juju.network.iptables")
@@ -90,7 +91,7 @@ func (c AcceptInternalCommand) Render() string {
 // IngressRuleCommand represents an iptables ACCEPT target command
 // for ingress rules.
 type IngressRuleCommand struct {
-	Rule               network.IngressRule
+	Rule               firewall.IngressRule
 	DestinationAddress string
 	Delete             bool
 }
@@ -118,25 +119,25 @@ func (c IngressRuleCommand) render(commandFlag string) string {
 		"sudo", "iptables",
 		commandFlag, "INPUT",
 		"-j ACCEPT",
-		"-p", c.Rule.Protocol,
+		"-p", c.Rule.PortRange.Protocol,
 	}
 	if c.DestinationAddress != "" {
 		args = append(args, "-d", c.DestinationAddress)
 	}
-	if c.Rule.Protocol == "icmp" {
+	if c.Rule.PortRange.Protocol == "icmp" {
 		args = append(args, "--icmp-type 8")
 	} else {
-		if c.Rule.ToPort-c.Rule.FromPort > 0 {
+		if c.Rule.PortRange.ToPort-c.Rule.PortRange.FromPort > 0 {
 			args = append(args,
 				"-m multiport --dports",
-				fmt.Sprintf("%d:%d", c.Rule.FromPort, c.Rule.ToPort),
+				fmt.Sprintf("%d:%d", c.Rule.PortRange.FromPort, c.Rule.PortRange.ToPort),
 			)
 		} else {
-			args = append(args, "--dport", fmt.Sprint(c.Rule.FromPort))
+			args = append(args, "--dport", fmt.Sprint(c.Rule.PortRange.FromPort))
 		}
 	}
 	if len(c.Rule.SourceCIDRs) > 0 {
-		args = append(args, "-s", strings.Join(c.Rule.SourceCIDRs, ","))
+		args = append(args, "-s", strings.Join(c.Rule.SourceCIDRs.SortedValues(), ","))
 	}
 	// Comment always comes last.
 	args = append(args,
@@ -148,8 +149,8 @@ func (c IngressRuleCommand) render(commandFlag string) string {
 // ParseIngressRules parses the output of "iptables -L INPUT -n",
 // extracting previously added ingress rules, as rendered by
 // IngressRuleCommand.
-func ParseIngressRules(r io.Reader) ([]network.IngressRule, error) {
-	var rules []network.IngressRule
+func ParseIngressRules(r io.Reader) (firewall.IngressRules, error) {
+	var rules firewall.IngressRules
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -182,26 +183,26 @@ func ParseIngressRules(r io.Reader) ([]network.IngressRule, error) {
 //    ACCEPT     tcp  --  0.0.0.0/0            192.168.0.2  tcp dpt:12345 /* juju ingress */
 //    ACCEPT     icmp --  0.0.0.0/0            10.0.0.1     icmptype 8 /* juju ingress */
 //
-func parseIngressRule(line string) (network.IngressRule, bool, error) {
-	fail := func(err error) (network.IngressRule, bool, error) {
-		return network.IngressRule{}, false, err
+func parseIngressRule(line string) (firewall.IngressRule, bool, error) {
+	fail := func(err error) (firewall.IngressRule, bool, error) {
+		return firewall.IngressRule{}, false, err
 	}
 	if !strings.HasPrefix(line, "ACCEPT") {
-		return network.IngressRule{}, false, nil
+		return firewall.IngressRule{}, false, nil
 	}
 
 	// We only care about rules with the comment "juju ingress".
 	if !strings.HasSuffix(line, "*/") {
-		return network.IngressRule{}, false, nil
+		return firewall.IngressRule{}, false, nil
 	}
 	commentStart := strings.LastIndex(line, "/*")
 	if commentStart == -1 {
-		return network.IngressRule{}, false, nil
+		return firewall.IngressRule{}, false, nil
 	}
 	line, comment := line[:commentStart], line[commentStart+2:]
 	comment = comment[:len(comment)-2]
 	if strings.TrimSpace(comment) != iptablesIngressComment {
-		return network.IngressRule{}, false, nil
+		return firewall.IngressRule{}, false, nil
 	}
 
 	const (
@@ -261,8 +262,12 @@ func parseIngressRule(line string) (network.IngressRule, bool, error) {
 		toPort = port
 	}
 
-	rule, err := network.NewIngressRule(proto, fromPort, toPort, source)
-	if err != nil {
+	rule := firewall.NewIngressRule(network.PortRange{
+		FromPort: fromPort,
+		ToPort:   toPort,
+		Protocol: proto,
+	}, source)
+	if err := rule.Validate(); err != nil {
 		return fail(errors.Trace(err))
 	}
 	return rule, true, nil

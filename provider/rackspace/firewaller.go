@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
 )
@@ -31,19 +31,19 @@ type rackspaceFirewaller struct{}
 var _ openstack.Firewaller = (*rackspaceFirewaller)(nil)
 
 // OpenPorts is not supported.
-func (c *rackspaceFirewaller) OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
+func (c *rackspaceFirewaller) OpenPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
 	return errors.NotSupportedf("OpenPorts")
 }
 
 // ClosePorts is not supported.
-func (c *rackspaceFirewaller) ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
+func (c *rackspaceFirewaller) ClosePorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
 	return errors.NotSupportedf("ClosePorts")
 }
 
 // IngressRules returns the port ranges opened for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
-func (c *rackspaceFirewaller) IngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error) {
+func (c *rackspaceFirewaller) IngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error) {
 	return nil, errors.NotSupportedf("Ports")
 }
 
@@ -77,17 +77,17 @@ func (c *rackspaceFirewaller) SetUpGroups(ctx context.ProviderCallContext, contr
 }
 
 // OpenInstancePorts implements Firewaller interface.
-func (c *rackspaceFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, rules []network.IngressRule) error {
+func (c *rackspaceFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, rules firewall.IngressRules) error {
 	return c.changeIngressRules(ctx, inst, true, rules)
 }
 
 // CloseInstancePorts implements Firewaller interface.
-func (c *rackspaceFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, rules []network.IngressRule) error {
+func (c *rackspaceFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, rules firewall.IngressRules) error {
 	return c.changeIngressRules(ctx, inst, false, rules)
 }
 
 // InstanceIngressRules implements Firewaller interface.
-func (c *rackspaceFirewaller) InstanceIngressRules(ctx context.ProviderCallContext, inst instances.Instance, machineId string) ([]network.IngressRule, error) {
+func (c *rackspaceFirewaller) InstanceIngressRules(ctx context.ProviderCallContext, inst instances.Instance, machineId string) (firewall.IngressRules, error) {
 	_, configurator, err := c.getInstanceConfigurator(ctx, inst)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -99,14 +99,14 @@ func (c *rackspaceFirewaller) InstanceIngressRules(ctx context.ProviderCallConte
 	return rules, err
 }
 
-func (c *rackspaceFirewaller) changeIngressRules(ctx context.ProviderCallContext, inst instances.Instance, insert bool, rules []network.IngressRule) error {
+func (c *rackspaceFirewaller) changeIngressRules(ctx context.ProviderCallContext, inst instances.Instance, insert bool, rules firewall.IngressRules) error {
 	addresses, sshClient, err := c.getInstanceConfigurator(ctx, inst)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	for _, addr := range addresses {
-		if addr.Scope == corenetwork.ScopePublic {
+		if addr.Scope == network.ScopePublic {
 			err = sshClient.ChangeIngressRules(addr.Value, insert, rules)
 			if err != nil {
 				common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
@@ -119,7 +119,7 @@ func (c *rackspaceFirewaller) changeIngressRules(ctx context.ProviderCallContext
 
 func (c *rackspaceFirewaller) getInstanceConfigurator(
 	ctx context.ProviderCallContext, inst instances.Instance,
-) ([]corenetwork.ProviderAddress, common.InstanceConfigurator, error) {
+) ([]network.ProviderAddress, common.InstanceConfigurator, error) {
 	addresses, err := inst.Addresses(ctx)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)

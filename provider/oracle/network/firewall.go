@@ -19,11 +19,11 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/controller"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	commonProvider "github.com/juju/juju/provider/oracle/common"
 )
 
@@ -32,15 +32,15 @@ type Firewaller interface {
 	environs.Firewaller
 
 	// Return all machine ingress rules for a given machine id
-	MachineIngressRules(ctx context.ProviderCallContext, id string) ([]network.IngressRule, error)
+	MachineIngressRules(ctx context.ProviderCallContext, id string) (firewall.IngressRules, error)
 
 	// OpenPortsOnInstance will open ports corresponding to the supplied rules
 	// on the given instance
-	OpenPortsOnInstance(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error
+	OpenPortsOnInstance(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error
 
 	// ClosePortsOnInstnace will close ports corresponding to the supplied rules
 	// for a given instance.
-	ClosePortsOnInstance(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error
+	ClosePortsOnInstance(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error
 
 	// CreateMachineSecLists creates a security list for the given instance.
 	// It's worth noting that this function also ensures that the default environment
@@ -98,7 +98,7 @@ func NewFirewall(cfg environs.ConfigGetter, client FirewallerAPI, c clock.Clock)
 }
 
 // OpenPorts is specified on the environ.Firewaller interface.
-func (f Firewall) OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
+func (f Firewall) OpenPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
 	mode := f.environ.Config().FirewallMode()
 	if mode != config.FwGlobal {
 		return fmt.Errorf(
@@ -120,25 +120,25 @@ func (f Firewall) OpenPorts(ctx context.ProviderCallContext, rules []network.Ing
 }
 
 // ClosePorts is specified on the environ.Firewaller interface.
-func (f Firewall) ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
+func (f Firewall) ClosePorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
 	groupName := f.globalGroupName()
 	return f.closePortsOnList(ctx, f.client.ComposeName(groupName), rules)
 }
 
 // IngressRules is specified on the environ.Firewaller interface.
-func (f Firewall) IngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error) {
+func (f Firewall) IngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error) {
 	return f.GlobalIngressRules(ctx)
 }
 
 // MachineIngressRules returns all ingress rules from the machine specific sec list
-func (f Firewall) MachineIngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
+func (f Firewall) MachineIngressRules(ctx context.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
 	seclist := f.machineGroupName(machineId)
 	return f.getIngressRules(ctx, f.client.ComposeName(seclist))
 }
 
 // OpenPortsOnInstance will open ports corresponding to the supplied rules
 // on the given instance
-func (f Firewall) OpenPortsOnInstance(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
+func (f Firewall) OpenPortsOnInstance(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	machineGroup := f.machineGroupName(machineId)
 	seclist, err := f.ensureSecList(f.client.ComposeName(machineGroup))
 	if err != nil {
@@ -153,7 +153,7 @@ func (f Firewall) OpenPortsOnInstance(ctx context.ProviderCallContext, machineId
 
 // ClosePortsOnInstnace will close ports corresponding to the supplied rules
 // for a given instance.
-func (f Firewall) ClosePortsOnInstance(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
+func (f Firewall) ClosePortsOnInstance(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	// fetch the group name based on the machine id provided
 	groupName := f.machineGroupName(machineId)
 	return f.closePortsOnList(ctx, f.client.ComposeName(groupName), rules)
@@ -302,55 +302,23 @@ func (f Firewall) RemoveACLAndRules(machineId string) error {
 }
 
 // GlobalIngressRules returns the ingress rules applied to the whole environment.
-func (f Firewall) GlobalIngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error) {
+func (f Firewall) GlobalIngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error) {
 	seclist := f.globalGroupName()
 	return f.getIngressRules(ctx, f.client.ComposeName(seclist))
 }
 
 // getDefaultIngressRules will create the default ingressRules given an api port
-func (f Firewall) getDefaultIngressRules(apiPort int) []network.IngressRule {
-	return []network.IngressRule{
-		{
-			PortRange: corenetwork.PortRange{
-				FromPort: 22,
-				ToPort:   22,
-				Protocol: "tcp",
-			},
-			SourceCIDRs: []string{
-				"0.0.0.0/0",
-			},
-		},
-		{
-			PortRange: corenetwork.PortRange{
-				FromPort: 3389,
-				ToPort:   3389,
-				Protocol: "tcp",
-			},
-			SourceCIDRs: []string{
-				"0.0.0.0/0",
-			},
-		},
-		{
-			PortRange: corenetwork.PortRange{
-				FromPort: apiPort,
-				ToPort:   apiPort,
-				Protocol: "tcp",
-			},
-			SourceCIDRs: []string{
-				"0.0.0.0/0",
-			},
-		},
-		{
-			PortRange: corenetwork.PortRange{
-				FromPort: controller.DefaultStatePort,
-				ToPort:   controller.DefaultStatePort,
-				Protocol: "tcp",
-			},
-			SourceCIDRs: []string{
-				"0.0.0.0/0",
-			},
-		},
+func (f Firewall) getDefaultIngressRules(apiPort int) (firewall.IngressRules, error) {
+	var rules firewall.IngressRules
+	for _, port := range []int{22, 3389, apiPort, controller.DefaultStatePort} {
+		pr, err := network.ParsePortRange(fmt.Sprintf("%d/tcp", port))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		rules = append(rules, firewall.NewIngressRule(pr, firewall.AllNetworksIPV4CIDR))
 	}
+	rules.Sort()
+	return rules, nil
 }
 
 type stubSecurityRule struct {
@@ -362,9 +330,11 @@ type stubSecurityRule struct {
 }
 
 func (f Firewall) createDefaultGroupAndRules(apiPort int) (response.SecList, error) {
-	rules := f.getDefaultIngressRules(apiPort)
+	rules, err := f.getDefaultIngressRules(apiPort)
+	if err != nil {
+		return response.SecList{}, errors.Trace(err)
+	}
 	var details response.SecList
-	var err error
 	globalGroupName := f.globalGroupName()
 	resourceName := f.client.ComposeName(globalGroupName)
 	details, err = f.client.SecListDetails(resourceName)
@@ -388,7 +358,7 @@ func (f Firewall) createDefaultGroupAndRules(apiPort int) (response.SecList, err
 
 // closePortsOnList on list will close all ports corresponding to the supplied ingress rules
 // on a particular list
-func (f Firewall) closePortsOnList(ctx context.ProviderCallContext, list string, rules []network.IngressRule) error {
+func (f Firewall) closePortsOnList(ctx context.ProviderCallContext, list string, rules firewall.IngressRules) error {
 	// get all security rules based on the dst_list=list
 	secrules, err := f.getSecRules(list)
 	if err != nil {
@@ -402,14 +372,12 @@ func (f Firewall) closePortsOnList(ctx context.ProviderCallContext, list string,
 
 	//TODO (gsamfira): optimize this
 	for name, rule := range mapping {
-		sort.Strings(rule.SourceCIDRs)
 		for _, ingressRule := range rules {
-			sort.Strings(ingressRule.SourceCIDRs)
-			if reflect.DeepEqual(rule, ingressRule) {
-				err := f.client.DeleteSecRule(name)
-				if err != nil {
-					return errors.Trace(err)
-				}
+			if !rule.EqualTo(ingressRule) {
+				continue
+			}
+			if err := f.client.DeleteSecRule(name); err != nil {
+				return errors.Trace(err)
 			}
 		}
 	}
@@ -492,8 +460,8 @@ func (f *Firewall) maybeDeleteList(list string) error {
 }
 
 // getIngressRules returns all rules associated with the given sec list
-// values are converted and returned as []network.IngressRule
-func (f Firewall) getIngressRules(ctx context.ProviderCallContext, seclist string) ([]network.IngressRule, error) {
+// values are converted and returned as firewall.IngressRules
+func (f Firewall) getIngressRules(ctx context.ProviderCallContext, seclist string) (firewall.IngressRules, error) {
 	// get all security rules associated with the seclist
 	secrules, err := f.getSecRules(seclist)
 	if err != nil {
@@ -507,7 +475,7 @@ func (f Firewall) getIngressRules(ctx context.ProviderCallContext, seclist strin
 	if rules, ok := ingressRules[seclist]; ok {
 		return rules, nil
 	}
-	return []network.IngressRule{}, nil
+	return firewall.IngressRules{}, nil
 }
 
 // getAllApplications returns all security applications known to the
@@ -562,7 +530,7 @@ func (f Firewall) getAllApplicationsAsMap() (map[string]response.SecApplication,
 	return allApps, nil
 }
 
-func (f Firewall) ensureApplication(portRange corenetwork.PortRange, cache *[]response.SecApplication) (string, error) {
+func (f Firewall) ensureApplication(portRange network.PortRange, cache *[]response.SecApplication) (string, error) {
 	// check if the security application is already created
 	for _, val := range *cache {
 		if val.PortProtocolPair() == portRange.String() {
@@ -608,7 +576,7 @@ func (f Firewall) ensureApplication(portRange corenetwork.PortRange, cache *[]re
 }
 
 // convertToSecRules converts network.IngressRules to api.SecRuleParams
-func (f Firewall) convertToSecRules(seclist response.SecList, rules []network.IngressRule) ([]api.SecRuleParams, error) {
+func (f Firewall) convertToSecRules(seclist response.SecList, rules firewall.IngressRules) ([]api.SecRuleParams, error) {
 	applications, err := f.getAllApplications()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -627,7 +595,7 @@ func (f Firewall) convertToSecRules(seclist response.SecList, rules []network.In
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ipList, err := f.ensureSecIpList(val.SourceCIDRs, &iplists)
+		ipList, err := f.ensureSecIpList(val.SourceCIDRs.SortedValues(), &iplists)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -657,12 +625,12 @@ func (f Firewall) convertToSecRules(seclist response.SecList, rules []network.In
 
 // convertApplicationToPortRange takes a SecApplication and
 // converts it to a network.PortRange type
-func (f Firewall) convertApplicationToPortRange(app response.SecApplication) corenetwork.PortRange {
+func (f Firewall) convertApplicationToPortRange(app response.SecApplication) network.PortRange {
 	appCopy := app
 	if appCopy.Value2 == -1 {
 		appCopy.Value2 = appCopy.Value1
 	}
-	return corenetwork.PortRange{
+	return network.PortRange{
 		FromPort: appCopy.Value1,
 		ToPort:   appCopy.Value2,
 		Protocol: string(appCopy.Protocol),
@@ -670,7 +638,7 @@ func (f Firewall) convertApplicationToPortRange(app response.SecApplication) cor
 }
 
 // convertFromSecRules takes a slice of security rules and creates a map of them
-func (f Firewall) convertFromSecRules(rules ...response.SecRule) (map[string][]network.IngressRule, error) {
+func (f Firewall) convertFromSecRules(rules ...response.SecRule) (map[string]firewall.IngressRules, error) {
 	applications, err := f.getAllApplicationsAsMap()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -681,32 +649,20 @@ func (f Firewall) convertFromSecRules(rules ...response.SecRule) (map[string][]n
 		return nil, errors.Trace(err)
 	}
 
-	ret := map[string][]network.IngressRule{}
+	ret := map[string]firewall.IngressRules{}
 	for _, val := range rules {
 		app := val.Application
 		srcList := strings.TrimPrefix(val.Src_list, "seciplist:")
 		dstList := strings.TrimPrefix(val.Dst_list, "seclist:")
 		portRange := f.convertApplicationToPortRange(applications[app])
-		if _, ok := ret[dstList]; !ok {
-			ret[dstList] = []network.IngressRule{
-				{
-					PortRange:   portRange,
-					SourceCIDRs: iplists[srcList].Secipentries,
-				},
-			}
-		} else {
-			toAdd := network.IngressRule{
-				PortRange:   portRange,
-				SourceCIDRs: iplists[srcList].Secipentries,
-			}
-			ret[dstList] = append(ret[dstList], toAdd)
-		}
+
+		ret[dstList] = append(ret[dstList], firewall.NewIngressRule(portRange, iplists[srcList].Secipentries...))
 	}
 	return ret, nil
 }
 
 // secRuleToIngressRule convert all security rules into a map of ingress rules
-func (f Firewall) secRuleToIngresRule(rules ...response.SecRule) (map[string]network.IngressRule, error) {
+func (f Firewall) secRuleToIngresRule(rules ...response.SecRule) (map[string]firewall.IngressRule, error) {
 	applications, err := f.getAllApplicationsAsMap()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -716,16 +672,13 @@ func (f Firewall) secRuleToIngresRule(rules ...response.SecRule) (map[string]net
 		return nil, errors.Trace(err)
 	}
 
-	ret := map[string]network.IngressRule{}
+	ret := make(map[string]firewall.IngressRule)
 	for _, val := range rules {
 		app := val.Application
 		srcList := strings.TrimPrefix(val.Src_list, "seciplist:")
 		portRange := f.convertApplicationToPortRange(applications[app])
 		if _, ok := ret[val.Name]; !ok {
-			ret[val.Name] = network.IngressRule{
-				PortRange:   portRange,
-				SourceCIDRs: iplists[srcList].Secipentries,
-			}
+			ret[val.Name] = firewall.NewIngressRule(portRange, iplists[srcList].Secipentries...)
 		}
 	}
 	return ret, nil
@@ -837,7 +790,7 @@ func (f Firewall) getSecRules(seclist string) ([]response.SecRule, error) {
 // that it needs, if one is missing it will create it inside the oracle
 // cloud environment and it will return nil
 // if none rule is missing then it will return nil
-func (f Firewall) ensureSecRules(seclist response.SecList, rules []network.IngressRule) error {
+func (f Firewall) ensureSecRules(seclist response.SecList, rules firewall.IngressRules) error {
 	// get all security rules associated with the seclist
 	secRules, err := f.getSecRules(seclist.Name)
 	if err != nil {
@@ -851,16 +804,13 @@ func (f Firewall) ensureSecRules(seclist response.SecList, rules []network.Ingre
 	}
 	logger.Tracef("converted rules are: %v", converted)
 	asIngressRules := converted[seclist.Name]
-	missing := []network.IngressRule{}
+	missing := firewall.IngressRules{}
 
 	// search through all rules and find the missing ones
 	for _, toAdd := range rules {
 		found := false
 		for _, exists := range asIngressRules {
-			sort.Strings(toAdd.SourceCIDRs)
-			sort.Strings(exists.SourceCIDRs)
-			logger.Tracef("comparing %v to %v", toAdd.SourceCIDRs, exists.SourceCIDRs)
-			if reflect.DeepEqual(toAdd, exists) {
+			if toAdd.EqualTo(exists) {
 				found = true
 				break
 			}

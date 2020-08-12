@@ -30,7 +30,7 @@ import (
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -108,7 +107,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 
 // assertPorts retrieves the open ports of the instance and compares them
 // to the expected.
-func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instances.Instance, machineId string, expected []network.IngressRule) {
+func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instances.Instance, machineId string, expected firewall.IngressRules) {
 	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
@@ -120,8 +119,8 @@ func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instances.Instance, mach
 			c.Fatal(err)
 			return
 		}
-		network.SortIngressRules(got)
-		network.SortIngressRules(expected)
+		got.Sort()
+		expected.Sort()
 		if reflect.DeepEqual(got, expected) {
 			c.Succeed()
 			return
@@ -136,7 +135,7 @@ func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instances.Instance, mach
 
 // assertEnvironPorts retrieves the open ports of environment and compares them
 // to the expected.
-func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected []network.IngressRule) {
+func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected firewall.IngressRules) {
 	fwEnv, ok := s.Environ.(environs.Firewaller)
 	c.Assert(ok, gc.Equals, true)
 
@@ -148,8 +147,8 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected []network.Ing
 			c.Fatal(err)
 			return
 		}
-		network.SortIngressRules(got)
-		network.SortIngressRules(expected)
+		got.Sort()
+		expected.Sort()
 		if reflect.DeepEqual(got, expected) {
 			c.Succeed()
 			return
@@ -249,15 +248,15 @@ func (s *InstanceModeSuite) TestNotExposedApplication(c *gc.C) {
 	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
 
-	mustOpenPortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
-		corenetwork.MustParsePortRange("8080/tcp"),
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+		network.MustParsePortRange("8080/tcp"),
 	})
 
 	s.assertPorts(c, inst, m.Id(), nil)
 
-	mustClosePortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustClosePortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
 
 	s.assertPorts(c, inst, m.Id(), nil)
@@ -274,22 +273,22 @@ func (s *InstanceModeSuite) TestExposedApplication(c *gc.C) {
 	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
 
-	mustOpenPortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80-90/tcp"),
-		corenetwork.MustParsePortRange("8080/tcp"),
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80-90/tcp"),
+		network.MustParsePortRange("8080/tcp"),
 	})
 
-	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 90, "0.0.0.0/0"),
-		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80-90/tcp"), firewall.AllNetworksIPV4CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
-	mustClosePortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80-90/tcp"),
+	mustClosePortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80-90/tcp"),
 	})
 
-	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 }
 
@@ -303,9 +302,9 @@ func (s *InstanceModeSuite) TestMultipleExposedApplications(c *gc.C) {
 
 	u1, m1 := s.addUnit(c, app1)
 	inst1 := s.startInstance(c, m1)
-	mustOpenPortRanges(c, s.State, u1, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
-		corenetwork.MustParsePortRange("8080/tcp"),
+	mustOpenPortRanges(c, s.State, u1, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+		network.MustParsePortRange("8080/tcp"),
 	})
 
 	app2 := s.AddTestingApplication(c, "mysql", s.charm)
@@ -315,27 +314,27 @@ func (s *InstanceModeSuite) TestMultipleExposedApplications(c *gc.C) {
 
 	u2, m2 := s.addUnit(c, app2)
 	inst2 := s.startInstance(c, m2)
-	mustOpenPortRanges(c, s.State, u2, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("3306/tcp"),
+	mustOpenPortRanges(c, s.State, u2, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("3306/tcp"),
 	})
 
-	s.assertPorts(c, inst1, m1.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
-		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	s.assertPorts(c, inst1, m1.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
-	s.assertPorts(c, inst2, m2.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 3306, 3306, "0.0.0.0/0"),
-	})
-
-	mustClosePortRanges(c, s.State, u1, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
-	})
-	mustClosePortRanges(c, s.State, u2, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("3306/tcp"),
+	s.assertPorts(c, inst2, m2.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
-	s.assertPorts(c, inst1, m1.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	mustClosePortRanges(c, s.State, u1, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+	})
+	mustClosePortRanges(c, s.State, u2, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("3306/tcp"),
+	})
+
+	s.assertPorts(c, inst1, m1.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 	s.assertPorts(c, inst2, m2.Id(), nil)
 }
@@ -354,19 +353,19 @@ func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *gc.C) {
 	// we're sure the firewaller has seen the first instance.
 	u2, m2 := s.addUnit(c, app)
 	inst2 := s.startInstance(c, m2)
-	mustOpenPortRanges(c, s.State, u2, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustOpenPortRanges(c, s.State, u2, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
-	s.assertPorts(c, inst2, m2.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	s.assertPorts(c, inst2, m2.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
 	inst1 := s.startInstance(c, m1)
-	mustOpenPortRanges(c, s.State, u1, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("8080/tcp"),
+	mustOpenPortRanges(c, s.State, u1, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("8080/tcp"),
 	})
-	s.assertPorts(c, inst1, m1.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	s.assertPorts(c, inst1, m1.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 }
 
@@ -380,28 +379,28 @@ func (s *InstanceModeSuite) TestMultipleUnits(c *gc.C) {
 
 	u1, m1 := s.addUnit(c, app)
 	inst1 := s.startInstance(c, m1)
-	mustOpenPortRanges(c, s.State, u1, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustOpenPortRanges(c, s.State, u1, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
 
 	u2, m2 := s.addUnit(c, app)
 	inst2 := s.startInstance(c, m2)
-	mustOpenPortRanges(c, s.State, u2, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustOpenPortRanges(c, s.State, u2, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
 
-	s.assertPorts(c, inst1, m1.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	s.assertPorts(c, inst1, m1.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
-	s.assertPorts(c, inst2, m2.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	s.assertPorts(c, inst2, m2.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
-	mustClosePortRanges(c, s.State, u1, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustClosePortRanges(c, s.State, u1, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
-	mustClosePortRanges(c, s.State, u2, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustClosePortRanges(c, s.State, u2, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
 
 	s.assertPorts(c, inst1, m1.Id(), nil)
@@ -415,9 +414,9 @@ func (s *InstanceModeSuite) TestStartWithState(c *gc.C) {
 	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
 
-	mustOpenPortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
-		corenetwork.MustParsePortRange("8080/tcp"),
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+		network.MustParsePortRange("8080/tcp"),
 	})
 
 	// Nothing open without firewaller.
@@ -427,9 +426,9 @@ func (s *InstanceModeSuite) TestStartWithState(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
-		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
 	err = app.SetExposed()
@@ -456,12 +455,12 @@ func (s *InstanceModeSuite) TestStartWithPartialState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
-	mustOpenPortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
 
-	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 }
 
@@ -475,8 +474,8 @@ func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
-	mustOpenPortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
 
 	// Starting the firewaller, no open ports.
@@ -488,8 +487,8 @@ func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	// Expose service.
 	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 }
 
@@ -532,9 +531,9 @@ func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 
 	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
-	mustOpenPortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
-		corenetwork.MustParsePortRange("8080/tcp"),
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+		network.MustParsePortRange("8080/tcp"),
 	})
 
 	// Not exposed service, so no open port.
@@ -544,9 +543,9 @@ func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 	err := app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
-		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
 	// ClearExposed closes the ports again.
@@ -566,21 +565,21 @@ func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
 
 	u1, m1 := s.addUnit(c, app)
 	inst1 := s.startInstance(c, m1)
-	mustOpenPortRanges(c, s.State, u1, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustOpenPortRanges(c, s.State, u1, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
 
 	u2, m2 := s.addUnit(c, app)
 	inst2 := s.startInstance(c, m2)
-	mustOpenPortRanges(c, s.State, u2, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustOpenPortRanges(c, s.State, u2, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
 
-	s.assertPorts(c, inst1, m1.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	s.assertPorts(c, inst1, m1.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
-	s.assertPorts(c, inst2, m2.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	s.assertPorts(c, inst2, m2.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
 	// Remove unit.
@@ -590,8 +589,8 @@ func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertPorts(c, inst1, m1.Id(), nil)
-	s.assertPorts(c, inst2, m2.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	s.assertPorts(c, inst2, m2.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 }
 
@@ -605,12 +604,12 @@ func (s *InstanceModeSuite) TestRemoveApplication(c *gc.C) {
 
 	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
-	mustOpenPortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
 
-	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
 	// Remove application.
@@ -633,8 +632,8 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 
 	u1, m1 := s.addUnit(c, app1)
 	inst1 := s.startInstance(c, m1)
-	mustOpenPortRanges(c, s.State, u1, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustOpenPortRanges(c, s.State, u1, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
 
 	app2 := s.AddTestingApplication(c, "mysql", s.charm)
@@ -643,15 +642,15 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 
 	u2, m2 := s.addUnit(c, app2)
 	inst2 := s.startInstance(c, m2)
-	mustOpenPortRanges(c, s.State, u2, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("3306/tcp"),
+	mustOpenPortRanges(c, s.State, u2, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("3306/tcp"),
 	})
 
-	s.assertPorts(c, inst1, m1.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	s.assertPorts(c, inst1, m1.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
-	s.assertPorts(c, inst2, m2.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 3306, 3306, "0.0.0.0/0"),
+	s.assertPorts(c, inst2, m2.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
 	// Remove applications.
@@ -683,12 +682,12 @@ func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
 
 	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
-	mustOpenPortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
 
-	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
 	// Remove unit and application, also tested without. Has no effect.
@@ -717,12 +716,12 @@ func (s *InstanceModeSuite) TestRemoveMachine(c *gc.C) {
 
 	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
-	mustOpenPortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
 
-	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
 	// Remove unit.
@@ -758,8 +757,8 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
 
-	mustOpenPortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
 
 	// Nothing open without firewaller.
@@ -890,7 +889,7 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 
 	// Add a public address to the consuming unit so the firewaller can use it.
 	wpm := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Addresses: corenetwork.SpaceAddresses{corenetwork.NewSpaceAddress("10.0.0.4")},
+		Addresses: network.SpaceAddresses{network.NewSpaceAddress("10.0.0.4")},
 	})
 	u, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1112,7 +1111,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 
 	// Add a public address to the consuming unit so the firewaller can use it.
 	wpm := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Addresses: corenetwork.SpaceAddresses{corenetwork.NewSpaceAddress("10.0.0.4")},
+		Addresses: network.SpaceAddresses{network.NewSpaceAddress("10.0.0.4")},
 	})
 	u, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1152,8 +1151,8 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ingress []string, expect
 	u, m := s.addUnit(c, mysql)
 	inst := s.startInstance(c, m)
 
-	mustOpenPortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("3306/tcp"),
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("3306/tcp"),
 	})
 
 	// Set up the offering model - create the remote app.
@@ -1192,8 +1191,8 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ingress []string, expect
 	c.Assert(err, jc.ErrorIsNil)
 
 	//Ports opened.
-	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 3306, 3306, expected...),
+	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
 	})
 
 	// Check the relation ready poll time is as expected.
@@ -1206,8 +1205,8 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ingress []string, expect
 
 	_, err = rin.Save(rel.Tag().Id(), false, ingress)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 3306, 3306, expected...),
+	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
 	})
 
 	// And again when relation is suspended.
@@ -1218,8 +1217,8 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ingress []string, expect
 	// And again when relation is resumed.
 	err = rel.SetSuspended(false, "")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 3306, 3306, expected...),
+	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
 	})
 
 	// And again when relation is destroyed.
@@ -1338,9 +1337,9 @@ func (s *GlobalModeSuite) TestGlobalMode(c *gc.C) {
 
 	u1, m1 := s.addUnit(c, app1)
 	s.startInstance(c, m1)
-	mustOpenPortRanges(c, s.State, u1, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80-90/tcp"),
-		corenetwork.MustParsePortRange("8080/tcp"),
+	mustOpenPortRanges(c, s.State, u1, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80-90/tcp"),
+		network.MustParsePortRange("8080/tcp"),
 	})
 
 	app2 := s.AddTestingApplication(c, "moinmoin", s.charm)
@@ -1350,35 +1349,35 @@ func (s *GlobalModeSuite) TestGlobalMode(c *gc.C) {
 
 	u2, m2 := s.addUnit(c, app2)
 	s.startInstance(c, m2)
-	mustOpenPortRanges(c, s.State, u2, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80-90/tcp"),
+	mustOpenPortRanges(c, s.State, u2, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80-90/tcp"),
 	})
 
-	s.assertEnvironPorts(c, []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 90, "0.0.0.0/0"),
-		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	s.assertEnvironPorts(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80-90/tcp"), firewall.AllNetworksIPV4CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
 	// Closing a port opened by a different unit won't touch the environment.
-	mustClosePortRanges(c, s.State, u1, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80-90/tcp"),
+	mustClosePortRanges(c, s.State, u1, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80-90/tcp"),
 	})
-	s.assertEnvironPorts(c, []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 90, "0.0.0.0/0"),
-		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	s.assertEnvironPorts(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80-90/tcp"), firewall.AllNetworksIPV4CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
 	// Closing a port used just once changes the environment.
-	mustClosePortRanges(c, s.State, u1, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("8080/tcp"),
+	mustClosePortRanges(c, s.State, u1, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("8080/tcp"),
 	})
-	s.assertEnvironPorts(c, []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 90, "0.0.0.0/0"),
+	s.assertEnvironPorts(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80-90/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
 	// Closing the last port also modifies the environment.
-	mustClosePortRanges(c, s.State, u2, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80-90/tcp"),
+	mustClosePortRanges(c, s.State, u2, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80-90/tcp"),
 	})
 	s.assertEnvironPorts(c, nil)
 }
@@ -1393,8 +1392,8 @@ func (s *GlobalModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
-	mustOpenPortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
 
 	// Starting the firewaller, no open ports.
@@ -1406,8 +1405,8 @@ func (s *GlobalModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	// Expose application.
 	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertEnvironPorts(c, []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	s.assertEnvironPorts(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 }
 
@@ -1421,35 +1420,35 @@ func (s *GlobalModeSuite) TestRestart(c *gc.C) {
 
 	u, m := s.addUnit(c, app)
 	s.startInstance(c, m)
-	mustOpenPortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80-90/tcp"),
-		corenetwork.MustParsePortRange("8080/tcp"),
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80-90/tcp"),
+		network.MustParsePortRange("8080/tcp"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertEnvironPorts(c, []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 90, "0.0.0.0/0"),
-		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	s.assertEnvironPorts(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80-90/tcp"), firewall.AllNetworksIPV4CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
 	// Stop firewaller and close one and open a different port.
 	err = worker.Stop(fw)
 	c.Assert(err, jc.ErrorIsNil)
 
-	mustClosePortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("8080/tcp"),
+	mustClosePortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("8080/tcp"),
 	})
-	mustOpenPortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("8888/tcp"),
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("8888/tcp"),
 	})
 
 	// Start firewaller and check port.
 	fw = s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	s.assertEnvironPorts(c, []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 90, "0.0.0.0/0"),
-		network.MustNewIngressRule("tcp", 8888, 8888, "0.0.0.0/0"),
+	s.assertEnvironPorts(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80-90/tcp"), firewall.AllNetworksIPV4CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("8888/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 }
 
@@ -1463,14 +1462,14 @@ func (s *GlobalModeSuite) TestRestartUnexposedApplication(c *gc.C) {
 
 	u, m := s.addUnit(c, app)
 	s.startInstance(c, m)
-	mustOpenPortRanges(c, s.State, u, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
-		corenetwork.MustParsePortRange("8080/tcp"),
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+		network.MustParsePortRange("8080/tcp"),
 	})
 
-	s.assertEnvironPorts(c, []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
-		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	s.assertEnvironPorts(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
 	// Stop firewaller and clear exposed flag on application.
@@ -1497,14 +1496,14 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 
 	u1, m1 := s.addUnit(c, app1)
 	s.startInstance(c, m1)
-	mustOpenPortRanges(c, s.State, u1, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
-		corenetwork.MustParsePortRange("8080/tcp"),
+	mustOpenPortRanges(c, s.State, u1, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+		network.MustParsePortRange("8080/tcp"),
 	})
 
-	s.assertEnvironPorts(c, []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
-		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	s.assertEnvironPorts(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
 	// Stop firewaller and add another application using the port.
@@ -1517,39 +1516,39 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 
 	u2, m2 := s.addUnit(c, app2)
 	s.startInstance(c, m2)
-	mustOpenPortRanges(c, s.State, u2, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustOpenPortRanges(c, s.State, u2, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
 
 	// Start firewaller and check port.
 	fw = s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	s.assertEnvironPorts(c, []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
-		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	s.assertEnvironPorts(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
 	// Closing a port opened by a different unit won't touch the environment.
-	mustClosePortRanges(c, s.State, u1, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustClosePortRanges(c, s.State, u1, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
-	s.assertEnvironPorts(c, []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
-		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	s.assertEnvironPorts(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
 	// Closing a port used just once changes the environment.
-	mustClosePortRanges(c, s.State, u1, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("8080/tcp"),
+	mustClosePortRanges(c, s.State, u1, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("8080/tcp"),
 	})
-	s.assertEnvironPorts(c, []network.IngressRule{
-		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	s.assertEnvironPorts(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
 	// Closing the last port also modifies the environment.
-	mustClosePortRanges(c, s.State, u2, allEndpoints, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("80/tcp"),
+	mustClosePortRanges(c, s.State, u2, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
 	})
 	s.assertEnvironPorts(c, nil)
 }
@@ -1585,7 +1584,7 @@ func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid firewall-mode "none"`)
 }
 
-func mustOpenPortRanges(c *gc.C, st *state.State, u *state.Unit, endpointName string, portRanges []corenetwork.PortRange) {
+func mustOpenPortRanges(c *gc.C, st *state.State, u *state.Unit, endpointName string, portRanges []network.PortRange) {
 	unitPortRanges, err := u.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1596,7 +1595,7 @@ func mustOpenPortRanges(c *gc.C, st *state.State, u *state.Unit, endpointName st
 	c.Assert(st.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
 }
 
-func mustClosePortRanges(c *gc.C, st *state.State, u *state.Unit, endpointName string, portRanges []corenetwork.PortRange) {
+func mustClosePortRanges(c *gc.C, st *state.State, u *state.Unit, endpointName string, portRanges []network.PortRange) {
 	unitPortRanges, err := u.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 

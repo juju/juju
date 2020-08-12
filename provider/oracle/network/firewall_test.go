@@ -14,11 +14,11 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	jujunetwork "github.com/juju/juju/network"
-	"github.com/juju/juju/provider/oracle/network"
+	oraclenetwork "github.com/juju/juju/provider/oracle/network"
 	providertest "github.com/juju/juju/provider/oracle/testing"
 	"github.com/juju/juju/testing"
 )
@@ -48,19 +48,19 @@ func (f *fakeEnvironConfig) Config() *config.Config {
 }
 
 func (f *firewallSuite) TestNewFirewall(c *gc.C) {
-	firewall := network.NewFirewall(nil, nil, &advancingClock)
+	firewall := oraclenetwork.NewFirewall(nil, nil, &advancingClock)
 	c.Assert(firewall, gc.NotNil)
 
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 	cli := &api.Client{}
-	firewall = network.NewFirewall(cfg, cli, &advancingClock)
+	firewall = oraclenetwork.NewFirewall(cfg, cli, &advancingClock)
 	c.Assert(firewall, gc.NotNil)
 }
 
 func (f *firewallSuite) TestGlobalIngressRules(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 
-	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
+	firewall := oraclenetwork.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
 	c.Assert(firewall, gc.NotNil)
 
 	rule, err := firewall.GlobalIngressRules(f.callCtx)
@@ -71,7 +71,7 @@ func (f *firewallSuite) TestGlobalIngressRules(c *gc.C) {
 func (f *firewallSuite) TestIngressRules(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 
-	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
+	firewall := oraclenetwork.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
 	c.Assert(firewall, gc.NotNil)
 
 	rule, err := firewall.IngressRules(f.callCtx)
@@ -115,7 +115,7 @@ func (f *firewallSuite) TestIngressRulesWithErrors(c *gc.C) {
 		},
 	} {
 
-		firewall := network.NewFirewall(cfg, fake, &advancingClock)
+		firewall := oraclenetwork.NewFirewall(cfg, fake, &advancingClock)
 		c.Assert(firewall, gc.NotNil)
 
 		rule, err := firewall.IngressRules(f.callCtx)
@@ -158,10 +158,10 @@ func (f *firewallSuite) TestGlobalIngressRulesWithErrors(c *gc.C) {
 		},
 	} {
 
-		firewall := network.NewFirewall(cfg, fake, &advancingClock)
-		c.Assert(firewall, gc.NotNil)
+		fw := oraclenetwork.NewFirewall(cfg, fake, &advancingClock)
+		c.Assert(fw, gc.NotNil)
 
-		rule, err := firewall.GlobalIngressRules(f.callCtx)
+		rule, err := fw.GlobalIngressRules(f.callCtx)
 		c.Assert(err, gc.NotNil)
 		c.Assert(rule, gc.IsNil)
 	}
@@ -174,10 +174,10 @@ func (f *firewallSuite) TestOpenPorts(c *gc.C) {
 	})
 	cfg := &fakeEnvironConfig{cfg: fakeConfig}
 
-	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
-	c.Assert(firewall, gc.NotNil)
+	fw := oraclenetwork.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
+	c.Assert(fw, gc.NotNil)
 
-	err := firewall.OpenPorts(f.callCtx, []jujunetwork.IngressRule{})
+	err := fw.OpenPorts(f.callCtx, firewall.IngressRules{})
 	c.Assert(err, gc.IsNil)
 
 }
@@ -235,29 +235,29 @@ func (f *firewallSuite) TestOpenPortsWithErrors(c *gc.C) {
 			},
 		},
 	} {
-		firewall := network.NewFirewall(cfg, fake, &advancingClock)
-		c.Assert(firewall, gc.NotNil)
+		fw := oraclenetwork.NewFirewall(cfg, fake, &advancingClock)
+		c.Assert(fw, gc.NotNil)
 
-		err := firewall.OpenPorts(f.callCtx, []jujunetwork.IngressRule{})
+		err := fw.OpenPorts(f.callCtx, firewall.IngressRules{})
 		c.Assert(err, gc.NotNil)
 	}
 
 	// test with error in firewall config
 	cfg = &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
-	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
-	c.Assert(firewall, gc.NotNil)
+	fw := oraclenetwork.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
+	c.Assert(fw, gc.NotNil)
 
-	err := firewall.OpenPorts(f.callCtx, []jujunetwork.IngressRule{})
+	err := fw.OpenPorts(f.callCtx, firewall.IngressRules{})
 	c.Assert(err, gc.NotNil)
 }
 
 func (f *firewallSuite) TestClosePorts(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 
-	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
-	c.Assert(firewall, gc.NotNil)
+	fw := oraclenetwork.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
+	c.Assert(fw, gc.NotNil)
 
-	err := firewall.ClosePorts(f.callCtx, []jujunetwork.IngressRule{})
+	err := fw.ClosePorts(f.callCtx, firewall.IngressRules{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -435,12 +435,12 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 			},
 		},
 	} {
-		firewall := network.NewFirewall(cfg, fake, &advancingClock)
-		c.Assert(firewall, gc.NotNil)
+		fw := oraclenetwork.NewFirewall(cfg, fake, &advancingClock)
+		c.Assert(fw, gc.NotNil)
 
-		err := firewall.ClosePorts(f.callCtx, []jujunetwork.IngressRule{
+		err := fw.ClosePorts(f.callCtx, firewall.IngressRules{
 			{
-				PortRange: corenetwork.PortRange{
+				PortRange: network.PortRange{
 					FromPort: 0,
 					ToPort:   0,
 				},
@@ -625,12 +625,12 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 			},
 		},
 	} {
-		firewall := network.NewFirewall(cfg, fake, &advancingClock)
-		c.Assert(firewall, gc.NotNil)
+		fw := oraclenetwork.NewFirewall(cfg, fake, &advancingClock)
+		c.Assert(fw, gc.NotNil)
 
-		err := firewall.ClosePortsOnInstance(f.callCtx, "0,", []jujunetwork.IngressRule{
+		err := fw.ClosePortsOnInstance(f.callCtx, "0 ,", firewall.IngressRules{
 			{
-				PortRange: corenetwork.PortRange{
+				PortRange: network.PortRange{
 					FromPort: 0,
 					ToPort:   0,
 				},
@@ -644,10 +644,10 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 func (f *firewallSuite) TestMachineIngressRules(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 
-	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
-	c.Assert(firewall, gc.NotNil)
+	fw := oraclenetwork.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
+	c.Assert(fw, gc.NotNil)
 
-	rules, err := firewall.MachineIngressRules(f.callCtx, "0")
+	rules, err := fw.MachineIngressRules(f.callCtx, "0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(rules, gc.NotNil)
 }
@@ -693,20 +693,20 @@ func (f *firewallSuite) TestMachineIngressRulesWithErrors(c *gc.C) {
 			},
 		},
 	} {
-		firewall := network.NewFirewall(cfg, fake, &advancingClock)
-		c.Assert(firewall, gc.NotNil)
+		fw := oraclenetwork.NewFirewall(cfg, fake, &advancingClock)
+		c.Assert(fw, gc.NotNil)
 
-		_, err := firewall.MachineIngressRules(f.callCtx, "0")
+		_, err := fw.MachineIngressRules(f.callCtx, "0")
 		c.Assert(err, gc.NotNil)
 	}
 }
 
 func (f *firewallSuite) TestOpenPortsOnInstance(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
-	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
-	c.Assert(firewall, gc.NotNil)
+	fw := oraclenetwork.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
+	c.Assert(fw, gc.NotNil)
 
-	err := firewall.OpenPortsOnInstance(f.callCtx, "0", []jujunetwork.IngressRule{})
+	err := fw.OpenPortsOnInstance(f.callCtx, "0", firewall.IngressRules{})
 	c.Assert(err, gc.IsNil)
 
 }
@@ -761,10 +761,10 @@ func (f *firewallSuite) TestOpenPortsOnInstanceWithErrors(c *gc.C) {
 			},
 		},
 	} {
-		firewall := network.NewFirewall(cfg, fake, &advancingClock)
-		c.Assert(firewall, gc.NotNil)
+		fw := oraclenetwork.NewFirewall(cfg, fake, &advancingClock)
+		c.Assert(fw, gc.NotNil)
 
-		err := firewall.OpenPortsOnInstance(f.callCtx, "0", []jujunetwork.IngressRule{})
+		err := fw.OpenPortsOnInstance(f.callCtx, "0", firewall.IngressRules{})
 		c.Assert(err, gc.NotNil)
 	}
 }
@@ -772,10 +772,10 @@ func (f *firewallSuite) TestOpenPortsOnInstanceWithErrors(c *gc.C) {
 func (f *firewallSuite) TestCreateMachineSecLists(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 
-	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
-	c.Assert(firewall, gc.NotNil)
+	fw := oraclenetwork.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
+	c.Assert(fw, gc.NotNil)
 
-	lists, err := firewall.CreateMachineSecLists("0", 7070)
+	lists, err := fw.CreateMachineSecLists("0", 7070)
 	c.Assert(err, gc.IsNil)
 	c.Assert(lists, gc.NotNil)
 }
@@ -830,10 +830,10 @@ func (f *firewallSuite) TestCreateMachineSecListsWithErrors(c *gc.C) {
 		},
 	} {
 
-		firewall := network.NewFirewall(cfg, fake, &advancingClock)
-		c.Assert(firewall, gc.NotNil)
+		fw := oraclenetwork.NewFirewall(cfg, fake, &advancingClock)
+		c.Assert(fw, gc.NotNil)
 
-		_, err := firewall.CreateMachineSecLists("0", 7070)
+		_, err := fw.CreateMachineSecLists("0", 7070)
 		c.Assert(err, gc.NotNil)
 	}
 }
@@ -841,10 +841,10 @@ func (f *firewallSuite) TestCreateMachineSecListsWithErrors(c *gc.C) {
 func (f *firewallSuite) TestDeleteMachineSecList(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 
-	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
-	c.Assert(firewall, gc.NotNil)
+	fw := oraclenetwork.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
+	c.Assert(fw, gc.NotNil)
 
-	err := firewall.DeleteMachineSecList("0")
+	err := fw.DeleteMachineSecList("0")
 	c.Assert(err, gc.IsNil)
 }
 
@@ -898,10 +898,10 @@ func (f *firewallSuite) TestDeleteMachineSecListWithErrors(c *gc.C) {
 			},
 		},
 	} {
-		firewall := network.NewFirewall(cfg, fake, &advancingClock)
-		c.Assert(firewall, gc.NotNil)
+		fw := oraclenetwork.NewFirewall(cfg, fake, &advancingClock)
+		c.Assert(fw, gc.NotNil)
 
-		err := firewall.DeleteMachineSecList("0")
+		err := fw.DeleteMachineSecList("0")
 		c.Assert(err, gc.NotNil)
 	}
 }
@@ -909,10 +909,10 @@ func (f *firewallSuite) TestDeleteMachineSecListWithErrors(c *gc.C) {
 func (f *firewallSuite) TestCreateDefaultACLAndRules(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 
-	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
-	c.Assert(firewall, gc.NotNil)
+	fw := oraclenetwork.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
+	c.Assert(fw, gc.NotNil)
 
-	acls, err := firewall.CreateDefaultACLAndRules("0")
+	acls, err := fw.CreateDefaultACLAndRules("0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(acls, gc.NotNil)
 }
@@ -955,10 +955,10 @@ func (f *firewallSuite) TestCreateDefaultACLAndRulesWithErrors(c *gc.C) {
 			},
 		},
 	} {
-		firewall := network.NewFirewall(cfg, fake, &advancingClock)
-		c.Assert(firewall, gc.NotNil)
+		fw := oraclenetwork.NewFirewall(cfg, fake, &advancingClock)
+		c.Assert(fw, gc.NotNil)
 
-		_, err := firewall.CreateDefaultACLAndRules("0")
+		_, err := fw.CreateDefaultACLAndRules("0")
 		c.Assert(err, gc.NotNil)
 	}
 }
@@ -966,9 +966,9 @@ func (f *firewallSuite) TestCreateDefaultACLAndRulesWithErrors(c *gc.C) {
 func (f *firewallSuite) TestRemoveACLAndRules(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 
-	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
-	c.Assert(firewall, gc.NotNil)
-	err := firewall.RemoveACLAndRules("0")
+	fw := oraclenetwork.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
+	c.Assert(fw, gc.NotNil)
+	err := fw.RemoveACLAndRules("0")
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1019,10 +1019,10 @@ func (f *firewallSuite) TestRemoveACLAndRulesWithErrors(c *gc.C) {
 			},
 		},
 	} {
-		firewall := network.NewFirewall(cfg, fake, &advancingClock)
-		c.Assert(firewall, gc.NotNil)
+		fw := oraclenetwork.NewFirewall(cfg, fake, &advancingClock)
+		c.Assert(fw, gc.NotNil)
 
-		err := firewall.RemoveACLAndRules("0")
+		err := fw.RemoveACLAndRules("0")
 		c.Assert(err, gc.NotNil)
 	}
 }

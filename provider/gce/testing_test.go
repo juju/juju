@@ -21,7 +21,8 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/testing"
@@ -115,7 +115,7 @@ type BaseSuiteUnpatched struct {
 	EnvConfig      *environConfig
 	Env            *environ
 
-	Addresses       corenetwork.ProviderAddresses
+	Addresses       network.ProviderAddresses
 	BaseInstance    *google.Instance
 	BaseDisk        *google.Disk
 	Instance        *environInstance
@@ -125,7 +125,7 @@ type BaseSuiteUnpatched struct {
 	StartInstArgs   environs.StartInstanceParams
 	InstanceType    instances.InstanceType
 
-	Rules []network.IngressRule
+	Rules firewall.IngressRules
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -186,8 +186,8 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		metadataKeyWindowsUserdata: string(userData),
 		metadataKeyWindowsSysprep:  fmt.Sprintf(winSetHostnameScript, "juju.*"),
 	}
-	s.Addresses = []corenetwork.ProviderAddress{
-		corenetwork.NewScopedProviderAddress("10.0.0.1", corenetwork.ScopeCloudLocal),
+	s.Addresses = []network.ProviderAddress{
+		network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
 	}
 	s.Instance = s.NewInstance(c, "spam")
 	s.BaseInstance = s.Instance.base
@@ -223,7 +223,9 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 }
 
 func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
-	s.Rules = []network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)}
+	s.Rules = firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp")),
+	}
 }
 
 func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
@@ -488,7 +490,7 @@ type fakeConnCall struct {
 	Statuses         []string
 	InstanceSpec     google.InstanceSpec
 	FirewallName     string
-	Rules            []network.IngressRule
+	Rules            firewall.IngressRules
 	Region           string
 	Disks            []google.DiskSpec
 	VolumeName       string
@@ -505,7 +507,7 @@ type fakeConn struct {
 
 	Inst      *google.Instance
 	Insts     []google.Instance
-	Rules     []network.IngressRule
+	Rules     firewall.IngressRules
 	Zones     []google.AvailabilityZone
 	Subnets   []*compute.Subnetwork
 	Networks_ []*compute.Network
@@ -578,7 +580,7 @@ func (fc *fakeConn) UpdateMetadata(key, value string, ids ...string) error {
 	return fc.err()
 }
 
-func (fc *fakeConn) IngressRules(fwname string) ([]network.IngressRule, error) {
+func (fc *fakeConn) IngressRules(fwname string) (firewall.IngressRules, error) {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName:     "Ports",
 		FirewallName: fwname,
@@ -586,7 +588,7 @@ func (fc *fakeConn) IngressRules(fwname string) ([]network.IngressRule, error) {
 	return fc.Rules, fc.err()
 }
 
-func (fc *fakeConn) OpenPorts(fwname string, rules ...network.IngressRule) error {
+func (fc *fakeConn) OpenPorts(fwname string, rules firewall.IngressRules) error {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName:     "OpenPorts",
 		FirewallName: fwname,
@@ -595,7 +597,7 @@ func (fc *fakeConn) OpenPorts(fwname string, rules ...network.IngressRule) error
 	return fc.err()
 }
 
-func (fc *fakeConn) ClosePorts(fwname string, rules ...network.IngressRule) error {
+func (fc *fakeConn) ClosePorts(fwname string, rules firewall.IngressRules) error {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName:     "ClosePorts",
 		FirewallName: fwname,

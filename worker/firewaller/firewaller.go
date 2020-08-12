@@ -24,14 +24,14 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/common"
 )
 
@@ -124,7 +124,7 @@ func (cfg Config) Validate() error {
 	return nil
 }
 
-type portRanges map[corenetwork.PortRange]bool
+type portRanges map[network.PortRange]bool
 
 // Firewaller watches the state for port ranges opened or closed on
 // machines and reflects those changes onto the backing environment.
@@ -355,7 +355,7 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 		fw:           fw,
 		tag:          tag,
 		unitds:       make(map[names.UnitTag]*unitData),
-		ingressRules: make([]network.IngressRule, 0),
+		ingressRules: make(firewall.IngressRules, 0),
 		definedPorts: make(map[names.UnitTag]portRanges),
 	}
 	m, err := machined.machine()
@@ -522,7 +522,7 @@ func (fw *Firewaller) reconcileGlobal() error {
 	}
 
 	// Check which ports to open or to close.
-	toOpen, toClose := diffRanges(initialPortRanges, want)
+	toOpen, toClose := initialPortRanges.Diff(want)
 	if len(toOpen) > 0 {
 		fw.logger.Infof("opening global ports %v", toOpen)
 		if err := fw.environFirewaller.OpenPorts(fw.cloudCallContext, toOpen); err != nil {
@@ -581,7 +581,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		}
 
 		// Check which ports to open or to close.
-		toOpen, toClose := diffRanges(initialRules, machined.ingressRules)
+		toOpen, toClose := initialRules.Diff(machined.ingressRules)
 		if len(toOpen) > 0 {
 			fw.logger.Infof("opening instance port ranges %v for %q",
 				toOpen, machined.tag)
@@ -749,7 +749,7 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	toOpen, toClose := diffRanges(machined.ingressRules, want)
+	toOpen, toClose := machined.ingressRules.Diff(want)
 	machined.ingressRules = want
 	if fw.globalMode {
 		return fw.flushGlobalPorts(toOpen, toClose)
@@ -759,8 +759,8 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 
 // gatherIngressRules returns the ingress rules to open and close
 // for the specified machines.
-func (fw *Firewaller) gatherIngressRules(machines ...*machineData) ([]network.IngressRule, error) {
-	var want []network.IngressRule
+func (fw *Firewaller) gatherIngressRules(machines ...*machineData) (firewall.IngressRules, error) {
+	var want firewall.IngressRules
 	for _, machined := range machines {
 		for unitTag, portRanges := range machined.definedPorts {
 			unitd, known := machined.unitds[unitTag]
@@ -783,14 +783,13 @@ func (fw *Firewaller) gatherIngressRules(machines ...*machineData) ([]network.In
 			if cidrs.Size() > 0 {
 				for portRange := range portRanges {
 					sourceCidrs := cidrs.SortedValues()
-					rule, err := network.NewIngressRule(portRange.Protocol, portRange.FromPort, portRange.ToPort, sourceCidrs...)
-					if err != nil {
-						return nil, errors.Trace(err)
-					}
-					want = append(want, rule)
+					want = append(want, firewall.NewIngressRule(portRange, sourceCidrs...))
 				}
 			}
 		}
+	}
+	if err := want.Validate(); err != nil {
+		return nil, errors.Trace(err)
 	}
 	return want, nil
 }
@@ -855,9 +854,9 @@ func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag
 // flushGlobalPorts opens and closes global ports in the environment.
 // It keeps a reference count for ports so that only 0-to-1 and 1-to-0 events
 // modify the environment.
-func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.IngressRule) error {
+func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose firewall.IngressRules) error {
 	// Filter which ports are really to open or close.
-	var toOpen, toClose []network.IngressRule
+	var toOpen, toClose firewall.IngressRules
 	for _, rule := range rawOpen {
 		ruleName := rule.String()
 		if fw.globalIngressRuleRef[ruleName] == 0 {
@@ -875,26 +874,26 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.IngressRule) 
 	}
 	// Open and close the ports.
 	if len(toOpen) > 0 {
+		toOpen.Sort()
 		if err := fw.environFirewaller.OpenPorts(fw.cloudCallContext, toOpen); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
-		network.SortIngressRules(toOpen)
 		fw.logger.Infof("opened port ranges %v in environment", toOpen)
 	}
 	if len(toClose) > 0 {
+		toClose.Sort()
 		if err := fw.environFirewaller.ClosePorts(fw.cloudCallContext, toClose); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
-		network.SortIngressRules(toClose)
 		fw.logger.Infof("closed port ranges %v in environment", toClose)
 	}
 	return nil
 }
 
 // flushInstancePorts opens and closes ports global on the machine.
-func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose []network.IngressRule) (err error) {
+func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose firewall.IngressRules) (err error) {
 	defer func() {
 		if params.IsCodeNotFound(err) {
 			err = nil
@@ -934,19 +933,19 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 
 	// Open and close the ports.
 	if len(toOpen) > 0 {
+		toOpen.Sort()
 		if err := fwInstance.OpenPorts(fw.cloudCallContext, machineId, toOpen); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
-		network.SortIngressRules(toOpen)
 		fw.logger.Infof("opened port ranges %v on %q", toOpen, machined.tag)
 	}
 	if len(toClose) > 0 {
+		toClose.Sort()
 		if err := fwInstance.ClosePorts(fw.cloudCallContext, machineId, toClose); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
-		network.SortIngressRules(toClose)
 		fw.logger.Infof("closed port ranges %v on %q", toClose, machined.tag)
 	}
 	return nil
@@ -1045,7 +1044,7 @@ type machineData struct {
 	fw           *Firewaller
 	tag          names.MachineTag
 	unitds       map[names.UnitTag]*unitData
-	ingressRules []network.IngressRule
+	ingressRules firewall.IngressRules
 	// ports defined by units on this machine
 	definedPorts map[names.UnitTag]portRanges
 }
@@ -1162,63 +1161,6 @@ func (ad *applicationData) Kill() {
 // Wait is part of the worker.Worker interface.
 func (ad *applicationData) Wait() error {
 	return ad.catacomb.Wait()
-}
-
-func diffRanges(currentRules, wantedRules []network.IngressRule) (toOpen, toClose []network.IngressRule) {
-	portCidrs := func(rules []network.IngressRule) map[corenetwork.PortRange]set.Strings {
-		result := make(map[corenetwork.PortRange]set.Strings)
-		for _, rule := range rules {
-			cidrs, ok := result[rule.PortRange]
-			if !ok {
-				cidrs = set.NewStrings()
-				result[rule.PortRange] = cidrs
-			}
-			ruleCidrs := rule.SourceCIDRs
-			if len(ruleCidrs) == 0 {
-				ruleCidrs = []string{"0.0.0.0/0"}
-			}
-			for _, cidr := range ruleCidrs {
-				cidrs.Add(cidr)
-			}
-		}
-		return result
-	}
-
-	currentPortCidrs := portCidrs(currentRules)
-	wantedPortCidrs := portCidrs(wantedRules)
-	for portRange, wantedCidrs := range wantedPortCidrs {
-		existingCidrs, ok := currentPortCidrs[portRange]
-
-		// If the wanted port range doesn't exist at all, the entire rule is to be opened.
-		if !ok {
-			rule := network.IngressRule{PortRange: portRange, SourceCIDRs: wantedCidrs.SortedValues()}
-			toOpen = append(toOpen, rule)
-			continue
-		}
-
-		// Figure out the difference between CIDRs to get the rules to open/close.
-		toOpenCidrs := wantedCidrs.Difference(existingCidrs)
-		if toOpenCidrs.Size() > 0 {
-			rule := network.IngressRule{PortRange: portRange, SourceCIDRs: toOpenCidrs.SortedValues()}
-			toOpen = append(toOpen, rule)
-		}
-		toCloseCidrs := existingCidrs.Difference(wantedCidrs)
-		if toCloseCidrs.Size() > 0 {
-			rule := network.IngressRule{PortRange: portRange, SourceCIDRs: toCloseCidrs.SortedValues()}
-			toClose = append(toClose, rule)
-		}
-	}
-
-	for portRange, currentCidrs := range currentPortCidrs {
-		// If a current port range doesn't exist at all in the wanted set, the entire rule is to be closed.
-		if _, ok := wantedPortCidrs[portRange]; !ok {
-			rule := network.IngressRule{PortRange: portRange, SourceCIDRs: currentCidrs.SortedValues()}
-			toClose = append(toClose, rule)
-		}
-	}
-	network.SortIngressRules(toOpen)
-	network.SortIngressRules(toClose)
-	return toOpen, toClose
 }
 
 // relationLifeChanged manages the workers to process ingress changes for

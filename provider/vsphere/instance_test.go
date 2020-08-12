@@ -9,11 +9,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 )
 
 type InstanceSuite struct {
@@ -86,7 +86,7 @@ func (s *InstanceSuite) TestInstanceAddresses(c *gc.C) {
 
 	addrs, err := instances[0].Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addrs, jc.DeepEquals, corenetwork.NewProviderAddresses("10.1.1.1", "10.1.1.2", "10.1.1.3"))
+	c.Assert(addrs, jc.DeepEquals, network.NewProviderAddresses("10.1.1.1", "10.1.1.2", "10.1.1.3"))
 
 	addrs, err = instances[1].Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -118,22 +118,12 @@ func (s *InstanceSuite) TestOpenPortNoExternalNetwork(c *gc.C) {
 	firewaller, ok := inst0.(instances.InstanceFirewaller)
 	c.Assert(ok, jc.IsTrue)
 	// machineID is ignored in per-instance firewallers
-	err = firewaller.OpenPorts(s.callCtx, "", []network.IngressRule{{
-		PortRange: corenetwork.PortRange{
-			Protocol: "tcp",
-			FromPort: 10,
-			ToPort:   10,
-		},
-		SourceCIDRs: []string{"0.0.0.0/0"},
-	}})
+	err = firewaller.OpenPorts(s.callCtx, "", firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("10/tcp"), firewall.AllNetworksIPV4CIDR),
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = firewaller.ClosePorts(s.callCtx, "", []network.IngressRule{{
-		PortRange: corenetwork.PortRange{
-			Protocol: "tcp",
-			FromPort: 10,
-			ToPort:   10,
-		},
-		SourceCIDRs: []string{"0.0.0.0/0"},
-	}})
+	err = firewaller.ClosePorts(s.callCtx, "", firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("10/tcp"), firewall.AllNetworksIPV4CIDR),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }

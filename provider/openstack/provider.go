@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -51,7 +52,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -523,15 +523,15 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 	return machineAddresses
 }
 
-func (inst *openstackInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
+func (inst *openstackInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	return inst.e.firewaller.OpenInstancePorts(ctx, inst, machineId, rules)
 }
 
-func (inst *openstackInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
+func (inst *openstackInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	return inst.e.firewaller.CloseInstancePorts(ctx, inst, machineId, rules)
 }
 
-func (inst *openstackInstance) IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
+func (inst *openstackInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
 	return inst.e.firewaller.InstanceIngressRules(ctx, inst, machineId)
 }
 
@@ -2087,19 +2087,19 @@ func jujuMachineFilter() *nova.Filter {
 }
 
 // rulesToRuleInfo maps ingress rules to nova rules
-func rulesToRuleInfo(groupId string, rules []network.IngressRule) []neutron.RuleInfoV2 {
+func rulesToRuleInfo(groupId string, rules firewall.IngressRules) []neutron.RuleInfoV2 {
 	var result []neutron.RuleInfoV2
 	for _, r := range rules {
 		ruleInfo := neutron.RuleInfoV2{
 			Direction:     "ingress",
 			ParentGroupId: groupId,
-			PortRangeMin:  r.FromPort,
-			PortRangeMax:  r.ToPort,
-			IPProtocol:    r.Protocol,
+			PortRangeMin:  r.PortRange.FromPort,
+			PortRangeMax:  r.PortRange.ToPort,
+			IPProtocol:    r.PortRange.Protocol,
 		}
-		sourceCIDRs := r.SourceCIDRs
+		sourceCIDRs := r.SourceCIDRs.Values()
 		if len(sourceCIDRs) == 0 {
-			sourceCIDRs = []string{"0.0.0.0/0"}
+			sourceCIDRs = append(sourceCIDRs, firewall.AllNetworksIPV4CIDR)
 		}
 		for _, sr := range sourceCIDRs {
 			ruleInfo.RemoteIPPrefix = sr
@@ -2109,7 +2109,7 @@ func rulesToRuleInfo(groupId string, rules []network.IngressRule) []neutron.Rule
 	return result
 }
 
-func (e *Environ) OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
+func (e *Environ) OpenPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
 	if err := e.firewaller.OpenPorts(ctx, rules); err != nil {
 		handleCredentialError(err, ctx)
 		return errors.Trace(err)
@@ -2117,7 +2117,7 @@ func (e *Environ) OpenPorts(ctx context.ProviderCallContext, rules []network.Ing
 	return nil
 }
 
-func (e *Environ) ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
+func (e *Environ) ClosePorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
 	if err := e.firewaller.ClosePorts(ctx, rules); err != nil {
 		handleCredentialError(err, ctx)
 		return errors.Trace(err)
@@ -2125,7 +2125,7 @@ func (e *Environ) ClosePorts(ctx context.ProviderCallContext, rules []network.In
 	return nil
 }
 
-func (e *Environ) IngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error) {
+func (e *Environ) IngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error) {
 	rules, err := e.firewaller.IngressRules(ctx)
 	if err != nil {
 		handleCredentialError(err, ctx)

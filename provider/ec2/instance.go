@@ -10,11 +10,11 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 )
 
 type ec2Instance struct {
@@ -81,7 +81,7 @@ func (inst *ec2Instance) Addresses(ctx context.ProviderCallContext) (corenetwork
 	return addresses, nil
 }
 
-func (inst *ec2Instance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
+func (inst *ec2Instance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.e.Config().FirewallMode())
@@ -94,7 +94,7 @@ func (inst *ec2Instance) OpenPorts(ctx context.ProviderCallContext, machineId st
 	return nil
 }
 
-func (inst *ec2Instance) ClosePorts(ctx context.ProviderCallContext, machineId string, ports []network.IngressRule) error {
+func (inst *ec2Instance) ClosePorts(ctx context.ProviderCallContext, machineId string, ports firewall.IngressRules) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
 			inst.e.Config().FirewallMode())
@@ -107,7 +107,7 @@ func (inst *ec2Instance) ClosePorts(ctx context.ProviderCallContext, machineId s
 	return nil
 }
 
-func (inst *ec2Instance) IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
+func (inst *ec2Instance) IngressRules(ctx context.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from instance",
 			inst.e.Config().FirewallMode())

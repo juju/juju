@@ -17,13 +17,13 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/rackspace"
 	"github.com/juju/juju/storage"
@@ -272,17 +272,17 @@ func (e *fakeEnviron) DestroyController(callCtx context.ProviderCallContext, con
 	return nil
 }
 
-func (e *fakeEnviron) OpenPorts(callCtx context.ProviderCallContext, rules []network.IngressRule) error {
+func (e *fakeEnviron) OpenPorts(callCtx context.ProviderCallContext, rules firewall.IngressRules) error {
 	e.Push("OpenPorts", callCtx, rules)
 	return nil
 }
 
-func (e *fakeEnviron) ClosePorts(callCtx context.ProviderCallContext, rules []network.IngressRule) error {
+func (e *fakeEnviron) ClosePorts(callCtx context.ProviderCallContext, rules firewall.IngressRules) error {
 	e.Push("ClosePorts", callCtx, rules)
 	return nil
 }
 
-func (e *fakeEnviron) IngressRules(callCtx context.ProviderCallContext) ([]network.IngressRule, error) {
+func (e *fakeEnviron) IngressRules(callCtx context.ProviderCallContext) (firewall.IngressRules, error) {
 	e.Push("Ports", callCtx)
 	return nil, nil
 }
@@ -340,12 +340,12 @@ func (e *fakeConfigurator) ConfigureExternalIpAddress(apiPort int) error {
 	return nil
 }
 
-func (e *fakeConfigurator) ChangeIngressRules(ipAddress string, insert bool, rules []network.IngressRule) error {
+func (e *fakeConfigurator) ChangeIngressRules(ipAddress string, insert bool, rules firewall.IngressRules) error {
 	e.Push("ChangeIngressRules", ipAddress, insert, rules)
 	return nil
 }
 
-func (e *fakeConfigurator) FindIngressRules() ([]network.IngressRule, error) {
+func (e *fakeConfigurator) FindIngressRules() (firewall.IngressRules, error) {
 	e.Push("FindIngressRules")
 	return nil, nil
 }
@@ -382,28 +382,28 @@ func (e *fakeInstance) Refresh(callCtx context.ProviderCallContext) error {
 	return nil
 }
 
-func (e *fakeInstance) Addresses(callCtx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (e *fakeInstance) Addresses(callCtx context.ProviderCallContext) (network.ProviderAddresses, error) {
 	e.Push("Addresses", callCtx)
-	return []corenetwork.ProviderAddress{{
-		MachineAddress: corenetwork.MachineAddress{
+	return []network.ProviderAddress{{
+		MachineAddress: network.MachineAddress{
 			Value: "1.1.1.1",
-			Type:  corenetwork.IPv4Address,
-			Scope: corenetwork.ScopePublic,
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
 		},
 	}}, nil
 }
 
-func (e *fakeInstance) OpenPorts(callCtx context.ProviderCallContext, machineId string, ports []network.IngressRule) error {
+func (e *fakeInstance) OpenPorts(callCtx context.ProviderCallContext, machineId string, ports firewall.IngressRules) error {
 	e.Push("OpenPorts", callCtx, machineId, ports)
 	return nil
 }
 
-func (e *fakeInstance) ClosePorts(callCtx context.ProviderCallContext, machineId string, ports []network.IngressRule) error {
+func (e *fakeInstance) ClosePorts(callCtx context.ProviderCallContext, machineId string, ports firewall.IngressRules) error {
 	e.Push("ClosePorts", callCtx, machineId, ports)
 	return nil
 }
 
-func (e *fakeInstance) IngressRules(callCtx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
+func (e *fakeInstance) IngressRules(callCtx context.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
 	e.Push("Ports", callCtx, machineId)
 	return nil, nil
 }

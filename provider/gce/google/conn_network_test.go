@@ -13,7 +13,8 @@ import (
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
+	corefirewall "github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/provider/gce/google"
 )
 
@@ -37,15 +38,13 @@ func (s *connSuite) TestConnectionIngressRules(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(
 		ports, jc.DeepEquals,
-		[]network.IngressRule{
-			network.MustNewIngressRule(
-				"tcp", 80, 81, "10.0.0.0/24", "192.168.1.0/24"),
-			network.MustNewIngressRule(
-				"tcp", 92, 92, "10.0.0.0/24", "192.168.1.0/24"),
-			network.MustNewIngressRule(
-				"udp", 100, 120, "10.0.0.0/24", "192.168.1.0/24"),
-			network.MustNewIngressRule(
-				"udp", 443, 443, "10.0.0.0/24", "192.168.1.0/24")})
+		corefirewall.IngressRules{
+			corefirewall.NewIngressRule(network.MustParsePortRange("80-81/tcp"), "10.0.0.0/24", "192.168.1.0/24"),
+			corefirewall.NewIngressRule(network.MustParsePortRange("92/tcp"), "10.0.0.0/24", "192.168.1.0/24"),
+			corefirewall.NewIngressRule(network.MustParsePortRange("100-120/udp"), "10.0.0.0/24", "192.168.1.0/24"),
+			corefirewall.NewIngressRule(network.MustParsePortRange("443/udp"), "10.0.0.0/24", "192.168.1.0/24"),
+		},
+	)
 }
 
 func (s *connSuite) TestConnectionIngressRulesCollapse(c *gc.C) {
@@ -75,11 +74,11 @@ func (s *connSuite) TestConnectionIngressRulesCollapse(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(
 		ports, jc.DeepEquals,
-		[]network.IngressRule{
-			network.MustNewIngressRule(
-				"tcp", 80, 83, "10.0.0.0/24", "192.168.1.0/24"),
-			network.MustNewIngressRule(
-				"tcp", 92, 92, "10.0.0.0/24", "192.168.1.0/24")})
+		corefirewall.IngressRules{
+			corefirewall.NewIngressRule(network.MustParsePortRange("80-83/tcp"), "10.0.0.0/24", "192.168.1.0/24"),
+			corefirewall.NewIngressRule(network.MustParsePortRange("92/tcp"), "10.0.0.0/24", "192.168.1.0/24"),
+		},
+	)
 }
 
 func (s *connSuite) TestConnectionIngressRulesDefaultCIDR(c *gc.C) {
@@ -96,11 +95,11 @@ func (s *connSuite) TestConnectionIngressRulesDefaultCIDR(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(
 		ports, jc.DeepEquals,
-		[]network.IngressRule{
-			network.MustNewIngressRule(
-				"tcp", 80, 81, "0.0.0.0/0"),
-			network.MustNewIngressRule(
-				"tcp", 92, 92, "0.0.0.0/0")})
+		corefirewall.IngressRules{
+			corefirewall.NewIngressRule(network.MustParsePortRange("80-81/tcp"), corefirewall.AllNetworksIPV4CIDR),
+			corefirewall.NewIngressRule(network.MustParsePortRange("92/tcp"), corefirewall.AllNetworksIPV4CIDR),
+		},
+	)
 }
 
 func (s *connSuite) TestConnectionPortsAPI(c *gc.C) {
@@ -126,11 +125,13 @@ func (s *connSuite) TestConnectionPortsAPI(c *gc.C) {
 func (s *connSuite) TestConnectionOpenPortsAdd(c *gc.C) {
 	s.FakeConn.Err = errors.NotFoundf("spam")
 
-	rule := network.MustNewIngressRule("tcp", 80, 81) // leave out CIDR to check default
-	rule2 := network.MustNewIngressRule("udp", 80, 81, "0.0.0.0/0")
-	rule3 := network.MustNewIngressRule("tcp", 100, 120, "192.168.1.0/24", "10.0.0.0/24")
-	rule4 := network.MustNewIngressRule("udp", 67, 67, "10.0.0.0/24")
-	err := s.Conn.OpenPortsWithNamer("spam", google.HashSuffixNamer, rule, rule2, rule3, rule4)
+	rules := corefirewall.IngressRules{
+		corefirewall.NewIngressRule(network.MustParsePortRange("80-81/tcp")), // leave out CIDR to check default
+		corefirewall.NewIngressRule(network.MustParsePortRange("80-81/udp"), corefirewall.AllNetworksIPV4CIDR),
+		corefirewall.NewIngressRule(network.MustParsePortRange("100-120/tcp"), "192.168.1.0/24", "10.0.0.0/24"),
+		corefirewall.NewIngressRule(network.MustParsePortRange("67/udp"), "10.0.0.0/24"),
+	}
+	err := s.Conn.OpenPortsWithNamer("spam", google.HashSuffixNamer, rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 4)
@@ -139,7 +140,7 @@ func (s *connSuite) TestConnectionOpenPortsAdd(c *gc.C) {
 	c.Check(s.FakeConn.Calls[1].Firewall, jc.DeepEquals, &compute.Firewall{
 		Name:         "spam-4eebe8d7a9",
 		TargetTags:   []string{"spam"},
-		SourceRanges: []string{"192.168.1.0/24", "10.0.0.0/24"},
+		SourceRanges: []string{"10.0.0.0/24", "192.168.1.0/24"},
 		Allowed: []*compute.FirewallAllowed{{
 			IPProtocol: "tcp",
 			Ports:      []string{"100-120"},
@@ -181,7 +182,9 @@ func (s *connSuite) TestConnectionOpenPortsUpdateSameCIDR(c *gc.C) {
 		}},
 	}}
 
-	rules := network.MustNewIngressRule("tcp", 443, 443, "192.168.1.0/24", "10.0.0.0/24")
+	rules := corefirewall.IngressRules{
+		corefirewall.NewIngressRule(network.MustParsePortRange("443/tcp"), "192.168.1.0/24", "10.0.0.0/24"),
+	}
 	err := s.Conn.OpenPortsWithNamer("spam", google.HashSuffixNamer, rules)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -211,7 +214,9 @@ func (s *connSuite) TestConnectionOpenPortsUpdateAddCIDR(c *gc.C) {
 		}},
 	}}
 
-	rules := network.MustNewIngressRule("tcp", 80, 81, "10.0.0.0/24")
+	rules := corefirewall.IngressRules{
+		corefirewall.NewIngressRule(network.MustParsePortRange("80-81/tcp"), "10.0.0.0/24"),
+	}
 	err := s.Conn.OpenPortsWithNamer("spam", google.HashSuffixNamer, rules)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -250,11 +255,13 @@ func (s *connSuite) TestConnectionOpenPortsUpdateAndAdd(c *gc.C) {
 		}},
 	}}
 
-	rule1 := network.MustNewIngressRule("tcp", 443, 443, "192.168.1.0/24")
-	rule2 := network.MustNewIngressRule("tcp", 80, 100, "10.0.0.0/24")
-	rule3 := network.MustNewIngressRule("tcp", 443, 443, "10.0.0.0/24")
-	rule4 := network.MustNewIngressRule("udp", 67, 67, "172.0.0.0/24")
-	err := s.Conn.OpenPortsWithNamer("spam", google.HashSuffixNamer, rule1, rule2, rule3, rule4)
+	rules := corefirewall.IngressRules{
+		corefirewall.NewIngressRule(network.MustParsePortRange("443/tcp"), "192.168.1.0/24"),
+		corefirewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), "10.0.0.0/24"),
+		corefirewall.NewIngressRule(network.MustParsePortRange("443/tcp"), "10.0.0.0/24"),
+		corefirewall.NewIngressRule(network.MustParsePortRange("67/udp"), "172.0.0.0/24"),
+	}
+	err := s.Conn.OpenPortsWithNamer("spam", google.HashSuffixNamer, rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 4)
@@ -310,8 +317,10 @@ func (s *connSuite) TestConnectionClosePortsRemove(c *gc.C) {
 		}},
 	}}
 
-	rule := network.MustNewIngressRule("tcp", 443, 443)
-	err := s.Conn.ClosePorts("spam", rule)
+	rules := corefirewall.IngressRules{
+		corefirewall.NewIngressRule(network.MustParsePortRange("443/tcp")),
+	}
+	err := s.Conn.ClosePorts("spam", rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
@@ -331,8 +340,10 @@ func (s *connSuite) TestConnectionClosePortsUpdate(c *gc.C) {
 		}},
 	}}
 
-	rule := network.MustNewIngressRule("tcp", 443, 443)
-	err := s.Conn.ClosePorts("spam", rule)
+	rules := corefirewall.IngressRules{
+		corefirewall.NewIngressRule(network.MustParsePortRange("443/tcp")),
+	}
+	err := s.Conn.ClosePorts("spam", rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
@@ -361,8 +372,10 @@ func (s *connSuite) TestConnectionClosePortsCollapseUpdate(c *gc.C) {
 		}},
 	}}
 
-	rule := network.MustNewIngressRule("tcp", 80, 82)
-	err := s.Conn.ClosePorts("spam", rule)
+	rules := corefirewall.IngressRules{
+		corefirewall.NewIngressRule(network.MustParsePortRange("80-82/tcp")),
+	}
+	err := s.Conn.ClosePorts("spam", rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
@@ -391,9 +404,11 @@ func (s *connSuite) TestConnectionClosePortsRemoveCIDR(c *gc.C) {
 		}},
 	}}
 
-	rule := network.MustNewIngressRule("tcp", 443, 443, "192.168.1.0/24")
-	rule2 := network.MustNewIngressRule("tcp", 80, 81, "192.168.1.0/24")
-	err := s.Conn.ClosePorts("spam", rule, rule2)
+	rules := corefirewall.IngressRules{
+		corefirewall.NewIngressRule(network.MustParsePortRange("443/tcp"), "192.168.1.0/24"),
+		corefirewall.NewIngressRule(network.MustParsePortRange("80-81/tcp"), "192.168.1.0/24"),
+	}
+	err := s.Conn.ClosePorts("spam", rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
@@ -422,8 +437,10 @@ func (s *connSuite) TestConnectionCloseMoMatches(c *gc.C) {
 		}},
 	}}
 
-	rule := network.MustNewIngressRule("tcp", 100, 110, "192.168.0.1/24")
-	err := s.Conn.ClosePorts("spam", rule)
+	rules := corefirewall.IngressRules{
+		corefirewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), "192.168.0.1/24"),
+	}
+	err := s.Conn.ClosePorts("spam", rules)
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`closing port(s) [100-110/tcp from 192.168.0.1/24] over non-matching rules not supported`))
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
@@ -460,10 +477,10 @@ func (s *connSuite) TestSubnetworks(c *gc.C) {
 }
 
 func (s *connSuite) TestRandomSuffixNamer(c *gc.C) {
-	ruleset := google.NewRuleSetFromRules(
-		network.MustNewIngressRule("tcp", 80, 80),
-		network.MustNewIngressRule("tcp", 80, 90, "10.0.10.0/24"),
-	)
+	ruleset := google.NewRuleSetFromRules(corefirewall.IngressRules{
+		corefirewall.NewIngressRule(network.MustParsePortRange("80-90/tcp")),
+		corefirewall.NewIngressRule(network.MustParsePortRange("80-90/tcp"), "10.0.10.0/24"),
+	})
 	i := 0
 	for _, firewall := range ruleset {
 		i++

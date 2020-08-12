@@ -23,6 +23,8 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -40,7 +42,6 @@ import (
 	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -333,10 +334,10 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 
 	// Open some ports and check they're there.
 	err = fwInst1.OpenPorts(t.ProviderCallContext,
-		"1", []network.IngressRule{
-			network.MustNewIngressRule("udp", 67, 67),
-			network.MustNewIngressRule("tcp", 45, 45),
-			network.MustNewIngressRule("tcp", 80, 100),
+		"1", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp")),
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -344,10 +345,10 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
-		[]network.IngressRule{
-			network.MustNewIngressRule("tcp", 45, 45, "0.0.0.0/0"),
-			network.MustNewIngressRule("tcp", 80, 100, "0.0.0.0/0"),
-			network.MustNewIngressRule("udp", 67, 67, "0.0.0.0/0"),
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR),
 		},
 	)
 	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
@@ -355,10 +356,10 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	c.Assert(rules, gc.HasLen, 0)
 
 	err = fwInst2.OpenPorts(t.ProviderCallContext,
-		"2", []network.IngressRule{
-			network.MustNewIngressRule("tcp", 89, 89),
-			network.MustNewIngressRule("tcp", 45, 45),
-			network.MustNewIngressRule("tcp", 20, 30),
+		"2", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp")),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -367,20 +368,20 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
-		[]network.IngressRule{
-			network.MustNewIngressRule("tcp", 20, 30, "0.0.0.0/0"),
-			network.MustNewIngressRule("tcp", 45, 45, "0.0.0.0/0"),
-			network.MustNewIngressRule("tcp", 89, 89, "0.0.0.0/0"),
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
 		},
 	)
 	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
-		[]network.IngressRule{
-			network.MustNewIngressRule("tcp", 45, 45, "0.0.0.0/0"),
-			network.MustNewIngressRule("tcp", 80, 100, "0.0.0.0/0"),
-			network.MustNewIngressRule("udp", 67, 67, "0.0.0.0/0"),
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR),
 		},
 	)
 
@@ -388,13 +389,13 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	oldRules, err := fwInst2.IngressRules(t.ProviderCallContext, "2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = fwInst2.OpenPorts(t.ProviderCallContext,
-		"2", []network.IngressRule{
-			network.MustNewIngressRule("tcp", 45, 45),
+		"2", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	err = fwInst2.OpenPorts(t.ProviderCallContext,
-		"2", []network.IngressRule{
-			network.MustNewIngressRule("tcp", 20, 30),
+		"2", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp")),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
@@ -403,27 +404,27 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 
 	// Check that opening the same port again and another port is ok.
 	err = fwInst2.OpenPorts(t.ProviderCallContext,
-		"2", []network.IngressRule{
-			network.MustNewIngressRule("tcp", 45, 45),
-			network.MustNewIngressRule("tcp", 99, 99),
+		"2", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
-		[]network.IngressRule{
-			network.MustNewIngressRule("tcp", 20, 30, "0.0.0.0/0"),
-			network.MustNewIngressRule("tcp", 45, 45, "0.0.0.0/0"),
-			network.MustNewIngressRule("tcp", 89, 89, "0.0.0.0/0"),
-			network.MustNewIngressRule("tcp", 99, 99, "0.0.0.0/0"),
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("99/tcp"), firewall.AllNetworksIPV4CIDR),
 		},
 	)
 	err = fwInst2.ClosePorts(t.ProviderCallContext,
-		"2", []network.IngressRule{
-			network.MustNewIngressRule("tcp", 45, 45),
-			network.MustNewIngressRule("tcp", 99, 99),
-			network.MustNewIngressRule("tcp", 20, 30),
+		"2", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp")),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -432,27 +433,27 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
-		[]network.IngressRule{
-			network.MustNewIngressRule("tcp", 89, 89, "0.0.0.0/0"),
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
 		},
 	)
 	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
-		[]network.IngressRule{
-			network.MustNewIngressRule("tcp", 45, 45, "0.0.0.0/0"),
-			network.MustNewIngressRule("tcp", 80, 100, "0.0.0.0/0"),
-			network.MustNewIngressRule("udp", 67, 67, "0.0.0.0/0"),
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR),
 		},
 	)
 
 	// Check that we can close multiple ports.
 	err = fwInst1.ClosePorts(t.ProviderCallContext,
-		"1", []network.IngressRule{
-			network.MustNewIngressRule("tcp", 45, 45),
-			network.MustNewIngressRule("udp", 67, 67),
-			network.MustNewIngressRule("tcp", 80, 100),
+		"1", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
+			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp")),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
@@ -461,28 +462,28 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 
 	// Check that we can close ports that aren't there.
 	err = fwInst2.ClosePorts(t.ProviderCallContext,
-		"2", []network.IngressRule{
-			network.MustNewIngressRule("tcp", 111, 111),
-			network.MustNewIngressRule("udp", 222, 222),
-			network.MustNewIngressRule("tcp", 600, 700),
+		"2", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("111/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("222/udp")),
+			firewall.NewIngressRule(network.MustParsePortRange("600-700/tcp")),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
-		[]network.IngressRule{
-			network.MustNewIngressRule("tcp", 89, 89, "0.0.0.0/0"),
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
 		},
 	)
 
 	// Check errors when acting on environment.
 	fwEnv, ok := t.Env.(environs.Firewaller)
 	c.Assert(ok, gc.Equals, true)
-	err = fwEnv.OpenPorts(t.ProviderCallContext, []network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)})
+	err = fwEnv.OpenPorts(t.ProviderCallContext, firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for opening ports on model`)
 
-	err = fwEnv.ClosePorts(t.ProviderCallContext, []network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)})
+	err = fwEnv.ClosePorts(t.ProviderCallContext, firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for closing ports on model`)
 
 	_, err = fwEnv.IngressRules(t.ProviderCallContext)
@@ -524,12 +525,12 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	defer t.Env.StopInstances(t.ProviderCallContext, inst2.Id())
 
 	err = fwEnv.OpenPorts(t.ProviderCallContext,
-		[]network.IngressRule{
-			network.MustNewIngressRule("udp", 67, 67),
-			network.MustNewIngressRule("tcp", 45, 45),
-			network.MustNewIngressRule("tcp", 89, 89),
-			network.MustNewIngressRule("tcp", 99, 99),
-			network.MustNewIngressRule("tcp", 100, 110),
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp")),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -537,20 +538,20 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
-		[]network.IngressRule{
-			network.MustNewIngressRule("tcp", 45, 45, "0.0.0.0/0"),
-			network.MustNewIngressRule("tcp", 89, 89, "0.0.0.0/0"),
-			network.MustNewIngressRule("tcp", 99, 99, "0.0.0.0/0"),
-			network.MustNewIngressRule("tcp", 100, 110, "0.0.0.0/0"),
-			network.MustNewIngressRule("udp", 67, 67, "0.0.0.0/0"),
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("99/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR),
 		},
 	)
 
 	// Check closing some ports.
 	err = fwEnv.ClosePorts(t.ProviderCallContext,
-		[]network.IngressRule{
-			network.MustNewIngressRule("tcp", 99, 99),
-			network.MustNewIngressRule("udp", 67, 67),
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -558,19 +559,19 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
-		[]network.IngressRule{
-			network.MustNewIngressRule("tcp", 45, 45, "0.0.0.0/0"),
-			network.MustNewIngressRule("tcp", 89, 89, "0.0.0.0/0"),
-			network.MustNewIngressRule("tcp", 100, 110, "0.0.0.0/0"),
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR),
 		},
 	)
 
 	// Check that we can close ports that aren't there.
 	err = fwEnv.ClosePorts(t.ProviderCallContext,
-		[]network.IngressRule{
-			network.MustNewIngressRule("tcp", 111, 111),
-			network.MustNewIngressRule("udp", 222, 222),
-			network.MustNewIngressRule("tcp", 2000, 2500),
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("111/tcp")),
+			firewall.NewIngressRule(network.MustParsePortRange("222/udp")),
+			firewall.NewIngressRule(network.MustParsePortRange("2000-2500/tcp")),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -578,10 +579,10 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
-		[]network.IngressRule{
-			network.MustNewIngressRule("tcp", 45, 45, "0.0.0.0/0"),
-			network.MustNewIngressRule("tcp", 89, 89, "0.0.0.0/0"),
-			network.MustNewIngressRule("tcp", 100, 110, "0.0.0.0/0"),
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR),
 		},
 	)
 
@@ -589,11 +590,11 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 	// Check errors when acting on instances.
 	err = fwInst1.OpenPorts(t.ProviderCallContext,
-		"1", []network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)})
+		"1", firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for opening ports on instance`)
 
 	err = fwInst1.ClosePorts(t.ProviderCallContext,
-		"1", []network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)})
+		"1", firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for closing ports on instance`)
 
 	_, err = fwInst1.IngressRules(t.ProviderCallContext, "1")

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"google.golang.org/api/compute/v1"
 
-	"github.com/juju/juju/network"
+	corefirewall "github.com/juju/juju/core/network/firewall"
 )
 
 // FirewallRules collects the firewall rules for the given name
@@ -34,7 +34,7 @@ func (gce Connection) firewallRules(fwname string) (ruleSet, error) {
 // IngressRules build a list of all open port ranges for a given firewall name
 // (within the Connection's project) and returns it. If the firewall
 // does not exist then the list will be empty and no error is returned.
-func (gce Connection) IngressRules(fwname string) ([]network.IngressRule, error) {
+func (gce Connection) IngressRules(fwname string) (corefirewall.IngressRules, error) {
 	ruleset, err := gce.firewallRules(fwname)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -47,8 +47,8 @@ func (gce Connection) IngressRules(fwname string) ([]network.IngressRule, error)
 // ingress rules. If a rule matching a set of source ranges doesn't
 // already exist, it will be created - the name will be made unique
 // using a random suffix.
-func (gce Connection) OpenPorts(target string, rules ...network.IngressRule) error {
-	return errors.Trace(gce.OpenPortsWithNamer(target, RandomSuffixNamer, rules...))
+func (gce Connection) OpenPorts(target string, rules corefirewall.IngressRules) error {
+	return errors.Trace(gce.OpenPortsWithNamer(target, RandomSuffixNamer, rules))
 }
 
 // FirewallNamer generates a unique name for a firewall given the firewall, a
@@ -59,7 +59,7 @@ type FirewallNamer func(fw *firewall, prefix string, existingNames set.Strings) 
 // as OpenPorts, but uses the FirewallNamer passed in to generate the
 // firewall name - this is mostly useful for getting predictable
 // results in tests.
-func (gce Connection) OpenPortsWithNamer(target string, namer FirewallNamer, rules ...network.IngressRule) error {
+func (gce Connection) OpenPortsWithNamer(target string, namer FirewallNamer, rules corefirewall.IngressRules) error {
 	if len(rules) == 0 {
 		return nil
 	}
@@ -70,7 +70,7 @@ func (gce Connection) OpenPortsWithNamer(target string, namer FirewallNamer, rul
 		return errors.Trace(err)
 	}
 	// From the input rules, compose the firewall specs we want to add.
-	inputRuleSet := newRuleSetFromRules(rules...)
+	inputRuleSet := newRuleSetFromRules(rules)
 
 	// For each input rule, either create a new firewall or update
 	// an existing one depending on what exists already.
@@ -156,7 +156,7 @@ func RandomSuffixNamer(fw *firewall, prefix string, existingNames set.Strings) (
 // Otherwise it will be left with just the open ports it has that do not
 // match the provided port ranges. The call blocks until the ports are
 // closed or the request fails.
-func (gce Connection) ClosePorts(target string, rules ...network.IngressRule) error {
+func (gce Connection) ClosePorts(target string, rules corefirewall.IngressRules) error {
 	// First gather the current ingress rules.
 	currentRuleSet, err := gce.firewallRules(target)
 	if err != nil {
@@ -164,7 +164,7 @@ func (gce Connection) ClosePorts(target string, rules ...network.IngressRule) er
 	}
 
 	// From the input rules, compose the firewall specs we want to add.
-	inputRuleSet := newRuleSetFromRules(rules...)
+	inputRuleSet := newRuleSetFromRules(rules)
 
 	// For each input firewall, find an existing firewall including it
 	// and update or remove it.

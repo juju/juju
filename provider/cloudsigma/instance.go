@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 )
 
 var _ instances.Instance = (*sigmaInstance)(nil)
@@ -80,20 +80,20 @@ func (i sigmaInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.P
 
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
-func (i sigmaInstance) OpenPorts(ctx context.ProviderCallContext, machineID string, ports []network.IngressRule) error {
+func (i sigmaInstance) OpenPorts(ctx context.ProviderCallContext, machineID string, ports firewall.IngressRules) error {
 	return errors.NotImplementedf("OpenPorts")
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
-func (i sigmaInstance) ClosePorts(ctx context.ProviderCallContext, machineID string, ports []network.IngressRule) error {
+func (i sigmaInstance) ClosePorts(ctx context.ProviderCallContext, machineID string, ports firewall.IngressRules) error {
 	return errors.NotImplementedf("ClosePorts")
 }
 
 // IngressRules returns the set of ports open on the instance, which
 // should have been started with the given machine id.
 // The rules are returned as sorted by SortInstanceRules.
-func (i sigmaInstance) IngressRules(ctx context.ProviderCallContext, machineID string) ([]network.IngressRule, error) {
+func (i sigmaInstance) IngressRules(ctx context.ProviderCallContext, machineID string) (firewall.IngressRules, error) {
 	return nil, errors.NotImplementedf("InstanceRules")
 }
 

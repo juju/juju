@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	ociCore "github.com/oracle/oci-go-sdk/core"
 
@@ -18,7 +19,6 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	ocicommon "github.com/juju/juju/provider/oci/common"
 )
@@ -315,9 +315,7 @@ func (o *ociInstance) refresh() error {
 
 // OpenPorts (InstanceFirewaller) ensures that the input ingress rule is
 // permitted for machine with the input ID.
-func (o *ociInstance) OpenPorts(
-	ctx envcontext.ProviderCallContext, _ string, rules []network.IngressRule,
-) error {
+func (o *ociInstance) OpenPorts(ctx envcontext.ProviderCallContext, _ string, rules firewall.IngressRules) error {
 	client, err := o.getInstanceConfigurator(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -327,9 +325,7 @@ func (o *ociInstance) OpenPorts(
 
 // OpenPorts (InstanceFirewaller) ensures that the input ingress rule is
 // restricted for machine with the input ID.
-func (o *ociInstance) ClosePorts(
-	ctx envcontext.ProviderCallContext, _ string, rules []network.IngressRule,
-) error {
+func (o *ociInstance) ClosePorts(ctx envcontext.ProviderCallContext, _ string, rules firewall.IngressRules) error {
 	client, err := o.getInstanceConfigurator(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -339,9 +335,7 @@ func (o *ociInstance) ClosePorts(
 
 // IngressRules (InstanceFirewaller) returns the ingress rules that have been
 // applied to the input machine ID.
-func (o *ociInstance) IngressRules(
-	ctx envcontext.ProviderCallContext, _ string,
-) ([]network.IngressRule, error) {
+func (o *ociInstance) IngressRules(ctx envcontext.ProviderCallContext, _ string) (firewall.IngressRules, error) {
 	client, err := o.getInstanceConfigurator(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)

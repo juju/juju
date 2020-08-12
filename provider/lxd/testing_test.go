@@ -26,14 +26,14 @@ import (
 	containerlxd "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 )
@@ -105,7 +105,7 @@ type BaseSuiteUnpatched struct {
 	Provider  *environProvider
 	Env       *environ
 
-	Addresses     corenetwork.ProviderAddresses
+	Addresses     network.ProviderAddresses
 	Instance      *environInstance
 	Container     *lxd.Container
 	InstName      string
@@ -113,7 +113,7 @@ type BaseSuiteUnpatched struct {
 	Metadata      map[string]string
 	StartInstArgs environs.StartInstanceParams
 
-	Rules          []network.IngressRule
+	Rules          firewall.IngressRules
 	EndpointAddrs  []string
 	InterfaceAddr  string
 	InterfaceAddrs []net.Addr
@@ -217,8 +217,8 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		"limits.cpu":                                             "1",
 		"limits.memory":                                          strconv.Itoa(3750 * 1024 * 1024),
 	}
-	s.Addresses = corenetwork.ProviderAddresses{
-		corenetwork.NewScopedProviderAddress("10.0.0.1", corenetwork.ScopeCloudLocal),
+	s.Addresses = network.ProviderAddresses{
+		network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
 	}
 
 	// NOTE: the instance ids used throughout this package are not at all
@@ -238,7 +238,9 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 }
 
 func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
-	s.Rules = []network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)}
+	s.Rules = firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp")),
+	}
 }
 
 func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
@@ -642,14 +644,14 @@ func (conn *StubClient) AliveContainers(prefix string) ([]lxd.Container, error) 
 	return conn.Containers, nil
 }
 
-func (conn *StubClient) ContainerAddresses(name string) ([]corenetwork.ProviderAddress, error) {
+func (conn *StubClient) ContainerAddresses(name string) ([]network.ProviderAddress, error) {
 	conn.AddCall("ContainerAddresses", name)
 	if err := conn.NextErr(); err != nil {
 		return nil, err
 	}
 
-	return corenetwork.ProviderAddresses{
-		corenetwork.NewScopedProviderAddress("10.0.0.1", corenetwork.ScopeCloudLocal),
+	return network.ProviderAddresses{
+		network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
 	}, nil
 }
 

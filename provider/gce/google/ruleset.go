@@ -14,7 +14,7 @@ import (
 	"google.golang.org/api/compute/v1"
 
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
+	corefirewall "github.com/juju/juju/core/network/firewall"
 )
 
 // ruleSet is used to manipulate port ranges for a collection of
@@ -22,7 +22,7 @@ import (
 // set of source CIDRs that are allowed for a set of port ranges.
 type ruleSet map[string]*firewall
 
-func newRuleSetFromRules(rules ...network.IngressRule) ruleSet {
+func newRuleSetFromRules(rules corefirewall.IngressRules) ruleSet {
 	result := make(ruleSet)
 	for _, rule := range rules {
 		result.addRule(rule)
@@ -30,10 +30,10 @@ func newRuleSetFromRules(rules ...network.IngressRule) ruleSet {
 	return result
 }
 
-func (rs ruleSet) addRule(rule network.IngressRule) {
-	sourceCIDRs := rule.SourceCIDRs
+func (rs ruleSet) addRule(rule corefirewall.IngressRule) {
+	sourceCIDRs := rule.SourceCIDRs.SortedValues()
 	if len(sourceCIDRs) == 0 {
-		sourceCIDRs = []string{"0.0.0.0/0"}
+		sourceCIDRs = append(sourceCIDRs, corefirewall.AllNetworksIPV4CIDR)
 	}
 	key := sourcecidrs(sourceCIDRs).key()
 	fw, ok := rs[key]
@@ -45,7 +45,7 @@ func (rs ruleSet) addRule(rule network.IngressRule) {
 		rs[key] = fw
 	}
 	ports := fw.AllowedPorts
-	ports[rule.Protocol] = append(ports[rule.Protocol], rule.PortRange)
+	ports[rule.PortRange.Protocol] = append(ports[rule.PortRange.Protocol], rule.PortRange)
 }
 
 func newRuleSetFromFirewalls(firewalls ...*compute.Firewall) (ruleSet, error) {
@@ -126,16 +126,15 @@ func (rs ruleSet) matchSourceCIDRs(cidrs []string) (*firewall, bool) {
 // name information, so these ingress rules can't be directly related
 // back to the firewall rules they came from (except by matching
 // source CIDRs and ports).
-func (rs ruleSet) toIngressRules() ([]network.IngressRule, error) {
-	var results []network.IngressRule
+func (rs ruleSet) toIngressRules() (corefirewall.IngressRules, error) {
+	var results corefirewall.IngressRules
 	for _, fw := range rs {
-		rules, err := fw.toIngressRules()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		results = append(results, rules...)
+		results = append(results, fw.toIngressRules()...)
 	}
-	network.SortIngressRules(results)
+	if err := results.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	results.Sort()
 	return results, nil
 }
 
@@ -176,18 +175,14 @@ type firewall struct {
 	AllowedPorts protocolPorts
 }
 
-func (fw *firewall) toIngressRules() ([]network.IngressRule, error) {
-	var results []network.IngressRule
+func (fw *firewall) toIngressRules() corefirewall.IngressRules {
+	var results corefirewall.IngressRules
 	for _, portRanges := range fw.AllowedPorts {
 		for _, p := range portRanges {
-			rule, err := network.NewIngressRule(p.Protocol, p.FromPort, p.ToPort, fw.SourceCIDRs...)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			results = append(results, rule)
+			results = append(results, corefirewall.NewIngressRule(p, fw.SourceCIDRs...))
 		}
 	}
-	return results, nil
+	return results
 }
 
 // protocolPorts maps a protocol eg "tcp" to a collection of

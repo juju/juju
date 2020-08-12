@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce/google"
 )
 
@@ -72,31 +72,31 @@ func findInst(id instance.Id, instances []instances.Instance) instances.Instance
 
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) OpenPorts(ctx context.ProviderCallContext, machineID string, rules []network.IngressRule) error {
+func (inst *environInstance) OpenPorts(ctx context.ProviderCallContext, machineID string, rules firewall.IngressRules) error {
 	// TODO(ericsnow) Make sure machineId matches inst.Id()?
 	name, err := inst.env.namespace.Hostname(machineID)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = inst.env.gce.OpenPorts(name, rules...)
+	err = inst.env.gce.OpenPorts(name, rules)
 	return google.HandleCredentialError(errors.Trace(err), ctx)
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) ClosePorts(ctx context.ProviderCallContext, machineID string, rules []network.IngressRule) error {
+func (inst *environInstance) ClosePorts(ctx context.ProviderCallContext, machineID string, rules firewall.IngressRules) error {
 	name, err := inst.env.namespace.Hostname(machineID)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = inst.env.gce.ClosePorts(name, rules...)
+	err = inst.env.gce.ClosePorts(name, rules)
 	return google.HandleCredentialError(errors.Trace(err), ctx)
 }
 
 // IngressRules returns the set of ingress rules applicable to the instance, which
 // should have been started with the given machine id.
 // The rules are returned as sorted by SortIngressRules.
-func (inst *environInstance) IngressRules(ctx context.ProviderCallContext, machineID string) ([]network.IngressRule, error) {
+func (inst *environInstance) IngressRules(ctx context.ProviderCallContext, machineID string) (firewall.IngressRules, error) {
 	name, err := inst.env.namespace.Hostname(machineID)
 	if err != nil {
 		return nil, errors.Trace(err)
