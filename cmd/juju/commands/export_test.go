@@ -55,13 +55,18 @@ func NewSSHContainer(
 	cloudCredentialAPI CloudCredentialAPI,
 	modelAPI ModelAPI,
 	applicationAPI ApplicationAPI,
-	execClientGetter func(string, cloudspec.CloudSpec) (k8sexec.Executor, error),
+	execClient k8sexec.Executor,
+	remote bool,
 ) SSHContainerInterfaceForTest {
 	return &sshContainer{
 		modelUUID:          modelUUID,
 		cloudCredentialAPI: cloudCredentialAPI,
 		modelAPI:           modelAPI,
 		applicationAPI:     applicationAPI,
-		execClientGetter:   execClientGetter,
+		execClient:         execClient,
+		execClientGetter: func(string, cloudspec.CloudSpec) (k8sexec.Executor, error) {
+			return execClient, nil
+		},
+		remote: remote,
 	}
 }

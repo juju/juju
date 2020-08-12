@@ -15,10 +15,9 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/service"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/worker/upgradeseries Facade,Logger,AgentService,ServiceAccess,Upgrader
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/worker/upgradeseries Facade,UnitDiscovery,Upgrader
 
 var hostSeries = series.HostSeries
 
@@ -30,6 +29,12 @@ type Logger interface {
 	Errorf(message string, args ...interface{})
 }
 
+// UnitDiscovery represents how the worker determines which units need
+// to check in.
+type UnitDiscovery interface {
+	Units() ([]names.UnitTag, error)
+}
+
 // Config is the configuration needed to construct an UpgradeSeries worker.
 type Config struct {
 	// Facade is used to access back-end state.
@@ -38,8 +43,9 @@ type Config struct {
 	// Logger is the logger for this worker.
 	Logger Logger
 
-	// ServiceAccess provides access to the local init system.
-	Service ServiceAccess
+	// UnitDiscovery determines how the worker knows which units should
+	// be running on the machine.
+	UnitDiscovery UnitDiscovery
 
 	// UpgraderFactory is a factory method that will return an upgrader capable
 	// of handling service and agent binary manipulation for a
@@ -55,8 +61,11 @@ func (config Config) Validate() error {
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
 	}
-	if config.Service == nil {
-		return errors.NotValidf("nil Service")
+	if config.UnitDiscovery == nil {
+		return errors.NotValidf("nil UnitDiscovery")
+	}
+	if config.UpgraderFactory == nil {
+		return errors.NotValidf("nil UpgraderFactory")
 	}
 	return nil
 }
@@ -72,12 +81,13 @@ type upgradeSeriesWorker struct {
 
 	catacomb        catacomb.Catacomb
 	logger          Logger
-	service         ServiceAccess
+	unitDiscovery   UnitDiscovery
 	upgraderFactory func(string, string) (Upgrader, error)
 
 	// Some local state retained for reporting purposes.
 	mu             sync.Mutex
 	machineStatus  model.UpgradeSeriesStatus
+	units          names.Set
 	preparedUnits  []names.UnitTag
 	completedUnits []names.UnitTag
 
@@ -98,7 +108,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	w := &upgradeSeriesWorker{
 		Facade:          config.Facade,
 		logger:          config.Logger,
-		service:         config.Service,
+		unitDiscovery:   config.UnitDiscovery,
 		upgraderFactory: config.UpgraderFactory,
 		machineStatus:   model.UpgradeSeriesNotStarted,
 		leadersPinned:   false,
@@ -158,6 +168,15 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 	}
 	w.logger.Infof("machine series upgrade status is %q", w.machineStatus)
 
+	// Determine the set of units that are on the machine.
+	if w.units == nil {
+		units, err := w.unitDiscovery.Units()
+		if err != nil {
+			return errors.Annotate(err, "unit discovery")
+		}
+		w.units = names.NewSet(asGenericTags(units)...)
+	}
+
 	switch w.machineStatus {
 	case model.UpgradeSeriesPrepareStarted:
 		err = w.handlePrepareStarted()
@@ -193,15 +212,15 @@ func (w *upgradeSeriesWorker) handlePrepareStarted() error {
 		return errors.Trace(err)
 	}
 
-	unitServices, allConfirmed, err := w.compareUnitAgentServices(w.preparedUnits)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !allConfirmed {
-		w.logger.Debugf(
-			"waiting for units to complete series upgrade preparation; known unit agent services: %s",
-			unitNames(unitServices),
-		)
+	// If not all the units have checked in, we are still preparing.
+	prepared := names.NewSet(asGenericTags(w.preparedUnits)...)
+	if remaining := w.units.Difference(prepared); remaining.Size() > 0 {
+		// Not done yet.
+		var names []string
+		for _, tag := range remaining.SortedValues() {
+			names = append(names, tag.Id())
+		}
+		w.logger.Debugf("waiting for units: %s", strings.Join(names, ","))
 		return nil
 	}
 
@@ -252,21 +271,10 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 		return errors.Trace(err)
 	}
 
-	// If the units are still all in the "PrepareComplete" state, then the
-	// manual tasks have been run and an operator has executed the
-	// upgrade-series completion command; start all the unit agents,
-	// and progress the workflow.
-	unitServices, allConfirmed, err := w.compareUnitAgentServices(w.preparedUnits)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	servicesPresent := len(unitServices) > 0
-
-	// allConfirmed returns true when there are no units, so we only need this
-	// transition when there are services to start.
-	// If there are none, just proceed to the completed stage.
-	if allConfirmed && servicesPresent {
-		return errors.Trace(w.transitionUnitsStarted(unitServices))
+	// If all the units are prepared, tell them to start.
+	prepared := names.NewSet(asGenericTags(w.preparedUnits)...)
+	if remaining := w.units.Difference(prepared); remaining.Size() == 0 && len(w.units) > 0 {
+		return errors.Trace(w.StartUnitCompletion("start units after series upgrade"))
 	}
 
 	// If the units have all completed their workflow, then we are done.
@@ -275,46 +283,20 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 		return errors.Trace(err)
 	}
 
-	_, allConfirmed, err = w.compareUnitAgentServices(w.completedUnits)
-	if err != nil {
-		return errors.Trace(err)
+	// If not all the units have checked in, we are still preparing.
+	completed := names.NewSet(asGenericTags(w.completedUnits)...)
+	if remaining := w.units.Difference(completed); remaining.Size() > 0 {
+		// Not done yet.
+		var names []string
+		for _, tag := range remaining.SortedValues() {
+			names = append(names, tag.Id())
+		}
+		w.logger.Debugf("waiting for units: %s", strings.Join(names, ","))
+		return nil
 	}
 
-	if allConfirmed {
-		w.logger.Infof("series upgrade complete")
-		return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesCompleted, "series upgrade complete"))
-	}
-
-	return nil
-}
-
-// transitionUnitsStarted iterates over units managed by this machine. Starts
-// the unit's agent service, and transitions all unit subordinate statuses.
-func (w *upgradeSeriesWorker) transitionUnitsStarted(unitServices map[string]string) error {
-	w.logger.Infof("ensuring units are up after series upgrade")
-
-	if err := w.SetInstanceStatus(model.UpgradeSeriesCompleteStarted, "starting unit agents"); err != nil {
-		return errors.Trace(err)
-	}
-
-	for unit, serviceName := range unitServices {
-		svc, err := w.service.DiscoverService(serviceName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		running, err := svc.Running()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if running {
-			continue
-		}
-		if err := svc.Start(); err != nil {
-			return errors.Annotatef(err, "starting %q unit agent after series upgrade", unit)
-		}
-	}
-
-	return errors.Trace(w.StartUnitCompletion("started unit agents after series upgrade"))
+	w.logger.Infof("series upgrade complete")
+	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesCompleted, "series upgrade complete"))
 }
 
 // handleCompleted notifies the server that it has completed the upgrade
@@ -336,33 +318,6 @@ func (w *upgradeSeriesWorker) handleCompleted() error {
 	}
 
 	return errors.Trace(w.SetInstanceStatus(model.UpgradeSeriesCompleted, "success"))
-}
-
-// compareUnitsAgentServices filters the services running on the local machine
-// to those that are for unit agents.
-// The service names keyed by unit names are returned, along with a boolean
-// indicating whether all the input unit tags are represented in the
-// service map.
-// NOTE: No unit tags and no agent services returns true, meaning that the
-// workflow can progress.
-func (w *upgradeSeriesWorker) compareUnitAgentServices(units []names.UnitTag) (map[string]string, bool, error) {
-	unitServices, err := w.unitServices()
-	if err != nil {
-		return nil, false, errors.Trace(err)
-	}
-	if len(unitServices) == 0 {
-		w.logger.Debugf("no unit agent services found")
-	}
-	if len(units) != len(unitServices) {
-		return unitServices, false, nil
-	}
-
-	for _, u := range units {
-		if _, ok := unitServices[u.Id()]; !ok {
-			return unitServices, false, nil
-		}
-	}
-	return unitServices, true, nil
 }
 
 // pinLeaders pins leadership for applications
@@ -433,16 +388,6 @@ func (w *upgradeSeriesWorker) unpinLeaders() error {
 	return errors.Trace(lastErr)
 }
 
-// Unit services returns a map of unit agent service names,
-// keyed on their unit IDs.
-func (w *upgradeSeriesWorker) unitServices() (map[string]string, error) {
-	services, err := w.service.ListServices()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return service.FindUnitServiceNames(services), nil
-}
-
 // Report (worker.Reporter) generates a report for the Juju engine.
 func (w *upgradeSeriesWorker) Report() map[string]interface{} {
 	w.mu.Lock()
@@ -486,14 +431,10 @@ func (w *upgradeSeriesWorker) Stop() error {
 	return w.Wait()
 }
 
-// unitNames returns a comma-delimited string of unit names based on the input
-// map of unit agent services.
-func unitNames(units map[string]string) string {
-	unitIds := make([]string, len(units))
-	i := 0
-	for u := range units {
-		unitIds[i] = u
-		i++
+func asGenericTags(units []names.UnitTag) []names.Tag {
+	result := make([]names.Tag, len(units))
+	for i, tag := range units {
+		result[i] = tag
 	}
-	return strings.Join(unitIds, ", ")
+	return result
 }

@@ -14,7 +14,6 @@ import (
 
 func newDebugCodeCommand(hostChecker ssh.ReachableChecker) cmd.Command {
 	c := new(debugCodeCommand)
-	c.getActionAPI = c.debugHooksCommand.newActionsAPI
 	c.hostChecker = hostChecker
 	return modelcmd.Wrap(c)
 }
@@ -62,5 +61,9 @@ func (c *debugCodeCommand) SetFlags(f *gnuflag.FlagSet) {
 // and connects to it via SSH to execute the debug-hooks
 // script.
 func (c *debugCodeCommand) Run(ctx *cmd.Context) error {
+	if err := c.initAPIs(); err != nil {
+		return err
+	}
+	defer c.closeAPIs()
 	return c.commonRun(ctx, c.provider.getTarget(), c.hooks, c.debugAt)
 }

@@ -16,6 +16,7 @@ import (
 	apicloud "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -40,6 +41,7 @@ type sshContainer struct {
 	modelAPI           ModelAPI
 	applicationAPI     ApplicationAPI
 	execClientGetter   func(string, cloudspec.CloudSpec) (k8sexec.Executor, error)
+	execClient         k8sexec.Executor
 }
 
 // CloudCredentialAPI defines cloud credential related APIs.
@@ -63,7 +65,9 @@ type ModelAPI interface {
 }
 
 // SetFlags sets up options and flags for the command.
-func (c *sshContainer) SetFlags(f *gnuflag.FlagSet) {}
+func (c *sshContainer) SetFlags(f *gnuflag.FlagSet) {
+	f.BoolVar(&c.remote, "remote", false, "Target on the workload or operator pod (k8s-only)")
+}
 
 func (c *sshContainer) setHostChecker(checker jujussh.ReachableChecker) {}
 
@@ -89,7 +93,7 @@ func (c *sshContainer) setArgs(args []string) {
 
 // initRun initializes the API connection if required. It must be called
 // at the top of the command's Run method.
-func (c *sshContainer) initRun(mc modelcmd.ModelCommandBase) error {
+func (c *sshContainer) initRun(mc modelcmd.ModelCommandBase) (err error) {
 	if len(c.modelUUID) == 0 {
 		_, mDetails, err := mc.ModelDetails()
 		if err != nil {
@@ -110,6 +114,11 @@ func (c *sshContainer) initRun(mc modelcmd.ModelCommandBase) error {
 	if c.execClientGetter == nil {
 		c.execClientGetter = k8sexec.NewForJujuCloudSpec
 	}
+	if c.execClient == nil {
+		if c.execClient, err = c.getExecClient(); err != nil {
+			return errors.Trace(err)
+		}
+	}
 
 	if c.applicationAPI == nil {
 		root, err := mc.NewAPIRoot()
@@ -124,18 +133,21 @@ func (c *sshContainer) initRun(mc modelcmd.ModelCommandBase) error {
 // cleanupRun closes API connections.
 func (c *sshContainer) cleanupRun() {
 	if c.cloudCredentialAPI != nil {
-		c.cloudCredentialAPI.Close()
+		_ = c.cloudCredentialAPI.Close()
 		c.cloudCredentialAPI = nil
 	}
 	if c.modelAPI != nil {
-		c.modelAPI.Close()
+		_ = c.modelAPI.Close()
 		c.modelAPI = nil
 	}
 	if c.execClientGetter != nil {
 		c.execClientGetter = nil
 	}
+	if c.execClient != nil {
+		c.execClient = nil
+	}
 	if c.applicationAPI != nil {
-		c.applicationAPI.Close()
+		_ = c.applicationAPI.Close()
 		c.applicationAPI = nil
 	}
 }
@@ -145,18 +157,37 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 		return nil, errors.Errorf("invalid unit name %q", target)
 	}
 	unitTag := names.NewUnitTag(target)
-	results, err := c.applicationAPI.UnitsInfo([]names.UnitTag{unitTag})
-	if err != nil {
-		return nil, errors.Trace(err)
+	var providerID string
+	if !c.remote {
+		appName, err := names.UnitApplication(unitTag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// We don't want to introduce CaaS broker here, but only use exec client.
+		podAPI := c.execClient.RawClient().CoreV1().Pods(c.execClient.NameSpace())
+		if providerID, err = k8sprovider.GetOperatorPodName(podAPI, appName); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(providerID) == 0 {
+			return nil, errors.New(fmt.Sprintf("operator pod for unit %q is not ready yet", unitTag.Id()))
+		}
+	} else {
+		results, err := c.applicationAPI.UnitsInfo([]names.UnitTag{unitTag})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		unit := results[0]
+		if unit.Error != nil {
+			return nil, errors.Annotatef(unit.Error, "getting unit %q", target)
+		}
+		if len(unit.ProviderId) == 0 {
+			return nil, errors.New(fmt.Sprintf("container for unit %q is not ready yet", unitTag.Id()))
+		}
+		providerID = unit.ProviderId
 	}
-	unit := results[0]
-	if unit.Error != nil {
-		return nil, errors.Annotatef(unit.Error, "getting unit %q", target)
-	}
-	if len(unit.ProviderId) == 0 {
-		return nil, errors.New(fmt.Sprintf("container for unit %q is not ready yet", unitTag.Id()))
-	}
-	return &resolvedTarget{entity: unit.ProviderId}, nil
+	return &resolvedTarget{
+		entity: providerID,
+	}, nil
 }
 
 // Context defines methods for command context.
@@ -169,10 +200,6 @@ type Context interface {
 }
 
 func (c *sshContainer) ssh(ctx Context, enablePty bool, target *resolvedTarget) (err error) {
-	execClient, err := c.getExecClient()
-	if err != nil {
-		return err
-	}
 	ch := make(chan os.Signal, 1)
 	defer close(ch)
 	cancel := make(chan struct{})
@@ -189,7 +216,7 @@ func (c *sshContainer) ssh(ctx Context, enablePty bool, target *resolvedTarget) 
 	if len(args) == 0 {
 		args = []string{"sh"}
 	}
-	return execClient.Exec(
+	return c.execClient.Exec(
 		k8sexec.ExecParams{
 			PodName:  target.entity,
 			Commands: args,
@@ -217,6 +244,9 @@ func (c *sshContainer) getExecClient() (k8sexec.Executor, error) {
 		return nil, errors.Annotatef(mInfo.Error, "getting model information")
 	}
 	credentialTag, err := names.ParseCloudCredentialTag(mInfo.Result.CloudCredentialTag)
+	if err != nil {
+		return nil, err
+	}
 	remoteContents, err := c.cloudCredentialAPI.CredentialContents(credentialTag.Cloud().Id(), credentialTag.Name(), true)
 	if err != nil {
 		return nil, err

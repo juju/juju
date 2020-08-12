@@ -5,9 +5,8 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockProviderIDGetter is a mock of ProviderIDGetter interface
@@ -35,6 +34,7 @@ func (m *MockProviderIDGetter) EXPECT() *MockProviderIDGetterMockRecorder {
 
 // Name mocks base method
 func (m *MockProviderIDGetter) Name() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Name")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -42,11 +42,13 @@ func (m *MockProviderIDGetter) Name() string {
 
 // Name indicates an expected call of Name
 func (mr *MockProviderIDGetterMockRecorder) Name() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockProviderIDGetter)(nil).Name))
 }
 
 // ProviderID mocks base method
 func (m *MockProviderIDGetter) ProviderID() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProviderID")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -54,11 +56,13 @@ func (m *MockProviderIDGetter) ProviderID() string {
 
 // ProviderID indicates an expected call of ProviderID
 func (mr *MockProviderIDGetterMockRecorder) ProviderID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProviderID", reflect.TypeOf((*MockProviderIDGetter)(nil).ProviderID))
 }
 
 // Refresh mocks base method
 func (m *MockProviderIDGetter) Refresh() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Refresh")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -66,5 +70,6 @@ func (m *MockProviderIDGetter) Refresh() error {
 
 // Refresh indicates an expected call of Refresh
 func (mr *MockProviderIDGetterMockRecorder) Refresh() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockProviderIDGetter)(nil).Refresh))
 }

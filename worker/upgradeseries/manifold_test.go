@@ -144,6 +144,10 @@ func (*dummyConfig) Tag() names.Tag {
 	return names.NewMachineTag("666")
 }
 
+func (*dummyConfig) DataDir() string {
+	return "/unused"
+}
+
 func newStubContext() *dt.Context {
 	return dt.StubContext(nil, map[string]interface{}{
 		"agent-name":      &dummyAgent{},

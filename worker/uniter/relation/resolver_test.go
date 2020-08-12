@@ -746,8 +746,9 @@ func (s *relationResolverSuite) TestHookRelationBrokenOnlyOnce(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(mockOp.hookInfo.Kind, gc.Equals, hooks.RelationBroken)
 	err = r.CommitHook(mockOp.hookInfo)
+	c.Assert(err, jc.ErrorIsNil)
 
-	op, err = relationsResolver.NextOp(localState, remoteState, &mockOperations{})
+	_, err = relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(errors.Cause(err), gc.Equals, resolver.ErrNoOperation)
 }
 

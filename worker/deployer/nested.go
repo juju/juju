@@ -13,18 +13,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
-	"github.com/juju/utils/arch"
-	"github.com/juju/version"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/tools"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	message "github.com/juju/juju/pubsub/agent"
-	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 )
 
@@ -308,32 +303,6 @@ func (c *nestedContext) DeployUnit(unitName, initialPassword string) error {
 		return errors.Trace(err)
 	}
 
-	// Create a symlink for the unit "agent" binaries.
-	// This is used because the uniter is still using the tools directory
-	// for the unit agent for creating the jujuc symlinks.
-	c.logger.Tracef("creating symlink for %q to tools directory for jujuc", unitName)
-	dataDir := c.agentConfig.DataDir()
-	hostSeries, err := series.HostSeries()
-	if err != nil {
-		// We shouldn't ever get this error, but if we do there isn't much
-		// more we can do.
-		return errors.Trace(err)
-	}
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: hostSeries,
-	}
-	toolsDir := tools.ToolsDir(dataDir, tag.String())
-	defer removeOnErr(&err, c.logger, toolsDir)
-	_, err = tools.ChangeAgentTools(dataDir, tag.String(), current)
-	if err != nil {
-		// Any error here is indicative of a disk issue, potentially out of
-		// space or inodes. Either way, bouncing the deployer and having the
-		// exponential backoff enter play is the right decision.
-		return errors.Trace(err)
-	}
-
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.logger.Tracef("starting the unit workers for %q", unitName)
@@ -371,7 +340,7 @@ func (c *nestedContext) startUnitWorkers(unitName string) error {
 	if !ok {
 		return errors.NotFoundf("unit %q", unitName)
 	}
-	if agent.running {
+	if agent.running() {
 		c.logger.Infof("unit workers for %q are already running", unitName)
 		return nil
 	}
@@ -387,7 +356,7 @@ func (c *nestedContext) stopUnitWorkers(unitName string) error {
 	if !ok {
 		return errors.NotFoundf("unit %q", unitName)
 	}
-	if !agent.running {
+	if !agent.running() {
 		c.logger.Infof("unit workers for %q not running", unitName)
 		return nil
 	}
@@ -396,7 +365,6 @@ func (c *nestedContext) stopUnitWorkers(unitName string) error {
 		// In that case, it is fine to return errors back to the deployer worker.
 		return errors.Annotatef(err, "unable to stop workers for %q", unitName)
 	}
-	agent.running = false
 	return nil
 }
 

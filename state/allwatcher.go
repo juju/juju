@@ -551,7 +551,7 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		info.OpenPortRangesByEndpoint = unitPortRangesByEndpoint
+		info.OpenPortRangesByEndpoint = unitPortRangesByEndpoint.Clone()
 		if modelType == ModelTypeCAAS {
 			containerStatus, err := ctx.getStatus(globalCloudContainerKey(u.Name), "cloud container")
 			if err == nil {
@@ -1499,7 +1499,7 @@ func updateUnitPorts(ctx *allWatcherContext, u *Unit) error {
 			return errors.Trace(err)
 		}
 		unitInfo := *oldInfo
-		unitInfo.OpenPortRangesByEndpoint = unitPortRangesByEndpoint
+		unitInfo.OpenPortRangesByEndpoint = unitPortRangesByEndpoint.Clone()
 		ctx.store.Update(&unitInfo)
 	default:
 		return nil
@@ -2137,13 +2137,13 @@ func (ctx *allWatcherContext) permissionsForModel(uuid string) (map[string]permi
 	return result, nil
 }
 
-func (ctx *allWatcherContext) getUnitPortRangesByEndpoint(unit *Unit) (map[string][]network.PortRange, error) {
+func (ctx *allWatcherContext) getUnitPortRangesByEndpoint(unit *Unit) (network.GroupedPortRanges, error) {
 	machineID, err := unit.AssignedMachineId()
 	if err != nil {
 		if errors.IsNotAssigned(err) {
 			// Not assigned, so there won't be any ports opened.
 			// Return an empty port map (see Bug #1425435).
-			return make(map[string][]network.PortRange), nil
+			return make(network.GroupedPortRanges), nil
 		}
 		return nil, errors.Trace(err)
 	}

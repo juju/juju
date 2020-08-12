@@ -4,7 +4,10 @@
 package exec
 
 import (
+	"os"
+
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/remotecommand"
 )
 
 var (
@@ -25,4 +28,27 @@ func (fr *FileResource) Validate() error {
 
 func (cp *CopyParams) Validate() error {
 	return cp.validate()
+}
+
+type SizeQueueInterface interface {
+	Next() *remotecommand.TerminalSize
+	Watch(int)
+	Stop()
+}
+
+func (s *sizeQueue) Watch(fd int) {
+	s.watch(fd)
+}
+
+func (s *sizeQueue) Stop() {
+	s.stop()
+}
+
+func NewSizeQueueForTest(resizeChan chan remotecommand.TerminalSize, getSize SizeGetter, nCh chan os.Signal) SizeQueueInterface {
+	return &sizeQueue{
+		resizeChan: resizeChan,
+		done:       make(chan struct{}),
+		getSize:    getSize,
+		nCh:        nCh,
+	}
 }

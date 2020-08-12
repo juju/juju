@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	corecharm "github.com/juju/charm/v7"
-	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 	uniterleadership "github.com/juju/juju/worker/uniter/leadership"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/reboot"
 	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
@@ -418,23 +418,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		return nil
 	}
 
-	// If the machine rebooted and the charm was previously started, inject
-	// a start hook to notify charms of the reboot. This logic only makes
-	// sense for IAAS workloads as pods in a CAAS scenario can be recycled
-	// at any time.
+	var rebootDetected bool
 	if u.modelType == model.IAAS {
-		machineRebooted, err := u.rebootQuerier.Query(unitTag)
-		if err != nil {
+		if rebootDetected, err = u.rebootQuerier.Query(unitTag); err != nil {
 			return errors.Annotatef(err, "could not check reboot status for %q", unitTag)
-		}
-		if opState.Started && machineRebooted {
-			u.logger.Infof("reboot detected; triggering implicit start hook to notify charm")
-			op, err := u.operationFactory.NewRunHook(hook.Info{Kind: hooks.Start})
-			if err != nil {
-				return errors.Trace(err)
-			} else if err = u.operationExecutor.Run(op, nil); err != nil {
-				return errors.Trace(err)
-			}
 		}
 	} else if u.modelType == model.CAAS && u.isRemoteUnit {
 		if u.containerRunningStatusChannel == nil {
@@ -465,7 +452,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				u.logger.Child("verifycharmprofile"),
 				u.modelType,
 			),
-			UpgradeSeries: upgradeseries.NewResolver(),
+			UpgradeSeries: upgradeseries.NewResolver(
+				u.logger.Child("upgradeseries"),
+			),
+			Reboot: reboot.NewResolver(u.logger, rebootDetected, u.modelType),
 			Leadership: uniterleadership.NewResolver(
 				u.logger.Child("leadership"),
 			),

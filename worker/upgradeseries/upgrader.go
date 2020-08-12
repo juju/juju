@@ -114,17 +114,9 @@ func (u *upgrader) ensureSystemdFiles() error {
 		return nil
 	}
 
-	services, links, failed, err := u.manager.WriteSystemdAgents(
-		u.machineAgent, u.unitAgents, paths.NixDataDir, systemdMultiUserDir)
-
-	if len(services) > 0 {
-		u.logger.Infof("agents written and linked by systemd: %s", strings.Join(services, ", "))
-	}
-	if len(links) > 0 {
-		u.logger.Infof("agents written and linked by symlink: %s", strings.Join(links, ", "))
-	}
-
-	return errors.Annotatef(err, "failed to write agents: %s", strings.Join(failed, ", "))
+	return errors.Annotatef(
+		u.manager.WriteSystemdAgent(u.machineAgent, paths.NixDataDir, systemdMultiUserDir),
+		"writing machine agent")
 }
 
 // ensureAgentBinaries ensures that the jujud binary and links exist in the
@@ -136,7 +128,7 @@ func (u *upgrader) ensureAgentBinaries() error {
 	// If was pass the machine-detected series for a machine upgraded outside
 	// of this workflow, the binaries will not be found.
 	if err := u.manager.CopyAgentBinary(
-		u.machineAgent, u.unitAgents, paths.NixDataDir, u.toSeries, u.jujuCurrentSeries, version.Current); err != nil {
+		u.machineAgent, paths.NixDataDir, u.toSeries, u.jujuCurrentSeries, version.Current); err != nil {
 		return errors.Trace(err)
 	}
 

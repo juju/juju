@@ -254,7 +254,7 @@ func (s *ModelSuite) TestUnitReturnsCopy(c *gc.C) {
 	m := s.NewModel(modelChange)
 
 	ch := unitChange
-	ch.OpenPortRangesByEndpoint = map[string][]network.PortRange{
+	ch.OpenPortRangesByEndpoint = network.GroupedPortRanges{
 		allEndpoints: {network.MustParsePortRange("54321/tcp")},
 	}
 

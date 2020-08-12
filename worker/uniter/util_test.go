@@ -96,6 +96,7 @@ func assertAssignUnitLXDContainer(c *gc.C, st *state.State, u *state.Unit) {
 		},
 		instance.LXD,
 	)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("i-exist", "", "fake_nonce", nil)

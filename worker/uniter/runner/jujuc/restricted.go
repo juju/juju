@@ -119,7 +119,7 @@ func (*RestrictedContext) ClosePortRange(string, network.PortRange) error {
 }
 
 // OpenedPortRanges implements hooks.Context.
-func (*RestrictedContext) OpenedPortRanges() map[string][]network.PortRange { return nil }
+func (*RestrictedContext) OpenedPortRanges() network.GroupedPortRanges { return nil }
 
 // NetworkInfo implements hooks.Context.
 func (*RestrictedContext) NetworkInfo(bindingNames []string, relationId int) (map[string]params.NetworkInfoResult, error) {

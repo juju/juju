@@ -11,6 +11,8 @@ RUN apt-get update \
     python3-yaml \
     python3-pip \
     python3-distutils \
+    # for debug-hooks.
+    tmux byobu \
     # below apt dependencies are required by controller pod.
     iproute2 \
     curl \

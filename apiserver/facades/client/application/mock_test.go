@@ -559,8 +559,8 @@ func (mockUnitPortRanges) ForEndpoint(endpointName string) []network.PortRange {
 	return nil
 }
 
-func (mockUnitPortRanges) ByEndpoint() map[string][]network.PortRange {
-	return map[string][]network.PortRange{
+func (mockUnitPortRanges) ByEndpoint() network.GroupedPortRanges {
+	return network.GroupedPortRanges{
 		"": {
 			network.MustParsePortRange("100-102/tcp"),
 		},

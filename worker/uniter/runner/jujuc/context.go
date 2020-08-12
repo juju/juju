@@ -193,7 +193,7 @@ type ContextNetworking interface {
 
 	// OpenedPortRanges returns all port ranges currently opened by this
 	// unit on its assigned machine grouped by endpoint name.
-	OpenedPortRanges() map[string][]network.PortRange
+	OpenedPortRanges() network.GroupedPortRanges
 
 	// NetworkInfo returns the network info for the given bindings on the given relation.
 	NetworkInfo(bindingNames []string, relationId int) (map[string]params.NetworkInfoResult, error)

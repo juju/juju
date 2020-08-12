@@ -8,9 +8,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/state"
@@ -186,4 +188,107 @@ func mustClosePortRanges(c *gc.C, st *state.State, u *state.Unit, endpointName s
 	}
 
 	c.Assert(st.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
+}
+
+func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
+	mockResponse := params.OpenMachinePortRangesResults{
+		Results: []params.OpenMachinePortRangesResult{
+			{
+				GroupKey: "cidr",
+				UnitPortRanges: []params.OpenUnitPortRanges{
+					{
+						UnitTag: "unit-mysql-0",
+						PortRangeGroups: map[string][]params.PortRange{
+							// The subnet CIDRs for space "42" that "foo"
+							// is bound to.
+							"192.168.0.0/24": {
+								params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
+							},
+							"192.168.1.0/24": {
+								params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
+							},
+						},
+					},
+					{
+						UnitTag: "unit-wordpress-0",
+						PortRangeGroups: map[string][]params.PortRange{
+							// Wordpress has opened port 80 to
+							// all bound spaces (alpha and 42). We should
+							// get an entry in each subnet
+							"10.0.0.0/24": {
+								params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+							},
+							"10.0.1.0/24": {
+								params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+							},
+							"192.168.0.0/24": {
+								params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+							},
+							"192.168.1.0/24": {
+								params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 6, // we need V6+ to use this API
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Assert(objType, gc.Equals, "Firewaller")
+
+			// When we access the machine, the client checks that it's alive
+			if request == "Life" {
+				c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+				*(result.(*params.LifeResults)) = params.LifeResults{
+					Results: []params.LifeResult{
+						{Life: life.Alive},
+					},
+				}
+				return nil
+			}
+
+			// This is the actual call we are testing.
+			c.Assert(request, gc.Equals, "OpenedMachinePortRanges")
+			c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: s.machines[0].MachineTag().String()}}})
+			c.Assert(result, gc.FitsTypeOf, &params.OpenMachinePortRangesResults{})
+			*(result.(*params.OpenMachinePortRangesResults)) = mockResponse
+			return nil
+		},
+	}
+
+	client, err := firewaller.NewClient(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mach, err := client.Machine(s.machines[0].MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	portsRangesByCIDR, err := mach.OpenedMachinePortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(portsRangesByCIDR, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
+		names.NewUnitTag("mysql/0"): {
+			"192.168.0.0/24": []network.PortRange{
+				network.MustParsePortRange("3306/tcp"),
+			},
+			"192.168.1.0/24": []network.PortRange{
+				network.MustParsePortRange("3306/tcp"),
+			},
+		},
+		names.NewUnitTag("wordpress/0"): {
+			"10.0.0.0/24": []network.PortRange{
+				network.MustParsePortRange("80/tcp"),
+			},
+			"10.0.1.0/24": []network.PortRange{
+				network.MustParsePortRange("80/tcp"),
+			},
+			"192.168.0.0/24": []network.PortRange{
+				network.MustParsePortRange("80/tcp"),
+			},
+			"192.168.1.0/24": []network.PortRange{
+				network.MustParsePortRange("80/tcp"),
+			},
+		},
+	})
 }

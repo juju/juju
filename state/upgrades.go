@@ -2949,6 +2949,55 @@ func ReplaceNeverSetWithUnset(pool *StatePool) (err error) {
 	}))
 }
 
+// ResetDefaultRelationLimitInCharmMetadata patches the persisted charm
+// metadata so that the limit attribute for each relation requirer/peer
+// endpoint is set to 0. The "provides" endpoints are left as-is.
+//
+// The charm metadata parser used in juju 2.7 (and before) would inject a limit
+// of 1 for each endpoint in the charm metadata (for requirer/peer relations)
+// when no limit was specified.  The limit was ignored prior to juju 2.8 so
+// this upgrade step allows us to reset the limit to prevent errors when
+// attempting to add new relations.
+//
+// Fixes LP1887095.
+func ResetDefaultRelationLimitInCharmMetadata(pool *StatePool) (err error) {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(charmsC)
+		defer closer()
+
+		var docs []charmDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, charmDoc := range docs {
+			for epName, rel := range charmDoc.Meta.Requires {
+				rel.Limit = 0
+				charmDoc.Meta.Requires[epName] = rel
+			}
+			for epName, rel := range charmDoc.Meta.Peers {
+				rel.Limit = 0
+				charmDoc.Meta.Peers[epName] = rel
+			}
+
+			ops = append(ops, txn.Op{
+				C:      charmsC,
+				Id:     charmDoc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.M{
+					"$set": bson.M{
+						"meta": charmDoc.Meta,
+					},
+				},
+			})
+		}
+
+		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}
+
 // AddCharmHubToModelConfig inserts the charm-hub-url into the model-config if
 // it's missing one.
 func AddCharmHubToModelConfig(pool *StatePool) error {
@@ -3017,7 +3066,7 @@ func RollUpAndConvertOpenedPortDocuments(pool *StatePool) error {
 					DocID:      st.docID(oldDoc.MachineID),
 					MachineID:  oldDoc.MachineID,
 					ModelUUID:  oldDoc.ModelUUID,
-					UnitRanges: make(map[string]unitPortRangesDoc),
+					UnitRanges: make(map[string]network.GroupedPortRanges),
 				}
 			}
 
@@ -3027,7 +3076,7 @@ func RollUpAndConvertOpenedPortDocuments(pool *StatePool) error {
 			// format assuming it is open for all application endpoints.
 			for _, pr := range oldDoc.Ports {
 				if newDoc.UnitRanges[pr.UnitName] == nil {
-					newDoc.UnitRanges[pr.UnitName] = make(unitPortRangesDoc)
+					newDoc.UnitRanges[pr.UnitName] = make(network.GroupedPortRanges)
 				}
 
 				newDoc.UnitRanges[pr.UnitName][allEndpoints] = append(

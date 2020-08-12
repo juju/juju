@@ -336,7 +336,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 		info: statusInfo,
 	}
 
-	var machPortRanges map[names.UnitTag]map[string][]network.PortRange
+	var machPortRanges map[names.UnitTag]network.GroupedPortRanges
 	if f.modelType == model.IAAS {
 		if machPortRanges, err = f.state.OpenedMachinePortRanges(f.machineTag); err != nil {
 			return errors.Trace(err)

@@ -11,15 +11,15 @@ import (
 )
 
 type portRangeChangeRecorder struct {
-	machinePortRanges map[names.UnitTag]map[string][]network.PortRange
+	machinePortRanges map[names.UnitTag]network.GroupedPortRanges
 
 	// The tag of the unit that the following pending open/close ranges apply to.
 	unitTag            names.UnitTag
-	pendingOpenRanges  map[string][]network.PortRange
-	pendingCloseRanges map[string][]network.PortRange
+	pendingOpenRanges  network.GroupedPortRanges
+	pendingCloseRanges network.GroupedPortRanges
 }
 
-func newPortRangeChangeRecorder(unit names.UnitTag, machinePortRanges map[names.UnitTag]map[string][]network.PortRange) *portRangeChangeRecorder {
+func newPortRangeChangeRecorder(unit names.UnitTag, machinePortRanges map[names.UnitTag]network.GroupedPortRanges) *portRangeChangeRecorder {
 	return &portRangeChangeRecorder{
 		machinePortRanges: machinePortRanges,
 		unitTag:           unit,
@@ -66,7 +66,7 @@ func (r *portRangeChangeRecorder) OpenPortRange(endpointName string, portRange n
 	}
 
 	if r.pendingOpenRanges == nil {
-		r.pendingOpenRanges = make(map[string][]network.PortRange)
+		r.pendingOpenRanges = make(network.GroupedPortRanges)
 	}
 	r.pendingOpenRanges[endpointName] = append(r.pendingOpenRanges[endpointName], portRange)
 	return nil
@@ -120,7 +120,7 @@ func (r *portRangeChangeRecorder) ClosePortRange(endpointName string, portRange 
 	}
 
 	if r.pendingCloseRanges == nil {
-		r.pendingCloseRanges = make(map[string][]network.PortRange)
+		r.pendingCloseRanges = make(network.GroupedPortRanges)
 	}
 	r.pendingCloseRanges[endpointName] = append(r.pendingCloseRanges[endpointName], portRange)
 	return nil
@@ -130,7 +130,7 @@ func (r *portRangeChangeRecorder) ClosePortRange(endpointName string, portRange 
 // does not conflict with the set of port ranges for another unit. If otherUnit
 // matches the current unit and incomingPortRange already exists in the known
 // port ranges, the method returns an AlreadyExists error.
-func (r *portRangeChangeRecorder) checkForConflict(incomingEndpoint string, incomingPortRange network.PortRange, otherUnitTag names.UnitTag, otherUnitRanges map[string][]network.PortRange, checkingAgainstPending bool) error {
+func (r *portRangeChangeRecorder) checkForConflict(incomingEndpoint string, incomingPortRange network.PortRange, otherUnitTag names.UnitTag, otherUnitRanges network.GroupedPortRanges, checkingAgainstPending bool) error {
 	for existingEndpoint, existingPortRanges := range otherUnitRanges {
 		for _, existingPortRange := range existingPortRanges {
 			if !incomingPortRange.ConflictsWith(existingPortRange) {
@@ -170,12 +170,12 @@ func (r *portRangeChangeRecorder) checkForConflict(incomingEndpoint string, inco
 
 // OpenedUnitPortRanges returns the set of port ranges currently open by the
 // current unit grouped by endpoint.
-func (r *portRangeChangeRecorder) OpenedUnitPortRanges() map[string][]network.PortRange {
+func (r *portRangeChangeRecorder) OpenedUnitPortRanges() network.GroupedPortRanges {
 	return r.machinePortRanges[r.unitTag]
 }
 
 // PendingChanges returns the set of recorded open/close port range requests
 // (grouped by endpoint mame) for the current unit.
-func (r *portRangeChangeRecorder) PendingChanges() (map[string][]network.PortRange, map[string][]network.PortRange) {
+func (r *portRangeChangeRecorder) PendingChanges() (network.GroupedPortRanges, network.GroupedPortRanges) {
 	return r.pendingOpenRanges, r.pendingCloseRanges
 }

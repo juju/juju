@@ -17699,8 +17699,8 @@
     },
     {
         "Name": "Firewaller",
-        "Description": "FirewallerAPIV5 provides access to the Firewaller v5 API facade.",
-        "Version": 5,
+        "Description": "FirewallerAPIV6 provides access to the Firewaller v6 API facade.",
+        "Version": 6,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -17871,6 +17871,18 @@
                         }
                     },
                     "description": "ModelConfig returns the current model's configuration."
+                },
+                "OpenedMachinePortRanges": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/OpenMachinePortRangesResults"
+                        }
+                    },
+                    "description": "OpenedMachinePortRanges returns a list of the opened port ranges for the\nspecified machines where each result is broken down by unit and by subnet\nCIDR."
                 },
                 "SetRelationsStatus": {
                     "type": "object",
@@ -18506,6 +18518,67 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "OpenMachinePortRangesResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "group-key": {
+                            "type": "string"
+                        },
+                        "unit-port-ranges": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/OpenUnitPortRanges"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "group-key",
+                        "unit-port-ranges"
+                    ]
+                },
+                "OpenMachinePortRangesResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/OpenMachinePortRangesResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "OpenUnitPortRanges": {
+                    "type": "object",
+                    "properties": {
+                        "port-range-groups": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/definitions/PortRange"
+                                    }
+                                }
+                            }
+                        },
+                        "unit-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "unit-tag",
+                        "port-range-groups"
                     ]
                 },
                 "PortRange": {

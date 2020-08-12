@@ -400,9 +400,12 @@ func (u *mockUnit) updateAddress(value string) {
 }
 
 type mockMachine struct {
+	firewall.Machine
+
 	testing.Stub
-	id      string
-	watcher *mockAddressWatcher
+	id       string
+	watcher  *mockAddressWatcher
+	isManual bool
 }
 
 func newMockMachine(id string) *mockMachine {

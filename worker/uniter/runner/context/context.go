@@ -706,7 +706,7 @@ func (ctx *HookContext) ClosePortRange(endpointName string, portRange network.Po
 // OpenedPortRanges returns all port ranges currently opened by this
 // unit on its assigned machine grouped by endpoint.
 // Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
-func (ctx *HookContext) OpenedPortRanges() map[string][]network.PortRange {
+func (ctx *HookContext) OpenedPortRanges() network.GroupedPortRanges {
 	return ctx.portRangeChanges.OpenedUnitPortRanges()
 }
 

@@ -479,56 +479,56 @@ func (s *introspectionSuite) setLeaseData() {
 		Version:    1,
 		GlobalTime: now,
 		Entries: map[raftlease.SnapshotKey]raftlease.SnapshotEntry{
-			raftlease.SnapshotKey{
+			{
 				Namespace: lease.SingularControllerNamespace,
 				ModelUUID: "some-uuid",
 				Lease:     "some-uuid",
-			}: raftlease.SnapshotEntry{
+			}: {
 				Holder:   "controller-0",
 				Start:    start,
 				Duration: time.Minute,
 			},
-			raftlease.SnapshotKey{
+			{
 				Namespace: lease.SingularControllerNamespace,
 				ModelUUID: "other-uuid",
 				Lease:     "other-uuid",
-			}: raftlease.SnapshotEntry{
+			}: {
 				Holder:   "controller-1",
 				Start:    start,
 				Duration: time.Minute,
 			},
-			raftlease.SnapshotKey{
+			{
 				Namespace: lease.ApplicationLeadershipNamespace,
 				ModelUUID: "some-uuid",
 				Lease:     "mysql",
-			}: raftlease.SnapshotEntry{
+			}: {
 				Holder:   "mysql/0",
 				Start:    start,
 				Duration: time.Minute,
 			},
-			raftlease.SnapshotKey{
+			{
 				Namespace: lease.ApplicationLeadershipNamespace,
 				ModelUUID: "some-uuid",
 				Lease:     "wordpress",
-			}: raftlease.SnapshotEntry{
+			}: {
 				Holder:   "wordpress/1",
 				Start:    start,
 				Duration: time.Minute,
 			},
-			raftlease.SnapshotKey{
+			{
 				Namespace: lease.ApplicationLeadershipNamespace,
 				ModelUUID: "other-uuid",
 				Lease:     "mysql",
-			}: raftlease.SnapshotEntry{
+			}: {
 				Holder:   "mysql/1",
 				Start:    start,
 				Duration: time.Minute,
 			},
-			raftlease.SnapshotKey{
+			{
 				Namespace: lease.ApplicationLeadershipNamespace,
 				ModelUUID: "other-uuid",
 				Lease:     "keystone",
-			}: raftlease.SnapshotEntry{
+			}: {
 				Holder:   "keystone/42",
 				Start:    start,
 				Duration: time.Minute,

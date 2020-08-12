@@ -14,6 +14,7 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/testing"
 	"github.com/juju/version"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -231,4 +232,14 @@ func (m *mockExecutor) Exec(params exec.ExecParams, cancel <-chan struct{}) erro
 func (m *mockExecutor) Status(params exec.StatusParams) (*exec.Status, error) {
 	m.MethodCall(m, "Status", params)
 	return &m.status, m.NextErr()
+}
+
+func (m *mockExecutor) NameSpace() string {
+	m.MethodCall(m, "NameSpace")
+	return "test"
+}
+
+func (m *mockExecutor) RawClient() kubernetes.Interface {
+	m.MethodCall(m, "RawClient")
+	return nil
 }
