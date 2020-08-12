@@ -98,7 +98,7 @@ func (s *introspectionSuite) startWorker(c *gc.C) {
 		PrometheusGatherer: s.gatherer,
 		Presence:           s.recorder,
 		Clock:              s.clock,
-		Hub:                s.hub,
+		LocalHub:           s.hub,
 		Leases:             s.leases,
 	})
 	c.Assert(err, jc.ErrorIsNil)

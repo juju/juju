@@ -47,8 +47,8 @@ type Clock interface {
 	After(time.Duration) <-chan time.Time
 }
 
-// Hub is a pubsub hub used for internal messaging.
-type Hub interface {
+// SimpleHub is a pubsub hub used for internal messaging.
+type SimpleHub interface {
 	Publish(topic string, data interface{}) <-chan struct{}
 	Subscribe(topic string, handler func(string, interface{})) func()
 }
@@ -68,7 +68,7 @@ type Config struct {
 	PrometheusGatherer prometheus.Gatherer
 	Presence           presence.Recorder
 	Clock              Clock
-	Hub                Hub
+	LocalHub           SimpleHub
 	Leases             Leases
 }
 
@@ -95,7 +95,7 @@ type socketListener struct {
 	presence           presence.Recorder
 	leases             Leases
 	clock              Clock
-	hub                Hub
+	localHub           SimpleHub
 	done               chan struct{}
 }
 
@@ -131,7 +131,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		presence:           config.Presence,
 		leases:             config.Leases,
 		clock:              config.Clock,
-		hub:                config.Hub,
+		localHub:           config.LocalHub,
 		done:               make(chan struct{}),
 	}
 	go w.serve()
@@ -202,8 +202,8 @@ func (w *socketListener) RegisterHTTPHandlers(
 		handle("/presence", presenceHandler{w.presence})
 	}
 	handle("/machinelock", machineLockHandler{w.machineLock})
-	if w.hub != nil {
-		handle("/units", unitsHandler{w.clock, w.hub, w.done})
+	if w.localHub != nil {
+		handle("/units", unitsHandler{w.clock, w.localHub, w.done})
 	}
 	handle("/leases", leaseHandler{w.leases})
 }
@@ -342,7 +342,7 @@ func (a ValueSort) Less(i, j int) bool {
 
 type unitsHandler struct {
 	clock Clock
-	hub   Hub
+	hub   SimpleHub
 	done  <-chan struct{}
 }
 
