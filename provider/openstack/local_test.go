@@ -534,7 +534,7 @@ func (s *localServerSuite) TestStartInstanceMultiNetworkFound(c *gc.C) {
 
 	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `no network provided and multiple available: .*
+	c.Assert(err, gc.ErrorMatches, `multiple networks with label .*
 	To resolve this error, set a value for "network" in model-config or model-defaults;
 	or supply it via --config when creating a new model`)
 }
@@ -700,8 +700,7 @@ func (s *localServerSuite) TestStartInstanceGetServerFail(c *gc.C) {
 	defer cleanup()
 	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "cannot run instance: (\\n|.)*"+
-		"caused by: "+
+	c.Assert(err, gc.ErrorMatches, "cannot run instance: "+
 		"request \\(.*/servers\\) returned unexpected status: "+
 		"500; error info: .*GetServer failed on purpose")
 	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
