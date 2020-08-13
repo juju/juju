@@ -250,13 +250,16 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		Revision: archive.Revision(),
 		Series:   series,
 	}
-	switch schema {
-	case "local":
+	switch charm.Schema(schema) {
+	case charm.Local:
 		curl, err = st.PrepareLocalCharmUpload(curl)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-	case "cs":
+
+	// TODO (stickupkid): Handle charmhub charms here, we essentially have the
+	// same workflow, except we won't have a user.
+	case charm.CharmStore:
 		// "cs:" charms may only be uploaded into models which are
 		// being imported during model migrations. There's currently
 		// no other time where it makes sense to accept charm store
@@ -282,7 +285,7 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 				return nil, errors.NewBadRequest(errors.NewNotValid(err, "revision"), "")
 			}
 		}
-		if _, err := st.PrepareStoreCharmUpload(curl); err != nil {
+		if _, err := st.PrepareCharmUpload(curl); err != nil {
 			return nil, errors.Trace(err)
 		}
 	default:

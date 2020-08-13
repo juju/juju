@@ -75,7 +75,7 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 	// Process the resulting info for each charm.
 	for _, info := range latest {
 		// First, add a charm placeholder to the model for each.
-		if err = api.state.AddStoreCharmPlaceholder(info.LatestURL()); err != nil {
+		if err := api.state.AddCharmPlaceholder(info.LatestURL()); err != nil {
 			return err
 		}
 
@@ -98,7 +98,7 @@ var NewCharmStoreClient = func(st *state.State) (charmstore.Client, error) {
 	if err != nil {
 		return charmstore.Client{}, errors.Trace(err)
 	}
-	return charmstore.NewCachingClient(state.MacaroonCache{st}, controllerCfg.CharmStoreURL())
+	return charmstore.NewCachingClient(state.MacaroonCache{State: st}, controllerCfg.CharmStoreURL())
 }
 
 type latestCharmInfo struct {

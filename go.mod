@@ -183,3 +183,5 @@ replace (
 	k8s.io/metrics v0.0.0 => k8s.io/metrics v0.18.6
 	k8s.io/sample-apiserver v0.0.0 => k8s.io/sample-apiserver v0.18.6
 )
+
+replace github.com/juju/charm/v7 => /home/simon/go/src/github.com/juju/charm
