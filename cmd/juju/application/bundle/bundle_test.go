@@ -4,15 +4,19 @@
 package bundle
 
 import (
-	"github.com/davecgh/go-spew/spew"
+	"io/ioutil"
+	"path/filepath"
+	"strings"
+
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
+	"github.com/juju/charm/v7"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application/bundle/mocks"
+	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 )
 
 type buildModelRepSuite struct {
@@ -37,7 +41,6 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationEmptyModel(c *gc.C) {
 
 	obtainedModel, err := BuildModelRepresentation(status, s.modelExtractor, false, machines)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("%s", spew.Sdump(obtainedModel))
 	c.Assert(obtainedModel.Applications, gc.HasLen, 0)
 	c.Assert(obtainedModel.Machines, gc.HasLen, 0)
 	c.Assert(obtainedModel.Relations, gc.HasLen, 0)
@@ -78,7 +81,6 @@ func (s *buildModelRepSuite) testBuildModelRepresentationUseExistingMachines(c *
 
 	obtainedModel, err := BuildModelRepresentation(status, s.modelExtractor, use, machines)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("%s", spew.Sdump(obtainedModel))
 	c.Assert(obtainedModel.Applications, gc.HasLen, 0)
 	c.Assert(obtainedModel.Machines, gc.HasLen, 4)
 	c.Assert(obtainedModel.Relations, gc.HasLen, 0)
@@ -125,7 +127,6 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithSubordi
 
 	obtainedModel, err := BuildModelRepresentation(status, s.modelExtractor, false, machines)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("%s", spew.Sdump(obtainedModel))
 	c.Assert(obtainedModel.Applications, gc.HasLen, 2)
 	_, ok := obtainedModel.Applications["wordpress"]
 	c.Assert(ok, jc.IsTrue)
@@ -190,15 +191,58 @@ func (s *buildModelRepSuite) expectEmptySequences() {
 
 type composeAndVerifyRepSuite struct {
 	bundleDataSource *mocks.MockBundleDataSource
+	overlayDir       string
+	overlayFile      string
 }
 
 var _ = gc.Suite(&composeAndVerifyRepSuite{})
 
 func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleNoOverlay(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	_, err := ComposeAndVerifyBundle(s.bundleDataSource, nil)
+	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundle))
 	c.Assert(err, jc.ErrorIsNil)
-	// TODO Verify result
+	s.expectParts(bundleData)
+	s.expectBasePath()
+
+	obtained, err := ComposeAndVerifyBundle(s.bundleDataSource, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, bundleData)
+}
+
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlay(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundle))
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectParts(bundleData)
+	s.expectBasePath()
+	s.setupOverlayFile(c)
+
+	expected := *bundleData
+	expected.Applications["wordpress"].Options = map[string]interface{}{
+		"blog-title": "magic bundle config",
+	}
+
+	obtained, err := ComposeAndVerifyBundle(s.bundleDataSource, []string{s.overlayFile})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, &expected)
+}
+
+func (s *composeAndVerifyRepSuite) setupOverlayFile(c *gc.C) {
+	s.overlayDir = c.MkDir()
+	s.overlayFile = filepath.Join(s.overlayDir, "config.yaml")
+	c.Assert(
+		ioutil.WriteFile(
+			s.overlayFile, []byte(`
+                applications:
+                    wordpress:
+                        options:
+                            blog-title: include-file://title
+            `), 0644),
+		jc.ErrorIsNil)
+	c.Assert(
+		ioutil.WriteFile(
+			filepath.Join(s.overlayDir, "title"), []byte("magic bundle config"), 0644),
+		jc.ErrorIsNil)
 }
 
 func (s *composeAndVerifyRepSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -207,15 +251,14 @@ func (s *composeAndVerifyRepSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *composeAndVerifyRepSuite) expectParts() {}
+func (s *composeAndVerifyRepSuite) expectParts(bundleData *charm.BundleData) {
+	retVal := []*charm.BundleDataPart{{Data: bundleData}}
+	s.bundleDataSource.EXPECT().Parts().Return(retVal)
+}
 
-//Parts() []*charm.BundleDataPart
-func (s *composeAndVerifyRepSuite) expectBasePath() {}
-
-//BasePath() string
-func (s *composeAndVerifyRepSuite) expectResolveInclude() {}
-
-//ResolveInclude(path string) ([]byte, error)
+func (s *composeAndVerifyRepSuite) expectBasePath() {
+	s.bundleDataSource.EXPECT().BasePath().Return(s.overlayDir).AnyTimes()
+}
 
 type stringSliceMatcher struct {
 	c        *gc.C
@@ -235,3 +278,28 @@ func (m stringSliceMatcher) Matches(x interface{}) bool {
 func (m stringSliceMatcher) String() string {
 	return "match a slice of strings, no matter the order"
 }
+
+const wordpressBundle = `
+series: bionic
+applications:
+  mysql:
+    charm: cs:mysql-42
+    series: xenial
+    num_units: 1
+    to:
+    - "0"
+  wordpress:
+    charm: cs:wordpress-47
+    series: xenial
+    num_units: 1
+    to:
+    - "1"
+machines:
+  "0":
+    series: xenial
+  "1":
+    series: xenial
+relations:
+- - wordpress:db
+  - mysql:db
+`

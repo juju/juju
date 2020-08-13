@@ -6,11 +6,11 @@ package bundle
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
 func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/modelextractor_mock.go github.com/juju/juju/cmd/juju/application/bundle ModelExtractor
