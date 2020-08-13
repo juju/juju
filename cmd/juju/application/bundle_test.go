@@ -291,7 +291,7 @@ func (s *BundleDeployCharmStoreSuite) assertDeployBundleLocalPathInvalidSeriesWi
 	testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy")
 	path := filepath.Join(dir, "mybundle")
 	data := `
-        series: focal
+        series: quantal
         applications:
             dummy:
                 charm: ./dummy
@@ -305,15 +305,15 @@ func (s *BundleDeployCharmStoreSuite) assertDeployBundleLocalPathInvalidSeriesWi
 	}
 	err = s.runDeploy(c, args...)
 	if !force {
-		c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: dummy is not available on the following series: focal not supported")
+		c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: dummy is not available on the following series: quantal not supported")
 		return
 	}
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "local:focal/dummy-1")
-	ch, err := s.State.Charm(charm.MustParseURL("local:focal/dummy-1"))
+	s.assertCharmsUploaded(c, "local:quantal/dummy-1")
+	ch, err := s.State.Charm(charm.MustParseURL("local:quantal/dummy-1"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
-		"dummy": {charm: "local:focal/dummy-1", config: ch.Config().DefaultSettings()},
+		"dummy": {charm: "local:quantal/dummy-1", config: ch.Config().DefaultSettings()},
 	})
 }
 
