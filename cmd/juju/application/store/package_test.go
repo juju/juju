@@ -4,8 +4,9 @@
 package store_test
 
 import (
-	gc "gopkg.in/check.v1"
 	"testing"
+
+	gc "gopkg.in/check.v1"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/store_mock.go github.com/juju/juju/cmd/juju/application/store CharmAdder,MacaroonGetter

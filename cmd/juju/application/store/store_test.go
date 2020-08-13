@@ -4,7 +4,6 @@
 package store_test
 
 import (
-	"github.com/juju/juju/apiserver/params"
 	"net/url"
 
 	"github.com/golang/mock/gomock"
@@ -15,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/store/mocks"
 )

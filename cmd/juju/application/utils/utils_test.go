@@ -54,7 +54,7 @@ func (s *utilsResourceSuite) TestGetMetaResources(c *gc.C) {
 	obtained, err := GetMetaResources(curl, s.charmClient)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, map[string]charmresource.Meta{
-		"test": charmresource.Meta{Name: "Testme"}})
+		"test": {Name: "Testme"}})
 }
 
 func (s *utilsResourceSuite) TestGetUpgradeResources(c *gc.C) {
@@ -75,7 +75,7 @@ func (s *utilsResourceSuite) expectCharmInfo(str string) {
 	charmInfo := &charms.CharmInfo{
 		Meta: &charm.Meta{
 			Resources: map[string]charmresource.Meta{
-				"test": charmresource.Meta{Name: "Testme"},
+				"test": {Name: "Testme"},
 			},
 		},
 	}

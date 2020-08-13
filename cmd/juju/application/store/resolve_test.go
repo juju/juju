@@ -98,11 +98,11 @@ func (s *resolveBundleSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *resolveBundleSuite) expectResolveWithPreferredChannelBundle(curl *charm.URL) {
 	curl.Series = "bundle"
-	s.urlResolver.EXPECT().ResolveWithPreferredChannel(gomock.AssignableToTypeOf(&charm.URL{}), csparams.EdgeChannel).Return(curl, csparams.Channel(csparams.EdgeChannel), []string{"bionic", "focal"}, nil)
+	s.urlResolver.EXPECT().ResolveWithPreferredChannel(gomock.AssignableToTypeOf(&charm.URL{}), csparams.EdgeChannel).Return(curl, csparams.EdgeChannel, []string{"bionic", "focal"}, nil)
 }
 
 func (s *resolveBundleSuite) expectResolveWithPreferredChannelNotBundle(curl *charm.URL) {
 	curl.Series = "bionic"
-	s.urlResolver.EXPECT().ResolveWithPreferredChannel(gomock.AssignableToTypeOf(&charm.URL{}), csparams.EdgeChannel).Return(curl, csparams.Channel(csparams.EdgeChannel), nil, nil)
+	s.urlResolver.EXPECT().ResolveWithPreferredChannel(gomock.AssignableToTypeOf(&charm.URL{}), csparams.EdgeChannel).Return(curl, csparams.EdgeChannel, nil, nil)
 
 }

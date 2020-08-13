@@ -5,8 +5,6 @@ package application
 
 import (
 	"bytes"
-	"github.com/juju/juju/cmd/juju/application/store"
-	"github.com/juju/juju/cmd/juju/application/utils"
 	"io/ioutil"
 	"path"
 	"sort"
@@ -27,6 +25,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	jjcharmstore "github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cmd/juju/application/store"
+	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/testcharms"

@@ -11,7 +11,7 @@ import (
 )
 
 // AllWatch represents methods used on the AllWatcher
-// Primarily to faciliate mock tests.
+// Primarily to facilitate mock tests.
 type AllWatch interface {
 	Next() ([]params.Delta, error)
 	Stop() error

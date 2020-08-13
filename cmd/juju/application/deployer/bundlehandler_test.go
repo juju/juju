@@ -71,7 +71,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNotFoundCharmStore(c *gc.C
 	s.expectResolveWithPreferredChannel(errors.NotFoundf("bundle"), 1)
 	bundleData := &charm.BundleData{
 		Applications: map[string]*charm.ApplicationSpec{
-			"no-such": &charm.ApplicationSpec{
+			"no-such": {
 				Charm: curl.String(),
 			},
 		},
@@ -220,6 +220,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithInvalidSeriesWithForce
 	spec := s.bundleDeploySpec()
 	spec.force = true
 	_, err = bundleDeploy(bundleData, spec)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "bionic")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "precise")
@@ -1026,7 +1027,7 @@ func (s *BundleDeployCharmStoreSuite) expectResolveWithPreferredChannel(err erro
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
 		func(curl *charm.URL, channel csparams.Channel) (*charm.URL, csparams.Channel, []string, error) {
-			return curl, csparams.Channel(csparams.NoChannel), []string{"bionic", "focal", "xenial"}, err
+			return curl, csparams.NoChannel, []string{"bionic", "focal", "xenial"}, err
 		}).Times(times)
 }
 
@@ -1035,7 +1036,7 @@ func (s *BundleDeployCharmStoreSuite) expectBestFacadeVersion() {
 }
 
 func (s *BundleDeployCharmStoreSuite) expectAddCharm(force bool) {
-	s.deployerAPI.EXPECT().AddCharm(gomock.AssignableToTypeOf(&charm.URL{}), csparams.Channel(csparams.NoChannel), force).Return(nil)
+	s.deployerAPI.EXPECT().AddCharm(gomock.AssignableToTypeOf(&charm.URL{}), csparams.NoChannel, force).Return(nil)
 }
 
 func (s *BundleDeployCharmStoreSuite) expectAddLocalCharm(curl *charm.URL, force bool) {
