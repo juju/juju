@@ -79,6 +79,70 @@ func (s *typesSuite) TestValidateServiceSpec(c *gc.C) {
 		ScalePolicy: "serial",
 	}
 	c.Assert(spec.Validate(), jc.ErrorIsNil)
+
+	spec = specs.ServiceSpec{
+		UpdateStrategy: &specs.UpdateStrategy{
+			Type: "Recreate",
+			RollingUpdate: &specs.RollingUpdateSpec{
+				MaxUnavailable: &specs.IntOrString{Type: specs.String, StrVal: "10%"},
+				MaxSurge:       &specs.IntOrString{Type: specs.String, StrVal: "25%"},
+			},
+		},
+	}
+	c.Assert(spec.Validate(), jc.ErrorIsNil)
+
+	spec = specs.ServiceSpec{
+		UpdateStrategy: &specs.UpdateStrategy{
+			Type: "",
+			RollingUpdate: &specs.RollingUpdateSpec{
+				MaxUnavailable: &specs.IntOrString{Type: specs.String, StrVal: "10%"},
+				MaxSurge:       &specs.IntOrString{Type: specs.String, StrVal: "25%"},
+			},
+		},
+	}
+	c.Assert(spec.Validate(), gc.ErrorMatches, `type is required`)
+
+	spec = specs.ServiceSpec{
+		UpdateStrategy: &specs.UpdateStrategy{
+			Type: "Recreate",
+		},
+	}
+	c.Assert(spec.Validate(), gc.ErrorMatches, `rolling update strategy is missing`)
+
+	var partition int32 = 3
+	spec = specs.ServiceSpec{
+		UpdateStrategy: &specs.UpdateStrategy{
+			Type: "Recreate",
+			RollingUpdate: &specs.RollingUpdateSpec{
+				Partition: &partition,
+				MaxSurge:  &specs.IntOrString{Type: specs.String, StrVal: "25%"},
+			},
+		},
+	}
+	c.Assert(spec.Validate(), gc.ErrorMatches, `partion can not be defined with maxUnavailable or maxSurge together`)
+
+	spec = specs.ServiceSpec{
+		UpdateStrategy: &specs.UpdateStrategy{
+			Type: "Recreate",
+			RollingUpdate: &specs.RollingUpdateSpec{
+				Partition:      &partition,
+				MaxUnavailable: &specs.IntOrString{Type: specs.String, StrVal: "10%"},
+			},
+		},
+	}
+	c.Assert(spec.Validate(), gc.ErrorMatches, `partion can not be defined with maxUnavailable or maxSurge together`)
+
+	spec = specs.ServiceSpec{
+		UpdateStrategy: &specs.UpdateStrategy{
+			Type: "Recreate",
+			RollingUpdate: &specs.RollingUpdateSpec{
+				Partition:      &partition,
+				MaxUnavailable: &specs.IntOrString{Type: specs.String, StrVal: "10%"},
+				MaxSurge:       &specs.IntOrString{Type: specs.String, StrVal: "25%"},
+			},
+		},
+	}
+	c.Assert(spec.Validate(), gc.ErrorMatches, `partion can not be defined with maxUnavailable or maxSurge together`)
 }
 
 func (s *typesSuite) TestValidateContainerSpec(c *gc.C) {

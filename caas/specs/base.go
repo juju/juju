@@ -168,10 +168,29 @@ type RollingUpdateSpec struct {
 	Partition *int32 `json:"partition,omitempty"`
 }
 
+// Validate returns an error if the spec is not valid.
+func (s RollingUpdateSpec) Validate() error {
+	if s.Partition != nil && (s.MaxUnavailable != nil || s.MaxSurge != nil) {
+		return errors.New("partion can not be defined with maxUnavailable or maxSurge together")
+	}
+	return nil
+}
+
 // UpdateStrategy is a struct used to control the update strategy.
 type UpdateStrategy struct {
 	Type          string             `json:"type,omitempty"`
 	RollingUpdate *RollingUpdateSpec `json:"rollingUpdate,omitempty"`
+}
+
+// Validate returns an error if the spec is not valid.
+func (s UpdateStrategy) Validate() error {
+	if len(s.Type) == 0 {
+		return errors.New("type is required")
+	}
+	if s.RollingUpdate == nil {
+		return errors.New("rolling update strategy is missing")
+	}
+	return errors.Trace(s.RollingUpdate.Validate())
 }
 
 // ServiceSpec contains attributes to be set on v1.Service when
@@ -179,12 +198,17 @@ type UpdateStrategy struct {
 type ServiceSpec struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 
+	UpdateStrategy *UpdateStrategy `json:"updateStrategy,omitempty"`
 	ScalePolicy    ScalePolicyType `json:"scalePolicy,omitempty"`
-	UpdateStrategy `json:"updateStrategy,omitempty"`
 }
 
 // Validate returns an error if the spec is not valid.
 func (ss ServiceSpec) Validate() error {
+	if ss.UpdateStrategy != nil {
+		if err := ss.UpdateStrategy.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return errors.Trace(ss.ScalePolicy.Validate())
 }
 
