@@ -368,7 +368,7 @@ func (s *introspectionSuite) TestLeasesErr(c *gc.C) {
 	s.leases.err = errors.New("boom")
 	response := s.call(c, "/leases")
 	c.Assert(response.StatusCode, gc.Equals, http.StatusInternalServerError)
-	s.assertBody(c, response, "error: boom")
+	s.assertBody(c, response, "snapshot: boom")
 }
 
 func (s *introspectionSuite) TestLeasesNewerVersion(c *gc.C) {

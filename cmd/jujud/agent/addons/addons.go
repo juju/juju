@@ -43,6 +43,7 @@ type IntrospectionConfig struct {
 	PresenceRecorder   presence.Recorder
 	Clock              clock.Clock
 	LocalHub           *pubsub.SimpleHub
+	CentralHub         *pubsub.StructuredHub
 	LeaseFSM           *raftlease.FSM
 
 	NewSocketName func(names.Tag) string
@@ -71,7 +72,8 @@ func StartIntrospection(cfg IntrospectionConfig) error {
 		PrometheusGatherer: cfg.PrometheusGatherer,
 		Presence:           cfg.PresenceRecorder,
 		Clock:              cfg.Clock,
-		Hub:                cfg.LocalHub,
+		LocalHub:           cfg.LocalHub,
+		CentralHub:         cfg.CentralHub,
 		Leases:             cfg.LeaseFSM,
 	})
 	if err != nil {

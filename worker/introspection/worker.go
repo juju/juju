@@ -44,6 +44,7 @@ type Reporter interface {
 
 // Clock represents the ability to wait for a bit.
 type Clock interface {
+	Now() time.Time
 	After(time.Duration) <-chan time.Time
 }
 
@@ -51,6 +52,13 @@ type Clock interface {
 type SimpleHub interface {
 	Publish(topic string, data interface{}) <-chan struct{}
 	Subscribe(topic string, handler func(string, interface{})) func()
+}
+
+// StructuredHub is a pubsub hub used for messaging within the HA
+// controller applications.
+type StructuredHub interface {
+	Publish(topic string, data interface{}) (<-chan struct{}, error)
+	Subscribe(topic string, handler interface{}) (func(), error)
 }
 
 // Leases provides the methods needed to expose the lease internals.
@@ -69,6 +77,7 @@ type Config struct {
 	Presence           presence.Recorder
 	Clock              Clock
 	LocalHub           SimpleHub
+	CentralHub         StructuredHub
 	Leases             Leases
 }
 
@@ -96,6 +105,7 @@ type socketListener struct {
 	leases             Leases
 	clock              Clock
 	localHub           SimpleHub
+	centralHub         StructuredHub
 	done               chan struct{}
 }
 
@@ -132,6 +142,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		leases:             config.Leases,
 		clock:              config.Clock,
 		localHub:           config.LocalHub,
+		centralHub:         config.CentralHub,
 		done:               make(chan struct{}),
 	}
 	go w.serve()
@@ -205,7 +216,15 @@ func (w *socketListener) RegisterHTTPHandlers(
 	if w.localHub != nil {
 		handle("/units", unitsHandler{w.clock, w.localHub, w.done})
 	}
-	handle("/leases", leaseHandler{w.leases})
+	leases := leaseHandler{
+		leases: w.leases,
+		hub:    w.centralHub,
+		clock:  w.clock,
+	}
+	handle("/leases", http.HandlerFunc(leases.list))
+	if w.centralHub != nil {
+		handle("/leases/revoke", http.HandlerFunc(leases.revoke))
+	}
 }
 
 type depengineHandler struct {
