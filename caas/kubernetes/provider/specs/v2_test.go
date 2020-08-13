@@ -133,9 +133,14 @@ configMaps:
     foo: bar
     hello: world
 service:
-  scalePolicy: serial
   annotations:
     foo: bar
+  scalePolicy: serial
+  updateStrategy:
+    type: Recreate
+    rollingUpdate:
+      maxUnavailable: 10%
+      maxSurge: 25%
 serviceAccount:
   automountServiceAccountToken: true
   global: true
@@ -336,8 +341,15 @@ foo: bar
 	getExpectedPodSpecBase := func() *specs.PodSpec {
 		pSpecs := &specs.PodSpec{ServiceAccount: sa1}
 		pSpecs.Service = &specs.ServiceSpec{
-			ScalePolicy: "serial",
 			Annotations: map[string]string{"foo": "bar"},
+			ScalePolicy: "serial",
+			UpdateStrategy: specs.UpdateStrategy{
+				Type: "Recreate",
+				RollingUpdate: &specs.RollingUpdateSpec{
+					MaxUnavailable: &specs.IntOrString{Type: specs.String, StrVal: "10%"},
+					MaxSurge:       &specs.IntOrString{Type: specs.String, StrVal: "25%"},
+				},
+			},
 		}
 		pSpecs.ConfigMaps = map[string]specs.ConfigMap{
 			"mydata": {
