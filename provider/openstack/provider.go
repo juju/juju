@@ -1276,11 +1276,10 @@ func (e *Environ) startInstance(
 	server, err := tryStartNovaInstance(shortAttempt, e.nova(), opts)
 	if err != nil || server == nil {
 		logger.Debugf("cannot run instance full error: %q", err)
-		errCause := errors.Cause(err)
-		err := errors.Annotate(errCause, "cannot run instance")
+		err = errors.Annotate(errors.Cause(err), "cannot run instance")
 		// Improve the error message if there is no valid network.
 		if isInvalidNetworkError(err) {
-			err = errors.New(fmt.Sprintf("%s%s", err.Error(), e.invalidNetworkErrorMessageForUser()))
+			err = e.userFriendlyInvalidNetworkError(err)
 		}
 		// 'No valid host available' is typically a resource error,
 		// let the provisioner know it is a good idea to try another
@@ -1339,8 +1338,8 @@ func (e *Environ) startInstance(
 	}, nil
 }
 
-func (e *Environ) invalidNetworkErrorMessageForUser() string {
-	msg := fmt.Sprintf("\n\t%s\n\t%s",
+func (e *Environ) userFriendlyInvalidNetworkError(err error) error {
+	msg := fmt.Sprintf("%s\n\t%s\n\t%s", err,
 		"This error was caused by juju attempting to create an OpenStack instance with no network defined.",
 		"No network has been configured.")
 	networks, err := e.networking.FindNetworks(true)
@@ -1349,7 +1348,7 @@ func (e *Environ) invalidNetworkErrorMessageForUser() string {
 	} else {
 		msg = fmt.Sprintf("%s %s\n\t\t%q", msg, "The following internal networks are available: ", strings.Join(networks.Values(), ", "))
 	}
-	return msg
+	return errors.New(msg)
 }
 
 // validateAvailabilityZone validates AZs supplied in StartInstanceParams.
