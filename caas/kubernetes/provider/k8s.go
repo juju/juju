@@ -1144,7 +1144,7 @@ func (k *kubernetesClient) ensureService(
 		}
 	}
 
-	if err = validateDeploymentType(params.Deployment.DeploymentType, params, workloadSpec); err != nil {
+	if err = validateDeploymentType(params.Deployment.DeploymentType, params, workloadSpec.Service); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1219,9 +1219,12 @@ func (k *kubernetesClient) ensureService(
 	return nil
 }
 
-func validateDeploymentType(t caas.DeploymentType, params *caas.ServiceParams, workloadSpec *workloadSpec) error {
-	if t != caas.DeploymentStateful {
-		if workloadSpec.Service != nil && workloadSpec.Service.ScalePolicy != "" {
+func validateDeploymentType(deploymentType caas.DeploymentType, params *caas.ServiceParams, svcSpec *specs.ServiceSpec) error {
+	if svcSpec == nil {
+		return nil
+	}
+	if deploymentType != caas.DeploymentStateful {
+		if svcSpec.ScalePolicy != "" {
 			return errors.NewNotValid(nil, fmt.Sprintf("ScalePolicy is only supported for %s applications", caas.DeploymentStateful))
 		}
 	}
@@ -1480,6 +1483,28 @@ func podAnnotations(annotations k8sannotations.Annotation) k8sannotations.Annota
 		Add("seccomp.security.beta.kubernetes.io/pod", "docker/default")
 }
 
+// // TODO: add test!!!
+func updateStrategyForDaemonSet(strategy specs.UpdateStrategy) (o apps.DaemonSetUpdateStrategy, err error) {
+	switch strategyType := apps.DaemonSetUpdateStrategyType(strategy.Type); strategyType {
+	case apps.RollingUpdateDaemonSetStrategyType, apps.OnDeleteDaemonSetStrategyType:
+		if strategy.RollingUpdate == nil {
+			return o, errors.New("rolling update spec is required")
+		}
+		if strategy.RollingUpdate.Partition != nil || strategy.RollingUpdate.MaxSurge != nil {
+			return o, errors.NotValidf("rolling update spec for daemonset")
+		}
+		if strategy.RollingUpdate.MaxUnavailable == nil {
+			return o, errors.NewNotValid(nil, "rolling update spec maxUnavailable is missing")
+		}
+		if o.RollingUpdate.MaxUnavailable, err = k8sspecs.IntOrStringToK8s(*strategy.RollingUpdate.MaxUnavailable); err != nil {
+			return o, errors.Trace(err)
+		}
+		return o, nil
+	default:
+		return o, errors.NotValidf("strategy type %q for daemonset", strategyType)
+	}
+}
+
 func (k *kubernetesClient) configureDaemonSet(
 	appName, deploymentName string,
 	annotations k8sannotations.Annotation,
@@ -1527,6 +1552,12 @@ func (k *kubernetesClient) configureDaemonSet(
 			},
 		},
 	}
+	if workloadSpec.Service != nil && workloadSpec.Service.UpdateStrategy != nil {
+		if daemonSet.Spec.UpdateStrategy, err = updateStrategyForDaemonSet(*workloadSpec.Service.UpdateStrategy); err != nil {
+			return cleanUps, errors.Trace(err)
+		}
+	}
+
 	handlePVC := func(pvc core.PersistentVolumeClaim, mountPath string, readOnly bool) error {
 		cs, err := k.configurePVCForStatelessResource(pvc, mountPath, readOnly, &daemonSet.Spec.Template.Spec)
 		cleanUps = append(cleanUps, cs...)
@@ -1541,6 +1572,39 @@ func (k *kubernetesClient) configureDaemonSet(
 	cU, err := k.ensureDaemonSet(daemonSet)
 	cleanUps = append(cleanUps, cU)
 	return cleanUps, errors.Trace(err)
+}
+
+// // TODO: add test!!!
+func updateStrategyForDeployment(strategy specs.UpdateStrategy) (o apps.DeploymentStrategy, err error) {
+	switch strategyType := apps.DeploymentStrategyType(strategy.Type); strategyType {
+	case apps.RecreateDeploymentStrategyType, apps.RollingUpdateDeploymentStrategyType:
+		if strategy.RollingUpdate == nil {
+			return o, errors.New("rolling update spec is required")
+		}
+		if strategy.RollingUpdate.MaxSurge == nil && strategy.RollingUpdate.MaxUnavailable == nil {
+			return o, errors.NewNotValid(nil, "empty rolling update spec")
+		}
+		if strategy.RollingUpdate.Partition != nil {
+			return o, errors.NotValidf("rolling update spec for deployment")
+		}
+		o = apps.DeploymentStrategy{
+			Type:          strategyType,
+			RollingUpdate: &apps.RollingUpdateDeployment{},
+		}
+		if strategy.RollingUpdate.MaxSurge != nil {
+			if o.RollingUpdate.MaxSurge, err = k8sspecs.IntOrStringToK8s(*strategy.RollingUpdate.MaxSurge); err != nil {
+				return o, errors.Trace(err)
+			}
+		}
+		if strategy.RollingUpdate.MaxUnavailable != nil {
+			if o.RollingUpdate.MaxUnavailable, err = k8sspecs.IntOrStringToK8s(*strategy.RollingUpdate.MaxUnavailable); err != nil {
+				return o, errors.Trace(err)
+			}
+		}
+		return o, nil
+	default:
+		return o, errors.NotValidf("strategy type %q for deployment", strategyType)
+	}
 }
 
 func (k *kubernetesClient) configureDeployment(
@@ -1591,6 +1655,11 @@ func (k *kubernetesClient) configureDeployment(
 				Spec: workloadSpec.Pod,
 			},
 		},
+	}
+	if workloadSpec.Service != nil && workloadSpec.Service.UpdateStrategy != nil {
+		if deployment.Spec.Strategy, err = updateStrategyForDeployment(*workloadSpec.Service.UpdateStrategy); err != nil {
+			return cleanUps, errors.Trace(err)
+		}
 	}
 	handlePVC := func(pvc core.PersistentVolumeClaim, mountPath string, readOnly bool) error {
 		cs, err := k.configurePVCForStatelessResource(pvc, mountPath, readOnly, &deployment.Spec.Template.Spec)

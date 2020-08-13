@@ -343,7 +343,7 @@ foo: bar
 		pSpecs.Service = &specs.ServiceSpec{
 			Annotations: map[string]string{"foo": "bar"},
 			ScalePolicy: "serial",
-			UpdateStrategy: specs.UpdateStrategy{
+			UpdateStrategy: &specs.UpdateStrategy{
 				Type: "Recreate",
 				RollingUpdate: &specs.RollingUpdateSpec{
 					MaxUnavailable: &specs.IntOrString{Type: specs.String, StrVal: "10%"},

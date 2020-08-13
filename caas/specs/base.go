@@ -188,7 +188,7 @@ func (s UpdateStrategy) Validate() error {
 		return errors.New("type is required")
 	}
 	if s.RollingUpdate == nil {
-		return errors.New("rolling update strategy is missing")
+		return errors.New("rolling update strategy is required")
 	}
 	return errors.Trace(s.RollingUpdate.Validate())
 }

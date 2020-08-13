@@ -21,6 +21,30 @@ func (k *kubernetesClient) getStatefulSetLabels(appName string) map[string]strin
 	}
 }
 
+// // TODO: add test!!!
+func updateStrategyForStatefulSet(strategy specs.UpdateStrategy) (o apps.StatefulSetUpdateStrategy, err error) {
+	switch strategyType := apps.StatefulSetUpdateStrategyType(strategy.Type); strategyType {
+	case apps.RollingUpdateStatefulSetStrategyType, apps.OnDeleteStatefulSetStrategyType:
+		if strategy.RollingUpdate == nil {
+			return o, errors.New("rolling update spec is required")
+		}
+		if strategy.RollingUpdate.Partition == nil {
+			return o, errors.New("rolling update spec partition is missing")
+		}
+		if strategy.RollingUpdate.MaxSurge != nil || strategy.RollingUpdate.MaxUnavailable != nil {
+			return o, errors.NotValidf("rolling update spec for statefulset")
+		}
+		return apps.StatefulSetUpdateStrategy{
+			Type: strategyType,
+			RollingUpdate: &apps.RollingUpdateStatefulSetStrategy{
+				Partition: strategy.RollingUpdate.Partition,
+			},
+		}, nil
+	default:
+		return o, errors.NotValidf("strategy type %q for statefulset", strategyType)
+	}
+}
+
 func (k *kubernetesClient) configureStatefulSet(
 	appName, deploymentName string, annotations k8sannotations.Annotation, workloadSpec *workloadSpec,
 	containers []specs.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
@@ -63,6 +87,12 @@ func (k *kubernetesClient) configureStatefulSet(
 			ServiceName:         headlessServiceName(deploymentName),
 		},
 	}
+	if workloadSpec.Service != nil && workloadSpec.Service.UpdateStrategy != nil {
+		if statefulSet.Spec.UpdateStrategy, err = updateStrategyForStatefulSet(*workloadSpec.Service.UpdateStrategy); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	if err := k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
@@ -109,6 +139,7 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 	}
 	existing.SetAnnotations(spec.GetAnnotations())
 	existing.Spec.Replicas = spec.Spec.Replicas
+	existing.Spec.UpdateStrategy = spec.Spec.UpdateStrategy
 	existing.Spec.Template.SetAnnotations(spec.Spec.Template.GetAnnotations())
 	// TODO(caas) - allow storage `request` configurable - currently we only allow `limit`.
 	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers

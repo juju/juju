@@ -107,7 +107,7 @@ func (s *typesSuite) TestValidateServiceSpec(c *gc.C) {
 			Type: "Recreate",
 		},
 	}
-	c.Assert(spec.Validate(), gc.ErrorMatches, `rolling update strategy is missing`)
+	c.Assert(spec.Validate(), gc.ErrorMatches, `rolling update strategy is required`)
 
 	var partition int32 = 3
 	spec = specs.ServiceSpec{
