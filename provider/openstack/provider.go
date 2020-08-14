@@ -1339,14 +1339,14 @@ func (e *Environ) startInstance(
 }
 
 func (e *Environ) userFriendlyInvalidNetworkError(err error) error {
-	msg := fmt.Sprintf("%s\n\t%s\n\t%s", err,
+	msg := fmt.Sprintf("%s\n\t%s\n\t%s", err.Error(),
 		"This error was caused by juju attempting to create an OpenStack instance with no network defined.",
 		"No network has been configured.")
 	networks, err := e.networking.FindNetworks(true)
 	if err != nil {
-		msg = fmt.Sprintf("%s\n\t%s\n\t\t%s", msg, "Error attempting to find internal networks:", err.Error())
+		msg += fmt.Sprintf("\n\t%s\n\t\t%s", "Error attempting to find internal networks:", err.Error())
 	} else {
-		msg = fmt.Sprintf("%s %s\n\t\t%q", msg, "The following internal networks are available: ", strings.Join(networks.Values(), ", "))
+		msg += fmt.Sprintf(" %s\n\t\t%q", "The following internal networks are available: ", strings.Join(networks.Values(), ", "))
 	}
 	return errors.New(msg)
 }
