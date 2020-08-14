@@ -1275,11 +1275,11 @@ func (e *Environ) startInstance(
 
 	server, err := tryStartNovaInstance(shortAttempt, e.nova(), opts)
 	if err != nil || server == nil {
-		err := errors.Annotate(err, "cannot run instance")
+		logger.Debugf("cannot run instance full error: %q", err)
+		err = errors.Annotate(errors.Cause(err), "cannot run instance")
 		// Improve the error message if there is no valid network.
 		if isInvalidNetworkError(err) {
-			msg := "\n\tThis error was caused by juju attempting to create an OpenStack instance with no network defined.\n\tNo network has been configured, nor could juju find an internal OpenStack network to suggest."
-			err = errors.New(fmt.Sprintf("%s%s", err.Error(), msg))
+			err = e.userFriendlyInvalidNetworkError(err)
 		}
 		// 'No valid host available' is typically a resource error,
 		// let the provisioner know it is a good idea to try another
@@ -1336,6 +1336,19 @@ func (e *Environ) startInstance(
 		Instance: inst,
 		Hardware: inst.hardwareCharacteristics(),
 	}, nil
+}
+
+func (e *Environ) userFriendlyInvalidNetworkError(err error) error {
+	msg := fmt.Sprintf("%s\n\t%s\n\t%s", err.Error(),
+		"This error was caused by juju attempting to create an OpenStack instance with no network defined.",
+		"No network has been configured.")
+	networks, err := e.networking.FindNetworks(true)
+	if err != nil {
+		msg += fmt.Sprintf("\n\t%s\n\t\t%s", "Error attempting to find internal networks:", err.Error())
+	} else {
+		msg += fmt.Sprintf(" %s\n\t\t%q", "The following internal networks are available: ", strings.Join(networks.Values(), ", "))
+	}
+	return errors.New(msg)
 }
 
 // validateAvailabilityZone validates AZs supplied in StartInstanceParams.
@@ -1496,10 +1509,7 @@ func (e *Environ) networksForModel() ([]nova.ServerNetworks, error) {
 		return nil, errors.Annotate(err, "getting initial networks")
 	}
 
-	usingNetwork, err := e.useNetwork()
-	if err != nil {
-		return nil, err
-	}
+	usingNetwork := e.ecfg().network()
 	networkID, err := e.networking.ResolveNetwork(usingNetwork, false)
 	if err != nil {
 		if usingNetwork == "" {
@@ -1517,49 +1527,6 @@ func (e *Environ) networksForModel() ([]nova.ServerNetworks, error) {
 
 	logger.Debugf("using network id %q", networkID)
 	return append(networks, nova.ServerNetworks{NetworkId: networkID}), nil
-}
-
-// useNetwork returns the name of the network to use.
-// First check the model config.  If that is empty, look
-// for internal networks.  If there is more than one, error.
-// If there is only one, use it and set the network model
-// config to use it in the future.
-func (e *Environ) useNetwork() (string, error) {
-	usingNetwork := e.ecfg().network()
-	if usingNetwork != "" {
-		return usingNetwork, nil
-	}
-	foundNetwork, err := e.findOneInternalNetwork()
-	if err != nil {
-		return "", err
-	}
-	// TODO (hml) 2020-07-30
-	// Ideally juju would start using the single network found and add it to
-	// the model and default configs.  If you call SetConfig() during bootstrap,
-	// the network is added to the controller model.  Subsequently, deploy
-	// also find a network, however it is not added to the model config.
-	// A method of getting the new config to the save config out the environ
-	// is needed.
-	if foundNetwork != "" {
-		err := errors.Errorf("no network provided and one network is available: %q", foundNetwork)
-		return "", errors.New(noNetConfigMsg(err))
-	}
-	return "", nil
-}
-
-func (e *Environ) findOneInternalNetwork() (string, error) {
-	networks, err := e.networking.FindNetworks(true)
-	if err != nil {
-		return "", err
-	}
-	if networks.IsEmpty() {
-		return "", nil
-	}
-	if networks.Size() > 1 {
-		err := errors.Errorf("no network provided and multiple available: %q", strings.Join(networks.SortedValues(), ", "))
-		return "", errors.New(noNetConfigMsg(err))
-	}
-	return networks.Values()[0], nil
 }
 
 func (e *Environ) configureRootDisk(ctx context.ProviderCallContext, args environs.StartInstanceParams,
