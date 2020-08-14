@@ -120,6 +120,8 @@ type DeployerDependencies struct {
 
 // DeployerConfig is the data required to choose a deployer and then run
 // PrepareAndDeploy.
+// TODO (hml) 2020-08-14
+// Is there a better structure for this config?
 type DeployerConfig struct {
 	Model                ModelCommand
 	ApplicationName      string
