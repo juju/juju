@@ -78,23 +78,16 @@ func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer, opti
 		facades = append(facades, adminFacades...)
 	}
 
-	latest := make(map[string]facade.Details)
-	for _, facade := range facades {
-		if f, ok := latest[facade.Name]; ok && facade.Version < f.Version {
-			continue
-		}
-		latest[facade.Name] = facade
+	allFacades := make([]facade.Details, 0, len(facades))
+	for _, v := range facades {
+		allFacades = append(allFacades, v)
 	}
-	latestFacades := make([]facade.Details, 0, len(latest))
-	for _, v := range latest {
-		latestFacades = append(latestFacades, v)
-	}
-	sort.Slice(latestFacades, func(i, j int) bool {
-		return latestFacades[i].Name < latestFacades[j].Name
+	sort.Slice(allFacades, func(i, j int) bool {
+		return allFacades[i].Name < allFacades[j].Name
 	})
 
-	result := make([]FacadeSchema, len(latestFacades))
-	for i, facade := range latestFacades {
+	result := make([]FacadeSchema, len(allFacades))
+	for i, facade := range allFacades {
 		// select the latest version from the facade list
 		version := facade.Version
 
