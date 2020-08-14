@@ -4,6 +4,8 @@
 package utils
 
 import (
+	"fmt"
+
 	"github.com/juju/charm/v7"
 	charmresource "github.com/juju/charm/v7/resource"
 	"github.com/juju/errors"
@@ -34,7 +36,7 @@ func ParsePlacement(spec string) (*instance.Placement, error) {
 	}
 	placement, err := instance.ParsePlacement(spec)
 	if err == instance.ErrPlacementScopeMissing {
-		spec = "model-uuid" + ":" + spec
+		spec = fmt.Sprintf("model-uuid:%s", spec)
 		placement, err = instance.ParsePlacement(spec)
 	}
 	if err != nil {
