@@ -520,7 +520,15 @@ values. For example,
 
   juju deploy mediawiki --config name='my media wiki' --config mycfg.yaml
 
-if mycfg.yaml contains a value for 'name', it will override the earlier 'my
+Similar to the 'juju config' command, if the value begins with an '@' character,
+it will be treated as a path to a config file and its contents will be assigned
+to the specified key. For example,
+
+  juju deploy mediawiki --config name='@wiki-name.txt"
+
+will set the 'name' key to the contents of file 'wiki-name.txt'.
+
+If mycfg.yaml contains a value for 'name', it will override the earlier 'my
 media wiki' value. The same applies to single value options. For example,
 
   juju deploy mediawiki --config name='a media wiki' --config name='my wiki'
@@ -1026,6 +1034,16 @@ func (c *DeployCommand) deployCharm(
 	appConfig := make(map[string]string)
 	for k, v := range attr {
 		appConfig[k] = v.(string)
+
+		// Handle @ syntax for including file contents as values so we
+		// are consistent to how 'juju config' works
+		if len(appConfig[k]) < 1 || appConfig[k][0] != '@' {
+			continue
+		}
+
+		if appConfig[k], err = readValue(ctx, appConfig[k][1:]); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// Expand the trust flag into the appConfig
