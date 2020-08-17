@@ -11,6 +11,7 @@ import (
 
 	"github.com/chzyer/readline"
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
@@ -51,6 +52,18 @@ Welcome to the Juju interactive shell.
 Type "help" to see a list of available commands.
 Type "q" or ^D or ^C to quit.
 `[1:]
+
+var (
+	quitCommands         = set.NewStrings("q", "quit", "exit")
+	noControllerCommands = set.NewStrings("bootstrap", "register")
+)
+
+const (
+	promptSuffix         = "$ "
+	helpHint             = `Type "help" to see a list of commands`
+	noControllersMessage = `Please either create a new controller using "bootstrap" or connect to
+another controller that you have been given access to using "register".`
+)
 
 // Info implements Command.
 func (c *replCommand) Info() *cmd.Info {
@@ -122,7 +135,7 @@ func (c *replCommand) Run(ctx *cmd.Context) error {
 		loggo.ResetLogging()
 		_ = loggo.RegisterWriter(loggo.DefaultWriterName, defaultWriter)
 
-		jujuCmd := NewJujuCommand(ctx, "")
+		jujuCmd := NewJujuCommandWithHelpHint(ctx, "", helpHint)
 		if c.showHelp {
 			f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
 			f.SetOutput(ioutil.Discard)
@@ -134,14 +147,15 @@ func (c *replCommand) Run(ctx *cmd.Context) error {
 			return jujuCmd.Run(ctx)
 		}
 		// Get the prompt based on the current controller/model/user.
+		noCurrentController := false
 		prompt, err := c.getPrompt()
 		if err != nil {
 			// There's no controller, so ask the user to bootstrap first.
-			if errors.Cause(err) == modelcmd.ErrNoControllersDefined {
-				fmt.Fprintln(ctx.Stderr, modelcmd.ErrNoControllersDefined.Error())
-				return cmd.ErrSilent
+			if errors.Cause(err) != modelcmd.ErrNoControllersDefined {
+				return errors.Trace(err)
 			}
-			return errors.Trace(err)
+			noCurrentController = true
+			prompt = "no controllers registered" + promptSuffix
 		}
 
 		if first {
@@ -163,10 +177,14 @@ func (c *replCommand) Run(ctx *cmd.Context) error {
 		if line == "" {
 			continue
 		}
-		if strings.ToLower(line) == "q" {
+		if quitCommands.Contains(strings.ToLower(line)) {
 			break
 		}
 		args := strings.Fields(line)
+		if noCurrentController && !noControllerCommands.Contains(args[0]) {
+			fmt.Fprintln(ctx.Stderr, noControllersMessage)
+			continue
+		}
 		c.execJujuCommand(jujuCmd, ctx, args)
 	}
 	return nil
@@ -175,7 +193,7 @@ func (c *replCommand) Run(ctx *cmd.Context) error {
 func (c *replCommand) getPrompt() (prompt string, err error) {
 	defer func() {
 		if err == nil {
-			prompt += "$ "
+			prompt += promptSuffix
 		}
 	}()
 
