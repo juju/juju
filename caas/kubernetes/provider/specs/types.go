@@ -208,14 +208,7 @@ func getParser(specVersion specs.Version) (parserType, error) {
 }
 
 // IntOrStringToK8s converts IntOrString to k8s version.
-func IntOrStringToK8s(in specs.IntOrString) (*intstr.IntOrString, error) {
-	data, err := in.MarshalJSON()
-	if err != nil {
-		return nil, errors.Annotatef(err, "marshalling for %v", in)
-	}
-	o := &intstr.IntOrString{}
-	if err := o.UnmarshalJSON(data); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return o, nil
+func IntOrStringToK8s(in specs.IntOrString) *intstr.IntOrString {
+	o := intstr.Parse(in.String())
+	return &o
 }

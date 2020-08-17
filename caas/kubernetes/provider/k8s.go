@@ -1483,7 +1483,6 @@ func podAnnotations(annotations k8sannotations.Annotation) k8sannotations.Annota
 		Add("seccomp.security.beta.kubernetes.io/pod", "docker/default")
 }
 
-// // TODO: add test!!!
 func updateStrategyForDaemonSet(strategy specs.UpdateStrategy) (o apps.DaemonSetUpdateStrategy, err error) {
 	switch strategyType := apps.DaemonSetUpdateStrategyType(strategy.Type); strategyType {
 	case apps.RollingUpdateDaemonSetStrategyType, apps.OnDeleteDaemonSetStrategyType:
@@ -1496,10 +1495,12 @@ func updateStrategyForDaemonSet(strategy specs.UpdateStrategy) (o apps.DaemonSet
 		if strategy.RollingUpdate.MaxUnavailable == nil {
 			return o, errors.NewNotValid(nil, "rolling update spec maxUnavailable is missing")
 		}
-		if o.RollingUpdate.MaxUnavailable, err = k8sspecs.IntOrStringToK8s(*strategy.RollingUpdate.MaxUnavailable); err != nil {
-			return o, errors.Trace(err)
-		}
-		return o, nil
+		return apps.DaemonSetUpdateStrategy{
+			Type: strategyType,
+			RollingUpdate: &apps.RollingUpdateDaemonSet{
+				MaxUnavailable: k8sspecs.IntOrStringToK8s(*strategy.RollingUpdate.MaxUnavailable),
+			},
+		}, nil
 	default:
 		return o, errors.NotValidf("strategy type %q for daemonset", strategyType)
 	}
@@ -1574,32 +1575,27 @@ func (k *kubernetesClient) configureDaemonSet(
 	return cleanUps, errors.Trace(err)
 }
 
-// // TODO: add test!!!
 func updateStrategyForDeployment(strategy specs.UpdateStrategy) (o apps.DeploymentStrategy, err error) {
 	switch strategyType := apps.DeploymentStrategyType(strategy.Type); strategyType {
 	case apps.RecreateDeploymentStrategyType, apps.RollingUpdateDeploymentStrategyType:
 		if strategy.RollingUpdate == nil {
 			return o, errors.New("rolling update spec is required")
 		}
-		if strategy.RollingUpdate.MaxSurge == nil && strategy.RollingUpdate.MaxUnavailable == nil {
-			return o, errors.NewNotValid(nil, "empty rolling update spec")
-		}
 		if strategy.RollingUpdate.Partition != nil {
 			return o, errors.NotValidf("rolling update spec for deployment")
+		}
+		if strategy.RollingUpdate.MaxSurge == nil && strategy.RollingUpdate.MaxUnavailable == nil {
+			return o, errors.NewNotValid(nil, "empty rolling update spec")
 		}
 		o = apps.DeploymentStrategy{
 			Type:          strategyType,
 			RollingUpdate: &apps.RollingUpdateDeployment{},
 		}
 		if strategy.RollingUpdate.MaxSurge != nil {
-			if o.RollingUpdate.MaxSurge, err = k8sspecs.IntOrStringToK8s(*strategy.RollingUpdate.MaxSurge); err != nil {
-				return o, errors.Trace(err)
-			}
+			o.RollingUpdate.MaxSurge = k8sspecs.IntOrStringToK8s(*strategy.RollingUpdate.MaxSurge)
 		}
 		if strategy.RollingUpdate.MaxUnavailable != nil {
-			if o.RollingUpdate.MaxUnavailable, err = k8sspecs.IntOrStringToK8s(*strategy.RollingUpdate.MaxUnavailable); err != nil {
-				return o, errors.Trace(err)
-			}
+			o.RollingUpdate.MaxUnavailable = k8sspecs.IntOrStringToK8s(*strategy.RollingUpdate.MaxUnavailable)
 		}
 		return o, nil
 	default:

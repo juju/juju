@@ -11,11 +11,11 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type typesSuite struct {
+type baseSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&typesSuite{})
+var _ = gc.Suite(&baseSuite{})
 
 type validator interface {
 	Validate() error
@@ -26,7 +26,7 @@ type validateTc struct {
 	errStr string
 }
 
-func (s *typesSuite) TestGetVersion(c *gc.C) {
+func (s *baseSuite) TestGetVersion(c *gc.C) {
 	type testcase struct {
 		strSpec string
 		version specs.Version
@@ -64,7 +64,7 @@ version: 3
 	}
 }
 
-func (s *typesSuite) TestValidateServiceSpec(c *gc.C) {
+func (s *baseSuite) TestValidateServiceSpec(c *gc.C) {
 	spec := specs.ServiceSpec{
 		ScalePolicy: "bar",
 	}
@@ -145,7 +145,7 @@ func (s *typesSuite) TestValidateServiceSpec(c *gc.C) {
 	c.Assert(spec.Validate(), gc.ErrorMatches, `partion can not be defined with maxUnavailable or maxSurge together`)
 }
 
-func (s *typesSuite) TestValidateContainerSpec(c *gc.C) {
+func (s *baseSuite) TestValidateContainerSpec(c *gc.C) {
 	for i, tc := range []validateTc{
 		{
 			spec: &specs.ContainerSpec{
@@ -194,7 +194,7 @@ func (s *typesSuite) TestValidateContainerSpec(c *gc.C) {
 	}
 }
 
-func (s *typesSuite) TestValidatePodSpecBase(c *gc.C) {
+func (s *baseSuite) TestValidatePodSpecBase(c *gc.C) {
 	minSpecs := specs.PodSpecBase{}
 	minSpecs.Containers = []specs.ContainerSpec{
 		{
@@ -214,7 +214,7 @@ func (s *typesSuite) TestValidatePodSpecBase(c *gc.C) {
 	c.Assert(minSpecs.Validate(specs.Version2), jc.ErrorIsNil)
 }
 
-func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
+func (s *baseSuite) TestValidateCaaSContainers(c *gc.C) {
 	k8sSpec := specs.CaasContainers{}
 	fileSet1 := specs.FileSet{
 		Name:      "file1",

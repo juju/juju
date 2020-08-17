@@ -21,18 +21,17 @@ func (k *kubernetesClient) getStatefulSetLabels(appName string) map[string]strin
 	}
 }
 
-// // TODO: add test!!!
 func updateStrategyForStatefulSet(strategy specs.UpdateStrategy) (o apps.StatefulSetUpdateStrategy, err error) {
 	switch strategyType := apps.StatefulSetUpdateStrategyType(strategy.Type); strategyType {
 	case apps.RollingUpdateStatefulSetStrategyType, apps.OnDeleteStatefulSetStrategyType:
 		if strategy.RollingUpdate == nil {
 			return o, errors.New("rolling update spec is required")
 		}
-		if strategy.RollingUpdate.Partition == nil {
-			return o, errors.New("rolling update spec partition is missing")
-		}
 		if strategy.RollingUpdate.MaxSurge != nil || strategy.RollingUpdate.MaxUnavailable != nil {
 			return o, errors.NotValidf("rolling update spec for statefulset")
+		}
+		if strategy.RollingUpdate.Partition == nil {
+			return o, errors.New("rolling update spec partition is missing")
 		}
 		return apps.StatefulSetUpdateStrategy{
 			Type: strategyType,

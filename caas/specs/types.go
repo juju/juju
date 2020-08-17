@@ -9,8 +9,6 @@ import (
 	"strconv"
 )
 
-// TODO: add test!!!
-
 // IntOrString is a type that can hold an int32 or a string.  When used in
 // JSON or YAML marshalling and unmarshalling, it produces or consumes the
 // inner type.  This allows you to have, for example, a JSON field that can
@@ -26,8 +24,10 @@ type IntOrString struct {
 type Type int64
 
 const (
-	Int    Type = iota // The IntOrString holds an int.
-	String             // The IntOrString holds a string.
+	// Int indicates the IntOrString holds an int.
+	Int Type = iota
+	// String indicates the IntOrString holds a string.
+	String
 )
 
 // UnmarshalJSON implements the json.Unmarshaller interface.
