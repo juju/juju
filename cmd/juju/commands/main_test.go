@@ -78,8 +78,9 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 
 	missingCommandMessage := func(wanted, actual string) string {
 		return fmt.Sprintf("ERROR %s\n", NotFoundCommand{
-			ArgName: wanted,
-			CmdName: actual,
+			ArgName:  wanted,
+			CmdName:  actual,
+			HelpHint: `See "juju --help"`,
 		}.Error())
 	}
 

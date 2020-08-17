@@ -10,10 +10,12 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -25,15 +27,11 @@ type ReplSuite struct {
 	store *jujuclient.MemStore
 }
 
-func (*ReplSuite) TestPromptNoControllersAtAll(c *gc.C) {
+func (*ReplSuite) TestErrorNoControllersAtAll(c *gc.C) {
 	r := &replCommand{store: jujuclient.NewMemStore()}
 
 	_, err := r.getPrompt()
-	c.Assert(err, gc.ErrorMatches, `No controllers registered.
-
-Please either create a new controller using "juju bootstrap" or connect to
-another controller that you have been given access to using "juju register".
-`)
+	c.Assert(errors.Cause(err), gc.Equals, modelcmd.ErrNoControllersDefined)
 }
 
 func (*ReplSuite) TestPromptNoCurrentController(c *gc.C) {
@@ -182,5 +180,63 @@ func (s *ReplSuite) TestRepl(c *gc.C) {
 	c.Assert(cmds, jc.DeepEquals, []string{
 		"juju status --format yaml",
 		"juju controllers",
+	})
+}
+
+func (s *ReplSuite) TestMissingCommandHelp(c *gc.C) {
+	store := jujuclient.NewMemStore()
+	store.Controllers["somecontroller"] = jujuclient.ControllerDetails{}
+	store.CurrentControllerName = "somecontroller"
+
+	r := &replCommand{
+		store:           store,
+		execJujuCommand: cmd.Main,
+	}
+	err := cmdtesting.InitCommand(r, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := &cmd.Context{
+		Dir:    c.MkDir(),
+		Stdout: bytes.NewBuffer(nil),
+		Stderr: bytes.NewBuffer(nil),
+		Stdin:  bytes.NewReader([]byte("\nfoo\nQ\n")),
+	}
+	err = r.Run(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+ERROR juju: "foo" is not a juju command. Type "help" to see a list of commands.
+
+Did you mean:
+	gui
+`[1:])
+}
+
+func (s *ReplSuite) TestNoControllersBootstrap(c *gc.C) {
+	var cmds []string
+	r := &replCommand{
+		store: jujuclient.NewMemStore(),
+		execJujuCommand: func(c cmd.Command, _ *cmd.Context, args []string) int {
+			cmds = append(cmds, c.Info().Name+" "+strings.Join(args, " "))
+			return 0
+		},
+	}
+	err := cmdtesting.InitCommand(r, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := &cmd.Context{
+		Dir:    c.MkDir(),
+		Stdout: bytes.NewBuffer(nil),
+		Stderr: bytes.NewBuffer(nil),
+		Stdin:  bytes.NewReader([]byte("\nfoo\nbootstrap aws\n\nQ\n")),
+	}
+	err = r.Run(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+Please either create a new controller using "bootstrap" or connect to
+another controller that you have been given access to using "register".
+`[1:])
+	c.Assert(cmds, gc.HasLen, 1)
+	c.Assert(cmds, jc.DeepEquals, []string{
+		"juju bootstrap aws",
 	})
 }

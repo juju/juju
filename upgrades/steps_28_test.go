@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/upgrades/mocks"
-	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	configsettermocks "github.com/juju/juju/worker/upgradedatabase/mocks"
 )
@@ -68,15 +67,11 @@ type mockSteps28Suite struct {
 
 	dataDir    string
 	tagOne     names.Tag
-	tagTwo     names.Tag
 	storTagOne names.Tag
 
 	opStateOne         operation.State
-	opStateTwo         operation.State
 	opStateOneYaml     string
-	opStateTwoYaml     string
 	opStateOneFileName string
-	opStateTwoFileName string
 
 	opStorOne         bool
 	opStorOneYaml     string
@@ -97,19 +92,12 @@ func (s *mockSteps28Suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.tagOne = names.NewUnitTag("testing/0")
-	s.tagTwo = names.NewUnitTag("testing/1")
 	s.storTagOne = names.NewStorageTag("data/3")
 
 	s.opStateOne = operation.State{
 		Leader: true,
 		Kind:   operation.Continue,
 		Step:   operation.Pending,
-	}
-
-	s.opStateTwo = operation.State{
-		Kind: operation.RunHook,
-		Step: operation.Pending,
-		Hook: &hook.Info{Kind: hooks.ConfigChanged},
 	}
 
 	s.opStorOne = true
@@ -125,11 +113,6 @@ func (s *mockSteps28Suite) SetUpTest(c *gc.C) {
 	s.opStorOneYaml, s.opStorOneFileName = writeStorageState(c, unitOneStateDir, s.storTagOne, s.opStorOne)
 
 	s.opRelationYaml, s.opRelationFileName = setupRelationState(c, unitOneStateDir)
-
-	unitTwoStateDir := filepath.Join(agentDir, s.tagTwo.String(), "state")
-	err = os.MkdirAll(unitTwoStateDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	s.opStateTwoYaml, s.opStateTwoFileName = writeUnitStateFile(c, unitTwoStateDir, s.opStateTwo)
 }
 
 // writeUnitStateFile writes the operation.State in yaml format to the
@@ -231,10 +214,10 @@ type relDiskInfo struct {
 	ChangedPending bool   `yaml:"changed-pending,omitempty"`
 }
 
-func (s *mockSteps28Suite) TestMoveUnitAgentStateToControllerNotMachine(c *gc.C) {
+func (s *mockSteps28Suite) TestMoveUnitAgentStateToControllerNotUnit(c *gc.C) {
 	defer s.setup(c).Finish()
 	s.expectAPIState()
-	s.expectAgentConfigUnitTag()
+	s.expectAgentConfigMachineTag()
 	s.patchClient()
 	err := upgrades.MoveUnitAgentStateToController(s.mockCtx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -243,15 +226,13 @@ func (s *mockSteps28Suite) TestMoveUnitAgentStateToControllerNotMachine(c *gc.C)
 func (s *mockSteps28Suite) TestMoveUnitAgentStateToController(c *gc.C) {
 	defer s.setup(c).Finish()
 	s.expectAPIState()
-	s.expectAgentConfigMachineTag()
-	s.expectWriteTwoAgentState(c)
+	s.expectAgentConfigUnitTag()
+	s.expectWriteAgentState(c)
 	s.patchClient()
 
 	err := upgrades.MoveUnitAgentStateToController(s.mockCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = os.Stat(s.opStateOneFileName)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-	_, err = os.Stat(s.opStateTwoFileName)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	_, err = os.Stat(s.opStorOneFileName)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
@@ -290,11 +271,11 @@ func (s *mockSteps28Suite) expectDataDir() {
 }
 
 func (s *mockSteps28Suite) expectAgentConfigMachineTag() {
-	s.mockAgentConfig.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
+	s.mockAgentConfig.EXPECT().Tag().Return(names.NewMachineTag("0"))
 }
 
 func (s *mockSteps28Suite) expectAgentConfigUnitTag() {
-	s.mockAgentConfig.EXPECT().Tag().Return(names.NewUnitTag("test/0"))
+	s.mockAgentConfig.EXPECT().Tag().Return(s.tagOne).AnyTimes()
 }
 
 func (s *mockSteps28Suite) patchClient() {
@@ -303,15 +284,12 @@ func (s *mockSteps28Suite) patchClient() {
 	})
 }
 
-func (s *mockSteps28Suite) expectWriteTwoAgentState(c *gc.C) {
+func (s *mockSteps28Suite) expectWriteAgentState(c *gc.C) {
 	args := []params.SetUnitStateArg{{
 		Tag:           s.tagOne.String(),
 		UniterState:   &s.opStateOneYaml,
 		StorageState:  &s.opStorOneYaml,
 		RelationState: &s.opRelationYaml,
-	}, {
-		Tag:         s.tagTwo.String(),
-		UniterState: &s.opStateTwoYaml,
 	}}
 	cExp := s.mockClient.EXPECT()
 	cExp.WriteAgentState(unitStateMatcher{c, args}).Return(nil)
