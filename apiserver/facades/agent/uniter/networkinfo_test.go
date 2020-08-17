@@ -235,6 +235,54 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
 }
 
+func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAddress(c *gc.C) {
+	prr := s.newRemoteProReqRelation(c)
+	err := prr.ru0.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	id, err := prr.ru0.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The first attempt is for the public address.
+	// The retry we supply for this fails quickly.
+	// The second is for the private address fallback.
+	var publicAddrSentinel bool
+	retryFactory := func() retry.CallArgs {
+		if !publicAddrSentinel {
+			publicAddrSentinel = true
+
+			return retry.CallArgs{
+				Clock:       clock.WallClock,
+				Delay:       1 * time.Millisecond,
+				MaxDuration: 1 * time.Millisecond,
+			}
+		}
+
+		return retry.CallArgs{
+			Clock:       clock.WallClock,
+			Delay:       1 * time.Millisecond,
+			MaxDuration: coretesting.LongWait,
+			NotifyFunc: func(lastError error, attempt int) {
+				// Set the address after one failed retrieval attempt.
+				if attempt == 1 {
+					err := machine.SetProviderAddresses(network.NewScopedSpaceAddress("4.3.2.1", network.ScopeCloudLocal))
+					c.Assert(err, jc.ErrorIsNil)
+				}
+			},
+		}
+	}
+
+	netInfo := s.newNetworkInfo(c, prr.ru0.UnitTag(), retryFactory)
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
+	c.Assert(ingress, gc.DeepEquals,
+		network.SpaceAddresses{network.NewScopedSpaceAddress("4.3.2.1", network.ScopeCloudLocal)})
+	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
+}
+
 func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer func() { _ = st.Close() }()

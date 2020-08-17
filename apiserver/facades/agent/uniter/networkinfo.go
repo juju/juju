@@ -339,8 +339,7 @@ func (n *NetworkInfo) NetworksForRelation(
 	}
 
 	fallbackIngressToPrivateAddr := func() error {
-		// TODO(ycliuhw): lp-1830252 retry here once this is fixed.
-		address, err := n.unit.PrivateAddress()
+		address, err := n.pollForAddress(n.unit.PrivateAddress)
 		if err != nil {
 			logger.Warningf("no private address for unit %q in relation %q", n.unit.Name(), rel)
 		} else if address.Value != "" {
