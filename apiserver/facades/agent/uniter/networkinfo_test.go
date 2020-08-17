@@ -59,7 +59,8 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	boundSpace, ingress, egress, err := s.newNetworkInfo(c, prr.pu0.UnitTag()).NetworksForRelation("", prr.rel, true)
+	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), nil)
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
@@ -141,7 +142,8 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 
 	s.addDevicesWithAddresses(c, machine, "1.2.3.4/16", "2.2.3.4/16", "3.2.3.4/16", "4.3.2.1/16")
 
-	boundSpace, ingress, egress, err := s.newNetworkInfo(c, prr.pu0.UnitTag()).NetworksForRelation("", prr.rel, true)
+	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), nil)
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, space3.Id())
@@ -165,7 +167,8 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	boundSpace, ingress, egress, err := s.newNetworkInfo(c, prr.ru0.UnitTag()).NetworksForRelation("", prr.rel, true)
+	netInfo := s.newNetworkInfo(c, prr.ru0.UnitTag(), nil)
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
@@ -188,7 +191,8 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	boundSpace, ingress, egress, err := s.newNetworkInfo(c, prr.ru0.UnitTag()).NetworksForRelation("", prr.rel, true)
+	netInfo := s.newNetworkInfo(c, prr.ru0.UnitTag(), nil)
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
@@ -206,7 +210,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 	machine, err := s.State.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.PatchValue(&uniter.PreferredAddressRetryArgs, func() retry.CallArgs {
+	retryFactory := func() retry.CallArgs {
 		return retry.CallArgs{
 			Clock:       clock.WallClock,
 			Delay:       1 * time.Millisecond,
@@ -219,9 +223,10 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 				}
 			},
 		}
-	})
+	}
 
-	boundSpace, ingress, egress, err := s.newNetworkInfo(c, prr.ru0.UnitTag()).NetworksForRelation("", prr.rel, true)
+	netInfo := s.newNetworkInfo(c, prr.ru0.UnitTag(), retryFactory)
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
@@ -243,7 +248,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	prr := newProReqRelationForApps(c, st, mysql, gitlab)
 
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfo(st, prr.pu0.UnitTag())
+	netInfo, err := uniter.NewNetworkInfo(st, prr.pu0.UnitTag(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// First no address.
@@ -269,8 +274,22 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
 }
 
-func (s *networkInfoSuite) newNetworkInfo(c *gc.C, tag names.UnitTag) *uniter.NetworkInfo {
-	ni, err := uniter.NewNetworkInfo(s.State, tag)
+func (s *networkInfoSuite) newNetworkInfo(
+	c *gc.C, tag names.UnitTag, retryFactory func() retry.CallArgs,
+) *uniter.NetworkInfo {
+	// Allow the caller to supply nil if this is not important.
+	// We fill it with an optimistic default.
+	if retryFactory == nil {
+		retryFactory = func() retry.CallArgs {
+			return retry.CallArgs{
+				Clock:       clock.WallClock,
+				Delay:       1 * time.Millisecond,
+				MaxDuration: 1 * time.Millisecond,
+			}
+		}
+	}
+
+	ni, err := uniter.NewNetworkInfo(s.State, tag, retryFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	return ni
 }

@@ -31,39 +31,34 @@ import (
 // Over time, the state types should be indirected, mocks generated, and
 // appropriate tests added.
 
-// PreferredAddressRetryArgs returns the retry strategy for getting a unit's
-// preferred address. Override for testing to use a different clock.
-// TODO (manadart 2019-10-09): Pass this as an argument to the NetworkInfo
-// constructor instead of exporting this public type for patching in tests.
-var PreferredAddressRetryArgs = func() retry.CallArgs {
-	return retry.CallArgs{
-		Clock:       clock.WallClock,
-		Delay:       3 * time.Second,
-		MaxDuration: 30 * time.Second,
-	}
-}
-
-// NetworkInfo is responsible for processing requests for network data for unit
-// endpoint bindings and/or relations.
+// NetworkInfo is responsible for processing requests for network data
+// for unit endpoint bindings and/or relations.
 type NetworkInfo struct {
-	st            *state.State
+	st *state.State
+	// retryFactory returns a retry strategy template used to poll for
+	// addresses that may not yet have landed in state,
+	// such as for CAAS containers or HA syncing.
+	retryFactory func() retry.CallArgs
+
 	unit          *state.Unit
 	app           *state.Application
 	defaultEgress []string
 	bindings      map[string]string
-	spaces        []*state.Space
 }
 
-// NewNetworkInfo initialises and returns a new NetworkInfo based on the input
-// state and unit tag.
-func NewNetworkInfo(st *state.State, tag names.UnitTag) (*NetworkInfo, error) {
-	netInfo := &NetworkInfo{st: st}
+// NewNetworkInfo initialises and returns a new NetworkInfo
+// based on the input state and unit tag.
+func NewNetworkInfo(st *state.State, tag names.UnitTag, retryFactory func() retry.CallArgs) (*NetworkInfo, error) {
+	netInfo := &NetworkInfo{
+		st:           st,
+		retryFactory: retryFactory,
+	}
 	err := netInfo.init(tag)
 	return netInfo, errors.Trace(err)
 }
 
-// init uses the member state to initialise NetworkInfo entities in preparation
-// for the retrieval of network information.
+// init uses the member state to initialise NetworkInfo entities
+// in preparation for the retrieval of network information.
 func (n *NetworkInfo) init(tag names.UnitTag) error {
 	var err error
 
@@ -82,10 +77,6 @@ func (n *NetworkInfo) init(tag names.UnitTag) error {
 	n.bindings = bindings.Map()
 
 	if n.defaultEgress, err = n.getModelEgressSubnets(); err != nil {
-		return errors.Trace(err)
-	}
-
-	if n.spaces, err = n.st.AllSpaces(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -367,7 +358,7 @@ func (n *NetworkInfo) NetworksForRelation(
 			return "", nil, nil, errors.Trace(err)
 		}
 		if crossModel && (n.unit.ShouldBeAssigned() || pollPublic) {
-			address, err := pollForAddress(n.unit.PublicAddress)
+			address, err := n.pollForAddress(n.unit.PublicAddress)
 			if err != nil {
 				logger.Warningf(
 					"no public address for unit %q in cross model relation %q, will use private address",
@@ -453,6 +444,22 @@ func (n *NetworkInfo) spaceForBinding(endpoint string) (string, error) {
 	return boundSpace, nil
 }
 
+func (n *NetworkInfo) pollForAddress(
+	fetcher func() (corenetwork.SpaceAddress, error),
+) (corenetwork.SpaceAddress, error) {
+	var address corenetwork.SpaceAddress
+	retryArg := n.retryFactory()
+	retryArg.Func = func() error {
+		var err error
+		address, err = fetcher()
+		return err
+	}
+	retryArg.IsFatalError = func(err error) bool {
+		return !network.IsNoAddressError(err)
+	}
+	return address, retry.Call(retryArg)
+}
+
 // spaceAddressesFromNetworkInfo returns a SpaceAddresses collection
 // from a slice of NetworkInfo.
 // We need to construct sortable addresses from link-layer devices,
@@ -475,16 +482,10 @@ func spaceAddressesFromNetworkInfo(netInfos []network.NetworkInfo) corenetwork.S
 	return addrs
 }
 
-func pollForAddress(fetcher func() (corenetwork.SpaceAddress, error)) (corenetwork.SpaceAddress, error) {
-	var address corenetwork.SpaceAddress
-	retryArg := PreferredAddressRetryArgs()
-	retryArg.Func = func() error {
-		var err error
-		address, err = fetcher()
-		return err
+var defaultRetryFactory = func() retry.CallArgs {
+	return retry.CallArgs{
+		Clock:       clock.WallClock,
+		Delay:       3 * time.Second,
+		MaxDuration: 30 * time.Second,
 	}
-	retryArg.IsFatalError = func(err error) bool {
-		return !network.IsNoAddressError(err)
-	}
-	return address, retry.Call(retryArg)
 }
