@@ -244,8 +244,13 @@ func juju2xConfigDataExists() bool {
 	return err == nil
 }
 
-// NewJujuCommand ...
+// NewJujuCommand create a new Juju supercommand.
 func NewJujuCommand(ctx *cmd.Context, jujuMsg string) cmd.Command {
+	return NewJujuCommandWithHelpHint(ctx, jujuMsg, `See "juju --help"`)
+}
+
+// NewJujuCommandWithHelpHint create a new Juju supercommand with a custom help hint.
+func NewJujuCommandWithHelpHint(ctx *cmd.Context, jujuMsg, helpHint string) cmd.Command {
 	var jcmd *cmd.SuperCommand
 	jcmd = jujucmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "juju",
@@ -253,8 +258,9 @@ func NewJujuCommand(ctx *cmd.Context, jujuMsg string) cmd.Command {
 		MissingCallback: RunPlugin(func(ctx *cmd.Context, subcommand string, args []string) error {
 			if cmdName, _, ok := jcmd.FindClosestSubCommand(subcommand); ok {
 				return &NotFoundCommand{
-					ArgName: subcommand,
-					CmdName: cmdName,
+					ArgName:  subcommand,
+					CmdName:  cmdName,
+					HelpHint: helpHint,
 				}
 			}
 			return cmd.DefaultUnrecognizedCommand(subcommand)
@@ -271,7 +277,7 @@ func NewJujuCommand(ctx *cmd.Context, jujuMsg string) cmd.Command {
 	return jcmd
 }
 
-const notFoundCommandMessage = `juju: %q is not a juju command. See "juju --help".
+const notFoundCommandMessage = `juju: %q is not a juju command. %s.
 
 Did you mean:
 	%s`
@@ -279,12 +285,13 @@ Did you mean:
 // NotFoundCommand gives valuable feedback to the operator about what commands
 // could be available if a mistake around the subcommand name is given.
 type NotFoundCommand struct {
-	ArgName string
-	CmdName string
+	ArgName  string
+	CmdName  string
+	HelpHint string
 }
 
 func (c NotFoundCommand) Error() string {
-	return fmt.Sprintf(notFoundCommandMessage, c.ArgName, c.CmdName)
+	return fmt.Sprintf(notFoundCommandMessage, c.ArgName, c.HelpHint, c.CmdName)
 }
 
 type commandRegistry interface {
