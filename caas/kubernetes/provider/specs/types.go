@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	core "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/juju/juju/caas/specs"
@@ -204,4 +205,10 @@ func getParser(specVersion specs.Version) (parserType, error) {
 	default:
 		return nil, errors.NewNotSupported(nil, fmt.Sprintf("latest supported version %d, but got podspec version %d", specs.CurrentVersion, specVersion))
 	}
+}
+
+// IntOrStringToK8s converts IntOrString to k8s version.
+func IntOrStringToK8s(in specs.IntOrString) *intstr.IntOrString {
+	o := intstr.Parse(in.String())
+	return &o
 }
