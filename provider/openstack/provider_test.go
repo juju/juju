@@ -272,7 +272,7 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 		c.Logf("test %d: %s", i, t.about)
 		rules := PortsToRuleInfo(groupId, t.rules)
 		c.Check(len(rules), gc.Equals, len(t.expected))
-		c.Check(rules, gc.DeepEquals, t.expected)
+		c.Check(rules, jc.SameContents, t.expected)
 	}
 }
 

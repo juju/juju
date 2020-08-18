@@ -79,7 +79,10 @@ or your local machine.
 See https://discourse.jujucharms.com/ for ideas, documentation and FAQ.
 `
 
-const juju1xCmdName = "juju-1"
+const (
+	juju1xCmdName = "juju-1"
+	cliHelpHint   = `See "juju --help"`
+)
 
 var x = []byte("\x96\x8c\x8a\x91\x93\x9a\x9e\x8c\x97\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91\x98\xf5")
 
@@ -248,12 +251,12 @@ func juju2xConfigDataExists() bool {
 
 // NewJujuCommand creates the "juju" super command.
 func NewJujuCommand(ctx *cmd.Context, jujuMsg string) cmd.Command {
-	return NewJujuCommandWithStore(ctx, jujuclient.NewFileClientStore(), jujucmd.DefaultLog, jujuMsg, nil, false)
+	return NewJujuCommandWithStore(ctx, jujuclient.NewFileClientStore(), jujucmd.DefaultLog, jujuMsg, cliHelpHint, nil, false)
 }
 
 // NewJujuCommandWithStore creates the "juju" super command with the specified parameters.
 func NewJujuCommandWithStore(
-	ctx *cmd.Context, store jujuclient.ClientStore, log *cmd.Log, jujuMsg string, whitelist []string, embedded bool,
+	ctx *cmd.Context, store jujuclient.ClientStore, log *cmd.Log, jujuMsg, helpHint string, whitelist []string, embedded bool,
 ) cmd.Command {
 	var jcmd *cmd.SuperCommand
 	var jujuRegistry *jujuCommandRegistry
@@ -268,8 +271,9 @@ func NewJujuCommandWithStore(
 			}
 			if cmdName, _, ok := jcmd.FindClosestSubCommand(subcommand); ok {
 				return &NotFoundCommand{
-					ArgName: subcommand,
-					CmdName: cmdName,
+					ArgName:  subcommand,
+					CmdName:  cmdName,
+					HelpHint: helpHint,
 				}
 			}
 			return cmd.DefaultUnrecognizedCommand(subcommand)
@@ -293,7 +297,7 @@ func NewJujuCommandWithStore(
 	return jcmd
 }
 
-const notFoundCommandMessage = `juju: %q is not a juju command. See "juju --help".
+const notFoundCommandMessage = `juju: %q is not a juju command. %s.
 
 Did you mean:
 	%s`
@@ -301,12 +305,13 @@ Did you mean:
 // NotFoundCommand gives valuable feedback to the operator about what commands
 // could be available if a mistake around the subcommand name is given.
 type NotFoundCommand struct {
-	ArgName string
-	CmdName string
+	ArgName  string
+	CmdName  string
+	HelpHint string
 }
 
 func (c NotFoundCommand) Error() string {
-	return fmt.Sprintf(notFoundCommandMessage, c.ArgName, c.CmdName)
+	return fmt.Sprintf(notFoundCommandMessage, c.ArgName, c.HelpHint, c.CmdName)
 }
 
 type supportsEmbedded interface {

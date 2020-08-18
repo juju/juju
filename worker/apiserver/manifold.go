@@ -221,7 +221,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	execEmbeddedCommand := func(ctx *cmd.Context, store jujuclient.ClientStore, whitelist []string, cmdPlusARgs string) int {
-		jujuCmd := commands.NewJujuCommandWithStore(ctx, store, nil, "", whitelist, true)
+		jujuCmd := commands.NewJujuCommandWithStore(ctx, store, nil, "", `Type "help" to see a list of commands`, whitelist, true)
 		return cmd.Main(jujuCmd, ctx, strings.Split(cmdPlusARgs, " "))
 	}
 
