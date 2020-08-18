@@ -1306,6 +1306,7 @@ func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, 
 }
 
 func mapNetworkInterface(iface ec2.NetworkInterface, subnet ec2.Subnet) corenetwork.InterfaceInfo {
+	// Device names and VLAN tags are not returned by EC2.
 	ni := corenetwork.InterfaceInfo{
 		DeviceIndex:       iface.Attachment.DeviceIndex,
 		MACAddress:        iface.MACAddress,
@@ -1313,13 +1314,10 @@ func mapNetworkInterface(iface ec2.NetworkInterface, subnet ec2.Subnet) corenetw
 		ProviderId:        corenetwork.Id(iface.Id),
 		ProviderSubnetId:  corenetwork.Id(iface.SubnetId),
 		AvailabilityZones: []string{subnet.AvailZone},
-		VLANTag:           0, // Not supported on EC2.
-		// Getting the interface name is not supported on EC2, so fake it.
-		InterfaceName: fmt.Sprintf("unsupported%d", iface.Attachment.DeviceIndex),
-		Disabled:      false,
-		NoAutoStart:   false,
-		ConfigType:    corenetwork.ConfigDHCP,
-		InterfaceType: corenetwork.EthernetInterface,
+		Disabled:          false,
+		NoAutoStart:       false,
+		ConfigType:        corenetwork.ConfigDHCP,
+		InterfaceType:     corenetwork.EthernetInterface,
 		// The describe interface responses that we get back from EC2
 		// define a *list* of private IP addresses with one entry that
 		// is tagged as primary and whose value is encoded in the
