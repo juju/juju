@@ -43,11 +43,13 @@ type Option func(*options)
 
 type options struct {
 	adminFacades bool
+	facadeGroup  FacadeGroup
 }
 
 func newOptions() *options {
 	return &options{
 		adminFacades: false,
+		facadeGroup:  Latest,
 	}
 }
 
@@ -55,6 +57,13 @@ func newOptions() *options {
 func WithAdminFacades(adminFacades bool) Option {
 	return func(options *options) {
 		options.adminFacades = adminFacades
+	}
+}
+
+// WithFacadeGroup sets the facadeGroup on the option
+func WithFacadeGroup(facadeGroup FacadeGroup) Option {
+	return func(options *options) {
+		options.facadeGroup = facadeGroup
 	}
 }
 
@@ -78,23 +87,13 @@ func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer, opti
 		facades = append(facades, adminFacades...)
 	}
 
-	latest := make(map[string]facade.Details)
-	for _, facade := range facades {
-		if f, ok := latest[facade.Name]; ok && facade.Version < f.Version {
-			continue
-		}
-		latest[facade.Name] = facade
-	}
-	latestFacades := make([]facade.Details, 0, len(latest))
-	for _, v := range latest {
-		latestFacades = append(latestFacades, v)
-	}
-	sort.Slice(latestFacades, func(i, j int) bool {
-		return latestFacades[i].Name < latestFacades[j].Name
+	facades = Filter(opts.facadeGroup, facades, registry)
+	sort.Slice(facades, func(i, j int) bool {
+		return facades[i].Name < facades[j].Name
 	})
 
-	result := make([]FacadeSchema, len(latestFacades))
-	for i, facade := range latestFacades {
+	result := make([]FacadeSchema, len(facades))
+	for i, facade := range facades {
 		// select the latest version from the facade list
 		version := facade.Version
 

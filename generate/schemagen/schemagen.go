@@ -25,7 +25,10 @@ import (
 )
 
 func main() {
-	var adminFacades = flag.Bool("admin-facades", false, "add the admin facades when generating the schema")
+	var (
+		adminFacades = flag.Bool("admin-facades", false, "add the admin facades when generating the schema")
+		facadeGroup  = flag.String("facade-group", "latest", "facade group to export (latest, all, client, jimm)")
+	)
 
 	flag.Parse()
 	args := flag.Args()
@@ -37,9 +40,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	group, err := gen.ParseFacadeGroup(*facadeGroup)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
 	result, err := gen.Generate(defaultPackages{
 		path: "github.com/juju/juju/apiserver",
-	}, defaultLinker{}, apiServerShim{}, gen.WithAdminFacades(*adminFacades))
+	}, defaultLinker{}, apiServerShim{},
+		gen.WithAdminFacades(*adminFacades),
+		gen.WithFacadeGroup(group),
+	)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

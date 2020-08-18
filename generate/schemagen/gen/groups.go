@@ -1,0 +1,141 @@
+// Copyright 2020 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+package gen
+
+import (
+	reflect "reflect"
+	"strings"
+
+	"github.com/juju/errors"
+	facade "github.com/juju/juju/apiserver/facade"
+	"github.com/juju/rpcreflect"
+)
+
+// FacadeGroup defines the grouping you want to export.
+type FacadeGroup string
+
+const (
+	// Latest gets the latest facades from all the facades.
+	Latest FacadeGroup = "latest"
+	// All gets all the facades no matter the version.
+	All FacadeGroup = "all"
+	// Client facades returns just the client facades along with some required
+	// facades that the client can use.
+	Client FacadeGroup = "client"
+	// JIMM facade group defines a very select set of facades that only work
+	// JIMM.
+	JIMM FacadeGroup = "jimm"
+)
+
+// ParseFacadeGroup will attempt to parse the facade group
+func ParseFacadeGroup(s string) (FacadeGroup, error) {
+	switch s {
+	case "latest", "all", "client", "jimm":
+		return FacadeGroup(s), nil
+	default:
+		return FacadeGroup(""), errors.NotValidf("facade group")
+	}
+}
+
+// Filter the facades based on the group.
+func Filter(g FacadeGroup, facades []facade.Details, registry Registry) []facade.Details {
+	switch g {
+	case Latest:
+		return latestFacades(facades)
+	case All:
+		return allFacades(facades)
+	case Client:
+		return clientFacades(facades, registry)
+	case JIMM:
+		return jimmFacades(facades)
+	}
+	return facades
+}
+
+func latestFacades(facades []facade.Details) []facade.Details {
+	latest := make(map[string]facade.Details)
+	for _, facade := range facades {
+		if f, ok := latest[facade.Name]; ok && facade.Version < f.Version {
+			continue
+		}
+		latest[facade.Name] = facade
+	}
+	latestFacades := make([]facade.Details, 0, len(latest))
+	for _, v := range latest {
+		latestFacades = append(latestFacades, v)
+	}
+	return latestFacades
+}
+
+func allFacades(facades []facade.Details) []facade.Details {
+	return facades
+}
+
+func clientFacades(facades []facade.Details, registry Registry) []facade.Details {
+	required := map[string]struct{}{
+		"AllWatcher":      struct{}{},
+		"AllModelWatcher": struct{}{},
+	}
+
+	results := make([]facade.Details, 0)
+	latest := latestFacades(facades)
+	for _, v := range latest {
+		if _, ok := required[v.Name]; ok {
+			results = append(results, v)
+			continue
+		}
+
+		var objType *rpcreflect.ObjType
+		kind, err := registry.GetType(v.Name, v.Version)
+		if err == nil {
+			objType = rpcreflect.ObjTypeOf(kind)
+		} else {
+			objType = rpcreflect.ObjTypeOf(v.Type)
+			if objType == nil {
+				continue
+			}
+		}
+		pkg := packageName(objType.GoType())
+		if !strings.HasPrefix(pkg, "github.com/juju/juju/apiserver/facades/client/") {
+			continue
+		}
+		results = append(results, v)
+	}
+	return results
+}
+
+func jimmFacades(facades []facade.Details) []facade.Details {
+	required := map[string][]int{
+		"Bundle":              []int{1},
+		"Cloud":               []int{1, 2, 3, 4, 5},
+		"Controller":          []int{3, 4, 5, 6, 7, 8, 9},
+		"JIMM":                []int{1, 2},
+		"ModelManager":        []int{2, 3, 4, 5},
+		"ModelSummaryManager": []int{1},
+		"Pinger":              []int{1},
+		"UserManager":         []int{1},
+	}
+
+	result := make([]facade.Details, 0)
+	for _, v := range facades {
+		versions, ok := required[v.Name]
+		if !ok {
+			continue
+		}
+
+		for _, i := range versions {
+			if v.Version == i {
+				result = append(result, v)
+				break
+			}
+		}
+	}
+	return result
+}
+
+func packageName(v reflect.Type) string {
+	if v.Kind() == reflect.Ptr {
+		return v.Elem().PkgPath()
+	}
+	return v.PkgPath()
+}
