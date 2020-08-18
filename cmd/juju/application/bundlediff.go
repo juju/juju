@@ -23,6 +23,8 @@ import (
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
+	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
+	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 )
@@ -128,7 +130,7 @@ func (c *bundleDiffCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	bundle, err := composeAndVerifyBundle(baseSrc, c.bundleOverlays)
+	bundle, err := appbundle.ComposeAndVerifyBundle(baseSrc, c.bundleOverlays)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -220,7 +222,7 @@ func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundleURL, _, err := resolveBundleURL(charmStore, c.bundle, c.channel)
+	bundleURL, _, err := store.ResolveBundleURL(charmStore, c.bundle, c.channel)
 	if err != nil && !errors.IsNotValid(err) {
 		return nil, errors.Trace(err)
 	}
@@ -238,7 +240,7 @@ func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 		return nil, errors.Trace(err)
 	}
 
-	return newResolvedBundle(bundle), nil
+	return store.NewResolvedBundle(bundle), nil
 }
 
 func (c *bundleDiffCommand) charmStore() (BundleResolver, error) {
@@ -258,7 +260,7 @@ func (c *bundleDiffCommand) charmStore() (BundleResolver, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(c.channel)
+	cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(c.channel)
 	return charmrepo.NewCharmStoreFromClient(cstoreClient), nil
 }
 
@@ -267,7 +269,7 @@ func (c *bundleDiffCommand) readModel(apiRoot base.APICallCloser) (*bundlechange
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model status")
 	}
-	model, err := buildModelRepresentation(status, c.makeModelExtractor(apiRoot), true, c.bundleMachines)
+	model, err := appbundle.BuildModelRepresentation(status, c.makeModelExtractor(apiRoot), true, c.bundleMachines)
 	return model, errors.Trace(err)
 }
 
@@ -283,7 +285,7 @@ func (c *bundleDiffCommand) getStatus(apiRoot base.APICallCloser) (*params.FullS
 	return &result, nil
 }
 
-func (c *bundleDiffCommand) makeModelExtractor(apiRoot base.APICallCloser) ModelExtractor {
+func (c *bundleDiffCommand) makeModelExtractor(apiRoot base.APICallCloser) appbundle.ModelExtractor {
 	return &extractorImpl{
 		application: application.NewClient(apiRoot),
 		annotations: annotations.NewClient(apiRoot),
@@ -320,6 +322,6 @@ func (e *extractorImpl) Sequences() (map[string]int, error) {
 // BundleResolver defines what we need from a charm store to resolve a
 // bundle and read the bundle data.
 type BundleResolver interface {
-	URLResolver
+	store.URLResolver
 	GetBundle(*charm.URL, string) (charm.Bundle, error)
 }

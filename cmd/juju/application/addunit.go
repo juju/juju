@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -119,7 +120,7 @@ func (c *UnitCommandBase) Init(args []string) error {
 		placementSpecs := strings.Split(c.PlacementSpec, ",")
 		c.Placement = make([]*instance.Placement, len(placementSpecs))
 		for i, spec := range placementSpecs {
-			placement, err := parsePlacement(spec)
+			placement, err := utils.ParsePlacement(spec)
 			if err != nil {
 				return errors.Errorf("invalid --to parameter %q", spec)
 			}
@@ -130,21 +131,6 @@ func (c *UnitCommandBase) Init(args []string) error {
 		logger.Warningf("%d unit(s) will be deployed, extra placement directives will be ignored", c.NumUnits)
 	}
 	return nil
-}
-
-func parsePlacement(spec string) (*instance.Placement, error) {
-	if spec == "" {
-		return nil, nil
-	}
-	placement, err := instance.ParsePlacement(spec)
-	if err == instance.ErrPlacementScopeMissing {
-		spec = "model-uuid" + ":" + spec
-		placement, err = instance.ParsePlacement(spec)
-	}
-	if err != nil {
-		return nil, errors.Errorf("invalid --to parameter %q", spec)
-	}
-	return placement, nil
 }
 
 // NewAddUnitCommand returns a command that adds a unit[s] to an application.

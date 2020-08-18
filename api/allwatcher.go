@@ -10,6 +10,13 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
+// AllWatch represents methods used on the AllWatcher
+// Primarily to facilitate mock tests.
+type AllWatch interface {
+	Next() ([]params.Delta, error)
+	Stop() error
+}
+
 // AllWatcher holds information allowing us to get Deltas describing
 // changes to the entire model or all models (depending on
 // the watcher type).

@@ -1,6 +1,6 @@
 // Copyright 2015 Canonical Ltd. All rights reserved.
 
-package application
+package deployer
 
 import (
 	"encoding/json"
@@ -79,7 +79,7 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"cs:quantal/metered-1"},
 	}, {
-		"Authorize", []interface{}{metricRegistrationPost{
+		"Authorize", []interface{}{MetricRegistrationPost{
 			ModelUUID:       "model uuid",
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
@@ -118,7 +118,7 @@ func (s *registrationSuite) TestOptionalPlanMeteredCharm(c *gc.C) {
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"cs:quantal/metered-1"},
 	}, {
-		"Authorize", []interface{}{metricRegistrationPost{
+		"Authorize", []interface{}{MetricRegistrationPost{
 			ModelUUID:       "model uuid",
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
@@ -157,7 +157,7 @@ func (s *registrationSuite) TestPlanNotSpecifiedCharm(c *gc.C) {
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"cs:quantal/metered-1"},
 	}, {
-		"Authorize", []interface{}{metricRegistrationPost{
+		"Authorize", []interface{}{MetricRegistrationPost{
 			ModelUUID:       "model uuid",
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
@@ -192,7 +192,7 @@ func (s *registrationSuite) TestMeteredCharmAPIError(c *gc.C) {
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"cs:quantal/metered-1"},
 	}, {
-		"Authorize", []interface{}{metricRegistrationPost{
+		"Authorize", []interface{}{MetricRegistrationPost{
 			ModelUUID:       "model uuid",
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
@@ -254,7 +254,7 @@ func (s *registrationSuite) TestMeteredCharmDefaultBudgetAllocation(c *gc.C) {
 		Args:     []interface{}{"cs:quantal/metered-1"},
 	}, {
 		FuncName: "Authorize",
-		Args: []interface{}{metricRegistrationPost{
+		Args: []interface{}{MetricRegistrationPost{
 			ModelUUID:       "model uuid",
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
@@ -288,7 +288,7 @@ func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"cs:quantal/metered-1"},
 	}, {
-		"Authorize", []interface{}{metricRegistrationPost{
+		"Authorize", []interface{}{MetricRegistrationPost{
 			ModelUUID:       "model uuid",
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
@@ -322,7 +322,7 @@ func (s *registrationSuite) TestMeteredLocalCharmWithPlan(c *gc.C) {
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"local:quantal/metered-1"},
 	}, {
-		"Authorize", []interface{}{metricRegistrationPost{
+		"Authorize", []interface{}{MetricRegistrationPost{
 			ModelUUID:       "model uuid",
 			CharmURL:        "local:quantal/metered-1",
 			ApplicationName: "application name",
@@ -365,7 +365,7 @@ func (s *registrationSuite) TestMeteredLocalCharmNoPlan(c *gc.C) {
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"local:quantal/metered-1"},
 	}, {
-		"Authorize", []interface{}{metricRegistrationPost{
+		"Authorize", []interface{}{MetricRegistrationPost{
 			ModelUUID:       "model uuid",
 			CharmURL:        "local:quantal/metered-1",
 			ApplicationName: "application name",
@@ -409,7 +409,7 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 	}, {
 		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
 	}, {
-		"Authorize", []interface{}{metricRegistrationPost{
+		"Authorize", []interface{}{MetricRegistrationPost{
 			ModelUUID:       "model uuid",
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
@@ -555,7 +555,7 @@ func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"cs:quantal/metered-1"},
 	}, {
-		"Authorize", []interface{}{metricRegistrationPost{
+		"Authorize", []interface{}{MetricRegistrationPost{
 			ModelUUID:       "model uuid",
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
@@ -663,7 +663,7 @@ type respErr struct {
 // ServeHTTP implements http.Handler.
 func (c *testMetricsRegistrationHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method == "POST" {
-		var registrationPost metricRegistrationPost
+		var registrationPost MetricRegistrationPost
 		decoder := json.NewDecoder(req.Body)
 		err := decoder.Decode(&registrationPost)
 		if err != nil {

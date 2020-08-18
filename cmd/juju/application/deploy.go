@@ -4,28 +4,16 @@
 package application
 
 import (
-	"archive/zip"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/juju/charm/v7"
-	"github.com/juju/charm/v7/resource"
-	"github.com/juju/charmrepo/v5"
-	"github.com/juju/charmrepo/v5/csclient/params"
-	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/romulus"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
-	"gopkg.in/macaroon.v2"
-	"gopkg.in/yaml.v2"
 
+	"github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
@@ -34,76 +22,20 @@ import (
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/api/spaces"
-	app "github.com/juju/juju/apiserver/facades/client/application"
 	apiparams "github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmstore"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/application/deployer"
+	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
-
-type CharmAdder interface {
-	AddLocalCharm(*charm.URL, charm.Charm, bool) (*charm.URL, error)
-	AddCharm(*charm.URL, params.Channel, bool) error
-	AddCharmWithAuthorization(*charm.URL, params.Channel, *macaroon.Macaroon, bool) error
-}
-
-type ApplicationAPI interface {
-	AddMachines(machineParams []apiparams.AddMachineParams) ([]apiparams.AddMachinesResult, error)
-	AddRelation(endpoints, viaCIDRs []string) (*apiparams.AddRelationResults, error)
-	AddUnits(application.AddUnitsParams) ([]string, error)
-	Expose(application string) error
-	GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error)
-	GetConfig(branchName string, appNames ...string) ([]map[string]interface{}, error)
-	GetConstraints(appNames ...string) ([]constraints.Value, error)
-	SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error)
-	SetCharm(string, application.SetCharmConfig) error
-	SetConstraints(application string, constraints constraints.Value) error
-	Update(apiparams.ApplicationUpdate) error
-	ScaleApplication(application.ScaleApplicationParams) (apiparams.ScaleApplicationResult, error)
-	Consume(arg crossmodel.ConsumeApplicationArgs) (string, error)
-}
-
-type ModelAPI interface {
-	ModelUUID() (string, bool)
-	ModelGet() (map[string]interface{}, error)
-	Sequences() (map[string]int, error)
-}
-
-// MeteredDeployAPI represents the methods of the API the deploy
-// command needs for metered charms.
-type MeteredDeployAPI interface {
-	IsMetered(charmURL string) (bool, error)
-	SetMetricCredentials(application string, credentials []byte) error
-}
-
-// CharmDeployAPI represents the methods of the API the deploy
-// command needs for charms.
-type CharmDeployAPI interface {
-	CharmInfo(string) (*apicharms.CharmInfo, error)
-}
-
-// OfferAPI represents the methods of the API the deploy command needs
-// for creating offers.
-type OfferAPI interface {
-	Offer(modelUUID, application string, endpoints []string, offerName, descr string) ([]apiparams.ErrorResult, error)
-	GrantOffer(user, access string, offerURLs ...string) error
-}
-
-type ConsumeDetails interface {
-	GetConsumeDetails(url string) (apiparams.ConsumeOfferDetails, error)
-	Close() error
-}
 
 // SpacesAPI defines the necessary API methods needed for listing spaces.
 type SpacesAPI interface {
@@ -112,26 +44,9 @@ type SpacesAPI interface {
 
 var supportedJujuSeries = series.WorkloadSeries
 
-// DeployAPI represents the methods of the API the deploy
-// command needs.
 type DeployAPI interface {
-	// TODO(katco): Pair DeployAPI down to only the methods required
-	// by the deploy command.
-	api.Connection
-	CharmAdder
-	MeteredDeployAPI
-	CharmDeployAPI
-	ApplicationAPI
-	ModelAPI
-	OfferAPI
+	deployer.DeployerAPI
 	SpacesAPI
-
-	// ApplicationClient
-	Deploy(application.DeployArgs) error
-	Status(patterns []string) (*apiparams.FullStatus, error)
-
-	WatchAll() (*api.AllWatcher, error)
-
 	// PlanURL returns the configured URL prefix for the metering plan API.
 	PlanURL() string
 }
@@ -157,15 +72,6 @@ type applicationClient struct {
 
 type modelConfigClient struct {
 	*modelconfig.Client
-}
-
-// charmrepoForDeploy is a stripped-down version of the
-// gopkg.in/juju/charmrepo.v4 Interface interface. It is
-// used by tests that embed a DeploySuiteBase.
-type charmrepoForDeploy interface {
-	Get(charmURL *charm.URL, path string) (*charm.CharmArchive, error)
-	GetBundle(bundleURL *charm.URL, path string) (charm.Bundle, error)
-	ResolveWithPreferredChannel(*charm.URL, params.Channel) (*charm.URL, params.Channel, []string, error)
 }
 
 type annotationsClient struct {
@@ -200,17 +106,16 @@ type deployAPIAdapter struct {
 	*spacesClient
 }
 
-type charmStoreAdaptor struct {
-	charmrepoForDeploy
-	macaroonGetter
-}
-
 func (a *deployAPIAdapter) Client() *api.Client {
 	return a.apiClient.Client
 }
 
 func (a *deployAPIAdapter) ModelUUID() (string, bool) {
 	return a.apiClient.ModelUUID()
+}
+
+func (a *deployAPIAdapter) WatchAll() (api.AllWatch, error) {
+	return a.apiClient.WatchAll()
 }
 
 func (a *deployAPIAdapter) Deploy(args application.DeployArgs) error {
@@ -222,19 +127,6 @@ func (a *deployAPIAdapter) Deploy(args application.DeployArgs) error {
 	}
 
 	return errors.Trace(a.applicationClient.Deploy(args))
-}
-
-func (a *charmStoreAdaptor) Resolve(url *charm.URL, preferredChannel params.Channel) (
-	*charm.URL,
-	params.Channel,
-	[]string,
-	error,
-) {
-	return resolveCharm(a.charmrepoForDeploy.ResolveWithPreferredChannel, url, preferredChannel)
-}
-
-func (a *charmStoreAdaptor) Get(url *charm.URL, path string) (*charm.CharmArchive, error) {
-	return a.charmrepoForDeploy.Get(url, path)
 }
 
 func (a *deployAPIAdapter) SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error) {
@@ -251,20 +143,10 @@ func NewDeployCommand() modelcmd.ModelCommand {
 }
 
 func newDeployCommand() *DeployCommand {
-	steps := []DeployStep{
-		&RegisterMeteredCharm{
-			PlanURL:      romulus.DefaultAPIRoot,
-			RegisterPath: "/plan/authorize",
-			QueryPath:    "/charm",
-		},
-		&ValidateLXDProfileCharm{},
-	}
 	deployCmd := &DeployCommand{
-		Steps:           steps,
-		DeployResources: resourceadapters.DeployResources,
-		clock:           jujuclock.WallClock,
+		Steps: deployer.Steps(),
 	}
-	deployCmd.NewCharmRepo = func() (*charmStoreAdaptor, error) {
+	deployCmd.NewCharmRepo = func() (*store.CharmStoreAdaptor, error) {
 		controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -277,11 +159,7 @@ func newDeployCommand() *DeployCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cstoreClient := newCharmStoreClient(bakeryClient, csURL)
-		return &charmStoreAdaptor{
-			charmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),
-			macaroonGetter:     cstoreClient,
-		}, nil
+		return store.NewCharmStoreAdaptor(bakeryClient, csURL), nil
 	}
 	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
 		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
@@ -308,22 +186,20 @@ func newDeployCommand() *DeployCommand {
 			spacesClient:      &spacesClient{API: spaces.NewAPI(apiRoot)},
 		}, nil
 	}
-	deployCmd.NewConsumeDetailsAPI = func(url *charm.OfferURL) (ConsumeDetails, error) {
+	deployCmd.NewConsumeDetailsAPI = func(url *charm.OfferURL) (deployer.ConsumeDetails, error) {
 		root, err := deployCmd.CommandBase.NewAPIRoot(deployCmd.ClientStore(), url.Source, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return applicationoffers.NewClient(root), nil
 	}
-
+	deployCmd.NewDeployerFactory = deployer.NewDeployerFactory
 	return deployCmd
 }
 
 type DeployCommand struct {
 	modelcmd.ModelCommandBase
 	UnitCommandBase
-
-	clock jujuclock.Clock
 
 	// CharmOrBundle is either a charm URL, a path where a charm can be found,
 	// or a bundle name.
@@ -377,10 +253,11 @@ type DeployCommand struct {
 	Resources map[string]string
 
 	Bindings map[string]string
-	Steps    []DeployStep
+	Steps    []deployer.DeployStep
 
 	// UseExisting machines when deploying the bundle.
 	UseExisting bool
+
 	// BundleMachines is a mapping for machines in the bundle to machines
 	// in the model.
 	BundleMachines map[string]string
@@ -389,11 +266,14 @@ type DeployCommand struct {
 	NewAPIRoot func() (DeployAPI, error)
 
 	// NewCharmRepo stores a function which returns a charm store client.
-	NewCharmRepo func() (*charmStoreAdaptor, error)
+	NewCharmRepo func() (*store.CharmStoreAdaptor, error)
+
+	// NewDeployerFactory stores a function which returns a deployer factory.
+	NewDeployerFactory func(dep deployer.DeployerDependencies) deployer.DeployerFactory
 
 	// NewConsumeDetailsAPI stores a function which will return a new API
 	// for consume details API using the url as the source.
-	NewConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
+	NewConsumeDetailsAPI func(url *charm.OfferURL) (deployer.ConsumeDetails, error)
 
 	// DeployResources stores a function which deploys charm resources.
 	DeployResources resourceadapters.DeployResourcesFunc
@@ -404,8 +284,7 @@ type DeployCommand struct {
 	// credentials. On the other hand, when deploying a bundle, Trust
 	// signifies that each application from the bundle that requires access
 	// to trusted credentials will be granted access.
-	Trust bool
-
+	Trust      bool
 	machineMap string
 	flagSet    *gnuflag.FlagSet
 
@@ -642,41 +521,6 @@ See also:
     spaces
 `
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deploystepapi_mock.go github.com/juju/juju/cmd/juju/application DeployStepAPI
-
-// DeployStepAPI represents a API required for deploying using the step
-// deployment code.
-type DeployStepAPI interface {
-	MeteredDeployAPI
-}
-
-// DeployStep is an action that needs to be taken during charm deployment.
-type DeployStep interface {
-	// SetFlags sets flags necessary for the deploy step.
-	SetFlags(*gnuflag.FlagSet)
-
-	// SetPlanURL sets the plan URL prefix.
-	SetPlanURL(planURL string)
-
-	// RunPre runs before the call is made to add the charm to the environment.
-	RunPre(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error
-
-	// RunPost runs after the call is made to add the charm to the environment.
-	// The error parameter is used to notify the step of a previously occurred error.
-	RunPost(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo, error) error
-}
-
-// DeploymentInfo is used to maintain all deployment information for
-// deployment steps.
-type DeploymentInfo struct {
-	CharmID         charmstore.CharmID
-	ApplicationName string
-	ModelUUID       string
-	CharmInfo       *apicharms.CharmInfo
-	ApplicationPlan string
-	Force           bool
-}
-
 func (c *DeployCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "deploy",
@@ -686,27 +530,9 @@ func (c *DeployCommand) Info() *cmd.Info {
 	})
 }
 
-var (
-	// TODO(thumper): support dry-run for apps as well as bundles.
-	bundleOnlyFlags = []string{
-		"overlay", "dry-run", "map-machines",
-	}
-)
-
-// charmOnlyFlags and bundleOnlyFlags are used to validate flags based on
-// whether we are deploying a charm or a bundle.
-func charmOnlyFlags() []string {
-	charmOnlyFlags := []string{
-		"bind", "config", "constraints", "n", "num-units",
-		"series", "to", "resource", "attach-storage",
-	}
-
-	return charmOnlyFlags
-}
-
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ConfigOptions.SetPreserveStringValue(true)
-	// Keep above charmOnlyFlags and bundleOnlyFlags lists updated when adding
+	// Keep CharmOnlyFlags and BundleOnlyFlags lists updated when adding
 	// new flags.
 	c.UnitCommandBase.SetFlags(f)
 	c.ModelCommandBase.SetFlags(f)
@@ -844,297 +670,6 @@ func parseMachineMap(value string) (bool, map[string]string, error) {
 	return useExisting, mapping, nil
 }
 
-type ModelConfigGetter interface {
-	ModelGet() (map[string]interface{}, error)
-}
-
-var getModelConfig = func(api ModelConfigGetter) (*config.Config, error) {
-	// Separated into a variable for easy overrides
-	attrs, err := api.ModelGet()
-	if err != nil {
-		return nil, errors.Wrap(err, errors.New("cannot fetch model settings"))
-	}
-
-	return config.New(config.NoDefaults, attrs)
-}
-
-func (c *DeployCommand) deployBundle(spec bundleDeploySpec) (rErr error) {
-	bakeryClient, err := c.BakeryClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	var ok bool
-	if spec.targetModelUUID, ok = spec.apiRoot.ModelUUID(); !ok {
-		return errors.New("API connection is controller-only (should never happen)")
-	}
-
-	if spec.targetModelName, _, err = c.ModelDetails(); err != nil {
-		return errors.Annotatef(err, "could not retrieve model name")
-	}
-
-	controllerName, err := c.ControllerName()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	spec.controllerName = controllerName
-	accountDetails, err := c.CurrentAccountDetails()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	spec.accountUser = accountDetails.User
-
-	// Compose bundle to be deployed and check its validity before running
-	// any pre/post checks.
-	var bundleData *charm.BundleData
-	if bundleData, err = composeAndVerifyBundle(spec.bundleDataSource, spec.bundleOverlayFile); err != nil {
-		return errors.Annotatef(err, "cannot deploy bundle")
-	}
-	spec.bundleDir = spec.bundleDataSource.BasePath()
-
-	// Short-circuit trust checks if the operator specifies '--force'
-	if !c.Trust {
-		if tl := appsRequiringTrust(bundleData.Applications); len(tl) != 0 && !c.Force {
-			return errors.Errorf(`Bundle cannot be deployed without trusting applications with your cloud credentials.
-Please repeat the deploy command with the --trust argument if you consent to trust the following application(s):
-  - %s`, strings.Join(tl, "\n  - "))
-		}
-	}
-
-	for application, applicationSpec := range bundleData.Applications {
-		if applicationSpec.Plan != "" {
-			for _, step := range c.Steps {
-				s := step
-				charmURL, err := charm.ParseURL(applicationSpec.Charm)
-				if err != nil {
-					return errors.Trace(err)
-				}
-
-				deployInfo := DeploymentInfo{
-					CharmID:         charmstore.CharmID{URL: charmURL},
-					ApplicationName: application,
-					ApplicationPlan: applicationSpec.Plan,
-					ModelUUID:       spec.targetModelUUID,
-					Force:           c.Force,
-				}
-
-				err = s.RunPre(spec.apiRoot, bakeryClient, spec.ctx, deployInfo)
-				if err != nil {
-					return errors.Trace(err)
-				}
-
-				defer func() {
-					err = errors.Trace(s.RunPost(spec.apiRoot, bakeryClient, spec.ctx, deployInfo, rErr))
-					if err != nil {
-						rErr = err
-					}
-				}()
-			}
-		}
-	}
-
-	// set the consumer details API factory method on the spec, so it makes it
-	// possible to communicate with other controllers, that are found within
-	// the local cache.
-	// If no controller is found within the local cache, an error will be raised
-	// which should ask the user to login.
-	spec.getConsumeDetailsAPI = func(url *charm.OfferURL) (ConsumeDetails, error) {
-		// Ensure that we have a url source when querying the controller.
-		if url.Source == "" {
-			url.Source = controllerName
-		}
-		return c.NewConsumeDetailsAPI(url)
-	}
-
-	// TODO(ericsnow) Do something with the CS macaroons that were returned?
-	// Deploying bundles does not allow the use force, it's expected that the
-	// bundle is correct and therefore the charms are also.
-	if _, err := deployBundle(bundleData, spec); err != nil {
-		return errors.Annotate(err, "cannot deploy bundle")
-	}
-	return nil
-}
-
-func (c *DeployCommand) deployCharm(
-	id charmstore.CharmID,
-	origin application.CharmOrigin,
-	csMac *macaroon.Macaroon,
-	series string,
-	ctx *cmd.Context,
-	apiRoot DeployAPI,
-) (rErr error) {
-	charmInfo, err := apiRoot.CharmInfo(id.URL.String())
-	if err != nil {
-		return err
-	}
-
-	if len(c.AttachStorage) > 0 && apiRoot.BestFacadeVersion("Application") < 5 {
-		// DeployArgs.AttachStorage is only supported from
-		// Application API version 5 and onwards.
-		return errors.New("this juju controller does not support --attach-storage")
-	}
-
-	// Storage cannot be added to a container.
-	if len(c.Storage) > 0 || len(c.AttachStorage) > 0 {
-		for _, placement := range c.Placement {
-			if t, err := instance.ParseContainerType(placement.Scope); err == nil {
-				return errors.NotSupportedf("adding storage to %s container", string(t))
-			}
-		}
-	}
-
-	numUnits := c.NumUnits
-	if charmInfo.Meta.Subordinate {
-		if !constraints.IsEmpty(&c.Constraints) {
-			return errors.New("cannot use --constraints with subordinate application")
-		}
-		if numUnits == 1 && c.PlacementSpec == "" {
-			numUnits = 0
-		} else {
-			return errors.New("cannot use --num-units or --to with subordinate application")
-		}
-	}
-	applicationName := c.ApplicationName
-	if applicationName == "" {
-		applicationName = charmInfo.Meta.Name
-	}
-
-	// Process the --config args.
-	// We may have a single file arg specified, in which case
-	// it points to a YAML file keyed on the charm name and
-	// containing values for any charm settings.
-	// We may also have key/value pairs representing
-	// charm settings which overrides anything in the YAML file.
-	// If more than one file is specified, that is an error.
-	var configYAML []byte
-	files, err := c.ConfigOptions.AbsoluteFileNames(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(files) > 1 {
-		return errors.Errorf("only a single config YAML file can be specified, got %d", len(files))
-	}
-	if len(files) == 1 {
-		configYAML, err = ioutil.ReadFile(files[0])
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	attr, err := c.ConfigOptions.ReadConfigPairs(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	appConfig := make(map[string]string)
-	for k, v := range attr {
-		appConfig[k] = v.(string)
-	}
-
-	// Expand the trust flag into the appConfig
-	if c.Trust {
-		appConfig[app.TrustConfigOptionName] = strconv.FormatBool(c.Trust)
-	}
-
-	// Application facade V5 expects charm config to either all be in YAML
-	// or config map. If config map is specified, that overrides YAML.
-	// So we need to combine the two here to have only one.
-	if apiRoot.BestFacadeVersion("Application") < 6 && len(appConfig) > 0 {
-		var configFromFile map[string]map[string]string
-		err := yaml.Unmarshal(configYAML, &configFromFile)
-		if err != nil {
-			return errors.Annotate(err, "badly formatted YAML config file")
-		}
-		if configFromFile == nil {
-			configFromFile = make(map[string]map[string]string)
-		}
-		charmSettings, ok := configFromFile[applicationName]
-		if !ok {
-			charmSettings = make(map[string]string)
-		}
-		for k, v := range appConfig {
-			charmSettings[k] = v
-		}
-		appConfig = nil
-		configFromFile[applicationName] = charmSettings
-		configYAML, err = yaml.Marshal(configFromFile)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	bakeryClient, err := c.BakeryClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	uuid, ok := apiRoot.ModelUUID()
-	if !ok {
-		return errors.New("API connection is controller-only (should never happen)")
-	}
-
-	deployInfo := DeploymentInfo{
-		CharmID:         id,
-		ApplicationName: applicationName,
-		ModelUUID:       uuid,
-		CharmInfo:       charmInfo,
-		Force:           c.Force,
-	}
-
-	for _, step := range c.Steps {
-		err = step.RunPre(apiRoot, bakeryClient, ctx, deployInfo)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	defer func() {
-		for _, step := range c.Steps {
-			err = errors.Trace(step.RunPost(apiRoot, bakeryClient, ctx, deployInfo, rErr))
-			if err != nil {
-				rErr = err
-			}
-		}
-	}()
-
-	if id.URL != nil && id.URL.Schema != "local" && len(charmInfo.Meta.Terms) > 0 {
-		ctx.Infof("Deployment under prior agreement to terms: %s",
-			strings.Join(charmInfo.Meta.Terms, " "))
-	}
-
-	ids, err := c.DeployResources(
-		applicationName,
-		id,
-		csMac,
-		c.Resources,
-		charmInfo.Meta.Resources,
-		apiRoot,
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if len(appConfig) == 0 {
-		appConfig = nil
-	}
-
-	args := application.DeployArgs{
-		CharmID:          id,
-		CharmOrigin:      origin,
-		Cons:             c.Constraints,
-		ApplicationName:  applicationName,
-		Series:           series,
-		NumUnits:         numUnits,
-		ConfigYAML:       string(configYAML),
-		Config:           appConfig,
-		Placement:        c.Placement,
-		Storage:          c.Storage,
-		Devices:          c.Devices,
-		AttachStorage:    c.AttachStorage,
-		Resources:        ids,
-		EndpointBindings: c.Bindings,
-	}
-	return errors.Trace(apiRoot.Deploy(args))
-}
-
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if c.unknownModel {
 		if err := c.validateStorageByModelType(); err != nil {
@@ -1157,7 +692,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer apiRoot.Close()
+	defer func() { _ = apiRoot.Close() }()
 
 	if err := c.parseBindFlag(apiRoot); err != nil {
 		return errors.Trace(err)
@@ -1167,27 +702,22 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		step.SetPlanURL(apiRoot.PlanURL())
 	}
 
-	deploy, err := findDeployerFIFO(
-		func() (deployFn, error) { return c.maybeReadLocalBundle(ctx) },
-		func() (deployFn, error) { return c.maybeReadLocalCharm(apiRoot) },
-		c.maybePredeployedLocalCharm,
-		c.maybeReadCharmstoreBundleFn(cstoreAPI),
-		c.charmStoreCharm, // This always returns a deployer
-	)
+	factory, cfg := c.getDeployerFactory()
+	deploy, err := factory.GetDeployer(cfg, apiRoot, cstoreAPI)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	return block.ProcessBlockedError(deploy(ctx, apiRoot, c.DeployResources, cstoreAPI), block.BlockChange)
+	return block.ProcessBlockedError(deploy.PrepareAndDeploy(ctx, apiRoot, cstoreAPI), block.BlockChange)
 }
 
-func (c *DeployCommand) parseBindFlag(apiRoot DeployAPI) error {
+func (c *DeployCommand) parseBindFlag(api SpacesAPI) error {
 	if c.BindToSpaces == "" {
 		return nil
 	}
 
 	// Fetch known spaces from server
-	knownSpaceList, err := apiRoot.ListSpaces()
+	knownSpaceList, err := api.ListSpaces()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1207,378 +737,6 @@ func (c *DeployCommand) parseBindFlag(apiRoot DeployAPI) error {
 	return nil
 }
 
-func findDeployerFIFO(maybeDeployers ...func() (deployFn, error)) (deployFn, error) {
-	for _, d := range maybeDeployers {
-		if deploy, err := d(); err != nil {
-			return nil, errors.Trace(err)
-		} else if deploy != nil {
-			return deploy, nil
-		}
-	}
-	return nil, errors.NotFoundf("suitable deployer")
-}
-
-type deployFn func(*cmd.Context, DeployAPI, resourceadapters.DeployResourcesFunc, *charmStoreAdaptor) error
-
-func (c *DeployCommand) validateBundleFlags() error {
-	if flags := getFlags(c.flagSet, charmOnlyFlags()); len(flags) > 0 {
-		return errors.Errorf("options provided but not supported when deploying a bundle: %s", strings.Join(flags, ", "))
-	}
-	return nil
-}
-
-func (c *DeployCommand) validateCharmFlags() error {
-	if flags := getFlags(c.flagSet, bundleOnlyFlags); len(flags) > 0 {
-		return errors.Errorf("options provided but not supported when deploying a charm: %s", strings.Join(flags, ", "))
-	}
-	return nil
-}
-
-func (c *DeployCommand) validateCharmSeries(seriesName string, imageStream string) error {
-	// attempt to locate the charm series from the list of known juju series
-	// that we currently support.
-	workloadSeries, err := supportedJujuSeries(c.clock.Now(), seriesName, imageStream)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	var found bool
-	for _, name := range workloadSeries.Values() {
-		if name == seriesName {
-			found = true
-			break
-		}
-	}
-	if !found && !c.Force {
-		return errors.NotSupportedf("series: %s", seriesName)
-	}
-
-	modelType, err := c.ModelType()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return model.ValidateSeries(modelType, seriesName)
-}
-
-func (c *DeployCommand) validateResourcesNeededForLocalDeploy(charmMeta *charm.Meta) error {
-	modelType, err := c.ModelType()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if modelType != model.CAAS {
-		return nil
-	}
-	var missingImages []string
-	for resName, resMeta := range charmMeta.Resources {
-		if resMeta.Type == resource.TypeContainerImage {
-			if _, ok := c.Resources[resName]; !ok {
-				missingImages = append(missingImages, resName)
-			}
-		}
-	}
-	if len(missingImages) > 0 {
-		return errors.Errorf("local charm missing OCI images for: %v", strings.Join(missingImages, ", "))
-	}
-	return nil
-}
-
-func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
-	// If the charm's schema is local, we should definitively attempt
-	// to deploy a charm that's already deployed in the
-	// environment.
-	userCharmURL, err := charm.ParseURL(c.CharmOrBundle)
-	if err != nil {
-		return nil, errors.Trace(err)
-	} else if userCharmURL.Schema != "local" {
-		logger.Debugf("cannot interpret as a redeployment of a local charm from the controller")
-		return nil, nil
-	}
-
-	return func(ctx *cmd.Context, apiRoot DeployAPI, deployResources resourceadapters.DeployResourcesFunc, cstore *charmStoreAdaptor) error {
-		modelCfg, err := getModelConfig(apiRoot)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		// Avoid deploying charm if it's not valid for the model.
-		if err := c.validateCharmSeriesWithName(userCharmURL.Series, userCharmURL.Name, modelCfg.ImageStream()); err != nil {
-			return errors.Trace(err)
-		}
-
-		if err := c.validateCharmFlags(); err != nil {
-			return errors.Trace(err)
-		}
-		charmInfo, err := apiRoot.CharmInfo(userCharmURL.String())
-		if err != nil {
-			return err
-		}
-		if err := c.validateResourcesNeededForLocalDeploy(charmInfo.Meta); err != nil {
-			return errors.Trace(err)
-		}
-		formattedCharmURL := userCharmURL.String()
-		ctx.Infof("Located charm %q.", formattedCharmURL)
-		ctx.Infof("Deploying charm %q.", formattedCharmURL)
-
-		origin, err := deduceOrigin(userCharmURL)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		return errors.Trace(c.deployCharm(
-			charmstore.CharmID{URL: userCharmURL},
-			origin,
-			(*macaroon.Macaroon)(nil),
-			userCharmURL.Series,
-			ctx,
-			apiRoot,
-		))
-	}, nil
-}
-
-func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error) {
-	bundleFile := c.CharmOrBundle
-	_, statErr := os.Stat(bundleFile)
-	if statErr == nil && !charm.IsValidLocalCharmOrBundlePath(bundleFile) {
-		return nil, errors.Errorf(""+
-			"The charm or bundle %q is ambiguous.\n"+
-			"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
-			"To deploy a charm or bundle from the store, run `juju deploy cs:%[1]s`.",
-			bundleFile,
-		)
-	}
-
-	ds, err := charm.LocalBundleDataSource(bundleFile)
-	if errors.IsNotFound(err) {
-		// Not a local bundle. Return nil, nil to indicate the fallback
-		// pipeline should try the next possibility.
-		return nil, nil
-	}
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot deploy bundle")
-	}
-	if err := c.validateBundleFlags(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return func(ctx *cmd.Context, apiRoot DeployAPI, deployResources resourceadapters.DeployResourcesFunc, cstore *charmStoreAdaptor) error {
-		return errors.Trace(c.deployBundle(bundleDeploySpec{
-			ctx:                 ctx,
-			dryRun:              c.DryRun,
-			force:               c.Force,
-			trust:               c.Trust,
-			bundleDataSource:    ds,
-			bundleOverlayFile:   c.BundleOverlayFile,
-			channel:             c.Channel,
-			apiRoot:             apiRoot,
-			bundleResolver:      cstore,
-			deployResources:     deployResources,
-			authorizer:          cstore.macaroonGetter,
-			useExistingMachines: c.UseExisting,
-			bundleMachines:      c.BundleMachines,
-			bundleStorage:       c.BundleStorage,
-			bundleDevices:       c.BundleDevices,
-		}))
-	}, nil
-}
-
-func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error) {
-	// NOTE: Here we select the series using the algorithm defined by
-	// `seriesSelector.CharmSeries`. This serves to override the algorithm found in
-	// `charmrepo.NewCharmAtPath` which is outdated (but must still be
-	// called since the code is coupled with path interpretation logic which
-	// cannot easily be factored out).
-
-	// NOTE: Reading the charm here is only meant to aid in inferring the correct
-	// series, if this fails we fall back to the argument series. If reading
-	// the charm fails here it will also fail below (the charm is read again
-	// below) where it is handled properly. This is just an expedient to get
-	// the correct series. A proper refactoring of the charmrepo package is
-	// needed for a more elegant fix.
-	ch, err := charm.ReadCharm(c.CharmOrBundle)
-	seriesName := c.Series
-
-	var imageStream string
-	if err == nil {
-		modelCfg, err := getModelConfig(apiRoot)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		imageStream = modelCfg.ImageStream()
-		workloadSeries, err := supportedJujuSeries(c.clock.Now(), c.Series, imageStream)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		seriesSelector := seriesSelector{
-			seriesFlag:          seriesName,
-			supportedSeries:     ch.Meta().Series,
-			supportedJujuSeries: workloadSeries,
-			force:               c.Force,
-			conf:                modelCfg,
-			fromBundle:          false,
-		}
-
-		if len(ch.Meta().Series) == 0 {
-			logger.Warningf("%s does not declare supported series in metadata.yml", ch.Meta().Name)
-		}
-
-		seriesName, err = seriesSelector.charmSeries()
-		if err = charmValidationError(seriesName, ch.Meta().Name, errors.Trace(err)); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
-	// Charm may have been supplied via a path reference.
-	ch, curl, err := charmrepo.NewCharmAtPathForceSeries(c.CharmOrBundle, seriesName, c.Force)
-	// We check for several types of known error which indicate
-	// that the supplied reference was indeed a path but there was
-	// an issue reading the charm located there.
-	if charm.IsMissingSeriesError(err) {
-		return nil, err
-	} else if charm.IsUnsupportedSeriesError(err) {
-		return nil, errors.Trace(err)
-	} else if errors.Cause(err) == zip.ErrFormat {
-		return nil, errors.Errorf("invalid charm or bundle provided at %q", c.CharmOrBundle)
-	} else if _, ok := err.(*charmrepo.NotFoundError); ok {
-		return nil, errors.Wrap(err, errors.NotFoundf("charm or bundle at %q", c.CharmOrBundle))
-	} else if err != nil && err != os.ErrNotExist {
-		// If we get a "not exists" error then we attempt to interpret
-		// the supplied charm reference as a URL elsewhere, otherwise
-		// we return the error.
-		return nil, errors.Trace(err)
-	} else if err != nil {
-		logger.Debugf("cannot interpret as local charm: %v", err)
-		return nil, nil
-	}
-
-	// Avoid deploying charm if it's not valid for the model.
-	if err := c.validateCharmSeriesWithName(seriesName, curl.Name, imageStream); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := c.validateResourcesNeededForLocalDeploy(ch.Meta()); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return func(ctx *cmd.Context, apiRoot DeployAPI, deployResources resourceadapters.DeployResourcesFunc, cstore *charmStoreAdaptor) error {
-		if err := c.validateCharmFlags(); err != nil {
-			return errors.Trace(err)
-		}
-
-		if curl, err = apiRoot.AddLocalCharm(curl, ch, c.Force); err != nil {
-			return errors.Trace(err)
-		}
-
-		id := charmstore.CharmID{
-			URL: curl,
-			// Local charms don't need a channel.
-		}
-
-		origin, err := deduceOrigin(curl)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		ctx.Infof("Deploying charm %q.", curl.String())
-		return errors.Trace(c.deployCharm(
-			id,
-			origin,
-			(*macaroon.Macaroon)(nil), // local charms don't need one.
-			curl.Series,
-			ctx,
-			apiRoot,
-		))
-	}, nil
-}
-
-// URLResolver is the part of charmrepo.Charmstore that we need to
-// resolve a charm url.
-type URLResolver interface {
-	ResolveWithPreferredChannel(*charm.URL, params.Channel) (*charm.URL, params.Channel, []string, error)
-}
-
-// resolveBundleURL tries to interpret maybeBundle as a eharmstorr
-// bundle. If it turns out to be a bundle, the resolved URL and
-// channel are returned. If it isn't but there wasn't a problem
-// checking it, it returns a nil charm URL.
-func resolveBundleURL(cstore URLResolver, maybeBundle string, preferredChannel params.Channel) (*charm.URL, params.Channel, error) {
-	userRequestedURL, err := charm.ParseURL(maybeBundle)
-	if err != nil {
-		return nil, "", errors.Trace(err)
-	}
-
-	// Charm or bundle has been supplied as a URL so we resolve and
-	// deploy using the store.
-	storeCharmOrBundleURL, channel, _, err := resolveCharm(cstore.ResolveWithPreferredChannel, userRequestedURL, preferredChannel)
-	if err != nil {
-		return nil, "", errors.Trace(err)
-	}
-	if storeCharmOrBundleURL.Series != "bundle" {
-		logger.Debugf(
-			`cannot interpret as charmstore bundle: %v (series) != "bundle"`,
-			storeCharmOrBundleURL.Series,
-		)
-		return nil, "", errors.NotValidf("charmstore bundle %q", maybeBundle)
-	}
-	return storeCharmOrBundleURL, channel, nil
-}
-
-func (c *DeployCommand) maybeReadCharmstoreBundleFn(cstore BundleResolver) func() (deployFn, error) {
-	return func() (deployFn, error) {
-		bundleURL, channel, err := resolveBundleURL(cstore, c.CharmOrBundle, c.Channel)
-		if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
-			return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
-		}
-		if errors.IsNotValid(err) {
-			// The URL resolved alright, but not to a bundle.
-			return nil, nil
-		}
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if err := c.validateBundleFlags(); err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		return func(ctx *cmd.Context, apiRoot DeployAPI, deployResources resourceadapters.DeployResourcesFunc, cstore *charmStoreAdaptor) error {
-			// TODO(bundles) - Ideally, we would like to expose a GetBundleDataSource method for the charmstore.
-			// As a short-term solution and given that we don't
-			// want to support (for now at least) multi-doc bundles
-			// from the charmstore we simply use the existing
-			// charmrepo.v4 API to read the base bundle and
-			// wrap it in a BundleDataSource for use by deployBundle.
-			dir, err := ioutil.TempDir("", bundleURL.Name)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			bundle, err := cstore.GetBundle(bundleURL, filepath.Join(dir, bundleURL.Name))
-			if err != nil {
-				return errors.Trace(err)
-			}
-			ctx.Infof("Located bundle %q", bundleURL)
-
-			return errors.Trace(c.deployBundle(bundleDeploySpec{
-				ctx:                 ctx,
-				dryRun:              c.DryRun,
-				force:               c.Force,
-				trust:               c.Trust,
-				bundleDataSource:    newResolvedBundle(bundle),
-				bundleURL:           bundleURL,
-				bundleOverlayFile:   c.BundleOverlayFile,
-				channel:             channel,
-				apiRoot:             apiRoot,
-				bundleResolver:      cstore,
-				deployResources:     deployResources,
-				authorizer:          cstore.macaroonGetter,
-				useExistingMachines: c.UseExisting,
-				bundleMachines:      c.BundleMachines,
-				bundleStorage:       c.BundleStorage,
-				bundleDevices:       c.BundleDevices,
-			}))
-		}, nil
-	}
-}
-
 func (c *DeployCommand) getMeteringAPIURL(controllerAPIRoot api.Connection) (string, error) {
 	controllerAPI := controller.NewClient(controllerAPIRoot)
 	controllerCfg, err := controllerAPI.ControllerConfig()
@@ -1588,240 +746,36 @@ func (c *DeployCommand) getMeteringAPIURL(controllerAPIRoot api.Connection) (str
 	return controllerCfg.MeteringURL(), nil
 }
 
-func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
-	userRequestedURL, err := charm.ParseURL(c.CharmOrBundle)
-	if err != nil {
-		return nil, errors.Trace(err)
+func (c *DeployCommand) getDeployerFactory() (deployer.DeployerFactory, deployer.DeployerConfig) {
+	dep := deployer.DeployerDependencies{
+		Model:                c,
+		NewConsumeDetailsAPI: c.NewConsumeDetailsAPI, // only used here
+		Steps:                c.Steps,
 	}
-
-	return func(ctx *cmd.Context, apiRoot DeployAPI, deployResources resourceadapters.DeployResourcesFunc, cstore *charmStoreAdaptor) error {
-		// resolver.resolve potentially updates the series of anything
-		// passed in. Store this for use in seriesSelector.
-		userRequestedSeries := userRequestedURL.Series
-
-		modelCfg, err := getModelConfig(apiRoot)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		imageStream := modelCfg.ImageStream()
-		workloadSeries, err := supportedJujuSeries(c.clock.Now(), userRequestedSeries, imageStream)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		// Charm or bundle has been supplied as a URL so we resolve and
-		// deploy using the store but pass in the channel command line
-		// argument so users can target a specific channel.
-		storeCharmOrBundleURL, channel, supportedSeries, err := resolveCharm(
-			cstore.ResolveWithPreferredChannel, userRequestedURL, c.Channel,
-		)
-		if charm.IsUnsupportedSeriesError(err) {
-			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-
-		if err := c.validateCharmFlags(); err != nil {
-			return errors.Trace(err)
-		}
-
-		selector := seriesSelector{
-			charmURLSeries:      userRequestedSeries,
-			seriesFlag:          c.Series,
-			supportedSeries:     supportedSeries,
-			supportedJujuSeries: workloadSeries,
-			force:               c.Force,
-			conf:                modelCfg,
-			fromBundle:          false,
-		}
-
-		// Get the series to use.
-		series, err := selector.charmSeries()
-
-		// Avoid deploying charm if it's not valid for the model.
-		// We check this first before possibly suggesting --force.
-		if err == nil {
-			if err2 := c.validateCharmSeriesWithName(series, storeCharmOrBundleURL.Name, imageStream); err2 != nil {
-				return errors.Trace(err2)
-			}
-		}
-
-		if charm.IsUnsupportedSeriesError(err) {
-			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
-		}
-		// although we try and get the charmSeries from the charm series
-		// selector it will return an error and an empty string for the series.
-		// So we need to approximate what the seriesName should be when
-		// displaying an error to the user. We do this by getting the potential
-		// series name.
-		seriesName := getPotentialSeriesName(series, storeCharmOrBundleURL.Series, userRequestedSeries)
-		if validationErr := charmValidationError(seriesName, storeCharmOrBundleURL.Name, errors.Trace(err)); validationErr != nil {
-			return errors.Trace(validationErr)
-		}
-
-		// Store the charm in the controller
-		curl, csMac, err := addCharmFromURL(apiRoot, cstore.macaroonGetter, storeCharmOrBundleURL, channel, c.Force)
-		if err != nil {
-			if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
-				return errors.Trace(termErr.UserErr())
-			}
-			return errors.Annotatef(err, "storing charm for URL %q", storeCharmOrBundleURL)
-		}
-
-		// If the original series was empty, so we couldn't validate the original
-		// charm series, but the charm url wasn't nil, we can check and validate
-		// what that one says.
-		//
-		// Note: it's interesting that the charm url and the series can diverge and
-		// tell different things when deploying a charm and in sake of understanding
-		// what we deploy, we should converge the two so that both report identical
-		// values.
-		if curl != nil && series == "" {
-			if err := c.validateCharmSeriesWithName(curl.Series, storeCharmOrBundleURL.Name, imageStream); err != nil {
-				return errors.Trace(err)
-			}
-		}
-
-		formattedCharmURL := curl.String()
-		ctx.Infof("Located charm %q.", formattedCharmURL)
-		ctx.Infof("Deploying charm %q.", formattedCharmURL)
-		id := charmstore.CharmID{
-			URL:     curl,
-			Channel: channel,
-		}
-		origin, err := deduceOrigin(curl)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		return errors.Trace(c.deployCharm(
-			id,
-			origin,
-			csMac,
-			series,
-			ctx,
-			apiRoot,
-		))
-	}, nil
-}
-
-func deduceOrigin(url *charm.URL) (application.CharmOrigin, error) {
-	if url == nil {
-		return application.CharmOrigin{}, errors.NotValidf("charm url")
+	cfg := deployer.DeployerConfig{
+		ApplicationName:   c.ApplicationName,
+		AttachStorage:     c.AttachStorage,
+		Bindings:          c.Bindings,
+		BundleDevices:     c.BundleDevices,
+		BundleMachines:    c.BundleMachines,
+		BundleOverlayFile: c.BundleOverlayFile,
+		BundleStorage:     c.BundleStorage,
+		Channel:           c.Channel,
+		CharmOrBundle:     c.CharmOrBundle,
+		ConfigOptions:     c.ConfigOptions,
+		Constraints:       c.Constraints,
+		Devices:           c.Devices,
+		DryRun:            c.DryRun,
+		FlagSet:           c.flagSet,
+		Force:             c.Force,
+		NumUnits:          c.NumUnits,
+		PlacementSpec:     c.PlacementSpec,
+		Placement:         c.Placement,
+		Resources:         c.Resources,
+		Series:            c.Series,
+		Storage:           c.Storage,
+		Trust:             c.Trust,
+		UseExisting:       c.UseExisting,
 	}
-
-	switch url.Schema {
-	case "cs":
-		return application.CharmOrigin{
-			Source: application.OriginCharmStore,
-		}, nil
-	case "local":
-		return application.CharmOrigin{
-			Source: application.OriginLocal,
-		}, nil
-	default:
-		return application.CharmOrigin{
-			Source: application.OriginCharmHub,
-		}, nil
-	}
-}
-
-// Returns the first string that isn't empty.
-// If all strings are empty, then return an empty string.
-func getPotentialSeriesName(series ...string) string {
-	for _, s := range series {
-		if s != "" {
-			return s
-		}
-	}
-	return ""
-}
-
-// validateCharmSeriesWithName calls the validateCharmSeries, but handles the
-// error return value to check for NotSupported error and returns a custom error
-// message if that's found.
-func (c *DeployCommand) validateCharmSeriesWithName(series, name string, imageStream string) error {
-	err := c.validateCharmSeries(series, imageStream)
-	return charmValidationError(series, name, errors.Trace(err))
-}
-
-// charmValidationError consumes an error along with a charmSeries and name
-// to help provide better feedback to the user when somethings gone wrong around
-// validating a charm validation
-func charmValidationError(charmSeries, name string, err error) error {
-	if err != nil {
-		if errors.IsNotSupported(err) {
-			return errors.Errorf("%v is not available on the following %v", name, err)
-		}
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-// getFlags returns the flags with the given names. Only flags that are set and
-// whose name is included in flagNames are included.
-func getFlags(flagSet *gnuflag.FlagSet, flagNames []string) []string {
-	flags := make([]string, 0, flagSet.NFlag())
-	flagSet.Visit(func(flag *gnuflag.Flag) {
-		for _, name := range flagNames {
-			if flag.Name == name {
-				flags = append(flags, flagWithMinus(name))
-			}
-		}
-	})
-	return flags
-}
-
-func flagWithMinus(name string) string {
-	if len(name) > 1 {
-		return "--" + name
-	}
-	return "-" + name
-}
-
-func appsRequiringTrust(appSpecList map[string]*charm.ApplicationSpec) []string {
-	var tl []string
-	for app, appSpec := range appSpecList {
-		if applicationRequiresTrust(appSpec) {
-			tl = append(tl, app)
-		}
-	}
-
-	// Since map iterations are random we should sort the list to ensure
-	// consistent output in any errors containing the returned list contents.
-	sort.Strings(tl)
-	return tl
-}
-
-// resolvedBundle decorates a charm.Bundle instance with a type that implements
-// the charm.BundleDataSource interface.
-type resolvedBundle struct {
-	parts []*charm.BundleDataPart
-}
-
-func newResolvedBundle(b charm.Bundle) resolvedBundle {
-	return resolvedBundle{
-		parts: []*charm.BundleDataPart{
-			{
-				Data:        b.Data(),
-				PresenceMap: make(charm.FieldPresenceMap),
-			},
-		},
-	}
-}
-
-// Parts implements charm.BundleDataSource.
-func (rb resolvedBundle) Parts() []*charm.BundleDataPart {
-	return rb.parts
-}
-
-// BasePath implements charm.BundleDataSource.
-func (resolvedBundle) BasePath() string {
-	return ""
-}
-
-// ResolveInclude implements charm.BundleDataSource.
-func (resolvedBundle) ResolveInclude(_ string) ([]byte, error) {
-	return nil, errors.NotSupportedf("remote bundle includes")
+	return c.NewDeployerFactory(dep), cfg
 }

@@ -1,6 +1,6 @@
 // Copyright 2015 Canonical Ltd. All rights reserved.
 
-package application
+package deployer
 
 import (
 	"bytes"
@@ -17,7 +17,7 @@ import (
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 )
 
-type metricRegistrationPost struct {
+type MetricRegistrationPost struct {
 	ModelUUID       string `json:"env-uuid"`
 	CharmURL        string `json:"charm-url"`
 	ApplicationName string `json:"service-name"`
@@ -243,7 +243,7 @@ func (r *RegisterMeteredCharm) registerMetrics(modelUUID, charmURL, applicationN
 		return nil, errors.Trace(err)
 	}
 
-	registrationPost := metricRegistrationPost{
+	registrationPost := MetricRegistrationPost{
 		ModelUUID:       modelUUID,
 		CharmURL:        charmURL,
 		ApplicationName: applicationName,
