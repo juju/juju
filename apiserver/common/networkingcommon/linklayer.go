@@ -23,6 +23,9 @@ type LinkLayerDevice interface {
 	// ProviderID returns the provider-specific identifier for this device.
 	ProviderID() network.Id
 
+	// Type returns the device's type.
+	Type() network.LinkLayerDeviceType
+
 	// SetProviderIDOps returns the operations required to set the input
 	// provider ID for the link-layer device.
 	SetProviderIDOps(id network.Id) ([]txn.Op, error)
