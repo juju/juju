@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/charm/v8"
@@ -188,6 +189,11 @@ type localBundle struct {
 	deployBundle
 }
 
+// String returns a string description of the deployer.
+func (d *localBundle) String() string {
+	return fmt.Sprintf("deploy local bundle from: %s", d.bundleDir)
+}
+
 // PrepareAndDeploy deploys a local bundle, no further preparation is needed.
 func (d *localBundle) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver, macaroonGetter store.MacaroonGetter) error {
 	return d.deploy(ctx, deployAPI, resolver, macaroonGetter)
@@ -195,6 +201,11 @@ func (d *localBundle) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, 
 
 type charmstoreBundle struct {
 	deployBundle
+}
+
+// String returns a string description of the deployer.
+func (d *charmstoreBundle) String() string {
+	return fmt.Sprintf("deploy charm store bundle: %s", d.bundleURL.String())
 }
 
 // PrepareAndDeploy deploys a local bundle, no further preparation is needed.

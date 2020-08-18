@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"fmt"
 	"io/ioutil"
 	"strconv"
 	"strings"
@@ -257,6 +258,11 @@ type predeployedLocalCharm struct {
 	userCharmURL *charm.URL
 }
 
+// String returns a string description of the deployer.
+func (d *predeployedLocalCharm) String() string {
+	return fmt.Sprintf("deploy predeployed local charm: %s", d.userCharmURL.String())
+}
+
 // PrepareAndDeploy finishes preparing to deploy a predeployed local charm,
 // then deploys it.
 func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver, _ store.MacaroonGetter) error {
@@ -305,6 +311,11 @@ type localCharm struct {
 	ch   charm.Charm
 }
 
+// String returns a string description of the deployer.
+func (d *localCharm) String() string {
+	return fmt.Sprintf("deploy local charm: %s", d.curl.String())
+}
+
 // PrepareAndDeploy finishes preparing to deploy a local charm,
 // then deploys it.
 func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver, _ store.MacaroonGetter) error {
@@ -336,6 +347,11 @@ type charmStoreCharm struct {
 	deployCharm
 	userRequestedURL *charm.URL
 	clock            jujuclock.Clock
+}
+
+// String returns a string description of the deployer.
+func (d *charmStoreCharm) String() string {
+	return fmt.Sprintf("deploy charm store charm: %s", d.userRequestedURL.String())
 }
 
 // PrepareAndDeploy finishes preparing to deploy a charm store charm,

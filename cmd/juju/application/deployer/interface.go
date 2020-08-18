@@ -36,6 +36,9 @@ type Deployer interface {
 	// then deploys it.  This is done as one step to accommodate the
 	// call being wrapped by block.ProcessBlockedError.
 	PrepareAndDeploy(*cmd.Context, DeployerAPI, Resolver, store.MacaroonGetter) error
+
+	// String returns a string description of the deployer.
+	String() string
 }
 
 // DeployStepAPI represents a API required for deploying using the step
