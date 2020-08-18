@@ -4162,7 +4162,7 @@ func (ac addCharmPlaceholder) step(c *gc.C, ctx *context) {
 	ch := testcharms.Repo.CharmDir(ac.name)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, ac.rev))
-	err := ctx.st.AddStoreCharmPlaceholder(curl)
+	err := ctx.st.AddCharmPlaceholder(curl)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

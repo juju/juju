@@ -58,7 +58,7 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	})
 
 	sExp := mockState.EXPECT()
-	sExp.PrepareStoreCharmUpload(charmURL).Return(mockStateCharm, nil)
+	sExp.PrepareCharmUpload(charmURL).Return(mockStateCharm, nil)
 	sExp.ModelUUID().Return("model-id")
 	sExp.MongoSession().Return(&mgo.Session{})
 	sExp.UpdateUploadedCharm(gomock.Any()).Return(nil, nil)
@@ -101,7 +101,7 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorizationWithInvalidLXDProfile(c *
 	})
 
 	sExp := mockState.EXPECT()
-	sExp.PrepareStoreCharmUpload(charmURL).Return(mockStateCharm, nil)
+	sExp.PrepareCharmUpload(charmURL).Return(mockStateCharm, nil)
 
 	cExp := mockStateCharm.EXPECT()
 	cExp.IsUploaded().Return(false)
@@ -138,7 +138,7 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorizationAndForce(c *gc.C) {
 	})
 
 	sExp := mockState.EXPECT()
-	sExp.PrepareStoreCharmUpload(charmURL).Return(mockStateCharm, nil)
+	sExp.PrepareCharmUpload(charmURL).Return(mockStateCharm, nil)
 	sExp.ModelUUID().Return("model-id")
 	sExp.MongoSession().Return(&mgo.Session{})
 	sExp.UpdateUploadedCharm(gomock.Any()).Return(nil, nil)
@@ -182,7 +182,7 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorizationWithInvalidLXDProfileAndF
 	})
 
 	sExp := mockState.EXPECT()
-	sExp.PrepareStoreCharmUpload(charmURL).Return(mockStateCharm, nil)
+	sExp.PrepareCharmUpload(charmURL).Return(mockStateCharm, nil)
 	sExp.ModelUUID().Return("model-id")
 	sExp.MongoSession().Return(&mgo.Session{})
 	sExp.UpdateUploadedCharm(gomock.Any()).Return(nil, nil)
@@ -233,7 +233,7 @@ func (s *CharmStoreSuite) TestAddVersionedCharmWithAuthorization(c *gc.C) {
 	})
 
 	sExp := mockState.EXPECT()
-	sExp.PrepareStoreCharmUpload(charmURL).Return(mockStateCharm, nil)
+	sExp.PrepareCharmUpload(charmURL).Return(mockStateCharm, nil)
 	sExp.ModelUUID().Return("model-id")
 	sExp.MongoSession().Return(&mgo.Session{})
 	sExp.UpdateUploadedCharm(charmVersionMatcher{expVersion}).Return(nil, nil)

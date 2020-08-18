@@ -5,15 +5,14 @@
 package mocks
 
 import (
-	reflect "reflect"
-	time "time"
-
 	gomock "github.com/golang/mock/gomock"
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	migration "github.com/juju/juju/core/migration"
 	permission "github.com/juju/juju/core/permission"
 	state "github.com/juju/juju/state"
-	names_v3 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
+	reflect "reflect"
+	time "time"
 )
 
 // MockModelMigration is a mock of ModelMigration interface
@@ -125,7 +124,7 @@ func (mr *MockModelMigrationMockRecorder) ModelUUID() *gomock.Call {
 }
 
 // ModelUserAccess mocks base method
-func (m *MockModelMigration) ModelUserAccess(arg0 names_v3.Tag) permission.Access {
+func (m *MockModelMigration) ModelUserAccess(arg0 names.Tag) permission.Access {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelUserAccess", arg0)
 	ret0, _ := ret[0].(permission.Access)
@@ -238,7 +237,7 @@ func (mr *MockModelMigrationMockRecorder) StatusMessage() *gomock.Call {
 }
 
 // SubmitMinionReport mocks base method
-func (m *MockModelMigration) SubmitMinionReport(arg0 names_v3.Tag, arg1 migration.Phase, arg2 bool) error {
+func (m *MockModelMigration) SubmitMinionReport(arg0 names.Tag, arg1 migration.Phase, arg2 bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SubmitMinionReport", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

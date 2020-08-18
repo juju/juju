@@ -5,13 +5,12 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	description "github.com/juju/description/v2"
 	state "github.com/juju/juju/state"
-	names_v3 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
 	version "github.com/juju/version"
+	reflect "reflect"
 )
 
 // MockBackend is a mock of Backend interface
@@ -98,10 +97,10 @@ func (mr *MockBackendMockRecorder) ModelName() *gomock.Call {
 }
 
 // ModelOwner mocks base method
-func (m *MockBackend) ModelOwner() (names_v3.UserTag, error) {
+func (m *MockBackend) ModelOwner() (names.UserTag, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelOwner")
-	ret0, _ := ret[0].(names_v3.UserTag)
+	ret0, _ := ret[0].(names.UserTag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/bundlechanges"
+	"github.com/juju/bundlechanges/v2"
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/charmrepo/v6"

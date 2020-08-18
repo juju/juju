@@ -94,7 +94,7 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 	if err != nil {
 		return err
 	}
-	if charm.CharmStore.Matches(charmURL.Schema) {
+	if !charm.CharmStore.Matches(charmURL.Schema) {
 		return fmt.Errorf("only charm store charm URLs are supported, with cs: schema")
 	}
 	if charmURL.Revision < 0 {

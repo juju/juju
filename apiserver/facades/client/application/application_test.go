@@ -940,7 +940,7 @@ func (s *applicationSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "trusty/wordpress-42", "wordpress")
 
 	// Add a placeholder with the same charm URL.
-	err := s.State.AddStoreCharmPlaceholder(curl)
+	err := s.State.AddCharmPlaceholder(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.Charm(curl)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)

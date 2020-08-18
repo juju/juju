@@ -5,14 +5,13 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
-	charm_v6 "github.com/juju/charm/v8"
+	charm "github.com/juju/charm/v8"
 	modelgeneration "github.com/juju/juju/apiserver/facades/client/modelgeneration"
 	cache "github.com/juju/juju/core/cache"
 	settings "github.com/juju/juju/core/settings"
-	names_v3 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
+	reflect "reflect"
 )
 
 // MockState is a mock of State interface
@@ -54,10 +53,10 @@ func (mr *MockStateMockRecorder) Application(arg0 interface{}) *gomock.Call {
 }
 
 // ControllerTag mocks base method
-func (m *MockState) ControllerTag() names_v3.ControllerTag {
+func (m *MockState) ControllerTag() names.ControllerTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerTag")
-	ret0, _ := ret[0].(names_v3.ControllerTag)
+	ret0, _ := ret[0].(names.ControllerTag)
 	return ret0
 }
 
@@ -159,7 +158,7 @@ func (m *MockModel) Generation(arg0 int) (modelgeneration.Generation, error) {
 }
 
 // Generation indicates an expected call of Generation
-func (mr *MockModelMockRecorder) CommittedBranch(arg0 interface{}) *gomock.Call {
+func (mr *MockModelMockRecorder) Generation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Generation", reflect.TypeOf((*MockModel)(nil).Generation), arg0)
 }
@@ -174,16 +173,16 @@ func (m *MockModel) Generations() ([]modelgeneration.Generation, error) {
 }
 
 // Generations indicates an expected call of Generations
-func (mr *MockModelMockRecorder) CommittedBranches() *gomock.Call {
+func (mr *MockModelMockRecorder) Generations() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Generations", reflect.TypeOf((*MockModel)(nil).Generations))
 }
 
 // ModelTag mocks base method
-func (m *MockModel) ModelTag() names_v3.ModelTag {
+func (m *MockModel) ModelTag() names.ModelTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(names_v3.ModelTag)
+	ret0, _ := ret[0].(names.ModelTag)
 	return ret0
 }
 
@@ -423,10 +422,10 @@ func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 }
 
 // DefaultCharmConfig mocks base method
-func (m *MockApplication) DefaultCharmConfig() (charm_v6.Settings, error) {
+func (m *MockApplication) DefaultCharmConfig() (charm.Settings, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DefaultCharmConfig")
-	ret0, _ := ret[0].(charm_v6.Settings)
+	ret0, _ := ret[0].(charm.Settings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

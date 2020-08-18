@@ -5,11 +5,10 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	metricobserver "github.com/juju/juju/apiserver/observer/metricobserver"
 	prometheus "github.com/prometheus/client_golang/prometheus"
+	reflect "reflect"
 )
 
 // MockMetricsCollector is a mock of MetricsCollector interface
@@ -37,6 +36,7 @@ func (m *MockMetricsCollector) EXPECT() *MockMetricsCollectorMockRecorder {
 
 // APIRequestDuration mocks base method
 func (m *MockMetricsCollector) APIRequestDuration() metricobserver.SummaryVec {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "APIRequestDuration")
 	ret0, _ := ret[0].(metricobserver.SummaryVec)
 	return ret0
@@ -44,6 +44,7 @@ func (m *MockMetricsCollector) APIRequestDuration() metricobserver.SummaryVec {
 
 // APIRequestDuration indicates an expected call of APIRequestDuration
 func (mr *MockMetricsCollectorMockRecorder) APIRequestDuration() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIRequestDuration", reflect.TypeOf((*MockMetricsCollector)(nil).APIRequestDuration))
 }
 
@@ -72,6 +73,7 @@ func (m *MockSummaryVec) EXPECT() *MockSummaryVecMockRecorder {
 
 // With mocks base method
 func (m *MockSummaryVec) With(arg0 prometheus.Labels) prometheus.Observer {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "With", arg0)
 	ret0, _ := ret[0].(prometheus.Observer)
 	return ret0
@@ -79,5 +81,6 @@ func (m *MockSummaryVec) With(arg0 prometheus.Labels) prometheus.Observer {
 
 // With indicates an expected call of With
 func (mr *MockSummaryVecMockRecorder) With(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "With", reflect.TypeOf((*MockSummaryVec)(nil).With), arg0)
 }
