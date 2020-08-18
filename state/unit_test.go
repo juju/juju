@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time" // Only used for time types.
 
-	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"

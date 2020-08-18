@@ -6,8 +6,8 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v7"
-	params "github.com/juju/charmrepo/v5/csclient/params"
+	charm "github.com/juju/charm/v8"
+	params "github.com/juju/charmrepo/v6/csclient/params"
 	macaroon "gopkg.in/macaroon.v2"
 	reflect "reflect"
 )

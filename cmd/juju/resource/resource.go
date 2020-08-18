@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v7/resource"
+	"github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
 )
 

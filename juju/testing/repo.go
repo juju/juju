@@ -6,7 +6,7 @@ package testing
 import (
 	"sort"
 
-	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v8"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"

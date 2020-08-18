@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v7"
+	charm "github.com/juju/charm/v8"
 	uniter "github.com/juju/juju/apiserver/facades/agent/uniter"
 	instance "github.com/juju/juju/core/instance"
 	lxdprofile "github.com/juju/juju/core/lxdprofile"

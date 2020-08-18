@@ -4,7 +4,7 @@
 package deployer
 
 import (
-	charm "github.com/juju/charm/v7"
+	charm "github.com/juju/charm/v8"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"

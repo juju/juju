@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	charmresource "github.com/juju/charm/v7/resource"
+	charmresource "github.com/juju/charm/v8/resource"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

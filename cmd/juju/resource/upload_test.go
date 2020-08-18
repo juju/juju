@@ -6,7 +6,7 @@ package resource_test
 import (
 	"bytes"
 
-	charmresource "github.com/juju/charm/v7/resource"
+	charmresource "github.com/juju/charm/v8/resource"
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"

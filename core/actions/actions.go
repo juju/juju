@@ -5,7 +5,7 @@
 package actions
 
 import (
-	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v8"
 )
 
 // JujuRunActionName defines the action name used by juju-run.

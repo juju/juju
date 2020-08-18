@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"time"
 
-	corecharm "github.com/juju/charm/v7"
+	corecharm "github.com/juju/charm/v8"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/keyvalues"
 	gc "gopkg.in/check.v1"

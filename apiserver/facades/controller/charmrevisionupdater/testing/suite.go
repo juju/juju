@@ -6,9 +6,9 @@ package testing
 import (
 	"fmt"
 
-	"github.com/juju/charm/v7"
-	"github.com/juju/charmrepo/v5/csclient"
-	csparams "github.com/juju/charmrepo/v5/csclient/params"
+	"github.com/juju/charm/v8"
+	"github.com/juju/charmrepo/v6/csclient"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jtesting "github.com/juju/testing"

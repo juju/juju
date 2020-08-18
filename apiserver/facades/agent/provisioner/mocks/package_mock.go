@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v7"
+	charm "github.com/juju/charm/v8"
 	set "github.com/juju/collections/set"
 	provisioner "github.com/juju/juju/apiserver/facades/agent/provisioner"
 	constraints "github.com/juju/juju/core/constraints"

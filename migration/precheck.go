@@ -6,7 +6,7 @@ package migration
 import (
 	"fmt"
 
-	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version"

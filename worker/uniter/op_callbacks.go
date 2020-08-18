@@ -6,8 +6,8 @@ package uniter
 import (
 	"fmt"
 
-	corecharm "github.com/juju/charm/v7"
-	"github.com/juju/charm/v7/hooks"
+	corecharm "github.com/juju/charm/v8"
+	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 

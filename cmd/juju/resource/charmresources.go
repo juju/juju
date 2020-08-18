@@ -4,9 +4,9 @@
 package resource
 
 import (
-	"github.com/juju/charm/v7"
-	charmresource "github.com/juju/charm/v7/resource"
-	csparams "github.com/juju/charmrepo/v5/csclient/params"
+	"github.com/juju/charm/v8"
+	charmresource "github.com/juju/charm/v8/resource"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"

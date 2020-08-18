@@ -5,7 +5,7 @@ package charmhub
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v8"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

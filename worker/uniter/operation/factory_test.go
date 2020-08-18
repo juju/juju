@@ -4,8 +4,8 @@
 package operation_test
 
 import (
-	corecharm "github.com/juju/charm/v7"
-	"github.com/juju/charm/v7/hooks"
+	corecharm "github.com/juju/charm/v8"
+	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

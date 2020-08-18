@@ -11,10 +11,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/charm/v7"
-	"github.com/juju/charmrepo/v5"
-	"github.com/juju/charmrepo/v5/csclient"
-	csparams "github.com/juju/charmrepo/v5/csclient/params"
+	"github.com/juju/charm/v8"
+	"github.com/juju/charmrepo/v6"
+	"github.com/juju/charmrepo/v6/csclient"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/version"
@@ -33,7 +33,7 @@ import (
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/storage_mock.go github.com/juju/juju/state/storage Storage
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/charmrepo/v5 Interface
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/charmrepo/v6 Interface
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charm_mock.go github.com/juju/juju/apiserver/facades/client/application StateCharm
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/model_mock.go github.com/juju/juju/apiserver/facades/client/application StateModel
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charmstore_mock.go github.com/juju/juju/apiserver/facades/client/application State

@@ -6,7 +6,7 @@ package instancemutater
 import (
 	"time"
 
-	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v8"
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/instance"

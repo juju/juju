@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm_v6 "github.com/juju/charm/v7"
+	charm_v6 "github.com/juju/charm/v8"
 	modelgeneration "github.com/juju/juju/apiserver/facades/client/modelgeneration"
 	cache "github.com/juju/juju/core/cache"
 	settings "github.com/juju/juju/core/settings"
