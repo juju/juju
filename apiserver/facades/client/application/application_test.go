@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v7"
-	charmresource "github.com/juju/charm/v7/resource"
-	"github.com/juju/charmrepo/v5"
-	csparams "github.com/juju/charmrepo/v5/csclient/params"
+	"github.com/juju/charm/v8"
+	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charmrepo/v6"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -940,7 +940,7 @@ func (s *applicationSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "trusty/wordpress-42", "wordpress")
 
 	// Add a placeholder with the same charm URL.
-	err := s.State.AddStoreCharmPlaceholder(curl)
+	err := s.State.AddCharmPlaceholder(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.Charm(curl)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)

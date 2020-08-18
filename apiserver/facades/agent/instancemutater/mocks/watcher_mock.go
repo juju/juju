@@ -5,9 +5,8 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockNotifyWatcher is a mock of NotifyWatcher interface
@@ -35,6 +34,7 @@ func (m *MockNotifyWatcher) EXPECT() *MockNotifyWatcherMockRecorder {
 
 // Changes mocks base method
 func (m *MockNotifyWatcher) Changes() <-chan struct{} {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Changes")
 	ret0, _ := ret[0].(<-chan struct{})
 	return ret0
@@ -42,21 +42,25 @@ func (m *MockNotifyWatcher) Changes() <-chan struct{} {
 
 // Changes indicates an expected call of Changes
 func (mr *MockNotifyWatcherMockRecorder) Changes() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Changes", reflect.TypeOf((*MockNotifyWatcher)(nil).Changes))
 }
 
 // Kill mocks base method
 func (m *MockNotifyWatcher) Kill() {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Kill")
 }
 
 // Kill indicates an expected call of Kill
 func (mr *MockNotifyWatcherMockRecorder) Kill() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kill", reflect.TypeOf((*MockNotifyWatcher)(nil).Kill))
 }
 
 // Stop mocks base method
 func (m *MockNotifyWatcher) Stop() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stop")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -64,11 +68,13 @@ func (m *MockNotifyWatcher) Stop() error {
 
 // Stop indicates an expected call of Stop
 func (mr *MockNotifyWatcherMockRecorder) Stop() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockNotifyWatcher)(nil).Stop))
 }
 
 // Wait mocks base method
 func (m *MockNotifyWatcher) Wait() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Wait")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -76,6 +82,7 @@ func (m *MockNotifyWatcher) Wait() error {
 
 // Wait indicates an expected call of Wait
 func (mr *MockNotifyWatcherMockRecorder) Wait() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Wait", reflect.TypeOf((*MockNotifyWatcher)(nil).Wait))
 }
 
@@ -104,6 +111,7 @@ func (m *MockStringsWatcher) EXPECT() *MockStringsWatcherMockRecorder {
 
 // Changes mocks base method
 func (m *MockStringsWatcher) Changes() <-chan []string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Changes")
 	ret0, _ := ret[0].(<-chan []string)
 	return ret0
@@ -111,21 +119,25 @@ func (m *MockStringsWatcher) Changes() <-chan []string {
 
 // Changes indicates an expected call of Changes
 func (mr *MockStringsWatcherMockRecorder) Changes() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Changes", reflect.TypeOf((*MockStringsWatcher)(nil).Changes))
 }
 
 // Kill mocks base method
 func (m *MockStringsWatcher) Kill() {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Kill")
 }
 
 // Kill indicates an expected call of Kill
 func (mr *MockStringsWatcherMockRecorder) Kill() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kill", reflect.TypeOf((*MockStringsWatcher)(nil).Kill))
 }
 
 // Stop mocks base method
 func (m *MockStringsWatcher) Stop() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stop")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -133,11 +145,13 @@ func (m *MockStringsWatcher) Stop() error {
 
 // Stop indicates an expected call of Stop
 func (mr *MockStringsWatcherMockRecorder) Stop() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockStringsWatcher)(nil).Stop))
 }
 
 // Wait mocks base method
 func (m *MockStringsWatcher) Wait() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Wait")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -145,5 +159,6 @@ func (m *MockStringsWatcher) Wait() error {
 
 // Wait indicates an expected call of Wait
 func (mr *MockStringsWatcherMockRecorder) Wait() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Wait", reflect.TypeOf((*MockStringsWatcher)(nil).Wait))
 }

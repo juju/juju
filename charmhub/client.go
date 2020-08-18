@@ -4,7 +4,7 @@
 // CharmHub is a client for communication with charmHub.  Unlike
 // the charmHub client within juju, this package does not rely on
 // wrapping an external package client. Generic client code for this
-// package has been copied from "github.com/juju/charmrepo/v5/csclient".
+// package has been copied from "github.com/juju/charmrepo/v6/csclient".
 //
 // TODO: (hml) 2020-06-17
 // Implement:

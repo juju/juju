@@ -6,7 +6,7 @@ package remotestate
 import (
 	"time"
 
-	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v8"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/uniter"

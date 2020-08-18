@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -309,7 +309,7 @@ func (s *CharmSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 
 	// Add a placeholder charm.
 	curl := charm.MustParseURL("cs:quantal/dummy-1")
-	err := s.State.AddStoreCharmPlaceholder(curl)
+	err := s.State.AddCharmPlaceholder(curl)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a deployed charm.
@@ -417,18 +417,18 @@ func (s *CharmSuite) TestPrepareLocalCharmUploadRemoved(c *gc.C) {
 	c.Assert(curl.Revision, gc.Equals, s.curl.Revision+1)
 }
 
-func (s *CharmSuite) TestPrepareStoreCharmUpload(c *gc.C) {
+func (s *CharmSuite) TestPrepareCharmUpload(c *gc.C) {
 	// First test the sanity checks.
-	sch, err := s.State.PrepareStoreCharmUpload(charm.MustParseURL("cs:quantal/dummy"))
+	sch, err := s.State.PrepareCharmUpload(charm.MustParseURL("cs:quantal/dummy"))
 	c.Assert(err, gc.ErrorMatches, "expected charm URL with revision, got .*")
 	c.Assert(sch, gc.IsNil)
-	sch, err = s.State.PrepareStoreCharmUpload(charm.MustParseURL("local:quantal/dummy"))
-	c.Assert(err, gc.ErrorMatches, "expected charm URL with cs schema, got .*")
+	sch, err = s.State.PrepareCharmUpload(charm.MustParseURL("local:quantal/dummy"))
+	c.Assert(err, gc.ErrorMatches, "expected charm URL with a valid schema, got .*")
 	c.Assert(sch, gc.IsNil)
 
 	// No charm in state, so the call should respect given revision.
 	testCurl := charm.MustParseURL("cs:quantal/missing-123")
-	sch, err = s.State.PrepareStoreCharmUpload(testCurl)
+	sch, err = s.State.PrepareCharmUpload(testCurl)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, testCurl)
 	c.Assert(sch.IsUploaded(), jc.IsFalse)
@@ -436,7 +436,7 @@ func (s *CharmSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 	s.assertPendingCharmExists(c, sch.URL())
 
 	// Try adding it again with the same revision and ensure we get the same document.
-	schCopy, err := s.State.PrepareStoreCharmUpload(testCurl)
+	schCopy, err := s.State.PrepareCharmUpload(testCurl)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sch, jc.DeepEquals, schCopy)
 
@@ -445,7 +445,7 @@ func (s *CharmSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 	info := s.dummyCharm(c, "cs:precise/dummy-2")
 	sch, err = s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
-	schCopy, err = s.State.PrepareStoreCharmUpload(info.ID)
+	schCopy, err = s.State.PrepareCharmUpload(info.ID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sch, jc.DeepEquals, schCopy)
 }
@@ -587,7 +587,7 @@ func (s *CharmSuite) TestLatestPlaceholderCharm(c *gc.C) {
 
 	// Add a charm reference
 	curl2 := charm.MustParseURL("cs:quantal/dummy-2")
-	err = s.State.AddStoreCharmPlaceholder(curl2)
+	err = s.State.AddCharmPlaceholder(curl2)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPlaceholderCharmExists(c, curl2)
 
@@ -603,32 +603,32 @@ func (s *CharmSuite) TestLatestPlaceholderCharm(c *gc.C) {
 	c.Assert(pending.BundleSha256(), gc.Equals, "")
 }
 
-func (s *CharmSuite) TestAddStoreCharmPlaceholderErrors(c *gc.C) {
+func (s *CharmSuite) TestAddCharmPlaceholderErrors(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
-	err := s.State.AddStoreCharmPlaceholder(curl)
-	c.Assert(err, gc.ErrorMatches, "expected charm URL with cs schema, got .*")
+	err := s.State.AddCharmPlaceholder(curl)
+	c.Assert(err, gc.ErrorMatches, "expected charm URL with a valid schema, got .*")
 
 	curl = charm.MustParseURL("cs:quantal/dummy")
-	err = s.State.AddStoreCharmPlaceholder(curl)
+	err = s.State.AddCharmPlaceholder(curl)
 	c.Assert(err, gc.ErrorMatches, "expected charm URL with revision, got .*")
 }
 
-func (s *CharmSuite) TestAddStoreCharmPlaceholder(c *gc.C) {
+func (s *CharmSuite) TestAddCharmPlaceholder(c *gc.C) {
 	curl := charm.MustParseURL("cs:quantal/dummy-1")
-	err := s.State.AddStoreCharmPlaceholder(curl)
+	err := s.State.AddCharmPlaceholder(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPlaceholderCharmExists(c, curl)
 
 	// Add the same one again, should be a no-op
-	err = s.State.AddStoreCharmPlaceholder(curl)
+	err = s.State.AddCharmPlaceholder(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPlaceholderCharmExists(c, curl)
 }
 
-func (s *CharmSuite) assertAddStoreCharmPlaceholder(c *gc.C) (*charm.URL, *charm.URL, *state.Charm) {
+func (s *CharmSuite) assertAddCharmPlaceholder(c *gc.C) (*charm.URL, *charm.URL, *state.Charm) {
 	// Add a deployed charm
 	info := s.dummyCharm(c, "cs:quantal/dummy-1")
 	dummy, err := s.State.AddCharm(info)
@@ -636,7 +636,7 @@ func (s *CharmSuite) assertAddStoreCharmPlaceholder(c *gc.C) (*charm.URL, *charm
 
 	// Add a charm placeholder
 	curl2 := charm.MustParseURL("cs:quantal/dummy-2")
-	err = s.State.AddStoreCharmPlaceholder(curl2)
+	err = s.State.AddCharmPlaceholder(curl2)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPlaceholderCharmExists(c, curl2)
 
@@ -648,16 +648,16 @@ func (s *CharmSuite) assertAddStoreCharmPlaceholder(c *gc.C) (*charm.URL, *charm
 	return info.ID, curl2, dummy
 }
 
-func (s *CharmSuite) TestAddStoreCharmPlaceholderLeavesDeployedCharmsAlone(c *gc.C) {
-	s.assertAddStoreCharmPlaceholder(c)
+func (s *CharmSuite) TestAddCharmPlaceholderLeavesDeployedCharmsAlone(c *gc.C) {
+	s.assertAddCharmPlaceholder(c)
 }
 
-func (s *CharmSuite) TestAddStoreCharmPlaceholderDeletesOlder(c *gc.C) {
-	curl, curlOldRef, dummy := s.assertAddStoreCharmPlaceholder(c)
+func (s *CharmSuite) TestAddCharmPlaceholderDeletesOlder(c *gc.C) {
+	curl, curlOldRef, dummy := s.assertAddCharmPlaceholder(c)
 
 	// Add a new charm placeholder
 	curl3 := charm.MustParseURL("cs:quantal/dummy-3")
-	err := s.State.AddStoreCharmPlaceholder(curl3)
+	err := s.State.AddCharmPlaceholder(curl3)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPlaceholderCharmExists(c, curl3)
 
@@ -680,7 +680,7 @@ func (s *CharmSuite) TestAllCharms(c *gc.C) {
 
 	// Add a charm reference
 	curl2 := charm.MustParseURL("cs:quantal/dummy-2")
-	err = s.State.AddStoreCharmPlaceholder(curl2)
+	err = s.State.AddCharmPlaceholder(curl2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	charms, err := s.State.AllCharms()

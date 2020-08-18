@@ -4,7 +4,7 @@
 package resource
 
 import (
-	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v8"
 )
 
 // TODO(ericsnow) Move Unit to an internal package?

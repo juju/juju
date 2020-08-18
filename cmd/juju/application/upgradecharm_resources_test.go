@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v7"
-	charmresource "github.com/juju/charm/v7/resource"
-	csclientparams "github.com/juju/charmrepo/v5/csclient/params"
+	"github.com/juju/charm/v8"
+	charmresource "github.com/juju/charm/v8/resource"
+	csclientparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/names/v4"

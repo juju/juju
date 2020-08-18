@@ -11,7 +11,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
 
-	corecharm "github.com/juju/charm/v7"
+	corecharm "github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"

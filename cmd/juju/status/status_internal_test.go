@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/names/v4"
@@ -4162,7 +4162,7 @@ func (ac addCharmPlaceholder) step(c *gc.C, ctx *context) {
 	ch := testcharms.Repo.CharmDir(ac.name)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, ac.rev))
-	err := ctx.st.AddStoreCharmPlaceholder(curl)
+	err := ctx.st.AddCharmPlaceholder(curl)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

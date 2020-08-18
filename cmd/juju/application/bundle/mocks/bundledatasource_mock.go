@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v7"
+	charm "github.com/juju/charm/v8"
 	reflect "reflect"
 )
 

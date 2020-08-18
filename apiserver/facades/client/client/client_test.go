@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v7"
-	"github.com/juju/charmrepo/v5"
+	"github.com/juju/charm/v8"
+	"github.com/juju/charmrepo/v6"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"

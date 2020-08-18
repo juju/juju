@@ -4,7 +4,7 @@
 package upgradeseries
 
 import (
-	"github.com/juju/charm/v7/hooks"
+	"github.com/juju/charm/v8/hooks"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/hook"

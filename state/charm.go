@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -836,19 +836,23 @@ func isCharmRevSeqName(name string) bool {
 	return strings.HasPrefix(name, charmRevSeqPrefix)
 }
 
-// PrepareStoreCharmUpload must be called before a charm store charm
-// is uploaded to the provider storage in order to create a charm
-// document in state. If a charm with the same URL is already in
-// state, it will be returned as a *state.Charm (it can be still
-// pending or already uploaded). Otherwise, a new charm document is
-// added in state with just the given charm URL and
+func isValidPlaceholderCharmURL(curl *charm.URL) bool {
+	return charm.CharmStore.Matches(curl.Schema) || charm.CharmHub.Matches(curl.Schema)
+}
+
+// PrepareCharmUpload must be called before a charm store charm is uploaded to
+// the provider storage in order to create a charm document in state. If a charm
+// with the same URL is already in state, it will be returned as a *state.Charm
+// (it can be still pending or already uploaded). Otherwise, a new charm
+// document is added in state with just the given charm URL and
 // PendingUpload=true, which is then returned as a *state.Charm.
 //
-// The url's schema must be "cs" and it must include a revision.
-func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
+// The url's schema must be charmstore ("cs") or a charmhub ("ch") and it must
+// include a revision that isn't a negative value.
+func (st *State) PrepareCharmUpload(curl *charm.URL) (*Charm, error) {
 	// Perform a few sanity checks first.
-	if curl.Schema != "cs" {
-		return nil, errors.Errorf("expected charm URL with cs schema, got %q", curl)
+	if !isValidPlaceholderCharmURL(curl) {
+		return nil, errors.Errorf("expected charm URL with a valid schema, got %q", curl)
 	}
 	if curl.Revision < 0 {
 		return nil, errors.Errorf("expected charm URL with revision, got %q", curl)
@@ -897,13 +901,14 @@ var (
 	stillPlaceholder = bson.D{{"placeholder", true}}
 )
 
-// AddStoreCharmPlaceholder creates a charm document in state for the given charm URL which
-// must reference a charm from the store. The charm document is marked as a placeholder which
-// means that if the charm is to be deployed, it will need to first be uploaded to model storage.
-func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
+// AddCharmPlaceholder creates a charm document in state for the given
+// charm URL, which must reference a charm from the given store.
+// The charm document is marked as a placeholder which means that if the charm
+// is to be deployed, it will need to first be uploaded to model storage.
+func (st *State) AddCharmPlaceholder(curl *charm.URL) (err error) {
 	// Perform sanity checks first.
-	if curl.Schema != "cs" {
-		return errors.Errorf("expected charm URL with cs schema, got %q", curl)
+	if !isValidPlaceholderCharmURL(curl) {
+		return errors.Errorf("expected charm URL with a valid schema, got %q", curl)
 	}
 	if curl.Revision < 0 {
 		return errors.Errorf("expected charm URL with revision, got %q", curl)

@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/bundlechanges"
-	"github.com/juju/charm/v7"
-	"github.com/juju/charm/v7/resource"
-	"github.com/juju/charmrepo/v5"
-	csparams "github.com/juju/charmrepo/v5/csclient/params"
+	"github.com/juju/bundlechanges/v2"
+	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v8/resource"
+	"github.com/juju/charmrepo/v6"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
@@ -250,6 +250,7 @@ func (h *bundleHandler) makeModel(
 	if err != nil {
 		return errors.Annotate(err, "cannot get model status")
 	}
+
 	h.model, err = appbundle.BuildModelRepresentation(status, h.deployAPI, useExistingMachines, bundleMachines)
 	if err != nil {
 		return errors.Trace(err)

@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	charmresource "github.com/juju/charm/v7/resource"
+	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"

@@ -5,12 +5,11 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	uniter "github.com/juju/juju/apiserver/facades/agent/uniter"
 	state "github.com/juju/juju/state"
-	names_v3 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
+	reflect "reflect"
 )
 
 // MockLXDProfileBackend is a mock of LXDProfileBackend interface
@@ -38,6 +37,7 @@ func (m *MockLXDProfileBackend) EXPECT() *MockLXDProfileBackendMockRecorder {
 
 // Machine mocks base method
 func (m *MockLXDProfileBackend) Machine(arg0 string) (uniter.LXDProfileMachine, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Machine", arg0)
 	ret0, _ := ret[0].(uniter.LXDProfileMachine)
 	ret1, _ := ret[1].(error)
@@ -46,11 +46,13 @@ func (m *MockLXDProfileBackend) Machine(arg0 string) (uniter.LXDProfileMachine, 
 
 // Machine indicates an expected call of Machine
 func (mr *MockLXDProfileBackendMockRecorder) Machine(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockLXDProfileBackend)(nil).Machine), arg0)
 }
 
 // Unit mocks base method
 func (m *MockLXDProfileBackend) Unit(arg0 string) (uniter.LXDProfileUnit, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Unit", arg0)
 	ret0, _ := ret[0].(uniter.LXDProfileUnit)
 	ret1, _ := ret[1].(error)
@@ -59,6 +61,7 @@ func (m *MockLXDProfileBackend) Unit(arg0 string) (uniter.LXDProfileUnit, error)
 
 // Unit indicates an expected call of Unit
 func (mr *MockLXDProfileBackendMockRecorder) Unit(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockLXDProfileBackend)(nil).Unit), arg0)
 }
 
@@ -87,6 +90,7 @@ func (m *MockLXDProfileMachine) EXPECT() *MockLXDProfileMachineMockRecorder {
 
 // WatchLXDProfileUpgradeNotifications mocks base method
 func (m *MockLXDProfileMachine) WatchLXDProfileUpgradeNotifications(arg0 string) (state.StringsWatcher, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchLXDProfileUpgradeNotifications", arg0)
 	ret0, _ := ret[0].(state.StringsWatcher)
 	ret1, _ := ret[1].(error)
@@ -95,6 +99,7 @@ func (m *MockLXDProfileMachine) WatchLXDProfileUpgradeNotifications(arg0 string)
 
 // WatchLXDProfileUpgradeNotifications indicates an expected call of WatchLXDProfileUpgradeNotifications
 func (mr *MockLXDProfileMachineMockRecorder) WatchLXDProfileUpgradeNotifications(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfileUpgradeNotifications", reflect.TypeOf((*MockLXDProfileMachine)(nil).WatchLXDProfileUpgradeNotifications), arg0)
 }
 
@@ -123,6 +128,7 @@ func (m *MockLXDProfileUnit) EXPECT() *MockLXDProfileUnitMockRecorder {
 
 // AssignedMachineId mocks base method
 func (m *MockLXDProfileUnit) AssignedMachineId() (string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AssignedMachineId")
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
@@ -131,11 +137,13 @@ func (m *MockLXDProfileUnit) AssignedMachineId() (string, error) {
 
 // AssignedMachineId indicates an expected call of AssignedMachineId
 func (mr *MockLXDProfileUnitMockRecorder) AssignedMachineId() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignedMachineId", reflect.TypeOf((*MockLXDProfileUnit)(nil).AssignedMachineId))
 }
 
 // Name mocks base method
 func (m *MockLXDProfileUnit) Name() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Name")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -143,23 +151,27 @@ func (m *MockLXDProfileUnit) Name() string {
 
 // Name indicates an expected call of Name
 func (mr *MockLXDProfileUnitMockRecorder) Name() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockLXDProfileUnit)(nil).Name))
 }
 
 // Tag mocks base method
-func (m *MockLXDProfileUnit) Tag() names_v3.Tag {
+func (m *MockLXDProfileUnit) Tag() names.Tag {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(names_v3.Tag)
+	ret0, _ := ret[0].(names.Tag)
 	return ret0
 }
 
 // Tag indicates an expected call of Tag
 func (mr *MockLXDProfileUnitMockRecorder) Tag() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockLXDProfileUnit)(nil).Tag))
 }
 
 // WatchLXDProfileUpgradeNotifications mocks base method
 func (m *MockLXDProfileUnit) WatchLXDProfileUpgradeNotifications() (state.StringsWatcher, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchLXDProfileUpgradeNotifications")
 	ret0, _ := ret[0].(state.StringsWatcher)
 	ret1, _ := ret[1].(error)
@@ -168,5 +180,6 @@ func (m *MockLXDProfileUnit) WatchLXDProfileUpgradeNotifications() (state.String
 
 // WatchLXDProfileUpgradeNotifications indicates an expected call of WatchLXDProfileUpgradeNotifications
 func (mr *MockLXDProfileUnitMockRecorder) WatchLXDProfileUpgradeNotifications() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfileUpgradeNotifications", reflect.TypeOf((*MockLXDProfileUnit)(nil).WatchLXDProfileUpgradeNotifications))
 }

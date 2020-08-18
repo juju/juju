@@ -7,13 +7,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v8"
+	"github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/charmrepo/v5/csclient/params"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"

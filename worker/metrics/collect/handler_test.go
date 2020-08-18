@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	corecharm "github.com/juju/charm/v7"
+	corecharm "github.com/juju/charm/v8"
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"

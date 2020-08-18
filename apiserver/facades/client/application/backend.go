@@ -6,8 +6,8 @@ package application
 import (
 	"time"
 
-	"github.com/juju/charm/v7"
-	csparams "github.com/juju/charmrepo/v5/csclient/params"
+	"github.com/juju/charm/v8"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"

@@ -6,7 +6,7 @@ package remotestate_test
 import (
 	"sync"
 
-	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 
 	caasoperatorapi "github.com/juju/juju/api/caasoperator"

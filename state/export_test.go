@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time" // Only used for time types.
 
-	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v8"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/description/v2"

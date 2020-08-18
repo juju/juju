@@ -5,14 +5,13 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	migration "github.com/juju/juju/migration"
 	resource "github.com/juju/juju/resource"
 	state "github.com/juju/juju/state"
-	names_v3 "github.com/juju/names/v4"
+	names "github.com/juju/names/v4"
 	version "github.com/juju/version"
+	reflect "reflect"
 )
 
 // MockPrecheckBackend is a mock of PrecheckBackend interface
@@ -114,7 +113,7 @@ func (mr *MockPrecheckBackendMockRecorder) AllRelations() *gomock.Call {
 }
 
 // CloudCredential mocks base method
-func (m *MockPrecheckBackend) CloudCredential(arg0 names_v3.CloudCredentialTag) (state.Credential, error) {
+func (m *MockPrecheckBackend) CloudCredential(arg0 names.CloudCredentialTag) (state.Credential, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudCredential", arg0)
 	ret0, _ := ret[0].(state.Credential)

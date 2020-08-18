@@ -5,7 +5,7 @@ package deployer_test
 
 import (
 	"github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v7"
+	charm "github.com/juju/charm/v8"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 

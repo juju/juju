@@ -41,9 +41,9 @@ require (
 	github.com/joyent/gosdc v0.0.0-20140524000815-2f11feadd2d9
 	github.com/joyent/gosign v0.0.0-20140524000734-0da0d5f13420
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
-	github.com/juju/bundlechanges v1.0.0
-	github.com/juju/charm/v7 v7.0.0-20200625165032-ef717232a815
-	github.com/juju/charmrepo/v5 v5.0.0-20200626080438-30e3069e6e8e
+	github.com/juju/bundlechanges/v2 v2.0.0-20200818094029-ae6d813368b2
+	github.com/juju/charm/v8 v8.0.0-20200817113526-2a88e9b46b47
+	github.com/juju/charmrepo/v6 v6.0.0-20200817155725-120bd7a8b1ed
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
@@ -84,7 +84,7 @@ require (
 	github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb
 	github.com/juju/worker/v2 v2.0.0-20200424114111-8c6ac8046912
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
-	github.com/kr/pretty v0.2.0
+	github.com/kr/pretty v0.2.1
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lestrrat/go-jspointer v0.0.0-20160229021354-f4881e611bdb // indirect
 	github.com/lestrrat/go-jsref v0.0.0-20160601013240-e452c7b5801d // indirect
@@ -103,13 +103,12 @@ require (
 	github.com/prometheus/client_model v0.2.0
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/smartystreets/goconvey v1.6.4 // indirect
-	github.com/stretchr/testify v1.6.1 // indirect
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
-	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
-	golang.org/x/net v0.0.0-20200707034311-ab3426394381
+	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
+	golang.org/x/net v0.0.0-20200813134508-3edf25e44fcc
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sys v0.0.0-20200724161237-0e2f3a69832c
+	golang.org/x/sys v0.0.0-20200817085935-3ff754bf58a9
 	golang.org/x/text v0.3.3 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.0.0-20200725200936-102e7d357031

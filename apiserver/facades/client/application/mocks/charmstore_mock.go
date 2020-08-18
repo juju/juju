@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v7"
+	charm "github.com/juju/charm/v8"
 	application "github.com/juju/juju/apiserver/facades/client/application"
 	controller "github.com/juju/juju/controller"
 	state "github.com/juju/juju/state"
@@ -95,19 +95,19 @@ func (mr *MockStateMockRecorder) MongoSession() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoSession", reflect.TypeOf((*MockState)(nil).MongoSession))
 }
 
-// PrepareStoreCharmUpload mocks base method
-func (m *MockState) PrepareStoreCharmUpload(arg0 *charm.URL) (application.StateCharm, error) {
+// PrepareCharmUpload mocks base method
+func (m *MockState) PrepareCharmUpload(arg0 *charm.URL) (application.StateCharm, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareStoreCharmUpload", arg0)
+	ret := m.ctrl.Call(m, "PrepareCharmUpload", arg0)
 	ret0, _ := ret[0].(application.StateCharm)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// PrepareStoreCharmUpload indicates an expected call of PrepareStoreCharmUpload
-func (mr *MockStateMockRecorder) PrepareStoreCharmUpload(arg0 interface{}) *gomock.Call {
+// PrepareCharmUpload indicates an expected call of PrepareCharmUpload
+func (mr *MockStateMockRecorder) PrepareCharmUpload(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareStoreCharmUpload", reflect.TypeOf((*MockState)(nil).PrepareStoreCharmUpload), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareCharmUpload", reflect.TypeOf((*MockState)(nil).PrepareCharmUpload), arg0)
 }
 
 // UpdateUploadedCharm mocks base method

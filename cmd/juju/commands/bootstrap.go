@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v8"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"

@@ -5,12 +5,11 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	instancemutater "github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	cache "github.com/juju/juju/core/cache"
 	instance "github.com/juju/juju/core/instance"
+	reflect "reflect"
 )
 
 // MockModelCache is a mock of ModelCache interface
@@ -38,6 +37,7 @@ func (m *MockModelCache) EXPECT() *MockModelCacheMockRecorder {
 
 // Machine mocks base method
 func (m *MockModelCache) Machine(arg0 string) (instancemutater.ModelCacheMachine, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Machine", arg0)
 	ret0, _ := ret[0].(instancemutater.ModelCacheMachine)
 	ret1, _ := ret[1].(error)
@@ -46,11 +46,13 @@ func (m *MockModelCache) Machine(arg0 string) (instancemutater.ModelCacheMachine
 
 // Machine indicates an expected call of Machine
 func (mr *MockModelCacheMockRecorder) Machine(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockModelCache)(nil).Machine), arg0)
 }
 
 // Name mocks base method
 func (m *MockModelCache) Name() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Name")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -58,11 +60,13 @@ func (m *MockModelCache) Name() string {
 
 // Name indicates an expected call of Name
 func (mr *MockModelCacheMockRecorder) Name() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockModelCache)(nil).Name))
 }
 
 // WatchMachines mocks base method
 func (m *MockModelCache) WatchMachines() (cache.StringsWatcher, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchMachines")
 	ret0, _ := ret[0].(cache.StringsWatcher)
 	ret1, _ := ret[1].(error)
@@ -71,6 +75,7 @@ func (m *MockModelCache) WatchMachines() (cache.StringsWatcher, error) {
 
 // WatchMachines indicates an expected call of WatchMachines
 func (mr *MockModelCacheMockRecorder) WatchMachines() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchMachines", reflect.TypeOf((*MockModelCache)(nil).WatchMachines))
 }
 
@@ -99,6 +104,7 @@ func (m *MockModelCacheMachine) EXPECT() *MockModelCacheMachineMockRecorder {
 
 // ContainerType mocks base method
 func (m *MockModelCacheMachine) ContainerType() instance.ContainerType {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerType")
 	ret0, _ := ret[0].(instance.ContainerType)
 	return ret0
@@ -106,11 +112,13 @@ func (m *MockModelCacheMachine) ContainerType() instance.ContainerType {
 
 // ContainerType indicates an expected call of ContainerType
 func (mr *MockModelCacheMachineMockRecorder) ContainerType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerType", reflect.TypeOf((*MockModelCacheMachine)(nil).ContainerType))
 }
 
 // IsManual mocks base method
 func (m *MockModelCacheMachine) IsManual() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsManual")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -118,11 +126,13 @@ func (m *MockModelCacheMachine) IsManual() bool {
 
 // IsManual indicates an expected call of IsManual
 func (mr *MockModelCacheMachineMockRecorder) IsManual() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsManual", reflect.TypeOf((*MockModelCacheMachine)(nil).IsManual))
 }
 
 // WatchContainers mocks base method
 func (m *MockModelCacheMachine) WatchContainers() (cache.StringsWatcher, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchContainers")
 	ret0, _ := ret[0].(cache.StringsWatcher)
 	ret1, _ := ret[1].(error)
@@ -131,11 +141,13 @@ func (m *MockModelCacheMachine) WatchContainers() (cache.StringsWatcher, error) 
 
 // WatchContainers indicates an expected call of WatchContainers
 func (mr *MockModelCacheMachineMockRecorder) WatchContainers() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchContainers", reflect.TypeOf((*MockModelCacheMachine)(nil).WatchContainers))
 }
 
 // WatchLXDProfileVerificationNeeded mocks base method
 func (m *MockModelCacheMachine) WatchLXDProfileVerificationNeeded() (cache.NotifyWatcher, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchLXDProfileVerificationNeeded")
 	ret0, _ := ret[0].(cache.NotifyWatcher)
 	ret1, _ := ret[1].(error)
@@ -144,5 +156,6 @@ func (m *MockModelCacheMachine) WatchLXDProfileVerificationNeeded() (cache.Notif
 
 // WatchLXDProfileVerificationNeeded indicates an expected call of WatchLXDProfileVerificationNeeded
 func (mr *MockModelCacheMachineMockRecorder) WatchLXDProfileVerificationNeeded() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfileVerificationNeeded", reflect.TypeOf((*MockModelCacheMachine)(nil).WatchLXDProfileVerificationNeeded))
 }

@@ -11,8 +11,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/juju/charm/v7"
-	charmresource "github.com/juju/charm/v7/resource"
+	"github.com/juju/charm/v8"
+	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/testing"

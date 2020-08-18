@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/bundlechanges"
-	"github.com/juju/charm/v7"
+	"github.com/juju/bundlechanges/v2"
+	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v2"
 	"github.com/juju/errors"
