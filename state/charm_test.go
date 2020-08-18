@@ -692,6 +692,49 @@ func (s *CharmSuite) TestAllCharms(c *gc.C) {
 	c.Assert(charms[2].URL(), gc.DeepEquals, curl2)
 }
 
+func (s *CharmSuite) TestOptionPatchingForCAASCharms(c *gc.C) {
+	st := s.Factory.MakeCAASModel(c, nil)
+	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+
+	// Add a deployed k8s charm
+	info := s.dummyCharm(c, "cs:kubernetes/dummy-1")
+	_, err := st.AddCharm(info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	charms, err := st.AllCharms()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(charms, gc.HasLen, 1)
+
+	// On a CAAS model, validation should succeed for CAAS-specific settings.
+	chCfg := charms[0].Config()
+	_, err = chCfg.ValidateSettings(charm.Settings{
+		"juju-external-hostname": "blah",
+		"juju-application-path":  "/dev/null",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *CharmSuite) TestOptionPatchingForIAASCharms(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+
+	// Add a deployed charm
+	info := s.dummyCharm(c, "cs:quantal/dummy-1")
+	_, err := st.AddCharm(info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	charms, err := st.AllCharms()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(charms, gc.HasLen, 1)
+
+	// On a IAAS model, validation should fail for CAAS-specific settings.
+	chCfg := charms[0].Config()
+	_, err = chCfg.ValidateSettings(charm.Settings{
+		"juju-external-hostname": "blah",
+	})
+	c.Assert(err, gc.ErrorMatches, `unknown option \"juju-external-hostname\"`)
+}
+
 type CharmTestHelperSuite struct {
 	ConnSuite
 }

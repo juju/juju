@@ -16,6 +16,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
@@ -528,7 +529,43 @@ func (c *Charm) Meta() *charm.Meta {
 
 // Config returns the configuration of the charm.
 func (c *Charm) Config() *charm.Config {
-	return c.doc.Config
+	model, err := c.st.Model()
+	if err != nil {
+		logger.Warningf("unable to query model type: %v", err)
+		return c.doc.Config
+	}
+
+	if model.Type() != ModelTypeCAAS {
+		return c.doc.Config
+	}
+
+	// Since the charm metadata comes from the database, it will not include
+	// any CAAS-specific configuration options and will therefore trigger
+	// validation errors if a CAAS-specific settings is provided.
+	//
+	// To avoid this, we inject the known CAAS options into the declared
+	// charm options.
+	//
+	patchedConfig := &charm.Config{
+		Options: make(map[string]charm.Option, len(c.doc.Config.Options)),
+	}
+	for k, v := range c.doc.Config.Options {
+		patchedConfig.Options[k] = v
+	}
+
+	// An error might be returned if we provide additional args
+	// to the function. We can safely ignore the error here.
+	caasCfgSchema, _ := caas.ConfigSchema(nil)
+	caasDefaults := caas.ConfigDefaults(nil)
+	for caasCfgKey, info := range caasCfgSchema {
+		patchedConfig.Options[caasCfgKey] = charm.Option{
+			Type:        string(info.Type),
+			Description: info.Description,
+			Default:     caasDefaults[caasCfgKey],
+		}
+	}
+
+	return patchedConfig
 }
 
 // Metrics returns the metrics declared for the charm.
