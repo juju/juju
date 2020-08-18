@@ -218,7 +218,7 @@ func (o *updateMachineLinkLayerOp) processExistingDevice(dev LinkLayerDevice) ([
 
 	ops := dev.UpdateOps(networkDeviceToStateArgs(*incomingDev))
 
-	incomingAddrs := o.MatchingIncomingAddrs(dev.MACAddress())
+	incomingAddrs := o.MatchingIncomingAddrs(dev.Name(), dev.MACAddress())
 
 	for _, addr := range o.DeviceAddresses(dev) {
 		existingAddrOps, err := o.processExistingDeviceAddress(dev, addr, incomingAddrs)
@@ -233,7 +233,7 @@ func (o *updateMachineLinkLayerOp) processExistingDevice(dev LinkLayerDevice) ([
 		return nil, errors.Trace(err)
 	}
 
-	o.MarkDevProcessed(dev.MACAddress())
+	o.MarkDevProcessed(dev.Name(), dev.MACAddress())
 	return append(ops, newAddrOps...), nil
 }
 
@@ -278,8 +278,8 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceAddress(
 	// update it.
 	for _, incomingAddr := range incomingAddrs {
 		if strings.HasPrefix(incomingAddr.CIDRAddress, addrValue) &&
-			!o.IsAddrProcessed(dev.MACAddress(), incomingAddr.CIDRAddress) {
-			o.MarkAddrProcessed(dev.MACAddress(), incomingAddr.CIDRAddress)
+			!o.IsAddrProcessed(dev.Name(), dev.MACAddress(), incomingAddr.CIDRAddress) {
+			o.MarkAddrProcessed(dev.Name(), dev.MACAddress(), incomingAddr.CIDRAddress)
 
 			ops, err := addr.UpdateOps(incomingAddr)
 			return ops, errors.Trace(err)
@@ -302,14 +302,14 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNewAddresses(
 ) ([]txn.Op, error) {
 	var ops []txn.Op
 	for _, addr := range incomingAddrs {
-		if !o.IsAddrProcessed(dev.MACAddress(), addr.CIDRAddress) {
+		if !o.IsAddrProcessed(dev.Name(), dev.MACAddress(), addr.CIDRAddress) {
 			addOps, err := dev.AddAddressOps(addr)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, addOps...)
 
-			o.MarkAddrProcessed(dev.MACAddress(), addr.CIDRAddress)
+			o.MarkAddrProcessed(dev.Name(), dev.MACAddress(), addr.CIDRAddress)
 		}
 	}
 	return ops, nil
@@ -328,13 +328,13 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 			dev.InterfaceName, dev.MACAddress, dev.Addresses)
 
 		addOps, err := o.machine.AddLinkLayerDeviceOps(
-			networkDeviceToStateArgs(dev), o.MatchingIncomingAddrs(dev.MACAddress)...)
+			networkDeviceToStateArgs(dev), o.MatchingIncomingAddrs(dev.InterfaceName, dev.MACAddress)...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		ops = append(ops, addOps...)
 
-		o.MarkDevProcessed(dev.MACAddress)
+		o.MarkDevProcessed(dev.InterfaceName, dev.MACAddress)
 	}
 	return ops, nil
 }

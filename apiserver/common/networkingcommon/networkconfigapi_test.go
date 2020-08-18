@@ -362,6 +362,80 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemo
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddress(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	hwAddr := "aa:bb:cc:dd:ee:ff"
+
+	// Device eth0 exists with an address.
+	childDev := mocks.NewMockLinkLayerDevice(ctrl)
+	childExp := childDev.EXPECT()
+	childExp.MACAddress().Return(hwAddr).MinTimes(1)
+	childExp.Name().Return("eth0").MinTimes(1)
+
+	// We expect an update with the bridge as parent.
+	childExp.UpdateOps(state.LinkLayerDeviceArgs{
+		Name:        "eth0",
+		Type:        "ethernet",
+		MACAddress:  hwAddr,
+		IsAutoStart: true,
+		IsUp:        true,
+		ParentName:  "br-eth0",
+	}).Return([]txn.Op{{}})
+
+	// We expect the eth0 address to be removed.
+	childAddr := mocks.NewMockLinkLayerAddress(ctrl)
+	childAddrExp := childAddr.EXPECT()
+	childAddrExp.DeviceName().Return("eth0").MinTimes(1)
+	childAddrExp.Origin().Return(network.OriginMachine)
+	childAddrExp.Value().Return("10.0.0.5")
+	childAddrExp.RemoveOps().Return([]txn.Op{{}})
+
+	s.expectMachine()
+	mExp := s.machine.EXPECT()
+	mExp.AllLinkLayerDevices().Return([]networkingcommon.LinkLayerDevice{childDev}, nil)
+	mExp.AllAddresses().Return([]networkingcommon.LinkLayerAddress{childAddr}, nil)
+	mExp.AddLinkLayerDeviceOps(
+		state.LinkLayerDeviceArgs{
+			Name:        "br-eth0",
+			Type:        "bridge",
+			MACAddress:  hwAddr,
+			IsAutoStart: true,
+			IsUp:        true,
+		},
+		state.LinkLayerDeviceAddress{
+			DeviceName:     "br-eth0",
+			ConfigMethod:   "static",
+			CIDRAddress:    "10.0.0.6/24",
+			GatewayAddress: "10.0.0.1",
+		},
+	).Return([]txn.Op{{}, {}}, nil)
+
+	// Device eth0 becomes bridged.
+	// It no longer has an address, but has the bridge as its parent.
+	// The parent device (same MAC) has the IP address.
+	op := s.NewUpdateMachineLinkLayerOp(s.machine, network.InterfaceInfos{
+		{
+			InterfaceName:       "eth0",
+			InterfaceType:       "ethernet",
+			MACAddress:          hwAddr,
+			ParentInterfaceName: "br-eth0",
+		},
+		{
+			InterfaceName:  "br-eth0",
+			InterfaceType:  "bridge",
+			MACAddress:     hwAddr,
+			CIDR:           "10.0.0.0/24",
+			Addresses:      network.NewProviderAddresses("10.0.0.6"),
+			GatewayAddress: network.NewProviderAddress("10.0.0.1"),
+		},
+	})
+
+	_, err := op.Build(0)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *networkConfigSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
