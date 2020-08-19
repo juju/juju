@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -67,7 +66,7 @@ func (e *eks) getKubeConfig(p *clusterParams) (io.ReadCloser, string, error) {
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	reader, err := os.Open(kubeconfig)
+	reader, err := p.openFile(kubeconfig)
 	return reader, fmt.Sprintf("%s.%s.%s", p.name, p.region, eksDomain), err
 }
 

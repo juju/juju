@@ -29,20 +29,11 @@ type UploadClient interface {
 	Close() error
 }
 
-// ReadSeekCloser combines 2 interfaces.
-type ReadSeekCloser interface {
-	io.ReadCloser
-	io.Seeker
-}
-
 // UploadDeps is a type that contains external functions that Upload depends on
 // to function.
 type UploadDeps struct {
 	// NewClient returns the value that wraps the API for uploading to the server.
 	NewClient func(*UploadCommand) (UploadClient, error)
-
-	// OpenResource handles creating a reader from the resource path.
-	OpenResource func(path string) (ReadSeekCloser, error)
 }
 
 // UploadCommand implements the upload command.
@@ -150,7 +141,7 @@ func (c *UploadCommand) Run(*cmd.Context) error {
 // upload opens the given file and calls the apiclient to upload it to the given
 // application with the given name.
 func (c *UploadCommand) upload(rf resourceValue, client UploadClient) error {
-	f, err := OpenResource(rf.value, rf.resourceType, c.deps.OpenResource)
+	f, err := OpenResource(rf.value, rf.resourceType, c.Filesystem().Open)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"strings"
 	"unicode/utf8"
 
@@ -454,7 +453,7 @@ func (c *configCommand) validateValues(ctx *cmd.Context) (map[string]string, err
 			settings[k] = v
 			continue
 		}
-		nv, err := readValue(ctx, v[1:])
+		nv, err := readValue(ctx, c.Filesystem(), v[1:])
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -469,9 +468,9 @@ func (c *configCommand) validateValues(ctx *cmd.Context) (map[string]string, err
 // readValue reads the value of an option out of the named file.
 // An empty content is valid, like in parsing the options. The upper
 // size is 5M.
-func readValue(ctx *cmd.Context, filename string) (string, error) {
+func readValue(ctx *cmd.Context, filesystem modelcmd.Filesystem, filename string) (string, error) {
 	absFilename := ctx.AbsPath(filename)
-	fi, err := os.Stat(absFilename)
+	fi, err := filesystem.Stat(absFilename)
 	if err != nil {
 		return "", errors.Errorf("cannot read option from file %q: %v", filename, err)
 	}

@@ -59,8 +59,9 @@ func (s *eksSuite) TestGetKubeConfig(c *gc.C) {
 	)
 
 	rdr, clusterName, err := eksCMD.getKubeConfig(&clusterParams{
-		name:   "mycluster",
-		region: "ap-southeast-2",
+		openFile: osFilesystem{}.Open,
+		name:     "mycluster",
+		region:   "ap-southeast-2",
 	})
 	c.Check(err, jc.ErrorIsNil)
 	defer rdr.Close()

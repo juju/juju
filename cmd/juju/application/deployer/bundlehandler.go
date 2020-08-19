@@ -33,6 +33,7 @@ import (
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
@@ -53,7 +54,8 @@ type deploymentLogger interface {
 }
 
 type bundleDeploySpec struct {
-	ctx *cmd.Context
+	ctx        *cmd.Context
+	filesystem modelcmd.Filesystem
 
 	dryRun bool
 	force  bool
@@ -163,6 +165,9 @@ type bundleHandler struct {
 	// progress.
 	ctx *cmd.Context
 
+	// filesystem provides access to the filesystem.
+	filesystem modelcmd.Filesystem
+
 	// data is the original bundle data that we want to deploy.
 	data *charm.BundleData
 
@@ -228,6 +233,7 @@ func makeBundleHandler(bundleData *charm.BundleData, spec bundleDeploySpec) *bun
 		bundleStorage:        spec.bundleStorage,
 		bundleDevices:        spec.bundleDevices,
 		ctx:                  spec.ctx,
+		filesystem:           spec.filesystem,
 		data:                 bundleData,
 		bundleURL:            spec.bundleURL,
 		unitStatus:           make(map[string]string),
@@ -514,7 +520,7 @@ func (h *bundleHandler) makeResourceMap(meta map[string]resource.Meta, storeReso
 		if !filepath.IsAbs(path) {
 			maybePath = filepath.Clean(filepath.Join(h.bundleDir, path))
 		}
-		_, err := os.Stat(maybePath)
+		_, err := h.filesystem.Stat(maybePath)
 		if err == nil || meta[resName].Type == resource.TypeFile {
 			path = maybePath
 		}
@@ -629,6 +635,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		resources,
 		charmInfo.Meta.Resources,
 		h.deployAPI,
+		h.filesystem,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -941,6 +948,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 			resources,
 			filtered,
 			h.deployAPI,
+			h.filesystem,
 		)
 		if err != nil {
 			return errors.Trace(err)

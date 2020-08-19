@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/charmstore"
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource/api/client"
 )
 
@@ -24,6 +25,7 @@ type DeployResourcesFunc func(
 	filesAndRevisions map[string]string,
 	resources map[string]charmresource.Meta,
 	conn base.APICallCloser,
+	filesystem modelcmd.Filesystem,
 ) (ids map[string]string, err error)
 
 // DeployResources uploads the bytes for the given files to the server and
@@ -36,6 +38,7 @@ func DeployResources(
 	filesAndRevisions map[string]string,
 	resources map[string]charmresource.Meta,
 	conn base.APICallCloser,
+	filesystem modelcmd.Filesystem,
 ) (ids map[string]string, err error) {
 
 	if len(filesAndRevisions)+len(resources) == 0 {
@@ -67,6 +70,7 @@ func DeployResources(
 		Revisions:          revisions,
 		ResourcesMeta:      resources,
 		Client:             &deployClient{client},
+		Filesystem:         filesystem,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

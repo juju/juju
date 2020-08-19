@@ -6,7 +6,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -208,7 +207,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 		params.Endpoint = c.endpoint
 	}
 	if c.metadataDir != "" {
-		if _, err := os.Stat(c.metadataDir); err != nil {
+		if _, err := c.Filesystem().Stat(c.metadataDir); err != nil {
 			return err
 		}
 		toolsURL, err := tools.ToolsURL(c.metadataDir)

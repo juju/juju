@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/caas/mocks"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 type gkeSuite struct {
@@ -200,6 +201,14 @@ Select cluster [mycluster in asia-southeast1]:
 	})
 }
 
+type osFilesystem struct {
+	modelcmd.Filesystem
+}
+
+func (osFilesystem) Open(name string) (modelcmd.ReadSeekCloser, error) {
+	return os.Open(name)
+}
+
 func (s *gkeSuite) TestGetKubeConfig(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -222,6 +231,7 @@ func (s *gkeSuite) TestGetKubeConfig(c *gc.C) {
 			}, nil),
 	)
 	rdr, clusterName, err := gke.getKubeConfig(&clusterParams{
+		openFile:   osFilesystem{}.Open,
 		project:    "myproject",
 		zone:       "asia-southeast1-a",
 		region:     "asia-southeast1",

@@ -13,6 +13,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/exec"
+
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/runner_mock.go github.com/juju/juju/cmd/juju/caas CommandRunner
@@ -80,6 +82,7 @@ var runCommand = func(runner CommandRunner, params []string, kubeconfig string) 
 }
 
 type clusterParams struct {
+	openFile   func(name string) (modelcmd.ReadSeekCloser, error)
 	name       string
 	project    string
 	region     string

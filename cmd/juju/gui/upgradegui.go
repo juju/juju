@@ -119,7 +119,7 @@ func (c *upgradeGUICommand) Run(ctx *cmd.Context) error {
 		return nil
 	}
 	// Retrieve the dashboard archive and its related info.
-	archive, err := openArchive(c.guiStream, c.versOrPath, ctrlVersion.Major, ctrlVersion.Minor)
+	archive, err := c.openArchive(c.guiStream, c.versOrPath, ctrlVersion.Major, ctrlVersion.Minor)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -173,7 +173,7 @@ type openedArchive struct {
 
 // openArchive opens a Juju Dashboard archive from the given version or file path.
 // The readSeekCloser returned in openedArchive.r must be closed by callers.
-func openArchive(stream, versOrPath string, major, minor int) (openedArchive, error) {
+func (c *upgradeGUICommand) openArchive(stream, versOrPath string, major, minor int) (openedArchive, error) {
 	if versOrPath == "" {
 		// Return the most recent Juju Dashboard from simplestreams.
 		allMeta, err := remoteArchiveMetadata(stream, major, minor)
@@ -193,7 +193,7 @@ func openArchive(stream, versOrPath string, major, minor int) (openedArchive, er
 			vers: metadata.Version,
 		}, nil
 	}
-	f, err := os.Open(versOrPath)
+	f, err := c.Filesystem().Open(versOrPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return openedArchive{}, errors.Annotate(err, "cannot open Dashboard archive")

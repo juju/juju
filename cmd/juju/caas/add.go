@@ -370,6 +370,7 @@ func (c *AddCAASCommand) getConfigReader(ctx *cmd.Context) (io.Reader, string, e
 
 func (c *AddCAASCommand) getGKEKubeConfig(ctx *cmd.Context) (io.Reader, string, error) {
 	p := &clusterParams{
+		openFile:   c.Filesystem().Open,
 		name:       c.clusterName,
 		region:     c.hostCloudRegion,
 		project:    c.project,
@@ -391,7 +392,8 @@ func (c *AddCAASCommand) getGKEKubeConfig(ctx *cmd.Context) (io.Reader, string, 
 
 func (c *AddCAASCommand) getEKSKubeConfig(ctx *cmd.Context) (io.Reader, string, error) {
 	p := &clusterParams{
-		name: c.clusterName,
+		openFile: c.Filesystem().Open,
+		name:     c.clusterName,
 	}
 	var err error
 	if len(c.hostCloudRegion) > 0 {
@@ -414,6 +416,7 @@ func (c *AddCAASCommand) getEKSKubeConfig(ctx *cmd.Context) (io.Reader, string, 
 
 func (c *AddCAASCommand) getAKSKubeConfig(ctx *cmd.Context) (io.Reader, string, error) {
 	p := &clusterParams{
+		openFile:      c.Filesystem().Open,
 		name:          c.clusterName,
 		region:        c.hostCloudRegion,
 		resourceGroup: c.resourceGroup,

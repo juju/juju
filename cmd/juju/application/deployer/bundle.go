@@ -158,6 +158,7 @@ func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAP
 
 	return bundleDeploySpec{
 		ctx:                  ctx,
+		filesystem:           d.model.Filesystem(),
 		dryRun:               d.dryRun,
 		force:                d.force,
 		trust:                d.trust,

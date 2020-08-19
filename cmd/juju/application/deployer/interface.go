@@ -7,14 +7,15 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/api"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
 	apicharms "github.com/juju/juju/api/charms"
 	apiparams "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application/store"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
@@ -140,4 +141,9 @@ type ModelCommand interface {
 
 	// ModelType returns the type of the model.
 	ModelType() (model.ModelType, error)
+
+	// Filesystem returns an instance that provides access to
+	// the filesystem, either delegating to calling os functions
+	// or functions which always return an error.
+	Filesystem() modelcmd.Filesystem
 }
