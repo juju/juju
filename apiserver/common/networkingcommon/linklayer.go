@@ -212,7 +212,6 @@ func (o *MachineLinkLayerOp) MatchingIncoming(dev LinkLayerDevice) *network.Inte
 // It would embed ProviderAddress and could be obtained directly via a method
 // or property of InterfaceInfos.
 func (o *MachineLinkLayerOp) MatchingIncomingAddrs(name, hwAddress string) []state.LinkLayerDeviceAddress {
-	logger.Criticalf("%+v", o.incoming)
 	return networkAddressStateArgsForDevice(o.Incoming(), name, hwAddress)
 }
 
