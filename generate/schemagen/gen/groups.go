@@ -108,6 +108,9 @@ func clientFacades(facades []facade.Details, registry Registry) []facade.Details
 }
 
 func jimmFacades(facades []facade.Details) []facade.Details {
+	// The JIMM facades are the ones that are baked into JIMM directly. If JIMM
+	// ever updates it's baked in facade schemas, then we should also update the
+	// ones here.
 	required := map[string][]int{
 		"Bundle":              {1},
 		"Cloud":               {1, 2, 3, 4, 5},
