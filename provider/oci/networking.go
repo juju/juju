@@ -1088,11 +1088,11 @@ func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContex
 		if !ok || subnet.CidrBlock == nil {
 			continue
 		}
+		// Provider does not support interface names.
 		nic := corenetwork.InterfaceInfo{
-			InterfaceName: fmt.Sprintf("unsupported%d", iface.Idx),
-			DeviceIndex:   iface.Idx,
-			ProviderId:    corenetwork.Id(*iface.Vnic.Id),
-			MACAddress:    *iface.Vnic.MacAddress,
+			DeviceIndex: iface.Idx,
+			ProviderId:  corenetwork.Id(*iface.Vnic.Id),
+			MACAddress:  *iface.Vnic.MacAddress,
 			Addresses: corenetwork.ProviderAddresses{
 				corenetwork.NewScopedProviderAddress(
 					*iface.Vnic.PrivateIp,
