@@ -143,7 +143,6 @@ func (c *sshCommand) Init(args []string) (err error) {
 
 // ModelCommand defines methods of the model command.
 type ModelCommand interface {
-	// modelcmd.ModelCommand
 	NewControllerAPIRoot() (api.Connection, error)
 	ModelDetails() (string, *jujuclient.ModelDetails, error)
 	NewAPIRoot() (api.Connection, error)

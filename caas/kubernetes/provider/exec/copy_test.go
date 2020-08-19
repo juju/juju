@@ -4,14 +4,16 @@
 package exec_test
 
 import (
+	"archive/tar"
 	"bytes"
 	"io/ioutil"
 	"net/url"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
@@ -96,25 +98,6 @@ func (s *execSuite) TestCopyParamsValidate(c *gc.C) {
 		},
 	}
 	c.Assert(params.Validate(), gc.ErrorMatches, "cross pods copy is not supported")
-}
-
-func (s *execSuite) TestCopyFromPodNotSupported(c *gc.C) {
-	ctrl := s.setupExecClient(c)
-	defer ctrl.Finish()
-
-	cancel := make(chan struct{}, 1)
-
-	params := exec.CopyParams{
-		Src: exec.FileResource{
-			Path:    "/var/lib/juju/tools",
-			PodName: "gitlab-k8s-0",
-		},
-		Dest: exec.FileResource{
-			Path:    "/var/lib/juju/tools",
-			PodName: "",
-		},
-	}
-	c.Assert(s.execClient.Copy(params, cancel), jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *execSuite) TestCopyToPod(c *gc.C) {
@@ -220,6 +203,109 @@ func (s *execSuite) TestCopyToPod(c *gc.C) {
 	select {
 	case err := <-errChan:
 		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for Copy return")
+	}
+}
+
+func (s *execSuite) TestCopyFromPod(c *gc.C) {
+	ctrl := s.setupExecClient(c)
+	defer ctrl.Finish()
+
+	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
+
+	srcPath, err := ioutil.TempFile(c.MkDir(), "testfile")
+	c.Assert(err, jc.ErrorIsNil)
+	fileContent := `test data`
+	_, err = srcPath.WriteString(fileContent)
+	c.Assert(err, jc.ErrorIsNil)
+	defer srcPath.Close()
+	defer os.Remove(srcPath.Name())
+
+	destPath := filepath.Join(c.MkDir(), "destFile")
+	params := exec.CopyParams{
+		Src: exec.FileResource{
+			Path:    srcPath.Name(),
+			PodName: "gitlab-k8s-0",
+		},
+		Dest: exec.FileResource{
+			Path:    destPath,
+			PodName: "",
+		},
+	}
+	pod := core.Pod{
+		Spec: core.PodSpec{
+			Containers: []core.Container{
+				{Name: "gitlab-container"},
+			},
+		},
+		Status: core.PodStatus{
+			Phase: core.PodRunning,
+			ContainerStatuses: []core.ContainerStatus{
+				{Name: "gitlab-container", State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+			},
+		},
+	}
+	pod.SetName("gitlab-k8s-0")
+
+	copyRequest := rest.NewRequestWithClient(
+		&url.URL{Path: "/path/"},
+		"",
+		rest.ClientContentConfig{GroupVersion: core.SchemeGroupVersion},
+		nil,
+	).Resource("pods").Name("gitlab-k8s-0").Namespace("test").
+		SubResource("exec").Param("container", "gitlab-container").VersionedParams(
+		&core.PodExecOptions{
+			Container: "gitlab-container",
+			Command:   []string{"tar", "cf", "-", srcPath.Name()},
+			Stdin:     false,
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       false,
+		}, scheme.ParameterCodec)
+
+	var stderr bytes.Buffer
+	gomock.InOrder(
+		// copy files.
+		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-0", metav1.GetOptions{}).Return(&pod, nil),
+		s.restClient.EXPECT().Post().Return(copyRequest),
+		s.mockRemoteCmdExecutor.EXPECT().Stream(
+			remotecommand.StreamOptions{
+				Stdin:  nil,
+				Stdout: s.pipWriter,
+				Stderr: &stderr,
+				Tty:    false,
+			},
+		).DoAndReturn(
+			func(ops remotecommand.StreamOptions) error {
+				tarWriter := tar.NewWriter(ops.Stdout)
+				err = tarWriter.WriteHeader(&tar.Header{
+					// tar strips the leading '/' if it's there.
+					Name: strings.TrimLeft(srcPath.Name(), "/"),
+					Mode: 0600,
+					Size: int64(len(fileContent)),
+				})
+				c.Assert(err, jc.ErrorIsNil)
+				_, err = tarWriter.Write([]byte(fileContent))
+				c.Assert(err, jc.ErrorIsNil)
+				err = tarWriter.Close()
+				c.Assert(err, jc.ErrorIsNil)
+				return nil
+			},
+		),
+	)
+
+	cancel := make(<-chan struct{})
+	errChan := make(chan error)
+	go func() {
+		errChan <- s.execClient.Copy(params, cancel)
+	}()
+	select {
+	case err := <-errChan:
+		c.Assert(err, jc.ErrorIsNil)
+		data, err := ioutil.ReadFile(destPath)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(string(data), gc.DeepEquals, fileContent)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for Copy return")
 	}

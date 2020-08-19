@@ -20,7 +20,6 @@ import (
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucloud "github.com/juju/juju/cloud"
-	// "github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/cloudspec"
 	jujussh "github.com/juju/juju/network/ssh"
 )
@@ -241,7 +240,6 @@ func getInterruptAbortChan(ctx Context) (<-chan struct{}, func()) {
 }
 
 func (c *sshContainer) copy(ctx Context) error {
-	// TODO: enable exec framework to support copy from pod to local!!!
 	args := c.getArgs()
 	if len(args) < 2 {
 		return errors.New("source and destination are required")

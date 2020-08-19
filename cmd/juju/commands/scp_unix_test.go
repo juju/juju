@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujussh "github.com/juju/juju/network/ssh"
-	"github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&SCPSuiteLegacy{})
@@ -237,9 +236,3 @@ func (s *SCPSuiteLegacy) TestSCPCommand(c *gc.C) {
 		}
 	}
 }
-
-type scpSuite struct {
-	testing.BaseSuite
-}
-
-var _ = gc.Suite(&scpSuite{})

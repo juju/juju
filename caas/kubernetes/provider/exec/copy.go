@@ -65,12 +65,74 @@ func (c client) Copy(params CopyParams, cancel <-chan struct{}) error {
 	if params.Dest.PodName != "" {
 		return c.copyToPod(params, cancel)
 	}
-	return nil
+	return errors.NewNotValid(nil, "either copy from a pod or to a pod")
 }
 
 func (c client) copyFromPod(params CopyParams, cancel <-chan struct{}) error {
-	// TODO(caas): implement when we need later.
-	return errors.NotSupportedf("copy from pod")
+	src := params.Src
+	dest := params.Dest
+	logger.Debugf("copying from %v to %v", src, dest)
+
+	reader, writer := c.pipGetter()
+	var stderr bytes.Buffer
+	execParams := ExecParams{
+		PodName:       src.PodName,
+		ContainerName: src.ContainerName,
+		Commands:      []string{"tar", "cf", "-", src.Path},
+		Stdin:         nil,
+		Stdout:        writer,
+		Stderr:        &stderr,
+	}
+
+	go func() {
+		defer writer.Close()
+		if err := c.Exec(execParams, cancel); err != nil {
+			logger.Errorf("make tar %q failed: %v", src.Path, err)
+		}
+	}()
+	prefix := getPrefix(src.Path)
+	prefix = path.Clean(prefix)
+	// remove extraneous path shortcuts - these could occur if a path contained extra "../"
+	// and attempted to navigate beyond "/" in a remote filesystem.
+	prefix = stripPathShortcuts(prefix)
+	return unTarAll(src, reader, dest.Path, prefix)
+}
+
+func getPrefix(file string) string {
+	// tar strips the leading '/' if it's there, so we will too.
+	return strings.TrimLeft(file, "/")
+}
+
+// stripPathShortcuts removes any leading or trailing "../" from a given path.
+func stripPathShortcuts(p string) string {
+	newPath := path.Clean(p)
+	trimmed := strings.TrimPrefix(newPath, "../")
+
+	for trimmed != newPath {
+		newPath = trimmed
+		trimmed = strings.TrimPrefix(newPath, "../")
+	}
+
+	// trim leftover {".", ".."}
+	if newPath == "." || newPath == ".." {
+		newPath = ""
+	}
+
+	if len(newPath) > 0 && string(newPath[0]) == "/" {
+		return newPath[1:]
+	}
+
+	return newPath
+}
+
+// isDestRelative returns true if dest is pointing outside the base directory,
+// false otherwise.
+func isDestRelative(base, dest string) bool {
+	relative, err := filepath.Rel(base, dest)
+	if err != nil {
+		return false
+	}
+	return relative == "." || relative == stripPathShortcuts(relative)
 }
 
 // this is inspired by kubectl cmd package.
@@ -164,7 +226,7 @@ func recursiveTar(srcBase, srcFile, destBase, destFile string, tw *tar.Writer) e
 				return err
 			}
 			if len(files) == 0 {
-				//case empty directory
+				// case empty directory.
 				hdr, _ := tar.FileInfoHeader(stat, fpath)
 				hdr.Name = destFile
 				if err := tw.WriteHeader(hdr); err != nil {
@@ -178,7 +240,7 @@ func recursiveTar(srcBase, srcFile, destBase, destFile string, tw *tar.Writer) e
 			}
 			return nil
 		} else if stat.Mode()&os.ModeSymlink != 0 {
-			//case soft link
+			// case soft link.
 			hdr, _ := tar.FileInfoHeader(stat, fpath)
 			target, err := os.Readlink(fpath)
 			if err != nil {
@@ -193,7 +255,7 @@ func recursiveTar(srcBase, srcFile, destBase, destFile string, tw *tar.Writer) e
 		} else if stat.Mode()&os.ModeSocket != 0 {
 			logger.Warningf("socket file %q ignored", fpath)
 		} else {
-			//case regular file or other file type like pipe
+			// case regular file or other file type like pipe.
 			hdr, err := tar.FileInfoHeader(stat, fpath)
 			if err != nil {
 				return err
@@ -216,5 +278,65 @@ func recursiveTar(srcBase, srcFile, destBase, destFile string, tw *tar.Writer) e
 			return f.Close()
 		}
 	}
+	return nil
+}
+
+func unTarAll(src FileResource, reader io.Reader, destDir, prefix string) error {
+	tarReader := tar.NewReader(reader)
+	for {
+		header, err := tarReader.Next()
+		if err != nil {
+			if err != io.EOF {
+				return errors.Trace(err)
+			}
+			break
+		}
+
+		// All the files will start with the prefix, which is the directory where
+		// they were located on the pod, we need to strip down that prefix, but
+		// if the prefix is missing it means the tar was tempered with.
+		// For the case where prefix is empty we need to ensure that the path
+		// is not absolute, which also indicates the tar file was tampered with.
+		if !strings.HasPrefix(header.Name, prefix) {
+			return errors.New("tar contents corrupted")
+		}
+
+		// basic file information.
+		mode := header.FileInfo().Mode()
+		destFileName := filepath.Join(destDir, header.Name[len(prefix):])
+
+		if !isDestRelative(destDir, destFileName) {
+			logger.Warningf("file %q is outside target destination, skipping", destFileName)
+			continue
+		}
+
+		baseName := filepath.Dir(destFileName)
+		if err := os.MkdirAll(baseName, 0755); err != nil {
+			return errors.Trace(err)
+		}
+		if header.FileInfo().IsDir() {
+			if err := os.MkdirAll(destFileName, 0755); err != nil {
+				return errors.Trace(err)
+			}
+			continue
+		}
+
+		if mode&os.ModeSymlink != 0 {
+			logger.Warningf("skipping symlink: %q -> %q", destFileName, header.Linkname)
+			continue
+		}
+		outFile, err := os.Create(destFileName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer outFile.Close()
+		if _, err := io.Copy(outFile, tarReader); err != nil {
+			return errors.Trace(err)
+		}
+		if err := outFile.Close(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	return nil
 }

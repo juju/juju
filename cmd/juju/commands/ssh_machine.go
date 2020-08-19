@@ -22,7 +22,6 @@ import (
 
 	"github.com/juju/juju/api/sshclient"
 	"github.com/juju/juju/apiserver/params"
-	// "github.com/juju/juju/cmd/modelcmd"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	jujussh "github.com/juju/juju/network/ssh"

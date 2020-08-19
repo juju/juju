@@ -447,6 +447,33 @@ func (s *sshContainerSuite) TestCopyToOperator(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *sshContainerSuite) TestCopyFromOperator(c *gc.C) {
+	ctrl := s.setUpController(c, false, "")
+	ctx := mocks.NewMockContext(ctrl)
+	defer ctrl.Finish()
+
+	s.sshC.SetArgs([]string{"mariadb-k8s/0:/home/ubuntu/", "./file1"})
+
+	gomock.InOrder(
+		s.execClient.EXPECT().NameSpace().AnyTimes().Return("test-ns"),
+		s.mockPods.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "juju-operator=mariadb-k8s"}).AnyTimes().
+			Return(&core.PodList{Items: []core.Pod{
+				{ObjectMeta: metav1.ObjectMeta{Name: "mariadb-k8s-operator-0"}},
+			}}, nil),
+
+		ctx.EXPECT().InterruptNotify(gomock.Any()),
+		s.execClient.EXPECT().Copy(k8sexec.CopyParams{
+			Src:  k8sexec.FileResource{Path: "/home/ubuntu/", PodName: "mariadb-k8s-operator-0"},
+			Dest: k8sexec.FileResource{Path: "./file1"},
+		}, gomock.Any()).
+			Return(nil),
+		ctx.EXPECT().StopInterruptNotify(gomock.Any()),
+	)
+
+	err := s.sshC.Copy(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *sshContainerSuite) TestCopyInvalidArgs(c *gc.C) {
 	ctrl := s.setUpController(c, false, "")
 	ctx := mocks.NewMockContext(ctrl)
@@ -461,12 +488,12 @@ func (s *sshContainerSuite) TestCopyInvalidArgs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `only one source and one destination are allowed for a k8s application`)
 }
 
-func (s *sshContainerSuite) TestCopyWorkloadPodWithContainerSpecified(c *gc.C) {
-	ctrl := s.setUpController(c, true, "container1")
+func (s *sshContainerSuite) TestCopyFromWorkloadPod(c *gc.C) {
+	ctrl := s.setUpController(c, true, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
 
-	s.sshC.SetArgs([]string{"./file1", "mariadb-k8s/0:/home/ubuntu/"})
+	s.sshC.SetArgs([]string{"mariadb-k8s/0:/home/ubuntu/", "./file1"})
 
 	gomock.InOrder(
 		s.applicationAPI.EXPECT().UnitsInfo([]names.UnitTag{names.NewUnitTag("mariadb-k8s/0")}).
@@ -476,8 +503,8 @@ func (s *sshContainerSuite) TestCopyWorkloadPodWithContainerSpecified(c *gc.C) {
 
 		ctx.EXPECT().InterruptNotify(gomock.Any()),
 		s.execClient.EXPECT().Copy(k8sexec.CopyParams{
-			Src:  k8sexec.FileResource{Path: "./file1"},
-			Dest: k8sexec.FileResource{Path: "/home/ubuntu/", PodName: "mariadb-k8s-0", ContainerName: "container1"},
+			Src:  k8sexec.FileResource{Path: "/home/ubuntu/", PodName: "mariadb-k8s-0"},
+			Dest: k8sexec.FileResource{Path: "./file1"},
 		}, gomock.Any()).
 			Return(nil),
 		ctx.EXPECT().StopInterruptNotify(gomock.Any()),
@@ -487,7 +514,7 @@ func (s *sshContainerSuite) TestCopyWorkloadPodWithContainerSpecified(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *sshContainerSuite) TestCopyWorkloadPodNoContainerSpecified(c *gc.C) {
+func (s *sshContainerSuite) TestCopyToWorkloadPod(c *gc.C) {
 	ctrl := s.setUpController(c, true, "")
 	ctx := mocks.NewMockContext(ctrl)
 	defer ctrl.Finish()
@@ -504,6 +531,32 @@ func (s *sshContainerSuite) TestCopyWorkloadPodNoContainerSpecified(c *gc.C) {
 		s.execClient.EXPECT().Copy(k8sexec.CopyParams{
 			Src:  k8sexec.FileResource{Path: "./file1"},
 			Dest: k8sexec.FileResource{Path: "/home/ubuntu/", PodName: "mariadb-k8s-0"},
+		}, gomock.Any()).
+			Return(nil),
+		ctx.EXPECT().StopInterruptNotify(gomock.Any()),
+	)
+
+	err := s.sshC.Copy(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *sshContainerSuite) TestCopyToWorkloadPodWithContainerSpecified(c *gc.C) {
+	ctrl := s.setUpController(c, true, "container1")
+	ctx := mocks.NewMockContext(ctrl)
+	defer ctrl.Finish()
+
+	s.sshC.SetArgs([]string{"./file1", "mariadb-k8s/0:/home/ubuntu/"})
+
+	gomock.InOrder(
+		s.applicationAPI.EXPECT().UnitsInfo([]names.UnitTag{names.NewUnitTag("mariadb-k8s/0")}).
+			Return([]application.UnitInfo{
+				{ProviderId: "mariadb-k8s-0"},
+			}, nil),
+
+		ctx.EXPECT().InterruptNotify(gomock.Any()),
+		s.execClient.EXPECT().Copy(k8sexec.CopyParams{
+			Src:  k8sexec.FileResource{Path: "./file1"},
+			Dest: k8sexec.FileResource{Path: "/home/ubuntu/", PodName: "mariadb-k8s-0", ContainerName: "container1"},
 		}, gomock.Any()).
 			Return(nil),
 		ctx.EXPECT().StopInterruptNotify(gomock.Any()),
