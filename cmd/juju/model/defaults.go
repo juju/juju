@@ -367,7 +367,7 @@ func (c *defaultsCommand) parseArgs(args []string) error {
 	if len(args) > 0 {
 		lastArg := args[len(args)-1]
 		// We may have a config.yaml file
-		_, err := os.Stat(lastArg)
+		_, err := c.Filesystem().Stat(lastArg)
 		wantSet = err == nil || strings.Contains(lastArg, "=")
 	}
 
@@ -463,7 +463,7 @@ func (c *defaultsCommand) parseCloudRegion(args []string) ([]string, error) {
 	}
 
 	// Ensure we exit early when we have a settings file or key=value.
-	info, err := os.Stat(maybeRegion)
+	info, err := c.Filesystem().Stat(maybeRegion)
 	isFile := err == nil && !info.IsDir()
 	// TODO(redir) 2016-10-05 #1627162
 	if isFile {
@@ -578,7 +578,7 @@ func (c *defaultsCommand) validCloudRegion(cloudName, maybeRegion string) (bool,
 // handleSetArgs parses args for setting defaults.
 func (c *defaultsCommand) handleSetArgs(args []string) error {
 	// We may have a config.yaml file
-	_, err := os.Stat(args[0])
+	_, err := c.Filesystem().Stat(args[0])
 	argZeroKeyOnly := err != nil && !strings.Contains(args[0], "=")
 	// If an invalid region was specified, the first positional arg won't have
 	// an "=". If we see one here we know it is invalid.
@@ -661,7 +661,7 @@ func (c *defaultsCommand) handleExtraArgs(args []string) error {
 	// value after setting them.
 	for _, arg := range args {
 		// We may have a config.yaml file
-		_, err := os.Stat(arg)
+		_, err := c.Filesystem().Stat(arg)
 		if err == nil || strings.Contains(arg, "=") {
 			return errors.New("cannot set and retrieve default values simultaneously")
 		}

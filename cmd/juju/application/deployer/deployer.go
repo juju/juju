@@ -237,7 +237,7 @@ func (d *factory) newDeployCharm() deployCharm {
 
 func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 	bundleFile := d.charmOrBundle
-	_, statErr := os.Stat(bundleFile)
+	_, statErr := d.model.Filesystem().Stat(bundleFile)
 	if statErr == nil && !charm.IsValidLocalCharmOrBundlePath(bundleFile) {
 		return nil, errors.Errorf(""+
 			"The charm or bundle %q is ambiguous.\n"+

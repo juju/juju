@@ -6,7 +6,6 @@ package backups
 import (
 	"fmt"
 	"io"
-	"os"
 	"time"
 
 	"github.com/juju/cmd"
@@ -190,7 +189,7 @@ func (c *createCommand) download(ctx *cmd.Context, client APIClient, copyFrom st
 	}
 	defer resultArchive.Close()
 
-	archive, err := os.Create(archiveFilename)
+	archive, err := c.Filesystem().Create(archiveFilename)
 	if err != nil {
 		return errors.Annotatef(err, "while creating local archive file %v", archiveFilename)
 	}

@@ -92,6 +92,7 @@ func (s *BaseUpgradeCharmSuite) SetUpTest(c *gc.C) {
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
 		conn base.APICallCloser,
+		filesystem modelcmd.Filesystem,
 	) (ids map[string]string, err error) {
 		s.AddCall("DeployResources", applicationID, chID, csMac, filesAndRevisions, resources, conn)
 		return nil, s.NextErr()

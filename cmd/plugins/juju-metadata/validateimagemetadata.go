@@ -6,7 +6,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -229,7 +228,7 @@ func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context) 
 	}
 	if c.metadataDir != "" {
 		dir := filepath.Join(c.metadataDir, "images")
-		if _, err := os.Stat(dir); err != nil {
+		if _, err := c.Filesystem().Stat(dir); err != nil {
 			return nil, err
 		}
 		params.Sources = imagesDataSources(dir)

@@ -247,7 +247,7 @@ func (c *configCommand) handleOneArg(arg string) error {
 	}
 
 	// We may have a single config.yaml file
-	if _, err := os.Stat(arg); err == nil {
+	if _, err := c.Filesystem().Stat(arg); err == nil {
 		return c.parseYAMLFile(arg)
 	} else if strings.Contains(arg, "=") {
 		return c.parseSetKeys([]string{arg})
@@ -270,7 +270,7 @@ func (c *configCommand) handleArgs(args []string) error {
 	}
 	for _, arg := range args {
 		// We may have a config.yaml file.
-		_, err := os.Stat(arg)
+		_, err := c.Filesystem().Stat(arg)
 		if err != nil && !strings.Contains(arg, "=") {
 			return errors.New("can only retrieve a single value, or all values")
 		}

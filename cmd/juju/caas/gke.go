@@ -6,7 +6,6 @@ package caas
 import (
 	"fmt"
 	"io"
-	"os"
 	"regexp"
 	"strings"
 
@@ -66,7 +65,7 @@ func (g *gke) getKubeConfig(p *clusterParams) (io.ReadCloser, string, error) {
 	if result.Code != 0 {
 		return nil, "", errors.New(string(result.Stderr))
 	}
-	rdr, err := os.Open(kubeconfig)
+	rdr, err := p.openFile(kubeconfig)
 	return rdr, qualifiedClusterName, err
 }
 

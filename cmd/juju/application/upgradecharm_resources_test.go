@@ -141,6 +141,7 @@ func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
 		conn base.APICallCloser,
+		filesystem modelcmd.Filesystem,
 	) (ids map[string]string, err error) {
 		return deployResources(s.State, applicationID, resources)
 	}
@@ -263,6 +264,7 @@ Deploying charm "cs:bionic/starsay-1".`
 			filesAndRevisions map[string]string,
 			resources map[string]charmresource.Meta,
 			conn base.APICallCloser,
+			filesystem modelcmd.Filesystem,
 		) (ids map[string]string, err error) {
 			return deployResources(s.State, applicationID, resources)
 		},

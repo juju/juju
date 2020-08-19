@@ -14,6 +14,7 @@ import (
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -38,7 +39,7 @@ func (s *DeploySuite) SetUpTest(c *gc.C) {
 }
 
 func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
-	deps := uploadDeps{s.stub, nil}
+	deps := uploadDeps{stub: s.stub}
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
 	chID := charmstore.CharmID{
 		URL: cURL,
@@ -85,7 +86,7 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 }
 
 func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
-	deps := uploadDeps{s.stub, []byte("file contents")}
+	deps := uploadDeps{stub: s.stub, data: []byte("file contents")}
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
 	chID := charmstore.CharmID{
 		URL: cURL,
@@ -108,8 +109,7 @@ func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 				Path: "store",
 			},
 		},
-		osOpen: deps.Open,
-		osStat: deps.Stat,
+		filesystem: deps,
 	}
 
 	files := map[string]string{
@@ -142,7 +142,7 @@ func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 }
 
 func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
-	deps := uploadDeps{s.stub, nil}
+	deps := uploadDeps{stub: s.stub}
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
 	chID := charmstore.CharmID{
 		URL: cURL,
@@ -165,8 +165,7 @@ func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
 				Path: "store",
 			},
 		},
-		osOpen: deps.Open,
-		osStat: deps.Stat,
+		filesystem: deps,
 	}
 
 	files := map[string]string{}
@@ -194,7 +193,7 @@ func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
 }
 
 func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
-	deps := uploadDeps{s.stub, []byte("file contents")}
+	deps := uploadDeps{stub: s.stub, data: []byte("file contents")}
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
 	chID := charmstore.CharmID{
 		URL: cURL,
@@ -217,8 +216,7 @@ func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
 				Path: "store",
 			},
 		},
-		osOpen: deps.Open,
-		osStat: deps.Stat,
+		filesystem: deps,
 	}
 
 	files := map[string]string{
@@ -253,7 +251,7 @@ func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
 }
 
 func (s DeploySuite) TestUploadUnexpectedResourceFile(c *gc.C) {
-	deps := uploadDeps{s.stub, nil}
+	deps := uploadDeps{stub: s.stub}
 	du := deployUploader{
 		applicationID: "mysql",
 		client:        deps,
@@ -264,8 +262,7 @@ func (s DeploySuite) TestUploadUnexpectedResourceFile(c *gc.C) {
 				Path: "path",
 			},
 		},
-		osOpen: deps.Open,
-		osStat: deps.Stat,
+		filesystem: deps,
 	}
 
 	files := map[string]string{"some bad resource": "foobar.txt"}
@@ -277,7 +274,7 @@ func (s DeploySuite) TestUploadUnexpectedResourceFile(c *gc.C) {
 }
 
 func (s DeploySuite) TestUploadUnexpectedResourceRevision(c *gc.C) {
-	deps := uploadDeps{s.stub, nil}
+	deps := uploadDeps{stub: s.stub}
 	du := deployUploader{
 		applicationID: "mysql",
 		client:        deps,
@@ -288,8 +285,7 @@ func (s DeploySuite) TestUploadUnexpectedResourceRevision(c *gc.C) {
 				Path: "path",
 			},
 		},
-		osOpen: deps.Open,
-		osStat: deps.Stat,
+		filesystem: deps,
 	}
 
 	files := map[string]string{}
@@ -301,7 +297,7 @@ func (s DeploySuite) TestUploadUnexpectedResourceRevision(c *gc.C) {
 }
 
 func (s DeploySuite) TestMissingResource(c *gc.C) {
-	deps := uploadDeps{s.stub, nil}
+	deps := uploadDeps{stub: s.stub}
 	du := deployUploader{
 		applicationID: "mysql",
 		client:        deps,
@@ -312,8 +308,7 @@ func (s DeploySuite) TestMissingResource(c *gc.C) {
 				Path: "path",
 			},
 		},
-		osOpen: deps.Open,
-		osStat: deps.Stat,
+		filesystem: deps,
 	}
 
 	// set the error that will be returned by os.Stat
@@ -327,7 +322,7 @@ func (s DeploySuite) TestMissingResource(c *gc.C) {
 }
 
 func (s DeploySuite) TestDeployDockerResourceRegistryPathString(c *gc.C) {
-	deps := uploadDeps{s.stub, nil}
+	deps := uploadDeps{stub: s.stub}
 	cURL := charm.MustParseURL("cs:~a-user/mysql-k8s-5")
 	chID := charmstore.CharmID{
 		URL: cURL,
@@ -350,8 +345,7 @@ func (s DeploySuite) TestDeployDockerResourceRegistryPathString(c *gc.C) {
 		csMac:         csMac,
 		client:        deps,
 		resources:     resourceMeta,
-		osOpen:        deps.Open,
-		osStat:        deps.Stat,
+		filesystem:    deps,
 	}
 	ids, err := du.upload(passedResourceValues, map[string]int{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -385,7 +379,7 @@ func (s DeploySuite) TestDeployDockerResourceJSONFile(c *gc.C) {
 	jsonFile := path.Join(dir, "details.json")
 	err := ioutil.WriteFile(jsonFile, []byte(fileContents), 0600)
 	c.Assert(err, jc.ErrorIsNil)
-	deps := uploadDeps{s.stub, []byte(fileContents)}
+	deps := uploadDeps{stub: s.stub, data: []byte(fileContents)}
 	cURL := charm.MustParseURL("cs:~a-user/mysql-k8s-5")
 	chID := charmstore.CharmID{
 		URL: cURL,
@@ -407,8 +401,7 @@ func (s DeploySuite) TestDeployDockerResourceJSONFile(c *gc.C) {
 		csMac:         csMac,
 		client:        deps,
 		resources:     resourceMeta,
-		osOpen:        deps.Open,
-		osStat:        deps.Stat,
+		filesystem:    deps,
 	}
 	ids, err := du.upload(passedResourceValues, map[string]int{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -440,7 +433,7 @@ password: hunter2
 	jsonFile := path.Join(dir, "details.yaml")
 	err := ioutil.WriteFile(jsonFile, []byte(fileContents), 0600)
 	c.Assert(err, jc.ErrorIsNil)
-	deps := uploadDeps{s.stub, []byte(fileContents)}
+	deps := uploadDeps{stub: s.stub, data: []byte(fileContents)}
 	cURL := charm.MustParseURL("cs:~a-user/mysql-k8s-5")
 	chID := charmstore.CharmID{
 		URL: cURL,
@@ -462,8 +455,7 @@ password: hunter2
 		csMac:         csMac,
 		client:        deps,
 		resources:     resourceMeta,
-		osOpen:        deps.Open,
-		osStat:        deps.Stat,
+		filesystem:    deps,
 	}
 	ids, err := du.upload(passedResourceValues, map[string]int{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -526,12 +518,17 @@ password: hunter2
 	c.Assert(err, gc.ErrorMatches, "docker image path \"\" not valid")
 }
 
-func osOpen(path string) (ReadSeekCloser, error) {
-	return os.Open(path)
+type osFilesystem struct {
+	modelcmd.Filesystem
+}
+
+func (osFilesystem) Open(name string) (modelcmd.ReadSeekCloser, error) {
+	return os.Open(name)
 }
 
 func (s DeploySuite) TestGetDockerDetailsData(c *gc.C) {
-	result, err := getDockerDetailsData("registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image", osOpen)
+	fs := osFilesystem{}
+	result, err := getDockerDetailsData("registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image", fs.Open)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
 		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
@@ -539,17 +536,17 @@ func (s DeploySuite) TestGetDockerDetailsData(c *gc.C) {
 		Password:     "",
 	})
 
-	_, err = getDockerDetailsData("/path/doesnt/exist.yaml", osOpen)
+	_, err = getDockerDetailsData("/path/doesnt/exist.yaml", fs.Open)
 	c.Assert(err, gc.ErrorMatches, "filepath or registry path: /path/doesnt/exist.yaml not valid")
 
-	_, err = getDockerDetailsData(".invalid-reg-path", osOpen)
+	_, err = getDockerDetailsData(".invalid-reg-path", fs.Open)
 	c.Assert(err, gc.ErrorMatches, "filepath or registry path: .invalid-reg-path not valid")
 
 	dir := c.MkDir()
 	yamlFile := path.Join(dir, "actually-yaml-file")
 	err = ioutil.WriteFile(yamlFile, []byte("registrypath: mariadb/mariadb:10.2"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err = getDockerDetailsData(yamlFile, osOpen)
+	result, err = getDockerDetailsData(yamlFile, fs.Open)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
 		RegistryPath: "mariadb/mariadb:10.2",
@@ -559,6 +556,7 @@ func (s DeploySuite) TestGetDockerDetailsData(c *gc.C) {
 }
 
 type uploadDeps struct {
+	modelcmd.Filesystem
 	stub *testing.Stub
 	data []byte
 }
@@ -591,7 +589,7 @@ func (s uploadDeps) UploadPendingResource(applicationID string, resource charmre
 	return "id-" + resource.Name, nil
 }
 
-func (s uploadDeps) Open(name string) (ReadSeekCloser, error) {
+func (s uploadDeps) Open(name string) (modelcmd.ReadSeekCloser, error) {
 	s.stub.AddCall("Open", name)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
@@ -602,9 +600,9 @@ func (s uploadDeps) Open(name string) (ReadSeekCloser, error) {
 	return rsc{bytes.NewBuffer(s.data)}, nil
 }
 
-func (s uploadDeps) Stat(name string) error {
+func (s uploadDeps) Stat(name string) (os.FileInfo, error) {
 	s.stub.AddCall("Stat", name)
-	return s.stub.NextErr()
+	return nil, s.stub.NextErr()
 }
 
 type rsc struct {

@@ -9,12 +9,13 @@ import (
 	charmresource "github.com/juju/charm/v8/resource"
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
 )
 
@@ -44,35 +45,35 @@ func (*UploadSuite) TestInitEmpty(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
-func (*UploadSuite) TestInitOneArg(c *gc.C) {
-	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{})
+func (s *UploadSuite) TestInitOneArg(c *gc.C) {
+	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{}, s.stubDeps)
 	err := u.Init([]string{"foo"})
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
-func (*UploadSuite) TestInitJustName(c *gc.C) {
-	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{})
+func (s *UploadSuite) TestInitJustName(c *gc.C) {
+	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{}, s.stubDeps)
 
 	err := u.Init([]string{"foo", "bar"})
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (*UploadSuite) TestInitNoName(c *gc.C) {
-	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{})
+func (s *UploadSuite) TestInitNoName(c *gc.C) {
+	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{}, s.stubDeps)
 
 	err := u.Init([]string{"foo", "=foobar"})
 	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
 }
 
-func (*UploadSuite) TestInitNoPath(c *gc.C) {
-	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{})
+func (s *UploadSuite) TestInitNoPath(c *gc.C) {
+	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{}, s.stubDeps)
 
 	err := u.Init([]string{"foo", "foobar="})
 	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
 }
 
-func (*UploadSuite) TestInitGood(c *gc.C) {
-	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{})
+func (s *UploadSuite) TestInitGood(c *gc.C) {
+	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{}, s.stubDeps)
 
 	err := u.Init([]string{"foo", "bar=baz"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -83,8 +84,8 @@ func (*UploadSuite) TestInitGood(c *gc.C) {
 	c.Assert(resourcecmd.UploadCommandApplication(u), gc.Equals, "foo")
 }
 
-func (*UploadSuite) TestInitTwoResources(c *gc.C) {
-	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{})
+func (s *UploadSuite) TestInitTwoResources(c *gc.C) {
+	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{}, s.stubDeps)
 
 	err := u.Init([]string{"foo", "bar=baz", "fizz=buzz"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["fizz=buzz"\]`)
@@ -118,9 +119,8 @@ func (s *UploadSuite) TestUploadFileResource(c *gc.C) {
 	file := &stubFile{stub: s.stub}
 	s.stubDeps.file = file
 	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{
-		NewClient:    s.stubDeps.NewClient,
-		OpenResource: s.stubDeps.OpenResource,
-	},
+		NewClient: s.stubDeps.NewClient,
+	}, s.stubDeps,
 	)
 	err := u.Init([]string{"svc", "foo=bar"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -145,9 +145,8 @@ func (s *UploadSuite) TestUploadFileChangeBlocked(c *gc.C) {
 	file := &stubFile{stub: s.stub}
 	s.stubDeps.file = file
 	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{
-		NewClient:    s.stubDeps.NewClient,
-		OpenResource: s.stubDeps.OpenResource,
-	},
+		NewClient: s.stubDeps.NewClient,
+	}, s.stubDeps,
 	)
 	err := u.Init([]string{"svc", "foo=bar"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -202,9 +201,8 @@ password: hunter2
 		}}},
 	}
 	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{
-		NewClient:    s.stubDeps.NewClient,
-		OpenResource: s.stubDeps.OpenResource,
-	},
+		NewClient: s.stubDeps.NewClient,
+	}, s.stubDeps,
 	)
 	err := u.Init([]string{"svc", "foo=bar"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -224,8 +222,9 @@ password: hunter2
 }
 
 type stubUploadDeps struct {
+	modelcmd.Filesystem
 	stub   *testing.Stub
-	file   resourcecmd.ReadSeekCloser
+	file   modelcmd.ReadSeekCloser
 	client resourcecmd.UploadClient
 }
 
@@ -238,7 +237,7 @@ func (s *stubUploadDeps) NewClient(c *resourcecmd.UploadCommand) (resourcecmd.Up
 	return s.client, nil
 }
 
-func (s *stubUploadDeps) OpenResource(path string) (resourcecmd.ReadSeekCloser, error) {
+func (s *stubUploadDeps) Open(path string) (modelcmd.ReadSeekCloser, error) {
 	s.stub.AddCall("OpenResource", path)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

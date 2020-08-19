@@ -148,6 +148,7 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
 		conn base.APICallCloser,
+		filesystem modelcmd.Filesystem,
 	) (ids map[string]string, err error) {
 		return deployResources(s.State, applicationID, resources)
 	}
@@ -1095,6 +1096,7 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
 		conn base.APICallCloser,
+		filesystem modelcmd.Filesystem,
 	) (ids map[string]string, err error) {
 		fakeAPI.AddCall("DeployResources", applicationID, chID, csMac, filesAndRevisions, resources, conn)
 		return nil, fakeAPI.NextErr()
@@ -2271,6 +2273,7 @@ func newDeployCommandForTest(fakeApi *fakeDeployAPI) *DeployCommand {
 			filesAndRevisions map[string]string,
 			resources map[string]charmresource.Meta,
 			conn base.APICallCloser,
+			filesystem modelcmd.Filesystem,
 		) (ids map[string]string, err error) {
 			return nil, nil
 		},

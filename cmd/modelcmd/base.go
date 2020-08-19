@@ -134,6 +134,10 @@ type CommandBase struct {
 
 	// Embedded is true if this command is being run inside a controller.
 	Embedded bool
+
+	// filesystem provides access to os calls to access files.
+	// For embedded commands, methods will always return an error.
+	filesystem Filesystem
 }
 
 func (c *CommandBase) assertRunStarted() {
@@ -160,6 +164,11 @@ func (c *CommandBase) closeAPIContexts() {
 // SetEmbedded sets whether the command is embedded.
 func (c *CommandBase) SetEmbedded(embedded bool) {
 	c.Embedded = embedded
+	if embedded {
+		c.filesystem = restrictedFilesystem{}
+	} else {
+		c.filesystem = osFilesystem{}
+	}
 }
 
 // SetFlags implements cmd.Command.SetFlags.

@@ -58,6 +58,7 @@ func (s *aksSuite) TestGetKubeConfig(c *gc.C) {
 	)
 
 	rdr, clusterName, err := aks.getKubeConfig(&clusterParams{
+		openFile:      osFilesystem{}.Open,
 		name:          "mycluster",
 		resourceGroup: "resourceGroup",
 	})

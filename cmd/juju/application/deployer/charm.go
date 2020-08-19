@@ -208,6 +208,7 @@ func (d *deployCharm) deploy(
 		d.resources,
 		charmInfo.Meta.Resources,
 		deployAPI,
+		d.model.Filesystem(),
 	)
 	if err != nil {
 		return errors.Trace(err)

@@ -122,7 +122,7 @@ func (c *exportBundleCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	filename := c.Filename
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0600)
+	file, err := c.Filesystem().OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0600)
 	if err != nil {
 		return errors.Annotate(err, "while creating local file")
 	}

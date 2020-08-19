@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
@@ -61,7 +60,7 @@ func (a *aks) getKubeConfig(p *clusterParams) (io.ReadCloser, string, error) {
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	reader, err := os.Open(kubeconfig)
+	reader, err := p.openFile(kubeconfig)
 	return reader, p.name, err
 }
 

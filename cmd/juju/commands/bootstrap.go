@@ -284,7 +284,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
 	if c.JujuDbSnapPath != "" {
-		_, err := os.Stat(c.JujuDbSnapPath)
+		_, err := c.Filesystem().Stat(c.JujuDbSnapPath)
 		if err != nil {
 			return errors.Annotatef(err, "problem with --db-snap")
 		}
@@ -298,7 +298,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	}
 
 	if c.JujuDbSnapAssertionsPath != "" {
-		_, err := os.Stat(c.JujuDbSnapAssertionsPath)
+		_, err := c.Filesystem().Stat(c.JujuDbSnapAssertionsPath)
 		if err != nil {
 			return errors.Annotatef(err, "problem with --db-snap-asserts")
 		}

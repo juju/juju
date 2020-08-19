@@ -6,7 +6,6 @@ package backups
 import (
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -87,7 +86,7 @@ func (c *downloadCommand) Run(ctx *cmd.Context) error {
 
 	// Prepare the local archive.
 	filename := c.ResolveFilename()
-	archive, err := os.Create(filename)
+	archive, err := c.Filesystem().Create(filename)
 	if err != nil {
 		return errors.Annotate(err, "while creating local archive file")
 	}

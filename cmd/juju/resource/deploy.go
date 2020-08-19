@@ -18,6 +18,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/resources"
 )
 
@@ -57,6 +58,9 @@ type DeployResourcesArgs struct {
 
 	// Client is the resources API client to use during deploy.
 	Client DeployClient
+
+	// Filesystem provides access to the filesystem.
+	Filesystem modelcmd.Filesystem
 }
 
 // DeployResources uploads the bytes for the given files to the server and
@@ -69,8 +73,7 @@ func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error
 		csMac:         args.CharmStoreMacaroon,
 		client:        args.Client,
 		resources:     args.ResourcesMeta,
-		osOpen:        func(s string) (ReadSeekCloser, error) { return os.Open(s) },
-		osStat:        func(s string) error { _, err := os.Stat(s); return err },
+		filesystem:    args.Filesystem,
 	}
 
 	ids, err = d.upload(args.ResourceValues, args.Revisions)
@@ -80,7 +83,7 @@ func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error
 	return ids, nil
 }
 
-type osOpenFunc func(path string) (ReadSeekCloser, error)
+type osOpenFunc func(path string) (modelcmd.ReadSeekCloser, error)
 
 type deployUploader struct {
 	applicationID string
@@ -88,8 +91,7 @@ type deployUploader struct {
 	csMac         *macaroon.Macaroon
 	resources     map[string]charmresource.Meta
 	client        DeployClient
-	osOpen        osOpenFunc
-	osStat        func(path string) error
+	filesystem    modelcmd.Filesystem
 }
 
 func (d deployUploader) upload(resourceValues map[string]string, revisions map[string]int) (map[string]string, error) {
@@ -119,7 +121,7 @@ func (d deployUploader) upload(resourceValues map[string]string, revisions map[s
 	}
 
 	for name, resValue := range resourceValues {
-		r, err := OpenResource(resValue, d.resources[name].Type, d.osOpen)
+		r, err := OpenResource(resValue, d.resources[name].Type, d.filesystem.Open)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -141,7 +143,7 @@ func (d deployUploader) validateResourceDetails(res map[string]string) error {
 			err = d.checkFile(name, value)
 		case charmresource.TypeContainerImage:
 			var dockerDetails resources.DockerImageDetails
-			dockerDetails, err = getDockerDetailsData(value, d.osOpen)
+			dockerDetails, err = getDockerDetailsData(value, d.filesystem.Open)
 			if err != nil {
 				return err
 			}
@@ -158,7 +160,7 @@ func (d deployUploader) validateResourceDetails(res map[string]string) error {
 }
 
 func (d deployUploader) checkFile(name, path string) error {
-	err := d.osStat(path)
+	_, err := d.filesystem.Stat(path)
 	if os.IsNotExist(err) {
 		return errors.Annotatef(err, "file for resource %q", name)
 	}
@@ -282,7 +284,7 @@ func unMarshalDockerDetails(data io.Reader) (resources.DockerImageDetails, error
 	return details, nil
 }
 
-func OpenResource(resValue string, resType charmresource.Type, osOpen osOpenFunc) (ReadSeekCloser, error) {
+func OpenResource(resValue string, resType charmresource.Type, osOpen osOpenFunc) (modelcmd.ReadSeekCloser, error) {
 	switch resType {
 	case charmresource.TypeFile:
 		f, err := osOpen(resValue)

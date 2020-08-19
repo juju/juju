@@ -609,9 +609,6 @@ func registerCommands(r commandRegistry) {
 			}
 			return resourceadapters.NewAPIClient(apiRoot)
 		},
-		OpenResource: func(s string) (resource.ReadSeekCloser, error) {
-			return os.Open(s)
-		},
 	}))
 	r.Register(resource.NewListCommand(resource.ListDeps{
 		NewClient: func(c *resource.ListCommand) (resource.ListClient, error) {

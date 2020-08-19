@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -851,6 +852,7 @@ func (s *BundleDeployCharmStoreSuite) bundleDeploySpec() bundleDeploySpec {
 		_ map[string]string,
 		_ map[string]charmresource.Meta,
 		_ base.APICallCloser,
+		_ modelcmd.Filesystem,
 	) (_ map[string]string, _ error) {
 		return nil, nil
 	}

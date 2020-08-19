@@ -536,6 +536,7 @@ func (c *upgradeCharmCommand) upgradeResources(
 		c.Resources,
 		filtered,
 		apiRoot,
+		c.Filesystem(),
 	)
 	return ids, errors.Trace(err)
 }

@@ -46,8 +46,9 @@ func NewListCharmResourcesCommandForTest(resourceLister ResourceLister) modelcmd
 	return modelcmd.Wrap(&c)
 }
 
-func NewUploadCommandForTest(deps UploadDeps) *UploadCommand {
+func NewUploadCommandForTest(deps UploadDeps, filesystem modelcmd.Filesystem) *UploadCommand {
 	cmd := &UploadCommand{deps: deps}
+	cmd.SetFilesystem(filesystem)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return cmd
 }
