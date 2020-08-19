@@ -3,6 +3,7 @@
 package gen
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -43,13 +44,13 @@ type Option func(*options)
 
 type options struct {
 	adminFacades bool
-	facadeGroup  FacadeGroup
+	facadeGroups []FacadeGroup
 }
 
 func newOptions() *options {
 	return &options{
 		adminFacades: false,
-		facadeGroup:  Latest,
+		facadeGroups: []FacadeGroup{Latest},
 	}
 }
 
@@ -60,10 +61,10 @@ func WithAdminFacades(adminFacades bool) Option {
 	}
 }
 
-// WithFacadeGroup sets the facadeGroup on the option
-func WithFacadeGroup(facadeGroup FacadeGroup) Option {
+// WithFacadeGroups sets the facadeGroups on the option
+func WithFacadeGroups(facadeGroups []FacadeGroup) Option {
 	return func(options *options) {
-		options.facadeGroup = facadeGroup
+		options.facadeGroups = facadeGroups
 	}
 }
 
@@ -87,9 +88,30 @@ func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer, opti
 		facades = append(facades, adminFacades...)
 	}
 
-	facades = Filter(opts.facadeGroup, facades, registry)
+	// Compose all the facade groups together.
+	var groupFacades [][]facade.Details
+	for _, group := range opts.facadeGroups {
+		groupFacades = append(groupFacades, Filter(group, facades, registry))
+	}
+
+	unique := make(map[string]facade.Details)
+	for _, list := range groupFacades {
+		for _, f := range list {
+			unique[fmt.Sprintf("%s:%d", f.Name, f.Version)] = f
+		}
+	}
+	facades = make([]facade.Details, 0, len(unique))
+	for _, f := range unique {
+		facades = append(facades, f)
+	}
 	sort.Slice(facades, func(i, j int) bool {
-		return facades[i].Name < facades[j].Name
+		if facades[i].Name < facades[j].Name {
+			return true
+		}
+		if facades[i].Name > facades[j].Name {
+			return false
+		}
+		return facades[i].Version < facades[j].Version
 	})
 
 	result := make([]FacadeSchema, len(facades))

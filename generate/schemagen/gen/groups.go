@@ -23,7 +23,7 @@ const (
 	// facades that the client can use.
 	Client FacadeGroup = "client"
 	// JIMM facade group defines a very select set of facades that only work
-	// JIMM.
+	// with JIMM. This does not include the JIMM facade as defined in JIMM.
 	JIMM FacadeGroup = "jimm"
 )
 
@@ -73,8 +73,11 @@ func allFacades(facades []facade.Details) []facade.Details {
 
 func clientFacades(facades []facade.Details, registry Registry) []facade.Details {
 	required := map[string]struct{}{
-		"AllWatcher":      struct{}{},
-		"AllModelWatcher": struct{}{},
+		"Admin":               struct{}{},
+		"AllWatcher":          struct{}{},
+		"AllModelWatcher":     struct{}{},
+		"ModelSummaryManager": struct{}{},
+		"Pinger":              struct{}{},
 	}
 
 	results := make([]facade.Details, 0)
@@ -109,7 +112,6 @@ func jimmFacades(facades []facade.Details) []facade.Details {
 		"Bundle":              []int{1},
 		"Cloud":               []int{1, 2, 3, 4, 5},
 		"Controller":          []int{3, 4, 5, 6, 7, 8, 9},
-		"JIMM":                []int{1, 2},
 		"ModelManager":        []int{2, 3, 4, 5},
 		"ModelSummaryManager": []int{1},
 		"Pinger":              []int{1},

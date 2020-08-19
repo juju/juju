@@ -11,6 +11,7 @@ import (
 	"go/token"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -24,14 +25,36 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// Strings represents a way to have multiple values passed to the flags
+// cmd -config=a -config=b
+type Strings []string
+
+// Set will append a config value to the config flags.
+func (c *Strings) Set(value string) error {
+	parts := strings.Split(value, ",")
+	for _, part := range parts {
+		*c = append(*c, part)
+	}
+	return nil
+}
+
+func (c *Strings) String() string {
+	return strings.Join(*c, ",")
+}
+
 func main() {
 	var (
+		facadeGroups Strings
 		adminFacades = flag.Bool("admin-facades", false, "add the admin facades when generating the schema")
-		facadeGroup  = flag.String("facade-group", "latest", "facade group to export (latest, all, client, jimm)")
 	)
 
+	flag.Var(&facadeGroups, "facade-group", "facade group to export (latest, all, client, jimm)")
 	flag.Parse()
 	args := flag.Args()
+
+	if len(facadeGroups) == 0 {
+		facadeGroups = Strings([]string{"latest"})
+	}
 
 	// the first argument here will be the name of the binary, so we ignore
 	// argument 0 when looking for the filepath.
@@ -40,17 +63,25 @@ func main() {
 		os.Exit(1)
 	}
 
-	group, err := gen.ParseFacadeGroup(*facadeGroup)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	unique := make(map[gen.FacadeGroup]struct{})
+	for _, s := range facadeGroups {
+		group, err := gen.ParseFacadeGroup(s)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		unique[group] = struct{}{}
+	}
+	groups := make([]gen.FacadeGroup, 0, len(unique))
+	for g := range unique {
+		groups = append(groups, g)
 	}
 
 	result, err := gen.Generate(defaultPackages{
 		path: "github.com/juju/juju/apiserver",
 	}, defaultLinker{}, apiServerShim{},
 		gen.WithAdminFacades(*adminFacades),
-		gen.WithFacadeGroup(group),
+		gen.WithFacadeGroups(groups),
 	)
 	if err != nil {
 		fmt.Println(err)
