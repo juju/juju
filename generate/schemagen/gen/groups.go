@@ -73,11 +73,11 @@ func allFacades(facades []facade.Details) []facade.Details {
 
 func clientFacades(facades []facade.Details, registry Registry) []facade.Details {
 	required := map[string]struct{}{
-		"Admin":               struct{}{},
-		"AllWatcher":          struct{}{},
-		"AllModelWatcher":     struct{}{},
-		"ModelSummaryManager": struct{}{},
-		"Pinger":              struct{}{},
+		"Admin":               {},
+		"AllWatcher":          {},
+		"AllModelWatcher":     {},
+		"ModelSummaryManager": {},
+		"Pinger":              {},
 	}
 
 	results := make([]facade.Details, 0)
@@ -109,13 +109,13 @@ func clientFacades(facades []facade.Details, registry Registry) []facade.Details
 
 func jimmFacades(facades []facade.Details) []facade.Details {
 	required := map[string][]int{
-		"Bundle":              []int{1},
-		"Cloud":               []int{1, 2, 3, 4, 5},
-		"Controller":          []int{3, 4, 5, 6, 7, 8, 9},
-		"ModelManager":        []int{2, 3, 4, 5},
-		"ModelSummaryManager": []int{1},
-		"Pinger":              []int{1},
-		"UserManager":         []int{1},
+		"Bundle":              {1},
+		"Cloud":               {1, 2, 3, 4, 5},
+		"Controller":          {3, 4, 5, 6, 7, 8, 9},
+		"ModelManager":        {2, 3, 4, 5},
+		"ModelSummaryManager": {1},
+		"Pinger":              {1},
+		"UserManager":         {1},
 	}
 
 	result := make([]facade.Details, 0)
