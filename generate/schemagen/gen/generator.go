@@ -97,6 +97,8 @@ func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer, opti
 	unique := make(map[string]facade.Details)
 	for _, list := range groupFacades {
 		for _, f := range list {
+			// Ensure that we create a unique namespace so that any facades that
+			// are composed together are repeated.
 			unique[fmt.Sprintf("%s:%d", f.Name, f.Version)] = f
 		}
 	}
