@@ -499,7 +499,7 @@ func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, a
 	settings, ok := allSettings[appName].(map[interface{}]interface{})
 	if !ok {
 		// Application key not present; it might be 'juju get' output.
-		if _, err := charmConfigFromGet(allSettings); err != nil {
+		if _, err := charmConfigFromConfigValues(allSettings); err != nil {
 			return nil, "", errors.Errorf("no settings found for %q", appName)
 		}
 
@@ -734,7 +734,8 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 		}
 	}
 
-	// Overlay any app settings in YAML with those from config map.
+	// Entries from the string-based config map always override any entries
+	// provided via the YAML payload.
 	for k, v := range applicationConfig {
 		appSettings[k] = v
 	}
@@ -752,7 +753,7 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 	if len(charmYamlConfig) > 0 {
 		if charmSettings, err = ch.Config().ParseSettingsYAML([]byte(charmYamlConfig), appName); err != nil {
 			// Check if this is 'juju get' output and parse it as such
-			jujuGetSettings, pErr := charmConfigFromGetYaml(charmYamlConfig)
+			jujuGetSettings, pErr := charmConfigFromYamlConfigValues(charmYamlConfig)
 			if pErr != nil {
 				// Not 'juju output' either; return original error
 				return nil, nil, nil, errors.Trace(err)
@@ -760,7 +761,9 @@ func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, con
 			charmSettings = jujuGetSettings
 		}
 	}
-	// Overlay any settings in YAML with those from config map.
+
+	// Entries from the string-based config map always override any entries
+	// provided via the YAML payload.
 	if len(charmConfig) != 0 {
 		// Parse config in a compatible way (see function comment).
 		overrideSettings, err := parseSettingsCompatible(ch.Config(), charmConfig)
@@ -1190,19 +1193,19 @@ func (api *APIBase) applicationSetCharm(
 	return params.Application.SetCharm(cfg)
 }
 
-// charmConfigFromGetYaml will parse a yaml produced by juju get and generate
-// charm.Settings from it that can then be sent to the application.
-func charmConfigFromGetYaml(yamlContents string) (charm.Settings, error) {
+// charmConfigFromYamlConfigValues will parse a yaml produced by juju get and
+// generate charm.Settings from it that can then be sent to the application.
+func charmConfigFromYamlConfigValues(yamlContents string) (charm.Settings, error) {
 	var allSettings map[string]interface{}
 	if err := goyaml.Unmarshal([]byte(yamlContents), &allSettings); err != nil {
 		return nil, errors.Annotate(err, "cannot parse settings data")
 	}
-	return charmConfigFromGet(allSettings)
+	return charmConfigFromConfigValues(allSettings)
 }
 
-// charmConfigFromGet will parse a yaml produced by juju get and generate
-// charm.Settings from it that can then be sent to the application.
-func charmConfigFromGet(yamlContents map[string]interface{}) (charm.Settings, error) {
+// charmConfigFromConfigValues will parse a yaml produced by juju get and
+// generate charm.Settings from it that can then be sent to the application.
+func charmConfigFromConfigValues(yamlContents map[string]interface{}) (charm.Settings, error) {
 	onlySettings := charm.Settings{}
 	settingsMap, ok := yamlContents["settings"].(map[interface{}]interface{})
 	if !ok {
