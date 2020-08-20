@@ -9999,7 +9999,7 @@
                             "$ref": "#/definitions/ResolveCharmWithChannelResults"
                         }
                     },
-                    "description": "ResolveCharms resolves the given charm URLs with an optionally specified\npreferred channel."
+                    "description": "ResolveCharms resolves the given charm URLs with an optionally specified\npreferred channel.  Channel provided via CharmOrigin."
                 }
             },
             "definitions": {
@@ -10310,6 +10310,31 @@
                         "type"
                     ]
                 },
+                "CharmOrigin": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "hash": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "source": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "source",
+                        "id"
+                    ]
+                },
                 "CharmPayloadClass": {
                     "type": "object",
                     "properties": {
@@ -10529,8 +10554,8 @@
                 "ResolveCharmWithChannel": {
                     "type": "object",
                     "properties": {
-                        "channel": {
-                            "type": "string"
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
                         },
                         "reference": {
                             "type": "string"
@@ -10539,14 +10564,14 @@
                     "additionalProperties": false,
                     "required": [
                         "reference",
-                        "channel"
+                        "charm-origin"
                     ]
                 },
                 "ResolveCharmWithChannelResult": {
                     "type": "object",
                     "properties": {
-                        "channel": {
-                            "type": "string"
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
@@ -10564,7 +10589,7 @@
                     "additionalProperties": false,
                     "required": [
                         "url",
-                        "channel",
+                        "charm-origin",
                         "supported-series"
                     ]
                 },

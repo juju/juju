@@ -13,11 +13,42 @@ import (
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmstore"
 )
 
-type ResolverGetterFunc func(args ResolverGetterParams) (URLResolver, error)
+type chResolver struct {
+	client *charmhub.Client
+}
+
+// ResolveWithPreferredChannel call the CharmHub version of
+// ResolveWithPreferredChannel.
+func (c *chResolver) ResolveWithPreferredChannel(*charm.URL, params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error) {
+
+	return nil, params.CharmOrigin{}, nil, nil
+}
+
+type csResolver struct {
+	resolver CSURLResolver
+}
+
+// ResolveWithPreferredChannel calls the CharmStore version of
+// ResolveWithPreferredChannel.  Convert CharmStore channel to
+// and from the charm Origin.
+func (c *csResolver) ResolveWithPreferredChannel(curl *charm.URL, origin params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error) {
+	var channel csparams.Channel
+	if origin.Channel != nil {
+		channel = csparams.Channel(*origin.Channel)
+	}
+	newCurl, newChannel, supportedSeries, err := c.resolver.ResolveWithPreferredChannel(curl, channel)
+	newOrigin := origin
+	channelStr := string(newChannel)
+	newOrigin.Channel = &channelStr
+	return newCurl, newOrigin, supportedSeries, err
+}
+
+type CSResolverGetterFunc func(args ResolverGetterParams) (CSURLResolver, error)
 
 type ResolverGetterParams struct {
 	CSURL              string
@@ -25,7 +56,13 @@ type ResolverGetterParams struct {
 	CharmStoreMacaroon *macaroon.Macaroon
 }
 
-func csResolverGetter(args ResolverGetterParams) (URLResolver, error) {
+// CSURLResolver is the part of charmrepo.Charmstore that we need to
+// resolve a charm url.
+type CSURLResolver interface {
+	ResolveWithPreferredChannel(*charm.URL, csparams.Channel) (*charm.URL, csparams.Channel, []string, error)
+}
+
+func csResolverGetter(args ResolverGetterParams) (CSURLResolver, error) {
 	csClient, err := openCSClient(args)
 	if err != nil {
 		return nil, err
@@ -59,13 +96,4 @@ func openCSClient(args ResolverGetterParams) (*csclient.Client, error) {
 		csClient = csClient.WithChannel(channel)
 	}
 	return csClient, nil
-}
-
-type chResolver struct {
-	client *charmhub.Client
-}
-
-// TODO implement me
-func (c *chResolver) ResolveWithPreferredChannel(*charm.URL, csparams.Channel) (*charm.URL, csparams.Channel, []string, error) {
-	return nil, "", nil, nil
 }

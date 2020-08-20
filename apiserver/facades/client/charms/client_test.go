@@ -7,6 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -375,7 +376,7 @@ type charmsMockSuite struct {
 	model       *mocks.MockBackendModel
 	state       *mocks.MockBackendState
 	authorizer  *apiservermocks.MockAuthorizer
-	urlResolver *mocks.MockURLResolver
+	urlResolver *mocks.MockCSURLResolver
 }
 
 var _ = gc.Suite(&charmsMockSuite{})
@@ -390,27 +391,31 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	seriesCurl, err := charm.ParseURL("cs:focal/testme")
 	c.Assert(err, jc.ErrorIsNil)
+	edge := string(csparams.EdgeChannel)
+	stable := string(csparams.StableChannel)
+	edgeOrigin := params.CharmOrigin{Source: corecharm.CharmStore.String(), Channel: &edge}
+	stableOrigin := params.CharmOrigin{Source: corecharm.CharmStore.String(), Channel: &stable}
 	args := params.ResolveCharmsWithChannel{
 		Resolve: []params.ResolveCharmWithChannel{
-			{Reference: curl.String()},
-			{Reference: curl.String(), Channel: string(csparams.StableChannel)},
-			{Reference: seriesCurl.String(), Channel: string(csparams.EdgeChannel)},
+			{Reference: curl.String(), Origin: params.CharmOrigin{Source: corecharm.CharmStore.String()}},
+			{Reference: curl.String(), Origin: stableOrigin},
+			{Reference: seriesCurl.String(), Origin: edgeOrigin},
 		},
 	}
 
 	expected := []params.ResolveCharmWithChannelResult{
 		{
 			URL:             curl.String(),
-			Channel:         string(csparams.StableChannel),
+			Origin:          stableOrigin,
 			SupportedSeries: []string{"bionic", "focal", "xenial"},
 		}, {
 			URL:             curl.String(),
-			Channel:         string(csparams.StableChannel),
+			Origin:          stableOrigin,
 			SupportedSeries: []string{"bionic", "focal", "xenial"},
 		},
 		{
 			URL:             seriesCurl.String(),
-			Channel:         string(csparams.EdgeChannel),
+			Origin:          edgeOrigin,
 			SupportedSeries: []string{"bionic", "focal", "xenial"},
 		},
 	}
@@ -444,16 +449,18 @@ func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
 
 	seriesCurl, err := charm.ParseURL("cs:focal/testme")
 	c.Assert(err, jc.ErrorIsNil)
+	edge := string(csparams.EdgeChannel)
+	edgeOrigin := params.CharmOrigin{Source: corecharm.CharmStore.String(), Channel: &edge}
 	args := params.ResolveCharmsWithChannel{
 		Resolve: []params.ResolveCharmWithChannel{
-			{Reference: seriesCurl.String(), Channel: string(csparams.EdgeChannel)},
+			{Reference: seriesCurl.String(), Origin: edgeOrigin},
 		},
 	}
 
 	expected := []params.ResolveCharmWithChannelResult{
 		{
 			URL:             seriesCurl.String(),
-			Channel:         string(csparams.EdgeChannel),
+			Origin:          edgeOrigin,
 			SupportedSeries: []string{"focal"},
 		},
 	}
@@ -464,7 +471,7 @@ func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
 }
 
 func (s *charmsMockSuite) api(c *gc.C) *charms.API {
-	repoFunc := func(_ charms.ResolverGetterParams) (charms.URLResolver, error) {
+	repoFunc := func(_ charms.ResolverGetterParams) (charms.CSURLResolver, error) {
 		return s.urlResolver, nil
 	}
 	api, err := charms.NewCharmsAPI(
@@ -487,7 +494,7 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.model.EXPECT().ModelTag().Return(names.NewModelTag("deadbeef-abcd-4fd2-967d-db9663db7bea"))
 
 	s.state = mocks.NewMockBackendState(ctrl)
-	s.urlResolver = mocks.NewMockURLResolver(ctrl)
+	s.urlResolver = mocks.NewMockCSURLResolver(ctrl)
 	return ctrl
 }
 

@@ -5,7 +5,6 @@ package charms
 
 import (
 	"github.com/juju/charm/v8"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/controller"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -39,8 +39,8 @@ type API struct {
 	backendState BackendState
 	backendModel BackendModel
 
-	resolverGetter ResolverGetterFunc
-	tag            names.ModelTag
+	csResolverGetterFunc CSResolverGetterFunc
+	tag                  names.ModelTag
 }
 
 type APIv2 struct {
@@ -72,11 +72,11 @@ func NewFacadeV3(ctx facade.Context) (*API, error) {
 	}
 
 	return &API{
-		authorizer:     authorizer,
-		backendState:   st,
-		backendModel:   m,
-		resolverGetter: csResolverGetter,
-		tag:            m.ModelTag(),
+		authorizer:           authorizer,
+		backendState:         st,
+		backendModel:         m,
+		csResolverGetterFunc: csResolverGetter,
+		tag:                  m.ModelTag(),
 	}, nil
 }
 
@@ -90,13 +90,13 @@ func NewFacade(ctx facade.Context) (*APIv2, error) {
 	return &APIv2{v3}, nil
 }
 
-func NewCharmsAPI(authorizer facade.Authorizer, st BackendState, m BackendModel, resolverFunc ResolverGetterFunc) (*API, error) {
+func NewCharmsAPI(authorizer facade.Authorizer, st BackendState, m BackendModel, csResolverFunc CSResolverGetterFunc) (*API, error) {
 	return &API{
-		authorizer:     authorizer,
-		backendState:   st,
-		backendModel:   m,
-		resolverGetter: resolverFunc,
-		tag:            m.ModelTag(),
+		authorizer:           authorizer,
+		backendState:         st,
+		backendModel:         m,
+		csResolverGetterFunc: csResolverFunc,
+		tag:                  m.ModelTag(),
 	}, nil
 }
 
@@ -166,7 +166,7 @@ func (a *API) List(args params.CharmsList) (params.CharmsListResult, error) {
 func (a *APIv2) ResolveCharms(_ struct{}) {}
 
 // ResolveCharms resolves the given charm URLs with an optionally specified
-// preferred channel.
+// preferred channel.  Channel provided via CharmOrigin.
 func (a *API) ResolveCharms(args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResults, error) {
 	if err := a.checkCanRead(); err != nil {
 		return params.ResolveCharmWithChannelResults{}, errors.Trace(err)
@@ -184,7 +184,7 @@ func (a *API) ResolveCharms(args params.ResolveCharmsWithChannel) (params.Resolv
 // URLResolver is the part of charmrepo.Charmstore that we need to
 // resolve a charm url.
 type URLResolver interface {
-	ResolveWithPreferredChannel(*charm.URL, csparams.Channel) (*charm.URL, csparams.Channel, []string, error)
+	ResolveWithPreferredChannel(*charm.URL, params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error)
 }
 
 func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.Macaroon) params.ResolveCharmWithChannelResult {
@@ -199,22 +199,22 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 		return result
 	}
 
-	// If we can guarentee that each charm to be resolved uses the
+	// If we can guarantee that each charm to be resolved uses the
 	// same url source and channel, there is no need to get a new resolver
 	// each time.
-	resolver, err := a.resolver(curl.Schema, arg.Channel, mac)
+	resolver, err := a.resolver(arg.Origin, mac)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
 
-	resultURL, channel, supportedSeries, err := resolver.ResolveWithPreferredChannel(curl, csparams.Channel(arg.Channel))
+	resultURL, origin, supportedSeries, err := resolver.ResolveWithPreferredChannel(curl, arg.Origin)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
 	result.URL = resultURL.String()
-	result.Channel = string(channel)
+	result.Origin = origin
 	switch {
 	case resultURL.Series != "" && len(supportedSeries) == 0:
 		result.SupportedSeries = []string{resultURL.Series}
@@ -225,27 +225,35 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 	return result
 }
 
-func (a *API) resolver(schema string, channel string, mac *macaroon.Macaroon) (URLResolver, error) {
-	switch {
-	case charm.CharmHub.Matches(schema):
+func (a *API) resolver(origin params.CharmOrigin, mac *macaroon.Macaroon) (URLResolver, error) {
+	switch origin.Source {
+	case corecharm.CharmHub.String():
 		return a.charmHubResolver()
-	case charm.CharmStore.Matches(schema):
-		return a.charmStoreResolver(channel, mac)
+	case corecharm.CharmStore.String():
+		return a.charmStoreResolver(origin, mac)
 	}
 	return nil, errors.BadRequestf("Not charm hub nor charm store charm")
 }
 
-func (a *API) charmStoreResolver(channel string, mac *macaroon.Macaroon) (URLResolver, error) {
+func (a *API) charmStoreResolver(origin params.CharmOrigin, mac *macaroon.Macaroon) (URLResolver, error) {
 	controllerCfg, err := a.backendState.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return a.resolverGetter(
+	var channel string
+	if origin.Channel != nil {
+		channel = *origin.Channel
+	}
+	client, err := a.csResolverGetterFunc(
 		ResolverGetterParams{
 			CSURL:              controllerCfg.CharmStoreURL(),
 			Channel:            channel,
 			CharmStoreMacaroon: mac,
 		})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &csResolver{resolver: client}, nil
 }
 
 func (a *API) charmHubResolver() (URLResolver, error) {

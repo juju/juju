@@ -111,11 +111,19 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 
 	curl := charm.MustParseURL("cs:a-charm")
 	curl2 := charm.MustParseURL("cs:focal/dummy-1")
+	no := string(csparams.NoChannel)
+	edge := string(csparams.EdgeChannel)
+	stable := string(csparams.StableChannel)
+
+	noChannelParamsOrigin := params.CharmOrigin{Source: "charm-store"}
+	edgeChannelParamsOrigin := params.CharmOrigin{Source: "charm-store", Channel: &edge}
+	stableChannelParamsOrigin := params.CharmOrigin{Source: "charm-store", Channel: &stable}
+
 	facadeArgs := params.ResolveCharmsWithChannel{
 		Resolve: []params.ResolveCharmWithChannel{
-			{Reference: curl.String(), Channel: string(csparams.NoChannel)},
-			{Reference: curl2.String(), Channel: string(csparams.EdgeChannel)},
-			{Reference: curl2.String(), Channel: string(csparams.EdgeChannel)},
+			{Reference: curl.String(), Origin: noChannelParamsOrigin},
+			{Reference: curl2.String(), Origin: edgeChannelParamsOrigin},
+			{Reference: curl2.String(), Origin: edgeChannelParamsOrigin},
 		},
 	}
 	resolve := new(params.ResolveCharmWithChannelResults)
@@ -123,16 +131,16 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 		Results: []params.ResolveCharmWithChannelResult{
 			{
 				URL:             curl.String(),
-				Channel:         string(csparams.StableChannel),
+				Origin:          stableChannelParamsOrigin,
 				SupportedSeries: []string{"bionic", "focal", "xenial"},
 			}, {
 				URL:             curl2.String(),
-				Channel:         string(csparams.EdgeChannel),
+				Origin:          edgeChannelParamsOrigin,
 				SupportedSeries: []string{"bionic", "focal", "xenial"},
 			},
 			{
 				URL:             curl2.String(),
-				Channel:         string(csparams.EdgeChannel),
+				Origin:          edgeChannelParamsOrigin,
 				SupportedSeries: []string{"focal"},
 			},
 		}}
@@ -141,10 +149,13 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
 
+	noChannelOrigin := charms.CharmOrigin{Source: charms.OriginCharmStore, Risk: no}
+	edgeChannelOrigin := charms.CharmOrigin{Source: charms.OriginCharmStore, Risk: edge}
+	stableChannelOrigin := charms.CharmOrigin{Source: charms.OriginCharmStore, Risk: stable}
 	args := []charms.CharmToResolve{
-		{URL: curl, Channel: csparams.NoChannel},
-		{URL: curl2, Channel: csparams.EdgeChannel},
-		{URL: curl2, Channel: csparams.EdgeChannel},
+		{URL: curl, Origin: noChannelOrigin},
+		{URL: curl2, Origin: edgeChannelOrigin},
+		{URL: curl2, Origin: edgeChannelOrigin},
 	}
 	got, err := client.ResolveCharms(args)
 	c.Assert(err, gc.IsNil)
@@ -152,15 +163,15 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	want := []charms.ResolvedCharm{
 		{
 			URL:             curl,
-			Channel:         csparams.StableChannel,
+			Origin:          stableChannelOrigin,
 			SupportedSeries: []string{"bionic", "focal", "xenial"},
 		}, {
 			URL:             curl2,
-			Channel:         csparams.EdgeChannel,
+			Origin:          edgeChannelOrigin,
 			SupportedSeries: []string{"bionic", "focal", "xenial"},
 		}, {
 			URL:             curl2,
-			Channel:         csparams.EdgeChannel,
+			Origin:          edgeChannelOrigin,
 			SupportedSeries: []string{"focal"},
 		},
 	}

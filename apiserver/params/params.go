@@ -583,8 +583,8 @@ type ResolveCharmResults struct {
 // ResolveCharmWithChannel contains a charm reference with the desired
 // channel to be resolved.
 type ResolveCharmWithChannel struct {
-	Reference string `json:"reference"`
-	Channel   string `json:"channel"`
+	Reference string      `json:"reference"`
+	Origin    CharmOrigin `json:"charm-origin"`
 }
 
 // ResolveCharmsWithChannel contains of slice of data on charms to be
@@ -596,10 +596,10 @@ type ResolveCharmsWithChannel struct {
 
 // ResolveCharmWithChannelResult is the result of a single charm resolution.
 type ResolveCharmWithChannelResult struct {
-	URL             string   `json:"url"`
-	Channel         string   `json:"channel"`
-	SupportedSeries []string `json:"supported-series"`
-	Error           *Error   `json:"error,omitempty"`
+	URL             string      `json:"url"`
+	Origin          CharmOrigin `json:"charm-origin"`
+	SupportedSeries []string    `json:"supported-series"`
+	Error           *Error      `json:"error,omitempty"`
 }
 
 // ResolveCharmWithChannelResults holds the results of ResolveCharmsWithChannel.
