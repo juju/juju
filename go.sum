@@ -392,6 +392,8 @@ github.com/juju/charm/v7 v7.0.0-20200424224456-5fe646695e85 h1:YgEB2tnlAwVftOnPU
 github.com/juju/charm/v7 v7.0.0-20200424224456-5fe646695e85/go.mod h1:gcqIN/pHfzDCH6sBeZxmUfrNogknAPejOLS2KN0zY/0=
 github.com/juju/charm/v8 v8.0.0-20200817113526-2a88e9b46b47 h1:gZlV4PPG+B4iQVBpFalehMueLOrFVj/Qyl/M0rFAOC4=
 github.com/juju/charm/v8 v8.0.0-20200817113526-2a88e9b46b47/go.mod h1:N4PMPMcfLJ4jZaQ2NKfgRb56bcznVZBj5h/RygobR64=
+github.com/juju/charmrepo v3.0.1+incompatible h1:1PFBr1OofYX9E001FMTa5GF2dZUm2+u0wpQhsOhy0Ec=
+github.com/juju/charmrepo v3.0.1+incompatible/go.mod h1:r5pwHD5Ltm2eu07WydZtSwhwg9Gq6L9jkoi+fq0tMw0=
 github.com/juju/charmrepo/v5 v5.0.0-20200424225329-cddcb4fdcd09 h1:PJQnY2Ahu3zsaU5chuBZR6z27dyCRwMTicZ/5jGO494=
 github.com/juju/charmrepo/v5 v5.0.0-20200424225329-cddcb4fdcd09/go.mod h1:KJGLR+Nx+PY2hw4EBNAjBWQacWlnxv1oVan1kJ9MlLM=
 github.com/juju/charmrepo/v6 v6.0.0-20200817155725-120bd7a8b1ed h1:1J537kQLlqU5xLhjVVM08f7uhlZ2DblbPLBWhrmn7x8=
