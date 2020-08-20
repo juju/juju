@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/testing"
 )
 

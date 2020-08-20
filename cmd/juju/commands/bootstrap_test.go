@@ -57,6 +57,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/provider/openstack"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"

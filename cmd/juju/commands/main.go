@@ -15,8 +15,6 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	proxyutils "github.com/juju/proxy"
-	// Import the providers.
-	_ "github.com/juju/juju/provider/all"
 
 	cloudfile "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
