@@ -24,8 +24,8 @@ type ApplicationDeploy struct {
 	CharmURL         string                         `json:"charm-url"`
 	Channel          string                         `json:"channel"`
 	NumUnits         int                            `json:"num-units"`
-	Config           map[string]string              `json:"config,omitempty"`
-	ConfigYAML       string                         `json:"config-yaml"` // Takes precedence over config if both are present.
+	Config           map[string]string              `json:"config,omitempty"` // Takes precedence over yaml entries if both are present.
+	ConfigYAML       string                         `json:"config-yaml"`
 	Constraints      constraints.Value              `json:"constraints"`
 	Placement        []*instance.Placement          `json:"placement,omitempty"`
 	Policy           string                         `json:"policy,omitempty"`
@@ -50,7 +50,7 @@ type ApplicationDeployV5 struct {
 	Channel          string                         `json:"channel"`
 	NumUnits         int                            `json:"num-units"`
 	Config           map[string]string              `json:"config,omitempty"`
-	ConfigYAML       string                         `json:"config-yaml"` // Takes precedence over config if both are present.
+	ConfigYAML       string                         `json:"config-yaml"`
 	Constraints      constraints.Value              `json:"constraints"`
 	Placement        []*instance.Placement          `json:"placement,omitempty"`
 	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
@@ -72,8 +72,8 @@ type ApplicationDeployV6 struct {
 	CharmURL         string                         `json:"charm-url"`
 	Channel          string                         `json:"channel"`
 	NumUnits         int                            `json:"num-units"`
-	Config           map[string]string              `json:"config,omitempty"`
-	ConfigYAML       string                         `json:"config-yaml"` // Takes precedence over config if both are present.
+	Config           map[string]string              `json:"config,omitempty"` // Takes precedence over yaml entries if both are present.
+	ConfigYAML       string                         `json:"config-yaml"`
 	Constraints      constraints.Value              `json:"constraints"`
 	Placement        []*instance.Placement          `json:"placement,omitempty"`
 	Policy           string                         `json:"policy,omitempty"`
@@ -91,8 +91,8 @@ type ApplicationUpdate struct {
 	ForceSeries     bool               `json:"force-series"`
 	Force           bool               `json:"force"`
 	MinUnits        *int               `json:"min-units,omitempty"`
-	SettingsStrings map[string]string  `json:"settings,omitempty"`
-	SettingsYAML    string             `json:"settings-yaml"` // Takes precedence over SettingsStrings if both are present.
+	SettingsStrings map[string]string  `json:"settings,omitempty"` // Takes precedence over yaml entries if both are present.
+	SettingsYAML    string             `json:"settings-yaml"`
 	Constraints     *constraints.Value `json:"constraints,omitempty"`
 
 	// Generation is the generation version in which this
