@@ -9946,7 +9946,7 @@
     {
         "Name": "Charms",
         "Description": "API implements the charms interface and is the concrete\nimplementation of the API end point.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "model-user"
         ],
@@ -9988,6 +9988,18 @@
                         }
                     },
                     "description": "List returns a list of charm URLs currently in the state.\nIf supplied parameter contains any names, the result will be filtered\nto return only the charms with supplied names."
+                },
+                "ResolveCharms": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ResolveCharmsWithChannel"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ResolveCharmWithChannelResults"
+                        }
+                    },
+                    "description": "ResolveCharms resolves the given charm URLs with an optionally specified\npreferred channel."
                 }
             },
             "definitions": {
@@ -10473,6 +10485,31 @@
                         "charm-urls"
                     ]
                 },
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
                 "IsMeteredResult": {
                     "type": "object",
                     "properties": {
@@ -10483,6 +10520,85 @@
                     "additionalProperties": false,
                     "required": [
                         "metered"
+                    ]
+                },
+                "Macaroon": {
+                    "type": "object",
+                    "additionalProperties": false
+                },
+                "ResolveCharmWithChannel": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "reference": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "reference",
+                        "channel"
+                    ]
+                },
+                "ResolveCharmWithChannelResult": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "supported-series": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "url",
+                        "channel",
+                        "supported-series"
+                    ]
+                },
+                "ResolveCharmWithChannelResults": {
+                    "type": "object",
+                    "properties": {
+                        "Results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ResolveCharmWithChannelResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Results"
+                    ]
+                },
+                "ResolveCharmsWithChannel": {
+                    "type": "object",
+                    "properties": {
+                        "macaroon": {
+                            "$ref": "#/definitions/Macaroon"
+                        },
+                        "resolve": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ResolveCharmWithChannel"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "resolve"
                     ]
                 }
             }

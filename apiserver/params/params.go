@@ -580,6 +580,33 @@ type ResolveCharmResults struct {
 	URLs []ResolveCharmResult `json:"urls"`
 }
 
+// ResolveCharmWithChannel contains a charm reference with the desired
+// channel to be resolved.
+type ResolveCharmWithChannel struct {
+	Reference string `json:"reference"`
+	Channel   string `json:"channel"`
+}
+
+// ResolveCharmsWithChannel contains of slice of data on charms to be
+// resolved.
+type ResolveCharmsWithChannel struct {
+	Resolve  []ResolveCharmWithChannel `json:"resolve"`
+	Macaroon *macaroon.Macaroon        `json:"macaroon,omitempty"`
+}
+
+// ResolveCharmWithChannelResult is the result of a single charm resolution.
+type ResolveCharmWithChannelResult struct {
+	URL             string   `json:"url"`
+	Channel         string   `json:"channel"`
+	SupportedSeries []string `json:"supported-series"`
+	Error           *Error   `json:"error,omitempty"`
+}
+
+// ResolveCharmWithChannelResults holds the results of ResolveCharmsWithChannel.
+type ResolveCharmWithChannelResults struct {
+	Results []ResolveCharmWithChannelResult
+}
+
 // AllWatcherId holds the id of an AllWatcher.
 type AllWatcherId struct {
 	AllWatcherId string `json:"watcher-id"`
