@@ -6,6 +6,7 @@ package charms_test
 import (
 	"github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -31,9 +32,9 @@ func (s *charmsMockSuite) TestIsMeteredFalse(c *gc.C) {
 	url := "local:quantal/dummy-1"
 	args := params.CharmURL{URL: url}
 	metered := new(params.IsMeteredResult)
-	params := params.IsMeteredResult{Metered: true}
+	p := params.IsMeteredResult{Metered: true}
 
-	mockFacadeCaller.EXPECT().FacadeCall("IsMetered", args, metered).SetArg(2, params).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("IsMetered", args, metered).SetArg(2, p).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
 	got, err := client.IsMetered(url)
@@ -51,7 +52,7 @@ func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
 	args := params.CharmURL{URL: url}
 	info := new(params.Charm)
 
-	params := params.Charm{
+	p := params.Charm{
 		Revision: 1,
 		URL:      url,
 		Config: map[string]params.CharmOption{
@@ -71,7 +72,7 @@ func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
 		},
 	}
 
-	mockFacadeCaller.EXPECT().FacadeCall("CharmInfo", args, info).SetArg(2, params).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall("CharmInfo", args, info).SetArg(2, p).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
 	got, err := client.CharmInfo(url)
@@ -97,6 +98,70 @@ func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
 					"type": "unix-char",
 				},
 			},
+		},
+	}
+	c.Assert(got, gc.DeepEquals, want)
+}
+
+func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+
+	curl := charm.MustParseURL("cs:a-charm")
+	curl2 := charm.MustParseURL("cs:focal/dummy-1")
+	facadeArgs := params.ResolveCharmsWithChannel{
+		Resolve: []params.ResolveCharmWithChannel{
+			{Reference: curl.String(), Channel: string(csparams.NoChannel)},
+			{Reference: curl2.String(), Channel: string(csparams.EdgeChannel)},
+			{Reference: curl2.String(), Channel: string(csparams.EdgeChannel)},
+		},
+	}
+	resolve := new(params.ResolveCharmWithChannelResults)
+	p := params.ResolveCharmWithChannelResults{
+		Results: []params.ResolveCharmWithChannelResult{
+			{
+				URL:             curl.String(),
+				Channel:         string(csparams.StableChannel),
+				SupportedSeries: []string{"bionic", "focal", "xenial"},
+			}, {
+				URL:             curl2.String(),
+				Channel:         string(csparams.EdgeChannel),
+				SupportedSeries: []string{"bionic", "focal", "xenial"},
+			},
+			{
+				URL:             curl2.String(),
+				Channel:         string(csparams.EdgeChannel),
+				SupportedSeries: []string{"focal"},
+			},
+		}}
+
+	mockFacadeCaller.EXPECT().FacadeCall("ResolveCharms", facadeArgs, resolve).SetArg(2, p).Return(nil)
+
+	client := charms.NewClientWithFacade(mockFacadeCaller)
+
+	args := []charms.CharmToResolve{
+		{URL: curl, Channel: csparams.NoChannel},
+		{URL: curl2, Channel: csparams.EdgeChannel},
+		{URL: curl2, Channel: csparams.EdgeChannel},
+	}
+	got, err := client.ResolveCharms(args)
+	c.Assert(err, gc.IsNil)
+
+	want := []charms.ResolvedCharm{
+		{
+			URL:             curl,
+			Channel:         csparams.StableChannel,
+			SupportedSeries: []string{"bionic", "focal", "xenial"},
+		}, {
+			URL:             curl2,
+			Channel:         csparams.EdgeChannel,
+			SupportedSeries: []string{"bionic", "focal", "xenial"},
+		}, {
+			URL:             curl2,
+			Channel:         csparams.EdgeChannel,
+			SupportedSeries: []string{"focal"},
 		},
 	}
 	c.Assert(got, gc.DeepEquals, want)

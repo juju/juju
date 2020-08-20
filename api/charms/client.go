@@ -7,11 +7,11 @@ package charms
 import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
-	"github.com/juju/version"
-
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/version"
 )
 
 // Client allows access to the charms API end point.
@@ -34,6 +34,55 @@ func (c *Client) IsMetered(charmURL string) (bool, error) {
 		return false, errors.Trace(err)
 	}
 	return metered.Metered, nil
+}
+
+// CharmToResolve holds the charm url and it's channel to be resolved.
+type CharmToResolve struct {
+	URL     *charm.URL
+	Channel csparams.Channel
+}
+
+// ResolvedCharm holds resolved charm data.
+type ResolvedCharm struct {
+	URL             *charm.URL
+	Channel         csparams.Channel
+	SupportedSeries []string
+	Error           error
+}
+
+// ResolveCharms resolves the given charm URLs with an optionally specified
+// preferred channel.
+func (c *Client) ResolveCharms(curls []CharmToResolve) ([]ResolvedCharm, error) {
+	args := params.ResolveCharmsWithChannel{
+		Resolve: make([]params.ResolveCharmWithChannel, len(curls)),
+	}
+	for i, curl := range curls {
+		args.Resolve[i] = params.ResolveCharmWithChannel{
+			Reference: curl.URL.String(),
+			Channel:   string(curl.Channel),
+		}
+	}
+	var result params.ResolveCharmWithChannelResults
+	if err := c.facade.FacadeCall("ResolveCharms", args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	resolvedCharms := make([]ResolvedCharm, len(curls))
+	for i, r := range result.Results {
+		if r.Error != nil {
+			resolvedCharms[i] = ResolvedCharm{Error: r.Error}
+			continue
+		}
+		curl, err := charm.ParseURL(r.URL)
+		if err != nil {
+			resolvedCharms[i] = ResolvedCharm{Error: err}
+		}
+		resolvedCharms[i] = ResolvedCharm{
+			URL:             curl,
+			Channel:         csparams.Channel(r.Channel),
+			SupportedSeries: r.SupportedSeries,
+		}
+	}
+	return resolvedCharms, nil
 }
 
 // CharmInfo holds information about a charm.
