@@ -32,7 +32,9 @@ jobs:
       if: (matrix.os == 'ubuntu-latest')
       run: |
         # Remove the default mongo
-        sudo rm /etc/apt/sources.list.d/mongodb-org-4.2.list
+        for version in "4.2" "4.4"; do
+          sudo rm "/etc/apt/sources.list.d/mongodb-org-${version}.list" || true
+        done
         sudo DEBIAN_FRONTEND=noninteractive apt-get purge -y mongodb-org
         sudo DEBIAN_FRONTEND=noninteractive apt autoremove
         sudo rm -rf /usr/bin/mongo* || true
