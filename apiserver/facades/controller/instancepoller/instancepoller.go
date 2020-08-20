@@ -125,7 +125,9 @@ func (a *InstancePollerAPI) getOneMachine(tag string, canAccess common.AuthFunc)
 // network, subnet or address IDs), this method will also iterate any present
 // link layer devices (and their addresses) and merge in any missing
 // provider-specific information.
-func (a *InstancePollerAPI) SetProviderNetworkConfig(req params.SetProviderNetworkConfig) (params.SetProviderNetworkConfigResults, error) {
+func (a *InstancePollerAPI) SetProviderNetworkConfig(
+	req params.SetProviderNetworkConfig,
+) (params.SetProviderNetworkConfigResults, error) {
 	result := params.SetProviderNetworkConfigResults{
 		Results: make([]params.SetProviderNetworkConfigResult, len(req.Args)),
 	}
@@ -196,7 +198,9 @@ func (a *InstancePollerAPI) mergeLinkLayer(m StateMachine, devs network.Interfac
 // configuration parameters, extracts all usable private/shadow IP addresses,
 // attempts to resolve each one to a known space and returns back a list of
 // scoped, space-aware ProviderAddresses.
-func mapNetworkConfigsToProviderAddresses(cfgs []params.NetworkConfig, spaceInfos network.SpaceInfos) (network.ProviderAddresses, error) {
+func mapNetworkConfigsToProviderAddresses(
+	cfgs []params.NetworkConfig, spaceInfos network.SpaceInfos,
+) (network.ProviderAddresses, error) {
 	addrs := make(network.ProviderAddresses, 0, len(cfgs))
 
 	alphaSpaceInfo := spaceInfos.GetByID(network.AlphaSpaceId)
@@ -249,7 +253,9 @@ func mapNetworkConfigsToProviderAddresses(cfgs []params.NetworkConfig, spaceInfo
 	return addrs, nil
 }
 
-func spaceInfoForAddress(spaceInfos network.SpaceInfos, CIDR, providerSubnetID, addr string) (*network.SpaceInfo, error) {
+func spaceInfoForAddress(
+	spaceInfos network.SpaceInfos, CIDR, providerSubnetID, addr string,
+) (*network.SpaceInfo, error) {
 	if CIDR != "" {
 		return spaceInfos.InferSpaceFromCIDRAndSubnetID(CIDR, providerSubnetID)
 	}

@@ -1707,7 +1707,6 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDev
 		ProviderId:       corenetwork.Id(fmt.Sprintf("eni-%d", expIfaceID)),
 		ProviderSubnetId: subnetId,
 		VLANTag:          0,
-		InterfaceName:    "unsupported0",
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       corenetwork.ConfigDHCP,
