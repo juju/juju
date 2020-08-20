@@ -127,11 +127,15 @@ func (c *listCloudsCommand) Info() *cmd.Info {
 
 func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.BoolVar(&c.all, "all", false, "Show all available clouds")
+	if !c.Embedded {
+		f.BoolVar(&c.all, "all", false, "Show all available clouds")
+	}
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
-		"yaml":    cmd.FormatYaml,
-		"json":    cmd.FormatJson,
-		"tabular": formatCloudsTabular,
+		"yaml": cmd.FormatYaml,
+		"json": cmd.FormatJson,
+		"tabular": func(writer io.Writer, value interface{}) error {
+			return formatCloudsTabular(writer, value, c.Embedded)
+		},
 	})
 }
 
@@ -170,7 +174,7 @@ func (c *listCloudsCommand) getCloudList(ctxt *cmd.Context) (*cloudList, error) 
 			warn(err)
 		}
 	}
-	c.showAllMessage = details.filter(c.all)
+	c.showAllMessage = !c.Embedded && details.filter(c.all)
 	return details, returnErr
 }
 
@@ -331,7 +335,7 @@ func listLocalCloudDetails(store jujuclient.CredentialGetter) (*cloudList, error
 }
 
 // formatCloudsTabular writes a tabular summary of cloud information.
-func formatCloudsTabular(writer io.Writer, value interface{}) error {
+func formatCloudsTabular(writer io.Writer, value interface{}, embedded bool) error {
 	clouds, ok := value.(*cloudList)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", clouds, value)
@@ -380,7 +384,7 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 		printClouds(clouds.remote, false)
 		hasRemotes = true
 	}
-	if localClouds := clouds.local(); len(localClouds) > 0 {
+	if localClouds := clouds.local(); !embedded && len(localClouds) > 0 {
 		if !hasRemotes {
 			w.Println("You can bootstrap a new controller using one of these clouds...")
 		}

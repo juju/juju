@@ -124,7 +124,7 @@ func (s *ReplSuite) TestHelp(c *gc.C) {
 
 func (s *ReplSuite) assertHelp(c *gc.C, helpArg string) {
 	f := func() {
-		main{
+		jujuMain{
 			execCommand: func(command string, args ...string) *exec.Cmd {
 				c.Fail()
 				return nil
@@ -139,7 +139,7 @@ func (s *ReplSuite) assertHelp(c *gc.C, helpArg string) {
 
 func (s *ReplSuite) TestJujuCommandHelp(c *gc.C) {
 	f := func() {
-		main{
+		jujuMain{
 			execCommand: func(command string, args ...string) *exec.Cmd {
 				c.Fail()
 				return nil
