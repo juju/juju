@@ -236,20 +236,20 @@ func (o *MachineLinkLayerOp) AssertAliveOp() txn.Op {
 // MarkDevProcessed indicates that the input hardware address was present in
 // the incoming data and its updates have been handled by the build step.
 func (o *MachineLinkLayerOp) MarkDevProcessed(name, hwAddr string) {
-	o.processedDevs.Add(name + hwAddr)
+	o.processedDevs.Add(deviceKey(name, hwAddr))
 }
 
 // IsDevProcessed returns a boolean indicating whether the input incoming
 // device matches a known device that was marked as processed by the method
 // above.
 func (o *MachineLinkLayerOp) IsDevProcessed(dev network.InterfaceInfo) bool {
-	return o.processedDevs.Contains(dev.InterfaceName + dev.MACAddress)
+	return o.processedDevs.Contains(deviceKey(dev.InterfaceName, dev.MACAddress))
 }
 
 // MarkAddrProcessed indicates that the input (known) IP address was present in
 // the incoming data for the device with input hardware address.
 func (o *MachineLinkLayerOp) MarkAddrProcessed(name, hwAddr, ipAddr string) {
-	key := name + hwAddr
+	key := deviceKey(name, hwAddr)
 
 	if _, ok := o.processedAddrs[key]; !ok {
 		o.processedAddrs[key] = set.NewStrings(ipAddr)
@@ -262,7 +262,7 @@ func (o *MachineLinkLayerOp) MarkAddrProcessed(name, hwAddr, ipAddr string) {
 // device/address pair matches an entry that was marked as processed by the
 // method above.
 func (o *MachineLinkLayerOp) IsAddrProcessed(name, hwAddr, ipAddr string) bool {
-	if addrs, ok := o.processedAddrs[name+hwAddr]; ok {
+	if addrs, ok := o.processedAddrs[deviceKey(name, hwAddr)]; ok {
 		return addrs.Contains(ipAddr)
 	}
 	return false
@@ -271,4 +271,8 @@ func (o *MachineLinkLayerOp) IsAddrProcessed(name, hwAddr, ipAddr string) bool {
 // Done (state.ModelOperation) returns the result of running the operation.
 func (o *MachineLinkLayerOp) Done(err error) error {
 	return err
+}
+
+func deviceKey(name, hwAddr string) string {
+	return name + hwAddr
 }

@@ -89,26 +89,32 @@ func (o *mergeMachineLinkLayerOp) normaliseIncoming() {
 	incoming := o.Incoming()
 
 	// If the incoming devices have names, no action is required
-	// (assuming all or none here).
+	// (assuming all or none here per current known provider implementations
+	// of `NetworkInterfaces`)
 	if len(incoming) > 0 && incoming[0].InterfaceName != "" {
 		return
 	}
 
 	// First get the best device per hardware address.
-	devByHWAddr := map[string]networkingcommon.LinkLayerDevice{}
+	devByHWAddr := make(map[string]networkingcommon.LinkLayerDevice)
 	for _, dev := range o.ExistingDevices() {
 		hwAddr := dev.MACAddress()
 
+		// If this is the first one we've seen, select it.
 		current, ok := devByHWAddr[hwAddr]
 		if !ok {
 			devByHWAddr[hwAddr] = dev
 			continue
 		}
 
+		// If we have a matching device that already has a provider ID,
+		// I.e. it was previously matched to the hardware address,
+		// make sure the same one is resolved thereafter.
 		if current.ProviderID() != "" {
 			continue
 		}
 
+		// Otherwise choose a physical NIC over other device types.
 		if dev.Type() == network.EthernetDevice {
 			devByHWAddr[hwAddr] = dev
 		}
