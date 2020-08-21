@@ -4,15 +4,13 @@
 package commands
 
 import (
-	"net"
-	"strings"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	jujussh "github.com/juju/juju/network/ssh"
 )
 
@@ -118,10 +116,20 @@ func newSCPCommand(hostChecker jujussh.ReachableChecker) cmd.Command {
 // scpCommand is responsible for launching a scp command to copy files to/from remote machine(s)
 type scpCommand struct {
 	modelcmd.ModelCommandBase
-	modelcmd.IAASOnlyCommand
-	SSHMachine
+
+	modelType model.ModelType
+
+	sshMachine
+	sshContainer
+
+	provider sshProvider
 
 	hostChecker jujussh.ReachableChecker
+}
+
+func (c *scpCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.sshMachine.SetFlags(f)
+	c.sshContainer.SetFlags(f)
 }
 
 func (c *scpCommand) Info() *cmd.Info {
@@ -133,65 +141,30 @@ func (c *scpCommand) Info() *cmd.Info {
 	})
 }
 
-func (c *scpCommand) Init(args []string) error {
+func (c *scpCommand) Init(args []string) (err error) {
 	if len(args) < 2 {
 		return errors.Errorf("at least two arguments required")
 	}
-	c.setArgs(args)
-	c.setHostChecker(c.hostChecker)
+	if c.modelType, err = c.ModelType(); err != nil {
+		return err
+	}
+	if c.modelType == model.CAAS {
+		c.provider = &c.sshContainer
+	} else {
+		c.provider = &c.sshMachine
+	}
+
+	c.provider.setArgs(args)
+	c.provider.setHostChecker(c.hostChecker)
 	return nil
 }
 
 // Run resolves c.Target to a machine, or host of a unit and
 // forks ssh with c.Args, if provided.
 func (c *scpCommand) Run(ctx *cmd.Context) error {
-	err := c.initRun(c.ModelCommandBase)
-	if err != nil {
+	if err := c.provider.initRun(&c.ModelCommandBase); err != nil {
 		return errors.Trace(err)
 	}
-	defer c.cleanupRun()
-
-	args, targets, err := expandArgs(c.getArgs(), c.resolveTarget)
-	if err != nil {
-		return err
-	}
-
-	options, err := c.getSSHOptions(false, targets...)
-	if err != nil {
-		return err
-	}
-
-	return ssh.Copy(args, options)
-}
-
-// expandArgs takes a list of arguments and looks for ones in the form of
-// 0:some/path or application/0:some/path, and translates them into
-// ubuntu@machine:some/path so they can be passed as arguments to scp, and pass
-// the rest verbatim on to scp
-func expandArgs(args []string, resolveTarget func(string) (*resolvedTarget, error)) (
-	[]string, []*resolvedTarget, error,
-) {
-	outArgs := make([]string, len(args))
-	var targets []*resolvedTarget
-	for i, arg := range args {
-		v := strings.SplitN(arg, ":", 2)
-		if strings.HasPrefix(arg, "-") || len(v) <= 1 {
-			// Can't be an interesting target, so just pass it along
-			outArgs[i] = arg
-			continue
-		}
-
-		target, err := resolveTarget(v[0])
-		if err != nil {
-			return nil, nil, err
-		}
-		arg := net.JoinHostPort(target.host, v[1])
-		if target.user != "" {
-			arg = target.user + "@" + arg
-		}
-		outArgs[i] = arg
-
-		targets = append(targets, target)
-	}
-	return outArgs, targets, nil
+	defer c.provider.cleanupRun()
+	return c.provider.copy(ctx)
 }

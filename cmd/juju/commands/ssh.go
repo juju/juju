@@ -11,9 +11,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/api"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/jujuclient"
 	jujussh "github.com/juju/juju/network/ssh"
 )
 
@@ -96,7 +98,7 @@ type sshCommand struct {
 	modelType model.ModelType
 	modelcmd.ModelCommandBase
 
-	SSHMachine
+	sshMachine
 	sshContainer
 
 	provider sshProvider
@@ -107,7 +109,7 @@ type sshCommand struct {
 }
 
 func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.SSHMachine.SetFlags(f)
+	c.sshMachine.SetFlags(f)
 	c.sshContainer.SetFlags(f)
 	f.Var(&c.pty, "pty", "Enable pseudo-tty allocation")
 }
@@ -125,14 +127,13 @@ func (c *sshCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
 		return errors.Errorf("no target name specified")
 	}
-	c.modelType, err = c.ModelType()
-	if err != nil {
+	if c.modelType, err = c.ModelType(); err != nil {
 		return err
 	}
 	if c.modelType == model.CAAS {
 		c.provider = &c.sshContainer
 	} else {
-		c.provider = &c.SSHMachine
+		c.provider = &c.sshMachine
 	}
 	c.provider.setTarget(args[0])
 	c.provider.setArgs(args[1:])
@@ -140,13 +141,22 @@ func (c *sshCommand) Init(args []string) (err error) {
 	return nil
 }
 
+// ModelCommand defines methods of the model command.
+type ModelCommand interface {
+	NewControllerAPIRoot() (api.Connection, error)
+	ModelDetails() (string, *jujuclient.ModelDetails, error)
+	NewAPIRoot() (api.Connection, error)
+	ModelIdentifier() (string, error)
+}
+
 // sshProvider is implemented by either either a CaaS or IaaS model instance.
 type sshProvider interface {
-	initRun(modelcmd.ModelCommandBase) error
+	initRun(ModelCommand) error
 	cleanupRun()
 	setHostChecker(checker jujussh.ReachableChecker)
 	resolveTarget(string) (*resolvedTarget, error)
 	ssh(ctx Context, enablePty bool, target *resolvedTarget) error
+	copy(Context) error
 
 	getTarget() string
 	setTarget(target string)
@@ -158,7 +168,7 @@ type sshProvider interface {
 // Run resolves c.Target to a machine, to the address of a i
 // machine or unit forks ssh passing any arguments provided.
 func (c *sshCommand) Run(ctx *cmd.Context) error {
-	if err := c.provider.initRun(c.ModelCommandBase); err != nil {
+	if err := c.provider.initRun(&c.ModelCommandBase); err != nil {
 		return errors.Trace(err)
 	}
 	defer c.provider.cleanupRun()

@@ -13,6 +13,10 @@ type (
 	ResolvedTarget = resolvedTarget
 )
 
+var (
+	GetInterruptAbortChan = getInterruptAbortChan
+)
+
 func (r resolvedTarget) GetEntity() string {
 	return r.entity
 }
@@ -33,6 +37,10 @@ func (c *sshContainer) SSH(ctx Context, enablePty bool, target *resolvedTarget) 
 	return c.ssh(ctx, enablePty, target)
 }
 
+func (c *sshContainer) Copy(ctx Context) error {
+	return c.copy(ctx)
+}
+
 func (c *sshContainer) GetExecClient() (k8sexec.Executor, error) {
 	return c.getExecClient()
 }
@@ -45,6 +53,7 @@ type SSHContainerInterfaceForTest interface {
 	CleanupRun()
 	ResolveTarget(string) (*resolvedTarget, error)
 	SSH(Context, bool, *resolvedTarget) error
+	Copy(ctx Context) error
 	GetExecClient() (k8sexec.Executor, error)
 
 	SetArgs([]string)
@@ -57,6 +66,7 @@ func NewSSHContainer(
 	applicationAPI ApplicationAPI,
 	execClient k8sexec.Executor,
 	remote bool,
+	containerName string,
 ) SSHContainerInterfaceForTest {
 	return &sshContainer{
 		modelUUID:          modelUUID,
@@ -67,6 +77,7 @@ func NewSSHContainer(
 		execClientGetter: func(string, cloudspec.CloudSpec) (k8sexec.Executor, error) {
 			return execClient, nil
 		},
-		remote: remote,
+		remote:    remote,
+		container: containerName,
 	}
 }
