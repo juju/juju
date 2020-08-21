@@ -49,8 +49,12 @@ func (s *RunCommandSuite) TestRunCommandsEnvStdOutAndErrAndRC(c *gc.C) {
 	paths := runnertesting.NewRealPaths(c)
 	r := runner.NewRunner(ctx, paths, nil)
 
+	// Ensure the current process env is passed through to the command.
+	s.PatchEnvironment("FOO", "BAR")
+
 	commands := `
 echo $JUJU_CHARM_DIR
+echo $FOO
 echo this is standard err >&2
 exit 42
 `
@@ -58,8 +62,8 @@ exit 42
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result.Code, gc.Equals, 42)
-	c.Assert(strings.TrimRight(string(result.Stdout), "\r\n"), gc.Equals, paths.GetCharmDir())
-	c.Assert(strings.TrimRight(string(result.Stderr), "\r\n"), gc.Equals, "this is standard err")
+	c.Assert(strings.ReplaceAll(string(result.Stdout), "\n", ""), gc.Equals, paths.GetCharmDir()+"BAR")
+	c.Assert(strings.TrimRight(string(result.Stderr), "\n"), gc.Equals, "this is standard err")
 	c.Assert(ctx.GetProcess(), gc.NotNil)
 }
 
