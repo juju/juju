@@ -148,10 +148,12 @@ type ExecParams struct {
 
 // execOnMachine executes commands on current machine.
 func execOnMachine(params ExecParams) (*utilexec.ExecResponse, error) {
+	hostEnv := os.Environ()
+	hostEnv = append(hostEnv, params.Env...)
 	command := utilexec.RunParams{
 		Commands:    strings.Join(params.Commands, " "),
 		WorkingDir:  params.WorkingDir,
-		Environment: params.Env,
+		Environment: hostEnv,
 		Clock:       params.Clock,
 	}
 	err := command.Run()
